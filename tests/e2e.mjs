@@ -87,6 +87,10 @@ try {
   await js("document.getElementById('disconnect-button').click()")
   const after = await until('#connection', /^disconnected/)
   check('disconnects', /^disconnected/.test(after), after)
+  // Connected again, then the app closes: the backend must still end in time.
+  await js("document.getElementById('connect-button').click()")
+  const again = await until('#connection', /connected · system/)
+  check('reconnects', /connected · system/.test(again), again)
   ws.close()
 } catch (error) {
   failures.push(String(error))
@@ -94,7 +98,8 @@ try {
 } finally {
   app.kill('SIGTERM')
   await new Promise(r => app.on('close', r))
-  check('the backend ends cleanly', /the backend ended \(exit code 0\)/.test(log), log.split('\n').filter(l => l.includes('pd-host')).join(' | '))
+  check('closing while connected, the backend ends cleanly in time', /the backend ended \(exit code 0\)/.test(log) && !/didn't finish in time/.test(log),
+    log.split('\n').filter(l => l.includes('pd-host')).join(' | '))
   rmSync(out, { recursive: true, force: true })
 }
 process.exit(failures.length === 0 ? 0 : 1)

@@ -213,6 +213,9 @@ export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
   link.host = new Host(c)
   link.communicator = c
+  // The app is closing: end the vehicle session (heartbeats, the link and its reads, operations in
+  // flight), so nothing keeps this process alive past the host's grace period.
+  c.onClosing = () => link.close()
   c.handle("vehicle.connect", connectVehicle)
   c.handle("vehicle.disconnect", disconnectVehicle)
   c.publish("vehicle.connection", watchConnection)
