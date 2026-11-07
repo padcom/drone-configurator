@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type { Connection, ConnectRequest, Param, ParamWrite } from './generated/app'
-import { PARAMS, VEHICLE, telemetryAt } from './fixtures'
+import { PARAMS, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
 
 type Outgoing = Omit<Envelope, 'v'>
 type Send = (e: Outgoing) => void
@@ -88,6 +88,7 @@ class MockVehicle {
         return ok({ path: this.saved.path })
       }
       case 'files.open': return ok(this.saved ?? {})
+      case 'serial.ports': return ok({ ports: SERIAL_PORTS })
       default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
     }
   }
@@ -101,9 +102,12 @@ class MockVehicle {
   }
 
   connect(request: ConnectRequest, ok: (p: Envelope['p']) => void) {
-    if (request.transport === 'simulator') {
+    // The flight controller on the mock's USB port is the simulated vehicle too.
+    if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
       this.params = PARAMS.map(p => ({ ...p }))
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
+    } else if (request.transport === 'serial') {
+      this.update({ state: 'disconnected', error: `no heartbeat from serial ${request.device ?? '(no device)'} at ${request.baud ?? 115200}` }, ok)
     } else {
       const where = `${request.host ?? '127.0.0.1'}:${request.port ?? (request.transport === 'udp' ? 14550 : 5760)}`
       this.update({ state: 'disconnected', error: `no heartbeat from ${request.transport} ${where}` }, ok)

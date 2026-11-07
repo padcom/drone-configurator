@@ -3,6 +3,7 @@
 // module-level `Link`.
 import { Cbor, Communicator, CommunicatorError, Host, OpenFile, RequestContext, SaveFile, Sink, Transport } from "pico-desktop/communicator"
 import { readText, writeText } from "std/fs"
+import { SerialPort as SerialDevice, listPorts, openPort } from "padcom/serialport"
 import { bind, connect } from "std/net"
 import { delay } from "std/timers"
 import {
@@ -44,6 +45,8 @@ import {
   ParamList,
   ParamWriteKind,
   ParamWriteResult,
+  SerialPort,
+  SerialPorts,
   Telemetry,
   VehicleInfo,
   decodeConnectRequest,
@@ -54,6 +57,7 @@ import {
   encodeFileSaved,
   encodeParamList,
   encodeParamWriteResult,
+  encodeSerialPorts,
   encodeTelemetry,
 } from "./generated/app"
 
@@ -192,7 +196,43 @@ export function createBackend(transport: Transport): Communicator {
   c.publish("telemetry.stream", streamTelemetry)
   c.handle("files.save", saveFile)
   c.handle("files.open", openFile)
+  c.handle("serial.ports", serialPorts)
   c
+}
+
+/// A serial port as pico-mavlink's byte stream: the same three methods (each library declares its
+/// own interface, so the application adapts one to the other).
+class SerialStream implements ByteStream {
+  readonly port: SerialDevice
+
+  constructor(port: SerialDevice) {
+    this.port = port
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    port.read()
+  }
+
+  public write(bytes: Uint8Array): Promise<void, Error> {
+    port.write(bytes)
+  }
+
+  public close(): void {
+    port.close()
+  }
+}
+
+/// The machine's serial ports, USB adapters described.
+async function serialPorts(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ports: SerialPort[] = []
+  for (const p of await listPorts()) {
+    const port = SerialPort { path: p.path }
+    if (p.vendorId != null) {
+      port.description = `USB ${p.vendorId!}:${p.productId ?? "?"} ${p.product ?? ""}`.trim()
+    }
+    ports.push(port)
+  }
+  encodeSerialPorts(SerialPorts { ports: ports })
 }
 
 function host(): Host {
@@ -229,6 +269,7 @@ function describe(r: ConnectRequest): string {
     Simulator => "the simulator",
     Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
     Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
+    Serial => `serial ${r.device ?? "(no device)"} at ${r.baud ?? 115200}`,
   }
 }
 
@@ -251,6 +292,14 @@ async function open(r: ConnectRequest): Promise<ByteStream> throws Error {
     Tcp => {
       const c = await connect((r.port ?? 5760) as int, r.host ?? "127.0.0.1")
       const s: ByteStream = new TcpStream(c)
+      s
+    },
+    Serial => {
+      const device = r.device
+      if (device == null) {
+        throw new CommunicatorError("INVALID_VALUE", "a serial connection needs a device")
+      }
+      const s: ByteStream = new SerialStream(openPort(device!, { baudRate: (r.baud ?? 115200) as int }))
       s
     },
   }

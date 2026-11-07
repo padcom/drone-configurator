@@ -23,6 +23,7 @@ const base: State = {
   applying: false,
   applied: [],
   backup: null,
+  ports: [],
 }
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 

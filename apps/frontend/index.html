@@ -14,9 +14,18 @@
           <option value="simulator">Simulator</option>
           <option value="udp">UDP</option>
           <option value="tcp">TCP</option>
+          <option value="serial">Serial</option>
         </select>
         <input id="host" placeholder="127.0.0.1" aria-label="Host" />
         <input id="port" placeholder="14550" inputmode="numeric" aria-label="Port" />
+        <select id="device" aria-label="Serial port" hidden></select>
+        <select id="baud" aria-label="Baud rate" hidden>
+          <option>57600</option>
+          <option selected>115200</option>
+          <option>230400</option>
+          <option>460800</option>
+          <option>921600</option>
+        </select>
         <button id="connect-button" type="submit">Connect</button>
         <button id="disconnect-button" type="button">Disconnect</button>
       </form>

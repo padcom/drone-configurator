@@ -4,6 +4,12 @@ import type { Param, Telemetry } from './generated/app'
 
 export const VEHICLE = { sysid: 1, compid: 1, type: 'QUADROTOR', autopilot: 'ARDUPILOTMEGA' } as const
 
+/** The mock machine's serial ports: a flight controller on USB, and a plain UART. */
+export const SERIAL_PORTS = [
+  { path: '/dev/ttyACM0', description: 'USB 1209:5741 ArduPilot' },
+  { path: '/dev/ttyAMA0' },
+]
+
 const p = (id: string, kind: Param['kind'], type: string, value: number): Omit<Param, 'index'> => ({ id, kind, type, value })
 
 export const PARAMS: Param[] = [

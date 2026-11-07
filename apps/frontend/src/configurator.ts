@@ -1,7 +1,7 @@
 // The dashboard's state and actions, without the DOM (render.ts draws it), so every interaction is
 // testable with the mock backend.
 import { Communicator, CommunicatorError, type Transport } from '@pico-desktop/communicator'
-import { type Connection, type ConnectRequest, type Param, type Services, type Telemetry, validate } from './generated/app'
+import { type Connection, type ConnectRequest, type Param, type SerialPort, type Services, type Telemetry, validate } from './generated/app'
 import { type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
 
 /** How the last write went. */
@@ -36,6 +36,8 @@ export interface State {
   applied: { id: string, outcome: 'verified' | 'changed' | 'failed', detail: string }[]
   /** The parameters as they were before applying a snapshot (a snapshot's JSON). */
   backup: string | null
+  /** The backend machine's serial ports, as last listed. */
+  ports: SerialPort[]
 }
 
 export interface Ui {
@@ -105,6 +107,7 @@ export class Configurator {
     applying: false,
     applied: [],
     backup: null,
+    ports: [],
   }
 
   constructor(transport: Transport, private readonly ui: Ui) {
@@ -206,6 +209,16 @@ export class Configurator {
   editDraft(draft: string) {
     const param = this.selectedParam()
     this.set({ draft, draftError: param ? validateDraft(param, draft) : null })
+  }
+
+  /** Lists the serial ports (for the serial transport's device choice). */
+  async listPorts() {
+    try {
+      const { ports } = await this.communicator.request('serial.ports', null)
+      this.set({ ports })
+    } catch (error) {
+      this.set({ error: `Couldn't list the serial ports: ${describeError(error)}` })
+    }
   }
 
   /** The parameters as a snapshot (JSON), to save. */

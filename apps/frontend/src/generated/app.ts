@@ -54,10 +54,10 @@ const run = (test: Check, value: unknown): string | null => {
 }
 
 
-export type ConnectRequest = { "transport": "simulator" | "udp" | "tcp", "host"?: string, "port"?: number }
+export type ConnectRequest = { "transport": "simulator" | "udp" | "tcp" | "serial", "host"?: string, "port"?: number, "device"?: string, "baud"?: number }
 
 function validateConnectRequestInto(value: any, path: string): boolean {
-  return map(value, path, ["transport","host","port"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","tcp"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff)))
+  return map(value, path, ["transport","host","port","device","baud"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","tcp","serial"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff))) && (value["device"] === undefined || nested(value["device"], `${path}.device`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["baud"] === undefined || nested(value["baud"], `${path}.baud`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a connect-request, or null. */
@@ -153,6 +153,24 @@ function validateFileOpenedInto(value: any, path: string): boolean {
 /** The first problem with `value` as a file-opened, or null. */
 export const validateFileOpened = (value: unknown) => run(validateFileOpenedInto, value)
 
+export type SerialPorts = { "ports": (SerialPort)[] }
+
+function validateSerialPortsInto(value: any, path: string): boolean {
+  return map(value, path, ["ports"]) && (value["ports"] === undefined ? fail(`${path}.ports`, 'present') : nested(value["ports"], `${path}.ports`, (value, path) => list(value, path, (value, path) => validateSerialPortInto(value, path))))
+}
+
+/** The first problem with `value` as a serial-ports, or null. */
+export const validateSerialPorts = (value: unknown) => run(validateSerialPortsInto, value)
+
+export type SerialPort = { "path": string, "description"?: string }
+
+function validateSerialPortInto(value: any, path: string): boolean {
+  return map(value, path, ["path","description"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["description"] === undefined || nested(value["description"], `${path}.description`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a serial-port, or null. */
+export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -163,6 +181,7 @@ export interface Services {
   "telemetry.stream": { kind: 'subscription', params: null, value: Telemetry }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
+  "serial.ports": { kind: 'method', request: null, response: SerialPorts }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -197,6 +216,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "files.open": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateFileOpenedInto(value, path),
+  },
+  "serial.ports": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSerialPortsInto(value, path),
   },
 }
 

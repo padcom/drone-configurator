@@ -14,14 +14,17 @@ services = {
   "telemetry.stream": ["subscription", null, telemetry],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
+  "serial.ports": ["method", null, serial-ports],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
-; without hardware or SITL.
+; without hardware or SITL; "serial" is a USB or UART port (`device`, at `baud`, default 115200).
 connect-request = {
-  transport: "simulator" / "udp" / "tcp",
+  transport: "simulator" / "udp" / "tcp" / "serial",
   ? host: tstr,
   ? port: uint .size 2,
+  ? device: tstr,
+  ? baud: uint .size 4,
 }
 
 connection = {
@@ -86,3 +89,9 @@ file-save = { name: tstr, text: tstr }
 file-saved = { ? path: tstr }
 
 file-opened = { ? path: tstr, ? text: tstr }
+
+; The serial ports the backend's machine has (padcom/serialport's listPorts).
+serial-ports = { ports: [* serial-port] }
+
+; `description` names a USB adapter: vendor:product and the product name.
+serial-port = { path: tstr, ? description: tstr }

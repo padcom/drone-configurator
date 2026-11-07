@@ -7,7 +7,7 @@ A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
 Status: **DR0 (the dashboard shell) and parts of DR1.**
-- Connect to the built-in simulator (or over UDP/TCP), and see the vehicle and its heartbeat, mode, armed state, battery and attitude.
+- Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery and attitude.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.
 - Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
@@ -16,7 +16,7 @@ Status: **DR0 (the dashboard shell) and parts of DR1.**
 
 ## Run it
 
-It expects `pico-desktop`, `pico-lang` and `pico-mavlink` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
+It expects `pico-desktop`, `pico-lang`, `pico-mavlink` and `pico-serialport` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
 
 ```sh
 pnpm install

@@ -40,6 +40,17 @@ describe('connecting', () => {
     expect(app.state.params.map(p => p.id)).toEqual(PARAMS.map(p => p.id))
   })
 
+  it('lists serial ports and connects over one', async () => {
+    const { app } = rig()
+    await sleep(5)
+    await app.listPorts()
+    expect(app.state.ports.map(p => p.path)).toEqual(['/dev/ttyACM0', '/dev/ttyAMA0'])
+    await app.connect({ transport: 'serial', device: '/dev/ttyAMA0', baud: 57600 })
+    expect(app.state.error).toBe('no heartbeat from serial /dev/ttyAMA0 at 57600')
+    await app.connect({ transport: 'serial', device: '/dev/ttyACM0', baud: 115200 })
+    expect(app.state.connection.state).toBe('connected')
+  })
+
   it('reports why a connection failed', async () => {
     const { app } = rig()
     await app.connect({ transport: 'udp', port: 14550 })

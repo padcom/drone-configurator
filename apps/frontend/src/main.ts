@@ -1,7 +1,7 @@
 import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { Configurator, type State } from './configurator'
-import { canWrite, connectionView, detailView, importView, listStatus, paramRows, telemetryView } from './render'
+import { canWrite, connectionView, detailView, escape, importView, listStatus, paramRows, telemetryView } from './render'
 import { mockBackend } from './mock-backend'
 import type { ConnectRequest } from './generated/app'
 
@@ -26,6 +26,14 @@ function render(state: State) {
   byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
   byId<HTMLButtonElement>('disconnect-button').disabled = state.connection.state !== 'connected'
   byId<HTMLButtonElement>('refresh').disabled = state.connection.state !== 'connected' || state.list === 'loading'
+  const device = byId<HTMLSelectElement>('device')
+  const options = state.ports.map(p => `<option value="${escape(p.path)}">${escape(p.path)}${p.description ? ` (${escape(p.description)})` : ''}</option>`).join('')
+  if (device.dataset.options !== options) {
+    const chosen = device.value
+    device.innerHTML = options || '<option value="">No serial ports</option>'
+    device.dataset.options = options
+    device.value = state.ports.some(p => p.path === chosen) ? chosen : (state.ports[0]?.path ?? '')
+  }
   const loaded = state.importReview !== null || state.importError !== null
   byId('import-panel').hidden = !loaded
   byId('import').innerHTML = importView(state)
@@ -55,9 +63,28 @@ const app: Configurator = new Configurator(bridge ? bridgeTransport(bridge) : mo
 byId('connect').addEventListener('submit', event => {
   event.preventDefault()
   const transport = byId<HTMLSelectElement>('transport').value as ConnectRequest['transport']
+  if (transport === 'serial') {
+    const device = byId<HTMLSelectElement>('device').value
+    void app.connect({ transport, ...(device ? { device } : {}), baud: Number(byId<HTMLSelectElement>('baud').value) })
+
+    return
+  }
   const host = byId<HTMLInputElement>('host').value.trim()
   const port = Number(byId<HTMLInputElement>('port').value.trim())
   void app.connect({ transport, ...(host ? { host } : {}), ...(port > 0 ? { port } : {}) })
+})
+// Host and port for UDP/TCP, device and baud rate for serial (listed when chosen).
+byId('transport').addEventListener('change', event => {
+  const serial = (event.target as HTMLSelectElement).value === 'serial'
+  for (const id of ['host', 'port']) {
+    byId(id).hidden = serial
+  }
+  for (const id of ['device', 'baud']) {
+    byId(id).hidden = !serial
+  }
+  if (serial) {
+    void app.listPorts()
+  }
 })
 byId('disconnect-button').addEventListener('click', () => void app.disconnect())
 byId('refresh').addEventListener('click', () => void app.refresh())
