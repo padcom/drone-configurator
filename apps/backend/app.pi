@@ -8,6 +8,7 @@ import { bind, connect } from "std/net"
 import { delay } from "std/timers"
 import {
   Attitude,
+  CommandCall,
   CopterMode,
   PlaneMode,
   RoverMode,
@@ -355,6 +356,18 @@ function autopilotSeen(d: VehicleDiscovery): Vehicle? {
   null
 }
 
+/// Asks the vehicle for the telemetry the dashboard shows: SYS_STATUS once a second, ATTITUDE four
+/// times (ArduPilot streams them only when asked, over some links). A refusal leaves them absent.
+async function requestTelemetry(conn: MavLinkConnection, sysid: int, compid: int): Promise<void> {
+  const calls = new CommandCall(conn, { system: sysid, component: compid }, { timeoutMs: 500, retries: 1, signal: link.session.signal })
+  try {
+    await calls.setMessageInterval(SysStatus.MSG_ID, 1_000_000)
+    await calls.setMessageInterval(Attitude.MSG_ID, 250_000)
+  } catch (e: Error) {
+    // Not every autopilot supports it; telemetry then shows what arrives anyway.
+  }
+}
+
 /// Receives until the link ends; then, if it's still the current one, it's lost.
 async function watchLink(conn: MavLinkConnection, generation: int): Promise<void> {
   try {
@@ -411,6 +424,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
         autopilot: MavAutopilot.nameOf(found.autopilot) ?? `${found.autopilot}`,
       }
       link.update(Connection { state: ConnectionState.Connected, vehicle: info })
+      requestTelemetry(conn, found.sysid, found.compid)
       return encodeConnection(link.state)
     }
     await delay(50)
