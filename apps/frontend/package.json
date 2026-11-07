@@ -1,0 +1,20 @@
+{
+  "name": "drone-configurator-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "ui": "vite",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pico-desktop/communicator": "link:/home/padcom/projects/padcom/pico/pico-desktop/packages/communicator-ts",
+    "@pico-desktop/protocol": "link:/home/padcom/projects/padcom/pico/pico-desktop/packages/protocol"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "8.3.6",
+    "vitest": "5.1.0"
+  }
+}
