@@ -8,7 +8,8 @@
     "ui": "pnpm --filter ./apps/frontend ui",
     "test": "pico-desktop test",
     "generate": "pico-desktop generate",
-    "e2e": "node tests/e2e.mjs"
+    "e2e": "node tests/e2e.mjs",
+    "lint": "pico lint apps/backend && tsc --noEmit -p apps/frontend"
   },
   "dependencies": {
     "@pico-desktop/communicator-pico": "link:../pico-desktop/packages/communicator-pico"

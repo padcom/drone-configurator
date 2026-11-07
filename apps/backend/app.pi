@@ -43,7 +43,6 @@ import {
 } from "padcom/pico-mavlink"
 import {
   ConnectRequest,
-  ConnectRequestTransport,
   Connection,
   ConnectionState,
   FileOpened,
