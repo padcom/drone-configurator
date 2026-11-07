@@ -361,3 +361,84 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   m.set("heartbeatAgeMs", Cbor.Uint(v.heartbeatAgeMs as u64))
   Cbor.Dict(m)
 }
+
+export struct FileSave {
+  name: string
+  text: string
+}
+
+export function decodeFileSave(v: Cbor, path: string): FileSave throws InvalidPayload {
+  const m = members(v, path, ["name", "text"])
+  FileSave {
+    name: text(required(m, "name", path), `${path}.name`),
+    text: text(required(m, "text", path), `${path}.text`),
+  }
+}
+
+export function encodeFileSave(v: FileSave): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("name", Cbor.Text(v.name))
+  m.set("text", Cbor.Text(v.text))
+  Cbor.Dict(m)
+}
+
+export struct FileSaved {
+  path?: string
+}
+
+export function decodeFileSaved(v: Cbor, path: string): FileSaved throws InvalidPayload {
+  const m = members(v, path, ["path"])
+  const cbor0 = m.get("path")
+  let opt0: string? = null
+  if (cbor0 != null) {
+    opt0 = text(cbor0, `${path}.path`)
+  }
+  FileSaved {
+    path: opt0,
+  }
+}
+
+export function encodeFileSaved(v: FileSaved): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.path
+  if (opt0 != null) {
+    m.set("path", Cbor.Text(opt0))
+  }
+  Cbor.Dict(m)
+}
+
+export struct FileOpened {
+  path?: string
+  text?: string
+}
+
+export function decodeFileOpened(v: Cbor, path: string): FileOpened throws InvalidPayload {
+  const m = members(v, path, ["path", "text"])
+  const cbor0 = m.get("path")
+  let opt0: string? = null
+  if (cbor0 != null) {
+    opt0 = text(cbor0, `${path}.path`)
+  }
+  const cbor1 = m.get("text")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.text`)
+  }
+  FileOpened {
+    path: opt0,
+    text: opt1,
+  }
+}
+
+export function encodeFileOpened(v: FileOpened): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.path
+  if (opt0 != null) {
+    m.set("path", Cbor.Text(opt0))
+  }
+  const opt1 = v.text
+  if (opt1 != null) {
+    m.set("text", Cbor.Text(opt1))
+  }
+  Cbor.Dict(m)
+}

@@ -1,7 +1,7 @@
 import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { Configurator, type State } from './configurator'
-import { canWrite, connectionView, detailView, listStatus, paramRows, telemetryView } from './render'
+import { canWrite, connectionView, detailView, importView, listStatus, paramRows, telemetryView } from './render'
 import { mockBackend } from './mock-backend'
 import type { ConnectRequest } from './generated/app'
 
@@ -26,6 +26,12 @@ function render(state: State) {
   byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
   byId<HTMLButtonElement>('disconnect-button').disabled = state.connection.state !== 'connected'
   byId<HTMLButtonElement>('refresh').disabled = state.connection.state !== 'connected' || state.list === 'loading'
+  const loaded = state.importReview !== null || state.importError !== null
+  byId('import-panel').hidden = !loaded
+  byId('import').innerHTML = importView(state)
+  byId<HTMLButtonElement>('apply').disabled = state.picked.length === 0 || state.applying || state.connection.state !== 'connected'
+  byId<HTMLButtonElement>('backup').hidden = state.backup === null
+  byId<HTMLButtonElement>('save').disabled = state.params.length === 0
   const draft = byId<HTMLInputElement>('draft')
   if (document.activeElement !== draft) {
     draft.value = state.draft
@@ -62,6 +68,48 @@ byId('rows').addEventListener('click', event => {
     app.select(row.dataset.id)
   }
 })
+/** Offers `text` as a file download (the browser's, or the host's save handling). */
+function download(text: string, name: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const fileName = (what: string) => {
+  const v = app.state.connection.vehicle
+
+  return `${what}-${v ? `${v.type.toLowerCase()}-${v.sysid}` : 'vehicle'}-${new Date().toISOString().slice(0, 19).replaceAll(':', '')}.json`
+}
+
+// In Pico Desktop files go through the backend's native dialogs; in a browser, downloads and uploads.
+const save = (text: string, name: string) => bridge ? void app.saveFile(name, text) : download(text, name)
+byId('save').addEventListener('click', () => save(app.snapshot(), fileName('params')))
+byId('backup').addEventListener('click', () => save(app.state.backup ?? '', fileName('backup')))
+byId('load-button').addEventListener('click', event => {
+  if (bridge) {
+    event.preventDefault()
+    void app.openSnapshotFile()
+  }
+})
+byId('load').addEventListener('change', event => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    void file.text().then(text => app.loadSnapshot(text))
+  }
+  input.value = ''
+})
+byId('import').addEventListener('change', event => {
+  const id = (event.target as HTMLElement).dataset.pick
+  if (id) {
+    app.togglePick(id)
+  }
+})
+byId('apply').addEventListener('click', () => void app.applyImport())
+byId('close-import').addEventListener('click', () => app.closeImport())
 byId('draft').addEventListener('input', event => app.editDraft((event.target as HTMLInputElement).value))
 byId('edit').addEventListener('submit', event => {
   event.preventDefault()

@@ -126,6 +126,33 @@ function validateTelemetryInto(value: any, path: string): boolean {
 /** The first problem with `value` as a telemetry, or null. */
 export const validateTelemetry = (value: unknown) => run(validateTelemetryInto, value)
 
+export type FileSave = { "name": string, "text": string }
+
+function validateFileSaveInto(value: any, path: string): boolean {
+  return map(value, path, ["name","text"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a file-save, or null. */
+export const validateFileSave = (value: unknown) => run(validateFileSaveInto, value)
+
+export type FileSaved = { "path"?: string }
+
+function validateFileSavedInto(value: any, path: string): boolean {
+  return map(value, path, ["path"]) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a file-saved, or null. */
+export const validateFileSaved = (value: unknown) => run(validateFileSavedInto, value)
+
+export type FileOpened = { "path"?: string, "text"?: string }
+
+function validateFileOpenedInto(value: any, path: string): boolean {
+  return map(value, path, ["path","text"]) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["text"] === undefined || nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a file-opened, or null. */
+export const validateFileOpened = (value: unknown) => run(validateFileOpenedInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -134,6 +161,8 @@ export interface Services {
   "params.list": { kind: 'method', request: null, response: ParamList }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
   "telemetry.stream": { kind: 'subscription', params: null, value: Telemetry }
+  "files.save": { kind: 'method', request: FileSave, response: FileSaved }
+  "files.open": { kind: 'method', request: null, response: FileOpened }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -160,6 +189,14 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "telemetry.stream": {
     params: (value: any, path: string) => value === null || fail(path, 'null'),
     value: (value: any, path: string) => validateTelemetryInto(value, path),
+  },
+  "files.save": {
+    request: (value: any, path: string) => validateFileSaveInto(value, path),
+    response: (value: any, path: string) => validateFileSavedInto(value, path),
+  },
+  "files.open": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateFileOpenedInto(value, path),
   },
 }
 

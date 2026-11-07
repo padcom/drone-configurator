@@ -12,6 +12,8 @@ services = {
   "params.list": ["method", null, param-list],
   "params.write": ["method", param-write, param-write-result],
   "telemetry.stream": ["subscription", null, telemetry],
+  "files.save": ["method", file-save, file-saved],
+  "files.open": ["method", null, file-opened],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
@@ -76,3 +78,11 @@ telemetry = {
   yaw: float,
   heartbeatAgeMs: uint .size 4,
 }
+
+; Saving and opening snapshot files through the host's native dialogs (pages can't reach them).
+file-save = { name: tstr, text: tstr }
+
+; `path` is absent when the user cancelled.
+file-saved = { ? path: tstr }
+
+file-opened = { ? path: tstr, ? text: tstr }

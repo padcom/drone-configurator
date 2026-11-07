@@ -6,11 +6,13 @@ A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
-Status: **DR0, the dashboard shell.**
+Status: **DR0 (the dashboard shell) and parts of DR1.**
 - Connect to the built-in simulator (or over UDP/TCP), and see the vehicle and its heartbeat, mode, armed state, battery and attitude.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.
 - Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
+- Save the parameters as a snapshot, and load one to review what it would change. Nothing is ticked at first, and a change that can't apply says why: not on this vehicle, another type, or out of range. Writing the ticked changes takes one confirmation, verifies each change, stops at the first one that doesn't verify, and keeps a backup of the values from before. In Pico Desktop, files go through the host's native dialogs.
+- A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
 
 ## Run it
 

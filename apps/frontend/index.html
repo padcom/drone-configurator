@@ -28,7 +28,15 @@
         <div class="toolbar">
           <input id="filter" placeholder="Filter parameters" aria-label="Filter parameters" autocomplete="off" />
           <button id="refresh" type="button">Download</button>
+          <button id="save" type="button">Save snapshot</button>
+          <label id="load-button" class="button">Load snapshot<input id="load" type="file" accept=".json,application/json" hidden /></label>
         </div>
+        <section id="import-panel" hidden>
+          <div id="import"></div>
+          <button id="apply" type="button">Write the ticked changes</button>
+          <button id="backup" type="button">Save the backup</button>
+          <button id="close-import" type="button">Close</button>
+        </section>
         <p id="list-status" class="muted"></p>
         <table>
           <thead><tr><th>Name</th><th>Value</th><th>Type</th></tr></thead>

@@ -33,3 +33,6 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 18%, transparen
 .warn { color: var(--warn); }
 .error { color: var(--error); }
 @media (width < 700px) { main { grid-template-columns: 1fr; } }
+label.button { border: 1px solid var(--line); border-radius: 4px; padding: 1px 8px; cursor: pointer; }
+#import-panel { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+ul.changes { list-style: none; padding: 0; }

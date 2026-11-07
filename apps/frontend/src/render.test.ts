@@ -16,6 +16,13 @@ const base: State = {
   lastWrite: null,
   telemetry: null,
   error: null,
+  notice: null,
+  importReview: null,
+  importError: null,
+  picked: [],
+  applying: false,
+  applied: [],
+  backup: null,
 }
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 

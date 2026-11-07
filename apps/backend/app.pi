@@ -1,7 +1,8 @@
 // The backend: the vehicle link (padcom/pico-mavlink) behind the contract's methods and
 // subscriptions. Pico has no async closures yet, so handlers are named async functions over one
 // module-level `Link`.
-import { Cbor, Communicator, CommunicatorError, RequestContext, Sink, Transport } from "pico-desktop/communicator"
+import { Cbor, Communicator, CommunicatorError, Host, OpenFile, RequestContext, SaveFile, Sink, Transport } from "pico-desktop/communicator"
+import { readText, writeText } from "std/fs"
 import { bind, connect } from "std/net"
 import { delay } from "std/timers"
 import {
@@ -34,6 +35,8 @@ import {
   ConnectRequestTransport,
   Connection,
   ConnectionState,
+  FileOpened,
+  FileSaved,
   Param,
   ParamKind,
   ParamList,
@@ -42,8 +45,11 @@ import {
   Telemetry,
   VehicleInfo,
   decodeConnectRequest,
+  decodeFileSave,
   decodeParamWrite,
   encodeConnection,
+  encodeFileOpened,
+  encodeFileSaved,
   encodeParamList,
   encodeParamWriteResult,
   encodeTelemetry,
@@ -98,6 +104,8 @@ class Link {
   public lastHeartbeat: int = 0
   /// How long `vehicle.connect` waits for an autopilot's heartbeat.
   public heartbeatWaitMs: int = 3000
+  /// The host's native services (file dialogs).
+  public host: Host? = null
 
   public update(c: Connection): void {
     state = c
@@ -173,13 +181,45 @@ const link = new Link()
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
+  link.host = new Host(c)
   c.handle("vehicle.connect", connectVehicle)
   c.handle("vehicle.disconnect", disconnectVehicle)
   c.publish("vehicle.connection", watchConnection)
   c.handle("params.list", listParams)
   c.handle("params.write", writeParam)
   c.publish("telemetry.stream", streamTelemetry)
+  c.handle("files.save", saveFile)
+  c.handle("files.open", openFile)
   c
+}
+
+function host(): Host {
+  const h = link.host
+  if (h == null) {
+    panic("drone-configurator: createBackend wasn't called")
+  }
+  h!
+}
+
+/// Saves a snapshot where the user chooses (the host's save dialog).
+async function saveFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const f = decodeFileSave(payload ?? Cbor.Null, "$")
+  const path = await host().saveFile(SaveFile { title: "Save the parameters", defaultPath: f.name })
+  if (path == null) {
+    return encodeFileSaved(FileSaved {})
+  }
+  await writeText(path!, f.text)
+  encodeFileSaved(FileSaved { path: path })
+}
+
+/// Reads a snapshot the user chooses (the host's open dialog).
+async function openFile(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const paths = await host().openFile(OpenFile { title: "Load parameters", filters: [".json"] })
+  if (paths.length == 0) {
+    return encodeFileOpened(FileOpened {})
+  }
+  const text = await readText(paths[0])
+  encodeFileOpened(FileOpened { path: paths[0], text: text })
 }
 
 function describe(r: ConnectRequest): string {

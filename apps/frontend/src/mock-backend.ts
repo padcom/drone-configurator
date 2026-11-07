@@ -17,6 +17,12 @@ export interface MockOptions {
   rounding?: string[]
   /** Parameters whose writes get no reply (the write times out). */
   silent?: string[]
+  /** Filled in with controls for tests: `restart()` restarts the backend as the host does. */
+  control?: MockControl
+}
+
+export interface MockControl {
+  restart?: () => void
 }
 
 class MockVehicle {
@@ -25,11 +31,32 @@ class MockVehicle {
   readonly watchers = new Set<number>()
   readonly timers = new Map<number, ReturnType<typeof setInterval>>()
 
-  constructor(private readonly send: Send, private readonly options: MockOptions) {}
+  epoch = 1
+  saved: { path: string, text: string } | null = null
+
+  constructor(private readonly send: Send, private readonly options: MockOptions) {
+    if (options.control) {
+      options.control.restart = () => this.restart()
+    }
+  }
+
+  /** What the host does when the backend restarts: a new backend, without the vehicle session. */
+  restart() {
+    this.send({ k: 'lifecycle', n: 'restarting' })
+    for (const timer of this.timers.values()) {
+      clearInterval(timer)
+    }
+    this.timers.clear()
+    this.watchers.clear()
+    this.connection = { state: 'disconnected' }
+    this.epoch += 1
+    setTimeout(() => this.send({ k: 'lifecycle', n: 'ready', e: this.epoch }), 5)
+  }
+
 
   receive(e: Envelope) {
     if (e.k === 'lifecycle' && e.n === 'hello') {
-      this.send({ k: 'lifecycle', n: 'ready', e: 1 })
+      this.send({ k: 'lifecycle', n: 'ready', e: this.epoch })
     } else if (e.k === 'unsubscribe') {
       this.watchers.delete(e.s!)
       clearInterval(this.timers.get(e.s!))
@@ -53,6 +80,14 @@ class MockVehicle {
         return this.connected(fail) && ok({ params: this.params, count: this.params.length, complete: true, missing: [] })
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
+      case 'files.save': {
+        // A pretend file system: what was saved last is what opening gives back.
+        const { name, text } = e.p as { name: string, text: string }
+        this.saved = { path: `/mock/${name}`, text }
+
+        return ok({ path: this.saved.path })
+      }
+      case 'files.open': return ok(this.saved ?? {})
       default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
     }
   }
@@ -89,7 +124,7 @@ class MockVehicle {
       return fail('UNKNOWN_PARAM', `the vehicle has no ${w.id}`)
     }
     if (this.options.silent?.includes(w.id)) {
-      return setTimeout(() => fail('TIMEOUT', `no PARAM_VALUE for ${w.id} after PARAM_SET (4 tries)`), 5)
+      return setTimeout(() => fail('TIMEOUT', `no PARAM_VALUE for ${w.id} after PARAM_SET (4 tries)`), 50)
     }
     param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
 
