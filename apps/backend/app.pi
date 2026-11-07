@@ -7,6 +7,7 @@ import { bind, connect } from "std/net"
 import { delay } from "std/timers"
 import {
   Attitude,
+  AutopilotVersionRead,
   ByteStream,
   Heartbeat,
   HeartbeatSender,
@@ -29,6 +30,7 @@ import {
   UdpStream,
   Vehicle,
   VehicleDiscovery,
+  encodingOf,
 } from "padcom/pico-mavlink"
 import {
   ConnectRequest,
@@ -308,8 +310,11 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.sysid = found.sysid
       link.compid = found.compid
       link.autopilot = found.autopilot
-      // PX4 puts integers in the float bytewise; ArduPilot (and most others) cast them.
-      link.encoding = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
+      // How integers travel in parameter floats: as the autopilot says (AUTOPILOT_VERSION), or as
+      // its kind usually does (PX4 bytewise; ArduPilot and most others C-cast).
+      const guess = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
+      const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
+      link.encoding = if (version == null) guess else encodingOf(version!.capabilities) ?? guess
       link.lastHeartbeat = Date.now() as int
       const info = VehicleInfo {
         sysid: found.sysid as u8,
