@@ -12,6 +12,7 @@ Status: **DR0 (the dashboard shell) and parts of DR1.**
 - Filter the list, and see a parameter's typed value.
 - Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
 - Save the parameters as a snapshot, and load one to review what it would change. Nothing is ticked at first, and a change that can't apply says why: not on this vehicle, another type, or out of range. Writing the ticked changes takes one confirmation, verifies each change, stops at the first one that doesn't verify, and keeps a backup of the values from before. In Pico Desktop, files go through the host's native dialogs.
+- Load parameter metadata (descriptions, units, ranges, named values) to see and check against. Without it, a parameter is only its type: nothing is invented. The format is in `apps/frontend/src/metadata.ts`, and `examples/copter-metadata.json` is an example. These values are illustrative, not ArduPilot's.
 - A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
 
 ## Run it

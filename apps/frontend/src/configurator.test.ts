@@ -181,6 +181,20 @@ describe('editing', () => {
     expect(validateDraft(real, '12.75')).toBeNull()
   })
 
+  it('checks edits against loaded metadata too, and only when it\'s there', async () => {
+    const { app, questions } = await connected()
+    app.select('RTL_ALT')
+    app.editDraft('100')
+    expect(app.state.draftError).toBeNull()
+    app.loadMetadata(JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params: { RTL_ALT: { min: 200, units: 'cm' } } }))
+    app.editDraft('100')
+    expect(app.state.draftError).toBe('at least 200 cm')
+    await app.write()
+    expect(questions).toEqual([])
+    app.loadMetadata('{')
+    expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
+  })
+
   it('writes after confirmation, and reports the verified read-back', async () => {
     const { app, questions } = await connected()
     app.select('WPNAV_SPEED')

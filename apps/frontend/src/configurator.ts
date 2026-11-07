@@ -3,6 +3,7 @@
 import { Communicator, CommunicatorError, type Transport } from '@pico-desktop/communicator'
 import { type Connection, type ConnectRequest, type Param, type SerialPort, type Services, type Telemetry, validate } from './generated/app'
 import { type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
+import { type Metadata, checkMeta, parseMetadata } from './metadata'
 
 /** How the last write went. */
 export type WriteStatus
@@ -38,6 +39,9 @@ export interface State {
   backup: string | null
   /** The backend machine's serial ports, as last listed. */
   ports: SerialPort[]
+  /** Loaded parameter metadata (empty: none), and why the last file wasn't loaded. */
+  metadata: Metadata
+  metadataError: string | null
 }
 
 export interface Ui {
@@ -108,6 +112,8 @@ export class Configurator {
     applied: [],
     backup: null,
     ports: [],
+    metadata: new Map(),
+    metadataError: null,
   }
 
   constructor(transport: Transport, private readonly ui: Ui) {
@@ -206,9 +212,36 @@ export class Configurator {
     this.set({ selected: param ? id : null, draft: param ? String(param.value) : '', draftError: null })
   }
 
+  /** Why `text` isn't a valid value for `param`: its type, then its metadata (if any). */
+  problemWith(param: Param, text: string): string | null {
+    return validateDraft(param, text) ?? checkMeta(this.state.metadata.get(param.id), Number(text.trim()))
+  }
+
   editDraft(draft: string) {
     const param = this.selectedParam()
-    this.set({ draft, draftError: param ? validateDraft(param, draft) : null })
+    this.set({ draft, draftError: param ? this.problemWith(param, draft) : null })
+  }
+
+  /** Lets the user pick a metadata file (the host's open dialog) and loads it. */
+  async openMetadataFile() {
+    try {
+      const { text } = await this.communicator.request('files.open', null)
+      if (text !== undefined) {
+        this.loadMetadata(text)
+      }
+    } catch (error) {
+      this.set({ metadataError: `Couldn't open it: ${describeError(error)}` })
+    }
+  }
+
+  /** Loads parameter metadata (replacing what was loaded). */
+  loadMetadata(text: string) {
+    const m = parseMetadata(text)
+    if (typeof m === 'string') {
+      this.set({ metadataError: `Can't load the metadata: ${m}.` })
+    } else {
+      this.set({ metadata: m, metadataError: null })
+    }
   }
 
   /** Lists the serial ports (for the serial transport's device choice). */
@@ -322,7 +355,7 @@ export class Configurator {
     if (!param || this.state.connection.state !== 'connected' || this.state.writing) {
       return
     }
-    const problem = validateDraft(param, this.state.draft)
+    const problem = this.problemWith(param, this.state.draft)
     if (problem) {
       this.set({ draftError: problem })
 

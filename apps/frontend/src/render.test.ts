@@ -24,6 +24,8 @@ const base: State = {
   applied: [],
   backup: null,
   ports: [],
+  metadata: new Map(),
+  metadataError: null,
 }
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 

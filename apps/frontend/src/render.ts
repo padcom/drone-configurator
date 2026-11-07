@@ -64,7 +64,19 @@ export function detailView(state: State, param: Param | null): string {
   if (!param) {
     return '<p class="muted">Select a parameter to see or change it.</p>'
   }
-  const lines = [`<h3>${escape(param.id)}</h3>`, `<p>${escape(param.type)} · index ${param.index} · on the vehicle: <strong>${param.value}</strong></p>`]
+  const meta = state.metadata.get(param.id)
+  const named = meta?.values?.[String(param.value)]
+  const units = meta?.units ? ` ${escape(meta.units)}` : ''
+  const lines = [`<h3>${escape(param.id)}</h3>`, `<p>${escape(param.type)} · index ${param.index} · on the vehicle: <strong>${param.value}${units}</strong>${named ? ` (${escape(named)})` : ''}</p>`]
+  if (meta?.description) {
+    lines.push(`<p class="muted">${escape(meta.description)}</p>`)
+  }
+  if (meta && (meta.min !== undefined || meta.max !== undefined)) {
+    lines.push(`<p class="muted">Range: ${meta.min ?? '…'} to ${meta.max ?? '…'}${units}</p>`)
+  }
+  if (meta?.values) {
+    lines.push(`<p class="muted">Values: ${Object.entries(meta.values).map(([v, n]) => `${escape(v)} ${escape(n)}`).join(', ')}</p>`)
+  }
   if (state.draftError) {
     lines.push(`<p class="error">${escape(state.draftError)}</p>`)
   }

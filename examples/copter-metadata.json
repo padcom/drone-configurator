@@ -1,0 +1,13 @@
+{
+  "format": "drone-configurator/param-metadata",
+  "version": 1,
+  "params": {
+    "ARMING_CHECK": { "description": "Checks before arming (a bitmask; 1 = all)", "min": 0, "max": 1048575 },
+    "BATT_CAPACITY": { "description": "Battery capacity", "units": "mAh", "min": 0, "max": 1000000 },
+    "BATT_LOW_VOLT": { "description": "Low battery voltage", "units": "V", "min": 0, "max": 120 },
+    "FENCE_ENABLE": { "description": "Fence enable", "values": { "0": "Disabled", "1": "Enabled" } },
+    "FENCE_RADIUS": { "description": "Circular fence radius", "units": "m", "min": 30, "max": 10000 },
+    "RTL_ALT": { "description": "Return to launch altitude", "units": "cm", "min": 200, "max": 300000 },
+    "WPNAV_SPEED": { "description": "Waypoint horizontal speed", "units": "cm/s", "min": 20, "max": 2000 }
+  }
+}

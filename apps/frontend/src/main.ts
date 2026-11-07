@@ -34,6 +34,9 @@ function render(state: State) {
     device.dataset.options = options
     device.value = state.ports.some(p => p.path === chosen) ? chosen : (state.ports[0]?.path ?? '')
   }
+  byId('metadata-status').innerHTML = state.metadataError
+    ? `<span class="error">${escape(state.metadataError)}</span>`
+    : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : ''
   const loaded = state.importReview !== null || state.importError !== null
   byId('import-panel').hidden = !loaded
   byId('import').innerHTML = importView(state)
@@ -126,6 +129,20 @@ byId('load').addEventListener('change', event => {
   const file = input.files?.[0]
   if (file) {
     void file.text().then(text => app.loadSnapshot(text))
+  }
+  input.value = ''
+})
+byId('metadata-button').addEventListener('click', event => {
+  if (bridge) {
+    event.preventDefault()
+    void app.openMetadataFile()
+  }
+})
+byId('metadata').addEventListener('change', event => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    void file.text().then(text => app.loadMetadata(text))
   }
   input.value = ''
 })
