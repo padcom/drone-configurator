@@ -1,15 +1,78 @@
-; The app's contract (CDDL, RFC 8610): methods, events and subscriptions, and their types.
-; `pico-desktop generate` turns it into apps/frontend/src/generated/app.ts and
+; The Drone Configurator's contract (CDDL, RFC 8610): what the dashboard and the Pico backend say
+; to each other. `pnpm generate` turns it into apps/frontend/src/generated/app.ts and
 ; apps/backend/generated/app.pi.
+;
+; The backend owns the MAVLink link (padcom/pico-mavlink): it connects, keeps the vehicle's
+; parameters and telemetry, and writes parameters with read-back verification. The dashboard
+; only asks and shows.
 services = {
-  "greeting.hello": ["method", hello-request, greeting],
-  "clock.ticks": ["subscription", clock-params, tick],
+  "vehicle.connect": ["method", connect-request, connection],
+  "vehicle.disconnect": ["method", null, connection],
+  "vehicle.connection": ["subscription", null, connection],
+  "params.list": ["method", null, param-list],
+  "params.write": ["method", param-write, param-write-result],
+  "telemetry.stream": ["subscription", null, telemetry],
 }
 
-hello-request = { name: tstr }
+; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
+; without hardware or SITL.
+connect-request = {
+  transport: "simulator" / "udp" / "tcp",
+  ? host: tstr,
+  ? port: uint .size 2,
+}
 
-greeting = { message: tstr }
+connection = {
+  state: "disconnected" / "connecting" / "connected" / "lost",
+  ? vehicle: vehicle-info,
+  ? error: tstr,
+}
 
-clock-params = { ? intervalMs: uint .size 4 }
+vehicle-info = {
+  sysid: uint .size 1,
+  compid: uint .size 1,
+  type: tstr,
+  autopilot: tstr,
+}
 
-tick = { n: uint .size 4 }
+; A parameter as the autopilot reports it. Integers and reals stay apart: `value` is exact for
+; every integer type a PARAM_VALUE can carry (up to 32 bits).
+param = {
+  id: tstr,
+  index: uint .size 2,
+  kind: "int" / "real",
+  type: tstr,
+  value: float,
+}
+
+param-list = {
+  params: [* param],
+  count: uint .size 2,
+  complete: bool,
+  missing: [* uint .size 2],
+}
+
+param-write = {
+  id: tstr,
+  kind: "int" / "real",
+  type: tstr,
+  value: float,
+}
+
+; `verified` is false when the autopilot reports a different value than the one written (it
+; refused or rounded it).
+param-write-result = {
+  param: param,
+  verified: bool,
+}
+
+telemetry = {
+  armed: bool,
+  mode: tstr,
+  batteryVoltage: float,
+  ? batteryRemaining: uint .size 1,   ; percent, absent when the vehicle doesn't know
+  roll: float,
+  pitch: float,
+  yaw: float,
+  heartbeatAgeMs: uint .size 4,
+}

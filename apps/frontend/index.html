@@ -3,18 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>drone-configurator</title>
+    <title>Drone Configurator</title>
     <script type="module" src="./src/main.ts"></script>
   </head>
   <body>
-    <main>
-      <h1>drone-configurator</h1>
-      <p>Backend: <span id="state">connecting</span> · clock <span id="clock">–</span></p>
-      <form id="greet">
-        <input id="name" value="Pico" autocomplete="off" />
-        <button type="submit">Say hello</button>
+    <header>
+      <h1>Drone Configurator</h1>
+      <form id="connect">
+        <select id="transport" aria-label="Transport">
+          <option value="simulator">Simulator</option>
+          <option value="udp">UDP</option>
+          <option value="tcp">TCP</option>
+        </select>
+        <input id="host" placeholder="127.0.0.1" aria-label="Host" />
+        <input id="port" placeholder="14550" inputmode="numeric" aria-label="Port" />
+        <button id="connect-button" type="submit">Connect</button>
+        <button id="disconnect-button" type="button">Disconnect</button>
       </form>
-      <p id="message"></p>
+      <p id="connection"></p>
+    </header>
+    <section id="telemetry" class="cards"></section>
+    <main>
+      <section class="params">
+        <div class="toolbar">
+          <input id="filter" placeholder="Filter parameters" aria-label="Filter parameters" autocomplete="off" />
+          <button id="refresh" type="button">Download</button>
+        </div>
+        <p id="list-status" class="muted"></p>
+        <table>
+          <thead><tr><th>Name</th><th>Value</th><th>Type</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </section>
+      <aside class="detail">
+        <div id="detail"></div>
+        <form id="edit">
+          <input id="draft" aria-label="New value" autocomplete="off" />
+          <button id="write" type="submit">Write</button>
+        </form>
+      </aside>
     </main>
+    <dialog id="confirm">
+      <form method="dialog">
+        <p id="question"></p>
+        <button value="no">Cancel</button>
+        <button value="yes">Write</button>
+      </form>
+    </dialog>
   </body>
 </html>

@@ -1,10 +1,35 @@
 :root {
   color-scheme: light dark;
+  --accent: #5b4fd6;
+  --ok: #1f8a4c;
+  --warn: #b26a00;
+  --error: #c62828;
+  --line: color-mix(in srgb, currentColor 18%, transparent);
   font-family: system-ui, sans-serif;
 }
 
-main {
-  max-width: 36rem;
-  margin: 3rem auto;
-  padding: 0 1rem;
-}
+body { margin: 0 auto; max-width: 1100px; padding: 16px; }
+h1 { color: var(--accent); margin: 0 0 8px; font-size: 1.5rem; }
+header form { display: flex; gap: 6px; flex-wrap: wrap; }
+header input { width: 9em; }
+.badge { padding: 2px 8px; border-radius: 10px; background: var(--line); }
+.badge.connected { background: var(--ok); color: white; }
+.badge.lost { background: var(--warn); color: white; }
+.cards { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 120px; }
+.card span { font-size: 0.8rem; opacity: 0.7; }
+.card.warn strong { color: var(--warn); }
+main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.toolbar { display: flex; gap: 6px; }
+.toolbar input { flex: 1; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+td.num { font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.detail h3 { margin-top: 0; }
+.muted { opacity: 0.7; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.error { color: var(--error); }
+@media (width < 700px) { main { grid-template-columns: 1fr; } }

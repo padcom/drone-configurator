@@ -54,56 +54,112 @@ const run = (test: Check, value: unknown): string | null => {
 }
 
 
-export type HelloRequest = { "name": string }
+export type ConnectRequest = { "transport": "simulator" | "udp" | "tcp", "host"?: string, "port"?: number }
 
-function validateHelloRequestInto(value: any, path: string): boolean {
-  return map(value, path, ["name"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+function validateConnectRequestInto(value: any, path: string): boolean {
+  return map(value, path, ["transport","host","port"]) && (value["transport"] === undefined ? fail(`${path}.transport`, 'present') : nested(value["transport"], `${path}.transport`, (value, path) => oneOf(value, path, ["simulator","udp","tcp"]))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["port"] === undefined || nested(value["port"], `${path}.port`, (value, path) => uint(value, path, 0xffff)))
 }
 
-/** The first problem with `value` as a hello-request, or null. */
-export const validateHelloRequest = (value: unknown) => run(validateHelloRequestInto, value)
+/** The first problem with `value` as a connect-request, or null. */
+export const validateConnectRequest = (value: unknown) => run(validateConnectRequestInto, value)
 
-export type Greeting = { "message": string }
+export type Connection = { "state": "disconnected" | "connecting" | "connected" | "lost", "vehicle"?: VehicleInfo, "error"?: string }
 
-function validateGreetingInto(value: any, path: string): boolean {
-  return map(value, path, ["message"]) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+function validateConnectionInto(value: any, path: string): boolean {
+  return map(value, path, ["state","vehicle","error"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["disconnected","connecting","connected","lost"]))) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateVehicleInfoInto(value, path))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
 }
 
-/** The first problem with `value` as a greeting, or null. */
-export const validateGreeting = (value: unknown) => run(validateGreetingInto, value)
+/** The first problem with `value` as a connection, or null. */
+export const validateConnection = (value: unknown) => run(validateConnectionInto, value)
 
-export type ClockParams = { "intervalMs"?: number }
+export type VehicleInfo = { "sysid": number, "compid": number, "type": string, "autopilot": string }
 
-function validateClockParamsInto(value: any, path: string): boolean {
-  return map(value, path, ["intervalMs"]) && (value["intervalMs"] === undefined || nested(value["intervalMs"], `${path}.intervalMs`, (value, path) => uint(value, path, 0xffffffff)))
+function validateVehicleInfoInto(value: any, path: string): boolean {
+  return map(value, path, ["sysid","compid","type","autopilot"]) && (value["sysid"] === undefined ? fail(`${path}.sysid`, 'present') : nested(value["sysid"], `${path}.sysid`, (value, path) => uint(value, path, 0xff))) && (value["compid"] === undefined ? fail(`${path}.compid`, 'present') : nested(value["compid"], `${path}.compid`, (value, path) => uint(value, path, 0xff))) && (value["type"] === undefined ? fail(`${path}.type`, 'present') : nested(value["type"], `${path}.type`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["autopilot"] === undefined ? fail(`${path}.autopilot`, 'present') : nested(value["autopilot"], `${path}.autopilot`, (value, path) => typeof value === 'string' || fail(path, 'text')))
 }
 
-/** The first problem with `value` as a clock-params, or null. */
-export const validateClockParams = (value: unknown) => run(validateClockParamsInto, value)
+/** The first problem with `value` as a vehicle-info, or null. */
+export const validateVehicleInfo = (value: unknown) => run(validateVehicleInfoInto, value)
 
-export type Tick = { "n": number }
+export type Param = { "id": string, "index": number, "kind": "int" | "real", "type": string, "value": number }
 
-function validateTickInto(value: any, path: string): boolean {
-  return map(value, path, ["n"]) && (value["n"] === undefined ? fail(`${path}.n`, 'present') : nested(value["n"], `${path}.n`, (value, path) => uint(value, path, 0xffffffff)))
+function validateParamInto(value: any, path: string): boolean {
+  return map(value, path, ["id","index","kind","type","value"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["index"] === undefined ? fail(`${path}.index`, 'present') : nested(value["index"], `${path}.index`, (value, path) => uint(value, path, 0xffff))) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => oneOf(value, path, ["int","real"]))) && (value["type"] === undefined ? fail(`${path}.type`, 'present') : nested(value["type"], `${path}.type`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
 }
 
-/** The first problem with `value` as a tick, or null. */
-export const validateTick = (value: unknown) => run(validateTickInto, value)
+/** The first problem with `value` as a param, or null. */
+export const validateParam = (value: unknown) => run(validateParamInto, value)
+
+export type ParamList = { "params": (Param)[], "count": number, "complete": boolean, "missing": (number)[] }
+
+function validateParamListInto(value: any, path: string): boolean {
+  return map(value, path, ["params","count","complete","missing"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["complete"] === undefined ? fail(`${path}.complete`, 'present') : nested(value["complete"], `${path}.complete`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["missing"] === undefined ? fail(`${path}.missing`, 'present') : nested(value["missing"], `${path}.missing`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff))))
+}
+
+/** The first problem with `value` as a param-list, or null. */
+export const validateParamList = (value: unknown) => run(validateParamListInto, value)
+
+export type ParamWrite = { "id": string, "kind": "int" | "real", "type": string, "value": number }
+
+function validateParamWriteInto(value: any, path: string): boolean {
+  return map(value, path, ["id","kind","type","value"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => oneOf(value, path, ["int","real"]))) && (value["type"] === undefined ? fail(`${path}.type`, 'present') : nested(value["type"], `${path}.type`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a param-write, or null. */
+export const validateParamWrite = (value: unknown) => run(validateParamWriteInto, value)
+
+export type ParamWriteResult = { "param": Param, "verified": boolean }
+
+function validateParamWriteResultInto(value: any, path: string): boolean {
+  return map(value, path, ["param","verified"]) && (value["param"] === undefined ? fail(`${path}.param`, 'present') : nested(value["param"], `${path}.param`, (value, path) => validateParamInto(value, path))) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a param-write-result, or null. */
+export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
+
+export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage": number, "batteryRemaining"?: number, "roll": number, "pitch": number, "yaw": number, "heartbeatAgeMs": number }
+
+function validateTelemetryInto(value: any, path: string): boolean {
+  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined ? fail(`${path}.batteryVoltage`, 'present') : nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined ? fail(`${path}.roll`, 'present') : nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined ? fail(`${path}.pitch`, 'present') : nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined ? fail(`${path}.yaw`, 'present') : nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a telemetry, or null. */
+export const validateTelemetry = (value: unknown) => run(validateTelemetryInto, value)
 
 /** The services, for a typed Communicator. */
 export interface Services {
-  "greeting.hello": { kind: 'method', request: HelloRequest, response: Greeting }
-  "clock.ticks": { kind: 'subscription', params: ClockParams, value: Tick }
+  "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
+  "vehicle.disconnect": { kind: 'method', request: null, response: Connection }
+  "vehicle.connection": { kind: 'subscription', params: null, value: Connection }
+  "params.list": { kind: 'method', request: null, response: ParamList }
+  "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "telemetry.stream": { kind: 'subscription', params: null, value: Telemetry }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
-  "greeting.hello": {
-    request: (value: any, path: string) => validateHelloRequestInto(value, path),
-    response: (value: any, path: string) => validateGreetingInto(value, path),
+  "vehicle.connect": {
+    request: (value: any, path: string) => validateConnectRequestInto(value, path),
+    response: (value: any, path: string) => validateConnectionInto(value, path),
   },
-  "clock.ticks": {
-    params: (value: any, path: string) => validateClockParamsInto(value, path),
-    value: (value: any, path: string) => validateTickInto(value, path),
+  "vehicle.disconnect": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateConnectionInto(value, path),
+  },
+  "vehicle.connection": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateConnectionInto(value, path),
+  },
+  "params.list": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateParamListInto(value, path),
+  },
+  "params.write": {
+    request: (value: any, path: string) => validateParamWriteInto(value, path),
+    response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "telemetry.stream": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateTelemetryInto(value, path),
   },
 }
 

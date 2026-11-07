@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "entry": "main.pi",
   "dependencies": {
-    "pico-desktop/communicator": "0.0.0"
+    "pico-desktop/communicator": "0.0.0",
+    "padcom/pico-mavlink": "0.0.1"
   }
 }

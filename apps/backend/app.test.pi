@@ -1,23 +1,84 @@
+// The backend over an in-memory link, against the simulated vehicle.
 import { describe, it, expect } from "std/test"
-import { Cbor, Envelope, decodeEnvelope, encodeEnvelope, envelope, memoryPair } from "pico-desktop/communicator"
-import { createBackend } from "./app"
-import { HelloRequest, decodeGreeting, encodeHelloRequest } from "./generated/app"
+import { Cbor, Envelope, Transport, decodeEnvelope, encodeEnvelope, envelope, memoryPair } from "pico-desktop/communicator"
+import { createBackend, setHeartbeatWait } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  ParamWrite,
+  ParamWriteKind,
+  decodeConnection,
+  decodeParamList,
+  decodeParamWriteResult,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
 
-async function greets(): Promise<void> throws Error {
+/// The frontend's end: requests by id, skipping events on the way.
+class Frontend {
+  readonly t: Transport
+  id: u64 = 0
+
+  constructor(t: Transport) {
+    this.t = t
+  }
+
+  public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
+    id += 1
+    const e = envelope("request")
+    e.id = id
+    e.n = name
+    e.p = payload
+    await t.send(encodeEnvelope(e))
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.id == id) {
+        return got
+      }
+    }
+  }
+}
+
+async function start(): Promise<Frontend> throws Error {
   const ends = memoryPair()
   createBackend(ends[0]).run()
-  const frontend = ends[1]
-  await frontend.receive()  // the backend's hello
-  const request = envelope("request")
-  request.id = 1
-  request.n = "greeting.hello"
-  request.p = encodeHelloRequest(HelloRequest { name: "Pico" })
-  await frontend.send(encodeEnvelope(request))
-  const answer = decodeEnvelope((await frontend.receive()) ?? new Uint8Array(0))
-  expect(decodeGreeting(answer.p ?? Cbor.Null, "$").message).toBe("Hello, Pico!")
-  frontend.close()
+  await ends[1].receive()  // the backend's hello
+  new Frontend(ends[1])
+}
+
+async function connectsListsAndWrites(): Promise<void> throws Error {
+  const f = await start()
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))).p ?? Cbor.Null, "$")
+  expect(c.state == ConnectionState.Connected).toBe(true)
+  const v = c.vehicle!
+  expect(`${v.sysid}/${v.compid} ${v.type} ${v.autopilot}`).toBe("1/1 QUADROTOR ARDUPILOTMEGA")
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete} ${list.params[1].id}=${list.params[1].value} ${list.params[1].type}`).toBe("12 true BATT_CAPACITY=5200 INT32")
+  const w = ParamWrite { id: "WPNAV_SPEED", kind: ParamWriteKind.Real, type: "REAL32", value: 750.0 }
+  const r = decodeParamWriteResult((await f.call("params.write", encodeParamWrite(w))).p ?? Cbor.Null, "$")
+  expect(`${r.param.id}=${r.param.value} ${r.verified}`).toBe("WPNAV_SPEED=750 true")
+  await f.call("vehicle.disconnect")
+}
+
+async function refusesWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.disconnect")
+  const e = await f.call("params.list")
+  expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+}
+
+async function noHeartbeat(): Promise<void> throws Error {
+  setHeartbeatWait(200)
+  const f = await start()
+  // A UDP port nobody sends to.
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Udp, port: 14999 }))).p ?? Cbor.Null, "$")
+  setHeartbeatWait(3000)
+  expect(`${c.state == ConnectionState.Disconnected} ${c.error ?? ""}`).toBe("true no heartbeat from udp 127.0.0.1:14999")
 }
 
 describe("the backend", () => {
-  it("greets", greets)
+  it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
+  it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
+  it("reports a link with no heartbeat", noHeartbeat)
 })

@@ -9,8 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@pico-desktop/communicator": "link:/home/padcom/projects/padcom/pico/pico-desktop/packages/communicator-ts",
-    "@pico-desktop/protocol": "link:/home/padcom/projects/padcom/pico/pico-desktop/packages/protocol"
+    "@pico-desktop/communicator": "link:../../../pico-desktop/packages/communicator-ts",
+    "@pico-desktop/protocol": "link:../../../pico-desktop/packages/protocol"
   },
   "devDependencies": {
     "typescript": "5.9.3",

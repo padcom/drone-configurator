@@ -177,10 +177,10 @@ importers:
   apps/frontend:
     dependencies:
       '@pico-desktop/communicator':
-        specifier: link:/home/padcom/projects/padcom/pico/pico-desktop/packages/communicator-ts
+        specifier: link:../../../pico-desktop/packages/communicator-ts
         version: link:../../../pico-desktop/packages/communicator-ts
       '@pico-desktop/protocol':
-        specifier: link:/home/padcom/projects/padcom/pico/pico-desktop/packages/protocol
+        specifier: link:../../../pico-desktop/packages/protocol
         version: link:../../../pico-desktop/packages/protocol
     devDependencies:
       typescript:

@@ -1,31 +1,44 @@
-# drone-configurator
+# Drone Configurator
 
-A [Pico Desktop](https://github.com/padcom/pico-desktop) app: a Vite + TypeScript frontend and a
-Pico backend, typed by one contract.
+A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com/padcom/pico-desktop).
+- **Frontend:** vanilla TypeScript and Vite.
+- **Backend:** Pico, on [pico-mavlink](https://github.com/padcom/pico-mavlink).
 
-| | |
-|---|---|
-| `packages/contracts/app.cddl` | the contract: what the two sides say to each other |
-| `apps/frontend` | the UI (`src/app.ts` calls the backend; `src/generated/app.ts` is generated; `src/mock-backend.ts` stands in for it in a plain browser and in Vitest) |
-| `apps/backend` | the Pico backend (`app.pi` answers; `generated/app.pi` is generated) |
+It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
+
+Status: **DR0, the dashboard shell.**
+- Connect to the built-in simulator (or over UDP/TCP), and see the vehicle and its heartbeat, mode, armed state, battery and attitude.
+- Download the parameter list. An incomplete download says which indexes are missing.
+- Filter the list, and see a parameter's typed value.
+- Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
+
+## Run it
+
+It expects `pico-desktop`, `pico-lang` and `pico-mavlink` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
 
 ```sh
 pnpm install
-pnpm dev        # the window, with HMR for the frontend; Pico edits rebuild and restart the backend
-pnpm ui         # just the frontend, in any browser, against a TypeScript mock backend
-pnpm test       # Vitest and pico test
-pnpm generate   # after editing the contract (dev does it on save)
+pnpm dev      # the app, with the "Simulator" transport for a vehicle without hardware
+pnpm ui       # the frontend alone in a browser, on a TypeScript mock of the backend
+pnpm test     # Vitest (the UI's logic and rendering) and pico test (the backend)
 ```
 
-`pnpm dev` needs `pico` on the PATH and the Pico Desktop host (`PICO_DESKTOP_HOST`, or a
-framework checkout's build).
+For ArduPilot SITL, choose UDP on port 14550 (SITL's `--out` default) or TCP on port 5760.
 
-In VS Code, the `dev` and `test` tasks run the same commands (Terminal → Run Task).
-`pnpm dev --trace-ipc` logs every message between the window and the backend (envelopes only,
-never payloads), and F12 opens DevTools.
+## Layout
 
-To debug the backend in VS Code, start **Debug the backend** (F5), then run `pnpm dev --debug`.
-The debugger attaches to the backend when it starts, and breakpoints in `.pi` files work. With
-`--debug` the host stops pinging the backend, so a paused backend isn't taken for a hung one
-and killed. Every rebuild starts a new backend process: to follow it, start **Debug the
-backend** again, then save.
+- `packages/contracts/app.cddl`: the contract (methods, subscriptions, types) between the dashboard and the backend.
+- `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
+- `apps/frontend`:
+  - `configurator.ts`: the state and actions, without the DOM;
+  - `render.ts`: pure HTML from the state;
+  - `main.ts`: the DOM wiring;
+  - `mock-backend.ts` and `fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
+
+## Safety
+
+Parameter writes change how a vehicle flies. Test against SITL or the simulator first, and keep a backup of the parameters before writing to real hardware.
+
+## License
+
+MIT

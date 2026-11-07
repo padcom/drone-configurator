@@ -1,38 +1,376 @@
-// The backend's handlers. Pico has no async closures yet, so handlers are named async functions.
-import { Cbor, Communicator, RequestContext, Sink, Transport } from "pico-desktop/communicator"
-import { Greeting, Tick, decodeClockParams, decodeHelloRequest, encodeGreeting, encodeTick } from "./generated/app"
+// The backend: the vehicle link (padcom/pico-mavlink) behind the contract's methods and
+// subscriptions. Pico has no async closures yet, so handlers are named async functions over one
+// module-level `Link`.
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink, Transport } from "pico-desktop/communicator"
+import { bind, connect } from "std/net"
+import { delay } from "std/timers"
+import {
+  Attitude,
+  ByteStream,
+  Heartbeat,
+  HeartbeatSender,
+  MavAutopilot,
+  MavLinkConnection,
+  MavLinkError,
+  MavModeFlag,
+  MavParamType,
+  MavType,
+  MemoryStream,
+  ParamEncoding,
+  ParamError,
+  ParamList as ParamListOp,
+  ParamWrite as ParamWriteOp,
+  Received,
+  SimulatedAutopilot,
+  SysStatus,
+  TcpStream,
+  TypedParamValue,
+  UdpStream,
+  Vehicle,
+  VehicleDiscovery,
+} from "padcom/pico-mavlink"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  Connection,
+  ConnectionState,
+  Param,
+  ParamKind,
+  ParamList,
+  ParamWriteKind,
+  ParamWriteResult,
+  Telemetry,
+  VehicleInfo,
+  decodeConnectRequest,
+  decodeParamWrite,
+  encodeConnection,
+  encodeParamList,
+  encodeParamWriteResult,
+  encodeTelemetry,
+} from "./generated/app"
+
+/// For tests: a shorter wait for the autopilot's heartbeat than 3 s.
+export function setHeartbeatWait(ms: int): void {
+  link.heartbeatWaitMs = ms
+}
+
+/// ArduCopter's flight modes (HEARTBEAT `custom_mode` with the ArduPilot autopilot).
+function modeName(autopilot: int, customMode: int): string {
+  if (autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    return `mode ${customMode}`
+  }
+  match (customMode) {
+    0 => "STABILIZE",
+    1 => "ACRO",
+    2 => "ALT_HOLD",
+    3 => "AUTO",
+    4 => "GUIDED",
+    5 => "LOITER",
+    6 => "RTL",
+    7 => "CIRCLE",
+    9 => "LAND",
+    16 => "POSHOLD",
+    _ => `mode ${customMode}`,
+  }
+}
+
+/// The vehicle link and what it last heard.
+class Link {
+  public conn: MavLinkConnection? = null
+  public sim: SimulatedAutopilot? = null
+  public beats: HeartbeatSender? = null
+  public discovery: VehicleDiscovery? = null
+  public state: Connection = Connection { state: ConnectionState.Disconnected }
+  /// Bumped on every connect and disconnect: a link's late news about an older link is ignored.
+  public generation: int = 0
+  public sysid: int = 0
+  public compid: int = 0
+  public autopilot: int = 0
+  public encoding: ParamEncoding = ParamEncoding.CCast
+  public watchers: Sink[] = []
+  public armed: bool = false
+  public mode: string = "unknown"
+  public voltage: f64 = 0.0
+  public remaining: int = -1
+  public roll: f64 = 0.0
+  public pitch: f64 = 0.0
+  public yaw: f64 = 0.0
+  public lastHeartbeat: int = 0
+  /// How long `vehicle.connect` waits for an autopilot's heartbeat.
+  public heartbeatWaitMs: int = 3000
+
+  public update(c: Connection): void {
+    state = c
+    for (const w of watchers) {
+      w.next(encodeConnection(c))
+    }
+  }
+
+  public close(): void {
+    generation += 1
+    const b = beats
+    if (b != null) {
+      b!.stop()
+    }
+    const d = discovery
+    if (d != null) {
+      d!.stop()
+    }
+    const c = conn
+    if (c != null) {
+      c!.close()
+    }
+    const s = sim
+    if (s != null) {
+      s!.stop()
+    }
+    beats = null
+    discovery = null
+    conn = null
+    sim = null
+    sysid = 0
+  }
+
+  /// Telemetry from the connected vehicle.
+  public seen(r: Received): void {
+    if (sysid == 0 || r.packet.header.sysid != sysid || r.packet.header.compid != compid) {
+      return
+    }
+    const m = r.message
+    if (m instanceof Heartbeat) {
+      armed = ((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0
+      mode = modeName(m.autopilot as int, m.customMode as int)
+      lastHeartbeat = Date.now() as int
+    } else if (m instanceof SysStatus) {
+      voltage = (m.voltageBattery as f64) / 1000.0
+      remaining = m.batteryRemaining as int
+    } else if (m instanceof Attitude) {
+      roll = (m.roll as f64) * 180.0 / Math.PI
+      pitch = (m.pitch as f64) * 180.0 / Math.PI
+      yaw = (m.yaw as f64) * 180.0 / Math.PI
+    }
+  }
+
+  public telemetry(): Telemetry {
+    const t = Telemetry {
+      armed: armed,
+      mode: mode,
+      batteryVoltage: Math.round(voltage * 100.0) / 100.0,
+      roll: Math.round(roll * 10.0) / 10.0,
+      pitch: Math.round(pitch * 10.0) / 10.0,
+      yaw: Math.round(yaw),
+      heartbeatAgeMs: ((Date.now() as int) - lastHeartbeat) as u32,
+    }
+    if (remaining >= 0 && remaining <= 100) {
+      t.batteryRemaining = remaining as u8
+    }
+    t
+  }
+}
+
+const link = new Link()
 
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
-  c.handle("greeting.hello", hello)
-  c.publish("clock.ticks", ticks)
+  c.handle("vehicle.connect", connectVehicle)
+  c.handle("vehicle.disconnect", disconnectVehicle)
+  c.publish("vehicle.connection", watchConnection)
+  c.handle("params.list", listParams)
+  c.handle("params.write", writeParam)
+  c.publish("telemetry.stream", streamTelemetry)
   c
 }
 
-async function hello(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const request = decodeHelloRequest(payload ?? Cbor.Null, "$")
-  encodeGreeting(Greeting { message: `Hello, ${request.name}!` })
-}
-
-class Clock {
-  sink: Sink
-  public n: u32 = 0
-  public timer: int = 0
-
-  constructor(sink: Sink) {
-    this.sink = sink
-  }
-
-  public tick(): void {
-    n += 1
-    sink.next(encodeTick(Tick { n: n }))
+function describe(r: ConnectRequest): string {
+  match (r.transport) {
+    Simulator => "the simulator",
+    Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
+    Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
   }
 }
 
-function ticks(params: Cbor?, sink: Sink): void throws Error {
-  const interval = decodeClockParams(params ?? Cbor.Null, "$").intervalMs ?? 1000
-  const clock = new Clock(sink)
-  clock.timer = setInterval(() => clock.tick(), interval as int)
-  sink.onClose = () => clearInterval(clock.timer)
+async function open(r: ConnectRequest): Promise<ByteStream> throws Error {
+  match (r.transport) {
+    Simulator => {
+      const ends = MemoryStream.pair()
+      const sim = new SimulatedAutopilot(ends[1])
+      sim.start(1000)
+      link.sim = sim
+      const s: ByteStream = ends[0]
+      s
+    },
+    Udp => {
+      // SITL and MAVESP8266 send to this port; replies go back to whoever sent.
+      const socket = await bind((r.port ?? 14550) as int, r.host ?? "127.0.0.1")
+      const s: ByteStream = new UdpStream(socket)
+      s
+    },
+    Tcp => {
+      const c = await connect((r.port ?? 5760) as int, r.host ?? "127.0.0.1")
+      const s: ByteStream = new TcpStream(c)
+      s
+    },
+  }
+}
+
+/// The first autopilot (not a ground station) heard, if any.
+function autopilotSeen(d: VehicleDiscovery): Vehicle? {
+  for (const v of d.vehicles()) {
+    if (v.type != MavType.GCS && v.autopilot != MavAutopilot.INVALID) {
+      return v
+    }
+  }
+  null
+}
+
+/// Receives until the link ends; then, if it's still the current one, it's lost.
+async function watchLink(conn: MavLinkConnection, generation: int): Promise<void> {
+  try {
+    await conn.run()
+  } catch (e: Error) {
+    // A failed read ends the link like a closed one.
+  }
+  if (link.generation == generation && link.state.state == ConnectionState.Connected) {
+    link.update(Connection { state: ConnectionState.Lost, vehicle: link.state.vehicle, error: "the link closed" })
+  }
+}
+
+async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const request = decodeConnectRequest(payload ?? Cbor.Null, "$")
+  link.close()
+  const generation = link.generation
+  link.update(Connection { state: ConnectionState.Connecting })
+  let stream: ByteStream? = null
+  try {
+    stream = await open(request)
+  } catch (e: Error) {
+    link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(request)}: ${e.message}` })
+    return encodeConnection(link.state)
+  }
+  const conn = new MavLinkConnection(stream!)
+  link.conn = conn
+  const discovery = new VehicleDiscovery(conn)
+  link.discovery = discovery
+  conn.on((r: Received) => link.seen(r))
+  watchLink(conn, generation)
+  const beats = new HeartbeatSender(conn)
+  beats.start()
+  link.beats = beats
+  let waited = 0
+  while (waited <= link.heartbeatWaitMs) {
+    if (link.generation != generation) {
+      return encodeConnection(link.state)
+    }
+    const v = autopilotSeen(discovery)
+    if (v != null) {
+      const found = v!
+      link.sysid = found.sysid
+      link.compid = found.compid
+      link.autopilot = found.autopilot
+      // PX4 puts integers in the float bytewise; ArduPilot (and most others) cast them.
+      link.encoding = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
+      link.lastHeartbeat = Date.now() as int
+      const info = VehicleInfo {
+        sysid: found.sysid as u8,
+        compid: found.compid as u8,
+        type: MavType.nameOf(found.type) ?? `${found.type}`,
+        autopilot: MavAutopilot.nameOf(found.autopilot) ?? `${found.autopilot}`,
+      }
+      link.update(Connection { state: ConnectionState.Connected, vehicle: info })
+      return encodeConnection(link.state)
+    }
+    await delay(50)
+    waited += 50
+  }
+  link.close()
+  link.update(Connection { state: ConnectionState.Disconnected, error: `no heartbeat from ${describe(request)}` })
+  encodeConnection(link.state)
+}
+
+async function disconnectVehicle(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  link.close()
+  link.update(Connection { state: ConnectionState.Disconnected })
+  encodeConnection(link.state)
+}
+
+function watchConnection(_params: Cbor?, sink: Sink): void throws Error {
+  sink.next(encodeConnection(link.state))
+  link.watchers.push(sink)
+  sink.onClose = () => {
+    link.watchers = link.watchers.filter((w: Sink) => w.id != sink.id)
+  }
+}
+
+function connectedLink(): MavLinkConnection throws CommunicatorError {
+  const c = link.conn
+  if (c == null || link.state.state != ConnectionState.Connected) {
+    throw new CommunicatorError("NOT_CONNECTED", "no vehicle is connected")
+  }
+  c!
+}
+
+function typeName(type: int): string {
+  MavParamType.nameOf(type) ?? `${type}`
+}
+
+function typeValue(name: string): int? {
+  for (let t = 1; t <= 10; t++) {
+    if (MavParamType.nameOf(t) == name) {
+      return t
+    }
+  }
+  null
+}
+
+function toParam(id: string, index: int, v: TypedParamValue): Param {
+  match (v) {
+    Int { value, type } => Param { id: id, index: index as u16, kind: ParamKind.Int, type: typeName(type), value: value as f64 },
+    Real { value, type } => Param { id: id, index: index as u16, kind: ParamKind.Real, type: typeName(type), value: (value as f32) as f64 },
+  }
+}
+
+async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  const r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding).run()
+  const out = ParamList {
+    params: r.params.map((p) => toParam(p.id, p.index, p.value)),
+    count: r.count as u16,
+    complete: r.complete,
+    missing: r.missing.map((i: int) => i as u16),
+  }
+  encodeParamList(out)
+}
+
+async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const w = decodeParamWrite(payload ?? Cbor.Null, "$")
+  const conn = connectedLink()
+  const type = typeValue(w.type)
+  if (type == null) {
+    throw new CommunicatorError("INVALID_VALUE", `unknown parameter type ${w.type}`)
+  }
+  let value: TypedParamValue = TypedParamValue.Real(w.value, type!)
+  if (w.kind == ParamWriteKind.Int) {
+    if (Math.floor(w.value) != w.value || Math.abs(w.value) > 4294967295.0) {
+      throw new CommunicatorError("INVALID_VALUE", `${w.id} is an integer; ${w.value} isn't`)
+    }
+    value = TypedParamValue.Int(w.value as int, type!)
+  }
+  try {
+    const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding).run(w.id, value)
+    encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
+  } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  } catch (e: ParamError) {
+    throw new CommunicatorError(e.code, e.message)
+  }
+}
+
+function streamTelemetry(_params: Cbor?, sink: Sink): void throws Error {
+  const timer = setInterval(() => {
+    if (link.state.state == ConnectionState.Connected) {
+      sink.next(encodeTelemetry(link.telemetry()))
+    }
+  }, 1000)
+  sink.onClose = () => clearInterval(timer)
 }

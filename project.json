@@ -1,3 +1,7 @@
 {
-  "workspace": ["apps/backend", "node_modules/@pico-desktop/communicator-pico"]
+  "workspace": [
+    "apps/backend",
+    "node_modules/@pico-desktop/communicator-pico",
+    "../pico-mavlink"
+  ]
 }

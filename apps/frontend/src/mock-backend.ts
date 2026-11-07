@@ -1,48 +1,118 @@
 // A stand-in for the Pico backend, in TypeScript over an in-memory link: the UI then runs in any
-// browser (`pnpm ui`) and in Vitest. It speaks the same protocol as the host, so the app can't
-// tell the difference; keep it in step with packages/contracts/app.cddl.
+// browser (`pnpm ui`) and in Vitest. It speaks the same protocol as the host and implements
+// packages/contracts/app.cddl with the simulated vehicle of fixtures.ts: only the "simulator"
+// transport connects; UDP and TCP fail as they would with nothing listening.
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
+import type { Connection, ConnectRequest, Param, ParamWrite } from './generated/app'
+import { PARAMS, VEHICLE, telemetryAt } from './fixtures'
 
 type Outgoing = Omit<Envelope, 'v'>
-type Answer = (e: Envelope, send: (e: Outgoing) => void) => void
+type Send = (e: Outgoing) => void
 
-const clocks = new Map<number, ReturnType<typeof setInterval>>()
-
-const answers: Record<string, Answer> = {
-  'greeting.hello': (e, send) => {
-    const { name } = e.p as { name: string }
-    send({ k: 'response', id: e.id!, p: { message: `Hello, ${name}! (from the mock backend)` } })
-  },
-  'clock.ticks': (e, send) => {
-    const s = e.id!
-    const { intervalMs = 1000 } = (e.p ?? {}) as { intervalMs?: number }
-    let n = 0
-    send({ k: 'response', id: e.id!, s })
-    clocks.set(s, setInterval(() => send({ k: 'event', n: 'clock.ticks', s, p: { n: ++n } }), intervalMs))
-  },
+export interface MockOptions {
+  /** Telemetry interval (ms). */
+  telemetryMs?: number
+  /** Parameters the vehicle rounds to whole numbers on write (it reports the rounded value). */
+  rounding?: string[]
+  /** Parameters whose writes get no reply (the write times out). */
+  silent?: string[]
 }
 
-function receive(e: Envelope, send: (e: Outgoing) => void) {
-  if (e.k === 'lifecycle' && e.n === 'hello') {
-    send({ k: 'lifecycle', n: 'ready', e: 1 })
-  } else if (e.k === 'unsubscribe') {
-    clearInterval(clocks.get(e.s!))
-  } else if (e.k === 'request' || e.k === 'subscribe') {
-    const answer = answers[e.n!]
-    if (answer) {
-      answer(e, send)
-    } else {
-      send({ k: 'error', id: e.id!, err: { code: 'UNKNOWN_METHOD', message: `the mock has no ${e.n}` } })
+class MockVehicle {
+  connection: Connection = { state: 'disconnected' }
+  params: Param[] = PARAMS.map(p => ({ ...p }))
+  readonly watchers = new Set<number>()
+  readonly timers = new Map<number, ReturnType<typeof setInterval>>()
+
+  constructor(private readonly send: Send, private readonly options: MockOptions) {}
+
+  receive(e: Envelope) {
+    if (e.k === 'lifecycle' && e.n === 'hello') {
+      this.send({ k: 'lifecycle', n: 'ready', e: 1 })
+    } else if (e.k === 'unsubscribe') {
+      this.watchers.delete(e.s!)
+      clearInterval(this.timers.get(e.s!))
+      this.timers.delete(e.s!)
+    } else if (e.k === 'request' || e.k === 'subscribe') {
+      this.answer(e)
     }
+  }
+
+  answer(e: Envelope) {
+    const ok = (p: Envelope['p']) => this.send({ k: 'response', id: e.id!, p })
+    const fail = (code: string, message: string) => this.send({ k: 'error', id: e.id!, err: { code, message } })
+    switch (e.n) {
+      case 'vehicle.connect': return this.connect(e.p as ConnectRequest, ok)
+      case 'vehicle.disconnect': return this.update({ state: 'disconnected' }, ok)
+      case 'vehicle.connection':
+        this.watchers.add(e.id!)
+        this.send({ k: 'response', id: e.id!, s: e.id! })
+        return this.send({ k: 'event', n: 'vehicle.connection', s: e.id!, p: this.connection })
+      case 'params.list':
+        return this.connected(fail) && ok({ params: this.params, count: this.params.length, complete: true, missing: [] })
+      case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
+      case 'telemetry.stream': return this.telemetry(e)
+      default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
+    }
+  }
+
+  connected(fail: (code: string, message: string) => void): boolean {
+    if (this.connection.state !== 'connected') {
+      fail('NOT_CONNECTED', 'no vehicle is connected')
+    }
+
+    return this.connection.state === 'connected'
+  }
+
+  connect(request: ConnectRequest, ok: (p: Envelope['p']) => void) {
+    if (request.transport === 'simulator') {
+      this.params = PARAMS.map(p => ({ ...p }))
+      this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
+    } else {
+      const where = `${request.host ?? '127.0.0.1'}:${request.port ?? (request.transport === 'udp' ? 14550 : 5760)}`
+      this.update({ state: 'disconnected', error: `no heartbeat from ${request.transport} ${where}` }, ok)
+    }
+  }
+
+  update(connection: Connection, ok: (p: Envelope['p']) => void) {
+    this.connection = connection
+    for (const s of this.watchers) {
+      this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
+    }
+    ok(connection)
+  }
+
+  write(w: ParamWrite, ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    const param = this.params.find(p => p.id === w.id)
+    if (!param) {
+      return fail('UNKNOWN_PARAM', `the vehicle has no ${w.id}`)
+    }
+    if (this.options.silent?.includes(w.id)) {
+      return setTimeout(() => fail('TIMEOUT', `no PARAM_VALUE for ${w.id} after PARAM_SET (4 tries)`), 5)
+    }
+    param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
+
+    return ok({ param: { ...param }, verified: param.value === w.value })
+  }
+
+  telemetry(e: Envelope) {
+    const s = e.id!
+    let n = 0
+    this.send({ k: 'response', id: s, s })
+    this.timers.set(s, setInterval(() => {
+      if (this.connection.state === 'connected') {
+        this.send({ k: 'event', n: 'telemetry.stream', s, p: telemetryAt(n++) })
+      }
+    }, this.options.telemetryMs ?? 1000))
   }
 }
 
 /** The app's end of a link to the mock backend. */
-export function mockBackend(): Transport {
+export function mockBackend(options: MockOptions = {}): Transport {
   const [app, backend] = memoryTransportPair()
-  const send = (e: Outgoing) => backend.send(encodeEnvelope(e))
-  backend.connect(bytes => receive(decodeEnvelope(bytes), send))
+  const vehicle = new MockVehicle(e => backend.send(encodeEnvelope(e)), options)
+  backend.connect(bytes => vehicle.receive(decodeEnvelope(bytes)))
 
   return app
 }
