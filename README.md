@@ -31,6 +31,15 @@ pnpm test     # Vitest (the UI's logic and rendering) and pico test (the backend
 pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator, driven over DevTools
 ```
 
+## Bundle and package
+
+```sh
+pnpm exec pico-desktop build     # dist/drone-configurator-<version>-linux-arm64/: runs without Node, pnpm or Pico
+pnpm exec pico-desktop package   # that bundle as a .tar.gz (+ .sha256), and an AppDir for appimagetool
+```
+
+The bundle carries its runtime (CEF), an SBOM and THIRD-PARTY-NOTICES.txt.
+
 ## ArduPilot SITL
 
 With an ArduPilot checkout ([building SITL](https://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html)):
