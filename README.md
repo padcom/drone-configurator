@@ -6,7 +6,7 @@ A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
-Status: **DR0 (the dashboard shell) and parts of DR1.**
+Status: **DR0 is done; DR1 and DR2 are done except what needs ArduPilot SITL or real hardware.**
 - Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery and attitude.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.
@@ -15,6 +15,9 @@ Status: **DR0 (the dashboard shell) and parts of DR1.**
 - Load parameter metadata (descriptions, units, ranges, named values) to see and check against. Without it, a parameter is only its type: nothing is invented. The format is in `apps/frontend/src/metadata.ts`, and `examples/copter-metadata.json` is an example. These values are illustrative, not ArduPilot's.
 - Parameters the vehicle announces on its own, for example after another ground station changes one, update the list. A draft being edited is left alone.
 - A disconnect cancels a download or write in flight at once.
+- Telemetry shows only what the vehicle has reported: a dash, never a made-up zero. Mode names come from ArduPilot's own tables, chosen by vehicle type. The backend asks the vehicle to stream SYS_STATUS and ATTITUDE.
+- The parameter encoding (C-cast or bytewise) comes from the autopilot's AUTOPILOT_VERSION, with ArduPilot's or PX4's usual one as a fallback.
+- Closing the app while connected ends the session in time.
 - A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
 
 ![The Drone Configurator connected to the built-in simulator, with metadata loaded](docs/screenshot.png)
