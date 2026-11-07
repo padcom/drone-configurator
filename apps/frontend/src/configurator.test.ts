@@ -123,6 +123,23 @@ describe('importing a snapshot', () => {
   })
 })
 
+describe('parameters changed elsewhere', () => {
+  it('update the list, and an untouched draft, but not a draft being edited', async () => {
+    const control: MockControl = {}
+    const { app } = await connected({ control })
+    app.select('RTL_ALT')
+    control.announce!('RTL_ALT', 2500)
+    await sleep(5)
+    expect(app.state.params.find(p => p.id === 'RTL_ALT')!.value).toBe(2500)
+    expect(app.state.draft).toBe('2500')
+    app.editDraft('3000')
+    control.announce!('RTL_ALT', 2600)
+    await sleep(5)
+    expect(app.state.params.find(p => p.id === 'RTL_ALT')!.value).toBe(2600)
+    expect(app.state.draft).toBe('3000')
+  })
+})
+
 describe('a backend restart', () => {
   it('ends the vehicle session, keeps the parameters, and waits for the user to reconnect', async () => {
     const control: MockControl = {}

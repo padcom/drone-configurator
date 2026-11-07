@@ -182,6 +182,7 @@ export interface Services {
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "params.changed": { kind: 'event', payload: Param }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -220,6 +221,9 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
+  },
+  "params.changed": {
+    payload: (value: any, path: string) => validateParamInto(value, path),
   },
 }
 

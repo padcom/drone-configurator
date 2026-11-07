@@ -119,6 +119,7 @@ export class Configurator {
   constructor(transport: Transport, private readonly ui: Ui) {
     this.communicator = new Communicator<Services>({ transport, validate })
     this.communicator.onConnectionChange(state => this.backendChanged(state))
+    this.communicator.on('params.changed', param => this.paramChanged(param))
     void this.watch()
   }
 
@@ -162,6 +163,17 @@ export class Configurator {
       // What's shown may no longer be the vehicle's: keep it visible, but don't offer edits.
       this.set({ telemetry: null, writing: false })
     }
+  }
+
+  /**
+   * A parameter the vehicle announced on its own (another ground station changed it). The list
+   * follows; so does the draft, unless the user has started editing it.
+   */
+  private paramChanged(param: Param) {
+    const old = this.state.params.find(p => p.id === param.id)
+    const params = old ? this.state.params.map(p => p.id === param.id ? param : p) : [...this.state.params, param]
+    const untouched = this.state.selected === param.id && old !== undefined && this.state.draft === String(old.value)
+    this.set({ params, ...(untouched ? { draft: String(param.value) } : {}) })
   }
 
   /** The parameters matching the filter (case-insensitive, anywhere in the name). */

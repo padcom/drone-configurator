@@ -15,6 +15,9 @@ services = {
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
   "serial.ports": ["method", null, serial-ports],
+  ; A parameter the vehicle announced on its own (changed by another ground station, or by the
+  ; autopilot): the dashboard's copy follows it.
+  "params.changed": ["event", param],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app

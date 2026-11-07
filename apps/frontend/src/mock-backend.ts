@@ -23,6 +23,8 @@ export interface MockOptions {
 
 export interface MockControl {
   restart?: () => void
+  /** The vehicle announces a parameter changed elsewhere (as by another ground station). */
+  announce?: (id: string, value: number) => void
 }
 
 class MockVehicle {
@@ -37,6 +39,13 @@ class MockVehicle {
   constructor(private readonly send: Send, private readonly options: MockOptions) {
     if (options.control) {
       options.control.restart = () => this.restart()
+      options.control.announce = (id, value) => {
+        const param = this.params.find(p => p.id === id)
+        if (param) {
+          param.value = value
+          this.send({ k: 'event', n: 'params.changed', p: { ...param } })
+        }
+      }
     }
   }
 

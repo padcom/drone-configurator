@@ -5,8 +5,8 @@ import { Cbor, Envelope, Transport, decodeEnvelope, encodeEnvelope, envelope, me
 import { Reader, Writer } from "std/process"
 import * as f from "c:fcntl.h"
 import * as termios from "c:termios.h"
-import { ByteStream, SimulatedAutopilot } from "padcom/pico-mavlink"
-import { createBackend, setHeartbeatWait } from "./app"
+import { ByteStream, MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { createBackend, setHeartbeatWait, simulatorForTests } from "./app"
 import {
   ConnectRequest,
   ConnectRequestTransport,
@@ -14,6 +14,7 @@ import {
   ParamWrite,
   ParamWriteKind,
   decodeConnection,
+  decodeParam,
   decodeParamList,
   decodeParamWriteResult,
   encodeConnectRequest,
@@ -54,6 +55,19 @@ class Frontend {
     while (true) {
       const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
       if (got.id == want) {
+        return got
+      }
+      if (got.id != null && (got.k == "response" || got.k == "error")) {
+        kept.push(got)
+      }
+    }
+  }
+
+  /// The next event `name` (replies on the way are kept).
+  public async event(name: string): Promise<Envelope> throws Error {
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.k == "event" && got.n == name) {
         return got
       }
       if (got.id != null && (got.k == "response" || got.k == "error")) {
@@ -194,6 +208,18 @@ async function disconnectCancels(): Promise<void> throws Error {
   expect(`${e.err?.code ?? "no error"} ${(Date.now() as int) - started < 1000}`).toBe("ABORTED true")
 }
 
+async function announcesChanges(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  await fe.call("params.list")
+  // Another ground station changes RTL_ALT: the vehicle announces it, the backend passes it on.
+  simulatorForTests()!.change("RTL_ALT", TypedParamValue.Int(2500, MavParamType.INT32))
+  const e = await fe.event("params.changed")
+  const p = decodeParam(e.p ?? Cbor.Null, "$")
+  expect(`${p.id}=${p.value} ${p.type}`).toBe("RTL_ALT=2500 INT32")
+  await fe.call("vehicle.disconnect")
+}
+
 async function badDevice(): Promise<void> throws Error {
   const fe = await start()
   const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/no-such-tty" }
@@ -205,6 +231,7 @@ describe("the backend", () => {
   it("talks MAVLink over a serial port (a pseudo-terminal), and loses it when unplugged", overSerial)
   it("says why a serial port didn't open", badDevice)
   it("cancels a write in flight when the user disconnects", disconnectCancels)
+  it("passes on a parameter the vehicle announces", announcesChanges)
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
   it("reports a link with no heartbeat", noHeartbeat)
