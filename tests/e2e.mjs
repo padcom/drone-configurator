@@ -71,7 +71,7 @@ try {
   const list = await until('#list-status', /12 parameters/)
   check('downloads the 12 parameters', list === '12 parameters', list)
   const telemetry = await until('#telemetry', /Heartbeat/)
-  check('shows telemetry', /Mode/.test(telemetry) && /Battery/.test(telemetry), telemetry)
+  check('shows telemetry, the mode named from ArduPilot\'s table', /Mode\s*(STABILIZE|LOITER)/.test(telemetry) && /Battery/.test(telemetry), telemetry)
 
   await js(`document.querySelector('tr[data-id="RTL_ALT"]').click()`)
   await js(`const d = document.getElementById('draft'); d.value = '1600'; d.dispatchEvent(new Event('input'))`)

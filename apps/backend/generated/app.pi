@@ -343,29 +343,49 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
 export struct Telemetry {
   armed: bool
   mode: string
-  batteryVoltage: f64
+  batteryVoltage?: f64
   batteryRemaining?: u8
-  roll: f64
-  pitch: f64
-  yaw: f64
+  roll?: f64
+  pitch?: f64
+  yaw?: f64
   heartbeatAgeMs: u32
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
   const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs"])
+  const cbor2 = m.get("batteryVoltage")
+  let opt2: f64? = null
+  if (cbor2 != null) {
+    opt2 = float(cbor2, `${path}.batteryVoltage`)
+  }
   const cbor3 = m.get("batteryRemaining")
   let opt3: u8? = null
   if (cbor3 != null) {
     opt3 = (uint(cbor3, `${path}.batteryRemaining`, 255) as u8)
   }
+  const cbor4 = m.get("roll")
+  let opt4: f64? = null
+  if (cbor4 != null) {
+    opt4 = float(cbor4, `${path}.roll`)
+  }
+  const cbor5 = m.get("pitch")
+  let opt5: f64? = null
+  if (cbor5 != null) {
+    opt5 = float(cbor5, `${path}.pitch`)
+  }
+  const cbor6 = m.get("yaw")
+  let opt6: f64? = null
+  if (cbor6 != null) {
+    opt6 = float(cbor6, `${path}.yaw`)
+  }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
     mode: text(required(m, "mode", path), `${path}.mode`),
-    batteryVoltage: float(required(m, "batteryVoltage", path), `${path}.batteryVoltage`),
+    batteryVoltage: opt2,
     batteryRemaining: opt3,
-    roll: float(required(m, "roll", path), `${path}.roll`),
-    pitch: float(required(m, "pitch", path), `${path}.pitch`),
-    yaw: float(required(m, "yaw", path), `${path}.yaw`),
+    roll: opt4,
+    pitch: opt5,
+    yaw: opt6,
     heartbeatAgeMs: (uint(required(m, "heartbeatAgeMs", path), `${path}.heartbeatAgeMs`, 4294967295) as u32),
   }
 }
@@ -374,14 +394,26 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   const m = new Map<string, Cbor>()
   m.set("armed", Cbor.Bool(v.armed))
   m.set("mode", Cbor.Text(v.mode))
-  m.set("batteryVoltage", Cbor.Float(v.batteryVoltage))
+  const opt2 = v.batteryVoltage
+  if (opt2 != null) {
+    m.set("batteryVoltage", Cbor.Float(opt2))
+  }
   const opt3 = v.batteryRemaining
   if (opt3 != null) {
     m.set("batteryRemaining", Cbor.Uint(opt3 as u64))
   }
-  m.set("roll", Cbor.Float(v.roll))
-  m.set("pitch", Cbor.Float(v.pitch))
-  m.set("yaw", Cbor.Float(v.yaw))
+  const opt4 = v.roll
+  if (opt4 != null) {
+    m.set("roll", Cbor.Float(opt4))
+  }
+  const opt5 = v.pitch
+  if (opt5 != null) {
+    m.set("pitch", Cbor.Float(opt5))
+  }
+  const opt6 = v.yaw
+  if (opt6 != null) {
+    m.set("yaw", Cbor.Float(opt6))
+  }
   m.set("heartbeatAgeMs", Cbor.Uint(v.heartbeatAgeMs as u64))
   Cbor.Dict(m)
 }

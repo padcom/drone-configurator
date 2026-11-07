@@ -8,6 +8,10 @@ import { bind, connect } from "std/net"
 import { delay } from "std/timers"
 import {
   Attitude,
+  CopterMode,
+  PlaneMode,
+  RoverMode,
+  SubMode,
   AutopilotVersionRead,
   ByteStream,
   Heartbeat,
@@ -75,24 +79,19 @@ export function setHeartbeatWait(ms: int): void {
   link.heartbeatWaitMs = ms
 }
 
-/// ArduCopter's flight modes (HEARTBEAT `custom_mode` with the ArduPilot autopilot).
-function modeName(autopilot: int, customMode: int): string {
+/// The flight mode's name: ArduPilot's mode tables (ardupilotmega's COPTER_MODE, PLANE_MODE,
+/// ROVER_MODE, SUB_MODE), chosen by the vehicle type; `mode N` otherwise.
+function modeName(autopilot: int, type: int, customMode: int): string {
   if (autopilot != MavAutopilot.ARDUPILOTMEGA) {
     return `mode ${customMode}`
   }
-  match (customMode) {
-    0 => "STABILIZE",
-    1 => "ACRO",
-    2 => "ALT_HOLD",
-    3 => "AUTO",
-    4 => "GUIDED",
-    5 => "LOITER",
-    6 => "RTL",
-    7 => "CIRCLE",
-    9 => "LAND",
-    16 => "POSHOLD",
-    _ => `mode ${customMode}`,
-  }
+  const plane = type == MavType.FIXED_WING || (type >= MavType.VTOL_TAILSITTER_DUOROTOR && type <= MavType.VTOL_TILTWING)
+  const rover = type == MavType.GROUND_ROVER || type == MavType.SURFACE_BOAT
+  const name = if (plane) PlaneMode.nameOf(customMode)
+    else if (rover) RoverMode.nameOf(customMode)
+    else if (type == MavType.SUBMARINE) SubMode.nameOf(customMode)
+    else CopterMode.nameOf(customMode)
+  name ?? `mode ${customMode}`
 }
 
 /// The vehicle link and what it last heard.
@@ -109,6 +108,10 @@ class Link {
   public autopilot: int = 0
   public encoding: ParamEncoding = ParamEncoding.CCast
   public watchers: Sink[] = []
+  /// What the vehicle has reported since connecting (telemetry shows only that).
+  public heardHeartbeat: bool = false
+  public heardStatus: bool = false
+  public heardAttitude: bool = false
   public armed: bool = false
   public mode: string = "unknown"
   public voltage: f64 = 0.0
@@ -138,6 +141,9 @@ class Link {
     generation += 1
     session.abort()
     session = new AbortController()
+    heardHeartbeat = false
+    heardStatus = false
+    heardAttitude = false
     const b = beats
     if (b != null) {
       b!.stop()
@@ -169,10 +175,15 @@ class Link {
     const m = r.message
     if (m instanceof Heartbeat) {
       armed = ((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0
-      mode = modeName(m.autopilot as int, m.customMode as int)
+      mode = modeName(m.autopilot as int, m.type as int, m.customMode as int)
       lastHeartbeat = Date.now() as int
+      heardHeartbeat = true
     } else if (m instanceof SysStatus) {
-      voltage = (m.voltageBattery as f64) / 1000.0
+      // UINT16_MAX: the vehicle doesn't know its voltage.
+      if (m.voltageBattery as int != 65535) {
+        voltage = (m.voltageBattery as f64) / 1000.0
+        heardStatus = true
+      }
       remaining = m.batteryRemaining as int
     } else if (m instanceof ParamValue) {
       // A parameter the vehicle announced on its own: tell the dashboard.
@@ -186,21 +197,22 @@ class Link {
       roll = (m.roll as f64) * 180.0 / Math.PI
       pitch = (m.pitch as f64) * 180.0 / Math.PI
       yaw = (m.yaw as f64) * 180.0 / Math.PI
+      heardAttitude = true
     }
   }
 
   public telemetry(): Telemetry {
-    const t = Telemetry {
-      armed: armed,
-      mode: mode,
-      batteryVoltage: Math.round(voltage * 100.0) / 100.0,
-      roll: Math.round(roll * 10.0) / 10.0,
-      pitch: Math.round(pitch * 10.0) / 10.0,
-      yaw: Math.round(yaw),
-      heartbeatAgeMs: ((Date.now() as int) - lastHeartbeat) as u32,
+    const t = Telemetry { armed: armed, mode: mode, heartbeatAgeMs: ((Date.now() as int) - lastHeartbeat) as u32 }
+    if (heardStatus) {
+      t.batteryVoltage = Math.round(voltage * 100.0) / 100.0
+      if (remaining >= 0 && remaining <= 100) {
+        t.batteryRemaining = remaining as u8
+      }
     }
-    if (remaining >= 0 && remaining <= 100) {
-      t.batteryRemaining = remaining as u8
+    if (heardAttitude) {
+      t.roll = Math.round(roll * 10.0) / 10.0
+      t.pitch = Math.round(pitch * 10.0) / 10.0
+      t.yaw = Math.round(yaw)
     }
     t
   }
@@ -392,7 +404,6 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       const guess = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
       const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
       link.encoding = if (version == null) guess else encodingOf(version!.capabilities) ?? guess
-      link.lastHeartbeat = Date.now() as int
       const info = VehicleInfo {
         sysid: found.sysid as u8,
         compid: found.compid as u8,
@@ -499,7 +510,7 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
 
 function streamTelemetry(_params: Cbor?, sink: Sink): void throws Error {
   const timer = setInterval(() => {
-    if (link.state.state == ConnectionState.Connected) {
+    if (link.state.state == ConnectionState.Connected && link.heardHeartbeat) {
       sink.next(encodeTelemetry(link.telemetry()))
     }
   }, 1000)

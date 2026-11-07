@@ -74,14 +74,16 @@ param-write-result = {
   verified: bool,
 }
 
+; Only what the vehicle has reported: telemetry starts with its first heartbeat, and battery and
+; attitude are absent until it sends them (nothing shown is made up).
 telemetry = {
   armed: bool,
   mode: tstr,
-  batteryVoltage: float,
+  ? batteryVoltage: float,
   ? batteryRemaining: uint .size 1,   ; percent, absent when the vehicle doesn't know
-  roll: float,
-  pitch: float,
-  yaw: float,
+  ? roll: float,
+  ? pitch: float,
+  ? yaw: float,
   heartbeatAgeMs: uint .size 4,
 }
 

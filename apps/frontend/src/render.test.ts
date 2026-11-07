@@ -42,6 +42,10 @@ describe('rendering', () => {
     expect(html).toContain('ARMED')
     expect(html).toContain('12.50 V · 90%')
     expect(telemetryView(base)).toContain('No telemetry')
+    // Not reported yet: a dash, not zeros.
+    const early = telemetryView({ ...base, telemetry: { armed: false, mode: 'STABILIZE', heartbeatAgeMs: 100 } })
+    expect(early).toContain('<span>Battery</span><strong>—</strong>')
+    expect(early).toContain('<span>Attitude</span><strong>—</strong>')
   })
 
   it('says how complete the list is', () => {

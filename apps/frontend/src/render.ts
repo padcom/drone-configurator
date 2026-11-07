@@ -27,12 +27,18 @@ export function telemetryView(state: State): string {
   if (!t) {
     return '<p class="muted">No telemetry: connect to a vehicle.</p>'
   }
-  const battery = t.batteryRemaining === undefined ? '' : ` · ${t.batteryRemaining}%`
+  // What the vehicle hasn't reported is a dash, never a made-up zero.
+  const battery = t.batteryVoltage === undefined
+    ? '—'
+    : `${fixed(t.batteryVoltage, 2)} V${t.batteryRemaining === undefined ? '' : ` · ${t.batteryRemaining}%`}`
+  const attitude = t.roll === undefined || t.pitch === undefined || t.yaw === undefined
+    ? '—'
+    : `roll ${fixed(t.roll, 1)}° · pitch ${fixed(t.pitch, 1)}° · yaw ${fixed(t.yaw, 0)}°`
   const cards: [string, string, string?][] = [
     ['Mode', escape(t.mode)],
     ['State', t.armed ? 'ARMED' : 'disarmed', t.armed ? 'warn' : undefined],
-    ['Battery', `${fixed(t.batteryVoltage, 2)} V${battery}`],
-    ['Attitude', `roll ${fixed(t.roll, 1)}° · pitch ${fixed(t.pitch, 1)}° · yaw ${fixed(t.yaw, 0)}°`],
+    ['Battery', battery],
+    ['Attitude', attitude],
     ['Heartbeat', `${t.heartbeatAgeMs} ms ago`, t.heartbeatAgeMs > 3000 ? 'warn' : undefined],
   ]
 
