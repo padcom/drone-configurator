@@ -31,7 +31,7 @@ pnpm install
 pnpm dev      # the app, with the "Simulator" transport for a vehicle without hardware
 pnpm ui       # the frontend alone in a browser, on a TypeScript mock of the backend
 pnpm test     # Vitest (the UI's logic and rendering) and pico test (the backend)
-pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator, driven over DevTools
+pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator (apps/frontend/e2e, pico-desktop test --e2e)
 ```
 
 ## Bundle and package

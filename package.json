@@ -8,7 +8,7 @@
     "ui": "pnpm --filter ./apps/frontend ui",
     "test": "pico-desktop test",
     "generate": "pico-desktop generate",
-    "e2e": "node tests/e2e.mjs",
+    "e2e": "pico-desktop test --e2e",
     "lint": "pico lint apps/backend && pnpm --filter ./apps/frontend exec tsc --noEmit -p ."
   },
   "dependencies": {
