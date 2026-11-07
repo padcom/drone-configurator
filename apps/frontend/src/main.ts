@@ -14,14 +14,24 @@ declare global {
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
 const dialog = byId<HTMLDialogElement>('confirm')
 
+/** Last markup written per element: a region is rebuilt only when its markup changed (telemetry
+ * ticks every second; a 1200-row parameter table shouldn't be rebuilt with it). */
+const written = new Map<string, string>()
+function setHtml(id: string, html: string) {
+  if (written.get(id) !== html) {
+    written.set(id, html)
+    byId(id).innerHTML = html
+  }
+}
+
 function render(state: State) {
   const param = app.selectedParam()
-  byId('connection').innerHTML = connectionView(state)
-  byId('telemetry').innerHTML = telemetryView(state)
+  setHtml('connection', connectionView(state))
+  setHtml('telemetry', telemetryView(state))
   const visible = app.visible()
   byId('list-status').textContent = listStatus(state, visible.length)
-  byId('rows').innerHTML = paramRows(visible, state.selected)
-  byId('detail').innerHTML = detailView(state, param)
+  setHtml('rows', paramRows(visible, state.selected))
+  setHtml('detail', detailView(state, param))
   byId('edit').hidden = param === null || state.connection.state !== 'connected'
   byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
   byId<HTMLButtonElement>('disconnect-button').disabled = state.connection.state !== 'connected'
@@ -34,12 +44,12 @@ function render(state: State) {
     device.dataset.options = options
     device.value = state.ports.some(p => p.path === chosen) ? chosen : (state.ports[0]?.path ?? '')
   }
-  byId('metadata-status').innerHTML = state.metadataError
+  setHtml('metadata-status', state.metadataError
     ? `<span class="error">${escape(state.metadataError)}</span>`
-    : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : ''
+    : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : '')
   const loaded = state.importReview !== null || state.importError !== null
   byId('import-panel').hidden = !loaded
-  byId('import').innerHTML = importView(state)
+  setHtml('import', importView(state))
   byId<HTMLButtonElement>('apply').disabled = state.picked.length === 0 || state.applying || state.connection.state !== 'connected'
   byId<HTMLButtonElement>('backup').hidden = state.backup === null
   byId<HTMLButtonElement>('save').disabled = state.params.length === 0
