@@ -1,5 +1,6 @@
 // The backend over an in-memory link, against the simulated vehicle.
 import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
 import { Cbor, Envelope, Transport, decodeEnvelope, encodeEnvelope, envelope, memoryPair } from "pico-desktop/communicator"
 import { Reader, Writer } from "std/process"
 import * as f from "c:fcntl.h"
@@ -150,8 +151,12 @@ async function overSerial(): Promise<void> throws Error {
   expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
   const list = decodeParamList((await fe.call("params.list")).p ?? Cbor.Null, "$")
   expect(`${list.count} ${list.complete}`).toBe("12 true")
-  await fe.call("vehicle.disconnect")
+  // Unplugged: the far end of the cable goes away. The link is lost, and calls are refused.
   sim.stop()
+  await delay(300)
+  const e = await fe.call("params.list")
+  expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+  await fe.call("vehicle.disconnect")
 }
 
 async function badDevice(): Promise<void> throws Error {
@@ -162,7 +167,7 @@ async function badDevice(): Promise<void> throws Error {
 }
 
 describe("the backend", () => {
-  it("talks MAVLink over a serial port (a pseudo-terminal)", overSerial)
+  it("talks MAVLink over a serial port (a pseudo-terminal), and loses it when unplugged", overSerial)
   it("says why a serial port didn't open", badDevice)
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
