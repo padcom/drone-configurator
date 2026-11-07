@@ -17,6 +17,8 @@ Status: **DR0 (the dashboard shell) and parts of DR1.**
 - A disconnect cancels a download or write in flight at once.
 - A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
 
+![The Drone Configurator connected to the built-in simulator, with metadata loaded](docs/screenshot.png)
+
 ## Run it
 
 It expects `pico-desktop`, `pico-lang`, `pico-mavlink` and `pico-serialport` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
@@ -29,7 +31,18 @@ pnpm test     # Vitest (the UI's logic and rendering) and pico test (the backend
 pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator, driven over DevTools
 ```
 
-For ArduPilot SITL, choose UDP on port 14550 (SITL's `--out` default) or TCP on port 5760.
+## ArduPilot SITL
+
+With an ArduPilot checkout ([building SITL](https://ardupilot.org/dev/docs/setting-up-sitl-on-linux.html)):
+
+```sh
+cd ardupilot/ArduCopter
+../Tools/autotest/sim_vehicle.py --out=udp:127.0.0.1:14550   # or connect over TCP to 5760
+```
+
+Then, in the dashboard, choose UDP on port 14550, or TCP on port 5760, and connect.
+
+The dashboard asks for SYS_STATUS and ATTITUDE (`MAV_CMD_SET_MESSAGE_INTERVAL`). It learns how parameters are encoded from `AUTOPILOT_VERSION`.
 
 ## Layout
 
