@@ -20,28 +20,50 @@ import {
   encodeParamWrite,
 } from "./generated/app"
 
-/// The frontend's end: requests by id, skipping events on the way.
+/// The frontend's end: requests by id. Replies to other requests are kept for them; events are
+/// skipped.
 class Frontend {
   readonly t: Transport
   id: u64 = 0
+  readonly kept: Envelope[] = []
 
   constructor(t: Transport) {
     this.t = t
   }
 
-  public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
+  /// Sends a request; its id.
+  public async send(name: string, payload: Cbor? = null): Promise<u64> throws Error {
     id += 1
     const e = envelope("request")
     e.id = id
     e.n = name
     e.p = payload
     await t.send(encodeEnvelope(e))
-    while (true) {
-      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
-      if (got.id == id) {
-        return got
+    id
+  }
+
+  /// The reply to request `want`.
+  public async reply(want: u64): Promise<Envelope> throws Error {
+    for (let i = 0; i < kept.length; i++) {
+      if (kept[i].id == want) {
+        const e = kept[i]
+        kept.splice(i, 1)
+        return e
       }
     }
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.id == want) {
+        return got
+      }
+      if (got.id != null && (got.k == "response" || got.k == "error")) {
+        kept.push(got)
+      }
+    }
+  }
+
+  public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
+    await reply(await send(name, payload))
   }
 }
 
@@ -159,6 +181,19 @@ async function overSerial(): Promise<void> throws Error {
   await fe.call("vehicle.disconnect")
 }
 
+async function disconnectCancels(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // The simulator never answers a parameter it doesn't have: the write would retry for seconds.
+  const w = ParamWrite { id: "NO_SUCH_PARAM", kind: ParamWriteKind.Int, type: "INT32", value: 1.0 }
+  const started = Date.now() as int
+  const writing = await fe.send("params.write", encodeParamWrite(w))
+  await delay(50)
+  await fe.call("vehicle.disconnect")
+  const e = await fe.reply(writing)
+  expect(`${e.err?.code ?? "no error"} ${(Date.now() as int) - started < 1000}`).toBe("ABORTED true")
+}
+
 async function badDevice(): Promise<void> throws Error {
   const fe = await start()
   const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/no-such-tty" }
@@ -169,6 +204,7 @@ async function badDevice(): Promise<void> throws Error {
 describe("the backend", () => {
   it("talks MAVLink over a serial port (a pseudo-terminal), and loses it when unplugged", overSerial)
   it("says why a serial port didn't open", badDevice)
+  it("cancels a write in flight when the user disconnects", disconnectCancels)
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
   it("reports a link with no heartbeat", noHeartbeat)

@@ -30,6 +30,7 @@ import {
   TypedParamValue,
   UdpStream,
   Vehicle,
+  ParamListResult,
   VehicleDiscovery,
   encodingOf,
 } from "padcom/pico-mavlink"
@@ -112,6 +113,8 @@ class Link {
   public heartbeatWaitMs: int = 3000
   /// The host's native services (file dialogs).
   public host: Host? = null
+  /// Aborted when the session ends: operations still running stop at once.
+  public session: AbortController = new AbortController()
 
   public update(c: Connection): void {
     state = c
@@ -122,6 +125,8 @@ class Link {
 
   public close(): void {
     generation += 1
+    session.abort()
+    session = new AbortController()
     const b = beats
     if (b != null) {
       b!.stop()
@@ -426,12 +431,18 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
 
 async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const conn = connectedLink()
-  const r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding).run()
+  let r: ParamListResult? = null
+  try {
+    r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run()
+  } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  }
+  const list = r!
   const out = ParamList {
-    params: r.params.map((p) => toParam(p.id, p.index, p.value)),
-    count: r.count as u16,
-    complete: r.complete,
-    missing: r.missing.map((i: int) => i as u16),
+    params: list.params.map((p) => toParam(p.id, p.index, p.value)),
+    count: list.count as u16,
+    complete: list.complete,
+    missing: list.missing.map((i: int) => i as u16),
   }
   encodeParamList(out)
 }
@@ -451,7 +462,7 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     value = TypedParamValue.Int(w.value as int, type!)
   }
   try {
-    const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding).run(w.id, value)
+    const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run(w.id, value)
     encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
   } catch (e: MavLinkError) {
     throw new CommunicatorError(e.code, e.message)
