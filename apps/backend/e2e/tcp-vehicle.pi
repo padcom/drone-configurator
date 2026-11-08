@@ -1,9 +1,13 @@
 // The simulated vehicle behind a real TCP port, for the end-to-end suite (apps/frontend/e2e): the
 // same MAVLink over the same socket path as ArduPilot SITL's port 5760, without SITL. It prints
-// `listening <port>`, then serves one vehicle per connection until it's killed.
+// `listening <port>`, then serves one vehicle per connection until it's killed. It prints
+// `param-set` for each PARAM_SET it receives. Any input on stdin makes the current vehicle go
+// silent, so a write stays in flight.
 import { Conn, listen } from "std/net"
-import { stdout } from "std/process"
-import { ByteStream, SimulatedAutopilot, TcpStream } from "padcom/pico-mavlink"
+import { stdin, stdout } from "std/process"
+import { ByteStream, ParamSet, Received, SimulatedAutopilot, TcpStream } from "padcom/pico-mavlink"
+
+let muted = false
 
 /// A stream that says when its far end has gone.
 class EndWatchingStream implements ByteStream {
@@ -35,7 +39,9 @@ class EndWatchingStream implements ByteStream {
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
-    await inner.write(bytes)
+    if (!muted) {
+      await inner.write(bytes)
+    }
   }
 
   public close(): void {
@@ -46,10 +52,23 @@ class EndWatchingStream implements ByteStream {
 function serve(conn: Conn): void {
   let sim: SimulatedAutopilot? = null
   const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
+  muted = false
   sim = new SimulatedAutopilot(stream)
+  sim!.conn.on((r: Received) => {
+    if (r.message instanceof ParamSet) {
+      stdout.writeText("param-set\n")
+    }
+  })
   sim!.start(250)
 }
 
+async function muteOnInput(): Promise<void> throws Error {
+  for await (const _chunk of stdin) {
+    muted = true
+  }
+}
+
+muteOnInput()
 const server = await listen()
 // Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
 await stdout.writeText(`listening ${server.addr.port}\n`)
