@@ -4,8 +4,9 @@
 // SITL_BINARY      the SITL executable (default: `arducopter` on the PATH)
 // SITL_ENDPOINT    an already-running simulator to use instead (see endpoint.ts); nothing is launched
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync, rmSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, createConnection, type Socket } from 'node:net'
 import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
@@ -133,27 +134,73 @@ function processAlive(pid: number): boolean {
   }
 }
 
-/** Takes the lock file of an instance, or says it can't. A lock whose owner has died is taken over. */
-async function takeLock(file: string): Promise<boolean> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      await writeFile(file, String(process.pid), { flag: 'wx' })
+/** @returns the pid in a lock file, or 0 if it is missing, empty or not a pid */
+async function lockOwner(file: string): Promise<number> {
+  const owner = Number((await readFile(file, 'utf8').catch(() => '')).trim())
 
-      return true
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-        throw error
+  return Number.isInteger(owner) && owner > 0 ? owner : 0
+}
+
+/**
+ * Takes the lock file of an instance, or says it can't.
+ *
+ * The file appears already holding our pid: it is written under another name and hard-linked into place,
+ * which fails if the lock exists. So nobody ever sees it empty. A lock whose contents we can't read as a pid
+ * is somebody else's and counts as held. A lock whose owner has died (a killed run) is taken over, and only
+ * one worker at a time may do that (a `.takeover` directory is the mutex), after checking again that it is
+ * still the dead owner's.
+ */
+async function takeLock(file: string): Promise<boolean> {
+  const mine = `${file}.${process.pid}.${randomUUID()}`
+  await writeFile(mine, String(process.pid))
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await link(mine, file)
+
+        return true
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+          throw error
+        }
       }
-      const owner = Number(await readFile(file, 'utf8').catch(() => ''))
-      if (owner > 0 && processAlive(owner)) {
+      const owner = await lockOwner(file)
+      if (owner === 0 || processAlive(owner)) {
         return false
       }
-      // Its owner died without releasing it (a killed run).
-      await rm(file, { force: true })
+      const guard = `${file}.takeover`
+      try {
+        await mkdir(guard)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+          return false
+        }
+        throw error
+      }
+      try {
+        if ((await lockOwner(file)) === owner) {
+          await rm(file, { force: true })
+        }
+      } finally {
+        await rm(guard, { recursive: true, force: true })
+      }
     }
-  }
 
-  return false
+    return false
+  } finally {
+    await rm(mine, { force: true })
+  }
+}
+
+/** Removes a lock file, but only if it is still ours. */
+function releaseLock(file: string): void {
+  try {
+    if (readFileSync(file, 'utf8').trim() === String(process.pid)) {
+      rmSync(file, { force: true })
+    }
+  } catch {
+    // Already gone.
+  }
 }
 
 /** A SITL instance number that this caller, in any process, has to itself. */
@@ -178,7 +225,7 @@ export async function claimInstance(): Promise<Claim> {
     if (!(await takeLock(file))) {
       continue
     }
-    const release = () => rmSync(file, { force: true })
+    const release = () => releaseLock(file)
     const { tcp, udp } = instancePorts(instance)
     const free = await Promise.all([...tcp.map(tcpFree), ...udp.map(udpFree)])
     if (free.every(Boolean)) {
@@ -324,8 +371,11 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
       child.kill('SIGKILL')
       await exited(child).catch(() => {})
       live.delete(child)
-      await rm(directory, { recursive: true, force: true })
-      claim.release()
+      try {
+        await rm(directory, { recursive: true, force: true })
+      } finally {
+        claim.release()
+      }
     })()
 
     return stopped

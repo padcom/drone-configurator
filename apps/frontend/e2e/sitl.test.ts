@@ -1,6 +1,6 @@
 // The harness's logic, with no SITL: the wire format, the choices, and how it fails.
 import { spawn } from 'node:child_process'
-import { access, chmod, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
@@ -135,6 +135,55 @@ describe('claiming an instance', () => {
     const claim = await claimInstance()
     expect(claim.instance).toBe(0)
     claim.release()
+  })
+
+  it('treats an empty or unreadable lock as held, and leaves it alone', async () => {
+    const empty = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
+    const garbled = join(process.env.SITL_LOCK_DIR ?? '', 'instance-1')
+    await writeFile(empty, '')
+    await writeFile(garbled, 'not a pid')
+    const claim = await claimInstance()
+    expect(claim.instance).toBeGreaterThan(1)
+    expect(await readFile(empty, 'utf8')).toBe('')
+    expect(await readFile(garbled, 'utf8')).toBe('not a pid')
+    claim.release()
+  })
+
+  it('never shows a lock without its owner in it', async () => {
+    const file = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
+    const seen = new Set<string>()
+    const watching = (async () => {
+      for (let i = 0; i < 400; i += 1) {
+        seen.add(await readFile(file, 'utf8').catch(() => 'missing'))
+        await new Promise(resolve => setImmediate(resolve))
+      }
+    })()
+    const claim = await claimInstance()
+    await watching
+    expect(claim.instance).toBe(0)
+    expect(seen.has('')).toBe(false)
+    claim.release()
+  })
+
+  it('lets only one worker take over a dead one lock', async () => {
+    const dead = spawn(process.execPath, ['-e', ''])
+    await new Promise(resolve => dead.once('exit', resolve))
+    const file = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
+    await writeFile(file, String(dead.pid))
+    // Another worker is in the middle of taking it over.
+    await mkdir(`${file}.takeover`)
+    const claim = await claimInstance()
+    expect(claim.instance).toBeGreaterThan(0)
+    expect(await readFile(file, 'utf8')).toBe(String(dead.pid))
+    claim.release()
+  })
+
+  it('releases only a lock that is still its own', async () => {
+    const claim = await claimInstance()
+    const file = join(process.env.SITL_LOCK_DIR ?? '', `instance-${claim.instance}`)
+    await writeFile(file, String(process.ppid))
+    claim.release()
+    expect(await readFile(file, 'utf8')).toBe(String(process.ppid))
   })
 
   it('gives two callers at once two different instances', async () => {
