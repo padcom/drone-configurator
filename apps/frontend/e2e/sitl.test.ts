@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asHeartbeat, asParamValue, crc16, encodeFrame, encodeParamSet } from './mavlink-wire'
-import { claimInstance, cleanupAllSync, findSitlBinary, instancePorts, missingSitlPolicy, signalHandlers, sitlArguments, sitlSupply, startSitl } from './sitl'
+import { claimInstance, cleanupAllSync, findSitlBinary, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply, startSitl } from './sitl'
 
 describe('the MAVLink wire format', () => {
   it('computes the X.25 CRC', () => {
@@ -80,6 +80,31 @@ describe('SITL ports and arguments', () => {
     expect(sitlArguments({ instance: 3, frame: 'hexa', speedup: 4 })).toEqual(['-w', '--model', 'hexa', '--speedup', '4', '-I', '3', '--sim-address=127.0.0.1'])
   })
 
+
+  it('passes the default parameter files, comma separated, when it has them', () => {
+    expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1, defaults: ['/d/copter.parm', '/d/copter-X.parm'] })).toEqual([
+      '-w', '--model', 'x', '--speedup', '1', '-I', '0', '--sim-address=127.0.0.1', '--defaults', '/d/copter.parm,/d/copter-X.parm',
+    ])
+    expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1, defaults: [] })).not.toContain('--defaults')
+  })
+
+  it('finds the default parameter files a build ships next to its executable', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      const binary = join(directory, 'arducopter')
+      expect(shippedDefaults(binary, 'quad')).toEqual([])
+      await mkdir(join(directory, 'default_params'))
+      await writeFile(join(directory, 'default_params', 'copter.parm'), 'BATT_MONITOR 4\n')
+      expect(shippedDefaults(binary, 'quad')).toEqual([join(directory, 'default_params', 'copter.parm')])
+      // The frame's own file is missing, so the build is treated as shipping none rather than half.
+      expect(shippedDefaults(binary, 'x')).toEqual([])
+      await writeFile(join(directory, 'default_params', 'copter-X.parm'), '')
+      expect(shippedDefaults(binary, 'x')).toEqual([join(directory, 'default_params', 'copter.parm'), join(directory, 'default_params', 'copter-X.parm')])
+      expect(shippedDefaults(binary, 'zeppelin')).toEqual([])
+    } finally {
+      await rm(directory, { recursive: true })
+    }
+  })
 })
 
 describe('claiming an instance', () => {

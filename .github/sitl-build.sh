@@ -46,4 +46,8 @@ python3 -m venv "$work/venv"
 
 test -x "build/sitl/bin/$binary"
 cp "build/sitl/bin/$binary" "$out/$binary"
+# Older SITL builds (Copter 4.7) don't carry their default parameters; the E2E harness passes these with
+# --defaults when it finds them next to the executable.
+rm -rf "$out/default_params"
+cp -r Tools/autotest/default_params "$out/default_params"
 echo "built $out/$binary"

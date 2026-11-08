@@ -10,7 +10,7 @@ import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, createConnection, type Socket } from 'node:net'
 import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import { type Endpoint, parseEndpoint } from './endpoint'
 import { MAV_AUTOPILOT_ARDUPILOTMEGA, FrameReader, asHeartbeat, asParamValue, encodeParamSet } from './mavlink-wire'
 
@@ -56,9 +56,36 @@ export function instancePorts(instance: number): { tcp: number[]; udp: number[] 
   }
 }
 
+/** The default parameter files of each Copter frame, as ArduPilot's Tools/autotest/pysim/vehicleinfo.json names them. */
+const copterDefaults: Record<string, string[]> = {
+  quad: ['copter.parm'],
+  x: ['copter.parm', 'copter-X.parm'],
+  hexa: ['copter.parm', 'copter-hexa.parm'],
+  octa: ['copter.parm', 'copter-octa.parm'],
+  tri: ['copter.parm', 'copter-tri.parm'],
+  deca: ['copter.parm', 'copter-deca.parm'],
+}
+
+/**
+ * The default parameter files for a frame, if the build ships them in a `default_params` directory next to
+ * the executable (.github/sitl-build.sh does). Newer SITL builds carry their defaults inside; older ones,
+ * such as Copter 4.7, start with none (so, for one, no battery monitor, and then no BATT_* parameters).
+ *
+ * @param binary the SITL executable
+ * @param frame SITL's `--model`
+ * @returns absolute paths, or none if the build doesn't ship them
+ */
+export function shippedDefaults(binary: string, frame: string): string[] {
+  const files = (copterDefaults[frame] ?? []).map(file => join(dirname(binary), 'default_params', file))
+
+  return files.length > 0 && files.every(file => existsSync(file)) ? files : []
+}
+
 /** The command line for SITL. */
-export function sitlArguments(options: { instance: number; frame: string; speedup: number }): string[] {
-  return ['-w', '--model', options.frame, '--speedup', String(options.speedup), '-I', String(options.instance), '--sim-address=127.0.0.1']
+export function sitlArguments(options: { instance: number; frame: string; speedup: number; defaults?: readonly string[] }): string[] {
+  const defaults = options.defaults?.length ? ['--defaults', options.defaults.join(',')] : []
+
+  return ['-w', '--model', options.frame, '--speedup', String(options.speedup), '-I', String(options.instance), '--sim-address=127.0.0.1', ...defaults]
 }
 
 /** How a test that needs SITL behaves when it isn't there: it fails in CI and is skipped elsewhere. */
@@ -348,7 +375,8 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
   let child: ChildProcess & { stdout: NonNullable<ChildProcess['stdout']>; stderr: NonNullable<ChildProcess['stderr']> }
   try {
     directory = await mkdtemp(join(tmpdir(), 'sitl-'))
-    child = spawn(found.path, sitlArguments({ instance, frame, speedup }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
+    const defaults = shippedDefaults(found.path, frame)
+    child = spawn(found.path, sitlArguments({ instance, frame, speedup, defaults }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (error) {
     claim.release()
     throw error
