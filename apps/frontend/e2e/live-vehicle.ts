@@ -38,7 +38,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click('#confirm button[value=yes]')
     // The table first: the detail panel can still show an earlier write's identical message.
     await app.waitForText(`${row} td.num`, new RegExp(`^${to}$`, 'u'), vehicle.downloadTimeoutMs)
-    expect(await app.text('#detail')).toContain(`Written and read back: ${to}.`)
+    await app.waitForText('#detail', `Written and read back: ${to}.`, vehicle.downloadTimeoutMs)
   }
 
   function currentValue(): Promise<number> {
