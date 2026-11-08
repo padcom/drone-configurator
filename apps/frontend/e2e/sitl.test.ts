@@ -1,11 +1,12 @@
 // The harness's logic, with no SITL: the wire format, the choices, and how it fails.
-import { chmod, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { access, chmod, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { delimiter, join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asHeartbeat, asParamValue, crc16, encodeFrame, encodeParamSet } from './mavlink-wire'
-import { findSitlBinary, freeInstance, instancePorts, missingSitlPolicy, sitlArguments, sitlSupply, startSitl } from './sitl'
+import { claimInstance, cleanupAllSync, findSitlBinary, instancePorts, missingSitlPolicy, signalHandlers, sitlArguments, sitlSupply, startSitl } from './sitl'
 
 describe('the MAVLink wire format', () => {
   it('computes the X.25 CRC', () => {
@@ -79,19 +80,67 @@ describe('SITL ports and arguments', () => {
     expect(sitlArguments({ instance: 3, frame: 'hexa', speedup: 4 })).toEqual(['-w', '--model', 'hexa', '--speedup', '4', '-I', '3', '--sim-address=127.0.0.1'])
   })
 
+})
+
+describe('claiming an instance', () => {
+  const lockDirectories: string[] = []
+
+  beforeEach(async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
+    lockDirectories.push(directory)
+    vi.stubEnv('SITL_LOCK_DIR', directory)
+  })
+
+  afterEach(async () => {
+    vi.unstubAllEnvs()
+    await Promise.all(lockDirectories.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
+  })
+
   it('skips an instance whose port is taken', async () => {
     const server = createServer()
     await new Promise<void>(resolve => server.listen(5760, '127.0.0.1', resolve))
     try {
-      expect(await freeInstance()).toBeGreaterThan(0)
+      const claim = await claimInstance()
+      expect(claim.instance).toBeGreaterThan(0)
+      claim.release()
     } finally {
       server.close()
     }
   })
 
-  it('does not hand out an instance a caller has claimed', async () => {
-    const first = await freeInstance()
-    expect(await freeInstance(new Set([first]))).not.toBe(first)
+  it('does not hand out an instance that is claimed, and hands it out again once released', async () => {
+    const first = await claimInstance()
+    const second = await claimInstance()
+    expect(second.instance).not.toBe(first.instance)
+    first.release()
+    first.release()
+    const third = await claimInstance()
+    expect(third.instance).toBe(first.instance)
+    second.release()
+    third.release()
+  })
+
+  it('does not hand out an instance that another process holds', async () => {
+    // A live process other than this one: our parent. It stands for a parallel worker.
+    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', 'instance-0'), String(process.ppid))
+    const claim = await claimInstance()
+    expect(claim.instance).toBeGreaterThan(0)
+    claim.release()
+  })
+
+  it('takes over an instance whose owner died without releasing it', async () => {
+    const dead = spawn(process.execPath, ['-e', ''])
+    await new Promise(resolve => dead.once('exit', resolve))
+    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', 'instance-0'), String(dead.pid))
+    const claim = await claimInstance()
+    expect(claim.instance).toBe(0)
+    claim.release()
+  })
+
+  it('gives two callers at once two different instances', async () => {
+    const claims = await Promise.all([claimInstance(), claimInstance(), claimInstance()])
+    expect(new Set(claims.map(claim => claim.instance)).size).toBe(3)
+    claims.forEach(claim => claim.release())
   })
 })
 
@@ -122,15 +171,94 @@ describe('whether SITL is there', () => {
     const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
     try {
       await writeFile(join(directory, 'arducopter'), '')
-      expect(findSitlBinary('copter', { PATH: `/does/not/exist:${directory}` })).toEqual({ path: join(directory, 'arducopter') })
+      expect(findSitlBinary('copter', { PATH: `/does/not/exist${delimiter}${directory}` })).toEqual({ path: join(directory, 'arducopter') })
     } finally {
       await rm(directory, { recursive: true })
     }
   })
 })
 
-describe('a SITL that does not start', () => {
+// These run stand-in executables (a script with a #! line), which Windows can't. Windows is not a gate for #9.
+describe.skipIf(process.platform === 'win32')('a SITL that is cut short', () => {
   const directories: string[] = []
+
+  beforeEach(async () => {
+    const lockDirectory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
+    const fakeDirectory = await mkdtemp(join(tmpdir(), 'sitl-fake-'))
+    directories.push(lockDirectory, fakeDirectory)
+    vi.stubEnv('SITL_LOCK_DIR', lockDirectory)
+    // A stand-in that listens on SERIAL0 of its instance and sends heartbeats, as the real one does.
+    const heartbeat = encodeFrame(MSG_HEARTBEAT, Uint8Array.of(0, 0, 0, 0, 2, 3, 81, 4, 3), { systemId: 1, componentId: 1 })
+    vi.stubEnv('FAKE_HEARTBEAT_HEX', Buffer.from(heartbeat).toString('hex'))
+    const binary = join(fakeDirectory, 'arducopter')
+    await writeFile(
+      binary,
+      `#!${process.execPath}
+const args = process.argv.slice(2)
+const instance = Number(args[args.indexOf('-I') + 1])
+const heartbeat = Buffer.from(process.env.FAKE_HEARTBEAT_HEX, 'hex')
+require('node:net').createServer(socket => { socket.on('error', () => {}); setInterval(() => socket.write(heartbeat), 100) }).listen(5760 + 10 * instance, '127.0.0.1')
+`,
+    )
+    await chmod(binary, 0o755)
+    vi.stubEnv('SITL_BINARY', binary)
+  })
+
+  afterEach(async () => {
+    cleanupAllSync()
+    vi.unstubAllEnvs()
+    await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
+  })
+
+  const alive = (pid: number) => {
+    try {
+      process.kill(pid, 0)
+
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  it('is killed, its directory removed and its instance given back when the process is going down', async () => {
+    const sitl = await startSitl({ startTimeoutMs: 10_000 })
+    expect(alive(sitl.pid)).toBe(true)
+    await expect(access(sitl.directory)).resolves.toBeUndefined()
+    const locks = join(process.env.SITL_LOCK_DIR ?? '', `instance-0`)
+    await expect(access(locks)).resolves.toBeUndefined()
+
+    cleanupAllSync()
+
+    await vi.waitFor(() => expect(alive(sitl.pid)).toBe(false))
+    await expect(access(sitl.directory)).rejects.toThrow()
+    await expect(access(locks)).rejects.toThrow()
+  })
+
+  it('has handlers for the signals that end a run, which clean up before the signal takes effect', () => {
+    expect([...signalHandlers.keys()].sort()).toEqual(['SIGHUP', 'SIGINT', 'SIGTERM'])
+    for (const [signal, handler] of signalHandlers) {
+      expect(handler).toBeTypeOf('function')
+      expect(process.listeners(signal)).toContain(handler)
+    }
+  })
+
+  it('starts two in a row on different instances and stops them cleanly', async () => {
+    const first = await startSitl({ startTimeoutMs: 10_000 })
+    const second = await startSitl({ startTimeoutMs: 10_000 })
+    expect(second.endpoint.port).not.toBe(first.endpoint.port)
+    await Promise.all([first.stop(), second.stop()])
+    expect(alive(first.pid) || alive(second.pid)).toBe(false)
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('a SITL that does not start', () => {
+  const directories: string[] = []
+
+  beforeEach(async () => {
+    const lockDirectory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
+    directories.push(lockDirectory)
+    vi.stubEnv('SITL_LOCK_DIR', lockDirectory)
+  })
 
   afterEach(async () => {
     vi.unstubAllEnvs()
@@ -146,7 +274,7 @@ describe('a SITL that does not start', () => {
     vi.stubEnv('SITL_BINARY', binary)
   }
 
-  const sitlDirectories = async () => (await readdir(tmpdir())).filter(name => name.startsWith('sitl-') && !name.startsWith('sitl-fake-') && !name.startsWith('sitl-path-'))
+  const sitlDirectories = async () => (await readdir(tmpdir())).filter(name => name.startsWith('sitl-') && !/^sitl-(fake|path|lock)/u.test(name))
 
   it('says why, with its output, and leaves no directory behind', async () => {
     await fakeSitl('echo "no such model" >&2; exit 3')

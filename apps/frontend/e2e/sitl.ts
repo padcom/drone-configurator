@@ -4,8 +4,8 @@
 // SITL_BINARY      the SITL executable (default: `arducopter` on the PATH)
 // SITL_ENDPOINT    an already-running simulator to use instead (see endpoint.ts); nothing is launched
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { existsSync, rmSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, createConnection, type Socket } from 'node:net'
 import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
@@ -117,32 +117,115 @@ function udpFree(port: number): Promise<boolean> {
   })
 }
 
+/** Where instance claims are recorded, so that parallel workers (separate processes) don't pick the same one. */
+function lockDirectory(): string {
+  return process.env.SITL_LOCK_DIR || join(tmpdir(), 'sitl-locks')
+}
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch (error) {
+    // EPERM: it exists, and is somebody else's.
+    return (error as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
+
+/** Takes the lock file of an instance, or says it can't. A lock whose owner has died is taken over. */
+async function takeLock(file: string): Promise<boolean> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await writeFile(file, String(process.pid), { flag: 'wx' })
+
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error
+      }
+      const owner = Number(await readFile(file, 'utf8').catch(() => ''))
+      if (owner > 0 && processAlive(owner)) {
+        return false
+      }
+      // Its owner died without releasing it (a killed run).
+      await rm(file, { force: true })
+    }
+  }
+
+  return false
+}
+
+/** A SITL instance number that this caller, in any process, has to itself. */
+export interface Claim {
+  readonly instance: number
+  /** Gives the instance back. Safe to call again. */
+  release(): void
+}
+
 /**
- * @param taken instances other callers in this process are about to use
- * @returns the lowest SITL instance number whose ports are all free
+ * Claims the lowest SITL instance that no other worker holds and whose ports are all free. Holding it is
+ * recorded in a lock file in the temp directory (SITL_LOCK_DIR), so it holds across processes; the port
+ * probe also catches a simulator that something else started.
+ *
+ * @returns the claim. Release it when the simulator is gone.
  * @throws Error if there is none
  */
-export async function freeInstance(taken: ReadonlySet<number> = new Set()): Promise<number> {
+export async function claimInstance(): Promise<Claim> {
+  await mkdir(lockDirectory(), { recursive: true })
   for (let instance = 0; instance < 100; instance += 1) {
-    if (taken.has(instance)) {
+    const file = join(lockDirectory(), `instance-${instance}`)
+    if (!(await takeLock(file))) {
       continue
     }
+    const release = () => rmSync(file, { force: true })
     const { tcp, udp } = instancePorts(instance)
     const free = await Promise.all([...tcp.map(tcpFree), ...udp.map(udpFree)])
     if (free.every(Boolean)) {
-      return instance
+      return { instance, release }
     }
+    release()
   }
-  throw new Error('no free SITL instance: ports 5760-6759 and 5501-6500 are all in use')
+  throw new Error('no free SITL instance: ports 5760-6759 and 5501-6500 are all in use or claimed')
 }
 
-const claimed = new Set<number>()
-const running = new Set<ChildProcess>()
-process.once('exit', () => {
-  for (const child of running) {
+interface Live {
+  directory: string
+  claim: Claim
+}
+
+/** Every simulator this process started and hasn't stopped. */
+const live = new Map<ChildProcess, Live>()
+
+/**
+ * Kills every simulator this process started, removes their directories and gives their instances back.
+ * Synchronous, so it can run when the process is going down. The exit and signal handlers call it.
+ */
+export function cleanupAllSync(): void {
+  for (const [child, { directory, claim }] of live) {
     child.kill('SIGKILL')
+    rmSync(directory, { recursive: true, force: true })
+    claim.release()
   }
-})
+  live.clear()
+}
+
+/** SIGINT, SIGTERM and SIGHUP clean up, then let the signal do what it would have done. */
+export const signalHandlers: ReadonlyMap<NodeJS.Signals, () => void> = new Map(
+  (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map(signal => {
+    const handler = () => {
+      cleanupAllSync()
+      process.removeListener(signal, handler)
+      process.kill(process.pid, signal)
+    }
+
+    return [signal, handler]
+  }),
+)
+process.once('exit', cleanupAllSync)
+for (const [signal, handler] of signalHandlers) {
+  process.once(signal, handler)
+}
 
 function connect(port: number, timeoutMs: number, alive: () => boolean): Promise<Socket> {
   const deadline = Date.now() + timeoutMs
@@ -212,11 +295,18 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
     throw new Error(`SITL: ${found.missing}`)
   }
 
-  const instance = await freeInstance(claimed)
-  claimed.add(instance)
-  const directory = await mkdtemp(join(tmpdir(), 'sitl-'))
-  const child = spawn(found.path, sitlArguments({ instance, frame, speedup }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
-  running.add(child)
+  const claim = await claimInstance()
+  const { instance } = claim
+  let directory: string
+  let child: ChildProcess & { stdout: NonNullable<ChildProcess['stdout']>; stderr: NonNullable<ChildProcess['stderr']> }
+  try {
+    directory = await mkdtemp(join(tmpdir(), 'sitl-'))
+    child = spawn(found.path, sitlArguments({ instance, frame, speedup }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
+  } catch (error) {
+    claim.release()
+    throw error
+  }
+  live.set(child, { directory, claim })
   let output = ''
   const remember = (data: Buffer) => {
     output = (output + data.toString()).slice(-4000)
@@ -233,9 +323,9 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
     stopped ??= (async () => {
       child.kill('SIGKILL')
       await exited(child).catch(() => {})
-      running.delete(child)
-      claimed.delete(instance)
+      live.delete(child)
       await rm(directory, { recursive: true, force: true })
+      claim.release()
     })()
 
     return stopped
