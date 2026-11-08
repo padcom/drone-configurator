@@ -171,7 +171,9 @@ jobs:
           key: ${{ steps.sitl.outputs.cache-primary-key }}
       - name: SITL is there
         if: ${{ matrix.backend }}
-        run: test -x "$RUNNER_TEMP/sitl/arducopter" && echo "SITL ${{ steps.ardupilot.outputs.ref }} (cache hit: ${{ steps.sitl.outputs.cache-hit == 'true' }})"
+        run: |
+          test -x "$RUNNER_TEMP/sitl/arducopter"
+          echo "SITL ${{ steps.ardupilot.outputs.ref }}, cache hit: ${{ steps.sitl.outputs.cache-hit == 'true' }}"
       - name: End-to-end tests in the real window
         if: ${{ matrix.backend }}
         working-directory: drone-configurator
