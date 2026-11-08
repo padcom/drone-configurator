@@ -10,7 +10,7 @@ import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, createConnection, type Socket } from 'node:net'
 import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
-import { delimiter, dirname, join } from 'node:path'
+import { delimiter, dirname, join, resolve as absolute } from 'node:path'
 import { type Endpoint, parseEndpoint } from './endpoint'
 import { MAV_AUTOPILOT_ARDUPILOTMEGA, FrameReader, asHeartbeat, asParamValue, encodeParamSet } from './mavlink-wire'
 
@@ -71,14 +71,24 @@ const copterDefaults: Record<string, string[]> = {
  * the executable (.github/sitl-build.sh does). Newer SITL builds carry their defaults inside; older ones,
  * such as Copter 4.7, start with none (so, for one, no battery monitor, and then no BATT_* parameters).
  *
+ * A tree built by hand has them in its source instead: `Tools/autotest/default_params`, three directories
+ * above `build/sitl/bin/<executable>`. That is looked at second.
+ *
  * @param binary the SITL executable
  * @param frame SITL's `--model`
- * @returns absolute paths, or none if the build doesn't ship them
+ * @returns absolute paths (SITL runs in another directory), or none if the build doesn't ship them
  */
 export function shippedDefaults(binary: string, frame: string): string[] {
-  const files = (copterDefaults[frame] ?? []).map(file => join(dirname(binary), 'default_params', file))
+  const beside = dirname(absolute(binary))
+  const wanted = copterDefaults[frame] ?? []
+  for (const directory of [join(beside, 'default_params'), absolute(beside, '..', '..', '..', 'Tools', 'autotest', 'default_params')]) {
+    const files = wanted.map(file => join(directory, file))
+    if (files.length > 0 && files.every(file => existsSync(file))) {
+      return files
+    }
+  }
 
-  return files.length > 0 && files.every(file => existsSync(file)) ? files : []
+  return []
 }
 
 /** The command line for SITL. */
@@ -98,18 +108,18 @@ export function missingSitlPolicy(env: NodeJS.ProcessEnv): 'fail' | 'skip' {
  *
  * @param vehicle the vehicle type
  * @param env the environment to read SITL_BINARY and PATH from
- * @returns its path, or why it isn't there
+ * @returns its absolute path (it is started from another directory, where a relative one would not resolve), or why it isn't there
  */
 export function findSitlBinary(vehicle: VehicleName, env: NodeJS.ProcessEnv = process.env): { path: string } | { missing: string } {
   const configured = env.SITL_BINARY
   if (configured) {
-    return existsSync(configured) ? { path: configured } : { missing: `SITL_BINARY is ${configured}, which does not exist` }
+    return existsSync(configured) ? { path: absolute(configured) } : { missing: `SITL_BINARY is ${configured}, which does not exist` }
   }
   const name = vehicles[vehicle].binary
   for (const directory of (env.PATH ?? '').split(delimiter)) {
     const candidate = join(directory, name)
     if (directory && existsSync(candidate)) {
-      return { path: candidate }
+      return { path: absolute(candidate) }
     }
   }
 

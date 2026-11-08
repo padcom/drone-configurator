@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { access, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, isAbsolute, join, relative as relativePath } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asHeartbeat, asParamValue, crc16, encodeFrame, encodeParamSet } from './mavlink-wire'
 import { claimInstance, cleanupAllSync, findSitlBinary, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply, startSitl } from './sitl'
@@ -86,6 +86,20 @@ describe('SITL ports and arguments', () => {
       '-w', '--model', 'x', '--speedup', '1', '-I', '0', '--sim-address=127.0.0.1', '--defaults', '/d/copter.parm,/d/copter-X.parm',
     ])
     expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1, defaults: [] })).not.toContain('--defaults')
+  })
+
+  it.skipIf(process.platform === 'win32')('finds the default parameter files in the source tree of a build made by hand, with absolute paths', async () => {
+    const tree = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      await mkdir(join(tree, 'build', 'sitl', 'bin'), { recursive: true })
+      await mkdir(join(tree, 'Tools', 'autotest', 'default_params'), { recursive: true })
+      await writeFile(join(tree, 'Tools', 'autotest', 'default_params', 'copter.parm'), '')
+      const binary = join(tree, 'build', 'sitl', 'bin', 'arducopter')
+      const relative = relativePath(process.cwd(), binary)
+      expect(shippedDefaults(relative, 'quad')).toEqual([join(tree, 'Tools', 'autotest', 'default_params', 'copter.parm')])
+    } finally {
+      await rm(tree, { recursive: true })
+    }
   })
 
   it('finds the default parameter files a build ships next to its executable', async () => {
@@ -241,6 +255,20 @@ describe('whether SITL is there', () => {
     expect(missing.kind === 'missing' && missing.reason).toContain('no arducopter on the PATH')
   })
 
+  // On Windows the temp directory can be on another drive than the repo, where no relative path exists.
+  it.skipIf(process.platform === 'win32')('makes a relative SITL_BINARY absolute', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      const binary = join(directory, 'arducopter')
+      await writeFile(binary, '')
+      const relative = relativePath(process.cwd(), binary)
+      expect(isAbsolute(relative)).toBe(false)
+      expect(findSitlBinary('copter', { SITL_BINARY: relative })).toEqual({ path: binary })
+    } finally {
+      await rm(directory, { recursive: true })
+    }
+  })
+
   it('finds it on the PATH', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
     try {
@@ -314,6 +342,15 @@ require('node:net').createServer(socket => { socket.on('error', () => {}); setIn
       expect(handler).toBeTypeOf('function')
       expect(process.listeners(signal)).toContain(handler)
     }
+  })
+
+  it('starts from a relative SITL_BINARY, though SITL runs in another directory', async () => {
+    const relative = relativePath(process.cwd(), process.env.SITL_BINARY ?? '')
+    expect(isAbsolute(relative)).toBe(false)
+    vi.stubEnv('SITL_BINARY', relative)
+    const sitl = await startSitl({ startTimeoutMs: 10_000 })
+    expect(alive(sitl.pid)).toBe(true)
+    await sitl.stop()
   })
 
   it('starts two in a row on different instances and stops them cleanly', async () => {

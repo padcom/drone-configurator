@@ -71,7 +71,7 @@ They detect the vehicle, download the whole parameter list, follow the telemetry
 
 `apps/frontend/e2e/sitl.ts` starts a SITL for a test: `startSitl({ vehicle: 'copter', frame: 'quad', speedup: 5, simParams: { SIM_WIND_SPD: 8 } })`, or `withSitl(options, async sitl => { ... })`, which always stops it.
 
-- It finds the executable from `SITL_BINARY`, or `arducopter` on the `PATH`. Build it with `./waf configure --board sitl && ./waf copter`, using the Python that has `empy==3.3.4`.
+- It finds the executable from `SITL_BINARY`, or `arducopter` on the `PATH`. Build it with `./waf configure --board sitl && ./waf copter`, using the Python that has `empy==3.3.4`. A relative `SITL_BINARY` is fine. Older builds (Copter 4.7) don't carry their default parameters, so the harness passes `default_params/*.parm` with `--defaults`, taken from next to the executable (what CI ships) or from the source tree's `Tools/autotest/default_params` for a build in `build/sitl/bin`.
 - Each SITL gets free ports (an ArduPilot instance: TCP 5760 + 10n, and so on), a working directory of its own and a fresh EEPROM, so tests can run side by side. `sitl.endpoint` is where the dashboard connects.
 - It waits for a heartbeat. If SITL doesn't come up, the error says why: SITL's exit code and the end of its output. Nothing is left running, and its directory is removed.
 - `sitl.setParam('SIM_WIND_SPD', 8)` sets a parameter, usually a `SIM_*` one (wind, a failed sensor), and waits for the vehicle to report it. It uses SERIAL1 (TCP 5762), so SERIAL0 stays free for the app under test.
