@@ -9,7 +9,7 @@
     "test": "pico-desktop test",
     "generate": "pico-desktop generate",
     "e2e": "pico-desktop test --e2e",
-    "lint": "pico lint apps/backend && pnpm --filter ./apps/frontend exec tsc --noEmit -p ."
+    "lint": "pico lint apps/backend && pnpm --filter ./apps/frontend exec tsc --noEmit -p . && pnpm --filter ./apps/frontend exec tsc --noEmit -p e2e"
   },
   "dependencies": {
     "@pico-desktop/communicator-pico": "link:../pico-desktop/packages/communicator-pico"
