@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { clickConnect } from './click'
 import type { Endpoint } from './endpoint'
 
 /** A saved snapshot, as far as these checks read it. */
@@ -94,7 +95,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   })
 
   it('detects the vehicle over the link', async () => {
-    await app.click('#connect-button')
+    await clickConnect(app)
     expect(await app.waitForText('#connection', 'connected · system', vehicle.downloadTimeoutMs))
       .toMatch(/connected · system 1\/1 · QUADROTOR · ARDUPILOTMEGA/u)
   })
@@ -151,7 +152,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   it('disconnects and reconnects', async () => {
     await app.click('#disconnect-button')
     await app.waitForText('#connection', /^disconnected/u)
-    await app.click('#connect-button')
+    await clickConnect(app)
     await app.waitForText('#connection', 'connected · system', vehicle.downloadTimeoutMs)
     await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
   })

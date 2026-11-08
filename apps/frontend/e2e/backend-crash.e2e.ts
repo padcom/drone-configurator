@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { clickConnect } from './click'
 import { TcpVehicle } from './tcp-vehicle'
 
 const backend = fileURLToPath(new URL('../../../.pico-desktop/e2e/backend', import.meta.url))
@@ -17,7 +18,7 @@ describe('a backend crash during a parameter write', () => {
   let app: E2eApp
 
   async function connected() {
-    await app.click('#connect-button')
+    await clickConnect(app)
     await app.waitForText('#connection', 'connected · system')
     await app.waitForText('#list-status', /^\d+ parameters$/u)
   }
