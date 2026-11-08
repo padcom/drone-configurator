@@ -64,6 +64,8 @@ SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e   # or udp:127.0.0.1:14550
 
 They detect the vehicle, download the whole parameter list, follow the telemetry, write `BATT_CAPACITY` with a verified read-back and put it back, reconnect, and close the app while connected. Without `SITL_ENDPOINT` this suite is skipped, and the same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
 
+**Only point `SITL_ENDPOINT` at a simulator.** The suite writes to whatever it connects to. It tries to put the value back even when a check fails, but it can't if the link is lost.
+
 ## Layout
 
 - `packages/contracts/app.cddl`: the contract (methods, subscriptions, types) between the dashboard and the backend.

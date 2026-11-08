@@ -1,12 +1,11 @@
 // Over a real TCP socket, with no SITL: the simulated vehicle behind a port
 // (apps/backend/e2e/tcp-vehicle.pi).
 import { type ChildProcessByStdio, execFile, spawn } from 'node:child_process'
-import { once } from 'node:events'
-import { createInterface } from 'node:readline'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe } from 'vitest'
+import { announcedPort } from './announced-port'
 import { liveVehicleTests } from './live-vehicle'
 
 const source = fileURLToPath(new URL('../../backend/e2e/tcp-vehicle.pi', import.meta.url))
@@ -19,8 +18,7 @@ describe('the configurator over TCP', () => {
   beforeAll(async () => {
     await promisify(execFile)('pico', ['build', source, '-o', binary])
     vehicle = spawn(binary, [], { stdio: ['ignore', 'pipe', 'inherit'] })
-    const [line] = await once(createInterface({ input: vehicle.stdout }), 'line') as [string]
-    port = Number(/^listening (?<port>\d+)$/u.exec(line)?.groups?.port)
+    port = await announcedPort(vehicle)
   })
 
   afterAll(() => {

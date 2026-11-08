@@ -28,7 +28,27 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.waitForText('#question', `Set ${vehicle.param} from ${from} to ${to}?`)
     await app.click('#confirm button[value=yes]')
     await app.waitForText('#detail', `Written and read back: ${to}.`, vehicle.downloadTimeoutMs)
-    expect(Number(await app.text(`${row} td.num`))).toBe(to)
+    expect(await currentValue()).toBe(to)
+  }
+
+  function currentValue(): Promise<number> {
+    return app.text(`${row} td.num`).then(Number)
+  }
+
+  /**
+   * Leaves the vehicle with `original`, however the check ended. A failed write can leave the
+   * table out of step with the vehicle, so this asks the vehicle first.
+   */
+  async function putBack(original: number): Promise<void> {
+    if (await app.evaluate<boolean>(`document.querySelector('#confirm').open`)) {
+      await app.click('#confirm button[value=no]')
+    }
+    await app.click('#refresh')
+    await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
+    const current = await currentValue()
+    if (current !== original) {
+      await write(current, original)
+    }
   }
 
   beforeAll(async () => {
@@ -63,12 +83,11 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.waitFor(`document.querySelector('#telemetry').textContent !== ${JSON.stringify(before)}`)
   })
 
-  it('writes a parameter with a verified read-back, and puts it back', async () => {
-    const original = Number(await app.text(`${row} td.num`))
+  it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {
+    const original = await currentValue()
     expect(Number.isInteger(original)).toBe(true)
-    const changed = original + vehicle.paramStep
-    await write(original, changed)
-    await write(changed, original)
+    onTestFinished(() => putBack(original))
+    await write(original, original + vehicle.paramStep)
   })
 
   it('disconnects and reconnects', async () => {
