@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ${{ matrix.target }} (${{ matrix.backend && 'full' || 'frontend only' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64, runner: ubuntu-24.04, backend: true }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true }
+          # The backend doesn't link on these yet: padcom/serialport is Linux only, and
+          # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
+          - { target: macos-arm64, runner: macos-15, backend: false }
+          - { target: windows-x64, runner: windows-2025, backend: false }
+          - { target: windows-arm64, runner: windows-11-arm, backend: false }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        # Explicitly bash, which GitHub runs with -eo pipefail: a failing test isn't hidden by tee.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: drone-configurator
+      # The siblings, next to this repo, so the link: and workspace paths resolve unchanged. Each
+      # is its default branch: none has a published package to pin, and this app is developed
+      # against them as they are. All are public, so no token is needed. "Sibling revisions" logs
+      # what a run used.
+      - uses: actions/checkout@v4
+        with:
+          repository: padcom/pico-desktop
+          path: pico-desktop
+      - uses: actions/checkout@v4
+        with:
+          repository: padcom/pico-mavlink
+          path: pico-mavlink
+      - uses: actions/checkout@v4
+        with:
+          repository: padcom/pico-serialport
+          path: pico-serialport
+      - name: Sibling revisions
+        run: for r in pico-desktop pico-mavlink pico-serialport; do echo "$r $(git -C "$r" rev-parse HEAD)"; done
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pico-desktop/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: pico-desktop/.nvmrc
+          cache: pnpm
+          cache-dependency-path: |
+            pico-desktop/pnpm-lock.yaml
+            drone-configurator/pnpm-lock.yaml
+
+      - name: Install the framework and build its packages
+        working-directory: pico-desktop
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter pico-desktop... build
+          pnpm --filter './packages/*' build
+      - name: Install the app and generate its contract
+        working-directory: drone-configurator
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm generate
+
+      - name: Not run here
+        if: ${{ !matrix.backend }}
+        run: echo "::warning::${{ matrix.target }} runs the frontend's type check and unit tests only. The backend's lint and tests and the E2E suite are not run, because the backend doesn't link on this platform yet."
+      - name: Frontend type check
+        if: ${{ !matrix.backend }}
+        working-directory: drone-configurator/apps/frontend
+        run: |
+          pnpm exec tsc --noEmit -p .
+          pnpm exec tsc --noEmit -p e2e
+      - name: Frontend unit tests
+        if: ${{ !matrix.backend }}
+        working-directory: drone-configurator/apps/frontend
+        run: |
+          pnpm test | tee "$RUNNER_TEMP/unit.log"
+          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
+
+      - name: Install the pinned Pico
+        if: ${{ matrix.backend }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Fails the job if the pin or its release is missing: nothing below is optional.
+        run: |
+          v=$(jq -er .pico.minimum pico-desktop/toolchain.json)
+          gh release download "v$v" -R padcom/pico-lang -p "pico-$v-${{ matrix.target }}.tar.gz" -D "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/pico"
+          tar -xzf "$RUNNER_TEMP/pico-$v-${{ matrix.target }}.tar.gz" -C "$RUNNER_TEMP/pico"
+          dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico -perm -u+x | head -1)" >> "$GITHUB_PATH"
+      - name: Lint
+        if: ${{ matrix.backend }}
+        working-directory: drone-configurator
+        run: pico --version && pnpm lint
+      - name: Unit and backend tests
+        if: ${{ matrix.backend }}
+        working-directory: drone-configurator
+        run: |
+          pnpm test | tee "$RUNNER_TEMP/unit.log"
+          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
+          grep -Eq 'tests: [1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
+
+      # The same steps as pico-desktop's own CI, for the host E2E runs in.
+      - name: Cache the pinned CEF
+        if: ${{ matrix.backend }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pico-desktop/cef
+          key: cef-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json') }}
+      - name: Cache the host build
+        if: ${{ matrix.backend }}
+        id: host
+        uses: actions/cache@v4
+        with:
+          path: pico-desktop/build/cef
+          key: cef-host-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json', 'pico-desktop/CMakeLists.txt', 'pico-desktop/CMakePresets.json', 'pico-desktop/runtime/**') }}
+      - name: Runtime libraries and Xvfb
+        if: ${{ matrix.backend }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libx11-dev libnss3 libatk1.0-0t64 \
+            libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libgtk-3-0t64
+      - name: Allow unprivileged user namespaces (the sandbox needs them; it's never disabled)
+        if: ${{ matrix.backend }}
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Build the host
+        if: ${{ matrix.backend && steps.host.outputs.cache-hit != 'true' }}
+        working-directory: pico-desktop
+        run: pnpm cef:configure && pnpm cef:build
+      - name: End-to-end tests in the real window
+        if: ${{ matrix.backend }}
+        working-directory: drone-configurator
+        env:
+          PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
+        run: |
+          xvfb-run -a pnpm e2e | tee "$RUNNER_TEMP/e2e.log"
+          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/e2e.log"
