@@ -1,0 +1,58 @@
+// The simulated vehicle behind a real TCP port, for the end-to-end suite (apps/frontend/e2e): the
+// same MAVLink over the same socket path as ArduPilot SITL's port 5760, without SITL. It prints
+// `listening <port>`, then serves one vehicle per connection until it's killed.
+import { Conn, listen } from "std/net"
+import { stdout } from "std/process"
+import { ByteStream, SimulatedAutopilot, TcpStream } from "padcom/pico-mavlink"
+
+/// A stream that says when its far end has gone.
+class EndWatchingStream implements ByteStream {
+  readonly inner: ByteStream
+  readonly onEnd: () => void
+
+  constructor(inner: ByteStream, onEnd: () => void) {
+    this.inner = inner
+    this.onEnd = onEnd
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    let chunk: Uint8Array? = null
+    try {
+      chunk = await inner.read()
+    } catch (e: Error) {
+      ended()
+      throw e
+    }
+    if (chunk == null) {
+      ended()
+    }
+    chunk
+  }
+
+  ended(): void {
+    const notify = onEnd
+    notify()
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    await inner.write(bytes)
+  }
+
+  public close(): void {
+    inner.close()
+  }
+}
+
+function serve(conn: Conn): void {
+  let sim: SimulatedAutopilot? = null
+  const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
+  sim = new SimulatedAutopilot(stream)
+  sim!.start(250)
+}
+
+const server = await listen()
+// Not println: it stays in a buffer when stdout is a pipe, and the test is waiting to read this.
+await stdout.writeText(`listening ${server.addr.port}\n`)
+for await (const conn of server) {
+  serve(conn)
+}
