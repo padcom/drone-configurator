@@ -13,7 +13,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 /** SIGKILL for this checkout's backend only: anchored, so the host (which names it in its arguments) lives. */
 const killBackend = () => execFileSync('pkill', ['-KILL', '-f', `^${backend}`])
 
-describe('a backend crash during a parameter write', () => {
+// Not on Windows: there's no pkill to kill the backend with.
+describe.skipIf(process.platform === 'win32')('a backend crash during a parameter write', () => {
   let vehicle: TcpVehicle
   let app: E2eApp
 

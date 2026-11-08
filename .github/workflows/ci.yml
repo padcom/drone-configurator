@@ -10,18 +10,16 @@ permissions:
 
 jobs:
   ci:
-    name: ${{ matrix.target }} (${{ matrix.backend && 'full' || 'frontend only' }})
+    name: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { target: linux-x64, runner: ubuntu-24.04, backend: true }
-          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true }
-          # The backend doesn't link on these yet: padcom/serialport is Linux only, and
-          # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
-          - { target: macos-arm64, runner: macos-15, backend: false }
-          - { target: windows-x64, runner: windows-2025, backend: false }
-          - { target: windows-arm64, runner: windows-11-arm, backend: false }
+          - { target: linux-x64, runner: ubuntu-24.04, linux: true }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, linux: true }
+          - { target: macos-arm64, runner: macos-15, linux: false }
+          - { target: windows-x64, runner: windows-2025, linux: false }
+          - { target: windows-arm64, runner: windows-11-arm, linux: false }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     defaults:
@@ -74,78 +72,80 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm generate
 
-      - name: Not run here
-        if: ${{ !matrix.backend }}
-        run: echo "::warning::${{ matrix.target }} runs the frontend's type check and unit tests only. The backend's lint and tests and the E2E suite are not run, because the backend doesn't link on this platform yet."
-      - name: Frontend type check
-        if: ${{ !matrix.backend }}
-        working-directory: drone-configurator/apps/frontend
-        run: |
-          pnpm exec tsc --noEmit -p .
-          pnpm exec tsc --noEmit -p e2e
-      - name: Frontend unit tests
-        if: ${{ !matrix.backend }}
-        working-directory: drone-configurator/apps/frontend
-        run: |
-          pnpm test | tee "$RUNNER_TEMP/unit.log"
-          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
-
       - name: Install the pinned Pico
-        if: ${{ matrix.backend }}
         env:
           GH_TOKEN: ${{ github.token }}
         # Fails the job if the pin or its release is missing: nothing below is optional.
         run: |
           v=$(jq -er .pico.minimum pico-desktop/toolchain.json)
-          gh release download "v$v" -R padcom/pico-lang -p "pico-$v-${{ matrix.target }}.tar.gz" -D "$RUNNER_TEMP"
+          case "${{ matrix.target }}" in windows-*) archive=zip ;; *) archive=tar.gz ;; esac
+          gh release download "v$v" -R padcom/pico-lang -p "pico-$v-${{ matrix.target }}.$archive" -D "$RUNNER_TEMP"
           mkdir -p "$RUNNER_TEMP/pico"
-          tar -xzf "$RUNNER_TEMP/pico-$v-${{ matrix.target }}.tar.gz" -C "$RUNNER_TEMP/pico"
-          dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico -perm -u+x | head -1)" >> "$GITHUB_PATH"
+          if [ "$archive" = zip ]; then
+            unzip -q "$RUNNER_TEMP/pico-$v-${{ matrix.target }}.zip" -d "$RUNNER_TEMP/pico"
+            cygpath -w "$(dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico.exe | head -1)")" >> "$GITHUB_PATH"
+          else
+            tar -xzf "$RUNNER_TEMP/pico-$v-${{ matrix.target }}.tar.gz" -C "$RUNNER_TEMP/pico"
+            dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico -perm -u+x | head -1)" >> "$GITHUB_PATH"
+          fi
       - name: Lint
-        if: ${{ matrix.backend }}
+        if: ${{ matrix.linux }}
         working-directory: drone-configurator
         run: pico --version && pnpm lint
       - name: Unit and backend tests
-        if: ${{ matrix.backend }}
+        if: ${{ matrix.linux }}
         working-directory: drone-configurator
         run: |
           pnpm test | tee "$RUNNER_TEMP/unit.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'tests: [1-9][0-9]* passed'
+      # app.serial.test.pi needs termios, a pseudo-terminal and padcom/serialport's Linux backend.
+      - name: Lint (without the Linux-only serial tests)
+        if: ${{ !matrix.linux }}
+        working-directory: drone-configurator
+        run: |
+          echo "::warning::apps/backend/app.serial.test.pi isn't linted or run on ${{ matrix.target }}: it needs termios, a pseudo-terminal and the Linux serial backend."
+          pico --version
+          (cd apps/backend && pico lint main.pi app.pi app.test.pi test-frontend.pi e2e)
+          (cd apps/frontend && pnpm exec tsc --noEmit -p . && pnpm exec tsc --noEmit -p e2e)
+      - name: Unit and backend tests (without the Linux-only serial tests)
+        if: ${{ !matrix.linux }}
+        working-directory: drone-configurator
+        run: |
+          (cd apps/frontend && pnpm test) | tee "$RUNNER_TEMP/unit.log"
+          (cd apps/backend && pico test app.test.pi) | tee -a "$RUNNER_TEMP/unit.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'tests: [1-9][0-9]* passed'
 
-      # The same steps as pico-desktop's own CI, for the host E2E runs in.
       - name: Cache the pinned CEF
-        if: ${{ matrix.backend }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/pico-desktop/cef
           key: cef-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json') }}
       - name: Cache the host build
-        if: ${{ matrix.backend }}
         id: host
         uses: actions/cache@v4
         with:
           path: pico-desktop/build/cef
           key: cef-host-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json', 'pico-desktop/CMakeLists.txt', 'pico-desktop/CMakePresets.json', 'pico-desktop/runtime/**') }}
       - name: Runtime libraries and Xvfb
-        if: ${{ matrix.backend }}
+        if: ${{ matrix.linux }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth libx11-dev libnss3 libatk1.0-0t64 \
             libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
             libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libgtk-3-0t64
       - name: Allow unprivileged user namespaces (the sandbox needs them; it's never disabled)
-        if: ${{ matrix.backend }}
+        if: ${{ matrix.linux }}
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Build the host
-        if: ${{ matrix.backend && steps.host.outputs.cache-hit != 'true' }}
+        if: ${{ steps.host.outputs.cache-hit != 'true' }}
         working-directory: pico-desktop
-        run: pnpm cef:configure && pnpm cef:build
-      - name: End-to-end tests in the real window
-        if: ${{ matrix.backend }}
-        working-directory: drone-configurator
-        env:
-          PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
         run: |
-          xvfb-run -a pnpm e2e | tee "$RUNNER_TEMP/e2e.log"
+          PD_CEF_ROOT=$(node scripts/fetch-cef.mjs) cmake --preset cef
+          cmake --build --preset cef
+      - name: End-to-end tests in the real window
+        working-directory: drone-configurator
+        run: |
+          ${{ matrix.linux && 'xvfb-run -a' || '' }} pnpm e2e | tee "$RUNNER_TEMP/e2e.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
