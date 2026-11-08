@@ -28,7 +28,7 @@ export interface LiveVehicle {
 export function liveVehicleTests(vehicle: LiveVehicle): void {
   let app: E2eApp
   let files = ''
-  const row =`tr[data-id="${vehicle.param}"]`
+  const row = `tr[data-id="${vehicle.param}"]`
 
   async function write(from: number, to: number): Promise<void> {
     await app.click(row)
