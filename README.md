@@ -56,15 +56,30 @@ Then, in the dashboard, choose UDP on port 14550, or TCP on port 5760, and conne
 
 The dashboard asks for SYS_STATUS and ATTITUDE (`MAV_CMD_SET_MESSAGE_INTERVAL`). It learns how parameters are encoded from `AUTOPILOT_VERSION`.
 
-To run the end-to-end checks against it, say where it is:
+To run the end-to-end checks, either let the harness start a simulator, or say where one is.
 
 ```sh
-SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e   # or udp:127.0.0.1:14550
+SITL_BINARY=ardupilot/build/sitl/bin/arducopter pnpm e2e   # the harness launches its own Copter SITL
+SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e                  # or udp:127.0.0.1:14550: one that is already running
 ```
 
-They detect the vehicle, download the whole parameter list, follow the telemetry, write `BATT_CAPACITY` with a verified read-back and put it back, save a snapshot, apply an edited one and keep a backup, reconnect, and close the app while connected. Without `SITL_ENDPOINT` this suite is skipped, and the same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
+They detect the vehicle, download the whole parameter list, follow the telemetry, write `BATT_CAPACITY` with a verified read-back and put it back, save a snapshot, apply an edited one and keep a backup, reconnect, and close the app while connected. The same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
 
 **Only point `SITL_ENDPOINT` at a simulator.** The suite writes to whatever it connects to. It tries to put the value back even when a check fails, but it can't if the link is lost.
+
+### The harness
+
+`apps/frontend/e2e/sitl.ts` starts a SITL for a test: `startSitl({ vehicle: 'copter', frame: 'quad', speedup: 5, simParams: { SIM_WIND_SPD: 8 } })`, or `withSitl(options, async sitl => { ... })`, which always stops it.
+
+- It finds the executable from `SITL_BINARY`, or `arducopter` on the `PATH`. Build it with `./waf configure --board sitl && ./waf copter`, using the Python that has `empy==3.3.4`. A relative `SITL_BINARY` is fine. Older builds (Copter 4.7) don't carry their default parameters, so the harness passes `default_params/*.parm` with `--defaults`, taken from next to the executable (what CI ships) or from the source tree's `Tools/autotest/default_params` for a build in `build/sitl/bin`.
+- Each SITL gets free ports (an ArduPilot instance: TCP 5760 + 10n, and so on), a working directory of its own and a fresh EEPROM, so tests can run side by side. `sitl.endpoint` is where the dashboard connects.
+- It waits for a heartbeat. If SITL doesn't come up, the error says why: SITL's exit code and the end of its output. Nothing is left running, and its directory is removed.
+- `sitl.setParam('SIM_WIND_SPD', 8)` sets a parameter, usually a `SIM_*` one (wind, a failed sensor), and waits for the vehicle to report it. It uses SERIAL1 (TCP 5762), so SERIAL0 stays free for the app under test.
+- `speedup` runs the simulation faster than real time.
+- With `SITL_ENDPOINT` set, the harness launches nothing and the suites use that simulator.
+- A test file that needs SITL uses `describeSitl` (`sitl-suite.ts`). If there is no SITL it fails when `CI` is set, and is skipped, with the reason, elsewhere. It is never silently skipped in CI.
+
+The harness only ever launches or connects to a simulator.
 
 ## Layout
 
