@@ -11,7 +11,8 @@ describe.skipIf(!endpoint)('the configurator against ArduPilot SITL', () => {
     endpoint: () => parseEndpoint(endpoint ?? ''),
     downloadTimeoutMs: 45_000,
     minParams: 300,
-    param: 'RTL_ALT',
+    // Not RTL_ALT: Copter 4.7.2 doesn't have it. Battery capacity is an integer, and harmless on the ground.
+    param: 'BATT_CAPACITY',
     paramStep: 100,
   })
 })

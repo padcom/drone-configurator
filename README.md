@@ -62,7 +62,7 @@ To run the end-to-end checks against it, say where it is:
 SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e   # or udp:127.0.0.1:14550
 ```
 
-They detect the vehicle, download the whole parameter list, follow the telemetry, write `RTL_ALT` with a verified read-back and put it back, reconnect, and close the app while connected. Without `SITL_ENDPOINT` this suite is skipped, and the same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
+They detect the vehicle, download the whole parameter list, follow the telemetry, write `BATT_CAPACITY` with a verified read-back and put it back, reconnect, and close the app while connected. Without `SITL_ENDPOINT` this suite is skipped, and the same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
 
 ## Layout
 
