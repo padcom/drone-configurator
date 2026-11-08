@@ -1,14 +1,25 @@
-// Against a running ArduPilot SITL Copter (see the README). Skipped unless SITL_ENDPOINT says where
-// it is, for example SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e
-import { describe } from 'vitest'
-import { parseEndpoint } from './endpoint'
+// Against ArduPilot SITL Copter (see the README). With SITL_ENDPOINT set it uses that running simulator;
+// otherwise it launches its own, on free ports, and stops it. Without SITL it fails in CI and is skipped elsewhere.
+import { afterAll, beforeAll } from 'vitest'
 import { liveVehicleTests } from './live-vehicle'
+import { type Sitl, startSitl } from './sitl'
+import { describeSitl } from './sitl-suite'
 
-const endpoint = process.env.SITL_ENDPOINT
+describeSitl('the configurator against ArduPilot SITL', supply => {
+  let launched: Sitl | undefined
 
-describe.skipIf(!endpoint)('the configurator against ArduPilot SITL', () => {
+  beforeAll(async () => {
+    if (supply.kind === 'launch') {
+      launched = await startSitl({ vehicle: 'copter' })
+    }
+  }, 90_000)
+
+  afterAll(async () => {
+    await launched?.stop()
+  })
+
   liveVehicleTests({
-    endpoint: () => parseEndpoint(endpoint ?? ''),
+    endpoint: () => (supply.kind === 'endpoint' ? supply.endpoint : (launched?.endpoint ?? { transport: 'tcp', host: '127.0.0.1', port: 0 })),
     downloadTimeoutMs: 45_000,
     minParams: 300,
     // Not RTL_ALT: Copter 4.7.2 doesn't have it. Battery capacity is an integer, and harmless on the ground.
