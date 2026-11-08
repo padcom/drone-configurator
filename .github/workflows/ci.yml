@@ -88,7 +88,7 @@ jobs:
         working-directory: drone-configurator/apps/frontend
         run: |
           pnpm test | tee "$RUNNER_TEMP/unit.log"
-          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
 
       - name: Install the pinned Pico
         if: ${{ matrix.backend }}
@@ -110,8 +110,8 @@ jobs:
         working-directory: drone-configurator
         run: |
           pnpm test | tee "$RUNNER_TEMP/unit.log"
-          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
-          grep -Eq 'tests: [1-9][0-9]* passed' "$RUNNER_TEMP/unit.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'tests: [1-9][0-9]* passed'
 
       # The same steps as pico-desktop's own CI, for the host E2E runs in.
       - name: Cache the pinned CEF
@@ -148,4 +148,4 @@ jobs:
           PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
         run: |
           xvfb-run -a pnpm e2e | tee "$RUNNER_TEMP/e2e.log"
-          grep -Eq 'Tests +[1-9][0-9]* passed' "$RUNNER_TEMP/e2e.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
