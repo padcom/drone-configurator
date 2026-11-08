@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { announcedPort } from './announced-port'
 
 const source = fileURLToPath(new URL('../../backend/e2e/tcp-vehicle.pi', import.meta.url))
-const binary = fileURLToPath(new URL('../../../.pico-desktop/e2e/tcp-vehicle', import.meta.url))
+const binary = fileURLToPath(new URL(`../../../.pico-desktop/e2e/tcp-vehicle${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url))
 
 export class TcpVehicle {
   /** How many PARAM_SET messages it has received. */

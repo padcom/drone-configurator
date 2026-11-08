@@ -1,0 +1,70 @@
+// The frontend's end of a backend running over an in-memory link, for the backend's tests.
+import { Cbor, Envelope, Transport, decodeEnvelope, encodeEnvelope, envelope, memoryPair } from "pico-desktop/communicator"
+import { createBackend } from "./app"
+
+/// The frontend's end: requests by id. Replies to other requests are kept for them; events are
+/// skipped.
+export class Frontend {
+  readonly t: Transport
+  id: u64 = 0
+  readonly kept: Envelope[] = []
+
+  constructor(t: Transport) {
+    this.t = t
+  }
+
+  /// Sends a request; its id.
+  public async send(name: string, payload: Cbor? = null): Promise<u64> throws Error {
+    id += 1
+    const e = envelope("request")
+    e.id = id
+    e.n = name
+    e.p = payload
+    await t.send(encodeEnvelope(e))
+    id
+  }
+
+  /// The reply to request `want`.
+  public async reply(want: u64): Promise<Envelope> throws Error {
+    for (let i = 0; i < kept.length; i++) {
+      if (kept[i].id == want) {
+        const e = kept[i]
+        kept.splice(i, 1)
+        return e
+      }
+    }
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.id == want) {
+        return got
+      }
+      if (got.id != null && (got.k == "response" || got.k == "error")) {
+        kept.push(got)
+      }
+    }
+  }
+
+  /// The next event `name` (replies on the way are kept).
+  public async event(name: string): Promise<Envelope> throws Error {
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.k == "event" && got.n == name) {
+        return got
+      }
+      if (got.id != null && (got.k == "response" || got.k == "error")) {
+        kept.push(got)
+      }
+    }
+  }
+
+  public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
+    await reply(await send(name, payload))
+  }
+}
+
+export async function start(): Promise<Frontend> throws Error {
+  const ends = memoryPair()
+  createBackend(ends[0]).run()
+  await ends[1].receive()  // the backend's hello
+  new Frontend(ends[1])
+}
