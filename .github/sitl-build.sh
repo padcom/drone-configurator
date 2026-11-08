@@ -23,7 +23,12 @@ if [[ ! "$ref" =~ ^[0-9a-f]{40}$ ]]; then
   ref="refs/tags/$ref"
 fi
 
+requirements="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/sitl-requirements.txt"
+
+# Absolute, because the script changes directory.
 mkdir -p "$out" "$work"
+out=$(cd "$out" && pwd)
+work=$(cd "$work" && pwd)
 src="$work/ardupilot"
 git init -q "$src"
 cd "$src"
@@ -33,9 +38,9 @@ git checkout -q FETCH_HEAD
 echo "ArduPilot $(git rev-parse HEAD)"
 git submodule update --init --recursive --depth 1 -q
 
-# waf runs ArduPilot's code generators with this interpreter, and they need empy 3.x.
+# waf runs ArduPilot's code generators with this interpreter. The packages are pinned in sitl-requirements.txt.
 python3 -m venv "$work/venv"
-"$work/venv/bin/pip" install -q --disable-pip-version-check empy==3.3.4 pexpect pyserial future lxml pymavlink tabulate intelhex
+"$work/venv/bin/pip" install -q --disable-pip-version-check -r "$requirements"
 "$work/venv/bin/python" ./waf configure --board sitl
 "$work/venv/bin/python" ./waf "$vehicle" -j"$(nproc)"
 

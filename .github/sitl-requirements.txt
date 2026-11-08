@@ -1,0 +1,11 @@
+# Python packages for building ArduPilot SITL (used by sitl-build.sh). These are the versions of the
+# build that was checked on linux-arm64. waf runs ArduPilot's code generators with them; they need empy 3.x.
+empy==3.3.4
+pexpect==4.9.0
+ptyprocess==0.7.0
+pyserial==3.5
+future==1.0.0
+lxml==6.1.3
+pymavlink==2.4.50
+tabulate==0.10.0
+intelhex==2.3.0
