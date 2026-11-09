@@ -1,0 +1,103 @@
+import { expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import ConnectionBar from './ConnectionBar.vue'
+import { mockBackend } from './mock-backend'
+import type { State } from './configurator'
+import { createConfigurator, publish } from './useConfigurator'
+import { VEHICLE } from './fixtures'
+
+/**
+ * Mounts the bar on a fresh Configurator whose actions are spies.
+ *
+ * @returns the component, `feed` (changes the Configurator's state the way the backend would) and the spies
+ */
+function barWithSpies() {
+  const { app, fields } = createConfigurator(mockBackend())
+  const connect = vi.spyOn(app, 'connect').mockResolvedValue()
+  const disconnect = vi.spyOn(app, 'disconnect').mockResolvedValue()
+  const listPorts = vi.spyOn(app, 'listPorts').mockResolvedValue()
+  // The state goes through the Configurator: a ref written directly is overwritten by its next render.
+  const feed = (change: Partial<State>) => {
+    app.state = { ...app.state, ...change }
+    publish(fields, app.state)
+  }
+
+  return { wrapper: mount(ConnectionBar), feed, connect, disconnect, listPorts }
+}
+
+it('shows the state, the vehicle and why the last attempt failed, as text', async () => {
+  const { wrapper, feed } = barWithSpies()
+  expect(wrapper.get('#connection').text()).toBe('disconnected')
+
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } }, error: '<oops>', notice: 'The backend restarted' })
+  await wrapper.vm.$nextTick()
+
+  const text = wrapper.get('#connection').text()
+  expect(text).toContain('connected · system 1/1 · QUADROTOR · ARDUPILOTMEGA')
+  expect(text).toContain('<oops>')
+  expect(text).toContain('The backend restarted')
+  expect(wrapper.get('#connection .badge').classes()).toContain('connected')
+  expect(wrapper.find('#connection oops').exists()).toBe(false)
+})
+
+it('connects to the simulator by default, and to what is typed for TCP', async () => {
+  const { wrapper, connect } = barWithSpies()
+
+  await wrapper.get('#connect').trigger('submit')
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'simulator' })
+  await wrapper.get('#transport').setValue('tcp')
+  await wrapper.get('#host').setValue(' 127.0.0.1 ')
+  await wrapper.get('#port').setValue('5760')
+  await wrapper.get('#connect').trigger('submit')
+
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'tcp', host: '127.0.0.1', port: 5760 })
+})
+
+it('shows device and baud rate for serial, lists the ports, and connects with them', async () => {
+  const { wrapper, feed, connect, listPorts } = barWithSpies()
+  expect(wrapper.get('#device').attributes('hidden')).toBeDefined()
+  expect(wrapper.get('#host').attributes('hidden')).toBeUndefined()
+
+  await wrapper.get('#transport').setValue('serial')
+  expect(listPorts).toHaveBeenCalledTimes(1)
+  expect(wrapper.get('#device').attributes('hidden')).toBeUndefined()
+  expect(wrapper.get('#baud').attributes('hidden')).toBeUndefined()
+  expect(wrapper.get('#host').attributes('hidden')).toBeDefined()
+  expect(wrapper.get('#port').attributes('hidden')).toBeDefined()
+  expect(wrapper.get('#device').text()).toBe('No serial ports')
+
+  feed({ ports: [{ path: '/dev/ttyACM0', description: 'Pixhawk' }, { path: '/dev/ttyUSB0' }] })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#device').text()).toContain('/dev/ttyACM0 (Pixhawk)')
+  await wrapper.get('#baud').setValue('57600')
+  await wrapper.get('#connect').trigger('submit')
+
+  expect(connect).toHaveBeenLastCalledWith({ transport: 'serial', device: '/dev/ttyACM0', baud: 57600 })
+})
+
+it('keeps the chosen device when the ports are listed again', async () => {
+  const { wrapper, feed, connect } = barWithSpies()
+  feed({ ports: [{ path: 'a' }, { path: 'b' }] })
+  await wrapper.get('#transport').setValue('serial')
+  await wrapper.get('#device').setValue('b')
+
+  feed({ ports: [{ path: 'a' }, { path: 'b' }, { path: 'c' }] })
+  await wrapper.vm.$nextTick()
+  await wrapper.get('#connect').trigger('submit')
+
+  expect(connect).toHaveBeenLastCalledWith(expect.objectContaining({ device: 'b' }))
+})
+
+it('offers Disconnect only while connected', async () => {
+  const { wrapper, feed, disconnect } = barWithSpies()
+  expect(wrapper.get('#disconnect-button').attributes('disabled')).toBeDefined()
+  // The mock backend's first events (the connection is disconnected) arrive before the state is changed here.
+  await flushPromises()
+
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  await wrapper.get('#disconnect-button').trigger('click')
+
+  expect(disconnect).toHaveBeenCalledTimes(1)
+  expect(wrapper.get('#disconnect-button').attributes('disabled')).toBeUndefined()
+})

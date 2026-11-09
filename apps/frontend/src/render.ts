@@ -7,18 +7,6 @@ import type { State } from './configurator'
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 export const escape = (s: string) => s.replace(/[&<>"']/g, c => ESCAPES[c] ?? c)
 
-/** The connection's state, the vehicle, and why the last attempt failed. */
-export function connectionView(state: State): string {
-  const c = state.connection
-  const vehicle = c.vehicle
-    ? ` · system ${c.vehicle.sysid}/${c.vehicle.compid} · ${escape(c.vehicle.type)} · ${escape(c.vehicle.autopilot)}`
-    : ''
-  const error = state.error ? `<span class="error">${escape(state.error)}</span>` : ''
-  const notice = state.notice ? `<span class="warn">${escape(state.notice)}</span>` : ''
-
-  return `<span class="badge ${c.state}">${c.state}</span>${vehicle} ${error}${notice}`
-}
-
 /** How the parameter list stands. */
 export function listStatus(state: State, shown: number): string {
   switch (state.list) {

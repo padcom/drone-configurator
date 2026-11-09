@@ -2,12 +2,12 @@ import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
 import type { State } from './configurator'
-import { canWrite, connectionView, detailView, escape, importView, listStatus, paramRows } from './render'
+import { canWrite, detailView, escape, importView, listStatus, paramRows } from './render'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
+import ConnectionBar from './ConnectionBar.vue'
 import TelemetryCards from './TelemetryCards.vue'
-import type { ConnectRequest } from './generated/app'
 
 declare global {
   interface Window {
@@ -29,23 +29,13 @@ function setHtml(id: string, html: string) {
 
 function render(state: State) {
   const param = app.selectedParam()
-  setHtml('connection', connectionView(state))
   const visible = app.visible()
   byId('list-status').textContent = listStatus(state, visible.length)
   setHtml('rows', paramRows(visible, state.selected))
   setHtml('detail', detailView(state, param))
   byId('edit').hidden = param === null || state.connection.state !== 'connected'
   byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
-  byId<HTMLButtonElement>('disconnect-button').disabled = state.connection.state !== 'connected'
   byId<HTMLButtonElement>('refresh').disabled = state.connection.state !== 'connected' || state.list === 'loading'
-  const device = byId<HTMLSelectElement>('device')
-  const options = state.ports.map(p => `<option value="${escape(p.path)}">${escape(p.path)}${p.description ? ` (${escape(p.description)})` : ''}</option>`).join('')
-  if (device.dataset.options !== options) {
-    const chosen = device.value
-    device.innerHTML = options || '<option value="">No serial ports</option>'
-    device.dataset.options = options
-    device.value = state.ports.some(p => p.path === chosen) ? chosen : (state.ports[0]?.path ?? '')
-  }
   setHtml('metadata-status', state.metadataError
     ? `<span class="error">${escape(state.metadataError)}</span>`
     : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : '')
@@ -66,36 +56,10 @@ const bridge = window.picoDesktop
 const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBackend(), render)
 
 // Regions already ported to components; the rest of the page is still written by render().
+createApp(ConnectionBar).mount('#connection-bar')
 createApp(TelemetryCards).mount('#telemetry')
 createApp(ConfirmDialog).mount('#confirm-root')
 
-byId('connect').addEventListener('submit', event => {
-  event.preventDefault()
-  const transport = byId<HTMLSelectElement>('transport').value as ConnectRequest['transport']
-  if (transport === 'serial') {
-    const device = byId<HTMLSelectElement>('device').value
-    void app.connect({ transport, ...(device ? { device } : {}), baud: Number(byId<HTMLSelectElement>('baud').value) })
-
-    return
-  }
-  const host = byId<HTMLInputElement>('host').value.trim()
-  const port = Number(byId<HTMLInputElement>('port').value.trim())
-  void app.connect({ transport, ...(host ? { host } : {}), ...(port > 0 ? { port } : {}) })
-})
-// Host and port for UDP/TCP, device and baud rate for serial (listed when chosen).
-byId('transport').addEventListener('change', event => {
-  const serial = (event.target as HTMLSelectElement).value === 'serial'
-  for (const id of ['host', 'port']) {
-    byId(id).hidden = serial
-  }
-  for (const id of ['device', 'baud']) {
-    byId(id).hidden = !serial
-  }
-  if (serial) {
-    void app.listPorts()
-  }
-})
-byId('disconnect-button').addEventListener('click', () => void app.disconnect())
 byId('refresh').addEventListener('click', () => void app.refresh())
 byId('filter').addEventListener('input', event => app.setFilter((event.target as HTMLInputElement).value))
 byId('rows').addEventListener('click', event => {
