@@ -217,8 +217,10 @@ attitude-group = {
 
 ; The settings document. `language` and `theme` are what the backend knows about; everything the interface keeps for
 ; itself (layouts, the tab last used) is a `ui` entry: a namespaced key ("layout.flightData") and a string the interface
-; validates itself, so a new layout needs no change here. A value is at most 65536 characters, a key 1 to 128, and
-; there are at most 256 entries; a `language` is 1 to 35 characters. `version` is the version of the file (1 so far).
+; validates itself, so a new layout needs no change here. A value is at most 65536 characters, a key 1 to 128 (and not
+; "language" or "theme", which `remove` names), there are at most 256 entries, and all the keys and values together
+; are at most 1048576 characters, so that the whole document can always be sent in one message; a `language` is 1 to
+; 35 characters. `version` is the version of the file (1 so far).
 settings = {
   version: uint .size 1,
   ? language: tstr,
@@ -231,7 +233,9 @@ theme-name = "light" / "dark" / "system"
 ui-entry = { key: tstr, value: tstr }
 
 ; The document, and how it was got. `notice` says in English what the user should know and `noticeCode` is its stable
-; code: "CORRUPT" (the file could not be read and was set aside, the settings are the defaults), "NEWER" (the file was
+; code: "CORRUPT" (the file is not a settings document and was set aside, the settings are the defaults), "UNREADABLE"
+; (the file could not be read at all, and was set aside; if it cannot be moved either it is left where it is and the
+; settings are kept in memory so that it is not overwritten), "NEWER" (the file was
 ; written by a newer version and was set aside), "NOT_WRITABLE" (the settings directory cannot be written to, so
 ; the settings are kept in memory and lost when the app closes). "CORRUPT" and "NEWER" are said until the app is
 ; restarted; "NOT_WRITABLE" until a save works.

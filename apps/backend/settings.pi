@@ -6,7 +6,7 @@
 // newer version wrote, is renamed aside (`settings.cbor.corrupt-<ms>`, `settings.cbor.newer-<ms>`), the app starts on
 // defaults and says so (`notice`). If the directory cannot be used the settings are kept in memory, and say so.
 import { AppDirError, Cbor, Communicator, CommunicatorError, RequestContext, appDirs, decode, encode } from "pico-desktop/communicator"
-import { exists, mkdir, readBytes, remove, rename, writeBytes } from "std/fs"
+import { exists, mkdir, readBytes, readDir, remove, rename, writeBytes } from "std/fs"
 import { join } from "std/path"
 import { pid } from "std/process"
 import { delay } from "std/timers"
@@ -34,8 +34,12 @@ const MAX_KEY: int = 128
 const MAX_VALUE: int = 65536
 const MAX_ENTRIES: int = 256
 const MAX_LANGUAGE: int = 35
+/// The most that all the keys and values together may hold (characters). The whole document travels in every answer and
+/// every `settings.changed`, and a message may be at most 4 MiB: a document that is saved must be one that can be sent.
+const MAX_TOTAL: int = 1048576
 
-/// Why a settings file was not used: `CORRUPT` (it cannot be read, or is not a settings document) or `NEWER`.
+/// Why a settings file was not used: `CORRUPT` (it is not a settings document), `NEWER`, or `UNREADABLE` (the file could
+/// not be read at all: permission, a lock, the disk).
 export class SettingsFileError extends Error {
   public kind: string
 
@@ -70,6 +74,8 @@ class Store {
   /// For tests: use this directory instead of the app's data directory.
   public override: string? = null
   public steps: Migration[] = []
+  /// For tests: a file that is not used cannot be moved aside.
+  public asideFails: bool = false
 }
 
 const store = new Store()
@@ -92,8 +98,14 @@ export function useDirectoryForTests(dir: string, steps: Migration[] = []): void
   restartForTests()
 }
 
+/// For tests: the next file that is not used cannot be moved aside (until `restartForTests`).
+export function failToSetAsideForTests(): void {
+  store.asideFails = true
+}
+
 /// For tests: forget everything held in memory, as a restarted backend does; the file stays.
 export function restartForTests(): void {
+  store.asideFails = false
   store.loaded = false
   store.busy = false
   store.dir = null
@@ -185,13 +197,30 @@ export function parse(bytes: Uint8Array, steps: Migration[]): Settings throws Se
   }
 }
 
+/// How many characters the keys and values of `entries` hold together.
+function sizeOf(entries: UiEntry[]): int {
+  let total = 0
+  for (const e of entries) {
+    total += e.key.length + e.value.length
+  }
+  total
+}
+
+/// Whether a `ui` key is one the settings use themselves: `remove` names those, so an entry may not have them.
+function reserved(key: string): bool {
+  key == "language" || key == "theme"
+}
+
 /// Whether a document keeps to the limits (a file is held to them as well as a patch).
 function check(s: Settings): void throws SettingsFileError {
   if (s.ui.length > MAX_ENTRIES) {
     throw new SettingsFileError("CORRUPT", `the settings file has ${s.ui.length} entries, at most ${MAX_ENTRIES}`)
   }
+  if (sizeOf(s.ui) > MAX_TOTAL) {
+    throw new SettingsFileError("CORRUPT", `the settings file holds more than ${MAX_TOTAL} characters`)
+  }
   for (const e of s.ui) {
-    if (e.key.length == 0 || e.key.length > MAX_KEY || e.value.length > MAX_VALUE) {
+    if (e.key.length == 0 || e.key.length > MAX_KEY || e.value.length > MAX_VALUE || reserved(e.key)) {
       throw new SettingsFileError("CORRUPT", "the settings file has an entry outside the limits")
     }
   }
@@ -215,12 +244,45 @@ async function locate(): Promise<string?> {
   null
 }
 
-/// Moves a file that was not used out of the way, under a name that says why; the file is kept, not deleted.
-async function setAside(path: string, kind: string): Promise<void> {
+/// Moves a file that was not used out of the way, under a name that says why; the file is kept, not deleted. Whether it
+/// could be moved.
+async function setAside(path: string, kind: string): Promise<bool> {
+  if (store.asideFails) {
+    return false
+  }
   try {
     await rename(path, `${path}.${kind.toLowerCase()}-${Date.now() as int}`)
   } catch (e: Error) {
-    // It could not be moved: the next save replaces it.
+    return false
+  }
+  true
+}
+
+/// A file that cannot be used is set aside, and the settings are the defaults. If it cannot be moved either, it is left
+/// where it is and the settings are kept in memory only: a save would replace it, and the user's settings with it.
+async function giveUp(path: string, kind: string, why: string): Promise<void> {
+  if (await setAside(path, kind)) {
+    say(kind, `${why}. It was set aside as ${FILE}.${kind.toLowerCase()}-… and the settings are the defaults.`)
+    return
+  }
+  store.dir = null
+  say(kind, `${why}, and it could not be moved aside. It is left as it is, and the settings are the defaults, kept in memory so that it is not overwritten.`)
+}
+
+/// Removes the temporary files that writes cut short left beside the settings (a write that completes renames its own).
+async function clearTemporaries(dir: string): Promise<void> {
+  try {
+    const stale: string[] = []
+    for await (const entry of readDir(dir)) {
+      if (entry.name.startsWith(`${FILE}.tmp-`)) {
+        stale.push(join(dir, entry.name))
+      }
+    }
+    for (const path of stale) {
+      await remove(path)
+    }
+  } catch (e: Error) {
+    // Left where they are; they do no harm.
   }
 }
 
@@ -233,16 +295,16 @@ async function load(): Promise<void> {
     return
   }
   const path = join(dir!, FILE)
+  await clearTemporaries(dir!)
   try {
     if (!await exists(path)) {
       return
     }
     store.doc = parse(await readBytes(path), store.steps)
   } catch (e: SettingsFileError) {
-    await setAside(path, e.kind)
-    say(e.kind, `${e.message}. It was set aside as ${FILE}.${e.kind.toLowerCase()}-… and the settings are the defaults.`)
+    await giveUp(path, e.kind, e.message)
   } catch (e: Error) {
-    say("CORRUPT", `the settings file cannot be read: ${e.message}. The settings are the defaults.`)
+    await giveUp(path, "UNREADABLE", `the settings file cannot be read: ${e.message}`)
   }
 }
 
@@ -341,6 +403,9 @@ export function applied(doc: Settings, patch: SettingsPatch): Settings throws Co
       if (e.value.length > MAX_VALUE) {
         throw invalid(`the value of ${e.key} is longer than ${MAX_VALUE} characters`)
       }
+      if (reserved(e.key)) {
+        throw invalid(`${e.key} is a name the settings use themselves: choose another key`)
+      }
       next.ui = withEntry(next.ui, e)
     }
   }
@@ -358,6 +423,9 @@ export function applied(doc: Settings, patch: SettingsPatch): Settings throws Co
   }
   if (next.ui.length > MAX_ENTRIES) {
     throw invalid(`there can be at most ${MAX_ENTRIES} entries`)
+  }
+  if (sizeOf(next.ui) > MAX_TOTAL) {
+    throw invalid(`the entries can hold at most ${MAX_TOTAL} characters together`)
   }
   next
 }

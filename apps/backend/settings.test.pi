@@ -1,7 +1,7 @@
 // The settings service, over a memory link, with the file in a directory of its own.
 import { describe, it, expect } from "std/test"
 import { Cbor, encode, integer } from "pico-desktop/communicator"
-import { exists, mkdir, readDir, remove, writeBytes, writeText } from "std/fs"
+import { exists, mkdir, readDir, readText, remove, writeBytes, writeText } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import {
@@ -12,7 +12,7 @@ import {
   decodeSettingsState,
   encodeSettingsPatch,
 } from "./generated/app"
-import { FILE, Migration, restartForTests, useDirectoryForTests } from "./settings"
+import { FILE, Migration, failToSetAsideForTests, restartForTests, useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
 
 /// An empty directory of this test's own.
@@ -175,7 +175,8 @@ async function setsAsideANewerFile(): Promise<void> throws Error {
   await cleanUp(dir)
 }
 
-/// A write that was cut short (a temporary file left beside the settings) does not touch the settings that were saved.
+/// A write that was cut short (a temporary file left beside the settings) does not touch the settings that were saved,
+/// and the stray file is cleared at the next start.
 async function ignoresAnInterruptedWrite(): Promise<void> throws Error {
   const dir = await fresh("interrupted")
   useDirectoryForTests(dir)
@@ -184,6 +185,73 @@ async function ignoresAnInterruptedWrite(): Promise<void> throws Error {
   await writeText(join(dir, `${FILE}.tmp-99999`), "half of a doc")
   restartForTests()
   expect(summary(await get(f))).toBe("1 es dark [] -")
+  expect((await named(dir, `${FILE}.tmp-`)).length).toBe(0)
+  await cleanUp(dir)
+}
+
+/// A file that cannot be read at all (here: the name is a directory, which reading fails on) is set aside like a corrupt
+/// one, not left to be overwritten by the next save.
+async function setsAsideAFileThatCannotBeRead(): Promise<void> throws Error {
+  const dir = await fresh("unreadable")
+  await mkdir(join(dir, FILE), true)
+  await writeText(join(dir, FILE, "inside"), "the user's, perhaps")
+  useDirectoryForTests(dir)
+  const f = await start()
+  const s = await get(f)
+  expect(summary(s)).toBe("1 - - [] UNREADABLE")
+  expect((await named(dir, `${FILE}.unreadable-`)).length).toBe(1)
+  await set(f, SettingsPatch { language: "nl" })
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 nl - [] -")
+  expect((await named(dir, `${FILE}.unreadable-`)).length).toBe(1)
+  await cleanUp(dir)
+}
+
+/// If the unusable file cannot be moved aside either, it stays exactly where it is and the settings are kept in memory:
+/// a save would replace it, and the settings in it with it.
+async function leavesAFileThatCannotBeMovedAside(): Promise<void> throws Error {
+  const dir = await fresh("noaside")
+  await writeText(join(dir, FILE), "this is not CBOR at all")
+  useDirectoryForTests(dir)
+  failToSetAsideForTests()
+  const f = await start()
+  const s = await get(f)
+  expect(summary(s)).toBe("1 - - [] CORRUPT")
+  expect((s.notice ?? "").includes("could not be moved aside")).toBe(true)
+  expect(summary(await set(f, SettingsPatch { language: "sv" }))).toBe("1 sv - [] CORRUPT")
+  expect((await named(dir, "settings")).join(",")).toBe(FILE)
+  expect(await readText(join(dir, FILE))).toBe("this is not CBOR at all")
+  await cleanUp(dir)
+}
+
+/// All the keys and values together are held to a total, so that the document can always be sent whole.
+async function holdsTheDocumentToATotal(): Promise<void> throws Error {
+  const dir = await fresh("total")
+  useDirectoryForTests(dir)
+  const f = await start()
+  const big = "v".repeat(65536)
+  const first: UiEntry[] = []
+  for (let i = 0; i < 15; i++) {
+    first.push(UiEntry { key: `big${i}`, value: big })
+  }
+  await set(f, SettingsPatch { ui: first })
+  const e = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "one-more", value: big }] }))
+  expect(e.err?.code ?? "-").toBe("INVALID_VALUE")
+  expect((e.err?.message ?? "").includes("together")).toBe(true)
+  // What was there is still there, and a smaller entry still fits.
+  const s = await set(f, SettingsPatch { ui: [UiEntry { key: "small", value: "x" }] })
+  expect(s.settings.ui.length).toBe(16)
+  await cleanUp(dir)
+}
+
+/// "language" and "theme" are not keys an entry may have, since `remove` names them.
+async function keepsReservedKeysOut(): Promise<void> throws Error {
+  const dir = await fresh("reserved")
+  useDirectoryForTests(dir)
+  const f = await start()
+  const e = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "theme", value: "x" }] }))
+  expect(e.err?.code ?? "-").toBe("INVALID_VALUE")
+  expect(summary(await get(f))).toBe("1 - - [] -")
   await cleanUp(dir)
 }
 
@@ -256,6 +324,10 @@ describe("the settings service", () => {
   it("sets a corrupt file aside and starts on the defaults, saying so", setsAsideACorruptFile)
   it("sets a file from a newer version aside", setsAsideANewerFile)
   it("leaves the saved settings whole when a write was cut short", ignoresAnInterruptedWrite)
+  it("sets aside a file that cannot be read at all", setsAsideAFileThatCannotBeRead)
+  it("leaves a file that cannot be moved aside where it is, and keeps the settings in memory", leavesAFileThatCannotBeMovedAside)
+  it("holds all the entries together to a total, so that the document can be sent whole", holdsTheDocumentToATotal)
+  it("keeps the names the settings use themselves out of the entries", keepsReservedKeysOut)
   it("migrates an older file", migratesAnOlderFile)
   it("treats an older file with no migration as corrupt", refusesAnOlderFileWithNoMigration)
   it("keeps the settings in memory when the directory cannot be used, and says so", keepsSettingsInMemoryWhenTheDirectoryIsNotWritable)
