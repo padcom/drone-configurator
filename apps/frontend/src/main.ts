@@ -2,11 +2,13 @@ import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
 import type { State } from './configurator'
-import { canWrite, detailView, escape, importView, listStatus, paramRows } from './render'
+import { canWrite, detailView, escape, importView } from './render'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectionBar from './ConnectionBar.vue'
+import ParamFilter from './ParamFilter.vue'
+import ParamTable from './ParamTable.vue'
 import TelemetryCards from './TelemetryCards.vue'
 
 declare global {
@@ -29,13 +31,9 @@ function setHtml(id: string, html: string) {
 
 function render(state: State) {
   const param = app.selectedParam()
-  const visible = app.visible()
-  byId('list-status').textContent = listStatus(state, visible.length)
-  setHtml('rows', paramRows(visible, state.selected))
   setHtml('detail', detailView(state, param))
   byId('edit').hidden = param === null || state.connection.state !== 'connected'
   byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
-  byId<HTMLButtonElement>('refresh').disabled = state.connection.state !== 'connected' || state.list === 'loading'
   setHtml('metadata-status', state.metadataError
     ? `<span class="error">${escape(state.metadataError)}</span>`
     : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : '')
@@ -57,17 +55,11 @@ const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBacken
 
 // Regions already ported to components; the rest of the page is still written by render().
 createApp(ConnectionBar).mount('#connection-bar')
+createApp(ParamFilter).mount('#param-filter')
+createApp(ParamTable).mount('#param-table')
 createApp(TelemetryCards).mount('#telemetry')
 createApp(ConfirmDialog).mount('#confirm-root')
 
-byId('refresh').addEventListener('click', () => void app.refresh())
-byId('filter').addEventListener('input', event => app.setFilter((event.target as HTMLInputElement).value))
-byId('rows').addEventListener('click', event => {
-  const row = (event.target as HTMLElement).closest('tr')
-  if (row?.dataset.id) {
-    app.select(row.dataset.id)
-  }
-})
 /** Offers `text` as a file download (the browser's, or the host's save handling). */
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
