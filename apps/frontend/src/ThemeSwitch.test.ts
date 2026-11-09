@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { THEME_KEY } from './firstPaint'
 import ThemeSwitch from './ThemeSwitch.vue'
 import { useTheme } from './kit/useTheme'
 import { mockBackend } from './mock-backend'
@@ -8,6 +9,7 @@ import { createConfigurator } from './useConfigurator'
 
 afterEach(() => {
   useTheme().set('system')
+  localStorage.clear()
 })
 
 /**
@@ -51,4 +53,23 @@ it('changes the page at once when a theme is chosen, and keeps the choice in the
 
   expect(handle.settings.settings.value.theme).toBe('dark')
   expect(handle.settings.notice.value).toBeNull()
+  expect(localStorage.getItem(THEME_KEY)).toBe('dark')
+})
+
+it('draws the first paint in the theme that was chosen last time, before the settings have been asked for', () => {
+  localStorage.setItem(THEME_KEY, 'dark')
+
+  createConfigurator(mockBackend())
+
+  // Nothing has been awaited: this is the page as it is when it is first drawn.
+  expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+})
+
+it('lets the settings, which are the truth, change what the first paint had', async () => {
+  localStorage.setItem(THEME_KEY, 'dark')
+
+  await switchWith('light')
+
+  expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  expect(localStorage.getItem(THEME_KEY)).toBe('light')
 })

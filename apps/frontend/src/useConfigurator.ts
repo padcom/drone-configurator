@@ -5,6 +5,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftProblem } from './draft'
+import { firstPaint } from './firstPaint'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
 import { useTheme } from './kit/useTheme'
 import type { State } from './state'
@@ -113,6 +114,7 @@ function startSettings(client: BackendClient): SettingsModel {
     theme: useTheme(),
     applyLanguage: setLanguage,
     legacy: legacyLanguage(storageOf(globalThis)),
+    firstPaint: firstPaint(storageOf(globalThis)),
   })
   client.onEvent('settings.changed', state => settings.changed(state))
   void settings.load()

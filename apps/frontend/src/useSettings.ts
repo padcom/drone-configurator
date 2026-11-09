@@ -3,6 +3,7 @@
 // has is applied to the interface at once: the theme to the page, the language to the messages.
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
+import type { FirstPaint } from './firstPaint'
 import type { Settings, SettingsState, ThemeName } from './generated/app'
 import { type Language, type LegacyLanguage, isLanguage } from './i18n'
 import type { Theme } from './kit/useTheme'
@@ -17,6 +18,8 @@ export interface SettingsDeps {
   applyLanguage: (language: Language) => void
   /** The language an earlier version kept in the browser's storage, to be moved into the settings; null if none can be. */
   legacy: LegacyLanguage | null
+  /** The copy of the theme kept for the first paint (the settings come after the page is drawn); null without storage. */
+  firstPaint: FirstPaint | null
 }
 
 /** The settings, as refs and actions. */
@@ -35,42 +38,97 @@ export interface SettingsModel {
   dismissNotice: () => void
 }
 
+/** What the caller knows about the settings it adopts. */
+interface Adoption {
+  /** False when the theme is not to be touched (a later choice is waiting for its answer). */
+  theme?: boolean
+  /** True the first time the settings are read: the theme is then applied whatever it was before. */
+  first?: boolean
+}
+
 class SettingsLink implements SettingsModel {
   readonly settings = shallowRef<Settings>({ version: 1, ui: [] })
   readonly notice = shallowRef<string | null>(null)
   /** The notice the user dismissed: not shown again while the backend keeps repeating it. */
   private dismissed: string | null = null
+  /** The theme choices made so far (the last one is the one that counts). */
+  private latest = 0
+  /** The theme choices the backend has not answered yet. */
+  private pending = 0
 
   /**
-   * Makes the settings.
+   * Makes the settings. The copy of the theme kept for the first paint is applied at once, before anything is drawn.
    *
    * @param deps the client and the rest of the interface
    */
-  constructor(private readonly deps: SettingsDeps) {}
+  constructor(private readonly deps: SettingsDeps) {
+    const copy = deps.firstPaint?.read() ?? null
+    if (copy !== null) {
+      deps.theme.set(copy)
+    }
+  }
+
+  /**
+   * Whether the theme the backend said is to be put on the page: when it is the first time the settings are read, or when
+   * it is not the theme they had, and not when a later choice is waiting for its answer.
+   *
+   * @param state what the backend said
+   * @param how what the caller knows of it
+   * @returns true to apply the theme
+   */
+  private themeWanted(state: SettingsState, how: Adoption): boolean {
+    return how.theme !== false && (how.first === true || state.settings.theme !== this.settings.value.theme)
+  }
 
   /**
    * Takes what the backend said: the settings, the notice, and the theme and language they name.
    *
    * @param state what the backend said
+   * @param how what the caller knows of it
    */
-  private adopt(state: SettingsState): void {
+  private adopt(state: SettingsState, how: Adoption = {}): void {
+    const wanted = this.themeWanted(state, how)
     this.settings.value = state.settings
-    this.notice.value = state.notice !== undefined && state.notice !== this.dismissed ? state.notice : null
-    this.apply(state.settings)
+    this.showNotice(state.notice)
+
+    if (wanted) {
+      this.applyTheme(state.settings.theme)
+    }
+    this.applyLanguage(state.settings.language)
   }
 
   /**
-   * Applies the theme and the language that the settings name; what they do not name is left as it is.
+   * Shows the interface in the language the settings name, if it has messages for it.
    *
-   * @param settings the settings
+   * @param language the settings' language, if they have one
    */
-  private apply(settings: Settings): void {
-    if (settings.theme !== undefined) {
-      this.deps.theme.set(settings.theme)
+  private applyLanguage(language: string | undefined): void {
+    if (isLanguage(language)) {
+      this.deps.applyLanguage(language)
     }
-    if (isLanguage(settings.language)) {
-      this.deps.applyLanguage(settings.language)
+  }
+
+  /**
+   * Shows the backend's notice, unless the user dismissed those very words. A backend that says nothing ends the notice,
+   * and with it the dismissal: the same words, when they come back, are news.
+   *
+   * @param notice what the backend said, if anything
+   */
+  private showNotice(notice: string | undefined): void {
+    if (notice === undefined) {
+      this.dismissed = null
     }
+    this.notice.value = notice === undefined || notice === this.dismissed ? null : notice
+  }
+
+  /**
+   * Puts a theme on the page and keeps the copy for the first paint: what the settings do not name is the system's.
+   *
+   * @param theme the settings' theme, if they have one
+   */
+  private applyTheme(theme: ThemeName | undefined): void {
+    this.deps.theme.set(theme ?? 'system')
+    this.deps.firstPaint?.write(theme ?? null)
   }
 
   /** Moves the language an earlier version kept in storage into the settings, unless they already have one. */
@@ -95,7 +153,7 @@ class SettingsLink implements SettingsModel {
 
   async load(): Promise<void> {
     try {
-      this.adopt(await this.deps.client.call('settings.get', null))
+      this.adopt(await this.deps.client.call('settings.get', null), { first: true })
       await this.importLanguage()
     } catch (error) {
       this.notice.value = `The settings are not available: ${describeError(error)}`
@@ -103,16 +161,29 @@ class SettingsLink implements SettingsModel {
   }
 
   changed(state: SettingsState): void {
-    this.adopt(state)
+    // While a choice is waiting for its answer, an announcement may be of an older one: the answer says the theme.
+    this.adopt(state, { theme: this.pending === 0 })
   }
 
   async chooseTheme(next: ThemeName): Promise<void> {
     this.deps.theme.set(next)
+    this.deps.firstPaint?.write(next)
+    this.latest += 1
+    const mine = this.latest
+    this.pending += 1
 
     try {
-      this.adopt(await this.deps.client.call('settings.set', { theme: next }))
+      const state = await this.deps.client.call('settings.set', { theme: next })
+      if (mine === this.latest) {
+        this.adopt(state)
+      } else {
+        // The answer to a choice that has been replaced: the later one's answer says what the settings are.
+        this.showNotice(state.notice)
+      }
     } catch (error) {
       this.notice.value = `The theme could not be kept: ${describeError(error)}`
+    } finally {
+      this.pending -= 1
     }
   }
 

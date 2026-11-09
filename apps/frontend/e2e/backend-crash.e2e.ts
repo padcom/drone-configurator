@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { clickConnect, showScreen } from './click'
 import { TcpVehicle } from './tcp-vehicle'

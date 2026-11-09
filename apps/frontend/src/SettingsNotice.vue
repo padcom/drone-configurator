@@ -1,7 +1,11 @@
 <template>
-  <p v-if="settings.notice.value" id="settings-notice" class="warn" role="status">
-    {{ settings.notice.value }}
-    <Button id="dismiss-settings-notice" @click="settings.dismissNotice()">{{ t('settings.dismiss') }}</Button>
+  <!-- Always in the page, empty when there is nothing to say: a status that appears together with its text is often not
+       announced by a screen reader, one that is already there and then changes is. -->
+  <p id="settings-notice" class="warn" role="status">
+    <template v-if="settings.notice.value">
+      {{ settings.notice.value }}
+      <Button id="dismiss-settings-notice" @click="settings.dismissNotice()">{{ t('settings.dismiss') }}</Button>
+    </template>
   </p>
 </template>
 

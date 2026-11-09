@@ -10,7 +10,10 @@ it('says nothing when the backend has nothing to say about the settings', async 
   const wrapper = mount(SettingsNotice, withI18n)
   await flushPromises()
 
-  expect(wrapper.find('#settings-notice').exists()).toBe(false)
+  // The status is in the page all the time, empty, so that a screen reader announces its text when it comes.
+  expect(wrapper.find('#settings-notice').attributes('role')).toBe('status')
+  expect(wrapper.find('#settings-notice').text()).toBe('')
+  expect(wrapper.find('#dismiss-settings-notice').exists()).toBe(false)
 })
 
 it('says what the backend says, as a status, and can be dismissed', async () => {
@@ -26,5 +29,7 @@ it('says what the backend says, as a status, and can be dismissed', async () => 
 
   await wrapper.find('#dismiss-settings-notice').trigger('click')
 
-  expect(wrapper.find('#settings-notice').exists()).toBe(false)
+  expect(wrapper.find('#settings-notice').exists()).toBe(true)
+  expect(wrapper.find('#settings-notice').text()).toBe('')
+  expect(wrapper.find('#dismiss-settings-notice').exists()).toBe(false)
 })

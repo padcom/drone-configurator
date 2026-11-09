@@ -1,7 +1,7 @@
 // End to end, in the real window: the Pico Desktop host, the Pico backend, pico-mavlink and the
 // simulated vehicle, driven over DevTools. `pnpm e2e` (pico-desktop test --e2e) builds the app
 // and runs this.
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { clickConnect, showScreen } from './click'
 

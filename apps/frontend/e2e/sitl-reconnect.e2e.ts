@@ -7,7 +7,7 @@
 // rest fail for that reason. "The same vehicle" depends on the backend reading AUTOPILOT_VERSION in time after each
 // reconnect (a vehicle whose unique id cannot be read is taken for another, which is the safe side); SITL answers at
 // once, but a very slow machine could turn it into a false "another vehicle".
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { clickConnect, showScreen } from './click'
 import { FlakyProxy } from './flaky-proxy'
