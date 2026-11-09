@@ -44,6 +44,14 @@ describe('the configurator against the simulated vehicle', () => {
     expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
     expect(telemetry).toMatch(/Battery/u)
   })
+
+  it('has the status bar on every screen: the link, the vehicle, the mode', async () => {
+    await showScreen(app, 'parameters')
+    const bar = await app.waitForText('#status-bar', /Mode\s*(?:STABILIZE|LOITER)/u)
+
+    expect(bar).toMatch(/Connection\s*connected/u)
+    expect(bar).toMatch(/QUADROTOR · ARDUPILOTMEGA · system 1\/1/u)
+  })
 })
 
 describe('writing, reconnecting and closing', () => {

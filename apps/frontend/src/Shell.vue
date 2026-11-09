@@ -13,6 +13,7 @@
       <component :is="Component" />
     </KeepAlive>
   </RouterView>
+  <StatusBar />
   <ConfirmDialog />
 </template>
 
@@ -21,6 +22,7 @@ import { useI18n } from 'vue-i18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectionBar from './ConnectionBar.vue'
 import { SCREENS } from './screens'
+import StatusBar from './StatusBar.vue'
 
 // The frame of the application: the title and the connection on top, the screens to choose from, and the screen.
 const { t } = useI18n()
