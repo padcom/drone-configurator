@@ -58,10 +58,12 @@ it('starts on Flight data, with the connection on top', async () => {
 it('has a link for every screen, in order, as native links a keyboard can reach', async () => {
   const { wrapper } = await shellAt('/flight')
 
+  // The seven of the product, then the gallery, which the development build (and so the tests) has.
   const links = wrapper.findAll('nav a')
-  expect(links.map(link => link.text())).toEqual(['Flight data', 'Plan', 'Setup', 'Tune', 'Parameters', 'Logs', 'Simulation'])
+  expect(links.map(link => link.text()))
+    .toEqual(['Flight data', 'Plan', 'Setup', 'Tune', 'Parameters', 'Logs', 'Simulation', 'Gallery'])
   expect(links.map(link => link.attributes('href')))
-    .toEqual(['/flight', '/plan', '/setup', '/tune', '/parameters', '/logs', '/simulation'])
+    .toEqual(['/flight', '/plan', '/setup', '/tune', '/parameters', '/logs', '/simulation', '/gallery'])
   expect(wrapper.find('nav').attributes('aria-label')).toBe('Screens')
 })
 

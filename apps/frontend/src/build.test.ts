@@ -14,20 +14,40 @@ const out = join(root, 'dist-csp-test')
 /**
  * Builds the frontend like `pnpm build` does.
  *
- * @returns the built index.html and the JavaScript of all its chunks
+ * @returns the built index.html, the names of its files, and the JavaScript and the CSS of all its chunks
  */
 async function buildFrontend() {
-  await build({ root, logLevel: 'silent', build: { outDir: out, emptyOutDir: true } })
+  // Vitest sets NODE_ENV=test, and Vite takes `import.meta.env.DEV` from NODE_ENV: without this the "production" build
+  // here would be a development build (with the component gallery in it). `pnpm build` has NODE_ENV=production.
+  const before = process.env.NODE_ENV
+  process.env.NODE_ENV = 'production'
+
+  try {
+    await build({ root, logLevel: 'silent', mode: 'production', build: { outDir: out, emptyOutDir: true } })
+  } finally {
+    if (before === undefined) {
+      delete process.env.NODE_ENV
+    } else {
+      process.env.NODE_ENV = before
+    }
+  }
   const assets = join(out, 'assets')
-  const chunks = readdirSync(assets).filter(f => f.endsWith('.js'))
+  const files = readdirSync(assets)
+  const text = (extension: string) => {
+    const named = files.filter(f => f.endsWith(extension))
+
+    return named.map(f => readFileSync(join(assets, f), 'utf8')).join('\n')
+  }
 
   return {
     html: readFileSync(join(out, 'index.html'), 'utf8'),
-    js: chunks.map(f => readFileSync(join(assets, f), 'utf8')).join('\n'),
+    files,
+    js: text('.js'),
+    css: text('.css'),
   }
 }
 
-let built = { html: '', js: '' }
+let built = { html: '', files: [] as string[], js: '', css: '' }
 
 beforeAll(async () => {
   built = await buildFrontend()
@@ -55,6 +75,28 @@ describe('the production build', () => {
   it('has no eval or new Function', () => {
     expect(built.js).not.toMatch(/\beval\s*\(/u)
     expect(built.js).not.toMatch(/new Function\s*\(/u)
+  })
+})
+
+describe('the production build and the component gallery', () => {
+  it('has the screens of the product as chunks of their own, loaded when first shown', () => {
+    expect(built.files.some(f => f.startsWith('Parameters-') && f.endsWith('.js'))).toBe(true)
+    expect(built.files.some(f => f.startsWith('FlightData-') && f.endsWith('.js'))).toBe(true)
+  })
+
+  it('has no gallery: no chunk, none of its markup, none of its styles', () => {
+    expect(built.files.filter(f => /gallery/iu.test(f))).toEqual([])
+    // `gallery-why` is an id that only the gallery's template has; `.swatch` is a class only its stylesheet has.
+    expect(built.js).not.toContain('gallery-why')
+    expect(built.js).not.toContain('screens/Gallery')
+    expect(built.css).not.toContain('.swatch')
+    expect(built.css).not.toContain('.gallery')
+  })
+
+  it('does have the controls\' own styles, which the product will use', () => {
+    // The check above would also pass on an empty build; this one shows that the CSS is there to be looked in.
+    expect(built.css).toContain('.kit-button')
+    expect(built.css).toContain('.kit-split')
   })
 })
 
