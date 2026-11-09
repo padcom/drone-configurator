@@ -9,15 +9,14 @@ import {
   MavLinkConnection,
   MavLinkRouter,
   MavType,
-  ParamEncoding,
   SimulatedAutopilot,
   Vehicle,
   VehicleDiscovery,
   defaultRegistry,
-  encodingOf,
 } from "padcom/pico-mavlink"
-import { Connection, ConnectionState, VehicleInfo, decodeConnectRequest, encodeConnection } from "./generated/app"
-import { link } from "./session"
+import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } from "./generated/app"
+import { watchSession } from "./reconnect"
+import { encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
 /// Registers the service's methods and subscription on `c`.
@@ -37,7 +36,8 @@ function autopilotSeen(d: VehicleDiscovery): Vehicle? {
   null
 }
 
-/// Receives until the link ends; then, if it's still the current one, it's lost.
+/// Receives until the connection ends. The router stays open when a link drops (reconnect.pi brings it back), so this
+/// ends only when the session is closed, or when reading fails for good: then, if it's still the current one, it's lost.
 async function watchLink(conn: MavLinkConnection, generation: int): Promise<void> {
   try {
     await conn.run()
@@ -61,14 +61,16 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
     link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(request)}: ${e.message}` })
     return encodeConnection(link.state)
   }
-  // The link goes under a router, even though there is only one: the seam where reconnecting,
-  // redundant links and several vehicles come in (#28, #31, #32). With one link it adds nothing
-  // visible: the connection still ends when the link ends, and `close()` closes the link.
+  // The link goes under a router that stays open when the link ends (`keepOpen`): the connection and the
+  // operations on it outlive a dropped link, and reconnect.pi adds a new link to the router when the old one
+  // comes back (#28). `close()` closes the router and with it every link.
   const registry = defaultRegistry()
-  const router = new MavLinkRouter({ registry })
+  const router = new MavLinkRouter({ registry, keepOpen: true })
   router.addLink(stream!)
   const conn = new MavLinkConnection(router, { registry })
   link.conn = conn
+  link.router = router
+  link.request = request
   const discovery = new VehicleDiscovery(conn)
   link.discovery = discovery
   watchLink(conn, generation)
@@ -87,18 +89,11 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.compid = found.compid
       link.autopilot = found.autopilot
       link.attach(conn)
-      // How integers travel in parameter floats: as the autopilot says (AUTOPILOT_VERSION), or as
-      // its kind usually does (PX4 bytewise; ArduPilot and most others C-cast).
-      const guess = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
       const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
-      link.encoding = if (version == null) guess else encodingOf(version!.capabilities) ?? guess
-      const info = VehicleInfo {
-        sysid: found.sysid as u8,
-        compid: found.compid as u8,
-        type: MavType.nameOf(found.type) ?? `${found.type}`,
-        autopilot: MavAutopilot.nameOf(found.autopilot) ?? `${found.autopilot}`,
-      }
-      link.update(Connection { state: ConnectionState.Connected, vehicle: info })
+      link.encoding = encodingFor(found, version)
+      link.identity = identityOf(found, version)
+      link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found) })
+      watchSession(generation)
       return encodeConnection(link.state)
     }
     await delay(50)

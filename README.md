@@ -6,7 +6,7 @@ A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
-Status: **a single screen that connects to a vehicle, shows its telemetry, and reads and writes its parameters.** There is no map, no flight or setup screens and no navigation between screens yet, and a lost link is shown as lost: you reconnect when you choose (no automatic reconnect).
+Status: **an application that connects to a vehicle, shows its telemetry, and reads and writes its parameters.** It has a navigation of seven screens, of which two exist (Flight data, with the telemetry cards, and Parameters); Plan, Setup, Tune, Logs and Simulation say they are not available yet. A status bar shows the link, the vehicle, the mode and the armed state on every screen, and the colours follow the system's light or dark theme (there is a switch for it only in the component gallery of the development build). There is no map and no flight or setup screens yet.
 - Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery, attitude, and (when the vehicle sends them) its position, GPS fix and speed.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.
@@ -21,6 +21,7 @@ Status: **a single screen that connects to a vehicle, shows its telemetry, and r
 - The parameter encoding (C-cast or bytewise) comes from the autopilot's AUTOPILOT_VERSION, with ArduPilot's or PX4's usual one as a fallback.
 - Closing the app while connected ends the session in time.
 - A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
+- A link that drops does not end the session. When the link ends (a TCP connection or a serial port that closes), or the vehicle sends no heartbeat for 5 seconds, the dashboard says "reconnecting" with the try and the wait until the next (1, 2, 4, 8 s, then every 10 s), keeps the vehicle, the parameters and the last telemetry on screen (marked as the last heard), and stops what was running; a write in flight is reported as unconfirmed and never sent again. The backend opens a TCP or serial link again by itself and waits for a heartbeat. If the vehicle that answers is the same one (system, component, type, autopilot and unique id), it says "reconnected to the same vehicle"; if it is another, it says so and treats it as a new connection, downloading its parameters again. Disconnecting, or connecting somewhere else, ends the tries. (Parameters are still downloaded in full after a reconnect; reusing the list is the next step.)
 
 ![The Drone Configurator connected to the built-in simulator, with metadata loaded](docs/screenshot.png)
 
