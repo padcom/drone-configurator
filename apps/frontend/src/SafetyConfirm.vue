@@ -6,16 +6,19 @@
       <label for="safety-typed">{{ t('safety.typePrompt', { word: options.typedWord }) }}</label>
       <TextInput id="safety-typed" v-model="typed" autocomplete="off" @keydown.enter.prevent />
     </template>
-    <p v-else class="safety-hint">{{ t('safety.holdHint', { seconds: HOLD_MS / 1000 }) }}</p>
+    <p v-else id="safety-hint" class="safety-hint">{{ t('safety.holdHint', { seconds: HOLD_MS / 1000 }) }}</p>
+    <p role="status" class="safety-tapped"><template v-if="tapped">{{ t('safety.tapped') }}</template></p>
     <template #actions>
-      <Button id="confirm-cancel" data-initial-focus @click="answer(false)">{{ t('confirm.cancel') }}</Button>
+      <Button id="confirm-cancel" data-initial-focus @click="cancel">{{ t('confirm.cancel') }}</Button>
       <HoldButton
         v-if="options.level === 'hold'"
         id="confirm-hold"
+        aria-describedby="safety-hint"
         :hold-ms="HOLD_MS"
         :arm-ms="IGNORE_MS"
         :danger="options.danger"
         @held="answer(true)"
+        @tap="tapped = true"
       >{{ t('confirm.hold') }}</HoldButton>
       <Button
         v-else
@@ -52,6 +55,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const typed = ref('')
+const tapped = ref(false)
 let armed = false
 let answered = false
 let armTimer: ReturnType<typeof setTimeout> | undefined
@@ -65,6 +69,16 @@ function answer(confirmed: boolean): void {
   if (!answered) {
     answered = true
     emit('answer', confirmed)
+  }
+}
+
+/**
+ * Cancel was pressed. Not in the first moments: a Space that opened the dialog and is still held comes up on Cancel
+ * and would click it (Escape and the other ways to leave work at once).
+ */
+function cancel(): void {
+  if (armed) {
+    answer(false)
   }
 }
 

@@ -126,6 +126,7 @@ export async function holdConfirm(app: E2eApp): Promise<void> {
  */
 export async function cancelConfirm(app: E2eApp): Promise<void> {
   await app.waitFor('document.querySelector(\'#confirm-cancel\') !== null')
+  await sleep(CONFIRMATION_ARMS_MS)
   await app.click('#confirm-cancel')
   await app.waitFor('document.querySelector(\'#confirm\') === null')
 }

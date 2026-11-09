@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
-import { h } from 'vue'
+import { h, nextTick } from 'vue'
 import Dialog from './Dialog.vue'
 
 afterEach(() => {
@@ -60,13 +60,45 @@ describe('a dialog', () => {
   })
 })
 
+describe('a dialog, closed by the browser', () => {
+  it('says so, so that the owner can remove it (Escape pressed a second time closes without a cancel)', async () => {
+    const { wrapper } = opened()
+
+    await wrapper.get('dialog').trigger('close')
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+})
+
 describe('a dialog, when it goes', () => {
-  it('gives the focus back to what had it, when it goes', () => {
+  it('gives the focus back to what had it, when it goes', async () => {
     const { wrapper, opener } = opened()
 
     wrapper.unmount()
+    await nextTick()
 
     expect(document.activeElement).toBe(opener)
+  })
+
+  it('gives it to the section around what had it, when that has been disabled meanwhile', async () => {
+    const section = document.createElement('section')
+    document.body.append(section)
+    const { wrapper, opener } = opened()
+    section.append(opener)
+    opener.focus()
+    wrapper.unmount()
+    opener.disabled = true
+    await nextTick()
+
+    expect(document.activeElement).toBe(section)
+  })
+
+  it('does not say it closed when it goes by itself', () => {
+    const { wrapper } = opened()
+
+    wrapper.unmount()
+
+    expect(wrapper.emitted('close')).toBeUndefined()
   })
 })
 

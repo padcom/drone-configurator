@@ -148,7 +148,39 @@ describe('a confirmation by typing, with Enter and at the start', () => {
   })
 })
 
+describe('a confirmation, pressed the way a screen reader or a held key does', () => {
+  it('says that the button is to be held when it is clicked, and links the hint to the button', async () => {
+    const wrapper = asked(HOLD)
+    expect(wrapper.get('[role="status"]').text()).toBe('')
+    expect(wrapper.get('#confirm-hold').attributes('aria-describedby')).toBe('safety-hint')
+
+    await wrapper.get('#confirm-hold').trigger('click')
+
+    expect(wrapper.get('[role="status"]').text()).toContain('hold')
+    expect(answers(wrapper)).toEqual([])
+  })
+
+  it('does not cancel for a click in the first moments (a key still held from the button that opened it)', async () => {
+    const wrapper = asked(HOLD, IGNORE_MS - 1)
+
+    await wrapper.get('#confirm-cancel').trigger('click')
+    expect(answers(wrapper)).toEqual([])
+    vi.advanceTimersByTime(1)
+    await wrapper.get('#confirm-cancel').trigger('click')
+
+    expect(answers(wrapper)).toEqual([false])
+  })
+})
+
 describe('leaving a confirmation', () => {
+  it('answers no when the browser closes the dialog, so asking again shows a new one', async () => {
+    const wrapper = asked(HOLD)
+
+    await wrapper.get('dialog').trigger('close')
+
+    expect(answers(wrapper)).toEqual([false])
+  })
+
   it('answers no for Escape', async () => {
     const wrapper = asked(HOLD)
 

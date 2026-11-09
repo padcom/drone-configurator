@@ -10,7 +10,8 @@
     @blur="end"
     @keydown="keyDown"
     @keyup="keyUp"
-    @click.prevent
+    @contextmenu.prevent
+    @click.prevent="emit('tap')"
   >
     <svg class="kit-hold-ring" viewBox="0 0 20 20" aria-hidden="true">
       <circle class="kit-hold-track" cx="10" cy="10" r="8" />
@@ -39,6 +40,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   /** The button has been held long enough. Once per hold. */
   held: []
+  /**
+   * The button was clicked, which does nothing here: the owner can say that it has to be held (a screen reader in
+   * browse mode activates a button with a click, and would otherwise get no answer at all).
+   */
+  tap: []
 }>()
 
 const holding = ref(false)

@@ -84,7 +84,7 @@ describe('a hold button, let go or left', () => {
 })
 
 describe('a hold button, pressed the way that must not confirm', () => {
-  it('ignores clicks and double clicks', async () => {
+  it('ignores clicks and double clicks, and says it was clicked', async () => {
     const wrapper = holdButton()
 
     await wrapper.trigger('click')
@@ -92,6 +92,17 @@ describe('a hold button, pressed the way that must not confirm', () => {
     vi.advanceTimersByTime(HOLD * 2)
 
     expect(held(wrapper)).toBe(0)
+    expect(wrapper.emitted('tap')).toHaveLength(1)
+  })
+})
+
+describe('a hold button, on a touch screen and at the start', () => {
+  it('has no context menu (a long press on a touch screen)', () => {
+    const event = new Event('contextmenu', { cancelable: true })
+
+    holdButton().element.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
   })
 
   it('ignores presses in the first moments after it appears, and takes them after', async () => {

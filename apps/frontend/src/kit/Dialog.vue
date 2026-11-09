@@ -6,6 +6,7 @@
     :aria-labelledby="`${uid}-title`"
     :aria-describedby="`${uid}-body`"
     @cancel.prevent="emit('close')"
+    @close="closed"
     @keydown.tab="trap"
   >
     <h2 :id="`${uid}-title`" class="kit-dialog-title">{{ title }}</h2>
@@ -19,7 +20,7 @@
 // owner decides, usually by removing the dialog), and when it goes the focus returns to what had it before. The browser
 // keeps Tab inside the dialog but lets it reach the browser's own UI; the explicit trap wraps it round instead.
 // The element with `data-initial-focus` gets the focus first (else the first control); give it to the safe choice.
-import { onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 
 defineProps<{
   /** The heading, and the dialog's accessible name. */
@@ -27,13 +28,21 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  /** Escape was pressed: the owner closes the dialog, or keeps it open. */
+  /** Escape was pressed, or the browser closed the dialog: the owner removes it (or, for Escape, may keep it open). */
   close: []
 }>()
 
 const uid = useId()
 const dialog = ref<HTMLDialogElement | null>(null)
 let opener: Element | null = null
+let going = false
+
+/** The dialog was closed (by the browser, for instance Escape pressed a second time): the owner is told. */
+function closed(): void {
+  if (!going) {
+    emit('close')
+  }
+}
 
 const FOCUSABLE = [
   'button:not(:disabled)',
@@ -61,13 +70,40 @@ function wrapped(controls: HTMLElement[], active: Element | null, backwards: boo
 }
 
 /**
- * Gives the focus back to what had it before the dialog opened, if that is still on the page.
+ * Focuses an element, if it can take the focus.
+ *
+ * @param element the element
+ * @returns true when it has the focus now
+ */
+function focused(element: HTMLElement): boolean {
+  element.focus()
+
+  return !element.matches(':disabled') && document.activeElement === element
+}
+
+/**
+ * Focuses the section (or form, or main) around an element that cannot take the focus.
+ *
+ * @param element the element
+ */
+function focusAround(element: HTMLElement): void {
+  const around = element.closest<HTMLElement>('section, form, main')
+  if (around) {
+    around.tabIndex = -1
+    around.focus()
+  }
+}
+
+/**
+ * Gives the focus back to what had it before the dialog opened, if that is still on the page. If that cannot take it
+ * (the write that the dialog confirmed has disabled the button that opened it), the section around it does, so the
+ * focus is not lost to the page.
  *
  * @param element the element that had the focus
  */
 function giveBack(element: Element | null): void {
-  if (element instanceof HTMLElement && element.isConnected) {
-    element.focus()
+  if (element instanceof HTMLElement && element.isConnected && !focused(element)) {
+    focusAround(element)
   }
 }
 
@@ -92,7 +128,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  going = true
   dialog.value?.close()
-  giveBack(opener)
+  // After the page has updated: what opened the dialog may have been disabled by what the dialog confirmed.
+  void nextTick(() => giveBack(opener))
 })
 </script>
