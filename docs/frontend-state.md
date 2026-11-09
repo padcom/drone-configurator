@@ -12,9 +12,10 @@ One page: backend calls, subscriptions and when they end, errors, and the frame 
 - `client.call('params.write', { id, value })` calls a method and returns its response. The names and the types come
   from `src/generated/app.ts`, which is generated from `packages/contracts/app.cddl`, so a wrong name or payload is a
   type error.
-- `client.subscribe('telemetry.stream', null, onValue)` returns `{ ready, stop }`.
+- `client.subscribe('telemetry.stream', null, onValue, onEnd?)` returns `{ ready, stop }`.
 - `client.onEvent('params.changed', listener)` listens to a one-way event and returns its stop function.
 - `client.onState(listener)` observes the link: the backend restarts after a crash or an edit in development.
+  Like the others, it ends with the effect scope it was made in.
 
 ## Subscriptions and when they end
 
@@ -24,6 +25,9 @@ test) it lives until `stop()`.
 
 - `ready` resolves once the backend accepted the subscription and rejects with a `BackendError` if it did not. Always
   handle it (`await` it, or `.catch` it): an unhandled rejection is an error.
+- `onEnd(error)` is called once when the **backend** ends the subscription: with a `BackendError` if it failed, with
+  `null` if it ended normally. It is never called for a `stop()` of your own. A subscription the backend **refuses** is
+  not an end: `ready` rejects (also when `stop()` came first).
 - Stopping before the backend has answered is fine: the subscription is cancelled as soon as it is accepted, and no
   value reaches `onValue` in between.
 - After a backend restart the Communicator subscribes again by itself. Values missed meanwhile are not replayed.
@@ -45,7 +49,9 @@ for every value. `useFrameRef(initial)` returns a `FrameRef`:
 
 - `push(value)` can be called any number of times; at most once per animation frame the **latest** pushed value is
   published, and `value` (a read-only ref) changes only then.
-- `flush()` publishes now; `stop()` drops the pending value. Both are also done when the effect scope ends.
+- `flush()` publishes now and cancels the frame that was asked for; `stop()` drops the pending value. `stop()` is also
+  done when the effect scope ends.
+- The published value is the object that was pushed, not a Vue proxy of it (the ref is shallow).
 - The scheduler is injectable (`useFrameRef(initial, schedule)`, `requestAnimationFrame` by default), so a test
   drives the frames by hand and asserts that 100 pushes in one frame make one publish.
 
