@@ -92,7 +92,8 @@ export async function chooseTheme(app: E2eApp, theme: string): Promise<void> {
   await clickLinkUntilShown(
     app,
     `#theme-switch label:has(input[value="${theme}"])`,
-    `document.documentElement.getAttribute('data-theme') === ${expected}`,
+    // (A page that is being loaded has no root element for an instant: asking it then is an error, not "not yet".)
+    `document.documentElement !== null && document.documentElement.getAttribute('data-theme') === ${expected}`,
     ATTEMPTS,
   )
 }

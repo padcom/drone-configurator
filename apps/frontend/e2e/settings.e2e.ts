@@ -8,7 +8,8 @@ import { chooseTheme } from './click'
 import { home, launchApp } from './launch'
 
 const APP_ID = 'dev.pico-desktop.drone-configurator'
-const DARK = `document.documentElement.getAttribute('data-theme') === 'dark'`
+// A page that is being loaded has no root element for an instant: asking it then is an error, not "not yet".
+const DARK = `document.documentElement !== null && document.documentElement.getAttribute('data-theme') === 'dark'`
 
 it('keeps the theme chosen with the switch across a restart of the application', async () => {
   const file = join(home, 'data', 'pico-desktop', 'apps', APP_ID, 'settings.json')
