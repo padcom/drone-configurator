@@ -1,6 +1,11 @@
 packages:
   - apps/frontend
 
+# Install scripts of dependencies are denied unless listed here. esbuild (a dependency of
+# @intlify/unplugin-vue-i18n) only has an optional post-install check of its binary; it works without it.
+allowBuilds:
+  esbuild: false
+
 # @padcom/eslint-config-typescript@0.20.2 imports @padcom/eslint-config-javascript without declaring
 # it (hidden by npm's hoisting, fatal under pnpm). Remove once the package declares it.
 packageExtensions:

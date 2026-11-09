@@ -27,13 +27,13 @@ async function buildFrontend() {
   }
 }
 
+let built = { html: '', js: '' }
+
+beforeAll(async () => {
+  built = await buildFrontend()
+}, 120_000)
+
 describe('the production build', () => {
-  let built = { html: '', js: '' }
-
-  beforeAll(async () => {
-    built = await buildFrontend()
-  }, 120_000)
-
   it('has no inline script or style', () => {
     expect(built.html).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/iu)
     expect(built.html).not.toMatch(/<style[\s>]/iu)
@@ -55,5 +55,20 @@ describe('the production build', () => {
   it('has no eval or new Function', () => {
     expect(built.js).not.toMatch(/\beval\s*\(/u)
     expect(built.js).not.toMatch(/new Function\s*\(/u)
+  })
+})
+
+describe('the messages in the production build', () => {
+  it('are in the bundle, precompiled, so vue-i18n needs no message compiler', () => {
+    // The document title comes from src/locales/en.json through vue-i18n, so the messages are in the bundle.
+    expect(built.js).toContain('Drone Configurator')
+    // The message compiler is what would need `new Function`: the runtime-only build leaves it out.
+    expect(built.js).not.toMatch(/compileToFunction|Function\(/u)
+  })
+
+  it('leave eval and new Function out although vue-i18n is bundled', () => {
+    expect(built.js).not.toMatch(/\beval\s*\(/u)
+    expect(built.js).not.toMatch(/new\s+Function\b/u)
+    expect(built.js).not.toMatch(/\bFunction\s*\(\s*["'`]/u)
   })
 })
