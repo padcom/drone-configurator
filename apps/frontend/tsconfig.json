@@ -13,5 +13,5 @@
     "noEmit": true
   },
   "include": ["src", "vite.config.ts"],
-  "exclude": ["src/build.test.ts"]
+  "exclude": ["src/build.test.ts", "src/lint-baseline.test.ts"]
 }
