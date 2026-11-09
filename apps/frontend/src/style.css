@@ -1,20 +1,20 @@
+/* The names the rest of this file uses, from the design tokens (kit/tokens.css), which have the light and dark themes. */
 :root {
-  color-scheme: light dark;
-  --accent: #5b4fd6;
-  --ok: #1f8a4c;
-  --warn: #b26a00;
-  --error: #c62828;
+  --accent: var(--color-accent);
+  --ok: var(--color-ok);
+  --warn: var(--color-warn);
+  --error: var(--color-error);
   --line: color-mix(in srgb, currentColor 18%, transparent);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
-body { margin: 0 auto; max-width: 1100px; padding: 16px; }
+body { margin: 0 auto; max-width: 1100px; padding: 16px; background: var(--color-bg); color: var(--color-text); }
 h1 { color: var(--accent); margin: 0 0 8px; font-size: 1.5rem; }
 header form { display: flex; gap: 6px; flex-wrap: wrap; }
 header input { width: 9em; }
 .badge { padding: 2px 8px; border-radius: 10px; background: var(--line); }
-.badge.connected { background: var(--ok); color: white; }
-.badge.lost { background: var(--warn); color: white; }
+.badge.connected { background: var(--ok); color: var(--color-bg); }
+.badge.lost { background: var(--warn); color: var(--color-bg); }
 nav { display: flex; gap: 4px; flex-wrap: wrap; margin: 8px 0; border-bottom: 1px solid var(--line); }
 nav a { padding: 6px 12px; color: inherit; text-decoration: none; border-bottom: 2px solid transparent; }
 nav a:hover { background: color-mix(in srgb, currentColor 8%, transparent); }

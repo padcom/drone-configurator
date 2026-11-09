@@ -1,0 +1,80 @@
+/*
+ * The design tokens: the colours, spacing, type, radii and density that the interface is made of, as CSS custom
+ * properties. Components use these names and no literal values.
+ *
+ * Two themes. The light one is the default of `:root`; the dark one applies when the system asks for it
+ * (`prefers-color-scheme`), unless the user chose a theme (`data-theme="light"` or `"dark"` on the root element, set by
+ * `useTheme()`). The dark colours are written twice, for the system and for the explicit choice: tokens.test.ts checks
+ * that the two are the same, and that every pair of text and background has the contrast WCAG AA asks for.
+ *
+ * Colours are #rrggbb on purpose: the contrast test reads them from this file.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Colour: light. */
+  --color-bg: #ffffff;
+  --color-surface: #f4f5f8;
+  --color-text: #1b1d24;
+  --color-text-muted: #565b6b;
+  --color-border: #c9ccd6;
+  --color-accent: #4a3fc4;
+  --color-on-accent: #ffffff;
+  --color-ok: #17703c;
+  --color-warn: #8a5200;
+  --color-error: #b3261e;
+
+  /* Spacing: a 4 px step. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* Type. */
+  --font-body: system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-size-sm: 0.8rem;
+  --font-size-md: 0.95rem;
+  --font-size-lg: 1.15rem;
+  --font-size-xl: 1.5rem;
+  --line-height: 1.4;
+
+  /* Shape. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* Density: compact, for a desktop tool with a lot on the screen. */
+  --control-height: 28px;
+  --control-padding-x: var(--space-3);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #14151a;
+    --color-surface: #1d1f27;
+    --color-text: #e8e9ee;
+    --color-text-muted: #a3a7b5;
+    --color-border: #3a3d4a;
+    --color-accent: #a9a0ff;
+    --color-on-accent: #14151a;
+    --color-ok: #6fd49a;
+    --color-warn: #f0b45a;
+    --color-error: #ff8f86;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #14151a;
+  --color-surface: #1d1f27;
+  --color-text: #e8e9ee;
+  --color-text-muted: #a3a7b5;
+  --color-border: #3a3d4a;
+  --color-accent: #a9a0ff;
+  --color-on-accent: #14151a;
+  --color-ok: #6fd49a;
+  --color-warn: #f0b45a;
+  --color-error: #ff8f86;
+}
