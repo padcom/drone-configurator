@@ -1,31 +1,8 @@
-// The vehicle session: the one link to the vehicle and what it last heard. The services share it
-// through the exported `link`; this module imports none of them.
-import { Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
-import {
-  HeartbeatSender,
-  MavLinkConnection,
-  MavParamType,
-  ParamEncoding,
-  Received,
-  SimulatedAutopilot,
-  TypedParamValue,
-  ParamValue,
-  VehicleDiscovery,
-  decodeParam,
-} from "padcom/pico-mavlink"
-import { Connection, ConnectionState, Param, ParamKind, encodeConnection, encodeParam } from "./generated/app"
-
-function typeName(type: int): string {
-  MavParamType.nameOf(type) ?? `${type}`
-}
-
-/// A parameter as the contract has it.
-export function toParam(id: string, index: int, v: TypedParamValue): Param {
-  match (v) {
-    Int { value, type } => Param { id: id, index: index as u16, kind: ParamKind.Int, type: typeName(type), value: value as f64 },
-    Real { value, type } => Param { id: id, index: index as u16, kind: ParamKind.Real, type: typeName(type), value: (value as f32) as f64 },
-  }
-}
+// The vehicle session: the one link to the vehicle. The services share it through the exported
+// `link`, and listen to the vehicle as `SessionPart`s; this module imports none of them.
+import { CommunicatorError, Sink } from "pico-desktop/communicator"
+import { HeartbeatSender, MavLinkConnection, ParamEncoding, SimulatedAutopilot, VehicleDiscovery } from "padcom/pico-mavlink"
+import { Connection, ConnectionState, encodeConnection } from "./generated/app"
 
 /// A service that listens to the vehicle while a session is up. `attach` is called once the
 /// autopilot is identified (`link.sysid` and `link.compid` say which one to listen to), `detach`
@@ -35,7 +12,7 @@ export interface SessionPart {
   detach(): void
 }
 
-/// The vehicle link and what it last heard.
+/// The vehicle link.
 class Link {
   public conn: MavLinkConnection? = null
   public sim: SimulatedAutopilot? = null
@@ -55,9 +32,6 @@ class Link {
   public heartbeatWaitMs: int = 3000
   /// Aborted when the session ends: operations still running stop at once.
   public session: AbortController = new AbortController()
-  public communicator: Communicator? = null
-  /// While a list download runs, PARAM_VALUEs are its answers, not news.
-  public listing: bool = false
 
   public update(c: Connection): void {
     state = c
@@ -101,22 +75,6 @@ class Link {
     conn = null
     sim = null
     sysid = 0
-  }
-
-  /// News from the connected vehicle that no part listens to yet.
-  public seen(r: Received): void {
-    if (sysid == 0 || r.packet.header.sysid != sysid || r.packet.header.compid != compid) {
-      return
-    }
-    const m = r.message
-    if (m instanceof ParamValue) {
-      // A parameter the vehicle announced on its own: tell the dashboard.
-      const c = communicator
-      if (!listing && c != null) {
-        const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, encoding))
-        c!.emit("params.changed", encodeParam(p))
-      }
-    }
   }
 }
 

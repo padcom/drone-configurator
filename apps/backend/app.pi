@@ -1,29 +1,13 @@
 // The backend: the vehicle link (padcom/pico-mavlink) behind the contract's methods and
-// subscriptions. Pico has no async closures yet, so handlers are named async functions over the
-// one module-level session (session.pi).
-import { Cbor, Communicator, CommunicatorError, RequestContext, Transport } from "pico-desktop/communicator"
-import {
-  MavLinkError,
-  MavParamType,
-  ParamError,
-  ParamList as ParamListOp,
-  ParamWrite as ParamWriteOp,
-  SimulatedAutopilot,
-  TypedParamValue,
-  ParamListResult,
-} from "padcom/pico-mavlink"
-import {
-  ParamList,
-  ParamWriteKind,
-  ParamWriteResult,
-  decodeParamWrite,
-  encodeParamList,
-  encodeParamWriteResult,
-} from "./generated/app"
+// subscriptions, one module per service over the one session (session.pi). Pico has no async
+// closures yet, so handlers are named async functions.
+import { Communicator, Transport } from "pico-desktop/communicator"
+import { SimulatedAutopilot } from "padcom/pico-mavlink"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
+import { register as registerParams } from "./params"
 import { register as registerSerial } from "./serial"
-import { connectedLink, link, toParam } from "./session"
+import { link } from "./session"
 import { register as registerTelemetry } from "./telemetry"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
@@ -39,69 +23,13 @@ export function setHeartbeatWait(ms: int): void {
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
-  link.communicator = c
   // The app is closing: end the vehicle session (heartbeats, the link and its reads, operations in
   // flight), so nothing keeps this process alive past the host's grace period.
   c.onClosing = () => link.close()
   registerConnection(c)
-  c.handle("params.list", listParams)
-  c.handle("params.write", writeParam)
+  registerParams(c)
   registerTelemetry(c)
   registerFiles(c)
   registerSerial(c)
   c
-}
-
-function typeValue(name: string): int? {
-  for (let t = 1; t <= 10; t++) {
-    if (MavParamType.nameOf(t) == name) {
-      return t
-    }
-  }
-  null
-}
-
-async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const conn = connectedLink()
-  let r: ParamListResult? = null
-  link.listing = true
-  try {
-    r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run()
-  } catch (e: MavLinkError) {
-    link.listing = false
-    throw new CommunicatorError(e.code, e.message)
-  }
-  link.listing = false
-  const list = r!
-  const out = ParamList {
-    params: list.params.map((p) => toParam(p.id, p.index, p.value)),
-    count: list.count as u16,
-    complete: list.complete,
-    missing: list.missing.map((i: int) => i as u16),
-  }
-  encodeParamList(out)
-}
-
-async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const w = decodeParamWrite(payload ?? Cbor.Null, "$")
-  const conn = connectedLink()
-  const type = typeValue(w.type)
-  if (type == null) {
-    throw new CommunicatorError("INVALID_VALUE", `unknown parameter type ${w.type}`)
-  }
-  let value: TypedParamValue = TypedParamValue.Real(w.value, type!)
-  if (w.kind == ParamWriteKind.Int) {
-    if (Math.floor(w.value) != w.value || Math.abs(w.value) > 4294967295.0) {
-      throw new CommunicatorError("INVALID_VALUE", `${w.id} is an integer; ${w.value} isn't`)
-    }
-    value = TypedParamValue.Int(w.value as int, type!)
-  }
-  try {
-    const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run(w.id, value)
-    encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
-  } catch (e: MavLinkError) {
-    throw new CommunicatorError(e.code, e.message)
-  } catch (e: ParamError) {
-    throw new CommunicatorError(e.code, e.message)
-  }
 }

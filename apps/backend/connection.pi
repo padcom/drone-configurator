@@ -11,7 +11,6 @@ import {
   MavLinkConnection,
   MavType,
   ParamEncoding,
-  Received,
   SimulatedAutopilot,
   SysStatus,
   Vehicle,
@@ -79,7 +78,6 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   link.conn = conn
   const discovery = new VehicleDiscovery(conn)
   link.discovery = discovery
-  conn.on((r: Received) => link.seen(r))
   watchLink(conn, generation)
   const beats = new HeartbeatSender(conn)
   beats.start()

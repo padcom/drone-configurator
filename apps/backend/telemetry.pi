@@ -56,6 +56,9 @@ class Heard implements SessionPart {
   public lastHeartbeat: int = 0
 
   public attach(c: MavLinkConnection): void {
+    if (conn != null) {
+      detach()
+    }
     conn = c
     listener = c.on((r: Received) => seen(r))
   }
