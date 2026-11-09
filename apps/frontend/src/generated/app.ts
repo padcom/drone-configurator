@@ -117,6 +117,24 @@ function validateParamWriteResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-write-result, or null. */
 export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
 
+export type MessagesParams = { "replay"?: number }
+
+function validateMessagesParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["replay"]) && (value["replay"] === undefined || nested(value["replay"], `${path}.replay`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a messages-params, or null. */
+export const validateMessagesParams = (value: unknown) => run(validateMessagesParamsInto, value)
+
+export type VehicleMessage = { "id": number, "time": number | bigint, "system": number, "component": number, "severity": number, "text": string, "truncated": boolean }
+
+function validateVehicleMessageInto(value: any, path: string): boolean {
+  return map(value, path, ["id","time","system","component","severity","text","truncated"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["time"] === undefined ? fail(`${path}.time`, 'present') : nested(value["time"], `${path}.time`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["system"] === undefined ? fail(`${path}.system`, 'present') : nested(value["system"], `${path}.system`, (value, path) => uint(value, path, 0xff))) && (value["component"] === undefined ? fail(`${path}.component`, 'present') : nested(value["component"], `${path}.component`, (value, path) => uint(value, path, 0xff))) && (value["severity"] === undefined ? fail(`${path}.severity`, 'present') : nested(value["severity"], `${path}.severity`, (value, path) => uint(value, path, 0xff))) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["truncated"] === undefined ? fail(`${path}.truncated`, 'present') : nested(value["truncated"], `${path}.truncated`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a vehicle-message, or null. */
+export const validateVehicleMessage = (value: unknown) => run(validateVehicleMessageInto, value)
+
 export type TelemetryParams = { "rateHz"?: number }
 
 function validateTelemetryParamsInto(value: any, path: string): boolean {
@@ -314,6 +332,7 @@ export interface Services {
   "params.list": { kind: 'method', request: null, response: ParamList }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
+  "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
@@ -347,6 +366,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "telemetry.stream": {
     params: (value: any, path: string) => validateTelemetryParamsInto(value, path),
     value: (value: any, path: string) => validateTelemetryInto(value, path),
+  },
+  "vehicle.messages": {
+    params: (value: any, path: string) => validateMessagesParamsInto(value, path),
+    value: (value: any, path: string) => validateVehicleMessageInto(value, path),
   },
   "files.save": {
     request: (value: any, path: string) => validateFileSaveInto(value, path),

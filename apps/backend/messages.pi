@@ -1,0 +1,178 @@
+// The messages service: the texts the connected vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors"), long ones
+// joined, kept in a ring of the last 500 and streamed to the dashboard. A subscription first gets the stored messages it
+// asked for, oldest first, then each new one; every message has an id that goes up by one, so the dashboard can drop a
+// repeat.
+import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
+import { MavLinkConnection, StatusMessage, StatusTextReader } from "padcom/pico-mavlink"
+import { delay } from "std/timers"
+import { VehicleMessage, decodeMessagesParams, encodeVehicleMessage } from "./generated/app"
+import { SessionPart, link } from "./session"
+
+/// How many messages are kept.
+const RING_SIZE: int = 500
+/// How many messages a subscription gets when it does not say.
+const DEFAULT_REPLAY: int = 100
+/// How many messages go out before the next batch waits a moment: a subscription takes only so many events that have
+/// not been delivered yet (the rest would be dropped), so a long replay is paced.
+const BATCH: int = 100
+
+/// Registers the service's subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("messages", kept)
+  c.publish("vehicle.messages", streamMessages)
+}
+
+/// One subscription: what it is sent now, and what came while its replay was still going out.
+class Subscriber {
+  public readonly sink: Sink
+  /// Whether the replay is out: live messages go straight out from then on.
+  public ready: bool = false
+  public backlog: VehicleMessage[] = []
+
+  constructor(sink: Sink) {
+    this.sink = sink
+  }
+
+  public send(m: VehicleMessage): void {
+    sink.next(encodeVehicleMessage(m))
+  }
+}
+
+/// The messages of the connected vehicle, and who is listening.
+class Kept implements SessionPart {
+  public ring: VehicleMessage[] = []
+  public subscribers: Subscriber[] = []
+  /// Goes up for every message for as long as the backend runs: never reset.
+  public nextId: int = 1
+  public reader: StatusTextReader? = null
+  /// How long a long message waits for a missing chunk before it is delivered truncated (ms).
+  public timeoutMs: int = 1000
+
+  /// A vehicle was identified: its messages from now on. The ones kept are of an earlier vehicle (or of this one before
+  /// it was disconnected): they go. A link that is brought back to the same vehicle does not come here (reconnect.pi),
+  /// and its messages stay.
+  public attach(c: MavLinkConnection): void {
+    if (reader != null) {
+      detach()
+    }
+    ring = []
+    const r = new StatusTextReader(c, timeoutMs)
+    r.onMessage((m: StatusMessage) => take(m))
+    reader = r
+  }
+
+  /// The session is over. The reader has a timer: it must be stopped, or the process does not end. What it still held
+  /// is delivered (truncated) and kept, so the dashboard sees it.
+  public detach(): void {
+    const r = reader
+    reader = null
+    if (r != null) {
+      r!.stop()
+    }
+  }
+
+  /// A message from the vehicle (only the connected vehicle's system is kept).
+  public take(m: StatusMessage): void {
+    if (link.sysid == 0 || m.system != link.sysid) {
+      return
+    }
+    const message = VehicleMessage {
+      id: nextId as u32,
+      time: Date.now() as u64,
+      system: m.system as u8,
+      component: m.component as u8,
+      severity: m.severity as u8,
+      text: m.text,
+      truncated: m.truncated,
+    }
+    nextId += 1
+    ring.push(message)
+    if (ring.length > RING_SIZE) {
+      ring.splice(0, 1)
+    }
+    for (const s of subscribers) {
+      if (s.ready) s.send(message) else s.backlog.push(message)
+    }
+  }
+
+  /// The last `n` messages, oldest first.
+  public last(n: int): VehicleMessage[] {
+    const out: VehicleMessage[] = []
+    for (let i = if (ring.length > n) ring.length - n else 0; i < ring.length; i++) {
+      out.push(ring[i])
+    }
+    out
+  }
+
+  public remove(s: Subscriber): void {
+    const i = subscribers.indexOf(s)
+    if (i >= 0) {
+      subscribers.splice(i, 1)
+    }
+  }
+}
+
+const kept = new Kept()
+
+/// For the tests: a message as if the vehicle had sent it.
+export function takeForTests(m: StatusMessage): void {
+  kept.take(m)
+}
+
+/// For the tests: the reader of the connected vehicle, null when none is listening.
+export function readerForTests(): StatusTextReader? {
+  kept.reader
+}
+
+/// For the tests: how many messages are kept.
+export function keptForTests(): int {
+  kept.ring.length
+}
+
+/// For the tests: how long a long message waits for a missing chunk (ms), from the next connection on.
+export function setMessageTimeout(ms: int): void {
+  kept.timeoutMs = ms
+}
+
+/// How many messages the subscriber asked to be replayed: the default when it passed no parameters, or no `replay`.
+function replayAskedFor(params: Cbor?): int throws Error {
+  if (params == null) {
+    return DEFAULT_REPLAY
+  }
+  const asked = decodeMessagesParams(params!, "$").replay
+  if (asked == null) DEFAULT_REPLAY else asked! as int
+}
+
+/// Sends the stored messages, a batch at a time, then what came meanwhile, and from then on lets live ones through.
+async function sendReplay(s: Subscriber, replay: VehicleMessage[]): Promise<void> {
+  for (let i = 0; i < replay.length && s.sink.active; i++) {
+    s.send(replay[i])
+    if ((i + 1) % BATCH == 0) {
+      try {
+        await delay(0)
+      } catch (e: Error) {
+        // Not cancelled by anyone: nothing to do but go on.
+      }
+    }
+  }
+  const late = s.backlog
+  s.backlog = []
+  for (const m of late) {
+    s.send(m)
+  }
+  s.ready = true
+}
+
+/// The stored messages (up to `replay`), then every new one. The ring is read and the subscription added in one step,
+/// so a message is in the replay or comes live, never both and never neither.
+function streamMessages(params: Cbor?, sink: Sink): void throws Error {
+  const n = replayAskedFor(params)
+  if (n < 0 || n > RING_SIZE) {
+    throw new CommunicatorError("INVALID_VALUE", `replay is 0 to ${RING_SIZE}, not ${n}`)
+  }
+  const s = new Subscriber(sink)
+  const replay = kept.last(n)
+  kept.subscribers.push(s)
+  sink.onClose = () => kept.remove(s)
+  sendReplay(s, replay)
+}

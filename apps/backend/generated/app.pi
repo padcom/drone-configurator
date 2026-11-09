@@ -386,6 +386,66 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   Cbor.Dict(m)
 }
 
+export struct MessagesParams {
+  replay?: u16
+}
+
+export function decodeMessagesParams(v: Cbor, path: string): MessagesParams throws InvalidPayload {
+  const m = members(v, path, ["replay"])
+  const cbor0 = m.get("replay")
+  let opt0: u16? = null
+  if (cbor0 != null) {
+    opt0 = (uint(cbor0, `${path}.replay`, 65535) as u16)
+  }
+  MessagesParams {
+    replay: opt0,
+  }
+}
+
+export function encodeMessagesParams(v: MessagesParams): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.replay
+  if (opt0 != null) {
+    m.set("replay", Cbor.Uint(opt0 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export struct VehicleMessage {
+  id: u32
+  time: u64
+  system: u8
+  component: u8
+  severity: u8
+  text: string
+  truncated: bool
+}
+
+export function decodeVehicleMessage(v: Cbor, path: string): VehicleMessage throws InvalidPayload {
+  const m = members(v, path, ["id", "time", "system", "component", "severity", "text", "truncated"])
+  VehicleMessage {
+    id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
+    time: (uint(required(m, "time", path), `${path}.time`, 18446744073709551615) as u64),
+    system: (uint(required(m, "system", path), `${path}.system`, 255) as u8),
+    component: (uint(required(m, "component", path), `${path}.component`, 255) as u8),
+    severity: (uint(required(m, "severity", path), `${path}.severity`, 255) as u8),
+    text: text(required(m, "text", path), `${path}.text`),
+    truncated: boolean(required(m, "truncated", path), `${path}.truncated`),
+  }
+}
+
+export function encodeVehicleMessage(v: VehicleMessage): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Uint(v.id as u64))
+  m.set("time", Cbor.Uint(v.time as u64))
+  m.set("system", Cbor.Uint(v.system as u64))
+  m.set("component", Cbor.Uint(v.component as u64))
+  m.set("severity", Cbor.Uint(v.severity as u64))
+  m.set("text", Cbor.Text(v.text))
+  m.set("truncated", Cbor.Bool(v.truncated))
+  Cbor.Dict(m)
+}
+
 export struct TelemetryParams {
   rateHz?: u8
 }
