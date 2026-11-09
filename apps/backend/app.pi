@@ -5,6 +5,7 @@ import { Communicator, Transport } from "pico-desktop/communicator"
 import { SimulatedAutopilot } from "padcom/pico-mavlink"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
+import { register as registerMessages } from "./messages"
 import { register as registerParams } from "./params"
 import { register as registerSerial } from "./serial"
 import { link } from "./session"
@@ -30,6 +31,7 @@ export function createBackend(transport: Transport): Communicator {
   registerConnection(c)
   registerParams(c)
   registerTelemetry(c)
+  registerMessages(c)
   registerFiles(c)
   registerSerial(c)
   registerSettings(c)

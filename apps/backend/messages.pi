@@ -1,0 +1,145 @@
+// The messages service: the texts the connected vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors"), long ones
+// joined, kept in a ring of the last 500 and streamed to the dashboard. A subscription first gets the stored messages it
+// asked for, oldest first, then each new one; every message has an id that goes up by one, so the dashboard can drop a
+// repeat. Messages of every component of the connected system are kept (the autopilot's, and a companion's or a gimbal's).
+// A message sent before the vehicle's first heartbeat is not seen: the reader starts when the autopilot is identified.
+import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
+import { MavLinkConnection, StatusMessage, StatusTextReader } from "padcom/pico-mavlink"
+import { VehicleMessage, decodeMessagesParams, encodeVehicleMessage } from "./generated/app"
+import { SessionPart, link } from "./session"
+
+/// How many messages are kept.
+const RING_SIZE: int = 500
+/// How many messages a subscription gets when it does not say.
+const DEFAULT_REPLAY: int = 100
+/// The most a subscription can ask to be replayed. A subscription takes only 256 events that have not been delivered yet
+/// (Sink.next drops the rest, and the host bounds the page's unacknowledged events the same way), and a replay is sent all
+/// at once: more than this could leave a hole in the middle on a slow link, so the replay stops short of it. Time spacing
+/// would not help (it is not flow control); a replay that cannot overflow needs none.
+const MAX_REPLAY: int = 200
+
+/// Registers the service's subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("messages", kept)
+  c.publish("vehicle.messages", streamMessages)
+}
+
+/// The messages of the connected vehicle, and who is listening.
+class Kept implements SessionPart {
+  public ring: VehicleMessage[] = []
+  public sinks: Sink[] = []
+  /// Goes up for every message for as long as the backend runs: never reset.
+  public nextId: int = 1
+  public reader: StatusTextReader? = null
+  /// How long a long message waits for a missing chunk before it is delivered truncated (ms).
+  public timeoutMs: int = 1000
+
+  /// A vehicle was identified: its messages from now on. The ones kept are of an earlier vehicle (or of this one before
+  /// it was disconnected): they go. A link that is brought back to the same vehicle does not come here (reconnect.pi),
+  /// and its messages stay.
+  public attach(c: MavLinkConnection): void {
+    if (reader != null) {
+      detach()
+    }
+    ring = []
+    const r = new StatusTextReader(c, timeoutMs)
+    r.onMessage((m: StatusMessage) => take(m))
+    reader = r
+  }
+
+  /// The session is over. The reader has a timer: it must be stopped, or the process does not end. What it still held
+  /// is delivered (truncated) and kept, so the dashboard sees it.
+  public detach(): void {
+    const r = reader
+    reader = null
+    if (r != null) {
+      r!.stop()
+    }
+  }
+
+  /// A message from the vehicle (only the connected vehicle's system is kept).
+  public take(m: StatusMessage): void {
+    if (link.sysid == 0 || m.system != link.sysid) {
+      return
+    }
+    const message = VehicleMessage {
+      id: nextId as u32,
+      time: Date.now() as u64,
+      system: m.system as u8,
+      component: m.component as u8,
+      severity: m.severity as u8,
+      text: m.text,
+      truncated: m.truncated,
+    }
+    nextId += 1
+    ring.push(message)
+    if (ring.length > RING_SIZE) {
+      ring.splice(0, 1)
+    }
+    const event = encodeVehicleMessage(message)
+    for (const s of sinks) {
+      s.next(event)
+    }
+  }
+
+  /// The last `n` messages, oldest first.
+  public last(n: int): VehicleMessage[] {
+    const out: VehicleMessage[] = []
+    for (let i = if (ring.length > n) ring.length - n else 0; i < ring.length; i++) {
+      out.push(ring[i])
+    }
+    out
+  }
+
+  public remove(s: Sink): void {
+    const i = sinks.indexOf(s)
+    if (i >= 0) {
+      sinks.splice(i, 1)
+    }
+  }
+}
+
+const kept = new Kept()
+
+/// For the tests: a message as if the vehicle had sent it.
+export function takeForTests(m: StatusMessage): void {
+  kept.take(m)
+}
+
+/// For the tests: the reader of the connected vehicle, null when none is listening.
+export function readerForTests(): StatusTextReader? {
+  kept.reader
+}
+
+/// For the tests: how many messages are kept.
+export function keptForTests(): int {
+  kept.ring.length
+}
+
+/// For the tests: how long a long message waits for a missing chunk (ms), from the next connection on.
+export function setMessageTimeout(ms: int): void {
+  kept.timeoutMs = ms
+}
+
+/// How many messages the subscriber asked to be replayed: the default when it passed no parameters, or no `replay`.
+function replayAskedFor(params: Cbor?): int throws Error {
+  if (params == null) {
+    return DEFAULT_REPLAY
+  }
+  const asked = decodeMessagesParams(params!, "$").replay
+  if (asked == null) DEFAULT_REPLAY else asked! as int
+}
+
+/// The stored messages (up to `replay`, oldest first), then every new one. The ring is read, sent and the subscription
+/// added in one step, so a message is in the replay or comes live, never both and never neither.
+function streamMessages(params: Cbor?, sink: Sink): void throws Error {
+  const n = replayAskedFor(params)
+  if (n < 0 || n > MAX_REPLAY) {
+    throw new CommunicatorError("INVALID_VALUE", `replay is 0 to ${MAX_REPLAY}, not ${n}`)
+  }
+  for (const m of kept.last(n)) {
+    sink.next(encodeVehicleMessage(m))
+  }
+  kept.sinks.push(sink)
+  sink.onClose = () => kept.remove(sink)
+}

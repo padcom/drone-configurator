@@ -5,6 +5,13 @@ import type { Param, Telemetry } from './generated/app'
 export const VEHICLE = { sysid: 1, compid: 1, type: 'QUADROTOR', autopilot: 'ARDUPILOTMEGA' } as const
 
 /** The mock machine's serial ports: a flight controller on USB, and a plain UART. */
+/** What the simulated vehicle says when it connects (MAVLink severity, text): a boot banner, a warning, a long text. */
+export const SCRIPTED_MESSAGES: readonly (readonly [number, string])[] = [
+  [6, 'ArduCopter V4.5.7 (mock)'],
+  [4, 'PreArm: Compass not calibrated'],
+  [6, 'Frame: QUAD/X, with a text that is long enough to be sent in several chunks by a real vehicle, as a banner is'],
+]
+
 export const SERIAL_PORTS = [
   { path: '/dev/ttyACM0', description: 'USB 1209:5741 ArduPilot' },
   { path: '/dev/ttyAMA0' },

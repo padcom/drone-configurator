@@ -12,6 +12,7 @@ services = {
   "params.list": ["method", null, param-list],
   "params.write": ["method", param-write, param-write-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
+  "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
   "serial.ports": ["method", null, serial-ports],
@@ -86,6 +87,30 @@ param-write = {
 param-write-result = {
   param: param,
   verified: bool,
+}
+
+; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
+; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256
+; events that are not yet delivered, so a longer replay could lose some), oldest first, then each new one as it arrives.
+; The backend keeps the last 500 of the connected vehicle (any of its components), and forgets them when a different
+; vehicle connects (they stay across a `resumed` reconnect). A subscriber that starts again after the backend restarted
+; sees ids start over, and a `connected` that is not `resumed` is a new vehicle: it clears what it has. The texts are the vehicle's own words, in its language: show them
+; as text.
+messages-params = { ? replay: uint .size 2 }
+
+; `id` goes up by one for each message for as long as the backend runs, so that the dashboard can drop one it has
+; already: a subscription that starts while a message is on its way cannot show it twice or out of order. `time` is
+; when the backend received the message's last chunk (milliseconds since 1970). `severity` is MAVLink's MAV_SEVERITY:
+; 0 emergency, 1 alert, 2 critical, 3 error, 4 warning, 5 notice, 6 info, 7 debug. `truncated` is true when chunks of a
+; long message never arrived: `text` then stops at the gap.
+vehicle-message = {
+  id: uint .size 4,
+  time: uint .size 8,
+  system: uint .size 1,
+  component: uint .size 1,
+  severity: uint .size 1,
+  text: tstr,
+  truncated: bool,
 }
 
 ; How often the stream sends the latest values: `rateHz` events a second (default 5, at most 20),

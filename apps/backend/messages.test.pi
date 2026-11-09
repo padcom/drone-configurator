@@ -1,0 +1,346 @@
+// The messages service, over an in-memory link against the simulated vehicle: what the vehicle sends as STATUSTEXT
+// reaches the subscriber joined, with ids that go up, and the reader's timer does not outlive the session.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Transport, memoryPair } from "pico-desktop/communicator"
+import { MemoryStream, SimulatedAutopilot, StatusMessage, defaultSimParams, splitStatusText } from "padcom/pico-mavlink"
+import { createBackend, simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  MessagesParams,
+  VehicleMessage,
+  decodeVehicleMessage,
+  encodeConnectRequest,
+  encodeMessagesParams,
+} from "./generated/app"
+import { keptForTests, readerForTests, setMessageTimeout, takeForTests } from "./messages"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+const A50: string = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+const B50: string = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+const C20: string = "CCCCCCCCCCCCCCCCCCCC"
+
+/// A frontend connected to the simulated vehicle.
+async function connected(): Promise<Frontend> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  f
+}
+
+/// The next message on the subscription.
+async function next(f: Frontend): Promise<VehicleMessage> throws Error {
+  decodeVehicleMessage((await f.event("vehicle.messages")).p ?? Cbor.Null, "$")
+}
+
+/// Subscribes asking for `replay` stored messages.
+async function subscribe(f: Frontend, replay: int): Promise<u64> throws Error {
+  await f.subscribe("vehicle.messages", encodeMessagesParams(MessagesParams { replay: replay as u16 }))
+}
+
+/// A message as the reader would deliver it, from the connected vehicle (system 1).
+function said(severity: int, text: string): StatusMessage {
+  StatusMessage { system: 1, component: 1, severity: severity, text: text, truncated: false, chunks: 1 }
+}
+
+/// A message of one chunk, a text in one chunk and the severity it was sent with.
+async function singleMessage(): Promise<void> throws Error {
+  const f = await connected()
+  const s = await subscribe(f, 0)
+  try {
+    await simulatorForTests()!.conn.send(splitStatusText(4, "PreArm: Compass not calibrated", 0)[0])
+    const m = await next(f)
+    expect(m.text).toBe("PreArm: Compass not calibrated")
+    expect(m.severity).toBe(4)
+    expect(m.system).toBe(1)
+    expect(m.component).toBe(1)
+    expect(m.truncated).toBe(false)
+    expect(m.id >= 1).toBe(true)
+    expect((m.time as int) > 1_600_000_000_000).toBe(true)
+  } finally {
+    await f.unsubscribe(s)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A long message arrives as chunks, joined into one with the severity of its first; two long ones whose chunks are
+/// interleaved stay apart.
+async function joinsChunks(): Promise<void> throws Error {
+  const f = await connected()
+  const s = await subscribe(f, 0)
+  try {
+    const conn = simulatorForTests()!.conn
+    const first = splitStatusText(5, A50 + B50 + C20, 7)
+    const second = splitStatusText(3, "short but chunked: " + A50, 8)
+    await conn.send(first[0])
+    await conn.send(second[0])
+    await conn.send(first[2])
+    await conn.send(second[1])
+    await conn.send(first[1])
+    const a = await next(f)
+    const b = await next(f)
+    expect(a.text).toBe("short but chunked: " + A50)
+    expect(a.severity).toBe(3)
+    expect(b.text).toBe(A50 + B50 + C20)
+    expect(b.severity).toBe(5)
+    expect(b.id).toBe(a.id + 1)
+  } finally {
+    await f.unsubscribe(s)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A chunk that never arrives: the message is delivered after the timeout, truncated at the gap.
+async function deliversALostChunkTruncated(): Promise<void> throws Error {
+  setMessageTimeout(60)
+  const f = await connected()
+  const s = await subscribe(f, 0)
+  try {
+    const chunks = splitStatusText(4, A50 + B50 + C20, 9)
+    await simulatorForTests()!.conn.send(chunks[0])
+    await simulatorForTests()!.conn.send(chunks[2])
+    const m = await next(f)
+    expect(m.truncated).toBe(true)
+    expect(m.text).toBe(A50)
+  } finally {
+    setMessageTimeout(1000)
+    await f.unsubscribe(s)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// The ring keeps the last 500, and a subscriber is replayed the last `replay` of them, oldest first.
+async function keepsTheLast500(): Promise<void> throws Error {
+  const f = await connected()
+  try {
+    for (let i = 0; i < 620; i++) {
+      takeForTests(said(6, `message ${i}`))
+    }
+    expect(keptForTests()).toBe(500)
+    const s = await subscribe(f, 3)
+    const ids: int[] = []
+    const texts: string[] = []
+    for (let i = 0; i < 3; i++) {
+      const m = await next(f)
+      ids.push(m.id as int)
+      texts.push(m.text)
+    }
+    expect(texts.join("|")).toBe("message 617|message 618|message 619")
+    expect(ids[1]).toBe(ids[0] + 1)
+    expect(ids[2]).toBe(ids[1] + 1)
+    await f.unsubscribe(s)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A link that takes its time to send each event.
+class SlowTransport implements Transport {
+  readonly inner: Transport
+
+  constructor(inner: Transport) {
+    this.inner = inner
+  }
+
+  public async send(message: Uint8Array): Promise<void> throws Error {
+    await delay(3)
+    await inner.send(message)
+  }
+
+  public receive(): Promise<Uint8Array?, Error> {
+    inner.receive()
+  }
+}
+
+/// A backend on a slow link, and the frontend's end of it.
+async function startSlow(): Promise<Frontend> throws Error {
+  const ends = memoryPair()
+  createBackend(new SlowTransport(ends[0])).run()
+  await ends[1].receive()
+  new Frontend(ends[1])
+}
+
+/// The longest replay arrives whole on a slow link: a subscription takes only 256 events that are not yet delivered and
+/// drops the rest (the event that follows says how many), so the replay is no longer than that, and is sent at once.
+async function replaysTheMostOnASlowLink(): Promise<void> throws Error {
+  const f = await startSlow()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    for (let i = 0; i < 520; i++) {
+      takeForTests(said(6, `message ${i}`))
+    }
+    const s = await subscribe(f, 200)
+    let last = -1
+    let dropped = 0
+    for (let i = 0; i < 200; i++) {
+      const e = await f.event("vehicle.messages")
+      const m = decodeVehicleMessage(e.p ?? Cbor.Null, "$")
+      dropped += (e.d ?? 0) as int
+      if (last >= 0) {
+        expect(m.id).toBe(last + 1)
+      }
+      last = m.id as int
+    }
+    expect(dropped).toBe(0)
+    await f.unsubscribe(s)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A subscription that starts while messages are still coming gets the replay and then the live ones, each once and
+/// in order.
+async function joinsReplayAndLiveWithoutRepeats(): Promise<void> throws Error {
+  const f = await connected()
+  try {
+    takeForTests(said(6, "one"))
+    takeForTests(said(6, "two"))
+    const s = await subscribe(f, 100)
+    takeForTests(said(6, "three"))
+    takeForTests(said(4, "four"))
+    const texts: string[] = []
+    let previous = -1
+    for (let i = 0; i < 4; i++) {
+      const m = await next(f)
+      texts.push(m.text)
+      expect(m.id > previous).toBe(true)
+      previous = m.id as int
+    }
+    expect(texts.join("|")).toBe("one|two|three|four")
+    await f.unsubscribe(s)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Only the connected vehicle's system is kept.
+async function ignoresOtherSystems(): Promise<void> throws Error {
+  const f = await connected()
+  try {
+    const before = keptForTests()
+    takeForTests(StatusMessage { system: 7, component: 1, severity: 6, text: "not ours", truncated: false, chunks: 1 })
+    expect(keptForTests()).toBe(before)
+    expect(link.sysid).toBe(1)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Connecting again forgets the messages of the earlier session.
+async function forgetsThemOnANewConnection(): Promise<void> throws Error {
+  const f = await connected()
+  takeForTests(said(6, "old"))
+  expect(keptForTests() > 0).toBe(true)
+  await f.call("vehicle.disconnect")
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    expect(keptForTests()).toBe(0)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// The reader's timer is stopped when the session ends: nothing is left to keep the process alive, and a message the
+/// reader still held is delivered.
+async function stopsTheReaderWithTheSession(): Promise<void> throws Error {
+  const f = await connected()
+  const s = await subscribe(f, 0)
+  expect(readerForTests() != null).toBe(true)
+  const chunks = splitStatusText(4, A50 + B50 + C20, 11)
+  await simulatorForTests()!.conn.send(chunks[0])
+  // A whole message after it: when it arrives, the chunk before it has been read too (the link keeps the order), so the
+  // reader is holding the unfinished message. No fixed wait that a busy machine could outrun, and then wait for ever.
+  await simulatorForTests()!.conn.send(splitStatusText(6, "after the chunk", 0)[0])
+  expect((await next(f)).text).toBe("after the chunk")
+  // (The event comes before the reply, and `call` skips events: so the request and the reply are apart.)
+  const request = await f.send("vehicle.disconnect")
+  // What was still waiting for chunks is sent, truncated.
+  const m = await next(f)
+  await f.reply(request)
+  expect(m.truncated).toBe(true)
+  expect(readerForTests() == null).toBe(true)
+  await f.unsubscribe(s)
+}
+
+/// Waits up to `ms` for the session to be in `want`.
+async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.state.state != want) {
+    await delay(50)
+    waited += 50
+  }
+  link.state.state == want
+}
+
+/// A link that is lost and comes back to the same vehicle keeps the messages (the session is resumed, nothing attaches
+/// again).
+async function keepsThemWhenTheSessionResumes(): Promise<void> throws Error {
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  await connected()
+  try {
+    takeForTests(said(6, "before the link dropped"))
+    const stored = keptForTests()
+    simulatorForTests()!.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(link.state.resumed ?? false).toBe(true)
+    expect(keptForTests()).toBe(stored)
+    expect(readerForTests() != null).toBe(true)
+  } finally {
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+/// Another vehicle on the link is a new connection: the messages of the first are gone, and the reader listens to the
+/// new one.
+async function forgetsThemWhenAnotherVehicleComes(): Promise<void> throws Error {
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  const ends = MemoryStream.pair()
+  const other = new SimulatedAutopilot(ends[1], defaultSimParams(), 2, 1)
+  await connected()
+  try {
+    takeForTests(said(6, "from the first vehicle"))
+    other.start(300)
+    link.router!.addLink(ends[0])
+    simulatorForTests()!.down = true
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(link.sysid).toBe(2)
+    expect(keptForTests()).toBe(0)
+    expect(readerForTests() != null).toBe(true)
+  } finally {
+    other.stop()
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+/// A replay outside 0 to 200 is refused with the reason.
+async function refusesTooLongAReplay(): Promise<void> throws Error {
+  const f = await start()
+  await f.subscribe("vehicle.messages", encodeMessagesParams(MessagesParams { replay: 201 }))
+  const ended = await f.ended()
+  expect(ended.err?.message ?? "").toContain("replay is 0 to 200")
+}
+
+describe("the messages service", () => {
+  it("sends a message of one chunk with its severity and ids", singleMessage)
+  it("joins the chunks of a long message and keeps interleaved ones apart", joinsChunks)
+  it("delivers a message with a lost chunk after the timeout, truncated", deliversALostChunkTruncated)
+  it("keeps the last 500 and replays the last ones asked for, oldest first", keepsTheLast500)
+  it("replays 200 messages whole on a slow link, none dropped", replaysTheMostOnASlowLink)
+  it("gives a late subscriber the replay and then the live messages, without repeats", joinsReplayAndLiveWithoutRepeats)
+  it("keeps only the connected vehicle's messages", ignoresOtherSystems)
+  it("forgets the messages when a vehicle connects again", forgetsThemOnANewConnection)
+  it("stops the reader when the session ends, delivering what it held", stopsTheReaderWithTheSession)
+  it("keeps the messages when the link is lost and the same vehicle comes back", keepsThemWhenTheSessionResumes)
+  it("forgets the messages when another vehicle comes back on the link", forgetsThemWhenAnotherVehicleComes)
+  it("refuses a replay of more than 200", refusesTooLongAReplay)
+})

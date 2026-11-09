@@ -4,8 +4,10 @@
 // transport connects; UDP and TCP fail as they would with nothing listening.
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
-import type { Connection, ConnectRequest, Param, ParamWrite, Settings, SettingsPatch, SettingsState } from './generated/app'
-import { PARAMS, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
+import type {
+  Connection, ConnectRequest, MessagesParams, Param, ParamWrite, Settings, SettingsPatch, SettingsState, VehicleMessage,
+} from './generated/app'
+import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
 
 type Outgoing = Omit<Envelope, 'v'>
 type Send = (e: Outgoing) => void
@@ -66,13 +68,24 @@ export interface MockControl {
   announce?: (id: string, value: number) => void
   /** The backend reports a new connection state on its own (the link was lost, a try failed, it came back). */
   connection?: (connection: Connection) => void
+  /** The vehicle says something (a STATUSTEXT): stored and sent to the subscribers of `vehicle.messages`. */
+  say?: (severity: number, text: string) => void
 }
+
+/** How many messages the mock keeps, how many it replays by default, and at most (as the backend does). */
+const MESSAGE_RING = 500
+const DEFAULT_REPLAY = 100
+const MAX_REPLAY = 200
 
 class MockVehicle {
   connection: Connection = { state: 'disconnected' }
   params: Param[] = PARAMS.map(p => ({ ...p }))
   readonly watchers = new Set<number>()
   readonly timers = new Map<number, ReturnType<typeof setInterval>>()
+  /** The subscriptions to `vehicle.messages`, and the messages kept for them (ids go up for as long as the mock runs). */
+  readonly messageSubscribers = new Set<number>()
+  messages: VehicleMessage[] = []
+  nextMessageId = 1
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -91,6 +104,7 @@ class MockVehicle {
         }
       }
       options.control.connection = connection => this.push(connection)
+      options.control.say = (severity, text) => this.say(severity, text)
     }
   }
 
@@ -102,6 +116,7 @@ class MockVehicle {
     }
     this.timers.clear()
     this.watchers.clear()
+    this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
     this.epoch += 1
     setTimeout(() => this.send({ k: 'lifecycle', n: 'ready', e: this.epoch }), 5)
@@ -113,6 +128,7 @@ class MockVehicle {
       this.send({ k: 'lifecycle', n: 'ready', e: this.epoch })
     } else if (e.k === 'unsubscribe') {
       this.watchers.delete(e.s!)
+      this.messageSubscribers.delete(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
     } else if (e.k === 'request' || e.k === 'subscribe') {
@@ -134,6 +150,7 @@ class MockVehicle {
         return this.connected(fail) && ok({ params: this.params, count: this.params.length, complete: true, missing: [] })
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
+      case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
         // A pretend file system: what was saved last is what opening gives back.
         const { name, text } = e.p as { name: string, text: string }
@@ -172,6 +189,10 @@ class MockVehicle {
     if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
       this.params = PARAMS.map(p => ({ ...p }))
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
+      this.messages = []
+      for (const [severity, text] of SCRIPTED_MESSAGES) {
+        this.say(severity, text)
+      }
     } else if (request.transport === 'serial') {
       this.update({ state: 'disconnected', error: `no heartbeat from serial ${request.device ?? '(no device)'} at ${request.baud ?? 115200}` }, ok)
     } else {
@@ -204,6 +225,38 @@ class MockVehicle {
     param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
 
     return ok({ param: { ...param }, verified: param.value === w.value })
+  }
+
+  /** The vehicle says something: kept (the last 500) and sent to everyone who is subscribed. */
+  say(severity: number, text: string) {
+    const message: VehicleMessage = {
+      id: this.nextMessageId++,
+      time: Date.now(),
+      system: VEHICLE.sysid,
+      component: VEHICLE.compid,
+      severity,
+      text,
+      truncated: false,
+    }
+    this.messages.push(message)
+    this.messages.splice(0, Math.max(0, this.messages.length - MESSAGE_RING))
+    for (const s of this.messageSubscribers) {
+      this.send({ k: 'event', n: 'vehicle.messages', s, p: message })
+    }
+  }
+
+  /** The stored messages asked for (oldest first), then every new one. */
+  subscribeToMessages(e: Envelope, fail: (code: string, message: string) => void) {
+    const replay = (e.p as MessagesParams | null)?.replay ?? DEFAULT_REPLAY
+    if (replay > MAX_REPLAY) {
+      return fail('INVALID_VALUE', `replay is 0 to ${MAX_REPLAY}, not ${replay}`)
+    }
+    const s = e.id!
+    this.send({ k: 'response', id: s, s })
+    this.messageSubscribers.add(s)
+    for (const message of this.messages.slice(Math.max(0, this.messages.length - replay))) {
+      this.send({ k: 'event', n: 'vehicle.messages', s, p: message })
+    }
   }
 
   telemetry(e: Envelope) {
