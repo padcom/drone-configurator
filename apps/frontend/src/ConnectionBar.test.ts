@@ -28,6 +28,8 @@ function barWithSpies() {
 it('shows the state, the vehicle and why the last attempt failed, as text', async () => {
   const { wrapper, feed } = barWithSpies()
   expect(wrapper.get('#connection').text()).toBe('disconnected')
+  // A screen reader is told when the connection changes.
+  expect(wrapper.get('#connection').attributes('role')).toBe('status')
 
   feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } }, error: '<oops>', notice: 'The backend restarted' })
   await wrapper.vm.$nextTick()

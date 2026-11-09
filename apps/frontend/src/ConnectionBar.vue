@@ -27,7 +27,7 @@
       Disconnect
     </button>
   </form>
-  <p id="connection"><span class="badge" :class="state">{{ state }}</span>{{ vehicle }}
+  <p id="connection" role="status"><span class="badge" :class="state">{{ state }}</span>{{ vehicle }}
     <span v-if="fields.error.value" class="error">{{ fields.error.value }}</span>
     <span v-if="fields.notice.value" class="warn">{{ fields.notice.value }}</span></p>
 </template>

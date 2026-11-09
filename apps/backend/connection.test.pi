@@ -7,7 +7,7 @@ import { Reader, Writer } from "std/process"
 import * as f from "c:fcntl.h"
 import * as termios from "c:termios.h"
 import { ByteStream, SimulatedAutopilot } from "padcom/pico-mavlink"
-import { setHeartbeatWait } from "./app"
+import { setHeartbeatWait, simulatorForTests } from "./app"
 import {
   ConnectRequest,
   ConnectRequestTransport,
@@ -33,6 +33,27 @@ async function connectsListsAndWrites(): Promise<void> throws Error {
   const w = ParamWrite { id: "WPNAV_SPEED", kind: ParamWriteKind.Real, type: "REAL32", value: 750.0 }
   const r = decodeParamWriteResult((await f.call("params.write", encodeParamWrite(w))).p ?? Cbor.Null, "$")
   expect(`${r.param.id}=${r.param.value} ${r.verified}`).toBe("WPNAV_SPEED=750 true")
+  await f.call("vehicle.disconnect")
+}
+
+/// The link ends under the connection (the vehicle goes away): the dashboard is told it's lost, with
+/// the reason, and a reconnect works.
+async function losesALinkThatEnds(): Promise<void> throws Error {
+  const f = await start()
+  const simulator = encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator })
+  await f.call("vehicle.connect", simulator)
+  const subscription = await f.subscribe("vehicle.connection")
+  const now = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
+  expect(now.state == ConnectionState.Connected).toBe(true)
+  simulatorForTests()!.stop()
+  const lost = decodeConnection((await f.event("vehicle.connection")).p ?? Cbor.Null, "$")
+  expect(`${lost.state == ConnectionState.Lost} ${lost.error ?? ""}`).toBe("true the link closed")
+  const e = await f.call("params.list")
+  expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+  await f.call("vehicle.connect", simulator)
+  const again = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${again.count} ${again.complete}`).toBe("12 true")
+  await f.unsubscribe(subscription)
   await f.call("vehicle.disconnect")
 }
 
@@ -134,4 +155,5 @@ describe("the connection service", () => {
   it("says why a serial port didn't open", badDevice)
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("reports a link with no heartbeat", noHeartbeat)
+  it("tells the dashboard a link that ends is lost, and connects again", losesALinkThatEnds)
 })
