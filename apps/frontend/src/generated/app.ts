@@ -117,6 +117,15 @@ function validateParamWriteResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-write-result, or null. */
 export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
 
+export type TelemetryParams = { "rateHz"?: number }
+
+function validateTelemetryParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["rateHz"]) && (value["rateHz"] === undefined || nested(value["rateHz"], `${path}.rateHz`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a telemetry-params, or null. */
+export const validateTelemetryParams = (value: unknown) => run(validateTelemetryParamsInto, value)
+
 export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup }
 
 function validateTelemetryInto(value: any, path: string): boolean {
@@ -259,7 +268,7 @@ export interface Services {
   "vehicle.connection": { kind: 'subscription', params: null, value: Connection }
   "params.list": { kind: 'method', request: null, response: ParamList }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
-  "telemetry.stream": { kind: 'subscription', params: null, value: Telemetry }
+  "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
@@ -288,7 +297,7 @@ const services: Record<string, Partial<Record<string, Check>>> = {
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
   },
   "telemetry.stream": {
-    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    params: (value: any, path: string) => validateTelemetryParamsInto(value, path),
     value: (value: any, path: string) => validateTelemetryInto(value, path),
   },
   "files.save": {

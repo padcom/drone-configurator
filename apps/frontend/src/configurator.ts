@@ -147,7 +147,7 @@ export class Configurator {
   private async watch() {
     try {
       await this.communicator.subscribe('vehicle.connection', null, connection => this.connectionChanged(connection))
-      await this.communicator.subscribe('telemetry.stream', null, telemetry => this.set({ telemetry }))
+      await this.communicator.subscribe('telemetry.stream', {}, telemetry => this.set({ telemetry }))
     } catch (error) {
       this.set({ error: `the backend: ${describeError(error)}` })
     }

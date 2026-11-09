@@ -4,8 +4,17 @@ import { delay } from "std/timers"
 import { Cbor } from "pico-desktop/communicator"
 import { Attitude, SysStatus } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { ConnectRequest, ConnectRequestTransport, decodeTelemetry, encodeConnectRequest } from "./generated/app"
-import { start } from "./testing"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  TelemetryParams,
+  decodeTelemetry,
+  encodeConnectRequest,
+  encodeTelemetryParams,
+} from "./generated/app"
+import { wishes } from "./groups"
+import { ratesHeldForTests } from "./telemetry"
+import { Frontend, start } from "./testing"
 
 /// What the vehicle reports reaches the dashboard: the first heartbeat after connecting is on the
 /// first telemetry tick, and a reconnect starts from nothing heard.
@@ -33,7 +42,7 @@ async function streamsGroups(): Promise<void> throws Error {
   const subscription = await f.subscribe("telemetry.stream")
   try {
     let t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
-    for (let i = 0; i < 5 && (t.battery == null || t.attitude == null); i++) {
+    for (let i = 0; i < 40 && (t.battery == null || t.attitude == null); i++) {
       t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
     }
     expect(t.battery != null && t.attitude != null).toBe(true)
@@ -53,13 +62,24 @@ function ratesAsked(): string {
   `${sim.intervals.get(SysStatus.MSG_ID) ?? -2} ${sim.intervals.get(Attitude.MSG_ID) ?? -2}`
 }
 
-/// SYS_STATUS once a second, ATTITUDE four times a second: what the dashboard shows.
+/// Every message of the table (groups.pi): position, speed and attitude four times a second, GPS,
+/// navigation and EKF twice, the battery, wind and vibration once.
 async function asksForTheRates(): Promise<void> throws Error {
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
   try {
-    await delay(200)
+    await delay(500)
+    // The simulator takes intervals for these two, and says UNSUPPORTED for the rest (the manager then
+    // falls back to data streams, which it does not record).
     expect(ratesAsked()).toBe("1000 250")
+    // Every message of the table is asked for and held, at its rate.
+    const held = ratesHeldForTests()
+    expect(held.length).toBe(10)
+    expect(wishes().length).toBe(10)
+    for (let i = 0; i < held.length; i++) {
+      expect(held[i].messageId).toBe(wishes()[i].id)
+      expect(held[i].intervalUs).toBe(Math.round(1000000.0 / wishes()[i].hz) as int)
+    }
   } finally {
     // (A failed assertion must not leave the simulator running: its timers would keep the process alive.)
     await f.call("vehicle.disconnect")
@@ -85,9 +105,53 @@ async function asksAgainAfterARestart(): Promise<void> throws Error {
   }
 }
 
+/// How many events arrive in `ms` milliseconds on a stream asked for with `params`.
+async function eventsIn(f: Frontend, params: Cbor?, ms: int): Promise<int> throws Error {
+  const subscription = await f.subscribe("telemetry.stream", params)
+  const started = Date.now() as int
+  let count = 0
+  while ((Date.now() as int) - started < ms) {
+    await f.event("telemetry.stream")
+    count += 1
+  }
+  await f.unsubscribe(subscription)
+  count
+}
+
+/// `rateHz` events a second at most, whatever the vehicle sends: 4 Hz asked for gives no more than 4
+/// a second, 5 when nothing was asked, and 20 is the fastest.
+async function streamsAtTheRateAskedFor(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    const four = await eventsIn(f, encodeTelemetryParams(TelemetryParams { rateHz: 4 }), 2000)
+    const fallback = await eventsIn(f, null, 2000)
+    const fastest = await eventsIn(f, encodeTelemetryParams(TelemetryParams { rateHz: 20 }), 1000)
+    // Never faster than asked (the count includes the one event that ends it); a busy machine runs
+    // timers late, so the lower bounds are only "it does stream".
+    expect(four >= 3 && four <= 9).toBe(true)
+    expect(fallback >= 5 && fallback <= 11).toBe(true)
+    expect(fastest >= 8 && fastest <= 21).toBe(true)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A rate outside 1 to 20 is refused with the reason, and no timer is left running.
+async function refusesARateOutsideTheRange(): Promise<void> throws Error {
+  const f = await start()
+  for (const bad of [0, 21]) {
+    await f.subscribe("telemetry.stream", encodeTelemetryParams(TelemetryParams { rateHz: bad as u8 }))
+    const ended = await f.ended()
+    expect(ended.err?.message ?? "").toContain("rateHz is 1 to 20")
+  }
+}
+
 describe("the telemetry service", () => {
   it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
   it("streams the groups of the messages the vehicle sends, with their age", streamsGroups)
-  it("asks the vehicle for 1 Hz SYS_STATUS and 4 Hz ATTITUDE", asksForTheRates)
+  it("sends the events at the rate asked for, 5 a second by default, and no faster than 20", streamsAtTheRateAskedFor)
+  it("refuses a rate outside 1 to 20", refusesARateOutsideTheRange)
+  it("asks the vehicle for every message of the table, at its rate", asksForTheRates)
   it("asks for the rates again after the vehicle restarts", asksAgainAfterARestart)
 })

@@ -11,7 +11,7 @@ services = {
   "vehicle.connection": ["subscription", null, connection],
   "params.list": ["method", null, param-list],
   "params.write": ["method", param-write, param-write-result],
-  "telemetry.stream": ["subscription", null, telemetry],
+  "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
   "serial.ports": ["method", null, serial-ports],
@@ -73,6 +73,10 @@ param-write-result = {
   param: param,
   verified: bool,
 }
+
+; How often the stream sends the latest values: `rateHz` events a second (default 5, at most 20),
+; whatever rate the vehicle sends its messages at. The subscriber may pass `{}` or nothing.
+telemetry-params = { ? rateHz: uint .size 1 }
 
 ; Only what the vehicle has reported: telemetry starts with its first heartbeat, and battery and
 ; attitude are absent until it sends them (nothing shown is made up). Besides those fields, which

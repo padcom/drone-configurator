@@ -340,6 +340,31 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   Cbor.Dict(m)
 }
 
+export struct TelemetryParams {
+  rateHz?: u8
+}
+
+export function decodeTelemetryParams(v: Cbor, path: string): TelemetryParams throws InvalidPayload {
+  const m = members(v, path, ["rateHz"])
+  const cbor0 = m.get("rateHz")
+  let opt0: u8? = null
+  if (cbor0 != null) {
+    opt0 = (uint(cbor0, `${path}.rateHz`, 255) as u8)
+  }
+  TelemetryParams {
+    rateHz: opt0,
+  }
+}
+
+export function encodeTelemetryParams(v: TelemetryParams): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.rateHz
+  if (opt0 != null) {
+    m.set("rateHz", Cbor.Uint(opt0 as u64))
+  }
+  Cbor.Dict(m)
+}
+
 export struct Telemetry {
   armed: bool
   mode: string

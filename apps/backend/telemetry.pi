@@ -1,9 +1,10 @@
 // The telemetry service: what the vehicle reports (heartbeat, battery, attitude), streamed to the
 // dashboard once a second.
-import { Cbor, Communicator, Sink } from "pico-desktop/communicator"
+import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
 import {
   Attitude,
   CopterMode,
+  HeldRate,
   Heartbeat,
   MavAutopilot,
   MavLinkConnection,
@@ -16,8 +17,8 @@ import {
   SysStatus,
   TelemetryRates,
 } from "padcom/pico-mavlink"
-import { ConnectionState, Telemetry, encodeTelemetry } from "./generated/app"
-import { Groups } from "./groups"
+import { ConnectionState, Telemetry, decodeTelemetryParams, encodeTelemetry } from "./generated/app"
+import { Groups, Wish, wishes } from "./groups"
 import { SessionPart, link } from "./session"
 
 /// Registers the service's subscription on `c`, and its part of the session.
@@ -41,16 +42,23 @@ function modeName(autopilot: int, type: int, customMode: int): string {
   name ?? `mode ${customMode}`
 }
 
-/// Asks the vehicle for the telemetry the dashboard shows: SYS_STATUS once a second, ATTITUDE four
-/// times a second (ArduPilot streams them only when asked, over some links). The manager holds the
-/// rates: it asks again when the vehicle restarts or the link comes back. A refusal leaves them
-/// absent.
+/// Asks the vehicle for the telemetry the dashboard shows, at the rates of the table in groups.pi
+/// (ArduPilot streams them only when asked, over some links). The manager holds the rates: it asks
+/// again when the vehicle restarts or the link comes back. A message the vehicle refuses or doesn't
+/// have (WIND outside ArduPilot, say) is left out, and the others are still asked for.
 async function askForRates(rates: TelemetryRates): Promise<void> {
+  for (const wish of wishes()) {
+    await askFor(rates, wish)
+  }
+}
+
+/// Whether the vehicle took one wish. Not every autopilot supports every message; telemetry then
+/// shows what arrives anyway.
+async function askFor(rates: TelemetryRates, wish: Wish): Promise<bool> {
   try {
-    await rates.set(SysStatus.MSG_ID, 1.0)
-    await rates.set(Attitude.MSG_ID, 4.0)
+    (await rates.set(wish.id, wish.hz)).ok
   } catch (e: Error) {
-    // Not every autopilot supports it; telemetry then shows what arrives anyway.
+    false
   }
 }
 
@@ -149,11 +157,40 @@ class Heard implements SessionPart {
 
 const heard = new Heard()
 
-function streamTelemetry(_params: Cbor?, sink: Sink): void throws Error {
+/// For the tests: the rates held for the connected vehicle, in the order they were asked for.
+export function ratesHeldForTests(): HeldRate[] {
+  const manager = heard.rates
+  if (manager == null) [] else manager!.held()
+}
+
+const DEFAULT_RATE_HZ: int = 5
+const MAX_RATE_HZ: int = 20
+
+/// The milliseconds between events at `hz` a second, rounded up: the stream is never faster than asked.
+function periodMs(hz: int): int {
+  (1000 + hz - 1) / hz
+}
+
+/// The rate a subscriber asked for: the default when it passed no parameters, or no `rateHz`.
+function rateAskedFor(params: Cbor?): int throws Error {
+  if (params == null) {
+    return DEFAULT_RATE_HZ
+  }
+  const asked = decodeTelemetryParams(params!, "$").rateHz
+  if (asked == null) DEFAULT_RATE_HZ else asked! as int
+}
+
+/// The latest values, `rateHz` times a second (default 5, at most 20) whatever the vehicle's own
+/// rates are: a vehicle sending at 50 Hz still gives the page no more than that.
+function streamTelemetry(params: Cbor?, sink: Sink): void throws Error {
+  const hz = rateAskedFor(params)
+  if (hz < 1 || hz > MAX_RATE_HZ) {
+    throw new CommunicatorError("INVALID_VALUE", `rateHz is 1 to ${MAX_RATE_HZ}, not ${hz}`)
+  }
   const timer = setInterval(() => {
     if (link.state.state == ConnectionState.Connected && heard.heardHeartbeat) {
       sink.next(encodeTelemetry(heard.telemetry()))
     }
-  }, 1000)
+  }, periodMs(hz))
   sink.onClose = () => clearInterval(timer)
 }
