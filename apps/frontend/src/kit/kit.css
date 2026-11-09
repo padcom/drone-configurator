@@ -42,7 +42,9 @@
   border-color: var(--color-text-muted);
 }
 
-.kit-input.invalid {
+/* After the hover rule above, and as specific as it is or more: an invalid field stays red under the pointer. */
+.kit-input.invalid,
+.kit-input.invalid:hover:not(:disabled) {
   border-color: var(--color-error);
 }
 

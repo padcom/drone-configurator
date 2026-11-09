@@ -7,24 +7,26 @@ import Select from './Select.vue'
 import TextInput from './TextInput.vue'
 import Toggle from './Toggle.vue'
 
-let mounted: VueWrapper | undefined
+const mounted: VueWrapper[] = []
 
 /**
- * Mounts a control in the document (focus needs it to be there).
+ * Mounts a control in the document (focus needs it to be there). Every control a test mounts is removed after it.
  *
  * @param component the control
  * @param options props, attributes and slots
  * @returns the wrapper
  */
 function put(component: Parameters<typeof mount>[0], options: Parameters<typeof mount>[1] = {}): VueWrapper {
-  mounted = mount(component, { ...options, attachTo: document.body })
+  const wrapper = mount(component, { ...options, attachTo: document.body })
+  mounted.push(wrapper)
 
-  return mounted
+  return wrapper
 }
 
 afterEach(() => {
-  mounted?.unmount()
-  mounted = undefined
+  for (const wrapper of mounted.splice(0)) {
+    wrapper.unmount()
+  }
 })
 
 it('has a button that is a native button, of type button unless it says otherwise', () => {
