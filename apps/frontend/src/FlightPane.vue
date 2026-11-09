@@ -1,5 +1,6 @@
 <template>
-  <section class="flight-pane" :class="{ collapsed }" :aria-labelledby="titleId">
+  <!-- Focusable by script (F6 moves the focus from pane to pane) and not in the tab order: Tab goes on to what is inside. -->
+  <section class="flight-pane" :class="{ collapsed }" :aria-labelledby="titleId" tabindex="-1">
     <header>
       <h2 :id="titleId" :class="{ 'visually-hidden': collapsed }">{{ title }}</h2>
       <Button

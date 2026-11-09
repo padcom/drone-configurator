@@ -183,8 +183,10 @@ describe('keeping the layout, over what is stored', () => {
     expect(setUi).toHaveBeenCalledWith(LAYOUT_KEY, expect.any(String))
     expect(decodeLayout(held())?.side).toBe(20)
   })
+})
 
-  it('stops when the screen goes: a change made just before is not written after', () => {
+describe('a change that is waiting when the screen or the page goes', () => {
+  it('is written at once when the screen goes, and only once', () => {
     const { settings, setUi } = settingsHolding(undefined)
     const layout = useFlightLayout()
     const scope = effectScope()
@@ -192,6 +194,51 @@ describe('keeping the layout, over what is stored', () => {
 
     layout.main.value = 80
     scope.stop()
+    vi.advanceTimersByTime(SAVE_DELAY_MS * 2)
+
+    expect(setUi).toHaveBeenCalledOnce()
+    expect(decodeLayout(setUi.mock.calls[0]![1])?.main).toBe(80)
+  })
+})
+
+describe('a change that is waiting when the page goes', () => {
+  it('is written at once when the page is being closed (pagehide), and only once', () => {
+    const { settings, setUi } = settingsHolding(undefined)
+    const layout = useFlightLayout()
+    const scope = effectScope()
+    scope.run(() => useKeptLayout(layout, settings))
+
+    layout.side.value = 25
+    window.dispatchEvent(new Event('pagehide'))
+    vi.advanceTimersByTime(SAVE_DELAY_MS * 2)
+    scope.stop()
+
+    expect(setUi).toHaveBeenCalledOnce()
+    expect(decodeLayout(setUi.mock.calls[0]![1])?.side).toBe(25)
+  })
+})
+
+describe('nothing waiting, or a screen that has gone, when the page goes', () => {
+  it('writes nothing when nothing is waiting', () => {
+    const { settings, setUi } = settingsHolding(undefined)
+    const scope = effectScope()
+    scope.run(() => useKeptLayout(useFlightLayout(), settings))
+
+    window.dispatchEvent(new Event('pagehide'))
+    scope.stop()
+
+    expect(setUi).not.toHaveBeenCalled()
+  })
+
+  it('does not listen to the page any more once the screen has gone', () => {
+    const { settings, setUi } = settingsHolding(undefined)
+    const layout = useFlightLayout()
+    const scope = effectScope()
+    scope.run(() => useKeptLayout(layout, settings))
+    scope.stop()
+
+    layout.main.value = 80
+    window.dispatchEvent(new Event('pagehide'))
     vi.advanceTimersByTime(SAVE_DELAY_MS * 2)
 
     expect(setUi).not.toHaveBeenCalled()

@@ -33,17 +33,19 @@ async function keyOnBar(app: E2eApp, bar: number, key: string): Promise<void> {
 }
 
 /**
- * What the settings file holds as the layout, if it holds one.
+ * The share of the width that the settings file keeps for the map, if it keeps a layout (the entry is JSON in JSON: it is
+ * read, not matched as text, so that 5 is not taken for 50 or 55).
  *
- * @returns the layout's text
+ * @returns percent, or undefined
  */
-function keptLayout(): string {
+function keptMain(): number | undefined {
   if (!existsSync(FILE)) {
-    return ''
+    return undefined
   }
   const entries = (JSON.parse(readFileSync(FILE, 'utf8')) as { ui: { key: string, value: string }[] }).ui
+  const text = entries.find(entry => entry.key === 'layout.flightData')?.value
 
-  return entries.find(entry => entry.key === 'layout.flightData')?.value ?? ''
+  return text === undefined ? undefined : (JSON.parse(text) as { main: number }).main
 }
 
 it('keeps the layout of the Flight data screen across a restart of the application', async () => {
@@ -55,7 +57,7 @@ it('keeps the layout of the Flight data screen across a restart of the applicati
   await first.waitFor(`document.querySelector('button[title="Expand Map"]') !== null`)
   expect(await sizeOf(first, 1)).toBe(45)
   // Kept a moment after the last change, once the backend has written the file.
-  await vi.waitFor(() => expect(keptLayout()).toContain('"main":5'), { timeout: 10_000, interval: 100 })
+  await vi.waitFor(() => expect(keptMain()).toBe(5), { timeout: 10_000, interval: 100 })
   expect(await first.close()).toBe(0)
 
   const second = await launchApp()

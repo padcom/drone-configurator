@@ -3,9 +3,7 @@
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { showScreen } from './click'
-
-/** A switch to a screen that is already loaded must be on the screen within this (the plan: 100 ms). */
-const SWITCH_LIMIT_MS = 100
+import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 
 /** What each screen shows once it is the one shown: an element it has, or the words of a screen not built yet. */
 const MARKERS: [id: string, check: string, title: string][] = [
@@ -19,25 +17,6 @@ const MARKERS: [id: string, check: string, title: string][] = [
 ]
 
 let app: E2eApp
-
-/**
- * Follows a navigation link and measures how long it takes until the screen's marker is in the page and a frame has
- * been drawn after it.
- *
- * @param id the screen
- * @param marker a selector for something only that screen has
- * @returns the milliseconds from the click to that frame
- */
-function switchTime(id: string, marker: string): Promise<number> {
-  return app.evaluate<number>(`new Promise(resolve => {
-    const started = performance.now()
-    document.querySelector('nav a[href="#/${id}"]').click()
-    const poll = () => document.querySelector(${JSON.stringify(marker)})
-      ? requestAnimationFrame(() => resolve(performance.now() - started))
-      : requestAnimationFrame(poll)
-    poll()
-  })`)
-}
 
 beforeAll(async () => {
   app = await launchApp()
@@ -75,24 +54,6 @@ async function walk(screens: typeof MARKERS): Promise<void> {
   }
 }
 
-/**
- * Switches between two screens that have both been shown, three rounds.
- *
- * @returns each switch's time in milliseconds, by screen and round
- */
-async function switchRounds(): Promise<Record<string, number>> {
-  const times: Record<string, number> = {}
-  for (const round of [1, 2, 3]) {
-    // One after the other: the clicks must not overlap.
-    // eslint-disable-next-line no-await-in-loop
-    times[`parameters ${round}`] = await switchTime('parameters', '#list-status')
-    // eslint-disable-next-line no-await-in-loop
-    times[`flight ${round}`] = await switchTime('flight', '#telemetry')
-  }
-
-  return times
-}
-
 describe('the shell', () => {
   it('starts on Flight data, with the status bar and the navigation', async () => {
     expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
@@ -113,7 +74,7 @@ describe('the shell', () => {
   it('switches to a screen that has been shown before within 100 ms', async () => {
     // Several switches, to see a run and not one number. The numbers are the point (they say whether 100 ms is
     // realistic on a machine without a GPU), so they are printed.
-    const times = await switchRounds()
+    const times = await switchRounds(app)
     console.info('screen switch times (ms):', JSON.stringify(times))
 
     expect(Math.max(...Object.values(times))).toBeLessThan(SWITCH_LIMIT_MS)
