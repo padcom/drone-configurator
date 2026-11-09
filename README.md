@@ -1,7 +1,7 @@
 # Drone Configurator
 
 A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com/padcom/pico-desktop).
-- **Frontend:** Vue 3, TypeScript and Vite (the state is in composables; see `docs/frontend-state.md`). Every text on screen goes through vue-i18n; only English exists so far.
+- **Frontend:** Vue 3, TypeScript and Vite (the state is in composables; see `docs/frontend-state.md`). The text of the components goes through vue-i18n (only English exists so far); messages built in the composables and helpers (the backend-restart notice, error lines, the write and apply questions, draft and metadata problems) are still plain English.
 - **Backend:** Pico, on [pico-mavlink](https://github.com/padcom/pico-mavlink).
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
