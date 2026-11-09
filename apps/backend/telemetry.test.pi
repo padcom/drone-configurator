@@ -1,6 +1,9 @@
 // The telemetry service, over an in-memory link against the simulated vehicle.
 import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
 import { Cbor } from "pico-desktop/communicator"
+import { Attitude, SysStatus } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
 import { ConnectRequest, ConnectRequestTransport, decodeTelemetry, encodeConnectRequest } from "./generated/app"
 import { start } from "./testing"
 
@@ -22,6 +25,47 @@ async function streamsTelemetry(): Promise<void> throws Error {
   await f.call("vehicle.disconnect")
 }
 
+/// What the simulated vehicle was asked for: the rates in milliseconds, -2 for a message it was not
+/// asked about (-1 is "off").
+function ratesAsked(): string {
+  const sim = simulatorForTests()!
+  `${sim.intervals.get(SysStatus.MSG_ID) ?? -2} ${sim.intervals.get(Attitude.MSG_ID) ?? -2}`
+}
+
+/// SYS_STATUS once a second, ATTITUDE four times a second: what the dashboard shows.
+async function asksForTheRates(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    await delay(200)
+    expect(ratesAsked()).toBe("1000 250")
+  } finally {
+    // (A failed assertion must not leave the simulator running: its timers would keep the process alive.)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// A vehicle that restarts forgets the rates it was asked for (the link stays up): they are asked
+/// for again by themselves.
+async function asksAgainAfterARestart(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    // Up for a few seconds, so that its clock starting again is plainly a step back.
+    await delay(2500)
+    simulatorForTests()!.reboot(0)
+    expect(ratesAsked()).toBe("-2 -2")
+    for (let waited = 0; waited < 8000 && ratesAsked() != "1000 250"; waited += 100) {
+      await delay(100)
+    }
+    expect(ratesAsked()).toBe("1000 250")
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
 describe("the telemetry service", () => {
   it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
+  it("asks the vehicle for 1 Hz SYS_STATUS and 4 Hz ATTITUDE", asksForTheRates)
+  it("asks for the rates again after the vehicle restarts", asksAgainAfterARestart)
 })
