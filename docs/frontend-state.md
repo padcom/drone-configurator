@@ -108,3 +108,30 @@ When the backend loses the vehicle it reports `reconnecting` (`attempt`, `nextRe
   and "next in S s" is the delay the backend gave when it reported the try: it does not count down. The next report
   (the next try) replaces it. That is deliberate: a ticking counter would need a clock in the page that agrees with the
   backend's, for a number that is only a hint.
+
+## Settings
+
+What survives a restart is the backend's (`settings.get`, `settings.set`, the event `settings.changed`); the interface
+holds a copy in `useSettings()` (`settings`, `notice`) and does not read or write anything of its own in the browser.
+
+- **The first paint.** The settings come from the backend after the page is drawn, so the theme chosen last time is kept
+  as a copy in `localStorage` (`firstPaint.ts`) and applied when `createConfigurator` is called, before anything is drawn:
+  a dark choice on a light system does not flash light. The settings stay the truth: when they arrive their theme is
+  applied and the copy follows it (no theme in the settings is the system's, and the copy is removed). Storage that
+  is missing or forbidden costs only the flash. The language needs no copy (English is the only one).
+- **Starting.** `createConfigurator` reads the settings once. What they name is applied at once: a kept theme goes on the
+  page (`useTheme().set`), a kept language into the messages. There is no wait for them.
+- **Choosing.** `settings.chooseTheme(next)` shows the theme first and then keeps it, so the page does not wait for the
+  backend; if it cannot be kept the theme stays shown and `notice` says so. The answer, and every `settings.changed`,
+  is applied the same way (`changed`), also when another window made the change. Two choices in a row end on the later
+  one: while a choice waits for its answer, announcements do not change the theme, and the answer to a choice that has
+  been replaced is ignored.
+- **The notice** is the backend's English text about the file (set aside, newer, cannot be written) or the interface's
+  own when the backend cannot be asked (also English, like the other messages built in the composables). Dismissing it
+  hides that text; the backend repeats it with every answer, and it is not shown again unless it changes, or comes back
+  after the backend said nothing in between. Its element (`#settings-notice`, a status) is always in the page, empty
+  when there is nothing to say, so that a screen reader announces the text when it comes.
+- **The old language key.** An earlier version kept the language in `localStorage`. It is read once, moved into the
+  settings if they have no language yet, and removed. If the move fails the key stays and is tried next start.
+- **The interface's own entries** (`ui`, such as a layout) are for the screens that need them; they get their own
+  helpers when the first one does (the Flight data layout).

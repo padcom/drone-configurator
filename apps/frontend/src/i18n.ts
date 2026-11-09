@@ -13,7 +13,7 @@ export type Language = typeof LANGUAGES[number]
 /** The language used when none was chosen, and for any message another language lacks. */
 export const DEFAULT_LANGUAGE: Language = 'en'
 
-/** Where the chosen language is kept (the key is versioned like the other stored data). */
+/** Where the chosen language was kept before the settings existed (#19): read once, to move it into the settings. */
 export const LANGUAGE_KEY = 'drone-configurator:language:v1'
 
 /**
@@ -46,53 +46,59 @@ export function storageOf(scope: StorageScope): Storage | null {
   }
 }
 
-/**
- * The language the user chose earlier. Storage may be missing, full or forbidden, and its content is not trusted.
- *
- * @param storage localStorage, or null
- * @returns the stored language, else the default
- */
-export function readLanguage(storage: Pick<Storage, 'getItem'> | null): Language {
-  try {
-    const stored = storage?.getItem(LANGUAGE_KEY)
-
-    return isLanguage(stored) ? stored : DEFAULT_LANGUAGE
-  } catch {
-    return DEFAULT_LANGUAGE
-  }
+/** The language an earlier version of the interface kept in the browser's storage. */
+export interface LegacyLanguage {
+  /** The language that was kept, or null if none was, or it is not one the interface has. */
+  read: () => Language | null
+  /** Removes it, once it has been moved into the settings. */
+  forget: () => void
 }
 
 /**
- * Keeps the chosen language.
+ * The language the user chose before the settings existed. Storage may be missing, full or forbidden, and its content is
+ * not trusted.
  *
  * @param storage localStorage, or null
- * @param language what the user chose
- * @returns false if it could not be kept
+ * @returns how to read and forget it, or null when there is no storage
  */
-export function writeLanguage(storage: Pick<Storage, 'setItem'> | null, language: Language): boolean {
-  try {
-    storage?.setItem(LANGUAGE_KEY, language)
+export function legacyLanguage(storage: Pick<Storage, 'getItem' | 'removeItem'> | null): LegacyLanguage | null {
+  if (storage === null) {
+    return null
+  }
 
-    return storage !== null
-  } catch {
-    return false
+  return {
+    read() {
+      try {
+        const stored = storage.getItem(LANGUAGE_KEY)
+
+        return isLanguage(stored) ? stored : null
+      } catch {
+        return null
+      }
+    },
+    forget() {
+      try {
+        storage.removeItem(LANGUAGE_KEY)
+      } catch {
+        // Storage that cannot be written to keeps it; it is read again, and moved again, next time.
+      }
+    },
   }
 }
 
 /** The interface's i18n instance: Composition API only, English as the fallback of every language. */
 export const i18n = createI18n({
   legacy: false,
-  locale: readLanguage(storageOf(globalThis)),
+  locale: DEFAULT_LANGUAGE,
   fallbackLocale: DEFAULT_LANGUAGE,
   messages: { en },
 })
 
 /**
- * Switches the interface language and keeps the choice.
+ * Switches the interface language. (Keeping the choice is the settings' business: useSettings.)
  *
  * @param language one of `LANGUAGES`
  */
 export function setLanguage(language: Language): void {
   i18n.global.locale.value = language
-  writeLanguage(storageOf(globalThis), language)
 }
