@@ -43,14 +43,23 @@
   font-weight: 600;
 }
 
-/* The live region is there from the start, so that what is put in it is read out; empty, it takes no room. */
+/*
+ * The live region is there from the start, so that what is put in it is read out. Empty, it is clipped to nothing and
+ * out of the layout, but not `display: none` (that takes it out of the accessibility tree too, and what is put in it
+ * afterwards would then be new content, which a screen reader commonly does not announce).
+ */
 .safety-tapped {
   margin: 0;
   color: var(--color-warn);
 }
 
 .safety-tapped:empty {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .safety-hint {

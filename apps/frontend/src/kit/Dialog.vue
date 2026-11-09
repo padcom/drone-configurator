@@ -20,7 +20,7 @@
 // owner decides, usually by removing the dialog), and when it goes the focus returns to what had it before. The browser
 // keeps Tab inside the dialog but lets it reach the browser's own UI; the explicit trap wraps it round instead.
 // The element with `data-initial-focus` gets the focus first (else the first control); give it to the safe choice.
-import { nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import { onBeforeUnmount, onMounted, ref, useId } from 'vue'
 
 defineProps<{
   /** The heading, and the dialog's accessible name. */
@@ -130,7 +130,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   going = true
   dialog.value?.close()
-  // After the page has updated: what opened the dialog may have been disabled by what the dialog confirmed.
-  void nextTick(() => giveBack(opener))
+  // Not before the page has settled: what opened the dialog may be disabled by what the dialog confirmed (the answer
+  // is passed on, and only then does the write start and disable the button), and a button that is disabled while it
+  // has the focus loses it. A task later all of that has happened.
+  const back = opener
+  setTimeout(() => giveBack(back), 0)
 })
 </script>

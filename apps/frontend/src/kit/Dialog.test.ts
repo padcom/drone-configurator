@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
-import { h, nextTick } from 'vue'
+import { h } from 'vue'
+import { setTimeout as sleep } from 'node:timers/promises'
 import Dialog from './Dialog.vue'
 
 afterEach(() => {
@@ -75,7 +76,7 @@ describe('a dialog, when it goes', () => {
     const { wrapper, opener } = opened()
 
     wrapper.unmount()
-    await nextTick()
+    await sleep(0)
 
     expect(document.activeElement).toBe(opener)
   })
@@ -88,7 +89,7 @@ describe('a dialog, when it goes', () => {
     opener.focus()
     wrapper.unmount()
     opener.disabled = true
-    await nextTick()
+    await sleep(0)
 
     expect(document.activeElement).toBe(section)
   })

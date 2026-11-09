@@ -81,5 +81,7 @@ describe('answering the confirmation, in the window', () => {
     await holdConfirm(app)
 
     expect(await app.waitForText('#detail', 'Written and read back')).toMatch(/Written and read back: 1700\./u)
+    // The focus is not lost to the page: the button that opened the dialog was disabled while it wrote.
+    expect(await app.evaluate<boolean>('document.activeElement !== document.body')).toBe(true)
   })
 })

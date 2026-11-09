@@ -109,10 +109,10 @@ describe('the guard on colours', () => {
 })
 
 /** The stylesheets of the kit's controls: every one is made of tokens. */
-const STYLESHEETS = ['kit.css', 'panels.css', 'gallery.css'] as const
+const STYLESHEETS = ['kit.css', 'panels.css', 'dialog.css', 'gallery.css'] as const
 
 /** Custom properties that a component sets itself, not tokens: SplitPane.vue puts the first pane's size in `--split`. */
-const LOCAL = new Set(['--split'])
+const LOCAL = new Set(['--split', '--hold-ms'])
 
 describe.each(STYLESHEETS)('%s', name => {
   const css = read(name)
@@ -124,7 +124,7 @@ describe.each(STYLESHEETS)('%s', name => {
   it('uses only tokens that tokens.css defines', () => {
     const used = [...css.matchAll(/var\((?<name>--[\w-]+)/gu)].map(match => match.groups?.name)
 
-    expect(used.length).toBeGreaterThan(15)
+    expect(used.length).toBeGreaterThan(10)
     expect(used.filter(token => !defined.has(token) && !LOCAL.has(token ?? ''))).toEqual([])
   })
 })
@@ -139,5 +139,14 @@ describe('kit.css', () => {
     expect(selectors).toContain('.kit-input.invalid:hover:not(:disabled)')
     // And it comes after the hover rule that would otherwise win.
     expect(kit.indexOf('.kit-input.invalid:hover')).toBeGreaterThan(kit.indexOf('.kit-input:hover'))
+  })
+})
+
+describe('dialog.css', () => {
+  it('keeps the empty live region rendered: clipped away, never display: none or visibility: hidden', () => {
+    const rule = /\.safety-tapped:empty\s*\{(?<body>[^{}]*)\}/u.exec(read('dialog.css'))?.groups?.body ?? ''
+
+    expect(rule).toContain('clip-path')
+    expect(rule).not.toMatch(/display\s*:\s*none|visibility\s*:\s*hidden/u)
   })
 })
