@@ -1,0 +1,67 @@
+// Moving the focus from pane to pane with F6 and Shift+F6, as the panes of a desktop application do (until the global
+// shortcuts, #20, have a place to say it): the next pane in the order they are in the page, and round to the first after
+// the last; Shift goes the other way. A pane is a place to start from: Tab from it goes into it.
+import { type Ref, onActivated, onBeforeUnmount, onDeactivated, onMounted } from 'vue'
+
+/**
+ * Whether a key press is the one that moves between panes: F6, with Shift or without it, and nothing else with it (Alt,
+ * Ctrl and Meta with a function key belong to the system and the browser).
+ *
+ * @param event the key press
+ * @returns true for F6 and Shift+F6
+ */
+export function isPaneKey(event: KeyboardEvent): boolean {
+  return event.key === 'F6' && !event.altKey && !event.ctrlKey && !event.metaKey
+}
+
+/**
+ * The pane to put the focus on.
+ *
+ * @param panes the panes, in the order they are in the page
+ * @param active what has the focus now (null: nothing in particular)
+ * @param backwards whether it is Shift+F6
+ * @returns the pane after the one the focus is in (before it, going backwards), the first (the last) if the focus is in
+ * none of them, or nothing when there are no panes
+ */
+export function nextPane(panes: HTMLElement[], active: Element | null, backwards: boolean): HTMLElement | undefined {
+  const at = panes.findIndex(pane => pane.contains(active))
+  if (at < 0) {
+    return backwards ? panes.at(-1) : panes[0]
+  }
+
+  return panes[(at + (backwards ? panes.length - 1 : 1)) % panes.length]
+}
+
+/**
+ * The panes inside an element, in the order they are in the page.
+ *
+ * @param root the element that holds them (null before it is in the page)
+ * @returns the panes
+ */
+function panesIn(root: HTMLElement | null): HTMLElement[] {
+  return root ? [...root.querySelectorAll<HTMLElement>('.flight-pane')] : []
+}
+
+/**
+ * Makes F6 and Shift+F6 move the focus between the panes (`.flight-pane`) inside `root`, from wherever the focus is in
+ * the window, for as long as the screen is the one shown (a screen that is kept alive behind another does not take the
+ * key).
+ *
+ * @param root the element that holds the panes
+ */
+export function usePaneKeys(root: Ref<HTMLElement | null>): void {
+  const move = (event: KeyboardEvent) => {
+    const next = isPaneKey(event) ? nextPane(panesIn(root.value), document.activeElement, event.shiftKey) : undefined
+    if (next) {
+      event.preventDefault()
+      next.focus()
+    }
+  }
+  const listen = () => window.addEventListener('keydown', move)
+  const forget = () => window.removeEventListener('keydown', move)
+
+  onMounted(listen)
+  onActivated(listen)
+  onDeactivated(forget)
+  onBeforeUnmount(forget)
+}

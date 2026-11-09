@@ -7,6 +7,7 @@ import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { clickConnect, showScreen } from './click'
 import type { Endpoint } from './endpoint'
+import { switchRounds } from './switch'
 
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
@@ -113,6 +114,24 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
     const before = await app.evaluate<string>(`document.querySelector('#telemetry').textContent`)
     await app.waitFor(`document.querySelector('#telemetry').textContent !== ${JSON.stringify(before)}`)
+  })
+
+  it('shows it in the details of the Flight data screen, beside the map and the display', async () => {
+    const titles = await app.evaluate<string[]>(`[...document.querySelectorAll('.flight-pane h2')].map(h => h.textContent)`)
+
+    expect(titles).toEqual(['Map', 'Display', 'Details'])
+    expect(await app.evaluate<boolean>(`document.querySelector('[role="tabpanel"] #telemetry') !== null`)).toBe(true)
+  })
+
+  it('switches between Flight data and Parameters, with the whole list loaded: the times are recorded', async () => {
+    // The Parameters screen holds the whole list here (the simulator behind TCP has a dozen, SITL more than a thousand):
+    // the numbers say what a switch costs with a real list. The limit of 100 ms is asserted with the simulator's
+    // short list (flight-data.e2e.ts); here they are only printed.
+    const times = await switchRounds(app)
+    console.info(`screen switch times with ${vehicle.minParams}+ parameters (ms):`, JSON.stringify(times))
+
+    expect(Object.keys(times)).toHaveLength(6)
+    await showScreen(app, 'parameters')
   })
 
   it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {

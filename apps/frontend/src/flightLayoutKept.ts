@@ -143,41 +143,79 @@ function keepLayout(layout: FlightLayout, settings: SettingsModel): void {
   }
 }
 
+/** What keeps one screen's layout: when it begins, and the change that is waiting to be written. */
+class LayoutKeeper {
+  private timer: ReturnType<typeof setTimeout> | undefined
+  private keeping = false
+
+  /**
+   * Makes the keeper of a layout.
+   *
+   * @param layout the layout of the screen
+   * @param settings the settings
+   * @param delayMs how long after a change the layout is written
+   */
+  constructor(
+    private readonly layout: FlightLayout,
+    private readonly settings: SettingsModel,
+    private readonly delayMs: number,
+  ) {}
+
+  /**
+   * Once, when the settings have been read: the stored layout is put in place, and keeping begins.
+   *
+   * @param loaded whether the settings have been read
+   */
+  putBack(loaded: boolean): void {
+    if (!loaded || this.keeping) {
+      return
+    }
+    const kept = decodeLayout(this.settings.uiValue(LAYOUT_KEY))
+    if (kept) {
+      this.layout.restore(kept)
+    }
+    this.keeping = true
+  }
+
+  /** The layout changed: it is written a moment after the last change, if keeping has begun. */
+  changed(): void {
+    if (this.keeping) {
+      clearTimeout(this.timer)
+      this.timer = setTimeout(() => this.flush(), this.delayMs)
+    }
+  }
+
+  /** Writes the change that is waiting, now: the page is going, or the screen is. */
+  flush(): void {
+    if (this.timer !== undefined) {
+      clearTimeout(this.timer)
+      this.timer = undefined
+      keepLayout(this.layout, this.settings)
+    }
+  }
+}
+
 /**
  * Keeps the layout of a screen in the settings, and puts back what was kept. Once the settings have been read the stored
  * layout, if it is a good one, is put in place; from then on every change is kept, a moment after the last one (and not at
- * all when it is what is stored already). Nothing is kept before the settings are read: the defaults must not replace
- * what is there.
+ * all when it is what is stored already). A change still waiting when the screen is gone, or the page is being closed
+ * (`pagehide`), is written at once. Nothing is kept before the settings are read: the defaults must not replace what is
+ * there.
  *
  * @param layout the layout of the screen
  * @param settings the settings
  * @param delayMs how long after a change the layout is kept
  */
 export function useKeptLayout(layout: FlightLayout, settings: SettingsModel, delayMs = SAVE_DELAY_MS): void {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let keeping = false
+  const keeper = new LayoutKeeper(layout, settings, delayMs)
+  const flush = () => keeper.flush()
 
-  // Once, when the settings have been read: the stored layout is put in place, and keeping begins.
-  const putBack = (loaded: boolean) => {
-    if (!loaded || keeping) {
-      return
-    }
-    const kept = decodeLayout(settings.uiValue(LAYOUT_KEY))
-    if (kept) {
-      layout.restore(kept)
-    }
-    keeping = true
-  }
-
-  watch(settings.loaded, putBack, { immediate: true, flush: 'sync' })
-
+  watch(settings.loaded, loaded => keeper.putBack(loaded), { immediate: true, flush: 'sync' })
   // Synchronously, so that putting the stored layout in place (which changes the sizes) is over before keeping begins.
-  watch(() => layout.kept(), () => {
-    if (keeping) {
-      clearTimeout(timer)
-      timer = setTimeout(() => keepLayout(layout, settings), delayMs)
-    }
-  }, { flush: 'sync' })
-
-  onScopeDispose(() => clearTimeout(timer))
+  watch(() => layout.kept(), () => keeper.changed(), { flush: 'sync' })
+  window.addEventListener('pagehide', flush)
+  onScopeDispose(() => {
+    window.removeEventListener('pagehide', flush)
+    flush()
+  })
 }
