@@ -7,6 +7,19 @@ import { type ConfiguratorHandle, publish } from './useConfigurator'
 export const withI18n = { global: { plugins: [i18n] } }
 
 /**
+ * Waits until the next frame has been drawn: what was published once per frame has been published by then.
+ *
+ * @returns a promise that resolves after the next animation frame
+ */
+export function nextFrame(): Promise<void> {
+  return new Promise<void>(resolve => {
+    requestAnimationFrame(() => {
+      resolve()
+    })
+  })
+}
+
+/**
  * Looks up an English message, for the tests of the functions that take a `translate`.
  *
  * @param key the message

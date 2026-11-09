@@ -1,5 +1,5 @@
 <template>
-  <p v-if="!fields.telemetry.value" class="muted">{{ t('telemetry.none') }}</p>
+  <p v-if="!telemetry" class="muted">{{ t('telemetry.none') }}</p>
   <div
     v-for="card in cards"
     v-else
@@ -13,11 +13,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { cardsFor } from './telemetryCards'
-import { useConfigurator } from './useConfigurator'
 import { useFormat } from './useFormat'
+import { useTelemetry } from './useTelemetry'
 
 const { t } = useI18n()
 const format = useFormat()
-const { fields } = useConfigurator()
-const cards = computed(() => fields.telemetry.value ? cardsFor(fields.telemetry.value, t, format) : [])
+// The telemetry arrives often; this ref changes once per frame at most, and so does the component.
+const telemetry = useTelemetry()
+const cards = computed(() => telemetry.value ? cardsFor(telemetry.value, t, format) : [])
 </script>
