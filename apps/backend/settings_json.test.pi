@@ -1,0 +1,126 @@
+// The settings file's format: what is written is plain JSON that a person can read, and what a person edits is read.
+import { describe, it, expect } from "std/test"
+import { Settings, ThemeName, UiEntry } from "./generated/app"
+import { SettingsFileError, parse, textOf } from "./settings"
+
+/// What `text` reads as, in one line: version, language, theme, entries, or the code of why it is not read.
+function read(text: string): string {
+  try {
+    const s = parse(text, [])
+    const ui: string[] = []
+    for (const e of s.ui) {
+      ui.push(`${e.key}=${e.value}`)
+    }
+    const theme = s.theme
+    `${s.version} ${s.language ?? "-"} ${if (theme == null) "-" else if (theme == ThemeName.Dark) "dark" else if (theme == ThemeName.Light) "light" else "system"} [${ui.join(",")}]`
+  } catch (e: SettingsFileError) {
+    e.kind
+  }
+}
+
+/// The file is laid out a member to a line and an entry to a line, and says nothing of what is not set.
+function writesAReadableFile(): void {
+  const s = Settings {
+    version: 1,
+    language: "pl",
+    theme: ThemeName.Dark,
+    ui: [UiEntry { key: "layout.flightData", value: "{\"sizes\":[1,2]}" }, UiEntry { key: "tab", value: "cards" }],
+  }
+  expect(textOf(s)).toBe("{\n  \"version\": 1,\n  \"language\": \"pl\",\n  \"theme\": \"dark\",\n  \"ui\": [\n    { \"key\": \"layout.flightData\", \"value\": \"{\\\"sizes\\\":[1,2]}\" },\n    { \"key\": \"tab\", \"value\": \"cards\" }\n  ]\n}\n")
+  expect(textOf(Settings { version: 1, ui: [] })).toBe("{\n  \"version\": 1,\n  \"ui\": []\n}\n")
+}
+
+/// What is written is read back as it was, including text that JSON must escape.
+function readsWhatItWrote(): void {
+  const odd = "quote \" backslash \\ newline \n tab \t zażółć gęślą jaźń \u{1F680}"
+  const s = Settings { version: 1, language: "de", theme: ThemeName.System, ui: [UiEntry { key: "a.b", value: odd }] }
+  const back = parse(textOf(s), [])
+  expect(`${back.version} ${back.language ?? "-"} ${back.ui.length} ${back.ui[0].value == odd}`).toBe("1 de 1 true")
+  expect(read(textOf(Settings { version: 1, ui: [] }))).toBe("1 - - []")
+}
+
+/// A person's edit: other spacing, other line ends, the members in another order, a member nothing here knows.
+function readsAHandEditedFile(): void {
+  expect(read("{\"ui\":[],\"theme\":\"light\",\"version\":1}")).toBe("1 - light []")
+  expect(read("  {\r\n\t\"version\" :  1 ,\r\n\t\"language\":\"fr\",\r\n\t\"ui\" : [ { \"value\": \"2\", \"key\": \"k\" } ]\r\n}\r\n\r\n")).toBe("1 fr - [k=2]")
+  expect(read("{\"version\": 1, \"theme\": null, \"language\": null, \"ui\": []}")).toBe("1 - - []")
+}
+
+/// A member this version does not know is skipped, wherever it is, and is gone from the file at the next write (the
+/// file is a settings document of this version; a newer one has a newer `version`).
+function skipsAMemberItDoesNotKnow(): void {
+  expect(read("{\"version\": 1, \"ui\": [], \"future\": {\"x\": [1, 2, {\"y\": null}]}}")).toBe("1 - - []")
+  expect(read("{\"version\": 1, \"ui\": [{\"key\": \"k\", \"value\": \"v\", \"colour\": \"red\"}]}")).toBe("1 - - [k=v]")
+  const s = parse("{\"version\": 1, \"language\": \"it\", \"ui\": [], \"future\": 1}", [])
+  expect(textOf(s)).toBe("{\n  \"version\": 1,\n  \"language\": \"it\",\n  \"ui\": []\n}\n")
+}
+
+/// What is wrong is corrupt, not guessed at: the file is set aside by the service.
+function refusesWhatIsWrong(): void {
+  expect(read("")).toBe("CORRUPT")
+  expect(read("not json at all")).toBe("CORRUPT")
+  expect(read("[1, 2]")).toBe("CORRUPT")
+  expect(read("{\"version\": 1}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": [], \"theme\": \"purple\"}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": [], \"theme\": 3}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": [], \"language\": 5}")).toBe("CORRUPT")
+  expect(read("{\"version\": \"one\", \"ui\": []}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": [{\"key\": \"k\"}]}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": [{\"key\": \"theme\", \"value\": \"x\"}]}")).toBe("CORRUPT")
+}
+
+/// A person's edit is held to the limits a patch is: the language, the keys, and the total that makes a document sendable.
+function holdsAHandEditedFileToTheLimits(): void {
+  expect(read("{\"version\": 1, \"language\": \"\", \"ui\": []}")).toBe("CORRUPT")
+  expect(read(`{"version": 1, "language": "${"x".repeat(36)}", "ui": []}`)).toBe("CORRUPT")
+  expect(read(`{"version": 1, "language": "${"x".repeat(35)}", "ui": []}`)).toBe(`1 ${"x".repeat(35)} - []`)
+  expect(read("{\"version\": 1, \"ui\": [{\"key\": \"a\", \"value\": \"1\"}, {\"key\": \"b\", \"value\": \"2\"}, {\"key\": \"a\", \"value\": \"3\"}]}")).toBe("CORRUPT")
+}
+
+/// The language counts in the total, as it does for a patch: the entries can fill the cap exactly, and not one
+/// character of language besides.
+function countsTheLanguageInTheTotal(): void {
+  const entries: string[] = []
+  const keys = "abcdefghijklmno"
+  for (let i = 0; i < 15; i++) {
+    entries.push(`{"key": "${keys[i]}", "value": "${"v".repeat(65536)}"}`)
+  }
+  // 15 entries of 1 + 65536 characters, and a 16th of 1 + 65520: exactly 1048576.
+  entries.push(`{"key": "p", "value": "${"v".repeat(65520)}"}`)
+  const body = entries.join(",")
+  expect(read(`{"version": 1, "ui": [${body}]}`).startsWith("1 - - [")).toBe(true)
+  expect(read(`{"version": 1, "language": "pl", "ui": [${body}]}`)).toBe("CORRUPT")
+}
+
+/// A byte order mark, which some editors on Windows put at the start, is not part of the text.
+function readsAFileWithAByteOrderMark(): void {
+  expect(read("\u{FEFF}{\"version\": 1, \"language\": \"fr\", \"ui\": []}")).toBe("1 fr - []")
+  expect(read("\u{FEFF}{\"version\": 2, \"ui\": []}")).toBe("NEWER")
+}
+
+/// The version is a whole number: 1.0 is not 1.
+function wantsAWholeNumberForTheVersion(): void {
+  expect(read("{\"version\": 1.0, \"ui\": []}")).toBe("CORRUPT")
+  expect(read("{\"version\": \"1\", \"ui\": []}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": []}")).toBe("1 - - []")
+}
+
+/// The version is read before the rest, so a newer file is told apart whatever else is in it.
+function tellsANewerFileByItsVersion(): void {
+  expect(read("{\"version\": 2, \"ui\": {\"not\": \"a list\"}, \"theme\": [1]}")).toBe("NEWER")
+  expect(read("{\"version\": 9, \"ui\": []}")).toBe("NEWER")
+  expect(read("{\"version\": 0, \"ui\": []}")).toBe("CORRUPT")
+}
+
+describe("the settings file", () => {
+  it("is written a member to a line, with only what is set", writesAReadableFile)
+  it("is read back as it was written, whatever the text holds", readsWhatItWrote)
+  it("is read after a person edited it", readsAHandEditedFile)
+  it("skips a member this version does not know, and does not write it again", skipsAMemberItDoesNotKnow)
+  it("is corrupt when what it holds is wrong", refusesWhatIsWrong)
+  it("is held to the limits a patch is held to", holdsAHandEditedFileToTheLimits)
+  it("counts the language in the total, as a patch does", countsTheLanguageInTheTotal)
+  it("is read with a byte order mark in front", readsAFileWithAByteOrderMark)
+  it("wants a whole number for the version", wantsAWholeNumberForTheVersion)
+  it("is told to be from a newer version by its version alone", tellsANewerFileByItsVersion)
+})

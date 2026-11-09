@@ -1,5 +1,5 @@
 import { type Server, type Socket, connect, createServer } from 'node:net'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FlakyProxy } from './flaky-proxy'
 
 /** An echo server, with the sockets it accepted. */
@@ -91,6 +91,18 @@ async function forwards(): Promise<void> {
   expect(proxy.forwarded).toBe(1)
 }
 
+/**
+ * Waits until the proxy has accepted a connection: the client's `connect` is the kernel finishing the handshake, which can
+ * come before the proxy's own accept (macOS does), so a cut right after it would meet a connection the proxy has not seen.
+ *
+ * @param proxy the proxy
+ * @param count how many connections it must have accepted
+ * @returns a promise that resolves when it has
+ */
+async function hasAccepted(proxy: FlakyProxy, count: number): Promise<void> {
+  await vi.waitFor(() => expect(proxy.forwarded).toBe(count), { timeout: 5000, interval: 5 })
+}
+
 /** A cut ends what is open, refuses what is new, and a restore forwards again. */
 async function cutsAndRestores(): Promise<void> {
   const { proxy } = await rig()
@@ -98,6 +110,7 @@ async function cutsAndRestores(): Promise<void> {
   await new Promise(resolve => {
     open.once('connect', resolve)
   })
+  await hasAccepted(proxy, 1)
   const ended = endsWithin(open, 2000)
   proxy.cut()
   expect(await ended).toBe('closed')
@@ -160,6 +173,7 @@ function wait(ms: number): Promise<void> {
 async function cutsAfterBytes(): Promise<void> {
   const { proxy } = await rig()
   const { socket, received } = await openThrough(proxy.port)
+  await hasAccepted(proxy, 1)
   const done = proxy.cutAfter(150)
   socket.write('x'.repeat(100))
   await wait(100)
@@ -175,6 +189,7 @@ async function cutsAfterBytes(): Promise<void> {
 async function mutes(): Promise<void> {
   const { proxy } = await rig()
   const { socket, received } = await openThrough(proxy.port)
+  await hasAccepted(proxy, 1)
   proxy.mute()
   socket.write('lost')
   await wait(200)
