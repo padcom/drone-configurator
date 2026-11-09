@@ -7,6 +7,7 @@ import {
   MavParamType,
   ParamError,
   ParamList as ParamListOp,
+  ParamRead as ParamReadOp,
   ParamWrite as ParamWriteOp,
   Received,
   TypedParamValue,
@@ -69,6 +70,7 @@ class Announced implements SessionPart {
       // A parameter the vehicle announced on its own: tell the dashboard.
       const c = communicator
       if (!listing && c != null) {
+        cache.drop()
         const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
         c!.emit("params.changed", encodeParam(p))
       }
@@ -99,8 +101,74 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
   }
 }
 
+/// ArduPilot's fingerprint of its parameter set (what QGroundControl validates its cache with): it changes when a
+/// parameter's value does or one is added or removed.
+const HASH_ID: string = "_HASH_CHECK"
+
+/// The last complete parameter list of the vehicle `identity`, and the vehicle's fingerprint taken just before it was
+/// downloaded (so that a change during the download shows up as a different fingerprint, never as a stale list passing
+/// for current). In memory only: the persistent cache is #38.
+class ListCache {
+  public identity: string = ""
+  public list: ParamListResult? = null
+  public hash: string = ""
+  /// The vehicle that did not answer for a fingerprint: it is not asked again (each list would wait for nothing).
+  public silent: string = ""
+
+  /// Forgets the list (a parameter changed, or another vehicle).
+  public drop(): void {
+    list = null
+    hash = ""
+    identity = ""
+  }
+}
+
+const cache = new ListCache()
+
+/// Forgets everything held: the list, and which vehicle has no fingerprint.
+export function dropCachedList(): void {
+  cache.drop()
+  cache.silent = ""
+}
+
+/// Whether a list is held for the vehicle that is connected now.
+export function hasCachedList(): bool {
+  cache.list != null && cache.identity == link.identity
+}
+
+/// The vehicle's fingerprint as text, or "" when it has none (or does not answer in time): then nothing is reused.
+async function fingerprint(conn: MavLinkConnection): Promise<string> throws Error {
+  // The vehicle answers a read with a PARAM_VALUE, which is the answer here and not news for the dashboard.
+  announced.listing = true
+  try {
+    const p = await new ParamReadOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { timeoutMs: 400, retries: 1, signal: link.session.signal }).run(HASH_ID)
+    const v = toParam(p.id, p.index, p.value)
+    announced.listing = false
+    return `${v.type}:${v.value}`
+  } catch (e: MavLinkError) {
+    announced.listing = false
+    if (e.code == "ABORTED") {
+      throw new CommunicatorError(e.code, e.message)
+    }
+    return ""
+  }
+}
+
+/// The list the dashboard asks for: the one held, if the vehicle is the same and its fingerprint still equals the one the
+/// list was downloaded under; otherwise a download (the held list stays until the new one arrives).
 async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const conn = connectedLink()
+  let before = ""
+  if (cache.silent != link.identity) {
+    before = await fingerprint(conn)
+    if (before == "") {
+      cache.silent = link.identity
+    }
+  }
+  const held = cache.list
+  if (held != null && before != "" && cache.identity == link.identity && cache.hash == before) {
+    return encodeParamList(listOf(held!))
+  }
   let r: ParamListResult? = null
   announced.listing = true
   try {
@@ -111,13 +179,24 @@ async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   }
   announced.listing = false
   const list = r!
+  if (list.complete && before != "") {
+    cache.identity = link.identity
+    cache.list = list
+    cache.hash = before
+  } else {
+    cache.drop()
+  }
+  encodeParamList(listOf(list))
+}
+
+function listOf(list: ParamListResult): ParamList {
   const out = ParamList {
     params: list.params.map((p) => toParam(p.id, p.index, p.value)),
     count: list.count as u16,
     complete: list.complete,
     missing: list.missing.map((i: int) => i as u16),
   }
-  encodeParamList(out)
+  out
 }
 
 async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -135,6 +214,8 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     value = TypedParamValue.Int(w.value as int, type!)
   }
   try {
+    // Whatever the outcome, the vehicle's parameters may have changed: the held list is no longer to be trusted.
+    cache.drop()
     const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run(w.id, value)
     encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
   } catch (e: MavLinkError) {
