@@ -22,7 +22,55 @@
     "tune": "Tune",
     "parameters": "Parameters",
     "logs": "Logs",
-    "simulation": "Simulation"
+    "simulation": "Simulation",
+    "gallery": "Gallery"
+  },
+  "gallery": {
+    "title": "Component gallery",
+    "intro": "Every control of the kit in each of its states. Only in development: the built application has no gallery.",
+    "effective": "In effect: {theme}",
+    "theme": {
+      "label": "Theme",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "section": {
+      "theme": "Theme",
+      "colours": "Colours",
+      "buttons": "Buttons",
+      "fields": "Fields",
+      "choices": "Choices",
+      "badges": "Badges",
+      "panels": "Panels",
+      "icons": "Icons"
+    },
+    "sample": {
+      "action": "Action",
+      "primary": "Primary",
+      "disabled": "Disabled",
+      "text": "Text field",
+      "invalid": "Invalid field",
+      "invalidWhy": "This value is not valid: the colour is never the only sign.",
+      "select": "Choice",
+      "optionOne": "First option",
+      "optionTwo": "Second option",
+      "check": "A checkbox",
+      "toggle": "A switch",
+      "neutral": "neutral",
+      "ok": "ok",
+      "warn": "warning",
+      "error": "error",
+      "segments": "Segmented control",
+      "tabs": "Tabs",
+      "tabOne": "First tab",
+      "tabTwo": "Second tab",
+      "panelOne": "The panel of the first tab.",
+      "panelTwo": "The panel of the second tab.",
+      "split": "Resize the panes",
+      "paneOne": "First pane",
+      "paneTwo": "Second pane"
+    }
   },
   "language": {
     "label": "Language",

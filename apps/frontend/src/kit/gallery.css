@@ -1,0 +1,81 @@
+/*
+ * The layout of the component gallery (screens/Gallery.vue, development only): tokens only, like the controls it shows.
+ * The gallery imports this file itself, so the production build, which has no gallery, has no copy of it either.
+ */
+
+.gallery section {
+  margin: var(--space-5) 0;
+}
+
+.gallery h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.gallery .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin: var(--space-2) 0;
+}
+
+.gallery .swatches,
+.gallery .icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.gallery .swatch {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.gallery .swatch .chip {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.gallery .icons li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 9em;
+  font-size: var(--font-size-lg);
+}
+
+.gallery .icons code {
+  font-size: var(--font-size-sm);
+}
+
+.gallery .split-demo {
+  height: 8em;
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.gallery .split-demo .kit-split {
+  height: 100%;
+}
+
+/* A chip is drawn in the colour of the token it is named after. */
+.gallery .swatch[data-token='--color-bg'] .chip { background: var(--color-bg); }
+.gallery .swatch[data-token='--color-surface'] .chip { background: var(--color-surface); }
+.gallery .swatch[data-token='--color-text'] .chip { background: var(--color-text); }
+.gallery .swatch[data-token='--color-text-muted'] .chip { background: var(--color-text-muted); }
+.gallery .swatch[data-token='--color-border'] .chip { background: var(--color-border); }
+.gallery .swatch[data-token='--color-border-strong'] .chip { background: var(--color-border-strong); }
+.gallery .swatch[data-token='--color-accent'] .chip { background: var(--color-accent); }
+.gallery .swatch[data-token='--color-on-accent'] .chip { background: var(--color-on-accent); }
+.gallery .swatch[data-token='--color-ok'] .chip { background: var(--color-ok); }
+.gallery .swatch[data-token='--color-warn'] .chip { background: var(--color-warn); }
+.gallery .swatch[data-token='--color-error'] .chip { background: var(--color-error); }

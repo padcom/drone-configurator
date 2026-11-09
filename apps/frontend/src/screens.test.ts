@@ -2,11 +2,17 @@ import { expect, it } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { i18n } from './i18n'
 import { createAppRouter } from './router'
-import { HOME, SCREENS } from './screens'
+import { HOME, PRODUCT_SCREENS, SCREENS } from './screens'
 
-it('has the seven screens, Flight data first', () => {
-  expect(SCREENS.map(screen => screen.id)).toEqual(['flight', 'plan', 'setup', 'tune', 'parameters', 'logs', 'simulation'])
+it('has the seven screens of the product, Flight data first', () => {
+  expect(PRODUCT_SCREENS.map(screen => screen.id))
+    .toEqual(['flight', 'plan', 'setup', 'tune', 'parameters', 'logs', 'simulation'])
   expect(HOME).toBe('/flight')
+})
+
+it('adds the gallery, last, in development (which the tests are), and the build leaves it out (build.test.ts)', () => {
+  expect(import.meta.env.DEV).toBe(true)
+  expect(SCREENS.map(screen => screen.id)).toEqual([...PRODUCT_SCREENS.map(screen => screen.id), 'gallery'])
 })
 
 it('names every screen once, with a path and a title that exist', () => {
