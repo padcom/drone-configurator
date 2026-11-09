@@ -1,0 +1,2 @@
+# The lint baseline is read line by line by the ESLint config and a test: LF on every system.
+apps/frontend/eslint-baseline.txt text eol=lf

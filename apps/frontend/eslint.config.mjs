@@ -6,7 +6,8 @@ import config from '@padcom/eslint-config-vue'
 // Files written before the rules (#11) that still break some of them: eslint-baseline.txt says why,
 // and src/lint-baseline.test.ts makes sure the list only shrinks.
 const notYetLinted = readFileSync(new URL('eslint-baseline.txt', import.meta.url), 'utf8')
-  .split('\n')
+  .split(/\r?\n/u)
+  .map(line => line.trim())
   .filter(line => line !== '' && !line.startsWith('#'))
 
 export default [

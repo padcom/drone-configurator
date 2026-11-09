@@ -17,9 +17,14 @@ const root = fileURLToPath(new URL('..', import.meta.url))
  */
 function baseline(): string[] {
   return readFileSync(join(root, 'eslint-baseline.txt'), 'utf8')
-    .split('\n')
+    .split(/\r?\n/u)
+    .map(line => line.trim())
     .filter(line => line !== '' && !line.startsWith('#'))
 }
+
+// The list may only get shorter: when files come off it, lower this number to the new length. A new
+// file that breaks the rules has to be fixed, not added to the list.
+const MOST_FILES = 26
 
 /**
  * The files among `files` that have no lint error under all the rules.
@@ -31,7 +36,7 @@ async function cleanOnes(files: string[]): Promise<string[]> {
   const eslint = new ESLint({ cwd: root, overrideConfigFile: true, overrideConfig: config['flat/browser'] })
   const results = await eslint.lintFiles(files)
 
-  return results.filter(result => result.errorCount === 0).map(result => result.filePath.slice(root.length))
+  return results.filter(result => result.errorCount === 0).map(result => result.filePath.slice(root.length).replaceAll('\\', '/'))
 }
 
 describe('the lint baseline', () => {
@@ -40,6 +45,7 @@ describe('the lint baseline', () => {
 
     expect(files.filter(file => !existsSync(join(root, file)))).toEqual([])
     expect(new Set(files).size).toBe(files.length)
+    expect(files.length).toBeLessThanOrEqual(MOST_FILES)
   })
 
   it('lists only files that still break the rules: take a clean one off the list', async () => {
