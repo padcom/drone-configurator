@@ -3,19 +3,25 @@ import type { Readable } from 'node:stream'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { announcedPort } from './announced-port'
 
+let child: ChildProcessByStdio<null, Readable, null>
+
+/**
+ * Starts a Node process that runs `script`.
+ *
+ * @param script the JavaScript to run
+ * @returns the process, with its stdout piped
+ */
+const run = (script: string) => {
+  child = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'] })
+
+  return child
+}
+
+afterEach(() => {
+  child.kill()
+})
+
 describe('announcedPort', () => {
-  let child: ChildProcessByStdio<null, Readable, null>
-
-  const run = (script: string) => {
-    child = spawn(process.execPath, ['-e', script], { stdio: ['ignore', 'pipe', 'ignore'] })
-
-    return child
-  }
-
-  afterEach(() => {
-    child.kill()
-  })
-
   it('reads the port', async () => {
     await expect(announcedPort(run('console.log("listening 5760"); setInterval(() => {}, 1000)'))).resolves.toBe(5760)
   })
