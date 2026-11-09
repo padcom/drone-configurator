@@ -72,6 +72,27 @@
       "paneTwo": "Second pane"
     }
   },
+  "flight": {
+    "collapse": "Collapse {pane}",
+    "expand": "Expand {pane}",
+    "resize": {
+      "main": "Resize the map and the other panes",
+      "side": "Resize the display and the details"
+    },
+    "map": {
+      "title": "Map",
+      "placeholder": "The map is not available yet."
+    },
+    "hud": {
+      "title": "Display",
+      "placeholder": "The heads-up display is not available yet."
+    },
+    "detail": {
+      "title": "Details",
+      "tabs": "Kinds of details",
+      "telemetry": "Telemetry"
+    }
+  },
   "language": {
     "label": "Language",
     "en": "English"
