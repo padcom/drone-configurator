@@ -1,0 +1,73 @@
+// The only place that knows how a vehicle is reached: the simulator, UDP, TCP and a serial port, each
+// as pico-mavlink's byte stream.
+import { CommunicatorError } from "pico-desktop/communicator"
+import { SerialPort as SerialDevice, openPort } from "padcom/serialport"
+import { bind, connect } from "std/net"
+import { ByteStream, MemoryStream, SimulatedAutopilot, TcpStream, UdpStream } from "padcom/pico-mavlink"
+import { ConnectRequest } from "./generated/app"
+
+/// A serial port as pico-mavlink's byte stream: the same three methods (each library declares its
+/// own interface, so the application adapts one to the other).
+class SerialStream implements ByteStream {
+  readonly port: SerialDevice
+
+  constructor(port: SerialDevice) {
+    this.port = port
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    port.read()
+  }
+
+  public write(bytes: Uint8Array): Promise<void, Error> {
+    port.write(bytes)
+  }
+
+  public close(): void {
+    port.close()
+  }
+}
+
+/// What a connection request asks for, in words for the user.
+export function describe(r: ConnectRequest): string {
+  match (r.transport) {
+    Simulator => "the simulator",
+    Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
+    Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
+    Serial => `serial ${r.device ?? "(no device)"} at ${r.baud ?? 115200}`,
+  }
+}
+
+/// Opens the link a request asks for. For the simulator, `onSimulator` is given the simulated vehicle
+/// (before the stream is returned), so its owner can stop it with the link.
+export async function open(r: ConnectRequest, onSimulator: (sim: SimulatedAutopilot) => void): Promise<ByteStream> throws Error {
+  match (r.transport) {
+    Simulator => {
+      const ends = MemoryStream.pair()
+      const sim = new SimulatedAutopilot(ends[1])
+      sim.start(1000)
+      onSimulator(sim)
+      const s: ByteStream = ends[0]
+      s
+    },
+    Udp => {
+      // SITL and MAVESP8266 send to this port; replies go back to whoever sent.
+      const socket = await bind((r.port ?? 14550) as int, r.host ?? "127.0.0.1")
+      const s: ByteStream = new UdpStream(socket)
+      s
+    },
+    Tcp => {
+      const c = await connect((r.port ?? 5760) as int, r.host ?? "127.0.0.1")
+      const s: ByteStream = new TcpStream(c)
+      s
+    },
+    Serial => {
+      const device = r.device
+      if (device == null) {
+        throw new CommunicatorError("INVALID_VALUE", "a serial connection needs a device")
+      }
+      const s: ByteStream = new SerialStream(openPort(device!, { baudRate: (r.baud ?? 115200) as int }))
+      s
+    },
+  }
+}

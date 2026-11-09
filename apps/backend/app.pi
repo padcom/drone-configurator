@@ -1,11 +1,7 @@
 // The backend: the vehicle link (padcom/pico-mavlink) behind the contract's methods and
 // subscriptions. Pico has no async closures yet, so handlers are named async functions over one
 // module-level `Link`.
-import { Cbor, Communicator, CommunicatorError, Host, OpenFile, RequestContext, SaveFile, Sink, Transport } from "pico-desktop/communicator"
-import { readText, writeText } from "std/fs"
-import { env } from "std/process"
-import { SerialPort as SerialDevice, listPorts, openPort } from "padcom/serialport"
-import { bind, connect } from "std/net"
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink, Transport } from "pico-desktop/communicator"
 import { delay } from "std/timers"
 import {
   Attitude,
@@ -24,7 +20,6 @@ import {
   MavModeFlag,
   MavParamType,
   MavType,
-  MemoryStream,
   ParamEncoding,
   ParamError,
   ParamList as ParamListOp,
@@ -32,9 +27,7 @@ import {
   Received,
   SimulatedAutopilot,
   SysStatus,
-  TcpStream,
   TypedParamValue,
-  UdpStream,
   Vehicle,
   ParamListResult,
   ParamValue,
@@ -43,32 +36,26 @@ import {
   encodingOf,
 } from "padcom/pico-mavlink"
 import {
-  ConnectRequest,
   Connection,
   ConnectionState,
-  FileOpened,
-  FileSaved,
   Param,
   ParamKind,
   ParamList,
   ParamWriteKind,
   ParamWriteResult,
-  SerialPort,
-  SerialPorts,
   Telemetry,
   VehicleInfo,
   decodeConnectRequest,
-  decodeFileSave,
   decodeParamWrite,
   encodeConnection,
-  encodeFileOpened,
-  encodeFileSaved,
   encodeParam,
   encodeParamList,
   encodeParamWriteResult,
-  encodeSerialPorts,
   encodeTelemetry,
 } from "./generated/app"
+import { register as registerFiles } from "./files"
+import { register as registerSerial } from "./serial"
+import { describe, open } from "./transports"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
 export function simulatorForTests(): SimulatedAutopilot? {
@@ -123,8 +110,6 @@ class Link {
   public lastHeartbeat: int = 0
   /// How long `vehicle.connect` waits for an autopilot's heartbeat.
   public heartbeatWaitMs: int = 3000
-  /// The host's native services (file dialogs).
-  public host: Host? = null
   /// Aborted when the session ends: operations still running stop at once.
   public session: AbortController = new AbortController()
   public communicator: Communicator? = null
@@ -224,7 +209,6 @@ const link = new Link()
 /// The backend on `transport` (the app runs it on stdio; tests on a memory link).
 export function createBackend(transport: Transport): Communicator {
   const c = new Communicator(transport)
-  link.host = new Host(c)
   link.communicator = c
   // The app is closing: end the vehicle session (heartbeats, the link and its reads, operations in
   // flight), so nothing keeps this process alive past the host's grace period.
@@ -235,161 +219,9 @@ export function createBackend(transport: Transport): Communicator {
   c.handle("params.list", listParams)
   c.handle("params.write", writeParam)
   c.publish("telemetry.stream", streamTelemetry)
-  c.handle("files.save", saveFile)
-  c.handle("files.open", openFile)
-  c.handle("serial.ports", serialPorts)
+  registerFiles(c)
+  registerSerial(c)
   c
-}
-
-/// A serial port as pico-mavlink's byte stream: the same three methods (each library declares its
-/// own interface, so the application adapts one to the other).
-class SerialStream implements ByteStream {
-  readonly port: SerialDevice
-
-  constructor(port: SerialDevice) {
-    this.port = port
-  }
-
-  public read(): Promise<Uint8Array?, Error> {
-    port.read()
-  }
-
-  public write(bytes: Uint8Array): Promise<void, Error> {
-    port.write(bytes)
-  }
-
-  public close(): void {
-    port.close()
-  }
-}
-
-/// The machine's serial ports, USB adapters described.
-async function serialPorts(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const ports: SerialPort[] = []
-  for (const p of await listPorts()) {
-    const port = SerialPort { path: p.path }
-    if (p.vendorId != null) {
-      port.description = `USB ${p.vendorId!}:${p.productId ?? "?"} ${p.product ?? ""}`.trim()
-    }
-    ports.push(port)
-  }
-  encodeSerialPorts(SerialPorts { ports: ports })
-}
-
-function host(): Host {
-  const h = link.host
-  if (h == null) {
-    panic("drone-configurator: createBackend wasn't called")
-  }
-  h!
-}
-
-/// How the backend learns which file the user means.
-interface FileChooser {
-  /// Where to save `name`; null if the user cancelled.
-  forSaving(name: string): Promise<string?, Error>
-  /// The file to open; null if the user cancelled.
-  forOpening(): Promise<string?, Error>
-}
-
-/// The host's native dialogs.
-class DialogFileChooser implements FileChooser {
-  public async forSaving(name: string): Promise<string?> throws Error {
-    await host().saveFile(SaveFile { title: "Save the parameters", defaultPath: name })
-  }
-
-  public async forOpening(): Promise<string?> throws Error {
-    const paths = await host().openFile(OpenFile { title: "Load parameters", filters: [".json"] })
-    if (paths.length == 0) null else paths[0]
-  }
-}
-
-/// A directory instead of dialogs, which a test can't click: `name` is saved there, and
-/// `open.json` is what's opened.
-class DirectoryFileChooser implements FileChooser {
-  readonly dir: string
-
-  constructor(dir: string) {
-    this.dir = dir
-  }
-
-  public async forSaving(name: string): Promise<string?> throws Error {
-    `${dir}/${name}`
-  }
-
-  public async forOpening(): Promise<string?> throws Error {
-    `${dir}/open.json`
-  }
-}
-
-function fileChooser(): FileChooser {
-  const dir = env.get("DRONE_CONFIGURATOR_TEST_FILES")
-  if (dir != null) {
-    return new DirectoryFileChooser(dir!)
-  }
-  new DialogFileChooser()
-}
-
-/// Saves a snapshot where the user chooses.
-async function saveFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const f = decodeFileSave(payload ?? Cbor.Null, "$")
-  const path = await fileChooser().forSaving(f.name)
-  if (path == null) {
-    return encodeFileSaved(FileSaved {})
-  }
-  await writeText(path!, f.text)
-  encodeFileSaved(FileSaved { path: path })
-}
-
-/// Reads a snapshot the user chooses.
-async function openFile(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const path = await fileChooser().forOpening()
-  if (path == null) {
-    return encodeFileOpened(FileOpened {})
-  }
-  const text = await readText(path!)
-  encodeFileOpened(FileOpened { path: path!, text: text })
-}
-
-function describe(r: ConnectRequest): string {
-  match (r.transport) {
-    Simulator => "the simulator",
-    Udp => `udp ${r.host ?? "127.0.0.1"}:${r.port ?? 14550}`,
-    Tcp => `tcp ${r.host ?? "127.0.0.1"}:${r.port ?? 5760}`,
-    Serial => `serial ${r.device ?? "(no device)"} at ${r.baud ?? 115200}`,
-  }
-}
-
-async function open(r: ConnectRequest): Promise<ByteStream> throws Error {
-  match (r.transport) {
-    Simulator => {
-      const ends = MemoryStream.pair()
-      const sim = new SimulatedAutopilot(ends[1])
-      sim.start(1000)
-      link.sim = sim
-      const s: ByteStream = ends[0]
-      s
-    },
-    Udp => {
-      // SITL and MAVESP8266 send to this port; replies go back to whoever sent.
-      const socket = await bind((r.port ?? 14550) as int, r.host ?? "127.0.0.1")
-      const s: ByteStream = new UdpStream(socket)
-      s
-    },
-    Tcp => {
-      const c = await connect((r.port ?? 5760) as int, r.host ?? "127.0.0.1")
-      const s: ByteStream = new TcpStream(c)
-      s
-    },
-    Serial => {
-      const device = r.device
-      if (device == null) {
-        throw new CommunicatorError("INVALID_VALUE", "a serial connection needs a device")
-      }
-      const s: ByteStream = new SerialStream(openPort(device!, { baudRate: (r.baud ?? 115200) as int }))
-      s
-    },
-  }
 }
 
 /// The first autopilot (not a ground station) heard, if any.
@@ -433,7 +265,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   link.update(Connection { state: ConnectionState.Connecting })
   let stream: ByteStream? = null
   try {
-    stream = await open(request)
+    stream = await open(request, (sim: SimulatedAutopilot) => { link.sim = sim })
   } catch (e: Error) {
     link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(request)}: ${e.message}` })
     return encodeConnection(link.state)
