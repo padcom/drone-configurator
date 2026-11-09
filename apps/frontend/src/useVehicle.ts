@@ -85,14 +85,15 @@ class VehicleLink implements Vehicle {
   constructor(private readonly deps: VehicleDeps) {}
 
   /**
-   * Whether a vehicle session is on, or being set up.
+   * Whether a vehicle session is on, being set up, or being brought back. When the backend itself restarts or stops
+   * in any of these, the session is gone (the new backend has no link to the vehicle).
    *
-   * @returns true while connected or connecting
+   * @returns true while connected, connecting or reconnecting
    */
   private sessionOn(): boolean {
     const { state } = this.connection.value
 
-    return state === 'connected' || state === 'connecting'
+    return state === 'connected' || state === 'connecting' || state === 'reconnecting'
   }
 
   /**

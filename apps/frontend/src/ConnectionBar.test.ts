@@ -64,6 +64,18 @@ it('says that a link that came back is the same vehicle, only when it is', async
   expect(wrapper.get('#connection').text()).not.toContain('same vehicle')
 })
 
+it('says "same vehicle" only while connected, not in a state that came after', async () => {
+  const { wrapper, feed } = barWithSpies()
+
+  feed({ connection: { state: 'lost', vehicle: { ...VEHICLE }, resumed: true } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connection').text()).not.toContain('same vehicle')
+
+  feed({ connection: { state: 'reconnecting', vehicle: { ...VEHICLE }, resumed: true, attempt: 1, nextRetryMs: 1000 } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connection').text()).not.toContain('same vehicle')
+})
+
 it('says nothing about tries when the link is up', async () => {
   const { wrapper, feed } = barWithSpies()
 

@@ -19,7 +19,7 @@
   </form>
   <p id="connection" role="status"><span class="badge" :class="state">{{ t(`connection.state.${state}`) }}</span>{{ found }}
     <span v-if="retrying" class="warn">{{ retrying }}</span>
-    <span v-if="fields.connection.value.resumed" class="ok">{{ t('connection.resumed') }}</span>
+    <span v-if="resumed" class="ok">{{ t('connection.resumed') }}</span>
     <span v-if="fields.error.value" class="error">{{ fields.error.value }}</span>
     <span v-if="fields.notice.value" class="warn">{{ fields.notice.value }}</span></p>
 </template>
@@ -67,6 +67,8 @@ const devices = computed(() => {
   return ports.length > 0 ? ports : [{ value: '', label: t('connection.noPorts') }]
 })
 const state = computed(() => fields.connection.value.state)
+// Said only while the link is up: `resumed` describes the `connected` that followed a reconnect, not a later state.
+const resumed = computed(() => state.value === 'connected' && fields.connection.value.resumed === true)
 // While the backend brings the link back: which try this is, and how long until the next.
 const retrying = computed(() => {
   const { attempt, nextRetryMs } = fields.connection.value

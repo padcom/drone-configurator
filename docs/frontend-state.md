@@ -95,3 +95,16 @@ The application is one Vue app (`Shell.vue`) over a list of screens (`screens.ts
 - **Speed.** The real-window test `e2e/shell.e2e.ts` times a switch to a screen that has been shown before, from the
   click to the first frame with the screen in it, and fails above 100 ms. It prints the times, so a slow machine's
   numbers can be read from the log.
+
+## While the link is being brought back
+
+When the backend loses the vehicle it reports `reconnecting` (`attempt`, `nextRetryMs`) until the vehicle is back
+(`connected`, with `resumed` when it is the same vehicle) or the user disconnects. In that time:
+
+- the vehicle and the parameters stay on screen and no edit is offered (the session has ended for the writer, so a
+  write in flight is stopped); a backend restart or stop ends it for good (`lost`, with the notice), as in any session;
+- the last telemetry stays, and every card says "last heard, reconnecting" and is marked stale;
+- **the numbers are snapshots.** The ages on the cards are frozen at the last event (nothing arrives to update them),
+  and "next in S s" is the delay the backend gave when it reported the try: it does not count down. The next report
+  (the next try) replaces it. That is deliberate: a ticking counter would need a clock in the page that agrees with the
+  backend's, for a number that is only a hint.

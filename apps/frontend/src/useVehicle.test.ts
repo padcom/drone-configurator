@@ -79,6 +79,24 @@ it('keeps the vehicle and the last telemetry while the backend brings the link b
   expect(sessions).toHaveBeenLastCalledWith(false)
 })
 
+it('ends the session when the backend itself restarts or stops while the link is being brought back', async () => {
+  const { vehicle, sessions, control } = rig()
+  await vehicle.watch()
+  await vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(vehicle.telemetry.value).not.toBeNull())
+  control.connection?.({ state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 3, nextRetryMs: 4000 })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('reconnecting'))
+
+  vehicle.backendChanged('restarting')
+
+  // A new backend has no link to the vehicle: "reconnecting, try 3" would be a lie.
+  expect(vehicle.connection.value).toMatchObject({ state: 'lost', vehicle: { sysid: 1 } })
+  expect(vehicle.connection.value.attempt).toBeUndefined()
+  expect(vehicle.telemetry.value).toBeNull()
+  expect(vehicle.notice.value).toBe('The backend restarted: the vehicle session ended. Connect again to continue.')
+  expect(sessions).toHaveBeenLastCalledWith(false)
+})
+
 it('drops the telemetry when the link is given up after all', async () => {
   const { vehicle, control } = rig()
   await vehicle.watch()
