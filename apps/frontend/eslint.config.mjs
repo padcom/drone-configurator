@@ -38,8 +38,28 @@ const i18n = [
   },
 ]
 
+// Components and composables never see the Communicator (docs/frontend-state.md): they call the backend through the
+// client in src/backend. Types may be imported anywhere; main.ts picks the transport (the host's bridge, or the mock).
+const backendBoundary = [
+  {
+    name: 'drone-configurator:backend-boundary',
+    files: ['src/**/*.vue', 'src/**/*.ts'],
+    ignores: ['src/backend/**', 'src/**/*.test.ts', 'src/main.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: '@pico-desktop/communicator',
+          allowTypeImports: true,
+          message: 'Call the backend through the client in src/backend/client.ts, not the Communicator (docs/frontend-state.md).',
+        }],
+      }],
+    },
+  },
+]
+
 export default [
   { ignores: ['**/dist/**', '**/dist-csp-test/**', '**/generated/**', ...notYetLinted] },
   ...config['flat/browser'],
   ...i18n,
+  ...backendBoundary,
 ]

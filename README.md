@@ -87,6 +87,7 @@ The harness only ever launches or connects to a simulator.
 ## Layout
 
 - `packages/contracts/app.cddl`: the contract (methods, subscriptions, types) between the dashboard and the backend.
+- `docs/frontend-state.md`: how the interface calls the backend (`src/backend/client.ts`), when subscriptions end, how errors look, and the frame rule for fast data (`src/state/frame.ts`).
 - `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
 - `apps/frontend`:
   - `configurator.ts`: the state and actions, without the DOM;
