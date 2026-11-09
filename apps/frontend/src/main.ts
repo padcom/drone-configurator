@@ -1,4 +1,5 @@
 import './kit/tokens.css'
+import './kit/kit.css'
 import './kit/panels.css'
 import './style.css'
 import { bridgeTransport } from '@pico-desktop/communicator'
