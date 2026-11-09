@@ -1,8 +1,12 @@
 import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
-import { Configurator, type State } from './configurator'
-import { canWrite, connectionView, detailView, escape, importView, listStatus, paramRows, telemetryView } from './render'
+import { createApp } from 'vue'
+import type { State } from './configurator'
+import { canWrite, connectionView, detailView, escape, importView, listStatus, paramRows } from './render'
 import { mockBackend } from './mock-backend'
+import { createConfigurator } from './useConfigurator'
+import ConfirmDialog from './ConfirmDialog.vue'
+import TelemetryCards from './TelemetryCards.vue'
 import type { ConnectRequest } from './generated/app'
 
 declare global {
@@ -12,7 +16,6 @@ declare global {
 }
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
-const dialog = byId<HTMLDialogElement>('confirm')
 
 /** Last markup written per element: a region is rebuilt only when its markup changed (telemetry
  * ticks every second; a 1200-row parameter table shouldn't be rebuilt with it). */
@@ -27,7 +30,6 @@ function setHtml(id: string, html: string) {
 function render(state: State) {
   const param = app.selectedParam()
   setHtml('connection', connectionView(state))
-  setHtml('telemetry', telemetryView(state))
   const visible = app.visible()
   byId('list-status').textContent = listStatus(state, visible.length)
   setHtml('rows', paramRows(visible, state.selected))
@@ -59,19 +61,13 @@ function render(state: State) {
   }
 }
 
-function confirm(question: string): Promise<boolean> {
-  byId('question').textContent = question
-  dialog.returnValue = ''
-  dialog.showModal()
-
-  return new Promise(resolve => {
-    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'yes'), { once: true })
-  })
-}
-
 // In Pico Desktop the native bridge; in a plain browser (`pnpm ui`) the mock backend.
 const bridge = window.picoDesktop
-const app: Configurator = new Configurator(bridge ? bridgeTransport(bridge) : mockBackend(), { render, confirm })
+const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBackend(), render)
+
+// Regions already ported to components; the rest of the page is still written by render().
+createApp(TelemetryCards).mount('#telemetry')
+createApp(ConfirmDialog).mount('#confirm-root')
 
 byId('connect').addEventListener('submit', event => {
   event.preventDefault()

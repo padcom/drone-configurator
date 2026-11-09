@@ -7,8 +7,6 @@ import type { State } from './configurator'
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 export const escape = (s: string) => s.replace(/[&<>"']/g, c => ESCAPES[c] ?? c)
 
-const fixed = (n: number, digits: number) => n.toFixed(digits)
-
 /** The connection's state, the vehicle, and why the last attempt failed. */
 export function connectionView(state: State): string {
   const c = state.connection
@@ -19,30 +17,6 @@ export function connectionView(state: State): string {
   const notice = state.notice ? `<span class="warn">${escape(state.notice)}</span>` : ''
 
   return `<span class="badge ${c.state}">${c.state}</span>${vehicle} ${error}${notice}`
-}
-
-/** Heartbeat, mode, armed state, battery and attitude, or a placeholder without a vehicle. */
-export function telemetryView(state: State): string {
-  const t = state.telemetry
-  if (!t) {
-    return '<p class="muted">No telemetry: connect to a vehicle.</p>'
-  }
-  // What the vehicle hasn't reported is a dash, never a made-up zero.
-  const battery = t.batteryVoltage === undefined
-    ? '—'
-    : `${fixed(t.batteryVoltage, 2)} V${t.batteryRemaining === undefined ? '' : ` · ${t.batteryRemaining}%`}`
-  const attitude = t.roll === undefined || t.pitch === undefined || t.yaw === undefined
-    ? '—'
-    : `roll ${fixed(t.roll, 1)}° · pitch ${fixed(t.pitch, 1)}° · yaw ${fixed(t.yaw, 0)}°`
-  const cards: [string, string, string?][] = [
-    ['Mode', escape(t.mode)],
-    ['State', t.armed ? 'ARMED' : 'disarmed', t.armed ? 'warn' : undefined],
-    ['Battery', battery],
-    ['Attitude', attitude],
-    ['Heartbeat', `${t.heartbeatAgeMs} ms ago`, t.heartbeatAgeMs > 3000 ? 'warn' : undefined],
-  ]
-
-  return cards.map(([label, value, cls]) => `<div class="card${cls ? ` ${cls}` : ''}"><span>${label}</span><strong>${value}</strong></div>`).join('')
 }
 
 /** How the parameter list stands. */
