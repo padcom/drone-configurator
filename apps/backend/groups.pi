@@ -1,0 +1,333 @@
+// The telemetry groups (packages/contracts/app.cddl): the latest values of each MAVLink message the
+// dashboard shows, in SI units and degrees, with the time each was heard. A group exists only after
+// its message has arrived, and a value the vehicle marks "unknown" is left out of it.
+import {
+  Attitude,
+  BatteryStatus,
+  EkfStatusReport,
+  GlobalPositionInt,
+  GpsRawInt,
+  MavLinkData,
+  NavControllerOutput,
+  SysStatus,
+  VfrHud,
+  Vibration,
+  Wind,
+} from "padcom/pico-mavlink"
+import {
+  AttitudeGroup,
+  BatteryGroup,
+  EkfGroup,
+  GpsGroup,
+  NavGroup,
+  PositionGroup,
+  SpeedGroup,
+  Telemetry,
+  VibrationGroup,
+  WindGroup,
+} from "./generated/app"
+
+const DEGREES: f64 = 180.0 / Math.PI
+
+// The "unknown" values of the fields below (MAVLink's UINT16_MAX, UINT8_MAX and -1).
+const UNKNOWN_U16: int = 65535
+const UNKNOWN_U8: int = 255
+
+function positionOf(m: GlobalPositionInt): PositionGroup {
+  const g = PositionGroup {
+    lat: (m.lat as f64) / 10000000.0,
+    lon: (m.lon as f64) / 10000000.0,
+    altitude: (m.alt as f64) / 1000.0,
+    relativeAltitude: (m.relativeAlt as f64) / 1000.0,
+    vx: (m.vx as f64) / 100.0,
+    vy: (m.vy as f64) / 100.0,
+    vz: (m.vz as f64) / 100.0,
+    ageMs: 0,
+  }
+  if (m.hdg as int != UNKNOWN_U16) {
+    g.heading = (m.hdg as f64) / 100.0
+  }
+  g
+}
+
+function gpsOf(m: GpsRawInt): GpsGroup {
+  const g = GpsGroup { fixType: m.fixType as u8, ageMs: 0 }
+  if (m.satellitesVisible as int != UNKNOWN_U8) {
+    g.satellites = m.satellitesVisible as u8
+  }
+  if (m.eph as int != UNKNOWN_U16) {
+    g.hdop = (m.eph as f64) / 100.0
+  }
+  if (m.epv as int != UNKNOWN_U16) {
+    g.vdop = (m.epv as f64) / 100.0
+  }
+  g
+}
+
+function speedOf(m: VfrHud): SpeedGroup {
+  SpeedGroup {
+    airspeed: m.airspeed as f64,
+    groundspeed: m.groundspeed as f64,
+    climb: m.climb as f64,
+    throttle: m.throttle as u16,
+    heading: m.heading as f64,
+    ageMs: 0,
+  }
+}
+
+function navOf(m: NavControllerOutput): NavGroup {
+  NavGroup {
+    waypointDistance: m.wpDist as u16,
+    targetBearing: m.targetBearing as f64,
+    altitudeError: m.altError as f64,
+    crosstrackError: m.xtrackError as f64,
+    ageMs: 0,
+  }
+}
+
+function windOf(m: Wind): WindGroup {
+  WindGroup { direction: m.direction as f64, speed: m.speed as f64, speedZ: m.speedZ as f64, ageMs: 0 }
+}
+
+function ekfOf(m: EkfStatusReport): EkfGroup {
+  EkfGroup {
+    flags: m.flags as u16,
+    velocityVariance: m.velocityVariance as f64,
+    positionHorizVariance: m.posHorizVariance as f64,
+    positionVertVariance: m.posVertVariance as f64,
+    compassVariance: m.compassVariance as f64,
+    terrainAltVariance: m.terrainAltVariance as f64,
+    ageMs: 0,
+  }
+}
+
+function vibrationOf(m: Vibration): VibrationGroup {
+  VibrationGroup {
+    x: m.vibrationX as f64,
+    y: m.vibrationY as f64,
+    z: m.vibrationZ as f64,
+    clipping: [m.clipping0, m.clipping1, m.clipping2],
+    ageMs: 0,
+  }
+}
+
+function attitudeOf(m: Attitude): AttitudeGroup {
+  AttitudeGroup {
+    roll: (m.roll as f64) * DEGREES,
+    pitch: (m.pitch as f64) * DEGREES,
+    yaw: (m.yaw as f64) * DEGREES,
+    rollSpeed: (m.rollspeed as f64) * DEGREES,
+    pitchSpeed: (m.pitchspeed as f64) * DEGREES,
+    yawSpeed: (m.yawspeed as f64) * DEGREES,
+    ageMs: 0,
+  }
+}
+
+/// The battery group after a SYS_STATUS: voltage, current and what is left; the cells and what was
+/// consumed (BATTERY_STATUS) stay as they were. (The group's age is that of the latest of the two
+/// messages, so a value from the older one can be older than `ageMs` says.)
+function batteryAfterStatus(before: BatteryGroup?, m: SysStatus): BatteryGroup {
+  const g = BatteryGroup { cells: if (before == null) [] else before!.cells, ageMs: 0 }
+  if (before != null) {
+    g.consumed = before!.consumed
+  }
+  if (m.voltageBattery as int != UNKNOWN_U16) {
+    g.voltage = (m.voltageBattery as f64) / 1000.0
+  }
+  // -1: the vehicle doesn't measure it.
+  if (m.currentBattery as int >= 0) {
+    g.current = (m.currentBattery as f64) / 100.0
+  }
+  if (m.batteryRemaining as int >= 0 && m.batteryRemaining as int <= 100) {
+    g.remaining = m.batteryRemaining as u8
+  }
+  g
+}
+
+/// The battery group after a BATTERY_STATUS: what was consumed and the cell voltages; the rest stays.
+function batteryAfterCells(before: BatteryGroup?, m: BatteryStatus): BatteryGroup {
+  const cells: f64[] = []
+  for (let i = 0; i < m.voltages.length; i++) {
+    if (m.voltages[i] as int != UNKNOWN_U16) {
+      cells.push((m.voltages[i] as f64) / 1000.0)
+    }
+  }
+  const g = BatteryGroup { cells: cells, ageMs: 0 }
+  if (before != null) {
+    g.voltage = before!.voltage
+    g.current = before!.current
+    g.remaining = before!.remaining
+  }
+  if (m.currentConsumed as int >= 0) {
+    g.consumed = m.currentConsumed as f64
+  }
+  g
+}
+
+/// What the vehicle has reported, by group, and when each arrived (milliseconds since the epoch).
+export class Groups {
+  public position: PositionGroup? = null
+  public gps: GpsGroup? = null
+  public speed: SpeedGroup? = null
+  public nav: NavGroup? = null
+  public wind: WindGroup? = null
+  public ekf: EkfGroup? = null
+  public vibration: VibrationGroup? = null
+  public battery: BatteryGroup? = null
+  public attitude: AttitudeGroup? = null
+  heardAt: Map<string, int> = new Map<string, int>()
+
+  /// Forgets everything (the link ended).
+  public clear(): void {
+    position = null
+    gps = null
+    speed = null
+    nav = null
+    wind = null
+    ekf = null
+    vibration = null
+    battery = null
+    attitude = null
+    heardAt.clear()
+  }
+
+  /// Takes the message `m`, received at `now`, if it belongs to a group.
+  public take(m: MavLinkData, now: int): void {
+    if (!takeFlight(m, now) && !takeEnvironment(m, now)) {
+      takeBattery(m, now)
+    }
+  }
+
+  /// ArduPilot sends GLOBAL_POSITION_INT with latitude and longitude both 0 until it has a position:
+  /// that is "unknown", not a place in the Gulf of Guinea, so there is no position group (and one that
+  /// was there goes when the position is lost again).
+  takePosition(m: GlobalPositionInt, now: int): void {
+    if (m.lat == 0 && m.lon == 0) {
+      position = null
+      forget("position")
+    } else {
+      position = positionOf(m)
+      stamp("position", now)
+    }
+  }
+
+  stamp(name: string, now: int): void {
+    heardAt.set(name, now)
+    return
+  }
+
+  forget(name: string): void {
+    heardAt.delete(name)
+    return
+  }
+
+  takeFlight(m: MavLinkData, now: int): bool {
+    if (m instanceof GlobalPositionInt) {
+      takePosition(m, now)
+    } else if (m instanceof GpsRawInt) {
+      gps = gpsOf(m)
+      stamp("gps", now)
+    } else if (m instanceof VfrHud) {
+      speed = speedOf(m)
+      stamp("speed", now)
+    } else if (m instanceof NavControllerOutput) {
+      nav = navOf(m)
+      stamp("nav", now)
+    } else if (m instanceof Attitude) {
+      attitude = attitudeOf(m)
+      stamp("attitude", now)
+    } else {
+      return false
+    }
+    true
+  }
+
+  takeEnvironment(m: MavLinkData, now: int): bool {
+    if (m instanceof Wind) {
+      wind = windOf(m)
+      stamp("wind", now)
+    } else if (m instanceof EkfStatusReport) {
+      ekf = ekfOf(m)
+      stamp("ekf", now)
+    } else if (m instanceof Vibration) {
+      vibration = vibrationOf(m)
+      stamp("vibration", now)
+    } else {
+      return false
+    }
+    true
+  }
+
+  takeBattery(m: MavLinkData, now: int): void {
+    if (m instanceof SysStatus) {
+      battery = batteryAfterStatus(battery, m)
+      stamp("battery", now)
+    } else if (m instanceof BatteryStatus && m.id == 0) {
+      battery = batteryAfterCells(battery, m)
+      stamp("battery", now)
+    }
+  }
+
+  age(name: string, now: int): u32 {
+    const ms = now - (heardAt.get(name) ?? now)
+    (if (ms < 0) 0 else ms) as u32
+  }
+
+  /// Puts the groups heard so far into `t`, each with how long ago it arrived (as of `now`).
+  public fill(t: Telemetry, now: int): Telemetry {
+    fillRest(fillFlight(t, now), now)
+  }
+
+  fillFlight(t: Telemetry, now: int): Telemetry {
+    const p = position
+    if (p != null) {
+      p!.ageMs = age("position", now)
+      t.position = p
+    }
+    const g = gps
+    if (g != null) {
+      g!.ageMs = age("gps", now)
+      t.gps = g
+    }
+    const s = speed
+    if (s != null) {
+      s!.ageMs = age("speed", now)
+      t.speed = s
+    }
+    const n = nav
+    if (n != null) {
+      n!.ageMs = age("nav", now)
+      t.nav = n
+    }
+    t
+  }
+
+  fillRest(t: Telemetry, now: int): Telemetry {
+    const w = wind
+    if (w != null) {
+      w!.ageMs = age("wind", now)
+      t.wind = w
+    }
+    const e = ekf
+    if (e != null) {
+      e!.ageMs = age("ekf", now)
+      t.ekf = e
+    }
+    const v = vibration
+    if (v != null) {
+      v!.ageMs = age("vibration", now)
+      t.vibration = v
+    }
+    const b = battery
+    if (b != null) {
+      b!.ageMs = age("battery", now)
+      t.battery = b
+    }
+    const a = attitude
+    if (a != null) {
+      a!.ageMs = age("attitude", now)
+      t.attitude = a
+    }
+    t
+  }
+}

@@ -25,6 +25,27 @@ async function streamsTelemetry(): Promise<void> throws Error {
   await f.call("vehicle.disconnect")
 }
 
+/// The messages the vehicle sends arrive as groups with their age; the ones it doesn't send are
+/// absent, not zero (the simulator sends SYS_STATUS and ATTITUDE, no position).
+async function streamsGroups(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const subscription = await f.subscribe("telemetry.stream")
+  try {
+    let t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+    for (let i = 0; i < 5 && (t.battery == null || t.attitude == null); i++) {
+      t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+    }
+    expect(t.battery != null && t.attitude != null).toBe(true)
+    expect((t.battery!.ageMs as int) < 3000 && (t.attitude!.ageMs as int) < 3000).toBe(true)
+    expect((t.battery!.voltage ?? 0.0) > 5.0).toBe(true)
+    expect(t.position == null && t.gps == null && t.wind == null && t.ekf == null).toBe(true)
+  } finally {
+    await f.unsubscribe(subscription)
+    await f.call("vehicle.disconnect")
+  }
+}
+
 /// What the simulated vehicle was asked for: the rates in milliseconds, -2 for a message it was not
 /// asked about (-1 is "off").
 function ratesAsked(): string {
@@ -66,6 +87,7 @@ async function asksAgainAfterARestart(): Promise<void> throws Error {
 
 describe("the telemetry service", () => {
   it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
+  it("streams the groups of the messages the vehicle sends, with their age", streamsGroups)
   it("asks the vehicle for 1 Hz SYS_STATUS and 4 Hz ATTITUDE", asksForTheRates)
   it("asks for the rates again after the vehicle restarts", asksAgainAfterARestart)
 })

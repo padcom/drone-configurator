@@ -117,14 +117,95 @@ function validateParamWriteResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-write-result, or null. */
 export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
 
-export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number }
+export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup }
 
 function validateTelemetryInto(value: any, path: string): boolean {
-  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff)))
+  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs","position","gps","speed","nav","wind","ekf","vibration","battery","attitude"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["position"] === undefined || nested(value["position"], `${path}.position`, (value, path) => validatePositionGroupInto(value, path))) && (value["gps"] === undefined || nested(value["gps"], `${path}.gps`, (value, path) => validateGpsGroupInto(value, path))) && (value["speed"] === undefined || nested(value["speed"], `${path}.speed`, (value, path) => validateSpeedGroupInto(value, path))) && (value["nav"] === undefined || nested(value["nav"], `${path}.nav`, (value, path) => validateNavGroupInto(value, path))) && (value["wind"] === undefined || nested(value["wind"], `${path}.wind`, (value, path) => validateWindGroupInto(value, path))) && (value["ekf"] === undefined || nested(value["ekf"], `${path}.ekf`, (value, path) => validateEkfGroupInto(value, path))) && (value["vibration"] === undefined || nested(value["vibration"], `${path}.vibration`, (value, path) => validateVibrationGroupInto(value, path))) && (value["battery"] === undefined || nested(value["battery"], `${path}.battery`, (value, path) => validateBatteryGroupInto(value, path))) && (value["attitude"] === undefined || nested(value["attitude"], `${path}.attitude`, (value, path) => validateAttitudeGroupInto(value, path)))
 }
 
 /** The first problem with `value` as a telemetry, or null. */
 export const validateTelemetry = (value: unknown) => run(validateTelemetryInto, value)
+
+export type PositionGroup = { "lat": number, "lon": number, "altitude": number, "relativeAltitude": number, "vx": number, "vy": number, "vz": number, "heading"?: number, "ageMs": number }
+
+function validatePositionGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["lat","lon","altitude","relativeAltitude","vx","vy","vz","heading","ageMs"]) && (value["lat"] === undefined ? fail(`${path}.lat`, 'present') : nested(value["lat"], `${path}.lat`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["lon"] === undefined ? fail(`${path}.lon`, 'present') : nested(value["lon"], `${path}.lon`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["altitude"] === undefined ? fail(`${path}.altitude`, 'present') : nested(value["altitude"], `${path}.altitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["relativeAltitude"] === undefined ? fail(`${path}.relativeAltitude`, 'present') : nested(value["relativeAltitude"], `${path}.relativeAltitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["vx"] === undefined ? fail(`${path}.vx`, 'present') : nested(value["vx"], `${path}.vx`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["vy"] === undefined ? fail(`${path}.vy`, 'present') : nested(value["vy"], `${path}.vy`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["vz"] === undefined ? fail(`${path}.vz`, 'present') : nested(value["vz"], `${path}.vz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heading"] === undefined || nested(value["heading"], `${path}.heading`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a position-group, or null. */
+export const validatePositionGroup = (value: unknown) => run(validatePositionGroupInto, value)
+
+export type GpsGroup = { "fixType": number, "satellites"?: number, "hdop"?: number, "vdop"?: number, "ageMs": number }
+
+function validateGpsGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["fixType","satellites","hdop","vdop","ageMs"]) && (value["fixType"] === undefined ? fail(`${path}.fixType`, 'present') : nested(value["fixType"], `${path}.fixType`, (value, path) => uint(value, path, 0xff))) && (value["satellites"] === undefined || nested(value["satellites"], `${path}.satellites`, (value, path) => uint(value, path, 0xff))) && (value["hdop"] === undefined || nested(value["hdop"], `${path}.hdop`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["vdop"] === undefined || nested(value["vdop"], `${path}.vdop`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a gps-group, or null. */
+export const validateGpsGroup = (value: unknown) => run(validateGpsGroupInto, value)
+
+export type SpeedGroup = { "airspeed": number, "groundspeed": number, "climb": number, "throttle": number, "heading": number, "ageMs": number }
+
+function validateSpeedGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["airspeed","groundspeed","climb","throttle","heading","ageMs"]) && (value["airspeed"] === undefined ? fail(`${path}.airspeed`, 'present') : nested(value["airspeed"], `${path}.airspeed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["groundspeed"] === undefined ? fail(`${path}.groundspeed`, 'present') : nested(value["groundspeed"], `${path}.groundspeed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["climb"] === undefined ? fail(`${path}.climb`, 'present') : nested(value["climb"], `${path}.climb`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["throttle"] === undefined ? fail(`${path}.throttle`, 'present') : nested(value["throttle"], `${path}.throttle`, (value, path) => uint(value, path, 0xffff))) && (value["heading"] === undefined ? fail(`${path}.heading`, 'present') : nested(value["heading"], `${path}.heading`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a speed-group, or null. */
+export const validateSpeedGroup = (value: unknown) => run(validateSpeedGroupInto, value)
+
+export type NavGroup = { "waypointDistance": number, "targetBearing": number, "altitudeError": number, "crosstrackError": number, "ageMs": number }
+
+function validateNavGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["waypointDistance","targetBearing","altitudeError","crosstrackError","ageMs"]) && (value["waypointDistance"] === undefined ? fail(`${path}.waypointDistance`, 'present') : nested(value["waypointDistance"], `${path}.waypointDistance`, (value, path) => uint(value, path, 0xffff))) && (value["targetBearing"] === undefined ? fail(`${path}.targetBearing`, 'present') : nested(value["targetBearing"], `${path}.targetBearing`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["altitudeError"] === undefined ? fail(`${path}.altitudeError`, 'present') : nested(value["altitudeError"], `${path}.altitudeError`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["crosstrackError"] === undefined ? fail(`${path}.crosstrackError`, 'present') : nested(value["crosstrackError"], `${path}.crosstrackError`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a nav-group, or null. */
+export const validateNavGroup = (value: unknown) => run(validateNavGroupInto, value)
+
+export type WindGroup = { "direction": number, "speed": number, "speedZ": number, "ageMs": number }
+
+function validateWindGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["direction","speed","speedZ","ageMs"]) && (value["direction"] === undefined ? fail(`${path}.direction`, 'present') : nested(value["direction"], `${path}.direction`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["speed"] === undefined ? fail(`${path}.speed`, 'present') : nested(value["speed"], `${path}.speed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["speedZ"] === undefined ? fail(`${path}.speedZ`, 'present') : nested(value["speedZ"], `${path}.speedZ`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a wind-group, or null. */
+export const validateWindGroup = (value: unknown) => run(validateWindGroupInto, value)
+
+export type EkfGroup = { "flags": number, "velocityVariance": number, "positionHorizVariance": number, "positionVertVariance": number, "compassVariance": number, "terrainAltVariance": number, "ageMs": number }
+
+function validateEkfGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["flags","velocityVariance","positionHorizVariance","positionVertVariance","compassVariance","terrainAltVariance","ageMs"]) && (value["flags"] === undefined ? fail(`${path}.flags`, 'present') : nested(value["flags"], `${path}.flags`, (value, path) => uint(value, path, 0xffff))) && (value["velocityVariance"] === undefined ? fail(`${path}.velocityVariance`, 'present') : nested(value["velocityVariance"], `${path}.velocityVariance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["positionHorizVariance"] === undefined ? fail(`${path}.positionHorizVariance`, 'present') : nested(value["positionHorizVariance"], `${path}.positionHorizVariance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["positionVertVariance"] === undefined ? fail(`${path}.positionVertVariance`, 'present') : nested(value["positionVertVariance"], `${path}.positionVertVariance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["compassVariance"] === undefined ? fail(`${path}.compassVariance`, 'present') : nested(value["compassVariance"], `${path}.compassVariance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["terrainAltVariance"] === undefined ? fail(`${path}.terrainAltVariance`, 'present') : nested(value["terrainAltVariance"], `${path}.terrainAltVariance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a ekf-group, or null. */
+export const validateEkfGroup = (value: unknown) => run(validateEkfGroupInto, value)
+
+export type VibrationGroup = { "x": number, "y": number, "z": number, "clipping": (number)[], "ageMs": number }
+
+function validateVibrationGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["x","y","z","clipping","ageMs"]) && (value["x"] === undefined ? fail(`${path}.x`, 'present') : nested(value["x"], `${path}.x`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["y"] === undefined ? fail(`${path}.y`, 'present') : nested(value["y"], `${path}.y`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["z"] === undefined ? fail(`${path}.z`, 'present') : nested(value["z"], `${path}.z`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["clipping"] === undefined ? fail(`${path}.clipping`, 'present') : nested(value["clipping"], `${path}.clipping`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff)))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a vibration-group, or null. */
+export const validateVibrationGroup = (value: unknown) => run(validateVibrationGroupInto, value)
+
+export type BatteryGroup = { "voltage"?: number, "current"?: number, "remaining"?: number, "consumed"?: number, "cells": (number)[], "ageMs": number }
+
+function validateBatteryGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["voltage","current","remaining","consumed","cells","ageMs"]) && (value["voltage"] === undefined || nested(value["voltage"], `${path}.voltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["current"] === undefined || nested(value["current"], `${path}.current`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["remaining"] === undefined || nested(value["remaining"], `${path}.remaining`, (value, path) => uint(value, path, 0xff))) && (value["consumed"] === undefined || nested(value["consumed"], `${path}.consumed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["cells"] === undefined ? fail(`${path}.cells`, 'present') : nested(value["cells"], `${path}.cells`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number')))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a battery-group, or null. */
+export const validateBatteryGroup = (value: unknown) => run(validateBatteryGroupInto, value)
+
+export type AttitudeGroup = { "roll": number, "pitch": number, "yaw": number, "rollSpeed": number, "pitchSpeed": number, "yawSpeed": number, "ageMs": number }
+
+function validateAttitudeGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["roll","pitch","yaw","rollSpeed","pitchSpeed","yawSpeed","ageMs"]) && (value["roll"] === undefined ? fail(`${path}.roll`, 'present') : nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined ? fail(`${path}.pitch`, 'present') : nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined ? fail(`${path}.yaw`, 'present') : nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["rollSpeed"] === undefined ? fail(`${path}.rollSpeed`, 'present') : nested(value["rollSpeed"], `${path}.rollSpeed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitchSpeed"] === undefined ? fail(`${path}.pitchSpeed`, 'present') : nested(value["pitchSpeed"], `${path}.pitchSpeed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yawSpeed"] === undefined ? fail(`${path}.yawSpeed`, 'present') : nested(value["yawSpeed"], `${path}.yawSpeed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a attitude-group, or null. */
+export const validateAttitudeGroup = (value: unknown) => run(validateAttitudeGroupInto, value)
 
 export type FileSave = { "name": string, "text": string }
 
