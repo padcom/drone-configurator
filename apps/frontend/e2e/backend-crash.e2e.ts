@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect } from './click'
+import { clickConnect, showScreen } from './click'
 import { TcpVehicle } from './tcp-vehicle'
 
 const backend = fileURLToPath(new URL('../../../.pico-desktop/e2e/backend', import.meta.url))
@@ -22,6 +22,7 @@ function killBackend(): void {
 async function connected(): Promise<void> {
   await clickConnect(app)
   await app.waitForText('#connection', 'connected · system')
+  await showScreen(app, 'parameters')
   await app.waitForText('#list-status', /^\d+ parameters$/u)
 }
 

@@ -42,6 +42,19 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
 }
 
 /**
+ * Opens a screen from the navigation, and waits until its link says it is the one shown. (The application starts on
+ * Flight data; the screens are loaded when first asked for.)
+ *
+ * @param app the running app
+ * @param id the screen: `flight`, `parameters` and so on (the last part of its address)
+ */
+export async function showScreen(app: E2eApp, id: string): Promise<void> {
+  const link = `nav a[href="#/${id}"]`
+  await app.click(link)
+  await app.waitFor(`document.querySelector('${link}').getAttribute('aria-current') === 'page'`)
+}
+
+/**
  * Clicks Connect until the page reacts. Right after the window opens, a click can land before the
  * page is laid out and do nothing. It only clicks again if nothing changed, so a click that did
  * work is never repeated.

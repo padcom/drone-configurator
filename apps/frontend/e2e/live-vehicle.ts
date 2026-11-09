@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { clickConnect } from './click'
+import { clickConnect, showScreen } from './click'
 import type { Endpoint } from './endpoint'
 
 /** A saved snapshot, as far as these checks read it. */
@@ -101,12 +101,14 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   })
 
   it('downloads the whole parameter list', async () => {
-    const status = await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
+    await showScreen(app, 'parameters')
+    const status =await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
     expect(Number.parseInt(status, 10)).toBeGreaterThanOrEqual(vehicle.minParams)
   })
 
   it('shows what the vehicle reports, and keeps updating', async () => {
-    const telemetry = await app.waitForText('#telemetry', /Battery\s*\d/u, vehicle.downloadTimeoutMs)
+    await showScreen(app, 'flight')
+    const telemetry =await app.waitForText('#telemetry', /Battery\s*\d/u, vehicle.downloadTimeoutMs)
     expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
     expect(telemetry).toMatch(/Attitude\s*roll -?\d/u)
     const before = await app.evaluate<string>(`document.querySelector('#telemetry').textContent`)
@@ -114,6 +116,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   })
 
   it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {
+    await showScreen(app, 'parameters')
     const original = await currentValue()
     expect(Number.isInteger(original)).toBe(true)
     onTestFinished(() => putBack(original))

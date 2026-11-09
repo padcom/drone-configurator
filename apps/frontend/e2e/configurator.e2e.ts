@@ -3,6 +3,7 @@
 // and runs this.
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { showScreen } from './click'
 
 let app: E2eApp
 
@@ -33,10 +34,12 @@ describe('the configurator against the simulated vehicle', () => {
   })
 
   it('downloads the 12 parameters', async () => {
+    await showScreen(app, 'parameters')
     expect(await app.waitForText('#list-status', '12 parameters')).toBe('12 parameters')
   })
 
   it('shows telemetry, the mode named from ArduPilot\'s table', async () => {
+    await showScreen(app, 'flight')
     const telemetry = await app.waitForText('#telemetry', 'Heartbeat')
     expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
     expect(telemetry).toMatch(/Battery/u)
@@ -45,6 +48,7 @@ describe('the configurator against the simulated vehicle', () => {
 
 describe('writing, reconnecting and closing', () => {
   it('asks before writing, then writes and verifies the read-back', async () => {
+    await showScreen(app, 'parameters')
     await app.click('tr[data-id="RTL_ALT"]')
     await app.fill('#draft', '1600')
     await app.click('#write')
