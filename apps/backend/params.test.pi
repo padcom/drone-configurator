@@ -1,0 +1,54 @@
+// The params service, over an in-memory link against the simulated vehicle.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { MavParamType, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ParamWrite,
+  ParamWriteKind,
+  decodeParam,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { start } from "./testing"
+
+async function refusesWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.disconnect")
+  const e = await f.call("params.list")
+  expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+}
+
+async function disconnectCancels(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // The simulator never answers a parameter it doesn't have: the write would retry for seconds.
+  const w = ParamWrite { id: "NO_SUCH_PARAM", kind: ParamWriteKind.Int, type: "INT32", value: 1.0 }
+  const started = Date.now() as int
+  const writing = await fe.send("params.write", encodeParamWrite(w))
+  await delay(50)
+  await fe.call("vehicle.disconnect")
+  const e = await fe.reply(writing)
+  expect(`${e.err?.code ?? "no error"} ${(Date.now() as int) - started < 1000}`).toBe("ABORTED true")
+}
+
+async function announcesChanges(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  await fe.call("params.list")
+  // Another ground station changes RTL_ALT: the vehicle announces it, the backend passes it on.
+  simulatorForTests()!.change("RTL_ALT", TypedParamValue.Int(2500, MavParamType.INT32))
+  const e = await fe.event("params.changed")
+  const p = decodeParam(e.p ?? Cbor.Null, "$")
+  expect(`${p.id}=${p.value} ${p.type}`).toBe("RTL_ALT=2500 INT32")
+  await fe.call("vehicle.disconnect")
+}
+
+describe("the params service", () => {
+  it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
+  it("cancels a write in flight when the user disconnects", disconnectCancels)
+  it("passes on a parameter the vehicle announces", announcesChanges)
+})

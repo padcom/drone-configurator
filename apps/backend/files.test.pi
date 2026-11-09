@@ -1,0 +1,58 @@
+// The files service. The host's dialogs can't be clicked in a test, so DRONE_CONFIGURATOR_TEST_FILES
+// names a directory instead: a snapshot is saved there under the name asked for, and `open.json`
+// is what opening gives (files.pi, DirectoryFileChooser).
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, writeText } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor } from "pico-desktop/communicator"
+import { FileSave, decodeFileOpened, decodeFileSaved, encodeFileSave } from "./generated/app"
+import { start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+
+/// Puts the variable back as it was.
+function restore(was: string?): void {
+  if (was == null) env.delete(VARIABLE) else env.set(VARIABLE, was!)
+}
+
+async function savesAndOpens(): Promise<void> throws Error {
+  const was = env.get(VARIABLE)
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-test-${pid}`)
+  try {
+    await mkdir(dir, true)
+    env.set(VARIABLE, dir)
+    const f = await start()
+    const saved = decodeFileSaved((await f.call("files.save", encodeFileSave(FileSave { name: "params.json", text: "{\"a\":1}" }))).p ?? Cbor.Null, "$")
+    expect(saved.path ?? "no path").toBe(`${dir}/params.json`)
+    expect(await readText(`${dir}/params.json`)).toBe("{\"a\":1}")
+    await writeText(`${dir}/open.json`, "{\"b\":2}")
+    const opened = decodeFileOpened((await f.call("files.open")).p ?? Cbor.Null, "$")
+    expect(`${opened.path ?? "no path"} ${opened.text ?? "no text"}`).toBe(`${dir}/open.json {"b":2}`)
+  } finally {
+    restore(was)
+    await remove(dir, true)
+  }
+}
+
+async function reportsAMissingFile(): Promise<void> throws Error {
+  const was = env.get(VARIABLE)
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-test-missing-${pid}`)
+  try {
+    await mkdir(dir, true)
+    env.set(VARIABLE, dir)
+    const f = await start()
+    // No open.json there: opening fails with an error the dashboard can show, not a crash.
+    const e = await f.call("files.open")
+    expect(e.k).toBe("error")
+    expect((e.err?.message ?? "").length > 0).toBe(true)
+  } finally {
+    restore(was)
+    await remove(dir, true)
+  }
+}
+
+describe("the files service", () => {
+  it("saves a snapshot under the name asked for and opens the file the test directory holds", savesAndOpens)
+  it("reports a file that isn't there as an error", reportsAMissingFile)
+})

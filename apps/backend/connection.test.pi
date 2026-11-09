@@ -1,0 +1,137 @@
+// The connection service, over an in-memory link against the simulated vehicle, a pseudo-terminal
+// (a serial port), and a UDP port nobody sends to.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { Reader, Writer } from "std/process"
+import * as f from "c:fcntl.h"
+import * as termios from "c:termios.h"
+import { ByteStream, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { setHeartbeatWait } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  ParamWrite,
+  ParamWriteKind,
+  decodeConnection,
+  decodeParamList,
+  decodeParamWriteResult,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { start } from "./testing"
+
+async function connectsListsAndWrites(): Promise<void> throws Error {
+  const f = await start()
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))).p ?? Cbor.Null, "$")
+  expect(c.state == ConnectionState.Connected).toBe(true)
+  const v = c.vehicle!
+  expect(`${v.sysid}/${v.compid} ${v.type} ${v.autopilot}`).toBe("1/1 QUADROTOR ARDUPILOTMEGA")
+  const list = decodeParamList((await f.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete} ${list.params[1].id}=${list.params[1].value} ${list.params[1].type}`).toBe("12 true BATT_CAPACITY=5200 INT32")
+  const w = ParamWrite { id: "WPNAV_SPEED", kind: ParamWriteKind.Real, type: "REAL32", value: 750.0 }
+  const r = decodeParamWriteResult((await f.call("params.write", encodeParamWrite(w))).p ?? Cbor.Null, "$")
+  expect(`${r.param.id}=${r.param.value} ${r.verified}`).toBe("WPNAV_SPEED=750 true")
+  await f.call("vehicle.disconnect")
+}
+
+async function noHeartbeat(): Promise<void> throws Error {
+  setHeartbeatWait(200)
+  const f = await start()
+  // A UDP port nobody sends to.
+  const c = decodeConnection((await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Udp, port: 14999 }))).p ?? Cbor.Null, "$")
+  setHeartbeatWait(3000)
+  expect(`${c.state == ConnectionState.Disconnected} ${c.error ?? ""}`).toBe("true no heartbeat from udp 127.0.0.1:14999")
+}
+
+extern "C" {
+  function posix_openpt(flags: c_int): c_int
+  function grantpt(fd: c_int): c_int
+  function unlockpt(fd: c_int): c_int
+  function ptsname_r(fd: c_int, buf: usize, len: usize): c_int
+  function tcgetattr(fd: c_int, termios: usize): c_int
+  function tcsetattr(fd: c_int, when: c_int, termios: usize): c_int
+  function cfmakeraw(termios: usize): void
+  function dup(fd: c_int): c_int
+}
+
+function addr(b: Uint8Array): usize {
+  (b.buffer.__handle + b.byteOffset) as usize
+}
+
+/// A pseudo-terminal's master end as a byte stream: the far end of a "serial cable" whose other
+/// end (`path`) the backend opens as a serial port.
+class PtyMaster implements ByteStream {
+  public path: string = ""
+  reader: Reader
+  writer: Writer
+
+  constructor() {
+    const m = posix_openpt(f.O_RDWR | f.O_NOCTTY)
+    grantpt(m)
+    unlockpt(m)
+    const name = new Uint8Array(128)
+    ptsname_r(m, addr(name), 128 as usize)
+    let n = 0
+    while (name[n] != 0) {
+      n += 1
+    }
+    try {
+      this.path = new TextDecoder().decode(name.slice(0, n))
+    } catch (e: TypeError) {
+      panic("a pty name that isn't UTF-8")
+    }
+    const tio = new Uint8Array(256)
+    tcgetattr(m, addr(tio))
+    cfmakeraw(addr(tio))
+    tcsetattr(m, termios.TCSANOW, addr(tio))
+    this.reader = new Reader(m as int, "pty", true)
+    this.writer = new Writer(dup(m) as int, "pty", true)
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    reader.read()
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    await writer.write(bytes)
+  }
+
+  public close(): void {
+    writer.close()
+    reader.close()
+  }
+}
+
+async function overSerial(): Promise<void> throws Error {
+  const pty = new PtyMaster()
+  const sim = new SimulatedAutopilot(pty)
+  sim.start(100)
+  const fe = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: pty.path, baud: 57600 }
+  const c = decodeConnection((await fe.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  expect(`${c.state == ConnectionState.Connected} ${c.error ?? ""}`).toBe("true ")
+  const list = decodeParamList((await fe.call("params.list")).p ?? Cbor.Null, "$")
+  expect(`${list.count} ${list.complete}`).toBe("12 true")
+  // Unplugged: the far end of the cable goes away. The link is lost, and calls are refused.
+  sim.stop()
+  await delay(300)
+  const e = await fe.call("params.list")
+  expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+  await fe.call("vehicle.disconnect")
+}
+
+async function badDevice(): Promise<void> throws Error {
+  const fe = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/no-such-tty" }
+  const c = decodeConnection((await fe.call("vehicle.connect", encodeConnectRequest(request))).p ?? Cbor.Null, "$")
+  expect(c.error ?? "").toBe("can't open serial /dev/no-such-tty at 115200: /dev/no-such-tty: opening it: No such file or directory")
+}
+
+describe("the connection service", () => {
+  it("talks MAVLink over a serial port (a pseudo-terminal), and loses it when unplugged", overSerial)
+  it("says why a serial port didn't open", badDevice)
+  it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
+  it("reports a link with no heartbeat", noHeartbeat)
+})
