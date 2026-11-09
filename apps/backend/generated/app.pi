@@ -349,10 +349,19 @@ export struct Telemetry {
   pitch?: f64
   yaw?: f64
   heartbeatAgeMs: u32
+  position?: PositionGroup
+  gps?: GpsGroup
+  speed?: SpeedGroup
+  nav?: NavGroup
+  wind?: WindGroup
+  ekf?: EkfGroup
+  vibration?: VibrationGroup
+  battery?: BatteryGroup
+  attitude?: AttitudeGroup
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs"])
+  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude"])
   const cbor2 = m.get("batteryVoltage")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -378,6 +387,51 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor6 != null) {
     opt6 = float(cbor6, `${path}.yaw`)
   }
+  const cbor8 = m.get("position")
+  let opt8: PositionGroup? = null
+  if (cbor8 != null) {
+    opt8 = decodePositionGroup(cbor8, `${path}.position`)
+  }
+  const cbor9 = m.get("gps")
+  let opt9: GpsGroup? = null
+  if (cbor9 != null) {
+    opt9 = decodeGpsGroup(cbor9, `${path}.gps`)
+  }
+  const cbor10 = m.get("speed")
+  let opt10: SpeedGroup? = null
+  if (cbor10 != null) {
+    opt10 = decodeSpeedGroup(cbor10, `${path}.speed`)
+  }
+  const cbor11 = m.get("nav")
+  let opt11: NavGroup? = null
+  if (cbor11 != null) {
+    opt11 = decodeNavGroup(cbor11, `${path}.nav`)
+  }
+  const cbor12 = m.get("wind")
+  let opt12: WindGroup? = null
+  if (cbor12 != null) {
+    opt12 = decodeWindGroup(cbor12, `${path}.wind`)
+  }
+  const cbor13 = m.get("ekf")
+  let opt13: EkfGroup? = null
+  if (cbor13 != null) {
+    opt13 = decodeEkfGroup(cbor13, `${path}.ekf`)
+  }
+  const cbor14 = m.get("vibration")
+  let opt14: VibrationGroup? = null
+  if (cbor14 != null) {
+    opt14 = decodeVibrationGroup(cbor14, `${path}.vibration`)
+  }
+  const cbor15 = m.get("battery")
+  let opt15: BatteryGroup? = null
+  if (cbor15 != null) {
+    opt15 = decodeBatteryGroup(cbor15, `${path}.battery`)
+  }
+  const cbor16 = m.get("attitude")
+  let opt16: AttitudeGroup? = null
+  if (cbor16 != null) {
+    opt16 = decodeAttitudeGroup(cbor16, `${path}.attitude`)
+  }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
     mode: text(required(m, "mode", path), `${path}.mode`),
@@ -387,6 +441,15 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
     pitch: opt5,
     yaw: opt6,
     heartbeatAgeMs: (uint(required(m, "heartbeatAgeMs", path), `${path}.heartbeatAgeMs`, 4294967295) as u32),
+    position: opt8,
+    gps: opt9,
+    speed: opt10,
+    nav: opt11,
+    wind: opt12,
+    ekf: opt13,
+    vibration: opt14,
+    battery: opt15,
+    attitude: opt16,
   }
 }
 
@@ -415,6 +478,430 @@ export function encodeTelemetry(v: Telemetry): Cbor {
     m.set("yaw", Cbor.Float(opt6))
   }
   m.set("heartbeatAgeMs", Cbor.Uint(v.heartbeatAgeMs as u64))
+  const opt8 = v.position
+  if (opt8 != null) {
+    m.set("position", encodePositionGroup(opt8))
+  }
+  const opt9 = v.gps
+  if (opt9 != null) {
+    m.set("gps", encodeGpsGroup(opt9))
+  }
+  const opt10 = v.speed
+  if (opt10 != null) {
+    m.set("speed", encodeSpeedGroup(opt10))
+  }
+  const opt11 = v.nav
+  if (opt11 != null) {
+    m.set("nav", encodeNavGroup(opt11))
+  }
+  const opt12 = v.wind
+  if (opt12 != null) {
+    m.set("wind", encodeWindGroup(opt12))
+  }
+  const opt13 = v.ekf
+  if (opt13 != null) {
+    m.set("ekf", encodeEkfGroup(opt13))
+  }
+  const opt14 = v.vibration
+  if (opt14 != null) {
+    m.set("vibration", encodeVibrationGroup(opt14))
+  }
+  const opt15 = v.battery
+  if (opt15 != null) {
+    m.set("battery", encodeBatteryGroup(opt15))
+  }
+  const opt16 = v.attitude
+  if (opt16 != null) {
+    m.set("attitude", encodeAttitudeGroup(opt16))
+  }
+  Cbor.Dict(m)
+}
+
+export struct PositionGroup {
+  lat: f64
+  lon: f64
+  altitude: f64
+  relativeAltitude: f64
+  vx: f64
+  vy: f64
+  vz: f64
+  heading?: f64
+  ageMs: u32
+}
+
+export function decodePositionGroup(v: Cbor, path: string): PositionGroup throws InvalidPayload {
+  const m = members(v, path, ["lat", "lon", "altitude", "relativeAltitude", "vx", "vy", "vz", "heading", "ageMs"])
+  const cbor7 = m.get("heading")
+  let opt7: f64? = null
+  if (cbor7 != null) {
+    opt7 = float(cbor7, `${path}.heading`)
+  }
+  PositionGroup {
+    lat: float(required(m, "lat", path), `${path}.lat`),
+    lon: float(required(m, "lon", path), `${path}.lon`),
+    altitude: float(required(m, "altitude", path), `${path}.altitude`),
+    relativeAltitude: float(required(m, "relativeAltitude", path), `${path}.relativeAltitude`),
+    vx: float(required(m, "vx", path), `${path}.vx`),
+    vy: float(required(m, "vy", path), `${path}.vy`),
+    vz: float(required(m, "vz", path), `${path}.vz`),
+    heading: opt7,
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodePositionGroup(v: PositionGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("lat", Cbor.Float(v.lat))
+  m.set("lon", Cbor.Float(v.lon))
+  m.set("altitude", Cbor.Float(v.altitude))
+  m.set("relativeAltitude", Cbor.Float(v.relativeAltitude))
+  m.set("vx", Cbor.Float(v.vx))
+  m.set("vy", Cbor.Float(v.vy))
+  m.set("vz", Cbor.Float(v.vz))
+  const opt7 = v.heading
+  if (opt7 != null) {
+    m.set("heading", Cbor.Float(opt7))
+  }
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct GpsGroup {
+  fixType: u8
+  satellites?: u8
+  hdop?: f64
+  vdop?: f64
+  ageMs: u32
+}
+
+export function decodeGpsGroup(v: Cbor, path: string): GpsGroup throws InvalidPayload {
+  const m = members(v, path, ["fixType", "satellites", "hdop", "vdop", "ageMs"])
+  const cbor1 = m.get("satellites")
+  let opt1: u8? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.satellites`, 255) as u8)
+  }
+  const cbor2 = m.get("hdop")
+  let opt2: f64? = null
+  if (cbor2 != null) {
+    opt2 = float(cbor2, `${path}.hdop`)
+  }
+  const cbor3 = m.get("vdop")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.vdop`)
+  }
+  GpsGroup {
+    fixType: (uint(required(m, "fixType", path), `${path}.fixType`, 255) as u8),
+    satellites: opt1,
+    hdop: opt2,
+    vdop: opt3,
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeGpsGroup(v: GpsGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("fixType", Cbor.Uint(v.fixType as u64))
+  const opt1 = v.satellites
+  if (opt1 != null) {
+    m.set("satellites", Cbor.Uint(opt1 as u64))
+  }
+  const opt2 = v.hdop
+  if (opt2 != null) {
+    m.set("hdop", Cbor.Float(opt2))
+  }
+  const opt3 = v.vdop
+  if (opt3 != null) {
+    m.set("vdop", Cbor.Float(opt3))
+  }
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct SpeedGroup {
+  airspeed: f64
+  groundspeed: f64
+  climb: f64
+  throttle: u16
+  heading: f64
+  ageMs: u32
+}
+
+export function decodeSpeedGroup(v: Cbor, path: string): SpeedGroup throws InvalidPayload {
+  const m = members(v, path, ["airspeed", "groundspeed", "climb", "throttle", "heading", "ageMs"])
+  SpeedGroup {
+    airspeed: float(required(m, "airspeed", path), `${path}.airspeed`),
+    groundspeed: float(required(m, "groundspeed", path), `${path}.groundspeed`),
+    climb: float(required(m, "climb", path), `${path}.climb`),
+    throttle: (uint(required(m, "throttle", path), `${path}.throttle`, 65535) as u16),
+    heading: float(required(m, "heading", path), `${path}.heading`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeSpeedGroup(v: SpeedGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("airspeed", Cbor.Float(v.airspeed))
+  m.set("groundspeed", Cbor.Float(v.groundspeed))
+  m.set("climb", Cbor.Float(v.climb))
+  m.set("throttle", Cbor.Uint(v.throttle as u64))
+  m.set("heading", Cbor.Float(v.heading))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct NavGroup {
+  waypointDistance: u16
+  targetBearing: f64
+  altitudeError: f64
+  crosstrackError: f64
+  ageMs: u32
+}
+
+export function decodeNavGroup(v: Cbor, path: string): NavGroup throws InvalidPayload {
+  const m = members(v, path, ["waypointDistance", "targetBearing", "altitudeError", "crosstrackError", "ageMs"])
+  NavGroup {
+    waypointDistance: (uint(required(m, "waypointDistance", path), `${path}.waypointDistance`, 65535) as u16),
+    targetBearing: float(required(m, "targetBearing", path), `${path}.targetBearing`),
+    altitudeError: float(required(m, "altitudeError", path), `${path}.altitudeError`),
+    crosstrackError: float(required(m, "crosstrackError", path), `${path}.crosstrackError`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeNavGroup(v: NavGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("waypointDistance", Cbor.Uint(v.waypointDistance as u64))
+  m.set("targetBearing", Cbor.Float(v.targetBearing))
+  m.set("altitudeError", Cbor.Float(v.altitudeError))
+  m.set("crosstrackError", Cbor.Float(v.crosstrackError))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct WindGroup {
+  direction: f64
+  speed: f64
+  speedZ: f64
+  ageMs: u32
+}
+
+export function decodeWindGroup(v: Cbor, path: string): WindGroup throws InvalidPayload {
+  const m = members(v, path, ["direction", "speed", "speedZ", "ageMs"])
+  WindGroup {
+    direction: float(required(m, "direction", path), `${path}.direction`),
+    speed: float(required(m, "speed", path), `${path}.speed`),
+    speedZ: float(required(m, "speedZ", path), `${path}.speedZ`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeWindGroup(v: WindGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("direction", Cbor.Float(v.direction))
+  m.set("speed", Cbor.Float(v.speed))
+  m.set("speedZ", Cbor.Float(v.speedZ))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct EkfGroup {
+  flags: u16
+  velocityVariance: f64
+  positionHorizVariance: f64
+  positionVertVariance: f64
+  compassVariance: f64
+  terrainAltVariance: f64
+  ageMs: u32
+}
+
+export function decodeEkfGroup(v: Cbor, path: string): EkfGroup throws InvalidPayload {
+  const m = members(v, path, ["flags", "velocityVariance", "positionHorizVariance", "positionVertVariance", "compassVariance", "terrainAltVariance", "ageMs"])
+  EkfGroup {
+    flags: (uint(required(m, "flags", path), `${path}.flags`, 65535) as u16),
+    velocityVariance: float(required(m, "velocityVariance", path), `${path}.velocityVariance`),
+    positionHorizVariance: float(required(m, "positionHorizVariance", path), `${path}.positionHorizVariance`),
+    positionVertVariance: float(required(m, "positionVertVariance", path), `${path}.positionVertVariance`),
+    compassVariance: float(required(m, "compassVariance", path), `${path}.compassVariance`),
+    terrainAltVariance: float(required(m, "terrainAltVariance", path), `${path}.terrainAltVariance`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeEkfGroup(v: EkfGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("flags", Cbor.Uint(v.flags as u64))
+  m.set("velocityVariance", Cbor.Float(v.velocityVariance))
+  m.set("positionHorizVariance", Cbor.Float(v.positionHorizVariance))
+  m.set("positionVertVariance", Cbor.Float(v.positionVertVariance))
+  m.set("compassVariance", Cbor.Float(v.compassVariance))
+  m.set("terrainAltVariance", Cbor.Float(v.terrainAltVariance))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeVibrationGroupClippingList(v: Cbor, path: string): u32[] throws InvalidPayload {
+  const out: u32[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
+    i += 1
+  }
+  out
+}
+
+function encodeVibrationGroupClippingList(v: u32[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct VibrationGroup {
+  x: f64
+  y: f64
+  z: f64
+  clipping: u32[]
+  ageMs: u32
+}
+
+export function decodeVibrationGroup(v: Cbor, path: string): VibrationGroup throws InvalidPayload {
+  const m = members(v, path, ["x", "y", "z", "clipping", "ageMs"])
+  VibrationGroup {
+    x: float(required(m, "x", path), `${path}.x`),
+    y: float(required(m, "y", path), `${path}.y`),
+    z: float(required(m, "z", path), `${path}.z`),
+    clipping: decodeVibrationGroupClippingList(required(m, "clipping", path), `${path}.clipping`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeVibrationGroup(v: VibrationGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("x", Cbor.Float(v.x))
+  m.set("y", Cbor.Float(v.y))
+  m.set("z", Cbor.Float(v.z))
+  m.set("clipping", encodeVibrationGroupClippingList(v.clipping))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeBatteryGroupCellsList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeBatteryGroupCellsList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+export struct BatteryGroup {
+  voltage?: f64
+  current?: f64
+  remaining?: u8
+  consumed?: f64
+  cells: f64[]
+  ageMs: u32
+}
+
+export function decodeBatteryGroup(v: Cbor, path: string): BatteryGroup throws InvalidPayload {
+  const m = members(v, path, ["voltage", "current", "remaining", "consumed", "cells", "ageMs"])
+  const cbor0 = m.get("voltage")
+  let opt0: f64? = null
+  if (cbor0 != null) {
+    opt0 = float(cbor0, `${path}.voltage`)
+  }
+  const cbor1 = m.get("current")
+  let opt1: f64? = null
+  if (cbor1 != null) {
+    opt1 = float(cbor1, `${path}.current`)
+  }
+  const cbor2 = m.get("remaining")
+  let opt2: u8? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.remaining`, 255) as u8)
+  }
+  const cbor3 = m.get("consumed")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.consumed`)
+  }
+  BatteryGroup {
+    voltage: opt0,
+    current: opt1,
+    remaining: opt2,
+    consumed: opt3,
+    cells: decodeBatteryGroupCellsList(required(m, "cells", path), `${path}.cells`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeBatteryGroup(v: BatteryGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.voltage
+  if (opt0 != null) {
+    m.set("voltage", Cbor.Float(opt0))
+  }
+  const opt1 = v.current
+  if (opt1 != null) {
+    m.set("current", Cbor.Float(opt1))
+  }
+  const opt2 = v.remaining
+  if (opt2 != null) {
+    m.set("remaining", Cbor.Uint(opt2 as u64))
+  }
+  const opt3 = v.consumed
+  if (opt3 != null) {
+    m.set("consumed", Cbor.Float(opt3))
+  }
+  m.set("cells", encodeBatteryGroupCellsList(v.cells))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct AttitudeGroup {
+  roll: f64
+  pitch: f64
+  yaw: f64
+  rollSpeed: f64
+  pitchSpeed: f64
+  yawSpeed: f64
+  ageMs: u32
+}
+
+export function decodeAttitudeGroup(v: Cbor, path: string): AttitudeGroup throws InvalidPayload {
+  const m = members(v, path, ["roll", "pitch", "yaw", "rollSpeed", "pitchSpeed", "yawSpeed", "ageMs"])
+  AttitudeGroup {
+    roll: float(required(m, "roll", path), `${path}.roll`),
+    pitch: float(required(m, "pitch", path), `${path}.pitch`),
+    yaw: float(required(m, "yaw", path), `${path}.yaw`),
+    rollSpeed: float(required(m, "rollSpeed", path), `${path}.rollSpeed`),
+    pitchSpeed: float(required(m, "pitchSpeed", path), `${path}.pitchSpeed`),
+    yawSpeed: float(required(m, "yawSpeed", path), `${path}.yawSpeed`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeAttitudeGroup(v: AttitudeGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("roll", Cbor.Float(v.roll))
+  m.set("pitch", Cbor.Float(v.pitch))
+  m.set("yaw", Cbor.Float(v.yaw))
+  m.set("rollSpeed", Cbor.Float(v.rollSpeed))
+  m.set("pitchSpeed", Cbor.Float(v.pitchSpeed))
+  m.set("yawSpeed", Cbor.Float(v.yawSpeed))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
   Cbor.Dict(m)
 }
 

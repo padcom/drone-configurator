@@ -1,0 +1,199 @@
+// The telemetry groups: each message lands in its group in SI units and degrees, with its age, and
+// what the vehicle marks unknown, or never sent, is absent (nothing is made up).
+import { describe, it, expect } from "std/test"
+import {
+  Attitude,
+  BatteryStatus,
+  EkfStatusReport,
+  GlobalPositionInt,
+  GpsRawInt,
+  NavControllerOutput,
+  SysStatus,
+  VfrHud,
+  Vibration,
+  Wind,
+} from "padcom/pico-mavlink"
+import { Telemetry } from "./generated/app"
+import { Groups } from "./groups"
+
+/// The telemetry as `groups` fills it `later` milliseconds after the messages arrived at time 1000.
+function filled(groups: Groups, later: int): Telemetry {
+  groups.fill(Telemetry { armed: false, mode: "STABILIZE", heartbeatAgeMs: 0 }, 1000 + later)
+}
+
+/// Rounded to `places` decimals, as an integer scaled by 10^places (floats are compared exactly otherwise).
+function scaled(x: f64, places: int): int {
+  Math.round(x * Math.pow(10.0, places as f64)) as int
+}
+
+function absentUntilHeard(): void {
+  const t = filled(new Groups(), 0)
+  expect(t.position == null && t.gps == null && t.speed == null && t.nav == null && t.wind == null).toBe(true)
+  expect(t.ekf == null && t.vibration == null && t.battery == null && t.attitude == null).toBe(true)
+}
+
+function positionInSiUnits(): void {
+  const groups = new Groups()
+  const m = new GlobalPositionInt()
+  m.lat = 473977420
+  m.lon = 85455939
+  m.alt = 500000
+  m.relativeAlt = 20000
+  m.vx = 150
+  m.vy = -50
+  m.vz = 25
+  m.hdg = 9000
+  groups.take(m, 1000)
+  const p = filled(groups, 250).position!
+  expect(scaled(p.lat, 6)).toBe(47397742)
+  expect(scaled(p.lon, 6)).toBe(8545594)
+  expect(scaled(p.altitude, 1)).toBe(5000)
+  expect(scaled(p.relativeAltitude, 1)).toBe(200)
+  expect(scaled(p.vx, 2) == 150 && scaled(p.vy, 2) == -50 && scaled(p.vz, 2) == 25).toBe(true)
+  expect(scaled(p.heading ?? -1.0, 1)).toBe(900)
+  expect(p.ageMs as int).toBe(250)
+  // 65535: the vehicle doesn't know its heading, so there is none.
+  m.hdg = 65535
+  groups.take(m, 2000)
+  expect(filled(groups, 0).position!.heading == null).toBe(true)
+}
+
+function gpsLeavesOutWhatIsUnknown(): void {
+  const groups = new Groups()
+  const m = new GpsRawInt()
+  m.fixType = 3
+  m.satellitesVisible = 12
+  m.eph = 121
+  m.epv = 65535
+  groups.take(m, 1000)
+  const g = filled(groups, 0).gps!
+  expect(g.fixType as int).toBe(3)
+  expect((g.satellites ?? 0) as int).toBe(12)
+  expect(scaled(g.hdop ?? -1.0, 2)).toBe(121)
+  expect(g.vdop == null).toBe(true)
+  m.satellitesVisible = 255
+  groups.take(m, 1000)
+  expect(filled(groups, 0).gps!.satellites == null).toBe(true)
+}
+
+function flightAndEnvironmentMessages(): void {
+  const groups = new Groups()
+  const hud = new VfrHud()
+  hud.airspeed = 12.5
+  hud.groundspeed = 11.0
+  hud.climb = -1.5
+  hud.throttle = 55
+  hud.heading = 270
+  groups.take(hud, 1000)
+  const nav = new NavControllerOutput()
+  nav.wpDist = 320
+  nav.targetBearing = 45
+  nav.altError = 2.5
+  nav.xtrackError = -1.0
+  groups.take(nav, 1000)
+  const wind = new Wind()
+  wind.direction = 180.0
+  wind.speed = 4.5
+  wind.speedZ = 0.5
+  groups.take(wind, 1000)
+  const ekf = new EkfStatusReport()
+  ekf.flags = 831
+  ekf.velocityVariance = 0.25
+  ekf.compassVariance = 0.5
+  groups.take(ekf, 1000)
+  const vibration = new Vibration()
+  vibration.vibrationX = 3.5
+  vibration.clipping1 = 7
+  groups.take(vibration, 1000)
+  const t = filled(groups, 40)
+  expect(scaled(t.speed!.airspeed, 1) == 125 && scaled(t.speed!.climb, 1) == -15 && (t.speed!.throttle as int) == 55).toBe(true)
+  expect((t.nav!.waypointDistance as int) == 320 && scaled(t.nav!.crosstrackError, 1) == -10).toBe(true)
+  expect(scaled(t.wind!.speed, 1) == 45 && scaled(t.wind!.direction, 0) == 180).toBe(true)
+  expect((t.ekf!.flags as int) == 831 && scaled(t.ekf!.velocityVariance, 2) == 25).toBe(true)
+  expect(scaled(t.vibration!.x, 1)).toBe(35)
+  expect(t.vibration!.clipping.length).toBe(3)
+  expect(t.vibration!.clipping[1] as int).toBe(7)
+  expect((t.speed!.ageMs as int) == 40 && (t.ekf!.ageMs as int) == 40).toBe(true)
+}
+
+function attitudeInDegrees(): void {
+  const groups = new Groups()
+  const m = new Attitude()
+  m.roll = 0.5236
+  m.pitch = -0.1745
+  m.yaw = 3.1416
+  m.rollspeed = 0.1
+  groups.take(m, 1000)
+  const a = filled(groups, 0).attitude!
+  expect(scaled(a.roll, 0)).toBe(30)
+  expect(scaled(a.pitch, 0)).toBe(-10)
+  expect(scaled(a.yaw, 0)).toBe(180)
+  expect(scaled(a.rollSpeed, 1)).toBe(57)
+}
+
+/// SYS_STATUS and BATTERY_STATUS fill one group, neither wiping what the other said.
+function batteryFromTwoMessages(): void {
+  const groups = new Groups()
+  const status = new SysStatus()
+  status.voltageBattery = 12600
+  status.currentBattery = -1
+  status.batteryRemaining = 80
+  groups.take(status, 1000)
+  const first = filled(groups, 0).battery!
+  expect(scaled(first.voltage ?? -1.0, 1)).toBe(126)
+  expect(first.current == null).toBe(true)
+  expect((first.remaining ?? 0) as int).toBe(80)
+  expect(first.cells.length).toBe(0)
+  expect(first.consumed == null).toBe(true)
+
+  const pack = new BatteryStatus()
+  pack.id = 0
+  const volts: u16[] = []
+  volts.push(4200 as u16)
+  volts.push(4190 as u16)
+  volts.push(65535 as u16)
+  pack.voltages = volts
+  pack.currentConsumed = 350
+  groups.take(pack, 3000)
+  const both = filled(groups, 2500).battery!
+  expect(both.cells.length).toBe(2)
+  expect(scaled(both.cells[1], 2)).toBe(419)
+  expect(scaled(both.consumed ?? -1.0, 0)).toBe(350)
+  expect(scaled(both.voltage ?? -1.0, 1)).toBe(126)
+  // The group is as old as the latest of the two messages.
+  expect(both.ageMs as int).toBe(500)
+
+  status.voltageBattery = 12400
+  status.currentBattery = 1250
+  groups.take(status, 4000)
+  const again = filled(groups, 3000).battery!
+  expect(again.cells.length).toBe(2)
+  expect(scaled(again.consumed ?? -1.0, 0)).toBe(350)
+  expect(scaled(again.voltage ?? -1.0, 1)).toBe(124)
+  expect(scaled(again.current ?? -1.0, 1)).toBe(125)
+
+  // Another pack (id 1) is not this one.
+  pack.id = 1
+  pack.currentConsumed = 999
+  groups.take(pack, 5000)
+  expect(scaled(filled(groups, 3000).battery!.consumed ?? -1.0, 0)).toBe(350)
+}
+
+function clearForgetsEverything(): void {
+  const groups = new Groups()
+  groups.take(new Attitude(), 1000)
+  groups.take(new SysStatus(), 1000)
+  groups.clear()
+  const t = filled(groups, 0)
+  expect(t.attitude == null && t.battery == null).toBe(true)
+}
+
+describe("the telemetry groups", () => {
+  it("are absent until their message arrives", absentUntilHeard)
+  it("convert a position to metres, metres a second and degrees, and leave out an unknown heading", positionInSiUnits)
+  it("leave out what GPS marks unknown", gpsLeavesOutWhatIsUnknown)
+  it("take speed, navigation, wind, EKF and vibration messages", flightAndEnvironmentMessages)
+  it("convert attitude to degrees", attitudeInDegrees)
+  it("join SYS_STATUS and BATTERY_STATUS into one battery group", batteryFromTwoMessages)
+  it("are forgotten when the link ends", clearForgetsEverything)
+})

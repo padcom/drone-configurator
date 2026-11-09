@@ -17,6 +17,7 @@ import {
   TelemetryRates,
 } from "padcom/pico-mavlink"
 import { ConnectionState, Telemetry, encodeTelemetry } from "./generated/app"
+import { Groups } from "./groups"
 import { SessionPart, link } from "./session"
 
 /// Registers the service's subscription on `c`, and its part of the session.
@@ -57,6 +58,8 @@ async function askForRates(rates: TelemetryRates): Promise<void> {
 class Heard implements SessionPart {
   public conn: MavLinkConnection? = null
   public rates: TelemetryRates? = null
+  /// The messages beyond the flat fields below, by group (groups.pi).
+  public groups: Groups = new Groups()
   public listener: int = 0
   public heardHeartbeat: bool = false
   public heardStatus: bool = false
@@ -85,6 +88,7 @@ class Heard implements SessionPart {
     heardHeartbeat = false
     heardStatus = false
     heardAttitude = false
+    groups.clear()
     const manager = rates
     if (manager != null) {
       manager!.stop()
@@ -103,6 +107,9 @@ class Heard implements SessionPart {
       return
     }
     const m = r.message
+    if (m != null) {
+      groups.take(m!, Date.now() as int)
+    }
     if (m instanceof Heartbeat) {
       armed = ((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0
       mode = modeName(m.autopilot as int, m.type as int, m.customMode as int)
@@ -136,7 +143,7 @@ class Heard implements SessionPart {
       t.pitch = Math.round(pitch * 10.0) / 10.0
       t.yaw = Math.round(yaw)
     }
-    t
+    groups.fill(t, Date.now() as int)
   }
 }
 

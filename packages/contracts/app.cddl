@@ -75,7 +75,11 @@ param-write-result = {
 }
 
 ; Only what the vehicle has reported: telemetry starts with its first heartbeat, and battery and
-; attitude are absent until it sends them (nothing shown is made up).
+; attitude are absent until it sends them (nothing shown is made up). Besides those fields, which
+; stay as they are, each MAVLink message the dashboard shows has a group of its own: the latest
+; values of that message, with `ageMs`, how long ago it arrived. A group is absent until its message
+; has been heard (never zero-filled), and a value the vehicle marks "unknown" is absent from it.
+; Units are SI and degrees: metres, metres a second, degrees, percent, volts, amperes.
 telemetry = {
   armed: bool,
   mode: tstr,
@@ -85,6 +89,109 @@ telemetry = {
   ? pitch: float,
   ? yaw: float,
   heartbeatAgeMs: uint .size 4,
+  ? position: position-group,
+  ? gps: gps-group,
+  ? speed: speed-group,
+  ? nav: nav-group,
+  ? wind: wind-group,
+  ? ekf: ekf-group,
+  ? vibration: vibration-group,
+  ? battery: battery-group,
+  ? attitude: attitude-group,
+}
+
+; GLOBAL_POSITION_INT: the vehicle's own fused position. Altitudes: above mean sea level, and above
+; home. Velocities: north, east, down. `heading` is absent when the vehicle doesn't know it.
+position-group = {
+  lat: float,
+  lon: float,
+  altitude: float,
+  relativeAltitude: float,
+  vx: float,
+  vy: float,
+  vz: float,
+  ? heading: float,
+  ageMs: uint .size 4,
+}
+
+; GPS_RAW_INT: `fixType` as MAVLink's GPS_FIX_TYPE (0 none, 2 2D, 3 3D, 4 DGPS, 5 RTK float, 6 RTK fixed).
+gps-group = {
+  fixType: uint .size 1,
+  ? satellites: uint .size 1,
+  ? hdop: float,
+  ? vdop: float,
+  ageMs: uint .size 4,
+}
+
+; VFR_HUD: `throttle` in percent, `heading` in degrees.
+speed-group = {
+  airspeed: float,
+  groundspeed: float,
+  climb: float,
+  throttle: uint .size 2,
+  heading: float,
+  ageMs: uint .size 4,
+}
+
+; NAV_CONTROLLER_OUTPUT: distance to the next waypoint and the bearing to it.
+nav-group = {
+  waypointDistance: uint .size 2,
+  targetBearing: float,
+  altitudeError: float,
+  crosstrackError: float,
+  ageMs: uint .size 4,
+}
+
+; WIND (ArduPilot): the direction the wind comes from, in degrees.
+wind-group = {
+  direction: float,
+  speed: float,
+  speedZ: float,
+  ageMs: uint .size 4,
+}
+
+; EKF_STATUS_REPORT: `flags` as MAVLink's EKF_STATUS_FLAGS; variances are unitless (about 0 to 1 is
+; healthy, above 1 is bad).
+ekf-group = {
+  flags: uint .size 2,
+  velocityVariance: float,
+  positionHorizVariance: float,
+  positionVertVariance: float,
+  compassVariance: float,
+  terrainAltVariance: float,
+  ageMs: uint .size 4,
+}
+
+; VIBRATION: `clipping` counts the accelerometers' clipping events (three sensors).
+vibration-group = {
+  x: float,
+  y: float,
+  z: float,
+  clipping: [* uint .size 4],
+  ageMs: uint .size 4,
+}
+
+; SYS_STATUS and BATTERY_STATUS: `voltage` and `current` (negative current: unknown, so absent),
+; `remaining` in percent, `consumed` in milliampere-hours, `cells` the cell voltages the battery
+; reports. `ageMs` is the age of the latest of the two messages.
+battery-group = {
+  ? voltage: float,
+  ? current: float,
+  ? remaining: uint .size 1,
+  ? consumed: float,
+  cells: [* float],
+  ageMs: uint .size 4,
+}
+
+; ATTITUDE: degrees, and degrees a second.
+attitude-group = {
+  roll: float,
+  pitch: float,
+  yaw: float,
+  rollSpeed: float,
+  pitchSpeed: float,
+  yawSpeed: float,
+  ageMs: uint .size 4,
 }
 
 ; Saving and opening snapshot files through the host's native dialogs (pages can't reach them).
