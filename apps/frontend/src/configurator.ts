@@ -1,37 +1,53 @@
-// The dashboard's state and actions, without the DOM (render.ts draws it), so every interaction is
-// testable with the mock backend.
-import { Communicator, CommunicatorError, type Transport } from '@pico-desktop/communicator'
-import { type Connection, type ConnectRequest, type Param, type SerialPort, type Services, type Telemetry, validate } from './generated/app'
-import { type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
+// The dashboard's state and actions, without the DOM, so every interaction is testable with the mock backend. The vehicle
+// link and the parameters are composables (useVehicle, useParams); what is left here is the metadata, the files, and
+// the snapshots with their import, and the one State that the components read.
+import { type BackendClient, type Transport, createBackendClient, describeError } from './backend/client'
+import type { Connection, Param, SerialPort, Telemetry } from './generated/app'
 import { type Metadata, checkMeta, parseMetadata } from './metadata'
+import { type Change, type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
+import { validateDraft } from './draft'
+import { type ListState, type ParamsModel, type WriteStatus, useParams } from './useParams'
+import { type Vehicle, useVehicle } from './useVehicle'
 
-/** How the last write went. */
-export type WriteStatus
-  = | { kind: 'verified', id: string, value: number }
-    | { kind: 'changed', id: string, asked: number, reported: number }
-    | { kind: 'failed', id: string, message: string }
+export { validateDraft } from './draft'
 
+export type { WriteStatus } from './useParams'
+
+/** Everything the components show. */
 export interface State {
+  /** The connection's state, and the vehicle found. */
   connection: Connection
+  /** Every parameter, as downloaded. */
   params: Param[]
   /** `loading`, or how the last download ended. */
-  list: 'none' | 'loading' | 'complete' | 'incomplete' | 'failed'
+  list: ListState
+  /** The indexes that never arrived. */
   missing: number[]
+  /** What the user typed to narrow the list. */
   filter: string
+  /** The selected parameter's id. */
   selected: string | null
+  /** The new value as typed. */
   draft: string
+  /** Why the draft is not a valid value. */
   draftError: string | null
+  /** Whether a write is under way. */
   writing: boolean
+  /** How the last write went. */
   lastWrite: WriteStatus | null
+  /** The latest telemetry. */
   telemetry: Telemetry | null
+  /** Why the last thing failed. */
   error: string | null
   /** Why the vehicle session ended without the user asking (a backend restart). */
   notice: string | null
-  /** A loaded snapshot under review, and why the last one couldn't be loaded. */
+  /** A loaded snapshot under review. */
   importReview: Review | null
+  /** Why the last snapshot could not be loaded. */
   importError: string | null
   /** The changes the user ticked (nothing is ticked at first: no unattended bulk writes). */
   picked: string[]
+  /** Whether a snapshot is being applied. */
   applying: boolean
   /** How each applied change went, in order; applying stops at the first that didn't verify. */
   applied: { id: string, outcome: 'verified' | 'changed' | 'failed', detail: string }[]
@@ -39,205 +55,246 @@ export interface State {
   backup: string | null
   /** The backend machine's serial ports, as last listed. */
   ports: SerialPort[]
-  /** Loaded parameter metadata (empty: none), and why the last file wasn't loaded. */
+  /** Loaded parameter metadata (empty: none). */
   metadata: Metadata
+  /** Why the last metadata file wasn't loaded. */
   metadataError: string | null
 }
 
+/** How the Configurator reaches the user. */
 export interface Ui {
-  render(state: State): void
+  /** Shows the state: called after every change. */
+  render: (state: State) => void
   /** Asks the user to confirm `question`; the write goes ahead only on true. */
-  confirm(question: string): Promise<boolean>
+  confirm: (question: string) => Promise<boolean>
 }
 
-const RANGES: Record<string, [number, number]> = {
-  UINT8: [0, 255],
-  INT8: [-128, 127],
-  UINT16: [0, 65535],
-  INT16: [-32768, 32767],
-  UINT32: [0, 4294967295],
-  INT32: [-2147483648, 2147483647],
-}
+/** The parts of the state that are held here, not by the vehicle link or the parameters. */
+type Own = Pick<
+  State,
+  'error' | 'importReview' | 'importError' | 'picked' | 'applying' | 'applied' | 'backup' | 'metadata' | 'metadataError'
+>
 
 /**
- * Why `text` isn't a valid new value for `param`, or null if it is.
+ * The question before a snapshot's ticked changes are written.
  *
- * @param param the parameter being edited
- * @param text what the user typed
- * @returns the problem, or null
+ * @param changes the changes to write
+ * @returns the question
  */
-export function validateDraft(param: Param, text: string): string | null {
-  const trimmed = text.trim()
-  if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
-    return 'a number, please'
-  }
-  const n = Number(trimmed)
-  if (param.kind === 'int') {
-    if (!Number.isInteger(n)) {
-      return `${param.id} is an integer (${param.type})`
-    }
-    const range = RANGES[param.type]
-    if (range && (n < range[0] || n > range[1])) {
-      return `${param.type} goes from ${range[0]} to ${range[1]}`
-    }
-  } else if (param.type === 'REAL32' && Math.abs(n) > 3.4e38) {
-    return 'too large for a REAL32'
-  }
+function applyQuestion(changes: Change[]): string {
+  const names = changes.map(change => change.id).join(', ')
 
-  return null
+  return `Write ${changes.length} parameter${changes.length === 1 ? '' : 's'} to the vehicle (${names})?`
 }
 
-const describeError = (error: unknown) => error instanceof CommunicatorError ? `${error.code}: ${error.message}` : String(error)
-
+/** The dashboard's state and actions. */
 export class Configurator {
-  readonly communicator: Communicator<Services>
-  state: State = {
-    connection: { state: 'disconnected' },
-    params: [],
-    list: 'none',
-    missing: [],
-    filter: '',
-    selected: null,
-    draft: '',
-    draftError: null,
-    writing: false,
-    lastWrite: null,
-    telemetry: null,
+  /** The vehicle link: connection, ports, notice and telemetry. */
+  readonly vehicle: Vehicle
+  /** The parameters: the list, the selection, the draft and the writing. */
+  readonly parameters: ParamsModel
+  private readonly client: BackendClient
+  private own: Own = {
     error: null,
-    notice: null,
     importReview: null,
     importError: null,
     picked: [],
     applying: false,
     applied: [],
     backup: null,
-    ports: [],
     metadata: new Map(),
     metadataError: null,
   }
 
+  /**
+   * Starts listening to the backend.
+   *
+   * @param transport the host's bridge, or the mock backend
+   * @param ui how the Configurator reaches the user
+   */
   constructor(transport: Transport, private readonly ui: Ui) {
-    this.communicator = new Communicator<Services>({ transport, validate })
-    this.communicator.onConnectionChange(state => this.backendChanged(state))
-    this.communicator.on('params.changed', param => this.paramChanged(param))
-    void this.watch()
+    this.client = createBackendClient(transport)
+    const shared = {
+      client: this.client,
+      fail: (message: string | null) => {
+        this.own = { ...this.own, error: message }
+      },
+      changed: () => this.ui.render(this.state),
+    }
+    this.parameters = useParams({
+      ...shared,
+      isConnected: () => this.vehicle.connection.value.state === 'connected',
+      confirm: question => this.ui.confirm(question),
+      problemWith: (param, text) => this.problemWith(param, text),
+    })
+    this.vehicle = useVehicle({
+      ...shared,
+      onConnected: () => void this.parameters.refresh(),
+      onNotConnected: () => this.parameters.stopWriting(),
+    })
+    this.client.onState(state => this.vehicle.backendChanged(state))
+    this.client.onEvent('params.changed', param => this.parameters.announced(param))
+    void this.vehicle.watch()
   }
 
   /**
-   * The backend went away (it restarts after a crash or an edit in development): the vehicle
-   * session is gone with it. The parameters stay visible, nothing pending is sent again, and the
-   * user reconnects when they choose.
+   * Everything the components show, as it is now.
+   *
+   * @returns a new State object each time
    */
-  private backendChanged(state: string) {
-    const session = this.state.connection.state
-    if (state !== 'ready' && (session === 'connected' || session === 'connecting')) {
-      this.set({
-        connection: { state: 'lost', vehicle: this.state.connection.vehicle },
-        telemetry: null,
-        notice: `The backend ${state === 'restarting' ? 'restarted' : 'stopped'}: the vehicle session ended. Connect again to continue.`,
-      })
+  get state(): State {
+    const { vehicle, parameters } = this
+
+    return {
+      ...this.own,
+      connection: vehicle.connection.value,
+      params: parameters.params.value,
+      list: parameters.list.value,
+      missing: parameters.missing.value,
+      filter: parameters.filter.value,
+      selected: parameters.selected.value,
+      draft: parameters.draft.value,
+      draftError: parameters.draftError.value,
+      writing: parameters.writing.value,
+      lastWrite: parameters.lastWrite.value,
+      telemetry: vehicle.telemetry.value,
+      notice: vehicle.notice.value,
+      ports: vehicle.ports.value,
     }
   }
 
-  private set(change: Partial<State>) {
-    this.state = { ...this.state, ...change }
+  /**
+   * Sets all of the state at once (tests do this to play the backend's part).
+   *
+   * @param next the new state
+   */
+  set state(next: State) {
+    const { vehicle, parameters } = this
+    this.own = {
+      error: next.error,
+      importReview: next.importReview,
+      importError: next.importError,
+      picked: next.picked,
+      applying: next.applying,
+      applied: next.applied,
+      backup: next.backup,
+      metadata: next.metadata,
+      metadataError: next.metadataError,
+    }
+    vehicle.connection.value = next.connection
+    vehicle.telemetry.value = next.telemetry
+    vehicle.notice.value = next.notice
+    vehicle.ports.value = next.ports
+    parameters.params.value = next.params
+    parameters.list.value = next.list
+    parameters.missing.value = next.missing
+    parameters.filter.value = next.filter
+    parameters.selected.value = next.selected
+    parameters.draft.value = next.draft
+    parameters.draftError.value = next.draftError
+    parameters.writing.value = next.writing
+    parameters.lastWrite.value = next.lastWrite
+  }
+
+  /**
+   * Changes what is held here, and shows it.
+   *
+   * @param change the fields to change
+   */
+  private set(change: Partial<Own>): void {
+    this.own = { ...this.own, ...change }
     this.ui.render(this.state)
   }
 
-  private async watch() {
-    try {
-      await this.communicator.subscribe('vehicle.connection', null, connection => this.connectionChanged(connection))
-      await this.communicator.subscribe('telemetry.stream', null, telemetry => this.set({ telemetry }))
-    } catch (error) {
-      this.set({ error: `the backend: ${describeError(error)}` })
-    }
-  }
-
-  private connectionChanged(connection: Connection) {
-    const was = this.state.connection.state
-    this.set({ connection, error: connection.error ?? null })
-    if (connection.state === 'connected' && was !== 'connected') {
-      void this.refresh()
-    }
-    if (connection.state !== 'connected') {
-      // What's shown may no longer be the vehicle's: keep it visible, but don't offer edits.
-      this.set({ telemetry: null, writing: false })
-    }
+  /**
+   * The parameters matching the filter (case-insensitive, anywhere in the name).
+   *
+   * @returns the matching parameters
+   */
+  visible(): Param[] {
+    return this.parameters.visible()
   }
 
   /**
-   * A parameter the vehicle announced on its own (another ground station changed it). The list
-   * follows; so does the draft, unless the user has started editing it.
+   * The selected parameter.
+   *
+   * @returns the parameter, or null
    */
-  private paramChanged(param: Param) {
-    const old = this.state.params.find(p => p.id === param.id)
-    const params = old ? this.state.params.map(p => p.id === param.id ? param : p) : [...this.state.params, param]
-    const untouched = this.state.selected === param.id && old !== undefined && this.state.draft === String(old.value)
-    this.set({ params, ...(untouched ? { draft: String(param.value) } : {}) })
-  }
-
-  /** The parameters matching the filter (case-insensitive, anywhere in the name). */
-  visible(): Param[] {
-    const f = this.state.filter.trim().toUpperCase()
-
-    return f === '' ? this.state.params : this.state.params.filter(p => p.id.includes(f))
-  }
-
   selectedParam(): Param | null {
-    return this.state.params.find(p => p.id === this.state.selected) ?? null
+    return this.parameters.selectedParam()
   }
 
-  async connect(request: ConnectRequest) {
-    this.set({ connection: { state: 'connecting' }, error: null, notice: null })
-    try {
-      const connection = await this.communicator.request('vehicle.connect', request)
-      this.connectionChanged(connection)
-    } catch (error) {
-      this.set({ connection: { state: 'disconnected' }, error: describeError(error) })
-    }
+  /**
+   * Connects to what the request says.
+   *
+   * @param request how to reach the vehicle
+   */
+  async connect(request: Parameters<Vehicle['connect']>[0]): Promise<void> {
+    await this.vehicle.connect(request)
   }
 
-  async disconnect() {
-    try {
-      this.connectionChanged(await this.communicator.request('vehicle.disconnect', null))
-    } catch (error) {
-      this.set({ error: describeError(error) })
-    }
+  /** Disconnects from the vehicle. */
+  async disconnect(): Promise<void> {
+    await this.vehicle.disconnect()
   }
 
-  async refresh() {
-    this.set({ list: 'loading' })
-    try {
-      const list = await this.communicator.request('params.list', null)
-      this.set({ params: list.params, missing: list.missing, list: list.complete ? 'complete' : 'incomplete' })
-    } catch (error) {
-      this.set({ list: 'failed', error: describeError(error) })
-    }
+  /** Downloads the parameters again. */
+  async refresh(): Promise<void> {
+    await this.parameters.refresh()
   }
 
-  setFilter(filter: string) {
-    this.set({ filter })
+  /**
+   * Narrows the list of parameters.
+   *
+   * @param filter what the user typed
+   */
+  setFilter(filter: string): void {
+    this.parameters.setFilter(filter)
   }
 
-  select(id: string) {
-    const param = this.state.params.find(p => p.id === id)
-    this.set({ selected: param ? id : null, draft: param ? String(param.value) : '', draftError: null })
+  /**
+   * Selects a parameter.
+   *
+   * @param id its id
+   */
+  select(id: string): void {
+    this.parameters.select(id)
   }
 
-  /** Why `text` isn't a valid value for `param`: its type, then its metadata (if any). */
+  /**
+   * Why `text` isn't a valid value for `param`: its type, then its metadata (if any).
+   *
+   * @param param the parameter
+   * @param text what the user typed
+   * @returns the problem, or null
+   */
   problemWith(param: Param, text: string): string | null {
-    return validateDraft(param, text) ?? checkMeta(this.state.metadata.get(param.id), Number(text.trim()))
+    return validateDraft(param, text) ?? checkMeta(this.own.metadata.get(param.id), Number(text.trim()))
   }
 
-  editDraft(draft: string) {
-    const param = this.selectedParam()
-    this.set({ draft, draftError: param ? this.problemWith(param, draft) : null })
+  /**
+   * The user typed a new value.
+   *
+   * @param draft what they typed
+   */
+  editDraft(draft: string): void {
+    this.parameters.editDraft(draft)
+  }
+
+  /** Writes the draft after the user confirms; the vehicle's read-back decides the outcome. */
+  async write(): Promise<void> {
+    await this.parameters.write()
+  }
+
+  /** Lists the serial ports (for the serial transport's device choice). */
+  async listPorts(): Promise<void> {
+    await this.vehicle.listPorts()
   }
 
   /** Lets the user pick a metadata file (the host's open dialog) and loads it. */
-  async openMetadataFile() {
+  async openMetadataFile(): Promise<void> {
     try {
-      const { text } = await this.communicator.request('files.open', null)
+      const { text } = await this.client.call('files.open', null)
       if (text !== undefined) {
         this.loadMetadata(text)
       }
@@ -246,29 +303,27 @@ export class Configurator {
     }
   }
 
-  /** Loads parameter metadata (replacing what was loaded). */
-  loadMetadata(text: string) {
-    const m = parseMetadata(text)
-    if (typeof m === 'string') {
-      this.set({ metadataError: `Can't load the metadata: ${m}.` })
+  /**
+   * Loads parameter metadata (replacing what was loaded).
+   *
+   * @param text the metadata file's text
+   */
+  loadMetadata(text: string): void {
+    const loaded = parseMetadata(text)
+    if (typeof loaded === 'string') {
+      this.set({ metadataError: `Can't load the metadata: ${loaded}.` })
     } else {
-      this.set({ metadata: m, metadataError: null })
+      this.set({ metadata: loaded, metadataError: null })
     }
   }
 
-  /** Lists the serial ports (for the serial transport's device choice). */
-  async listPorts() {
-    try {
-      const { ports } = await this.communicator.request('serial.ports', null)
-      this.set({ ports })
-    } catch (error) {
-      this.set({ error: `Couldn't list the serial ports: ${describeError(error)}` })
-    }
-  }
-
-  /** The parameters as a snapshot (JSON), to save. */
+  /**
+   * The parameters as a snapshot (JSON), to save.
+   *
+   * @returns the snapshot's text
+   */
   snapshot(): string {
-    return saveSnapshot(this.state.params, this.state.connection.vehicle)
+    return saveSnapshot(this.parameters.params.value, this.vehicle.connection.value.vehicle)
   }
 
   /**
@@ -280,7 +335,7 @@ export class Configurator {
    */
   async saveFile(name: string, text: string): Promise<string | null> {
     try {
-      const { path } = await this.communicator.request('files.save', { name, text })
+      const { path } = await this.client.call('files.save', { name, text })
 
       return path ?? null
     } catch (error) {
@@ -291,9 +346,9 @@ export class Configurator {
   }
 
   /** Lets the user pick a snapshot file (the host's open dialog) and loads it for review. */
-  async openSnapshotFile() {
+  async openSnapshotFile(): Promise<void> {
     try {
-      const { text } = await this.communicator.request('files.open', null)
+      const { text } = await this.client.call('files.open', null)
       if (text !== undefined) {
         this.loadSnapshot(text)
       }
@@ -302,91 +357,126 @@ export class Configurator {
     }
   }
 
-  /** Loads a snapshot for review: what it would change, with nothing picked yet. */
-  loadSnapshot(text: string) {
-    const s = parseSnapshot(text)
-    if (typeof s === 'string') {
-      this.set({ importReview: null, importError: `Can't load it: ${s}.`, picked: [], applied: [] })
-    } else {
-      this.set({ importReview: review(s, this.state.params, this.state.connection.vehicle), importError: null, picked: [], applied: [] })
-    }
-  }
+  /**
+   * Loads a snapshot for review: what it would change, with nothing picked yet.
+   *
+   * @param text the snapshot file's text
+   */
+  loadSnapshot(text: string): void {
+    const snapshot = parseSnapshot(text)
+    if (typeof snapshot === 'string') {
+      this.set({ importReview: null, importError: `Can't load it: ${snapshot}.`, picked: [], applied: [] })
 
-  /** Ticks or unticks a change (ones that can't be applied can't be ticked). */
-  togglePick(id: string) {
-    const change = this.state.importReview?.changes.find(c => c.id === id)
-    if (!change || change.problem !== null || this.state.applying) {
       return
     }
-    const picked = this.state.picked.includes(id) ? this.state.picked.filter(p => p !== id) : [...this.state.picked, id]
-    this.set({ picked })
+    const reviewed = review(snapshot, this.parameters.params.value, this.vehicle.connection.value.vehicle)
+    this.set({ importReview: reviewed, importError: null, picked: [], applied: [] })
   }
 
-  closeImport() {
+  /**
+   * Whether a change of the snapshot under review can be ticked: it can be applied, and nothing is being written.
+   *
+   * @param id the parameter's id
+   * @returns true if it can be ticked
+   */
+  private pickable(id: string): boolean {
+    const change = this.own.importReview?.changes.find(candidate => candidate.id === id)
+
+    return change !== undefined && change.problem === null && !this.own.applying
+  }
+
+  /**
+   * Ticks or unticks a change (ones that can't be applied can't be ticked).
+   *
+   * @param id the parameter's id
+   */
+  togglePick(id: string): void {
+    if (!this.pickable(id)) {
+      return
+    }
+    const { picked } = this.own
+    this.set({ picked: picked.includes(id) ? picked.filter(other => other !== id) : [...picked, id] })
+  }
+
+  /** Closes the review of the snapshot. */
+  closeImport(): void {
     this.set({ importReview: null, importError: null, picked: [], applied: [] })
+  }
+
+  /**
+   * The changes the user ticked and that can be applied.
+   *
+   * @returns the changes, in the snapshot's order
+   */
+  private pickedChanges(): Change[] {
+    const { importReview, picked } = this.own
+
+    return importReview?.changes.filter(change => picked.includes(change.id) && change.problem === null) ?? []
+  }
+
+  /**
+   * Writes one change of a snapshot, and says how it went.
+   *
+   * @param change the change
+   * @returns how it went
+   */
+  private async applyOne(change: Change): Promise<State['applied'][number]> {
+    const param = this.parameters.params.value.find(candidate => candidate.id === change.id)
+    if (!param) {
+      return { id: change.id, outcome: 'failed', detail: 'not on this vehicle' }
+    }
+    try {
+      const { id, kind, type } = param
+      const result = await this.client.call('params.write', { id, kind, type, value: change.to })
+      this.parameters.replace(result.param)
+
+      return result.verified
+        ? { id, outcome: 'verified', detail: `${result.param.value}` }
+        : { id, outcome: 'changed', detail: `the vehicle reports ${result.param.value}, not ${change.to}` }
+    } catch (error) {
+      return { id: param.id, outcome: 'failed', detail: describeError(error) }
+    }
+  }
+
+  /**
+   * Writes the changes one after the other, until one is not verified.
+   *
+   * @param changes the changes still to write
+   */
+  private async applyFrom(changes: Change[]): Promise<void> {
+    const [change, ...rest] = changes
+    if (!change) {
+      return
+    }
+    const line = await this.applyOne(change)
+    this.set({ applied: [...this.own.applied, line] })
+
+    if (line.outcome === 'verified') {
+      await this.applyFrom(rest)
+    }
+  }
+
+  /**
+   * Whether the ticked changes can be written now: there are some, a vehicle is connected, and nothing is being written.
+   *
+   * @param changes the ticked changes
+   * @returns true if they can
+   */
+  private applicable(changes: Change[]): boolean {
+    return changes.length > 0 && this.vehicle.connection.value.state === 'connected' && !this.own.applying
   }
 
   /**
    * Writes the ticked changes, one at a time, after the user confirms the list. The values before
    * are kept as a backup. Applying stops at the first change that isn't verified.
    */
-  async applyImport() {
-    const r = this.state.importReview
-    const picked = r?.changes.filter(c => this.state.picked.includes(c.id) && c.problem === null) ?? []
-    if (picked.length === 0 || this.state.connection.state !== 'connected' || this.state.applying) {
-      return
-    }
-    const names = picked.map(c => c.id).join(', ')
-    if (!await this.ui.confirm(`Write ${picked.length} parameter${picked.length === 1 ? '' : 's'} to the vehicle (${names})?`)) {
+  async applyImport(): Promise<void> {
+    const changes = this.pickedChanges()
+    if (!this.applicable(changes) || !await this.ui.confirm(applyQuestion(changes))) {
       return
     }
     this.set({ applying: true, applied: [], backup: this.snapshot() })
-    const applied: State['applied'] = []
-    for (const change of picked) {
-      const param = this.state.params.find(p => p.id === change.id)!
-      try {
-        const result = await this.communicator.request('params.write', { id: param.id, kind: param.kind, type: param.type, value: change.to })
-        this.set({ params: this.state.params.map(p => p.id === result.param.id ? result.param : p) })
-        applied.push(result.verified
-          ? { id: param.id, outcome: 'verified', detail: `${result.param.value}` }
-          : { id: param.id, outcome: 'changed', detail: `the vehicle reports ${result.param.value}, not ${change.to}` })
-      } catch (error) {
-        applied.push({ id: param.id, outcome: 'failed', detail: describeError(error) })
-      }
-      this.set({ applied: [...applied] })
-      if (applied.at(-1)?.outcome !== 'verified') {
-        break
-      }
-    }
+    await this.applyFrom(changes)
     this.set({ applying: false })
-  }
-
-  /** Writes the draft after the user confirms; the vehicle's read-back decides the outcome. */
-  async write() {
-    const param = this.selectedParam()
-    if (!param || this.state.connection.state !== 'connected' || this.state.writing) {
-      return
-    }
-    const problem = this.problemWith(param, this.state.draft)
-    if (problem) {
-      this.set({ draftError: problem })
-
-      return
-    }
-    const value = Number(this.state.draft.trim())
-    if (!await this.ui.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
-      return
-    }
-    this.set({ writing: true, lastWrite: null })
-    try {
-      const result = await this.communicator.request('params.write', { id: param.id, kind: param.kind, type: param.type, value })
-      const params = this.state.params.map(p => p.id === result.param.id ? result.param : p)
-      const lastWrite: WriteStatus = result.verified
-        ? { kind: 'verified', id: param.id, value: result.param.value }
-        : { kind: 'changed', id: param.id, asked: value, reported: result.param.value }
-      this.set({ params, writing: false, lastWrite, draft: String(result.param.value) })
-    } catch (error) {
-      this.set({ writing: false, lastWrite: { kind: 'failed', id: param.id, message: describeError(error) } })
-    }
   }
 }
