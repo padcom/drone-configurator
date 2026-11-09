@@ -4,7 +4,7 @@
 // transport connects; UDP and TCP fail as they would with nothing listening.
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
-import type { Connection, ConnectRequest, Param, ParamWrite } from './generated/app'
+import type { Connection, ConnectRequest, Param, ParamWrite, Settings, SettingsPatch, SettingsState } from './generated/app'
 import { PARAMS, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
 
 type Outgoing = Omit<Envelope, 'v'>
@@ -19,6 +19,45 @@ export interface MockOptions {
   silent?: string[]
   /** Filled in with controls for tests: `restart()` restarts the backend as the host does. */
   control?: MockControl
+  /** The settings the backend starts with (what an earlier run saved), and the notice it gives about them. */
+  settings?: Settings
+  settingsNotice?: { notice: string, noticeCode: string }
+}
+
+/**
+ * The settings with a patch applied, as the backend does it (the limits are the backend's to enforce, not the mock's).
+ *
+ * @param doc the settings
+ * @param patch what to change
+ * @returns the new settings
+ */
+export function patchSettings(doc: Settings, patch: SettingsPatch): Settings {
+  const next: Settings = { ...doc, ui: [...doc.ui] }
+  if (patch.language !== undefined) {
+    next.language = patch.language
+  }
+  if (patch.theme !== undefined) {
+    next.theme = patch.theme
+  }
+  for (const entry of patch.ui ?? []) {
+    const at = next.ui.findIndex(e => e.key === entry.key)
+    if (at < 0) {
+      next.ui.push({ ...entry })
+    } else {
+      next.ui[at] = { ...entry }
+    }
+  }
+  for (const name of patch.remove ?? []) {
+    if (name === 'language') {
+      delete next.language
+    } else if (name === 'theme') {
+      delete next.theme
+    } else {
+      next.ui = next.ui.filter(e => e.key !== name)
+    }
+  }
+
+  return next
 }
 
 export interface MockControl {
@@ -37,8 +76,11 @@ class MockVehicle {
 
   epoch = 1
   saved: { path: string, text: string } | null = null
+  /** What the "file" holds: it outlives a restart of the mock backend, as the real file does. */
+  settings: Settings
 
   constructor(private readonly send: Send, private readonly options: MockOptions) {
+    this.settings = options.settings ?? { version: 1, ui: [] }
     if (options.control) {
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => {
@@ -101,8 +143,20 @@ class MockVehicle {
       }
       case 'files.open': return ok(this.saved ?? {})
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
+      case 'settings.get': return ok(this.settingsState())
+      case 'settings.set': {
+        this.settings = patchSettings(this.settings, e.p as SettingsPatch)
+        const state = this.settingsState()
+        this.send({ k: 'event', n: 'settings.changed', p: state })
+
+        return ok(state)
+      }
       default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
     }
+  }
+
+  settingsState(): SettingsState {
+    return { settings: this.settings, ...this.options.settingsNotice }
   }
 
   connected(fail: (code: string, message: string) => void): boolean {

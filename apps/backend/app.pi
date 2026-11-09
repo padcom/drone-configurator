@@ -8,6 +8,7 @@ import { register as registerFiles } from "./files"
 import { register as registerParams } from "./params"
 import { register as registerSerial } from "./serial"
 import { link } from "./session"
+import { register as registerSettings } from "./settings"
 import { register as registerTelemetry } from "./telemetry"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
@@ -31,5 +32,6 @@ export function createBackend(transport: Transport): Communicator {
   registerTelemetry(c)
   registerFiles(c)
   registerSerial(c)
+  registerSettings(c)
   c
 }

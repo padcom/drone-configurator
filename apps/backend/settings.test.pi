@@ -1,0 +1,262 @@
+// The settings service, over a memory link, with the file in a directory of its own.
+import { describe, it, expect } from "std/test"
+import { Cbor, encode, integer } from "pico-desktop/communicator"
+import { exists, mkdir, readDir, remove, writeBytes, writeText } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import {
+  SettingsPatch,
+  SettingsState,
+  ThemeName,
+  UiEntry,
+  decodeSettingsState,
+  encodeSettingsPatch,
+} from "./generated/app"
+import { FILE, Migration, restartForTests, useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+/// An empty directory of this test's own.
+async function fresh(name: string): Promise<string> throws Error {
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `drone-configurator-settings-${name}-${pid}`)
+  if (await exists(dir)) {
+    await remove(dir, true)
+  }
+  await mkdir(dir, true)
+  dir
+}
+
+async function cleanUp(dir: string): Promise<void> {
+  try {
+    await remove(dir, true)
+  } catch (e: Error) {
+    // Gone already.
+  }
+}
+
+async function get(f: Frontend): Promise<SettingsState> throws Error {
+  decodeSettingsState((await f.call("settings.get")).p ?? Cbor.Null, "$")
+}
+
+async function set(f: Frontend, patch: SettingsPatch): Promise<SettingsState> throws Error {
+  decodeSettingsState((await f.call("settings.set", encodeSettingsPatch(patch))).p ?? Cbor.Null, "$")
+}
+
+/// The names in `dir` that start with `prefix`.
+async function named(dir: string, prefix: string): Promise<string[]> throws Error {
+  const out: string[] = []
+  for await (const entry of readDir(dir)) {
+    if (entry.name.startsWith(prefix)) {
+      out.push(entry.name)
+    }
+  }
+  out
+}
+
+/// A settings document as a Cbor map with the given version and entries.
+function document(version: int, entries: Map<string, Cbor>): Cbor {
+  entries.set("version", integer(version))
+  Cbor.Dict(entries)
+}
+
+function summary(s: SettingsState): string {
+  const ui: string[] = []
+  for (const e of s.settings.ui) {
+    ui.push(`${e.key}=${e.value}`)
+  }
+  `${s.settings.version} ${s.settings.language ?? "-"} ${if (s.settings.theme == null) "-" else if (s.settings.theme == ThemeName.Dark) "dark" else "other"} [${ui.join(",")}] ${s.noticeCode ?? "-"}`
+}
+
+/// Nothing saved yet: the defaults, no notice, and nothing written until something is set.
+async function startsOnDefaults(): Promise<void> throws Error {
+  const dir = await fresh("defaults")
+  useDirectoryForTests(dir)
+  const f = await start()
+  expect(summary(await get(f))).toBe("1 - - [] -")
+  expect((await named(dir, "settings")).length).toBe(0)
+  await cleanUp(dir)
+}
+
+/// What is set is there after the backend restarts (the memory is dropped; the file stays).
+async function survivesARestart(): Promise<void> throws Error {
+  const dir = await fresh("restart")
+  useDirectoryForTests(dir)
+  const f = await start()
+  const first = await set(f, SettingsPatch {
+    language: "pl",
+    theme: ThemeName.Dark,
+    ui: [UiEntry { key: "layout.flightData", value: "{\"sizes\":[1,2]}" }],
+  })
+  expect(summary(first)).toBe("1 pl dark [layout.flightData={\"sizes\":[1,2]}] -")
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 pl dark [layout.flightData={\"sizes\":[1,2]}] -")
+  expect((await named(dir, FILE)).join(",")).toBe(FILE)
+  await cleanUp(dir)
+}
+
+/// A patch changes what it names: `ui` entries are added or replaced, `remove` forgets, the rest stays.
+async function appliesPatches(): Promise<void> throws Error {
+  const dir = await fresh("patch")
+  useDirectoryForTests(dir)
+  const f = await start()
+  await set(f, SettingsPatch {
+    language: "en",
+    ui: [UiEntry { key: "a", value: "1" }, UiEntry { key: "b", value: "2" }],
+  })
+  const next = await set(f, SettingsPatch { theme: ThemeName.Dark, ui: [UiEntry { key: "a", value: "one" }], remove: ["b"] })
+  expect(summary(next)).toBe("1 en dark [a=one] -")
+  const forgot = await set(f, SettingsPatch { remove: ["language", "theme", "a", "never-there"] })
+  expect(summary(forgot)).toBe("1 - - [] -")
+  await cleanUp(dir)
+}
+
+/// Every `settings.set` is announced, also to those that did not ask.
+async function announcesChanges(): Promise<void> throws Error {
+  const dir = await fresh("event")
+  useDirectoryForTests(dir)
+  const f = await start()
+  // The event comes before the answer, and a call would skip it: send, wait for the event, then take the answer.
+  const sent = await f.send("settings.set", encodeSettingsPatch(SettingsPatch { language: "de" }))
+  const e = await f.event("settings.changed")
+  expect(summary(decodeSettingsState(e.p ?? Cbor.Null, "$"))).toBe("1 de - [] -")
+  const answer = await f.reply(sent)
+  expect(summary(decodeSettingsState(answer.p ?? Cbor.Null, "$"))).toBe("1 de - [] -")
+  await cleanUp(dir)
+}
+
+/// A limit that is broken is an error, and the settings stay as they were.
+async function refusesWhatBreaksTheLimits(): Promise<void> throws Error {
+  const dir = await fresh("limits")
+  useDirectoryForTests(dir)
+  const f = await start()
+  await set(f, SettingsPatch { language: "en" })
+  const long = "k".repeat(129)
+  const e1 = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: long, value: "x" }] }))
+  const e2 = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "", value: "x" }] }))
+  const e3 = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { language: "" }))
+  expect(`${e1.err?.code ?? "-"} ${e2.err?.code ?? "-"} ${e3.err?.code ?? "-"}`).toBe("INVALID_VALUE INVALID_VALUE INVALID_VALUE")
+  const many: UiEntry[] = []
+  for (let i = 0; i < 257; i++) {
+    many.push(UiEntry { key: `k${i}`, value: "v" })
+  }
+  const e4 = await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: many }))
+  expect(e4.err?.code ?? "-").toBe("INVALID_VALUE")
+  expect(summary(await get(f))).toBe("1 en - [] -")
+  await cleanUp(dir)
+}
+
+/// A file that is not a settings document is set aside, not deleted; the app starts on defaults and says so.
+async function setsAsideACorruptFile(): Promise<void> throws Error {
+  const dir = await fresh("corrupt")
+  await writeText(join(dir, FILE), "this is not CBOR at all")
+  useDirectoryForTests(dir)
+  const f = await start()
+  const s = await get(f)
+  expect(summary(s)).toBe("1 - - [] CORRUPT")
+  expect((s.notice ?? "").includes("set aside")).toBe(true)
+  expect((await named(dir, `${FILE}.corrupt-`)).length).toBe(1)
+  expect(await exists(join(dir, FILE))).toBe(false)
+  // And it works again: what is set now is kept.
+  await set(f, SettingsPatch { language: "fr" })
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 fr - [] -")
+  await cleanUp(dir)
+}
+
+/// A file from a newer version is set aside too, with its own code.
+async function setsAsideANewerFile(): Promise<void> throws Error {
+  const dir = await fresh("newer")
+  const entries = new Map<string, Cbor>()
+  entries.set("future", Cbor.Text("something this version knows nothing about"))
+  await writeBytes(join(dir, FILE), encode(document(2, entries)))
+  useDirectoryForTests(dir)
+  const f = await start()
+  expect(summary(await get(f))).toBe("1 - - [] NEWER")
+  expect((await named(dir, `${FILE}.newer-`)).length).toBe(1)
+  await cleanUp(dir)
+}
+
+/// A write that was cut short (a temporary file left beside the settings) does not touch the settings that were saved.
+async function ignoresAnInterruptedWrite(): Promise<void> throws Error {
+  const dir = await fresh("interrupted")
+  useDirectoryForTests(dir)
+  const f = await start()
+  await set(f, SettingsPatch { language: "es", theme: ThemeName.Dark })
+  await writeText(join(dir, `${FILE}.tmp-99999`), "half of a doc")
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 es dark [] -")
+  await cleanUp(dir)
+}
+
+/// An older document is brought up by the migrations, in order; with none for its version it is corrupt.
+async function migratesAnOlderFile(): Promise<void> throws Error {
+  const dir = await fresh("migrate")
+  const old = new Map<string, Cbor>()
+  old.set("lang", Cbor.Text("de"))
+  old.set("ui", Cbor.List([]))
+  await writeBytes(join(dir, FILE), encode(document(0, old)))
+  const rename = new Migration(0, (doc: Cbor): Cbor => {
+    match (doc) {
+      Dict { entries } => {
+        const lang = entries.get("lang")
+        if (lang != null) {
+          entries.set("language", lang!)
+        }
+        entries.delete("lang")
+        entries.set("version", integer(1))
+        doc
+      },
+      _ => doc,
+    }
+  })
+  useDirectoryForTests(dir, [rename])
+  const f = await start()
+  expect(summary(await get(f))).toBe("1 de - [] -")
+  // The migrated document is saved on the next change, as a version 1 file.
+  await set(f, SettingsPatch { theme: ThemeName.Dark })
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 de dark [] -")
+  await cleanUp(dir)
+}
+
+async function refusesAnOlderFileWithNoMigration(): Promise<void> throws Error {
+  const dir = await fresh("nomigration")
+  const old = new Map<string, Cbor>()
+  old.set("ui", Cbor.List([]))
+  await writeBytes(join(dir, FILE), encode(document(0, old)))
+  useDirectoryForTests(dir)
+  const f = await start()
+  expect(summary(await get(f))).toBe("1 - - [] CORRUPT")
+  await cleanUp(dir)
+}
+
+/// A directory that cannot be used (here it would have to be made inside a file): the settings work, in memory, and
+/// say so; a restart loses them.
+async function keepsSettingsInMemoryWhenTheDirectoryIsNotWritable(): Promise<void> throws Error {
+  const dir = await fresh("readonly")
+  await writeText(join(dir, "a-file"), "")
+  useDirectoryForTests(join(dir, "a-file", "inside"))
+  const f = await start()
+  const first = await get(f)
+  expect(summary(first)).toBe("1 - - [] NOT_WRITABLE")
+  expect((first.notice ?? "").includes("kept in memory")).toBe(true)
+  const next = await set(f, SettingsPatch { language: "it" })
+  expect(summary(next)).toBe("1 it - [] NOT_WRITABLE")
+  expect(summary(await get(f))).toBe("1 it - [] NOT_WRITABLE")
+  restartForTests()
+  expect(summary(await get(f))).toBe("1 - - [] NOT_WRITABLE")
+  await cleanUp(dir)
+}
+
+describe("the settings service", () => {
+  it("starts on the defaults and writes nothing until something is set", startsOnDefaults)
+  it("keeps what is set across a restart", survivesARestart)
+  it("applies a patch: adds and replaces ui entries, removes what is named, leaves the rest", appliesPatches)
+  it("announces every change", announcesChanges)
+  it("refuses what breaks the limits and keeps the settings as they were", refusesWhatBreaksTheLimits)
+  it("sets a corrupt file aside and starts on the defaults, saying so", setsAsideACorruptFile)
+  it("sets a file from a newer version aside", setsAsideANewerFile)
+  it("leaves the saved settings whole when a write was cut short", ignoresAnInterruptedWrite)
+  it("migrates an older file", migratesAnOlderFile)
+  it("treats an older file with no migration as corrupt", refusesAnOlderFileWithNoMigration)
+  it("keeps the settings in memory when the directory cannot be used, and says so", keepsSettingsInMemoryWhenTheDirectoryIsNotWritable)
+})

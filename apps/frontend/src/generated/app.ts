@@ -216,6 +216,51 @@ function validateAttitudeGroupInto(value: any, path: string): boolean {
 /** The first problem with `value` as a attitude-group, or null. */
 export const validateAttitudeGroup = (value: unknown) => run(validateAttitudeGroupInto, value)
 
+export type Settings = { "version": number, "language"?: string, "theme"?: ThemeName, "ui": (UiEntry)[] }
+
+function validateSettingsInto(value: any, path: string): boolean {
+  return map(value, path, ["version","language","theme","ui"]) && (value["version"] === undefined ? fail(`${path}.version`, 'present') : nested(value["version"], `${path}.version`, (value, path) => uint(value, path, 0xff))) && (value["language"] === undefined || nested(value["language"], `${path}.language`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["theme"] === undefined || nested(value["theme"], `${path}.theme`, (value, path) => validateThemeNameInto(value, path))) && (value["ui"] === undefined ? fail(`${path}.ui`, 'present') : nested(value["ui"], `${path}.ui`, (value, path) => list(value, path, (value, path) => validateUiEntryInto(value, path))))
+}
+
+/** The first problem with `value` as a settings, or null. */
+export const validateSettings = (value: unknown) => run(validateSettingsInto, value)
+
+export type ThemeName = "light" | "dark" | "system"
+
+function validateThemeNameInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["light","dark","system"])
+}
+
+/** The first problem with `value` as a theme-name, or null. */
+export const validateThemeName = (value: unknown) => run(validateThemeNameInto, value)
+
+export type UiEntry = { "key": string, "value": string }
+
+function validateUiEntryInto(value: any, path: string): boolean {
+  return map(value, path, ["key","value"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined ? fail(`${path}.value`, 'present') : nested(value["value"], `${path}.value`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a ui-entry, or null. */
+export const validateUiEntry = (value: unknown) => run(validateUiEntryInto, value)
+
+export type SettingsState = { "settings": Settings, "notice"?: string, "noticeCode"?: string }
+
+function validateSettingsStateInto(value: any, path: string): boolean {
+  return map(value, path, ["settings","notice","noticeCode"]) && (value["settings"] === undefined ? fail(`${path}.settings`, 'present') : nested(value["settings"], `${path}.settings`, (value, path) => validateSettingsInto(value, path))) && (value["notice"] === undefined || nested(value["notice"], `${path}.notice`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["noticeCode"] === undefined || nested(value["noticeCode"], `${path}.noticeCode`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a settings-state, or null. */
+export const validateSettingsState = (value: unknown) => run(validateSettingsStateInto, value)
+
+export type SettingsPatch = { "language"?: string, "theme"?: ThemeName, "ui"?: (UiEntry)[], "remove"?: (string)[] }
+
+function validateSettingsPatchInto(value: any, path: string): boolean {
+  return map(value, path, ["language","theme","ui","remove"]) && (value["language"] === undefined || nested(value["language"], `${path}.language`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["theme"] === undefined || nested(value["theme"], `${path}.theme`, (value, path) => validateThemeNameInto(value, path))) && (value["ui"] === undefined || nested(value["ui"], `${path}.ui`, (value, path) => list(value, path, (value, path) => validateUiEntryInto(value, path)))) && (value["remove"] === undefined || nested(value["remove"], `${path}.remove`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+}
+
+/** The first problem with `value` as a settings-patch, or null. */
+export const validateSettingsPatch = (value: unknown) => run(validateSettingsPatchInto, value)
+
 export type FileSave = { "name": string, "text": string }
 
 function validateFileSaveInto(value: any, path: string): boolean {
@@ -272,6 +317,9 @@ export interface Services {
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
+  "settings.get": { kind: 'method', request: null, response: SettingsState }
+  "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
+  "settings.changed": { kind: 'event', payload: SettingsState }
   "params.changed": { kind: 'event', payload: Param }
 }
 
@@ -311,6 +359,17 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateSerialPortsInto(value, path),
+  },
+  "settings.get": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateSettingsStateInto(value, path),
+  },
+  "settings.set": {
+    request: (value: any, path: string) => validateSettingsPatchInto(value, path),
+    response: (value: any, path: string) => validateSettingsStateInto(value, path),
+  },
+  "settings.changed": {
+    payload: (value: any, path: string) => validateSettingsStateInto(value, path),
   },
   "params.changed": {
     payload: (value: any, path: string) => validateParamInto(value, path),

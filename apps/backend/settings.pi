@@ -1,0 +1,386 @@
+// The settings service: what the user chose (language, theme, the interface's own layouts) survives a restart.
+//
+// The document is one CBOR file in the app's data directory (pico-desktop's `appDirs`; Pico has no JSON, and the contract
+// already speaks CBOR, so the file is the contract's `settings`, encoded). It is written to a temporary file and renamed
+// over the old one, so a write that is cut short leaves the old settings whole. A file that cannot be read, or that a
+// newer version wrote, is renamed aside (`settings.cbor.corrupt-<ms>`, `settings.cbor.newer-<ms>`), the app starts on
+// defaults and says so (`notice`). If the directory cannot be used the settings are kept in memory, and say so.
+import { AppDirError, Cbor, Communicator, CommunicatorError, RequestContext, appDirs, decode, encode } from "pico-desktop/communicator"
+import { exists, mkdir, readBytes, remove, rename, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { delay } from "std/timers"
+import {
+  Settings,
+  SettingsPatch,
+  SettingsState,
+  UiEntry,
+  decodeSettings,
+  decodeSettingsPatch,
+  encodeSettings,
+  encodeSettingsState,
+} from "./generated/app"
+
+/// The app's ID, as in pico-desktop.config.ts: it names the app's directory.
+const APP_ID: string = "dev.pico-desktop.drone-configurator"
+
+/// The version of the document that this code writes.
+export const VERSION: int = 1
+
+/// The settings file, in the data directory.
+export const FILE: string = "settings.cbor"
+
+const MAX_KEY: int = 128
+const MAX_VALUE: int = 65536
+const MAX_ENTRIES: int = 256
+const MAX_LANGUAGE: int = 35
+
+/// Why a settings file was not used: `CORRUPT` (it cannot be read, or is not a settings document) or `NEWER`.
+export class SettingsFileError extends Error {
+  public kind: string
+
+  constructor(kind: string, message: string) {
+    super(message)
+    this.kind = kind
+  }
+}
+
+/// A step that brings a document of version `from` to `from + 1`, before it is read as a `Settings`. The steps are tried
+/// in order of version; a document with no step for its version is corrupt.
+export class Migration {
+  public from: int
+  public run: (doc: Cbor) => Cbor
+
+  constructor(from: int, run: (doc: Cbor) => Cbor) {
+    this.from = from
+    this.run = run
+  }
+}
+
+/// What the service holds. Module state, like the session: there is one backend per process.
+class Store {
+  public loaded: bool = false
+  public busy: bool = false
+  /// The directory the file is in; null when the settings are kept in memory only.
+  public dir: string? = null
+  public doc: Settings = defaults()
+  public notice: string? = null
+  public noticeCode: string? = null
+  public communicator: Communicator? = null
+  /// For tests: use this directory instead of the app's data directory.
+  public override: string? = null
+  public steps: Migration[] = []
+}
+
+const store = new Store()
+
+function defaults(): Settings {
+  Settings { version: VERSION as u8, ui: [] }
+}
+
+/// Registers the service's methods on `c`.
+export function register(c: Communicator): void {
+  store.communicator = c
+  c.handle("settings.get", getSettings)
+  c.handle("settings.set", setSettings)
+}
+
+/// For tests: the directory to keep the settings in (instead of the app's data directory), and the migrations to use.
+export function useDirectoryForTests(dir: string, steps: Migration[] = []): void {
+  store.override = dir
+  store.steps = steps
+  restartForTests()
+}
+
+/// For tests: forget everything held in memory, as a restarted backend does; the file stays.
+export function restartForTests(): void {
+  store.loaded = false
+  store.busy = false
+  store.dir = null
+  store.doc = defaults()
+  store.notice = null
+  store.noticeCode = null
+}
+
+/// Takes the service's turn: one load or save at a time.
+async function lock(): Promise<void> throws Error {
+  while (store.busy) {
+    await delay(5)
+  }
+  store.busy = true
+}
+
+function unlock(): void {
+  store.busy = false
+}
+
+function state(): SettingsState {
+  SettingsState { settings: store.doc, notice: store.notice, noticeCode: store.noticeCode }
+}
+
+function say(code: string, message: string): void {
+  store.noticeCode = code
+  store.notice = message
+}
+
+/// The version a document says it is, or -1 when it is not a map with a whole-number `version`.
+function versionOf(doc: Cbor): int {
+  match (doc) {
+    Dict { entries } => {
+      const v = entries.get("version")
+      if (v == null) {
+        return -1
+      }
+      match (v!) {
+        Uint { value } => value as int,
+        _ => -1,
+      }
+    },
+    _ => -1,
+  }
+}
+
+/// Brings a document up to `VERSION` with `steps`. A document of a newer version, or of a version no step leads from, is
+/// a `SettingsFileError`.
+export function migrate(doc: Cbor, steps: Migration[]): Cbor throws SettingsFileError {
+  let current = doc
+  let version = versionOf(doc)
+  if (version < 0) {
+    throw new SettingsFileError("CORRUPT", "the settings file has no version")
+  }
+  if (version > VERSION) {
+    throw new SettingsFileError("NEWER", `the settings file is version ${version}, this app reads up to ${VERSION}`)
+  }
+  while (version < VERSION) {
+    let step: Migration? = null
+    for (const s of steps) {
+      if (s.from == version) {
+        step = s
+      }
+    }
+    if (step == null) {
+      throw new SettingsFileError("CORRUPT", `no way to read a version ${version} settings file`)
+    }
+    const run = step!.run
+    current = run(current)
+    version += 1
+    if (versionOf(current) != version) {
+      throw new SettingsFileError("CORRUPT", `a migration from version ${version - 1} did not leave version ${version}`)
+    }
+  }
+  current
+}
+
+/// A settings document from the bytes of a file.
+export function parse(bytes: Uint8Array, steps: Migration[]): Settings throws SettingsFileError {
+  try {
+    const doc = migrate(decode(bytes), steps)
+    const s = decodeSettings(doc, "$")
+    check(s)
+    s
+  } catch (e: SettingsFileError) {
+    throw e
+  } catch (e: Error) {
+    throw new SettingsFileError("CORRUPT", `the settings file cannot be read: ${e.message}`)
+  }
+}
+
+/// Whether a document keeps to the limits (a file is held to them as well as a patch).
+function check(s: Settings): void throws SettingsFileError {
+  if (s.ui.length > MAX_ENTRIES) {
+    throw new SettingsFileError("CORRUPT", `the settings file has ${s.ui.length} entries, at most ${MAX_ENTRIES}`)
+  }
+  for (const e of s.ui) {
+    if (e.key.length == 0 || e.key.length > MAX_KEY || e.value.length > MAX_VALUE) {
+      throw new SettingsFileError("CORRUPT", "the settings file has an entry outside the limits")
+    }
+  }
+}
+
+/// Where the file goes: the directory under test, or the app's data directory. Null (and a notice) when there is none.
+async function locate(): Promise<string?> {
+  const wanted = store.override
+  try {
+    if (wanted != null) {
+      await mkdir(wanted!, true)
+      return wanted
+    }
+    const dirs = await appDirs(APP_ID)
+    return dirs.data
+  } catch (e: AppDirError) {
+    say("NOT_WRITABLE", `${e.message}. The settings are kept in memory and are lost when the app closes.`)
+  } catch (e: Error) {
+    say("NOT_WRITABLE", `can't use the settings directory: ${e.message}. The settings are kept in memory and are lost when the app closes.`)
+  }
+  null
+}
+
+/// Moves a file that was not used out of the way, under a name that says why; the file is kept, not deleted.
+async function setAside(path: string, kind: string): Promise<void> {
+  try {
+    await rename(path, `${path}.${kind.toLowerCase()}-${Date.now() as int}`)
+  } catch (e: Error) {
+    // It could not be moved: the next save replaces it.
+  }
+}
+
+/// Reads the file, once. Called with the service's turn taken.
+async function load(): Promise<void> {
+  store.loaded = true
+  store.dir = await locate()
+  const dir = store.dir
+  if (dir == null) {
+    return
+  }
+  const path = join(dir!, FILE)
+  try {
+    if (!await exists(path)) {
+      return
+    }
+    store.doc = parse(await readBytes(path), store.steps)
+  } catch (e: SettingsFileError) {
+    await setAside(path, e.kind)
+    say(e.kind, `${e.message}. It was set aside as ${FILE}.${e.kind.toLowerCase()}-… and the settings are the defaults.`)
+  } catch (e: Error) {
+    say("CORRUPT", `the settings file cannot be read: ${e.message}. The settings are the defaults.`)
+  }
+}
+
+async function ready(): Promise<void> throws Error {
+  await lock()
+  try {
+    if (!store.loaded) {
+      await load()
+    }
+  } finally {
+    unlock()
+  }
+}
+
+/// Writes the document: to a temporary file first, then over the old one by a rename, so an interrupted write leaves the
+/// old file whole. False (and a notice) when it cannot be written; the settings are then kept in memory.
+async function save(): Promise<bool> {
+  const dir = store.dir
+  if (dir == null) {
+    return false
+  }
+  const path = join(dir!, FILE)
+  const temporary = `${path}.tmp-${pid}`
+  try {
+    await writeBytes(temporary, encode(encodeSettings(store.doc)))
+    await rename(temporary, path)
+  } catch (e: Error) {
+    try {
+      await remove(temporary)
+    } catch (r: Error) {
+      // Nothing was written, or it is gone already.
+    }
+    say("NOT_WRITABLE", `the settings could not be saved: ${e.message}. They are kept in memory and are lost when the app closes.`)
+    return false
+  }
+  if (store.noticeCode == "NOT_WRITABLE") {
+    store.noticeCode = null
+    store.notice = null
+  }
+  true
+}
+
+/// `entries` with `entry` added, or put in place of the one with its key.
+function withEntry(entries: UiEntry[], entry: UiEntry): UiEntry[] {
+  const out: UiEntry[] = []
+  let placed = false
+  for (const e of entries) {
+    if (e.key == entry.key) {
+      out.push(entry)
+      placed = true
+    } else {
+      out.push(e)
+    }
+  }
+  if (!placed) {
+    out.push(entry)
+  }
+  out
+}
+
+/// `entries` without the one called `key`.
+function withoutEntry(entries: UiEntry[], key: string): UiEntry[] {
+  const out: UiEntry[] = []
+  for (const e of entries) {
+    if (e.key != key) {
+      out.push(e)
+    }
+  }
+  out
+}
+
+function invalid(message: string): CommunicatorError {
+  new CommunicatorError("INVALID_VALUE", message)
+}
+
+/// The document with `patch` applied; an `INVALID_VALUE` error, with the document untouched, when it asks for what the
+/// limits do not allow.
+export function applied(doc: Settings, patch: SettingsPatch): Settings throws CommunicatorError {
+  let next = doc
+  const language = patch.language
+  if (language != null) {
+    if (language!.length == 0 || language!.length > MAX_LANGUAGE) {
+      throw invalid(`a language is a tag of 1 to ${MAX_LANGUAGE} characters`)
+    }
+    next.language = language
+  }
+  if (patch.theme != null) {
+    next.theme = patch.theme
+  }
+  const entries = patch.ui
+  if (entries != null) {
+    for (const e of entries!) {
+      if (e.key.length == 0 || e.key.length > MAX_KEY) {
+        throw invalid(`a key is 1 to ${MAX_KEY} characters`)
+      }
+      if (e.value.length > MAX_VALUE) {
+        throw invalid(`the value of ${e.key} is longer than ${MAX_VALUE} characters`)
+      }
+      next.ui = withEntry(next.ui, e)
+    }
+  }
+  const gone = patch.remove
+  if (gone != null) {
+    for (const name of gone!) {
+      if (name == "language") {
+        next.language = null
+      } else if (name == "theme") {
+        next.theme = null
+      } else {
+        next.ui = withoutEntry(next.ui, name)
+      }
+    }
+  }
+  if (next.ui.length > MAX_ENTRIES) {
+    throw invalid(`there can be at most ${MAX_ENTRIES} entries`)
+  }
+  next
+}
+
+async function getSettings(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  await ready()
+  encodeSettingsState(state())
+}
+
+async function setSettings(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const patch = decodeSettingsPatch(payload ?? Cbor.Null, "$")
+  await ready()
+  await lock()
+  try {
+    store.doc = applied(store.doc, patch)
+    await save()
+  } finally {
+    unlock()
+  }
+  const out = encodeSettingsState(state())
+  const c = store.communicator
+  if (c != null) {
+    c!.emit("settings.changed", out)
+  }
+  out
+}
