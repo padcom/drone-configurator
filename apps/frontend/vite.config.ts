@@ -1,6 +1,31 @@
-import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vitest/config'
 
-// Relative asset URLs: the host serves the built frontend from its own origin.
+// The production CSP is `script-src 'self'; style-src 'self'`, and this build satisfies it:
+// - the runtime-only Vue build (no template compiler, so no `new Function`/eval) with the SFC
+//   templates compiled at build time by @vitejs/plugin-vue;
+// - the CSS extracted to a file and linked from index.html (no <style> injected at run time);
+// - the Vue feature flags set here, so the bundler build doesn't warn about them. NOTE:
+//   __VUE_OPTIONS_API__ is false in dev, tests and production alike, so components must use
+//   <script setup> or the Composition API: `data`, `methods`, `computed` options are ignored
+//   without an error.
+// `pnpm dev` loads Vite's own origin, which has no host CSP, so Vite's injected styles and HMR
+// work there; the production policy isn't weakened for it (pico-desktop's docs/tutorial.md).
 export default defineConfig({
+  // Relative asset URLs: the host serves the built frontend from its own origin.
   base: './',
+  plugins: [vue()],
+  define: {
+    __VUE_OPTIONS_API__: 'false',
+    __VUE_PROD_DEVTOOLS__: 'false',
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
+  },
+  build: {
+    cssCodeSplit: false,
+    // Scripts only from files, never inlined as data: URLs.
+    assetsInlineLimit: 0,
+  },
+  test: {
+    environment: 'jsdom',
+  },
 })

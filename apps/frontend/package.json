@@ -6,16 +6,25 @@
   "scripts": {
     "build": "vite build",
     "ui": "vite",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@pico-desktop/communicator": "link:../../../pico-desktop/packages/communicator-ts",
-    "@pico-desktop/protocol": "link:../../../pico-desktop/packages/protocol"
+    "@pico-desktop/protocol": "link:../../../pico-desktop/packages/protocol",
+    "vue": "3.5.45"
   },
   "devDependencies": {
+    "@padcom/eslint-config-vue": "0.21.2",
     "@types/node": "26.6.6",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vue/test-utils": "2.5.1",
+    "eslint": "10.14.0",
+    "jsdom": "31.0.0",
     "typescript": "5.9.3",
     "vite": "8.3.6",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "vue-tsc": "3.3.14"
   }
 }
