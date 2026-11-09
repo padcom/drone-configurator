@@ -3,7 +3,7 @@
 // and runs this.
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { showScreen } from './click'
+import { clickConnect, showScreen } from './click'
 
 let app: E2eApp
 
@@ -27,7 +27,8 @@ afterAll(async () => {
 
 describe('the configurator against the simulated vehicle', () => {
   it('connects to the simulator through the Pico backend', async () => {
-    await app.click('#connect-button')
+    // Right after the window opens a click can land before the page is laid out and do nothing (click.ts).
+    await clickConnect(app)
     const connection = await app.waitForText('#connection', 'connected · system')
 
     expect(connection).toMatch(/connected · system 1\/1 · QUADROTOR · ARDUPILOTMEGA/u)
