@@ -5,24 +5,26 @@ import SegmentedControl from './SegmentedControl.vue'
 import SplitPane from './SplitPane.vue'
 import Tabs from './Tabs.vue'
 
-let mounted: VueWrapper | undefined
+const mounted: VueWrapper[] = []
 
 /**
- * Mounts a control in the document (focus needs it to be there).
+ * Mounts a control in the document (focus needs it to be there). Every control a test mounts is removed after it.
  *
  * @param component the control
  * @param options props and slots
  * @returns the wrapper
  */
 function put(component: Parameters<typeof mount>[0], options: Parameters<typeof mount>[1] = {}): VueWrapper {
-  mounted = mount(component, { ...options, attachTo: document.body })
+  const wrapper = mount(component, { ...options, attachTo: document.body })
+  mounted.push(wrapper)
 
-  return mounted
+  return wrapper
 }
 
 afterEach(() => {
-  mounted?.unmount()
-  mounted = undefined
+  for (const wrapper of mounted.splice(0)) {
+    wrapper.unmount()
+  }
 })
 
 // ---- SegmentedControl
