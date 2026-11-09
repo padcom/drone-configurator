@@ -17,6 +17,22 @@ One page: backend calls, subscriptions and when they end, errors, and the frame 
 - `client.onState(listener)` observes the link: the backend restarts after a crash or an edit in development.
   Like the others, it ends with the effect scope it was made in.
 
+## Where the state lives
+
+The interface's state is held by composables that use the client, one per concern, each a set of shallow refs and the
+actions that change them:
+
+- `useVehicle()` (`src/useVehicle.ts`): the connection, the serial ports, the notice when the backend went away, and the
+  telemetry; `connect`, `disconnect`, `listPorts`.
+- `useParams()` (`src/useParams.ts`): the parameter list and how its download went, the filter and the selection, the
+  draft of a new value, and writing it.
+- `useTelemetry()` (`src/useTelemetry.ts`): the telemetry, once per frame (see below).
+
+Each is given what it needs from the rest as arguments (the client, a way to ask the user to confirm, and so on), so a
+test builds its own on the mock backend. `Configurator` (`src/configurator.ts`) still puts them together, adds the
+metadata, the files and the snapshot import, and keeps the one `State` that the components read; the components move
+to the composables as the Configurator is dissolved (#12).
+
 ## Subscriptions and when they end
 
 A subscription ends when `stop()` is called, **or when the effect scope it was made in ends**: made in a component's

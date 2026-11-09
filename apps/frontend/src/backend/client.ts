@@ -72,6 +72,18 @@ export function toBackendError(error: unknown): BackendError {
   return new BackendError('unknown', error instanceof Error ? error.message : String(error), error)
 }
 
+/**
+ * A failure as one line for the interface: the code, then the message.
+ *
+ * @param error what a call threw
+ * @returns for example `NOT_CONNECTED: no vehicle is connected`; just the message for an error that was not a failed call
+ */
+export function describeError(error: unknown): string {
+  const { code, message } = toBackendError(error)
+
+  return code === 'unknown' ? message : `${code}: ${message}`
+}
+
 /** A running subscription. */
 export interface Subscription {
   /** Resolves once the backend accepted it; rejects with a BackendError if it did not. */
