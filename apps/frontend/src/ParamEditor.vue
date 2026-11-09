@@ -10,25 +10,30 @@
       <p v-if="details.description" class="muted">{{ details.description }}</p>
       <p v-if="details.range" class="muted">{{ details.range }}</p>
       <p v-if="details.values" class="muted">{{ details.values }}</p>
-      <p v-if="fields.draftError.value" class="error">{{ fields.draftError.value }}</p>
+      <p v-if="fields.draftError.value" id="draft-error" class="error">{{ fields.draftError.value }}</p>
       <p v-if="notice" :class="notice.tone">{{ notice.text }}</p>
     </template>
   </div>
   <form id="edit" :hidden="!editable" @submit.prevent="parameters.write()">
-    <input
+    <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
+    <TextInput
       id="draft"
-      :value="fields.draft.value"
+      :model-value="fields.draft.value"
       :aria-label="t('editor.newValue')"
+      :invalid="Boolean(fields.draftError.value)"
+      :aria-describedby="fields.draftError.value ? 'draft-error' : undefined"
       autocomplete="off"
-      @input="parameters.editDraft(($event.target as HTMLInputElement).value)"
-    >
-    <button id="write" type="submit" :disabled="!writable">{{ t('editor.write') }}</button>
+      @update:model-value="parameters.editDraft($event)"
+    />
+    <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
   </form>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Button from './kit/Button.vue'
+import TextInput from './kit/TextInput.vue'
 import { canWrite, detailsOf, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
