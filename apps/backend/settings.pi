@@ -1,12 +1,17 @@
 // The settings service: what the user chose (language, theme, the interface's own layouts) survives a restart.
 //
-// The document is one CBOR file in the app's data directory (pico-desktop's `appDirs`; Pico has no JSON, and the contract
-// already speaks CBOR, so the file is the contract's `settings`, encoded). It is written to a temporary file and renamed
-// over the old one, so a write that is cut short leaves the old settings whole. A file that cannot be read, or that a
-// newer version wrote, is renamed aside (`settings.cbor.corrupt-<ms>`, `settings.cbor.newer-<ms>`), the app starts on
-// defaults and says so (`notice`). If the directory cannot be used the settings are kept in memory, and say so.
-import { AppDirError, Cbor, Communicator, CommunicatorError, RequestContext, appDirs, decode, encode } from "pico-desktop/communicator"
-import { exists, mkdir, readBytes, readDir, remove, rename, writeBytes } from "std/fs"
+// The document is one JSON file, `settings.json`, in the app's data directory (pico-desktop's `appDirs`), laid out for a
+// person to read and to edit: the contract's `settings`, with the theme as its name. It is written to a temporary file and
+// renamed over the old one, so a write that is cut short leaves the old settings whole. A file that cannot be read, that
+// is not a settings document, or that a newer version wrote, is renamed aside (`settings.json.corrupt-<ms>`,
+// `.unreadable-<ms>`, `.newer-<ms>`), the app starts on defaults and says so (`notice`). If the directory cannot be used
+// the settings are kept in memory, and say so.
+//
+// A hand-edited file is read as it is: any spacing, the members in any order, and a member this version does not know is
+// skipped (JSON.parse does that) and gone from the file at the next save. A member it needs that is missing or has the
+// wrong type, or a theme that is not light, dark or system, makes the file corrupt.
+import { AppDirError, Cbor, Communicator, CommunicatorError, RequestContext, appDirs } from "pico-desktop/communicator"
+import { exists, mkdir, readDir, readText, remove, rename, writeText } from "std/fs"
 import { join } from "std/path"
 import { pid } from "std/process"
 import { delay } from "std/timers"
@@ -14,10 +19,9 @@ import {
   Settings,
   SettingsPatch,
   SettingsState,
+  ThemeName,
   UiEntry,
-  decodeSettings,
   decodeSettingsPatch,
-  encodeSettings,
   encodeSettingsState,
 } from "./generated/app"
 
@@ -28,7 +32,7 @@ const APP_ID: string = "dev.pico-desktop.drone-configurator"
 export const VERSION: int = 1
 
 /// The settings file, in the data directory.
-export const FILE: string = "settings.cbor"
+export const FILE: string = "settings.json"
 
 const MAX_KEY: int = 128
 const MAX_VALUE: int = 65536
@@ -49,16 +53,35 @@ export class SettingsFileError extends Error {
   }
 }
 
-/// A step that brings a document of version `from` to `from + 1`, before it is read as a `Settings`. The steps are tried
-/// in order of version; a document with no step for its version is corrupt.
+/// A step that brings the text of a document of version `from` to the text of version `from + 1`, before it is read as a
+/// `Settings`. The steps are tried in order of version; a document with no step for its version is corrupt.
 export class Migration {
   public from: int
-  public run: (doc: Cbor) => Cbor
+  public run: (text: string) => string
 
-  constructor(from: int, run: (doc: Cbor) => Cbor) {
+  constructor(from: int, run: (text: string) => string) {
     this.from = from
     this.run = run
   }
+}
+
+/// A `ui` entry as the file has it.
+struct EntryFile {
+  key: string
+  value: string
+}
+
+/// The document as the file has it: the theme by its name (an enum has no JSON form), and `null` for what is not set.
+struct DocFile {
+  version: int
+  language: string?
+  theme: string?
+  ui: EntryFile[]
+}
+
+/// Just the version, which is read first: a file of a newer version may be shaped in ways this one cannot read.
+struct VersionOnly {
+  version: int
 }
 
 /// What the service holds. Module state, like the session: there is one backend per process.
@@ -135,28 +158,20 @@ function say(code: string, message: string): void {
   store.notice = message
 }
 
-/// The version a document says it is, or -1 when it is not a map with a whole-number `version`.
-function versionOf(doc: Cbor): int {
-  match (doc) {
-    Dict { entries } => {
-      const v = entries.get("version")
-      if (v == null) {
-        return -1
-      }
-      match (v!) {
-        Uint { value } => value as int,
-        _ => -1,
-      }
-    },
-    _ => -1,
+/// The version a document's text says it is, or -1 when it is not JSON with a whole-number `version`.
+function versionOf(text: string): int {
+  try {
+    return JSON.parse<VersionOnly>(text).version
+  } catch (e: Error) {
+    return -1
   }
 }
 
-/// Brings a document up to `VERSION` with `steps`. A document of a newer version, or of a version no step leads from, is
-/// a `SettingsFileError`.
-export function migrate(doc: Cbor, steps: Migration[]): Cbor throws SettingsFileError {
-  let current = doc
-  let version = versionOf(doc)
+/// Brings a document's text up to `VERSION` with `steps`. A document of a newer version, or of a version no step leads
+/// from, is a `SettingsFileError`.
+export function migrate(text: string, steps: Migration[]): string throws SettingsFileError {
+  let current = text
+  let version = versionOf(text)
   if (version < 0) {
     throw new SettingsFileError("CORRUPT", "the settings file has no version")
   }
@@ -183,11 +198,62 @@ export function migrate(doc: Cbor, steps: Migration[]): Cbor throws SettingsFile
   current
 }
 
-/// A settings document from the bytes of a file.
-export function parse(bytes: Uint8Array, steps: Migration[]): Settings throws SettingsFileError {
+/// The theme a name in the file stands for, or null when it is not one.
+function themeOf(name: string): ThemeName? {
+  if (name == "light") ThemeName.Light else if (name == "dark") ThemeName.Dark else if (name == "system") ThemeName.System else null
+}
+
+/// The name of a theme in the file.
+function nameOf(theme: ThemeName): string {
+  if (theme == ThemeName.Light) "light" else if (theme == ThemeName.Dark) "dark" else "system"
+}
+
+/// The settings that a document in the file's shape holds.
+function settingsFrom(f: DocFile): Settings throws SettingsFileError {
+  const ui: UiEntry[] = []
+  for (const e of f.ui) {
+    ui.push(UiEntry { key: e.key, value: e.value })
+  }
+  const s = Settings { version: f.version as u8, language: f.language, ui: ui }
+  const name = f.theme
+  if (name != null) {
+    const theme = themeOf(name!)
+    if (theme == null) {
+      throw new SettingsFileError("CORRUPT", `the settings file has a theme called '${name!}': light, dark or system are the ones there are`)
+    }
+    s.theme = theme
+  }
+  s
+}
+
+/// The text of the file for a settings document, laid out for a person to read and edit: a member to a line, an entry to
+/// a line. (Written here and not by `JSON.stringify(doc, 2)`: its indenting takes seconds for a document of a few hundred
+/// kilobytes, which the limits allow; only the strings go through `JSON.stringify`, which is quick.)
+export function textOf(s: Settings): string {
+  const parts: string[] = ["{\n  \"version\": ", `${s.version}`]
+  const language = s.language
+  if (language != null) {
+    parts.push(`,\n  "language": ${JSON.stringify(language!)}`)
+  }
+  const theme = s.theme
+  if (theme != null) {
+    parts.push(`,\n  "theme": ${JSON.stringify(nameOf(theme!))}`)
+  }
+  parts.push(",\n  \"ui\": [")
+  let first = true
+  for (const e of s.ui) {
+    parts.push(if (first) "\n    " else ",\n    ")
+    parts.push(`{ "key": ${JSON.stringify(e.key)}, "value": ${JSON.stringify(e.value)} }`)
+    first = false
+  }
+  parts.push(if (first) "]\n}\n" else "\n  ]\n}\n")
+  parts.join("")
+}
+
+/// A settings document from the text of a file.
+export function parse(text: string, steps: Migration[]): Settings throws SettingsFileError {
   try {
-    const doc = migrate(decode(bytes), steps)
-    const s = decodeSettings(doc, "$")
+    const s = settingsFrom(JSON.parse<DocFile>(migrate(text, steps)))
     check(s)
     s
   } catch (e: SettingsFileError) {
@@ -300,7 +366,7 @@ async function load(): Promise<void> {
     if (!await exists(path)) {
       return
     }
-    store.doc = parse(await readBytes(path), store.steps)
+    store.doc = parse(await readText(path), store.steps)
   } catch (e: SettingsFileError) {
     await giveUp(path, e.kind, e.message)
   } catch (e: Error) {
@@ -329,7 +395,7 @@ async function save(): Promise<bool> {
   const path = join(dir!, FILE)
   const temporary = `${path}.tmp-${pid}`
   try {
-    await writeBytes(temporary, encode(encodeSettings(store.doc)))
+    await writeText(temporary, textOf(store.doc))
     await rename(temporary, path)
   } catch (e: Error) {
     try {

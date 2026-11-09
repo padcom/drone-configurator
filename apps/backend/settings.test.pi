@@ -1,7 +1,7 @@
-// The settings service, over a memory link, with the file in a directory of its own.
+// The settings service, over a memory link, with the file in a directory of its own. (The file's format is settings_json.test.pi.)
 import { describe, it, expect } from "std/test"
-import { Cbor, encode, integer } from "pico-desktop/communicator"
-import { exists, mkdir, readDir, readText, remove, writeBytes, writeText } from "std/fs"
+import { Cbor } from "pico-desktop/communicator"
+import { exists, mkdir, readDir, readText, remove, writeText } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import {
@@ -50,12 +50,6 @@ async function named(dir: string, prefix: string): Promise<string[]> throws Erro
     }
   }
   out
-}
-
-/// A settings document as a Cbor map with the given version and entries.
-function document(version: int, entries: Map<string, Cbor>): Cbor {
-  entries.set("version", integer(version))
-  Cbor.Dict(entries)
 }
 
 function summary(s: SettingsState): string {
@@ -147,7 +141,7 @@ async function refusesWhatBreaksTheLimits(): Promise<void> throws Error {
 /// A file that is not a settings document is set aside, not deleted; the app starts on defaults and says so.
 async function setsAsideACorruptFile(): Promise<void> throws Error {
   const dir = await fresh("corrupt")
-  await writeText(join(dir, FILE), "this is not CBOR at all")
+  await writeText(join(dir, FILE), "this is not JSON at all")
   useDirectoryForTests(dir)
   const f = await start()
   const s = await get(f)
@@ -165,9 +159,8 @@ async function setsAsideACorruptFile(): Promise<void> throws Error {
 /// A file from a newer version is set aside too, with its own code.
 async function setsAsideANewerFile(): Promise<void> throws Error {
   const dir = await fresh("newer")
-  const entries = new Map<string, Cbor>()
-  entries.set("future", Cbor.Text("something this version knows nothing about"))
-  await writeBytes(join(dir, FILE), encode(document(2, entries)))
+  // Shaped in a way this version could not read: the version is looked at first.
+  await writeText(join(dir, FILE), "{\"version\": 2, \"ui\": {\"layout\": [1, 2]}, \"future\": true}")
   useDirectoryForTests(dir)
   const f = await start()
   expect(summary(await get(f))).toBe("1 - - [] NEWER")
@@ -211,7 +204,7 @@ async function setsAsideAFileThatCannotBeRead(): Promise<void> throws Error {
 /// a save would replace it, and the settings in it with it.
 async function leavesAFileThatCannotBeMovedAside(): Promise<void> throws Error {
   const dir = await fresh("noaside")
-  await writeText(join(dir, FILE), "this is not CBOR at all")
+  await writeText(join(dir, FILE), "this is not JSON at all")
   useDirectoryForTests(dir)
   failToSetAsideForTests()
   const f = await start()
@@ -220,7 +213,7 @@ async function leavesAFileThatCannotBeMovedAside(): Promise<void> throws Error {
   expect((s.notice ?? "").includes("could not be moved aside")).toBe(true)
   expect(summary(await set(f, SettingsPatch { language: "sv" }))).toBe("1 sv - [] CORRUPT")
   expect((await named(dir, "settings")).join(",")).toBe(FILE)
-  expect(await readText(join(dir, FILE))).toBe("this is not CBOR at all")
+  expect(await readText(join(dir, FILE))).toBe("this is not JSON at all")
   await cleanUp(dir)
 }
 
@@ -258,23 +251,10 @@ async function keepsReservedKeysOut(): Promise<void> throws Error {
 /// An older document is brought up by the migrations, in order; with none for its version it is corrupt.
 async function migratesAnOlderFile(): Promise<void> throws Error {
   const dir = await fresh("migrate")
-  const old = new Map<string, Cbor>()
-  old.set("lang", Cbor.Text("de"))
-  old.set("ui", Cbor.List([]))
-  await writeBytes(join(dir, FILE), encode(document(0, old)))
-  const rename = new Migration(0, (doc: Cbor): Cbor => {
-    match (doc) {
-      Dict { entries } => {
-        const lang = entries.get("lang")
-        if (lang != null) {
-          entries.set("language", lang!)
-        }
-        entries.delete("lang")
-        entries.set("version", integer(1))
-        doc
-      },
-      _ => doc,
-    }
+  await writeText(join(dir, FILE), "{\"version\": 0, \"lang\": \"de\", \"ui\": []}")
+  // Version 0 called the language "lang".
+  const rename = new Migration(0, (text: string): string => {
+    text.replace("\"version\": 0", "\"version\": 1").replace("\"lang\"", "\"language\"")
   })
   useDirectoryForTests(dir, [rename])
   const f = await start()
@@ -288,9 +268,7 @@ async function migratesAnOlderFile(): Promise<void> throws Error {
 
 async function refusesAnOlderFileWithNoMigration(): Promise<void> throws Error {
   const dir = await fresh("nomigration")
-  const old = new Map<string, Cbor>()
-  old.set("ui", Cbor.List([]))
-  await writeBytes(join(dir, FILE), encode(document(0, old)))
+  await writeText(join(dir, FILE), "{\"version\": 0, \"ui\": []}")
   useDirectoryForTests(dir)
   const f = await start()
   expect(summary(await get(f))).toBe("1 - - [] CORRUPT")
