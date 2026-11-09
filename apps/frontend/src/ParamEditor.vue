@@ -1,10 +1,10 @@
 <template>
   <div id="detail">
-    <p v-if="!param" class="muted">Select a parameter to see or change it.</p>
+    <p v-if="!param" class="muted">{{ t('editor.select') }}</p>
     <template v-else>
       <h3>{{ param.id }}</h3>
       <p>
-        {{ param.type }} · index {{ param.index }} · on the vehicle:
+        {{ t('editor.summary', { type: param.type, index: param.index }) }}
         <strong>{{ param.value }}{{ details.units }}</strong>{{ details.named }}
       </p>
       <p v-if="details.description" class="muted">{{ details.description }}</p>
@@ -18,19 +18,21 @@
     <input
       id="draft"
       :value="fields.draft.value"
-      aria-label="New value"
+      :aria-label="t('editor.newValue')"
       autocomplete="off"
       @input="app.editDraft(($event.target as HTMLInputElement).value)"
     >
-    <button id="write" type="submit" :disabled="!writable">Write</button>
+    <button id="write" type="submit" :disabled="!writable">{{ t('editor.write') }}</button>
   </form>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { canWrite, detailsOf, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
+const { t } = useI18n()
 const { app, fields } = useConfigurator()
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const connected = computed(() => fields.connection.value.state === 'connected')
@@ -44,11 +46,11 @@ const writable = computed(() => canWrite({
 const details = computed(() => {
   const meta = param.value ? fields.metadata.value.get(param.value.id) : undefined
 
-  return detailsOf(meta, param.value?.value ?? 0)
+  return detailsOf(meta, param.value?.value ?? 0, t)
 })
 const notice = computed(() => {
   const { writing, lastWrite } = fields
 
-  return param.value ? writeNotice(writing.value, lastWrite.value, param.value.id) : null
+  return param.value ? writeNotice(writing.value, lastWrite.value, param.value.id, t) : null
 })
 </script>

@@ -1,7 +1,9 @@
-// What the parameter editor says, from plain values (no DOM). Vue's templates escape the text.
+// What the parameter editor says, from plain values (no DOM). Vue's templates escape the text; the words come from
+// the translations.
 import type { Param } from './generated/app'
 import type { State, WriteStatus } from './configurator'
 import type { ParamMeta } from './metadata'
+import type { Translate } from './telemetryCards'
 
 /** A line about the last write, and how it should look. */
 export interface WriteNotice {
@@ -64,33 +66,41 @@ function unitsOf(meta: ParamMeta | undefined): string {
  * One end of a range.
  *
  * @param limit the limit, if the metadata has it
- * @returns the number, or an ellipsis for an open end
+ * @param translate looks up a message
+ * @returns the number, or the sign for an open end
  */
-const bound = (limit: number | undefined) => limit ?? '…'
+const bound = (limit: number | undefined, translate: Translate) => limit ?? translate('editor.openEnd')
 
 /**
  * The range the metadata allows.
  *
  * @param meta what the metadata says about the parameter
  * @param units the unit, as `unitsOf` returns it
+ * @param translate looks up a message
  * @returns the sentence, or null without a limit
  */
-function rangeOf(meta: ParamMeta | undefined, units: string): string | null {
-  if (!meta || (meta.min === undefined && meta.max === undefined)) {
+function rangeOf(meta: ParamMeta | undefined, units: string, translate: Translate): string | null {
+  const { min, max } = meta ?? {}
+  if (min === undefined && max === undefined) {
     return null
   }
 
-  return `Range: ${bound(meta.min)} to ${bound(meta.max)}${units}`
+  return translate('editor.range', { min: bound(min, translate), max: bound(max, translate), units })
 }
 
 /**
  * The allowed values and their names.
  *
  * @param meta what the metadata says about the parameter
+ * @param translate looks up a message
  * @returns the sentence, or null without named values
  */
-function valuesOf(meta: ParamMeta | undefined): string | null {
-  return meta?.values ? `Values: ${Object.entries(meta.values).map(([value, name]) => `${value} ${name}`).join(', ')}` : null
+function valuesOf(meta: ParamMeta | undefined, translate: Translate): string | null {
+  if (!meta?.values) {
+    return null
+  }
+
+  return translate('editor.values', { list: Object.entries(meta.values).map(([value, name]) => `${value} ${name}`).join(', ') })
 }
 
 /**
@@ -98,12 +108,13 @@ function valuesOf(meta: ParamMeta | undefined): string | null {
  *
  * @param meta what the metadata says about the parameter
  * @param value the current value
+ * @param translate looks up a message
  * @returns the name in brackets with a space before it, or an empty string
  */
-function namedOf(meta: ParamMeta | undefined, value: number): string {
+function namedOf(meta: ParamMeta | undefined, value: number, translate: Translate): string {
   const name = meta?.values?.[String(value)]
 
-  return name ? ` (${name})` : ''
+  return name ? translate('editor.named', { name }) : ''
 }
 
 /**
@@ -111,17 +122,18 @@ function namedOf(meta: ParamMeta | undefined, value: number): string {
  *
  * @param meta what the metadata says about it, if anything
  * @param value its current value on the vehicle
+ * @param translate looks up a message
  * @returns the lines to show
  */
-export function detailsOf(meta: ParamMeta | undefined, value: number): ParamDetails {
+export function detailsOf(meta: ParamMeta | undefined, value: number, translate: Translate): ParamDetails {
   const units = unitsOf(meta)
 
   return {
     units,
-    named: namedOf(meta, value),
+    named: namedOf(meta, value, translate),
     description: meta?.description ?? null,
-    range: rangeOf(meta, units),
-    values: valuesOf(meta),
+    range: rangeOf(meta, units, translate),
+    values: valuesOf(meta, translate),
   }
 }
 
@@ -129,22 +141,18 @@ export function detailsOf(meta: ParamMeta | undefined, value: number): ParamDeta
  * How a finished write went.
  *
  * @param write the last write
+ * @param translate looks up a message
  * @returns the line to show
  */
-function outcomeOf(write: WriteStatus): WriteNotice {
+function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice {
   if (write.kind === 'verified') {
-    return { tone: 'ok', text: `Written and read back: ${write.value}.` }
+    return { tone: 'ok', text: translate('editor.verified', { value: write.value }) }
   }
   if (write.kind === 'changed') {
-    const { reported, asked } = write
-
-    return { tone: 'warn', text: `The vehicle reports ${reported}, not ${asked}: it changed or refused the value.` }
+    return { tone: 'warn', text: translate('editor.changed', { reported: write.reported, asked: write.asked }) }
   }
 
-  return {
-    tone: 'error',
-    text: `Not confirmed: ${write.message}. The value on the vehicle is unknown; download again to see it.`,
-  }
+  return { tone: 'error', text: translate('editor.failed', { message: write.message }) }
 }
 
 /**
@@ -153,22 +161,24 @@ function outcomeOf(write: WriteStatus): WriteNotice {
  * @param writing whether a write is under way
  * @param last how the last write went
  * @param id the selected parameter
+ * @param translate looks up a message
  * @returns the line, or null if there is nothing to say about this parameter
  */
-export function writeNotice(writing: boolean, last: WriteStatus | null, id: string): WriteNotice | null {
+export function writeNotice(writing: boolean, last: WriteStatus | null, id: string, translate: Translate): WriteNotice | null {
   if (writing) {
-    return { tone: '', text: 'Writing… waiting for the vehicle to report the new value.' }
+    return { tone: '', text: translate('editor.writing') }
   }
 
-  return last?.id === id ? outcomeOf(last) : null
+  return last?.id === id ? outcomeOf(last, translate) : null
 }
 
 /**
  * What the metadata line says when the last file loaded.
  *
  * @param count how many parameters the loaded metadata describes
+ * @param translate looks up a message
  * @returns the text, or an empty string without metadata
  */
-export function metadataText(count: number): string {
-  return count > 0 ? `Metadata for ${count} parameters` : ''
+export function metadataText(count: number, translate: Translate): string {
+  return count > 0 ? translate('params.metadata', { count }) : ''
 }

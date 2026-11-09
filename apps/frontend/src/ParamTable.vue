@@ -1,7 +1,13 @@
 <template>
   <p id="list-status" class="muted">{{ status }}</p>
   <table>
-    <thead><tr><th>Name</th><th>Value</th><th>Type</th></tr></thead>
+    <thead>
+      <tr>
+        <th>{{ t('params.column.name') }}</th>
+        <th>{{ t('params.column.value') }}</th>
+        <th>{{ t('params.column.type') }}</th>
+      </tr>
+    </thead>
     <tbody id="rows">
       <tr
         v-for="param in visible"
@@ -16,14 +22,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listStatusText, visibleParams } from './paramList'
 import { useConfigurator } from './useConfigurator'
 
+const { t } = useI18n()
 const { app, fields } = useConfigurator()
 const visible = computed(() => visibleParams(fields.params.value, fields.filter.value))
 const status = computed(() => {
   const { list, params, missing } = fields
 
-  return listStatusText(list.value, params.value.length, missing.value, visible.value.length)
+  const counts = { list: list.value, total: params.value.length, missing: missing.value, shown: visible.value.length }
+
+  return listStatusText(counts, t)
 })
 </script>

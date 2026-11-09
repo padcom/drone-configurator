@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import MetadataStatus from './MetadataStatus.vue'
 import { mockBackend } from './mock-backend'
-import { feed } from './testing'
+import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 
 /**
@@ -12,7 +12,7 @@ import { createConfigurator } from './useConfigurator'
  */
 async function lineOnNewConfigurator() {
   const handle = createConfigurator(mockBackend())
-  const wrapper = mount(MetadataStatus)
+  const wrapper = mount(MetadataStatus, withI18n)
   await flushPromises()
 
   return { wrapper, handle }

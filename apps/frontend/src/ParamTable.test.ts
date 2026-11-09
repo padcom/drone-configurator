@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ParamTable from './ParamTable.vue'
 import { mockBackend } from './mock-backend'
-import { feed } from './testing'
+import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { PARAMS, telemetryAt } from './fixtures'
 import type { Param } from './generated/app'
@@ -17,7 +17,7 @@ function tableWith(params: Param[]) {
   const handle = createConfigurator(mockBackend())
   feed(handle, { params, list: 'complete' })
 
-  return { wrapper: mount(ParamTable), handle }
+  return { wrapper: mount(ParamTable, withI18n), handle }
 }
 
 it('lists the parameters with their value and type, and says how many', () => {

@@ -1,14 +1,24 @@
 import { expect, it } from 'vitest'
 import { canDownload, listStatusText, visibleParams } from './paramList'
+import { translate } from './testing'
 import { PARAMS } from './fixtures'
 
 it('says how complete the list is', () => {
-  expect(listStatusText('complete', PARAMS.length, [], PARAMS.length)).toBe('12 parameters')
-  expect(listStatusText('complete', PARAMS.length, [], 2)).toBe('2 of 12 parameters')
-  expect(listStatusText('incomplete', PARAMS.length, [3, 7], 12)).toContain('2 never arrived (indexes 3, 7)')
-  expect(listStatusText('none', 0, [], 0)).toBe('Connect to download the parameters.')
-  expect(listStatusText('loading', 0, [], 0)).toBe('Downloading the parameters…')
-  expect(listStatusText('failed', 0, [], 0)).toBe('The download failed.')
+  const total = PARAMS.length
+  const counts = { list: 'complete' as const, total, missing: [], shown: total }
+
+  expect(listStatusText(counts, translate)).toBe('12 parameters')
+  expect(listStatusText({ ...counts, shown: 2 }, translate)).toBe('2 of 12 parameters')
+  expect(listStatusText({ ...counts, list: 'incomplete', missing: [3, 7] }, translate))
+    .toBe('12 parameters, but 2 never arrived (indexes 3, 7). Download again to retry.')
+})
+
+it('says what to do while there is no list', () => {
+  const none = { list: 'none' as const, total: 0, missing: [], shown: 0 }
+
+  expect(listStatusText(none, translate)).toBe('Connect to download the parameters.')
+  expect(listStatusText({ ...none, list: 'loading' }, translate)).toBe('Downloading the parameters…')
+  expect(listStatusText({ ...none, list: 'failed' }, translate)).toBe('The download failed.')
 })
 
 it('filters by name, case-insensitively and anywhere in the name', () => {

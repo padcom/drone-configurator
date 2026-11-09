@@ -52,5 +52,37 @@
   "confirm": {
     "cancel": "Cancel",
     "write": "Write"
+  },
+  "params": {
+    "filter": "Filter parameters",
+    "download": "Download",
+    "column": {
+      "name": "Name",
+      "value": "Value",
+      "type": "Type"
+    },
+    "status": {
+      "none": "Connect to download the parameters.",
+      "loading": "Downloading the parameters…",
+      "failed": "The download failed.",
+      "incomplete": "{total} parameters, but {missing} never arrived (indexes {indexes}). Download again to retry.",
+      "all": "{total} parameters",
+      "some": "{shown} of {total} parameters"
+    },
+    "metadata": "Metadata for {count} parameters"
+  },
+  "editor": {
+    "select": "Select a parameter to see or change it.",
+    "summary": "{type} · index {index} · on the vehicle:",
+    "named": " ({name})",
+    "range": "Range: {min} to {max}{units}",
+    "openEnd": "…",
+    "values": "Values: {list}",
+    "newValue": "New value",
+    "write": "Write",
+    "writing": "Writing… waiting for the vehicle to report the new value.",
+    "verified": "Written and read back: {value}.",
+    "changed": "The vehicle reports {reported}, not {asked}: it changed or refused the value.",
+    "failed": "Not confirmed: {message}. The value on the vehicle is unknown; download again to see it."
   }
 }
