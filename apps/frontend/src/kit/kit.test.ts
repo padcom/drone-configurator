@@ -108,18 +108,28 @@ describe('the guard on colours', () => {
   })
 })
 
-describe('kit.css', () => {
+/** The stylesheets of the kit's controls: every one is made of tokens. */
+const STYLESHEETS = ['kit.css', 'panels.css'] as const
+
+/** Custom properties that a component sets itself, not tokens: SplitPane.vue puts the first pane's size in `--split`. */
+const LOCAL = new Set(['--split'])
+
+describe.each(STYLESHEETS)('%s', name => {
+  const css = read(name)
+
   it('writes no colour out', () => {
-    expect(untokenised(kit)).toEqual([])
+    expect(untokenised(css)).toEqual([])
   })
 
   it('uses only tokens that tokens.css defines', () => {
-    const used = [...kit.matchAll(/var\((?<name>--[\w-]+)/gu)].map(match => match.groups?.name)
+    const used = [...css.matchAll(/var\((?<name>--[\w-]+)/gu)].map(match => match.groups?.name)
 
-    expect(used.length).toBeGreaterThan(20)
-    expect(used.filter(name => !defined.has(name))).toEqual([])
+    expect(used.length).toBeGreaterThan(15)
+    expect(used.filter(token => !defined.has(token) && !LOCAL.has(token ?? ''))).toEqual([])
   })
+})
 
+describe('kit.css', () => {
   it('keeps an invalid field red under the pointer (the hover rule is more specific than `.invalid` alone)', () => {
     const rule = /(?<selectors>[^{}]+)\{(?<body>[^{}]*)\}/gu
     const red = [...kit.matchAll(rule)].filter(m => m.groups?.body?.includes('border-color: var(--color-error)'))

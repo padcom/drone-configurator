@@ -1,0 +1,158 @@
+/*
+ * How the kit's choice and layout controls look (SegmentedControl, Tabs, SplitPane): only the tokens (tokens.css), so
+ * both themes work. Each has a hover, a keyboard focus (`:focus-visible`) and, where it can be turned off, a disabled
+ * state.
+ */
+
+/* SegmentedControl: native radio buttons, drawn as joined segments. */
+.kit-segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.kit-segmented .segment {
+  position: relative;
+  display: inline-flex;
+  min-height: calc(var(--control-height) - 2px);
+  align-items: center;
+  padding: 0 var(--control-padding-x);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.kit-segmented .segment + .segment {
+  border-left: 1px solid var(--color-border-strong);
+}
+
+/* The radio button is there for the browser, not for the eye. */
+.kit-segmented input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: inherit;
+}
+
+.kit-segmented .segment:hover:has(input:enabled:not(:checked)) {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
+}
+
+.kit-segmented .segment:has(input:checked) {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.kit-segmented .segment:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.kit-segmented .segment:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Tabs. */
+.kit-tabs .tablist {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.kit-tabs .tab {
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+}
+
+.kit-tabs .tab:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+}
+
+.kit-tabs .tab[aria-selected='true'] {
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+}
+
+.kit-tabs .tab:focus-visible,
+.kit-tabs .panel:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.kit-tabs .panel {
+  padding: var(--space-3) 0;
+}
+
+/* SplitPane: the first pane is `--split` of the whole; the bar between the panes is 6 px. */
+.kit-split {
+  display: grid;
+  min-height: 0;
+}
+
+.kit-split.row {
+  grid-template-columns: var(--split) 6px minmax(0, 1fr);
+}
+
+.kit-split.column {
+  grid-template-rows: var(--split) 6px minmax(0, 1fr);
+}
+
+.kit-split > .first,
+.kit-split > .second {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.kit-split .separator {
+  position: relative;
+  touch-action: none;
+  background: var(--color-border-strong);
+}
+
+/* The bar is 6 px wide, but it can be grabbed a few pixels either side of it. */
+.kit-split .separator::after {
+  position: absolute;
+  content: '';
+}
+
+.kit-split.row .separator::after {
+  inset: 0 -5px;
+}
+
+.kit-split.column .separator::after {
+  inset: -5px 0;
+}
+
+/* Dragging the bar must not select the text of the panes on the way. */
+.kit-split:has(.separator.dragging) {
+  user-select: none;
+}
+
+.kit-split.row .separator {
+  cursor: col-resize;
+}
+
+.kit-split.column .separator {
+  cursor: row-resize;
+}
+
+.kit-split .separator:hover,
+.kit-split .separator.dragging {
+  background: var(--color-accent);
+}
+
+.kit-split .separator:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
