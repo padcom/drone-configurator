@@ -108,3 +108,22 @@ When the backend loses the vehicle it reports `reconnecting` (`attempt`, `nextRe
   and "next in S s" is the delay the backend gave when it reported the try: it does not count down. The next report
   (the next try) replaces it. That is deliberate: a ticking counter would need a clock in the page that agrees with the
   backend's, for a number that is only a hint.
+
+## Settings
+
+What survives a restart is the backend's (`settings.get`, `settings.set`, the event `settings.changed`); the interface
+holds a copy in `useSettings()` (`settings`, `notice`) and does not read or write anything of its own in the browser.
+
+- **Starting.** `createConfigurator` reads the settings once. What they name is applied at once: a kept theme goes on the
+  page (`useTheme().set`), a kept language into the messages. What they do not name is left as it is (the system's theme,
+  English). Until they arrive the page shows the defaults; there is no wait for them.
+- **Choosing.** `settings.chooseTheme(next)` shows the theme first and then keeps it, so the page does not wait for the
+  backend; if it cannot be kept the theme stays shown and `notice` says so. The answer, and every `settings.changed`,
+  is applied the same way (`changed`), also when another window made the change.
+- **The notice** is the backend's English text about the file (set aside, newer, cannot be written) or the interface's
+  own when the backend cannot be asked. Dismissing it hides that text; the backend repeats it with every answer, and it
+  is not shown again unless it changes.
+- **The old language key.** An earlier version kept the language in `localStorage`. It is read once, moved into the
+  settings if they have no language yet, and removed. If the move fails the key stays and is tried next start.
+- **The interface's own entries** (`ui`, such as a layout) are for the screens that need them; they get their own
+  helpers when the first one does (the Flight data layout).

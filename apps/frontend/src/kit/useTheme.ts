@@ -1,6 +1,7 @@
 // The theme: light, dark, or whatever the system asks for. The choice is set on the root element as `data-theme`
-// (tokens.css reads it); "system" removes it, and the page follows `prefers-color-scheme`. It is kept in memory only
-// until the settings exist (#19): a new session starts on the system's theme.
+// (tokens.css reads it); "system" removes it, and the page follows `prefers-color-scheme`. This is the page's state
+// only: keeping the choice for the next start is the settings' business (useSettings applies the kept theme and saves a
+// new one), so a page without settings starts on the system's theme.
 import { type ComputedRef, type Ref, computed, readonly, ref } from 'vue'
 
 /** What the user chose. */
