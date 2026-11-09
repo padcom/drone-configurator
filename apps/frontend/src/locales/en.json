@@ -35,18 +35,37 @@
     "missing": "—",
     "armed": "ARMED",
     "disarmed": "disarmed",
+    "stale": "stale, {seconds} s old",
     "card": {
       "mode": "Mode",
       "state": "State",
       "battery": "Battery",
       "attitude": "Attitude",
+      "position": "Position",
+      "gps": "GPS",
+      "speed": "Speed",
       "heartbeat": "Heartbeat"
     },
     "value": {
       "voltage": "{voltage} V",
       "voltageAndCharge": "{voltage} V · {percent}%",
       "attitude": "roll {roll}° · pitch {pitch}° · yaw {yaw}°",
+      "position": "{lat}° {lon}° · {height} m above home",
+      "gps": "{fix} · {satellites} satellites",
+      "speed": "ground {ground} m/s · air {air} m/s · climb {climb} m/s",
       "heartbeatAge": "{ms} ms ago"
+    },
+    "fix": {
+      "nogps": "No GPS",
+      "nofix": "No fix",
+      "fix2d": "2D fix",
+      "fix3d": "3D fix",
+      "dgps": "DGPS fix",
+      "rtkfloat": "RTK float",
+      "rtkfixed": "RTK fixed",
+      "static": "Static fix",
+      "ppp": "PPP fix",
+      "other": "Unknown fix"
     }
   },
   "confirm": {

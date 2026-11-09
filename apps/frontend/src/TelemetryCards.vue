@@ -5,7 +5,7 @@
     v-else
     :key="card.label"
     class="card"
-    :class="{ warn: card.warn }"
+    :class="{ warn: card.warn, stale: card.stale }"
   ><span>{{ card.label }}</span><strong>{{ card.value }}</strong></div>
 </template>
 
