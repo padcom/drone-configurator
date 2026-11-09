@@ -115,8 +115,28 @@
 }
 
 .kit-split .separator {
+  position: relative;
   touch-action: none;
   background: var(--color-border-strong);
+}
+
+/* The bar is 6 px wide, but it can be grabbed a few pixels either side of it. */
+.kit-split .separator::after {
+  position: absolute;
+  content: '';
+}
+
+.kit-split.row .separator::after {
+  inset: 0 -5px;
+}
+
+.kit-split.column .separator::after {
+  inset: -5px 0;
+}
+
+/* Dragging the bar must not select the text of the panes on the way. */
+.kit-split:has(.separator.dragging) {
+  user-select: none;
 }
 
 .kit-split.row .separator {

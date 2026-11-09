@@ -126,6 +126,43 @@ it('goes to the first tab with Home, and moves the focus with it', async () => {
   expect(document.activeElement).toBe(first?.element)
 })
 
+it('reaches the first tab when the model names none: the default is empty, and a stale id is no tab', () => {
+  for (const modelValue of ['', 'gone']) {
+    const tabs = tabsAt(modelValue)
+
+    expect(tabs.findAll('[role="tab"]').map(t => t.attributes('tabindex'))).toEqual(['0', '-1', '-1'])
+    expect(tabs.findAll('[role="tab"]').map(t => t.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+    expect(tabs.findAll('[role="tabpanel"]').map(p => p.attributes('hidden') === undefined)).toEqual([true, false, false])
+  }
+})
+
+/**
+ * Presses a key on an element, the way a browser does, so that whether it was taken (default prevented) can be seen.
+ *
+ * @param target the element with the focus
+ * @param init the key and its modifiers
+ * @returns the event
+ */
+function press(target: Element, init: KeyboardEventInit): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true })
+  target.dispatchEvent(event)
+
+  return event
+}
+
+it('leaves Alt, Ctrl and Meta with an arrow to the browser: Alt+Left is Back, not "previous tab"', () => {
+  const tabs = tabsAt('two')
+  const [, second] = tabs.findAll('[role="tab"]')
+
+  for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
+    const event = press(second?.element as Element, { key: 'ArrowLeft', [modifier]: true })
+
+    expect(event.defaultPrevented, modifier).toBe(false)
+  }
+  expect(tabs.emitted('update:modelValue')).toBeUndefined()
+  expect(press(second?.element as Element, { key: 'ArrowLeft' }).defaultPrevented).toBe(true)
+})
+
 it('ignores the keys that are not for tabs', async () => {
   const tabs = tabsAt('one')
 
@@ -187,6 +224,35 @@ it('moves the bar by 5 % with the arrow keys across the split, and not with the 
   expect(column.emitted('update:modelValue')).toEqual([[55]])
 })
 
+it('leaves Alt, Ctrl and Meta with an arrow to the browser: Alt+Left is Back, not "smaller"', () => {
+  const split = splitWith()
+  const bar = split.find('[role="separator"]').element
+
+  for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
+    expect(press(bar, { key: 'ArrowLeft', [modifier]: true }).defaultPrevented, modifier).toBe(false)
+  }
+  expect(split.emitted('update:modelValue')).toBeUndefined()
+  expect(press(bar, { key: 'ArrowLeft' }).defaultPrevented).toBe(true)
+})
+
+it('says which pane the separator controls', () => {
+  const split = splitWith()
+  const controls = split.find('[role="separator"]').attributes('aria-controls')
+
+  expect(controls).toBeTruthy()
+  expect(split.find('.first').attributes('id')).toBe(controls)
+})
+
+it('shows a size from outside that is beyond the limits at the limit, and moves from there', async () => {
+  const split = splitWith({ modelValue: 150 })
+  const bar = split.find('[role="separator"]')
+
+  expect(bar.attributes('aria-valuenow')).toBe('90')
+  expect(split.attributes('style')).toContain('--split: 90%')
+  await bar.trigger('keydown', { key: 'ArrowLeft' })
+  expect(split.emitted('update:modelValue')).toEqual([[85]])
+})
+
 it('keeps the first pane between the smallest and the largest size', async () => {
   const split = splitWith({ modelValue: 88, min: 20, max: 90 })
   const bar = split.find('[role="separator"]')
@@ -206,8 +272,13 @@ it('keeps the first pane between the smallest and the largest size', async () =>
  * @param at the pointer's coordinates
  * @param at.clientX across the page
  * @param at.clientY down the page
+ * @param at.button which button (0, the main one, unless said)
  */
-async function point(bar: ReturnType<VueWrapper['find']>, type: string, at: { clientX?: number, clientY?: number } = {}) {
+async function point(
+  bar: ReturnType<VueWrapper['find']>,
+  type: string,
+  at: { clientX?: number, clientY?: number, button?: number } = {},
+) {
   bar.element.dispatchEvent(new MouseEvent(type, { ...at, bubbles: true }))
   await nextTick()
 }
@@ -227,6 +298,19 @@ it('follows the pointer while the bar is dragged, and stops when it is let go', 
   // (350 - 100) / 1000 = 25 %; the far right and the far left are held at the largest and the smallest.
   expect(split.emitted('update:modelValue')).toEqual([[25], [90], [10]])
   expect(bar.classes()).not.toContain('dragging')
+})
+
+it('drags with the main button only: a right or a middle press does not start it', async () => {
+  const split = splitWith()
+  const bar = split.find('[role="separator"]')
+
+  await point(bar, 'pointerdown', { clientX: 600, button: 2 })
+  await point(bar, 'pointermove', { clientX: 350 })
+  await point(bar, 'pointerdown', { clientX: 600, button: 1 })
+  await point(bar, 'pointermove', { clientX: 350 })
+
+  expect(bar.classes()).not.toContain('dragging')
+  expect(split.emitted('update:modelValue')).toBeUndefined()
 })
 
 it('follows the pointer up and down in a split that is stacked', async () => {

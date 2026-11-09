@@ -1,14 +1,15 @@
 <template>
-  <div ref="root" class="kit-split" :class="direction" :style="{ '--split': `${model}%` }">
-    <div class="first"><slot name="first" /></div>
+  <div ref="root" class="kit-split" :class="direction" :style="{ '--split': `${size}%` }">
+    <div :id="firstId" class="first"><slot name="first" /></div>
     <div
       class="separator"
       :class="{ dragging }"
       role="separator"
       tabindex="0"
       :aria-label="label"
+      :aria-controls="firstId"
       :aria-orientation="direction === 'row' ? 'vertical' : 'horizontal'"
-      :aria-valuenow="model"
+      :aria-valuenow="size"
       :aria-valuemin="min"
       :aria-valuemax="max"
       @keydown="resize"
@@ -22,12 +23,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, useId } from 'vue'
+import { isPlainKey } from './keys'
 
 // Two panes with a bar between them. The bar is a separator that can be focused: the arrow keys across the split move
-// it by 5 %, Home and End go to the smallest and the largest first pane, and it can be dragged with the pointer.
-// `aria-valuenow` is the size of the first pane in percent.
+// it by 5 %, Home and End go to the smallest and the largest first pane, and it can be dragged with the pointer (the
+// main button). `aria-valuenow` is the size of the first pane in percent, and the bar controls that pane. Keys with Alt,
+// Ctrl or Meta are not the bar's (Alt+Left is the browser's Back). A size given from outside that is beyond the limits
+// is shown at the limit.
 const model = defineModel<number>({ default: 50 })
+const firstId = useId()
 
 const props = withDefaults(defineProps<{
   /** What the bar is for a screen reader ("Resize the panes"). */
@@ -45,12 +50,25 @@ const root = ref<HTMLElement | null>(null)
 const dragging = ref(false)
 
 /**
+ * A size kept between the smallest and the largest.
+ *
+ * @param percent the size
+ * @returns the size, whole, within the limits
+ */
+function kept(percent: number): number {
+  return Math.min(props.max, Math.max(props.min, Math.round(percent)))
+}
+
+/** The size in effect: the model, held within the limits. */
+const size = computed(() => kept(model.value))
+
+/**
  * Sets the size of the first pane, kept between the smallest and the largest.
  *
  * @param percent the size asked for
  */
 function setSize(percent: number): void {
-  model.value = Math.min(props.max, Math.max(props.min, Math.round(percent)))
+  model.value = kept(percent)
 }
 
 /**
@@ -63,8 +81,8 @@ function target(key: string): ((size: number) => number) | undefined {
   const forward = props.direction === 'row' ? 'ArrowRight' : 'ArrowDown'
   const back = props.direction === 'row' ? 'ArrowLeft' : 'ArrowUp'
   const keys: Record<string, (size: number) => number> = {
-    [forward]: size => size + STEP,
-    [back]: size => size - STEP,
+    [forward]: from => from + STEP,
+    [back]: from => from - STEP,
     Home: () => props.min,
     End: () => props.max,
   }
@@ -78,19 +96,23 @@ function target(key: string): ((size: number) => number) | undefined {
  * @param event the key press on the bar
  */
 function resize(event: KeyboardEvent): void {
-  const next = target(event.key)
+  const next = isPlainKey(event) ? target(event.key) : undefined
   if (next) {
     event.preventDefault()
-    setSize(next(model.value))
+    setSize(next(size.value))
   }
 }
 
 /**
- * Starts a drag: the pointer is captured, so the bar follows it also outside its own few pixels.
+ * Starts a drag with the main button (a right click is the context menu's): the pointer is captured, so the bar
+ * follows it also outside its own few pixels.
  *
  * @param event the press on the bar
  */
 function start(event: PointerEvent): void {
+  if (event.button !== 0) {
+    return
+  }
   const bar = event.currentTarget as HTMLElement
 
   dragging.value = true
