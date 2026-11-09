@@ -4,7 +4,7 @@ import TelemetryCards from './TelemetryCards.vue'
 import { mockBackend } from './mock-backend'
 import { feed, nextFrame, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
-import { telemetryAt } from './fixtures'
+import { VEHICLE, telemetryAt } from './fixtures'
 import type { Telemetry } from './generated/app'
 import { STALE_MS, isStale } from './telemetryCards'
 
@@ -115,6 +115,29 @@ it('does not call a value stale at exactly the limit, or a value without an age'
   const wrapper = await cardsWith({ ...telemetryAt(10), battery: { voltage: 12.5, cells: [], ageMs: STALE_MS } })
 
   expect(wrapper.findAll('.card.stale').length).toBe(0)
+})
+
+it('marks every card as the last that was heard while the link is being brought back, and only then', async () => {
+  const handle = createConfigurator(mockBackend())
+  const wrapper = mount(TelemetryCards, withI18n)
+  await flushPromises()
+  feed(handle, { telemetry: telemetryAt(10), connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await nextFrame()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.findAll('.card.stale')).toHaveLength(0)
+
+  feed(handle, { connection: { state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 1, nextRetryMs: 1000 } })
+  await wrapper.vm.$nextTick()
+  const cards = wrapper.findAll('.card')
+  expect(cards.length).toBeGreaterThan(4)
+  expect(wrapper.findAll('.card.stale')).toHaveLength(cards.length)
+  expect(cards.every(card => card.text().includes('last heard, reconnecting'))).toBe(true)
+  // The values are still the last that were heard, not blanked.
+  expect(wrapper.text()).toContain('LOITER')
+
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE }, resumed: true } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.findAll('.card.stale')).toHaveLength(0)
 })
 
 it('shows the mode as text, not markup', async () => {

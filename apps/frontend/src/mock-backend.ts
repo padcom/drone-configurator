@@ -25,6 +25,8 @@ export interface MockControl {
   restart?: () => void
   /** The vehicle announces a parameter changed elsewhere (as by another ground station). */
   announce?: (id: string, value: number) => void
+  /** The backend reports a new connection state on its own (the link was lost, a try failed, it came back). */
+  connection?: (connection: Connection) => void
 }
 
 class MockVehicle {
@@ -46,6 +48,7 @@ class MockVehicle {
           this.send({ k: 'event', n: 'params.changed', p: { ...param } })
         }
       }
+      options.control.connection = connection => this.push(connection)
     }
   }
 
@@ -123,11 +126,16 @@ class MockVehicle {
     }
   }
 
-  update(connection: Connection, ok: (p: Envelope['p']) => void) {
+  /** Tells every watcher of the connection that it is now `connection`. */
+  push(connection: Connection) {
     this.connection = connection
     for (const s of this.watchers) {
       this.send({ k: 'event', n: 'vehicle.connection', s, p: connection })
     }
+  }
+
+  update(connection: Connection, ok: (p: Envelope['p']) => void) {
+    this.push(connection)
     ok(connection)
   }
 

@@ -182,6 +182,18 @@ function groupCards(t: Telemetry, translate: Translate, format: Format): Card[] 
 }
 
 /**
+ * The cards of a vehicle that is not heard from while the link is brought back: what they say is the last that was
+ * heard, so each one says so (in words, and marked, as a stale value is).
+ *
+ * @param card a card
+ * @param translate looks up a message
+ * @returns the card, marked stale
+ */
+function silent(card: Card, translate: Translate): Card {
+  return { ...card, value: `${card.value} · ${translate('telemetry.reconnecting')}`, warn: true, stale: true }
+}
+
+/**
  * Heartbeat, mode, armed state, battery and attitude as cards, then the cards of the other groups that have data.
  *
  * @param t the telemetry
@@ -189,7 +201,7 @@ function groupCards(t: Telemetry, translate: Translate, format: Format): Card[] 
  * @param format formats numbers
  * @returns the cards, in display order
  */
-export function cardsFor(t: Telemetry, translate: Translate, format: Format): Card[] {
+function liveCards(t: Telemetry, translate: Translate, format: Format): Card[] {
   const heartbeatStale = isStale(t.heartbeatAgeMs)
 
   return [
@@ -210,4 +222,20 @@ export function cardsFor(t: Telemetry, translate: Translate, format: Format): Ca
       stale: heartbeatStale,
     },
   ]
+}
+
+/**
+ * The cards for the telemetry: the live ones, or, while the backend is bringing the link back (`reconnecting`), the
+ * same with every one of them marked as the last that was heard.
+ *
+ * @param t the telemetry
+ * @param translate looks up a message
+ * @param format formats numbers
+ * @param reconnecting whether the link is being brought back
+ * @returns the cards, in display order
+ */
+export function cardsFor(t: Telemetry, translate: Translate, format: Format, reconnecting = false): Card[] {
+  const cards = liveCards(t, translate, format)
+
+  return reconnecting ? cards.map(card => silent(card, translate)) : cards
 }

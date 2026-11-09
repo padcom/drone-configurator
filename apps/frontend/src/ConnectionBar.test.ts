@@ -39,6 +39,40 @@ it('shows the state, the vehicle and why the last attempt failed, as text', asyn
   expect(wrapper.find('#connection oops').exists()).toBe(false)
 })
 
+it('says that the link is being brought back, which try this is and when the next is, with the vehicle still shown', async () => {
+  const { wrapper, feed } = barWithSpies()
+
+  feed({ connection: { state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 3, nextRetryMs: 3500 } })
+  await wrapper.vm.$nextTick()
+
+  const text = wrapper.get('#connection').text()
+  expect(text).toContain('reconnecting')
+  expect(text).toContain('try 3, the next in 4 s')
+  expect(text).toContain('QUADROTOR')
+  expect(wrapper.get('#connection .badge').classes()).toContain('reconnecting')
+})
+
+it('says that a link that came back is the same vehicle, only when it is', async () => {
+  const { wrapper, feed } = barWithSpies()
+
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE }, resumed: true } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connection').text()).toContain('reconnected to the same vehicle')
+
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connection').text()).not.toContain('same vehicle')
+})
+
+it('says nothing about tries when the link is up', async () => {
+  const { wrapper, feed } = barWithSpies()
+
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#connection').text()).not.toContain('try ')
+})
+
 it('is made of the kit\'s controls, with the same ids and a primary Connect', () => {
   const { wrapper } = barWithSpies()
 

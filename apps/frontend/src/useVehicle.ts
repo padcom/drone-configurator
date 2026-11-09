@@ -109,10 +109,21 @@ class VehicleLink implements Vehicle {
       this.listeners.forEach(listener => listener(true))
     }
     if (next.state !== 'connected') {
-      // What's shown may no longer be the vehicle's: keep it visible, but don't offer edits.
-      this.telemetry.value = null
-      this.listeners.forEach(listener => listener(false))
+      this.sessionEnded(next)
     }
+  }
+
+  /**
+   * The link is not up. What's shown may no longer be the vehicle's: keep it visible, but don't offer edits. While the
+   * backend is bringing the link back (`reconnecting`) the last telemetry stays too, and the cards mark it stale.
+   *
+   * @param next the connection, in any state but `connected`
+   */
+  private sessionEnded(next: Connection): void {
+    if (next.state !== 'reconnecting') {
+      this.telemetry.value = null
+    }
+    this.listeners.forEach(listener => listener(false))
   }
 
   onSession(listener: SessionListener): void {

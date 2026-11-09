@@ -1,6 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { createBackendClient } from './backend/client'
-import { mockBackend } from './mock-backend'
+import { VEHICLE } from './fixtures'
+import { type MockControl, mockBackend } from './mock-backend'
 import { useVehicle } from './useVehicle'
 
 /**
@@ -10,14 +11,15 @@ import { useVehicle } from './useVehicle'
  */
 function rig() {
   const failures: (string | null)[] = []
+  const control: MockControl = {}
   const vehicle = useVehicle({
-    client: createBackendClient(mockBackend({ telemetryMs: 5 })),
+    client: createBackendClient(mockBackend({ telemetryMs: 5, control })),
     fail: (message: string | null) => failures.push(message),
   })
   const sessions = vi.fn()
   vehicle.onSession(sessions)
 
-  return { vehicle, sessions, failures }
+  return { vehicle, sessions, failures, control }
 }
 
 it('connects to the simulator, shows the vehicle, and says the vehicle is connected once', async () => {
@@ -60,6 +62,49 @@ it('follows the telemetry once watching, and drops it on disconnect', async () =
   expect(vehicle.connection.value.state).toBe('disconnected')
   expect(vehicle.telemetry.value).toBeNull()
   expect(sessions).toHaveBeenLastCalledWith(false)
+})
+
+it('keeps the vehicle and the last telemetry while the backend brings the link back, but offers no edits', async () => {
+  const { vehicle, sessions, control } = rig()
+  await vehicle.watch()
+  await vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(vehicle.telemetry.value?.mode).toBeDefined())
+  const last = vehicle.telemetry.value
+
+  control.connection?.({ state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 2, nextRetryMs: 2000 })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('reconnecting'))
+
+  expect(vehicle.connection.value).toMatchObject({ vehicle: { sysid: 1 }, attempt: 2, nextRetryMs: 2000 })
+  expect(vehicle.telemetry.value).toBe(last)
+  expect(sessions).toHaveBeenLastCalledWith(false)
+})
+
+it('drops the telemetry when the link is given up after all', async () => {
+  const { vehicle, control } = rig()
+  await vehicle.watch()
+  await vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(vehicle.telemetry.value).not.toBeNull())
+  control.connection?.({ state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 1, nextRetryMs: 1000 })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('reconnecting'))
+
+  control.connection?.({ state: 'disconnected' })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('disconnected'))
+
+  expect(vehicle.telemetry.value).toBeNull()
+})
+
+it('starts a session again when the link comes back, and says whether it is the same vehicle', async () => {
+  const { vehicle, sessions, control } = rig()
+  await vehicle.watch()
+  await vehicle.connect({ transport: 'simulator' })
+  control.connection?.({ state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 1, nextRetryMs: 1000 })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('reconnecting'))
+
+  control.connection?.({ state: 'connected', vehicle: { ...VEHICLE }, resumed: true })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('connected'))
+
+  expect(vehicle.connection.value.resumed).toBe(true)
+  expect(sessions.mock.calls.filter(([on]) => on === true)).toHaveLength(2)
 })
 
 it('ends the session, keeping the vehicle shown, when the backend restarts or stops, and says why', async () => {

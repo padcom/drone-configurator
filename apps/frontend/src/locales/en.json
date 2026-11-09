@@ -81,8 +81,11 @@
       "disconnected": "disconnected",
       "connecting": "connecting",
       "connected": "connected",
-      "lost": "lost"
+      "lost": "lost",
+      "reconnecting": "reconnecting"
     },
+    "retrying": "try {attempt}, the next in {seconds} s",
+    "resumed": "reconnected to the same vehicle",
     "vehicle": " · system {sysid}/{compid} · {type} · {autopilot}",
     "transport": {
       "label": "Transport",
@@ -106,6 +109,7 @@
     "armed": "ARMED",
     "disarmed": "disarmed",
     "stale": "stale, {seconds} s old",
+    "reconnecting": "last heard, reconnecting",
     "card": {
       "mode": "Mode",
       "state": "State",
