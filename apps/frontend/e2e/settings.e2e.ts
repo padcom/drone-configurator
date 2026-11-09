@@ -26,7 +26,7 @@ afterAll(() => {
 })
 
 it('keeps the theme chosen with the switch across a restart of the application', async () => {
-  const file = join(home, 'data', 'pico-desktop', 'apps', APP_ID, 'settings.cbor')
+  const file = join(home, 'data', 'pico-desktop', 'apps', APP_ID, 'settings.json')
   const first = await launchApp()
   await first.waitForText('#connection', 'disconnected')
   await chooseTheme(first, 'dark')
