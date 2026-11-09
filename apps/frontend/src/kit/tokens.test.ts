@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { contrast, luminance } from './contrast'
 
 const AA_TEXT = 4.5
+const AA_UI = 3
 
 type Theme = Record<string, string>
 
@@ -33,19 +34,42 @@ function blockOf(groups: Record<string, string | undefined>): [string, Theme] {
 }
 
 /**
- * The blocks of tokens.css by selector, each as its custom properties.
+ * The rules of tokens.css, without its comments: a selector and a body each.
  *
- * @returns the blocks
+ * @returns the rules' named groups
  */
-function readBlocks(): Map<string, Theme> {
+function readRules(): Record<string, string | undefined>[] {
   const text = readFileSync(fileURLToPath(new URL('tokens.css', import.meta.url)), 'utf8')
   const css = text.replaceAll(/\/\*[^]*?\*\//gu, '')
-  const rules = [...css.matchAll(/(?<selector>[^{}]+)\{(?<body>[^{}]*)\}/gu)]
 
-  return new Map(rules.map(rule => blockOf(rule.groups ?? {})))
+  return [...css.matchAll(/(?<selector>[^{}]+)\{(?<body>[^{}]*)\}/gu)].map(rule => rule.groups ?? {})
 }
 
-const blocks = readBlocks()
+/**
+ * The `color-scheme` that a body declares.
+ *
+ * @param body the text between the braces
+ * @returns the scheme, or an empty string
+ */
+function schemeIn(body: string): string {
+  const found = /color-scheme\s*:\s*(?<scheme>[^;]+);/u.exec(body)
+
+  return (found?.groups?.scheme ?? '').trim()
+}
+
+/**
+ * A rule's `color-scheme`.
+ *
+ * @param groups the selector and the body of a rule
+ * @returns the selector, and what the rule says its colour scheme is (empty: nothing)
+ */
+function schemeOf(groups: Record<string, string | undefined>): [string, string] {
+  return [(groups.selector ?? '').trim(), schemeIn(groups.body ?? '')]
+}
+
+const rules = readRules()
+const blocks = new Map(rules.map(rule => blockOf(rule)))
+const schemes = new Map(rules.map(rule => schemeOf(rule)))
 
 const light = blocks.get(':root') ?? {}
 const dark = blocks.get(`:root[data-theme='dark']`) ?? {}
@@ -79,19 +103,29 @@ describe('the design tokens', () => {
     expect(Object.keys(dark).sort()).toEqual([...colours].sort())
   })
 
-  it('give the dark theme the same colours whether the system asks for it or the user chose it', () => {
-    expect(systemDark).toEqual(dark)
-  })
-
-  it('differ between the themes (a dark theme is not the light one)', () => {
-    expect(luminance(dark['--color-bg'] ?? '#ffffff')).toBeLessThan(0.1)
-    expect(luminance(light['--color-bg'] ?? '#000000')).toBeGreaterThan(0.9)
-  })
-
   it('have the spacing, type, shape and density the components use', () => {
     for (const name of ['--space-1', '--space-5', '--font-body', '--font-size-md', '--radius-md', '--control-height']) {
       expect(light[name], name).toBeTruthy()
     }
+  })
+})
+
+describe('the themes', () => {
+  it('tell the browser which scheme is in effect, so its own controls and scrollbars match the page', () => {
+    // No choice: either, as the system says. A chosen theme (also one the system is not in) fixes it.
+    expect(schemes.get(':root')).toBe('light dark')
+    expect(schemes.get(`:root[data-theme='light']`)).toBe('light')
+    expect(schemes.get(`:root[data-theme='dark']`)).toBe('dark')
+    expect(schemes.get(`:root:not([data-theme='light'])`)).toBe('dark')
+  })
+
+  it('give the dark theme the same colours whether the system asks for it or the user chose it', () => {
+    expect(systemDark).toEqual(dark)
+  })
+
+  it('differ (a dark theme is not the light one)', () => {
+    expect(luminance(dark['--color-bg'] ?? '#ffffff')).toBeLessThan(0.1)
+    expect(luminance(light['--color-bg'] ?? '#000000')).toBeGreaterThan(0.9)
   })
 })
 
@@ -104,6 +138,13 @@ describe.each([['light', light], ['dark', dark]] as const)('the contrast in the 
       expect(ratio, `${text} on ${background}`).toBeGreaterThanOrEqual(AA_TEXT)
     },
   )
+
+  // WCAG 2.1, 1.4.11: what shows where a control is (its edge) needs 3 : 1 against what is around it.
+  it.each(['--color-bg', '--color-surface'])('a control\'s edge (--color-border-strong) on %s is 3 : 1', background => {
+    const ratio = contrast(theme['--color-border-strong'] ?? '#000000', theme[background] ?? '#000000')
+
+    expect(ratio).toBeGreaterThanOrEqual(AA_UI)
+  })
 })
 
 it('measures contrast as WCAG 2 does', () => {
