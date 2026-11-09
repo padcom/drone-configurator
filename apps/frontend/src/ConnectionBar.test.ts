@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ConnectionBar from './ConnectionBar.vue'
 import { mockBackend } from './mock-backend'
 import type { State } from './configurator'
+import { withI18n } from './testing'
 import { createConfigurator, publish } from './useConfigurator'
 import { VEHICLE } from './fixtures'
 
@@ -22,7 +23,7 @@ function barWithSpies() {
     publish(fields, app.state)
   }
 
-  return { wrapper: mount(ConnectionBar), feed, connect, disconnect, listPorts }
+  return { wrapper: mount(ConnectionBar, withI18n), feed, connect, disconnect, listPorts }
 }
 
 it('shows the state, the vehicle and why the last attempt failed, as text', async () => {

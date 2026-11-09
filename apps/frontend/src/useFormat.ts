@@ -1,9 +1,13 @@
 // One place for numbers, dates and units, in the language of the interface (Intl-based), so components never call
-// `toFixed` or `toLocaleString` themselves.
+// `toFixed` or `toLocaleString` themselves. The language is read each time something is formatted, so the text
+// follows a language switch; the Intl formatters are made once per language and number of decimals.
 import { i18n } from './i18n'
 
 /** Keeps a number and its unit on one line. */
 const NO_BREAK_SPACE = String.fromCodePoint(0xA0)
+
+/** A language tag, or something that tells the current one. */
+export type Locale = string | (() => string)
 
 /** How a value is shown to the user. */
 export interface Format {
@@ -13,6 +17,45 @@ export interface Format {
   dateTime: (value: Date) => string
   /** A quantity: the number, a no-break space and the unit. */
   quantity: (value: number, unit: string, digits?: number) => string
+}
+
+const numberFormats = new Map<string, Intl.NumberFormat>()
+const dateFormats = new Map<string, Intl.DateTimeFormat>()
+
+/**
+ * The number formatter for a language and a number of decimals.
+ *
+ * @param locale a BCP 47 language tag
+ * @param digits how many decimals to show
+ * @returns the formatter, made on first use
+ */
+function numberFormat(locale: string, digits: number): Intl.NumberFormat {
+  const key = `${locale}:${digits}`
+  const known = numberFormats.get(key)
+  if (known) {
+    return known
+  }
+  const made = new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  numberFormats.set(key, made)
+
+  return made
+}
+
+/**
+ * The date and time formatter for a language.
+ *
+ * @param locale a BCP 47 language tag
+ * @returns the formatter, made on first use
+ */
+function dateFormat(locale: string): Intl.DateTimeFormat {
+  const known = dateFormats.get(locale)
+  if (known) {
+    return known
+  }
+  const made = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' })
+  dateFormats.set(locale, made)
+
+  return made
 }
 
 /**
@@ -30,18 +73,16 @@ export function preferredUnit(value: number, unit: string): { value: number, uni
 /**
  * Formats numbers, dates and quantities for a language.
  *
- * @param locale a BCP 47 language tag, such as `en`
+ * @param locale a BCP 47 language tag such as `en`, or a function that returns the current one
  * @returns the formatters
  */
-export function formatFor(locale: string): Format {
-  const number = (value: number, digits = 0) => new Intl.NumberFormat(locale, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value)
+export function formatFor(locale: Locale): Format {
+  const current = () => typeof locale === 'function' ? locale() : locale
+  const number = (value: number, digits = 0) => numberFormat(current(), digits).format(value)
 
   return {
     number,
-    dateTime: value => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'medium' }).format(value),
+    dateTime: value => dateFormat(current()).format(value),
     quantity: (value, unit, digits = 0) => {
       const shown = preferredUnit(value, unit)
 
@@ -51,10 +92,10 @@ export function formatFor(locale: string): Format {
 }
 
 /**
- * The formatters for the language the interface is in now.
+ * The formatters for the language the interface is in, now and after it is switched.
  *
  * @returns the formatters
  */
 export function useFormat(): Format {
-  return formatFor(i18n.global.locale.value)
+  return formatFor(() => i18n.global.locale.value)
 }

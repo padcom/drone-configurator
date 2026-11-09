@@ -22,7 +22,9 @@ export default defineConfig({
   plugins: [
     vue(),
     vueI18n({
-      include: [fileURLToPath(new URL('src/locales/**', import.meta.url))],
+      // Glob patterns use forward slashes: on Windows the path from fileURLToPath has backslashes, which would
+      // make nothing match (and the messages would not be precompiled).
+      include: [fileURLToPath(new URL('src/locales/**', import.meta.url)).replaceAll('\\', '/')],
       runtimeOnly: true,
       compositionOnly: true,
       fullInstall: false,

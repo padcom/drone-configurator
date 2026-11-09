@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { mockBackend } from './mock-backend'
+import { withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 
 // jsdom has no showModal(): this stand-in opens the dialog, and close() fires the `close` event.
@@ -25,7 +26,7 @@ beforeEach(() => {
  */
 async function asked() {
   const { confirmation } = createConfigurator(mockBackend())
-  const wrapper = mount(ConfirmDialog, { attachTo: document.body })
+  const wrapper = mount(ConfirmDialog, { ...withI18n, attachTo: document.body })
   const answer = vi.fn()
   confirmation.value = { question: 'Set X from 1 to 2?', answer }
   await wrapper.vm.$nextTick()
@@ -61,7 +62,7 @@ it('answers no for Escape, which closes without a value', async () => {
 
 it('keeps the buttons the e2e tests click', () => {
   createConfigurator(mockBackend())
-  const wrapper = mount(ConfirmDialog)
+  const wrapper = mount(ConfirmDialog, withI18n)
 
   expect(wrapper.find('#confirm button[value=yes]').exists()).toBe(true)
   expect(wrapper.find('#confirm button[value=no]').exists()).toBe(true)

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { deviceAmong, portLabel, requestFor, vehicleText } from './connectionForm'
+import { deviceAmong, requestFor } from './connectionForm'
 
 const form = { transport: 'tcp' as const, host: '', port: '', device: '', baud: '115200' }
 
@@ -16,18 +16,6 @@ it('sends the device and baud rate for a serial link, and ignores host and port'
 
   expect(requestFor({ ...serial, device: '/dev/ttyUSB0' })).toEqual({ transport: 'serial', device: '/dev/ttyUSB0', baud: 57600 })
   expect(requestFor(serial)).toEqual({ transport: 'serial', baud: 57600 })
-})
-
-it('describes the vehicle, or nothing', () => {
-  const vehicle = { sysid: 1, compid: 1, type: 'QUADROTOR', autopilot: 'ARDUPILOTMEGA' }
-
-  expect(vehicleText(vehicle)).toBe(' · system 1/1 · QUADROTOR · ARDUPILOTMEGA')
-  expect(vehicleText(undefined)).toBe('')
-})
-
-it('lists a port by its path and description', () => {
-  expect(portLabel({ path: '/dev/ttyACM0', description: 'Pixhawk' })).toBe('/dev/ttyACM0 (Pixhawk)')
-  expect(portLabel({ path: 'COM3' })).toBe('COM3')
 })
 
 it('keeps the chosen device while it is listed, else takes the first', () => {

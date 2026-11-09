@@ -2,16 +2,18 @@
   <dialog id="confirm" ref="dialog" @close="closed">
     <form method="dialog">
       <p id="question">{{ confirmation?.question }}</p>
-      <button value="no">Cancel</button>
-      <button value="yes">Write</button>
+      <button value="no">{{ t('confirm.cancel') }}</button>
+      <button value="yes">{{ t('confirm.write') }}</button>
     </form>
   </dialog>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useConfigurator } from './useConfigurator'
 
+const { t } = useI18n()
 const { confirmation } = useConfigurator()
 const dialog = ref<HTMLDialogElement | null>(null)
 
