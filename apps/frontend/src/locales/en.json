@@ -76,6 +76,15 @@
     "label": "Language",
     "en": "English"
   },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "settings": {
+    "dismiss": "Dismiss"
+  },
   "connection": {
     "state": {
       "disconnected": "disconnected",

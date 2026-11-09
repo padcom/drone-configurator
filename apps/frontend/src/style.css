@@ -12,6 +12,8 @@ body { margin: 0 auto; max-width: 1100px; padding: 16px; background: var(--color
 h1 { color: var(--accent); margin: 0 0 8px; font-size: 1.5rem; }
 header form { display: flex; gap: 6px; flex-wrap: wrap; }
 header input { width: 9em; }
+#theme-switch { margin: 6px 0; }
+#settings-notice { margin: 6px 0; }
 .badge { padding: 2px 8px; border-radius: 10px; background: var(--line); }
 .badge.connected { background: var(--ok); color: var(--color-bg); }
 .badge.lost { background: var(--warn); color: var(--color-bg); }

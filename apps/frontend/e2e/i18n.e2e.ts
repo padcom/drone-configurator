@@ -1,6 +1,6 @@
 // End to end, in the real window: the interface's text comes from the precompiled messages. A message that was not
 // precompiled (the unplugin did not run, or the CSP blocked the compiler) would show its key instead of its text.
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { showScreen } from './click'
 

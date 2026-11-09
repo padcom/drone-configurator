@@ -3,7 +3,7 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { clickConnect, showScreen } from './click'
 import type { Endpoint } from './endpoint'
