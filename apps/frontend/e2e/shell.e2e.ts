@@ -1,6 +1,6 @@
 // End to end, in the real window: the shell. Every screen can be reached from the navigation, and a switch to a
 // screen that has been shown before is quick.
-import { type E2eApp, launchApp } from 'pico-desktop'
+import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { showScreen } from './click'
 

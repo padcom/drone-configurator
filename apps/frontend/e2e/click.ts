@@ -81,6 +81,23 @@ export async function showScreen(app: E2eApp, id: string): Promise<void> {
 }
 
 /**
+ * Chooses a theme with the switch at the top, clicking again if the click was lost, until the page has it.
+ *
+ * @param app the running app
+ * @param theme `system`, `light` or `dark`
+ */
+export async function chooseTheme(app: E2eApp, theme: string): Promise<void> {
+  const expected = theme === 'system' ? 'null' : JSON.stringify(theme)
+
+  await clickLinkUntilShown(
+    app,
+    `#theme-switch label:has(input[value="${theme}"])`,
+    `document.documentElement.getAttribute('data-theme') === ${expected}`,
+    ATTEMPTS,
+  )
+}
+
+/**
  * Clicks Connect until the page reacts. Right after the window opens, a click can land before the
  * page is laid out and do nothing. It only clicks again if nothing changed, so a click that did
  * work is never repeated.

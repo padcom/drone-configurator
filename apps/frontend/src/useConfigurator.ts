@@ -3,11 +3,15 @@
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
-import { type Transport, createBackendClient } from './backend/client'
+import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftProblem } from './draft'
+import { firstPaint } from './firstPaint'
+import { legacyLanguage, setLanguage, storageOf } from './i18n'
+import { useTheme } from './kit/useTheme'
 import type { State } from './state'
 import { type MetadataModel, useMetadata } from './useMetadata'
 import { type ParamsModel, useParams } from './useParams'
+import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type Vehicle, useVehicle } from './useVehicle'
 
@@ -32,6 +36,8 @@ export interface ConfiguratorHandle {
   metadata: MetadataModel
   /** The snapshots and their import. */
   snapshots: SnapshotsModel
+  /** The settings that survive a restart (the theme, the language). */
+  settings: SettingsModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -56,7 +62,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string): P
 }
 
 /** The composables that hold the state. */
-type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots'>
+type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings'>
 
 /**
  * The state as the refs that hold it.
@@ -97,6 +103,26 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
 let current: ConfiguratorHandle | undefined
 
 /**
+ * The settings, started: they follow what the backend announces, and are read (and applied) at once.
+ *
+ * @param client the link to the backend
+ * @returns the settings
+ */
+function startSettings(client: BackendClient): SettingsModel {
+  const settings = useSettings({
+    client,
+    theme: useTheme(),
+    applyLanguage: setLanguage,
+    legacy: legacyLanguage(storageOf(globalThis)),
+    firstPaint: firstPaint(storageOf(globalThis)),
+  })
+  client.onEvent('settings.changed', state => settings.changed(state))
+  void settings.load()
+
+  return settings
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -116,6 +142,7 @@ export function createConfigurator(
   }
   const askUser = confirm ?? ((question: string) => ask(confirmation, question))
   const metadata = useMetadata({ client })
+  const settings = startSettings(client)
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({
     client,
@@ -130,7 +157,7 @@ export function createConfigurator(
   client.onState(state => vehicle.backendChanged(state))
   client.onEvent('params.changed', param => parameters.announced(param))
   void vehicle.watch()
-  const models = { vehicle, parameters, metadata, snapshots }
+  const models = { vehicle, parameters, metadata, snapshots, settings }
   current = { ...models, fields: fieldsOf(models, error), confirmation }
 
   return current

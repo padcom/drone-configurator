@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_KEY, i18n, isLanguage, readLanguage, storageOf, writeLanguage } from './i18n'
+import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_KEY, i18n, isLanguage, legacyLanguage, setLanguage, storageOf } from './i18n'
 
 /**
  * A storage in memory.
@@ -12,7 +12,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
   return {
     getItem: (key: string) => data.get(key) ?? null,
-    setItem: (key: string, value: string) => void data.set(key, value),
+    removeItem: (key: string) => void data.delete(key),
     data,
   }
 }
@@ -21,7 +21,7 @@ const broken = {
   getItem: () => {
     throw new Error('SecurityError')
   },
-  setItem: () => {
+  removeItem: () => {
     throw new Error('QuotaExceededError')
   },
 }
@@ -47,28 +47,38 @@ describe('the messages', () => {
   })
 })
 
-describe('the chosen language', () => {
-  it('is English until another one is chosen, whatever the storage holds', () => {
-    expect(readLanguage(null)).toBe(DEFAULT_LANGUAGE)
-    expect(readLanguage(memoryStorage())).toBe(DEFAULT_LANGUAGE)
-    expect(readLanguage(memoryStorage({ [LANGUAGE_KEY]: '<script>' }))).toBe(DEFAULT_LANGUAGE)
-    expect(readLanguage(memoryStorage({ [LANGUAGE_KEY]: 'xx' }))).toBe(DEFAULT_LANGUAGE)
+describe('the language', () => {
+  it('is English until the settings say another, and is switched without touching the storage', () => {
+    expect(i18n.global.locale.value).toBe(DEFAULT_LANGUAGE)
+    setLanguage('en')
+    expect(i18n.global.locale.value).toBe('en')
     expect(isLanguage('en')).toBe(true)
     expect(isLanguage(undefined)).toBe(false)
   })
+})
 
-  it('is kept and read back', () => {
-    const storage = memoryStorage()
+describe('the language an earlier version kept in the browser', () => {
+  it('is read when it names a language the interface has, and not otherwise, whatever the storage holds', () => {
+    const kept = (stored?: string) => legacyLanguage(memoryStorage(stored ? { [LANGUAGE_KEY]: stored } : {}))?.read()
 
-    expect(writeLanguage(storage, 'en')).toBe(true)
-    expect(storage.data.get(LANGUAGE_KEY)).toBe('en')
-    expect(readLanguage(storage)).toBe('en')
+    expect(kept('en')).toBe('en')
+    expect([kept(), kept('<script>'), kept('xx')]).toEqual([null, null, null])
+  })
+
+  it('is forgotten once moved into the settings', () => {
+    const storage = memoryStorage({ [LANGUAGE_KEY]: 'en' })
+
+    legacyLanguage(storage)?.forget()
+
+    expect(storage.data.has(LANGUAGE_KEY)).toBe(false)
   })
 
   it('does not break the interface when storage is missing, full or forbidden', () => {
-    expect(writeLanguage(null, 'en')).toBe(false)
-    expect(writeLanguage(broken, 'en')).toBe(false)
-    expect(readLanguage(broken)).toBe(DEFAULT_LANGUAGE)
+    const reading = legacyLanguage(broken)
+
+    expect(legacyLanguage(null)).toBeNull()
+    expect(reading?.read()).toBeNull()
+    expect(() => reading?.forget()).not.toThrow()
     expect(storageOf({})).toBeNull()
     expect(storageOf(forbidden)).toBeNull()
   })
