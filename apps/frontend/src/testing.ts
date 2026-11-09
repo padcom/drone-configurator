@@ -3,7 +3,7 @@ import { i18n } from './i18n'
 import type { State } from './state'
 import type { ConfiguratorHandle, Fields } from './useConfigurator'
 
-/** Mount options that give a component the translations, as `mountIsland` does in the page. */
+/** Mount options that give a component the translations, as `main.ts` does in the page. */
 export const withI18n = { global: { plugins: [i18n] } }
 
 /**

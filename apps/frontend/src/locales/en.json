@@ -2,6 +2,19 @@
   "app": {
     "title": "Drone Configurator"
   },
+  "shell": {
+    "navigation": "Screens",
+    "notAvailable": "{screen} is not available yet."
+  },
+  "screen": {
+    "flight": "Flight data",
+    "plan": "Plan",
+    "setup": "Setup",
+    "tune": "Tune",
+    "parameters": "Parameters",
+    "logs": "Logs",
+    "simulation": "Simulation"
+  },
   "language": {
     "label": "Language",
     "en": "English"

@@ -2,6 +2,7 @@
 // precompiled (the unplugin did not run, or the CSP blocked the compiler) would show its key instead of its text.
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { showScreen } from './click'
 
 let app: E2eApp
 
@@ -24,10 +25,19 @@ describe('the interface language', () => {
     expect(await app.text('#telemetry')).toContain('No telemetry: connect to a vehicle.')
     expect(await app.text('#connect')).not.toMatch(/connection\.[a-z]/u)
   })
+
+  it('names the screens in the navigation from the messages, not with their keys', async () => {
+    const navigation = await app.text('nav')
+
+    expect(navigation).toContain('Flight data')
+    expect(navigation).toContain('Parameters')
+    expect(navigation).not.toMatch(/screen\.[a-z]/u)
+  })
 })
 
 describe('the parameter list and the editor', () => {
   it('show text, not message keys', async () => {
+    await showScreen(app, 'parameters')
     expect(await app.text('#list-status')).toBe('Connect to download the parameters.')
     expect(await app.text('#refresh')).toBe('Download')
     expect(await app.text('#detail')).toBe('Select a parameter to see or change it.')
