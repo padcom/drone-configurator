@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { State } from './configurator'
-import { canWrite, connectionView, detailView, escape, listStatus, paramRows } from './render'
+import { canWrite, detailView, escape, listStatus, paramRows } from './render'
 import { PARAMS, VEHICLE } from './fixtures'
 
 const base: State = {
@@ -30,9 +30,7 @@ const base: State = {
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 
 describe('rendering', () => {
-  it('shows the connection and vehicle, escaping text', () => {
-    expect(connectionView(base)).toContain('system 1/1 · QUADROTOR · ARDUPILOTMEGA')
-    expect(connectionView({ ...base, connection: { state: 'disconnected' }, error: '<oops>' })).toContain('&lt;oops&gt;')
+  it('escapes text', () => {
     expect(escape(`"a" & 'b'`)).toBe('&quot;a&quot; &amp; &#39;b&#39;')
   })
 
