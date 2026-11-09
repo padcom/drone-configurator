@@ -26,6 +26,18 @@ Status: **DR0 is done; DR1 and DR2 are done except what needs ArduPilot SITL or 
 
 It expects `pico-desktop`, `pico-lang`, `pico-mavlink` and `pico-serialport` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
 
+`pico-desktop` has to be built first, once (and again after you update it): its CLI (`pico-desktop dev`, `test`, `build`, which this project's scripts call) and the CEF host are not in the checkout. Without it, `pnpm dev` fails with `ERR_MODULE_NOT_FOUND` for `tooling/cli/dist/index.js`.
+
+```sh
+cd ../pico-desktop
+pnpm install
+pnpm build    # the CLI and the packages; before `pnpm cef`, whose tests use the CLI
+pnpm cef      # fetches the pinned CEF, builds the host and stages the runtime (Linux; see pico-desktop's docs/platform-linux.md)
+cd ../drone-configurator
+```
+
+Then:
+
 ```sh
 pnpm install
 pnpm dev      # the app, with the "Simulator" transport for a vehicle without hardware
