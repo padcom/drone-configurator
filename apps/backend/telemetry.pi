@@ -14,6 +14,7 @@ import {
   RoverMode,
   SubMode,
   SysStatus,
+  TelemetryRates,
 } from "padcom/pico-mavlink"
 import { ConnectionState, Telemetry, encodeTelemetry } from "./generated/app"
 import { SessionPart, link } from "./session"
@@ -39,9 +40,23 @@ function modeName(autopilot: int, type: int, customMode: int): string {
   name ?? `mode ${customMode}`
 }
 
+/// Asks the vehicle for the telemetry the dashboard shows: SYS_STATUS once a second, ATTITUDE four
+/// times a second (ArduPilot streams them only when asked, over some links). The manager holds the
+/// rates: it asks again when the vehicle restarts or the link comes back. A refusal leaves them
+/// absent.
+async function askForRates(rates: TelemetryRates): Promise<void> {
+  try {
+    await rates.set(SysStatus.MSG_ID, 1.0)
+    await rates.set(Attitude.MSG_ID, 4.0)
+  } catch (e: Error) {
+    // Not every autopilot supports it; telemetry then shows what arrives anyway.
+  }
+}
+
 /// What the vehicle has reported since connecting (telemetry shows only that).
 class Heard implements SessionPart {
   public conn: MavLinkConnection? = null
+  public rates: TelemetryRates? = null
   public listener: int = 0
   public heardHeartbeat: bool = false
   public heardStatus: bool = false
@@ -61,12 +76,20 @@ class Heard implements SessionPart {
     }
     conn = c
     listener = c.on((r: Received) => seen(r))
+    const manager = new TelemetryRates(c, { system: link.sysid, component: link.compid }, { timeoutMs: 500, retries: 1 })
+    rates = manager
+    askForRates(manager)
   }
 
   public detach(): void {
     heardHeartbeat = false
     heardStatus = false
     heardAttitude = false
+    const manager = rates
+    if (manager != null) {
+      manager!.stop()
+    }
+    rates = null
     const c = conn
     if (c != null) {
       c!.off(listener)

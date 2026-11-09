@@ -2,10 +2,8 @@
 import { Cbor, Communicator, RequestContext, Sink } from "pico-desktop/communicator"
 import { delay } from "std/timers"
 import {
-  Attitude,
   AutopilotVersionRead,
   ByteStream,
-  CommandCall,
   HeartbeatSender,
   MavAutopilot,
   MavLinkConnection,
@@ -13,9 +11,9 @@ import {
   MavType,
   ParamEncoding,
   SimulatedAutopilot,
-  SysStatus,
   Vehicle,
   VehicleDiscovery,
+  defaultRegistry,
   encodingOf,
 } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, VehicleInfo, decodeConnectRequest, encodeConnection } from "./generated/app"
@@ -37,18 +35,6 @@ function autopilotSeen(d: VehicleDiscovery): Vehicle? {
     }
   }
   null
-}
-
-/// Asks the vehicle for the telemetry the dashboard shows: SYS_STATUS once a second, ATTITUDE four
-/// times (ArduPilot streams them only when asked, over some links). A refusal leaves them absent.
-async function requestTelemetry(conn: MavLinkConnection, sysid: int, compid: int): Promise<void> {
-  const calls = new CommandCall(conn, { system: sysid, component: compid }, { timeoutMs: 500, retries: 1, signal: link.session.signal })
-  try {
-    await calls.setMessageInterval(SysStatus.MSG_ID, 1_000_000)
-    await calls.setMessageInterval(Attitude.MSG_ID, 250_000)
-  } catch (e: Error) {
-    // Not every autopilot supports it; telemetry then shows what arrives anyway.
-  }
 }
 
 /// Receives until the link ends; then, if it's still the current one, it's lost.
@@ -78,9 +64,10 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   // The link goes under a router, even though there is only one: the seam where reconnecting,
   // redundant links and several vehicles come in (#28, #31, #32). With one link it adds nothing
   // visible: the connection still ends when the link ends, and `close()` closes the link.
-  const router = new MavLinkRouter()
+  const registry = defaultRegistry()
+  const router = new MavLinkRouter({ registry })
   router.addLink(stream!)
-  const conn = new MavLinkConnection(router)
+  const conn = new MavLinkConnection(router, { registry })
   link.conn = conn
   const discovery = new VehicleDiscovery(conn)
   link.discovery = discovery
@@ -112,7 +99,6 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
         autopilot: MavAutopilot.nameOf(found.autopilot) ?? `${found.autopilot}`,
       }
       link.update(Connection { state: ConnectionState.Connected, vehicle: info })
-      requestTelemetry(conn, found.sysid, found.compid)
       return encodeConnection(link.state)
     }
     await delay(50)
