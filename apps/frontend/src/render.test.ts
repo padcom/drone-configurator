@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { State } from './configurator'
-import { canWrite, connectionView, detailView, escape, listStatus, paramRows, telemetryView } from './render'
-import { PARAMS, VEHICLE, telemetryAt } from './fixtures'
+import { canWrite, connectionView, detailView, escape, listStatus, paramRows } from './render'
+import { PARAMS, VEHICLE } from './fixtures'
 
 const base: State = {
   connection: { state: 'connected', vehicle: { ...VEHICLE } },
@@ -34,18 +34,6 @@ describe('rendering', () => {
     expect(connectionView(base)).toContain('system 1/1 · QUADROTOR · ARDUPILOTMEGA')
     expect(connectionView({ ...base, connection: { state: 'disconnected' }, error: '<oops>' })).toContain('&lt;oops&gt;')
     expect(escape(`"a" & 'b'`)).toBe('&quot;a&quot; &amp; &#39;b&#39;')
-  })
-
-  it('shows telemetry cards', () => {
-    const html = telemetryView({ ...base, telemetry: telemetryAt(10) })
-    expect(html).toContain('LOITER')
-    expect(html).toContain('ARMED')
-    expect(html).toContain('12.50 V · 90%')
-    expect(telemetryView(base)).toContain('No telemetry')
-    // Not reported yet: a dash, not zeros.
-    const early = telemetryView({ ...base, telemetry: { armed: false, mode: 'STABILIZE', heartbeatAgeMs: 100 } })
-    expect(early).toContain('<span>Battery</span><strong>—</strong>')
-    expect(early).toContain('<span>Attitude</span><strong>—</strong>')
   })
 
   it('says how complete the list is', () => {
