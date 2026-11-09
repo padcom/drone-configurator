@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { clickConnect, showScreen } from './click'
+import { cancelConfirm, clickConnect, holdConfirm, showScreen } from './click'
 import type { Endpoint } from './endpoint'
 import { switchRounds } from './switch'
 
@@ -37,7 +37,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.fill('#draft', String(to))
     await app.click('#write')
     await app.waitForText('#question', `Set ${vehicle.param} from ${from} to ${to}?`)
-    await app.click('#confirm button[value=yes]')
+    await holdConfirm(app)
     // The table first: the detail panel can still show an earlier write's identical message.
     await app.waitForText(`${row} td.num`, new RegExp(`^${to}$`, 'u'), vehicle.downloadTimeoutMs)
     await app.waitForText('#detail', `Written and read back: ${to}.`, vehicle.downloadTimeoutMs)
@@ -52,8 +52,8 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
    * table out of step with the vehicle, so this asks the vehicle first.
    */
   async function putBack(original: number): Promise<void> {
-    if (await app.evaluate<boolean>(`document.querySelector('#confirm').open`)) {
-      await app.click('#confirm button[value=no]')
+    if (await app.evaluate<boolean>(`document.querySelector('#confirm') !== null`)) {
+      await cancelConfirm(app)
     }
     await app.click('#refresh')
     await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
@@ -162,7 +162,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click(`input[data-pick="${vehicle.param}"]`)
     await app.click('#apply')
     await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
-    await app.click('#confirm button[value=yes]')
+    await holdConfirm(app)
     await app.waitForText('#import', `${vehicle.param}: written and read back: ${changed}`, vehicle.downloadTimeoutMs)
     expect(await currentValue()).toBe(changed)
 

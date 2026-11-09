@@ -9,7 +9,7 @@
 // once, but a very slow machine could turn it into a false "another vehicle".
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { clickConnect, showScreen } from './click'
+import { clickConnect, holdConfirm, showScreen } from './click'
 import { FlakyProxy } from './flaky-proxy'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
@@ -121,7 +121,7 @@ async function askToWrite(from: number, to: number): Promise<void> {
   await window().fill('#draft', String(to))
   await window().click('#write')
   await window().waitForText('#question', `Set ${PARAM} from ${from} to ${to}?`)
-  await window().click('#confirm button[value=yes]')
+  await holdConfirm(window())
 }
 
 /**
