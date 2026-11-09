@@ -3,6 +3,7 @@
 import { CommunicatorError, Sink } from "pico-desktop/communicator"
 import {
   AutopilotVersion,
+  ByteStream,
   HeartbeatSender,
   MavAutopilot,
   MavLinkConnection,
@@ -48,6 +49,9 @@ class Link {
   public request: ConnectRequest? = null
   /// The router under the connection: it outlives a dropped link, and a new link is added to it.
   public router: MavLinkRouter? = null
+  /// The stream last given to the router that reconnect.pi may open again (TCP, serial): closed before the next try opens
+  /// one, and when a try hears nothing, so that no socket or port is held without being used.
+  public stream: ByteStream? = null
   /// Who the vehicle is (see `identityOf`): the one that comes back must be this one to be the same.
   public identity: string = ""
   /// A vehicle that has not been heard from for this long (ms) is gone, whatever the link says.
@@ -81,6 +85,7 @@ class Link {
     abortOperations()
     request = null
     router = null
+    stream = null
     identity = ""
     for (const p of parts.values()) {
       p.detach()
