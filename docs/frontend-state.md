@@ -77,3 +77,21 @@ for every value. `useFrameRef(initial)` returns a `FrameRef`:
 
 A component reads `value`, so it renders once per frame however fast the data arrives. Data that arrives rarely (a
 connection state, a list) does not need a frame ref.
+
+## Screens and navigation
+
+The application is one Vue app (`Shell.vue`) over a list of screens (`screens.ts`, `router.ts`).
+
+- **Hash routes.** The host serves one document, so a screen is the part of the URL after `#` (`#/parameters`). The
+  first screen, Flight data, is also where an unknown address goes. A screen is a dynamic import, loaded the first time
+  it is shown.
+- **A screen that was shown stays alive.** The shell wraps the screen in `<KeepAlive>`, so what is in its components
+  (a typed filter, an open panel) is there when the user comes back. Since there are seven screens and each is cached
+  once, there is no `max`; if the number of screens grows a lot, set one. State that must outlive a screen's
+  components (the parameters, the selection, the draft) lives in the composables, as everywhere else.
+- **Scroll.** The page is one document, so how far it is scrolled belongs to the page, not to a screen, and a short
+  screen would reset it. The router remembers the position when a screen is left and gives it back when the screen is
+  shown again (`scrollBehavior` and `beforeEach` in `router.ts`); a screen shown for the first time starts at the top.
+- **Speed.** The real-window test `e2e/shell.e2e.ts` times a switch to a screen that has been shown before, from the
+  click to the first frame with the screen in it, and fails above 100 ms. It prints the times, so a slow machine's
+  numbers can be read from the log.
