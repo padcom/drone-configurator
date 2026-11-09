@@ -250,7 +250,10 @@ async function stopsTheReaderWithTheSession(): Promise<void> throws Error {
   expect(readerForTests() != null).toBe(true)
   const chunks = splitStatusText(4, A50 + B50 + C20, 11)
   await simulatorForTests()!.conn.send(chunks[0])
-  await delay(50)
+  // A whole message after it: when it arrives, the chunk before it has been read too (the link keeps the order), so the
+  // reader is holding the unfinished message. No fixed wait that a busy machine could outrun, and then wait for ever.
+  await simulatorForTests()!.conn.send(splitStatusText(6, "after the chunk", 0)[0])
+  expect((await next(f)).text).toBe("after the chunk")
   // (The event comes before the reply, and `call` skips events: so the request and the reply are apart.)
   const request = await f.send("vehicle.disconnect")
   // What was still waiting for chunks is sent, truncated.
