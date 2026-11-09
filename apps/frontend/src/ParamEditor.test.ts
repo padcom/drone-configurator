@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ParamEditor from './ParamEditor.vue'
 import { mockBackend } from './mock-backend'
-import { feed } from './testing'
+import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { PARAMS, VEHICLE } from './fixtures'
 
@@ -15,7 +15,7 @@ async function editorWithSpies() {
   const handle = createConfigurator(mockBackend())
   const write = vi.spyOn(handle.app, 'write').mockResolvedValue()
   const editDraft = vi.spyOn(handle.app, 'editDraft').mockImplementation(() => undefined)
-  const wrapper = mount(ParamEditor)
+  const wrapper = mount(ParamEditor, withI18n)
   // The mock backend's first events (disconnected) arrive before the state is changed here.
   await flushPromises()
   feed(handle, {
@@ -31,7 +31,7 @@ async function editorWithSpies() {
 
 it('asks for a parameter to be selected, and hides the form, until one is', async () => {
   createConfigurator(mockBackend())
-  const wrapper = mount(ParamEditor)
+  const wrapper = mount(ParamEditor, withI18n)
   await flushPromises()
 
   expect(wrapper.get('#detail').text()).toContain('Select a parameter')

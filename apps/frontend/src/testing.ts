@@ -7,6 +7,15 @@ import { type ConfiguratorHandle, publish } from './useConfigurator'
 export const withI18n = { global: { plugins: [i18n] } }
 
 /**
+ * Looks up an English message, for the tests of the functions that take a `translate`.
+ *
+ * @param key the message
+ * @param named the values in it
+ * @returns the text
+ */
+export const translate = (key: string, named: Record<string, unknown> = {}): string => i18n.global.t(key, named)
+
+/**
  * Changes the Configurator's state the way the backend's events would. The state goes through the Configurator: a
  * ref written directly is overwritten by its next render.
  *

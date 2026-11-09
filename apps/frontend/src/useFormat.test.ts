@@ -11,6 +11,17 @@ it('formats numbers with the decimals asked for, in the language given', () => {
   expect(formatFor('de').number(1234.5, 1)).toBe('1.234,5')
 })
 
+it('shows a value that rounds to zero as zero, without a minus sign', () => {
+  const en = formatFor('en')
+
+  expect(en.number(-0, 1)).toBe('0.0')
+  expect(en.number(-0.04, 1)).toBe('0.0')
+  expect(en.number(-0.04)).toBe('0')
+  // A real negative value keeps its sign.
+  expect(en.number(-0.4, 1)).toBe('-0.4')
+  expect(en.number(-12.5, 2)).toBe('-12.50')
+})
+
 it('formats a quantity as number, no-break space and unit', () => {
   expect(formatFor('en').quantity(12.5, 'V', 2)).toBe('12.50 V')
   expect(formatFor('en').quantity(90, '%')).toBe('90 %')
