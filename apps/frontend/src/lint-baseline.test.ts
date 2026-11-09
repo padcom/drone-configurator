@@ -24,7 +24,7 @@ function baseline(): string[] {
 
 // The list may only get shorter: when files come off it, lower this number to the new length. A new
 // file that breaks the rules has to be fixed, not added to the list.
-const MOST_FILES = 16
+const MOST_FILES = 12
 
 /**
  * The files among `files` that have no lint error under all the rules.
