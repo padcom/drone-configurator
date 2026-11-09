@@ -5,14 +5,16 @@ const file = (params: unknown) => JSON.stringify({ format: METADATA_FORMAT, vers
 
 describe('parameter metadata', () => {
   it('reads descriptions, units, ranges and values, ignoring what it doesn\'t know', () => {
-    const m = parseMetadata(file({ RTL_ALT: { description: 'Return altitude', units: 'cm', min: 200, max: 300000, extra: true } }))
-    expect(m).toEqual(new Map([['RTL_ALT', { description: 'Return altitude', units: 'cm', min: 200, max: 300000 }]]))
+    const known = { description: 'Return altitude', units: 'cm', min: 200, max: 300000 }
+    const m = parseMetadata(file({ RTL_ALT: { ...known, extra: true } }))
+    expect(m).toEqual(new Map([['RTL_ALT', known]]))
   })
 
   it('refuses what isn\'t metadata', () => {
     expect(parseMetadata('[')).toBe('not JSON')
     expect(parseMetadata('{}')).toBe('not a Drone Configurator metadata file')
-    expect(parseMetadata(JSON.stringify({ format: METADATA_FORMAT, version: 9, params: {} }))).toBe('metadata version 9 (this app reads version 1)')
+    const newer = JSON.stringify({ format: METADATA_FORMAT, version: 9, params: {} })
+    expect(parseMetadata(newer)).toBe('metadata version 9 (this app reads version 1)')
   })
 
   it('checks ranges and named values, and nothing without metadata', () => {

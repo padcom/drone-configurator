@@ -19,8 +19,10 @@ describe('snapshots', () => {
     expect(parseSnapshot(JSON.stringify({ ...saved(), version: 2 }))).toBe('snapshot version 2 (this app reads version 1)')
     expect(parseSnapshot(JSON.stringify({ ...saved(), params: [{ id: 1 }] }))).toBe('its parameters are malformed')
   })
+})
 
-  it('review: what differs, what can\'t be applied and why, and a different vehicle', () => {
+describe('reviewing a snapshot', () => {
+  it('shows what differs, what can\'t be applied and why, and a different vehicle', () => {
     const s = saved()
     s.params = s.params.map(p => p.id === 'RTL_ALT' ? { ...p, value: 2000 } : p.id === 'FENCE_ENABLE' ? { ...p, value: 300 } : p)
     s.params.push({ id: 'NOT_A_PARAM', kind: 'int', type: 'INT32', value: 1 })

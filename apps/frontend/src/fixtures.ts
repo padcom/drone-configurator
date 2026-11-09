@@ -27,7 +27,12 @@ export const PARAMS: Param[] = [
   p('WPNAV_SPEED', 'real', 'REAL32', 1000),
 ].map((param, index) => ({ ...param, index }))
 
-/** Telemetry `n` ticks after connecting: a slow, gentle sway and a draining battery. */
+/**
+ * Telemetry `n` ticks after connecting: a slow, gentle sway and a draining battery.
+ *
+ * @param n how many ticks (seconds) after connecting
+ * @returns what the simulated vehicle reports then
+ */
 export function telemetryAt(n: number): Telemetry {
   return {
     armed: n >= 3,

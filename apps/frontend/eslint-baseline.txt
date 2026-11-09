@@ -12,15 +12,10 @@ e2e/sitl-suite.ts
 e2e/sitl.e2e.ts
 e2e/sitl.test.ts
 e2e/sitl.ts
-e2e/tcp-vehicle.ts
 src/configurator.test.ts
 src/configurator.ts
-src/fixtures.ts
 src/main.ts
-src/metadata.test.ts
 src/metadata.ts
 src/mock-backend.ts
-src/render.test.ts
 src/render.ts
-src/snapshot.test.ts
 src/snapshot.ts
