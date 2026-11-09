@@ -10,8 +10,6 @@ e2e/sitl.test.ts
 e2e/sitl.ts
 src/configurator.test.ts
 src/configurator.ts
-src/main.ts
 src/metadata.ts
 src/mock-backend.ts
-src/render.ts
 src/snapshot.ts

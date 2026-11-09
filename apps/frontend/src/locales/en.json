@@ -71,6 +71,25 @@
     },
     "metadata": "Metadata for {count} parameters"
   },
+  "snapshot": {
+    "save": "Save snapshot",
+    "load": "Load snapshot",
+    "loadMetadata": "Load metadata"
+  },
+  "import": {
+    "from": "Snapshot from {savedAt}",
+    "itWas": "It was {warning}.",
+    "summary": "{differ} differ, {same} already the same. Tick the ones to write.",
+    "change": "{id}: {from} → {to}",
+    "problem": "({problem})",
+    "noValue": "—",
+    "written": "{id}: written and read back: {detail}",
+    "result": "{id}: {detail}",
+    "stopped": "Stopped there: the rest weren't written.",
+    "apply": "Write the ticked changes",
+    "backup": "Save the backup",
+    "close": "Close"
+  },
   "editor": {
     "select": "Select a parameter to see or change it.",
     "summary": "{type} · index {index} · on the vehicle:",
