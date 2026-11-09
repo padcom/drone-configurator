@@ -1,9 +1,9 @@
 import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
-import { createApp } from 'vue'
 import type { State } from './configurator'
 import { importView } from './render'
 import { i18n } from './i18n'
+import { mountIsland } from './mountIsland'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -49,13 +49,13 @@ const bridge = window.picoDesktop
 const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBackend(), render)
 
 // Regions already ported to components; the rest of the page is still written by render().
-createApp(ConnectionBar).mount('#connection-bar')
-createApp(ParamFilter).mount('#param-filter')
-createApp(ParamTable).mount('#param-table')
-createApp(ParamEditor).mount('#param-editor')
-createApp(MetadataStatus).mount('#metadata-status-root')
-createApp(TelemetryCards).mount('#telemetry')
-createApp(ConfirmDialog).mount('#confirm-root')
+mountIsland(ConnectionBar, '#connection-bar')
+mountIsland(ParamFilter, '#param-filter')
+mountIsland(ParamTable, '#param-table')
+mountIsland(ParamEditor, '#param-editor')
+mountIsland(MetadataStatus, '#metadata-status-root')
+mountIsland(TelemetryCards, '#telemetry')
+mountIsland(ConfirmDialog, '#confirm-root')
 
 /** Offers `text` as a file download (the browser's, or the host's save handling). */
 function download(text: string, name: string) {

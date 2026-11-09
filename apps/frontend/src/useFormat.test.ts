@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { i18n } from './i18n'
 import { formatFor, preferredUnit, useFormat } from './useFormat'
 
 it('formats numbers with the decimals asked for, in the language given', () => {
@@ -28,4 +29,44 @@ it('shows values in the unit they are reported in until the unit settings exist'
 
 it('uses the language of the interface', () => {
   expect(useFormat().number(3.14159, 2)).toBe('3.14')
+})
+
+it('follows a language switch made after the formatters were made', () => {
+  const format = useFormat()
+  expect(format.number(1234.5, 1)).toBe('1,234.5')
+
+  i18n.global.locale.value = 'de' as typeof i18n.global.locale.value
+
+  try {
+    expect(format.number(1234.5, 1)).toBe('1.234,5')
+    expect(format.quantity(1234.5, 'm', 1)).toBe('1.234,5 m')
+  } finally {
+    i18n.global.locale.value = 'en'
+  }
+
+  expect(format.number(1234.5, 1)).toBe('1,234.5')
+})
+
+it('makes each Intl formatter once per language and number of decimals', () => {
+  const made: string[] = []
+  const { NumberFormat } = Intl
+  Intl.NumberFormat = new Proxy(NumberFormat, {
+    construct(target, args: [string, Intl.NumberFormatOptions], newTarget) {
+      made.push(`${args[0]}:${args[1].maximumFractionDigits}`)
+
+      return Reflect.construct(target, args, newTarget) as object
+    },
+  })
+
+  try {
+    const format = formatFor('fr')
+    format.number(1, 3)
+    format.number(2, 3)
+    format.number(3, 3)
+    format.number(4, 4)
+  } finally {
+    Intl.NumberFormat = NumberFormat
+  }
+
+  expect(made).toEqual(['fr:3', 'fr:4'])
 })

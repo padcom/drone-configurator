@@ -2,6 +2,7 @@ import { expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import TelemetryCards from './TelemetryCards.vue'
 import { mockBackend } from './mock-backend'
+import { withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { telemetryAt } from './fixtures'
 import type { Telemetry } from './generated/app'
@@ -14,7 +15,7 @@ import type { Telemetry } from './generated/app'
  */
 async function cardsWith(telemetry: Telemetry | null) {
   const { fields } = createConfigurator(mockBackend())
-  const wrapper = mount(TelemetryCards)
+  const wrapper = mount(TelemetryCards, withI18n)
   fields.telemetry.value = telemetry
   await wrapper.vm.$nextTick()
 

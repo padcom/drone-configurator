@@ -1,5 +1,10 @@
-// What the telemetry cards say, from a Telemetry alone (no DOM). Vue's templates escape the text.
+// What the telemetry cards say, from a Telemetry alone (no DOM). Vue's templates escape the text; the words come
+// from the translations and the numbers from the formatters.
 import type { Telemetry } from './generated/app'
+import type { Format } from './useFormat'
+
+/** Looks up a message, with named values (what `useI18n().t` does). */
+export type Translate = (key: string, named?: Record<string, unknown>) => string
 
 /** One card: a label, its value, and whether to draw attention to it. */
 export interface Card {
@@ -11,51 +16,68 @@ export interface Card {
   warn: boolean
 }
 
-// What the vehicle hasn't reported is a dash, never a made-up zero.
-const MISSING = '—'
-
 /**
  * The battery card's text.
  *
  * @param t the telemetry
- * @returns voltage and remaining charge, or a dash
+ * @param translate looks up a message
+ * @param format formats numbers
+ * @returns voltage and remaining charge, or a dash (what the vehicle hasn't reported is never a made-up zero)
  */
-export function batteryText(t: Telemetry): string {
+export function batteryText(t: Telemetry, translate: Translate, format: Format): string {
   if (t.batteryVoltage === undefined) {
-    return MISSING
+    return translate('telemetry.missing')
   }
-  const remaining = t.batteryRemaining === undefined ? '' : ` · ${t.batteryRemaining}%`
+  const voltage = format.number(t.batteryVoltage, 2)
 
-  return `${t.batteryVoltage.toFixed(2)} V${remaining}`
+  return t.batteryRemaining === undefined
+    ? translate('telemetry.value.voltage', { voltage })
+    : translate('telemetry.value.voltageAndCharge', { voltage, percent: format.number(t.batteryRemaining) })
 }
 
 /**
  * The attitude card's text.
  *
  * @param t the telemetry
+ * @param translate looks up a message
+ * @param format formats numbers
  * @returns roll, pitch and yaw, or a dash until all three are known
  */
-export function attitudeText(t: Telemetry): string {
+export function attitudeText(t: Telemetry, translate: Translate, format: Format): string {
   const { roll, pitch, yaw } = t
   if (roll === undefined || pitch === undefined || yaw === undefined) {
-    return MISSING
+    return translate('telemetry.missing')
   }
 
-  return `roll ${roll.toFixed(1)}° · pitch ${pitch.toFixed(1)}° · yaw ${yaw.toFixed(0)}°`
+  return translate('telemetry.value.attitude', {
+    roll: format.number(roll, 1),
+    pitch: format.number(pitch, 1),
+    yaw: format.number(yaw),
+  })
 }
 
 /**
  * Heartbeat, mode, armed state, battery and attitude as cards.
  *
  * @param t the telemetry
+ * @param translate looks up a message
+ * @param format formats numbers
  * @returns the cards, in display order
  */
-export function cardsFor(t: Telemetry): Card[] {
+export function cardsFor(t: Telemetry, translate: Translate, format: Format): Card[] {
   return [
-    { label: 'Mode', value: t.mode, warn: false },
-    { label: 'State', value: t.armed ? 'ARMED' : 'disarmed', warn: t.armed },
-    { label: 'Battery', value: batteryText(t), warn: false },
-    { label: 'Attitude', value: attitudeText(t), warn: false },
-    { label: 'Heartbeat', value: `${t.heartbeatAgeMs} ms ago`, warn: t.heartbeatAgeMs > 3000 },
+    { label: translate('telemetry.card.mode'), value: t.mode, warn: false },
+    {
+      label: translate('telemetry.card.state'),
+      value: translate(t.armed ? 'telemetry.armed' : 'telemetry.disarmed'),
+      warn: t.armed,
+    },
+    { label: translate('telemetry.card.battery'), value: batteryText(t, translate, format), warn: false },
+    { label: translate('telemetry.card.attitude'), value: attitudeText(t, translate, format), warn: false },
+    {
+      label: translate('telemetry.card.heartbeat'),
+      value: translate('telemetry.value.heartbeatAge', { ms: t.heartbeatAgeMs }),
+      warn: t.heartbeatAgeMs > 3000,
+    },
   ]
 }

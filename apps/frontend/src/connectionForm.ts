@@ -1,5 +1,5 @@
-// What the connection bar sends and says, from plain values (no DOM). Vue's templates escape the text.
-import type { ConnectRequest, SerialPort, VehicleInfo } from './generated/app'
+// What the connection bar sends, from plain values (no DOM).
+import type { ConnectRequest, SerialPort } from './generated/app'
 
 /** What the user typed or chose in the connection form. */
 export interface ConnectionForm {
@@ -46,26 +46,6 @@ function networkRequest(form: ConnectionForm): ConnectRequest {
  */
 export function requestFor(form: ConnectionForm): ConnectRequest {
   return form.transport === 'serial' ? serialRequest(form) : networkRequest(form)
-}
-
-/**
- * The vehicle the link found, for the status line.
- *
- * @param vehicle what the backend reported, if anything
- * @returns " · system 1/1 · QUADROTOR · ARDUPILOTMEGA", or an empty string
- */
-export function vehicleText(vehicle: VehicleInfo | undefined): string {
-  return vehicle ? ` · system ${vehicle.sysid}/${vehicle.compid} · ${vehicle.type} · ${vehicle.autopilot}` : ''
-}
-
-/**
- * How a serial port is listed.
- *
- * @param port the port
- * @returns its path, and its description in brackets if it has one
- */
-export function portLabel(port: SerialPort): string {
-  return port.description ? `${port.path} (${port.description})` : port.path
 }
 
 /**

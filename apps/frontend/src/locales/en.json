@@ -5,5 +5,52 @@
   "language": {
     "label": "Language",
     "en": "English"
+  },
+  "connection": {
+    "state": {
+      "disconnected": "disconnected",
+      "connecting": "connecting",
+      "connected": "connected",
+      "lost": "lost"
+    },
+    "vehicle": " · system {sysid}/{compid} · {type} · {autopilot}",
+    "transport": {
+      "label": "Transport",
+      "simulator": "Simulator",
+      "udp": "UDP",
+      "tcp": "TCP",
+      "serial": "Serial"
+    },
+    "host": "Host",
+    "port": "Port",
+    "device": "Serial port",
+    "baud": "Baud rate",
+    "noPorts": "No serial ports",
+    "portWithDescription": "{path} ({description})",
+    "connect": "Connect",
+    "disconnect": "Disconnect"
+  },
+  "telemetry": {
+    "none": "No telemetry: connect to a vehicle.",
+    "missing": "—",
+    "armed": "ARMED",
+    "disarmed": "disarmed",
+    "card": {
+      "mode": "Mode",
+      "state": "State",
+      "battery": "Battery",
+      "attitude": "Attitude",
+      "heartbeat": "Heartbeat"
+    },
+    "value": {
+      "voltage": "{voltage} V",
+      "voltageAndCharge": "{voltage} V · {percent}%",
+      "attitude": "roll {roll}° · pitch {pitch}° · yaw {yaw}°",
+      "heartbeatAge": "{ms} ms ago"
+    }
+  },
+  "confirm": {
+    "cancel": "Cancel",
+    "write": "Write"
   }
 }
