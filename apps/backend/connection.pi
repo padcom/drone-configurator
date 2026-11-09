@@ -15,7 +15,7 @@ import {
   defaultRegistry,
 } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } from "./generated/app"
-import { watchSession } from "./reconnect"
+import { reopenable, watchSession } from "./reconnect"
 import { encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
@@ -70,6 +70,9 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   const conn = new MavLinkConnection(router, { registry })
   link.conn = conn
   link.router = router
+  if (reopenable(request)) {
+    link.stream = stream
+  }
   link.request = request
   const discovery = new VehicleDiscovery(conn)
   link.discovery = discovery

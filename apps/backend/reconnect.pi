@@ -8,9 +8,14 @@
 // serial; a UDP socket and the simulator are still there) and waits for a heartbeat. The vehicle that answers is the
 // same if its identity is: then the parameters on screen are still its (`resumed`). Another vehicle is a new
 // connection, and says so: nothing is reused silently.
+//
+// Limits of "the same vehicle": two vehicles with the same ids and kind that send no unique id (AUTOPILOT_VERSION)
+// count as the same one; and when the version is not answered in time after a reboot, a vehicle that had a unique id
+// is taken for another (a false `VEHICLE_CHANGED`, which is the safe side: its parameters are downloaded again). The
+// first autopilot to send a heartbeat on the new link is the one considered.
 import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
-import { Connection, ConnectionState, ConnectRequestTransport } from "./generated/app"
+import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
@@ -63,6 +68,20 @@ async function pause(ms: int, generation: int): Promise<bool> throws Error {
   link.generation == generation
 }
 
+/// Whether a link of this kind ends and has to be opened again (TCP, serial); a UDP socket and the simulator stay.
+export function reopenable(request: ConnectRequest): bool {
+  request.transport == ConnectRequestTransport.Tcp || request.transport == ConnectRequestTransport.Serial
+}
+
+/// Closes the stream the router was last given, if there is one (a link that is down or heard nothing).
+function dropStream(): void {
+  const s = link.stream
+  if (s != null) {
+    link.stream = null
+    s!.close()
+  }
+}
+
 /// Opens the link again, for the kinds of link that end (TCP and serial), and gives it to the router. The
 /// reason it failed, if it did.
 async function reopen(generation: int): Promise<string?> {
@@ -71,10 +90,12 @@ async function reopen(generation: int): Promise<string?> {
   if (request == null || router == null) {
     return null
   }
-  const kind = request!.transport
-  if (kind != ConnectRequestTransport.Tcp && kind != ConnectRequestTransport.Serial) {
+  if (!reopenable(request!)) {
     return null
   }
+  // The link the last try opened (or the one that went silent) is given up first: a serial port may be held by one
+  // opener only, and a socket nobody listens to is a leak.
+  dropStream()
   try {
     const stream = await open(request!, (sim: SimulatedAutopilot) => { link.sim = sim })
     if (link.generation != generation) {
@@ -82,6 +103,7 @@ async function reopen(generation: int): Promise<string?> {
       return null
     }
     router!.addLink(stream)
+    link.stream = stream
     return null
   } catch (e: Error) {
     return `can't open ${describe(request!)}: ${e.message}`
@@ -154,18 +176,40 @@ async function bringBack(generation: int, why: string): Promise<void> throws Err
     if (!await pause(wait, generation)) {
       return
     }
+    const failed = await tryOnce(generation)
+    if (failed == null) {
+      return
+    }
+    reason = failed!
+  }
+}
+
+/// One try: opens the link again, listens for a vehicle and takes it up. Null when it is over (the vehicle is back, or
+/// the session ended), otherwise why the try failed. Whatever goes wrong inside it is a failed try, never the end of
+/// the tries; a link that heard nothing is closed.
+async function tryOnce(generation: int): Promise<string?> {
+  try {
     const since = Date.now() as int
     const failed = await reopen(generation)
     if (failed != null) {
-      reason = failed!
-    } else {
-      const found = await heardSince(since, generation)
-      if (found != null && link.generation == generation) {
-        await takeUp(found!, generation)
-        return
-      }
-      reason = "no heartbeat from the vehicle"
+      return failed
     }
+    const found = await heardSince(since, generation)
+    if (link.generation != generation) {
+      return null
+    }
+    if (found != null) {
+      await takeUp(found!, generation)
+      return null
+    }
+    dropStream()
+    return "no heartbeat from the vehicle"
+  } catch (e: Error) {
+    if (link.generation != generation) {
+      return null
+    }
+    dropStream()
+    return `the vehicle did not answer: ${e.message}`
   }
 }
 

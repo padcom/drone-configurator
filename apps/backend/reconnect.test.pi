@@ -17,7 +17,7 @@ import {
 } from "./generated/app"
 import { delayBefore } from "./reconnect"
 import { link } from "./session"
-import { start } from "./testing"
+import { Frontend, start } from "./testing"
 
 /// Waits up to `ms` for the session to be in `want`.
 async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
@@ -173,6 +173,8 @@ class Harbour {
   public readonly conns: Conn[] = []
   public readonly vehicles: SimulatedAutopilot[] = []
   public open: bool = true
+  /// Whether a vehicle answers on a new connection (false: the cable is there, the board is not).
+  public serving: bool = true
 }
 
 const harbour = new Harbour()
@@ -188,9 +190,114 @@ async function serveVehicles(): Promise<void> throws Error {
       return
     }
     harbour.conns.push(conn)
-    const sim = new SimulatedAutopilot(new TcpStream(conn))
-    sim.start(300)
-    harbour.vehicles.push(sim)
+    if (harbour.serving) {
+      const sim = new SimulatedAutopilot(new TcpStream(conn))
+      sim.start(300)
+      harbour.vehicles.push(sim)
+    }
+  }
+}
+
+/// How many links of the session's router are up.
+function linksUp(): int {
+  let up = 0
+  for (const info of link.router!.linkInfo()) {
+    if (info.up) {
+      up += 1
+    }
+  }
+  up
+}
+
+/// Opens the harbour and connects to it.
+async function connectToHarbour(): Promise<Frontend> throws Error {
+  harbour.open = true
+  harbour.serving = true
+  serveVehicles()
+  while (harbour.port == 0) {
+    await delay(20)
+  }
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.Tcp, host: "127.0.0.1", port: harbour.port as u16 }
+  await f.call("vehicle.connect", encodeConnectRequest(request))
+  f
+}
+
+/// The cable is there and the board is not: every try opens a link that hears nothing. Each is closed, not kept: at no
+/// time are more than one open (a leak would hold one more socket, or one more serial port, per try), and when the
+/// board is back, the next try finds it.
+async function closesTheLinkOfATryThatHeardNothing(): Promise<void> throws Error {
+  shortSettings()
+  link.heartbeatWaitMs = 300
+  try {
+    await connectToHarbour()
+    harbour.serving = false
+    harbour.vehicles[0]!.stop()
+    harbour.conns[0]!.close()
+    expect(await waitForState(ConnectionState.Reconnecting, 4000)).toBe(true)
+    let waited = 0
+    while (waited < 6000 && (link.state.attempt ?? 0) < 4) {
+      await delay(50)
+      waited += 50
+      expect(linksUp() <= 1).toBe(true)
+    }
+    expect((link.state.attempt ?? 0) >= 4).toBe(true)
+    expect(harbour.conns.length >= 4).toBe(true)
+    // The board is back.
+    harbour.serving = true
+    expect(await waitForState(ConnectionState.Connected, 8000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${linksUp()}`).toBe("true 1")
+  } finally {
+    link.close()
+    link.heartbeatWaitMs = 3000
+    usualSettings()
+    await closeHarbour()
+  }
+}
+
+/// A new connect while the tries go on ends them: the new session is not touched by the old one.
+async function connectAgainEndsTheTries(): Promise<void> throws Error {
+  shortSettings()
+  try {
+    const f = await start()
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    simulatorForTests()!.reboot(30000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    expect(link.state.state == ConnectionState.Connected).toBe(true)
+    await delay(800)
+    expect(`${link.state.state == ConnectionState.Connected} ${link.state.attempt == null} ${link.state.resumed == null}`).toBe("true true true")
+  } finally {
+    link.close()
+    usualSettings()
+  }
+}
+
+/// A disconnect while a try is listening for the board ends it at once, and the link that try opened is closed.
+async function disconnectDuringATry(): Promise<void> throws Error {
+  shortSettings()
+  link.heartbeatWaitMs = 5000
+  try {
+    const f = await connectToHarbour()
+    harbour.serving = false
+    harbour.vehicles[0]!.stop()
+    harbour.conns[0]!.close()
+    expect(await waitForState(ConnectionState.Reconnecting, 4000)).toBe(true)
+    // The first try opens a link and listens for 5 s.
+    while (harbour.conns.length < 2) {
+      await delay(20)
+    }
+    const started = Date.now() as int
+    await f.call("vehicle.disconnect")
+    await delay(300)
+    expect(`${link.state.state == ConnectionState.Disconnected} ${link.state.attempt == null} ${(Date.now() as int) - started < 1500}`).toBe("true true true")
+    await delay(500)
+    expect(harbour.conns.length).toBe(2)
+  } finally {
+    link.close()
+    link.heartbeatWaitMs = 3000
+    usualSettings()
+    await closeHarbour()
   }
 }
 
@@ -242,4 +349,7 @@ describe("keeping the session when the link drops", () => {
   it("does not resume another vehicle: it is a new connection, and says so", doesNotResumeAnotherVehicle)
   it("ends a write in flight as not confirmed and never sends it again", neverSendsAWriteAgain)
   it("stops trying when the user disconnects", disconnectEndsTheTries)
+  it("closes the link of a try that heard nothing, and finds the board when it is back", closesTheLinkOfATryThatHeardNothing)
+  it("ends the tries when the user connects again", connectAgainEndsTheTries)
+  it("ends a try that is listening when the user disconnects", disconnectDuringATry)
 })
