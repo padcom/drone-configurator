@@ -42,6 +42,32 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
 }
 
 /**
+ * Clicks a navigation link until the page reacts: a click through DevTools can occasionally land and do nothing (the
+ * same as Connect's, above), and a second click on a link that did work only goes to the screen already shown. The last
+ * attempt waits as long as a slow machine needs, and fails with the reason.
+ *
+ * @param app the running app
+ * @param link a selector for the link
+ * @param shown a page expression that is true once the link's screen is the one shown
+ * @param left how many attempts remain
+ */
+async function clickLinkUntilShown(app: E2eApp, link: string, shown: string, left: number): Promise<void> {
+  await app.click(link)
+
+  if (left === 1) {
+    await app.waitFor(shown)
+
+    return
+  }
+  try {
+    await app.waitFor(shown, NOTICED_WITHIN_MS)
+  } catch {
+    // Not noticed: click again.
+    await clickLinkUntilShown(app, link, shown, left - 1)
+  }
+}
+
+/**
  * Opens a screen from the navigation, and waits until its link says it is the one shown. (The application starts on
  * Flight data; the screens are loaded when first asked for.)
  *
@@ -50,8 +76,8 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
  */
 export async function showScreen(app: E2eApp, id: string): Promise<void> {
   const link = `nav a[href="#/${id}"]`
-  await app.click(link)
-  await app.waitFor(`document.querySelector('${link}').getAttribute('aria-current') === 'page'`)
+
+  await clickLinkUntilShown(app, link, `document.querySelector('${link}').getAttribute('aria-current') === 'page'`, ATTEMPTS)
 }
 
 /**
