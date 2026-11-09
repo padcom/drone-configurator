@@ -19,11 +19,11 @@ afterEach(() => {
 async function toolbarWithSpies() {
   const handle = createConfigurator(mockBackend())
   const spies = {
-    saveFile: vi.spyOn(handle.app, 'saveFile').mockResolvedValue(null),
-    openSnapshotFile: vi.spyOn(handle.app, 'openSnapshotFile').mockResolvedValue(),
-    openMetadataFile: vi.spyOn(handle.app, 'openMetadataFile').mockResolvedValue(),
-    loadSnapshot: vi.spyOn(handle.app, 'loadSnapshot').mockImplementation(() => undefined),
-    loadMetadata: vi.spyOn(handle.app, 'loadMetadata').mockImplementation(() => undefined),
+    saveFile: vi.spyOn(handle.snapshots, 'saveFile').mockResolvedValue(null),
+    openSnapshotFile: vi.spyOn(handle.snapshots, 'openFile').mockResolvedValue(),
+    openMetadataFile: vi.spyOn(handle.metadata, 'openFile').mockResolvedValue(),
+    loadSnapshot: vi.spyOn(handle.snapshots, 'load').mockImplementation(() => undefined),
+    loadMetadata: vi.spyOn(handle.metadata, 'load').mockImplementation(() => undefined),
   }
   const wrapper = mount(SnapshotToolbar, withI18n)
   await flushPromises()

@@ -13,8 +13,8 @@ import { PARAMS, VEHICLE } from './fixtures'
  */
 async function editorWithSpies() {
   const handle = createConfigurator(mockBackend())
-  const write = vi.spyOn(handle.app, 'write').mockResolvedValue()
-  const editDraft = vi.spyOn(handle.app, 'editDraft').mockImplementation(() => undefined)
+  const write = vi.spyOn(handle.parameters, 'write').mockResolvedValue()
+  const editDraft = vi.spyOn(handle.parameters, 'editDraft').mockImplementation(() => undefined)
   const wrapper = mount(ParamEditor, withI18n)
   // The mock backend's first events (disconnected) arrive before the state is changed here.
   await flushPromises()

@@ -13,8 +13,8 @@ import { VEHICLE } from './fixtures'
  */
 function filterWithSpies() {
   const handle = createConfigurator(mockBackend())
-  const setFilter = vi.spyOn(handle.app, 'setFilter').mockImplementation(() => undefined)
-  const refresh = vi.spyOn(handle.app, 'refresh').mockResolvedValue()
+  const setFilter = vi.spyOn(handle.parameters, 'setFilter').mockImplementation(() => undefined)
+  const refresh = vi.spyOn(handle.parameters, 'refresh').mockResolvedValue()
 
   return { wrapper: mount(ParamFilter, withI18n), handle, setFilter, refresh }
 }

@@ -14,7 +14,7 @@
                 :data-pick="change.id"
                 :checked="fields.picked.value.includes(change.id)"
                 :disabled="change.problem !== null || fields.applying.value"
-                @change="app.togglePick(change.id)"
+                @change="snapshots.toggle(change.id)"
               >
               {{ t('import.change', { id: change.id, from: change.from ?? t('import.noValue'), to: change.to }) }}
               <span v-if="change.problem" class="muted">{{ t('import.problem', { problem: change.problem }) }}</span>
@@ -25,9 +25,9 @@
         <p v-if="stopped" class="warn">{{ t('import.stopped') }}</p>
       </template>
     </div>
-    <button id="apply" type="button" :disabled="!applicable" @click="app.applyImport()">{{ t('import.apply') }}</button>
+    <button id="apply" type="button" :disabled="!applicable" @click="snapshots.apply()">{{ t('import.apply') }}</button>
     <button id="backup" type="button" :hidden="fields.backup.value === null" @click="saveBackup">{{ t('import.backup') }}</button>
-    <button id="close-import" type="button" @click="app.closeImport()">{{ t('import.close') }}</button>
+    <button id="close-import" type="button" @click="snapshots.close()">{{ t('import.close') }}</button>
   </section>
 </template>
 
@@ -39,7 +39,7 @@ import { appliedLine, canApply, panelShown, stoppedEarly } from './snapshotImpor
 import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()
-const { app, fields } = useConfigurator()
+const { snapshots, fields } = useConfigurator()
 const review = computed(() => fields.importReview.value)
 const shown = computed(() => panelShown(fields.importReview.value, fields.importError.value))
 const applied = computed(() => fields.applied.value.map(line => appliedLine(line, t)))
@@ -52,6 +52,6 @@ const applicable = computed(() => canApply({
 
 /** Saves the parameters as they were before the snapshot was applied. */
 function saveBackup() {
-  saveText(app, fields.backup.value ?? '', snapshotFileName('backup', fields.connection.value.vehicle))
+  saveText(snapshots, fields.backup.value ?? '', snapshotFileName('backup', fields.connection.value.vehicle))
 }
 </script>

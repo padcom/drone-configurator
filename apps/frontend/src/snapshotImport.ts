@@ -1,6 +1,6 @@
 // What the snapshot import panel says and allows, from plain values (no DOM). Vue's templates escape the text; the
 // words come from the translations.
-import type { State } from './configurator'
+import type { State } from './state'
 import type { Translate } from './telemetryCards'
 
 /** One line about a change that has been applied. */

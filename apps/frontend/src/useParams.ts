@@ -18,10 +18,8 @@ export type ListState = 'none' | 'loading' | 'complete' | 'incomplete' | 'failed
 export interface ParamsDeps {
   /** The link to the backend. */
   client: BackendClient
-  /** Records why the last thing failed. Does not tell anyone: `changed` does. */
+  /** Records why the last thing failed. */
   fail: (message: string | null) => void
-  /** Something the interface shows has changed. */
-  changed: () => void
   /** Whether a vehicle is connected. */
   isConnected: () => boolean
   /** Asks the user to confirm `question`; a write goes ahead only on true. */
@@ -107,7 +105,6 @@ class Parameters implements ParamsModel {
 
   async refresh(): Promise<void> {
     this.list.value = 'loading'
-    this.deps.changed()
 
     try {
       const downloaded = await this.deps.client.call('params.list', null)
@@ -118,12 +115,10 @@ class Parameters implements ParamsModel {
       this.list.value = 'failed'
       this.deps.fail(describeError(error))
     }
-    this.deps.changed()
   }
 
   setFilter(filter: string): void {
     this.filter.value = filter
-    this.deps.changed()
   }
 
   select(id: string): void {
@@ -131,14 +126,12 @@ class Parameters implements ParamsModel {
     this.selected.value = param ? id : null
     this.draft.value = param ? String(param.value) : ''
     this.draftError.value = null
-    this.deps.changed()
   }
 
   editDraft(text: string): void {
     const param = this.selectedParam()
     this.draft.value = text
     this.draftError.value = param ? this.deps.problemWith(param, text) : null
-    this.deps.changed()
   }
 
   /**
@@ -151,14 +144,13 @@ class Parameters implements ParamsModel {
     const { id, kind, type } = param
     try {
       const result = await this.deps.client.call('params.write', { id, kind, type, value })
-      this.replaceQuietly(result.param)
+      this.replace(result.param)
       this.lastWrite.value = statusOf(param, value, result)
       this.draft.value = String(result.param.value)
     } catch (error) {
       this.lastWrite.value = { kind: 'failed', id, message: describeError(error) }
     }
     this.writing.value = false
-    this.deps.changed()
   }
 
   /**
@@ -180,7 +172,6 @@ class Parameters implements ParamsModel {
     const problem = this.deps.problemWith(param, this.draft.value)
     if (problem) {
       this.draftError.value = problem
-      this.deps.changed()
 
       return
     }
@@ -188,7 +179,6 @@ class Parameters implements ParamsModel {
     if (await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
       this.writing.value = true
       this.lastWrite.value = null
-      this.deps.changed()
       await this.send(param, value)
     }
   }
@@ -210,25 +200,14 @@ class Parameters implements ParamsModel {
       this.draft.value = String(param.value)
     }
     if (old) {
-      this.replaceQuietly(param)
+      this.replace(param)
     } else {
       this.params.value = [...this.params.value, param]
     }
-    this.deps.changed()
-  }
-
-  /**
-   * Replaces a parameter by its newer self, without telling anyone.
-   *
-   * @param param the parameter
-   */
-  private replaceQuietly(param: Param): void {
-    this.params.value = this.params.value.map(candidate => candidate.id === param.id ? param : candidate)
   }
 
   replace(param: Param): void {
-    this.replaceQuietly(param)
-    this.deps.changed()
+    this.params.value = this.params.value.map(candidate => candidate.id === param.id ? param : candidate)
   }
 
   stopWriting(): void {

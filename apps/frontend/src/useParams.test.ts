@@ -20,7 +20,6 @@ async function rig(connected = true, options: MockOptions = {}) {
   const deps = {
     client,
     fail: (message: string | null) => failures.push(message),
-    changed: vi.fn(),
     isConnected: () => connected,
     confirm: vi.fn().mockResolvedValue(true),
     problemWith: vi.fn((): string | null => null),
@@ -30,7 +29,7 @@ async function rig(connected = true, options: MockOptions = {}) {
 }
 
 it('downloads the list, saying it is loading meanwhile', async () => {
-  const { parameters, deps } = await rig()
+  const { parameters } = await rig()
 
   const downloading = parameters.refresh()
   expect(parameters.list.value).toBe('loading')
@@ -39,7 +38,6 @@ it('downloads the list, saying it is loading meanwhile', async () => {
   expect(parameters.list.value).toBe('complete')
   expect(parameters.params.value.map(p => p.id)).toEqual(PARAMS.map(p => p.id))
   expect(parameters.missing.value).toEqual([])
-  expect(deps.changed).toHaveBeenCalled()
 })
 
 it('says the download failed, and why, when no vehicle is connected', async () => {
