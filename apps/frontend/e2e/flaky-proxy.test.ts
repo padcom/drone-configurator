@@ -102,7 +102,8 @@ async function cutsAndRestores(): Promise<void> {
   proxy.cut()
   expect(await ended).toBe('closed')
   expect(proxy.isCut).toBe(true)
-  expect(await ask(proxy.port, 'hello')).toBe('closed')
+  // Refused: closed at once, which macOS and Windows report to the client as a reset rather than a clean close.
+  expect(['closed', 'error']).toContain(await ask(proxy.port, 'hello'))
   expect(proxy.forwarded).toBe(1)
 
   proxy.restore()
