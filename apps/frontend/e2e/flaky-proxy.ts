@@ -13,6 +13,11 @@ export class FlakyProxy {
   forwarded = 0
   #target: Target
   #cut = false
+  #muted = false
+  /** After how many of the vehicle's bytes the cable is pulled (counted from `cutAfter`), if it is to be. */
+  #cutAt: number | undefined
+  #sent = 0
+  readonly #cutDone: (() => void)[] = []
   readonly #server: Server
   readonly #sockets = new Set<Socket>()
 
@@ -65,6 +70,32 @@ export class FlakyProxy {
   }
 
   /**
+   * Pulls the cable after `bytes` more bytes have gone from the vehicle to the app: somewhere in the middle of a download
+   * that is about to start, whatever the speed of the machine.
+   *
+   * @param bytes how many bytes of the vehicle's to let through
+   * @returns a promise that resolves when the cable has been pulled
+   */
+  cutAfter(bytes: number): Promise<void> {
+    this.#sent = 0
+    this.#cutAt = bytes
+
+    return new Promise(resolve => {
+      this.#cutDone.push(resolve)
+    })
+  }
+
+  /** Keeps the connections, but passes nothing in either direction: a vehicle that went quiet on a link that is still up. */
+  mute() {
+    this.#muted = true
+  }
+
+  /** Passes bytes again. */
+  unmute() {
+    this.#muted = false
+  }
+
+  /**
    * Forwards new connections somewhere else (another vehicle behind the same address). The ones made already stay.
    *
    * @param target the new place
@@ -103,7 +134,42 @@ export class FlakyProxy {
         upstream.destroy()
       })
     }
-    client.pipe(upstream)
-    upstream.pipe(client)
+    client.on('data', (data: Buffer) => this.#carry(data, upstream, false))
+    upstream.on('data', (data: Buffer) => this.#carry(data, client, true))
+  }
+
+  /**
+   * Passes bytes on, unless the cable is muted; and cuts the cable once the bytes asked for by `cutAfter` have gone to
+   * the app.
+   *
+   * @param data the bytes
+   * @param to where they go
+   * @param towardsApp whether they are the vehicle's
+   */
+  #carry(data: Buffer, to: Socket, towardsApp: boolean) {
+    if (this.#muted) {
+      return
+    }
+    to.write(data)
+
+    if (towardsApp) {
+      this.#counted(data.length)
+    }
+  }
+
+  /**
+   * Counts the vehicle's bytes that went to the app towards the cut asked for by `cutAfter`, and pulls the cable when
+   * they are enough.
+   *
+   * @param bytes how many have just gone
+   */
+  #counted(bytes: number) {
+    this.#sent += bytes
+
+    if (this.#cutAt !== undefined && this.#sent >= this.#cutAt) {
+      this.#cutAt = undefined
+      this.cut()
+      this.#cutDone.splice(0).forEach(resolve => resolve())
+    }
   }
 }

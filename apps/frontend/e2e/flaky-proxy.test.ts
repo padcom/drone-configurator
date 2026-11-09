@@ -126,6 +126,66 @@ async function retargets(): Promise<void> {
   expect(await ask(proxy.port, 'hello')).toBe('b:hello')
 }
 
+/**
+ * Opens a connection through the proxy.
+ *
+ * @param port the proxy's port
+ * @returns the socket, and what it has received so far
+ */
+async function openThrough(port: number): Promise<{ socket: Socket, received: string[] }> {
+  const received: string[] = []
+  const socket = connect(port, '127.0.0.1')
+  socket.on('data', data => received.push(data.toString()))
+  socket.on('error', () => undefined)
+  await new Promise(resolve => {
+    socket.once('connect', resolve)
+  })
+
+  return { socket, received }
+}
+
+/**
+ * Waits.
+ *
+ * @param ms how long
+ * @returns a promise that resolves after that long
+ */
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms)
+  })
+}
+
+/** The cable is pulled once the vehicle's bytes asked for have gone to the app, and not before. */
+async function cutsAfterBytes(): Promise<void> {
+  const { proxy } = await rig()
+  const { socket, received } = await openThrough(proxy.port)
+  const done = proxy.cutAfter(150)
+  socket.write('x'.repeat(100))
+  await wait(100)
+  expect(proxy.isCut).toBe(false)
+  expect(received.join('')).toHaveLength(102)
+  socket.write('x'.repeat(100))
+  await done
+  expect(proxy.isCut).toBe(true)
+  expect(await endsWithin(socket, 2000)).toBe('closed')
+}
+
+/** A muted cable keeps the connection and passes nothing, and what was said meanwhile is lost. */
+async function mutes(): Promise<void> {
+  const { proxy } = await rig()
+  const { socket, received } = await openThrough(proxy.port)
+  proxy.mute()
+  socket.write('lost')
+  await wait(200)
+  expect(received).toEqual([])
+  expect(socket.destroyed).toBe(false)
+  proxy.unmute()
+  socket.write('heard')
+  await wait(200)
+  expect(received.join('')).toBe('a:heard')
+}
+
 describe('the flaky proxy', () => {
   afterEach(async () => {
     await Promise.all(stops.splice(0).map(stop => stop()))
@@ -135,4 +195,6 @@ describe('the flaky proxy', () => {
   it('ends the connections that are open when it is cut, and refuses new ones until it is restored', cutsAndRestores)
   it('ends the upstream connection when the client goes', endsUpstream)
   it('sends new connections somewhere else after retargeting', retargets)
+  it('cuts after the bytes it was told to let through', cutsAfterBytes)
+  it('keeps the connection but passes nothing while muted', mutes)
 })

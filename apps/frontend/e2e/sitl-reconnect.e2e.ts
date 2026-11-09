@@ -1,6 +1,12 @@
 // Reconnecting against ArduPilot SITL, in the real window, through a proxy that can be cut (flaky-proxy.ts): the cable
-// pulled during telemetry, during a parameter download and just after a write, and another vehicle behind the same
-// address. It launches its own SITL (it stops one and starts another), so it ignores SITL_ENDPOINT.
+// pulled during telemetry, during a parameter download (after a number of bytes, so it is in the middle of it on any
+// machine) and just after a write, a vehicle that falls silent on a link that stays up, and another vehicle behind the
+// same address. It launches its own SITL (it stops one and starts another), so it ignores SITL_ENDPOINT.
+//
+// The checks are in order and each goes on from the one before (one app, one connection): if the first fails, the
+// rest fail for that reason. "The same vehicle" depends on the backend reading AUTOPILOT_VERSION in time after each
+// reconnect (a vehicle whose unique id cannot be read is taken for another, which is the safe side); SITL answers at
+// once, but a very slow machine could turn it into a false "another vehicle".
 import { type E2eApp, launchApp } from 'pico-desktop'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { clickConnect, showScreen } from './click'
@@ -13,6 +19,8 @@ const RECONNECT_MS = 60_000
 const PARAM = 'BATT_CAPACITY'
 const STEP = 100
 const ROW = `tr[data-id="${PARAM}"]`
+/** How much of the vehicle's talk to let through before the cable is pulled: about a third of a full list (~50 kB). */
+const DOWNLOAD_CUT_BYTES = 15_000
 
 // What the run has started (undefined until it has), and the parameter counts it has seen.
 let sitl: Sitl | undefined
@@ -117,19 +125,21 @@ async function askToWrite(from: number, to: number): Promise<void> {
 }
 
 /**
- * The value of the parameter in the table.
+ * The value of a parameter in the table.
  *
+ * @param id the parameter (the one the checks write, by default)
  * @returns the number
  */
-async function valueOnScreen(): Promise<number> {
-  return Number(await window().text(`${ROW} td.num`))
+async function valueOnScreen(id = PARAM): Promise<number> {
+  return Number(await window().text(`tr[data-id="${id}"] td.num`))
 }
 
-/** Connects through the proxy and downloads the whole list. */
+/** Connects through the proxy and downloads the whole list, of a quadcopter (FRAME_CLASS 1). */
 async function connectsAndDownloads(): Promise<void> {
   await clickConnect(window())
-  expect(await window().waitForText('#connection', 'connected · system', RECONNECT_MS)).toMatch(/ARDUPILOTMEGA/u)
+  expect(await window().waitForText('#connection', 'connected · system', RECONNECT_MS)).toMatch(/QUADROTOR/u)
   expect(await seeWholeList()).toBeGreaterThanOrEqual(300)
+  expect(await valueOnScreen('FRAME_CLASS')).toBe(1)
 }
 
 /** The cable pulled during telemetry: the last values stay, marked, and the same vehicle comes back. */
@@ -144,28 +154,41 @@ async function resumesAfterTelemetryCut(): Promise<void> {
   await seeWholeList()
 }
 
-/** The cable pulled during a download: it ends with the whole list, once. */
+/**
+ * The cable pulled in the middle of a download (after a number of the vehicle's bytes, not after a pause): the screen was
+ * downloading when it happened, and ends with the whole list, the same size as before.
+ */
 async function resumesAfterDownloadCut(): Promise<void> {
   await showScreen(window(), 'parameters')
+  const before = counts.at(-1)
+  const pulled = cable().cutAfter(DOWNLOAD_CUT_BYTES)
   await window().click('#refresh')
-  await new Promise<void>(resolve => {
-    setTimeout(resolve, 400)
-  })
-  await cutAndSeeReconnecting()
+  await window().waitForText('#list-status', /Downloading the parameters/u, RECONNECT_MS)
+  await pulled
+  await window().waitForText('#connection', /reconnecting/u, RECONNECT_MS)
   await restoreAndSeeResumed()
-  await seeWholeList()
+  expect(await seeWholeList()).toBe(before)
 }
 
-/** The cable pulled just after a write: the vehicle has the old value or the new one, and the value is put back. */
+/**
+ * The cable pulled just after a write: the screen says the write was read back or that it was not confirmed (never
+ * nothing), and the vehicle has the old value or the new one, the new one if the screen said it was read back. The value
+ * is put back.
+ */
 async function resumesAfterWriteCut(): Promise<void> {
   await showScreen(window(), 'parameters')
   const original = await valueOnScreen()
   await askToWrite(original, original + STEP)
   await cutAndSeeReconnecting()
+  const said = await window().waitForText('#detail', /Written and read back: \d+\.|Not confirmed/u, RECONNECT_MS)
   await restoreAndSeeResumed()
   await seeWholeList()
   const after = await valueOnScreen()
   expect([original, original + STEP]).toContain(after)
+
+  if (said.includes('Written and read back')) {
+    expect(after).toBe(original + STEP)
+  }
 
   if (after !== original) {
     await askToWrite(after, original)
@@ -174,7 +197,20 @@ async function resumesAfterWriteCut(): Promise<void> {
   expect(await valueOnScreen()).toBe(original)
 }
 
-/** Another vehicle behind the same address: a new connection, said so, and its own list. */
+/**
+ * A vehicle that goes quiet on a link that stays up (nothing is cut or closed): after 5 s without a heartbeat the app
+ * gives the link up for the moment, opens it again, and finds the same vehicle when it speaks.
+ */
+async function givesUpASilentLink(): Promise<void> {
+  cable().mute()
+  const text = await window().waitForText('#connection', /no heartbeat/u, RECONNECT_MS)
+  expect(text).toMatch(/reconnecting/u)
+  cable().unmute()
+  await window().waitForText('#connection', 'reconnected to the same vehicle', RECONNECT_MS)
+  await seeWholeList()
+}
+
+/** Another vehicle behind the same address: a new connection, said so, and the list of a hexacopter (FRAME_CLASS 2). */
 async function noticesAnotherVehicle(): Promise<void> {
   await cutAndSeeReconnecting()
   await stopIt(sitl)
@@ -186,6 +222,7 @@ async function noticesAnotherVehicle(): Promise<void> {
   expect(text).not.toMatch(/reconnected to the same vehicle/u)
   counts.splice(0)
   await seeWholeList()
+  expect(await valueOnScreen('FRAME_CLASS')).toBe(2)
 }
 
 /** Registers the checks. */
@@ -194,8 +231,9 @@ function registerChecks(): void {
   afterAll(stopAll)
   it('connects through the proxy and downloads the whole list', connectsAndDownloads, LONG_MS)
   it('keeps the last telemetry, marked, while the link is cut, and resumes the same vehicle', resumesAfterTelemetryCut, LONG_MS)
-  it('a link cut during a parameter download ends with the whole list, once', resumesAfterDownloadCut, LONG_MS)
-  it('a link cut just after a write leaves the old value or the new one, never another', resumesAfterWriteCut, LONG_MS)
+  it('a link cut in the middle of a parameter download ends with the whole list again', resumesAfterDownloadCut, LONG_MS)
+  it('a link cut just after a write says read back or not confirmed', resumesAfterWriteCut, LONG_MS)
+  it('a vehicle that goes quiet on a link that stays up is given up after 5 s and found again', givesUpASilentLink, LONG_MS)
   it('another vehicle behind the same address is a new connection, and says so', noticesAnotherVehicle, LONG_MS)
   it('closes cleanly while connected', async () => {
     expect(await window().close()).toBe(0)
