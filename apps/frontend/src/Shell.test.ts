@@ -100,6 +100,17 @@ it('keeps a screen that was shown, as it was, while another is', async () => {
   expect(wrapper.find<HTMLInputElement>('#filter').element.value).toBe('RTL')
 })
 
+it('has the status bar on every screen, even one that is not built yet', async () => {
+  const { wrapper } = await shellAt('/flight')
+  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
+
+  await follow(wrapper, 'Parameters')
+  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
+  await follow(wrapper, 'Logs')
+  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
+  expect(wrapper.findAll('footer#status-bar').length).toBe(1)
+})
+
 it('takes any other address to Flight data', async () => {
   const { router } = await shellAt('/nowhere')
 

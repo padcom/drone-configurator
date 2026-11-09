@@ -6,6 +6,15 @@
     "navigation": "Screens",
     "notAvailable": "{screen} is not available yet."
   },
+  "statusBar": {
+    "label": "Status",
+    "connection": "Connection",
+    "vehicle": "Vehicle",
+    "mode": "Mode",
+    "armed": "State",
+    "link": "Link",
+    "vehicleValue": "{type} · {autopilot} · system {sysid}/{compid}"
+  },
   "screen": {
     "flight": "Flight data",
     "plan": "Plan",
