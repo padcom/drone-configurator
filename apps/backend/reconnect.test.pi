@@ -1,0 +1,396 @@
+// Keeping the session when the link drops (reconnect.pi), against the simulated vehicle. The vehicle falls silent
+// (`reboot`, or `down`) as a cable that is cut would make it; the session settings are shortened for the tests and put
+// back at the end of each.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Conn, connect, listen } from "std/net"
+import { ByteStream, MemoryStream, ParamSet, Received, SimulatedAutopilot, TcpStream, defaultSimParams } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  ParamWrite,
+  ParamWriteKind,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { delayBefore } from "./reconnect"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// Waits up to `ms` for the session to be in `want`.
+async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.state.state != want) {
+    await delay(50)
+    waited += 50
+  }
+  link.state.state == want
+}
+
+/// Short settings: a vehicle silent for 2.5 s is gone (it sends a heartbeat each second), and the first try comes at
+/// once.
+function shortSettings(): void {
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+}
+
+/// What a session has before the tests change it.
+function usualSettings(): void {
+  link.silenceMs = 5000
+  link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+}
+
+/// When the vehicle we are connected to last sent a heartbeat.
+function lastBeat(): int {
+  let seen = 0
+  for (const v of link.discovery!.vehicles()) {
+    if (v.sysid == link.sysid) {
+      seen = v.lastSeen
+    }
+  }
+  seen
+}
+
+async function connectSimulator(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+}
+
+/// A vehicle that falls silent is given up for the moment: operations stop, the state says it is being reconnected,
+/// and when it speaks again it is the same vehicle (resumed).
+async function resumesTheSameVehicle(): Promise<void> throws Error {
+  shortSettings()
+  try {
+    await connectSimulator()
+    const before = link.session
+    simulatorForTests()!.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(`${link.state.attempt ?? 0} ${link.state.vehicle != null} ${before.signal.aborted}`).toBe("1 true true")
+    expect((link.state.error ?? "").startsWith("no heartbeat for")).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${link.state.errorCode ?? ""}`).toBe("true ")
+    expect(link.state.vehicle!.sysid as int).toBe(1)
+  } finally {
+    link.close()
+    usualSettings()
+  }
+}
+
+/// Another vehicle answers on the same link: it is a new connection, and says so. Nothing is reused silently.
+async function doesNotResumeAnotherVehicle(): Promise<void> throws Error {
+  shortSettings()
+  const ends = MemoryStream.pair()
+  const other = new SimulatedAutopilot(ends[1], defaultSimParams(), 2, 1)
+  try {
+    await connectSimulator()
+    other.start(300)
+    link.router!.addLink(ends[0])
+    simulatorForTests()!.down = true
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.sysid}`).toBe("false VEHICLE_CHANGED 2")
+    expect(link.state.vehicle!.sysid as int).toBe(2)
+  } finally {
+    other.stop()
+    link.close()
+    usualSettings()
+  }
+}
+
+/// A write in flight when the link is lost ends as not confirmed (ABORTED), and its PARAM_SET is not sent again, not
+/// during the quiet and not when the vehicle is back.
+async function neverSendsAWriteAgain(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  const sent: int[] = []
+  sim.conn.on((r: Received) => {
+    if (r.message instanceof ParamSet) {
+      sent.push(1)
+    }
+  })
+  try {
+    // Start the write just after a heartbeat: the loss is noticed 1.3 s later, between the second PARAM_SET (at 1 s)
+    // and the third (at 2 s) of the write's four tries.
+    const beat = lastBeat()
+    while (lastBeat() == beat) {
+      await delay(20)
+    }
+    link.silenceMs = 1300
+    sim.down = true
+    const w = ParamWrite { id: "NO_SUCH_PARAM", kind: ParamWriteKind.Int, type: "INT32", value: 1.0 }
+    const started = Date.now() as int
+    const reply = await f.reply(await f.send("params.write", encodeParamWrite(w)))
+    const took = (Date.now() as int) - started
+    expect(`${reply.err?.code ?? "no error"} ${took < 2500} ${link.state.state == ConnectionState.Reconnecting}`).toBe("ABORTED true true")
+    const atAbort = sent.length
+    expect(atAbort >= 1 && atAbort <= 2).toBe(true)
+    await delay(2500)
+    expect(sent.length).toBe(atAbort)
+  } finally {
+    link.close()
+    usualSettings()
+  }
+}
+
+/// The waits between tries: 1, 2, 4, 8 s and then every 10 s; the last repeats.
+function backsOff(): void {
+  const waits: string[] = []
+  for (const n of [1, 2, 3, 4, 5, 6, 12]) {
+    waits.push(`${delayBefore(n)}`)
+  }
+  expect(waits.join(" ")).toBe("1000 2000 4000 8000 10000 10000 10000")
+  link.retryDelaysMs = []
+  expect(delayBefore(1)).toBe(1000)
+  usualSettings()
+}
+
+/// Disconnecting while the link is being brought back ends it at once, and nothing goes on trying.
+async function disconnectEndsTheTries(): Promise<void> throws Error {
+  shortSettings()
+  try {
+    const f = await start()
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    simulatorForTests()!.reboot(30000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    await f.call("vehicle.disconnect")
+    expect(link.state.state == ConnectionState.Disconnected).toBe(true)
+    await delay(800)
+    expect(link.state.state == ConnectionState.Disconnected).toBe(true)
+    expect(link.state.attempt == null).toBe(true)
+  } finally {
+    link.close()
+    usualSettings()
+  }
+}
+
+/// The vehicle's end of a TCP connection. Once the other end has closed it, the vehicle says nothing more (writing to
+/// such a connection is a panic in pico-mavlink's TcpStream, and the backend closes the connections of tries on purpose).
+class VehicleEnd implements ByteStream {
+  readonly tcp: TcpStream
+  gone: bool = false
+
+  constructor(conn: Conn) {
+    this.tcp = new TcpStream(conn)
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    const bytes = await tcp.read()
+    if (bytes == null) {
+      gone = true
+    }
+    bytes
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (!gone) {
+      await tcp.write(bytes)
+    }
+  }
+
+  public close(): void {
+    gone = true
+    tcp.close()
+  }
+}
+
+/// A TCP port that serves a simulated vehicle to every connection (as SITL's port 5760 does). The connections and the
+/// vehicles are kept, so that a test can drop a connection from the vehicle's side, as a cable pulled would.
+class Harbour {
+  public port: int = 0
+  public readonly conns: Conn[] = []
+  public readonly vehicles: SimulatedAutopilot[] = []
+  public open: bool = true
+  /// Whether a vehicle answers on a new connection (false: the cable is there, the board is not).
+  public serving: bool = true
+}
+
+const harbour = new Harbour()
+
+/// Listens and serves until `harbour.open` is false (checked at each connection).
+async function serveVehicles(): Promise<void> throws Error {
+  const server = await listen()
+  harbour.port = server.addr.port as int
+  for await (const conn of server) {
+    if (!harbour.open) {
+      conn.close()
+      server.close()
+      return
+    }
+    harbour.conns.push(conn)
+    if (harbour.serving) {
+      const sim = new SimulatedAutopilot(new VehicleEnd(conn))
+      sim.start(300)
+      harbour.vehicles.push(sim)
+    }
+  }
+}
+
+/// Stops the harbour's vehicles. Before the backend closes its end: a vehicle that writes to a socket the other end
+/// has closed panics (pico-mavlink's TcpStream), and a test must not leave one running.
+function stopVehicles(): void {
+  for (const sim of harbour.vehicles) {
+    sim.stop()
+  }
+}
+
+/// How many links of the session's router are up.
+function linksUp(): int {
+  let up = 0
+  for (const info of link.router!.linkInfo()) {
+    if (info.up) {
+      up += 1
+    }
+  }
+  up
+}
+
+/// Opens the harbour and connects to it.
+async function connectToHarbour(): Promise<Frontend> throws Error {
+  harbour.open = true
+  harbour.serving = true
+  serveVehicles()
+  while (harbour.port == 0) {
+    await delay(20)
+  }
+  const f = await start()
+  const request = ConnectRequest { transport: ConnectRequestTransport.Tcp, host: "127.0.0.1", port: harbour.port as u16 }
+  await f.call("vehicle.connect", encodeConnectRequest(request))
+  f
+}
+
+/// The cable is there and the board is not: every try opens a link that hears nothing. Each is closed, not kept: at no
+/// time are more than one open (a leak would hold one more socket, or one more serial port, per try), and when the
+/// board is back, the next try finds it.
+async function closesTheLinkOfATryThatHeardNothing(): Promise<void> throws Error {
+  shortSettings()
+  link.heartbeatWaitMs = 300
+  try {
+    await connectToHarbour()
+    harbour.serving = false
+    harbour.vehicles[0]!.stop()
+    harbour.conns[0]!.close()
+    expect(await waitForState(ConnectionState.Reconnecting, 4000)).toBe(true)
+    let waited = 0
+    while (waited < 6000 && (link.state.attempt ?? 0) < 4) {
+      await delay(50)
+      waited += 50
+      expect(linksUp() <= 1).toBe(true)
+    }
+    expect((link.state.attempt ?? 0) >= 4).toBe(true)
+    expect(harbour.conns.length >= 4).toBe(true)
+    // The board is back.
+    harbour.serving = true
+    expect(await waitForState(ConnectionState.Connected, 8000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${linksUp()}`).toBe("true 1")
+  } finally {
+    stopVehicles()
+    link.close()
+    link.heartbeatWaitMs = 3000
+    usualSettings()
+    await closeHarbour()
+  }
+}
+
+/// A new connect while the tries go on ends them: the new session is not touched by the old one.
+async function connectAgainEndsTheTries(): Promise<void> throws Error {
+  shortSettings()
+  try {
+    const f = await start()
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    simulatorForTests()!.reboot(30000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    expect(link.state.state == ConnectionState.Connected).toBe(true)
+    await delay(800)
+    expect(`${link.state.state == ConnectionState.Connected} ${link.state.attempt == null} ${link.state.resumed == null}`).toBe("true true true")
+  } finally {
+    link.close()
+    usualSettings()
+  }
+}
+
+/// A disconnect while a try is listening for the board ends it at once, and the link that try opened is closed.
+async function disconnectDuringATry(): Promise<void> throws Error {
+  shortSettings()
+  link.heartbeatWaitMs = 5000
+  try {
+    const f = await connectToHarbour()
+    harbour.serving = false
+    harbour.vehicles[0]!.stop()
+    harbour.conns[0]!.close()
+    expect(await waitForState(ConnectionState.Reconnecting, 4000)).toBe(true)
+    // The first try opens a link and listens for 5 s.
+    while (harbour.conns.length < 2) {
+      await delay(20)
+    }
+    const started = Date.now() as int
+    await f.call("vehicle.disconnect")
+    await delay(300)
+    expect(`${link.state.state == ConnectionState.Disconnected} ${link.state.attempt == null} ${(Date.now() as int) - started < 1500}`).toBe("true true true")
+    await delay(500)
+    expect(harbour.conns.length).toBe(2)
+  } finally {
+    stopVehicles()
+    link.close()
+    link.heartbeatWaitMs = 3000
+    usualSettings()
+    await closeHarbour()
+  }
+}
+
+/// The link is a TCP socket and the far end drops it: the backend opens it again, and the same vehicle is
+/// back, the session resumed.
+async function reopensATcpLink(): Promise<void> throws Error {
+  shortSettings()
+  harbour.open = true
+  serveVehicles()
+  while (harbour.port == 0) {
+    await delay(20)
+  }
+  try {
+    const f = await start()
+    const request = ConnectRequest { transport: ConnectRequestTransport.Tcp, host: "127.0.0.1", port: harbour.port as u16 }
+    await f.call("vehicle.connect", encodeConnectRequest(request))
+    expect(link.state.state == ConnectionState.Connected).toBe(true)
+    // The far end drops the connection.
+    harbour.vehicles[0]!.stop()
+    harbour.conns[0]!.close()
+    expect(await waitForState(ConnectionState.Reconnecting, 4000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${harbour.conns.length}`).toBe("true 2")
+  } finally {
+    stopVehicles()
+    link.close()
+    usualSettings()
+    await closeHarbour()
+  }
+}
+
+/// Stops the harbour: the vehicles stop, and one more connection makes the accepting loop see that it is closed and
+/// close the port (a listening port would keep the test from ending).
+async function closeHarbour(): Promise<void> throws Error {
+  harbour.open = false
+  for (const sim of harbour.vehicles) {
+    sim.stop()
+  }
+  const last = await connect(harbour.port, "127.0.0.1")
+  last.close()
+  harbour.conns.splice(0, harbour.conns.length)
+  harbour.vehicles.splice(0, harbour.vehicles.length)
+  harbour.port = 0
+}
+
+describe("keeping the session when the link drops", () => {
+  it("reopens a TCP link that the far end dropped, and resumes the same vehicle", reopensATcpLink)
+  it("backs off 1, 2, 4, 8 s and then every 10 s", backsOff)
+  it("gives a silent vehicle up for the moment and resumes the same one when it speaks again", resumesTheSameVehicle)
+  it("does not resume another vehicle: it is a new connection, and says so", doesNotResumeAnotherVehicle)
+  it("ends a write in flight as not confirmed and never sends it again", neverSendsAWriteAgain)
+  it("stops trying when the user disconnects", disconnectEndsTheTries)
+  it("closes the link of a try that heard nothing, and finds the board when it is back", closesTheLinkOfATryThatHeardNothing)
+  it("ends the tries when the user connects again", connectAgainEndsTheTries)
+  it("ends a try that is listening when the user disconnects", disconnectDuringATry)
+})

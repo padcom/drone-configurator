@@ -1,0 +1,40 @@
+// Our heartbeat, as a ground station. pico-mavlink's HeartbeatSender sends without waiting for the result, so a send that
+// fails (a router whose links are all down, which is what the session is between two tries to bring a link back) is an
+// error nobody catches, and ends the process. This one waits for it and goes on: a heartbeat that did not leave is
+// simply the next one.
+import { MavLinkConnection, Heartbeat, MavAutopilot, MavState, MavType } from "padcom/pico-mavlink"
+
+export class Beats {
+  readonly conn: MavLinkConnection
+  readonly intervalMs: int
+  timer: int = -1
+
+  constructor(conn: MavLinkConnection, intervalMs: int = 1000) {
+    this.conn = conn
+    this.intervalMs = intervalMs
+  }
+
+  /// One HEARTBEAT now, then every interval.
+  public start(): void {
+    beat()
+    timer = setInterval(() => beat(), intervalMs)
+  }
+
+  public stop(): void {
+    clearInterval(timer)
+    timer = -1
+  }
+
+  async beat(): Promise<void> {
+    const h = new Heartbeat()
+    h.type = MavType.GCS as u8
+    h.autopilot = MavAutopilot.INVALID as u8
+    h.systemStatus = MavState.ACTIVE as u8
+    h.mavlinkVersion = 3
+    try {
+      await conn.send(h)
+    } catch (e: Error) {
+      // No link took it (all are down): the next heartbeat goes when there is one.
+    }
+  }
+}

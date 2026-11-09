@@ -1,0 +1,237 @@
+// Keeping the session when the link drops: the connection and the router outlive the link, and the backend
+// tries to bring it back until the user disconnects or connects somewhere else.
+//
+// The link counts as lost when no link of the router is up any more (a socket or a port that closed), or when the
+// vehicle has not sent a heartbeat for `link.silenceMs` (a UDP socket never ends, and a vehicle may reboot). Then:
+// the running operations are aborted (a write in flight is reported as not confirmed, and is never sent again), the
+// state is `reconnecting`, and the tries follow the waits of `link.retryDelaysMs`. A try opens the link again (TCP and
+// serial; a UDP socket and the simulator are still there) and waits for a heartbeat. The vehicle that answers is the
+// same if its identity is: then the parameters on screen are still its (`resumed`). Another vehicle is a new
+// connection, and says so: nothing is reused silently.
+//
+// Limits of "the same vehicle": two vehicles with the same ids and kind that send no unique id (AUTOPILOT_VERSION)
+// count as the same one; and when the version is not answered in time after a reboot, a vehicle that had a unique id
+// is taken for another (a false `VEHICLE_CHANGED`, which is the safe side: its parameters are downloaded again). The
+// first autopilot to send a heartbeat on the new link is the one considered.
+import { delay } from "std/timers"
+import { AutopilotVersionRead, MavAutopilot, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
+import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
+import { GuardedStream } from "./guarded"
+import { encodingFor, identityOf, infoOf, link } from "./session"
+import { describe, open } from "./transports"
+
+/// The waits are in slices, so that a disconnect is noticed at once.
+const SLICE_MS: int = 100
+
+/// How often the session is looked at.
+const WATCH_MS: int = 250
+
+/// The wait before the n-th try (1, 2, ...): the n-th of the delays, or the last when there are fewer.
+export function delayBefore(attempt: int): int {
+  const delays = link.retryDelaysMs
+  if (delays.length == 0) {
+    return 1000
+  }
+  delays[if (attempt <= delays.length) attempt - 1 else delays.length - 1]
+}
+
+/// Why the link counts as lost, or null while it is not.
+function lostBecause(): string? {
+  const router = link.router
+  const discovery = link.discovery
+  if (router == null || discovery == null) {
+    return null
+  }
+  let up = false
+  for (const info of router!.linkInfo()) {
+    up = up || info.up
+  }
+  if (!up) {
+    return "the link ended"
+  }
+  for (const v of discovery!.vehicles()) {
+    const silent = (Date.now() as int) - v.lastSeen
+    if (v.sysid == link.sysid && v.compid == link.compid && silent > link.silenceMs) {
+      return `no heartbeat for ${silent / 1000} s`
+    }
+  }
+  null
+}
+
+/// Waits `ms`, in slices; false if the session was replaced or closed meanwhile.
+async function pause(ms: int, generation: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.generation == generation) {
+    const slice = if (ms - waited < SLICE_MS) ms - waited else SLICE_MS
+    await delay(slice)
+    waited += slice
+  }
+  link.generation == generation
+}
+
+/// Whether a link of this kind ends and has to be opened again (TCP, serial); a UDP socket and the simulator stay.
+export function reopenable(request: ConnectRequest): bool {
+  request.transport == ConnectRequestTransport.Tcp || request.transport == ConnectRequestTransport.Serial
+}
+
+/// Closes the stream the router was last given, if there is one (a link that is down or heard nothing).
+function dropStream(): void {
+  const s = link.stream
+  if (s != null) {
+    link.stream = null
+    s!.close()
+  }
+}
+
+/// Opens the link again, for the kinds of link that end (TCP and serial), and gives it to the router. The
+/// reason it failed, if it did.
+async function reopen(generation: int): Promise<string?> {
+  const request = link.request
+  const router = link.router
+  if (request == null || router == null) {
+    return null
+  }
+  if (!reopenable(request!)) {
+    return null
+  }
+  // The link the last try opened (or the one that went silent) is given up first: a serial port may be held by one
+  // opener only, and a socket nobody listens to is a leak.
+  dropStream()
+  try {
+    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { link.sim = sim }))
+    if (link.generation != generation) {
+      stream.close()
+      return null
+    }
+    router!.addLink(stream)
+    link.stream = stream
+    return null
+  } catch (e: Error) {
+    return `can't open ${describe(request!)}: ${e.message}`
+  }
+}
+
+/// An autopilot (not a ground station) that has sent a heartbeat since `since`, if one does within the wait.
+async function heardSince(since: int, generation: int): Promise<Vehicle?> throws Error {
+  let waited = 0
+  while (waited <= link.heartbeatWaitMs && link.generation == generation) {
+    const discovery = link.discovery
+    if (discovery != null) {
+      for (const v of discovery!.vehicles()) {
+        if (v.type != MavType.GCS && v.autopilot != MavAutopilot.INVALID && v.lastSeen >= since) {
+          return v
+        }
+      }
+    }
+    await delay(50)
+    waited += 50
+  }
+  null
+}
+
+/// A vehicle answered: the same one, and the session goes on, or another one, and it is a new connection.
+async function takeUp(found: Vehicle, generation: int): Promise<void> throws Error {
+  const conn = link.conn
+  if (conn == null) {
+    return
+  }
+  const version = await new AutopilotVersionRead(conn!, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
+  if (link.generation != generation) {
+    return
+  }
+  const identity = identityOf(found, version)
+  if (identity == link.identity) {
+    link.update(Connection { state: ConnectionState.Connected, vehicle: link.state.vehicle, resumed: true })
+    return
+  }
+  // Never a silent reuse: the parts listen to the new vehicle, and the dashboard downloads its parameters again.
+  link.sysid = found.sysid
+  link.compid = found.compid
+  link.autopilot = found.autopilot
+  link.encoding = encodingFor(found, version)
+  link.identity = identity
+  link.attach(conn!)
+  link.update(Connection {
+    state: ConnectionState.Connected,
+    vehicle: infoOf(found),
+    error: "the vehicle that answered is not the one that was connected",
+    errorCode: "VEHICLE_CHANGED",
+  })
+}
+
+/// The link is lost: tries to bring it back until it is, or the session ends.
+async function bringBack(generation: int, why: string): Promise<void> throws Error {
+  link.abortOperations()
+  let reason = why
+  let attempt = 0
+  while (link.generation == generation) {
+    attempt += 1
+    const wait = delayBefore(attempt)
+    link.update(Connection {
+      state: ConnectionState.Reconnecting,
+      vehicle: link.state.vehicle,
+      error: reason,
+      attempt: attempt as u32,
+      nextRetryMs: wait as u32,
+    })
+    if (!await pause(wait, generation)) {
+      return
+    }
+    const failed = await tryOnce(generation)
+    if (failed == null) {
+      return
+    }
+    reason = failed!
+  }
+}
+
+/// One try: opens the link again, listens for a vehicle and takes it up. Null when it is over (the vehicle is back, or
+/// the session ended), otherwise why the try failed. Whatever goes wrong inside it is a failed try, never the end of
+/// the tries; a link that heard nothing is closed.
+async function tryOnce(generation: int): Promise<string?> {
+  try {
+    const since = Date.now() as int
+    const failed = await reopen(generation)
+    if (failed != null) {
+      return failed
+    }
+    const found = await heardSince(since, generation)
+    if (link.generation != generation) {
+      return null
+    }
+    if (found != null) {
+      await takeUp(found!, generation)
+      return null
+    }
+    dropStream()
+    return "no heartbeat from the vehicle"
+  } catch (e: Error) {
+    if (link.generation != generation) {
+      return null
+    }
+    dropStream()
+    return `the vehicle did not answer: ${e.message}`
+  }
+}
+
+async function keepWatching(generation: int): Promise<void> throws Error {
+  while (link.generation == generation) {
+    await delay(WATCH_MS)
+    if (link.generation == generation && link.state.state == ConnectionState.Connected) {
+      const why = lostBecause()
+      if (why != null) {
+        await bringBack(generation, why!)
+      }
+    }
+  }
+}
+
+/// Looks after the session while it is up: when the link is lost, brings it back. Ends with the session (also when
+/// something fails under it, which only ends the watching: the session is not touched).
+export async function watchSession(generation: int): Promise<void> {
+  try {
+    await keepWatching(generation)
+  } catch (e: Error) {
+    // Closed under it, or a read failed: the watching ends.
+  }
+}
