@@ -95,6 +95,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.sysid = found.sysid
       link.compid = found.compid
       link.autopilot = found.autopilot
+      link.attach(conn)
       // How integers travel in parameter floats: as the autopilot says (AUTOPILOT_VERSION), or as
       // its kind usually does (PX4 bytewise; ArduPilot and most others C-cast).
       const guess = if (found.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast

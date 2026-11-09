@@ -1,0 +1,126 @@
+// The telemetry service: what the vehicle reports (heartbeat, battery, attitude), streamed to the
+// dashboard once a second.
+import { Cbor, Communicator, Sink } from "pico-desktop/communicator"
+import {
+  Attitude,
+  CopterMode,
+  Heartbeat,
+  MavAutopilot,
+  MavLinkConnection,
+  MavModeFlag,
+  MavType,
+  PlaneMode,
+  Received,
+  RoverMode,
+  SubMode,
+  SysStatus,
+} from "padcom/pico-mavlink"
+import { ConnectionState, Telemetry, encodeTelemetry } from "./generated/app"
+import { SessionPart, link } from "./session"
+
+/// Registers the service's subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("telemetry", heard)
+  c.publish("telemetry.stream", streamTelemetry)
+}
+
+/// The flight mode's name: ArduPilot's mode tables (ardupilotmega's COPTER_MODE, PLANE_MODE,
+/// ROVER_MODE, SUB_MODE), chosen by the vehicle type; `mode N` otherwise.
+function modeName(autopilot: int, type: int, customMode: int): string {
+  if (autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    return `mode ${customMode}`
+  }
+  const plane = type == MavType.FIXED_WING || (type >= MavType.VTOL_TAILSITTER_DUOROTOR && type <= MavType.VTOL_TILTWING)
+  const rover = type == MavType.GROUND_ROVER || type == MavType.SURFACE_BOAT
+  const name = if (plane) PlaneMode.nameOf(customMode)
+    else if (rover) RoverMode.nameOf(customMode)
+    else if (type == MavType.SUBMARINE) SubMode.nameOf(customMode)
+    else CopterMode.nameOf(customMode)
+  name ?? `mode ${customMode}`
+}
+
+/// What the vehicle has reported since connecting (telemetry shows only that).
+class Heard implements SessionPart {
+  public conn: MavLinkConnection? = null
+  public listener: int = 0
+  public heardHeartbeat: bool = false
+  public heardStatus: bool = false
+  public heardAttitude: bool = false
+  public armed: bool = false
+  public mode: string = "unknown"
+  public voltage: f64 = 0.0
+  public remaining: int = -1
+  public roll: f64 = 0.0
+  public pitch: f64 = 0.0
+  public yaw: f64 = 0.0
+  public lastHeartbeat: int = 0
+
+  public attach(c: MavLinkConnection): void {
+    conn = c
+    listener = c.on((r: Received) => seen(r))
+  }
+
+  public detach(): void {
+    heardHeartbeat = false
+    heardStatus = false
+    heardAttitude = false
+    const c = conn
+    if (c != null) {
+      c!.off(listener)
+    }
+    conn = null
+  }
+
+  /// Telemetry from the connected vehicle.
+  public seen(r: Received): void {
+    if (link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
+      return
+    }
+    const m = r.message
+    if (m instanceof Heartbeat) {
+      armed = ((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0
+      mode = modeName(m.autopilot as int, m.type as int, m.customMode as int)
+      lastHeartbeat = Date.now() as int
+      heardHeartbeat = true
+    } else if (m instanceof SysStatus) {
+      // UINT16_MAX: the vehicle doesn't know its voltage.
+      if (m.voltageBattery as int != 65535) {
+        voltage = (m.voltageBattery as f64) / 1000.0
+        heardStatus = true
+      }
+      remaining = m.batteryRemaining as int
+    } else if (m instanceof Attitude) {
+      roll = (m.roll as f64) * 180.0 / Math.PI
+      pitch = (m.pitch as f64) * 180.0 / Math.PI
+      yaw = (m.yaw as f64) * 180.0 / Math.PI
+      heardAttitude = true
+    }
+  }
+
+  public telemetry(): Telemetry {
+    const t = Telemetry { armed: armed, mode: mode, heartbeatAgeMs: ((Date.now() as int) - lastHeartbeat) as u32 }
+    if (heardStatus) {
+      t.batteryVoltage = Math.round(voltage * 100.0) / 100.0
+      if (remaining >= 0 && remaining <= 100) {
+        t.batteryRemaining = remaining as u8
+      }
+    }
+    if (heardAttitude) {
+      t.roll = Math.round(roll * 10.0) / 10.0
+      t.pitch = Math.round(pitch * 10.0) / 10.0
+      t.yaw = Math.round(yaw)
+    }
+    t
+  }
+}
+
+const heard = new Heard()
+
+function streamTelemetry(_params: Cbor?, sink: Sink): void throws Error {
+  const timer = setInterval(() => {
+    if (link.state.state == ConnectionState.Connected && heard.heardHeartbeat) {
+      sink.next(encodeTelemetry(heard.telemetry()))
+    }
+  }, 1000)
+  sink.onClose = () => clearInterval(timer)
+}

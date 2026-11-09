@@ -1,7 +1,7 @@
 // The backend: the vehicle link (padcom/pico-mavlink) behind the contract's methods and
 // subscriptions. Pico has no async closures yet, so handlers are named async functions over the
 // one module-level session (session.pi).
-import { Cbor, Communicator, CommunicatorError, RequestContext, Sink, Transport } from "pico-desktop/communicator"
+import { Cbor, Communicator, CommunicatorError, RequestContext, Transport } from "pico-desktop/communicator"
 import {
   MavLinkError,
   MavParamType,
@@ -13,19 +13,18 @@ import {
   ParamListResult,
 } from "padcom/pico-mavlink"
 import {
-  ConnectionState,
   ParamList,
   ParamWriteKind,
   ParamWriteResult,
   decodeParamWrite,
   encodeParamList,
   encodeParamWriteResult,
-  encodeTelemetry,
 } from "./generated/app"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
 import { register as registerSerial } from "./serial"
 import { connectedLink, link, toParam } from "./session"
+import { register as registerTelemetry } from "./telemetry"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
 export function simulatorForTests(): SimulatedAutopilot? {
@@ -47,7 +46,7 @@ export function createBackend(transport: Transport): Communicator {
   registerConnection(c)
   c.handle("params.list", listParams)
   c.handle("params.write", writeParam)
-  c.publish("telemetry.stream", streamTelemetry)
+  registerTelemetry(c)
   registerFiles(c)
   registerSerial(c)
   c
@@ -105,13 +104,4 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   } catch (e: ParamError) {
     throw new CommunicatorError(e.code, e.message)
   }
-}
-
-function streamTelemetry(_params: Cbor?, sink: Sink): void throws Error {
-  const timer = setInterval(() => {
-    if (link.state.state == ConnectionState.Connected && link.heardHeartbeat) {
-      sink.next(encodeTelemetry(link.telemetry()))
-    }
-  }, 1000)
-  sink.onClose = () => clearInterval(timer)
 }
