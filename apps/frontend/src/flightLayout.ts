@@ -32,6 +32,15 @@ export interface FlightLayoutStart {
 
 const DEFAULTS: FlightLayoutStart = { main: DEFAULT_MAIN, side: DEFAULT_SIDE, tab: 'telemetry' }
 
+/**
+ * A layout in full: what is kept between runs. The sizes to open at are part of it, so that a pane collapsed when the app
+ * closed opens as it would have.
+ */
+export interface KeptLayout extends FlightLayoutStart {
+  /** The sizes the splits open at when a collapsed pane is opened. */
+  reopen: { main: number, side: number }
+}
+
 /** The layout, and what changes it. */
 export interface FlightLayout {
   /** The map's share of the width (percent). */
@@ -44,6 +53,10 @@ export interface FlightLayout {
   isCollapsed: (pane: Pane) => boolean
   /** Collapses a pane, or opens it again at the size it had. Of the display and the details, only one is collapsed at a time. */
   toggle: (pane: Pane) => void
+  /** The layout as it is, to be kept. */
+  kept: () => KeptLayout
+  /** Puts a layout that was kept in place. */
+  restore: (kept: KeptLayout) => void
 }
 
 /**
@@ -103,6 +116,19 @@ class FlightLayoutModel implements FlightLayout {
         this.before[key] = next
       }
     }, { flush: 'sync' })
+  }
+
+  kept(): KeptLayout {
+    return { main: this.main.value, side: this.side.value, tab: this.tab.value, reopen: { ...this.before } }
+  }
+
+  restore(kept: KeptLayout): void {
+    this.main.value = kept.main
+    this.side.value = kept.side
+    this.tab.value = kept.tab
+    // After the sizes: setting them records the open ones, and what was kept says what to open at.
+    this.before.main = kept.reopen.main
+    this.before.side = kept.reopen.side
   }
 
   /**

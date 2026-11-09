@@ -39,14 +39,17 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FlightPane from '../FlightPane.vue'
 import { MAX, MIN, useFlightLayout } from '../flightLayout'
+import { useKeptLayout } from '../flightLayoutKept'
 import SplitPane from '../kit/SplitPane.vue'
 import Tabs from '../kit/Tabs.vue'
 import TelemetryCards from '../TelemetryCards.vue'
+import { useConfigurator } from '../useConfigurator'
 
 // The screen the user lives in: a map pane (not built yet), a heads-up display pane (not built yet), and a pane of
 // details, whose first tab is the telemetry cards. Each pane can be resized with its bar (by pointer or by keyboard) and
-// collapsed to its header, and opened again.
+// collapsed to its header, and opened again. The layout is kept in the settings and is as it was left at the next start.
 const { t } = useI18n()
 const layout = useFlightLayout()
+useKeptLayout(layout, useConfigurator().settings)
 const tabs = computed(() => [{ id: 'telemetry', label: t('flight.detail.telemetry') }])
 </script>
