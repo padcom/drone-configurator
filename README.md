@@ -90,8 +90,8 @@ The harness only ever launches or connects to a simulator.
 - `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
 - `apps/frontend`:
   - `configurator.ts`: the state and actions, without the DOM;
-  - `render.ts`: pure HTML from the state;
-  - `main.ts`: the DOM wiring;
+  - the Vue components (`ConnectionBar.vue`, `TelemetryCards.vue`, `ParamTable.vue`, `ParamFilter.vue`, `ParamEditor.vue`, `MetadataStatus.vue`, `SnapshotToolbar.vue`, `SnapshotImport.vue`, `ConfirmDialog.vue`), each with a plain `.ts` module for its logic, and `useConfigurator.ts`, which gives them the state as refs;
+  - `main.ts`: creates the Configurator and mounts each component into its element of `index.html` (`mountIsland.ts`); their text is in `locales/en.json` (`i18n.ts`);
   - `mock-backend.ts` and `fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
 
 ## Safety
