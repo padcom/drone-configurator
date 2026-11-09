@@ -80,8 +80,9 @@ jobs:
       - name: Frontend type check
         if: ${{ !matrix.backend }}
         working-directory: drone-configurator/apps/frontend
+        # vue-tsc (the package's own `typecheck`, as `pnpm lint` runs it on Linux): plain tsc can't read .vue files.
         run: |
-          pnpm exec tsc --noEmit -p .
+          pnpm typecheck
           pnpm exec tsc --noEmit -p e2e
       - name: Frontend unit tests
         if: ${{ !matrix.backend }}
