@@ -1,18 +1,29 @@
 // Parameter snapshots: a vehicle's parameters saved as JSON, and what loading one would change.
-// Nothing here writes: the configurator applies only the changes the user picked and confirmed.
+// Nothing here writes: only the changes the user picked and confirmed are applied (useSnapshots).
+import { validateDraft } from './draft'
 import type { Param, VehicleInfo } from './generated/app'
-import { validateDraft } from './configurator'
 
+/** The `format` of a snapshot file. */
 export const FORMAT = 'drone-configurator/params'
+
+/** The `version` of a snapshot file that this app reads. */
 export const VERSION = 1
 
+/** One parameter of a snapshot. */
+export type SnapshotParam = Pick<Param, 'id' | 'kind' | 'type' | 'value'>
+
+/** A snapshot file. */
 export interface Snapshot {
+  /** Always `FORMAT`. */
   format: typeof FORMAT
+  /** Always `VERSION`. */
   version: typeof VERSION
   /** When it was saved (ISO 8601). */
   savedAt: string
+  /** The vehicle the parameters are from, if known. */
   vehicle?: VehicleInfo
-  params: Pick<Param, 'id' | 'kind' | 'type' | 'value'>[]
+  /** The parameters. */
+  params: SnapshotParam[]
 }
 
 /**
@@ -32,19 +43,24 @@ export function saveSnapshot(params: Param[], vehicle: VehicleInfo | undefined, 
     params: params.map(({ id, kind, type, value }) => ({ id, kind, type, value })),
   }
 
-  return JSON.stringify(snapshot, null, 2) + '\n'
+  return `${JSON.stringify(snapshot, null, 2)}\n`
 }
 
 /** One parameter a snapshot would change, or why it can't. */
 export interface Change {
+  /** The parameter's id. */
   id: string
+  /** Its value on the vehicle now, or null if the vehicle has none. */
   from: number | null
+  /** Its value in the snapshot. */
   to: number
   /** Why it won't be written (unknown here, another type, an invalid value), or null. */
   problem: string | null
 }
 
+/** What loading a snapshot would do. */
 export interface Review {
+  /** The snapshot under review. */
   snapshot: Snapshot
   /** Parameters whose values differ (and ones that can't be applied, with why). */
   changes: Change[]
@@ -52,6 +68,66 @@ export interface Review {
   unchanged: number
   /** A different vehicle type or autopilot than the one connected, if so. */
   vehicleWarning: string | null
+}
+
+/**
+ * Whether a value is the kind of a parameter.
+ *
+ * @param kind anything
+ * @returns true for `int` and `real`
+ */
+const isKind = (kind: unknown) => kind === 'int' || kind === 'real'
+
+/**
+ * Whether something names a parameter and says what kind it is.
+ *
+ * @param param anything from a snapshot file
+ * @returns true if it has a text id and a kind
+ */
+const identifies = (param: Partial<SnapshotParam> | null) => typeof param?.id === 'string' && isKind(param.kind)
+
+/**
+ * Whether something is a parameter of a snapshot: an id, a kind, a type and a value.
+ *
+ * @param param anything from a snapshot file
+ * @returns true if it is well formed
+ */
+function isSnapshotParam(param: Partial<SnapshotParam> | null): boolean {
+  return identifies(param) && typeof param?.type === 'string' && typeof param.value === 'number'
+}
+
+/**
+ * Why the snapshot's version is not the one this app reads.
+ *
+ * @param version the file's version
+ * @returns the problem, or null
+ */
+function versionProblem(version: unknown): string | null {
+  return version === VERSION ? null : `snapshot version ${String(version)} (this app reads version ${VERSION})`
+}
+
+/**
+ * Why a snapshot's parameters are not well formed, if they are not.
+ *
+ * @param params what the file held as parameters
+ * @returns the problem, or null
+ */
+function paramsProblem(params: unknown): string | null {
+  return Array.isArray(params) && params.every(isSnapshotParam) ? null : 'its parameters are malformed'
+}
+
+/**
+ * Why a parsed file is not a snapshot.
+ *
+ * @param snapshot what the file held
+ * @returns the problem, or null
+ */
+function problemWith(snapshot: Partial<Snapshot> | null): string | null {
+  if (snapshot?.format !== FORMAT) {
+    return 'not a Drone Configurator parameter snapshot'
+  }
+
+  return versionProblem(snapshot.version) ?? paramsProblem(snapshot.params)
 }
 
 /**
@@ -67,17 +143,61 @@ export function parseSnapshot(text: string): Snapshot | string {
   } catch {
     return 'not JSON'
   }
-  const s = data as Partial<Snapshot>
-  if (s?.format !== FORMAT) {
-    return 'not a Drone Configurator parameter snapshot'
-  }
-  if (s.version !== VERSION) {
-    return `snapshot version ${String(s.version)} (this app reads version ${VERSION})`
-  }
-  const ok = Array.isArray(s.params) && s.params.every(p => typeof p?.id === 'string' && (p.kind === 'int' || p.kind === 'real')
-    && typeof p.type === 'string' && typeof p.value === 'number')
+  const snapshot = data as Partial<Snapshot> | null
 
-  return ok ? s as Snapshot : 'its parameters are malformed'
+  return problemWith(snapshot) ?? snapshot as Snapshot
+}
+
+/**
+ * Whether a snapshot's parameter and the vehicle's are of different types.
+ *
+ * @param current the vehicle's parameter
+ * @param wanted the snapshot's parameter
+ * @returns true if the kind or the type differs
+ */
+const differentType = (current: Param, wanted: SnapshotParam) => current.kind !== wanted.kind || current.type !== wanted.type
+
+/**
+ * What loading one parameter of a snapshot would change.
+ *
+ * @param wanted the snapshot's parameter
+ * @param current the vehicle's parameter, if it has one
+ * @returns the change (with why it can't be applied, if so), or null if the value is the same already
+ */
+function changeFor(wanted: SnapshotParam, current: Param | undefined): Change | null {
+  const { id, value: to } = wanted
+  if (!current) {
+    return { id, from: null, to, problem: 'not on this vehicle' }
+  }
+  if (differentType(current, wanted)) {
+    return { id, from: current.value, to, problem: `${wanted.type} in the snapshot, ${current.type} on the vehicle` }
+  }
+
+  return current.value === to ? null : { id, from: current.value, to, problem: validateDraft(current, String(to)) }
+}
+
+/**
+ * Whether two vehicles are of different types or autopilots.
+ *
+ * @param was the vehicle the snapshot is from
+ * @param now the connected vehicle
+ * @returns true if they differ
+ */
+const differs = (was: VehicleInfo, now: VehicleInfo) => was.type !== now.type || was.autopilot !== now.autopilot
+
+/**
+ * The warning for a snapshot from a different vehicle.
+ *
+ * @param was the vehicle the snapshot is from, if known
+ * @param now the connected vehicle, if any
+ * @returns the warning, or null
+ */
+function warningFor(was: VehicleInfo | undefined, now: VehicleInfo | undefined): string | null {
+  if (!was || !now || !differs(was, now)) {
+    return null
+  }
+
+  return `saved from a ${was.type} (${was.autopilot}); this is a ${now.type} (${now.autopilot})`
 }
 
 /**
@@ -89,25 +209,9 @@ export function parseSnapshot(text: string): Snapshot | string {
  * @returns the review
  */
 export function review(snapshot: Snapshot, params: Param[], vehicle: VehicleInfo | undefined): Review {
-  const byId = new Map(params.map(p => [p.id, p]))
-  const changes: Change[] = []
-  let unchanged = 0
-  for (const s of snapshot.params) {
-    const current = byId.get(s.id)
-    if (!current) {
-      changes.push({ id: s.id, from: null, to: s.value, problem: 'not on this vehicle' })
-    } else if (current.kind !== s.kind || current.type !== s.type) {
-      changes.push({ id: s.id, from: current.value, to: s.value, problem: `${s.type} in the snapshot, ${current.type} on the vehicle` })
-    } else if (current.value === s.value) {
-      unchanged += 1
-    } else {
-      changes.push({ id: s.id, from: current.value, to: s.value, problem: validateDraft(current, String(s.value)) })
-    }
-  }
-  const was = snapshot.vehicle
-  const vehicleWarning = was && vehicle && (was.type !== vehicle.type || was.autopilot !== vehicle.autopilot)
-    ? `saved from a ${was.type} (${was.autopilot}); this is a ${vehicle.type} (${vehicle.autopilot})`
-    : null
+  const byId = new Map(params.map(param => [param.id, param]))
+  const found = snapshot.params.map(wanted => changeFor(wanted, byId.get(wanted.id)))
+  const changes = found.filter((change): change is Change => change !== null)
 
-  return { snapshot, changes, unchanged, vehicleWarning }
+  return { snapshot, changes, unchanged: found.length - changes.length, vehicleWarning: warningFor(snapshot.vehicle, vehicle) }
 }

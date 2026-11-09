@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ParamFilter from './ParamFilter.vue'
 import { mockBackend } from './mock-backend'
-import { feed } from './testing'
+import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { VEHICLE } from './fixtures'
 
@@ -13,10 +13,10 @@ import { VEHICLE } from './fixtures'
  */
 function filterWithSpies() {
   const handle = createConfigurator(mockBackend())
-  const setFilter = vi.spyOn(handle.app, 'setFilter').mockImplementation(() => undefined)
-  const refresh = vi.spyOn(handle.app, 'refresh').mockResolvedValue()
+  const setFilter = vi.spyOn(handle.parameters, 'setFilter').mockImplementation(() => undefined)
+  const refresh = vi.spyOn(handle.parameters, 'refresh').mockResolvedValue()
 
-  return { wrapper: mount(ParamFilter), handle, setFilter, refresh }
+  return { wrapper: mount(ParamFilter, withI18n), handle, setFilter, refresh }
 }
 
 it('passes on what is typed, and shows the filter the Configurator holds', async () => {

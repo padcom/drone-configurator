@@ -26,6 +26,18 @@ Status: **DR0 is done; DR1 and DR2 are done except what needs ArduPilot SITL or 
 
 It expects `pico-desktop`, `pico-lang`, `pico-mavlink` and `pico-serialport` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
 
+`pico-desktop` has to be built first, once (and again after you update it): its CLI (`pico-desktop dev`, `test`, `build`, which this project's scripts call) and the CEF host are not in the checkout. Without it, `pnpm dev` fails with `ERR_MODULE_NOT_FOUND` for `tooling/cli/dist/index.js`.
+
+```sh
+cd ../pico-desktop
+pnpm install
+pnpm build    # the CLI and the packages; before `pnpm cef`, whose tests use the CLI
+pnpm cef      # fetches the pinned CEF, builds the host and stages the runtime (Linux; see pico-desktop's docs/platform-linux.md)
+cd ../drone-configurator
+```
+
+Then:
+
 ```sh
 pnpm install
 pnpm dev      # the app, with the "Simulator" transport for a vehicle without hardware
@@ -87,11 +99,12 @@ The harness only ever launches or connects to a simulator.
 ## Layout
 
 - `packages/contracts/app.cddl`: the contract (methods, subscriptions, types) between the dashboard and the backend.
+- `docs/frontend-state.md`: how the interface calls the backend (`src/backend/client.ts`), when subscriptions end, how errors look, and the frame rule for fast data (`src/state/frame.ts`).
 - `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
 - `apps/frontend`:
-  - `configurator.ts`: the state and actions, without the DOM;
-  - `render.ts`: pure HTML from the state;
-  - `main.ts`: the DOM wiring;
+  - the composables that hold the state and talk to the backend through `backend/client.ts`: `useVehicle.ts`, `useParams.ts`, `useMetadata.ts`, `useSnapshots.ts`, `useTelemetry.ts`; `useConfigurator.ts` puts them together (see `docs/frontend-state.md`);
+  - the Vue components (`ConnectionBar.vue`, `TelemetryCards.vue`, `ParamTable.vue`, `ParamFilter.vue`, `ParamEditor.vue`, `MetadataStatus.vue`, `SnapshotToolbar.vue`, `SnapshotImport.vue`, `ConfirmDialog.vue`), each with a plain `.ts` module for its logic, and `useConfigurator.ts`, which gives them the state as refs;
+  - `main.ts`: starts the composables and mounts each component into its element of `index.html` (`mountIsland.ts`); their text is in `locales/en.json` (`i18n.ts`);
   - `mock-backend.ts` and `fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
 
 ## Safety

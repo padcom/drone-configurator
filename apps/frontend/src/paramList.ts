@@ -1,6 +1,8 @@
-// What the parameter list shows, from plain values (no DOM). Vue's templates escape the text.
+// What the parameter list shows, from plain values (no DOM). Vue's templates escape the text; the words come from
+// the translations.
 import type { Param } from './generated/app'
-import type { State } from './configurator'
+import type { State } from './state'
+import type { Translate } from './telemetryCards'
 
 /**
  * The parameters matching the filter (case-insensitive, anywhere in the name).
@@ -15,32 +17,42 @@ export function visibleParams(params: Param[], filter: string): Param[] {
   return needle === '' ? params : params.filter(param => param.id.includes(needle))
 }
 
-/** What the status line says while there is no list to describe. */
+/** The messages for a list that is not there: not asked for yet, on its way, or failed. */
 const NO_LIST: Record<'none' | 'loading' | 'failed', string> = {
-  none: 'Connect to download the parameters.',
-  loading: 'Downloading the parameters…',
-  failed: 'The download failed.',
+  none: 'params.status.none',
+  loading: 'params.status.loading',
+  failed: 'params.status.failed',
+}
+
+/** What the list's status line is made from. */
+export interface ListCounts {
+  /** `loading`, or how the last download ended. */
+  list: State['list']
+  /** How many parameters there are. */
+  total: number
+  /** The indexes that never arrived. */
+  missing: number[]
+  /** How many pass the filter. */
+  shown: number
 }
 
 /**
  * How the parameter list stands.
  *
- * @param list `loading`, or how the last download ended
- * @param total how many parameters there are
- * @param missing the indexes that never arrived
- * @param shown how many pass the filter
+ * @param counts the state of the download and the counts
+ * @param translate looks up a message
  * @returns the sentence for the list's status line
  */
-export function listStatusText(list: State['list'], total: number, missing: number[], shown: number): string {
+export function listStatusText(counts: ListCounts, translate: Translate): string {
+  const { list, total, missing, shown } = counts
   if (list === 'incomplete') {
-    return `${total} parameters, but ${missing.length} never arrived (indexes ${missing.join(', ')}). `
-      + 'Download again to retry.'
+    return translate('params.status.incomplete', { total, missing: missing.length, indexes: missing.join(', ') })
   }
   if (list === 'complete') {
-    return shown === total ? `${total} parameters` : `${shown} of ${total} parameters`
+    return shown === total ? translate('params.status.all', { total }) : translate('params.status.some', { shown, total })
   }
 
-  return NO_LIST[list]
+  return translate(NO_LIST[list])
 }
 
 /**

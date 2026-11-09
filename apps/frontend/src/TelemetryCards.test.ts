@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import TelemetryCards from './TelemetryCards.vue'
 import { mockBackend } from './mock-backend'
-import { withI18n } from './testing'
+import { feed, nextFrame, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { telemetryAt } from './fixtures'
 import type { Telemetry } from './generated/app'
@@ -14,9 +14,13 @@ import type { Telemetry } from './generated/app'
  * @returns the mounted component
  */
 async function cardsWith(telemetry: Telemetry | null) {
-  const { fields } = createConfigurator(mockBackend())
+  const handle = createConfigurator(mockBackend())
   const wrapper = mount(TelemetryCards, withI18n)
-  fields.telemetry.value = telemetry
+  // Through the Configurator, as the backend's events would be: a ref written directly is overwritten by its next render.
+  await flushPromises()
+  feed(handle, { telemetry })
+  // The telemetry is published once per frame.
+  await nextFrame()
   await wrapper.vm.$nextTick()
 
   return wrapper
