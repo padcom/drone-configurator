@@ -1,6 +1,6 @@
 // A ref for values that arrive faster than the screen draws: any number of pushes in a frame publish once, the latest
 // (docs/frontend-state.md). Telemetry can come at 50 Hz; the interface follows at the display's rate, and no more.
-import { type Ref, getCurrentScope, onScopeDispose, readonly, shallowRef } from 'vue'
+import { type Ref, getCurrentScope, onScopeDispose, shallowReadonly, shallowRef } from 'vue'
 
 /** Asks for `task` to run before the next frame is drawn; the function returned cancels the request. */
 export type Scheduler = (task: () => void) => () => void
@@ -42,6 +42,8 @@ export function useFrameRef<T>(initial: T, schedule: Scheduler = animationFrame)
   let cancel: (() => void) | undefined
 
   const flush = () => {
+    // Publishing now makes the frame that was asked for pointless.
+    cancel?.()
     cancel = undefined
 
     if (pending) {
@@ -63,5 +65,6 @@ export function useFrameRef<T>(initial: T, schedule: Scheduler = animationFrame)
     onScopeDispose(stop)
   }
 
-  return { value: readonly(published) as Readonly<Ref<T>>, push, flush, stop }
+  // Shallow: the published object is the one that was pushed, not a Vue proxy of it.
+  return { value: shallowReadonly(published) as Readonly<Ref<T>>, push, flush, stop }
 }

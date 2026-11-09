@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { effectScope, watch } from 'vue'
+import { effectScope, isReactive, watch } from 'vue'
 import { type Scheduler, useFrameRef } from './frame'
 
 /**
@@ -101,6 +101,33 @@ it('drops the pending value when the effect scope ends', () => {
 
   expect(pending()).toBe(0)
   expect(ref?.value.value).toBe(0)
+})
+
+it('publishes an object as it was pushed, not as a Vue proxy of it', () => {
+  const { schedule, frame } = manualFrames()
+  const ref = useFrameRef<{ nested: { n: number } } | null>(null, schedule)
+  const pushed = { nested: { n: 1 } }
+
+  ref.push(pushed)
+  frame()
+
+  expect(ref.value.value).toBe(pushed)
+  expect(isReactive(ref.value.value)).toBe(false)
+  expect(isReactive(ref.value.value?.nested)).toBe(false)
+})
+
+it('has no frame left to run once it has been flushed', () => {
+  const { schedule, frame, pending } = manualFrames()
+  const ref = useFrameRef(0, schedule)
+
+  ref.push(5)
+  ref.flush()
+
+  expect(pending()).toBe(0)
+  frame()
+  expect(ref.value.value).toBe(5)
+  ref.push(6)
+  expect(pending()).toBe(1)
 })
 
 it('does not publish a value that equals the one already published', () => {

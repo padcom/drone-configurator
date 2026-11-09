@@ -84,11 +84,20 @@ export interface Subscription {
 export interface BackendClient {
   /** Calls a method. Rejects with a BackendError. */
   call: <K extends MethodName>(method: K, payload: RequestOf<K>) => Promise<ResponseOf<K>>
-  /** Subscribes to a topic; ends with the current effect scope, if there is one. */
-  subscribe: <K extends TopicName>(topic: K, params: ParamsOf<K>, onValue: (value: ValueOf<K>) => void) => Subscription
+  /**
+   * Subscribes to a topic; ends with the current effect scope, if there is one.
+   * `onEnd` is called once when the backend ends the subscription (with the error, if it failed), and never after
+   * `stop()`. A subscription the backend refuses is not an end: `ready` rejects.
+   */
+  subscribe: <K extends TopicName>(
+    topic: K,
+    params: ParamsOf<K>,
+    onValue: (value: ValueOf<K>) => void,
+    onEnd?: (error: BackendError | null) => void,
+  ) => Subscription
   /** Listens to a one-way event; ends with the current effect scope, if there is one. */
   onEvent: <K extends EventName>(name: K, listener: (payload: PayloadOf<K>) => void) => () => void
-  /** Observes the link to the backend (it restarts after a crash or an edit in development). */
+  /** Observes the link to the backend (it restarts after a crash or an edit in development); ends with the scope. */
   onState: (listener: (state: BackendState) => void) => () => void
 }
 
@@ -109,9 +118,45 @@ function endWithScope(stop: () => void): void {
  */
 interface Wire {
   request: (name: string, payload: unknown) => Promise<unknown>
-  subscribe: (name: string, params: unknown, onValue: (value: unknown) => void) => Promise<{ unsubscribe: () => Promise<void> }>
+  subscribe: (
+    name: string,
+    params: unknown,
+    onValue: (value: unknown) => void,
+    onEnd: (error: CommunicatorError | null) => void,
+  ) => Promise<{ unsubscribe: () => Promise<void> }>
   on: (name: string, listener: (payload: unknown) => void) => () => void
   onConnectionChange: (listener: (state: BackendState) => void) => () => void
+}
+
+/** What a subscriber wants to hear about a subscription. */
+interface Handlers<K extends TopicName> {
+  /** Gets each value. */
+  onValue: (value: ValueOf<K>) => void
+  /** Told once if the backend ends the subscription. */
+  onEnd?: (error: BackendError | null) => void
+}
+
+/**
+ * The handlers as the Communicator wants them: values as plain data, errors as BackendErrors, and nothing once the
+ * subscription has been stopped.
+ *
+ * @param handlers what the subscriber wants to hear
+ * @param isStopped whether the subscriber has stopped the subscription
+ * @returns the functions to give the Communicator
+ */
+function guarded<K extends TopicName>(handlers: Handlers<K>, isStopped: () => boolean) {
+  return {
+    onValue: (value: unknown) => {
+      if (!isStopped()) {
+        handlers.onValue(value as ValueOf<K>)
+      }
+    },
+    onEnd: (error: CommunicatorError | null) => {
+      if (!isStopped()) {
+        handlers.onEnd?.(error ? toBackendError(error) : null)
+      }
+    },
+  }
 }
 
 /**
@@ -120,24 +165,16 @@ interface Wire {
  * @param wire the link
  * @param topic the subscription's name
  * @param params its parameters
- * @param onValue gets each value, until it is stopped
+ * @param handlers what the subscriber wants to hear
  * @returns the subscription
  */
-function openSubscription<K extends TopicName>(
-  wire: Wire,
-  topic: K,
-  params: ParamsOf<K>,
-  onValue: (value: ValueOf<K>) => void,
-): Subscription {
+function openSubscription<K extends TopicName>(wire: Wire, topic: K, params: ParamsOf<K>, handlers: Handlers<K>): Subscription {
   let stopped = false
   let live: { unsubscribe: () => Promise<void> } | undefined
+  const { onValue, onEnd } = guarded(handlers, () => stopped)
   const accept = async () => {
     try {
-      live = await wire.subscribe(topic, params, value => {
-        if (!stopped) {
-          onValue(value as ValueOf<K>)
-        }
-      })
+      live = await wire.subscribe(topic, params, onValue, onEnd)
     } catch (error) {
       throw toBackendError(error)
     }
@@ -171,8 +208,8 @@ export function createBackendClient(transport: Transport): BackendClient {
         throw toBackendError(error)
       }
     },
-    subscribe(topic, params, onValue) {
-      const subscription = openSubscription(wire, topic, params, onValue)
+    subscribe(topic, params, onValue, onEnd) {
+      const subscription = openSubscription(wire, topic, params, { onValue, onEnd })
       endWithScope(subscription.stop)
 
       return subscription
@@ -183,6 +220,11 @@ export function createBackendClient(transport: Transport): BackendClient {
 
       return stop
     },
-    onState: listener => wire.onConnectionChange(state => listener(state)),
+    onState(listener) {
+      const stop = wire.onConnectionChange(state => listener(state))
+      endWithScope(stop)
+
+      return stop
+    },
   }
 }
