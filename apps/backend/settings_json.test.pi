@@ -69,6 +69,42 @@ function refusesWhatIsWrong(): void {
   expect(read("{\"version\": 1, \"ui\": [{\"key\": \"theme\", \"value\": \"x\"}]}")).toBe("CORRUPT")
 }
 
+/// A person's edit is held to the limits a patch is: the language, the keys, and the total that makes a document sendable.
+function holdsAHandEditedFileToTheLimits(): void {
+  expect(read("{\"version\": 1, \"language\": \"\", \"ui\": []}")).toBe("CORRUPT")
+  expect(read(`{"version": 1, "language": "${"x".repeat(36)}", "ui": []}`)).toBe("CORRUPT")
+  expect(read(`{"version": 1, "language": "${"x".repeat(35)}", "ui": []}`)).toBe(`1 ${"x".repeat(35)} - []`)
+  expect(read("{\"version\": 1, \"ui\": [{\"key\": \"a\", \"value\": \"1\"}, {\"key\": \"b\", \"value\": \"2\"}, {\"key\": \"a\", \"value\": \"3\"}]}")).toBe("CORRUPT")
+}
+
+/// The language counts in the total, as it does for a patch: the entries can fill the cap exactly, and not one
+/// character of language besides.
+function countsTheLanguageInTheTotal(): void {
+  const entries: string[] = []
+  const keys = "abcdefghijklmno"
+  for (let i = 0; i < 15; i++) {
+    entries.push(`{"key": "${keys[i]}", "value": "${"v".repeat(65536)}"}`)
+  }
+  // 15 entries of 1 + 65536 characters, and a 16th of 1 + 65520: exactly 1048576.
+  entries.push(`{"key": "p", "value": "${"v".repeat(65520)}"}`)
+  const body = entries.join(",")
+  expect(read(`{"version": 1, "ui": [${body}]}`).startsWith("1 - - [")).toBe(true)
+  expect(read(`{"version": 1, "language": "pl", "ui": [${body}]}`)).toBe("CORRUPT")
+}
+
+/// A byte order mark, which some editors on Windows put at the start, is not part of the text.
+function readsAFileWithAByteOrderMark(): void {
+  expect(read("\u{FEFF}{\"version\": 1, \"language\": \"fr\", \"ui\": []}")).toBe("1 fr - []")
+  expect(read("\u{FEFF}{\"version\": 2, \"ui\": []}")).toBe("NEWER")
+}
+
+/// The version is a whole number: 1.0 is not 1.
+function wantsAWholeNumberForTheVersion(): void {
+  expect(read("{\"version\": 1.0, \"ui\": []}")).toBe("CORRUPT")
+  expect(read("{\"version\": \"1\", \"ui\": []}")).toBe("CORRUPT")
+  expect(read("{\"version\": 1, \"ui\": []}")).toBe("1 - - []")
+}
+
 /// The version is read before the rest, so a newer file is told apart whatever else is in it.
 function tellsANewerFileByItsVersion(): void {
   expect(read("{\"version\": 2, \"ui\": {\"not\": \"a list\"}, \"theme\": [1]}")).toBe("NEWER")
@@ -82,5 +118,9 @@ describe("the settings file", () => {
   it("is read after a person edited it", readsAHandEditedFile)
   it("skips a member this version does not know, and does not write it again", skipsAMemberItDoesNotKnow)
   it("is corrupt when what it holds is wrong", refusesWhatIsWrong)
+  it("is held to the limits a patch is held to", holdsAHandEditedFileToTheLimits)
+  it("counts the language in the total, as a patch does", countsTheLanguageInTheTotal)
+  it("is read with a byte order mark in front", readsAFileWithAByteOrderMark)
+  it("wants a whole number for the version", wantsAWholeNumberForTheVersion)
   it("is told to be from a newer version by its version alone", tellsANewerFileByItsVersion)
 })

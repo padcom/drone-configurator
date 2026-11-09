@@ -7,9 +7,17 @@
 // `.unreadable-<ms>`, `.newer-<ms>`), the app starts on defaults and says so (`notice`). If the directory cannot be used
 // the settings are kept in memory, and say so.
 //
-// A hand-edited file is read as it is: any spacing, the members in any order, and a member this version does not know is
-// skipped (JSON.parse does that) and gone from the file at the next save. A member it needs that is missing or has the
-// wrong type, or a theme that is not light, dark or system, makes the file corrupt.
+// A hand-edited file is read as it is: any spacing, a byte order mark, the members in any order, and a member this version
+// does not know is skipped (JSON.parse does that) and gone from the file at the next save. A member it needs that is
+// missing or has the wrong type, a theme that is not light, dark or system, a language or entries outside the limits a
+// patch is held to, or the same key twice, makes the file corrupt.
+//
+// The rules of the version: `version` is a whole number (1; `1.0` or "1" make the file corrupt). A version this code does
+// not know is NEWER, and its body is not looked at. **Any member added to the document needs a new version**, because a
+// file that is rolled back to a version that does not know the member skips it, and the next save erases it without a
+// word; a new version is what makes the older one set the file aside instead.
+//
+// A `settings.cbor` from the one release that wrote that format is not read: it is left in the directory as it is.
 import { AppDirError, Cbor, Communicator, CommunicatorError, RequestContext, appDirs } from "pico-desktop/communicator"
 import { exists, mkdir, readDir, readText, remove, rename, writeText } from "std/fs"
 import { join } from "std/path"
@@ -250,10 +258,12 @@ export function textOf(s: Settings): string {
   parts.join("")
 }
 
-/// A settings document from the text of a file.
+/// A settings document from the text of a file. A byte order mark at the start (some editors on Windows write one) is not
+/// part of the text.
 export function parse(text: string, steps: Migration[]): Settings throws SettingsFileError {
+  const body = if (text.startsWith("\u{FEFF}")) text.slice(1) else text
   try {
-    const s = settingsFrom(JSON.parse<DocFile>(migrate(text, steps)))
+    const s = settingsFrom(JSON.parse<DocFile>(migrate(body, steps)))
     check(s)
     s
   } catch (e: SettingsFileError) {
@@ -277,18 +287,34 @@ function reserved(key: string): bool {
   key == "language" || key == "theme"
 }
 
-/// Whether a document keeps to the limits (a file is held to them as well as a patch).
+/// How many characters a whole document holds that count against the total: its entries, and its language.
+function sizeOfDoc(s: Settings): int {
+  const language = s.language
+  sizeOf(s.ui) + (if (language == null) 0 else language!.length)
+}
+
+/// Whether a document keeps to the limits: the same ones a patch is held to, since a person can edit the file. (The whole
+/// document travels in every answer and event, so a file that passes must be one that can be sent.)
 function check(s: Settings): void throws SettingsFileError {
+  const language = s.language
+  if (language != null && (language!.length == 0 || language!.length > MAX_LANGUAGE)) {
+    throw new SettingsFileError("CORRUPT", `the settings file has a language of ${language!.length} characters, 1 to ${MAX_LANGUAGE} are allowed`)
+  }
   if (s.ui.length > MAX_ENTRIES) {
     throw new SettingsFileError("CORRUPT", `the settings file has ${s.ui.length} entries, at most ${MAX_ENTRIES}`)
   }
-  if (sizeOf(s.ui) > MAX_TOTAL) {
+  if (sizeOfDoc(s) > MAX_TOTAL) {
     throw new SettingsFileError("CORRUPT", `the settings file holds more than ${MAX_TOTAL} characters`)
   }
+  const seen = new Set<string>()
   for (const e of s.ui) {
     if (e.key.length == 0 || e.key.length > MAX_KEY || e.value.length > MAX_VALUE || reserved(e.key)) {
       throw new SettingsFileError("CORRUPT", "the settings file has an entry outside the limits")
     }
+    if (seen.has(e.key)) {
+      throw new SettingsFileError("CORRUPT", `the settings file has the key '${e.key}' twice`)
+    }
+    seen.add(e.key)
   }
 }
 
@@ -490,7 +516,7 @@ export function applied(doc: Settings, patch: SettingsPatch): Settings throws Co
   if (next.ui.length > MAX_ENTRIES) {
     throw invalid(`there can be at most ${MAX_ENTRIES} entries`)
   }
-  if (sizeOf(next.ui) > MAX_TOTAL) {
+  if (sizeOfDoc(next) > MAX_TOTAL) {
     throw invalid(`the entries can hold at most ${MAX_TOTAL} characters together`)
   }
   next
