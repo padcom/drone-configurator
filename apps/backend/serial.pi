@@ -1,0 +1,22 @@
+// The serial service: which serial ports the machine has.
+import { Cbor, Communicator, RequestContext } from "pico-desktop/communicator"
+import { listPorts } from "padcom/serialport"
+import { SerialPort, SerialPorts, encodeSerialPorts } from "./generated/app"
+
+/// Registers the service's method on `c`.
+export function register(c: Communicator): void {
+  c.handle("serial.ports", serialPorts)
+}
+
+/// The machine's serial ports, USB adapters described.
+async function serialPorts(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ports: SerialPort[] = []
+  for (const p of await listPorts()) {
+    const port = SerialPort { path: p.path }
+    if (p.vendorId != null) {
+      port.description = `USB ${p.vendorId!}:${p.productId ?? "?"} ${p.product ?? ""}`.trim()
+    }
+    ports.push(port)
+  }
+  encodeSerialPorts(SerialPorts { ports: ports })
+}

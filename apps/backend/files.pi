@@ -1,0 +1,94 @@
+// The files service: saving and opening a parameter snapshot where the user chooses.
+import { Cbor, Communicator, Host, OpenFile, RequestContext, SaveFile } from "pico-desktop/communicator"
+import { readText, writeText } from "std/fs"
+import { env } from "std/process"
+import { FileOpened, FileSaved, decodeFileSave, encodeFileOpened, encodeFileSaved } from "./generated/app"
+
+/// The host's native services (file dialogs).
+class Dialogs {
+  public host: Host? = null
+}
+
+const dialogs = new Dialogs()
+
+/// Registers the service's methods on `c`.
+export function register(c: Communicator): void {
+  dialogs.host = new Host(c)
+  c.handle("files.save", saveFile)
+  c.handle("files.open", openFile)
+}
+
+function host(): Host {
+  const h = dialogs.host
+  if (h == null) {
+    panic("drone-configurator: createBackend wasn't called")
+  }
+  h!
+}
+
+/// How the backend learns which file the user means.
+interface FileChooser {
+  /// Where to save `name`; null if the user cancelled.
+  forSaving(name: string): Promise<string?, Error>
+  /// The file to open; null if the user cancelled.
+  forOpening(): Promise<string?, Error>
+}
+
+/// The host's native dialogs.
+class DialogFileChooser implements FileChooser {
+  public async forSaving(name: string): Promise<string?> throws Error {
+    await host().saveFile(SaveFile { title: "Save the parameters", defaultPath: name })
+  }
+
+  public async forOpening(): Promise<string?> throws Error {
+    const paths = await host().openFile(OpenFile { title: "Load parameters", filters: [".json"] })
+    if (paths.length == 0) null else paths[0]
+  }
+}
+
+/// A directory instead of dialogs, which a test can't click: `name` is saved there, and
+/// `open.json` is what's opened.
+class DirectoryFileChooser implements FileChooser {
+  readonly dir: string
+
+  constructor(dir: string) {
+    this.dir = dir
+  }
+
+  public async forSaving(name: string): Promise<string?> throws Error {
+    `${dir}/${name}`
+  }
+
+  public async forOpening(): Promise<string?> throws Error {
+    `${dir}/open.json`
+  }
+}
+
+function fileChooser(): FileChooser {
+  const dir = env.get("DRONE_CONFIGURATOR_TEST_FILES")
+  if (dir != null) {
+    return new DirectoryFileChooser(dir!)
+  }
+  new DialogFileChooser()
+}
+
+/// Saves a snapshot where the user chooses.
+async function saveFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const f = decodeFileSave(payload ?? Cbor.Null, "$")
+  const path = await fileChooser().forSaving(f.name)
+  if (path == null) {
+    return encodeFileSaved(FileSaved {})
+  }
+  await writeText(path!, f.text)
+  encodeFileSaved(FileSaved { path: path })
+}
+
+/// Reads a snapshot the user chooses.
+async function openFile(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const path = await fileChooser().forOpening()
+  if (path == null) {
+    return encodeFileOpened(FileOpened {})
+  }
+  const text = await readText(path!)
+  encodeFileOpened(FileOpened { path: path!, text: text })
+}
