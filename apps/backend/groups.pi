@@ -29,6 +29,35 @@ import {
 
 const DEGREES: f64 = 180.0 / Math.PI
 
+/// A message the dashboard asks the vehicle for, and how often (hertz).
+export class Wish {
+  public id: int
+  public hz: f64
+
+  constructor(id: int, hz: f64) {
+    this.id = id
+    this.hz = hz
+  }
+}
+
+/// How often the dashboard wants each message, in one place: what moves fast (position, attitude,
+/// speed) four times a second, the rest less. The vehicle's own rate is not what the stream sends:
+/// that is `rateHz` (telemetry.pi).
+export function wishes(): Wish[] {
+  [
+    new Wish(GlobalPositionInt.MSG_ID, 4.0),
+    new Wish(VfrHud.MSG_ID, 4.0),
+    new Wish(Attitude.MSG_ID, 4.0),
+    new Wish(GpsRawInt.MSG_ID, 2.0),
+    new Wish(NavControllerOutput.MSG_ID, 2.0),
+    new Wish(EkfStatusReport.MSG_ID, 2.0),
+    new Wish(SysStatus.MSG_ID, 1.0),
+    new Wish(BatteryStatus.MSG_ID, 1.0),
+    new Wish(Wind.MSG_ID, 1.0),
+    new Wish(Vibration.MSG_ID, 1.0),
+  ]
+}
+
 // The "unknown" values of the fields below (MAVLink's UINT16_MAX, UINT8_MAX and -1).
 const UNKNOWN_U16: int = 65535
 const UNKNOWN_U8: int = 255

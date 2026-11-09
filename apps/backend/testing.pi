@@ -62,15 +62,26 @@ export class Frontend {
     await reply(await send(name, payload))
   }
 
-  /// Subscribes to `name`; the subscription's id.
-  public async subscribe(name: string): Promise<u64> throws Error {
+  /// Subscribes to `name` (with `params`); the subscription's id.
+  public async subscribe(name: string, params: Cbor? = null): Promise<u64> throws Error {
     id += 1
     const want = id
     const e = envelope("subscribe")
     e.id = want
     e.n = name
+    e.p = params
     await t.send(encodeEnvelope(e))
     (await reply(want)).s ?? 0
+  }
+
+  /// The message that ends a subscription from the publisher's side (events on the way are skipped).
+  public async ended(): Promise<Envelope> throws Error {
+    while (true) {
+      const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
+      if (got.k == "unsubscribe") {
+        return got
+      }
+    }
   }
 
   /// Ends a subscription (a subscription's timer would keep the test process alive).

@@ -152,7 +152,7 @@ class VehicleLink implements Vehicle {
     const { client } = this.deps
     try {
       await client.subscribe('vehicle.connection', null, next => this.connectionChanged(next)).ready
-      await client.subscribe('telemetry.stream', null, next => {
+      await client.subscribe('telemetry.stream', {}, next => {
         this.telemetry.value = next
       }).ready
     } catch (error) {

@@ -71,7 +71,7 @@ it('delivers a subscription\'s values until it is stopped, and then no more', as
   const client = await connectedClient()
   const values: Telemetry[] = []
 
-  const subscription = client.subscribe('telemetry.stream', null, value => values.push(value))
+  const subscription = client.subscribe('telemetry.stream', {}, value => values.push(value))
   await subscription.ready
   await vi.waitFor(() => expect(values.length).toBeGreaterThan(1))
   subscription.stop()
@@ -86,7 +86,7 @@ it('stops a subscription with the effect scope it was made in', async () => {
   const values: Telemetry[] = []
   const scope = effectScope()
 
-  const subscription = scope.run(() => client.subscribe('telemetry.stream', null, value => values.push(value)))
+  const subscription = scope.run(() => client.subscribe('telemetry.stream', {}, value => values.push(value)))
   await subscription?.ready
   await vi.waitFor(() => expect(values.length).toBeGreaterThan(0))
   scope.stop()
@@ -100,7 +100,7 @@ it('can stop a subscription before the backend has accepted it, and then it neve
   const client = await connectedClient()
   const values: Telemetry[] = []
 
-  const subscription = client.subscribe('telemetry.stream', null, value => values.push(value))
+  const subscription = client.subscribe('telemetry.stream', {}, value => values.push(value))
   subscription.stop()
   await subscription.ready
   await pause(50)
