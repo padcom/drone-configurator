@@ -1,0 +1,27 @@
+// The telemetry service, over an in-memory link against the simulated vehicle.
+import { describe, it, expect } from "std/test"
+import { Cbor } from "pico-desktop/communicator"
+import { ConnectRequest, ConnectRequestTransport, decodeTelemetry, encodeConnectRequest } from "./generated/app"
+import { start } from "./testing"
+
+/// What the vehicle reports reaches the dashboard: the first heartbeat after connecting is on the
+/// first telemetry tick, and a reconnect starts from nothing heard.
+async function streamsTelemetry(): Promise<void> throws Error {
+  const f = await start()
+  const simulator = encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator })
+  await f.call("vehicle.connect", simulator)
+  const subscription = await f.subscribe("telemetry.stream")
+  const first = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+  expect(first.mode != "unknown").toBe(true)
+  expect(first.heartbeatAgeMs < 3000).toBe(true)
+  await f.call("vehicle.disconnect")
+  await f.call("vehicle.connect", simulator)
+  const again = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+  expect(again.mode != "unknown").toBe(true)
+  await f.unsubscribe(subscription)
+  await f.call("vehicle.disconnect")
+}
+
+describe("the telemetry service", () => {
+  it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
+})

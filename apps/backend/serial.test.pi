@@ -1,0 +1,20 @@
+// The serial service: the machine's serial ports. Which ones there are depends on the machine, so
+// the test checks the shape of the answer, not its content.
+import { describe, it, expect } from "std/test"
+import { Cbor } from "pico-desktop/communicator"
+import { decodeSerialPorts } from "./generated/app"
+import { start } from "./testing"
+
+async function listsPorts(): Promise<void> throws Error {
+  const f = await start()
+  const answer = await f.call("serial.ports")
+  expect(answer.k).toBe("response")
+  const ports = decodeSerialPorts(answer.p ?? Cbor.Null, "$")
+  for (const p of ports.ports) {
+    expect(p.path.length > 0).toBe(true)
+  }
+}
+
+describe("the serial service", () => {
+  it("lists the machine's serial ports", listsPorts)
+})
