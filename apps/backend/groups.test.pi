@@ -58,6 +58,30 @@ function positionInSiUnits(): void {
   expect(filled(groups, 0).position!.heading == null).toBe(true)
 }
 
+/// ArduPilot sends latitude and longitude 0 until it has a position: that makes no group, and a group
+/// that was there goes when the position is lost.
+function noPositionYetIsNoGroup(): void {
+  const groups = new Groups()
+  const m = new GlobalPositionInt()
+  m.alt = 120000
+  m.hdg = 9000
+  groups.take(m, 1000)
+  expect(filled(groups, 0).position == null).toBe(true)
+  m.lat = 473977420
+  m.lon = 85455939
+  groups.take(m, 2000)
+  expect(filled(groups, 0).position != null).toBe(true)
+  m.lat = 0
+  m.lon = 0
+  groups.take(m, 3000)
+  expect(filled(groups, 0).position == null).toBe(true)
+  // Only latitude 0 (on the equator) is a real position.
+  m.lat = 0
+  m.lon = 85455939
+  groups.take(m, 4000)
+  expect(filled(groups, 0).position != null).toBe(true)
+}
+
 function gpsLeavesOutWhatIsUnknown(): void {
   const groups = new Groups()
   const m = new GpsRawInt()
@@ -191,6 +215,7 @@ function clearForgetsEverything(): void {
 describe("the telemetry groups", () => {
   it("are absent until their message arrives", absentUntilHeard)
   it("convert a position to metres, metres a second and degrees, and leave out an unknown heading", positionInSiUnits)
+  it("make no position group while the vehicle has no position (latitude and longitude 0)", noPositionYetIsNoGroup)
   it("leave out what GPS marks unknown", gpsLeavesOutWhatIsUnknown)
   it("take speed, navigation, wind, EKF and vibration messages", flightAndEnvironmentMessages)
   it("convert attitude to degrees", attitudeInDegrees)

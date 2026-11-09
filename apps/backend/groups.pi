@@ -124,7 +124,8 @@ function attitudeOf(m: Attitude): AttitudeGroup {
 }
 
 /// The battery group after a SYS_STATUS: voltage, current and what is left; the cells and what was
-/// consumed (BATTERY_STATUS) stay as they were.
+/// consumed (BATTERY_STATUS) stay as they were. (The group's age is that of the latest of the two
+/// messages, so a value from the older one can be older than `ageMs` says.)
 function batteryAfterStatus(before: BatteryGroup?, m: SysStatus): BatteryGroup {
   const g = BatteryGroup { cells: if (before == null) [] else before!.cells, ageMs: 0 }
   if (before != null) {
@@ -197,22 +198,44 @@ export class Groups {
     }
   }
 
+  /// ArduPilot sends GLOBAL_POSITION_INT with latitude and longitude both 0 until it has a position:
+  /// that is "unknown", not a place in the Gulf of Guinea, so there is no position group (and one that
+  /// was there goes when the position is lost again).
+  takePosition(m: GlobalPositionInt, now: int): void {
+    if (m.lat == 0 && m.lon == 0) {
+      position = null
+      forget("position")
+    } else {
+      position = positionOf(m)
+      stamp("position", now)
+    }
+  }
+
+  stamp(name: string, now: int): void {
+    heardAt.set(name, now)
+    return
+  }
+
+  forget(name: string): void {
+    heardAt.delete(name)
+    return
+  }
+
   takeFlight(m: MavLinkData, now: int): bool {
     if (m instanceof GlobalPositionInt) {
-      position = positionOf(m)
-      heardAt.set("position", now)
+      takePosition(m, now)
     } else if (m instanceof GpsRawInt) {
       gps = gpsOf(m)
-      heardAt.set("gps", now)
+      stamp("gps", now)
     } else if (m instanceof VfrHud) {
       speed = speedOf(m)
-      heardAt.set("speed", now)
+      stamp("speed", now)
     } else if (m instanceof NavControllerOutput) {
       nav = navOf(m)
-      heardAt.set("nav", now)
+      stamp("nav", now)
     } else if (m instanceof Attitude) {
       attitude = attitudeOf(m)
-      heardAt.set("attitude", now)
+      stamp("attitude", now)
     } else {
       return false
     }
@@ -222,13 +245,13 @@ export class Groups {
   takeEnvironment(m: MavLinkData, now: int): bool {
     if (m instanceof Wind) {
       wind = windOf(m)
-      heardAt.set("wind", now)
+      stamp("wind", now)
     } else if (m instanceof EkfStatusReport) {
       ekf = ekfOf(m)
-      heardAt.set("ekf", now)
+      stamp("ekf", now)
     } else if (m instanceof Vibration) {
       vibration = vibrationOf(m)
-      heardAt.set("vibration", now)
+      stamp("vibration", now)
     } else {
       return false
     }
@@ -238,10 +261,10 @@ export class Groups {
   takeBattery(m: MavLinkData, now: int): void {
     if (m instanceof SysStatus) {
       battery = batteryAfterStatus(battery, m)
-      heardAt.set("battery", now)
+      stamp("battery", now)
     } else if (m instanceof BatteryStatus && m.id == 0) {
       battery = batteryAfterCells(battery, m)
-      heardAt.set("battery", now)
+      stamp("battery", now)
     }
   }
 

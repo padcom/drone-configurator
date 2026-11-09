@@ -79,7 +79,8 @@ param-write-result = {
 ; stay as they are, each MAVLink message the dashboard shows has a group of its own: the latest
 ; values of that message, with `ageMs`, how long ago it arrived. A group is absent until its message
 ; has been heard (never zero-filled), and a value the vehicle marks "unknown" is absent from it.
-; Units are SI and degrees: metres, metres a second, degrees, percent, volts, amperes.
+; Units are SI and degrees: metres, metres a second, degrees, percent, volts, amperes, and
+; milliampere-hours for charge consumed (battery.consumed).
 telemetry = {
   armed: bool,
   mode: tstr,
@@ -101,7 +102,8 @@ telemetry = {
 }
 
 ; GLOBAL_POSITION_INT: the vehicle's own fused position. Altitudes: above mean sea level, and above
-; home. Velocities: north, east, down. `heading` is absent when the vehicle doesn't know it.
+; home. Velocities: north, east, down. `heading` is absent when the vehicle doesn't know it. A
+; GLOBAL_POSITION_INT with latitude and longitude both 0 (ArduPilot's "no position yet") makes no group.
 position-group = {
   lat: float,
   lon: float,
@@ -173,7 +175,8 @@ vibration-group = {
 
 ; SYS_STATUS and BATTERY_STATUS: `voltage` and `current` (negative current: unknown, so absent),
 ; `remaining` in percent, `consumed` in milliampere-hours, `cells` the cell voltages the battery
-; reports. `ageMs` is the age of the latest of the two messages.
+; reports. `ageMs` is the age of the latest of the two messages, so a value that came from the older
+; one can be older than `ageMs` says.
 battery-group = {
   ? voltage: float,
   ? current: float,
