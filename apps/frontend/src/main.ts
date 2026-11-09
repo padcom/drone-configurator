@@ -2,11 +2,13 @@ import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
 import type { State } from './configurator'
-import { canWrite, detailView, escape, importView } from './render'
+import { importView } from './render'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectionBar from './ConnectionBar.vue'
+import MetadataStatus from './MetadataStatus.vue'
+import ParamEditor from './ParamEditor.vue'
 import ParamFilter from './ParamFilter.vue'
 import ParamTable from './ParamTable.vue'
 import TelemetryCards from './TelemetryCards.vue'
@@ -30,23 +32,12 @@ function setHtml(id: string, html: string) {
 }
 
 function render(state: State) {
-  const param = app.selectedParam()
-  setHtml('detail', detailView(state, param))
-  byId('edit').hidden = param === null || state.connection.state !== 'connected'
-  byId<HTMLButtonElement>('write').disabled = !canWrite(state, param)
-  setHtml('metadata-status', state.metadataError
-    ? `<span class="error">${escape(state.metadataError)}</span>`
-    : state.metadata.size > 0 ? `Metadata for ${state.metadata.size} parameters` : '')
   const loaded = state.importReview !== null || state.importError !== null
   byId('import-panel').hidden = !loaded
   setHtml('import', importView(state))
   byId<HTMLButtonElement>('apply').disabled = state.picked.length === 0 || state.applying || state.connection.state !== 'connected'
   byId<HTMLButtonElement>('backup').hidden = state.backup === null
   byId<HTMLButtonElement>('save').disabled = state.params.length === 0
-  const draft = byId<HTMLInputElement>('draft')
-  if (document.activeElement !== draft) {
-    draft.value = state.draft
-  }
 }
 
 // In Pico Desktop the native bridge; in a plain browser (`pnpm ui`) the mock backend.
@@ -57,6 +48,8 @@ const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBacken
 createApp(ConnectionBar).mount('#connection-bar')
 createApp(ParamFilter).mount('#param-filter')
 createApp(ParamTable).mount('#param-table')
+createApp(ParamEditor).mount('#param-editor')
+createApp(MetadataStatus).mount('#metadata-status-root')
 createApp(TelemetryCards).mount('#telemetry')
 createApp(ConfirmDialog).mount('#confirm-root')
 
@@ -116,9 +109,4 @@ byId('import').addEventListener('change', event => {
 })
 byId('apply').addEventListener('click', () => void app.applyImport())
 byId('close-import').addEventListener('click', () => app.closeImport())
-byId('draft').addEventListener('input', event => app.editDraft((event.target as HTMLInputElement).value))
-byId('edit').addEventListener('submit', event => {
-  event.preventDefault()
-  void app.write()
-})
 render(app.state)
