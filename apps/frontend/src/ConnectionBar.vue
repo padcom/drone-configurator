@@ -1,31 +1,21 @@
 <template>
   <form id="connect" @submit.prevent="connect">
-    <select id="transport" v-model="form.transport" :aria-label="t('connection.transport.label')">
-      <option value="simulator">{{ t('connection.transport.simulator') }}</option>
-      <option value="udp">{{ t('connection.transport.udp') }}</option>
-      <option value="tcp">{{ t('connection.transport.tcp') }}</option>
-      <option value="serial">{{ t('connection.transport.serial') }}</option>
-    </select>
-    <input id="host" v-model="form.host" placeholder="127.0.0.1" :aria-label="t('connection.host')" :hidden="serial">
-    <input
+    <Select id="transport" v-model="chosenTransport" :aria-label="t('connection.transport.label')" :options="transports" />
+    <TextInput id="host" v-model="form.host" placeholder="127.0.0.1" :aria-label="t('connection.host')" :hidden="serial" />
+    <TextInput
       id="port"
       v-model="form.port"
       placeholder="14550"
       inputmode="numeric"
       :aria-label="t('connection.port')"
       :hidden="serial"
-    >
-    <select id="device" v-model="form.device" :aria-label="t('connection.device')" :hidden="!serial">
-      <option v-for="port in fields.ports.value" :key="port.path" :value="port.path">{{ portText(port) }}</option>
-      <option v-if="fields.ports.value.length === 0" value="">{{ t('connection.noPorts') }}</option>
-    </select>
-    <select id="baud" v-model="form.baud" :aria-label="t('connection.baud')" :hidden="!serial">
-      <option v-for="rate in BAUD_RATES" :key="rate">{{ rate }}</option>
-    </select>
-    <button id="connect-button" type="submit">{{ t('connection.connect') }}</button>
-    <button id="disconnect-button" type="button" :disabled="state !== 'connected'" @click="vehicle.disconnect()">
+    />
+    <Select id="device" v-model="form.device" :aria-label="t('connection.device')" :hidden="!serial" :options="devices" />
+    <Select id="baud" v-model="form.baud" :aria-label="t('connection.baud')" :hidden="!serial" :options="bauds" />
+    <Button id="connect-button" type="submit" variant="primary">{{ t('connection.connect') }}</Button>
+    <Button id="disconnect-button" :disabled="state !== 'connected'" @click="vehicle.disconnect()">
       {{ t('connection.disconnect') }}
-    </button>
+    </Button>
   </form>
   <p id="connection" role="status"><span class="badge" :class="state">{{ t(`connection.state.${state}`) }}</span>{{ found }}
     <span v-if="fields.error.value" class="error">{{ fields.error.value }}</span>
@@ -37,22 +27,18 @@ import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type ConnectionForm, deviceAmong, requestFor } from './connectionForm'
 import type { SerialPort } from './generated/app'
+import Button from './kit/Button.vue'
+import Select from './kit/Select.vue'
+import TextInput from './kit/TextInput.vue'
 import { useConfigurator } from './useConfigurator'
 
 const BAUD_RATES = ['57600', '115200', '230400', '460800', '921600']
+const TRANSPORTS = ['simulator', 'udp', 'tcp', 'serial'] as const
 
 const { t } = useI18n()
 const { vehicle, fields } = useConfigurator()
 const form = reactive<ConnectionForm>({ transport: 'simulator', host: '', port: '', device: '', baud: '115200' })
 const serial = computed(() => form.transport === 'serial')
-const state = computed(() => fields.connection.value.state)
-// The vehicle's type and autopilot are the protocol's names, shown as they are.
-const found = computed(() => {
-  const info = fields.connection.value.vehicle
-
-  return info ? t('connection.vehicle', { ...info }) : ''
-})
-
 /**
  * How a serial port is listed: its path, and the description the system gives it.
  *
@@ -62,6 +48,29 @@ const found = computed(() => {
 function portText(port: SerialPort): string {
   return port.description ? t('connection.portWithDescription', { path: port.path, description: port.description }) : port.path
 }
+
+// The select speaks strings; the form's transport is one of four.
+const chosenTransport = computed({
+  get: () => form.transport,
+  set: (next: string) => {
+    form.transport = next as ConnectionForm['transport']
+  },
+})
+const transports = computed(() => TRANSPORTS.map(value => ({ value, label: t(`connection.transport.${value}`) })))
+const bauds = BAUD_RATES.map(rate => ({ value: rate, label: rate }))
+// The ports the backend's machine has, or one line saying there are none.
+const devices = computed(() => {
+  const ports = fields.ports.value.map(port => ({ value: port.path, label: portText(port) }))
+
+  return ports.length > 0 ? ports : [{ value: '', label: t('connection.noPorts') }]
+})
+const state = computed(() => fields.connection.value.state)
+// The vehicle's type and autopilot are the protocol's names, shown as they are.
+const found = computed(() => {
+  const info = fields.connection.value.vehicle
+
+  return info ? t('connection.vehicle', { ...info }) : ''
+})
 
 /** Asks the backend to connect to what the form says. */
 function connect() {

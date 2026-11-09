@@ -39,6 +39,39 @@ it('shows the state, the vehicle and why the last attempt failed, as text', asyn
   expect(wrapper.find('#connection oops').exists()).toBe(false)
 })
 
+it('is made of the kit\'s controls, with the same ids and a primary Connect', () => {
+  const { wrapper } = barWithSpies()
+
+  for (const id of ['#transport', '#device', '#baud']) {
+    expect(wrapper.get(id).classes(), id).toContain('kit-select')
+  }
+
+  for (const id of ['#host', '#port']) {
+    expect(wrapper.get(id).classes(), id).toContain('kit-input')
+  }
+  expect(wrapper.get('#connect-button').classes()).toEqual(expect.arrayContaining(['kit-button', 'primary']))
+  expect(wrapper.get('#connect-button').attributes('type')).toBe('submit')
+  expect(wrapper.get('#disconnect-button').attributes('type')).toBe('button')
+})
+
+it('lists the four transports, the baud rates, and says when there are no serial ports', () => {
+  const { wrapper } = barWithSpies()
+
+  expect(wrapper.findAll('#transport option').map(option => option.text())).toEqual(['Simulator', 'UDP', 'TCP', 'Serial'])
+  expect(wrapper.findAll('#baud option').map(option => option.text())).toEqual(['57600', '115200', '230400', '460800', '921600'])
+  expect(wrapper.findAll('#device option').map(option => option.text())).toEqual(['No serial ports'])
+})
+
+it('lists the serial ports the backend\'s machine has, by description when it has one', async () => {
+  const { wrapper, feed } = barWithSpies()
+
+  feed({ ports: [{ path: '/dev/ttyACM0', description: 'USB 1209:5741 ArduPilot' }, { path: '/dev/ttyAMA0' }] })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.findAll('#device option').map(option => option.text()))
+    .toEqual(['/dev/ttyACM0 (USB 1209:5741 ArduPilot)', '/dev/ttyAMA0'])
+})
+
 it('connects to the simulator by default, and to what is typed for TCP', async () => {
   const { wrapper, connect } = barWithSpies()
 

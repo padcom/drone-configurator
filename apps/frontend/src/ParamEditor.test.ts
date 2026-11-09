@@ -47,6 +47,28 @@ it('shows the selected parameter and the form while connected', async () => {
   expect((wrapper.get('#draft').element as HTMLInputElement).value).toBe('1600')
 })
 
+it('uses the kit\'s field and primary button for the new value, with the same ids', async () => {
+  const { wrapper } = await editorWithSpies()
+
+  expect(wrapper.get('#draft').classes()).toContain('kit-input')
+  expect(wrapper.get('#write').classes()).toEqual(expect.arrayContaining(['kit-button', 'primary']))
+  expect(wrapper.get('#write').attributes('type')).toBe('submit')
+})
+
+it('marks the field invalid and points it to the reason, written out, when the draft is not a value', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  expect(wrapper.get('#draft').attributes('aria-invalid')).toBeUndefined()
+  expect(wrapper.get('#draft').attributes('aria-describedby')).toBeUndefined()
+
+  feed(handle, { draft: 'abc', draftError: 'Not a number' })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#draft').classes()).toContain('invalid')
+  expect(wrapper.get('#draft').attributes('aria-invalid')).toBe('true')
+  expect(wrapper.get('#draft').attributes('aria-describedby')).toBe('draft-error')
+  expect(wrapper.get('#draft-error').text()).toBe('Not a number')
+})
+
 it('hides the form when the connection is lost, and keeps the parameter on screen', async () => {
   const { wrapper, handle } = await editorWithSpies()
 
