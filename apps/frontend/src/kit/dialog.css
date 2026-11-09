@@ -1,0 +1,127 @@
+/*
+ * How the dialog and the hold button look: only the tokens (tokens.css), so both themes work.
+ */
+
+.kit-dialog {
+  box-sizing: border-box;
+  width: min(32rem, calc(100vw - 2rem));
+  padding: var(--space-4);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.kit-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.kit-dialog-title {
+  margin: 0 0 0.75rem;
+  font-size: var(--font-size-lg);
+}
+
+.kit-dialog-body {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.kit-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.safety-vehicle {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.safety-what {
+  margin: 0;
+  font-weight: 600;
+}
+
+/*
+ * The live region is there from the start, so that what is put in it is read out. Empty, it is clipped to nothing and
+ * out of the layout, but not `display: none` (that takes it out of the accessibility tree too, and what is put in it
+ * afterwards would then be new content, which a screen reader commonly does not announce).
+ */
+.safety-tapped {
+  margin: 0;
+  color: var(--color-warn);
+}
+
+.safety-tapped:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.safety-hint {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+/* The hold button: a ring that fills while it is held. The words say what it does; the colour only adds to them. */
+.kit-hold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kit-hold.danger,
+.kit-button.danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+/* No long-press menu or text selection on a touch screen: a hold is what the button is for. */
+.kit-hold {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.kit-hold-ring {
+  width: 1.75rem;
+  height: 1.75rem;
+  transform: rotate(-90deg);
+}
+
+.kit-hold-track,
+.kit-hold-fill {
+  fill: none;
+  stroke-width: 3;
+}
+
+.kit-hold-track {
+  stroke: var(--color-border-strong);
+}
+
+.kit-hold-fill {
+  stroke: var(--color-accent);
+  stroke-dasharray: 50.27;
+  stroke-dashoffset: 50.27;
+}
+
+.kit-hold.holding .kit-hold-fill {
+  animation: kit-hold var(--hold-ms) linear forwards;
+}
+
+/* The ring is progress, not decoration, so it stays; but it fills in steps instead of sweeping. */
+@media (prefers-reduced-motion: reduce) {
+  .kit-hold.holding .kit-hold-fill {
+    animation-timing-function: steps(8, end);
+  }
+}
+
+@keyframes kit-hold {
+  to {
+    stroke-dashoffset: 0;
+  }
+}

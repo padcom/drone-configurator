@@ -1,69 +1,81 @@
-import { beforeEach, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { HOLD_MS, IGNORE_MS } from './safety'
 import { mockBackend } from './mock-backend'
-import { withI18n } from './testing'
+import { VEHICLE } from './fixtures'
+import { feed, translate, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 
-// jsdom has no showModal(): this stand-in opens the dialog, and close() fires the `close` event.
 beforeEach(() => {
-  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-    this.open = true
-  }
+  vi.useFakeTimers()
+})
 
-  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement, value?: string) {
-    this.open = false
-    this.returnValue = value ?? this.returnValue
-
-    this.dispatchEvent(new Event('close'))
-  }
+afterEach(() => {
+  vi.useRealTimers()
+  document.body.innerHTML = ''
 })
 
 /**
- * Mounts the dialog and asks it a question.
+ * Mounts the host and asks it a question.
  *
- * @returns the dialog element, the component, and the spy that gets the answer
+ * @returns the host, the configurator, and the spy that gets the answer
  */
 async function asked() {
-  const { confirmation } = createConfigurator(mockBackend())
+  const configurator = createConfigurator(mockBackend())
   const wrapper = mount(ConfirmDialog, { ...withI18n, attachTo: document.body })
   const answer = vi.fn()
-  confirmation.value = { question: 'Set X from 1 to 2?', answer }
+  configurator.confirmation.value = { question: 'Set X from 1 to 2?', answer }
   await wrapper.vm.$nextTick()
+  vi.advanceTimersByTime(IGNORE_MS)
 
-  return { wrapper, answer, dialog: wrapper.get('dialog#confirm').element as HTMLDialogElement }
+  return { wrapper, configurator, answer }
 }
 
-it('opens with the question, and Write answers yes', async () => {
-  const { wrapper, answer, dialog } = await asked()
-
-  expect(dialog.open).toBe(true)
-  expect(wrapper.get('#question').text()).toBe('Set X from 1 to 2?')
-  dialog.close('yes')
-  expect(answer).toHaveBeenCalledWith(true)
-  wrapper.unmount()
-})
-
-it('answers no for Cancel', async () => {
-  const { wrapper, answer, dialog } = await asked()
-
-  dialog.close('no')
-  expect(answer).toHaveBeenCalledWith(false)
-  wrapper.unmount()
-})
-
-it('answers no for Escape, which closes without a value', async () => {
-  const { wrapper, answer, dialog } = await asked()
-
-  dialog.close()
-  expect(answer).toHaveBeenCalledWith(false)
-  wrapper.unmount()
-})
-
-it('keeps the buttons the e2e tests click', () => {
+it('shows nothing until a question arrives', () => {
   createConfigurator(mockBackend())
-  const wrapper = mount(ConfirmDialog, withI18n)
 
-  expect(wrapper.find('#confirm button[value=yes]').exists()).toBe(true)
-  expect(wrapper.find('#confirm button[value=no]').exists()).toBe(true)
+  expect(mount(ConfirmDialog, withI18n).find('dialog').exists()).toBe(false)
+})
+
+it('opens with the question, and holding the button answers yes', async () => {
+  const { wrapper, answer } = await asked()
+
+  expect((wrapper.get('dialog#confirm').element as HTMLDialogElement).open).toBe(true)
+  expect(wrapper.get('#question').text()).toBe('Set X from 1 to 2?')
+  await wrapper.get('#confirm-hold').trigger('pointerdown')
+  vi.advanceTimersByTime(HOLD_MS)
+
+  expect(answer).toHaveBeenCalledExactlyOnceWith(true)
+})
+
+it('does not answer yes for a click on the button', async () => {
+  const { wrapper, answer } = await asked()
+
+  await wrapper.get('#confirm-hold').trigger('click')
+  vi.advanceTimersByTime(HOLD_MS * 2)
+
+  expect(answer).not.toHaveBeenCalled()
+})
+
+it('answers no for Cancel and for Escape', async () => {
+  const cancelled = await asked()
+  await cancelled.wrapper.get('#confirm-cancel').trigger('click')
+  const escaped = await asked()
+  await escaped.wrapper.get('dialog').trigger('cancel')
+
+  expect([cancelled.answer.mock.calls, escaped.answer.mock.calls]).toEqual([[[false]], [[false]]])
+})
+
+it('names the vehicle it will write to', async () => {
+  const { wrapper, configurator } = await asked()
+  expect(wrapper.get('#vehicle').text()).toBe('No vehicle is connected')
+  await flushPromises()
+
+  feed(configurator, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  vi.advanceTimersByTime(50)
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#vehicle').text()).toBe(translate('statusBar.vehicleValue', { ...VEHICLE }))
+  expect(wrapper.get('#vehicle').text()).not.toBe('No vehicle is connected')
 })

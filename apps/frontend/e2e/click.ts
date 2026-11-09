@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { E2eApp } from 'pico-desktop'
 
 const ATTEMPTS = 3
@@ -96,6 +97,38 @@ export async function chooseTheme(app: E2eApp, theme: string): Promise<void> {
     `document.documentElement !== null && document.documentElement.getAttribute('data-theme') === ${expected}`,
     ATTEMPTS,
   )
+}
+
+/** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/safety.ts), and a margin. */
+const CONFIRMATION_ARMS_MS = 400 + 150
+
+/** How long a confirmation takes to be answered by holding its button (HOLD_MS in src/safety.ts), and a margin. */
+const CONFIRMATION_HOLD_MS = 1200 + 10_000
+
+/**
+ * Answers the open confirmation yes, the way a user does: by holding the button down for as long as it asks. (There is
+ * no shortcut for a test: the page that is tested is the page that ships. A click, which a hold ignores, is not enough.)
+ *
+ * @param app the running app
+ */
+export async function holdConfirm(app: E2eApp): Promise<void> {
+  await app.waitFor('document.querySelector(\'#confirm-hold\') !== null')
+  await sleep(CONFIRMATION_ARMS_MS)
+  const down = 'new PointerEvent(\'pointerdown\', { bubbles: true, button: 0 })'
+  await app.evaluate(`document.querySelector('#confirm-hold').dispatchEvent(${down})`)
+  await app.waitFor('document.querySelector(\'#confirm\') === null', CONFIRMATION_HOLD_MS)
+}
+
+/**
+ * Answers the open confirmation no.
+ *
+ * @param app the running app
+ */
+export async function cancelConfirm(app: E2eApp): Promise<void> {
+  await app.waitFor('document.querySelector(\'#confirm-cancel\') !== null')
+  await sleep(CONFIRMATION_ARMS_MS)
+  await app.click('#confirm-cancel')
+  await app.waitFor('document.querySelector(\'#confirm\') === null')
 }
 
 /**

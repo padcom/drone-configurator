@@ -1,6 +1,7 @@
 import './kit/tokens.css'
 import './kit/kit.css'
 import './kit/panels.css'
+import './kit/dialog.css'
 import './style.css'
 import { bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'

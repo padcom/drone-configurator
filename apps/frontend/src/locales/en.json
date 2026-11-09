@@ -174,7 +174,15 @@
   },
   "confirm": {
     "cancel": "Cancel",
-    "write": "Write"
+    "hold": "Hold to write",
+    "confirm": "Confirm"
+  },
+  "safety": {
+    "title": "Confirm a change to the vehicle",
+    "noVehicle": "No vehicle is connected",
+    "tapped": "That was a click. Press and hold the button instead.",
+    "holdHint": "Hold the button for {seconds} s to confirm. Letting go cancels.",
+    "typePrompt": "Type {word} to confirm"
   },
   "params": {
     "filter": "Filter parameters",
