@@ -28,8 +28,14 @@ export interface SettingsModel {
   readonly settings: ShallowRef<Settings>
   /** What the backend says about the settings file (it was set aside, it cannot be written), or that it cannot be asked. */
   readonly notice: ShallowRef<string | null>
+  /** Whether the settings have been read (or could not be): what the interface keeps in them is known only then. */
+  readonly loaded: ShallowRef<boolean>
   /** Reads the settings, applies them, and moves a language kept by an earlier version into them. */
   load: () => Promise<void>
+  /** The text the interface kept under `key` (an entry of its own: a layout, the tab last used), or nothing. */
+  uiValue: (key: string) => string | undefined
+  /** Keeps a text under `key`; if it cannot be kept, `notice` says so. */
+  setUi: (key: string, value: string) => Promise<void>
   /** The backend says the settings changed (also when this window did not ask). */
   changed: (state: SettingsState) => void
   /** Shows a theme at once and keeps the choice. */
@@ -49,6 +55,7 @@ interface Adoption {
 class SettingsLink implements SettingsModel {
   readonly settings = shallowRef<Settings>({ version: 1, ui: [] })
   readonly notice = shallowRef<string | null>(null)
+  readonly loaded = shallowRef(false)
   /** The notice the user dismissed: not shown again while the backend keeps repeating it. */
   private dismissed: string | null = null
   /** The theme choices made so far (the last one is the one that counts). */
@@ -157,6 +164,20 @@ class SettingsLink implements SettingsModel {
       await this.importLanguage()
     } catch (error) {
       this.notice.value = `The settings are not available: ${describeError(error)}`
+    } finally {
+      this.loaded.value = true
+    }
+  }
+
+  uiValue(key: string): string | undefined {
+    return this.settings.value.ui.find(entry => entry.key === key)?.value
+  }
+
+  async setUi(key: string, value: string): Promise<void> {
+    try {
+      this.changed(await this.deps.client.call('settings.set', { ui: [{ key, value }] }))
+    } catch (error) {
+      this.notice.value = `A setting could not be kept: ${describeError(error)}`
     }
   }
 

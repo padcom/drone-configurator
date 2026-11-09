@@ -328,3 +328,52 @@ describe('a change the backend announces', () => {
     expect(settings.settings.value.theme).toBe('dark')
   })
 })
+
+describe('whether the settings have been read', () => {
+  it('is no until they are, and yes after', async () => {
+    const { settings } = rig()
+    expect(settings.loaded.value).toBe(false)
+
+    await settings.load()
+
+    expect(settings.loaded.value).toBe(true)
+  })
+
+  it('is yes also when they could not be read, so that nothing waits for them for ever', async () => {
+    const { settings } = refused()
+
+    await settings.load()
+
+    expect(settings.loaded.value).toBe(true)
+  })
+})
+
+describe('what the interface keeps for itself', () => {
+  it('is read by its key, and is nothing for a key that is not there', async () => {
+    const { settings } = rig({ saved: { version: 1, ui: [{ key: 'layout.flightData', value: '{"a":1}' }] } })
+    await settings.load()
+
+    expect(settings.uiValue('layout.flightData')).toBe('{"a":1}')
+    expect(settings.uiValue('layout.other')).toBeUndefined()
+  })
+
+  it('is kept under its key, replacing what was there, and is there to read at once', async () => {
+    const { settings, client } = rig({ saved: { version: 1, ui: [{ key: 'k', value: 'old' }, { key: 'other', value: 'x' }] } })
+    await settings.load()
+
+    await settings.setUi('k', 'new')
+
+    expect(settings.uiValue('k')).toBe('new')
+    expect(settings.uiValue('other')).toBe('x')
+    const kept = (await client.call('settings.get', null)).settings.ui
+    expect(kept).toEqual([{ key: 'k', value: 'new' }, { key: 'other', value: 'x' }])
+  })
+
+  it('says so when it could not be kept', async () => {
+    const { settings } = refused()
+
+    await settings.setUi('k', 'v')
+
+    expect(settings.notice.value).toBe('A setting could not be kept: the backend is gone')
+  })
+})
