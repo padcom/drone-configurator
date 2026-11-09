@@ -30,9 +30,12 @@ It expects `pico-desktop`, `pico-lang`, `pico-mavlink` and `pico-serialport` nex
 pnpm install
 pnpm dev      # the app, with the "Simulator" transport for a vehicle without hardware
 pnpm ui       # the frontend alone in a browser, on a TypeScript mock of the backend
-pnpm test     # Vitest (the UI's logic and rendering) and pico test (the backend)
+pnpm test     # Vitest (the UI's logic and rendering, and a check that the production build satisfies the CSP) and pico test (the backend)
+pnpm lint     # pico lint, ESLint with the padcom rules (@padcom/eslint-config-vue) on .vue and .ts, vue-tsc and tsc
 pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator (apps/frontend/e2e, pico-desktop test --e2e)
 ```
+
+The frontend is built on the Vue 3 template (pico-desktop's `vue-ts`): the Vue toolchain is in place, and the code is still plain TypeScript until the components arrive (#11). The padcom lint rules apply to every new `.vue` and `.ts` file. The files that were written before them are on the `NOT_YET_LINTED` list in `apps/frontend/eslint.config.mjs` and leave it as they are brought up to the rules. `__VUE_OPTIONS_API__` is off in `vite.config.ts`: components use `<script setup>`.
 
 ## Bundle and package
 

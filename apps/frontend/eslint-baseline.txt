@@ -1,0 +1,31 @@
+# Files written before the padcom lint rules were adopted (#11), one path per line, relative to apps/frontend.
+# They still break some of the rules (JSDoc on every member, a complexity of at most 4, functions of at
+# most 32 lines, no `await` in a loop ...), which needs refactoring, not formatting, so they are not
+# linted yet. Take a file off this list when you bring it up to the rules; src/lint-baseline.test.ts
+# fails if a listed file does not exist or already passes, so the list can only shrink.
+e2e/announced-port.test.ts
+e2e/announced-port.ts
+e2e/backend-crash.e2e.ts
+e2e/click.ts
+e2e/configurator.e2e.ts
+e2e/endpoint.test.ts
+e2e/endpoint.ts
+e2e/live-vehicle.ts
+e2e/mavlink-wire.ts
+e2e/sitl-harness.e2e.ts
+e2e/sitl-suite.ts
+e2e/sitl.e2e.ts
+e2e/sitl.test.ts
+e2e/sitl.ts
+e2e/tcp-vehicle.ts
+src/configurator.test.ts
+src/configurator.ts
+src/fixtures.ts
+src/main.ts
+src/metadata.test.ts
+src/metadata.ts
+src/mock-backend.ts
+src/render.test.ts
+src/render.ts
+src/snapshot.test.ts
+src/snapshot.ts
