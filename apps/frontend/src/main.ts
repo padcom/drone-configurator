@@ -2,13 +2,15 @@ import './style.css'
 import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
 import type { State } from './configurator'
-import { importView, listStatus, paramRows } from './render'
+import { importView } from './render'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectionBar from './ConnectionBar.vue'
 import MetadataStatus from './MetadataStatus.vue'
 import ParamEditor from './ParamEditor.vue'
+import ParamFilter from './ParamFilter.vue'
+import ParamTable from './ParamTable.vue'
 import TelemetryCards from './TelemetryCards.vue'
 
 declare global {
@@ -30,10 +32,6 @@ function setHtml(id: string, html: string) {
 }
 
 function render(state: State) {
-  const visible = app.visible()
-  byId('list-status').textContent = listStatus(state, visible.length)
-  setHtml('rows', paramRows(visible, state.selected))
-  byId<HTMLButtonElement>('refresh').disabled = state.connection.state !== 'connected' || state.list === 'loading'
   const loaded = state.importReview !== null || state.importError !== null
   byId('import-panel').hidden = !loaded
   setHtml('import', importView(state))
@@ -48,19 +46,13 @@ const { app } = createConfigurator(bridge ? bridgeTransport(bridge) : mockBacken
 
 // Regions already ported to components; the rest of the page is still written by render().
 createApp(ConnectionBar).mount('#connection-bar')
+createApp(ParamFilter).mount('#param-filter')
+createApp(ParamTable).mount('#param-table')
 createApp(ParamEditor).mount('#param-editor')
 createApp(MetadataStatus).mount('#metadata-status-root')
 createApp(TelemetryCards).mount('#telemetry')
 createApp(ConfirmDialog).mount('#confirm-root')
 
-byId('refresh').addEventListener('click', () => void app.refresh())
-byId('filter').addEventListener('input', event => app.setFilter((event.target as HTMLInputElement).value))
-byId('rows').addEventListener('click', event => {
-  const row = (event.target as HTMLElement).closest('tr')
-  if (row?.dataset.id) {
-    app.select(row.dataset.id)
-  }
-})
 /** Offers `text` as a file download (the browser's, or the host's save handling). */
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))

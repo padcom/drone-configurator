@@ -1,31 +1,10 @@
 // The dashboard as HTML, from the state alone (no DOM), so rendering is testable in Vitest. The
 // inputs (filter, draft, connection settings) are static elements in index.html: re-rendering
 // them would take the focus away while the user types.
-import type { Param } from './generated/app'
 import type { State } from './configurator'
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 export const escape = (s: string) => s.replace(/[&<>"']/g, c => ESCAPES[c] ?? c)
-
-/** How the parameter list stands. */
-export function listStatus(state: State, shown: number): string {
-  switch (state.list) {
-    case 'none': return 'Connect to download the parameters.'
-    case 'loading': return 'Downloading the parameters…'
-    case 'failed': return 'The download failed.'
-    case 'incomplete': return `${state.params.length} parameters, but ${state.missing.length} never arrived (indexes ${state.missing.join(', ')}). Download again to retry.`
-    case 'complete': return shown === state.params.length ? `${state.params.length} parameters` : `${shown} of ${state.params.length} parameters`
-  }
-}
-
-/** The parameter table's rows; the selected one is marked. */
-export function paramRows(params: Param[], selected: string | null): string {
-  return params.map(p => {
-    const cls = p.id === selected ? ' class="selected"' : ''
-
-    return `<tr data-id="${escape(p.id)}"${cls}><td>${escape(p.id)}</td><td class="num">${p.value}</td><td>${escape(p.type)}</td></tr>`
-  }).join('')
-}
 
 /** A loaded snapshot: what it would change, what was applied, and the backup. */
 export function importView(state: State): string {

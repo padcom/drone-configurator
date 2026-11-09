@@ -9,6 +9,7 @@ import {
   HeartbeatSender,
   MavAutopilot,
   MavLinkConnection,
+  MavLinkRouter,
   MavType,
   ParamEncoding,
   SimulatedAutopilot,
@@ -74,7 +75,12 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
     link.update(Connection { state: ConnectionState.Disconnected, error: `can't open ${describe(request)}: ${e.message}` })
     return encodeConnection(link.state)
   }
-  const conn = new MavLinkConnection(stream!)
+  // The link goes under a router, even though there is only one: the seam where reconnecting,
+  // redundant links and several vehicles come in (#28, #31, #32). With one link it adds nothing
+  // visible: the connection still ends when the link ends, and `close()` closes the link.
+  const router = new MavLinkRouter()
+  router.addLink(stream!)
+  const conn = new MavLinkConnection(router)
   link.conn = conn
   const discovery = new VehicleDiscovery(conn)
   link.discovery = discovery
