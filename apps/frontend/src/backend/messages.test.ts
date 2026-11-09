@@ -88,20 +88,20 @@ it('replays nothing for 0', async () => {
   none.subscription.stop()
 })
 
-it('refuses to replay more than 500', async () => {
+it('refuses to replay more than 200', async () => {
   const { client } = await connectedClient()
 
-  await expect(listen(client, 501).subscription.ready).rejects.toThrow('replay is 0 to 500')
+  await expect(listen(client, 201).subscription.ready).rejects.toThrow('replay is 0 to 200')
 })
 
-it('keeps the last 500, with ids that keep going up', async () => {
+it('keeps the last 500 and replays the last 200 of them, with ids that keep going up', async () => {
   const { client, control } = await connectedClient()
   sayMany(control, 600)
-  const { messages, subscription } = listen(client, 500)
+  const { messages, subscription } = listen(client, 200)
   await subscription.ready
-  await vi.waitFor(() => expect(messages).toHaveLength(500))
+  await vi.waitFor(() => expect(messages).toHaveLength(200))
 
-  expect(messages[0]?.text).toBe('message 100')
+  expect(messages[0]?.text).toBe('message 400')
   expect(messages.at(-1)?.text).toBe('message 599')
   subscription.stop()
 })

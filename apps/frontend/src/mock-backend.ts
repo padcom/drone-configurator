@@ -72,9 +72,10 @@ export interface MockControl {
   say?: (severity: number, text: string) => void
 }
 
-/** How many messages the mock keeps, and replays at most (as the backend does). */
+/** How many messages the mock keeps, how many it replays by default, and at most (as the backend does). */
 const MESSAGE_RING = 500
 const DEFAULT_REPLAY = 100
+const MAX_REPLAY = 200
 
 class MockVehicle {
   connection: Connection = { state: 'disconnected' }
@@ -247,8 +248,8 @@ class MockVehicle {
   /** The stored messages asked for (oldest first), then every new one. */
   subscribeToMessages(e: Envelope, fail: (code: string, message: string) => void) {
     const replay = (e.p as MessagesParams | null)?.replay ?? DEFAULT_REPLAY
-    if (replay > MESSAGE_RING) {
-      return fail('INVALID_VALUE', `replay is 0 to ${MESSAGE_RING}, not ${replay}`)
+    if (replay > MAX_REPLAY) {
+      return fail('INVALID_VALUE', `replay is 0 to ${MAX_REPLAY}, not ${replay}`)
     }
     const s = e.id!
     this.send({ k: 'response', id: s, s })

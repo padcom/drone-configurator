@@ -1,10 +1,10 @@
 // The messages service: the texts the connected vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors"), long ones
 // joined, kept in a ring of the last 500 and streamed to the dashboard. A subscription first gets the stored messages it
 // asked for, oldest first, then each new one; every message has an id that goes up by one, so the dashboard can drop a
-// repeat.
+// repeat. Messages of every component of the connected system are kept (the autopilot's, and a companion's or a gimbal's).
+// A message sent before the vehicle's first heartbeat is not seen: the reader starts when the autopilot is identified.
 import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
 import { MavLinkConnection, StatusMessage, StatusTextReader } from "padcom/pico-mavlink"
-import { delay } from "std/timers"
 import { VehicleMessage, decodeMessagesParams, encodeVehicleMessage } from "./generated/app"
 import { SessionPart, link } from "./session"
 
@@ -12,9 +12,11 @@ import { SessionPart, link } from "./session"
 const RING_SIZE: int = 500
 /// How many messages a subscription gets when it does not say.
 const DEFAULT_REPLAY: int = 100
-/// How many messages go out before the next batch waits a moment: a subscription takes only so many events that have
-/// not been delivered yet (the rest would be dropped), so a long replay is paced.
-const BATCH: int = 100
+/// The most a subscription can ask to be replayed. A subscription takes only 256 events that have not been delivered yet
+/// (Sink.next drops the rest, and the host bounds the page's unacknowledged events the same way), and a replay is sent all
+/// at once: more than this could leave a hole in the middle on a slow link, so the replay stops short of it. Time spacing
+/// would not help (it is not flow control); a replay that cannot overflow needs none.
+const MAX_REPLAY: int = 200
 
 /// Registers the service's subscription on `c`, and its part of the session.
 export function register(c: Communicator): void {
@@ -22,26 +24,10 @@ export function register(c: Communicator): void {
   c.publish("vehicle.messages", streamMessages)
 }
 
-/// One subscription: what it is sent now, and what came while its replay was still going out.
-class Subscriber {
-  public readonly sink: Sink
-  /// Whether the replay is out: live messages go straight out from then on.
-  public ready: bool = false
-  public backlog: VehicleMessage[] = []
-
-  constructor(sink: Sink) {
-    this.sink = sink
-  }
-
-  public send(m: VehicleMessage): void {
-    sink.next(encodeVehicleMessage(m))
-  }
-}
-
 /// The messages of the connected vehicle, and who is listening.
 class Kept implements SessionPart {
   public ring: VehicleMessage[] = []
-  public subscribers: Subscriber[] = []
+  public sinks: Sink[] = []
   /// Goes up for every message for as long as the backend runs: never reset.
   public nextId: int = 1
   public reader: StatusTextReader? = null
@@ -90,8 +76,9 @@ class Kept implements SessionPart {
     if (ring.length > RING_SIZE) {
       ring.splice(0, 1)
     }
-    for (const s of subscribers) {
-      if (s.ready) s.send(message) else s.backlog.push(message)
+    const event = encodeVehicleMessage(message)
+    for (const s of sinks) {
+      s.next(event)
     }
   }
 
@@ -104,10 +91,10 @@ class Kept implements SessionPart {
     out
   }
 
-  public remove(s: Subscriber): void {
-    const i = subscribers.indexOf(s)
+  public remove(s: Sink): void {
+    const i = sinks.indexOf(s)
     if (i >= 0) {
-      subscribers.splice(i, 1)
+      sinks.splice(i, 1)
     }
   }
 }
@@ -143,36 +130,16 @@ function replayAskedFor(params: Cbor?): int throws Error {
   if (asked == null) DEFAULT_REPLAY else asked! as int
 }
 
-/// Sends the stored messages, a batch at a time, then what came meanwhile, and from then on lets live ones through.
-async function sendReplay(s: Subscriber, replay: VehicleMessage[]): Promise<void> {
-  for (let i = 0; i < replay.length && s.sink.active; i++) {
-    s.send(replay[i])
-    if ((i + 1) % BATCH == 0) {
-      try {
-        await delay(0)
-      } catch (e: Error) {
-        // Not cancelled by anyone: nothing to do but go on.
-      }
-    }
-  }
-  const late = s.backlog
-  s.backlog = []
-  for (const m of late) {
-    s.send(m)
-  }
-  s.ready = true
-}
-
-/// The stored messages (up to `replay`), then every new one. The ring is read and the subscription added in one step,
-/// so a message is in the replay or comes live, never both and never neither.
+/// The stored messages (up to `replay`, oldest first), then every new one. The ring is read, sent and the subscription
+/// added in one step, so a message is in the replay or comes live, never both and never neither.
 function streamMessages(params: Cbor?, sink: Sink): void throws Error {
   const n = replayAskedFor(params)
-  if (n < 0 || n > RING_SIZE) {
-    throw new CommunicatorError("INVALID_VALUE", `replay is 0 to ${RING_SIZE}, not ${n}`)
+  if (n < 0 || n > MAX_REPLAY) {
+    throw new CommunicatorError("INVALID_VALUE", `replay is 0 to ${MAX_REPLAY}, not ${n}`)
   }
-  const s = new Subscriber(sink)
-  const replay = kept.last(n)
-  kept.subscribers.push(s)
-  sink.onClose = () => kept.remove(s)
-  sendReplay(s, replay)
+  for (const m of kept.last(n)) {
+    sink.next(encodeVehicleMessage(m))
+  }
+  kept.sinks.push(sink)
+  sink.onClose = () => kept.remove(sink)
 }

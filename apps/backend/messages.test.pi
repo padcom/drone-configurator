@@ -2,9 +2,9 @@
 // reaches the subscriber joined, with ids that go up, and the reader's timer does not outlive the session.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { Cbor } from "pico-desktop/communicator"
+import { Cbor, Transport, memoryPair } from "pico-desktop/communicator"
 import { MemoryStream, SimulatedAutopilot, StatusMessage, defaultSimParams, splitStatusText } from "padcom/pico-mavlink"
-import { simulatorForTests } from "./app"
+import { createBackend, simulatorForTests } from "./app"
 import {
   ConnectRequest,
   ConnectRequestTransport,
@@ -136,22 +136,54 @@ async function keepsTheLast500(): Promise<void> throws Error {
   }
 }
 
-/// A long replay arrives whole (a subscription takes only so many events that are not yet delivered, so it is paced).
-async function replaysAllFiveHundred(): Promise<void> throws Error {
-  const f = await connected()
+/// A link that takes its time to send each event.
+class SlowTransport implements Transport {
+  readonly inner: Transport
+
+  constructor(inner: Transport) {
+    this.inner = inner
+  }
+
+  public async send(message: Uint8Array): Promise<void> throws Error {
+    await delay(3)
+    await inner.send(message)
+  }
+
+  public receive(): Promise<Uint8Array?, Error> {
+    inner.receive()
+  }
+}
+
+/// A backend on a slow link, and the frontend's end of it.
+async function startSlow(): Promise<Frontend> throws Error {
+  const ends = memoryPair()
+  createBackend(new SlowTransport(ends[0])).run()
+  await ends[1].receive()
+  new Frontend(ends[1])
+}
+
+/// The longest replay arrives whole on a slow link: a subscription takes only 256 events that are not yet delivered and
+/// drops the rest (the event that follows says how many), so the replay is no longer than that, and is sent at once.
+async function replaysTheMostOnASlowLink(): Promise<void> throws Error {
+  const f = await startSlow()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
   try {
     for (let i = 0; i < 520; i++) {
       takeForTests(said(6, `message ${i}`))
     }
-    const s = await subscribe(f, 500)
+    const s = await subscribe(f, 200)
     let last = -1
-    for (let i = 0; i < 500; i++) {
-      const m = await next(f)
+    let dropped = 0
+    for (let i = 0; i < 200; i++) {
+      const e = await f.event("vehicle.messages")
+      const m = decodeVehicleMessage(e.p ?? Cbor.Null, "$")
+      dropped += (e.d ?? 0) as int
       if (last >= 0) {
         expect(m.id).toBe(last + 1)
       }
       last = m.id as int
     }
+    expect(dropped).toBe(0)
     await f.unsubscribe(s)
   } finally {
     await f.call("vehicle.disconnect")
@@ -287,12 +319,12 @@ async function forgetsThemWhenAnotherVehicleComes(): Promise<void> throws Error 
   }
 }
 
-/// A replay outside 0 to 500 is refused with the reason.
+/// A replay outside 0 to 200 is refused with the reason.
 async function refusesTooLongAReplay(): Promise<void> throws Error {
   const f = await start()
-  await f.subscribe("vehicle.messages", encodeMessagesParams(MessagesParams { replay: 501 }))
+  await f.subscribe("vehicle.messages", encodeMessagesParams(MessagesParams { replay: 201 }))
   const ended = await f.ended()
-  expect(ended.err?.message ?? "").toContain("replay is 0 to 500")
+  expect(ended.err?.message ?? "").toContain("replay is 0 to 200")
 }
 
 describe("the messages service", () => {
@@ -300,12 +332,12 @@ describe("the messages service", () => {
   it("joins the chunks of a long message and keeps interleaved ones apart", joinsChunks)
   it("delivers a message with a lost chunk after the timeout, truncated", deliversALostChunkTruncated)
   it("keeps the last 500 and replays the last ones asked for, oldest first", keepsTheLast500)
-  it("replays 500 messages whole", replaysAllFiveHundred)
+  it("replays 200 messages whole on a slow link, none dropped", replaysTheMostOnASlowLink)
   it("gives a late subscriber the replay and then the live messages, without repeats", joinsReplayAndLiveWithoutRepeats)
   it("keeps only the connected vehicle's messages", ignoresOtherSystems)
   it("forgets the messages when a vehicle connects again", forgetsThemOnANewConnection)
   it("stops the reader when the session ends, delivering what it held", stopsTheReaderWithTheSession)
   it("keeps the messages when the link is lost and the same vehicle comes back", keepsThemWhenTheSessionResumes)
   it("forgets the messages when another vehicle comes back on the link", forgetsThemWhenAnotherVehicleComes)
-  it("refuses a replay of more than 500", refusesTooLongAReplay)
+  it("refuses a replay of more than 200", refusesTooLongAReplay)
 })
