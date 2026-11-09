@@ -17,6 +17,7 @@ import {
   decodeParam,
   decodeParamList,
   decodeParamWriteResult,
+  decodeTelemetry,
   encodeConnectRequest,
   encodeParamWrite,
 } from "./generated/app"
@@ -79,6 +80,24 @@ class Frontend {
   public async call(name: string, payload: Cbor? = null): Promise<Envelope> throws Error {
     await reply(await send(name, payload))
   }
+
+  /// Subscribes to `name`; the subscription's id.
+  public async subscribe(name: string): Promise<u64> throws Error {
+    id += 1
+    const want = id
+    const e = envelope("subscribe")
+    e.id = want
+    e.n = name
+    await t.send(encodeEnvelope(e))
+    (await reply(want)).s ?? 0
+  }
+
+  /// Ends a subscription (a subscription's timer would keep the test process alive).
+  public async unsubscribe(s: u64): Promise<void> throws Error {
+    const e = envelope("unsubscribe")
+    e.s = s
+    await t.send(encodeEnvelope(e))
+  }
 }
 
 async function start(): Promise<Frontend> throws Error {
@@ -107,6 +126,24 @@ async function refusesWithoutAVehicle(): Promise<void> throws Error {
   await f.call("vehicle.disconnect")
   const e = await f.call("params.list")
   expect(e.err?.code ?? "no error").toBe("NOT_CONNECTED")
+}
+
+/// What the vehicle reports reaches the dashboard: the first heartbeat after connecting is on the
+/// first telemetry tick, and a reconnect starts from nothing heard.
+async function streamsTelemetry(): Promise<void> throws Error {
+  const f = await start()
+  const simulator = encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator })
+  await f.call("vehicle.connect", simulator)
+  const subscription = await f.subscribe("telemetry.stream")
+  const first = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+  expect(first.mode != "unknown").toBe(true)
+  expect(first.heartbeatAgeMs < 3000).toBe(true)
+  await f.call("vehicle.disconnect")
+  await f.call("vehicle.connect", simulator)
+  const again = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+  expect(again.mode != "unknown").toBe(true)
+  await f.unsubscribe(subscription)
+  await f.call("vehicle.disconnect")
 }
 
 async function noHeartbeat(): Promise<void> throws Error {
@@ -235,4 +272,5 @@ describe("the backend", () => {
   it("connects to the simulator, lists parameters and writes one with read-back", connectsListsAndWrites)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
   it("reports a link with no heartbeat", noHeartbeat)
+  it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
 })
