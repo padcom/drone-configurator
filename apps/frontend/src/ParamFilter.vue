@@ -5,9 +5,9 @@
     :placeholder="t('params.filter')"
     :aria-label="t('params.filter')"
     autocomplete="off"
-    @input="app.setFilter(($event.target as HTMLInputElement).value)"
+    @input="parameters.setFilter(($event.target as HTMLInputElement).value)"
   >
-  <button id="refresh" type="button" :disabled="!download" @click="app.refresh()">{{ t('params.download') }}</button>
+  <button id="refresh" type="button" :disabled="!download" @click="parameters.refresh()">{{ t('params.download') }}</button>
 </template>
 
 <script setup lang="ts">
@@ -17,6 +17,6 @@ import { canDownload } from './paramList'
 import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()
-const { app, fields } = useConfigurator()
+const { parameters, fields } = useConfigurator()
 const download = computed(() => canDownload(fields.connection.value.state, fields.list.value))
 </script>

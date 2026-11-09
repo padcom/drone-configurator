@@ -1,7 +1,8 @@
 // What the parameter editor says, from plain values (no DOM). Vue's templates escape the text; the words come from
 // the translations.
 import type { Param } from './generated/app'
-import type { State, WriteStatus } from './configurator'
+import type { State } from './state'
+import type { WriteStatus } from './useParams'
 import type { ParamMeta } from './metadata'
 import type { Translate } from './telemetryCards'
 

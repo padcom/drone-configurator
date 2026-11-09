@@ -14,13 +14,13 @@
       <p v-if="notice" :class="notice.tone">{{ notice.text }}</p>
     </template>
   </div>
-  <form id="edit" :hidden="!editable" @submit.prevent="app.write()">
+  <form id="edit" :hidden="!editable" @submit.prevent="parameters.write()">
     <input
       id="draft"
       :value="fields.draft.value"
       :aria-label="t('editor.newValue')"
       autocomplete="off"
-      @input="app.editDraft(($event.target as HTMLInputElement).value)"
+      @input="parameters.editDraft(($event.target as HTMLInputElement).value)"
     >
     <button id="write" type="submit" :disabled="!writable">{{ t('editor.write') }}</button>
   </form>
@@ -33,7 +33,7 @@ import { canWrite, detailsOf, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()
-const { app, fields } = useConfigurator()
+const { parameters, fields } = useConfigurator()
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const connected = computed(() => fields.connection.value.state === 'connected')
 const editable = computed(() => param.value !== null && connected.value)

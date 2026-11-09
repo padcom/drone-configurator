@@ -28,9 +28,9 @@ afterEach(() => {
  */
 async function panelWithSpies() {
   const handle = createConfigurator(mockBackend())
-  const togglePick = vi.spyOn(handle.app, 'togglePick').mockImplementation(() => undefined)
-  const applyImport = vi.spyOn(handle.app, 'applyImport').mockResolvedValue()
-  const closeImport = vi.spyOn(handle.app, 'closeImport').mockImplementation(() => undefined)
+  const togglePick = vi.spyOn(handle.snapshots, 'toggle').mockImplementation(() => undefined)
+  const applyImport = vi.spyOn(handle.snapshots, 'apply').mockResolvedValue()
+  const closeImport = vi.spyOn(handle.snapshots, 'close').mockImplementation(() => undefined)
   const wrapper = mount(SnapshotImport, withI18n)
   await flushPromises()
   feed(handle, { importReview: review, connection: { state: 'connected', vehicle: { ...VEHICLE } } })
@@ -120,7 +120,7 @@ it('offers the backup once there is one, and closes', async () => {
 
 it('saves the backup through the host in Pico Desktop', async () => {
   const { wrapper, handle } = await panelWithSpies()
-  const saveFile = vi.spyOn(handle.app, 'saveFile').mockResolvedValue(null)
+  const saveFile = vi.spyOn(handle.snapshots, 'saveFile').mockResolvedValue(null)
   window.picoDesktop = {} as never
   feed(handle, { backup: '{"backup":true}' })
   await wrapper.vm.$nextTick()

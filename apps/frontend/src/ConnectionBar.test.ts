@@ -2,26 +2,22 @@ import { expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ConnectionBar from './ConnectionBar.vue'
 import { mockBackend } from './mock-backend'
-import type { State } from './configurator'
-import { withI18n } from './testing'
-import { createConfigurator, publish } from './useConfigurator'
+import type { State } from './state'
+import { feed as feedState, withI18n } from './testing'
+import { createConfigurator } from './useConfigurator'
 import { VEHICLE } from './fixtures'
 
 /**
  * Mounts the bar on a fresh Configurator whose actions are spies.
  *
- * @returns the component, `feed` (changes the Configurator's state the way the backend would) and the spies
+ * @returns the component, `feed` (changes the state the way the backend would) and the spies
  */
 function barWithSpies() {
-  const { app, fields } = createConfigurator(mockBackend())
-  const connect = vi.spyOn(app, 'connect').mockResolvedValue()
-  const disconnect = vi.spyOn(app, 'disconnect').mockResolvedValue()
-  const listPorts = vi.spyOn(app, 'listPorts').mockResolvedValue()
-  // The state goes through the Configurator: a ref written directly is overwritten by its next render.
-  const feed = (change: Partial<State>) => {
-    app.state = { ...app.state, ...change }
-    publish(fields, app.state)
-  }
+  const handle = createConfigurator(mockBackend())
+  const connect = vi.spyOn(handle.vehicle, 'connect').mockResolvedValue()
+  const disconnect = vi.spyOn(handle.vehicle, 'disconnect').mockResolvedValue()
+  const listPorts = vi.spyOn(handle.vehicle, 'listPorts').mockResolvedValue()
+  const feed = (change: Partial<State>) => feedState(handle, change)
 
   return { wrapper: mount(ConnectionBar, withI18n), feed, connect, disconnect, listPorts }
 }

@@ -1,64 +1,41 @@
-// The Configurator's state for Vue components: one shallow ref per State field, each assigned only
-// when its reference changed. Telemetry ticks every second; the 1200-row parameter list must not be
-// diffed again on each tick, and a component that reads one field is not woken by the others.
+// The interface's state and actions, put together: the vehicle link, the parameters, the metadata and the snapshots
+// (each a composable that talks to the backend through the client), the last failure, and the question the
+// confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
+// component that reads one field is not woken by the others (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
-import type { Transport } from '@pico-desktop/communicator'
-import { Configurator, type State } from './configurator'
+import { type Transport, createBackendClient } from './backend/client'
+import { draftProblem } from './draft'
+import type { State } from './state'
+import { type MetadataModel, useMetadata } from './useMetadata'
+import { type ParamsModel, useParams } from './useParams'
+import { type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { type Vehicle, useVehicle } from './useVehicle'
 
-/** One shallow ref per field of the Configurator's state. */
+/** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
 
 /** A question waiting for the user's answer. */
 export interface Confirmation {
   /** What the user is asked. */
   question: string
-  /** Settles the pending `Ui.confirm` promise. */
+  /** Settles the pending confirmation. */
   answer: (yes: boolean) => void
 }
 
-/** What components get: the actions, the state as refs, and the pending question. */
+/** What components get. */
 export interface ConfiguratorHandle {
-  /** The actions (`connect`, `select`, `write` ...). */
-  app: Configurator
+  /** The vehicle link. */
+  vehicle: Vehicle
+  /** The parameters. */
+  parameters: ParamsModel
+  /** The parameter metadata. */
+  metadata: MetadataModel
+  /** The snapshots and their import. */
+  snapshots: SnapshotsModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
   confirmation: ShallowRef<Confirmation | null>
-}
-
-/**
- * Builds a ref for every field of `state`.
- *
- * @param state the initial state
- * @returns the refs
- */
-function toFields(state: State): Fields {
-  return Object.fromEntries(Object.entries(state).map(([key, value]) => [key, shallowRef(value)])) as Fields
-}
-
-/**
- * Assigns one field when its reference changed.
- *
- * @param fields the refs
- * @param state the new state
- * @param key the field
- */
-function assign<K extends keyof State>(fields: Fields, state: State, key: K): void {
-  if (fields[key].value !== state[key]) {
-    fields[key].value = state[key]
-  }
-}
-
-/**
- * Copies `state` into `fields`, touching only the refs whose value is not the same reference.
- *
- * @param fields the refs to update
- * @param state the Configurator's new state
- */
-export function publish(fields: Fields, state: State): void {
-  for (const key of Object.keys(state) as (keyof State)[]) {
-    assign(fields, state, key)
-  }
 }
 
 /**
@@ -78,41 +55,91 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string): P
   })
 }
 
+/** The composables that hold the state. */
+type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots'>
+
+/**
+ * The state as the refs that hold it.
+ *
+ * @param models the composables
+ * @param error the last failure
+ * @returns one ref per field
+ */
+function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
+  const { vehicle, parameters, metadata, snapshots } = models
+
+  return {
+    connection: vehicle.connection,
+    ports: vehicle.ports,
+    notice: vehicle.notice,
+    telemetry: vehicle.telemetry,
+    params: parameters.params,
+    list: parameters.list,
+    missing: parameters.missing,
+    filter: parameters.filter,
+    selected: parameters.selected,
+    draft: parameters.draft,
+    draftError: parameters.draftError,
+    writing: parameters.writing,
+    lastWrite: parameters.lastWrite,
+    metadata: metadata.metadata,
+    metadataError: metadata.error,
+    importReview: snapshots.importReview,
+    importError: snapshots.importError,
+    picked: snapshots.picked,
+    applying: snapshots.applying,
+    applied: snapshots.applied,
+    backup: snapshots.backup,
+    error,
+  }
+}
+
 let current: ConfiguratorHandle | undefined
 
 /**
- * Starts the Configurator on `transport` and makes it the one components get from
+ * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
  * @param transport the link to the backend (the host's bridge, or the mock)
- * @param legacyRender the markup-based regions not yet ported to components, called after each change
+ * @param confirm answers the questions instead of the dialog (tests give theirs)
  * @returns the handle
  */
-export function createConfigurator(transport: Transport, legacyRender?: (state: State) => void): ConfiguratorHandle {
+export function createConfigurator(
+  transport: Transport,
+  confirm?: (question: string) => Promise<boolean>,
+): ConfiguratorHandle {
+  const client = createBackendClient(transport)
   const confirmation = shallowRef<Confirmation | null>(null)
-  // The refs exist once the Configurator has its first state; it renders only after that (its
-  // first change comes from the backend, asynchronously).
-  const published: { fields?: Fields } = {}
-  const app = new Configurator(transport, {
-    render(state) {
-      if (published.fields) {
-        publish(published.fields, state)
-      }
-      legacyRender?.(state)
-    },
-    confirm: question => ask(confirmation, question),
+  const error = shallowRef<string | null>(null)
+  const fail = (message: string | null) => {
+    error.value = message
+  }
+  const askUser = confirm ?? ((question: string) => ask(confirmation, question))
+  const metadata = useMetadata({ client })
+  const vehicle = useVehicle({ client, fail })
+  const parameters = useParams({
+    client,
+    fail,
+    isConnected: () => vehicle.connection.value.state === 'connected',
+    confirm: askUser,
+    problemWith: (param, text) => draftProblem(metadata.metadata.value, param, text),
   })
-  const fields = toFields(app.state)
-  published.fields = fields
-  current = { app, fields, confirmation }
+  const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
+  // A vehicle that has just been connected has its parameters downloaded; one that is gone cannot be written to.
+  vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
+  client.onState(state => vehicle.backendChanged(state))
+  client.onEvent('params.changed', param => parameters.announced(param))
+  void vehicle.watch()
+  const models = { vehicle, parameters, metadata, snapshots }
+  current = { ...models, fields: fieldsOf(models, error), confirmation }
 
   return current
 }
 
 /**
- * The Configurator that `createConfigurator` started.
+ * The state and actions that `createConfigurator` started.
  *
- * @returns its handle
+ * @returns the handle
  */
 export function useConfigurator(): ConfiguratorHandle {
   if (!current) {

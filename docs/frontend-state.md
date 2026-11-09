@@ -26,12 +26,16 @@ actions that change them:
   telemetry; `connect`, `disconnect`, `listPorts`.
 - `useParams()` (`src/useParams.ts`): the parameter list and how its download went, the filter and the selection, the
   draft of a new value, and writing it.
+- `useMetadata()` (`src/useMetadata.ts`): the parameter metadata loaded from a file, and why a file was not loaded.
+- `useSnapshots()` (`src/useSnapshots.ts`): saving the parameters as a snapshot, loading one for review, the ticks, and
+  writing the ticked changes after one confirmation.
 - `useTelemetry()` (`src/useTelemetry.ts`): the telemetry, once per frame (see below).
 
 Each is given what it needs from the rest as arguments (the client, a way to ask the user to confirm, and so on), so a
-test builds its own on the mock backend. `Configurator` (`src/configurator.ts`) still puts them together, adds the
-metadata, the files and the snapshot import, and keeps the one `State` that the components read; the components move
-to the composables as the Configurator is dissolved (#12).
+test builds its own on the mock backend. `createConfigurator()` (`src/useConfigurator.ts`) puts them together once, when
+the page starts, and `useConfigurator()` gives a component the result: the composables to call, and `fields`, one ref
+per piece of the `State` type (`src/state.ts`) that is the very ref the composable holding it changes. A component reads
+the refs it needs and is woken by those only. There is no central object and no re-render loop.
 
 ## Subscriptions and when they end
 

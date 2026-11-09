@@ -1,7 +1,7 @@
 // Helpers for component tests (not part of the app).
-import type { State } from './configurator'
 import { i18n } from './i18n'
-import { type ConfiguratorHandle, publish } from './useConfigurator'
+import type { State } from './state'
+import type { ConfiguratorHandle, Fields } from './useConfigurator'
 
 /** Mount options that give a component the translations, as `mountIsland` does in the page. */
 export const withI18n = { global: { plugins: [i18n] } }
@@ -29,13 +29,24 @@ export function nextFrame(): Promise<void> {
 export const translate = (key: string, named: Record<string, unknown> = {}): string => i18n.global.t(key, named)
 
 /**
- * Changes the Configurator's state the way the backend's events would. The state goes through the Configurator: a
- * ref written directly is overwritten by its next render.
+ * Sets one field.
+ *
+ * @param fields the refs
+ * @param change the new values
+ * @param key the field to set
+ */
+function assign<K extends keyof State>(fields: Fields, change: Partial<State>, key: K): void {
+  fields[key].value = change[key] as State[K]
+}
+
+/**
+ * Changes the state the way the backend's events would, by setting the refs that hold it.
  *
  * @param handle the started Configurator
  * @param change the fields to change
  */
 export function feed(handle: ConfiguratorHandle, change: Partial<State>): void {
-  handle.app.state = { ...handle.app.state, ...change }
-  publish(handle.fields, handle.app.state)
+  for (const key of Object.keys(change) as (keyof State)[]) {
+    assign(handle.fields, change, key)
+  }
 }

@@ -10,36 +10,35 @@ import { useVehicle } from './useVehicle'
  */
 function rig() {
   const failures: (string | null)[] = []
-  const deps = {
+  const vehicle = useVehicle({
     client: createBackendClient(mockBackend({ telemetryMs: 5 })),
     fail: (message: string | null) => failures.push(message),
-    changed: vi.fn(),
-    onConnected: vi.fn(),
-    onNotConnected: vi.fn(),
-  }
+  })
+  const sessions = vi.fn()
+  vehicle.onSession(sessions)
 
-  return { vehicle: useVehicle(deps), deps, failures }
+  return { vehicle, sessions, failures }
 }
 
 it('connects to the simulator, shows the vehicle, and says the vehicle is connected once', async () => {
-  const { vehicle, deps, failures } = rig()
+  const { vehicle, sessions, failures } = rig()
 
   await vehicle.connect({ transport: 'simulator' })
 
   expect(vehicle.connection.value).toMatchObject({ state: 'connected', vehicle: { sysid: 1, type: 'QUADROTOR' } })
-  expect(deps.onConnected).toHaveBeenCalledTimes(1)
+  expect(sessions).toHaveBeenCalledTimes(1)
+  expect(sessions).toHaveBeenCalledWith(true)
   expect(failures.at(-1)).toBeNull()
-  expect(deps.changed).toHaveBeenCalled()
 })
 
 it('reports why a connection failed, and stays disconnected', async () => {
-  const { vehicle, deps, failures } = rig()
+  const { vehicle, sessions, failures } = rig()
 
   await vehicle.connect({ transport: 'udp', port: 14550 })
 
   expect(vehicle.connection.value.state).toBe('disconnected')
   expect(failures.at(-1)).toBe('no heartbeat from udp 127.0.0.1:14550')
-  expect(deps.onConnected).not.toHaveBeenCalled()
+  expect(sessions).not.toHaveBeenCalledWith(true)
 })
 
 it('lists the serial ports', async () => {
@@ -51,7 +50,7 @@ it('lists the serial ports', async () => {
 })
 
 it('follows the telemetry once watching, and drops it on disconnect', async () => {
-  const { vehicle, deps } = rig()
+  const { vehicle, sessions } = rig()
   await vehicle.watch()
   await vehicle.connect({ transport: 'simulator' })
   await vi.waitFor(() => expect(vehicle.telemetry.value?.mode).toBeDefined())
@@ -60,7 +59,7 @@ it('follows the telemetry once watching, and drops it on disconnect', async () =
 
   expect(vehicle.connection.value.state).toBe('disconnected')
   expect(vehicle.telemetry.value).toBeNull()
-  expect(deps.onNotConnected).toHaveBeenCalled()
+  expect(sessions).toHaveBeenLastCalledWith(false)
 })
 
 it('ends the session, keeping the vehicle shown, when the backend restarts or stops, and says why', async () => {
@@ -81,14 +80,14 @@ it('ends the session, keeping the vehicle shown, when the backend restarts or st
 })
 
 it('ignores the backend being ready, and a restart while no vehicle is connected', () => {
-  const { vehicle, deps } = rig()
+  const { vehicle, sessions } = rig()
 
   vehicle.backendChanged('restarting')
   vehicle.backendChanged('ready')
 
   expect(vehicle.connection.value.state).toBe('disconnected')
   expect(vehicle.notice.value).toBeNull()
-  expect(deps.changed).not.toHaveBeenCalled()
+  expect(sessions).not.toHaveBeenCalled()
 })
 
 it('forgets the notice when connecting again', async () => {

@@ -30,7 +30,7 @@ it('lists the parameters with their value and type, and says how many', () => {
 
 it('marks the selected row, and selects the row that is clicked', async () => {
   const { wrapper, handle } = tableWith(PARAMS)
-  const select = vi.spyOn(handle.app, 'select').mockImplementation(() => undefined)
+  const select = vi.spyOn(handle.parameters, 'select').mockImplementation(() => undefined)
 
   await wrapper.get('tr[data-id="BATT_CAPACITY"]').trigger('click')
   expect(select).toHaveBeenCalledWith('BATT_CAPACITY')

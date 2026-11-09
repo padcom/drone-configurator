@@ -1,7 +1,7 @@
 // What the parameter list shows, from plain values (no DOM). Vue's templates escape the text; the words come from
 // the translations.
 import type { Param } from './generated/app'
-import type { State } from './configurator'
+import type { State } from './state'
 import type { Translate } from './telemetryCards'
 
 /**

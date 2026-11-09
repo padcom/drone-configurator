@@ -1,8 +1,8 @@
 // Saving and opening files. In Pico Desktop they go through the backend's native dialogs; in a plain browser (`pnpm ui`)
 // a save is a download and an open is a file input.
 import type { NativeBridge } from '@pico-desktop/communicator'
-import type { Configurator } from './configurator'
 import type { VehicleInfo } from './generated/app'
+import type { SnapshotsModel } from './useSnapshots'
 
 declare global {
   interface Window {
@@ -38,13 +38,13 @@ export function download(text: string, name: string): void {
 /**
  * Saves `text` as a file: through the host's save dialog in Pico Desktop, as a download in a browser.
  *
- * @param app the Configurator, which asks the backend for the host's dialog
+ * @param snapshots the snapshots, which ask the backend for the host's dialog
  * @param text the file's content
  * @param name the file's name
  */
-export function saveText(app: Pick<Configurator, 'saveFile'>, text: string, name: string): void {
+export function saveText(snapshots: Pick<SnapshotsModel, 'saveFile'>, text: string, name: string): void {
   if (hasHost()) {
-    void app.saveFile(name, text)
+    void snapshots.saveFile(name, text)
   } else {
     download(text, name)
   }

@@ -18,11 +18,11 @@ import { chosenText, hasHost, saveText, snapshotFileName } from './files'
 import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()
-const { app, fields } = useConfigurator()
+const { snapshots, metadata, fields } = useConfigurator()
 
 /** Saves the parameters as a snapshot file. */
 function saveSnapshot() {
-  saveText(app, app.snapshot(), snapshotFileName('params', fields.connection.value.vehicle))
+  saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle))
 }
 
 /**
@@ -44,7 +44,7 @@ function openWith(event: Event, open: () => Promise<void>) {
  * @param event the click on the label
  */
 function openSnapshot(event: Event) {
-  openWith(event, () => app.openSnapshotFile())
+  openWith(event, () => snapshots.openFile())
 }
 
 /**
@@ -53,7 +53,7 @@ function openSnapshot(event: Event) {
  * @param event the click on the label
  */
 function openMetadata(event: Event) {
-  openWith(event, () => app.openMetadataFile())
+  openWith(event, () => metadata.openFile())
 }
 
 /**
@@ -64,7 +64,7 @@ function openMetadata(event: Event) {
 async function loadSnapshot(event: Event) {
   const text = await chosenText(event.target as HTMLInputElement)
   if (text !== null) {
-    app.loadSnapshot(text)
+    snapshots.load(text)
   }
 }
 
@@ -76,7 +76,7 @@ async function loadSnapshot(event: Event) {
 async function loadMetadata(event: Event) {
   const text = await chosenText(event.target as HTMLInputElement)
   if (text !== null) {
-    app.loadMetadata(text)
+    metadata.load(text)
   }
 }
 </script>

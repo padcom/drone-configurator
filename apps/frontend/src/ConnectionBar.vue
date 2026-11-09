@@ -23,11 +23,11 @@
       <option v-for="rate in BAUD_RATES" :key="rate">{{ rate }}</option>
     </select>
     <button id="connect-button" type="submit">{{ t('connection.connect') }}</button>
-    <button id="disconnect-button" type="button" :disabled="state !== 'connected'" @click="app.disconnect()">
+    <button id="disconnect-button" type="button" :disabled="state !== 'connected'" @click="vehicle.disconnect()">
       {{ t('connection.disconnect') }}
     </button>
   </form>
-  <p id="connection" role="status"><span class="badge" :class="state">{{ t(`connection.state.${state}`) }}</span>{{ vehicle }}
+  <p id="connection" role="status"><span class="badge" :class="state">{{ t(`connection.state.${state}`) }}</span>{{ found }}
     <span v-if="fields.error.value" class="error">{{ fields.error.value }}</span>
     <span v-if="fields.notice.value" class="warn">{{ fields.notice.value }}</span></p>
 </template>
@@ -42,15 +42,15 @@ import { useConfigurator } from './useConfigurator'
 const BAUD_RATES = ['57600', '115200', '230400', '460800', '921600']
 
 const { t } = useI18n()
-const { app, fields } = useConfigurator()
+const { vehicle, fields } = useConfigurator()
 const form = reactive<ConnectionForm>({ transport: 'simulator', host: '', port: '', device: '', baud: '115200' })
 const serial = computed(() => form.transport === 'serial')
 const state = computed(() => fields.connection.value.state)
 // The vehicle's type and autopilot are the protocol's names, shown as they are.
-const vehicle = computed(() => {
-  const found = fields.connection.value.vehicle
+const found = computed(() => {
+  const info = fields.connection.value.vehicle
 
-  return found ? t('connection.vehicle', { ...found }) : ''
+  return info ? t('connection.vehicle', { ...info }) : ''
 })
 
 /**
@@ -65,13 +65,13 @@ function portText(port: SerialPort): string {
 
 /** Asks the backend to connect to what the form says. */
 function connect() {
-  void app.connect(requestFor(form))
+  void vehicle.connect(requestFor(form))
 }
 
 // Serial ports are listed when the user chooses serial; the device stays chosen while it is still listed.
 watch(() => form.transport, transport => {
   if (transport === 'serial') {
-    void app.listPorts()
+    void vehicle.listPorts()
   }
 })
 watch(fields.ports, ports => {

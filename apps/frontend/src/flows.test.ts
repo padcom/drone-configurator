@@ -1,28 +1,83 @@
+// The interface's flows against the mock backend: connecting, importing a snapshot, parameters changed elsewhere, a
+// backend restart, the parameter list and editing. These are the tests of the old Configurator, with the same
+// expectations; `rig` gives each the actions it used, now backed by the composables.
+import { setTimeout as sleep } from 'node:timers/promises'
 import { describe, expect, it } from 'vitest'
-import { Configurator, type State, validateDraft } from './configurator'
-import { type MockControl, type MockOptions, mockBackend } from './mock-backend'
+import { validateDraft } from './draft'
 import { PARAMS } from './fixtures'
+import { type MockControl, type MockOptions, mockBackend } from './mock-backend'
+import type { State } from './state'
+import { type ConfiguratorHandle, createConfigurator } from './useConfigurator'
 
-const sleep = (ms: number) => new Promise(resolve => {
-  setTimeout(resolve, ms)
-})
-
-/** A configurator on the mock backend, recording renders and answering confirmations. */
-function rig(options: MockOptions = {}, answer = true) {
-  const questions: string[] = []
-  const renders: State[] = []
-  const app = new Configurator(mockBackend({ telemetryMs: 5, ...options }), {
-    render: s => renders.push(s),
-    confirm: async question => {
-      questions.push(question)
-
-      return answer
-    },
-  })
-
-  return { app, questions, renders }
+/**
+ * The state as the components see it.
+ *
+ * @param handle the started Configurator
+ * @returns each field's value
+ */
+function stateOf(handle: ConfiguratorHandle): State {
+  return Object.fromEntries(Object.entries(handle.fields).map(([key, field]) => [key, field.value])) as unknown as State
 }
 
+/**
+ * The actions of the flows, by the names the old Configurator gave them.
+ *
+ * @param handle the started Configurator
+ * @returns the actions and the state
+ */
+function actionsOf(handle: ConfiguratorHandle) {
+  const { vehicle, parameters, metadata, snapshots } = handle
+
+  return {
+    get state() {
+      return stateOf(handle)
+    },
+    connect: vehicle.connect.bind(vehicle),
+    disconnect: vehicle.disconnect.bind(vehicle),
+    listPorts: vehicle.listPorts.bind(vehicle),
+    refresh: parameters.refresh.bind(parameters),
+    setFilter: parameters.setFilter.bind(parameters),
+    select: parameters.select.bind(parameters),
+    editDraft: parameters.editDraft.bind(parameters),
+    write: parameters.write.bind(parameters),
+    visible: parameters.visible.bind(parameters),
+    loadMetadata: metadata.load.bind(metadata),
+    snapshot: snapshots.snapshot.bind(snapshots),
+    saveFile: snapshots.saveFile.bind(snapshots),
+    openSnapshotFile: snapshots.openFile.bind(snapshots),
+    loadSnapshot: snapshots.load.bind(snapshots),
+    togglePick: snapshots.toggle.bind(snapshots),
+    applyImport: snapshots.apply.bind(snapshots),
+  }
+}
+
+type App = ReturnType<typeof actionsOf>
+
+/**
+ * An interface on the mock backend, answering confirmations and recording the questions.
+ *
+ * @param options how the mock vehicle behaves
+ * @param answer what the user answers to every question
+ * @returns the actions, and the questions asked so far
+ */
+function rig(options: MockOptions = {}, answer = true) {
+  const questions: string[] = []
+  const handle = createConfigurator(mockBackend({ telemetryMs: 5, ...options }), (question: string) => {
+    questions.push(question)
+
+    return Promise.resolve(answer)
+  })
+
+  return { app: actionsOf(handle), questions }
+}
+
+/**
+ * Like `rig`, with the simulated vehicle connected and its parameters downloaded.
+ *
+ * @param options how the mock vehicle behaves
+ * @param answer what the user answers to every question
+ * @returns the actions, and the questions asked so far
+ */
 async function connected(options: MockOptions = {}, answer = true) {
   const r = rig(options, answer)
   await r.app.connect({ transport: 'simulator' })
@@ -50,7 +105,9 @@ describe('connecting', () => {
     await app.connect({ transport: 'serial', device: '/dev/ttyACM0', baud: 115200 })
     expect(app.state.connection.state).toBe('connected')
   })
+})
 
+describe('a connection that fails or ends', () => {
   it('reports why a connection failed', async () => {
     const { app } = rig()
     await app.connect({ transport: 'udp', port: 14550 })
@@ -69,14 +126,21 @@ describe('connecting', () => {
   })
 })
 
+/**
+ * A snapshot of the parameters with some values changed.
+ *
+ * @param app the actions
+ * @param changes the new values, by parameter id
+ * @returns the snapshot's text
+ */
+function edited(app: App, changes: Record<string, number>): string {
+  const s = JSON.parse(app.snapshot()) as { params: { id: string, value: number }[] }
+  s.params = s.params.map(p => ({ ...p, value: changes[p.id] ?? p.value }))
+
+  return JSON.stringify(s)
+}
+
 describe('importing a snapshot', () => {
-  function edited(app: Configurator, changes: Record<string, number>): string {
-    const s = JSON.parse(app.snapshot()) as { params: { id: string, value: number }[] }
-    s.params = s.params.map(p => ({ ...p, value: changes[p.id] ?? p.value }))
-
-    return JSON.stringify(s)
-  }
-
   it('picks nothing by default, and writes only the ticked changes after one confirmation', async () => {
     const { app, questions } = await connected()
     app.loadSnapshot(edited(app, { RTL_ALT: 2000, WPNAV_SPEED: 800, LOIT_SPEED: 900 }))
@@ -98,6 +162,7 @@ describe('importing a snapshot', () => {
   it('stops at the first change the vehicle doesn\'t verify', async () => {
     const { app } = await connected({ silent: ['RTL_ALT'] })
     app.loadSnapshot(edited(app, { FENCE_RADIUS: 200, RTL_ALT: 2000, WPNAV_SPEED: 800 }))
+
     for (const id of ['FENCE_RADIUS', 'RTL_ALT', 'WPNAV_SPEED']) {
       app.togglePick(id)
     }
@@ -105,7 +170,9 @@ describe('importing a snapshot', () => {
     expect(app.state.applied.map(a => `${a.id} ${a.outcome}`)).toEqual(['FENCE_RADIUS verified', 'RTL_ALT failed'])
     expect(app.state.params.find(p => p.id === 'WPNAV_SPEED')!.value).toBe(1000)
   })
+})
 
+describe('snapshot files', () => {
   it('saves and opens snapshot files through the backend', async () => {
     const { app } = await connected()
     expect(await app.saveFile('params.json', edited(app, { RTL_ALT: 2500 }))).toBe('/mock/params.json')
@@ -203,7 +270,8 @@ describe('editing', () => {
     app.select('RTL_ALT')
     app.editDraft('100')
     expect(app.state.draftError).toBeNull()
-    app.loadMetadata(JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params: { RTL_ALT: { min: 200, units: 'cm' } } }))
+    const metadata = { format: 'drone-configurator/param-metadata', version: 1, params: { RTL_ALT: { min: 200, units: 'cm' } } }
+    app.loadMetadata(JSON.stringify(metadata))
     app.editDraft('100')
     expect(app.state.draftError).toBe('at least 200 cm')
     await app.write()
@@ -211,7 +279,9 @@ describe('editing', () => {
     app.loadMetadata('{')
     expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
   })
+})
 
+describe('writing a parameter', () => {
   it('writes after confirmation, and reports the verified read-back', async () => {
     const { app, questions } = await connected()
     app.select('WPNAV_SPEED')
@@ -239,7 +309,9 @@ describe('editing', () => {
     expect(questions).toEqual([])
     expect(app.state.draftError).toBe('INT8 goes from -128 to 127')
   })
+})
 
+describe('what the vehicle answers to a write', () => {
   it('says so when the vehicle reports a different value', async () => {
     const { app } = await connected({ rounding: ['LOIT_SPEED'] })
     app.select('LOIT_SPEED')

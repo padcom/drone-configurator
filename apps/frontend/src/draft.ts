@@ -1,5 +1,6 @@
 // Whether what the user typed is a value a parameter can take, from its type alone (the metadata adds its own limits).
 import type { Param } from './generated/app'
+import { type Metadata, checkMeta } from './metadata'
 
 /** The range of each integer type of the vehicle's parameters. */
 const RANGES: Record<string, [number, number]> = {
@@ -68,4 +69,16 @@ export function validateDraft(param: Param, text: string): string | null {
   }
 
   return typeProblem(param, Number(trimmed))
+}
+
+/**
+ * Why `text` isn't a valid new value for `param`, by its type and then by the metadata, if any.
+ *
+ * @param metadata the loaded parameter metadata
+ * @param param the parameter being edited
+ * @param text what the user typed
+ * @returns the problem, or null
+ */
+export function draftProblem(metadata: Metadata, param: Param, text: string): string | null {
+  return validateDraft(param, text) ?? checkMeta(metadata.get(param.id), Number(text.trim()))
 }

@@ -8,15 +8,12 @@ import type { Connection, ConnectRequest, SerialPort, Telemetry } from './genera
 export interface VehicleDeps {
   /** The link to the backend. */
   client: BackendClient
-  /** Records why the last thing failed (null: clears it). Does not tell anyone: `changed` does. */
+  /** Records why the last thing failed (null: clears it). */
   fail: (message: string | null) => void
-  /** Something the interface shows has changed. */
-  changed: () => void
-  /** The vehicle has just been connected: its parameters can be downloaded. */
-  onConnected: () => void
-  /** The vehicle is no longer connected: what is shown may not be the vehicle's any more. */
-  onNotConnected: () => void
 }
+
+/** Told when the vehicle has just been connected (true), and each time the connection is reported not connected (false). */
+export type SessionListener = (connected: boolean) => void
 
 /** The vehicle link, as refs and actions. */
 export interface Vehicle {
@@ -38,6 +35,8 @@ export interface Vehicle {
   watch: () => Promise<void>
   /** The link to the backend changed state: if it went away, the vehicle session went with it. */
   backendChanged: (state: BackendState) => void
+  /** Listens to the vehicle being connected (its parameters can be downloaded) and no longer being connected. */
+  onSession: (listener: SessionListener) => void
 }
 
 /**
@@ -76,6 +75,7 @@ class VehicleLink implements Vehicle {
   readonly ports = shallowRef<SerialPort[]>([])
   readonly notice = shallowRef<string | null>(null)
   readonly telemetry = shallowRef<Telemetry | null>(null)
+  private readonly listeners: SessionListener[] = []
 
   /**
    * Makes the link.
@@ -83,16 +83,6 @@ class VehicleLink implements Vehicle {
    * @param deps the client and the rest of the interface
    */
   constructor(private readonly deps: VehicleDeps) {}
-
-  /**
-   * Records a failure and shows it.
-   *
-   * @param message what to show
-   */
-  private report(message: string): void {
-    this.deps.fail(message)
-    this.deps.changed()
-  }
 
   /**
    * Whether a vehicle session is on, or being set up.
@@ -114,30 +104,31 @@ class VehicleLink implements Vehicle {
     const becameConnected = next.state === 'connected' && this.connection.value.state !== 'connected'
     this.connection.value = next
     this.deps.fail(errorOf(next))
-    this.deps.changed()
 
     if (becameConnected) {
-      this.deps.onConnected()
+      this.listeners.forEach(listener => listener(true))
     }
     if (next.state !== 'connected') {
       // What's shown may no longer be the vehicle's: keep it visible, but don't offer edits.
       this.telemetry.value = null
-      this.deps.onNotConnected()
-      this.deps.changed()
+      this.listeners.forEach(listener => listener(false))
     }
+  }
+
+  onSession(listener: SessionListener): void {
+    this.listeners.push(listener)
   }
 
   async connect(request: ConnectRequest): Promise<void> {
     this.connection.value = { state: 'connecting' }
     this.notice.value = null
     this.deps.fail(null)
-    this.deps.changed()
 
     try {
       this.connectionChanged(await this.deps.client.call('vehicle.connect', request))
     } catch (error) {
       this.connection.value = { state: 'disconnected' }
-      this.report(describeError(error))
+      this.deps.fail(describeError(error))
     }
   }
 
@@ -145,16 +136,15 @@ class VehicleLink implements Vehicle {
     try {
       this.connectionChanged(await this.deps.client.call('vehicle.disconnect', null))
     } catch (error) {
-      this.report(describeError(error))
+      this.deps.fail(describeError(error))
     }
   }
 
   async listPorts(): Promise<void> {
     try {
       this.ports.value = (await this.deps.client.call('serial.ports', null)).ports
-      this.deps.changed()
     } catch (error) {
-      this.report(`Couldn't list the serial ports: ${describeError(error)}`)
+      this.deps.fail(`Couldn't list the serial ports: ${describeError(error)}`)
     }
   }
 
@@ -164,10 +154,9 @@ class VehicleLink implements Vehicle {
       await client.subscribe('vehicle.connection', null, next => this.connectionChanged(next)).ready
       await client.subscribe('telemetry.stream', null, next => {
         this.telemetry.value = next
-        this.deps.changed()
       }).ready
     } catch (error) {
-      this.report(`the backend: ${describeError(error)}`)
+      this.deps.fail(`the backend: ${describeError(error)}`)
     }
   }
 
@@ -178,7 +167,6 @@ class VehicleLink implements Vehicle {
     this.connection.value = lostFrom(this.connection.value)
     this.telemetry.value = null
     this.notice.value = sessionEndedNotice(state)
-    this.deps.changed()
   }
 }
 
