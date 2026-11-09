@@ -35,7 +35,7 @@ export interface HudModel {
   silent: boolean
 }
 
-const ABSENT: HudValue = { value: undefined, stale: false }
+const ABSENT: HudValue = Object.freeze({ value: undefined, stale: false })
 
 /** The model before any telemetry has arrived: nothing known, nothing armed. */
 const EMPTY: HudModel = {

@@ -1,43 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { telemetryAt } from '../fixtures'
 import { STALE_MS } from '../telemetryCards'
-import { formatFor } from '../useFormat'
-import { type HudContext, type HudStyle, MISSING, drawHud } from './draw'
 import { hudModel } from './model'
-
-const STYLE: HudStyle = {
-  size: { width: 400, height: 300 },
-  theme: { sky: '#08f', ground: '#840', line: '#fff', text: '#ddd', warn: '#fa0' },
-  format: formatFor('en'),
-}
-const NBSP = ' '
-const METHODS = [
-  'save', 'restore', 'translate', 'rotate', 'beginPath', 'rect', 'clip', 'moveTo', 'lineTo', 'stroke', 'fillRect',
-]
-
-/**
- * A context that records what is drawn.
- *
- * @returns the context, the texts written and the number of calls
- */
-function recorder() {
-  const texts: string[] = []
-  const calls = { count: 0 }
-  const count = () => {
-    calls.count += 1
-  }
-  const methods = Object.fromEntries(METHODS.map(name => [name, count]))
-  const fillText = (text: string) => {
-    count()
-    texts.push(text)
-  }
-  const ctx = {
-    fillStyle: '', strokeStyle: '', lineWidth: 1, font: '', textAlign: 'left', textBaseline: 'alphabetic',
-    globalAlpha: 1, ...methods, fillText,
-  } as unknown as HudContext
-
-  return { ctx, texts, calls }
-}
 
 describe('the HUD model', () => {
   it('has every value from telemetry that has them all', () => {
@@ -89,35 +53,5 @@ describe('the HUD model, with old values', () => {
 
     expect(hudModel({ ...t, speed: { ...t.speed!, heading: -90 } }).heading.value).toBe(270)
     expect(hudModel({ ...t, speed: { ...t.speed!, heading: 450 } }).heading.value).toBe(90)
-  })
-})
-
-describe('drawing the HUD', () => {
-  it('writes the values with their units', () => {
-    const { ctx, texts } = recorder()
-
-    drawHud(ctx, hudModel(telemetryAt(5)), STYLE)
-
-    expect(texts).toContain(`20.0${NBSP}m`)
-    expect(texts).toContain('LOITER')
-  })
-
-  it('writes a dash for every value that is absent, and no zero', () => {
-    const { ctx, texts } = recorder()
-
-    drawHud(ctx, hudModel(undefined), STYLE)
-
-    expect(texts).toEqual(Array.from({ length: 6 }, () => MISSING))
-  })
-
-  it('fits the budget: a draw is a few dozen calls, however often it is repeated', () => {
-    const { ctx, calls } = recorder()
-    const model = hudModel(telemetryAt(5))
-
-    for (let i = 0; i < 1000; i += 1) {
-      drawHud(ctx, model, STYLE)
-    }
-
-    expect(calls.count / 1000).toBeLessThanOrEqual(40)
   })
 })

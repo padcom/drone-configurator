@@ -21,6 +21,8 @@ export interface HudTheme {
   text: string
   /** The aircraft symbol, and the readouts while armed. */
   warn: string
+  /** The fill when the attitude is not known (neither sky nor ground, so it cannot be read as level flight). */
+  unknown: string
 }
 
 /** The size to draw in, in CSS pixels. */
@@ -39,6 +41,18 @@ export interface HudStyle {
   theme: HudTheme
   /** Formats numbers. */
   format: Format
+  /** What to write over the horizon while the attitude is not known (already translated). */
+  noAttitude: string
+}
+
+/** The angles that turn and move the horizon, and how strongly to draw it. */
+interface Angles {
+  /** Roll in degrees. */
+  roll: number
+  /** Pitch in degrees. */
+  pitch: number
+  /** The opacity (dimmed when the values are the last that was heard). */
+  alpha: number
 }
 
 /** What a value is drawn as when the vehicle has not reported it (never a made-up zero). */
@@ -64,6 +78,18 @@ export function textOf(item: HudValue, unit: string, format: Format, digits = 0)
 }
 
 /**
+ * A value with its sign right after it, as the cards write degrees and percent ("270°", "98%"), or a dash when absent.
+ *
+ * @param item the HUD value
+ * @param sign the sign
+ * @param format formats numbers
+ * @returns the text to draw
+ */
+function suffixed(item: HudValue, sign: string, format: Format): string {
+  return item.value === undefined ? MISSING : `${format.number(item.value)}${sign}`
+}
+
+/**
  * The opacity to draw values with: dimmed when any of them is the last that was heard.
  *
  * @param items the values
@@ -74,34 +100,66 @@ function alphaOf(...items: HudValue[]): number {
 }
 
 /**
- * The sky and the ground, turned by roll and moved by pitch, with the line between them.
+ * The sky and the ground, turned by roll and moved by pitch, with the line between them. They reach out by the
+ * diagonal of the pane, so no corner is left bare however far they are turned.
+ *
+ * @param ctx the context
+ * @param angles roll, pitch and opacity
+ * @param style the size and the colours
+ */
+function drawHorizon(ctx: HudContext, angles: Angles, style: HudStyle): void {
+  const { size: { width, height }, theme } = style
+  const reach = Math.hypot(width, height)
+  const shift = angles.pitch * PITCH_SCALE * height
+  ctx.save()
+  ctx.globalAlpha = angles.alpha
+  ctx.translate(width / 2, height / 2)
+  ctx.rotate(-angles.roll * Math.PI / 180)
+  ctx.fillStyle = theme.sky
+  ctx.fillRect(-reach, -reach + shift, reach * 2, reach)
+  ctx.fillStyle = theme.ground
+  ctx.fillRect(-reach, shift, reach * 2, reach)
+  ctx.strokeStyle = theme.line
+  ctx.beginPath()
+  ctx.moveTo(-reach, shift)
+  ctx.lineTo(reach, shift)
+  ctx.stroke()
+  ctx.restore()
+}
+
+/**
+ * A neutral fill with a word on it, for when the attitude is not known: nothing that could be read as level flight.
+ *
+ * @param ctx the context
+ * @param style the size, the colours and the words
+ */
+function drawNoAttitude(ctx: HudContext, style: HudStyle): void {
+  const { size, theme, noAttitude } = style
+  ctx.save()
+  ctx.fillStyle = theme.unknown
+  ctx.fillRect(0, 0, size.width, size.height)
+  ctx.fillStyle = theme.text
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(noAttitude, size.width / 2, size.height / 2 - 24)
+  ctx.restore()
+}
+
+/**
+ * The horizon when roll and pitch are both known, else the sign that they are not.
  *
  * @param ctx the context
  * @param model what to draw
- * @param size the size
- * @param theme the colours
+ * @param style the size, the colours and the words
  */
-function drawHorizon(ctx: HudContext, model: HudModel, size: HudSize, theme: HudTheme): void {
-  const { width, height } = size
-  const roll = model.roll.value ?? 0
-  const shift = (model.pitch.value ?? 0) * PITCH_SCALE * height
-  ctx.save()
-  ctx.globalAlpha = alphaOf(model.roll, model.pitch)
-  ctx.beginPath()
-  ctx.rect(0, 0, width, height)
-  ctx.clip()
-  ctx.translate(width / 2, height / 2)
-  ctx.rotate(-roll * Math.PI / 180)
-  ctx.fillStyle = theme.sky
-  ctx.fillRect(-width * 2, -height * 2 + shift, width * 4, height * 2)
-  ctx.fillStyle = theme.ground
-  ctx.fillRect(-width * 2, shift, width * 4, height * 2)
-  ctx.strokeStyle = theme.line
-  ctx.beginPath()
-  ctx.moveTo(-width * 2, shift)
-  ctx.lineTo(width * 2, shift)
-  ctx.stroke()
-  ctx.restore()
+function drawAttitude(ctx: HudContext, model: HudModel, style: HudStyle): void {
+  const { roll, pitch } = model
+  if (roll.value === undefined || pitch.value === undefined) {
+    drawNoAttitude(ctx, style)
+
+    return
+  }
+  drawHorizon(ctx, { roll: roll.value, pitch: pitch.value, alpha: alphaOf(roll, pitch) }, style)
 }
 
 /**
@@ -156,8 +214,8 @@ function drawReadouts(ctx: HudContext, model: HudModel, size: HudSize, format: F
   drawText(ctx, textOf(model.altitude, 'm', format, 1), [width - 8, height / 2], model.altitude.stale)
   drawText(ctx, textOf(model.climb, 'm/s', format, 1), [width - 8, (height / 2) + 18], model.climb.stale)
   ctx.textAlign = 'center'
-  drawText(ctx, textOf(model.heading, '°', format), [width / 2, 14], model.heading.stale)
-  drawText(ctx, textOf(model.battery, '%', format), [width / 4, height - 14], model.battery.stale)
+  drawText(ctx, suffixed(model.heading, '°', format), [width / 2, 14], model.heading.stale)
+  drawText(ctx, suffixed(model.battery, '%', format), [width / 4, height - 14], model.battery.stale)
   drawText(ctx, model.mode === '' ? MISSING : model.mode, [width * 3 / 4, height - 14], model.silent)
 }
 
@@ -170,11 +228,16 @@ function drawReadouts(ctx: HudContext, model: HudModel, size: HudSize, format: F
  */
 export function drawHud(ctx: HudContext, model: HudModel, style: HudStyle): void {
   const { size, theme, format } = style
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, 0, size.width, size.height)
+  ctx.clip()
   ctx.globalAlpha = 1
   ctx.lineWidth = 1
   ctx.font = '14px sans-serif'
-  drawHorizon(ctx, model, size, theme)
+  drawAttitude(ctx, model, style)
   drawSymbol(ctx, size, theme)
   ctx.fillStyle = model.armed ? theme.warn : theme.text
   drawReadouts(ctx, model, size, format)
+  ctx.restore()
 }
