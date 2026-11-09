@@ -228,7 +228,7 @@ function settingsFrom(f: DocFile): Settings throws SettingsFileError {
 
 /// The text of the file for a settings document, laid out for a person to read and edit: a member to a line, an entry to
 /// a line. (Written here and not by `JSON.stringify(doc, 2)`: its indenting takes seconds for a document of a few hundred
-/// kilobytes, which the limits allow; only the strings go through `JSON.stringify`, which is quick.)
+/// kilobytes, which the limits allow (pico-lang#133); only the strings go through `JSON.stringify`, which is quick.)
 export function textOf(s: Settings): string {
   const parts: string[] = ["{\n  \"version\": ", `${s.version}`]
   const language = s.language
