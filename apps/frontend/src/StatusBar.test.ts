@@ -57,6 +57,15 @@ it('does not show the last mode of a link that is lost', async () => {
   expect(status.get('State')).toBe('—')
 })
 
+it('says the link is being brought back, with the vehicle still named and the mode a dash', async () => {
+  const reconnecting: Connection = { state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 1, nextRetryMs: 1000 }
+  const status = await statusWith(reconnecting, telemetryAt(10))
+
+  expect(status.get('Connection')).toBe('reconnecting')
+  expect(status.get('Vehicle')).toBe('QUADROTOR · ARDUPILOTMEGA · system 1/1')
+  expect(status.get('Mode')).toBe('—')
+})
+
 it('says so when the heartbeat has gone quiet, and marks an armed vehicle', async () => {
   const status = await statusWith(connected, { ...telemetryAt(10), heartbeatAgeMs: 4200 })
 

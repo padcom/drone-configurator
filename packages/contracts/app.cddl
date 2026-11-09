@@ -30,10 +30,19 @@ connect-request = {
   ? baud: uint .size 4,
 }
 
+; "reconnecting": the link was lost and the backend is trying to bring it back (`attempt`, and `nextRetryMs` until
+; the next try); the vehicle stays shown and what was on screen is kept. The `connected` that follows has `resumed` when
+; it is the same vehicle (its identity matches), so the parameters on screen are still its; without `resumed` it is a
+; new connection. `errorCode` is a stable code for the reason in `error` (the text is English; the interface picks its
+; own words from the code).
 connection = {
-  state: "disconnected" / "connecting" / "connected" / "lost",
+  state: "disconnected" / "connecting" / "connected" / "lost" / "reconnecting",
   ? vehicle: vehicle-info,
   ? error: tstr,
+  ? errorCode: tstr,
+  ? attempt: uint .size 4,
+  ? nextRetryMs: uint .size 4,
+  ? resumed: bool,
 }
 
 vehicle-info = {

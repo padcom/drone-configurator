@@ -83,7 +83,7 @@ export function encodeConnectRequest(v: ConnectRequest): Cbor {
   Cbor.Dict(m)
 }
 
-export enum ConnectionState { Disconnected, Connecting, Connected, Lost }
+export enum ConnectionState { Disconnected, Connecting, Connected, Lost, Reconnecting }
 
 export function decodeConnectionState(v: Cbor, path: string): ConnectionState throws InvalidPayload {
   match (text(v, path)) {
@@ -91,7 +91,8 @@ export function decodeConnectionState(v: Cbor, path: string): ConnectionState th
     "connecting" => ConnectionState.Connecting,
     "connected" => ConnectionState.Connected,
     "lost" => ConnectionState.Lost,
-    _ => throw new InvalidPayload(path, "disconnected or connecting or connected or lost"),
+    "reconnecting" => ConnectionState.Reconnecting,
+    _ => throw new InvalidPayload(path, "disconnected or connecting or connected or lost or reconnecting"),
   }
 }
 
@@ -101,6 +102,7 @@ export function encodeConnectionState(v: ConnectionState): Cbor {
     Connecting => Cbor.Text("connecting"),
     Connected => Cbor.Text("connected"),
     Lost => Cbor.Text("lost"),
+    Reconnecting => Cbor.Text("reconnecting"),
   }
 }
 
@@ -108,10 +110,14 @@ export struct Connection {
   state: ConnectionState
   vehicle?: VehicleInfo
   error?: string
+  errorCode?: string
+  attempt?: u32
+  nextRetryMs?: u32
+  resumed?: bool
 }
 
 export function decodeConnection(v: Cbor, path: string): Connection throws InvalidPayload {
-  const m = members(v, path, ["state", "vehicle", "error"])
+  const m = members(v, path, ["state", "vehicle", "error", "errorCode", "attempt", "nextRetryMs", "resumed"])
   const cbor1 = m.get("vehicle")
   let opt1: VehicleInfo? = null
   if (cbor1 != null) {
@@ -122,10 +128,34 @@ export function decodeConnection(v: Cbor, path: string): Connection throws Inval
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.error`)
   }
+  const cbor3 = m.get("errorCode")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.errorCode`)
+  }
+  const cbor4 = m.get("attempt")
+  let opt4: u32? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.attempt`, 4294967295) as u32)
+  }
+  const cbor5 = m.get("nextRetryMs")
+  let opt5: u32? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.nextRetryMs`, 4294967295) as u32)
+  }
+  const cbor6 = m.get("resumed")
+  let opt6: bool? = null
+  if (cbor6 != null) {
+    opt6 = boolean(cbor6, `${path}.resumed`)
+  }
   Connection {
     state: decodeConnectionState(required(m, "state", path), `${path}.state`),
     vehicle: opt1,
     error: opt2,
+    errorCode: opt3,
+    attempt: opt4,
+    nextRetryMs: opt5,
+    resumed: opt6,
   }
 }
 
@@ -139,6 +169,22 @@ export function encodeConnection(v: Connection): Cbor {
   const opt2 = v.error
   if (opt2 != null) {
     m.set("error", Cbor.Text(opt2))
+  }
+  const opt3 = v.errorCode
+  if (opt3 != null) {
+    m.set("errorCode", Cbor.Text(opt3))
+  }
+  const opt4 = v.attempt
+  if (opt4 != null) {
+    m.set("attempt", Cbor.Uint(opt4 as u64))
+  }
+  const opt5 = v.nextRetryMs
+  if (opt5 != null) {
+    m.set("nextRetryMs", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.resumed
+  if (opt6 != null) {
+    m.set("resumed", Cbor.Bool(opt6))
   }
   Cbor.Dict(m)
 }

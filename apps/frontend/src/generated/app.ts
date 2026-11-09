@@ -63,10 +63,10 @@ function validateConnectRequestInto(value: any, path: string): boolean {
 /** The first problem with `value` as a connect-request, or null. */
 export const validateConnectRequest = (value: unknown) => run(validateConnectRequestInto, value)
 
-export type Connection = { "state": "disconnected" | "connecting" | "connected" | "lost", "vehicle"?: VehicleInfo, "error"?: string }
+export type Connection = { "state": "disconnected" | "connecting" | "connected" | "lost" | "reconnecting", "vehicle"?: VehicleInfo, "error"?: string, "errorCode"?: string, "attempt"?: number, "nextRetryMs"?: number, "resumed"?: boolean }
 
 function validateConnectionInto(value: any, path: string): boolean {
-  return map(value, path, ["state","vehicle","error"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["disconnected","connecting","connected","lost"]))) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateVehicleInfoInto(value, path))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+  return map(value, path, ["state","vehicle","error","errorCode","attempt","nextRetryMs","resumed"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["disconnected","connecting","connected","lost","reconnecting"]))) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateVehicleInfoInto(value, path))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["errorCode"] === undefined || nested(value["errorCode"], `${path}.errorCode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["attempt"] === undefined || nested(value["attempt"], `${path}.attempt`, (value, path) => uint(value, path, 0xffffffff))) && (value["nextRetryMs"] === undefined || nested(value["nextRetryMs"], `${path}.nextRetryMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["resumed"] === undefined || nested(value["resumed"], `${path}.resumed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a connection, or null. */

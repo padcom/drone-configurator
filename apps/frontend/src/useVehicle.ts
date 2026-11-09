@@ -85,14 +85,15 @@ class VehicleLink implements Vehicle {
   constructor(private readonly deps: VehicleDeps) {}
 
   /**
-   * Whether a vehicle session is on, or being set up.
+   * Whether a vehicle session is on, being set up, or being brought back. When the backend itself restarts or stops
+   * in any of these, the session is gone (the new backend has no link to the vehicle).
    *
-   * @returns true while connected or connecting
+   * @returns true while connected, connecting or reconnecting
    */
   private sessionOn(): boolean {
     const { state } = this.connection.value
 
-    return state === 'connected' || state === 'connecting'
+    return state === 'connected' || state === 'connecting' || state === 'reconnecting'
   }
 
   /**
@@ -109,10 +110,21 @@ class VehicleLink implements Vehicle {
       this.listeners.forEach(listener => listener(true))
     }
     if (next.state !== 'connected') {
-      // What's shown may no longer be the vehicle's: keep it visible, but don't offer edits.
-      this.telemetry.value = null
-      this.listeners.forEach(listener => listener(false))
+      this.sessionEnded(next)
     }
+  }
+
+  /**
+   * The link is not up. What's shown may no longer be the vehicle's: keep it visible, but don't offer edits. While the
+   * backend is bringing the link back (`reconnecting`) the last telemetry stays too, and the cards mark it stale.
+   *
+   * @param next the connection, in any state but `connected`
+   */
+  private sessionEnded(next: Connection): void {
+    if (next.state !== 'reconnecting') {
+      this.telemetry.value = null
+    }
+    this.listeners.forEach(listener => listener(false))
   }
 
   onSession(listener: SessionListener): void {
