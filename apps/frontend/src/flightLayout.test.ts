@@ -80,3 +80,75 @@ describe('the display and the details', () => {
     expect(layout.side.value).toBe(DEFAULT_SIDE)
   })
 })
+
+describe('the size a pane opens at', () => {
+  it('is the last size it was open at, also when a bar was dragged shut, not only when its button was used', () => {
+    const layout = useFlightLayout()
+
+    layout.main.value = 80
+    layout.main.value = MIN
+    layout.toggle('map')
+
+    expect(layout.main.value).toBe(80)
+  })
+
+  it('is kept for the display and for the details too, at sizes that are not the default', () => {
+    const layout = useFlightLayout()
+    layout.side.value = 25
+    layout.side.value = MIN
+    layout.toggle('hud')
+    expect(layout.side.value).toBe(25)
+
+    layout.side.value = 70
+    layout.side.value = MAX
+    layout.toggle('detail')
+
+    expect(layout.side.value).toBe(70)
+  })
+})
+
+describe('the size a pane opens at, and the ends', () => {
+  it('does not remember an end as a size to open at', () => {
+    const layout = useFlightLayout()
+    layout.side.value = 30
+    layout.side.value = MIN
+    layout.side.value = MAX
+    layout.toggle('detail')
+
+    expect(layout.side.value).toBe(30)
+  })
+})
+
+describe('the map taking all the width', () => {
+  it('leaves the display and the details no more than a header: both count as collapsed, the map does not', () => {
+    const layout = useFlightLayout()
+
+    layout.main.value = MAX
+
+    expect((['map', 'hud', 'detail'] as const).map(pane => layout.isCollapsed(pane))).toEqual([false, true, true])
+  })
+
+  it('is undone by the button of either: the map gives back the width it had, and nothing is collapsed', () => {
+    const layout = useFlightLayout()
+    layout.main.value = 72
+    layout.main.value = MAX
+
+    layout.toggle('hud')
+
+    expect([layout.main.value, layout.side.value]).toEqual([72, DEFAULT_SIDE])
+    expect((['map', 'hud', 'detail'] as const).map(pane => layout.isCollapsed(pane))).toEqual([false, false, false])
+    layout.main.value = MAX
+    layout.toggle('detail')
+    expect(layout.main.value).toBe(72)
+  })
+})
+
+describe('the map taking all the width, from the start', () => {
+  it('gives back the default width when it started like that', () => {
+    const layout = useFlightLayout({ main: MAX })
+
+    layout.toggle('detail')
+
+    expect(layout.main.value).toBe(DEFAULT_MAIN)
+  })
+})

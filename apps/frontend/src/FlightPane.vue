@@ -37,5 +37,10 @@ const emit = defineEmits<{ toggle: [] }>()
 const { t } = useI18n()
 const titleId = useId()
 const bodyId = useId()
-const toggleText = computed(() => t(props.collapsed ? 'flight.expand' : 'flight.collapse', { pane: props.title }))
+// (Each key is written out, so that the scan of the keys finds both.)
+const toggleText = computed(() => {
+  const pane = props.title
+
+  return props.collapsed ? t('flight.expand', { pane }) : t('flight.collapse', { pane })
+})
 </script>

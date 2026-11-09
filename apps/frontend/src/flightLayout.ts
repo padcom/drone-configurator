@@ -3,7 +3,7 @@
 // height of the other side). A pane is collapsed when its split is at the end that leaves it only its header, so the sizes
 // are all there is to keep (the next step keeps them across a restart), and a pane dragged shut is the same as one
 // collapsed with its button.
-import { type Ref, ref } from 'vue'
+import { type Ref, ref, watch } from 'vue'
 
 /** A pane of the screen. */
 export type Pane = 'map' | 'hud' | 'detail'
@@ -85,13 +85,41 @@ class FlightLayoutModel implements FlightLayout {
     this.side = ref(from.side)
     this.tab = ref(from.tab)
     this.before = { main: opened(from.main, DEFAULT_MAIN), side: opened(from.side, DEFAULT_SIDE) }
+    // Every size that leaves a pane something is the one to go back to, however it was reached (a bar dragged, a key, a
+    // button), so that a pane shut by the bar opens at the size it had just before.
+    this.remember(this.main, 'main')
+    this.remember(this.side, 'side')
+  }
+
+  /**
+   * Keeps the last size of a split that is open, as the one to open it at.
+   *
+   * @param size the split's size
+   * @param key which split
+   */
+  private remember(size: Ref<number>, key: 'main' | 'side'): void {
+    watch(size, next => {
+      if (isOpen(next)) {
+        this.before[key] = next
+      }
+    }, { flush: 'sync' })
+  }
+
+  /**
+   * Whether the map takes all but a header's worth of the width: what is beside it is then no more than a header, whatever
+   * its own split says, and the way to open it is to give the map back some of the width.
+   *
+   * @returns true when the map's split is at its largest
+   */
+  private mapTakesAll(): boolean {
+    return this.main.value >= MAX
   }
 
   isCollapsed(pane: Pane): boolean {
     const collapsed: Record<Pane, boolean> = {
       map: this.main.value <= MIN,
-      hud: this.side.value <= MIN,
-      detail: this.side.value >= MAX,
+      hud: this.side.value <= MIN || this.mapTakesAll(),
+      detail: this.side.value >= MAX || this.mapTakesAll(),
     }
 
     return collapsed[pane]
@@ -100,6 +128,8 @@ class FlightLayoutModel implements FlightLayout {
   toggle(pane: Pane): void {
     if (pane === 'map') {
       this.flip(this.main, 'main', MIN)
+    } else if (this.mapTakesAll()) {
+      this.main.value = this.before.main
     } else {
       this.flip(this.side, 'side', pane === 'hud' ? MIN : MAX)
     }
@@ -113,9 +143,6 @@ class FlightLayoutModel implements FlightLayout {
    * @param to the size that collapses the pane
    */
   private flip(size: Ref<number>, key: 'main' | 'side', to: number): void {
-    if (isOpen(size.value)) {
-      this.before[key] = size.value
-    }
     size.value = size.value === to ? this.before[key] : to
   }
 }

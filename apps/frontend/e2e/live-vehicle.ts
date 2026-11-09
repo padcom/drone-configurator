@@ -108,9 +108,9 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
   it('shows what the vehicle reports, and keeps updating', async () => {
     await showScreen(app, 'flight')
-    const telemetry =await app.waitForText('#telemetry', /Battery\s*\d/u, vehicle.downloadTimeoutMs)
+    // The battery and the attitude are separate messages: the first values can come before the attitude's, so both are waited for.
+    const telemetry = await app.waitForText('#telemetry', /Battery\s*\d[\s\S]*Attitude\s*roll -?\d/u, vehicle.downloadTimeoutMs)
     expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
-    expect(telemetry).toMatch(/Attitude\s*roll -?\d/u)
     const before = await app.evaluate<string>(`document.querySelector('#telemetry').textContent`)
     await app.waitFor(`document.querySelector('#telemetry').textContent !== ${JSON.stringify(before)}`)
   })

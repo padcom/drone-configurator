@@ -15,6 +15,10 @@ header input { width: 9em; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .flight-data { height: 70vh; min-height: 24rem; }
 .flight-data .kit-split { height: 100%; }
+/* A pane never gets less than its header (a 28 px button and its padding), whatever percent of a small window that is: the
+   first track is at least that and at most what is left of the split after the other's least and the bar. */
+.flight-data .kit-split.row { grid-template-columns: minmax(2.25rem, min(var(--split), calc(100% - 2.25rem - 6px))) 6px minmax(2.25rem, 1fr); }
+.flight-data .kit-split.column { grid-template-rows: minmax(2.25rem, min(var(--split), calc(100% - 2.25rem - 6px))) 6px minmax(2.25rem, 1fr); }
 .flight-pane { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .flight-pane > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); }
 .flight-pane > header h2 { margin: 0; font-size: 1rem; }

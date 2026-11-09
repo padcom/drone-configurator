@@ -142,6 +142,39 @@ it('collapses the display and the details one at a time, as they share a bar', a
   expect(toggleOf(wrapper, 'Details').attributes('aria-expanded')).toBe('false')
 })
 
+it('opens a pane that was keyed shut at the size it had, also when that is not the default', async () => {
+  const wrapper = await screen()
+  const { main } = bars(wrapper)
+
+  for (let i = 0; i < 4; i++) {
+    // eslint-disable-next-line no-await-in-loop -- one key after the other
+    await main.trigger('keydown', { key: 'ArrowRight' })
+  }
+  expect(main.attributes('aria-valuenow')).toBe('80')
+  await main.trigger('keydown', { key: 'Home' })
+  await toggleOf(wrapper, 'Map').trigger('click')
+
+  expect(main.attributes('aria-valuenow')).toBe('80')
+})
+
+it('shows the display and the details as collapsed when the map has all the width, and opens them again', async () => {
+  const wrapper = await screen()
+  const { main } = bars(wrapper)
+
+  await main.trigger('keydown', { key: 'End' })
+
+  const panes = wrapper.findAll('.flight-pane')
+  expect(panes.map(pane => pane.classes().includes('collapsed'))).toEqual([false, true, true])
+  expect(toggleOf(wrapper, 'Display').attributes('aria-expanded')).toBe('false')
+  expect(toggleOf(wrapper, 'Details').text()).toBe('Expand Details')
+
+  await toggleOf(wrapper, 'Details').trigger('click')
+
+  expect(main.attributes('aria-valuenow')).toBe('60')
+  expect(wrapper.findAll('.flight-pane').map(pane => pane.classes().includes('collapsed'))).toEqual([false, false, false])
+  expect(toggleOf(wrapper, 'Display').text()).toBe('Collapse Display')
+})
+
 it('collapses a pane that is dragged or keyed shut to the end, and keeps its button to open it', async () => {
   const wrapper = await screen()
   const { main } = bars(wrapper)
