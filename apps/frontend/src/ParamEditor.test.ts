@@ -1,0 +1,103 @@
+import { expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import ParamEditor from './ParamEditor.vue'
+import { mockBackend } from './mock-backend'
+import { feed } from './testing'
+import { createConfigurator } from './useConfigurator'
+import { PARAMS, VEHICLE } from './fixtures'
+
+/**
+ * Mounts the editor on a fresh Configurator that holds the parameters, with RTL_ALT selected while connected.
+ *
+ * @returns the component, the Configurator and the spies
+ */
+async function editorWithSpies() {
+  const handle = createConfigurator(mockBackend())
+  const write = vi.spyOn(handle.app, 'write').mockResolvedValue()
+  const editDraft = vi.spyOn(handle.app, 'editDraft').mockImplementation(() => undefined)
+  const wrapper = mount(ParamEditor)
+  // The mock backend's first events (disconnected) arrive before the state is changed here.
+  await flushPromises()
+  feed(handle, {
+    params: PARAMS,
+    selected: 'RTL_ALT',
+    draft: '1600',
+    connection: { state: 'connected', vehicle: { ...VEHICLE } },
+  })
+  await wrapper.vm.$nextTick()
+
+  return { wrapper, handle, write, editDraft }
+}
+
+it('asks for a parameter to be selected, and hides the form, until one is', async () => {
+  createConfigurator(mockBackend())
+  const wrapper = mount(ParamEditor)
+  await flushPromises()
+
+  expect(wrapper.get('#detail').text()).toContain('Select a parameter')
+  expect(wrapper.get('#edit').attributes('hidden')).toBeDefined()
+})
+
+it('shows the selected parameter and the form while connected', async () => {
+  const { wrapper } = await editorWithSpies()
+
+  expect(wrapper.get('#detail h3').text()).toBe('RTL_ALT')
+  expect(wrapper.get('#detail').text()).toContain('on the vehicle: 1500')
+  expect(wrapper.get('#edit').attributes('hidden')).toBeUndefined()
+  expect((wrapper.get('#draft').element as HTMLInputElement).value).toBe('1600')
+})
+
+it('hides the form when the connection is lost, and keeps the parameter on screen', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+
+  feed(handle, { connection: { state: 'lost', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#edit').attributes('hidden')).toBeDefined()
+  expect(wrapper.get('#detail h3').text()).toBe('RTL_ALT')
+})
+
+it('passes on what is typed, and writes on submit', async () => {
+  const { wrapper, write, editDraft } = await editorWithSpies()
+
+  await wrapper.get('#draft').setValue('1700')
+  await wrapper.get('#edit').trigger('submit')
+
+  expect(editDraft).toHaveBeenCalledWith('1700')
+  expect(write).toHaveBeenCalledTimes(1)
+})
+
+it('enables Write only for a changed, valid draft, and not while writing', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+
+  feed(handle, { draft: '1500' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write').attributes('disabled')).toBeDefined()
+
+  feed(handle, { draft: '1600', writing: true })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#detail').text()).toContain('Writing…')
+})
+
+it('shows the outcome of the write, a draft error and the metadata as text', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+
+  feed(handle, {
+    lastWrite: { kind: 'failed', id: 'RTL_ALT', message: '<b>TIMEOUT</b>' },
+    draftError: 'a number, please',
+    metadata: new Map([['RTL_ALT', { description: 'Return <i>altitude</i>', units: 'cm', min: 200 }]]),
+  })
+  await wrapper.vm.$nextTick()
+
+  const text = wrapper.get('#detail').text()
+  expect(text).toContain('Not confirmed: <b>TIMEOUT</b>')
+  expect(text).toContain('The value on the vehicle is unknown')
+  expect(text).toContain('a number, please')
+  expect(text).toContain('Return <i>altitude</i>')
+  expect(text).toContain('1500 cm')
+  expect(text).toContain('Range: 200 to … cm')
+  expect(wrapper.find('#detail b, #detail i').exists()).toBe(false)
+  expect(wrapper.find('#detail .error').exists()).toBe(true)
+})

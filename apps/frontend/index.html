@@ -21,7 +21,7 @@
           <label id="load-button" class="button">Load snapshot<input id="load" type="file" accept=".json,application/json" hidden /></label>
           <label id="metadata-button" class="button">Load metadata<input id="metadata" type="file" accept=".json,application/json" hidden /></label>
         </div>
-        <p id="metadata-status" class="muted"></p>
+        <div id="metadata-status-root" class="inline"></div>
         <section id="import-panel" hidden>
           <div id="import"></div>
           <button id="apply" type="button">Write the ticked changes</button>
@@ -35,11 +35,7 @@
         </table>
       </section>
       <aside class="detail">
-        <div id="detail"></div>
-        <form id="edit">
-          <input id="draft" aria-label="New value" autocomplete="off" />
-          <button id="write" type="submit">Write</button>
-        </form>
+        <div id="param-editor"></div>
       </aside>
     </main>
     <div id="confirm-root"></div>

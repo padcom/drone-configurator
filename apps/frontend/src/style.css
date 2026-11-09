@@ -22,6 +22,8 @@ header input { width: 9em; }
 main { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
 .toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .toolbar input { flex: 1 1 10em; }
+/* A component's mount point that adds no box of its own: its children are laid out by the parent. */
+.inline { display: contents; }
 .toolbar button, label.button { white-space: nowrap; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
