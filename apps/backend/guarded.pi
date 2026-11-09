@@ -23,7 +23,11 @@ export class GuardedStream implements ByteStream {
     await inner.write(bytes)
   }
 
+  /// Closes the stream once; the router closes its links too, so a second close is no-one's business.
   public close(): void {
+    if (closed) {
+      return
+    }
     closed = true
     inner.close()
   }
