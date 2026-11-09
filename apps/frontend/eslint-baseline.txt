@@ -3,13 +3,9 @@
 # most 32 lines, no `await` in a loop ...), which needs refactoring, not formatting, so they are not
 # linted yet. Take a file off this list when you bring it up to the rules; src/lint-baseline.test.ts
 # fails if a listed file does not exist or already passes, so the list can only shrink.
-e2e/backend-crash.e2e.ts
-e2e/configurator.e2e.ts
 e2e/live-vehicle.ts
 e2e/mavlink-wire.ts
 e2e/sitl-harness.e2e.ts
-e2e/sitl-suite.ts
-e2e/sitl.e2e.ts
 e2e/sitl.test.ts
 e2e/sitl.ts
 src/configurator.test.ts
