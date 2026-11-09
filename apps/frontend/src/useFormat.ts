@@ -35,7 +35,12 @@ function numberFormat(locale: string, digits: number): Intl.NumberFormat {
   if (known) {
     return known
   }
-  const made = new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
+  // 'negative': a value that rounds to zero is "0.0", never "-0.0" (the backend rounds angles, which can give -0).
+  const made = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    signDisplay: 'negative',
+  })
   numberFormats.set(key, made)
 
   return made

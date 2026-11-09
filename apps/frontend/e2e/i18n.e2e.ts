@@ -12,7 +12,7 @@ describe('the interface language', () => {
   })
 
   afterAll(async () => {
-    await app.close()
+    await app?.close()
   })
 
   it('titles the window from the messages, not with the key', async () => {
@@ -23,5 +23,9 @@ describe('the interface language', () => {
     expect(await app.text('#connect-button')).toBe('Connect')
     expect(await app.text('#telemetry')).toContain('No telemetry: connect to a vehicle.')
     expect(await app.text('#connect')).not.toMatch(/connection\.[a-z]/u)
+  })
+
+  it('closes cleanly', async () => {
+    expect(await app.close()).toBe(0)
   })
 })
