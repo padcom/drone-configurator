@@ -16,6 +16,7 @@
 import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
+import { GuardedStream } from "./guarded"
 import { encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
@@ -97,7 +98,7 @@ async function reopen(generation: int): Promise<string?> {
   // opener only, and a socket nobody listens to is a leak.
   dropStream()
   try {
-    const stream = await open(request!, (sim: SimulatedAutopilot) => { link.sim = sim })
+    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { link.sim = sim }))
     if (link.generation != generation) {
       stream.close()
       return null

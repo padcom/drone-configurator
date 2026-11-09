@@ -1,0 +1,30 @@
+// A stream the session may close while the router still holds it. Writing to a TCP connection that was closed here is a
+// panic, not an error the router could count (pico-mavlink's TcpStream), and the router goes on writing to a link until
+// its own read notices the link has ended. So once closed, a write fails with an ordinary error, which the router
+// takes as a link that did not take the frame.
+import { ByteStream } from "padcom/pico-mavlink"
+
+export class GuardedStream implements ByteStream {
+  readonly inner: ByteStream
+  public closed: bool = false
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public read(): Promise<Uint8Array?, Error> {
+    inner.read()
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (closed) {
+      throw new Error("the link is closed")
+    }
+    await inner.write(bytes)
+  }
+
+  public close(): void {
+    closed = true
+    inner.close()
+  }
+}

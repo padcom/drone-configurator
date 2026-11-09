@@ -4,7 +4,6 @@ import { CommunicatorError, Sink } from "pico-desktop/communicator"
 import {
   AutopilotVersion,
   ByteStream,
-  HeartbeatSender,
   MavAutopilot,
   MavLinkConnection,
   MavLinkRouter,
@@ -16,6 +15,7 @@ import {
   encodingOf,
 } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, VehicleInfo, encodeConnection } from "./generated/app"
+import { Beats } from "./heartbeat"
 
 /// A service that listens to the vehicle while a session is up. `attach` is called once the
 /// autopilot is identified (`link.sysid` and `link.compid` say which one to listen to), `detach`
@@ -29,7 +29,7 @@ export interface SessionPart {
 class Link {
   public conn: MavLinkConnection? = null
   public sim: SimulatedAutopilot? = null
-  public beats: HeartbeatSender? = null
+  public beats: Beats? = null
   public discovery: VehicleDiscovery? = null
   public state: Connection = Connection { state: ConnectionState.Disconnected }
   /// Bumped on every connect and disconnect: a link's late news about an older link is ignored.
