@@ -3,6 +3,7 @@ import { type NativeBridge, bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
 import type { State } from './configurator'
 import { canWrite, detailView, escape, importView, listStatus, paramRows } from './render'
+import { i18n } from './i18n'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -50,6 +51,9 @@ function render(state: State) {
     draft.value = state.draft
   }
 }
+
+// The first string to go through i18n; the components follow (#18).
+document.title = i18n.global.t('app.title')
 
 // In Pico Desktop the native bridge; in a plain browser (`pnpm ui`) the mock backend.
 const bridge = window.picoDesktop
