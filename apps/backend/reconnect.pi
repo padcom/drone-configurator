@@ -14,7 +14,7 @@
 // is taken for another (a false `VEHICLE_CHANGED`, which is the safe side: its parameters are downloaded again). The
 // first autopilot to send a heartbeat on the new link is the one considered.
 import { delay } from "std/timers"
-import { AutopilotVersionRead, MavAutopilot, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
+import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
 import { encodingFor, identityOf, infoOf, link } from "./session"
@@ -35,6 +35,20 @@ export function delayBefore(attempt: int): int {
   delays[if (attempt <= delays.length) attempt - 1 else delays.length - 1]
 }
 
+/// Whether any link of the router is up. The router keeps the links of failed tries (it cannot remove one), so they
+/// pile up over a long outage: the newest is looked at first (`linkInfo()` lists the links in the order they were added),
+/// and while the session is connected it is the one that is up, so the walk stops at once. (The list itself is still
+/// built on each look, every 250 ms: the router has no way to ask for one link.)
+function anyLinkUp(router: MavLinkRouter): bool {
+  const infos = router.linkInfo()
+  for (let i = infos.length - 1; i >= 0; i--) {
+    if (infos[i].up) {
+      return true
+    }
+  }
+  false
+}
+
 /// Why the link counts as lost, or null while it is not.
 function lostBecause(): string? {
   const router = link.router
@@ -42,11 +56,7 @@ function lostBecause(): string? {
   if (router == null || discovery == null) {
     return null
   }
-  let up = false
-  for (const info of router!.linkInfo()) {
-    up = up || info.up
-  }
-  if (!up) {
+  if (!anyLinkUp(router!)) {
     return "the link ended"
   }
   for (const v of discovery!.vehicles()) {
@@ -135,7 +145,7 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
   if (conn == null) {
     return
   }
-  const version = await new AutopilotVersionRead(conn!, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
+  const version = await new AutopilotVersionRead(conn!, { system: found.sysid, component: found.compid }, { timeoutMs: 1000, retries: 2 }).run()
   if (link.generation != generation) {
     return
   }
