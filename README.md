@@ -1,13 +1,13 @@
 # Drone Configurator
 
 A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com/padcom/pico-desktop).
-- **Frontend:** vanilla TypeScript and Vite.
+- **Frontend:** Vue 3, TypeScript and Vite (the state is in composables; see `docs/frontend-state.md`). Every text on screen goes through vue-i18n; only English exists so far.
 - **Backend:** Pico, on [pico-mavlink](https://github.com/padcom/pico-mavlink).
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
-Status: **DR0 is done; DR1 and DR2 are done except what needs ArduPilot SITL or real hardware.**
-- Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery and attitude.
+Status: **a single screen that connects to a vehicle, shows its telemetry, and reads and writes its parameters.** There is no map, no flight or setup screens and no navigation between screens yet, and a lost link is shown as lost: you reconnect when you choose (no automatic reconnect).
+- Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery, attitude, and (when the vehicle sends them) its position, GPS fix and speed.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.
 - Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
@@ -15,7 +15,9 @@ Status: **DR0 is done; DR1 and DR2 are done except what needs ArduPilot SITL or 
 - Load parameter metadata (descriptions, units, ranges, named values) to see and check against. Without it, a parameter is only its type: nothing is invented. The format is in `apps/frontend/src/metadata.ts`, and `examples/copter-metadata.json` is an example. These values are illustrative, not ArduPilot's.
 - Parameters the vehicle announces on its own, for example after another ground station changes one, update the list. A draft being edited is left alone.
 - A disconnect cancels a download or write in flight at once.
-- Telemetry shows only what the vehicle has reported: a dash, never a made-up zero. Mode names come from ArduPilot's own tables, chosen by vehicle type. The backend asks the vehicle to stream SYS_STATUS and ATTITUDE.
+- Telemetry shows only what the vehicle has reported: a dash, never a made-up zero. Mode names come from ArduPilot's own tables, chosen by vehicle type.
+- The backend asks the vehicle for ten messages at fixed rates (position, speed and attitude 4 Hz; GPS, navigation and EKF 2 Hz; battery, wind and vibration 1 Hz; the table is in `apps/backend/groups.pi`), and asks again when the vehicle restarts. A message the vehicle refuses is left out. Each arrives as a group with its own age, in metres, metres a second and degrees; a group the vehicle never sent is absent, and a position of latitude and longitude 0 counts as none. The page gets the latest values 5 times a second (`rateHz`, 1 to 20), whatever rate the vehicle sends at.
+- Cards show battery, attitude, position, GPS and speed (navigation, wind, EKF and vibration reach the page but have no card yet). A value not updated for more than 3 seconds says "stale, N s old" and is marked, not just coloured.
 - The parameter encoding (C-cast or bytewise) comes from the autopilot's AUTOPILOT_VERSION, with ArduPilot's or PX4's usual one as a fallback.
 - Closing the app while connected ends the session in time.
 - A backend restart ends the vehicle session. The parameters stay on screen, a write that was in flight is reported as unconfirmed (never resent), and you reconnect when you choose.
@@ -47,7 +49,7 @@ pnpm lint     # pico lint, ESLint with the padcom rules (@padcom/eslint-config-v
 pnpm e2e      # the real window: host, Pico backend, pico-mavlink and the simulator (apps/frontend/e2e, pico-desktop test --e2e)
 ```
 
-The frontend is built on the Vue 3 template (pico-desktop's `vue-ts`): the Vue toolchain is in place, and the code is still plain TypeScript until the components arrive (#11). The padcom lint rules apply to every new `.vue` and `.ts` file. The files that were written before them are on the `NOT_YET_LINTED` list in `apps/frontend/eslint.config.mjs` and leave it as they are brought up to the rules. `__VUE_OPTIONS_API__` is off in `vite.config.ts`: components use `<script setup>`.
+The frontend is built on the Vue 3 template (pico-desktop's `vue-ts`). The padcom lint rules apply to every `.vue` and `.ts` file except the ones listed in `apps/frontend/eslint-baseline.txt` (7 files now, written before the rules; a file leaves the list as it is brought up to them, and the list may not grow). `__VUE_OPTIONS_API__` is off in `vite.config.ts`: components use `<script setup>`.
 
 ## Bundle and package
 
@@ -69,7 +71,7 @@ cd ardupilot/ArduCopter
 
 Then, in the dashboard, choose UDP on port 14550, or TCP on port 5760, and connect.
 
-The dashboard asks for SYS_STATUS and ATTITUDE (`MAV_CMD_SET_MESSAGE_INTERVAL`). It learns how parameters are encoded from `AUTOPILOT_VERSION`.
+The dashboard asks for the ten messages of its table (see Status above) with `MAV_CMD_SET_MESSAGE_INTERVAL`, or with data streams for a vehicle that has only those. It learns how parameters are encoded from `AUTOPILOT_VERSION`.
 
 To run the end-to-end checks, either let the harness start a simulator, or say where one is.
 
