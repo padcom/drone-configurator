@@ -15,6 +15,11 @@ services = {
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
   "serial.ports": ["method", null, serial-ports],
+  ; Settings that survive a restart (see `settings`). `settings.set` takes a patch and answers with the document it made.
+  "settings.get": ["method", null, settings-state],
+  "settings.set": ["method", settings-patch, settings-state],
+  ; Sent after every `settings.set`, also to a window that did not ask for it.
+  "settings.changed": ["event", settings-state],
   ; A parameter the vehicle announced on its own (changed by another ground station, or by the
   ; autopilot): the dashboard's copy follows it.
   "params.changed": ["event", param],
@@ -208,6 +213,45 @@ attitude-group = {
   pitchSpeed: float,
   yawSpeed: float,
   ageMs: uint .size 4,
+}
+
+; The settings document. `language` and `theme` are what the backend knows about; everything the interface keeps for
+; itself (layouts, the tab last used) is a `ui` entry: a namespaced key ("layout.flightData") and a string the interface
+; validates itself, so a new layout needs no change here. A value is at most 65536 characters, a key 1 to 128 (and not
+; "language" or "theme", which `remove` names), there are at most 256 entries, and all the keys and values together
+; are at most 1048576 characters, so that the whole document can always be sent in one message; a `language` is 1 to
+; 35 characters. `version` is the version of the file (1 so far).
+settings = {
+  version: uint .size 1,
+  ? language: tstr,
+  ? theme: theme-name,
+  ui: [* ui-entry],
+}
+
+theme-name = "light" / "dark" / "system"
+
+ui-entry = { key: tstr, value: tstr }
+
+; The document, and how it was got. `notice` says in English what the user should know and `noticeCode` is its stable
+; code: "CORRUPT" (the file is not a settings document and was set aside, the settings are the defaults), "UNREADABLE"
+; (the file could not be read at all, and was set aside; if it cannot be moved either it is left where it is and the
+; settings are kept in memory so that it is not overwritten), "NEWER" (the file was
+; written by a newer version and was set aside), "NOT_WRITABLE" (the settings directory cannot be written to, so
+; the settings are kept in memory and lost when the app closes). "CORRUPT" and "NEWER" are said until the app is
+; restarted; "NOT_WRITABLE" until a save works.
+settings-state = {
+  settings: settings,
+  ? notice: tstr,
+  ? noticeCode: tstr,
+}
+
+; What to change; what is not mentioned stays. `ui` entries are set (added or replaced), and `remove` names what to
+; forget: "language", "theme" or a `ui` key.
+settings-patch = {
+  ? language: tstr,
+  ? theme: theme-name,
+  ? ui: [* ui-entry],
+  ? remove: [* tstr],
 }
 
 ; Saving and opening snapshot files through the host's native dialogs (pages can't reach them).

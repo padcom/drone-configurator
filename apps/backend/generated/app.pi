@@ -976,6 +976,238 @@ export function encodeAttitudeGroup(v: AttitudeGroup): Cbor {
   Cbor.Dict(m)
 }
 
+function decodeSettingsUiList(v: Cbor, path: string): UiEntry[] throws InvalidPayload {
+  const out: UiEntry[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeUiEntry(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSettingsUiList(v: UiEntry[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeUiEntry(e))
+  }
+  Cbor.List(out)
+}
+
+export struct Settings {
+  version: u8
+  language?: string
+  theme?: ThemeName
+  ui: UiEntry[]
+}
+
+export function decodeSettings(v: Cbor, path: string): Settings throws InvalidPayload {
+  const m = members(v, path, ["version", "language", "theme", "ui"])
+  const cbor1 = m.get("language")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.language`)
+  }
+  const cbor2 = m.get("theme")
+  let opt2: ThemeName? = null
+  if (cbor2 != null) {
+    opt2 = decodeThemeName(cbor2, `${path}.theme`)
+  }
+  Settings {
+    version: (uint(required(m, "version", path), `${path}.version`, 255) as u8),
+    language: opt1,
+    theme: opt2,
+    ui: decodeSettingsUiList(required(m, "ui", path), `${path}.ui`),
+  }
+}
+
+export function encodeSettings(v: Settings): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("version", Cbor.Uint(v.version as u64))
+  const opt1 = v.language
+  if (opt1 != null) {
+    m.set("language", Cbor.Text(opt1))
+  }
+  const opt2 = v.theme
+  if (opt2 != null) {
+    m.set("theme", encodeThemeName(opt2))
+  }
+  m.set("ui", encodeSettingsUiList(v.ui))
+  Cbor.Dict(m)
+}
+
+export enum ThemeName { Light, Dark, System }
+
+export function decodeThemeName(v: Cbor, path: string): ThemeName throws InvalidPayload {
+  match (text(v, path)) {
+    "light" => ThemeName.Light,
+    "dark" => ThemeName.Dark,
+    "system" => ThemeName.System,
+    _ => throw new InvalidPayload(path, "light or dark or system"),
+  }
+}
+
+export function encodeThemeName(v: ThemeName): Cbor {
+  match (v) {
+    Light => Cbor.Text("light"),
+    Dark => Cbor.Text("dark"),
+    System => Cbor.Text("system"),
+  }
+}
+
+export struct UiEntry {
+  key: string
+  value: string
+}
+
+export function decodeUiEntry(v: Cbor, path: string): UiEntry throws InvalidPayload {
+  const m = members(v, path, ["key", "value"])
+  UiEntry {
+    key: text(required(m, "key", path), `${path}.key`),
+    value: text(required(m, "value", path), `${path}.value`),
+  }
+}
+
+export function encodeUiEntry(v: UiEntry): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  m.set("value", Cbor.Text(v.value))
+  Cbor.Dict(m)
+}
+
+export struct SettingsState {
+  settings: Settings
+  notice?: string
+  noticeCode?: string
+}
+
+export function decodeSettingsState(v: Cbor, path: string): SettingsState throws InvalidPayload {
+  const m = members(v, path, ["settings", "notice", "noticeCode"])
+  const cbor1 = m.get("notice")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.notice`)
+  }
+  const cbor2 = m.get("noticeCode")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.noticeCode`)
+  }
+  SettingsState {
+    settings: decodeSettings(required(m, "settings", path), `${path}.settings`),
+    notice: opt1,
+    noticeCode: opt2,
+  }
+}
+
+export function encodeSettingsState(v: SettingsState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("settings", encodeSettings(v.settings))
+  const opt1 = v.notice
+  if (opt1 != null) {
+    m.set("notice", Cbor.Text(opt1))
+  }
+  const opt2 = v.noticeCode
+  if (opt2 != null) {
+    m.set("noticeCode", Cbor.Text(opt2))
+  }
+  Cbor.Dict(m)
+}
+
+function decodeSettingsPatchUiList(v: Cbor, path: string): UiEntry[] throws InvalidPayload {
+  const out: UiEntry[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeUiEntry(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeSettingsPatchRemoveList(v: Cbor, path: string): string[] throws InvalidPayload {
+  const out: string[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(text(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSettingsPatchUiList(v: UiEntry[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeUiEntry(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeSettingsPatchRemoveList(v: string[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Text(e))
+  }
+  Cbor.List(out)
+}
+
+export struct SettingsPatch {
+  language?: string
+  theme?: ThemeName
+  ui?: UiEntry[]
+  remove?: string[]
+}
+
+export function decodeSettingsPatch(v: Cbor, path: string): SettingsPatch throws InvalidPayload {
+  const m = members(v, path, ["language", "theme", "ui", "remove"])
+  const cbor0 = m.get("language")
+  let opt0: string? = null
+  if (cbor0 != null) {
+    opt0 = text(cbor0, `${path}.language`)
+  }
+  const cbor1 = m.get("theme")
+  let opt1: ThemeName? = null
+  if (cbor1 != null) {
+    opt1 = decodeThemeName(cbor1, `${path}.theme`)
+  }
+  const cbor2 = m.get("ui")
+  let opt2: UiEntry[]? = null
+  if (cbor2 != null) {
+    opt2 = decodeSettingsPatchUiList(cbor2, `${path}.ui`)
+  }
+  const cbor3 = m.get("remove")
+  let opt3: string[]? = null
+  if (cbor3 != null) {
+    opt3 = decodeSettingsPatchRemoveList(cbor3, `${path}.remove`)
+  }
+  SettingsPatch {
+    language: opt0,
+    theme: opt1,
+    ui: opt2,
+    remove: opt3,
+  }
+}
+
+export function encodeSettingsPatch(v: SettingsPatch): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.language
+  if (opt0 != null) {
+    m.set("language", Cbor.Text(opt0))
+  }
+  const opt1 = v.theme
+  if (opt1 != null) {
+    m.set("theme", encodeThemeName(opt1))
+  }
+  const opt2 = v.ui
+  if (opt2 != null) {
+    m.set("ui", encodeSettingsPatchUiList(opt2))
+  }
+  const opt3 = v.remove
+  if (opt3 != null) {
+    m.set("remove", encodeSettingsPatchRemoveList(opt3))
+  }
+  Cbor.Dict(m)
+}
+
 export struct FileSave {
   name: string
   text: string
