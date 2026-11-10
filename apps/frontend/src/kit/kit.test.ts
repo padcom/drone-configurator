@@ -129,6 +129,13 @@ describe.each(STYLESHEETS)('%s', name => {
   })
 })
 
+describe('kit.css, the select', () => {
+  it('draws its chevron with its right edge 12 px from the border, as far as the text is on the left', () => {
+    expect(kit).toContain('background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%')
+    expect(kit).toContain('background-size: 5px 5px, 5px 5px')
+  })
+})
+
 describe('kit.css', () => {
   it('keeps an invalid field red under the pointer (the hover rule is more specific than `.invalid` alone)', () => {
     const rule = /(?<selectors>[^{}]+)\{(?<body>[^{}]*)\}/gu

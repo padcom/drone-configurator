@@ -77,13 +77,14 @@
   min-height: 48px;
 }
 
-/* The select draws its own chevron (two gradients: no image to load), its right edge 12 px (the text's inset) from the edge. */
+/* The select draws its own chevron (two gradients: no image to load), its right edge 12 px (the text's inset) from the edge
+   (a percentage position is measured against the box minus the 5 px image, so the second triangle is at 100% - 12px). */
 .kit-select {
   padding-right: calc(var(--control-padding-x) + 20px);
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%), linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
   background-repeat: no-repeat;
-  background-position: calc(100% - 22px) 50%, calc(100% - 17px) 50%;
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
   background-size: 5px 5px, 5px 5px;
   cursor: pointer;
 }
