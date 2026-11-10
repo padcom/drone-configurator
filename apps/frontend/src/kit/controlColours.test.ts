@@ -66,7 +66,7 @@ const VARIANTS: [name: string, sheet: string, words: string, fill: string][] = [
   ['badge, neutral', 'kit.css', '.kit-badge', '.kit-badge'],
   ['chosen segment', 'panels.css', '.kit-segmented .segment:has(input:checked)', '.kit-segmented .segment:has(input:checked)'],
   ['chosen tab', 'panels.css', '.kit-tabs .tab[aria-selected=\'true\']', '.kit-tabs .tab[aria-selected=\'true\']'],
-  ['tab, under the pointer', 'panels.css', '.kit-tabs .tab:hover', '.kit-tabs .tab:hover'],
+  ['tab', 'panels.css', '.kit-tabs .tab', '.kit-tabs .tab:hover'],
 ]
 
 describe('the colours of each variant', () => {
@@ -85,8 +85,25 @@ describe('the colours of each variant', () => {
     expect(behind).toBe(tokens['--color-surface-raised'])
     expect(contrast(tokens['--color-text'] ?? '#000000', behind ?? '#000000')).toBeGreaterThanOrEqual(AA_TEXT)
   })
+})
 
-  it('draws a disabled button flat: not the faded outline, and not a colour that says "on"', () => {
+describe('the sizes and weights of the controls', () => {
+  it('gives every target the control height, and the words of a tab and a primary button the design\'s weights', () => {
+    expect(bodyOf('panels.css', '.kit-tabs .tab')).toContain('min-height: var(--control-height)')
+    expect(bodyOf('kit.css', '.kit-toggle')).toContain('min-height: var(--control-height)')
+    expect(bodyOf('kit.css', '.kit-check')).toContain('min-height: var(--control-height)')
+    expect(bodyOf('kit.css', '.kit-button.primary')).toContain('font-weight: 600')
+    expect(bodyOf('kit.css', '.kit-button.flight')).toContain('font-weight: 700')
+    expect(bodyOf('panels.css', '.kit-tabs .tab')).toContain('font-weight: 500')
+  })
+
+  it('draws the unchosen words of a tab in the text colour, not the muted one', () => {
+    expect(colourOf('panels.css', '.kit-tabs .tab', 'color')).toBe(tokens['--color-text'])
+  })
+})
+
+describe('the disabled button', () => {
+  it('is drawn flat: not the faded outline, and not a colour that says "on"', () => {
     const fill = colourOf('kit.css', '.kit-button:disabled', 'background')
 
     expect(fill).toBe(tokens['--color-border'])

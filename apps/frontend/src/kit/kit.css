@@ -31,6 +31,7 @@
 
 /* Primary: the one action of a place (cyan). */
 .kit-button.primary {
+  font-weight: 600;
   color: var(--color-on-accent);
   background: var(--color-accent);
   border-color: transparent;
@@ -76,13 +77,13 @@
   min-height: 48px;
 }
 
-/* The select draws its own chevron (two gradients: no image to load), at the same inset as the text of a field. */
+/* The select draws its own chevron (two gradients: no image to load), its right edge 12 px (the text's inset) from the edge. */
 .kit-select {
   padding-right: calc(var(--control-padding-x) + 20px);
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%), linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
   background-repeat: no-repeat;
-  background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%;
+  background-position: calc(100% - 22px) 50%, calc(100% - 17px) 50%;
   background-size: 5px 5px, 5px 5px;
   cursor: pointer;
 }
@@ -134,6 +135,7 @@
   display: inline-flex;
   gap: var(--space-2);
   align-items: center;
+  min-height: var(--control-height);
   padding: 0;
   font: inherit;
   font-size: var(--font-size-md);

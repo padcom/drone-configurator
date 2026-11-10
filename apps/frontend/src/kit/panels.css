@@ -63,11 +63,12 @@
 }
 
 .kit-tabs .tab {
-  min-height: calc(var(--control-height) - var(--space-2));
+  min-height: var(--control-height);
   padding: 0 var(--space-4);
   font: inherit;
   font-size: var(--font-size-md);
-  color: var(--color-text-muted);
+  font-weight: 500;
+  color: var(--color-text);
   cursor: pointer;
   background: none;
   border: 0;
@@ -75,7 +76,6 @@
 }
 
 .kit-tabs .tab:hover {
-  color: var(--color-text);
   background: var(--color-surface-raised);
 }
 
