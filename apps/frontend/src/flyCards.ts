@@ -200,8 +200,18 @@ const vibrationReader: Reader = (now, t, f) => {
   }
 }
 
-// Nothing measures the quality of the link yet: its card is never reported.
-const linkReader: Reader = () => undefined
+/**
+ * The link card: how long ago the last heartbeat came. (Nothing measures the quality of the link itself yet.)
+ *
+ * @param now the telemetry
+ * @param t looks up a message
+ * @param f formats numbers
+ * @returns the age of the heartbeat
+ */
+const linkReader: Reader = (now, t, f) => ({
+  value: t('flyCards.heartbeatAge', { ms: f.number(now.heartbeatAgeMs) }),
+  help: t('flyCards.heartbeat'),
+})
 
 const READERS: [FlyCard['id'], Reader][] = [
   ['battery', batteryReader],

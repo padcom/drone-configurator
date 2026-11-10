@@ -65,7 +65,7 @@ describe('the cards of a live vehicle', () => {
     expect(texts(cards, 'battery')).toEqual(['87%', '12.18 V · 11.4 A'])
     expect(texts(cards, 'wind')).toEqual(['4.0 m/s', 'from 240°'])
     expect(texts(cards, 'gps')).toEqual(['3D fix · 14', 'HDOP 0.8'])
-    expect(states(cards)).toEqual(['live', 'live', 'live', 'never', 'live', 'live'])
+    expect(states(cards)).toEqual(Array(6).fill('live'))
   })
 
   it('say the estimator in a word and the vibration by its worst axis', () => {
@@ -85,12 +85,18 @@ describe('the cards of a live vehicle', () => {
   })
 })
 
-describe('the cards of a vehicle that has not said everything', () => {
-  it('are never reported, with no value, for a group that did not come, and for the link', () => {
-    const { wind, gps, link } = cardsOf({ ...FULL, wind: undefined, gps: undefined })
+describe('the link card', () => {
+  it('says how long ago the heartbeat came', () => {
+    expect(texts(cardsOf({ ...FULL, heartbeatAgeMs: 68 }), 'link')[0]).toBe('68 ms ago')
+  })
+})
 
-    expect([wind, gps, link].map(card => card?.state)).toEqual(['never', 'never', 'never'])
-    expect([wind, gps, link].map(card => card?.value)).toEqual([undefined, undefined, undefined])
+describe('the cards of a vehicle that has not said everything', () => {
+  it('are never reported, with no value, for a group that did not come', () => {
+    const { wind, gps } = cardsOf({ ...FULL, wind: undefined, gps: undefined })
+
+    expect([wind, gps].map(card => card?.state)).toEqual(['never', 'never'])
+    expect([wind, gps].map(card => card?.value)).toEqual([undefined, undefined])
   })
 
   it('are all never reported without a vehicle', () => {
@@ -125,7 +131,7 @@ describe('the cards of a vehicle that is not heard from', () => {
     const quiet = cardsOf({ ...FULL, heartbeatAgeMs: 5000 })
     const back = cardsOf(FULL, true)
 
-    const heard = ['last-heard', 'last-heard', 'last-heard', 'never', 'last-heard', 'last-heard']
+    const heard = Array(6).fill('last-heard')
     expect(states(quiet)).toEqual(heard)
     expect(states(back)).toEqual(heard)
   })
