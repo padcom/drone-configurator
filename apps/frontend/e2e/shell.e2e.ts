@@ -56,6 +56,8 @@ async function walk(screens: typeof MARKERS): Promise<void> {
 
 describe('the shell', () => {
   it('starts on Flight data, with the top bar and the navigation', async () => {
+    // The router redirects `/` to `/flight` after the window has opened: the hash is waited for, not read once.
+    await app.waitFor(`/^#\\/flight$/u.test(location.hash)`)
     expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
     await app.waitForText('#telemetry', 'No telemetry')
     expect(await app.text('#top-bar')).toContain('disconnected')
