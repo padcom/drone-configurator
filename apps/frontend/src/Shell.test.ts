@@ -58,13 +58,22 @@ it('starts on Flight data, with the connection on top', async () => {
 it('has a link for every screen, in order, as native links a keyboard can reach', async () => {
   const { wrapper } = await shellAt('/flight')
 
-  // The seven of the product, then the gallery, which the development build (and so the tests) has.
+  // The screens of the product, the gallery (which the development build, and so the tests, has), and Settings at the end.
   const links = wrapper.findAll('nav a')
   expect(links.map(link => link.text()))
-    .toEqual(['Flight data', 'Plan', 'Setup', 'Tune', 'Parameters', 'Logs', 'Simulation', 'Gallery'])
+    .toEqual(['Flight data', 'Plan', 'Setup', 'Parameters', 'Tune', 'Logs', 'Simulation', 'Gallery', 'Settings'])
   expect(links.map(link => link.attributes('href')))
-    .toEqual(['/flight', '/plan', '/setup', '/tune', '/parameters', '/logs', '/simulation', '/gallery'])
+    .toEqual(['/flight', '/plan', '/setup', '/parameters', '/tune', '/logs', '/simulation', '/gallery', '/settings'])
   expect(wrapper.find('nav').attributes('aria-label')).toBe('Screens')
+})
+
+it('draws the rail with an icon over each name, and Settings apart at the bottom', async () => {
+  const { wrapper } = await shellAt('/flight')
+
+  expect(wrapper.findAll('nav a').every(link => link.find('svg[aria-hidden="true"]').exists())).toBe(true)
+  expect(wrapper.findAll('.rail-end a').map(link => link.text())).toEqual(['Settings'])
+  expect(wrapper.find('.app-row > .rail').exists()).toBe(true)
+  expect(wrapper.find('.app-row > .app-main #telemetry').exists()).toBe(true)
 })
 
 it('shows the screen followed, and says in the link which one it is', async () => {

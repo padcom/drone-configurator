@@ -10,10 +10,11 @@ const MARKERS: [id: string, check: string, title: string][] = [
   ['flight', '#telemetry', 'Flight data'],
   ['plan', 'p.not-available', 'Plan'],
   ['setup', 'p.not-available', 'Setup'],
-  ['tune', 'p.not-available', 'Tune'],
   ['parameters', '#list-status', 'Parameters'],
+  ['tune', 'p.not-available', 'Tune'],
   ['logs', 'p.not-available', 'Logs'],
   ['simulation', 'p.not-available', 'Simulation'],
+  ['settings', 'p.not-available', 'Settings'],
 ]
 
 let app: E2eApp
