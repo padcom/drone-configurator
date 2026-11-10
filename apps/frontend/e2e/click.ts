@@ -20,6 +20,30 @@ async function settleAt(app: E2eApp, link: string): Promise<void> {
 }
 
 /**
+ * What the page looks like when the Connect dialog did not open after the last click: the address, whether a dialog or
+ * the button that opens it is there, and where the button was.
+ *
+ * @param app the running app
+ * @returns a line of text for the failure message
+ */
+async function describeOpening(app: E2eApp): Promise<string> {
+  try {
+    return await app.evaluate<string>(`JSON.stringify((() => {
+      const box = document.querySelector('#open-connect')?.getBoundingClientRect()
+      return {
+        hash: location.hash,
+        dialogs: document.querySelectorAll('dialog').length,
+        button: box && [box.left, box.top, box.width, box.height].map(Math.round),
+        connection: document.querySelector('#connection')?.innerText,
+        hidden: document.hidden,
+      }
+    })())`)
+  } catch (error) {
+    return `(the page could not be read: ${String(error)})`
+  }
+}
+
+/**
  * Clicks the top bar's vehicle cell until the Connect dialog is open: a click through DevTools can occasionally land and do
  * nothing, right after the window opens (as Connect's and the navigation's can), so a click that did not open it is made
  * again. The last attempt waits as long as a slow machine needs, and fails with the reason.
@@ -33,7 +57,9 @@ async function clickOpenUntilOpen(app: E2eApp, isOpen: string, left: number): Pr
   await app.click('#open-connect')
 
   if (left === 1) {
-    await app.waitFor(isOpen)
+    await app.waitFor(isOpen).catch(async (error: unknown) => {
+      throw new Error(`${String(error)}\n${await describeOpening(app)}`, { cause: error })
+    })
 
     return
   }
