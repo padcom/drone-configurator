@@ -1,9 +1,8 @@
-// End to end, in the real window: the confirmation before a parameter write is a modal dialog that is answered by
-// holding a button, and what the browser does with focus (which jsdom does not) is what makes it usable by keyboard.
-import { setTimeout as sleep } from 'node:timers/promises'
+// End to end, in the real window: the confirmation before a parameter write is a modal dialog with Cancel and Write (no
+// hold, no typed word), and what the browser does with focus (which jsdom does not) is what makes it usable by keyboard.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, holdConfirm, showScreen } from './click'
+import { cancelConfirm, clickConnect, confirmWrite, showScreen } from './click'
 
 let app: E2eApp
 
@@ -50,11 +49,10 @@ describe('the confirmation before a write, in the window', () => {
     expect(await focused()).toBe('confirm-cancel')
   })
 
-  it('does not write for a click on the hold button', async () => {
-    await app.click('#confirm-hold')
-    await sleep(800)
-
-    expect(await app.evaluate<boolean>('document.querySelector(\'#confirm\') !== null')).toBe(true)
+  it('has a Write button and no hold: the vehicle\'s read-back makes a write safe, not the press', async () => {
+    expect(await app.text('#confirm-yes')).toBe('Write')
+    expect(await app.evaluate<boolean>('document.querySelector(\'#confirm-hold\') === null')).toBe(true)
+    expect(await app.evaluate<boolean>('document.querySelector(\'#confirm input\') === null')).toBe(true)
   })
 
   it('does not write when it is cancelled with Escape, and gives the focus back to Write', async () => {
@@ -75,10 +73,10 @@ describe('answering the confirmation, in the window', () => {
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1500/u)
   })
 
-  it('writes and verifies the read-back when the button is held', async () => {
+  it('writes and verifies the read-back when Write is pressed', async () => {
     await app.click('#write')
     await app.waitForText('#question', 'Set RTL_ALT from 1500 to 1700?')
-    await holdConfirm(app)
+    await confirmWrite(app)
 
     expect(await app.waitForText('#detail', 'Written and read back')).toMatch(/Written and read back: 1700\./u)
     // The focus is not lost to the page: the button that opened the dialog was disabled while it wrote.

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { cancelConfirm, clickConnect, holdConfirm, showScreen } from './click'
+import { cancelConfirm, clickConnect, confirmWrite, showScreen } from './click'
 import type { Endpoint } from './endpoint'
 import { switchRounds } from './switch'
 
@@ -37,7 +37,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.fill('#draft', String(to))
     await app.click('#write')
     await app.waitForText('#question', `Set ${vehicle.param} from ${from} to ${to}?`)
-    await holdConfirm(app)
+    await confirmWrite(app)
     // The table first: the detail panel can still show an earlier write's identical message.
     await app.waitForText(`${row} td.num`, new RegExp(`^${to}$`, 'u'), vehicle.downloadTimeoutMs)
     await app.waitForText('#detail', `Written and read back: ${to}.`, vehicle.downloadTimeoutMs)
@@ -162,7 +162,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click(`input[data-pick="${vehicle.param}"]`)
     await app.click('#apply')
     await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
-    await holdConfirm(app)
+    await confirmWrite(app)
     await app.waitForText('#import', `${vehicle.param}: written and read back: ${changed}`, vehicle.downloadTimeoutMs)
     expect(await currentValue()).toBe(changed)
 
