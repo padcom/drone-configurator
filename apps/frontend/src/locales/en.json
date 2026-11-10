@@ -382,8 +382,7 @@
   },
   "staged": {
     "add": "Add to changes",
-    "heading": "Changes to write · {count}",
-    "none": "Nothing yet. Edits collect here so you can write them together.",
+    "region": "Changes to write",
     "discard": "Discard",
     "write": "Write {count} and verify",
     "verified": "✓ Written and read back: {detail}",

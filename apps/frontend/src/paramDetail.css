@@ -169,9 +169,14 @@
   margin-top: var(--space-5);
 }
 
+/* Many changes scroll in their own box, so that the Write button below them stays in view. */
 .staged-list {
+  max-height: 10rem;
   padding: 0;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   list-style: none;
 }
 
@@ -242,11 +247,8 @@
   min-height: 48px;
 }
 
-.related {
-  margin-top: var(--space-5);
-}
-
-.related-list {
+/* The related parameters: the last row of the description, inside its scrolling box. */
+.param-description .row .related-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--space-4);

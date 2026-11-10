@@ -34,11 +34,13 @@ function add(handle: Awaited<ReturnType<typeof listWith>>['handle'], id: string,
   handle.staged.stage()
 }
 
-it('says there is nothing yet, and cannot write', async () => {
+it('shows nothing of its own when there are no changes, keeps its name for a screen reader, and cannot write', async () => {
   const { wrapper } = await listWith()
 
-  expect(wrapper.get('h2').text()).toBe('Changes to write · 0')
-  expect(wrapper.text()).toContain('Nothing yet. Edits collect here so you can write them together.')
+  expect(wrapper.find('h2').exists()).toBe(false)
+  expect(wrapper.find('.staged-list').exists()).toBe(false)
+  expect(wrapper.text()).toBe('Write 0 and verify')
+  expect(wrapper.get('#staged').attributes('aria-label')).toBe('Changes to write')
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#write-staged').text()).toBe('Write 0 and verify')
 })
@@ -52,7 +54,7 @@ it('lists each change with the value now and the value to write, and takes one o
   const rows = wrapper.findAll('.staged-row')
   expect(rows.map(row => row.get('.name').text())).toEqual(['RTL_ALT', 'BATT_LOW_VOLT'])
   expect(rows[0]?.get('.values').text()).toBe('1500 → 1600')
-  expect(wrapper.get('h2').text()).toBe('Changes to write · 2')
+  expect(wrapper.find('h2').exists()).toBe(false)
   expect(wrapper.get('#write-staged').text()).toBe('Write 2 and verify')
 
   await rows[0]?.get('.discard').trigger('click')

@@ -69,12 +69,6 @@
   </form>
   <ParamDescription />
   <StagedChanges />
-  <section v-if="related.length > 0" class="related" :aria-label="t('editor.related')">
-    <SectionLabel>{{ t('editor.related') }}</SectionLabel>
-    <div class="related-list">
-      <button v-for="id in related" :key="id" type="button" class="related-item" @click="parameters.select(id)">{{ id }}</button>
-    </div>
-  </section>
 </template>
 
 <script setup lang="ts">
@@ -84,17 +78,16 @@ import EnumField from './EnumField.vue'
 import type { EnumOption } from './enumField'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
-import SectionLabel from './kit/SectionLabel.vue'
 import ParamDescription from './ParamDescription.vue'
 import StagedChanges from './StagedChanges.vue'
 import TextInput from './kit/TextInput.vue'
-import { canWrite, detailsOf, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
+import { canWrite, detailsOf, numberOr, valueOptions, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
 // The detail of the selected parameter, as the design has it: its name and what it is for, its value in large figures with the
 // unit or the name of the value, what is allowed, the field for a new value (a choice from the names when the metadata has
-// them), the outcome of the last write in words with a mark, and the related parameters of its group. A write goes to the
-// vehicle and is only called done when the vehicle reads the new value back.
+// them), and the outcome of the last write in words with a mark. The description (with the related parameters of its group) and
+// the changes collected follow it. A write goes to the vehicle and is only called done when the vehicle reads the new value back.
 const { t } = useI18n()
 const { parameters, fields, staged } = useConfigurator()
 const MARKS = { ok: 'check', error: 'close' } as const
@@ -129,7 +122,6 @@ const draftNumber = computed({
   get: () => numberOr(fields.draft.value, param.value?.value ?? 0),
   set: (value: number) => parameters.editDraft(String(value)),
 })
-const related = computed(() => param.value ? relatedTo(fields.params.value, param.value.id) : [])
 const notice = computed(() => {
   const { writing, lastWrite } = fields
 

@@ -246,8 +246,11 @@ it('lists the other parameters of the same group as related, and selects one whe
   feed(handle, { selected: 'BATT_CAPACITY' })
   await wrapper.vm.$nextTick()
 
-  const related = wrapper.findAll('.related-item')
+  // The last row of the Description block, inside its scrolling box (and no longer a section of its own below the buttons).
+  const related = wrapper.findAll('#param-description .body .row:last-child .related-item')
   expect(related.map(item => item.text())).toEqual(['BATT_LOW_VOLT'])
+  expect(wrapper.get('#param-description .body .row.related dt').text()).toBe('Related')
+  expect(wrapper.find('section.related').exists()).toBe(false)
   await related[0]?.trigger('click')
 
   expect(select).toHaveBeenCalledWith('BATT_LOW_VOLT')
