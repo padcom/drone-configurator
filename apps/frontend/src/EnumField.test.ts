@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
 import EnumField from './EnumField.vue'
 import type { EnumOption } from './enumField'
@@ -47,7 +47,9 @@ describe('the field at rest', () => {
     const input = wrapper.get('input')
 
     expect((input.element as HTMLInputElement).value).toBe('Return or land')
-    expect(wrapper.get('.badge').text()).toBe('1')
+    expect(wrapper.get('.enum-badge').text()).toBe('1')
+    expect(input.attributes('aria-autocomplete')).toBe('list')
+    expect(input.attributes('aria-describedby')).toBeUndefined()
     expect(input.attributes('role')).toBe('combobox')
     expect(input.attributes('aria-label')).toBe('Failsafe action')
     expect(input.attributes('aria-expanded')).toBe('false')
@@ -57,7 +59,38 @@ describe('the field at rest', () => {
     const wrapper = field(7)
 
     expect((wrapper.get('input').element as HTMLInputElement).value).toBe('7')
-    expect(wrapper.get('.badge').text()).toBe('no name')
+    expect(wrapper.get('.enum-badge').text()).toBe('no name')
+  })
+})
+
+describe('the field, for a screen reader', () => {
+  it('tells a screen reader that the number has no name: the badge is for the eye', () => {
+    const wrapper = field(7)
+    const described = wrapper.get('input').attributes('aria-describedby') ?? ''
+
+    expect(wrapper.get(`#${CSS.escape(described)}`).text()).toBe('no name')
+    expect(wrapper.get(`#${CSS.escape(described)}`).classes()).toContain('visually-hidden')
+    expect(wrapper.get('.enum-badge').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('has no such text for a value that has a name, or while something is being typed', async () => {
+    expect(field(1).find('.visually-hidden').exists()).toBe(false)
+    const wrapper = field(7)
+
+    await wrapper.get('input').setValue('3')
+
+    expect(wrapper.find('.visually-hidden').exists()).toBe(false)
+  })
+
+  it('is named by a label for it when it is given the id of the field, and by its own label otherwise', () => {
+    mounted = mount(EnumField, {
+      ...withI18n,
+      props: { modelValue: 1, options: OPTIONS, label: 'Failsafe action', inputId: 'the-field' },
+      attachTo: document.body,
+    })
+
+    expect(mounted.get('input').attributes('id')).toBe('the-field')
+    expect(mounted.get('input').attributes('aria-label')).toBeUndefined()
   })
 })
 
@@ -156,6 +189,22 @@ describe('the keys that close and the one that takes the only option', () => {
     expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
     expect((input.element as HTMLInputElement).value).toBe('Return or land')
     expect(picked(wrapper)).toEqual([])
+  })
+})
+
+describe('Escape in a dialog', () => {
+  it('stays with the field while the list is open (it would close the dialog too), and goes on after', async () => {
+    const wrapper = field(1)
+    const outside = vi.fn()
+    document.body.addEventListener('keydown', outside)
+    await wrapper.get('input').trigger('focus')
+
+    await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+    expect(outside).not.toHaveBeenCalled()
+    await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+
+    expect(outside).toHaveBeenCalledOnce()
+    document.body.removeEventListener('keydown', outside)
   })
 
   it('take the only option left with Enter', async () => {

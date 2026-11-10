@@ -48,7 +48,9 @@ describe('the rows of a form', () => {
     expect((wrapper.get('.form-slider input').element as HTMLInputElement).value).toBe('20')
     expect(wrapper.get('.kit-check').text()).toBe('Return on low battery')
     expect(wrapper.get('.kit-input.mono').attributes('placeholder')).toBe('A name')
-    expect(wrapper.get('[role="combobox"]').attributes('aria-label')).toBe('Failsafe action')
+    const combobox = wrapper.get('[role="combobox"]')
+
+    expect(wrapper.get(`label[for="${combobox.attributes('id')}"]`).text()).toBe('Failsafe action')
   })
 
   it('has a button, drawn as it is asked to be', () => {

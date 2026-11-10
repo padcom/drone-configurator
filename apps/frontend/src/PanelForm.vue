@@ -32,8 +32,9 @@
         />
       </label>
       <div v-else-if="row.kind === 'enum'" class="form-field">
-        <span>{{ row.label }}</span>
+        <label :for="`form-${row.id}`">{{ row.label }}</label>
         <EnumField
+          :input-id="`form-${row.id}`"
           :model-value="row.value"
           :options="row.options"
           :label="row.label"

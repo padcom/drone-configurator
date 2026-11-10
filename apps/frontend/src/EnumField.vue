@@ -3,10 +3,13 @@
     <input
       class="kit-input enum-input"
       :class="{ open, named: name !== undefined }"
+      :id="inputId"
       role="combobox"
       type="text"
       autocomplete="off"
-      :aria-label="label"
+      :aria-label="inputId ? undefined : label"
+      :aria-describedby="nameless ? `${listId}-noname` : undefined"
+      aria-autocomplete="list"
       aria-haspopup="listbox"
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="open ? listId : undefined"
@@ -18,7 +21,8 @@
       @keydown="onKey"
       @blur="onBlur"
     >
-    <span class="badge" aria-hidden="true">{{ badge }}</span>
+    <span class="enum-badge" aria-hidden="true">{{ badge }}</span>
+    <span v-if="nameless" :id="`${listId}-noname`" class="visually-hidden">{{ t('enum.noName') }}</span>
     <Icon class="chevron" name="chevron-down" />
     <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label">
       <button v-if="custom" type="button" class="option custom" tabindex="-1" @mousedown.prevent @click="pick(Number(query))">
@@ -51,7 +55,8 @@
 // A field for a value of the vehicle that is a number with names (a failsafe action, a flight mode): it shows the name,
 // offers the list, and accepts any number, because a vehicle can hold a value that has no name here; a number with no name is
 // shown as it is. Typing filters the list by name or by the start of the number; the arrows move, Enter takes the
-// highlighted row (or a typed number), Escape closes, and leaving the field with a number typed uses it.
+// highlighted row (or a typed number), Escape closes, and leaving the field with a number typed uses it. It takes any number
+// that is typed, 2.5 and -1 as well: a screen whose value is an integer (or never negative) refuses the others itself.
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type EnumOption, chosen, isNumber, matching, moved, nameOf, offersNumber, typedNumber } from './enumField'
@@ -60,8 +65,10 @@ import Icon from './kit/Icon.vue'
 const props = defineProps<{
   /** The options, with the numbers the vehicle stores. */
   options: EnumOption[]
-  /** What the field is, for a screen reader. */
+  /** What the field is, for a screen reader (and for its list). */
   label: string
+  /** The id of the field, when a `<label for>` names it: the label is then that one, not `label`. */
+  inputId?: string
 }>()
 
 const model = defineModel<number>({ required: true })
@@ -74,6 +81,8 @@ const query = ref<string | null>(null)
 const active = ref(-1)
 
 const name = computed(() => nameOf(props.options, model.value))
+/** The field shows a number that has no name: a screen reader is told so (the badge is for the eye). */
+const nameless = computed(() => name.value === undefined && query.value === null)
 const text = computed(() => query.value ?? name.value ?? String(model.value))
 const badge = computed(() => query.value !== null ? '' : name.value === undefined ? t('enum.noName') : String(model.value))
 const shown = computed(() => matching(props.options, query.value ?? ''))
@@ -152,8 +161,20 @@ function enter(event: KeyboardEvent): void {
   }
 }
 
+/**
+ * Escape closes the list, and stays here while it does: in a dialog it would otherwise close the dialog too.
+ *
+ * @param event the key event
+ */
+function escape(event: KeyboardEvent): void {
+  if (open.value) {
+    event.stopPropagation()
+  }
+  close()
+}
+
 /** What each key of the field does. */
-const KEYS: Record<string, (event: KeyboardEvent) => void> = { ArrowDown: arrow, ArrowUp: arrow, Enter: enter, Escape: close }
+const KEYS: Record<string, (event: KeyboardEvent) => void> = { ArrowDown: arrow, ArrowUp: arrow, Enter: enter, Escape: escape }
 
 /**
  * The keys of the field.
