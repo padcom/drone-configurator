@@ -57,10 +57,10 @@ async function shiftF6(): Promise<void> {
 describe('the regions of the Fly screen, with a vehicle connected', () => {
   it('has a map and an aside, and the vehicle telemetry is in the aside', async () => {
     const regions = await app.evaluate<string[]>(`[...document.querySelectorAll('.fly > *')].map(r => r.className)`)
-    const telemetry = await app.waitForText('.fly-aside #telemetry', /Battery\s*\d/u, 30_000)
+    await app.waitForText('.fly-aside #telemetry', /BATTERY\s*\d/u, 30_000)
 
     expect(regions).toEqual(['fly-main', 'fly-aside'])
-    expect(telemetry).toMatch(/Mode\s*\S+/u)
+    expect(await app.text('#top-bar')).toMatch(/MODE\s*\S+/u)
   })
 })
 

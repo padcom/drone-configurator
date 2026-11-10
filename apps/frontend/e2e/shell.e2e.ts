@@ -57,7 +57,7 @@ async function walk(screens: typeof MARKERS): Promise<void> {
 describe('the shell', () => {
   it('starts on Flight data, with the top bar and the navigation', async () => {
     expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
-    await app.waitForText('#telemetry', 'No telemetry')
+    await app.waitForText('#telemetry', 'BATTERY')
     expect(await app.text('#top-bar')).toContain('disconnected')
     expect(await app.evaluate<number>(`document.querySelectorAll('nav a').length`)).toBe(MARKERS.length)
   })

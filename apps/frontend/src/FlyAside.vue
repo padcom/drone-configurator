@@ -1,6 +1,6 @@
 <template>
   <Hud :model="model" :reconnecting="reconnecting" />
-  <div class="fly-cards">
+  <div id="telemetry" class="fly-cards">
     <TruthValue
       v-for="card in cards"
       :key="card.id"
@@ -12,9 +12,6 @@
     />
   </div>
   <MessagesList />
-  <section id="telemetry" class="cards">
-    <TelemetryCards />
-  </section>
 </template>
 
 <script setup lang="ts">
@@ -24,14 +21,14 @@ import { flyCards } from './flyCards'
 import Hud from './hud/Hud.vue'
 import { hudModel } from './hud/model'
 import MessagesList from './MessagesList.vue'
-import TelemetryCards from './TelemetryCards.vue'
 import TruthValue from './TruthValue.vue'
 import { useConfigurator } from './useConfigurator'
 import { useFormat } from './useFormat'
 import { useTelemetry } from './useTelemetry'
 
-// What the Fly aside shows of the vehicle: the heads-up display, the six cards (each with the truth about its value), and,
-// until the Data view takes them over, the full list of values. All of it follows the telemetry once per frame.
+// What the Fly aside shows of the vehicle: the heads-up display, the six cards (each with the truth about its value), and the
+// messages. The display and the cards stay where they are; only the messages scroll (fly.css). All of it follows the
+// telemetry once per frame.
 const { t } = useI18n()
 const f = useFormat()
 const { fields } = useConfigurator()

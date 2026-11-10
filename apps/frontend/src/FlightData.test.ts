@@ -44,11 +44,11 @@ it('has the HUD and the six cards of the design in the aside, all never reported
   expect(cards.map(card => card.get('.visually-hidden').text())).toEqual(Array(6).fill('not reported'))
 })
 
-it('has the telemetry cards in the aside', async () => {
+it('has the six cards as its telemetry, and no other block of values below the messages', async () => {
   const wrapper = await screen()
 
-  expect(wrapper.find('.fly-aside #telemetry').exists()).toBe(true)
-  expect(wrapper.find('#telemetry').text()).toContain('No telemetry')
+  expect(wrapper.find('.fly-aside #telemetry.fly-cards').exists()).toBe(true)
+  expect(wrapper.findAll('.fly-aside > *').map(part => part.classes()[0])).toEqual(['hud', 'fly-cards', 'messages'])
 })
 
 it('has nothing to resize, collapse or drag: no split bars, no pane buttons, no tabs while there is one view', async () => {
