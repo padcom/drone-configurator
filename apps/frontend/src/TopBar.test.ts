@@ -77,6 +77,23 @@ it('shows a dash, not a made-up value, for everything that is not known without 
   expect(wrapper.get('#topbar-disconnect').attributes('disabled')).toBeDefined()
 })
 
+it('offers Disconnect while the link is up or being brought back (it ends the tries), and not otherwise', async () => {
+  const reconnecting: Connection = { state: 'reconnecting', vehicle: { ...VEHICLE }, attempt: 2, nextRetryMs: 2000 }
+  const states: [Connection, boolean][] = [
+    [connected, true],
+    [reconnecting, true],
+    [{ state: 'lost', vehicle: { ...VEHICLE } }, false],
+    [{ state: 'disconnected' }, false],
+  ]
+
+  for (const [connection, offered] of states) {
+    // eslint-disable-next-line no-await-in-loop -- one bar after the other, each on its own Configurator
+    const { wrapper } = await barWith(connection, null)
+
+    expect(wrapper.get('#topbar-disconnect').attributes('disabled') === undefined, connection.state).toBe(offered)
+  }
+})
+
 it('does not show the last mode of a link that is lost, and marks the vehicle cell as a warning', async () => {
   const { vehicle, cells, wrapper } = await barWith({ state: 'lost', vehicle: { ...VEHICLE } }, telemetryAt(10))
 

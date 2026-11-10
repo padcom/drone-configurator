@@ -39,7 +39,7 @@
       </div>
     </dl>
     <div class="actions">
-      <Button id="topbar-disconnect" :disabled="state !== 'connected'" @click="configurator.vehicle.disconnect()">
+      <Button id="topbar-disconnect" :disabled="!canDisconnect" @click="configurator.vehicle.disconnect()">
         {{ t('connection.disconnect') }}
       </Button>
     </div>
@@ -64,6 +64,9 @@ const configurator = useConfigurator()
 const format = useFormat()
 const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)
+// Disconnect also ends the tries to bring a lost link back (the backend stops them: the session ends), so it is offered
+// while they go on too.
+const canDisconnect = computed(() => state.value === 'connected' || state.value === 'reconnecting')
 const vehicle = computed(() => vehicleCellFor(configurator.fields.connection.value, t))
 const cells = computed(() => cellsFor(state.value === 'connected' ? telemetry.value : null, t, format))
 </script>
