@@ -178,7 +178,8 @@ describe('the search', () => {
     await ctrl('/')
 
     await app.waitFor(`document.activeElement?.id === 'filter'`)
-    expect(await app.evaluate<string>(`document.querySelector('#filter').placeholder`)).toBe('Filter parameters (Ctrl+/)')
+    const placeholder = await app.evaluate<string>(`document.querySelector('#filter').placeholder`)
+    expect(placeholder).toBe('Search by name or what it does (Ctrl+/)')
   })
 })
 

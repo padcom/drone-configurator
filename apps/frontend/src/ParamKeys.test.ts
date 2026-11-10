@@ -214,8 +214,12 @@ it('hints the shortcut of the search, and gives the focus to the list on Enter i
   list()
   const input = onPage(ParamFilter).get('#filter')
 
-  expect(input.attributes('placeholder')).toBe('Filter parameters (Ctrl+/)')
+  expect(input.attributes('placeholder')).toBe('Search by name or what it does (Ctrl+/)')
   expect(input.attributes('aria-keyshortcuts')).toBe('Control+/')
+  // Label in Name (WCAG 2.5.3): the accessible name has the words that are seen.
+  const seen = input.attributes('placeholder') ?? ''
+  expect(seen.startsWith(input.attributes('aria-label') ?? '\u0000')).toBe(true)
+  expect(input.attributes('aria-label')).toBe('Search by name or what it does')
   await input.trigger('keydown', { key: 'Enter' })
 
   expect(document.activeElement?.id).toBe('param-list')

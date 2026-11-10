@@ -192,6 +192,21 @@
   text-align: left;
 }
 
+/* The words that were searched for, in the name and in the description, and the mark of a close match. */
+.param-scroll mark {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: 2px;
+}
+
+.param-scroll .why {
+  margin-right: var(--space-2);
+  font-size: var(--font-size-label);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+}
+
 /* The selected row's name is heavier, in the focused list and in the unfocused one: a mark that is not a colour (the unfocused
    row has only a soft tint). The face is mono, so a heavier weight takes no more width (the columns are sized in `ch`). */
 .param-scroll tbody tr.selected .name {

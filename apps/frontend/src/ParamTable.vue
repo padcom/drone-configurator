@@ -47,9 +47,15 @@
           :class="{ selected: row.param.id === fields.selected.value }"
           @click="onRowClick(row.param.id)"
         >
-          <th scope="row" class="name"><span class="prefix">{{ row.name.prefix }}</span>{{ row.name.rest }}</th>
+          <th scope="row" class="name">
+            <span class="prefix"><Marked :text="row.name.prefix" :tokens="tokens" /></span>
+            <Marked :text="row.name.rest" :tokens="tokens" />
+          </th>
           <td class="num">{{ row.param.value }}</td>
-          <td v-if="meaning" class="meaning" :title="row.meaning || undefined">{{ row.meaning }}</td>
+          <td v-if="meaning" class="meaning" :title="row.title || undefined">
+            <span v-if="row.hit?.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
+            <Marked :text="row.shownMeaning" :tokens="tokens" />
+          </td>
         </tr>
         <tr v-if="to < rows.length" class="spacer" aria-hidden="true">
           <td :colspan="columns" :style="{ height: `${(rows.length - to) * ROW_PX}px` }" />
@@ -75,6 +81,9 @@ import EmptyState from './kit/EmptyState.vue'
 import { effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
 import { registerListNav } from './paramListNav'
+import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './paramSearch'
+import type { Param } from './generated/app'
+import Marked from './Marked.vue'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowWindow'
@@ -90,7 +99,26 @@ const choice = useParamGroup()
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
 const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
-const visible = computed(() => visibleParams(params.value, fields.filter.value, group.value))
+// What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
+// a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
+let searchIndex: SearchIndex | null = null
+const tokens = computed(() => tokensOf(fields.filter.value))
+const hits = computed(() => {
+  if (tokens.value.length === 0) {
+    return null
+  }
+  searchIndex = indexFor(searchIndex, params.value.map(param => param.id), fields.metadata.value)
+
+  return search(searchIndex, fields.filter.value)
+})
+const visible = computed(() => {
+  const found = hits.value
+  const byId = found && new Map(params.value.map(param => [param.id, param]))
+
+  return found && byId
+    ? found.map(hit => byId.get(hit.id)).filter(param => param !== undefined)
+    : visibleParams(params.value, '', group.value)
+})
 const meaning = computed(() => fields.metadata.value.size > 0)
 const columns = computed(() => meaning.value ? 3 : 2)
 // The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
@@ -102,11 +130,35 @@ const widths = computed(() => ({
 // What an empty list says to do, by how the download stands: nothing yet (connect), on its way, or failed (press Download).
 const EMPTY_HELP: Record<string, string> = { loading: 'params.empty.loading', failed: 'params.empty.failed' }
 const emptyHelp = computed(() => EMPTY_HELP[fields.list.value] ?? 'params.empty.none')
-const rows = computed(() => visible.value.map(param => ({
-  param,
-  name: splitName(param.id),
-  meaning: fields.metadata.value.get(param.id)?.description ?? '',
-})))
+/**
+ * What a row shows. A result that is there by its description shows the piece of it that has the words (the hit has one only
+ * then), not the start of it.
+ *
+ * The tooltip of the description is the whole description (the long one, for a row that shows a piece of it).
+ *
+ * @param param the parameter
+ * @param texts what the metadata says it is: in a few words, and in full
+ * @param texts.description in a few words
+ * @param texts.full in full
+ * @param hit why it is a result of the search, if it is one
+ * @returns the row
+ */
+function rowOf(param: Param, texts: { description: string, full: string }, hit: SearchHit | undefined) {
+  const piece = hit?.snippet
+  const [shownMeaning, title] = piece ? [piece, texts.full] : [texts.description, texts.description]
+
+  return { param, name: splitName(param.id), shownMeaning, title, hit }
+}
+
+const rows = computed(() => {
+  const why = new Map((hits.value ?? []).map(hit => [hit.id, hit]))
+
+  return visible.value.map(param => {
+    const { description = '', longDescription = description } = fields.metadata.value.get(param.id) ?? {}
+
+    return rowOf(param, { description, full: longDescription }, why.get(param.id))
+  })
+})
 
 // Which rows are drawn: from where the scroll box is scrolled to and how tall it is.
 const scroller = ref<HTMLElement | null>(null)
