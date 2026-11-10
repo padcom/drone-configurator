@@ -41,9 +41,9 @@ describe('the configurator against the simulated vehicle', () => {
 
   it('shows telemetry, the mode named from ArduPilot\'s table', async () => {
     await showScreen(app, 'flight')
-    const telemetry = await app.waitForText('#telemetry', 'Heartbeat')
-    expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
-    expect(telemetry).toMatch(/Battery/u)
+    const telemetry = await app.waitForText('#telemetry', /BATTERY\s*\d/u)
+    expect(telemetry).toMatch(/GPS/u)
+    expect(await app.waitForText('#top-bar', /MODE\s*(?:STABILIZE|LOITER)/u)).toMatch(/BATTERY/u)
   })
 
   it('has the top bar on every screen: the vehicle and its link, the mode', async () => {

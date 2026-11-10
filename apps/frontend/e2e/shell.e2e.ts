@@ -59,7 +59,7 @@ describe('the shell', () => {
     // The router redirects `/` to `/flight` after the window has opened: the hash is waited for, not read once.
     await app.waitFor(`/^#\\/flight$/u.test(location.hash)`)
     expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
-    await app.waitForText('#telemetry', 'No telemetry')
+    await app.waitForText('#telemetry', 'BATTERY')
     expect(await app.text('#top-bar')).toContain('disconnected')
     expect(await app.evaluate<number>(`document.querySelectorAll('nav a').length`)).toBe(MARKERS.length)
   })

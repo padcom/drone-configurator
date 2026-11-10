@@ -214,6 +214,10 @@
       "vibration": "VIBRATION"
     },
     "hdop": "HDOP {hdop}",
+    "heartbeat": "last heartbeat",
+    "heartbeatAge": "{ms} ms ago",
+    "noHeartbeat": "no heartbeat",
+    "lastHeartbeat": "last one {ms} ms before it went quiet",
     "ekf": {
       "healthy": "Healthy",
       "degraded": "Degraded",
@@ -263,30 +267,13 @@
     "disconnect": "Disconnect"
   },
   "telemetry": {
-    "none": "No telemetry: connect to a vehicle.",
     "missing": "—",
     "armed": "ARMED",
     "disarmed": "disarmed",
     "stale": "stale, {seconds} s old",
-    "reconnecting": "last heard, reconnecting",
-    "card": {
-      "mode": "Mode",
-      "state": "State",
-      "battery": "Battery",
-      "attitude": "Attitude",
-      "position": "Position",
-      "gps": "GPS",
-      "speed": "Speed",
-      "heartbeat": "Heartbeat"
-    },
     "value": {
       "voltage": "{voltage} V",
-      "voltageAndCharge": "{voltage} V · {percent}%",
-      "attitude": "roll {roll}° · pitch {pitch}° · yaw {yaw}°",
-      "position": "{lat}° {lon}° · {height} m above home",
-      "gps": "{fix} · {satellites} satellites",
-      "speed": "ground {ground} m/s · air {air} m/s · climb {climb} m/s",
-      "heartbeatAge": "{ms} ms ago"
+      "voltageAndCharge": "{voltage} V · {percent}%"
     },
     "fix": {
       "nogps": "No GPS",

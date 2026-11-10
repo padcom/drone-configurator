@@ -217,12 +217,14 @@ async function connectsAndDownloads(): Promise<void> {
 /** The cable pulled during telemetry: the last values stay, marked, and the same vehicle comes back. */
 async function resumesAfterTelemetryCut(): Promise<void> {
   await showScreen(window(), 'flight')
-  await window().waitForText('#telemetry', /Battery\s*\d/u, RECONNECT_MS)
+  await window().waitForText('#telemetry', /BATTERY\s*\d/u, RECONNECT_MS)
   await cutAndSeeReconnecting()
   expect(await window().text('#connection')).toMatch(/try 1, the next in \d+ s/u)
-  expect(await window().text('#telemetry')).toMatch(/last heard, reconnecting/u)
+  // The display says it in its picture: its tag is text inside the SVG.
+  expect(await window().evaluate<string>(`document.querySelector('.hud').textContent`)).toMatch(/last heard, reconnecting/u)
+  expect(await window().text('#telemetry')).toMatch(/last heard/u)
   await restoreAndSeeResumed()
-  await window().waitFor(`!document.querySelector('#telemetry').textContent.includes('last heard, reconnecting')`, RECONNECT_MS)
+  await window().waitFor(`!document.querySelector('.hud').textContent.includes('last heard, reconnecting')`, RECONNECT_MS)
   await seeWholeList()
 }
 

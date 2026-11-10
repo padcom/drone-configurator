@@ -23,7 +23,8 @@ describe('the interface language', () => {
   it('shows the translated text of the Connect dialog and the telemetry, not message keys', async () => {
     await openConnect(app)
     expect(await app.text('#connect-button')).toBe('Connect')
-    expect(await app.text('#telemetry')).toContain('No telemetry: connect to a vehicle.')
+    expect(await app.text('#telemetry')).toContain('not reported')
+    expect(await app.text('#telemetry')).not.toMatch(/flyCards\.[a-z]/u)
     expect(await app.text('#connect')).not.toMatch(/connection\.[a-z]/u)
     expect(await app.text('dialog')).not.toMatch(/connect\.[a-z]/u)
     await app.click('#connect-cancel')
