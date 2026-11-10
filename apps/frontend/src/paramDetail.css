@@ -7,6 +7,18 @@
   gap: var(--space-3);
 }
 
+.param-detail .param-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.param-detail .description {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
 .param-detail .error {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -58,15 +70,6 @@
   min-height: 48px;
 }
 
-.param-edit-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.param-edit-actions .kit-button {
-  flex: 1;
-}
-
 /* The description: the text and the rows scroll inside a box of their own, so that a long explanation does not push the rest of
    the detail away. */
 .param-description {
@@ -92,11 +95,6 @@
 .param-description .body:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-}
-
-.param-description .summary {
-  margin: 0 0 var(--space-2);
-  font-weight: 600;
 }
 
 .param-description .text {
@@ -134,12 +132,13 @@
   margin-top: var(--space-5);
 }
 
-/* Many changes scroll in their own box, so that the Write button below them stays in view. */
+/* Many changes scroll in their own box, so that the Write button below them stays in view. The padding holds the 44 px trash
+   cans, which reach over their rows (so they do not make the box scroll sideways or up and down); the margin takes it back. */
 .staged-list {
   max-height: 10rem;
-  padding: 0;
-  margin: 0;
-  overflow-y: auto;
+  padding: 12px 8px 12px 0;
+  margin: -12px 0;
+  overflow: hidden auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   list-style: none;
@@ -149,17 +148,36 @@
    the vehicle said about the write is a line under them. */
 .staged-row {
   display: grid;
-  grid-template-columns: 1fr auto 44px;
-  gap: 2px var(--space-3);
+  grid-template-columns: 1fr auto 28px;
+  gap: 0 var(--space-3);
   align-items: center;
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--color-border);
+  line-height: 1.25;
 }
 
 .staged-row .name,
 .staged-row .values {
   font-family: var(--font-mono);
   font-size: var(--font-size-value-sm);
+}
+
+/* The name is a link: it selects the parameter, to edit its value in the Value field. */
+.staged-row .name {
+  justify-self: start;
+  padding: 0;
+  color: var(--color-accent);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.staged-row .name:hover {
+  text-decoration: underline;
+}
+
+.staged-row .name:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .staged-row .from {
@@ -188,10 +206,12 @@
   grid-column: 3;
   align-items: center;
   justify-content: center;
+  /* A 44 px target in a row of a line's height: the button reaches over its neighbours' space instead of making the row tall. */
   width: 44px;
   height: 44px;
   padding: 0;
-  font-size: 18px;
+  margin: -12px -8px -12px -8px;
+  font-size: 16px;
   color: var(--color-text-muted);
   cursor: pointer;
   background: transparent;
@@ -226,22 +246,51 @@
   min-height: 48px;
 }
 
-/* The related parameters: the last row of the description, inside its scrolling box. */
-.param-description .row .related-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-4);
+/* The related parameters, inside the scrolling box of the description: a line each, as close as the lines of the messages, in
+   two columns: the name (a button that selects the parameter) and what it is, cut short with an ellipsis. */
+.param-description .related {
+  margin-top: var(--space-3);
+}
+
+.param-description .related-label {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.related-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.related-line {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0 var(--space-3);
+  align-items: baseline;
+  font-size: var(--font-size-md);
+  line-height: 1.25;
 }
 
 .related-item {
-  min-height: 44px;
   padding: 0;
+  font: inherit;
   font-family: var(--font-mono);
   font-size: var(--font-size-value-sm);
   color: var(--color-accent);
+  text-align: left;
   cursor: pointer;
   background: transparent;
   border: 0;
+}
+
+.related-text {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .related-item:focus-visible {

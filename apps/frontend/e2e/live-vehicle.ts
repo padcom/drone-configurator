@@ -5,7 +5,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { cancelConfirm, chooseConnection, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
+import {
+  askToWriteQueued,
+  cancelConfirm,
+  chooseConnection,
+  clickConnect,
+  confirmWrite,
+  queueValue,
+  showScreen,
+  waitForQueuedWritten,
+} from './click'
 import type { Endpoint } from './endpoint'
 import { switchRounds } from './switch'
 
@@ -33,12 +42,10 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   const row = `tr[data-id="${vehicle.param}"]`
 
   async function write(from: number, to: number): Promise<void> {
-    await app.click(row)
-    await app.fill('#draft', String(to))
-    await app.click('#write')
-    await app.waitForText('#question', `Set ${vehicle.param} from ${from} to ${to}?`)
+    await queueValue(app, vehicle.param, from, to)
+    await askToWriteQueued(app, [vehicle.param])
     await confirmWrite(app)
-    await waitForWritten(app, row, to, vehicle.downloadTimeoutMs)
+    await waitForQueuedWritten(app, vehicle.param, to, vehicle.downloadTimeoutMs)
   }
 
   function currentValue(): Promise<number> {

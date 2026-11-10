@@ -14,9 +14,7 @@ export interface DescriptionRow {
 
 /** The block. */
 export interface DescriptionBlock {
-  /** What the parameter is, in a few words, when the metadata also has a longer explanation. */
-  summary: string | null
-  /** The explanation: the long description, or the short one when that is all there is. */
+  /** The long explanation (the short description is at the top of the detail, not repeated here). */
   text: string | null
   /** The facts. */
   rows: DescriptionRow[]
@@ -107,22 +105,8 @@ function nameRows(meta: ParamMeta, translate: Translate): DescriptionRow[] {
 }
 
 /**
- * The words of a parameter: the short description above the long one, or alone as the text when there is no long one.
- *
- * @param meta what is known of the parameter
- * @returns the summary and the text
- */
-function wordsOf(meta: ParamMeta): Pick<DescriptionBlock, 'summary' | 'text'> {
-  if (meta.longDescription) {
-    return { summary: meta.description ?? null, text: meta.longDescription }
-  }
-
-  return { summary: null, text: meta.description ?? null }
-}
-
-/**
- * The rows and the text of a parameter that the metadata knows: the short description is a line of its own above the long
- * one, and is the text itself when there is no long one.
+ * The rows and the text of a parameter that the metadata knows: the long description (the short one is at the top of the
+ * detail, so a parameter that has only that has nothing missing here).
  *
  * @param meta what is known of the parameter
  * @param translate looks up a message
@@ -131,10 +115,10 @@ function wordsOf(meta: ParamMeta): Pick<DescriptionBlock, 'summary' | 'text'> {
 function knownBlock(meta: ParamMeta, translate: Translate): DescriptionBlock {
   const restart = meta.rebootRequired ? [translate('description.rebootYes')] : []
   const rows = [...sizeRows(meta, translate), ...nameRows(meta, translate), ...row(translate('description.reboot'), restart)]
-  const words = wordsOf(meta)
-  const nothing = words.text === null && rows.length === 0
+  const text = meta.longDescription ?? null
+  const shown = [text, meta.description, rows[0]].some(part => part !== null && part !== undefined)
 
-  return { ...words, rows, hint: nothing ? translate('description.hintMissing') : '' }
+  return { text, rows, hint: shown ? '' : translate('description.hintMissing') }
 }
 
 /**
@@ -150,5 +134,5 @@ export function descriptionOf(meta: ParamMeta | undefined, loaded: boolean, tran
     return knownBlock(meta, translate)
   }
 
-  return { summary: null, text: null, rows: [], hint: translate(loaded ? 'description.hintMissing' : 'description.hintNone') }
+  return { text: null, rows: [], hint: translate(loaded ? 'description.hintMissing' : 'description.hintNone') }
 }

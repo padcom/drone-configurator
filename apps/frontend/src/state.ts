@@ -3,7 +3,7 @@
 import type { Connection, Param, SerialPort, Telemetry } from './generated/app'
 import type { Metadata } from './metadata'
 import type { Review } from './snapshot'
-import type { ListState, WriteStatus } from './useParams'
+import type { ListState } from './useParams'
 
 /** How a change of a snapshot went when it was applied. */
 export interface AppliedChange {
@@ -35,10 +35,6 @@ export interface State {
   draftError: string | null
   /** What the metadata finds unusual about the draft (outside its range, not among its values); the write is still allowed. */
   draftWarning: string | null
-  /** Whether a write is under way. */
-  writing: boolean
-  /** How the last write went. */
-  lastWrite: WriteStatus | null
   /** The latest telemetry. */
   telemetry: Telemetry | null
   /** Why the last thing failed. */

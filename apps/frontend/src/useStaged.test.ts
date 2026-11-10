@@ -47,6 +47,9 @@ function fakeParameters(params: ShallowRef<Param[]>) {
     draftError,
     draftWarning,
     refreshWarning: () => draftWarning.value,
+    editDraft: (text: string) => {
+      draft.value = text
+    },
     lock,
     selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
     replace: (param: Param) => {
@@ -96,7 +99,7 @@ describe('adding to the changes', () => {
     const { staged, pick, call } = rig((_id, value) => value)
 
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
 
     expect(staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
     expect(call).not.toHaveBeenCalled()
@@ -106,44 +109,75 @@ describe('adding to the changes', () => {
     const { staged, pick } = rig((_id, value) => value)
 
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     pick('FENCE_RADIUS', '300')
-    staged.stage()
+    staged.sync()
     pick('RTL_ALT', '1700')
-    staged.stage()
+    staged.sync()
 
     expect(staged.changes.value.map(change => [change.id, change.to])).toEqual([['FENCE_RADIUS', 300], ['RTL_ALT', 1700]])
   })
 })
 
-describe('a draft that cannot be added', () => {
-  it('refuses a draft that is not a value, is empty, is the value already there, or has a problem', () => {
+describe('a draft that does not change the queue', () => {
+  it('leaves the changes as they are for a draft that is empty, has a problem, or is for a parameter that is not there', () => {
     const { staged, pick, draftError } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
 
     pick('RTL_ALT', '')
-    expect(staged.canStage()).toBe(false)
-    pick('RTL_ALT', '1500')
-    expect(staged.canStage()).toBe(false)
+    staged.sync()
     pick('RTL_ALT', 'abc')
     draftError.value = 'a number, please'
-    expect(staged.canStage()).toBe(false)
+    staged.sync()
     draftError.value = null
-    pick('RTL_ALT', '1600')
-    expect(staged.canStage()).toBe(true)
-    staged.stage()
     pick('NOT_THERE', '3')
-    staged.stage()
-    expect(staged.changes.value).toHaveLength(1)
+    staged.sync()
+
+    expect(staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
   })
 
   it('lets a change be taken out again while nothing is being written', () => {
     const { staged, pick } = rig((_id, value) => value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
 
     staged.discard('RTL_ALT')
 
     expect(staged.changes.value).toEqual([])
+  })
+})
+
+describe('a draft put back to the value the vehicle has', () => {
+  it('takes its change out', () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+
+    pick('RTL_ALT', '1500')
+    staged.sync()
+
+    expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+  })
+
+  it('leaves a change that was written, with its result, and a new value replaces it', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+    await staged.writeAll()
+
+    // The vehicle reports 300 now: the draft is at the vehicle's value, and the written change stays.
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+    expect(outcomes(staged)).toEqual([['FENCE_RADIUS', 'verified']])
+    expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+
+    pick('FENCE_RADIUS', '150')
+    staged.sync()
+    expect(staged.changes.value.map(change => [change.id, change.to])).toEqual([['FENCE_RADIUS', 150]])
+    expect(outcomes(staged)).toEqual([])
   })
 })
 
@@ -152,11 +186,10 @@ describe('a draft the metadata finds unusual', () => {
     const { staged, pick, draftWarning, askedOnce } = rig((_id, value) => value)
     pick('RTL_ALT', '20')
     draftWarning.value = 'Outside the usual range 30–300000 cm'
-    expect(staged.canStage()).toBe(true)
-    staged.stage()
+    staged.sync()
     pick('FENCE_RADIUS', '300')
     draftWarning.value = null
-    staged.stage()
+    staged.sync()
 
     await staged.writeAll()
 
@@ -170,9 +203,9 @@ describe('writing the changes', () => {
   it('asks once, naming every parameter, and writes them in order, each read back', async () => {
     const { staged, pick, call, askedOnce, params } = rig((_id, value) => value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     pick('FENCE_RADIUS', '300')
-    staged.stage()
+    staged.sync()
 
     await staged.writeAll()
 
@@ -193,9 +226,9 @@ describe('a write that is not confirmed', () => {
   it('stops at the first change the vehicle does not read back, and does not write the rest', async () => {
     const { staged, pick, call } = rig((id, value) => id === 'RTL_ALT' ? 1599 : value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     pick('FENCE_RADIUS', '300')
-    staged.stage()
+    staged.sync()
 
     await staged.writeAll()
 
@@ -208,7 +241,7 @@ describe('a write that is not confirmed', () => {
     let fails = true
     const { staged, pick, call } = rig((_id, value) => fails ? new Error('TIMEOUT: no reply') : value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
 
     await staged.writeAll()
     expect(staged.results.value[0]).toMatchObject({ outcome: 'failed' })
@@ -227,7 +260,7 @@ describe('a write that does not start or that is done', () => {
 
     await staged.writeAll()
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     await staged.writeAll()
 
     expect(call).not.toHaveBeenCalled()
@@ -237,11 +270,11 @@ describe('a write that does not start or that is done', () => {
   it('clears what was written away when the next change is added', async () => {
     const { staged, pick } = rig((_id, value) => value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     await staged.writeAll()
 
     pick('FENCE_RADIUS', '300')
-    staged.stage()
+    staged.sync()
 
     expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
     expect(staged.results.value).toEqual([])
@@ -254,7 +287,7 @@ describe('a retry after a partial write', () => {
     const { staged, pick, call, askedOnce } = rig((id, value) => id === 'FENCE_RADIUS' && flaky ? new Error('TIMEOUT') : value)
     for (const [id, text] of [['RTL_ALT', '1600'], ['FENCE_RADIUS', '300'], ['BATT_CAPACITY', '6000']]) {
       pick(id as string, text as string)
-      staged.stage()
+      staged.sync()
     }
 
     await staged.writeAll()
@@ -275,11 +308,11 @@ describe('a row that was not confirmed', () => {
   it('keeps why when another change is added', async () => {
     const { staged, pick } = rig((id, value) => id === 'RTL_ALT' ? new Error('TIMEOUT') : value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     await staged.writeAll()
 
     pick('FENCE_RADIUS', '300')
-    staged.stage()
+    staged.sync()
 
     expect(staged.results.value.map(result => [result.id, result.outcome])).toEqual([['RTL_ALT', 'failed']])
     expect(staged.changes.value.map(change => change.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS'])
@@ -290,7 +323,7 @@ describe('another write under way', () => {
   it('does not start while a single write or a snapshot holds the lock, and gives the lock back when it is done', async () => {
     const { staged, pick, call, lock } = rig((_id, value) => value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     const release = lock.take()
 
     await staged.writeAll()
@@ -310,7 +343,7 @@ describe('another write under way', () => {
       return value
     }, false)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
 
     await staged.writeAll()
 
@@ -335,7 +368,7 @@ describe('the session of the staged changes', () => {
   it('forgets every change and result with reset', async () => {
     const { staged, pick } = rig((_id, value) => value)
     pick('RTL_ALT', '1600')
-    staged.stage()
+    staged.sync()
     await staged.writeAll()
 
     staged.reset()
@@ -355,9 +388,9 @@ describe('a run that the session ends', () => {
     })
     ender.reset = () => first.staged.reset()
     first.pick('RTL_ALT', '1600')
-    first.staged.stage()
+    first.staged.sync()
     first.pick('FENCE_RADIUS', '300')
-    first.staged.stage()
+    first.staged.sync()
 
     await first.staged.writeAll()
 

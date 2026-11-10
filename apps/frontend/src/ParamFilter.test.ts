@@ -30,6 +30,16 @@ it('passes on what is typed, and shows the filter the Configurator holds', async
   expect((wrapper.get('#filter').element as HTMLInputElement).value).toBe('rtl')
 })
 
+it('has Download as the kit\'s default button, like Save snapshot (no accent or primary fill)', () => {
+  const { wrapper } = filterWithSpies()
+  const classes = wrapper.get('#refresh').classes()
+
+  expect(classes).toContain('kit-button')
+  expect(classes).not.toContain('primary')
+  expect(classes).not.toContain('flight')
+  expect(wrapper.get('#refresh').text()).toBe('Download')
+})
+
 it('offers Download only while connected and not downloading', async () => {
   const { wrapper, handle, refresh } = filterWithSpies()
   expect(wrapper.get('#refresh').attributes('disabled')).toBeDefined()

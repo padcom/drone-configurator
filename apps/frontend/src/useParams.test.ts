@@ -20,8 +20,6 @@ async function rig(connected = true, options: MockOptions = {}) {
   const deps = {
     client,
     fail: (message: string | null) => failures.push(message),
-    isConnected: () => connected,
-    confirm: vi.fn().mockResolvedValue(true),
     problemWith: vi.fn((): string | null => null),
     warningWith: vi.fn((): string | null => null),
   }
@@ -64,18 +62,18 @@ it('selects a parameter and drafts its value; an unknown one clears the selectio
   expect(parameters.draft.value).toBe('')
 })
 
-it('forgets how the last write went when another parameter is selected, and when it is selected again', async () => {
+it('keeps what was typed when the selected parameter is pressed again, and starts over for another one', async () => {
   const { parameters } = await rig()
   await parameters.refresh()
   parameters.select('RTL_ALT')
-  parameters.lastWrite.value = { kind: 'verified', id: 'RTL_ALT', value: 1600 }
+  parameters.editDraft('1600')
 
   parameters.select('RTL_ALT')
-  expect(parameters.lastWrite.value).not.toBeNull()
+  expect(parameters.draft.value).toBe('1600')
   parameters.select('BATT_CAPACITY')
-  expect(parameters.lastWrite.value).toBeNull()
+  expect(parameters.draft.value).toBe('5200')
   parameters.select('RTL_ALT')
-  expect(parameters.lastWrite.value).toBeNull()
+  expect(parameters.draft.value).toBe('1500')
 })
 
 it('narrows the list with the filter, case-insensitively', async () => {
@@ -100,7 +98,7 @@ it('keeps what was typed, and the problem with it, for the selected parameter', 
   expect(deps.problemWith).toHaveBeenCalledWith(expect.objectContaining({ id: 'RTL_ALT' }), 'abc')
 })
 
-it('keeps a warning from the metadata beside the draft, which does not stop the write and is said in the question', async () => {
+it('keeps a warning from the metadata beside the draft, but none for the value the vehicle has', async () => {
   const { parameters, deps } = await rig()
   await parameters.refresh()
   parameters.select('RTL_ALT')
@@ -111,67 +109,16 @@ it('keeps a warning from the metadata beside the draft, which does not stop the 
   expect(parameters.draftError.value).toBeNull()
   expect(parameters.draftWarning.value).toBe('Outside the usual range 30–300000 cm')
 
-  await parameters.write()
-
-  expect(deps.confirm).toHaveBeenCalledWith('Set RTL_ALT from 1500 to 20? Outside the usual range 30–300000 cm.')
-  expect(parameters.lastWrite.value).toEqual({ kind: 'verified', id: 'RTL_ALT', value: 20 })
-
-  parameters.select('RTL_ALT')
+  // Back at the value the vehicle has: nothing is unusual about it, whatever the metadata says.
+  parameters.editDraft('1500')
   expect(parameters.draftWarning.value).toBeNull()
-})
 
-it('writes after the user confirms, and the read-back decides the outcome', async () => {
-  const { parameters, deps } = await rig()
-  await parameters.refresh()
-  parameters.select('RTL_ALT')
-  parameters.editDraft('1600')
-
-  await parameters.write()
-
-  expect(deps.confirm).toHaveBeenCalledWith('Set RTL_ALT from 1500 to 1600?')
-  expect(parameters.writing.value).toBe(false)
-  expect(parameters.lastWrite.value).toEqual({ kind: 'verified', id: 'RTL_ALT', value: 1600 })
-  expect(parameters.params.value.find(p => p.id === 'RTL_ALT')?.value).toBe(1600)
-})
-
-it('writes nothing when the user says no, when the draft is invalid, or when no vehicle is connected', async () => {
-  const { parameters, deps } = await rig()
-  await parameters.refresh()
-  parameters.select('RTL_ALT')
-  parameters.editDraft('1600')
-  deps.confirm.mockResolvedValue(false)
-
-  await parameters.write()
-  expect(parameters.lastWrite.value).toBeNull()
-  expect(parameters.writing.value).toBe(false)
-
-  deps.confirm.mockClear()
-  deps.problemWith.mockReturnValue('INT16 goes from -32768 to 32767')
-  await parameters.write()
-  expect(deps.confirm).not.toHaveBeenCalled()
-  expect(parameters.draftError.value).toBe('INT16 goes from -32768 to 32767')
-
-  const offline = await rig(false)
-  offline.parameters.select('RTL_ALT')
-  await offline.parameters.write()
-  expect(offline.deps.confirm).not.toHaveBeenCalled()
-})
-
-it('reports a value the vehicle changed or refused, and a write that got no answer', async () => {
-  const changed = await rig(true, { rounding: ['RTL_ALT'] })
-  await changed.parameters.refresh()
-  changed.parameters.select('RTL_ALT')
-  changed.parameters.editDraft('1600.5')
-  await changed.parameters.write()
-  expect(changed.parameters.lastWrite.value).toMatchObject({ kind: 'changed', id: 'RTL_ALT', asked: 1600.5 })
-
-  const silent = await rig(true, { silent: ['RTL_ALT'] })
-  await silent.parameters.refresh()
-  silent.parameters.select('RTL_ALT')
-  silent.parameters.editDraft('1600')
-  await silent.parameters.write()
-  expect(silent.parameters.lastWrite.value).toMatchObject({ kind: 'failed', id: 'RTL_ALT' })
-  expect(silent.parameters.writing.value).toBe(false)
+  // A new selection starts with the vehicle's own value: nothing unusual.
+  parameters.editDraft('20')
+  parameters.select('BATT_CAPACITY')
+  expect(parameters.draftWarning.value).toBeNull()
+  parameters.editDraft('20')
+  expect(parameters.draftWarning.value).toBe('Outside the usual range 30–300000 cm')
 })
 
 it('follows a parameter the vehicle announces, and the draft too unless it is being edited', async () => {
@@ -192,14 +139,10 @@ it('follows a parameter the vehicle announces, and the draft too unless it is be
   expect(parameters.params.value.at(-1)?.id).toBe('NEW_ONE')
 })
 
-it('replaces a parameter by its newer self, and can stop a write that cannot finish any more', async () => {
+it('replaces a parameter by its newer self', async () => {
   const { parameters } = await rig()
   await parameters.refresh()
 
   parameters.replace({ ...parameters.params.value[0]!, value: 42 })
   expect(parameters.params.value[0]?.value).toBe(42)
-
-  parameters.writing.value = true
-  parameters.stopWriting()
-  expect(parameters.writing.value).toBe(false)
 })

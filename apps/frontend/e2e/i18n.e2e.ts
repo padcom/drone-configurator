@@ -46,7 +46,7 @@ describe('the parameter list and the editor', () => {
     expect(await app.text('#list-status')).toBe('Connect to download the parameters.')
     expect(await app.text('#refresh')).toBe('Download')
     expect(await app.text('#detail')).toBe('Select a parameter to see or change it.')
-    expect(await app.text('#write')).toBe('Write')
+    expect(await app.text('#write-staged')).toBe('Write 0 and verify')
   })
 
   it('show the file buttons and the import panel as text, not message keys', async () => {

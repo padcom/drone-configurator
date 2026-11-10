@@ -26,7 +26,7 @@ function stateOf(handle: ConfiguratorHandle): State {
  * @returns the actions and the state
  */
 function actionsOf(handle: ConfiguratorHandle) {
-  const { vehicle, parameters, metadata, snapshots } = handle
+  const { vehicle, parameters, metadata, snapshots, staged } = handle
 
   return {
     get state() {
@@ -39,7 +39,12 @@ function actionsOf(handle: ConfiguratorHandle) {
     setFilter: parameters.setFilter.bind(parameters),
     select: parameters.select.bind(parameters),
     editDraft: parameters.editDraft.bind(parameters),
-    write: parameters.write.bind(parameters),
+    staged,
+    // The one way to write: the draft is queued, and the queue is written after its one question.
+    async write() {
+      staged.sync()
+      await staged.writeAll()
+    },
     visible: parameters.visible.bind(parameters),
     loadMetadata: metadata.load.bind(metadata),
     snapshot: snapshots.snapshot.bind(snapshots),
@@ -222,7 +227,7 @@ describe('a backend restart', () => {
     expect(app.state.notice).toBeNull()
   })
 
-  it('reports a write pending across the restart as unconfirmed, and doesn\'t send it again', async () => {
+  it('never reports a write pending across the restart as done, and doesn\'t send it again', async () => {
     const control: MockControl = {}
     const { app } = await connected({ control, silent: ['RTL_ALT'] })
     app.select('RTL_ALT')
@@ -231,8 +236,10 @@ describe('a backend restart', () => {
     await sleep(5)
     control.restart!()
     await writing
-    expect(app.state.lastWrite).toMatchObject({ kind: 'failed', id: 'RTL_ALT' })
-    expect(app.state.lastWrite?.kind === 'failed' && app.state.lastWrite.message).toContain('DISCONNECTED')
+    // Nothing was read back, so nothing is done: the change is still there to be written again on the user's word.
+    expect(app.staged.results.value.some(result => result.outcome === 'verified')).toBe(false)
+    expect(app.staged.writing.value).toBe(false)
+    expect(app.staged.changes.value.map(change => [change.id, change.to])).toEqual([['RTL_ALT', 2000]])
   })
 })
 
@@ -276,8 +283,8 @@ describe('editing', () => {
     expect(app.state.draftError).toBeNull()
     expect(app.state.draftWarning).toBe('Outside the usual range 200–… cm')
     await app.write()
-    expect(questions).toEqual(['Set RTL_ALT from 1500 to 100? Outside the usual range 200–… cm.'])
-    expect(app.state.lastWrite).toEqual({ kind: 'verified', id: 'RTL_ALT', value: 100 })
+    expect(questions).toEqual(['Write 1 parameter to the vehicle (RTL_ALT)? RTL_ALT: Outside the usual range 200–… cm.'])
+    expect(app.staged.results.value).toEqual([{ id: 'RTL_ALT', outcome: 'verified', detail: '100' }])
     app.loadMetadata('{')
     expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
   })
@@ -289,26 +296,28 @@ describe('writing a parameter', () => {
     app.select('WPNAV_SPEED')
     app.editDraft('750')
     await app.write()
-    expect(questions).toEqual(['Set WPNAV_SPEED from 1000 to 750?'])
-    expect(app.state.lastWrite).toEqual({ kind: 'verified', id: 'WPNAV_SPEED', value: 750 })
+    expect(questions).toEqual(['Write 1 parameter to the vehicle (WPNAV_SPEED)?'])
+    expect(app.staged.results.value).toEqual([{ id: 'WPNAV_SPEED', outcome: 'verified', detail: '750' }])
     expect(app.state.params.find(p => p.id === 'WPNAV_SPEED')!.value).toBe(750)
   })
 
-  it('writes nothing when the user cancels', async () => {
+  it('writes nothing when the user cancels, and keeps the change queued', async () => {
     const { app } = await connected({}, false)
     app.select('RTL_ALT')
     app.editDraft('2000')
     await app.write()
-    expect(app.state.lastWrite).toBeNull()
+    expect(app.staged.results.value).toEqual([])
+    expect(app.staged.changes.value.map(change => [change.id, change.to])).toEqual([['RTL_ALT', 2000]])
     expect(app.state.params.find(p => p.id === 'RTL_ALT')!.value).toBe(1500)
   })
 
-  it('refuses an invalid draft without asking', async () => {
+  it('queues nothing for an invalid draft, and asks nothing', async () => {
     const { app, questions } = await connected()
     app.select('FENCE_ENABLE')
     app.editDraft('300')
     await app.write()
     expect(questions).toEqual([])
+    expect(app.staged.changes.value).toEqual([])
     expect(app.state.draftError).toBe('INT8 goes from -128 to 127')
   })
 })
@@ -319,7 +328,9 @@ describe('what the vehicle answers to a write', () => {
     app.select('LOIT_SPEED')
     app.editDraft('1000.6')
     await app.write()
-    expect(app.state.lastWrite).toEqual({ kind: 'changed', id: 'LOIT_SPEED', asked: 1000.6, reported: 1001 })
+    expect(app.staged.results.value).toEqual([
+      { id: 'LOIT_SPEED', outcome: 'changed', detail: 'the vehicle reports 1001, not 1000.6' },
+    ])
   })
 
   it('reports an unconfirmed write as such, never as success', async () => {
@@ -327,7 +338,7 @@ describe('what the vehicle answers to a write', () => {
     app.select('BATT_CAPACITY')
     app.editDraft('4000')
     await app.write()
-    expect(app.state.lastWrite?.kind).toBe('failed')
-    expect(app.state.writing).toBe(false)
+    expect(app.staged.results.value.map(result => [result.id, result.outcome])).toEqual([['BATT_CAPACITY', 'failed']])
+    expect(app.staged.writing.value).toBe(false)
   })
 })

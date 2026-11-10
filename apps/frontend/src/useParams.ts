@@ -1,16 +1,12 @@
-// The vehicle's parameters: the list and how its download went, the filter and the selection, the draft of a new value,
-// and writing it. It talks to the backend through the client (docs/frontend-state.md).
+// The vehicle's parameters: the list and how its download went, the filter and the selection, and the draft of a new value
+// (what is typed, why it is not a value, what the metadata finds unusual about it). A change is written through the staged
+// changes (useStaged.ts), which share the write lock kept here. It talks to the backend through the client
+// (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
-import type { Param, ParamWriteResult } from './generated/app'
+import type { Param } from './generated/app'
 import { visibleParams } from './paramList'
 import { type WriteLock, createWriteLock } from './writeLock'
-
-/** How the last write went. */
-export type WriteStatus
-  = | { kind: 'verified', id: string, value: number }
-    | { kind: 'changed', id: string, asked: number, reported: number }
-    | { kind: 'failed', id: string, message: string }
 
 /** How the parameter list stands: `loading`, or how the last download ended. */
 export type ListState = 'none' | 'loading' | 'complete' | 'incomplete' | 'failed'
@@ -21,11 +17,7 @@ export interface ParamsDeps {
   client: BackendClient
   /** Records why the last thing failed. */
   fail: (message: string | null) => void
-  /** Whether a vehicle is connected. */
-  isConnected: () => boolean
-  /** Asks the user to confirm `question`; a write goes ahead only on true. */
-  confirm: (question: string) => Promise<boolean>
-  /** Why `text` isn't a valid new value for `param` (its type, then its metadata), or null. */
+  /** Why `text` isn't a valid new value for `param` (its type), or null. */
   problemWith: (param: Param, text: string) => string | null
   /** What the metadata finds unusual about `text` as a value for `param` (a warning: the write is still allowed), or null. */
   warningWith: (param: Param, text: string) => string | null
@@ -49,11 +41,7 @@ export interface ParamsModel {
   readonly draftError: ShallowRef<string | null>
   /** What the metadata finds unusual about the draft (outside its range, not among its values), or null. */
   readonly draftWarning: ShallowRef<string | null>
-  /** Whether a write is under way. */
-  readonly writing: ShallowRef<boolean>
-  /** How the last write went. */
-  readonly lastWrite: ShallowRef<WriteStatus | null>
-  /** Held by whichever write is under way (this one, the changes collected, a snapshot): no other starts meanwhile. */
+  /** Held by whichever write is under way (the changes collected, a snapshot): no other starts meanwhile. */
   readonly lock: WriteLock
   /** Downloads the list again. */
   refresh: () => Promise<void>
@@ -65,32 +53,14 @@ export interface ParamsModel {
   editDraft: (text: string) => void
   /** Reads again what the metadata finds unusual about the draft (the metadata may have changed), and gives it. */
   refreshWarning: () => string | null
-  /** Writes the draft after the user confirms; the vehicle's read-back decides the outcome. */
-  write: () => Promise<void>
   /** A parameter the vehicle announced on its own (another ground station changed it). */
   announced: (param: Param) => void
   /** Replaces a parameter by its newer self (after a write). */
   replace: (param: Param) => void
-  /** A write cannot be under way any more (the vehicle is gone). */
-  stopWriting: () => void
   /** The parameters matching the filter. */
   visible: () => Param[]
   /** The selected parameter, or null. */
   selectedParam: () => Param | null
-}
-
-/**
- * How a write ended, for the interface.
- *
- * @param param the parameter written
- * @param asked the value asked for
- * @param result what the vehicle reported after the write
- * @returns the status
- */
-function statusOf(param: Param, asked: number, result: ParamWriteResult): WriteStatus {
-  return result.verified
-    ? { kind: 'verified', id: param.id, value: result.param.value }
-    : { kind: 'changed', id: param.id, asked, reported: result.param.value }
 }
 
 /** The parameters. */
@@ -103,8 +73,6 @@ class Parameters implements ParamsModel {
   readonly draft = shallowRef('')
   readonly draftError = shallowRef<string | null>(null)
   readonly draftWarning = shallowRef<string | null>(null)
-  readonly writing = shallowRef(false)
-  readonly lastWrite = shallowRef<WriteStatus | null>(null)
   readonly lock = createWriteLock()
 
   /**
@@ -134,22 +102,23 @@ class Parameters implements ParamsModel {
 
   select(id: string): void {
     const param = this.params.value.find(candidate => candidate.id === id)
-    this.selected.value = param ? id : null
-    this.draft.value = param ? String(param.value) : ''
-    this.draftError.value = null
-    this.draftWarning.value = null
-    this.forgetOtherWrites(id)
+    // Pressing the parameter that is selected already keeps what was typed for it.
+    if (param && id === this.selected.value) {
+      return
+    }
+    this.show(param)
   }
 
   /**
-   * How the last write went belongs to the parameter it was for: going to another one (and back) starts clean.
+   * Makes a parameter the selected one, with its value in the draft and nothing said about the draft yet.
    *
-   * @param id the parameter now selected
+   * @param param the parameter, or undefined for none
    */
-  private forgetOtherWrites(id: string): void {
-    if (this.lastWrite.value?.id !== id) {
-      this.lastWrite.value = null
-    }
+  private show(param: Param | undefined): void {
+    this.selected.value = param?.id ?? null
+    this.draft.value = param === undefined ? '' : String(param.value)
+    this.draftError.value = null
+    this.refreshWarning()
   }
 
   editDraft(text: string): void {
@@ -159,93 +128,24 @@ class Parameters implements ParamsModel {
     this.refreshWarning()
   }
 
+  /**
+   * Whether the draft is the value the vehicle has already (which is not unusual, whatever the metadata says of it).
+   *
+   * @param param the selected parameter
+   * @returns true if the draft is that number
+   */
+  private isCurrent(param: Param): boolean {
+    const text = this.draft.value.trim()
+
+    return text !== '' && Number(text) === param.value
+  }
+
   refreshWarning(): string | null {
     const param = this.selectedParam()
-    const warning = param ? this.deps.warningWith(param, this.draft.value) : null
+    const warning = param && !this.isCurrent(param) ? this.deps.warningWith(param, this.draft.value) : null
     this.draftWarning.value = warning
 
     return warning
-  }
-
-  /**
-   * Sends the write and records how it went.
-   *
-   * @param param the parameter
-   * @param value the new value
-   */
-  private async send(param: Param, value: number): Promise<void> {
-    const { id, kind, type } = param
-    try {
-      const result = await this.deps.client.call('params.write', { id, kind, type, value })
-      this.replace(result.param)
-      this.lastWrite.value = statusOf(param, value, result)
-      this.draft.value = String(result.param.value)
-    } catch (error) {
-      this.lastWrite.value = { kind: 'failed', id, message: describeError(error) }
-    }
-    this.writing.value = false
-  }
-
-  /**
-   * The selected parameter, if a write can start now: a vehicle is connected and no write is under way.
-   *
-   * @returns the parameter, or null
-   */
-  private startable(): Param | null {
-    const param = this.selectedParam()
-
-    return param && this.canStartWrite() ? param : null
-  }
-
-  /**
-   * Whether a write could start now: a vehicle is connected and no write (single, collected, snapshot) is under way.
-   *
-   * @returns true if it could
-   */
-  private canStartWrite(): boolean {
-    return this.deps.isConnected() && !this.writing.value && !this.lock.busy.value
-  }
-
-  async write(): Promise<void> {
-    const param = this.startable()
-    if (!param) {
-      return
-    }
-    const problem = this.deps.problemWith(param, this.draft.value)
-    if (problem) {
-      this.draftError.value = problem
-
-      return
-    }
-    // The metadata's view is read again now, so that the question is true to the metadata as it is.
-    await this.writeLocked(param, Number(this.draft.value.trim()), this.refreshWarning())
-  }
-
-  /**
-   * Asks, and writes, while no other write (the changes collected, a snapshot) is under way. The lock is taken after the
-   * answer, not before the question: the question is a modal dialog, which nothing else can start behind, and a Write button
-   * that is turned off while it is open would lose the focus that the dialog gives back to it.
-   *
-   * @param param the parameter
-   * @param value the new value
-   * @param warning what the metadata finds unusual about it, which the question says
-   */
-  private async writeLocked(param: Param, value: number, warning: string | null): Promise<void> {
-    const question = `Set ${param.id} from ${param.value} to ${value}?${warning ? ` ${warning}.` : ''}`
-    if (!await this.deps.confirm(question)) {
-      return
-    }
-    const release = this.lock.take()
-    if (!release) {
-      return
-    }
-    try {
-      this.writing.value = true
-      this.lastWrite.value = null
-      await this.send(param, value)
-    } finally {
-      release()
-    }
   }
 
   /**
@@ -273,10 +173,6 @@ class Parameters implements ParamsModel {
 
   replace(param: Param): void {
     this.params.value = this.params.value.map(candidate => candidate.id === param.id ? param : candidate)
-  }
-
-  stopWriting(): void {
-    this.writing.value = false
   }
 
   visible(): Param[] {

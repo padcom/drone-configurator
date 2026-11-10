@@ -11,7 +11,6 @@ it('gives the components each field as the very ref that the composable holding 
   expect(fields.notice).toBe(vehicle.notice)
   expect(fields.params).toBe(parameters.params)
   expect(fields.draft).toBe(parameters.draft)
-  expect(fields.lastWrite).toBe(parameters.lastWrite)
   expect(fields.metadata).toBe(metadata.metadata)
   expect(fields.metadataError).toBe(metadata.error)
   expect(fields.importReview).toBe(snapshots.importReview)
@@ -33,7 +32,6 @@ it('has a ref for every field of the state, and nothing else', () => {
     'filter',
     'importError',
     'importReview',
-    'lastWrite',
     'list',
     'metadata',
     'metadataError',
@@ -44,7 +42,6 @@ it('has a ref for every field of the state, and nothing else', () => {
     'ports',
     'selected',
     'telemetry',
-    'writing',
   ])
 })
 
@@ -66,52 +63,53 @@ it('returns the Configurator that was started', () => {
   expect(useConfigurator()).toBe(handle)
 })
 
-it('downloads the parameters once the vehicle is connected, and forgets a write when it is not', async () => {
-  const { vehicle, parameters, fields } = createConfigurator(mockBackend())
+it('downloads the parameters once the vehicle is connected, and keeps them when it is disconnected', async () => {
+  const { vehicle, fields } = createConfigurator(mockBackend())
   expect(fields.list.value).toBe('none')
 
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
-  parameters.writing.value = true
   await vehicle.disconnect()
 
-  expect(fields.writing.value).toBe(false)
   expect(fields.params.value.length).toBeGreaterThan(0)
 })
 
-it('answers a question no when a second one replaces it (a double click on Write), and writes nothing for it', async () => {
-  const { vehicle, parameters, confirmation, fields } = createConfigurator(mockBackend())
+it('answers a question no when a second one replaces it (a double click on Write N), and writes nothing for it', async () => {
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
   parameters.editDraft('1600')
+  staged.sync()
+  const question = 'Write 1 parameter to the vehicle (RTL_ALT)?'
 
-  const first = parameters.write()
-  await expect.poll(() => confirmation.value?.question).toBe('Set RTL_ALT from 1500 to 1600?')
+  const first = staged.writeAll()
+  await expect.poll(() => confirmation.value?.question).toBe(question)
   const firstAnswer = confirmation.value
-  const second = parameters.write()
+  const second = staged.writeAll()
   await first
 
   expect(confirmation.value).not.toBe(firstAnswer)
-  expect(confirmation.value?.question).toBe('Set RTL_ALT from 1500 to 1600?')
-  expect(fields.lastWrite.value).toBeNull()
+  expect(confirmation.value?.question).toBe(question)
+  expect(staged.results.value).toEqual([])
   confirmation.value?.answer(false)
   await second
   expect(confirmation.value).toBeNull()
 })
 
 it('resolves a confirmation with the answer and clears the question', async () => {
-  const { vehicle, parameters, confirmation, fields } = createConfigurator(mockBackend())
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
   parameters.editDraft('1600')
+  staged.sync()
 
-  const writing = parameters.write()
-  await expect.poll(() => confirmation.value?.question).toBe('Set RTL_ALT from 1500 to 1600?')
+  const writing = staged.writeAll()
+  await expect.poll(() => confirmation.value?.question).toBe('Write 1 parameter to the vehicle (RTL_ALT)?')
   confirmation.value?.answer(false)
   await writing
 
   expect(confirmation.value).toBeNull()
-  expect(fields.lastWrite.value).toBeNull()
+  expect(staged.results.value).toEqual([])
 })

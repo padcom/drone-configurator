@@ -9,7 +9,15 @@
 // once, but a very slow machine could turn it into a false "another vehicle".
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { chooseConnection, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
+import {
+  askToWriteQueued,
+  chooseConnection,
+  clickConnect,
+  confirmWrite,
+  queueValue,
+  showScreen,
+  waitForQueuedWritten,
+} from './click'
 import { FlakyProxy } from './flaky-proxy'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
@@ -26,7 +34,6 @@ const LAST_LIST_MS = 30_000
 const SHOW_ATTEMPTS = 3
 const PARAM = 'BATT_CAPACITY'
 const STEP = 100
-const ROW = `tr[data-id="${PARAM}"]`
 /** How much of the vehicle's talk to let through before the cable is pulled: about a third of a full list (~50 kB). */
 const DOWNLOAD_CUT_BYTES = 15_000
 
@@ -189,10 +196,8 @@ async function seeWholeList(): Promise<number> {
  * @param to the value to write
  */
 async function askToWrite(from: number, to: number): Promise<void> {
-  await window().click(ROW)
-  await window().fill('#draft', String(to))
-  await window().click('#write')
-  await window().waitForText('#question', `Set ${PARAM} from ${from} to ${to}?`)
+  await queueValue(window(), PARAM, from, to)
+  await askToWriteQueued(window(), [PARAM])
   await confirmWrite(window())
 }
 
@@ -245,6 +250,22 @@ async function resumesAfterDownloadCut(): Promise<void> {
 }
 
 /**
+ * What the change of the parameter says once its write is over. "Writing…" goes when the vehicle answers or the write fails;
+ * what is left on the change's row is never nothing: a mark with "Written and read back", or a cross with why not. The status
+ * regions are always in the page: a missing one fails here instead of reading as empty.
+ *
+ * @returns the line on the row
+ */
+async function whatTheWriteSays(): Promise<string> {
+  const status = `document.querySelector('#staged .staged-status[role="status"]')`
+  await window().waitFor(`${status} !== null && document.querySelector('#staged .staged-status[role="alert"]') !== null`)
+  await window().waitFor(`!${status}.textContent.includes('Writing')`, RECONNECT_MS)
+  const row = `[...document.querySelectorAll('#staged .staged-row')].find(r => r.dataset.id === '${PARAM}')`
+
+  return window().evaluate<string>(`${row}?.querySelector('.line')?.textContent.trim() ?? ''`)
+}
+
+/**
  * The cable pulled just after a write: the list shows the vehicle's read-back or the page says (an alert) that it was not
  * confirmed (never nothing), and the vehicle has the old value or the new one, the new one if it was read back. The value is
  * put back.
@@ -254,30 +275,25 @@ async function resumesAfterWriteCut(): Promise<void> {
   const original = await valueOnScreen()
   await askToWrite(original, original + STEP)
   await cutAndSeeReconnecting()
-  // "Writing…" goes when the vehicle answers or the write fails. What is left is never nothing: a write that was read back
-  // shows the vehicle's value in the list and says so (out of sight, in the status), one that was not is an alert. The regions
-  // are always in the page: a missing one fails here instead of reading as empty.
-  await window().waitFor(`document.querySelector('#write-status') !== null && document.querySelector('#write-alert') !== null`)
-  await window().waitFor(`!document.querySelector('#write-status').textContent.includes('Writing')`, RECONNECT_MS)
-  const said = await window().text('#write-alert')
-  if (said === '') {
-    expect(await window().text('#write-status')).toMatch(/Written and read back: \d+\./u)
+  const said = await whatTheWriteSays()
+  if (said.startsWith('✓')) {
+    expect(said).toMatch(/Written and read back: \d+/u)
     expect(await valueOnScreen()).toBe(original + STEP)
   } else {
-    expect(said).toMatch(/Not confirmed|The vehicle reports/u)
+    expect(said).toMatch(/^✕/u)
   }
   await restoreAndSeeResumed()
   await seeWholeList()
   const after = await valueOnScreen()
   expect([original, original + STEP]).toContain(after)
 
-  if (said === '') {
+  if (said.startsWith('✓')) {
     expect(after).toBe(original + STEP)
   }
 
   if (after !== original) {
     await askToWrite(after, original)
-    await waitForWritten(window(), ROW, original, RECONNECT_MS)
+    await waitForQueuedWritten(window(), PARAM, original, RECONNECT_MS)
   }
   expect(await valueOnScreen()).toBe(original)
 }

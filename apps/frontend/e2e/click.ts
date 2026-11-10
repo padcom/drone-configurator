@@ -236,23 +236,117 @@ export async function confirmWrite(app: E2eApp): Promise<void> {
 }
 
 /**
- * Waits until a single write is over and the vehicle read it back: the value in the list is the one written (the list takes
- * the vehicle's read-back, not what was asked), "Writing…" is gone, the status region says "Written and read back" (out of
- * sight, for a screen reader) and the alert region is empty. Both regions are always in the page, so a missing one is a
- * failure and not an empty text.
+ * Queues a value for a parameter the way a user does: presses its row, types the value and settles it (`fill` sends the
+ * `input` and the `change` of Enter or leaving the field), and waits until the changes list shows it (from → to).
  *
  * @param app the running app
- * @param row a selector for the parameter's row in the list
+ * @param id the parameter's name (its row in the list is `tr[data-id]`)
+ * @param from the value on the vehicle now
+ * @param to the value to write
+ */
+export async function queueValue(app: E2eApp, id: string, from: number, to: number): Promise<void> {
+  await app.click(`tr[data-id="${id}"]`)
+  await app.fill('#draft', String(to))
+  await app.waitFor(`[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)}
+    && r.textContent.replace(/\\s+/gu, ' ').includes('${from} → ${to}'))`)
+}
+
+/**
+ * What the button that writes the changes looks like, for a press that did not open the question (issue #343, a click that
+ * did nothing): whether it is enabled, what it says, where it is, and what is at the middle of it.
+ *
+ * @param app the running app
+ * @returns a line of text for the failure message
+ */
+async function describeWriteButton(app: E2eApp): Promise<string> {
+  try {
+    return await app.evaluate<string>(`JSON.stringify((() => {
+      const button = document.querySelector('#write-staged')
+      const box = button?.getBoundingClientRect()
+      const over = box && document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+
+      return {
+        disabled: button?.disabled,
+        text: button?.textContent.trim(),
+        box: box && [box.left, box.top, box.width, box.height].map(Math.round),
+        over: over && [over.tagName, over.id, over.className.toString()],
+        dialog: document.querySelectorAll('dialog[open]').length,
+        question: document.querySelector('#question')?.textContent,
+        staged: document.querySelector('#staged')?.innerText,
+        connection: document.querySelector('#connection')?.innerText,
+        hash: location.hash,
+      }
+    })())`)
+  } catch (error) {
+    return `(the page could not be read: ${String(error)})`
+  }
+}
+
+/** A page expression: true when what is at the middle of the Write button is the button itself, not something over it. */
+const WRITE_BUTTON_UNCOVERED = `(() => {
+  const button = document.querySelector('#write-staged')
+  const box = button?.getBoundingClientRect()
+
+  return Boolean(box) && button.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2))
+})()`
+
+/**
+ * Presses "Write N and verify" until the question is asked: a click through DevTools can occasionally land and do nothing (as
+ * the others here), so a press that did not open it is made again. The last one fails with what the button looked like.
+ *
+ * Nothing may cover the button when it is pressed. The toasts are in the bottom right corner of the window, over the screen: a
+ * warning of the vehicle can sit on the button for some seconds (it did, with ArduPilot SITL, and the press went to the toast),
+ * so the press waits until the toasts that are there have gone by themselves.
+ *
+ * @param app the running app
+ * @param question the question that is expected
+ * @param left how many presses remain
+ */
+async function pressUntilAsked(app: E2eApp, question: string, left: number): Promise<void> {
+  await app.waitFor(WRITE_BUTTON_UNCOVERED, 30_000)
+  await app.click('#write-staged')
+
+  try {
+    await app.waitForText('#question', question, left === 1 ? 10_000 : NOTICED_WITHIN_MS)
+  } catch (error) {
+    if (left === 1) {
+      throw new Error(`${String(error)}\n${await describeWriteButton(app)}`, { cause: error })
+    }
+    await pressUntilAsked(app, question, left - 1)
+  }
+}
+
+/**
+ * Asks for the queued changes to be written: presses "Write N and verify", and waits for the one question, which names
+ * every parameter. It is not answered here (a test that checks the dialog does that itself; `confirmWrite` says yes).
+ *
+ * @param app the running app
+ * @param ids the parameters that are queued, in order
+ */
+export async function askToWriteQueued(app: E2eApp, ids: string[]): Promise<void> {
+  const noun = ids.length === 1 ? 'parameter' : 'parameters'
+  await pressUntilAsked(app, `Write ${ids.length} ${noun} to the vehicle (${ids.join(', ')})?`, 2)
+}
+
+/**
+ * Waits until a queued change was written and the vehicle read it back: the value in the list is the one written (the list
+ * takes the vehicle's read-back, not what was asked), the change's row says "✓ Written and read back: N", and no alert is
+ * raised. The alert region is always in the page, so a missing one is a failure and not an empty text.
+ *
+ * @param app the running app
+ * @param id the parameter's name (its row in the list is `tr[data-id]`)
  * @param value the value that was written
  * @param timeoutMs how long the vehicle may take
  */
-export async function waitForWritten(app: E2eApp, row: string, value: number, timeoutMs = 10_000): Promise<void> {
-  await app.waitForText(`${row} td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
-  await app.waitFor(`document.querySelector('#write-status') !== null && document.querySelector('#write-alert') !== null`)
-  await app.waitFor(`!document.querySelector('#write-status').textContent.includes('Writing')`, timeoutMs)
-  const [status, alert] = [await app.text('#write-status'), await app.text('#write-alert')]
-  if (alert !== '' || !status.includes(`Written and read back: ${value}.`)) {
-    throw new Error(`the list shows ${value}, but the detail says ${JSON.stringify({ status, alert })}`)
+export async function waitForQueuedWritten(app: E2eApp, id: string, value: number, timeoutMs = 10_000): Promise<void> {
+  await app.waitForText(`tr[data-id="${id}"] td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
+  await app.waitFor(`[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)}
+    && r.querySelector('.line.ok')?.textContent.includes('Written and read back: ${value}'))`, timeoutMs)
+  const alert = `document.querySelector('#staged .staged-status[role="alert"]')`
+  await app.waitFor(`${alert} !== null`)
+  const said = await app.evaluate<string>(`${alert}.textContent.trim()`)
+  if (said !== '') {
+    throw new Error(`the list shows ${value}, but the changes say: ${said}`)
   }
 }
 

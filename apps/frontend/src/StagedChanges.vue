@@ -2,8 +2,9 @@
   <!-- No heading to the eye (the button says how many); the region keeps its name for a screen reader. -->
   <section id="staged" class="staged" :aria-label="t('staged.region')">
     <ul v-if="staged.changes.value.length > 0" ref="list" class="staged-list">
-      <li v-for="row in rows" :key="row.change.id" class="staged-row" :class="row.result?.outcome">
-        <span class="name">{{ row.change.id }}</span>
+      <li v-for="row in rows" :key="row.change.id" class="staged-row" :class="row.result?.outcome" :data-id="row.change.id">
+        <!-- The name selects the parameter, so that its value can be edited again (or put back, which takes the change out). -->
+        <button type="button" class="name" @click="parameters.select(row.change.id)">{{ row.change.id }}</button>
         <span class="values"><span class="from">{{ row.change.from }}</span> → <span class="to">{{ row.change.to }}</span></span>
         <span v-if="row.line" class="line" :class="row.line.tone">{{ row.line.text }}</span>
         <!-- A trash can at the right of the row; its name says which parameter it takes out. -->

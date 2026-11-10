@@ -32,7 +32,7 @@ async function listWith() {
 function add(handle: Awaited<ReturnType<typeof listWith>>['handle'], id: string, value: string): void {
   handle.parameters.select(id)
   handle.parameters.editDraft(value)
-  handle.staged.stage()
+  handle.staged.sync()
 }
 
 it('shows nothing of its own when there are no changes, keeps its name for a screen reader, and cannot write', async () => {
@@ -69,6 +69,28 @@ it('lists each change with the value now and the value to write, and takes one o
   await trash.trigger('click')
 
   expect(wrapper.findAll('.staged-row').map(row => row.get('.name').text())).toEqual(['BATT_LOW_VOLT'])
+})
+
+it('has the name of each change as a link that selects the parameter, showing the value queued for it to edit', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  add(handle, 'BATT_LOW_VOLT', '11')
+  await wrapper.vm.$nextTick()
+  expect(handle.parameters.selected.value).toBe('BATT_LOW_VOLT')
+
+  const link = wrapper.get('.staged-row .name')
+  expect(link.element.tagName).toBe('BUTTON')
+  await link.trigger('click')
+  await flushPromises()
+
+  expect(handle.parameters.selected.value).toBe('RTL_ALT')
+  // Not the vehicle's 1500: what will be written, and the change stays until it is put back or discarded.
+  expect(handle.parameters.draft.value).toBe('1600')
+  expect(handle.staged.changes.value.map(change => change.id)).toEqual(['RTL_ALT', 'BATT_LOW_VOLT'])
+
+  handle.parameters.editDraft('1500')
+  handle.staged.sync()
+  expect(handle.staged.changes.value.map(change => change.id)).toEqual(['BATT_LOW_VOLT'])
 })
 
 it('gives the focus to the trash can of the next row after a discard, else the previous, else the Value field', async () => {

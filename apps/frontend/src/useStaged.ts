@@ -48,8 +48,12 @@ export interface StagedModel {
   readonly results: ShallowRef<StagedResult[]>
   /** Whether the writes are under way. */
   readonly writing: ShallowRef<boolean>
-  /** Adds the selected parameter's draft to the changes (a valid one that differs from the vehicle's value). */
-  stage: () => void
+  /**
+   * Makes the changes follow the draft of the selected parameter: a valid value that differs from the vehicle's is queued (in
+   * place of an earlier one for the same parameter), the vehicle's own value takes the change out, and an empty or invalid
+   * draft leaves the changes as they are.
+   */
+  sync: () => void
   /** Takes a change that has not been written out of the list. */
   discard: (id: string) => void
   /** Forgets every change and result (the session ended, or another vehicle was connected). */
@@ -58,8 +62,6 @@ export interface StagedModel {
   writeAll: () => Promise<void>
   /** The changes that have not been written. */
   pending: () => StagedChange[]
-  /** Whether the draft of the selected parameter can be added now. */
-  canStage: () => boolean
 }
 
 /**
@@ -125,22 +127,17 @@ class Staged implements StagedModel {
   }
 
   /**
-   * The value to add to the changes: the draft of the selected parameter, if it is a valid one that differs from the vehicle's.
+   * The draft of the selected parameter, if it is a value (not empty, not an error): what the changes follow.
    *
-   * @returns the value, or null
+   * @returns the parameter and the value typed for it, or null
    */
-  private draftValue(): number | null {
+  private draftOf(): { param: Param, value: number } | null {
     const { parameters } = this.deps
     const param = parameters.selectedParam()
     const text = parameters.draft.value.trim()
-    const value = Number(text)
     const usable = [param !== null, text !== '', parameters.draftError.value === null].every(Boolean)
 
-    return usable && value !== param?.value ? value : null
-  }
-
-  canStage(): boolean {
-    return !this.writing.value && this.draftValue() !== null
+    return usable && param ? { param, value: Number(text) } : null
   }
 
   /**
@@ -157,18 +154,43 @@ class Staged implements StagedModel {
     return warning ? { id: param.id, from: param.value, to, warning } : { id: param.id, from: param.value, to }
   }
 
-  stage(): void {
-    const param = this.deps.parameters.selectedParam()
-    const to = this.draftValue()
-    if (!param || to === null || this.writing.value) {
-      return
-    }
+  /**
+   * Queues the value (in place of an earlier change for the same parameter).
+   *
+   * @param param the parameter
+   * @param to the value to write
+   */
+  private queue(param: Param, to: number): void {
     // What was written stays on screen until the next change is added; then it is cleared away.
     const written = this.writtenIds()
     const kept = this.changes.value.filter(change => !written.has(change.id) && change.id !== param.id)
     this.changes.value = [...kept, this.changeFor(param, to)]
     // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
     this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+  }
+
+  /**
+   * Takes the change of a parameter out, because its draft is back at the value the vehicle has: nothing is left to write. (A
+   * change that was written stays, with its result.)
+   *
+   * @param id the parameter
+   */
+  private takeOutUnlessWritten(id: string): void {
+    if (!this.writtenIds().has(id)) {
+      this.discard(id)
+    }
+  }
+
+  sync(): void {
+    const draft = this.draftOf()
+    if (!draft || this.writing.value) {
+      return
+    }
+    if (draft.value === draft.param.value) {
+      this.takeOutUnlessWritten(draft.param.id)
+    } else {
+      this.queue(draft.param, draft.value)
+    }
   }
 
   reset(): void {
@@ -188,6 +210,12 @@ class Staged implements StagedModel {
       return
     }
     this.changes.value = this.changes.value.filter(change => change.id !== id)
+    // The Value field of that parameter goes back to what the vehicle has, as it no longer says what will be written.
+    const { parameters } = this.deps
+    const param = parameters.selectedParam()
+    if (param?.id === id) {
+      parameters.editDraft(String(param.value))
+    }
   }
 
   /**
