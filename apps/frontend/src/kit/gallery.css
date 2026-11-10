@@ -93,6 +93,11 @@
 .gallery .swatch[data-token='--color-accent-hover'] .chip { background: var(--color-accent-hover); }
 .gallery .swatch[data-token='--color-map'] .chip { background: var(--color-map); }
 
+/* The confirmation patterns, one under the other, as wide as a dialog's button row. */
+.gallery .confirm-demo {
+  max-width: 360px;
+}
+
 /* The form and an enum field with a value that has no name, in a column as wide as a detail pane. */
 .gallery .form-demo {
   display: grid;

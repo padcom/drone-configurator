@@ -35,6 +35,17 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.confirm') }}</h3>
+      <div class="stack confirm-demo">
+        <HoldButton :hold-ms="HOLD_MS">{{ t('gallery.confirm.holdWarn') }}</HoldButton>
+        <HoldButton tone="error" :hold-ms="HOLD_MS">{{ t('gallery.confirm.holdError') }}</HoldButton>
+        <SecondPress :label="t('gallery.confirm.erase')" :confirm-label="t('gallery.confirm.eraseSure')" />
+        <TickUnlock v-model="ticked">{{ t('gallery.confirm.tick') }}</TickUnlock>
+        <Button :disabled="!ticked">{{ t('gallery.confirm.spin') }}</Button>
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.truth') }}</h3>
       <div class="truths">
         <TruthValue
@@ -157,21 +168,25 @@ import Banner from '../kit/Banner.vue'
 import Button from '../kit/Button.vue'
 import Checkbox from '../kit/Checkbox.vue'
 import EmptyState from '../kit/EmptyState.vue'
+import HoldButton from '../kit/HoldButton.vue'
 import Icon from '../kit/Icon.vue'
 import { ICONS, type IconName } from '../kit/icons'
 import Panel from '../kit/Panel.vue'
 import ProgressBar from '../kit/ProgressBar.vue'
 import SectionLabel from '../kit/SectionLabel.vue'
+import SecondPress from '../kit/SecondPress.vue'
 import SegmentedControl from '../kit/SegmentedControl.vue'
 import Select from '../kit/Select.vue'
 import SplitPane from '../kit/SplitPane.vue'
 import StatCell from '../kit/StatCell.vue'
 import Tabs from '../kit/Tabs.vue'
+import TickUnlock from '../kit/TickUnlock.vue'
 import TextInput from '../kit/TextInput.vue'
 import Toggle from '../kit/Toggle.vue'
 import EnumField from '../EnumField.vue'
 import PanelForm from '../PanelForm.vue'
 import type { FormRow, FormValue } from '../panelForm'
+import { HOLD_MS } from '../safety'
 import TruthValue from '../TruthValue.vue'
 
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
@@ -242,6 +257,7 @@ const tabs = computed(() => [
 const text = ref('')
 const wrong = ref('abc')
 const value = ref('1500')
+const ticked = ref(false)
 const form = reactive({ action: 1, altitude: 20, battery: true, name: 'Quad 1' })
 /** A number the vehicle holds that has no name in the list (the field shows it as it is). */
 const orphan = ref(7)

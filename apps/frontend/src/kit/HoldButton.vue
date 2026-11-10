@@ -1,7 +1,7 @@
 <template>
   <button
-    class="kit-button kit-hold"
-    :class="{ holding, danger }"
+    class="kit-hold"
+    :class="[tone, { holding }]"
     type="button"
     :style="{ '--hold-ms': `${holdMs}ms` }"
     @pointerdown.left="begin"
@@ -13,11 +13,8 @@
     @contextmenu.prevent
     @click.prevent="emit('tap')"
   >
-    <svg class="kit-hold-ring" viewBox="0 0 20 20" aria-hidden="true">
-      <circle class="kit-hold-track" cx="10" cy="10" r="8" />
-      <circle class="kit-hold-fill" cx="10" cy="10" r="8" />
-    </svg>
-    <slot />
+    <span class="kit-hold-fill" aria-hidden="true" />
+    <span class="kit-hold-label"><slot /></span>
   </button>
 </template>
 
@@ -25,7 +22,8 @@
 // A button that is pressed and held: it does its thing once, when it has been held for `holdMs`, and letting go before
 // that does nothing. A click, a double click, the Enter or Space that is only tapped, a key that repeats while it is held,
 // a press that was meant for something else under it (the first `armMs` after it appears) and a pointer that leaves the
-// button all fail to confirm. A ring fills while it is held. It is for what changes how the vehicle flies.
+// button all fail to confirm. A lighter fill grows across the button while it is held. It is for what changes how the
+// vehicle flies (arming, disarming, an emergency stop), in amber, or for what cannot be undone, in red.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 const props = withDefaults(defineProps<{
@@ -33,9 +31,9 @@ const props = withDefaults(defineProps<{
   holdMs: number
   /** How long after it appears it ignores presses, in milliseconds. */
   armMs?: number
-  /** Draws it as a dangerous action (the words say so too). */
-  danger?: boolean
-}>(), { armMs: 0, danger: false })
+  /** Amber (`warn`) for what changes how the vehicle flies, red (`error`) for what cannot be undone; the words say it too. */
+  tone?: 'warn' | 'error'
+}>(), { armMs: 0, tone: 'warn' })
 
 const emit = defineEmits<{
   /** The button has been held long enough. Once per hold. */

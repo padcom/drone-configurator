@@ -22,7 +22,11 @@ function read(name: string): string {
 const colourTokens = [...read('tokens.css').matchAll(/(?<name>--[\w-]+)\s*:\s*(?<value>#[\da-f]{6})/giu)]
 const tokens = Object.fromEntries(colourTokens.map(m => [m.groups?.name, m.groups?.value])) as Record<string, string>
 
-const sheets: Record<string, string> = { 'kit.css': read('kit.css'), 'panels.css': read('panels.css') }
+const sheets: Record<string, string> = {
+  'kit.css': read('kit.css'),
+  'panels.css': read('panels.css'),
+  'dialog.css': read('dialog.css'),
+}
 
 /**
  * The body of the rule with this selector.
@@ -58,6 +62,9 @@ const VARIANTS: [name: string, sheet: string, words: string, fill: string][] = [
   ['primary, under the pointer', 'kit.css', '.kit-button.primary', '.kit-button.primary:hover:not(:disabled)'],
   ['flight', 'kit.css', '.kit-button.flight', '.kit-button.flight'],
   ['flight, under the pointer', 'kit.css', '.kit-button.flight', '.kit-button.flight:hover:not(:disabled)'],
+  ['hold, amber', 'dialog.css', '.kit-hold.warn', '.kit-hold.warn'],
+  ['hold, red', 'dialog.css', '.kit-hold.error', '.kit-hold.error'],
+  ['hold, unavailable', 'dialog.css', '.kit-hold:disabled', '.kit-hold:disabled'],
   ['disabled', 'kit.css', '.kit-button:disabled', '.kit-button:disabled'],
   ['badge, info', 'kit.css', '.kit-badge.info', '.kit-badge.info'],
   ['badge, ok', 'kit.css', '.kit-badge.ok', '.kit-badge.ok'],

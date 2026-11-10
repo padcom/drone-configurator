@@ -84,21 +84,18 @@ export async function showScreen(app: E2eApp, id: string): Promise<void> {
 /** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/safety.ts), and a margin. */
 const CONFIRMATION_ARMS_MS = 400 + 150
 
-/** How long a confirmation takes to be answered by holding its button (HOLD_MS in src/safety.ts), and a margin. */
-const CONFIRMATION_HOLD_MS = 1200 + 10_000
-
 /**
- * Answers the open confirmation yes, the way a user does: by holding the button down for as long as it asks. (There is
- * no shortcut for a test: the page that is tested is the page that ships. A click, which a hold ignores, is not enough.)
+ * Answers the open confirmation of a parameter write yes, the way a user does: by pressing Write (after the moment in
+ * which the page ignores presses). A write is not held, the vehicle's read-back is what makes it safe; a test that
+ * needs a hold (arming, an emergency stop) holds the button down itself.
  *
  * @param app the running app
  */
-export async function holdConfirm(app: E2eApp): Promise<void> {
-  await app.waitFor('document.querySelector(\'#confirm-hold\') !== null')
+export async function confirmWrite(app: E2eApp): Promise<void> {
+  await app.waitFor('document.querySelector(\'#confirm-yes\') !== null')
   await sleep(CONFIRMATION_ARMS_MS)
-  const down = 'new PointerEvent(\'pointerdown\', { bubbles: true, button: 0 })'
-  await app.evaluate(`document.querySelector('#confirm-hold').dispatchEvent(${down})`)
-  await app.waitFor('document.querySelector(\'#confirm\') === null', CONFIRMATION_HOLD_MS)
+  await app.click('#confirm-yes')
+  await app.waitFor('document.querySelector(\'#confirm\') === null')
 }
 
 /**

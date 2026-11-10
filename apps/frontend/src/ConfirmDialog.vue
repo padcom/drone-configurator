@@ -3,9 +3,9 @@
 </template>
 
 <script setup lang="ts">
-// Hosts the confirmation for whatever asked through `confirm(question)` (a parameter write, applying a snapshot): both
-// change how the vehicle flies, so both are asked as `hold`, with the vehicle named. Questions that need more (a typed
-// word for an emergency stop) will give their own options when they exist; nothing needs that yet.
+// Hosts the confirmation for whatever asked through `confirm(question)` (a parameter write, applying a snapshot), with the
+// vehicle named. They are asked as `plain`: the vehicle's read-back, not a hold, is what makes a write safe (the design's
+// rule). What needs a hold (arming, an emergency stop) will give its own options when it exists.
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SafetyConfirm from './SafetyConfirm.vue'
@@ -22,7 +22,8 @@ const options = computed<SafetyOptions>(() => {
     title: t('safety.title'),
     what: confirmation.value?.question ?? '',
     vehicle: info ? t('statusBar.vehicleValue', { ...info }) : '',
-    level: 'hold',
+    level: 'plain',
+    confirmLabel: t('confirm.write'),
   }
 })
 </script>

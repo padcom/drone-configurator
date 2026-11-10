@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { HOLD_MS, IGNORE_MS } from './safety'
+import { IGNORE_MS } from './safety'
 import { mockBackend } from './mock-backend'
 import { VEHICLE } from './fixtures'
 import { feed, translate, withI18n } from './testing'
@@ -38,22 +38,25 @@ it('shows nothing until a question arrives', () => {
   expect(mount(ConfirmDialog, withI18n).find('dialog').exists()).toBe(false)
 })
 
-it('opens with the question, and holding the button answers yes', async () => {
+it('opens with the question, and pressing Write answers yes: a write is not held', async () => {
   const { wrapper, answer } = await asked()
 
   expect((wrapper.get('dialog#confirm').element as HTMLDialogElement).open).toBe(true)
   expect(wrapper.get('#question').text()).toBe('Set X from 1 to 2?')
-  await wrapper.get('#confirm-hold').trigger('pointerdown')
-  vi.advanceTimersByTime(HOLD_MS)
+  expect(wrapper.find('#confirm-hold').exists()).toBe(false)
+  await wrapper.get('#confirm-yes').trigger('click')
 
   expect(answer).toHaveBeenCalledExactlyOnceWith(true)
 })
 
-it('does not answer yes for a click on the button', async () => {
-  const { wrapper, answer } = await asked()
+it('does not answer yes for a click that lands as the dialog opens', async () => {
+  const configurator = createConfigurator(mockBackend())
+  const wrapper = mount(ConfirmDialog, { ...withI18n, attachTo: document.body })
+  const answer = vi.fn()
+  configurator.confirmation.value = { question: 'Set X from 1 to 2?', answer }
+  await wrapper.vm.$nextTick()
 
-  await wrapper.get('#confirm-hold').trigger('click')
-  vi.advanceTimersByTime(HOLD_MS * 2)
+  await wrapper.get('#confirm-yes').trigger('click')
 
   expect(answer).not.toHaveBeenCalled()
 })
