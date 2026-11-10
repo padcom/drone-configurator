@@ -4,6 +4,7 @@ import ParamTable from './ParamTable.vue'
 import { mockBackend } from './mock-backend'
 import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
+import { useParamGroup } from './useParamGroup'
 import { PARAMS, telemetryAt } from './fixtures'
 import type { Param } from './generated/app'
 
@@ -49,6 +50,70 @@ it('shows only the parameters matching the filter, and says so', async () => {
 
   expect(wrapper.findAll('#rows tr').map(row => row.attributes('data-id'))).toEqual(['BATT_CAPACITY', 'BATT_LOW_VOLT'])
   expect(wrapper.get('#list-status').text()).toBe('2 of 12 parameters')
+})
+
+it('draws the group part of a name dimmed and the rest bright, with the value on the right', () => {
+  const { wrapper } = tableWith(PARAMS)
+  const row = wrapper.get('tr[data-id="BATT_LOW_VOLT"]')
+
+  expect(row.get('.prefix').text()).toBe('BATT_')
+  expect(row.get('th.name').text()).toBe('BATT_LOW_VOLT')
+  expect(row.get('td.num').text()).toBe('10.5')
+  expect(wrapper.get('thead').text()).not.toContain('Meaning')
+})
+
+it('shows only the chosen group, and says how many of the whole it is', async () => {
+  const { wrapper } = tableWith(PARAMS)
+
+  useParamGroup().choose('BATT')
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.findAll('#rows tr').map(row => row.attributes('data-id'))).toEqual(['BATT_CAPACITY', 'BATT_LOW_VOLT'])
+  expect(wrapper.get('#list-status').text()).toBe('2 of 12 parameters')
+  useParamGroup().choose('')
+})
+
+it('has a column of what the parameters mean once metadata is loaded', async () => {
+  const { wrapper, handle } = tableWith(PARAMS)
+
+  feed(handle, { metadata: new Map([['RTL_ALT', { description: 'Return altitude' }]]) })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('thead').text()).toContain('Meaning')
+  expect(wrapper.get('tr[data-id="RTL_ALT"] .meaning').text()).toBe('Return altitude')
+  expect(wrapper.get('tr[data-id="BATT_CAPACITY"] .meaning').text()).toBe('')
+})
+
+it('keeps the header in a table of its own scroll area, and the count outside it', () => {
+  const { wrapper } = tableWith(PARAMS)
+
+  expect(wrapper.find('.param-scroll thead').exists()).toBe(true)
+  expect(wrapper.find('.param-scroll #list-status').exists()).toBe(false)
+  expect(wrapper.get('#list-status').classes()).toContain('list-status')
+})
+
+it('says there are no parameters yet, with what to do, when there are none', () => {
+  const handle = createConfigurator(mockBackend())
+  feed(handle, { params: [], list: 'none' })
+  const wrapper = mount(ParamTable, withI18n)
+
+  expect(wrapper.find('table').exists()).toBe(false)
+  expect(wrapper.get('.kit-empty').text()).toContain('No parameters yet')
+  expect(wrapper.get('.kit-empty').text()).toContain('Connect a vehicle to read its parameters.')
+})
+
+it('says no parameter matches, and offers to show all of them again', async () => {
+  const { wrapper, handle } = tableWith(PARAMS)
+  const setFilter = vi.spyOn(handle.parameters, 'setFilter')
+
+  feed(handle, { filter: 'zzz' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('.kit-empty').text()).toContain('No parameter matches')
+  useParamGroup().choose('BATT')
+  await wrapper.get('#clear-search').trigger('click')
+
+  expect(setFilter).toHaveBeenCalledWith('')
+  expect(useParamGroup().chosen.value).toBe('')
 })
 
 it('shows a parameter name as text, not markup', () => {
