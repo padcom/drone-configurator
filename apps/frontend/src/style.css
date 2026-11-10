@@ -9,7 +9,10 @@
 }
 
 body { margin: 0; background: var(--color-bg); color: var(--color-text); }
-#settings-notice { margin: 6px 0; }
+/* Always in the page (a live region), but with no box of its own until it has something to say: an empty one with a margin was
+   a bar of the page's dark background between the top bar and the screen. */
+#settings-notice { margin: 0; }
+#settings-notice.has-text { margin: 6px 0; padding: 0 var(--space-4); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .toolbar input { flex: 1 1 10em; }

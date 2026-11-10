@@ -53,6 +53,11 @@ it('starts on Flight data, with the connection in the top bar and no bar of its 
   expect(wrapper.find('header#top-bar').exists()).toBe(true)
   expect(wrapper.find('header#top-bar #connection[role="status"]').exists()).toBe(true)
   expect(wrapper.find('.connect-strip').exists()).toBe(false)
+  // Between the top bar and the row of rail and screen there is only the settings notice, and it is empty and has no box.
+  const between = wrapper.findAll('.app > :not(#top-bar, .app-row)')
+  expect(between.map(part => part.attributes('id'))).toEqual(['settings-notice'])
+  expect(between[0]?.text()).toBe('')
+  expect(between[0]?.classes()).not.toContain('has-text')
   expect(wrapper.find('dialog').exists()).toBe(false)
   expect(wrapper.find('#telemetry').exists()).toBe(true)
   expect(wrapper.find('#list-status').exists()).toBe(false)
