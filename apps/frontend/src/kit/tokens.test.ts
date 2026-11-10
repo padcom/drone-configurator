@@ -1,6 +1,6 @@
 // @vitest-environment node
-// The design tokens (tokens.css): both themes have every colour, the system's dark theme and the chosen one are the
-// same, and each pair of text and background has the contrast WCAG 2 AA asks for (4.5 : 1 for text).
+// The design tokens (tokens.css): the one dark theme has every colour, and each pair of text and background has the
+// contrast WCAG 2 AA asks for (4.5 : 1 for text).
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -71,77 +71,66 @@ const rules = readRules()
 const blocks = new Map(rules.map(rule => blockOf(rule)))
 const schemes = new Map(rules.map(rule => schemeOf(rule)))
 
-const light = blocks.get(':root') ?? {}
-const dark = blocks.get(`:root[data-theme='dark']`) ?? {}
-const systemDark = blocks.get(`:root:not([data-theme='light'])`) ?? {}
+const tokens = blocks.get(':root') ?? {}
 
-const colours = Object.keys(light).filter(name => name.startsWith('--color-'))
+const colours = Object.keys(tokens).filter(name => name.startsWith('--color-'))
 
 /** What is read on what: a text colour and the backgrounds it is drawn on. */
 const PAIRS: [text: string, backgrounds: string[]][] = [
-  ['--color-text', ['--color-bg', '--color-surface']],
-  ['--color-text-muted', ['--color-bg', '--color-surface']],
-  ['--color-accent', ['--color-bg', '--color-surface']],
-  ['--color-ok', ['--color-bg', '--color-surface']],
-  ['--color-warn', ['--color-bg', '--color-surface']],
-  ['--color-error', ['--color-bg', '--color-surface']],
+  ['--color-text', ['--color-bg', '--color-surface', '--color-surface-raised']],
+  ['--color-text-muted', ['--color-bg', '--color-surface', '--color-surface-raised']],
+  ['--color-accent', ['--color-bg', '--color-surface', '--color-accent-soft']],
+  ['--color-ok', ['--color-bg', '--color-surface', '--color-ok-soft']],
+  ['--color-warn', ['--color-bg', '--color-surface', '--color-warn-soft']],
+  ['--color-error', ['--color-bg', '--color-surface', '--color-error-soft']],
   ['--color-on-accent', ['--color-accent']],
   // The connection badges: the page's background colour as text on the ok and the warn colour.
   ['--color-bg', ['--color-ok', '--color-warn']],
 ]
 
 describe('the design tokens', () => {
-  it('have the colours of the interface in the light theme, as #rrggbb', () => {
+  it('have the colours of the interface, as #rrggbb', () => {
     expect(colours.length).toBeGreaterThanOrEqual(10)
 
     for (const name of colours) {
-      expect(light[name], name).toMatch(/^#[\da-f]{6}$/u)
+      expect(tokens[name], name).toMatch(/^#[\da-f]{6}$/u)
     }
   })
 
-  it('have every colour in the dark theme too, and nothing else in it', () => {
-    expect(Object.keys(dark).sort()).toEqual([...colours].sort())
-  })
-
-  it('have the spacing, type, shape and density the components use', () => {
+  it('have the spacing, type, shape and control size the components use', () => {
     for (const name of ['--space-1', '--space-5', '--font-body', '--font-size-md', '--radius-md', '--control-height']) {
-      expect(light[name], name).toBeTruthy()
+      expect(tokens[name], name).toBeTruthy()
     }
   })
 })
 
-describe('the themes', () => {
-  it('tell the browser which scheme is in effect, so its own controls and scrollbars match the page', () => {
-    // No choice: either, as the system says. A chosen theme (also one the system is not in) fixes it.
-    expect(schemes.get(':root')).toBe('light dark')
-    expect(schemes.get(`:root[data-theme='light']`)).toBe('light')
-    expect(schemes.get(`:root[data-theme='dark']`)).toBe('dark')
-    expect(schemes.get(`:root:not([data-theme='light'])`)).toBe('dark')
-  })
+it('have one control height, 44 px, with nothing to change it', () => {
+  expect(tokens['--control-height']).toBe('44px')
+})
 
-  it('give the dark theme the same colours whether the system asks for it or the user chose it', () => {
-    expect(systemDark).toEqual(dark)
-  })
-
-  it('differ (a dark theme is not the light one)', () => {
-    expect(luminance(dark['--color-bg'] ?? '#ffffff')).toBeLessThan(0.1)
-    expect(luminance(light['--color-bg'] ?? '#000000')).toBeGreaterThan(0.9)
+describe('the theme', () => {
+  it('is the only one: dark, and the browser is told, so its own controls and scrollbars match the page', () => {
+    expect([...blocks.keys()]).toEqual([':root'])
+    expect(schemes.get(':root')).toBe('dark')
+    expect(luminance(tokens['--color-bg'] ?? '#ffffff')).toBeLessThan(0.1)
   })
 })
 
-describe.each([['light', light], ['dark', dark]] as const)('the contrast in the %s theme', (_name, theme) => {
+describe('the contrast', () => {
   it.each(PAIRS.flatMap(([text, backgrounds]) => backgrounds.map(background => [text, background] as const)))(
     '%s on %s is at least 4.5 : 1',
     (text, background) => {
-      const ratio = contrast(theme[text] ?? '#000000', theme[background] ?? '#000000')
+      const ratio = contrast(tokens[text] ?? '#000000', tokens[background] ?? '#000000')
 
       expect(ratio, `${text} on ${background}`).toBeGreaterThanOrEqual(AA_TEXT)
     },
   )
 
   // WCAG 2.1, 1.4.11: what shows where a control is (its edge) needs 3 : 1 against what is around it.
-  it.each(['--color-bg', '--color-surface'])('a control\'s edge (--color-border-strong) on %s is 3 : 1', background => {
-    const ratio = contrast(theme['--color-border-strong'] ?? '#000000', theme[background] ?? '#000000')
+  const AROUND = ['--color-bg', '--color-surface', '--color-surface-raised']
+
+  it.each(AROUND)('a control\'s edge (--color-border-strong) on %s is 3 : 1', background => {
+    const ratio = contrast(tokens['--color-border-strong'] ?? '#000000', tokens[background] ?? '#000000')
 
     expect(ratio).toBeGreaterThanOrEqual(AA_UI)
   })

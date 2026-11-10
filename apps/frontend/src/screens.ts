@@ -25,7 +25,7 @@ export const PRODUCT_SCREENS: readonly Screen[] = [
   { id: 'simulation', path: '/simulation', titleKey: 'screen.simulation', load: () => import('./screens/NotAvailable.vue') },
 ]
 
-// The component gallery (every control of the kit in every state, with the theme switch) is for whoever builds the
+// The component gallery (every control of the kit in every state) is for whoever builds the
 // interface: in development (`pnpm dev`, `pnpm ui`, the tests), never in the built application. The condition is the
 // compile-time constant, so the build drops the screen together with its component and its stylesheet (build.test.ts
 // checks that nothing of it is left).

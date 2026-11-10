@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from 'vitest'
+import { afterEach, expect, it } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
 import { i18n } from '../i18n'
 import { ICONS } from '../kit/icons'
@@ -17,14 +17,9 @@ function gallery(): VueWrapper {
   return mounted
 }
 
-beforeEach(() => {
-  document.documentElement.removeAttribute('data-theme')
-})
-
 afterEach(() => {
   mounted?.unmount()
   mounted = undefined
-  document.documentElement.removeAttribute('data-theme')
 })
 
 const CONTROLS = [
@@ -79,19 +74,4 @@ it('shows every colour token', () => {
   expect(swatches).toContain('--color-bg')
   expect(swatches).toContain('--color-border-strong')
   expect(swatches.length).toBeGreaterThanOrEqual(11)
-})
-
-it('switches the theme: light and dark are put on the page, and system takes the choice off', async () => {
-  const page = gallery()
-  const radios = page.findAll<HTMLInputElement>('.kit-segmented input[type="radio"]').slice(0, 3)
-
-  await radios[2]?.setValue(true)
-  expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
-  expect(page.text()).toContain('In effect: Dark')
-
-  await radios[1]?.setValue(true)
-  expect(document.documentElement.getAttribute('data-theme')).toBe('light')
-
-  await radios[0]?.setValue(true)
-  expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
 })

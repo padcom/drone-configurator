@@ -1,5 +1,5 @@
 /*
- * How the kit's controls look: only the tokens (tokens.css), no literal colours, so both themes work. Every control
+ * How the kit's controls look: only the tokens (tokens.css), no literal colours. Every control
  * has a hover, a keyboard focus (`:focus-visible`: a ring that is not drawn for a mouse click) and a disabled state.
  */
 

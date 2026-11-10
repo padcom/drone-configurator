@@ -81,24 +81,6 @@ export async function showScreen(app: E2eApp, id: string): Promise<void> {
   await clickLinkUntilShown(app, link, `document.querySelector('${link}').getAttribute('aria-current') === 'page'`, ATTEMPTS)
 }
 
-/**
- * Chooses a theme with the switch at the top, clicking again if the click was lost, until the page has it.
- *
- * @param app the running app
- * @param theme `system`, `light` or `dark`
- */
-export async function chooseTheme(app: E2eApp, theme: string): Promise<void> {
-  const expected = theme === 'system' ? 'null' : JSON.stringify(theme)
-
-  await clickLinkUntilShown(
-    app,
-    `#theme-switch label:has(input[value="${theme}"])`,
-    // (A page that is being loaded has no root element for an instant: asking it then is an error, not "not yet".)
-    `document.documentElement !== null && document.documentElement.getAttribute('data-theme') === ${expected}`,
-    ATTEMPTS,
-  )
-}
-
 /** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/safety.ts), and a margin. */
 const CONFIRMATION_ARMS_MS = 400 + 150
 

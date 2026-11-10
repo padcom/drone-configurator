@@ -79,3 +79,9 @@
 .gallery .swatch[data-token='--color-ok'] .chip { background: var(--color-ok); }
 .gallery .swatch[data-token='--color-warn'] .chip { background: var(--color-warn); }
 .gallery .swatch[data-token='--color-error'] .chip { background: var(--color-error); }
+.gallery .swatch[data-token='--color-surface-raised'] .chip { background: var(--color-surface-raised); }
+.gallery .swatch[data-token='--color-accent-soft'] .chip { background: var(--color-accent-soft); }
+.gallery .swatch[data-token='--color-ok-soft'] .chip { background: var(--color-ok-soft); }
+.gallery .swatch[data-token='--color-warn-soft'] .chip { background: var(--color-warn-soft); }
+.gallery .swatch[data-token='--color-error-soft'] .chip { background: var(--color-error-soft); }
+.gallery .swatch[data-token='--color-route'] .chip { background: var(--color-route); }

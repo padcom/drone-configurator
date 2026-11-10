@@ -1,6 +1,6 @@
 /*
- * How the kit's choice and layout controls look (SegmentedControl, Tabs, SplitPane): only the tokens (tokens.css), so
- * both themes work. Each has a hover, a keyboard focus (`:focus-visible`) and, where it can be turned off, a disabled
+ * How the kit's choice and layout controls look (SegmentedControl, Tabs, SplitPane): only the tokens (tokens.css). Each
+ * has a hover, a keyboard focus (`:focus-visible`) and, where it can be turned off, a disabled
  * state.
  */
 
@@ -117,7 +117,7 @@
 .kit-split .separator {
   position: relative;
   touch-action: none;
-  background: var(--color-border-strong);
+  background: var(--color-border);
 }
 
 /* The bar is 6 px wide, but it can be grabbed a few pixels either side of it. */
