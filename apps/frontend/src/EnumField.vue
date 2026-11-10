@@ -8,7 +8,8 @@
       type="text"
       autocomplete="off"
       :aria-label="inputId ? undefined : label"
-      :aria-describedby="nameless ? `${listId}-noname` : undefined"
+      :aria-invalid="invalid ? 'true' : undefined"
+      :aria-describedby="describedBy"
       aria-autocomplete="list"
       aria-haspopup="listbox"
       :aria-expanded="open ? 'true' : 'false'"
@@ -69,6 +70,10 @@ const props = defineProps<{
   label: string
   /** The id of the field, when a `<label for>` names it: the label is then that one, not `label`. */
   inputId?: string
+  /** The value is not acceptable: said to a screen reader (the reason is in the element `describedby` points to). */
+  invalid?: boolean
+  /** The id of an element that says more about the field (why it is invalid), read after its name. */
+  describedby?: string
 }>()
 
 const model = defineModel<number>({ required: true })
@@ -83,6 +88,12 @@ const active = ref(-1)
 const name = computed(() => nameOf(props.options, model.value))
 /** The field shows a number that has no name: a screen reader is told so (the badge is for the eye). */
 const nameless = computed(() => name.value === undefined && query.value === null)
+/** What the field is described by: the reason it is invalid, and that its number has no name. */
+const describedBy = computed(() => {
+  const ids = [props.describedby, nameless.value ? `${listId}-noname` : ''].filter(Boolean)
+
+  return ids.length > 0 ? ids.join(' ') : undefined
+})
 const text = computed(() => query.value ?? name.value ?? String(model.value))
 const badge = computed(() => query.value !== null ? '' : name.value === undefined ? t('enum.noName') : String(model.value))
 const shown = computed(() => matching(props.options, query.value ?? ''))

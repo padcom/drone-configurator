@@ -63,6 +63,20 @@ it('selects a parameter and drafts its value; an unknown one clears the selectio
   expect(parameters.draft.value).toBe('')
 })
 
+it('forgets how the last write went when another parameter is selected, and when it is selected again', async () => {
+  const { parameters } = await rig()
+  await parameters.refresh()
+  parameters.select('RTL_ALT')
+  parameters.lastWrite.value = { kind: 'verified', id: 'RTL_ALT', value: 1600 }
+
+  parameters.select('RTL_ALT')
+  expect(parameters.lastWrite.value).not.toBeNull()
+  parameters.select('BATT_CAPACITY')
+  expect(parameters.lastWrite.value).toBeNull()
+  parameters.select('RTL_ALT')
+  expect(parameters.lastWrite.value).toBeNull()
+})
+
 it('narrows the list with the filter, case-insensitively', async () => {
   const { parameters } = await rig()
   await parameters.refresh()

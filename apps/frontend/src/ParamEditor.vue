@@ -38,7 +38,15 @@
     <div class="field">
       <label for="draft">{{ t('editor.newValue') }}</label>
       <!-- A value with names is chosen from them (any number is still accepted); else a number is typed. -->
-      <EnumField v-if="named" v-model="draftNumber" input-id="draft" :options="named" :label="t('editor.newValue')" />
+      <EnumField
+        v-if="named"
+        v-model="draftNumber"
+        input-id="draft"
+        :options="named"
+        :label="t('editor.newValue')"
+        :invalid="Boolean(fields.draftError.value)"
+        :describedby="fields.draftError.value ? 'draft-error' : undefined"
+      />
       <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
       <TextInput
         v-else

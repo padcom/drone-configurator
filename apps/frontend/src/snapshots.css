@@ -3,11 +3,6 @@
  * what a snapshot would change, with the result of each write beside it and the buttons under it.
  */
 
-.file-button {
-  display: inline-flex;
-  align-items: center;
-}
-
 .review {
   border-bottom: 1px solid var(--color-border);
 }
@@ -146,6 +141,11 @@
   margin: 0;
   font-weight: 500;
   color: var(--color-text-muted);
+}
+
+.review-status.quiet {
+  flex: 0 0 0;
+  overflow: hidden;
 }
 
 .review-status.ok {
