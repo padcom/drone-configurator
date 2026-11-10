@@ -1,5 +1,6 @@
 // How the initial values follow the session: the first complete download takes them, the user's Download replaces them, a link
 // that comes back to the same vehicle keeps them (its automatic download only updates the values), another vehicle has its own.
+import { setTimeout as sleep } from 'node:timers/promises'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { type MockControl, mockBackend } from './mock-backend'
 import { VEHICLE } from './fixtures'
@@ -161,6 +162,34 @@ it('let a connection to another vehicle that waited for a write replace them', a
   release?.()
 
   await vi.waitFor(() => expect(handle.fields.initial.value?.at).toBeGreaterThanOrEqual(LATER))
+})
+
+it('forget a download that waited for a write when the session ends: none is made with nobody connected', async () => {
+  const { handle, control } = await connected()
+  const release = handle.parameters.lock.take()
+  await handle.parameters.refresh({ keepInitial: true })
+  const lists = vi.spyOn((handle.parameters as unknown as { deps: { client: { call: () => unknown } } }).deps.client, 'call')
+
+  control.connection?.({ state: 'disconnected' })
+  await vi.waitFor(() => expect(handle.fields.connection.value.state).toBe('disconnected'))
+  release?.()
+  await sleep(20)
+
+  expect(lists).not.toHaveBeenCalled()
+  expect(handle.fields.list.value).toBe('complete')
+  expect(handle.fields.error.value).toBeNull()
+})
+
+it('keep the download that the next vehicle asked for while the last write was still being given back', async () => {
+  const { handle, control } = await connected()
+  const release = handle.parameters.lock.take()
+  control.connection?.({ state: 'disconnected' })
+  await vi.waitFor(() => expect(handle.fields.connection.value.state).toBe('disconnected'))
+  release?.()
+
+  await handle.vehicle.connect({ transport: 'simulator' })
+
+  await vi.waitFor(() => expect(handle.fields.initial.value).not.toBeNull())
 })
 
 it('does not download while a write holds the lock', async () => {

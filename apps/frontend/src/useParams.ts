@@ -62,6 +62,8 @@ export interface ParamsModel {
   refresh: (options?: { keepInitial?: boolean }) => Promise<void>
   /** Forgets the initial values (the session ended, or another vehicle was connected). */
   clearInitial: () => void
+  /** Forgets a download that waits for a write (the session ended: no download on an app that is disconnected). */
+  cancelDeferred: () => void
   /** Narrows the list. */
   setFilter: (filter: string) => void
   /** Selects a parameter (and drafts its current value). */
@@ -174,6 +176,10 @@ class Parameters implements ParamsModel {
    */
   private defer(keepInitial: boolean): void {
     this.deferred = { keepInitial: keepInitial && (this.deferred?.keepInitial ?? true) }
+  }
+
+  cancelDeferred(): void {
+    this.deferred = null
   }
 
   clearInitial(): void {
