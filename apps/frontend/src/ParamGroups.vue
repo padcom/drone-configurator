@@ -9,10 +9,12 @@
       :aria-pressed="group.id === current ? 'true' : 'false'"
       :tabindex="group.id === stop ? 0 : -1"
       :data-group="group.id"
+      :title="noteOf(group.id)"
+      :aria-description="noteOf(group.id)"
       @click="pick(group.id)"
       @focus="focused = group.id"
     >
-      <span>{{ group.id === '' ? t('params.allGroups') : group.id }}</span>
+      <span>{{ labelOf(group.id) }}</span>
       <span class="count">{{ group.count }}</span>
     </button>
   </nav>
@@ -22,7 +24,8 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { edge, step } from './kit/menuKeys'
-import { effectiveGroup, groupsOf } from './paramGroups'
+import { useFavourites } from './favourites'
+import { FAVOURITES_GROUP, effectiveGroup, groupsOf } from './paramGroups'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 
@@ -34,7 +37,38 @@ const { t } = useI18n()
 const { fields, parameters } = useConfigurator()
 const choice = useParamGroup()
 const groups = computed(() => groupsOf(fields.params.value))
-const all = computed(() => [{ id: '', count: fields.params.value.length }, ...groups.value])
+// The favourites the vehicle has, and how many it does not (the group's count is the first, its tooltip says the second).
+const favourites = useFavourites()
+const present = computed(() => fields.params.value.filter(param => favourites.set.value.has(param.id)).length)
+const missing = computed(() => favourites.names.value.length - present.value)
+const all = computed(() => [
+  { id: '', count: fields.params.value.length },
+  { id: FAVOURITES_GROUP, count: present.value },
+  ...groups.value,
+])
+
+/**
+ * What is said of a group besides its name: for Favourites, how many of them this vehicle does not have (a tooltip, and a
+ * description for a screen reader).
+ *
+ * @param id the group
+ * @returns the words, or undefined
+ */
+function noteOf(id: string): string | undefined {
+  return id === FAVOURITES_GROUP && missing.value > 0 ? t('params.favourites.notOnVehicle', { count: missing.value }) : undefined
+}
+
+/**
+ * What a group is called in the list.
+ *
+ * @param id the group
+ * @returns All, Favourites, or the group's own name
+ */
+function labelOf(id: string): string {
+  const named: Record<string, string> = { '': t('params.allGroups'), [FAVOURITES_GROUP]: t('params.favourites.group') }
+
+  return named[id] ?? id
+}
 const current = computed(() => effectiveGroup(fields.params.value, choice.chosen.value))
 // The group the arrows moved the focus to; the one Tab stops at is that, else the chosen one (when it is in the list).
 const focused = ref<string | null>(null)

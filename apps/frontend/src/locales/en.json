@@ -326,6 +326,21 @@
     "allGroups": "All",
     "list": "Parameters",
     "selection": "{id}, {position} of {total}",
+    "favourites": {
+      "group": "Favourites",
+      "column": "Favourite",
+      "star": "Favourite: {id}",
+      "added": "{id} added to the favourites",
+      "removed": "{id} removed from the favourites",
+      "clearMissing": "Remove the {count} not on this vehicle…",
+      "clearMissingHelp": "Takes the {count} favourites that are not on this vehicle out of your list, for every vehicle. It asks once more first.",
+      "clearAsk": "Remove {count} from your list for every vehicle? Press again",
+      "cleared": "{count} removed from the favourites",
+      "emptyTitle": "No favourites yet",
+      "emptyHelp": "Press the star next to a parameter, or * with the parameter selected, to keep it here.",
+      "notOnVehicle": "{count} of your favourites are not on this vehicle.",
+      "full": "There is no room for more favourites in the settings."
+    },
     "selectionChanged": "{id}, {position} of {total}, changed from {initial}",
     "initial": {
       "footer": "Initial values: downloaded {time}",

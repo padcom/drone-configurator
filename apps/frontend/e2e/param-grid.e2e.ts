@@ -20,6 +20,9 @@ const METADATA = {
   },
 }
 
+/** The width of the column of the stars (params.css). */
+const STAR_PX = 44
+
 let app: E2eApp
 let files = ''
 
@@ -114,8 +117,11 @@ describe('the parameters grid', () => {
     // "SERIAL0_BAUD" and "PILOT_SPEED_UP" are the widest names: a column of their text and its padding, no more.
     expect(grid.name).toBeLessThan(220)
     expect(grid.value).toBeLessThan(120)
-    expect(grid.meaning).toBeGreaterThan(grid.table - grid.name - grid.value - 4)
-    expect(grid.meaning).toBeGreaterThan(400)
+    // (The table has the star's column of 44 px before the name.)
+    expect(grid.meaning).toBeGreaterThan(grid.table - STAR_PX - grid.name - grid.value - 4)
+    // At 1440 wide the table is what is left of the window after the rail, the groups and the detail column (about 820 px); the
+    // star (44), the name (about 200) and the value (about 100) leave the description 350 px or more (396 on the CI's scrollbar).
+    expect(grid.meaning).toBeGreaterThan(350)
     expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
     expect(grid.heights).toEqual([44])
   })

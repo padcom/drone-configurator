@@ -63,8 +63,10 @@ it('draws the group part of a name dimmed and the rest bright, with the value on
   expect(wrapper.get('thead').text()).not.toContain('Meaning')
   // Without metadata the table is two columns: the name as wide as the widest name, the value the rest of the row.
   expect(wrapper.get('table').classes()).not.toContain('described')
-  expect(wrapper.findAll('thead th')).toHaveLength(2)
+  // The star, the name and the value (the star's column has the width of its button, in the stylesheet).
+  expect(wrapper.findAll('thead th')).toHaveLength(3)
   expect(wrapper.findAll('colgroup col').map(col => col.attributes('style'))).toEqual([
+    undefined,
     expect.stringContaining('calc(14ch + var(--cell-padding))'),
     undefined,
   ])
@@ -97,6 +99,7 @@ it('has a column of what the parameters mean once metadata is loaded', async () 
   // in characters, whatever is shown; the third has none, it is what is left.
   const cols = wrapper.findAll('colgroup col')
   expect(cols.map(col => col.attributes('style'))).toEqual([
+    undefined,
     expect.stringContaining('calc(14ch + var(--cell-padding))'),
     expect.stringContaining('calc(6ch + var(--cell-padding))'),
     undefined,

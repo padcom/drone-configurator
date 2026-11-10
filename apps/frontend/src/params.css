@@ -246,6 +246,42 @@
   font-size: var(--font-size-value-sm);
 }
 
+/* The star: a column of the width of its button. */
+.param-scroll col.col-star {
+  width: 44px;
+}
+
+.param-scroll td.star,
+.param-scroll th.star {
+  padding: 0;
+  text-align: center;
+}
+
+.param-scroll td.star button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.param-scroll td.star button:hover {
+  color: var(--color-text);
+}
+
+/* A starred parameter: the star filled, in the accent (the fill and the label are the mark, not the colour alone). */
+.param-scroll td.star button[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+
+.param-scroll td.star button[aria-pressed="true"] path {
+  fill: currentcolor;
+}
+
 /* The rows that stand for the ones that are not drawn: their height, and nothing else. */
 .param-scroll tbody tr.spacer {
   pointer-events: none;

@@ -19,12 +19,14 @@
            that a character is a `ch`: the browser does not measure the text of the rows to lay the table out. The last column
            is what is left (the value without metadata, the description with it). -->
       <colgroup>
+        <col class="col-star">
         <col class="col-name" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
         <col v-if="meaning" class="col-value" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
         <col>
       </colgroup>
       <thead>
         <tr aria-rowindex="1">
+          <th scope="col" class="star"><span class="visually-hidden">{{ t('params.favourites.column') }}</span></th>
           <th scope="col">{{ t('params.column.name') }}</th>
           <th scope="col" class="num">{{ t('params.column.value') }}</th>
           <th v-if="meaning" scope="col">{{ t('params.column.meaning') }}</th>
@@ -47,6 +49,19 @@
           :class="{ selected: row.param.id === fields.selected.value }"
           @click="onRowClick(row.param.id)"
         >
+          <!-- The star: not a stop of the Tab key (the list is one), and it does not select the row. The key `*` does the same
+               for the selected row. -->
+          <td class="star">
+            <button
+              type="button"
+              tabindex="-1"
+              :aria-pressed="favourites.set.value.has(row.param.id) ? 'true' : 'false'"
+              :aria-label="t('params.favourites.star', { id: row.param.id })"
+              @click.stop="star(row.param.id)"
+            >
+              <Icon name="star" />
+            </button>
+          </td>
           <th scope="row" class="name">
             <span class="prefix"><Marked :text="row.name.prefix" :tokens="tokens" /></span>
             <Marked :text="row.name.rest" :tokens="tokens" />
@@ -70,12 +85,25 @@
       </tbody>
     </table>
     <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t(emptyHelp)" />
-    <EmptyState v-else :title="t('params.noMatch.title')" :help="t('params.noMatch.help')">
+    <EmptyState
+      v-else
+      :title="t(onlyFavourites ? 'params.favourites.emptyTitle' : 'params.noMatch.title')"
+      :help="t(onlyFavourites ? 'params.favourites.emptyHelp' : 'params.noMatch.help')"
+    >
       <Button id="clear-search" @click="clear">{{ t('params.noMatch.clear') }}</Button>
     </EmptyState>
   </div>
   <div class="list-footer">
     <p id="list-status" class="list-status muted">{{ status }}</p>
+    <!-- The Favourites group: the names of other vehicles' parameters can be taken out here (they are never in the list). -->
+    <Button
+      v-if="canClearMissing"
+      id="clear-missing-favourites"
+      :title="t('params.favourites.clearMissingHelp', { count: missingFavourites })"
+      @click="pressClearMissing"
+    >
+      {{ t(armed ? 'params.favourites.clearAsk' : 'params.favourites.clearMissing', { count: missingFavourites }) }}
+    </Button>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
       {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}
@@ -94,6 +122,8 @@
   <!-- Said politely when the selection moves (Up and Down in the search move it with the focus staying there, so nothing else
        says which parameter it is now on). Always in the page, so that what is put in it is read out. -->
   <p id="selection-status" class="visually-hidden" role="status">{{ selectionText }}</p>
+  <!-- What was done to the favourites, said politely: the star key leaves the focus on the table. Always in the page. -->
+  <p id="favourite-status" class="visually-hidden" role="status">{{ favouriteSaid }}</p>
 </template>
 
 <script setup lang="ts">
@@ -101,10 +131,12 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
-import { effectiveGroup, splitName } from './paramGroups'
+import { FAVOURITES_GROUP, effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
 import { isBookkeeping } from './calibrationParams'
 import { clockText, initialIfChanged, resetTargets } from './initialValues'
+import Icon from './kit/Icon.vue'
+import { useFavourites } from './favourites'
 import { useToasts } from './toasts'
 import { registerListNav } from './paramListNav'
 import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './paramSearch'
@@ -125,9 +157,92 @@ const choice = useParamGroup()
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
 const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
+// The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has).
+const favourites = useFavourites()
+const onlyFavourites = computed(() => group.value === FAVOURITES_GROUP)
+// What the polite status says of the last star.
+const favouriteSaid = ref('')
+
+/**
+ * Stars a parameter, or takes its star away; says so when the list would not fit in the settings.
+ *
+ * @param id the parameter
+ */
+async function star(id: string): Promise<void> {
+  const adding = !favourites.set.value.has(id)
+  const kept = await favourites.toggle(id)
+  if (kept === 'kept') {
+    // Said politely, for the key and the click alike (the focus stays where it is, and nothing else tells what happened). Only
+    // when the settings have it: when they could not keep it, the star goes back and their own notice speaks.
+    favouriteSaid.value = t(adding ? 'params.favourites.added' : 'params.favourites.removed', { id })
+  } else if (kept === 'full') {
+    useToasts().push({ severity: 'error', text: t('params.favourites.full'), long: true })
+  }
+}
+
+// The favourites that this vehicle does not have: they are never in the list, so the Favourites group offers to remove them.
+const onVehicle = computed(() => new Set(params.value.map(param => param.id)))
+const missingFavourites = computed(() => favourites.names.value.filter(name => !onVehicle.value.has(name)).length)
+// Only with this vehicle's whole list in hand: without a download (not connected, failed, incomplete) every favourite would count
+// as missing, and the list is global (it is the favourites of every vehicle).
+const canClearMissing = computed(() => [
+  onlyFavourites.value,
+  fields.connection.value.state === 'connected',
+  fields.list.value === 'complete',
+  params.value.length > 0,
+  missingFavourites.value > 0,
+].every(Boolean))
+/** How long the question of the button stays (ms). */
+const ARM_MS = 6000
+/** How long after the question a press is ignored (ms): the time to read it. */
+const SETTLE_MS = 600
+let armedAt = 0
+
+/** Takes the favourites out that are not on this vehicle. */
+async function clearMissingFavourites(): Promise<void> {
+  const count = missingFavourites.value
+  if (await favourites.keepOnly(onVehicle.value) === 'kept') {
+    favouriteSaid.value = t('params.favourites.cleared', { count })
+  }
+}
+
+// A second press is needed: the first one says what is about to be lost, and the button goes back by itself.
+const armed = ref(false)
+let disarm: ReturnType<typeof setTimeout> | undefined
+watch(canClearMissing, can => {
+  armed.value = armed.value && can
+})
+
+/** The button that takes the favourites out that are not on this vehicle: the first press asks, the second does it. */
+function pressClearMissing(): void {
+  // A double click or a held Enter presses again within moments: that press is not an answer, the question is not read yet.
+  if (armed.value && Date.now() - armedAt < SETTLE_MS) {
+    return
+  }
+  clearTimeout(disarm)
+
+  if (armed.value) {
+    armed.value = false
+    void clearMissingFavourites()
+
+    return
+  }
+  armed.value = true
+  armedAt = Date.now()
+  favouriteSaid.value = t('params.favourites.clearAsk', { count: missingFavourites.value })
+  disarm = setTimeout(() => {
+    armed.value = false
+    // Emptied, so that the question, said again when it is asked again, is a change a screen reader speaks.
+    favouriteSaid.value = ''
+  }, ARM_MS)
+}
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
 let searchIndex: SearchIndex | null = null
+// What the chosen group lists: its parameters, or the starred ones that the vehicle has.
+const inGroup = computed(() => onlyFavourites.value
+  ? params.value.filter(param => favourites.set.value.has(param.id))
+  : visibleParams(params.value, '', group.value))
 const tokens = computed(() => tokensOf(fields.filter.value))
 const hits = computed(() => {
   if (tokens.value.length === 0) {
@@ -143,10 +258,10 @@ const visible = computed(() => {
 
   return found && byId
     ? found.map(hit => byId.get(hit.id)).filter(param => param !== undefined)
-    : visibleParams(params.value, '', group.value)
+    : inGroup.value
 })
 const meaning = computed(() => fields.metadata.value.size > 0)
-const columns = computed(() => meaning.value ? 3 : 2)
+const columns = computed(() => meaning.value ? 4 : 3)
 // The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
 // search or the scroll), in characters; the header's own words are the least a column has.
 const widths = computed(() => ({
@@ -360,18 +475,56 @@ function moveSelection(key: string): boolean {
 const isPlain = (event: KeyboardEvent): boolean => !(event.altKey || event.ctrlKey || event.metaKey)
 
 /**
+ * Whether a key was pressed on a star (a button that was clicked has the focus): Enter on it is the button's own, which toggles
+ * the star, and not the list's, which goes to the Value field.
+ *
+ * @param event the key press
+ * @returns true if the key came from a star
+ */
+const onStar = (event: KeyboardEvent): boolean => (event.target as Element).closest('td.star') !== null
+
+/**
+ * `*` stars (or unstars) the selected row.
+ *
+ * @param event the key press
+ * @returns true if the key was `*` and a row is selected
+ */
+function starKey(event: KeyboardEvent): boolean {
+  const selected = fields.selected.value
+  const starring = event.key === '*' && selected !== null
+  if (starring) {
+    event.preventDefault()
+    void star(selected)
+  }
+
+  return starring
+}
+
+/**
+ * The keys of the list that do something other than move: Enter goes to the Value field, and `*` stars the selected row (the
+ * star buttons are not stops of the Tab key, so the keyboard has this).
+ *
+ * @param event the key press
+ * @returns true if the key was one of them
+ */
+function actionKey(event: KeyboardEvent): boolean {
+  if (event.key === 'Enter' && !onStar(event)) {
+    focusValue(event)
+
+    return true
+  }
+
+  return starKey(event)
+}
+
+/**
  * The keys of the list: Up and Down move the selection by a row, Page Up and Page Down by a page, Home and End to the first
  * and the last, and Enter goes to the Value field.
  *
  * @param event the key press
  */
 function onKey(event: KeyboardEvent): void {
-  if (!isPlain(event)) {
-    return
-  }
-  if (event.key === 'Enter') {
-    focusValue(event)
-
+  if (!isPlain(event) || actionKey(event)) {
     return
   }
   if (moveSelection(event.key)) {
