@@ -41,6 +41,8 @@
 .safety-what {
   margin: 0;
   font-weight: 600;
+  /* A question can have lines (the changes about to be written, one each). */
+  white-space: pre-line;
 }
 
 /*

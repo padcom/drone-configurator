@@ -317,15 +317,17 @@ async function pressUntilAsked(app: E2eApp, question: string, left: number): Pro
 }
 
 /**
- * Asks for the queued changes to be written: presses "Write N and verify", and waits for the one question, which names
- * every parameter. It is not answered here (a test that checks the dialog does that itself; `confirmWrite` says yes).
+ * Asks for the queued changes to be written: presses "Write N and verify", and waits for the one question, which has a line
+ * for every change with the value it has and the value it is given. It is not answered here (a test that checks the dialog
+ * does that itself; `confirmWrite` says yes).
  *
  * @param app the running app
- * @param ids the parameters that are queued, in order
+ * @param changes the changes that are queued, in order
  */
-export async function askToWriteQueued(app: E2eApp, ids: string[]): Promise<void> {
-  const noun = ids.length === 1 ? 'parameter' : 'parameters'
-  await pressUntilAsked(app, `Write ${ids.length} ${noun} to the vehicle (${ids.join(', ')})?`, 2)
+export async function askToWriteQueued(app: E2eApp, changes: { id: string, from: number, to: number }[]): Promise<void> {
+  const noun = changes.length === 1 ? 'parameter' : 'parameters'
+  const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}`)
+  await pressUntilAsked(app, [`Write ${changes.length} ${noun} to the vehicle?`, ...lines].join('\n'), 2)
 }
 
 /**

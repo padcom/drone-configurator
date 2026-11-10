@@ -83,7 +83,7 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
     draft.value = text
   }
 
-  return { staged, call, askedOnce, pick, params, draftError, draftWarning, lock }
+  return { staged, call, askedOnce, pick, params, draft, draftError, draftWarning, lock }
 }
 
 /**
@@ -194,7 +194,7 @@ describe('a draft the metadata finds unusual', () => {
     await staged.writeAll()
 
     expect(askedOnce).toHaveBeenCalledWith(
-      'Write 2 parameters to the vehicle (RTL_ALT, FENCE_RADIUS)? RTL_ALT: Outside the usual range 30–300000 cm.',
+      'Write 2 parameters to the vehicle?\nRTL_ALT 1500 → 20 (Outside the usual range 30–300000 cm)\nFENCE_RADIUS 150 → 300',
     )
   })
 })
@@ -210,7 +210,7 @@ describe('writing the changes', () => {
     await staged.writeAll()
 
     expect(askedOnce).toHaveBeenCalledTimes(1)
-    expect(askedOnce).toHaveBeenCalledWith('Write 2 parameters to the vehicle (RTL_ALT, FENCE_RADIUS)?')
+    expect(askedOnce).toHaveBeenCalledWith('Write 2 parameters to the vehicle?\nRTL_ALT 1500 → 1600\nFENCE_RADIUS 150 → 300')
     expect(call.mock.calls.map(([, payload]) => [payload.id, payload.value])).toEqual([['RTL_ALT', 1600], ['FENCE_RADIUS', 300]])
     expect(staged.results.value.map(result => [result.id, result.outcome, result.detail])).toEqual([
       ['RTL_ALT', 'verified', '1600'],
@@ -297,7 +297,8 @@ describe('a retry after a partial write', () => {
     flaky = false
     await staged.writeAll()
 
-    expect(askedOnce).toHaveBeenLastCalledWith('Write 2 parameters to the vehicle (FENCE_RADIUS, BATT_CAPACITY)?')
+    const asked = /^Write 2 parameters to the vehicle\?\nFENCE_RADIUS .+\nBATT_CAPACITY /u
+    expect(askedOnce).toHaveBeenLastCalledWith(expect.stringMatching(asked))
     expect(call.mock.calls.map(([, payload]) => payload.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS', 'FENCE_RADIUS', 'BATT_CAPACITY'])
     expect(outcomes(staged)).toEqual([['RTL_ALT', 'verified'], ['FENCE_RADIUS', 'verified'], ['BATT_CAPACITY', 'verified']])
     expect(staged.pending()).toEqual([])
@@ -378,6 +379,19 @@ describe('the session of the staged changes', () => {
   })
 })
 
+describe('the Value field after a reset', () => {
+  it('goes back to what the vehicle has for the selected parameter, as the queued value is gone', () => {
+    const { staged, pick, draft } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    expect(draft.value).toBe('1600')
+
+    staged.reset()
+
+    expect(draft.value).toBe('1500')
+  })
+})
+
 describe('a run that the session ends', () => {
   it('writes no more, adds no late result, and gives the lock back at once', async () => {
     const ender: { reset: () => void } = { reset: () => undefined }
@@ -419,7 +433,20 @@ describe('the lock', () => {
 })
 
 describe('the question', () => {
-  it('says one parameter in the singular', () => {
-    expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).toBe('Write 1 parameter to the vehicle (RTL_ALT)?')
+  it('says one parameter in the singular, with the value it has and the value it is given', () => {
+    expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1 → 2')
+  })
+
+  it('has a line for each change, so that what is queued (a "1500 → 1" included) is said at the gate', () => {
+    const question = questionFor([
+      { id: 'A', from: 1500, to: 1 },
+      { id: 'B', from: 10.5, to: 11, warning: 'Outside the usual range 0–10 V' },
+    ])
+
+    expect(question.split('\n')).toEqual([
+      'Write 2 parameters to the vehicle?',
+      'A 1500 → 1',
+      'B 10.5 → 11 (Outside the usual range 0–10 V)',
+    ])
   })
 })

@@ -81,7 +81,7 @@ it('answers a question no when a second one replaces it (a double click on Write
   parameters.select('RTL_ALT')
   parameters.editDraft('1600')
   staged.sync()
-  const question = 'Write 1 parameter to the vehicle (RTL_ALT)?'
+  const question = 'Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600'
 
   const first = staged.writeAll()
   await expect.poll(() => confirmation.value?.question).toBe(question)
@@ -106,7 +106,7 @@ it('resolves a confirmation with the answer and clears the question', async () =
   staged.sync()
 
   const writing = staged.writeAll()
-  await expect.poll(() => confirmation.value?.question).toBe('Write 1 parameter to the vehicle (RTL_ALT)?')
+  await expect.poll(() => confirmation.value?.question).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600')
   confirmation.value?.answer(false)
   await writing
 

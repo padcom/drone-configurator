@@ -65,16 +65,18 @@ export interface StagedModel {
 }
 
 /**
- * What the user is asked before the changes are written.
+ * What the user is asked before the changes are written: how many, then a line for each change with the value it has and the
+ * value it is given (this question is the gate: what is queued, "1500 → 1" included, is said here), and what the metadata finds
+ * unusual about it.
  *
  * @param changes the changes to write
- * @returns the question, with every name in it
+ * @returns the question, one line for the sentence and one for each change
  */
 export function questionFor(changes: StagedChange[]): string {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
-  const unusual = changes.filter(change => change.warning).map(change => ` ${change.id}: ${change.warning}.`)
+  const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}${change.warning ? ` (${change.warning})` : ''}`)
 
-  return `Write ${changes.length} ${noun} to the vehicle (${changes.map(change => change.id).join(', ')})?${unusual.join('')}`
+  return [`Write ${changes.length} ${noun} to the vehicle?`, ...lines].join('\n')
 }
 
 /**
@@ -203,6 +205,11 @@ class Staged implements StagedModel {
     this.writing.value = false
     this.changes.value = []
     this.results.value = []
+    // The Value field does not keep a value that was queued for a vehicle that is gone.
+    const param = this.deps.parameters.selectedParam()
+    if (param) {
+      this.deps.parameters.editDraft(String(param.value))
+    }
   }
 
   discard(id: string): void {

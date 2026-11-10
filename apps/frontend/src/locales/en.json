@@ -388,6 +388,8 @@
     "notVerified": "✕ {detail}",
     "writing": "Writing… waiting for the vehicle to read each value back.",
     "allWritten": "All {count} written and read back.",
+    "alertChanged": "{id}: {detail}.",
+    "alertFailed": "{id} was not confirmed: {detail}. Its value on the vehicle is unknown; download again to see it.",
     "stopped": "Stopped there: the rest weren't written."
   },
   "description": {

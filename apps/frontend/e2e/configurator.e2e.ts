@@ -58,7 +58,7 @@ describe('writing, reconnecting and closing', () => {
   it('asks before writing, then writes and verifies the read-back', async () => {
     await showScreen(app, 'parameters')
     await queueValue(app, 'RTL_ALT', 1500, 1600)
-    await askToWriteQueued(app, ['RTL_ALT'])
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1600 }])
     await confirmWrite(app)
     await waitForQueuedWritten(app, 'RTL_ALT', 1600)
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1600/u)

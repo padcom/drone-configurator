@@ -66,6 +66,23 @@ export interface StagedSummary {
 }
 
 /**
+ * What is said at once when a write was not confirmed: which parameter and why (a value that the vehicle changed says what it
+ * reports; one that got no answer says that its value is unknown and that downloading shows it), then that the run stopped.
+ *
+ * @param failed the first change that was not read back
+ * @param translate looks up a message
+ * @returns the alert's words
+ */
+function stoppedText(failed: StagedResult, translate: Translate): string {
+  const why = translate(failed.outcome === 'changed' ? 'staged.alertChanged' : 'staged.alertFailed', {
+    id: failed.id,
+    detail: failed.detail,
+  })
+
+  return `${why} ${translate('staged.stopped')}`
+}
+
+/**
  * What the list says about the writing.
  *
  * @param changes the staged changes
@@ -86,9 +103,9 @@ export function summaryOf(
   if (results.length === 0) {
     return { polite: '', urgent: '' }
   }
-  const stopped = results.some(result => result.outcome !== 'verified')
+  const failed = results.find(result => result.outcome !== 'verified')
 
-  return stopped
-    ? { polite: '', urgent: translate('staged.stopped') }
+  return failed
+    ? { polite: '', urgent: stoppedText(failed, translate) }
     : { polite: translate('staged.allWritten', { count: changes.length }), urgent: '' }
 }

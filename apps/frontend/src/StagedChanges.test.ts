@@ -153,10 +153,25 @@ it('says in an alert that writing stopped, and marks the change that was not con
   await wrapper.vm.$nextTick()
 
   expect(wrapper.get('.staged-row .line.error').text()).toBe('✕ the vehicle reports 1599, not 1600')
-  expect(wrapper.get('.staged-status[role="alert"]').text()).toBe('Stopped there: the rest weren\'t written.')
+  // The live alert says which parameter and why (a value the vehicle changed says what it reports), then that the run stopped.
+  expect(wrapper.get('.staged-status[role="alert"]').text())
+    .toBe('RTL_ALT: the vehicle reports 1599, not 1600. Stopped there: the rest weren\'t written.')
   expect(wrapper.get('.staged-status[role="status"]').text()).toBe('')
   expect(wrapper.find('.staged-row.changed .discard').exists()).toBe(true)
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeUndefined()
+})
+
+it('says in the alert that a write got no answer: which parameter, why, that its value is unknown, then it stopped', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  add(handle, 'BATT_LOW_VOLT', '11')
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'failed', detail: 'TIMEOUT: no reply' }]
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.staged-status[role="alert"]').text()).toBe(
+    'RTL_ALT was not confirmed: TIMEOUT: no reply. Its value on the vehicle is unknown; download again to see it. '
+    + 'Stopped there: the rest weren\'t written.',
+  )
 })
 
 it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {

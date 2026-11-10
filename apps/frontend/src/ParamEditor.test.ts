@@ -133,6 +133,20 @@ it('leaves the queue as it is for an empty or invalid value, and shows the error
   expect(handle.staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
 })
 
+it('turns the Value field off while the changes are written, as what is typed then could not be queued', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  expect(wrapper.get('#draft').attributes('disabled')).toBeUndefined()
+
+  handle.staged.writing.value = true
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('fieldset.field').attributes('disabled')).toBeDefined()
+  expect((wrapper.get('#draft').element as HTMLInputElement).matches(':disabled')).toBe(true)
+
+  handle.staged.writing.value = false
+  await wrapper.vm.$nextTick()
+  expect((wrapper.get('#draft').element as HTMLInputElement).matches(':disabled')).toBe(false)
+})
+
 it('marks the field invalid and points it to the reason, written out, when the draft is not a value', async () => {
   const { wrapper, handle } = await editorWithSpies()
   expect(wrapper.get('#draft').attributes('aria-invalid')).toBeUndefined()

@@ -21,7 +21,7 @@ let app: E2eApp
  */
 async function askToWrite(value: number): Promise<void> {
   await queueValue(app, 'RTL_ALT', 1500, value)
-  await askToWriteQueued(app, ['RTL_ALT'])
+  await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: value }])
 }
 
 /**
@@ -72,7 +72,7 @@ describe('the confirmation before a write, in the window', () => {
 
 describe('answering the confirmation, in the window', () => {
   it('does not write when it is cancelled with the button, and the change stays queued', async () => {
-    await askToWriteQueued(app, ['RTL_ALT'])
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1700 }])
     await cancelConfirm(app)
 
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1500/u)
@@ -80,7 +80,7 @@ describe('answering the confirmation, in the window', () => {
   })
 
   it('writes and verifies the read-back when Write N and verify is confirmed', async () => {
-    await askToWriteQueued(app, ['RTL_ALT'])
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1700 }])
     await confirmWrite(app)
 
     await waitForQueuedWritten(app, 'RTL_ALT', 1700)

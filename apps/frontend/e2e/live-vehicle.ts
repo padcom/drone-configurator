@@ -43,7 +43,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
   async function write(from: number, to: number): Promise<void> {
     await queueValue(app, vehicle.param, from, to)
-    await askToWriteQueued(app, [vehicle.param])
+    await askToWriteQueued(app, [{ id: vehicle.param, from, to }])
     await confirmWrite(app)
     await waitForQueuedWritten(app, vehicle.param, to, vehicle.downloadTimeoutMs)
   }

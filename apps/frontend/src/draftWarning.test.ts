@@ -54,7 +54,7 @@ it('is kept by "Add to changes" and said in the question, however late the metad
 
   await handle.staged.writeAll()
 
-  expect(questions).toEqual(['Write 1 parameter to the vehicle (RTL_ALT)? RTL_ALT: Outside the usual range 200–… cm.'])
+  expect(questions).toEqual(['Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 10 (Outside the usual range 200–… cm)'])
 })
 
 it('is not kept by "Add to changes" when the metadata that had it was replaced meanwhile', async () => {

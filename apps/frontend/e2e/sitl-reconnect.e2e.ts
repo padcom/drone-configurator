@@ -197,7 +197,7 @@ async function seeWholeList(): Promise<number> {
  */
 async function askToWrite(from: number, to: number): Promise<void> {
   await queueValue(window(), PARAM, from, to)
-  await askToWriteQueued(window(), [PARAM])
+  await askToWriteQueued(window(), [{ id: PARAM, from, to }])
   await confirmWrite(window())
 }
 

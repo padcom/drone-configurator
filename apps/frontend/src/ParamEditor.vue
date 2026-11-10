@@ -19,7 +19,8 @@
   </div>
   <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="staged.sync()">
     <!-- The label is beside the field, not around it: a field of names holds a list of buttons, which would become its name. -->
-    <div class="field">
+    <!-- Off while the changes are being written: what is typed then could not be queued, and the user is not told why. -->
+    <fieldset class="field" :disabled="staged.writing.value">
       <label for="draft">{{ t('editor.newValue') }}</label>
       <!-- A value with names is chosen from them (any number is still accepted); else a number is typed. Either way the change
            is queued when the value is settled: a name picked, or Enter or leaving the field (not on every key, so that "1" on
@@ -46,7 +47,7 @@
         @update:model-value="parameters.editDraft($event)"
         @change="staged.sync()"
       />
-    </div>
+    </fieldset>
   </form>
   <ParamDescription />
   <StagedChanges />
