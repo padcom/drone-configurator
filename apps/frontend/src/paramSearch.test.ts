@@ -90,6 +90,21 @@ describe('a close match', () => {
   })
 })
 
+describe('the index, for a close match', () => {
+  it('splits the words of an entry the first time they are needed, and keeps them', () => {
+    const own = buildIndex(IDS, META)
+    expect(own.entries.every(entry => entry.words === undefined)).toBe(true)
+
+    search(own, 'batery')
+    const kept = own.entries.map(entry => entry.words)
+    search(own, 'capacty')
+
+    expect(kept.every(words => Array.isArray(words))).toBe(true)
+    expect(own.entries.map(entry => entry.words)).toEqual(kept)
+    expect(own.entries.every((entry, i) => entry.words === kept[i])).toBe(true)
+  })
+})
+
 describe('the index', () => {
   it('is kept for the same names and the same metadata, whatever the values, and made again for others', () => {
     expect(indexFor(index, [...IDS], META)).toBe(index)

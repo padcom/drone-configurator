@@ -66,6 +66,8 @@ it('finds a parameter by what it does, and shows the piece of the description th
   // Every place of a word is marked, also inside another word ("returning").
   expect(meaning.findAll('mark').map(mark => mark.text())).toEqual(['return', 'return', 'height'])
   expect(wrapper.get('#list-status').text()).toBe('1 of 12 parameters')
+  // The tooltip is the whole description, not the piece that is shown.
+  expect(meaning.attributes('title')).toBe('The minimum alt before returning: the return height.')
 })
 
 it('marks the words in the name, and shows the text as text', async () => {

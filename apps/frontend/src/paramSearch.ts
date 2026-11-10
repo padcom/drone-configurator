@@ -14,6 +14,8 @@ interface Entry {
   name: string
   /** The name, the short description and the long one, lower case, one text to look in. */
   all: string
+  /** The words of the name and the descriptions, lower case: split the first time a close match is looked for, and kept. */
+  words?: string[]
   /** The long description as it is written (where a snippet is taken from), or the short one when there is no long one. */
   text: string
 }
@@ -203,7 +205,8 @@ function found(entry: Entry, words: string[], token: string): boolean {
  * @returns true if all the words are found
  */
 function isClose(entry: Entry, tokens: string[]): boolean {
-  const words = entry.all.split(/[^a-z0-9]+/u)
+  entry.words ??= entry.all.split(/[^a-z0-9]+/u)
+  const { words } = entry
 
   return tokens.every(token => found(entry, words, token))
 }

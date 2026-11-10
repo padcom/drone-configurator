@@ -52,8 +52,8 @@
             <Marked :text="row.name.rest" :tokens="tokens" />
           </th>
           <td class="num">{{ row.param.value }}</td>
-          <td v-if="meaning" class="meaning" :title="row.meaning || undefined">
-            <span v-if="row.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
+          <td v-if="meaning" class="meaning" :title="row.title || undefined">
+            <span v-if="row.hit?.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
             <Marked :text="row.shownMeaning" :tokens="tokens" />
           </td>
         </tr>
@@ -134,21 +134,30 @@ const emptyHelp = computed(() => EMPTY_HELP[fields.list.value] ?? 'params.empty.
  * What a row shows. A result that is there by its description shows the piece of it that has the words (the hit has one only
  * then), not the start of it.
  *
+ * The tooltip of the description is the whole description (the long one, for a row that shows a piece of it).
+ *
  * @param param the parameter
- * @param description what the metadata says it is, in a few words
+ * @param texts what the metadata says it is: in a few words, and in full
+ * @param texts.description in a few words
+ * @param texts.full in full
  * @param hit why it is a result of the search, if it is one
  * @returns the row
  */
-function rowOf(param: Param, description: string, hit: SearchHit | undefined) {
-  const shownMeaning = hit?.snippet ?? description
+function rowOf(param: Param, texts: { description: string, full: string }, hit: SearchHit | undefined) {
+  const piece = hit?.snippet
+  const [shownMeaning, title] = piece ? [piece, texts.full] : [texts.description, texts.description]
 
-  return { param, name: splitName(param.id), meaning: description, shownMeaning, reason: hit?.reason }
+  return { param, name: splitName(param.id), shownMeaning, title, hit }
 }
 
 const rows = computed(() => {
   const why = new Map((hits.value ?? []).map(hit => [hit.id, hit]))
 
-  return visible.value.map(param => rowOf(param, fields.metadata.value.get(param.id)?.description ?? '', why.get(param.id)))
+  return visible.value.map(param => {
+    const { description = '', longDescription = description } = fields.metadata.value.get(param.id) ?? {}
+
+    return rowOf(param, { description, full: longDescription }, why.get(param.id))
+  })
 })
 
 // Which rows are drawn: from where the scroll box is scrolled to and how tall it is.

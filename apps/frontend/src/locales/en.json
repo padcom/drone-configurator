@@ -318,7 +318,7 @@
     "holdHint": "Hold the button for {seconds} s to confirm. Letting go cancels."
   },
   "params": {
-    "filter": "Filter parameters",
+    "filter": "Search by name or what it does",
     "filterHint": "Search by name or what it does (Ctrl+/)",
     "clearSearch": "Clear search",
     "download": "Download",
