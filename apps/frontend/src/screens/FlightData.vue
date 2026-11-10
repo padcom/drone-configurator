@@ -2,6 +2,7 @@
   <div class="fly" data-l="fly">
     <section class="fly-main" :aria-label="t('flight.map.title')">
       <div class="fly-map">
+        <FailsafeBanner />
         <p class="muted placeholder">{{ t('flight.map.placeholder') }}</p>
       </div>
     </section>
@@ -13,6 +14,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import FailsafeBanner from '../FailsafeBanner.vue'
 import FlyAside from '../FlyAside.vue'
 
 // The screen the user lives in, in fixed regions (the design's Fly): at the left the map (a placeholder until it is built;

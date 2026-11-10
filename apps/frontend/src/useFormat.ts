@@ -15,12 +15,15 @@ export interface Format {
   number: (value: number, digits?: number) => string
   /** A date and time, in the user's language. */
   dateTime: (value: Date) => string
+  /** The time of day with seconds, in the user's language. */
+  time: (value: Date) => string
   /** A quantity: the number, a no-break space and the unit. */
   quantity: (value: number, unit: string, digits?: number) => string
 }
 
 const numberFormats = new Map<string, Intl.NumberFormat>()
 const dateFormats = new Map<string, Intl.DateTimeFormat>()
+const timeFormats = new Map<string, Intl.DateTimeFormat>()
 
 /**
  * The number formatter for a language and a number of decimals.
@@ -64,6 +67,24 @@ function dateFormat(locale: string): Intl.DateTimeFormat {
 }
 
 /**
+ * The time-of-day formatter for a language.
+ *
+ * @param locale a BCP 47 language tag
+ * @returns the formatter, made on first use
+ */
+function timeFormat(locale: string): Intl.DateTimeFormat {
+  const known = timeFormats.get(locale)
+  if (known) {
+    return known
+  }
+  // 24-hour, as the design's message times are, whatever the language's habit.
+  const made = new Intl.DateTimeFormat(locale, { timeStyle: 'medium', hourCycle: 'h23' })
+  timeFormats.set(locale, made)
+
+  return made
+}
+
+/**
  * Converts a value into the unit the user prefers. This is the hook for the unit settings (#179): until then every
  * value is shown in the unit it was reported in.
  *
@@ -88,6 +109,7 @@ export function formatFor(locale: Locale): Format {
   return {
     number,
     dateTime: value => dateFormat(current()).format(value),
+    time: value => timeFormat(current()).format(value),
     quantity: (value, unit, digits = 0) => {
       const shown = preferredUnit(value, unit)
 

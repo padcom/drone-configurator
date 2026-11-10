@@ -11,6 +11,7 @@
       :help="card.help"
     />
   </div>
+  <MessagesList />
   <section id="telemetry" class="cards">
     <TelemetryCards />
   </section>
@@ -22,6 +23,7 @@ import { useI18n } from 'vue-i18n'
 import { flyCards } from './flyCards'
 import Hud from './hud/Hud.vue'
 import { hudModel } from './hud/model'
+import MessagesList from './MessagesList.vue'
 import TelemetryCards from './TelemetryCards.vue'
 import TruthValue from './TruthValue.vue'
 import { useConfigurator } from './useConfigurator'
