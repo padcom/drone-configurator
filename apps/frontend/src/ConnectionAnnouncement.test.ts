@@ -74,6 +74,50 @@ it('makes a toast of each different error, within 2 s too, and keeps the notice 
   expect(shown.find(toast => toast.text === 'Connect again to continue')?.sticky).toBe(true)
 })
 
+/**
+ * The texts of the toasts of the queue that are warnings.
+ *
+ * @returns the texts
+ */
+function warnings(): string[] {
+  return useToasts().visible.value.filter(toast => toast.severity === 'warning').map(toast => toast.text)
+}
+
+it('takes the notice toast away when the notice is gone, and when the link is up again', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  useToasts().visible.value.forEach(toast => useToasts().dismiss(toast.key))
+
+  feed({ notice: 'Connect again to continue' })
+  await wrapper.vm.$nextTick()
+  expect(warnings()).toEqual(['Connect again to continue'])
+  feed({ notice: null })
+  await wrapper.vm.$nextTick()
+  expect(warnings()).toEqual([])
+
+  feed({ notice: 'Connect again to continue' })
+  await wrapper.vm.$nextTick()
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  expect(warnings()).toEqual([])
+})
+
+it('keeps one notice toast when a newer notice comes, also the same words again', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  useToasts().visible.value.forEach(toast => useToasts().dismiss(toast.key))
+
+  feed({ notice: 'The backend restarted' })
+  await wrapper.vm.$nextTick()
+  feed({ notice: 'The backend restarted again' })
+  await wrapper.vm.$nextTick()
+  expect(warnings()).toEqual(['The backend restarted again'])
+
+  feed({ notice: null })
+  await wrapper.vm.$nextTick()
+  feed({ notice: 'The backend restarted again' })
+  await wrapper.vm.$nextTick()
+  expect(warnings()).toEqual(['The backend restarted again'])
+})
+
 it('says that the link is being brought back, which try this is and when the next is, with the vehicle still shown', async () => {
   const { wrapper, feed } = statusWithFeed()
 

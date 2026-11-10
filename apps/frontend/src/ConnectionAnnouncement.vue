@@ -44,10 +44,29 @@ watch(fields.error, message => {
     toasts.push({ severity: 'error', text: message })
   }
 })
+
+// The notice toast is tied to the notice: it stays (sticky: "Connect again to continue" must not be missed) until the notice
+// is gone (Connect clears it) or the link is up again, and a newer notice replaces it, so they do not pile up.
+let noticeToast: number | undefined
+
+/** Removes the toast of the notice, if there is one. */
+function clearNoticeToast(): void {
+  if (noticeToast !== undefined) {
+    toasts.dismiss(noticeToast)
+    noticeToast = undefined
+  }
+}
+
 watch(fields.notice, message => {
+  clearNoticeToast()
+
   if (message) {
-    // Sticky: the old line stayed until the next Connect, and "Connect again to continue" must not be missed.
-    toasts.push({ severity: 'warning', text: message, sticky: true })
+    noticeToast = toasts.push({ severity: 'warning', text: message, sticky: true })
+  }
+})
+watch(state, now => {
+  if (now === 'connected') {
+    clearNoticeToast()
   }
 })
 </script>

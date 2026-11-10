@@ -139,6 +139,17 @@ describe('the same event twice', () => {
     expect(toasts.visible.value).toHaveLength(1)
     expect(toasts.visible.value[0]?.count).toBe(2)
   })
+
+  it('gives the key of the toast it made or counted on, so that it can be dismissed', () => {
+    const { toasts } = queue()
+
+    const first = toasts.push({ severity: 'warning', text: 'Same' })
+    const again = toasts.push({ severity: 'warning', text: 'Same' })
+    toasts.dismiss(first)
+
+    expect(again).toBe(first)
+    expect(toasts.visible.value).toHaveLength(0)
+  })
 })
 
 describe('the same event, later or otherwise', () => {

@@ -67,8 +67,8 @@ export interface Toasts {
   visible: Ref<Toast[]>
   /** How many are waiting for a place. */
   waiting: Ref<number>
-  /** Adds a toast (or counts a repeat of one). */
-  push: (input: ToastInput) => void
+  /** Adds a toast (or counts a repeat of one); gives its key, for dismissing it when what it says stops being true. */
+  push: (input: ToastInput) => number
   /** Removes a toast. */
   dismiss: (key: number) => void
   /** Stops a toast's time running out, for as long as `by` holds it (the pointer is on it, or the focus is in it). */
@@ -130,10 +130,12 @@ class ToastQueue implements Toasts {
    * Adds a toast, or counts a repeat of one that was just pushed.
    *
    * @param input the toast
+   * @returns the key of the toast, new or counted
    */
-  push = (input: ToastInput): void => {
-    if (this.counted(input)) {
-      return
+  push = (input: ToastInput): number => {
+    const repeated = this.counted(input)
+    if (repeated) {
+      return repeated.toast.key
     }
     const toast = reactive<Toast>({
       key: this.next++,
@@ -145,6 +147,8 @@ class ToastQueue implements Toasts {
     })
     this.entries.push({ toast, lastAt: this.clock.now(), left: lifeOf(toast), since: 0, holds: new Set() })
     this.refresh()
+
+    return toast.key
   }
 
   /**
@@ -231,14 +235,14 @@ class ToastQueue implements Toasts {
    * Counts a repeat of the same event, if there is a recent one.
    *
    * @param input what was pushed
-   * @returns whether it was counted
+   * @returns the toast it was counted on, or undefined when it is a new one
    */
-  private counted(input: ToastInput): boolean {
+  private counted(input: ToastInput): Entry | undefined {
     const id = input.id ?? input.text
     // The newest one of the kind: an older, expired-window one of the same id must not hide a recent repeat's place.
     const same = this.entries.findLast(e => e.toast.id === id && e.toast.severity === input.severity)
     if (!same || this.clock.now() - same.lastAt >= DEDUPE_MS) {
-      return false
+      return undefined
     }
     same.toast.count += 1
     same.lastAt = this.clock.now()
@@ -247,7 +251,7 @@ class ToastQueue implements Toasts {
     same.left = lifeOf(same.toast)
     this.refresh()
 
-    return true
+    return same
   }
 }
 
