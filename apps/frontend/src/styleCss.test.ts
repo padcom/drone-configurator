@@ -48,6 +48,12 @@ it('gives the messages list a height of its own in the stacked layout, below 100
   expect(stacked).toMatch(/\.message-list\s*\{[^}]*max-height:\s*20rem;[^}]*overflow-y:\s*auto/u)
 })
 
+it('gives the settings notice, which is always in the page, no box until it has text (no dark bar under the top bar)', () => {
+  expect(style).toMatch(/#settings-notice\s*\{\s*margin:\s*0;\s*\}/u)
+  expect(style).toMatch(/#settings-notice\.has-text\s*\{[^}]*margin:/u)
+  expect(style).not.toMatch(/#settings-notice\s*\{[^}]*(?:padding|height|background|border)/u)
+})
+
 it('has no rule for a bare main element: the one <main> is the frame\'s, and it is not a grid', () => {
   expect(style).not.toMatch(/(?:^|[\s,{}])main\s*[,{]/u)
   expect(style).not.toContain('.params-layout')
