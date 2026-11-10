@@ -40,6 +40,8 @@ export interface ParamMeta {
   readOnly?: boolean
   /** It changes on its own while the vehicle runs (ArduPilot's `Volatile`). */
   volatile?: boolean
+  /** Who it is for: `standard` is what everybody sets, `advanced` is what only an expert touches (ArduPilot's `User`). */
+  user?: 'standard' | 'advanced'
 }
 
 export type Metadata = Map<string, ParamMeta>
@@ -91,6 +93,18 @@ function namesOf(value: unknown): Record<string, string> | undefined {
 }
 
 /**
+ * Who a parameter is for.
+ *
+ * @param value anything (ArduPilot writes "Standard" or "Advanced")
+ * @returns `standard` or `advanced`, whatever the case, and undefined for anything else
+ */
+function userOf(value: unknown): ParamMeta['user'] {
+  const text = typeof value === 'string' ? value.trim().toLowerCase() : ''
+
+  return text === 'standard' || text === 'advanced' ? text : undefined
+}
+
+/**
  * What of a parameter is known, without the fields that are not.
  *
  * @param meta the fields, some of them undefined
@@ -119,6 +133,7 @@ function ownParam(raw: Raw): ParamMeta {
     rebootRequired: typeof raw.rebootRequired === 'boolean' ? raw.rebootRequired : undefined,
     readOnly: typeof raw.readOnly === 'boolean' ? raw.readOnly : undefined,
     volatile: typeof raw.volatile === 'boolean' ? raw.volatile : undefined,
+    user: userOf(raw.user),
   })
 }
 
@@ -149,6 +164,7 @@ function ardupilotParam(raw: Raw): ParamMeta {
     rebootRequired: flagOf(field.rebootrequired),
     readOnly: flagOf(field.readonly),
     volatile: flagOf(field.volatile),
+    user: userOf(field.user),
   })
 }
 

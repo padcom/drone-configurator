@@ -38,20 +38,33 @@ export function groupOf(id: string): string {
 }
 
 /**
- * The groups of a list, by name; OTHER last.
+ * How many parameters each group has.
  *
- * @param params every parameter
- * @returns each group with its count
+ * @param params the parameters
+ * @returns the counts by group
  */
-export function groupsOf(params: Param[]): Group[] {
+function tally(params: Param[]): Map<string, number> {
   const counts = new Map<string, number>()
   for (const { id } of params) {
     const group = groupOf(id)
     counts.set(group, (counts.get(group) ?? 0) + 1)
   }
 
-  return [...counts.entries()]
-    .map(([id, count]) => ({ id, count }))
+  return counts
+}
+
+/**
+ * The groups of a list, by name; OTHER last.
+ *
+ * @param params every parameter (the groups are theirs)
+ * @param counted the parameters the counts are of (a view's): a group with none of them stays, with a count of none
+ * @returns each group with its count
+ */
+export function groupsOf(params: Param[], counted: Param[] = params): Group[] {
+  const counts = tally(counted)
+
+  return [...new Set(params.map(param => groupOf(param.id)))]
+    .map(id => ({ id, count: counts.get(id) ?? 0 }))
     .sort((a, b) => Number(a.id === OTHER) - Number(b.id === OTHER) || a.id.localeCompare(b.id))
 }
 

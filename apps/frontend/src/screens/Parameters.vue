@@ -4,6 +4,7 @@
     <section class="params" :aria-label="t('params.list')">
       <div class="toolbar">
         <ParamFilter />
+        <ParamView />
         <SnapshotToolbar />
       </div>
       <SnapshotImport />
@@ -24,6 +25,7 @@ import ParamEditor from '../ParamEditor.vue'
 import ParamFilter from '../ParamFilter.vue'
 import ParamGroups from '../ParamGroups.vue'
 import ParamTable from '../ParamTable.vue'
+import ParamView from '../ParamView.vue'
 import SnapshotImport from '../SnapshotImport.vue'
 import SnapshotToolbar from '../SnapshotToolbar.vue'
 

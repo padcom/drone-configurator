@@ -144,6 +144,7 @@ import type { Param } from './generated/app'
 import Marked from './Marked.vue'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
+import { useParamView } from './useParamView'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowWindow'
 
 // The parameters, one row each: the name (its group part dimmed), the value, and, when metadata is loaded, what it means.
@@ -239,10 +240,12 @@ function pressClearMissing(): void {
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
 let searchIndex: SearchIndex | null = null
-// What the chosen group lists: its parameters, or the starred ones that the vehicle has.
+// What the chosen group lists: its parameters that the view lists (Standard leaves out the advanced ones), or the starred ones
+// that the vehicle has (a star is a choice of the user's: the view does not hide it). A search is over all, whatever the view.
+const { listed } = useParamView()
 const inGroup = computed(() => onlyFavourites.value
   ? params.value.filter(param => favourites.set.value.has(param.id))
-  : visibleParams(params.value, '', group.value))
+  : visibleParams(listed.value, '', group.value))
 const tokens = computed(() => tokensOf(fields.filter.value))
 const hits = computed(() => {
   if (tokens.value.length === 0) {

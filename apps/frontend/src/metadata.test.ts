@@ -57,6 +57,7 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
       min: 30,
       max: 300000,
       increment: 1,
+      user: 'standard',
     })
     expect(m.get('FRAME_CLASS')).toMatchObject({ rebootRequired: true, values: { 1: 'Quad', 2: 'Hexa' } })
     expect(m.get('ARMING_CHECK')).toMatchObject({ bits: { 0: 'All', 3: 'GPS lock' } })
@@ -72,6 +73,18 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
   it('say so when they have no parameters, rather than loading nothing', () => {
     expect(parseMetadata('{"json":{"version":0}}')).toBe('it describes no parameters')
     expect(parseMetadata(file({}))).toBe('it describes no parameters')
+  })
+})
+
+describe('who a parameter is for', () => {
+  it('is kept as standard or advanced, whatever the case, from both kinds of file, and left out for anything else', () => {
+    const pdef = { json: { version: 0 }, G: { A: { User: 'Advanced' }, B: { user: 'STANDARD' }, C: { User: 'Expert' }, D: {} } }
+    const own = file({ E: { user: 'advanced', description: 'x' }, F: { user: 3, description: 'y' } })
+
+    const expected = new Map([['A', { user: 'advanced' }], ['B', { user: 'standard' }], ['C', {}], ['D', {}]])
+
+    expect(parseMetadata(JSON.stringify(pdef))).toEqual(expected)
+    expect(parseMetadata(own)).toEqual(new Map([['E', { user: 'advanced', description: 'x' }], ['F', { description: 'y' }]]))
   })
 })
 
