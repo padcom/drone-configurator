@@ -2,9 +2,10 @@
 // (what is typed, why it is not a value, what the metadata finds unusual about it). A change is written through the staged
 // changes (useStaged.ts), which share the write lock kept here. It talks to the backend through the client
 // (docs/frontend-state.md).
-import { type ShallowRef, shallowRef } from 'vue'
+import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
 import type { Param } from './generated/app'
+import { type Initial, changedIds, initialOf } from './initialValues'
 import { visibleParams } from './paramList'
 import { type WriteLock, createWriteLock } from './writeLock'
 
@@ -21,6 +22,8 @@ export interface ParamsDeps {
   problemWith: (param: Param, text: string) => string | null
   /** What the metadata finds unusual about `text` as a value for `param` (a warning: the write is still allowed), or null. */
   warningWith: (param: Param, text: string) => string | null
+  /** The time now in ms (tests give their own clock). */
+  now?: () => number
 }
 
 /** The parameters, as refs and actions. */
@@ -33,6 +36,13 @@ export interface ParamsModel {
   readonly missing: ShallowRef<number[]>
   /** What the user typed to narrow the list. */
   readonly filter: ShallowRef<string>
+  /** The values at the last complete download (null until there is one), what "changed" is measured against. */
+  readonly initial: ShallowRef<Initial | null>
+  /**
+   * The parameters whose value is not their initial value now. Worked out from the list and the initial values, which change
+   * where a value enters (a download, a write, another ground station), never with a telemetry tick.
+   */
+  readonly changed: ComputedRef<ReadonlySet<string>>
   /** The selected parameter's id, or null. */
   readonly selected: ShallowRef<string | null>
   /** The new value as typed. */
@@ -43,8 +53,15 @@ export interface ParamsModel {
   readonly draftWarning: ShallowRef<string | null>
   /** Held by whichever write is under way (the changes collected, a snapshot): no other starts meanwhile. */
   readonly lock: WriteLock
-  /** Downloads the list again. */
-  refresh: () => Promise<void>
+  /**
+   * Downloads the list again. A complete download makes its values the initial ones, unless it is the automatic one that
+   * follows a link that came back to the same vehicle (`keepInitial`): that updates the values and keeps what "changed" is
+   * measured against, so that a dropped link does not erase every marker. While a write holds the lock it waits for it to be
+   * over: a download in the middle of a write would put half-written values in the initial ones.
+   */
+  refresh: (options?: { keepInitial?: boolean }) => Promise<void>
+  /** Forgets the initial values (the session ended, or another vehicle was connected). */
+  clearInitial: () => void
   /** Narrows the list. */
   setFilter: (filter: string) => void
   /** Selects a parameter (and drafts its current value). */
@@ -69,6 +86,8 @@ class Parameters implements ParamsModel {
   readonly list = shallowRef<ListState>('none')
   readonly missing = shallowRef<number[]>([])
   readonly filter = shallowRef('')
+  readonly initial = shallowRef<Initial | null>(null)
+  readonly changed = computed(() => changedIds(this.params.value, this.initial.value))
   readonly selected = shallowRef<string | null>(null)
   readonly draft = shallowRef('')
   readonly draftError = shallowRef<string | null>(null)
@@ -80,13 +99,55 @@ class Parameters implements ParamsModel {
    *
    * @param deps the client and the rest of the interface
    */
-  constructor(private readonly deps: ParamsDeps) {}
+  constructor(private readonly deps: ParamsDeps) {
+    // A download that was asked for while a write held the lock is made when the lock is given back.
+    watch(this.lock.busy, busy => {
+      const { deferred } = this
+      if (!busy && deferred) {
+        this.deferred = null
+        void this.download(deferred.keepInitial)
+      }
+    })
+  }
 
-  async refresh(): Promise<void> {
+  /** A download that waits for the write that is under way (the automatic one after a link came back). */
+  private deferred: { keepInitial: boolean } | null = null
+
+  /**
+   * The values of a download that completed are the initial ones, unless the automatic download after a link came back to the
+   * same vehicle keeps what there already is. An incomplete one never replaces them.
+   *
+   * @param params the downloaded list
+   * @param complete whether every parameter arrived
+   * @param keepInitial whether this is the automatic download of a link that came back
+   */
+  private takeInitial(params: Param[], complete: boolean, keepInitial: boolean): void {
+    const kept = keepInitial && this.initial.value !== null
+    if (complete && !kept) {
+      this.initial.value = initialOf(params, this.now())
+    }
+  }
+
+  /**
+   * The time now.
+   *
+   * @returns milliseconds since the epoch (from the clock of the tests, when they give one)
+   */
+  private now(): number {
+    return (this.deps.now ?? Date.now)()
+  }
+
+  /**
+   * Downloads the list and takes it in.
+   *
+   * @param keepInitial whether the initial values are kept if there are any
+   */
+  private async download(keepInitial: boolean): Promise<void> {
     this.list.value = 'loading'
 
     try {
       const downloaded = await this.deps.client.call('params.list', null)
+      this.takeInitial(downloaded.params, downloaded.complete, keepInitial)
       this.params.value = downloaded.params
       this.missing.value = downloaded.missing
       this.list.value = downloaded.complete ? 'complete' : 'incomplete'
@@ -94,6 +155,29 @@ class Parameters implements ParamsModel {
       this.list.value = 'failed'
       this.deps.fail(describeError(error))
     }
+  }
+
+  async refresh(options: { keepInitial?: boolean } = {}): Promise<void> {
+    const keepInitial = options.keepInitial === true
+    if (this.lock.busy.value) {
+      this.defer(keepInitial)
+    } else {
+      await this.download(keepInitial)
+    }
+  }
+
+  /**
+   * Not in the middle of a write (the values would be half and half): later, when it is over. Of two that wait, the one that
+   * does not keep the initial values (another vehicle) wins.
+   *
+   * @param keepInitial whether the download that is asked for keeps the initial values
+   */
+  private defer(keepInitial: boolean): void {
+    this.deferred = { keepInitial: keepInitial && (this.deferred?.keepInitial ?? true) }
+  }
+
+  clearInitial(): void {
+    this.initial.value = null
   }
 
   setFilter(filter: string): void {

@@ -59,6 +59,11 @@
   display: none;
 }
 
+/* "Reset to initial value", under the Value field of a parameter that is not at its initial value. */
+.param-edit .reset-one {
+  margin-top: var(--space-2);
+}
+
 .param-edit .field {
   display: grid;
   gap: var(--space-2);

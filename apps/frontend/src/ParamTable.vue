@@ -51,7 +51,14 @@
             <span class="prefix"><Marked :text="row.name.prefix" :tokens="tokens" /></span>
             <Marked :text="row.name.rest" :tokens="tokens" />
           </th>
-          <td class="num">{{ row.param.value }}</td>
+          <!-- A value that is not the initial one has a mark that is not only a colour: heavier, and words (a tooltip, and a
+               description for a screen reader: the text of the cell stays the number). -->
+          <td
+            class="num"
+            :class="{ changed: row.initial !== undefined }"
+            :title="row.changedText"
+            :aria-description="row.changedText"
+          >{{ row.param.value }}</td>
           <td v-if="meaning" class="meaning" :title="row.title || undefined">
             <span v-if="row.hit?.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
             <Marked :text="row.shownMeaning" :tokens="tokens" />
@@ -67,7 +74,23 @@
       <Button id="clear-search" @click="clear">{{ t('params.noMatch.clear') }}</Button>
     </EmptyState>
   </div>
-  <p id="list-status" class="list-status muted">{{ status }}</p>
+  <div class="list-footer">
+    <p id="list-status" class="list-status muted">{{ status }}</p>
+    <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
+    <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
+      {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}
+    </p>
+    <!-- Queues the initial value of every parameter that has changed since: the question is asked when they are written. -->
+    <Button
+      v-if="fields.initial.value"
+      id="reset-all"
+      :disabled="!canReset"
+      :title="t('params.initial.resetAllHelp')"
+      @click="resetAll"
+    >
+      {{ t('params.initial.resetAll', { count: targets.length }) }}
+    </Button>
+  </div>
   <!-- Said politely when the selection moves (Up and Down in the search move it with the focus staying there, so nothing else
        says which parameter it is now on). Always in the page, so that what is put in it is read out. -->
   <p id="selection-status" class="visually-hidden" role="status">{{ selectionText }}</p>
@@ -80,6 +103,9 @@ import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
 import { effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
+import { isBookkeeping } from './calibrationParams'
+import { clockText, initialIfChanged, resetTargets } from './initialValues'
+import { useToasts } from './toasts'
 import { registerListNav } from './paramListNav'
 import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './paramSearch'
 import type { Param } from './generated/app'
@@ -93,7 +119,7 @@ import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowW
 // how many there are and how many are shown. A list with nothing to show says why (no parameters yet, or none that match)
 // and, for the second, offers the way out.
 const { t } = useI18n()
-const { parameters, fields } = useConfigurator()
+const { parameters, fields, staged } = useConfigurator()
 const choice = useParamGroup()
 /** The height of a row, in px (the rows are all the same: the stylesheet gives them 44). */
 const ROW_PX = 44
@@ -150,13 +176,37 @@ function rowOf(param: Param, texts: { description: string, full: string }, hit: 
   return { param, name: splitName(param.id), shownMeaning, title, hit }
 }
 
+/**
+ * The initial value of a parameter that is not at it, for the mark of a changed row.
+ *
+ * @param id the parameter
+ * @returns its initial value, or undefined when it has not changed (or has none)
+ */
+function initialValueOf(id: string): number | undefined {
+  return initialIfChanged(id, parameters.changed.value, fields.initial.value)
+}
+
+/**
+ * The words for a value that is not its initial one (its tooltip, and what a screen reader is told).
+ *
+ * @param initial the initial value, when the parameter is not at it
+ * @returns the words, or undefined for a parameter that is at its initial value
+ */
+function changedText(initial: number | undefined): string | undefined {
+  return initial === undefined ? undefined : t('params.initial.changedFrom', { initial })
+}
+
 const rows = computed(() => {
   const why = new Map((hits.value ?? []).map(hit => [hit.id, hit]))
 
   return visible.value.map(param => {
     const { description = '', longDescription = description } = fields.metadata.value.get(param.id) ?? {}
 
-    return rowOf(param, { description, full: longDescription }, why.get(param.id))
+    const initial = initialValueOf(param.id)
+
+    const row = rowOf(param, { description, full: longDescription }, why.get(param.id))
+
+    return { ...row, initial, changedText: changedText(initial) }
   })
 })
 
@@ -184,10 +234,23 @@ const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === f
 // and not when the list does (the total changes with every key typed in the search, and the region would speak while the user
 // types).
 const selectionText = ref('')
+
+/**
+ * What the status says of the selected parameter: its name and place, and the value it changed from when it is not at its
+ * initial one (arrowing through the rows does not read the tooltip of the cell).
+ *
+ * @returns the words, or an empty string when nothing is selected in this list
+ */
+function selectionOf(): string {
+  const id = fields.selected.value
+  const initial = initialValueOf(id ?? '')
+  const key = initial === undefined ? 'params.selection' : 'params.selectionChanged'
+
+  return selectedAt.value < 0 ? '' : t(key, { id, position: selectedAt.value + 1, total: rows.value.length, initial })
+}
+
 watch(() => fields.selected.value, () => {
-  selectionText.value = selectedAt.value < 0
-    ? ''
-    : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length })
+  selectionText.value = selectionOf()
 }, { immediate: true })
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
@@ -379,6 +442,27 @@ const status = computed(() => {
 
   return listStatusText(counts, t)
 })
+
+// "Reset N changed to initial values": every parameter that is not at its initial value, but the counters that the vehicle keeps
+// by itself (STAT_*). It queues them (the question names every one, and is the only confirmation).
+const targets = computed(() => {
+  const skip = (id: string) => isBookkeeping(id, fields.metadata.value.get(id))
+
+  return resetTargets(params.value, fields.initial.value, skip)
+})
+const canReset = computed(() => {
+  const idle = !parameters.lock.busy.value && fields.list.value !== 'loading' && fields.connection.value.state === 'connected'
+
+  return idle && targets.value.length > 0
+})
+
+/** Queues the initial values of the changed parameters, and says so. */
+function resetAll(): void {
+  const count = staged.resetTo(targets.value)
+  if (count > 0) {
+    useToasts().push({ severity: 'success', text: t('params.initial.queued', { count }) })
+  }
+}
 
 /** Takes the search and the group away, so that every parameter is shown again. */
 function clear(): void {

@@ -52,12 +52,26 @@ const { t } = useI18n()
 const { staged, fields, parameters } = useConfigurator()
 const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
-const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)
+// Not while a write holds the lock, or the list is being downloaded (the values in it would be half old and half new).
+const idle = computed(() => !parameters.lock.busy.value && parameters.list.value !== 'loading')
+const writable = computed(() => connected.value && idle.value && pending.value.length > 0)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
 const summary = computed(() => summaryOf(staged.results.value, staged.writing.value, staged.readBack.value, t))
 const list = ref<HTMLElement | null>(null)
 
 // All the changes written and read back: the changes are gone from the list, and a toast says so (politely).
+// Queued resets that the vehicle has the value of already (a download after they were queued) are gone from the list: said once.
+watch(staged.matched, matched => {
+  if (matched) {
+    useToasts().push({ severity: 'success', text: t('staged.alreadyMatch', { count: matched.count }) })
+  }
+})
+// Changes that were taken out while the question was open (the vehicle got their values meanwhile) are left out of the run: said.
+watch(staged.leftOut, left => {
+  if (left) {
+    useToasts().push({ severity: 'warning', text: t('staged.leftOut', { count: left.count }), long: true })
+  }
+})
 watch(staged.written, done => {
   if (done) {
     useToasts().push({ id: 'staged-written', severity: 'success', text: t('staged.allWritten', { count: done.count }) })

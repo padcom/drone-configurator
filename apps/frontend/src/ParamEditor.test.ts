@@ -5,6 +5,7 @@ import { mockBackend } from './mock-backend'
 import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { PARAMS, VEHICLE } from './fixtures'
+import { initialOf } from './initialValues'
 
 /**
  * Mounts the editor on a fresh Configurator that holds the parameters, with RTL_ALT selected while connected.
@@ -40,6 +41,29 @@ async function typeInto(wrapper: Awaited<ReturnType<typeof editorWithSpies>>['wr
   field.element.value = text
   await field.trigger('input')
 }
+
+it('offers to reset a parameter that is not at its initial value, and queues that value without writing it', async () => {
+  const { wrapper, handle, editDraft } = await editorWithSpies()
+  expect(wrapper.find('#reset-one').exists()).toBe(false)
+
+  feed(handle, { initial: initialOf(PARAMS.map(p => p.id === 'RTL_ALT' ? { ...p, value: 1400 } : p), 0) })
+  await wrapper.vm.$nextTick()
+  const button = wrapper.get('#reset-one')
+  expect(button.text()).toBe('Reset to initial value')
+  expect(button.attributes('title')).toBe(
+    'Queues the value this parameter had at the last complete download, 1400. Nothing is written until you press Write.',
+  )
+
+  await button.trigger('click')
+
+  const queued = handle.staged.changes.value.map(change => [change.id, change.from, change.to, change.origin])
+  expect(queued).toEqual([['RTL_ALT', 1500, 1400, 'reset']])
+  // The Value field says what will be written.
+  expect(editDraft).toHaveBeenCalledWith('1400')
+  feed(handle, { initial: initialOf(PARAMS, 0) })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('#reset-one').exists()).toBe(false)
+})
 
 it('asks for a parameter to be selected, and hides the form, until one is', async () => {
   createConfigurator(mockBackend())

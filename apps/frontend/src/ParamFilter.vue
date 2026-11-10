@@ -38,7 +38,8 @@ import { useConfigurator } from './useConfigurator'
 // The search by name, with a way to clear it, and the button that downloads the list again.
 const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
-const download = computed(() => canDownload(fields.connection.value.state, fields.list.value))
+// Not while a write is under way: a download in the middle of it would put half-written values in the initial ones.
+const download = computed(() => canDownload(fields.connection.value.state, fields.list.value) && !parameters.lock.busy.value)
 
 /** The keys that move the selected row of the list from the search (Home and End are the caret's). */
 const LIST_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'])

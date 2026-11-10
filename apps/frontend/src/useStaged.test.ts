@@ -41,8 +41,10 @@ function fakeParameters(params: ShallowRef<Param[]>) {
   ]
   const draft = shallowRef('')
   const lock = createWriteLock()
+  const list = shallowRef('complete')
   const parameters = {
     params,
+    list,
     draft,
     draftError,
     draftWarning,
@@ -57,7 +59,7 @@ function fakeParameters(params: ShallowRef<Param[]>) {
     },
   } as unknown as ParamsModel
 
-  return { parameters, selected, draft, draftError, draftWarning, lock }
+  return { parameters, selected, draft, draftError, draftWarning, lock, list }
 }
 
 /**
@@ -450,6 +452,151 @@ describe('the lock', () => {
     second?.()
     expect(lock.busy.value).toBe(false)
     expect(lock.take()).not.toBeNull()
+  })
+})
+
+describe('the question, for a bulk reset', () => {
+  it('says that calibration values are in it, at the top where a long list that scrolls does not hide it', () => {
+    const question = questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }, { id: 'COMPASS_OFS_X', from: 5, to: 0, origin: 'reset' }])
+
+    expect(question.split('\n')).toEqual([
+      'Write 2 parameters to the vehicle?',
+      'Includes calibration values',
+      'RTL_ALT 1 → 2',
+      'COMPASS_OFS_X 5 → 0',
+    ])
+    expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).not.toContain('calibration')
+  })
+
+  it('names every parameter, with the count first, for hundreds of them', () => {
+    const many = Array.from({ length: 300 }, (_, i) => ({ id: `P_${i}`, from: i, to: i + 1, origin: 'reset' as const }))
+    const lines = questionFor(many).split('\n')
+
+    expect(lines[0]).toBe('Write 300 parameters to the vehicle?')
+    expect(lines).toHaveLength(301)
+    expect(lines.at(-1)).toBe('P_299 299 → 300')
+  })
+})
+
+describe('putting parameters back to their initial values', () => {
+  it('queues each in place of any change queued for it, from what the vehicle has, and writes nothing', () => {
+    const { staged, pick, call } = rig((_id, value) => value)
+    pick('RTL_ALT', '1700')
+    staged.sync()
+
+    expect(staged.resetTo([{ id: 'RTL_ALT', to: 1400 }, { id: 'FENCE_RADIUS', to: 100 }])).toBe(2)
+
+    expect(staged.changes.value.map(change => [change.id, change.from, change.to, change.origin]))
+      .toEqual([['RTL_ALT', 1500, 1400, 'reset'], ['FENCE_RADIUS', 150, 100, 'reset']])
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('takes a change out for a parameter that has the value already, and skips one that is not on the vehicle', () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1700')
+    staged.sync()
+
+    expect(staged.resetTo([{ id: 'RTL_ALT', to: 1500 }, { id: 'NOT_THERE', to: 1 }])).toBe(0)
+
+    expect(staged.changes.value).toEqual([])
+  })
+
+  it('makes the Value field of the selected parameter say what will be written', () => {
+    const { staged, pick, draft } = rig((_id, value) => value)
+    pick('RTL_ALT', '1500')
+
+    staged.resetTo([{ id: 'RTL_ALT', to: 1400 }])
+
+    expect(draft.value).toBe('1400')
+  })
+})
+
+describe('writing what was put back', () => {
+  it('writes them as any change, after the one question, which says the value the vehicle has when it is asked', async () => {
+    const { staged, askedOnce, params, call } = rig((_id, value) => value)
+    staged.resetTo([{ id: 'RTL_ALT', to: 1400 }])
+    // Another ground station changed it after the reset was queued.
+    params.value = params.value.map(param => param.id === 'RTL_ALT' ? { ...param, value: 1600 } : param)
+
+    await staged.writeAll()
+
+    expect(askedOnce).toHaveBeenCalledWith('Write 1 parameter to the vehicle?\nRTL_ALT 1600 → 1400')
+    expect(call.mock.calls.map(([, payload]) => [payload.id, payload.value])).toEqual([['RTL_ALT', 1400]])
+  })
+
+  it('is not queued while the changes are being written', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    const writing = staged.writeAll()
+    await Promise.resolve()
+
+    expect(staged.resetTo([{ id: 'FENCE_RADIUS', to: 1 }])).toBe(0)
+    await writing
+  })
+})
+
+describe('queued changes that the vehicle has the value of', () => {
+  it('are taken out, and the resets among them are counted (a download after they were queued)', () => {
+    const { staged, pick, params } = rig((_id, value) => value)
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+    staged.resetTo([{ id: 'RTL_ALT', to: 1400 }, { id: 'BATT_CAPACITY', to: 5000 }])
+
+    const now: Record<string, number> = { RTL_ALT: 1400, FENCE_RADIUS: 300 }
+    params.value = params.value.map(param => param.id in now ? { ...param, value: now[param.id] as number } : param)
+    staged.dropMatching()
+
+    expect(staged.changes.value.map(change => change.id)).toEqual(['BATT_CAPACITY'])
+    expect(staged.matched.value).toEqual({ count: 1 })
+  })
+
+  it('stay when the vehicle has another value than the queued one', () => {
+    const { staged, pick, params } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    params.value = params.value.map(param => param.id === 'RTL_ALT' ? { ...param, value: 1599 } : param)
+
+    staged.dropMatching()
+
+    expect(staged.changes.value).toHaveLength(1)
+    expect(staged.matched.value).toBeNull()
+  })
+})
+
+describe('a change taken out while the question is open', () => {
+  it('is left out of the run, which goes on with the rest and says so', async () => {
+    const { staged, pick, askedOnce, params, call } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+    askedOnce.mockImplementationOnce(() => {
+      // A download gave the vehicle the value queued for the first, while the question was asked.
+      params.value = params.value.map(param => param.id === 'RTL_ALT' ? { ...param, value: 1600 } : param)
+      staged.dropMatching()
+
+      return Promise.resolve(true)
+    })
+
+    await staged.writeAll()
+
+    expect(call.mock.calls.map(([, payload]) => payload.id)).toEqual(['FENCE_RADIUS'])
+    expect(staged.changes.value).toEqual([])
+    expect(staged.leftOut.value).toEqual({ count: 1 })
+    expect(staged.written.value).toEqual({ count: 1 })
+  })
+})
+
+describe('a run with nothing taken out', () => {
+  it('says nothing was left out', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+
+    await staged.writeAll()
+
+    expect(staged.leftOut.value).toBeNull()
   })
 })
 

@@ -267,6 +267,34 @@
   white-space: nowrap;
 }
 
+/* The line under the list: how many are shown, and when the initial values were taken. */
+.list-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  border-top: 1px solid var(--color-border);
+}
+
+.list-footer {
+  align-items: center;
+}
+
+.list-footer .list-status {
+  border-top: 0;
+}
+
+/* "Reset N changed to initial values", at the right of the line that says when the initial values were taken. */
+.list-footer #reset-all {
+  margin: var(--space-1) var(--space-3);
+}
+
+/* A value that is not its initial one: the number in the accent and heavier (a mark that is not only a colour; the face is
+   mono, so a heavier weight takes no more width, and the column is sized to the number). The words are its tooltip. */
+.param-scroll td.num.changed {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
 .list-status {
   padding: 10px 14px;
   margin: 0;

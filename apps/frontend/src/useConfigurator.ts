@@ -92,6 +92,7 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     list: parameters.list,
     missing: parameters.missing,
     filter: parameters.filter,
+    initial: parameters.initial,
     selected: parameters.selected,
     draft: parameters.draft,
     draftError: parameters.draftError,
@@ -149,8 +150,12 @@ function stagedFor(
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {
       staged.reset()
+      // The initial values are the vehicle's too: another one has its own, from its own first download.
+      parameters.clearInitial()
     }
   })
+  // A download, or another ground station, may give a parameter the value that is queued for it: nothing is left to write then.
+  watch(parameters.params, () => staged.dropMatching())
   // Selecting a parameter that has a change queued shows the value queued for it (what will be written), not the vehicle's.
   watch(parameters.selected, id => {
     const queued = staged.changes.value.find(change => change.id === id)
@@ -245,7 +250,9 @@ export function createConfigurator(
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
   // A vehicle that has just been connected has its parameters downloaded.
-  vehicle.onSession(connected => connected && void parameters.refresh())
+  // A link that came back to the same vehicle (`resumed`) has them downloaded again too, but that does not replace the initial
+  // values: only the user's Download does, and a connection to another vehicle.
+  vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
   listen(client, vehicle, parameters)
