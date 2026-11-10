@@ -1,0 +1,96 @@
+/*
+ * The heads-up display (Hud.vue): tokens only. The SVG takes the width of the aside and keeps its proportions.
+ */
+
+.hud {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--color-map);
+}
+
+.hud .sky {
+  fill: var(--hud-sky);
+}
+
+.hud .ground {
+  fill: var(--hud-ground);
+}
+
+.hud .line {
+  stroke: var(--color-text);
+}
+
+.hud .rung {
+  stroke-opacity: 0.75;
+}
+
+/* The board recolours the sky and the ground when the link is lost; the tokens have no such colours, so they are desaturated. */
+.hud.silent .horizon {
+  filter: saturate(0.3);
+}
+
+.hud .aircraft {
+  stroke: var(--color-warn);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hud .box rect {
+  fill: var(--color-bg);
+  stroke: var(--color-text);
+  stroke-width: 1.5;
+}
+
+.hud text {
+  fill: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+.hud .number {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.hud .heading {
+  font-size: 20px;
+}
+
+.hud .unit {
+  font-size: 12px;
+}
+
+/* A value that has gone quiet while the vehicle is still heard from: dimmed, hatched, and marked "stale" in words. */
+.hud .horizon.old,
+.hud .box.old text.number {
+  opacity: 0.5;
+}
+
+.hud .stale-word {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--color-warn);
+}
+
+.hud .hatch-ground {
+  fill: var(--color-map);
+  fill-opacity: 0.45;
+}
+
+.hud .hatch-line {
+  fill: var(--color-text);
+  fill-opacity: 0.14;
+}
+
+.hud .tag-box {
+  fill: var(--color-warn);
+}
+
+.hud .tag {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--color-on-warn);
+}

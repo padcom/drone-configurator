@@ -165,10 +165,51 @@
     "map": {
       "title": "Map",
       "placeholder": "The map is not available yet."
-    },
-    "hud": {
-      "placeholder": "The heads-up display is not available yet."
     }
+  },
+  "hud": {
+    "label": "Attitude and speed: roll {roll}, pitch {pitch}, speed {speed}, altitude {altitude}.",
+    "say": {
+      "degrees": "{value} degrees",
+      "speed": "{value} metres a second",
+      "altitude": "{value} metres"
+    },
+    "stale": "stale",
+    "attitudeStale": "attitude stale",
+    "staleValues": "Out of date: {names}.",
+    "name": {
+      "attitude": "attitude",
+      "speed": "speed",
+      "altitude": "altitude",
+      "heading": "heading"
+    },
+    "unit": {
+      "speed": "m/s",
+      "altitude": "m"
+    },
+    "lastHeard": "last heard",
+    "lastHeardReconnecting": "last heard, reconnecting"
+  },
+  "flyCards": {
+    "label": {
+      "battery": "BATTERY",
+      "wind": "WIND",
+      "gps": "GPS",
+      "link": "LINK",
+      "ekf": "EKF",
+      "vibration": "VIBRATION"
+    },
+    "hdop": "HDOP {hdop}",
+    "ekf": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "failing": "Failing"
+    },
+    "worstVariance": "highest variance {variance}",
+    "wind": "{speed} m/s",
+    "windFrom": "from {degrees}°",
+    "vibration": "{value} m/s²",
+    "axes": "x {x} · y {y} · z {z}"
   },
   "language": {
     "label": "Language",
