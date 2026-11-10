@@ -46,6 +46,18 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.feedback') }}</h3>
+      <div class="row feedback-demo">
+        <Menu :label="t('gallery.feedback.menu')" :items="menuItems" />
+        <Tooltip :text="t('gallery.feedback.tip')" v-slot="{ describedby }">
+          <Button :aria-describedby="describedby">{{ t('gallery.feedback.tipButton') }}</Button>
+        </Tooltip>
+        <Button @click="pushToast">{{ t('gallery.feedback.push') }}</Button>
+      </div>
+      <ToastHost :queue="toasts" />
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.truth') }}</h3>
       <div class="truths">
         <TruthValue
@@ -170,6 +182,7 @@ import Checkbox from '../kit/Checkbox.vue'
 import EmptyState from '../kit/EmptyState.vue'
 import HoldButton from '../kit/HoldButton.vue'
 import Icon from '../kit/Icon.vue'
+import Menu from '../kit/Menu.vue'
 import { ICONS, type IconName } from '../kit/icons'
 import Panel from '../kit/Panel.vue'
 import ProgressBar from '../kit/ProgressBar.vue'
@@ -181,12 +194,15 @@ import SplitPane from '../kit/SplitPane.vue'
 import StatCell from '../kit/StatCell.vue'
 import Tabs from '../kit/Tabs.vue'
 import TickUnlock from '../kit/TickUnlock.vue'
+import Tooltip from '../kit/Tooltip.vue'
 import TextInput from '../kit/TextInput.vue'
 import Toggle from '../kit/Toggle.vue'
 import EnumField from '../EnumField.vue'
 import PanelForm from '../PanelForm.vue'
 import type { FormRow, FormValue } from '../panelForm'
+import ToastHost from '../ToastHost.vue'
 import { HOLD_MS } from '../safety'
+import { createToasts } from '../toasts'
 import TruthValue from '../TruthValue.vue'
 
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
@@ -257,6 +273,23 @@ const tabs = computed(() => [
 const text = ref('')
 const wrong = ref('abc')
 const value = ref('1500')
+/** The gallery's own toast queue, with the three severities already in it (they stay: sticky). */
+const toasts = createToasts()
+for (const [severity, key] of [['success', 'ok'], ['warning', 'warn'], ['error', 'bad']] as const) {
+  toasts.push({ severity, text: t(`gallery.feedback.toast.${key}`), sticky: true })
+}
+const menuItems = computed(() => [
+  { id: 'fly', label: t('gallery.feedback.item.fly') },
+  { id: 'home', label: t('gallery.feedback.item.home'), disabled: true },
+  { id: 'look', label: t('gallery.feedback.item.look') },
+  { id: 'copy', label: t('gallery.feedback.item.copy'), hint: 'Ctrl C' },
+])
+
+/** Pushes one more toast, so that the queue can be seen to fill and to wait. */
+function pushToast(): void {
+  toasts.push({ severity: 'success', text: t('gallery.feedback.toast.more', { n: Date.now() % 1000 }) })
+}
+
 const ticked = ref(false)
 const form = reactive({ action: 1, altitude: 20, battery: true, name: 'Quad 1' })
 /** A number the vehicle holds that has no name in the list (the field shows it as it is). */
