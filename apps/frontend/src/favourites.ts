@@ -56,42 +56,50 @@ export interface Favourites {
   /**
    * Stars a parameter, or takes its star away.
    *
-   * @returns false when the list would not fit in the settings (nothing is changed then)
+   * @returns how it went: `kept` (the settings have the list), `full` (it would not fit in the settings: nothing is changed) or
+   * `failed` (the settings could not keep it: the star goes back, and the settings' own notice says why)
    */
-  toggle: (id: string) => Promise<boolean>
+  toggle: (id: string) => Promise<Kept>
   /**
    * Takes out the favourites that are not among `ids` (the parameters this vehicle has): the only way to get rid of the names
    * of another vehicle's parameters, which the list never shows.
    *
-   * @returns false when the settings could not take the list
+   * @returns how it went, as for `toggle`
    */
-  keepOnly: (ids: ReadonlySet<string>) => Promise<boolean>
+  keepOnly: (ids: ReadonlySet<string>) => Promise<Kept>
 }
+
+/** How keeping the list in the settings went. */
+export type Kept = 'kept' | 'full' | 'failed'
 
 /**
  * Keeps a list: it shows at once (in `local`), and goes back to what the settings say when they have answered.
  *
  * @param local what is shown until the settings have answered
- * @param setUi keeps a text in the settings
+ * @param settings keeps a text in the settings, and says what they hold
+ * @param settings.setUi keeps a text
+ * @param settings.uiValue what the settings hold under a key
  * @param next the new list
- * @returns false when it would not fit in the settings (nothing is changed then)
+ * @returns how it went
  */
 async function keepList(
   local: ShallowRef<string[] | null>,
-  setUi: (key: string, value: string) => Promise<void>,
+  settings: { setUi: (key: string, value: string) => Promise<void>, uiValue: (key: string) => string | undefined },
   next: string[],
-): Promise<boolean> {
+): Promise<Kept> {
   if (!fits(next)) {
-    return false
+    return 'full'
   }
+  const text = JSON.stringify(next)
   local.value = next
-  await setUi(FAVOURITES_KEY, JSON.stringify(next))
+  await settings.setUi(FAVOURITES_KEY, text)
 
   if (local.value === next) {
     local.value = null
   }
 
-  return true
+  // The settings swallow an error (their notice speaks): what they hold now says whether the list was kept.
+  return settings.uiValue(FAVOURITES_KEY) === text ? 'kept' : 'failed'
 }
 
 /**
@@ -105,7 +113,7 @@ export function useFavourites(): Favourites {
   const local = shallowRef<string[] | null>(null)
   const names = computed(() => local.value ?? parseFavourites(settings.uiValue(FAVOURITES_KEY)))
   const set = computed(() => new Set(names.value))
-  const keep = (next: string[]) => keepList(local, settings.setUi.bind(settings), next)
+  const keep = (next: string[]) => keepList(local, settings, next)
 
   return {
     names,

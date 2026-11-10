@@ -1,9 +1,9 @@
 // The star in the list and the Favourites group: a star is a button in the row that does not select it, the key `*` stars the
 // selected row, the group lists the starred parameters that the vehicle has (with a count and an empty state), and the stars
 // are kept in the settings.
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { PARAMS } from './fixtures'
+import { PARAMS, VEHICLE } from './fixtures'
 import { FAVOURITES_KEY } from './favourites'
 import { mockBackend } from './mock-backend'
 import ParamGroups from './ParamGroups.vue'
@@ -109,14 +109,34 @@ it('lets Enter on a star toggle it (the button\'s own), and keeps Enter on the l
   field.remove()
 })
 
-it('takes the favourites out that are not on this vehicle, with a button in the Favourites group', async () => {
-  const { table, groups, handle } = await screen(['RTL_ALT', 'GONE_ONE', 'GONE_TWO'])
-  expect(table.find('#clear-missing-favourites').exists()).toBe(false)
-
-  await groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).trigger('click')
+/**
+ * The Favourites group chosen, on a screen whose vehicle is connected with its whole list.
+ *
+ * @param starred the names the settings hold as favourites
+ * @returns the components and the Configurator
+ */
+async function favouritesOfConnected(starred: string[]) {
+  const shown = await screen(starred)
+  feed(shown.handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await shown.table.vm.$nextTick()
+  await shown.groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).trigger('click')
   await flushPromises()
+
+  return shown
+}
+
+it('takes the favourites out that are not on this vehicle, with a button that asks first, in the Favourites group', async () => {
+  const { table, groups, handle } = await favouritesOfConnected(['RTL_ALT', 'GONE_ONE', 'GONE_TWO'])
   const button = table.get('#clear-missing-favourites')
-  expect(button.text()).toBe('Remove the 2 not on this vehicle')
+  expect(button.text()).toBe('Remove the 2 not on this vehicle…')
+  expect(button.attributes('title')).toContain('for every vehicle')
+
+  // One press asks, and removes nothing.
+  await button.trigger('click')
+  await flushPromises()
+  expect(handle.settings.uiValue(FAVOURITES_KEY)).toBe('["RTL_ALT","GONE_ONE","GONE_TWO"]')
+  expect(button.text()).toBe('Remove 2 from your list for every vehicle? Press again')
+  expect(table.get('#favourite-status').text()).toBe('Remove 2 from your list for every vehicle? Press again')
 
   await button.trigger('click')
   await flushPromises()
@@ -125,6 +145,52 @@ it('takes the favourites out that are not on this vehicle, with a button in the 
   expect(table.find('#clear-missing-favourites').exists()).toBe(false)
   expect(table.get('#favourite-status').text()).toBe('2 removed from the favourites')
   expect(groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).attributes('title')).toBeUndefined()
+})
+
+it('goes back to asking when the second press does not come in time', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  const { table } = await favouritesOfConnected(['GONE_ONE'])
+  const button = table.get('#clear-missing-favourites')
+  await button.trigger('click')
+  expect(button.text()).toContain('Press again')
+
+  vi.advanceTimersByTime(7000)
+  await table.vm.$nextTick()
+
+  expect(button.text()).toBe('Remove the 1 not on this vehicle…')
+  vi.useRealTimers()
+})
+
+it('is not offered without the whole list of a connected vehicle (nothing is "missing" then; the list is global)', async () => {
+  const none = await screen(['GONE_ONE'])
+  await none.groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).trigger('click')
+  await flushPromises()
+  // Not connected.
+  expect(none.table.find('#clear-missing-favourites').exists()).toBe(false)
+
+  feed(none.handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } }, list: 'incomplete' })
+  await none.table.vm.$nextTick()
+  expect(none.table.find('#clear-missing-favourites').exists()).toBe(false)
+
+  feed(none.handle, { list: 'failed', params: [] })
+  await none.table.vm.$nextTick()
+  expect(none.table.find('#clear-missing-favourites').exists()).toBe(false)
+  expect(none.handle.settings.uiValue(FAVOURITES_KEY)).toBe('["GONE_ONE"]')
+
+  feed(none.handle, { list: 'complete', params: PARAMS })
+  await none.table.vm.$nextTick()
+  expect(none.table.find('#clear-missing-favourites').exists()).toBe(true)
+})
+
+it('says nothing of a star that the settings could not keep: the star goes back, and their notice speaks', async () => {
+  const { table, handle } = await screen()
+  vi.spyOn(handle.settings, 'setUi').mockResolvedValue()
+
+  await table.get('tr[data-id="RTL_ALT"] td.star button').trigger('click')
+  await flushPromises()
+
+  expect(table.get('#favourite-status').text()).toBe('')
+  expect(table.get('tr[data-id="RTL_ALT"] td.star button').attributes('aria-pressed')).toBe('false')
 })
 
 it('has a Favourites group after All, with the count of the starred parameters the vehicle has', async () => {

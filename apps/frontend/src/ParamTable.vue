@@ -96,8 +96,13 @@
   <div class="list-footer">
     <p id="list-status" class="list-status muted">{{ status }}</p>
     <!-- The Favourites group: the names of other vehicles' parameters can be taken out here (they are never in the list). -->
-    <Button v-if="onlyFavourites && missingFavourites > 0" id="clear-missing-favourites" @click="clearMissingFavourites">
-      {{ t('params.favourites.clearMissing', { count: missingFavourites }) }}
+    <Button
+      v-if="canClearMissing"
+      id="clear-missing-favourites"
+      :title="t('params.favourites.clearMissingHelp', { count: missingFavourites })"
+      @click="pressClearMissing"
+    >
+      {{ t(armed ? 'params.favourites.clearAsk' : 'params.favourites.clearMissing', { count: missingFavourites }) }}
     </Button>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
@@ -165,10 +170,12 @@ const favouriteSaid = ref('')
  */
 async function star(id: string): Promise<void> {
   const adding = !favourites.set.value.has(id)
-  if (await favourites.toggle(id)) {
-    // Said politely, for the key and the click alike (the focus stays where it is, and nothing else tells what happened).
+  const kept = await favourites.toggle(id)
+  if (kept === 'kept') {
+    // Said politely, for the key and the click alike (the focus stays where it is, and nothing else tells what happened). Only
+    // when the settings have it: when they could not keep it, the star goes back and their own notice speaks.
     favouriteSaid.value = t(adding ? 'params.favourites.added' : 'params.favourites.removed', { id })
-  } else {
+  } else if (kept === 'full') {
     useToasts().push({ severity: 'error', text: t('params.favourites.full'), long: true })
   }
 }
@@ -176,13 +183,48 @@ async function star(id: string): Promise<void> {
 // The favourites that this vehicle does not have: they are never in the list, so the Favourites group offers to remove them.
 const onVehicle = computed(() => new Set(params.value.map(param => param.id)))
 const missingFavourites = computed(() => favourites.names.value.filter(name => !onVehicle.value.has(name)).length)
+// Only with this vehicle's whole list in hand: without a download (not connected, failed, incomplete) every favourite would count
+// as missing, and the list is global (it is the favourites of every vehicle).
+const canClearMissing = computed(() => [
+  onlyFavourites.value,
+  fields.connection.value.state === 'connected',
+  fields.list.value === 'complete',
+  params.value.length > 0,
+  missingFavourites.value > 0,
+].every(Boolean))
+/** How long the question of the button stays (ms). */
+const ARM_MS = 6000
 
 /** Takes the favourites out that are not on this vehicle. */
 async function clearMissingFavourites(): Promise<void> {
   const count = missingFavourites.value
-  if (await favourites.keepOnly(onVehicle.value)) {
+  if (await favourites.keepOnly(onVehicle.value) === 'kept') {
     favouriteSaid.value = t('params.favourites.cleared', { count })
   }
+}
+
+// A second press is needed: the first one says what is about to be lost, and the button goes back by itself.
+const armed = ref(false)
+let disarm: ReturnType<typeof setTimeout> | undefined
+watch(canClearMissing, can => {
+  armed.value = armed.value && can
+})
+
+/** The button that takes the favourites out that are not on this vehicle: the first press asks, the second does it. */
+function pressClearMissing(): void {
+  clearTimeout(disarm)
+
+  if (armed.value) {
+    armed.value = false
+    void clearMissingFavourites()
+
+    return
+  }
+  armed.value = true
+  favouriteSaid.value = t('params.favourites.clearAsk', { count: missingFavourites.value })
+  disarm = setTimeout(() => {
+    armed.value = false
+  }, ARM_MS)
 }
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).

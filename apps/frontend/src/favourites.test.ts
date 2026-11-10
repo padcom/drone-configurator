@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { FAVOURITES_KEY, MAX_FAVOURITES_CHARS, fits, parseFavourites, toggled, useFavourites } from './favourites'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
@@ -44,8 +44,8 @@ describe('the favourites of the interface', () => {
     const { favourites, handle } = await rig()
     expect(favourites.names.value).toEqual([])
 
-    expect(await favourites.toggle('RTL_ALT')).toBe(true)
-    expect(await favourites.toggle('BATT_CAPACITY')).toBe(true)
+    expect(await favourites.toggle('RTL_ALT')).toBe('kept')
+    expect(await favourites.toggle('BATT_CAPACITY')).toBe('kept')
 
     expect(favourites.names.value).toEqual(['RTL_ALT', 'BATT_CAPACITY'])
     expect(favourites.set.value.has('RTL_ALT')).toBe(true)
@@ -64,13 +64,25 @@ describe('the favourites of the interface', () => {
   })
 })
 
+describe('the favourites, when the settings could not keep them', () => {
+  it('say so, and the star goes back to what the settings hold (the settings\' own notice says why)', async () => {
+    const { favourites, handle } = await rig()
+    // setUi swallows an error: nothing is kept, and nothing is thrown.
+    vi.spyOn(handle.settings, 'setUi').mockResolvedValue()
+
+    expect(await favourites.toggle('RTL_ALT')).toBe('failed')
+
+    expect(favourites.names.value).toEqual([])
+  })
+})
+
 describe('the favourites, when there is no room or there already are some', () => {
   it('refuse a star that the settings have no room for, and change nothing', async () => {
     const { favourites, handle } = await rig()
     const many = Array.from({ length: 4000 }, (_, i) => `PARAM_NAME_${i}`)
     await handle.settings.setUi(FAVOURITES_KEY, JSON.stringify(many))
 
-    expect(await favourites.toggle('ONE_MORE')).toBe(false)
+    expect(await favourites.toggle('ONE_MORE')).toBe('full')
 
     expect(favourites.names.value).toHaveLength(4000)
     expect(favourites.set.value.has('ONE_MORE')).toBe(false)
