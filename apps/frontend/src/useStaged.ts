@@ -151,7 +151,8 @@ class Staged implements StagedModel {
    * @returns the change
    */
   private changeFor(param: Param, to: number): StagedChange {
-    const warning = this.deps.parameters.draftWarning.value
+    // Read again now: the metadata may have been loaded or replaced since the draft was typed.
+    const warning = this.deps.parameters.refreshWarning()
 
     return warning ? { id: param.id, from: param.value, to, warning } : { id: param.id, from: param.value, to }
   }

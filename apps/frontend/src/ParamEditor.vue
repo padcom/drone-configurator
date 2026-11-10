@@ -14,15 +14,11 @@
       <p v-if="details.range" class="facts">{{ details.range }}</p>
       <p v-if="details.values && !named" class="facts">{{ details.values }}</p>
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
-      <!-- Unusual according to the metadata, but not wrong: the write is allowed (the vehicle validates, and the read-back says
-           what it kept). The field points to it, as it does to an error. -->
-      <p v-else-if="fields.draftWarning.value" id="draft-warning" class="warning" role="status">
-        {{ fields.draftWarning.value }}
-      </p>
     </template>
-    <!-- The outcome of a write is said in two regions that are always in the page, so that a screen reader reads what is put in
+    <!-- The outcome of a write is said in regions that are always in the page, so that a screen reader reads what is put in
          them: a polite one for "writing" and a verified write, an assertive one for a write that is not confirmed or that the
-         vehicle changed. -->
+         vehicle changed, and a polite one for what the metadata finds unusual about the draft (not wrong: the write is allowed,
+         the vehicle validates and the read-back says what it kept; the field points to it, as it does to an error). -->
     <div class="notices">
       <p class="notice" role="status" :class="polite?.tone">
         <template v-if="polite">
@@ -36,6 +32,7 @@
           {{ assertive.text }}
         </template>
       </p>
+      <p id="draft-warning" class="notice warning" role="status">{{ warningText }}</p>
     </div>
   </div>
   <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="parameters.write()">
@@ -115,6 +112,8 @@ const writable = computed(() => free.value && canWrite({
   draftError: fields.draftError.value,
   draft: fields.draft.value,
 }, param.value))
+// What the warning region says: the warning, unless there is an error (the error is said instead).
+const warningText = computed(() => fields.draftError.value ? '' : (fields.draftWarning.value ?? ''))
 // The field points to the words about its draft: the error when there is one, else the warning.
 const describedBy = computed(() => {
   if (fields.draftError.value) {

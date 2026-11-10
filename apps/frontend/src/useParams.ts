@@ -63,6 +63,8 @@ export interface ParamsModel {
   select: (id: string) => void
   /** The user typed a new value. */
   editDraft: (text: string) => void
+  /** Reads again what the metadata finds unusual about the draft (the metadata may have changed), and gives it. */
+  refreshWarning: () => string | null
   /** Writes the draft after the user confirms; the vehicle's read-back decides the outcome. */
   write: () => Promise<void>
   /** A parameter the vehicle announced on its own (another ground station changed it). */
@@ -154,7 +156,15 @@ class Parameters implements ParamsModel {
     const param = this.selectedParam()
     this.draft.value = text
     this.draftError.value = param ? this.deps.problemWith(param, text) : null
-    this.draftWarning.value = param ? this.deps.warningWith(param, text) : null
+    this.refreshWarning()
+  }
+
+  refreshWarning(): string | null {
+    const param = this.selectedParam()
+    const warning = param ? this.deps.warningWith(param, this.draft.value) : null
+    this.draftWarning.value = warning
+
+    return warning
   }
 
   /**
@@ -207,10 +217,8 @@ class Parameters implements ParamsModel {
 
       return
     }
-    // The metadata's view is read again now: the file may have been loaded since the draft was typed.
-    const warning = this.deps.warningWith(param, this.draft.value)
-    this.draftWarning.value = warning
-    await this.writeLocked(param, Number(this.draft.value.trim()), warning)
+    // The metadata's view is read again now, so that the question is true to the metadata as it is.
+    await this.writeLocked(param, Number(this.draft.value.trim()), this.refreshWarning())
   }
 
   /**

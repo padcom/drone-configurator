@@ -30,6 +30,34 @@ function vehicleAnswering(params: ShallowRef<Param[]>, answer: (id: string, valu
 }
 
 /**
+ * The parameters model as far as the staged changes use it: the list, the selected one, its draft and the words about it.
+ *
+ * @param params the list
+ * @returns the model and the refs a test sets
+ */
+function fakeParameters(params: ShallowRef<Param[]>) {
+  const [selected, draftError, draftWarning] = [0, 1, 2].map(() => shallowRef<string | null>(null)) as [
+    ShallowRef<string | null>, ShallowRef<string | null>, ShallowRef<string | null>,
+  ]
+  const draft = shallowRef('')
+  const lock = createWriteLock()
+  const parameters = {
+    params,
+    draft,
+    draftError,
+    draftWarning,
+    refreshWarning: () => draftWarning.value,
+    lock,
+    selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
+    replace: (param: Param) => {
+      params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
+    },
+  } as unknown as ParamsModel
+
+  return { parameters, selected, draft, draftError, draftWarning, lock }
+}
+
+/**
  * A staged model on a fake vehicle: the parameters it holds, and what a write to it answers.
  *
  * @param answer what the vehicle reports after a write: the value read back, or an error to throw
@@ -38,21 +66,7 @@ function vehicleAnswering(params: ShallowRef<Param[]>, answer: (id: string, valu
  */
 function rig(answer: (id: string, value: number) => number | Error, confirm = true) {
   const params = shallowRef<Param[]>([RTL, FENCE, BATT])
-  const selected = shallowRef<string | null>(null)
-  const draft = shallowRef('')
-  const [draftError, draftWarning] = [shallowRef<string | null>(null), shallowRef<string | null>(null)]
-  const lock = createWriteLock()
-  const parameters = {
-    params,
-    draft,
-    draftError,
-    draftWarning,
-    lock,
-    selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
-    replace: (param: Param) => {
-      params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
-    },
-  } as unknown as ParamsModel
+  const { parameters, selected, draft, draftError, draftWarning, lock } = fakeParameters(params)
   const call = vehicleAnswering(params, answer)
   const askedOnce = vi.fn(() => Promise.resolve(confirm))
   const staged = useStaged({

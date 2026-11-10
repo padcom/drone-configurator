@@ -141,7 +141,10 @@ it('shows a verified write with a mark and its words, and an unconfirmed one as 
 
 it('shows what the metadata finds unusual as a warning the field points to, and keeps Write enabled', async () => {
   const { wrapper, handle } = await editorWithSpies()
-  expect(wrapper.find('#draft-warning').exists()).toBe(false)
+  // The status is in the page all the time, empty, so that a screen reader announces its text when it comes.
+  expect(wrapper.get('#draft-warning').text()).toBe('')
+  expect(wrapper.get('#draft-warning').attributes('role')).toBe('status')
+  expect(wrapper.get('#draft').attributes('aria-describedby')).toBeUndefined()
 
   feed(handle, { draftWarning: 'Outside the usual range 200–300000 cm' })
   await wrapper.vm.$nextTick()
@@ -158,7 +161,7 @@ it('shows what the metadata finds unusual as a warning the field points to, and 
   feed(handle, { draftError: 'Not a number' })
   await wrapper.vm.$nextTick()
   expect(wrapper.get('#draft').attributes('aria-describedby')).toBe('draft-error')
-  expect(wrapper.find('#draft-warning').exists()).toBe(false)
+  expect(wrapper.get('#draft-warning').text()).toBe('')
 })
 
 it('chooses a new value from the names when the metadata has them, in the same field id, any number still allowed', async () => {

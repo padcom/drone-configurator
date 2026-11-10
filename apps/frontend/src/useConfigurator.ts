@@ -204,6 +204,19 @@ function draftChecks(metadata: ReturnType<typeof useMetadata>): Pick<ParamsDeps,
 }
 
 /**
+ * Starts following what the backend says: its state, a parameter the vehicle announces, and the vehicle itself.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @param parameters the parameters
+ */
+function listen(client: BackendClient, vehicle: Vehicle, parameters: ParamsModel): void {
+  client.onState(state => vehicle.backendChanged(state))
+  client.onEvent('params.changed', param => parameters.announced(param))
+  void vehicle.watch()
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -235,9 +248,9 @@ export function createConfigurator(
   vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  client.onState(state => vehicle.backendChanged(state))
-  client.onEvent('params.changed', param => parameters.announced(param))
-  void vehicle.watch()
+  listen(client, vehicle, parameters)
+  // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
+  watch(metadata.metadata, () => parameters.refreshWarning())
   const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
   current = { ...models, fields: fieldsOf(models, error), confirmation }
 
