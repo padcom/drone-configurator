@@ -6,6 +6,10 @@
       <Select :id="`${uid}-language`" v-model="language" :options="options" :aria-describedby="`${uid}-help`" />
       <p :id="`${uid}-help`" class="muted">{{ t('settings.languageHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <Toggle id="show-groups" v-model="groups" :aria-describedby="`${uid}-groups-help`">{{ t('settings.groups') }}</Toggle>
+      <p :id="`${uid}-groups-help`" class="muted">{{ t('settings.groupsHelp') }}</p>
+    </div>
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
 </template>
@@ -15,7 +19,9 @@ import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LANGUAGES, isLanguage } from '../i18n'
 import Select from '../kit/Select.vue'
+import Toggle from '../kit/Toggle.vue'
 import { useConfigurator } from '../useConfigurator'
+import { useGroupsSetting } from '../useGroupsSetting'
 
 // What the user chooses about the application. For now that is the language of the interface, of which there is one; the
 // choice is kept in the settings (the backend's file), which shows the interface in it, so it is still there at the next
@@ -24,6 +30,12 @@ import { useConfigurator } from '../useConfigurator'
 const { t, locale } = useI18n()
 const { settings } = useConfigurator()
 const uid = useId()
+// "Show parameter groups": it shows at once, and goes back to what the settings hold when they could not keep it.
+const { shown, choose } = useGroupsSetting()
+const groups = computed({
+  get: () => shown.value,
+  set: (next: boolean) => void choose(next),
+})
 const options = LANGUAGES.map(code => ({ value: code, label: t(`language.${code}`) }))
 const language = computed<string>({
   get: () => locale.value,

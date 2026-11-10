@@ -1,6 +1,6 @@
 <template>
   <div class="params-layout">
-    <ParamGroups />
+    <ParamGroups v-if="groups" />
     <section class="params" :aria-label="t('params.list')">
       <div class="toolbar">
         <ParamFilter />
@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useMetadataToasts } from '../metadataToasts'
+import { useGroupsSetting } from '../useGroupsSetting'
 import { useParamShortcuts } from '../paramShortcuts'
 import { useConfigurator } from '../useConfigurator'
 import ParamEditor from '../ParamEditor.vue'
@@ -35,6 +36,8 @@ import SnapshotToolbar from '../SnapshotToolbar.vue'
 // Ctrl+/ goes to the search from anywhere on the screen; Ctrl+Enter in the Value field or the list writes the changes.
 const { t } = useI18n()
 const { staged } = useConfigurator()
+// The group list is there unless the setting "Show parameter groups" is off (in the Settings screen alone).
+const { shown: groups } = useGroupsSetting()
 useParamShortcuts({ sync: () => staged.sync() })
 // How a metadata file went is told by a toast.
 useMetadataToasts()
