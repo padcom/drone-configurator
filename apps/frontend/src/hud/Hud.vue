@@ -6,7 +6,13 @@
     role="img"
     :aria-label="label"
   >
-    <g v-if="attitude" class="horizon">
+    <defs>
+      <pattern :id="`${uid}-hatch`" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect class="hatch-ground" width="10" height="10" />
+        <rect class="hatch-line" width="1.5" height="10" />
+      </pattern>
+    </defs>
+    <g v-if="attitude" class="horizon" :class="{ old: attitudeOld }">
       <g :transform="`rotate(${-attitude.roll} 210 145)`">
         <g :transform="`translate(0 ${attitude.pitch * 5})`">
           <rect class="sky" x="-300" y="-500" width="1020" height="645" />
@@ -26,26 +32,25 @@
       </g>
     </g>
     <path class="aircraft" d="M140 145h42l14 14 14-14M280 145h-42l-14 14-14-14" fill="none" />
-    <g class="box">
-      <rect x="0" y="120" width="76" height="50" />
-      <text class="number" x="38" y="153" text-anchor="middle">{{ speed }}</text>
-      <text class="unit" x="38" y="186" text-anchor="middle">{{ t('hud.unit.speed') }}</text>
-      <rect x="344" y="120" width="76" height="50" />
-      <text class="number" x="382" y="153" text-anchor="middle">{{ altitude }}</text>
-      <text class="unit" x="382" y="186" text-anchor="middle">{{ t('hud.unit.altitude') }}</text>
-      <rect x="172" y="6" width="76" height="34" />
-      <text class="number heading" x="210" y="30" text-anchor="middle">{{ heading }}</text>
+    <g v-for="box in boxes" :key="box.id" class="box" :class="[box.id, { old: box.old }]">
+      <rect :x="box.x" :y="box.y" width="76" :height="box.height" />
+      <text class="number" :class="{ heading: box.id === 'heading' }" :x="box.x + 38" :y="box.textY" text-anchor="middle">
+        {{ box.text }}
+      </text>
+      <text v-if="box.unit" class="unit" :x="box.x + 38" :y="box.textY + 33" text-anchor="middle">{{ box.unit }}</text>
+      <template v-if="box.old">
+        <rect :fill="`url(#${uid}-hatch)`" :x="box.x" :y="box.y" width="76" :height="box.height" />
+        <text class="stale-word" :x="box.x + 38" :y="box.wordY" text-anchor="middle">{{ t('hud.stale') }}</text>
+      </template>
     </g>
     <template v-if="model.silent">
-      <defs>
-        <pattern :id="`${uid}-hatch`" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect class="hatch-ground" width="10" height="10" />
-          <rect class="hatch-line" width="1.5" height="10" />
-        </pattern>
-      </defs>
       <rect :fill="`url(#${uid}-hatch)`" width="420" height="290" />
       <rect class="tag-box" x="90" y="224" width="240" height="38" rx="3" />
       <text class="tag" x="210" y="249" text-anchor="middle">{{ tag }}</text>
+    </template>
+    <template v-else-if="attitudeOld">
+      <rect class="tag-box" x="110" y="224" width="200" height="38" rx="3" />
+      <text class="tag" x="210" y="249" text-anchor="middle">{{ t('hud.attitudeStale') }}</text>
     </template>
   </svg>
 </template>
@@ -58,9 +63,10 @@ import type { HudModel, HudValue } from './model'
 
 // The heads-up display, drawn as SVG (the design's, 420 x 290): the horizon with its pitch ladder, the speed, altitude and
 // heading boxes. It draws a model (model.ts) and nothing else: the numbers are whatever the vehicle reported, a value it has
-// not reported is a dash (and the horizon is not drawn without an attitude), and when the vehicle is not heard from the
-// picture is hatched and says "last heard". The picture is described to a screen reader in words, since the numbers are the
-// information.
+// not reported is a dash (and the horizon is not drawn without an attitude). When the vehicle is not heard from the whole
+// picture is hatched and says "last heard"; when only one group has gone quiet, that value is dimmed, hatched and marked
+// "stale" in words (never colour alone). The picture is described to a screen reader in words too, state included, since
+// the text inside an image is not read.
 const props = defineProps<{
   /** What to draw. */
   model: HudModel
@@ -90,10 +96,11 @@ function show(value: HudValue, digits: number): string {
  *
  * @param value the HUD value
  * @param digits how many decimals
- * @returns the number, or the words "not reported"
+ * @param unit the message that puts the number in words
+ * @returns the number with its unit in words, or the words "not reported"
  */
-function say(value: HudValue, digits: number): string {
-  return value.value === undefined ? t('truth.notReported') : format.number(value.value, digits)
+function say(value: HudValue, digits: number, unit: string): string {
+  return value.value === undefined ? t('truth.notReported') : t(unit, { value: format.number(value.value, digits) })
 }
 
 // The horizon is drawn only when both angles are known: an attitude that is half made up is worse than none.
@@ -102,18 +109,40 @@ const attitude = computed(() => {
 
   return roll.value === undefined || pitch.value === undefined ? null : { roll: roll.value, pitch: pitch.value }
 })
+// Old values are marked one by one only while the vehicle as a whole is heard from (else the whole picture is hatched).
+const old = (value: HudValue) => !props.model.silent && value.stale
+const attitudeOld = computed(() => attitude.value !== null && (old(props.model.roll) || old(props.model.pitch)))
 const tag = computed(() => t(props.reconnecting ? 'hud.lastHeardReconnecting' : 'hud.lastHeard'))
-const speed = computed(() => show(props.model.speed, 1))
-const altitude = computed(() => show(props.model.altitude, 0))
 const heading = computed(() => {
   const degrees = props.model.heading.value
 
   return degrees === undefined ? missing.value : `${String(Math.round(degrees) % 360).padStart(3, '0')}°`
 })
-const label = computed(() => t('hud.label', {
-  roll: say(props.model.roll, 0),
-  pitch: say(props.model.pitch, 0),
-  speed: say(props.model.speed, 1),
-  altitude: say(props.model.altitude, 0),
-}))
+/** Where each box is, and what it shows (the heading has no unit under it). */
+const LAYOUT = [
+  { id: 'speed', x: 0, y: 120, height: 50, textY: 153, wordY: 202, digits: 1, unit: 'hud.unit.speed' },
+  { id: 'altitude', x: 344, y: 120, height: 50, textY: 153, wordY: 202, digits: 0, unit: 'hud.unit.altitude' },
+  { id: 'heading', x: 172, y: 6, height: 34, textY: 30, wordY: 56, digits: 0, unit: '' },
+] as const
+const boxes = computed(() => LAYOUT.map(box => ({
+  ...box,
+  text: box.id === 'heading' ? heading.value : show(props.model[box.id], box.digits),
+  unit: box.unit && t(box.unit),
+  old: old(props.model[box.id]),
+})))
+// Which values are old, in words, for a screen reader (the whole picture being old is said by its tag).
+const staleNames = computed(() => [
+  ...(attitudeOld.value ? [t('hud.name.attitude')] : []),
+  ...boxes.value.filter(box => box.old).map(box => t(`hud.name.${box.id}`)),
+])
+const label = computed(() => [
+  t('hud.label', {
+    roll: say(props.model.roll, 0, 'hud.say.degrees'),
+    pitch: say(props.model.pitch, 0, 'hud.say.degrees'),
+    speed: say(props.model.speed, 1, 'hud.say.speed'),
+    altitude: say(props.model.altitude, 0, 'hud.say.altitude'),
+  }),
+  props.model.silent ? `${tag.value}.` : '',
+  staleNames.value.length > 0 ? t('hud.staleValues', { names: staleNames.value.join(', ') }) : '',
+].filter(Boolean).join(' '))
 </script>
