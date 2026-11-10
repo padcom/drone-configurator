@@ -255,11 +255,13 @@ async function resumesAfterWriteCut(): Promise<void> {
   await askToWrite(original, original + STEP)
   await cutAndSeeReconnecting()
   // "Writing…" goes when the vehicle answers or the write fails. What is left is never nothing: a write that was read back
-  // shows the vehicle's value in the list (and says nothing), one that was not is an alert.
-  const status = `document.querySelector('#detail .notice[role="status"]').textContent`
-  await window().waitFor(`!${status}.includes('Writing')`, RECONNECT_MS)
-  const said = await window().text('#detail .notice[role="alert"]')
+  // shows the vehicle's value in the list and says so (out of sight, in the status), one that was not is an alert. The regions
+  // are always in the page: a missing one fails here instead of reading as empty.
+  await window().waitFor(`document.querySelector('#write-status') !== null && document.querySelector('#write-alert') !== null`)
+  await window().waitFor(`!document.querySelector('#write-status').textContent.includes('Writing')`, RECONNECT_MS)
+  const said = await window().text('#write-alert')
   if (said === '') {
+    expect(await window().text('#write-status')).toMatch(/Written and read back: \d+\./u)
     expect(await valueOnScreen()).toBe(original + STEP)
   } else {
     expect(said).toMatch(/Not confirmed|The vehicle reports/u)

@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import { PARAMS, VEHICLE } from './fixtures'
 import { mockBackend } from './mock-backend'
 import StagedChanges from './StagedChanges.vue'
@@ -68,6 +69,38 @@ it('lists each change with the value now and the value to write, and takes one o
   await trash.trigger('click')
 
   expect(wrapper.findAll('.staged-row').map(row => row.get('.name').text())).toEqual(['BATT_LOW_VOLT'])
+})
+
+it('gives the focus to the trash can of the next row after a discard, else the previous, else the Value field', async () => {
+  const handle = createConfigurator(mockBackend(), () => Promise.resolve(true))
+  const page = defineComponent({ render: () => h('div', [h('input', { id: 'draft' }), h(StagedChanges)]) })
+  const wrapper = mount(page, { ...withI18n, attachTo: document.body })
+  await flushPromises()
+  feed(handle, { params: PARAMS, list: 'complete', connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  add(handle, 'RTL_ALT', '1600')
+  add(handle, 'BATT_LOW_VOLT', '11')
+  add(handle, 'BATT_CAPACITY', '5300')
+  await wrapper.vm.$nextTick()
+  const focused = () => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.id
+
+  expect(wrapper.findAll('.discard')).toHaveLength(3)
+  // The middle one goes: the one under it takes the focus.
+  await wrapper.findAll('.discard')[1]?.trigger('click')
+  await flushPromises()
+  expect(wrapper.findAll('.discard')).toHaveLength(2)
+  expect(focused()).toBe('Discard BATT_CAPACITY')
+
+  // The last one goes: the one above it.
+  await wrapper.findAll('.discard')[1]?.trigger('click')
+  await flushPromises()
+  expect(focused()).toBe('Discard RTL_ALT')
+
+  // The only one left goes: the Value field.
+  await wrapper.get('.discard').trigger('click')
+  await flushPromises()
+  expect(focused()).toBe('draft')
+  wrapper.unmount()
 })
 
 it('writes the changes on the button, and says each was written and read back, and that all were', async () => {

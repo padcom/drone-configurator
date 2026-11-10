@@ -14,6 +14,8 @@ export interface WriteNotice {
   tone: 'error' | ''
   /** What it says. */
   text: string
+  /** True when it is only for a screen reader (out of sight): the line is said, and nothing is shown. */
+  hidden?: boolean
 }
 
 /**
@@ -46,11 +48,11 @@ export function canWrite(state: Pick<State, 'connection' | 'writing' | 'draftErr
  *
  * @param write the last write
  * @param translate looks up a message
- * @returns the line to show, or null for a write the vehicle read back (nothing to say: the new value is in the list)
+ * @returns the line; for a write the vehicle read back it is out of sight (the new value is in the list) but still said
  */
-function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice | null {
+function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice {
   if (write.kind === 'verified') {
-    return null
+    return { tone: '', hidden: true, text: translate('editor.verified', { value: write.value }) }
   }
   if (write.kind === 'changed') {
     // The vehicle holds another value than was asked: a problem, not a caution.
@@ -67,8 +69,8 @@ function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice | null
  * @param last how the last write went
  * @param id the selected parameter
  * @param translate looks up a message
- * @returns the line, or null if there is nothing to say about this parameter (a write that was read back says nothing, a
- * failed or changed one is an error line)
+ * @returns the line, or null if there is nothing to say about this parameter (a write that was read back is said out of sight,
+ * a failed or changed one is an error line)
  */
 export function writeNotice(writing: boolean, last: WriteStatus | null, id: string, translate: Translate): WriteNotice | null {
   if (writing) {

@@ -126,14 +126,16 @@ it('shows the outcome of a failed write and a draft error as text, escaped', asy
   expect(wrapper.find('#detail .error').exists()).toBe(true)
 })
 
-it('says nothing of a write that was read back, and an unconfirmed one as a problem, never silently', async () => {
+it('shows nothing of a write that was read back but says it out of sight, and an unconfirmed one as a problem', async () => {
   const { wrapper, handle } = await editorWithSpies()
 
   feed(handle, { lastWrite: { kind: 'verified', id: 'RTL_ALT', value: 1600 } })
   await wrapper.vm.$nextTick()
-  expect(wrapper.get('#detail').text()).not.toContain('Written and read back')
-  expect(wrapper.find('#detail .notice.ok').exists()).toBe(false)
-  expect(wrapper.get('.notice[role="alert"]').text()).toBe('')
+  // The words are in the polite status (a screen reader reads them), in a visually hidden span: nothing is shown.
+  const said = wrapper.get('#write-status span')
+  expect(said.text()).toBe('Written and read back: 1600.')
+  expect(said.classes()).toContain('visually-hidden')
+  expect(wrapper.get('#write-alert').text()).toBe('')
 
   feed(handle, { lastWrite: { kind: 'failed', id: 'RTL_ALT', message: 'TIMEOUT' } })
   await wrapper.vm.$nextTick()
@@ -233,7 +235,7 @@ it('says a write under way in the polite region, and one that is not confirmed o
 
   feed(handle, { writing: false, lastWrite: { kind: 'verified', id: 'RTL_ALT', value: 1600 } })
   await wrapper.vm.$nextTick()
-  expect([polite(), assertive()]).toEqual(['', ''])
+  expect([polite(), assertive()]).toEqual(['Written and read back: 1600.', ''])
 
   feed(handle, { lastWrite: { kind: 'changed', id: 'RTL_ALT', asked: 1600, reported: 1599 } })
   await wrapper.vm.$nextTick()

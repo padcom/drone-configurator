@@ -8,13 +8,15 @@
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
     </template>
     <!-- How a write is going is said in regions that are always in the page, so that a screen reader reads what is put in them:
-         a polite one while the vehicle is asked ("Writing…"), an assertive one for a write that is not confirmed or that the
-         vehicle changed (a write that was read back says nothing: the new value is in the list), and a polite one for what the
+         a polite one while the vehicle is asked ("Writing…") and, out of sight, for a write that was read back (the value is in
+         the list), an assertive one for a write that is not confirmed or that the vehicle changed, and a polite one for what the
          metadata finds unusual about the draft (not wrong: the write is allowed, the vehicle validates and the read-back says
          what it kept; the field points to it, as it does to an error). A failed write is never silent. -->
     <div class="notices">
-      <p class="notice" role="status">{{ polite?.text }}</p>
-      <p class="notice" role="alert" :class="assertive?.tone">
+      <p id="write-status" class="notice" role="status">
+        <span :class="{ 'visually-hidden': polite?.hidden }">{{ polite?.text }}</span>
+      </p>
+      <p id="write-alert" class="notice" role="alert" :class="assertive?.tone">
         <template v-if="assertive">
           <Icon name="close" />
           {{ assertive.text }}

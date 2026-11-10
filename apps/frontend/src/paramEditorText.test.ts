@@ -6,8 +6,9 @@ import { PARAMS, VEHICLE } from './fixtures'
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 const idle = { connection: { state: 'connected' as const, vehicle: { ...VEHICLE } }, writing: false, draftError: null, draft: '' }
 
-it('says nothing of a write read back (the value is in the list), and never keeps quiet about one that was not', () => {
-  expect(writeNotice(false, { kind: 'verified', id: param.id, value: 2000 }, param.id, translate)).toBeNull()
+it('says a write read back out of sight (the value is in the list), and never keeps quiet about one that was not', () => {
+  expect(writeNotice(false, { kind: 'verified', id: param.id, value: 2000 }, param.id, translate))
+    .toEqual({ tone: '', hidden: true, text: 'Written and read back: 2000.' })
   expect(writeNotice(false, { kind: 'changed', id: param.id, asked: 2000, reported: 1999 }, param.id, translate))
     .toEqual({ tone: 'error', text: 'The vehicle reports 1999, not 2000: it changed or refused the value.' })
   expect(writeNotice(false, { kind: 'failed', id: param.id, message: 'TIMEOUT: no reply' }, param.id, translate)).toEqual({

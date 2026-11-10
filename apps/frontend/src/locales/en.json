@@ -412,6 +412,7 @@
     "newValue": "Value",
     "write": "Write",
     "writing": "Writing… waiting for the vehicle to report the new value.",
+    "verified": "Written and read back: {value}.",
     "changed": "The vehicle reports {reported}, not {asked}: it changed or refused the value.",
     "failed": "Not confirmed: {message}. The value on the vehicle is unknown; download again to see it."
   }
