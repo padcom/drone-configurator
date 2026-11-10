@@ -40,7 +40,7 @@ it('is an image with the numbers in words for a screen reader', () => {
 
   expect(svg.attributes('role')).toBe('img')
   expect(svg.attributes('aria-label'))
-    .toBe('Attitude: roll 5 degrees, pitch 3 degrees, speed 8.0 metres a second, altitude 60 metres')
+    .toBe('Attitude and speed: roll 5 degrees, pitch 3 degrees, speed 8.0 metres a second, altitude 60 metres.')
 })
 
 it('shows dashes, no horizon and the words "not reported" when the vehicle has reported nothing', () => {
@@ -49,8 +49,7 @@ it('shows dashes, no horizon and the words "not reported" when the vehicle has r
   expect(wrapper.findAll('text.number').map(text => text.text())).toEqual(['—', '—', '—'])
   expect(wrapper.find('.horizon').exists()).toBe(false)
   expect(wrapper.get('svg').attributes('aria-label')).toBe(
-    'Attitude: roll not reported degrees, pitch not reported degrees, speed not reported metres a second, '
-    + 'altitude not reported metres',
+    'Attitude and speed: roll not reported, pitch not reported, speed not reported, altitude not reported.',
   )
   expect(wrapper.find('.tag').exists()).toBe(false)
 })
@@ -65,7 +64,7 @@ it('is hatched, and says "last heard", when the heartbeat has gone quiet', () =>
   const wrapper = hud({ ...FLYING, heartbeatAgeMs: 5000 })
 
   expect(wrapper.get('svg').classes()).toContain('silent')
-  expect(wrapper.find('pattern').exists()).toBe(true)
+  expect(wrapper.find('rect[width="420"][fill^="url(#"]').exists()).toBe(true)
   expect(wrapper.get('.tag').text()).toBe('last heard')
 })
 
@@ -73,6 +72,40 @@ it('says "last heard, reconnecting" while the link is being brought back', () =>
   const wrapper = hud(FLYING, true)
 
   expect(wrapper.get('.tag').text()).toBe('last heard, reconnecting')
+})
+
+it('says the state in the words of the image too, since the text inside an image is not read', () => {
+  const quiet = hud({ ...FLYING, heartbeatAgeMs: 5000 }).get('svg').attributes('aria-label')
+  const back = hud(FLYING, true).get('svg').attributes('aria-label')
+
+  expect(quiet).toContain('speed 8.0 metres a second, altitude 60 metres. last heard.')
+  expect(back).toContain('last heard, reconnecting.')
+})
+
+it('dims, hatches and marks as stale only the value that has gone quiet, while the vehicle is heard from', () => {
+  const wrapper = hud({ ...FLYING, speed: { ...FLYING.speed!, ageMs: 4000 } })
+
+  expect(wrapper.get('.box.speed').classes()).toContain('old')
+  expect(wrapper.get('.box.heading').classes()).toContain('old')
+  expect(wrapper.get('.box.altitude').classes()).not.toContain('old')
+  expect(wrapper.get('.horizon').classes()).not.toContain('old')
+  expect(wrapper.findAll('.stale-word').map(word => word.text())).toEqual(['stale', 'stale'])
+  expect(wrapper.find('.tag').exists()).toBe(false)
+  expect(wrapper.get('svg').attributes('aria-label')).toContain('Out of date: speed, heading.')
+})
+
+it('dims the horizon and says "attitude stale" when only the attitude has gone quiet', () => {
+  const wrapper = hud({ ...FLYING, attitude: { ...FLYING.attitude!, ageMs: 4000 } })
+
+  expect(wrapper.get('.horizon').classes()).toContain('old')
+  expect(wrapper.findAll('.box.old')).toHaveLength(0)
+  expect(wrapper.get('.tag').text()).toBe('attitude stale')
+  expect(wrapper.get('svg').attributes('aria-label')).toContain('Out of date: attitude.')
+})
+
+it('marks nothing as stale when everything is live, or when the whole picture is hatched already', () => {
+  expect(hud(FLYING).findAll('.old, .stale-word')).toHaveLength(0)
+  expect(hud({ ...FLYING, heartbeatAgeMs: 5000 }).findAll('.old, .stale-word')).toHaveLength(0)
 })
 
 it('has no literal colours: the picture takes them from the stylesheet (tokens)', () => {

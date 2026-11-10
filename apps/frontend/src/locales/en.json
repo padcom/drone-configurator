@@ -168,7 +168,21 @@
     }
   },
   "hud": {
-    "label": "Attitude: roll {roll} degrees, pitch {pitch} degrees, speed {speed} metres a second, altitude {altitude} metres",
+    "label": "Attitude and speed: roll {roll}, pitch {pitch}, speed {speed}, altitude {altitude}.",
+    "say": {
+      "degrees": "{value} degrees",
+      "speed": "{value} metres a second",
+      "altitude": "{value} metres"
+    },
+    "stale": "stale",
+    "attitudeStale": "attitude stale",
+    "staleValues": "Out of date: {names}.",
+    "name": {
+      "attitude": "attitude",
+      "speed": "speed",
+      "altitude": "altitude",
+      "heading": "heading"
+    },
     "unit": {
       "speed": "m/s",
       "altitude": "m"

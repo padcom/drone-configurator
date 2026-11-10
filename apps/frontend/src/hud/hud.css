@@ -25,6 +25,7 @@
   stroke-opacity: 0.75;
 }
 
+/* The board recolours the sky and the ground when the link is lost; the tokens have no such colours, so they are desaturated. */
 .hud.silent .horizon {
   filter: saturate(0.3);
 }
@@ -58,6 +59,19 @@
 
 .hud .unit {
   font-size: 12px;
+}
+
+/* A value that has gone quiet while the vehicle is still heard from: dimmed, hatched, and marked "stale" in words. */
+.hud .horizon.old,
+.hud .box.old text.number {
+  opacity: 0.5;
+}
+
+.hud .stale-word {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--color-warn);
 }
 
 .hud .hatch-ground {

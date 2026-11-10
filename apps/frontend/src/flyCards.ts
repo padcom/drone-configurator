@@ -142,7 +142,8 @@ const gpsReader: Reader = (now, t, f) => {
 }
 
 /**
- * The word for the worst variance of the estimator.
+ * The word for the worst variance of the estimator. (It takes the worst of four variances, which turns "failing" on earlier
+ * than ArduPilot's own combined check: on the cautious side, on purpose.)
  *
  * @param worst the highest variance
  * @returns `failing`, `degraded` or `healthy`
