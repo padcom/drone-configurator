@@ -172,6 +172,23 @@
   color: var(--color-text-muted);
 }
 
+/* With metadata the name and the value are only as wide as their widest text (a width of 1% in an auto layout shrinks a column
+   to its content, and nowrap stops it from breaking), and the description takes the rest of the row, on one line cut short
+   with an ellipsis (its whole text is the title). A cell that is cut needs `max-width: 0` to be allowed to be narrower than
+   its text. The rows keep their height; without metadata the table is as it was. */
+.param-scroll table.described th:first-child,
+.param-scroll table.described .num {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.param-scroll table.described .meaning {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .list-status {
   padding: 10px 14px;
   margin: 0;

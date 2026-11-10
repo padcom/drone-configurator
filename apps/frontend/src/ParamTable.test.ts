@@ -60,6 +60,8 @@ it('draws the group part of a name dimmed and the rest bright, with the value on
   expect(row.get('th.name').text()).toBe('BATT_LOW_VOLT')
   expect(row.get('td.num').text()).toBe('10.5')
   expect(wrapper.get('thead').text()).not.toContain('Meaning')
+  // Without metadata the table is two columns, as it was: nothing marks it as one with a description column.
+  expect(wrapper.get('table').classes()).not.toContain('described')
 })
 
 it('shows only the chosen group, and says how many of the whole it is', async () => {
@@ -82,6 +84,11 @@ it('has a column of what the parameters mean once metadata is loaded', async () 
   expect(wrapper.get('thead').text()).toContain('Meaning')
   expect(wrapper.get('tr[data-id="RTL_ALT"] .meaning').text()).toBe('Return altitude')
   expect(wrapper.get('tr[data-id="BATT_CAPACITY"] .meaning').text()).toBe('')
+  // The table is laid out for it (name and value as wide as their text, the description the rest of the row), and a
+  // description that is cut short has its whole text as its tooltip; a row without one has no tooltip.
+  expect(wrapper.get('table').classes()).toContain('described')
+  expect(wrapper.get('tr[data-id="RTL_ALT"] .meaning').attributes('title')).toBe('Return altitude')
+  expect(wrapper.get('tr[data-id="BATT_CAPACITY"] .meaning').attributes('title')).toBeUndefined()
 })
 
 it('keeps the header in a table of its own scroll area, and the count outside it', () => {
