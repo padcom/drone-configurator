@@ -5,20 +5,25 @@ import { delay } from "std/timers"
 import { createBackend } from "./app"
 
 /// How long a test waits for the backend to say something before it fails (ms). A message that never comes is a hang
-/// with no output: with this it is a failure that names what was waited for.
+/// with no output: with this it is a failure that names what was waited for. It covers every wait of Frontend, a
+/// `call` of `vehicle.connect` among them: raise it here, or with `setDeadline`, for a wait that can take longer.
+export const DEFAULT_DEADLINE_MS: int = 10000
+
 class Limits {
-  public deadlineMs: int = 10000
+  public deadlineMs: int = DEFAULT_DEADLINE_MS
 }
 
 const limits = new Limits()
 
-/// Changes how long a test waits (for the test of the deadline itself).
+/// Changes how long a test waits (for the test of the deadline itself, or for one slow wait).
 export function setDeadline(ms: int): void {
   limits.deadlineMs = ms
 }
 
-/// Waits for `p`, or fails with `what` after DEADLINE_MS. The timer is stopped when `p` is done, so a test that passes
-/// is not held up by it, and the process ends when the tests do.
+/// Waits for `p`, or fails with `what` after the deadline. The timer is stopped when `p` is done, so a test that passes
+/// is not held up by it, and the process ends when the tests do. When the deadline passes `p` is not stopped: the wait
+/// goes on reading the link in the background, so a test that catches the failure and waits again would have two
+/// readers (the failure is meant to end the test).
 async function within<T>(p: Promise<T, Error>, what: string): Promise<T> throws Error {
   const stop = new AbortController()
   const expired = await Promise.race<bool, Error>([timedOut(limits.deadlineMs, stop.signal), ended<T>(p)])

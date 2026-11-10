@@ -1,6 +1,6 @@
 // The test helper's deadline (testing.pi): a message that never comes is a failure that names it, not a hang.
 import { describe, it, expect } from "std/test"
-import { Frontend, setDeadline, start } from "./testing"
+import { DEFAULT_DEADLINE_MS, Frontend, setDeadline, start } from "./testing"
 
 /// What the failure of a wait says, or "" when it did not fail.
 async function failureOf(f: Frontend, what: string): Promise<string> throws Error {
@@ -27,7 +27,7 @@ async function failsWithAName(): Promise<void> throws Error {
     expect(await failureOf(f, "reply")).toContain("the reply to request 999")
     expect(await failureOf(f, "ended")).toContain("the end of a subscription")
   } finally {
-    setDeadline(10000)
+    setDeadline(DEFAULT_DEADLINE_MS)
   }
 }
 
@@ -40,7 +40,7 @@ async function doesNotHoldUpWhatIsAnswered(): Promise<void> throws Error {
     await f.call("serial.ports")
     expect((Date.now() as int) - started < 5000).toBe(true)
   } finally {
-    setDeadline(10000)
+    setDeadline(DEFAULT_DEADLINE_MS)
   }
 }
 

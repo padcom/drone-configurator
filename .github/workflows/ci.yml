@@ -122,11 +122,14 @@ jobs:
           BACKEND_TEST_JOBS: ${{ matrix.test-jobs }}
         run: |
           probe() {
+            # Not under the step's -e and pipefail: a reading that fails (a pipe closed early) must not end the probe, which
+            # is only worth anything while it keeps printing.
+            set +e +o pipefail
             local n=0
             while true; do
               echo "probe $(date +%T) $(free -m | awk '/^Mem:/ {print "used=" $3 "MB available=" $7 "MB"}') load=$(cut -d' ' -f1 /proc/loadavg)"
               if [ $((n % 3)) -eq 0 ]; then
-                ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-150 | sed 's/^/probe   /'
+                ps -eo rss,etimes,args --sort=-rss | sed -n '1,4p' | cut -c1-150 | sed 's/^/probe   /' || true
               fi
               n=$((n + 1))
               sleep 10
@@ -149,7 +152,11 @@ jobs:
         if: ${{ always() && matrix.backend }}
         run: |
           free -m
-          sudo dmesg | grep -i -E 'out of memory|oom-kill|killed process' | tail -20 || echo "the kernel log has no out-of-memory lines"
+          if log=$(sudo dmesg 2>&1); then
+            echo "$log" | grep -i -E 'out of memory|oom-kill|killed process' | tail -20 || echo "the kernel log has no out-of-memory lines"
+          else
+            echo "dmesg itself failed, so the kernel log could not be read: $log"
+          fi
 
       # The same steps as pico-desktop's own CI, for the host E2E runs in.
       - name: Cache the pinned CEF
