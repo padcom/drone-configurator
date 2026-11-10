@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E">
+      <dc-import name="Rail" active="overview" hint-size="76px,640px"></dc-import>
+    </div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <section data-l="pane col" style="flex:999 1 620px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.01em">2 checks before Quad 1 can fly</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Finish the compass calibration, then write the North field survey to the vehicle.</p>
+          </div>
+          <a href="ArmGate.dc.html" style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;box-sizing:border-box;border-radius:4px;background:#56D9F2;color:#06222B;font-weight:600;font-size:15px;text-decoration:none">Review and arm</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+          <sc-for list="{{phases}}" as="p" hint-placeholder-count="3">
+            <article style="display:flex;flex-direction:column;gap:12px;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+                <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">{{p.title}}</h2>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{p.color}}">{{p.count}}</span>
+              </div>
+              <div style="font-size:20px;font-weight:600">{{p.headline}}</div>
+              <div style="height:6px;border-radius:1.5px;background:#25323E"><div style="height:6px;border-radius:1.5px;width:{{p.pct}};background:{{p.color}}"></div></div>
+              <p style="margin:0;color:#A9B8C5;min-height:40px">{{p.detail}}</p>
+              <a href="{{p.href}}" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;text-decoration:none;font-weight:500">{{p.action}}</a>
+            </article>
+          </sc-for>
+        </div>
+        <article style="flex:1 1 300px;min-height:300px;position:relative;overflow:hidden;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <dc-import name="MapBase" hint-size="100%,300px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Planned route: from home over the north field in four sweeps and back" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M530 288 972 243 972 430 530 475Z" fill="#56D9F2" fill-opacity=".1" stroke="#56D9F2" stroke-width="2"></path>
+            <polyline points="250,700 360,570 560,456 940,416 940,364 560,404 560,352 940,312 940,260 560,300 430,380 250,700" fill="none" stroke="#EE82F5" stroke-width="4" stroke-linejoin="round"></polyline>
+            <circle cx="250" cy="700" r="24" fill="#10171E" stroke="#62E3A6" stroke-width="4"></circle>
+            <text x="250" y="710" text-anchor="middle" fill="#62E3A6" font-family="IBM Plex Mono, monospace" font-size="28" font-weight="600">H</text>
+          </svg>
+          <div style="position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:2px;padding:10px 14px;background:#0A0F14;border-radius:4px">
+            <span style="font-weight:600;font-size:15px">North field survey</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">14 items · 1.30 km · 3 min 40 s</span>
+          </div>
+        </article>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;padding:28px 24px;background:#111921;border-left:1px solid #25323E;display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">GO / NO-GO</h2>
+        <sc-for list="{{checks}}" as="c" hint-placeholder-count="9">
+          <a href="{{c.href}}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 10px;box-sizing:border-box;border-radius:4px;text-decoration:none;color:#E8EEF4;background:{{c.bg}}">
+            <sc-if value="{{c.ok}}" hint-placeholder-val="{{true}}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62E3A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Passed" role="img" style="flex:none"><path d="m5 13 4 4L19 7"></path></svg>
+            </sc-if>
+            <sc-if value="{{c.open}}" hint-placeholder-val="{{false}}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB54A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Open" role="img" style="flex:none"><path d="M12 3 2 21h20zM12 10v5M12 18v.01"></path></svg>
+            </sc-if>
+            <span style="display:flex;flex-direction:column">
+              <span style="font-weight:500">{{c.name}}</span>
+              <span style="font-size:12.5px;color:#A9B8C5">{{c.detail}}</span>
+            </span>
+          </a>
+        </sc-for>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const phases = [
+      { title:'CONFIGURE', count:'7 of 8', headline:'Setup almost done', pct:'87%', color:'#FFB54A', detail:'Compass 2 is not calibrated. Parameters match your last snapshot.', href:'SetupHome.dc.html', action:'Open Setup' },
+      { title:'PLAN', count:'14 items', headline:'North field survey', pct:'50%', color:'#FFB54A', detail:'Saved here, but not on the vehicle yet. No validation errors.', href:'Plan.dc.html', action:'Open Plan' },
+      { title:'FLY', count:'7 of 9', headline:'Preflight open', pct:'78%', color:'#56D9F2', detail:'Forecast landing battery is 80%. Wind 4 m/s from the south-west.', href:'Fly.dc.html', action:'Open Fly' },
+    ];
+    const pass = (name, detail, href) => ({ name, detail, href, ok:true, open:false, bg:'transparent' });
+    const open = (name, detail, href) => ({ name, detail, href, ok:false, open:true, bg:'#3A2A10' });
+    const checks = [
+      open('Compass 2 calibration', 'Not calibrated. Go to Setup', 'Setup.dc.html'),
+      open('Mission on the vehicle', 'Not written yet. Go to Plan', 'Plan.dc.html'),
+      pass('Link', 'Simulator · 100% · 68 ms', 'Connect.dc.html'),
+      pass('GPS', '3D fix · 14 satellites · HDOP 0.8', 'SetupDevices.dc.html'),
+      pass('EKF', 'Healthy, position aligned', 'Fly.dc.html'),
+      pass('Battery', '12.54 V · 94%', 'SetupBattery.dc.html'),
+      pass('Radio', 'Calibrated · receiving', 'SetupRadio.dc.html'),
+      pass('Failsafes', 'Battery, radio, link and EKF set', 'SetupFailsafes.dc.html'),
+      pass('Fence', 'Enabled · 150 m radius', 'Parameters.dc.html'),
+      pass('Space weather', 'Kp 3 · quiet', 'Fly.dc.html'),
+    ];
+    return { phases, checks };
+  }
+}
+</script>
+</body>
+</html>

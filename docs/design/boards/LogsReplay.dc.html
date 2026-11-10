@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logs: replay</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="logs" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="LogsNav" active="replay" hint-size="100%,56px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+          <div data-l="fill map" style="flex:1 1 520px;min-height:480px;position:relative;overflow:hidden">
+            <dc-import name="MapBase" hint-size="100%,520px"></dc-import>
+            <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+              <polyline points="{{ahead}}" fill="none" stroke="#EE82F5" stroke-width="3" stroke-opacity=".4" stroke-linejoin="round"></polyline>
+              <polyline points="{{flown}}" fill="none" stroke="#EE82F5" stroke-width="5" stroke-linejoin="round"></polyline>
+              <circle cx="250" cy="700" r="24" fill="#10171E" stroke="#62E3A6" stroke-width="4"></circle>
+              <text x="250" y="710" text-anchor="middle" fill="#62E3A6" font-family="IBM Plex Mono, monospace" font-size="28" font-weight="600">H</text>
+              <g transform="translate({{vx}} {{vy}}) rotate({{hdg}})"><circle r="40" fill="#56D9F2" fill-opacity=".2"></circle><path d="M0 -28 20 24 0 12 -20 24Z" fill="#56D9F2" stroke="#56D9F2" stroke-width="4" stroke-linejoin="round"></path></g>
+            </svg>
+            <div style="position:absolute;left:16px;top:16px;padding:8px 12px;background:#111921;border:1px solid #25323E;border-radius:4px;font-weight:600">North field survey · 2026-11-09</div>
+          </div>
+          <div style="padding:12px 16px;background:#111921;border-top:1px solid #25323E;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;gap:2px;height:22px;font-size:12px;font-weight:500">
+              <sc-for list="{{modes}}" as="m" hint-placeholder-count="3"><span style="flex:{{m.grow}} 1 0;display:flex;align-items:center;justify-content:center;background:#25323E;overflow:hidden;white-space:nowrap">{{m.label}}</span></sc-for>
+            </div>
+            <input aria-label="Replay position" type="range" min="0" max="232" step="1" value="{{t}}" onChange="{{scrub}}" style="accent-color:#56D9F2;min-height:32px;margin:0;width:100%">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+              <button type="button" onClick="{{toggle}}" style="min-height:48px;padding:0 24px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:700;cursor:pointer">{{playLabel}}</button>
+              <div role="group" aria-label="Replay speed" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+                <sc-for list="{{speeds}}" as="b" hint-placeholder-count="4"><button type="button" onClick="{{b.pick}}" style="min-height:46px;padding:0 14px;border:0;background:{{b.bg}};color:{{b.fg}};font-family:'IBM Plex Mono',monospace;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+              </div>
+              <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:18px">{{clock}} / 3:52</span>
+            </div>
+          </div>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:18px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <sc-for list="{{tiles}}" as="c" hint-placeholder-count="6">
+              <div style="padding:10px 12px;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{c.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{c.value}}</div></div>
+            </sc-for>
+          </div>
+          <h2 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">JUMP TO</h2>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <sc-for list="{{events}}" as="e" hint-placeholder-count="6">
+              <button type="button" onClick="{{e.pick}}" style="display:flex;gap:12px;align-items:center;min-height:44px;padding:0 10px;border:0;border-radius:4px;background:{{e.bg}};color:#E8EEF4;font:inherit;text-align:left;cursor:pointer"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{e.clock}}</span><span>{{e.text}}</span></button>
+            </sc-for>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { t:96, playing:false, speed:2 };
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState((s) => {
+      if (!s.playing) return null;
+      const t = s.t + s.speed*.2;
+      return t >= 232 ? { t:232, playing:false } : { t };
+    }), 200);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const PTS = [[250,700],[360,570],[560,456],[940,416],[940,364],[560,404],[560,352],[940,312],[940,260],[560,300],[430,380],[250,700]];
+    const seglen = [];
+    for (let i = 1; i < PTS.length; i++) seglen.push(Math.hypot(PTS[i][0]-PTS[i-1][0], PTS[i][1]-PTS[i-1][1]));
+    const total = seglen.reduce((a,b) => a+b, 0);
+    let d = Math.max(0, Math.min(1, (s.t-8)/214))*total, seg = 0;
+    while (seg < seglen.length-1 && d > seglen[seg]) { d -= seglen[seg]; seg++; }
+    const f = Math.min(1, d/seglen[seg]), a = PTS[seg], b = PTS[seg+1];
+    const vx = a[0]+(b[0]-a[0])*f, vy = a[1]+(b[1]-a[1])*f;
+    const hdg = (Math.atan2(b[0]-a[0], -(b[1]-a[1]))*180/Math.PI+360)%360;
+    const str = (l) => l.map((p) => p[0].toFixed(0)+','+p[1].toFixed(0)).join(' ');
+    const clk = (t) => Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');
+    const mode = s.t < 8 ? 'TAKEOFF' : s.t < 186 ? 'AUTO' : 'RTL';
+    const alt = s.t < 8 ? s.t/8*30 : s.t > 222 ? Math.max(0,(232-s.t)/10*40) : seg < 1 ? 38 : seg > 8 ? 40 : 60;
+    const moving = s.t > 8 && s.t < 222;
+    const ev = [[5,'Takeoff'],[20,'Waypoint 2'],[42,'Camera on, survey starts'],[96,'Survey line 2'],[186,'Mission ended, returning home'],[228,'Landed']];
+    const near = ev.reduce((p,e) => (e[0] <= s.t ? e : p), ev[0]);
+    return {
+      t:Math.round(s.t), clock:clk(s.t),
+      vx:vx.toFixed(0), vy:vy.toFixed(0), hdg:hdg.toFixed(0),
+      flown:str(PTS.slice(0,seg+1).concat([[vx,vy]])), ahead:str([[vx,vy]].concat(PTS.slice(seg+1))),
+      aria:'Flight path replay at '+clk(s.t),
+      modes:[{ label:'Takeoff',grow:1 },{ label:'AUTO',grow:22 },{ label:'RTL',grow:5 }],
+      scrub:(e) => this.setState({ t:Number(e.target.value) }),
+      toggle:() => this.setState({ playing:!s.playing, t:s.t>=232?0:s.t }),
+      playLabel:s.playing?'Pause':'Play',
+      speeds:[1,2,4,8].map((v) => ({ label:v+'×', pick:() => this.setState({ speed:v }), bg:s.speed===v?'#56D9F2':'transparent', fg:s.speed===v?'#06222B':'#E8EEF4' })),
+      tiles:[
+        { label:'MODE', value:mode },
+        { label:'ALTITUDE', value:alt.toFixed(0)+' m' },
+        { label:'SPEED', value:moving?'8.0 m/s':'0.0 m/s' },
+        { label:'HEADING', value:String(Math.round(hdg)%360).padStart(3,'0')+'°' },
+        { label:'BATTERY', value:(94-s.t/232*14).toFixed(0)+'%' },
+        { label:'SATELLITES', value:'14' },
+      ],
+      events:ev.map(([t,text]) => ({ text, clock:clk(t), bg:near[0]===t?'#123440':'transparent', pick:() => this.setState({ t }) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

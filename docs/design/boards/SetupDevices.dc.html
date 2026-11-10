@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Devices</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="devices" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;padding:28px 16px 28px 24px;display:flex;flex-direction:column;gap:8px;border-right:1px solid #25323E">
+        <h1 style="margin:0 8px 10px;font-size:28px;font-weight:600">Devices</h1>
+        <sc-for list="{{devices}}" as="d" hint-placeholder-count="7">
+          <button type="button" onClick="{{d.pick}}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 12px;border:1px solid {{d.border}};border-radius:5px;background:{{d.bg}};color:#E8EEF4;font:inherit;text-align:left;cursor:pointer">
+            <span aria-hidden="true" style="width:10px;height:10px;border-radius:50%;background:{{d.dot}}"></span>
+            <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{d.name}}</span><span style="font-size:12.5px;color:#A9B8C5">{{d.status}}</span></span>
+          </button>
+        </sc-for>
+      </section>
+      <section data-l="pane col" style="flex:999 1 420px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h2 style="margin:0;font-size:24px;font-weight:600">{{d.name}}</h2>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">{{d.about}}</p>
+        </div>
+        <sc-if value="{{isOn}}" hint-placeholder-val="{{true}}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <sc-for list="{{d.fields}}" as="f" hint-placeholder-count="4">
+              <div style="padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+                <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{f.label}}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600">{{f.value}}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">Writes {{d.params}}</div>
+        </sc-if>
+        <sc-if value="{{isOff}}" hint-placeholder-val="{{false}}">
+          <div style="padding:20px;border:1px dashed #60728A;border-radius:5px;display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+            <p style="margin:0">Not set up on this vehicle. Plug it in first, then turn it on here.</p>
+            <a href="SetupSerial.dc.html">Choose its serial port</a>
+          </div>
+        </sc-if>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:auto">
+          <button type="button" onClick="{{toggle}}" style="min-height:48px;padding:0 22px;border:1px solid #60728A;border-radius:4px;background:{{toggleBg}};color:{{toggleFg}};font:inherit;font-weight:600;cursor:pointer">{{toggleLabel}}</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:'gps', on:{ gps:true, gimbal:true } };
+  renderVals() {
+    const s = this.state;
+    const F = (label,value) => ({ label,value });
+    const all = [
+      { id:'gps', name:'GPS', about:'Position and time. A second GPS can blend in or take over.', params:'GPS_TYPE, GPS_AUTO_CONFIG', live:'3D fix · 14 satellites', fields:[F('FIX','3D'),F('SATELLITES','14'),F('HDOP','0.8'),F('PORT','GPS 1')] },
+      { id:'rng', name:'Rangefinder', about:'Measures height above the ground for low flight and landing.', params:'RNGFND1_TYPE, RNGFND1_ORIENT', live:'Reading', fields:[F('DISTANCE','—'),F('RANGE','0.2–40 m'),F('FACING','Down'),F('PORT','Serial 5')] },
+      { id:'flow', name:'Optical flow', about:'Holds position indoors or where GPS is poor.', params:'FLOW_TYPE', live:'Reading', fields:[F('QUALITY','—'),F('FACING','Down')] },
+      { id:'gimbal', name:'Gimbal', about:'Stabilizes and points the camera.', params:'MNT1_TYPE, MNT1_PITCH_MIN, MNT1_PITCH_MAX', live:'Connected', fields:[F('TYPE','MAVLink'),F('PITCH','−90° to 30°'),F('ROLL','Locked'),F('NOW','−12°')] },
+      { id:'cam', name:'Camera', about:'Triggers photos during surveys and sets the shutter output.', params:'CAM1_TYPE, CAM1_DURATION', live:'Ready', fields:[F('TRIGGER','Servo 5'),F('SHOT TIME','0.1 s')] },
+      { id:'adsb', name:'ADS-B receiver', about:'Shows nearby aircraft on the map.', params:'ADSB_TYPE', live:'Listening', fields:[F('AIRCRAFT','—'),F('RANGE','10 km')] },
+      { id:'gear', name:'Landing gear and relays', about:'Retracts gear and switches outputs from the transmitter or a mission.', params:'LGR_ENABLE, RELAY1_FUNCTION', live:'Ready', fields:[F('GEAR','Servo 7'),F('RELAYS','0')] },
+    ];
+    const d = all.find((x) => x.id===s.sel);
+    const isOn = !!s.on[s.sel];
+    return {
+      d, isOn, isOff:!isOn,
+      devices:all.map((x) => { const on = !!s.on[x.id], sel = x.id===s.sel; return { name:x.name, status:on?x.live:'Not set up', dot:on?'#62E3A6':'#60728A', bg:sel?'#123440':'transparent', border:sel?'#56D9F2':'#25323E', pick:() => this.setState({ sel:x.id }) }; }),
+      toggle:() => this.setState({ on:{ ...s.on, [s.sel]:!isOn } }),
+      toggleLabel:isOn?'Turn off':'Turn on',
+      toggleBg:isOn?'transparent':'#56D9F2', toggleFg:isOn?'#E8EEF4':'#06222B',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Helicopter setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="heli" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="frame" vehicle="heli" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Helicopter</h1>
+          <div role="group" aria-label="Helicopter setup" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{isSwash}}" hint-placeholder-val="{{true}}">
+          <div style="flex:1 1 auto;display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:center;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <svg viewBox="0 0 360 360" role="img" aria-label="Swashplate seen from above with three servos" style="flex:0 1 340px;width:340px;max-width:100%;height:auto">
+              <circle cx="180" cy="180" r="130" fill="#18222C" stroke="#60728A" stroke-width="3"></circle>
+              <sc-for list="{{servos}}" as="v" hint-placeholder-count="3">
+                <line x1="180" y1="180" x2="{{v.x}}" y2="{{v.y}}" stroke="#60728A" stroke-width="4"></line>
+                <circle cx="{{v.x}}" cy="{{v.y}}" r="{{v.r}}" fill="#56D9F2"></circle>
+                <text x="{{v.x}}" y="{{v.ty}}" text-anchor="middle" fill="#06222B" font-size="15" font-weight="600" font-family="IBM Plex Mono, monospace">{{v.no}}</text>
+              </sc-for>
+            </svg>
+            <div style="flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:8px">
+              <div style="font-weight:600">Test movement</div>
+              <sc-for list="{{tests}}" as="f" hint-placeholder-count="3">
+                <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4">{{f.value}}%</span></span><input type="range" min="-100" max="100" step="5" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:38px;margin:0"></label>
+              </sc-for>
+              <p style="margin:0;color:#A9B8C5;font-size:13px">All three servos should rise together on collective. Disconnect the motor first.</p>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isRotor}}" hint-placeholder-val="{{false}}">
+          <p style="margin:0;color:#A9B8C5;font-size:15px">A big rotor must spin up slowly. The vehicle will not take off until it reaches speed.</p>
+          <figure style="margin:0;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <figcaption style="font-weight:600;font-size:13px;margin-bottom:6px">Rotor speed after arming</figcaption>
+            <svg viewBox="0 0 800 200" role="img" aria-label="Rotor speed ramps up over {{ramp}} seconds; takeoff allowed after {{runup}} seconds" style="display:block;width:100%;height:auto">
+              <line x1="20" y1="170" x2="780" y2="170" stroke="#60728A"></line>
+              <polyline points="{{rampPts}}" fill="none" stroke="#56D9F2" stroke-width="3" stroke-linejoin="round"></polyline>
+              <line x1="{{ruX}}" x2="{{ruX}}" y1="20" y2="170" stroke="#FFB54A" stroke-width="2" stroke-dasharray="6 5"></line>
+              <text x="{{ruX}}" y="192" text-anchor="middle" fill="#E8EEF4" font-size="14" font-family="IBM Plex Sans, sans-serif">Takeoff allowed</text>
+            </svg>
+          </figure>
+          <sc-if value="{{badRunup}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">Run-up time must be longer than the ramp, or it could lift off too slowly spinning.</p></sc-if>
+        </sc-if>
+        <sc-if value="{{isTail}}" hint-placeholder-val="{{false}}">
+          <p style="margin:0;color:#A9B8C5;font-size:15px">How the tail is driven decides how yaw is controlled.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">
+            <sc-for list="{{tails}}" as="c" hint-placeholder-count="3"><button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="min-height:72px;border:1px solid {{c.border}};border-radius:5px;background:{{c.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{c.label}}</button></sc-for>
+          </div>
+        </sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="2">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span><input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0"></label>
+        </sc-for>
+        <div style="margin-top:8px"><h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2><div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><sc-for list="{{params}}" as="p" hint-placeholder-count="3"><span>{{p}}</span></sc-for></div></div>
+        <button type="button" disabled="{{badRunup}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Swashplate', coll:0, roll:0, pitch:0, pmin:-3, pmax:12, ramp:10, runup:15, tail:'Servo', written:false };
+  renderVals() {
+    const s = this.state;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), written:false });
+    const A = [[1,-60],[2,60],[3,180]];
+    const servos = A.map(([no,a]) => {
+      const r = a*Math.PI/180, x = 180+130*Math.sin(r), y = 180-130*Math.cos(r);
+      const m = s.coll + s.roll*Math.sin(r) + s.pitch*Math.cos(r);
+      return { no, x:x.toFixed(0), y:y.toFixed(0), ty:(y+5).toFixed(0), r:(17+m/100*9).toFixed(1) };
+    });
+    const X = (t) => 20+t/40*760;
+    const bad = s.tab==='Rotor speed' && s.runup <= s.ramp;
+    const P = {
+      Swashplate:['H_SW_TYPE','H_COL_MIN, H_COL_MAX'],
+      'Rotor speed':['H_RSC_MODE','H_RSC_RAMP_TIME','H_RSC_RUNUP_TIME'],
+      Tail:['H_TAIL_TYPE'],
+    };
+    return {
+      tabs:Object.keys(P).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isSwash:s.tab==='Swashplate', isRotor:s.tab==='Rotor speed', isTail:s.tab==='Tail', params:P[s.tab],
+      servos,
+      tests:[['coll','Collective'],['roll','Roll'],['pitch','Pitch']].map(([k,label]) => ({ label, value:s[k], change:set(k) })),
+      ramp:s.ramp, runup:s.runup, rampPts:X(0)+',170 '+X(s.ramp).toFixed(0)+',30 '+X(40)+',30', ruX:X(s.runup).toFixed(0), badRunup:bad,
+      tails:['Servo','Direct-drive fixed pitch','Direct-drive variable pitch'].map((label) => ({ label, on:s.tail===label, pick:() => this.setState({ tail:label, written:false }), border:s.tail===label?'#56D9F2':'#60728A', bg:s.tail===label?'#123440':'transparent' })),
+      sliders:s.tab==='Swashplate'?[
+        { label:'Lowest blade pitch',min:-10,max:0,step:1,value:s.pmin,text:s.pmin+'°',change:set('pmin') },
+        { label:'Highest blade pitch',min:6,max:15,step:1,value:s.pmax,text:s.pmax+'°',change:set('pmax') },
+      ]:s.tab==='Rotor speed'?[
+        { label:'Ramp time',min:2,max:30,step:1,value:s.ramp,text:s.ramp+' s',change:set('ramp') },
+        { label:'Run-up time',min:2,max:40,step:1,value:s.runup,text:s.runup+' s',change:set('runup') },
+      ]:[],
+      write:() => this.setState({ written:true }), writeBg:bad?'#25323E':'#56D9F2', writeFg:bad?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'✓ Written and read back':'Write and verify',
+    };
+  }
+}
+</script>
+</body>
+</html>

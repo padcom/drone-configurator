@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Battery</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="battery" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Battery</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Accurate voltage and capacity are what make the failsafes and flight-time estimates trustworthy.</p>
+          </div>
+          <a href="SetupSerial.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Serial ports</a>
+        </div>
+        <div role="group" aria-label="Battery" style="display:flex;align-self:flex-start;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+            <div style="flex:1 1 150px;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{t.label}}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600">{{t.value}}</div>
+              <div style="font-size:12.5px;color:#A9B8C5">{{t.note}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px">
+          <label style="flex:1 1 180px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Capacity (mAh)
+            <input type="number" step="100" value="{{cap}}" onChange="{{capChange}}" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:16px">
+          </label>
+          <label style="flex:1 1 180px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Cells in series
+            <input type="number" min="1" max="14" value="{{cells}}" onChange="{{cellsChange}}" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:16px">
+          </label>
+        </div>
+        <section style="display:flex;flex-direction:column;gap:12px;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <h2 style="margin:0;font-size:16px;font-weight:600">Calibrate the voltage</h2>
+          <p style="margin:0;color:#A9B8C5">Measure the battery with a multimeter and type the reading. The app works out the rest.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+            <label style="flex:1 1 180px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Multimeter reading (V)
+              <input type="number" step="0.01" value="{{measured}}" onChange="{{measChange}}" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid #56D9F2;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:16px">
+            </label>
+            <div style="flex:2 1 240px;font-family:'IBM Plex Mono',monospace;font-size:14px;min-height:48px;display:flex;align-items:center;gap:10px"><span style="color:#A9B8C5">BATT_VOLT_MULT</span><span style="color:#A9B8C5">10.100</span><span>→</span><span style="color:#56D9F2">{{newMult}}</span></div>
+          </div>
+          <sc-if value="{{suspect}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;color:#FFB54A">That is more than 15% from what the vehicle reads. Check the reading.</p></sc-if>
+        </section>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>{{prefix}}_CAPACITY</span><span>{{prefix}}_VOLT_MULT</span><span>{{prefix}}_AMP_PERVLT</span></div>
+        </div>
+        <p style="margin:0;color:#A9B8C5;font-size:13px">Low and critical voltages are set under <a href="SetupFailsafes.dc.html">Failsafes</a>.</p>
+        <button type="button" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Battery 1', cap:5200, cells:3, measured:12.62, dirty:false, written:false };
+  renderVals() {
+    const s = this.state;
+    const V = 12.54;
+    const mult = 10.1*s.measured/V;
+    const suspect = !(s.measured > 0) || Math.abs(s.measured-V)/V > .15;
+    const perCell = s.cells > 0 ? (V/s.cells).toFixed(2) : '—';
+    const set = (o) => this.setState({ ...o, dirty:true, written:false });
+    return {
+      tabs:['Battery 1','Battery 2'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      tiles:[
+        { label:'VOLTAGE', value:V.toFixed(2)+' V', note:perCell+' V per cell' },
+        { label:'CURRENT', value:'0.8 A', note:'On the bench' },
+        { label:'REMAINING', value:'94%', note:Math.round(s.cap*.94)+' mAh' },
+      ],
+      cap:s.cap, cells:s.cells, measured:s.measured, newMult:Number.isFinite(mult)?mult.toFixed(3):'—', suspect,
+      capChange:(e) => set({ cap:Number(e.target.value) }),
+      cellsChange:(e) => set({ cells:Number(e.target.value) }),
+      measChange:(e) => set({ measured:Number(e.target.value) }),
+      prefix:s.tab==='Battery 1'?'BATT':'BATT2',
+      writeBg:s.dirty&&!suspect?'#56D9F2':'#25323E', writeFg:s.dirty&&!suspect?'#06222B':'#A9B8C5',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      write:() => { if (s.dirty && !suspect) this.setState({ written:true, dirty:false }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

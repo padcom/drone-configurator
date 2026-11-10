@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: landing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="landing" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+          <div data-l="fill map" style="flex:1 1 440px;min-height:440px;position:relative;overflow:hidden">
+            <dc-import name="MapBase" hint-size="100%,440px"></dc-import>
+            <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+              <g transform="translate(600 500) rotate({{hdg}})">
+                <rect x="-16" y="-60" width="32" height="120" rx="2" fill="#60728A"></rect>
+                <path d="M0 -44 10 -24H-10Z" fill="#E8EEF4"></path>
+              </g>
+              <line x1="600" y1="500" x2="{{sx}}" y2="{{sy}}" stroke="#EE82F5" stroke-width="4"></line>
+              <g transform="translate({{sx}} {{sy}}) rotate(45)"><rect x="-13" y="-13" width="26" height="26" fill="#10171E" stroke="#EE82F5" stroke-width="4"></rect></g>
+              <g transform="translate(1100 90) rotate({{windRot}})"><path d="M0 -36 12 -8H4V36H-4V-8H-12Z" fill="#E8EEF4"></path></g>
+              <text x="1100" y="160" text-anchor="middle" fill="#E8EEF4" font-size="20" font-family="IBM Plex Mono, monospace">Wind 4 m/s</text>
+            </svg>
+          </div>
+          <figure style="margin:0;padding:12px 16px;background:#111921;border-top:1px solid #25323E">
+            <figcaption style="font-weight:600;font-size:13px;margin-bottom:4px">Final approach</figcaption>
+            <svg viewBox="0 0 900 130" role="img" aria-label="{{profileLabel}}" style="display:block;width:100%;height:auto">
+              <line x1="10" y1="115" x2="890" y2="115" stroke="#60728A" stroke-width="2"></line>
+              <polyline points="{{profile}}" fill="none" stroke="#EE82F5" stroke-width="3" stroke-linejoin="round"></polyline>
+              <text x="30" y="{{labelY}}" fill="#E8EEF4" font-size="15" font-family="IBM Plex Mono, monospace">{{startAlt}} m</text>
+              <text x="890" y="104" text-anchor="end" fill="#E8EEF4" font-size="15" font-family="IBM Plex Sans, sans-serif">Touchdown</text>
+            </svg>
+          </figure>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <h1 style="margin:0;font-size:20px;font-weight:600">Landing sequence</h1>
+            <p style="margin:4px 0 0;color:#A9B8C5">Builds the approach for a fixed-wing landing, and lets the vehicle jump to it on Return.</p>
+          </div>
+          <sc-for list="{{sliders}}" as="f" hint-placeholder-count="3">
+            <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+              <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span>
+              <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:38px;margin:0">
+            </label>
+          </sc-for>
+          <div style="padding:12px 14px;border:1px solid {{windBorder}};border-radius:5px;background:{{windBg}}"><div style="font-weight:600;color:{{windFg}}">{{windTitle}}</div><div style="font-size:13px;color:#E8EEF4">{{windNote}}</div></div>
+          <h2 style="margin:4px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">MISSION ITEMS</h2>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{items}}" as="i" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;gap:10px;min-height:32px;align-items:center;border-bottom:1px solid #25323E"><span>{{i.name}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{i.value}}</span></div></sc-for>
+          </div>
+          <button type="button" onClick="{{add}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{addBg}};color:{{addFg}};font:inherit;font-weight:600;cursor:pointer">{{addLabel}}</button>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { hdg:240, len:200, slope:6, added:false };
+  renderVals() {
+    const s = this.state, WIND = 240, W = 4;
+    const r = s.hdg*Math.PI/180;
+    const sx = 600 - Math.sin(r)*s.len*2, sy = 500 + Math.cos(r)*s.len*2;
+    const startAlt = Math.round(s.len*Math.tan(s.slope*Math.PI/180));
+    const head = W*Math.cos((WIND-s.hdg)*Math.PI/180);
+    const tail = head < -.5;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), added:false });
+    const top = Math.max(20, 115-startAlt*2.2);
+    return {
+      hdg:s.hdg, sx:sx.toFixed(0), sy:sy.toFixed(0), windRot:(WIND+180)%360, startAlt,
+      aria:'Runway heading '+s.hdg+' degrees with a '+s.len+' metre approach',
+      profile:'30,'+top.toFixed(0)+' 790,'+Math.min(105,top+(115-top)*.86).toFixed(0)+' 880,115',
+      labelY:Math.max(16,top-8).toFixed(0),
+      profileLabel:'Descent from '+startAlt+' metres to touchdown',
+      sliders:[
+        { label:'Landing heading',min:0,max:355,step:5,value:s.hdg,text:String(s.hdg).padStart(3,'0')+'°',change:set('hdg') },
+        { label:'Approach length',min:80,max:300,step:10,value:s.len,text:s.len+' m',change:set('len') },
+        { label:'Descent angle',min:3,max:12,step:1,value:s.slope,text:s.slope+'°',change:set('slope') },
+      ],
+      windBorder:tail?'#FFB54A':'#25323E', windBg:tail?'#3A2A10':'transparent', windFg:tail?'#FFB54A':'#E8EEF4',
+      windTitle:tail?'Tailwind '+Math.abs(head).toFixed(1)+' m/s':'Headwind '+Math.max(0,head).toFixed(1)+' m/s',
+      windNote:tail?'Land the other way, or the approach will be fast and long.':'Good: landing into the wind.',
+      items:[ { name:'Land start marker',value:'' },{ name:'Approach waypoint',value:startAlt+' m' },{ name:'Land',value:'0 m' } ],
+      add:() => this.setState({ added:true }),
+      addBg:s.added?'#123327':'#56D9F2', addFg:s.added?'#62E3A6':'#06222B',
+      addLabel:s.added?'✓ Added to the mission':'Add to the mission',
+    };
+  }
+}
+</script>
+</body>
+</html>

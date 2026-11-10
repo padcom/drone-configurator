@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logs: tools</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="logs" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="LogsNav" active="tools" hint-size="100%,56px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <nav data-l="pane col" aria-label="Log tools" style="flex:1 1 220px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="7"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;text-align:left;cursor:pointer">{{b.label}}</button></sc-for>
+        </nav>
+        <section data-l="pane col measure" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:24px 32px;display:flex;flex-direction:column;gap:12px;--measure:696px">
+          <h1 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h1>
+          <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Message browser', vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const txt = (k,l,d='',p='') => ({ k:'text', label:l, value:g(k,d), placeholder:p, change:(e) => set(k,e.target.value) });
+    const en = (k,l,d,o) => ({ k:'enum', label:l, value:g(k,d), options:o.map(([value,label]) => ({ value,label })), pick:(n) => set(k,n) });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const act = (k,l,dn) => ({ k:'button', label:g(k,0)?dn:l, pick:() => set(k,1), bg:g(k,0)?'#123327':'#56D9F2', fg:g(k,0)?'#62E3A6':'#06222B', border:g(k,0)?'#123327':'#56D9F2' });
+    const MSG = { 0:[['Roll','2.4°'],['Pitch','−1.1°'],['Yaw','96.0°'],['DesRoll','2.5°']], 1:[['Alt','468.3 m'],['Lat','47.39801'],['Lng','8.54634'],['Spd','8.0 m/s']], 2:[['Volt','12.18 V'],['Curr','11.4 A'],['CurrTot','1204 mAh']] };
+    const R = {
+      'Message browser':[en('msg','Message type',0,[[0,'ATT'],[1,'GPS'],[2,'BAT']]),en('inst','Instance',0,[[0,'First'],[1,'Second']]),head('AT 1:36'),...MSG[g('msg',0)].map(([a,b]) => info(a,b)),note('Press a field to graph it.')],
+      Export:[en('fmt','Format',0,[[0,'KML'],[1,'KMZ'],[2,'GPX'],[3,'CSV'],[4,'MATLAB'],[5,'DashWare CSV']]),chk('tlogp','Include parameters and mission',true),act('exp','Export','✓ Saved to Documents')],
+      Anonymize:[note('Makes a copy. The original log stays as it is.'),chk('pos','Offset positions',true),chk('ids','Remove unique IDs',true),chk('time','Shift timestamps',true),act('an','Make an anonymous copy','✓ Copy saved')],
+      'Geotag photos':[txt('dir','Photo folder','~/Pictures/north-field'),info('Photos found','44'),info('Trigger records','44'),slide('off','Time offset',2,-30,30,1,' s'),note('The offset was guessed from the photo times. Originals are left untouched.'),act('tag','Write positions to copies','✓ 44 copies written')],
+      'Compass fit':[info('Log','00000014.BIN'),head('RESULT'),info('Offsets','12, −48, 31 → 18, −44, 29'),info('Fit quality','Good'),act('fit','Send to parameter review','✓ Added to review')],
+      Library:[info('Flights indexed','128'),info('Vehicles','3'),info('Total time','41 h 12 min'),chk('auto','Sort new logs by vehicle and date',true),head('COPY FROM A COMPANION COMPUTER'),txt('host','Host','pi@companion.local'),act('scp','Copy logs over SCP','✓ 4 logs copied')],
+      'Logging setup':[chk('l1','Attitude',true),chk('l2','GPS',true),chk('l3','Motors',true),chk('l4','Raw IMU (large)'),info('Estimated size','14 MB per minute'),head('NO USABLE STORAGE ON BOARD?'),chk('stream','Stream the log to this computer during flight'),info('Lost blocks','0.0%')],
+    };
+    return { tab:s.tab, rows:R[s.tab], tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#123440':'transparent', fg:s.tab===label?'#56D9F2':'#E8EEF4' })) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logs on the vehicle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="logs" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="LogsNav" active="vehicle" hint-size="100%,56px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="pane col" style="flex:999 1 520px;min-width:0;box-sizing:border-box;padding:24px 28px;display:flex;flex-direction:column;gap:14px">
+          <div>
+            <h1 style="margin:0;font-size:26px;font-weight:600">Logs on the vehicle</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">A download that gets interrupted picks up where it stopped.</p>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:620px;border-collapse:collapse">
+              <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:8px 12px;font-weight:500;width:32px"></th><th scope="col" style="padding:8px 12px;font-weight:500">LOG</th><th scope="col" style="padding:8px 12px;font-weight:500">DATE</th><th scope="col" style="padding:8px 12px;font-weight:500;text-align:right">SIZE</th><th scope="col" style="padding:8px 12px;font-weight:500;width:200px">STATE</th></tr></thead>
+              <tbody>
+                <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                  <tr style="height:52px;border-top:1px solid #1C2732">
+                    <td style="padding:0 12px"><input type="checkbox" aria-label="Select log {{r.id}}" disabled="{{r.done}}" checked="{{r.on}}" onChange="{{r.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0;vertical-align:middle"></td>
+                    <th scope="row" style="padding:0 12px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500">{{r.id}}</th>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{r.date}}</td>
+                    <td style="padding:0 12px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px">{{r.size}}</td>
+                    <td style="padding:0 12px">
+                      <div style="font-size:13px;color:{{r.fg}}">{{r.state}}</div>
+                      <sc-if value="{{r.busy}}" hint-placeholder-val="{{false}}"><div style="height:6px;border-radius:1.5px;background:#25323E;margin-top:4px"><div style="height:6px;border-radius:1.5px;background:#56D9F2;width:{{r.pct}}"></div></div></sc-if>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-weight:500"><span>Vehicle storage</span><span style="font-family:'IBM Plex Mono',monospace">{{used}} of 16 GB</span></div>
+            <div style="height:8px;border-radius:2px;background:#25323E;margin-top:6px"><div style="height:8px;border-radius:2px;background:#56D9F2;width:{{usedPct}}"></div></div>
+          </div>
+          <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{auto}}" onChange="{{autoChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Download new logs after landing</span></label>
+          <button type="button" disabled="{{cannot}}" onClick="{{download}}" style="min-height:52px;border:0;border-radius:4px;background:{{dlBg}};color:{{dlFg}};font:inherit;font-size:15px;font-weight:600;cursor:pointer">{{dlLabel}}</button>
+          <div style="margin-top:auto;display:flex;flex-direction:column;gap:6px">
+            <button type="button" onClick="{{erase}}" style="min-height:48px;border:1px solid {{eraseBorder}};border-radius:4px;background:{{eraseBg}};color:{{eraseFg}};font:inherit;font-weight:600;cursor:pointer">{{eraseLabel}}</button>
+            <p style="margin:0;font-size:13px;color:#A9B8C5">{{eraseNote}}</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = {
+    logs:[
+      { id:'00000014', date:'2026-11-09 14:01', mb:8.4, on:true, p:null },
+      { id:'00000013', date:'2026-11-08 17:40', mb:3.1, on:true, p:null },
+      { id:'00000012', date:'2026-11-08 11:12', mb:21.7, on:false, p:null },
+      { id:'00000011', date:'2026-11-02 09:31', mb:46.2, on:false, p:100 },
+      { id:'00000010', date:'2026-10-28 16:05', mb:12.9, on:false, p:100 },
+    ],
+    running:false, auto:true, confirm:false, erased:false,
+  };
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState((s) => {
+      if (!s.running) return null;
+      const i = s.logs.findIndex((l) => l.on && l.p !== 100);
+      if (i < 0) return { running:false };
+      return { logs:s.logs.map((l,j) => (j===i ? { ...l, p:Math.min(100,(l.p ?? 0)+90/l.mb), on:Math.min(100,(l.p ?? 0)+90/l.mb)<100 } : l)) };
+    }), 200);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const logs = s.erased ? [] : s.logs;
+    const rows = logs.map((l) => {
+      const done = l.p === 100, busy = l.p != null && !done;
+      return { ...l, done, busy, on:l.on, size:l.mb.toFixed(1)+' MB', pct:(l.p ?? 0)+'%', state:done?'✓ Downloaded':busy?Math.round(l.p)+'%':l.on?'Queued':'On the vehicle', fg:done?'#62E3A6':'#A9B8C5',
+        toggle:(e) => this.setState({ logs:s.logs.map((x) => (x.id===l.id ? { ...x, on:e.target.checked } : x)) }) };
+    });
+    const sel = logs.filter((l) => l.on && l.p !== 100);
+    const cannot = s.running || sel.length===0;
+    const used = logs.reduce((a,l) => a+l.mb, 0)/1024;
+    const notDownloaded = logs.filter((l) => l.p !== 100).length;
+    return {
+      rows, used:used.toFixed(2)+' GB', usedPct:Math.max(1,used/16*100)+'%', auto:s.auto,
+      autoChange:(e) => this.setState({ auto:e.target.checked }),
+      cannot, dlBg:cannot?'#25323E':'#56D9F2', dlFg:cannot?'#A9B8C5':'#06222B',
+      dlLabel:s.running?'Downloading':sel.length?'Download '+sel.length+' selected':'Nothing selected',
+      download:() => this.setState({ running:true }),
+      erase:() => s.confirm ? this.setState({ erased:true, confirm:false }) : this.setState({ confirm:true }),
+      eraseLabel:s.confirm?'Confirm: erase everything':'Erase all logs',
+      eraseBg:s.confirm?'#3F1A1A':'transparent', eraseFg:s.confirm?'#FF7A70':'#E8EEF4', eraseBorder:s.confirm?'#FF7A70':'#60728A',
+      eraseNote:s.erased?'All logs were erased.':notDownloaded?notDownloaded+' logs have not been downloaded and would be lost.':'Every log has a copy on this computer.',
+    };
+  }
+}
+</script>
+</body>
+</html>

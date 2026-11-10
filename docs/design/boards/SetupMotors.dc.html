@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Motors and ESCs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="motors" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Motors and ESCs</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Check that each motor is in the right place and spins the right way.</p>
+          </div>
+          <a href="SetupModes.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Flight modes</a>
+        </div>
+        <div role="group" aria-label="Motor tasks" style="display:flex;align-self:flex-start;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+        </div>
+        <sc-if value="{{isTest}}" hint-placeholder-val="{{true}}">
+          <label style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:4px;background:{{safeBg}};color:{{safeFg}};font-weight:600;cursor:pointer">
+            <input type="checkbox" checked="{{propsOff}}" onChange="{{toggleProps}}" style="width:22px;height:22px;accent-color:#FFB54A;margin:0">
+            <span>The propellers are off</span>
+          </label>
+          <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:center">
+            <svg viewBox="0 0 320 320" role="img" aria-label="Quad X motor layout, letters A to D clockwise from front right" style="flex:0 1 320px;width:320px;max-width:100%;height:auto">
+              <path d="M160 6 174 30H146Z" fill="#56D9F2"></path>
+              <sc-for list="{{motors}}" as="m" hint-placeholder-count="4"><line x1="160" y1="165" x2="{{m.x}}" y2="{{m.y}}" stroke="#60728A" stroke-width="8" stroke-linecap="round"></line></sc-for>
+              <rect x="134" y="139" width="52" height="52" rx="8" fill="#18222C" stroke="#60728A" stroke-width="2"></rect>
+              <sc-for list="{{motors}}" as="m" hint-placeholder-count="4">
+                <g>
+                  <circle cx="{{m.x}}" cy="{{m.y}}" r="36" fill="{{m.fill}}" stroke="{{m.stroke}}" stroke-width="3"></circle>
+                  <text x="{{m.x}}" y="{{m.ty}}" text-anchor="middle" fill="{{m.fg}}" font-size="26" font-weight="600" font-family="IBM Plex Mono, monospace">{{m.letter}}</text>
+                </g>
+              </sc-for>
+            </svg>
+            <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:10px">
+              <label style="display:flex;flex-direction:column;gap:2px;font-size:13px;color:#A9B8C5">
+                <span style="display:flex;justify-content:space-between"><span>Throttle during test</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4">{{thr}}%</span></span>
+                <input type="range" min="5" max="20" step="1" value="{{thr}}" onChange="{{thrChange}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+              </label>
+              <sc-for list="{{motors}}" as="m" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:12px;min-height:52px">
+                  <button type="button" disabled="{{locked}}" onPointerDown="{{m.down}}" onPointerUp="{{stopSpin}}" onPointerLeave="{{stopSpin}}" onKeyDown="{{m.key}}" onKeyUp="{{stopSpin}}" style="min-height:48px;width:124px;border:0;border-radius:4px;background:{{m.btnBg}};color:{{m.btnFg}};font:inherit;font-weight:600;cursor:pointer;touch-action:none">Hold: {{m.letter}}</button>
+                  <span style="flex:1">{{m.place}}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">Motor {{m.no}} · {{m.dir}}</span>
+                  <button type="button" onClick="{{m.ok}}" aria-pressed="{{m.confirmed}}" style="min-height:44px;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:{{m.okBg}};color:{{m.okFg}};font:inherit;font-weight:500;cursor:pointer">{{m.okLabel}}</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <p style="margin:0;color:#A9B8C5;font-size:13px">Motors stop the moment you let go. If a direction is wrong, swap any two of that motor's wires.</p>
+        </sc-if>
+        <sc-if value="{{isEsc}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-direction:column;gap:14px;max-width:680px">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">ESC protocol
+              <dc-import name="EnumField" value="{{proto}}" options="{{protos}}" on-pick="{{protoPick}}" field-label="ESC protocol" hint-size="100%,44px"></dc-import>
+            </div>
+            <p style="margin:0;padding:14px 16px;border-radius:4px;background:{{escBg}};color:{{escFg}}">{{escNote}}</p>
+            <h2 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">SPIN THRESHOLDS</h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+              <sc-for list="{{spins}}" as="m" hint-placeholder-count="3">
+                <div style="padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{m.param}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600">{{m.value}}</div><div style="font-size:12.5px;color:#A9B8C5">{{m.note}}</div></div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isServo}}" hint-placeholder-val="{{false}}">
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:640px;border-collapse:collapse">
+              <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:8px 12px;font-weight:500">OUTPUT</th><th scope="col" style="padding:8px 12px;font-weight:500">FUNCTION</th><th scope="col" style="padding:8px 12px;font-weight:500">MIN</th><th scope="col" style="padding:8px 12px;font-weight:500">TRIM</th><th scope="col" style="padding:8px 12px;font-weight:500">MAX</th><th scope="col" style="padding:8px 12px;font-weight:500">OUTPUT NOW</th></tr></thead>
+              <tbody>
+                <sc-for list="{{servos}}" as="o" hint-placeholder-count="8">
+                  <tr style="height:48px;border-top:1px solid #1C2732">
+                    <th scope="row" style="padding:0 12px;text-align:left;font-family:'IBM Plex Mono',monospace;font-weight:500">{{o.no}}</th>
+                    <td style="padding:0 12px;color:{{o.fg}}">{{o.fn}}</td>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{o.min}}</td>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{o.trim}}</td>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{o.max}}</td>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace">{{o.now}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Motor test', propsOff:false, thr:10, spin:null, ok:{}, proto:6 };
+  renderVals() {
+    const s = this.state;
+    const cfg = [['A','Front right',1,'CCW',45],['B','Rear right',4,'CW',135],['C','Rear left',2,'CCW',-135],['D','Front left',3,'CW',-45]];
+    const locked = !s.propsOff;
+    const motors = cfg.map(([letter,place,no,dir,a]) => {
+      const r = a*Math.PI/180, x = 160+125*Math.sin(r), y = 165-125*Math.cos(r), on = s.spin===letter, conf = !!s.ok[letter];
+      return { letter,place,no,dir, x:x.toFixed(1), y:y.toFixed(1), ty:(y+9).toFixed(1),
+        fill:on?'#56D9F2':'#111921', stroke:on?'#56D9F2':conf?'#62E3A6':'#60728A', fg:on?'#06222B':'#E8EEF4',
+        btnBg:locked?'#25323E':on?'#56D9F2':'#123440', btnFg:locked?'#A9B8C5':on?'#06222B':'#56D9F2',
+        confirmed:conf, okBg:conf?'#123327':'transparent', okFg:conf?'#62E3A6':'#E8EEF4', okLabel:conf?'✓ Correct':'Mark correct',
+        down:() => { if (!locked) this.setState({ spin:letter }); },
+        key:(e) => { if (!locked && (e.key===' '||e.key==='Enter') && !e.repeat) { e.preventDefault(); this.setState({ spin:letter }); } },
+        ok:() => this.setState({ ok:{ ...s.ok, [letter]:!conf } }),
+      };
+    });
+    const dshot = s.proto >= 4 && s.proto <= 7;
+    const servos = [['1','Motor 1'],['2','Motor 2'],['3','Motor 3'],['4','Motor 4'],['5','Camera shutter'],['6','Disabled'],['7','Disabled'],['8','Disabled']].map(([no,fn]) => {
+      const dis = fn==='Disabled';
+      return { no, fn, fg:dis?'#A9B8C5':'#E8EEF4', min:dis?'—':'1100', trim:dis?'—':'1500', max:dis?'—':'1900', now:dis?'—':'1100' };
+    });
+    return {
+      tabs:['Motor test','ESC setup','Servo outputs'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isTest:s.tab==='Motor test', isEsc:s.tab==='ESC setup', isServo:s.tab==='Servo outputs',
+      propsOff:s.propsOff, toggleProps:(e) => this.setState({ propsOff:e.target.checked, spin:null }),
+      safeBg:s.propsOff?'#123327':'#3A2A10', safeFg:s.propsOff?'#62E3A6':'#FFB54A',
+      locked, motors, thr:s.thr, thrChange:(e) => this.setState({ thr:Number(e.target.value) }),
+      stopSpin:() => this.setState((p) => (p.spin ? { spin:null } : null)),
+      proto:s.proto, protoPick:(n) => this.setState({ proto:n }),
+      protos:[['Normal PWM',0],['OneShot',1],['OneShot125',2],['Brushed',3],['DShot150',4],['DShot300',5],['DShot600',6],['DShot1200',7]].map(([label,value]) => ({ label,value })),
+      escBg:dshot?'#111921':'#3A2A10', escFg:dshot?'#E8EEF4':'#FFB54A',
+      escNote:dshot?'DShot is digital, so these ESCs do not need calibrating.':'These ESCs must learn the throttle range. Take the propellers off before calibrating.',
+      spins:[
+        { param:'MOT_SPIN_ARM', value:'0.10', note:'Idle spin when armed' },
+        { param:'MOT_SPIN_MIN', value:'0.15', note:'Lowest in flight' },
+        { param:'MOT_SPIN_MAX', value:'0.95', note:'Highest in flight' },
+      ],
+      servos,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logs</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E">
+      <dc-import name="Rail" active="logs" hint-size="76px,640px"></dc-import>
+    </div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="LogsNav" active="flights" hint-size="100%,56px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+      <nav data-l="pane col" aria-label="Flight logs" style="flex:1 1 270px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+        <h2 style="margin:4px 10px 10px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">FLIGHTS</h2>
+        <sc-for list="{{logs}}" as="l" hint-placeholder-count="5">
+          <button type="button" onClick="{{l.pick}}" style="display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:0;border-radius:4px;background:{{l.bg}};color:#E8EEF4;font:inherit;text-align:left;cursor:pointer">
+            <span style="font-weight:500">{{l.name}}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{l.date}} · {{l.dur}}</span>
+            <span style="font-size:12.5px;color:{{l.noteFg}}">{{l.note}}</span>
+          </button>
+        </sc-for>
+      </nav>
+      <section data-l="pane col" style="flex:999 1 520px;min-width:0;box-sizing:border-box;padding:22px 26px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center">
+          <h1 style="margin:0;font-size:26px;font-weight:600">{{log.name}}</h1>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a href="LogsReplay.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Replay on map</a>
+            <button type="button" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Export</button>
+          </div>
+        </div>
+        <div onMouseMove="{{hoverMove}}" onMouseLeave="{{hoverOut}}" style="display:flex;flex-direction:column;gap:10px;flex:1 1 auto">
+          <div style="display:flex;gap:2px;height:26px;font-size:12px;font-weight:500">
+            <sc-for list="{{log.modes}}" as="m" hint-placeholder-count="3">
+              <span style="flex:{{m.grow}} 1 0;display:flex;align-items:center;justify-content:center;background:#25323E;color:#E8EEF4;overflow:hidden;white-space:nowrap">{{m.label}}</span>
+            </sc-for>
+          </div>
+          <sc-for list="{{panels}}" as="p" hint-placeholder-count="3">
+            <figure style="margin:0;flex:1 1 170px;display:flex;flex-direction:column;gap:6px;padding:10px 14px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <figcaption style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span style="font-weight:600">{{p.title}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{p.readout}}</span></figcaption>
+              <div style="position:relative;flex:1 1 130px;min-height:130px">
+                <svg viewBox="0 0 1000 130" preserveAspectRatio="none" role="img" aria-label="{{p.aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+                  <line x1="0" x2="1000" y1="65" y2="65" stroke="#25323E" vector-effect="non-scaling-stroke"></line>
+                  <polyline points="{{p.pts}}" fill="none" stroke="#56D9F2" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  <line x1="{{hx}}" x2="{{hx}}" y1="0" y2="130" stroke="#E8EEF4" stroke-opacity="{{ho}}" vector-effect="non-scaling-stroke"></line>
+                </svg>
+                <span style="position:absolute;left:2px;top:0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A9B8C5">{{p.max}}</span>
+                <span style="position:absolute;left:2px;bottom:0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A9B8C5">{{p.min}}</span>
+              </div>
+            </figure>
+          </sc-for>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">AUTOMATIC REVIEW</h2>
+        <sc-for list="{{log.findings}}" as="f" hint-placeholder-count="4">
+          <div style="display:flex;gap:10px;padding:12px;border:1px solid #25323E;border-radius:5px;background:{{f.bg}}">
+            <span aria-hidden="true" style="color:{{f.color}};font-weight:700">{{f.glyph}}</span>
+            <div><div style="font-weight:600">{{f.title}}</div><div style="font-size:13px;color:#A9B8C5">{{f.detail}}</div></div>
+          </div>
+        </sc-for>
+      </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:0, hover:null };
+  renderVals() {
+    const s = this.state;
+    const pass = (title,detail) => ({ title,detail,glyph:'✓',color:'#62E3A6',bg:'transparent' });
+    const warn = (title,detail) => ({ title,detail,glyph:'!',color:'#FFB54A',bg:'#3A2A10' });
+    const data = [
+      { name:'North field survey', date:'2026-11-09', dur:'3:52', note:'No issues', noteFg:'#A9B8C5', spike:0, secs:232, modes:[['Takeoff',1],['AUTO',9],['RTL',2]], findings:[pass('Vibration','Peak 16 m/s², below the 30 m/s² limit'),pass('GPS','Never below 12 satellites'),pass('EKF','No resets or failsafes'),pass('Battery','Lowest cell voltage 3.91 V')] },
+      { name:'Motor swap test hover', date:'2026-11-08', dur:'1:15', note:'Vibration high', noteFg:'#FFB54A', spike:1, secs:75, modes:[['LOITER',8],['LAND',1]], findings:[warn('Vibration','Peak 41 m/s² at 0:47. Check the prop balance'),pass('GPS','Never below 11 satellites'),pass('EKF','No resets or failsafes'),pass('Battery','Lowest cell voltage 4.02 V')] },
+      { name:'River inspection', date:'2026-11-02', dur:'8:40', note:'No issues', noteFg:'#A9B8C5', spike:0, secs:520, modes:[['Takeoff',1],['AUTO',12],['LOITER',3],['RTL',2]], findings:[pass('Vibration','Peak 18 m/s², below the 30 m/s² limit'),pass('GPS','Never below 13 satellites'),pass('EKF','No resets or failsafes'),pass('Battery','Lowest cell voltage 3.72 V')] },
+    ];
+    const log = data[s.sel];
+    const noise = (t,k) => Math.sin(t*91+k)*.5+Math.sin(t*233+k*2)*.3+Math.sin(t*577+k*3)*.2;
+    const alt = (t) => Math.max(0, Math.min(1,t/.08)*Math.min(1,(1-t)/.1)*60+noise(t,1)*.5);
+    const vib = (t) => 11+noise(t,2)*3+(log.spike? 29*Math.exp(-Math.pow((t-.63)/.04,2)):0);
+    const batt = (t) => 12.55-.6*t-.12*Math.min(1,t/.05)+noise(t,3)*.02;
+    const mk = (title,unit,fn,min,max,dig) => {
+      let pts = '';
+      for (let i = 0; i <= 240; i++) { const t = i/240; pts += (t*1000).toFixed(0)+','+(130-(fn(t)-min)/(max-min)*130).toFixed(1)+' '; }
+      const h = s.hover;
+      return { title:title+', '+unit, pts:pts.trim(), min:String(min), max:String(max), aria:title+' over the flight', readout:h==null?'':fn(h).toFixed(dig)+' '+unit };
+    };
+    const h = s.hover;
+    return {
+      log: { ...log, modes:log.modes.map(([label,grow]) => ({ label, grow })) },
+      logs:data.map((l,i) => ({ ...l, pick:() => this.setState({ sel:i }), bg:i===s.sel?'#123440':'transparent' })),
+      panels:[ mk('Altitude','m',alt,0,80,0), mk('Vibration','m/s²',vib,0,50,0), mk('Battery','V',batt,11.5,12.8,2) ],
+      hoverMove:(e) => { const r = e.currentTarget.getBoundingClientRect(); this.setState({ hover:Math.min(1,Math.max(0,(e.clientX-r.left-14)/(r.width-28))) }); },
+      hoverOut:() => this.setState({ hover:null }),
+      hx:h==null?0:(h*1000).toFixed(0), ho:h==null?0:.7,
+    };
+  }
+}
+</script>
+</body>
+</html>

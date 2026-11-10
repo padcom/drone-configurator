@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Panel form</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:10px;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+    <sc-if value="{{r.isHead}}" hint-placeholder-val="{{false}}"><h2 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">{{r.text}}</h2></sc-if>
+    <sc-if value="{{r.isNote}}" hint-placeholder-val="{{false}}"><p style="margin:0;font-size:13.5px;color:{{r.fg}}">{{r.text}}</p></sc-if>
+    <sc-if value="{{r.isWarn}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 14px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">{{r.text}}</p></sc-if>
+    <sc-if value="{{r.isInfo}}" hint-placeholder-val="{{true}}"><div style="display:flex;justify-content:space-between;gap:12px;min-height:34px;align-items:center;border-bottom:1px solid #25323E"><span>{{r.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{r.fg}};text-align:right">{{r.value}}</span></div></sc-if>
+    <sc-if value="{{r.isSlider}}" hint-placeholder-val="{{false}}"><label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between;gap:8px"><span>{{r.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{r.text}}</span></span><input type="range" min="{{r.min}}" max="{{r.max}}" step="{{r.step}}" value="{{r.value}}" onChange="{{r.change}}" style="accent-color:#56D9F2;min-height:38px;margin:0"></label></sc-if>
+    <sc-if value="{{r.isCheck}}" hint-placeholder-val="{{false}}"><label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{r.value}}" onChange="{{r.change}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>{{r.label}}</span></label></sc-if>
+    <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}"><label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">{{r.label}}<input value="{{r.value}}" onChange="{{r.change}}" placeholder="{{r.placeholder}}" style="min-height:44px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:14px"></label></sc-if>
+    <sc-if value="{{r.isEnum}}" hint-placeholder-val="{{false}}"><div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">{{r.label}}<dc-import name="EnumField" value="{{r.value}}" options="{{r.options}}" on-pick="{{r.pick}}" field-label="{{r.label}}" hint-size="100%,44px"></dc-import></div></sc-if>
+    <sc-if value="{{r.isButton}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{r.pick}}" style="align-self:flex-start;min-height:48px;padding:0 20px;border:1px solid {{r.border}};border-radius:4px;background:{{r.bg}};color:{{r.fg}};font:inherit;font-weight:600;cursor:pointer">{{r.label}}</button></sc-if>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"rows":{"editor":null},"$preview":{"width":480,"height":400}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = this.props.rows ?? [{ k:'head', text:'EXAMPLE' },{ k:'info', label:'Label', value:'Value' },{ k:'note', text:'Shared form used by the specialist screens.' }];
+    return { rows:rows.map((r) => ({ fg:r.k==='info'?'#A9B8C5':'#A9B8C5', ...r, isHead:r.k==='head', isNote:r.k==='note', isWarn:r.k==='warn', isInfo:r.k==='info', isSlider:r.k==='slider', isCheck:r.k==='check', isText:r.k==='text', isEnum:r.k==='enum', isButton:r.k==='button' })) };
+  }
+}
+</script>
+</body>
+</html>

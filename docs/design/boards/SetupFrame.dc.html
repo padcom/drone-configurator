@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Frame and orientation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="frame" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Frame and orientation</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Match the drawing to your vehicle, including the motor numbers and spin directions.</p>
+          </div>
+          <a href="SetupAccel.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Accelerometer</a>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:28px;flex:1 1 auto">
+          <div style="flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:18px">
+            <div>
+              <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">MOTORS</h2>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+                <sc-for list="{{classes}}" as="c" hint-placeholder-count="3">
+                  <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="min-height:64px;border:1px solid {{c.border}};border-radius:5px;background:{{c.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{c.label}}<br><span style="font-weight:400;font-size:12.5px;color:#A9B8C5">{{c.n}} motors</span></button>
+                </sc-for>
+              </div>
+            </div>
+            <div>
+              <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">LAYOUT</h2>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+                <sc-for list="{{types}}" as="c" hint-placeholder-count="2">
+                  <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="min-height:56px;border:1px solid {{c.border}};border-radius:5px;background:{{c.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{c.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">BOARD ORIENTATION
+              <div style="letter-spacing:0"><dc-import name="EnumField" value="{{orient}}" options="{{orients}}" on-pick="{{orientChange}}" field-label="Board orientation" hint-size="100%,44px"></dc-import></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:auto">
+              <button type="button" disabled="{{clean}}" onClick="{{write}}" style="min-height:48px;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+              <p style="margin:0;font-size:13px;color:#A9B8C5">{{writeNote}}</p>
+            </div>
+          </div>
+          <figure style="flex:2 1 340px;min-width:0;margin:0;display:flex;flex-direction:column;gap:8px;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <svg viewBox="0 0 440 440" role="img" aria-label="{{diagramLabel}}" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto">
+              <path d="M220 12 L238 42 H202Z" fill="#56D9F2"></path>
+              <text x="220" y="62" text-anchor="middle" fill="#A9B8C5" font-size="13" font-family="IBM Plex Sans, sans-serif">Front</text>
+              <sc-for list="{{motors}}" as="m" hint-placeholder-count="4">
+                <line x1="220" y1="230" x2="{{m.x}}" y2="{{m.y}}" stroke="#60728A" stroke-width="8" stroke-linecap="round"></line>
+              </sc-for>
+              <g transform="rotate({{boardYaw}} 220 230)">
+                <rect x="186" y="196" width="68" height="68" rx="8" fill="#18222C" stroke="#56D9F2" stroke-width="2"></rect>
+                <path d="M220 204 L232 224 H224 V252 H216 V224 H208Z" fill="#56D9F2"></path>
+              </g>
+              <sc-for list="{{motors}}" as="m" hint-placeholder-count="4">
+                <g>
+                  <circle cx="{{m.x}}" cy="{{m.y}}" r="31" fill="{{m.fill}}" stroke="{{m.stroke}}" stroke-width="3" stroke-dasharray="{{m.dash}}"></circle>
+                  <text x="{{m.x}}" y="{{m.ty}}" text-anchor="middle" fill="#E8EEF4" font-size="20" font-weight="600" font-family="IBM Plex Mono, monospace">{{m.no}}</text>
+                  <text x="{{m.x}}" y="{{m.ty2}}" text-anchor="middle" fill="#A9B8C5" font-size="11" font-family="IBM Plex Mono, monospace">{{m.dir}}</text>
+                </g>
+              </sc-for>
+            </svg>
+            <figcaption style="display:flex;flex-wrap:wrap;justify-content:center;gap:18px;font-size:12.5px;color:#A9B8C5">
+              <span style="display:inline-flex;gap:6px;align-items:center"><span aria-hidden="true" style="width:14px;height:14px;border-radius:50%;border:2px solid #56D9F2"></span>CW, clockwise</span>
+              <span style="display:inline-flex;gap:6px;align-items:center"><span aria-hidden="true" style="width:14px;height:14px;border-radius:50%;border:2px dashed #FFB54A"></span>CCW, counter-clockwise</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">CHECK YOUR VEHICLE</h2>
+          <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
+            <li>Each motor is wired to the output with its number.</li>
+            <li>Each propeller matches the spin direction shown.</li>
+            <li>The board's arrow points the way the drawing shows.</li>
+          </ol>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;flex-direction:column;gap:6px">
+            <span style="display:flex;justify-content:space-between"><span style="color:#A9B8C5">FRAME_CLASS</span><span>{{classNo}} · {{classLabel}}</span></span>
+            <span style="display:flex;justify-content:space-between"><span style="color:#A9B8C5">FRAME_TYPE</span><span>{{typeNo}} · {{typeLabel}}</span></span>
+            <span style="display:flex;justify-content:space-between"><span style="color:#A9B8C5">AHRS_ORIENTATION</span><span>{{orient}} · {{orientLabel}}</span></span>
+          </div>
+          <p style="margin:10px 0 0;color:#A9B8C5;font-size:13px">A new orientation needs a reboot, and the accelerometer must be calibrated again.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { cls:'Quad', type:'X', orient:0, saved:{ cls:'Quad', type:'X', orient:0 }, written:false };
+  renderVals() {
+    const s = this.state;
+    const L = {
+      'Quad X':[[45,'CCW'],[-135,'CCW'],[-45,'CW'],[135,'CW']],
+      'Quad +':[[90,'CCW'],[-90,'CCW'],[0,'CW'],[180,'CW']],
+      'Hexa X':[[90,'CW'],[-90,'CCW'],[-30,'CW'],[150,'CCW'],[30,'CCW'],[-150,'CW']],
+      'Hexa +':[[0,'CW'],[180,'CCW'],[-120,'CW'],[60,'CCW'],[-60,'CCW'],[120,'CW']],
+      'Octa +':[[0,'CW'],[180,'CW'],[45,'CCW'],[135,'CCW'],[-45,'CCW'],[-135,'CCW'],[-90,'CW'],[90,'CW']],
+      'Octa X':[[22.5,'CW'],[-157.5,'CW'],[67.5,'CCW'],[157.5,'CCW'],[-22.5,'CCW'],[-112.5,'CCW'],[-67.5,'CW'],[112.5,'CW']],
+    };
+    const counts = { Quad:4, Hexa:6, Octa:8 };
+    const classNo = { Quad:1, Hexa:2, Octa:3 }[s.cls];
+    const typeNo = s.type === 'X' ? 1 : 0;
+    const R = s.cls === 'Quad' ? 150 : 158;
+    const motors = L[s.cls+' '+s.type].map(([a,dir],i) => {
+      const r = a*Math.PI/180, x = 220+R*Math.sin(r), y = 230-R*Math.cos(r), cw = dir === 'CW';
+      return { no:i+1, dir, x:x.toFixed(1), y:y.toFixed(1), ty:(y+4).toFixed(1), ty2:(y+19).toFixed(1), fill:cw?'#123440':'#3A2A10', stroke:cw?'#56D9F2':'#FFB54A', dash:cw?'none':'6 4' };
+    });
+    const orients = [['None',0],['Yaw 45°',1],['Yaw 90°',2],['Yaw 135°',3],['Yaw 180°',4],['Yaw 225°',5],['Yaw 270°',6],['Yaw 315°',7],['Upside down (roll 180°)',8]].map(([label,value]) => ({ label,value }));
+    const clean = s.cls===s.saved.cls && s.type===s.saved.type && s.orient===s.saved.orient;
+    const opt = (key,label,extra) => ({ label, ...extra, on:s[key]===label, pick:() => this.setState({ [key]:label, written:false }), border:s[key]===label?'#56D9F2':'#60728A', bg:s[key]===label?'#123440':'transparent' });
+    return {
+      classes:['Quad','Hexa','Octa'].map((c) => opt('cls',c,{ n:counts[c] })),
+      types:['X','+'].map((t) => opt('type',t,{})),
+      orients, orient:s.orient, motors, clean, classNo, typeNo, classLabel:s.cls, typeLabel:s.type,
+      orientLabel:orients.find((o) => o.value === s.orient)?.label ?? 'no name',
+      boardYaw:s.orient >= 1 && s.orient <= 7 ? s.orient*45 : 0,
+      orientChange:(n) => this.setState({ orient:n, written:false }),
+      diagramLabel:s.cls+' '+s.type+' frame with '+counts[s.cls]+' numbered motors and their spin directions',
+      writeBg:clean?'#25323E':'#56D9F2', writeFg:clean?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':clean?'No changes':'Write and verify',
+      writeNote:s.written?'Reboot the vehicle to apply.':'The current settings on the vehicle are Quad X, no board rotation.',
+      write:() => this.setState({ saved:{ cls:s.cls, type:s.type, orient:s.orient }, written:true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

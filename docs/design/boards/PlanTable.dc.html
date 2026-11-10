@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: mission table</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="table" hint-size="100%,66px"></dc-import>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #25323E">
+        <span style="font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">INSERT</span>
+        <sc-for list="{{inserts}}" as="b" hint-placeholder-count="8"><button type="button" onClick="{{b.add}}" style="min-height:44px;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+      </div>
+      <sc-if value="{{hasFrameAsk}}" hint-placeholder-val="{{false}}">
+        <div role="alert" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#3A2A10;color:#FFB54A;font-weight:500">
+          <span style="flex:1 1 300px">{{frameAsk}}</span>
+          <button type="button" onClick="{{convert}}" style="min-height:44px;padding:0 14px;border:0;border-radius:4px;background:#FFB54A;color:#241600;font:inherit;font-weight:700;cursor:pointer">Convert the height</button>
+          <button type="button" onClick="{{keep}}" style="min-height:44px;padding:0 14px;border:1px solid #FFB54A;border-radius:4px;background:transparent;color:#FFB54A;font:inherit;font-weight:600;cursor:pointer">Keep the number</button>
+        </div>
+      </sc-if>
+      <section data-l="fill pane col" style="flex:1 1 auto;padding:6px 16px;display:flex;flex-direction:column;min-width:760px">
+        <div style="display:grid;grid-template-columns:40px minmax(200px,1.2fr) 110px minmax(180px,1fr) 150px 100px;gap:8px;padding:8px 0;font-size:11px;letter-spacing:.08em;color:#A9B8C5;font-weight:500"><span>#</span><span>COMMAND</span><span>ALTITUDE</span><span>MEASURED FROM</span><span>{{detailHead}}</span><span></span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:40px minmax(200px,1.2fr) 110px minmax(180px,1fr) 150px 100px;gap:8px;align-items:center;padding:4px 0;border-top:1px solid #1C2732">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{r.no}}</span>
+            <dc-import name="EnumField" value="{{r.cmd}}" options="{{commands}}" on-pick="{{r.pickCmd}}" field-label="Item {{r.no}} command" hint-size="100%,44px"></dc-import>
+            <sc-if value="{{r.hasAlt}}" hint-placeholder-val="{{true}}"><input aria-label="Item {{r.no}} altitude" type="number" value="{{r.alt}}" onChange="{{r.altChange}}" style="min-height:44px;width:100%;box-sizing:border-box;padding:0 10px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:14px"></sc-if>
+            <sc-if value="{{r.noAlt}}" hint-placeholder-val="{{false}}"><span style="color:#A9B8C5">—</span></sc-if>
+            <sc-if value="{{r.hasAlt}}" hint-placeholder-val="{{true}}"><dc-import name="EnumField" value="{{r.frame}}" options="{{frames}}" on-pick="{{r.pickFrame}}" field-label="Item {{r.no}} altitude reference" hint-size="100%,44px"></dc-import></sc-if>
+            <sc-if value="{{r.noAlt}}" hint-placeholder-val="{{false}}"><span style="color:#A9B8C5">—</span></sc-if>
+            <span style="font-size:13px;color:{{r.detailFg}}">{{r.detail}}</span>
+            <div style="display:flex;gap:4px">
+              <button type="button" aria-label="Move item {{r.no}} up" disabled="{{r.first}}" onClick="{{r.up}}" style="width:44px;height:44px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{r.upFg}};font:inherit;cursor:pointer">↑</button>
+              <button type="button" aria-label="Delete item {{r.no}}" onClick="{{r.del}}" style="width:44px;height:44px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;cursor:pointer">✕</button>
+            </div>
+          </div>
+        </sc-for>
+      </section>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 16px;background:#111921;border-top:1px solid #25323E">
+        <span style="font-weight:600">Planned home</span>
+        <input aria-label="Planned home coordinates" value="{{home}}" onChange="{{homeChange}}" style="flex:0 1 260px;min-width:0;min-height:44px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:13px">
+        <button type="button" onClick="{{useVehicle}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Use the vehicle's</button>
+        <span style="flex:1 1 240px;text-align:right;color:{{problemFg}};font-weight:500">{{problem}}</span>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { next:7, ask:null, home:'47.39801, 8.54634', items:[
+    { id:1, cmd:22, alt:30, frame:3 }, { id:2, cmd:16, alt:40, frame:3 }, { id:3, cmd:206, val:18 }, { id:4, cmd:82, alt:60, frame:3 }, { id:5, cmd:177, val:2, rep:2 }, { id:6, cmd:20 },
+  ] };
+  renderVals() {
+    const s = this.state;
+    const O = (l) => l.map(([value,label]) => ({ value,label }));
+    const commands = O([[16,'Waypoint'],[82,'Spline waypoint'],[22,'Takeoff'],[21,'Land'],[20,'Return home'],[17,'Loiter'],[19,'Loiter for a time'],[177,'Jump'],[178,'Change speed'],[112,'Wait'],[206,'Camera trigger distance']]);
+    const frames = O([[3,'Home'],[0,'Sea level'],[10,'Terrain']]);
+    const NOALT = [20,177,178,112,206];
+    const patch = (id,o) => this.setState({ items:s.items.map((x) => (x.id===id ? { ...x, ...o } : x)) });
+    const rows = s.items.map((x,i) => {
+      const hasAlt = !NOALT.includes(x.cmd);
+      let detail = '', detailFg = '#A9B8C5';
+      if (x.cmd===177) { const bad = x.val > i+1; detail = bad?'! Target is ahead of it':'To item '+x.val+', repeat '+x.rep; detailFg = bad?'#FFB54A':'#A9B8C5'; }
+      else if (x.cmd===206) detail = 'Every '+x.val+' m';
+      else if (x.cmd===82) detail = 'Curved path';
+      else if (!commands.some((c) => c.value===x.cmd)) detail = 'Kept as it is';
+      return { ...x, no:i+1, hasAlt, noAlt:!hasAlt, detail, detailFg, first:i===0, upFg:i===0?'#8FA0AE':'#E8EEF4',
+        pickCmd:(n) => patch(x.id,{ cmd:n, alt:x.alt ?? 40, frame:x.frame ?? 3 }),
+        altChange:(e) => patch(x.id,{ alt:Number(e.target.value) }),
+        pickFrame:(n) => { if (n !== x.frame) this.setState({ ask:{ id:x.id, to:n } }); },
+        up:() => { const a = s.items.slice(); [a[i-1],a[i]] = [a[i],a[i-1]]; this.setState({ items:a }); },
+        del:() => this.setState({ items:s.items.filter((y) => y.id!==x.id) }) };
+    });
+    const add = (cmd,extra) => () => this.setState({ items:s.items.concat([{ id:s.next, cmd, alt:40, frame:3, ...extra }]), next:s.next+1 });
+    const FROM = { 3:0, 0:408, 10:-12 };
+    const ask = s.ask, it = ask ? s.items.find((x) => x.id===ask.id) : null;
+    const fname = (v) => frames.find((f) => f.value===v)?.label ?? v;
+    const hasTakeoff = s.items.some((x) => x.cmd===22);
+    const hasEnd = s.items.some((x) => x.cmd===20 || x.cmd===21);
+    const problem = !hasTakeoff?'! No takeoff in this mission':!hasEnd?'! The mission has no landing or return':'✓ No problems found';
+    return {
+      rows, commands, frames, detailHead:'DETAILS',
+      inserts:[['Takeoff',22],['Waypoint',16],['Spline',82],['Loiter',17],['Land',21],['Return home',20]].map(([label,cmd]) => ({ label, add:add(cmd) })).concat([{ label:'Jump', add:add(177,{ val:1, rep:1 }) },{ label:'Change speed', add:add(178) }]),
+      hasFrameAsk:!!it, frameAsk:it?'Altitude '+it.alt+' m was measured from '+fname(it.frame).toLowerCase()+'. Convert it for '+fname(ask.to).toLowerCase()+', or keep the same number?':'',
+      convert:() => { const a = Math.round(it.alt+FROM[it.frame]-FROM[ask.to]); this.setState({ items:s.items.map((x) => (x.id===it.id ? { ...x, frame:ask.to, alt:a } : x)), ask:null }); },
+      keep:() => this.setState({ items:s.items.map((x) => (x.id===it.id ? { ...x, frame:ask.to } : x)), ask:null }),
+      home:s.home, homeChange:(e) => this.setState({ home:e.target.value }), useVehicle:() => this.setState({ home:'47.39801, 8.54634' }),
+      problem, problemFg:problem.startsWith('!')?'#FFB54A':'#62E3A6',
+    };
+  }
+}
+</script>
+</body>
+</html>

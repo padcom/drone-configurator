@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tools</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="tools" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Tools</h1>
+          <div role="group" aria-label="Tool" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{isConsole}}" hint-placeholder-val="{{true}}">
+          <div style="flex:1 1 auto;min-height:520px;display:flex;flex-direction:column;background:#06090D;border:1px solid #25323E;border-radius:5px;overflow:hidden">
+            <div style="flex:1 1 auto;padding:14px 16px;display:flex;flex-direction:column;gap:3px;font-family:'IBM Plex Mono',monospace;font-size:13.5px">
+              <sc-for list="{{lines}}" as="l" hint-placeholder-count="5"><div style="color:{{l.fg}};white-space:pre-wrap">{{l.text}}</div></sc-for>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-top:1px solid #25323E;font-family:'IBM Plex Mono',monospace;color:#56D9F2">
+              <span aria-hidden="true">&gt;</span>
+              <input aria-label="Console command" value="{{cmd}}" onChange="{{cmdChange}}" onKeyDown="{{cmdKey}}" placeholder="Type help and press Enter" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:#E8EEF4;font:inherit">
+            </label>
+          </div>
+        </sc-if>
+        <sc-if value="{{isFiles}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px">
+              <button type="button" disabled="{{atRoot}}" onClick="{{up}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{upFg}};font:inherit;font-weight:500;cursor:pointer">Up</button>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:14px">{{path}}</span>
+            </div>
+            <span style="font-size:13px;color:#A9B8C5">1.8 GB of 16 GB used</span>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{files}}" as="f" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;min-height:52px;border-top:1px solid #1C2732">
+                <button type="button" onClick="{{f.open}}" style="flex:1;min-height:44px;padding:0 4px;border:0;background:transparent;color:{{f.fg}};font-family:'IBM Plex Mono',monospace;font-size:14px;text-align:left;cursor:{{f.cursor}}">{{f.name}}</button>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{f.size}}</span>
+                <sc-if value="{{f.isFile}}" hint-placeholder-val="{{true}}">
+                  <button type="button" style="min-height:44px;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Download</button>
+                  <button type="button" onClick="{{f.del}}" style="min-height:44px;padding:0 12px;border:1px solid {{f.delBorder}};border-radius:4px;background:{{f.delBg}};color:{{f.delFg}};font:inherit;font-weight:500;cursor:pointer">{{f.delLabel}}</button>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{isScripts}}" hint-placeholder-val="{{false}}">
+          <label style="display:flex;align-items:center;gap:12px;min-height:52px;cursor:pointer;font-weight:500"><input type="checkbox" checked="{{scr}}" onChange="{{scrChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Run scripts on this vehicle<span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:400;color:#A9B8C5">SCR_ENABLE · needs a reboot</span></label>
+          <sc-for list="{{scripts}}" as="s" hint-placeholder-count="3">
+            <article style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:14px 16px;background:#111921;border:1px solid {{s.border}};border-radius:5px">
+              <div style="flex:1 1 240px;min-width:0"><div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600">{{s.name}}</div><div style="font-size:13px;color:{{s.noteFg}}">{{s.note}}</div></div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{s.mem}}</span>
+              <button type="button" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Restart</button>
+            </article>
+          </sc-for>
+          <button type="button" style="align-self:flex-start;min-height:48px;padding:0 20px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">Upload a script</button>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Console', cmd:'', lines:[['Connected to the vehicle console.','note'],['Type help to see what you can run.','note']], path:'/APM', removed:{}, confirm:null, scr:true };
+  renderVals() {
+    const s = this.state;
+    const C = { out:'#E8EEF4', note:'#A9B8C5', in:'#56D9F2', err:'#FFB54A' };
+    const replies = { help:['help     this list','version  firmware version','status   system status','clear    clear this view'], version:['ArduCopter V4.6.2'], status:['armed: no','mode: LOITER','load: 18%','free memory: 118 kB'] };
+    const run = () => {
+      const c = s.cmd.trim();
+      if (!c) return;
+      if (c === 'clear') { this.setState({ lines:[], cmd:'' }); return; }
+      const out = replies[c] ? replies[c].map((t) => [t,'out']) : [['Unknown command: '+c,'err']];
+      this.setState({ lines:s.lines.concat([['> '+c,'in']], out), cmd:'' });
+    };
+    const T = {
+      '/APM':[['logs/',''],['scripts/',''],['terrain/',''],['fence.bin','1.2 kB']],
+      '/APM/logs':[['00000012.BIN','8.4 MB'],['00000011.BIN','3.1 MB'],['00000010.BIN','21.7 MB'],['LASTLOG.TXT','12 B']],
+      '/APM/scripts':[['battery_monitor.lua','3.4 kB'],['led_status.lua','1.1 kB'],['payload_drop.lua','2.0 kB']],
+      '/APM/terrain':[['N47E008.DAT','1.1 MB']],
+    };
+    const files = (T[s.path] ?? []).filter(([n]) => !s.removed[s.path+'/'+n]).map(([name,size]) => {
+      const dir = name.endsWith('/'), id = s.path+'/'+name, arm = s.confirm===id;
+      return { name, size, isFile:!dir, fg:dir?'#56D9F2':'#E8EEF4', cursor:dir?'pointer':'default',
+        open:() => { if (dir) this.setState({ path:s.path+'/'+name.slice(0,-1), confirm:null }); },
+        delLabel:arm?'Confirm delete':'Delete', delBg:arm?'#3F1A1A':'transparent', delFg:arm?'#FF7A70':'#E8EEF4', delBorder:arm?'#FF7A70':'#60728A',
+        del:() => arm ? this.setState({ removed:{ ...s.removed, [id]:true }, confirm:null }) : this.setState({ confirm:id }) };
+    });
+    const S = (name,note,mem,bad) => ({ name,note,mem,border:bad?'#FFB54A':'#25323E',noteFg:bad?'#FFB54A':'#A9B8C5' });
+    const atRoot = s.path==='/APM';
+    return {
+      tabs:['Console','Files','Scripts'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isConsole:s.tab==='Console', isFiles:s.tab==='Files', isScripts:s.tab==='Scripts',
+      lines:s.lines.map(([text,k]) => ({ text, fg:C[k] })), cmd:s.cmd,
+      cmdChange:(e) => this.setState({ cmd:e.target.value }),
+      cmdKey:(e) => { if (e.key==='Enter') run(); },
+      path:s.path, files, atRoot, upFg:atRoot?'#8FA0AE':'#E8EEF4',
+      up:() => this.setState({ path:'/APM', confirm:null }),
+      scr:s.scr, scrChange:(e) => this.setState({ scr:e.target.checked }),
+      scripts:[
+        S('battery_monitor.lua','Running','14 kB'),
+        S('led_status.lua','Running','6 kB'),
+        S('payload_drop.lua','Stopped: line 42, attempt to index a nil value','—',true),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

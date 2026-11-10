@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Resume a mission</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>[data-l~="dlg"]>*{flex-shrink:0}</style>
+</helmet>
+<div data-l="dlg" style="overflow-y:auto;width:560px;height:680px;box-sizing:border-box;padding:28px;display:flex;flex-direction:column;gap:14px;background:#111921;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <div>
+    <h1 style="margin:0;font-size:24px;font-weight:600">Resume the mission</h1>
+    <p style="margin:4px 0 0;color:#A9B8C5">North field survey stopped at item 9 when the battery ran low.</p>
+  </div>
+  <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+    <span style="display:flex;justify-content:space-between"><span>Start again from item</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{item}}</span></span>
+    <input type="range" min="2" max="13" step="1" value="{{item}}" onChange="{{itemChange}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+  </label>
+  <div role="img" aria-label="Items 1 to {{before}} are skipped, items {{item}} to 14 will be flown" style="display:flex;gap:3px">
+    <sc-for list="{{cells}}" as="c" hint-placeholder-count="14"><span style="flex:1;height:10px;border-radius:1px;background:{{c.bg}}"></span></sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+    <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+      <div style="padding:10px 12px;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{t.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{t.value}}</div></div>
+    </sc-for>
+  </div>
+  <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{camera}}" onChange="{{cameraChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Keep the camera trigger on when it resumes</span></label>
+  <p style="margin:0;color:#A9B8C5">The vehicle takes off, climbs to 60 m, and flies straight to item {{item}}. Items before it are not flown.</p>
+  <sc-if value="{{short}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 14px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">Change the battery first: this needs more than the {{batt}}% that is left above the 25% reserve.</p></sc-if>
+  <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+    <a href="PlanWrite.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:4px;background:#56D9F2;color:#06222B;font-size:15px;font-weight:600;text-decoration:none">Build and write</a>
+    <a href="Plan.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:44px;color:#E8EEF4;font-weight:500;text-decoration:none">Not now</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"battery":{"editor":"range","min":20,"max":100,"step":1,"default":94},"$preview":{"width":560,"height":680}}'>
+class Component extends DCLogic {
+  state = { item:9, camera:true };
+  renderVals() {
+    const s = this.state;
+    const left = 15 - s.item;
+    const secs = 30 + left*16;
+    const use = Math.round(secs/220*14);
+    const b = this.props.battery ?? 94;
+    return {
+      item:s.item, before:s.item-1, camera:s.camera, batt:b-25,
+      itemChange:(e) => this.setState({ item:Number(e.target.value) }),
+      cameraChange:(e) => this.setState({ camera:e.target.checked }),
+      cells:Array.from({ length:14 }, (_,i) => ({ bg:i+1<s.item?'#25323E':i+1===s.item?'#56D9F2':'#EE82F5' })),
+      tiles:[
+        { label:'ITEMS TO FLY', value:String(left) },
+        { label:'TIME', value:Math.floor(secs/60)+' min '+String(secs%60).padStart(2,'0')+' s' },
+        { label:'BATTERY USED', value:use+'%' },
+        { label:'LANDS WITH', value:(b-use)+'%' },
+      ],
+      short:b-use<25,
+    };
+  }
+}
+</script>
+</body>
+</html>

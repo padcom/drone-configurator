@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>On-screen display</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="osd" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">On-screen display</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Drag each item to where you want it in the video.</p>
+          </div>
+          <div role="group" aria-label="Screen" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{screens}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <div onPointerMove="{{move}}" onPointerUp="{{drop}}" onPointerLeave="{{drop}}" style="position:relative;aspect-ratio:16/9;overflow:hidden;background:#000;border:1px solid #25323E;border-radius:5px;touch-action:none">
+          <dc-import name="MapBase" look="video" hint-size="100%,400px"></dc-import>
+          <sc-for list="{{shown}}" as="i" hint-placeholder-count="6">
+            <button type="button" onPointerDown="{{i.grab}}" onClick="{{i.pick}}" style="position:absolute;left:{{i.left}};top:{{i.top}};padding:3px 8px;border:1.5px solid {{i.border}};border-radius:2px;background:#0A0F14;color:#FFFFFF;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;white-space:nowrap;cursor:grab;touch-action:none">{{i.sample}}</button>
+          </sc-for>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:4px">
+        <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">ITEMS</h2>
+        <sc-for list="{{all}}" as="i" hint-placeholder-count="8">
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;padding:0 8px;border-radius:4px;background:{{i.bg}};cursor:pointer">
+            <input type="checkbox" checked="{{i.on}}" onChange="{{i.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">
+            <span style="flex:1">{{i.name}}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{i.pos}}</span>
+          </label>
+        </sc-for>
+        <div style="margin-top:auto;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;padding-top:10px">Writes OSD{{screen}}_*_EN, _X, _Y</div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { screen:1, sel:'alt', drag:null, items:{
+    alt:{ on:true, x:24, y:7 }, spd:{ on:true, x:1, y:7 }, bat:{ on:true, x:1, y:1 }, mode:{ on:true, x:12, y:14 }, home:{ on:true, x:14, y:1 }, sats:{ on:true, x:24, y:1 }, msg:{ on:false, x:6, y:12 }, time:{ on:false, x:24, y:14 },
+  } };
+  renderVals() {
+    const s = this.state;
+    const D = [['alt','Altitude','60 m'],['spd','Speed','8.0 m/s'],['bat','Battery','12.5 V'],['mode','Flight mode','AUTO'],['home','Home direction','↑ 142 m'],['sats','Satellites','14 sat'],['msg','Messages','Reached waypoint 8'],['time','Flight time','03:42']];
+    const on = (id,v) => this.setState({ items:{ ...s.items, [id]:{ ...s.items[id], on:v } } });
+    const list = D.map(([id,name,sample]) => {
+      const it = s.items[id], sel = s.sel===id;
+      return { id,name,sample,on:it.on, left:(it.x/30*100).toFixed(1)+'%', top:(it.y/16*100).toFixed(1)+'%', pos:it.x+', '+it.y, border:sel?'#56D9F2':'transparent', bg:sel?'#123440':'transparent',
+        toggle:(e) => on(id,e.target.checked), pick:() => this.setState({ sel:id }),
+        grab:() => this.setState({ drag:id, sel:id }) };
+    });
+    return {
+      all:list, shown:list.filter((i) => i.on), screen:s.screen,
+      screens:[1,2].map((n) => ({ label:'Screen '+n, pick:() => this.setState({ screen:n }), bg:s.screen===n?'#56D9F2':'transparent', fg:s.screen===n?'#06222B':'#E8EEF4' })),
+      move:(e) => {
+        if (!s.drag) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = Math.max(0,Math.min(29,Math.round((e.clientX-r.left)/r.width*30)));
+        const y = Math.max(0,Math.min(15,Math.round((e.clientY-r.top)/r.height*16)));
+        this.setState({ items:{ ...s.items, [s.drag]:{ ...s.items[s.drag], x, y } } });
+      },
+      drop:() => this.setState((p) => (p.drag ? { drag:null } : null)),
+    };
+  }
+}
+</script>
+</body>
+</html>

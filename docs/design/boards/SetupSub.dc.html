@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sub setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="sub" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="frame" vehicle="sub" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Sub</h1>
+          <div role="group" aria-label="Sub setup" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{isFrame}}" hint-placeholder-val="{{true}}">
+          <label style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:4px;background:{{wetBg}};color:{{wetFg}};font-weight:600;cursor:pointer">
+            <input type="checkbox" checked="{{wet}}" onChange="{{wetChange}}" style="width:22px;height:22px;accent-color:#FFB54A;margin:0"><span>The vehicle is in the water, and hands are clear</span>
+          </label>
+          <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:center">
+            <svg viewBox="0 0 320 340" role="img" aria-label="Thruster layout seen from above" style="flex:0 1 320px;width:320px;max-width:100%;height:auto">
+              <path d="M160 6 174 28H146Z" fill="#56D9F2"></path>
+              <rect x="90" y="50" width="140" height="240" rx="6" fill="#60728A"></rect>
+              <sc-for list="{{thrusters}}" as="t" hint-placeholder-count="6">
+                <g><circle cx="{{t.x}}" cy="{{t.y}}" r="24" fill="{{t.fill}}" stroke="#56D9F2" stroke-width="3"></circle><text x="{{t.x}}" y="{{t.ty}}" text-anchor="middle" fill="{{t.fg}}" font-size="20" font-weight="600" font-family="IBM Plex Mono, monospace">{{t.no}}</text></g>
+              </sc-for>
+            </svg>
+            <div style="flex:1 1 300px;min-width:0;display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{thrusters}}" as="t" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <button type="button" disabled="{{locked}}" onPointerDown="{{t.down}}" onPointerUp="{{stop}}" onPointerLeave="{{stop}}" style="min-height:44px;width:110px;border:0;border-radius:4px;background:{{t.btn}};color:{{t.btnFg}};font:inherit;font-weight:600;cursor:pointer;touch-action:none">Hold: {{t.no}}</button>
+                  <span>{{t.role}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isDepth}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <div style="flex:1 1 220px;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">DEPTH NOW</div><div style="font-family:'IBM Plex Mono',monospace;font-size:44px;font-weight:500">{{depth}} m</div></div>
+            <div style="flex:1 1 220px;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:10px;align-items:flex-start"><div>Hold the vehicle just under the surface, then zero it.</div><button type="button" onClick="{{zero}}" style="min-height:44px;padding:0 16px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{zeroFg}};font:inherit;font-weight:600;cursor:pointer">{{zeroLabel}}</button></div>
+          </div>
+          <div role="group" aria-label="Water type" style="display:inline-flex;align-self:flex-start;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{waters}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+          <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">Writes BARO_SPEC_GRAV = {{grav}}</p>
+        </sc-if>
+        <sc-if value="{{isButtons}}" hint-placeholder-val="{{false}}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">
+            <sc-for list="{{buttons}}" as="b" hint-placeholder-count="8">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="width:72px;font-family:'IBM Plex Mono',monospace;font-size:13px">Button {{b.no}}</span>
+                <span style="flex:1;position:relative;display:block">
+                  <select aria-label="Button {{b.no}}" value="{{b.value}}" onChange="{{b.change}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit">
+                    <sc-for list="{{functions}}" as="o" hint-placeholder-count="6"><option value="{{o}}">{{o}}</option></sc-for>
+                  </select>
+                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Thrusters', wet:false, spin:null, zeroed:false, water:'Fresh', fns:['Arm','Disarm','Depth hold','Stabilize','Lights brighter','Lights dimmer','Camera up','Camera down'] };
+  renderVals() {
+    const s = this.state;
+    const locked = !s.wet;
+    const T = [[1,100,90,'Front right, sideways'],[2,220,90,'Front left, sideways'],[3,100,250,'Rear right, sideways'],[4,220,250,'Rear left, sideways'],[5,160,120,'Vertical, front'],[6,160,220,'Vertical, rear']];
+    const thrusters = T.map(([no,x,y,role]) => { const on = s.spin===no; return { no,x,y,role,ty:y+7,fill:on?'#56D9F2':'#111921',fg:on?'#06222B':'#E8EEF4',btn:locked?'#25323E':on?'#56D9F2':'#123440',btnFg:locked?'#A9B8C5':on?'#06222B':'#56D9F2',down:() => { if (!locked) this.setState({ spin:no }); } }; });
+    const tab = (k,opts) => opts.map((label) => ({ label, pick:() => this.setState({ [k]:label }), bg:s[k]===label?'#56D9F2':'transparent', fg:s[k]===label?'#06222B':'#E8EEF4' }));
+    return {
+      tabs:tab('tab',['Thrusters','Depth','Buttons']), waters:tab('water',['Fresh','Salt']),
+      isFrame:s.tab==='Thrusters', isDepth:s.tab==='Depth', isButtons:s.tab==='Buttons',
+      wet:s.wet, wetChange:(e) => this.setState({ wet:e.target.checked, spin:null }), wetBg:s.wet?'#123327':'#3A2A10', wetFg:s.wet?'#62E3A6':'#FFB54A',
+      thrusters, locked, stop:() => this.setState((p) => (p.spin ? { spin:null } : null)),
+      depth:s.zeroed?'0.00':'0.42', zero:() => this.setState({ zeroed:true }), zeroFg:s.zeroed?'#62E3A6':'#E8EEF4', zeroLabel:s.zeroed?'✓ Zeroed':'Zero the depth',
+      grav:s.water==='Salt'?'1.024':'1.000',
+      functions:['Arm','Disarm','Depth hold','Stabilize','Manual','Surface','Lights brighter','Lights dimmer','Camera up','Camera down','Nothing'],
+      buttons:s.fns.map((value,i) => ({ no:i, value, change:(e) => { const n = s.fns.slice(); n[i] = e.target.value; this.setState({ fns:n }); } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

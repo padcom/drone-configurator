@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plane speeds and landing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="speeds" vehicle="plane" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h1 style="margin:0;font-size:28px;font-weight:600">Speeds and landing</h1>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Set how fast the plane may fly, how it takes off and how it lands.</p>
+        </div>
+        <section style="display:flex;flex-direction:column;gap:12px;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">SPEED RANGE, M/S</h2>
+          <div style="position:relative;height:42px" role="img" aria-label="{{bandLabel}}">
+            <span style="position:absolute;left:0;right:0;top:12px;height:8px;border-radius:2px;background:#25323E"></span>
+            <span style="position:absolute;top:12px;height:8px;left:{{minP}};width:{{bandW}};background:#56D9F2"></span>
+            <sc-for list="{{marks}}" as="m" hint-placeholder-count="4">
+              <span style="position:absolute;top:8px;left:{{m.left}};width:2px;height:16px;margin-left:-1px;background:{{m.color}}"></span>
+              <span style="position:absolute;top:26px;left:{{m.left}};transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:12px;color:#A9B8C5">{{m.value}}</span>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
+            <sc-for list="{{speeds}}" as="f" hint-placeholder-count="4">
+              <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+                <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.value}}</span></span>
+                <input type="range" min="5" max="40" step="1" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+              </label>
+            </sc-for>
+          </div>
+          <sc-for list="{{problems}}" as="p" hint-placeholder-count="0"><p role="alert" style="margin:0;color:#FFB54A;font-weight:500">{{p}}</p></sc-for>
+        </section>
+        <figure style="margin:0;flex:1 1 200px;display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <figcaption style="font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">FLIGHT PROFILE</figcaption>
+          <svg viewBox="0 0 960 230" role="img" aria-label="{{profileLabel}}" style="display:block;width:100%;height:auto">
+            <line x1="10" y1="205" x2="950" y2="205" stroke="#60728A" stroke-width="2"></line>
+            <polyline points="{{profile}}" fill="none" stroke="#EE82F5" stroke-width="3" stroke-linejoin="round"></polyline>
+            <text x="120" y="{{toY}}" text-anchor="middle" fill="#E8EEF4" font-size="15" font-family="IBM Plex Sans, sans-serif">Takeoff to {{alt}} m</text>
+            <text x="800" y="{{flareY}}" text-anchor="middle" fill="#E8EEF4" font-size="15" font-family="IBM Plex Sans, sans-serif">Flare at {{flare}} m</text>
+          </svg>
+        </figure>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:16px">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Launch
+          <span style="position:relative;display:block">
+            <select value="{{launch}}" onChange="{{launchChange}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:48px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit;font-size:15px">
+              <sc-for list="{{launches}}" as="o" hint-placeholder-count="3"><option value="{{o}}">{{o}}</option></sc-for>
+            </select>
+            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+          </span>
+        </label>
+        <p style="margin:0;color:#A9B8C5;font-size:13px">{{launchNote}}</p>
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="2">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.value}} m</span></span>
+            <input type="range" min="{{f.min}}" max="{{f.max}}" step="1" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+        </sc-for>
+        <div>
+          <h2 style="margin:6px 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>AIRSPEED_MIN, _CRUISE, _MAX</span><span>TKOFF_ALT</span><span>LAND_FLARE_ALT</span></div>
+        </div>
+        <button type="button" disabled="{{cannotWrite}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { stall:11, min:14, cruise:20, max:28, alt:50, flare:3, launch:'Hand', dirty:false, written:false };
+  renderVals() {
+    const s = this.state;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), dirty:true, written:false });
+    const P = (v) => ((v-5)/35*100).toFixed(1)+'%';
+    const problems = [];
+    if (!(s.min < s.cruise && s.cruise < s.max)) problems.push('Keep minimum below cruise, and cruise below maximum.');
+    if (s.min < s.stall*1.2) problems.push('Minimum speed should be at least 20% above stall: ' + Math.ceil(s.stall*1.2) + ' m/s here.');
+    const H = (m) => 205 - m*1.8;
+    const top = H(s.alt), fy = H(s.flare*3);
+    const notes = { Hand:'Throttle starts when the throw is detected.', Catapult:'Throttle starts after the launch acceleration ends.', Runway:'Throttle starts on arming. Steering holds the runway.' };
+    const bad = problems.length > 0;
+    return {
+      problems, alt:s.alt, flare:s.flare, launch:s.launch, launchNote:notes[s.launch],
+      launches:['Hand','Catapult','Runway'],
+      launchChange:(e) => this.setState({ launch:e.target.value, dirty:true, written:false }),
+      minP:P(s.min), bandW:((Math.max(0,s.max-s.min))/35*100).toFixed(1)+'%',
+      bandLabel:'Allowed speed from '+s.min+' to '+s.max+' metres a second',
+      marks:[{ left:P(s.stall), value:s.stall, color:'#FFB54A' },{ left:P(s.min), value:s.min, color:'#E8EEF4' },{ left:P(s.cruise), value:s.cruise, color:'#E8EEF4' },{ left:P(s.max), value:s.max, color:'#E8EEF4' }],
+      speeds:[{ k:'stall',label:'Stall (measured)' },{ k:'min',label:'Minimum' },{ k:'cruise',label:'Cruise' },{ k:'max',label:'Maximum' }].map((f) => ({ label:f.label, value:s[f.k], change:set(f.k) })),
+      sliders:[{ k:'alt',label:'Takeoff altitude',min:20,max:100 },{ k:'flare',label:'Flare altitude',min:1,max:10 }].map((f) => ({ ...f, value:s[f.k], change:set(f.k) })),
+      profile:'30,205 230,'+top+' 620,'+top+' 860,'+fy+' 930,205',
+      toY:Math.max(18, top-12), flareY:Math.max(18, fy-14),
+      profileLabel:'Climb to '+s.alt+' metres, cruise, descend, flare at '+s.flare+' metres',
+      cannotWrite:!s.dirty||bad, writeBg:s.dirty&&!bad?'#56D9F2':'#25323E', writeFg:s.dirty&&!bad?'#06222B':'#A9B8C5',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      write:() => this.setState({ written:true, dirty:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

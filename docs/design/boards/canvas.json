@@ -1,0 +1,1151 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "ArmGate.dc.html": {
+      "h": 680,
+      "is_interactive": true,
+      "title": "Arm",
+      "w": 560,
+      "x": 640,
+      "y": 2640
+    },
+    "Components.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "title": "Components",
+      "w": 1440,
+      "x": 3600,
+      "y": 2640
+    },
+    "Connect.dc.html": {
+      "h": 680,
+      "is_interactive": true,
+      "title": "Connect",
+      "w": 560,
+      "x": 0,
+      "y": 2640
+    },
+    "EnumField.dc.html": {
+      "h": 320,
+      "is_interactive": true,
+      "title": "Enum field",
+      "w": 320,
+      "x": 3276,
+      "y": 4378
+    },
+    "Fly.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Fly",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "FlyCamera.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: camera",
+      "w": 1440,
+      "x": 4560,
+      "y": 1320
+    },
+    "FlyChecklist.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Preflight checklist",
+      "w": 1440,
+      "x": 9120,
+      "y": 1320
+    },
+    "FlyData.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: data",
+      "w": 1440,
+      "x": 6080,
+      "y": 1320
+    },
+    "FlyFailsafe.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: failsafe",
+      "w": 1440,
+      "x": 1520,
+      "y": 1320
+    },
+    "FlyFleet.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: fleet",
+      "w": 1440,
+      "x": 3040,
+      "y": 1320
+    },
+    "FlyFormation.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: formation",
+      "w": 1440,
+      "x": 10640,
+      "y": 1320
+    },
+    "FlyGuided.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: guided",
+      "w": 1440,
+      "x": 0,
+      "y": 1320
+    },
+    "FlyLinkLost.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Fly: link lost",
+      "w": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "FlyNav.dc.html": {
+      "h": 56,
+      "title": "Fly views",
+      "w": 640,
+      "x": 3276,
+      "y": 4106
+    },
+    "FlyOutputs.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: outputs",
+      "w": 1440,
+      "x": 12160,
+      "y": 1320
+    },
+    "FlyNoGps.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: no GPS, set EKF origin",
+      "w": 1440,
+      "x": 15200,
+      "y": 1320
+    },
+    "FlySensors.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: sensors",
+      "w": 1440,
+      "x": 13680,
+      "y": 1320
+    },
+    "FlyTraffic.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Fly: traffic",
+      "w": 1440,
+      "x": 7600,
+      "y": 1320
+    },
+    "Foundations.dc.html": {
+      "h": 900,
+      "title": "Foundations",
+      "w": 1440,
+      "x": 2080,
+      "y": 2640
+    },
+    "HoldButton.dc.html": {
+      "h": 56,
+      "is_interactive": true,
+      "title": "Hold button",
+      "w": 240,
+      "x": 3276,
+      "y": 4778
+    },
+    "Logs.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Logs",
+      "w": 1440,
+      "x": 3040,
+      "y": 1320
+    },
+    "LogsDownload.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Logs: on the vehicle",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "LogsNav.dc.html": {
+      "h": 56,
+      "title": "Logs views",
+      "w": 640,
+      "x": 3276,
+      "y": 4242
+    },
+    "LogsReplay.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Logs: replay",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "LogsSpectrum.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Logs: spectrum",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "LogsTools.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Logs: tools",
+      "w": 1440,
+      "x": 3680,
+      "y": 2640
+    },
+    "Main.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Overview",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "MapBase.dc.html": {
+      "h": 900,
+      "title": "Map base",
+      "w": 1200,
+      "x": 1676,
+      "y": 3960
+    },
+    "Palette.dc.html": {
+      "h": 520,
+      "is_interactive": true,
+      "title": "Command palette",
+      "w": 720,
+      "x": 1280,
+      "y": 2640
+    },
+    "PanelForm.dc.html": {
+      "h": 400,
+      "is_interactive": true,
+      "title": "Panel form",
+      "w": 480,
+      "x": 3276,
+      "y": 4900
+    },
+    "ParamReset.dc.html": {
+      "h": 680,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Parameters: reset",
+      "w": 560,
+      "x": 1520,
+      "y": 2640
+    },
+    "ParamReview.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Parameters: review changes",
+      "w": 1440,
+      "x": 0,
+      "y": 2640
+    },
+    "Parameters.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Parameters",
+      "w": 1440,
+      "x": 0,
+      "y": 1320
+    },
+    "Plan.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Plan",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "Plan3D.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: 3D view",
+      "w": 1440,
+      "x": 8880,
+      "y": 0
+    },
+    "PlanBar.dc.html": {
+      "h": 66,
+      "title": "Plan tool bar",
+      "w": 1120,
+      "x": 3276,
+      "y": 3960
+    },
+    "PlanCorridor.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: corridor scan",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "PlanFence.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: geofence",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "PlanGenerators.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: generators",
+      "w": 1440,
+      "x": 11920,
+      "y": 0
+    },
+    "PlanLanding.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: landing",
+      "w": 1440,
+      "x": 5200,
+      "y": 0
+    },
+    "PlanLayers.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: layers and terrain",
+      "w": 1440,
+      "x": 13440,
+      "y": 0
+    },
+    "PlanRally.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: rally points",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "PlanResume.dc.html": {
+      "h": 680,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Resume a mission",
+      "w": 560,
+      "x": 6720,
+      "y": 0
+    },
+    "PlanTable.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: mission table",
+      "w": 1440,
+      "x": 10400,
+      "y": 0
+    },
+    "PlanTransform.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Plan: transform",
+      "w": 1440,
+      "x": 7360,
+      "y": 0
+    },
+    "PlanWrite.dc.html": {
+      "h": 680,
+      "is_interactive": true,
+      "page": "missions",
+      "title": "Write to vehicle",
+      "w": 560,
+      "x": 4560,
+      "y": 0
+    },
+    "PrefIntegrations.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Integrations",
+      "w": 1440,
+      "x": 6080,
+      "y": 1320
+    },
+    "PrefScripts.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Scripts, SSH and translations",
+      "w": 1440,
+      "x": 7600,
+      "y": 1320
+    },
+    "Preferences.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Settings",
+      "w": 1440,
+      "x": 0,
+      "y": 1320
+    },
+    "Rail.dc.html": {
+      "h": 640,
+      "title": "Rail",
+      "w": 76,
+      "x": 1520,
+      "y": 3960
+    },
+    "Setup.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Compass",
+      "w": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "SetupAccel.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Accelerometer",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "SetupBattery.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Battery",
+      "w": 1440,
+      "x": 0,
+      "y": 2340
+    },
+    "SetupBoat.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Boats and sailboats",
+      "w": 1440,
+      "x": 0,
+      "y": 6300
+    },
+    "SetupCan.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "DroneCAN",
+      "w": 1440,
+      "x": 4560,
+      "y": 1320
+    },
+    "SetupCompliance.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Remote ID and transponder",
+      "w": 1440,
+      "x": 4560,
+      "y": 6300
+    },
+    "SetupDevices.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Devices",
+      "w": 1440,
+      "x": 3040,
+      "y": 2340
+    },
+    "SetupExtras.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Advanced setup",
+      "w": 1440,
+      "x": 12160,
+      "y": 6300
+    },
+    "SetupFailsafes.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Failsafes",
+      "w": 1440,
+      "x": 4560,
+      "y": 1020
+    },
+    "SetupFirmware.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Firmware",
+      "w": 1440,
+      "x": 4560,
+      "y": 2340
+    },
+    "SetupFrame.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Frame and orientation",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "SetupGround.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Ground equipment",
+      "w": 1440,
+      "x": 6080,
+      "y": 6300
+    },
+    "SetupHeli.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Helicopter",
+      "w": 1440,
+      "x": 3040,
+      "y": 6300
+    },
+    "SetupHome.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Setup: all steps",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "SetupHomeHeli.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Helicopter: all steps",
+      "w": 1440,
+      "x": 9120,
+      "y": 6300
+    },
+    "SetupHomePlane.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: all steps",
+      "w": 1440,
+      "x": 0,
+      "y": 3660
+    },
+    "SetupHomeRover.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Rover: all steps",
+      "w": 1440,
+      "x": 0,
+      "y": 4980
+    },
+    "SetupHomeSub.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Sub: all steps",
+      "w": 1440,
+      "x": 7600,
+      "y": 6300
+    },
+    "SetupInfo.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Vehicle information",
+      "w": 1440,
+      "x": 4560,
+      "y": 4980
+    },
+    "SetupInspector.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "MAVLink Inspector",
+      "w": 1440,
+      "x": 3040,
+      "y": 1320
+    },
+    "SetupJoystick.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Sub: joystick",
+      "w": 1440,
+      "x": 10640,
+      "y": 6300
+    },
+    "SetupLinks.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Radios and links",
+      "w": 1440,
+      "x": 1520,
+      "y": 1320
+    },
+    "SetupModes.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Flight modes",
+      "w": 1440,
+      "x": 3040,
+      "y": 1020
+    },
+    "SetupMoreLinks.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "More links",
+      "w": 1440,
+      "x": 13680,
+      "y": 6300
+    },
+    "SetupMotors.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Motors and ESCs",
+      "w": 1440,
+      "x": 1520,
+      "y": 1020
+    },
+    "SetupNav.dc.html": {
+      "h": 800,
+      "title": "Setup navigation",
+      "w": 240,
+      "x": 2956,
+      "y": 3960
+    },
+    "SetupOsd.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "On-screen display",
+      "w": 1440,
+      "x": 6080,
+      "y": 2340
+    },
+    "SetupPlaneAirspeed.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: airspeed",
+      "w": 1440,
+      "x": 6080,
+      "y": 3660
+    },
+    "SetupPlaneFlight.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: speeds and landing",
+      "w": 1440,
+      "x": 4560,
+      "y": 3660
+    },
+    "SetupPlaneFrame.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: airframe",
+      "w": 1440,
+      "x": 1520,
+      "y": 3660
+    },
+    "SetupPlaneSurfaces.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: control surfaces",
+      "w": 1440,
+      "x": 3040,
+      "y": 3660
+    },
+    "SetupQuadPlane.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Plane: VTOL",
+      "w": 1440,
+      "x": 7600,
+      "y": 3660
+    },
+    "SetupRadio.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Radio",
+      "w": 1440,
+      "x": 0,
+      "y": 1020
+    },
+    "SetupRoverChassis.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Rover: chassis",
+      "w": 1440,
+      "x": 1520,
+      "y": 4980
+    },
+    "SetupRoverDrive.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Rover: steering and throttle",
+      "w": 1440,
+      "x": 3040,
+      "y": 4980
+    },
+    "SetupSerial.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Serial ports",
+      "w": 1440,
+      "x": 1520,
+      "y": 2340
+    },
+    "SetupSub.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Sub",
+      "w": 1440,
+      "x": 1520,
+      "y": 6300
+    },
+    "SetupTools.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Tools",
+      "w": 1440,
+      "x": 6080,
+      "y": 4980
+    },
+    "SimControls.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "setup",
+      "title": "Simulator controls",
+      "w": 1440,
+      "x": 15200,
+      "y": 6300
+    },
+    "TopBar.dc.html": {
+      "h": 64,
+      "title": "Top bar",
+      "w": 1440,
+      "x": 0,
+      "y": 3960
+    },
+    "Tune.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "title": "Tune",
+      "w": 1440,
+      "x": 1520,
+      "y": 1320
+    },
+    "TuneFilters.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Tune: filters",
+      "w": 1440,
+      "x": 4560,
+      "y": 0
+    },
+    "TuneGroups.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "is_interactive": true,
+      "page": "analyze",
+      "title": "Tune: groups and AutoTune",
+      "w": 1440,
+      "x": 2160,
+      "y": 2640
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-09T22:45:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "page": "analyze",
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "row1",
+    "row2",
+    "row3",
+    "row4",
+    "setup1",
+    "setup2",
+    "setup3",
+    "setup4",
+    "plan1",
+    "fly1",
+    "logs1",
+    "tools1",
+    "setup5",
+    "params1"
+  ],
+  "notes": {
+    "fly1": {
+      "kind": "title1",
+      "maxW": 7520,
+      "page": "missions",
+      "text": "Fly tools",
+      "w": 240,
+      "x": 0,
+      "y": 1020
+    },
+    "logs1": {
+      "kind": "title1",
+      "maxW": 4480,
+      "page": "analyze",
+      "text": "Logs and analysis",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "params1": {
+      "kind": "title1",
+      "maxW": 3600,
+      "page": "analyze",
+      "text": "Parameters and tuning",
+      "w": 240,
+      "x": 0,
+      "y": 2340
+    },
+    "plan1": {
+      "kind": "title1",
+      "maxW": 5120,
+      "page": "missions",
+      "text": "Plan tools",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "row1": {
+      "kind": "title1",
+      "maxW": 7520,
+      "text": "Get ready, plan, fly",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "row2": {
+      "kind": "title1",
+      "maxW": 4480,
+      "text": "Configure and analyze",
+      "w": 240,
+      "x": 0,
+      "y": 1020
+    },
+    "row3": {
+      "kind": "title1",
+      "maxW": 3520,
+      "text": "Dialogs and foundations",
+      "w": 240,
+      "x": 0,
+      "y": 2340
+    },
+    "row4": {
+      "kind": "title1",
+      "maxW": 3196,
+      "text": "Shared parts",
+      "w": 240,
+      "x": 0,
+      "y": 3660
+    },
+    "setup1": {
+      "kind": "title1",
+      "maxW": 6000,
+      "page": "setup",
+      "text": "Get flying",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "setup2": {
+      "kind": "title1",
+      "maxW": 6000,
+      "page": "setup",
+      "text": "Power, connections and devices",
+      "w": 240,
+      "x": 0,
+      "y": 2040
+    },
+    "setup3": {
+      "kind": "title1",
+      "maxW": 7520,
+      "page": "setup",
+      "text": "Plane",
+      "w": 240,
+      "x": 0,
+      "y": 3360
+    },
+    "setup4": {
+      "kind": "title1",
+      "maxW": 7520,
+      "page": "setup",
+      "text": "Rover and vehicle tools",
+      "w": 240,
+      "x": 0,
+      "y": 4680
+    },
+    "setup5": {
+      "kind": "title1",
+      "maxW": 7520,
+      "page": "setup",
+      "text": "More vehicles and ground equipment",
+      "w": 240,
+      "x": 0,
+      "y": 6000
+    },
+    "tools1": {
+      "kind": "title1",
+      "maxW": 6000,
+      "page": "analyze",
+      "text": "Settings and links",
+      "w": 240,
+      "x": 0,
+      "y": 1020
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Plan.dc.html",
+    "Fly.dc.html",
+    "FlyLinkLost.dc.html",
+    "EnumField.dc.html",
+    "Parameters.dc.html",
+    "Tune.dc.html",
+    "Logs.dc.html",
+    "Connect.dc.html",
+    "ArmGate.dc.html",
+    "Palette.dc.html",
+    "Foundations.dc.html",
+    "TopBar.dc.html",
+    "Rail.dc.html",
+    "MapBase.dc.html",
+    "SetupNav.dc.html",
+    "PlanBar.dc.html",
+    "FlyNav.dc.html",
+    "PlanCorridor.dc.html",
+    "PlanFence.dc.html",
+    "PlanRally.dc.html",
+    "PlanWrite.dc.html",
+    "FlyGuided.dc.html",
+    "FlyFailsafe.dc.html",
+    "FlyFleet.dc.html",
+    "FlyCamera.dc.html",
+    "FlyData.dc.html",
+    "LogsNav.dc.html",
+    "LogsReplay.dc.html",
+    "LogsSpectrum.dc.html",
+    "LogsDownload.dc.html",
+    "Preferences.dc.html",
+    "SetupLinks.dc.html",
+    "SetupInspector.dc.html",
+    "SetupCan.dc.html",
+    "PlanLanding.dc.html",
+    "PlanResume.dc.html",
+    "FlyTraffic.dc.html",
+    "FlyChecklist.dc.html",
+    "PlanTransform.dc.html",
+    "Plan3D.dc.html",
+    "FlyFormation.dc.html",
+    "TuneFilters.dc.html",
+    "PrefIntegrations.dc.html",
+    "SetupHome.dc.html",
+    "SetupFrame.dc.html",
+    "SetupAccel.dc.html",
+    "Setup.dc.html",
+    "SetupRadio.dc.html",
+    "SetupMotors.dc.html",
+    "SetupModes.dc.html",
+    "SetupFailsafes.dc.html",
+    "SetupBattery.dc.html",
+    "SetupSerial.dc.html",
+    "SetupDevices.dc.html",
+    "SetupFirmware.dc.html",
+    "SetupHomePlane.dc.html",
+    "SetupPlaneFrame.dc.html",
+    "SetupPlaneSurfaces.dc.html",
+    "SetupPlaneFlight.dc.html",
+    "SetupPlaneAirspeed.dc.html",
+    "SetupHomeRover.dc.html",
+    "SetupRoverChassis.dc.html",
+    "SetupRoverDrive.dc.html",
+    "SetupInfo.dc.html",
+    "SetupTools.dc.html",
+    "SetupOsd.dc.html",
+    "SetupQuadPlane.dc.html",
+    "SetupBoat.dc.html",
+    "SetupSub.dc.html",
+    "SetupHeli.dc.html",
+    "SetupCompliance.dc.html",
+    "SetupGround.dc.html",
+    "SetupHomeSub.dc.html",
+    "SetupHomeHeli.dc.html",
+    "HoldButton.dc.html",
+    "Components.dc.html",
+    "PlanTable.dc.html",
+    "FlyOutputs.dc.html",
+    "ParamReview.dc.html",
+    "ParamReset.dc.html",
+    "TuneGroups.dc.html",
+    "PanelForm.dc.html",
+    "SetupJoystick.dc.html",
+    "SetupExtras.dc.html",
+    "SetupMoreLinks.dc.html",
+    "SimControls.dc.html",
+    "PlanGenerators.dc.html",
+    "PlanLayers.dc.html",
+    "FlySensors.dc.html",
+    "FlyNoGps.dc.html",
+    "LogsTools.dc.html",
+    "PrefScripts.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "main",
+      "name": "Control center"
+    },
+    {
+      "id": "setup",
+      "name": "Setup"
+    },
+    {
+      "id": "missions",
+      "name": "Plan and fly"
+    },
+    {
+      "id": "analyze",
+      "name": "Analyze and tools"
+    }
+  ],
+  "title": "Drone Control Center"
+}

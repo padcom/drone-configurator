@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Accelerometer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="accel" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Accelerometer</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">{{instruction}}</p>
+          </div>
+          <a href="Setup.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Compass</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+          <sc-for list="{{poses}}" as="p" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:#111921;border:1px solid {{p.border}};border-radius:5px">
+              <svg viewBox="0 0 160 110" role="img" aria-label="{{p.label}}" style="width:100%;max-width:190px;height:auto">
+                <line x1="14" y1="100" x2="146" y2="100" stroke="#60728A" stroke-width="3" stroke-linecap="round"></line>
+                <g transform="rotate({{p.rot}} 80 56)">
+                  <rect x="44" y="46" width="72" height="20" rx="4" fill="{{p.body}}"></rect>
+                  <sc-if value="{{p.hasNose}}" hint-placeholder-val="{{true}}"><path d="M116 42 L136 56 L116 70Z" fill="{{p.nose}}"></path></sc-if>
+                  <rect x="70" y="30" width="20" height="16" rx="2" fill="{{p.nose}}"></rect>
+                </g>
+              </svg>
+              <div style="display:flex;justify-content:center;align-items:center;gap:8px;font-weight:600"><span aria-hidden="true" style="color:{{p.mark}}">{{p.glyph}}</span><span>{{p.label}}</span></div>
+              <div style="font-size:12.5px;color:#A9B8C5;text-align:center">{{p.hint}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:auto">
+          <sc-if value="{{running}}" hint-placeholder-val="{{true}}">
+            <button type="button" onClick="{{confirm}}" style="min-height:48px;padding:0 24px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{confirmLabel}}</button>
+          </sc-if>
+          <button type="button" onClick="{{restart}}" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Start over</button>
+          <button type="button" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Level only</button>
+          <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{progress}}</span>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">TIPS</h2>
+          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
+            <li>Rest each side on a flat surface, so the vehicle is still.</li>
+            <li>The nose in each drawing points forward.</li>
+            <li>A few degrees off is fine, except for Level.</li>
+          </ul>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>INS_ACCOFFS_X, _Y, _Z</span><span>INS_ACCSCAL_X, _Y, _Z</span><span>AHRS_TRIM_X, _Y</span></div>
+          <p style="margin:10px 0 0;color:#A9B8C5;font-size:13px">Last calibrated 2026-11-02. A full run replaces those values.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { at:2 };
+  renderVals() {
+    const at = this.state.at;
+    const defs = [
+      ['Level',0,'Flat, wheels or feet down'],
+      ['On its left side',-90,'Seen from behind, left side down'],
+      ['On its right side',90,'Seen from behind, right side down'],
+      ['Nose down',90,'Nose on the surface'],
+      ['Nose up',-90,'Tail on the surface'],
+      ['Upside down',180,'Top on the surface'],
+    ];
+    const poses = defs.map(([label,rot,hint],i) => {
+      const done = i < at, cur = i === at;
+      return { label, rot, hint, hasNose:i !== 1 && i !== 2, glyph:done?'✓':cur?'●':'', mark:done?'#62E3A6':'#56D9F2', border:cur?'#56D9F2':'#25323E', body:cur?'#56D9F2':done?'#60728A':'#25323E', nose:cur?'#E8EEF4':done?'#7E8E9C':'#60728A' };
+    });
+    const finished = at >= 6;
+    return {
+      poses, running:!finished,
+      instruction:finished?'Calibration finished and saved. Reboot the vehicle to use it.':'Place the vehicle '+defs[at][0].toLowerCase()+', hold it still, then confirm.',
+      confirmLabel:finished?'':'Confirm: '+defs[at][0],
+      confirm:() => this.setState({ at:at+1 }),
+      restart:() => this.setState({ at:0 }),
+      progress:Math.min(at,6)+' of 6',
+    };
+  }
+}
+</script>
+</body>
+</html>

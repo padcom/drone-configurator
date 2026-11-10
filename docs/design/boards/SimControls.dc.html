@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Simulator controls</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="pane" style="flex:999 1 560px;min-width:0;box-sizing:border-box;padding:24px 32px;display:flex;flex-wrap:wrap;gap:40px;align-content:flex-start">
+      <div style="flex:1 0 100%"><h1 style="margin:0;font-size:26px;font-weight:600">Simulator controls</h1><p style="margin:4px 0 0;color:#FFB54A;font-weight:500">This session is simulated. No real vehicle is connected.</p></div>
+      <section style="flex:1 1 340px;min-width:0"><dc-import name="PanelForm" rows="{{left}}" hint-size="100%,400px"></dc-import></section>
+      <section style="flex:1 1 340px;min-width:0"><dc-import name="PanelForm" rows="{{right}}" hint-size="100%,400px"></dc-import></section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const en = (k,l,d,o) => ({ k:'enum', label:l, value:g(k,d), options:o.map(([value,label]) => ({ value,label })), pick:(n) => set(k,n) });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const act = (k,l,dn) => ({ k:'button', label:g(k,0)?dn:l, pick:() => set(k,1), bg:g(k,0)?'#123327':'#56D9F2', fg:g(k,0)?'#62E3A6':'#06222B', border:g(k,0)?'#123327':'#56D9F2' });
+    const n = g('count',3);
+    return {
+      left:[head('CONDITIONS'),slide('ws','Wind speed',4,0,30,1,' m/s'),slide('wd','Wind from',240,0,355,5,'°'),slide('bv','Battery voltage',12.6,9,13,.1,' V'),head('FAILURES'),chk('f1','GPS 1 fails'),chk('f2','Compass fails'),chk('f3','Radio signal lost'),head('SPEED'),slide('speed','Simulation speed',1,1,10,1,'×'),{ k:'button', label:'Reset the simulator', pick:() => this.setState({ vals:{} }), bg:'transparent', fg:'#E8EEF4', border:'#60728A' }],
+      right:[head('A GROUP OF VEHICLES'),slide('count','Vehicles',3,2,8,1),en('gt','Type',1,[[1,'Quad'],[2,'Plane'],[3,'Rover'],[4,'Mixed']]),slide('sp','Start spacing',10,3,50,1,' m'),info('Systems','1 to '+n),act('st','Start '+n+' vehicles','✓ '+n+' vehicles connected')],
+    };
+  }
+}
+</script>
+</body>
+</html>

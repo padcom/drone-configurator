@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Geofence</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="fence" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="map" style="flex:999 1 520px;min-width:0;min-height:520px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,520px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M200 230 990 200 1010 760 210 770Z" fill="none" stroke="#56D9F2" stroke-width="{{inW}}"></path>
+            <polyline points="250,700 360,570 560,456 940,416 940,364 560,404 560,352 940,312 940,260 560,300 430,380 250,700" fill="none" stroke="#EE82F5" stroke-width="3" stroke-opacity=".8" stroke-linejoin="round"></polyline>
+            <circle cx="720" cy="560" r="{{r}}" fill="#FFB54A" fill-opacity=".18" stroke="#FFB54A" stroke-width="{{exW}}"></circle>
+            <text x="720" y="568" text-anchor="middle" fill="#E8EEF4" font-size="22" font-family="IBM Plex Sans, sans-serif">No-fly</text>
+            <text x="210" y="222" fill="#56D9F2" font-size="20" font-family="IBM Plex Sans, sans-serif">Flying area</text>
+          </svg>
+          <sc-if value="{{hasProblem}}" hint-placeholder-val="{{false}}">
+            <div role="alert" style="position:absolute;left:16px;right:16px;top:16px;padding:12px 16px;background:#3A2A10;color:#FFB54A;font-weight:600;border-radius:4px">{{problem}}</div>
+          </sc-if>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <h1 style="margin:0;font-size:20px;font-weight:600">Geofence</h1>
+          <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer;font-weight:500"><input type="checkbox" checked="{{enabled}}" onChange="{{enabledChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Fence is on</span></label>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{zones}}" as="z" hint-placeholder-count="2">
+              <button type="button" onClick="{{z.pick}}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px;padding:0 12px;border:1px solid {{z.border}};border-radius:4px;background:{{z.bg}};color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer"><span>{{z.name}}</span><span style="font-size:12.5px;font-weight:400;color:#A9B8C5">{{z.detail}}</span></button>
+            </sc-for>
+          </div>
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>No-fly radius</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{radius}} m</span></span>
+            <input type="range" min="10" max="120" step="5" value="{{radius}}" onChange="{{radiusChange}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>Maximum altitude</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{altMax}} m</span></span>
+            <input type="range" min="30" max="150" step="5" value="{{altMax}}" onChange="{{altChange}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">When the fence is crossed
+            <dc-import name="EnumField" value="{{action}}" options="{{actions}}" on-pick="{{actionChange}}" field-label="When the fence is crossed" hint-size="100%,44px"></dc-import>
+          </div>
+          <div style="margin-top:auto">
+            <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>Fence points, 2 zones</span><span>FENCE_ENABLE, FENCE_TYPE</span><span>FENCE_ALT_MAX, FENCE_ACTION</span></div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:'nofly', radius:40, altMax:100, action:1, enabled:true };
+  renderVals() {
+    const s = this.state;
+    const PTS = [[250,700],[360,570],[560,456],[940,416],[940,364],[560,404],[560,352],[940,312],[940,260],[560,300],[430,380],[250,700]];
+    const C = [720,560];
+    const seg = (p,a,b) => {
+      const dx = b[0]-a[0], dy = b[1]-a[1], t = Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)));
+      return Math.hypot(p[0]-a[0]-t*dx, p[1]-a[1]-t*dy);
+    };
+    let min = Infinity;
+    for (let i = 1; i < PTS.length; i++) min = Math.min(min, seg(C, PTS[i-1], PTS[i]));
+    const clearM = Math.round(min*.5);
+    let problem = '';
+    if (!s.enabled) problem = 'The fence is off. Nothing stops the vehicle from leaving this area.';
+    else if (s.radius >= clearM) problem = 'The mission enters the no-fly zone. Keep the radius under ' + clearM + ' m.';
+    else if (s.altMax < 60) problem = 'The mission climbs to 60 m, above the ' + s.altMax + ' m limit.';
+    const zone = (id,name,detail) => ({ name, detail, border:s.sel===id?'#56D9F2':'#60728A', bg:s.sel===id?'#123440':'transparent', pick:() => this.setState({ sel:id }) });
+    return {
+      r:s.radius*2, radius:s.radius, altMax:s.altMax, action:s.action, enabled:s.enabled,
+      inW:s.sel==='area'?5:3, exW:s.sel==='nofly'?5:3,
+      aria:'Flying area with a no-fly zone of '+s.radius+' metres',
+      hasProblem:!!problem, problem,
+      zones:[zone('area','Flying area','Stay inside · 4 points'),zone('nofly','No-fly zone','Stay out · circle')],
+      enabledChange:(e) => this.setState({ enabled:e.target.checked }),
+      radiusChange:(e) => this.setState({ radius:Number(e.target.value), sel:'nofly' }),
+      altChange:(e) => this.setState({ altMax:Number(e.target.value) }),
+      actions:[[0,'Report only'],[1,'Return or land'],[2,'Always land'],[3,'SmartRTL, then return'],[4,'Brake, then land']].map(([value,label]) => ({ value,label })),
+      actionChange:(n) => this.setState({ action:n }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Command palette</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:-2px}
+</style>
+</helmet>
+<div style="width:720px;height:520px;box-sizing:border-box;display:flex;flex-direction:column;background:#111921;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <label style="display:flex;align-items:center;gap:12px;min-height:64px;padding:0 20px;border-bottom:1px solid #25323E;color:#A9B8C5">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+    <input aria-label="Search or run a command" placeholder="Search or run a command" value="{{q}}" onChange="{{search}}" style="flex:1;border:0;outline:0;background:transparent;color:#E8EEF4;font:inherit;font-size:18px">
+  </label>
+  <div style="flex:1 1 auto;overflow-y:auto;padding:8px">
+    <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+      <a href="{{r.href}}" style="display:flex;align-items:center;gap:12px;min-height:50px;padding:0 12px;border-radius:4px;color:#E8EEF4;text-decoration:none">
+        <span style="flex:1;font-weight:500">{{r.label}}</span>
+        <span style="font-size:12.5px;color:#A9B8C5">{{r.group}}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#A9B8C5;min-width:48px;text-align:right">{{r.key}}</span>
+      </a>
+    </sc-for>
+    <sc-if value="{{empty}}" hint-placeholder-val="{{false}}">
+      <p style="padding:20px 12px;margin:0;color:#A9B8C5">Nothing matches “{{q}}”.</p>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":720,"height":520}}'>
+class Component extends DCLogic {
+  state = { q:'' };
+  renderVals() {
+    const q = this.state.q.trim().toLowerCase();
+    const all = [
+      ['Go to Overview','Navigate','F1','Main.dc.html'],
+      ['Go to Plan','Navigate','F2','Plan.dc.html'],
+      ['Go to Fly','Navigate','F3','Fly.dc.html'],
+      ['Go to Setup','Navigate','F4','SetupHome.dc.html'],
+      ['Connect to a vehicle','Vehicle','','Connect.dc.html'],
+      ['Review and arm','Vehicle','','ArmGate.dc.html'],
+      ['Write mission to vehicle','Mission','','Plan.dc.html'],
+      ['Add survey grid','Mission','','Plan.dc.html'],
+      ['Resume an interrupted mission','Mission','','PlanResume.dc.html'],
+      ['Generate a circle, survey or text path','Mission','','PlanGenerators.dc.html'],
+      ['Map layers and terrain','Mission','','PlanLayers.dc.html'],
+      ['Sensors, ESCs and warnings','Vehicle','','FlySensors.dc.html'],
+      ['Set EKF origin (no GPS)','Vehicle','','FlyNoGps.dc.html'],
+      ['Find a parameter','Navigate','','Parameters.dc.html'],
+      ['Log tools: export, geotag, compass fit','Logs','','LogsTools.dc.html'],
+      ['Advanced setup','Setup','','SetupExtras.dc.html'],
+      ['More links and radios','Setup','','SetupMoreLinks.dc.html'],
+      ['Simulator controls','Setup','','SimControls.dc.html'],
+      ['Scripts, SSH and translations','Settings','','PrefScripts.dc.html'],
+      ['Calibrate compass','Setup','','Setup.dc.html'],
+      ['FENCE_RADIUS, circular fence radius','Parameter','','Parameters.dc.html'],
+      ['RTL_ALT, return altitude','Parameter','','Parameters.dc.html'],
+      ['Open the last flight log','Logs','','Logs.dc.html'],
+    ];
+    const rows = all.map(([label,group,key,href]) => ({ label,group,key,href })).filter((r) => (r.label+' '+r.group).toLowerCase().includes(q));
+    return { q:this.state.q, rows, empty:rows.length===0, search:(e) => this.setState({ q:e.target.value }) };
+  }
+}
+</script>
+</body>
+</html>

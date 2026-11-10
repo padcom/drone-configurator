@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Foundations</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0;background:#0A0F14}</style>
+</helmet>
+<div style="width:1440px;height:900px;box-sizing:border-box;padding:48px 56px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:44px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">COLOR</h2>
+    <sc-for list="{{colors}}" as="c" hint-placeholder-count="12">
+      <div style="display:flex;align-items:center;gap:14px">
+        <span aria-hidden="true" style="width:44px;height:44px;border-radius:4px;border:1px solid #60728A;background:{{c.hex}}"></span>
+        <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{c.name}}</span><span style="font-size:12.5px;color:#A9B8C5">{{c.use}}</span></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{c.hex}}</span>
+      </div>
+    </sc-for>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:16px">
+    <h2 style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">TYPE</h2>
+    <div style="font-size:30px;font-weight:600;letter-spacing:-.01em">Screen title 30</div>
+    <div style="font-size:20px;font-weight:600">Headline 20</div>
+    <div style="font-size:14px">Body 14. IBM Plex Sans for words.</div>
+    <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">LABEL 11</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:42px;font-weight:500">12.54 V</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:#A9B8C5">IBM Plex Mono for every value, so digits never jump.</div>
+    <h2 style="margin:24px 0 6px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">CONTROLS</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" style="min-height:44px;padding:0 18px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600">Primary</button>
+      <button type="button" style="min-height:44px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500">Secondary</button>
+      <button type="button" style="min-height:44px;padding:0 18px;border:0;border-radius:4px;background:#FFB54A;color:#241600;font:inherit;font-weight:700">Flight action</button>
+      <button type="button" disabled style="min-height:44px;padding:0 18px;border:0;border-radius:4px;background:#25323E;color:#A9B8C5;font:inherit;font-weight:500">Unavailable</button>
+    </div>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5;max-width:280px">Combobox
+      <span style="position:relative;display:block">
+        <select style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit;font-size:14px"><option>Return home</option><option>Land</option></select>
+        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+      </span>
+    </label>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5;max-width:280px">Vehicle value
+      <dc-import name="EnumField" field-label="Vehicle value example" hint-size="280px,44px"></dc-import>
+      <span>Shows the name, offers the list, and accepts any number. A number with no name is shown as it is.</span>
+    </div>
+    <p style="margin:0;color:#A9B8C5">Every target is at least 44 px. Radius 4 for controls, 5 for panels. A combobox arrow sits as far from the right edge as its text does from the left.</p>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 6px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">VEHICLE TRUTH</h2>
+    <sc-for list="{{states}}" as="s" hint-placeholder-count="5">
+      <div style="padding:14px;border:1px solid #25323E;border-radius:5px;background-color:#111921;background-image:{{s.hatch}}">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><span style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{s.label}}</span><span style="font-size:12.5px;color:{{s.tagFg}}">{{s.tag}}</span></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:{{s.fg}}">{{s.value}}</div>
+        <div style="font-size:13px;color:#A9B8C5">{{s.rule}}</div>
+      </div>
+    </sc-for>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const hatch = 'repeating-linear-gradient(135deg,transparent 0 8px,#25323E 8px 9px)';
+    return {
+      colors:[
+        { name:'Ground', use:'Window', hex:'#0A0F14' },
+        { name:'Panel', use:'Surfaces', hex:'#111921' },
+        { name:'Line', use:'Dividers', hex:'#25323E' },
+        { name:'Control line', use:'Input and button edges', hex:'#60728A' },
+        { name:'Text', use:'Values and titles', hex:'#E8EEF4' },
+        { name:'Text 2', use:'Labels and notes', hex:'#A9B8C5' },
+        { name:'Signal', use:'Selection, primary action, data', hex:'#56D9F2' },
+        { name:'Route', use:'The mission path, nothing else', hex:'#EE82F5' },
+        { name:'Caution', use:'Armed, stale, needs attention', hex:'#FFB54A' },
+        { name:'Good', use:'Passed, verified, home', hex:'#62E3A6' },
+        { name:'Fault', use:'Failed read-back, errors', hex:'#FF7A70' },
+      ],
+      states:[
+        { label:'LIVE', value:'12.54 V', fg:'#E8EEF4', tag:'', tagFg:'#A9B8C5', hatch:'none', rule:'Reported by the vehicle within 3 seconds.' },
+        { label:'STALE', value:'12.54 V', fg:'#A9B8C5', tag:'stale, 6 s old', tagFg:'#FFB54A', hatch, rule:'Marked with text and pattern, never color alone.' },
+        { label:'LAST HEARD', value:'12.54 V', fg:'#A9B8C5', tag:'last heard', tagFg:'#FFB54A', hatch, rule:'Link lost. Kept on screen, commands unavailable.' },
+        { label:'NEVER REPORTED', value:'—', fg:'#A9B8C5', tag:'', tagFg:'#A9B8C5', hatch:'none', rule:'A dash, never a made-up zero.' },
+        { label:'VERIFIED WRITE', value:'✓ 300', fg:'#62E3A6', tag:'read back', tagFg:'#62E3A6', hatch:'none', rule:'Success only after the vehicle confirms the value.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

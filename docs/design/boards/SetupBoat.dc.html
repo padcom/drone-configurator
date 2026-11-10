@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Boats and sailboats</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="rover" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="boat" vehicle="rover" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Boats and sailboats</h1>
+          <div role="group" aria-label="Vessel" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <p style="margin:0;color:#A9B8C5;font-size:15px">{{intro}}</p>
+        <div style="flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:#123246;border:1px solid #25323E;border-radius:5px;min-height:420px">
+          <svg viewBox="0 0 500 420" role="img" aria-label="{{aria}}" style="width:100%;max-width:520px;height:auto">
+            <sc-if value="{{isBoat}}" hint-placeholder-val="{{true}}">
+              <circle cx="250" cy="210" r="{{ring}}" fill="#56D9F2" fill-opacity=".12" stroke="#56D9F2" stroke-width="2" stroke-dasharray="8 6"></circle>
+              <line x1="250" y1="210" x2="{{boatX}}" y2="{{boatY}}" stroke="#E8EEF4" stroke-dasharray="3 5"></line>
+              <circle cx="250" cy="210" r="5" fill="#E8EEF4"></circle>
+              <g transform="translate({{boatX}} {{boatY}})"><path d="M0 -26C13 -12 13 12 9 22H-9C-13 12 -13 -12 0 -26Z" fill="#E8EEF4"></path></g>
+              <text x="250" y="400" text-anchor="middle" fill="#E8EEF4" font-size="15" font-family="IBM Plex Sans, sans-serif">Holds within {{radius}} m of the point</text>
+            </sc-if>
+            <sc-if value="{{isSail}}" hint-placeholder-val="{{false}}">
+              <g transform="translate(250 40) rotate({{windRot}} 0 170)"><path d="M0 0 14 28H5V70H-5V28H-14Z" fill="#E8EEF4"></path></g>
+              <g transform="translate(250 210)">
+                <path d="M0 -70C32 -28 32 36 22 62H-22C-32 36 -32 -28 0 -70Z" fill="#E8EEF4"></path>
+                <g transform="rotate({{sailRot}})"><rect x="-3" y="-4" width="6" height="74" rx="2" fill="#56D9F2"></rect></g>
+              </g>
+              <text x="250" y="400" text-anchor="middle" fill="#E8EEF4" font-size="15" font-family="IBM Plex Sans, sans-serif">{{pointName}} · sail out {{sailOut}}°</text>
+            </sc-if>
+          </svg>
+        </div>
+        <sc-if value="{{irons}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">Too close to the wind to sail straight. The boat tacks to get there.</p></sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="3">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span>
+            <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+        </sc-for>
+        <div style="margin-top:8px">
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><sc-for list="{{params}}" as="p" hint-placeholder-count="3"><span>{{p}}</span></sc-for></div>
+        </div>
+        <button type="button" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Boat', radius:5, wind:60, min:0, max:90, n:0, written:false };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 200); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), written:false });
+    const ring = s.radius*14, wob = ring*.7;
+    const off = Math.abs(s.wind);
+    const irons = off < 45;
+    const sailOut = irons ? s.min : Math.round(s.min+(s.max-s.min)*Math.min(1,(off-45)/135));
+    const side = s.wind >= 0 ? -1 : 1;
+    const pointName = irons?'In irons':off<70?'Close hauled':off<110?'Beam reach':off<150?'Broad reach':'Running';
+    const isBoat = s.tab==='Boat';
+    return {
+      isBoat, isSail:!isBoat, irons:!isBoat && irons,
+      tabs:['Boat','Sailboat'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      intro:isBoat?'A boat has no brakes, so it holds position by circling back to a point.':'Move the wind to see how the boat sets its sail.',
+      aria:isBoat?'Boat drifting inside its holding circle':pointName+' with the sail out '+sailOut+' degrees',
+      ring, radius:s.radius, boatX:(250+wob*Math.cos(s.n/20)).toFixed(0), boatY:(210+wob*Math.sin(s.n/13)).toFixed(0),
+      windRot:s.wind, sailRot:side*sailOut, pointName, sailOut,
+      sliders:isBoat?[{ label:'Holding radius',min:1,max:12,step:1,value:s.radius,text:s.radius+' m',change:set('radius') }]:[
+        { label:'Wind direction (test)',min:-180,max:180,step:5,value:s.wind,text:s.wind+'°',change:set('wind') },
+        { label:'Sail angle, smallest',min:0,max:30,step:1,value:s.min,text:s.min+'°',change:set('min') },
+        { label:'Sail angle, largest',min:45,max:90,step:1,value:s.max,text:s.max+'°',change:set('max') },
+      ],
+      params:isBoat?['FRAME_CLASS','LOIT_TYPE','LOIT_RADIUS']:['SAIL_ENABLE','SAIL_ANGLE_MIN','SAIL_ANGLE_MAX','WNDVN_TYPE'],
+      write:() => this.setState({ written:true }), writeLabel:s.written?'✓ Written and read back':'Write and verify',
+    };
+  }
+}
+</script>
+</body>
+</html>

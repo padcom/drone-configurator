@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rover steering and throttle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="rover" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="motors" vehicle="rover" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Steering and throttle</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Check the directions on the bench, then set how fast it drives and turns.</p>
+          </div>
+          <a href="SetupModes.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Drive modes</a>
+        </div>
+        <label style="display:flex;align-items:center;gap:12px;min-height:56px;padding:0 16px;border-radius:4px;background:{{safeBg}};color:{{safeFg}};font-weight:600;cursor:pointer">
+          <input type="checkbox" checked="{{raised}}" onChange="{{toggleRaised}}" style="width:22px;height:22px;accent-color:#FFB54A;margin:0">
+          <span>The wheels are off the ground</span>
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <sc-for list="{{tests}}" as="t" hint-placeholder-count="2">
+            <article style="flex:1 1 260px;display:flex;flex-direction:column;gap:10px;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <h2 style="margin:0;font-size:16px;font-weight:600">{{t.name}}</h2>
+              <p style="margin:0;color:#A9B8C5;font-size:13px">{{t.expect}}</p>
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <button type="button" disabled="{{locked}}" onPointerDown="{{t.down}}" onPointerUp="{{stop}}" onPointerLeave="{{stop}}" style="flex:1 1 120px;min-height:48px;border:0;border-radius:4px;background:{{t.bg}};color:{{t.fg}};font:inherit;font-weight:600;cursor:pointer;touch-action:none">{{t.label}}</button>
+                <label style="display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{t.rev}}" onChange="{{t.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Reverse</label>
+              </div>
+            </article>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px;flex:1 1 auto">
+          <figure style="flex:0 1 280px;margin:0">
+            <svg viewBox="0 0 280 280" role="img" aria-label="{{arcLabel}}" style="display:block;width:100%;height:auto">
+              <circle cx="140" cy="140" r="{{arcR}}" fill="none" stroke="#EE82F5" stroke-width="3"></circle>
+              <line x1="140" y1="140" x2="{{arcX}}" y2="140" stroke="#60728A" stroke-dasharray="4 4"></line>
+              <circle cx="140" cy="140" r="3" fill="#A9B8C5"></circle>
+              <rect x="{{carX}}" y="124" width="18" height="32" rx="4" fill="#56D9F2"></rect>
+              <text x="140" y="270" text-anchor="middle" fill="#A9B8C5" font-size="13" font-family="IBM Plex Mono, monospace">Radius {{radius}} m</text>
+            </svg>
+          </figure>
+          <div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{sliders}}" as="f" hint-placeholder-count="3">
+              <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+                <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span>
+                <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:36px;margin:0">
+              </label>
+            </sc-for>
+            <p style="margin:4px 0 0;font-weight:500">{{turnNote}}</p>
+          </div>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 260px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>SERVO1_REVERSED</span><span>SERVO3_REVERSED</span><span>WP_SPEED</span><span>TURN_RADIUS</span><span>ATC_TURN_MAX_G</span></div>
+        </div>
+        <button type="button" disabled="{{cannotWrite}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { raised:false, running:null, rev:{ steer:false, thr:false }, speed:3, radius:1.5, g:.3, dirty:false, written:false };
+  renderVals() {
+    const s = this.state;
+    const locked = !s.raised;
+    const test = (k,name,expect,label) => {
+      const on = s.running===k;
+      return { name, expect, label, rev:s.rev[k], bg:locked?'#25323E':on?'#56D9F2':'#123440', fg:locked?'#A9B8C5':on?'#06222B':'#56D9F2',
+        down:() => { if (!locked) this.setState({ running:k }); },
+        toggle:(e) => this.setState({ rev:{ ...s.rev, [k]:e.target.checked }, dirty:true, written:false }) };
+    };
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), dirty:true, written:false });
+    const limit = Math.sqrt(s.g*9.81*s.radius);
+    const slow = limit < s.speed;
+    const arcR = Math.min(116, 24+s.radius*18);
+    return {
+      raised:s.raised, locked, safeBg:s.raised?'#123327':'#3A2A10', safeFg:s.raised?'#62E3A6':'#FFB54A',
+      toggleRaised:(e) => this.setState({ raised:e.target.checked, running:null }),
+      stop:() => this.setState((p) => (p.running ? { running:null } : null)),
+      tests:[ test('steer','Steering','Holding this should turn the vehicle right.','Hold: steer right'), test('thr','Throttle','Holding this should drive the wheels forward.','Hold: forward 15%') ],
+      radius:s.radius.toFixed(1), arcR:arcR.toFixed(1), arcX:(140+arcR).toFixed(1), carX:(140+arcR-9).toFixed(1),
+      arcLabel:'Turn circle of radius '+s.radius.toFixed(1)+' metres',
+      sliders:[
+        { label:'Driving speed',min:.5,max:8,step:.5,value:s.speed,text:s.speed.toFixed(1)+' m/s',change:set('speed') },
+        { label:'Turn radius',min:.5,max:5,step:.1,value:s.radius,text:s.radius.toFixed(1)+' m',change:set('radius') },
+        { label:'Maximum turn force',min:.1,max:1,step:.05,value:s.g,text:s.g.toFixed(2)+' g',change:set('g') },
+      ],
+      turnNote:slow?'Slows to '+limit.toFixed(1)+' m/s in its tightest turns.':'Keeps full speed through its tightest turns.',
+      cannotWrite:!s.dirty, writeBg:s.dirty?'#56D9F2':'#25323E', writeFg:s.dirty?'#06222B':'#A9B8C5',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      write:() => this.setState({ written:true, dirty:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

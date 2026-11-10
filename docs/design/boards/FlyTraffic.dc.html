@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly: traffic</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="armed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+        <dc-import name="FlyNav" active="traffic" hint-size="100%,56px"></dc-import>
+        <div data-l="fill map" style="flex:1 1 620px;min-height:520px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,620px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+            <circle cx="600" cy="450" r="300" fill="none" stroke="#E8EEF4" stroke-opacity=".35" stroke-dasharray="6 8"></circle>
+            <circle cx="600" cy="450" r="600" fill="none" stroke="#E8EEF4" stroke-opacity=".25" stroke-dasharray="6 8"></circle>
+            <text x="608" y="142" fill="#E8EEF4" font-size="18" font-family="IBM Plex Mono, monospace">150 m</text>
+            <g transform="translate(600 450) rotate(96)"><circle r="36" fill="#56D9F2" fill-opacity=".2"></circle><path d="M0 -26 18 22 0 11 -18 22Z" fill="#56D9F2" stroke="#56D9F2" stroke-width="3" stroke-linejoin="round"></path></g>
+            <sc-for list="{{planes}}" as="a" hint-placeholder-count="3">
+              <g>
+                <g transform="translate({{a.x}} {{a.y}}) rotate({{a.hdg}})"><path d="M0 -22 5 -6 22 4 22 9 5 5 3 18 9 23 9 26 0 23 -9 26 -9 23 -3 18 -5 5 -22 9 -22 4 -5 -6Z" fill="{{a.color}}"></path></g>
+                <rect x="{{a.lx}}" y="{{a.ly}}" width="{{a.lw}}" height="52" rx="2" fill="#0A0F14"></rect>
+                <text x="{{a.tx}}" y="{{a.t1}}" fill="#E8EEF4" font-size="18" font-weight="600" font-family="IBM Plex Mono, monospace">{{a.id}}</text>
+                <text x="{{a.tx}}" y="{{a.t2}}" fill="#A9B8C5" font-size="17" font-family="IBM Plex Mono, monospace">{{a.altText}}</text>
+              </g>
+            </sc-for>
+          </svg>
+          <sc-if value="{{hasAlert}}" hint-placeholder-val="{{false}}">
+            <div role="alert" style="position:absolute;left:16px;right:16px;top:16px;padding:12px 16px;background:#FFB54A;color:#241600;border-radius:4px;font-weight:700;font-size:15px">{{alertText}}</div>
+          </sc-if>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:18px;display:flex;flex-direction:column;gap:8px">
+        <h1 style="margin:2px 4px 8px;font-size:20px;font-weight:600">Nearby aircraft</h1>
+        <sc-for list="{{rows}}" as="a" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid {{a.border}};border-radius:5px;background:{{a.bg}}">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:15px">{{a.id}}</span><span style="font-size:13px;font-weight:600;color:{{a.levelFg}}">{{a.level}}</span></div>
+            <div style="display:flex;gap:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5"><span>{{a.distText}}</span><span>{{a.altText}}</span></div>
+          </div>
+        </sc-for>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{warn}}" onChange="{{warnChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Alert me to close traffic</span></label>
+          <button type="button" style="min-height:48px;border:0;border-radius:4px;background:#FFB54A;color:#241600;font:inherit;font-weight:700;cursor:pointer">Return home</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { n:0, warn:true };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 300); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const D = [
+      { id:'HELI12', x0:1100, y0:100, vx:-3, vy:2.1, alt:90 },
+      { id:'GLID7', x0:980, y0:800, vx:-1.2, vy:-.7, alt:310 },
+      { id:'DLH4NA', x0:60, y0:180, vx:3.6, vy:.4, alt:2400 },
+    ];
+    const list = D.map((a) => {
+      const t = s.n % 300, x = a.x0+a.vx*t, y = a.y0+a.vy*t;
+      const dM = Math.round(Math.hypot(x-600,y-450)*.5);
+      const close = dM < 150 && Math.abs(a.alt) < 150, watch = !close && dM < 300 && Math.abs(a.alt) < 500;
+      const color = close?'#FFB54A':'#E8EEF4', lw = 20+a.id.length*11;
+      return { ...a, close, dM, x:x.toFixed(0), y:y.toFixed(0), hdg:(Math.atan2(a.vx,-a.vy)*180/Math.PI).toFixed(0), color,
+        lx:(x+30).toFixed(0), ly:(y-26).toFixed(0), lw:Math.max(lw,90), tx:(x+38).toFixed(0), t1:(y-5).toFixed(0), t2:(y+17).toFixed(0),
+        altText:(a.alt>=0?'+':'')+a.alt+' m', distText:dM+' m away',
+        level:close?'! Close':watch?'Watch':'Far', levelFg:close?'#FFB54A':watch?'#E8EEF4':'#A9B8C5', border:close?'#FFB54A':'#25323E', bg:close?'#3A2A10':'transparent' };
+    }).sort((a,b) => a.dM-b.dM);
+    const near = list.find((a) => a.close);
+    return {
+      planes:list, rows:list, aria:list.length+' aircraft near the vehicle',
+      hasAlert:!!near && s.warn, alertText:near?'Traffic: '+near.id+' '+near.dM+' m away, '+near.altText+' from you.':'',
+      warn:s.warn, warnChange:(e) => this.setState({ warn:e.target.checked }),
+    };
+  }
+}
+</script>
+</body>
+</html>

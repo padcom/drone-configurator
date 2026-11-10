@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E">
+      <dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import>
+    </div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="mission" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+          <div data-l="fill map" style="flex:1 1 440px;min-height:440px;position:relative;overflow:hidden">
+            <dc-import name="MapBase" hint-size="100%,440px"></dc-import>
+            <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The mission on the map" onClick="{{mapClick}}" style="position:absolute;inset:0;width:100%;height:100%">
+              <path d="M530 288 972 243 972 430 530 475Z" fill="#56D9F2" fill-opacity="{{surveyFill}}" stroke="#56D9F2" stroke-width="2" stroke-dasharray="8 6" style="cursor:pointer" onClick="{{selectSurvey}}"></path>
+              <polyline points="{{routePts}}" fill="none" stroke="#EE82F5" stroke-width="4" stroke-linejoin="round"></polyline>
+              <sc-for list="{{corners}}" as="c" hint-placeholder-count="4">
+                <rect x="{{c.x}}" y="{{c.y}}" width="14" height="14" rx="2" fill="#0A0F14" stroke="#56D9F2" stroke-width="3"></rect>
+              </sc-for>
+              <sc-for list="{{pins}}" as="p" hint-placeholder-count="4">
+                <g onClick="{{p.pick}}" style="cursor:pointer">
+                  <circle cx="{{p.x}}" cy="{{p.y}}" r="24" fill="{{p.fill}}" stroke="{{p.stroke}}" stroke-width="3"></circle>
+                  <text x="{{p.x}}" y="{{p.ty}}" text-anchor="middle" fill="{{p.fg}}" font-family="IBM Plex Mono, monospace" font-size="24" font-weight="600">{{p.label}}</text>
+                </g>
+              </sc-for>
+              <line x1="40" y1="860" x2="140" y2="860" stroke="#E8EEF4" stroke-width="3"></line>
+              <text x="40" y="845" fill="#E8EEF4" font-family="IBM Plex Mono, monospace" font-size="20">50 m</text>
+            </svg>
+            <button type="button" aria-pressed="{{adding}}" onClick="{{toggleAdd}}" style="position:absolute;left:16px;top:16px;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:{{addBg}};color:{{addFg}};font:inherit;font-weight:600;cursor:pointer">{{addLabel}}</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;background:#111921;border-top:1px solid #25323E">
+            <sc-for list="{{stats}}" as="s" hint-placeholder-count="6">
+              <div style="flex:1 1 110px;padding:10px 16px;border-right:1px solid #25323E">
+                <div style="font-size:11px;letter-spacing:.08em;font-weight:500;color:#A9B8C5">{{s.label}}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600">{{s.value}}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="padding:10px 16px 12px;background:#111921;border-top:1px solid #25323E">
+            <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:12.5px;color:#A9B8C5;margin-bottom:6px">
+              <span style="font-weight:600;color:#E8EEF4">Terrain clearance</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span aria-hidden="true" style="width:16px;height:3px;background:#EE82F5;border-radius:1px"></span>Flight path</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span aria-hidden="true" style="width:12px;height:12px;background:#60728A;border-radius:1px"></span>Terrain</span>
+              <span style="flex:1 1 auto"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4">{{hoverText}}</span>
+            </div>
+            <div onMouseMove="{{hoverMove}}" onMouseLeave="{{hoverOut}}" style="height:84px;position:relative">
+              <svg viewBox="0 0 1000 84" preserveAspectRatio="none" role="img" aria-label="{{profileLabel}}" style="position:absolute;inset:0;width:100%;height:100%">
+                <line x1="0" y1="42" x2="1000" y2="42" stroke="#25323E" vector-effect="non-scaling-stroke"></line>
+                <polygon points="{{terrainPts}}" fill="#60728A"></polygon>
+                <polyline points="{{altPts}}" fill="none" stroke="#EE82F5" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"></polyline>
+                <line x1="{{hoverX}}" x2="{{hoverX}}" y1="0" y2="84" stroke="#E8EEF4" stroke-opacity="{{hoverOpacity}}" vector-effect="non-scaling-stroke"></line>
+              </svg>
+              <span style="position:absolute;left:4px;top:30px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A9B8C5">40 m</span>
+            </div>
+          </div>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 360px;min-width:0;background:#111921;border-left:1px solid #25323E;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #25323E;background:{{validBg}}">
+            <span style="font-weight:600;color:{{validFg}}">{{validTitle}}</span>
+            <span style="font-size:12.5px;color:#A9B8C5">{{validDetail}}</span>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{items}}" as="i" hint-placeholder-count="7">
+              <button type="button" onClick="{{i.pick}}" style="display:flex;align-items:center;gap:12px;min-height:46px;padding:0 16px;border:0;border-bottom:1px solid #25323E;background:{{i.bg}};color:#E8EEF4;font:inherit;text-align:left;cursor:pointer">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5;width:44px">{{i.no}}</span>
+                <span style="flex:1;font-weight:500">{{i.name}}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{i.value}}</span>
+              </button>
+            </sc-for>
+          </div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:14px">
+            <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">{{detailTitle}}</h2>
+            <sc-if value="{{hasAlt}}" hint-placeholder-val="{{true}}">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Altitude above home (m)
+                <input type="number" value="{{altValue}}" onChange="{{altChange}}" style="min-height:44px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:16px">
+              </label>
+            </sc-if>
+            <sc-if value="{{isSurvey}}" hint-placeholder-val="{{true}}">
+              <div role="group" aria-label="Camera" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+                <sc-for list="{{cameras}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="flex:1;min-height:44px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+              </div>
+              <sc-for list="{{surveySliders}}" as="f" hint-placeholder-count="2">
+                <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+                  <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4">{{f.text}}</span></span>
+                  <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+                </label>
+              </sc-for>
+              <div role="group" aria-label="Start corner" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+                <sc-for list="{{starts}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="flex:1;min-height:44px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+              </div>
+              <p style="margin:0;color:#A9B8C5;font-size:13px">{{surveySummary}}</p>
+            </sc-if>
+            <sc-if value="{{noFields}}" hint-placeholder-val="{{false}}">
+              <p style="margin:0;color:#A9B8C5">{{noFieldsText}}</p>
+            </sc-if>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:'survey', overlap:75, camera:84, angle:0, start:'Near', alts:{ to:30, wp2:40, survey:60, wp13:40 }, extra:[], adding:false, written:false, hover:null };
+  spacingM() {
+    const s = this.state;
+    const width = 2*s.alts.survey*Math.tan((s.camera/2)*Math.PI/180);
+    return Math.max(15, Math.min(40, Math.round(width*(1-s.overlap/100))));
+  }
+  route() {
+    const s = this.state;
+    const u = this.spacingM() * 2;
+    const n = Math.floor(170 / u) + 1;
+    let sweep = [];
+    for (let k = 0; k < n; k++) {
+      const l = [560, 456 - k * u], r = [940, 416 - k * u];
+      if (k % 2 === 0) sweep.push(l, r); else sweep.push(r, l);
+    }
+    if (s.start === 'Far') sweep.reverse();
+    const a = s.angle*Math.PI/180, cx = 750, cy = 360;
+    sweep = sweep.map(([x,y]) => [cx+(x-cx)*Math.cos(a)-(y-cy)*Math.sin(a), cy+(x-cx)*Math.sin(a)+(y-cy)*Math.cos(a)]);
+    const pts = [[250,700],[360,570], ...sweep, [430,380], ...s.extra, [250,700]];
+    return { pts, n };
+  }
+  renderVals() {
+    const s = this.state;
+    const { pts, n } = this.route();
+    const wps = n * 2;
+    const alts = [0, s.alts.wp2];
+    for (let i = 0; i < wps; i++) alts.push(s.alts.survey);
+    alts.push(s.alts.wp13, ...s.extra.map(() => s.alts.wp13), 0);
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i-1] + Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]));
+    const total = cum[cum.length-1];
+    const altAt = (d) => {
+      for (let i = 1; i < cum.length; i++) if (d <= cum[i]) { const f = (d-cum[i-1])/((cum[i]-cum[i-1])||1); return alts[i-1]+(alts[i]-alts[i-1])*f; }
+      return 0;
+    };
+    const terrainAt = (f) => 9 + 6*Math.sin(f*Math.PI*3) + 3*Math.sin(f*17);
+    const Y = (a) => (84 - a/80*84).toFixed(1);
+    const SAMPLES = 80;
+    let terrain = '0,84', alt = '', minClear = 999;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const f = i/SAMPLES, x = (f*1000).toFixed(0), h = terrainAt(f), a = altAt(f*total);
+      terrain += ' ' + x + ',' + Y(h); alt += x + ',' + Y(Math.max(a, h)) + ' ';
+      if (f > .1 && f < .9) minClear = Math.min(minClear, a - h);
+    }
+    terrain += ' 1000,84';
+    const dist = total * .5;
+    const secs = dist/8 + 25 + wps*4;
+    const fmtT = Math.floor(secs/60) + ' min ' + String(Math.round(secs%60)).padStart(2,'0') + ' s';
+    const legs = n*191;
+    const photos = Math.floor(legs/18);
+    const batt = Math.round(secs/220*14);
+    const last = wps + 6 + s.extra.length;
+    const clear = Math.round(minClear);
+    const ok = clear >= 20;
+    const pick = (sel) => () => this.setState({ sel });
+    const row = (id, no, name, value) => ({ id, no, name, value, pick:pick(id), bg: s.sel === id ? '#123440' : 'transparent' });
+    const items = [
+      row('to','1','Takeoff', s.alts.to + ' m'),
+      row('wp2','2','Waypoint', s.alts.wp2 + ' m'),
+      row('cam','3','Camera on','every 18 m'),
+      row('survey','4–' + (3+wps),'Survey · ' + n + ' lines', s.alts.survey + ' m'),
+      row('camoff', String(4+wps),'Camera off',''),
+      row('wp13', String(5+wps),'Waypoint', s.alts.wp13 + ' m'),
+      ...s.extra.map((p,i) => row('x'+i, String(6+wps+i),'Waypoint', s.alts.wp13 + ' m')),
+      row('rtl', String(last),'Return home',''),
+    ];
+    const pin = (id,x,y,label) => {
+      const on = s.sel === id;
+      return { id,x,y,label,ty:y+8,pick:pick(id), fill:on?'#EE82F5':'#10171E', stroke:'#EE82F5', fg:on?'#2A0A2C':'#EE82F5' };
+    };
+    const home = s.sel === 'to' || s.sel === 'rtl';
+    const pins = [
+      { x:250,y:700,ty:708,label:'H',pick:pick('to'),fill:home?'#62E3A6':'#10171E',stroke:'#62E3A6',fg:home?'#06281A':'#62E3A6' },
+      pin('wp2',360,570,'2'),
+      pin('wp13',430,380,String(5+wps)),
+      ...s.extra.map((p,i) => pin('x'+i,p[0],p[1],String(6+wps+i))),
+    ];
+    const hf = s.hover;
+    const hd = hf == null ? null : hf*total;
+    const hh = hf == null ? 0 : terrainAt(hf), ha = hf == null ? 0 : altAt(hd);
+    const titles = { to:'TAKEOFF', wp2:'WAYPOINT 2', survey:'SURVEY GRID', wp13:'WAYPOINT ' + (5+wps), cam:'CAMERA ON', camoff:'CAMERA OFF', rtl:'RETURN HOME' };
+    const hasAlt = ['to','wp2','survey','wp13'].includes(s.sel);
+    return {
+      routePts: pts.map((p) => p.join(',')).join(' '),
+      corners: [[530,288],[972,243],[972,430],[530,475]].map(([x,y]) => ({ x:x-7, y:y-7 })),
+      pins, items,
+      surveyFill: s.sel === 'survey' ? '.16' : '.08',
+      selectSurvey: pick('survey'),
+      stats: [
+        { label:'DISTANCE', value:(dist/1000).toFixed(2)+' km' },
+        { label:'TIME AT 8 M/S', value:fmtT },
+        { label:'BATTERY USED', value:batt+'%' },
+        { label:'MAX ALTITUDE', value:Math.max(s.alts.wp2,s.alts.survey,s.alts.wp13)+' m' },
+        { label:'AREA', value:'2.07 ha' },
+        { label:'PHOTOS', value:String(photos) },
+      ],
+      terrainPts: terrain, altPts: alt.trim(),
+      profileLabel: 'Flight path against terrain. Lowest clearance ' + clear + ' metres.',
+      hoverMove: (e) => { const r = e.currentTarget.getBoundingClientRect(); this.setState({ hover: Math.min(1, Math.max(0, (e.clientX-r.left)/r.width)) }); },
+      hoverOut: () => this.setState({ hover:null }),
+      hoverX: hf == null ? 0 : (hf*1000).toFixed(0),
+      hoverOpacity: hf == null ? 0 : .7,
+      hoverText: hf == null ? 'Lowest clearance ' + clear + ' m' : (hd*.5/1000).toFixed(2)+' km · flight '+Math.round(ha)+' m · terrain '+Math.round(hh)+' m',
+      validBg: s.written ? '#123327' : ok ? 'transparent' : '#3A2A10',
+      validFg: s.written ? '#62E3A6' : ok ? '#62E3A6' : '#FFB54A',
+      validTitle: s.written ? 'Written and read back' : ok ? 'Mission valid' : 'Too close to terrain',
+      validDetail: s.written ? last + ' of ' + last + ' items verified' : ok ? 'Lowest clearance ' + clear + ' m' : 'Lowest clearance ' + clear + ' m, minimum 20 m',
+      detailTitle: titles[s.sel] ?? 'NEW WAYPOINT',
+      adding: s.adding, addBg: s.adding?'#56D9F2':'#111921', addFg: s.adding?'#06222B':'#E8EEF4',
+      addLabel: s.adding?'Click the map. Press to finish':'Add waypoints',
+      toggleAdd: () => this.setState({ adding:!s.adding }),
+      mapClick: (e) => {
+        if (!s.adding) return;
+        const svg = e.currentTarget, pt = svg.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+        this.setState({ extra:s.extra.concat([[Math.round(p.x),Math.round(p.y)]]), written:false });
+      },
+      hasAlt, isSurvey: s.sel === 'survey',
+      altValue: hasAlt ? s.alts[s.sel] : 0,
+      altChange: (e) => { const v = Number(e.target.value); this.setState({ alts:{ ...s.alts, [s.sel]: v }, written:false }); },
+      cameras: [['Narrow',62],['Mapping',84],['Wide',94]].map(([label,v]) => ({ label, pick:() => this.setState({ camera:v, written:false }), bg:s.camera===v?'#56D9F2':'transparent', fg:s.camera===v?'#06222B':'#E8EEF4' })),
+      surveySliders: [
+        { label:'Side overlap',min:40,max:90,step:5,value:s.overlap,text:s.overlap+'% · '+this.spacingM()+' m apart',change:(e) => this.setState({ overlap:Number(e.target.value), written:false }) },
+        { label:'Grid angle',min:-45,max:45,step:5,value:s.angle,text:s.angle+'°',change:(e) => this.setState({ angle:Number(e.target.value), written:false }) },
+      ],
+      starts: [['Near','Start at near corner'],['Far','Start at far corner']].map(([v,label]) => ({ label, pick:() => this.setState({ start:v, written:false }), bg:s.start===v?'#56D9F2':'transparent', fg:s.start===v?'#06222B':'#E8EEF4' })),
+      surveySummary: n + ' lines, ' + wps + ' waypoints, about ' + photos + ' photos. Drag a corner on the map to reshape the area.',
+      noFields: !hasAlt,
+      noFieldsText: s.sel === 'rtl' ? 'Flies back to home at the return altitude and lands.' : 'Runs at this point in the mission, with nothing to set here.',
+    };
+  }
+}
+</script>
+</body>
+</html>

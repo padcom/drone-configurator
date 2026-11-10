@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup navigation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<nav aria-label="Setup steps" style="box-sizing:border-box;padding:14px 10px;display:flex;flex-direction:column;gap:2px;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.3">
+  <a href="{{homeHref}}" style="display:block;padding:8px 10px 12px;border-radius:4px;background:{{homeBg}};text-decoration:none;color:#E8EEF4">
+    <span style="display:block;font-size:16px;font-weight:600">7 of 8 required</span>
+    <span style="display:block;height:6px;border-radius:1.5px;background:#25323E;margin-top:8px"><span style="display:block;height:6px;width:87%;border-radius:1.5px;background:#56D9F2"></span></span>
+  </a>
+  <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+    <h2 style="margin:12px 10px 4px;font-size:11px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">{{g.title}}</h2>
+    <sc-for list="{{g.items}}" as="s" hint-placeholder-count="4">
+      <a href="{{s.href}}" style="display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px;border-radius:4px;background:{{s.bg}};color:{{s.fg}};font-weight:500;text-decoration:none">
+        <span aria-label="{{s.statusText}}" role="img" style="width:16px;text-align:center;color:{{s.mark}};font-weight:700">{{s.glyph}}</span>
+        <span style="flex:1">{{s.label}}</span>
+      </a>
+    </sc-for>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","frame","accel","compass","radio","motors","modes","failsafes","battery","airspeed","speeds","serial","devices","firmware","info","tools"],"default":"home"},"vehicle":{"editor":"enum","options":["copter","plane","rover"],"default":"copter"},"$preview":{"width":240,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const vehicle = this.props.vehicle ?? 'copter';
+    const V = {
+      copter:{ home:'SetupHome.dc.html', frame:['Frame and orientation','SetupFrame.dc.html'], motors:['Motors and ESCs','SetupMotors.dc.html'] },
+      plane:{ home:'SetupHomePlane.dc.html', frame:['Airframe and orientation','SetupPlaneFrame.dc.html'], motors:['Control surfaces','SetupPlaneSurfaces.dc.html'] },
+      rover:{ home:'SetupHomeRover.dc.html', frame:['Chassis and orientation','SetupRoverChassis.dc.html'], motors:['Steering and throttle','SetupRoverDrive.dc.html'] },
+      sub:{ home:'SetupHomeSub.dc.html', frame:['Thrusters','SetupSub.dc.html'], motors:['Depth sensor','SetupSub.dc.html'] },
+      heli:{ home:'SetupHomeHeli.dc.html', frame:['Swashplate','SetupHeli.dc.html'], motors:['Rotor and tail','SetupHeli.dc.html'] },
+    }[vehicle];
+    const item = (id,label,href,status) => {
+      const on = id === active;
+      const glyph = status === 'done' ? '✓' : status === 'open' ? '!' : '';
+      return { label, href, glyph, mark: status === 'open' ? '#FFB54A' : '#62E3A6', statusText: status === 'done' ? 'Done' : status === 'open' ? 'Needs attention' : 'Optional', bg: on ? '#123440' : 'transparent', fg: on ? '#56D9F2' : '#E8EEF4' };
+    };
+    const groups = [
+      { title: { rover:'GET DRIVING', sub:'GET DIVING' }[vehicle] ?? 'GET FLYING', items:[
+        item('frame',V.frame[0],V.frame[1],'done'),
+        item('accel','Accelerometer','SetupAccel.dc.html','done'),
+        item('compass','Compass','Setup.dc.html',vehicle === 'sub' || vehicle === 'heli' ? 'done' : 'open'),
+        item('radio',vehicle === 'sub' ? 'Joystick' : 'Radio',vehicle === 'sub' ? 'SetupJoystick.dc.html' : 'SetupRadio.dc.html','done'),
+        item('motors',V.motors[0],V.motors[1],vehicle === 'sub' || vehicle === 'heli' ? 'open' : 'done'),
+        item('modes',{ rover:'Drive modes', sub:'Dive modes' }[vehicle] ?? 'Flight modes',vehicle === 'sub' ? 'SetupSub.dc.html' : 'SetupModes.dc.html','done'),
+        item('failsafes','Failsafes','SetupFailsafes.dc.html','done'),
+        item('battery','Battery','SetupBattery.dc.html','done'),
+      ]},
+    ];
+    if (vehicle === 'rover') groups.push({ title:'ON WATER', items:[ item('boat','Boats and sailboats','SetupBoat.dc.html','') ]});
+    if (vehicle === 'plane') groups.push({ title:'FIXED WING', items:[
+      item('airspeed','Airspeed','SetupPlaneAirspeed.dc.html',''),
+      item('speeds','Speeds and landing','SetupPlaneFlight.dc.html',''),
+      item('vtol','VTOL','SetupQuadPlane.dc.html',''),
+    ]});
+    groups.push({ title:'CONNECTIONS AND DEVICES', items:[
+      item('serial','Serial ports','SetupSerial.dc.html',''),
+      item('devices','Devices','SetupDevices.dc.html',''),
+      item('links','Radios and links','SetupLinks.dc.html',''),
+      item('can','DroneCAN','SetupCan.dc.html',''),
+      item('osd','On-screen display','SetupOsd.dc.html',''),
+    ]});
+    groups.push({ title:'VEHICLE', items:[
+      item('firmware','Firmware','SetupFirmware.dc.html',''),
+      item('info','Vehicle information','SetupInfo.dc.html',''),
+      item('tools','Tools','SetupTools.dc.html',''),
+    ]});
+    return { homeBg: active === 'home' ? '#123440' : 'transparent', homeHref:V.home, groups };
+  }
+}
+</script>
+</body>
+</html>

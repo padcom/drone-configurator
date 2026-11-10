@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Compass setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="compass" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Compass</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">{{instruction}}</p>
+          </div>
+          <a href="SetupRadio.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Radio</a>
+        </div>
+        <div role="group" aria-label="Compass tasks" style="display:flex;align-self:flex-start;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3">
+            <button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button>
+          </sc-for>
+        </div>
+        <sc-if value="{{isCal}}" hint-placeholder-val="{{true}}">
+          <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;justify-content:center;flex:1 1 auto">
+            <svg viewBox="0 0 380 380" role="img" aria-label="Coverage sphere: {{pct}} percent of orientations sampled" style="flex:0 1 360px;width:360px;max-width:100%;height:auto">
+              <circle cx="190" cy="190" r="170" fill="#111921" stroke="#25323E"></circle>
+              <sc-for list="{{dots}}" as="d" hint-placeholder-count="60"><circle cx="{{d.x}}" cy="{{d.y}}" r="{{d.r}}" fill="{{d.fill}}"></circle></sc-for>
+              <text x="190" y="205" text-anchor="middle" fill="#E8EEF4" font-family="IBM Plex Mono, monospace" font-size="44" font-weight="600">{{pct}}%</text>
+            </svg>
+            <div style="flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:18px">
+              <sc-for list="{{compasses}}" as="c" hint-placeholder-count="2">
+                <div>
+                  <div style="display:flex;justify-content:space-between;gap:8px;font-weight:500"><span>{{c.name}}</span><span style="font-family:'IBM Plex Mono',monospace">{{c.value}}</span></div>
+                  <div style="height:8px;border-radius:2px;background:#25323E;margin-top:6px"><div style="height:8px;border-radius:2px;background:#56D9F2;width:{{c.width}}"></div></div>
+                  <div style="font-size:12.5px;color:#A9B8C5;margin-top:5px">{{c.detail}}</div>
+                </div>
+              </sc-for>
+              <div style="display:flex;flex-wrap:wrap;gap:10px">
+                <sc-if value="{{done}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{accept}}" style="min-height:48px;padding:0 22px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{acceptLabel}}</button></sc-if>
+                <button type="button" onClick="{{restart}}" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Start over</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isOrder}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{order}}" as="c" hint-placeholder-count="2">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;width:24px">{{c.rank}}</span>
+                <span style="flex:1 1 200px;display:flex;flex-direction:column"><span style="font-weight:600">{{c.name}}</span><span style="font-size:12.5px;color:#A9B8C5">{{c.detail}}</span></span>
+                <button type="button" disabled="{{c.isFirst}}" onClick="{{c.up}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{c.upFg}};font:inherit;font-weight:500;cursor:pointer">Use first</button>
+              </div>
+            </sc-for>
+            <p style="margin:4px 0 0;color:#A9B8C5">The first compass drives heading. An external compass, away from the motors and wiring, is usually the better choice.</p>
+          </div>
+        </sc-if>
+        <sc-if value="{{isMot}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-direction:column;gap:14px;max-width:640px">
+            <p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">The motors run at up to 75% throttle in this test. Take the propellers off first.</p>
+            <div style="padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">LAST RESULT, COMPASS 1</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600">18%</div>
+              <div style="color:#A9B8C5">Interference from the motors. Under 30% is good.</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:12px;min-height:44px;cursor:pointer;font-weight:500"><input type="checkbox" checked="{{secured}}" onChange="{{securedChange}}" style="width:20px;height:20px;accent-color:#FFB54A;margin:0"><span>The propellers are off</span></label>
+            <button type="button" disabled="{{notSecured}}" style="align-self:flex-start;min-height:48px;padding:0 20px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{runFg}};font:inherit;font-weight:600;cursor:pointer">Run interference test</button>
+          </div>
+        </sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">HOW TO DO IT</h2>
+          <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px">
+            <li>Hold the vehicle away from metal.</li>
+            <li>Rotate it so each side faces the ground.</li>
+            <li>Keep going until every dot on the sphere is lit.</li>
+          </ol>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>COMPASS_OFS_X, _Y, _Z</span><span>COMPASS_DIA_X, _Y, _Z</span><span>COMPASS_ODI_X, _Y, _Z</span></div>
+          <p style="margin:10px 0 0;color:#A9B8C5;font-size:13px">Nothing is kept until you accept. The vehicle then needs a reboot.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { p:62, accepted:false, tab:'Calibrate', extFirst:true };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => (s.p >= 100 ? null : { p:Math.min(100, s.p+1) })), 350); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const { p, accepted, tab, extFirst } = this.state;
+    const N = 260, dots = [], golden = Math.PI*(3-Math.sqrt(5));
+    for (let i = 0; i < N; i++) {
+      const y = 1-(i/(N-1))*2, r = Math.sqrt(1-y*y), th = golden*i, x = Math.cos(th)*r, z = Math.sin(th)*r;
+      if (z < -.05) continue;
+      dots.push({ x:(190+x*160).toFixed(1), y:(190+y*160).toFixed(1), r:(2.5+z*2.5).toFixed(1), fill:((i*37)%N)/N*100 < p ? '#56D9F2' : '#60728A' });
+    }
+    const done = p >= 100, c2 = done ? 100 : Math.round(p*.94);
+    const ext = { name:'Compass 2 · external', detail:'On the GPS mast' }, int = { name:'Compass 1 · internal', detail:'On the flight controller' };
+    const seq = extFirst ? [ext,int] : [int,ext];
+    return {
+      secured:!!this.state.secured, notSecured:!this.state.secured, runFg:this.state.secured?'#E8EEF4':'#8FA0AE', securedChange:(e) => this.setState({ secured:e.target.checked }),
+      dots, done, pct:p,
+      isCal:tab==='Calibrate', isOrder:tab==='Order', isMot:tab==='Motor interference',
+      tabs:['Calibrate','Order','Motor interference'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:tab===label?'#56D9F2':'transparent', fg:tab===label?'#06222B':'#E8EEF4' })),
+      instruction: accepted ? 'Saved. Reboot the vehicle to use the new offsets.' : done ? 'Calibration finished. Check the results, then accept them.' : 'Keep rotating the vehicle until both compasses reach 100%.',
+      compasses:[
+        { name:'Compass 1 · internal', value:done?'Fitness 8.2':p+'%', width:p+'%', detail:done?'Good fit':'Sampling' },
+        { name:'Compass 2 · external', value:done?'Fitness 11.6':c2+'%', width:c2+'%', detail:done?'Good fit':'Sampling' },
+      ],
+      order:seq.map((c,i) => ({ ...c, rank:i+1, isFirst:i===0, upFg:i===0?'#8FA0AE':'#E8EEF4', up:() => this.setState({ extFirst:!extFirst }) })),
+      accept:() => this.setState({ accepted:true }),
+      acceptLabel: accepted ? 'Reboot vehicle' : 'Accept results',
+      restart:() => this.setState({ p:0, accepted:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

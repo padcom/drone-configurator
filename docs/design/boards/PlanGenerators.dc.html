@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: generators</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="generate" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="map" style="flex:999 1 520px;min-width:0;min-height:520px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,520px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{tab}} preview" style="position:absolute;inset:0;width:100%;height:100%">
+            <sc-for list="{{lines}}" as="l" hint-placeholder-count="1"><polyline points="{{l}}" fill="none" stroke="#EE82F5" stroke-width="4" stroke-linejoin="round"></polyline></sc-for>
+          </svg>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 360px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div role="group" aria-label="Generator" style="display:flex;flex-wrap:wrap;gap:2px"><sc-for list="{{tabs}}" as="b" hint-placeholder-count="5"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for></div>
+          <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Circle', vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const txt = (k,l,d='') => ({ k:'text', label:l, value:g(k,d), placeholder:'', change:(e) => set(k,e.target.value) });
+    const add = { k:'button', label:g('added',0)?'✓ Added as an editable group':'Add to the mission', pick:() => set('added',1), bg:g('added',0)?'#123327':'#56D9F2', fg:g('added',0)?'#62E3A6':'#06222B', border:g('added',0)?'#123327':'#56D9F2' };
+    const cx = 620, cy = 430, str = (p) => p.map(([x,y]) => x.toFixed(0)+','+y.toFixed(0)).join(' ');
+    const ring = (r,n) => Array.from({ length:n+1 }, (_,i) => [cx+r*2*Math.cos(i/n*2*Math.PI), cy+r*2*Math.sin(i/n*2*Math.PI)]);
+    let lines = [], rows = [];
+    if (s.tab==='Circle') { const r = g('r',80), n = g('n',12); lines = [str(ring(r,n))]; rows = [slide('r','Radius',80,20,200,5,' m'),slide('n','Waypoints',12,4,32,1),slide('calt','Altitude',40,10,120,5,' m'),chk('spline','Use smooth curves'),info('Path length',Math.round(2*Math.PI*r)+' m'),add]; }
+    else if (s.tab==='Circular survey') { const r = g('r2',120), sp = g('sp',30), c = Math.max(1,Math.floor(r/sp)); lines = Array.from({ length:c }, (_,i) => str(ring(r-(i*sp),48))); rows = [slide('r2','Area radius',120,40,220,10,' m'),slide('sp','Ring spacing',30,10,60,5,' m'),slide('salt','Altitude',60,20,120,5,' m'),info('Rings',c),add]; }
+    else if (s.tab==='Vertical face') { const w = g('w',120), h = g('h',60), sp = g('vsp',10), k = Math.floor(h/sp)+1, pts = []; for (let i = 0; i < k; i++) { const y = 620-i*sp*4; const a = [cx-w*2,y], b = [cx+w*2,y]; if (i%2) pts.push(b,a); else pts.push(a,b); } lines = [str(pts)]; rows = [slide('w','Face width',120,20,240,10,' m'),slide('h','Face height',60,10,100,5,' m'),slide('vsp','Line spacing',10,5,20,1,' m'),slide('std','Stand-off distance',20,5,50,1,' m'),slide('cam','Camera angle',0,-30,30,5,'°'),info('Lines',k),add]; }
+    else if (s.tab==='Text') { const t = g('text','HELLO'), size = g('size',60), rot = g('rot',0)*Math.PI/180, pts = []; [...t.slice(0,10)].forEach((ch,i) => { const x0 = i*size*2.2, S = size*1.6; const sh = ch===' ' ? [] : [[0,S],[0,0],[S*.6,S],[S*.6,0]]; sh.forEach(([x,y]) => { const dx = x+x0-(t.length*size*1.1), dy = y-S/2; pts.push([cx+dx*Math.cos(rot)-dy*Math.sin(rot), cy+dx*Math.sin(rot)+dy*Math.cos(rot)]); }); }); lines = pts.length?[str(pts)]:[]; rows = [txt('text','Text','HELLO'),slide('size','Letter size',60,20,120,5,' m'),slide('rot','Rotation',0,-90,90,5,'°'),info('Waypoints',pts.length),add]; }
+    else { const sw = g('sw',23.5), f = g('f',20), px = g('px',6000), alt = g('galt',60), wid = sw/f*alt; rows = [head('CAMERA'),{ k:'enum', label:'Saved camera', value:g('camId',0), options:[{ value:0, label:'Mapping 20 mm' },{ value:1, label:'Compact 8.8 mm' }], pick:(n) => { set('camId',n); } },slide('sw','Sensor width',23.5,5,36,.1,' mm'),slide('f','Focal length',20,4,50,.5,' mm'),slide('px','Image width',6000,1000,10000,100,' px'),head('AT THIS ALTITUDE'),slide('galt','Altitude',60,10,120,5,' m'),info('Ground width',wid.toFixed(1)+' m'),info('Ground detail',(wid/px*100).toFixed(2)+' cm/px')]; }
+    return { tab:s.tab, lines, rows, tabs:['Circle','Circular survey','Vertical face','Text','Cameras'].map((label) => ({ label, pick:() => this.setState({ tab:label, vals:{ ...s.vals, added:0 } }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })) };
+  }
+}
+</script>
+</body>
+</html>

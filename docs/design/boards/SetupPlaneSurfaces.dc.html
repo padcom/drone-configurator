@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plane control surfaces</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="motors" vehicle="plane" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Control surfaces</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">{{summary}}</p>
+          </div>
+          <a href="SetupModes.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Flight modes</a>
+        </div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+          <article style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding:16px;background:#111921;border:1px solid {{r.border}};border-radius:5px">
+            <svg viewBox="0 0 220 90" role="img" aria-label="{{r.aria}}" style="flex:0 0 220px;width:220px;height:90px">
+              <line x1="4" y1="45" x2="216" y2="45" stroke="#25323E" stroke-dasharray="4 4"></line>
+              <rect x="10" y="36" width="120" height="18" rx="9" fill="#60728A"></rect>
+              <g transform="rotate({{r.angle}} 130 45)"><rect x="130" y="38" width="76" height="14" rx="3" fill="#56D9F2"></rect></g>
+            </svg>
+            <div style="flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:2px">
+              <h2 style="margin:0;font-size:16px;font-weight:600">{{r.name}}</h2>
+              <p style="margin:0;font-size:13px;color:{{r.stateFg}};font-weight:500"><span aria-hidden="true">{{r.glyph}} </span>{{r.state}}</p>
+              <label style="display:flex;flex-direction:column;font-size:12.5px;color:#A9B8C5;margin-top:4px">{{r.stick}}
+                <input type="range" min="-100" max="100" step="5" value="{{r.value}}" onChange="{{r.change}}" style="accent-color:#56D9F2;min-height:36px;margin:0">
+              </label>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-weight:500">
+              <input type="checkbox" checked="{{r.rev}}" onChange="{{r.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Reverse
+            </label>
+          </article>
+        </sc-for>
+        <p style="margin:0;color:#A9B8C5">Move the surfaces from your transmitter too. They must also move the right way in Manual.</p>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:14px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">TRAVEL</h2>
+        <sc-for list="{{travel}}" as="t" hint-placeholder-count="3">
+          <div style="display:flex;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #25323E"><span>{{t.name}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">1100 · 1500 · 1900</span></div>
+        </sc-for>
+        <div>
+          <h2 style="margin:8px 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>SERVO1_REVERSED</span><span>SERVO2_REVERSED</span><span>SERVO4_REVERSED</span></div>
+        </div>
+        <button type="button" disabled="{{cannotWrite}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { rev:{ ail:false, ele:true, rud:false }, val:{ ail:60, ele:60, rud:60 }, dirty:false, written:false };
+  renderVals() {
+    const s = this.state;
+    const defs = [
+      ['ail','Aileron','Roll stick right','The right aileron goes up'],
+      ['ele','Elevator','Pitch stick back','The elevator goes up'],
+      ['rud','Rudder','Yaw stick right','The rudder moves right'],
+    ];
+    const rows = defs.map(([k,name,stick,expect]) => {
+      const rev = s.rev[k], ok = !rev, a = s.val[k]/100*25*(rev?-1:1);
+      return { name, stick, rev, value:s.val[k], angle:(-a).toFixed(1), border:ok?'#25323E':'#FFB54A', stateFg:ok?'#62E3A6':'#FFB54A', glyph:ok?'✓':'!', state:ok?expect:'Moves the wrong way. Untick Reverse.', aria:name+' deflection',
+        change:(e) => this.setState({ val:{ ...s.val, [k]:Number(e.target.value) } }),
+        toggle:(e) => this.setState({ rev:{ ...s.rev, [k]:e.target.checked }, dirty:true, written:false }) };
+    });
+    const wrong = rows.filter((r) => r.border !== '#25323E').length;
+    const cannotWrite = !s.dirty;
+    return {
+      rows, travel:defs.map(([,name]) => ({ name })),
+      summary:wrong?wrong+' surface moves the wrong way. A plane with a reversed surface crashes on takeoff.':'All surfaces move the right way.',
+      cannotWrite, writeBg:cannotWrite?'#25323E':'#56D9F2', writeFg:cannotWrite?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      write:() => this.setState({ written:true, dirty:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

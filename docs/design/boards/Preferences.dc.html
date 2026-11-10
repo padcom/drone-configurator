@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Preferences</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="preferences" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <nav data-l="pane col" aria-label="Preferences" style="flex:1 1 220px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:18px 10px;display:flex;flex-direction:column;gap:2px">
+        <h1 style="margin:0 10px 12px;font-size:20px;font-weight:600">Settings</h1>
+        <sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+          <button type="button" onClick="{{b.pick}}" style="display:flex;align-items:center;min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;text-align:left;cursor:pointer">{{b.label}}</button>
+        </sc-for>
+        <a href="PrefIntegrations.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Integrations</a>
+        <a href="PrefScripts.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 12px;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Scripts, SSH, translations</a>
+      </nav>
+      <section data-l="pane col measure" style="flex:999 1 520px;min-width:0;box-sizing:border-box;padding:28px 36px;display:flex;flex-direction:column;gap:16px;--measure:828px">
+        <h2 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h2>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;min-height:60px;border-bottom:1px solid #25323E;padding-bottom:12px">
+            <div style="flex:1 1 240px;min-width:0"><div style="font-weight:500">{{r.label}}</div><div style="font-size:13px;color:#A9B8C5">{{r.help}}</div></div>
+            <sc-if value="{{r.isSelect}}" hint-placeholder-val="{{true}}">
+              <span style="flex:0 1 260px;position:relative;display:block">
+                <select aria-label="{{r.label}}" value="{{r.value}}" onChange="{{r.change}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit">
+                  <sc-for list="{{r.options}}" as="o" hint-placeholder-count="3"><option value="{{o}}">{{o}}</option></sc-for>
+                </select>
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+              </span>
+            </sc-if>
+            <sc-if value="{{r.isCheck}}" hint-placeholder-val="{{false}}">
+              <input type="checkbox" aria-label="{{r.label}}" checked="{{r.value}}" onChange="{{r.change}}" style="width:22px;height:22px;accent-color:#56D9F2;margin:0">
+            </sc-if>
+            <sc-if value="{{r.isText}}" hint-placeholder-val="{{false}}">
+              <input aria-label="{{r.label}}" value="{{r.value}}" onChange="{{r.change}}" placeholder="{{r.placeholder}}" style="flex:0 1 360px;min-width:0;min-height:44px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:13px">
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{isUnits}}" hint-placeholder-val="{{false}}">
+          <div style="padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">PREVIEW</div><div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600">{{preview}}</div></div>
+        </sc-if>
+        <sc-if value="{{isMaps}}" hint-placeholder-val="{{false}}">
+          <div style="padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;font-weight:500"><span>Offline map cache</span><span style="font-family:'IBM Plex Mono',monospace">{{cache}}</span></div>
+            <div style="height:8px;border-radius:2px;background:#25323E"><div style="height:8px;border-radius:2px;background:#56D9F2;width:{{cachePct}}"></div></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <a href="Plan.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Download an area</a>
+              <button type="button" onClick="{{clearCache}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Clear the cache</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{isKeys}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{keys}}" as="k" hint-placeholder-count="8">
+              <div style="display:flex;justify-content:space-between;align-items:center;min-height:42px;border-bottom:1px solid #25323E"><span>{{k.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;border:1px solid #60728A;border-radius:2px;padding:1px 8px">{{k.key}}</span></div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Appearance', v:{ lang:'English', dist:'Metres', speed:'Metres a second', coords:'Decimal degrees', temp:'Celsius', source:'Satellite', url:'', apikey:'', offline:true, tlog:true, folder:'~/Documents/Drone logs', keep:'90 days' }, cache:2.4 };
+  renderVals() {
+    const s = this.state, v = s.v;
+    const set = (k,val) => this.setState({ v:{ ...v, [k]:val } });
+    const sel = (k,label,help,options) => ({ label,help,options,value:v[k],isSelect:true,isCheck:false,isText:false,change:(e) => set(k,e.target.value) });
+    const chk = (k,label,help) => ({ label,help,value:v[k],isSelect:false,isCheck:true,isText:false,options:[],change:(e) => set(k,e.target.checked) });
+    const txt = (k,label,help,placeholder) => ({ label,help,placeholder,value:v[k],isSelect:false,isCheck:false,isText:true,options:[],change:(e) => set(k,e.target.value) });
+    const R = {
+      Appearance:[ sel('lang','Language','Takes effect at once.',['English']) ],
+      Units:[ sel('dist','Distance and altitude','',['Metres','Feet']), sel('speed','Speed','',['Metres a second','Kilometres an hour','Miles an hour','Knots']), sel('coords','Coordinates','',['Decimal degrees','UTM','MGRS']), sel('temp','Temperature','',['Celsius','Fahrenheit']) ],
+      Maps:[ sel('source','Map source','',['Satellite','Street','Topographic','Custom URL']) ].concat(v.source==='Custom URL'?[txt('url','Tile address','Use {x}, {y} and {z}.','https://example.com/{z}/{x}/{y}.png')]:[],[ txt('apikey','API key','Only for sources that need one.','Not set'), chk('offline','Keep tiles for offline use','Used when there is no internet in the field.') ]),
+      Recording:[ chk('tlog','Record every flight','Saves telemetry from arming to disarming.'), txt('folder','Save to','',''), sel('keep','Keep recordings for','',['30 days','90 days','1 year','Forever']) ],
+      Shortcuts:[],
+    };
+    const ft = v.dist==='Feet', alt = ft?'197 ft':'60 m';
+    const sp = { 'Metres a second':'8.0 m/s','Kilometres an hour':'28.8 km/h','Miles an hour':'17.9 mph','Knots':'15.6 kn' }[v.speed];
+    return {
+      tab:s.tab, rows:R[s.tab],
+      tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#123440':'transparent', fg:s.tab===label?'#56D9F2':'#E8EEF4' })),
+      isUnits:s.tab==='Units', isMaps:s.tab==='Maps', isKeys:s.tab==='Shortcuts',
+      preview:'Altitude '+alt+' · Speed '+sp,
+      cache:s.cache.toFixed(1)+' GB of 10 GB', cachePct:(s.cache/10*100)+'%',
+      clearCache:() => this.setState({ cache:0 }),
+      keys:[['Search or run a command','Ctrl K'],['Overview','F1'],['Plan','F2'],['Fly','F3'],['Setup','F4'],['Next pane','F6'],['Previous pane','Shift F6'],['Undo','Ctrl Z']].map(([label,key]) => ({ label,key })),
+    };
+  }
+}
+</script>
+</body>
+</html>

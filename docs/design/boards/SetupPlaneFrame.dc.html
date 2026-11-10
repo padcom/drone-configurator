@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plane airframe</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="frame" vehicle="plane" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Airframe and orientation</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Pick the shape closest to your plane. The outputs follow from it.</p>
+          </div>
+          <a href="SetupAccel.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Accelerometer</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px">
+          <sc-for list="{{types}}" as="c" hint-placeholder-count="4">
+            <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="min-height:56px;border:1px solid {{c.border}};border-radius:5px;background:{{c.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{c.label}}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;flex:1 1 auto">
+          <figure style="flex:2 1 340px;min-width:0;margin:0;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <svg viewBox="0 0 440 350" role="img" aria-label="{{aria}}" style="display:block;width:100%;max-width:540px;height:auto;margin:0 auto">
+              <sc-for list="{{body}}" as="p" hint-placeholder-count="3"><path d="{{p}}" fill="#60728A"></path></sc-for>
+              <sc-for list="{{surfaces}}" as="p" hint-placeholder-count="4"><path d="{{p}}" fill="#56D9F2"></path></sc-for>
+              <sc-for list="{{rotors}}" as="r" hint-placeholder-count="0">
+                <circle cx="{{r.x}}" cy="{{r.y}}" r="32" fill="#3A2A10" stroke="#FFB54A" stroke-width="3"></circle>
+                <text x="{{r.x}}" y="{{r.ty}}" text-anchor="middle" fill="#E8EEF4" font-size="18" font-weight="600" font-family="IBM Plex Mono, monospace">{{r.no}}</text>
+              </sc-for>
+              <sc-for list="{{labels}}" as="l" hint-placeholder-count="3"><text x="{{l.x}}" y="{{l.y}}" text-anchor="middle" fill="#E8EEF4" font-size="13" font-family="IBM Plex Sans, sans-serif">{{l.t}}</text></sc-for>
+            </svg>
+          </figure>
+          <div style="flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:14px">
+            <div>
+              <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">OUTPUTS</h2>
+              <sc-for list="{{outputs}}" as="o" hint-placeholder-count="4">
+                <div style="display:flex;gap:12px;align-items:center;min-height:36px;border-bottom:1px solid #25323E"><span style="font-family:'IBM Plex Mono',monospace;width:20px;color:#A9B8C5">{{o.no}}</span><span style="flex:1;font-weight:500">{{o.fn}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{o.value}}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Board orientation
+              <dc-import name="EnumField" value="{{orient}}" options="{{orients}}" on-pick="{{orientChange}}" field-label="Board orientation" hint-size="100%,44px"></dc-import>
+            </div>
+            <button type="button" disabled="{{clean}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { type:'Conventional', orient:0, saved:'Conventional|0', written:false };
+  renderVals() {
+    const s = this.state;
+    const F = 'M212 56Q220 30 228 56V300Q220 318 212 300Z', W = 'M60 150H380V176H60Z', TP = 'M160 280H280V298H160Z';
+    const AL = 'M60 176H150V194H60Z', AR = 'M290 176H380V194H290Z', EL = 'M160 298H280V312H160Z', RD = 'M216 298H224V330H216Z';
+    const O = (no,fn,value) => ({ no,fn,value });
+    const base = [O(1,'Aileron',4),O(2,'Elevator',19),O(3,'Throttle',70),O(4,'Rudder',21)];
+    const stdLabels = [{ x:105,y:216,t:'Aileron' },{ x:335,y:216,t:'Aileron' },{ x:130,y:310,t:'Elevator' },{ x:262,y:336,t:'Rudder' }];
+    const T = {
+      Conventional:{ body:[F,W,TP], surfaces:[AL,AR,EL,RD], labels:stdLabels, rotors:[], outputs:base },
+      'Flying wing':{ body:['M220 60L410 236 350 248 220 176 90 248 30 236Z'], surfaces:['M30 236 90 248 108 272 46 258Z','M410 236 350 248 332 272 394 258Z'], rotors:[], labels:[{ x:70,y:292,t:'Left elevon' },{ x:370,y:292,t:'Right elevon' }], outputs:[O(1,'Left elevon',77),O(2,'Right elevon',78),O(3,'Throttle',70)] },
+      'V-tail':{ body:[F,W,'M214 282 140 246V266L214 300Z','M226 282 300 246V266L226 300Z'], surfaces:[AL,AR,'M140 266 214 300V312L140 278Z','M300 266 226 300V312L300 278Z'], rotors:[], labels:[{ x:105,y:216,t:'Aileron' },{ x:335,y:216,t:'Aileron' },{ x:110,y:300,t:'V-tail left' },{ x:330,y:300,t:'V-tail right' }], outputs:[O(1,'Aileron',4),O(2,'V-tail left',79),O(3,'Throttle',70),O(4,'V-tail right',80)] },
+      QuadPlane:{ body:[F,W,TP,'M104 90H116V260H104Z','M324 90H336V260H324Z'], surfaces:[AL,AR,EL,RD], labels:[], rotors:[[110,90,1],[330,90,3],[110,260,2],[330,260,4]].map(([x,y,no]) => ({ x,y,no,ty:y+6 })), outputs:base.concat([O(5,'Lift motor 1',33),O(6,'Lift motor 2',34),O(7,'Lift motor 3',35),O(8,'Lift motor 4',36)]) },
+    };
+    const c = T[s.type];
+    const key = s.type+'|'+s.orient, clean = key===s.saved;
+    return {
+      ...c, orient:s.orient,
+      types:Object.keys(T).map((label) => ({ label, on:s.type===label, pick:() => this.setState({ type:label, written:false }), border:s.type===label?'#56D9F2':'#60728A', bg:s.type===label?'#123440':'transparent' })),
+      aria:s.type+' airframe seen from above, with its control surfaces highlighted',
+      orients:[[0,'None'],[1,'Yaw 45°'],[2,'Yaw 90°'],[3,'Yaw 135°'],[4,'Yaw 180°'],[5,'Yaw 225°'],[6,'Yaw 270°'],[7,'Yaw 315°'],[8,'Upside down (roll 180°)']].map(([value,label]) => ({ value,label })),
+      orientChange:(n) => this.setState({ orient:n, written:false }),
+      clean, writeBg:clean?'#25323E':'#56D9F2', writeFg:clean?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':clean?'No changes':'Write and verify',
+      write:() => this.setState({ saved:key, written:true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

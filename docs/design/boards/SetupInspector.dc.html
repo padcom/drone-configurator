@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MAVLink Inspector</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="links" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 400px;min-width:0;box-sizing:border-box;padding:24px 20px;display:flex;flex-direction:column;gap:10px;border-right:1px solid #25323E">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <h1 style="margin:0;font-size:24px;font-weight:600">MAVLink Inspector</h1>
+          <a href="SetupLinks.dc.html">Back to links</a>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;box-sizing:border-box;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#A9B8C5">
+          <input aria-label="Filter messages" placeholder="Filter messages" value="{{q}}" onChange="{{search}}" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:#E8EEF4;font:inherit">
+        </label>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+            <button type="button" onClick="{{r.pick}}" style="display:flex;align-items:center;gap:10px;min-height:38px;padding:0 10px;border:0;border-radius:4px;background:{{r.bg}};color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:left;cursor:pointer">
+              <span style="flex:1">{{r.name}}</span><span style="color:#A9B8C5">{{r.hz}}</span><span style="width:70px;text-align:right;color:#A9B8C5">{{r.count}}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;padding:24px 20px;display:flex;flex-direction:column;gap:8px">
+        <h2 style="margin:0 0 6px;font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600">{{sel}}</h2>
+        <sc-for list="{{fields}}" as="f" hint-placeholder-count="6">
+          <div style="display:flex;justify-content:space-between;gap:10px;min-height:32px;align-items:center;border-bottom:1px solid #25323E;font-family:'IBM Plex Mono',monospace;font-size:13px"><span style="color:#A9B8C5">{{f.k}}</span><span>{{f.v}}</span></div>
+        </sc-for>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { n:0, q:'', sel:'ATTITUDE' };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 250); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state, n = s.n;
+    const M = [
+      ['HEARTBEAT',1,{ type:'2 · Quadrotor', autopilot:'3 · ArduPilot', base_mode:'81 · Disarmed, custom mode', custom_mode:'5 · Loiter', system_status:'3 · Standby' }],
+      ['ATTITUDE',4,{ roll:(.04*Math.sin(n/8)).toFixed(4), pitch:(.02+.01*Math.sin(n/6)).toFixed(4), yaw:'1.6755', rollspeed:(.01*Math.sin(n/3)).toFixed(4) }],
+      ['GLOBAL_POSITION_INT',4,{ lat:'473980120', lon:'85463410', relative_alt:'0', hdg:'9600' }],
+      ['VFR_HUD',4,{ airspeed:'0.0', groundspeed:'0.0', heading:'96', throttle:'0', alt:'408.3' }],
+      ['GPS_RAW_INT',2,{ fix_type:'3 · 3D fix', satellites_visible:'14', eph:'80', epv:'120' }],
+      ['GPS2_RAW',2,{ fix_type:'0 · No GPS', satellites_visible:'0' }],
+      ['BATTERY_STATUS',1,{ current_battery:'80', battery_remaining:'94', current_consumed:'312' }],
+      ['SYS_STATUS',1,{ voltage_battery:'12540', load:'180', errors_comm:'0' }],
+      ['RC_CHANNELS',4,{ chancount:'8', chan1_raw:'1500', chan3_raw:'1100', rssi:'255' }],
+      ['SERVO_OUTPUT_RAW',4,{ servo1_raw:'1100', servo2_raw:'1100', servo3_raw:'1100' }],
+      ['EKF_STATUS_REPORT',2,{ flags:'831 · Attitude, velocity and position good', velocity_variance:'0.02', pos_horiz_variance:'0.01' }],
+      ['VIBRATION',1,{ vibration_x:(1+.2*Math.sin(n/4)).toFixed(3), vibration_y:'0.800', vibration_z:'1.200', clipping_0:'0' }],
+      ['WIND',1,{ direction:'240', speed:'0.0', speed_z:'0.0' }],
+    ];
+    const q = s.q.trim().toUpperCase();
+    const rows = M.filter(([name]) => name.includes(q)).map(([name,hz]) => ({ name, hz:hz+' Hz', count:String(1200+Math.floor(n/4*hz)), bg:s.sel===name?'#123440':'transparent', pick:() => this.setState({ sel:name }) }));
+    const cur = M.find(([name]) => name===s.sel);
+    return { q:s.q, search:(e) => this.setState({ q:e.target.value }), rows, sel:s.sel, fields:Object.entries(cur[2]).map(([k,v]) => ({ k, v })) };
+  }
+}
+</script>
+</body>
+</html>
