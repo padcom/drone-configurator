@@ -7,14 +7,48 @@ import type { ParamMeta } from './metadata'
 import type { Translate } from './telemetryCards'
 
 /**
- * What the metadata line says when the last file loaded.
+ * Which message says what the metadata did for the parameters.
  *
- * @param count how many parameters the loaded metadata describes
+ * @param counts see `metadataText`
+ * @param counts.matched parameters of the vehicle that the metadata has an entry for
+ * @param counts.described parameters of the vehicle that the metadata has a description for
+ * @param counts.total parameters the vehicle has
+ * @returns the key of the message
+ */
+function metadataKey(counts: { matched: number, described: number, total: number }): string {
+  if (counts.total === 0) {
+    return 'params.metadata'
+  }
+  if (counts.matched === 0) {
+    return 'params.metadataNone'
+  }
+
+  return counts.described === counts.matched ? 'params.metadataLoaded' : 'params.metadataSome'
+}
+
+/**
+ * What the metadata line says when the last file loaded: how many of the vehicle's parameters it describes, and, when it
+ * describes none of them, that, so that an empty Description column is never silent.
+ *
+ * @param counts how many of the vehicle's parameters the metadata has an entry for (matched) and a description for
+ * (described), how many parameters the vehicle has (none before they are downloaded) and how many the metadata has
+ * @param counts.matched parameters of the vehicle that the metadata has an entry for
+ * @param counts.described parameters of the vehicle that the metadata has a description for
+ * @param counts.total parameters the vehicle has
+ * @param counts.known parameters the metadata has an entry for
  * @param translate looks up a message
  * @returns the text, or an empty string without metadata
  */
-export function metadataText(count: number, translate: Translate): string {
-  return count > 0 ? translate('params.metadata', { count }) : ''
+export function metadataText(
+  counts: { matched: number, described: number, total: number, known: number },
+  translate: Translate,
+): string {
+  const { matched, described, total, known } = counts
+  if (known === 0) {
+    return ''
+  }
+
+  return translate(metadataKey(counts), { count: known, matched, described, total, known })
 }
 
 /**

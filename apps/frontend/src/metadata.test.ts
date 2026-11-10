@@ -26,7 +26,7 @@ describe('parameter metadata', () => {
 
   it('refuses what isn\'t metadata', () => {
     expect(parseMetadata('[')).toBe('not JSON')
-    expect(parseMetadata('{}')).toBe('not a Drone Configurator metadata file')
+    expect(parseMetadata('{}')).toMatch(/^not a parameter metadata file/u)
     const newer = JSON.stringify({ format: METADATA_FORMAT, version: 9, params: {} })
     expect(parseMetadata(newer)).toBe('metadata version 9 (this app reads version 1)')
   })
@@ -64,9 +64,40 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
   })
 
   it('can have only a text description, or no parameters', () => {
-    const only = { json: { version: 0 }, G: { A: { description: 'Text only' }, B: 'not an object' } }
+    const only = { json: { version: 0 }, G: { A: { Description: 'Text only' }, B: 'not an object' } }
 
     expect(parseMetadata(JSON.stringify(only))).toEqual(new Map([['A', { description: 'Text only' }]]))
-    expect(parseMetadata('{"json":{"version":0}}')).toEqual(new Map())
+  })
+
+  it('say so when they have no parameters, rather than loading nothing', () => {
+    expect(parseMetadata('{"json":{"version":0}}')).toBe('it describes no parameters')
+    expect(parseMetadata(file({}))).toBe('it describes no parameters')
+  })
+})
+
+describe('ArduPilot definition files, in the case of their keys', () => {
+  it('are read in the case the generator wrote the keys (capitalised), and in lower case too', () => {
+    const a = { displayName: 'Short', description: 'Long', units: 'cm', range: { low: '1', high: '2' } }
+    const lower = { json: { version: 0 }, G: { A: a } }
+
+    expect(parseMetadata(JSON.stringify(lower))).toEqual(new Map([
+      ['A', { description: 'Short', longDescription: 'Long', units: 'cm', min: 1, max: 2 }],
+    ]))
+    // The keys of the real file, as jsonemit.py dumps a parameter's own attributes: nothing is lost to the case.
+    const real = parseMetadata(JSON.stringify(APM_PDEF)) as Map<string, { description?: string, longDescription?: string }>
+    expect([...real.values()].every(meta => meta.description !== undefined)).toBe(true)
+    expect(real.get('RTL_ALT')?.longDescription).toBe('The minimum alt above home the vehicle will climb to before returning.')
+  })
+})
+
+describe('ArduPilot definition files, recognised and refused', () => {
+  it('are recognised by their first key, `json`, with or without a version number', () => {
+    expect(parseMetadata('{"json":{},"G":{"A":{"Description":"x"}}}')).toEqual(new Map([['A', { description: 'x' }]]))
+  })
+
+  it('say why a file is not metadata: an XML file, JSON of another kind, text', () => {
+    expect(parseMetadata('<?xml version="1.0"?><paramfile/>')).toMatch(/^an XML file: only JSON is read/u)
+    expect(parseMetadata('{"vehicles":[]}')).toMatch(/^not a parameter metadata file: expected ArduPilot's apm\.pdef\.json/u)
+    expect(parseMetadata('hello')).toBe('not JSON')
   })
 })
