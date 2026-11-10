@@ -16,6 +16,9 @@ import { describeSitl } from './sitl-suite'
 
 const LONG_MS = 90_000
 const RECONNECT_MS = 60_000
+/** How long to wait for the list before the screen is asked for again, and how many times it is asked for. */
+const RESHOW_AFTER_MS = 15_000
+const SHOW_ATTEMPTS = 3
 const PARAM = 'BATT_CAPACITY'
 const STEP = 100
 const ROW = `tr[data-id="${PARAM}"]`
@@ -63,6 +66,10 @@ async function startAll(): Promise<void> {
   proxy = await FlakyProxy.start(sitl.endpoint)
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
+  // Every change of the address, with the time, for the failure message of describePage (who took the page to Setup, and when).
+  await app.evaluate(`window.__hashes = []; window.addEventListener('hashchange', event => {
+    window.__hashes.push([Math.round(performance.now()), event.newURL.split('#')[1]])
+  })`)
   await chooseConnection(app, { transport: 'tcp', host: '127.0.0.1', port: String(proxy.port) })
 }
 
@@ -106,6 +113,7 @@ async function describePage(): Promise<string> {
       statuses: [...document.querySelectorAll('#list-status')].map(e => [e.textContent, e.outerHTML.slice(0, 120)]),
       rows: document.querySelectorAll('#rows tr').length,
       hash: location.hash,
+      hashes: window.__hashes,
       hidden: document.hidden,
       error: document.querySelector('.error')?.textContent,
     })`)
@@ -115,17 +123,37 @@ async function describePage(): Promise<string> {
 }
 
 /**
+ * Shows the parameters and waits for the list's status. If the window is on another screen when the time is up (issue #343:
+ * after a reconnect it was on Setup, next to Parameters, with no list on it), the screen is asked for again; the last
+ * attempt has as long as a reconnect needs, and fails with what the page looks like.
+ *
+ * @param wanted what the status must say
+ * @param left how many attempts remain
+ * @returns the status
+ */
+async function listStatusOnScreen(wanted: RegExp, left: number): Promise<string> {
+  await showScreen(window(), 'parameters')
+
+  try {
+    return await window().waitForText('#list-status', wanted, left === 1 ? RECONNECT_MS : RESHOW_AFTER_MS)
+  } catch (error: unknown) {
+    if (left === 1) {
+      throw new Error(`${String(error)}\n${await describePage()}`, { cause: error })
+    }
+
+    return listStatusOnScreen(wanted, left - 1)
+  }
+}
+
+/**
  * Shows the parameters and waits until they are a whole list: the count it had before, or any count the first time.
  *
  * @returns how many parameters there are
  */
 async function seeWholeList(): Promise<number> {
-  await showScreen(window(), 'parameters')
   const known = counts.at(-1)
   const wanted = new RegExp(`^${known ?? '\\d+'} parameters$`, 'u')
-  const status = await window().waitForText('#list-status', wanted, RECONNECT_MS).catch(async (error: unknown) => {
-    throw new Error(`${String(error)}\n${await describePage()}`, { cause: error })
-  })
+  const status = await listStatusOnScreen(wanted, SHOW_ATTEMPTS)
   const count = Number.parseInt(status, 10)
   counts.push(count)
 
