@@ -179,6 +179,14 @@
   padding: 0 14px;
 }
 
+/* One colour of line under every cell of a row, in every state. The page's own rule for cells draws it as a mix of the text
+   colour (`--line`), so that it was lighter or darker with the colour of the cell's text (the muted description) and over
+   the tint of the selected row. */
+.param-scroll th,
+.param-scroll td {
+  border-bottom: 1px solid var(--color-border);
+}
+
 .param-scroll .name {
   font-family: var(--font-mono);
   font-size: var(--font-size-value-sm);

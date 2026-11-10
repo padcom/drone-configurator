@@ -44,6 +44,16 @@ it('lays the table out with a fixed layout, the first columns in `ch`, the descr
   expect(params).toMatch(/\.param-scroll tbody tr\.spacer\s*\{[^}]*pointer-events:\s*none;[^}]*border-top:\s*0;/u)
 })
 
+it('has one thin scrollbar for every scrollable box, and one colour of line under every cell of a row', () => {
+  // The global rule is the one of the groups' list, which had it alone: the others (the parameter list, the detail, the
+  // dialogs, the messages) take it, and a class that says otherwise (the rail hides its own scrollbar) is more specific.
+  expect(style).toMatch(/\*\s*\{\s*scrollbar-width:\s*thin;\s*\}/u)
+  expect(frame).toMatch(/scrollbar-width:\s*none;/u)
+  // The cells' own line is the table's, not the page's mix of the text colour (which differs with the cell's text and over the
+  // tint of the selected row).
+  expect(params).toMatch(/\.param-scroll th,\s*\.param-scroll td\s*\{[^}]*border-bottom:\s*1px solid var\(--color-border\);/u)
+})
+
 it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })

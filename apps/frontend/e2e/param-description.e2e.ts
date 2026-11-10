@@ -60,8 +60,9 @@ describe('the description of the selected parameter', () => {
     const rows = await app.text('#param-description .rows')
 
     expect(text.length).toBeGreaterThan(2000)
-    // The result is always said: how many of the vehicle's parameters got a description.
-    expect(await app.text('#metadata-status')).toBe('Loaded descriptions for 1 of 12 parameters')
+    // The result is always said, by a toast: how many of the vehicle's parameters got a description.
+    expect(await app.waitForText('.kit-toast.sev-success', 'Loaded descriptions for 1 of 12 parameters')).toContain('1 of 12')
+    expect(await app.evaluate<boolean>(`document.querySelector('#metadata-status') === null`)).toBe(true)
     expect(rows).toMatch(/Range\s*30 to 300000 cm/u)
     expect(rows).toMatch(/Restart\s*The vehicle must be restarted/u)
     const box = await app.evaluate<boolean>(`(() => {

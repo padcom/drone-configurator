@@ -1,0 +1,81 @@
+import { afterEach, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent } from 'vue'
+import { PARAMS } from './fixtures'
+import { useMetadataToasts } from './metadataToasts'
+import { mockBackend } from './mock-backend'
+import { feed, withI18n } from './testing'
+import { useToasts } from './toasts'
+import { createConfigurator } from './useConfigurator'
+
+afterEach(() => {
+  const toasts = useToasts()
+  for (const toast of [...toasts.visible.value]) {
+    toasts.dismiss(toast.key)
+  }
+})
+
+/**
+ * A screen that tells the results of the metadata, on a Configurator with the fixture parameters.
+ *
+ * @returns the Configurator
+ */
+async function screen() {
+  const handle = createConfigurator(mockBackend())
+  mount(defineComponent({
+    setup() {
+      useMetadataToasts()
+
+      return () => null
+    },
+  }), withI18n)
+  await flushPromises()
+  feed(handle, { params: PARAMS, list: 'complete' })
+
+  return handle
+}
+
+/**
+ * The toasts that are shown.
+ *
+ * @returns their severity and text
+ */
+const shown = () => useToasts().visible.value.map(toast => [toast.severity, toast.text])
+
+const fileOf = (params: object) => JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params })
+
+it('tells a load that went well in a success toast, with how many of the parameters it describes', async () => {
+  const handle = await screen()
+
+  handle.metadata.load(fileOf({ RTL_ALT: { description: 'Return altitude' }, BATT_CAPACITY: { description: 'Capacity' } }))
+  await flushPromises()
+
+  expect(shown()).toEqual([['success', 'Loaded descriptions for 2 of 12 parameters']])
+})
+
+it('tells a file that matched nothing, and a file that could not be read, in error toasts, each time it is tried', async () => {
+  const handle = await screen()
+
+  handle.metadata.load(fileOf({ NOT_ON_THIS_VEHICLE: { description: 'x' } }))
+  await flushPromises()
+  expect(shown()).toEqual([['error', expect.stringMatching(/^0 of 12 parameters matched: none of the 1/u)]])
+
+  handle.metadata.load('{')
+  await flushPromises()
+  expect(shown().at(-1)).toEqual(['error', 'Can\'t load the metadata: not JSON.'])
+  const before = useToasts().visible.value.length
+  // The same failure again is news too (counted on the toast that is there).
+  handle.metadata.load('{')
+  await flushPromises()
+  expect(useToasts().visible.value.some(toast => toast.count > 1)).toBe(true)
+  expect(useToasts().visible.value.length).toBe(before)
+})
+
+it('says a partial match as a warning', async () => {
+  const handle = await screen()
+
+  handle.metadata.load(fileOf({ RTL_ALT: { description: 'Return altitude' }, BATT_CAPACITY: { units: 'mAh' } }))
+  await flushPromises()
+
+  expect(shown()).toEqual([['warning', '2 of 12 parameters matched, 1 have a description']])
+})

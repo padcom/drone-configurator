@@ -16,6 +16,8 @@ export interface MetadataModel {
   readonly metadata: ShallowRef<Metadata>
   /** Why the last file wasn't loaded, or null. */
   readonly error: ShallowRef<string | null>
+  /** How many files were tried (loaded or not; a file that could not be opened too): the result of each is to be told. */
+  readonly loads: ShallowRef<number>
   /** Loads parameter metadata (replacing what was loaded). */
   load: (text: string) => void
   /** Lets the user pick a metadata file (the host's open dialog) and loads it. */
@@ -26,6 +28,7 @@ export interface MetadataModel {
 class ParamMetadata implements MetadataModel {
   readonly metadata = shallowRef<Metadata>(new Map())
   readonly error = shallowRef<string | null>(null)
+  readonly loads = shallowRef(0)
 
   /**
    * Makes the metadata.
@@ -38,11 +41,11 @@ class ParamMetadata implements MetadataModel {
     const loaded = parseMetadata(text)
     if (typeof loaded === 'string') {
       this.error.value = `Can't load the metadata: ${loaded}.`
-
-      return
+    } else {
+      this.metadata.value = loaded
+      this.error.value = null
     }
-    this.metadata.value = loaded
-    this.error.value = null
+    this.loads.value += 1
   }
 
   async openFile(): Promise<void> {
@@ -53,6 +56,7 @@ class ParamMetadata implements MetadataModel {
       }
     } catch (error) {
       this.error.value = `Couldn't open it: ${describeError(error)}`
+      this.loads.value += 1
     }
   }
 }

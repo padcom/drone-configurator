@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type MenuItem, edge, step, typeAhead } from './menuKeys'
+import { type MenuItem, edge, pageStep, rowsFitting, step, typeAhead } from './menuKeys'
 
 const ITEMS: MenuItem[] = [
   { id: 'fly', label: 'Fly here' },
@@ -50,5 +50,22 @@ describe('type-ahead', () => {
     expect(typeAhead(ITEMS, 0, 's')).toBe(-1)
     expect(typeAhead(ITEMS, 0, 'f')).toBe(0)
     expect(typeAhead(ITEMS, 0, 'zz')).toBe(-1)
+  })
+})
+
+describe('a page of a menu', () => {
+  it('is the rows that fit, and the fallback when the list is not laid out', () => {
+    expect(rowsFitting(260, 40, 5)).toBe(6)
+    expect(rowsFitting(30, 40, 5)).toBe(5)
+    expect(rowsFitting(0, 0, 5)).toBe(5)
+  })
+
+  it('moves by a page, stopping at the ends, and lands on the nearest item that can be chosen', () => {
+    expect(pageStep(ITEMS, 0, 1, 3)).toBe(3)
+    expect(pageStep(ITEMS, 0, 1, 2)).toBe(2)
+    expect(pageStep(ITEMS, 3, 1, 5)).toBe(3)
+    expect(pageStep(ITEMS, 3, -1, 2)).toBe(2)
+    expect(pageStep(ITEMS, 2, -1, 9)).toBe(0)
+    expect(pageStep([{ id: 'a', label: 'A', disabled: true }], 0, 1, 3)).toBe(-1)
   })
 })

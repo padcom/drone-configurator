@@ -59,4 +59,6 @@ export interface State {
   metadata: Metadata
   /** Why the last metadata file wasn't loaded. */
   metadataError: string | null
+  /** How many times a metadata file was tried (loaded or not): goes up with each, so that the same result twice is still news. */
+  metadataLoads: number
 }

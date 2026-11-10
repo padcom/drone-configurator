@@ -6,7 +6,6 @@
         <ParamFilter />
         <SnapshotToolbar />
       </div>
-      <MetadataStatus />
       <SnapshotImport />
       <ParamTable />
     </section>
@@ -18,7 +17,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import MetadataStatus from '../MetadataStatus.vue'
+import { useMetadataToasts } from '../metadataToasts'
 import { useParamShortcuts } from '../paramShortcuts'
 import { useConfigurator } from '../useConfigurator'
 import ParamEditor from '../ParamEditor.vue'
@@ -35,4 +34,6 @@ import SnapshotToolbar from '../SnapshotToolbar.vue'
 const { t } = useI18n()
 const { staged } = useConfigurator()
 useParamShortcuts({ sync: () => staged.sync() })
+// How a metadata file went is told by a toast.
+useMetadataToasts()
 </script>

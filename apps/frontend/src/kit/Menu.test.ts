@@ -99,6 +99,19 @@ describe('choosing in a menu', () => {
   })
 })
 
+describe('the keys of a menu, by page', () => {
+  it('move by a page with Page Down and Page Up, stopping at the ends and skipping a disabled item', async () => {
+    const wrapper = menu()
+    await open(wrapper)
+    const list = wrapper.get('[role="menu"]')
+
+    await list.trigger('keydown', { key: 'PageDown' })
+    expect(focused()).toBe('Copy coordinatesCtrl C')
+    await list.trigger('keydown', { key: 'PageUp' })
+    expect(focused()).toBe('Fly here')
+  })
+})
+
 describe('the keys of a menu', () => {
   it('move with the arrows (skipping a disabled item and wrapping) and with Home and End', async () => {
     const wrapper = menu()

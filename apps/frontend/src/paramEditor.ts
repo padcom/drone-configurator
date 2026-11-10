@@ -51,6 +51,46 @@ export function metadataText(
   return translate(metadataKey(counts), { count: known, matched, described, total, known })
 }
 
+/** How a metadata load is told: success, a warning (some of it matched), an error (none did, or the file was no good). */
+export type ToastSeverity = 'success' | 'warning' | 'error'
+
+/** The toast that tells how a metadata load went. */
+export interface MetadataToast {
+  /** How it is told. */
+  severity: ToastSeverity
+  /** What it says. */
+  text: string
+}
+
+/** How each message of `metadataKey` is told. */
+const KEY_SEVERITY: Record<string, ToastSeverity> = {
+  'params.metadata': 'success',
+  'params.metadataLoaded': 'success',
+  'params.metadataSome': 'warning',
+  'params.metadataNone': 'error',
+}
+
+/**
+ * The toast for the metadata that was just loaded: success when every parameter of the vehicle that the file knows has a
+ * description, a warning when some have none, an error when not one parameter of the vehicle is in the file.
+ *
+ * @param counts see `metadataText`
+ * @param counts.matched parameters of the vehicle that the metadata has an entry for
+ * @param counts.described parameters of the vehicle that the metadata has a description for
+ * @param counts.total parameters the vehicle has
+ * @param counts.known parameters the metadata has an entry for
+ * @param translate looks up a message
+ * @returns the toast, or null without metadata
+ */
+export function metadataToast(
+  counts: { matched: number, described: number, total: number, known: number },
+  translate: Translate,
+): MetadataToast | null {
+  const text = metadataText(counts, translate)
+
+  return text === '' ? null : { severity: KEY_SEVERITY[metadataKey(counts)] ?? 'success', text }
+}
+
 /**
  * A number from the text of a draft.
  *

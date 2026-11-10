@@ -90,13 +90,16 @@ export function nameOf(options: EnumOption[], value: number): string | undefined
 }
 
 /**
- * Where the highlight goes for an arrow key: down or up one, and stopping at the ends.
+ * Where the highlight goes for a key: down or up one (arrows) or a page (Page Down, Page Up), and stopping at the ends.
  *
  * @param active the highlighted row, or -1 for none
  * @param count how many rows there are
- * @param key `ArrowDown` or `ArrowUp`
+ * @param key `ArrowDown`, `ArrowUp`, `PageDown` or `PageUp` (another key leaves the highlight where it is)
+ * @param page how many rows a page is (the rows that fit in the list)
  * @returns the new row
  */
-export function moved(active: number, count: number, key: string): number {
-  return key === 'ArrowDown' ? Math.min(count - 1, active + 1) : Math.max(0, active - 1)
+export function moved(active: number, count: number, key: string, page = 1): number {
+  const steps: Record<string, number> = { ArrowDown: 1, ArrowUp: -1, PageDown: page, PageUp: -page }
+
+  return Math.min(count - 1, Math.max(0, active + (steps[key] ?? 0)))
 }
