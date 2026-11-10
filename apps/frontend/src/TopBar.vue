@@ -19,13 +19,22 @@
         <path d="m8 8 8 8M16 8l-8 8" />
       </svg>
     </RouterLink>
-    <div class="vehicle" :class="vehicle.tone">
+    <button
+      id="open-connect"
+      type="button"
+      aria-haspopup="dialog"
+      class="vehicle"
+      :class="vehicle.tone"
+      :title="t('connect.open')"
+      @click="connectDialog.show()"
+    >
       <span class="dot" aria-hidden="true" />
       <span class="lines">
         <span class="title">{{ vehicle.title }}</span>
         <span class="sub">{{ vehicle.sub }}</span>
       </span>
-    </div>
+      <Icon name="chevron-down" />
+    </button>
     <dl class="cells">
       <div v-for="cell in cells" :key="cell.id" class="cell" :class="[cell.id, { armed: cell.armed }]">
         <dt>{{ cell.label }}</dt>
@@ -39,7 +48,7 @@
       </div>
     </dl>
     <div class="actions">
-      <Button id="topbar-disconnect" :disabled="state !== 'connected'" @click="configurator.vehicle.disconnect()">
+      <Button id="disconnect-button" :disabled="state !== 'connected'" @click="configurator.vehicle.disconnect()">
         {{ t('connection.disconnect') }}
       </Button>
     </div>
@@ -50,9 +59,11 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
+import Icon from './kit/Icon.vue'
 import { HOME } from './screens'
 import { cellsFor, vehicleCellFor } from './topBar'
 import { useConfigurator } from './useConfigurator'
+import { useConnectDialog } from './useConnectDialog'
 import { useFormat } from './useFormat'
 import { useTelemetry } from './useTelemetry'
 
@@ -61,6 +72,7 @@ import { useTelemetry } from './useTelemetry'
 // vehicle is doing), and an armed vehicle fills its STATE cell amber, with the word ARMED too.
 const { t } = useI18n()
 const configurator = useConfigurator()
+const connectDialog = useConnectDialog()
 const format = useFormat()
 const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)

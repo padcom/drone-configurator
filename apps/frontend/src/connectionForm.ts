@@ -48,6 +48,42 @@ export function requestFor(form: ConnectionForm): ConnectRequest {
   return form.transport === 'serial' ? serialRequest(form) : networkRequest(form)
 }
 
+/** The kinds of link, in the order of the dialog's tabs. */
+export const TRANSPORTS = ['udp', 'tcp', 'serial', 'simulator'] as const
+
+/** The key under which the last connection is kept in the settings. */
+export const LAST_KEY = 'connect.last'
+
+/**
+ * Whether a value read back is a connection form: a known kind of link and the four texts.
+ *
+ * @param value what was read
+ * @returns true when it is
+ */
+function isForm(value: unknown): value is ConnectionForm {
+  const form = value as Record<string, unknown> | null
+  const known = TRANSPORTS.some(transport => transport === form?.transport)
+
+  return known && ['host', 'port', 'device', 'baud'].every(key => typeof form?.[key] === 'string')
+}
+
+/**
+ * The last connection as it is read back from the settings: anything that is not what was written (a file edited by hand,
+ * an older version) is not used, and the form keeps its defaults.
+ *
+ * @param text what the settings hold under `connect.last`, if anything
+ * @returns the form, or null
+ */
+export function parseLast(text: string | undefined): ConnectionForm | null {
+  try {
+    const value: unknown = JSON.parse(text ?? 'null')
+
+    return isForm(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * The device to keep selected when the list of ports changes: the chosen one if it is still there, else the first.
  *

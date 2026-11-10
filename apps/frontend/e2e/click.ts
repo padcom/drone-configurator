@@ -5,6 +5,45 @@ const ATTEMPTS = 3
 const NOTICED_WITHIN_MS = 3000
 
 /**
+ * Opens the Connect dialog from the top bar's vehicle cell, unless it is open already.
+ *
+ * @param app the running app
+ */
+export async function openConnect(app: E2eApp): Promise<void> {
+  const isOpen = 'document.querySelector(\'#connect-button\') !== null'
+  if (!await app.evaluate<boolean>(isOpen)) {
+    await app.click('#open-connect')
+    await app.waitFor(isOpen)
+  }
+}
+
+/** What to connect to: the kind of link and, for UDP and TCP, where. */
+export interface Target {
+  /** The tab: `udp`, `tcp`, `serial` or `simulator`. */
+  transport: string
+  /** The host of a UDP or TCP link. */
+  host?: string
+  /** The port of a UDP or TCP link. */
+  port?: string
+}
+
+/**
+ * Opens the Connect dialog and fills it in: the tab, and the host and port when there are any. It does not press Connect.
+ *
+ * @param app the running app
+ * @param target what to connect to
+ */
+export async function chooseConnection(app: E2eApp, target: Target): Promise<void> {
+  await openConnect(app)
+  await app.click(`#transport-${target.transport}`)
+
+  if (target.host !== undefined && target.port !== undefined) {
+    await app.fill('#host', target.host)
+    await app.fill('#port', target.port)
+  }
+}
+
+/**
  * Clicks Connect once, and waits to see whether the page reacted.
  *
  * @param app the running app
@@ -13,6 +52,7 @@ const NOTICED_WITHIN_MS = 3000
  */
 async function clickOnce(app: E2eApp, changed: string): Promise<boolean> {
   await app.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+  await openConnect(app)
   await app.click('#connect-button')
 
   try {
