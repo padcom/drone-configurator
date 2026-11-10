@@ -25,7 +25,9 @@
     <span class="enum-badge" aria-hidden="true">{{ badge }}</span>
     <span v-if="nameless" :id="`${listId}-noname`" class="visually-hidden">{{ t('enum.noName') }}</span>
     <Icon class="chevron" name="chevron-down" />
-    <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label">
+    <!-- A press anywhere in the list (its scrollbar too) does not take the focus from the field, so the list stays open: the
+         bar can be dragged and clicked. Only a press outside, Escape, Tab and Enter close it. -->
+    <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label" @mousedown.prevent>
       <button v-if="custom" type="button" class="option custom" tabindex="-1" @mousedown.prevent @click="pick(Number(query))">
         <span class="num">{{ query?.trim() }}</span>
         <span>{{ t('enum.useNumber') }}</span>

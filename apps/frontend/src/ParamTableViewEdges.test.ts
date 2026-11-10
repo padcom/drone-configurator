@@ -120,16 +120,17 @@ it('says in the help of the bulk reset how many of the changed parameters the St
   expect(table.get('#reset-all').attributes('title')).toContain('This includes 1 parameter hidden by the Standard view.')
 })
 
-it('brings the selected row, still listed, back into view after a change of view', async () => {
+it('selects the first row of the new list, at the top, after a change of view', async () => {
   const { table, view, handle } = await screen()
   const box = table.get('.param-scroll').element
   Object.defineProperty(box, 'clientHeight', { configurable: true, value: 200 })
-  handle.parameters.select('RTL_ALT')
+  handle.parameters.select('WPNAV_SPEED')
   await flushPromises()
-  box.scrollTop = 0
+  box.scrollTop = 300
 
   await view.get('input[value="standard"]').setValue(true)
   await flushPromises()
 
-  expect(box.scrollTop).toBeGreaterThan(0)
+  expect(box.scrollTop).toBe(0)
+  expect(handle.fields.selected.value).toBe('ARMING_CHECK')
 })

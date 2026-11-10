@@ -189,7 +189,7 @@ describe('the search, with the list beside it', () => {
     await app.press('a')
     await app.waitForText('#list-status', '3 of 12 parameters')
 
-    await chord('ArrowDown')
+    await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'BATT_CAPACITY'`)
     await chord('ArrowDown')
     await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'BATT_LOW_VOLT'`)
     // Said politely to a screen reader: the focus is in the search, which says nothing of the row.
@@ -222,8 +222,9 @@ describe('the list', () => {
     await app.waitForText('#list-status', '12 parameters')
     await app.evaluate(`document.getElementById('param-list').focus()`)
 
-    await selectsOn('ArrowDown', 'BATT_LOW_VOLT')
-    await selectsOn('ArrowUp', 'BATT_CAPACITY')
+    // Clearing the search selected the first row.
+    await selectsOn('ArrowDown', 'BATT_CAPACITY')
+    await selectsOn('ArrowUp', 'ARMING_CHECK')
     await selectsOn('End', 'WPNAV_SPEED')
     await selectsOn('Home', 'ARMING_CHECK')
     await chord('PageDown')
