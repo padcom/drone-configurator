@@ -9,7 +9,11 @@
 <script setup lang="ts">
 // A message that stays until the condition is over. A banner is a status (read out politely, the soft colour of its tone);
 // an `urgent` one is an alert (read out at once, filled): for a failsafe, not for news. The icon says it too, so the tone
-// is never colour alone.
+// is never colour alone. `urgent` fills the banner in its tone, so it is never an alert that looks like news.
+//
+// A screen reader reads a live region when its content changes, not always when a region appears with its text in it: for a
+// banner that comes up on an event, keep the banner in the page (empty, or `v-show`) and set the text after, as the
+// design's own pattern does; a banner that is there from the start (a notice the page opens with) needs nothing.
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 

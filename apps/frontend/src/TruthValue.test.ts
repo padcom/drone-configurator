@@ -45,9 +45,18 @@ describe('a value that was never reported, and one that was written', () => {
   it('never reported: a dash, never a made-up zero, whatever value it is given', () => {
     const never = truth({ state: 'never', value: '0 V' })
 
-    expect(never.get('.value').text()).toBe('—')
+    expect(never.get('.value [aria-hidden="true"]').text()).toBe('—')
+    expect(never.text()).not.toContain('0 V')
     expect(never.find('.note').exists()).toBe(false)
     expect(never.classes()).not.toContain('hatched')
+  })
+
+  it('never reported: says so in words for a screen reader, which can skip a lone dash', () => {
+    const never = truth({ state: 'never' })
+    const hidden = never.get('.value .visually-hidden')
+
+    expect(hidden.text()).toBe('not reported')
+    expect(truth({ state: 'live' }).get('.value .visually-hidden').text()).toBe('not reported')
   })
 
   it('verified write: says it was read back', () => {
@@ -60,8 +69,12 @@ describe('a value that was never reported, and one that was written', () => {
 
 describe('a value without a value', () => {
   it('shows a dash in any state that has no value to show', () => {
-    expect(truth({ state: 'live' }).get('.value').text()).toBe('—')
-    expect(truth({ state: 'stale', ageMs: 4000 }).get('.value').text()).toBe('—')
+    expect(truth({ state: 'live' }).get('.value [aria-hidden="true"]').text()).toBe('—')
+    expect(truth({ state: 'stale', ageMs: 4000 }).get('.value [aria-hidden="true"]').text()).toBe('—')
+  })
+
+  it('says only "stale" for a stale value whose age is not known, not "0 s old"', () => {
+    expect(truth({ state: 'stale', value: '1' }).get('.note').text()).toBe('stale')
   })
 
   it('says its state in an attribute and its label and help as written', () => {

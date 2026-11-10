@@ -79,6 +79,10 @@ describe('a banner', () => {
     expect(banner.classes()).toEqual(expect.arrayContaining(['kit-banner', 'error', 'urgent']))
   })
 
+  it.each(['info', 'warn', 'error'] as const)('is an alert when it is urgent, in the %s tone too', tone => {
+    expect(put(Banner, { props: { tone, urgent: true } }).attributes('role')).toBe('alert')
+  })
+
   it('has its actions beside the words, and none when there are none', () => {
     const none = put(Banner, { slots: { default: 'Saved' } })
     const some = put(Banner, { slots: { default: 'Saved', actions: () => h('button', 'Undo') } })
@@ -113,6 +117,13 @@ describe('an empty state', () => {
     expect(empty.get('h3').text()).toBe('No parameters yet')
     expect(empty.get('.help').text()).toBe('Connect a vehicle.')
     expect(empty.get('.actions button').text()).toBe('Connect')
+  })
+
+  it('has its heading at the level it is asked for, level 3 unless said', () => {
+    const props = { title: 'Nothing', help: 'Wait.' }
+
+    expect(put(EmptyState, { props }).element.querySelector('h3')).not.toBeNull()
+    expect(put(EmptyState, { props: { ...props, level: 2 } }).element.querySelector('h2')).not.toBeNull()
   })
 
   it('has no actions area without an action', () => {
