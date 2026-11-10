@@ -3,7 +3,7 @@
 // and runs this.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
+import { askToWriteQueued, clickConnect, confirmWrite, queueValue, showScreen, waitForQueuedWritten } from './click'
 
 let app: E2eApp
 
@@ -57,12 +57,10 @@ describe('the configurator against the simulated vehicle', () => {
 describe('writing, reconnecting and closing', () => {
   it('asks before writing, then writes and verifies the read-back', async () => {
     await showScreen(app, 'parameters')
-    await app.click('tr[data-id="RTL_ALT"]')
-    await app.fill('#draft', '1600')
-    await app.click('#write')
-    expect(await app.waitForText('#question', 'Set RTL_ALT')).toBe('Set RTL_ALT from 1500 to 1600?')
+    await queueValue(app, 'RTL_ALT', 1500, 1600)
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1600 }])
     await confirmWrite(app)
-    await waitForWritten(app, 'tr[data-id="RTL_ALT"]', 1600)
+    await waitForQueuedWritten(app, 'RTL_ALT', 1600)
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1600/u)
   })
 

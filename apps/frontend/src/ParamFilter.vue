@@ -19,12 +19,13 @@
       <Icon name="close" />
     </button>
   </div>
-  <button id="refresh" type="button" :disabled="!download" @click="parameters.refresh()">{{ t('params.download') }}</button>
+  <Button id="refresh" :disabled="!download" @click="parameters.refresh()">{{ t('params.download') }}</Button>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import { canDownload } from './paramList'
 import { useConfigurator } from './useConfigurator'

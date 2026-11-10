@@ -48,13 +48,13 @@ it('appears when metadata is loaded after the value was typed, and goes when the
 it('is kept by "Add to changes" and said in the question, however late the metadata came', async () => {
   const { handle, questions } = await typed()
   handle.metadata.load(metadataWith(200))
-  handle.staged.stage()
+  handle.staged.sync()
 
   expect(handle.staged.changes.value[0]?.warning).toBe('Outside the usual range 200–… cm')
 
   await handle.staged.writeAll()
 
-  expect(questions).toEqual(['Write 1 parameter to the vehicle (RTL_ALT)? RTL_ALT: Outside the usual range 200–… cm.'])
+  expect(questions).toEqual(['Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 10 (Outside the usual range 200–… cm)'])
 })
 
 it('is not kept by "Add to changes" when the metadata that had it was replaced meanwhile', async () => {
@@ -62,7 +62,7 @@ it('is not kept by "Add to changes" when the metadata that had it was replaced m
   handle.metadata.load(metadataWith(200))
   await sleep(0)
   handle.metadata.load(metadataWith(5))
-  handle.staged.stage()
+  handle.staged.sync()
 
   expect(handle.staged.changes.value[0]?.warning).toBeUndefined()
 })

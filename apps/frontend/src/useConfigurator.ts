@@ -96,8 +96,6 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     draft: parameters.draft,
     draftError: parameters.draftError,
     draftWarning: parameters.draftWarning,
-    writing: parameters.writing,
-    lastWrite: parameters.lastWrite,
     metadata: metadata.metadata,
     metadataError: metadata.error,
     importReview: snapshots.importReview,
@@ -150,6 +148,13 @@ function stagedFor(
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {
       staged.reset()
+    }
+  })
+  // Selecting a parameter that has a change queued shows the value queued for it (what will be written), not the vehicle's.
+  watch(parameters.selected, id => {
+    const queued = staged.changes.value.find(change => change.id === id)
+    if (queued) {
+      parameters.editDraft(String(queued.to))
     }
   })
 
@@ -236,16 +241,10 @@ export function createConfigurator(
   const metadata = useMetadata({ client })
   const settings = startSettings(client)
   const vehicle = useVehicle({ client, fail })
-  const parameters = useParams({
-    client,
-    fail,
-    isConnected: () => vehicle.connection.value.state === 'connected',
-    confirm: askUser,
-    ...draftChecks(metadata),
-  })
+  const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
-  // A vehicle that has just been connected has its parameters downloaded; one that is gone cannot be written to.
-  vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
+  // A vehicle that has just been connected has its parameters downloaded.
+  vehicle.onSession(connected => connected && void parameters.refresh())
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
   listen(client, vehicle, parameters)

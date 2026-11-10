@@ -2,20 +2,26 @@
 // hold, no typed word), and what the browser does with focus (which jsdom does not) is what makes it usable by keyboard.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
+import {
+  askToWriteQueued,
+  cancelConfirm,
+  clickConnect,
+  confirmWrite,
+  queueValue,
+  showScreen,
+  waitForQueuedWritten,
+} from './click'
 
 let app: E2eApp
 
 /**
- * Asks to write RTL_ALT, and waits for the question.
+ * Queues a value for RTL_ALT, asks to write the changes, and waits for the question.
  *
  * @param value the value to write
  */
-async function askToWrite(value: string): Promise<void> {
-  await app.click('tr[data-id="RTL_ALT"]')
-  await app.fill('#draft', value)
-  await app.click('#write')
-  await app.waitForText('#question', `Set RTL_ALT from 1500 to ${value}?`)
+async function askToWrite(value: number): Promise<void> {
+  await queueValue(app, 'RTL_ALT', 1500, value)
+  await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: value }])
 }
 
 /**
@@ -42,7 +48,7 @@ afterAll(async () => {
 
 describe('the confirmation before a write, in the window', () => {
   it('is a modal dialog that names the vehicle, with the safe choice focused', async () => {
-    await askToWrite('1700')
+    await askToWrite(1700)
 
     expect(await app.evaluate<boolean>('document.querySelector(\'#confirm\').matches(\':modal\')')).toBe(true)
     expect(await app.text('#vehicle')).toMatch(/QUADROTOR · ARDUPILOTMEGA · system 1\/1/u)
@@ -55,30 +61,29 @@ describe('the confirmation before a write, in the window', () => {
     expect(await app.evaluate<boolean>('document.querySelector(\'#confirm input\') === null')).toBe(true)
   })
 
-  it('does not write when it is cancelled with Escape, and gives the focus back to Write', async () => {
+  it('does not write when it is cancelled with Escape, and gives the focus back to Write N and verify', async () => {
     await app.press('Escape')
     await app.waitFor('document.querySelector(\'#confirm\') === null')
 
-    expect(await focused()).toBe('write')
+    expect(await focused()).toBe('write-staged')
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1500/u)
   })
 })
 
 describe('answering the confirmation, in the window', () => {
-  it('does not write when it is cancelled with the button', async () => {
-    await app.click('#write')
-    await app.waitForText('#question', 'Set RTL_ALT from 1500 to 1700?')
+  it('does not write when it is cancelled with the button, and the change stays queued', async () => {
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1700 }])
     await cancelConfirm(app)
 
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1500/u)
+    expect(await app.text('#staged')).toMatch(/RTL_ALT\s*1500 → 1700/u)
   })
 
-  it('writes and verifies the read-back when Write is pressed', async () => {
-    await app.click('#write')
-    await app.waitForText('#question', 'Set RTL_ALT from 1500 to 1700?')
+  it('writes and verifies the read-back when Write N and verify is confirmed', async () => {
+    await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1700 }])
     await confirmWrite(app)
 
-    await waitForWritten(app, 'tr[data-id="RTL_ALT"]', 1700)
+    await waitForQueuedWritten(app, 'RTL_ALT', 1700)
     // The focus is not lost to the page: the button that opened the dialog was disabled while it wrote.
     expect(await app.evaluate<boolean>('document.activeElement !== document.body')).toBe(true)
   })

@@ -92,12 +92,21 @@ describe('the column of the detail', () => {
 })
 
 describe('a value the metadata finds unusual', () => {
-  it('is warned about, beside the field, and can still be written', async () => {
+  it('is warned about, beside the field, and is queued all the same', async () => {
     await app.fill('#draft', '10')
 
     expect(await app.waitForText('#draft-warning', /Outside the usual range 30–300000 cm/u)).toContain('cm')
-    expect(await app.evaluate<boolean>(`document.querySelector('#write').disabled`)).toBe(false)
     expect(await app.evaluate<string>(`document.querySelector('#draft').getAttribute('aria-describedby')`)).toBe('draft-warning')
+    expect(await app.waitForText('#staged', /RTL_ALT\s*1500 → 10/u)).toMatch(/Write 1 and verify/u)
+    expect(await app.evaluate<boolean>(`document.querySelector('#write-staged').disabled`)).toBe(false)
+  })
+
+  it('is taken out of the changes when it is put back to the value the vehicle has, with its warning', async () => {
+    await app.fill('#draft', '1500')
+
+    await app.waitFor(`document.querySelector('#staged .staged-row') === null`)
+    expect(await app.text('#draft-warning')).toBe('')
+    expect(await app.text('#write-staged')).toBe('Write 0 and verify')
   })
 
   it('closes cleanly', async () => {

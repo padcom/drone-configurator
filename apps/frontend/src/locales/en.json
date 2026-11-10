@@ -381,7 +381,6 @@
     "close": "Close"
   },
   "staged": {
-    "add": "Add to changes",
     "region": "Changes to write",
     "discard": "Discard {id}",
     "write": "Write {count} and verify",
@@ -389,6 +388,8 @@
     "notVerified": "✕ {detail}",
     "writing": "Writing… waiting for the vehicle to read each value back.",
     "allWritten": "All {count} written and read back.",
+    "alertChanged": "{id}: {detail}.",
+    "alertFailed": "{id} was not confirmed: {detail}. Its value on the vehicle is unknown; download again to see it.",
     "stopped": "Stopped there: the rest weren't written."
   },
   "description": {
@@ -409,11 +410,6 @@
     "select": "Select a parameter to see or change it.",
     "related": "Related",
     "openEnd": "…",
-    "newValue": "Value",
-    "write": "Write",
-    "writing": "Writing… waiting for the vehicle to report the new value.",
-    "verified": "Written and read back: {value}.",
-    "changed": "The vehicle reports {reported}, not {asked}: it changed or refused the value.",
-    "failed": "Not confirmed: {message}. The value on the vehicle is unknown; download again to see it."
+    "newValue": "Value"
   }
 }

@@ -71,7 +71,25 @@ it('keeps a height for the description below 1000 px, and the list of changes sc
 
   expect(stacked).not.toMatch(/\.param-description/u)
   expect(detail).toMatch(/\.param-description \.body\s*\{[^}]*max-height:\s*16rem;[^}]*overflow-y:\s*auto/u)
-  expect(detail).toMatch(/\.staged-list\s*\{[^}]*max-height:\s*10rem;[^}]*overflow-y:\s*auto/u)
+  expect(detail).toMatch(/\.staged-list\s*\{[^}]*max-height:\s*10rem;[^}]*overflow:\s*hidden auto/u)
+})
+
+it('lists the queued changes densely with no dividing lines, the trash can a 44 px target without a tall row', () => {
+  const detail = sheet('paramDetail.css')
+  const row = /\.staged-row\s*\{(?<body>[^}]*)\}/u.exec(detail)?.groups?.body ?? ''
+
+  expect(row).toMatch(/display:\s*grid;/u)
+  expect(row).not.toMatch(/border|padding/u)
+  expect(detail).not.toMatch(/\.staged-row[^{]*\{[^}]*border-bottom/u)
+  expect(detail).toMatch(/\.staged-row \.discard\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*margin:\s*-12px/u)
+})
+
+it('lays the related parameters out a line each in two columns, the text cut short with an ellipsis', () => {
+  const detail = sheet('paramDetail.css')
+  const columns = /grid-template-columns:\s*max-content minmax\(0, 1fr\);[^}]*line-height:\s*1\.25/u
+
+  expect(detail).toMatch(new RegExp(`\\.related-line\\s*\\{[^}]*${columns.source}`, 'u'))
+  expect(detail).toMatch(/\.related-text\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/u)
 })
 
 it('has no rule for a bare main element: the one <main> is the frame\'s, and it is not a grid', () => {

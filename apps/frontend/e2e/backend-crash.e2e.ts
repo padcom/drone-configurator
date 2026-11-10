@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
+import { askToWriteQueued, chooseConnection, clickConnect, confirmWrite, queueValue, showScreen } from './click'
 import { TcpVehicle } from './tcp-vehicle'
 
 const backend = fileURLToPath(new URL('../../../.pico-desktop/e2e/backend', import.meta.url))
@@ -31,15 +31,13 @@ async function startUnansweredWrite(): Promise<void> {
   await connected()
   expect(await app.text(`${row} td.num`)).toBe('1500')
 
-  await app.click(row)
-  await app.fill('#draft', '1600')
-  await app.click('#write')
-  await app.waitForText('#question', 'Set RTL_ALT')
+  await queueValue(app, 'RTL_ALT', 1500, 1600)
+  await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1500, to: 1600 }])
   vehicle.mute()
   const sent = vehicle.nextWrite()
   await confirmWrite(app)
   await sent
-  expect(await app.text('#detail')).toContain('Writing…')
+  expect(await app.text('#staged')).toContain('Writing…')
 }
 
 beforeAll(async () => {
@@ -60,7 +58,12 @@ describe('a backend crash during a parameter write', () => {
 
     killBackend()
     expect(await app.waitForText('#connection', 'lost')).toContain('Connect again to continue')
-    expect(await app.waitForText('#detail', 'Not confirmed')).toContain('The value on the vehicle is unknown')
+    // The change's row says it was not confirmed (a cross, and why), and the run says it stopped there: never done.
+    expect(await app.waitForText('#staged .staged-row[data-id="RTL_ALT"] .line', /^✕/u)).toMatch(/^✕/u)
+    // The alert (live) says which parameter, why, that its value is unknown, and that the run stopped.
+    const alert = await app.waitForText('#staged .staged-status[role="alert"]', 'Stopped there')
+    expect(alert).toMatch(/^RTL_ALT was not confirmed: .+ Its value on the vehicle is unknown; download again to see it\./u)
+    expect(alert).toContain('the rest weren\'t written')
     expect(await app.text(`${row} td.num`)).toBe('1500')
 
     // Long enough for the host to bring a new backend up. It doesn't reconnect on its own, and

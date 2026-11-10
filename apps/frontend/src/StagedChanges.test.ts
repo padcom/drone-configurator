@@ -32,7 +32,7 @@ async function listWith() {
 function add(handle: Awaited<ReturnType<typeof listWith>>['handle'], id: string, value: string): void {
   handle.parameters.select(id)
   handle.parameters.editDraft(value)
-  handle.staged.stage()
+  handle.staged.sync()
 }
 
 it('shows nothing of its own when there are no changes, keeps its name for a screen reader, and cannot write', async () => {
@@ -69,6 +69,28 @@ it('lists each change with the value now and the value to write, and takes one o
   await trash.trigger('click')
 
   expect(wrapper.findAll('.staged-row').map(row => row.get('.name').text())).toEqual(['BATT_LOW_VOLT'])
+})
+
+it('has the name of each change as a link that selects the parameter, showing the value queued for it to edit', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  add(handle, 'BATT_LOW_VOLT', '11')
+  await wrapper.vm.$nextTick()
+  expect(handle.parameters.selected.value).toBe('BATT_LOW_VOLT')
+
+  const link = wrapper.get('.staged-row .name')
+  expect(link.element.tagName).toBe('BUTTON')
+  await link.trigger('click')
+  await flushPromises()
+
+  expect(handle.parameters.selected.value).toBe('RTL_ALT')
+  // Not the vehicle's 1500: what will be written, and the change stays until it is put back or discarded.
+  expect(handle.parameters.draft.value).toBe('1600')
+  expect(handle.staged.changes.value.map(change => change.id)).toEqual(['RTL_ALT', 'BATT_LOW_VOLT'])
+
+  handle.parameters.editDraft('1500')
+  handle.staged.sync()
+  expect(handle.staged.changes.value.map(change => change.id)).toEqual(['BATT_LOW_VOLT'])
 })
 
 it('gives the focus to the trash can of the next row after a discard, else the previous, else the Value field', async () => {
@@ -131,10 +153,25 @@ it('says in an alert that writing stopped, and marks the change that was not con
   await wrapper.vm.$nextTick()
 
   expect(wrapper.get('.staged-row .line.error').text()).toBe('✕ the vehicle reports 1599, not 1600')
-  expect(wrapper.get('.staged-status[role="alert"]').text()).toBe('Stopped there: the rest weren\'t written.')
+  // The live alert says which parameter and why (a value the vehicle changed says what it reports), then that the run stopped.
+  expect(wrapper.get('.staged-status[role="alert"]').text())
+    .toBe('RTL_ALT: the vehicle reports 1599, not 1600. Stopped there: the rest weren\'t written.')
   expect(wrapper.get('.staged-status[role="status"]').text()).toBe('')
   expect(wrapper.find('.staged-row.changed .discard').exists()).toBe(true)
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeUndefined()
+})
+
+it('says in the alert that a write got no answer: which parameter, why, that its value is unknown, then it stopped', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  add(handle, 'BATT_LOW_VOLT', '11')
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'failed', detail: 'TIMEOUT: no reply' }]
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.staged-status[role="alert"]').text()).toBe(
+    'RTL_ALT was not confirmed: TIMEOUT: no reply. Its value on the vehicle is unknown; download again to see it. '
+    + 'Stopped there: the rest weren\'t written.',
+  )
 })
 
 it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {
