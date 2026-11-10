@@ -50,6 +50,12 @@
   color: var(--color-error);
 }
 
+.param-detail .warning {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warn);
+}
+
 /* The two regions that say the outcome of a write: always there, and empty (no height) until there is something to say. */
 .param-detail .notices {
   display: grid;
@@ -99,6 +105,62 @@
 
 .param-edit-actions .kit-button {
   flex: 1;
+}
+
+/* The description: the text and the rows scroll inside a box of their own, so that a long explanation does not push the rest of
+   the detail away. */
+.param-description {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.param-description .hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.param-description .body {
+  max-height: 16rem;
+  padding-right: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.param-description .body:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.param-description .text {
+  margin: 0 0 var(--space-3);
+  line-height: 1.5;
+}
+
+.param-description .rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.param-description .row {
+  display: grid;
+  gap: 2px;
+  font-size: var(--font-size-sm);
+}
+
+.param-description .row dt {
+  color: var(--color-text-muted);
+}
+
+.param-description .row dd {
+  display: grid;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+  white-space: pre-wrap;
 }
 
 .staged {

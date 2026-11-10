@@ -14,6 +14,8 @@ export interface StagedChange {
   from: number
   /** The value to write. */
   to: number
+  /** What the metadata found unusual about it when it was added (the question says so), if anything. */
+  warning?: string
 }
 
 /** How a staged change went when it was written. */
@@ -68,8 +70,9 @@ export interface StagedModel {
  */
 export function questionFor(changes: StagedChange[]): string {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
+  const unusual = changes.filter(change => change.warning).map(change => ` ${change.id}: ${change.warning}.`)
 
-  return `Write ${changes.length} ${noun} to the vehicle (${changes.map(change => change.id).join(', ')})?`
+  return `Write ${changes.length} ${noun} to the vehicle (${changes.map(change => change.id).join(', ')})?${unusual.join('')}`
 }
 
 /**
@@ -140,6 +143,20 @@ class Staged implements StagedModel {
     return !this.writing.value && this.draftValue() !== null
   }
 
+  /**
+   * The change for the draft, with what the metadata finds unusual about it, if anything.
+   *
+   * @param param the selected parameter
+   * @param to the value to write
+   * @returns the change
+   */
+  private changeFor(param: Param, to: number): StagedChange {
+    // Read again now: the metadata may have been loaded or replaced since the draft was typed.
+    const warning = this.deps.parameters.refreshWarning()
+
+    return warning ? { id: param.id, from: param.value, to, warning } : { id: param.id, from: param.value, to }
+  }
+
   stage(): void {
     const param = this.deps.parameters.selectedParam()
     const to = this.draftValue()
@@ -149,7 +166,7 @@ class Staged implements StagedModel {
     // What was written stays on screen until the next change is added; then it is cleared away.
     const written = this.writtenIds()
     const kept = this.changes.value.filter(change => !written.has(change.id) && change.id !== param.id)
-    this.changes.value = [...kept, { id: param.id, from: param.value, to }]
+    this.changes.value = [...kept, this.changeFor(param, to)]
     // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
     this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
   }

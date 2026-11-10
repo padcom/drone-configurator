@@ -30,6 +30,34 @@ function vehicleAnswering(params: ShallowRef<Param[]>, answer: (id: string, valu
 }
 
 /**
+ * The parameters model as far as the staged changes use it: the list, the selected one, its draft and the words about it.
+ *
+ * @param params the list
+ * @returns the model and the refs a test sets
+ */
+function fakeParameters(params: ShallowRef<Param[]>) {
+  const [selected, draftError, draftWarning] = [0, 1, 2].map(() => shallowRef<string | null>(null)) as [
+    ShallowRef<string | null>, ShallowRef<string | null>, ShallowRef<string | null>,
+  ]
+  const draft = shallowRef('')
+  const lock = createWriteLock()
+  const parameters = {
+    params,
+    draft,
+    draftError,
+    draftWarning,
+    refreshWarning: () => draftWarning.value,
+    lock,
+    selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
+    replace: (param: Param) => {
+      params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
+    },
+  } as unknown as ParamsModel
+
+  return { parameters, selected, draft, draftError, draftWarning, lock }
+}
+
+/**
  * A staged model on a fake vehicle: the parameters it holds, and what a write to it answers.
  *
  * @param answer what the vehicle reports after a write: the value read back, or an error to throw
@@ -38,20 +66,7 @@ function vehicleAnswering(params: ShallowRef<Param[]>, answer: (id: string, valu
  */
 function rig(answer: (id: string, value: number) => number | Error, confirm = true) {
   const params = shallowRef<Param[]>([RTL, FENCE, BATT])
-  const selected = shallowRef<string | null>(null)
-  const draft = shallowRef('')
-  const draftError = shallowRef<string | null>(null)
-  const lock = createWriteLock()
-  const parameters = {
-    params,
-    draft,
-    draftError,
-    lock,
-    selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
-    replace: (param: Param) => {
-      params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
-    },
-  } as unknown as ParamsModel
+  const { parameters, selected, draft, draftError, draftWarning, lock } = fakeParameters(params)
   const call = vehicleAnswering(params, answer)
   const askedOnce = vi.fn(() => Promise.resolve(confirm))
   const staged = useStaged({
@@ -65,7 +80,7 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
     draft.value = text
   }
 
-  return { staged, call, askedOnce, pick, params, draftError, lock }
+  return { staged, call, askedOnce, pick, params, draftError, draftWarning, lock }
 }
 
 /**
@@ -129,6 +144,25 @@ describe('a draft that cannot be added', () => {
     staged.discard('RTL_ALT')
 
     expect(staged.changes.value).toEqual([])
+  })
+})
+
+describe('a draft the metadata finds unusual', () => {
+  it('can be added, with its warning, which the question to write says', async () => {
+    const { staged, pick, draftWarning, askedOnce } = rig((_id, value) => value)
+    pick('RTL_ALT', '20')
+    draftWarning.value = 'Outside the usual range 30–300000 cm'
+    expect(staged.canStage()).toBe(true)
+    staged.stage()
+    pick('FENCE_RADIUS', '300')
+    draftWarning.value = null
+    staged.stage()
+
+    await staged.writeAll()
+
+    expect(askedOnce).toHaveBeenCalledWith(
+      'Write 2 parameters to the vehicle (RTL_ALT, FENCE_RADIUS)? RTL_ALT: Outside the usual range 30–300000 cm.',
+    )
   })
 })
 

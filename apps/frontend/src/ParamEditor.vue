@@ -15,9 +15,10 @@
       <p v-if="details.values && !named" class="facts">{{ details.values }}</p>
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
     </template>
-    <!-- The outcome of a write is said in two regions that are always in the page, so that a screen reader reads what is put in
+    <!-- The outcome of a write is said in regions that are always in the page, so that a screen reader reads what is put in
          them: a polite one for "writing" and a verified write, an assertive one for a write that is not confirmed or that the
-         vehicle changed. -->
+         vehicle changed, and a polite one for what the metadata finds unusual about the draft (not wrong: the write is allowed,
+         the vehicle validates and the read-back says what it kept; the field points to it, as it does to an error). -->
     <div class="notices">
       <p class="notice" role="status" :class="polite?.tone">
         <template v-if="polite">
@@ -31,6 +32,7 @@
           {{ assertive.text }}
         </template>
       </p>
+      <p id="draft-warning" class="notice warning" role="status">{{ warningText }}</p>
     </div>
   </div>
   <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="parameters.write()">
@@ -45,7 +47,7 @@
         :options="named"
         :label="t('editor.newValue')"
         :invalid="Boolean(fields.draftError.value)"
-        :describedby="fields.draftError.value ? 'draft-error' : undefined"
+        :describedby="describedBy"
       />
       <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
       <TextInput
@@ -53,7 +55,7 @@
         id="draft"
         :model-value="fields.draft.value"
         :invalid="Boolean(fields.draftError.value)"
-        :aria-describedby="fields.draftError.value ? 'draft-error' : undefined"
+        :aria-describedby="describedBy"
         mono
         large
         autocomplete="off"
@@ -65,6 +67,7 @@
       <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
     </div>
   </form>
+  <ParamDescription />
   <StagedChanges />
   <section v-if="related.length > 0" class="related" :aria-label="t('editor.related')">
     <SectionLabel>{{ t('editor.related') }}</SectionLabel>
@@ -82,6 +85,7 @@ import type { EnumOption } from './enumField'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import SectionLabel from './kit/SectionLabel.vue'
+import ParamDescription from './ParamDescription.vue'
 import StagedChanges from './StagedChanges.vue'
 import TextInput from './kit/TextInput.vue'
 import { canWrite, detailsOf, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
@@ -108,6 +112,16 @@ const writable = computed(() => free.value && canWrite({
   draftError: fields.draftError.value,
   draft: fields.draft.value,
 }, param.value))
+// What the warning region says: the warning, unless there is an error (the error is said instead).
+const warningText = computed(() => fields.draftError.value ? '' : (fields.draftWarning.value ?? ''))
+// The field points to the words about its draft: the error when there is one, else the warning.
+const describedBy = computed(() => {
+  if (fields.draftError.value) {
+    return 'draft-error'
+  }
+
+  return fields.draftWarning.value ? 'draft-warning' : undefined
+})
 const details = computed(() => detailsOf(meta.value, param.value?.value ?? 0, t))
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The field of names holds a number; the draft is the text of it (what the vehicle will be asked, once it is valid).

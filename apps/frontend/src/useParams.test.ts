@@ -23,6 +23,7 @@ async function rig(connected = true, options: MockOptions = {}) {
     isConnected: () => connected,
     confirm: vi.fn().mockResolvedValue(true),
     problemWith: vi.fn((): string | null => null),
+    warningWith: vi.fn((): string | null => null),
   }
 
   return { parameters: useParams(deps), deps, failures }
@@ -97,6 +98,26 @@ it('keeps what was typed, and the problem with it, for the selected parameter', 
   expect(parameters.draft.value).toBe('abc')
   expect(parameters.draftError.value).toBe('a number, please')
   expect(deps.problemWith).toHaveBeenCalledWith(expect.objectContaining({ id: 'RTL_ALT' }), 'abc')
+})
+
+it('keeps a warning from the metadata beside the draft, which does not stop the write and is said in the question', async () => {
+  const { parameters, deps } = await rig()
+  await parameters.refresh()
+  parameters.select('RTL_ALT')
+  deps.warningWith.mockReturnValue('Outside the usual range 30–300000 cm')
+
+  parameters.editDraft('20')
+
+  expect(parameters.draftError.value).toBeNull()
+  expect(parameters.draftWarning.value).toBe('Outside the usual range 30–300000 cm')
+
+  await parameters.write()
+
+  expect(deps.confirm).toHaveBeenCalledWith('Set RTL_ALT from 1500 to 20? Outside the usual range 30–300000 cm.')
+  expect(parameters.lastWrite.value).toEqual({ kind: 'verified', id: 'RTL_ALT', value: 20 })
+
+  parameters.select('RTL_ALT')
+  expect(parameters.draftWarning.value).toBeNull()
 })
 
 it('writes after the user confirms, and the read-back decides the outcome', async () => {

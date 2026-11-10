@@ -1,4 +1,5 @@
-// Whether what the user typed is a value a parameter can take, from its type alone (the metadata adds its own limits).
+// Whether what the user typed is a value a parameter can take, from its type alone (an error), and whether the metadata finds it
+// unusual (a warning).
 import type { Param } from './generated/app'
 import { type Metadata, checkMeta } from './metadata'
 
@@ -72,13 +73,14 @@ export function validateDraft(param: Param, text: string): string | null {
 }
 
 /**
- * Why `text` isn't a valid new value for `param`, by its type and then by the metadata, if any.
+ * What is unusual about `text` as a new value for `param` according to the metadata, if any is loaded: a value outside its
+ * range or not among its values. A warning only: the vehicle validates, and a text that is not a valid value has none.
  *
  * @param metadata the loaded parameter metadata
  * @param param the parameter being edited
  * @param text what the user typed
- * @returns the problem, or null
+ * @returns the warning, or null
  */
-export function draftProblem(metadata: Metadata, param: Param, text: string): string | null {
-  return validateDraft(param, text) ?? checkMeta(metadata.get(param.id), Number(text.trim()))
+export function draftWarning(metadata: Metadata, param: Param, text: string): string | null {
+  return validateDraft(param, text) === null ? checkMeta(metadata.get(param.id), Number(text.trim())) : null
 }

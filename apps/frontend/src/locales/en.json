@@ -392,6 +392,20 @@
     "allWritten": "All {count} written and read back.",
     "stopped": "Stopped there: the rest weren't written."
   },
+  "description": {
+    "heading": "Description",
+    "hintNone": "Load the parameter metadata to see descriptions.",
+    "hintMissing": "The loaded metadata has nothing on this parameter.",
+    "range": "Range",
+    "rangeValue": "{min} to {max}{units}",
+    "units": "Units",
+    "increment": "Step",
+    "values": "Values",
+    "bits": "Bits",
+    "bit": "bit {bit}  {name}",
+    "reboot": "Restart",
+    "rebootYes": "The vehicle must be restarted for a change to take effect."
+  },
   "editor": {
     "select": "Select a parameter to see or change it.",
     "related": "Related",

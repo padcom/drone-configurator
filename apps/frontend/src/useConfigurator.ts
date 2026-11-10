@@ -4,11 +4,11 @@
 // component that reads one field is not woken by the others (docs/frontend-state.md).
 import { type ShallowRef, shallowRef, watch } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
-import { draftProblem } from './draft'
+import { draftWarning, validateDraft } from './draft'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
 import type { State } from './state'
 import { type MetadataModel, useMetadata } from './useMetadata'
-import { type ParamsModel, useParams } from './useParams'
+import { type ParamsDeps, type ParamsModel, useParams } from './useParams'
 import { toastSeverity } from './messages'
 import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
@@ -95,6 +95,7 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     selected: parameters.selected,
     draft: parameters.draft,
     draftError: parameters.draftError,
+    draftWarning: parameters.draftWarning,
     writing: parameters.writing,
     lastWrite: parameters.lastWrite,
     metadata: metadata.metadata,
@@ -189,6 +190,33 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
 }
 
 /**
+ * What the parameters ask about a draft: whether it is a value at all (an error) and what the loaded metadata finds unusual
+ * about it (a warning, which does not stop a write).
+ *
+ * @param metadata the metadata
+ * @returns the two checks
+ */
+function draftChecks(metadata: ReturnType<typeof useMetadata>): Pick<ParamsDeps, 'problemWith' | 'warningWith'> {
+  return {
+    problemWith: validateDraft,
+    warningWith: (param, text) => draftWarning(metadata.metadata.value, param, text),
+  }
+}
+
+/**
+ * Starts following what the backend says: its state, a parameter the vehicle announces, and the vehicle itself.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @param parameters the parameters
+ */
+function listen(client: BackendClient, vehicle: Vehicle, parameters: ParamsModel): void {
+  client.onState(state => vehicle.backendChanged(state))
+  client.onEvent('params.changed', param => parameters.announced(param))
+  void vehicle.watch()
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -213,16 +241,16 @@ export function createConfigurator(
     fail,
     isConnected: () => vehicle.connection.value.state === 'connected',
     confirm: askUser,
-    problemWith: (param, text) => draftProblem(metadata.metadata.value, param, text),
+    ...draftChecks(metadata),
   })
   const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
   // A vehicle that has just been connected has its parameters downloaded; one that is gone cannot be written to.
   vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  client.onState(state => vehicle.backendChanged(state))
-  client.onEvent('params.changed', param => parameters.announced(param))
-  void vehicle.watch()
+  listen(client, vehicle, parameters)
+  // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
+  watch(metadata.metadata, () => parameters.refreshWarning())
   const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
   current = { ...models, fields: fieldsOf(models, error), confirmation }
 
