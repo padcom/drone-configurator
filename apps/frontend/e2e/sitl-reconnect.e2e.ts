@@ -15,6 +15,8 @@ import {
   clickConnect,
   confirmWrite,
   queueValue,
+  showAllParameters,
+  showParameter,
   showScreen,
   waitForQueuedWritten,
 } from './click'
@@ -162,6 +164,7 @@ async function describePage(): Promise<string> {
  */
 async function listStatusOnScreen(wanted: RegExp, left: number): Promise<string> {
   await showScreen(window(), 'parameters')
+  await showAllParameters(window())
 
   try {
     return await window().waitForText('#list-status', wanted, left === 1 ? LAST_LIST_MS : RESHOW_AFTER_MS)
@@ -208,6 +211,8 @@ async function askToWrite(from: number, to: number): Promise<void> {
  * @returns the number
  */
 async function valueOnScreen(id = PARAM): Promise<number> {
+  await showParameter(window(), id)
+
   return Number(await window().text(`tr[data-id="${id}"] td.num`))
 }
 

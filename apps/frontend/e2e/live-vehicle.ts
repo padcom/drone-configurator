@@ -12,11 +12,13 @@ import {
   clickConnect,
   confirmWrite,
   queueValue,
+  showAllParameters,
+  showParameter,
   showScreen,
   waitForQueuedWritten,
 } from './click'
 import type { Endpoint } from './endpoint'
-import { switchRounds } from './switch'
+import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
@@ -35,6 +37,30 @@ export interface LiveVehicle {
   paramStep: number
 }
 
+/**
+ * A page script that scrolls the parameter list from the top to the bottom, a screenful at a time, and gathers what `collect`
+ * (a page expression that gives an array) finds at each place, then puts the list back at the top.
+ *
+ * @param collect a page expression that gives an array
+ * @returns the script, which gives all the arrays joined
+ */
+function scrolledThrough(collect: string): string {
+  return `(async () => {
+    const box = document.querySelector('.param-scroll')
+    const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const found = []
+    for (let top = 0; top < box.scrollHeight; top += box.clientHeight / 2) {
+      box.scrollTop = top
+      await frames()
+      found.push(...${collect})
+    }
+    box.scrollTop = 0
+    await frames()
+
+    return found
+  })()`
+}
+
 /** Registers the checks in the current `describe`. */
 export function liveVehicleTests(vehicle: LiveVehicle): void {
   let app: E2eApp
@@ -48,8 +74,10 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await waitForQueuedWritten(app, vehicle.param, to, vehicle.downloadTimeoutMs)
   }
 
-  function currentValue(): Promise<number> {
-    return app.text(`${row} td.num`).then(Number)
+  async function currentValue(): Promise<number> {
+    await showParameter(app, vehicle.param)
+
+    return Number(await app.text(`${row} td.num`))
   }
 
   /**
@@ -60,6 +88,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     if (await app.evaluate<boolean>(`document.querySelector('#confirm') !== null`)) {
       await cancelConfirm(app)
     }
+    await showAllParameters(app)
     await app.click('#refresh')
     await app.waitForText('#list-status', /^\d+ parameters$/u, vehicle.downloadTimeoutMs)
     const current = await currentValue()
@@ -143,22 +172,31 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await showScreen(app, 'parameters')
   })
 
-  it('has every name and every value inside its column with a description for every parameter loaded', async () => {
-    // Every parameter of the list gets a description, so the grid is the metadata one (described: name and value as wide as
-    // their text, the rest of the row for the description) with the whole list.
+  it('has a description for every parameter, every name and value in its column, and switches within the budget', async () => {
+    // Only the rows in view are drawn, so the list is scrolled through to see all of it. Every parameter gets a description,
+    // so the grid is the metadata one (name and value as wide as their text, the rest of the row for the description).
     await showScreen(app, 'parameters')
-    const ids = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows tr')].map(row => row.dataset.id)`)
+    await showAllParameters(app)
+    const ids = await app.evaluate<string[]>(scrolledThrough(`[...document.querySelectorAll('#rows tr:not(.spacer)')].map(r => r.dataset.id)`))
     const params = Object.fromEntries(ids.map(id => [id, { description: `${id}: what it is for, and what it does to the vehicle` }]))
     writeFileSync(join(files, 'open.json'), JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params }))
     await app.click('#metadata-button')
     await app.waitFor(`document.querySelector('.param-scroll table.described td.meaning') !== null`, vehicle.downloadTimeoutMs)
 
     // The columns are sized from characters (ch) of the face and size of their cells: the widest name and the widest value of
-    // the whole list must fit in them (a text that does not has a scrollWidth over the width of its cell).
-    const spilling = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
-      .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent).slice(0, 5)`)
-    expect(spilling).toEqual([])
-    expect(ids.length).toBeGreaterThanOrEqual(vehicle.minParams)
+    // the whole list must fit in them (a text that does not has a scrollWidth over the width of its cell), at every place.
+    const spilling = await app.evaluate<string[]>(scrolledThrough(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
+      .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent)`))
+    expect(new Set(ids).size).toBeGreaterThanOrEqual(vehicle.minParams)
+    expect(spilling.slice(0, 5)).toEqual([])
+    // Only what is in view (and a few rows each side) is in the page, whatever the length of the list.
+    expect(await app.evaluate<number>(`document.querySelectorAll('#rows tr').length`)).toBeLessThan(120)
+
+    // KeepAlive brings the Parameters screen back: only the rows in view are in it, so that costs the same for 1400 as for 12.
+    const times = await switchRounds(app)
+    expect(Math.max(...Object.values(times)), `${new Set(ids).size} rows, times (ms): ${JSON.stringify(times)}`)
+      .toBeLessThan(SWITCH_LIMIT_MS)
+    await showScreen(app, 'parameters')
   })
 
   it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {
@@ -199,6 +237,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   })
 
   it('disconnects and reconnects', async () => {
+    await showAllParameters(app)
     await app.click('#disconnect-button')
     await app.waitForText('#connection', /^disconnected/u)
     await clickConnect(app)

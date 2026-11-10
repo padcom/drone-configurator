@@ -172,13 +172,12 @@
   color: var(--color-text-muted);
 }
 
-/* With metadata the name and the value are only as wide as their widest text, and the description takes the rest of the row,
-   on one line cut short with an ellipsis (its whole text is the title). The layout is fixed, and the widths of the first two
-   columns are in the table's <colgroup> (ParamTable.vue), in `ch` of the mono face the cells are set in, plus the padding of a
-   cell: in an auto layout the browser measures the text of every row (1370 with a vehicle's whole list) and does it again
-   each time the screen is brought back (120 ms on x64, 270 ms on arm64), in a fixed one it measures none. The rows keep their
-   height; without metadata the table is as it was. */
-.param-scroll table.described {
+/* The layout is fixed, and the widths of the name (and, with metadata, the value) are in the table's <colgroup> (ParamTable.vue),
+   in `ch` of the mono face the cells are set in, plus the padding of a cell: the name and the value are only as wide as their
+   widest text, whatever rows are drawn (only those in view are, so the widths cannot come from the cells), and the last
+   column takes the rest of the row: the value without metadata, with metadata the description, on one line cut short with an
+   ellipsis (its whole text is the title). The rows keep their height. */
+.param-scroll table {
   --cell-padding: 28px;
 
   table-layout: fixed;
@@ -186,12 +185,23 @@
 
 /* A column is measured in the face AND the size of its cells: the names are set in the value-sm size, the values in the size
    the table has (nothing sets one on them), so the value column takes only the mono face. */
-.param-scroll table.described col {
+.param-scroll col {
   font-family: var(--font-mono);
 }
 
-.param-scroll table.described col.col-name {
+.param-scroll col.col-name {
   font-size: var(--font-size-value-sm);
+}
+
+/* The rows that stand for the ones that are not drawn: their height, and nothing else. */
+.param-scroll tbody tr.spacer {
+  pointer-events: none;
+  cursor: default;
+  border-top: 0;
+}
+
+.param-scroll tr.spacer td {
+  padding: 0;
 }
 
 .param-scroll table.described .num {
