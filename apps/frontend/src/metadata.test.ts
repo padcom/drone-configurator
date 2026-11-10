@@ -75,6 +75,31 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
   })
 })
 
+describe('ArduPilot definition files, with the flags of a parameter', () => {
+  it('keep ReadOnly and Volatile (written as the text "True"), and leave them out when the file says nothing', () => {
+    const stats = {
+      json: { version: 0 },
+      STAT_: {
+        STAT_RUNTIME: { Description: 'Total runtime', ReadOnly: 'True' },
+        STAT_FLTTIME: { Description: 'Flight time', Volatile: 'True', ReadOnly: 'False' },
+        STAT_OTHER: { Description: 'Plain' },
+      },
+    }
+
+    const meta = parseMetadata(JSON.stringify(stats)) as Map<string, { readOnly?: boolean, volatile?: boolean }>
+
+    expect(meta.get('STAT_RUNTIME')).toMatchObject({ readOnly: true })
+    expect(meta.get('STAT_FLTTIME')).toMatchObject({ readOnly: false, volatile: true })
+    expect('readOnly' in (meta.get('STAT_OTHER') ?? {})).toBe(false)
+  })
+
+  it('keep them in our own format too', () => {
+    const own = { format: METADATA_FORMAT, version: 1, params: { A: { readOnly: true, volatile: false } } }
+
+    expect(parseMetadata(JSON.stringify(own))).toEqual(new Map([['A', { readOnly: true, volatile: false }]]))
+  })
+})
+
 describe('ArduPilot definition files, in the case of their keys', () => {
   it('are read in the case the generator wrote the keys (capitalised), and in lower case too', () => {
     const a = { displayName: 'Short', description: 'Long', units: 'cm', range: { low: '1', high: '2' } }

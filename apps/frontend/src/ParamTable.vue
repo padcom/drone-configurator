@@ -103,7 +103,7 @@ import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
 import { effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
-import { isCounter } from './calibrationParams'
+import { isBookkeeping } from './calibrationParams'
 import { clockText, initialIfChanged, resetTargets } from './initialValues'
 import { useToasts } from './toasts'
 import { registerListNav } from './paramListNav'
@@ -234,10 +234,23 @@ const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === f
 // and not when the list does (the total changes with every key typed in the search, and the region would speak while the user
 // types).
 const selectionText = ref('')
+
+/**
+ * What the status says of the selected parameter: its name and place, and the value it changed from when it is not at its
+ * initial one (arrowing through the rows does not read the tooltip of the cell).
+ *
+ * @returns the words, or an empty string when nothing is selected in this list
+ */
+function selectionOf(): string {
+  const id = fields.selected.value
+  const initial = initialValueOf(id ?? '')
+  const key = initial === undefined ? 'params.selection' : 'params.selectionChanged'
+
+  return selectedAt.value < 0 ? '' : t(key, { id, position: selectedAt.value + 1, total: rows.value.length, initial })
+}
+
 watch(() => fields.selected.value, () => {
-  selectionText.value = selectedAt.value < 0
-    ? ''
-    : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length })
+  selectionText.value = selectionOf()
 }, { immediate: true })
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
@@ -432,7 +445,11 @@ const status = computed(() => {
 
 // "Reset N changed to initial values": every parameter that is not at its initial value, but the counters that the vehicle keeps
 // by itself (STAT_*). It queues them (the question names every one, and is the only confirmation).
-const targets = computed(() => resetTargets(params.value, fields.initial.value, isCounter))
+const targets = computed(() => {
+  const skip = (id: string) => isBookkeeping(id, fields.metadata.value.get(id))
+
+  return resetTargets(params.value, fields.initial.value, skip)
+})
 const canReset = computed(() => {
   const idle = !parameters.lock.busy.value && fields.list.value !== 'loading' && fields.connection.value.state === 'connected'
 

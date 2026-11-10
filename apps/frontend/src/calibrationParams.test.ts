@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { PARAMS } from './fixtures'
-import { isCalibration, isCounter } from './calibrationParams'
+import { isBookkeeping, isCalibration, isCounter } from './calibrationParams'
 
 it('knows the compass, accelerometer, trim and radio values of a calibration', () => {
   const names = [
@@ -30,6 +30,18 @@ it('does not take other parameters for calibration values', () => {
 
   expect(others.filter(isCalibration)).toEqual([])
   expect(PARAMS.filter(param => isCalibration(param.id))).toEqual([])
+})
+
+it('has the vehicle\'s bookkeeping left out of the bulk reset: counters, counts, the last log, read-only, volatile', () => {
+  const skipped = ['STAT_RUNTIME', 'MIS_TOTAL', 'FENCE_TOTAL', 'RALLY_TOTAL', 'LOG_LASTFILE']
+
+  expect(skipped.filter(id => !isBookkeeping(id))).toEqual([])
+  expect(isBookkeeping('X_ID', { readOnly: true })).toBe(true)
+  expect(isBookkeeping('X_LEARNED', { volatile: true })).toBe(true)
+  // Resettable by the bulk: an ordinary parameter, also one whose metadata says nothing of these flags.
+  const ordinary = ['RTL_ALT', 'COMPASS_OFS_X', 'LOG_BACKEND_TYPE', 'TOTALS_X']
+  expect(ordinary.filter(id => isBookkeeping(id, { readOnly: false }))).toEqual([])
+  expect(isBookkeeping('RTL_ALT', {})).toBe(false)
 })
 
 it('knows the counters the vehicle keeps by itself', () => {

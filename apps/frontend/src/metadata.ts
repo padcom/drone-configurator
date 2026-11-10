@@ -36,6 +36,10 @@ export interface ParamMeta {
   bits?: Record<string, string>
   /** Whether a new value only takes effect after the vehicle is restarted. */
   rebootRequired?: boolean
+  /** The vehicle sets it itself (a counter, a device id): nobody is to write it (ArduPilot's `ReadOnly`). */
+  readOnly?: boolean
+  /** It changes on its own while the vehicle runs (ArduPilot's `Volatile`). */
+  volatile?: boolean
 }
 
 export type Metadata = Map<string, ParamMeta>
@@ -113,6 +117,8 @@ function ownParam(raw: Raw): ParamMeta {
     values: namesOf(raw.values),
     bits: namesOf(raw.bits),
     rebootRequired: typeof raw.rebootRequired === 'boolean' ? raw.rebootRequired : undefined,
+    readOnly: typeof raw.readOnly === 'boolean' ? raw.readOnly : undefined,
+    volatile: typeof raw.volatile === 'boolean' ? raw.volatile : undefined,
   })
 }
 
@@ -140,8 +146,20 @@ function ardupilotParam(raw: Raw): ParamMeta {
     increment: numberOf(field.increment),
     values: namesOf(field.values),
     bits: namesOf(field.bitmask),
-    rebootRequired: field.rebootrequired === undefined ? undefined : field.rebootrequired === 'True' || field.rebootrequired === true,
+    rebootRequired: flagOf(field.rebootrequired),
+    readOnly: flagOf(field.readonly),
+    volatile: flagOf(field.volatile),
   })
+}
+
+/**
+ * A flag of an ArduPilot definition: written as the text "True" (or "False").
+ *
+ * @param value what the file has
+ * @returns whether it is set, or undefined when the file does not say
+ */
+function flagOf(value: unknown): boolean | undefined {
+  return value === undefined ? undefined : value === 'True' || value === true
 }
 
 /**

@@ -34,3 +34,21 @@ export function isCalibration(id: string): boolean {
 export function isCounter(id: string): boolean {
   return id.startsWith('STAT_')
 }
+
+/**
+ * Whether a bulk reset leaves a parameter alone: the bookkeeping of the vehicle, which it keeps by itself and which an old value
+ * would damage: its counters (STAT_*), the counts of stored items (MIS_TOTAL, FENCE_TOTAL, RALLY_TOTAL: put back to 0 after a
+ * mission was uploaded they would cut it off), the number of the last log (LOG_LASTFILE), and what the loaded metadata marks as
+ * read-only or volatile. They can still be reset one by one from the detail.
+ *
+ * @param id the parameter's name
+ * @param meta what the metadata says about it, if it is loaded
+ * @param meta.readOnly the vehicle sets it
+ * @param meta.volatile it changes on its own
+ * @returns true for what the bulk reset skips
+ */
+export function isBookkeeping(id: string, meta?: { readOnly?: boolean, volatile?: boolean }): boolean {
+  const reasons = [isCounter(id), id.endsWith('_TOTAL'), id === 'LOG_LASTFILE', meta?.readOnly, meta?.volatile]
+
+  return reasons.some(Boolean)
+}

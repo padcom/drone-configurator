@@ -2,7 +2,7 @@
 // (what is typed, why it is not a value, what the metadata finds unusual about it). A change is written through the staged
 // changes (useStaged.ts), which share the write lock kept here. It talks to the backend through the client
 // (docs/frontend-state.md).
-import { type ComputedRef, type ShallowRef, computed, shallowRef } from 'vue'
+import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
 import type { Param } from './generated/app'
 import { type Initial, changedIds, initialOf } from './initialValues'
@@ -56,8 +56,8 @@ export interface ParamsModel {
   /**
    * Downloads the list again. A complete download makes its values the initial ones, unless it is the automatic one that
    * follows a link that came back to the same vehicle (`keepInitial`): that updates the values and keeps what "changed" is
-   * measured against, so that a dropped link does not erase every marker. Does nothing while a write holds the lock: a
-   * download in the middle of a write would put half-written values in the initial ones.
+   * measured against, so that a dropped link does not erase every marker. While a write holds the lock it waits for it to be
+   * over: a download in the middle of a write would put half-written values in the initial ones.
    */
   refresh: (options?: { keepInitial?: boolean }) => Promise<void>
   /** Forgets the initial values (the session ended, or another vehicle was connected). */
@@ -99,7 +99,19 @@ class Parameters implements ParamsModel {
    *
    * @param deps the client and the rest of the interface
    */
-  constructor(private readonly deps: ParamsDeps) {}
+  constructor(private readonly deps: ParamsDeps) {
+    // A download that was asked for while a write held the lock is made when the lock is given back.
+    watch(this.lock.busy, busy => {
+      const { deferred } = this
+      if (!busy && deferred) {
+        this.deferred = null
+        void this.download(deferred.keepInitial)
+      }
+    })
+  }
+
+  /** A download that waits for the write that is under way (the automatic one after a link came back). */
+  private deferred: { keepInitial: boolean } | null = null
 
   /**
    * The values of a download that completed are the initial ones, unless the automatic download after a link came back to the
@@ -146,9 +158,22 @@ class Parameters implements ParamsModel {
   }
 
   async refresh(options: { keepInitial?: boolean } = {}): Promise<void> {
-    if (!this.lock.busy.value) {
-      await this.download(options.keepInitial === true)
+    const keepInitial = options.keepInitial === true
+    if (this.lock.busy.value) {
+      this.defer(keepInitial)
+    } else {
+      await this.download(keepInitial)
     }
+  }
+
+  /**
+   * Not in the middle of a write (the values would be half and half): later, when it is over. Of two that wait, the one that
+   * does not keep the initial values (another vehicle) wins.
+   *
+   * @param keepInitial whether the download that is asked for keeps the initial values
+   */
+  private defer(keepInitial: boolean): void {
+    this.deferred = { keepInitial: keepInitial && (this.deferred?.keepInitial ?? true) }
   }
 
   clearInitial(): void {

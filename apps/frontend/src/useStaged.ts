@@ -56,6 +56,8 @@ export interface StagedModel {
   readonly written: ShallowRef<{ count: number } | null>
   /** Goes up each time queued resets were taken out because the vehicle has their value already: how many. Null until then. */
   readonly matched: ShallowRef<{ count: number } | null>
+  /** Goes up each time a run left changes out because they were taken out while its question was open: how many. */
+  readonly leftOut: ShallowRef<{ count: number } | null>
   /**
    * Takes out the changes whose value the vehicle has now (a download after they were queued, a write by another ground
    * station): there is nothing left to write for them. Not while the changes are being written.
@@ -128,6 +130,9 @@ class Staged implements StagedModel {
   readonly results = shallowRef<StagedResult[]>([])
   readonly written = shallowRef<{ count: number } | null>(null)
   readonly matched = shallowRef<{ count: number } | null>(null)
+  readonly leftOut = shallowRef<{ count: number } | null>(null)
+  /** How many changes of the run under way were taken out while its question was open, and so are left out of it. */
+  private skipped = 0
   readonly writing = shallowRef(false)
   readonly readBack = shallowRef(0)
   /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
@@ -271,6 +276,7 @@ class Staged implements StagedModel {
     this.results.value = []
     this.written.value = null
     this.matched.value = null
+    this.leftOut.value = null
     this.readBack.value = 0
     // The Value field does not keep a value that was queued for a vehicle that is gone.
     const param = this.deps.parameters.selectedParam()
@@ -324,9 +330,26 @@ class Staged implements StagedModel {
    */
   private async writeFrom(changes: StagedChange[], epoch: number): Promise<void> {
     const [change, ...rest] = changes
-    if (!this.stillStaged(change, epoch)) {
+    if (change === undefined || epoch !== this.epoch) {
       return
     }
+    if (this.changes.value.some(staged => staged.id === change.id)) {
+      await this.writeStaged(change, rest, epoch)
+    } else {
+      // Taken out while the question was open (the vehicle has its value now): left out, and the run goes on with the rest.
+      this.skipped += 1
+      await this.writeFrom(rest, epoch)
+    }
+  }
+
+  /**
+   * Writes one change, and goes on with the rest when the vehicle read it back.
+   *
+   * @param change the change
+   * @param rest the changes after it
+   * @param epoch the run these belong to
+   */
+  private async writeStaged(change: StagedChange, rest: StagedChange[], epoch: number): Promise<void> {
     const result = await this.writeOne(change)
     if (epoch !== this.epoch) {
       return
@@ -339,17 +362,6 @@ class Staged implements StagedModel {
     } else {
       this.results.value = [...this.results.value, result]
     }
-  }
-
-  /**
-   * Whether a change is there and still in the list of this run (the changes were not forgotten meanwhile).
-   *
-   * @param change the next change, if there is one
-   * @param epoch the run
-   * @returns true if it is still to be written
-   */
-  private stillStaged(change: StagedChange | undefined, epoch: number): change is StagedChange {
-    return change !== undefined && epoch === this.epoch && this.changes.value.some(staged => staged.id === change.id)
   }
 
   /**
@@ -423,6 +435,7 @@ class Staged implements StagedModel {
     this.writing.value = true
     this.results.value = []
     this.readBack.value = 0
+    this.skipped = 0
 
     try {
       await this.writeFrom(todo, epoch)
@@ -441,8 +454,11 @@ class Staged implements StagedModel {
    * @param count how many changes the run had
    */
   private finish(count: number): void {
-    if (this.readBack.value === count && count > 0) {
-      this.written.value = { count }
+    if (this.skipped > 0) {
+      this.leftOut.value = { count: this.skipped }
+    }
+    if (this.readBack.value > 0 && this.readBack.value + this.skipped === count) {
+      this.written.value = { count: this.readBack.value }
     }
   }
 }

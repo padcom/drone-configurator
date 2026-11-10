@@ -114,23 +114,44 @@ it('queues the initial value of every changed parameter, and writes nothing', as
     .toContain('2 queued to go back to their initial values. Press Write to send them.')
 })
 
-it('leaves the counters STAT_* out of the bulk reset, and every other parameter that changed in', async () => {
-  const stat = { id: 'STAT_RUNTIME', index: 50, kind: 'int' as const, type: 'UINT32', value: 100 }
-  const params = [...PARAMS, stat]
+it('leaves the vehicle\'s bookkeeping out of the bulk reset, and every other parameter that changed in', async () => {
+  const extra = ['STAT_RUNTIME', 'MIS_TOTAL', 'FENCE_TOTAL', 'RALLY_TOTAL', 'LOG_LASTFILE', 'DEV_ID_X', 'LEARNED_Y']
+    .map((id, i) => ({ id, index: 50 + i, kind: 'int' as const, type: 'UINT32', value: 0 }))
+  const params = [...PARAMS, ...extra]
   const handle = createConfigurator(mockBackend())
   const table = mount(ParamTable, withI18n)
   await flushPromises()
   feed(handle, { params, list: 'complete', connection: { state: 'connected', vehicle: { ...VEHICLE } } })
   await table.vm.$nextTick()
+  // The loaded metadata says that one is read-only and another volatile.
+  feed(handle, { metadata: new Map([['DEV_ID_X', { readOnly: true }], ['LEARNED_Y', { volatile: true }]]) })
   feed(handle, { initial: initialOf(params, 0) })
-  const now: Record<string, number> = { STAT_RUNTIME: 500, RTL_ALT: 1 }
-  feed(handle, { params: params.map(p => p.id in now ? { ...p, value: now[p.id] as number } : p) })
+  feed(handle, { params: params.map(p => ({ ...p, value: p.id === 'RTL_ALT' ? 1 : 12 })) })
   await table.vm.$nextTick()
 
-  expect(table.get('#reset-all').text()).toBe('Reset 1 changed to initial values')
+  // Every parameter changed (the extra ones are 0 → 12, RTL_ALT 1500 → 1, the rest 12): only the ones that are not bookkeeping.
+  const names = handle.parameters.changed.value
+  expect(extra.every(param => names.has(param.id))).toBe(true)
   await table.get('#reset-all').trigger('click')
 
-  expect(handle.staged.changes.value.map(c => c.id)).toEqual(['RTL_ALT'])
+  const queued = handle.staged.changes.value.map(c => c.id)
+  expect(queued).toContain('RTL_ALT')
+  expect(queued.filter(id => extra.some(param => param.id === id))).toEqual([])
+  expect(table.get('#reset-all').attributes('title')).toContain('MIS_TOTAL, FENCE_TOTAL, RALLY_TOTAL, LOG_LASTFILE')
+  expect(table.get('#reset-all').attributes('title')).toContain('read-only or volatile')
+})
+
+it('says in the polite selection status what a changed parameter was before, and nothing of it for one that is not', async () => {
+  const { table, handle } = await screen()
+  change(handle, 'RTL_ALT', 1600)
+  handle.parameters.select('BATT_CAPACITY')
+  await table.vm.$nextTick()
+  expect(table.get('#selection-status').text()).toBe('BATT_CAPACITY, 2 of 12')
+
+  handle.parameters.select('RTL_ALT')
+  await table.vm.$nextTick()
+
+  expect(table.get('#selection-status').text()).toBe('RTL_ALT, 9 of 12, changed from 1500')
 })
 
 it('is off while a write holds the lock, while the list is downloading, and without a connection', async () => {

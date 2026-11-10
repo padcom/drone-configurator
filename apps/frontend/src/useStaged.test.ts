@@ -564,6 +564,42 @@ describe('queued changes that the vehicle has the value of', () => {
   })
 })
 
+describe('a change taken out while the question is open', () => {
+  it('is left out of the run, which goes on with the rest and says so', async () => {
+    const { staged, pick, askedOnce, params, call } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+    askedOnce.mockImplementationOnce(() => {
+      // A download gave the vehicle the value queued for the first, while the question was asked.
+      params.value = params.value.map(param => param.id === 'RTL_ALT' ? { ...param, value: 1600 } : param)
+      staged.dropMatching()
+
+      return Promise.resolve(true)
+    })
+
+    await staged.writeAll()
+
+    expect(call.mock.calls.map(([, payload]) => payload.id)).toEqual(['FENCE_RADIUS'])
+    expect(staged.changes.value).toEqual([])
+    expect(staged.leftOut.value).toEqual({ count: 1 })
+    expect(staged.written.value).toEqual({ count: 1 })
+  })
+})
+
+describe('a run with nothing taken out', () => {
+  it('says nothing was left out', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+
+    await staged.writeAll()
+
+    expect(staged.leftOut.value).toBeNull()
+  })
+})
+
 describe('the question', () => {
   it('says one parameter in the singular, with the value it has and the value it is given', () => {
     expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1 → 2')

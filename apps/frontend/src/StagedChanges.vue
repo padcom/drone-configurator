@@ -66,6 +66,12 @@ watch(staged.matched, matched => {
     useToasts().push({ severity: 'success', text: t('staged.alreadyMatch', { count: matched.count }) })
   }
 })
+// Changes that were taken out while the question was open (the vehicle got their values meanwhile) are left out of the run: said.
+watch(staged.leftOut, left => {
+  if (left) {
+    useToasts().push({ severity: 'warning', text: t('staged.leftOut', { count: left.count }), long: true })
+  }
+})
 watch(staged.written, done => {
   if (done) {
     useToasts().push({ id: 'staged-written', severity: 'success', text: t('staged.allWritten', { count: done.count }) })

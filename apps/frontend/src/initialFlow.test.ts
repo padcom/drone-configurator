@@ -136,6 +136,33 @@ it('take the queued resets out when a download gives the vehicle their values, a
   expect(handle.staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
 })
 
+it('keep the automatic download of a link that came back, that waited for a write, from replacing them', async () => {
+  const { handle } = await connected()
+  const before = handle.fields.initial.value
+  pretendRtlWasWritten(handle)
+  const release = handle.parameters.lock.take()
+  vi.setSystemTime(LATER)
+
+  await handle.parameters.refresh({ keepInitial: true })
+  expect(handle.fields.list.value).toBe('complete')
+  release?.()
+  await vi.waitFor(() => expect(handle.fields.params.value.find(p => p.id === 'RTL_ALT')?.value).toBe(1500))
+
+  expect(handle.fields.initial.value).toBe(before)
+})
+
+it('let a connection to another vehicle that waited for a write replace them', async () => {
+  const { handle } = await connected()
+  const release = handle.parameters.lock.take()
+  vi.setSystemTime(LATER)
+
+  await handle.parameters.refresh({ keepInitial: true })
+  await handle.parameters.refresh()
+  release?.()
+
+  await vi.waitFor(() => expect(handle.fields.initial.value?.at).toBeGreaterThanOrEqual(LATER))
+})
+
 it('does not download while a write holds the lock', async () => {
   const { handle } = await connected()
   const release = handle.parameters.lock.take()
