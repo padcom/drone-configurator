@@ -20,8 +20,8 @@
   min-width: 0;
 }
 
-/* A screen has room around it, except Fly, which fills the whole area. */
-.app-main > :not(.fly) {
+/* A screen has room around it, except Fly and Parameters, which fill the whole area. */
+.app-main > :not(.fly, .params-layout) {
   margin: var(--space-4);
 }
 

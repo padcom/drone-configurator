@@ -1,20 +1,23 @@
 // What the parameter list shows, from plain values (no DOM). Vue's templates escape the text; the words come from
 // the translations.
 import type { Param } from './generated/app'
+import { inGroup } from './paramGroups'
 import type { State } from './state'
 import type { Translate } from './telemetryCards'
 
 /**
- * The parameters matching the filter (case-insensitive, anywhere in the name).
+ * The parameters matching the filter (case-insensitive, anywhere in the name), and in the chosen group.
  *
  * @param params every parameter
  * @param filter what the user typed
+ * @param group the chosen group, or an empty string for all of them
  * @returns the matching parameters, in their order
  */
-export function visibleParams(params: Param[], filter: string): Param[] {
+export function visibleParams(params: Param[], filter: string, group = ''): Param[] {
   const needle = filter.trim().toUpperCase()
+  const wanted = (param: Param) => param.id.includes(needle) && inGroup(param.id, group)
 
-  return needle === '' ? params : params.filter(param => param.id.includes(needle))
+  return needle === '' && group === '' ? params : params.filter(wanted)
 }
 
 /** The messages for a list that is not there: not asked for yet, on its way, or failed. */

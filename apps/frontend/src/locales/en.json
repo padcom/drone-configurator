@@ -329,11 +329,27 @@
   },
   "params": {
     "filter": "Filter parameters",
+    "clearSearch": "Clear search",
     "download": "Download",
+    "groups": "Parameter groups",
+    "allGroups": "All",
+    "list": "Parameters",
+    "detail": "The selected parameter",
     "column": {
       "name": "Name",
       "value": "Value",
-      "type": "Type"
+      "meaning": "Meaning"
+    },
+    "empty": {
+      "title": "No parameters yet",
+      "none": "Connect a vehicle to read its parameters.",
+      "loading": "The parameters are on their way.",
+      "failed": "The download failed. Press Download to try again."
+    },
+    "noMatch": {
+      "title": "No parameter matches",
+      "help": "Try another name, or another group.",
+      "clear": "Show all parameters"
     },
     "status": {
       "none": "Connect to download the parameters.",
