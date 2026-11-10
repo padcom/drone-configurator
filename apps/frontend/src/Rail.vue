@@ -1,5 +1,5 @@
 <template>
-  <nav class="rail" :aria-label="t('shell.navigation')">
+  <nav class="rail" tabindex="-1" :aria-label="t('shell.navigation')">
     <div class="rail-main">
       <RouterLink v-for="screen in main" :key="screen.id" :to="screen.path" class="rail-item">
         <span class="rail-icon"><Icon :name="screen.icon" /></span>

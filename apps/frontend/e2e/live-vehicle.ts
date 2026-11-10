@@ -114,11 +114,11 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.waitFor(`document.querySelector('#telemetry').textContent !== ${JSON.stringify(before)}`)
   })
 
-  it('shows it in the details of the Flight data screen, beside the map and the display', async () => {
-    const titles = await app.evaluate<string[]>(`[...document.querySelectorAll('.flight-pane h2')].map(h => h.textContent)`)
+  it('shows it in the aside of the Fly screen, beside the map', async () => {
+    const regions = await app.evaluate<string[]>(`[...document.querySelectorAll('.fly > *')].map(r => r.className)`)
 
-    expect(titles).toEqual(['Map', 'Display', 'Details'])
-    expect(await app.evaluate<boolean>(`document.querySelector('[role="tabpanel"] #telemetry') !== null`)).toBe(true)
+    expect(regions).toEqual(['fly-main', 'fly-aside'])
+    expect(await app.evaluate<boolean>(`document.querySelector('.fly-aside #telemetry') !== null`)).toBe(true)
   })
 
   it('switches between Flight data and Parameters, with the whole list loaded: the times are recorded', async () => {

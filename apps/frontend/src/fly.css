@@ -1,0 +1,66 @@
+/*
+ * The Fly screen (screens/FlightData.vue): tokens only. A map at the left and an aside at the right; from 1000 px wide
+ * they fill the screen area and each scrolls on its own, below that they stack and the page scrolls.
+ */
+
+.fly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  min-height: 100%;
+}
+
+.fly-main {
+  display: flex;
+  flex: 999 1 520px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fly-map {
+  position: relative;
+  display: flex;
+  flex: 1 1 480px;
+  align-items: center;
+  justify-content: center;
+  min-height: 480px;
+  overflow: hidden;
+  background: var(--color-map);
+}
+
+.fly-aside {
+  box-sizing: border-box;
+  flex: 1 1 400px;
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+}
+
+.fly-aside:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+@media (width >= 1000px) {
+  .fly {
+    flex-wrap: nowrap;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .fly-main {
+    min-height: 0;
+  }
+
+  .fly-map {
+    min-height: 240px;
+  }
+
+  .fly-aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
