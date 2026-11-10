@@ -45,13 +45,18 @@ async function chord(key: string, modifiers = 0): Promise<void> {
  */
 const ctrl = (key: string) => chord(key, CTRL)
 
-/** A page expression: the toasts are at the top right, under the top bar, and not over the Write button. */
-const TOAST_UNDER_TOP_BAR = `(() => {
-  const toast = document.querySelector('.kit-toasts').getBoundingClientRect()
-  const bar = document.querySelector('#top-bar').getBoundingClientRect()
-  const write = document.querySelector('#write-staged').getBoundingClientRect()
+/** A page expression: toasts at the bottom left, 16 px right of the rail, over neither the Write button nor the toolbar. */
+const TOAST_AT_BOTTOM_LEFT = `(() => {
+  const toast = document.querySelector('.kit-toast').getBoundingClientRect()
+  const rail = document.querySelector('.rail').getBoundingClientRect()
+  const apart = selector => {
+    const box = document.querySelector(selector).getBoundingClientRect()
 
-  return toast.top >= bar.bottom - 1 && toast.right <= window.innerWidth && toast.bottom < write.top
+    return toast.right <= box.left || toast.left >= box.right || toast.bottom <= box.top || toast.top >= box.bottom
+  }
+
+  return Math.round(toast.left - rail.right) === 16 && toast.bottom < window.innerHeight
+    && ['#write-staged', '#filter', '#metadata-button', '.param-name'].every(s => !document.querySelector(s) || apart(s))
 })()`
 
 /**
@@ -203,7 +208,7 @@ describe('the Write button\'s key', () => {
 
     await app.waitFor(`document.querySelector('.kit-toast.sev-success')?.textContent.includes('All 1 written and read back.')`)
     await app.waitFor(`document.querySelector('#staged .staged-row') === null`)
-    expect(await app.evaluate<boolean>(TOAST_UNDER_TOP_BAR)).toBe(true)
+    expect(await app.evaluate<boolean>(TOAST_AT_BOTTOM_LEFT)).toBe(true)
   })
 
   it('does nothing on Ctrl+Enter with nothing queued', async () => {

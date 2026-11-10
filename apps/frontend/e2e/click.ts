@@ -323,7 +323,7 @@ const WRITE_BUTTON_UNCOVERED = `(() => {
  * the others here), so a press that did not open it is made again. The last one fails with what the button looked like.
  *
  * Nothing may cover the button when it is pressed. (The toasts used to be in the bottom right corner, over the button, and a
- * press went to a toast; they are at the top right now. The check stays: it costs nothing when the button is free.)
+ * press went to a toast; they are at the bottom left now. The check stays: it costs nothing when the button is free.)
  *
  * @param app the running app
  * @param question the question that is expected
