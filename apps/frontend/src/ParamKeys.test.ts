@@ -251,6 +251,21 @@ it('moves the selected row from the search with Up, Down, Page Up and Page Down;
   expect(await inSearch('End')).toBe(false)
 })
 
+it('says politely which parameter the selection is on, and where in the list, when it moves', async () => {
+  const { wrapper, handle } = list()
+  const status = wrapper.get('#selection-status')
+
+  expect(status.attributes('role')).toBe('status')
+  expect(status.text()).toBe('')
+  handle.parameters.select('BATT_LOW_VOLT')
+  await wrapper.vm.$nextTick()
+
+  expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
+  feed(handle, { filter: 'batt' })
+  await wrapper.vm.$nextTick()
+  expect(status.text()).toBe('BATT_LOW_VOLT, 2 of 2')
+})
+
 it('leaves the keys of the search alone with a modifier, in an input method\'s composition, and with no rows', () => {
   const { handle } = list()
   const search = onPage(ParamFilter).get('#filter')

@@ -53,7 +53,7 @@ it('tells a load that went well in a success toast, with how many of the paramet
   expect(shown()).toEqual([['success', 'Loaded descriptions for 2 of 12 parameters']])
 })
 
-it('tells a file that matched nothing, and a file that could not be read, in error toasts, each time it is tried', async () => {
+it('tells a file that matched nothing, and one that could not be read, in an error toast each, the last alone', async () => {
   const handle = await screen()
 
   handle.metadata.load(fileOf({ NOT_ON_THIS_VEHICLE: { description: 'x' } }))
@@ -62,13 +62,25 @@ it('tells a file that matched nothing, and a file that could not be read, in err
 
   handle.metadata.load('{')
   await flushPromises()
-  expect(shown().at(-1)).toEqual(['error', 'Can\'t load the metadata: not JSON.'])
-  const before = useToasts().visible.value.length
-  // The same failure again is news too (counted on the toast that is there).
+  expect(shown()).toEqual([['error', 'Can\'t load the metadata: not JSON.']])
+  // The same failure again is told again, and is still one toast.
   handle.metadata.load('{')
   await flushPromises()
-  expect(useToasts().visible.value.some(toast => toast.count > 1)).toBe(true)
-  expect(useToasts().visible.value.length).toBe(before)
+  expect(shown()).toEqual([['error', 'Can\'t load the metadata: not JSON.']])
+})
+
+it('leaves one toast, the last result: error, error, then a good file', async () => {
+  const handle = await screen()
+
+  handle.metadata.load('{')
+  await flushPromises()
+  handle.metadata.load('[')
+  await flushPromises()
+  expect(useToasts().visible.value).toHaveLength(1)
+  handle.metadata.load(fileOf({ RTL_ALT: { description: 'Return altitude' } }))
+  await flushPromises()
+
+  expect(shown()).toEqual([['success', 'Loaded descriptions for 1 of 12 parameters']])
 })
 
 it('says a partial match as a warning', async () => {
@@ -90,5 +102,5 @@ it('keeps an error toast until it is dismissed: a file that matched nothing, and
   handle.metadata.load('{')
   await flushPromises()
 
-  expect(useToasts().visible.value.map(toast => toast.sticky)).toEqual([true, true])
+  expect(useToasts().visible.value.map(toast => toast.sticky)).toEqual([true])
 })

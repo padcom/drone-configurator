@@ -62,6 +62,9 @@
     </EmptyState>
   </div>
   <p id="list-status" class="list-status muted">{{ status }}</p>
+  <!-- Said politely when the selection moves (Up and Down in the search move it with the focus staying there, so nothing else
+       says which parameter it is now on). Always in the page, so that what is put in it is read out. -->
+  <p id="selection-status" class="visually-hidden" role="status">{{ selectionText }}</p>
 </template>
 
 <script setup lang="ts">
@@ -125,6 +128,9 @@ function measure(): void {
 // The selected row, by its place in the list (-1: none, or it is filtered out), and the row the table points to for a screen
 // reader (only while it is drawn: the rows far from the view are not in the page).
 const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === fields.selected.value))
+const selectionText = computed(() => selectedAt.value < 0
+  ? ''
+  : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length }))
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
 

@@ -148,28 +148,27 @@
   background: var(--color-surface-raised);
 }
 
-/* The selected row: a tinted row with a bar of the accent at its left edge, so that it is never only a colour (and apart from
-   the hover, which is a plain lighter row). */
+/* The selected row, when the list does not have the focus: a soft tint and nothing else (no bar at its left edge, so that the
+   bar below is a sign of the focus and of nothing else). */
 .param-scroll tbody tr.selected {
   background: var(--color-accent-soft);
 }
 
-.param-scroll tbody tr.selected > :first-child {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
-}
-
-/* The list is one tab stop (the table takes the focus, and points to its selected row). It has no ring of its own, as the
-   groups' list and the Value field have none: the focus indicator is the selected row, stronger while the list has the focus
-   (a tint of more accent and a full, wider bar at its left edge), and so different from the same row without the focus. */
-.param-scroll table:focus-visible {
+/* The list is one tab stop (the table takes the focus, and points to its selected row). It has no ring round the whole list (a
+   decision of the leader: the scroll box clipped it at the top, too) and no outline on the row. The focus indicator is the bar
+   of the accent at the left edge of the selected row, 4 px and full: it is there while the list has the focus and not at all
+   otherwise (against the row, a contrast of the accent with the tint, well over 3:1), with a stronger tint to go with it. It is
+   there for any focus of the list (`:focus`, not `:focus-visible`: a click on a row focuses the list too, and the bar is
+   the only sign of it, there being no ring). */
+.param-scroll table:focus {
   outline: none;
 }
 
-.param-scroll table:focus-visible tbody tr.selected {
+.param-scroll table:focus tbody tr.selected {
   background: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
 }
 
-.param-scroll table:focus-visible tbody tr.selected > :first-child {
+.param-scroll table:focus tbody tr.selected > :first-child {
   box-shadow: inset 4px 0 0 var(--color-accent);
 }
 

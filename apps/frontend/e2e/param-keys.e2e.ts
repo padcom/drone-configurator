@@ -191,6 +191,8 @@ describe('the search, with the list beside it', () => {
     await chord('ArrowDown')
     await chord('ArrowDown')
     await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'BATT_LOW_VOLT'`)
+    // Said politely to a screen reader: the focus is in the search, which says nothing of the row.
+    expect(await app.text('#selection-status')).toBe('BATT_LOW_VOLT, 2 of 3')
     await chord('PageDown')
     await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'SERIAL0_BAUD'`)
     // The focus never left the search, and the caret did not move: the next letter is added at the end.
