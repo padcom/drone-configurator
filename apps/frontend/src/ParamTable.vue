@@ -71,6 +71,7 @@ import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
 import { effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
+import { registerListNav } from './paramListNav'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowWindow'
@@ -211,6 +212,19 @@ function focusValue(event: KeyboardEvent): void {
 }
 
 /**
+ * Moves the selection for a key (the search box asks for this too, with the focus staying in it): a row, a page, or an end.
+ *
+ * @param key the key
+ * @returns true if the selection moved, false for a key that moves nothing or a list with no rows
+ */
+function moveSelection(key: string): boolean {
+  const target = movedRow(key, selectedAt.value, rows.value.length, pageNow())
+  selectAt(target)
+
+  return target >= 0
+}
+
+/**
  * Whether a key press is the key alone (Ctrl, Alt and Meta with a key are other shortcuts).
  *
  * @param event the key press
@@ -233,10 +247,8 @@ function onKey(event: KeyboardEvent): void {
 
     return
   }
-  const target = movedRow(event.key, selectedAt.value, rows.value.length, pageNow())
-  if (target >= 0) {
+  if (moveSelection(event.key)) {
     event.preventDefault()
-    selectAt(target)
   }
 }
 
@@ -279,8 +291,10 @@ function onScroll(): void {
 }
 
 let observer: ResizeObserver | undefined
+let forgetNav: (() => void) | undefined
 onMounted(() => {
   measure()
+  forgetNav = registerListNav(moveSelection)
 
   if (scroller.value && typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(measure)
@@ -290,6 +304,7 @@ onMounted(() => {
 // A screen that was kept alive comes back with its scroll box scrolled to wherever the browser put it.
 onActivated(measure)
 onBeforeUnmount(() => {
+  forgetNav?.()
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })

@@ -78,4 +78,17 @@ it('says a partial match as a warning', async () => {
   await flushPromises()
 
   expect(shown()).toEqual([['warning', '2 of 12 parameters matched, 1 have a description']])
+  // Read for as long as an error is, not the 6 s of a plain warning.
+  expect(useToasts().visible.value.map(toast => [toast.long, toast.sticky])).toEqual([[true, false]])
+})
+
+it('keeps an error toast until it is dismissed: a file that matched nothing, and one that could not be read', async () => {
+  const handle = await screen()
+
+  handle.metadata.load(fileOf({ NOT_ON_THIS_VEHICLE: { description: 'x' } }))
+  await flushPromises()
+  handle.metadata.load('{')
+  await flushPromises()
+
+  expect(useToasts().visible.value.map(toast => toast.sticky)).toEqual([true, true])
 })

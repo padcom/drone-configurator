@@ -54,6 +54,28 @@ it('has one thin scrollbar for every scrollable box, and one colour of line unde
   expect(params).toMatch(/\.param-scroll th,\s*\.param-scroll td\s*\{[^}]*border-bottom:\s*1px solid var\(--color-border\);/u)
 })
 
+it('has no ring round the list of parameters; its focus is the selected row, which differs from the unfocused one', () => {
+  // The groups' list and the Value field have no ring either. The focus indicator is the selected row with the focus in the list:
+  // a stronger tint and a full, wider accent bar at its left edge, against the unfocused row's soft tint and bar.
+  const declarations = (selector: string) => {
+    const block = new RegExp(String.raw`${selector.replaceAll('.', String.raw`\.`)}\s*\{(?<body>[^}]*)\}`, 'u').exec(params)
+
+    return block?.groups?.body ?? ''
+  }
+
+  expect(params).not.toMatch(/\.param-scroll[^{]*\{[^}]*outline:\s*2px/u)
+  expect(declarations('.param-scroll table:focus-visible')).toMatch(/outline:\s*none/u)
+  const unfocused = declarations('.param-scroll tbody tr.selected')
+  const focused = declarations('.param-scroll table:focus-visible tbody tr.selected')
+  expect(unfocused).toMatch(/background:/u)
+  expect(focused).toMatch(/background:/u)
+  expect(focused).not.toBe(unfocused)
+  const bar = declarations('.param-scroll tbody tr.selected > :first-child')
+  const focusedBar = declarations('.param-scroll table:focus-visible tbody tr.selected > :first-child')
+  expect(bar).toMatch(/inset 3px 0 0/u)
+  expect(focusedBar).toMatch(/inset 4px 0 0 var\(--color-accent\)/u)
+})
+
 it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })

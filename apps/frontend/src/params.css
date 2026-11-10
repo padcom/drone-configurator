@@ -148,30 +148,29 @@
   background: var(--color-surface-raised);
 }
 
-/* The selected row: a tinted row with a bar of the accent at its left edge, in both states, so that it is never only a colour
-   (and apart from the hover, which is a plain lighter row). */
+/* The selected row: a tinted row with a bar of the accent at its left edge, so that it is never only a colour (and apart from
+   the hover, which is a plain lighter row). */
 .param-scroll tbody tr.selected {
   background: var(--color-accent-soft);
 }
 
 .param-scroll tbody tr.selected > :first-child {
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
 
-/* The list is one tab stop (the table takes the focus, and points to its selected row): its ring is inset on the scroll box,
-   which does not scroll away or get clipped, as one on the table would. With the focus in the list the selected row is
-   stronger. */
+/* The list is one tab stop (the table takes the focus, and points to its selected row). It has no ring of its own, as the
+   groups' list and the Value field have none: the focus indicator is the selected row, stronger while the list has the focus
+   (a tint of more accent and a full, wider bar at its left edge), and so different from the same row without the focus. */
 .param-scroll table:focus-visible {
   outline: none;
 }
 
-.param-scroll:has(table:focus-visible) {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+.param-scroll table:focus-visible tbody tr.selected {
+  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
 }
 
-.param-scroll:has(table:focus-visible) tbody tr.selected {
-  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-bg));
+.param-scroll table:focus-visible tbody tr.selected > :first-child {
+  box-shadow: inset 4px 0 0 var(--color-accent);
 }
 
 .param-scroll td,

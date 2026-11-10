@@ -180,6 +180,27 @@ describe('the search', () => {
     await app.waitFor(`document.activeElement?.id === 'filter'`)
     expect(await app.evaluate<string>(`document.querySelector('#filter').placeholder`)).toBe('Filter parameters (Ctrl+/)')
   })
+})
+
+describe('the search, with the list beside it', () => {
+  it('moves the selected row with Down and Page Down while typing goes on in the search', async () => {
+    await app.press('b')
+    await app.press('a')
+    await app.waitForText('#list-status', '3 of 12 parameters')
+
+    await chord('ArrowDown')
+    await chord('ArrowDown')
+    await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'BATT_LOW_VOLT'`)
+    await chord('PageDown')
+    await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === 'SERIAL0_BAUD'`)
+    // The focus never left the search, and the caret did not move: the next letter is added at the end.
+    expect(await focused()).toBe('filter')
+    await app.press('t')
+
+    await app.waitForText('#list-status', '2 of 12 parameters')
+    expect(await app.evaluate<string>(`document.querySelector('#filter').value`)).toBe('bat')
+    expect(await focused()).toBe('filter')
+  })
 
   it('goes to the list on Enter in the search, selecting its first row when the selected one is not in the list', async () => {
     await search('batt')

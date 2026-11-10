@@ -16,6 +16,8 @@ export interface ToastInput {
   text: string
   /** Stays until it is dismissed (for what must not be missed). */
   sticky?: boolean
+  /** Stays as long as an error does (for what takes a while to read), though it is not one. */
+  long?: boolean
 }
 
 /** A toast as it is kept. */
@@ -30,6 +32,8 @@ export interface Toast {
   text: string
   /** Whether it stays until dismissed. */
   sticky: boolean
+  /** Whether it stays as long as an error does. */
+  long: boolean
   /** How many times the same event was pushed within the de-duplication window (1 for a single one). */
   count: number
 }
@@ -94,6 +98,16 @@ interface Entry {
 }
 
 /**
+ * How long a toast asked to stay.
+ *
+ * @param input what is pushed
+ * @returns whether it stays until dismissed, and whether it stays as long as an error does
+ */
+function lasting(input: ToastInput): Pick<Toast, 'sticky' | 'long'> {
+  return { sticky: input.sticky ?? false, long: input.long ?? false }
+}
+
+/**
  * How long a toast stays.
  *
  * @param toast the toast
@@ -104,7 +118,7 @@ function lifeOf(toast: Toast): number {
     return Number.POSITIVE_INFINITY
   }
 
-  return toast.severity === 'error' ? ERROR_SHOW_MS : SHOW_MS
+  return toast.severity === 'error' || toast.long ? ERROR_SHOW_MS : SHOW_MS
 }
 
 /**
@@ -142,7 +156,7 @@ class ToastQueue implements Toasts {
       id: input.id ?? input.text,
       severity: input.severity,
       text: input.text,
-      sticky: input.sticky ?? false,
+      ...lasting(input),
       count: 1,
     })
     this.entries.push({ toast, lastAt: this.clock.now(), left: lifeOf(toast), since: 0, holds: new Set() })

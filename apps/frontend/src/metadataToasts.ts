@@ -17,7 +17,7 @@ export function useMetadataToasts(): void {
     if (fields.metadataError.value) {
       // No id of its own: a toast is the same event as another when its words are (the same failure twice is counted), and a
       // different result is a toast of its own.
-      toasts.push({ severity: 'error', text: fields.metadataError.value })
+      toasts.push({ severity: 'error', text: fields.metadataError.value, sticky: true })
 
       return
     }
@@ -29,7 +29,8 @@ export function useMetadataToasts(): void {
       known: fields.metadata.value.size,
     }, t)
     if (toast) {
-      toasts.push(toast)
+      // A file that matched nothing is an error that stays until it is dismissed; a partial match is read for as long as one.
+      toasts.push({ ...toast, sticky: toast.severity === 'error', long: toast.severity === 'warning' })
     }
   }
 
