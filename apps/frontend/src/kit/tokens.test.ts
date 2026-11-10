@@ -86,6 +86,11 @@ const PAIRS: [text: string, backgrounds: string[]][] = [
   ['--color-on-accent', ['--color-accent']],
   // The connection badges: the page's background colour as text on the ok and the warn colour.
   ['--color-bg', ['--color-ok', '--color-warn']],
+  // Dim text, a link under the pointer, and the text of a filled amber or red button or banner.
+  ['--color-text-dim', ['--color-bg', '--color-surface', '--color-surface-raised']],
+  ['--color-accent-hover', ['--color-bg', '--color-surface', '--color-surface-raised']],
+  ['--color-on-warn', ['--color-warn', '--color-warn-progress']],
+  ['--color-on-error', ['--color-error', '--color-error-progress']],
 ]
 
 describe('the design tokens', () => {
@@ -101,6 +106,59 @@ describe('the design tokens', () => {
     for (const name of ['--space-1', '--space-5', '--font-body', '--font-size-md', '--radius-md', '--control-height']) {
       expect(tokens[name], name).toBeTruthy()
     }
+  })
+})
+
+describe('the design tokens of the control-center design', () => {
+  it('have the colours that the boards wrote as literals', () => {
+    for (const name of [
+      '--color-text-dim',
+      '--color-on-warn',
+      '--color-on-error',
+      '--color-warn-progress',
+      '--color-error-progress',
+      '--color-accent-hover',
+      '--color-map',
+    ]) {
+      expect(tokens[name], name).toMatch(/^#[\da-f]{6}$/u)
+    }
+    expect(tokens['--hud-sky']).toBe('#2c6e9b')
+    expect(tokens['--hud-ground']).toBe('#6b4a2b')
+    expect(tokens['--hatch']).toContain('repeating-linear-gradient')
+  })
+})
+
+describe('the design tokens, the scales', () => {
+  it('have the type scale, the spacing steps and the layout sizes', () => {
+    for (const name of [
+      '--font-size-label',
+      '--font-size-value-sm',
+      '--font-size-value',
+      '--font-size-card',
+      '--font-size-title',
+      '--font-size-2xl',
+      '--font-size-hero',
+      '--letter-spacing-label',
+      '--space-6',
+      '--space-7',
+      '--space-8',
+    ]) {
+      expect(tokens[name], name).toBeTruthy()
+    }
+    expect([tokens['--rail-width'], tokens['--topbar-height']]).toEqual(['76px', '64px'])
+  })
+
+  it('go up with their number: each space is larger than the one before', () => {
+    const steps = [1, 2, 3, 4, 5, 6, 7, 8].map(n => Number.parseInt(tokens[`--space-${n}`] ?? '0', 10))
+
+    expect(steps).toEqual([4, 8, 12, 16, 20, 24, 28, 32])
+  })
+})
+
+describe('the design tokens, the typefaces', () => {
+  it('name the two typefaces first, with a system font after them', () => {
+    expect(tokens['--font-body']).toMatch(/^'IBM Plex Sans', /u)
+    expect(tokens['--font-mono']).toMatch(/^'IBM Plex Mono', /u)
   })
 })
 

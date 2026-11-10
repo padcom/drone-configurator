@@ -1,3 +1,4 @@
+import './kit/fonts.css'
 import './kit/tokens.css'
 import './kit/kit.css'
 import './kit/panels.css'

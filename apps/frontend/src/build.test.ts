@@ -100,6 +100,22 @@ describe('the production build and the component gallery', () => {
   })
 })
 
+describe('the fonts in the production build', () => {
+  it('has IBM Plex Sans in four weights and IBM Plex Mono in three, as woff2 files of its own', () => {
+    expect(built.files.filter(f => /^ibm-plex-sans-latin-(?:400|500|600|700)-normal-.+\.woff2$/u.test(f))).toHaveLength(4)
+    expect(built.files.filter(f => /^ibm-plex-mono-latin-(?:400|500|600)-normal-.+\.woff2$/u.test(f))).toHaveLength(3)
+    expect(built.css).toContain('font-family:IBM Plex Sans')
+    expect(built.css).toContain('font-family:IBM Plex Mono')
+  })
+
+  it('fetches nothing from the network: every font and every URL in the CSS is the app\'s own', () => {
+    expect(built.css).not.toMatch(/url\(\s*["']?(?:https?:)?\/\//iu)
+    expect(built.css).not.toMatch(/@import/iu)
+    expect(built.html).not.toMatch(/fonts\.(?:googleapis|gstatic)\.com/iu)
+    expect(built.js).not.toMatch(/fonts\.(?:googleapis|gstatic)\.com/iu)
+  })
+})
+
 describe('the messages in the production build', () => {
   it('are in the bundle, precompiled, so vue-i18n needs no message compiler', () => {
     // The document title comes from src/locales/en.json through vue-i18n, so the messages are in the bundle.

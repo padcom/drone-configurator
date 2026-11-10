@@ -75,3 +75,13 @@ it('shows every colour token', () => {
   expect(swatches).toContain('--color-border-strong')
   expect(swatches.length).toBeGreaterThanOrEqual(11)
 })
+
+it('shows the colours the boards wrote as literals, every size of the type scale, and the hatch', () => {
+  const page = gallery()
+  const swatches = page.findAll('.swatch').map(swatch => swatch.attributes('data-token'))
+
+  expect(swatches).toEqual(expect.arrayContaining(['--color-text-dim', '--color-on-warn', '--color-on-error', '--color-map']))
+  expect(page.findAll('.specimen').map(row => row.attributes('data-size'))).toContain('--font-size-hero')
+  expect(page.findAll('.specimen')).toHaveLength(11)
+  expect(page.find('.hatch-sample').exists()).toBe(true)
+})

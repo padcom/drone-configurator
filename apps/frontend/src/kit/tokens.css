@@ -31,22 +31,54 @@
   --color-error: #ff7a70;
   --color-error-soft: #3f1a1a;
   --color-route: #ee82f5;
+  /* Dim text: the prefix of a parameter name, a star, a hint that nothing depends on (7 : 1 on the page). */
+  --color-text-dim: #8fa0ae;
+  /* Text on a filled amber or red button or banner. */
+  --color-on-warn: #241600;
+  --color-on-error: #2a0806;
+  /* The fill that grows while a hold button is held, lighter than the button it is on. */
+  --color-warn-progress: #ffd08a;
+  --color-error-progress: #ffb0a9;
+  /* The accent link or control under the pointer. */
+  --color-accent-hover: #8fe7f7;
+  /* The ground of a map. */
+  --color-map: #10171e;
+  /* The display (HUD): the sky and the ground. */
+  --hud-sky: #2c6e9b;
+  --hud-ground: #6b4a2b;
+  /* The pattern that marks a value that is not live (stale, last heard): thin diagonal lines, so that it is never colour alone. */
+  --hatch: repeating-linear-gradient(135deg, transparent 0 8px, var(--color-border) 8px 9px);
 
-  /* Spacing: a 4 px step. */
+  /* Spacing: a 4 px step, each larger than the one before: 20 is the padding of a panel, 28 and 32 of the main area. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
 
-  /* Type. */
+  /* Layout: the rail is 76 px wide and the top bar 64 px high. */
+  --rail-width: 76px;
+  --topbar-height: 64px;
+
+  /* Type. A label is small capitals with letter spacing; a value is in the mono face. */
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-size-label: 0.6875rem;
   --font-size-sm: 0.78rem;
   --font-size-md: 0.875rem;
+  --font-size-value-sm: 0.8125rem;
+  --font-size-value: 1rem;
   --font-size-lg: 1.25rem;
+  --font-size-card: 1.3125rem;
+  --font-size-title: 1.5rem;
   --font-size-xl: 1.625rem;
+  --font-size-2xl: 1.875rem;
+  --font-size-hero: 2.625rem;
   --line-height: 1.4;
+  --letter-spacing-label: 0.08em;
 
   /* Shape. */
   --radius-sm: 2px;
