@@ -120,6 +120,25 @@ describe('a field of names', () => {
   })
 })
 
+describe('the search by what a parameter does', () => {
+  it('finds a parameter by a word of its description, marks the words, and calls a typo a close match', async () => {
+    await app.evaluate(`document.activeElement.blur()`)
+    await app.fill('#filter', 'return altitude')
+
+    await app.waitForText('#list-status', '1 of 12 parameters')
+    const ids = `[...document.querySelectorAll('#rows tr')].map(r => r.dataset.id)`
+    const marks = `[...document.querySelectorAll('#rows tr .meaning mark')].map(m => m.textContent.toLowerCase())`
+    expect(await app.evaluate<string[]>(ids)).toEqual(['RTL_ALT'])
+    expect(await app.evaluate<string[]>(marks)).toEqual(['return', 'altitude'])
+
+    await app.fill('#filter', 'batery')
+    await app.waitForText('#list-status', '1 of 12 parameters')
+    expect(await app.text('tr[data-id="BATT_CAPACITY"] .why')).toMatch(/close match/iu)
+    await app.fill('#filter', '')
+    await app.waitForText('#list-status', '12 parameters')
+  })
+})
+
 describe('the groups', () => {
   it('clear the search when one is chosen, and keep a search that is typed after', async () => {
     await app.evaluate(`document.activeElement.blur()`)

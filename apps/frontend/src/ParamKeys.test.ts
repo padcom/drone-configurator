@@ -214,7 +214,7 @@ it('hints the shortcut of the search, and gives the focus to the list on Enter i
   list()
   const input = onPage(ParamFilter).get('#filter')
 
-  expect(input.attributes('placeholder')).toBe('Filter parameters (Ctrl+/)')
+  expect(input.attributes('placeholder')).toBe('Search by name or what it does (Ctrl+/)')
   expect(input.attributes('aria-keyshortcuts')).toBe('Control+/')
   await input.trigger('keydown', { key: 'Enter' })
 

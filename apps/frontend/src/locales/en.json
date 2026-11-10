@@ -319,13 +319,14 @@
   },
   "params": {
     "filter": "Filter parameters",
-    "filterHint": "Filter parameters (Ctrl+/)",
+    "filterHint": "Search by name or what it does (Ctrl+/)",
     "clearSearch": "Clear search",
     "download": "Download",
     "groups": "Parameter groups",
     "allGroups": "All",
     "list": "Parameters",
     "selection": "{id}, {position} of {total}",
+    "closeMatch": "Close match",
     "detail": "The selected parameter",
     "column": {
       "name": "Name",

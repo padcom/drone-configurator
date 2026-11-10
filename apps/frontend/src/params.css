@@ -192,6 +192,21 @@
   text-align: left;
 }
 
+/* The words that were searched for, in the name and in the description, and the mark of a close match. */
+.param-scroll mark {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: 2px;
+}
+
+.param-scroll .why {
+  margin-right: var(--space-2);
+  font-size: var(--font-size-label);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+}
+
 .param-scroll .prefix {
   color: var(--color-text-dim);
 }
