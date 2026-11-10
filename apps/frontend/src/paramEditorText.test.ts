@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { canWrite, detailsOf, metadataText, writeNotice } from './paramEditor'
+import { canWrite, detailsOf, metadataText, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
 import { translate } from './testing'
 import { PARAMS, VEHICLE } from './fixtures'
 
@@ -10,7 +10,7 @@ it('describes each write outcome', () => {
   expect(writeNotice(false, { kind: 'verified', id: param.id, value: 2000 }, param.id, translate))
     .toEqual({ tone: 'ok', text: 'Written and read back: 2000.' })
   expect(writeNotice(false, { kind: 'changed', id: param.id, asked: 2000, reported: 1999 }, param.id, translate))
-    .toEqual({ tone: 'warn', text: 'The vehicle reports 1999, not 2000: it changed or refused the value.' })
+    .toEqual({ tone: 'error', text: 'The vehicle reports 1999, not 2000: it changed or refused the value.' })
   expect(writeNotice(false, { kind: 'failed', id: param.id, message: 'TIMEOUT: no reply' }, param.id, translate)).toEqual({
     tone: 'error',
     text: 'Not confirmed: TIMEOUT: no reply. The value on the vehicle is unknown; download again to see it.',
@@ -49,4 +49,26 @@ it('adds what the metadata knows: unit, named value, range, allowed values', () 
 it('says how many parameters the metadata describes, or nothing', () => {
   expect(metadataText(3, translate)).toBe('Metadata for 3 parameters')
   expect(metadataText(0, translate)).toBe('')
+})
+
+it('takes a number from the text of a draft, and the fallback for text that is not one', () => {
+  expect([numberOr('1600', 5), numberOr('2.5', 5), numberOr('', 5), numberOr('  ', 5), numberOr('abc', 5)])
+    .toEqual([1600, 2.5, 5, 5, 5])
+})
+
+it('turns the named values of the metadata into options, by number, and none without them', () => {
+  expect(valueOptions({ values: { 2: 'Always land', 0: 'Report only' } }))
+    .toEqual([{ value: 0, label: 'Report only' }, { value: 2, label: 'Always land' }])
+  expect(valueOptions({ description: 'x' })).toBeNull()
+  expect(valueOptions(undefined)).toBeNull()
+  expect(valueOptions({ values: { one: 'Not a number' } })).toBeNull()
+})
+
+it('relates a parameter to the others of its group, at most six, and to none when it has no group of its own', () => {
+  const many = Array.from({ length: 9 }, (_, i) => ({ ...param, id: `X_${i}`, index: i }))
+
+  expect(relatedTo(PARAMS, 'BATT_CAPACITY')).toEqual(['BATT_LOW_VOLT'])
+  expect(relatedTo(many, 'X_0')).toEqual(['X_1', 'X_2', 'X_3', 'X_4', 'X_5', 'X_6'])
+  expect(relatedTo([{ ...param, id: 'FRAME' }, { ...param, id: 'RC' }], 'FRAME')).toEqual([])
+  expect(relatedTo(PARAMS, 'RTL_ALT')).toEqual([])
 })

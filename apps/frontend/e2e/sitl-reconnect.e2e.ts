@@ -94,6 +94,27 @@ async function restoreAndSeeResumed(): Promise<void> {
 }
 
 /**
+ * What the page looks like, for a test that has just failed to see the list (issue #343: `#list-status` stayed empty): the
+ * link, every element called `#list-status`, how many rows there are, which screen is shown, and whether the page is visible.
+ *
+ * @returns lines of text for the failure message
+ */
+async function describePage(): Promise<string> {
+  try {
+    return await window().evaluate<string>(`JSON.stringify({
+      connection: document.querySelector('#connection')?.innerText,
+      statuses: [...document.querySelectorAll('#list-status')].map(e => [e.textContent, e.outerHTML.slice(0, 120)]),
+      rows: document.querySelectorAll('#rows tr').length,
+      hash: location.hash,
+      hidden: document.hidden,
+      error: document.querySelector('.error')?.textContent,
+    })`)
+  } catch (error) {
+    return `(the page could not be read: ${String(error)})`
+  }
+}
+
+/**
  * Shows the parameters and waits until they are a whole list: the count it had before, or any count the first time.
  *
  * @returns how many parameters there are
@@ -101,7 +122,10 @@ async function restoreAndSeeResumed(): Promise<void> {
 async function seeWholeList(): Promise<number> {
   await showScreen(window(), 'parameters')
   const known = counts.at(-1)
-  const status = await window().waitForText('#list-status', new RegExp(`^${known ?? '\\d+'} parameters$`, 'u'), RECONNECT_MS)
+  const wanted = new RegExp(`^${known ?? '\\d+'} parameters$`, 'u')
+  const status = await window().waitForText('#list-status', wanted, RECONNECT_MS).catch(async (error: unknown) => {
+    throw new Error(`${String(error)}\n${await describePage()}`, { cause: error })
+  })
   const count = Number.parseInt(status, 10)
   counts.push(count)
 
