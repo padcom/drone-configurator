@@ -9,6 +9,9 @@
 }
 
 body { margin: 0; background: var(--color-bg); color: var(--color-text); }
+/* One scrollbar for every scrollable box: the thin one of the dark theme (the groups' list had it, the others the wide
+   default). A rule of a class that says otherwise (the rail hides its own) is more specific and wins. */
+* { scrollbar-width: thin; }
 /* Always in the page (a live region), but with no box of its own until it has something to say: an empty one with a margin was
    a bar of the page's dark background between the top bar and the screen. */
 #settings-notice { margin: 0; }

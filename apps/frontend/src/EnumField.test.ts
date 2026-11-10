@@ -178,6 +178,125 @@ describe('the keys', () => {
   })
 })
 
+describe('a long list', () => {
+  it('scrolls the highlighted option into view on every move, and moves by a page with Page Down and Page Up', async () => {
+    const options = Array.from({ length: 30 }, (_, value) => ({ value, label: `Option ${value}` }))
+    const scrolled = vi.fn()
+    Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scrolled })
+    mounted = mount(EnumField, {
+      ...withI18n,
+      props: { modelValue: 0, options, label: 'Mode' },
+      attachTo: document.body,
+    })
+    const input = mounted.get('input')
+    const active = () => input.attributes('aria-activedescendant')?.split('-').at(-1)
+
+    await input.trigger('keydown', { key: 'ArrowDown' })
+    expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest' })
+    await input.trigger('keydown', { key: 'PageDown' })
+    // The list is not laid out here, so a page is the fallback of 5 rows: 0, then 5.
+    expect(active()).toBe('5')
+    await input.trigger('keydown', { key: 'PageDown' })
+    expect(active()).toBe('10')
+    await input.trigger('keydown', { key: 'PageUp' })
+    expect(active()).toBe('5')
+    expect(scrolled.mock.calls.length).toBeGreaterThanOrEqual(4)
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+})
+
+/**
+ * A field of 30 options, open (it opens when it is focused), in a page that cannot scroll.
+ *
+ * @returns the field, its input, and what the highlight is on (the number of the option, or undefined for none)
+ */
+async function longField() {
+  const options = Array.from({ length: 30 }, (_, value) => ({ value, label: `Option ${value}` }))
+  mounted = mount(EnumField, { ...withI18n, props: { modelValue: 3, options, label: 'Mode' }, attachTo: document.body })
+  const input = mounted.get('input')
+  await input.trigger('focus')
+  const at = () => input.attributes('aria-activedescendant')?.split('-').at(-1)
+
+  return { wrapper: mounted, input, at }
+}
+
+it('moves the highlight by a row with Up and Down, clamped at the ends (no wrapping); the ARIA state follows', async () => {
+  const { input, at } = await longField()
+
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(at()).toBe('0')
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(at()).toBe('0')
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  expect(at()).toBe('1')
+  expect(input.attributes('aria-expanded')).toBe('true')
+  expect(input.attributes('aria-controls')).toBeDefined()
+})
+
+it('moves the highlight to the first and the last option with Home and End when nothing is typed', async () => {
+  const { input, at } = await longField()
+
+  await input.trigger('keydown', { key: 'End' })
+  expect(at()).toBe('29')
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  expect(at()).toBe('29')
+  await input.trigger('keydown', { key: 'Home' })
+  expect(at()).toBe('0')
+})
+
+it('leaves Home and End to the caret while something is typed', async () => {
+  const { input } = await longField()
+  await input.setValue('Option 1')
+  const home = new KeyboardEvent('keydown', { key: 'Home', cancelable: true, bubbles: true })
+
+  input.element.dispatchEvent(home)
+
+  expect(home.defaultPrevented).toBe(false)
+})
+
+it('takes the highlighted option with Enter and closes: aria-expanded goes false, the option is the value', async () => {
+  const { wrapper, input } = await longField()
+  await input.trigger('keydown', { key: 'PageDown' })
+
+  await input.trigger('keydown', { key: 'Enter' })
+
+  expect(picked(wrapper)).toEqual([4])
+  expect(input.attributes('aria-expanded')).toBe('false')
+  expect(input.attributes('aria-activedescendant')).toBeUndefined()
+  expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+})
+
+it('closes with Escape without choosing anything, and keeps the value; the key does not go on to the screen', async () => {
+  const { wrapper, input } = await longField()
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  const reached = vi.fn()
+  document.addEventListener('keydown', reached)
+
+  const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true })
+  input.element.dispatchEvent(escape)
+  await wrapper.vm.$nextTick()
+  document.removeEventListener('keydown', reached)
+
+  expect(picked(wrapper)).toEqual([])
+  expect(input.attributes('aria-expanded')).toBe('false')
+  expect(escape.defaultPrevented).toBe(true)
+  expect(reached).not.toHaveBeenCalled()
+  expect((input.element as HTMLInputElement).value).toBe('Option 3')
+})
+
+it('takes the highlighted option on Ctrl+Enter as on Enter, and lets the key go on to the Write shortcut', async () => {
+  const { wrapper, input } = await longField()
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  const reached = vi.fn()
+  document.addEventListener('keydown', reached)
+
+  await input.trigger('keydown', { key: 'Enter', ctrlKey: true })
+  document.removeEventListener('keydown', reached)
+
+  expect(picked(wrapper)).toEqual([0])
+  expect(reached).toHaveBeenCalledTimes(1)
+})
+
 describe('the keys that close and the one that takes the only option', () => {
   it('close the list with Escape, and forget what was typed', async () => {
     const wrapper = field(1)

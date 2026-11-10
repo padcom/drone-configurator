@@ -13,6 +13,7 @@ it('gives the components each field as the very ref that the composable holding 
   expect(fields.draft).toBe(parameters.draft)
   expect(fields.metadata).toBe(metadata.metadata)
   expect(fields.metadataError).toBe(metadata.error)
+  expect(fields.metadataLoads).toBe(metadata.loads)
   expect(fields.importReview).toBe(snapshots.importReview)
   expect(fields.backup).toBe(snapshots.backup)
 })
@@ -35,6 +36,7 @@ it('has a ref for every field of the state, and nothing else', () => {
     'list',
     'metadata',
     'metadataError',
+    'metadataLoads',
     'missing',
     'notice',
     'params',

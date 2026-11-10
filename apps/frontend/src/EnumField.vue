@@ -58,10 +58,11 @@
 // shown as it is. Typing filters the list by name or by the start of the number; the arrows move, Enter takes the
 // highlighted row (or a typed number), Escape closes, and leaving the field with a number typed uses it. It takes any number
 // that is typed, 2.5 and -1 as well: a screen whose value is an integer (or never negative) refuses the others itself.
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type EnumOption, chosen, isNumber, matching, moved, nameOf, offersNumber, typedNumber } from './enumField'
 import Icon from './kit/Icon.vue'
+import { rowsPerPage } from './kit/menuKeys'
 
 const props = defineProps<{
   /** The options, with the numbers the vehicle stores. */
@@ -77,6 +78,9 @@ const props = defineProps<{
 }>()
 
 const model = defineModel<number>({ required: true })
+
+/** How many rows a page is when the list is not laid out (and so cannot say). */
+const FALLBACK_PAGE = 5
 
 const { t } = useI18n()
 const listId = useId()
@@ -149,14 +153,45 @@ function onBlur(): void {
 }
 
 /**
- * An arrow key: the list opens and the highlight moves.
+ * How many rows the list shows at once, for Page Up and Page Down (a few when it is not laid out).
+ *
+ * @returns the rows that fit, and at least one
+ */
+function pageRows(): number {
+  const list = document.getElementById(listId)
+  const row = list?.querySelector<HTMLElement>('[role="option"]')
+
+  return rowsPerPage(list, row, FALLBACK_PAGE)
+}
+
+/**
+ * An arrow key (or Page Up, Page Down): the list opens and the highlight moves.
  *
  * @param event the key event
  */
 function arrow(event: KeyboardEvent): void {
   event.preventDefault()
   open.value = true
-  active.value = moved(active.value, shown.value.length, event.key)
+  active.value = moved(active.value, shown.value.length, event.key, pageRows())
+}
+
+// The highlighted row is always in view, whichever key moved it (the list scrolls when it has more rows than it shows).
+watch(active, async index => {
+  await nextTick()
+  document.getElementById(`${listId}-${index}`)?.scrollIntoView?.({ block: 'nearest' })
+})
+
+/**
+ * Home and End: with the list open and nothing typed, the highlight goes to the first or the last row. While something is typed
+ * they are the caret's (to the start or the end of the text), as in any field.
+ *
+ * @param event the key event
+ */
+function ends(event: KeyboardEvent): void {
+  if (open.value && query.value === null) {
+    event.preventDefault()
+    active.value = event.key === 'Home' ? 0 : shown.value.length - 1
+  }
 }
 
 /**
@@ -188,7 +223,16 @@ function escape(event: KeyboardEvent): void {
 }
 
 /** What each key of the field does. */
-const KEYS: Record<string, (event: KeyboardEvent) => void> = { ArrowDown: arrow, ArrowUp: arrow, Enter: enter, Escape: escape }
+const KEYS: Record<string, (event: KeyboardEvent) => void> = {
+  ArrowDown: arrow,
+  ArrowUp: arrow,
+  PageDown: arrow,
+  PageUp: arrow,
+  Home: ends,
+  End: ends,
+  Enter: enter,
+  Escape: escape,
+}
 
 /**
  * The keys of the field.

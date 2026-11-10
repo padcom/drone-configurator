@@ -9,7 +9,7 @@
       :aria-pressed="group.id === current ? 'true' : 'false'"
       :tabindex="group.id === stop ? 0 : -1"
       :data-group="group.id"
-      @click="choice.choose(group.id)"
+      @click="pick(group.id)"
       @focus="focused = group.id"
     >
       <span>{{ group.id === '' ? t('params.allGroups') : group.id }}</span>
@@ -31,7 +31,7 @@ import { useParamGroup } from './useParamGroup'
 // may be a hundred of them, so the list is one stop of the Tab key (the chosen group, or the one the arrows moved to) and
 // Up, Down, Home and End move within it.
 const { t } = useI18n()
-const { fields } = useConfigurator()
+const { fields, parameters } = useConfigurator()
 const choice = useParamGroup()
 const groups = computed(() => groupsOf(fields.params.value))
 const all = computed(() => [{ id: '', count: fields.params.value.length }, ...groups.value])
@@ -39,6 +39,17 @@ const current = computed(() => effectiveGroup(fields.params.value, choice.chosen
 // The group the arrows moved the focus to; the one Tab stops at is that, else the chosen one (when it is in the list).
 const focused = ref<string | null>(null)
 const stop = computed(() => all.value.some(group => group.id === focused.value) ? focused.value : current.value)
+
+/**
+ * Chooses a group (by a click, or Enter or Space on its button). The search is cleared with it: a search for a name of another
+ * group would leave the list empty. A search typed afterwards is kept.
+ *
+ * @param id the group, or an empty string for all
+ */
+function pick(id: string): void {
+  parameters.setFilter('')
+  choice.choose(id)
+}
 
 const KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End'])
 

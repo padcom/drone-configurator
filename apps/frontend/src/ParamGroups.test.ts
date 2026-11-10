@@ -79,6 +79,22 @@ it('moves the focus with Down, Up, Home and End, and the Tab stop goes with it',
   wrapperOnPage.unmount()
 })
 
+it('clears the search when a group is chosen (a search for another group would leave nothing), by click or by key', async () => {
+  const { wrapper, handle } = groups()
+  feed(handle, { filter: 'rtl' })
+
+  await wrapper.get('button[data-group="BATT"]').trigger('click')
+
+  expect(handle.fields.filter.value).toBe('')
+  expect(useParamGroup().chosen.value).toBe('BATT')
+
+  // Enter or Space on a button is a click: the same function answers it. What is typed after the choice is kept.
+  handle.parameters.setFilter('low')
+  expect(handle.fields.filter.value).toBe('low')
+  await wrapper.get('button[data-group=""]').trigger('click')
+  expect(handle.fields.filter.value).toBe('')
+})
+
 it('goes back to All when the chosen group is not in the list any more', async () => {
   const { wrapper, handle } = groups()
   await wrapper.get('button[data-group="BATT"]').trigger('click')

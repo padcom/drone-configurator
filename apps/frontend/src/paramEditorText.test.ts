@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { metadataText, numberOr, relatedTo, valueOptions } from './paramEditor'
+import { metadataText, metadataToast, numberOr, relatedTo, valueOptions } from './paramEditor'
 import { translate } from './testing'
 import { PARAMS } from './fixtures'
 
@@ -26,6 +26,17 @@ it('turns the named values of the metadata into options, by number, and none wit
   expect(valueOptions({ description: 'x' })).toBeNull()
   expect(valueOptions(undefined)).toBeNull()
   expect(valueOptions({ values: { one: 'Not a number' } })).toBeNull()
+})
+
+it('tells a metadata load in a toast: success, a warning for a partial match, an error for none, nothing without it', () => {
+  const counts = (matched: number, described: number, total: number, known: number) => ({ matched, described, total, known })
+  const loaded = { severity: 'success', text: 'Loaded descriptions for 2 of 5 parameters' }
+
+  expect(metadataToast(counts(2, 2, 5, 3), translate)).toEqual(loaded)
+  expect(metadataToast(counts(0, 0, 0, 3), translate)?.severity).toBe('success')
+  expect(metadataToast(counts(3, 1, 5, 3), translate)?.severity).toBe('warning')
+  expect(metadataToast(counts(0, 0, 5, 3), translate)?.severity).toBe('error')
+  expect(metadataToast(counts(0, 0, 5, 0), translate)).toBeNull()
 })
 
 it('relates a parameter to the others of its group, at most six, and to none when it has no group of its own', () => {

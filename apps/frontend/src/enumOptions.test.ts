@@ -86,4 +86,13 @@ describe('the arrow keys', () => {
     expect(moved(0, 3, 'ArrowUp')).toBe(0)
     expect(moved(-1, 3, 'ArrowUp')).toBe(0)
   })
+
+  it('move a page with Page Down and Page Up, and stop at the ends', () => {
+    expect(moved(-1, 30, 'PageDown', 7)).toBe(6)
+    expect(moved(10, 30, 'PageDown', 7)).toBe(17)
+    expect(moved(28, 30, 'PageDown', 7)).toBe(29)
+    expect(moved(10, 30, 'PageUp', 7)).toBe(3)
+    expect(moved(2, 30, 'PageUp', 7)).toBe(0)
+    expect(moved(5, 30, 'Home', 7)).toBe(5)
+  })
 })

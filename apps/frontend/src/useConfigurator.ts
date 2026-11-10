@@ -98,6 +98,7 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     draftWarning: parameters.draftWarning,
     metadata: metadata.metadata,
     metadataError: metadata.error,
+    metadataLoads: metadata.loads,
     importReview: snapshots.importReview,
     importError: snapshots.importError,
     picked: snapshots.picked,
