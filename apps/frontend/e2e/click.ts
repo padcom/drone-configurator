@@ -5,6 +5,47 @@ const ATTEMPTS = 3
 const NOTICED_WITHIN_MS = 3000
 
 /**
+ * Brings a link into view and lets the layout settle before it is clicked: a line of text that appears over the screen (the
+ * connection's "reconnected to the same vehicle", say) moves the rail by a line, and a click at a place read a moment before
+ * lands on the item beside the one meant (issue #343: the page was on Setup, next to Parameters).
+ *
+ * @param app the running app
+ * @param link a selector for the link
+ */
+async function settleAt(app: E2eApp, link: string): Promise<void> {
+  await app.evaluate(`(() => {
+    document.querySelector(${JSON.stringify(link)})?.scrollIntoView({ block: 'nearest' })
+    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+  })()`)
+}
+
+/**
+ * Clicks the top bar's vehicle cell until the Connect dialog is open: a click through DevTools can occasionally land and do
+ * nothing, right after the window opens (as Connect's and the navigation's can), so a click that did not open it is made
+ * again. The last attempt waits as long as a slow machine needs, and fails with the reason.
+ *
+ * @param app the running app
+ * @param isOpen a page expression that is true once the dialog is open
+ * @param left how many attempts remain
+ */
+async function clickOpenUntilOpen(app: E2eApp, isOpen: string, left: number): Promise<void> {
+  await settleAt(app, '#open-connect')
+  await app.click('#open-connect')
+
+  if (left === 1) {
+    await app.waitFor(isOpen)
+
+    return
+  }
+  try {
+    await app.waitFor(isOpen, NOTICED_WITHIN_MS)
+  } catch {
+    // Not noticed: click again.
+    await clickOpenUntilOpen(app, isOpen, left - 1)
+  }
+}
+
+/**
  * Opens the Connect dialog from the top bar's vehicle cell, unless it is open already.
  *
  * @param app the running app
@@ -12,8 +53,7 @@ const NOTICED_WITHIN_MS = 3000
 export async function openConnect(app: E2eApp): Promise<void> {
   const isOpen = 'document.querySelector(\'#connect-button\') !== null'
   if (!await app.evaluate<boolean>(isOpen)) {
-    await app.click('#open-connect')
-    await app.waitFor(isOpen)
+    await clickOpenUntilOpen(app, isOpen, ATTEMPTS)
   }
 }
 
@@ -80,21 +120,6 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
   }
 
   return (await clickOnce(app, changed)) || clickUntilNoticed(app, changed, left - 1)
-}
-
-/**
- * Brings a link into view and lets the layout settle before it is clicked: a line of text that appears over the screen (the
- * connection's "reconnected to the same vehicle", say) moves the rail by a line, and a click at a place read a moment before
- * lands on the item beside the one meant (issue #343: the page was on Setup, next to Parameters).
- *
- * @param app the running app
- * @param link a selector for the link
- */
-async function settleAt(app: E2eApp, link: string): Promise<void> {
-  await app.evaluate(`(() => {
-    document.querySelector(${JSON.stringify(link)})?.scrollIntoView({ block: 'nearest' })
-    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-  })()`)
 }
 
 /**
