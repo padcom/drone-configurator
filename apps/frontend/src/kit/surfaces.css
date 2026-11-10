@@ -1,0 +1,204 @@
+/*
+ * How the kit's surfaces look (Panel, SectionLabel, StatCell, Banner, ProgressBar, EmptyState) and the value with the truth
+ * about it (TruthValue): only the tokens (tokens.css), so a change of the palette is one change.
+ */
+
+/* Panel. */
+.kit-panel {
+  box-sizing: border-box;
+  padding: var(--space-5);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.kit-panel.compact {
+  padding: var(--space-4);
+}
+
+/* SectionLabel: small capitals, muted. */
+.kit-section-label {
+  margin: 0;
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+}
+
+/* StatCell: a label over a value in the mono face. */
+.kit-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.kit-stat .label {
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+}
+
+.kit-stat .value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.kit-stat.warn .value {
+  color: var(--color-warn);
+}
+
+.kit-stat.error .value {
+  color: var(--color-error);
+}
+
+/* Banner: the soft colour of its tone (a status), or filled (an alert). */
+.kit-banner {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-md);
+}
+
+.kit-banner .text {
+  flex: 1;
+  color: var(--color-text);
+}
+
+.kit-banner.info {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.kit-banner.warn {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.kit-banner.error {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.kit-banner.urgent.warn {
+  color: var(--color-on-warn);
+  background: var(--color-warn);
+  border-color: transparent;
+}
+
+.kit-banner.urgent.error {
+  color: var(--color-on-error);
+  background: var(--color-error);
+  border-color: transparent;
+}
+
+.kit-banner.urgent .text {
+  font-weight: 600;
+  color: inherit;
+}
+
+/* ProgressBar: 6 px, the fill grows from the left. */
+.kit-progress {
+  height: 6px;
+  overflow: hidden;
+  background: var(--color-border);
+  border-radius: 1.5px;
+}
+
+.kit-progress .fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.kit-progress.warn .fill {
+  background: var(--color-warn);
+}
+
+/* EmptyState. */
+.kit-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-6);
+  color: var(--color-text);
+}
+
+.kit-empty .title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.kit-empty .help {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.kit-empty .actions {
+  margin-top: var(--space-2);
+}
+
+/* TruthValue: a value with its state in words; stale and last heard are also hatched. */
+.truth {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.truth.hatched {
+  background-image: var(--hatch);
+}
+
+.truth .head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.truth .label {
+  font-size: var(--font-size-label);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-label);
+}
+
+.truth .note {
+  font-size: var(--font-size-sm);
+  color: var(--color-warn);
+}
+
+.truth .value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-title);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.truth .help {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.truth.stale .value,
+.truth.last-heard .value,
+.truth.never .value {
+  color: var(--color-text-muted);
+}
+
+.truth.verified .value,
+.truth.verified .note {
+  color: var(--color-ok);
+}

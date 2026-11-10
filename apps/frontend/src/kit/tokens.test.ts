@@ -91,6 +91,10 @@ const PAIRS: [text: string, backgrounds: string[]][] = [
   ['--color-accent-hover', ['--color-bg', '--color-surface', '--color-surface-raised']],
   ['--color-on-warn', ['--color-warn', '--color-warn-progress']],
   ['--color-on-error', ['--color-error', '--color-error-progress']],
+  // A banner's words on its soft fill, and the notes of a hatched value on the lines of the hatch.
+  ['--color-text', ['--color-accent-soft', '--color-ok-soft', '--color-warn-soft', '--color-error-soft']],
+  ['--color-text-muted', ['--color-border']],
+  ['--color-warn', ['--color-border']],
 ]
 
 describe('the design tokens', () => {
