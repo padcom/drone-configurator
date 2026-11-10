@@ -26,7 +26,7 @@ it('keeps what was loaded when a later file is not metadata', () => {
 
   metadata.load('{}')
 
-  expect(metadata.error.value).toBe('Can\'t load the metadata: not a Drone Configurator metadata file.')
+  expect(metadata.error.value).toMatch(/^Can't load the metadata: not a parameter metadata file/u)
   expect(metadata.metadata.value.size).toBe(1)
 })
 

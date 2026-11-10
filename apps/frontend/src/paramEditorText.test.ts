@@ -6,8 +6,10 @@ import { PARAMS } from './fixtures'
 const param = PARAMS.find(p => p.id === 'RTL_ALT')!
 
 it('says how many parameters the metadata describes, or nothing', () => {
-  expect(metadataText(3, translate)).toBe('Metadata for 3 parameters')
-  expect(metadataText(0, translate)).toBe('')
+  expect(metadataText(0, 0, 3, translate)).toBe('Metadata for 3 parameters')
+  expect(metadataText(2, 5, 3, translate)).toBe('Loaded descriptions for 2 of 5 parameters')
+  expect(metadataText(0, 5, 3, translate)).toMatch(/^Loaded descriptions for 0 of 5 parameters: none of the 3/u)
+  expect(metadataText(0, 5, 0, translate)).toBe('')
 })
 
 it('takes a number from the text of a draft, and the fallback for text that is not one', () => {

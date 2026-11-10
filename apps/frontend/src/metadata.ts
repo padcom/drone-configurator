@@ -123,21 +123,35 @@ function ownParam(raw: Raw): ParamMeta {
  * @returns what is known of it
  */
 function ardupilotParam(raw: Raw): ParamMeta {
-  const range = objectOf(raw.Range)
-  const name = textOf(raw.displayName)
-  const text = textOf(raw.description)
+  // The keys are in the case the generator wrote them (jsonemit.py dumps each parameter's own attributes: `DisplayName`,
+  // `Description`, `Range`, `Units`, ...; the lower-case `displayName` and `description` it builds are never used), so they
+  // are read without regard to case.
+  const field = lowerKeys(raw)
+  const range = objectOf(field.range)
+  const name = textOf(field.displayname)
+  const text = textOf(field.description)
 
   return compact({
     description: name ?? text,
     longDescription: name ? text : undefined,
-    units: textOf(raw.Units),
+    units: textOf(field.units),
     min: numberOf(range?.low),
     max: numberOf(range?.high),
-    increment: numberOf(raw.Increment),
-    values: namesOf(raw.Values),
-    bits: namesOf(raw.Bitmask),
-    rebootRequired: raw.RebootRequired === undefined ? undefined : raw.RebootRequired === 'True' || raw.RebootRequired === true,
+    increment: numberOf(field.increment),
+    values: namesOf(field.values),
+    bits: namesOf(field.bitmask),
+    rebootRequired: field.rebootrequired === undefined ? undefined : field.rebootrequired === 'True' || field.rebootrequired === true,
   })
+}
+
+/**
+ * An object with its keys in lower case.
+ *
+ * @param raw the object
+ * @returns the same members by lower-case key
+ */
+function lowerKeys(raw: Raw): Raw {
+  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key.toLowerCase(), value]))
 }
 
 /**
@@ -186,14 +200,17 @@ export function parseMetadata(text: string): Metadata | string {
   try {
     data = JSON.parse(text)
   } catch {
-    return 'not JSON'
+    return text.trimStart().startsWith('<')
+      ? 'an XML file: only JSON is read (ArduPilot\'s apm.pdef.json, or our own format)'
+      : 'not JSON'
   }
   const d = objectOf(data)
-  if (d && typeof objectOf(d.json)?.version === 'number' && d.format === undefined) {
+  // ArduPilot's own file starts with `"json": { "version": … }` (the real one has a number, a copy may not).
+  if (d && objectOf(d.json) !== undefined && d.format === undefined) {
     return fromArduPilot(d)
   }
   if (d?.format !== METADATA_FORMAT) {
-    return 'not a Drone Configurator metadata file'
+    return 'not a parameter metadata file: expected ArduPilot\'s apm.pdef.json, or our own format'
   }
   if (d.version !== 1) {
     return `metadata version ${String(d.version)} (this app reads version 1)`

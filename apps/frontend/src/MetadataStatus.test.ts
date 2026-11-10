@@ -28,6 +28,21 @@ it('is empty without metadata, and says how many parameters it describes', async
   expect(wrapper.get('#metadata-status').text()).toBe('Metadata for 2 parameters')
 })
 
+it('says for how many of the vehicle\'s parameters there are descriptions, and warns when for none', async () => {
+  const { wrapper, handle } = await lineOnNewConfigurator()
+  const params = ['RTL_ALT', 'X'].map((id, index) => ({ id, index, kind: 'int' as const, type: 'INT32', value: 1 }))
+  feed(handle, { params, metadata: new Map([['RTL_ALT', { description: 'Return altitude' }], ['Y', { description: 'y' }]]) })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#metadata-status').text()).toBe('Loaded descriptions for 1 of 2 parameters')
+  expect(wrapper.find('#metadata-status .error').exists()).toBe(false)
+
+  feed(handle, { metadata: new Map([['Y', { description: 'y' }]]) })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#metadata-status .error').text()).toMatch(/^Loaded descriptions for 0 of 2 parameters: none of the 1/u)
+})
+
 it('shows why a file could not be loaded, as text', async () => {
   const { wrapper, handle } = await lineOnNewConfigurator()
 

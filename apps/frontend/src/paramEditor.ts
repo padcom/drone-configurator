@@ -7,14 +7,24 @@ import type { ParamMeta } from './metadata'
 import type { Translate } from './telemetryCards'
 
 /**
- * What the metadata line says when the last file loaded.
+ * What the metadata line says when the last file loaded: how many of the vehicle's parameters it describes, and, when it
+ * describes none of them, that, so that an empty Description column is never silent.
  *
- * @param count how many parameters the loaded metadata describes
+ * @param described how many of the vehicle's parameters have a description in the metadata
+ * @param total how many parameters the vehicle has (none before they are downloaded)
+ * @param known how many parameters the loaded metadata describes
  * @param translate looks up a message
  * @returns the text, or an empty string without metadata
  */
-export function metadataText(count: number, translate: Translate): string {
-  return count > 0 ? translate('params.metadata', { count }) : ''
+export function metadataText(described: number, total: number, known: number, translate: Translate): string {
+  if (known === 0) {
+    return ''
+  }
+  if (total === 0) {
+    return translate('params.metadata', { count: known })
+  }
+
+  return translate(described === 0 ? 'params.metadataNone' : 'params.metadataLoaded', { count: described, total, known })
 }
 
 /**

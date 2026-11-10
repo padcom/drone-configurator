@@ -349,7 +349,9 @@
       "all": "{total} parameters",
       "some": "{shown} of {total} parameters"
     },
-    "metadata": "Metadata for {count} parameters"
+    "metadata": "Metadata for {count} parameters",
+    "metadataLoaded": "Loaded descriptions for {count} of {total} parameters",
+    "metadataNone": "Loaded descriptions for 0 of {total} parameters: none of the {known} the file describes is a parameter of this vehicle."
   },
   "snapshot": {
     "save": "Save snapshot",
