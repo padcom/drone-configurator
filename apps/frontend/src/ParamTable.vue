@@ -128,9 +128,15 @@ function measure(): void {
 // The selected row, by its place in the list (-1: none, or it is filtered out), and the row the table points to for a screen
 // reader (only while it is drawn: the rows far from the view are not in the page).
 const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === fields.selected.value))
-const selectionText = computed(() => selectedAt.value < 0
-  ? ''
-  : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length }))
+// What the polite status says: which parameter the selection is on, and where. It is made when the selected parameter changes
+// and not when the list does (the total changes with every key typed in the search, and the region would speak while the user
+// types).
+const selectionText = ref('')
+watch(() => fields.selected.value, () => {
+  selectionText.value = selectedAt.value < 0
+    ? ''
+    : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length })
+}, { immediate: true })
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
 

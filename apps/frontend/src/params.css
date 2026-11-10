@@ -192,6 +192,12 @@
   text-align: left;
 }
 
+/* The selected row's name is heavier, in the focused list and in the unfocused one: a mark that is not a colour (the unfocused
+   row has only a soft tint). The face is mono, so a heavier weight takes no more width (the columns are sized in `ch`). */
+.param-scroll tbody tr.selected .name {
+  font-weight: 600;
+}
+
 .param-scroll .prefix {
   color: var(--color-text-dim);
 }

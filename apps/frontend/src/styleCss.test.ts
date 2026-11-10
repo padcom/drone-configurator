@@ -80,6 +80,10 @@ it('has no ring round the list and no outline on a row; the left bar of the sele
   expect(params).not.toMatch(/tr\.selected[^{]*\{[^}]*outline/u)
 })
 
+it('sets the name of the selected row heavier, focused or not: a mark that is not a colour', () => {
+  expect(params).toMatch(/\.param-scroll tbody tr\.selected \.name\s*\{\s*font-weight:\s*600;\s*\}/u)
+})
+
 it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })
