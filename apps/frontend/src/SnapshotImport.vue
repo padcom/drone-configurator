@@ -45,7 +45,9 @@
     </div>
     <div class="review-actions">
       <!-- Always in the page, so that what it says is read out as it changes. -->
-      <p class="review-status" role="status" :class="status.tone">{{ status.text }}</p>
+      <p class="review-status" role="status" :class="{ ok: polite.tone === 'ok', quiet: !polite.text }">{{ polite.text }}</p>
+      <!-- A write that stopped is said at once. -->
+      <p class="review-status warn" role="alert" :class="{ quiet: assertive.text === '' }">{{ assertive.text }}</p>
       <Button id="backup" :hidden="fields.backup.value === null" @click="saveBackup">{{ t('import.backup') }}</Button>
       <Button id="close-import" @click="snapshots.close()">{{ t('import.close') }}</Button>
       <Button id="apply" variant="primary" :disabled="!applicable" @click="snapshots.apply()">
@@ -82,6 +84,10 @@ const status = computed(() => statusOf({
   applied: fields.applied.value,
   applying: fields.applying.value,
 }, t))
+const none = { tone: '', text: '' } as const
+const urgent = computed(() => status.value.tone === 'warn')
+const polite = computed(() => urgent.value ? none : status.value)
+const assertive = computed(() => urgent.value ? status.value : none)
 const applicable = computed(() => canApply({
   picked: fields.picked.value,
   applying: fields.applying.value,
