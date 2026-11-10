@@ -34,6 +34,7 @@
       "truth": "Vehicle truth",
       "forms": "Form and enum field",
       "confirm": "Confirmation",
+      "feedback": "Toasts, menu and tooltip",
       "surfaces": "Surfaces",
       "buttons": "Buttons",
       "fields": "Fields",
@@ -53,6 +54,24 @@
       "neverRule": "A dash, never a made-up zero.",
       "verified": "Verified write",
       "verifiedRule": "Success only after the vehicle confirms the value."
+    },
+    "feedback": {
+      "menu": "Map",
+      "tip": "Written to the vehicle and read back",
+      "tipButton": "Write",
+      "push": "Add a toast",
+      "item": {
+        "fly": "Fly here",
+        "home": "Set home here",
+        "look": "Look at this point",
+        "copy": "Copy coordinates"
+      },
+      "toast": {
+        "ok": "Mission written and read back",
+        "warn": "GPS: 6 satellites, position unreliable",
+        "bad": "The vehicle reports 2500, not 3000",
+        "more": "Another toast ({n})"
+      }
     },
     "confirm": {
       "holdWarn": "Hold to arm Quad 1",
@@ -220,6 +239,12 @@
     "cancel": "Cancel",
     "hold": "Hold to confirm",
     "write": "Write"
+  },
+  "toast": {
+    "region": "Notifications",
+    "dismiss": "Dismiss",
+    "count": "×{count}",
+    "waiting": "{count} more waiting"
   },
   "enum": {
     "noName": "no name",
