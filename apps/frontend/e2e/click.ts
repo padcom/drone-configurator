@@ -150,7 +150,7 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
 
 /**
  * What the navigation looks like, for a click that did not take the page where it was meant to (issue #343): the address, the
- * link that is current, and where the link was.
+ * link that is current, where the link was, and what was at the middle of it (tag, id, class, href).
  *
  * @param app the running app
  * @param link a selector for the link
@@ -160,8 +160,11 @@ async function describeNavigation(app: E2eApp, link: string): Promise<string> {
   try {
     return await app.evaluate<string>(`JSON.stringify((() => {
       const box = document.querySelector(${JSON.stringify(link)})?.getBoundingClientRect()
+      // What is at the middle of the link, where the click lands: the link itself, or something that covers it.
+      const over = box && document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
       return {
         hash: location.hash,
+        over: over && [over.tagName, over.id, over.className.toString(), over.getAttribute('href')],
         current: document.querySelector('nav [aria-current="page"]')?.getAttribute('href'),
         link: box && [box.left, box.top, box.width, box.height].map(Math.round),
         railScroll: document.querySelector('nav.rail')?.scrollTop,

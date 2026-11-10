@@ -58,10 +58,10 @@ describe('the shell', () => {
   it('starts on Flight data, with the top bar and the navigation', async () => {
     // The router redirects `/` to `/flight` after the window has opened: the hash is waited for, not read once.
     await app.waitFor(`/^#\\/flight$/u.test(location.hash)`)
-    expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
     await app.waitForText('#telemetry', 'BATTERY')
     expect(await app.text('#top-bar')).toContain('disconnected')
-    expect(await app.evaluate<number>(`document.querySelectorAll('nav a').length`)).toBe(MARKERS.length)
+    // The gallery has a link of its own in development (NODE_ENV=development), never in the built application.
+    expect(await app.evaluate<number>(`document.querySelectorAll('nav a:not([href="#/gallery"])').length`)).toBe(MARKERS.length)
   })
 
   it('reaches every screen from the navigation, with the top bar always there', async () => {
