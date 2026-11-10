@@ -25,17 +25,23 @@ it('lays the Parameters screen out in three columns that wrap, each scrolling on
   expect(params).toMatch(/\.param-groups,\s*\.params,\s*\.detail\s*\{[^}]*overflow-y:\s*auto/u)
 })
 
-it('sizes the name and the value to their text with metadata, the rest of the row to the description on one line', () => {
-  const selectors = String.raw`\.param-scroll table\.described th:first-child,\s*\.param-scroll table\.described \.num`
-  const column = new RegExp(String.raw`${selectors}\s*\{[^}]*width:\s*1%;[^}]*white-space:\s*nowrap;`, 'u')
-  const cut = String.raw`max-width:\s*0;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;`
+it('lays the table with metadata out with a fixed layout, the first two columns in `ch`, the description on one line', () => {
+  const cut = String.raw`overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;`
   const meaning = new RegExp(String.raw`\.param-scroll table\.described \.meaning\s*\{[^}]*${cut}`, 'u')
 
-  expect(params).toMatch(column)
+  // Fixed, so that a switch back to the screen does not measure the text of every row again (120 ms on x64, 270 ms on arm64).
+  expect(params).toMatch(/\.param-scroll table\.described\s*\{[^}]*--cell-padding:\s*28px;[^}]*table-layout:\s*fixed;/u)
+  // The column widths are in `ch`, which is the width of a mono character only in the mono face: the <col> is set in it.
+  // The name cells are set in the value-sm size and the value cells in none (the table's own): each <col> has its cells' size.
+  expect(params).toMatch(/table\.described col\s*\{[^}]*font-family:\s*var\(--font-mono\);/u)
+  expect(params).toMatch(/table\.described col\.col-name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
+  expect(params).not.toMatch(/col\.col-value\s*\{[^}]*font-size/u)
+  expect(params).toMatch(/\.param-scroll \.name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
+  expect(params).not.toMatch(/\.param-scroll td\.num\s*\{[^}]*font-size/u)
   expect(params).toMatch(meaning)
-  // The rows keep one height, and the table without metadata has no rule of its own.
+  // The rows keep one height, and the table without metadata has no rule of its own (an auto layout, as it was).
   expect(params).toMatch(/\.param-scroll tbody tr\s*\{[^}]*height:\s*44px;/u)
-  expect(params).not.toMatch(/table-layout/u)
+  expect(params.replace(/\.param-scroll table\.described\s*\{[^}]*\}/u, '')).not.toMatch(/table-layout/u)
 })
 
 it('keeps the header of the table in view while the rows scroll', () => {
@@ -103,6 +109,12 @@ it('lays the related parameters out a line each in two columns, the text cut sho
 
   expect(detail).toMatch(new RegExp(`\\.related-line\\s*\\{[^}]*${columns.source}`, 'u'))
   expect(detail).toMatch(/\.related-text\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/u)
+})
+
+it('caps a long question of the confirmation, which scrolls inside the dialog', () => {
+  const dialog = sheet('kit/dialog.css')
+
+  expect(dialog).toMatch(/\.safety-what\s*\{[^}]*max-height:\s*40vh;[^}]*overflow-y:\s*auto;[^}]*white-space:\s*pre-line/u)
 })
 
 it('has no rule for a bare main element: the one <main> is the frame\'s, and it is not a grid', () => {

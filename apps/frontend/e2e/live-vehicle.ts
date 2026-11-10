@@ -143,6 +143,24 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await showScreen(app, 'parameters')
   })
 
+  it('has every name and every value inside its column with a description for every parameter loaded', async () => {
+    // Every parameter of the list gets a description, so the grid is the metadata one (described: name and value as wide as
+    // their text, the rest of the row for the description) with the whole list.
+    await showScreen(app, 'parameters')
+    const ids = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows tr')].map(row => row.dataset.id)`)
+    const params = Object.fromEntries(ids.map(id => [id, { description: `${id}: what it is for, and what it does to the vehicle` }]))
+    writeFileSync(join(files, 'open.json'), JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params }))
+    await app.click('#metadata-button')
+    await app.waitFor(`document.querySelector('.param-scroll table.described td.meaning') !== null`, vehicle.downloadTimeoutMs)
+
+    // The columns are sized from characters (ch) of the face and size of their cells: the widest name and the widest value of
+    // the whole list must fit in them (a text that does not has a scrollWidth over the width of its cell).
+    const spilling = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
+      .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent).slice(0, 5)`)
+    expect(spilling).toEqual([])
+    expect(ids.length).toBeGreaterThanOrEqual(vehicle.minParams)
+  })
+
   it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {
     await showScreen(app, 'parameters')
     const original = await currentValue()

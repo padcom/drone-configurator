@@ -174,6 +174,21 @@ it('says in the alert that a write got no answer: which parameter, why, that its
   )
 })
 
+it('does not double the full stop when the reason ends with one', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'failed', detail: 'No reply from the vehicle. ' }]
+  await wrapper.vm.$nextTick()
+
+  const alert = wrapper.get('.staged-status[role="alert"]').text()
+  expect(alert).toContain('RTL_ALT was not confirmed: No reply from the vehicle. Its value')
+  expect(alert).not.toContain('..')
+
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'changed', detail: 'the vehicle reports 1599, not 1600.' }]
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('.staged-status[role="alert"]').text()).toMatch(/^RTL_ALT: the vehicle reports 1599, not 1600\. Stopped/u)
+})
+
 it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {
   const { wrapper, handle } = await listWith()
   add(handle, 'RTL_ALT', '1600')

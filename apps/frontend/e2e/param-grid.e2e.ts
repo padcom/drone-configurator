@@ -119,6 +119,17 @@ describe('the parameters grid', () => {
     expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth)
     expect(grid.heights).toEqual([44])
   })
+})
+
+describe('the cells of the grid', () => {
+  it('have every name and every value inside the column that was sized for it', async () => {
+    // The columns are measured in characters of the face and the size of their cells: a text that does not fit has a
+    // scrollWidth over the width of its cell.
+    const spilling = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
+      .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent)`)
+
+    expect(spilling).toEqual([])
+  })
 
   it('cuts a long description short on one line, and has all of it as its title', async () => {
     const grid = await app.evaluate<Grid>(MEASURE)

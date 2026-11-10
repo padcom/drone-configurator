@@ -41,8 +41,16 @@
 .safety-what {
   margin: 0;
   font-weight: 600;
-  /* A question can have lines (the changes about to be written, one each). */
+  /* A question can have lines (the changes about to be written, one each), and many: it scrolls inside the dialog instead of
+     making it taller than the window. */
+  max-height: 40vh;
+  overflow-y: auto;
   white-space: pre-line;
+}
+
+.safety-what:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /*
