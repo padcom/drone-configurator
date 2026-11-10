@@ -236,6 +236,24 @@ export async function confirmWrite(app: E2eApp): Promise<void> {
 }
 
 /**
+ * Waits until a single write is over and the vehicle read it back: the value in the list is the one written (the list takes
+ * the vehicle's read-back, not what was asked), and the detail says nothing amiss (a write that was read back says nothing;
+ * one that was not is an alert). The assertions are as strict as the "Written and read back" line they replace.
+ *
+ * @param app the running app
+ * @param row a selector for the parameter's row in the list
+ * @param value the value that was written
+ * @param timeoutMs how long the vehicle may take
+ */
+export async function waitForWritten(app: E2eApp, row: string, value: number, timeoutMs = 10_000): Promise<void> {
+  await app.waitForText(`${row} td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
+  const [writing, alert] = [await app.text('#detail .notice[role="status"]'), await app.text('#detail .notice[role="alert"]')]
+  if (writing.includes('Writing') || alert !== '') {
+    throw new Error(`the list shows ${value}, but the detail says ${JSON.stringify({ writing, alert })}`)
+  }
+}
+
+/**
  * Answers the open confirmation no.
  *
  * @param app the running app

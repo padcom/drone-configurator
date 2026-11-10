@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { cancelConfirm, chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
+import { cancelConfirm, chooseConnection, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
 import type { Endpoint } from './endpoint'
 import { switchRounds } from './switch'
 
@@ -38,9 +38,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click('#write')
     await app.waitForText('#question', `Set ${vehicle.param} from ${from} to ${to}?`)
     await confirmWrite(app)
-    // The table first: the detail panel can still show an earlier write's identical message.
-    await app.waitForText(`${row} td.num`, new RegExp(`^${to}$`, 'u'), vehicle.downloadTimeoutMs)
-    await app.waitForText('#detail', `Written and read back: ${to}.`, vehicle.downloadTimeoutMs)
+    await waitForWritten(app, row, to, vehicle.downloadTimeoutMs)
   }
 
   function currentValue(): Promise<number> {

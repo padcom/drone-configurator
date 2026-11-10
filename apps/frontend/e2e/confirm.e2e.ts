@@ -2,7 +2,7 @@
 // hold, no typed word), and what the browser does with focus (which jsdom does not) is what makes it usable by keyboard.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, confirmWrite, showScreen } from './click'
+import { cancelConfirm, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
 
 let app: E2eApp
 
@@ -78,7 +78,7 @@ describe('answering the confirmation, in the window', () => {
     await app.waitForText('#question', 'Set RTL_ALT from 1500 to 1700?')
     await confirmWrite(app)
 
-    expect(await app.waitForText('#detail', 'Written and read back')).toMatch(/Written and read back: 1700\./u)
+    await waitForWritten(app, 'tr[data-id="RTL_ALT"]', 1700)
     // The focus is not lost to the page: the button that opened the dialog was disabled while it wrote.
     expect(await app.evaluate<boolean>('document.activeElement !== document.body')).toBe(true)
   })

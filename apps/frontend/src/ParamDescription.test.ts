@@ -74,6 +74,23 @@ it('escapes the text, and follows the selected parameter', async () => {
   expect(wrapper.get('#param-description .text').text()).toBe('Battery')
 })
 
+it('shows the short description as the text when it is all there is, and above the long one when there is both', async () => {
+  const { wrapper, handle } = await blockWith(new Map([
+    ['RTL_ALT', { description: 'Return altitude' }],
+    ['BATT_CAPACITY', { description: 'Battery capacity', longDescription: 'Capacity of the battery when full.' }],
+  ]))
+
+  expect(wrapper.get('#param-description .text').text()).toBe('Return altitude')
+  expect(wrapper.find('#param-description .summary').exists()).toBe(false)
+  expect(wrapper.find('#param-description .hint').exists()).toBe(false)
+
+  feed(handle, { selected: 'BATT_CAPACITY' })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#param-description .summary').text()).toBe('Battery capacity')
+  expect(wrapper.get('#param-description .text').text()).toBe('Capacity of the battery when full.')
+})
+
 it('is not there without a selected parameter', async () => {
   const handle = createConfigurator(mockBackend())
   const wrapper = mount(ParamDescription, withI18n)

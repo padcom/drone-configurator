@@ -11,23 +11,9 @@ import type { Translate } from './telemetryCards'
 /** A line about the last write, and how it should look. */
 export interface WriteNotice {
   /** The CSS class of the line (empty: plain text). */
-  tone: 'ok' | 'error' | ''
+  tone: 'error' | ''
   /** What it says. */
   text: string
-}
-
-/** What the metadata knows about the selected parameter, as lines of text (null: nothing to say). */
-export interface ParamDetails {
-  /** The unit, with a space before it, or an empty string. */
-  units: string
-  /** The name of the current value, in brackets with a space before it, or an empty string. */
-  named: string
-  /** What the parameter is for. */
-  description: string | null
-  /** The allowed range. */
-  range: string | null
-  /** The allowed values and their names. */
-  values: string | null
 }
 
 /**
@@ -56,100 +42,15 @@ export function canWrite(state: Pick<State, 'connection' | 'writing' | 'draftErr
 }
 
 /**
- * The unit as it follows a number.
- *
- * @param meta what the metadata says about the parameter
- * @returns the unit with a space before it, or an empty string
- */
-function unitsOf(meta: ParamMeta | undefined): string {
-  return meta?.units ? ` ${meta.units}` : ''
-}
-
-/**
- * One end of a range.
- *
- * @param limit the limit, if the metadata has it
- * @param translate looks up a message
- * @returns the number, or the sign for an open end
- */
-const bound = (limit: number | undefined, translate: Translate) => limit ?? translate('editor.openEnd')
-
-/**
- * The range the metadata allows.
- *
- * @param meta what the metadata says about the parameter
- * @param units the unit, as `unitsOf` returns it
- * @param translate looks up a message
- * @returns the sentence, or null without a limit
- */
-function rangeOf(meta: ParamMeta | undefined, units: string, translate: Translate): string | null {
-  const { min, max } = meta ?? {}
-  if (min === undefined && max === undefined) {
-    return null
-  }
-
-  return translate('editor.range', { min: bound(min, translate), max: bound(max, translate), units })
-}
-
-/**
- * The allowed values and their names.
- *
- * @param meta what the metadata says about the parameter
- * @param translate looks up a message
- * @returns the sentence, or null without named values
- */
-function valuesOf(meta: ParamMeta | undefined, translate: Translate): string | null {
-  if (!meta?.values) {
-    return null
-  }
-
-  return translate('editor.values', { list: Object.entries(meta.values).map(([value, name]) => `${value} ${name}`).join(', ') })
-}
-
-/**
- * The name the metadata gives the current value.
- *
- * @param meta what the metadata says about the parameter
- * @param value the current value
- * @param translate looks up a message
- * @returns the name in brackets with a space before it, or an empty string
- */
-function namedOf(meta: ParamMeta | undefined, value: number, translate: Translate): string {
-  const name = meta?.values?.[String(value)]
-
-  return name ? translate('editor.named', { name }) : ''
-}
-
-/**
- * What the metadata adds to the selected parameter.
- *
- * @param meta what the metadata says about it, if anything
- * @param value its current value on the vehicle
- * @param translate looks up a message
- * @returns the lines to show
- */
-export function detailsOf(meta: ParamMeta | undefined, value: number, translate: Translate): ParamDetails {
-  const units = unitsOf(meta)
-
-  return {
-    units,
-    named: namedOf(meta, value, translate),
-    description: meta?.description ?? null,
-    range: rangeOf(meta, units, translate),
-    values: valuesOf(meta, translate),
-  }
-}
-
-/**
  * How a finished write went.
  *
  * @param write the last write
  * @param translate looks up a message
- * @returns the line to show
+ * @returns the line to show, or null for a write the vehicle read back (nothing to say: the new value is in the list)
  */
-function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice {
+function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice | null {
   if (write.kind === 'verified') {
-    return { tone: 'ok', text: translate('editor.verified', { value: write.value }) }
+    return null
   }
   if (write.kind === 'changed') {
     // The vehicle holds another value than was asked: a problem, not a caution.
@@ -166,7 +67,8 @@ function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice {
  * @param last how the last write went
  * @param id the selected parameter
  * @param translate looks up a message
- * @returns the line, or null if there is nothing to say about this parameter
+ * @returns the line, or null if there is nothing to say about this parameter (a write that was read back says nothing, a
+ * failed or changed one is an error line)
  */
 export function writeNotice(writing: boolean, last: WriteStatus | null, id: string, translate: Translate): WriteNotice | null {
   if (writing) {

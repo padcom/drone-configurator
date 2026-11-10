@@ -14,7 +14,9 @@ export interface DescriptionRow {
 
 /** The block. */
 export interface DescriptionBlock {
-  /** The full explanation, if the metadata has one. */
+  /** What the parameter is, in a few words, when the metadata also has a longer explanation. */
+  summary: string | null
+  /** The explanation: the long description, or the short one when that is all there is. */
   text: string | null
   /** The facts. */
   rows: DescriptionRow[]
@@ -105,19 +107,22 @@ function nameRows(meta: ParamMeta, translate: Translate): DescriptionRow[] {
 }
 
 /**
- * Whether the metadata has nothing to add to what is under the name (the short description is there, so a parameter that has
- * only that has nothing missing).
+ * The words of a parameter: the short description above the long one, or alone as the text when there is no long one.
  *
  * @param meta what is known of the parameter
- * @param shown the text and the rows of the block
- * @returns true when there is nothing at all
+ * @returns the summary and the text
  */
-function hasNothing(meta: ParamMeta, shown: Pick<DescriptionBlock, 'text' | 'rows'>): boolean {
-  return shown.text === null && shown.rows.length === 0 && meta.description === undefined
+function wordsOf(meta: ParamMeta): Pick<DescriptionBlock, 'summary' | 'text'> {
+  if (meta.longDescription) {
+    return { summary: meta.description ?? null, text: meta.longDescription }
+  }
+
+  return { summary: null, text: meta.description ?? null }
 }
 
 /**
- * The rows and the text of a parameter that the metadata knows.
+ * The rows and the text of a parameter that the metadata knows: the short description is a line of its own above the long
+ * one, and is the text itself when there is no long one.
  *
  * @param meta what is known of the parameter
  * @param translate looks up a message
@@ -126,9 +131,10 @@ function hasNothing(meta: ParamMeta, shown: Pick<DescriptionBlock, 'text' | 'row
 function knownBlock(meta: ParamMeta, translate: Translate): DescriptionBlock {
   const restart = meta.rebootRequired ? [translate('description.rebootYes')] : []
   const rows = [...sizeRows(meta, translate), ...nameRows(meta, translate), ...row(translate('description.reboot'), restart)]
-  const shown = { text: meta.longDescription ?? null, rows }
+  const words = wordsOf(meta)
+  const nothing = words.text === null && rows.length === 0
 
-  return { ...shown, hint: hasNothing(meta, shown) ? translate('description.hintMissing') : '' }
+  return { ...words, rows, hint: nothing ? translate('description.hintMissing') : '' }
 }
 
 /**
@@ -144,5 +150,5 @@ export function descriptionOf(meta: ParamMeta | undefined, loaded: boolean, tran
     return knownBlock(meta, translate)
   }
 
-  return { text: null, rows: [], hint: translate(loaded ? 'description.hintMissing' : 'description.hintNone') }
+  return { summary: null, text: null, rows: [], hint: translate(loaded ? 'description.hintMissing' : 'description.hintNone') }
 }

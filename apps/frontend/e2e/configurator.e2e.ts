@@ -3,7 +3,7 @@
 // and runs this.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, confirmWrite, showScreen } from './click'
+import { clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
 
 let app: E2eApp
 
@@ -62,7 +62,7 @@ describe('writing, reconnecting and closing', () => {
     await app.click('#write')
     expect(await app.waitForText('#question', 'Set RTL_ALT')).toBe('Set RTL_ALT from 1500 to 1600?')
     await confirmWrite(app)
-    expect(await app.waitForText('#detail', 'Written and read back')).toMatch(/Written and read back: 1600\./u)
+    await waitForWritten(app, 'tr[data-id="RTL_ALT"]', 1600)
     expect(await app.text('tr[data-id="RTL_ALT"]')).toMatch(/1600/u)
   })
 

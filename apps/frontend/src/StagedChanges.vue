@@ -6,8 +6,16 @@
         <span class="name">{{ row.change.id }}</span>
         <span class="values"><span class="from">{{ row.change.from }}</span> → <span class="to">{{ row.change.to }}</span></span>
         <span v-if="row.line" class="line" :class="row.line.tone">{{ row.line.text }}</span>
-        <button v-if="row.discardable" type="button" class="discard" @click="staged.discard(row.change.id)">
-          {{ t('staged.discard') }}<span class="visually-hidden"> {{ row.change.id }}</span>
+        <!-- A trash can at the right of the row; its name says which parameter it takes out. -->
+        <button
+          v-if="row.discardable"
+          type="button"
+          class="discard"
+          :aria-label="t('staged.discard', { id: row.change.id })"
+          :title="t('staged.discard', { id: row.change.id })"
+          @click="staged.discard(row.change.id)"
+        >
+          <Icon name="trash" />
         </button>
       </li>
     </ul>
@@ -24,6 +32,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
+import Icon from './kit/Icon.vue'
 import { linesFor, summaryOf } from './stagedChanges'
 import { useConfigurator } from './useConfigurator'
 

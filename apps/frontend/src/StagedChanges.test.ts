@@ -57,7 +57,15 @@ it('lists each change with the value now and the value to write, and takes one o
   expect(wrapper.find('h2').exists()).toBe(false)
   expect(wrapper.get('#write-staged').text()).toBe('Write 2 and verify')
 
-  await rows[0]?.get('.discard').trigger('click')
+  // A trash can on the right of the row, named for the parameter it takes out, with a tooltip; no word on it.
+  const trash = rows[0]!.get('.discard')
+  expect(trash.attributes('aria-label')).toBe('Discard RTL_ALT')
+  expect(trash.attributes('title')).toBe('Discard RTL_ALT')
+  expect(trash.text()).toBe('')
+  expect(trash.find('svg path').attributes('d')).toBeDefined()
+  expect(rows[1]!.get('.discard').attributes('aria-label')).toBe('Discard BATT_LOW_VOLT')
+
+  await trash.trigger('click')
 
   expect(wrapper.findAll('.staged-row').map(row => row.get('.name').text())).toEqual(['BATT_LOW_VOLT'])
 })
