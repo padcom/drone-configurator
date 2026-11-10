@@ -49,6 +49,8 @@ describe('the confirmation says what it asks', () => {
     const wrapper = asked(HOLD)
     expect(wrapper.get('#vehicle').text()).toBe(HOLD.vehicle)
     expect(wrapper.get('#question').text()).toBe(HOLD.what)
+    // A long question scrolls (dialog.css), so a keyboard can reach it.
+    expect(wrapper.get('#question').attributes('tabindex')).toBe('0')
 
     expect(asked({ ...HOLD, vehicle: '' }).get('#vehicle').text()).toBe('No vehicle is connected')
   })

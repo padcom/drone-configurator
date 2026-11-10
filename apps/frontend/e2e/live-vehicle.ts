@@ -16,7 +16,7 @@ import {
   waitForQueuedWritten,
 } from './click'
 import type { Endpoint } from './endpoint'
-import { switchRounds } from './switch'
+import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
@@ -140,6 +140,24 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     console.info(`screen switch times with ${vehicle.minParams}+ parameters (ms):`, JSON.stringify(times))
 
     expect(Object.keys(times)).toHaveLength(6)
+    await showScreen(app, 'parameters')
+  })
+
+  it('switches within the budget with a description for every parameter loaded (the grid has its third column)', async () => {
+    // KeepAlive keeps the Parameters screen as it is: a switch must not lay the table out again. Every parameter of the list
+    // gets a description, so the grid is the metadata one (described: name and value as wide as their text, the rest of the
+    // row for the description) with the whole list. The times are in the failure message.
+    await showScreen(app, 'parameters')
+    const ids = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows tr')].map(row => row.dataset.id)`)
+    const params = Object.fromEntries(ids.map(id => [id, { description: `${id}: what it is for, and what it does to the vehicle` }]))
+    writeFileSync(join(files, 'open.json'), JSON.stringify({ format: 'drone-configurator/param-metadata', version: 1, params }))
+    await app.click('#metadata-button')
+    await app.waitFor(`document.querySelector('.param-scroll table.described td.meaning') !== null`, vehicle.downloadTimeoutMs)
+
+    const times = await switchRounds(app)
+
+    expect(ids.length).toBeGreaterThanOrEqual(vehicle.minParams)
+    expect(Math.max(...Object.values(times)), `${ids.length} rows, times (ms): ${JSON.stringify(times)}`).toBeLessThan(SWITCH_LIMIT_MS)
     await showScreen(app, 'parameters')
   })
 

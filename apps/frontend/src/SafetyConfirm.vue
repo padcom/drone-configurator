@@ -1,7 +1,7 @@
 <template>
   <Dialog id="confirm" :title="options.title" @close="answer(false)">
     <p id="vehicle" class="safety-vehicle">{{ options.vehicle || t('safety.noVehicle') }}</p>
-    <p id="question" class="safety-what">{{ options.what }}</p>
+    <p id="question" class="safety-what" tabindex="0">{{ options.what }}</p>
     <p v-if="options.level === 'hold'" id="safety-hint" class="safety-hint">
       {{ t('safety.holdHint', { seconds: HOLD_MS / 1000 }) }}
     </p>

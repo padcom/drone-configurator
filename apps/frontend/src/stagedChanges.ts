@@ -74,10 +74,9 @@ export interface StagedSummary {
  * @returns the alert's words
  */
 function stoppedText(failed: StagedResult, translate: Translate): string {
-  const why = translate(failed.outcome === 'changed' ? 'staged.alertChanged' : 'staged.alertFailed', {
-    id: failed.id,
-    detail: failed.detail,
-  })
+  // The sentence ends with its own full stop: a detail that ends with one (a message of the vehicle, an error) would double it.
+  const detail = failed.detail.replace(/[.\s]+$/u, '')
+  const why = translate(failed.outcome === 'changed' ? 'staged.alertChanged' : 'staged.alertFailed', { id: failed.id, detail })
 
   return `${why} ${translate('staged.stopped')}`
 }

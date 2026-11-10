@@ -105,6 +105,12 @@ it('lays the related parameters out a line each in two columns, the text cut sho
   expect(detail).toMatch(/\.related-text\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap/u)
 })
 
+it('caps a long question of the confirmation, which scrolls inside the dialog', () => {
+  const dialog = sheet('kit/dialog.css')
+
+  expect(dialog).toMatch(/\.safety-what\s*\{[^}]*max-height:\s*40vh;[^}]*overflow-y:\s*auto;[^}]*white-space:\s*pre-line/u)
+})
+
 it('has no rule for a bare main element: the one <main> is the frame\'s, and it is not a grid', () => {
   expect(style).not.toMatch(/(?:^|[\s,{}])main\s*[,{]/u)
   expect(style).not.toContain('.params-layout')
