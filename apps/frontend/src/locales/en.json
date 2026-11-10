@@ -325,6 +325,15 @@
     "holdHint": "Hold the button for {seconds} s to confirm. Letting go cancels."
   },
   "params": {
+    "view": {
+      "label": "View",
+      "standard": "Standard",
+      "full": "Full",
+      "hiddenTitle": "Standard view hides these parameters",
+      "hiddenHelp": "The metadata marks every parameter of this group as advanced. Choose Full to list them.",
+      "showFull": "Show the Full view",
+      "resetHidden": "This includes {count} parameter hidden by the Standard view. | This includes {count} parameters hidden by the Standard view."
+    },
     "filter": "Search by name or what it does",
     "filterHint": "Search by name or what it does (Ctrl+/)",
     "clearSearch": "Clear search",

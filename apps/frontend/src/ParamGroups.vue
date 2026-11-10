@@ -28,6 +28,7 @@ import { useFavourites } from './favourites'
 import { FAVOURITES_GROUP, effectiveGroup, groupsOf } from './paramGroups'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
+import { useParamView } from './useParamView'
 
 // The groups of the parameter list, with how many parameters are in each ("All" first): a click shows only that group. The
 // groups come from the parameters' names. A group that is no longer there (another vehicle) is as if All were chosen. There
@@ -36,13 +37,15 @@ import { useParamGroup } from './useParamGroup'
 const { t } = useI18n()
 const { fields, parameters } = useConfigurator()
 const choice = useParamGroup()
-const groups = computed(() => groupsOf(fields.params.value))
+// The counts are of what the view lists (Standard leaves out the advanced ones); the groups are all of them.
+const { listed } = useParamView()
+const groups = computed(() => groupsOf(fields.params.value, listed.value))
 // The favourites the vehicle has, and how many it does not (the group's count is the first, its tooltip says the second).
 const favourites = useFavourites()
 const present = computed(() => fields.params.value.filter(param => favourites.set.value.has(param.id)).length)
 const missing = computed(() => favourites.names.value.length - present.value)
 const all = computed(() => [
-  { id: '', count: fields.params.value.length },
+  { id: '', count: listed.value.length },
   { id: FAVOURITES_GROUP, count: present.value },
   ...groups.value,
 ])
