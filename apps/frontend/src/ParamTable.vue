@@ -85,6 +85,14 @@
       </tbody>
     </table>
     <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t(emptyHelp)" />
+    <!-- A group whose parameters are all advanced, in Standard: said, with the way to see them. -->
+    <EmptyState
+      v-else-if="hiddenByView"
+      :title="t('params.view.hiddenTitle')"
+      :help="t('params.view.hiddenHelp')"
+    >
+      <Button id="show-full" @click="chooseView('full')">{{ t('params.view.showFull') }}</Button>
+    </EmptyState>
     <EmptyState
       v-else
       :title="t(onlyFavourites ? 'params.favourites.emptyTitle' : 'params.noMatch.title')"
@@ -113,7 +121,7 @@
       v-if="fields.initial.value"
       id="reset-all"
       :disabled="!canReset"
-      :title="t('params.initial.resetAllHelp')"
+      :title="resetAllHelp"
       @click="resetAll"
     >
       {{ t('params.initial.resetAll', { count: targets.length }) }}
@@ -242,7 +250,7 @@ function pressClearMissing(): void {
 let searchIndex: SearchIndex | null = null
 // What the chosen group lists: its parameters that the view lists (Standard leaves out the advanced ones), or the starred ones
 // that the vehicle has (a star is a choice of the user's: the view does not hide it). A search is over all, whatever the view.
-const { listed } = useParamView()
+const { listed, view, choose: chooseView } = useParamView()
 const inGroup = computed(() => onlyFavourites.value
   ? params.value.filter(param => favourites.set.value.has(param.id))
   : visibleParams(listed.value, '', group.value))
@@ -263,6 +271,13 @@ const visible = computed(() => {
     ? found.map(hit => byId.get(hit.id)).filter(param => param !== undefined)
     : inGroup.value
 })
+// Nothing to list in the chosen group, and Standard is why (the group has parameters, all of them advanced; no search is typed).
+const hiddenByView = computed(() => [
+  view.value === 'standard',
+  !onlyFavourites.value,
+  fields.filter.value.trim() === '',
+  visibleParams(params.value, '', group.value).length > 0,
+].every(Boolean))
 const meaning = computed(() => fields.metadata.value.size > 0)
 const columns = computed(() => meaning.value ? 4 : 3)
 // The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
@@ -561,6 +576,14 @@ watch([() => fields.selected.value, () => fields.filter.value], async () => {
   }
 })
 watch(() => choice.chosen.value, () => selectAt(0))
+// After a change of view the selected row, if it is still listed, is brought back into view (the rows above it came or went).
+watch(view, async () => {
+  await nextTick()
+
+  if (selectedAt.value >= 0) {
+    reveal(selectedAt.value)
+  }
+})
 
 let frame = 0
 /** Follows the scroll, once a frame at most (the scroll event comes more often than that). */
@@ -605,6 +628,14 @@ const targets = computed(() => {
   const skip = (id: string) => isBookkeeping(id, fields.metadata.value.get(id))
 
   return resetTargets(params.value, fields.initial.value, skip)
+})
+// In Standard some of them may be hidden by the view: the button's help says so (it acts on all of the changed ones).
+const resetAllHelp = computed(() => {
+  const shownIds = new Set(listed.value.map(param => param.id))
+  const hidden = targets.value.filter(target => !shownIds.has(target.id)).length
+  const help = t('params.initial.resetAllHelp')
+
+  return hidden > 0 ? `${help} ${t('params.view.resetHidden', { count: hidden })}` : help
 })
 const canReset = computed(() => {
   const idle = !parameters.lock.busy.value && fields.list.value !== 'loading' && fields.connection.value.state === 'connected'
