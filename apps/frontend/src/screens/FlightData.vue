@@ -6,17 +6,14 @@
       </div>
     </section>
     <aside class="fly-aside" tabindex="-1" :aria-label="t('flight.aside')">
-      <p class="muted placeholder">{{ t('flight.hud.placeholder') }}</p>
-      <section id="telemetry" class="cards">
-        <TelemetryCards />
-      </section>
+      <FlyAside />
     </aside>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import TelemetryCards from '../TelemetryCards.vue'
+import FlyAside from '../FlyAside.vue'
 
 // The screen the user lives in, in fixed regions (the design's Fly): at the left the map (a placeholder until it is built;
 // the view tabs above it and the control strip below it are drawn when there is more than one view and the commands exist),

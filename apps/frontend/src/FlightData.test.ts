@@ -32,7 +32,16 @@ it('has the map at the left and the aside at the right, in fixed regions', async
   expect(wrapper.get('.fly-main').attributes('aria-label')).toBe('Map')
   expect(wrapper.get('aside').attributes('aria-label')).toBe('Details')
   expect(wrapper.text()).toContain('The map is not available yet.')
-  expect(wrapper.text()).toContain('The heads-up display is not available yet.')
+  expect(wrapper.find('.fly-aside svg.hud').exists()).toBe(true)
+})
+
+it('has the HUD and the six cards of the design in the aside, all never reported without a vehicle', async () => {
+  const wrapper = await screen()
+  const cards = wrapper.findAll('.fly-aside .fly-cards .truth')
+
+  expect(cards.map(card => card.get('.label').text())).toEqual(['BATTERY', 'WIND', 'GPS', 'LINK', 'EKF', 'VIBRATION'])
+  expect(cards.map(card => card.attributes('data-state'))).toEqual(Array(6).fill('never'))
+  expect(cards.map(card => card.get('.visually-hidden').text())).toEqual(Array(6).fill('not reported'))
 })
 
 it('has the telemetry cards in the aside', async () => {
