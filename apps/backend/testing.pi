@@ -1,7 +1,58 @@
 // For the backend's tests (*.test.pi): a scripted frontend on an in-memory link, with the backend
 // running on the other end.
 import { Cbor, Envelope, Transport, decodeEnvelope, encodeEnvelope, envelope, memoryPair } from "pico-desktop/communicator"
+import { delay } from "std/timers"
 import { createBackend } from "./app"
+
+/// How long a test waits for the backend to say something before it fails (ms). A message that never comes is a hang
+/// with no output: with this it is a failure that names what was waited for. It covers every wait of Frontend, a
+/// `call` of `vehicle.connect` among them: raise it here, or with `setDeadline`, for a wait that can take longer.
+export const DEFAULT_DEADLINE_MS: int = 10000
+
+class Limits {
+  public deadlineMs: int = DEFAULT_DEADLINE_MS
+}
+
+const limits = new Limits()
+
+/// Changes how long a test waits (for the test of the deadline itself, or for one slow wait).
+export function setDeadline(ms: int): void {
+  limits.deadlineMs = ms
+}
+
+/// Waits for `p`, or fails with `what` after the deadline. The timer is stopped when `p` is done, so a test that passes
+/// is not held up by it, and the process ends when the tests do. When the deadline passes `p` is not stopped: the wait
+/// goes on reading the link in the background, so a test that catches the failure and waits again would have two
+/// readers (the failure is meant to end the test).
+async function within<T>(p: Promise<T, Error>, what: string): Promise<T> throws Error {
+  const stop = new AbortController()
+  const expired = await Promise.race<bool, Error>([timedOut(limits.deadlineMs, stop.signal), ended<T>(p)])
+  stop.abort()
+  if (expired) {
+    throw new Error(`nothing arrived within ${limits.deadlineMs} ms: ${what}`)
+  }
+  await p
+}
+
+/// True when `ms` pass; false when the wait is cancelled first (`signal`), which also clears the timer.
+async function timedOut(ms: int, signal: AbortSignal): Promise<bool> throws Error {
+  try {
+    await delay(ms, signal)
+    return true
+  } catch (e: Error) {
+    return false
+  }
+}
+
+/// False when `p` is done, whichever way (the caller looks at how).
+async function ended<T>(p: Promise<T, Error>): Promise<bool> throws Error {
+  try {
+    await p
+  } catch (e: Error) {
+    return false
+  }
+  false
+}
 
 /// The frontend's end: requests by id. Replies to other requests are kept for them; events are
 /// skipped.
@@ -25,8 +76,12 @@ export class Frontend {
     id
   }
 
-  /// The reply to request `want`.
+  /// The reply to request `want` (or a failure after DEADLINE_MS).
   public async reply(want: u64): Promise<Envelope> throws Error {
+    await within<Envelope>(awaitReply(want), `the reply to request ${want}`)
+  }
+
+  async awaitReply(want: u64): Promise<Envelope> throws Error {
     for (let i = 0; i < kept.length; i++) {
       if (kept[i].id == want) {
         const e = kept[i]
@@ -45,8 +100,12 @@ export class Frontend {
     }
   }
 
-  /// The next event `name` (replies on the way are kept).
+  /// The next event `name` (replies on the way are kept), or a failure after DEADLINE_MS.
   public async event(name: string): Promise<Envelope> throws Error {
+    await within<Envelope>(awaitEvent(name), `an event ${name}`)
+  }
+
+  async awaitEvent(name: string): Promise<Envelope> throws Error {
     while (true) {
       const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
       if (got.k == "event" && got.n == name) {
@@ -74,8 +133,13 @@ export class Frontend {
     (await reply(want)).s ?? 0
   }
 
-  /// The message that ends a subscription from the publisher's side (events on the way are skipped).
+  /// The message that ends a subscription from the publisher's side (events on the way are skipped), or a failure after
+  /// DEADLINE_MS.
   public async ended(): Promise<Envelope> throws Error {
+    await within<Envelope>(awaitEnd(), "the end of a subscription")
+  }
+
+  async awaitEnd(): Promise<Envelope> throws Error {
     while (true) {
       const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
       if (got.k == "unsubscribe") {
