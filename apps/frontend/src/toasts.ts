@@ -58,6 +58,9 @@ export interface Clock {
 
 const REAL: Clock = { now: () => Date.now(), set: (fn, ms) => setTimeout(fn, ms), clear: timer => clearTimeout(timer) }
 
+/** What can hold a toast: the pointer is on it, or the focus is in it. Kept apart, so that one letting go is not both. */
+export type Hold = 'pointer' | 'focus'
+
 /** What the queue offers. */
 export interface Toasts {
   /** The toasts that are shown now (at most MAX_VISIBLE), oldest first. */
@@ -68,10 +71,10 @@ export interface Toasts {
   push: (input: ToastInput) => void
   /** Removes a toast. */
   dismiss: (key: number) => void
-  /** Stops a toast's time running out (the pointer is on it, or the focus is in it). */
-  pause: (key: number) => void
-  /** Lets it run out again, with the time it had left. */
-  resume: (key: number) => void
+  /** Stops a toast's time running out, for as long as `by` holds it (the pointer is on it, or the focus is in it). */
+  pause: (key: number, by: Hold) => void
+  /** Lets go of one hold; it runs out again, with the time it had left, when nothing holds it any more. */
+  resume: (key: number, by: Hold) => void
 }
 
 /** What is known of a toast beyond what is shown. */
@@ -86,8 +89,8 @@ interface Entry {
   left: number
   /** Since when it has been running (ms). */
   since: number
-  /** Held by the pointer or the focus: its time does not run. */
-  paused: boolean
+  /** What holds it: while the pointer or the focus is on it, its time does not run (each is let go on its own). */
+  holds: Set<Hold>
 }
 
 /**
@@ -111,7 +114,7 @@ function lifeOf(toast: Toast): number {
  * @returns true when its timer is to be started
  */
 function startable(entry: Entry): boolean {
-  return entry.timer === undefined && !entry.paused && Number.isFinite(entry.left)
+  return entry.timer === undefined && entry.holds.size === 0 && Number.isFinite(entry.left)
 }
 
 /** The queue: which toasts are shown, and when each of them goes. */
@@ -140,7 +143,7 @@ class ToastQueue implements Toasts {
       sticky: input.sticky ?? false,
       count: 1,
     })
-    this.entries.push({ toast, lastAt: this.clock.now(), left: lifeOf(toast), since: 0, paused: false })
+    this.entries.push({ toast, lastAt: this.clock.now(), left: lifeOf(toast), since: 0, holds: new Set() })
     this.refresh()
   }
 
@@ -163,11 +166,12 @@ class ToastQueue implements Toasts {
    * Stops the time of a toast running.
    *
    * @param key its number
+   * @param by what holds it
    */
-  pause = (key: number): void => {
+  pause = (key: number, by: Hold): void => {
     const entry = this.entries.find(e => e.toast.key === key)
     if (entry) {
-      entry.paused = true
+      entry.holds.add(by)
 
       if (entry.timer !== undefined) {
         entry.left -= this.clock.now() - entry.since
@@ -180,11 +184,12 @@ class ToastQueue implements Toasts {
    * Lets the time of a toast run again, with what it had left.
    *
    * @param key its number
+   * @param by what lets go
    */
-  resume = (key: number): void => {
+  resume = (key: number, by: Hold): void => {
     const entry = this.entries.find(e => e.toast.key === key)
     if (entry) {
-      entry.paused = false
+      entry.holds.delete(by)
       this.refresh()
     }
   }
@@ -230,7 +235,8 @@ class ToastQueue implements Toasts {
    */
   private counted(input: ToastInput): boolean {
     const id = input.id ?? input.text
-    const same = this.entries.find(e => e.toast.id === id && e.toast.severity === input.severity)
+    // The newest one of the kind: an older, expired-window one of the same id must not hide a recent repeat's place.
+    const same = this.entries.findLast(e => e.toast.id === id && e.toast.severity === input.severity)
     if (!same || this.clock.now() - same.lastAt >= DEDUPE_MS) {
       return false
     }

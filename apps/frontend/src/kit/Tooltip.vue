@@ -8,7 +8,9 @@
 <script setup lang="ts">
 // A word of help for a control: shown when the pointer is on it or the focus is in it, hidden when either leaves and with
 // Escape. It is light on dark (inverted), so it stands out of a dark page, and it says nothing that is not also available
-// elsewhere: it is a help, never the only place for something. The control inside gets `describedby` from the slot, so a
+// elsewhere: it is a help, never the only place for something. The tooltip is inside the host, so the pointer can move onto
+// it without it going (WCAG 1.4.13, hoverable), as long as no gap is left between the control and it (see feedback.css).
+// The control inside gets `describedby` from the slot, so a
 // screen reader reads the tooltip with it:
 //   <Tooltip text="Written to the vehicle and read back" v-slot="{ describedby }"><Button :aria-describedby="describedby">…
 import { ref, useId } from 'vue'

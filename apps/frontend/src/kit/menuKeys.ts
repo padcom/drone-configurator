@@ -9,7 +9,10 @@ export interface MenuItem {
   label: string
   /** A key that does the same elsewhere ("Ctrl C"), shown at the right. */
   hint?: string
-  /** Cannot be chosen now: skipped by the keys. */
+  /**
+   * Cannot be chosen now: skipped by the keys. It is drawn with the native `disabled` (so it is neither focusable nor
+   * clickable), a choice made because the keys never land on it anyway; the reason for it being off belongs in the label.
+   */
   disabled?: boolean
 }
 
@@ -57,7 +60,7 @@ function startsWith(item: MenuItem | undefined, wanted: string): boolean {
 /**
  * The item that type-ahead goes to: the first that can be chosen and whose label starts with what was typed, looking on from
  * the item the focus is on (from the next one when one letter was typed, so that the same letter again goes on to the next
- * item with it).
+ * item with it; a longer string, "ss", is looked for from the item itself, so that it stays on a label that still fits).
  *
  * @param items the items
  * @param from the item the focus is on

@@ -31,6 +31,15 @@ describe('the toast region', () => {
     expect(wrapper.get('[role="region"]').attributes('aria-label')).toBe('Notifications')
     expect(wrapper.findAll('.kit-toast')).toHaveLength(0)
   })
+})
+
+describe('the live regions of the toast region', () => {
+  it('has its polite and its assertive live region from the start, empty, so that what comes up in them is announced', () => {
+    const { wrapper } = host()
+
+    expect(wrapper.findAll('.kit-toast-group').map(g => g.attributes('role'))).toEqual(['status', 'alert'])
+    expect(wrapper.findAll('.kit-toast-group').map(g => g.element.children.length)).toEqual([0, 0])
+  })
 
   it('shows a toast with its glyph and its words, politely for a status and at once for an error', async () => {
     const { wrapper, toasts } = host()
@@ -40,7 +49,8 @@ describe('the toast region', () => {
     await wrapper.vm.$nextTick()
     const items = wrapper.findAll('.kit-toast')
 
-    expect(items.map(i => i.attributes('role'))).toEqual(['status', 'alert'])
+    expect(items.map(i => i.element.parentElement?.getAttribute('role'))).toEqual(['status', 'alert'])
+    expect(items.map(i => i.attributes('role'))).toEqual([undefined, undefined])
     expect(items.map(i => i.text())).toEqual([
       expect.stringContaining('Mission written and read back'),
       expect.stringContaining('The vehicle reports 2500, not 3000'),
@@ -95,6 +105,23 @@ describe('what the pointer and the focus do to a toast', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('.kit-toast')).toHaveLength(0)
+  })
+})
+
+describe('what the pointer and the focus do together', () => {
+  it('keeps it while the focus is in it after the pointer has left', async () => {
+    const { wrapper, toasts } = host()
+    toasts.push({ severity: 'success', text: 'one' })
+    await wrapper.vm.$nextTick()
+    const toast = wrapper.get('.kit-toast')
+
+    await toast.trigger('mouseenter')
+    await wrapper.get('.dismiss').trigger('focusin')
+    await toast.trigger('mouseleave')
+    vi.advanceTimersByTime(SHOW_MS * 3)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('.kit-toast')).toHaveLength(1)
   })
 })
 

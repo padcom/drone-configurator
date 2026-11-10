@@ -16,6 +16,11 @@
   pointer-events: none;
 }
 
+/* The live-region wrappers add no box of their own: the toasts are laid out in the region as before. */
+.kit-toast-group {
+  display: contents;
+}
+
 .kit-toast {
   display: flex;
   gap: var(--space-3);
@@ -174,7 +179,16 @@
   font-size: var(--font-size-value-sm);
   color: var(--color-bg);
   white-space: nowrap;
-  pointer-events: none;
   background: var(--color-text);
   border-radius: var(--radius-sm);
+}
+
+/* Hoverable (WCAG 1.4.13): the pointer can go from the control to the tooltip across the gap without the tooltip going. */
+.kit-tooltip::after {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: var(--space-1);
+  content: '';
 }

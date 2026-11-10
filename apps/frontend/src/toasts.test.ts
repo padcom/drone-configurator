@@ -152,7 +152,22 @@ describe('the same event, later or otherwise', () => {
 
     expect(toasts.visible.value.map(t => t.count)).toEqual([1, 1, 1, 1])
   })
+})
 
+describe('the same event, counted on the newest', () => {
+  it('counts a repeat on the newest toast of its kind, not on an older one that is out of the window', () => {
+    const { toasts, clock } = queue()
+    toasts.push({ severity: 'warning', text: 'a' })
+    clock.advance(3000)
+    toasts.push({ severity: 'warning', text: 'a' })
+    clock.advance(1000)
+    toasts.push({ severity: 'warning', text: 'a' })
+
+    expect(toasts.visible.value.map(t => t.count)).toEqual([1, 2])
+  })
+})
+
+describe('the same event, kept on screen', () => {
   it('starts its time again, so that a message that keeps coming does not go while it does', () => {
     const { toasts, clock } = queue()
     toasts.push({ severity: 'warning', text: 'a' })
@@ -172,13 +187,35 @@ describe('a toast that is held', () => {
     const key = toasts.visible.value[0]?.key ?? 0
     clock.advance(SHOW_MS - 1000)
 
-    toasts.pause(key)
+    toasts.pause(key, 'pointer')
     clock.advance(10 * SHOW_MS)
     expect(shown(toasts)).toEqual(['one'])
-    toasts.resume(key)
+    toasts.resume(key, 'pointer')
     clock.advance(999)
     expect(shown(toasts)).toEqual(['one'])
     clock.advance(1)
+
+    expect(shown(toasts)).toEqual([])
+  })
+})
+
+describe('a toast that is held by both the pointer and the focus', () => {
+  it('stays held by the focus when the pointer leaves, and by the pointer when the focus leaves', () => {
+    const { toasts, clock } = queue()
+    toasts.push({ severity: 'success', text: 'one' })
+    const key = toasts.visible.value[0]?.key ?? 0
+    toasts.pause(key, 'pointer')
+    toasts.pause(key, 'focus')
+
+    toasts.resume(key, 'pointer')
+    clock.advance(10 * SHOW_MS)
+    expect(shown(toasts)).toEqual(['one'])
+    toasts.pause(key, 'pointer')
+    toasts.resume(key, 'focus')
+    clock.advance(10 * SHOW_MS)
+    expect(shown(toasts)).toEqual(['one'])
+    toasts.resume(key, 'pointer')
+    clock.advance(SHOW_MS)
 
     expect(shown(toasts)).toEqual([])
   })
@@ -190,7 +227,7 @@ describe('a toast that is held while another goes', () => {
     toasts.push({ severity: 'success', text: 'one' })
     toasts.push({ severity: 'success', text: 'two' })
     const [one, two] = toasts.visible.value.map(t => t.key)
-    toasts.pause(one ?? 0)
+    toasts.pause(one ?? 0, 'pointer')
 
     toasts.dismiss(two ?? 0)
     clock.advance(10 * SHOW_MS)
