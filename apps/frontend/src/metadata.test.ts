@@ -33,11 +33,14 @@ describe('parameter metadata', () => {
 })
 
 describe('the check of a value against the metadata', () => {
-  it('checks ranges and named values, and nothing without metadata', () => {
+  it('warns about a value outside the range or the values, and says nothing without metadata', () => {
     expect(checkMeta(undefined, 1e9)).toBeNull()
-    expect(checkMeta({ min: 200, max: 300000, units: 'cm' }, 100)).toBe('at least 200 cm')
-    expect(checkMeta({ max: 10 }, 11)).toBe('at most 10')
-    expect(checkMeta({ values: { 0: 'Disabled', 1: 'Enabled' } }, 2)).toBe('one of 0 (Disabled), 1 (Enabled)')
+    expect(checkMeta({ min: 200, max: 300000, units: 'cm' }, 100)).toBe('Outside the usual range 200–300000 cm')
+    expect(checkMeta({ min: 200, max: 300000, units: 'cm' }, 400000)).toBe('Outside the usual range 200–300000 cm')
+    expect(checkMeta({ min: 200, max: 300000 }, 200)).toBeNull()
+    expect(checkMeta({ max: 10 }, 11)).toBe('Outside the usual range …–10')
+    const values = { 0: 'Disabled', 1: 'Enabled' }
+    expect(checkMeta({ values }, 2)).toBe('Not one of the usual values: 0 (Disabled), 1 (Enabled)')
     expect(checkMeta({ values: { 0: 'Disabled', 1: 'Enabled' } }, 1)).toBeNull()
   })
 })

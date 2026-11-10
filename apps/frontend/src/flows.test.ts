@@ -265,17 +265,19 @@ describe('editing', () => {
     expect(validateDraft(real, '12.75')).toBeNull()
   })
 
-  it('checks edits against loaded metadata too, and only when it\'s there', async () => {
+  it('warns about edits outside the loaded metadata, only when it\'s there, and still lets them be written', async () => {
     const { app, questions } = await connected()
     app.select('RTL_ALT')
     app.editDraft('100')
-    expect(app.state.draftError).toBeNull()
+    expect(app.state.draftWarning).toBeNull()
     const metadata = { format: 'drone-configurator/param-metadata', version: 1, params: { RTL_ALT: { min: 200, units: 'cm' } } }
     app.loadMetadata(JSON.stringify(metadata))
     app.editDraft('100')
-    expect(app.state.draftError).toBe('at least 200 cm')
+    expect(app.state.draftError).toBeNull()
+    expect(app.state.draftWarning).toBe('Outside the usual range 200–… cm')
     await app.write()
-    expect(questions).toEqual([])
+    expect(questions).toEqual(['Set RTL_ALT from 1500 to 100? Outside the usual range 200–… cm.'])
+    expect(app.state.lastWrite).toEqual({ kind: 'verified', id: 'RTL_ALT', value: 100 })
     app.loadMetadata('{')
     expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
   })

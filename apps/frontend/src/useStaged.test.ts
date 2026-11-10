@@ -40,12 +40,13 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
   const params = shallowRef<Param[]>([RTL, FENCE, BATT])
   const selected = shallowRef<string | null>(null)
   const draft = shallowRef('')
-  const draftError = shallowRef<string | null>(null)
+  const [draftError, draftWarning] = [shallowRef<string | null>(null), shallowRef<string | null>(null)]
   const lock = createWriteLock()
   const parameters = {
     params,
     draft,
     draftError,
+    draftWarning,
     lock,
     selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
     replace: (param: Param) => {
@@ -65,7 +66,7 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
     draft.value = text
   }
 
-  return { staged, call, askedOnce, pick, params, draftError, lock }
+  return { staged, call, askedOnce, pick, params, draftError, draftWarning, lock }
 }
 
 /**
@@ -129,6 +130,25 @@ describe('a draft that cannot be added', () => {
     staged.discard('RTL_ALT')
 
     expect(staged.changes.value).toEqual([])
+  })
+})
+
+describe('a draft the metadata finds unusual', () => {
+  it('can be added, with its warning, which the question to write says', async () => {
+    const { staged, pick, draftWarning, askedOnce } = rig((_id, value) => value)
+    pick('RTL_ALT', '20')
+    draftWarning.value = 'Outside the usual range 30–300000 cm'
+    expect(staged.canStage()).toBe(true)
+    staged.stage()
+    pick('FENCE_RADIUS', '300')
+    draftWarning.value = null
+    staged.stage()
+
+    await staged.writeAll()
+
+    expect(askedOnce).toHaveBeenCalledWith(
+      'Write 2 parameters to the vehicle (RTL_ALT, FENCE_RADIUS)? RTL_ALT: Outside the usual range 30–300000 cm.',
+    )
   })
 })
 

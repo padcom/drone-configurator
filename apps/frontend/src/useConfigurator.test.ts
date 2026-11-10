@@ -28,6 +28,7 @@ it('has a ref for every field of the state, and nothing else', () => {
     'connection',
     'draft',
     'draftError',
+    'draftWarning',
     'error',
     'filter',
     'importError',

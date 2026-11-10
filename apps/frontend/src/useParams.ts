@@ -27,6 +27,8 @@ export interface ParamsDeps {
   confirm: (question: string) => Promise<boolean>
   /** Why `text` isn't a valid new value for `param` (its type, then its metadata), or null. */
   problemWith: (param: Param, text: string) => string | null
+  /** What the metadata finds unusual about `text` as a value for `param` (a warning: the write is still allowed), or null. */
+  warningWith: (param: Param, text: string) => string | null
 }
 
 /** The parameters, as refs and actions. */
@@ -45,6 +47,8 @@ export interface ParamsModel {
   readonly draft: ShallowRef<string>
   /** Why the draft is not a valid value, or null. */
   readonly draftError: ShallowRef<string | null>
+  /** What the metadata finds unusual about the draft (outside its range, not among its values), or null. */
+  readonly draftWarning: ShallowRef<string | null>
   /** Whether a write is under way. */
   readonly writing: ShallowRef<boolean>
   /** How the last write went. */
@@ -96,6 +100,7 @@ class Parameters implements ParamsModel {
   readonly selected = shallowRef<string | null>(null)
   readonly draft = shallowRef('')
   readonly draftError = shallowRef<string | null>(null)
+  readonly draftWarning = shallowRef<string | null>(null)
   readonly writing = shallowRef(false)
   readonly lastWrite = shallowRef<WriteStatus | null>(null)
   readonly lock = createWriteLock()
@@ -130,6 +135,7 @@ class Parameters implements ParamsModel {
     this.selected.value = param ? id : null
     this.draft.value = param ? String(param.value) : ''
     this.draftError.value = null
+    this.draftWarning.value = null
     this.forgetOtherWrites(id)
   }
 
@@ -148,6 +154,7 @@ class Parameters implements ParamsModel {
     const param = this.selectedParam()
     this.draft.value = text
     this.draftError.value = param ? this.deps.problemWith(param, text) : null
+    this.draftWarning.value = param ? this.deps.warningWith(param, text) : null
   }
 
   /**
@@ -200,7 +207,10 @@ class Parameters implements ParamsModel {
 
       return
     }
-    await this.writeLocked(param, Number(this.draft.value.trim()))
+    // The metadata's view is read again now: the file may have been loaded since the draft was typed.
+    const warning = this.deps.warningWith(param, this.draft.value)
+    this.draftWarning.value = warning
+    await this.writeLocked(param, Number(this.draft.value.trim()), warning)
   }
 
   /**
@@ -210,9 +220,11 @@ class Parameters implements ParamsModel {
    *
    * @param param the parameter
    * @param value the new value
+   * @param warning what the metadata finds unusual about it, which the question says
    */
-  private async writeLocked(param: Param, value: number): Promise<void> {
-    if (!await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
+  private async writeLocked(param: Param, value: number, warning: string | null): Promise<void> {
+    const question = `Set ${param.id} from ${param.value} to ${value}?${warning ? ` ${warning}.` : ''}`
+    if (!await this.deps.confirm(question)) {
       return
     }
     const release = this.lock.take()

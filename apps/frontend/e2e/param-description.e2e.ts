@@ -69,6 +69,16 @@ describe('the description of the selected parameter', () => {
     })()`)
     expect(box).toEqual({ scrolls: true, fits: true })
   })
+})
+
+describe('a value the metadata finds unusual', () => {
+  it('is warned about, beside the field, and can still be written', async () => {
+    await app.fill('#draft', '10')
+
+    expect(await app.waitForText('#draft-warning', /Outside the usual range 30–300000 cm/u)).toContain('cm')
+    expect(await app.evaluate<boolean>(`document.querySelector('#write').disabled`)).toBe(false)
+    expect(await app.evaluate<string>(`document.querySelector('#draft').getAttribute('aria-describedby')`)).toBe('draft-warning')
+  })
 
   it('closes cleanly', async () => {
     expect(await app.close()).toBe(0)

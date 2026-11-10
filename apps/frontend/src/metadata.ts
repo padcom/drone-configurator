@@ -204,11 +204,13 @@ export function parseMetadata(text: string): Metadata | string {
 }
 
 /**
- * Why `value` breaks `meta`'s range or values, or null.
+ * Why `value` is not what `meta` says is usual (its range or its values), or null. This is a warning, not a refusal: the
+ * ranges and the values of a definition file are advisory (a vehicle can take more than an older file lists), the vehicle
+ * validates, and the read-back says what it kept.
  *
  * @param meta what's known about the parameter
  * @param value the new value
- * @returns the problem, or null
+ * @returns the warning, or null
  */
 export function checkMeta(meta: ParamMeta | undefined, value: number): string | null {
   if (!meta) {
@@ -217,13 +219,11 @@ export function checkMeta(meta: ParamMeta | undefined, value: number): string | 
   if (meta.values && Object.keys(meta.values).length > 0 && !(String(value) in meta.values)) {
     const allowed = Object.entries(meta.values).map(([v, name]) => `${v} (${name})`).join(', ')
 
-    return `one of ${allowed}`
+    return `Not one of the usual values: ${allowed}`
   }
-  if (meta.min !== undefined && value < meta.min) {
-    return `at least ${meta.min}${meta.units ? ` ${meta.units}` : ''}`
-  }
-  if (meta.max !== undefined && value > meta.max) {
-    return `at most ${meta.max}${meta.units ? ` ${meta.units}` : ''}`
+  const { min, max } = meta
+  if ((min !== undefined && value < min) || (max !== undefined && value > max)) {
+    return `Outside the usual range ${min ?? '…'}–${max ?? '…'}${meta.units ? ` ${meta.units}` : ''}`
   }
 
   return null

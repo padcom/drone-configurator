@@ -50,6 +50,12 @@
   color: var(--color-error);
 }
 
+.param-detail .warning {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warn);
+}
+
 /* The two regions that say the outcome of a write: always there, and empty (no height) until there is something to say. */
 .param-detail .notices {
   display: grid;

@@ -14,6 +14,11 @@
       <p v-if="details.range" class="facts">{{ details.range }}</p>
       <p v-if="details.values && !named" class="facts">{{ details.values }}</p>
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
+      <!-- Unusual according to the metadata, but not wrong: the write is allowed (the vehicle validates, and the read-back says
+           what it kept). The field points to it, as it does to an error. -->
+      <p v-else-if="fields.draftWarning.value" id="draft-warning" class="warning" role="status">
+        {{ fields.draftWarning.value }}
+      </p>
     </template>
     <!-- The outcome of a write is said in two regions that are always in the page, so that a screen reader reads what is put in
          them: a polite one for "writing" and a verified write, an assertive one for a write that is not confirmed or that the
@@ -45,7 +50,7 @@
         :options="named"
         :label="t('editor.newValue')"
         :invalid="Boolean(fields.draftError.value)"
-        :describedby="fields.draftError.value ? 'draft-error' : undefined"
+        :describedby="describedBy"
       />
       <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
       <TextInput
@@ -53,7 +58,7 @@
         id="draft"
         :model-value="fields.draft.value"
         :invalid="Boolean(fields.draftError.value)"
-        :aria-describedby="fields.draftError.value ? 'draft-error' : undefined"
+        :aria-describedby="describedBy"
         mono
         large
         autocomplete="off"
@@ -110,6 +115,14 @@ const writable = computed(() => free.value && canWrite({
   draftError: fields.draftError.value,
   draft: fields.draft.value,
 }, param.value))
+// The field points to the words about its draft: the error when there is one, else the warning.
+const describedBy = computed(() => {
+  if (fields.draftError.value) {
+    return 'draft-error'
+  }
+
+  return fields.draftWarning.value ? 'draft-warning' : undefined
+})
 const details = computed(() => detailsOf(meta.value, param.value?.value ?? 0, t))
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The field of names holds a number; the draft is the text of it (what the vehicle will be asked, once it is valid).
