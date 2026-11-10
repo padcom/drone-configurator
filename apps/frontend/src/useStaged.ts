@@ -155,7 +155,9 @@ class Staged implements StagedModel {
   }
 
   reset(): void {
-    // A run that is under way is over: it writes no more, adds no late result, and gives the lock back at once.
+    // A run that is under way is over: it writes no more, adds no late result, and gives the lock back at once. (The lock is
+    // free while a write that was already sent may still be answering: its answer is dropped, and the next session starts
+    // by listing the parameters again.)
     this.epoch += 1
     this.release?.()
     this.release = null
@@ -251,29 +253,34 @@ class Staged implements StagedModel {
 
   async writeAll(): Promise<void> {
     const todo = this.pending()
-    const release = this.startable(todo) ? this.deps.parameters.lock.take() : null
+    if (!this.startable(todo)) {
+      return
+    }
+    const { epoch } = this
+    // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
+    // focus that the dialog gives back.
+    if (await this.deps.confirm(questionFor(todo)) && epoch === this.epoch) {
+      await this.writeLocked(todo, epoch)
+    }
+  }
+
+  /**
+   * Writes while no other write (a single one, a snapshot) is under way, and gives the lock back however it ends.
+   *
+   * @param todo the changes not written yet
+   * @param epoch the run
+   */
+  private async writeLocked(todo: StagedChange[], epoch: number): Promise<void> {
+    const release = this.deps.parameters.lock.take()
     if (!release) {
       return
     }
     this.release = release
 
     try {
-      await this.askAndWrite(todo, this.epoch)
+      await this.writeConfirmed(todo, epoch)
     } finally {
       release()
-    }
-  }
-
-  /**
-   * Asks, and writes if the user says yes and the changes were not forgotten while the question was open.
-   *
-   * @param todo the changes not written yet
-   * @param epoch the run
-   */
-  private async askAndWrite(todo: StagedChange[], epoch: number): Promise<void> {
-    const yes = await this.deps.confirm(questionFor(todo))
-    if (yes && epoch === this.epoch) {
-      await this.writeConfirmed(todo, epoch)
     }
   }
 

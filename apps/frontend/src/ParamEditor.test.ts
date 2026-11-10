@@ -257,6 +257,25 @@ it('turns the single Write off while another write (the collected changes, a sna
   expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
 })
 
+it('leaves Write turned on while its question is open, so that the dialog can give the focus back to it', async () => {
+  const neverAnswered = () => new Promise<boolean>(() => {
+    // The user has not answered.
+  })
+  const handle = createConfigurator(mockBackend(), neverAnswered)
+  const wrapper = mount(ParamEditor, { ...withI18n, attachTo: document.body })
+  await flushPromises()
+  const connection = { state: 'connected' as const, vehicle: { ...VEHICLE } }
+  feed(handle, { params: PARAMS, selected: 'RTL_ALT', draft: '1600', connection })
+  await wrapper.vm.$nextTick()
+
+  await wrapper.get('#edit').trigger('submit')
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+  expect(handle.parameters.lock.busy.value).toBe(false)
+  wrapper.unmount()
+})
+
 it('lists no related parameters for one that is alone in its group', async () => {
   const { wrapper } = await editorWithSpies()
 

@@ -204,22 +204,25 @@ class Parameters implements ParamsModel {
   }
 
   /**
-   * Asks, and writes, while no other write (the changes collected, a snapshot) is under way.
+   * Asks, and writes, while no other write (the changes collected, a snapshot) is under way. The lock is taken after the
+   * answer, not before the question: the question is a modal dialog, which nothing else can start behind, and a Write button
+   * that is turned off while it is open would lose the focus that the dialog gives back to it.
    *
    * @param param the parameter
    * @param value the new value
    */
   private async writeLocked(param: Param, value: number): Promise<void> {
+    if (!await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
+      return
+    }
     const release = this.lock.take()
     if (!release) {
       return
     }
     try {
-      if (await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
-        this.writing.value = true
-        this.lastWrite.value = null
-        await this.send(param, value)
-      }
+      this.writing.value = true
+      this.lastWrite.value = null
+      await this.send(param, value)
     } finally {
       release()
     }

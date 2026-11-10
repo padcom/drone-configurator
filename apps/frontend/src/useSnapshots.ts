@@ -218,14 +218,17 @@ class Snapshots implements SnapshotsModel {
 
   async apply(): Promise<void> {
     const changes = this.pickedChanges()
-    const release = this.applicable(changes) ? this.deps.parameters.lock.take() : null
+    // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
+    // focus that the dialog gives back.
+    if (!this.applicable(changes) || !await this.deps.confirm(applyQuestion(changes))) {
+      return
+    }
+    const release = this.deps.parameters.lock.take()
     if (!release) {
       return
     }
     try {
-      if (await this.deps.confirm(applyQuestion(changes))) {
-        await this.applyConfirmed(changes)
-      }
+      await this.applyConfirmed(changes)
     } finally {
       release()
     }
