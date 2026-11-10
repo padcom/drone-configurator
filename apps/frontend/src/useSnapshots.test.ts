@@ -3,6 +3,7 @@ import { createBackendClient } from './backend/client'
 import { mockBackend } from './mock-backend'
 import { createConfigurator } from './useConfigurator'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { createWriteLock } from './writeLock'
 
 /**
  * A snapshot of the connected simulator's parameters with some values changed.
@@ -117,7 +118,7 @@ it('closes the review and forgets its ticks and results', async () => {
 it('reports a file the dialog could not save, and says nothing was saved', async () => {
   const failures: (string | null)[] = []
   const client = createBackendClient(mockBackend())
-  const params = { params: { value: [] }, replace: () => undefined } as never
+  const params = { params: { value: [] }, replace: () => undefined, lock: createWriteLock() } as never
   const snapshots = useSnapshots({
     client,
     fail: message => failures.push(message),

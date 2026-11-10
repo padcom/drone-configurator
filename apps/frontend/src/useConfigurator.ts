@@ -14,6 +14,7 @@ import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -41,6 +42,8 @@ export interface ConfiguratorHandle {
   settings: SettingsModel
   /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
   messages: MessagesModel
+  /** The parameter changes collected to be written together. */
+  staged: StagedModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -65,7 +68,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string): P
 }
 
 /** The composables that hold the state. */
-type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages'>
+type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'staged'>
 
 /**
  * The state as the refs that hold it.
@@ -121,6 +124,32 @@ function startSettings(client: BackendClient): SettingsModel {
   void settings.load()
 
   return settings
+}
+
+/**
+ * The staged changes, written while a vehicle is connected.
+ *
+ * @param client the link to the backend
+ * @param parameters the parameters
+ * @param vehicle the vehicle link
+ * @param confirm asks the user to confirm the writes
+ * @returns the staged changes
+ */
+function stagedFor(
+  client: BackendClient,
+  parameters: ParamsModel,
+  vehicle: Vehicle,
+  confirm: (question: string) => Promise<boolean>,
+): StagedModel {
+  const staged = useStaged({ client, parameters, isConnected: () => vehicle.connection.value.state === 'connected', confirm })
+  // What was staged is for the vehicle it was staged on: not for the next one, which may have parameters of the same names.
+  watch(vehicle.connection, (next, before) => {
+    if (endsSession(next, before)) {
+      staged.reset()
+    }
+  })
+
+  return staged
 }
 
 /**
@@ -187,10 +216,11 @@ export function createConfigurator(
   // A vehicle that has just been connected has its parameters downloaded; one that is gone cannot be written to.
   vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
   const messages = startMessages(client, vehicle)
+  const staged = stagedFor(client, parameters, vehicle, askUser)
   client.onState(state => vehicle.backendChanged(state))
   client.onEvent('params.changed', param => parameters.announced(param))
   void vehicle.watch()
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
   current = { ...models, fields: fieldsOf(models, error), confirmation }
 
   return current

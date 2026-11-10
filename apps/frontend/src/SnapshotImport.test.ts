@@ -125,6 +125,18 @@ it('says how each applied change went, and that the rest were not written when o
   expect(wrapper.get('.review-status[role="status"]').text()).toBe('')
 })
 
+it('turns Write off while another write (the single one, the collected changes) holds the lock', async () => {
+  const { wrapper, handle } = await panelWithSpies()
+  feed(handle, { picked: ['RTL_ALT'] })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#apply').attributes('disabled')).toBeUndefined()
+
+  const release = handle.parameters.lock.take()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#apply').attributes('disabled')).toBeDefined()
+  release?.()
+})
+
 it('marks a row whose write did not verify with a cross and its reason, and never as written', async () => {
   const { wrapper, handle } = await panelWithSpies()
 

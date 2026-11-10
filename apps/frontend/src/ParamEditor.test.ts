@@ -228,6 +228,54 @@ it('lists the other parameters of the same group as related, and selects one whe
   expect(select).toHaveBeenCalledWith('BATT_LOW_VOLT')
 })
 
+it('adds a valid draft that differs to the changes with Add to changes, and writes nothing', async () => {
+  const { wrapper, handle, write } = await editorWithSpies()
+
+  expect(wrapper.get('#stage').attributes('disabled')).toBeUndefined()
+  await wrapper.get('#stage').trigger('click')
+  expect(handle.staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
+  expect(write).not.toHaveBeenCalled()
+
+  feed(handle, { draft: '1500' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#stage').attributes('disabled')).toBeDefined()
+  feed(handle, { draft: '1700', draftError: 'a number, please' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#stage').attributes('disabled')).toBeDefined()
+})
+
+it('turns the single Write off while another write (the collected changes, a snapshot) holds the lock', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+
+  const release = handle.parameters.lock.take()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write').attributes('disabled')).toBeDefined()
+  release?.()
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+})
+
+it('leaves Write turned on while its question is open, so that the dialog can give the focus back to it', async () => {
+  const neverAnswered = () => new Promise<boolean>(() => {
+    // The user has not answered.
+  })
+  const handle = createConfigurator(mockBackend(), neverAnswered)
+  const wrapper = mount(ParamEditor, { ...withI18n, attachTo: document.body })
+  await flushPromises()
+  const connection = { state: 'connected' as const, vehicle: { ...VEHICLE } }
+  feed(handle, { params: PARAMS, selected: 'RTL_ALT', draft: '1600', connection })
+  await wrapper.vm.$nextTick()
+
+  await wrapper.get('#edit').trigger('submit')
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+  expect(handle.parameters.lock.busy.value).toBe(false)
+  wrapper.unmount()
+})
+
 it('lists no related parameters for one that is alone in its group', async () => {
   const { wrapper } = await editorWithSpies()
 

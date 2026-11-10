@@ -6,6 +6,7 @@ import { type BackendClient, describeError } from './backend/client'
 import type { Connection, Param } from './generated/app'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
 import type { AppliedChange } from './state'
+import type { WriteLock } from './writeLock'
 
 /** What the snapshots need from the rest of the interface. */
 export interface SnapshotsDeps {
@@ -16,7 +17,7 @@ export interface SnapshotsDeps {
   /** Asks the user to confirm `question`; the writes go ahead only on true. */
   confirm: (question: string) => Promise<boolean>
   /** The parameters the snapshot is compared with, and the one that is replaced after a write. */
-  parameters: { params: ShallowRef<Param[]>, replace: (param: Param) => void }
+  parameters: { params: ShallowRef<Param[]>, replace: (param: Param) => void, lock: WriteLock }
   /** The connection: the vehicle the snapshot is saved from, and whether writing is possible. */
   connection: ShallowRef<Connection>
 }
@@ -217,14 +218,37 @@ class Snapshots implements SnapshotsModel {
 
   async apply(): Promise<void> {
     const changes = this.pickedChanges()
+    // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
+    // focus that the dialog gives back.
     if (!this.applicable(changes) || !await this.deps.confirm(applyQuestion(changes))) {
       return
     }
+    const release = this.deps.parameters.lock.take()
+    if (!release) {
+      return
+    }
+    try {
+      await this.applyConfirmed(changes)
+    } finally {
+      release()
+    }
+  }
+
+  /**
+   * Writes the changes the user said yes to, after taking the backup.
+   *
+   * @param changes the ticked changes
+   */
+  private async applyConfirmed(changes: Change[]): Promise<void> {
     this.applying.value = true
     this.applied.value = []
     this.backup.value = this.snapshot()
-    await this.applyFrom(changes)
-    this.applying.value = false
+
+    try {
+      await this.applyFrom(changes)
+    } finally {
+      this.applying.value = false
+    }
   }
 }
 
