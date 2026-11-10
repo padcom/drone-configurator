@@ -44,8 +44,13 @@ export interface StagedDeps {
 export interface StagedModel {
   /** The changes, in the order they were added. */
   readonly changes: ShallowRef<StagedChange[]>
-  /** How each change that was written went, in order. */
+  /**
+   * How each change that was written and not confirmed went, in order. (A change the vehicle read back is done: it leaves the
+   * changes, and is counted in `written`.)
+   */
   readonly results: ShallowRef<StagedResult[]>
+  /** Goes up with every run in which all the changes were read back: how many there were. Null until then. */
+  readonly written: ShallowRef<{ count: number } | null>
   /** Whether the writes are under way. */
   readonly writing: ShallowRef<boolean>
   /**
@@ -100,7 +105,10 @@ export function endsSession(next: Connection, before: Connection): boolean {
 class Staged implements StagedModel {
   readonly changes = shallowRef<StagedChange[]>([])
   readonly results = shallowRef<StagedResult[]>([])
+  readonly written = shallowRef<{ count: number } | null>(null)
   readonly writing = shallowRef(false)
+  /** How many of the changes of the run under way the vehicle has read back. */
+  private confirmed = 0
   /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
   private epoch = 0
   /** Gives back the lock the run holds, while it holds it. */
@@ -113,19 +121,8 @@ class Staged implements StagedModel {
    */
   constructor(private readonly deps: StagedDeps) {}
 
-  /**
-   * The names of the changes the vehicle has read back.
-   *
-   * @returns the names
-   */
-  private writtenIds(): Set<string> {
-    return new Set(this.results.value.filter(result => result.outcome === 'verified').map(result => result.id))
-  }
-
   pending(): StagedChange[] {
-    const written = this.writtenIds()
-
-    return this.changes.value.filter(change => !written.has(change.id))
+    return this.changes.value
   }
 
   /**
@@ -163,24 +160,10 @@ class Staged implements StagedModel {
    * @param to the value to write
    */
   private queue(param: Param, to: number): void {
-    // What was written stays on screen until the next change is added; then it is cleared away.
-    const written = this.writtenIds()
-    const kept = this.changes.value.filter(change => !written.has(change.id) && change.id !== param.id)
+    const kept = this.changes.value.filter(change => change.id !== param.id)
     this.changes.value = [...kept, this.changeFor(param, to)]
     // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
     this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
-  }
-
-  /**
-   * Takes the change of a parameter out, because its draft is back at the value the vehicle has: nothing is left to write. (A
-   * change that was written stays, with its result.)
-   *
-   * @param id the parameter
-   */
-  private takeOutUnlessWritten(id: string): void {
-    if (!this.writtenIds().has(id)) {
-      this.discard(id)
-    }
   }
 
   sync(): void {
@@ -189,7 +172,7 @@ class Staged implements StagedModel {
       return
     }
     if (draft.value === draft.param.value) {
-      this.takeOutUnlessWritten(draft.param.id)
+      this.discard(draft.param.id)
     } else {
       this.queue(draft.param, draft.value)
     }
@@ -205,6 +188,7 @@ class Staged implements StagedModel {
     this.writing.value = false
     this.changes.value = []
     this.results.value = []
+    this.written.value = null
     // The Value field does not keep a value that was queued for a vehicle that is gone.
     const param = this.deps.parameters.selectedParam()
     if (param) {
@@ -261,8 +245,16 @@ class Staged implements StagedModel {
       return
     }
     const result = await this.writeOne(change)
-    if (this.record(result, epoch) && result.outcome === 'verified') {
+    if (epoch !== this.epoch) {
+      return
+    }
+    if (result.outcome === 'verified') {
+      // Done: it leaves the list, and the next one is written.
+      this.changes.value = this.changes.value.filter(staged => staged.id !== change.id)
+      this.confirmed += 1
       await this.writeFrom(rest, epoch)
+    } else {
+      this.results.value = [...this.results.value, result]
     }
   }
 
@@ -275,22 +267,6 @@ class Staged implements StagedModel {
    */
   private stillStaged(change: StagedChange | undefined, epoch: number): change is StagedChange {
     return change !== undefined && epoch === this.epoch && this.changes.value.some(staged => staged.id === change.id)
-  }
-
-  /**
-   * Adds how a write went to the results, unless the run is over (the changes were forgotten while it was under way).
-   *
-   * @param result how the write went
-   * @param epoch the run
-   * @returns true if it was added
-   */
-  private record(result: StagedResult, epoch: number): boolean {
-    if (epoch !== this.epoch) {
-      return false
-    }
-    this.results.value = [...this.results.value, result]
-
-    return true
   }
 
   /**
@@ -344,7 +320,8 @@ class Staged implements StagedModel {
    */
   private async writeConfirmed(todo: StagedChange[], epoch: number): Promise<void> {
     this.writing.value = true
-    this.results.value = this.results.value.filter(result => result.outcome === 'verified')
+    this.results.value = []
+    this.confirmed = 0
 
     try {
       await this.writeFrom(todo, epoch)
@@ -352,7 +329,19 @@ class Staged implements StagedModel {
       // After a reset the run is over already, and `writing` may belong to a newer one.
       if (epoch === this.epoch) {
         this.writing.value = false
+        this.finish(todo.length)
       }
+    }
+  }
+
+  /**
+   * Says that the run is over, if every change of it was read back.
+   *
+   * @param count how many changes the run had
+   */
+  private finish(count: number): void {
+    if (this.confirmed === count && count > 0) {
+      this.written.value = { count }
     }
   }
 }

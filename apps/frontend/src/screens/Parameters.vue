@@ -19,6 +19,8 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import MetadataStatus from '../MetadataStatus.vue'
+import { useParamShortcuts } from '../paramShortcuts'
+import { useConfigurator } from '../useConfigurator'
 import ParamEditor from '../ParamEditor.vue'
 import ParamFilter from '../ParamFilter.vue'
 import ParamGroups from '../ParamGroups.vue'
@@ -29,5 +31,8 @@ import SnapshotToolbar from '../SnapshotToolbar.vue'
 // The Parameters screen, in three columns as the design has them: the groups of the list, the list (with its search, the
 // snapshot tools and a footer that counts), and the detail of the selected parameter. From 1000 px wide each scrolls on its
 // own; below that they stack and the page scrolls (params.css).
+// Ctrl+/ goes to the search from anywhere on the screen; Ctrl+Enter in the Value field or the list writes the changes.
 const { t } = useI18n()
+const { staged } = useConfigurator()
+useParamShortcuts({ sync: () => staged.sync() })
 </script>

@@ -267,7 +267,8 @@ async function whatTheWriteSays(): Promise<string> {
   await window().waitFor(`!${status}.textContent.includes('Writing')`, RECONNECT_MS)
   const row = `[...document.querySelectorAll('#staged .staged-row')].find(r => r.dataset.id === '${PARAM}')`
 
-  return window().evaluate<string>(`${row}?.querySelector('.line')?.textContent.trim() ?? ''`)
+  // A change the vehicle read back has left the list (done): "✓". One that was not confirmed stays, with its cross and why.
+  return window().evaluate<string>(`${row} ? ${row}.querySelector('.line')?.textContent.trim() ?? '' : '✓ written'`)
 }
 
 /**
@@ -282,7 +283,6 @@ async function resumesAfterWriteCut(): Promise<void> {
   await cutAndSeeReconnecting()
   const said = await whatTheWriteSays()
   if (said.startsWith('✓')) {
-    expect(said).toMatch(/Written and read back: \d+/u)
     expect(await valueOnScreen()).toBe(original + STEP)
   } else {
     expect(said).toMatch(/^✕/u)

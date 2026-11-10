@@ -284,7 +284,8 @@ describe('editing', () => {
     expect(app.state.draftWarning).toBe('Outside the usual range 200–… cm')
     await app.write()
     expect(questions).toEqual(['Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 100 (Outside the usual range 200–… cm)'])
-    expect(app.staged.results.value).toEqual([{ id: 'RTL_ALT', outcome: 'verified', detail: '100' }])
+    expect(app.staged.changes.value).toEqual([])
+    expect(app.staged.written.value).toEqual({ count: 1 })
     app.loadMetadata('{')
     expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
   })
@@ -297,7 +298,8 @@ describe('writing a parameter', () => {
     app.editDraft('750')
     await app.write()
     expect(questions).toEqual(['Write 1 parameter to the vehicle?\nWPNAV_SPEED 1000 → 750'])
-    expect(app.staged.results.value).toEqual([{ id: 'WPNAV_SPEED', outcome: 'verified', detail: '750' }])
+    // Read back: it is done, so it is no longer in the changes.
+    expect([app.staged.changes.value, app.staged.results.value, app.staged.written.value]).toEqual([[], [], { count: 1 }])
     expect(app.state.params.find(p => p.id === 'WPNAV_SPEED')!.value).toBe(750)
   })
 

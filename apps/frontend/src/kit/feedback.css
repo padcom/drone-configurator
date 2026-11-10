@@ -3,11 +3,12 @@
  * tokens (tokens.css). A raised surface, a 1 px edge, a glyph that says the severity (so the colour is never alone).
  */
 
-/* Toasts: a stack in the corner, over the page. */
+/* Toasts: a stack at the top right, just under the top bar, over the page: they never cover the pinned Write button at the
+   bottom of the detail, or the messages of the Fly aside. */
 .kit-toasts {
   position: fixed;
+  top: calc(var(--topbar-height, 0px) + var(--space-3));
   right: var(--space-5);
-  bottom: var(--space-5);
   z-index: 60;
   display: flex;
   flex-direction: column;

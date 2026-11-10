@@ -4,10 +4,13 @@
     <input
       id="filter"
       :value="fields.filter.value"
-      :placeholder="t('params.filter')"
+      :placeholder="t('params.filterHint')"
       :aria-label="t('params.filter')"
+      aria-keyshortcuts="Control+/"
+      :title="t('params.filterHint')"
       autocomplete="off"
       @input="parameters.setFilter(($event.target as HTMLInputElement).value)"
+      @keydown.enter.prevent="focusList"
     >
     <button
       v-if="fields.filter.value !== ''"
@@ -34,4 +37,9 @@ import { useConfigurator } from './useConfigurator'
 const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
 const download = computed(() => canDownload(fields.connection.value.state, fields.list.value))
+
+/** Enter in the search goes to the list (which selects its first row when none is selected). */
+function focusList(): void {
+  document.getElementById('param-list')?.focus()
+}
 </script>

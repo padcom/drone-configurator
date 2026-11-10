@@ -102,9 +102,8 @@ export function summaryOf(
   if (results.length === 0) {
     return { polite: '', urgent: '' }
   }
+  // All written and read back is told by a toast (the changes are gone from the list); only a stop is said here.
   const failed = results.find(result => result.outcome !== 'verified')
 
-  return failed
-    ? { polite: '', urgent: stoppedText(failed, translate) }
-    : { polite: translate('staged.allWritten', { count: changes.length }), urgent: '' }
+  return { polite: '', urgent: failed ? stoppedText(failed, translate) : '' }
 }
