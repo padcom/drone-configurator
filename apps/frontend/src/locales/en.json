@@ -31,12 +31,38 @@
     "section": {
       "colours": "Colours",
       "type": "Type and pattern",
+      "truth": "Vehicle truth",
+      "surfaces": "Surfaces",
       "buttons": "Buttons",
       "fields": "Fields",
       "choices": "Choices",
       "badges": "Badges",
       "panels": "Panels",
       "icons": "Icons"
+    },
+    "truth": {
+      "live": "Live",
+      "liveRule": "Reported by the vehicle within 3 seconds.",
+      "stale": "Stale",
+      "staleRule": "Marked with text and pattern, never colour alone.",
+      "lastHeard": "Last heard",
+      "lastHeardRule": "Link lost. Kept on screen, commands unavailable.",
+      "never": "Never reported",
+      "neverRule": "A dash, never a made-up zero.",
+      "verified": "Verified write",
+      "verifiedRule": "Success only after the vehicle confirms the value."
+    },
+    "surface": {
+      "label": "Battery",
+      "stat": "Voltage",
+      "volts": "12.54 V",
+      "state": "State",
+      "info": "The values below are from the simulator.",
+      "warn": "Reboot the vehicle to use the new value.",
+      "alert": "Failsafe: battery low, returning home.",
+      "progress": "Downloading parameters",
+      "emptyTitle": "No parameters yet",
+      "emptyHelp": "Connect a vehicle to read its parameters."
     },
     "sample": {
       "specimen": "Battery 12.54 V",
@@ -169,6 +195,14 @@
     "cancel": "Cancel",
     "hold": "Hold to write",
     "confirm": "Confirm"
+  },
+  "truth": {
+    "never": "—",
+    "notReported": "not reported",
+    "staleNoAge": "stale",
+    "stale": "stale, {seconds} s old",
+    "lastHeard": "last heard",
+    "verified": "read back"
   },
   "safety": {
     "title": "Confirm a change to the vehicle",

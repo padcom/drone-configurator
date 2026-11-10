@@ -27,6 +27,41 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.truth') }}</h3>
+      <div class="truths">
+        <TruthValue
+          v-for="item in TRUTH"
+          :key="item.state"
+          :label="t(`gallery.truth.${item.key}`)"
+          :state="item.state"
+          :value="item.value"
+          :age-ms="6200"
+          :help="t(`gallery.truth.${item.key}Rule`)"
+        />
+      </div>
+    </section>
+
+    <section>
+      <h3>{{ t('gallery.section.surfaces') }}</h3>
+      <div class="row">
+        <Panel compact aria-labelledby="gallery-panel">
+          <SectionLabel id="gallery-panel" :level="4">{{ t('gallery.surface.label') }}</SectionLabel>
+          <StatCell :label="t('gallery.surface.stat')">{{ t('gallery.surface.volts') }}</StatCell>
+        </Panel>
+        <Panel tag="div"><StatCell :label="t('gallery.surface.state')" tone="warn">{{ t('telemetry.armed') }}</StatCell></Panel>
+      </div>
+      <div class="stack">
+        <Banner tone="info">{{ t('gallery.surface.info') }}</Banner>
+        <Banner tone="warn">{{ t('gallery.surface.warn') }}</Banner>
+        <Banner tone="error" urgent>{{ t('gallery.surface.alert') }}</Banner>
+        <ProgressBar :value="0.6" :label="t('gallery.surface.progress')" />
+        <EmptyState :title="t('gallery.surface.emptyTitle')" :help="t('gallery.surface.emptyHelp')">
+          <Button variant="primary">{{ t('gallery.sample.primary') }}</Button>
+        </EmptyState>
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.buttons') }}</h3>
       <div class="row">
         <Button>{{ t('gallery.sample.action') }}</Button>
@@ -110,16 +145,23 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import '../kit/gallery.css'
 import Badge from '../kit/Badge.vue'
+import Banner from '../kit/Banner.vue'
 import Button from '../kit/Button.vue'
 import Checkbox from '../kit/Checkbox.vue'
+import EmptyState from '../kit/EmptyState.vue'
 import Icon from '../kit/Icon.vue'
 import { ICONS, type IconName } from '../kit/icons'
+import Panel from '../kit/Panel.vue'
+import ProgressBar from '../kit/ProgressBar.vue'
+import SectionLabel from '../kit/SectionLabel.vue'
 import SegmentedControl from '../kit/SegmentedControl.vue'
 import Select from '../kit/Select.vue'
 import SplitPane from '../kit/SplitPane.vue'
+import StatCell from '../kit/StatCell.vue'
 import Tabs from '../kit/Tabs.vue'
 import TextInput from '../kit/TextInput.vue'
 import Toggle from '../kit/Toggle.vue'
+import TruthValue from '../TruthValue.vue'
 
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
 // It is only in the development build (screens.ts).
@@ -166,6 +208,15 @@ const TYPE_SIZES = [
   { token: '--font-size-2xl', mono: false },
   { token: '--font-size-hero', mono: true },
 ]
+
+/** The five states of a value from the vehicle, with the value each shows. */
+const TRUTH = [
+  { key: 'live', state: 'live', value: '12.54 V' },
+  { key: 'stale', state: 'stale', value: '12.54 V' },
+  { key: 'lastHeard', state: 'last-heard', value: '12.54 V' },
+  { key: 'never', state: 'never', value: undefined },
+  { key: 'verified', state: 'verified', value: '✓ 300' },
+] as const
 const ICON_NAMES = Object.keys(ICONS) as IconName[]
 
 const options = computed(() => [

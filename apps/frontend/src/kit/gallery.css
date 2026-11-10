@@ -93,6 +93,18 @@
 .gallery .swatch[data-token='--color-accent-hover'] .chip { background: var(--color-accent-hover); }
 .gallery .swatch[data-token='--color-map'] .chip { background: var(--color-map); }
 
+/* Banners, a progress bar and an empty state, one under the other. */
+.gallery .stack {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.gallery .truths {
+  display: grid;
+  gap: var(--space-3);
+}
+
 /* The type scale: each size on a sample line, in the face it is for. */
 .gallery .specimens {
   padding: 0;
