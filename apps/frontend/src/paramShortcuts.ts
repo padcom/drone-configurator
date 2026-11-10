@@ -10,16 +10,18 @@ export interface ShortcutDeps {
 }
 
 /**
- * Whether a key press is Ctrl with that key alone (Alt and Meta make other shortcuts).
+ * Whether a key press is Ctrl with that key alone (Alt and Meta make other shortcuts; Shift too, unless the key is one that
+ * needs Shift on some layouts: `/` is Shift+7 on a German keyboard, so Ctrl+Shift+7 reports the key `/` there).
  *
  * @param event the key press
  * @param key the key
+ * @param shifted whether the key may be typed with Shift
  * @returns true for Ctrl+key
  */
-export function isCtrl(event: KeyboardEvent, key: string): boolean {
-  const others = [event.altKey, event.metaKey, event.shiftKey].some(Boolean)
+export function isCtrl(event: KeyboardEvent, key: string, shifted: boolean): boolean {
+  const others = [event.altKey, event.metaKey, event.shiftKey && !shifted]
 
-  return event.key === key && event.ctrlKey && !others
+  return event.key === key && event.ctrlKey && !others.some(Boolean)
 }
 
 /**
@@ -72,8 +74,8 @@ function inEditorOrList(target: EventTarget | null): boolean {
  */
 export function shortcutOf(event: KeyboardEvent): 'search' | 'write' | undefined {
   const found = [
-    { shortcut: 'search' as const, pressed: isCtrl(event, '/') && !inDialogField(event.target) },
-    { shortcut: 'write' as const, pressed: isCtrl(event, 'Enter') && inEditorOrList(event.target) },
+    { shortcut: 'search' as const, pressed: isCtrl(event, '/', true) && !inDialogField(event.target) },
+    { shortcut: 'write' as const, pressed: isCtrl(event, 'Enter', false) && inEditorOrList(event.target) },
   ]
 
   return found.find(candidate => candidate.pressed)?.shortcut
@@ -90,9 +92,10 @@ export function useParamShortcuts(deps: ShortcutDeps): void {
     if (action) {
       event.preventDefault()
 
+      // A key held down repeats: the repeats do nothing (a second press of Write would ask the question again).
       if (action === 'search') {
         focusSearch()
-      } else {
+      } else if (!event.repeat) {
         void writeQueued(deps)
       }
     }

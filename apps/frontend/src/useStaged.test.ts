@@ -312,6 +312,7 @@ describe('a retry after a partial write', () => {
     expect(outcomes(staged)).toEqual([['FENCE_RADIUS', 'failed']])
     expect(staged.pending().map(change => change.id)).toEqual(['FENCE_RADIUS', 'BATT_CAPACITY'])
     expect(staged.written.value).toBeNull()
+    expect(staged.readBack.value).toBe(1)
 
     flaky = false
     await staged.writeAll()

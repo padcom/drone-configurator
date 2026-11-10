@@ -110,6 +110,67 @@ async function search(text: string): Promise<void> {
   })()`)
 }
 
+/**
+ * Waits two frames, so that a scroll and what follows it in the page are done.
+ *
+ * @returns once they have passed
+ */
+const settle = () => app.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+
+/**
+ * Presses the left button of the mouse on an element where it is, and lets go. (The driver's `click` scrolls the element to the
+ * middle first, which is what this test must not have done.)
+ *
+ * @param selector the element
+ */
+async function clickWhereItIs(selector: string): Promise<void> {
+  const { x, y } = await app.evaluate<{ x: number, y: number }>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect()
+
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  })()`)
+  const at = { x, y, button: 'left', clickCount: 1 }
+  await app.devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+  await app.devtools('Input.dispatchMouseEvent', { type: 'mousePressed', ...at })
+  await app.devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...at })
+}
+
+/** A page expression: the id of the second row that is whole in the scroll box, below the header that stays at its top. */
+const SECOND_WHOLE_ROW = `(() => {
+  const box = document.querySelector('.param-scroll').getBoundingClientRect()
+  const header = document.querySelector('.param-scroll thead').getBoundingClientRect().height
+  const whole = [...document.querySelectorAll('#rows tr:not(.spacer)')].filter(row => {
+    const at = row.getBoundingClientRect()
+    return at.top >= box.top + header && at.bottom <= box.bottom
+  })
+
+  return whole[1].dataset.id
+})()`
+
+describe('a press of the mouse on the list', () => {
+  it('selects the row that is pressed (not the first), and leaves the list where it was scrolled', async () => {
+    // A short window, so that the dozen rows do not all fit: the list scrolls.
+    await app.devtools('Emulation.setDeviceMetricsOverride', { width: 1440, height: 420, deviceScaleFactor: 1, mobile: false })
+    await settle()
+    await app.evaluate(`document.querySelector('.param-scroll').scrollTop = 150`)
+    await settle()
+    const id = await app.evaluate<string>(SECOND_WHOLE_ROW)
+    const before = await app.evaluate<number>(`document.querySelector('.param-scroll').scrollTop`)
+    expect(before).toBeGreaterThan(0)
+    expect(await selected()).toBe('')
+
+    await clickWhereItIs(`tr[data-id="${id}"]`)
+
+    await app.waitFor(`document.querySelector('#rows tr.selected')?.dataset.id === '${id}'`)
+    await settle()
+    expect(await app.evaluate<number>(`document.querySelector('.param-scroll').scrollTop`)).toBe(before)
+    expect(await app.evaluate<string>(`document.getElementById('param-list').getAttribute('aria-activedescendant')`))
+      .toBe(`param-row-${id}`)
+    await app.devtools('Emulation.clearDeviceMetricsOverride', {})
+    await settle()
+  })
+})
+
 describe('the search', () => {
   it('goes to the search on Ctrl+/ from the navigation', async () => {
     expect(await focused()).not.toBe('filter')
@@ -120,8 +181,7 @@ describe('the search', () => {
     expect(await app.evaluate<string>(`document.querySelector('#filter').placeholder`)).toBe('Filter parameters (Ctrl+/)')
   })
 
-  it('goes to the list on Enter in the search, selecting its first row when none is selected', async () => {
-    expect(await selected()).toBe('')
+  it('goes to the list on Enter in the search, selecting its first row when the selected one is not in the list', async () => {
     await search('batt')
     await app.waitForText('#list-status', '2 of 12 parameters')
 

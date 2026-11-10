@@ -11,6 +11,7 @@
       :aria-label="t('params.list')"
       :aria-rowcount="visible.length + 1"
       :aria-activedescendant="activeRow"
+      @mousedown="onPress"
       @focus="onFocus"
       @keydown="onKey"
     >
@@ -44,7 +45,7 @@
           :aria-rowindex="from + i + 2"
           :aria-selected="row.param.id === fields.selected.value ? 'true' : 'false'"
           :class="{ selected: row.param.id === fields.selected.value }"
-          @click="parameters.select(row.param.id)"
+          @click="onRowClick(row.param.id)"
         >
           <th scope="row" class="name"><span class="prefix">{{ row.name.prefix }}</span>{{ row.name.rest }}</th>
           <td class="num">{{ row.param.value }}</td>
@@ -174,18 +175,39 @@ function selectAt(index: number): void {
   }
 }
 
+// A press of the mouse on a row focuses the table, and is a choice of that row, not of the first one: only a focus that
+// the keyboard (or another part of the page: Enter in the search, Escape in the groups) gives selects the first row.
+let pressed = false
+
+/** The mouse is down on the list: the focus it brings is not a keyboard's. */
+function onPress(): void {
+  pressed = true
+  window.addEventListener('mouseup', () => {
+    pressed = false
+  }, { once: true })
+}
+
 /** The list takes the focus with nothing selected (or the selected one filtered out): the first row is selected. */
 function onFocus(): void {
-  if (selectedAt.value < 0) {
+  if (!pressed && selectedAt.value < 0) {
     selectAt(0)
   }
 }
 
-/** Puts the focus in the Value field, with its text selected. */
-function focusValue(): void {
-  const field = document.getElementById('draft') as HTMLInputElement | null
-  field?.focus()
-  field?.select()
+/**
+ * Enter in the list: the focus goes to the Value field, with its text selected. A key that is held down repeats, and the
+ * repeats do nothing (the first one has moved the focus: the next would be typed into the field).
+ *
+ * @param event the key press
+ */
+function focusValue(event: KeyboardEvent): void {
+  event.preventDefault()
+
+  if (!event.repeat) {
+    const field = document.getElementById('draft') as HTMLInputElement | null
+    field?.focus()
+    field?.select()
+  }
 }
 
 /**
@@ -207,8 +229,7 @@ function onKey(event: KeyboardEvent): void {
     return
   }
   if (event.key === 'Enter') {
-    event.preventDefault()
-    focusValue()
+    focusValue(event)
 
     return
   }
@@ -219,12 +240,28 @@ function onKey(event: KeyboardEvent): void {
   }
 }
 
+// The row that a click selected: it is where the user pressed, so the list is left as it is (a row that is cut by the edge of
+// the box is not nudged).
+let clicked = ''
+
+/**
+ * A row is clicked: it is selected, and the list does not move.
+ *
+ * @param id the parameter
+ */
+function onRowClick(id: string): void {
+  clicked = fields.selected.value === id ? '' : id
+  parameters.select(id)
+}
+
 // A parameter that becomes the selected one by another way (the Related list, the changes, a group, the search) is scrolled
 // into view; choosing a group selects its first parameter, with the list at the top. The focus is not moved.
 watch([() => fields.selected.value, () => fields.filter.value], async () => {
   await nextTick()
+  const byClick = clicked !== '' && clicked === fields.selected.value
+  clicked = ''
 
-  if (selectedAt.value >= 0) {
+  if (selectedAt.value >= 0 && !byClick) {
     reveal(selectedAt.value)
   }
 })

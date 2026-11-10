@@ -54,7 +54,7 @@ const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
 const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
-const summary = computed(() => summaryOf(staged.changes.value, staged.results.value, staged.writing.value, t))
+const summary = computed(() => summaryOf(staged.results.value, staged.writing.value, staged.readBack.value, t))
 const list = ref<HTMLElement | null>(null)
 
 // All the changes written and read back: the changes are gone from the list, and a toast says so (politely).

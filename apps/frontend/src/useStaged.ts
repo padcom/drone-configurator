@@ -51,6 +51,8 @@ export interface StagedModel {
   readonly results: ShallowRef<StagedResult[]>
   /** Goes up with every run in which all the changes were read back: how many there were. Null until then. */
   readonly written: ShallowRef<{ count: number } | null>
+  /** How many changes of the last run the vehicle read back (they have left the list): what a run that stopped says it did. */
+  readonly readBack: ShallowRef<number>
   /** Whether the writes are under way. */
   readonly writing: ShallowRef<boolean>
   /**
@@ -107,8 +109,7 @@ class Staged implements StagedModel {
   readonly results = shallowRef<StagedResult[]>([])
   readonly written = shallowRef<{ count: number } | null>(null)
   readonly writing = shallowRef(false)
-  /** How many of the changes of the run under way the vehicle has read back. */
-  private confirmed = 0
+  readonly readBack = shallowRef(0)
   /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
   private epoch = 0
   /** Gives back the lock the run holds, while it holds it. */
@@ -189,6 +190,7 @@ class Staged implements StagedModel {
     this.changes.value = []
     this.results.value = []
     this.written.value = null
+    this.readBack.value = 0
     // The Value field does not keep a value that was queued for a vehicle that is gone.
     const param = this.deps.parameters.selectedParam()
     if (param) {
@@ -251,7 +253,7 @@ class Staged implements StagedModel {
     if (result.outcome === 'verified') {
       // Done: it leaves the list, and the next one is written.
       this.changes.value = this.changes.value.filter(staged => staged.id !== change.id)
-      this.confirmed += 1
+      this.readBack.value += 1
       await this.writeFrom(rest, epoch)
     } else {
       this.results.value = [...this.results.value, result]
@@ -321,7 +323,7 @@ class Staged implements StagedModel {
   private async writeConfirmed(todo: StagedChange[], epoch: number): Promise<void> {
     this.writing.value = true
     this.results.value = []
-    this.confirmed = 0
+    this.readBack.value = 0
 
     try {
       await this.writeFrom(todo, epoch)
@@ -340,7 +342,7 @@ class Staged implements StagedModel {
    * @param count how many changes the run had
    */
   private finish(count: number): void {
-    if (this.confirmed === count && count > 0) {
+    if (this.readBack.value === count && count > 0) {
       this.written.value = { count }
     }
   }

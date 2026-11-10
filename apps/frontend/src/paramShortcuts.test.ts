@@ -106,6 +106,27 @@ it('writes nothing when the Write button is off (nothing queued): a disabled but
   expect(write).not.toHaveBeenCalled()
 })
 
+it('goes to the search on Ctrl+Shift+7 of a layout where / needs Shift (the key is `/`), but not Ctrl+Shift+Enter', () => {
+  screen()
+
+  const event = press('elsewhere', '/', { ctrlKey: true, shiftKey: true })
+
+  expect(document.activeElement?.id).toBe('filter')
+  expect(event.defaultPrevented).toBe(true)
+})
+
+it('writes once for a Ctrl+Enter that is held down: the repeats do nothing, and are kept from the field', async () => {
+  const write = vi.fn()
+  screen(write)
+
+  press('draft', 'Enter')
+  const repeat = press('draft', 'Enter', { ctrlKey: true, repeat: true })
+  await flushPromises()
+
+  expect(write).toHaveBeenCalledTimes(1)
+  expect(repeat.defaultPrevented).toBe(true)
+})
+
 it('stops listening when the screen goes', () => {
   screen()
   wrapper?.unmount()

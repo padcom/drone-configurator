@@ -10,7 +10,7 @@
       :title="t('params.filterHint')"
       autocomplete="off"
       @input="parameters.setFilter(($event.target as HTMLInputElement).value)"
-      @keydown.enter.prevent="focusList"
+      @keydown.enter="focusList"
     >
     <button
       v-if="fields.filter.value !== ''"
@@ -38,8 +38,15 @@ const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
 const download = computed(() => canDownload(fields.connection.value.state, fields.list.value))
 
-/** Enter in the search goes to the list (which selects its first row when none is selected). */
-function focusList(): void {
-  document.getElementById('param-list')?.focus()
+/**
+ * Enter in the search goes to the list (which selects its first row when none is selected). The Enter that ends an input
+ * method's composition (Japanese, Chinese, Korean) and the repeats of a key held down are not it.
+ *
+ * @param event the key press
+ */
+function focusList(event: KeyboardEvent): void {
+  if (!event.isComposing && !event.repeat) {
+    document.getElementById('param-list')?.focus()
+  }
 }
 </script>

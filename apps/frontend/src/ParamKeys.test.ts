@@ -85,6 +85,44 @@ it('selects the first row when the list takes the focus with nothing selected, a
   expect(handle.fields.selected.value).toBe('RTL_ALT')
 })
 
+it('does not select the first row or move the list when the mouse brings the focus; the row pressed is selected', async () => {
+  const { wrapper, handle } = list()
+  const box = wrapper.get('.param-scroll').element
+  box.scrollTop = 100
+
+  await wrapper.get('#param-list').trigger('mousedown')
+  await wrapper.get('#param-list').trigger('focus')
+  await wrapper.get('tr[data-id="BATT_LOW_VOLT"]').trigger('click')
+  await flushPromises()
+  window.dispatchEvent(new MouseEvent('mouseup'))
+
+  // The row is cut by the top of the box (88 to 132, the box is scrolled to 100): the click does not nudge it into view.
+  expect(handle.fields.selected.value).toBe('BATT_LOW_VOLT')
+  expect(box.scrollTop).toBe(100)
+  // The next focus is a keyboard's again.
+  handle.parameters.select('')
+  await wrapper.get('#param-list').trigger('focus')
+  expect(handle.fields.selected.value).toBe('ARMING_CHECK')
+})
+
+it('ignores repeats of Enter in the list, and composition and repeats of Enter in the search', async () => {
+  const { wrapper, handle } = list()
+  handle.parameters.select('RTL_ALT')
+  const field = document.body.appendChild(document.createElement('input'))
+  field.id = 'draft'
+  const search = onPage(ParamFilter).get('#filter')
+
+  await wrapper.get('#param-list').trigger('keydown', { key: 'Enter', repeat: true })
+  expect(document.activeElement).not.toBe(field)
+  await search.trigger('keydown', { key: 'Enter', isComposing: true })
+  await search.trigger('keydown', { key: 'Enter', repeat: true })
+  expect(document.activeElement?.id).not.toBe('param-list')
+
+  await search.trigger('keydown', { key: 'Enter' })
+  expect(document.activeElement?.id).toBe('param-list')
+  field.remove()
+})
+
 it('moves the selection with Up and Down by a row, Page Up and Page Down by a page, Home and End to the ends', async () => {
   const { wrapper, handle } = list()
   handle.parameters.select('BATT_CAPACITY')

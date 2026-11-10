@@ -373,6 +373,8 @@ export async function waitForQueuedWritten(app: E2eApp, id: string, value: numbe
   await app.waitForText(`tr[data-id="${id}"] td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
   const queued = `[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)})`
   await app.waitFor(`!${queued}`, timeoutMs)
+  // What the user is told: a toast says that the change was written and read back.
+  await app.waitFor(`document.querySelector('.kit-toast.sev-success')?.textContent.includes('written and read back')`, timeoutMs)
   const alert = `document.querySelector('#staged .staged-status[role="alert"]')`
   await app.waitFor(`${alert} !== null`)
   const said = await app.evaluate<string>(`${alert}.textContent.trim()`)

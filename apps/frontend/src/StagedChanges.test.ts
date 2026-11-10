@@ -192,6 +192,17 @@ it('does not double the full stop when the reason ends with one', async () => {
   expect(wrapper.get('.staged-status[role="alert"]').text()).toMatch(/^RTL_ALT: the vehicle reports 1599, not 1600\. Stopped/u)
 })
 
+it('says in the alert how many were written and read back before the run stopped (they have left the list)', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'changed', detail: 'the vehicle reports 1599, not 1600' }]
+  handle.staged.readBack.value = 2
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.staged-status[role="alert"]').text())
+    .toBe('2 written and read back. RTL_ALT: the vehicle reports 1599, not 1600. Stopped there: the rest weren\'t written.')
+})
+
 it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {
   const { wrapper, handle } = await listWith()
   add(handle, 'RTL_ALT', '1600')
