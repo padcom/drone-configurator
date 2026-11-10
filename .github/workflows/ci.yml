@@ -15,9 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { target: linux-x64, runner: ubuntu-24.04, backend: true }
-          # test-jobs: how many backend test files run at once. Two on arm64, where the step has been cancelled with the
-          # default of one per CPU; x64 keeps the default (it passes).
+          # test-jobs: how many backend test files run at once (`pico test -j`). The probe in "Unit and backend tests" showed
+          # why it is 2: each `pico run` of a backend test file takes 1.8 GB growing to 3.8 GB, so the default of one per CPU
+          # (4 on these runners) needs about 15 GB of the 16 the runner has (run 42735673539, linux-x64: used=8077MB, then
+          # used=15774MB available=209MB ten seconds later, and the step was killed; the "operation was canceled" of
+          # linux-arm64 before it was the same). With 2 at once linux-arm64 passed that run. The macOS and Windows jobs run no
+          # backend tests, so they have none.
+          - { target: linux-x64, runner: ubuntu-24.04, backend: true, test-jobs: 2 }
           - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true, test-jobs: 2 }
           # The backend doesn't link on these yet: padcom/serialport is Linux only, and
           # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
