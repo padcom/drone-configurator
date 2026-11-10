@@ -6,14 +6,18 @@
     "navigation": "Screens",
     "notAvailable": "{screen} is not available yet."
   },
-  "statusBar": {
-    "label": "Status",
-    "connection": "Connection",
-    "vehicle": "Vehicle",
-    "mode": "Mode",
-    "armed": "State",
-    "link": "Link",
-    "vehicleValue": "{type} · {autopilot} · system {sysid}/{compid}"
+  "topBar": {
+    "home": "Home",
+    "noVehicle": "No vehicle",
+    "vehicleSub": "{autopilot} · system {sysid}/{compid}",
+    "vehicleValue": "{type} · {autopilot} · system {sysid}/{compid}",
+    "cell": {
+      "mode": "MODE",
+      "state": "STATE",
+      "battery": "BATTERY",
+      "gps": "GPS",
+      "link": "LINK"
+    }
   },
   "screen": {
     "flight": "Flight data",

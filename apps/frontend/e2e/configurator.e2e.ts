@@ -46,12 +46,11 @@ describe('the configurator against the simulated vehicle', () => {
     expect(telemetry).toMatch(/Battery/u)
   })
 
-  it('has the status bar on every screen: the link, the vehicle, the mode', async () => {
+  it('has the top bar on every screen: the vehicle and its link, the mode', async () => {
     await showScreen(app, 'parameters')
-    const bar = await app.waitForText('#status-bar', /Mode\s*(?:STABILIZE|LOITER)/u)
+    const bar = await app.waitForText('#top-bar', /MODE\s*(?:STABILIZE|LOITER)/u)
 
-    expect(bar).toMatch(/Connection\s*connected/u)
-    expect(bar).toMatch(/QUADROTOR · ARDUPILOTMEGA · system 1\/1/u)
+    expect(bar).toMatch(/QUADROTOR\s*ARDUPILOTMEGA · system 1\/1/u)
   })
 })
 

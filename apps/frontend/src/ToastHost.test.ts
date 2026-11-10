@@ -39,6 +39,9 @@ describe('the live regions of the toast region', () => {
 
     expect(wrapper.findAll('.kit-toast-group').map(g => g.attributes('role'))).toEqual(['status', 'alert'])
     expect(wrapper.findAll('.kit-toast-group').map(g => g.element.children.length)).toEqual([0, 0])
+    // Only what is new is read out, not the whole list again each time a toast comes or goes.
+    expect(wrapper.findAll('.kit-toast-group').map(g => [g.attributes('aria-atomic'), g.attributes('aria-relevant')]))
+      .toEqual([['false', 'additions text'], ['false', 'additions text']])
   })
 
   it('shows a toast with its glyph and its words, politely for a status and at once for an error', async () => {

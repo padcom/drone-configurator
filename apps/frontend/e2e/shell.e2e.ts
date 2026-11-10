@@ -29,7 +29,7 @@ afterAll(async () => {
 })
 
 /**
- * Shows one screen from the navigation and checks what it must have: its marker, its name in the link, the status bar.
+ * Shows one screen from the navigation and checks what it must have: its marker, its name in the link, the top bar.
  *
  * @param id the screen
  * @param marker a selector for something only that screen has
@@ -39,7 +39,7 @@ async function reach(id: string, marker: string, title: string): Promise<void> {
   await showScreen(app, id)
   await app.waitFor(`document.querySelector(${JSON.stringify(marker)}) !== null`)
   expect(await app.text(`nav a[href="#/${id}"]`), id).toBe(title)
-  expect(await app.evaluate<boolean>(`document.querySelector('#status-bar') !== null`), id).toBe(true)
+  expect(await app.evaluate<boolean>(`document.querySelector('#top-bar') !== null`), id).toBe(true)
 }
 
 /**
@@ -56,14 +56,14 @@ async function walk(screens: typeof MARKERS): Promise<void> {
 }
 
 describe('the shell', () => {
-  it('starts on Flight data, with the status bar and the navigation', async () => {
+  it('starts on Flight data, with the top bar and the navigation', async () => {
     expect(await app.evaluate<string>('location.hash')).toMatch(/^#\/flight$/u)
     await app.waitForText('#telemetry', 'No telemetry')
-    expect(await app.text('#status-bar')).toContain('disconnected')
+    expect(await app.text('#top-bar')).toContain('disconnected')
     expect(await app.evaluate<number>(`document.querySelectorAll('nav a').length`)).toBe(MARKERS.length)
   })
 
-  it('reaches every screen from the navigation, with the status bar always there', async () => {
+  it('reaches every screen from the navigation, with the top bar always there', async () => {
     await walk(MARKERS)
   })
 
