@@ -69,7 +69,7 @@ describe('writing, reconnecting and closing', () => {
   it('disconnects and reconnects', async () => {
     await app.click('#disconnect-button')
     await app.waitForText('#connection', /^disconnected/u)
-    await app.click('#connect-button')
+    await clickConnect(app)
     await app.waitForText('#connection', 'connected · system')
   })
 

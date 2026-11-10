@@ -2,7 +2,7 @@
 // precompiled (the unplugin did not run, or the CSP blocked the compiler) would show its key instead of its text.
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { showScreen } from './click'
+import { openConnect, showScreen } from './click'
 
 let app: E2eApp
 
@@ -20,10 +20,14 @@ describe('the interface language', () => {
     expect(await app.evaluate<string>('document.title')).toBe('Drone Configurator')
   })
 
-  it('shows the translated text of the connection bar and the telemetry, not message keys', async () => {
+  it('shows the translated text of the Connect dialog and the telemetry, not message keys', async () => {
+    await openConnect(app)
     expect(await app.text('#connect-button')).toBe('Connect')
     expect(await app.text('#telemetry')).toContain('No telemetry: connect to a vehicle.')
     expect(await app.text('#connect')).not.toMatch(/connection\.[a-z]/u)
+    expect(await app.text('dialog')).not.toMatch(/connect\.[a-z]/u)
+    await app.click('#connect-cancel')
+    await app.waitFor('document.querySelector(\'dialog\') === null')
   })
 
   it('names the screens in the navigation from the messages, not with their keys', async () => {
