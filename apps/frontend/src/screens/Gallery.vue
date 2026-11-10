@@ -4,12 +4,6 @@
     <p class="muted">{{ t('gallery.intro') }}</p>
 
     <section>
-      <h3>{{ t('gallery.section.theme') }}</h3>
-      <SegmentedControl v-model="chosen" :label="t('gallery.theme.label')" :options="themes" />
-      <p class="muted">{{ t('gallery.effective', { theme: t(`gallery.theme.${theme.effective.value}`) }) }}</p>
-    </section>
-
-    <section>
       <h3>{{ t('gallery.section.colours') }}</h3>
       <ul class="swatches">
         <li v-for="token in COLOUR_TOKENS" :key="token" class="swatch" :data-token="token">
@@ -109,39 +103,32 @@ import SplitPane from '../kit/SplitPane.vue'
 import Tabs from '../kit/Tabs.vue'
 import TextInput from '../kit/TextInput.vue'
 import Toggle from '../kit/Toggle.vue'
-import { type ThemeChoice, useTheme } from '../kit/useTheme'
 
-// Every control of the kit in its states, and the theme switch: what a developer looks at to see that a change to a
-// token or a control holds in both themes. It is only in the development build (screens.ts).
+// Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
+// It is only in the development build (screens.ts).
 const { t } = useI18n()
-const theme = useTheme()
 
 const COLOUR_TOKENS = [
   '--color-bg',
   '--color-surface',
+  '--color-surface-raised',
   '--color-text',
   '--color-text-muted',
   '--color-border',
   '--color-border-strong',
   '--color-accent',
+  '--color-accent-soft',
   '--color-on-accent',
   '--color-ok',
+  '--color-ok-soft',
   '--color-warn',
+  '--color-warn-soft',
   '--color-error',
+  '--color-error-soft',
+  '--color-route',
 ]
 const ICON_NAMES = Object.keys(ICONS) as IconName[]
 
-const chosen = computed({
-  get: () => theme.choice.value,
-  set: (next: string) => {
-    theme.set(next as ThemeChoice)
-  },
-})
-const themes = computed(() => {
-  const choices = ['system', 'light', 'dark'] as const
-
-  return choices.map(value => ({ value, label: t(`gallery.theme.${value}`) }))
-})
 const options = computed(() => [
   { value: 'one', label: t('gallery.sample.optionOne') },
   { value: 'two', label: t('gallery.sample.optionTwo') },

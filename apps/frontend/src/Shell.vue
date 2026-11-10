@@ -2,7 +2,6 @@
   <header>
     <h1>{{ t('app.title') }}</h1>
     <ConnectionBar />
-    <ThemeSwitch />
   </header>
   <SettingsNotice />
   <nav :aria-label="t('shell.navigation')">
@@ -26,7 +25,6 @@ import ConnectionBar from './ConnectionBar.vue'
 import { SCREENS } from './screens'
 import SettingsNotice from './SettingsNotice.vue'
 import StatusBar from './StatusBar.vue'
-import ThemeSwitch from './ThemeSwitch.vue'
 
 // The frame of the application: the title and the connection on top, the screens to choose from, and the screen.
 const { t } = useI18n()

@@ -28,15 +28,7 @@
   "gallery": {
     "title": "Component gallery",
     "intro": "Every control of the kit in each of its states. Only in development: the built application has no gallery.",
-    "effective": "In effect: {theme}",
-    "theme": {
-      "label": "Theme",
-      "system": "System",
-      "light": "Light",
-      "dark": "Dark"
-    },
     "section": {
-      "theme": "Theme",
       "colours": "Colours",
       "buttons": "Buttons",
       "fields": "Fields",
@@ -96,12 +88,6 @@
   "language": {
     "label": "Language",
     "en": "English"
-  },
-  "theme": {
-    "label": "Theme",
-    "system": "System",
-    "light": "Light",
-    "dark": "Dark"
   },
   "settings": {
     "dismiss": "Dismiss"

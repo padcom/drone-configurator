@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { type BackendClient, createBackendClient } from './backend/client'
-import type { Settings, SettingsState, ThemeName } from './generated/app'
+import type { Settings } from './generated/app'
 import type { Language, LegacyLanguage } from './i18n'
 import { mockBackend } from './mock-backend'
 import { useSettings } from './useSettings'
@@ -16,20 +16,6 @@ interface Start {
   notice?: { notice: string, noticeCode: string }
   /** The language an earlier version kept in the browser. */
   legacy?: Language
-  /** The theme the browser kept for the first paint. */
-  copy?: ThemeName
-}
-
-/**
- * A copy of the theme for the first paint that records what is written to it.
- *
- * @param kept what it holds at first
- * @returns the copy, and its writes
- */
-function copyOf(kept: ThemeName | null = null) {
-  const write = vi.fn()
-
-  return { copy: { read: () => kept, write }, write }
 }
 
 /**
@@ -46,20 +32,19 @@ function legacyOf(kept?: Language) {
 }
 
 /**
- * Settings on a mock backend, with a theme and a language that record what they are told.
+/**
+ * Settings on a mock backend, with a language that records what it is told.
  *
  * @param start what the backend holds and says, and what the browser kept
  * @returns the settings, and what they applied
  */
 function rig(start: Start = {}) {
   const client = createBackendClient(mockBackend({ settings: start.saved ?? EMPTY, settingsNotice: start.notice }))
-  const theme = { set: vi.fn() }
   const applyLanguage = vi.fn()
   const { legacy, forget } = legacyOf(start.legacy)
-  const { copy, write } = copyOf(start.copy ?? null)
-  const settings = useSettings({ client, theme, applyLanguage, legacy, firstPaint: copy })
+  const settings = useSettings({ client, applyLanguage, legacy })
 
-  return { client, theme, applyLanguage, forget, write, settings }
+  return { client, applyLanguage, forget, settings }
 }
 /** A client whose every call fails. */
 const refusing = {
@@ -73,33 +58,37 @@ const refusing = {
  * @returns the settings, and what they applied
  */
 function refused(legacy: LegacyLanguage | null = null) {
-  const theme = { set: vi.fn() }
+  const applyLanguage = vi.fn()
 
-  return { theme, settings: useSettings({ client: refusing, theme, applyLanguage: vi.fn(), legacy, firstPaint: null }) }
+  return { applyLanguage, settings: useSettings({ client: refusing, applyLanguage, legacy }) }
 }
 
 describe('loading what was kept', () => {
-  it('applies the theme and the language that were kept, and shows the notice the backend gives', async () => {
-    const saved: Settings = { version: 1, theme: 'dark', language: 'en', ui: [] }
-    const { settings, theme, applyLanguage } = rig({ saved, notice: CORRUPT })
+  it('applies the language that was kept, and shows the notice the backend gives', async () => {
+    const saved: Settings = { version: 1, language: 'en', ui: [] }
+    const { settings, applyLanguage } = rig({ saved, notice: CORRUPT })
 
     await settings.load()
 
-    expect(theme.set).toHaveBeenCalledWith('dark')
     expect(applyLanguage).toHaveBeenCalledWith('en')
-    expect(settings.settings.value.theme).toBe('dark')
     expect(settings.notice.value).toBe('set aside')
+  })
+
+  it('takes no notice of a theme an earlier version kept: there is only the dark one', async () => {
+    const { settings } = rig({ saved: { version: 1, theme: 'light', ui: [] } })
+
+    await settings.load()
+
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false)
   })
 })
 
 describe('loading when nothing was kept, or it cannot be had', () => {
-  it('goes to the system theme and leaves the language alone when none was kept, and says nothing', async () => {
-    const { settings, theme, applyLanguage } = rig()
+  it('leaves the language alone when none was kept, and says nothing', async () => {
+    const { settings, applyLanguage } = rig()
 
     await settings.load()
 
-    expect(theme.set).toHaveBeenCalledOnce()
-    expect(theme.set).toHaveBeenCalledWith('system')
     expect(applyLanguage).not.toHaveBeenCalled()
     expect(settings.notice.value).toBeNull()
   })
@@ -114,35 +103,12 @@ describe('loading when nothing was kept, or it cannot be had', () => {
   })
 
   it('says the settings are not available when the backend cannot be asked, and applies nothing', async () => {
-    const { settings, theme } = refused()
+    const { settings, applyLanguage } = refused()
 
     await settings.load()
 
     expect(settings.notice.value).toBe('The settings are not available: the backend is gone')
-    expect(theme.set).not.toHaveBeenCalled()
-  })
-})
-
-describe('choosing a theme', () => {
-  it('shows it at once and keeps it in the settings', async () => {
-    const { settings, theme, client } = rig()
-    await settings.load()
-
-    const kept = settings.chooseTheme('light')
-    expect(theme.set).toHaveBeenLastCalledWith('light')
-    await kept
-
-    expect(settings.settings.value.theme).toBe('light')
-    expect((await client.call('settings.get', null)).settings.theme).toBe('light')
-  })
-
-  it('still shows it when it could not be kept, and says so', async () => {
-    const { settings, theme } = refused()
-
-    await settings.chooseTheme('dark')
-
-    expect(theme.set).toHaveBeenCalledWith('dark')
-    expect(settings.notice.value).toBe('The theme could not be kept: the backend is gone')
+    expect(applyLanguage).not.toHaveBeenCalled()
   })
 })
 
@@ -222,110 +188,14 @@ describe('the notice, when the backend stops saying it or says it again', () => 
   })
 })
 
-describe('the theme at the first paint', () => {
-  it('is the copy kept in the browser, applied at once, before the settings are asked for', () => {
-    const { theme } = rig({ copy: 'dark' })
-
-    expect(theme.set).toHaveBeenCalledOnce()
-    expect(theme.set).toHaveBeenCalledWith('dark')
-  })
-
-  it('applies nothing when there is no copy', () => {
-    const { theme } = rig()
-
-    expect(theme.set).not.toHaveBeenCalled()
-  })
-})
-
-describe('the theme at the first paint, and the settings that follow it', () => {
-  it('gives way to the settings, which are the truth, and the copy follows them', async () => {
-    const { settings, theme, write } = rig({ copy: 'dark', saved: { version: 1, theme: 'light', ui: [] } })
-
-    await settings.load()
-
-    expect(theme.set).toHaveBeenLastCalledWith('light')
-    expect(write).toHaveBeenLastCalledWith('light')
-  })
-
-  it('is forgotten when the settings name no theme, and the page goes to the system theme', async () => {
-    const { settings, theme, write } = rig({ copy: 'dark' })
-
-    await settings.load()
-
-    expect(theme.set).toHaveBeenLastCalledWith('system')
-    expect(write).toHaveBeenLastCalledWith(null)
-  })
-
-  it('is written when a theme is chosen, at once', async () => {
-    const { settings, write } = rig()
-
-    const kept = settings.chooseTheme('dark')
-    expect(write).toHaveBeenCalledWith('dark')
-    await kept
-  })
-})
-
-/**
- * A client whose answers to `settings.set` come when the test says.
- *
- * @returns the client, and a way to answer the calls in the order the test likes
- */
-function slowClient() {
-  const answers: ((state: SettingsState) => void)[] = []
-  const call = vi.fn(() => new Promise(resolve => {
-    answers.push(resolve as (state: SettingsState) => void)
-  }))
-
-  return { client: { call } as unknown as BackendClient, answers }
-}
-
-describe('two theme choices in a row', () => {
-  it('end on the later one, whatever order the answers come in', async () => {
-    const { client, answers } = slowClient()
-    const theme = { set: vi.fn() }
-    const settings = useSettings({ client, theme, applyLanguage: vi.fn(), legacy: null, firstPaint: null })
-
-    const first = settings.chooseTheme('dark')
-    const second = settings.chooseTheme('light')
-    answers[1]!({ settings: { version: 1, theme: 'light', ui: [] } })
-    await second
-    answers[0]!({ settings: { version: 1, theme: 'dark', ui: [] } })
-    await first
-
-    const shown = theme.set.mock.calls.map(call => call[0])
-    expect(shown.at(-1)).toBe('light')
-    expect(shown.lastIndexOf('dark')).toBe(0)
-    expect(settings.settings.value.theme).toBe('light')
-  })
-})
-
-describe('two theme choices in a row, with an announcement between', () => {
-  it('are not undone by an announcement of the earlier one while the later waits for its answer', async () => {
-    const { client, answers } = slowClient()
-    const theme = { set: vi.fn() }
-    const settings = useSettings({ client, theme, applyLanguage: vi.fn(), legacy: null, firstPaint: null })
-
-    const first = settings.chooseTheme('dark')
-    const second = settings.chooseTheme('light')
-    settings.changed({ settings: { version: 1, theme: 'dark', ui: [] } })
-    answers[0]!({ settings: { version: 1, theme: 'dark', ui: [] } })
-    answers[1]!({ settings: { version: 1, theme: 'light', ui: [] } })
-    await Promise.all([first, second])
-
-    const shown = theme.set.mock.calls.map(call => call[0])
-    expect(shown.at(-1)).toBe('light')
-    expect(shown.lastIndexOf('dark')).toBe(0)
-  })
-})
-
 describe('a change the backend announces', () => {
   it('is applied, also when this window did not ask for it', () => {
-    const { settings, theme } = rig()
+    const { settings, applyLanguage } = rig()
 
-    settings.changed({ settings: { version: 1, theme: 'dark', ui: [] } })
+    settings.changed({ settings: { version: 1, language: 'en', ui: [] } })
 
-    expect(theme.set).toHaveBeenCalledWith('dark')
-    expect(settings.settings.value.theme).toBe('dark')
+    expect(applyLanguage).toHaveBeenCalledWith('en')
+    expect(settings.settings.value.language).toBe('en')
   })
 })
 

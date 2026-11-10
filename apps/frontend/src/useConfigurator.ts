@@ -5,9 +5,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftProblem } from './draft'
-import { firstPaint } from './firstPaint'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
-import { useTheme } from './kit/useTheme'
 import type { State } from './state'
 import { type MetadataModel, useMetadata } from './useMetadata'
 import { type ParamsModel, useParams } from './useParams'
@@ -36,7 +34,7 @@ export interface ConfiguratorHandle {
   metadata: MetadataModel
   /** The snapshots and their import. */
   snapshots: SnapshotsModel
-  /** The settings that survive a restart (the theme, the language). */
+  /** The settings that survive a restart (the language, the interface's own entries). */
   settings: SettingsModel
   /** The state, field by field. */
   fields: Fields
@@ -111,10 +109,8 @@ let current: ConfiguratorHandle | undefined
 function startSettings(client: BackendClient): SettingsModel {
   const settings = useSettings({
     client,
-    theme: useTheme(),
     applyLanguage: setLanguage,
     legacy: legacyLanguage(storageOf(globalThis)),
-    firstPaint: firstPaint(storageOf(globalThis)),
   })
   client.onEvent('settings.changed', state => settings.changed(state))
   void settings.load()
