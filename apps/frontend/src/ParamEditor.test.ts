@@ -41,8 +41,9 @@ it('asks for a parameter to be selected, and hides the form, until one is', asyn
 it('shows the selected parameter and the form while connected', async () => {
   const { wrapper } = await editorWithSpies()
 
-  expect(wrapper.get('#detail h3').text()).toBe('RTL_ALT')
-  expect(wrapper.get('#detail').text()).toContain('on the vehicle: 1500')
+  expect(wrapper.get('#detail h2').text()).toBe('RTL_ALT')
+  expect(wrapper.get('#detail .big').text()).toBe('1500')
+  expect(wrapper.get('#detail').text()).toContain('on the vehicle:')
   expect(wrapper.get('#edit').attributes('hidden')).toBeUndefined()
   expect((wrapper.get('#draft').element as HTMLInputElement).value).toBe('1600')
 })
@@ -76,7 +77,7 @@ it('hides the form when the connection is lost, and keeps the parameter on scree
   await wrapper.vm.$nextTick()
 
   expect(wrapper.get('#edit').attributes('hidden')).toBeDefined()
-  expect(wrapper.get('#detail h3').text()).toBe('RTL_ALT')
+  expect(wrapper.get('#detail h2').text()).toBe('RTL_ALT')
 })
 
 it('passes on what is typed, and writes on submit', async () => {
@@ -122,4 +123,52 @@ it('shows the outcome of the write, a draft error and the metadata as text', asy
   expect(text).toContain('Range: 200 to … cm')
   expect(wrapper.find('#detail b, #detail i').exists()).toBe(false)
   expect(wrapper.find('#detail .error').exists()).toBe(true)
+})
+
+it('shows a verified write with a mark and its words, and an unconfirmed one as a problem, never as done', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+
+  feed(handle, { lastWrite: { kind: 'verified', id: 'RTL_ALT', value: 1600 } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#detail .notice.ok').text()).toBe('Written and read back: 1600.')
+  expect(wrapper.find('#detail .notice.ok svg').exists()).toBe(true)
+
+  feed(handle, { lastWrite: { kind: 'failed', id: 'RTL_ALT', message: 'TIMEOUT' } })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('#detail .notice.ok').exists()).toBe(false)
+  expect(wrapper.get('#detail .notice.error').text()).toContain('Not confirmed')
+})
+
+it('chooses a new value from the names when the metadata has them, in the same field id, any number still allowed', async () => {
+  const { wrapper, handle, editDraft } = await editorWithSpies()
+
+  feed(handle, { metadata: new Map([['RTL_ALT', { values: { 0: 'Disabled', 1500: 'Default', 3000: 'High' } }]]), draft: '1500' })
+  await wrapper.vm.$nextTick()
+
+  const field = wrapper.get<HTMLInputElement>('#draft')
+  expect(field.attributes('role')).toBe('combobox')
+  expect(field.element.value).toBe('Default')
+  expect(wrapper.get('#detail').text()).not.toContain('Values:')
+  await field.trigger('focus')
+  await wrapper.findAll('[role="option"]').find(option => option.text().includes('High'))?.trigger('click')
+  expect(editDraft).toHaveBeenLastCalledWith('3000')
+})
+
+it('lists the other parameters of the same group as related, and selects one when it is pressed', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  const select = vi.spyOn(handle.parameters, 'select').mockImplementation(() => undefined)
+  feed(handle, { selected: 'BATT_CAPACITY' })
+  await wrapper.vm.$nextTick()
+
+  const related = wrapper.findAll('.related-item')
+  expect(related.map(item => item.text())).toEqual(['BATT_LOW_VOLT'])
+  await related[0]?.trigger('click')
+
+  expect(select).toHaveBeenCalledWith('BATT_LOW_VOLT')
+})
+
+it('lists no related parameters for one that is alone in its group', async () => {
+  const { wrapper } = await editorWithSpies()
+
+  expect(wrapper.find('.related').exists()).toBe(false)
 })

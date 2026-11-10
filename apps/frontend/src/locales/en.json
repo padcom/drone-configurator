@@ -368,6 +368,7 @@
   },
   "editor": {
     "select": "Select a parameter to see or change it.",
+    "related": "Related",
     "summary": "{type} · index {index} · on the vehicle:",
     "named": " ({name})",
     "range": "Range: {min} to {max}{units}",
