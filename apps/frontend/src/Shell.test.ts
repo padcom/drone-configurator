@@ -73,7 +73,8 @@ it('draws the rail with an icon over each name, and Settings apart at the bottom
   expect(wrapper.findAll('nav a').every(link => link.find('svg[aria-hidden="true"]').exists())).toBe(true)
   expect(wrapper.findAll('.rail-end a').map(link => link.text())).toEqual(['Settings'])
   expect(wrapper.find('.app-row > .rail').exists()).toBe(true)
-  expect(wrapper.find('.app-row > .app-main #telemetry').exists()).toBe(true)
+  expect(wrapper.find('.app-row > main.app-main #telemetry').exists()).toBe(true)
+  expect(wrapper.findAll('main')).toHaveLength(1)
 })
 
 it('shows the screen followed, and says in the link which one it is', async () => {

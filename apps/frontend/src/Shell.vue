@@ -7,7 +7,7 @@
     <SettingsNotice />
     <div class="app-row">
       <Rail />
-      <div class="app-main">
+      <main class="app-main">
         <!-- A screen that was shown stays alive while another is, so what is typed or selected in it is still there when
              the user comes back. -->
         <RouterView v-slot="{ Component }">
@@ -15,7 +15,7 @@
             <component :is="Component" />
           </KeepAlive>
         </RouterView>
-      </div>
+      </main>
     </div>
     <StatusBar />
   </div>

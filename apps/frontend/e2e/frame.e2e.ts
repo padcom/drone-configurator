@@ -38,6 +38,19 @@ function measure(): Promise<{ overflow: number, railLeft: number, railTop: numbe
   })()`)
 }
 
+/** Runs in the page: scrolls each rail link into view and says (by its href) whether a click at its middle would hit it. */
+const REACH_EACH_ITEM = `(() => {
+  const reach = a => {
+    a.scrollIntoView({ block: 'nearest' })
+    const box = a.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+
+    return a.contains(hit) ? a.getAttribute('href') : ''
+  }
+
+  return [...document.querySelectorAll('.rail a')].map(reach)
+})()`
+
 describe('the frame at 1000 px and wider', () => {
   it.each([[1440, 900], [1000, 700]])('does not scroll the page at %i x %i, and has the rail at the left', async (w, h) => {
     await size(w, h)
@@ -46,6 +59,16 @@ describe('the frame at 1000 px and wider', () => {
     expect(m.overflow).toBeLessThanOrEqual(0)
     expect(m.railLeft).toBe(0)
     expect(m.railWidth).toBe(76)
+  })
+})
+
+describe('the rail in a short window', () => {
+  it('can reach every item at 1000 x 700, the last one (Settings) included', async () => {
+    await size(1000, 700)
+    const reached = await app.evaluate<string[]>(REACH_EACH_ITEM)
+
+    expect(reached).not.toContain('')
+    expect(reached.at(-1)).toBe('#/settings')
   })
 })
 
