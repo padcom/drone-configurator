@@ -83,6 +83,46 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
 }
 
 /**
+ * Brings a link into view and lets the layout settle before it is clicked: a line of text that appears over the screen (the
+ * connection's "reconnected to the same vehicle", say) moves the rail by a line, and a click at a place read a moment before
+ * lands on the item beside the one meant (issue #343: the page was on Setup, next to Parameters).
+ *
+ * @param app the running app
+ * @param link a selector for the link
+ */
+async function settleAt(app: E2eApp, link: string): Promise<void> {
+  await app.evaluate(`(() => {
+    document.querySelector(${JSON.stringify(link)})?.scrollIntoView({ block: 'nearest' })
+    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+  })()`)
+}
+
+/**
+ * What the navigation looks like, for a click that did not take the page where it was meant to (issue #343): the address, the
+ * link that is current, and where the link was.
+ *
+ * @param app the running app
+ * @param link a selector for the link
+ * @returns a line of text for the failure message
+ */
+async function describeNavigation(app: E2eApp, link: string): Promise<string> {
+  try {
+    return await app.evaluate<string>(`JSON.stringify((() => {
+      const box = document.querySelector(${JSON.stringify(link)})?.getBoundingClientRect()
+      return {
+        hash: location.hash,
+        current: document.querySelector('nav [aria-current="page"]')?.getAttribute('href'),
+        link: box && [box.left, box.top, box.width, box.height].map(Math.round),
+        railScroll: document.querySelector('nav.rail')?.scrollTop,
+        connection: document.querySelector('#connection')?.innerText,
+      }
+    })())`)
+  } catch (error) {
+    return `(the page could not be read: ${String(error)})`
+  }
+}
+
+/**
  * Clicks a navigation link until the page reacts: a click through DevTools can occasionally land and do nothing (the
  * same as Connect's, above), and a second click on a link that did work only goes to the screen already shown. The last
  * attempt waits as long as a slow machine needs, and fails with the reason.
@@ -93,10 +133,13 @@ async function clickUntilNoticed(app: E2eApp, changed: string, left: number): Pr
  * @param left how many attempts remain
  */
 async function clickLinkUntilShown(app: E2eApp, link: string, shown: string, left: number): Promise<void> {
+  await settleAt(app, link)
   await app.click(link)
 
   if (left === 1) {
-    await app.waitFor(shown)
+    await app.waitFor(shown).catch(async (error: unknown) => {
+      throw new Error(`${String(error)}\n${await describeNavigation(app, link)}`, { cause: error })
+    })
 
     return
   }
