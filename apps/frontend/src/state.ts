@@ -1,6 +1,7 @@
 // Everything the components show, as one type: each field is held by one of the composables (useVehicle, useParams,
 // useMetadata, useSnapshots) or by useConfigurator (the last failure), and reaches the components as a ref.
 import type { Connection, Param, SerialPort, Telemetry } from './generated/app'
+import type { Initial } from './initialValues'
 import type { Metadata } from './metadata'
 import type { Review } from './snapshot'
 import type { ListState } from './useParams'
@@ -27,6 +28,8 @@ export interface State {
   missing: number[]
   /** What the user typed to narrow the list. */
   filter: string
+  /** The values at the last complete download: what "changed" is measured against, and what a reset puts back. */
+  initial: Initial | null
   /** The selected parameter's id. */
   selected: string | null
   /** The new value as typed. */

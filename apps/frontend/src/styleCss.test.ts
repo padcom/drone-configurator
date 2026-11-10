@@ -84,6 +84,12 @@ it('sets the name of the selected row heavier, focused or not: a mark that is no
   expect(params).toMatch(/\.param-scroll tbody tr\.selected \.name\s*\{\s*font-weight:\s*600;\s*\}/u)
 })
 
+it('has a question that scrolls inside the dialog, so that the hundreds of lines of a bulk reset fit the window', () => {
+  const dialog = sheet('kit/dialog.css')
+
+  expect(dialog).toMatch(/\.safety-what\s*\{[^}]*max-height:\s*40vh;[^}]*overflow-y:\s*auto;[^}]*white-space:\s*pre-line;/u)
+})
+
 it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })

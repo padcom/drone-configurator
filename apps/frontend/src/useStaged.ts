@@ -3,6 +3,7 @@
 // only done when the vehicle reports the new value; nothing is written until the user asks, after one question for all.
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
+import { CALIBRATION_NOTE, isCalibration } from './calibrationParams'
 import type { Connection, Param } from './generated/app'
 import type { ParamsModel } from './useParams'
 
@@ -16,6 +17,8 @@ export interface StagedChange {
   to: number
   /** What the metadata found unusual about it when it was added (the question says so), if anything. */
   warning?: string
+  /** Where it came from: typed by the user (`edit`, the default), or the initial value put back (`reset`). */
+  origin?: 'edit' | 'reset'
 }
 
 /** How a staged change went when it was written. */
@@ -51,6 +54,13 @@ export interface StagedModel {
   readonly results: ShallowRef<StagedResult[]>
   /** Goes up with every run in which all the changes were read back: how many there were. Null until then. */
   readonly written: ShallowRef<{ count: number } | null>
+  /** Goes up each time queued resets were taken out because the vehicle has their value already: how many. Null until then. */
+  readonly matched: ShallowRef<{ count: number } | null>
+  /**
+   * Takes out the changes whose value the vehicle has now (a download after they were queued, a write by another ground
+   * station): there is nothing left to write for them. Not while the changes are being written.
+   */
+  dropMatching: () => void
   /** How many changes of the last run the vehicle read back (they have left the list): what a run that stopped says it did. */
   readonly readBack: ShallowRef<number>
   /** Whether the writes are under way. */
@@ -63,6 +73,13 @@ export interface StagedModel {
   sync: () => void
   /** Takes a change that has not been written out of the list. */
   discard: (id: string) => void
+  /**
+   * Queues the putting back of parameters to values (their initial ones), each in place of any change queued for it, and the
+   * vehicle's own value takes the change out. Nothing is written: the question is asked when the changes are.
+   *
+   * @returns how many are queued now
+   */
+  resetTo: (targets: { id: string, to: number }[]) => number
   /** Forgets every change and result (the session ended, or another vehicle was connected). */
   reset: () => void
   /** Writes the changes that are not written yet, after one question, and stops at the first that is not confirmed. */
@@ -82,8 +99,10 @@ export interface StagedModel {
 export function questionFor(changes: StagedChange[]): string {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
   const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}${change.warning ? ` (${change.warning})` : ''}`)
+  // Said at the top, where a long list that scrolls does not hide it.
+  const note = changes.some(change => isCalibration(change.id)) ? [CALIBRATION_NOTE] : []
 
-  return [`Write ${changes.length} ${noun} to the vehicle?`, ...lines].join('\n')
+  return [`Write ${changes.length} ${noun} to the vehicle?`, ...note, ...lines].join('\n')
 }
 
 /**
@@ -108,6 +127,7 @@ class Staged implements StagedModel {
   readonly changes = shallowRef<StagedChange[]>([])
   readonly results = shallowRef<StagedResult[]>([])
   readonly written = shallowRef<{ count: number } | null>(null)
+  readonly matched = shallowRef<{ count: number } | null>(null)
   readonly writing = shallowRef(false)
   readonly readBack = shallowRef(0)
   /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
@@ -159,12 +179,72 @@ class Staged implements StagedModel {
    *
    * @param param the parameter
    * @param to the value to write
+   * @param origin `reset` for the initial value put back (it has no warning of the draft to carry), else `edit`
    */
-  private queue(param: Param, to: number): void {
+  private queue(param: Param, to: number, origin: 'edit' | 'reset' = 'edit'): void {
     const kept = this.changes.value.filter(change => change.id !== param.id)
-    this.changes.value = [...kept, this.changeFor(param, to)]
+    const queued: StagedChange = origin === 'reset' ? { id: param.id, from: param.value, to, origin } : this.changeFor(param, to)
+    this.changes.value = [...kept, queued]
     // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
     this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+  }
+
+  /**
+   * Puts one parameter back to a value: queued in place of any change for it, or the change taken out when the vehicle has the
+   * value already.
+   *
+   * @param id the parameter
+   * @param to the value
+   * @returns true if a change is queued now
+   */
+  private resetOne(id: string, to: number): boolean {
+    const param = this.deps.parameters.params.value.find(candidate => candidate.id === id)
+
+    return param ? this.putBack(param, to) : false
+  }
+
+  /**
+   * Queues the value for a parameter (or takes its change out when it has the value), and the Value field of the selected
+   * parameter says what will be written for it.
+   *
+   * @param param the parameter
+   * @param to the value
+   * @returns true if a change is queued now
+   */
+  private putBack(param: Param, to: number): boolean {
+    const { parameters } = this.deps
+    const differs = to !== param.value
+    if (differs) {
+      this.queue(param, to, 'reset')
+    } else {
+      this.discard(param.id)
+    }
+    if (parameters.selectedParam()?.id === param.id) {
+      parameters.editDraft(String(to))
+    }
+
+    return differs
+  }
+
+  dropMatching(): void {
+    if (this.writing.value) {
+      return
+    }
+    const now = new Map(this.deps.parameters.params.value.map(param => [param.id, param.value]))
+    const gone = this.changes.value.filter(change => now.get(change.id) === change.to)
+    if (gone.length === 0) {
+      return
+    }
+    this.changes.value = this.changes.value.filter(change => !gone.includes(change))
+    this.results.value = this.results.value.filter(result => this.changes.value.some(change => change.id === result.id))
+    const resets = gone.filter(change => change.origin === 'reset').length
+    if (resets > 0) {
+      this.matched.value = { count: resets }
+    }
+  }
+
+  resetTo(targets: { id: string, to: number }[]): number {
+    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.resetOne(id, to)).length
   }
 
   sync(): void {
@@ -190,6 +270,7 @@ class Staged implements StagedModel {
     this.changes.value = []
     this.results.value = []
     this.written.value = null
+    this.matched.value = null
     this.readBack.value = 0
     // The Value field does not keep a value that was queued for a vehicle that is gone.
     const param = this.deps.parameters.selectedParam()
@@ -278,7 +359,25 @@ class Staged implements StagedModel {
    * @returns true if they can
    */
   private startable(todo: StagedChange[]): boolean {
-    return todo.length > 0 && !this.writing.value && this.deps.isConnected()
+    // Not while the list is being downloaded: the values in it, and the initial ones taken from it, would be half and half.
+    // (A download is not started while the changes are written either: ParamsModel.refresh.)
+    const idle = !this.writing.value && this.deps.parameters.list.value !== 'loading'
+
+    return todo.length > 0 && idle && this.deps.isConnected()
+  }
+
+  /**
+   * The changes with the value each parameter has now as the one it goes from: the question is made when it is asked, from
+   * what the vehicle has, not from what it had when the change was queued (another ground station, or a download, may have
+   * changed it).
+   *
+   * @param todo the changes to write
+   * @returns the same changes, with the current `from`
+   */
+  private withCurrentValues(todo: StagedChange[]): StagedChange[] {
+    const now = new Map(this.deps.parameters.params.value.map(param => [param.id, param.value]))
+
+    return todo.map(change => ({ ...change, from: now.get(change.id) ?? change.from }))
   }
 
   async writeAll(): Promise<void> {
@@ -289,7 +388,7 @@ class Staged implements StagedModel {
     const { epoch } = this
     // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
     // focus that the dialog gives back.
-    if (await this.deps.confirm(questionFor(todo)) && epoch === this.epoch) {
+    if (await this.deps.confirm(questionFor(this.withCurrentValues(todo))) && epoch === this.epoch) {
       await this.writeLocked(todo, epoch)
     }
   }

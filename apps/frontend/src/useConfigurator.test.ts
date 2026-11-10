@@ -33,6 +33,7 @@ it('has a ref for every field of the state, and nothing else', () => {
     'filter',
     'importError',
     'importReview',
+    'initial',
     'list',
     'metadata',
     'metadataError',
