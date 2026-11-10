@@ -1,0 +1,129 @@
+/*
+ * The top bar (TopBar.vue): tokens only. 64 px high at least, and it wraps below 1000 px rather than cut anything off.
+ */
+
+.top-bar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  min-height: var(--topbar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.top-bar .logo {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 var(--rail-width);
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  border-right: 1px solid var(--color-border);
+}
+
+.top-bar .logo:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.top-bar .vehicle {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-width: 230px;
+  padding: var(--space-2) 18px;
+  border-right: 1px solid var(--color-border);
+}
+
+.top-bar .vehicle.warn {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.top-bar .dot {
+  width: 10px;
+  height: 10px;
+  background: var(--color-text-dim);
+  border-radius: 50%;
+}
+
+.top-bar .vehicle.ok .dot {
+  background: var(--color-ok);
+  box-shadow: 0 0 0 4px var(--color-ok-soft);
+}
+
+.top-bar .vehicle.warn .dot {
+  background: var(--color-warn);
+}
+
+.top-bar .lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.top-bar .title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.top-bar .sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.top-bar .vehicle.warn .sub {
+  color: var(--color-warn);
+}
+
+.top-bar .cells {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.top-bar .cell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-2) 18px;
+  border-right: 1px solid var(--color-border);
+}
+
+.top-bar .cell dt {
+  font-size: var(--font-size-label);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  letter-spacing: var(--letter-spacing-label);
+}
+
+.top-bar .cell dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value);
+  font-weight: 600;
+}
+
+.top-bar .cell.state dd {
+  text-transform: uppercase;
+}
+
+.top-bar .cell.armed {
+  color: var(--color-on-warn);
+  background: var(--color-warn);
+}
+
+.top-bar .cell.armed dt {
+  color: var(--color-on-warn);
+}
+
+.top-bar .actions {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-2) var(--space-4);
+}

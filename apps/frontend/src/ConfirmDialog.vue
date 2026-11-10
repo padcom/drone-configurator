@@ -21,7 +21,7 @@ const options = computed<SafetyOptions>(() => {
   return {
     title: t('safety.title'),
     what: confirmation.value?.question ?? '',
-    vehicle: info ? t('statusBar.vehicleValue', { ...info }) : '',
+    vehicle: info ? t('topBar.vehicleValue', { ...info }) : '',
     level: 'plain',
     confirmLabel: t('confirm.write'),
   }

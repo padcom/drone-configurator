@@ -1,6 +1,13 @@
 <template>
   <div class="kit-toasts" role="region" :aria-label="t('toast.region')">
-    <div v-for="group in groups" :key="group.role" class="kit-toast-group" :role="group.role">
+    <div
+      v-for="group in groups"
+      :key="group.role"
+      class="kit-toast-group"
+      :role="group.role"
+      aria-atomic="false"
+      aria-relevant="additions text"
+    >
       <div
         v-for="toast in group.toasts"
         :key="toast.key"

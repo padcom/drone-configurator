@@ -50,7 +50,8 @@ it('starts on Flight data, with the connection on top', async () => {
   const { wrapper, router } = await shellAt('/')
 
   expect(router.currentRoute.value.path).toBe('/flight')
-  expect(wrapper.find('header #connect-button').exists()).toBe(true)
+  expect(wrapper.find('header#top-bar').exists()).toBe(true)
+  expect(wrapper.find('.connect-strip #connect-button').exists()).toBe(true)
   expect(wrapper.find('#telemetry').exists()).toBe(true)
   expect(wrapper.find('#list-status').exists()).toBe(false)
 })
@@ -112,15 +113,22 @@ it('keeps a screen that was shown, as it was, while another is', async () => {
   expect(wrapper.find<HTMLInputElement>('#filter').element.value).toBe('RTL')
 })
 
-it('has the status bar on every screen, even one that is not built yet', async () => {
+it('has the top bar on every screen, even one that is not built yet', async () => {
   const { wrapper } = await shellAt('/flight')
-  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
+  expect(wrapper.find('header#top-bar').exists()).toBe(true)
 
   await follow(wrapper, 'Parameters')
-  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
+  expect(wrapper.find('header#top-bar').exists()).toBe(true)
   await follow(wrapper, 'Logs')
-  expect(wrapper.find('footer#status-bar').exists()).toBe(true)
-  expect(wrapper.findAll('footer#status-bar').length).toBe(1)
+  expect(wrapper.find('header#top-bar').exists()).toBe(true)
+  expect(wrapper.findAll('header#top-bar').length).toBe(1)
+  expect(wrapper.find('footer').exists()).toBe(false)
+})
+
+it('has the toast region, which is always there', async () => {
+  const { wrapper } = await shellAt('/flight')
+
+  expect(wrapper.find('[role="region"][aria-label="Notifications"]').exists()).toBe(true)
 })
 
 it('takes any other address to Flight data', async () => {

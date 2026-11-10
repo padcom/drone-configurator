@@ -79,6 +79,6 @@ it('names the vehicle it will write to', async () => {
   vi.advanceTimersByTime(50)
   await wrapper.vm.$nextTick()
 
-  expect(wrapper.get('#vehicle').text()).toBe(translate('statusBar.vehicleValue', { ...VEHICLE }))
+  expect(wrapper.get('#vehicle').text()).toBe(translate('topBar.vehicleValue', { ...VEHICLE }))
   expect(wrapper.get('#vehicle').text()).not.toBe('No vehicle is connected')
 })

@@ -1,9 +1,10 @@
 <template>
   <div class="app" data-l="app">
-    <header>
-      <h1>{{ t('app.title') }}</h1>
+    <TopBar />
+    <!-- Until the Connect dialog (R5c) the connection form stays here, under the top bar. -->
+    <section class="connect-strip">
       <ConnectionBar />
-    </header>
+    </section>
     <SettingsNotice />
     <div class="app-row">
       <Rail />
@@ -17,20 +18,20 @@
         </RouterView>
       </main>
     </div>
-    <StatusBar />
   </div>
+  <ToastHost />
   <ConfirmDialog />
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectionBar from './ConnectionBar.vue'
 import Rail from './Rail.vue'
 import SettingsNotice from './SettingsNotice.vue'
-import StatusBar from './StatusBar.vue'
+import ToastHost from './ToastHost.vue'
+import TopBar from './TopBar.vue'
 
-// The frame of the application: the title and the connection on top, the rail of screens at the left, the screen, and the
-// status bar at the bottom. From 1000 px wide the frame is the height of the window and only the screen scrolls (frame.css).
-const { t } = useI18n()
+// The frame of the application: the top bar (the vehicle, the link and the live cells), the rail of screens at the left, and
+// the screen. From 1000 px wide the frame is the height of the window and only the screen scrolls (frame.css). The toasts
+// are in a corner of the window, over everything.
 </script>
