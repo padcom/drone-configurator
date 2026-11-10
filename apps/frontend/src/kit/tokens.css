@@ -67,6 +67,7 @@
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --font-size-label: 0.6875rem;
+  --font-size-rail: 11.5px;
   --font-size-section: 0.75rem;
   --font-size-sm: 0.78rem;
   --font-size-md: 0.875rem;

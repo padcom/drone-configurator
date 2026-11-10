@@ -136,6 +136,7 @@ describe('the design tokens, the scales', () => {
   it('have the type scale, the spacing steps and the layout sizes', () => {
     for (const name of [
       '--font-size-label',
+      '--font-size-rail',
       '--font-size-value-sm',
       '--font-size-value',
       '--font-size-card',

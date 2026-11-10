@@ -2,6 +2,8 @@
 // 2 px strokes (round caps and joins), in the colour of the text around them, so they follow the theme. They are part
 // of the bundle (nothing is fetched).
 
+/* eslint-disable @stylistic/max-len -- a path's data is one string, as long as the drawing needs */
+
 /** The icons by name: the `d` of one path each. */
 export const ICONS = {
   'check': 'M5 12.5l4.5 4.5L19 7',
@@ -22,6 +24,15 @@ export const ICONS = {
   'disconnect': 'M9 4v5M15 4v5M7 9h10v3a5 5 0 0 1-10 0zM12 17v3M4 4l16 16',
   'save': 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
   'folder': 'M3 6h6l2 2h10v11H3z',
+  // The rail's icons, as the design draws them.
+  'grid': 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
+  'route': 'M6 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8',
+  'navigation': 'M12 2l8 19-8-4-8 4z',
+  'wrench': 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+  'sliders': 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
+  'activity': 'M22 12h-4l-3 9L9 3l-3 9H2',
+  'file': 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  'gear': 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z',
 } as const
 
 /** The name of an icon. */

@@ -1,5 +1,5 @@
 <template>
-  <main>
+  <div class="params-layout">
     <section class="params">
       <div class="toolbar">
         <ParamFilter />
@@ -12,7 +12,7 @@
     <aside class="detail">
       <ParamEditor />
     </aside>
-  </main>
+  </div>
 </template>
 
 <script setup lang="ts">
