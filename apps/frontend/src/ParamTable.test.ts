@@ -62,6 +62,7 @@ it('draws the group part of a name dimmed and the rest bright, with the value on
   expect(wrapper.get('thead').text()).not.toContain('Meaning')
   // Without metadata the table is two columns, as it was: nothing marks it as one with a description column.
   expect(wrapper.get('table').classes()).not.toContain('described')
+  expect(wrapper.find('colgroup').exists()).toBe(false)
 })
 
 it('shows only the chosen group, and says how many of the whole it is', async () => {
@@ -87,6 +88,14 @@ it('has a column of what the parameters mean once metadata is loaded', async () 
   // The table is laid out for it (name and value as wide as their text, the description the rest of the row), and a
   // description that is cut short has its whole text as its tooltip; a row without one has no tooltip.
   expect(wrapper.get('table').classes()).toContain('described')
+  // The widths of the first two columns come from the widest name (SERIAL0_BAUD, PILOT_SPEED_UP: 13) and value of the list,
+  // in characters, whatever is shown; the third has none, it is what is left.
+  const cols = wrapper.findAll('colgroup col')
+  expect(cols.map(col => col.attributes('style'))).toEqual([
+    expect.stringContaining('calc(14ch + var(--cell-padding))'),
+    expect.stringContaining('calc(6ch + var(--cell-padding))'),
+    undefined,
+  ])
   expect(wrapper.get('tr[data-id="RTL_ALT"] .meaning').attributes('title')).toBe('Return altitude')
   expect(wrapper.get('tr[data-id="BATT_CAPACITY"] .meaning').attributes('title')).toBeUndefined()
 })

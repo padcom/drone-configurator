@@ -1,6 +1,14 @@
 <template>
   <div class="param-scroll">
     <table v-if="visible.length > 0" :class="{ described: meaning }">
+      <!-- With metadata the layout is fixed, from the widths of the widest name and value (in the mono face, so a character is a
+           `ch`): the browser then does not measure every row's text to lay the table out (a switch back to this screen does
+           it again, and that was 120 to 270 ms with the whole list). The last column is what is left. -->
+      <colgroup v-if="meaning">
+        <col class="col-text" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
+        <col class="col-text" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
+        <col>
+      </colgroup>
       <thead>
         <tr>
           <th scope="col">{{ t('params.column.name') }}</th>
@@ -50,6 +58,12 @@ const params = computed(() => fields.params.value)
 const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
 const visible = computed(() => visibleParams(params.value, fields.filter.value, group.value))
 const meaning = computed(() => fields.metadata.value.size > 0)
+// The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
+// search), in characters; the header's own words are the least a column has.
+const widths = computed(() => ({
+  name: params.value.reduce((widest, param) => Math.max(widest, param.id.length), 'NAME'.length),
+  value: params.value.reduce((widest, param) => Math.max(widest, String(param.value).length), 'VALUE'.length + 1),
+}))
 // What an empty list says to do, by how the download stands: nothing yet (connect), on its way, or failed (press Download).
 const EMPTY_HELP: Record<string, string> = { loading: 'params.empty.loading', failed: 'params.empty.failed' }
 const emptyHelp = computed(() => EMPTY_HELP[fields.list.value] ?? 'params.empty.none')
