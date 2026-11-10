@@ -32,6 +32,7 @@
       "colours": "Colours",
       "type": "Type and pattern",
       "truth": "Vehicle truth",
+      "confirm": "Confirmation",
       "surfaces": "Surfaces",
       "buttons": "Buttons",
       "fields": "Fields",
@@ -51,6 +52,14 @@
       "neverRule": "A dash, never a made-up zero.",
       "verified": "Verified write",
       "verifiedRule": "Success only after the vehicle confirms the value."
+    },
+    "confirm": {
+      "holdWarn": "Hold to arm Quad 1",
+      "holdError": "Hold for emergency stop",
+      "erase": "Erase all logs",
+      "eraseSure": "Confirm: erase 5 logs",
+      "tick": "The propellers are off",
+      "spin": "Spin motor 1"
     },
     "surface": {
       "label": "Battery",
@@ -193,8 +202,8 @@
   },
   "confirm": {
     "cancel": "Cancel",
-    "hold": "Hold to write",
-    "confirm": "Confirm"
+    "hold": "Hold to confirm",
+    "write": "Write"
   },
   "truth": {
     "never": "—",
@@ -208,8 +217,7 @@
     "title": "Confirm a change to the vehicle",
     "noVehicle": "No vehicle is connected",
     "tapped": "That was a click. Press and hold the button instead.",
-    "holdHint": "Hold the button for {seconds} s to confirm. Letting go cancels.",
-    "typePrompt": "Type {word} to confirm"
+    "holdHint": "Hold the button for {seconds} s to confirm. Letting go cancels."
   },
   "params": {
     "filter": "Filter parameters",

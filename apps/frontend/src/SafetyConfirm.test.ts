@@ -9,8 +9,9 @@ const HOLD: SafetyOptions = {
   what: 'Set X from 1 to 2?',
   vehicle: 'Copter · ArduPilot · system 1/1',
   level: 'hold',
+  confirmLabel: 'Hold to arm',
 }
-const TYPED: SafetyOptions = { ...HOLD, level: 'typed', typedWord: 'DISARM', danger: true }
+const PLAIN: SafetyOptions = { ...HOLD, level: 'plain', confirmLabel: 'Write' }
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -99,52 +100,48 @@ describe('a confirmation by holding', () => {
   })
 })
 
-describe('a confirmation by typing', () => {
-  it.each(['', 'disarm', 'DISARM ', 'DISARn'])('keeps the button disabled for %j', async wrong => {
-    const wrapper = asked(TYPED)
+describe('a plain confirmation', () => {
+  it('has no hold and no hint, and a primary button with the words it is given', () => {
+    const wrapper = asked(PLAIN)
 
-    await wrapper.get('#safety-typed').setValue(wrong)
-
-    expect(wrapper.get('#confirm-typed').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('#confirm-hold').exists()).toBe(false)
+    expect(wrapper.find('#safety-hint').exists()).toBe(false)
+    expect(wrapper.get('#confirm-yes').text()).toBe('Write')
+    expect(wrapper.get('#confirm-yes').classes()).toContain('primary')
   })
 
-  it('enables the button when the word is typed exactly', async () => {
-    const wrapper = asked(TYPED)
+  it('confirms with a press, and once, however often the button is pressed', async () => {
+    const wrapper = asked(PLAIN)
 
-    await wrapper.get('#safety-typed').setValue('DISARM')
-
-    expect(wrapper.get('#confirm-typed').attributes('disabled')).toBeUndefined()
-  })
-
-  it('confirms once, however often the button is pressed', async () => {
-    const wrapper = asked(TYPED)
-    await wrapper.get('#safety-typed').setValue('DISARM')
-
-    await wrapper.get('#confirm-typed').trigger('click')
-    await wrapper.get('#confirm-typed').trigger('click')
+    await wrapper.get('#confirm-yes').trigger('click')
+    await wrapper.get('#confirm-yes').trigger('click')
 
     expect(answers(wrapper)).toEqual([true])
   })
 })
 
-describe('a confirmation by typing, with Enter and at the start', () => {
-  it('does nothing when Enter is pressed in the field, even with the word typed', async () => {
-    const wrapper = asked(TYPED)
-    await wrapper.get('#safety-typed').setValue('DISARM')
+describe('a plain confirmation, at the start and without a field', () => {
+  it('ignores a press in the first moments, and takes it after', async () => {
+    const wrapper = asked(PLAIN, IGNORE_MS - 1)
 
-    await wrapper.get('#safety-typed').trigger('keydown', { key: 'Enter' })
-
+    await wrapper.get('#confirm-yes').trigger('click')
     expect(answers(wrapper)).toEqual([])
+    vi.advanceTimersByTime(1)
+    await wrapper.get('#confirm-yes').trigger('click')
+
+    expect(answers(wrapper)).toEqual([true])
   })
 
-  it('ignores a press in the first moments, and shows the word to type', async () => {
-    const wrapper = asked(TYPED, IGNORE_MS - 1)
-    await wrapper.get('#safety-typed').setValue('DISARM')
+  it('has no text field: there is no typed confirmation', () => {
+    expect(asked(PLAIN).find('input').exists()).toBe(false)
+    expect(asked(HOLD).find('input').exists()).toBe(false)
+  })
+})
 
-    await wrapper.get('#confirm-typed').trigger('click')
-
-    expect(answers(wrapper)).toEqual([])
-    expect(wrapper.get('label[for="safety-typed"]').text()).toBe('Type DISARM to confirm')
+describe('a hold in each tone', () => {
+  it('is amber unless it is asked to be red', () => {
+    expect(asked(HOLD).get('#confirm-hold').classes()).toContain('warn')
+    expect(asked({ ...HOLD, tone: 'error' }).get('#confirm-hold').classes()).toContain('error')
   })
 })
 

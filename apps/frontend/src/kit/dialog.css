@@ -67,53 +67,64 @@
   color: var(--color-text-muted);
 }
 
-/* The hold button: a ring that fills while it is held. The words say what it does; the colour only adds to them. */
+/*
+ * The hold button, as the HoldButton board draws it: a 48 px button in the caution colour (amber) or the fault colour
+ * (red), dark words, and a lighter fill that grows across it while it is held. The words say what it does; the colour
+ * only adds to them. No long-press menu or text selection on a touch screen: a hold is what the button is for.
+ */
 .kit-hold {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.kit-hold.danger,
-.kit-button.danger {
-  color: var(--color-error);
-  border-color: var(--color-error);
-}
-
-/* No long-press menu or text selection on a touch screen: a hold is what the button is for. */
-.kit-hold {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  overflow: hidden;
+  font: inherit;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  cursor: pointer;
+  border: 0;
+  border-radius: var(--radius-md);
   touch-action: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
 
-.kit-hold-ring {
-  width: 1.75rem;
-  height: 1.75rem;
-  transform: rotate(-90deg);
+.kit-hold.warn {
+  color: var(--color-on-warn);
+  background: var(--color-warn);
 }
 
-.kit-hold-track,
-.kit-hold-fill {
-  fill: none;
-  stroke-width: 3;
-}
-
-.kit-hold-track {
-  stroke: var(--color-border-strong);
+.kit-hold.error {
+  color: var(--color-on-error);
+  background: var(--color-error);
 }
 
 .kit-hold-fill {
-  stroke: var(--color-accent);
-  stroke-dasharray: 50.27;
-  stroke-dashoffset: 50.27;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+}
+
+.kit-hold.warn .kit-hold-fill {
+  background: var(--color-warn-progress);
+}
+
+.kit-hold.error .kit-hold-fill {
+  background: var(--color-error-progress);
+}
+
+.kit-hold-label {
+  position: relative;
 }
 
 .kit-hold.holding .kit-hold-fill {
   animation: kit-hold var(--hold-ms) linear forwards;
 }
 
-/* The ring is progress, not decoration, so it stays; but it fills in steps instead of sweeping. */
+/* The fill is progress, not decoration, so it stays; but it grows in steps instead of sweeping. */
 @media (prefers-reduced-motion: reduce) {
   .kit-hold.holding .kit-hold-fill {
     animation-timing-function: steps(8, end);
@@ -122,6 +133,55 @@
 
 @keyframes kit-hold {
   to {
-    stroke-dashoffset: 0;
+    width: 100%;
   }
+}
+
+/*
+ * The second press: a button that, pressed once, says what it will do (in the fault colour), and does it when pressed
+ * again; left alone it goes back. For erasing data and for commands to a whole group.
+ */
+.kit-second {
+  min-height: 48px;
+  font-weight: 600;
+}
+
+.kit-second.armed {
+  color: var(--color-error);
+  background: var(--color-error-soft);
+  border-color: var(--color-error);
+}
+
+/*
+ * Tick to unlock: controls that spin something stay locked until the box is ticked. Caution colours while locked, good
+ * colours when unlocked; the words say which (and the checkbox shows it).
+ */
+.kit-tick {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  font-weight: 600;
+  color: var(--color-warn);
+  cursor: pointer;
+  background: var(--color-warn-soft);
+  border-radius: var(--radius-md);
+}
+
+.kit-tick.unlocked {
+  color: var(--color-ok);
+  background: var(--color-ok-soft);
+}
+
+.kit-tick input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-warn);
+}
+
+.kit-tick.unlocked input {
+  accent-color: var(--color-ok);
 }

@@ -2,11 +2,9 @@
   <Dialog id="confirm" :title="options.title" @close="answer(false)">
     <p id="vehicle" class="safety-vehicle">{{ options.vehicle || t('safety.noVehicle') }}</p>
     <p id="question" class="safety-what">{{ options.what }}</p>
-    <template v-if="options.level === 'typed'">
-      <label for="safety-typed">{{ t('safety.typePrompt', { word: options.typedWord }) }}</label>
-      <TextInput id="safety-typed" v-model="typed" autocomplete="off" @keydown.enter.prevent />
-    </template>
-    <p v-else id="safety-hint" class="safety-hint">{{ t('safety.holdHint', { seconds: HOLD_MS / 1000 }) }}</p>
+    <p v-if="options.level === 'hold'" id="safety-hint" class="safety-hint">
+      {{ t('safety.holdHint', { seconds: HOLD_MS / 1000 }) }}
+    </p>
     <p role="status" class="safety-tapped"><template v-if="tapped">{{ t('safety.tapped') }}</template></p>
     <template #actions>
       <Button id="confirm-cancel" data-initial-focus @click="cancel">{{ t('confirm.cancel') }}</Button>
@@ -16,34 +14,28 @@
         aria-describedby="safety-hint"
         :hold-ms="HOLD_MS"
         :arm-ms="IGNORE_MS"
-        :danger="options.danger"
+        :tone="options.tone"
         @held="answer(true)"
         @tap="tapped = true"
-      >{{ t('confirm.hold') }}</HoldButton>
-      <Button
-        v-else
-        id="confirm-typed"
-        :class="{ danger: options.danger }"
-        :disabled="!typedMatches(typed, options.typedWord)"
-        @click="confirmTyped"
-      >{{ t('confirm.confirm') }}</Button>
+      >{{ options.confirmLabel }}</HoldButton>
+      <Button v-else id="confirm-yes" variant="primary" @click="confirm">{{ options.confirmLabel }}</Button>
     </template>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-// The one way to ask the user before something that changes how the vehicle flies: what will happen, to which vehicle,
-// and either a button that must be held (`hold`) or a word that must be typed (`typed`). The safe answer is the default
-// focus, Enter in the typed field does nothing, and nothing can confirm in the first moments after it appears.
+// The one way to ask the user before something that changes the vehicle: what will happen, to which vehicle, and either a
+// button that must be held (`hold`: arming, an emergency stop) or a plain one (`plain`: a parameter write, which the
+// vehicle's read-back makes safe). The safe answer is the default focus, and nothing can confirm (or cancel, in case a key
+// from the button that opened it is still held) in the first moments after it appears. There is no typed word, ever.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
 import Dialog from './kit/Dialog.vue'
 import HoldButton from './kit/HoldButton.vue'
-import TextInput from './kit/TextInput.vue'
-import { HOLD_MS, IGNORE_MS, type SafetyOptions, typedMatches } from './safety'
+import { HOLD_MS, IGNORE_MS, type SafetyOptions } from './safety'
 
-const props = defineProps<{
+defineProps<{
   /** What to ask. */
   options: SafetyOptions
 }>()
@@ -54,7 +46,6 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const typed = ref('')
 const tapped = ref(false)
 let armed = false
 let answered = false
@@ -82,9 +73,9 @@ function cancel(): void {
   }
 }
 
-/** The typed word's button was pressed: it confirms only when the word matches, and not at the very start. */
-function confirmTyped(): void {
-  if (armed && typedMatches(typed.value, props.options.typedWord)) {
+/** The plain confirm button was pressed: it goes ahead, but not at the very start (a click meant for what was under). */
+function confirm(): void {
+  if (armed) {
     answer(true)
   }
 }

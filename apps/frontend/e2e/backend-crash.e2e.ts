@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, holdConfirm, showScreen } from './click'
+import { clickConnect, confirmWrite, showScreen } from './click'
 import { TcpVehicle } from './tcp-vehicle'
 
 const backend = fileURLToPath(new URL('../../../.pico-desktop/e2e/backend', import.meta.url))
@@ -37,7 +37,7 @@ async function startUnansweredWrite(): Promise<void> {
   await app.waitForText('#question', 'Set RTL_ALT')
   vehicle.mute()
   const sent = vehicle.nextWrite()
-  await holdConfirm(app)
+  await confirmWrite(app)
   await sent
   expect(await app.text('#detail')).toContain('Writing…')
 }
