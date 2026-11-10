@@ -52,7 +52,11 @@ it('shows the full text, then the range, units, step, values, bits and reboot fl
   expect(rows.get('Values')).toContain('1  Quad')
   expect(rows.get('Bits')).toContain('bit 3  GPS lock')
   expect(rows.get('Restart')).toBe('The vehicle must be restarted for a change to take effect.')
-  expect(wrapper.get('#param-description .body').attributes('tabindex')).toBe('0')
+  // A box that a keyboard can scroll is a group with a name (an aria-label needs a role to be read).
+  const body = wrapper.get('#param-description .body')
+  expect(body.attributes('tabindex')).toBe('0')
+  expect(body.attributes('role')).toBe('group')
+  expect(body.attributes('aria-label')).toBe('Description')
 })
 
 it('escapes the text, and follows the selected parameter', async () => {

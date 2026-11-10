@@ -4,7 +4,7 @@
     <p v-if="block.hint" class="hint">{{ block.hint }}</p>
     <!-- The text, the rows and the related parameters scroll inside the block, so that a long explanation does not push the rest
          of the detail away; the box takes the focus so that a keyboard can scroll it. -->
-    <div v-if="hasBody" class="body" tabindex="0" :aria-label="t('description.heading')">
+    <div v-if="hasBody" class="body" role="group" tabindex="0" :aria-label="t('description.heading')">
       <p v-if="block.text" class="text">{{ block.text }}</p>
       <dl class="rows">
         <div v-for="row in block.rows" :key="row.label" class="row">
