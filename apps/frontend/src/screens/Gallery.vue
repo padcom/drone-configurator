@@ -14,6 +14,19 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.type') }}</h3>
+      <ul class="specimens">
+        <li v-for="size in TYPE_SIZES" :key="size.token" class="specimen" :data-size="size.token">
+          <code>{{ size.token }}</code>
+          <span class="sample" :class="{ mono: size.mono, label: size.token === '--font-size-label' }">
+            {{ size.token === '--font-size-label' ? t('gallery.sample.labelText') : t('gallery.sample.specimen') }}
+          </span>
+        </li>
+      </ul>
+      <p class="hatch-sample">{{ t('gallery.sample.hatch') }}</p>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.buttons') }}</h3>
       <div class="row">
         <Button>{{ t('gallery.sample.action') }}</Button>
@@ -126,6 +139,28 @@ const COLOUR_TOKENS = [
   '--color-error',
   '--color-error-soft',
   '--color-route',
+  '--color-text-dim',
+  '--color-on-warn',
+  '--color-on-error',
+  '--color-warn-progress',
+  '--color-error-progress',
+  '--color-accent-hover',
+  '--color-map',
+]
+
+/** The type scale, from the smallest: a token each, and whether the size is for a value (in the mono face). */
+const TYPE_SIZES = [
+  { token: '--font-size-label', mono: false },
+  { token: '--font-size-sm', mono: false },
+  { token: '--font-size-md', mono: false },
+  { token: '--font-size-value-sm', mono: true },
+  { token: '--font-size-value', mono: true },
+  { token: '--font-size-lg', mono: false },
+  { token: '--font-size-card', mono: true },
+  { token: '--font-size-title', mono: false },
+  { token: '--font-size-xl', mono: false },
+  { token: '--font-size-2xl', mono: false },
+  { token: '--font-size-hero', mono: true },
 ]
 const ICON_NAMES = Object.keys(ICONS) as IconName[]
 

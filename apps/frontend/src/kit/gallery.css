@@ -85,3 +85,55 @@
 .gallery .swatch[data-token='--color-warn-soft'] .chip { background: var(--color-warn-soft); }
 .gallery .swatch[data-token='--color-error-soft'] .chip { background: var(--color-error-soft); }
 .gallery .swatch[data-token='--color-route'] .chip { background: var(--color-route); }
+.gallery .swatch[data-token='--color-text-dim'] .chip { background: var(--color-text-dim); }
+.gallery .swatch[data-token='--color-on-warn'] .chip { background: var(--color-on-warn); }
+.gallery .swatch[data-token='--color-on-error'] .chip { background: var(--color-on-error); }
+.gallery .swatch[data-token='--color-warn-progress'] .chip { background: var(--color-warn-progress); }
+.gallery .swatch[data-token='--color-error-progress'] .chip { background: var(--color-error-progress); }
+.gallery .swatch[data-token='--color-accent-hover'] .chip { background: var(--color-accent-hover); }
+.gallery .swatch[data-token='--color-map'] .chip { background: var(--color-map); }
+
+/* The type scale: each size on a sample line, in the face it is for. */
+.gallery .specimens {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.gallery .specimen {
+  display: flex;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.gallery .specimen code {
+  min-width: 14em;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.gallery .specimen .sample.mono { font-family: var(--font-mono); }
+.gallery .specimen .sample.label { font-weight: 600; text-transform: uppercase; letter-spacing: var(--letter-spacing-label); }
+.gallery .specimen[data-size='--font-size-label'] .sample { font-size: var(--font-size-label); }
+.gallery .specimen[data-size='--font-size-sm'] .sample { font-size: var(--font-size-sm); }
+.gallery .specimen[data-size='--font-size-md'] .sample { font-size: var(--font-size-md); }
+.gallery .specimen[data-size='--font-size-value-sm'] .sample { font-size: var(--font-size-value-sm); }
+.gallery .specimen[data-size='--font-size-value'] .sample { font-size: var(--font-size-value); }
+.gallery .specimen[data-size='--font-size-lg'] .sample { font-size: var(--font-size-lg); }
+.gallery .specimen[data-size='--font-size-card'] .sample { font-size: var(--font-size-card); }
+.gallery .specimen[data-size='--font-size-title'] .sample { font-size: var(--font-size-title); }
+.gallery .specimen[data-size='--font-size-xl'] .sample { font-size: var(--font-size-xl); }
+.gallery .specimen[data-size='--font-size-2xl'] .sample { font-size: var(--font-size-2xl); }
+.gallery .specimen[data-size='--font-size-hero'] .sample { font-size: var(--font-size-hero); }
+
+/* The pattern for a value that is not live. */
+.gallery .hatch-sample {
+  padding: var(--space-3);
+  margin: var(--space-3) 0 0;
+  background-color: var(--color-surface);
+  background-image: var(--hatch);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}

@@ -30,6 +30,7 @@
     "intro": "Every control of the kit in each of its states. Only in development: the built application has no gallery.",
     "section": {
       "colours": "Colours",
+      "type": "Type and pattern",
       "buttons": "Buttons",
       "fields": "Fields",
       "choices": "Choices",
@@ -38,6 +39,9 @@
       "icons": "Icons"
     },
     "sample": {
+      "specimen": "Battery 12.54 V",
+      "labelText": "Battery",
+      "hatch": "Hatched: a value that is not live (stale, last heard)",
       "action": "Action",
       "primary": "Primary",
       "disabled": "Disabled",
