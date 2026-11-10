@@ -1,36 +1,8 @@
 // What the snapshot import panel says and allows, from plain values (no DOM). Vue's templates escape the text; the
 // words come from the translations.
+import type { Change } from './snapshot'
 import type { State } from './state'
 import type { Translate } from './telemetryCards'
-
-/** One line about a change that has been applied. */
-export interface AppliedLine {
-  /** The CSS class of the line. */
-  tone: 'ok' | 'warn' | 'error'
-  /** What it says. */
-  text: string
-}
-
-/** How an applied change looks, by how it went. */
-const TONES: Record<State['applied'][number]['outcome'], AppliedLine['tone']> = {
-  verified: 'ok',
-  changed: 'warn',
-  failed: 'error',
-}
-
-/**
- * The line for one change that has been applied.
- *
- * @param applied how the change went
- * @param translate looks up a message
- * @returns the line to show
- */
-export function appliedLine(applied: State['applied'][number], translate: Translate): AppliedLine {
-  const { id, outcome, detail } = applied
-  const key = outcome === 'verified' ? 'import.written' : 'import.result'
-
-  return { tone: TONES[outcome], text: translate(key, { id, detail }) }
-}
 
 /**
  * Whether applying stopped early: the last change did not verify, and nothing is being written now.
@@ -43,6 +15,109 @@ export function stoppedEarly(applied: State['applied'], applying: boolean): bool
   const last = applied.at(-1)
 
   return last !== undefined && last.outcome !== 'verified' && !applying
+}
+
+/** The result column of one row of the review. */
+export interface RowResult {
+  /** How it looks: `ok` for a verified write, `error` for one that did not verify, `warn` for a change that cannot be made. */
+  tone: 'ok' | 'error' | 'warn' | ''
+  /** What it says (empty until there is something to say). */
+  text: string
+}
+
+/** How far applying has got, for the rows that have not been written. */
+export interface Progress {
+  /** How the changes written so far went. */
+  applied: State['applied']
+  /** Whether applying stopped early (the changes not written are then said so). */
+  stopped: boolean
+  /** Whether this change is ticked. */
+  picked: boolean
+}
+
+/**
+ * The result of a row that has been written.
+ *
+ * @param written how its write went
+ * @param translate looks up a message
+ * @returns a check and the value read back, or a cross and why not
+ */
+function writtenResult(written: State['applied'][number], translate: Translate): RowResult {
+  const verified = written.outcome === 'verified'
+
+  return {
+    tone: verified ? 'ok' : 'error',
+    text: translate(verified ? 'import.verified' : 'import.notVerified', { detail: written.detail }),
+  }
+}
+
+/**
+ * The result of a row that has not been written: why it cannot be made, that applying stopped before it, or nothing.
+ *
+ * @param change the row's change
+ * @param progress how far applying has got
+ * @param translate looks up a message
+ * @returns the result
+ */
+function unwrittenResult(change: Change, progress: Progress, translate: Translate): RowResult {
+  if (change.problem) {
+    return { tone: 'warn', text: change.problem }
+  }
+
+  return { tone: '', text: progress.stopped && progress.picked ? translate('import.notWritten') : '' }
+}
+
+/**
+ * What the result column of a row says.
+ *
+ * @param change the row's change
+ * @param progress how far applying has got
+ * @param translate looks up a message
+ * @returns the result: how its write went, why it cannot be made, that it was not written, or nothing
+ */
+export function resultOf(change: Change, progress: Progress, translate: Translate): RowResult {
+  const written = progress.applied.find(line => line.id === change.id)
+
+  return written ? writtenResult(written, translate) : unwrittenResult(change, progress, translate)
+}
+
+/** The line above the buttons: what is ticked, what is going on, or how it ended. */
+export interface ReviewStatus {
+  /** How it looks. */
+  tone: 'ok' | 'warn' | ''
+  /** What it says. */
+  text: string
+}
+
+/**
+ * What the line says before anything was written: how many are ticked, or to tick some.
+ *
+ * @param count how many changes are ticked
+ * @param translate looks up a message
+ * @returns the line
+ */
+function beforeWriting(count: number, translate: Translate): ReviewStatus {
+  return { tone: '', text: count > 0 ? translate('import.ready', { count }) : translate('import.tick') }
+}
+
+/**
+ * The line above the buttons.
+ *
+ * @param state what is ticked, what was applied, and whether a write is under way
+ * @param translate looks up a message
+ * @returns the line
+ */
+export function statusOf(state: Pick<State, 'picked' | 'applied' | 'applying'>, translate: Translate): ReviewStatus {
+  if (state.applying) {
+    return { tone: '', text: translate('import.writing') }
+  }
+  if (state.applied.length === 0) {
+    return beforeWriting(state.picked.length, translate)
+  }
+
+  return stoppedEarly(state.applied, false)
+    ? { tone: 'warn', text: translate('import.stopped') }
+    : { tone: 'ok', text: translate('import.allWritten') }
 }
 
 /**

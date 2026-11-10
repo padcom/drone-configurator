@@ -1,12 +1,10 @@
 <template>
-  <button id="save" type="button" :disabled="fields.params.value.length === 0" @click="saveSnapshot">
-    {{ t('snapshot.save') }}
-  </button>
-  <label id="load-button" class="button" @click="openSnapshot">
+  <Button id="save" :disabled="fields.params.value.length === 0" @click="saveSnapshot">{{ t('snapshot.save') }}</Button>
+  <label id="load-button" class="kit-button file-button" @click="openSnapshot">
     {{ t('snapshot.load') }}
     <input id="load" type="file" accept=".json,application/json" hidden @change="loadSnapshot">
   </label>
-  <label id="metadata-button" class="button" @click="openMetadata">
+  <label id="metadata-button" class="kit-button file-button" @click="openMetadata">
     {{ t('snapshot.loadMetadata') }}
     <input id="metadata" type="file" accept=".json,application/json" hidden @change="loadMetadata">
   </label>
@@ -15,6 +13,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { chosenText, hasHost, saveText, snapshotFileName } from './files'
+import Button from './kit/Button.vue'
 import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()

@@ -55,8 +55,27 @@ it('shows what the snapshot would change, and the warning for a different vehicl
   expect(text).toContain('Snapshot from 2026-11-07T12:00:00.000Z')
   expect(text).toContain('It was saved from a FIXED_WING (ARDUPILOTMEGA); this is a QUADROTOR (ARDUPILOTMEGA).')
   expect(text).toContain('2 differ, 10 already the same. Tick the ones to write.')
-  expect(text).toContain('RTL_ALT: 1500 → 2000')
-  expect(text).toContain('NOT_A_PARAM: — → 1 (not on this vehicle)')
+  const row = (id: string) => wrapper.findAll('tbody tr').find(candidate => candidate.get('th').text() === id)
+  const cells = (id: string) => row(id)?.findAll('td').map(cell => cell.text())
+  expect(cells('RTL_ALT')).toEqual(['', '1500', '→ 2000', ''])
+  expect(cells('NOT_A_PARAM')).toEqual(['', '—', '→ 1', 'not on this vehicle'])
+  expect(wrapper.findAll('thead th').map(cell => cell.text()))
+    .toEqual(['Apply', 'Name', 'On the vehicle', 'In the snapshot', 'Result'])
+})
+
+it('names each box by the parameter it applies, and says what is ticked, in a region that is always there', async () => {
+  const { wrapper, handle } = await panelWithSpies()
+  const status = () => wrapper.get('.review-status')
+
+  expect(status().attributes('role')).toBe('status')
+  expect(status().text()).toBe('Tick the changes you want.')
+  expect(wrapper.get('input[data-pick="RTL_ALT"]').attributes('aria-label')).toBe('Apply RTL_ALT')
+  expect(wrapper.get('#apply').text()).toBe('Write 0 ticked')
+
+  feed(handle, { picked: ['RTL_ALT'] })
+  await wrapper.vm.$nextTick()
+  expect(status().text()).toContain('1 ticked.')
+  expect(wrapper.get('#apply').text()).toBe('Write 1 ticked')
 })
 
 it('lets only the changes that can be applied be ticked, and passes the ticks on', async () => {
@@ -101,9 +120,20 @@ it('says how each applied change went, and that the rest were not written when o
   })
   await wrapper.vm.$nextTick()
 
-  expect(wrapper.get('#import .ok').text()).toBe('RTL_ALT: written and read back: 2000')
-  expect(wrapper.get('#import .error').text()).toBe('FENCE_ENABLE: TIMEOUT: no reply')
-  expect(wrapper.get('#import').text()).toContain('Stopped there: the rest weren\'t written.')
+  expect(wrapper.get('td.result.ok').text()).toBe('✓ Written and read back: 2000')
+  expect(wrapper.get('.review-status').text()).toBe('Stopped there: the rest weren\'t written.')
+  expect(wrapper.get('.review-status').classes()).toContain('warn')
+})
+
+it('marks a row whose write did not verify with a cross and its reason, and never as written', async () => {
+  const { wrapper, handle } = await panelWithSpies()
+
+  feed(handle, { picked: ['RTL_ALT'], applied: [{ id: 'RTL_ALT', outcome: 'failed', detail: 'TIMEOUT: no reply' }] })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('td.result.error').text()).toBe('✕ TIMEOUT: no reply')
+  expect(wrapper.find('td.result.ok').exists()).toBe(false)
+  expect(wrapper.get('tbody tr.error').text()).toContain('RTL_ALT')
 })
 
 it('offers the backup once there is one, and closes', async () => {

@@ -155,13 +155,13 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     }
     writeFileSync(join(files, 'open.json'), JSON.stringify(snapshot))
     await app.click('#load-button')
-    await app.waitForText('#import', `${vehicle.param}: ${original} → ${changed}`)
+    await app.waitForText('#import', new RegExp(`${vehicle.param}\\s+${original}\\s+→ ${changed}`, 'u'))
 
     await app.click(`input[data-pick="${vehicle.param}"]`)
     await app.click('#apply')
     await app.waitForText('#question', `Write 1 parameter to the vehicle (${vehicle.param})?`)
     await confirmWrite(app)
-    await app.waitForText('#import', `${vehicle.param}: written and read back: ${changed}`, vehicle.downloadTimeoutMs)
+    await app.waitForText('#import', `Written and read back: ${changed}`, vehicle.downloadTimeoutMs)
     expect(await currentValue()).toBe(changed)
 
     await app.click('#backup')
