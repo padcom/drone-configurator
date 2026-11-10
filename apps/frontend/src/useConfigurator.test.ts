@@ -78,6 +78,27 @@ it('downloads the parameters once the vehicle is connected, and forgets a write 
   expect(fields.params.value.length).toBeGreaterThan(0)
 })
 
+it('answers a question no when a second one replaces it (a double click on Write), and writes nothing for it', async () => {
+  const { vehicle, parameters, confirmation, fields } = createConfigurator(mockBackend())
+  await vehicle.connect({ transport: 'simulator' })
+  await expect.poll(() => fields.list.value).toBe('complete')
+  parameters.select('RTL_ALT')
+  parameters.editDraft('1600')
+
+  const first = parameters.write()
+  await expect.poll(() => confirmation.value?.question).toBe('Set RTL_ALT from 1500 to 1600?')
+  const firstAnswer = confirmation.value
+  const second = parameters.write()
+  await first
+
+  expect(confirmation.value).not.toBe(firstAnswer)
+  expect(confirmation.value?.question).toBe('Set RTL_ALT from 1500 to 1600?')
+  expect(fields.lastWrite.value).toBeNull()
+  confirmation.value?.answer(false)
+  await second
+  expect(confirmation.value).toBeNull()
+})
+
 it('resolves a confirmation with the answer and clears the question', async () => {
   const { vehicle, parameters, confirmation, fields } = createConfigurator(mockBackend())
   await vehicle.connect({ transport: 'simulator' })

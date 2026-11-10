@@ -58,6 +58,9 @@ export interface ConfiguratorHandle {
  * @returns whether the user said yes
  */
 function ask(confirmation: ShallowRef<Confirmation | null>, question: string): Promise<boolean> {
+  // One question at a time: a second one (a double click on Write) replaces the first, which is answered no, not left hanging.
+  confirmation.value?.answer(false)
+
   return new Promise(resolve => {
     const answer = (yes: boolean) => {
       confirmation.value = null
