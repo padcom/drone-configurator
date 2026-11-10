@@ -68,7 +68,7 @@ import { useConfigurator } from './useConfigurator'
 // buttons. Nothing is ticked at first; the changes that cannot be made say why and cannot be ticked. A write goes one by one
 // and stops at the first the vehicle does not read back.
 const { t } = useI18n()
-const { snapshots, fields } = useConfigurator()
+const { snapshots, fields, parameters } = useConfigurator()
 const review = computed(() => fields.importReview.value)
 const shown = computed(() => panelShown(fields.importReview.value, fields.importError.value))
 const stopped = computed(() => stoppedEarly(fields.applied.value, fields.applying.value))
@@ -82,7 +82,7 @@ const status = computed(() => statusOf({
   applied: fields.applied.value,
   applying: fields.applying.value,
 }, t))
-const applicable = computed(() => canApply({
+const applicable = computed(() => !parameters.lock.busy.value && canApply({
   picked: fields.picked.value,
   applying: fields.applying.value,
   connection: fields.connection.value,

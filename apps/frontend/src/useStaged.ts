@@ -3,7 +3,7 @@
 // only done when the vehicle reports the new value; nothing is written until the user asks, after one question for all.
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
-import type { Param } from './generated/app'
+import type { Connection, Param } from './generated/app'
 import type { ParamsModel } from './useParams'
 
 /** One change collected to be written. */
@@ -50,6 +50,8 @@ export interface StagedModel {
   stage: () => void
   /** Takes a change that has not been written out of the list. */
   discard: (id: string) => void
+  /** Forgets every change and result (the session ended, or another vehicle was connected). */
+  reset: () => void
   /** Writes the changes that are not written yet, after one question, and stops at the first that is not confirmed. */
   writeAll: () => Promise<void>
   /** The changes that have not been written. */
@@ -68,6 +70,23 @@ export function questionFor(changes: StagedChange[]): string {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
 
   return `Write ${changes.length} ${noun} to the vehicle (${changes.map(change => change.id).join(', ')})?`
+}
+
+/**
+ * Whether the connection went from one session to another, so that what was staged belongs to a vehicle that is gone: the
+ * link was ended (disconnected), or a link came up that is not the same vehicle coming back (`connected` without `resumed`).
+ * A link that is lost and brought back to the same vehicle keeps the changes.
+ *
+ * @param next the connection now
+ * @param before the connection before
+ * @returns true when the staged changes are to be forgotten
+ */
+export function endsSession(next: Connection, before: Connection): boolean {
+  if (next.state === before.state) {
+    return false
+  }
+
+  return next.state === 'disconnected' || (next.state === 'connected' && next.resumed !== true)
 }
 
 /** The staged changes. */
@@ -127,6 +146,12 @@ class Staged implements StagedModel {
     const written = this.writtenIds()
     const kept = this.changes.value.filter(change => !written.has(change.id) && change.id !== param.id)
     this.changes.value = [...kept, { id: param.id, from: param.value, to }]
+    // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
+    this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+  }
+
+  reset(): void {
+    this.changes.value = []
     this.results.value = []
   }
 
@@ -191,11 +216,27 @@ class Staged implements StagedModel {
 
   async writeAll(): Promise<void> {
     const todo = this.pending()
-    if (!this.startable(todo) || !await this.deps.confirm(questionFor(todo))) {
+    const release = this.startable(todo) ? this.deps.parameters.lock.take() : null
+    if (!release) {
       return
     }
+    try {
+      if (await this.deps.confirm(questionFor(todo))) {
+        await this.writeConfirmed(todo)
+      }
+    } finally {
+      release()
+    }
+  }
+
+  /**
+   * Writes the changes the user said yes to. What the vehicle already read back stays read back; the rest is tried again.
+   *
+   * @param todo the changes not written yet
+   */
+  private async writeConfirmed(todo: StagedChange[]): Promise<void> {
     this.writing.value = true
-    this.results.value = []
+    this.results.value = this.results.value.filter(result => result.outcome === 'verified')
 
     try {
       await this.writeFrom(todo)

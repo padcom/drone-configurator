@@ -14,7 +14,7 @@ import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
-import { type StagedModel, useStaged } from './useStaged'
+import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -141,7 +141,15 @@ function stagedFor(
   vehicle: Vehicle,
   confirm: (question: string) => Promise<boolean>,
 ): StagedModel {
-  return useStaged({ client, parameters, isConnected: () => vehicle.connection.value.state === 'connected', confirm })
+  const staged = useStaged({ client, parameters, isConnected: () => vehicle.connection.value.state === 'connected', confirm })
+  // What was staged is for the vehicle it was staged on: not for the next one, which may have parameters of the same names.
+  watch(vehicle.connection, (next, before) => {
+    if (endsSession(next, before)) {
+      staged.reset()
+    }
+  })
+
+  return staged
 }
 
 /**

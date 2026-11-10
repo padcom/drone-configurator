@@ -3,7 +3,8 @@ import { type ShallowRef, shallowRef } from 'vue'
 import type { BackendClient } from './backend/client'
 import type { Param, ParamWriteResult } from './generated/app'
 import type { ParamsModel } from './useParams'
-import { questionFor, useStaged } from './useStaged'
+import { endsSession, questionFor, useStaged } from './useStaged'
+import { createWriteLock } from './writeLock'
 
 const RTL: Param = { id: 'RTL_ALT', index: 0, kind: 'int', type: 'INT32', value: 1500 }
 const FENCE: Param = { id: 'FENCE_RADIUS', index: 1, kind: 'real', type: 'REAL32', value: 150 }
@@ -40,10 +41,12 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
   const selected = shallowRef<string | null>(null)
   const draft = shallowRef('')
   const draftError = shallowRef<string | null>(null)
+  const lock = createWriteLock()
   const parameters = {
     params,
     draft,
     draftError,
+    lock,
     selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
     replace: (param: Param) => {
       params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
@@ -62,8 +65,16 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
     draft.value = text
   }
 
-  return { staged, call, askedOnce, pick, params, draftError }
+  return { staged, call, askedOnce, pick, params, draftError, lock }
 }
+
+/**
+ * What the writes came to: each result's name and outcome.
+ *
+ * @param staged the staged changes
+ * @returns the pairs, in order
+ */
+const outcomes = (staged: ReturnType<typeof rig>['staged']) => staged.results.value.map(result => [result.id, result.outcome])
 
 describe('adding to the changes', () => {
   it('collects the draft of the selected parameter, with the value it has now, and nothing is sent', () => {
@@ -199,6 +210,103 @@ describe('a write that does not start or that is done', () => {
     staged.stage()
 
     expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+    expect(staged.results.value).toEqual([])
+  })
+})
+
+describe('a retry after a partial write', () => {
+  it('keeps what the vehicle read back, writes only the rest, and says how many are written', async () => {
+    let flaky = true
+    const { staged, pick, call, askedOnce } = rig((id, value) => id === 'FENCE_RADIUS' && flaky ? new Error('TIMEOUT') : value)
+    for (const [id, text] of [['RTL_ALT', '1600'], ['FENCE_RADIUS', '300'], ['BATT_CAPACITY', '6000']]) {
+      pick(id as string, text as string)
+      staged.stage()
+    }
+
+    await staged.writeAll()
+    expect(outcomes(staged)).toEqual([['RTL_ALT', 'verified'], ['FENCE_RADIUS', 'failed']])
+    expect(staged.pending().map(change => change.id)).toEqual(['FENCE_RADIUS', 'BATT_CAPACITY'])
+
+    flaky = false
+    await staged.writeAll()
+
+    expect(askedOnce).toHaveBeenLastCalledWith('Write 2 parameters to the vehicle (FENCE_RADIUS, BATT_CAPACITY)?')
+    expect(call.mock.calls.map(([, payload]) => payload.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS', 'FENCE_RADIUS', 'BATT_CAPACITY'])
+    expect(outcomes(staged)).toEqual([['RTL_ALT', 'verified'], ['FENCE_RADIUS', 'verified'], ['BATT_CAPACITY', 'verified']])
+    expect(staged.pending()).toEqual([])
+  })
+})
+
+describe('a row that was not confirmed', () => {
+  it('keeps why when another change is added', async () => {
+    const { staged, pick } = rig((id, value) => id === 'RTL_ALT' ? new Error('TIMEOUT') : value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    await staged.writeAll()
+
+    pick('FENCE_RADIUS', '300')
+    staged.stage()
+
+    expect(staged.results.value.map(result => [result.id, result.outcome])).toEqual([['RTL_ALT', 'failed']])
+    expect(staged.changes.value.map(change => change.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS'])
+  })
+})
+
+describe('another write under way', () => {
+  it('does not start while a single write or a snapshot holds the lock, and gives the lock back when it is done', async () => {
+    const { staged, pick, call, lock } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    const release = lock.take()
+
+    await staged.writeAll()
+    expect(call).not.toHaveBeenCalled()
+    release?.()
+    await staged.writeAll()
+
+    expect(call).toHaveBeenCalledTimes(1)
+    expect(lock.busy.value).toBe(false)
+  })
+
+  it('holds the lock for the whole run, and gives it back also when the user says no', async () => {
+    const answered: boolean[] = []
+    const { staged, pick, lock } = rig((_id, value) => {
+      answered.push(lock.busy.value)
+
+      return value
+    }, false)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+
+    await staged.writeAll()
+
+    expect(answered).toEqual([])
+    expect(lock.busy.value).toBe(false)
+  })
+})
+
+describe('the session of the staged changes', () => {
+  it('is over when the link is ended, or another vehicle comes up, and not when the same one comes back', () => {
+    const connected = { state: 'connected' as const }
+    const resumed = { state: 'connected' as const, resumed: true }
+
+    expect(endsSession({ state: 'disconnected' }, connected)).toBe(true)
+    expect(endsSession(connected, { state: 'connecting' })).toBe(true)
+    expect(endsSession(resumed, { state: 'reconnecting' })).toBe(false)
+    expect(endsSession({ state: 'lost' }, connected)).toBe(false)
+    expect(endsSession({ state: 'reconnecting' }, { state: 'lost' })).toBe(false)
+    expect(endsSession({ state: 'disconnected' }, { state: 'disconnected' })).toBe(false)
+  })
+
+  it('forgets every change and result with reset', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    await staged.writeAll()
+
+    staged.reset()
+
+    expect(staged.changes.value).toEqual([])
     expect(staged.results.value).toEqual([])
   })
 })

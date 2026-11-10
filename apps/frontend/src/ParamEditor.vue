@@ -92,7 +92,9 @@ const connected = computed(() => fields.connection.value.state === 'connected')
 const editable = computed(() => param.value !== null && connected.value)
 // Adding to the changes needs a valid draft that differs from the vehicle's value, as a write does (nothing is sent yet).
 const stageable = computed(() => connected.value && staged.canStage())
-const writable = computed(() => canWrite({
+// No write starts while another (the changes collected, a snapshot) is under way.
+const free = computed(() => !parameters.lock.busy.value)
+const writable = computed(() => free.value && canWrite({
   connection: fields.connection.value,
   writing: fields.writing.value,
   draftError: fields.draftError.value,

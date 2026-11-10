@@ -233,6 +233,19 @@ it('adds a valid draft that differs to the changes with Add to changes, and writ
   expect(wrapper.get('#stage').attributes('disabled')).toBeDefined()
 })
 
+it('turns the single Write off while another write (the collected changes, a snapshot) holds the lock', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+
+  const release = handle.parameters.lock.take()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write').attributes('disabled')).toBeDefined()
+  release?.()
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#write').attributes('disabled')).toBeUndefined()
+})
+
 it('lists no related parameters for one that is alone in its group', async () => {
   const { wrapper } = await editorWithSpies()
 

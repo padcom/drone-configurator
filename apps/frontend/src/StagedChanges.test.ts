@@ -94,6 +94,39 @@ it('says in an alert that writing stopped, and marks the change that was not con
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeUndefined()
 })
 
+it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write-staged').attributes('disabled')).toBeUndefined()
+
+  const release = handle.parameters.lock.take()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#write-staged').attributes('disabled')).toBeDefined()
+  release?.()
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#write-staged').attributes('disabled')).toBeUndefined()
+})
+
+it('forgets the changes when the link is ended or another vehicle comes up, and keeps them across a resumed link', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  feed(handle, { connection: { state: 'lost', vehicle: { ...VEHICLE } } })
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE }, resumed: true } })
+  await wrapper.vm.$nextTick()
+  expect(handle.staged.changes.value).toHaveLength(1)
+
+  feed(handle, { connection: { state: 'disconnected' } })
+  await wrapper.vm.$nextTick()
+  expect(handle.staged.changes.value).toEqual([])
+
+  add(handle, 'RTL_ALT', '1700')
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
+  expect(handle.staged.changes.value).toEqual([])
+})
+
 it('has its polite and its assertive region from the start, and cannot write while the vehicle is not connected', async () => {
   const { wrapper, handle } = await listWith()
   add(handle, 'RTL_ALT', '1600')

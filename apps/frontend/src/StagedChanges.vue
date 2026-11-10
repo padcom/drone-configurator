@@ -33,11 +33,11 @@ import { useConfigurator } from './useConfigurator'
 // write, a way to take it out, and, once written, how it went in words with a mark. "Write N and verify" sends them one
 // after the other and stops at the first the vehicle does not read back. Nothing is written until that button is pressed.
 const { t } = useI18n()
-const { staged, fields } = useConfigurator()
+const { staged, fields, parameters } = useConfigurator()
 const uid = useId()
 const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
-const writable = computed(() => connected.value && !staged.writing.value && pending.value.length > 0)
+const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
 const summary = computed(() => summaryOf(staged.changes.value, staged.results.value, staged.writing.value, t))
 </script>

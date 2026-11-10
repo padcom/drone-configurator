@@ -4,6 +4,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
 import type { Param, ParamWriteResult } from './generated/app'
 import { visibleParams } from './paramList'
+import { type WriteLock, createWriteLock } from './writeLock'
 
 /** How the last write went. */
 export type WriteStatus
@@ -48,6 +49,8 @@ export interface ParamsModel {
   readonly writing: ShallowRef<boolean>
   /** How the last write went. */
   readonly lastWrite: ShallowRef<WriteStatus | null>
+  /** Held by whichever write is under way (this one, the changes collected, a snapshot): no other starts meanwhile. */
+  readonly lock: WriteLock
   /** Downloads the list again. */
   refresh: () => Promise<void>
   /** Narrows the list. */
@@ -95,6 +98,7 @@ class Parameters implements ParamsModel {
   readonly draftError = shallowRef<string | null>(null)
   readonly writing = shallowRef(false)
   readonly lastWrite = shallowRef<WriteStatus | null>(null)
+  readonly lock = createWriteLock()
 
   /**
    * Makes the parameters.
@@ -161,7 +165,16 @@ class Parameters implements ParamsModel {
   private startable(): Param | null {
     const param = this.selectedParam()
 
-    return param && this.deps.isConnected() && !this.writing.value ? param : null
+    return param && this.canStartWrite() ? param : null
+  }
+
+  /**
+   * Whether a write could start now: a vehicle is connected and no write (single, collected, snapshot) is under way.
+   *
+   * @returns true if it could
+   */
+  private canStartWrite(): boolean {
+    return this.deps.isConnected() && !this.writing.value && !this.lock.busy.value
   }
 
   async write(): Promise<void> {
@@ -175,11 +188,28 @@ class Parameters implements ParamsModel {
 
       return
     }
-    const value = Number(this.draft.value.trim())
-    if (await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
-      this.writing.value = true
-      this.lastWrite.value = null
-      await this.send(param, value)
+    await this.writeLocked(param, Number(this.draft.value.trim()))
+  }
+
+  /**
+   * Asks, and writes, while no other write (the changes collected, a snapshot) is under way.
+   *
+   * @param param the parameter
+   * @param value the new value
+   */
+  private async writeLocked(param: Param, value: number): Promise<void> {
+    const release = this.lock.take()
+    if (!release) {
+      return
+    }
+    try {
+      if (await this.deps.confirm(`Set ${param.id} from ${param.value} to ${value}?`)) {
+        this.writing.value = true
+        this.lastWrite.value = null
+        await this.send(param, value)
+      }
+    } finally {
+      release()
     }
   }
 
