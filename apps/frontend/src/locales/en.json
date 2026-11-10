@@ -303,6 +303,13 @@
     "useNumber": "Use this number, it has no name",
     "noMatch": "No match. Type a number to use it."
   },
+  "bits": {
+    "bit": "bit {bit}",
+    "count": "{count} bit: {names} | {count} bits: {names}",
+    "other": "other bits: {hex}",
+    "on": "{name} on",
+    "off": "{name} off"
+  },
   "truth": {
     "never": "—",
     "notReported": "not reported",

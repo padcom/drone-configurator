@@ -26,8 +26,22 @@
       <!-- A value with names is chosen from them (any number is still accepted); else a number is typed. Either way the change
            is queued when the value is settled: a name picked, or Enter or leaving the field (not on every key, so that "1" on
            the way to "1500" is never queued). -->
+      <!-- A value whose bits have names (a Bitmask) is chosen bit by bit; if the metadata has both, the bits win. -->
+      <BitField
+        v-if="bitNames && param"
+        input-id="draft"
+        :options="bitNames"
+        :type="param.type"
+        :value="draftNumber"
+        :draft="fields.draft.value"
+        :label="t('editor.newValue')"
+        :invalid="Boolean(fields.draftError.value)"
+        :describedby="describedBy"
+        @edit="parameters.editDraft($event)"
+        @settle="staged.sync()"
+      />
       <EnumField
-        v-if="named"
+        v-else-if="named"
         v-model="draftNumber"
         input-id="draft"
         :options="named"
@@ -69,6 +83,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BitField from './BitField.vue'
+import type { BitOption } from './bitmask'
 import EnumField from './EnumField.vue'
 import type { EnumOption } from './enumField'
 import ParamDescription from './ParamDescription.vue'
@@ -76,7 +92,7 @@ import StagedChanges from './StagedChanges.vue'
 import Button from './kit/Button.vue'
 import TextInput from './kit/TextInput.vue'
 import { initialIfChanged } from './initialValues'
-import { numberOr, valueOptions } from './paramEditor'
+import { bitNamesOf, numberOr, valueOptions } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
 // The detail of the selected parameter: its name and what it is, the field for a value (a choice from the names when the
@@ -120,6 +136,8 @@ function backToList(event: KeyboardEvent): void {
   }
 }
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
+// The named bits of an integer parameter (none when the metadata has none, or the value is not an integer).
+const bitNames = computed<BitOption[] | null>(() => bitNamesOf(param.value, meta.value?.bits))
 // The field of names holds a number; the draft is the text of it. Picking a name settles the value: it is queued.
 const draftNumber = computed({
   get: () => numberOr(fields.draft.value, param.value?.value ?? 0),
