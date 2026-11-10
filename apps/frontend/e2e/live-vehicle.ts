@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
-import { cancelConfirm, clickConnect, confirmWrite, showScreen } from './click'
+import { cancelConfirm, chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
 import type { Endpoint } from './endpoint'
 import { switchRounds } from './switch'
 
@@ -84,9 +84,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     app = await launchApp()
     await app.waitForText('#connection', 'disconnected')
     const { transport, host, port } = vehicle.endpoint()
-    await app.fill('#transport', transport)
-    await app.fill('#host', host)
-    await app.fill('#port', String(port))
+    await chooseConnection(app, { transport, host, port: String(port) })
   })
 
   afterAll(async () => {

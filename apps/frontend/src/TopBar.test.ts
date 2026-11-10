@@ -9,6 +9,7 @@ import { mockBackend } from './mock-backend'
 import { createAppRouter } from './router'
 import { feed, nextFrame } from './testing'
 import { createConfigurator } from './useConfigurator'
+import { useConnectDialog } from './useConnectDialog'
 
 const connected: Connection = { state: 'connected', vehicle: { ...VEHICLE } }
 
@@ -74,7 +75,7 @@ it('shows a dash, not a made-up value, for everything that is not known without 
 
   expect(vehicle).toBe('disconnectedNo vehicle')
   expect([...cells.values()]).toEqual(['—', '—', '—', '—', '—'])
-  expect(wrapper.get('#topbar-disconnect').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#disconnect-button').attributes('disabled')).toBeDefined()
 })
 
 it('offers Disconnect while the link is up or being brought back (it ends the tries), and not otherwise', async () => {
@@ -90,7 +91,7 @@ it('offers Disconnect while the link is up or being brought back (it ends the tr
     // eslint-disable-next-line no-await-in-loop -- one bar after the other, each on its own Configurator
     const { wrapper } = await barWith(connection, null)
 
-    expect(wrapper.get('#topbar-disconnect').attributes('disabled') === undefined, connection.state).toBe(offered)
+    expect(wrapper.get('#disconnect-button').attributes('disabled') === undefined, connection.state).toBe(offered)
   }
 })
 
@@ -135,6 +136,18 @@ it('has a dash with its words in every cell when there is no link', async () => 
 
 it('has no value for the link quality yet (nothing measures it), only a dash', async () => {
   expect((await barWith(connected, telemetryAt(1))).cells.get('LINK')).toBe('—')
+})
+
+it('offers Disconnect only while connected, and the vehicle cell opens the Connect dialog', async () => {
+  const connected$ = await barWith(connected, telemetryAt(1))
+  const idle = await barWith({ state: 'disconnected' }, null)
+
+  expect(connected$.wrapper.get('#disconnect-button').attributes('disabled')).toBeUndefined()
+  expect(idle.wrapper.get('#disconnect-button').attributes('disabled')).toBeDefined()
+  expect(idle.wrapper.get('button#open-connect').classes()).toContain('vehicle')
+  await idle.wrapper.get('#open-connect').trigger('click')
+  expect(useConnectDialog().open.value).toBe(true)
+  useConnectDialog().hide()
 })
 
 it('is the banner of the page, names the application, and links home', async () => {

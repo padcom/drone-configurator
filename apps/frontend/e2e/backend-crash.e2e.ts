@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, confirmWrite, showScreen } from './click'
+import { chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
 import { TcpVehicle } from './tcp-vehicle'
 
 const backend = fileURLToPath(new URL('../../../.pico-desktop/e2e/backend', import.meta.url))
@@ -46,9 +46,7 @@ beforeAll(async () => {
   vehicle = await TcpVehicle.start()
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
-  await app.fill('#transport', 'tcp')
-  await app.fill('#host', '127.0.0.1')
-  await app.fill('#port', String(vehicle.port))
+  await chooseConnection(app, { transport: 'tcp', host: '127.0.0.1', port: String(vehicle.port) })
 })
 
 afterAll(async () => {

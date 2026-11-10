@@ -6,6 +6,20 @@
     "navigation": "Screens",
     "notAvailable": "{screen} is not available yet."
   },
+  "connect": {
+    "title": "Connect to a vehicle",
+    "intro": "Choose how the vehicle is reached.",
+    "simulator": "Connects to the built-in simulator: no hardware needed.",
+    "last": "This opens on your last connection, so Enter is usually all you need.",
+    "cancel": "Cancel",
+    "open": "Connect to a vehicle, or see the link",
+    "next": {
+      "udp": "Check that the vehicle or the simulator sends to this host and port, then connect again.",
+      "tcp": "Check that the vehicle listens on this address and that nothing else is using it, then connect again.",
+      "serial": "Check the cable, that no other program has the port open, and the baud rate, then connect again.",
+      "simulator": "Close the dialog and try again; if it keeps failing, restart the application."
+    }
+  },
   "topBar": {
     "home": "Home",
     "noVehicle": "No vehicle",

@@ -51,7 +51,8 @@ it('starts on Flight data, with the connection on top', async () => {
 
   expect(router.currentRoute.value.path).toBe('/flight')
   expect(wrapper.find('header#top-bar').exists()).toBe(true)
-  expect(wrapper.find('.connect-strip #connect-button').exists()).toBe(true)
+  expect(wrapper.find('.connect-strip #connection').exists()).toBe(true)
+  expect(wrapper.find('dialog').exists()).toBe(false)
   expect(wrapper.find('#telemetry').exists()).toBe(true)
   expect(wrapper.find('#list-status').exists()).toBe(false)
 })
