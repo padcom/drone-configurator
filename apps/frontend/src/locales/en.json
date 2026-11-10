@@ -190,6 +190,20 @@
     "lastHeard": "last heard",
     "lastHeardReconnecting": "last heard, reconnecting"
   },
+  "messages": {
+    "heading": "Messages",
+    "list": "Messages from the vehicle, newest first",
+    "unread": "{count} new",
+    "none": "The vehicle has said nothing yet.",
+    "dismiss": "Dismiss",
+    "severity": {
+      "emergency": "Emergency",
+      "alert": "Alert",
+      "critical": "Critical",
+      "error": "Error",
+      "warning": "Warning"
+    }
+  },
   "flyCards": {
     "label": {
       "battery": "BATTERY",

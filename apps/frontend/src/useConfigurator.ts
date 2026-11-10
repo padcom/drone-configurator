@@ -2,13 +2,16 @@
 // (each a composable that talks to the backend through the client), the last failure, and the question the
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
-import { type ShallowRef, shallowRef } from 'vue'
+import { type ShallowRef, shallowRef, watch } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftProblem } from './draft'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
 import type { State } from './state'
 import { type MetadataModel, useMetadata } from './useMetadata'
 import { type ParamsModel, useParams } from './useParams'
+import { toastSeverity } from './messages'
+import { useToasts } from './toasts'
+import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type Vehicle, useVehicle } from './useVehicle'
@@ -36,6 +39,8 @@ export interface ConfiguratorHandle {
   snapshots: SnapshotsModel
   /** The settings that survive a restart (the language, the interface's own entries). */
   settings: SettingsModel
+  /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
+  messages: MessagesModel
   /** The state, field by field. */
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
@@ -60,7 +65,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string): P
 }
 
 /** The composables that hold the state. */
-type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings'>
+type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages'>
 
 /**
  * The state as the refs that hold it.
@@ -119,6 +124,39 @@ function startSettings(client: BackendClient): SettingsModel {
 }
 
 /**
+ * The messages, started when a vehicle is connected. What the vehicle says new that is a warning or worse is a toast (what
+ * was said before, and is replayed into the list, is not).
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the messages
+ */
+function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
+  const messages = useMessages({
+    client,
+    announce: message => {
+      const severity = toastSeverity(message)
+      if (severity) {
+        useToasts().push({ severity, text: message.text })
+      }
+    },
+  })
+  vehicle.onSession(connected => {
+    if (connected) {
+      messages.start()
+    }
+  })
+  // Disconnected (not just lost or being brought back): nobody is listening, and a failsafe is not the next vehicle's.
+  watch(vehicle.connection, ({ state }) => {
+    if (state === 'disconnected') {
+      messages.stop()
+    }
+  })
+
+  return messages
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -133,9 +171,7 @@ export function createConfigurator(
   const client = createBackendClient(transport)
   const confirmation = shallowRef<Confirmation | null>(null)
   const error = shallowRef<string | null>(null)
-  const fail = (message: string | null) => {
-    error.value = message
-  }
+  const fail = (message: string | null) => void (error.value = message)
   const askUser = confirm ?? ((question: string) => ask(confirmation, question))
   const metadata = useMetadata({ client })
   const settings = startSettings(client)
@@ -150,10 +186,11 @@ export function createConfigurator(
   const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
   // A vehicle that has just been connected has its parameters downloaded; one that is gone cannot be written to.
   vehicle.onSession(connected => connected ? void parameters.refresh() : parameters.stopWriting())
+  const messages = startMessages(client, vehicle)
   client.onState(state => vehicle.backendChanged(state))
   client.onEvent('params.changed', param => parameters.announced(param))
   void vehicle.watch()
-  const models = { vehicle, parameters, metadata, snapshots, settings }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages }
   current = { ...models, fields: fieldsOf(models, error), confirmation }
 
   return current
