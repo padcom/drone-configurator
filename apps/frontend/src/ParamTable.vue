@@ -56,7 +56,7 @@
               type="button"
               tabindex="-1"
               :aria-pressed="favourites.set.value.has(row.param.id) ? 'true' : 'false'"
-              :aria-label="starLabel(row.param.id)"
+              :aria-label="t('params.favourites.star', { id: row.param.id })"
               @click.stop="star(row.param.id)"
             >
               <Icon name="star" />
@@ -95,6 +95,10 @@
   </div>
   <div class="list-footer">
     <p id="list-status" class="list-status muted">{{ status }}</p>
+    <!-- The Favourites group: the names of other vehicles' parameters can be taken out here (they are never in the list). -->
+    <Button v-if="onlyFavourites && missingFavourites > 0" id="clear-missing-favourites" @click="clearMissingFavourites">
+      {{ t('params.favourites.clearMissing', { count: missingFavourites }) }}
+    </Button>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
       {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}
@@ -113,6 +117,8 @@
   <!-- Said politely when the selection moves (Up and Down in the search move it with the focus staying there, so nothing else
        says which parameter it is now on). Always in the page, so that what is put in it is read out. -->
   <p id="selection-status" class="visually-hidden" role="status">{{ selectionText }}</p>
+  <!-- What was done to the favourites, said politely: the star key leaves the focus on the table. Always in the page. -->
+  <p id="favourite-status" class="visually-hidden" role="status">{{ favouriteSaid }}</p>
 </template>
 
 <script setup lang="ts">
@@ -149,16 +155,8 @@ const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
 // The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has).
 const favourites = useFavourites()
 const onlyFavourites = computed(() => group.value === FAVOURITES_GROUP)
-
-/**
- * What the star of a parameter is called: adds it, or removes it.
- *
- * @param id the parameter
- * @returns the label for a screen reader
- */
-function starLabel(id: string): string {
-  return t(favourites.set.value.has(id) ? 'params.favourites.unstar' : 'params.favourites.star', { id })
-}
+// What the polite status says of the last star.
+const favouriteSaid = ref('')
 
 /**
  * Stars a parameter, or takes its star away; says so when the list would not fit in the settings.
@@ -166,8 +164,24 @@ function starLabel(id: string): string {
  * @param id the parameter
  */
 async function star(id: string): Promise<void> {
-  if (!await favourites.toggle(id)) {
+  const adding = !favourites.set.value.has(id)
+  if (await favourites.toggle(id)) {
+    // Said politely, for the key and the click alike (the focus stays where it is, and nothing else tells what happened).
+    favouriteSaid.value = t(adding ? 'params.favourites.added' : 'params.favourites.removed', { id })
+  } else {
     useToasts().push({ severity: 'error', text: t('params.favourites.full'), long: true })
+  }
+}
+
+// The favourites that this vehicle does not have: they are never in the list, so the Favourites group offers to remove them.
+const onVehicle = computed(() => new Set(params.value.map(param => param.id)))
+const missingFavourites = computed(() => favourites.names.value.filter(name => !onVehicle.value.has(name)).length)
+
+/** Takes the favourites out that are not on this vehicle. */
+async function clearMissingFavourites(): Promise<void> {
+  const count = missingFavourites.value
+  if (await favourites.keepOnly(onVehicle.value)) {
+    favouriteSaid.value = t('params.favourites.cleared', { count })
   }
 }
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
@@ -409,6 +423,32 @@ function moveSelection(key: string): boolean {
 const isPlain = (event: KeyboardEvent): boolean => !(event.altKey || event.ctrlKey || event.metaKey)
 
 /**
+ * Whether a key was pressed on a star (a button that was clicked has the focus): Enter on it is the button's own, which toggles
+ * the star, and not the list's, which goes to the Value field.
+ *
+ * @param event the key press
+ * @returns true if the key came from a star
+ */
+const onStar = (event: KeyboardEvent): boolean => (event.target as Element).closest('td.star') !== null
+
+/**
+ * `*` stars (or unstars) the selected row.
+ *
+ * @param event the key press
+ * @returns true if the key was `*` and a row is selected
+ */
+function starKey(event: KeyboardEvent): boolean {
+  const selected = fields.selected.value
+  const starring = event.key === '*' && selected !== null
+  if (starring) {
+    event.preventDefault()
+    void star(selected)
+  }
+
+  return starring
+}
+
+/**
  * The keys of the list that do something other than move: Enter goes to the Value field, and `*` stars the selected row (the
  * star buttons are not stops of the Tab key, so the keyboard has this).
  *
@@ -416,20 +456,13 @@ const isPlain = (event: KeyboardEvent): boolean => !(event.altKey || event.ctrlK
  * @returns true if the key was one of them
  */
 function actionKey(event: KeyboardEvent): boolean {
-  if (event.key === 'Enter') {
+  if (event.key === 'Enter' && !onStar(event)) {
     focusValue(event)
 
     return true
   }
-  const selected = fields.selected.value
-  if (event.key === '*' && selected !== null) {
-    event.preventDefault()
-    void star(selected)
 
-    return true
-  }
-
-  return false
+  return starKey(event)
 }
 
 /**

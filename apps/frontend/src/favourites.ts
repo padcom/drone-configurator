@@ -1,7 +1,7 @@
 // The favourite parameters: one global list of names, kept in the settings file under one key of the interface's own (not per
 // vehicle: a name mostly belongs to a family, and a list that follows the user across vehicles needs no table of types). The
 // Favourites group shows the ones the connected vehicle has. From plain values; `useFavourites` ties it to the settings.
-import { type ComputedRef, computed, shallowRef } from 'vue'
+import { type ComputedRef, type ShallowRef, computed, shallowRef } from 'vue'
 import { useConfigurator } from './useConfigurator'
 
 /** The key of the settings entry that holds the list (a JSON array of names). */
@@ -59,6 +59,39 @@ export interface Favourites {
    * @returns false when the list would not fit in the settings (nothing is changed then)
    */
   toggle: (id: string) => Promise<boolean>
+  /**
+   * Takes out the favourites that are not among `ids` (the parameters this vehicle has): the only way to get rid of the names
+   * of another vehicle's parameters, which the list never shows.
+   *
+   * @returns false when the settings could not take the list
+   */
+  keepOnly: (ids: ReadonlySet<string>) => Promise<boolean>
+}
+
+/**
+ * Keeps a list: it shows at once (in `local`), and goes back to what the settings say when they have answered.
+ *
+ * @param local what is shown until the settings have answered
+ * @param setUi keeps a text in the settings
+ * @param next the new list
+ * @returns false when it would not fit in the settings (nothing is changed then)
+ */
+async function keepList(
+  local: ShallowRef<string[] | null>,
+  setUi: (key: string, value: string) => Promise<void>,
+  next: string[],
+): Promise<boolean> {
+  if (!fits(next)) {
+    return false
+  }
+  local.value = next
+  await setUi(FAVOURITES_KEY, JSON.stringify(next))
+
+  if (local.value === next) {
+    local.value = null
+  }
+
+  return true
 }
 
 /**
@@ -72,23 +105,12 @@ export function useFavourites(): Favourites {
   const local = shallowRef<string[] | null>(null)
   const names = computed(() => local.value ?? parseFavourites(settings.uiValue(FAVOURITES_KEY)))
   const set = computed(() => new Set(names.value))
+  const keep = (next: string[]) => keepList(local, settings.setUi.bind(settings), next)
 
   return {
     names,
     set,
-    toggle: async id => {
-      const next = toggled(names.value, id)
-      if (!fits(next)) {
-        return false
-      }
-      local.value = next
-      await settings.setUi(FAVOURITES_KEY, JSON.stringify(next))
-
-      if (local.value === next) {
-        local.value = null
-      }
-
-      return true
-    },
+    toggle: id => keep(toggled(names.value, id)),
+    keepOnly: ids => keep(names.value.filter(name => ids.has(name))),
   }
 }

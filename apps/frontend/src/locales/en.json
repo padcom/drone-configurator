@@ -329,8 +329,11 @@
     "favourites": {
       "group": "Favourites",
       "column": "Favourite",
-      "star": "Add {id} to the favourites",
-      "unstar": "Remove {id} from the favourites",
+      "star": "Favourite: {id}",
+      "added": "{id} added to the favourites",
+      "removed": "{id} removed from the favourites",
+      "clearMissing": "Remove the {count} not on this vehicle",
+      "cleared": "{count} removed from the favourites",
       "emptyTitle": "No favourites yet",
       "emptyHelp": "Press the star next to a parameter, or * with the parameter selected, to keep it here.",
       "notOnVehicle": "{count} of your favourites are not on this vehicle.",

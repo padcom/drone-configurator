@@ -35,14 +35,14 @@ async function screen(starred: string[] = []) {
   return { table, groups, handle }
 }
 
-it('has a star in every row: a button that says what it does, not a stop of the Tab key, pressed for a favourite', async () => {
+it('has a star in every row: a toggle with one label that names the parameter, and its state in aria-pressed', async () => {
   const { table } = await screen(['RTL_ALT'])
   const star = (id: string) => table.get(`tr[data-id="${id}"] td.star button`)
 
   expect(star('RTL_ALT').attributes('aria-pressed')).toBe('true')
-  expect(star('RTL_ALT').attributes('aria-label')).toBe('Remove RTL_ALT from the favourites')
+  expect(star('RTL_ALT').attributes('aria-label')).toBe('Favourite: RTL_ALT')
   expect(star('BATT_CAPACITY').attributes('aria-pressed')).toBe('false')
-  expect(star('BATT_CAPACITY').attributes('aria-label')).toBe('Add BATT_CAPACITY to the favourites')
+  expect(star('BATT_CAPACITY').attributes('aria-label')).toBe('Favourite: BATT_CAPACITY')
   expect(table.findAll('#rows td.star button[tabindex="-1"]')).toHaveLength(PARAMS.length)
   expect(table.get('thead th.star').text()).toBe('Favourite')
 })
@@ -77,6 +77,56 @@ it('stars the selected row with the key `*`, and does nothing without a selected
   expect(handle.settings.uiValue(FAVOURITES_KEY)).toBe('["RTL_ALT"]')
 })
 
+it('says politely what was done to a favourite, for the click and the key alike, in a region that is always there', async () => {
+  const { table } = await screen()
+  const said = () => table.get('#favourite-status')
+  expect(said().attributes('role')).toBe('status')
+  expect(said().text()).toBe('')
+
+  await table.get('tr[data-id="RTL_ALT"] td.star button').trigger('click')
+  await flushPromises()
+  expect(said().text()).toBe('RTL_ALT added to the favourites')
+
+  await table.get('tr[data-id="RTL_ALT"]').trigger('click')
+  await table.get('#param-list').trigger('keydown', { key: '*' })
+  await flushPromises()
+  expect(said().text()).toBe('RTL_ALT removed from the favourites')
+})
+
+it('lets Enter on a star toggle it (the button\'s own), and keeps Enter on the list for the Value field', async () => {
+  const { table, handle } = await screen()
+  const field = document.body.appendChild(document.createElement('input'))
+  field.id = 'draft'
+  handle.parameters.select('RTL_ALT')
+
+  const onStar = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+  table.get('tr[data-id="BATT_CAPACITY"] td.star button').element.dispatchEvent(onStar)
+  expect(onStar.defaultPrevented).toBe(false)
+  expect(document.activeElement).not.toBe(field)
+
+  await table.get('#param-list').trigger('keydown', { key: 'Enter' })
+  expect(document.activeElement).toBe(field)
+  field.remove()
+})
+
+it('takes the favourites out that are not on this vehicle, with a button in the Favourites group', async () => {
+  const { table, groups, handle } = await screen(['RTL_ALT', 'GONE_ONE', 'GONE_TWO'])
+  expect(table.find('#clear-missing-favourites').exists()).toBe(false)
+
+  await groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).trigger('click')
+  await flushPromises()
+  const button = table.get('#clear-missing-favourites')
+  expect(button.text()).toBe('Remove the 2 not on this vehicle')
+
+  await button.trigger('click')
+  await flushPromises()
+
+  expect(handle.settings.uiValue(FAVOURITES_KEY)).toBe('["RTL_ALT"]')
+  expect(table.find('#clear-missing-favourites').exists()).toBe(false)
+  expect(table.get('#favourite-status').text()).toBe('2 removed from the favourites')
+  expect(groups.get(`button[data-group="${FAVOURITES_GROUP}"]`).attributes('title')).toBeUndefined()
+})
+
 it('has a Favourites group after All, with the count of the starred parameters the vehicle has', async () => {
   const { groups } = await screen(['RTL_ALT', 'BATT_CAPACITY', 'NOT_ON_THIS_VEHICLE'])
   const buttons = groups.findAll('button').map(button => button.attributes('data-group'))
@@ -85,6 +135,7 @@ it('has a Favourites group after All, with the count of the starred parameters t
   expect(buttons.slice(0, 3)).toEqual(['', FAVOURITES_GROUP, 'ARMING'])
   expect(favourites.text()).toBe('Favourites2')
   expect(favourites.attributes('title')).toBe('1 of your favourites are not on this vehicle.')
+  expect(favourites.attributes('aria-description')).toBe('1 of your favourites are not on this vehicle.')
   expect(groups.get('button[data-group="BATT"]').attributes('title')).toBeUndefined()
 })
 

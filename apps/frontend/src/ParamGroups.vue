@@ -9,7 +9,8 @@
       :aria-pressed="group.id === current ? 'true' : 'false'"
       :tabindex="group.id === stop ? 0 : -1"
       :data-group="group.id"
-      :title="group.id === FAVOURITES_GROUP && missing > 0 ? t('params.favourites.notOnVehicle', { count: missing }) : undefined"
+      :title="noteOf(group.id)"
+      :aria-description="noteOf(group.id)"
       @click="pick(group.id)"
       @focus="focused = group.id"
     >
@@ -45,6 +46,17 @@ const all = computed(() => [
   { id: FAVOURITES_GROUP, count: present.value },
   ...groups.value,
 ])
+
+/**
+ * What is said of a group besides its name: for Favourites, how many of them this vehicle does not have (a tooltip, and a
+ * description for a screen reader).
+ *
+ * @param id the group
+ * @returns the words, or undefined
+ */
+function noteOf(id: string): string | undefined {
+  return id === FAVOURITES_GROUP && missing.value > 0 ? t('params.favourites.notOnVehicle', { count: missing.value }) : undefined
+}
 
 /**
  * What a group is called in the list.
