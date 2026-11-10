@@ -66,7 +66,9 @@
       <div class="row">
         <Button>{{ t('gallery.sample.action') }}</Button>
         <Button variant="primary">{{ t('gallery.sample.primary') }}</Button>
+        <Button variant="flight">{{ t('gallery.sample.flight') }}</Button>
         <Button disabled>{{ t('gallery.sample.disabled') }}</Button>
+        <Button variant="flight" disabled>{{ t('gallery.sample.disabled') }}</Button>
         <Button variant="primary" disabled>{{ t('gallery.sample.disabled') }}</Button>
         <Button><Icon name="download" /> {{ t('gallery.sample.action') }}</Button>
       </div>
@@ -76,6 +78,7 @@
       <h3>{{ t('gallery.section.fields') }}</h3>
       <div class="row">
         <TextInput v-model="text" :aria-label="t('gallery.sample.text')" :placeholder="t('gallery.sample.text')" />
+        <TextInput v-model="value" mono large :aria-label="t('gallery.sample.value')" />
         <TextInput
           v-model="wrong"
           invalid
@@ -107,6 +110,7 @@
       <h3>{{ t('gallery.section.badges') }}</h3>
       <div class="row">
         <Badge>{{ t('gallery.sample.neutral') }}</Badge>
+        <Badge tone="info">{{ t('gallery.sample.info') }}</Badge>
         <Badge tone="ok">{{ t('gallery.sample.ok') }}</Badge>
         <Badge tone="warn">{{ t('gallery.sample.warn') }}</Badge>
         <Badge tone="error">{{ t('gallery.sample.error') }}</Badge>
@@ -226,6 +230,7 @@ const tabs = computed(() => [
 
 const text = ref('')
 const wrong = ref('abc')
+const value = ref('1500')
 const option = ref('one')
 const segment = ref('one')
 const check = ref(true)

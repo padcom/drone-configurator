@@ -48,7 +48,7 @@ it('shows each control in the states it has: normal, primary, invalid and disabl
   expect(page.find('.kit-button.primary').exists()).toBe(true)
   expect(page.findAll('.kit-button:disabled').length).toBeGreaterThanOrEqual(2)
   expect(page.find('.kit-input.invalid').attributes('aria-invalid')).toBe('true')
-  expect(page.findAll('.kit-badge').map(badge => badge.classes()[1])).toEqual(['neutral', 'ok', 'warn', 'error'])
+  expect(page.findAll('.kit-badge').map(badge => badge.classes()[1])).toEqual(['neutral', 'info', 'ok', 'warn', 'error'])
   expect(page.findAll('.kit-toggle:disabled').length).toBe(1)
 })
 

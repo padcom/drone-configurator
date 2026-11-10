@@ -17,29 +17,75 @@
   border-radius: var(--radius-md);
 }
 
+/* Secondary: an outline on the page, raised under the pointer. */
 .kit-button {
-  background: var(--color-surface);
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  background: transparent;
 }
 
 .kit-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  background: var(--color-surface-raised);
 }
 
+/* Primary: the one action of a place (cyan). */
 .kit-button.primary {
+  font-weight: 600;
   color: var(--color-on-accent);
   background: var(--color-accent);
   border-color: transparent;
 }
 
 .kit-button.primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 85%, var(--color-text));
+  background: var(--color-accent-hover);
+}
+
+/* Flight action: something done to the vehicle in flight (amber, bold); the text on it is dark, as the design has it. */
+.kit-button.flight {
+  font-weight: 700;
+  color: var(--color-on-warn);
+  background: var(--color-warn);
+  border-color: transparent;
+}
+
+.kit-button.flight:hover:not(:disabled) {
+  background: var(--color-warn-progress);
+}
+
+/* Disabled is a flat fill with muted text and no border, not the same button faded: it reads as off at a glance. */
+.kit-button:disabled {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: var(--color-border);
+  border-color: transparent;
 }
 
 .kit-input:hover:not(:disabled),
 .kit-select:hover:not(:disabled) {
   border-color: var(--color-text-muted);
+}
+
+/* A value (a number, a parameter's name) is set in the mono face; `large` is the 48 px field of a value being edited. */
+.kit-input.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value);
+}
+
+.kit-input.large {
+  min-height: 48px;
+}
+
+/* The select draws its own chevron (two gradients: no image to load), its right edge 12 px (the text's inset) from the edge. */
+.kit-select {
+  padding-right: calc(var(--control-padding-x) + 20px);
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%), linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-repeat: no-repeat;
+  background-position: calc(100% - 22px) 50%, calc(100% - 17px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  cursor: pointer;
 }
 
 /* After the hover rule above, and as specific as it is or more: an invalid field stays red under the pointer. */
@@ -57,7 +103,6 @@
   outline-offset: 2px;
 }
 
-.kit-button:disabled,
 .kit-input:disabled,
 .kit-select:disabled,
 .kit-toggle:disabled {
@@ -69,10 +114,15 @@
   display: inline-flex;
   gap: var(--space-2);
   align-items: center;
+  min-height: var(--control-height);
   cursor: pointer;
 }
 
+/* A 20 px box in the accent, as the design has it, in a row as high as every control. */
 .kit-check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
   accent-color: var(--color-accent);
 }
 
@@ -85,6 +135,7 @@
   display: inline-flex;
   gap: var(--space-2);
   align-items: center;
+  min-height: var(--control-height);
   padding: 0;
   font: inherit;
   font-size: var(--font-size-md);
@@ -128,24 +179,33 @@
   transform: translateX(16px);
 }
 
+/* A badge: a soft fill of the colour its text is in, with the word in it (never colour alone). */
 .kit-badge {
   display: inline-block;
-  padding: 1px var(--space-2);
+  padding: 2px var(--space-2);
   font-size: var(--font-size-sm);
+  font-weight: 600;
   color: var(--color-text-muted);
-  background: var(--color-surface);
-  border: 1px solid currentcolor;
-  border-radius: 10px;
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-sm);
+}
+
+.kit-badge.info {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
 }
 
 .kit-badge.ok {
   color: var(--color-ok);
+  background: var(--color-ok-soft);
 }
 
 .kit-badge.warn {
   color: var(--color-warn);
+  background: var(--color-warn-soft);
 }
 
 .kit-badge.error {
   color: var(--color-error);
+  background: var(--color-error-soft);
 }

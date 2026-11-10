@@ -7,6 +7,6 @@
 // colour alone that tells.
 withDefaults(defineProps<{
   /** How it is drawn. */
-  tone?: 'neutral' | 'ok' | 'warn' | 'error'
+  tone?: 'neutral' | 'info' | 'ok' | 'warn' | 'error'
 }>(), { tone: 'neutral' })
 </script>

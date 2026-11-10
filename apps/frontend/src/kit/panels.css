@@ -36,10 +36,12 @@
 }
 
 .kit-segmented .segment:hover:has(input:enabled:not(:checked)) {
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
+  background: var(--color-surface-raised);
 }
 
+/* The chosen segment is filled with the accent, so a group reads as one control with one answer. */
 .kit-segmented .segment:has(input:checked) {
+  font-weight: 600;
   color: var(--color-on-accent);
   background: var(--color-accent);
 }
@@ -54,33 +56,33 @@
   cursor: not-allowed;
 }
 
-/* Tabs. */
+/* Tabs, drawn as the design's pills: the chosen one has the soft accent behind its cyan words. */
 .kit-tabs .tablist {
   display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--color-border-strong);
+  gap: var(--space-2);
 }
 
 .kit-tabs .tab {
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
   font: inherit;
   font-size: var(--font-size-md);
-  color: var(--color-text-muted);
+  font-weight: 500;
+  color: var(--color-text);
   cursor: pointer;
   background: none;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-md);
 }
 
 .kit-tabs .tab:hover {
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+  background: var(--color-surface-raised);
 }
 
 .kit-tabs .tab[aria-selected='true'] {
   font-weight: 600;
-  color: var(--color-text);
-  border-bottom-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
 }
 
 .kit-tabs .tab:focus-visible,
