@@ -265,9 +265,14 @@ it('says politely which parameter the selection is on, and where in the list, wh
   await wrapper.vm.$nextTick()
 
   expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
+  // Typing in the search changes the list and not the selected parameter: the region says nothing new (it would speak with
+  // every key), and says the new place when the selected parameter changes.
   feed(handle, { filter: 'batt' })
   await wrapper.vm.$nextTick()
-  expect(status.text()).toBe('BATT_LOW_VOLT, 2 of 2')
+  expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
+  handle.parameters.select('BATT_CAPACITY')
+  await wrapper.vm.$nextTick()
+  expect(status.text()).toBe('BATT_CAPACITY, 1 of 2')
 })
 
 it('leaves the keys of the search alone with a modifier, in an input method\'s composition, and with no rows', () => {
