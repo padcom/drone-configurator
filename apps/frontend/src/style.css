@@ -9,14 +9,8 @@
 }
 
 body { margin: 0; background: var(--color-bg); color: var(--color-text); }
-.connect-strip { padding: 4px 16px; border-bottom: 1px solid var(--line); }
-.connect-strip p { margin: 0; }
 #settings-notice { margin: 6px 0; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.badge { padding: 2px 8px; border-radius: 10px; background: var(--line); }
-.badge.connected { background: var(--ok); color: var(--color-bg); }
-.badge.lost { background: var(--warn); color: var(--color-bg); }
-.badge.reconnecting { background: var(--warn); color: var(--color-bg); }
 .toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .toolbar input { flex: 1 1 10em; }
 /* A component's mount point that adds no box of its own: its children are laid out by the parent. */

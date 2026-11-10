@@ -1,9 +1,6 @@
 <template>
   <div class="app" data-l="app">
     <TopBar />
-    <section class="connect-strip">
-      <ConnectionStatus />
-    </section>
     <SettingsNotice />
     <div class="app-row">
       <Rail />
@@ -29,7 +26,6 @@
 import { usePaneKeys } from './paneFocus'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'
-import ConnectionStatus from './ConnectionStatus.vue'
 import Rail from './Rail.vue'
 import SettingsNotice from './SettingsNotice.vue'
 import ToastHost from './ToastHost.vue'
