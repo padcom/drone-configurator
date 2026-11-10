@@ -16,7 +16,9 @@ jobs:
       matrix:
         include:
           - { target: linux-x64, runner: ubuntu-24.04, backend: true }
-          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true }
+          # test-jobs: how many backend test files run at once. Two on arm64, where the step has been cancelled with the
+          # default of one per CPU; x64 keeps the default (it passes).
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true, test-jobs: 2 }
           # The backend doesn't link on these yet: padcom/serialport is Linux only, and
           # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
           - { target: macos-arm64, runner: macos-15, backend: false }
@@ -106,13 +108,48 @@ jobs:
         if: ${{ matrix.backend }}
         working-directory: drone-configurator
         run: pico --version && pnpm lint
+      # `pnpm test` (pico-desktop test) is the contract generation (done above), then Vitest, then `pico test .` in the
+      # backend, each backend file in a process of its own, as many at once as there are CPUs. The two are run here
+      # directly so that the backend's parallelism can be set, and so that a probe can run beside them: this step has been
+      # cancelled on linux-arm64, always during the backend tests and with no output ("The operation was canceled"),
+      # while linux-x64 passes, which looks like a runner that runs out of memory. The probe prints a line of memory use
+      # every 10 s into the log, so that whatever is there when the step dies shows how it went.
       - name: Unit and backend tests
         if: ${{ matrix.backend }}
         working-directory: drone-configurator
+        env:
+          # How many backend test files run at once (empty: pico's default, one per CPU).
+          BACKEND_TEST_JOBS: ${{ matrix.test-jobs }}
         run: |
-          pnpm test | tee "$RUNNER_TEMP/unit.log"
+          probe() {
+            local n=0
+            while true; do
+              echo "probe $(date +%T) $(free -m | awk '/^Mem:/ {print "used=" $3 "MB available=" $7 "MB"}') load=$(cut -d' ' -f1 /proc/loadavg)"
+              if [ $((n % 3)) -eq 0 ]; then
+                ps -eo rss,etimes,args --sort=-rss | head -4 | cut -c1-150 | sed 's/^/probe   /'
+              fi
+              n=$((n + 1))
+              sleep 10
+            done
+          }
+          echo "probe machine: $(nproc) CPUs, backend test jobs: ${BACKEND_TEST_JOBS:-default}"
+          free -m
+          probe &
+          probe_pid=$!
+          trap 'kill "$probe_pid" 2>/dev/null || true' EXIT
+          status=0
+          pnpm --filter ./apps/frontend test 2>&1 | tee "$RUNNER_TEMP/unit.log" || status=$?
+          (cd apps/backend && pico test . ${BACKEND_TEST_JOBS:+-j "$BACKEND_TEST_JOBS"}) 2>&1 | tee -a "$RUNNER_TEMP/unit.log" || status=$?
+          echo "probe after the tests:"
+          free -m
+          test "$status" -eq 0
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'tests: [1-9][0-9]* passed'
+      - name: Why the tests ended (memory, the kernel's log)
+        if: ${{ always() && matrix.backend }}
+        run: |
+          free -m
+          sudo dmesg | grep -i -E 'out of memory|oom-kill|killed process' | tail -20 || echo "the kernel log has no out-of-memory lines"
 
       # The same steps as pico-desktop's own CI, for the host E2E runs in.
       - name: Cache the pinned CEF
