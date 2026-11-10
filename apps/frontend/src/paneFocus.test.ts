@@ -64,6 +64,18 @@ describe('the pane that gets the focus, from outside or from the pane itself', (
   })
 })
 
+describe('the pane that gets the focus, with a region inside another', () => {
+  it('goes by the innermost region that holds the focus (the aside is inside the screen)', () => {
+    document.body.innerHTML = '<nav id="a" tabindex="-1"></nav><main id="b" tabindex="-1"><aside id="c" tabindex="-1">'
+      + '<button id="x">x</button></aside></main>'
+    const [a, b, c] = ['a', 'b', 'c'].map(id => document.getElementById(id)!)
+    const x = document.getElementById('x')!
+
+    expect(nextPane([a!, b!, c!], x, false)).toBe(a)
+    expect(nextPane([a!, b!, c!], x, true)).toBe(b)
+  })
+})
+
 describe('the pane that gets the focus, at the edges', () => {
   it('is nothing when there are no panes', () => {
     expect(nextPane([], null, false)).toBeUndefined()

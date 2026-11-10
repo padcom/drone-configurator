@@ -26,13 +26,14 @@ afterAll(async () => {
 /**
  * The name of the pane that has the focus, or what else has it.
  *
- * @returns `Map`, `Display` or `Details`; or the tag of what has the focus
+ * @returns `rail`, `screen` or `aside`; or the tag of what has the focus
  */
 function focused(): Promise<string> {
   return app.evaluate<string>(`(() => {
     const active = document.activeElement
-    const title = active && active.classList.contains('flight-pane') ? active.querySelector('h2').textContent : null
-    return title ?? (active ? active.tagName : 'nothing')
+    const names = { 'nav.rail': 'rail', 'main.app-main': 'screen', 'aside.fly-aside': 'aside' }
+    const found = Object.keys(names).find(selector => active && active.matches(selector))
+    return found ? names[found] : (active ? active.tagName : 'nothing')
   })()`)
 }
 
@@ -45,18 +46,18 @@ async function shiftF6(): Promise<void> {
   )
 }
 
-describe('the panes of the Flight data screen, with a vehicle connected', () => {
-  it('has a map, a display and details, and the vehicle telemetry is in the details', async () => {
-    const titles = await app.evaluate<string[]>(`[...document.querySelectorAll('.flight-pane h2')].map(h => h.textContent)`)
-    const telemetry = await app.waitForText('[role="tabpanel"] #telemetry', /Battery\s*\d/u, 30_000)
+describe('the regions of the Fly screen, with a vehicle connected', () => {
+  it('has a map and an aside, and the vehicle telemetry is in the aside', async () => {
+    const regions = await app.evaluate<string[]>(`[...document.querySelectorAll('.fly > *')].map(r => r.className)`)
+    const telemetry = await app.waitForText('.fly-aside #telemetry', /Battery\s*\d/u, 30_000)
 
-    expect(titles).toEqual(['Map', 'Display', 'Details'])
+    expect(regions).toEqual(['fly-main', 'fly-aside'])
     expect(telemetry).toMatch(/Mode\s*\S+/u)
   })
 })
 
 describe('the keys of the Flight data screen, with a vehicle connected', () => {
-  it('moves the focus from pane to pane with F6, through the host, and round to the first', async () => {
+  it('moves the focus from region to region with F6, through the host, and round to the first', async () => {
     const seen: string[] = []
     for (let i = 0; i < 4; i++) {
       // eslint-disable-next-line no-await-in-loop
@@ -65,17 +66,19 @@ describe('the keys of the Flight data screen, with a vehicle connected', () => {
       seen.push(await focused())
     }
 
-    expect(seen).toEqual(['Map', 'Display', 'Details', 'Map'])
+    expect(seen).toEqual(['rail', 'screen', 'aside', 'rail'])
   })
 
-  it('goes back with Shift+F6, and Tab from a pane goes on into it', async () => {
+  it('goes back with Shift+F6, and Tab from a region goes on into it', async () => {
     await shiftF6()
-    expect(await focused()).toBe('Details')
+    expect(await focused()).toBe('aside')
     await shiftF6()
-    expect(await focused()).toBe('Display')
+    expect(await focused()).toBe('screen')
+    await shiftF6()
+    expect(await focused()).toBe('rail')
     await app.press('Tab')
 
-    expect(await app.evaluate<string>('document.activeElement.tagName')).toBe('BUTTON')
+    expect(await app.evaluate<string>('document.activeElement.tagName')).toBe('A')
   })
 })
 
