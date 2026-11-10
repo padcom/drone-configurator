@@ -200,6 +200,22 @@ it('does not show an old failure again when the dialog is opened later', async (
   expect(wrapper.get('#connect-error').text()).toContain('another failure')
 })
 
+it('shows a failure after Connect even when it has the same words as the old one that was hidden', async () => {
+  const { wrapper, feed } = await openDialog()
+  feed({ error: 'no heartbeat from udp 127.0.0.1:14550' })
+  await wrapper.get('#connect-cancel').trigger('click')
+  useConnectDialog().show()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('#connect-error').exists()).toBe(false)
+
+  await wrapper.get('#connect').trigger('submit')
+  feed({ connection: { state: 'connecting' }, error: undefined })
+  feed({ connection: { state: 'disconnected' }, error: 'no heartbeat from udp 127.0.0.1:14550' })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#connect-error').text()).toContain('no heartbeat from udp 127.0.0.1:14550')
+})
+
 it('closes by itself when the link is up, and with Cancel', async () => {
   const { wrapper, feed } = await openDialog()
   await wrapper.get('#connect-cancel').trigger('click')

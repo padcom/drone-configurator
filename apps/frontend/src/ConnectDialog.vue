@@ -115,6 +115,8 @@ let attempted = ''
 /** Asks the backend to connect to what the form says. */
 function connect(): void {
   attempted = JSON.stringify(pick(form))
+  // Whatever fails after this press is shown, even with the same words as the failure that was hidden on opening.
+  seenError.value = undefined
   void vehicle.connect(requestFor(form))
 }
 
