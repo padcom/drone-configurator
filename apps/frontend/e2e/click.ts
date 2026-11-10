@@ -236,6 +236,33 @@ export async function confirmWrite(app: E2eApp): Promise<void> {
 }
 
 /**
+ * Makes sure a parameter's row is in the page. Only the rows in view are drawn (a vehicle's list is some 1400), so a row far
+ * down is not there to be pressed or read: the search narrows the list to it, as a user does. A short list has every row
+ * and is left as it is.
+ *
+ * @param app the running app
+ * @param id the parameter's name
+ */
+export async function showParameter(app: E2eApp, id: string): Promise<void> {
+  const row = `document.querySelector('tr[data-id="${id}"]') !== null`
+  if (!await app.evaluate<boolean>(row)) {
+    await app.fill('#filter', id)
+  }
+  await app.waitFor(row)
+}
+
+/**
+ * Takes the search away, so that the list is whole again (the line under it says "N parameters", not "1 of N").
+ *
+ * @param app the running app
+ */
+export async function showAllParameters(app: E2eApp): Promise<void> {
+  if (await app.evaluate<boolean>(`document.querySelector('#filter').value !== ''`)) {
+    await app.fill('#filter', '')
+  }
+}
+
+/**
  * Queues a value for a parameter the way a user does: presses its row, types the value and settles it (`fill` sends the
  * `input` and the `change` of Enter or leaving the field), and waits until the changes list shows it (from → to).
  *
@@ -245,6 +272,7 @@ export async function confirmWrite(app: E2eApp): Promise<void> {
  * @param to the value to write
  */
 export async function queueValue(app: E2eApp, id: string, from: number, to: number): Promise<void> {
+  await showParameter(app, id)
   await app.click(`tr[data-id="${id}"]`)
   await app.fill('#draft', String(to))
   await app.waitFor(`[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)}
@@ -341,6 +369,7 @@ export async function askToWriteQueued(app: E2eApp, changes: { id: string, from:
  * @param timeoutMs how long the vehicle may take
  */
 export async function waitForQueuedWritten(app: E2eApp, id: string, value: number, timeoutMs = 10_000): Promise<void> {
+  await showParameter(app, id)
   await app.waitForText(`tr[data-id="${id}"] td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
   await app.waitFor(`[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)}
     && r.querySelector('.line.ok')?.textContent.includes('Written and read back: ${value}'))`, timeoutMs)

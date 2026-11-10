@@ -1,6 +1,7 @@
-import { expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ParamTable from './ParamTable.vue'
+import { FALLBACK_ROWS, OVERSCAN } from './rowWindow'
 import { mockBackend } from './mock-backend'
 import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
@@ -60,9 +61,13 @@ it('draws the group part of a name dimmed and the rest bright, with the value on
   expect(row.get('th.name').text()).toBe('BATT_LOW_VOLT')
   expect(row.get('td.num').text()).toBe('10.5')
   expect(wrapper.get('thead').text()).not.toContain('Meaning')
-  // Without metadata the table is two columns, as it was: nothing marks it as one with a description column.
+  // Without metadata the table is two columns: the name as wide as the widest name, the value the rest of the row.
   expect(wrapper.get('table').classes()).not.toContain('described')
-  expect(wrapper.find('colgroup').exists()).toBe(false)
+  expect(wrapper.findAll('thead th')).toHaveLength(2)
+  expect(wrapper.findAll('colgroup col').map(col => col.attributes('style'))).toEqual([
+    expect.stringContaining('calc(14ch + var(--cell-padding))'),
+    undefined,
+  ])
 })
 
 it('shows only the chosen group, and says how many of the whole it is', async () => {
@@ -156,7 +161,7 @@ it('does not touch the rows when only the telemetry changes', async () => {
   const param = (i: number): Param => ({ id: `P_${i}`, index: i, kind: 'int', type: 'UINT16', value: i })
   const params = Array.from({ length: 1200 }, (_, i) => param(i))
   const { wrapper, handle } = tableWith(params)
-  const row = wrapper.get('tr[data-id="P_600"]').element
+  const row = wrapper.get('tr[data-id="P_10"]').element
   const mutations = new MutationObserver(() => undefined)
   const everything = { subtree: true, childList: true, attributes: true, characterData: true }
   mutations.observe(wrapper.element.parentElement ?? wrapper.element, everything)
@@ -169,6 +174,58 @@ it('does not touch the rows when only the telemetry changes', async () => {
   await wrapper.vm.$nextTick()
 
   expect(mutations.takeRecords()).toEqual([])
-  expect(wrapper.get('tr[data-id="P_600"]').element).toBe(row)
-  expect(wrapper.findAll('#rows tr')).toHaveLength(1200)
+  expect(wrapper.get('tr[data-id="P_10"]').element).toBe(row)
+})
+
+const many = Array.from({ length: 1400 }, (_, i): Param => ({ id: `P_${i}`, index: i, kind: 'int', type: 'UINT16', value: i }))
+
+describe('a long list', () => {
+  it('draws only the rows in view, with a spacer of the height of the rest and the true count for a screen reader', () => {
+    const { wrapper } = tableWith(many)
+    const drawn = wrapper.findAll('#rows tr:not(.spacer)')
+
+    // No height is known in a test: a screenful that is more than enough, and the rows above and below it.
+    expect(drawn).toHaveLength(FALLBACK_ROWS + OVERSCAN * 2)
+    expect(wrapper.findAll('#rows tr.spacer')).toHaveLength(1)
+    expect(wrapper.get('#rows tr.spacer').attributes('aria-hidden')).toBe('true')
+    expect(wrapper.get('#rows tr.spacer td').attributes('style')).toContain(`height: ${(1400 - drawn.length) * 44}px`)
+    expect(wrapper.get('table').attributes('aria-rowcount')).toBe('1401')
+    expect(drawn[0]?.attributes('aria-rowindex')).toBe('2')
+    expect(drawn[5]?.attributes('aria-rowindex')).toBe('7')
+    expect(wrapper.get('#list-status').text()).toBe('1400 parameters')
+  })
+
+  it('has no spacer for a list that is all drawn', () => {
+    const { wrapper } = tableWith(PARAMS)
+
+    expect(wrapper.find('#rows tr.spacer').exists()).toBe(false)
+    expect(wrapper.get('table').attributes('aria-rowcount')).toBe('13')
+  })
+})
+
+describe('a long list that is scrolled', () => {
+  it('draws the rows that scroll into view, and the spacers keep the height of the whole list', async () => {
+    const frame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(run => {
+      run(0)
+
+      return 1
+    })
+    const { wrapper } = tableWith(many)
+    const scroller = wrapper.get('.param-scroll').element
+
+    scroller.scrollTop = 44 * 700
+    await wrapper.get('.param-scroll').trigger('scroll')
+    await wrapper.vm.$nextTick()
+
+    const ids = wrapper.findAll('#rows tr:not(.spacer)').map(row => row.attributes('data-id'))
+    expect(ids[0]).toBe(`P_${700 - OVERSCAN}`)
+    expect(ids).toContain('P_700')
+    expect(ids).not.toContain('P_10')
+    const spacers = wrapper.findAll('#rows tr.spacer td').map(cell => cell.attributes('style'))
+    expect(spacers).toHaveLength(2)
+    const above = (700 - OVERSCAN) * 44
+    const below = (1400 - (700 - OVERSCAN + ids.length)) * 44
+    expect(spacers).toEqual([expect.stringContaining(`height: ${above}px`), expect.stringContaining(`height: ${below}px`)])
+    frame.mockRestore()
+  })
 })

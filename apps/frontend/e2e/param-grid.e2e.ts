@@ -45,7 +45,7 @@ afterAll(async () => {
 const MEASURE = `(() => {
   const table = document.querySelector('.param-scroll table')
   const width = selector => document.querySelector(selector)?.getBoundingClientRect().width ?? 0
-  const rows = [...document.querySelectorAll('#rows tr')].map(row => Math.round(row.getBoundingClientRect().height))
+  const rows = [...document.querySelectorAll('#rows tr:not(.spacer)')].map(row => Math.round(row.getBoundingClientRect().height))
   const cut = document.querySelector('tr[data-id="RTL_ALT"] .meaning')
 
   return {

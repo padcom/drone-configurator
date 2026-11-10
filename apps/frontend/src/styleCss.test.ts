@@ -25,23 +25,23 @@ it('lays the Parameters screen out in three columns that wrap, each scrolling on
   expect(params).toMatch(/\.param-groups,\s*\.params,\s*\.detail\s*\{[^}]*overflow-y:\s*auto/u)
 })
 
-it('lays the table with metadata out with a fixed layout, the first two columns in `ch`, the description on one line', () => {
+it('lays the table out with a fixed layout, the first columns in `ch`, the description on one line', () => {
   const cut = String.raw`overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;`
   const meaning = new RegExp(String.raw`\.param-scroll table\.described \.meaning\s*\{[^}]*${cut}`, 'u')
 
-  // Fixed, so that a switch back to the screen does not measure the text of every row again (120 ms on x64, 270 ms on arm64).
-  expect(params).toMatch(/\.param-scroll table\.described\s*\{[^}]*--cell-padding:\s*28px;[^}]*table-layout:\s*fixed;/u)
+  // Fixed: only the rows in view are drawn, so the widths cannot come from the cells (and the browser measures no text).
+  expect(params).toMatch(/\.param-scroll table\s*\{[^}]*--cell-padding:\s*28px;[^}]*table-layout:\s*fixed;/u)
   // The column widths are in `ch`, which is the width of a mono character only in the mono face: the <col> is set in it.
   // The name cells are set in the value-sm size and the value cells in none (the table's own): each <col> has its cells' size.
-  expect(params).toMatch(/table\.described col\s*\{[^}]*font-family:\s*var\(--font-mono\);/u)
-  expect(params).toMatch(/table\.described col\.col-name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
+  expect(params).toMatch(/\.param-scroll col\s*\{[^}]*font-family:\s*var\(--font-mono\);/u)
+  expect(params).toMatch(/\.param-scroll col\.col-name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
   expect(params).not.toMatch(/col\.col-value\s*\{[^}]*font-size/u)
   expect(params).toMatch(/\.param-scroll \.name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
   expect(params).not.toMatch(/\.param-scroll td\.num\s*\{[^}]*font-size/u)
   expect(params).toMatch(meaning)
-  // The rows keep one height, and the table without metadata has no rule of its own (an auto layout, as it was).
+  // The rows keep the one height that the windowing counts on (ROW_PX in ParamTable.vue), and a spacer has none of its own.
   expect(params).toMatch(/\.param-scroll tbody tr\s*\{[^}]*height:\s*44px;/u)
-  expect(params.replace(/\.param-scroll table\.described\s*\{[^}]*\}/u, '')).not.toMatch(/table-layout/u)
+  expect(params).toMatch(/\.param-scroll tbody tr\.spacer\s*\{[^}]*pointer-events:\s*none;[^}]*border-top:\s*0;/u)
 })
 
 it('keeps the header of the table in view while the rows scroll', () => {
