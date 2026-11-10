@@ -307,6 +307,8 @@
     "bit": "bit {bit}",
     "count": "{count} bit: {names} | {count} bits: {names}",
     "other": "other bits: {hex}",
+    "outOfRange": "The number is out of range for this parameter: correct it before choosing bits",
+    "help": "Type a number, or choose bits: Up and Down move, Page Up and Page Down by a page, Home and End always go to the first and the last bit (not the text's start and end), Space switches a bit, Enter keeps the value, Escape closes the list",
     "on": "{name} on",
     "off": "{name} off"
   },

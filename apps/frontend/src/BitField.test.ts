@@ -271,6 +271,35 @@ describe('the bits that have no name', () => {
   })
 })
 
+describe('a held Space', () => {
+  it('toggles the bit once, not on every repeat of the key', async () => {
+    const wrapper = field('0')
+    await press(wrapper, 'ArrowDown')
+    await press(wrapper, ' ')
+
+    await wrapper.get('input').trigger('keydown', { key: ' ', repeat: true })
+    await wrapper.get('input').trigger('keydown', { key: ' ', repeat: true })
+
+    expect(edits(wrapper)).toEqual(['1'])
+  })
+})
+
+describe('a number that the type cannot hold', () => {
+  it.each(['300', '-1', '2.5'])('is left as it is when a bit is toggled (%s of a UINT8), and the status says why', async text => {
+    const wrapper = field(text, 'UINT8')
+    await open(wrapper)
+
+    await click(wrapper, 1)
+
+    expect(edits(wrapper)).toEqual([])
+    expect(wrapper.get('[role="status"]').text()).toMatch(/out of range/u)
+  })
+
+  it('has the keys in its tooltip, Home and End among them', () => {
+    expect(field('0').get('input').attributes('title')).toMatch(/Home and End always go to the first and the last bit/u)
+  })
+})
+
 describe('the high bits', () => {
   const TOP = { 31: 'Top', 0: 'Low' }
 

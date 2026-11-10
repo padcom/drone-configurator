@@ -66,6 +66,21 @@ export function valueOfBits(bits: number, type: string): number {
 }
 
 /**
+ * Whether a number is a value of the type: a whole number within its range (a bit of one that is not has no meaning, and a
+ * toggle on it would fold it into the range without a word).
+ *
+ * @param value the number
+ * @param type the parameter's type
+ * @returns true when the type can hold it
+ */
+export function fitsType(value: number, type: string): boolean {
+  const width = widthOf(type)
+  const [low, high] = type.startsWith('INT') ? [-(2 ** (width - 1)), (2 ** (width - 1)) - 1] : [0, (2 ** width) - 1]
+
+  return Number.isInteger(value) && value >= low && value <= high
+}
+
+/**
  * Whether a bit is set.
  *
  * @param value the value
