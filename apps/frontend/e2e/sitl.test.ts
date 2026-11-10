@@ -121,13 +121,28 @@ describe('SITL ports and arguments', () => {
   })
 })
 
+// These tests claim instances from here on, in a lock directory of their own, so that nothing running on the machine (a SITL on
+// instance 0, or with any -I or --base-port, which the leader and QA start for their own work) can change their result: no
+// port of instance 0 to 99 is looked at.
+const FIRST = 300
+
+/**
+ * Makes the claims of a test its own: a lock directory of its own, and instances from FIRST on.
+ *
+ * @param directory the lock directory
+ */
+function ownInstances(directory: string): void {
+  vi.stubEnv('SITL_LOCK_DIR', directory)
+  vi.stubEnv('SITL_FIRST_INSTANCE', String(FIRST))
+}
+
 describe('claiming an instance', () => {
   const lockDirectories: string[] = []
 
   beforeEach(async () => {
     const directory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
     lockDirectories.push(directory)
-    vi.stubEnv('SITL_LOCK_DIR', directory)
+    ownInstances(directory)
   })
 
   afterEach(async () => {
@@ -137,10 +152,10 @@ describe('claiming an instance', () => {
 
   it('skips an instance whose port is taken', async () => {
     const server = createServer()
-    await new Promise<void>(resolve => server.listen(5760, '127.0.0.1', resolve))
+    await new Promise<void>(resolve => server.listen(instancePorts(FIRST).tcp[0], '127.0.0.1', resolve))
     try {
       const claim = await claimInstance()
-      expect(claim.instance).toBeGreaterThan(0)
+      expect(claim.instance).toBeGreaterThan(FIRST)
       claim.release()
     } finally {
       server.close()
@@ -161,35 +176,35 @@ describe('claiming an instance', () => {
 
   it('does not hand out an instance that another process holds', async () => {
     // A live process other than this one: our parent. It stands for a parallel worker.
-    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', 'instance-0'), String(process.ppid))
+    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`), String(process.ppid))
     const claim = await claimInstance()
-    expect(claim.instance).toBeGreaterThan(0)
+    expect(claim.instance).toBeGreaterThan(FIRST)
     claim.release()
   })
 
   it('takes over an instance whose owner died without releasing it', async () => {
     const dead = spawn(process.execPath, ['-e', ''])
     await new Promise(resolve => dead.once('exit', resolve))
-    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', 'instance-0'), String(dead.pid))
+    await writeFile(join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`), String(dead.pid))
     const claim = await claimInstance()
-    expect(claim.instance).toBe(0)
+    expect(claim.instance).toBe(FIRST)
     claim.release()
   })
 
   it('treats an empty or unreadable lock as held, and leaves it alone', async () => {
-    const empty = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
-    const garbled = join(process.env.SITL_LOCK_DIR ?? '', 'instance-1')
+    const empty = join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`)
+    const garbled = join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST + 1}`)
     await writeFile(empty, '')
     await writeFile(garbled, 'not a pid')
     const claim = await claimInstance()
-    expect(claim.instance).toBeGreaterThan(1)
+    expect(claim.instance).toBeGreaterThan(FIRST + 1)
     expect(await readFile(empty, 'utf8')).toBe('')
     expect(await readFile(garbled, 'utf8')).toBe('not a pid')
     claim.release()
   })
 
   it('never shows a lock without its owner in it', async () => {
-    const file = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
+    const file = join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`)
     const seen = new Set<string>()
     const watching = (async () => {
       for (let i = 0; i < 400; i += 1) {
@@ -199,7 +214,7 @@ describe('claiming an instance', () => {
     })()
     const claim = await claimInstance()
     await watching
-    expect(claim.instance).toBe(0)
+    expect(claim.instance).toBe(FIRST)
     expect(seen.has('')).toBe(false)
     claim.release()
   })
@@ -207,12 +222,12 @@ describe('claiming an instance', () => {
   it('lets only one worker take over a dead one lock', async () => {
     const dead = spawn(process.execPath, ['-e', ''])
     await new Promise(resolve => dead.once('exit', resolve))
-    const file = join(process.env.SITL_LOCK_DIR ?? '', 'instance-0')
+    const file = join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`)
     await writeFile(file, String(dead.pid))
     // Another worker is in the middle of taking it over.
     await mkdir(`${file}.takeover`)
     const claim = await claimInstance()
-    expect(claim.instance).toBeGreaterThan(0)
+    expect(claim.instance).toBeGreaterThan(FIRST)
     expect(await readFile(file, 'utf8')).toBe(String(dead.pid))
     claim.release()
   })
@@ -288,7 +303,7 @@ describe.skipIf(process.platform === 'win32')('a SITL that is cut short', () => 
     const lockDirectory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
     const fakeDirectory = await mkdtemp(join(tmpdir(), 'sitl-fake-'))
     directories.push(lockDirectory, fakeDirectory)
-    vi.stubEnv('SITL_LOCK_DIR', lockDirectory)
+    ownInstances(lockDirectory)
     // A stand-in that listens on SERIAL0 of its instance and sends heartbeats, as the real one does.
     const heartbeat = encodeFrame(MSG_HEARTBEAT, Uint8Array.of(0, 0, 0, 0, 2, 3, 81, 4, 3), { systemId: 1, componentId: 1 })
     vi.stubEnv('FAKE_HEARTBEAT_HEX', Buffer.from(heartbeat).toString('hex'))
@@ -326,7 +341,7 @@ require('node:net').createServer(socket => { socket.on('error', () => {}); setIn
     const sitl = await startSitl({ startTimeoutMs: 10_000 })
     expect(alive(sitl.pid)).toBe(true)
     await expect(access(sitl.directory)).resolves.toBeUndefined()
-    const locks = join(process.env.SITL_LOCK_DIR ?? '', `instance-0`)
+    const locks = join(process.env.SITL_LOCK_DIR ?? '', `instance-${FIRST}`)
     await expect(access(locks)).resolves.toBeUndefined()
 
     cleanupAllSync()
@@ -368,7 +383,7 @@ describe.skipIf(process.platform === 'win32')('a SITL that does not start', () =
   beforeEach(async () => {
     const lockDirectory = await mkdtemp(join(tmpdir(), 'sitl-locktest-'))
     directories.push(lockDirectory)
-    vi.stubEnv('SITL_LOCK_DIR', lockDirectory)
+    ownInstances(lockDirectory)
   })
 
   afterEach(async () => {
