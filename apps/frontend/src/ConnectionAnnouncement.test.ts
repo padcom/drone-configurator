@@ -1,11 +1,13 @@
 import { expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ConnectionStatus from './ConnectionStatus.vue'
+import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import { VEHICLE } from './fixtures'
 import { mockBackend } from './mock-backend'
 import type { State } from './state'
 import { feed as feedState, withI18n } from './testing'
+import { useToasts } from './toasts'
 import { createConfigurator } from './useConfigurator'
+import { useConnectDialog } from './useConnectDialog'
 
 /**
  * Mounts the status line on a fresh Configurator.
@@ -16,7 +18,7 @@ function statusWithFeed() {
   const handle = createConfigurator(mockBackend())
   const feed = (change: Partial<State>) => feedState(handle, change)
 
-  return { wrapper: mount(ConnectionStatus, withI18n), feed }
+  return { wrapper: mount(ConnectionAnnouncement, withI18n), feed }
 }
 
 it('shows the state, the vehicle and why the last attempt failed, as text', async () => {
@@ -32,8 +34,29 @@ it('shows the state, the vehicle and why the last attempt failed, as text', asyn
   expect(text).toContain('connected · system 1/1 · QUADROTOR · ARDUPILOTMEGA')
   expect(text).toContain('<oops>')
   expect(text).toContain('The backend restarted')
-  expect(wrapper.get('#connection .badge').classes()).toContain('connected')
   expect(wrapper.find('#connection oops').exists()).toBe(false)
+})
+
+it('is out of sight, and toasts the error and the notice (the error not while the Connect dialog shows it)', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  const toasts = useToasts()
+  toasts.visible.value.forEach(toast => toasts.dismiss(toast.key))
+  expect(wrapper.get('#connection').classes()).toContain('visually-hidden')
+
+  feed({ error: 'Connection refused', notice: 'The backend restarted' })
+  await wrapper.vm.$nextTick()
+
+  expect(toasts.visible.value.map(toast => [toast.severity, toast.text])).toEqual([
+    ['error', 'Connection refused'],
+    ['warning', 'The backend restarted'],
+  ])
+
+  useConnectDialog().show()
+  feed({ error: 'Another failure' })
+  await wrapper.vm.$nextTick()
+  useConnectDialog().hide()
+
+  expect(toasts.visible.value.map(toast => toast.text)).not.toContain('Another failure')
 })
 
 it('says that the link is being brought back, which try this is and when the next is, with the vehicle still shown', async () => {
@@ -46,7 +69,6 @@ it('says that the link is being brought back, which try this is and when the nex
   expect(text).toContain('reconnecting')
   expect(text).toContain('try 3, the next in 4 s')
   expect(text).toContain('QUADROTOR')
-  expect(wrapper.get('#connection .badge').classes()).toContain('reconnecting')
 })
 
 it('says that a link that came back is the same vehicle, only when it is', async () => {

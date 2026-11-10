@@ -1,6 +1,7 @@
 <template>
   <header id="top-bar" class="top-bar" data-l="topbar">
     <h1 class="visually-hidden">{{ t('app.title') }}</h1>
+    <ConnectionAnnouncement />
     <RouterLink :to="HOME" class="logo" :aria-label="t('topBar.home')">
       <svg
         width="30"
@@ -58,6 +59,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import { HOME } from './screens'

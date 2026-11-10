@@ -46,12 +46,13 @@ afterEach(() => {
   mounted = undefined
 })
 
-it('starts on Flight data, with the connection on top', async () => {
+it('starts on Flight data, with the connection in the top bar and no bar of its own under it', async () => {
   const { wrapper, router } = await shellAt('/')
 
   expect(router.currentRoute.value.path).toBe('/flight')
   expect(wrapper.find('header#top-bar').exists()).toBe(true)
-  expect(wrapper.find('.connect-strip #connection').exists()).toBe(true)
+  expect(wrapper.find('header#top-bar #connection[role="status"]').exists()).toBe(true)
+  expect(wrapper.find('.connect-strip').exists()).toBe(false)
   expect(wrapper.find('dialog').exists()).toBe(false)
   expect(wrapper.find('#telemetry').exists()).toBe(true)
   expect(wrapper.find('#list-status').exists()).toBe(false)
