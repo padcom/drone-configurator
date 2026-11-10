@@ -1,5 +1,6 @@
 // What the parameter editor says, from plain values (no DOM). Vue's templates escape the text; the words come from
 // the translations.
+import { type BitOption, bitOptions } from './bitmask'
 import type { EnumOption } from './enumField'
 import type { Param } from './generated/app'
 import { OTHER, groupOf } from './paramGroups'
@@ -123,6 +124,22 @@ export function valueOptions(meta: ParamMeta | undefined): EnumOption[] | null {
   const usable = entries.length > 0 && entries.every(option => Number.isFinite(option.value))
 
   return usable ? entries.sort((a, b) => a.value - b.value) : null
+}
+
+/**
+ * The bits the metadata names for a parameter, when it is an integer (a real is not a bit field). They win over named values.
+ *
+ * @param param the parameter, if one is selected
+ * @param bits the metadata's bits for it, if it has any
+ * @returns the named bits, lowest first, or null when there are none
+ */
+export function bitNamesOf(param: Param | null | undefined, bits: ParamMeta['bits']): BitOption[] | null {
+  if (!param || param.kind !== 'int') {
+    return null
+  }
+  const options = bitOptions(bits, param.type)
+
+  return options.length === 0 ? null : options
 }
 
 /** How many related parameters the detail lists. */

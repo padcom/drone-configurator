@@ -104,6 +104,54 @@
   color: var(--color-text-muted);
 }
 
+/* BitField: the number, with what it means in a few words at its right, over a list of boxes. */
+.enum-field .bit-input {
+  padding-right: 55%;
+  font-family: var(--font-mono);
+}
+
+.enum-field .bit-summary {
+  position: absolute;
+  top: 50%;
+  right: 34px;
+  max-width: 50%;
+  overflow: hidden;
+  font-size: var(--font-size-value-sm);
+  color: var(--color-text-muted);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.enum-field .bit-option .box {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.enum-field .bit-option .box svg {
+  width: 14px;
+  height: 14px;
+}
+
+.enum-field .bit-option[aria-selected="true"] .box {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.enum-field .bit-option .num {
+  min-width: 0;
+  white-space: nowrap;
+}
+
 /* PanelForm: rows one under the other. */
 .panel-form {
   display: flex;
