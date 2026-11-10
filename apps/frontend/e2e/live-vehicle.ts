@@ -108,10 +108,12 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
   it('shows what the vehicle reports, and keeps updating', async () => {
     await showScreen(app, 'flight')
     // The battery and the attitude are separate messages: the first values can come before the attitude's, so both are waited for.
-    const telemetry = await app.waitForText('#telemetry', /Battery\s*\d[\s\S]*Attitude\s*roll -?\d/u, vehicle.downloadTimeoutMs)
-    expect(telemetry).toMatch(/Mode\s*(?:STABILIZE|LOITER)/u)
-    const before = await app.evaluate<string>(`document.querySelector('#telemetry').textContent`)
-    await app.waitFor(`document.querySelector('#telemetry').textContent !== ${JSON.stringify(before)}`)
+    await app.waitForText('#telemetry', /BATTERY\s*\d/u, vehicle.downloadTimeoutMs)
+    const label = 'document.querySelector(\'.hud\').getAttribute(\'aria-label\')'
+    await app.waitFor(`/roll -?\\d/u.test(${label})`, vehicle.downloadTimeoutMs)
+    expect(await app.waitForText('#top-bar', /MODE\s*(?:STABILIZE|LOITER)/u)).toMatch(/STATE/u)
+    const before = await app.evaluate<string>(label)
+    await app.waitFor(`${label} !== ${JSON.stringify(before)}`)
   })
 
   it('shows it in the aside of the Fly screen, beside the map', async () => {

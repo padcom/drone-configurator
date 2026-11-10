@@ -122,10 +122,6 @@
   color: var(--color-error);
 }
 
-.fly-aside #telemetry {
-  padding: 0 var(--space-4);
-}
-
 .fly-aside:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
@@ -146,10 +142,32 @@
     min-height: 240px;
   }
 
+  /* The aside is a column: the display and the cards keep their size and stay where they are, and the messages take what is
+     left and scroll on their own. Only a window too short for the display, the cards and a small list scrolls the aside. */
   .fly-aside {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+  }
+
+  .fly-aside > .hud,
+  .fly-aside > .fly-cards {
+    flex: none;
+  }
+
+  .fly-aside > .messages {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-height: 150px;
+  }
+
+  .messages .message-list {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
   }
 }
