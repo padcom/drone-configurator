@@ -325,6 +325,7 @@
     "groups": "Parameter groups",
     "allGroups": "All",
     "list": "Parameters",
+    "selection": "{id}, {position} of {total}",
     "detail": "The selected parameter",
     "column": {
       "name": "Name",

@@ -62,6 +62,9 @@
     </EmptyState>
   </div>
   <p id="list-status" class="list-status muted">{{ status }}</p>
+  <!-- Said politely when the selection moves (Up and Down in the search move it with the focus staying there, so nothing else
+       says which parameter it is now on). Always in the page, so that what is put in it is read out. -->
+  <p id="selection-status" class="visually-hidden" role="status">{{ selectionText }}</p>
 </template>
 
 <script setup lang="ts">
@@ -71,6 +74,7 @@ import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
 import { effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
+import { registerListNav } from './paramListNav'
 import { useConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowWindow'
@@ -124,6 +128,9 @@ function measure(): void {
 // The selected row, by its place in the list (-1: none, or it is filtered out), and the row the table points to for a screen
 // reader (only while it is drawn: the rows far from the view are not in the page).
 const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === fields.selected.value))
+const selectionText = computed(() => selectedAt.value < 0
+  ? ''
+  : t('params.selection', { id: fields.selected.value, position: selectedAt.value + 1, total: rows.value.length }))
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
 
@@ -211,6 +218,19 @@ function focusValue(event: KeyboardEvent): void {
 }
 
 /**
+ * Moves the selection for a key (the search box asks for this too, with the focus staying in it): a row, a page, or an end.
+ *
+ * @param key the key
+ * @returns true if the selection moved, false for a key that moves nothing or a list with no rows
+ */
+function moveSelection(key: string): boolean {
+  const target = movedRow(key, selectedAt.value, rows.value.length, pageNow())
+  selectAt(target)
+
+  return target >= 0
+}
+
+/**
  * Whether a key press is the key alone (Ctrl, Alt and Meta with a key are other shortcuts).
  *
  * @param event the key press
@@ -233,10 +253,8 @@ function onKey(event: KeyboardEvent): void {
 
     return
   }
-  const target = movedRow(event.key, selectedAt.value, rows.value.length, pageNow())
-  if (target >= 0) {
+  if (moveSelection(event.key)) {
     event.preventDefault()
-    selectAt(target)
   }
 }
 
@@ -279,8 +297,10 @@ function onScroll(): void {
 }
 
 let observer: ResizeObserver | undefined
+let forgetNav: (() => void) | undefined
 onMounted(() => {
   measure()
+  forgetNav = registerListNav(moveSelection)
 
   if (scroller.value && typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(measure)
@@ -290,6 +310,7 @@ onMounted(() => {
 // A screen that was kept alive comes back with its scroll box scrolled to wherever the browser put it.
 onActivated(measure)
 onBeforeUnmount(() => {
+  forgetNav?.()
   observer?.disconnect()
   cancelAnimationFrame(frame)
 })

@@ -221,6 +221,68 @@ it('hints the shortcut of the search, and gives the focus to the list on Enter i
   expect(document.activeElement?.id).toBe('param-list')
 })
 
+it('moves the selected row from the search with Up, Down, Page Up and Page Down; the focus stays in it', async () => {
+  const { wrapper, handle } = list()
+  const search = onPage(ParamFilter).get('#filter');
+  (search.element as HTMLInputElement).focus()
+  const selected = () => handle.fields.selected.value
+  const inSearch = async (key: string) => {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+    search.element.dispatchEvent(event)
+    await flushPromises()
+
+    return event.defaultPrevented
+  }
+
+  expect(await inSearch('ArrowDown')).toBe(true)
+  expect(selected()).toBe('ARMING_CHECK')
+  expect(await inSearch('ArrowDown')).toBe(true)
+  expect(selected()).toBe('BATT_CAPACITY')
+  // A page is five rows in the box of this test.
+  expect(await inSearch('PageDown')).toBe(true)
+  expect(selected()).toBe('LOIT_SPEED')
+  expect(await inSearch('ArrowUp')).toBe(true)
+  expect(await inSearch('PageUp')).toBe(true)
+  expect(selected()).toBe('ARMING_CHECK')
+  expect(document.activeElement).toBe(search.element)
+  // The selected row is shown, and Home and End are left to the caret.
+  expect(wrapper.get('tr.selected').attributes('data-id')).toBe('ARMING_CHECK')
+  expect(await inSearch('Home')).toBe(false)
+  expect(await inSearch('End')).toBe(false)
+})
+
+it('says politely which parameter the selection is on, and where in the list, when it moves', async () => {
+  const { wrapper, handle } = list()
+  const status = wrapper.get('#selection-status')
+
+  expect(status.attributes('role')).toBe('status')
+  expect(status.text()).toBe('')
+  handle.parameters.select('BATT_LOW_VOLT')
+  await wrapper.vm.$nextTick()
+
+  expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
+  feed(handle, { filter: 'batt' })
+  await wrapper.vm.$nextTick()
+  expect(status.text()).toBe('BATT_LOW_VOLT, 2 of 2')
+})
+
+it('leaves the keys of the search alone with a modifier, in an input method\'s composition, and with no rows', () => {
+  const { handle } = list()
+  const search = onPage(ParamFilter).get('#filter')
+  const taken = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true, ...init })
+    search.element.dispatchEvent(event)
+
+    return event.defaultPrevented
+  }
+
+  expect([taken({ shiftKey: true }), taken({ ctrlKey: true }), taken({ isComposing: true })]).toEqual([false, false, false])
+  expect(handle.fields.selected.value).toBeNull()
+
+  feed(handle, { filter: 'zzz' })
+  expect(taken({})).toBe(false)
+})
+
 /**
  * The editor with a vehicle connected and RTL_ALT selected, and the list beside it.
  *

@@ -93,6 +93,19 @@ describe('the toasts that stay longer', () => {
 
     expect(shown(toasts)).toEqual(['stuck'])
   })
+})
+
+describe('the toasts that are asked to stay as long as an error', () => {
+  it('stay as long as an error does when they are asked to, though they are not errors', () => {
+    const { toasts, clock } = queue()
+    toasts.push({ severity: 'warning', text: 'read me', long: true })
+
+    clock.advance(SHOW_MS)
+    expect(shown(toasts)).toEqual(['read me'])
+    clock.advance(ERROR_SHOW_MS - SHOW_MS)
+
+    expect(shown(toasts)).toEqual([])
+  })
 
   it('can be dismissed', () => {
     const { toasts } = queue()
