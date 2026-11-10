@@ -30,6 +30,16 @@ it('keeps what was loaded when a later file is not metadata', () => {
   expect(metadata.metadata.value.size).toBe(1)
 })
 
+it('keeps what was loaded when a later file has no parameters', () => {
+  const metadata = useMetadata({ client: createBackendClient(mockBackend()) })
+  metadata.load(FILE)
+
+  metadata.load('{"json":{"version":0}}')
+
+  expect(metadata.error.value).toBe('Can\'t load the metadata: it describes no parameters.')
+  expect(metadata.metadata.value.size).toBe(1)
+})
+
 it('opens the file the backend\'s dialog gives, and loads it', async () => {
   const client = createBackendClient(mockBackend())
   await client.call('files.save', { name: 'metadata.json', text: FILE })

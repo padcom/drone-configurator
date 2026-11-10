@@ -67,7 +67,11 @@ describe('ArduPilot definition files (apm.pdef.json)', () => {
     const only = { json: { version: 0 }, G: { A: { Description: 'Text only' }, B: 'not an object' } }
 
     expect(parseMetadata(JSON.stringify(only))).toEqual(new Map([['A', { description: 'Text only' }]]))
-    expect(parseMetadata('{"json":{"version":0}}')).toEqual(new Map())
+  })
+
+  it('say so when they have no parameters, rather than loading nothing', () => {
+    expect(parseMetadata('{"json":{"version":0}}')).toBe('it describes no parameters')
+    expect(parseMetadata(file({}))).toBe('it describes no parameters')
   })
 })
 

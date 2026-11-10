@@ -40,7 +40,13 @@ it('says for how many of the vehicle\'s parameters there are descriptions, and w
   feed(handle, { metadata: new Map([['Y', { description: 'y' }]]) })
   await wrapper.vm.$nextTick()
 
-  expect(wrapper.get('#metadata-status .error').text()).toMatch(/^Loaded descriptions for 0 of 2 parameters: none of the 1/u)
+  expect(wrapper.get('#metadata-status .error').text()).toMatch(/^0 of 2 parameters matched: none of the 1/u)
+
+  feed(handle, { metadata: new Map([['RTL_ALT', { units: 'cm' }], ['X', { description: 'x' }]]) })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('#metadata-status').text()).toBe('2 of 2 parameters matched, 1 have a description')
+  expect(wrapper.get('#metadata-status').attributes('role')).toBe('status')
 })
 
 it('shows why a file could not be loaded, as text', async () => {

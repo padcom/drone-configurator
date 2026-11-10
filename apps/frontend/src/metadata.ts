@@ -190,6 +190,16 @@ function fromArduPilot(file: Raw): Metadata {
 }
 
 /**
+ * Metadata that has something in it.
+ *
+ * @param metadata what a file gave
+ * @returns it, or why there is nothing to load (so that an empty file does not replace what is loaded)
+ */
+function nonEmpty(metadata: Metadata): Metadata | string {
+  return metadata.size > 0 ? metadata : 'it describes no parameters'
+}
+
+/**
  * Reads a metadata file.
  *
  * @param text the file's text
@@ -207,7 +217,7 @@ export function parseMetadata(text: string): Metadata | string {
   const d = objectOf(data)
   // ArduPilot's own file starts with `"json": { "version": … }` (the real one has a number, a copy may not).
   if (d && objectOf(d.json) !== undefined && d.format === undefined) {
-    return fromArduPilot(d)
+    return nonEmpty(fromArduPilot(d))
   }
   if (d?.format !== METADATA_FORMAT) {
     return 'not a parameter metadata file: expected ArduPilot\'s apm.pdef.json, or our own format'
@@ -217,7 +227,7 @@ export function parseMetadata(text: string): Metadata | string {
   }
   const params = objectOf(d.params)
 
-  return params ? fromOwn(params) : 'it has no params'
+  return params ? nonEmpty(fromOwn(params)) : 'it has no params'
 }
 
 /**

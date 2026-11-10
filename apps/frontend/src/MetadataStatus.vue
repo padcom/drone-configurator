@@ -1,5 +1,5 @@
 <template>
-  <p id="metadata-status" class="muted">
+  <p id="metadata-status" class="muted" role="status">
     <span v-if="fields.metadataError.value" class="error">{{ fields.metadataError.value }}</span>
     <span v-else :class="{ error: none }">{{ text }}</span>
   </p>
@@ -13,8 +13,16 @@ import { useConfigurator } from './useConfigurator'
 
 const { t } = useI18n()
 const { fields } = useConfigurator()
-const hasDescription = (id: string): boolean => fields.metadata.value.get(id)?.description !== undefined
-const described = computed(() => fields.params.value.filter(param => hasDescription(param.id)).length)
-const none = computed(() => fields.metadata.value.size > 0 && fields.params.value.length > 0 && described.value === 0)
-const text = computed(() => metadataText(described.value, fields.params.value.length, fields.metadata.value.size, t))
+const counts = computed(() => {
+  const matches = fields.params.value.map(param => fields.metadata.value.get(param.id)).filter(meta => meta !== undefined)
+
+  return {
+    matched: matches.length,
+    described: matches.filter(meta => meta.description !== undefined).length,
+    total: fields.params.value.length,
+    known: fields.metadata.value.size,
+  }
+})
+const none = computed(() => counts.value.known > 0 && counts.value.total > 0 && counts.value.matched === 0)
+const text = computed(() => metadataText(counts.value, t))
 </script>
