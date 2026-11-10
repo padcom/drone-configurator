@@ -154,6 +154,56 @@ it('chooses a new value from the names when the metadata has them, in the same f
   expect(editDraft).toHaveBeenLastCalledWith('3000')
 })
 
+it('names the field of names by a label beside it, so that its open list is not part of the name', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  feed(handle, { metadata: new Map([['RTL_ALT', { values: { 0: 'Disabled', 1500: 'Default' } }]]), draft: '1500' })
+  await wrapper.vm.$nextTick()
+
+  await wrapper.get('#draft').trigger('focus')
+  const label = wrapper.get('label[for="draft"]')
+
+  expect(label.text()).toBe('New value')
+  expect(label.find('[role="listbox"]').exists()).toBe(false)
+  expect(wrapper.find('[role="listbox"]').exists()).toBe(true)
+  expect(wrapper.get('#draft').attributes('aria-label')).toBeUndefined()
+})
+
+it('shows the current value in the field of names when the draft is not a number', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+
+  feed(handle, { metadata: new Map([['RTL_ALT', { values: { 1500: 'Default' } }]]), draft: 'abc' })
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get<HTMLInputElement>('#draft').element.value).toBe('Default')
+})
+
+it('has a polite and an assertive region for the outcome of a write, there from the start and empty', async () => {
+  const { wrapper } = await editorWithSpies()
+
+  expect(wrapper.get('.notice[role="status"]').text()).toBe('')
+  expect(wrapper.get('.notice[role="alert"]').text()).toBe('')
+})
+
+it('says a verified write in the polite region, and one that is not confirmed or was changed in the assertive one', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  const polite = () => wrapper.get('.notice[role="status"]').text()
+  const assertive = () => wrapper.get('.notice[role="alert"]').text()
+
+  feed(handle, { lastWrite: { kind: 'verified', id: 'RTL_ALT', value: 1600 } })
+  await wrapper.vm.$nextTick()
+  expect([polite(), assertive()]).toEqual(['Written and read back: 1600.', ''])
+
+  feed(handle, { lastWrite: { kind: 'changed', id: 'RTL_ALT', asked: 1600, reported: 1599 } })
+  await wrapper.vm.$nextTick()
+  expect(polite()).toBe('')
+  expect(assertive()).toContain('The vehicle reports 1599, not 1600')
+  expect(wrapper.get('.notice[role="alert"]').classes()).toContain('error')
+
+  feed(handle, { lastWrite: { kind: 'failed', id: 'RTL_ALT', message: 'TIMEOUT' } })
+  await wrapper.vm.$nextTick()
+  expect(assertive()).toContain('Not confirmed')
+})
+
 it('lists the other parameters of the same group as related, and selects one when it is pressed', async () => {
   const { wrapper, handle } = await editorWithSpies()
   const select = vi.spyOn(handle.parameters, 'select').mockImplementation(() => undefined)

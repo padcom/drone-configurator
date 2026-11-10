@@ -47,7 +47,12 @@
 .param-detail .error {
   margin: 0;
   font-size: var(--font-size-sm);
-  color: var(--color-warn);
+  color: var(--color-error);
+}
+
+/* The two regions that say the outcome of a write: always there, and empty (no height) until there is something to say. */
+.param-detail .notices {
+  display: grid;
 }
 
 .param-detail .notice {
@@ -62,12 +67,8 @@
   color: var(--color-ok);
 }
 
-.param-detail .notice.warn {
-  color: var(--color-warn);
-}
-
 .param-detail .notice.error {
-  color: var(--color-warn);
+  color: var(--color-error);
 }
 
 .param-edit {

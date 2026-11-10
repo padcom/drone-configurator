@@ -11,7 +11,7 @@ import type { Translate } from './telemetryCards'
 /** A line about the last write, and how it should look. */
 export interface WriteNotice {
   /** The CSS class of the line (empty: plain text). */
-  tone: 'ok' | 'warn' | 'error' | ''
+  tone: 'ok' | 'error' | ''
   /** What it says. */
   text: string
 }
@@ -152,7 +152,8 @@ function outcomeOf(write: WriteStatus, translate: Translate): WriteNotice {
     return { tone: 'ok', text: translate('editor.verified', { value: write.value }) }
   }
   if (write.kind === 'changed') {
-    return { tone: 'warn', text: translate('editor.changed', { reported: write.reported, asked: write.asked }) }
+    // The vehicle holds another value than was asked: a problem, not a caution.
+    return { tone: 'error', text: translate('editor.changed', { reported: write.reported, asked: write.asked }) }
   }
 
   return { tone: 'error', text: translate('editor.failed', { message: write.message }) }
@@ -184,6 +185,19 @@ export function writeNotice(writing: boolean, last: WriteStatus | null, id: stri
  */
 export function metadataText(count: number, translate: Translate): string {
   return count > 0 ? translate('params.metadata', { count }) : ''
+}
+
+/**
+ * A number from the text of a draft.
+ *
+ * @param text what is in the field
+ * @param fallback the number to use when the text is empty or not a number
+ * @returns the number
+ */
+export function numberOr(text: string, fallback: number): number {
+  const number = Number(text)
+
+  return text.trim() === '' || !Number.isFinite(number) ? fallback : number
 }
 
 /**

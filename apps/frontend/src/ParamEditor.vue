@@ -14,14 +14,29 @@
       <p v-if="details.range" class="facts">{{ details.range }}</p>
       <p v-if="details.values && !named" class="facts">{{ details.values }}</p>
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
-      <p v-if="notice" class="notice" :class="notice.tone">
-        <Icon v-if="notice.tone" :name="MARKS[notice.tone]" />
-        {{ notice.text }}
-      </p>
     </template>
+    <!-- The outcome of a write is said in two regions that are always in the page, so that a screen reader reads what is put in
+         them: a polite one for "writing" and a verified write, an assertive one for a write that is not confirmed or that the
+         vehicle changed. -->
+    <div class="notices">
+      <p class="notice" role="status" :class="polite?.tone">
+        <template v-if="polite">
+          <Icon v-if="polite.tone" :name="MARKS[polite.tone]" />
+          {{ polite.text }}
+        </template>
+      </p>
+      <p class="notice" role="alert" :class="assertive?.tone">
+        <template v-if="assertive">
+          <Icon :name="MARKS.error" />
+          {{ assertive.text }}
+        </template>
+      </p>
+    </div>
   </div>
   <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="parameters.write()">
-    <label class="field">{{ t('editor.newValue') }}
+    <!-- The label is beside the field, not around it: a field of names holds a list of buttons, which would become its name. -->
+    <div class="field">
+      <label for="draft">{{ t('editor.newValue') }}</label>
       <!-- A value with names is chosen from them (any number is still accepted); else a number is typed. -->
       <EnumField v-if="named" v-model="draftNumber" input-id="draft" :options="named" :label="t('editor.newValue')" />
       <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
@@ -29,7 +44,6 @@
         v-else
         id="draft"
         :model-value="fields.draft.value"
-        :aria-label="t('editor.newValue')"
         :invalid="Boolean(fields.draftError.value)"
         :aria-describedby="fields.draftError.value ? 'draft-error' : undefined"
         mono
@@ -37,7 +51,7 @@
         autocomplete="off"
         @update:model-value="parameters.editDraft($event)"
       />
-    </label>
+    </div>
     <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
   </form>
   <section v-if="related.length > 0" class="related" :aria-label="t('editor.related')">
@@ -57,7 +71,7 @@ import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import SectionLabel from './kit/SectionLabel.vue'
 import TextInput from './kit/TextInput.vue'
-import { canWrite, detailsOf, relatedTo, valueOptions, writeNotice } from './paramEditor'
+import { canWrite, detailsOf, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
 // The detail of the selected parameter, as the design has it: its name and what it is for, its value in large figures with the
@@ -66,7 +80,7 @@ import { useConfigurator } from './useConfigurator'
 // vehicle and is only called done when the vehicle reads the new value back.
 const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
-const MARKS = { ok: 'check', warn: 'warning', error: 'close' } as const
+const MARKS = { ok: 'check', error: 'close' } as const
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const meta = computed(() => param.value ? fields.metadata.value.get(param.value.id) : undefined)
 const connected = computed(() => fields.connection.value.state === 'connected')
@@ -81,7 +95,7 @@ const details = computed(() => detailsOf(meta.value, param.value?.value ?? 0, t)
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The field of names holds a number; the draft is the text of it (what the vehicle will be asked, once it is valid).
 const draftNumber = computed({
-  get: () => Number(fields.draft.value || param.value?.value || 0),
+  get: () => numberOr(fields.draft.value, param.value?.value ?? 0),
   set: (value: number) => parameters.editDraft(String(value)),
 })
 const related = computed(() => param.value ? relatedTo(fields.params.value, param.value.id) : [])
@@ -90,4 +104,8 @@ const notice = computed(() => {
 
   return param.value ? writeNotice(writing.value, lastWrite.value, param.value.id, t) : null
 })
+// A write that is not confirmed, or that the vehicle changed, is said at once (an alert); the rest politely.
+const urgent = computed(() => notice.value?.tone === 'error')
+const polite = computed(() => urgent.value ? null : notice.value)
+const assertive = computed(() => urgent.value ? notice.value : null)
 </script>

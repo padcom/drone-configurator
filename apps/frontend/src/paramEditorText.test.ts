@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { canWrite, detailsOf, metadataText, relatedTo, valueOptions, writeNotice } from './paramEditor'
+import { canWrite, detailsOf, metadataText, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
 import { translate } from './testing'
 import { PARAMS, VEHICLE } from './fixtures'
 
@@ -10,7 +10,7 @@ it('describes each write outcome', () => {
   expect(writeNotice(false, { kind: 'verified', id: param.id, value: 2000 }, param.id, translate))
     .toEqual({ tone: 'ok', text: 'Written and read back: 2000.' })
   expect(writeNotice(false, { kind: 'changed', id: param.id, asked: 2000, reported: 1999 }, param.id, translate))
-    .toEqual({ tone: 'warn', text: 'The vehicle reports 1999, not 2000: it changed or refused the value.' })
+    .toEqual({ tone: 'error', text: 'The vehicle reports 1999, not 2000: it changed or refused the value.' })
   expect(writeNotice(false, { kind: 'failed', id: param.id, message: 'TIMEOUT: no reply' }, param.id, translate)).toEqual({
     tone: 'error',
     text: 'Not confirmed: TIMEOUT: no reply. The value on the vehicle is unknown; download again to see it.',
@@ -49,6 +49,11 @@ it('adds what the metadata knows: unit, named value, range, allowed values', () 
 it('says how many parameters the metadata describes, or nothing', () => {
   expect(metadataText(3, translate)).toBe('Metadata for 3 parameters')
   expect(metadataText(0, translate)).toBe('')
+})
+
+it('takes a number from the text of a draft, and the fallback for text that is not one', () => {
+  expect([numberOr('1600', 5), numberOr('2.5', 5), numberOr('', 5), numberOr('  ', 5), numberOr('abc', 5)])
+    .toEqual([1600, 2.5, 5, 5, 5])
 })
 
 it('turns the named values of the metadata into options, by number, and none without them', () => {
