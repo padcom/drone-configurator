@@ -16,6 +16,7 @@
       :aria-controls="open ? listId : undefined"
       :aria-activedescendant="open && active >= 0 ? `${listId}-${active}` : undefined"
       :value="draft"
+      :title="t('bits.help')"
       @focus="onFocus"
       @click="open = true"
       @input="onInput"
@@ -63,7 +64,7 @@
 // or a click away; never in the middle of a series of toggles. Escape closes the list and keeps the value as it is.
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { type BitOption, hexOf, isSet, namesLine, setOptions, unknownBits, withBit } from './bitmask'
+import { type BitOption, fitsType, hexOf, isSet, namesLine, setOptions, unknownBits, withBit } from './bitmask'
 import { moved } from './enumField'
 import Icon from './kit/Icon.vue'
 import { rowsPerPage } from './kit/menuKeys'
@@ -143,6 +144,12 @@ function toggle(index: number): void {
   if (option === undefined) {
     return
   }
+  // A number the type cannot hold is left as it is (the screen says why it is wrong): a toggle would fold it into range.
+  if (!fitsType(props.value, props.type)) {
+    announced.value = t('bits.outOfRange')
+
+    return
+  }
   const on = !isSet(props.value, option.bit, props.type)
   emit('edit', String(withBit(props.value, option.bit, on, props.type)))
   active.value = index
@@ -214,14 +221,15 @@ function ends(event: KeyboardEvent): void {
 }
 
 /**
- * Space toggles the highlighted row; with none highlighted it does nothing (a number has no spaces).
+ * Space toggles the highlighted row; with none highlighted it does nothing (a number has no spaces). A key held down repeats,
+ * and a bit would flicker on and off: only the first press toggles.
  *
  * @param event the key event
  */
 function space(event: KeyboardEvent): void {
   event.preventDefault()
 
-  if (open.value) {
+  if (open.value && !event.repeat) {
     toggle(active.value)
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { bitOptions, bitsOf, hexOf, isSet, namesLine, setOptions, unknownBits, valueOfBits, widthOf, withBit } from './bitmask'
+import { bitOptions, bitsOf, fitsType, hexOf, isSet, namesLine } from './bitmask'
+import { setOptions, unknownBits, valueOfBits, widthOf, withBit } from './bitmask'
 
 const NAMES = { 0: 'All', 1: 'Barometer', 2: 'Compass', 3: 'GPS lock', 31: 'Top' }
 
@@ -90,6 +91,19 @@ describe('the summary of a value', () => {
 
   it('is cut where there is no room, with an ellipsis', () => {
     expect(namesLine(setOptions(0b1111, named, 'UINT32'), 2)).toBe('All, Barometer, …')
+  })
+})
+
+describe('what a type can hold', () => {
+  it('is a whole number within its range, signed or not', () => {
+    const fits = (type: string, ...values: number[]) => values.map(value => fitsType(value, type))
+
+    expect(fits('UINT8', 255, 256, -1, 1.5)).toEqual([true, false, false, false])
+    expect(fits('INT8', -128, 127, 128, -129)).toEqual([true, true, false, false])
+    expect(fits('UINT32', 4294967295, 4294967296)).toEqual([true, false])
+    expect(fitsType(-2147483648, 'INT32')).toBe(true)
+    expect(fitsType(4294967295, 'INT32')).toBe(false)
+    expect(fitsType(Number.NaN, 'INT32')).toBe(false)
   })
 })
 
