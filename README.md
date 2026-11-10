@@ -6,7 +6,7 @@ A MAVLink 2 configuration dashboard built with [Pico Desktop](https://github.com
 
 It's the reference application of the Pico Desktop plan (§14). It's independent of the framework and not required for its release.
 
-Status: **an application that connects to a vehicle, shows its telemetry, and reads and writes its parameters.** It has a navigation of seven screens, of which two exist (Flight data, with the telemetry cards, and Parameters); Plan, Setup, Tune, Logs and Simulation say they are not available yet. A status bar shows the link, the vehicle, the mode and the armed state on every screen. The interface has one theme, and it is dark. There is no map and no flight or setup screens yet.
+Status: **an application that connects to a vehicle, shows its telemetry, and reads and writes its parameters.** It has a rail of seven screens, of which three exist (Flight data, with the display, the cards and the messages; Parameters; and Settings, with the language); Plan, Setup, Tune and Logs say they are not available yet. A top bar shows the vehicle and the link, and the mode, state, battery and GPS, on every screen, and the Connect dialog opens from it. The interface has one theme, and it is dark. There is no map and no setup screens yet.
 - Connect to the built-in simulator, over UDP or TCP, or over a serial port: USB or UART, from the backend's port list, at the baud rate you choose. See the vehicle and its heartbeat, mode, armed state, battery, attitude, and (when the vehicle sends them) its position, GPS fix and speed.
 - Download the parameter list. An incomplete download says which indexes are missing.
 - Filter the list, and see a parameter's typed value.

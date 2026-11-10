@@ -4,7 +4,8 @@
   },
   "shell": {
     "navigation": "Screens",
-    "notAvailable": "{screen} is not available yet."
+    "notAvailable": "{screen} is not available yet.",
+    "notAvailableHelp": "It comes in a later version. Fly and Parameters work now."
   },
   "connect": {
     "title": "Connect to a vehicle",
@@ -40,7 +41,6 @@
     "tune": "Tune",
     "parameters": "Parameters",
     "logs": "Logs",
-    "simulation": "Simulation",
     "settings": "Settings",
     "gallery": "Gallery"
   },
@@ -230,7 +230,10 @@
     "en": "English"
   },
   "settings": {
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "title": "Settings",
+    "languageHelp": "The language of the interface. English is the only one there is for now.",
+    "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "connection": {
     "state": {

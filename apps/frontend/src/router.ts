@@ -1,7 +1,7 @@
 // The router. The host serves one document, so the screens are told apart by the part of the URL after the `#`
 // (no server routing).
 import { type Router, type RouterHistory, createRouter, createWebHashHistory } from 'vue-router'
-import { HOME, SCREENS } from './screens'
+import { HOME, MOVED, SCREENS } from './screens'
 
 /**
  * A router over the screens: the first screen at `/` and for any path that is none of them. A screen that was shown
@@ -23,6 +23,7 @@ export function createAppRouter(history: RouterHistory = createWebHashHistory(),
         component: screen.load,
         meta: { titleKey: screen.titleKey },
       })),
+      ...Object.entries(MOVED).map(([path, redirect]) => ({ path, redirect })),
       { path: '/:rest(.*)*', redirect: HOME },
     ],
     // A screen shown for the first time starts at the top.
