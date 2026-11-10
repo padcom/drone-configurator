@@ -109,7 +109,7 @@ describe('the guard on colours', () => {
 })
 
 /** The stylesheets of the kit's controls: every one is made of tokens. */
-const STYLESHEETS = ['kit.css', 'panels.css', 'dialog.css', 'surfaces.css', 'gallery.css'] as const
+const STYLESHEETS = ['kit.css', 'panels.css', 'dialog.css', 'surfaces.css', 'forms.css', 'gallery.css'] as const
 
 /** Custom properties that a component sets itself, not tokens: SplitPane.vue puts the first pane's size in `--split`. */
 const LOCAL = new Set(['--split', '--hold-ms'])

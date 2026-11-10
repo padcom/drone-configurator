@@ -1,0 +1,186 @@
+/*
+ * How the enum field (EnumField) and the panel form (PanelForm) look: only the tokens (tokens.css).
+ */
+
+/* EnumField: a field that shows a name with its number at the right, over a list. */
+.enum-field {
+  position: relative;
+  width: 100%;
+}
+
+.enum-field .enum-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding-right: 96px;
+  font-weight: 500;
+}
+
+.enum-field .enum-input.named {
+  padding-right: 72px;
+}
+
+.enum-field .enum-input.open {
+  border-color: var(--color-accent);
+}
+
+.enum-field .badge {
+  position: absolute;
+  top: 50%;
+  right: 34px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.enum-field .chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.enum-field .listbox {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 30;
+  max-height: 260px;
+  padding: var(--space-1);
+  margin-top: var(--space-1);
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.enum-field .option {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.enum-field .option .num {
+  min-width: 36px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+  color: var(--color-text-muted);
+}
+
+.enum-field .option .name {
+  flex: 1;
+}
+
+.enum-field .option .mark {
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.enum-field .option:hover,
+.enum-field .option.active,
+.enum-field .option.custom {
+  background: var(--color-accent-soft);
+}
+
+.enum-field .none {
+  padding: var(--space-3) var(--space-2);
+  color: var(--color-text-muted);
+}
+
+/* PanelForm: rows one under the other. */
+.panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--color-text);
+}
+
+.panel-form .form-note {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.panel-form .form-warn {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  font-weight: 500;
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+  border-radius: var(--radius-md);
+}
+
+.panel-form .form-info {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panel-form .form-info .value,
+.panel-form .form-slider .value {
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.panel-form .form-info .value {
+  font-size: var(--font-size-value-sm);
+  text-align: right;
+}
+
+.panel-form .form-slider {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.panel-form .form-slider .line {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.panel-form .form-slider .value {
+  font-size: var(--font-size-value);
+}
+
+.panel-form .form-slider input {
+  min-height: 38px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.panel-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.panel-form .form-button {
+  align-self: flex-start;
+  min-height: 48px;
+  padding: 0 var(--space-5);
+  font-weight: 600;
+}
