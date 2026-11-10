@@ -19,12 +19,14 @@
            that a character is a `ch`: the browser does not measure the text of the rows to lay the table out. The last column
            is what is left (the value without metadata, the description with it). -->
       <colgroup>
+        <col class="col-star">
         <col class="col-name" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
         <col v-if="meaning" class="col-value" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
         <col>
       </colgroup>
       <thead>
         <tr aria-rowindex="1">
+          <th scope="col" class="star"><span class="visually-hidden">{{ t('params.favourites.column') }}</span></th>
           <th scope="col">{{ t('params.column.name') }}</th>
           <th scope="col" class="num">{{ t('params.column.value') }}</th>
           <th v-if="meaning" scope="col">{{ t('params.column.meaning') }}</th>
@@ -47,6 +49,19 @@
           :class="{ selected: row.param.id === fields.selected.value }"
           @click="onRowClick(row.param.id)"
         >
+          <!-- The star: not a stop of the Tab key (the list is one), and it does not select the row. The key `*` does the same
+               for the selected row. -->
+          <td class="star">
+            <button
+              type="button"
+              tabindex="-1"
+              :aria-pressed="favourites.set.value.has(row.param.id) ? 'true' : 'false'"
+              :aria-label="starLabel(row.param.id)"
+              @click.stop="star(row.param.id)"
+            >
+              <Icon name="star" />
+            </button>
+          </td>
           <th scope="row" class="name">
             <span class="prefix"><Marked :text="row.name.prefix" :tokens="tokens" /></span>
             <Marked :text="row.name.rest" :tokens="tokens" />
@@ -70,7 +85,11 @@
       </tbody>
     </table>
     <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t(emptyHelp)" />
-    <EmptyState v-else :title="t('params.noMatch.title')" :help="t('params.noMatch.help')">
+    <EmptyState
+      v-else
+      :title="t(onlyFavourites ? 'params.favourites.emptyTitle' : 'params.noMatch.title')"
+      :help="t(onlyFavourites ? 'params.favourites.emptyHelp' : 'params.noMatch.help')"
+    >
       <Button id="clear-search" @click="clear">{{ t('params.noMatch.clear') }}</Button>
     </EmptyState>
   </div>
@@ -101,10 +120,12 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
 import EmptyState from './kit/EmptyState.vue'
-import { effectiveGroup, splitName } from './paramGroups'
+import { FAVOURITES_GROUP, effectiveGroup, splitName } from './paramGroups'
 import { listStatusText, visibleParams } from './paramList'
 import { isBookkeeping } from './calibrationParams'
 import { clockText, initialIfChanged, resetTargets } from './initialValues'
+import Icon from './kit/Icon.vue'
+import { useFavourites } from './favourites'
 import { useToasts } from './toasts'
 import { registerListNav } from './paramListNav'
 import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './paramSearch'
@@ -125,9 +146,37 @@ const choice = useParamGroup()
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
 const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
+// The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has).
+const favourites = useFavourites()
+const onlyFavourites = computed(() => group.value === FAVOURITES_GROUP)
+
+/**
+ * What the star of a parameter is called: adds it, or removes it.
+ *
+ * @param id the parameter
+ * @returns the label for a screen reader
+ */
+function starLabel(id: string): string {
+  return t(favourites.set.value.has(id) ? 'params.favourites.unstar' : 'params.favourites.star', { id })
+}
+
+/**
+ * Stars a parameter, or takes its star away; says so when the list would not fit in the settings.
+ *
+ * @param id the parameter
+ */
+async function star(id: string): Promise<void> {
+  if (!await favourites.toggle(id)) {
+    useToasts().push({ severity: 'error', text: t('params.favourites.full'), long: true })
+  }
+}
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
 let searchIndex: SearchIndex | null = null
+// What the chosen group lists: its parameters, or the starred ones that the vehicle has.
+const inGroup = computed(() => onlyFavourites.value
+  ? params.value.filter(param => favourites.set.value.has(param.id))
+  : visibleParams(params.value, '', group.value))
 const tokens = computed(() => tokensOf(fields.filter.value))
 const hits = computed(() => {
   if (tokens.value.length === 0) {
@@ -143,10 +192,10 @@ const visible = computed(() => {
 
   return found && byId
     ? found.map(hit => byId.get(hit.id)).filter(param => param !== undefined)
-    : visibleParams(params.value, '', group.value)
+    : inGroup.value
 })
 const meaning = computed(() => fields.metadata.value.size > 0)
-const columns = computed(() => meaning.value ? 3 : 2)
+const columns = computed(() => meaning.value ? 4 : 3)
 // The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
 // search or the scroll), in characters; the header's own words are the least a column has.
 const widths = computed(() => ({
@@ -360,18 +409,37 @@ function moveSelection(key: string): boolean {
 const isPlain = (event: KeyboardEvent): boolean => !(event.altKey || event.ctrlKey || event.metaKey)
 
 /**
+ * The keys of the list that do something other than move: Enter goes to the Value field, and `*` stars the selected row (the
+ * star buttons are not stops of the Tab key, so the keyboard has this).
+ *
+ * @param event the key press
+ * @returns true if the key was one of them
+ */
+function actionKey(event: KeyboardEvent): boolean {
+  if (event.key === 'Enter') {
+    focusValue(event)
+
+    return true
+  }
+  const selected = fields.selected.value
+  if (event.key === '*' && selected !== null) {
+    event.preventDefault()
+    void star(selected)
+
+    return true
+  }
+
+  return false
+}
+
+/**
  * The keys of the list: Up and Down move the selection by a row, Page Up and Page Down by a page, Home and End to the first
  * and the last, and Enter goes to the Value field.
  *
  * @param event the key press
  */
 function onKey(event: KeyboardEvent): void {
-  if (!isPlain(event)) {
-    return
-  }
-  if (event.key === 'Enter') {
-    focusValue(event)
-
+  if (!isPlain(event) || actionKey(event)) {
     return
   }
   if (moveSelection(event.key)) {

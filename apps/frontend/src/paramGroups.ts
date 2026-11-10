@@ -6,6 +6,9 @@ import type { Param } from './generated/app'
 /** The group of the parameters whose names have no underscore. */
 export const OTHER = 'OTHER'
 
+/** The id of the group of favourites: not a name a vehicle can have (a parameter's name is letters, digits and underscores). */
+export const FAVOURITES_GROUP = '*favourites'
+
 /** One group of the list. */
 export interface Group {
   /** Its name: what comes before the first underscore. */
@@ -72,7 +75,7 @@ export function inGroup(id: string, group: string): boolean {
  * @returns the group to show
  */
 export function effectiveGroup(params: Param[], chosen: string): string {
-  return groupsOf(params).some(group => group.id === chosen) ? chosen : ''
+  return chosen === FAVOURITES_GROUP || groupsOf(params).some(group => group.id === chosen) ? chosen : ''
 }
 
 /**
