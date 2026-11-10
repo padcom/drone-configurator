@@ -53,7 +53,7 @@ tbody tr.selected { background: color-mix(in srgb, var(--accent) 18%, transparen
 .ok { color: var(--ok); }
 .warn { color: var(--warn); }
 .error { color: var(--error); }
-@media (width < 700px) { main { grid-template-columns: 1fr; } }
+@media (width < 700px) { .params-layout { grid-template-columns: 1fr; } }
 /* File pickers look like the buttons next to them. */
 label.button {
   font: 13.33px system-ui, sans-serif;
