@@ -123,17 +123,41 @@ it('keeps the chosen device when the ports are listed again', async () => {
   expect(connect).toHaveBeenLastCalledWith(expect.objectContaining({ device: 'b' }))
 })
 
-it('keeps what was connected to as the last connection', async () => {
-  const { wrapper, setUi } = await openDialog()
+it('keeps what was connected to as the last connection only once the link is up, not when Connect is pressed', async () => {
+  const { wrapper, setUi, feed } = await openDialog()
   await wrapper.get('#transport-tcp').trigger('click')
   await wrapper.get('#host').setValue('10.0.0.5')
   await wrapper.get('#port').setValue('5760')
 
   await wrapper.get('#connect').trigger('submit')
+  expect(setUi).not.toHaveBeenCalled()
+  feed({ connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await wrapper.vm.$nextTick()
 
   expect(setUi).toHaveBeenCalledWith('connect.last', JSON.stringify({
     transport: 'tcp', host: '10.0.0.5', port: '5760', device: '', baud: '115200',
   }))
+})
+
+it('keeps nothing when the attempt fails', async () => {
+  const { wrapper, setUi, feed } = await openDialog()
+  await wrapper.get('#transport-tcp').trigger('click')
+  await wrapper.get('#host').setValue('10.0.0.99')
+
+  await wrapper.get('#connect').trigger('submit')
+  feed({ error: 'no heartbeat from tcp 10.0.0.99:5760' })
+  await wrapper.vm.$nextTick()
+
+  expect(setUi).not.toHaveBeenCalled()
+})
+
+it('takes from the last connection the five fields and nothing else', async () => {
+  const last = '{"transport":"tcp","host":"h","port":"1","device":"","baud":"115200","__proto__":{"polluted":true},"extra":1}'
+  const { wrapper } = await openDialog(last)
+  await wrapper.get('#connect').trigger('submit')
+
+  expect(wrapper.get<HTMLInputElement>('#host').element.value).toBe('h')
+  expect(({} as Record<string, unknown>).polluted).toBeUndefined()
 })
 
 it('opens on the last connection that was made', async () => {
@@ -153,9 +177,27 @@ it('says why an attempt failed, and what to try next, in the words of the kind o
   feed({ error: 'no heartbeat from udp 127.0.0.1:14550' })
   await wrapper.vm.$nextTick()
 
+  // An alert: read out at once, although it came up with its words in it.
+  expect(wrapper.get('#connect-error').attributes('role')).toBe('alert')
   const text = wrapper.get('#connect-error').text()
   expect(text).toContain('no heartbeat from udp 127.0.0.1:14550')
   expect(text).toContain('Check that the vehicle or the simulator sends to this host and port')
+})
+
+it('does not show an old failure again when the dialog is opened later', async () => {
+  const { wrapper, feed } = await openDialog()
+  feed({ error: 'no heartbeat from udp 127.0.0.1:14550' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('#connect-error').exists()).toBe(true)
+
+  await wrapper.get('#connect-cancel').trigger('click')
+  useConnectDialog().show()
+  await wrapper.vm.$nextTick()
+  expect(wrapper.find('#connect-error').exists()).toBe(false)
+
+  feed({ error: 'another failure' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#connect-error').text()).toContain('another failure')
 })
 
 it('closes by itself when the link is up, and with Cancel', async () => {

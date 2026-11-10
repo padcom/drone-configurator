@@ -22,6 +22,7 @@
     <button
       id="open-connect"
       type="button"
+      aria-haspopup="dialog"
       class="vehicle"
       :class="vehicle.tone"
       :title="t('connect.open')"

@@ -33,7 +33,7 @@
         </label>
       </template>
     </form>
-    <Banner v-if="failure" id="connect-error" tone="error">
+    <Banner v-if="failure" id="connect-error" tone="error" urgent>
       {{ failure }} {{ t(`connect.next.${form.transport}`) }}
     </Banner>
     <p class="connect-note">{{ t('connect.last') }}</p>
@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type ConnectionForm, LAST_KEY, TRANSPORTS, deviceAmong, parseLast, requestFor } from './connectionForm'
 import type { SerialPort } from './generated/app'
@@ -90,20 +90,41 @@ const devices = computed(() => {
   return ports.length > 0 ? ports : [{ value: '', label: t('connection.noPorts') }]
 })
 
+// The error that was on screen when the dialog was opened: it is an old one, and is not shown again.
+const seenError = ref<string | null | undefined>(undefined)
 // Why the last attempt failed, while the link is not up and the dialog is where the user is trying again.
-const failure = computed(() => state.value === 'disconnected' ? (fields.error.value ?? '') : '')
+const failure = computed(() => {
+  const error = fields.error.value
 
-/** Asks the backend to connect to what the form says, and keeps it as the last connection. */
-function connect(): void {
-  void vehicle.connect(requestFor(form))
-  void settings.setUi(LAST_KEY, JSON.stringify(form))
+  return state.value === 'disconnected' && error !== seenError.value ? (error ?? '') : ''
+})
+
+/**
+ * The five fields of a form, and nothing else.
+ *
+ * @param from a form, or something read from the settings
+ * @returns a plain copy of the five fields
+ */
+function pick(from: ConnectionForm): ConnectionForm {
+  return { transport: from.transport, host: from.host, port: from.port, device: from.device, baud: from.baud }
 }
 
-// The dialog opens on the last connection that was made.
+// What Connect was last pressed with: it becomes the last connection only once the link is up.
+let attempted = ''
+
+/** Asks the backend to connect to what the form says. */
+function connect(): void {
+  attempted = JSON.stringify(pick(form))
+  void vehicle.connect(requestFor(form))
+}
+
+// The dialog opens on the last connection that was made, with no failure left over from before.
 watch(dialog.open, open => {
   const last = open ? parseLast(settings.uiValue(LAST_KEY)) : null
+  seenError.value = open ? fields.error.value : undefined
+
   if (last) {
-    Object.assign(form, last)
+    Object.assign(form, pick(last))
   }
 })
 
@@ -117,10 +138,16 @@ watch(fields.ports, ports => {
   form.device = deviceAmong(form.device, ports)
 }, { immediate: true })
 
-// With the link up there is nothing more to ask.
+// With the link up there is nothing more to ask, and what was connected to is kept as the last connection (a mistyped
+// address that never connected is not).
 watch(state, next => {
   if (next === 'connected') {
     dialog.hide()
+
+    if (attempted) {
+      void settings.setUi(LAST_KEY, attempted)
+      attempted = ''
+    }
   }
 })
 </script>
