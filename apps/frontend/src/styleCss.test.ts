@@ -25,6 +25,19 @@ it('lays the Parameters screen out in three columns that wrap, each scrolling on
   expect(params).toMatch(/\.param-groups,\s*\.params,\s*\.detail\s*\{[^}]*overflow-y:\s*auto/u)
 })
 
+it('sizes the name and the value to their text with metadata, the rest of the row to the description on one line', () => {
+  const selectors = String.raw`\.param-scroll table\.described th:first-child,\s*\.param-scroll table\.described \.num`
+  const column = new RegExp(String.raw`${selectors}\s*\{[^}]*width:\s*1%;[^}]*white-space:\s*nowrap;`, 'u')
+  const cut = String.raw`max-width:\s*0;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;`
+  const meaning = new RegExp(String.raw`\.param-scroll table\.described \.meaning\s*\{[^}]*${cut}`, 'u')
+
+  expect(params).toMatch(column)
+  expect(params).toMatch(meaning)
+  // The rows keep one height, and the table without metadata has no rule of its own.
+  expect(params).toMatch(/\.param-scroll tbody tr\s*\{[^}]*height:\s*44px;/u)
+  expect(params).not.toMatch(/table-layout/u)
+})
+
 it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })

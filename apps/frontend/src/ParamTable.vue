@@ -1,6 +1,6 @@
 <template>
   <div class="param-scroll">
-    <table v-if="visible.length > 0">
+    <table v-if="visible.length > 0" :class="{ described: meaning }">
       <thead>
         <tr>
           <th scope="col">{{ t('params.column.name') }}</th>
@@ -18,7 +18,7 @@
         >
           <th scope="row" class="name"><span class="prefix">{{ row.name.prefix }}</span>{{ row.name.rest }}</th>
           <td class="num">{{ row.param.value }}</td>
-          <td v-if="meaning" class="meaning">{{ row.meaning }}</td>
+          <td v-if="meaning" class="meaning" :title="row.meaning || undefined">{{ row.meaning }}</td>
         </tr>
       </tbody>
     </table>
