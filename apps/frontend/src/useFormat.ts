@@ -77,7 +77,8 @@ function timeFormat(locale: string): Intl.DateTimeFormat {
   if (known) {
     return known
   }
-  const made = new Intl.DateTimeFormat(locale, { timeStyle: 'medium' })
+  // 24-hour, as the design's message times are, whatever the language's habit.
+  const made = new Intl.DateTimeFormat(locale, { timeStyle: 'medium', hourCycle: 'h23' })
   timeFormats.set(locale, made)
 
   return made

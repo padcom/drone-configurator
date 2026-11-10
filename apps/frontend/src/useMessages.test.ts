@@ -91,6 +91,55 @@ it('tells a failsafe over the map until it is dismissed', async () => {
   expect(handle.messages.failsafe.value).toBeNull()
 })
 
+it('keeps the failsafe across a new session on the same link, and does not tell a dismissed one again', async () => {
+  const { handle, control } = await connected()
+  control.say?.(2, 'Battery failsafe: returning home')
+  await vi.waitFor(() => expect(handle.messages.failsafe.value).not.toBeNull())
+  const told = handle.messages.failsafe.value
+
+  handle.messages.start()
+  await vi.waitFor(() => expect(handle.messages.list.value.length).toBeGreaterThan(SCRIPTED_MESSAGES.length))
+  expect(handle.messages.failsafe.value).toBe(told)
+
+  handle.messages.dismissFailsafe()
+  handle.messages.start()
+  await vi.waitFor(() => expect(handle.messages.list.value.length).toBeGreaterThan(SCRIPTED_MESSAGES.length))
+  expect(handle.messages.failsafe.value).toBeNull()
+})
+
+it('tells a failsafe that was said a moment ago when the vehicle is connected (it replays it)', async () => {
+  const { handle, control } = await connected()
+  control.say?.(2, 'Radio failsafe: returning home')
+  await vi.waitFor(() => expect(handle.messages.failsafe.value).not.toBeNull())
+  handle.messages.stop()
+  expect(handle.messages.failsafe.value).toBeNull()
+
+  handle.messages.start()
+
+  await vi.waitFor(() => expect(handle.messages.failsafe.value?.text).toBe('Radio failsafe: returning home'))
+})
+
+it('does not take a pre-arm check that says failsafe for a failsafe', async () => {
+  const { handle, control } = await connected()
+
+  control.say?.(2, 'PreArm: Radio failsafe on')
+  await vi.waitFor(() => expect(handle.messages.list.value.at(-1)?.text).toBe('PreArm: Radio failsafe on'))
+
+  expect(handle.messages.failsafe.value).toBeNull()
+})
+
+it('drops the failsafe, and stops listening, when the vehicle is disconnected', async () => {
+  const { handle, control } = await connected()
+  control.say?.(2, 'Battery failsafe: returning home')
+  await vi.waitFor(() => expect(handle.messages.failsafe.value).not.toBeNull())
+
+  await handle.vehicle.disconnect()
+
+  await vi.waitFor(() => expect(handle.messages.failsafe.value).toBeNull())
+  control.say?.(4, 'GPS: low accuracy')
+  expect(toastTexts()).not.toContain('GPS: low accuracy')
+})
+
 it('replays the list again on a new session without making toasts of it', async () => {
   const { handle, control } = await connected()
   control.say?.(6, 'Armed')

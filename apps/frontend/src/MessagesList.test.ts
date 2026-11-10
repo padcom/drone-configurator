@@ -74,6 +74,32 @@ it('shows how many warnings are unread on the heading, and none once the pointer
   expect(wrapper.find('.unread').exists()).toBe(false)
 })
 
+it('keeps the unread count when the screen is opened: only the pointer or the focus on the list clears it', async () => {
+  const control: MockControl = {}
+  const handle = createConfigurator(mockBackend({ control }))
+  await handle.vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(handle.messages.list.value).toHaveLength(SCRIPTED_MESSAGES.length))
+  control.say?.(4, 'GPS: low accuracy')
+  await vi.waitFor(() => expect(handle.messages.unread.value).toBe(1))
+
+  mounted = mount(MessagesList, { ...withI18n, attachTo: document.body })
+  await flushPromises()
+  expect(mounted.get('.unread').text()).toBe('1 new')
+  await mounted.get('section').trigger('focusin')
+
+  expect(mounted.find('.unread').exists()).toBe(false)
+})
+
+it('writes the times in 24 hours', async () => {
+  const { wrapper, control } = await list(true)
+  control.say?.(6, 'Mission started')
+  await vi.waitFor(() => expect(wrapper.text()).toContain('Mission started'))
+
+  const hours = wrapper.findAll('.message time').map(time => time.text())
+
+  expect(hours.every(text => !/\b(?:AM|PM)\b/iu.test(text))).toBe(true)
+})
+
 it('shows the failsafe banner as an alert with its text, and takes it away with Dismiss', async () => {
   const { handle, control } = await list(true)
   const banner = mount(FailsafeBanner, { ...withI18n, attachTo: document.body })

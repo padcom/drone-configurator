@@ -2,7 +2,7 @@
 // (each a composable that talks to the backend through the client), the last failure, and the question the
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
-import { type ShallowRef, shallowRef } from 'vue'
+import { type ShallowRef, shallowRef, watch } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftProblem } from './draft'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
@@ -144,6 +144,12 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
   vehicle.onSession(connected => {
     if (connected) {
       messages.start()
+    }
+  })
+  // Disconnected (not just lost or being brought back): nobody is listening, and a failsafe is not the next vehicle's.
+  watch(vehicle.connection, ({ state }) => {
+    if (state === 'disconnected') {
+      messages.stop()
     }
   })
 

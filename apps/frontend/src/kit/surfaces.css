@@ -111,6 +111,17 @@
   color: inherit;
 }
 
+/* A button in an urgent banner takes the banner's own words and edge (dark on the fill), not the default's light words. */
+.kit-banner.urgent .actions .kit-button {
+  color: inherit;
+  background: transparent;
+  border-color: currentcolor;
+}
+
+.kit-banner.urgent .actions .kit-button:hover:not(:disabled) {
+  background: color-mix(in srgb, currentcolor 15%, transparent);
+}
+
 /* ProgressBar: 6 px, the fill grows from the left. */
 .kit-progress {
   height: 6px;

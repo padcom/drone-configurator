@@ -32,6 +32,16 @@ describe('an urgent banner', () => {
   })
 })
 
+describe('a button in an urgent banner', () => {
+  it('has the banner\'s own words and edge, which are made for the fill, not the default button\'s light words', () => {
+    const body = bodyOf('.kit-banner.urgent .actions .kit-button')
+
+    expect(body).toContain('color: inherit')
+    expect(body).toContain('border-color: currentcolor')
+    expect(body).toContain('background: transparent')
+  })
+})
+
 describe('a section label', () => {
   it('is 12 px, 600 and .09em, as the boards\' headings are, not the 11 px of a value\'s label', () => {
     const body = bodyOf('.kit-section-label')

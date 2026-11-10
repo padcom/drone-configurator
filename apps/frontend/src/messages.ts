@@ -53,7 +53,9 @@ export function toastSeverity(message: VehicleMessage): 'error' | 'warning' | un
  * @returns true for a failsafe
  */
 export function isFailsafe(message: VehicleMessage): boolean {
-  return message.severity <= CRITICAL && /failsafe/iu.test(message.text)
+  // "PreArm: Radio failsafe on" is a check that refuses to arm, said again and again on a vehicle on the bench: not one that
+  // has taken over.
+  return message.severity <= CRITICAL && /failsafe/iu.test(message.text) && !/^prearm:/iu.test(message.text)
 }
 
 /**

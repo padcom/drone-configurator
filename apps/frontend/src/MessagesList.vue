@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onMounted, useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from './kit/Icon.vue'
 import SectionLabel from './kit/SectionLabel.vue'
@@ -34,13 +34,11 @@ import { useFormat } from './useFormat'
 
 // What the vehicle has said (its STATUSTEXT), newest first, each with its time. A warning or worse also says so in a word
 // and a mark, so the severity is never colour alone. The count on the heading is how many warnings came since the list was
-// last looked at: opening the screen, or putting the pointer or the focus on the list, counts as looking.
+// last looked at: putting the pointer or the focus on the list counts as looking. Opening the screen does not: the list is
+// below the display and the cards, and the count is what says there is something to scroll to.
 const { t } = useI18n()
 const format = useFormat()
 const { messages } = useConfigurator()
 const uid = useId()
 const shown = computed(() => [...messages.list.value].reverse())
-
-onMounted(() => messages.markRead())
-onActivated(() => messages.markRead())
 </script>

@@ -35,6 +35,12 @@ describe('a failsafe', () => {
     expect(isFailsafe(say(0, 'Radio FAILSAFE'))).toBe(true)
   })
 
+  it('is not a pre-arm check that says failsafe, said at critical on a vehicle on the bench', () => {
+    expect(isFailsafe(say(2, 'PreArm: Radio failsafe on'))).toBe(false)
+    expect(isFailsafe(say(2, 'PreArm: Battery failsafe on'))).toBe(false)
+    expect(isFailsafe(say(2, 'Battery failsafe: returning home'))).toBe(true)
+  })
+
   it('is not a warning that says failsafe, nor a critical message that does not', () => {
     expect(isFailsafe(say(4, 'Failsafe is armed'))).toBe(false)
     expect(isFailsafe(say(2, 'Compass variance'))).toBe(false)
