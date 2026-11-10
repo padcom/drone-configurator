@@ -131,6 +131,22 @@ function startSettings(client: BackendClient): SettingsModel {
 }
 
 /**
+ * What the parameters forget when a session ends. The initial values are the vehicle's too: another one has its own, from its
+ * own first download. A download that waited for a write is for the session that ended: it is not made when nobody is connected
+ * (when the next vehicle comes up, its own download is the one that waits, and stays).
+ *
+ * @param parameters the parameters
+ * @param disconnected whether the link is ended (and not another vehicle connected)
+ */
+function sessionEnded(parameters: ParamsModel, disconnected: boolean): void {
+  parameters.clearInitial()
+
+  if (disconnected) {
+    parameters.cancelDeferred()
+  }
+}
+
+/**
  * The staged changes, written while a vehicle is connected.
  *
  * @param client the link to the backend
@@ -150,8 +166,7 @@ function stagedFor(
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {
       staged.reset()
-      // The initial values are the vehicle's too: another one has its own, from its own first download.
-      parameters.clearInitial()
+      sessionEnded(parameters, next.state === 'disconnected')
     }
   })
   // A download, or another ground station, may give a parameter the value that is queued for it: nothing is left to write then.
