@@ -32,6 +32,7 @@
       "colours": "Colours",
       "type": "Type and pattern",
       "truth": "Vehicle truth",
+      "forms": "Form and enum field",
       "feedback": "Toasts, menu and tooltip",
       "surfaces": "Surfaces",
       "buttons": "Buttons",
@@ -70,6 +71,21 @@
         "bad": "The vehicle reports 2500, not 3000",
         "more": "Another toast ({n})"
       }
+    },
+    "form": {
+      "head": "Failsafe",
+      "note": "What the vehicle does when the link is lost.",
+      "warn": "Test with the propellers off.",
+      "info": "Firmware",
+      "altitude": "Return altitude",
+      "battery": "Return on low battery",
+      "name": "Vehicle name",
+      "action": "Failsafe action",
+      "action0": "Report only",
+      "action1": "Return or land",
+      "action2": "Always land",
+      "save": "Save",
+      "unnamed": "A value that has no name"
     },
     "surface": {
       "label": "Battery",
@@ -220,6 +236,11 @@
     "dismiss": "Dismiss",
     "count": "×{count}",
     "waiting": "{count} more waiting"
+  },
+  "enum": {
+    "noName": "no name",
+    "useNumber": "Use this number, it has no name",
+    "noMatch": "No match. Type a number to use it."
   },
   "truth": {
     "never": "—",

@@ -109,7 +109,7 @@ describe('the guard on colours', () => {
 })
 
 /** The stylesheets of the kit's controls: every one is made of tokens. */
-const STYLESHEETS = ['kit.css', 'panels.css', 'dialog.css', 'surfaces.css', 'feedback.css', 'gallery.css'] as const
+const STYLESHEETS = ['kit.css', 'panels.css', 'dialog.css', 'surfaces.css', 'forms.css', 'feedback.css', 'gallery.css'] as const
 
 /** Custom properties that a component sets itself, not tokens: SplitPane.vue puts the first pane's size in `--split`. */
 const LOCAL = new Set(['--split', '--hold-ms'])
@@ -126,6 +126,13 @@ describe.each(STYLESHEETS)('%s', name => {
 
     expect(used.length).toBeGreaterThan(10)
     expect(used.filter(token => !defined.has(token) && !LOCAL.has(token ?? ''))).toEqual([])
+  })
+})
+
+describe('kit.css, the select', () => {
+  it('draws its chevron with its right edge 12 px from the border, as far as the text is on the left', () => {
+    expect(kit).toContain('background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%')
+    expect(kit).toContain('background-size: 5px 5px, 5px 5px')
   })
 })
 
