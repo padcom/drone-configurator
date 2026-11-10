@@ -146,5 +146,18 @@ it('has a badge with a tone, neutral unless it says otherwise', () => {
   expect(put(Badge, { props: { tone: 'ok' } }).classes()).toContain('ok')
   expect(put(Badge, { props: { tone: 'warn' } }).classes()).toContain('warn')
   expect(put(Badge, { props: { tone: 'error' } }).classes()).toContain('error')
+  expect(put(Badge, { props: { tone: 'info' } }).classes()).toContain('info')
   expect(put(Badge, { slots: { default: 'lost' } }).text()).toBe('lost')
+})
+
+it('has a button for the action on the vehicle in flight, beside the primary one and the outline', () => {
+  expect(put(Button, { props: { variant: 'flight' } }).classes()).toEqual(['kit-button', 'flight'])
+  expect(put(Button).classes()).toEqual(['kit-button'])
+  expect(put(Button, { props: { variant: 'primary' } }).classes()).toEqual(['kit-button', 'primary'])
+})
+
+it('has a text field for a value, in the mono face, and a large one for a value being edited', () => {
+  expect(put(TextInput).classes()).toEqual(['kit-input'])
+  expect(put(TextInput, { props: { mono: true } }).classes()).toContain('mono')
+  expect(put(TextInput, { props: { mono: true, large: true } }).classes()).toEqual(['kit-input', 'mono', 'large'])
 })
