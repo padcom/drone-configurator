@@ -58,8 +58,8 @@ class Messages implements MessagesModel {
   readonly unread = ref(0)
   readonly failsafe = shallowRef<VehicleMessage | null>(null)
   private readonly subscriptions: Subscription[] = []
-  /** The id of the failsafe that was dismissed: it, and anything older, is not told again (a replay brings it back). */
-  private dismissedId = 0
+  /** When the failsafe that was dismissed was sent (ms since 1970): it, and anything older, is not told again. */
+  private dismissedAt = 0
 
   /**
    * Makes the model.
@@ -91,7 +91,7 @@ class Messages implements MessagesModel {
   }
 
   dismissFailsafe(): void {
-    this.dismissedId = this.failsafe.value?.id ?? this.dismissedId
+    this.dismissedAt = this.failsafe.value ? Number(this.failsafe.value.time) : this.dismissedAt
     this.failsafe.value = null
   }
 
@@ -101,14 +101,16 @@ class Messages implements MessagesModel {
    * @param message a message that is a failsafe
    */
   private raise(message: VehicleMessage): void {
-    const shownId = this.failsafe.value?.id ?? 0
-    if (message.id > Math.max(this.dismissedId, shownId)) {
+    // By the time it was sent, not by its id: the ids start again at 1 when the backend restarts, the time never goes back.
+    const shownAt = this.failsafe.value ? Number(this.failsafe.value.time) : 0
+    if (Number(message.time) > Math.max(this.dismissedAt, shownAt)) {
       this.failsafe.value = message
     }
   }
 
   /**
-   * Whether a message is a failsafe that was said a moment ago, so that it is still on.
+   * Whether a message is a failsafe that was said a moment ago, so that it is still on. (The time of a message is when the
+   * backend received it, and it is compared with this window's clock: right only because both run on the same machine.)
    *
    * @param message the message
    * @returns true for a recent failsafe

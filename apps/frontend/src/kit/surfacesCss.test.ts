@@ -42,6 +42,12 @@ describe('a button in an urgent banner', () => {
   })
 })
 
+describe('the focus ring of a button in an urgent banner', () => {
+  it('is in the banner\'s dark words, not the accent, which is about 1.4:1 on amber', () => {
+    expect(bodyOf('.kit-banner.urgent .actions .kit-button:focus-visible')).toContain('outline-color: currentcolor')
+  })
+})
+
 describe('a section label', () => {
   it('is 12 px, 600 and .09em, as the boards\' headings are, not the 11 px of a value\'s label', () => {
     const body = bodyOf('.kit-section-label')

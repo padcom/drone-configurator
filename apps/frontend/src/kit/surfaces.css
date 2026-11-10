@@ -122,6 +122,11 @@
   background: color-mix(in srgb, currentcolor 15%, transparent);
 }
 
+/* The focus ring in the banner's dark words too: the cyan one is about 1.4:1 on amber. */
+.kit-banner.urgent .actions .kit-button:focus-visible {
+  outline-color: currentcolor;
+}
+
 /* ProgressBar: 6 px, the fill grows from the left. */
 .kit-progress {
   height: 6px;
