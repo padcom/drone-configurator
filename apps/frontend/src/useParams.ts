@@ -130,6 +130,18 @@ class Parameters implements ParamsModel {
     this.selected.value = param ? id : null
     this.draft.value = param ? String(param.value) : ''
     this.draftError.value = null
+    this.forgetOtherWrites(id)
+  }
+
+  /**
+   * How the last write went belongs to the parameter it was for: going to another one (and back) starts clean.
+   *
+   * @param id the parameter now selected
+   */
+  private forgetOtherWrites(id: string): void {
+    if (this.lastWrite.value?.id !== id) {
+      this.lastWrite.value = null
+    }
   }
 
   editDraft(text: string): void {

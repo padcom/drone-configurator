@@ -94,6 +94,10 @@ class Staged implements StagedModel {
   readonly changes = shallowRef<StagedChange[]>([])
   readonly results = shallowRef<StagedResult[]>([])
   readonly writing = shallowRef(false)
+  /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
+  private epoch = 0
+  /** Gives back the lock the run holds, while it holds it. */
+  private release: (() => void) | null = null
 
   /**
    * Makes the staged changes.
@@ -151,6 +155,11 @@ class Staged implements StagedModel {
   }
 
   reset(): void {
+    // A run that is under way is over: it writes no more, adds no late result, and gives the lock back at once.
+    this.epoch += 1
+    this.release?.()
+    this.release = null
+    this.writing.value = false
     this.changes.value = []
     this.results.value = []
   }
@@ -190,18 +199,44 @@ class Staged implements StagedModel {
    * Writes the changes one after the other, until one is not confirmed.
    *
    * @param changes the changes still to write
+   * @param epoch the run these belong to
    */
-  private async writeFrom(changes: StagedChange[]): Promise<void> {
+  private async writeFrom(changes: StagedChange[], epoch: number): Promise<void> {
     const [change, ...rest] = changes
-    if (!change) {
+    if (!this.stillStaged(change, epoch)) {
       return
     }
     const result = await this.writeOne(change)
+    if (this.record(result, epoch) && result.outcome === 'verified') {
+      await this.writeFrom(rest, epoch)
+    }
+  }
+
+  /**
+   * Whether a change is there and still in the list of this run (the changes were not forgotten meanwhile).
+   *
+   * @param change the next change, if there is one
+   * @param epoch the run
+   * @returns true if it is still to be written
+   */
+  private stillStaged(change: StagedChange | undefined, epoch: number): change is StagedChange {
+    return change !== undefined && epoch === this.epoch && this.changes.value.some(staged => staged.id === change.id)
+  }
+
+  /**
+   * Adds how a write went to the results, unless the run is over (the changes were forgotten while it was under way).
+   *
+   * @param result how the write went
+   * @param epoch the run
+   * @returns true if it was added
+   */
+  private record(result: StagedResult, epoch: number): boolean {
+    if (epoch !== this.epoch) {
+      return false
+    }
     this.results.value = [...this.results.value, result]
 
-    if (result.outcome === 'verified') {
-      await this.writeFrom(rest)
-    }
+    return true
   }
 
   /**
@@ -220,12 +255,25 @@ class Staged implements StagedModel {
     if (!release) {
       return
     }
+    this.release = release
+
     try {
-      if (await this.deps.confirm(questionFor(todo))) {
-        await this.writeConfirmed(todo)
-      }
+      await this.askAndWrite(todo, this.epoch)
     } finally {
       release()
+    }
+  }
+
+  /**
+   * Asks, and writes if the user says yes and the changes were not forgotten while the question was open.
+   *
+   * @param todo the changes not written yet
+   * @param epoch the run
+   */
+  private async askAndWrite(todo: StagedChange[], epoch: number): Promise<void> {
+    const yes = await this.deps.confirm(questionFor(todo))
+    if (yes && epoch === this.epoch) {
+      await this.writeConfirmed(todo, epoch)
     }
   }
 
@@ -233,15 +281,19 @@ class Staged implements StagedModel {
    * Writes the changes the user said yes to. What the vehicle already read back stays read back; the rest is tried again.
    *
    * @param todo the changes not written yet
+   * @param epoch the run
    */
-  private async writeConfirmed(todo: StagedChange[]): Promise<void> {
+  private async writeConfirmed(todo: StagedChange[], epoch: number): Promise<void> {
     this.writing.value = true
     this.results.value = this.results.value.filter(result => result.outcome === 'verified')
 
     try {
-      await this.writeFrom(todo)
+      await this.writeFrom(todo, epoch)
     } finally {
-      this.writing.value = false
+      // After a reset the run is over already, and `writing` may belong to a newer one.
+      if (epoch === this.epoch) {
+        this.writing.value = false
+      }
     }
   }
 }

@@ -311,6 +311,46 @@ describe('the session of the staged changes', () => {
   })
 })
 
+describe('a run that the session ends', () => {
+  it('writes no more, adds no late result, and gives the lock back at once', async () => {
+    const ender: { reset: () => void } = { reset: () => undefined }
+    const first = rig((_id, value) => {
+      ender.reset()
+
+      return value
+    })
+    ender.reset = () => first.staged.reset()
+    first.pick('RTL_ALT', '1600')
+    first.staged.stage()
+    first.pick('FENCE_RADIUS', '300')
+    first.staged.stage()
+
+    await first.staged.writeAll()
+
+    expect(first.call).toHaveBeenCalledTimes(1)
+    expect(first.staged.results.value).toEqual([])
+    expect(first.staged.changes.value).toEqual([])
+    expect(first.staged.writing.value).toBe(false)
+    expect(first.lock.busy.value).toBe(false)
+  })
+})
+
+describe('the lock', () => {
+  it('is given back only by the write that took it, and giving it back twice does not free another\'s', () => {
+    const lock = createWriteLock()
+    const first = lock.take()
+    first?.()
+    const second = lock.take()
+
+    first?.()
+
+    expect(lock.busy.value).toBe(true)
+    second?.()
+    expect(lock.busy.value).toBe(false)
+    expect(lock.take()).not.toBeNull()
+  })
+})
+
 describe('the question', () => {
   it('says one parameter in the singular', () => {
     expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).toBe('Write 1 parameter to the vehicle (RTL_ALT)?')

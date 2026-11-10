@@ -238,6 +238,27 @@ describe('Escape in a dialog', () => {
   })
 })
 
+describe('a field that is not valid', () => {
+  it('says so to a screen reader and points to the reason, together with the note for a number that has no name', () => {
+    mounted = mount(EnumField, {
+      ...withI18n,
+      props: { modelValue: 7, options: OPTIONS, label: 'Failsafe action', invalid: true, describedby: 'why' },
+      attachTo: document.body,
+    })
+    const input = mounted.get('input')
+
+    expect(input.attributes('aria-invalid')).toBe('true')
+    expect(input.attributes('aria-describedby')).toMatch(/^why .+-noname$/u)
+  })
+
+  it('has neither when it is valid', () => {
+    const input = field(1).get('input')
+
+    expect(input.attributes('aria-invalid')).toBeUndefined()
+    expect(input.attributes('aria-describedby')).toBeUndefined()
+  })
+})
+
 describe('the only option left', () => {
   it('is taken with Enter', async () => {
     const wrapper = field(0)

@@ -65,7 +65,7 @@ it('shows what the snapshot would change, and the warning for a different vehicl
 
 it('names each box by the parameter it applies, and says what is ticked, in a region that is always there', async () => {
   const { wrapper, handle } = await panelWithSpies()
-  const status = () => wrapper.get('.review-status')
+  const status = () => wrapper.get('.review-status[role="status"]')
 
   expect(status().attributes('role')).toBe('status')
   expect(status().text()).toBe('Tick the changes you want.')
@@ -121,8 +121,8 @@ it('says how each applied change went, and that the rest were not written when o
   await wrapper.vm.$nextTick()
 
   expect(wrapper.get('td.result.ok').text()).toBe('✓ Written and read back: 2000')
-  expect(wrapper.get('.review-status').text()).toBe('Stopped there: the rest weren\'t written.')
-  expect(wrapper.get('.review-status').classes()).toContain('warn')
+  expect(wrapper.get('.review-status[role="alert"]').text()).toBe('Stopped there: the rest weren\'t written.')
+  expect(wrapper.get('.review-status[role="status"]').text()).toBe('')
 })
 
 it('turns Write off while another write (the single one, the collected changes) holds the lock', async () => {

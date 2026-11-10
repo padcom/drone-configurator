@@ -80,25 +80,35 @@ it('opens the host\'s dialog for a click on Load in Pico Desktop, and leaves the
   const { wrapper, openSnapshotFile, openMetadataFile } = await toolbarWithSpies()
   window.picoDesktop = {} as never
 
-  const snapshotClick = new Event('click', { cancelable: true, bubbles: true })
-  wrapper.get('#load-button').element.dispatchEvent(snapshotClick)
-  const metadataClick = new Event('click', { cancelable: true, bubbles: true })
-  wrapper.get('#metadata-button').element.dispatchEvent(metadataClick)
+  const inputClick = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
+  await wrapper.get('#load-button').trigger('click')
+  await wrapper.get('#metadata-button').trigger('click')
 
   expect(openSnapshotFile).toHaveBeenCalledTimes(1)
   expect(openMetadataFile).toHaveBeenCalledTimes(1)
-  expect(snapshotClick.defaultPrevented).toBe(true)
-  expect(metadataClick.defaultPrevented).toBe(true)
+  expect(inputClick).not.toHaveBeenCalled()
 })
 
-it('lets the browser open its file input when there is no host', async () => {
-  const { wrapper, openSnapshotFile } = await toolbarWithSpies()
-  const click = new Event('click', { cancelable: true, bubbles: true })
+it('presses the file input for a button press when there is no host', async () => {
+  const { wrapper, openSnapshotFile, openMetadataFile } = await toolbarWithSpies()
+  const inputClick = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
 
-  wrapper.get('#load-button').element.dispatchEvent(click)
+  await wrapper.get('#load-button').trigger('click')
+  await wrapper.get('#metadata-button').trigger('click')
 
   expect(openSnapshotFile).not.toHaveBeenCalled()
-  expect(click.defaultPrevented).toBe(false)
+  expect(openMetadataFile).not.toHaveBeenCalled()
+  expect(inputClick).toHaveBeenCalledTimes(2)
+})
+
+it('has real buttons for the files, which a keyboard reaches, and the hidden inputs beside them', async () => {
+  const { wrapper } = await toolbarWithSpies()
+
+  for (const id of ['#save', '#load-button', '#metadata-button']) {
+    expect(wrapper.get(id).element.tagName, id).toBe('BUTTON')
+  }
+  expect(wrapper.get('#load').attributes('hidden')).toBeDefined()
+  expect(wrapper.find('label').exists()).toBe(false)
 })
 
 it('loads the file the browser\'s input gives, and nothing when none was chosen', async () => {

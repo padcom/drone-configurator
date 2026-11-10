@@ -168,6 +168,17 @@ it('names the field of names by a label beside it, so that its open list is not 
   expect(wrapper.get('#draft').attributes('aria-label')).toBeUndefined()
 })
 
+it('marks the field of names invalid and points it to the reason when the draft is not a value', async () => {
+  const { wrapper, handle } = await editorWithSpies()
+  feed(handle, { metadata: new Map([['RTL_ALT', { values: { 1500: 'Default' } }]]), draftError: 'a number, please' })
+  await wrapper.vm.$nextTick()
+
+  const field = wrapper.get('#draft')
+
+  expect(field.attributes('aria-invalid')).toBe('true')
+  expect(field.attributes('aria-describedby')).toContain('draft-error')
+})
+
 it('shows the current value in the field of names when the draft is not a number', async () => {
   const { wrapper, handle } = await editorWithSpies()
 
