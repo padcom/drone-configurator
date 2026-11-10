@@ -169,9 +169,14 @@
   margin-top: var(--space-5);
 }
 
+/* Many changes scroll in their own box, so that the Write button below them stays in view. */
 .staged-list {
+  max-height: 10rem;
   padding: 0;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
   list-style: none;
 }
 

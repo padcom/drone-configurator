@@ -61,13 +61,33 @@ describe('the description of the selected parameter', () => {
     expect(text.length).toBeGreaterThan(2000)
     expect(rows).toMatch(/Range\s*30 to 300000 cm/u)
     expect(rows).toMatch(/Restart\s*The vehicle must be restarted/u)
-    const box = await app.evaluate<{ scrolls: boolean, fits: boolean }>(`(() => {
+    const box = await app.evaluate<boolean>(`(() => {
       const body = document.querySelector('#param-description .body')
-      const height = body.getBoundingClientRect().height
 
-      return { scrolls: body.scrollHeight > body.clientHeight && getComputedStyle(body).overflowY === 'auto', fits: height < 300 }
+      return body.scrollHeight > body.clientHeight && getComputedStyle(body).overflowY === 'auto'
     })()`)
-    expect(box).toEqual({ scrolls: true, fits: true })
+    expect(box).toBe(true)
+  })
+})
+
+describe('the column of the detail', () => {
+  it.each([[1440, 900], [1440, 768]])('keeps Write in view at %i x %i, only the description scrolling', async (w, h) => {
+    await app.devtools('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false })
+    await app.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+    const measured = await app.evaluate<{ buttonBottom: number, columnScrolls: boolean, bodyScrolls: boolean }>(`(() => {
+      const column = document.querySelector('.detail')
+      const body = document.querySelector('#param-description .body')
+
+      return {
+        buttonBottom: document.querySelector('#write-staged').getBoundingClientRect().bottom,
+        columnScrolls: column.scrollHeight > column.clientHeight,
+        bodyScrolls: body.scrollHeight > body.clientHeight,
+      }
+    })()`)
+
+    expect(measured.buttonBottom).toBeLessThanOrEqual(h)
+    expect(measured.columnScrolls).toBe(false)
+    expect(measured.bodyScrolls).toBe(true)
   })
 })
 

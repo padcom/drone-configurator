@@ -54,6 +54,26 @@ it('gives the settings notice, which is always in the page, no box until it has 
   expect(style).not.toMatch(/#settings-notice\s*\{[^}]*(?:padding|height|background|border)/u)
 })
 
+it('makes the detail a column from 1000 px: the description fills the rest, the changes are pinned at the bottom', () => {
+  const wide = params.slice(params.indexOf('@media (width >= 1000px)'))
+
+  expect(wide).toMatch(/\.detail\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;\s*\}/u)
+  expect(wide).toMatch(/\.detail > \*\s*\{\s*flex:\s*none;/u)
+  expect(wide).toMatch(/\.detail > \.param-description\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*10rem;/u)
+  const body = /\.detail > \.param-description \.body\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;[^}]*max-height:\s*none;/u
+  expect(wide).toMatch(body)
+  expect(wide).toMatch(/\.detail > \.staged\s*\{\s*margin-top:\s*auto;/u)
+})
+
+it('keeps a height for the description below 1000 px, and the list of changes scrolls so that Write stays in view', () => {
+  const detail = sheet('paramDetail.css')
+  const stacked = params.slice(0, params.indexOf('@media (width >= 1000px)'))
+
+  expect(stacked).not.toMatch(/\.param-description/u)
+  expect(detail).toMatch(/\.param-description \.body\s*\{[^}]*max-height:\s*16rem;[^}]*overflow-y:\s*auto/u)
+  expect(detail).toMatch(/\.staged-list\s*\{[^}]*max-height:\s*10rem;[^}]*overflow-y:\s*auto/u)
+})
+
 it('has no rule for a bare main element: the one <main> is the frame\'s, and it is not a grid', () => {
   expect(style).not.toMatch(/(?:^|[\s,{}])main\s*[,{]/u)
   expect(style).not.toContain('.params-layout')
