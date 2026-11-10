@@ -89,6 +89,15 @@ describe('the link card', () => {
   it('says how long ago the heartbeat came', () => {
     expect(texts(cardsOf({ ...FULL, heartbeatAgeMs: 68 }), 'link')[0]).toBe('68 ms ago')
   })
+
+  it('does not show a frozen age as current while the vehicle is silent', () => {
+    const quiet = texts(cardsOf({ ...FULL, heartbeatAgeMs: 5200 }), 'link')
+    const back = texts(cardsOf(FULL, true), 'link')
+
+    expect(quiet).toEqual(['no heartbeat', 'last one 5,200 ms before it went quiet'])
+    expect(back[0]).toBe('no heartbeat')
+    expect(back.join(' ')).not.toMatch(/\d ms ago/u)
+  })
 })
 
 describe('the cards of a vehicle that has not said everything', () => {

@@ -216,6 +216,8 @@
     "hdop": "HDOP {hdop}",
     "heartbeat": "last heartbeat",
     "heartbeatAge": "{ms} ms ago",
+    "noHeartbeat": "no heartbeat",
+    "lastHeartbeat": "last one {ms} ms before it went quiet",
     "ekf": {
       "healthy": "Healthy",
       "degraded": "Degraded",

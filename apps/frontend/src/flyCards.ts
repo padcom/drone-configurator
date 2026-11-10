@@ -36,7 +36,7 @@ interface Reading {
 }
 
 /** Reads one card from the telemetry: undefined when the vehicle sent nothing for it. */
-type Reader = (now: Telemetry, t: Translate, f: Format) => Reading | undefined
+type Reader = (now: Telemetry, t: Translate, f: Format, silent: boolean) => Reading | undefined
 
 /** The names of MAVLink's GPS_FIX_TYPE values, in order. */
 const FIX_NAMES = ['nogps', 'nofix', 'fix2d', 'fix3d', 'dgps', 'rtkfloat', 'rtkfixed', 'static', 'ppp']
@@ -206,12 +206,16 @@ const vibrationReader: Reader = (now, t, f) => {
  * @param now the telemetry
  * @param t looks up a message
  * @param f formats numbers
- * @returns the age of the heartbeat
+ * @param silent whether the vehicle is not heard from (the age is then frozen at the cut, so it is not shown as current)
+ * @returns the age of the heartbeat; without a number while the vehicle is silent
  */
-const linkReader: Reader = (now, t, f) => ({
-  value: t('flyCards.heartbeatAge', { ms: f.number(now.heartbeatAgeMs) }),
-  help: t('flyCards.heartbeat'),
-})
+const linkReader: Reader = (now, t, f, silent) => {
+  const ms = f.number(now.heartbeatAgeMs)
+
+  return silent
+    ? { value: t('flyCards.noHeartbeat'), help: t('flyCards.lastHeartbeat', { ms }) }
+    : { value: t('flyCards.heartbeatAge', { ms }), help: t('flyCards.heartbeat') }
+}
 
 const READERS: [FlyCard['id'], Reader][] = [
   ['battery', batteryReader],
@@ -260,7 +264,7 @@ export function flyCards(now: Telemetry | null, reconnecting: boolean, t: Transl
   const silent = now !== null && (reconnecting || isStale(now.heartbeatAgeMs))
 
   return READERS.map(([id, read]) => {
-    const reading = now ? read(now, t, f) : undefined
+    const reading = now ? read(now, t, f, silent) : undefined
     const card: FlyCard = { id, label: t(`flyCards.label.${id}`), state: stateOf(reading, silent) }
 
     return reading ? { ...card, value: reading.value, help: reading.help, ageMs: reading.ageMs } : card
