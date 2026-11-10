@@ -10,9 +10,11 @@
       <main class="app-main" tabindex="-1">
         <!-- A screen that was shown stays alive while another is, so what is typed or selected in it is still there when
              the user comes back. -->
-        <RouterView v-slot="{ Component }">
+        <!-- Keyed by the screen: the screens that are not built share one component, and a heading that changes in a
+             component that stays is not announced, while a new one is found. -->
+        <RouterView v-slot="{ Component, route }">
           <KeepAlive>
-            <component :is="Component" />
+            <component :is="Component" :key="String(route.name)" />
           </KeepAlive>
         </RouterView>
       </main>

@@ -143,6 +143,28 @@ describe('the language an earlier version kept in the browser', () => {
   })
 })
 
+describe('choosing the language', () => {
+  it('sends the language to the backend, which keeps it, and shows the interface in the answer', async () => {
+    const { settings, client, applyLanguage } = rig()
+    const call = vi.spyOn(client, 'call')
+    await settings.load()
+
+    await settings.setLanguage('en')
+
+    expect(call).toHaveBeenLastCalledWith('settings.set', { language: 'en' })
+    expect(settings.settings.value.language).toBe('en')
+    expect(applyLanguage).toHaveBeenLastCalledWith('en')
+  })
+
+  it('says in the notice that the choice could not be kept, when the backend cannot be asked', async () => {
+    const { settings } = refused()
+
+    await settings.setLanguage('en')
+
+    expect(settings.notice.value).toBe('A setting could not be kept: the backend is gone')
+  })
+})
+
 describe('the notice', () => {
   it('is hidden when dismissed, and not shown again while the backend repeats it', async () => {
     const { settings } = rig({ notice: CORRUPT })
