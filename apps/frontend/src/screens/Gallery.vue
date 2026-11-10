@@ -27,6 +27,14 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.forms') }}</h3>
+      <div class="form-demo">
+        <PanelForm :rows="formRows" @change="changed" />
+        <EnumField v-model="orphan" :options="actions" :label="t('gallery.form.unnamed')" />
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.truth') }}</h3>
       <div class="truths">
         <TruthValue
@@ -141,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import '../kit/gallery.css'
 import Badge from '../kit/Badge.vue'
@@ -161,6 +169,9 @@ import StatCell from '../kit/StatCell.vue'
 import Tabs from '../kit/Tabs.vue'
 import TextInput from '../kit/TextInput.vue'
 import Toggle from '../kit/Toggle.vue'
+import EnumField from '../EnumField.vue'
+import PanelForm from '../PanelForm.vue'
+import type { FormRow, FormValue } from '../panelForm'
 import TruthValue from '../TruthValue.vue'
 
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
@@ -231,6 +242,40 @@ const tabs = computed(() => [
 const text = ref('')
 const wrong = ref('abc')
 const value = ref('1500')
+const form = reactive({ action: 1, altitude: 20, battery: true, name: 'Quad 1' })
+/** A number the vehicle holds that has no name in the list (the field shows it as it is). */
+const orphan = ref(7)
+const actions = computed(() => [0, 1, 2].map(n => ({ value: n, label: t(`gallery.form.action${n}`) })))
+const formRows = computed<FormRow[]>(() => [
+  { kind: 'head', id: 'h', text: t('gallery.form.head') },
+  { kind: 'note', id: 'n', text: t('gallery.form.note') },
+  { kind: 'warn', id: 'w', text: t('gallery.form.warn') },
+  { kind: 'info', id: 'i', label: t('gallery.form.info'), value: '4.5.7' },
+  {
+    kind: 'slider',
+    id: 'altitude',
+    label: t('gallery.form.altitude'),
+    value: form.altitude,
+    min: 5,
+    max: 100,
+    step: 1,
+    text: `${form.altitude} m`,
+  },
+  { kind: 'check', id: 'battery', label: t('gallery.form.battery'), value: form.battery },
+  { kind: 'text', id: 'name', label: t('gallery.form.name'), value: form.name },
+  { kind: 'enum', id: 'action', label: t('gallery.form.action'), value: form.action, options: actions.value },
+  { kind: 'button', id: 'save', label: t('gallery.form.save'), tone: 'primary' },
+])
+
+/**
+ * A row of the form was changed: the gallery keeps the value, as a screen would.
+ *
+ * @param id the row
+ * @param to the new value
+ */
+function changed(id: string, to: FormValue): void {
+  Object.assign(form, { [id]: to })
+}
 const option = ref('one')
 const segment = ref('one')
 const check = ref(true)
