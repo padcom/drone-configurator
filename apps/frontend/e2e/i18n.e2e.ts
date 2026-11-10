@@ -52,7 +52,7 @@ describe('the parameter list and the editor', () => {
     expect(await app.text('#save')).toBe('Save snapshot')
     expect(await app.text('#load-button')).toBe('Load snapshot')
     expect(await app.text('#metadata-button')).toBe('Load metadata')
-    expect(await app.text('#apply')).toBe('Write the ticked changes')
+    expect(await app.text('#apply')).toBe('Write 0 ticked')
     expect(await app.text('#close-import')).toBe('Close')
   })
 

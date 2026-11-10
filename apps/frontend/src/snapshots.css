@@ -1,0 +1,161 @@
+/*
+ * The snapshot tools of the Parameters screen (SnapshotToolbar.vue, SnapshotImport.vue): tokens only. The review is a table of
+ * what a snapshot would change, with the result of each write beside it and the buttons under it.
+ */
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.review {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.review[hidden] {
+  display: none;
+}
+
+.review-head {
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.review-head h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.review-head p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+}
+
+.review .error {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  color: var(--color-error);
+}
+
+.review-warning {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  font-weight: 500;
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.review-scroll {
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.review-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.review-table thead th {
+  position: sticky;
+  top: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-label);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: left;
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  background: var(--color-bg);
+}
+
+.review-table tbody tr {
+  height: 48px;
+  border-top: 1px solid var(--color-border);
+}
+
+.review-table tbody tr.error {
+  background: var(--color-error-soft);
+}
+
+.review-table td,
+.review-table tbody th {
+  padding: 0 var(--space-3);
+}
+
+.review-table .name,
+.review-table .old,
+.review-table .new {
+  font-family: var(--font-mono);
+}
+
+.review-table .name {
+  font-size: var(--font-size-value-sm);
+  font-weight: 400;
+  text-align: left;
+}
+
+.review-table .num {
+  text-align: right;
+}
+
+.review-table .old {
+  color: var(--color-text-muted);
+}
+
+.review-table .new {
+  color: var(--color-accent);
+}
+
+.review-table input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--color-accent);
+  vertical-align: middle;
+}
+
+.review-table .result {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.review-table .result.ok {
+  color: var(--color-ok);
+}
+
+.review-table .result.error {
+  color: var(--color-error);
+}
+
+.review-table .result.warn {
+  color: var(--color-warn);
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.review-status {
+  flex: 1 1 280px;
+  margin: 0;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.review-status.ok {
+  color: var(--color-ok);
+}
+
+.review-status.warn {
+  color: var(--color-warn);
+}
+
+.review-actions button {
+  min-height: 48px;
+}
