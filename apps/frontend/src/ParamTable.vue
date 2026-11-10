@@ -5,8 +5,8 @@
            `ch`): the browser then does not measure every row's text to lay the table out (a switch back to this screen does
            it again, and that was 120 to 270 ms with the whole list). The last column is what is left. -->
       <colgroup v-if="meaning">
-        <col class="col-text" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
-        <col class="col-text" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
+        <col class="col-name" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
+        <col class="col-value" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
         <col>
       </colgroup>
       <thead>

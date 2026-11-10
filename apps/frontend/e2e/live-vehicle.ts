@@ -154,6 +154,12 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await app.click('#metadata-button')
     await app.waitFor(`document.querySelector('.param-scroll table.described td.meaning') !== null`, vehicle.downloadTimeoutMs)
 
+    // The columns are sized from characters (ch) of the face and size of their cells: the widest name and the widest value of
+    // the whole list must fit in them (a text that does not has a scrollWidth over the width of its cell).
+    const spilling = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
+      .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent).slice(0, 5)`)
+    expect(spilling).toEqual([])
+
     const times = await switchRounds(app)
 
     expect(ids.length).toBeGreaterThanOrEqual(vehicle.minParams)

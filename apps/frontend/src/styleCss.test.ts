@@ -32,7 +32,12 @@ it('lays the table with metadata out with a fixed layout, the first two columns 
   // Fixed, so that a switch back to the screen does not measure the text of every row again (120 ms on x64, 270 ms on arm64).
   expect(params).toMatch(/\.param-scroll table\.described\s*\{[^}]*--cell-padding:\s*28px;[^}]*table-layout:\s*fixed;/u)
   // The column widths are in `ch`, which is the width of a mono character only in the mono face: the <col> is set in it.
-  expect(params).toMatch(/table\.described col\.col-text\s*\{[^}]*font-family:\s*var\(--font-mono\);/u)
+  // The name cells are set in the value-sm size and the value cells in none (the table's own): each <col> has its cells' size.
+  expect(params).toMatch(/table\.described col\s*\{[^}]*font-family:\s*var\(--font-mono\);/u)
+  expect(params).toMatch(/table\.described col\.col-name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
+  expect(params).not.toMatch(/col\.col-value\s*\{[^}]*font-size/u)
+  expect(params).toMatch(/\.param-scroll \.name\s*\{[^}]*font-size:\s*var\(--font-size-value-sm\);/u)
+  expect(params).not.toMatch(/\.param-scroll td\.num\s*\{[^}]*font-size/u)
   expect(params).toMatch(meaning)
   // The rows keep one height, and the table without metadata has no rule of its own (an auto layout, as it was).
   expect(params).toMatch(/\.param-scroll tbody tr\s*\{[^}]*height:\s*44px;/u)

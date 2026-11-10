@@ -184,8 +184,13 @@
   table-layout: fixed;
 }
 
-.param-scroll table.described col.col-text {
+/* A column is measured in the face AND the size of its cells: the names are set in the value-sm size, the values in the size
+   the table has (nothing sets one on them), so the value column takes only the mono face. */
+.param-scroll table.described col {
   font-family: var(--font-mono);
+}
+
+.param-scroll table.described col.col-name {
   font-size: var(--font-size-value-sm);
 }
 
