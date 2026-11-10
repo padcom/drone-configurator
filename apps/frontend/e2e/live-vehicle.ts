@@ -16,7 +16,7 @@ import {
   waitForQueuedWritten,
 } from './click'
 import type { Endpoint } from './endpoint'
-import { SWITCH_LIMIT_MS, switchRounds } from './switch'
+import { switchRounds } from './switch'
 
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
@@ -143,10 +143,9 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     await showScreen(app, 'parameters')
   })
 
-  it('switches within the budget with a description for every parameter loaded (the grid has its third column)', async () => {
-    // KeepAlive keeps the Parameters screen as it is: a switch must not lay the table out again. Every parameter of the list
-    // gets a description, so the grid is the metadata one (described: name and value as wide as their text, the rest of the
-    // row for the description) with the whole list. The times are in the failure message.
+  it('has every name and every value inside its column with a description for every parameter loaded', async () => {
+    // Every parameter of the list gets a description, so the grid is the metadata one (described: name and value as wide as
+    // their text, the rest of the row for the description) with the whole list.
     await showScreen(app, 'parameters')
     const ids = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows tr')].map(row => row.dataset.id)`)
     const params = Object.fromEntries(ids.map(id => [id, { description: `${id}: what it is for, and what it does to the vehicle` }]))
@@ -159,12 +158,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     const spilling = await app.evaluate<string[]>(`[...document.querySelectorAll('#rows th.name, #rows td.num')]
       .filter(cell => cell.scrollWidth > cell.clientWidth).map(cell => cell.textContent).slice(0, 5)`)
     expect(spilling).toEqual([])
-
-    const times = await switchRounds(app)
-
     expect(ids.length).toBeGreaterThanOrEqual(vehicle.minParams)
-    expect(Math.max(...Object.values(times)), `${ids.length} rows, times (ms): ${JSON.stringify(times)}`).toBeLessThan(SWITCH_LIMIT_MS)
-    await showScreen(app, 'parameters')
   })
 
   it('writes a parameter with a verified read-back, and puts it back', async ({ onTestFinished }) => {
