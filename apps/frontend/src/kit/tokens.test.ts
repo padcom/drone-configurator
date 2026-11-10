@@ -147,6 +147,12 @@ describe('the design tokens, the scales', () => {
     }
     expect([tokens['--rail-width'], tokens['--topbar-height']]).toEqual(['76px', '64px'])
   })
+
+  it('go up with their number: each space is larger than the one before', () => {
+    const steps = [1, 2, 3, 4, 5, 6, 7, 8].map(n => Number.parseInt(tokens[`--space-${n}`] ?? '0', 10))
+
+    expect(steps).toEqual([4, 8, 12, 16, 20, 24, 28, 32])
+  })
 })
 
 describe('the design tokens, the typefaces', () => {

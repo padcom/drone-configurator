@@ -5,9 +5,10 @@
 The app bundles the woff2 files of IBM Plex Sans (weights 400 to 700) and IBM Plex Mono (weights 400 to 600), Latin range,
 from the `@fontsource/ibm-plex-sans` and `@fontsource/ibm-plex-mono` packages. They are not fetched at run time.
 
-Copyright 2019 IBM Corp. All rights reserved.
+IBM Plex Sans: Copyright 2019 IBM Corp. All rights reserved.
+IBM Plex Mono: Copyright 2017 IBM Corp. All rights reserved.
 
-This Font Software is licensed under the SIL Open Font License, Version 1.1.
+Both packages' LICENSE files name no Reserved Font Name. This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 http://scripts.sil.org/OFL
 
