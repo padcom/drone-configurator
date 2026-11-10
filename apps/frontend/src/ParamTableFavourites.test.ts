@@ -15,6 +15,7 @@ import { useParamGroup } from './useParamGroup'
 
 afterEach(() => {
   useParamGroup().choose('')
+  vi.useRealTimers()
 })
 
 /**
@@ -126,6 +127,7 @@ async function favouritesOfConnected(starred: string[]) {
 }
 
 it('takes the favourites out that are not on this vehicle, with a button that asks first, in the Favourites group', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
   const { table, groups, handle } = await favouritesOfConnected(['RTL_ALT', 'GONE_ONE', 'GONE_TWO'])
   const button = table.get('#clear-missing-favourites')
   expect(button.text()).toBe('Remove the 2 not on this vehicle…')
@@ -138,6 +140,11 @@ it('takes the favourites out that are not on this vehicle, with a button that as
   expect(button.text()).toBe('Remove 2 from your list for every vehicle? Press again')
   expect(table.get('#favourite-status').text()).toBe('Remove 2 from your list for every vehicle? Press again')
 
+  // A press right after (a double click, a held Enter) is not the answer: the question could not have been read.
+  await button.trigger('click')
+  await flushPromises()
+  expect(handle.settings.uiValue(FAVOURITES_KEY)).toBe('["RTL_ALT","GONE_ONE","GONE_TWO"]')
+  vi.setSystemTime(Date.now() + 700)
   await button.trigger('click')
   await flushPromises()
 
@@ -158,6 +165,8 @@ it('goes back to asking when the second press does not come in time', async () =
   await table.vm.$nextTick()
 
   expect(button.text()).toBe('Remove the 1 not on this vehicle…')
+  // What was said is taken back, so that asking again is a change that a screen reader speaks.
+  expect(table.get('#favourite-status').text()).toBe('')
   vi.useRealTimers()
 })
 

@@ -194,6 +194,9 @@ const canClearMissing = computed(() => [
 ].every(Boolean))
 /** How long the question of the button stays (ms). */
 const ARM_MS = 6000
+/** How long after the question a press is ignored (ms): the time to read it. */
+const SETTLE_MS = 600
+let armedAt = 0
 
 /** Takes the favourites out that are not on this vehicle. */
 async function clearMissingFavourites(): Promise<void> {
@@ -212,6 +215,10 @@ watch(canClearMissing, can => {
 
 /** The button that takes the favourites out that are not on this vehicle: the first press asks, the second does it. */
 function pressClearMissing(): void {
+  // A double click or a held Enter presses again within moments: that press is not an answer, the question is not read yet.
+  if (armed.value && Date.now() - armedAt < SETTLE_MS) {
+    return
+  }
   clearTimeout(disarm)
 
   if (armed.value) {
@@ -221,9 +228,12 @@ function pressClearMissing(): void {
     return
   }
   armed.value = true
+  armedAt = Date.now()
   favouriteSaid.value = t('params.favourites.clearAsk', { count: missingFavourites.value })
   disarm = setTimeout(() => {
     armed.value = false
+    // Emptied, so that the question, said again when it is asked again, is a change a screen reader speaks.
+    favouriteSaid.value = ''
   }, ARM_MS)
 }
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
