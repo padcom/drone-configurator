@@ -6,7 +6,11 @@
 // spins something: TickUnlock), and, for a parameter write, a plain confirmation (this dialog, `plain`) because the
 // vehicle's read-back, not the effort of the press, is what makes a write safe.
 
-/** How long the confirm button of a `hold` confirmation is held, in milliseconds. */
+/**
+ * How long the confirm button of a `hold` confirmation is held, in milliseconds. The HoldButton board fills in 1.0 s; the
+ * plan allows 1.0 to 1.2 s and this is the upper end, a margin for a press that starts a little late on a touch screen
+ * or a keyboard, at a cost of a fifth of a second. One constant: change it here, and say why in the PR that does.
+ */
 export const HOLD_MS = 1200
 
 /** How long after a confirmation appears it ignores presses, so a click meant for what was under it cannot confirm. */

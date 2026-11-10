@@ -1,5 +1,5 @@
 <template>
-  <Button class="kit-second" :class="{ armed }" aria-live="polite" @click="press" @blur="reset" @keydown.esc="reset">
+  <Button class="kit-second" :class="{ armed }" aria-live="polite" @click="press" @blur="reset" @keydown="key">
     {{ armed ? confirmLabel : label }}
   </Button>
 </template>
@@ -48,6 +48,21 @@ function press(): void {
   } else if (Date.now() - armedAt >= BETWEEN_MS) {
     reset()
     emit('confirm')
+  }
+}
+
+/**
+ * A key on the button: Escape takes it back, and a key that repeats does nothing. Chromium clicks a focused button on every
+ * repeat of a held Enter (about half a second after the first), which would be taken for the second press: a destructive
+ * button must not be confirmed by one key leaned on, so the repeat is cancelled before it can click.
+ *
+ * @param event the key event
+ */
+function key(event: KeyboardEvent): void {
+  if (event.repeat) {
+    event.preventDefault()
+  } else if (event.key === 'Escape') {
+    reset()
   }
 }
 

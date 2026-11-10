@@ -88,6 +88,32 @@ describe('a second-press button that is left alone or left', () => {
   })
 })
 
+describe('a second-press button, with a key held down', () => {
+  it('has the repeats of a held key cancelled, so they cannot click it (Chromium clicks on each Enter repeat)', async () => {
+    const button = second()
+    await button.trigger('click')
+    vi.advanceTimersByTime(BETWEEN + 100)
+    const repeat = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, cancelable: true, bubbles: true })
+
+    button.element.dispatchEvent(repeat)
+
+    expect(repeat.defaultPrevented).toBe(true)
+    expect(button.emitted('confirm')).toBeUndefined()
+  })
+
+  it('leaves the first press of a key alone: it is not cancelled, and Escape still takes it back', async () => {
+    const button = second()
+    await button.trigger('click')
+    const first = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true })
+
+    button.element.dispatchEvent(first)
+    await button.trigger('keydown', { key: 'Escape' })
+
+    expect(first.defaultPrevented).toBe(false)
+    expect(button.classes()).not.toContain('armed')
+  })
+})
+
 describe('a second-press button that went back', () => {
   it('needs the second press after going back to be a first one again', async () => {
     const button = second()
@@ -110,6 +136,16 @@ describe('a tick to unlock', () => {
     await tick.get('input').setValue(true)
 
     expect(tick.emitted('update:modelValue')).toEqual([[true]])
+    expect(tick.classes()).toContain('unlocked')
+  })
+
+  it('stays ticked until it is unticked: the caller locks again by setting it false', async () => {
+    const tick = mount(TickUnlock, { props: { modelValue: true }, attachTo: document.body })
+
+    await tick.setProps({ modelValue: false })
+
+    expect(tick.classes()).not.toContain('unlocked')
+    expect((tick.get('input').element as HTMLInputElement).checked).toBe(false)
   })
 
   it('shows the value it is given', () => {

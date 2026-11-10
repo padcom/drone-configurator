@@ -100,6 +100,17 @@
   background: var(--color-error);
 }
 
+/* Unavailable: a flat fill with muted words, as a disabled button is, and no fill grows. */
+.kit-hold:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: var(--color-border);
+}
+
+.kit-hold:disabled .kit-hold-fill {
+  display: none;
+}
+
 .kit-hold-fill {
   position: absolute;
   top: 0;
