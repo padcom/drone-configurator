@@ -1,0 +1,210 @@
+import { describe, expect, it, vi } from 'vitest'
+import { type ShallowRef, shallowRef } from 'vue'
+import type { BackendClient } from './backend/client'
+import type { Param, ParamWriteResult } from './generated/app'
+import type { ParamsModel } from './useParams'
+import { questionFor, useStaged } from './useStaged'
+
+const RTL: Param = { id: 'RTL_ALT', index: 0, kind: 'int', type: 'INT32', value: 1500 }
+const FENCE: Param = { id: 'FENCE_RADIUS', index: 1, kind: 'real', type: 'REAL32', value: 150 }
+const BATT: Param = { id: 'BATT_CAPACITY', index: 2, kind: 'int', type: 'INT32', value: 5200 }
+
+/**
+ * The `call` of a fake backend: a write answers with what the vehicle reports after it.
+ *
+ * @param params the parameters the vehicle holds
+ * @param answer the value read back, or an error to throw
+ * @returns the function (a spy)
+ */
+function vehicleAnswering(params: ShallowRef<Param[]>, answer: (id: string, value: number) => number | Error) {
+  return vi.fn((_name: string, payload: { id: string, value: number }) => {
+    const reported = answer(payload.id, payload.value)
+    if (reported instanceof Error) {
+      return Promise.reject(reported)
+    }
+    const param = params.value.find(candidate => candidate.id === payload.id) as Param
+
+    return Promise.resolve({ param: { ...param, value: reported }, verified: reported === payload.value } as ParamWriteResult)
+  })
+}
+
+/**
+ * A staged model on a fake vehicle: the parameters it holds, and what a write to it answers.
+ *
+ * @param answer what the vehicle reports after a write: the value read back, or an error to throw
+ * @param confirm whether the user says yes to the question
+ * @returns the model, the parameters model it works with, and the spies
+ */
+function rig(answer: (id: string, value: number) => number | Error, confirm = true) {
+  const params = shallowRef<Param[]>([RTL, FENCE, BATT])
+  const selected = shallowRef<string | null>(null)
+  const draft = shallowRef('')
+  const draftError = shallowRef<string | null>(null)
+  const parameters = {
+    params,
+    draft,
+    draftError,
+    selectedParam: () => params.value.find(param => param.id === selected.value) ?? null,
+    replace: (param: Param) => {
+      params.value = params.value.map(candidate => candidate.id === param.id ? param : candidate)
+    },
+  } as unknown as ParamsModel
+  const call = vehicleAnswering(params, answer)
+  const askedOnce = vi.fn(() => Promise.resolve(confirm))
+  const staged = useStaged({
+    client: { call } as unknown as BackendClient,
+    parameters,
+    isConnected: () => true,
+    confirm: askedOnce,
+  })
+  const pick = (id: string, text: string) => {
+    selected.value = id
+    draft.value = text
+  }
+
+  return { staged, call, askedOnce, pick, params, draftError }
+}
+
+describe('adding to the changes', () => {
+  it('collects the draft of the selected parameter, with the value it has now, and nothing is sent', () => {
+    const { staged, pick, call } = rig((_id, value) => value)
+
+    pick('RTL_ALT', '1600')
+    staged.stage()
+
+    expect(staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('takes a second change for the same parameter as a replacement, and keeps the order of the others', () => {
+    const { staged, pick } = rig((_id, value) => value)
+
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    pick('FENCE_RADIUS', '300')
+    staged.stage()
+    pick('RTL_ALT', '1700')
+    staged.stage()
+
+    expect(staged.changes.value.map(change => [change.id, change.to])).toEqual([['FENCE_RADIUS', 300], ['RTL_ALT', 1700]])
+  })
+})
+
+describe('a draft that cannot be added', () => {
+  it('refuses a draft that is not a value, is empty, is the value already there, or has a problem', () => {
+    const { staged, pick, draftError } = rig((_id, value) => value)
+
+    pick('RTL_ALT', '')
+    expect(staged.canStage()).toBe(false)
+    pick('RTL_ALT', '1500')
+    expect(staged.canStage()).toBe(false)
+    pick('RTL_ALT', 'abc')
+    draftError.value = 'a number, please'
+    expect(staged.canStage()).toBe(false)
+    draftError.value = null
+    pick('RTL_ALT', '1600')
+    expect(staged.canStage()).toBe(true)
+    staged.stage()
+    pick('NOT_THERE', '3')
+    staged.stage()
+    expect(staged.changes.value).toHaveLength(1)
+  })
+
+  it('lets a change be taken out again while nothing is being written', () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+
+    staged.discard('RTL_ALT')
+
+    expect(staged.changes.value).toEqual([])
+  })
+})
+
+describe('writing the changes', () => {
+  it('asks once, naming every parameter, and writes them in order, each read back', async () => {
+    const { staged, pick, call, askedOnce, params } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    pick('FENCE_RADIUS', '300')
+    staged.stage()
+
+    await staged.writeAll()
+
+    expect(askedOnce).toHaveBeenCalledTimes(1)
+    expect(askedOnce).toHaveBeenCalledWith('Write 2 parameters to the vehicle (RTL_ALT, FENCE_RADIUS)?')
+    expect(call.mock.calls.map(([, payload]) => [payload.id, payload.value])).toEqual([['RTL_ALT', 1600], ['FENCE_RADIUS', 300]])
+    expect(staged.results.value.map(result => [result.id, result.outcome, result.detail])).toEqual([
+      ['RTL_ALT', 'verified', '1600'],
+      ['FENCE_RADIUS', 'verified', '300'],
+    ])
+    expect(staged.pending()).toEqual([])
+    expect(params.value.find(param => param.id === 'RTL_ALT')?.value).toBe(1600)
+    expect(staged.writing.value).toBe(false)
+  })
+})
+
+describe('a write that is not confirmed', () => {
+  it('stops at the first change the vehicle does not read back, and does not write the rest', async () => {
+    const { staged, pick, call } = rig((id, value) => id === 'RTL_ALT' ? 1599 : value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    pick('FENCE_RADIUS', '300')
+    staged.stage()
+
+    await staged.writeAll()
+
+    expect(call).toHaveBeenCalledTimes(1)
+    expect(staged.results.value).toEqual([{ id: 'RTL_ALT', outcome: 'changed', detail: 'the vehicle reports 1599, not 1600' }])
+    expect(staged.pending().map(change => change.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS'])
+  })
+
+  it('stops at a write that fails, with the reason, and can be tried again', async () => {
+    let fails = true
+    const { staged, pick, call } = rig((_id, value) => fails ? new Error('TIMEOUT: no reply') : value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+
+    await staged.writeAll()
+    expect(staged.results.value[0]).toMatchObject({ outcome: 'failed' })
+    expect(staged.results.value[0]?.detail).toContain('TIMEOUT')
+
+    fails = false
+    await staged.writeAll()
+    expect(call).toHaveBeenCalledTimes(2)
+    expect(staged.results.value).toEqual([{ id: 'RTL_ALT', outcome: 'verified', detail: '1600' }])
+  })
+})
+
+describe('a write that does not start or that is done', () => {
+  it('writes nothing when the user says no, or there is nothing to write', async () => {
+    const { staged, pick, call } = rig((_id, value) => value, false)
+
+    await staged.writeAll()
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    await staged.writeAll()
+
+    expect(call).not.toHaveBeenCalled()
+    expect(staged.results.value).toEqual([])
+  })
+
+  it('clears what was written away when the next change is added', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    pick('RTL_ALT', '1600')
+    staged.stage()
+    await staged.writeAll()
+
+    pick('FENCE_RADIUS', '300')
+    staged.stage()
+
+    expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+    expect(staged.results.value).toEqual([])
+  })
+})
+
+describe('the question', () => {
+  it('says one parameter in the singular', () => {
+    expect(questionFor([{ id: 'RTL_ALT', from: 1, to: 2 }])).toBe('Write 1 parameter to the vehicle (RTL_ALT)?')
+  })
+})

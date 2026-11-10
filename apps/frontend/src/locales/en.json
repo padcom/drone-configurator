@@ -390,6 +390,18 @@
     "backup": "Save the backup",
     "close": "Close"
   },
+  "staged": {
+    "add": "Add to changes",
+    "heading": "Changes to write · {count}",
+    "none": "Nothing yet. Edits collect here so you can write them together.",
+    "discard": "Discard",
+    "write": "Write {count} and verify",
+    "verified": "✓ Written and read back: {detail}",
+    "notVerified": "✕ {detail}",
+    "writing": "Writing… waiting for the vehicle to read each value back.",
+    "allWritten": "All {count} written and read back.",
+    "stopped": "Stopped there: the rest weren't written."
+  },
   "editor": {
     "select": "Select a parameter to see or change it.",
     "related": "Related",

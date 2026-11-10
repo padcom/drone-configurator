@@ -217,6 +217,22 @@ it('lists the other parameters of the same group as related, and selects one whe
   expect(select).toHaveBeenCalledWith('BATT_LOW_VOLT')
 })
 
+it('adds a valid draft that differs to the changes with Add to changes, and writes nothing', async () => {
+  const { wrapper, handle, write } = await editorWithSpies()
+
+  expect(wrapper.get('#stage').attributes('disabled')).toBeUndefined()
+  await wrapper.get('#stage').trigger('click')
+  expect(handle.staged.changes.value).toEqual([{ id: 'RTL_ALT', from: 1500, to: 1600 }])
+  expect(write).not.toHaveBeenCalled()
+
+  feed(handle, { draft: '1500' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#stage').attributes('disabled')).toBeDefined()
+  feed(handle, { draft: '1700', draftError: 'a number, please' })
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('#stage').attributes('disabled')).toBeDefined()
+})
+
 it('lists no related parameters for one that is alone in its group', async () => {
   const { wrapper } = await editorWithSpies()
 

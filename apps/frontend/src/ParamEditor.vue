@@ -52,8 +52,12 @@
         @update:model-value="parameters.editDraft($event)"
       />
     </div>
-    <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
+    <div class="param-edit-actions">
+      <Button id="stage" :disabled="!stageable" @click="staged.stage()">{{ t('staged.add') }}</Button>
+      <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
+    </div>
   </form>
+  <StagedChanges />
   <section v-if="related.length > 0" class="related" :aria-label="t('editor.related')">
     <SectionLabel>{{ t('editor.related') }}</SectionLabel>
     <div class="related-list">
@@ -70,6 +74,7 @@ import type { EnumOption } from './enumField'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import SectionLabel from './kit/SectionLabel.vue'
+import StagedChanges from './StagedChanges.vue'
 import TextInput from './kit/TextInput.vue'
 import { canWrite, detailsOf, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
@@ -79,12 +84,14 @@ import { useConfigurator } from './useConfigurator'
 // them), the outcome of the last write in words with a mark, and the related parameters of its group. A write goes to the
 // vehicle and is only called done when the vehicle reads the new value back.
 const { t } = useI18n()
-const { parameters, fields } = useConfigurator()
+const { parameters, fields, staged } = useConfigurator()
 const MARKS = { ok: 'check', error: 'close' } as const
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const meta = computed(() => param.value ? fields.metadata.value.get(param.value.id) : undefined)
 const connected = computed(() => fields.connection.value.state === 'connected')
 const editable = computed(() => param.value !== null && connected.value)
+// Adding to the changes needs a valid draft that differs from the vehicle's value, as a write does (nothing is sent yet).
+const stageable = computed(() => connected.value && staged.canStage())
 const writable = computed(() => canWrite({
   connection: fields.connection.value,
   writing: fields.writing.value,
