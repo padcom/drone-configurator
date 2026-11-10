@@ -70,41 +70,34 @@ export interface StagedSummary {
  * reports; one that got no answer says that its value is unknown and that downloading shows it), then that the run stopped.
  *
  * @param failed the first change that was not read back
+ * @param readBack how many changes the run had read back before it stopped (they have left the list: said first)
  * @param translate looks up a message
  * @returns the alert's words
  */
-function stoppedText(failed: StagedResult, translate: Translate): string {
+function stoppedText(failed: StagedResult, readBack: number, translate: Translate): string {
   // The sentence ends with its own full stop: a detail that ends with one (a message of the vehicle, an error) would double it.
   const detail = failed.detail.replace(/[.\s]+$/u, '')
   const why = translate(failed.outcome === 'changed' ? 'staged.alertChanged' : 'staged.alertFailed', { id: failed.id, detail })
+  const done = readBack > 0 ? `${translate('staged.partlyWritten', { count: readBack })} ` : ''
 
-  return `${why} ${translate('staged.stopped')}`
+  return `${done}${why} ${translate('staged.stopped')}`
 }
 
 /**
  * What the list says about the writing.
  *
- * @param changes the staged changes
  * @param results how the written ones went
  * @param writing whether the writes are under way
+ * @param readBack how many changes of the run the vehicle read back
  * @param translate looks up a message
  * @returns the lines
  */
-export function summaryOf(
-  changes: StagedChange[],
-  results: StagedResult[],
-  writing: boolean,
-  translate: Translate,
-): StagedSummary {
+export function summaryOf(results: StagedResult[], writing: boolean, readBack: number, translate: Translate): StagedSummary {
   if (writing) {
     return { polite: translate('staged.writing'), urgent: '' }
   }
-  if (results.length === 0) {
-    return { polite: '', urgent: '' }
-  }
+  // All written and read back is told by a toast (the changes are gone from the list); only a stop is said here.
   const failed = results.find(result => result.outcome !== 'verified')
 
-  return failed
-    ? { polite: '', urgent: stoppedText(failed, translate) }
-    : { polite: translate('staged.allWritten', { count: changes.length }), urgent: '' }
+  return { polite: '', urgent: failed ? stoppedText(failed, readBack, translate) : '' }
 }

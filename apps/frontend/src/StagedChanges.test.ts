@@ -5,6 +5,7 @@ import { PARAMS, VEHICLE } from './fixtures'
 import { mockBackend } from './mock-backend'
 import StagedChanges from './StagedChanges.vue'
 import { feed, withI18n } from './testing'
+import { useToasts } from './toasts'
 import { createConfigurator } from './useConfigurator'
 
 /**
@@ -125,7 +126,7 @@ it('gives the focus to the trash can of the next row after a discard, else the p
   wrapper.unmount()
 })
 
-it('writes the changes on the button, and says each was written and read back, and that all were', async () => {
+it('writes the changes on the button; a change read back leaves the list, and a toast says all were written', async () => {
   const { wrapper, handle } = await listWith()
   // This one needs a vehicle that answers: the simulated one is really connected.
   await handle.vehicle.connect({ transport: 'simulator' })
@@ -139,10 +140,12 @@ it('writes the changes on the button, and says each was written and read back, a
   await wrapper.vm.$nextTick()
 
   expect(call).toHaveBeenCalledTimes(1)
-  expect(wrapper.get('.staged-row .line.ok').text()).toBe('✓ Written and read back: 1600')
-  expect(wrapper.get('.staged-status[role="status"]').text()).toBe('All 1 written and read back.')
-  expect(wrapper.find('.staged-row .discard').exists()).toBe(false)
+  expect(wrapper.find('.staged-row').exists()).toBe(false)
+  expect(wrapper.get('.staged-status[role="status"]').text()).toBe('')
+  expect(useToasts().visible.value.map(toast => [toast.severity, toast.text]))
+    .toContainEqual(['success', 'All 1 written and read back.'])
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#write-staged').attributes('aria-keyshortcuts')).toBe('Control+Enter')
 })
 
 it('says in an alert that writing stopped, and marks the change that was not confirmed with a cross', async () => {
@@ -187,6 +190,17 @@ it('does not double the full stop when the reason ends with one', async () => {
   handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'changed', detail: 'the vehicle reports 1599, not 1600.' }]
   await wrapper.vm.$nextTick()
   expect(wrapper.get('.staged-status[role="alert"]').text()).toMatch(/^RTL_ALT: the vehicle reports 1599, not 1600\. Stopped/u)
+})
+
+it('says in the alert how many were written and read back before the run stopped (they have left the list)', async () => {
+  const { wrapper, handle } = await listWith()
+  add(handle, 'RTL_ALT', '1600')
+  handle.staged.results.value = [{ id: 'RTL_ALT', outcome: 'changed', detail: 'the vehicle reports 1599, not 1600' }]
+  handle.staged.readBack.value = 2
+  await wrapper.vm.$nextTick()
+
+  expect(wrapper.get('.staged-status[role="alert"]').text())
+    .toBe('2 written and read back. RTL_ALT: the vehicle reports 1599, not 1600. Stopped there: the rest weren\'t written.')
 })
 
 it('turns the run off while another write holds the lock (the single Write, a snapshot), and on again after', async () => {

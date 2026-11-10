@@ -17,7 +17,8 @@
       <p id="draft-warning" class="notice warning" role="status">{{ warningText }}</p>
     </div>
   </div>
-  <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="staged.sync()">
+  <!-- Escape in the field goes back to the list (a field of names with its list open closes that first, and keeps the key). -->
+  <form id="edit" class="param-edit" :hidden="!editable" @submit.prevent="staged.sync()" @keydown.esc="backToList">
     <!-- The label is beside the field, not around it: a field of names holds a list of buttons, which would become its name. -->
     <!-- Off while the changes are being written: what is typed then could not be queued, and the user is not told why. -->
     <fieldset class="field" :disabled="staged.writing.value">
@@ -83,6 +84,18 @@ const describedBy = computed(() => {
 
   return fields.draftWarning.value ? 'draft-warning' : undefined
 })
+
+/**
+ * Escape in the Value field: the focus goes back to the list, unless something else took the key (the list of names of the
+ * field, which was open and is closed by it).
+ *
+ * @param event the key press
+ */
+function backToList(event: KeyboardEvent): void {
+  if (!event.defaultPrevented) {
+    document.getElementById('param-list')?.focus()
+  }
+}
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The field of names holds a number; the draft is the text of it. Picking a name settles the value: it is queued.
 const draftNumber = computed({

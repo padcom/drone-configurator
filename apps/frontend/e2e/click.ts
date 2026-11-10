@@ -322,9 +322,8 @@ const WRITE_BUTTON_UNCOVERED = `(() => {
  * Presses "Write N and verify" until the question is asked: a click through DevTools can occasionally land and do nothing (as
  * the others here), so a press that did not open it is made again. The last one fails with what the button looked like.
  *
- * Nothing may cover the button when it is pressed. The toasts are in the bottom right corner of the window, over the screen: a
- * warning of the vehicle can sit on the button for some seconds (it did, with ArduPilot SITL, and the press went to the toast),
- * so the press waits until the toasts that are there have gone by themselves.
+ * Nothing may cover the button when it is pressed. (The toasts used to be in the bottom right corner, over the button, and a
+ * press went to a toast; they are at the bottom left now. The check stays: it costs nothing when the button is free.)
  *
  * @param app the running app
  * @param question the question that is expected
@@ -360,8 +359,9 @@ export async function askToWriteQueued(app: E2eApp, changes: { id: string, from:
 
 /**
  * Waits until a queued change was written and the vehicle read it back: the value in the list is the one written (the list
- * takes the vehicle's read-back, not what was asked), the change's row says "✓ Written and read back: N", and no alert is
- * raised. The alert region is always in the page, so a missing one is a failure and not an empty text.
+ * takes the vehicle's read-back, not what was asked), the change has left the list of changes (a change the vehicle read back is
+ * done), and no alert is raised. The alert region is always in the page, so a missing one is a failure and not an empty text.
+ * The search is taken away at the end, so that the line under the list counts the whole list again.
  *
  * @param app the running app
  * @param id the parameter's name (its row in the list is `tr[data-id]`)
@@ -371,14 +371,17 @@ export async function askToWriteQueued(app: E2eApp, changes: { id: string, from:
 export async function waitForQueuedWritten(app: E2eApp, id: string, value: number, timeoutMs = 10_000): Promise<void> {
   await showParameter(app, id)
   await app.waitForText(`tr[data-id="${id}"] td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
-  await app.waitFor(`[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)}
-    && r.querySelector('.line.ok')?.textContent.includes('Written and read back: ${value}'))`, timeoutMs)
+  const queued = `[...document.querySelectorAll('#staged .staged-row')].some(r => r.dataset.id === ${JSON.stringify(id)})`
+  await app.waitFor(`!${queued}`, timeoutMs)
+  // What the user is told: a toast says that the change was written and read back.
+  await app.waitFor(`document.querySelector('.kit-toast.sev-success')?.textContent.includes('written and read back')`, timeoutMs)
   const alert = `document.querySelector('#staged .staged-status[role="alert"]')`
   await app.waitFor(`${alert} !== null`)
   const said = await app.evaluate<string>(`${alert}.textContent.trim()`)
   if (said !== '') {
     throw new Error(`the list shows ${value}, but the changes say: ${said}`)
   }
+  await showAllParameters(app)
 }
 
 /**

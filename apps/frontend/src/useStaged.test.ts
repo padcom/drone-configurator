@@ -162,17 +162,17 @@ describe('a draft put back to the value the vehicle has', () => {
     expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
   })
 
-  it('leaves a change that was written, with its result, and a new value replaces it', async () => {
+  it('has no change left that was written, and a new value for it is a change like any other', async () => {
     const { staged, pick } = rig((_id, value) => value)
     pick('FENCE_RADIUS', '300')
     staged.sync()
     await staged.writeAll()
 
-    // The vehicle reports 300 now: the draft is at the vehicle's value, and the written change stays.
+    // The vehicle reports 300 now: the written change is gone, and a draft at the vehicle's value queues nothing.
+    expect(staged.changes.value).toEqual([])
     pick('FENCE_RADIUS', '300')
     staged.sync()
-    expect(outcomes(staged)).toEqual([['FENCE_RADIUS', 'verified']])
-    expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+    expect(staged.changes.value).toEqual([])
 
     pick('FENCE_RADIUS', '150')
     staged.sync()
@@ -212,10 +212,10 @@ describe('writing the changes', () => {
     expect(askedOnce).toHaveBeenCalledTimes(1)
     expect(askedOnce).toHaveBeenCalledWith('Write 2 parameters to the vehicle?\nRTL_ALT 1500 → 1600\nFENCE_RADIUS 150 → 300')
     expect(call.mock.calls.map(([, payload]) => [payload.id, payload.value])).toEqual([['RTL_ALT', 1600], ['FENCE_RADIUS', 300]])
-    expect(staged.results.value.map(result => [result.id, result.outcome, result.detail])).toEqual([
-      ['RTL_ALT', 'verified', '1600'],
-      ['FENCE_RADIUS', 'verified', '300'],
-    ])
+    // Both were read back: they are done, so nothing is left in the list, and the run says how many it wrote.
+    expect(staged.results.value).toEqual([])
+    expect(staged.changes.value).toEqual([])
+    expect(staged.written.value).toEqual({ count: 2 })
     expect(staged.pending()).toEqual([])
     expect(params.value.find(param => param.id === 'RTL_ALT')?.value).toBe(1600)
     expect(staged.writing.value).toBe(false)
@@ -250,7 +250,25 @@ describe('a write that is not confirmed', () => {
     fails = false
     await staged.writeAll()
     expect(call).toHaveBeenCalledTimes(2)
-    expect(staged.results.value).toEqual([{ id: 'RTL_ALT', outcome: 'verified', detail: '1600' }])
+    expect(staged.results.value).toEqual([])
+    expect(staged.changes.value).toEqual([])
+  })
+})
+
+describe('a write that is only partly confirmed', () => {
+  it('says nothing was all written while a change is left that was not', async () => {
+    const { staged, pick } = rig((id, value) => id === 'FENCE_RADIUS' ? 1 : value)
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    pick('FENCE_RADIUS', '300')
+    staged.sync()
+
+    await staged.writeAll()
+
+    // RTL_ALT was read back and is gone; FENCE_RADIUS stays with its cross, and the run is not "all written".
+    expect(staged.changes.value.map(change => change.id)).toEqual(['FENCE_RADIUS'])
+    expect(outcomes(staged)).toEqual([['FENCE_RADIUS', 'changed']])
+    expect(staged.written.value).toBeNull()
   })
 })
 
@@ -282,7 +300,7 @@ describe('a write that does not start or that is done', () => {
 })
 
 describe('a retry after a partial write', () => {
-  it('keeps what the vehicle read back, writes only the rest, and says how many are written', async () => {
+  it('leaves what the vehicle read back out of the list, writes only the rest, and says how many are written', async () => {
     let flaky = true
     const { staged, pick, call, askedOnce } = rig((id, value) => id === 'FENCE_RADIUS' && flaky ? new Error('TIMEOUT') : value)
     for (const [id, text] of [['RTL_ALT', '1600'], ['FENCE_RADIUS', '300'], ['BATT_CAPACITY', '6000']]) {
@@ -291,8 +309,10 @@ describe('a retry after a partial write', () => {
     }
 
     await staged.writeAll()
-    expect(outcomes(staged)).toEqual([['RTL_ALT', 'verified'], ['FENCE_RADIUS', 'failed']])
+    expect(outcomes(staged)).toEqual([['FENCE_RADIUS', 'failed']])
     expect(staged.pending().map(change => change.id)).toEqual(['FENCE_RADIUS', 'BATT_CAPACITY'])
+    expect(staged.written.value).toBeNull()
+    expect(staged.readBack.value).toBe(1)
 
     flaky = false
     await staged.writeAll()
@@ -300,7 +320,8 @@ describe('a retry after a partial write', () => {
     const asked = /^Write 2 parameters to the vehicle\?\nFENCE_RADIUS .+\nBATT_CAPACITY /u
     expect(askedOnce).toHaveBeenLastCalledWith(expect.stringMatching(asked))
     expect(call.mock.calls.map(([, payload]) => payload.id)).toEqual(['RTL_ALT', 'FENCE_RADIUS', 'FENCE_RADIUS', 'BATT_CAPACITY'])
-    expect(outcomes(staged)).toEqual([['RTL_ALT', 'verified'], ['FENCE_RADIUS', 'verified'], ['BATT_CAPACITY', 'verified']])
+    expect(outcomes(staged)).toEqual([])
+    expect(staged.written.value).toEqual({ count: 2 })
     expect(staged.pending()).toEqual([])
   })
 })

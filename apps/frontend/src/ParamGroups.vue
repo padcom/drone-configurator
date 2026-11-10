@@ -1,5 +1,5 @@
 <template>
-  <nav class="param-groups" :aria-label="t('params.groups')" @keydown="move">
+  <nav class="param-groups" :aria-label="t('params.groups')" @keydown="move" @keydown.esc="leave">
     <button
       v-for="group in all"
       :key="group.id"
@@ -59,6 +59,18 @@ function target(key: string, from: number): number {
   }
 
   return moves[key]?.() ?? from
+}
+
+/**
+ * Escape leaves the groups for the list (the group list has no popup of its own for it to close first; a key something else
+ * took is left alone).
+ *
+ * @param event the key press
+ */
+function leave(event: KeyboardEvent): void {
+  if (!event.defaultPrevented) {
+    document.getElementById('param-list')?.focus()
+  }
 }
 
 /**

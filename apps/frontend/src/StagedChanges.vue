@@ -23,18 +23,26 @@
     <!-- Always in the page, so that how the writing went is read out. -->
     <p class="staged-status" role="status" :class="{ quiet: !summary.polite }">{{ summary.polite }}</p>
     <p class="staged-status warn" role="alert" :class="{ quiet: !summary.urgent }">{{ summary.urgent }}</p>
-    <Button id="write-staged" variant="primary" :disabled="!writable" @click="staged.writeAll()">
+    <Button
+      id="write-staged"
+      variant="primary"
+      :disabled="!writable"
+      aria-keyshortcuts="Control+Enter"
+      :title="t('staged.writeKey')"
+      @click="staged.writeAll()"
+    >
       {{ t('staged.write', { count: pending.length }) }}
     </Button>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import { linesFor, summaryOf } from './stagedChanges'
+import { useToasts } from './toasts'
 import { useConfigurator } from './useConfigurator'
 
 // The changes collected to be written together, as the design has them: each with the value on the vehicle and the value to
@@ -46,8 +54,15 @@ const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
 const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
-const summary = computed(() => summaryOf(staged.changes.value, staged.results.value, staged.writing.value, t))
+const summary = computed(() => summaryOf(staged.results.value, staged.writing.value, staged.readBack.value, t))
 const list = ref<HTMLElement | null>(null)
+
+// All the changes written and read back: the changes are gone from the list, and a toast says so (politely).
+watch(staged.written, done => {
+  if (done) {
+    useToasts().push({ id: 'staged-written', severity: 'success', text: t('staged.allWritten', { count: done.count }) })
+  }
+})
 
 /**
  * Focuses an element, if there is one.
