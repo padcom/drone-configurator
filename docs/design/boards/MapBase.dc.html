@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Map base</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>body{margin:0}</style>
+</helmet>
+<svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map of farmland with a river, roads and a village" style="position:absolute;inset:0;width:100%;height:100%;display:block;background:{{m.ground}}">
+  <g fill="{{m.field}}">
+    <path d="M60 60 340 30 370 240 90 280Z"></path>
+    <path d="M390 20 690 0 700 150 410 190Z"></path>
+    <path d="M530 285 972 243 972 430 530 475Z"></path>
+    <path d="M1000 60 1200 40V300L1010 320Z"></path>
+    <path d="M80 330 330 300 370 500 110 540Z"></path>
+    <path d="M1000 360 1200 340V560L1010 590Z"></path>
+    <path d="M500 540 800 510 830 640 520 680Z"></path>
+    <path d="M60 760 200 750 210 900H70Z"></path>
+    <path d="M900 690 1200 660V900H930Z"></path>
+  </g>
+  <g fill="{{m.field2}}">
+    <path d="M730 10 970 0 980 190 745 215Z"></path>
+    <path d="M380 240 510 225 520 470 400 500Z"></path>
+    <path d="M850 500 985 480 1000 650 870 670Z"></path>
+    <path d="M300 760 560 730 590 900H320Z"></path>
+  </g>
+  <g fill="none" stroke="{{m.contour}}" stroke-width="1">
+    <path d="M-20 200C200 140 300 300 520 250S900 90 1220 180"></path>
+    <path d="M-20 320C180 260 320 410 560 360S920 210 1220 300"></path>
+    <path d="M-20 460C200 400 340 540 600 490S940 350 1220 430"></path>
+    <path d="M-20 600C220 540 360 680 640 620S960 490 1220 570"></path>
+    <path d="M-20 740C240 690 400 800 680 750S980 640 1220 710"></path>
+  </g>
+  <path d="M-20 830C160 790 300 860 480 800S760 640 900 620 1120 650 1220 600" fill="none" stroke="{{m.water}}" stroke-width="30" stroke-linecap="round"></path>
+  <g fill="none" stroke="{{m.road}}" stroke-linecap="round">
+    <path d="M-20 290C200 300 340 280 520 230S860 240 1220 330" stroke-width="5"></path>
+    <path d="M380 -10C350 200 390 480 240 660S200 840 180 910" stroke-width="5"></path>
+    <path d="M840 -10C860 200 990 400 1000 600S980 800 1010 910" stroke-width="4"></path>
+    <path d="M240 660C400 670 620 700 860 660" stroke-width="3"></path>
+  </g>
+  <g fill="{{m.building}}">
+    <rect x="160" y="620" width="26" height="18" transform="rotate(-12 173 629)"></rect>
+    <rect x="130" y="660" width="22" height="30" transform="rotate(-12 141 675)"></rect>
+    <rect x="190" y="580" width="30" height="16" transform="rotate(-12 205 588)"></rect>
+    <rect x="300" y="700" width="24" height="18" transform="rotate(8 312 709)"></rect>
+    <rect x="340" y="716" width="18" height="24" transform="rotate(8 349 728)"></rect>
+    <rect x="1040" y="620" width="28" height="18" transform="rotate(-6 1054 629)"></rect>
+    <rect x="1090" y="600" width="20" height="26" transform="rotate(-6 1100 613)"></rect>
+  </g>
+</svg>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"look":{"editor":"enum","options":["map","video"],"default":"map"},"$preview":{"width":1200,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const day = (this.props.look ?? 'map') === 'video';
+    return {
+      m: day
+        ? { ground:'#E7ECE3', field:'#D5E0C8', field2:'#E0E2C6', contour:'#C9D1C4', water:'#A9CFE3', road:'#FFFFFF', building:'#BCC5C9' }
+        : { ground:'#10171E', field:'#15231F', field2:'#1A2420', contour:'#1E2A33', water:'#123246', road:'#303E4C', building:'#2A3844' },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Review parameter changes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="parameters" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <div style="padding:20px 28px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:600">{{title}}</h1>
+          <p style="margin:4px 0 0;color:#A9B8C5;font-size:15px"><strong style="color:#E8EEF4">{{differ}} differ</strong>, 1422 already the same. Nothing is ticked at first.</p>
+        </div>
+        <a href="Parameters.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Close</a>
+      </div>
+      <div role="group" aria-label="Compare with" style="display:flex;flex-wrap:wrap;gap:2px;margin:0 28px 12px;padding:3px;background:#111921;border:1px solid #25323E;border-radius:4px;align-self:flex-start">
+        <sc-for list="{{sources}}" as="b" hint-placeholder-count="5"><button type="button" onClick="{{b.pick}}" style="min-height:40px;padding:0 14px;border:0;border-radius:2px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+      </div>
+      <sc-if value="{{hasWarn}}" hint-placeholder-val="{{true}}"><div role="alert" style="padding:12px 28px;background:#3A2A10;color:#FFB54A;font-weight:500">{{warn}}</div></sc-if>
+      <div data-l="fill pane" style="flex:1 1 auto;overflow-x:auto">
+        <table style="width:100%;min-width:760px;border-collapse:collapse">
+          <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:8px 12px 8px 28px;width:36px;font-weight:500"></th><th scope="col" style="padding:8px 12px;font-weight:500">NAME</th><th scope="col" style="padding:8px 12px;font-weight:500;text-align:right">ON THE VEHICLE</th><th scope="col" style="padding:8px 12px;font-weight:500">{{colFrom}}</th><th scope="col" style="padding:8px 12px;font-weight:500">RESULT</th></tr></thead>
+          <tbody>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="9">
+              <tr style="height:48px;border-top:1px solid #1C2732;background:{{r.bg}}">
+                <td style="padding:0 12px 0 28px"><input type="checkbox" aria-label="Apply {{r.name}}" disabled="{{r.locked}}" checked="{{r.on}}" onChange="{{r.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0;vertical-align:middle"></td>
+                <th scope="row" style="padding:0 12px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:400">{{r.name}}</th>
+                <td style="padding:0 12px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:14px;color:#A9B8C5">{{r.old}}</td>
+                <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:14px;color:{{r.newFg}}">→ {{r.new}}</td>
+                <td style="padding:0 12px;font-size:13.5px;color:{{r.resFg}}">{{r.result}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 28px;background:#111921;border-top:1px solid #25323E">
+        <span style="flex:1 1 280px;color:{{statusFg}};font-weight:500">{{status}}</span>
+        <button type="button" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Save a backup</button>
+        <button type="button" disabled="{{cannot}}" onClick="{{write}}" style="min-height:48px;padding:0 22px;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">Write {{count}} ticked</button>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"failure":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { src:'Snapshot', ticks:{}, done:false };
+  renderVals() {
+    const s = this.state;
+    const R = (name,o,n,reason,note) => ({ name,o,n,reason,note });
+    const base = [R('BATT_CAPACITY','5200','6000 mAh'),R('BATT_LOW_VOLT','10.5','10.8 V'),R('FENCE_RADIUS','150','300 m')];
+    const S = {
+      Snapshot:{ title:'Snapshot from 2026-11-07', col:'IN THE SNAPSHOT', warn:'Saved from a hexarotor. This is a quadrotor.', rows:[...base,R('RTL_ALT','1500','3000 cm'),R('LOIT_SPEED','1250','1500 cm/s'),R('FLTMODE_CH','5','300','INT8 goes from −128 to 127'),R('SR5_POSITION','—','2','Not on this vehicle')] },
+      'Parameter file':{ title:'quad_survey.param', col:'IN THE FILE', warn:'', rows:[...base,R('WPNAV_SPD','1000','12 m/s',null,'Renamed in this firmware: WPNAV_SPEED, 12 m/s is 1200 cm/s'),R('OLD_THING','—','1','Not on this vehicle')] },
+      Defaults:{ title:'Firmware defaults', col:'DEFAULT', warn:'', rows:[R('BATT_CAPACITY','5200','3300 mAh'),R('FENCE_RADIUS','150','300 m'),R('RTL_ALT','1500','1500 cm')].slice(0,2) },
+      'Frame preset':{ title:'Preset: Tarot 650 with 15-inch props', col:'IN THE PRESET', warn:'This changes how the vehicle flies. Disarmed only.', rows:[R('ATC_RAT_RLL_P','0.135','0.09'),R('ATC_RAT_PIT_P','0.135','0.09'),R('MOT_THST_EXPO','0.65','0.72')] },
+      'Flight log':{ title:'Parameters from 00000012.BIN', col:'IN THE LOG', warn:'', rows:[...base] },
+    };
+    const c = S[s.src];
+    const fail = !!this.props.failure;
+    let stopped = false;
+    const rows = c.rows.map((r) => {
+      const key = s.src+r.name, locked = !!r.reason, on = !locked && !!s.ticks[key];
+      let result = r.reason ?? r.note ?? '', resFg = r.reason||r.note ? '#FFB54A' : '#A9B8C5', bg = 'transparent';
+      if (s.done && on) {
+        if (stopped) { result = 'Not written'; resFg = '#A9B8C5'; }
+        else if (fail && r.name === 'RTL_ALT') { stopped = true; result = '✕ The vehicle reports 2500, not 3000'; resFg = '#FF7A70'; bg = '#3F1A1A'; }
+        else { result = '✓ Written and read back: '+r.n; resFg = '#62E3A6'; }
+      }
+      return { name:r.name, old:r.o, new:r.n, locked, on, result, resFg, bg, newFg:locked?'#A9B8C5':'#56D9F2',
+        toggle:(e) => this.setState({ ticks:{ ...s.ticks, [key]:e.target.checked }, done:false }) };
+    });
+    const count = rows.filter((r) => r.on).length;
+    const cannot = count===0 || s.done;
+    return {
+      title:c.title, colFrom:c.col, warn:c.warn, hasWarn:!!c.warn, rows, count, differ:c.rows.length,
+      sources:Object.keys(S).map((label) => ({ label, pick:() => this.setState({ src:label, done:false }), bg:s.src===label?'#56D9F2':'transparent', fg:s.src===label?'#06222B':'#E8EEF4' })),
+      status:!s.done?(count?count+' ticked. Your current values are backed up first.':'Tick the changes you want.'):stopped?"Stopped there: the rest weren't written.":'All written and read back.',
+      statusFg:s.done&&stopped?'#FFB54A':s.done?'#62E3A6':'#A9B8C5',
+      cannot, writeBg:cannot?'#25323E':'#56D9F2', writeFg:cannot?'#A9B8C5':'#06222B',
+      write:() => this.setState({ done:true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

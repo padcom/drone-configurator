@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly: data</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="armed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="FlyNav" active="data" hint-size="100%,56px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="pane col" style="flex:1 1 440px;min-width:0;display:flex;flex-direction:column;border-right:1px solid #25323E">
+          <div style="padding:10px 14px;border-bottom:1px solid #25323E">
+            <label style="display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;box-sizing:border-box;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#A9B8C5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+              <input aria-label="Filter values" placeholder="Filter values" value="{{q}}" onChange="{{search}}" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:#E8EEF4;font:inherit">
+            </label>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:6px 12px;font-weight:500">GRAPH</th><th scope="col" style="padding:6px 12px;font-weight:500">VALUE</th><th scope="col" style="padding:6px 12px;font-weight:500;text-align:right">NOW</th><th scope="col" style="padding:6px 12px;font-weight:500;text-align:right">AGE</th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="16">
+                <tr style="height:36px;border-top:1px solid #1C2732;background-image:{{r.hatch}}">
+                  <td style="padding:0 12px"><input type="checkbox" aria-label="Graph {{r.name}}" disabled="{{r.off}}" checked="{{r.pinned}}" onChange="{{r.toggle}}" style="width:18px;height:18px;accent-color:#56D9F2;margin:0;vertical-align:middle"></td>
+                  <th scope="row" style="padding:0 12px;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:400">{{r.name}}</th>
+                  <td style="padding:0 12px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{r.fg}}">{{r.value}}</td>
+                  <td style="padding:0 12px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:{{r.ageFg}}">{{r.age}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+        <section data-l="pane col" onMouseMove="{{hoverMove}}" onMouseLeave="{{hoverOut}}" style="flex:2 1 460px;min-width:0;box-sizing:border-box;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{charts}}" as="c" hint-placeholder-count="3">
+            <figure style="margin:0;flex:1 1 170px;display:flex;flex-direction:column;gap:6px;padding:10px 14px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <figcaption style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span style="font-family:'IBM Plex Mono',monospace;font-weight:600">{{c.name}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{c.readout}}</span></figcaption>
+              <div style="position:relative;flex:1 1 120px;min-height:120px">
+                <svg viewBox="0 0 1000 120" preserveAspectRatio="none" role="img" aria-label="{{c.name}} over the last 30 seconds" style="position:absolute;inset:0;width:100%;height:100%">
+                  <line x1="0" x2="1000" y1="60" y2="60" stroke="#25323E" vector-effect="non-scaling-stroke"></line>
+                  <polyline points="{{c.pts}}" fill="none" stroke="#56D9F2" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  <line x1="{{hx}}" x2="{{hx}}" y1="0" y2="120" stroke="#E8EEF4" stroke-opacity="{{ho}}" vector-effect="non-scaling-stroke"></line>
+                </svg>
+                <span style="position:absolute;left:2px;top:0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A9B8C5">{{c.max}}</span>
+                <span style="position:absolute;left:2px;bottom:0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A9B8C5">{{c.min}}</span>
+              </div>
+            </figure>
+          </sc-for>
+          <sc-if value="{{noCharts}}" hint-placeholder-val="{{false}}"><p style="margin:auto;color:#A9B8C5">Tick a value on the left to graph it.</p></sc-if>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { n:400, q:'', pinned:{ 'altitude.relative':true, 'vibration.z':true, 'battery.voltage':true }, hover:null };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 250); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const nz = (t,k) => Math.sin(t*.61+k)*.5+Math.sin(t*1.37+k*2)*.3+Math.sin(t*2.9+k*3)*.2;
+    const V = [
+      ['attitude.roll','°',(t) => 5*Math.sin(t/8),1],
+      ['attitude.pitch','°',(t) => 3+1.5*Math.sin(t/6),1],
+      ['attitude.yaw','°',(t) => 96+nz(t,1),0],
+      ['altitude.relative','m',(t) => 60+nz(t,2)*.6,1],
+      ['speed.ground','m/s',(t) => 8+nz(t,3)*.3,1],
+      ['speed.air','m/s',(t) => 9.1+nz(t,4)*.5,1],
+      ['speed.climb','m/s',(t) => nz(t,5)*.4,2],
+      ['battery.voltage','V',(t) => 12.18-(t%400)*.0004+nz(t,6)*.015,2],
+      ['battery.current','A',(t) => 11.4+nz(t,7)*.8,1],
+      ['battery.remaining','%',() => 87,0],
+      ['gps.satellites','',() => 14,0],
+      ['gps.hdop','',(t) => .8+nz(t,8)*.03,2],
+      ['wind.speed','m/s',(t) => 4+nz(t,9)*.5,1],
+      ['vibration.x','m/s²',(t) => 9+nz(t,10)*1.5,1],
+      ['vibration.y','m/s²',(t) => 8+nz(t,11)*1.5,1],
+      ['vibration.z','m/s²',(t) => 12+nz(t,12)*2.5,1],
+    ];
+    const q = s.q.trim().toLowerCase();
+    const hatch = 'repeating-linear-gradient(135deg,transparent 0 8px,#25323E 8px 9px)';
+    const live = V.filter(([name]) => name.includes(q)).map(([name,unit,fn,dig]) => ({
+      name, off:false, pinned:!!s.pinned[name], value:fn(s.n).toFixed(dig)+(unit?' '+unit:''), fg:'#E8EEF4', age:'0.2 s', ageFg:'#A9B8C5', hatch:'none',
+      toggle:(e) => this.setState({ pinned:{ ...s.pinned, [name]:e.target.checked } }),
+    }));
+    const extra = [
+      { name:'gps2.fix', off:true, pinned:false, value:'3D', fg:'#A9B8C5', age:'stale, 6 s old', ageFg:'#FFB54A', hatch, toggle:() => {} },
+      { name:'rangefinder.distance', off:true, pinned:false, value:'—', fg:'#A9B8C5', age:'never', ageFg:'#A9B8C5', hatch:'none', toggle:() => {} },
+    ].filter((r) => r.name.includes(q));
+    const SPAN = 120, h = s.hover;
+    const charts = V.filter(([name]) => s.pinned[name]).map(([name,unit,fn,dig]) => {
+      const vals = Array.from({ length:SPAN+1 }, (_,i) => fn(s.n-SPAN+i));
+      let min = Math.min(...vals), max = Math.max(...vals);
+      const pad = Math.max((max-min)*.15, .05); min -= pad; max += pad;
+      const pts = vals.map((v,i) => (i/SPAN*1000).toFixed(0)+','+(120-(v-min)/(max-min)*120).toFixed(1)).join(' ');
+      const at = h == null ? vals[SPAN] : vals[Math.round(h*SPAN)];
+      return { name, pts, min:min.toFixed(dig), max:max.toFixed(dig), readout:at.toFixed(dig)+(unit?' '+unit:'')+(h == null ? '' : ' · '+((1-h)*30).toFixed(1)+' s ago') };
+    });
+    return {
+      q:s.q, search:(e) => this.setState({ q:e.target.value }),
+      rows:live.concat(extra), charts, noCharts:charts.length===0,
+      hoverMove:(e) => { const r = e.currentTarget.getBoundingClientRect(); this.setState({ hover:Math.min(1,Math.max(0,(e.clientX-r.left-30)/(r.width-60))) }); },
+      hoverOut:() => this.setState({ hover:null }),
+      hx:h==null?0:(h*1000).toFixed(0), ho:h==null?0:.7,
+    };
+  }
+}
+</script>
+</body>
+</html>

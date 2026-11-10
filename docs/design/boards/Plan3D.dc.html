@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: 3D view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="3d" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="map" style="flex:999 1 520px;min-width:0;min-height:520px;position:relative;background:#10171E">
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid meet" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+            <sc-for list="{{grid}}" as="g" hint-placeholder-count="30"><polyline points="{{g}}" fill="none" stroke="#60728A" stroke-width="1"></polyline></sc-for>
+            <sc-for list="{{stems}}" as="t" hint-placeholder-count="12"><line x1="{{t.x}}" y1="{{t.y}}" x2="{{t.x2}}" y2="{{t.y2}}" stroke="#EE82F5" stroke-opacity=".4" stroke-width="1.5"></line></sc-for>
+            <polyline points="{{route}}" fill="none" stroke="#EE82F5" stroke-width="4" stroke-linejoin="round"></polyline>
+            <sc-for list="{{stems}}" as="t" hint-placeholder-count="12"><circle cx="{{t.x}}" cy="{{t.y}}" r="6" fill="#10171E" stroke="#EE82F5" stroke-width="3"></circle></sc-for>
+            <circle cx="{{hx}}" cy="{{hy}}" r="14" fill="#10171E" stroke="#62E3A6" stroke-width="3"></circle>
+            <text x="{{hx}}" y="{{hty}}" text-anchor="middle" fill="#62E3A6" font-size="16" font-weight="600" font-family="IBM Plex Mono, monospace">H</text>
+          </svg>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 320px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:12px">
+          <div><h1 style="margin:0;font-size:20px;font-weight:600">3D view</h1><p style="margin:4px 0 0;color:#A9B8C5">Check the mission against the ground. Editing stays on the Mission tab.</p></div>
+          <sc-for list="{{sliders}}" as="f" hint-placeholder-count="3">
+            <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span><input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0"></label>
+          </sc-for>
+          <div style="padding:12px 14px;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">HIGHEST GROUND</div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{peak}} m</div></div>
+          <p style="margin:auto 0 0;color:#A9B8C5;font-size:13px">Height is drawn taller than life, so small differences are easy to see.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { az:-25, tilt:55, exag:3 };
+  renderVals() {
+    const s = this.state;
+    const a = s.az*Math.PI/180, sq = s.tilt/100;
+    const ground = (x,y) => 9+6*Math.sin(x/170)+5*Math.cos(y/140)+3*Math.sin((x+y)/90);
+    const P = (x,y,z) => {
+      const dx = x-600, dy = y-480;
+      return [600+dx*Math.cos(a)-dy*Math.sin(a), 520+(dx*Math.sin(a)+dy*Math.cos(a))*sq - z*s.exag];
+    };
+    const fmt = (p) => p[0].toFixed(0)+','+p[1].toFixed(0);
+    const grid = [];
+    let peak = 0;
+    for (let y = 120; y <= 840; y += 60) { const l = []; for (let x = 120; x <= 1080; x += 40) { const z = ground(x,y); peak = Math.max(peak,z); l.push(fmt(P(x,y,z))); } grid.push(l.join(' ')); }
+    for (let x = 120; x <= 1080; x += 60) { const l = []; for (let y = 120; y <= 840; y += 40) l.push(fmt(P(x,y,ground(x,y)))); grid.push(l.join(' ')); }
+    const R = [[360,570,40],[560,456,60],[940,416,60],[940,364,60],[560,404,60],[560,352,60],[940,312,60],[940,260,60],[560,300,60],[430,380,40]];
+    const h = P(250,700,ground(250,700));
+    const stems = R.map(([x,y,alt]) => { const g = ground(x,y), top = P(x,y,g+alt), b = P(x,y,g); return { x:top[0].toFixed(0), y:top[1].toFixed(0), x2:b[0].toFixed(0), y2:b[1].toFixed(0) }; });
+    const route = [fmt(h)].concat(R.map(([x,y,alt]) => fmt(P(x,y,ground(x,y)+alt))), [fmt(h)]).join(' ');
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value) });
+    return {
+      grid, stems, route, hx:h[0].toFixed(0), hy:h[1].toFixed(0), hty:(h[1]+6).toFixed(0), peak:Math.round(peak),
+      aria:'Three-dimensional view of the mission above the terrain',
+      sliders:[
+        { label:'Turn',min:-180,max:180,step:5,value:s.az,text:s.az+'°',change:set('az') },
+        { label:'Tilt',min:25,max:90,step:5,value:s.tilt,text:s.tilt+'%',change:set('tilt') },
+        { label:'Height emphasis',min:1,max:6,step:1,value:s.exag,text:s.exag+'×',change:set('exag') },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Serial ports</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="serial" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Serial ports</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Say what is plugged into each port on the flight controller.</p>
+          </div>
+          <a href="SetupDevices.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Devices</a>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;min-width:680px;border-collapse:collapse">
+            <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:8px 12px;font-weight:500">PORT</th><th scope="col" style="padding:8px 12px;font-weight:500">PLUGGED IN</th><th scope="col" style="padding:8px 12px;font-weight:500">SPEED</th><th scope="col" style="padding:8px 12px;font-weight:500">TRAFFIC</th></tr></thead>
+            <tbody>
+              <sc-for list="{{ports}}" as="p" hint-placeholder-count="6">
+                <tr style="height:64px;border-top:1px solid #1C2732">
+                  <th scope="row" style="padding:0 12px;text-align:left;font-weight:500"><div>{{p.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:400;color:#A9B8C5">SERIAL{{p.no}}</div></th>
+                  <td style="padding:0 12px"><span style="position:relative;display:block;max-width:240px"><select aria-label="{{p.label}} protocol" value="{{p.protocol}}" onChange="{{p.protoChange}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit;font-weight:500"><sc-for list="{{protocols}}" as="o" hint-placeholder-count="6"><option value="{{o}}">{{o}}</option></sc-for></select><svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg></span></td>
+                  <td style="padding:0 12px"><span style="position:relative;display:block;width:130px"><select aria-label="{{p.label}} speed" value="{{p.baud}}" onChange="{{p.baudChange}}" disabled="{{p.off}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:{{p.baudFg}};font-family:'IBM Plex Mono',monospace;font-size:13px"><sc-for list="{{bauds}}" as="o" hint-placeholder-count="5"><option value="{{o}}">{{o}}</option></sc-for></select><svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="{{p.baudFg}}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg></span></td>
+                  <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{p.trafficFg}}">{{p.traffic}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <sc-for list="{{problems}}" as="w" hint-placeholder-count="0"><p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">{{w}}</p></sc-for>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:auto">
+          <button type="button" disabled="{{cannotWrite}}" onClick="{{write}}" style="min-height:48px;padding:0 24px;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+          <span style="color:#A9B8C5">{{writeNote}}</span>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = {
+    ports:[
+      { no:0, label:'USB', protocol:'MAVLink 2', baud:'115200', traffic:'4.1 kB/s' },
+      { no:1, label:'Telem 1', protocol:'MAVLink 2', baud:'57600', traffic:'1.9 kB/s' },
+      { no:2, label:'Telem 2', protocol:'Nothing', baud:'57600', traffic:'—' },
+      { no:3, label:'GPS 1', protocol:'GPS', baud:'230400', traffic:'2.3 kB/s' },
+      { no:4, label:'GPS 2', protocol:'Nothing', baud:'230400', traffic:'—' },
+      { no:5, label:'Serial 5', protocol:'Nothing', baud:'115200', traffic:'—' },
+    ], dirty:false, written:false,
+  };
+  renderVals() {
+    const s = this.state;
+    const edit = (i,o) => { const ports = s.ports.map((p,j) => (j===i ? { ...p, ...o } : p)); this.setState({ ports, dirty:true, written:false }); };
+    const ports = s.ports.map((p,i) => {
+      const off = p.protocol === 'Nothing', quiet = p.traffic === '—';
+      return { ...p, off, baudFg:off?'#8FA0AE':'#E8EEF4', trafficFg:quiet?'#A9B8C5':'#E8EEF4', protoChange:(e) => edit(i,{ protocol:e.target.value }), baudChange:(e) => edit(i,{ baud:e.target.value }) };
+    });
+    const count = (name) => s.ports.filter((p) => p.protocol===name).length;
+    const problems = [];
+    if (count('RC input') > 1) problems.push('Two ports are set to RC input. Only one can be used.');
+    if (count('GPS') > 2) problems.push('More than two ports are set to GPS. Only two are used.');
+    if (s.ports[0].protocol !== 'MAVLink 2' && s.ports[0].protocol !== 'MAVLink 1') problems.push('USB would stop speaking MAVLink, so this app could lose the vehicle on USB.');
+    const blocked = !s.dirty || count('RC input') > 1;
+    return {
+      ports, problems,
+      protocols:['Nothing','MAVLink 2','MAVLink 1','GPS','RC input','Rangefinder','ESC telemetry'],
+      bauds:['38400','57600','115200','230400','460800','921600'],
+      cannotWrite:blocked, writeBg:blocked?'#25323E':'#56D9F2', writeFg:blocked?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      writeNote:s.written?'Reboot the vehicle to apply.':'Changes to ports need a reboot.',
+      write:() => this.setState({ written:true, dirty:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

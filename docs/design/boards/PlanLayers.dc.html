@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: layers and terrain</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="layers" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="map" style="flex:999 1 520px;min-width:0;min-height:520px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,520px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Map with the chosen layers" style="position:absolute;inset:0;width:100%;height:100%">
+            <sc-if value="{{ortho}}" hint-placeholder-val="{{false}}"><rect x="340" y="180" width="460" height="320" fill="#62E3A6" fill-opacity="{{opacity}}" stroke="#62E3A6"></rect></sc-if>
+            <sc-if value="{{coverage}}" hint-placeholder-val="{{false}}"><path d="M250 700C80 480 240 200 560 190S1060 340 980 620 500 860 250 700Z" fill="#56D9F2" fill-opacity=".1" stroke="#56D9F2" stroke-dasharray="6 8"></path></sc-if>
+            <sc-if value="{{air}}" hint-placeholder-val="{{false}}"><circle cx="1010" cy="170" r="150" fill="#FFB54A" fill-opacity=".14" stroke="#FFB54A" stroke-width="2"></circle><text x="1010" y="176" text-anchor="middle" fill="#E8EEF4" font-size="20" font-family="IBM Plex Sans, sans-serif">Airfield (advisory)</text></sc-if>
+            <sc-if value="{{kml}}" hint-placeholder-val="{{false}}"><polyline points="180,300 340,250 460,330 620,260" fill="none" stroke="#EE82F5" stroke-width="3" stroke-dasharray="4 6"></polyline></sc-if>
+            <sc-if value="{{poi}}" hint-placeholder-val="{{false}}"><circle cx="690" cy="600" r="12" fill="#FFFFFF"></circle><text x="710" y="607" fill="#E8EEF4" font-size="20" font-family="IBM Plex Sans, sans-serif">Pump house</text></sc-if>
+          </svg>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 360px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div role="group" aria-label="Section" style="display:flex;flex-wrap:wrap;gap:2px"><sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for></div>
+          <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Layers', vals:{ kml:true, poi:true } };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l) => ({ k:'check', label:l, value:g(k,false), change:(e) => set(k,e.target.checked) });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const ghost = (k,l,d) => ({ k:'button', label:g(k,0)?d:l, pick:() => set(k,1), bg:'transparent', fg:g(k,0)?'#62E3A6':'#E8EEF4', border:'#60728A' });
+    const R = {
+      Layers:[chk('kml','Field boundary.kml'),chk('ortho','Survey photo (GeoTIFF)'),...(g('ortho',false)?[slide('op','Photo opacity',40,10,100,5,'%')]:[]),chk('poi','Points of interest'),chk('air','Airports and restricted areas'),...(g('air',false)?[{ k:'warn', text:'Advisory only. Check official airspace information before you fly.' }]:[]),chk('cov','Expected radio coverage (estimate)'),ghost('imp','Import KML, SHP, DXF or GeoTIFF','✓ Choose a file'),ghost('wp','Convert a shape to waypoints','✓ Pick a shape')],
+      Terrain:[chk('follow','Follow the terrain at a set height'),slide('agl','Height above ground',40,10,120,5,' m'),info('Lowest clearance','22 m'),info('Vehicle terrain data','Loaded · 100%'),head('ELEVATION DATA'),info('Downloaded area','SRTM · 3 tiles'),ghost('dted','Load DTED or GeoTIFF elevation','✓ Choose a file'),ghost('sd','Write terrain files for the SD card','✓ Choose an area')],
+      Library:[ghost('append','Append a mission at item 14','✓ Choose a file'),ghost('poly','Save this polygon','✓ Saved'),ghost('off','Offset the polygon by 10 m','✓ Offset'),head('MISSION COMMANDS'),note('Choose which commands the editor offers.'),chk('c1','Waypoint'),chk('c2','Spline waypoint'),chk('c3','Loiter'),ghost('rest','Restore the standard list','✓ Restored')],
+    };
+    return {
+      rows:R[s.tab], kml:g('kml',false), ortho:g('ortho',false), opacity:g('op',40)/100, poi:g('poi',false), air:g('air',false), coverage:g('cov',false),
+      tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

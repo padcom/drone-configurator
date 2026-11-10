@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="{{vehicle}}" mode="{{barMode}}" gps="{{barGps}}" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="home" vehicle="{{vehicle}}" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div>
+          <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-.01em">{{heading}}</h1>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">{{summary}}</p>
+        </div>
+        <a href="{{nextHref}}" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px;padding:20px 22px;border-radius:5px;background:#3A2A10;color:#E8EEF4;text-decoration:none">
+          <span style="flex:1 1 280px;display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.09em;color:#FFB54A">NEXT</span>
+            <span style="font-size:20px;font-weight:600">{{nextTitle}}</span>
+            <span style="color:#E8EEF4">{{nextDetail}}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:4px;background:#56D9F2;color:#06222B;font-weight:600">Continue</span>
+        </a>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="8">
+            <a href="{{s.href}}" style="display:flex;flex-direction:column;gap:4px;min-height:98px;box-sizing:border-box;padding:14px 16px;background:#111921;border:1px solid {{s.border}};border-radius:5px;color:#E8EEF4;text-decoration:none">
+              <span style="display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#A9B8C5"><span>{{s.name}}</span><span aria-hidden="true" style="color:{{s.mark}};font-weight:700">{{s.glyph}}</span></span>
+              <span style="font-size:17px;font-weight:600">{{s.value}}</span>
+              <span style="font-size:12.5px;color:#A9B8C5">{{s.detail}}</span>
+            </a>
+          </sc-for>
+        </div>
+        <sc-if value="{{hasSafety}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFB54A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 3 2 21h20zM12 10v5M12 18v.01"></path></svg>
+            <div><div style="font-weight:600">{{safetyTitle}}</div><div style="font-size:13px;color:#A9B8C5">{{safetyText}}</div></div>
+          </div>
+        </sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:14px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">THIS VEHICLE</h2>
+        <sc-for list="{{facts}}" as="f" hint-placeholder-count="5">
+          <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid #25323E"><span style="color:#A9B8C5">{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right">{{f.value}}</span></div>
+        </sc-for>
+        <h2 style="margin:12px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">ALSO AVAILABLE</h2>
+        <sc-for list="{{extras}}" as="x" hint-placeholder-count="3">
+          <a href="{{x.href}}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;color:#E8EEF4;text-decoration:none;font-weight:500"><span>{{x.name}}</span><span style="font-size:12.5px;font-weight:400;color:#A9B8C5">{{x.detail}}</span></a>
+        </sc-for>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"vehicle":{"editor":"enum","options":["copter","plane","rover","sub","heli"],"default":"copter"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const vehicle = this.props.vehicle ?? 'copter';
+    const V = {
+      copter:{ fw:'ArduCopter 4.6.2', frameHref:'SetupFrame.dc.html', motorHref:'SetupMotors.dc.html', frameName:'Frame and orientation', frameValue:'Quad X', frameDetail:'Default board orientation', motorName:'Motors and ESCs', motorValue:'4 tested', motorDetail:'Order and direction confirmed' },
+      plane:{ fw:'ArduPlane 4.6.2', frameHref:'SetupPlaneFrame.dc.html', motorHref:'SetupPlaneSurfaces.dc.html', frameName:'Airframe and orientation', frameValue:'Conventional', frameDetail:'Default board orientation', motorName:'Control surfaces', motorValue:'4 surfaces', motorDetail:'Direction confirmed' },
+      rover:{ fw:'ArduRover 4.6.2', frameHref:'SetupRoverChassis.dc.html', motorHref:'SetupRoverDrive.dc.html', frameName:'Chassis and orientation', frameValue:'Ackermann', frameDetail:'Default board orientation', motorName:'Steering and throttle', motorValue:'2 outputs', motorDetail:'Direction confirmed' },
+      sub:{ fw:'ArduSub 4.5.3', frameHref:'SetupSub.dc.html', motorHref:'SetupSub.dc.html', frameName:'Thrusters', frameValue:'Vectored 6', frameDetail:'Each thruster tested in water', motorName:'Depth sensor', motorValue:'Not zeroed', motorDetail:'Reads 0.42 m at the surface' },
+      heli:{ fw:'ArduCopter Heli 4.6.2', frameHref:'SetupHeli.dc.html', motorHref:'SetupHeli.dc.html', frameName:'Swashplate', frameValue:'H3 120', frameDetail:'Collective −3° to 12°', motorName:'Rotor and tail', motorValue:'Run-up not set', motorDetail:'Tail servo checked' },
+    }[vehicle];
+    const X = {
+      sub:{ heading:'One step left to dive', next:'Zero the depth sensor', nextDetail:'Hold the vehicle just under the surface, then zero it.', nextHref:'SetupSub.dc.html', barMode:'MANUAL', barGps:'—',
+        summary:'A sub is driven with a joystick and steers by depth, so its steps differ from an aircraft.',
+        safetyTitle:'Only run thrusters in the water', safetyText:'They can overheat in air. Keep hands and tether clear before testing.',
+        radio:['Joystick','8 buttons mapped','Connected · no radio needed','SetupJoystick.dc.html'], modes:['Dive modes','3 on buttons','Manual, Stabilize, Depth hold','SetupSub.dc.html'], fail:['Failsafes','4 set','Leak, link, battery and depth','SetupFailsafes.dc.html'], batt:['Battery','18 Ah · 4S','Voltage and current calibrated','SetupBattery.dc.html'] },
+      heli:{ heading:'One step left to fly', next:'Set the rotor run-up', nextDetail:'Run-up must be longer than the ramp, so the rotor is at speed before takeoff.', nextHref:'SetupHeli.dc.html', barMode:'STABILIZE', barGps:'3D · 14',
+        summary:'A helicopter adds a swashplate, rotor speed and tail, and always starts with the rotor spinning up.',
+        safetyTitle:'Disconnect the motor before moving the swashplate', safetyText:'A rotor can injure badly. Only reconnect it for the rotor speed step, with the vehicle secured.' },
+    }[vehicle] ?? {};
+    const openStep = vehicle === 'sub' || vehicle === 'heli';
+    const step = (name,value,detail,href,open) => ({ name,value,detail,href,glyph:open?'!':'✓',mark:open?'#FFB54A':'#62E3A6',border:open?'#FFB54A':'#25323E' });
+    return {
+      vehicle,
+      heading:X.heading ?? (vehicle === 'rover' ? 'One step left to drive' : 'One step left to fly'),
+      nextTitle:X.next ?? 'Calibrate compass 2',
+      nextDetail:X.nextDetail ?? 'Takes about a minute. Hold the vehicle away from metal.',
+      nextHref:X.nextHref ?? 'Setup.dc.html',
+      barMode:X.barMode ?? (vehicle === 'rover' ? 'HOLD' : 'LOITER'), barGps:X.barGps ?? '3D · 14',
+      hasSafety:!!X.safetyTitle, safetyTitle:X.safetyTitle ?? '', safetyText:X.safetyText ?? '',
+      summary:X.summary ?? 'The steps below are the ones this vehicle type needs. Everything else stays out of the way.',
+      steps:[
+        step(V.frameName,V.frameValue,V.frameDetail,V.frameHref),
+        step('Accelerometer','Calibrated','All six positions','SetupAccel.dc.html'),
+        openStep ? step('Compass','Calibrated','Both compasses','Setup.dc.html') : step('Compass','1 of 2 calibrated','Compass 2 has no offsets','Setup.dc.html',true),
+        step(...(X.radio ?? ['Radio','8 channels','Calibrated · receiving','SetupRadio.dc.html'])),
+        step(V.motorName,V.motorValue,V.motorDetail,V.motorHref,openStep),
+        step(...(X.modes ?? [vehicle === 'rover' ? 'Drive modes' : 'Flight modes','6 assigned','Channel 5','SetupModes.dc.html'])),
+        step(...(X.fail ?? ['Failsafes','4 set','Battery, radio, link and EKF','SetupFailsafes.dc.html'])),
+        step(...(X.batt ?? ['Battery','5200 mAh · 3S','Voltage and current calibrated','SetupBattery.dc.html'])),
+      ],
+      facts:[
+        { label:'Firmware', value:V.fw },
+        { label:'Link', value:'Simulator' },
+        { label:'System', value:'1/1' },
+        { label:'Parameters', value:'1432' },
+      ],
+      extras:[
+        { name:'Serial ports', detail:'3 in use', href:'SetupSerial.dc.html' },
+        { name:'Devices', detail:'2 found', href:'SetupDevices.dc.html' },
+        { name:'Firmware', detail:'Update available', href:'SetupFirmware.dc.html' },
+        { name:'Vehicle information', detail:'Board and sensors', href:'SetupInfo.dc.html' },
+        { name:'Tools', detail:'Console, files, scripts', href:'SetupTools.dc.html' },
+        { name:'Remote ID and transponder', detail:'Regulation', href:'SetupCompliance.dc.html' },
+        { name:'Ground equipment', detail:'RTK, tracker, follow', href:'SetupGround.dc.html' },
+        { name:'Advanced setup', detail:'Initial tune, GPS, recovery', href:'SetupExtras.dc.html' },
+        { name:'More links', detail:'Rates, bridges, modules', href:'SetupMoreLinks.dc.html' },
+        { name:'Simulator controls', detail:'Wind and failures', href:'SimControls.dc.html' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

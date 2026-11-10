@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Firmware</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="firmware" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h1 style="margin:0;font-size:28px;font-weight:600">Firmware</h1>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Your parameters are saved to a snapshot before anything is installed.</p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <div style="flex:1 1 220px;padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">INSTALLED</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600">{{installed}}</div>
+            <div style="font-size:13px;color:#A9B8C5">Simulator board</div>
+          </div>
+          <div style="flex:1 1 220px;padding:18px;background:#111921;border:1px solid #56D9F2;border-radius:5px">
+            <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">SELECTED</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600">{{target}}</div>
+            <div style="font-size:13px;color:#A9B8C5">{{channel}} channel</div>
+          </div>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">VEHICLE TYPE</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
+            <sc-for list="{{vehicles}}" as="v" hint-placeholder-count="5"><button type="button" aria-pressed="{{v.on}}" onClick="{{v.pick}}" style="min-height:56px;border:1px solid {{v.border}};border-radius:5px;background:{{v.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{v.label}}</button></sc-for>
+          </div>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">CHANNEL</h2>
+          <div role="group" aria-label="Release channel" style="display:inline-flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{channels}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{change}}" hint-placeholder-val="{{false}}">
+          <p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">This changes the vehicle type. Parameters from the snapshot may not apply, and setup starts again.</p>
+        </sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:auto">
+          <button type="button" disabled="{{busy}}" onClick="{{install}}" style="min-height:48px;padding:0 24px;border:0;border-radius:4px;background:{{installBg}};color:{{installFg}};font:inherit;font-weight:600;cursor:pointer">{{installLabel}}</button>
+          <button type="button" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Install from a file</button>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:12px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">INSTALL</h2>
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 0;border-bottom:1px solid #25323E">
+            <div style="display:flex;align-items:center;gap:10px"><span aria-hidden="true" style="width:16px;color:{{s.mark}};font-weight:700">{{s.glyph}}</span><span style="flex:1;font-weight:500;color:{{s.fg}}">{{s.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{s.state}}</span></div>
+            <div style="height:6px;border-radius:1.5px;background:#25323E"><div style="height:6px;border-radius:1.5px;background:#56D9F2;width:{{s.pct}}"></div></div>
+          </div>
+        </sc-for>
+        <p style="margin:6px 0 0;color:#A9B8C5;font-size:13px">Installing is unavailable while the vehicle is armed. Do not unplug it until the steps finish.</p>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { vehicle:'Copter', channel:'Stable', p:null };
+  componentWillUnmount() { clearInterval(this.timer); }
+  start() {
+    clearInterval(this.timer);
+    this.setState({ p:0 });
+    this.timer = setInterval(() => this.setState((s) => {
+      const p = s.p + 1.5;
+      if (p >= 400) { clearInterval(this.timer); return { p:400 }; }
+      return { p };
+    }), 50);
+  }
+  renderVals() {
+    const s = this.state;
+    const name = { Copter:'ArduCopter', Plane:'ArduPlane', Rover:'ArduRover', Sub:'ArduSub', Heli:'ArduCopter Heli' }[s.vehicle];
+    const ver = { Stable:'4.6.3', Beta:'4.7.0-beta2', Latest:'4.8.0-dev' }[s.channel];
+    const labels = ['Back up parameters','Download firmware','Install','Verify and reboot'];
+    const p = s.p;
+    const steps = labels.map((label,i) => {
+      if (p == null) return { label, glyph:'', mark:'#56D9F2', fg:'#A9B8C5', state:'', pct:'0%' };
+      const v = Math.max(0, Math.min(100, p-i*100)), done = v >= 100, cur = v > 0 && !done;
+      return { label, glyph:done?'✓':cur?'●':'', mark:done?'#62E3A6':'#56D9F2', fg:done||cur?'#E8EEF4':'#A9B8C5', state:done?'Done':cur?Math.round(v)+'%':'', pct:v+'%' };
+    });
+    const busy = p != null && p < 400, finished = p === 400;
+    const opt = (key,label) => ({ label, on:s[key]===label, pick:() => this.setState({ [key]:label, p:null }), border:s[key]===label?'#56D9F2':'#60728A', bg:s[key]===label?'#123440':'transparent' });
+    return {
+      installed:'ArduCopter 4.6.2', target:name+' '+ver, channel:s.channel, steps, busy,
+      change:s.vehicle!=='Copter',
+      vehicles:['Copter','Plane','Rover','Sub','Heli'].map((v) => opt('vehicle',v)),
+      channels:['Stable','Beta','Latest'].map((label) => ({ label, pick:() => this.setState({ channel:label, p:null }), bg:s.channel===label?'#56D9F2':'transparent', fg:s.channel===label?'#06222B':'#E8EEF4' })),
+      installBg:busy?'#25323E':'#56D9F2', installFg:busy?'#A9B8C5':'#06222B',
+      installLabel:busy?'Installing':finished?'Installed. Install again':'Back up and install',
+      install:() => this.start(),
+    };
+  }
+}
+</script>
+</body>
+</html>

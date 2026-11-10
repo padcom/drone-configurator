@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: transform</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="plan" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="PlanBar" active="transform" hint-size="100%,66px"></dc-import>
+      <div data-l="fill row" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+        <section data-l="map" style="flex:999 1 520px;min-width:0;min-height:520px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,520px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{aria}}" style="position:absolute;inset:0;width:100%;height:100%">
+            <path d="M200 230 990 200 1010 760 210 770Z" fill="none" stroke="#56D9F2" stroke-width="2" stroke-dasharray="8 6"></path>
+            <polyline points="{{original}}" fill="none" stroke="#E8EEF4" stroke-opacity=".45" stroke-width="2" stroke-dasharray="6 7" stroke-linejoin="round"></polyline>
+            <polyline points="{{route}}" fill="none" stroke="#EE82F5" stroke-width="4" stroke-linejoin="round"></polyline>
+          </svg>
+          <sc-if value="{{outside}}" hint-placeholder-val="{{false}}"><div role="alert" style="position:absolute;left:16px;right:16px;top:16px;padding:12px 16px;background:#3A2A10;color:#FFB54A;font-weight:600;border-radius:4px">{{outCount}} points would leave the flying area.</div></sc-if>
+        </section>
+        <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:10px">
+          <div><h1 style="margin:0;font-size:20px;font-weight:600">Transform the mission</h1><p style="margin:4px 0 0;color:#A9B8C5">Move, turn or resize everything at once. The dashed line is the current mission.</p></div>
+          <sc-for list="{{sliders}}" as="f" hint-placeholder-count="5">
+            <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span><input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:38px;margin:0"></label>
+          </sc-for>
+          <div style="margin-top:auto;display:flex;gap:10px">
+            <button type="button" onClick="{{reset}}" style="flex:1;min-height:48px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Reset</button>
+            <button type="button" disabled="{{outside}}" onClick="{{apply}}" style="flex:2;min-height:48px;border:0;border-radius:4px;background:{{applyBg}};color:{{applyFg}};font:inherit;font-weight:600;cursor:pointer">{{applyLabel}}</button>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { east:0, north:0, rot:0, scale:100, alt:0, applied:false };
+  renderVals() {
+    const s = this.state;
+    const PTS = [[250,700],[360,570],[560,456],[940,416],[940,364],[560,404],[560,352],[940,312],[940,260],[560,300],[430,380],[250,700]];
+    const cx = 600, cy = 480, r = s.rot*Math.PI/180, k = s.scale/100;
+    const out = PTS.map(([x,y]) => {
+      const dx = (x-cx)*k, dy = (y-cy)*k;
+      return [cx + dx*Math.cos(r)-dy*Math.sin(r) + s.east*2, cy + dx*Math.sin(r)+dy*Math.cos(r) - s.north*2];
+    });
+    const str = (l) => l.map((p) => p[0].toFixed(0)+','+p[1].toFixed(0)).join(' ');
+    const outCount = out.filter(([x,y]) => x<205 || x>990 || y<232 || y>762).length;
+    const set = (k2) => (e) => this.setState({ [k2]:Number(e.target.value), applied:false });
+    const blocked = outCount > 0;
+    return {
+      original:str(PTS), route:str(out), outside:blocked, outCount,
+      aria:'Mission moved, rotated and scaled',
+      sliders:[
+        { label:'Move east',min:-100,max:100,step:5,value:s.east,text:s.east+' m',change:set('east') },
+        { label:'Move north',min:-100,max:100,step:5,value:s.north,text:s.north+' m',change:set('north') },
+        { label:'Rotate',min:-180,max:180,step:5,value:s.rot,text:s.rot+'°',change:set('rot') },
+        { label:'Size',min:50,max:150,step:5,value:s.scale,text:s.scale+'%',change:set('scale') },
+        { label:'Raise altitudes',min:-30,max:60,step:5,value:s.alt,text:(s.alt>0?'+':'')+s.alt+' m',change:set('alt') },
+      ],
+      reset:() => this.setState({ east:0, north:0, rot:0, scale:100, alt:0, applied:false }),
+      apply:() => this.setState({ applied:true }),
+      applyBg:blocked?'#25323E':s.applied?'#123327':'#56D9F2', applyFg:blocked?'#A9B8C5':s.applied?'#62E3A6':'#06222B',
+      applyLabel:s.applied?'✓ Applied, undo is available':'Apply to the mission',
+    };
+  }
+}
+</script>
+</body>
+</html>

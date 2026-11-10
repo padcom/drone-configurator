@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Parameters</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E">
+      <dc-import name="Rail" active="parameters" hint-size="76px,640px"></dc-import>
+    </div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <nav data-l="pane col" aria-label="Parameter groups" style="flex:1 1 190px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="7">
+          <button type="button" onClick="{{g.pick}}" style="display:flex;justify-content:space-between;align-items:center;min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{g.bg}};color:{{g.fg}};font:inherit;font-weight:500;cursor:pointer"><span>{{g.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">{{g.count}}</span></button>
+        </sc-for>
+      </nav>
+      <section data-l="clip" style="flex:999 1 460px;min-width:0;display:flex;flex-direction:column">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;padding:10px 14px;border-bottom:1px solid #25323E">
+          <label style="flex:1 1 220px;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;box-sizing:border-box;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#A9B8C5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+            <input aria-label="Search parameters by name or what they do" placeholder="Search by name or what it does" value="{{q}}" onChange="{{search}}" onKeyDown="{{searchKey}}" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:#E8EEF4;font:inherit">
+            <sc-if value="{{searching}}" hint-placeholder-val="{{false}}"><button type="button" aria-label="Clear search" onClick="{{clearSearch}}" style="width:32px;height:42px;padding:0;border:0;background:transparent;color:#A9B8C5;font:inherit;font-size:16px;cursor:pointer">✕</button></sc-if>
+          </label>
+          <div role="group" aria-label="View" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{views}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{changedOnly}}" onChange="{{changedChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Modified from default</label>
+          <button type="button" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Save snapshot</button>
+          <a href="ParamReview.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Import or compare</a>
+          <a href="ParamReset.dc.html" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Reset</a>
+        </div>
+        <sc-if value="{{rebootPending}}" hint-placeholder-val="{{false}}">
+          <div role="status" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 14px;background:#3A2A10;color:#FFB54A;font-weight:500"><span style="flex:1 1 240px">A reboot is needed for a change to take effect.</span><button type="button" onClick="{{reboot}}" style="min-height:40px;padding:0 14px;border:0;border-radius:4px;background:#FFB54A;color:#241600;font:inherit;font-weight:700;cursor:pointer">Reboot Quad 1</button></div>
+        </sc-if>
+        <div data-l="fill pane" style="overflow-x:auto;flex:1 1 auto">
+          <table style="width:100%;border-collapse:collapse;min-width:420px">
+            <thead>
+              <tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left">
+                <th scope="col" style="position:sticky;top:0;background:#0A0F14;padding:10px 14px 10px 46px;font-weight:500">NAME</th>
+                <th scope="col" style="position:sticky;top:0;background:#0A0F14;padding:10px 14px;font-weight:500;text-align:right">VALUE</th>
+                <th scope="col" style="position:sticky;top:0;background:#0A0F14;padding:10px 14px;font-weight:500">MEANING</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="14">
+                <tr onClick="{{r.pick}}" style="height:44px;border-top:1px solid #1C2732;background:{{r.bg}};cursor:pointer">
+                  <th scope="row" style="padding:0 14px 0 2px;text-align:left;font-weight:400"><span style="display:flex;align-items:center"><button type="button" aria-label="{{r.starLabel}}" aria-pressed="{{r.starred}}" onClick="{{r.star}}" style="flex:none;width:44px;height:42px;padding:0;border:0;background:transparent;color:{{r.starFg}};cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="{{r.starFill}}" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.8 6.2.9-4.5 4.4 1.1 6.3L12 17.4l-5.6 3 1.1-6.3L3 9.7l6.2-.9z"></path></svg></button><button type="button" onClick="{{r.pick}}" style="padding:0;border:0;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:13.5px;cursor:pointer;min-height:40px"><sc-for list="{{r.nameParts}}" as="c" hint-placeholder-count="2"><span style="color:{{c.fg}};background:{{c.bg}}">{{c.text}}</span></sc-for></button></span></th>
+                  <td style="padding:0 14px;text-align:right;font-family:'IBM Plex Mono',monospace;color:{{r.valueFg}}">{{r.shown}}</td>
+                  <td style="padding:0 14px"><sc-for list="{{r.descParts}}" as="c" hint-placeholder-count="1"><span style="color:{{c.fg}};background:{{c.bg}}">{{c.text}}</span></sc-for><sc-if value="{{r.hasWhy}}" hint-placeholder-val="{{false}}"><span style="color:#56D9F2;font-size:12.5px"> · {{r.why}}</span></sc-if></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{noneFound}}" hint-placeholder-val="{{false}}">
+            <div style="padding:32px 46px;display:flex;flex-direction:column;align-items:flex-start;gap:10px">
+              <div style="font-size:16px;font-weight:600">{{noneTitle}}</div>
+              <p style="margin:0;color:#A9B8C5">{{noneHelp}}</p>
+              <button type="button" onClick="{{noneFix}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">{{noneAction}}</button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid #25323E;color:#A9B8C5;font-size:13px">{{footer}}</div>
+      </section>
+      <aside data-l="clip" style="flex:1 1 330px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;display:flex;flex-direction:column">
+        <div style="padding:20px;display:flex;flex-direction:column;gap:14px;border-bottom:1px solid #25323E">
+          <div>
+            <h1 style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{p.name}}</h1>
+            <p style="margin:4px 0 0;color:#A9B8C5">{{p.desc}}</p>
+            <sc-if value="{{hasGuide}}" hint-placeholder-val="{{false}}"><a href="{{guideHref}}" style="display:inline-flex;align-items:center;min-height:32px;font-size:13px">{{guideLabel}}</a></sc-if>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:42px;font-weight:500;line-height:1">{{p.value}}</span><span style="color:#A9B8C5">{{unitText}}</span></div>
+          <div style="font-size:12.5px;color:#A9B8C5">{{allowed}} · {{p.type}}{{rebootNote}}</div>
+          <sc-if value="{{isEnum}}" hint-placeholder-val="{{false}}">
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">New value
+              <dc-import name="EnumField" value="{{draftNum}}" options="{{p.opts}}" on-pick="{{pickDraft}}" field-label="New value" hint-size="100%,44px"></dc-import>
+            </div>
+          </sc-if>
+          <sc-if value="{{notEnum}}" hint-placeholder-val="{{true}}">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">New value
+              <input value="{{draft}}" onChange="{{edit}}" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid {{draftBorder}};border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:18px">
+            </label>
+          </sc-if>
+          <sc-if value="{{hasError}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;color:#FFB54A;font-size:13px">{{error}}</p></sc-if>
+          <button type="button" disabled="{{cannotStage}}" onClick="{{stage}}" style="min-height:48px;border:1px solid #60728A;border-radius:4px;background:{{stageBg}};color:{{stageFg}};font:inherit;font-weight:600;cursor:pointer">Add to changes</button>
+          <sc-if value="{{hasRelated}}" hint-placeholder-val="{{true}}">
+            <div>
+              <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">RELATED</h2>
+              <div style="display:flex;flex-wrap:wrap;gap:0 14px"><sc-for list="{{related}}" as="x" hint-placeholder-count="3"><button type="button" onClick="{{x.pick}}" style="min-height:44px;padding:0;border:0;background:transparent;color:#56D9F2;font-family:'IBM Plex Mono',monospace;font-size:13px;cursor:pointer">{{x.name}}</button></sc-for></div>
+            </div>
+          </sc-if>
+        </div>
+        <div data-l="fill pane col" style="padding:20px;display:flex;flex-direction:column;gap:10px;flex:1 1 auto">
+          <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">CHANGES TO WRITE · {{stagedCount}}</h2>
+          <sc-for list="{{staged}}" as="s" hint-placeholder-count="2">
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;padding:8px 0;border-bottom:1px solid #25323E">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{s.name}}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px"><span style="color:#A9B8C5">{{s.from}}</span> → <span style="color:#56D9F2">{{s.to}}</span></span>
+              <sc-if value="{{s.written}}" hint-placeholder-val="{{false}}"><span style="flex:1 0 100%;font-size:12.5px;color:#62E3A6">✓ Written and read back: {{s.to}}</span></sc-if>
+              <sc-if value="{{s.pending}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{s.discard}}" style="flex:1 0 100%;min-height:32px;padding:0;border:0;background:transparent;color:#A9B8C5;font:inherit;font-size:12.5px;text-align:right;cursor:pointer">Discard</button></sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{noStaged}}" hint-placeholder-val="{{false}}"><p style="margin:0;color:#A9B8C5">Nothing yet. Edits collect here so you can write them together.</p></sc-if>
+          <button type="button" disabled="{{cannotWrite}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:'FENCE_RADIUS', q:'', group:'All', draft:'200', staged:{ BATT_CAPACITY:'6000' }, written:false, view:'Full', changedOnly:false, rebooted:false, starred:['RTL_ALT','BATT_LOW_VOLT'], recent:['FENCE_RADIUS','BATT_CAPACITY','FS_THR_ENABLE'] };
+  params() {
+    const P = (name,value,unit,min,max,type,desc,reboot) => ({ name,value,unit,min,max,type,desc,reboot:!!reboot });
+    return [
+      P('BATT_CAPACITY',5200,'mAh',0,50000,'INT32','Battery capacity'),
+      P('BATT_LOW_VOLT',10.5,'V',0,60,'REAL32','Low battery voltage'),
+      P('BATT_MONITOR',4,'',0,30,'INT8','Battery monitor type',true),
+      P('FENCE_ACTION',1,'',0,6,'INT8','Action when the fence is breached'),
+      P('FENCE_ALT_MAX',100,'m',10,1000,'REAL32','Fence maximum altitude'),
+      P('FENCE_ENABLE',1,'',0,1,'INT8','Fence enable'),
+      P('FENCE_MARGIN',2,'m',1,10,'REAL32','Margin to the fence'),
+      P('FENCE_RADIUS',150,'m',30,10000,'REAL32','Circular fence radius'),
+      P('FLTMODE1',0,'',0,27,'INT8','Flight mode 1'),
+      P('FLTMODE2',5,'',0,27,'INT8','Flight mode 2'),
+      P('FLTMODE_CH',5,'',0,16,'INT8','Flight mode channel'),
+      P('FS_EKF_ACTION',1,'',1,3,'INT8','EKF failsafe action'),
+      P('FS_THR_ENABLE',1,'',0,5,'INT8','Throttle failsafe enable'),
+      P('RTL_ALT',1500,'cm',30,300000,'INT32','Return altitude'),
+      P('WPNAV_SPEED',1000,'cm/s',20,2000,'REAL32','Waypoint speed'),
+    ];
+  }
+  renderVals() {
+    const O = (l) => l.map(([value,label]) => ({ value,label }));
+    const MODES = O([[0,'Stabilize'],[1,'Acro'],[2,'AltHold'],[3,'Auto'],[4,'Guided'],[5,'Loiter'],[6,'RTL'],[7,'Circle'],[9,'Land'],[11,'Drift'],[13,'Sport'],[15,'AutoTune'],[16,'PosHold'],[17,'Brake'],[21,'Smart RTL'],[23,'Follow']]);
+    const E = {
+      BATT_MONITOR:O([[0,'Disabled'],[3,'Voltage only'],[4,'Voltage and current']]),
+      FENCE_ACTION:O([[0,'Report only'],[1,'RTL or Land'],[2,'Always land'],[3,'SmartRTL, then RTL'],[4,'Brake, then land']]),
+      FENCE_ENABLE:O([[0,'Disabled'],[1,'Enabled']]),
+      FLTMODE1:MODES, FLTMODE2:MODES,
+      FS_EKF_ACTION:O([[1,'Land'],[2,'AltHold'],[3,'Land, even in Stabilize']]),
+      FS_THR_ENABLE:O([[0,'Disabled'],[1,'Always RTL'],[3,'Always land'],[4,'SmartRTL, then RTL'],[5,'SmartRTL, then land']]),
+    };
+    const s = this.state, all = this.params().map((x) => ({ ...x, opts:E[x.name] ?? null }));
+    const nameOf = (p,val) => p.opts ? (p.opts.find((o) => o.value === Number(val))?.label ?? null) : null;
+    const named = (p,val) => { const n = nameOf(p,val); return n ? val+' · '+n : val+(p.unit?' '+p.unit:''); };
+    const SPECIAL = { Starred:s.starred, 'Recently used':s.recent };
+    const defs = [['All',''],['Starred',null],['Recently used',null],['Battery','BATT_'],['Fence','FENCE_'],['Flight modes','FLTMODE'],['Failsafe','FS_'],['Return','RTL_'],['Navigation','WPNAV_']];
+    const toks = s.q.trim().toLowerCase().split(/[\s_]+/).filter(Boolean), searching = toks.length > 0;
+    const groups = defs.map(([label,prefix]) => { const on = !searching && s.group===label; return { label, count:SPECIAL[label]?SPECIAL[label].length:prefix?all.filter((p) => p.name.startsWith(prefix)).length:1432, pick:() => this.setState({ group:label, q:'' }), bg:on?'#123440':'transparent', fg:on?'#56D9F2':'#E8EEF4' }; });
+    const ALSO = { BATT_CAPACITY:'pack size, mAh', BATT_LOW_VOLT:'low battery warning', BATT_MONITOR:'power module, current sensor', FENCE_ACTION:'geofence boundary breach', FENCE_ALT_MAX:'geofence ceiling, height limit', FENCE_ENABLE:'geofence on off', FENCE_MARGIN:'geofence buffer', FENCE_RADIUS:'geofence distance limit, how far', FLTMODE1:'switch position 1', FLTMODE2:'switch position 2', FLTMODE_CH:'mode switch, radio channel', FS_EKF_ACTION:'position lost, navigation failure', FS_THR_ENABLE:'radio lost, signal loss, rc failsafe', RTL_ALT:'return height, come home altitude, return to launch', WPNAV_SPEED:'mission speed, cruise, how fast' };
+    const lev = (a,b) => { let p = [...Array(b.length+1).keys()]; for (let i = 1; i <= a.length; i++) { const c = [i]; for (let j = 1; j <= b.length; j++) c[j] = Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p = c; } return p[b.length]; };
+    const score = (p) => {
+      const name = p.name.toLowerCase(), desc = p.desc.toLowerCase(), also = (ALSO[p.name] ?? '').toLowerCase(), hay = name+' '+desc+' '+also, joined = toks.join('_');
+      if (!toks.every((t) => hay.includes(t))) { const words = hay.split(/[\s_,]+/); return toks.every((t) => hay.includes(t) || (t.length > 3 && words.some((w) => lev(t,w) <= 1))) ? { rank:5, why:'Close match' } : null; }
+      if (name===joined) return { rank:0 };
+      if (name.startsWith(joined)) return { rank:1 };
+      if (toks.every((t) => name.includes(t))) return { rank:2 };
+      if (toks.every((t) => name.includes(t) || desc.includes(t))) return { rank:3 };
+      return { rank:4, why:'Also: '+also };
+    };
+    const mark = (text,base,cut=0,dim=base) => {
+      const lo = text.toLowerCase(), hit = Array(text.length).fill(false), out = [];
+      toks.forEach((t) => { for (let i = lo.indexOf(t); i !== -1; i = lo.indexOf(t,i+1)) for (let j = i; j < i+t.length; j++) hit[j] = true; });
+      for (let i = 0; i < text.length;) { let j = i; while (j < text.length && hit[j]===hit[i] && (j<cut)===(i<cut)) j++; out.push({ text:text.slice(i,j), fg:hit[i]?'#56D9F2':(i<cut?dim:base), bg:hit[i]?'#123440':'transparent' }); i = j; }
+      return out;
+    };
+    const STD = ['BATT_CAPACITY','BATT_LOW_VOLT','FENCE_ENABLE','FENCE_ALT_MAX','FENCE_RADIUS','FLTMODE1','FLTMODE2','RTL_ALT','WPNAV_SPEED'];
+    const DEFAULTS = { BATT_CAPACITY:3300, BATT_LOW_VOLT:0, BATT_MONITOR:0, FENCE_ACTION:1, FENCE_ALT_MAX:100, FENCE_ENABLE:0, FENCE_MARGIN:2, FENCE_RADIUS:300, FLTMODE1:0, FLTMODE2:0, FLTMODE_CH:5, FS_EKF_ACTION:1, FS_THR_ENABLE:0, RTL_ALT:1500, WPNAV_SPEED:1000 };
+    const isChanged = (p) => !s.changedOnly || (s.written && s.staged[p.name] != null ? Number(s.staged[p.name]) : p.value) !== DEFAULTS[p.name];
+    const special = SPECIAL[s.group], prefix = defs.find((d) => d[0]===s.group)[1];
+    const list = searching
+      ? all.filter(isChanged).map((p) => ({ ...p, m:score(p) })).filter((p) => p.m).sort((a,b) => a.m.rank-b.m.rank || a.name.localeCompare(b.name))
+      : special
+        ? special.map((n) => all.find((p) => p.name===n)).filter(isChanged)
+        : all.filter((p) => p.name.startsWith(prefix) && (s.view!=='Standard' || STD.includes(p.name)) && isChanged(p));
+    const open = (name) => this.setState({ sel:name, draft:String(s.staged[name] ?? all.find((p) => p.name===name).value), recent:s.recent.includes(name)?s.recent:[name,...s.recent].slice(0,6) });
+    const rows = list.map((p) => {
+      const cut = p.name.indexOf('_')+1 || 0;
+      const changed = s.staged[p.name] != null, starred = s.starred.includes(p.name);
+      return { nameParts:mark(p.name,'#E8EEF4',cut,'#8FA0AE'), descParts:mark(p.desc,'#A9B8C5'), hasWhy:!!p.m?.why, why:p.m?.why ?? '', shown:named(p,changed?s.staged[p.name]:p.value), valueFg:changed?'#56D9F2':'#E8EEF4', bg:s.sel===p.name?'#123440':'transparent', pick:() => open(p.name),
+        starred, starLabel:(starred?'Remove star from ':'Star ')+p.name, starFg:starred?'#56D9F2':'#8FA0AE', starFill:starred?'#56D9F2':'none',
+        star:(e) => { e.stopPropagation(); this.setState({ starred:starred?s.starred.filter((n) => n!==p.name):[...s.starred,p.name] }); } };
+    });
+    const GUIDES = [['BATT_','Set up in Battery','SetupBattery.dc.html'],['FENCE_','Draw it on the Fence map','PlanFence.dc.html'],['FLTMODE','Set up in Flight modes','SetupModes.dc.html'],['FS_','Set up in Failsafes','SetupFailsafes.dc.html']];
+    const quoted = '"'+s.q.trim()+'"', noneFound = list.length===0, hiddenByChanged = s.changedOnly && noneFound;
+    const p = all.find((x) => x.name===s.sel);
+    const v = Number(s.draft);
+    let error = '';
+    if (s.draft.trim()==='' || Number.isNaN(v)) error = 'Enter a number.';
+    else if (v < p.min || v > p.max) error = 'Must be between ' + p.min + ' and ' + p.max + '.';
+    const same = v === p.value;
+    const cannotStage = !!error || same;
+    const staged = Object.keys(s.staged).map((name) => { const x = all.find((y) => y.name===name); return { name, from:named(x,x.value), to:named(x,s.staged[name]), written:s.written, pending:!s.written, discard:() => { const n = { ...s.staged }; delete n[name]; this.setState({ staged:n }); } }; });
+    const n = staged.length;
+    const cannotWrite = n===0 || s.written;
+    const groupPrefix = defs.find((d) => d[1] && p.name.startsWith(d[1]))?.[1];
+    const guide = GUIDES.find((g) => p.name.startsWith(g[0]));
+    const related = all.filter((x) => groupPrefix && x.name!==p.name && x.name.startsWith(groupPrefix)).slice(0,3).map((x) => ({ name:x.name, pick:() => open(x.name) }));
+    return {
+      groups, rows, p, q:s.q, searching, noneFound,
+      related, hasRelated:related.length>0,
+      hasGuide:!!guide, guideLabel:guide?.[1] ?? '', guideHref:guide?.[2] ?? '',
+      noneTitle:searching?(hiddenByChanged?'No modified parameter matches '+quoted:'Nothing matches '+quoted):(s.group==='Starred'?'No starred parameters yet':'Nothing to show here'),
+      noneHelp:hiddenByChanged?'Modified from default is on, so the rest of the list is hidden.':searching?'Try what it does, like "return height" or "low battery".':s.group==='Starred'?'Press the star next to a parameter to keep it here.':'Try another group.',
+      noneAction:hiddenByChanged?'Show all parameters':searching?'Clear the search':'Show all parameters',
+      noneFix:() => this.setState(hiddenByChanged?{ changedOnly:false }:searching?{ q:'' }:{ group:'All', changedOnly:false }),
+      clearSearch:() => this.setState({ q:'' }),
+      searchKey:(e) => {
+        if (e.key==='Escape') return this.setState({ q:'' });
+        const at = list.findIndex((x) => x.name===s.sel);
+        if (e.key==='Enter' && list.length) return open(list[Math.max(at,0)].name);
+        if ((e.key==='ArrowDown' || e.key==='ArrowUp') && list.length) { e.preventDefault(); const next = e.key==='ArrowDown'?Math.min(at+1,list.length-1):Math.max(at-1,0); open(list[next].name); }
+      },
+      footer:searching?list.length+(list.length===1?' match':' matches')+' across all 1432 parameters · Enter opens the top one, arrow keys move':'Showing '+rows.length+' of 1432 parameters · metadata for 1204',
+      views:['Standard','Full'].map((label) => ({ label, pick:() => this.setState({ view:label }), bg:s.view===label?'#56D9F2':'transparent', fg:s.view===label?'#06222B':'#E8EEF4' })),
+      changedOnly:s.changedOnly, changedChange:(e) => this.setState({ changedOnly:e.target.checked }),
+      rebootPending:s.written && !s.rebooted && Object.keys(s.staged).some((n) => all.find((x) => x.name===n).reboot),
+      reboot:() => this.setState({ rebooted:true }),
+      isEnum:!!p.opts, notEnum:!p.opts, draftNum:Number(s.draft),
+      pickDraft:(n) => this.setState({ draft:String(n) }),
+      unitText:p.opts ? (nameOf(p,p.value) ?? 'No name for this value') : p.unit,
+      allowed:p.opts ? 'Named values, or any number from '+p.min+' to '+p.max : 'Allowed '+p.min+' to '+p.max+' '+p.unit,
+      search:(e) => this.setState({ q:e.target.value }),
+      draft:s.draft, edit:(e) => this.setState({ draft:e.target.value }),
+      hasError:!!error, error, draftBorder:error?'#FFB54A':'#56D9F2',
+      rebootNote:p.reboot?' · needs a reboot':'',
+      cannotStage, stageBg:cannotStage?'transparent':'#123440', stageFg:cannotStage?'#8FA0AE':'#56D9F2',
+      stage:() => this.setState({ staged:{ ...s.staged, [s.sel]:s.draft }, written:false }),
+      staged, stagedCount:n, noStaged:n===0,
+      cannotWrite, writeBg:cannotWrite?'#25323E':'#56D9F2', writeFg:cannotWrite?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'All verified on the vehicle':'Write '+n+' and verify',
+      write:() => this.setState({ written:true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

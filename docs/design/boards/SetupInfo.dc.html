@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vehicle information</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="info" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Vehicle information</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">What this vehicle reports about itself.</p>
+          </div>
+          <button type="button" onClick="{{copy}}" style="min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{copyFg}};font:inherit;font-weight:500;cursor:pointer">{{copyLabel}}</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+          <sc-for list="{{facts}}" as="f" hint-placeholder-count="6">
+            <div style="padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{f.label}}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;overflow-wrap:anywhere">{{f.value}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">SENSORS</h2>
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:480px;border-collapse:collapse">
+              <thead><tr style="font-size:11px;letter-spacing:.08em;color:#A9B8C5;text-align:left"><th scope="col" style="padding:8px 12px;font-weight:500">SENSOR</th><th scope="col" style="padding:8px 12px;font-weight:500">BUS</th><th scope="col" style="padding:8px 12px;font-weight:500">STATE</th></tr></thead>
+              <tbody>
+                <sc-for list="{{sensors}}" as="r" hint-placeholder-count="6">
+                  <tr style="height:44px;border-top:1px solid #1C2732">
+                    <th scope="row" style="padding:0 12px;text-align:left;font-weight:500">{{r.name}}</th>
+                    <td style="padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{r.bus}}</td>
+                    <td style="padding:0 12px;color:{{r.fg}}"><span aria-hidden="true">{{r.glyph}} </span>{{r.state}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT IT SUPPORTS</h2>
+        <sc-for list="{{caps}}" as="c" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:10px;min-height:36px"><span aria-hidden="true" style="width:16px;color:{{c.mark}};font-weight:700">{{c.glyph}}</span><span style="flex:1">{{c.name}}</span><span style="font-size:12.5px;color:#A9B8C5">{{c.state}}</span></div>
+        </sc-for>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { copied:false };
+  renderVals() {
+    const S = (name,bus,ok=true,state='Healthy') => ({ name,bus,state,glyph:ok?'✓':'!',fg:ok?'#E8EEF4':'#FFB54A' });
+    const C = (name,on) => ({ name,glyph:on?'✓':'—',mark:on?'#62E3A6':'#A9B8C5',state:on?'Yes':'No' });
+    return {
+      facts:[
+        { label:'FIRMWARE', value:'ArduCopter 4.6.2' },
+        { label:'BUILD', value:'a1b2c3d4' },
+        { label:'BOARD', value:'Simulator' },
+        { label:'SYSTEM ID', value:'1 / component 1' },
+        { label:'UNIQUE ID', value:'0000 0000 0000 0001' },
+        { label:'UPTIME', value:'00:42:18' },
+      ],
+      sensors:[ S('Accelerometer 1','SPI'), S('Accelerometer 2','SPI'), S('Gyroscope 1','SPI'), S('Barometer','I2C'), S('Compass 1 · internal','I2C'), S('Compass 2 · external','I2C',false,'No calibration') ],
+      caps:[ C('MAVLink 2',true), C('MAVFTP',true), C('Mission items',true), C('Geofence',true), C('Rally points',true), C('Terrain data',true), C('Message signing',false), C('Flight termination',true) ],
+      copy:() => this.setState({ copied:true }),
+      copyFg:this.state.copied?'#62E3A6':'#E8EEF4',
+      copyLabel:this.state.copied?'✓ Copied':'Copy for a support request',
+    };
+  }
+}
+</script>
+</body>
+</html>

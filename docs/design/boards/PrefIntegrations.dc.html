@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Integrations</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="preferences" hint-size="76px,640px"></dc-import></div>
+    <main data-l="pane col measure" style="flex:999 1 560px;min-width:0;box-sizing:border-box;padding:28px 36px;display:flex;flex-direction:column;gap:16px;--measure:928px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:28px;font-weight:600">Integrations</h1><a href="Preferences.dc.html">Back to Settings</a></div>
+        <div role="group" aria-label="Integrations" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{isApi}}" hint-placeholder-val="{{true}}">
+        <p style="margin:0;color:#A9B8C5;font-size:15px">Lets scripts on this computer read data from, and send commands through, this app.</p>
+        <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer;font-weight:500"><input type="checkbox" checked="{{api}}" onChange="{{apiChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Local API is on</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:400;color:#A9B8C5">127.0.0.1:8765</span></label>
+        <h2 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT SCRIPTS MAY DO</h2>
+        <sc-for list="{{perms}}" as="p" hint-placeholder-count="4">
+          <label style="display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 12px;background:#111921;border:1px solid {{p.border}};border-radius:5px;cursor:pointer">
+            <input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">
+            <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{p.name}}</span><span style="font-size:13px;color:{{p.noteFg}}">{{p.note}}</span></span>
+          </label>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{isOut}}" hint-placeholder-val="{{false}}">
+        <p style="margin:0;color:#A9B8C5;font-size:15px">Share the vehicle's position with other software.</p>
+        <sc-for list="{{outs}}" as="o" hint-placeholder-count="3">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;min-height:60px;padding:6px 14px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <input type="checkbox" aria-label="{{o.name}}" checked="{{o.on}}" onChange="{{o.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">
+            <span style="flex:1 1 200px;font-weight:600">{{o.name}}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">{{o.dest}}</span>
+          </div>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{isDiag}}" hint-placeholder-val="{{false}}">
+        <div style="padding:16px 18px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:18px;font-weight:600">Drone Configurator 0.1.0</div><div style="color:#A9B8C5">{{updateText}}</div></div>
+        <button type="button" onClick="{{check}}" style="align-self:flex-start;min-height:44px;padding:0 16px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Check for updates</button>
+        <h2 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">DIAGNOSTICS BUNDLE</h2>
+        <p style="margin:0;color:#A9B8C5">Collects what's useful for a bug report into one file. Nothing is sent anywhere.</p>
+        <sc-for list="{{parts}}" as="p" hint-placeholder-count="3">
+          <label style="display:flex;gap:12px;align-items:center;min-height:40px;cursor:pointer"><input type="checkbox" checked="{{p.on}}" onChange="{{p.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>{{p.name}}</span></label>
+        </sc-for>
+        <button type="button" onClick="{{bundle}}" style="align-self:flex-start;min-height:48px;padding:0 22px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{bundleLabel}}</button>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Local API', api:false, perms:{ read:true, params:false, mission:false, cmd:false }, outs:{ nmea:false, cot:false, http:false }, parts:{ app:true, tlog:true, paramsFile:true, anon:true }, checked:false, bundled:false };
+  renderVals() {
+    const s = this.state;
+    const flip = (grp,k) => (e) => this.setState({ [grp]:{ ...s[grp], [k]:e.target.checked } });
+    const P = [['read','Read telemetry and parameters','Safe. Nothing on the vehicle changes.',false],['params','Change parameters','Each write is still checked and read back.',true],['mission','Change missions','Can replace what the vehicle will fly.',true],['cmd','Send flight commands','⚠ Can arm the vehicle and move it.',true]];
+    return {
+      tabs:['Local API','Outputs','About and diagnostics'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isApi:s.tab==='Local API', isOut:s.tab==='Outputs', isDiag:s.tab==='About and diagnostics',
+      api:s.api, apiChange:(e) => this.setState({ api:e.target.checked }),
+      perms:P.map(([k,name,note,risky]) => { const on = s.perms[k], warn = risky && on; return { name,note,on,border:warn?'#FFB54A':'#25323E',noteFg:warn?'#FFB54A':'#A9B8C5',toggle:flip('perms',k) }; }),
+      outs:[['nmea','NMEA position','udp:127.0.0.1:10110'],['cot','Cursor on Target','udp:239.2.3.1:6969'],['http','Web telemetry page','http://127.0.0.1:8080']].map(([k,name,dest]) => ({ name,dest,on:s.outs[k],toggle:flip('outs',k) })),
+      updateText:s.checked?'You have the latest version.':'Last checked yesterday.', check:() => this.setState({ checked:true }),
+      parts:[['app','App version and settings'],['tlog','Last telemetry recording'],['paramsFile','Vehicle parameters'],['anon','Remove GPS positions and serial numbers']].map(([k,name]) => ({ name,on:s.parts[k],toggle:flip('parts',k) })),
+      bundle:() => this.setState({ bundled:true }), bundleLabel:s.bundled?'✓ Saved to Documents':'Create the bundle',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Advanced setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <nav data-l="pane col" aria-label="Advanced setup" style="flex:1 1 220px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{tabs}}" as="b" hint-placeholder-count="9"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;text-align:left;cursor:pointer">{{b.label}}</button></sc-for>
+      </nav>
+      <section data-l="pane col measure" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:24px 32px;display:flex;flex-direction:column;gap:12px;--measure:696px">
+        <h1 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h1>
+        <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Initial tune', vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), warn = (t) => ({ k:'warn', text:t }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const en = (k,l,d,o) => ({ k:'enum', label:l, value:g(k,d), options:o.map(([value,label]) => ({ value,label })), pick:(n) => set(k,n) });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const act = (k,l,dn) => ({ k:'button', label:g(k,0)?dn:l, pick:() => set(k,1), bg:g(k,0)?'#123327':'#56D9F2', fg:g(k,0)?'#62E3A6':'#06222B', border:g(k,0)?'#123327':'#56D9F2' });
+    const two = (k,l,c,d) => { const v = g(k,0); return { k:'button', label:[l,c,d][v], pick:() => set(k,Math.min(2,v+1)), bg:['transparent','#3F1A1A','#123327'][v], fg:['#E8EEF4','#FF7A70','#62E3A6'][v], border:['#60728A','#FF7A70','#123327'][v] }; };
+    const prop = g('prop',10), cells = g('cells',3);
+    const R = {
+      'Initial tune':[slide('prop','Propeller size',10,3,30,.5,' in'),slide('cells','Battery cells',3,1,14,1),head('SUGGESTED VALUES'),info('MOT_THST_EXPO',Math.min(.8,Math.max(.5,.55+(prop-5)*.015)).toFixed(2)),info('INS_GYRO_FILTER',Math.max(20,Math.round(289*Math.pow(prop,-.838)))+' Hz'),info('MOT_BAT_VOLT_MAX',(cells*4.2).toFixed(1)+' V'),info('MOT_BAT_VOLT_MIN',(cells*3.3).toFixed(1)+' V'),act('itr','Send to parameter review','✓ Added to review')],
+      'GPS units':[en('first','First GPS',1,[[1,'u-blox F9 (Serial 3)'],[2,'DroneCAN node 124']]),chk('blend','Blend both GPS units'),head('YAW FROM TWO ANTENNAS'),chk('mb','Use moving baseline'),slide('ofsx','Antenna offset forward',30,-100,100,1,' cm'),info('Heading: GPS','096.2°'),info('Heading: compass','095.6°')],
+      Sensors:[en('prx','Proximity sensor',0,[[0,'None'],[2,'MAVLink'],[5,'RPLidar']]),en('rpm','RPM sensor',0,[[0,'None'],[5,'ESC telemetry']]),en('temp','Temperature sensor',0,[[0,'None'],[1,'I2C']]),info('Reading','—'),head('CAN PORTS'),en('can1','Port 1',1,[[0,'Disabled'],[1,'First driver']]),en('canp','Driver 1 protocol',1,[[0,'None'],[1,'DroneCAN']]),note('Changes need a reboot.')],
+      'Follow mode':[chk('foll','Enable Follow mode'),en('ftgt','Follow vehicle',2,[[2,'System 2 · Quad 2'],[3,'System 3 · Quad 3']]),slide('fdist','Distance behind',10,2,50,1,' m'),slide('falt','Height offset',5,-10,20,1,' m')],
+      'Gimbal test':[warn('The gimbal will move. Only while disarmed.'),act('gt','Sweep each axis','✓ Finished'),...(g('gt',0)?[info('Pitch','✓ Followed'),info('Roll','✓ Followed'),info('Yaw','✓ Followed')]:[])],
+      'Force calibration':[warn('For recovery and bench work only. The vehicle is not calibrated and should not be flown.'),two('fa','Mark the accelerometer calibrated','Confirm: mark as calibrated','✓ Marked'),two('fc','Mark the compass calibrated','Confirm: mark as calibrated','✓ Marked')],
+      Bootloader:[warn('A failed update can stop the board from starting. If that happens, it can be recovered over USB in DFU mode.'),info('Bootloader','v5 · 2024'),two('bl','Update the bootloader','Confirm: update Quad 1','✓ Updated'),two('dfu','Reboot into DFU mode','Confirm: reboot Quad 1','✓ Rebooting')],
+      'Secure boot':[warn('If you lose the key, you can be locked out of the board. Back it up first.'),info('Board state','Not secured'),act('kb','Create and back up a key','✓ Key backed up'),two('sb','Install the secure bootloader','Confirm: secure Quad 1','✓ Secured')],
+      Blimp:[slide('finf','Fin frequency',3,1,10,.5,' Hz'),slide('fina','Fin amplitude',60,10,100,5,'%'),slide('pscb','Position P',1,.1,3,.1),chk('fint','Reverse the tail fin')],
+    };
+    return { tab:s.tab, rows:R[s.tab], tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#123440':'transparent', fg:s.tab===label?'#56D9F2':'#E8EEF4' })) };
+  }
+}
+</script>
+</body>
+</html>

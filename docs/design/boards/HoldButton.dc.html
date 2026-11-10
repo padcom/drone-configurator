@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hold button</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<button type="button" disabled="{{off}}" onPointerDown="{{start}}" onPointerUp="{{stop}}" onPointerLeave="{{stop}}" onKeyDown="{{key}}" onKeyUp="{{stop}}" style="position:relative;overflow:hidden;width:100%;min-height:48px;padding:0 18px;border:0;border-radius:4px;background:{{bg}};color:{{fg}};font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;font-weight:700;cursor:pointer;touch-action:none">
+  <span aria-hidden="true" style="position:absolute;left:0;top:0;bottom:0;width:{{fill}};background:{{bar}}"></span>
+  <span style="position:relative">{{text}}</span>
+</button>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"label":{"editor":"text","default":"Hold to confirm"},"tone":{"editor":"enum","options":["amber","red"],"default":"amber"},"off":{"editor":"boolean","default":false},"onDone":{"editor":null},"$preview":{"width":240,"height":56}}'>
+class Component extends DCLogic {
+  state = { p:0 };
+  componentWillUnmount() { clearInterval(this.timer); }
+  begin() {
+    clearInterval(this.timer);
+    this.timer = setInterval(() => {
+      const p = this.state.p + 5;
+      if (p >= 100) {
+        clearInterval(this.timer);
+        this.setState({ p:0 });
+        if (this.props.onDone) this.props.onDone();
+      } else this.setState({ p });
+    }, 50);
+  }
+  end() { clearInterval(this.timer); if (this.state.p) this.setState({ p:0 }); }
+  renderVals() {
+    const off = !!this.props.off;
+    const red = this.props.tone === 'red';
+    return {
+      off, text:(this.props.label ?? 'Hold to confirm'), fill:this.state.p+'%',
+      bg:off?'#25323E':red?'#FF7A70':'#FFB54A', fg:off?'#A9B8C5':red?'#2A0806':'#241600', bar:red?'#FFB0A9':'#FFD08A',
+      start:() => { if (!off) this.begin(); }, stop:() => this.end(),
+      key:(e) => { if (!off && e.key === ' ' && !e.repeat) { e.preventDefault(); this.begin(); } },
+    };
+  }
+}
+</script>
+</body>
+</html>

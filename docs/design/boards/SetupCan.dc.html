@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DroneCAN</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="can" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:1 1 320px;min-width:0;box-sizing:border-box;padding:28px 16px 28px 24px;display:flex;flex-direction:column;gap:8px;border-right:1px solid #25323E">
+        <h1 style="margin:0 8px 10px;font-size:28px;font-weight:600">DroneCAN</h1>
+        <sc-for list="{{nodes}}" as="n" hint-placeholder-count="4">
+          <button type="button" onClick="{{n.pick}}" style="display:flex;align-items:center;gap:12px;min-height:60px;padding:6px 12px;border:1px solid {{n.border}};border-radius:5px;background:{{n.bg}};color:#E8EEF4;font:inherit;text-align:left;cursor:pointer">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;width:28px">{{n.id}}</span>
+            <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600">{{n.name}}</span><span style="font-size:12.5px;color:{{n.fg}}">{{n.glyph}} {{n.health}}</span></span>
+          </button>
+        </sc-for>
+      </section>
+      <section data-l="pane col" style="flex:999 1 420px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <h2 style="margin:0;font-size:24px;font-weight:600">{{n.name}}</h2>
+          <p style="margin:4px 0 0;color:#A9B8C5">Node {{n.id}} · Firmware {{n.fw}} · Up {{n.up}}</p>
+        </div>
+        <h3 style="margin:6px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">PARAMETERS</h3>
+        <sc-for list="{{params}}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid #25323E"><span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{p.k}}</span><sc-if value="{{p.isEnum}}" hint-placeholder-val="{{false}}"><div style="width:240px"><dc-import name="EnumField" value="{{p.v}}" options="{{p.opts}}" on-pick="{{p.pick}}" field-label="{{p.k}}" hint-size="240px,44px"></dc-import></div></sc-if><sc-if value="{{p.notEnum}}" hint-placeholder-val="{{true}}"><input aria-label="{{p.k}}" type="number" value="{{p.v}}" onChange="{{p.change}}" style="width:120px;min-height:38px;box-sizing:border-box;padding:0 10px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:14px"></sc-if></div>
+        </sc-for>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:auto">
+          <button type="button" disabled="{{clean}}" onClick="{{write}}" style="min-height:48px;padding:0 22px;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+          <button type="button" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Update firmware</button>
+          <button type="button" style="min-height:48px;padding:0 18px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Restart node</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { sel:124, edits:{}, written:false };
+  renderVals() {
+    const s = this.state;
+    const N = [
+      { id:124, name:'GPS and compass', fw:'1.14.2', up:'00:42:11', health:'Healthy', ok:true, params:[['GPS_TYPE',9],['CAN_BAUDRATE',1000000],['MAG_ENABLE',1]] },
+      { id:125, name:'Airspeed sensor', fw:'1.14.2', up:'00:42:09', health:'Healthy', ok:true, params:[['ARSPD_TYPE',1],['CAN_BAUDRATE',1000000]] },
+      { id:60, name:'Power monitor', fw:'2.3.0', up:'00:42:14', health:'Healthy', ok:true, params:[['BATT_ID',0],['CAPACITY',5200]] },
+      { id:42, name:'ESC, motor 1', fw:'0.9.1', up:'00:00:37', health:'Warning: restarted recently', ok:false, params:[['ESC_INDEX',0],['MOTOR_POLES',14]] },
+    ];
+    const n = N.find((x) => x.id===s.sel);
+    const clean = Object.keys(s.edits).length===0;
+    return {
+      n,
+      nodes:N.map((x) => ({ ...x, border:x.id===s.sel?'#56D9F2':x.ok?'#25323E':'#FFB54A', bg:x.id===s.sel?'#123440':'transparent', fg:x.ok?'#A9B8C5':'#FFB54A', glyph:x.ok?'✓':'!', pick:() => this.setState({ sel:x.id, edits:{}, written:false }) })),
+      params:n.params.map(([k,v]) => {
+        const O = (l) => l.map(([value,label]) => ({ value,label }));
+        const opts = { GPS_TYPE:O([[0,'None'],[1,'Auto'],[9,'DroneCAN']]), MAG_ENABLE:O([[0,'Off'],[1,'On']]), ARSPD_TYPE:O([[0,'None'],[1,'I2C MS4525']]) }[k] ?? null;
+        const set = (val) => this.setState({ edits:{ ...s.edits, [k]:val }, written:false });
+        return { k, v:s.edits[k] ?? v, opts, isEnum:!!opts, notEnum:!opts, pick:set, change:(e) => set(Number(e.target.value)) };
+      }),
+      clean, writeBg:clean?'#25323E':'#56D9F2', writeFg:clean?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':clean?'No changes':'Write and verify',
+      write:() => this.setState({ written:true, edits:{} }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Connect</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>[data-l~="dlg"]>*{flex-shrink:0}</style>
+</helmet>
+<div data-l="dlg" style="overflow-y:auto;width:560px;height:680px;box-sizing:border-box;padding:28px;display:flex;flex-direction:column;gap:18px;background:#111921;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <div>
+    <h1 style="margin:0;font-size:24px;font-weight:600">Connect to a vehicle</h1>
+    <p style="margin:4px 0 0;color:#A9B8C5">Listening for vehicles on every port and network.</p>
+  </div>
+  <div role="group" aria-label="Connection type" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+    <sc-for list="{{tabs}}" as="b" hint-placeholder-count="5">
+      <button type="button" onClick="{{b.pick}}" style="flex:1;min-height:44px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button>
+    </sc-for>
+  </div>
+  <sc-if value="{{isFound}}" hint-placeholder-val="{{true}}">
+    <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">FOUND</h2>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <sc-for list="{{found}}" as="f" hint-placeholder-count="2">
+        <a href="Main.dc.html" style="display:flex;align-items:center;gap:14px;padding:14px;border:1px solid #60728A;border-radius:5px;color:#E8EEF4;text-decoration:none">
+          <span aria-hidden="true" style="width:10px;height:10px;border-radius:50%;background:#62E3A6"></span>
+          <span style="flex:1;display:flex;flex-direction:column"><span style="font-weight:600;font-size:15px">{{f.name}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{f.detail}}</span></span>
+          <span style="font-weight:600;color:#56D9F2">Connect</span>
+        </a>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{isSim}}" hint-placeholder-val="{{false}}">
+    <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">VEHICLE TO SIMULATE</h2>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+      <sc-for list="{{sims}}" as="v" hint-placeholder-count="4">
+        <button type="button" onClick="{{v.pick}}" style="min-height:56px;border:1px solid {{v.border}};border-radius:5px;background:{{v.bg}};color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">{{v.label}}</button>
+      </sc-for>
+    </div>
+    <a href="{{simHref}}" style="display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:4px;background:#56D9F2;color:#06222B;font-weight:600;text-decoration:none">Start the simulator</a>
+  </sc-if>
+  <sc-if value="{{isManual}}" hint-placeholder-val="{{false}}">
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">{{fieldLabel}}
+      <input value="{{fieldValue}}" onChange="{{fieldChange}}" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:16px">
+    </label>
+    <a href="Main.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:4px;background:#56D9F2;color:#06222B;font-weight:600;text-decoration:none">Connect</a>
+  </sc-if>
+  <p style="margin:auto 0 0;color:#A9B8C5;font-size:13px">Your last connection is tried first, so Enter is usually all you need.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":680}}'>
+class Component extends DCLogic {
+  state = { tab:'Found', sim:'Quad', udp:'0.0.0.0:14550', tcp:'127.0.0.1:5760', serial:'/dev/ttyACM0 at 115200' };
+  renderVals() {
+    const s = this.state;
+    const key = { UDP:'udp', TCP:'tcp', Serial:'serial' }[s.tab];
+    return {
+      tabs:['Found','UDP','TCP','Serial','Simulator'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isFound:s.tab==='Found', isSim:s.tab==='Simulator', isManual:!!key,
+      found:[
+        { name:'ArduCopter on USB', detail:'/dev/ttyACM0 · 1209:5741 · system 1' },
+        { name:'Simulator', detail:'udp 127.0.0.1:14550 · system 1' },
+      ],
+      simHref:{ Quad:'Main.dc.html', Hexa:'Main.dc.html', Plane:'SetupHomePlane.dc.html', Rover:'SetupHomeRover.dc.html', Sub:'SetupHomeSub.dc.html', Helicopter:'SetupHomeHeli.dc.html' }[s.sim],
+      sims:['Quad','Hexa','Plane','Rover','Sub','Helicopter'].map((label) => ({ label, pick:() => this.setState({ sim:label }), border:s.sim===label?'#56D9F2':'#60728A', bg:s.sim===label?'#123440':'transparent' })),
+      fieldLabel:{ UDP:'Listen on', TCP:'Address', Serial:'Port and baud rate' }[s.tab] ?? '',
+      fieldValue:key ? s[key] : '',
+      fieldChange:(e) => this.setState({ [key]:e.target.value }),
+    };
+  }
+}
+</script>
+</body>
+</html>

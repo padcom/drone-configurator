@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scripts, SSH and translations</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="preferences" hint-size="76px,640px"></dc-import></div>
+    <main data-l="pane col measure" style="flex:999 1 560px;min-width:0;box-sizing:border-box;padding:28px 36px;display:flex;flex-direction:column;gap:14px;--measure:828px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h1><a href="Preferences.dc.html">Back to Settings</a></div>
+        <div role="group" aria-label="Section" style="display:flex;flex-wrap:wrap;border:1px solid #60728A;border-radius:4px;overflow:hidden"><sc-for list="{{tabs}}" as="b" hint-placeholder-count="4"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 14px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for></div>
+      </div>
+      <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Scripts', vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), warn = (t) => ({ k:'warn', text:t }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const txt = (k,l,d='',p='') => ({ k:'text', label:l, value:g(k,d), placeholder:p, change:(e) => set(k,e.target.value) });
+    const en = (k,l,d,o) => ({ k:'enum', label:l, value:g(k,d), options:o.map(([value,label]) => ({ value,label })), pick:(n) => set(k,n) });
+    const act = (k,l,dn) => ({ k:'button', label:g(k,0)?dn:l, pick:() => set(k,1), bg:g(k,0)?'#123327':'#56D9F2', fg:g(k,0)?'#62E3A6':'#06222B', border:g(k,0)?'#123327':'#56D9F2' });
+    const R = {
+      Scripts:[info('survey_report.py','Running · read only'),info('auto_land.py','⚠ Running · can control the vehicle'),info('old_tool.py','Crashed · last line shown below'),note('old_tool.py: KeyError: "alt"'),chk('restart','Restart scripts automatically'),{ k:'button', label:g('kill',0)?'✓ All scripts stopped':'Stop all scripts', pick:() => set('kill',1), bg:g('kill',0)?'#123327':'#FF7A70', fg:g('kill',0)?'#62E3A6':'#2A0806', border:g('kill',0)?'#123327':'#FF7A70' }],
+      'Script panel':[note('A script can declare a panel like this. The app draws it with its own controls.'),head('SURVEY_REPORT.PY'),info('Photos taken','17 of 44'),txt('rn','Report name','north-field'),act('run','Make the report','✓ Report saved')],
+      SSH:[txt('h','Host','pi@companion.local'),act('c','Connect','✓ Connected'),note('Saved hosts and their keys are checked each time. Passwords are never logged.')],
+      Translations:[en('lang','Language',1,[[1,'Polski'],[2,'Deutsch']]),info('Translated','812 of 1204'),txt('t1','Return home','Powrót do domu'),txt('t2','Hold to arm','Przytrzymaj, aby uzbroić'),act('e','Export for contribution','✓ Saved')],
+    };
+    return { tab:s.tab, rows:R[s.tab], tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })) };
+  }
+}
+</script>
+</body>
+</html>

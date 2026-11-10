@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly: camera</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="armed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+        <dc-import name="FlyNav" active="camera" hint-size="100%,56px"></dc-import>
+        <div data-l="fill map" style="flex:1 1 620px;min-height:520px;position:relative;overflow:hidden;background:#000">
+          <sc-if value="{{videoMain}}" hint-placeholder-val="{{true}}">
+            <div style="position:absolute;inset:0;transform:scale({{scale}}) translateY({{shift}}px)"><dc-import name="MapBase" look="video" hint-size="100%,620px"></dc-import></div>
+            <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
+              <line x1="47" y1="50" x2="53" y2="50" stroke="#0A0F14" stroke-width=".2" vector-effect="non-scaling-stroke"></line>
+              <line x1="50" y1="46" x2="50" y2="54" stroke="#0A0F14" stroke-width=".2" vector-effect="non-scaling-stroke"></line>
+            </svg>
+          </sc-if>
+          <sc-if value="{{mapMain}}" hint-placeholder-val="{{false}}">
+            <dc-import name="MapBase" hint-size="100%,620px"></dc-import>
+            <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Camera footprint on the map" style="position:absolute;inset:0;width:100%;height:100%">
+              <rect x="{{fx}}" y="{{fy}}" width="{{fw}}" height="{{fh}}" fill="#56D9F2" fill-opacity=".2" stroke="#56D9F2" stroke-width="3"></rect>
+              <g transform="translate(750 340) rotate(96)"><path d="M0 -28 20 24 0 12 -20 24Z" fill="#56D9F2"></path></g>
+            </svg>
+          </sc-if>
+          <div style="position:absolute;left:16px;top:16px;display:flex;gap:8px;flex-wrap:wrap">
+            <span style="padding:6px 10px;background:#0A0F14;color:#E8EEF4;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:13px">{{osd}}</span>
+            <sc-if value="{{rec}}" hint-placeholder-val="{{false}}"><span style="padding:6px 10px;background:#FF7A70;color:#2A0806;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">● REC {{recTime}}</span></sc-if>
+          </div>
+          <button type="button" onClick="{{swap}}" aria-label="{{swapLabel}}" style="position:absolute;right:16px;bottom:16px;width:280px;height:176px;padding:0;overflow:hidden;border:2px solid #E8EEF4;border-radius:4px;background:#000;cursor:pointer">
+            <sc-if value="{{videoMain}}" hint-placeholder-val="{{true}}"><dc-import name="MapBase" hint-size="280px,176px"></dc-import></sc-if>
+            <sc-if value="{{mapMain}}" hint-placeholder-val="{{false}}"><dc-import name="MapBase" look="video" hint-size="280px,176px"></dc-import></sc-if>
+            <span style="position:absolute;left:8px;bottom:8px;padding:3px 8px;background:#0A0F14;color:#E8EEF4;border-radius:2px;font:inherit;font-size:12.5px">{{swapText}}</span>
+          </button>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <h1 style="margin:0;font-size:20px;font-weight:600">Camera and gimbal</h1>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <button type="button" onClick="{{shot}}" style="min-height:60px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-size:15px;font-weight:700;cursor:pointer">Take photo</button>
+          <button type="button" onClick="{{toggleRec}}" style="min-height:60px;border:1px solid {{recBorder}};border-radius:4px;background:transparent;color:{{recFg}};font:inherit;font-size:15px;font-weight:700;cursor:pointer">{{recLabel}}</button>
+        </div>
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="3">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span>
+            <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+        </sc-for>
+        <div style="display:flex;gap:8px">
+          <button type="button" onClick="{{lookDown}}" style="flex:1;min-height:44px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Look down</button>
+          <button type="button" onClick="{{lookFwd}}" style="flex:1;min-height:44px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Look forward</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Video source
+          <dc-import name="EnumField" value="{{src}}" options="{{srcs}}" on-pick="{{srcPick}}" field-label="Video source" hint-size="100%,44px"></dc-import>
+        </div>
+        <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{recHud}}" onChange="{{recHudChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Save the HUD with the recording</span></label>
+        <div style="margin-top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <sc-for list="{{tiles}}" as="t" hint-placeholder-count="2">
+            <div style="padding:10px 12px;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{t.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600">{{t.value}}</div></div>
+          </sc-for>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { swap:false, rec:false, secs:0, photos:17, pitch:-90, yaw:0, zoom:2 };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => (s.rec ? { secs:s.secs+1 } : null)), 1000); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const ALT = 60, FOV = 84;
+    const widthM = 2*ALT*Math.tan((FOV/2)*Math.PI/180)/s.zoom;
+    const fw = widthM*2, fh = fw*.5625;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value) });
+    return {
+      videoMain:!s.swap, mapMain:s.swap, rec:s.rec,
+      scale:(1.2+s.zoom*.5).toFixed(2), shift:((s.pitch+90)*2).toFixed(0),
+      fx:(750-fw/2).toFixed(0), fy:(340-fh/2).toFixed(0), fw:fw.toFixed(0), fh:fh.toFixed(0),
+      osd:'Pitch '+s.pitch+'° · Zoom '+s.zoom+'×',
+      recTime:String(Math.floor(s.secs/60)).padStart(2,'0')+':'+String(s.secs%60).padStart(2,'0'),
+      swap:() => this.setState({ swap:!s.swap }),
+      swapLabel:s.swap?'Make video the main view':'Make the map the main view',
+      swapText:s.swap?'Video':'Map',
+      shot:() => this.setState({ photos:s.photos+1 }),
+      toggleRec:() => this.setState({ rec:!s.rec, secs:s.rec?s.secs:0 }),
+      recLabel:s.rec?'Stop recording':'Record', recBorder:s.rec?'#FF7A70':'#60728A', recFg:s.rec?'#FF7A70':'#E8EEF4',
+      sliders:[
+        { label:'Pitch',min:-90,max:30,step:5,value:s.pitch,text:s.pitch+'°',change:set('pitch') },
+        { label:'Yaw',min:-45,max:45,step:5,value:s.yaw,text:s.yaw+'°',change:set('yaw') },
+        { label:'Zoom',min:1,max:5,step:1,value:s.zoom,text:s.zoom+'×',change:set('zoom') },
+      ],
+      lookDown:() => this.setState({ pitch:-90, yaw:0 }),
+      lookFwd:() => this.setState({ pitch:0, yaw:0 }),
+      src:s.src ?? 1, srcPick:(n) => this.setState({ src:n }), srcs:[{ value:1, label:'Gimbal camera (RTSP)' },{ value:2, label:'Front view (MJPEG)' }],
+      recHud:!!s.recHud, recHudChange:(e) => this.setState({ recHud:e.target.checked }),
+      tiles:[ { label:'PHOTOS', value:String(s.photos) }, { label:'GROUND WIDTH', value:Math.round(widthM)+' m' } ],
+    };
+  }
+}
+</script>
+</body>
+</html>

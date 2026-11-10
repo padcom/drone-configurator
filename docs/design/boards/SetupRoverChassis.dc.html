@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rover chassis</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="rover" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="frame" vehicle="rover" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Chassis and orientation</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">How the vehicle steers decides which outputs it uses.</p>
+          </div>
+          <a href="SetupAccel.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Accelerometer</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+          <sc-for list="{{types}}" as="c" hint-placeholder-count="3">
+            <button type="button" aria-pressed="{{c.on}}" onClick="{{c.pick}}" style="min-height:64px;border:1px solid {{c.border}};border-radius:5px;background:{{c.bg}};color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">{{c.label}}<br><span style="font-weight:400;font-size:12.5px;color:#A9B8C5">{{c.sub}}</span></button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;flex:1 1 auto">
+          <figure style="flex:2 1 320px;min-width:0;margin:0;padding:16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+            <svg viewBox="0 0 320 340" role="img" aria-label="{{aria}}" style="display:block;width:100%;max-width:400px;height:auto;margin:0 auto">
+              <path d="M160 6 174 28H146Z" fill="#56D9F2"></path>
+              <path d="{{hull}}" fill="#60728A"></path>
+              <sc-for list="{{wheels}}" as="w" hint-placeholder-count="4">
+                <g transform="rotate({{w.rot}} {{w.x}} {{w.y}})"><rect x="{{w.rx}}" y="{{w.ry}}" width="26" height="62" rx="6" fill="{{w.fill}}"></rect></g>
+              </sc-for>
+              <sc-for list="{{labels}}" as="l" hint-placeholder-count="2"><text x="{{l.x}}" y="{{l.y}}" text-anchor="middle" fill="#E8EEF4" font-size="14" font-family="IBM Plex Sans, sans-serif">{{l.t}}</text></sc-for>
+            </svg>
+          </figure>
+          <div style="flex:1 1 240px;min-width:0;display:flex;flex-direction:column;gap:14px">
+            <div>
+              <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">OUTPUTS</h2>
+              <sc-for list="{{outputs}}" as="o" hint-placeholder-count="2">
+                <div style="display:flex;gap:12px;align-items:center;min-height:40px;border-bottom:1px solid #25323E"><span style="font-family:'IBM Plex Mono',monospace;width:20px;color:#A9B8C5">{{o.no}}</span><span style="flex:1;font-weight:500">{{o.fn}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{o.value}}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Board orientation
+              <dc-import name="EnumField" value="{{orient}}" options="{{orients}}" on-pick="{{orientChange}}" field-label="Board orientation" hint-size="100%,44px"></dc-import>
+            </div>
+            <button type="button" disabled="{{clean}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { type:'Car-style', orient:0, saved:'Car-style|0', written:false };
+  renderVals() {
+    const s = this.state;
+    const W = (x,y,rot,fill) => ({ x,y,rot,fill,rx:x-13,ry:y-31 });
+    const O = (no,fn,value) => ({ no,fn,value });
+    const T = {
+      'Car-style':{ sub:'Front wheels steer', hull:'M100 50H220V310H100Z', wheels:[W(82,100,18,'#56D9F2'),W(238,100,18,'#56D9F2'),W(82,260,0,'#E8EEF4'),W(238,260,0,'#E8EEF4')], labels:[{ x:160,y:112,t:'Steering' },{ x:160,y:266,t:'Throttle' }], outputs:[O(1,'Steering',26),O(3,'Throttle',70)] },
+      'Skid steer':{ sub:'Left and right sides differ', hull:'M100 50H220V310H100Z', wheels:[W(82,100,0,'#56D9F2'),W(82,260,0,'#56D9F2'),W(238,100,0,'#E8EEF4'),W(238,260,0,'#E8EEF4')], labels:[{ x:160,y:176,t:'Left · Right' }], outputs:[O(1,'Left throttle',73),O(3,'Right throttle',74)] },
+      Boat:{ sub:'Rudder and motor', hull:'M160 40C230 90 232 200 216 310H104C88 200 90 90 160 40Z', wheels:[W(160,322,0,'#56D9F2')], labels:[{ x:160,y:176,t:'Rudder and motor' }], outputs:[O(1,'Rudder',26),O(3,'Throttle',70)] },
+    };
+    const c = T[s.type];
+    const key = s.type+'|'+s.orient, clean = key===s.saved;
+    return {
+      ...c, orient:s.orient, aria:s.type+' chassis from above',
+      types:Object.keys(T).map((label) => ({ label, sub:T[label].sub, on:s.type===label, pick:() => this.setState({ type:label, written:false }), border:s.type===label?'#56D9F2':'#60728A', bg:s.type===label?'#123440':'transparent' })),
+      orients:[[0,'None'],[1,'Yaw 45°'],[2,'Yaw 90°'],[3,'Yaw 135°'],[4,'Yaw 180°'],[5,'Yaw 225°'],[6,'Yaw 270°'],[7,'Yaw 315°'],[8,'Upside down (roll 180°)']].map(([value,label]) => ({ value,label })),
+      orientChange:(n) => this.setState({ orient:n, written:false }),
+      clean, writeBg:clean?'#25323E':'#56D9F2', writeFg:clean?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':clean?'No changes':'Write and verify',
+      write:() => this.setState({ saved:key, written:true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

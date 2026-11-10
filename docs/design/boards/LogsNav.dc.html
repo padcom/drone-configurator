@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Logs views</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<nav aria-label="Logs views" style="display:flex;flex-wrap:wrap;gap:2px;padding:5px 8px;background:#111921;border-bottom:1px solid #25323E;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px">
+  <sc-for list="{{tabs}}" as="b" hint-placeholder-count="4">
+    <a href="{{b.href}}" style="display:flex;align-items:center;min-height:44px;padding:0 14px;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font-weight:500;text-decoration:none">{{b.label}}</a>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["flights","replay","spectrum","vehicle"],"default":"flights"},"$preview":{"width":640,"height":56}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'flights';
+    return {
+      tabs:[['flights','Flights','Logs.dc.html'],['replay','Replay','LogsReplay.dc.html'],['spectrum','Spectrum','LogsSpectrum.dc.html'],['vehicle','On the vehicle','LogsDownload.dc.html'],['tools','Tools','LogsTools.dc.html']].map(([id,label,href]) => ({ label, href, bg:id===active?'#123440':'transparent', fg:id===active?'#56D9F2':'#E8EEF4' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

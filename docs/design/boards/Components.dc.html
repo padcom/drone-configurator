@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Components</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+</helmet>
+<div style="width:1440px;height:900px;box-sizing:border-box;padding:44px 56px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">SAFETY CONFIRMATION</h2>
+    <div style="padding:14px;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-weight:600">Hold</div>
+      <div style="font-size:13px;color:#A9B8C5">Arming, emergency stop, and anything as dangerous.</div>
+      <dc-import name="HoldButton" label="Hold to arm Quad 1" on-done="{{held}}" hint-size="100%,48px"></dc-import>
+      <div style="font-size:13px;color:#62E3A6">{{heldText}}</div>
+    </div>
+    <div style="padding:14px;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-weight:600">Second press</div>
+      <div style="font-size:13px;color:#A9B8C5">Erasing data and commands to a whole group. The button says what will happen.</div>
+      <button type="button" onClick="{{press}}" style="min-height:48px;border:1px solid {{pressBorder}};border-radius:4px;background:{{pressBg}};color:{{pressFg}};font:inherit;font-weight:600;cursor:pointer">{{pressText}}</button>
+    </div>
+    <div style="padding:14px;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:8px">
+      <div style="font-weight:600">Tick to unlock</div>
+      <div style="font-size:13px;color:#A9B8C5">Bench tests that spin something. Controls stay locked until it's ticked.</div>
+      <label style="display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:4px;background:{{tickBg}};color:{{tickFg}};font-weight:600;cursor:pointer"><input type="checkbox" checked="{{tick}}" onChange="{{tickChange}}" style="width:20px;height:20px;accent-color:#FFB54A;margin:0"><span>The propellers are off</span></label>
+    </div>
+    <h2 style="margin:8px 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">TOASTS</h2>
+    <sc-for list="{{toasts}}" as="t" hint-placeholder-count="3">
+      <div role="status" style="display:flex;gap:10px;align-items:center;padding:10px 12px;background:#18222C;border:1px solid {{t.border}};border-radius:4px"><span aria-hidden="true" style="color:{{t.color}};font-weight:700;width:14px">{{t.glyph}}</span><span style="flex:1">{{t.text}}</span></div>
+    </sc-for>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">PARAMETER FIELD STATES</h2>
+    <sc-for list="{{states}}" as="s" hint-placeholder-count="5">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#A9B8C5"><span>{{s.name}}</span><span style="color:{{s.noteFg}}">{{s.note}}</span></div>
+        <div style="display:flex;align-items:center;min-height:44px;padding:0 12px;border:1px solid {{s.border}};border-radius:4px;background:#0A0F14;font-family:'IBM Plex Mono',monospace;font-size:15px"><span style="flex:1;color:{{s.fg}}">{{s.value}}</span><span style="font-size:13px;color:#A9B8C5">{{s.unit}}</span></div>
+      </div>
+    </sc-for>
+    <h2 style="margin:8px 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">BITMASK</h2>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">FENCE_TYPE = {{mask}}</div>
+    <sc-for list="{{bits}}" as="b" hint-placeholder-count="4">
+      <label style="display:flex;align-items:center;gap:12px;min-height:40px;cursor:pointer"><input type="checkbox" checked="{{b.on}}" onChange="{{b.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span style="flex:1">{{b.label}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A9B8C5">{{b.bit}}</span></label>
+    </sc-for>
+  </section>
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2 style="margin:0 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">MENU AND TOOLTIP</h2>
+    <div role="menu" aria-label="Map" style="display:flex;flex-direction:column;padding:4px;background:#18222C;border:1px solid #60728A;border-radius:4px;max-width:260px">
+      <sc-for list="{{menu}}" as="m" hint-placeholder-count="4"><button type="button" role="menuitem" style="display:flex;justify-content:space-between;min-height:40px;align-items:center;padding:0 10px;border:0;border-radius:2px;background:transparent;color:#E8EEF4;font:inherit;text-align:left;cursor:pointer"><span>{{m.a}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#A9B8C5">{{m.b}}</span></button></sc-for>
+    </div>
+    <span role="tooltip" style="align-self:flex-start;padding:6px 10px;background:#E8EEF4;color:#0A0F14;border-radius:2px;font-size:13px">Written to the vehicle and read back</span>
+    <h2 style="margin:8px 0 4px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">BASIC CONTROLS</h2>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" role="switch" checked="{{sw}}" onChange="{{swChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Toggle</label>
+      <span style="padding:2px 8px;border-radius:2px;background:#123440;color:#56D9F2;font-size:12.5px;font-weight:600">Info badge</span>
+      <span style="padding:2px 8px;border-radius:2px;background:#3A2A10;color:#FFB54A;font-size:12.5px;font-weight:600">Warning badge</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button type="button" style="min-height:44px;padding:0 16px;border:1px solid #60728A;border-radius:4px;background:#18222C;color:#E8EEF4;font:inherit;font-weight:500">Hover</button>
+      <button type="button" style="min-height:44px;padding:0 16px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;outline:2px solid #56D9F2;outline-offset:2px">Focus</button>
+      <button type="button" disabled style="min-height:44px;padding:0 16px;border:0;border-radius:4px;background:#25323E;color:#A9B8C5;font:inherit;font-weight:500">Disabled</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { held:false, press:0, tick:false, mask:7, sw:true };
+  renderVals() {
+    const s = this.state;
+    const S = (name,note,noteFg,value,unit,border,fg) => ({ name,note,noteFg,value,unit,border,fg });
+    return {
+      held:() => this.setState({ held:true }), heldText:s.held?'✓ Done':'',
+      press:() => this.setState({ press:(s.press+1)%3 }),
+      pressText:['Erase all logs','Confirm: erase 5 logs','✓ Erased'][s.press],
+      pressBg:['transparent','#3F1A1A','transparent'][s.press], pressFg:['#E8EEF4','#FF7A70','#62E3A6'][s.press], pressBorder:['#60728A','#FF7A70','#60728A'][s.press],
+      tick:s.tick, tickChange:(e) => this.setState({ tick:e.target.checked }), tickBg:s.tick?'#123327':'#3A2A10', tickFg:s.tick?'#62E3A6':'#FFB54A',
+      toasts:[{ glyph:'✓',color:'#62E3A6',border:'#25323E',text:'Mission written and read back' },{ glyph:'!',color:'#FFB54A',border:'#FFB54A',text:'GPS: 6 satellites, position unreliable' },{ glyph:'✕',color:'#FF7A70',border:'#FF7A70',text:'The vehicle reports 2500, not 3000' }],
+      states:[
+        S('On the vehicle','','#A9B8C5','150','m','#60728A','#E8EEF4'),
+        S('Draft','150 on the vehicle','#56D9F2','200','m','#56D9F2','#56D9F2'),
+        S('Writing','Waiting for read-back','#A9B8C5','200','m','#60728A','#A9B8C5'),
+        S('Verified','✓ Read back: 200','#62E3A6','200','m','#62E3A6','#E8EEF4'),
+        S('Rejected','✕ The vehicle reports 150','#FF7A70','200','m','#FF7A70','#E8EEF4'),
+      ],
+      mask:s.mask+' = '+[1,2,4,8].filter((b) => s.mask&b).join(' + '),
+      bits:[[1,'Maximum altitude'],[2,'Circle around home'],[4,'Polygon'],[8,'Minimum altitude']].map(([bit,label]) => ({ bit,label,on:!!(s.mask&bit),toggle:() => this.setState({ mask:s.mask^bit }) })),
+      menu:[{ a:'Fly here',b:'' },{ a:'Set home here',b:'' },{ a:'Look at this point',b:'' },{ a:'Copy coordinates',b:'Ctrl C' }],
+      sw:s.sw, swChange:(e) => this.setState({ sw:e.target.checked }),
+    };
+  }
+}
+</script>
+</body>
+</html>

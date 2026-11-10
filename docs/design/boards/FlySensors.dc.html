@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly: sensors</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="armed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import></div>
+    <main data-l="clip" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column">
+      <dc-import name="FlyNav" active="sensors" hint-size="100%,56px"></dc-import>
+      <div style="padding:20px 28px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <h1 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h1>
+        <div role="group" aria-label="Sensor view" style="display:flex;flex-wrap:wrap;border:1px solid #60728A;border-radius:4px;overflow:hidden"><sc-for list="{{tabs}}" as="b" hint-placeholder-count="6"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 14px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for></div>
+      </div>
+      <div data-l="fill pane" style="flex:1 1 auto;display:flex;flex-wrap:wrap;gap:32px;padding:20px 28px">
+        <div style="flex:1 1 380px;min-width:0;max-width:560px"><dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import></div>
+        <sc-if value="{{isRadar}}" hint-placeholder-val="{{false}}">
+          <svg viewBox="0 0 400 400" role="img" aria-label="Closest obstacle {{closest}} metres" style="flex:0 1 420px;width:420px;max-width:100%;height:auto">
+            <circle cx="200" cy="200" r="180" fill="#111921" stroke="#25323E"></circle><circle cx="200" cy="200" r="90" fill="none" stroke="#25323E"></circle>
+            <sc-for list="{{sectors}}" as="r" hint-placeholder-count="8"><path d="{{r.d}}" fill="none" stroke="{{r.color}}" stroke-width="10" stroke-linecap="round"></path></sc-for>
+            <path d="M200 182 212 214 200 206 188 214Z" fill="#56D9F2"></path>
+          </svg>
+        </sc-if>
+        <sc-if value="{{isTiles}}" hint-placeholder-val="{{false}}">
+          <div style="flex:1 1 420px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;align-content:start">
+            <sc-for list="{{tiles}}" as="t" hint-placeholder-count="4"><div style="padding:14px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5"><span>{{t.name}}</span><button type="button" aria-label="Remove {{t.name}}" onClick="{{t.del}}" style="min-width:24px;min-height:24px;padding:0;border:0;background:transparent;color:#A9B8C5;cursor:pointer">✕</button></div><div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:500">{{t.value}}</div></div></sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'ESC and cells', vals:{}, tiles:['Altitude','Ground speed','Battery','Satellites'], next:'Climb rate', rules:[['Battery','below','11.1 V','for 5 s'],['Vibration','above','30 m/s²','for 2 s']], n:0 };
+  componentDidMount() { this.timer = setInterval(() => this.setState((p) => ({ n:p.n+1 })), 300); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), info = (l,v,c) => ({ k:'info', label:l, value:String(v), fg:c ?? '#A9B8C5' });
+    const two = (k,l,c,d) => { const v = g(k,0); return { k:'button', label:[l,c,d][v], pick:() => set(k,Math.min(2,v+1)), bg:['transparent','#3F1A1A','#123327'][v], fg:['#E8EEF4','#FF7A70','#62E3A6'][v], border:['#60728A','#FF7A70','#123327'][v] }; };
+    const w = (b,a) => (b+a*Math.sin(s.n/5)).toFixed(0);
+    const V = { 'ESC and cells':[head('MOTORS'),info('Motor 1',w(5120,60)+' rpm · 38 °C · 3.1 A'),info('Motor 2',w(5080,70)+' rpm · 37 °C · 3.0 A'),info('Motor 3',w(5160,50)+' rpm · 41 °C · 3.3 A'),info('Motor 4',w(5100,60)+' rpm · 39 °C · 3.1 A'),head('CELLS'),info('Cell 1','4.06 V'),info('Cell 2','4.05 V'),info('Cell 3','4.07 V')],
+      'Raw sensors':[head('INERTIAL'),info('Accelerometer','0.2, −0.1, −9.8 m/s²'),info('Gyroscope','0.01, 0.00, 0.03 rad/s'),info('Clipping','0, 0, 0'),head('OTHER'),info('Compass','212, −48, 391 mG'),info('Barometer','95 870 Pa · 21 °C')],
+      Proximity:[head('BY SECTOR'),info('Front','7.2 m'),info('Right','12.5 m'),info('Rear','—'),info('Left','3.4 m','#FFB54A'),note('A dash means no sensor reading in that direction.')],
+      Altitude:[head('SIDE BY SIDE'),info('Above home','60.2 m'),info('Above sea level','468.4 m'),info('Barometric','61.0 m'),head('PRESSURE REFERENCE'),{ k:'text', label:'QNH (hPa)', value:g('qnh','1013'), placeholder:'', change:(e) => set('qnh',e.target.value) },two('baro','Adjust the vehicle barometer','Confirm: adjust Quad 1','✓ Adjusted')],
+      Warnings:[head('YOUR RULES'),...s.rules.map((r) => info(r[0],r[1]+' '+r[2]+' '+r[3])),note('A rule shows an alert and plays a tone, then repeats until the value recovers.'),{ k:'button', label:'Add a rule', pick:() => this.setState({ rules:s.rules.concat([['Satellites','below','10','for 3 s']]) }), bg:'transparent', fg:'#E8EEF4', border:'#60728A' }],
+      Tiles:[head('LAYOUT'),note('Add, remove or reorder the values you want to see large.'),{ k:'button', label:'Add '+s.next, pick:() => this.setState({ tiles:s.tiles.concat([s.next]), next:s.next==='Climb rate'?'Wind':'Heading' }), bg:'#56D9F2', fg:'#06222B', border:'#56D9F2' }] };
+    const rad = [7.2,9,12.5,14,16,16,3.4,5].map((m,i) => { const a = i*45*Math.PI/180, r = Math.min(170,m*11), da = .32; const P = (x) => (200+r*Math.sin(x)).toFixed(0)+' '+(200-r*Math.cos(x)).toFixed(0); return { d:'M'+P(a-da)+' A'+r+' '+r+' 0 0 1 '+P(a+da), color:m<5?'#FFB54A':'#56D9F2' }; });
+    const VAL = { Altitude:'60 m','Ground speed':'8.0 m/s',Battery:'87%',Satellites:'14','Climb rate':'0.0 m/s',Wind:'4 m/s',Heading:'096°' };
+    return {
+      tab:s.tab, rows:V[s.tab], isRadar:s.tab==='Proximity', isTiles:s.tab==='Tiles', closest:3.4, sectors:rad,
+      tabs:Object.keys(V).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      tiles:s.tiles.map((name) => ({ name, value:VAL[name], del:() => this.setState({ tiles:s.tiles.filter((x) => x!==name) }) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

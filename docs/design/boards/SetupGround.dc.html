@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ground equipment</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col measure" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px;--measure:916px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Ground equipment</h1>
+          <div role="group" aria-label="Equipment" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{isRtk}}" hint-placeholder-val="{{true}}">
+          <p style="margin:0;color:#A9B8C5;font-size:15px">A base station corrects GPS down to centimetres. It has to learn its own position first.</p>
+          <div style="padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;gap:8px;font-weight:600"><span>{{rtkTitle}}</span><span style="font-family:'IBM Plex Mono',monospace">{{acc}}</span></div>
+            <div style="height:8px;border-radius:2px;background:#25323E"><div style="height:8px;border-radius:2px;background:#56D9F2;width:{{rtkPct}}"></div></div>
+            <div style="font-size:13px;color:#A9B8C5">Target accuracy 2.0 m · {{sats}} satellites</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <sc-for list="{{rtkTiles}}" as="c" hint-placeholder-count="3"><div style="flex:1 1 160px;padding:12px 14px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{c.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600">{{c.value}}</div></div></sc-for>
+          </div>
+          <button type="button" onClick="{{rtkToggle}}" style="align-self:flex-start;min-height:48px;padding:0 22px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{rtkLabel}}</button>
+        </sc-if>
+        <sc-if value="{{isTracker}}" hint-placeholder-val="{{false}}">
+          <p style="margin:0;color:#A9B8C5;font-size:15px">Points a directional antenna at the vehicle, using the position this app receives.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:center">
+            <svg viewBox="0 0 240 240" role="img" aria-label="Antenna pointing at bearing {{az}} degrees" style="width:240px;height:240px;flex:none">
+              <circle cx="120" cy="120" r="100" fill="#111921" stroke="#60728A" stroke-width="2"></circle>
+              <text x="120" y="38" text-anchor="middle" fill="#A9B8C5" font-size="14" font-family="IBM Plex Mono, monospace">N</text>
+              <g transform="rotate({{az}} 120 120)"><path d="M120 34 130 120H110Z" fill="#56D9F2"></path></g>
+            </svg>
+            <div style="flex:1 1 240px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+              <sc-for list="{{trackTiles}}" as="c" hint-placeholder-count="4"><div style="padding:12px 14px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">{{c.label}}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600">{{c.value}}</div></div></sc-for>
+            </div>
+          </div>
+          <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{trackOn}}" onChange="{{trackChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Follow the vehicle</span></label>
+        </sc-if>
+        <sc-if value="{{isFollow}}" hint-placeholder-val="{{false}}">
+          <p style="margin:0;color:#A9B8C5;font-size:15px">Uses a GPS connected to this computer, so the vehicle can follow you.</p>
+          <div style="padding:18px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-weight:600">{{followTitle}}</div><div style="font-size:13px;color:#A9B8C5">/dev/ttyUSB1 · 4800 baud · 9 satellites</div></div>
+          <sc-for list="{{followSliders}}" as="f" hint-placeholder-count="2">
+            <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5;max-width:520px"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.value}} m</span></span><input type="range" min="{{f.min}}" max="{{f.max}}" step="1" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0"></label>
+          </sc-for>
+          <button type="button" onClick="{{followToggle}}" style="align-self:flex-start;min-height:48px;padding:0 22px;border:0;border-radius:4px;background:{{followBg}};color:{{followFg}};font:inherit;font-weight:700;cursor:pointer">{{followLabel}}</button>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'RTK base', n:0, rtk:true, track:true, follow:false, dist:15, height:20 };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 300); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const p = s.rtk ? Math.min(100, s.n*1.2) : 0;
+    const a = Math.max(2, 18-p*.16);
+    const az = s.track ? Math.round((96+25*Math.sin(s.n/40)+360)%360) : 96;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value) });
+    const done = p >= 100;
+    return {
+      tabs:['RTK base','Antenna tracker','Follow me'].map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#56D9F2':'transparent', fg:s.tab===label?'#06222B':'#E8EEF4' })),
+      isRtk:s.tab==='RTK base', isTracker:s.tab==='Antenna tracker', isFollow:s.tab==='Follow me',
+      rtkTitle:!s.rtk?'Stopped':done?'✓ Sending corrections to Quad 1':'Learning its position', acc:a.toFixed(1)+' m', rtkPct:p+'%', sats:16,
+      rtkTiles:[ { label:'VEHICLE FIX', value:done?'RTK fixed':'3D' },{ label:'DATA RATE', value:done?'1.2 kB/s':'—' },{ label:'AGE', value:done?'0.4 s':'—' } ],
+      rtkToggle:() => this.setState({ rtk:!s.rtk, n:0 }), rtkLabel:s.rtk?'Stop':'Start',
+      az, trackOn:s.track, trackChange:(e) => this.setState({ track:e.target.checked }),
+      trackTiles:[ { label:'BEARING', value:String(az).padStart(3,'0')+'°' },{ label:'ELEVATION', value:'14°' },{ label:'DISTANCE', value:'238 m' },{ label:'SIGNAL', value:'−61 dBm' } ],
+      followTitle:s.follow?'✓ Sending your position to Quad 1':'GPS connected',
+      followSliders:[ { label:'Distance behind you',min:5,max:50,value:s.dist,change:set('dist') },{ label:'Height',min:10,max:60,value:s.height,change:set('height') } ],
+      followToggle:() => this.setState({ follow:!s.follow }), followBg:s.follow?'#FFB54A':'#56D9F2', followFg:s.follow?'#241600':'#06222B', followLabel:s.follow?'Stop following':'Follow me',
+    };
+  }
+}
+</script>
+</body>
+</html>

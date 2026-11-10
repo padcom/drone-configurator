@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tune: groups and AutoTune</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="{{vehicle}}" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="tune" hint-size="76px,640px"></dc-import></div>
+    <main data-l="pane col measure" style="flex:999 1 560px;min-width:0;box-sizing:border-box;padding:24px 28px;display:flex;flex-direction:column;gap:16px;--measure:1044px">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:baseline;gap:16px"><h1 style="margin:0;font-size:28px;font-weight:600">{{tab}}</h1><a href="Tune.dc.html">Rate controller</a></div>
+        <div role="group" aria-label="Tuning group" style="display:flex;flex-wrap:wrap;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+          <sc-for list="{{tabs}}" as="b" hint-placeholder-count="5"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 14px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{isSliders}}" hint-placeholder-val="{{true}}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">
+          <sc-for list="{{sliders}}" as="f" hint-placeholder-count="6">
+            <label style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:#111921;border:1px solid {{f.border}};border-radius:5px;font-size:13px;color:#A9B8C5">
+              <span style="display:flex;justify-content:space-between;gap:8px"><span style="color:#E8EEF4;font-weight:500">{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:{{f.fg}};font-size:15px">{{f.text}}</span></span>
+              <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:36px;margin:0">
+              <span style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11.5px"><span>{{f.param}}</span><span>{{f.was}}</span></span>
+            </label>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" onClick="{{revert}}" style="min-height:48px;padding:0 20px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Revert</button>
+          <button type="button" onClick="{{save}}" style="min-height:48px;padding:0 22px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{saveLabel}}</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{isAuto}}" hint-placeholder-val="{{false}}">
+        <div style="display:flex;flex-wrap:wrap;gap:24px">
+          <div style="flex:1 1 320px;display:flex;flex-direction:column;gap:10px">
+            <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">BEFORE YOU FLY</h2>
+            <sc-for list="{{checks}}" as="c" hint-placeholder-count="3"><label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{c.on}}" onChange="{{c.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>{{c.label}}</span></label></sc-for>
+            <h2 style="margin:8px 0 0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">AXES</h2>
+            <div style="display:flex;gap:16px"><sc-for list="{{axes}}" as="a" hint-placeholder-count="3"><label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{a.on}}" onChange="{{a.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">{{a.name}}</label></sc-for></div>
+            <button type="button" disabled="{{cannotStart}}" onClick="{{start}}" style="min-height:48px;border:0;border-radius:4px;background:{{startBg}};color:{{startFg}};font:inherit;font-weight:600;cursor:pointer">{{startLabel}}</button>
+          </div>
+          <div style="flex:1 1 360px;display:flex;flex-direction:column;gap:10px">
+            <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">PROGRESS</h2>
+            <sc-for list="{{progress}}" as="p" hint-placeholder-count="3"><div><div style="display:flex;justify-content:space-between;font-weight:500"><span>{{p.name}}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px">{{p.text}}</span></div><div style="height:8px;border-radius:2px;background:#25323E;margin-top:5px"><div style="height:8px;border-radius:2px;background:#56D9F2;width:{{p.width}}"></div></div></div></sc-for>
+            <sc-if value="{{finished}}" hint-placeholder-val="{{false}}">
+              <div style="padding:12px 14px;border:1px solid #25323E;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:13px;display:flex;flex-direction:column;gap:4px"><sc-for list="{{results}}" as="r" hint-placeholder-count="3"><span style="display:flex;justify-content:space-between"><span style="color:#A9B8C5">{{r.k}}</span><span>{{r.v}}</span></span></sc-for></div>
+              <div style="display:flex;gap:10px"><button type="button" onClick="{{discard}}" style="flex:1;min-height:48px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Discard</button><button type="button" onClick="{{keepTune}}" style="flex:2;min-height:48px;border:0;border-radius:4px;background:#56D9F2;color:#06222B;font:inherit;font-weight:600;cursor:pointer">{{keepLabel}}</button></div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"vehicle":{"editor":"enum","options":["copter","plane","rover"],"default":"copter"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:null, vals:{}, saved:false, ticks:{}, axes:{ Roll:true, Pitch:true, Yaw:true }, p:null, kept:false };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => (s.p == null || s.p >= 300 ? null : { p:s.p+3 })), 100); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const vehicle = this.props.vehicle ?? 'copter';
+    const F = (param,label,def,min,max,step,unit='') => ({ param,label,def,min,max,step,unit });
+    const G = {
+      copter:{ 'Pilot feel':[F('ATC_INPUT_TC','Stick response',.15,0,1,.01,' s'),F('ATC_ANGLE_MAX','Largest lean angle',30,10,70,1,'°'),F('PILOT_Y_RATE','Yaw rate',202,20,360,1,'°/s'),F('PILOT_SPD_UP','Climb rate',2.5,.5,5,.1,' m/s')], Attitude:[F('ATC_ANG_RLL_P','Roll angle P',4.5,3,12,.1),F('ATC_ANG_PIT_P','Pitch angle P',4.5,3,12,.1),F('ATC_ANG_YAW_P','Yaw angle P',4.5,3,12,.1)], Position:[F('PSC_NE_POS_P','Position P',1,.5,2,.05),F('PSC_D_VEL_P','Climb P',5,1,8,.1),F('WP_SPD','Waypoint speed',10,1,20,.5,' m/s'),F('LOIT_SPEED_MS','Loiter speed',12.5,1,20,.5,' m/s')], 'Radio knob':[F('TUNE_MIN','Knob low',0,0,1,.01),F('TUNE_MAX','Knob high',.3,0,1,.01)] },
+      plane:{ 'Roll and pitch':[F('RLL_RATE_P','Roll rate P',.08,.01,.5,.005),F('PTCH_RATE_P','Pitch rate P',.09,.01,.5,.005),F('YAW2SRV_DAMP','Yaw damping',.25,0,2,.05)], 'Speed and height':[F('TECS_CLMB_MAX','Maximum climb',5,.5,15,.5,' m/s'),F('TECS_SINK_MIN','Minimum sink',2,.5,10,.5,' m/s'),F('TECS_TIME_CONST','Response time',5,3,10,.5,' s')], VTOL:[F('Q_A_RAT_RLL_P','VTOL roll P',.15,.01,.5,.005),F('Q_P_NE_POS_P','VTOL position P',1,.5,2,.05)] },
+      rover:{ Steering:[F('ATC_STR_RAT_P','Steering P',.2,0,2,.01),F('ATC_TURN_MAX_G','Turn force',.6,.1,10,.05,' g')], Speed:[F('ATC_SPEED_P','Speed P',.2,.01,2,.01),F('CRUISE_SPEED','Cruise speed',3,0,20,.5,' m/s'),F('CRUISE_THROTTLE','Cruise throttle',50,0,100,1,'%')] },
+    }[vehicle];
+    const names = Object.keys(G).concat(['AutoTune']);
+    const tab = names.includes(s.tab) ? s.tab : names[0];
+    const isAuto = tab==='AutoTune';
+    const sliders = isAuto?[]:G[tab].map((f) => {
+      const v = s.vals[f.param] ?? f.def, ch = v!==f.def;
+      return { ...f, value:v, text:v+f.unit, was:ch?'was '+f.def+f.unit:'', border:ch?'#56D9F2':'#25323E', fg:ch?'#56D9F2':'#E8EEF4', change:(e) => this.setState({ vals:{ ...s.vals, [f.param]:Number(e.target.value) }, saved:false }) };
+    });
+    const CL = ['The wind is under 4 m/s','The area is open and clear','The AutoTune switch is assigned'];
+    const on = Object.keys(s.axes).filter((a) => s.axes[a]);
+    const allTicked = CL.every((_,i) => s.ticks[i]);
+    const running = s.p != null && s.p < 300, finished = s.p != null && s.p >= 300;
+    const cannotStart = !allTicked || running || on.length===0;
+    return {
+      vehicle, tab, isAuto, isSliders:!isAuto, sliders,
+      tabs:names.map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:tab===label?'#56D9F2':'transparent', fg:tab===label?'#06222B':'#E8EEF4' })),
+      revert:() => this.setState({ vals:{}, saved:false }), save:() => this.setState({ saved:true }), saveLabel:s.saved?'✓ Written and read back':'Write and verify',
+      checks:CL.map((label,i) => ({ label, on:!!s.ticks[i], toggle:(e) => this.setState({ ticks:{ ...s.ticks, [i]:e.target.checked } }) })),
+      axes:Object.keys(s.axes).map((name) => ({ name, on:s.axes[name], toggle:(e) => this.setState({ axes:{ ...s.axes, [name]:e.target.checked } }) })),
+      cannotStart, startBg:cannotStart?'#25323E':'#56D9F2', startFg:cannotStart?'#A9B8C5':'#06222B',
+      startLabel:running?'Tuning in flight':'Start AutoTune', start:() => this.setState({ p:0, kept:false }),
+      progress:on.map((name,i) => { const seg = (s.p ?? 0)/300*on.length-i, v = Math.max(0,Math.min(1,seg)); return { name, text:s.p==null?'Waiting':Math.round(v*100)+'%', width:(v*100)+'%' }; }),
+      finished, results:[{ k:'ATC_RAT_RLL_P',v:'0.135 → 0.162' },{ k:'ATC_RAT_PIT_P',v:'0.135 → 0.171' },{ k:'ATC_RAT_YAW_P',v:'0.180 → 0.214' }],
+      discard:() => this.setState({ p:null }), keepTune:() => this.setState({ kept:true }), keepLabel:s.kept?'✓ Saved':'Save the new tune',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reset parameters</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>[data-l~="dlg"]>*{flex-shrink:0}</style>
+</helmet>
+<div data-l="dlg" style="overflow-y:auto;width:560px;height:680px;box-sizing:border-box;padding:28px;display:flex;flex-direction:column;gap:14px;background:#111921;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <div>
+    <h1 style="margin:0;font-size:24px;font-weight:600">Reset Quad 1 to defaults</h1>
+    <p style="margin:4px 0 0;color:#A9B8C5">Every parameter goes back to the firmware default. Only while disarmed.</p>
+  </div>
+  <div style="padding:14px 16px;border-radius:4px;background:#123327;color:#62E3A6;font-weight:500">✓ Your current values are saved to a backup first.</div>
+  <label style="display:flex;gap:12px;align-items:flex-start;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{keep}}" onChange="{{keepChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:2px 0 0"><span><span style="font-weight:600">Keep the calibrations</span><br><span style="font-size:13px;color:#A9B8C5">Accelerometer, compass and radio values are put back after the reset.</span></span></label>
+  <sc-if value="{{noKeep}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 14px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">You will need to run Setup again before flying.</p></sc-if>
+  <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+    <button type="button" onClick="{{press}}" style="min-height:52px;border:1px solid {{border}};border-radius:4px;background:{{bg}};color:{{fg}};font:inherit;font-size:15px;font-weight:600;cursor:pointer">{{label}}</button>
+    <a href="Parameters.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:44px;color:#E8EEF4;font-weight:500;text-decoration:none">Not now</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":680}}'>
+class Component extends DCLogic {
+  state = { keep:true, step:0 };
+  renderVals() {
+    const s = this.state;
+    return {
+      keep:s.keep, noKeep:!s.keep, keepChange:(e) => this.setState({ keep:e.target.checked, step:0 }),
+      press:() => this.setState({ step:Math.min(2,s.step+1) }),
+      label:['Reset all parameters','Confirm: reset Quad 1','✓ Reset. Reboot the vehicle'][s.step],
+      bg:['transparent','#3F1A1A','#123327'][s.step], fg:['#E8EEF4','#FF7A70','#62E3A6'][s.step], border:['#60728A','#FF7A70','#123327'][s.step],
+    };
+  }
+}
+</script>
+</body>
+</html>

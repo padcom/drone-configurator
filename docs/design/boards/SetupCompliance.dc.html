@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remote ID and transponder</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col measure" style="flex:999 1 720px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px;--measure:836px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+          <h1 style="margin:0;font-size:28px;font-weight:600">Remote ID and transponder</h1>
+          <div role="group" aria-label="Regulation" style="display:flex;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{tabs}}" as="b" hint-placeholder-count="2"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 16px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{isRid}}" hint-placeholder-val="{{true}}">
+          <div style="padding:16px 18px;border:1px solid {{ridBorder}};border-radius:5px;background:{{ridBg}}"><div style="font-size:18px;font-weight:600;color:{{ridFg}}">{{ridTitle}}</div><div style="color:#E8EEF4">{{ridNote}}</div></div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Operator ID
+            <input value="{{operator}}" onChange="{{operatorChange}}" placeholder="From your national registration" style="min-height:48px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:15px">
+          </label>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{checks}}" as="c" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:center;min-height:44px;border-bottom:1px solid #25323E"><span aria-hidden="true" style="width:16px;color:{{c.color}};font-weight:700">{{c.glyph}}</span><span style="flex:1">{{c.name}}</span><span style="font-size:13px;color:#A9B8C5">{{c.value}}</span></div></sc-for>
+          </div>
+          <p style="margin:0;color:#A9B8C5;font-size:13px">Rules differ by country. Check what yours requires. This page only sends what you enter.</p>
+        </sc-if>
+        <sc-if value="{{isXpdr}}" hint-placeholder-val="{{false}}">
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            <label style="flex:1 1 200px;display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Squawk code
+              <input value="{{squawk}}" onChange="{{squawkChange}}" maxlength="4" style="min-height:64px;box-sizing:border-box;padding:0 12px;border:1px solid {{sqBorder}};border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:30px;letter-spacing:.1em">
+            </label>
+            <div style="flex:1 1 200px;padding:12px 14px;background:#111921;border:1px solid #25323E;border-radius:5px"><div style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">ICAO ADDRESS</div><div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600">3C6ABC</div></div>
+          </div>
+          <sc-if value="{{badSquawk}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;color:#FFB54A;font-weight:500">Four digits, each from 0 to 7.</p></sc-if>
+          <div role="group" aria-label="Transponder mode" style="display:inline-flex;align-self:flex-start;border:1px solid #60728A;border-radius:4px;overflow:hidden">
+            <sc-for list="{{modes}}" as="b" hint-placeholder-count="3"><button type="button" onClick="{{b.pick}}" style="min-height:48px;padding:0 18px;border:0;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:600;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+          <button type="button" onClick="{{ident}}" style="align-self:flex-start;min-height:48px;padding:0 20px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{identFg}};font:inherit;font-weight:600;cursor:pointer">{{identLabel}}</button>
+          <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5">Writes ADSB_ICAO_ID, ADSB_SQUAWK</p>
+        </sc-if>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Remote ID', operator:'', squawk:'1200', mode:'Standby', ident:false };
+  renderVals() {
+    const s = this.state;
+    const ready = s.operator.trim().length >= 6;
+    const bad = !/^[0-7]{4}$/.test(s.squawk);
+    const pass = (name,value) => ({ name,value,glyph:'✓',color:'#62E3A6' });
+    const tab = (k,opts) => opts.map((label) => ({ label, pick:() => this.setState({ [k]:label }), bg:s[k]===label?'#56D9F2':'transparent', fg:s[k]===label?'#06222B':'#E8EEF4' }));
+    return {
+      tabs:tab('tab',['Remote ID','Transponder']), modes:tab('mode',['Standby','On','Altitude']),
+      isRid:s.tab==='Remote ID', isXpdr:s.tab==='Transponder',
+      operator:s.operator, operatorChange:(e) => this.setState({ operator:e.target.value }),
+      ridBorder:ready?'#62E3A6':'#FFB54A', ridBg:ready?'#123327':'#3A2A10', ridFg:ready?'#62E3A6':'#FFB54A',
+      ridTitle:ready?'✓ Broadcasting':'Not ready to arm', ridNote:ready?'Your vehicle and control position are being sent.':'Enter your operator ID to continue.',
+      checks:[ pass('Remote ID module','Connected'), pass('Vehicle serial number','1596F3A9'), pass('Operator position','From this computer') ],
+      squawk:s.squawk, squawkChange:(e) => this.setState({ squawk:e.target.value }), badSquawk:bad, sqBorder:bad?'#FFB54A':'#60728A',
+      ident:() => this.setState({ ident:!s.ident }), identFg:s.ident?'#62E3A6':'#E8EEF4', identLabel:s.ident?'✓ Ident sent':'Ident',
+    };
+  }
+}
+</script>
+</body>
+</html>

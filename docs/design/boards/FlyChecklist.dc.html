@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Preflight checklist</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <section data-l="pane col" style="flex:999 1 520px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Preflight checklist</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Your own checks, asked before every arm.</p>
+          </div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5;width:240px">List
+            <span style="position:relative;display:block">
+              <select value="{{list}}" onChange="{{listChange}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:44px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit">
+                <sc-for list="{{lists}}" as="o" hint-placeholder-count="2"><option value="{{o}}">{{o}}</option></sc-for>
+              </select>
+              <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+            </span>
+          </label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <sc-for list="{{items}}" as="i" hint-placeholder-count="5">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;background:#111921;border:1px solid #25323E;border-radius:5px">
+              <button type="button" aria-label="Move up" disabled="{{i.first}}" onClick="{{i.up}}" style="width:44px;height:44px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{i.upFg}};font:inherit;cursor:pointer">↑</button>
+              <input aria-label="Check {{i.no}}" value="{{i.text}}" onChange="{{i.change}}" style="flex:1 1 240px;min-width:0;min-height:44px;box-sizing:border-box;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit">
+              <label style="display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{i.must}}" onChange="{{i.toggle}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0">Required</label>
+              <button type="button" onClick="{{i.remove}}" style="min-height:44px;padding:0 12px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:500;cursor:pointer">Remove</button>
+            </div>
+          </sc-for>
+        </div>
+        <button type="button" onClick="{{add}}" style="align-self:flex-start;min-height:48px;padding:0 20px;border:1px solid #60728A;border-radius:4px;background:transparent;color:#E8EEF4;font:inherit;font-weight:600;cursor:pointer">Add a check</button>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 340px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:10px">
+        <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT YOU WILL SEE</h2>
+        <sc-for list="{{items}}" as="i" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px;min-height:40px"><span aria-hidden="true" style="width:18px;height:18px;border:1.5px solid #60728A;border-radius:2px;flex:none"></span><span style="flex:1">{{i.text}}</span><span style="font-size:12px;color:#A9B8C5">{{i.tag}}</span></div>
+        </sc-for>
+        <p style="margin:6px 0 0;color:#A9B8C5;font-size:13px">{{summary}}</p>
+        <a href="ArmGate.dc.html" style="display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:auto;border-radius:4px;background:#56D9F2;color:#06222B;font-weight:600;text-decoration:none">Done</a>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { list:'Survey quad', next:6, items:[
+    { id:1, text:'Propellers are tight and undamaged', must:true },
+    { id:2, text:'The battery is secured', must:true },
+    { id:3, text:'The take-off area is clear', must:true },
+    { id:4, text:'I can see the whole flight area', must:true },
+    { id:5, text:'Camera has an empty memory card', must:false },
+  ] };
+  renderVals() {
+    const s = this.state;
+    const patch = (id,o) => this.setState({ items:s.items.map((x) => (x.id===id ? { ...x, ...o } : x)) });
+    const items = s.items.map((x,i) => ({ ...x, no:i+1, first:i===0, upFg:i===0?'#8FA0AE':'#E8EEF4', tag:x.must?'Required':'Optional',
+      change:(e) => patch(x.id,{ text:e.target.value }), toggle:(e) => patch(x.id,{ must:e.target.checked }),
+      up:() => { const n = s.items.slice(); [n[i-1],n[i]] = [n[i],n[i-1]]; this.setState({ items:n }); },
+      remove:() => this.setState({ items:s.items.filter((y) => y.id!==x.id) }) }));
+    const req = s.items.filter((x) => x.must).length;
+    return {
+      items, list:s.list, lists:['Survey quad','Bench test','Long range'],
+      listChange:(e) => this.setState({ list:e.target.value }),
+      add:() => this.setState({ items:s.items.concat([{ id:s.next, text:'New check', must:true }]), next:s.next+1 }),
+      summary:req+' of '+s.items.length+' must be ticked before the vehicle can arm.',
+    };
+  }
+}
+</script>
+</body>
+</html>

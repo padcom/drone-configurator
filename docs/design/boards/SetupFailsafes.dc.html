@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Failsafes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="failsafes" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Failsafes</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">What the vehicle does on its own when something goes wrong.</p>
+          </div>
+          <a href="SetupBattery.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Battery</a>
+        </div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+          <article style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:14px 16px;background:#111921;border:1px solid {{r.border}};border-radius:5px">
+            <div style="flex:1 1 200px;min-width:0">
+              <h2 style="margin:0;font-size:16px;font-weight:600">{{r.name}}</h2>
+              <p style="margin:2px 0 0;font-size:13px;color:{{r.sayFg}}">{{r.say}}</p>
+            </div>
+            <sc-if value="{{r.hasValue}}" hint-placeholder-val="{{true}}">
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#A9B8C5;width:108px">{{r.valueLabel}}
+                <input type="number" step="0.1" value="{{r.value}}" onChange="{{r.valueChange}}" style="min-height:44px;box-sizing:border-box;width:100%;padding:0 10px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Mono',monospace;font-size:15px">
+              </label>
+            </sc-if>
+            <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#A9B8C5;flex:0 1 240px;min-width:200px">Then
+              <dc-import name="EnumField" value="{{r.action}}" options="{{r.options}}" on-pick="{{r.pick}}" field-label="{{r.name}} action" hint-size="100%,44px"></dc-import>
+            </div>
+          </article>
+        </sc-for>
+        <sc-if value="{{orderBad}}" hint-placeholder-val="{{false}}">
+          <p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">Critical voltage must be below low voltage.</p>
+        </sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:18px">
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">ARMING CHECKS</h2>
+          <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{arming}}" onChange="{{armingChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Check everything before arming</span></label>
+          <sc-if value="{{armingOff}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:6px 0 0;color:#FFB54A;font-size:13px">The vehicle could arm with a bad compass, GPS or battery.</p></sc-if>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>BATT_LOW_VOLT, BATT_FS_LOW_ACT</span><span>BATT_CRT_VOLT, BATT_FS_CRT_ACT</span><span>FS_THR_ENABLE, FS_GCS_ENABLE</span><span>FS_EKF_ACTION, ARMING_CHECK</span></div>
+        </div>
+        <button type="button" disabled="{{orderBad}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { low:10.5, crit:10.0, a:{ low:2, crit:1, radio:1, link:1, ekf:1 }, arming:true, dirty:false, written:false };
+  renderVals() {
+    const s = this.state;
+    const O = (l) => l.map(([value,label]) => ({ value,label }));
+    const BATT = O([[0,'Do nothing'],[1,'Land'],[2,'Return home'],[3,'SmartRTL, then return'],[4,'SmartRTL, then land'],[5,'Stop the motors']]);
+    const RADIO = O([[0,'Do nothing'],[1,'Return home'],[3,'Land'],[4,'SmartRTL, then return'],[5,'SmartRTL, then land']]);
+    const LINK = O([[0,'Do nothing'],[1,'Return home'],[3,'SmartRTL, then return'],[4,'SmartRTL, then land'],[5,'Land']]);
+    const EKF = O([[1,'Land'],[2,'Hold altitude'],[3,'Land, even in Stabilize']]);
+    const lower = (o,v) => {
+      const n = o.find((x) => x.value === v)?.label;
+      if (!n) return 'it does action '+v+', which has no name here';
+      if (n === 'Do nothing') return 'it keeps flying and only warns you';
+      if (n === 'Return home') return 'it flies home and lands';
+      if (n === 'Hold altitude') return 'it holds altitude and hands you control';
+      if (n === 'Stop the motors') return 'it stops the motors and falls';
+      if (n.startsWith('SmartRTL')) return 'it retraces its path, then '+(n.endsWith('land')?'lands':'returns home');
+      return 'it lands where it is';
+    };
+    const set = (k,v) => this.setState({ a:{ ...s.a, [k]:v }, dirty:true, written:false });
+    const row = (k,name,cond,options,extra) => {
+      const none = s.a[k] === 0 || options.find((x) => x.value === s.a[k])?.label === 'Stop the motors';
+      return { name, action:s.a[k], options, say:'If '+cond+', '+lower(options,s.a[k])+'.', sayFg:none?'#FFB54A':'#A9B8C5', border:none?'#FFB54A':'#25323E', hasValue:false, pick:(n) => set(k,n), ...extra };
+    };
+    const num = (key) => ({ hasValue:true, valueLabel:'Below (V)', value:s[key], valueChange:(e) => this.setState({ [key]:Number(e.target.value), dirty:true, written:false }) });
+    const bad = s.crit >= s.low;
+    const live = s.dirty && !bad;
+    return {
+      rows:[
+        row('low','Battery low','the voltage stays below '+s.low+' V',BATT,num('low')),
+        row('crit','Battery critical','the voltage stays below '+s.crit+' V',BATT,num('crit')),
+        row('radio','Radio lost','the transmitter signal stops',RADIO),
+        row('link','Ground station lost','this app stops hearing the vehicle for 5 s',LINK),
+        row('ekf','Position estimate bad','the EKF can no longer trust its position',EKF),
+      ],
+      orderBad:bad,
+      arming:s.arming, armingOff:!s.arming, armingChange:(e) => this.setState({ arming:e.target.checked, dirty:true, written:false }),
+      writeBg:live?'#56D9F2':'#25323E', writeFg:live?'#06222B':'#A9B8C5',
+      writeLabel:s.written?'Written and read back':live?'Write and verify':'No changes',
+      write:() => { if (live) this.setState({ written:true, dirty:false }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

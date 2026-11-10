@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plane airspeed</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="airspeed" vehicle="plane" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h1 style="margin:0;font-size:28px;font-weight:600">Airspeed</h1>
+            <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">A plane depends on this sensor to avoid stalling. Test it before every first flight.</p>
+          </div>
+          <a href="SetupPlaneFlight.dc.html" style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid #60728A;border-radius:4px;color:#E8EEF4;font-weight:500;text-decoration:none">Next: Speeds and landing</a>
+        </div>
+        <div style="align-self:center;display:flex;flex-direction:column;align-items:center;gap:2px;padding:26px 60px;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <span style="font-size:11px;font-weight:500;letter-spacing:.08em;color:#A9B8C5">AIRSPEED NOW</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:64px;font-weight:500;line-height:1.1">{{reading}}</span>
+          <span style="color:#A9B8C5">m/s</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+          <article style="display:flex;flex-direction:column;gap:10px;padding:18px;background:#111921;border:1px solid {{zeroBorder}};border-radius:5px">
+            <h2 style="margin:0;font-size:16px;font-weight:600">1. Zero the sensor</h2>
+            <p style="margin:0;color:#A9B8C5">Cover the pitot tube loosely, out of the wind, so the reading settles.</p>
+            <button type="button" onClick="{{zero}}" style="min-height:48px;border:1px solid #60728A;border-radius:4px;background:transparent;color:{{zeroFg}};font:inherit;font-weight:600;cursor:pointer;margin-top:auto">{{zeroLabel}}</button>
+          </article>
+          <article style="display:flex;flex-direction:column;gap:10px;padding:18px;background:#111921;border:1px solid {{blowBorder}};border-radius:5px">
+            <h2 style="margin:0;font-size:16px;font-weight:600">2. Blow into the tube</h2>
+            <p style="margin:0;color:#A9B8C5">Blow gently, and hold the button while you do. The reading must rise.</p>
+            <button type="button" disabled="{{blowLocked}}" onPointerDown="{{blowOn}}" onPointerUp="{{blowOff}}" onPointerLeave="{{blowOff}}" style="min-height:48px;border:0;border-radius:4px;background:{{blowBg}};color:{{blowFg}};font:inherit;font-weight:600;cursor:pointer;touch-action:none;margin-top:auto">{{blowLabel}}</button>
+          </article>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 280px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:16px">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">Sensor
+          <span style="position:relative;display:block">
+            <select value="{{type}}" onChange="{{typeChange}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:48px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit;font-size:15px">
+              <sc-for list="{{types}}" as="o" hint-placeholder-count="4"><option value="{{o}}">{{o}}</option></sc-for>
+            </select>
+            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+          </span>
+        </label>
+        <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{auto}}" onChange="{{autoChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Refine the scale in flight</span></label>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>ARSPD_TYPE</span><span>ARSPD_OFFSET</span><span>ARSPD_RATIO</span><span>ARSPD_AUTOCAL</span></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { n:0, zeroed:false, blowing:false, blown:false, press:0, type:'I2C MS4525', auto:true };
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1, press:s.blowing ? Math.min(1,s.press+.15) : Math.max(0,s.press-.2), blown:s.blown || (s.blowing && s.press > .6) })), 120);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const base = s.zeroed ? 0.3 : 2.1;
+    const reading = (base + .2*Math.sin(s.n/3) + s.press*17).toFixed(1);
+    return {
+      reading,
+      zeroBorder:s.zeroed?'#62E3A6':'#56D9F2', zeroFg:s.zeroed?'#62E3A6':'#E8EEF4', zeroLabel:s.zeroed?'✓ Zeroed':'Zero now',
+      zero:() => this.setState({ zeroed:true }),
+      blowBorder:s.blown?'#62E3A6':'#25323E', blowLocked:!s.zeroed,
+      blowBg:!s.zeroed?'#25323E':s.blown?'#123327':'#56D9F2', blowFg:!s.zeroed?'#A9B8C5':s.blown?'#62E3A6':'#06222B',
+      blowLabel:s.blown?'✓ The reading rose':s.zeroed?'Hold while blowing':'Zero the sensor first',
+      blowOn:() => this.setState({ blowing:true }), blowOff:() => this.setState((p) => (p.blowing ? { blowing:false } : null)),
+      type:s.type, types:['I2C MS4525','I2C DLVR','Analog','DroneCAN'], typeChange:(e) => this.setState({ type:e.target.value }),
+      auto:s.auto, autoChange:(e) => this.setState({ auto:e.target.checked }),
+    };
+  }
+}
+</script>
+</body>
+</html>

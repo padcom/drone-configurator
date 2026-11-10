@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sub joystick</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="sub" mode="MANUAL" gps="—" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="radio" vehicle="sub" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h1 style="margin:0;font-size:28px;font-weight:600">Joystick</h1>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">Check the mapping here before you dive.</p>
+        </div>
+        <div role="status" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px 18px;border:1px solid {{stateBorder}};border-radius:5px;background:{{stateBg}}">
+          <div style="flex:1 1 280px"><div style="font-size:18px;font-weight:600;color:{{stateFg}}">{{stateTitle}}</div><div style="color:#E8EEF4">{{stateNote}}</div></div>
+          <sc-if value="{{active}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{stop}}" style="min-height:52px;padding:0 26px;border:0;border-radius:4px;background:#FF7A70;color:#2A0806;font:inherit;font-size:15px;font-weight:700;cursor:pointer">Stop</button></sc-if>
+          <sc-if value="{{inactive}}" hint-placeholder-val="{{true}}"><button type="button" disabled="{{cannot}}" onClick="{{enable}}" style="min-height:52px;padding:0 22px;border:0;border-radius:4px;background:{{enBg}};color:{{enFg}};font:inherit;font-size:15px;font-weight:700;cursor:pointer">{{enLabel}}</button></sc-if>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{axes}}" as="a" hint-placeholder-count="4">
+            <button type="button" onClick="{{a.pick}}" style="display:flex;align-items:center;gap:14px;min-height:52px;padding:0 14px;border:1px solid {{a.border}};border-radius:5px;background:{{a.bg}};color:#E8EEF4;font:inherit;cursor:pointer">
+              <span style="width:90px;text-align:left;font-weight:600">{{a.name}}</span>
+              <span style="position:relative;flex:1;height:14px;border-radius:2px;background:#25323E"><span style="position:absolute;top:0;bottom:0;left:{{a.dzL}};width:{{a.dzW}};background:#60728A"></span><span style="position:absolute;top:-3px;bottom:-3px;left:{{a.pos}};width:4px;margin-left:-2px;background:#56D9F2"></span></span>
+              <span style="width:64px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px">{{a.text}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div>
+          <h2 style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">BUTTONS</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">
+            <sc-for list="{{buttons}}" as="b" hint-placeholder-count="8"><div style="padding:8px 10px;border:1px solid {{b.border}};border-radius:4px;background:{{b.bg}};font-size:13px"><span style="font-family:'IBM Plex Mono',monospace;color:#A9B8C5">{{b.no}}</span> {{b.fn}}</div></sc-for>
+          </div>
+          <p style="margin:8px 0 0;font-size:13px"><a href="SetupSub.dc.html">Change what each button does</a></p>
+        </div>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:24px 20px;display:flex;flex-direction:column;gap:14px">
+        <h2 style="margin:0;font-size:18px;font-weight:600">{{selName}} axis</h2>
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="2">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5"><span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.value}}%</span></span><input type="range" min="{{f.min}}" max="{{f.max}}" step="5" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0"></label>
+        </sc-for>
+        <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer"><input type="checkbox" checked="{{rev}}" onChange="{{revChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>Reverse this axis</span></label>
+        <p style="margin:auto 0 0;font-size:13px;color:#A9B8C5">Control is off every time the app starts. It also turns off if the joystick or the link is lost, or you switch vehicle.</p>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"connected":{"editor":"boolean","default":true},"linkLost":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { n:0, on:false, sel:'Forward', cfg:{ Forward:{ dz:5, gain:100, rev:false }, Lateral:{ dz:5, gain:100, rev:false }, Vertical:{ dz:10, gain:60, rev:true }, Yaw:{ dz:5, gain:70, rev:false } } };
+  componentDidMount() { this.timer = setInterval(() => this.setState((s) => ({ n:s.n+1 })), 150); }
+  componentDidUpdate() { if (this.state.on && (this.props.connected === false || this.props.linkLost)) this.setState({ on:false }); }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const s = this.state;
+    const plugged = this.props.connected !== false, link = !this.props.linkLost;
+    const moving = plugged && (s.n % 50) < 30;
+    const raw = ['Forward','Lateral','Vertical','Yaw'].map((name,i) => {
+      const c = s.cfg[name], v = moving ? Math.round(80*Math.sin(s.n/(5+i))) : 0;
+      const out = Math.abs(v) <= c.dz ? 0 : Math.round(v*c.gain/100)*(c.rev?-1:1);
+      return { name, v, out };
+    });
+    const centred = raw.every((a) => Math.abs(a.v) < 10);
+    const active = s.on && plugged && link;
+    const cannot = !plugged || !link || !centred;
+    const FN = ['Arm','Disarm','Depth hold','Stabilize','Lights brighter','Lights dimmer','Camera up','Camera down'];
+    const c = s.cfg[s.sel];
+    const setC = (o) => this.setState({ cfg:{ ...s.cfg, [s.sel]:{ ...c, ...o } } });
+    return {
+      active, inactive:!active, cannot,
+      stateTitle:!plugged?'No joystick connected':!link?'Link lost, control off':active?'Control is on':'Control is off',
+      stateNote:!plugged?'Plug one in to continue.':!link?'Neutral input was sent.':active?'Sub 1 is following the joystick.':centred?'Ready when you are.':'Let go of the sticks so every axis is centred.',
+      stateFg:active?'#FFB54A':(!plugged||!link)?'#FFB54A':'#E8EEF4', stateBg:active?'#3A2A10':'#111921', stateBorder:active?'#FFB54A':'#25323E',
+      enable:() => { if (!cannot) this.setState({ on:true }); }, stop:() => this.setState({ on:false }),
+      enBg:cannot?'#25323E':'#56D9F2', enFg:cannot?'#A9B8C5':'#06222B', enLabel:!centred&&plugged?'Centre the sticks':'Turn control on',
+      axes:raw.map((a) => { const on = a.name===s.sel, dz = s.cfg[a.name].dz; return { name:a.name, text:plugged?a.out+'%':'—', pos:plugged?(50+a.v/2)+'%':'50%', dzL:(50-dz/2)+'%', dzW:dz+'%', border:on?'#56D9F2':'#25323E', bg:on?'#123440':'#111921', pick:() => this.setState({ sel:a.name }) }; }),
+      buttons:FN.map((fn,i) => { const on = moving && (Math.floor(s.n/8)%8)===i; return { no:i, fn, border:on?'#56D9F2':'#25323E', bg:on?'#123440':'#111921' }; }),
+      selName:s.sel, rev:c.rev, revChange:(e) => setC({ rev:e.target.checked }),
+      sliders:[ { label:'Dead zone',min:0,max:30,value:c.dz,change:(e) => setC({ dz:Number(e.target.value) }) },{ label:'Gain',min:10,max:100,value:c.gain,change:(e) => setC({ gain:Number(e.target.value) }) } ],
+    };
+  }
+}
+</script>
+</body>
+</html>

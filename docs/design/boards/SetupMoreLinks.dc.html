@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>More links</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <nav data-l="pane col" aria-label="More links" style="flex:1 1 220px;min-width:0;background:#111921;border-right:1px solid #25323E;padding:14px 10px;display:flex;flex-direction:column;gap:2px">
+        <sc-for list="{{tabs}}" as="b" hint-placeholder-count="7"><button type="button" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:0;border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-weight:500;text-align:left;cursor:pointer">{{b.label}}</button></sc-for>
+      </nav>
+      <section data-l="pane col measure" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:24px 32px;display:flex;flex-direction:column;gap:12px;--measure:696px">
+        <h1 style="margin:0;font-size:26px;font-weight:600">{{tab}}</h1>
+        <dc-import name="PanelForm" rows="{{rows}}" hint-size="100%,400px"></dc-import>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { tab:'Two links', vals:{} };
+  renderVals() {
+    const s = this.state, set = (k,v) => this.setState({ vals:{ ...s.vals, [k]:v } }), g = (k,d) => s.vals[k] ?? d;
+    const head = (t) => ({ k:'head', text:t }), note = (t) => ({ k:'note', text:t, fg:'#A9B8C5' }), warn = (t) => ({ k:'warn', text:t }), info = (l,v) => ({ k:'info', label:l, value:String(v), fg:'#A9B8C5' });
+    const chk = (k,l,d=false) => ({ k:'check', label:l, value:g(k,d), change:(e) => set(k,e.target.checked) });
+    const txt = (k,l,d='',p='') => ({ k:'text', label:l, value:g(k,d), placeholder:p, change:(e) => set(k,e.target.value) });
+    const en = (k,l,d,o) => ({ k:'enum', label:l, value:g(k,d), options:o.map(([value,label]) => ({ value,label })), pick:(n) => set(k,n) });
+    const slide = (k,l,d,a,b,st,u='') => ({ k:'slider', label:l, value:g(k,d), text:g(k,d)+u, min:a, max:b, step:st, change:(e) => set(k,Number(e.target.value)) });
+    const act = (k,l,dn) => ({ k:'button', label:g(k,0)?dn:l, pick:() => set(k,1), bg:g(k,0)?'#123327':'#56D9F2', fg:g(k,0)?'#62E3A6':'#06222B', border:g(k,0)?'#123327':'#56D9F2' });
+    const two = (k,l,c,d) => { const v = g(k,0); return { k:'button', label:[l,c,d][v], pick:() => set(k,Math.min(2,v+1)), bg:['transparent','#3F1A1A','#123327'][v], fg:['#E8EEF4','#FF7A70','#62E3A6'][v], border:['#60728A','#FF7A70','#123327'][v] }; };
+    const preset = g('rate',1);
+    const R = {
+      'Two links':[note('Commands go over the best healthy link, and are never sent over both.'),info('Telemetry radio','✓ In use · 98%'),info('LTE modem','Standby · 91%'),txt('l2','Second link','udp:10.0.0.4:14550'),act('l2a','Add the second link','✓ Connected')],
+      'Serial bridge':[note('Reach a device behind the autopilot from another program on this computer.'),en('sp','Vehicle port',3,[[1,'Telem 1'],[2,'Telem 2'],[3,'GPS 1']]),txt('tp','Local TCP port','5770'),act('br','Start the bridge','✓ Running. GPS 1 is locked until you stop')],
+      'Telemetry rates':[en('rate','Preset',1,[[0,'Low, for slow radios'],[1,'Medium'],[2,'High'],[3,'Custom']]),info('Position',['1','4','10','4'][preset]+' Hz'),info('Attitude',['2','10','25','10'][preset]+' Hz'),info('Estimated bandwidth',['0.4','1.9','5.2','1.9'][preset]+' kB/s')],
+      'More connections':[en('ct','Connection type',0,[[0,'UDP client'],[1,'TCP server']]),txt('ctad','Address','192.168.1.10:14550'),act('cc','Connect','✓ Connected'),head('FOUND ON THIS NETWORK'),info('quad-2.local','MAVLink · UDP 14550')],
+      Modules:[en('modt','Module',0,[[0,'ESP8266 Wi-Fi'],[1,'Bluetooth'],[2,'CubeID']]),txt('modn','Name','Quad1-telemetry'),txt('modp','Password or PIN','','Hidden'),en('modb','Baud rate',57600,[[57600,'57600'],[115200,'115200'],[921600,'921600']]),act('mw','Write to the module','✓ Written')],
+      'CAN inspector':[info('Node 124 · GPS','Fix2 · 5 Hz'),info('Node 125 · Airspeed','RawAirData · 20 Hz'),info('Node 60 · Power','BatteryInfo · 2 Hz'),chk('sub','Show live values for the selected message'),chk('fs','Serve files to nodes')],
+      'SiK firmware':[warn('Both radios must end up compatible. Update the one on the vehicle first.'),info('Ground radio','2.0'),info('Vehicle radio','2.0'),info('Available','2.1'),two('sf','Update the radios','Confirm: update both radios','✓ Updated')],
+    };
+    return { tab:s.tab, rows:R[s.tab], tabs:Object.keys(R).map((label) => ({ label, pick:() => this.setState({ tab:label }), bg:s.tab===label?'#123440':'transparent', fg:s.tab===label?'#56D9F2':'#E8EEF4' })) };
+  }
+}
+</script>
+</body>
+</html>

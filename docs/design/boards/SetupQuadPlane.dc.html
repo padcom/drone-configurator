@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plane: VTOL</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#0A0F14}
+a{color:#56D9F2}a:hover{color:#8FE7F7}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #56D9F2;outline-offset:2px}
+</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:#0A0F14;color:#E8EEF4;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="disarmed" vehicle="plane" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:#111921;border-right:1px solid #25323E"><dc-import name="Rail" active="setup" hint-size="76px,640px"></dc-import></div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <div data-l="pane" style="flex:1 1 240px;min-width:0;background:#111921;border-right:1px solid #25323E"><dc-import name="SetupNav" active="vtol" vehicle="plane" hint-size="240px,800px"></dc-import></div>
+      <section data-l="pane col" style="flex:999 1 480px;min-width:0;box-sizing:border-box;padding:28px 32px;display:flex;flex-direction:column;gap:16px">
+        <div>
+          <h1 style="margin:0;font-size:28px;font-weight:600">VTOL</h1>
+          <p style="margin:6px 0 0;color:#A9B8C5;font-size:15px">How the plane moves between hovering and wing-borne flight.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <sc-for list="{{selects}}" as="r" hint-placeholder-count="2">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#A9B8C5">{{r.label}}
+              <span style="position:relative;display:block">
+                <select value="{{r.value}}" onChange="{{r.change}}" style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;min-height:48px;padding:0 38px 0 12px;border:1px solid #60728A;border-radius:4px;background:#0A0F14;color:#E8EEF4;font:inherit;font-size:15px">
+                  <sc-for list="{{r.options}}" as="o" hint-placeholder-count="3"><option value="{{o}}">{{o}}</option></sc-for>
+                </select>
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="#A9B8C5" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position:absolute;right:13px;top:50%;margin-top:-4px;pointer-events:none"><path d="M1 1.5 6 6.5 11 1.5"></path></svg>
+              </span>
+            </label>
+          </sc-for>
+        </div>
+        <figure style="margin:0;flex:1 1 260px;display:flex;flex-direction:column;gap:6px;padding:14px 16px;background:#111921;border:1px solid #25323E;border-radius:5px">
+          <figcaption style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12.5px;color:#A9B8C5">
+            <span style="font-weight:600;color:#E8EEF4;font-size:14px">Lift from the rotors, by airspeed</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span aria-hidden="true" style="width:16px;height:2px;background:#56D9F2"></span>Rotors</span>
+            <span style="display:inline-flex;align-items:center;gap:6px"><span aria-hidden="true" style="width:16px;border-top:2px dashed #FFB54A"></span>Assist below {{assist}} m/s</span>
+          </figcaption>
+          <svg viewBox="0 0 900 240" role="img" aria-label="{{aria}}" style="display:block;width:100%;height:auto">
+            <line x1="20" y1="210" x2="880" y2="210" stroke="#60728A"></line>
+            <line x1="20" y1="30" x2="880" y2="30" stroke="#25323E"></line>
+            <text x="24" y="24" fill="#A9B8C5" font-size="13" font-family="IBM Plex Mono, monospace">100%</text>
+            <polyline points="{{curve}}" fill="none" stroke="#56D9F2" stroke-width="3" stroke-linejoin="round"></polyline>
+            <line x1="{{ax}}" x2="{{ax}}" y1="30" y2="210" stroke="#FFB54A" stroke-width="2" stroke-dasharray="6 5"></line>
+            <text x="20" y="232" fill="#A9B8C5" font-size="13" font-family="IBM Plex Mono, monospace">0 m/s</text>
+            <text x="880" y="232" text-anchor="end" fill="#A9B8C5" font-size="13" font-family="IBM Plex Mono, monospace">30 m/s</text>
+          </svg>
+        </figure>
+        <sc-if value="{{tooLow}}" hint-placeholder-val="{{false}}"><p role="alert" style="margin:0;padding:12px 16px;border-radius:4px;background:#3A2A10;color:#FFB54A;font-weight:500">Assist should start above the {{minSpd}} m/s minimum speed, or the plane can stall before the rotors help.</p></sc-if>
+      </section>
+      <aside data-l="pane col" style="flex:1 1 300px;min-width:0;box-sizing:border-box;background:#111921;border-left:1px solid #25323E;padding:22px 20px;display:flex;flex-direction:column;gap:14px">
+        <label style="display:flex;gap:12px;align-items:center;min-height:44px;cursor:pointer;font-weight:500"><input type="checkbox" checked="{{enabled}}" onChange="{{enabledChange}}" style="width:20px;height:20px;accent-color:#56D9F2;margin:0"><span>VTOL is on</span></label>
+        <sc-for list="{{sliders}}" as="f" hint-placeholder-count="2">
+          <label style="display:flex;flex-direction:column;font-size:13px;color:#A9B8C5">
+            <span style="display:flex;justify-content:space-between"><span>{{f.label}}</span><span style="font-family:'IBM Plex Mono',monospace;color:#E8EEF4;font-size:15px">{{f.text}}</span></span>
+            <input type="range" min="{{f.min}}" max="{{f.max}}" step="{{f.step}}" value="{{f.value}}" onChange="{{f.change}}" style="accent-color:#56D9F2;min-height:40px;margin:0">
+          </label>
+        </sc-for>
+        <div>
+          <h2 style="margin:6px 0 8px;font-size:12px;font-weight:600;letter-spacing:.09em;color:#A9B8C5">WHAT THIS WRITES</h2>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#A9B8C5;display:flex;flex-direction:column;gap:4px"><span>Q_ENABLE, Q_FRAME_CLASS</span><span>Q_ASSIST_SPEED</span><span>Q_TRANSITION_MS</span><span>{{typeParam}}</span></div>
+          <p style="margin:10px 0 0;font-size:13px;color:#A9B8C5">Turning VTOL on needs a reboot before its other settings appear.</p>
+        </div>
+        <button type="button" disabled="{{cannot}}" onClick="{{write}}" style="min-height:48px;margin-top:auto;border:0;border-radius:4px;background:{{writeBg}};color:{{writeFg}};font:inherit;font-weight:600;cursor:pointer">{{writeLabel}}</button>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { kind:'Separate lift motors', frame:'Quad', assist:16, ms:5000, enabled:true, dirty:false, written:false };
+  renderVals() {
+    const s = this.state, MIN = 14;
+    const X = (v) => 20+v/30*860, Y = (p) => 210-p*180;
+    const set = (k) => (e) => this.setState({ [k]:Number(e.target.value), dirty:true, written:false });
+    const pick = (k) => (e) => this.setState({ [k]:e.target.value, dirty:true, written:false });
+    const curve = [[0,1],[s.assist*.6,.82],[s.assist,.28],[Math.min(30,s.assist+2),0],[30,0]].map(([v,p]) => X(v).toFixed(0)+','+Y(p).toFixed(0)).join(' ');
+    const tooLow = s.assist <= MIN;
+    const cannot = !s.dirty || tooLow;
+    return {
+      selects:[
+        { label:'Layout', value:s.kind, options:['Separate lift motors','Tilt rotor','Tailsitter'], change:pick('kind') },
+        { label:'Lift motors', value:s.frame, options:['Quad','Hexa','Octa','Tri'], change:pick('frame') },
+      ],
+      assist:s.assist, ax:X(s.assist).toFixed(0), curve, tooLow, minSpd:MIN,
+      aria:'Rotor lift falls from full at standstill to none above '+(s.assist+2)+' metres a second',
+      enabled:s.enabled, enabledChange:(e) => this.setState({ enabled:e.target.checked, dirty:true, written:false }),
+      sliders:[
+        { label:'Assist below',min:8,max:24,step:1,value:s.assist,text:s.assist+' m/s',change:set('assist') },
+        { label:'Transition time',min:1000,max:12000,step:500,value:s.ms,text:(s.ms/1000).toFixed(1)+' s',change:set('ms') },
+      ],
+      typeParam:{ 'Separate lift motors':'—', 'Tilt rotor':'Q_TILT_ENABLE', 'Tailsitter':'Q_TAILSIT_ENABLE' }[s.kind],
+      cannot, writeBg:cannot?'#25323E':'#56D9F2', writeFg:cannot?'#A9B8C5':'#06222B',
+      writeLabel:s.written?'Written and read back':s.dirty?'Write and verify':'No changes',
+      write:() => this.setState({ written:true, dirty:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

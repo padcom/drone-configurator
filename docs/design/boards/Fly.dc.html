@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>body{margin:0}</style>
+<style data-shell>
+[data-l~="measure"]>*{max-width:var(--measure)}
+@media (min-width:1000px){
+html:has([data-l~="app"]),body:has([data-l~="app"]){height:100%;overflow:hidden}
+[data-l~="app"]{height:100vh;min-height:0!important;overflow:hidden}
+[data-l~="row"]{flex-wrap:nowrap!important;min-height:0}
+[data-l~="fill"]{flex:1 1 0!important;min-height:0}
+[data-l~="clip"]{min-height:0;overflow:hidden}
+[data-l~="pane"]{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#60728A transparent}
+[data-l~="pane"][data-l~="col"]>*:not([data-l~="map"]){flex-shrink:0!important}
+[data-l~="map"]{min-width:0;min-height:240px!important}
+}
+</style>
+</helmet>
+<div data-l="app" style="min-height:900px;display:flex;flex-direction:column;background:{{t.bg}};color:{{t.text}};font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:14px;line-height:1.4">
+  <dc-import name="TopBar" status="{{barStatus}}" mode="{{barMode}}" battery="{{barBatt}}" hint-size="100%,64px"></dc-import>
+  <div data-l="row fill" style="flex:1 1 auto;display:flex;flex-wrap:wrap;align-items:stretch">
+    <div data-l="pane" style="flex:1 1 76px;background:{{t.panel}};border-right:1px solid {{t.line}}">
+      <dc-import name="Rail" active="fly" hint-size="76px,640px"></dc-import>
+    </div>
+    <main data-l="row" style="flex:999 1 560px;min-width:0;display:flex;flex-wrap:wrap;align-items:stretch">
+      <section data-l="clip" style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column">
+        <dc-import name="FlyNav" active="mission" hint-size="100%,56px"></dc-import>
+        <div data-l="fill map" style="flex:1 1 480px;min-height:480px;position:relative;overflow:hidden">
+          <dc-import name="MapBase" hint-size="100%,480px"></dc-import>
+          <svg viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="{{mapLabel}}" onClick="{{mapClick}}" style="position:absolute;inset:0;width:100%;height:100%;cursor:{{mapCursor}}">
+            <sc-if value="{{showFence}}" hint-placeholder-val="{{true}}">
+              <path d="M200 230 990 200 1010 760 210 770Z" fill="none" stroke="{{t.accent}}" stroke-width="2" stroke-opacity=".7"></path>
+              <sc-for list="{{rally}}" as="p" hint-placeholder-count="3"><g><circle cx="{{p.x}}" cy="{{p.y}}" r="16" fill="{{t.bgMap}}" stroke="{{t.home}}" stroke-width="3"></circle><text x="{{p.x}}" y="{{p.ty}}" text-anchor="middle" fill="{{t.home}}" font-size="13" font-weight="600" font-family="IBM Plex Mono, monospace">{{p.label}}</text></g></sc-for>
+            </sc-if>
+            <path d="M530 288 972 243 972 430 530 475Z" fill="{{t.accent}}" fill-opacity=".08" stroke="{{t.accent}}" stroke-width="2" stroke-dasharray="8 6"></path>
+            <polyline points="{{aheadPts}}" fill="none" stroke="{{t.route}}" stroke-width="3" stroke-opacity=".55" stroke-dasharray="10 9" stroke-linejoin="round"></polyline>
+            <polyline points="{{flownPts}}" fill="none" stroke="{{t.route}}" stroke-width="5" stroke-linejoin="round"></polyline>
+            <g transform="translate({{nextX}} {{nextY}}) rotate(45)"><rect x="-13" y="-13" width="26" height="26" fill="{{t.bgMap}}" stroke="{{t.route}}" stroke-width="4"></rect></g>
+            <circle cx="250" cy="700" r="24" fill="{{t.bgMap}}" stroke="{{t.home}}" stroke-width="4"></circle>
+            <text x="250" y="710" text-anchor="middle" fill="{{t.home}}" font-family="IBM Plex Mono, monospace" font-size="28" font-weight="600">H</text>
+            <g transform="translate({{vx}} {{vy}}) rotate({{hdg}})">
+              <circle r="40" fill="{{vehicle}}" fill-opacity=".2"></circle>
+              <path d="M0 -28 20 24 0 12 -20 24Z" fill="{{vehicleFill}}" stroke="{{vehicle}}" stroke-width="4" stroke-linejoin="round"></path>
+            </g>
+            <sc-if value="{{hasMeasure}}" hint-placeholder-val="{{false}}">
+              <line x1="{{mx1}}" y1="{{my1}}" x2="{{mx2}}" y2="{{my2}}" stroke="#FFFFFF" stroke-width="3" stroke-dasharray="6 6"></line>
+              <circle cx="{{mx1}}" cy="{{my1}}" r="7" fill="#FFFFFF"></circle>
+              <circle cx="{{mx2}}" cy="{{my2}}" r="7" fill="#FFFFFF"></circle>
+              <text x="{{mx2}}" y="{{mty}}" text-anchor="middle" fill="#FFFFFF" font-size="22" font-weight="600" font-family="IBM Plex Mono, monospace">{{mText}}</text>
+            </sc-if>
+          </svg>
+          <div style="position:absolute;right:16px;top:84px;display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{mapTools}}" as="b" hint-placeholder-count="4"><button type="button" aria-pressed="{{b.on}}" onClick="{{b.pick}}" style="min-height:44px;padding:0 12px;border:1px solid {{t.line2}};border-radius:4px;background:{{b.bg}};color:{{b.fg}};font:inherit;font-size:13px;font-weight:600;cursor:pointer">{{b.label}}</button></sc-for>
+          </div>
+          <sc-if value="{{lost}}" hint-placeholder-val="{{false}}">
+            <div role="status" style="position:absolute;left:16px;right:16px;top:16px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:12px 16px;background:{{t.amberBg}};color:{{t.amber}};border-radius:4px">
+              <span style="font-weight:600;font-size:15px">Link lost. Last heard 7 s ago, reconnecting.</span>
+              <span style="color:{{t.text}}">The vehicle continues on its own mission and failsafes.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{alert}}" hint-placeholder-val="{{false}}">
+            <div role="alert" style="position:absolute;left:16px;right:16px;top:16px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:12px 16px;background:#FFB54A;color:#241600;border-radius:4px">
+              <span style="font-weight:700;font-size:15px">Battery low: 10.4 V. The vehicle is returning home.</span>
+              <span>The failsafe changed the mode to RTL. Pick another mode to take over.</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{live}}" hint-placeholder-val="{{true}}">
+            <div style="position:absolute;left:16px;top:16px;padding:10px 14px;background:{{t.panel}};border:1px solid {{t.line}};border-radius:4px">
+              <div style="font-weight:600;font-size:15px">{{phase}}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:{{t.text2}}">next waypoint {{nextDist}} m · {{nextSecs}} s</div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:12px 16px;background:{{t.panel}};border-top:1px solid {{t.line}};display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 18px;align-items:baseline">
+            <span style="font-weight:600">Item {{item}} of 14 · North field survey</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:{{t.text2}}">{{remain}} left · {{landing}}</span>
+          </div>
+          <div role="group" aria-label="Mission progress: item {{item}} of 14. Press an item to jump to it." style="display:flex;gap:3px">
+            <sc-for list="{{timeline}}" as="s" hint-placeholder-count="14">
+              <button type="button" aria-label="Item {{s.no}}" disabled="{{lost}}" onClick="{{s.pick}}" style="flex:1;height:22px;padding:7px 0;border:0;background:transparent;cursor:pointer"><span style="display:block;height:8px;border-radius:1px;background:{{s.bg}};outline:{{s.ring}}"></span></button>
+            </sc-for>
+          </div>
+          <sc-if value="{{hasJumpNote}}" hint-placeholder-val="{{false}}"><span style="font-size:13px;color:{{t.amber}};font-weight:500">{{jumpNote}}</span></sc-if>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+            <div role="group" aria-label="Flight mode" style="display:flex;border:1px solid {{t.line2}};border-radius:4px;overflow:hidden">
+              <sc-for list="{{modes}}" as="m" hint-placeholder-count="4">
+                <button type="button" disabled="{{lost}}" onClick="{{m.pick}}" style="min-height:48px;padding:0 16px;border:0;background:{{m.bg}};color:{{m.fg}};font:inherit;font-weight:600;cursor:pointer">{{m.label}}</button>
+              </sc-for>
+            </div>
+            <span style="flex:1 1 auto"></span>
+            <button type="button" disabled="{{lost}}" style="min-height:48px;padding:0 18px;border:1px solid {{t.line2}};border-radius:4px;background:transparent;color:{{ctlFg}};font:inherit;font-weight:600;cursor:pointer">Pause</button>
+            <button type="button" disabled="{{lost}}" style="min-height:48px;padding:0 18px;border:1px solid {{t.line2}};border-radius:4px;background:transparent;color:{{ctlFg}};font:inherit;font-weight:600;cursor:pointer">Land here</button>
+            <button type="button" disabled="{{lost}}" style="min-height:48px;padding:0 20px;border:0;border-radius:4px;background:{{rtlBg}};color:{{rtlFg}};font:inherit;font-weight:700;cursor:pointer">Return home</button>
+            <button type="button" aria-expanded="{{more}}" onClick="{{toggleMore}}" style="min-height:48px;padding:0 14px;border:1px solid {{t.line2}};border-radius:4px;background:transparent;color:{{t.text}};font:inherit;font-weight:600;cursor:pointer">More</button>
+          </div>
+          <sc-if value="{{more}}" hint-placeholder-val="{{false}}">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+              <div style="flex:0 1 200px"><dc-import name="HoldButton" label="Hold to disarm" off="{{lost}}" on-done="{{disarm}}" hint-size="100%,48px"></dc-import></div>
+              <div style="flex:0 1 240px"><dc-import name="HoldButton" label="Hold: emergency stop" tone="red" off="{{lost}}" on-done="{{eStop}}" hint-size="100%,48px"></dc-import></div>
+              <span style="flex:1 1 220px;font-size:13px;color:{{t.text2}}">{{moreNote}}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{lost}}" hint-placeholder-val="{{false}}">
+            <p style="margin:0;font-size:13px;color:{{t.text2}}">Commands are unavailable until the link is back. Nothing is queued.</p>
+          </sc-if>
+        </div>
+      </section>
+      <aside data-l="clip" style="flex:1 1 400px;min-width:0;background:{{t.panel}};border-left:1px solid {{t.line}};display:flex;flex-direction:column">
+        <svg viewBox="0 0 420 290" role="img" aria-label="{{hudLabel}}" style="display:block;width:100%;height:auto;background:#10171E">
+          <g transform="rotate({{rollNeg}} 210 145)">
+            <g transform="translate(0 {{pitchY}})">
+              <rect x="-300" y="-500" width="1020" height="645" fill="{{hudSky}}"></rect>
+              <rect x="-300" y="145" width="1020" height="645" fill="{{hudGround}}"></rect>
+              <line x1="-300" y1="145" x2="720" y2="145" stroke="#FFFFFF" stroke-width="2"></line>
+              <sc-for list="{{ladder}}" as="l" hint-placeholder-count="4">
+                <line x1="{{l.x1}}" x2="{{l.x2}}" y1="{{l.y}}" y2="{{l.y}}" stroke="#FFFFFF" stroke-opacity=".75" stroke-width="1.5"></line>
+              </sc-for>
+            </g>
+          </g>
+          <path d="M140 145h42l14 14 14-14M280 145h-42l-14 14-14-14" fill="none" stroke="#FFB54A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+          <rect x="0" y="120" width="76" height="50" fill="#0A0F14" stroke="#FFFFFF" stroke-width="1.5"></rect>
+          <text x="38" y="153" text-anchor="middle" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600">{{speed}}</text>
+          <text x="38" y="186" text-anchor="middle" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" font-size="12">m/s</text>
+          <rect x="344" y="120" width="76" height="50" fill="#0A0F14" stroke="#FFFFFF" stroke-width="1.5"></rect>
+          <text x="382" y="153" text-anchor="middle" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600">{{alt}}</text>
+          <text x="382" y="186" text-anchor="middle" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" font-size="12">m</text>
+          <rect x="172" y="6" width="76" height="34" fill="#0A0F14" stroke="#FFFFFF" stroke-width="1.5"></rect>
+          <text x="210" y="30" text-anchor="middle" fill="#FFFFFF" font-family="IBM Plex Mono, monospace" font-size="20" font-weight="600">{{hdgText}}</text>
+          <sc-if value="{{lost}}" hint-placeholder-val="{{false}}">
+            <defs><pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="#10171E" fill-opacity=".45"></rect><rect width="1.5" height="10" fill="#FFFFFF" fill-opacity=".14"></rect></pattern></defs>
+            <rect width="420" height="290" fill="url(#hatch)"></rect>
+            <rect x="110" y="224" width="200" height="38" rx="3" fill="#FFB54A"></rect>
+            <text x="210" y="249" text-anchor="middle" fill="#241600" font-family="IBM Plex Sans, sans-serif" font-size="15" font-weight="600">last heard, reconnecting</text>
+          </sc-if>
+        </svg>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr))">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="6">
+            <div style="padding:12px 16px;min-height:88px;box-sizing:border-box;border-bottom:1px solid {{t.line}};border-right:1px solid {{t.line}};background-image:{{cardHatch}}">
+              <div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;font-weight:500;letter-spacing:.08em;color:{{t.text2}}"><span>{{c.label}}</span><span style="color:{{t.amber}};letter-spacing:0">{{staleTag}}</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600">{{c.value}}</div>
+              <div style="font-size:12.5px;color:{{t.text2}}">{{c.sub}}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div data-l="fill pane col" style="flex:1 1 0;min-height:150px;padding:10px 16px;display:flex;flex-direction:column;gap:6px">
+          <h2 style="margin:0;font-size:12px;font-weight:600;letter-spacing:.09em;color:{{t.text2}}">MESSAGES</h2>
+          <div style="flex:1 1 0;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1px">
+            <sc-for list="{{messages}}" as="m" hint-placeholder-count="10">
+              <div style="display:flex;gap:10px;font-size:13px;line-height:1.25"><span style="font-family:'IBM Plex Mono',monospace;color:{{t.text2}}">{{m.time}}</span><span>{{m.text}}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"link":{"editor":"enum","options":["ok","lost"],"default":"ok"},"event":{"editor":"enum","options":["none","battery"],"default":"none"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  state = { s:1300, mode:'AUTO', fence:true, follow:true, more:false, jump:null, jumped:'', stopped:'', measuring:false, mPts:[] };
+  componentDidMount() {
+    const failsafe = this.props.event === 'battery';
+    if (failsafe) this.setState({ s:2140, mode:'RTL' });
+    if ((this.props.link ?? 'ok') === 'ok') {
+      this.timer = setInterval(() => this.setState((p) => ({ s: p.s > 2560 ? (failsafe ? 2560 : 420) : p.s + 7 })), 400);
+    }
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  renderVals() {
+    const lost = (this.props.link ?? 'ok') === 'lost';
+    const alert = !lost && this.props.event === 'battery';
+    const t = { bg:'#0A0F14', panel:'#111921', line:'#25323E', line2:'#60728A', text:'#E8EEF4', text2:'#A9B8C5', accent:'#56D9F2', accentFg:'#06222B', accentBg:'#123440', amber:'#FFB54A', amberBg:'#3A2A10', route:'#EE82F5', home:'#62E3A6', bgMap:'#10171E', hatch:'#25323E', todo:'#25323E' };
+    const PTS = [[250,700],[360,570],[560,456],[940,416],[940,364],[560,404],[560,352],[940,312],[940,260],[560,300],[430,380],[250,700]];
+    const ITEM = [2,4,5,6,7,8,9,10,11,13,14];
+    const seglen = [];
+    for (let i = 1; i < PTS.length; i++) seglen.push(Math.hypot(PTS[i][0]-PTS[i-1][0], PTS[i][1]-PTS[i-1][1]));
+    const total = seglen.reduce((a,b) => a+b, 0);
+    let seg = 0, d = this.state.s;
+    while (seg < seglen.length-1 && d > seglen[seg]) { d -= seglen[seg]; seg++; }
+    const f = Math.min(1, d/seglen[seg]);
+    const a = PTS[seg], b = PTS[seg+1];
+    const vx = a[0]+(b[0]-a[0])*f, vy = a[1]+(b[1]-a[1])*f;
+    const hdg = (Math.atan2(b[0]-a[0], -(b[1]-a[1]))*180/Math.PI+360)%360;
+    const flown = PTS.slice(0, seg+1).concat([[vx,vy]]).map((p) => p[0].toFixed(0)+','+p[1].toFixed(0)).join(' ');
+    const ahead = [[vx,vy]].concat(PTS.slice(seg+1)).map((p) => p[0].toFixed(0)+','+p[1].toFixed(0)).join(' ');
+    const item = ITEM[seg];
+    const phase = seg < 2 ? 'Flying to the survey' : seg > 8 ? 'Returning home' : 'Survey line ' + (Math.floor((seg-2)/2)+1) + ' of 4';
+    const nextM = Math.round(seglen[seg]*(1-f)*.5);
+    const remainS = Math.round((total-this.state.s)*.5/8+12);
+    const remain = Math.floor(remainS/60)+' min '+String(remainS%60).padStart(2,'0')+' s';
+    const s = this.state.s;
+    const roll = lost ? 3.2 : 5*Math.sin(s/30);
+    const pitch = lost ? 4 : 3+1.5*Math.sin(s/22);
+    const speed = lost ? '8.0' : (8+.3*Math.sin(s/11)).toFixed(1);
+    const alt = seg < 1 ? '38' : seg > 8 ? '40' : (60+.5*Math.sin(s/17)).toFixed(0);
+    const st = this.state;
+    const timeline = Array.from({ length:14 }, (_, i) => ({ no:i+1, bg: i+1 < item ? t.route : i+1 === item ? t.accent : t.todo, ring: st.jump===i+1 ? '2px solid '+t.amber : 'none',
+      pick:() => (st.jump===i+1 ? this.setState({ jump:null, jumped:'Jumped to item '+(i+1)+'.' }) : this.setState({ jump:i+1, jumped:'' })) }));
+    const mA = st.mPts[0], mB = st.mPts[1];
+    const cards = [
+      { label:'BATTERY', value:alert?'24%':'87%', sub:alert?'10.40 V · 13.2 A':'12.18 V · 11.4 A' },
+      { label:'WIND', value:'4 m/s', sub:'from 240°' },
+      { label:'GPS', value:'3D · 14', sub:'HDOP 0.8' },
+      { label:'LINK', value:'98%', sub:'68 ms · 0.2% lost' },
+      { label:'EKF', value:'Healthy', sub:'all variances below 0.3' },
+      { label:'VIBRATION', value:'12 m/s²', sub:'x 9 · y 8 · z 12' },
+    ];
+    return {
+      t, lost, alert, live:!lost && !alert, item, phase, remain, cards, timeline,
+      showFence:st.fence,
+      rally:[[480,640,'R1'],[880,560,'R2'],[760,180,'R3']].map(([x,y,label]) => ({ x,y,label,ty:y+5 })),
+      mapTools:[['Follow',st.follow,() => this.setState({ follow:!st.follow })],['Re-centre',false,() => this.setState({ follow:true })],['Fence',st.fence,() => this.setState({ fence:!st.fence })],['Measure',st.measuring,() => this.setState({ measuring:!st.measuring, mPts:[] })]].map(([label,on,pick]) => ({ label,on,pick,bg:on?t.accentBg:t.panel,fg:on?t.accent:t.text })),
+      mapCursor:st.measuring?'crosshair':'default',
+      mapClick:(e) => {
+        if (!st.measuring) return;
+        const svg = e.currentTarget, pt = svg.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+        this.setState({ mPts:st.mPts.length>=2 ? [[p.x,p.y]] : st.mPts.concat([[p.x,p.y]]) });
+      },
+      hasMeasure:!!mB, mx1:mA?mA[0].toFixed(0):0, my1:mA?mA[1].toFixed(0):0, mx2:mB?mB[0].toFixed(0):0, my2:mB?mB[1].toFixed(0):0, mty:mB?(mB[1]-16).toFixed(0):0,
+      mText:mB?Math.round(Math.hypot(mB[0]-mA[0],mB[1]-mA[1])*.5)+' m · '+String(Math.round((Math.atan2(mB[0]-mA[0],-(mB[1]-mA[1]))*180/Math.PI+360)%360)).padStart(3,'0')+'°':'',
+      hasJumpNote:!!st.jump||!!st.jumped, jumpNote:st.jump?'Press item '+st.jump+' again to jump to it.':st.jumped,
+      more:st.more, toggleMore:() => this.setState({ more:!st.more }),
+      disarm:() => this.setState({ stopped:'Disarm sent to Quad 1.' }),
+      eStop:() => this.setState({ stopped:'Motors stopped on Quad 1.' }),
+      moreNote:st.stopped || 'Emergency stop cuts the motors at once. A flying vehicle will crash.',
+      landing: alert ? 'lands with about 18% battery' : 'lands with about 80% battery',
+      barStatus: lost ? 'lost' : 'armed',
+      barMode: alert ? 'RTL' : 'AUTO',
+      barBatt: alert ? '24%' : '87%',
+      vx:vx.toFixed(0), vy:vy.toFixed(0), hdg:hdg.toFixed(0),
+      flownPts:flown, aheadPts:ahead, nextX:b[0], nextY:b[1],
+      nextDist:nextM, nextSecs:Math.round(nextM/8),
+      vehicle: lost ? t.amber : t.accent,
+      vehicleFill: lost ? 'transparent' : t.accent,
+      mapLabel: 'Vehicle on the north field survey, item ' + item + ' of 14',
+      hudLabel: 'Attitude: roll ' + roll.toFixed(0) + ' degrees, pitch ' + pitch.toFixed(0) + ' degrees, speed ' + speed + ' metres a second, altitude ' + alt + ' metres',
+      rollNeg:(-roll).toFixed(1), pitchY:(pitch*5).toFixed(1),
+      speed, alt, hdgText:String(Math.round(hdg)%360).padStart(3,'0')+'°',
+      hudSky: lost ? '#4A5A68' : '#2C6E9B', hudGround: lost ? '#544B40' : '#6B4A2B',
+      ladder:[-20,-10,10,20].map((p) => ({ y:145-p*5, x1:p%20===0?170:185, x2:p%20===0?250:235 })),
+      modes:['AUTO','GUIDED','LOITER'].map((label) => ({ label, pick:() => this.setState({ mode:label }), bg:!lost&&this.state.mode===label?t.accent:'transparent', fg:lost?t.text2:this.state.mode===label?t.accentFg:t.text })),
+      ctlFg: lost ? t.text2 : t.text,
+      rtlBg: lost ? t.todo : '#FFB54A', rtlFg: lost ? t.text2 : '#241600',
+      staleTag: lost ? 'last heard' : '',
+      cardHatch: lost ? 'repeating-linear-gradient(135deg,transparent 0 8px,'+t.hatch+' 8px 9px)' : 'none',
+      messages:(alert ? [{ time:'14:03:02', text:'Battery failsafe: returning home' }] : []).concat([
+        { time:'14:02:31', text:'Reached waypoint ' + (item-1) },
+        { time:'14:02:17', text:'Reached waypoint ' + Math.max(1, item-2) },
+        { time:'14:02:02', text:'Survey area entered' },
+        { time:'14:01:58', text:'Camera trigger on, every 18 m' },
+        { time:'14:01:41', text:'Reached waypoint 2' },
+        { time:'14:01:24', text:'Takeoff complete at 30 m' },
+        { time:'14:01:12', text:'Mission started' },
+        { time:'14:01:09', text:'Mode changed to AUTO' },
+        { time:'14:01:05', text:'Armed' },
+        { time:'14:00:48', text:'EKF using GPS, origin set' },
+        { time:'14:00:31', text:'GPS 3D fix, 14 satellites' },
+        { time:'14:00:12', text:'Pre-arm checks passed' },
+      ]),
+    };
+  }
+}
+</script>
+</body>
+</html>
