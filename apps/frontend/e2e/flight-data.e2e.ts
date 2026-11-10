@@ -38,6 +38,14 @@ function focused(): Promise<string> {
 }
 
 /**
+ * Takes the focus off whatever has it. (After the clicks that brought the app here it is in the rail, on the link of the
+ * screen, and F6 goes on from there: a test of where F6 goes starts from nowhere.)
+ */
+async function focusNothing(): Promise<void> {
+  await app.evaluate('document.activeElement && document.activeElement.blur()')
+}
+
+/**
  * Presses Shift+F6 (the driver's `press` has no Shift): the key event reaches the window as the keyboard's does.
  */
 async function shiftF6(): Promise<void> {
@@ -58,6 +66,7 @@ describe('the regions of the Fly screen, with a vehicle connected', () => {
 
 describe('the keys of the Flight data screen, with a vehicle connected', () => {
   it('moves the focus from region to region with F6, through the host, and round to the first', async () => {
+    await focusNothing()
     const seen: string[] = []
     for (let i = 0; i < 4; i++) {
       // eslint-disable-next-line no-await-in-loop
@@ -70,6 +79,7 @@ describe('the keys of the Flight data screen, with a vehicle connected', () => {
   })
 
   it('goes back with Shift+F6, and Tab from a region goes on into it', async () => {
+    await focusNothing()
     await shiftF6()
     expect(await focused()).toBe('aside')
     await shiftF6()

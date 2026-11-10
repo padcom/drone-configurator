@@ -74,6 +74,28 @@ it('moves the focus rail, screen, aside with F6, and round to the rail', async (
   expect(focused()).toBe('screen')
 })
 
+it('goes on from where the focus is: from a link in the rail (where a click on a screen leaves it) to the screen', async () => {
+  const wrapper = await fly();
+  (wrapper.get('nav.rail a').element as HTMLElement).focus()
+
+  press('F6')
+  expect(focused()).toBe('screen')
+  press('F6', { shiftKey: true })
+  press('F6', { shiftKey: true })
+  expect(focused()).toBe('aside')
+})
+
+it('starts at the rail going forwards and at the aside going backwards when nothing has the focus', async () => {
+  await fly()
+  press('F6')
+  expect(focused()).toBe('rail');
+  (document.activeElement as HTMLElement).blur()
+
+  press('F6', { shiftKey: true })
+
+  expect(focused()).toBe('aside')
+})
+
 it('goes through the aside to the rail, not back to the screen that holds it', async () => {
   await fly()
   press('F6')
