@@ -1,6 +1,6 @@
 <template>
-  <section id="staged" class="staged" :aria-labelledby="`${uid}-heading`">
-    <SectionLabel :id="`${uid}-heading`">{{ t('staged.heading', { count: staged.changes.value.length }) }}</SectionLabel>
+  <!-- No heading to the eye (the button says how many); the region keeps its name for a screen reader. -->
+  <section id="staged" class="staged" :aria-label="t('staged.region')">
     <ul v-if="staged.changes.value.length > 0" class="staged-list">
       <li v-for="row in rows" :key="row.change.id" class="staged-row" :class="row.result?.outcome">
         <span class="name">{{ row.change.id }}</span>
@@ -11,7 +11,6 @@
         </button>
       </li>
     </ul>
-    <p v-else class="muted">{{ t('staged.none') }}</p>
     <!-- Always in the page, so that how the writing went is read out. -->
     <p class="staged-status" role="status" :class="{ quiet: !summary.polite }">{{ summary.polite }}</p>
     <p class="staged-status warn" role="alert" :class="{ quiet: !summary.urgent }">{{ summary.urgent }}</p>
@@ -22,10 +21,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
-import SectionLabel from './kit/SectionLabel.vue'
 import { linesFor, summaryOf } from './stagedChanges'
 import { useConfigurator } from './useConfigurator'
 
@@ -34,7 +32,6 @@ import { useConfigurator } from './useConfigurator'
 // after the other and stops at the first the vehicle does not read back. Nothing is written until that button is pressed.
 const { t } = useI18n()
 const { staged, fields, parameters } = useConfigurator()
-const uid = useId()
 const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
 const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)

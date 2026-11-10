@@ -242,11 +242,8 @@
   min-height: 48px;
 }
 
-.related {
-  margin-top: var(--space-5);
-}
-
-.related-list {
+/* The related parameters: the last row of the description, inside its scrolling box. */
+.param-description .row .related-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0 var(--space-4);
