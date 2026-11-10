@@ -240,6 +240,18 @@ function releaseLock(file: string): void {
   }
 }
 
+/**
+ * The first instance number that is tried (SITL_FIRST_INSTANCE, 0 by default). The harness's own tests start high, so that a
+ * simulator that somebody runs on this machine (on instance 0, or on any -I or --base-port near it) is never in their way.
+ *
+ * @returns the instance number to start from
+ */
+function firstInstance(): number {
+  const first = Number(process.env.SITL_FIRST_INSTANCE)
+
+  return Number.isInteger(first) && first >= 0 ? first : 0
+}
+
 /** A SITL instance number that this caller, in any process, has to itself. */
 export interface Claim {
   readonly instance: number
@@ -248,7 +260,7 @@ export interface Claim {
 }
 
 /**
- * Claims the lowest SITL instance that no other worker holds and whose ports are all free. Holding it is
+ * Claims the lowest SITL instance (from SITL_FIRST_INSTANCE on) that no other worker holds and whose ports are all free. Holding it is
  * recorded in a lock file in the temp directory (SITL_LOCK_DIR), so it holds across processes; the port
  * probe also catches a simulator that something else started.
  *
@@ -257,7 +269,8 @@ export interface Claim {
  */
 export async function claimInstance(): Promise<Claim> {
   await mkdir(lockDirectory(), { recursive: true })
-  for (let instance = 0; instance < 100; instance += 1) {
+  const first = firstInstance()
+  for (let instance = first; instance < first + 100; instance += 1) {
     const file = join(lockDirectory(), `instance-${instance}`)
     if (!(await takeLock(file))) {
       continue
