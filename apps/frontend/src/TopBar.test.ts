@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { type DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import TopBar from './TopBar.vue'
 import { VEHICLE, telemetryAt } from './fixtures'
@@ -11,6 +11,18 @@ import { feed, nextFrame } from './testing'
 import { createConfigurator } from './useConfigurator'
 
 const connected: Connection = { state: 'connected', vehicle: { ...VEHICLE } }
+
+/**
+ * What a cell shows to the eye.
+ *
+ * @param value the cell's value element
+ * @returns the text of its dash when it has one, else its text
+ */
+function shown(value: Pick<DOMWrapper<Element>, 'find' | 'text'>): string {
+  const dash = value.find('[aria-hidden="true"]')
+
+  return dash.exists() ? dash.text() : value.text()
+}
 
 /**
  * The top bar on a fresh Configurator, with `connection` and `telemetry` already received.
@@ -33,7 +45,8 @@ async function barWith(connection: Connection, telemetry: Telemetry | null) {
   return {
     wrapper,
     vehicle: wrapper.get('.vehicle').text(),
-    cells: new Map(wrapper.findAll('.cell').map(cell => [cell.get('dt').text(), cell.get('dd').text()])),
+    // What the eye sees: a dash that is hidden from a screen reader is read from its own span.
+    cells: new Map(wrapper.findAll('.cell').map(cell => [cell.get('dt').text(), shown(cell.get('dd'))])),
   }
 }
 
@@ -86,6 +99,21 @@ it('says so when the heartbeat has gone quiet', async () => {
 
   expect(cells.get('MODE')).toBe('LOITER · stale, 4 s old')
   expect(cells.get('STATE')).toBe('ARMED · stale, 4 s old')
+})
+
+it('gives a screen reader the words "not reported" for a dash, and hides the dash from it', async () => {
+  const { wrapper } = await barWith(connected, telemetryAt(1))
+  const link = wrapper.get('.cell.link dd')
+
+  expect(link.get('[aria-hidden="true"]').text()).toBe('—')
+  expect(link.get('.visually-hidden').text()).toBe('not reported')
+  expect(wrapper.get('.cell.mode dd').find('.visually-hidden').exists()).toBe(false)
+})
+
+it('has a dash with its words in every cell when there is no link', async () => {
+  const { wrapper } = await barWith({ state: 'disconnected' }, null)
+
+  expect(wrapper.findAll('.cell dd .visually-hidden').map(hidden => hidden.text())).toEqual(Array(5).fill('not reported'))
 })
 
 it('has no value for the link quality yet (nothing measures it), only a dash', async () => {

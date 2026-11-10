@@ -29,7 +29,13 @@
     <dl class="cells">
       <div v-for="cell in cells" :key="cell.id" class="cell" :class="[cell.id, { armed: cell.armed }]">
         <dt>{{ cell.label }}</dt>
-        <dd>{{ cell.value }}</dd>
+        <dd>
+          <template v-if="cell.missing">
+            <span aria-hidden="true">{{ cell.value }}</span>
+            <span class="visually-hidden">{{ t('truth.notReported') }}</span>
+          </template>
+          <template v-else>{{ cell.value }}</template>
+        </dd>
       </div>
     </dl>
     <div class="actions">

@@ -16,6 +16,8 @@ export interface Cell {
   value: string
   /** True for an armed vehicle: the cell is filled amber (the text says ARMED too). */
   armed: boolean
+  /** True when the vehicle has not reported it: `value` is a dash, which the bar gives a screen reader the words for. */
+  missing: boolean
 }
 
 /** The cell of the vehicle and the link. */
@@ -88,7 +90,11 @@ function withAge(text: string, now: Telemetry, translate: Translate): string {
 export function cellsFor(now: Telemetry | null, translate: Translate, format: Format): Cell[] {
   const missing = translate('telemetry.missing')
   const label = (id: Cell['id']) => translate(`topBar.cell.${id}`)
-  const cell = (id: Cell['id'], value: string, armed = false): Cell => ({ id, label: label(id), value, armed })
+  const cell = (id: Cell['id'], value: string, armed = false): Cell => {
+    const dash = value === missing
+
+    return { id, label: label(id), value, armed, missing: dash }
+  }
   if (!now) {
     return (['mode', 'state', 'battery', 'gps', 'link'] as const).map(id => cell(id, missing))
   }

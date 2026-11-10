@@ -102,8 +102,12 @@
 .top-bar .cell dd {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-value);
   font-weight: 600;
+}
+
+.top-bar .cell.state dd {
+  text-transform: uppercase;
 }
 
 .top-bar .cell.armed {
