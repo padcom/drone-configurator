@@ -14,10 +14,15 @@ import { FlakyProxy } from './flaky-proxy'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
 
-const LONG_MS = 90_000
+// A list that never arrives takes 10 + 10 + 30 s to give up on (and three showScreen calls), and the check has used time
+// before it asks: LONG_MS leaves room for all of it, so that the failure message is printed before Vitest ends the test.
+const LONG_MS = 150_000
 const RECONNECT_MS = 60_000
-/** How long to wait for the list before the screen is asked for again, and how many times it is asked for. */
-const RESHOW_AFTER_MS = 15_000
+/** How long to wait for the list before the screen is asked for again; the last attempt waits LAST_LIST_MS. */
+const RESHOW_AFTER_MS = 10_000
+const LAST_LIST_MS = 30_000
+// The retry is there until #343 is understood: once the recorder of the address (startAll) shows who takes the page to
+// Setup, remove it and fix the cause.
 const SHOW_ATTEMPTS = 3
 const PARAM = 'BATT_CAPACITY'
 const STEP = 100
@@ -60,16 +65,33 @@ function cable(): FlakyProxy {
   return proxy
 }
 
+/**
+ * Makes the page note every change of its address, for the failure message of describePage (who took the page to Setup, and
+ * when). The router moves the page with history.pushState and replaceState, which raise no hashchange, so both are wrapped;
+ * popstate covers Back and Forward.
+ *
+ * @param page the running app
+ */
+async function recordAddressChanges(page: E2eApp): Promise<void> {
+  await page.evaluate(`(() => {
+    window.__hashes = []
+    const note = (how, url) => window.__hashes.push([Math.round(performance.now()), how, String(url).split('#')[1],
+      (new Error().stack || '').split('\\n').slice(2, 5).map(line => line.trim().slice(0, 80)).join(' < ')])
+    for (const how of ['pushState', 'replaceState']) {
+      const original = history[how].bind(history)
+      history[how] = (state, title, url) => { note(how, url); return original(state, title, url) }
+    }
+    window.addEventListener('popstate', () => note('popstate', location.href))
+  })()`)
+}
+
 /** Starts SITL, the proxy in front of it and the app, and points the app at the proxy. */
 async function startAll(): Promise<void> {
   sitl = await startSitl({ vehicle: 'copter' })
   proxy = await FlakyProxy.start(sitl.endpoint)
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
-  // Every change of the address, with the time, for the failure message of describePage (who took the page to Setup, and when).
-  await app.evaluate(`window.__hashes = []; window.addEventListener('hashchange', event => {
-    window.__hashes.push([Math.round(performance.now()), event.newURL.split('#')[1]])
-  })`)
+  await recordAddressChanges(app)
   await chooseConnection(app, { transport: 'tcp', host: '127.0.0.1', port: String(proxy.port) })
 }
 
@@ -135,7 +157,7 @@ async function listStatusOnScreen(wanted: RegExp, left: number): Promise<string>
   await showScreen(window(), 'parameters')
 
   try {
-    return await window().waitForText('#list-status', wanted, left === 1 ? RECONNECT_MS : RESHOW_AFTER_MS)
+    return await window().waitForText('#list-status', wanted, left === 1 ? LAST_LIST_MS : RESHOW_AFTER_MS)
   } catch (error: unknown) {
     if (left === 1) {
       throw new Error(`${String(error)}\n${await describePage()}`, { cause: error })
