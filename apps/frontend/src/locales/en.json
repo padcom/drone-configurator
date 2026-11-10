@@ -256,7 +256,6 @@
   },
   "confirm": {
     "cancel": "Cancel",
-    "hold": "Hold to confirm",
     "write": "Write"
   },
   "toast": {
