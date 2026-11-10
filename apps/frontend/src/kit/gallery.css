@@ -98,6 +98,13 @@
   max-width: 360px;
 }
 
+/* The form and an enum field with a value that has no name, in a column as wide as a detail pane. */
+.gallery .form-demo {
+  display: grid;
+  gap: var(--space-5);
+  max-width: 420px;
+}
+
 /* Banners, a progress bar and an empty state, one under the other. */
 .gallery .stack {
   display: grid;

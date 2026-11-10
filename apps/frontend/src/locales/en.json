@@ -32,6 +32,7 @@
       "colours": "Colours",
       "type": "Type and pattern",
       "truth": "Vehicle truth",
+      "forms": "Form and enum field",
       "confirm": "Confirmation",
       "surfaces": "Surfaces",
       "buttons": "Buttons",
@@ -60,6 +61,21 @@
       "eraseSure": "Confirm: erase 5 logs",
       "tick": "The propellers are off",
       "spin": "Spin motor 1"
+    },
+    "form": {
+      "head": "Failsafe",
+      "note": "What the vehicle does when the link is lost.",
+      "warn": "Test with the propellers off.",
+      "info": "Firmware",
+      "altitude": "Return altitude",
+      "battery": "Return on low battery",
+      "name": "Vehicle name",
+      "action": "Failsafe action",
+      "action0": "Report only",
+      "action1": "Return or land",
+      "action2": "Always land",
+      "save": "Save",
+      "unnamed": "A value that has no name"
     },
     "surface": {
       "label": "Battery",
@@ -204,6 +220,11 @@
     "cancel": "Cancel",
     "hold": "Hold to confirm",
     "write": "Write"
+  },
+  "enum": {
+    "noName": "no name",
+    "useNumber": "Use this number, it has no name",
+    "noMatch": "No match. Type a number to use it."
   },
   "truth": {
     "never": "—",
