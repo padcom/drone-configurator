@@ -19,14 +19,14 @@
            that a character is a `ch`: the browser does not measure the text of the rows to lay the table out. The last column
            is what is left (the value without metadata, the description with it). -->
       <colgroup>
-        <col class="col-star">
+        <col v-if="stars" class="col-star">
         <col class="col-name" :style="{ width: `calc(${widths.name}ch + var(--cell-padding))` }">
         <col v-if="meaning" class="col-value" :style="{ width: `calc(${widths.value}ch + var(--cell-padding))` }">
         <col>
       </colgroup>
       <thead>
         <tr aria-rowindex="1">
-          <th scope="col" class="star"><span class="visually-hidden">{{ t('params.favourites.column') }}</span></th>
+          <th v-if="stars" scope="col" class="star"><span class="visually-hidden">{{ t('params.favourites.column') }}</span></th>
           <th scope="col">{{ t('params.column.name') }}</th>
           <th scope="col" class="num">{{ t('params.column.value') }}</th>
           <th v-if="meaning" scope="col">{{ t('params.column.meaning') }}</th>
@@ -51,7 +51,7 @@
         >
           <!-- The star: not a stop of the Tab key (the list is one), and it does not select the row. The key `*` does the same
                for the selected row. -->
-          <td class="star">
+          <td v-if="stars" class="star">
             <button
               type="button"
               tabindex="-1"
@@ -151,6 +151,7 @@ import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './
 import type { Param } from './generated/app'
 import Marked from './Marked.vue'
 import { useConfigurator } from './useConfigurator'
+import { useGroupsSetting } from './useGroupsSetting'
 import { useParamGroup } from './useParamGroup'
 import { useParamView } from './useParamView'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from './rowWindow'
@@ -165,7 +166,9 @@ const choice = useParamGroup()
 /** The height of a row, in px (the rows are all the same: the stylesheet gives them 44). */
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
-const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
+// Without the groups (the setting "Show parameter groups" is off) there is no group to be in, and no star: the scope is All.
+const { shown: stars } = useGroupsSetting()
+const group = computed(() => stars.value ? effectiveGroup(params.value, choice.chosen.value) : '')
 // The starred parameters: kept in the settings, and listed by the Favourites group (the ones the vehicle has).
 const favourites = useFavourites()
 const onlyFavourites = computed(() => group.value === FAVOURITES_GROUP)
@@ -279,7 +282,7 @@ const hiddenByView = computed(() => [
   visibleParams(params.value, '', group.value).length > 0,
 ].every(Boolean))
 const meaning = computed(() => fields.metadata.value.size > 0)
-const columns = computed(() => meaning.value ? 4 : 3)
+const columns = computed(() => (meaning.value ? 3 : 2) + (stars.value ? 1 : 0))
 // The widest name and the widest value of the whole list (not only of what is shown, so that the columns do not move with the
 // search or the scroll), in characters; the header's own words are the least a column has.
 const widths = computed(() => ({
@@ -509,7 +512,7 @@ const onStar = (event: KeyboardEvent): boolean => (event.target as Element).clos
  */
 function starKey(event: KeyboardEvent): boolean {
   const selected = fields.selected.value
-  const starring = event.key === '*' && selected !== null
+  const starring = stars.value && event.key === '*' && selected !== null
   if (starring) {
     event.preventDefault()
     void star(selected)

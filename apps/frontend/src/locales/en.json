@@ -237,6 +237,8 @@
     "dismiss": "Dismiss",
     "title": "Settings",
     "languageHelp": "The language of the interface. English is the only one there is for now.",
+    "groups": "Show parameter groups",
+    "groupsHelp": "Hides the group list and the favourites stars. Your favourites are kept.",
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "connection": {

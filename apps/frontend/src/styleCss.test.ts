@@ -25,6 +25,14 @@ it('lays the Parameters screen out in three columns that wrap, each scrolling on
   expect(params).toMatch(/\.param-groups,\s*\.params,\s*\.detail\s*\{[^}]*overflow-y:\s*auto/u)
 })
 
+it('has a list and a detail that fill the width without the groups column (the setting "Show parameter groups" off)', () => {
+  // Nothing in the layout counts on the groups: the list grows (999) and shrinks to nothing, the detail has its own basis, and
+  // the star column's width belongs to its <col>, which is not there without the stars.
+  expect(params).toMatch(/\.params\s*\{[^}]*flex:\s*999 1 460px;[^}]*min-width:\s*0;/u)
+  expect(params).toMatch(/\.detail\s*\{[^}]*flex:\s*1 1 330px;[^}]*min-width:\s*0;/u)
+  expect(params).toMatch(/\.param-scroll col\.col-star\s*\{\s*width:\s*44px;/u)
+})
+
 it('lays the table out with a fixed layout, the first columns in `ch`, the description on one line', () => {
   const cut = String.raw`overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;`
   const meaning = new RegExp(String.raw`\.param-scroll table\.described \.meaning\s*\{[^}]*${cut}`, 'u')
