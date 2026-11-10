@@ -1,13 +1,21 @@
 <template>
   <!-- No heading to the eye (the button says how many); the region keeps its name for a screen reader. -->
   <section id="staged" class="staged" :aria-label="t('staged.region')">
-    <ul v-if="staged.changes.value.length > 0" class="staged-list">
+    <ul v-if="staged.changes.value.length > 0" ref="list" class="staged-list">
       <li v-for="row in rows" :key="row.change.id" class="staged-row" :class="row.result?.outcome">
         <span class="name">{{ row.change.id }}</span>
         <span class="values"><span class="from">{{ row.change.from }}</span> → <span class="to">{{ row.change.to }}</span></span>
         <span v-if="row.line" class="line" :class="row.line.tone">{{ row.line.text }}</span>
-        <button v-if="row.discardable" type="button" class="discard" @click="staged.discard(row.change.id)">
-          {{ t('staged.discard') }}<span class="visually-hidden"> {{ row.change.id }}</span>
+        <!-- A trash can at the right of the row; its name says which parameter it takes out. -->
+        <button
+          v-if="row.discardable"
+          type="button"
+          class="discard"
+          :aria-label="t('staged.discard', { id: row.change.id })"
+          :title="t('staged.discard', { id: row.change.id })"
+          @click="discard(row.change.id)"
+        >
+          <Icon name="trash" />
         </button>
       </li>
     </ul>
@@ -21,9 +29,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
+import Icon from './kit/Icon.vue'
 import { linesFor, summaryOf } from './stagedChanges'
 import { useConfigurator } from './useConfigurator'
 
@@ -37,4 +46,43 @@ const connected = computed(() => fields.connection.value.state === 'connected')
 const writable = computed(() => connected.value && !parameters.lock.busy.value && pending.value.length > 0)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
 const summary = computed(() => summaryOf(staged.changes.value, staged.results.value, staged.writing.value, t))
+const list = ref<HTMLElement | null>(null)
+
+/**
+ * Focuses an element, if there is one.
+ *
+ * @param element the element, or null
+ */
+function focusOn(element: HTMLElement | null | undefined): void {
+  element?.focus()
+}
+
+/**
+ * Gives the focus to the trash can of the row at `at` (the one that took the place of a row that went), else of the one
+ * before it, else of any other, else to the Value field.
+ *
+ * @param box the list of rows, if it is still there
+ * @param at where the row that went was
+ */
+function focusNear(box: HTMLElement | null, at: number): void {
+  const left = [...(box?.querySelectorAll('.staged-row') ?? [])]
+  const nearest = [...left.slice(at), ...left.slice(0, at).reverse()]
+  const button = nearest.map(row => row.querySelector<HTMLElement>('.discard')).find(Boolean)
+
+  focusOn(button ?? document.getElementById('draft'))
+}
+
+/**
+ * Takes a change out, and gives the focus to the trash can of the row that took its place (else of the one before it, else of
+ * any that is left), or to the Value field when none is left: the button that had the focus is gone, and the focus must not
+ * fall back to the page.
+ *
+ * @param id the parameter whose change is taken out
+ */
+async function discard(id: string): Promise<void> {
+  const at = rows.value.findIndex(row => row.change.id === id)
+  staged.discard(id)
+  await nextTick()
+  focusNear(list.value, at)
+}
 </script>

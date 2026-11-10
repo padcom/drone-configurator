@@ -2,33 +2,23 @@
   <div id="detail" class="param-detail">
     <p v-if="!param" class="muted">{{ t('editor.select') }}</p>
     <template v-else>
-      <header>
-        <h2 class="param-name">{{ param.id }}</h2>
-        <p v-if="details.description" class="description">{{ details.description }}</p>
-      </header>
-      <p class="current">
-        <span class="big">{{ param.value }}</span><span class="unit">{{ details.units }}</span>
-        <span v-if="details.named" class="named">{{ details.named }}</span>
-      </p>
-      <p class="facts">{{ t('editor.summary', { type: param.type, index: param.index }) }}</p>
-      <p v-if="details.range" class="facts">{{ details.range }}</p>
-      <p v-if="details.values && !named" class="facts">{{ details.values }}</p>
+      <!-- The name of the panel for a screen reader. The value is in the selected row of the list, and what the metadata says
+           about the parameter is in the Description. -->
+      <h2 class="visually-hidden">{{ param.id }}</h2>
       <p v-if="fields.draftError.value" id="draft-error" class="error" role="alert">{{ fields.draftError.value }}</p>
     </template>
-    <!-- The outcome of a write is said in regions that are always in the page, so that a screen reader reads what is put in
-         them: a polite one for "writing" and a verified write, an assertive one for a write that is not confirmed or that the
-         vehicle changed, and a polite one for what the metadata finds unusual about the draft (not wrong: the write is allowed,
-         the vehicle validates and the read-back says what it kept; the field points to it, as it does to an error). -->
+    <!-- How a write is going is said in regions that are always in the page, so that a screen reader reads what is put in them:
+         a polite one while the vehicle is asked ("Writing…") and, out of sight, for a write that was read back (the value is in
+         the list), an assertive one for a write that is not confirmed or that the vehicle changed, and a polite one for what the
+         metadata finds unusual about the draft (not wrong: the write is allowed, the vehicle validates and the read-back says
+         what it kept; the field points to it, as it does to an error). A failed write is never silent. -->
     <div class="notices">
-      <p class="notice" role="status" :class="polite?.tone">
-        <template v-if="polite">
-          <Icon v-if="polite.tone" :name="MARKS[polite.tone]" />
-          {{ polite.text }}
-        </template>
+      <p id="write-status" class="notice" role="status">
+        <span :class="{ 'visually-hidden': polite?.hidden }">{{ polite?.text }}</span>
       </p>
-      <p class="notice" role="alert" :class="assertive?.tone">
+      <p id="write-alert" class="notice" role="alert" :class="assertive?.tone">
         <template v-if="assertive">
-          <Icon :name="MARKS.error" />
+          <Icon name="close" />
           {{ assertive.text }}
         </template>
       </p>
@@ -81,16 +71,15 @@ import Icon from './kit/Icon.vue'
 import ParamDescription from './ParamDescription.vue'
 import StagedChanges from './StagedChanges.vue'
 import TextInput from './kit/TextInput.vue'
-import { canWrite, detailsOf, numberOr, valueOptions, writeNotice } from './paramEditor'
+import { canWrite, numberOr, valueOptions, writeNotice } from './paramEditor'
 import { useConfigurator } from './useConfigurator'
 
-// The detail of the selected parameter, as the design has it: its name and what it is for, its value in large figures with the
-// unit or the name of the value, what is allowed, the field for a new value (a choice from the names when the metadata has
-// them), and the outcome of the last write in words with a mark. The description (with the related parameters of its group) and
-// the changes collected follow it. A write goes to the vehicle and is only called done when the vehicle reads the new value back.
+// The detail of the selected parameter: the field for a value (a choice from the names when the metadata has them), what is
+// said while it is written and when a write is not confirmed, then the description (with the related parameters of its group)
+// and the changes collected. A write goes to the vehicle and is only called done when the vehicle reads the new value back (the
+// new value then shows in the list); one that is not confirmed is said at once.
 const { t } = useI18n()
 const { parameters, fields, staged } = useConfigurator()
-const MARKS = { ok: 'check', error: 'close' } as const
 const param = computed(() => fields.params.value.find(p => p.id === fields.selected.value) ?? null)
 const meta = computed(() => param.value ? fields.metadata.value.get(param.value.id) : undefined)
 const connected = computed(() => fields.connection.value.state === 'connected')
@@ -115,7 +104,6 @@ const describedBy = computed(() => {
 
   return fields.draftWarning.value ? 'draft-warning' : undefined
 })
-const details = computed(() => detailsOf(meta.value, param.value?.value ?? 0, t))
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The field of names holds a number; the draft is the text of it (what the vehicle will be asked, once it is valid).
 const draftNumber = computed({

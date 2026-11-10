@@ -9,7 +9,7 @@
 // once, but a very slow machine could turn it into a false "another vehicle".
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, expect, it } from 'vitest'
-import { chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
+import { chooseConnection, clickConnect, confirmWrite, showScreen, waitForWritten } from './click'
 import { FlakyProxy } from './flaky-proxy'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
@@ -245,28 +245,39 @@ async function resumesAfterDownloadCut(): Promise<void> {
 }
 
 /**
- * The cable pulled just after a write: the screen says the write was read back or that it was not confirmed (never
- * nothing), and the vehicle has the old value or the new one, the new one if the screen said it was read back. The value
- * is put back.
+ * The cable pulled just after a write: the list shows the vehicle's read-back or the page says (an alert) that it was not
+ * confirmed (never nothing), and the vehicle has the old value or the new one, the new one if it was read back. The value is
+ * put back.
  */
 async function resumesAfterWriteCut(): Promise<void> {
   await showScreen(window(), 'parameters')
   const original = await valueOnScreen()
   await askToWrite(original, original + STEP)
   await cutAndSeeReconnecting()
-  const said = await window().waitForText('#detail', /Written and read back: \d+\.|Not confirmed/u, RECONNECT_MS)
+  // "Writing…" goes when the vehicle answers or the write fails. What is left is never nothing: a write that was read back
+  // shows the vehicle's value in the list and says so (out of sight, in the status), one that was not is an alert. The regions
+  // are always in the page: a missing one fails here instead of reading as empty.
+  await window().waitFor(`document.querySelector('#write-status') !== null && document.querySelector('#write-alert') !== null`)
+  await window().waitFor(`!document.querySelector('#write-status').textContent.includes('Writing')`, RECONNECT_MS)
+  const said = await window().text('#write-alert')
+  if (said === '') {
+    expect(await window().text('#write-status')).toMatch(/Written and read back: \d+\./u)
+    expect(await valueOnScreen()).toBe(original + STEP)
+  } else {
+    expect(said).toMatch(/Not confirmed|The vehicle reports/u)
+  }
   await restoreAndSeeResumed()
   await seeWholeList()
   const after = await valueOnScreen()
   expect([original, original + STEP]).toContain(after)
 
-  if (said.includes('Written and read back')) {
+  if (said === '') {
     expect(after).toBe(original + STEP)
   }
 
   if (after !== original) {
     await askToWrite(after, original)
-    await window().waitForText('#detail', `Written and read back: ${original}.`, RECONNECT_MS)
+    await waitForWritten(window(), ROW, original, RECONNECT_MS)
   }
   expect(await valueOnScreen()).toBe(original)
 }

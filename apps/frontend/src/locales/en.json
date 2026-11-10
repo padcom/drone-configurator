@@ -383,7 +383,7 @@
   "staged": {
     "add": "Add to changes",
     "region": "Changes to write",
-    "discard": "Discard",
+    "discard": "Discard {id}",
     "write": "Write {count} and verify",
     "verified": "✓ Written and read back: {detail}",
     "notVerified": "✕ {detail}",
@@ -408,12 +408,8 @@
   "editor": {
     "select": "Select a parameter to see or change it.",
     "related": "Related",
-    "summary": "{type} · index {index} · on the vehicle:",
-    "named": " ({name})",
-    "range": "Range: {min} to {max}{units}",
     "openEnd": "…",
-    "values": "Values: {list}",
-    "newValue": "New value",
+    "newValue": "Value",
     "write": "Write",
     "writing": "Writing… waiting for the vehicle to report the new value.",
     "verified": "Written and read back: {value}.",

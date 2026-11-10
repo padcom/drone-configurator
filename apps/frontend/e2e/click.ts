@@ -236,6 +236,27 @@ export async function confirmWrite(app: E2eApp): Promise<void> {
 }
 
 /**
+ * Waits until a single write is over and the vehicle read it back: the value in the list is the one written (the list takes
+ * the vehicle's read-back, not what was asked), "Writing…" is gone, the status region says "Written and read back" (out of
+ * sight, for a screen reader) and the alert region is empty. Both regions are always in the page, so a missing one is a
+ * failure and not an empty text.
+ *
+ * @param app the running app
+ * @param row a selector for the parameter's row in the list
+ * @param value the value that was written
+ * @param timeoutMs how long the vehicle may take
+ */
+export async function waitForWritten(app: E2eApp, row: string, value: number, timeoutMs = 10_000): Promise<void> {
+  await app.waitForText(`${row} td.num`, new RegExp(`^${value}$`, 'u'), timeoutMs)
+  await app.waitFor(`document.querySelector('#write-status') !== null && document.querySelector('#write-alert') !== null`)
+  await app.waitFor(`!document.querySelector('#write-status').textContent.includes('Writing')`, timeoutMs)
+  const [status, alert] = [await app.text('#write-status'), await app.text('#write-alert')]
+  if (alert !== '' || !status.includes(`Written and read back: ${value}.`)) {
+    throw new Error(`the list shows ${value}, but the detail says ${JSON.stringify({ status, alert })}`)
+  }
+}
+
+/**
  * Answers the open confirmation no.
  *
  * @param app the running app

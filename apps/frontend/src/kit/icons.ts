@@ -24,6 +24,7 @@ export const ICONS = {
   'disconnect': 'M9 4v5M15 4v5M7 9h10v3a5 5 0 0 1-10 0zM12 17v3M4 4l16 16',
   'save': 'M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6',
   'folder': 'M3 6h6l2 2h10v11H3z',
+  'trash': 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6',
   // The rail's icons, as the design draws them.
   'grid': 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
   'route': 'M6 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM8 19h8a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h8',
