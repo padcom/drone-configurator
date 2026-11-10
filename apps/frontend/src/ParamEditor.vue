@@ -65,6 +65,7 @@
       <Button id="write" type="submit" variant="primary" :disabled="!writable">{{ t('editor.write') }}</Button>
     </div>
   </form>
+  <ParamDescription />
   <StagedChanges />
   <section v-if="related.length > 0" class="related" :aria-label="t('editor.related')">
     <SectionLabel>{{ t('editor.related') }}</SectionLabel>
@@ -82,6 +83,7 @@ import type { EnumOption } from './enumField'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
 import SectionLabel from './kit/SectionLabel.vue'
+import ParamDescription from './ParamDescription.vue'
 import StagedChanges from './StagedChanges.vue'
 import TextInput from './kit/TextInput.vue'
 import { canWrite, detailsOf, numberOr, relatedTo, valueOptions, writeNotice } from './paramEditor'
