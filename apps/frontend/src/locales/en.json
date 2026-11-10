@@ -328,7 +328,9 @@
     },
     "empty": {
       "title": "No parameters yet",
-      "help": "Connect a vehicle to read its parameters."
+      "none": "Connect a vehicle to read its parameters.",
+      "loading": "The parameters are on their way.",
+      "failed": "The download failed. Press Download to try again."
     },
     "noMatch": {
       "title": "No parameter matches",

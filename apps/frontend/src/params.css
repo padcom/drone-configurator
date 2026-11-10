@@ -100,7 +100,7 @@
 }
 
 .param-search button {
-  width: 32px;
+  width: 40px;
   height: 42px;
   padding: 0;
   color: var(--color-text-muted);
@@ -161,7 +161,7 @@
 }
 
 .param-scroll .prefix {
-  color: var(--color-text-muted);
+  color: var(--color-text-dim);
 }
 
 .param-scroll td.num {

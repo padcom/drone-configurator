@@ -102,6 +102,19 @@ it('says there are no parameters yet, with what to do, when there are none', () 
   expect(wrapper.get('.kit-empty').text()).toContain('Connect a vehicle to read its parameters.')
 })
 
+it.each([
+  ['none', 'Connect a vehicle to read its parameters.'],
+  ['loading', 'The parameters are on their way.'],
+  ['failed', 'The download failed. Press Download to try again.'],
+] as const)('says what an empty list is waiting for: %s', (list, help) => {
+  const handle = createConfigurator(mockBackend())
+  feed(handle, { params: [], list })
+  const wrapper = mount(ParamTable, withI18n)
+
+  expect(wrapper.get('.kit-empty').text()).toContain('No parameters yet')
+  expect(wrapper.get('.kit-empty .help').text()).toBe(help)
+})
+
 it('says no parameter matches, and offers to show all of them again', async () => {
   const { wrapper, handle } = tableWith(PARAMS)
   const setFilter = vi.spyOn(handle.parameters, 'setFilter')

@@ -22,7 +22,7 @@
         </tr>
       </tbody>
     </table>
-    <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t('params.empty.help')" />
+    <EmptyState v-else-if="params.length === 0" :title="t('params.empty.title')" :help="t(emptyHelp)" />
     <EmptyState v-else :title="t('params.noMatch.title')" :help="t('params.noMatch.help')">
       <Button id="clear-search" @click="clear">{{ t('params.noMatch.clear') }}</Button>
     </EmptyState>
@@ -50,6 +50,9 @@ const params = computed(() => fields.params.value)
 const group = computed(() => effectiveGroup(params.value, choice.chosen.value))
 const visible = computed(() => visibleParams(params.value, fields.filter.value, group.value))
 const meaning = computed(() => fields.metadata.value.size > 0)
+// What an empty list says to do, by how the download stands: nothing yet (connect), on its way, or failed (press Download).
+const EMPTY_HELP: Record<string, string> = { loading: 'params.empty.loading', failed: 'params.empty.failed' }
+const emptyHelp = computed(() => EMPTY_HELP[fields.list.value] ?? 'params.empty.none')
 const rows = computed(() => visible.value.map(param => ({
   param,
   name: splitName(param.id),

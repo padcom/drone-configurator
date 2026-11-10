@@ -43,6 +43,42 @@ it('marks the chosen group, All at first, and chooses with a click', async () =>
   expect(wrapper.get('button[data-group=""]').attributes('aria-pressed')).toBe('false')
 })
 
+it('is one stop of the Tab key: the chosen group, All at first', async () => {
+  const { wrapper } = groups()
+  const stops = () => wrapper.findAll('button').filter(button => button.attributes('tabindex') === '0')
+
+  expect(stops().map(button => button.attributes('data-group'))).toEqual([''])
+  await wrapper.get('button[data-group="BATT"]').trigger('click')
+
+  expect(stops().map(button => button.attributes('data-group'))).toEqual(['BATT'])
+})
+
+it('moves the focus with Down, Up, Home and End, and the Tab stop goes with it', async () => {
+  const { wrapper } = groups()
+  const wrapperOnPage = mount(ParamGroups, { ...withI18n, attachTo: document.body })
+  const buttons = () => wrapperOnPage.findAll('button')
+  const key = async (name: string) => {
+    await wrapperOnPage.get('nav').find(':focus').trigger('keydown', { key: name })
+  }
+  wrapper.unmount()
+  const first = buttons()[0]!
+  first.element.focus()
+
+  await key('ArrowDown')
+  expect(document.activeElement).toBe(buttons()[1]!.element)
+  expect(buttons()[1]!.attributes('tabindex')).toBe('0')
+  expect(first.attributes('tabindex')).toBe('-1')
+  await key('End')
+  expect(document.activeElement).toBe(buttons().at(-1)!.element)
+  await key('ArrowDown')
+  expect(document.activeElement).toBe(first.element)
+  await key('ArrowUp')
+  expect(document.activeElement).toBe(buttons().at(-1)!.element)
+  await key('Home')
+  expect(document.activeElement).toBe(first.element)
+  wrapperOnPage.unmount()
+})
+
 it('goes back to All when the chosen group is not in the list any more', async () => {
   const { wrapper, handle } = groups()
   await wrapper.get('button[data-group="BATT"]').trigger('click')
