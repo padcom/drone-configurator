@@ -4,7 +4,13 @@
       <span class="label">{{ label }}</span>
       <span v-if="note" class="note">{{ note }}</span>
     </div>
-    <div class="value">{{ shown }}</div>
+    <div class="value">
+      <template v-if="reported">{{ value }}</template>
+      <template v-else>
+        <span aria-hidden="true">{{ t('truth.never') }}</span>
+        <span class="visually-hidden">{{ t('truth.notReported') }}</span>
+      </template>
+    </div>
     <div v-if="help" class="help">{{ help }}</div>
   </div>
 </template>
@@ -33,8 +39,12 @@ const { t } = useI18n()
 
 const hatched = computed(() => props.state === 'stale' || props.state === 'last-heard')
 
-/** The value; a dash when it was never reported, whatever was passed (nothing is made up). */
-const shown = computed(() => props.state === 'never' || props.value === undefined ? t('truth.never') : props.value)
+/**
+ * Whether there is a value to show. When there is not (never reported, or no value in any state) it is a dash for the
+ * eye and "not reported" for a screen reader, which can skip a lone dash and would then say only the label; whatever
+ * value was passed with the state `never` is ignored (nothing is made up).
+ */
+const reported = computed(() => props.state !== 'never' && props.value !== undefined)
 
 /** The words of the states that have a fixed note (a stale value's has its age in it; a live or unreported one has none). */
 const NOTES: Partial<Record<typeof props.state, string>> = { 'last-heard': 'truth.lastHeard', 'verified': 'truth.verified' }
@@ -42,7 +52,7 @@ const NOTES: Partial<Record<typeof props.state, string>> = { 'last-heard': 'trut
 /** The words that say which state it is in, for the states that are not plain. */
 const note = computed(() => {
   if (props.state === 'stale') {
-    return t('truth.stale', { seconds: Math.round((props.ageMs ?? 0) / 1000) })
+    return props.ageMs === undefined ? t('truth.staleNoAge') : t('truth.stale', { seconds: Math.round(props.ageMs / 1000) })
   }
   const key = NOTES[props.state]
 

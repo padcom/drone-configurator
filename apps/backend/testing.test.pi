@@ -1,0 +1,50 @@
+// The test helper's deadline (testing.pi): a message that never comes is a failure that names it, not a hang.
+import { describe, it, expect } from "std/test"
+import { DEFAULT_DEADLINE_MS, Frontend, setDeadline, start } from "./testing"
+
+/// What the failure of a wait says, or "" when it did not fail.
+async function failureOf(f: Frontend, what: string): Promise<string> throws Error {
+  try {
+    if (what == "event") {
+      await f.event("no.such.event")
+    } else if (what == "reply") {
+      await f.reply(999)
+    } else {
+      await f.ended()
+    }
+  } catch (e: Error) {
+    return e.message
+  }
+  ""
+}
+
+/// Each of the three waits fails after the deadline, and says what it was waiting for.
+async function failsWithAName(): Promise<void> throws Error {
+  setDeadline(150)
+  try {
+    const f = await start()
+    expect(await failureOf(f, "event")).toContain("nothing arrived within 150 ms: an event no.such.event")
+    expect(await failureOf(f, "reply")).toContain("the reply to request 999")
+    expect(await failureOf(f, "ended")).toContain("the end of a subscription")
+  } finally {
+    setDeadline(DEFAULT_DEADLINE_MS)
+  }
+}
+
+/// A wait that is answered in time is not held up by the deadline, and its timer is gone.
+async function doesNotHoldUpWhatIsAnswered(): Promise<void> throws Error {
+  setDeadline(60000)
+  try {
+    const f = await start()
+    const started = Date.now() as int
+    await f.call("serial.ports")
+    expect((Date.now() as int) - started < 5000).toBe(true)
+  } finally {
+    setDeadline(DEFAULT_DEADLINE_MS)
+  }
+}
+
+describe("the test helper's deadline", () => {
+  it("fails a wait that nothing answers, with what it waited for", failsWithAName)
+  it("does not hold up a wait that is answered", doesNotHoldUpWhatIsAnswered)
+})

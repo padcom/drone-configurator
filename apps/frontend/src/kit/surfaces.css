@@ -17,14 +17,14 @@
   padding: var(--space-4);
 }
 
-/* SectionLabel: small capitals, muted. */
+/* SectionLabel: the capitals that name a section: 12 px, 600, .09em (the 11 px of a value's label is below). */
 .kit-section-label {
   margin: 0;
-  font-size: var(--font-size-label);
+  font-size: var(--font-size-section);
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-label);
+  letter-spacing: var(--letter-spacing-section);
 }
 
 /* StatCell: a label over a value in the mono face. */
@@ -97,6 +97,12 @@
 .kit-banner.urgent.error {
   color: var(--color-on-error);
   background: var(--color-error);
+  border-color: transparent;
+}
+
+.kit-banner.urgent.info {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
   border-color: transparent;
 }
 

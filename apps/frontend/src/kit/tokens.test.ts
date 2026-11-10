@@ -143,6 +143,8 @@ describe('the design tokens, the scales', () => {
       '--font-size-2xl',
       '--font-size-hero',
       '--letter-spacing-label',
+      '--font-size-section',
+      '--letter-spacing-section',
       '--space-6',
       '--space-7',
       '--space-8',

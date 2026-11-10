@@ -219,6 +219,8 @@
   },
   "truth": {
     "never": "—",
+    "notReported": "not reported",
+    "staleNoAge": "stale",
     "stale": "stale, {seconds} s old",
     "lastHeard": "last heard",
     "verified": "read back"
