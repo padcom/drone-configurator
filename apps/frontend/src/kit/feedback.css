@@ -1,0 +1,180 @@
+/*
+ * How the toasts (ToastHost), the menu (Menu) and the tooltip (Tooltip) look, as the Components board draws them: only the
+ * tokens (tokens.css). A raised surface, a 1 px edge, a glyph that says the severity (so the colour is never alone).
+ */
+
+/* Toasts: a stack in the corner, over the page. */
+.kit-toasts {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(26rem, calc(100vw - 2 * var(--space-5)));
+  pointer-events: none;
+}
+
+.kit-toast {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  color: var(--color-text);
+  pointer-events: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+/* The severity classes are prefixed: the page has a global `.error` that would colour the words, and only the glyph is. */
+.kit-toast.sev-warning {
+  border-color: var(--color-warn);
+}
+
+.kit-toast.sev-error {
+  border-color: var(--color-error);
+}
+
+.kit-toast .glyph {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.kit-toast.sev-success .glyph {
+  color: var(--color-ok);
+}
+
+.kit-toast.sev-warning .glyph {
+  color: var(--color-warn);
+}
+
+.kit-toast.sev-error .glyph {
+  color: var(--color-error);
+}
+
+.kit-toast .text {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.kit-toast .count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+  color: var(--color-text-muted);
+}
+
+.kit-toast .dismiss {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.kit-toast .dismiss:hover {
+  color: var(--color-text);
+  background: var(--color-border);
+}
+
+.kit-toast .dismiss:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.kit-toasts .more {
+  padding: 0 var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Menu: a button and a list of 40 px items. */
+.kit-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.kit-menu .list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+  max-width: 260px;
+  padding: var(--space-1);
+  margin-top: var(--space-1);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.kit-menu .item {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 10px;
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.kit-menu .item:hover:not(:disabled),
+.kit-menu .item:focus-visible {
+  background: var(--color-accent-soft);
+}
+
+.kit-menu .item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.kit-menu .item:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.kit-menu .hint {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Tooltip: inverted, light on dark. */
+.kit-tooltip-host {
+  position: relative;
+  display: inline-flex;
+}
+
+.kit-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 50;
+  padding: 6px 10px;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-value-sm);
+  color: var(--color-bg);
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--color-text);
+  border-radius: var(--radius-sm);
+}
