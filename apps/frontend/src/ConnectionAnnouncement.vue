@@ -41,12 +41,13 @@ const found = computed(() => {
 
 watch(fields.error, message => {
   if (message && !dialog.open.value) {
-    toasts.push({ id: 'connection-error', severity: 'error', text: message })
+    toasts.push({ severity: 'error', text: message })
   }
 })
 watch(fields.notice, message => {
   if (message) {
-    toasts.push({ id: 'connection-notice', severity: 'warning', text: message })
+    // Sticky: the old line stayed until the next Connect, and "Connect again to continue" must not be missed.
+    toasts.push({ severity: 'warning', text: message, sticky: true })
   }
 })
 </script>

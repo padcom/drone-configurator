@@ -110,7 +110,7 @@ The harness only ever launches or connects to a simulator.
 - `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
 - `apps/frontend`:
   - the composables that hold the state and talk to the backend through `backend/client.ts`: `useVehicle.ts`, `useParams.ts`, `useMetadata.ts`, `useSnapshots.ts`, `useTelemetry.ts`; `useConfigurator.ts` puts them together (see `docs/frontend-state.md`);
-  - the Vue components (`ConnectDialog.vue`, `ConnectionStatus.vue`, `TopBar.vue`, `TelemetryCards.vue`, `ParamTable.vue`, `ParamFilter.vue`, `ParamEditor.vue`, `MetadataStatus.vue`, `SnapshotToolbar.vue`, `SnapshotImport.vue`, `ConfirmDialog.vue`), each with a plain `.ts` module for its logic, and `useConfigurator.ts`, which gives them the state as refs;
+  - the Vue components (`ConnectDialog.vue`, `ConnectionAnnouncement.vue`, `TopBar.vue`, `FlyAside.vue`, `ParamTable.vue`, `ParamFilter.vue`, `ParamEditor.vue`, `MetadataStatus.vue`, `SnapshotToolbar.vue`, `SnapshotImport.vue`, `ConfirmDialog.vue`), each with a plain `.ts` module for its logic, and `useConfigurator.ts`, which gives them the state as refs;
   - `main.ts`: starts the composables and mounts each component into its element of `index.html` (`mountIsland.ts`); their text is in `locales/en.json` (`i18n.ts`);
   - `mock-backend.ts` and `fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
 

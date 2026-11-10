@@ -59,6 +59,21 @@ it('is out of sight, and toasts the error and the notice (the error not while th
   expect(toasts.visible.value.map(toast => toast.text)).not.toContain('Another failure')
 })
 
+it('makes a toast of each different error, within 2 s too, and keeps the notice until it is dismissed', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  const toasts = useToasts()
+  toasts.visible.value.forEach(toast => toasts.dismiss(toast.key))
+
+  feed({ error: 'First failure' })
+  await wrapper.vm.$nextTick()
+  feed({ error: 'Second failure', notice: 'Connect again to continue' })
+  await wrapper.vm.$nextTick()
+
+  const shown = toasts.visible.value
+  expect(shown.filter(toast => toast.severity === 'error').map(toast => toast.text)).toEqual(['First failure', 'Second failure'])
+  expect(shown.find(toast => toast.text === 'Connect again to continue')?.sticky).toBe(true)
+})
+
 it('says that the link is being brought back, which try this is and when the next is, with the vehicle still shown', async () => {
   const { wrapper, feed } = statusWithFeed()
 
