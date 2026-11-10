@@ -6,7 +6,7 @@ import { HOME, PRODUCT_SCREENS, SCREENS } from './screens'
 
 it('has the screens of the product, Flight data first and Settings pinned to the end of the rail', () => {
   expect(PRODUCT_SCREENS.map(screen => screen.id))
-    .toEqual(['flight', 'plan', 'setup', 'parameters', 'tune', 'logs', 'simulation', 'settings'])
+    .toEqual(['flight', 'plan', 'setup', 'parameters', 'tune', 'logs', 'settings'])
   expect(PRODUCT_SCREENS.filter(screen => screen.placement === 'end').map(screen => screen.id)).toEqual(['settings'])
   expect(HOME).toBe('/flight')
 })

@@ -22,6 +22,7 @@ export interface Screen {
 const NOT_AVAILABLE = () => import('./screens/NotAvailable.vue')
 const FLIGHT = () => import('./screens/FlightData.vue')
 const PARAMETERS = () => import('./screens/Parameters.vue')
+const SETTINGS = () => import('./screens/Settings.vue')
 
 /** The screens of the product, in the order of the rail; the first is where the application starts. */
 export const PRODUCT_SCREENS: readonly Screen[] = [
@@ -31,9 +32,11 @@ export const PRODUCT_SCREENS: readonly Screen[] = [
   { id: 'parameters', path: '/parameters', titleKey: 'screen.parameters', icon: 'sliders', load: PARAMETERS },
   { id: 'tune', path: '/tune', titleKey: 'screen.tune', icon: 'activity', load: NOT_AVAILABLE },
   { id: 'logs', path: '/logs', titleKey: 'screen.logs', icon: 'file', load: NOT_AVAILABLE },
-  { id: 'simulation', path: '/simulation', titleKey: 'screen.simulation', icon: 'grid', load: NOT_AVAILABLE },
-  { id: 'settings', path: '/settings', titleKey: 'screen.settings', icon: 'gear', placement: 'end', load: NOT_AVAILABLE },
+  { id: 'settings', path: '/settings', titleKey: 'screen.settings', icon: 'gear', placement: 'end', load: SETTINGS },
 ]
+
+/** Where an address that was a screen once goes now: the simulator is a way to connect (the Connect dialog), not a screen. */
+export const MOVED: Readonly<Record<string, string>> = { '/simulation': '/setup' }
 
 // The component gallery (every control of the kit in every state) is for whoever builds the
 // interface: in development (`pnpm dev`, `pnpm ui`, the tests), never in the built application. The condition is the

@@ -8,13 +8,12 @@ import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 /** What each screen shows once it is the one shown: an element it has, or the words of a screen not built yet. */
 const MARKERS: [id: string, check: string, title: string][] = [
   ['flight', '#telemetry', 'Flight data'],
-  ['plan', 'p.not-available', 'Plan'],
-  ['setup', 'p.not-available', 'Setup'],
+  ['plan', '.not-available', 'Plan'],
+  ['setup', '.not-available', 'Setup'],
   ['parameters', '#list-status', 'Parameters'],
-  ['tune', 'p.not-available', 'Tune'],
-  ['logs', 'p.not-available', 'Logs'],
-  ['simulation', 'p.not-available', 'Simulation'],
-  ['settings', 'p.not-available', 'Settings'],
+  ['tune', '.not-available', 'Tune'],
+  ['logs', '.not-available', 'Logs'],
+  ['settings', '.settings', 'Settings'],
 ]
 
 let app: E2eApp
@@ -69,7 +68,7 @@ describe('the shell', () => {
 
   it('says under its own name that a screen is not built yet', async () => {
     await showScreen(app, 'tune')
-    expect(await app.waitForText('p.not-available', 'Tune is not available yet.')).toBe('Tune is not available yet.')
+    expect(await app.waitForText('.not-available', 'Tune is not available yet.')).toContain('Tune is not available yet.')
   })
 
   it('switches to a screen that has been shown before within 100 ms', async () => {

@@ -63,9 +63,9 @@ it('has a link for every screen, in order, as native links a keyboard can reach'
   // The screens of the product, the gallery (which the development build, and so the tests, has), and Settings at the end.
   const links = wrapper.findAll('nav a')
   expect(links.map(link => link.text()))
-    .toEqual(['Flight data', 'Plan', 'Setup', 'Parameters', 'Tune', 'Logs', 'Simulation', 'Gallery', 'Settings'])
+    .toEqual(['Flight data', 'Plan', 'Setup', 'Parameters', 'Tune', 'Logs', 'Gallery', 'Settings'])
   expect(links.map(link => link.attributes('href')))
-    .toEqual(['/flight', '/plan', '/setup', '/parameters', '/tune', '/logs', '/simulation', '/gallery', '/settings'])
+    .toEqual(['/flight', '/plan', '/setup', '/parameters', '/tune', '/logs', '/gallery', '/settings'])
   expect(wrapper.find('nav').attributes('aria-label')).toBe('Screens')
 })
 
@@ -89,6 +89,25 @@ it('shows the screen followed, and says in the link which one it is', async () =
   expect(wrapper.find('#telemetry').exists()).toBe(false)
   const current = wrapper.findAll('nav a').filter(link => link.attributes('aria-current') === 'page')
   expect(current.map(link => link.text())).toEqual(['Parameters'])
+})
+
+it('says it as an empty state with a heading and what works now, and the old Simulation address goes to Setup', async () => {
+  const { wrapper, router } = await shellAt('/simulation')
+
+  expect(router.currentRoute.value.path).toBe('/setup')
+  expect(wrapper.get('.kit-empty.not-available h2').text()).toBe('Setup is not available yet.')
+  expect(wrapper.get('.kit-empty.not-available .help').text()).toBe('It comes in a later version. Fly and Parameters work now.')
+})
+
+it('has a Settings screen with the language of the interface, English being the one there is', async () => {
+  const { wrapper } = await shellAt('/settings')
+
+  expect(wrapper.get('main h2').text()).toBe('Settings')
+  const select = wrapper.get<HTMLSelectElement>('main select')
+  expect(select.findAll('option').map(option => option.text())).toEqual(['English'])
+  expect(select.element.value).toBe('en')
+  expect(wrapper.get('main label').text()).toBe('Language')
+  expect(wrapper.get('main label').attributes('for')).toBe(select.attributes('id'))
 })
 
 it('says that a screen that is not built yet is not available, under its own name', async () => {
