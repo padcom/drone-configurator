@@ -192,22 +192,54 @@ describe('the keys that close and the one that takes the only option', () => {
   })
 })
 
+/**
+ * Presses Escape in the field the way a browser does: a key event that can be cancelled and that bubbles.
+ *
+ * @param wrapper the field
+ * @returns the event, to see whether its default action (closing a native dialog) was prevented
+ */
+function pressEscape(wrapper: VueWrapper): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true })
+  wrapper.get('input').element.dispatchEvent(event)
+
+  return event
+}
+
 describe('Escape in a dialog', () => {
-  it('stays with the field while the list is open (it would close the dialog too), and goes on after', async () => {
+  it('has its default action prevented while the list is open (a native dialog closes on that default)', async () => {
+    const wrapper = field(1)
+    await wrapper.get('input').trigger('focus')
+
+    expect(pressEscape(wrapper).defaultPrevented).toBe(true)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[role="listbox"]').exists()).toBe(false)
+  })
+
+  it('is left alone once the list is closed, so that it goes on to the dialog', async () => {
+    const wrapper = field(1)
+    await wrapper.get('input').trigger('focus')
+    pressEscape(wrapper)
+
+    expect(pressEscape(wrapper).defaultPrevented).toBe(false)
+  })
+
+  it('does not reach the listeners round the field while the list is open, and does after', async () => {
     const wrapper = field(1)
     const outside = vi.fn()
     document.body.addEventListener('keydown', outside)
     await wrapper.get('input').trigger('focus')
 
-    await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+    pressEscape(wrapper)
     expect(outside).not.toHaveBeenCalled()
-    await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+    pressEscape(wrapper)
 
     expect(outside).toHaveBeenCalledOnce()
     document.body.removeEventListener('keydown', outside)
   })
+})
 
-  it('take the only option left with Enter', async () => {
+describe('the only option left', () => {
+  it('is taken with Enter', async () => {
     const wrapper = field(0)
     await wrapper.get('input').setValue('always')
 

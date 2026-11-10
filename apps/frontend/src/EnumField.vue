@@ -162,12 +162,15 @@ function enter(event: KeyboardEvent): void {
 }
 
 /**
- * Escape closes the list, and stays here while it does: in a dialog it would otherwise close the dialog too.
+ * Escape closes the list, and does nothing else while it does: in a native dialog the browser closes the dialog on Escape
+ * as the key's default action (its `cancel` event), which only `preventDefault` stops; `stopPropagation` keeps the key from
+ * the listeners round it. Once the list is closed Escape goes on to the dialog.
  *
  * @param event the key event
  */
 function escape(event: KeyboardEvent): void {
   if (open.value) {
+    event.preventDefault()
     event.stopPropagation()
   }
   close()

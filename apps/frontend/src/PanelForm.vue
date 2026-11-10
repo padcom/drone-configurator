@@ -32,9 +32,9 @@
         />
       </label>
       <div v-else-if="row.kind === 'enum'" class="form-field">
-        <label :for="`form-${row.id}`">{{ row.label }}</label>
+        <label :for="`${formId}-${row.id}`">{{ row.label }}</label>
         <EnumField
-          :input-id="`form-${row.id}`"
+          :input-id="`${formId}-${row.id}`"
           :model-value="row.value"
           :options="row.options"
           :label="row.label"
@@ -56,6 +56,7 @@
 <script setup lang="ts">
 // The form the specialist screens share: rows of a few kinds, one under the other, 12 px apart. It holds no value: the
 // rows come in, and what the user does goes out (`change`, `press`), so the screen that owns the form owns what it means.
+import { useId } from 'vue'
 import Button from './kit/Button.vue'
 import Checkbox from './kit/Checkbox.vue'
 import SectionLabel from './kit/SectionLabel.vue'
@@ -67,6 +68,9 @@ defineProps<{
   /** What the form shows, from the top. */
   rows: FormRow[]
 }>()
+
+/** Makes the ids of the form's fields its own: two forms on a page may have rows with the same id. */
+const formId = useId()
 
 const emit = defineEmits<{
   /** The user changed a row: its id and the new value. */

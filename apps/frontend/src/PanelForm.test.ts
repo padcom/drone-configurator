@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { h } from 'vue'
 import PanelForm from './PanelForm.vue'
 import type { FormRow } from './panelForm'
 import { withI18n } from './testing'
@@ -59,6 +60,18 @@ describe('the rows of a form', () => {
 
   it('has nothing for no rows', () => {
     expect(form([]).get('.panel-form').element.children).toHaveLength(0)
+  })
+})
+
+describe('two forms on a page', () => {
+  it('give their fields ids of their own, though their rows have the same ids', () => {
+    const both = { render: () => [h(PanelForm, { rows: ROWS }), h(PanelForm, { rows: ROWS })] }
+    const page = mount(both, { ...withI18n, attachTo: document.body })
+    const ids = page.findAll('[role="combobox"]').map(field => field.attributes('id'))
+
+    expect(ids).toHaveLength(2)
+    expect(ids[0]).not.toBe(ids[1])
+    page.unmount()
   })
 })
 
