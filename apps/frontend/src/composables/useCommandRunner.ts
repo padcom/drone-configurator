@@ -4,14 +4,12 @@
 import { useI18n } from 'vue-i18n'
 import type { Command, CommandContext, FocusTarget, InvokeResult } from '@/lib/commands/command'
 import { focusSearch } from '@/lib/params/paramShortcuts'
+import { askForFocus } from './useFocusIntent'
 import { useCommandContext, useCommands } from './useCommands'
 import { useToasts } from './toasts'
 
 /** Who asked: the palette (its dialog was open, and the focus is to be put into what it opened), or a control on the page. */
 export type RunFrom = 'palette' | 'control'
-
-/** How long a screen that is being shown is waited for (ms) before its place for the focus is given up on. */
-const SCREEN_WAIT_MS = 1500
 
 /**
  * Puts the focus into the screen that a command opened, when that is what asked: the element that had it before the palette
@@ -26,16 +24,15 @@ function focusScreen(from: RunFrom): void {
 }
 
 /**
- * Puts the focus in the Parameters screen's search box, when it is on the page: the screen is loaded when it is first shown, and
- * kept alive when it is not, so it may need a moment.
- *
- * @param waited how long it has been waited for (ms)
+ * Puts the focus in the Parameters screen's search box. When the box is on the page it goes there at once; when it is not (the
+ * screen is loaded when it is first shown, and kept alive, out of the page, when it is not) the box takes the focus itself when
+ * it is shown (ParamFilter, `takeFocus`): nothing waits for it, and a slow load still gets it.
  */
-function focusParamSearch(waited = 0): void {
+function focusParamSearch(): void {
   if (document.getElementById('filter')) {
     focusSearch()
-  } else if (waited < SCREEN_WAIT_MS) {
-    setTimeout(() => focusParamSearch(waited + 50), 50)
+  } else {
+    askForFocus('params.search')
   }
 }
 
@@ -43,7 +40,7 @@ function focusParamSearch(waited = 0): void {
 const PLACES: Record<FocusTarget, (from: RunFrom) => void> = {
   'restore': () => undefined,
   'main': focusScreen,
-  'params.search': () => focusParamSearch(),
+  'params.search': focusParamSearch,
 }
 
 /**

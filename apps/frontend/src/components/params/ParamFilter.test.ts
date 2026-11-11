@@ -5,6 +5,7 @@ import { mockBackend } from '@/mock/mock-backend'
 import { feed, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { VEHICLE } from '@/mock/fixtures'
+import { askForFocus } from '@/composables/useFocusIntent'
 
 /**
  * Mounts the filter on a fresh Configurator whose actions are spies.
@@ -52,4 +53,19 @@ it('offers Download only while connected and not downloading', async () => {
   feed(handle, { list: 'loading' })
   await wrapper.vm.$nextTick()
   expect(wrapper.get('#refresh').attributes('disabled')).toBeDefined()
+})
+
+it('takes the focus when it is shown after a command asked for it, once, and not when nobody asked', async () => {
+  const unasked = mount(ParamFilter, { ...withI18n, attachTo: document.body })
+  await vi.waitFor(() => expect(document.activeElement).not.toBe(unasked.get('#filter').element))
+  unasked.unmount()
+
+  askForFocus('params.search')
+  const asked = mount(ParamFilter, { ...withI18n, attachTo: document.body })
+  await vi.waitFor(() => expect(document.activeElement).toBe(asked.get('#filter').element))
+  asked.unmount()
+
+  const again = mount(ParamFilter, { ...withI18n, attachTo: document.body })
+  await vi.waitFor(() => expect(document.activeElement).not.toBe(again.get('#filter').element))
+  again.unmount()
 })
