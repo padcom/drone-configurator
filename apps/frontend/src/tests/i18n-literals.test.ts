@@ -17,6 +17,7 @@ const ALLOWED: [string, string][] = [
   ['composables/useConfigurator.ts', 'has not been called'],
   ['lib/commands/registry.ts', 'is already registered'],
   ['composables/useCommands.ts', 'not wired to the backend'],
+  ['lib/app/keymap.ts', 'Ctrl Enter'], // the name of a key, as it is printed on it: not translated
 ]
 
 /**

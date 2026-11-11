@@ -44,7 +44,7 @@
       </li>
     </ul>
     <p v-if="rows.length === 0" class="palette-empty">{{ t('palette.empty', { query: query.trim() }) }}</p>
-    <p class="visually-hidden" role="status" aria-live="polite">{{ announced }}</p>
+    <p class="visually-hidden palette-status" role="status" aria-live="polite">{{ announced }}</p>
   </Dialog>
 </template>
 
