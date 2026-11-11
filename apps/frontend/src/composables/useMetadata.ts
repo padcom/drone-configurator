@@ -2,6 +2,7 @@
 // from a file the user picks. It talks to the backend through the client (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
+import { say } from '@/i18n/say'
 import { type Metadata, parseMetadata } from '@/lib/params/metadata'
 
 /** What the metadata needs from the rest of the interface. */
@@ -40,7 +41,7 @@ class ParamMetadata implements MetadataModel {
   load(text: string): void {
     const loaded = parseMetadata(text)
     if (typeof loaded === 'string') {
-      this.error.value = `Can't load the metadata: ${loaded}.`
+      this.error.value = say('notice.metadataLoad', { reason: loaded })
     } else {
       this.metadata.value = loaded
       this.error.value = null
@@ -55,7 +56,7 @@ class ParamMetadata implements MetadataModel {
         this.load(text)
       }
     } catch (error) {
-      this.error.value = `Couldn't open it: ${describeError(error)}`
+      this.error.value = say('notice.open', { error: describeError(error) })
       this.loads.value += 1
     }
   }

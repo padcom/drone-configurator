@@ -3,6 +3,7 @@
 // is 0.10000000149011612, and a typed 0.1 is not equal to it until both are the float. So every value enters the interface as
 // the number the vehicle holds (`canonical`), values are compared as those numbers, and they are shown as the shortest text that
 // reads back as the same number (`showNumber`): 0.1, 3.3, 16777216.
+import { say } from '@/i18n/say'
 
 /** The parameter's kind and type: what decides how its values are held. */
 export interface ValueType {
@@ -117,5 +118,5 @@ export function showNumber(n: number): string {
  * @returns the sentence
  */
 export function notConfirmedText(reported: number, written: number): string {
-  return `the vehicle reports ${showNumber(reported)}, not ${showNumber(written)}`
+  return say('problem.notConfirmed', { reported: showNumber(reported), written: showNumber(written) })
 }

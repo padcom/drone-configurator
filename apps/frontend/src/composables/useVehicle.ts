@@ -2,6 +2,7 @@
 // the vehicle's telemetry. It talks to the backend through the client (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
+import { say } from '@/i18n/say'
 import type { Connection, ConnectRequest, SerialPort, Telemetry } from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
@@ -54,9 +55,7 @@ const errorOf = (connection: Connection) => connection.error ?? null
  * @returns the notice
  */
 function sessionEndedNotice(state: BackendState): string {
-  const what = state === 'restarting' ? 'restarted' : 'stopped'
-
-  return `The backend ${what}: the vehicle session ended. Connect again to continue.`
+  return say(state === 'restarting' ? 'notice.backendRestarted' : 'notice.backendStopped')
 }
 
 /**
@@ -156,7 +155,7 @@ class VehicleLink implements Vehicle {
     try {
       this.ports.value = (await this.deps.client.call('serial.ports', null)).ports
     } catch (error) {
-      this.deps.fail(`Couldn't list the serial ports: ${describeError(error)}`)
+      this.deps.fail(say('notice.serialPorts', { error: describeError(error) }))
     }
   }
 
@@ -168,7 +167,7 @@ class VehicleLink implements Vehicle {
         this.telemetry.value = next
       }).ready
     } catch (error) {
-      this.deps.fail(`the backend: ${describeError(error)}`)
+      this.deps.fail(say('notice.backendError', { error: describeError(error) }))
     }
   }
 

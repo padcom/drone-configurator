@@ -3,7 +3,8 @@
 // only done when the vehicle reports the new value; nothing is written until the user asks, after one question for all.
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
-import { CALIBRATION_NOTE, isCalibration } from '@/lib/params/calibrationParams'
+import { say } from '@/i18n/say'
+import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
 import type { ParamsModel } from './useParams'
@@ -100,13 +101,12 @@ export interface StagedModel {
  * @returns the question, one line for the sentence and one for each change
  */
 export function questionFor(changes: StagedChange[]): string {
-  const noun = changes.length === 1 ? 'parameter' : 'parameters'
   const values = (change: StagedChange) => `${showNumber(change.from)} → ${showNumber(change.to)}`
   const lines = changes.map(change => `${change.id} ${values(change)}${change.warning ? ` (${change.warning})` : ''}`)
   // Said at the top, where a long list that scrolls does not hide it.
-  const note = changes.some(change => isCalibration(change.id)) ? [CALIBRATION_NOTE] : []
+  const note = changes.some(change => isCalibration(change.id)) ? [say('params.initial.includesCalibration')] : []
 
-  return [`Write ${changes.length} ${noun} to the vehicle?`, ...note, ...lines].join('\n')
+  return [say('question.write', { count: changes.length }, changes.length), ...note, ...lines].join('\n')
 }
 
 /**
@@ -313,7 +313,7 @@ class Staged implements StagedModel {
   private async writeOne(change: StagedChange): Promise<StagedResult> {
     const param: Param | undefined = this.deps.parameters.params.value.find(candidate => candidate.id === change.id)
     if (!param) {
-      return { id: change.id, outcome: 'failed', detail: 'not on this vehicle' }
+      return { id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') }
     }
     try {
       const { id, kind, type } = param

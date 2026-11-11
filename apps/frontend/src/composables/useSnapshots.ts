@@ -3,6 +3,7 @@
 // (docs/frontend-state.md).
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
+import { say } from '@/i18n/say'
 import type { Connection, Param } from '@/generated/app'
 import { notConfirmedText, showNumber } from '@/lib/params/paramValue'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from '@/lib/params/snapshot'
@@ -62,7 +63,7 @@ export interface SnapshotsModel {
 function applyQuestion(changes: Change[]): string {
   const names = changes.map(change => change.id).join(', ')
 
-  return `Write ${changes.length} parameter${changes.length === 1 ? '' : 's'} to the vehicle (${names})?`
+  return say('question.snapshot', { count: changes.length, names }, changes.length)
 }
 
 /** The snapshots. */
@@ -91,7 +92,7 @@ class Snapshots implements SnapshotsModel {
 
       return path ?? null
     } catch (error) {
-      this.deps.fail(`Couldn't save: ${describeError(error)}`)
+      this.deps.fail(say('notice.snapshotSave', { error: describeError(error) }))
 
       return null
     }
@@ -104,7 +105,7 @@ class Snapshots implements SnapshotsModel {
         this.load(text)
       }
     } catch (error) {
-      this.importError.value = `Couldn't open it: ${describeError(error)}`
+      this.importError.value = say('notice.open', { error: describeError(error) })
     }
   }
 
@@ -120,7 +121,7 @@ class Snapshots implements SnapshotsModel {
 
     if (typeof snapshot === 'string') {
       this.importReview.value = null
-      this.importError.value = `Can't load it: ${snapshot}.`
+      this.importError.value = say('notice.snapshotLoad', { reason: snapshot })
 
       return
     }
@@ -174,7 +175,7 @@ class Snapshots implements SnapshotsModel {
   private async applyOne(change: Change): Promise<AppliedChange> {
     const param = this.deps.parameters.params.value.find(candidate => candidate.id === change.id)
     if (!param) {
-      return { id: change.id, outcome: 'failed', detail: 'not on this vehicle' }
+      return { id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') }
     }
     try {
       const { id, kind, type } = param

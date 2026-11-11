@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_KEY, LANGUAGE_NAMES, i18n } from './i18n'
-import { isLanguage, legacyLanguage, setLanguage, storageOf } from './i18n'
+import { LANGUAGE_HINT_KEY, isLanguage, legacyLanguage, rememberLanguage, setLanguage } from './i18n'
+import { startInRememberedLanguage, storageOf } from './i18n'
 
 /**
  * A storage in memory.
@@ -85,5 +86,45 @@ describe('the language an earlier version kept in the browser', () => {
     expect(() => reading?.forget()).not.toThrow()
     expect(storageOf({})).toBeNull()
     expect(storageOf(forbidden)).toBeNull()
+  })
+})
+
+const store = (data: Record<string, string> = {}) => ({
+  data,
+  getItem: (key: string) => data[key] ?? null,
+  setItem: (key: string, value: string) => {
+    data[key] = value
+  },
+})
+
+describe('the language shown last, as a hint for the next start', () => {
+  it('is kept when the language is shown, and the next start begins in it, with the page\'s lang', () => {
+    const storage = store()
+    rememberLanguage(storage, 'de')
+
+    expect(storage.data[LANGUAGE_HINT_KEY]).toBe('de')
+    startInRememberedLanguage(storage)
+    expect(document.documentElement.lang).toBe('de')
+    expect(i18n.global.locale.value).toBe('de')
+    setLanguage('en')
+  })
+})
+
+describe('the hint that cannot be trusted', () => {
+  it('is not trusted: a language the interface does not have, or storage that is missing or broken, starts in English', () => {
+    startInRememberedLanguage(store({ [LANGUAGE_HINT_KEY]: 'xx' }))
+    startInRememberedLanguage(null)
+    startInRememberedLanguage({
+      getItem: () => {
+        throw new Error('blocked')
+      },
+    })
+
+    expect(i18n.global.locale.value).toBe('en')
+    expect(() => rememberLanguage({
+      setItem: () => {
+        throw new Error('full')
+      },
+    }, 'de')).not.toThrow()
   })
 })

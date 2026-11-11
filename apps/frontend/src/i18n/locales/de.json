@@ -351,7 +351,7 @@
       "star": "Favorit: {id}",
       "added": "{id} zu den Favoriten hinzugefügt",
       "removed": "{id} aus den Favoriten entfernt",
-      "clearMissing": "Die {count} nicht an diesem Fahrzeug entfernen…",
+      "clearMissing": "Die {count} Favoriten entfernen, die dieses Fahrzeug nicht hat…",
       "clearMissingHelp": "Nimmt die {count} Favoriten, die dieses Fahrzeug nicht hat, für alle Fahrzeuge aus deiner Liste. Es fragt vorher noch einmal.",
       "clearAsk": "{count} für alle Fahrzeuge aus deiner Liste entfernen? Noch einmal drücken",
       "cleared": "{count} aus den Favoriten entfernt",
@@ -467,5 +467,48 @@
     "related": "Verwandt",
     "openEnd": "…",
     "newValue": "Wert"
+  },
+  "question": {
+    "write": "{count} Parameter ans Fahrzeug schreiben? | {count} Parameter ans Fahrzeug schreiben?",
+    "snapshot": "{count} Parameter ans Fahrzeug schreiben ({names})? | {count} Parameter ans Fahrzeug schreiben ({names})?"
+  },
+  "draft": {
+    "number": "bitte eine Zahl",
+    "ambiguous": "bitte eine Zahl mit Punkt: {text} könnte eine Dezimalzahl oder eine Tausendergruppe sein",
+    "range": "{type} reicht von {min} bis {max}",
+    "tooLarge": "zu groß für einen REAL32"
+  },
+  "warn": {
+    "values": "Keiner der üblichen Werte: {allowed}",
+    "range": "Außerhalb des üblichen Bereichs {min}–{max}{units}"
+  },
+  "reason": {
+    "notJson": "kein JSON",
+    "xml": "eine XML-Datei: gelesen wird nur JSON (ArduPilots apm.pdef.json oder unser eigenes Format)",
+    "notMetadata": "keine Parameter-Metadaten-Datei: erwartet wird ArduPilots apm.pdef.json oder unser eigenes Format",
+    "metadataVersion": "Metadatenversion {version} (diese App liest Version 1)",
+    "noParameters": "sie beschreibt keine Parameter",
+    "noParams": "sie hat keine Parameter",
+    "snapshotVersion": "Snapshot-Version {version} (diese App liest Version {supported})",
+    "malformed": "ihre Parameter sind fehlerhaft aufgebaut",
+    "notSnapshot": "kein Drone-Configurator-Parameter-Snapshot"
+  },
+  "problem": {
+    "notOnVehicle": "nicht an diesem Fahrzeug",
+    "otherType": "{snapshot} im Snapshot, {vehicle} am Fahrzeug",
+    "otherVehicle": "gespeichert von einem {was} ({wasAutopilot}); dies ist ein {now} ({nowAutopilot})",
+    "notConfirmed": "das Fahrzeug meldet {reported}, nicht {written}"
+  },
+  "notice": {
+    "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
+    "open": "Konnte nicht geöffnet werden: {error}",
+    "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",
+    "settingKept": "Eine Einstellung konnte nicht gespeichert werden: {error}",
+    "snapshotSave": "Konnte nicht gespeichert werden: {error}",
+    "snapshotLoad": "Kann nicht geladen werden: {reason}.",
+    "serialPorts": "Die seriellen Ports konnten nicht aufgelistet werden: {error}",
+    "backendError": "das Backend: {error}",
+    "backendRestarted": "Das Backend wurde neu gestartet: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren.",
+    "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
   }
 }
