@@ -102,14 +102,18 @@ function rankOf(texts: Texts, query: string, tokens: string[]): number | null {
  */
 export function preferred(commands: readonly Command[], ctx: CommandContext): Command[] {
   const recent = ctx.usage.recent()
+  // A dangerous command (the reboot) never gets the boost of having been run lately: it would become the row that Enter runs
+  // in an empty palette.
   const used = (command: Command) => {
-    const at = recent.indexOf(command.id)
+    const at = command.dangerous === true ? -1 : recent.indexOf(command.id)
 
     return at < 0 ? Number.MAX_SAFE_INTEGER : at
   }
   const label = (command: Command) => command.label ?? ctx.say(command.labelKey)
+  // In the language of the page, not the browser's: Polish and Ukrainian sort their letters differently from the default.
+  const collator = new Intl.Collator(ctx.language(), { sensitivity: 'base' })
 
-  return commands.toSorted((a, b) => used(a) - used(b) || label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }))
+  return commands.toSorted((a, b) => used(a) - used(b) || collator.compare(label(a), label(b)))
 }
 
 /**

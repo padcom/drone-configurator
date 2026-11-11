@@ -112,6 +112,24 @@ describe('loading when nothing was kept, or it cannot be had', () => {
   })
 })
 
+describe('keeping a text of the interface\'s own', () => {
+  it('says so in the notice when it cannot be kept', async () => {
+    const { settings } = refused()
+
+    await settings.setUi('k', 'v')
+
+    expect(settings.notice.value).toContain('the backend is gone')
+  })
+
+  it('says nothing when it cannot be kept and was asked to be quiet (what is not worth a notice)', async () => {
+    const { settings } = refused()
+
+    await settings.setUi('k', 'v', true)
+
+    expect(settings.notice.value).toBeNull()
+  })
+})
+
 describe('the language an earlier version kept in the browser', () => {
   it('moves into the settings, and is forgotten', async () => {
     const { settings, client, forget, applyLanguage } = rig({ legacy: 'en' })

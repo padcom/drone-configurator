@@ -17,6 +17,15 @@ export function say(key: string, named: Record<string, unknown> = {}, plural?: n
 }
 
 /**
+ * The language of the page (the interface's, not the browser's): what text is sorted and compared by.
+ *
+ * @returns its code
+ */
+export function pageLanguage(): string {
+  return String(i18n.global.locale.value)
+}
+
+/**
  * A message of the interface in English, whatever the language of the page is: for what is searched by its English name as
  * well as its translated one (the command palette).
  *

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { fakeContext } from '@/testing/commandContext'
 import { setLanguage } from '@/i18n/i18n'
 import { CommandRegistry } from './registry'
+import { preferred } from './search'
 import { goToScreens } from './navigation'
 import { RebootFlightController } from './vehicle'
 import { ConnectToVehicle, DisconnectFromVehicle } from './app'
@@ -50,12 +51,12 @@ describe('the list with nothing typed', () => {
   })
 
   it('has the commands run last first, the newest on top, then the rest alphabetically', () => {
-    expect(listed(['vehicle.reboot', 'go.plan'])).toEqual([
-      'vehicle.reboot',
+    expect(listed(['params.download', 'go.plan'])).toEqual([
+      'params.download',
       'go.plan',
       'connect.open',
       'vehicle.disconnect',
-      'params.download',
+      'vehicle.reboot',
       'go.flight',
     ])
   })
@@ -72,6 +73,46 @@ describe('the list with nothing typed', () => {
     const labels = listed([]).map(id => fake.ctx.say(commands.get(id)?.labelKey ?? ''))
 
     expect(labels).toEqual(labels.toSorted((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })))
+  })
+})
+
+describe('the order by the language of the page', () => {
+  it('uses the collation of the interface\'s language, not the browser\'s (Polish puts ł after l and ś after s)', () => {
+    setLanguage('pl')
+    const fake = fakeContext()
+    const named = (id: string, label: string) => ({
+      id, label, labelKey: '', groupKey: '', isEnabled: () => ({ enabled: true as const }), execute: () => ({}),
+    })
+    const commands = [named('a', 'Łódź'), named('b', 'Lublin'), named('c', 'Mielec')]
+    const ids = (language: string) => preferred(commands, { ...fake.ctx, language: () => language }).map(command => command.id)
+
+    // With base sensitivity "Ł" is a letter of its own after "L" in Polish, but only a variant of "L" by default.
+    expect(ids('pl')).toEqual(['b', 'a', 'c'])
+    expect(ids('sv')).not.toEqual(ids('pl').toReversed())
+  })
+
+  it('asks the page for its language: the context says it', () => {
+    setLanguage('uk')
+
+    expect(fakeContext().ctx.language()).toBe('uk')
+  })
+})
+
+describe('a dangerous command', () => {
+  it('is never boosted by having been run lately: it stays where the alphabet puts it', () => {
+    expect(listed(['vehicle.reboot', 'go.plan'])).toEqual([
+      'go.plan',
+      'connect.open',
+      'vehicle.disconnect',
+      'params.download',
+      'vehicle.reboot',
+      'go.flight',
+    ])
+    expect(listed(['vehicle.reboot'])[0]).not.toBe('vehicle.reboot')
+  })
+
+  it('is flagged: the reboot', () => {
+    expect(new RebootFlightController().dangerous).toBe(true)
   })
 })
 
