@@ -41,8 +41,14 @@ export function withUsed(ids: readonly string[], id: string): string[] {
 /** The list that the settings have not answered for yet: shown at once (shared by every reader). */
 const local = shallowRef<string[] | null>(null)
 
-/** Forgets what the settings have not answered for (for the tests: the list is shared by the whole page). */
+/** How long after the last command that was run the list is written to the settings (ms): not on every navigation. */
+export const WRITE_MS = 500
+
+let timer: ReturnType<typeof setTimeout> | undefined
+
+/** Forgets what the settings have not answered for, and the write that waits (for the tests: it is shared by the whole page). */
 export function forgetUsage(): void {
+  clearTimeout(timer)
   local.value = null
 }
 
@@ -50,13 +56,14 @@ export function forgetUsage(): void {
 export interface CommandUsage {
   /** The ids, the one run last first. */
   recent: ComputedRef<string[]>
-  /** Notes that a command was run: it is first from now on. */
-  record: (id: string) => Promise<void>
+  /** Notes that a command was run: it is first from now on, at once; the settings are written a moment later. */
+  record: (id: string) => void
 }
 
 /**
- * The commands run lately, kept in the settings. A recording shows at once, and goes back to what the settings hold once they
- * have answered (they swallow a failure to write and say why themselves).
+ * The commands run lately, kept in the settings. A recording shows at once and is written a moment after the last one (a run
+ * of commands is one write, not one for each). It is not worth a notice: when the settings cannot keep it nothing is said, and
+ * the list is what this session made of it.
  *
  * @returns the list and how to add to it
  */
@@ -64,21 +71,27 @@ export function useCommandUsage(): CommandUsage {
   const { settings } = useConfigurator()
   const recent = computed(() => local.value ?? parseRecent(settings.uiValue(RECENT_KEY)))
 
-  /**
-   * Puts a command first.
-   *
-   * @param id the command that was run
-   */
-  async function record(id: string): Promise<void> {
-    const next = withUsed(recent.value, id)
-    local.value = next
-    await settings.setUi(RECENT_KEY, JSON.stringify(next))
+  /** Writes the list, quietly; once the settings hold it, they are what is shown. */
+  async function flush(): Promise<void> {
+    const next = local.value
+    if (next === null) {
+      return
+    }
+    const text = JSON.stringify(next)
+    await settings.setUi(RECENT_KEY, text, true)
 
-    // A newer recording, made before the answer, is left to its own answer.
-    if (local.value === next) {
+    // A newer recording, made before the answer, is left to its own write. One the settings did not keep stays as it is.
+    if (local.value === next && settings.uiValue(RECENT_KEY) === text) {
       local.value = null
     }
   }
 
-  return { recent, record }
+  return {
+    recent,
+    record: id => {
+      local.value = withUsed(recent.value, id)
+      clearTimeout(timer)
+      timer = setTimeout(() => void flush(), WRITE_MS)
+    },
+  }
 }

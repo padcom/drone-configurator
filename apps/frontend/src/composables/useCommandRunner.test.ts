@@ -10,7 +10,7 @@ import CommandButton from '@/components/ui/CommandButton.vue'
 import Settings from '@/screens/Settings.vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { NOTICE_KEY, forgetNoticeChoice } from './useCommandNotice'
-import { RECENT_KEY, forgetUsage } from './useCommandUsage'
+import { RECENT_KEY, WRITE_MS, forgetUsage, useCommandUsage } from './useCommandUsage'
 import { useToasts } from './toasts'
 
 const mounted: VueWrapper[] = []
@@ -48,7 +48,27 @@ it('remembers a command that ran, in the settings, newest first, from a button a
   await button.trigger('click')
 
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/plan'))
-  await vi.waitFor(() => expect(handle.settings.uiValue(RECENT_KEY)).toBe('["go.plan"]'))
+  // Shown at once; written a moment later, not on every run.
+  expect(handle.settings.uiValue(RECENT_KEY)).toBeUndefined()
+  await vi.waitFor(() => expect(handle.settings.uiValue(RECENT_KEY)).toBe('["go.plan"]'), { timeout: WRITE_MS + 2000 })
+})
+
+it('writes a run of commands once, and says nothing at all when the settings cannot keep it', async () => {
+  const { handle, button } = await setup()
+  const setUi = vi.spyOn(handle.settings, 'setUi').mockResolvedValue()
+  const { record } = useCommandUsage()
+
+  record('go.plan')
+  record('go.tune')
+  record('go.logs')
+  await button.trigger('click')
+
+  await vi.waitFor(() => expect(setUi).toHaveBeenCalledTimes(1), { timeout: WRITE_MS + 2000 })
+  expect(setUi).toHaveBeenCalledWith(RECENT_KEY, '["go.plan","go.logs","go.tune"]', true)
+  // Not kept (the settings did not take it): the list stays as this session made it, and no toast or notice was raised.
+  expect(useCommandUsage().recent.value.slice(0, 3)).toEqual(['go.plan', 'go.logs', 'go.tune'])
+  expect(handle.settings.notice.value).toBeNull()
+  expect(useToasts().visible.value).toEqual([])
 })
 
 it('raises no notification for a command that ran while the setting is off (the default)', async () => {

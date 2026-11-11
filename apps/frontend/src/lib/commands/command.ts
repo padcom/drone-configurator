@@ -124,6 +124,8 @@ export interface CommandContext {
   toast(input: ToastInput): void
   /** A message of the interface in the language of the page. */
   say(key: string, named?: Record<string, unknown>): string
+  /** The language of the page (its code): what labels are sorted by. */
+  language(): string
   /** The same message in English, so that a command can be found by its English name in every language. */
   sayEnglish(key: string, named?: Record<string, unknown>): string
 }
@@ -148,6 +150,8 @@ export interface Command {
   readonly keywordKeys?: readonly string[]
   /** The key to show in its row (a plain string, filled from the keymap), when it has one. */
   readonly shortcut?: string
+  /** True for a command that does something to the vehicle that must be meant (the reboot): it is never boosted by recent use. */
+  readonly dangerous?: boolean
   /** False for a command the palette does not offer in its list (one that is the palette itself); it still runs by its id. */
   readonly listed?: boolean
   /** An icon of the kit's set (lib/ui/icons), for the places that draw one: the rail, a button, a row of the palette. */

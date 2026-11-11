@@ -65,13 +65,14 @@ function useComplaint(): (result: InvokeResult) => void {
 }
 
 /**
- * Whether the palette lists a command: it is registered, and not one that is the palette itself.
+ * Whether a command is worth remembering as run lately: it is registered, the palette lists it, and it is not a dangerous one
+ * (those are never boosted, so there is nothing to keep).
  *
  * @param registered the registered command with the id, if there is one
- * @returns true when it is listed
+ * @returns true when it is
  */
 function isListed(registered: Command | undefined): boolean {
-  return registered !== undefined && registered.listed !== false
+  return registered !== undefined && registered.listed !== false && registered.dangerous !== true
 }
 
 /**

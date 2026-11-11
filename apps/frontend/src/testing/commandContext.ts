@@ -6,7 +6,7 @@ import type { Metadata } from '@/lib/params/metadata'
 import { indexFor } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
 import type { ToastInput } from '@/composables/toasts'
-import { say, sayEnglish } from '@/i18n/say'
+import { pageLanguage, say, sayEnglish } from '@/i18n/say'
 
 /** What a test sets, and reads back. */
 export interface Fake {
@@ -190,6 +190,7 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
     },
     toast: (input: ToastInput) => void fake.calls.toast.push(input),
     say,
+    language: pageLanguage,
     sayEnglish,
   }
 

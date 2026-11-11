@@ -10,6 +10,7 @@ import Shell from './Shell.vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { useCommandPalette } from '@/composables/useCommandPalette'
 import { useCommands } from '@/composables/useCommands'
+import { forgetUsage } from '@/composables/useCommandUsage'
 import { useConnectDialog } from '@/composables/useConnectDialog'
 
 let mounted: VueWrapper | undefined
@@ -47,6 +48,7 @@ function press(init: KeyboardEventInit): KeyboardEvent {
 const ctrlP = (init: KeyboardEventInit = {}) => press({ code: 'KeyP', key: 'p', ctrlKey: true, ...init })
 
 afterEach(() => {
+  forgetUsage()
   setLanguage('en')
   useCommandPalette().hide()
   useConnectDialog().hide()

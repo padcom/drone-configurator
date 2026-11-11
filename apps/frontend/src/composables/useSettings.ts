@@ -31,8 +31,8 @@ export interface SettingsModel {
   uiValue: (key: string) => string | undefined
   /** Keeps the language of the interface (and shows the interface in it); if it cannot be kept, `notice` says so. */
   setLanguage: (language: Language) => Promise<void>
-  /** Keeps a text under `key`; if it cannot be kept, `notice` says so. */
-  setUi: (key: string, value: string) => Promise<void>
+  /** Keeps a text under `key`; if it cannot be kept, `notice` says so (unless `quiet`: for what is not worth a notice). */
+  setUi: (key: string, value: string, quiet?: boolean) => Promise<void>
   /** The backend says the settings changed (also when this window did not ask). */
   changed: (state: SettingsState) => void
   /** Hides the notice, until the backend says something else. */
@@ -131,11 +131,13 @@ class SettingsLink implements SettingsModel {
     }
   }
 
-  async setUi(key: string, value: string): Promise<void> {
+  async setUi(key: string, value: string, quiet = false): Promise<void> {
     try {
       this.changed(await this.deps.client.call('settings.set', { ui: [{ key, value }] }))
     } catch (error) {
-      this.notice.value = say('notice.settingKept', { error: describeError(error) })
+      if (!quiet) {
+        this.notice.value = say('notice.settingKept', { error: describeError(error) })
+      }
     }
   }
 

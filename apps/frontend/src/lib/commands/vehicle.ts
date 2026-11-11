@@ -65,6 +65,9 @@ export class RebootFlightController implements Command {
 
   readonly icon = 'refresh'
 
+  // Restarts the flight controller: never the row that an empty palette has ready because it was run lately.
+  readonly dangerous = true
+
   readonly keywordKeys = ['palette.vehicle.reboot.keywords']
 
   /**

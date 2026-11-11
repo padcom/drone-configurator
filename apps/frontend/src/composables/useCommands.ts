@@ -15,7 +15,7 @@ import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/s
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
-import { say, sayEnglish } from '@/i18n/say'
+import { pageLanguage, say, sayEnglish } from '@/i18n/say'
 import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
 import { useConnectDialog } from './useConnectDialog'
@@ -208,6 +208,7 @@ export function useCommandContext(): CommandContext {
     confirm: options => confirmWith(options),
     toast: input => toasts.push(input),
     say,
+    language: pageLanguage,
     sayEnglish,
   }
 }
