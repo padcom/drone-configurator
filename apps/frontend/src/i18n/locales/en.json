@@ -230,13 +230,12 @@
     "axes": "x {x} · y {y} · z {z}"
   },
   "language": {
-    "label": "Language",
-    "en": "English"
+    "label": "Language"
   },
   "settings": {
     "dismiss": "Dismiss",
     "title": "Settings",
-    "languageHelp": "The language of the interface. English is the only one there is for now.",
+    "languageHelp": "The language of the interface.",
     "groups": "Show parameter groups",
     "groupsHelp": "Shows the group list and the favourites stars. Your favourites are kept while it is off.",
     "more": "Units, the map and the vehicle's defaults come with their screens."

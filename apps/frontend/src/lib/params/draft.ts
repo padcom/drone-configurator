@@ -2,7 +2,7 @@
 // unusual (a warning).
 import type { Param } from '@/generated/app'
 import { type Metadata, checkMeta } from './metadata'
-import { typedValue } from './paramValue'
+import { plainNumber, typedValue } from './paramValue'
 
 /** The range of each integer type of the vehicle's parameters. */
 const RANGES: Record<string, [number, number]> = {
@@ -61,7 +61,7 @@ function typeProblem(param: Param, n: number): string | null {
  * @returns the problem, or null
  */
 export function validateDraft(param: Param, text: string): string | null {
-  const trimmed = text.trim()
+  const trimmed = plainNumber(text)
   if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
     return 'a number, please'
   }

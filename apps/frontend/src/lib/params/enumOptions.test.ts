@@ -60,6 +60,8 @@ describe('what Enter takes', () => {
   it('is the number that was typed, if it is one', () => {
     expect(typedNumber('9')).toBe(9)
     expect(typedNumber(' -2.5 ')).toBe(-2.5)
+    expect(typedNumber('2,5')).toBe(2.5)
+    expect(typedNumber('1,500')).toBeUndefined()
     expect(typedNumber('x')).toBeUndefined()
     expect(typedNumber(null)).toBeUndefined()
   })

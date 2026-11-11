@@ -110,7 +110,7 @@ it('has a Settings screen with the language of the interface, English being the 
 
   expect(wrapper.get('main h2').text()).toBe('Settings')
   const select = wrapper.get<HTMLSelectElement>('main select')
-  expect(select.findAll('option').map(option => option.text())).toEqual(['English'])
+  expect(select.findAll('option').map(option => option.text())).toEqual(['English', 'Deutsch'])
   expect(select.element.value).toBe('en')
   expect(wrapper.get('main label').text()).toBe('Language')
   expect(wrapper.get('main label').attributes('for')).toBe(select.attributes('id'))
@@ -119,14 +119,9 @@ it('has a Settings screen with the language of the interface, English being the 
 it('sends the language that is picked on the Settings screen to the settings, so that it is kept', async () => {
   const { wrapper } = await shellAt('/settings')
   const setLanguage = vi.spyOn(useConfigurator().settings, 'setLanguage').mockResolvedValue()
-  // English is the only language, so the interface is put in another for a moment, to be able to pick English from it.
-  i18n.global.locale.value = 'xx' as never
-  await wrapper.vm.$nextTick()
+  await wrapper.get('main select').setValue('de')
 
-  await wrapper.get('main select').setValue('en')
-  i18n.global.locale.value = 'en'
-
-  expect(setLanguage).toHaveBeenCalledWith('en')
+  expect(setLanguage).toHaveBeenCalledWith('de')
 })
 
 it('gives each screen that is not built its own component, so that its heading is a new one on a change', async () => {

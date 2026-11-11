@@ -48,6 +48,24 @@ export function canonParam<T extends ValueType & { value: number }>(param: T): T
   return Object.is(value, param.value) ? param : { ...param, value }
 }
 
+/** One comma, and not exactly three digits after it ("1,500" may be a thousand five hundred: it is not guessed at). */
+const DECIMAL_COMMA = /^[+-]?\d*,(?!\d{3}$)\d*$/u
+
+/**
+ * A typed number with the decimal comma of many languages ("0,5") as a number with the decimal point. Only one comma, with no
+ * point in the text and not exactly three digits after the comma, is taken for a decimal comma; anything else is left as it is
+ * ("1,2,3" and "1,500.5" are not numbers, and "1,500" is not guessed to be 1.5: it is not a number either, rather than a wrong
+ * one). Values are shown with a point whatever the language (they are the wire's), but a person may type either.
+ *
+ * @param text what was typed
+ * @returns the text, trimmed, with the comma made a point when it was a decimal comma
+ */
+export function plainNumber(text: string): string {
+  const trimmed = text.trim()
+
+  return DECIMAL_COMMA.test(trimmed) ? trimmed.replace(',', '.') : trimmed
+}
+
 /**
  * The number a typed text stands for, as the vehicle holds it.
  *
@@ -56,7 +74,7 @@ export function canonParam<T extends ValueType & { value: number }>(param: T): T
  * @returns the number the vehicle would hold
  */
 export function typedValue(param: ValueType, text: string): number {
-  return canonical(param, Number(text.trim()))
+  return canonical(param, Number(plainNumber(text)))
 }
 
 /**

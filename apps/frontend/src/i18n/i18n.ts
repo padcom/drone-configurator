@@ -2,13 +2,27 @@
 // @intlify/unplugin-vue-i18n (see vite.config.ts), so the runtime has no message compiler and needs no `eval` or
 // `new Function`, which the production CSP forbids.
 import { createI18n } from 'vue-i18n'
+import de from '@/i18n/locales/de.json'
 import en from '@/i18n/locales/en.json'
 
-/** The languages the interface has messages for. */
-export const LANGUAGES = ['en'] as const
+/**
+ * The languages of the interface: ONE table. A new language is a locale file in `locales/`, a row here (its code, its name in
+ * its own language, and its messages), and a look at the fonts (`assets/styles/fonts.css`: Latin, Latin Extended, Cyrillic).
+ * The plural rules are `Intl.PluralRules` of the code (see `pluralIndex`); every locale file is checked against `en.json`.
+ */
+const TABLE = {
+  en: { name: 'English', messages: en },
+  de: { name: 'Deutsch', messages: de },
+}
 
-/** One of `LANGUAGES`. */
-export type Language = typeof LANGUAGES[number]
+/** One of the languages in the table. */
+export type Language = keyof typeof TABLE
+
+/** The languages the interface has messages for, English first. */
+export const LANGUAGES = Object.keys(TABLE) as Language[]
+
+/** What each language calls itself: the names in the Settings select, which do not change with the language chosen. */
+export const LANGUAGE_NAMES = Object.fromEntries(LANGUAGES.map(code => [code, TABLE[code].name])) as Record<Language, string>
 
 /** The language used when none was chosen, and for any message another language lacks. */
 export const DEFAULT_LANGUAGE: Language = 'en'
@@ -86,19 +100,58 @@ export function legacyLanguage(storage: Pick<Storage, 'getItem' | 'removeItem'> 
   }
 }
 
+const pluralRules = new Map<string, Intl.PluralRules>()
+
+/**
+ * The plural rules of a language, made once.
+ *
+ * @param language the language
+ * @returns its `Intl.PluralRules`
+ */
+function ruleFor(language: string): Intl.PluralRules {
+  const rule = pluralRules.get(language) ?? new Intl.PluralRules(language)
+  pluralRules.set(language, rule)
+
+  return rule
+}
+
+/**
+ * Which form of a message with plural forms (`one | other`, or `one | few | many`) a count takes. The categories are the
+ * language's own (`Intl.PluralRules`): with two forms the first is "one" and the second everything else (English, German,
+ * Italian, Spanish); with three, "one", then "few", then everything else (Polish, Ukrainian, Russian: "many").
+ *
+ * @param language the language
+ * @param count the number the message is about
+ * @param forms how many forms the message has
+ * @returns the index of the form
+ */
+export function pluralIndex(language: string, count: number, forms: number): number {
+  const at = ['one', 'few'].indexOf(ruleFor(language).select(count))
+  // "one" is always the first form, "few" the second when there are three; anything else is the last.
+  const wanted = forms > 2 || at === 0 ? at : -1
+
+  return wanted < 0 ? Math.max(forms - 1, 0) : wanted
+}
+
 /** The interface's i18n instance: Composition API only, English as the fallback of every language. */
 export const i18n = createI18n({
   legacy: false,
   locale: DEFAULT_LANGUAGE,
   fallbackLocale: DEFAULT_LANGUAGE,
-  messages: { en },
+  messages: Object.fromEntries(LANGUAGES.map(code => [code, TABLE[code].messages])),
+  pluralRules: Object.fromEntries(LANGUAGES.map(code => [code, (n: number, forms: number) => pluralIndex(code, n, forms)])),
 })
 
 /**
- * Switches the interface language. (Keeping the choice is the settings' business: useSettings.)
+ * Switches the interface language, and the `lang` of the page (for the browser's hyphenation, quotes and screen readers).
+ * (Keeping the choice is the settings' business: useSettings.)
  *
  * @param language one of `LANGUAGES`
  */
 export function setLanguage(language: Language): void {
   i18n.global.locale.value = language
+
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = language
+  }
 }

@@ -1,6 +1,8 @@
 // What an enum field needs to decide, apart from the DOM: which options match what was typed, whether the typed text is a
 // number that has no name, and where the arrow keys go. A vehicle's value is a number; the names are the interface's help.
 
+import { plainNumber } from './paramValue'
+
 /** One value the vehicle can take, and its name. */
 export interface EnumOption {
   /** The number the vehicle stores. */
@@ -12,13 +14,13 @@ export interface EnumOption {
 const NUMBER = /^-?\d+(?:\.\d+)?$/u
 
 /**
- * Whether some text is a number.
+ * Whether some text is a number (a decimal comma is a point, as everywhere a number is typed).
  *
  * @param text what was typed
- * @returns true for "7", "-1" and "2.5"
+ * @returns true for "7", "-1", "2.5" and "2,5"
  */
 export function isNumber(text: string): boolean {
-  return NUMBER.test(text.trim())
+  return NUMBER.test(plainNumber(text))
 }
 
 /**
@@ -43,7 +45,7 @@ export function matching(options: EnumOption[], query: string): EnumOption[] {
  * @returns true when there is a number with no name
  */
 export function offersNumber(options: EnumOption[], query: string): boolean {
-  return isNumber(query) && !options.some(o => o.value === Number(query.trim()))
+  return isNumber(query) && !options.some(o => o.value === Number(plainNumber(query)))
 }
 
 /**
@@ -53,7 +55,7 @@ export function offersNumber(options: EnumOption[], query: string): boolean {
  * @returns the number, or undefined
  */
 export function typedNumber(query: string | null): number | undefined {
-  return query !== null && isNumber(query) ? Number(query.trim()) : undefined
+  return query !== null && isNumber(query) ? Number(plainNumber(query)) : undefined
 }
 
 /**

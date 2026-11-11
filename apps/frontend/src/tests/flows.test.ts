@@ -274,6 +274,17 @@ describe('editing', () => {
     const real = PARAMS.find(p => p.kind === 'real')!
     expect(validateDraft(real, '12.75')).toBeNull()
   })
+})
+
+describe('editing, and the typing of a decimal comma', () => {
+  it('takes a decimal comma as a point, and a comma that is not one is not a number ("1,500" is not guessed)', () => {
+    const int8 = PARAMS.find(p => p.type === 'INT8')!
+
+    expect(validateDraft(int8, '5,4')).toBeNull()
+    expect(validateDraft(int8, '127,5')).toBe('INT8 goes from -128 to 127')
+    expect(validateDraft(int8, '1,2,3')).toBe('a number, please')
+    expect(validateDraft(int8, '1,500')).toBe('a number, please')
+  })
 
   it('warns about edits outside the loaded metadata, only when it\'s there, and still lets them be written', async () => {
     const { app, questions } = await connected()

@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { canonParam, canonical, notConfirmedText, showNumber, typedValue } from './paramValue'
+import { canonParam, canonical, notConfirmedText, plainNumber, showNumber, typedValue } from './paramValue'
 
 const INT16 = { kind: 'int', type: 'INT16' }
 const UINT32 = { kind: 'int', type: 'UINT32' }
 const REAL32 = { kind: 'real', type: 'REAL32' }
 const REAL64 = { kind: 'real', type: 'REAL64' }
+
+describe('a decimal comma typed by a person', () => {
+  it('is a decimal point when it is the only comma and there is no point: "0,5" is 0.5', () => {
+    const typed = [plainNumber('0,5'), plainNumber(' -2,25 '), plainNumber('10,'), plainNumber(',5')]
+
+    expect(typed).toEqual(['0.5', '-2.25', '10.', '.5'])
+    expect(typedValue(REAL32, '0,1')).toBe(Math.fround(0.1))
+    expect(typedValue(INT16, '7,6')).toBe(8)
+  })
+
+  it('is left as it is when it cannot be a decimal comma, so that the text is still not a number', () => {
+    expect([plainNumber('1,500.5'), plainNumber('1,2,3'), plainNumber('1.5')]).toEqual(['1,500.5', '1,2,3', '1.5'])
+    expect(Number.isNaN(Number(plainNumber('1,2,3')))).toBe(true)
+    expect(Number.isNaN(Number(plainNumber('1,500.5')))).toBe(true)
+  })
+
+  it('is not guessed when exactly three digits follow it ("1,500", "0,125"), and is when fewer or more do', () => {
+    const typed = [plainNumber('1,500'), plainNumber('0,125'), plainNumber('0,12'), plainNumber('0,1234')]
+
+    expect(typed).toEqual(['1,500', '0,125', '0.12', '0.1234'])
+    expect(Number.isNaN(Number(plainNumber('1,500')))).toBe(true)
+  })
+})
 
 describe('negative zero and NaN', () => {
   it('are never a negative zero for an integer, and a NaN is the same as a NaN', () => {
