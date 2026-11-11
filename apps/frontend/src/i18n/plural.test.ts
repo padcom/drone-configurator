@@ -73,6 +73,32 @@ describe('a message in the interface', () => {
   })
 })
 
+describe('a message about a count that has to read right for one', () => {
+  const CASES = [
+    ['en', 'staged.allWritten', 1, '1 written and read back.'],
+    ['en', 'staged.allWritten', 3, 'All 3 written and read back.'],
+    ['en', 'staged.leftOut', 1, '1 left out: the vehicle already had its value when you confirmed.'],
+    ['it', 'staged.allWritten', 1, '1 scritto e riletto.'],
+    ['it', 'staged.allWritten', 4, 'Tutti i 4 scritti e riletti.'],
+    ['it', 'params.favourites.notOnVehicle', 1, '1 dei tuoi preferiti non è su questo veicolo.'],
+    ['es', 'staged.allWritten', 1, '1 escrito y releído.'],
+    ['es', 'staged.allWritten', 2, 'Los 2 escritos y releídos.'],
+    ['de', 'staged.allWritten', 1, '1 geschrieben und zurückgelesen.'],
+    ['en', 'params.status.all', 1, '1 parameter'],
+    ['en', 'params.status.all', 12, '12 parameters'],
+    ['it', 'params.status.all', 1, '1 parametro'],
+    ['es', 'params.status.all', 1, '1 parámetro'],
+    ['en', 'params.metadata', 1, 'Metadata for 1 parameter'],
+    ['en', 'params.metadata', 12, 'Metadata for 12 parameters'],
+  ] as const
+
+  it.each(CASES)('is in %s, %s with %i', (language, key, count, text) => {
+    setLanguage(language)
+
+    expect(i18n.global.t(key, { count, total: count }, count)).toBe(text)
+  })
+})
+
 describe('the language of the page', () => {
   it('is on <html lang> after a switch, and back', () => {
     setLanguage('de')

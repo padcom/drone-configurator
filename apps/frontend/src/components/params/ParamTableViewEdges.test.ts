@@ -118,7 +118,7 @@ it('says in the help of the bulk reset how many of the changed parameters the St
   await view.get('input[value="standard"]').setValue(true)
   await flushPromises()
 
-  expect(table.get('#reset-all').text()).toBe('Reset 1 changed to initial values')
+  expect(table.get('#reset-all').text()).toBe('Reset 1 changed parameter to its initial value')
   expect(table.get('#reset-all').attributes('title')).toContain('This includes 1 parameter hidden by the Standard view.')
 })
 

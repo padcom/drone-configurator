@@ -10,8 +10,9 @@ it('says how many parameters the metadata describes, or nothing', () => {
 
   expect(metadataText(counts(0, 0, 0, 3), translate)).toBe('Metadata for 3 parameters')
   expect(metadataText(counts(2, 2, 5, 3), translate)).toBe('Loaded descriptions for 2 of 5 parameters')
-  expect(metadataText(counts(3, 1, 5, 3), translate)).toBe('3 of 5 parameters matched, 1 have a description')
-  expect(metadataText(counts(0, 0, 5, 3), translate)).toMatch(/^0 of 5 parameters matched: none of the 3/u)
+  expect(metadataText(counts(3, 1, 5, 3), translate)).toBe('3 of 5 parameters matched; with a description: 1')
+  expect(metadataText(counts(0, 0, 5, 3), translate))
+    .toMatch(/^0 of 5 parameters matched\. Parameters the file describes: 3, none of them/u)
   expect(metadataText(counts(0, 0, 5, 0), translate)).toBe('')
 })
 

@@ -143,7 +143,7 @@ it('writes the changes on the button; a change read back leaves the list, and a 
   expect(wrapper.find('.staged-row').exists()).toBe(false)
   expect(wrapper.get('.staged-status[role="status"]').text()).toBe('')
   expect(useToasts().visible.value.map(toast => [toast.severity, toast.text]))
-    .toContainEqual(['success', 'All 1 written and read back.'])
+    .toContainEqual(['success', '1 written and read back.'])
   expect(wrapper.get('#write-staged').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#write-staged').attributes('aria-keyshortcuts')).toBe('Control+Enter')
 })

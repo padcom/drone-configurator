@@ -86,14 +86,14 @@ it('marks a changed value (accent, heavier) with a tooltip and a description for
 it('says how many parameters changed on the button, which is off at none', async () => {
   const { table, handle } = await screen()
   const button = table.get('#reset-all')
-  expect(button.text()).toBe('Reset 0 changed to initial values')
+  expect(button.text()).toBe('Reset 0 changed parameters to their initial values')
   expect(button.attributes('disabled')).toBeDefined()
 
   change(handle, 'RTL_ALT', 1600)
   change(handle, 'BATT_CAPACITY', 6000)
   await table.vm.$nextTick()
 
-  expect(button.text()).toBe('Reset 2 changed to initial values')
+  expect(button.text()).toBe('Reset 2 changed parameters to their initial values')
   expect(button.attributes('disabled')).toBeUndefined()
 })
 

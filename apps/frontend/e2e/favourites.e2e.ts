@@ -69,7 +69,8 @@ describe('the favourites', () => {
 
   it('are listed by the Favourites group, with their count', async () => {
     const window = app as E2eApp
-    expect(await window.text('button[data-group="*favourites"]')).toMatch(/Favourites\s*2/u)
+    // The count follows the (optimistic) write of the settings: wait for it, do not read it once.
+    await window.waitForText('button[data-group="*favourites"]', /Favourites\s*2/u)
 
     await window.click('button[data-group="*favourites"]')
 
@@ -86,7 +87,7 @@ describe('the favourites, kept', () => {
     const window = await open()
 
     expect(await starred(window)).toEqual(['BATT_CAPACITY', 'RTL_ALT'])
-    expect(await window.text('button[data-group="*favourites"]')).toMatch(/Favourites\s*2/u)
+    await window.waitForText('button[data-group="*favourites"]', /Favourites\s*2/u)
   })
 
   it('are taken away by the star, and the group says there are none left', async () => {
