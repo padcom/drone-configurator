@@ -1,4 +1,4 @@
-/* The names the rest of this file uses, from the design tokens (kit/tokens.css), the one dark theme. */
+/* The names the rest of this file uses, from the design tokens (tokens.css), the one dark theme. */
 :root {
   --accent: var(--color-accent);
   --ok: var(--color-ok);
