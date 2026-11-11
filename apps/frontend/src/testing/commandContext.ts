@@ -24,6 +24,8 @@ export interface Fake {
   /** Everything the commands did to the outside. */
   calls: {
     navigate: string[]
+    /** One entry for each time a metadata file was asked to be opened. */
+    metadata: string[]
     confirm: SafetyOptions[]
     toast: ToastInput[]
     /** One entry per call to `vehicle.reboot`: the arguments it got (always none). */
@@ -65,10 +67,11 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   const fake: Fake = {
     facts: { connection, armed: false, busy: null, rebootResult: { result: 'accepted' }, ...facts },
     answer: { confirm: true },
-    calls: { navigate: [], confirm: [], toast: [], reboot: [] },
+    calls: { navigate: [], metadata: [], confirm: [], toast: [], reboot: [] },
     ctx: {} as CommandContext,
   }
   fake.ctx = {
+    files: { loadMetadata: () => void fake.calls.metadata.push('load') },
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
     vehicle: vehicleOf(fake),
     confirm: (options: SafetyOptions) => {

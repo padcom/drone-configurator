@@ -76,3 +76,31 @@ export function chosenText(input: HTMLInputElement): Promise<string | null> {
 
   return file ? file.text() : Promise.resolve(null)
 }
+
+/**
+ * Opens a file the way the interface does everywhere: with the host's dialog in Pico Desktop (the backend reads the file and the
+ * model takes it from there), with a file input in a browser. The button of a screen has an input of its own to press; a
+ * command that runs from anywhere (the palette) has none, so a browser gets one made for the moment.
+ *
+ * @param open asks the backend to open a file with the host's dialog
+ * @param onText takes the text of the file chosen in the browser
+ * @param input the screen's file input, if it has one
+ */
+export function openFile(open: () => Promise<void>, onText: (text: string) => void, input?: HTMLInputElement | null): void {
+  if (hasHost()) {
+    void open()
+  } else if (input) {
+    input.click()
+  } else {
+    const made = document.createElement('input')
+    made.type = 'file'
+    made.accept = '.json,application/json'
+    made.addEventListener('change', async () => {
+      const text = await chosenText(made)
+      if (text !== null) {
+        onText(text)
+      }
+    })
+    made.click()
+  }
+}

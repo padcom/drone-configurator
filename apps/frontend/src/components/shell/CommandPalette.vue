@@ -53,10 +53,10 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Dialog from '@/components/ui/Dialog.vue'
 import Icon from '@/components/ui/Icon.vue'
-import type { Command, InvokeResult } from '@/lib/commands/command'
+import type { Command } from '@/lib/commands/command'
 import { useCommandContext, useCommands } from '@/composables/useCommands'
+import { useCommandRunner } from '@/composables/useCommandRunner'
 import { useCommandPalette } from '@/composables/useCommandPalette'
-import { useToasts } from '@/composables/toasts'
 
 // The command palette: a search box over the commands of the application (lib/commands). It lists, filters, shows why a command
 // may not run, and calls `invoke` of the registry; it has no behaviour of its own. Built on the kit's dialog (a modal over the
@@ -66,7 +66,7 @@ const { t } = useI18n()
 const palette = useCommandPalette()
 const registry = useCommands()
 const ctx = useCommandContext()
-const toasts = useToasts()
+const runCommand = useCommandRunner()
 
 /** How many rows PageUp and PageDown move by. */
 const PAGE = 8
@@ -184,42 +184,6 @@ watch(active, async () => {
 onBeforeUnmount(() => clearTimeout(timer))
 
 /**
- * Puts the focus in the screen that a command opened: the element that had it before the palette opened is in a screen that is
- * hidden now. After the dialog has given the focus back (a task later), so that this is the last word.
- */
-function focusScreen(): void {
-  setTimeout(() => {
-    setTimeout(() => document.querySelector<HTMLElement>('.app-main')?.focus(), 0)
-  }, 0)
-}
-
-/**
- * Says that a command that was asked for did not run: it failed, or it could no longer run.
- *
- * @param result how the command ended
- */
-function complain(result: InvokeResult): void {
-  if (result.status === 'failed') {
-    toasts.push({ id: 'command-failed', severity: 'error', text: t('palette.failed') })
-  } else if (result.status === 'disabled') {
-    toasts.push({ id: 'command-disabled', severity: 'warning', text: ctx.say(result.reasonKey, result.reasonParams) })
-  }
-}
-
-/**
- * What follows a command: the focus goes where the command says, or the user is told it did not run.
- *
- * @param result how the command ended
- */
-function afterRun(result: InvokeResult): void {
-  if (result.status !== 'done') {
-    complain(result)
-  } else if (result.outcome.focus === 'main') {
-    focusScreen()
-  }
-}
-
-/**
  * Waits until the palette is gone and has given the focus back to what had it before it opened. A confirmation that the command
  * asks for opens next, and the element it remembers to give the focus back to is the one that has it when it opens: if that were
  * still the palette's input (about to be removed), the focus would be lost to the page when the question is answered.
@@ -246,7 +210,8 @@ async function run(row: Row): Promise<void> {
   }
   palette.hide()
   await focusSettled()
-  afterRun(await registry.invoke(row.command, ctx))
+  // The focus and the toast of a command that did not run follow the same way as from the rail and the buttons.
+  await runCommand(row.command, 'palette')
 }
 
 /**

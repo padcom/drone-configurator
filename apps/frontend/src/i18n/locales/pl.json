@@ -521,6 +521,7 @@
     "count": "{count} polecenie | {count} polecenia | {count} poleceń",
     "failed": "Polecenie się nie powiodło.",
     "group": {
+      "parameters": "Parametry",
       "navigate": "Nawigacja",
       "vehicle": "Pojazd"
     },
@@ -540,6 +541,12 @@
       "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",
       "writing": "Poczekaj, aż parametry zostaną zapisane.",
       "downloading": "Poczekaj, aż parametry zostaną pobrane."
+    },
+    "metadata": {
+      "load": {
+        "label": "Wczytaj metadane parametrów…",
+        "keywords": "metadane opisy apm.pdef pdef plik otwórz"
+      }
     },
     "vehicle": {
       "reboot": {
