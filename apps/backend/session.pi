@@ -39,6 +39,20 @@ class Link {
   public autopilot: int = 0
   public encoding: ParamEncoding = ParamEncoding.CCast
   public watchers: Sink[] = []
+  /// Whether the autopilot's last heartbeat said it is armed, and when it was received (ms since 1970; 0 = none yet).
+  /// Set by telemetry.pi; `armedState()` says whether it can be trusted.
+  public armed: bool = false
+  public heartbeatAt: int = 0
+  /// Parameter work that a reboot must not cut: writes in flight, and whether a download runs (params.pi).
+  public writes: int = 0
+  public listing: bool = false
+  /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
+  /// says so (reconnect.pi). See `rebootExpected()`.
+  public rebootAt: int = 0
+  /// True when the vehicle did not answer the reboot at all (IN_PROGRESS counts as an answer: accepted): it may still reboot,
+  /// so the link going quiet is taken for a reboot too, but a second request is refused only for a few seconds
+  /// (`REBOOT_UNSURE_MS`).
+  public rebootUnsure: bool = false
   /// The services that listen to the vehicle, by name (registering one again replaces it).
   public parts: Map<string, SessionPart> = new Map<string, SessionPart>()
   /// How long `vehicle.connect` waits for an autopilot's heartbeat.
@@ -87,6 +101,12 @@ class Link {
     router = null
     stream = null
     identity = ""
+    armed = false
+    heartbeatAt = 0
+    // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
+    listing = false
+    rebootAt = 0
+    rebootUnsure = false
     for (const p of parts.values()) {
       p.detach()
     }
@@ -116,6 +136,33 @@ class Link {
 
 /// The session: one per backend.
 export const link = new Link()
+
+/// How long after the vehicle accepted a reboot the session still expects it (ms): a link that goes quiet within it is
+/// a vehicle that is rebooting, and a second reboot is refused (it could reach the freshly booted vehicle).
+export const REBOOT_WINDOW_MS: int = 60000
+
+/// How long a second reboot is refused after one the vehicle did not answer (ms): the command may have arrived, and the
+/// vehicle may be about to reboot; after this a person may try again.
+export const REBOOT_UNSURE_MS: int = 10000
+
+/// Whether a reboot is still expected: one the vehicle accepted (until it is seen come back, or the window ends), or one it
+/// did not answer (for a few seconds: the command may have arrived).
+export function rebootExpected(): bool {
+  const window = if (link.rebootUnsure) REBOOT_UNSURE_MS else REBOOT_WINDOW_MS
+  link.rebootAt > 0 && (Date.now() as int) - link.rebootAt < window
+}
+
+/// How old the last heartbeat may be for the armed state to count as known (ms).
+export const ARMED_FRESH_MS: int = 3000
+
+/// Whether the autopilot is armed: true or false when its heartbeat is recent, null when there has been none or it is older
+/// than `ARMED_FRESH_MS` (not known: the callers treat it as armed).
+export function armedState(): bool? {
+  if (link.heartbeatAt == 0 || (Date.now() as int) - link.heartbeatAt > ARMED_FRESH_MS) {
+    return null
+  }
+  link.armed
+}
 
 /// How integers travel in parameter floats: as the autopilot says (AUTOPILOT_VERSION), or as its kind
 /// usually does (PX4 bytewise; ArduPilot and most others C-cast).

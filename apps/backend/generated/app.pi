@@ -386,6 +386,55 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   Cbor.Dict(m)
 }
 
+export enum RebootResultResult { Accepted, Refused, Unsupported, NoAnswer }
+
+export function decodeRebootResultResult(v: Cbor, path: string): RebootResultResult throws InvalidPayload {
+  match (text(v, path)) {
+    "accepted" => RebootResultResult.Accepted,
+    "refused" => RebootResultResult.Refused,
+    "unsupported" => RebootResultResult.Unsupported,
+    "no-answer" => RebootResultResult.NoAnswer,
+    _ => throw new InvalidPayload(path, "accepted or refused or unsupported or no-answer"),
+  }
+}
+
+export function encodeRebootResultResult(v: RebootResultResult): Cbor {
+  match (v) {
+    Accepted => Cbor.Text("accepted"),
+    Refused => Cbor.Text("refused"),
+    Unsupported => Cbor.Text("unsupported"),
+    NoAnswer => Cbor.Text("no-answer"),
+  }
+}
+
+export struct RebootResult {
+  result: RebootResultResult
+  detail?: string
+}
+
+export function decodeRebootResult(v: Cbor, path: string): RebootResult throws InvalidPayload {
+  const m = members(v, path, ["result", "detail"])
+  const cbor1 = m.get("detail")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.detail`)
+  }
+  RebootResult {
+    result: decodeRebootResultResult(required(m, "result", path), `${path}.result`),
+    detail: opt1,
+  }
+}
+
+export function encodeRebootResult(v: RebootResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("result", encodeRebootResultResult(v.result))
+  const opt1 = v.detail
+  if (opt1 != null) {
+    m.set("detail", Cbor.Text(opt1))
+  }
+  Cbor.Dict(m)
+}
+
 export struct MessagesParams {
   replay?: u16
 }

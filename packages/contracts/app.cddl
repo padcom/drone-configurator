@@ -11,6 +11,7 @@ services = {
   "vehicle.connection": ["subscription", null, connection],
   "params.list": ["method", null, param-list],
   "params.write": ["method", param-write, param-write-result],
+  "vehicle.reboot": ["method", null, reboot-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
@@ -87,6 +88,21 @@ param-write = {
 param-write-result = {
   param: param,
   verified: bool,
+}
+
+; Reboots the flight controller (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, parameter 1 = 1: a restart, not a reset of the
+; parameters). It is sent ONCE (no resend: a second request could reach the freshly booted vehicle) and never with
+; ArduPilot's force value. The backend refuses it, with a CommunicatorError and nothing sent, when no vehicle is
+; connected (`NOT_CONNECTED`), the vehicle is armed (`ARMED`), its armed state is not known because no heartbeat came
+; within 3 s (`STATE_UNKNOWN`: unknown counts as armed), or a parameter is being written or downloaded (`BUSY`).
+; `accepted`: the vehicle acknowledged and will reboot; the connection then goes `reconnecting` with `errorCode`
+; "REBOOTING" until it is back. `refused`: it answered with a failure (`detail` says which). `unsupported`: it does not
+; know the command. `no-answer`: no acknowledgement within 3 s; nothing is resent, and the command may still have arrived,
+; so the vehicle may still reboot (the backend refuses a second request with `BUSY` for 10 s, and a link that then goes quiet is
+; reported as `REBOOTING`). A vehicle that says IN_PROGRESS is waited for (up to 10 s) and counts as `accepted`.
+reboot-result = {
+  result: "accepted" / "refused" / "unsupported" / "no-answer",
+  ? detail: tstr,
 }
 
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.

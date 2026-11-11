@@ -17,7 +17,7 @@ import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
-import { encodingFor, identityOf, infoOf, link } from "./session"
+import { encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
 
 /// The waits are in slices, so that a disconnect is noticed at once.
@@ -150,6 +150,9 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
     return
   }
   const identity = identityOf(found, version)
+  // It is back: the reboot that was waited for is over, and a new one may be asked for.
+  link.rebootAt = 0
+  link.rebootUnsure = false
   if (identity == link.identity) {
     link.update(Connection { state: ConnectionState.Connected, vehicle: link.state.vehicle, resumed: true })
     return
@@ -181,6 +184,8 @@ async function bringBack(generation: int, why: string): Promise<void> throws Err
       state: ConnectionState.Reconnecting,
       vehicle: link.state.vehicle,
       error: reason,
+      // A vehicle that accepted a reboot going quiet is a reboot, and the page says so (not a generic loss).
+      errorCode: if (rebootExpected()) "REBOOTING" else null,
       attempt: attempt as u32,
       nextRetryMs: wait as u32,
     })
