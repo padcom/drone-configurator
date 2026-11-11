@@ -510,5 +510,36 @@
     "backendError": "el backend: {error}",
     "backendRestarted": "El backend se reinició: la sesión del vehículo terminó. Vuelve a conectar para continuar.",
     "backendStopped": "El backend se detuvo: la sesión del vehículo terminó. Vuelve a conectar para continuar."
+  },
+  "palette": {
+    "group": {
+      "navigate": "Navegación",
+      "vehicle": "Vehículo"
+    },
+    "go": {
+      "flight": "Ir a Datos de vuelo",
+      "plan": "Ir a Plan",
+      "setup": "Ir a Configuración",
+      "tune": "Ir a Ajuste",
+      "parameters": "Ir a Parámetros",
+      "logs": "Ir a Registros",
+      "settings": "Ir a Ajustes"
+    },
+    "reason": {
+      "notConnected": "Conéctate primero a un vehículo.",
+      "stateUnknown": "Se desconoce el estado del vehículo (sin heartbeat reciente).",
+      "armed": "Desarma primero el vehículo. Un vehículo en vuelo nunca se reinicia.",
+      "writing": "Espera a que se hayan escrito los parámetros.",
+      "downloading": "Espera a que se hayan descargado los parámetros."
+    },
+    "vehicle": {
+      "reboot": {
+        "label": "Reiniciar el controlador de vuelo",
+        "keywords": "reinicio reset reiniciar",
+        "title": "Reiniciar el controlador de vuelo",
+        "what": "Reinicia el controlador de vuelo. El enlace se corta unos segundos y vuelve solo. Los parámetros no se modifican. Solo con el vehículo desarmado.",
+        "button": "Mantén pulsado para reiniciar"
+      }
+    }
   }
 }

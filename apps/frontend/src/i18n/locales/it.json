@@ -510,5 +510,36 @@
     "backendError": "il backend: {error}",
     "backendRestarted": "Il backend è stato riavviato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare.",
     "backendStopped": "Il backend si è fermato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare."
+  },
+  "palette": {
+    "group": {
+      "navigate": "Navigazione",
+      "vehicle": "Veicolo"
+    },
+    "go": {
+      "flight": "Vai a Dati di volo",
+      "plan": "Vai a Piano",
+      "setup": "Vai a Configurazione",
+      "tune": "Vai a Taratura",
+      "parameters": "Vai a Parametri",
+      "logs": "Vai a Log",
+      "settings": "Vai a Impostazioni"
+    },
+    "reason": {
+      "notConnected": "Connettiti prima a un veicolo.",
+      "stateUnknown": "Lo stato del veicolo è sconosciuto (nessun heartbeat recente).",
+      "armed": "Disarma prima il veicolo. Un veicolo in volo non viene mai riavviato.",
+      "writing": "Attendi che i parametri siano stati scritti.",
+      "downloading": "Attendi che i parametri siano stati scaricati."
+    },
+    "vehicle": {
+      "reboot": {
+        "label": "Riavvia il controller di volo",
+        "keywords": "riavvio reset ripartenza",
+        "title": "Riavvia il controller di volo",
+        "what": "Riavvia il controller di volo. Il collegamento cade per qualche secondo e torna da solo. I parametri non vengono modificati. Solo con il veicolo disarmato.",
+        "button": "Tieni premuto per riavviare"
+      }
+    }
   }
 }

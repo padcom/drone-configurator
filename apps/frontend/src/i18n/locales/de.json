@@ -510,5 +510,36 @@
     "backendError": "das Backend: {error}",
     "backendRestarted": "Das Backend wurde neu gestartet: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren.",
     "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
+  },
+  "palette": {
+    "group": {
+      "navigate": "Navigation",
+      "vehicle": "Fahrzeug"
+    },
+    "go": {
+      "flight": "Zu Flugdaten wechseln",
+      "plan": "Zu Planung wechseln",
+      "setup": "Zu Einrichtung wechseln",
+      "tune": "Zu Abstimmung wechseln",
+      "parameters": "Zu Parameter wechseln",
+      "logs": "Zu Logs wechseln",
+      "settings": "Zu Einstellungen wechseln"
+    },
+    "reason": {
+      "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",
+      "stateUnknown": "Der Zustand des Fahrzeugs ist unbekannt (kein aktueller Heartbeat).",
+      "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",
+      "writing": "Warte, bis die Parameter geschrieben sind.",
+      "downloading": "Warte, bis die Parameter geladen sind."
+    },
+    "vehicle": {
+      "reboot": {
+        "label": "Flugcontroller neu starten",
+        "keywords": "neustart neu starten reset zurücksetzen",
+        "title": "Flugcontroller neu starten",
+        "what": "Startet den Flugcontroller neu. Die Verbindung bricht für einige Sekunden ab und kommt von selbst zurück. Parameter werden nicht verändert. Nur im unscharfen Zustand.",
+        "button": "Zum Neustart halten"
+      }
+    }
   }
 }

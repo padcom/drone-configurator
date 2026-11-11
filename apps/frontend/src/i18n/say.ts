@@ -2,7 +2,7 @@
 // of a failed setting. A component asks `t()` (useI18n); plain modules ask `say()`, which takes the language that is on the page
 // at the moment, so the text follows a language switch. The messages are in `locales/*.json`, and the parity test and the test
 // that looks for English literals in the code (tests/i18n-literals.test.ts) are what keep them there.
-import { i18n } from './i18n'
+import { DEFAULT_LANGUAGE, i18n } from './i18n'
 
 /**
  * A message of the interface, in the language of the page.
@@ -14,4 +14,16 @@ import { i18n } from './i18n'
  */
 export function say(key: string, named: Record<string, unknown> = {}, plural?: number): string {
   return plural === undefined ? i18n.global.t(key, named) : i18n.global.t(key, named, plural)
+}
+
+/**
+ * A message of the interface in English, whatever the language of the page is: for what is searched by its English name as
+ * well as its translated one (the command palette).
+ *
+ * @param key the message's key
+ * @param named the values in it
+ * @returns the English text
+ */
+export function sayEnglish(key: string, named: Record<string, unknown> = {}): string {
+  return i18n.global.t(key, named, { locale: DEFAULT_LANGUAGE })
 }

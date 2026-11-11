@@ -510,5 +510,36 @@
     "backendError": "backend: {error}",
     "backendRestarted": "Backend został uruchomiony ponownie: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować.",
     "backendStopped": "Backend został zatrzymany: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować."
+  },
+  "palette": {
+    "group": {
+      "navigate": "Nawigacja",
+      "vehicle": "Pojazd"
+    },
+    "go": {
+      "flight": "Przejdź do ekranu Dane lotu",
+      "plan": "Przejdź do ekranu Planowanie",
+      "setup": "Przejdź do ekranu Konfiguracja",
+      "tune": "Przejdź do ekranu Strojenie",
+      "parameters": "Przejdź do ekranu Parametry",
+      "logs": "Przejdź do ekranu Logi",
+      "settings": "Przejdź do ekranu Ustawienia"
+    },
+    "reason": {
+      "notConnected": "Najpierw połącz się z pojazdem.",
+      "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
+      "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",
+      "writing": "Poczekaj, aż parametry zostaną zapisane.",
+      "downloading": "Poczekaj, aż parametry zostaną pobrane."
+    },
+    "vehicle": {
+      "reboot": {
+        "label": "Uruchom ponownie kontroler lotu",
+        "keywords": "restart reset ponowne uruchomienie",
+        "title": "Uruchom ponownie kontroler lotu",
+        "what": "Uruchamia kontroler lotu od nowa. Łącze zniknie na kilka sekund i wróci samo. Parametry nie są zmieniane. Tylko przy rozbrojonym pojeździe.",
+        "button": "Przytrzymaj, aby uruchomić ponownie"
+      }
+    }
   }
 }

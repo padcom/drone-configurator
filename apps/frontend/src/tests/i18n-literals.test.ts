@@ -15,6 +15,7 @@ const FOLDERS = ['composables', 'lib', 'state', 'backend']
 /** Literals that are not for the user: the file (under src) and a part of the literal. */
 const ALLOWED: [string, string][] = [
   ['composables/useConfigurator.ts', 'has not been called'],
+  ['lib/commands/registry.ts', 'is already registered'],
 ]
 
 /**
