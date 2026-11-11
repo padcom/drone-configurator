@@ -292,7 +292,7 @@ describe('the Write button\'s key', () => {
     await app.waitForText('#question', /Write 1 parameter to the vehicle\?/u)
     await confirmWrite(app)
 
-    await app.waitFor(`document.querySelector('.kit-toast.sev-success')?.textContent.includes('All 1 written and read back.')`)
+    await app.waitFor(`document.querySelector('.kit-toast.sev-success')?.textContent.includes('1 written and read back.')`)
     await app.waitFor(`document.querySelector('#staged .staged-row') === null`)
     expect(await app.evaluate<boolean>(TOAST_AT_BOTTOM_LEFT)).toBe(true)
   })

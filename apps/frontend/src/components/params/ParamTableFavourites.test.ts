@@ -132,7 +132,7 @@ it('takes the favourites out that are not on this vehicle, with a button that as
   vi.useFakeTimers({ toFake: ['Date'] })
   const { table, groups, handle } = await favouritesOfConnected(['RTL_ALT', 'GONE_ONE', 'GONE_TWO'])
   const button = table.get('#clear-missing-favourites')
-  expect(button.text()).toBe('Remove the 2 not on this vehicle…')
+  expect(button.text()).toBe('Remove the 2 favourites not on this vehicle…')
   expect(button.attributes('title')).toContain('for every vehicle')
 
   // One press asks, and removes nothing.
@@ -166,7 +166,7 @@ it('goes back to asking when the second press does not come in time', async () =
   vi.advanceTimersByTime(7000)
   await table.vm.$nextTick()
 
-  expect(button.text()).toBe('Remove the 1 not on this vehicle…')
+  expect(button.text()).toBe('Remove the 1 favourite not on this vehicle…')
   // What was said is taken back, so that asking again is a change that a screen reader speaks.
   expect(table.get('#favourite-status').text()).toBe('')
   vi.useRealTimers()
@@ -211,8 +211,8 @@ it('has a Favourites group after All, with the count of the starred parameters t
 
   expect(buttons.slice(0, 3)).toEqual(['', FAVOURITES_GROUP, 'ARMING'])
   expect(favourites.text()).toBe('Favourites2')
-  expect(favourites.attributes('title')).toBe('1 of your favourites are not on this vehicle.')
-  expect(favourites.attributes('aria-description')).toBe('1 of your favourites are not on this vehicle.')
+  expect(favourites.attributes('title')).toBe('1 of your favourites is not on this vehicle.')
+  expect(favourites.attributes('aria-description')).toBe('1 of your favourites is not on this vehicle.')
   expect(groups.get('button[data-group="BATT"]').attributes('title')).toBeUndefined()
 })
 

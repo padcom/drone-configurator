@@ -150,7 +150,9 @@ describe('a long list', () => {
     console.info(`1500 parameters (ms): index ${ms[0]}; "e" ${ms[1]}; "specific b" ${ms[2]}; no match ${ms[3]}`)
 
     expect(one.count).toBe(1500)
-    expect(Math.max(one.ms, ten.ms, miss.ms)).toBeLessThan(100)
-    expect(built).toBeLessThan(100)
+    // A guard against a slow-down of a different order (a quadratic search), not a budget: the numbers above are a few ms,
+    // and a loaded runner may take ten times as long. The window e2e holds the real 100 ms budget of a screen switch.
+    expect(Math.max(one.ms, ten.ms, miss.ms)).toBeLessThan(1000)
+    expect(built).toBeLessThan(1000)
   })
 })
