@@ -5,7 +5,7 @@
 // of English (two or more words), which is what a message that bypassed the locale files looks like. A literal that is not for
 // the user (a key, a code, a developer's error) is named in ALLOWED, with the reason.
 import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -68,9 +68,10 @@ function foundIn(folder: string): string[] {
   const allowed = (name: string, literal: string) => ALLOWED.some(([where, part]) => where === name && literal.includes(part))
 
   return files(join(SRC, folder)).flatMap(file => {
-    const name = relative(SRC, file)
+    // Posix separators and LF line ends, whatever the checkout made of them (Windows has backslashes and CRLF).
+    const name = relative(SRC, file).split(sep).join('/')
 
-    const found = sentences(withoutComments(readFileSync(file, 'utf8')))
+    const found = sentences(withoutComments(readFileSync(file, 'utf8').replaceAll('\r\n', '\n')))
 
     return found.filter(literal => !allowed(name, literal)).map(literal => `${name}: ${literal}`)
   })
@@ -78,6 +79,7 @@ function foundIn(folder: string): string[] {
 
 describe.each(FOLDERS)('the plain modules of %s', folder => {
   it('have no sentence of English in a string literal: what a person reads comes from say() and the locale files', () => {
-    expect(foundIn(folder)).toEqual([])
+    // The failure message lists each offending file and literal.
+    expect(foundIn(folder).join('\n')).toBe('')
   })
 })
