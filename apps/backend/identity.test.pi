@@ -2,9 +2,10 @@
 // makes a quad a hexa and the board is still the same); by ids, type and autopilot when it says none.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { AutopilotVersion, MavAutopilot, MavType, Vehicle } from "padcom/pico-mavlink"
+import { AutopilotVersion, CommandLong, MavAutopilot, MavCmd, MavType, Received, Vehicle } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport, VehicleInfo, encodeConnectRequest } from "./generated/app"
+import { takeUp } from "./reconnect"
 import { identityOf, link } from "./session"
 import { start } from "./testing"
 
@@ -90,6 +91,87 @@ async function showsWhatTheBoardSaysNow(): Promise<void> throws Error {
   }
 }
 
+/// A version with the unique id `uid` (64 bits, any bit pattern) and the 18-byte `uid2`.
+function versionWithBoth(uid: u64, uid2: u8[]): AutopilotVersion {
+  const v = new AutopilotVersion()
+  v.uid = uid
+  v.uid2 = uid2
+  v
+}
+
+/// 0, all ones and a constant byte are what a board that has no id sends: each is the same on every board, so none of them is an
+/// identity (two different boards must not be "the same vehicle").
+function junkIdsAreNoIds(): void {
+  const ones = (0x7FFFFFFFFFFFFFFF as u64) | ((1 as u64) << 63)
+  const junk: u64[] = [0 as u64, ones, 0x0101010101010101 as u64, 0x4242424242424242 as u64]
+  for (const uid of junk) {
+    const quad = identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(uid, []))
+    expect(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(uid, [])) == quad).toBe(false)
+    expect(quad).toBe(identityOf(vehicle(MavType.QUADROTOR), null))
+  }
+}
+
+function junkUid2IsNoId(): void {
+  const none: u8[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  const ones: u8[] = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
+  // No usable uid2, no usable uid: the type counts. No usable uid2 but a good uid: the uid is used.
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(0 as u64, none)) == identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(0 as u64, none))).toBe(false)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(77 as u64, ones))).toBe(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(77 as u64, none)))
+}
+
+/// uid2 supersedes uid: boards that differ in uid2 are different whatever uid says, and the same uid2 is the same board.
+function uid2IsPreferred(): void {
+  const a: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  const b: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19]
+  const first = identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, a))
+  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(5 as u64, a))).toBe(first)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, b)) == first).toBe(false)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, [])) == first).toBe(false)
+}
+
+/// Makes the simulated vehicle answer the request for its version with `version` (the simulator says no unique id by itself).
+function answerWith(version: AutopilotVersion): void {
+  const sim = simulatorForTests()!
+  sim.answersVersion = false
+  sim.conn.on((r: Received) => {
+    const m = r.message
+    if (m instanceof CommandLong) {
+      const wants = (m.command as int == MavCmd.REQUEST_MESSAGE && m._param1 as int == AutopilotVersion.MSG_ID)
+        || m.command as int == MavCmd.REQUEST_AUTOPILOT_CAPABILITIES
+      if (wants) {
+        sim.conn.send(version)
+      }
+    }
+  })
+}
+
+/// A vehicle answers on the link again, as another type than the one that was connected, and the session takes it up.
+async function takesUpAfterAFrameChange(first: AutopilotVersion, now: AutopilotVersion): Promise<string> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // The vehicle that was connected: a quadrotor whose version said `first`.
+  link.identity = identityOf(vehicle(MavType.QUADROTOR), first)
+  answerWith(now)
+  try {
+    await takeUp(vehicle(MavType.HEXAROTOR), link.generation)
+    `${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.state.vehicle!.type}`
+  } finally {
+    link.close()
+  }
+}
+
+async function resumesABoardWithAUidThatChangedType(): Promise<void> throws Error {
+  expect(await takesUpAfterAFrameChange(versionWith(77), versionWith(77))).toBe("true  HEXAROTOR")
+}
+
+async function dropsABoardWithAJunkUidThatChangedType(): Promise<void> throws Error {
+  expect(await takesUpAfterAFrameChange(versionWith(0), versionWith(0))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+}
+
+async function dropsAnotherUid(): Promise<void> throws Error {
+  expect(await takesUpAfterAFrameChange(versionWith(77), versionWith(78))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+}
+
 describe("who a vehicle is", () => {
   it("is the same board after a frame change: the unique id is what counts, not the type", sameBoardAfterAFrameChange)
   it("is another vehicle when the unique id is another", anotherBoardIsAnotherVehicle)
@@ -98,4 +180,10 @@ describe("who a vehicle is", () => {
   it("takes no answer to the request for the version as no unique id", noAnswerToTheVersionIsNoUniqueId)
   it("does not take a board with a unique id for one that says none", aUniqueIdIsNeverTakenForNone)
   it("shows what the same board says it is when it comes back", showsWhatTheBoardSaysNow)
+  it("takes 0, all ones and a constant for no id at all", junkIdsAreNoIds)
+  it("takes a uid2 of zeros or ones for no id, and then uses the uid", junkUid2IsNoId)
+  it("prefers the 18-byte uid2 to the uid", uid2IsPreferred)
+  it("takes up a board with a unique id that changed type: the same vehicle, resumed, the new type shown", resumesABoardWithAUidThatChangedType)
+  it("takes up a board with a junk id that changed type as another vehicle: VEHICLE_CHANGED", dropsABoardWithAJunkUidThatChangedType)
+  it("takes up a board with another unique id as another vehicle", dropsAnotherUid)
 })

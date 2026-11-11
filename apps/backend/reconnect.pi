@@ -140,7 +140,7 @@ async function heardSince(since: int, generation: int): Promise<Vehicle?> throws
 }
 
 /// A vehicle answered: the same one, and the session goes on, or another one, and it is a new connection.
-async function takeUp(found: Vehicle, generation: int): Promise<void> throws Error {
+export async function takeUp(found: Vehicle, generation: int): Promise<void> throws Error {
   const conn = link.conn
   if (conn == null) {
     return

@@ -187,8 +187,47 @@ export function infoOf(v: Vehicle): VehicleInfo {
 /// id (uid 0, as the simulator and SITL report) is identified by its ids, its type and its autopilot, as before. A vehicle that
 /// comes back after the link dropped is "the same" only if this is the same.
 export function identityOf(v: Vehicle, version: AutopilotVersion?): string {
-  const uid = if (version == null) "0" else `${version!.uid}`
-  if (uid == "0") `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/0` else `${v.sysid}/${v.compid}/${v.autopilot}/uid:${uid}`
+  const unique = uniqueIdOf(version)
+  if (unique == "") `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/0` else `${v.sysid}/${v.compid}/${v.autopilot}/uid:${unique}`
+}
+
+/// Whether some bytes can tell one board from another: they are not missing, and not all the same (all zero is "no id", all
+/// ones is what a flash that was never written reads as, and a constant is what a firmware that fills the field with a
+/// placeholder sends: any of those is the same on every board, so it would make two different boards "the same vehicle").
+function tellsBoardsApart(bytes: int[]): bool {
+  if (bytes.length == 0) {
+    return false
+  }
+  for (const b of bytes) {
+    if (b != bytes[0]) {
+      return true
+    }
+  }
+  false
+}
+
+/// The bytes of a 64-bit unique id, least significant first.
+function bytesOf(uid: u64): int[] {
+  // (Shifted and masked as u64, one byte at a time: a 64-bit value with its top bit set does not fit an `int`, and converting it panics.)
+  const bytes: int[] = []
+  for (let i = 0; i < 8; i++) {
+    bytes.push(((uid >> ((8 * i) as u64)) & (255 as u64)) as int)
+  }
+  bytes
+}
+
+/// The board's unique id as text, or "" when it has none that tells it from another. `uid2` (18 bytes, which supersedes `uid`)
+/// is used when it can tell boards apart, else `uid`.
+export function uniqueIdOf(version: AutopilotVersion?): string {
+  if (version == null) {
+    return ""
+  }
+  const long: int[] = version!.uid2.map((b: u8) => b as int)
+  if (tellsBoardsApart(long)) {
+    return `2.${long.join(".")}`
+  }
+  const short = bytesOf(version!.uid)
+  if (tellsBoardsApart(short)) `1.${short.join(".")}` else ""
 }
 
 /// The connection to the vehicle, if one is up.
