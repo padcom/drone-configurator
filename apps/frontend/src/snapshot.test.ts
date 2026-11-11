@@ -38,4 +38,13 @@ describe('reviewing a snapshot', () => {
     expect(r.unchanged).toBe(PARAMS.length - 2)
     expect(r.vehicleWarning).toBe('saved from a FIXED_WING (ARDUPILOTMEGA); this is a QUADROTOR (ARDUPILOTMEGA)')
   })
+
+  it('count a float of -0 or a tiny negative in the file as the 0 the vehicle has: no change', () => {
+    const trim = { id: 'TRIM_X', index: 99, kind: 'real' as const, type: 'REAL32', value: 0 }
+    const file = (value: number): Snapshot => ({ ...saved(), params: [{ id: 'TRIM_X', kind: 'real', type: 'REAL32', value }] })
+
+    expect(review(file(-0), [...PARAMS, trim], { ...VEHICLE }).changes).toEqual([])
+    expect(review(file(-1e-50), [...PARAMS, trim], { ...VEHICLE }).changes).toEqual([])
+    expect(review(file(0.5), [...PARAMS, { ...trim, value: -0 }], { ...VEHICLE }).changes).toHaveLength(1)
+  })
 })

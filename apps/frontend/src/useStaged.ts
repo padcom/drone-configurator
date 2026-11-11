@@ -222,7 +222,7 @@ class Staged implements StagedModel {
   private putBack(param: Param, to: number): boolean {
     const { parameters } = this.deps
     const value = canonical(param, to)
-    const differs = value !== canonical(param, param.value)
+    const differs = !Object.is(value, canonical(param, param.value))
     if (differs) {
       this.queue(param, value, 'reset')
     } else {

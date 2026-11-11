@@ -2,6 +2,7 @@
 // the first underscore ("BATT_CAPACITY" is in BATT), and one without an underscore is in OTHER. The groups are the names the
 // vehicle uses, so nothing is invented.
 import type { Param } from './generated/app'
+import { compareNames } from './naturalOrder'
 
 /** The group of the parameters whose names have no underscore. */
 export const OTHER = 'OTHER'
@@ -65,7 +66,7 @@ export function groupsOf(params: Param[], counted: Param[] = params): Group[] {
 
   return [...new Set(params.map(param => groupOf(param.id)))]
     .map(id => ({ id, count: counts.get(id) ?? 0 }))
-    .sort((a, b) => Number(a.id === OTHER) - Number(b.id === OTHER) || a.id.localeCompare(b.id))
+    .sort((a, b) => Number(a.id === OTHER) - Number(b.id === OTHER) || compareNames(a.id, b.id))
 }
 
 /**

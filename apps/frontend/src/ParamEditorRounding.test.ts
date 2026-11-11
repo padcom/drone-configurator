@@ -128,6 +128,35 @@ it('takes 16777217 typed for a float as 16777216, which it holds already, and 0.
   expect(handle.staged.changes.value).toEqual([])
 })
 
+it('has -0 on the wire, a typed 0 and a tiny negative as one value: shown 0, not changed, nothing to reset', async () => {
+  const { editor, table, handle } = await screen('A_REAL')
+  const trim: Param = { id: 'TRIM_X', index: 9, kind: 'real', type: 'REAL32', value: -0 }
+  feed(handle, { params: [...PARAMS, trim], initial: { values: new Map([['TRIM_X', 0]]), at: 0 } })
+  handle.parameters.select('TRIM_X')
+  await flushPromises()
+
+  expect(table.get('tr[data-id="TRIM_X"] td.num').text()).toBe('0')
+  expect(handle.parameters.changed.value.has('TRIM_X')).toBe(false)
+  expect(handle.staged.resetTo([{ id: 'TRIM_X', to: 0 }])).toBe(0)
+  await typeAndSettle(editor, '0')
+  await typeAndSettle(editor, '-1e-50')
+  await typeAndSettle(editor, '-0')
+  expect(handle.staged.changes.value).toEqual([])
+})
+
+it('drops a queued change whose value the vehicle reaches as -0 or 0, as the same value', async () => {
+  const { handle } = await screen('A_REAL')
+  const trim: Param = { id: 'TRIM_X', index: 9, kind: 'real', type: 'REAL32', value: 1 }
+  feed(handle, { params: [...PARAMS, trim] })
+  handle.staged.resetTo([{ id: 'TRIM_X', to: -1e-50 }])
+  expect(handle.staged.changes.value).toEqual([{ id: 'TRIM_X', from: 1, to: 0, origin: 'reset' }])
+
+  feed(handle, { params: [...PARAMS, { ...trim, value: -0 }] })
+  await flushPromises()
+
+  expect(handle.staged.changes.value).toEqual([])
+})
+
 it('puts a float back to its initial value with no noise, and the reset of a value it has is no change', async () => {
   const { handle } = await screen('A_REAL')
   feed(handle, { initial: { values: new Map([['A_REAL', Math.fround(0.1)]]), at: 0 } })

@@ -6,6 +6,7 @@ import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from '
 import { type BackendClient, describeError } from './backend/client'
 import type { Param } from './generated/app'
 import { type Initial, changedIds, initialOf } from './initialValues'
+import { sortedByName, withInPlace } from './naturalOrder'
 import { visibleParams } from './paramList'
 import { canonParam, canonical, showNumber, typedValue } from './paramValue'
 import { type WriteLock, createWriteLock } from './writeLock'
@@ -150,8 +151,9 @@ class Parameters implements ParamsModel {
 
     try {
       const downloaded = await this.deps.client.call('params.list', null)
-      // The values are the numbers the vehicle holds (a float comes over the wire widened to a double).
-      const params = downloaded.params.map(canonParam)
+      // The values are the numbers the vehicle holds (a float comes over the wire widened to a double), and the list is in the
+      // order of the names, made once here: the list, the groups, the favourites and the search all follow it.
+      const params = sortedByName(downloaded.params.map(canonParam))
       this.takeInitial(params, downloaded.complete, keepInitial)
       this.params.value = params
       this.missing.value = downloaded.missing
@@ -261,7 +263,7 @@ class Parameters implements ParamsModel {
     if (old) {
       this.replace(held)
     } else {
-      this.params.value = [...this.params.value, held]
+      this.params.value = withInPlace(this.params.value, held)
     }
   }
 

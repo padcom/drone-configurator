@@ -2,6 +2,7 @@
 // They are what "changed from its initial value" is measured against, and what a reset puts back. Not the firmware's defaults:
 // nothing here knows those. From plain values (no DOM).
 import type { Param } from './generated/app'
+import { canonical } from './paramValue'
 
 /** The values at the last complete download. */
 export interface Initial {
@@ -39,7 +40,8 @@ export function changedIds(params: Param[], initial: Initial | null): Set<string
   const moved = (param: Param) => {
     const was = initial.values.get(param.id)
 
-    return was !== undefined && was !== param.value
+    // As the vehicle holds them (a -0 is a 0), and with Object.is: a NaN from the wire is the same as itself.
+    return was !== undefined && !Object.is(canonical(param, was), canonical(param, param.value))
   }
 
   return new Set(params.filter(moved).map(param => param.id))
