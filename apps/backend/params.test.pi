@@ -7,10 +7,17 @@ import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
   ConnectRequestTransport,
+  ParamListRequest,
+  ParamListRequestMethod,
+  ParamListSource,
   ParamWrite,
   ParamWriteKind,
+  ParamsProgressSource,
   decodeParam,
+  decodeParamList,
+  decodeParamsProgress,
   encodeConnectRequest,
+  encodeParamListRequest,
   encodeParamWrite,
 } from "./generated/app"
 import { start } from "./testing"
@@ -47,7 +54,62 @@ async function announcesChanges(): Promise<void> throws Error {
   await fe.call("vehicle.disconnect")
 }
 
+async function reportsHowTheListCame(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const e = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  const list = decodeParamList(e.p ?? Cbor.Null, "$")
+  expect(`${list.complete} ${list.source == ParamListSource.List} ${list.fallback == null}`).toBe("true true true")
+  expect(list.elapsedMs != null && list.elapsedMs! < 5000).toBe(true)
+  // Progress: the first as soon as the total is known, the last when everything has arrived, all of them for the list.
+  const progress = fe.heard.filter((h) => h.n == "params.progress")
+  expect(progress.length >= 2).toBe(true)
+  const first = decodeParamsProgress(progress[0].p ?? Cbor.Null, "$")
+  const last = decodeParamsProgress(progress[progress.length - 1].p ?? Cbor.Null, "$")
+  expect(`${first.received} ${first.total} ${first.source == ParamsProgressSource.List}`).toBe(`1 ${list.count} true`)
+  expect(`${last.received} ${last.total}`).toBe(`${list.count} ${list.count}`)
+  // No more than about 10 a second: the whole download is a few ms, so it is the first, the last and at most one between.
+  expect(progress.length <= 4).toBe(true)
+  await fe.call("vehicle.disconnect")
+}
+
+async function cancelsTheDownloadAndGoesOn(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  // A vehicle that says nothing: the download waits for it, and can be cancelled.
+  simulatorForTests()!.down = true
+  const started = Date.now() as int
+  const listing = await fe.send("params.list", encodeParamListRequest(ParamListRequest {}))
+  await delay(100)
+  const cancel = await fe.call("params.cancel")
+  expect(cancel.err == null).toBe(true)
+  const e = await fe.reply(listing)
+  expect(`${e.err?.code ?? "no error"} ${(Date.now() as int) - started < 900}`).toBe("ABORTED true")
+  // The link and the session are as they were: the vehicle answers again, and a second download works.
+  simulatorForTests()!.down = false
+  const again = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  expect(decodeParamList(again.p ?? Cbor.Null, "$").complete).toBe(true)
+  // A cancel with no download running does nothing.
+  const none = await fe.call("params.cancel")
+  expect(none.err == null).toBe(true)
+  await fe.call("vehicle.disconnect")
+}
+
+async function refusesFileTransferOnly(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const e = await fe.call("params.list", encodeParamListRequest(ParamListRequest { method: ParamListRequestMethod.Ftp }))
+  expect(e.err?.code ?? "no error").toBe("UNSUPPORTED")
+  // `null`, as old callers sent it, is the same as auto.
+  const old = await fe.call("params.list")
+  expect(decodeParamList(old.p ?? Cbor.Null, "$").complete).toBe(true)
+  await fe.call("vehicle.disconnect")
+}
+
 describe("the params service", () => {
+  it("says how the list came and reports progress", reportsHowTheListCame)
+  it("cancels a download without ending the session", cancelsTheDownloadAndGoesOn)
+  it("refuses a download by file transfer only, for now, and takes no request as auto", refusesFileTransferOnly)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
   it("cancels a write in flight when the user disconnects", disconnectCancels)
   it("passes on a parameter the vehicle announces", announcesChanges)

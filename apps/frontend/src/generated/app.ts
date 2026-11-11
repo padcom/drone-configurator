@@ -90,14 +90,32 @@ function validateParamInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param, or null. */
 export const validateParam = (value: unknown) => run(validateParamInto, value)
 
-export type ParamList = { "params": (Param)[], "count": number, "complete": boolean, "missing": (number)[] }
+export type ParamListRequest = { "method"?: "auto" | "list" | "ftp" }
+
+function validateParamListRequestInto(value: any, path: string): boolean {
+  return map(value, path, ["method"]) && (value["method"] === undefined || nested(value["method"], `${path}.method`, (value, path) => oneOf(value, path, ["auto","list","ftp"])))
+}
+
+/** The first problem with `value` as a param-list-request, or null. */
+export const validateParamListRequest = (value: unknown) => run(validateParamListRequestInto, value)
+
+export type ParamList = { "params": (Param)[], "count": number, "complete": boolean, "missing": (number)[], "source"?: "ftp" | "list", "fallback"?: string, "elapsedMs"?: number }
 
 function validateParamListInto(value: any, path: string): boolean {
-  return map(value, path, ["params","count","complete","missing"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["complete"] === undefined ? fail(`${path}.complete`, 'present') : nested(value["complete"], `${path}.complete`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["missing"] === undefined ? fail(`${path}.missing`, 'present') : nested(value["missing"], `${path}.missing`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff))))
+  return map(value, path, ["params","count","complete","missing","source","fallback","elapsedMs"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["complete"] === undefined ? fail(`${path}.complete`, 'present') : nested(value["complete"], `${path}.complete`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["missing"] === undefined ? fail(`${path}.missing`, 'present') : nested(value["missing"], `${path}.missing`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["source"] === undefined || nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"]))) && (value["fallback"] === undefined || nested(value["fallback"], `${path}.fallback`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["elapsedMs"] === undefined || nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a param-list, or null. */
 export const validateParamList = (value: unknown) => run(validateParamListInto, value)
+
+export type ParamsProgress = { "received": number, "total": number, "source": "ftp" | "list" }
+
+function validateParamsProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["received","total","source"]) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffff))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"])))
+}
+
+/** The first problem with `value` as a params-progress, or null. */
+export const validateParamsProgress = (value: unknown) => run(validateParamsProgressInto, value)
 
 export type ParamWrite = { "id": string, "kind": "int" | "real", "type": string, "value": number }
 
@@ -338,7 +356,9 @@ export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
   "vehicle.disconnect": { kind: 'method', request: null, response: Connection }
   "vehicle.connection": { kind: 'subscription', params: null, value: Connection }
-  "params.list": { kind: 'method', request: null, response: ParamList }
+  "params.list": { kind: 'method', request: ParamListRequest, response: ParamList }
+  "params.cancel": { kind: 'method', request: null, response: null }
+  "params.progress": { kind: 'event', payload: ParamsProgress }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
@@ -366,8 +386,15 @@ const services: Record<string, Partial<Record<string, Check>>> = {
     value: (value: any, path: string) => validateConnectionInto(value, path),
   },
   "params.list": {
-    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    request: (value: any, path: string) => validateParamListRequestInto(value, path),
     response: (value: any, path: string) => validateParamListInto(value, path),
+  },
+  "params.cancel": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "params.progress": {
+    payload: (value: any, path: string) => validateParamsProgressInto(value, path),
   },
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),

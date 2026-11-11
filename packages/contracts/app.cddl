@@ -9,7 +9,14 @@ services = {
   "vehicle.connect": ["method", connect-request, connection],
   "vehicle.disconnect": ["method", null, connection],
   "vehicle.connection": ["subscription", null, connection],
-  "params.list": ["method", null, param-list],
+  ; `{}` is the same as `{ method: "auto" }`.
+  "params.list": ["method", param-list-request, param-list],
+  ; Stops the download that is running (nothing happens when none is). That `params.list` then fails with the code `ABORTED`;
+  ; the link and the session stay as they are.
+  "params.cancel": ["method", null, null],
+  ; While a download runs, at most 10 times a second (the first as soon as the total is known, the last when everything has
+  ; arrived).
+  "params.progress": ["event", params-progress],
   "params.write": ["method", param-write, param-write-result],
   "vehicle.reboot": ["method", null, reboot-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
@@ -69,11 +76,28 @@ param = {
   value: float,
 }
 
+; `method` is for tests and diagnostics, not a choice for the user: "auto" (the default) uses the file transfer where the vehicle has
+; it and the list where it does not, "list" the list only, "ftp" the file transfer only (its failure is the error, no fallback).
+param-list-request = { ? method: "auto" / "list" / "ftp" }
+
+; `source` is how the parameters came: "ftp" (the vehicle's parameter file) or "list" (PARAM_REQUEST_LIST). `fallback` is why
+; the file transfer was not used when `source` is "list": "unsupported", "timeout", "protocol", "incomplete" or "disabled"
+; (the list was asked for). `elapsedMs` is how long the download took, a failed attempt of the file transfer included.
 param-list = {
   params: [* param],
   count: uint .size 2,
   complete: bool,
   missing: [* uint .size 2],
+  ? source: "ftp" / "list",
+  ? fallback: tstr,
+  ? elapsedMs: uint .size 4,
+}
+
+; How far a download is: `received` of `total` parameters, and by which way they come.
+params-progress = {
+  received: uint .size 2,
+  total: uint .size 2,
+  source: "ftp" / "list",
 }
 
 param-write = {
