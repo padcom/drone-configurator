@@ -113,8 +113,10 @@ describe('a command that may not run', () => {
 
     expect(wrapper.element.tagName).toBe('BUTTON')
     expect(wrapper.attributes('disabled')).toBeDefined()
-    const described = wrapper.attributes('aria-describedby') as string
-    expect(wrapper.get(`#${described}`).text()).toBe('Connect to a vehicle first.')
+    // The reason is not in the button's text (the words stay the words): it is its description, and its tooltip.
+    expect(wrapper.attributes('aria-description')).toBe('Connect to a vehicle first.')
+    expect(wrapper.attributes('title')).toBe('Connect to a vehicle first.')
+    expect(wrapper.text()).toBe('Reboot flight controller')
   })
 })
 

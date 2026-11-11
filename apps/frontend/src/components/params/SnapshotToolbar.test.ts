@@ -119,7 +119,8 @@ it('says why Save snapshot cannot be pressed, in words a screen reader reads wit
   const save = wrapper.get('#save')
 
   expect(save.attributes('disabled')).toBeDefined()
-  expect(wrapper.get(`#${save.attributes('aria-describedby')}`).text()).toBe('There are no parameters yet.')
+  expect(save.attributes('aria-description')).toBe('There are no parameters yet.')
+  expect(save.text()).toBe('Save snapshot')
 })
 
 it('loads the file the browser\'s input gives, and nothing when none was chosen', async () => {

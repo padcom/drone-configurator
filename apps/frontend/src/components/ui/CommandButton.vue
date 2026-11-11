@@ -9,9 +9,9 @@
     :type="asLink ? undefined : 'button'"
     :disabled="!asLink && reason !== null ? true : undefined"
     :aria-current="current ? 'page' : undefined"
-    :aria-describedby="reason !== null ? reasonId : undefined"
+    :aria-description="reason ?? undefined"
     :aria-label="iconOnly ? label : undefined"
-    :title="iconOnly ? label : undefined"
+    :title="iconOnly ? label : (reason ?? undefined)"
     :data-command-button="cmd.id"
     @click="press"
   >
@@ -24,12 +24,11 @@
       </span>
     </template>
     <slot />
-    <span v-if="reason !== null" :id="reasonId" class="visually-hidden">{{ reason }}</span>
   </component>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, useId } from 'vue'
+import { computed, inject } from 'vue'
 import { routerKey } from 'vue-router'
 import Icon from './Icon.vue'
 import type { Command } from '@/lib/commands/command'
@@ -60,7 +59,6 @@ const registry = useCommands()
 const ctx = useCommandContext()
 const router = inject(routerKey, null)
 const run = useCommandRunner()
-const reasonId = `command-button-${useId()}-reason`
 
 // The command object: given, or found by its id (none: nothing is drawn).
 const cmd = computed(() => (typeof props.command === 'string' ? registry.get(props.command) : props.command))
