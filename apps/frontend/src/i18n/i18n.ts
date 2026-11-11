@@ -4,6 +4,9 @@
 import { createI18n } from 'vue-i18n'
 import de from '@/i18n/locales/de.json'
 import en from '@/i18n/locales/en.json'
+import es from '@/i18n/locales/es.json'
+import it from '@/i18n/locales/it.json'
+import pl from '@/i18n/locales/pl.json'
 
 /**
  * The languages of the interface: ONE table. A new language is a locale file in `locales/`, a row here (its code, its name in
@@ -13,6 +16,9 @@ import en from '@/i18n/locales/en.json'
 const TABLE = {
   en: { name: 'English', messages: en },
   de: { name: 'Deutsch', messages: de },
+  pl: { name: 'Polski', messages: pl },
+  it: { name: 'Italiano', messages: it },
+  es: { name: 'Español', messages: es },
 }
 
 /** One of the languages in the table. */

@@ -2,7 +2,8 @@
 // The built frontend must satisfy the production CSP (`script-src 'self'; style-src 'self'`):
 // no inline script or style, CSS from a linked file, and no eval or `new Function` in the bundle.
 // (The node environment: this test reads the build from disk, and jsdom's `import.meta.url` isn't a file URL.)
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'import { join } from 'node:path'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -101,9 +102,12 @@ describe('the production build and the component gallery', () => {
 })
 
 describe('the fonts in the production build', () => {
-  it.each(['latin', 'latin-ext'])('has IBM Plex Sans in four weights and IBM Plex Mono in three, as woff2 files of the %s subset', subset => {
-    expect(built.files.filter(f => new RegExp(`^ibm-plex-sans-${subset}-(?:400|500|600|700)-normal-.+\\.woff2$`, 'u').test(f))).toHaveLength(4)
-    expect(built.files.filter(f => new RegExp(`^ibm-plex-mono-${subset}-(?:400|500|600)-normal-.+\\.woff2$`, 'u').test(f))).toHaveLength(3)
+  it.each(['latin', 'latin-ext'])('has IBM Plex Sans in four weights and Mono in three, as woff2 of the %s subset', subset => {
+    const sans = new RegExp(`^ibm-plex-sans-${subset}-(?:400|500|600|700)-normal-.+\\.woff2$`, 'u')
+    const mono = new RegExp(`^ibm-plex-mono-${subset}-(?:400|500|600)-normal-.+\\.woff2$`, 'u')
+
+    expect(built.files.filter(f => sans.test(f))).toHaveLength(4)
+    expect(built.files.filter(f => mono.test(f))).toHaveLength(3)
     expect(built.css).toContain('font-family:IBM Plex Sans')
     expect(built.css).toContain('font-family:IBM Plex Mono')
   })

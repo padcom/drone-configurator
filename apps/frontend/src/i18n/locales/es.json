@@ -1,0 +1,514 @@
+{
+  "app": {
+    "title": "Drone Configurator"
+  },
+  "shell": {
+    "navigation": "Pantallas",
+    "notAvailable": "{screen} todavía no está disponible.",
+    "notAvailableHelp": "Llegará en una versión posterior. Vuelo y Parámetros ya funcionan."
+  },
+  "connect": {
+    "title": "Conectar con un vehículo",
+    "intro": "Elige cómo se llega al vehículo.",
+    "simulator": "Se conecta al simulador integrado: no hace falta hardware.",
+    "last": "Se abre con tu última conexión, así que normalmente basta con pulsar Intro.",
+    "cancel": "Cancelar",
+    "open": "Conectar con un vehículo o ver el enlace",
+    "next": {
+      "udp": "Comprueba que el vehículo o el simulador envíe a este host y a este puerto, y vuelve a conectar.",
+      "tcp": "Comprueba que el vehículo escuche en esta dirección y que nada más la esté usando, y vuelve a conectar.",
+      "serial": "Comprueba el cable, que ningún otro programa tenga el puerto abierto y la velocidad en baudios, y vuelve a conectar.",
+      "simulator": "Cierra el cuadro de diálogo e inténtalo de nuevo; si sigue fallando, reinicia la aplicación."
+    }
+  },
+  "topBar": {
+    "home": "Inicio",
+    "noVehicle": "Sin vehículo",
+    "vehicleSub": "{autopilot} · sistema {sysid}/{compid}",
+    "vehicleValue": "{type} · {autopilot} · sistema {sysid}/{compid}",
+    "cell": {
+      "mode": "MODO",
+      "state": "ESTADO",
+      "battery": "BATERÍA",
+      "gps": "GPS",
+      "link": "ENLACE"
+    }
+  },
+  "screen": {
+    "flight": "Datos de vuelo",
+    "plan": "Plan",
+    "setup": "Configuración",
+    "tune": "Ajuste",
+    "parameters": "Parámetros",
+    "logs": "Registros",
+    "settings": "Ajustes",
+    "gallery": "Galería"
+  },
+  "gallery": {
+    "title": "Galería de componentes",
+    "intro": "Cada control del kit en cada uno de sus estados. Solo en desarrollo: la aplicación compilada no tiene galería.",
+    "section": {
+      "colours": "Colores",
+      "type": "Tipografía y patrón",
+      "truth": "La verdad sobre el vehículo",
+      "forms": "Formulario y campo de opciones",
+      "confirm": "Confirmación",
+      "feedback": "Avisos, menú y sugerencia",
+      "surfaces": "Superficies",
+      "buttons": "Botones",
+      "fields": "Campos",
+      "choices": "Opciones",
+      "badges": "Insignias",
+      "panels": "Paneles",
+      "icons": "Iconos"
+    },
+    "truth": {
+      "live": "En directo",
+      "liveRule": "Informado por el vehículo en los últimos 3 segundos.",
+      "stale": "Desactualizado",
+      "staleRule": "Marcado con texto y patrón, nunca solo con color.",
+      "lastHeard": "Última señal",
+      "lastHeardRule": "Enlace perdido. Se mantiene en pantalla, comandos no disponibles.",
+      "never": "Nunca informado",
+      "neverRule": "Un guion, nunca un cero inventado.",
+      "verified": "Escritura verificada",
+      "verifiedRule": "Éxito solo cuando el vehículo confirma el valor."
+    },
+    "feedback": {
+      "menu": "Mapa",
+      "tip": "Escrito en el vehículo y releído",
+      "tipButton": "Escribir",
+      "push": "Añadir un aviso",
+      "item": {
+        "fly": "Volar aquí",
+        "home": "Fijar aquí la posición Home",
+        "look": "Mirar este punto",
+        "copy": "Copiar las coordenadas"
+      },
+      "toast": {
+        "ok": "Misión escrita y releída",
+        "warn": "GPS: 6 satélites, posición poco fiable",
+        "bad": "El vehículo informa 2500, no 3000",
+        "more": "Otro aviso ({n})"
+      }
+    },
+    "confirm": {
+      "holdWarn": "Mantén pulsado para armar Quad 1",
+      "holdError": "Mantén pulsado para la parada de emergencia",
+      "erase": "Borrar todos los registros",
+      "eraseSure": "Confirmar: borrar 5 registros",
+      "tick": "Las hélices están quitadas",
+      "spin": "Girar el motor 1"
+    },
+    "form": {
+      "head": "Failsafe",
+      "note": "Lo que hace el vehículo cuando se pierde el enlace.",
+      "warn": "Prueba con las hélices quitadas.",
+      "info": "Firmware",
+      "altitude": "Altitud de retorno",
+      "battery": "Retorno con batería baja",
+      "name": "Nombre del vehículo",
+      "action": "Acción de failsafe",
+      "action0": "Solo informar",
+      "action1": "Volver o aterrizar",
+      "action2": "Aterrizar siempre",
+      "save": "Guardar",
+      "unnamed": "Un valor sin nombre"
+    },
+    "surface": {
+      "label": "Batería",
+      "stat": "Tensión",
+      "volts": "12,54 V",
+      "state": "Estado",
+      "info": "Los valores de abajo vienen del simulador.",
+      "warn": "Reinicia el vehículo para usar el nuevo valor.",
+      "alert": "Failsafe: batería baja, volviendo a casa.",
+      "progress": "Descargando los parámetros",
+      "emptyTitle": "Aún no hay parámetros",
+      "emptyHelp": "Conecta un vehículo para leer sus parámetros."
+    },
+    "sample": {
+      "specimen": "Batería 12,54 V",
+      "labelText": "Batería",
+      "hatch": "Rayado: un valor que no está en directo (desactualizado, última señal)",
+      "action": "Acción",
+      "primary": "Principal",
+      "flight": "Acción de vuelo",
+      "info": "info",
+      "value": "Un valor",
+      "disabled": "Desactivado",
+      "text": "Campo de texto",
+      "invalid": "Campo no válido",
+      "invalidWhy": "Este valor no es válido: el color nunca es la única señal.",
+      "select": "Opción",
+      "optionOne": "Primera opción",
+      "optionTwo": "Segunda opción",
+      "check": "Una casilla",
+      "toggle": "Un interruptor",
+      "neutral": "neutro",
+      "ok": "ok",
+      "warn": "advertencia",
+      "error": "error",
+      "segments": "Control segmentado",
+      "tabs": "Pestañas",
+      "tabOne": "Primera pestaña",
+      "tabTwo": "Segunda pestaña",
+      "panelOne": "El panel de la primera pestaña.",
+      "panelTwo": "El panel de la segunda pestaña.",
+      "split": "Cambiar el tamaño de los paneles",
+      "paneOne": "Primer panel",
+      "paneTwo": "Segundo panel"
+    }
+  },
+  "flight": {
+    "aside": "Detalles",
+    "map": {
+      "title": "Mapa",
+      "placeholder": "El mapa todavía no está disponible."
+    }
+  },
+  "hud": {
+    "label": "Actitud y velocidad: alabeo {roll}, cabeceo {pitch}, velocidad {speed}, altitud {altitude}.",
+    "say": {
+      "degrees": "{value} grados",
+      "speed": "{value} metros por segundo",
+      "altitude": "{value} metros"
+    },
+    "stale": "desactualizado",
+    "attitudeStale": "actitud desactualizada",
+    "staleValues": "Desactualizados: {names}.",
+    "name": {
+      "attitude": "actitud",
+      "speed": "velocidad",
+      "altitude": "altitud",
+      "heading": "rumbo"
+    },
+    "unit": {
+      "speed": "m/s",
+      "altitude": "m"
+    },
+    "lastHeard": "última señal",
+    "lastHeardReconnecting": "última señal, reconectando"
+  },
+  "messages": {
+    "heading": "Mensajes",
+    "list": "Mensajes del vehículo, los más recientes primero",
+    "unread": "{count} nuevos",
+    "none": "El vehículo todavía no ha dicho nada.",
+    "dismiss": "Cerrar",
+    "severity": {
+      "emergency": "Emergencia",
+      "alert": "Alerta",
+      "critical": "Crítico",
+      "error": "Error",
+      "warning": "Advertencia"
+    }
+  },
+  "flyCards": {
+    "label": {
+      "battery": "BATERÍA",
+      "wind": "VIENTO",
+      "gps": "GPS",
+      "link": "ENLACE",
+      "ekf": "EKF",
+      "vibration": "VIBRACIÓN"
+    },
+    "hdop": "HDOP {hdop}",
+    "heartbeat": "último heartbeat",
+    "heartbeatAge": "hace {ms} ms",
+    "noHeartbeat": "sin heartbeat",
+    "lastHeartbeat": "el último {ms} ms antes de quedar en silencio",
+    "ekf": {
+      "healthy": "Sano",
+      "degraded": "Degradado",
+      "failing": "Fallando"
+    },
+    "worstVariance": "varianza máxima {variance}",
+    "wind": "{speed} m/s",
+    "windFrom": "de {degrees}°",
+    "vibration": "{value} m/s²",
+    "axes": "x {x} · y {y} · z {z}"
+  },
+  "language": {
+    "label": "Idioma"
+  },
+  "settings": {
+    "dismiss": "Cerrar",
+    "title": "Ajustes",
+    "languageHelp": "El idioma de la interfaz.",
+    "groups": "Mostrar los grupos de parámetros",
+    "groupsHelp": "Muestra la lista de grupos y las estrellas de favoritos. Tus favoritos se conservan mientras está desactivado.",
+    "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
+  },
+  "connection": {
+    "state": {
+      "disconnected": "desconectado",
+      "connecting": "conectando",
+      "connected": "conectado",
+      "lost": "perdido",
+      "reconnecting": "reconectando"
+    },
+    "retrying": "intento {attempt}, el siguiente en {seconds} s",
+    "resumed": "reconectado al mismo vehículo",
+    "vehicle": " · sistema {sysid}/{compid} · {type} · {autopilot}",
+    "transport": {
+      "label": "Transporte",
+      "simulator": "Simulador",
+      "udp": "UDP",
+      "tcp": "TCP",
+      "serial": "Serie"
+    },
+    "host": "Host",
+    "port": "Puerto",
+    "device": "Puerto serie",
+    "baud": "Velocidad en baudios",
+    "noPorts": "Sin puertos serie",
+    "portWithDescription": "{path} ({description})",
+    "connect": "Conectar",
+    "disconnect": "Desconectar"
+  },
+  "telemetry": {
+    "missing": "—",
+    "armed": "ARMADO",
+    "disarmed": "desarmado",
+    "stale": "desactualizado, hace {seconds} s",
+    "value": {
+      "voltage": "{voltage} V",
+      "voltageAndCharge": "{voltage} V · {percent}%"
+    },
+    "fix": {
+      "nogps": "Sin GPS",
+      "nofix": "Sin fix",
+      "fix2d": "Fix 2D",
+      "fix3d": "Fix 3D",
+      "dgps": "Fix DGPS",
+      "rtkfloat": "RTK float",
+      "rtkfixed": "RTK fixed",
+      "static": "Fix estático",
+      "ppp": "Fix PPP",
+      "other": "Fix desconocido"
+    }
+  },
+  "confirm": {
+    "cancel": "Cancelar",
+    "write": "Escribir"
+  },
+  "toast": {
+    "region": "Notificaciones",
+    "dismiss": "Cerrar",
+    "count": "×{count}",
+    "waiting": "{count} más esperando"
+  },
+  "enum": {
+    "noName": "sin nombre",
+    "useNumber": "Usar este número, no tiene nombre",
+    "noMatch": "Sin coincidencias. Escribe un número para usarlo."
+  },
+  "bits": {
+    "bit": "bit {bit}",
+    "count": "{count} bit: {names} | {count} bits: {names}",
+    "other": "otros bits: {hex}",
+    "outOfRange": "El número está fuera del rango de este parámetro: corrígelo antes de elegir bits",
+    "help": "Escribe un número o elige bits: Arriba y Abajo mueven, Re Pág y Av Pág de una página, Inicio y Fin van siempre al primer y al último bit (no al principio y al final del texto), la barra espaciadora cambia un bit, Intro conserva el valor, Esc cierra la lista",
+    "on": "{name} activado",
+    "off": "{name} desactivado"
+  },
+  "truth": {
+    "never": "—",
+    "notReported": "no informado",
+    "staleNoAge": "desactualizado",
+    "stale": "desactualizado, hace {seconds} s",
+    "lastHeard": "última señal",
+    "verified": "releído"
+  },
+  "safety": {
+    "title": "Confirma un cambio en el vehículo",
+    "noVehicle": "No hay ningún vehículo conectado",
+    "tapped": "Eso fue un clic. Mantén pulsado el botón.",
+    "holdHint": "Mantén pulsado el botón {seconds} s para confirmar. Soltarlo cancela."
+  },
+  "params": {
+    "view": {
+      "label": "Vista",
+      "standard": "Estándar",
+      "full": "Completa",
+      "hiddenTitle": "La vista Estándar oculta estos parámetros",
+      "hiddenHelp": "Los metadatos marcan todos los parámetros de este grupo como avanzados. Elige Completa para listarlos.",
+      "showFull": "Mostrar la vista Completa",
+      "resetHidden": "Esto incluye {count} parámetro oculto por la vista Estándar. | Esto incluye {count} parámetros ocultos por la vista Estándar."
+    },
+    "filter": "Buscar por nombre o por función",
+    "filterHint": "Buscar por nombre o por función (Ctrl+/)",
+    "clearSearch": "Borrar la búsqueda",
+    "download": "Descargar",
+    "groups": "Grupos de parámetros",
+    "allGroups": "Todos",
+    "list": "Parámetros",
+    "selection": "{id}, {position} de {total}",
+    "favourites": {
+      "group": "Favoritos",
+      "column": "Favorito",
+      "star": "Favorito: {id}",
+      "added": "{id} añadido a los favoritos",
+      "removed": "{id} quitado de los favoritos",
+      "clearMissing": "Quitar los {count} favoritos que este vehículo no tiene…",
+      "clearMissingHelp": "Quita de tu lista, para todos los vehículos, los {count} favoritos que este vehículo no tiene. Antes pregunta una vez más.",
+      "clearAsk": "¿Quitar {count} de tu lista para todos los vehículos? Pulsa de nuevo",
+      "cleared": "{count} quitados de los favoritos",
+      "emptyTitle": "Aún no hay favoritos",
+      "emptyHelp": "Pulsa la estrella junto a un parámetro, o * con el parámetro seleccionado, para guardarlo aquí.",
+      "notOnVehicle": "{count} de tus favoritos no están en este vehículo.",
+      "full": "No queda espacio para más favoritos en los ajustes."
+    },
+    "selectionChanged": "{id}, {position} de {total}, cambiado desde {initial}",
+    "initial": {
+      "footer": "Valores iniciales: descargados a las {time}",
+      "changedFrom": "Cambiado desde su valor inicial {initial}",
+      "reset": "Restablecer el valor inicial",
+      "resetHelp": "Pone en cola el valor que tenía este parámetro en la última descarga completa, {initial}. No se escribe nada hasta que pulses Escribir.",
+      "resetAll": "Restablecer los valores iniciales ({count} cambiados)",
+      "resetAllHelp": "Pone en cola el valor inicial de cada parámetro que ha cambiado desde la última descarga completa, salvo la contabilidad propia del vehículo (STAT_*, MIS_TOTAL, FENCE_TOTAL, RALLY_TOTAL, LOG_LASTFILE y lo que los metadatos marcan como de solo lectura o volátil), que aún se pueden restablecer uno a uno. No se escribe nada hasta que pulses Escribir.",
+      "resetAllNone": "Ningún parámetro ha cambiado respecto a su valor inicial.",
+      "queued": "{count} en cola para volver a sus valores iniciales. Pulsa Escribir para enviarlos.",
+      "includesCalibration": "Incluye valores de calibración"
+    },
+    "closeMatch": "Coincidencia cercana",
+    "detail": "El parámetro seleccionado",
+    "column": {
+      "name": "Nombre",
+      "value": "Valor",
+      "meaning": "Significado"
+    },
+    "empty": {
+      "title": "Aún no hay parámetros",
+      "none": "Conecta un vehículo para leer sus parámetros.",
+      "loading": "Los parámetros están en camino.",
+      "failed": "La descarga ha fallado. Pulsa Descargar para intentarlo de nuevo."
+    },
+    "noMatch": {
+      "title": "Ningún parámetro coincide",
+      "help": "Prueba con otro nombre o con otro grupo.",
+      "clear": "Mostrar todos los parámetros"
+    },
+    "status": {
+      "none": "Conéctate para descargar los parámetros.",
+      "loading": "Descargando los parámetros…",
+      "failed": "La descarga ha fallado.",
+      "incomplete": "{total} parámetros, pero {missing} no llegaron nunca (índices {indexes}). Descarga de nuevo para reintentar.",
+      "all": "{total} parámetros",
+      "some": "{shown} de {total} parámetros"
+    },
+    "metadata": "Metadatos de {count} parámetros",
+    "metadataLoaded": "Descripciones cargadas para {described} de {total} parámetros",
+    "metadataSome": "{matched} de {total} parámetros coinciden, {described} tienen descripción",
+    "metadataNone": "0 de {total} parámetros coinciden: ninguno de los {known} que describe el archivo es un parámetro de este vehículo."
+  },
+  "snapshot": {
+    "save": "Guardar instantánea",
+    "load": "Cargar instantánea",
+    "loadMetadata": "Cargar metadatos"
+  },
+  "import": {
+    "from": "Instantánea del {savedAt}",
+    "itWas": "Era {warning}.",
+    "summary": "{differ} difieren, {same} ya son iguales. Marca los que quieras escribir.",
+    "noValue": "—",
+    "column": {
+      "apply": "Aplicar",
+      "vehicle": "En el vehículo",
+      "snapshot": "En la instantánea",
+      "result": "Resultado"
+    },
+    "verified": "✓ Escrito y releído: {detail}",
+    "notVerified": "✕ {detail}",
+    "notWritten": "No escrito",
+    "tick": "Marca los cambios que quieras.",
+    "ready": "{count} marcados. Los valores actuales se guardan antes como copia de seguridad.",
+    "writing": "Escribiendo… esperando a que el vehículo relea cada valor.",
+    "allWritten": "Todo escrito y releído.",
+    "stopped": "Se detuvo aquí: el resto no se escribió.",
+    "apply": "Aplicar {id}",
+    "write": "Escribir {count} marcados",
+    "backup": "Guardar la copia de seguridad",
+    "close": "Cerrar"
+  },
+  "staged": {
+    "region": "Cambios por escribir",
+    "discard": "Descartar {id}",
+    "write": "Escribir {count} y verificar",
+    "verified": "✓ Escrito y releído: {detail}",
+    "notVerified": "✕ {detail}",
+    "writing": "Escribiendo… esperando a que el vehículo relea cada valor.",
+    "allWritten": "Los {count} escritos y releídos.",
+    "writeKey": "Escribir los cambios (Ctrl+Intro)",
+    "alreadyMatch": "{count} restablecimientos en cola ya coinciden con el vehículo.",
+    "leftOut": "{count} excluidos: el vehículo ya tenía sus valores cuando confirmaste.",
+    "partlyWritten": "{count} escritos y releídos.",
+    "alertChanged": "{id}: {detail}.",
+    "alertFailed": "{id} no se confirmó: {detail}. Su valor en el vehículo es desconocido; descarga de nuevo para verlo.",
+    "stopped": "Se detuvo aquí: el resto no se escribió."
+  },
+  "description": {
+    "heading": "Descripción",
+    "hintNone": "Carga los metadatos de los parámetros para ver las descripciones.",
+    "hintMissing": "Los metadatos cargados no dicen nada de este parámetro.",
+    "range": "Rango",
+    "rangeValue": "de {min} a {max}{units}",
+    "units": "Unidades",
+    "increment": "Paso",
+    "values": "Valores",
+    "bits": "Bits",
+    "bit": "bit {bit}  {name}",
+    "reboot": "Reinicio",
+    "rebootYes": "El vehículo debe reiniciarse para que el cambio surta efecto."
+  },
+  "editor": {
+    "select": "Selecciona un parámetro para verlo o cambiarlo.",
+    "related": "Relacionados",
+    "openEnd": "…",
+    "newValue": "Valor"
+  },
+  "question": {
+    "write": "¿Escribir {count} parámetro en el vehículo? | ¿Escribir {count} parámetros en el vehículo?",
+    "snapshot": "¿Escribir {count} parámetro en el vehículo ({names})? | ¿Escribir {count} parámetros en el vehículo ({names})?"
+  },
+  "draft": {
+    "number": "introduce un número",
+    "ambiguous": "introduce un número con punto: {text} podría ser un decimal o un grupo de millares",
+    "range": "{type} va de {min} a {max}",
+    "tooLarge": "demasiado grande para un REAL32"
+  },
+  "warn": {
+    "values": "No es uno de los valores habituales: {allowed}",
+    "range": "Fuera del rango habitual {min}–{max}{units}"
+  },
+  "reason": {
+    "notJson": "no es JSON",
+    "xml": "un archivo XML: solo se lee JSON (el apm.pdef.json de ArduPilot o nuestro propio formato)",
+    "notMetadata": "no es un archivo de metadatos de parámetros: se esperaba el apm.pdef.json de ArduPilot o nuestro formato",
+    "metadataVersion": "metadatos versión {version} (esta app lee la versión 1)",
+    "noParameters": "no describe ningún parámetro",
+    "noParams": "no tiene parámetros",
+    "snapshotVersion": "instantánea versión {version} (esta app lee la versión {supported})",
+    "malformed": "sus parámetros están mal formados",
+    "notSnapshot": "no es una instantánea de parámetros de Drone Configurator"
+  },
+  "problem": {
+    "notOnVehicle": "no está en este vehículo",
+    "otherType": "{snapshot} en la instantánea, {vehicle} en el vehículo",
+    "otherVehicle": "guardado desde un {was} ({wasAutopilot}); este es un {now} ({nowAutopilot})",
+    "notConfirmed": "el vehículo informa {reported}, no {written}"
+  },
+  "notice": {
+    "metadataLoad": "No se pueden cargar los metadatos: {reason}.",
+    "open": "No se pudo abrir: {error}",
+    "settingsUnavailable": "Los ajustes no están disponibles: {error}",
+    "settingKept": "No se pudo guardar un ajuste: {error}",
+    "snapshotSave": "No se pudo guardar: {error}",
+    "snapshotLoad": "No se puede cargar: {reason}.",
+    "serialPorts": "No se pudieron listar los puertos serie: {error}",
+    "backendError": "el backend: {error}",
+    "backendRestarted": "El backend se reinició: la sesión del vehículo terminó. Vuelve a conectar para continuar.",
+    "backendStopped": "El backend se detuvo: la sesión del vehículo terminó. Vuelve a conectar para continuar."
+  }
+}

@@ -110,8 +110,8 @@
       "name": "Nazwa pojazdu",
       "action": "Akcja failsafe",
       "action0": "Tylko zgłoś",
-      "action1": "Wróć lub wylądSuj",
-      "action2": "Zawsze lądуj",
+      "action1": "Wróć lub wyląduj",
+      "action2": "Zawsze ląduj",
       "save": "Zapisz",
       "unnamed": "Wartość bez nazwy"
     },
@@ -467,5 +467,48 @@
     "related": "Powiązane",
     "openEnd": "…",
     "newValue": "Wartość"
+  },
+  "question": {
+    "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
+    "snapshot": "Zapisać {count} parametr w pojeździe ({names})? | Zapisać {count} parametry w pojeździe ({names})? | Zapisać {count} parametrów w pojeździe ({names})?"
+  },
+  "draft": {
+    "number": "podaj liczbę",
+    "ambiguous": "podaj liczbę z kropką: {text} może być ułamkiem lub grupą tysięcy",
+    "range": "{type} przyjmuje wartości od {min} do {max}",
+    "tooLarge": "za duża dla REAL32"
+  },
+  "warn": {
+    "values": "Nie jest to jedna z typowych wartości: {allowed}",
+    "range": "Poza typowym zakresem {min}–{max}{units}"
+  },
+  "reason": {
+    "notJson": "to nie jest JSON",
+    "xml": "plik XML: odczytywany jest tylko JSON (apm.pdef.json z ArduPilota lub nasz własny format)",
+    "notMetadata": "to nie jest plik metadanych parametrów: oczekiwano apm.pdef.json z ArduPilota lub naszego formatu",
+    "metadataVersion": "metadane w wersji {version} (ta aplikacja czyta wersję 1)",
+    "noParameters": "nie opisuje żadnych parametrów",
+    "noParams": "nie ma parametrów",
+    "snapshotVersion": "migawka w wersji {version} (ta aplikacja czyta wersję {supported})",
+    "malformed": "jej parametry są nieprawidłowo zbudowane",
+    "notSnapshot": "to nie jest migawka parametrów Drone Configurator"
+  },
+  "problem": {
+    "notOnVehicle": "nie ma w tym pojeździe",
+    "otherType": "{snapshot} w migawce, {vehicle} w pojeździe",
+    "otherVehicle": "zapisano z pojazdu {was} ({wasAutopilot}); ten pojazd to {now} ({nowAutopilot})",
+    "notConfirmed": "pojazd zgłasza {reported}, a nie {written}"
+  },
+  "notice": {
+    "metadataLoad": "Nie można wczytać metadanych: {reason}.",
+    "open": "Nie udało się otworzyć: {error}",
+    "settingsUnavailable": "Ustawienia są niedostępne: {error}",
+    "settingKept": "Nie udało się zapisać ustawienia: {error}",
+    "snapshotSave": "Nie udało się zapisać: {error}",
+    "snapshotLoad": "Nie można wczytać: {reason}.",
+    "serialPorts": "Nie udało się wyświetlić portów szeregowych: {error}",
+    "backendError": "backend: {error}",
+    "backendRestarted": "Backend został uruchomiony ponownie: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować.",
+    "backendStopped": "Backend został zatrzymany: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować."
   }
 }
