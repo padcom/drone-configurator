@@ -3,7 +3,7 @@
 // back at the end of each.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { Conn, connect, listen } from "std/net"
+import { Conn, NetError, connect, listen } from "std/net"
 import { ByteStream, MemoryStream, ParamSet, Received, SimulatedAutopilot, TcpStream, defaultSimParams } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
@@ -177,16 +177,29 @@ class VehicleEnd implements ByteStream {
   }
 
   public async read(): Promise<Uint8Array?> throws Error {
-    const bytes = await tcp.read()
-    if (bytes == null) {
+    try {
+      const bytes = await tcp.read()
+      if (bytes == null) {
+        gone = true
+      }
+      return bytes
+    } catch (e: NetError) {
+      // A connection the other end reset (the backend closes its end on purpose, and may do so with data unread) is a
+      // connection that has ended, as far as the vehicle is concerned. An error here would be thrown into the simulator's
+      // background read loop, where nothing catches it, and the test process would end.
       gone = true
+      return null
     }
-    bytes
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
     if (!gone) {
-      await tcp.write(bytes)
+      try {
+        await tcp.write(bytes)
+      } catch (e: NetError) {
+        // Reset by the other end: the connection has ended; the vehicle says nothing more.
+        gone = true
+      }
     }
   }
 
