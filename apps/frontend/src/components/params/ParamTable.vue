@@ -251,7 +251,7 @@ function pressClearMissing(): void {
 }
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
-let searchIndex: SearchIndex | null = null
+const searchIndexNow = useParamSearchIndex()
 // What the chosen group lists: its parameters that the view lists (Standard leaves out the advanced ones), or the starred ones
 // that the vehicle has (a star is a choice of the user's: the view does not hide it). A search is over all, whatever the view.
 const { listed, view, choose: chooseView } = useParamView()
@@ -263,9 +263,7 @@ const hits = computed(() => {
   if (tokens.value.length === 0) {
     return null
   }
-  searchIndex = indexFor(searchIndex, params.value.map(param => param.id), fields.metadata.value)
-
-  return search(searchIndex, fields.filter.value)
+  return search(searchIndexNow(), fields.filter.value)
 })
 const visible = computed(() => {
   const found = hits.value
