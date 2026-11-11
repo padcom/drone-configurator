@@ -46,15 +46,19 @@ async function choose(input: Element, text: string): Promise<void> {
 it('labels its three controls with translated text', async () => {
   const { wrapper } = await toolbarWithSpies()
 
-  expect(wrapper.get('#save').text()).toBe('Save snapshot')
-  expect(wrapper.get('#load-button').text()).toBe('Load snapshot')
-  expect(wrapper.get('#metadata-button').text()).toBe('Load metadata')
+  const words = (id: string) => wrapper.get(`${id} .command-button-label`).text()
+
+  expect(words('#save')).toBe('Save snapshot')
+  expect(words('#load-button')).toBe('Load snapshot')
+  expect(words('#metadata-button')).toBe('Load metadata')
 })
 
 it('saves only once there are parameters, through the host in Pico Desktop', async () => {
   const { wrapper, handle, saveFile } = await toolbarWithSpies()
-  expect(wrapper.get('#save').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#save').attributes('aria-disabled')).toBe('true')
   window.picoDesktop = {} as never
+  await wrapper.get('#save').trigger('click')
+  expect(saveFile).not.toHaveBeenCalled()
   feed(handle, { params: PARAMS })
   await wrapper.vm.$nextTick()
 
@@ -101,24 +105,39 @@ it('presses the file input for a button press when there is no host', async () =
   expect(inputClick).toHaveBeenCalledTimes(2)
 })
 
-it('has real buttons for the files, which a keyboard reaches, and the hidden inputs beside them', async () => {
+it('has real buttons for the files, which a keyboard reaches, with the icon on the left and no input of its own', async () => {
   const { wrapper } = await toolbarWithSpies()
 
   for (const id of ['#save', '#load-button', '#metadata-button']) {
     expect(wrapper.get(id).element.tagName, id).toBe('BUTTON')
+    expect(wrapper.get(id).classes(), id).toContain('icon-left')
   }
-  expect(wrapper.get('#load').attributes('hidden')).toBeDefined()
+  expect(wrapper.find('input').exists()).toBe(false)
   expect(wrapper.find('label').exists()).toBe(false)
+})
+
+it('says why Save snapshot cannot be pressed, in words a screen reader reads with the button', async () => {
+  const { wrapper } = await toolbarWithSpies()
+  const save = wrapper.get('#save')
+
+  expect(save.attributes('aria-disabled')).toBe('true')
+  expect(wrapper.get(`#${save.attributes('aria-describedby')}`).text()).toBe('There are no parameters yet.')
+  expect(save.get('.command-button-label').text()).toBe('Save snapshot')
 })
 
 it('loads the file the browser\'s input gives, and nothing when none was chosen', async () => {
   const { wrapper, loadSnapshot, loadMetadata } = await toolbarWithSpies()
+  const press = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
+  await wrapper.get('#load-button').trigger('click')
+  await wrapper.get('#metadata-button').trigger('click')
+  await wrapper.get('#load-button').trigger('click')
+  const [forSnapshot, forMetadata, cancelled] = press.mock.contexts as HTMLInputElement[]
 
-  await choose(wrapper.get('#load').element, '{"snapshot":true}')
-  await choose(wrapper.get('#metadata').element, '{"metadata":true}')
+  await choose(forSnapshot as Element, '{"snapshot":true}')
+  await choose(forMetadata as Element, '{"metadata":true}')
   // The dialog is cancelled: the input has no file.
-  Object.defineProperty(wrapper.get('#load').element, 'files', { value: [], configurable: true })
-  wrapper.get('#load').element.dispatchEvent(new Event('change'))
+  Object.defineProperty(cancelled, 'files', { value: [], configurable: true })
+  cancelled?.dispatchEvent(new Event('change'))
   await flushPromises()
 
   expect(loadSnapshot).toHaveBeenCalledTimes(1)

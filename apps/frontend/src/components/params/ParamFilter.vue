@@ -23,23 +23,34 @@
       <Icon name="close" />
     </button>
   </div>
-  <Button id="refresh" :disabled="!download" @click="parameters.refresh()">{{ t('params.download') }}</Button>
+  <CommandButton id="refresh" command="params.download" icon-position="left" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { nextTick, onActivated, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Button from '@/components/ui/Button.vue'
+import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
-import { canDownload } from '@/lib/params/paramList'
 import { moveListSelection } from '@/lib/params/paramListNav'
+import { focusSearch } from '@/lib/params/paramShortcuts'
+import { takeFocus } from '@/composables/useFocusIntent'
 import { useConfigurator } from '@/composables/useConfigurator'
 
 // The search by name, with a way to clear it, and the button that downloads the list again.
 const { t } = useI18n()
 const { parameters, fields } = useConfigurator()
-// Not while a write is under way: a download in the middle of it would put half-written values in the initial ones.
-const download = computed(() => canDownload(fields.connection.value.state, fields.list.value) && !parameters.lock.busy.value)
+
+/** A command that went to this screen asked for the focus to be in the search box: it goes there once the box is shown. */
+async function takeAskedFocus(): Promise<void> {
+  await nextTick()
+
+  if (takeFocus('params.search')) {
+    focusSearch()
+  }
+}
+
+onMounted(takeAskedFocus)
+onActivated(takeAskedFocus)
 
 /** The keys that move the selected row of the list from the search (Home and End are the caret's). */
 const LIST_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown'])

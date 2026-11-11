@@ -54,7 +54,7 @@ describe('opening the palette', () => {
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
-    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(9)
+    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(14)
     // Nothing printed and no other window: the page is still the only dialog, and still the one document.
     expect(await app.evaluate<number>(`document.querySelectorAll('dialog[open]').length`)).toBe(1)
   })
@@ -94,9 +94,15 @@ describe('running a command', () => {
     await chord('p', CTRL)
     await app.waitFor(`document.querySelector('#palette-input') !== null`)
     await app.fill('#palette-input', 'param')
-    await app.waitFor(`${ROWS}.length === 2`)
+    await app.waitFor(`${ROWS}.length === 5`)
 
-    expect(await app.evaluate<string[]>(ROWS)).toEqual(['go.parameters', 'metadata.load'])
+    expect(await app.evaluate<string[]>(ROWS)).toEqual([
+      'go.parameters',
+      'metadata.load',
+      'params.download',
+      'snapshot.save',
+      'snapshot.load',
+    ])
     await chord('Enter')
     await app.waitFor(`document.querySelector('#palette-input') === null && location.hash === '#/parameters'`)
 

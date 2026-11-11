@@ -522,6 +522,7 @@
     "count": "{count} result | {count} results",
     "failed": "The command failed.",
     "group": {
+      "app": "Application",
       "parameters": "Parameters",
       "navigate": "Navigate",
       "parameter": "Parameter",
@@ -536,7 +537,34 @@
       "logs": "Switch to Logs",
       "settings": "Switch to Settings"
     },
+    "show": {
+      "label": "Show command palette"
+    },
+    "connect": {
+      "label": "Connect to a vehicle…",
+      "keywords": "link serial tcp udp port open"
+    },
+    "disconnect": {
+      "keywords": "close link end session"
+    },
+    "params": {
+      "download": {
+        "label": "Download parameters",
+        "keywords": "read refresh reload fetch list"
+      }
+    },
+    "snapshot": {
+      "save": {
+        "label": "Save parameter snapshot…",
+        "keywords": "export backup file write"
+      },
+      "load": {
+        "label": "Load parameter snapshot…",
+        "keywords": "import restore file open"
+      }
+    },
     "reason": {
+      "noParameters": "There are no parameters yet.",
       "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
       "notConnected": "Connect to a vehicle first.",
       "stateUnknown": "The vehicle's state is unknown (no recent heartbeat).",

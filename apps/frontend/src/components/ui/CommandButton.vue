@@ -23,14 +23,15 @@
         {{ label }}
       </span>
     </template>
+    <slot />
     <!-- Hidden from the page (it is not part of the button's text), still the button's description for a screen reader. -->
     <span v-if="reason !== null" :id="reasonId" hidden>{{ reason }}</span>
   </component>
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, inject, useId } from 'vue'
+import { routerKey } from 'vue-router'
 import Icon from './Icon.vue'
 import type { Command } from '@/lib/commands/command'
 import type { IconName } from '@/lib/ui/icons'
@@ -48,7 +49,7 @@ const props = withDefaults(defineProps<{
   /** The command, or its id. */
   command: string | Command
   /** How it is drawn: the rail's, or one of the kit button's variants (`default` is the kit's outline). */
-  look?: 'rail' | 'default' | 'primary' | 'flight'
+  look?: 'rail' | 'default' | 'primary' | 'flight' | 'plain'
   /** Where the icon is, relative to the words: `none` for the words alone. */
   iconPosition?: 'top' | 'left' | 'right' | 'bottom' | 'none'
   /** Only the icon is seen: the words stay as the accessible name and the tooltip. Needs an icon. */
@@ -59,7 +60,7 @@ const props = withDefaults(defineProps<{
 
 const registry = useCommands()
 const ctx = useCommandContext()
-const router = useRouter()
+const router = inject(routerKey, null)
 const run = useCommandRunner()
 const reasonId = `command-button-${useId()}-reason`
 
@@ -73,7 +74,17 @@ const reason = computed(() => {
   return a && !a.enabled ? ctx.say(a.reasonKey, a.reasonParams) : null
 })
 const current = computed(() => cmd.value?.isActive?.(ctx) ?? false)
-const href = computed(() => (cmd.value?.href === undefined ? undefined : router.resolve(cmd.value.href).href))
+/**
+ * The address a real link points to: the router's own (it knows the base and the history mode), or the route as it is.
+ *
+ * @param route the command's route, if it leads somewhere
+ * @returns the address, or undefined for a command that leads nowhere
+ */
+function hrefOf(route: string | undefined): string | undefined {
+  return route === undefined ? undefined : (router?.resolve(route).href ?? route)
+}
+
+const href = computed(() => hrefOf(cmd.value?.href))
 // A link while it may run; a disabled one is a button that cannot be pressed.
 const asLink = computed(() => href.value !== undefined && reason.value === null)
 
@@ -91,8 +102,17 @@ const parts = computed(() => {
   return ['bottom', 'right'].includes(position.value) ? ['label', 'icon'] : ['icon', 'label']
 })
 
+// `plain` draws nothing of its own: the caller's class gives the look (the top bar's palette button has one).
+const LOOK_CLASSES: Record<string, string[]> = {
+  rail: ['rail-item'],
+  default: ['kit-button'],
+  primary: ['kit-button', 'primary'],
+  flight: ['kit-button', 'flight'],
+  plain: [],
+}
+
 const classes = computed(() => [
-  props.look === 'rail' ? 'rail-item' : ['kit-button', props.look === 'default' ? undefined : props.look],
+  LOOK_CLASSES[props.look],
   `icon-${position.value}`,
   { 'icon-only': onlyIcon.value },
 ])

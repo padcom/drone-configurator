@@ -47,6 +47,26 @@ export interface VehicleFacts {
   busy(): ParameterWork | null
   /** Asks the backend to reboot the flight controller. */
   reboot(): Promise<RebootResult>
+  /** Ends the session with the vehicle (and the tries to bring a lost link back). */
+  disconnect(): void
+}
+
+/** The vehicle's parameters, as the toolbar's commands see them. */
+export interface ParamsFacts {
+  /** How many parameters the list has. */
+  count(): number
+  /** Whether a write (or another job) holds the parameters: a download in the middle of it would mix its values up. */
+  busy(): boolean
+  /** Downloads the list again. */
+  download(): void
+}
+
+/** The parts of the page that open on a command: the dialogs that are not a screen. */
+export interface DialogFacts {
+  /** Opens the dialog to connect to a vehicle. */
+  showConnect(): void
+  /** Opens the command palette. */
+  showPalette(): void
 }
 
 /** The vehicle's parameters, as the commands that go to one see them. */
@@ -68,6 +88,10 @@ export interface FileFacts {
    * file input in a browser; the result is told in a toast).
    */
   loadMetadata(): void
+  /** Saves the parameters as a snapshot file (the host's dialog in Pico Desktop, a download in a browser). */
+  saveSnapshot(): void
+  /** Opens a snapshot file and loads it, the same way as `loadMetadata` does for metadata. */
+  loadSnapshot(): void
 }
 
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
@@ -80,6 +104,10 @@ export interface CommandContext {
   parameters: ParameterFacts
   /** The vehicle. */
   vehicle: VehicleFacts
+  /** The vehicle's parameters. */
+  params: ParamsFacts
+  /** The dialogs that open on a command. */
+  dialogs: DialogFacts
   /** Files: what a command may ask to be opened. */
   files: FileFacts
   /** Asks the user to confirm (the one route for dangerous actions); false for "no" and for Escape. */
@@ -112,6 +140,8 @@ export interface Command {
   readonly keywordKeys?: readonly string[]
   /** The key to show in its row (a plain string, filled from the keymap), when it has one. */
   readonly shortcut?: string
+  /** False for a command the palette does not offer in its list (one that is the palette itself); it still runs by its id. */
+  readonly listed?: boolean
   /** An icon of the kit's set (lib/ui/icons), for the places that draw one: the rail, a button, a row of the palette. */
   readonly icon?: IconName
   /** The route a command that goes to a place leads to: a control draws a real link with it (middle click, the status bar). */

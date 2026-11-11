@@ -27,7 +27,7 @@
       class="vehicle"
       :class="vehicle.tone"
       :title="t('connect.open')"
-      @click="connectDialog.show()"
+      @click="run('connect.open')"
     >
       <span class="dot" aria-hidden="true" />
       <span class="lines">
@@ -49,21 +49,18 @@
       </div>
     </dl>
     <div class="actions">
-      <button
+      <CommandButton
         id="open-palette"
-        type="button"
+        command="palette.open"
+        look="plain"
+        icon-position="left"
         class="palette-button"
         aria-haspopup="dialog"
         aria-keyshortcuts="Control+P"
-        @click="palette.show()"
       >
-        <Icon name="search" />
-        <span class="palette-button-text">{{ t('palette.placeholder') }}</span>
         <kbd class="palette-button-key">{{ hint }}</kbd>
-      </button>
-      <Button id="disconnect-button" :disabled="!canDisconnect" @click="configurator.vehicle.disconnect()">
-        {{ t('connection.disconnect') }}
-      </Button>
+      </CommandButton>
+      <CommandButton id="disconnect-button" command="vehicle.disconnect" icon-position="none" />
     </div>
   </header>
 </template>
@@ -72,13 +69,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
-import Button from '@/components/ui/Button.vue'
+import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { HOME } from '@/screens/registry'
 import { cellsFor, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
-import { useConnectDialog } from '@/composables/useConnectDialog'
-import { useCommandPalette } from '@/composables/useCommandPalette'
+import { useCommandRunner } from '@/composables/useCommandRunner'
 import { hintOf } from '@/lib/app/keymap'
 import { useFormat } from '@/i18n/useFormat'
 import { useTelemetry } from '@/composables/useTelemetry'
@@ -88,16 +84,13 @@ import { useTelemetry } from '@/composables/useTelemetry'
 // vehicle is doing), and an armed vehicle fills its STATE cell amber, with the word ARMED too.
 const { t } = useI18n()
 const configurator = useConfigurator()
-const connectDialog = useConnectDialog()
-const palette = useCommandPalette()
+// The vehicle chip opens the connect dialog by running the `connect.open` command, as the buttons next to it run theirs.
+const run = useCommandRunner()
 // "Ctrl P", or "⌘ P" on a Mac.
 const hint = hintOf('palette.open')
 const format = useFormat()
 const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)
-// Disconnect also ends the tries to bring a lost link back (the backend stops them: the session ends), so it is offered
-// while they go on too.
-const canDisconnect = computed(() => state.value === 'connected' || state.value === 'reconnecting')
 const vehicle = computed(() => vehicleCellFor(configurator.fields.connection.value, t))
 const cells = computed(() => cellsFor(state.value === 'connected' ? telemetry.value : null, t, format))
 </script>

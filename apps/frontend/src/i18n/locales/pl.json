@@ -522,6 +522,7 @@
     "count": "{count} wynik | {count} wyniki | {count} wyników",
     "failed": "Polecenie się nie powiodło.",
     "group": {
+      "app": "Aplikacja",
       "parameters": "Parametry",
       "navigate": "Nawigacja",
       "parameter": "Parametr",
@@ -536,7 +537,34 @@
       "logs": "Przejdź do ekranu Logi",
       "settings": "Przejdź do ekranu Ustawienia"
     },
+    "show": {
+      "label": "Pokaż paletę poleceń"
+    },
+    "connect": {
+      "label": "Połącz z pojazdem…",
+      "keywords": "łącze szeregowy tcp udp port otwórz"
+    },
+    "disconnect": {
+      "keywords": "rozłącz zamknij łącze zakończ sesję"
+    },
+    "params": {
+      "download": {
+        "label": "Pobierz parametry",
+        "keywords": "odczytaj odśwież wczytaj ponownie lista"
+      }
+    },
+    "snapshot": {
+      "save": {
+        "label": "Zapisz migawkę parametrów…",
+        "keywords": "eksport kopia plik zapis"
+      },
+      "load": {
+        "label": "Wczytaj migawkę parametrów…",
+        "keywords": "import przywróć plik otwórz"
+      }
+    },
     "reason": {
+      "noParameters": "Nie ma jeszcze parametrów.",
       "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
       "notConnected": "Najpierw połącz się z pojazdem.",
       "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
