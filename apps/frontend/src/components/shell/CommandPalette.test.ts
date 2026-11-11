@@ -207,7 +207,7 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
 
-  expect(router.currentRoute.value.path).toBe('/parameters')
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/parameters'))
   expect(wrapper.find('#palette-input').exists()).toBe(false)
   await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.app-main')))
 })

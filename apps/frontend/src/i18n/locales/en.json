@@ -535,7 +535,7 @@
     },
     "reason": {
       "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
-      "notConnected":"Connect to a vehicle first.",
+      "notConnected": "Connect to a vehicle first.",
       "stateUnknown": "The vehicle's state is unknown (no recent heartbeat).",
       "armed": "Disarm the vehicle first. A flying vehicle is never rebooted.",
       "writing": "Wait until the parameters have been written.",
@@ -548,7 +548,7 @@
         "unsupported": "{vehicle} does not support a reboot from here.",
         "noAnswer": "No answer from {vehicle}. If it is rebooting, the link comes back by itself. If nothing happens, try again.",
         "back": "{vehicle} is back.",
-        "label":"Reboot flight controller",
+        "label": "Reboot flight controller",
         "keywords": "restart reset power cycle",
         "title": "Reboot flight controller",
         "what": "Restarts the flight controller. The link drops for a few seconds and comes back by itself. Parameters are not changed. Only while disarmed.",

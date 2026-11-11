@@ -70,6 +70,8 @@ async function runReboot(wrapper: VueWrapper): Promise<void> {
   await wrapper.get('#palette-input').setValue('reboot')
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
+  // The question opens a moment after the palette has closed and given the focus back.
+  await vi.waitFor(() => expect(wrapper.find('#confirm').exists()).toBe(true))
 }
 
 /**
@@ -203,6 +205,32 @@ it('tells the reason when the backend refuses what the page thought it could do 
 
   expect(control.rebootsSent?.()).toBe(0)
   expect(toastTexts().some(text => text.startsWith('Parameters are being written or downloaded'))).toBe(true)
+})
+
+it('gives the focus back to what had it before the palette opened, after Cancel', async () => {
+  const { wrapper } = await shellWithVehicle()
+  const link = wrapper.get<HTMLAnchorElement>('nav a')
+  link.element.focus()
+  await runReboot(wrapper)
+  await vi.waitFor(() => expect(wrapper.find('#confirm-cancel').exists()).toBe(true))
+  await new Promise(resolve => {
+    setTimeout(resolve, ARM_MS + 50)
+  })
+  await wrapper.get('#confirm-cancel').trigger('click')
+  await flushPromises()
+
+  await vi.waitFor(() => expect(document.activeElement).toBe(link.element))
+})
+
+it('gives the focus back to what had it before the palette opened, after the hold', async () => {
+  const { wrapper } = await shellWithVehicle()
+  const link = wrapper.get<HTMLAnchorElement>('nav a')
+  link.element.focus()
+  await runReboot(wrapper)
+  await hold(wrapper)
+
+  await vi.waitFor(() => expect(wrapper.find('#confirm').exists()).toBe(false))
+  await vi.waitFor(() => expect(document.activeElement).toBe(link.element))
 })
 
 it('asks in the language of the page', async () => {
