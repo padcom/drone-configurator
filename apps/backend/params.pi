@@ -103,13 +103,16 @@ async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   const conn = connectedLink()
   let r: ParamListResult? = null
   announced.listing = true
+  link.listing = true
   try {
     r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run()
   } catch (e: MavLinkError) {
     announced.listing = false
+    link.listing = false
     throw new CommunicatorError(e.code, e.message)
   }
   announced.listing = false
+  link.listing = false
   const list = r!
   const out = ParamList {
     params: list.params.map((p) => toParam(p.id, p.index, p.value)),
@@ -134,6 +137,8 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     }
     value = TypedParamValue.Int(w.value as int, type!)
   }
+  // A reboot is refused while a write is in flight (reboot.pi): it would cut the write.
+  link.writes += 1
   try {
     const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run(w.id, value)
     encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
@@ -141,5 +146,7 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     throw new CommunicatorError(e.code, e.message)
   } catch (e: ParamError) {
     throw new CommunicatorError(e.code, e.message)
+  } finally {
+    link.writes -= 1
   }
 }

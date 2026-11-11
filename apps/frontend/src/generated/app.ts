@@ -117,6 +117,15 @@ function validateParamWriteResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-write-result, or null. */
 export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
 
+export type RebootResult = { "result": "accepted" | "refused" | "unsupported" | "no-answer", "detail"?: string }
+
+function validateRebootResultInto(value: any, path: string): boolean {
+  return map(value, path, ["result","detail"]) && (value["result"] === undefined ? fail(`${path}.result`, 'present') : nested(value["result"], `${path}.result`, (value, path) => oneOf(value, path, ["accepted","refused","unsupported","no-answer"]))) && (value["detail"] === undefined || nested(value["detail"], `${path}.detail`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a reboot-result, or null. */
+export const validateRebootResult = (value: unknown) => run(validateRebootResultInto, value)
+
 export type MessagesParams = { "replay"?: number }
 
 function validateMessagesParamsInto(value: any, path: string): boolean {
@@ -331,6 +340,7 @@ export interface Services {
   "vehicle.connection": { kind: 'subscription', params: null, value: Connection }
   "params.list": { kind: 'method', request: null, response: ParamList }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
@@ -362,6 +372,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "vehicle.reboot": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateRebootResultInto(value, path),
   },
   "telemetry.stream": {
     params: (value: any, path: string) => validateTelemetryParamsInto(value, path),
