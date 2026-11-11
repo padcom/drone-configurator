@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  Connection, ConnectRequest, MessagesParams, Param, ParamWrite, RebootResult, Settings, SettingsPatch, SettingsState,
+  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, Settings, SettingsPatch, SettingsState,
   VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
@@ -27,6 +27,10 @@ export interface MockOptions {
   settingsNotice?: { notice: string, noticeCode: string }
   /** How long a vehicle that accepted a reboot stays gone (ms; 300 by default). */
   rebootMs?: number
+  /** A download that takes its time: `steps` progress events, `intervalMs` apart, then the list (no events when not set). */
+  progress?: { steps: number, intervalMs: number }
+  /** How the vehicle's file transfer behaves at the start (see `MockControl.ftp`). */
+  ftp?: 'ok' | 'unsupported' | 'timeout'
 }
 
 /**
@@ -80,6 +84,8 @@ export interface MockControl {
   armed?: (armed: boolean | null) => void
   /** Whether a parameter write or download is under way, as `vehicle.reboot` sees it (it refuses with BUSY). */
   busy?: (busy: boolean) => void
+  /** How the vehicle's file transfer behaves: `ok` (the default), `unsupported` or `timeout` (a download falls back to the list). */
+  ftp?: (mode: 'ok' | 'unsupported' | 'timeout') => void
   /** What the vehicle answers to a reboot (`accepted` unless set). */
   rebootAnswer?: (answer: RebootResult['result']) => void
   /** How many reboot commands the vehicle has been sent (a refused call sends none). */
@@ -108,6 +114,10 @@ class MockVehicle {
   armedOverride: boolean | null | undefined
   telemetryArmed: boolean | undefined
   busy = false
+  /** How the vehicle's file transfer behaves (the download falls back to the list when it is not `ok`). */
+  ftpMode: 'ok' | 'unsupported' | 'timeout' = 'ok'
+  /** The download that takes its time (`MockOptions.progress`): its timer, and how to fail it. */
+  pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
   rebootsSent = 0
 
@@ -118,6 +128,7 @@ class MockVehicle {
 
   constructor(private readonly send: Send, private readonly options: MockOptions) {
     this.settings = options.settings ?? { version: 1, ui: [] }
+    this.ftpMode = options.ftp ?? 'ok'
     if (options.control) {
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => {
@@ -131,6 +142,7 @@ class MockVehicle {
       options.control.say = (severity, text) => this.say(severity, text)
       options.control.armed = armed => { this.armedOverride = armed }
       options.control.busy = busy => { this.busy = busy }
+      options.control.ftp = mode => { this.ftpMode = mode }
       options.control.rebootAnswer = answer => { this.rebootAnswer = answer }
       options.control.rebootsSent = () => this.rebootsSent
     }
@@ -143,6 +155,10 @@ class MockVehicle {
       clearInterval(timer)
     }
     this.timers.clear()
+    if (this.pendingList) {
+      clearInterval(this.pendingList.timer)
+      this.pendingList = undefined
+    }
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
@@ -174,8 +190,8 @@ class MockVehicle {
         this.watchers.add(e.id!)
         this.send({ k: 'response', id: e.id!, s: e.id! })
         return this.send({ k: 'event', n: 'vehicle.connection', s: e.id!, p: this.connection })
-      case 'params.list':
-        return this.connected(fail) && ok({ params: this.params, count: this.params.length, complete: true, missing: [] })
+      case 'params.list': return this.connected(fail) && this.list((e.p as ParamListRequest | null)?.method ?? 'auto', ok, fail)
+      case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
@@ -199,6 +215,66 @@ class MockVehicle {
       }
       default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
     }
+  }
+
+  /**
+   * The download: by file transfer where the vehicle has it, else by list (the way is `ftp` in the mock's own words: `ok`,
+   * `unsupported` or `timeout`, see `MockControl.ftp`). With `MockOptions.progress` it takes its time, sending progress
+   * as it goes, and `params.cancel` ends it.
+   *
+   * @param method what the caller asked for
+   * @param ok sends the result
+   * @param fail sends an error
+   */
+  list(method: 'auto' | 'list' | 'ftp', ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    const failure = this.ftpMode === 'ok' ? null : this.ftpMode
+    if (method === 'ftp' && failure) {
+      return fail(failure === 'timeout' ? 'TIMEOUT' : 'UNSUPPORTED', `file transfer: ${failure}`)
+    }
+    const byFtp = method !== 'list' && !failure
+    const source = byFtp ? 'ftp' as const : 'list' as const
+    const fallback = method === 'list' ? 'disabled' : failure
+    const steps = this.options.progress?.steps ?? 0
+    const intervalMs = this.options.progress?.intervalMs ?? 0
+    const result = {
+      params: this.params,
+      count: this.params.length,
+      complete: true,
+      missing: [] as number[],
+      source,
+      ...fallback ? { fallback } : {},
+      elapsedMs: steps > 0 ? steps * intervalMs : byFtp ? 800 : 6200,
+    }
+    if (steps <= 0) {
+      return ok(result)
+    }
+    let done = 0
+    const total = this.params.length
+    const timer = setInterval(() => {
+      done += 1
+      this.send({ k: 'event', n: 'params.progress', p: { received: Math.round(total * done / steps), total, source } })
+      if (done >= steps) {
+        clearInterval(timer)
+        this.pendingList = undefined
+        ok(result)
+      }
+    }, intervalMs)
+    this.pendingList = { timer, fail }
+  }
+
+  /**
+   * Stops the download that is under way, if there is one; it fails with `ABORTED`.
+   *
+   * @param ok sends the (empty) answer
+   */
+  cancelList(ok: (p: Envelope['p']) => void) {
+    const pending = this.pendingList
+    if (pending) {
+      clearInterval(pending.timer)
+      this.pendingList = undefined
+      pending.fail('ABORTED', 'the parameter list: cancelled')
+    }
+    ok(null)
   }
 
   settingsState(): SettingsState {

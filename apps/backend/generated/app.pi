@@ -261,6 +261,67 @@ export function encodeParam(v: Param): Cbor {
   Cbor.Dict(m)
 }
 
+export enum ParamListRequestMethod { Auto, List, Ftp }
+
+export function decodeParamListRequestMethod(v: Cbor, path: string): ParamListRequestMethod throws InvalidPayload {
+  match (text(v, path)) {
+    "auto" => ParamListRequestMethod.Auto,
+    "list" => ParamListRequestMethod.List,
+    "ftp" => ParamListRequestMethod.Ftp,
+    _ => throw new InvalidPayload(path, "auto or list or ftp"),
+  }
+}
+
+export function encodeParamListRequestMethod(v: ParamListRequestMethod): Cbor {
+  match (v) {
+    Auto => Cbor.Text("auto"),
+    List => Cbor.Text("list"),
+    Ftp => Cbor.Text("ftp"),
+  }
+}
+
+export struct ParamListRequest {
+  method?: ParamListRequestMethod
+}
+
+export function decodeParamListRequest(v: Cbor, path: string): ParamListRequest throws InvalidPayload {
+  const m = members(v, path, ["method"])
+  const cbor0 = m.get("method")
+  let opt0: ParamListRequestMethod? = null
+  if (cbor0 != null) {
+    opt0 = decodeParamListRequestMethod(cbor0, `${path}.method`)
+  }
+  ParamListRequest {
+    method: opt0,
+  }
+}
+
+export function encodeParamListRequest(v: ParamListRequest): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.method
+  if (opt0 != null) {
+    m.set("method", encodeParamListRequestMethod(opt0))
+  }
+  Cbor.Dict(m)
+}
+
+export enum ParamListSource { Ftp, List }
+
+export function decodeParamListSource(v: Cbor, path: string): ParamListSource throws InvalidPayload {
+  match (text(v, path)) {
+    "ftp" => ParamListSource.Ftp,
+    "list" => ParamListSource.List,
+    _ => throw new InvalidPayload(path, "ftp or list"),
+  }
+}
+
+export function encodeParamListSource(v: ParamListSource): Cbor {
+  match (v) {
+    Ftp => Cbor.Text("ftp"),
+    List => Cbor.Text("list"),
+  }
+}
+
 function decodeParamListParamsList(v: Cbor, path: string): Param[] throws InvalidPayload {
   const out: Param[] = []
   let i = 0
@@ -302,15 +363,36 @@ export struct ParamList {
   count: u16
   complete: bool
   missing: u16[]
+  source?: ParamListSource
+  fallback?: string
+  elapsedMs?: u32
 }
 
 export function decodeParamList(v: Cbor, path: string): ParamList throws InvalidPayload {
-  const m = members(v, path, ["params", "count", "complete", "missing"])
+  const m = members(v, path, ["params", "count", "complete", "missing", "source", "fallback", "elapsedMs"])
+  const cbor4 = m.get("source")
+  let opt4: ParamListSource? = null
+  if (cbor4 != null) {
+    opt4 = decodeParamListSource(cbor4, `${path}.source`)
+  }
+  const cbor5 = m.get("fallback")
+  let opt5: string? = null
+  if (cbor5 != null) {
+    opt5 = text(cbor5, `${path}.fallback`)
+  }
+  const cbor6 = m.get("elapsedMs")
+  let opt6: u32? = null
+  if (cbor6 != null) {
+    opt6 = (uint(cbor6, `${path}.elapsedMs`, 4294967295) as u32)
+  }
   ParamList {
     params: decodeParamListParamsList(required(m, "params", path), `${path}.params`),
     count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
     complete: boolean(required(m, "complete", path), `${path}.complete`),
     missing: decodeParamListMissingList(required(m, "missing", path), `${path}.missing`),
+    source: opt4,
+    fallback: opt5,
+    elapsedMs: opt6,
   }
 }
 
@@ -320,6 +402,58 @@ export function encodeParamList(v: ParamList): Cbor {
   m.set("count", Cbor.Uint(v.count as u64))
   m.set("complete", Cbor.Bool(v.complete))
   m.set("missing", encodeParamListMissingList(v.missing))
+  const opt4 = v.source
+  if (opt4 != null) {
+    m.set("source", encodeParamListSource(opt4))
+  }
+  const opt5 = v.fallback
+  if (opt5 != null) {
+    m.set("fallback", Cbor.Text(opt5))
+  }
+  const opt6 = v.elapsedMs
+  if (opt6 != null) {
+    m.set("elapsedMs", Cbor.Uint(opt6 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export enum ParamsProgressSource { Ftp, List }
+
+export function decodeParamsProgressSource(v: Cbor, path: string): ParamsProgressSource throws InvalidPayload {
+  match (text(v, path)) {
+    "ftp" => ParamsProgressSource.Ftp,
+    "list" => ParamsProgressSource.List,
+    _ => throw new InvalidPayload(path, "ftp or list"),
+  }
+}
+
+export function encodeParamsProgressSource(v: ParamsProgressSource): Cbor {
+  match (v) {
+    Ftp => Cbor.Text("ftp"),
+    List => Cbor.Text("list"),
+  }
+}
+
+export struct ParamsProgress {
+  received: u16
+  total: u16
+  source: ParamsProgressSource
+}
+
+export function decodeParamsProgress(v: Cbor, path: string): ParamsProgress throws InvalidPayload {
+  const m = members(v, path, ["received", "total", "source"])
+  ParamsProgress {
+    received: (uint(required(m, "received", path), `${path}.received`, 65535) as u16),
+    total: (uint(required(m, "total", path), `${path}.total`, 65535) as u16),
+    source: decodeParamsProgressSource(required(m, "source", path), `${path}.source`),
+  }
+}
+
+export function encodeParamsProgress(v: ParamsProgress): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("received", Cbor.Uint(v.received as u64))
+  m.set("total", Cbor.Uint(v.total as u64))
+  m.set("source", encodeParamsProgressSource(v.source))
   Cbor.Dict(m)
 }
 

@@ -19,9 +19,21 @@
         @focusout="left($event, toast.key)"
       >
         <Icon class="glyph" :name="GLYPHS[toast.severity]" />
-        <span class="text">{{ toast.text }}</span>
+        <!-- A brief toast is for the eye: what it says is said to the ear by the page (the shell's status), not twice. -->
+        <span class="text" :aria-hidden="toast.brief ? 'true' : undefined">{{ toast.text }}</span>
+        <!-- Each step of a download is for the eye: what a screen reader hears is the text, when it changes. -->
+        <span v-if="toast.progress" class="progress" aria-hidden="true">
+          <span class="bar"><span class="fill" :style="{ width: `${percentOf(toast.progress)}%` }" /></span>
+          <span v-if="toast.progress.label" class="label">{{ toast.progress.label }}</span>
+        </span>
         <span v-if="toast.count > 1" class="count">{{ t('toast.count', { count: toast.count }) }}</span>
-        <button type="button" class="dismiss" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.key)">
+        <button
+          type="button"
+          class="dismiss"
+          :aria-label="toast.dismissLabel ?? t('toast.dismiss')"
+          :title="toast.dismissLabel ?? undefined"
+          @click="toasts.dismiss(toast.key, 'manual')"
+        >
           <Icon name="close" />
         </button>
       </div>
@@ -38,7 +50,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/ui/Icon.vue'
-import { type Severity, type Toast, type Toasts, useToasts } from '@/composables/toasts'
+import { type Severity, type Toast, type ToastProgress, type Toasts, useToasts } from '@/composables/toasts'
 
 const props = withDefaults(defineProps<{
   /** The queue to show: the application's unless a test or the gallery gives its own. */
@@ -49,13 +61,23 @@ const { t } = useI18n()
 const toasts = props.queue ?? useToasts()
 
 /** The glyph of each severity: a tick, a warning sign, a cross (so the colour is never alone). */
-const GLYPHS = { success: 'check', warning: 'warning', error: 'close' } as const satisfies Record<Severity, string>
+const GLYPHS = { info: 'info', success: 'check', warning: 'warning', error: 'close' } as const satisfies Record<Severity, string>
 
 /** The two live regions, always there: errors are announced at once, the rest politely. */
 const groups = computed<Array<{ role: 'status' | 'alert', toasts: Toast[] }>>(() => [
   { role: 'status', toasts: toasts.visible.value.filter(toast => toast.severity !== 'error') },
   { role: 'alert', toasts: toasts.visible.value.filter(toast => toast.severity === 'error') },
 ])
+
+/**
+ * How much of a bar is full.
+ *
+ * @param progress the bar
+ * @returns a whole percentage from 0 to 100 (0 for a bar with nothing to do)
+ */
+function percentOf(progress: ToastProgress): number {
+  return progress.max > 0 ? Math.min(100, Math.max(0, Math.round(progress.value / progress.max * 100))) : 0
+}
 
 /**
  * The focus left something in a toast: its hold by the focus ends unless the focus only moved to another part of the same toast.

@@ -4,6 +4,9 @@
     <span v-if="resumed">{{ t('connection.resumed') }}</span>
     <span v-if="fields.error.value">{{ fields.error.value }}</span>
     <span v-if="fields.notice.value">{{ fields.notice.value }}</span></p>
+  <!-- The end of a parameter download, said to the ear from here because the Parameters screen may not be open when it ends
+       (the connection was made from another screen, or it is the automatic download after a link came back). Always there. -->
+  <p id="download-announcement" class="visually-hidden" role="status">{{ downloadText }}</p>
 </template>
 
 <script setup lang="ts">
@@ -13,6 +16,7 @@ import { isRebooting, rebootProgress } from '@/lib/fly/reboot'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useConnectDialog } from '@/composables/useConnectDialog'
 import { useToasts } from '@/composables/toasts'
+import { useDownloadText } from '@/composables/useDownloadText'
 
 // What the link is doing and why it last failed, said to a screen reader: a live region that is always in the page (in the
 // top bar, out of sight), so a change of the connection is read out. The top bar's vehicle cell shows the state, the
@@ -22,6 +26,7 @@ const { t } = useI18n()
 const { fields } = useConfigurator()
 const dialog = useConnectDialog()
 const toasts = useToasts()
+const downloadText = useDownloadText('ended')
 const state = computed(() => fields.connection.value.state)
 // The vehicle went quiet because it was told to reboot: said as that, not as a lost link.
 const quiet = computed(() => isRebooting(fields.connection.value))

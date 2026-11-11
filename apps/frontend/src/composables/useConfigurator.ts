@@ -98,6 +98,8 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     params: parameters.params,
     list: parameters.list,
     missing: parameters.missing,
+    downloadInfo: parameters.downloadInfo,
+    downloadEnded: parameters.downloadEnded,
     filter: parameters.filter,
     initial: parameters.initial,
     selected: parameters.selected,

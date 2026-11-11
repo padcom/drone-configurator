@@ -319,6 +319,16 @@
   border-top: 0;
 }
 
+/* How the last download came: it takes what room the footer has left on its line and is cut with an ellipsis (its words are its
+   tooltip), so it never makes the footer wrap onto another line and take height from the list. */
+.list-footer #download-status {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* "Reset N changed to initial values", at the right of the line that says when the initial values were taken. */
 .list-footer #reset-all {
   margin: var(--space-1) var(--space-3);

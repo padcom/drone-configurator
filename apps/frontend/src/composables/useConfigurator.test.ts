@@ -26,6 +26,8 @@ it('has a ref for every field of the state, and nothing else', () => {
     'applying',
     'backup',
     'connection',
+    'downloadEnded',
+    'downloadInfo',
     'draft',
     'draftError',
     'draftWarning',

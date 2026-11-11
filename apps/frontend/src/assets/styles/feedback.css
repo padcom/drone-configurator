@@ -50,6 +50,10 @@
   height: 16px;
 }
 
+.kit-toast.sev-info .glyph {
+  color: var(--color-accent);
+}
+
 .kit-toast.sev-success .glyph {
   color: var(--color-ok);
 }
@@ -65,6 +69,36 @@
 .kit-toast .text {
   flex: 1;
   overflow-wrap: anywhere;
+}
+
+/* A bar for something under way, with its figure beside it. */
+.kit-toast .progress {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.kit-toast .bar {
+  width: 5rem;
+  height: 6px;
+  overflow: hidden;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.kit-toast .fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.kit-toast .progress .label {
+  min-width: 3ch;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+  color: var(--color-text-muted);
+  text-align: right;
 }
 
 .kit-toast .count {

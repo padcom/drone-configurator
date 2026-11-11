@@ -349,6 +349,31 @@
     "groups": "Parametergruppen",
     "allGroups": "Alle",
     "list": "Parameter",
+    "progress": {
+      "running": "Parameter werden geladen…",
+      "label": "{received} von {total} · {method}",
+      "method": {
+        "list": "per Liste",
+        "ftp": "per Dateiübertragung"
+      },
+      "done": "{count} Parameter geladen | {count} Parameter geladen",
+      "cancelled": "Download abgebrochen",
+      "cancelDownload": "Download abbrechen",
+      "incomplete": "Download unvollständig. Geladen: {count}, fehlend: {missing}",
+      "failed": "Die Parameter konnten nicht geladen werden",
+      "info": {
+        "ftp": "Parameter: {count} · per Dateiübertragung in {seconds} s",
+        "list": "Parameter: {count} · per Liste in {seconds} s",
+        "listBecause": "Parameter: {count} · per Liste in {seconds} s (Dateiübertragung wird nicht genutzt: {reason})"
+      },
+      "fallback": {
+        "unsupported": "das Fahrzeug bietet sie nicht an",
+        "timeout": "keine Antwort",
+        "protocol": "eine unsinnige Antwort",
+        "incomplete": "zu wenige Parameter",
+        "disabled": "die Liste wurde verlangt"
+      }
+    },
     "selection": "{id}, {position} von {total}",
     "favourites": {
       "group": "Favoriten",

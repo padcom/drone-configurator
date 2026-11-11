@@ -60,6 +60,8 @@ export class Frontend {
   readonly t: Transport
   id: u64 = 0
   readonly kept: Envelope[] = []
+  /// Every event that has come in while waiting for something else (a test that counts them reads this).
+  public readonly heard: Envelope[] = []
 
   constructor(t: Transport) {
     this.t = t
@@ -93,6 +95,9 @@ export class Frontend {
       const got = decodeEnvelope((await t.receive()) ?? new Uint8Array(0))
       if (got.id == want) {
         return got
+      }
+      if (got.k == "event") {
+        heard.push(got)
       }
       if (got.id != null && (got.k == "response" || got.k == "error")) {
         kept.push(got)

@@ -18,11 +18,17 @@ import {
   Param,
   ParamKind,
   ParamList,
+  ParamListRequestMethod,
+  ParamListSource,
   ParamWriteKind,
   ParamWriteResult,
+  ParamsProgress,
+  ParamsProgressSource,
+  decodeParamListRequest,
   decodeParamWrite,
   encodeParam,
   encodeParamList,
+  encodeParamsProgress,
   encodeParamWriteResult,
 } from "./generated/app"
 import { SessionPart, changesVehicleType, connectedLink, link } from "./session"
@@ -32,8 +38,12 @@ export function register(c: Communicator): void {
   announced.communicator = c
   link.parts.set("params", announced)
   c.handle("params.list", listParams)
+  c.handle("params.cancel", cancelDownload)
   c.handle("params.write", writeParam)
 }
+
+/// At most this often (ms) a `params.progress` is sent while a download runs.
+const PROGRESS_EVERY_MS: int = 100
 
 /// Parameters the vehicle announces on its own (`params.changed`).
 class Announced implements SessionPart {
@@ -42,6 +52,48 @@ class Announced implements SessionPart {
   public listener: int = 0
   /// While a list download runs, PARAM_VALUEs are its answers, not news.
   public listing: bool = false
+  /// The download that runs, so that `params.cancel` can stop it (and nothing else: the session goes on).
+  public download: AbortController? = null
+  /// The indexes that have arrived in this download, how many the vehicle says there are, and when progress was last sent.
+  public got: Map<int, bool> = new Map<int, bool>()
+  public total: int = 0
+  public progressAt: int = 0
+  /// The session signal that is followed (once for each session, not once for each download).
+  public followed: AbortSignal? = null
+
+  /// Makes the session ending stop the download that runs. One listener on a session's signal, however many downloads it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => stopDownload())
+  }
+
+  /// Stops the download that runs, if any.
+  public stopDownload(): void {
+    const d = download
+    if (d != null) {
+      d!.abort()
+    }
+  }
+
+  /// A PARAM_VALUE that answers the download: progress, at most `PROGRESS_EVERY_MS` apart (the first at once, the last when
+  /// all have arrived).
+  public listed(m: ParamValue): void {
+    got.set(m.paramIndex as int, true)
+    total = m.paramCount as int
+    if (total <= 0) {
+      return
+    }
+    const now = Date.now() as int
+    const c = communicator
+    if (c != null && (got.size == 1 || got.size >= total || now - progressAt >= PROGRESS_EVERY_MS)) {
+      progressAt = now
+      const received = if (got.size > total) total else got.size
+      c!.emit("params.progress", encodeParamsProgress(ParamsProgress { received: received as u16, total: total as u16, source: ParamsProgressSource.List }))
+    }
+  }
 
   public attach(c: MavLinkConnection): void {
     if (conn != null) {
@@ -68,7 +120,11 @@ class Announced implements SessionPart {
     if (m instanceof ParamValue) {
       // A parameter the vehicle announced on its own: tell the dashboard.
       const c = communicator
-      if (!listing && c != null) {
+      if (listing) {
+        listed(m)
+        return
+      }
+      if (c != null) {
         const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
         c!.emit("params.changed", encodeParam(p))
       }
@@ -99,13 +155,36 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
   }
 }
 
-async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+/// Stops the download that is running, if any: it fails with `ABORTED`, and the link and the session stay.
+async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  announced.stopDownload()
+  null
+}
+
+async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const method = if (payload == null) null else decodeParamListRequest(payload!, "$").method
+  if (method != null && method! == ParamListRequestMethod.Ftp) {
+    // Not here yet: a request for the file transfer only is an error, there is no fallback to it.
+    throw new CommunicatorError("UNSUPPORTED", "downloading the parameters by file transfer is not available yet")
+  }
   const conn = connectedLink()
+  if (announced.download != null) {
+    // One download at a time: a second would share its progress and take its place for `params.cancel`.
+    throw new CommunicatorError("BUSY", "a parameter download is already running")
+  }
   let r: ParamListResult? = null
+  const started = Date.now() as int
+  // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
+  const own = new AbortController()
+  announced.follow(link.session.signal)
+  announced.download = own
+  announced.got.clear()
+  announced.total = 0
+  announced.progressAt = 0
   announced.listing = true
   link.listing = true
   try {
-    r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run()
+    r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: own.signal }).run()
   } catch (e: MavLinkError) {
     throw new CommunicatorError(e.code, e.message)
   } finally {
@@ -113,6 +192,7 @@ async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
     // announcements, until the session ends.
     announced.listing = false
     link.listing = false
+    announced.download = null
   }
   const list = r!
   const out = ParamList {
@@ -120,6 +200,8 @@ async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
     count: list.count as u16,
     complete: list.complete,
     missing: list.missing.map((i: int) => i as u16),
+    source: ParamListSource.List,
+    elapsedMs: ((Date.now() as int) - started) as u32,
   }
   encodeParamList(out)
 }

@@ -349,6 +349,31 @@
     "groups": "Parameter groups",
     "allGroups": "All",
     "list": "Parameters",
+    "progress": {
+      "running": "Downloading the parameters…",
+      "label": "{received} of {total} · {method}",
+      "method": {
+        "list": "by list",
+        "ftp": "by file transfer"
+      },
+      "done": "{count} parameter downloaded | {count} parameters downloaded",
+      "cancelled": "Download cancelled",
+      "cancelDownload": "Cancel download",
+      "incomplete": "Download incomplete. Downloaded: {count}, missing: {missing}",
+      "failed": "The parameters could not be downloaded",
+      "info": {
+        "ftp": "Parameters: {count} · by file transfer in {seconds} s",
+        "list": "Parameters: {count} · by list in {seconds} s",
+        "listBecause": "Parameters: {count} · by list in {seconds} s (file transfer is not used: {reason})"
+      },
+      "fallback": {
+        "unsupported": "the vehicle does not offer it",
+        "timeout": "it did not answer",
+        "protocol": "it gave an answer that makes no sense",
+        "incomplete": "it gave too few parameters",
+        "disabled": "the list was asked for"
+      }
+    },
     "selection": "{id}, {position} of {total}",
     "favourites": {
       "group": "Favourites",

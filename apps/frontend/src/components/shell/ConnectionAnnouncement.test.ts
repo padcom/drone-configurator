@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import { VEHICLE } from '@/mock/fixtures'
@@ -35,6 +35,54 @@ it('shows the state, the vehicle and why the last attempt failed, as text', asyn
   expect(text).toContain('<oops>')
   expect(text).toContain('The backend restarted')
   expect(wrapper.find('#connection oops').exists()).toBe(false)
+})
+
+it('says the end of a parameter download to the ear, with no Parameters screen mounted, in a status that is there', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  const status = wrapper.get('#download-announcement')
+  expect(status.attributes('role')).toBe('status')
+  expect(status.classes()).toContain('visually-hidden')
+  expect(status.text()).toBe('')
+
+  // A download that is under way says nothing; when it ends, how it came is said.
+  const info = { source: 'list' as const, fallback: 'timeout', elapsedMs: 6200 }
+  feed({ list: 'loading', downloadInfo: info, downloadEnded: null })
+  await wrapper.vm.$nextTick()
+  expect(status.text()).toBe('')
+  feed({ list: 'complete', params: [], downloadInfo: info, downloadEnded: info })
+  await wrapper.vm.$nextTick()
+
+  expect(status.text()).toBe('Parameters: 0 · by list in 6.2 s (file transfer is not used: it did not answer)')
+})
+
+it('says nothing about a download that was cancelled or failed, and not the words of an earlier one', async () => {
+  const handle = createConfigurator(mockBackend({ progress: { steps: 4, intervalMs: 20 } }))
+  const wrapper = mount(ConnectionAnnouncement, withI18n)
+  await handle.vehicle.connect({ transport: 'simulator' })
+  await vi.waitFor(() => expect(wrapper.get('#download-announcement').text()).toContain('Parameters: 12 · by file transfer'))
+  const said = wrapper.get('#download-announcement')
+
+  // Cancelled: the region is empty again, not the words of the download before.
+  const again = handle.parameters.refresh()
+  await vi.waitFor(() => expect(handle.parameters.progress.value).not.toBeNull())
+  expect(said.text()).toBe('')
+  await handle.parameters.cancel()
+  await again
+  expect(handle.parameters.list.value).toBe('complete')
+  expect(said.text()).toBe('')
+
+  // A download that gives its list again is said again (once).
+  await handle.parameters.refresh()
+  expect(said.text()).toContain('Parameters: 12 · by file transfer')
+
+  // Failed (no vehicle): empty, as well.
+  await handle.vehicle.disconnect()
+  await handle.parameters.refresh()
+  expect(handle.parameters.list.value).toBe('failed')
+  expect(said.text()).toBe('')
+  // (The toasts of these downloads are the shared queue's: leave it clean for the tests after.)
+  const toasts = useToasts()
+  toasts.visible.value.forEach(toast => toasts.dismiss(toast.key))
 })
 
 it('is out of sight, and toasts the error and the notice (the error not while the Connect dialog shows it)', async () => {

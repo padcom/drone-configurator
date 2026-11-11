@@ -349,6 +349,31 @@
     "groups": "Grupos de parámetros",
     "allGroups": "Todos",
     "list": "Parámetros",
+    "progress": {
+      "running": "Descargando los parámetros…",
+      "label": "{received} de {total} · {method}",
+      "method": {
+        "list": "por lista",
+        "ftp": "por transferencia de archivos"
+      },
+      "done": "{count} parámetro descargado | {count} parámetros descargados",
+      "cancelled": "Descarga cancelada",
+      "cancelDownload": "Cancelar la descarga",
+      "incomplete": "Descarga incompleta. Descargados: {count}, faltan: {missing}",
+      "failed": "No se pudieron descargar los parámetros",
+      "info": {
+        "ftp": "Parámetros: {count} · por transferencia de archivos en {seconds} s",
+        "list": "Parámetros: {count} · por lista en {seconds} s",
+        "listBecause": "Parámetros: {count} · por lista en {seconds} s (no se usa la transferencia de archivos: {reason})"
+      },
+      "fallback": {
+        "unsupported": "el vehículo no la ofrece",
+        "timeout": "no respondió",
+        "protocol": "dio una respuesta sin sentido",
+        "incomplete": "dio demasiados pocos parámetros",
+        "disabled": "se pidió la lista"
+      }
+    },
     "selection": "{id}, {position} de {total}",
     "favourites": {
       "group": "Favoritos",

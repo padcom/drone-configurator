@@ -92,6 +92,69 @@ describe('what the user does with a toast', () => {
   })
 })
 
+describe('a toast with a bar', () => {
+  it('draws the bar and its figure for the eye only, and tells the callback the user closed it', async () => {
+    const { wrapper, toasts } = host()
+    const reasons: string[] = []
+    toasts.push({
+      severity: 'success',
+      text: 'Downloading',
+      sticky: true,
+      progress: { value: 3, max: 4, label: '75 %' },
+      onDismiss: reason => reasons.push(reason),
+    })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('.progress').attributes('aria-hidden')).toBe('true')
+    expect(wrapper.get('.fill').attributes('style')).toContain('width: 75%')
+    expect(wrapper.get('.progress .label').text()).toBe('75 %')
+    await wrapper.get('.dismiss').trigger('click')
+
+    expect(reasons).toEqual(['manual'])
+    expect(wrapper.findAll('.kit-toast')).toHaveLength(0)
+  })
+})
+
+describe('a brief toast in the host', () => {
+  it('is for the eye only: its words are hidden from a screen reader, which hears the page\'s own status', async () => {
+    const { wrapper, toasts } = host()
+    const key = toasts.push({ severity: 'info', text: 'working', sticky: true })
+    toasts.update(key, { text: '12 parameters downloaded', brief: true, sticky: false })
+    toasts.push({ severity: 'success', text: 'plain' })
+    await wrapper.vm.$nextTick()
+
+    const texts = wrapper.findAll('.text')
+    expect(texts.map(t => [t.text(), t.attributes('aria-hidden')])).toEqual([
+      ['12 parameters downloaded', 'true'],
+      ['plain', undefined],
+    ])
+  })
+})
+
+describe('the close button of a toast', () => {
+  it('is named as the toast says, and the usual way when it says nothing', async () => {
+    const { wrapper, toasts } = host()
+    toasts.push({ severity: 'info', text: 'Downloading', sticky: true, dismissLabel: 'Cancel download' })
+    toasts.push({ severity: 'success', text: 'plain' })
+    await wrapper.vm.$nextTick()
+
+    const buttons = wrapper.findAll('.dismiss')
+    expect(buttons.map(b => b.attributes('aria-label'))).toEqual(['Cancel download', 'Dismiss'])
+    expect(buttons[0]?.attributes('title')).toBe('Cancel download')
+    expect(buttons[1]?.attributes('title')).toBeUndefined()
+  })
+
+  it('has no bar when it has no progress, and a bar with nothing to do is empty', async () => {
+    const { wrapper, toasts } = host()
+    toasts.push({ severity: 'success', text: 'plain' })
+    toasts.push({ severity: 'success', text: 'empty', progress: { value: 0, max: 0 } })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.findAll('.progress')).toHaveLength(1)
+    expect(wrapper.get('.fill').attributes('style')).toContain('width: 0%')
+  })
+})
+
 describe('what the pointer and the focus do to a toast', () => {
   it('keeps it while the pointer is on it, and lets it go after', async () => {
     const { wrapper, toasts } = host()

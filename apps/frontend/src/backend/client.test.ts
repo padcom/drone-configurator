@@ -61,10 +61,36 @@ it('rejects a failed call with a BackendError that has the backend\'s code', asy
   const client = createBackendClient(mockBackend())
 
   // No vehicle is connected: the backend refuses the call.
-  const error = await client.call('params.list', null).catch((caught: unknown) => caught)
+  const error = await client.call('params.list', {}).catch((caught: unknown) => caught)
 
   expect(error).toBeInstanceOf(BackendError)
   expect(error).toMatchObject({ code: 'NOT_CONNECTED', message: 'no vehicle is connected' })
+})
+
+it('says how the mock list came: by file transfer, by the list when asked, and when the vehicle has none', async () => {
+  const control: MockControl = {}
+  const client = createBackendClient(mockBackend({ control }))
+  await client.call('vehicle.connect', { transport: 'simulator' })
+
+  const auto = await client.call('params.list', {})
+  const asked = await client.call('params.list', { method: 'list' })
+  control.ftp?.('timeout')
+  const fallen = await client.call('params.list', {})
+
+  expect([auto.source, auto.fallback]).toEqual(['ftp', undefined])
+  expect([asked.source, asked.fallback]).toEqual(['list', 'disabled'])
+  expect([fallen.source, fallen.fallback]).toEqual(['list', 'timeout'])
+  expect(auto.elapsedMs).toBeGreaterThan(0)
+})
+
+it('fails a download by file transfer only when the vehicle has none, with no fallback', async () => {
+  const control: MockControl = {}
+  const client = createBackendClient(mockBackend({ control, ftp: 'unsupported' }))
+  await client.call('vehicle.connect', { transport: 'simulator' })
+
+  const error = await client.call('params.list', { method: 'ftp' }).catch((caught: unknown) => caught)
+
+  expect(error).toMatchObject({ code: 'UNSUPPORTED' })
 })
 
 it('delivers a subscription\'s values until it is stopped, and then no more', async () => {
