@@ -113,8 +113,8 @@
       {{ t(armed ? 'params.favourites.clearAsk' : 'params.favourites.clearMissing', { count: missingFavourites }) }}
     </Button>
     <!-- How the last download came (by file transfer or by list, and how long it took): a diagnostic, not a choice. -->
-    <!-- A polite status, always in the page: a download that has finished is not a toast, so this is what says it was done. -->
-    <p id="download-status" class="list-status muted" role="status">{{ downloadText }}</p>
+    <!-- How the last download came: for the eye (the shell's hidden status says it to the ear; this screen may be closed). -->
+    <p v-if="downloadText" id="download-status" class="list-status muted">{{ downloadText }}</p>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
       {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}
@@ -159,8 +159,7 @@ import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamGroup } from '@/composables/useParamGroup'
 import { useParamSearchIndex } from '@/composables/useParamSearchIndex'
 import { useParamView } from '@/composables/useParamView'
-import { useFormat } from '@/i18n/useFormat'
-import { downloadLine } from '@/lib/params/downloadLine'
+import { useDownloadText } from '@/composables/useDownloadText'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
 
 // The parameters, one row each: the name (its group part dimmed), the value, and, when metadata is loaded, what it means.
@@ -168,18 +167,13 @@ import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/
 // how many there are and how many are shown. A list with nothing to show says why (no parameters yet, or none that match)
 // and, for the second, offers the way out.
 const { t } = useI18n()
-const format = useFormat()
 const { parameters, fields, staged } = useConfigurator()
 const choice = useParamGroup()
 /** The height of a row, in px (the rows are all the same: the stylesheet gives them 44). */
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
-// How the last download came, said once it has finished.
-const downloadText = computed(() => {
-  const info = fields.list.value === 'loading' ? null : fields.downloadInfo.value
-
-  return downloadLine(info, params.value.length, t, format)
-})
+// How the last download came, shown once it has finished (the shell says it to the ear: this screen may not be there).
+const downloadText = useDownloadText()
 // Without the groups (the setting "Show parameter groups" is off) there is no group to be in, and no star: the scope is All.
 const { shown: stars } = useGroupsSetting()
 const group = computed(() => stars.value ? effectiveGroup(params.value, choice.chosen.value) : '')

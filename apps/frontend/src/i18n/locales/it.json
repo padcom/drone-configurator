@@ -356,6 +356,7 @@
         "list": "con l'elenco",
         "ftp": "con il trasferimento di file"
       },
+      "done": "{count} parametro scaricato | {count} parametri scaricati",
       "cancelled": "Scaricamento annullato",
       "cancelDownload": "Annulla lo scaricamento",
       "incomplete": "Scaricamento incompleto. Scaricati: {count}, mancanti: {missing}",

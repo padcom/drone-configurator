@@ -19,7 +19,8 @@
         @focusout="left($event, toast.key)"
       >
         <Icon class="glyph" :name="GLYPHS[toast.severity]" />
-        <span class="text">{{ toast.text }}</span>
+        <!-- A brief toast is for the eye: what it says is said to the ear by the page (the shell's status), not twice. -->
+        <span class="text" :aria-hidden="toast.brief ? 'true' : undefined">{{ toast.text }}</span>
         <!-- Each step of a download is for the eye: what a screen reader hears is the text, when it changes. -->
         <span v-if="toast.progress" class="progress" aria-hidden="true">
           <span class="bar"><span class="fill" :style="{ width: `${percentOf(toast.progress)}%` }" /></span>

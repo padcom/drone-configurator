@@ -356,6 +356,7 @@
         "list": "por lista",
         "ftp": "por transferencia de archivos"
       },
+      "done": "{count} parámetro descargado | {count} parámetros descargados",
       "cancelled": "Descarga cancelada",
       "cancelDownload": "Cancelar la descarga",
       "incomplete": "Descarga incompleta. Descargados: {count}, faltan: {missing}",

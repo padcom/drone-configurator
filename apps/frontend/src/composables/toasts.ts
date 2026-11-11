@@ -27,6 +27,11 @@ export interface ToastPatch {
   severity?: Severity
   /** Whether it stays until dismissed; letting go of it starts its time. */
   sticky?: boolean
+  /**
+   * Whether it is a passing word, not news to act on: it goes after a short time (BRIEF_MS), takes no place of the visible ones
+   * (it never holds another toast back), and is for the eye only (the program says it to the ear some other way).
+   */
+  brief?: boolean
   /** The bar; `null` takes it away. */
   progress?: ToastProgress | null
   /** What the close button is called, when closing the toast is more than a dismissal ("Cancel download"); `null`: the usual. */
@@ -71,6 +76,8 @@ export interface Toast {
   long: boolean
   /** How many times the same event was pushed within the de-duplication window (1 for a single one). */
   count: number
+  /** Whether it is a passing word (see `ToastPatch.brief`). */
+  brief: boolean
   /** The bar, or null. */
   progress: ToastProgress | null
   /** What the close button is called, or null for the usual "Dismiss". */
@@ -85,6 +92,9 @@ export const SHOW_MS = 6000
 
 /** How long an error stays (ms): longer. */
 export const ERROR_SHOW_MS = 12_000
+
+/** How long a brief toast (a passing word) stays (ms). */
+export const BRIEF_MS = 2000
 
 /** The same event pushed again within this long (ms) is one toast with a count. */
 export const DEDUPE_MS = 2000
@@ -151,6 +161,16 @@ function lasting(input: ToastInput): Pick<Toast, 'sticky' | 'long'> {
 }
 
 /**
+ * Whether a toast stays as long as an error does.
+ *
+ * @param toast the toast
+ * @returns true for an error, and for one that asked to
+ */
+function lastsLong(toast: Toast): boolean {
+  return toast.severity === 'error' || toast.long
+}
+
+/**
  * How long a toast stays.
  *
  * @param toast the toast
@@ -161,7 +181,7 @@ function lifeOf(toast: Toast): number {
     return Number.POSITIVE_INFINITY
   }
 
-  return toast.severity === 'error' || toast.long ? ERROR_SHOW_MS : SHOW_MS
+  return toast.brief ? BRIEF_MS : lastsLong(toast) ? ERROR_SHOW_MS : SHOW_MS
 }
 
 /**
@@ -212,6 +232,7 @@ function newToast(key: number, input: ToastInput): Toast {
     text: input.text,
     ...lasting(input),
     count: 1,
+    brief: false,
     progress: input.progress ?? null,
     dismissLabel: input.dismissLabel ?? null,
   })
@@ -345,9 +366,11 @@ class ToastQueue implements Toasts {
 
   /** Shows what fits, starts the time of what has just appeared, and counts what waits. */
   private refresh(): void {
-    const shown = this.entries.slice(0, MAX_VISIBLE)
+    // A brief toast takes no place of the others: it is shown besides them, and never holds one back.
+    const regular = this.entries.filter(e => !e.toast.brief)
+    const shown = this.entries.filter(e => e.toast.brief || regular.indexOf(e) < MAX_VISIBLE)
     this.visible.value = shown.map(e => e.toast)
-    this.waiting.value = Math.max(0, this.entries.length - MAX_VISIBLE)
+    this.waiting.value = Math.max(0, regular.length - MAX_VISIBLE)
 
     for (const entry of shown.filter(startable)) {
       this.run(entry)

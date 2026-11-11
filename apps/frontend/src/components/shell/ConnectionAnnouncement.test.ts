@@ -37,6 +37,23 @@ it('shows the state, the vehicle and why the last attempt failed, as text', asyn
   expect(wrapper.find('#connection oops').exists()).toBe(false)
 })
 
+it('says the end of a parameter download to the ear, with no Parameters screen mounted, in a status that is there', async () => {
+  const { wrapper, feed } = statusWithFeed()
+  const status = wrapper.get('#download-announcement')
+  expect(status.attributes('role')).toBe('status')
+  expect(status.classes()).toContain('visually-hidden')
+  expect(status.text()).toBe('')
+
+  // A download that is under way says nothing; when it ends, how it came is said.
+  feed({ list: 'loading', downloadInfo: { source: 'list', fallback: 'timeout', elapsedMs: 6200 } })
+  await wrapper.vm.$nextTick()
+  expect(status.text()).toBe('')
+  feed({ list: 'complete', params: [], downloadInfo: { source: 'list', fallback: 'timeout', elapsedMs: 6200 } })
+  await wrapper.vm.$nextTick()
+
+  expect(status.text()).toBe('Parameters: 0 · by list in 6.2 s (file transfer is not used: it did not answer)')
+})
+
 it('is out of sight, and toasts the error and the notice (the error not while the Connect dialog shows it)', async () => {
   const { wrapper, feed } = statusWithFeed()
   const toasts = useToasts()

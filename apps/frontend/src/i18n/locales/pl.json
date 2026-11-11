@@ -356,6 +356,7 @@
         "list": "listą",
         "ftp": "transferem plików"
       },
+      "done": "Pobrano {count} parametr | Pobrano {count} parametry | Pobrano {count} parametrów",
       "cancelled": "Pobieranie anulowane",
       "cancelDownload": "Anuluj pobieranie",
       "incomplete": "Pobieranie niepełne. Pobrano: {count}, brakuje: {missing}",

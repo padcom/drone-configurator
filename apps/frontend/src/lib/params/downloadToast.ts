@@ -57,14 +57,13 @@ class RunningToast implements DownloadToast {
   }
 
   done(count: number, missing: number): void {
-    // A list that is not whole is not good news: a warning, with how many are missing. A whole one needs no toast: it would sit
-    // over the list for the time of a toast after every connection (the line under the list, a polite status, says how it came).
+    // A list that is not whole is not good news: a warning, with how many are missing. A whole one is a passing word: the same
+    // toast says it for a moment (it is not a success toast, and holds no other back) and goes, which is no cancel. To the ear
+    // the shell's status says it (ConnectionAnnouncement), so the toast is for the eye only.
     if (missing > 0) {
       this.end('warning', say('params.progress.incomplete', { count, missing }))
-    } else if (this.open) {
-      this.open = false
-      this.toasts.update(this.key, { onDismiss: null })
-      this.toasts.dismiss(this.key)
+    } else {
+      this.end('info', say('params.progress.done', { count }, count), true)
     }
   }
 
@@ -86,12 +85,13 @@ class RunningToast implements DownloadToast {
    *
    * @param severity how it is told
    * @param text what it says
+   * @param brief whether it is a passing word (it goes soon, and holds no other toast back)
    */
-  private end(severity: 'success' | 'warning' | 'error', text: string): void {
+  private end(severity: 'info' | 'success' | 'warning' | 'error', text: string, brief = false): void {
     if (this.open) {
       this.open = false
       // Closing it is a dismissal again, and the button has its usual name.
-      this.toasts.update(this.key, { severity, text, progress: null, sticky: false, onDismiss: null, dismissLabel: null })
+      this.toasts.update(this.key, { severity, text, brief, progress: null, sticky: false, onDismiss: null, dismissLabel: null })
     }
   }
 }

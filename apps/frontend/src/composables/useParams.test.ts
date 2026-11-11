@@ -191,9 +191,23 @@ it('shows a toast that stays while it runs, with the count and the way, and says
   expect(toast.text).toBe('Downloading the parameters…')
   await downloading
 
-  // A whole list leaves no toast behind (it would cover the list after every connection): the line under the list says it.
-  expect(texts(toasts)).toEqual([])
+  // The same toast says it is done, for a moment: an info toast (not a success one), brief, with the usual close button.
+  expect(texts(toasts)).toEqual([`${PARAMS.length} parameters downloaded`])
+  expect(toasts.visible.value[0])
+    .toMatchObject({ severity: 'info', brief: true, sticky: false, progress: null, dismissLabel: null })
   expect(parameters.progress.value).toBeNull()
+})
+
+it('does not cancel anything when the done state of the toast is closed, and does not hold the next download back', async () => {
+  const { parameters, toasts, deps } = await rig(true, { progress: { steps: 2, intervalMs: 10 } })
+  const call = vi.spyOn(deps.client, 'call')
+  await parameters.refresh()
+  toasts.dismiss(toasts.visible.value[0]!.key, 'manual')
+  await parameters.refresh()
+
+  expect(call.mock.calls.map(([name]) => name)).toEqual(['params.list', 'params.list'])
+  // Two downloads, two toasts that are done: each its own, none a success toast, none stuck over the other.
+  expect(toasts.visible.value.map(toast => toast.severity)).toEqual(['info'])
 })
 
 it('names the close button of the running download "Cancel download", and the usual again once it has ended', async () => {
@@ -203,7 +217,7 @@ it('names the close button of the running download "Cancel download", and the us
   expect(toasts.visible.value[0]?.dismissLabel).toBe('Cancel download')
   await downloading
 
-  expect(texts(toasts)).toEqual([])
+  expect(toasts.visible.value[0]?.dismissLabel).toBeNull()
 })
 
 it('names the close button of a download that ends incomplete the usual way', async () => {

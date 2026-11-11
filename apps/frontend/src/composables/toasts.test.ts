@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BRIEF_MS,
   type Clock,
   DEDUPE_MS,
   ERROR_SHOW_MS,
@@ -282,6 +283,28 @@ describe('a toast that is updated after it is gone, or that becomes sticky', () 
     clock.advance(10 * SHOW_MS)
 
     expect(shown(toasts)).toEqual(['one'])
+  })
+})
+
+describe('a brief toast', () => {
+  it('goes after its short time, which is no cancel, and takes no place of the others', () => {
+    const { toasts, clock } = queue()
+    for (let i = 1; i <= MAX_VISIBLE; i++) {
+      toasts.push({ severity: 'warning', text: `w${i}`, sticky: true })
+    }
+    const reasons: string[] = []
+    const key = toasts.push({ severity: 'info', text: 'working', sticky: true, onDismiss: reason => reasons.push(reason) })
+    // It waits with the others while the places are taken; a brief word is shown at once, besides them.
+    expect(shown(toasts)).toHaveLength(MAX_VISIBLE)
+    toasts.update(key, { text: 'done', brief: true, sticky: false, onDismiss: null })
+    expect(shown(toasts)).toEqual(['w1', 'w2', 'w3', 'w4', 'done'])
+    expect(toasts.waiting.value).toBe(0)
+    clock.advance(BRIEF_MS - 1)
+    expect(shown(toasts)).toContain('done')
+    clock.advance(1)
+
+    expect(shown(toasts)).toEqual(['w1', 'w2', 'w3', 'w4'])
+    expect(reasons).toEqual([])
   })
 })
 

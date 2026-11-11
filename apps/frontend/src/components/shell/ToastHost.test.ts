@@ -115,6 +115,22 @@ describe('a toast with a bar', () => {
   })
 })
 
+describe('a brief toast in the host', () => {
+  it('is for the eye only: its words are hidden from a screen reader, which hears the page\'s own status', async () => {
+    const { wrapper, toasts } = host()
+    const key = toasts.push({ severity: 'info', text: 'working', sticky: true })
+    toasts.update(key, { text: '12 parameters downloaded', brief: true, sticky: false })
+    toasts.push({ severity: 'success', text: 'plain' })
+    await wrapper.vm.$nextTick()
+
+    const texts = wrapper.findAll('.text')
+    expect(texts.map(t => [t.text(), t.attributes('aria-hidden')])).toEqual([
+      ['12 parameters downloaded', 'true'],
+      ['plain', undefined],
+    ])
+  })
+})
+
 describe('the close button of a toast', () => {
   it('is named as the toast says, and the usual way when it says nothing', async () => {
     const { wrapper, toasts } = host()

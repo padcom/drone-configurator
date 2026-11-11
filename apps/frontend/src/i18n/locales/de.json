@@ -356,6 +356,7 @@
         "list": "per Liste",
         "ftp": "per Dateiübertragung"
       },
+      "done": "{count} Parameter geladen | {count} Parameter geladen",
       "cancelled": "Download abgebrochen",
       "cancelDownload": "Download abbrechen",
       "incomplete": "Download unvollständig. Geladen: {count}, fehlend: {missing}",
