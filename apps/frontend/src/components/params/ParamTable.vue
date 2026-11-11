@@ -114,7 +114,7 @@
     </Button>
     <!-- How the last download came (by file transfer or by list, and how long it took): a diagnostic, not a choice. -->
     <!-- How the last download came: for the eye (the shell's hidden status says it to the ear; this screen may be closed). -->
-    <p v-if="downloadText" id="download-status" class="list-status muted">{{ downloadText }}</p>
+    <p v-if="downloadText" id="download-status" class="list-status muted" :title="downloadText">{{ downloadText }}</p>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
       {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}
