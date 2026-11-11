@@ -5,7 +5,11 @@
       <li v-for="row in rows" :key="row.change.id" class="staged-row" :class="row.result?.outcome" :data-id="row.change.id">
         <!-- The name selects the parameter, so that its value can be edited again (or put back, which takes the change out). -->
         <button type="button" class="name" @click="parameters.select(row.change.id)">{{ row.change.id }}</button>
-        <span class="values"><span class="from">{{ row.change.from }}</span> → <span class="to">{{ row.change.to }}</span></span>
+        <span class="values">
+          <span class="from">{{ showNumber(row.change.from) }}</span>
+          →
+          <span class="to">{{ showNumber(row.change.to) }}</span>
+        </span>
         <span v-if="row.line" class="line" :class="row.line.tone">{{ row.line.text }}</span>
         <!-- A trash can at the right of the row; its name says which parameter it takes out. -->
         <button
@@ -41,6 +45,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from './kit/Button.vue'
 import Icon from './kit/Icon.vue'
+import { showNumber } from './paramValue'
 import { linesFor, summaryOf } from './stagedChanges'
 import { useToasts } from './toasts'
 import { useConfigurator } from './useConfigurator'

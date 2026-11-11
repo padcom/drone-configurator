@@ -34,8 +34,8 @@
                   >
                 </td>
                 <th scope="row" class="name">{{ row.change.id }}</th>
-                <td class="num old">{{ row.change.from ?? t('import.noValue') }}</td>
-                <td class="new">→ {{ row.change.to }}</td>
+                <td class="num old">{{ row.change.from === null ? t('import.noValue') : showNumber(row.change.from) }}</td>
+                <td class="new">→ {{ showNumber(row.change.to) }}</td>
                 <td class="result" :class="row.result.tone">{{ row.result.text }}</td>
               </tr>
             </tbody>
@@ -62,6 +62,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { saveText, snapshotFileName } from './files'
 import Button from './kit/Button.vue'
+import { showNumber } from './paramValue'
 import { canApply, panelShown, resultOf, statusOf, stoppedEarly } from './snapshotImport'
 import { useConfigurator } from './useConfigurator'
 

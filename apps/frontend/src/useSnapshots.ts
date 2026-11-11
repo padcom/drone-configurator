@@ -4,6 +4,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
 import type { Connection, Param } from './generated/app'
+import { notConfirmedText, showNumber } from './paramValue'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from './snapshot'
 import type { AppliedChange } from './state'
 import type { WriteLock } from './writeLock'
@@ -181,8 +182,8 @@ class Snapshots implements SnapshotsModel {
       this.deps.parameters.replace(result.param)
 
       return result.verified
-        ? { id, outcome: 'verified', detail: `${result.param.value}` }
-        : { id, outcome: 'changed', detail: `the vehicle reports ${result.param.value}, not ${change.to}` }
+        ? { id, outcome: 'verified', detail: showNumber(result.param.value) }
+        : { id, outcome: 'changed', detail: notConfirmedText(result.param.value, change.to) }
     } catch (error) {
       return { id: param.id, outcome: 'failed', detail: describeError(error) }
     }

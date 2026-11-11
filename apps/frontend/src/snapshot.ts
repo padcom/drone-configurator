@@ -2,6 +2,7 @@
 // Nothing here writes: only the changes the user picked and confirmed are applied (useSnapshots).
 import { validateDraft } from './draft'
 import type { Param, VehicleInfo } from './generated/app'
+import { canonical } from './paramValue'
 
 /** The `format` of a snapshot file. */
 export const FORMAT = 'drone-configurator/params'
@@ -173,7 +174,14 @@ function changeFor(wanted: SnapshotParam, current: Param | undefined): Change | 
     return { id, from: current.value, to, problem: `${wanted.type} in the snapshot, ${current.type} on the vehicle` }
   }
 
-  return current.value === to ? null : { id, from: current.value, to, problem: validateDraft(current, String(to)) }
+  // Compared, and written, as the numbers the vehicle holds (0.1 in a file is the same as the float that came back for it).
+  const value = canonical(current, to)
+
+  if (canonical(current, current.value) === value) {
+    return null
+  }
+
+  return { id, from: current.value, to: value, problem: validateDraft(current, String(to)) }
 }
 
 /**
