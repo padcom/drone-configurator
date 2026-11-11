@@ -1,9 +1,9 @@
 // The `vehicle.messages` subscription of the mock backend: the same contract as the Pico backend's (replay first, then
 // live, ids that go up), checked with the contract's own validator.
 import { expect, it, vi } from 'vitest'
-import { SCRIPTED_MESSAGES } from '../fixtures'
-import { type VehicleMessage, validateVehicleMessage } from '../generated/app'
-import { type MockControl, mockBackend } from '../mock-backend'
+import { SCRIPTED_MESSAGES } from '@/mock/fixtures'
+import { type VehicleMessage, validateVehicleMessage } from '@/generated/app'
+import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import { createBackendClient } from './client'
 
 /**

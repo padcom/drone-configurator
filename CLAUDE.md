@@ -29,12 +29,12 @@ gives each file a `title` and a `page` (no page means the main "Control center" 
 **How to work:** one screen at a time. Pick a board, build it from the kit, confirm it against the board and its issue,
 then move on. Where a board and an issue disagree, ask.
 
-Kit: `apps/frontend/src/kit`. Shared boards map to kit pieces: `EnumField`, `HoldButton`, `PanelForm`, `TopBar`, `Rail`.
+Kit: `apps/frontend/src/components/ui`. Shared boards map to kit pieces: `EnumField`, `HoldButton`, `PanelForm`, `TopBar`, `Rail`.
 If a screen needs a control the kit lacks, add it to the kit rather than to the screen.
 
 ## Design rules
 
-Values live in one place: `apps/frontend/src/kit/tokens.css`. Use the tokens, and change a value there or nowhere.
+Values live in one place: `apps/frontend/src/assets/styles/tokens.css`. Use the tokens, and change a value there or nowhere.
 
 **Colour**
 

@@ -5,8 +5,8 @@ import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/pro
 import { setTimeout as pause } from 'node:timers/promises'
 import { expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { type MockControl, mockBackend } from '../mock-backend'
-import type { Connection, Param } from '../generated/app'
+import { type MockControl, mockBackend } from '@/mock/mock-backend'
+import type { Connection, Param } from '@/generated/app'
 import { BackendError, createBackendClient } from './client'
 
 /** What the scripted backend sends. */

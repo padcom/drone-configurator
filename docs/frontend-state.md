@@ -22,19 +22,19 @@ One page: backend calls, subscriptions and when they end, errors, and the frame 
 The interface's state is held by composables that use the client, one per concern, each a set of shallow refs and the
 actions that change them:
 
-- `useVehicle()` (`src/useVehicle.ts`): the connection, the serial ports, the notice when the backend went away, and the
+- `useVehicle()` (`src/composables/useVehicle.ts`): the connection, the serial ports, the notice when the backend went away, and the
   telemetry; `connect`, `disconnect`, `listPorts`.
-- `useParams()` (`src/useParams.ts`): the parameter list and how its download went, the filter and the selection, the
+- `useParams()` (`src/composables/useParams.ts`): the parameter list and how its download went, the filter and the selection, the
   draft of a new value, and writing it.
-- `useMetadata()` (`src/useMetadata.ts`): the parameter metadata loaded from a file, and why a file was not loaded.
-- `useSnapshots()` (`src/useSnapshots.ts`): saving the parameters as a snapshot, loading one for review, the ticks, and
+- `useMetadata()` (`src/composables/useMetadata.ts`): the parameter metadata loaded from a file, and why a file was not loaded.
+- `useSnapshots()` (`src/composables/useSnapshots.ts`): saving the parameters as a snapshot, loading one for review, the ticks, and
   writing the ticked changes after one confirmation.
-- `useTelemetry()` (`src/useTelemetry.ts`): the telemetry, once per frame (see below).
+- `useTelemetry()` (`src/composables/useTelemetry.ts`): the telemetry, once per frame (see below).
 
 Each is given what it needs from the rest as arguments (the client, a way to ask the user to confirm, and so on), so a
-test builds its own on the mock backend. `createConfigurator()` (`src/useConfigurator.ts`) puts them together once, when
+test builds its own on the mock backend. `createConfigurator()` (`src/composables/useConfigurator.ts`) puts them together once, when
 the page starts, and `useConfigurator()` gives a component the result: the composables to call, and `fields`, one ref
-per piece of the `State` type (`src/state.ts`) that is the very ref the composable holding it changes. A component reads
+per piece of the `State` type (`src/state/state.ts`) that is the very ref the composable holding it changes. A component reads
 the refs it needs and is woken by those only. There is no central object and no re-render loop.
 
 ## Subscriptions and when they end
@@ -59,7 +59,7 @@ Every failed call rejects with one error type, `BackendError { code, message }`:
 - `code` is the protocol's or the application's own (`NOT_CONNECTED`, `TIMEOUT`, `UNKNOWN_PARAM`, ...), or `unknown`
   for anything that was not a failed call. Match on `code`, never on `message`.
 - `message` is English text for people to read. Showing it is fine; the interface's own words come from
-  `locales/en.json` (#18), and a code is how a component picks its own text.
+  `i18n/locales/en.json` (#18), and a code is how a component picks its own text.
 - `cause` is the original error.
 
 ## The frame rule
@@ -114,7 +114,7 @@ When the backend loses the vehicle it reports `reconnecting` (`attempt`, `nextRe
 What survives a restart is the backend's (`settings.get`, `settings.set`, the event `settings.changed`); the interface
 holds a copy in `useSettings()` (`settings`, `notice`) and does not read or write anything of its own in the browser.
 
-- **The theme.** There is one, and it is dark (`kit/tokens.css`), so nothing is chosen or applied. The backend's settings
+- **The theme.** There is one, and it is dark (`assets/styles/tokens.css`), so nothing is chosen or applied. The backend's settings
   can still hold a `theme`, from an earlier version; the interface ignores it.
 - **Starting.** `createConfigurator` reads the settings once. A kept language goes into the messages at once. There is
   no wait for them. Every `settings.changed` is applied the same way, also when another window made the change.

@@ -236,7 +236,7 @@ export async function showGroups(app: E2eApp): Promise<void> {
   await app.waitFor(`document.querySelector('.param-groups') !== null`)
 }
 
-/** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/safety.ts), and a margin. */
+/** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/lib/app/safety.ts), and a margin. */
 const CONFIRMATION_ARMS_MS = 400 + 150
 
 /**

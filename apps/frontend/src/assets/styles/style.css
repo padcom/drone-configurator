@@ -1,0 +1,45 @@
+/* The names the rest of this file uses, from the design tokens (tokens.css), the one dark theme. */
+:root {
+  --accent: var(--color-accent);
+  --ok: var(--color-ok);
+  --warn: var(--color-warn);
+  --error: var(--color-error);
+  --line: color-mix(in srgb, currentColor 18%, transparent);
+  font-family: var(--font-body);
+}
+
+body { margin: 0; background: var(--color-bg); color: var(--color-text); }
+/* One scrollbar for every scrollable box: the thin one of the dark theme (the groups' list had it, the others the wide
+   default). A rule of a class that says otherwise (the rail hides its own) is more specific and wins. */
+* { scrollbar-width: thin; }
+/* Always in the page (a live region), but with no box of its own until it has something to say: an empty one with a margin was
+   a bar of the page's dark background between the top bar and the screen. */
+#settings-notice { margin: 0; }
+#settings-notice.has-text { margin: 6px 0; padding: 0 var(--space-4); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.toolbar input { flex: 1 1 10em; }
+/* A component's mount point that adds no box of its own: its children are laid out by the parent. */
+.inline { display: contents; }
+.toolbar button, label.button { white-space: nowrap; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+td.num { font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr.selected { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.detail h3 { margin-top: 0; }
+.muted { opacity: 0.7; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.error { color: var(--error); }
+/* File pickers look like the buttons next to them. */
+label.button {
+  font: 13.33px system-ui, sans-serif;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  cursor: pointer;
+}
+#import-panel { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+ul.changes { list-style: none; padding: 0; }

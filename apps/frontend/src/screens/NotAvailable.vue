@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
-import EmptyState from '../kit/EmptyState.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 // A screen that is planned but not built: it says so, under its own name, and says what works now.
 const { t } = useI18n()

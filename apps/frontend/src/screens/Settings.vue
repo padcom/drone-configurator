@@ -17,11 +17,11 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { LANGUAGES, isLanguage } from '../i18n'
-import Select from '../kit/Select.vue'
-import Toggle from '../kit/Toggle.vue'
-import { useConfigurator } from '../useConfigurator'
-import { useGroupsSetting } from '../useGroupsSetting'
+import { LANGUAGES, isLanguage } from '@/i18n/i18n'
+import Select from '@/components/ui/Select.vue'
+import Toggle from '@/components/ui/Toggle.vue'
+import { useConfigurator } from '@/composables/useConfigurator'
+import { useGroupsSetting } from '@/composables/useGroupsSetting'
 
 // What the user chooses about the application. For now that is the language of the interface, of which there is one; the
 // choice is kept in the settings (the backend's file), which shows the interface in it, so it is still there at the next

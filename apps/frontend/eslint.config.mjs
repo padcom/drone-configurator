@@ -5,7 +5,7 @@ import vueI18n from '@intlify/eslint-plugin-vue-i18n'
 import config from '@padcom/eslint-config-vue'
 
 // Files written before the rules (#11) that still break some of them: eslint-baseline.txt says why,
-// and src/lint-baseline.test.ts makes sure the list only shrinks.
+// and src/tests/lint-baseline.test.ts makes sure the list only shrinks.
 const notYetLinted = readFileSync(new URL('eslint-baseline.txt', import.meta.url), 'utf8')
   .split(/\r?\n/u)
   .map(line => line.trim())
@@ -17,19 +17,19 @@ const i18n = [
   {
     name: 'drone-configurator:i18n',
     files: ['src/**/*.vue', 'src/**/*.ts'],
-    ignores: ['src/**/*.test.ts', 'src/mock-backend.ts', 'src/fixtures.ts'],
+    ignores: ['src/**/*.test.ts', 'src/mock/**'],
     plugins: { '@intlify/vue-i18n': vueI18n },
     settings: {
       'vue-i18n': {
-        localeDir: 'src/locales/*.json',
+        localeDir: 'src/i18n/locales/*.json',
         messageSyntaxVersion: '^11.0.0',
       },
     },
     rules: {
-      // No literal text in a template (what the user reads comes from src/locales/en.json) ...
+      // No literal text in a template (what the user reads comes from src/i18n/locales/en.json) ...
       '@intlify/vue-i18n/no-raw-text': ['error', { ignorePattern: '^[^\\p{L}]+$' }],
       // ... and every key a component asks for exists. (Functions that take a `translate` are covered by
-      // src/i18n-keys.test.ts.)
+      // src/tests/i18n-keys.test.ts.)
       '@intlify/vue-i18n/no-missing-keys': 'error',
       '@intlify/vue-i18n/no-v-html': 'error',
       '@intlify/vue-i18n/no-deprecated-tc': 'error',
