@@ -1,6 +1,7 @@
 // The one muted line under the parameter list that says how the last download came: "Parameters: 1370 · by file transfer in
 // 0.8 s", or by the list and why not by file transfer. A diagnostic, not a choice for the user.
 import type { DownloadInfo } from '@/composables/useParams'
+import type { Format } from '@/i18n/useFormat'
 
 /** Looks a message up (vue-i18n's `t`). */
 type Say = (key: string, named?: Record<string, unknown>) => string
@@ -40,13 +41,14 @@ function known(info: DownloadInfo | null): info is DownloadInfo & { elapsedMs: n
  * @param info how it came, or null before the first download
  * @param count how many parameters there are
  * @param t looks a message up
+ * @param f formats the seconds in the user's language
  * @returns the line, or null when there is nothing to say (no download yet, or a backend that does not say how it came)
  */
-export function downloadLine(info: DownloadInfo | null, count: number, t: Say): string | null {
+export function downloadLine(info: DownloadInfo | null, count: number, t: Say, f: Format): string | null {
   if (!known(info)) {
     return null
   }
-  const named = { count, seconds: (info.elapsedMs / 1000).toFixed(1) }
+  const named = { count, seconds: f.number(info.elapsedMs / 1000, 1) }
 
   return info.source === 'ftp' ? t('params.progress.info.ftp', named) : byList(info.fallback, named, t)
 }

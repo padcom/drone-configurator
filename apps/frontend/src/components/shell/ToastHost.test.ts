@@ -113,6 +113,20 @@ describe('a toast with a bar', () => {
     expect(reasons).toEqual(['manual'])
     expect(wrapper.findAll('.kit-toast')).toHaveLength(0)
   })
+})
+
+describe('the close button of a toast', () => {
+  it('is named as the toast says, and the usual way when it says nothing', async () => {
+    const { wrapper, toasts } = host()
+    toasts.push({ severity: 'info', text: 'Downloading', sticky: true, dismissLabel: 'Cancel download' })
+    toasts.push({ severity: 'success', text: 'plain' })
+    await wrapper.vm.$nextTick()
+
+    const buttons = wrapper.findAll('.dismiss')
+    expect(buttons.map(b => b.attributes('aria-label'))).toEqual(['Cancel download', 'Dismiss'])
+    expect(buttons[0]?.attributes('title')).toBe('Cancel download')
+    expect(buttons[1]?.attributes('title')).toBeUndefined()
+  })
 
   it('has no bar when it has no progress, and a bar with nothing to do is empty', async () => {
     const { wrapper, toasts } = host()

@@ -58,12 +58,34 @@ class Announced implements SessionPart {
   public got: Map<int, bool> = new Map<int, bool>()
   public total: int = 0
   public progressAt: int = 0
+  /// The session signal that is followed (once for each session, not once for each download).
+  public followed: AbortSignal? = null
+
+  /// Makes the session ending stop the download that runs. One listener on a session's signal, however many downloads it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => stopDownload())
+  }
+
+  /// Stops the download that runs, if any.
+  public stopDownload(): void {
+    const d = download
+    if (d != null) {
+      d!.abort()
+    }
+  }
 
   /// A PARAM_VALUE that answers the download: progress, at most `PROGRESS_EVERY_MS` apart (the first at once, the last when
   /// all have arrived).
   public listed(m: ParamValue): void {
     got.set(m.paramIndex as int, true)
     total = m.paramCount as int
+    if (total <= 0) {
+      return
+    }
     const now = Date.now() as int
     const c = communicator
     if (c != null && (got.size == 1 || got.size >= total || now - progressAt >= PROGRESS_EVERY_MS)) {
@@ -135,10 +157,7 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
 
 /// Stops the download that is running, if any: it fails with `ABORTED`, and the link and the session stay.
 async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const d = announced.download
-  if (d != null) {
-    d!.abort()
-  }
+  announced.stopDownload()
   null
 }
 
@@ -149,11 +168,15 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     throw new CommunicatorError("UNSUPPORTED", "downloading the parameters by file transfer is not available yet")
   }
   const conn = connectedLink()
+  if (announced.download != null) {
+    // One download at a time: a second would share its progress and take its place for `params.cancel`.
+    throw new CommunicatorError("BUSY", "a parameter download is already running")
+  }
   let r: ParamListResult? = null
   const started = Date.now() as int
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
-  link.session.signal.addEventListener("abort", () => own.abort())
+  announced.follow(link.session.signal)
   announced.download = own
   announced.got.clear()
   announced.total = 0

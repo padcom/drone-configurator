@@ -358,6 +358,8 @@
       },
       "done": "{count} parameter downloaded | {count} parameters downloaded",
       "cancelled": "Download cancelled",
+      "cancelDownload": "Cancel download",
+      "incomplete": "Download incomplete. Downloaded: {count}, missing: {missing}",
       "failed": "The parameters could not be downloaded",
       "info": {
         "ftp": "Parameters: {count} · by file transfer in {seconds} s",

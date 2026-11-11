@@ -29,6 +29,8 @@ export interface ToastPatch {
   sticky?: boolean
   /** The bar; `null` takes it away. */
   progress?: ToastProgress | null
+  /** What the close button is called, when closing the toast is more than a dismissal ("Cancel download"); `null`: the usual. */
+  dismissLabel?: string | null
   /** Called when it goes (`null` takes the callback away: the toast has ended in a way that needs none). */
   onDismiss?: ((reason: DismissReason) => void) | null
 }
@@ -47,6 +49,8 @@ export interface ToastInput {
   long?: boolean
   /** A bar, for something that is under way (`update` moves it). */
   progress?: ToastProgress
+  /** What the close button is called, when closing the toast does more than dismiss it ("Cancel download"). */
+  dismissLabel?: string
   /** Called when the toast goes, with why: for a toast whose closing means something (it stops what it shows). */
   onDismiss?: (reason: DismissReason) => void
 }
@@ -69,6 +73,8 @@ export interface Toast {
   count: number
   /** The bar, or null. */
   progress: ToastProgress | null
+  /** What the close button is called, or null for the usual "Dismiss". */
+  dismissLabel: string | null
 }
 
 /** At most this many are shown; the rest wait their turn. */
@@ -185,9 +191,30 @@ function definedOnly(fields: Record<string, unknown>): Record<string, unknown> {
  * @param patch what changes
  */
 function showPatch(entry: Entry, patch: ToastPatch): void {
-  Object.assign(entry.toast, definedOnly({ text: patch.text, severity: patch.severity }))
-  Object.assign(entry.toast, 'progress' in patch ? { progress: patch.progress } : {})
-  Object.assign(entry, 'onDismiss' in patch ? { onDismiss: patch.onDismiss ?? undefined } : {})
+  const { onDismiss, ...shown } = patch
+  // (`in`: a patch that names a field with `null` takes it away, one that does not name it leaves it.)
+  Object.assign(entry.toast, definedOnly(shown))
+  Object.assign(entry, 'onDismiss' in patch ? { onDismiss: onDismiss ?? undefined } : {})
+}
+
+/**
+ * A toast as it starts.
+ *
+ * @param key its number
+ * @param input what is pushed
+ * @returns the toast
+ */
+function newToast(key: number, input: ToastInput): Toast {
+  return reactive<Toast>({
+    key,
+    id: input.id ?? input.text,
+    severity: input.severity,
+    text: input.text,
+    ...lasting(input),
+    count: 1,
+    progress: input.progress ?? null,
+    dismissLabel: input.dismissLabel ?? null,
+  })
 }
 
 /** The queue: which toasts are shown, and when each of them goes. */
@@ -210,15 +237,7 @@ class ToastQueue implements Toasts {
     if (repeated) {
       return repeated.toast.key
     }
-    const toast = reactive<Toast>({
-      key: this.next++,
-      id: input.id ?? input.text,
-      severity: input.severity,
-      text: input.text,
-      ...lasting(input),
-      count: 1,
-      progress: input.progress ?? null,
-    })
+    const toast = newToast(this.next++, input)
     this.entries.push({
       toast,
       lastAt: this.clock.now(),
@@ -258,10 +277,10 @@ class ToastQueue implements Toasts {
   update = (key: number, patch: ToastPatch): void => {
     const entry = this.entries.find(e => e.toast.key === key)
     if (entry) {
+      const wasSticky = entry.toast.sticky
       showPatch(entry, patch)
 
-      if (patch.sticky !== undefined && patch.sticky !== entry.toast.sticky) {
-        entry.toast.sticky = patch.sticky
+      if (patch.sticky !== undefined && patch.sticky !== wasSticky) {
         // Its time starts over, with the life of a toast that is not sticky any more (or stops, for one that becomes sticky).
         this.stop(entry)
         entry.left = lifeOf(entry.toast)

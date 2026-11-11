@@ -197,6 +197,33 @@ it('shows a toast that stays while it runs, with the count and the way, and says
   expect(parameters.progress.value).toBeNull()
 })
 
+it('names the close button of the running download "Cancel download", and the usual again once it has ended', async () => {
+  const { parameters, toasts } = await rig(true, { progress: { steps: 3, intervalMs: 20 } })
+
+  const downloading = parameters.refresh()
+  expect(toasts.visible.value[0]?.dismissLabel).toBe('Cancel download')
+  await downloading
+
+  expect(toasts.visible.value[0]?.dismissLabel).toBeNull()
+})
+
+it('tells an incomplete download as a warning with how many are missing, not as a success', async () => {
+  const sent = [0, 1, 2].map(index => ({ id: `P${index}`, index, kind: 'int' as const, type: 'INT16', value: index }))
+  const client = {
+    call: () => Promise.resolve({ params: sent, count: 5, complete: false, missing: [3, 4] }),
+    onEvent: () => () => undefined,
+  }
+  const toasts = createToasts()
+  const deps = { client: client as never, toasts, fail: () => undefined, problemWith: () => null, warningWith: () => null }
+  const parameters = useParams(deps)
+
+  await parameters.refresh()
+
+  expect(parameters.list.value).toBe('incomplete')
+  expect(texts(toasts)).toEqual(['Download incomplete. Downloaded: 3, missing: 2'])
+  expect(toasts.visible.value[0]?.severity).toBe('warning')
+})
+
 it('records how the download came: the way, why not the other, how long', async () => {
   const { parameters } = await rig(true, { ftp: 'timeout' })
 

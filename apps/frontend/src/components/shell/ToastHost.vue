@@ -26,7 +26,13 @@
           <span v-if="toast.progress.label" class="label">{{ toast.progress.label }}</span>
         </span>
         <span v-if="toast.count > 1" class="count">{{ t('toast.count', { count: toast.count }) }}</span>
-        <button type="button" class="dismiss" :aria-label="t('toast.dismiss')" @click="toasts.dismiss(toast.key, 'manual')">
+        <button
+          type="button"
+          class="dismiss"
+          :aria-label="toast.dismissLabel ?? t('toast.dismiss')"
+          :title="toast.dismissLabel ?? undefined"
+          @click="toasts.dismiss(toast.key, 'manual')"
+        >
           <Icon name="close" />
         </button>
       </div>

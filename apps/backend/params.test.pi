@@ -95,6 +95,27 @@ async function cancelsTheDownloadAndGoesOn(): Promise<void> throws Error {
   await fe.call("vehicle.disconnect")
 }
 
+async function refusesASecondDownloadAndEndsWithTheSession(): Promise<void> throws Error {
+  const fe = await start()
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  simulatorForTests()!.down = true
+  const first = await fe.send("params.list", encodeParamListRequest(ParamListRequest {}))
+  await delay(50)
+  // One download at a time: the second is refused, and the first is not disturbed.
+  const second = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  expect(second.err?.code ?? "no error").toBe("BUSY")
+  // The session ending (the user disconnects) stops the first, with no cancel.
+  const started = Date.now() as int
+  await fe.call("vehicle.disconnect")
+  const e = await fe.reply(first)
+  expect(`${e.err?.code ?? "no error"} ${(Date.now() as int) - started < 900}`).toBe("ABORTED true")
+  // A download of the next session works, and ends with it as well (one listener on each session's signal).
+  await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const again = await fe.call("params.list", encodeParamListRequest(ParamListRequest {}))
+  expect(decodeParamList(again.p ?? Cbor.Null, "$").complete).toBe(true)
+  await fe.call("vehicle.disconnect")
+}
+
 async function refusesFileTransferOnly(): Promise<void> throws Error {
   const fe = await start()
   await fe.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
@@ -109,6 +130,7 @@ async function refusesFileTransferOnly(): Promise<void> throws Error {
 describe("the params service", () => {
   it("says how the list came and reports progress", reportsHowTheListCame)
   it("cancels a download without ending the session", cancelsTheDownloadAndGoesOn)
+  it("refuses a second download while one runs, and the session ending stops the first", refusesASecondDownloadAndEndsWithTheSession)
   it("refuses a download by file transfer only, for now, and takes no request as auto", refusesFileTransferOnly)
   it("refuses parameter calls without a vehicle", refusesWithoutAVehicle)
   it("cancels a write in flight when the user disconnects", disconnectCancels)

@@ -183,7 +183,7 @@ class Parameters implements ParamsModel {
 
     try {
       this.take(await this.deps.client.call('params.list', {}), keepInitial)
-      toast.done(this.params.value.length)
+      toast.done(this.params.value.length, this.missing.value.length)
     } catch (error) {
       this.ended(error, before, toast)
     } finally {

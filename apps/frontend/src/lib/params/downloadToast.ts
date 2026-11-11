@@ -9,8 +9,8 @@ import { say } from '@/i18n/say'
 export interface DownloadToast {
   /** How far the download is. */
   progress: (progress: ParamsProgress) => void
-  /** The download is over, with `count` parameters. */
-  done: (count: number) => void
+  /** The download is over, with `count` parameters and `missing` that never arrived. */
+  done: (count: number, missing: number) => void
   /** The download was cancelled (by the user: from the toast, or another way). */
   cancelled: () => void
   /** The download failed. */
@@ -39,6 +39,7 @@ class RunningToast implements DownloadToast {
       text: say('params.progress.running'),
       sticky: true,
       progress: { value: 0, max: 0 },
+      dismissLabel: say('params.progress.cancelDownload'),
       onDismiss: reason => {
         this.open = false
 
@@ -55,8 +56,13 @@ class RunningToast implements DownloadToast {
     this.toasts.update(this.key, { progress: { value: p.received, max: p.total, label } })
   }
 
-  done(count: number): void {
-    this.end('success', say('params.progress.done', { count }, count))
+  done(count: number, missing: number): void {
+    // A list that is not whole is not good news: a warning, with how many are missing.
+    if (missing > 0) {
+      this.end('warning', say('params.progress.incomplete', { count, missing }))
+    } else {
+      this.end('success', say('params.progress.done', { count }, count))
+    }
   }
 
   cancelled(): void {
@@ -78,10 +84,11 @@ class RunningToast implements DownloadToast {
    * @param severity how it is told
    * @param text what it says
    */
-  private end(severity: 'success' | 'error', text: string): void {
+  private end(severity: 'success' | 'warning' | 'error', text: string): void {
     if (this.open) {
       this.open = false
-      this.toasts.update(this.key, { severity, text, progress: null, sticky: false, onDismiss: null })
+      // Closing it is a dismissal again, and the button has its usual name.
+      this.toasts.update(this.key, { severity, text, progress: null, sticky: false, onDismiss: null, dismissLabel: null })
     }
   }
 }

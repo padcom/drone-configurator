@@ -9,7 +9,8 @@ services = {
   "vehicle.connect": ["method", connect-request, connection],
   "vehicle.disconnect": ["method", null, connection],
   "vehicle.connection": ["subscription", null, connection],
-  ; `{}` is the same as `{ method: "auto" }`.
+  ; The request is a map (`{}` is the same as `{ method: "auto" }`): the schema tooling cannot say "a map or null", so a null
+  ; payload does not pass the contract's validation. (The backend itself would take it as auto.)
   "params.list": ["method", param-list-request, param-list],
   ; Stops the download that is running (nothing happens when none is). That `params.list` then fails with the code `ABORTED`;
   ; the link and the session stay as they are.

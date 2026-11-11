@@ -358,6 +358,8 @@
       },
       "done": "{count} parametro scaricato | {count} parametri scaricati",
       "cancelled": "Scaricamento annullato",
+      "cancelDownload": "Annulla lo scaricamento",
+      "incomplete": "Scaricamento incompleto. Scaricati: {count}, mancanti: {missing}",
       "failed": "Non è stato possibile scaricare i parametri",
       "info": {
         "ftp": "Parametri: {count} · con il trasferimento di file in {seconds} s",

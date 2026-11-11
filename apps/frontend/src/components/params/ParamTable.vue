@@ -158,6 +158,7 @@ import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamGroup } from '@/composables/useParamGroup'
 import { useParamSearchIndex } from '@/composables/useParamSearchIndex'
 import { useParamView } from '@/composables/useParamView'
+import { useFormat } from '@/i18n/useFormat'
 import { downloadLine } from '@/lib/params/downloadLine'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
 
@@ -166,14 +167,18 @@ import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/
 // how many there are and how many are shown. A list with nothing to show says why (no parameters yet, or none that match)
 // and, for the second, offers the way out.
 const { t } = useI18n()
+const format = useFormat()
 const { parameters, fields, staged } = useConfigurator()
 const choice = useParamGroup()
 /** The height of a row, in px (the rows are all the same: the stylesheet gives them 44). */
 const ROW_PX = 44
 const params = computed(() => fields.params.value)
 // How the last download came, said once it has finished.
-const downloading = computed(() => fields.list.value === 'loading')
-const downloadText = computed(() => downloading.value ? null : downloadLine(fields.downloadInfo.value, params.value.length, t))
+const downloadText = computed(() => {
+  const info = fields.list.value === 'loading' ? null : fields.downloadInfo.value
+
+  return downloadLine(info, params.value.length, t, format)
+})
 // Without the groups (the setting "Show parameter groups" is off) there is no group to be in, and no star: the scope is All.
 const { shown: stars } = useGroupsSetting()
 const group = computed(() => stars.value ? effectiveGroup(params.value, choice.chosen.value) : '')
