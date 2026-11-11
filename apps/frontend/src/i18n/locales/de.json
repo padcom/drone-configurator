@@ -519,12 +519,13 @@
     "label": "Befehlspalette",
     "list": "Befehle",
     "empty": "Nichts passt zu „{query}“.",
-    "count": "{count} Befehl | {count} Befehle",
+    "count": "{count} Ergebnis | {count} Ergebnisse",
     "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
       "app": "Anwendung",
       "parameters":"Parameter",
       "navigate": "Navigation",
+      "parameter": "Parameter",
       "vehicle": "Fahrzeug"
     },
     "go": {

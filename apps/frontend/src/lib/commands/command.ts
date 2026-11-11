@@ -4,6 +4,7 @@
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
 import type { Connection } from '@/generated/app'
 import type { IconName } from '@/lib/ui/icons'
+import type { SearchIndex } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
 import type { ToastInput } from '@/composables/toasts'
 
@@ -68,6 +69,18 @@ export interface DialogFacts {
   showPalette(): void
 }
 
+/** The vehicle's parameters, as the commands that go to one see them. */
+export interface ParameterFacts {
+  /** What is searched of the parameters: made once for the list and the metadata (the Parameters screen's own index). */
+  searchIndex(): SearchIndex
+  /** The names the user has starred. */
+  favourites(): ReadonlySet<string>
+  /** A parameter's short description from the metadata, or an empty string. */
+  describe(id: string): string
+  /** Makes the Parameters screen show a parameter: its search cleared, the parameter selected. */
+  reveal(id: string): void
+}
+
 /** The files the application opens, as the commands that ask for one see them. */
 export interface FileFacts {
   /**
@@ -87,6 +100,8 @@ export interface CommandContext {
   navigate(path: string): Promise<void>
   /** The route that is shown now. */
   currentPath(): string
+  /** The parameters. */
+  parameters: ParameterFacts
   /** The vehicle. */
   vehicle: VehicleFacts
   /** The vehicle's parameters. */
@@ -113,8 +128,12 @@ export interface Command {
   readonly labelKey: string
   /** The message for the words on a button, when shorter than the palette's ("Flight data" for "Switch to Flight data"). */
   readonly buttonLabelKey?: string
-  /** A name that is not a message and is shown as it is (a parameter's name): a control uses it in place of `labelKey`. */
+  /** A name that is not a message and is shown as it is (a parameter's name): shown in place of `labelKey`. */
   readonly label?: string
+  /** A line of explanation under the name, shown as it is (a parameter's description). */
+  readonly detail?: string
+  /** Whether the user has starred what it names (a parameter): the palette marks the row. */
+  readonly starred?: boolean
   /** The message that names its group (Navigate, Vehicle). */
   readonly groupKey: string
   /** Messages with more words to find it by: each holds words separated by spaces. */

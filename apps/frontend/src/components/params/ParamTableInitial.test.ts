@@ -177,15 +177,15 @@ it('turns Download off while a write holds the lock, and on again after', async 
   const { handle } = await screen()
   const toolbar = mount(ParamFilter, withI18n)
   await toolbar.vm.$nextTick()
-  expect(toolbar.get('#refresh').attributes('disabled')).toBeUndefined()
+  expect(toolbar.get('#refresh').attributes('aria-disabled')).toBeUndefined()
 
   const release = handle.parameters.lock.take()
   await toolbar.vm.$nextTick()
-  expect(toolbar.get('#refresh').attributes('disabled')).toBeDefined()
+  expect(toolbar.get('#refresh').attributes('aria-disabled')).toBe('true')
 
   release?.()
   await toolbar.vm.$nextTick()
-  expect(toolbar.get('#refresh').attributes('disabled')).toBeUndefined()
+  expect(toolbar.get('#refresh').attributes('aria-disabled')).toBeUndefined()
 })
 
 it('turns Write off while the list is being downloaded, and on again after', async () => {

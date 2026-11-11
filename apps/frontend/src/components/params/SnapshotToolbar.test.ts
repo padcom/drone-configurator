@@ -55,8 +55,10 @@ it('labels its three controls with translated text', async () => {
 
 it('saves only once there are parameters, through the host in Pico Desktop', async () => {
   const { wrapper, handle, saveFile } = await toolbarWithSpies()
-  expect(wrapper.get('#save').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#save').attributes('aria-disabled')).toBe('true')
   window.picoDesktop = {} as never
+  await wrapper.get('#save').trigger('click')
+  expect(saveFile).not.toHaveBeenCalled()
   feed(handle, { params: PARAMS })
   await wrapper.vm.$nextTick()
 
@@ -118,9 +120,9 @@ it('says why Save snapshot cannot be pressed, in words a screen reader reads wit
   const { wrapper } = await toolbarWithSpies()
   const save = wrapper.get('#save')
 
-  expect(save.attributes('disabled')).toBeDefined()
-  expect(save.attributes('aria-description')).toBe('There are no parameters yet.')
-  expect(save.text()).toBe('Save snapshot')
+  expect(save.attributes('aria-disabled')).toBe('true')
+  expect(wrapper.get(`#${save.attributes('aria-describedby')}`).text()).toBe('There are no parameters yet.')
+  expect(save.get('.command-button-label').text()).toBe('Save snapshot')
 })
 
 it('loads the file the browser\'s input gives, and nothing when none was chosen', async () => {

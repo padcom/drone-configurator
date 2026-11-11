@@ -43,7 +43,7 @@ it('has Download as the kit\'s default button, like Save snapshot (no accent or 
 
 it('offers Download only while connected and not downloading', async () => {
   const { wrapper, handle, refresh } = filterWithSpies()
-  expect(wrapper.get('#refresh').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#refresh').attributes('aria-disabled')).toBe('true')
 
   feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
   await wrapper.vm.$nextTick()
@@ -52,7 +52,7 @@ it('offers Download only while connected and not downloading', async () => {
 
   feed(handle, { list: 'loading' })
   await wrapper.vm.$nextTick()
-  expect(wrapper.get('#refresh').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#refresh').attributes('aria-disabled')).toBe('true')
 })
 
 it('takes the focus when it is shown after a command asked for it, once, and not when nobody asked', async () => {

@@ -1,20 +1,28 @@
 // The application's commands and the context they run in. The registry is made once, with the commands of the screens in it
 // (`goToScreens`); more are registered where they belong (the reboot, with the vehicle). The context is what a command may
 // touch, made from the router, the configurator and the toasts: commands get nothing else (lib/commands/command.ts).
-import { inject } from 'vue'
+import { inject, nextTick } from 'vue'
 import { routeLocationKey, routerKey } from 'vue-router'
-import type { CommandContext, DialogFacts, FileFacts, ParamsFacts, VehicleFacts } from '@/lib/commands/command'
+import type {
+  CommandContext, DialogFacts, FileFacts, ParameterFacts, ParamsFacts, VehicleFacts,
+} from '@/lib/commands/command'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens } from '@/lib/commands/navigation'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from '@/lib/commands/app'
 import { LoadMetadata } from '@/lib/commands/metadata'
+import { ParameterProvider } from '@/lib/commands/parameters'
 import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/snapshots'
+import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { say, sayEnglish } from '@/i18n/say'
 import { useCommandPalette } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
 import { useConnectDialog } from './useConnectDialog'
+import { useFavourites } from './favourites'
+import { useParamGroup } from './useParamGroup'
+import { useParamSearchIndex } from './useParamSearchIndex'
+import { useParamView } from './useParamView'
 import { useToasts } from './toasts'
 
 /** Telemetry older than this (ms) does not say whether the vehicle is armed: it is not known. */
@@ -37,6 +45,7 @@ function makeRegistry(): CommandRegistry {
     new DownloadParameters(),
     new SaveSnapshot(),
     new LoadSnapshot(),
+    new ParameterProvider(),
   ]
   others.forEach(command => registry.register(command))
 
@@ -79,7 +88,8 @@ function vehicleFacts(): VehicleFacts {
 }
 
 /**
- * What the commands may know of the parameters, and the one action on them that the toolbar has.
+ * What the commands may know of the parameters for the toolbar: how many there are, whether a write holds them, and the one
+ * action on them that the toolbar has.
  *
  * @returns the facts
  */
@@ -90,6 +100,53 @@ function paramsFacts(): ParamsFacts {
     count: () => fields.params.value.length,
     busy: () => parameters.lock.busy.value,
     download: () => void parameters.refresh(),
+  }
+}
+
+/**
+ * Selects after the table has seen the search or the group change: it selects the first row of the new list when that flush
+ * runs, and the parameter asked for is the one that must stay selected.
+ *
+ * @param select what selects the parameter
+ */
+async function selectAfterTable(select: () => void): Promise<void> {
+  await nextTick()
+  select()
+}
+
+/**
+ * What the commands may know of the parameters, and how they show one. Showing one clears the search, goes to All when the
+ * chosen group or view would hide it, and selects it: the table scrolls to the selected row by itself.
+ *
+ * @returns the facts
+ */
+function parameterFacts(): ParameterFacts {
+  const { fields, parameters } = useConfigurator()
+  const searchIndex = useParamSearchIndex()
+  const favourites = useFavourites()
+  const group = useParamGroup()
+  const view = useParamView()
+
+  return {
+    searchIndex,
+    favourites: () => favourites.set.value,
+    describe: id => fields.metadata.value.get(id)?.description ?? '',
+    reveal: id => {
+      const starred = favourites.set.value.has(id)
+      const inChosenGroup = group.chosen.value === FAVOURITES_GROUP ? starred : inGroup(id, group.chosen.value)
+
+      parameters.setFilter('')
+
+      if (!inChosenGroup) {
+        group.choose('')
+      }
+
+      if (!view.listed.value.some(param => param.id === id)) {
+        view.showFullForNow()
+      }
+
+      void selectAfterTable(() => parameters.select(id))
+    },
   }
 }
 
@@ -140,6 +197,7 @@ export function useCommandContext(): CommandContext {
     },
     // Read from the route when asked, so that what depends on it (the rail's current screen) follows a change.
     currentPath: () => route?.path ?? '',
+    parameters: parameterFacts(),
     vehicle: vehicleFacts(),
     params: paramsFacts(),
     dialogs: dialogFacts(),

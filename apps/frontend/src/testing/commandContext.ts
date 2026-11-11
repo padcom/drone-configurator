@@ -1,7 +1,9 @@
 // A command context for tests: the vehicle's facts are plain values to set, and everything a command does to the outside (a
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
-import type { CommandContext, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
+import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
 import type { Connection } from '@/generated/app'
+import type { Metadata } from '@/lib/params/metadata'
+import { indexFor } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
 import type { ToastInput } from '@/composables/toasts'
 import { say, sayEnglish } from '@/i18n/say'
@@ -25,6 +27,12 @@ export interface Fake {
     /** Whether the parameters are held by a write or another job. */
     paramsBusy: boolean
   }
+  /** The vehicle's parameters as the commands will see them: change them between calls. */
+  parameters: {
+    ids: string[]
+    metadata: Metadata
+    favourites: Set<string>
+  }
   /** What the confirmation will answer. */
   answer: { confirm: boolean | (() => boolean) }
   /** Everything the commands did to the outside. */
@@ -44,6 +52,8 @@ export interface Fake {
     snapshot: string[]
     /** The dialogs that were opened: `connect`, `palette`. */
     dialogs: string[]
+    /** The parameters shown with `parameters.reveal`. */
+    reveal: string[]
   }
 }
 
@@ -123,6 +133,28 @@ function noCalls(): Fake['calls'] {
     download: [],
     snapshot: [],
     dialogs: [],
+    reveal: [],
+  }
+}
+
+/**
+ * The parameters of a fake: read when asked, so a test can change them between calls.
+ *
+ * @param fake the fake
+ * @returns the facts, with a `reveal` that records
+ */
+function parametersOf(fake: Fake): ParameterFacts {
+  let before: ReturnType<typeof indexFor> | null = null
+
+  return {
+    searchIndex: () => {
+      before = indexFor(before, fake.parameters.ids, fake.parameters.metadata)
+
+      return before
+    },
+    favourites: () => fake.parameters.favourites,
+    describe: id => fake.parameters.metadata.get(id)?.description ?? '',
+    reveal: id => void fake.calls.reveal.push(id),
   }
 }
 
@@ -135,6 +167,7 @@ function noCalls(): Fake['calls'] {
 export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   const fake: Fake = {
     facts: { ...DEFAULT_FACTS, ...facts },
+    parameters: { ids: [], metadata: new Map(), favourites: new Set() },
     answer: { confirm: true },
     calls: noCalls(),
     ctx: {} as CommandContext,
@@ -143,6 +176,7 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
     ...toolbarOf(fake),
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
     currentPath: () => fake.facts.path,
+    parameters: parametersOf(fake),
     vehicle: vehicleOf(fake),
     confirm: (options: SafetyOptions) => {
       fake.calls.confirm.push(options)
