@@ -8,5 +8,5 @@ e2e/mavlink-wire.ts
 e2e/sitl-harness.e2e.ts
 e2e/sitl.test.ts
 e2e/sitl.ts
-src/metadata.ts
-src/mock-backend.ts
+src/lib/params/metadata.ts
+src/mock/mock-backend.ts

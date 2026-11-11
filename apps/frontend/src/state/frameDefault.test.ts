@@ -1,6 +1,6 @@
 // useFrameRef with the browser's own scheduler (requestAnimationFrame), not a test's.
 import { expect, it } from 'vitest'
-import { nextFrame } from '../testing'
+import { nextFrame } from '@/testing/testing'
 import { useFrameRef } from './frame'
 
 it('publishes the latest of several pushes on the next animation frame', async () => {

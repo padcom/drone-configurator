@@ -14,8 +14,8 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import FailsafeBanner from '../FailsafeBanner.vue'
-import FlyAside from '../FlyAside.vue'
+import FailsafeBanner from '@/components/fly/FailsafeBanner.vue'
+import FlyAside from '@/components/fly/FlyAside.vue'
 
 // The screen the user lives in, in fixed regions (the design's Fly): at the left the map (a placeholder until it is built;
 // the view tabs above it and the control strip below it are drawn when there is more than one view and the commands exist),

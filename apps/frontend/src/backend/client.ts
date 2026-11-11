@@ -3,7 +3,7 @@
 // Communicator types in sight (docs/frontend-state.md).
 import { Communicator, CommunicatorError, type ConnectionState, type Transport } from '@pico-desktop/communicator'
 import { getCurrentScope, onScopeDispose } from 'vue'
-import { type Services, validate } from '../generated/app'
+import { type Services, validate } from '@/generated/app'
 
 /** The names of the services of one kind. */
 type NamesOf<Kind extends string> = { [K in keyof Services]: Services[K] extends { kind: Kind } ? K : never }[keyof Services]

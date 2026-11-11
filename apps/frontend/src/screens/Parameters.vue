@@ -18,17 +18,17 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useMetadataToasts } from '../metadataToasts'
-import { useGroupsSetting } from '../useGroupsSetting'
-import { useParamShortcuts } from '../paramShortcuts'
-import { useConfigurator } from '../useConfigurator'
-import ParamEditor from '../ParamEditor.vue'
-import ParamFilter from '../ParamFilter.vue'
-import ParamGroups from '../ParamGroups.vue'
-import ParamTable from '../ParamTable.vue'
-import ParamView from '../ParamView.vue'
-import SnapshotImport from '../SnapshotImport.vue'
-import SnapshotToolbar from '../SnapshotToolbar.vue'
+import { useMetadataToasts } from '@/lib/params/metadataToasts'
+import { useGroupsSetting } from '@/composables/useGroupsSetting'
+import { useParamShortcuts } from '@/lib/params/paramShortcuts'
+import { useConfigurator } from '@/composables/useConfigurator'
+import ParamEditor from '@/components/params/ParamEditor.vue'
+import ParamFilter from '@/components/params/ParamFilter.vue'
+import ParamGroups from '@/components/params/ParamGroups.vue'
+import ParamTable from '@/components/params/ParamTable.vue'
+import ParamView from '@/components/params/ParamView.vue'
+import SnapshotImport from '@/components/params/SnapshotImport.vue'
+import SnapshotToolbar from '@/components/params/SnapshotToolbar.vue'
 
 // The Parameters screen, in three columns as the design has them: the groups of the list, the list (with its search, the
 // snapshot tools and a footer that counts), and the detail of the selected parameter. From 1000 px wide each scrolls on its

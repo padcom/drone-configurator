@@ -11,7 +11,7 @@ import { defineConfig } from 'vitest/config'
 //   __VUE_OPTIONS_API__ is false in dev, tests and production alike, so components must use
 //   <script setup> or the Composition API: `data`, `methods`, `computed` options are ignored
 //   without an error.
-// - the messages in src/locales precompiled to functions by @intlify/unplugin-vue-i18n and vue-i18n's runtime-only
+// - the messages in src/i18n/locales precompiled to functions by @intlify/unplugin-vue-i18n and vue-i18n's runtime-only
 //   build, so there is no message compiler (and no `new Function`) in the bundle; the i18n feature flags are set
 //   for the same reason as Vue's.
 // `pnpm dev` loads Vite's own origin, which has no host CSP, so Vite's injected styles and HMR
@@ -19,12 +19,14 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   // Relative asset URLs: the host serves the built frontend from its own origin.
   base: './',
+  // `@/` is src (the imports between folders; a file imports its neighbours as './x').
+  resolve: { alias: { '@': fileURLToPath(new URL('src', import.meta.url)) } },
   plugins: [
     vue(),
     vueI18n({
       // Glob patterns use forward slashes: on Windows the path from fileURLToPath has backslashes, which would
       // make nothing match (and the messages would not be precompiled).
-      include: [fileURLToPath(new URL('src/locales/**', import.meta.url)).replaceAll('\\', '/')],
+      include: [fileURLToPath(new URL('src/i18n/locales/**', import.meta.url)).replaceAll('\\', '/')],
       runtimeOnly: true,
       compositionOnly: true,
       fullInstall: false,

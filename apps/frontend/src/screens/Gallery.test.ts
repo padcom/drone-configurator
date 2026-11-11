@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
-import { i18n } from '../i18n'
-import { ICONS } from '../kit/icons'
+import { i18n } from '@/i18n/i18n'
+import { ICONS } from '@/lib/ui/icons'
 import Gallery from './Gallery.vue'
 
 let mounted: VueWrapper | undefined

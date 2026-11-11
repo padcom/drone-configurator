@@ -12,7 +12,7 @@ Status: **an application that connects to a vehicle, shows its telemetry, and re
 - Filter the list, and see a parameter's typed value.
 - Edit a value: it's checked against its type, you confirm the write, and the vehicle's read-back is verified. A value the vehicle changed, or a write it never confirmed, is reported as such, never as success.
 - Save the parameters as a snapshot, and load one to review what it would change. Nothing is ticked at first, and a change that can't apply says why: not on this vehicle, another type, or out of range. Writing the ticked changes takes one confirmation, verifies each change, stops at the first one that doesn't verify, and keeps a backup of the values from before. In Pico Desktop, files go through the host's native dialogs.
-- Load parameter metadata (descriptions, units, ranges, named values, bits) to see and check against. Without it, a parameter is only its type: nothing is invented. Two kinds of file are read by the same button: ArduPilot's own definitions (`apm.pdef.json`, as the ArduPilot site serves it for a vehicle: nothing is bundled or fetched, you load the file) and our own small format (in `apps/frontend/src/metadata.ts`; `examples/copter-metadata.json` is an example, with values that are illustrative, not ArduPilot's). The detail of the selected parameter has a Description block with the full text, the range, unit, step, values, bits and whether the vehicle must be restarted.
+- Load parameter metadata (descriptions, units, ranges, named values, bits) to see and check against. Without it, a parameter is only its type: nothing is invented. Two kinds of file are read by the same button: ArduPilot's own definitions (`apm.pdef.json`, as the ArduPilot site serves it for a vehicle: nothing is bundled or fetched, you load the file) and our own small format (in `apps/frontend/src/lib/params/metadata.ts`; `examples/copter-metadata.json` is an example, with values that are illustrative, not ArduPilot's). The detail of the selected parameter has a Description block with the full text, the range, unit, step, values, bits and whether the vehicle must be restarted.
 - Parameters the vehicle announces on its own, for example after another ground station changes one, update the list. A draft being edited is left alone.
 - A disconnect cancels a download or write in flight at once.
 - Telemetry shows only what the vehicle has reported: a dash, never a made-up zero. Mode names come from ArduPilot's own tables, chosen by vehicle type.
@@ -109,10 +109,9 @@ The harness only ever launches or connects to a simulator.
 - `docs/frontend-state.md`: how the interface calls the backend (`src/backend/client.ts`), when subscriptions end, how errors look, and the frame rule for fast data (`src/state/frame.ts`).
 - `apps/backend`: the Pico backend. It owns the MAVLink link: discovery, heartbeats, parameter list/read/write with retries and read-back, and telemetry.
 - `apps/frontend`:
-  - the composables that hold the state and talk to the backend through `backend/client.ts`: `useVehicle.ts`, `useParams.ts`, `useMetadata.ts`, `useSnapshots.ts`, `useTelemetry.ts`; `useConfigurator.ts` puts them together (see `docs/frontend-state.md`);
-  - the Vue components (`ConnectDialog.vue`, `ConnectionAnnouncement.vue`, `TopBar.vue`, `FlyAside.vue`, `ParamTable.vue`, `ParamFilter.vue`, `ParamEditor.vue`, `SnapshotToolbar.vue`, `SnapshotImport.vue`, `ConfirmDialog.vue`), each with a plain `.ts` module for its logic, and `useConfigurator.ts`, which gives them the state as refs;
-  - `main.ts`: starts the composables and mounts each component into its element of `index.html` (`mountIsland.ts`); their text is in `locales/en.json` (`i18n.ts`);
-  - `mock-backend.ts` and `fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
+  - `src/` is laid out as in `apps/frontend/src/README.md`: `components/` (`ui/` the kit, `fields/`, `params/`, `fly/`, `shell/`), `screens/`, `composables/` (the state and the backend calls: `useVehicle.ts`, `useParams.ts`, `useMetadata.ts`, `useSnapshots.ts`, `useTelemetry.ts`; `useConfigurator.ts` puts them together, see `docs/frontend-state.md`), `lib/` (the plain logic of the components), `state/`, `backend/` (`client.ts`), `i18n/` (the text is in `i18n/locales/en.json`), `assets/styles/`, `mock/` and `testing/`;
+  - `main.ts`: starts the composables and mounts the application (`components/shell/Shell.vue`);
+  - `mock/mock-backend.ts` and `mock/fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
 
 ## Safety
 

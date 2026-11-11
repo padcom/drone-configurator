@@ -1,7 +1,7 @@
 // The router. The host serves one document, so the screens are told apart by the part of the URL after the `#`
 // (no server routing).
 import { type Router, type RouterHistory, createRouter, createWebHashHistory } from 'vue-router'
-import { HOME, MOVED, SCREENS } from './screens'
+import { HOME, MOVED, SCREENS } from '@/screens/registry'
 
 /**
  * A router over the screens: the first screen at `/` and for any path that is none of them. A screen that was shown
