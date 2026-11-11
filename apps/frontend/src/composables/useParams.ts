@@ -73,6 +73,11 @@ export interface ParamsModel {
   readonly progress: ShallowRef<ParamsProgress | null>
   /** How the last download came: by which way, why not by the other, how long it took (null until there is one). */
   readonly downloadInfo: ShallowRef<DownloadInfo | null>
+  /**
+   * How the download that has just ended came: set when a download gives a list, cleared when the next one starts (a cancelled or
+   * failed download leaves it empty, unlike `downloadInfo`, which keeps the last list's). What is said to the ear follows this.
+   */
+  readonly downloadEnded: ShallowRef<DownloadInfo | null>
   /** Stops the download that runs (the list stays as it was, with its initial values); nothing happens when none runs. */
   cancel: () => Promise<void>
   /**
@@ -119,6 +124,7 @@ class Parameters implements ParamsModel {
   readonly lock = createWriteLock()
   readonly progress = shallowRef<ParamsProgress | null>(null)
   readonly downloadInfo = shallowRef<DownloadInfo | null>(null)
+  readonly downloadEnded = shallowRef<DownloadInfo | null>(null)
   /** Whether the user has asked for the download that runs to stop (so that the ABORTED that follows is not a failure). */
   private cancelling = false
 
@@ -174,6 +180,7 @@ class Parameters implements ParamsModel {
     const before = this.list.value === 'loading' ? 'none' : this.list.value
     this.list.value = 'loading'
     this.progress.value = null
+    this.downloadEnded.value = null
     this.cancelling = false
     const toast = startDownloadToast(this.deps.toasts ?? useToasts(), () => void this.cancel())
     const stop = this.deps.client.onEvent('params.progress', progress => {
@@ -207,6 +214,7 @@ class Parameters implements ParamsModel {
     this.missing.value = downloaded.missing
     this.list.value = downloaded.complete ? 'complete' : 'incomplete'
     this.downloadInfo.value = { source: downloaded.source, fallback: downloaded.fallback, elapsedMs: downloaded.elapsedMs }
+    this.downloadEnded.value = this.downloadInfo.value
   }
 
   /**

@@ -28,6 +28,8 @@ export interface State {
   missing: number[]
   /** How the last download came (by which way, why not by file transfer, how long), or null before the first. */
   downloadInfo: DownloadInfo | null
+  /** How the download that has just ended came (empty from the next start, and after a cancel or a failure): said aloud. */
+  downloadEnded: DownloadInfo | null
   /** What the user typed to narrow the list. */
   filter: string
   /** The values at the last complete download: what "changed" is measured against, and what a reset puts back. */

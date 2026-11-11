@@ -26,7 +26,7 @@ const { t } = useI18n()
 const { fields } = useConfigurator()
 const dialog = useConnectDialog()
 const toasts = useToasts()
-const downloadText = useDownloadText()
+const downloadText = useDownloadText('ended')
 const state = computed(() => fields.connection.value.state)
 // The vehicle went quiet because it was told to reboot: said as that, not as a lost link.
 const quiet = computed(() => isRebooting(fields.connection.value))
