@@ -2,7 +2,7 @@
 // The built frontend must satisfy the production CSP (`script-src 'self'; style-src 'self'`):
 // no inline script or style, CSS from a linked file, and no eval or `new Function` in the bundle.
 // (The node environment: this test reads the build from disk, and jsdom's `import.meta.url` isn't a file URL.)
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'vite'
@@ -42,12 +42,13 @@ async function buildFrontend() {
   return {
     html: readFileSync(join(out, 'index.html'), 'utf8'),
     files,
+    sizes: Object.fromEntries(files.map(f => [f, statSync(join(assets, f)).size])) as Record<string, number>,
     js: text('.js'),
     css: text('.css'),
   }
 }
 
-let built = { html: '', files: [] as string[], js: '', css: '' }
+let built = { html: '', files: [] as string[], sizes: {} as Record<string, number>, js: '', css: '' }
 
 beforeAll(async () => {
   built = await buildFrontend()
@@ -101,11 +102,27 @@ describe('the production build and the component gallery', () => {
 })
 
 describe('the fonts in the production build', () => {
-  it('has IBM Plex Sans in four weights and IBM Plex Mono in three, as woff2 files of its own', () => {
-    expect(built.files.filter(f => /^ibm-plex-sans-latin-(?:400|500|600|700)-normal-.+\.woff2$/u.test(f))).toHaveLength(4)
-    expect(built.files.filter(f => /^ibm-plex-mono-latin-(?:400|500|600)-normal-.+\.woff2$/u.test(f))).toHaveLength(3)
+  it.each(['latin', 'latin-ext'])('has IBM Plex Sans in four weights and Mono in three, as woff2 of the %s subset', subset => {
+    const sans = new RegExp(`^ibm-plex-sans-${subset}-(?:400|500|600|700)-normal-.+\\.woff2$`, 'u')
+    const mono = new RegExp(`^ibm-plex-mono-${subset}-(?:400|500|600)-normal-.+\\.woff2$`, 'u')
+
+    expect(built.files.filter(f => sans.test(f))).toHaveLength(4)
+    expect(built.files.filter(f => mono.test(f))).toHaveLength(3)
     expect(built.css).toContain('font-family:IBM Plex Sans')
     expect(built.css).toContain('font-family:IBM Plex Mono')
+  })
+
+  it('gives every face the unicode-range of its subset, so that a file is fetched only when a character of it is shown', () => {
+    const faces = built.css.match(/@font-face\s*\{[^}]*\}/gu) ?? []
+
+    expect(faces.length).toBeGreaterThanOrEqual(14)
+    expect(faces.filter(face => !face.includes('unicode-range'))).toEqual([])
+  })
+
+  it('keeps the font files of every subset to a sane total (the Latin and Latin Extended ones together under 400 KB)', () => {
+    const sizes = built.files.filter(f => /^ibm-plex-.*\.woff2$/u.test(f)).map(f => built.sizes[f] ?? 0)
+
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThan(400 * 1024)
   })
 
   it('fetches nothing from the network: every font and every URL in the CSS is the app\'s own', () => {

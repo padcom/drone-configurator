@@ -110,7 +110,7 @@ it('has a Settings screen with the language of the interface, English being the 
 
   expect(wrapper.get('main h2').text()).toBe('Settings')
   const select = wrapper.get<HTMLSelectElement>('main select')
-  expect(select.findAll('option').map(option => option.text())).toEqual(['English', 'Deutsch'])
+  expect(select.findAll('option').map(option => option.text())).toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español'])
   expect(select.element.value).toBe('en')
   expect(wrapper.get('main label').text()).toBe('Language')
   expect(wrapper.get('main label').attributes('for')).toBe(select.attributes('id'))

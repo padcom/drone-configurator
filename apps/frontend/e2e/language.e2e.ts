@@ -68,7 +68,7 @@ describe('the language of the interface', () => {
 
     expect(await win().evaluate<string>('document.documentElement.lang')).toBe('en')
     expect(await win().evaluate<string[]>(`[...document.querySelectorAll('main select option')].map(o => o.textContent.trim())`))
-      .toEqual(['English', 'Deutsch'])
+      .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español'])
   })
 
   it('changes the text at once when another is picked (the rail names), and the page\'s lang', async () => {
@@ -111,6 +111,38 @@ describe('the longer text of the language', () => {
     expect(await clippedOn('parameters')).toEqual([])
     expect(await clippedOn('settings')).toEqual([])
     await win().devtools('Emulation.clearDeviceMetricsOverride', {})
+  })
+})
+
+describe('Polish, with the letters of Latin Extended', () => {
+  it('shows the rail in Polish, and loads the Latin Extended face for ą ć ę ł ń ś ź ż once they are shown', async () => {
+    await pick('pl')
+
+    await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Dane lotu'`)
+    expect(await rail()).toEqual(expect.arrayContaining(['Dane lotu', 'Parametry', 'Ustawienia']))
+    // "Łącze" in the top bar and "Zażółć" in the language help are Latin Extended: the face is fetched for them.
+    await win().waitFor(`[...document.fonts].some(face => face.status === 'loaded' && /U\\+0*100\\b/u.test(face.unicodeRange))`)
+    expect(await win().evaluate<string>('document.documentElement.lang')).toBe('pl')
+  })
+
+  const RAILS = [['pl', 'Dane lotu'], ['it', 'Dati di volo'], ['es', 'Datos de vuelo']]
+
+  it.each(RAILS)('shows the rail in %s, with no text cut off at 1000 px', async (code, flight) => {
+    await pick(code)
+
+    await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === '${flight}'`)
+    expect(await win().evaluate<string>('document.documentElement.lang')).toBe(code)
+    await win().devtools('Emulation.setDeviceMetricsOverride', { width: 1000, height: 900, deviceScaleFactor: 1, mobile: false })
+    await win().evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
+    expect(await clippedOn('parameters')).toEqual([])
+    expect(await clippedOn('settings')).toEqual([])
+    await win().devtools('Emulation.clearDeviceMetricsOverride', {})
+  })
+
+  it('goes back to German for the test of what is kept', async () => {
+    await pick('de')
+
+    await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Flugdaten'`)
   })
 })
 
