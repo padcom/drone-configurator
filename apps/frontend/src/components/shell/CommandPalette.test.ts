@@ -166,9 +166,11 @@ it('lists every command in registry order with its group, the Navigate ones firs
     'Switch to Tune',
     'Switch to Logs',
     'Switch to Settings',
+    'Reboot flight controller',
   ])
-  expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text())).toEqual(Array(7).fill('Navigate'))
-  expect(wrapper.findAll('.palette-row .palette-key').map(key => key.text())).toEqual(Array(7).fill(''))
+  expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text()))
+    .toEqual([...Array(7).fill('Navigate'), 'Vehicle'])
+  expect(wrapper.findAll('.palette-row .palette-key').map(key => key.text())).toEqual(Array(8).fill(''))
 })
 
 it('filters by what is typed, and says so when nothing matches', async () => {
@@ -205,7 +207,7 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
 
-  expect(router.currentRoute.value.path).toBe('/parameters')
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/parameters'))
   expect(wrapper.find('#palette-input').exists()).toBe(false)
   await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.app-main')))
 })
@@ -228,15 +230,15 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   expect(active()).toBe('go.flight')
 
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('go.settings')
+  expect(active()).toBe('vehicle.reboot')
   await input.trigger('keydown', { key: 'ArrowDown' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('go.settings')
+  expect(active()).toBe('vehicle.reboot')
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('go.settings')
+  expect(active()).toBe('vehicle.reboot')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('go.flight')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-go.flight')
@@ -283,7 +285,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(6).fill('false')])
+  expect(selected).toEqual(['true', ...Array(7).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -296,7 +298,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('7 commands')
+  expect(status()).toBe('8 commands')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
@@ -375,12 +377,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(7)
+  expect(labels(wrapper)).toHaveLength(8)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('7 commands')
+  expect(wrapper.get('.palette-status').text()).toBe('8 commands')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

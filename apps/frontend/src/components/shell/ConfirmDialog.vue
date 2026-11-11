@@ -15,7 +15,12 @@ import { useConfigurator } from '@/composables/useConfigurator'
 const { t } = useI18n()
 const { confirmation, fields } = useConfigurator()
 
-const options = computed<SafetyOptions>(() => {
+/**
+ * The usual plain confirmation of a write, with the vehicle named.
+ *
+ * @returns what to ask
+ */
+function plain(): SafetyOptions {
   const info = fields.connection.value.vehicle
 
   return {
@@ -25,5 +30,8 @@ const options = computed<SafetyOptions>(() => {
     level: 'plain',
     confirmLabel: t('confirm.write'),
   }
-})
+}
+
+// A command that asked with its own options (the reboot: a hold) is shown as it asked.
+const options = computed<SafetyOptions>(() => confirmation.value?.options ?? plain())
 </script>

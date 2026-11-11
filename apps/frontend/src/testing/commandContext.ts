@@ -16,6 +16,8 @@ export interface Fake {
     armed: boolean | undefined
     busy: ParameterWork | null
     rebootResult: RebootResult
+    /** When set, `vehicle.reboot` rejects with it (the backend's refusal, or a failure). */
+    rebootError?: unknown
   }
   /** What the confirmation will answer. */
   answer: { confirm: boolean | (() => boolean) }
@@ -45,7 +47,9 @@ function vehicleOf(fake: Fake): VehicleFacts {
     reboot: (...args: unknown[]) => {
       fake.calls.reboot.push(args)
 
-      return Promise.resolve(fake.facts.rebootResult)
+      const { rebootError, rebootResult } = fake.facts
+
+      return rebootError === undefined ? Promise.resolve(rebootResult) : Promise.reject(rebootError)
     },
   }
 }

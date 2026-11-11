@@ -22,6 +22,7 @@
     }
   },
   "topBar": {
+    "rebooting": "Rebooting…",
     "home": "Home",
     "noVehicle": "No vehicle",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",
@@ -241,6 +242,7 @@
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "connection": {
+    "rebooting": "rebooting",
     "state": {
       "disconnected": "disconnected",
       "connecting": "connecting",
@@ -532,6 +534,7 @@
       "settings": "Switch to Settings"
     },
     "reason": {
+      "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
       "notConnected": "Connect to a vehicle first.",
       "stateUnknown": "The vehicle's state is unknown (no recent heartbeat).",
       "armed": "Disarm the vehicle first. A flying vehicle is never rebooted.",
@@ -540,6 +543,11 @@
     },
     "vehicle": {
       "reboot": {
+        "accepted": "Rebooting {vehicle}…",
+        "refused": "{vehicle} refused to reboot.",
+        "unsupported": "{vehicle} does not support a reboot from here.",
+        "noAnswer": "No answer from {vehicle}. If it is rebooting, the link comes back by itself. If nothing happens, try again.",
+        "back": "{vehicle} is back.",
         "label": "Reboot flight controller",
         "keywords": "restart reset power cycle",
         "title": "Reboot flight controller",

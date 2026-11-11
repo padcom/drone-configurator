@@ -54,7 +54,7 @@ describe('opening the palette', () => {
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
-    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(7)
+    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(8)
     // Nothing printed and no other window: the page is still the only dialog, and still the one document.
     expect(await app.evaluate<number>(`document.querySelectorAll('dialog[open]').length`)).toBe(1)
   })
