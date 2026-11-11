@@ -17,7 +17,7 @@ import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } f
 import { GuardedStream } from "./guarded"
 import { Beats } from "./heartbeat"
 import { reopenable, watchSession } from "./reconnect"
-import { encodingFor, identityOf, infoOf, link } from "./session"
+import { boardOf, encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
 /// Registers the service's methods and subscription on `c`.
@@ -98,6 +98,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
       link.encoding = encodingFor(found, version)
       link.identity = identityOf(found, version)
+      link.board = boardOf(found, version)
+      link.typeMayChange = false
       link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found) })
       watchSession(generation)
       return encodeConnection(link.state)
