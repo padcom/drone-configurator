@@ -2,7 +2,7 @@
 import { i18n } from './i18n'
 import type { State } from './state'
 import type { ConfiguratorHandle, Fields } from './useConfigurator'
-import { useGroupsSetting } from './useGroupsSetting'
+import { forgetGroupsChoice, useGroupsSetting } from './useGroupsSetting'
 
 /**
  * Turns the setting "Show parameter groups" on for the Configurator that was made last (it is off by default): the tests of the
@@ -10,6 +10,11 @@ import { useGroupsSetting } from './useGroupsSetting'
  */
 export function groupsOn(): void {
   void useGroupsSetting().choose(true)
+}
+
+/** Forgets what `groupsOn` chose, for the test that comes next (call it in `afterEach`). */
+export function groupsOff(): void {
+  forgetGroupsChoice()
 }
 
 /** Mount options that give a component the translations, as `main.ts` does in the page. */

@@ -73,7 +73,7 @@
             :class="{ changed: row.initial !== undefined }"
             :title="row.changedText"
             :aria-description="row.changedText"
-          >{{ row.param.value }}</td>
+          >{{ showNumber(row.param.value) }}</td>
           <td v-if="meaning" class="meaning" :title="row.title || undefined">
             <span v-if="row.hit?.reason === 'close'" class="why">{{ t('params.closeMatch') }}</span>
             <Marked :text="row.shownMeaning" :tokens="tokens" />
@@ -151,6 +151,7 @@ import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from './
 import type { Param } from './generated/app'
 import Marked from './Marked.vue'
 import { useConfigurator } from './useConfigurator'
+import { showNumber } from './paramValue'
 import { useGroupsSetting } from './useGroupsSetting'
 import { useParamGroup } from './useParamGroup'
 import { useParamView } from './useParamView'
@@ -287,7 +288,7 @@ const columns = computed(() => (meaning.value ? 3 : 2) + (stars.value ? 1 : 0))
 // search or the scroll), in characters; the header's own words are the least a column has.
 const widths = computed(() => ({
   name: params.value.reduce((widest, param) => Math.max(widest, param.id.length), 'NAME'.length),
-  value: params.value.reduce((widest, param) => Math.max(widest, String(param.value).length), 'VALUE'.length + 1),
+  value: params.value.reduce((widest, param) => Math.max(widest, showNumber(param.value).length), 'VALUE'.length + 1),
 }))
 // What an empty list says to do, by how the download stands: nothing yet (connect), on its way, or failed (press Download).
 const EMPTY_HELP: Record<string, string> = { loading: 'params.empty.loading', failed: 'params.empty.failed' }
@@ -329,7 +330,7 @@ function initialValueOf(id: string): number | undefined {
  * @returns the words, or undefined for a parameter that is at its initial value
  */
 function changedText(initial: number | undefined): string | undefined {
-  return initial === undefined ? undefined : t('params.initial.changedFrom', { initial })
+  return initial === undefined ? undefined : t('params.initial.changedFrom', { initial: showNumber(initial) })
 }
 
 const rows = computed(() => {
@@ -372,6 +373,14 @@ const selectedAt = computed(() => rows.value.findIndex(row => row.param.id === f
 const selectionText = ref('')
 
 /**
+ * An initial value as text.
+ *
+ * @param initial the value, if the parameter has changed from one
+ * @returns the text, or an empty string for none
+ */
+const initialText = (initial: number | undefined): string => initial === undefined ? '' : showNumber(initial)
+
+/**
  * What the status says of the selected parameter: its name and place, and the value it changed from when it is not at its
  * initial one (arrowing through the rows does not read the tooltip of the cell).
  *
@@ -381,12 +390,18 @@ function selectionOf(): string {
   const id = fields.selected.value
   const initial = initialValueOf(id ?? '')
   const key = initial === undefined ? 'params.selection' : 'params.selectionChanged'
+  const said = { id, position: selectedAt.value + 1, total: rows.value.length, initial: initialText(initial) }
 
-  return selectedAt.value < 0 ? '' : t(key, { id, position: selectedAt.value + 1, total: rows.value.length, initial })
+  return selectedAt.value < 0 ? '' : t(key, said)
 }
 
+// The row that a new list selected by itself (a search typed, a group, a view): the status does not speak it, because the user
+// did not move to it (and would hear it at every key typed in the search). It speaks when the user moves the selection.
+let selectedByList = ''
 watch(() => fields.selected.value, () => {
-  selectionText.value = selectionOf()
+  if (fields.selected.value !== selectedByList) {
+    selectionText.value = selectionOf()
+  }
 }, { immediate: true })
 const drawn = computed(() => selectedAt.value >= from.value && selectedAt.value < to.value)
 const activeRow = computed(() => drawn.value ? `param-row-${fields.selected.value}` : undefined)
@@ -583,14 +598,25 @@ watch(() => fields.selected.value, async () => {
   }
 })
 
-/** The list is of another scope: the first row is selected and the list is at the top (once, whatever changed together). */
-function toTop(): void {
-  selectAt(0)
+/** Once the status has seen the selection change (in this flush), what the next change is is the user's. */
+async function forgetSelectedByList(): Promise<void> {
+  await nextTick()
+  selectedByList = ''
+}
 
-  // Nothing to select (no row matches): the list is still left at the top, for the rows that come back.
+/** Nothing to select (no row matches): the list is still left at the top, for the rows that come back. */
+function emptyToTop(): void {
   if (rows.value.length === 0 && scroller.value) {
     scroller.value.scrollTop = 0
   }
+}
+
+/** The list is of another scope: the first row is selected and the list is at the top (once, whatever changed together). */
+function toTop(): void {
+  selectedByList = rows.value[0]?.param.id ?? ''
+  selectAt(0)
+  emptyToTop()
+  void forgetSelectedByList()
 }
 // What is searched, which group is chosen, and which view: a change of any of them is a new list, from its top. The focus stays
 // where it is (the typing in the search goes on).

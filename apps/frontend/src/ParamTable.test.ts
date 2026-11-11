@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ParamTable from './ParamTable.vue'
 import { FALLBACK_ROWS, OVERSCAN } from './rowWindow'
 import { mockBackend } from './mock-backend'
-import { feed, groupsOn, withI18n } from './testing'
+import { feed, groupsOff, groupsOn, withI18n } from './testing'
+
+afterEach(groupsOff)
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 import { PARAMS, telemetryAt } from './fixtures'

@@ -265,7 +265,10 @@ describe('editing', () => {
   it('validates the draft against the parameter type', () => {
     const int8 = PARAMS.find(p => p.type === 'INT8')!
     expect(validateDraft(int8, '200')).toBe('INT8 goes from -128 to 127')
-    expect(validateDraft(int8, '1.5')).toBe(`${int8.id} is an integer (INT8)`)
+    // Decimals are not an error: the nearest whole number is taken, and it is that number that has to be in the range.
+    expect(validateDraft(int8, '1.5')).toBeNull()
+    expect(validateDraft(int8, '127.4')).toBeNull()
+    expect(validateDraft(int8, '127.5')).toBe('INT8 goes from -128 to 127')
     expect(validateDraft(int8, 'abc')).toBe('a number, please')
     expect(validateDraft(int8, '-5')).toBeNull()
     const real = PARAMS.find(p => p.kind === 'real')!

@@ -21,6 +21,11 @@ export function parseGroups(text: string | undefined): boolean {
 /** What was chosen and the settings have not answered for yet: shown at once (shared by the parts of the screen). */
 const local = shallowRef<boolean | null>(null)
 
+/** Forgets a choice that the settings have not answered for (for the tests: the choice is shared by the whole page). */
+export function forgetGroupsChoice(): void {
+  local.value = null
+}
+
 /** The setting, as a ref and an action. */
 export interface GroupsSetting {
   /** Whether the groups (and the stars) are shown. */
