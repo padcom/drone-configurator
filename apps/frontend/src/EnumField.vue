@@ -1,6 +1,7 @@
 <template>
   <div class="enum-field">
     <input
+      ref="input"
       class="kit-input enum-input"
       :class="{ open, named: name !== undefined }"
       :id="inputId"
@@ -24,7 +25,9 @@
     >
     <span class="enum-badge" aria-hidden="true">{{ badge }}</span>
     <span v-if="nameless" :id="`${listId}-noname`" class="visually-hidden">{{ t('enum.noName') }}</span>
-    <Icon class="chevron" name="chevron-down" />
+    <span class="chevron-hit" aria-hidden="true" @mousedown.prevent @click="toggleList">
+      <Icon class="chevron" name="chevron-down" />
+    </span>
     <!-- A press anywhere in the list (its scrollbar too) does not take the focus from the field, so the list stays open: the
          bar can be dragged and clicked. Only a press outside, Escape, Tab and Enter close it. -->
     <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label" @mousedown.prevent>
@@ -87,6 +90,7 @@ const FALLBACK_PAGE = 5
 const { t } = useI18n()
 const listId = useId()
 const open = ref(false)
+const input = ref<HTMLInputElement | null>(null)
 /** What is being typed, or null when nothing is (the field then shows the name of the value). */
 const query = ref<string | null>(null)
 const active = ref(-1)
@@ -121,6 +125,20 @@ function close(): void {
 function pick(value: number): void {
   model.value = value
   close()
+}
+
+/**
+ * The chevron: opens the list when it is closed, and closes it when it is open. The press did not take the focus from the field
+ * (nor give it: it is given here), so the field has the focus after either.
+ */
+function toggleList(): void {
+  if (open.value) {
+    close()
+
+    return
+  }
+  input.value?.focus()
+  open.value = true
 }
 
 /**

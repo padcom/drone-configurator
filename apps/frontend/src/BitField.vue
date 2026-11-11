@@ -1,6 +1,7 @@
 <template>
   <div class="enum-field bit-field">
     <input
+      ref="input"
       class="kit-input enum-input bit-input"
       :class="{ open }"
       :id="inputId"
@@ -24,7 +25,9 @@
       @blur="onBlur"
     >
     <span :id="`${listId}-summary`" class="bit-summary" :title="fullSummary">{{ summary }}</span>
-    <Icon class="chevron" name="chevron-down" />
+    <span class="chevron-hit" aria-hidden="true" @mousedown.prevent @click="toggleList">
+      <Icon class="chevron" name="chevron-down" />
+    </span>
     <div
       v-if="open"
       :id="listId"
@@ -104,6 +107,7 @@ const ROOM = 3
 const { t } = useI18n()
 const listId = useId()
 const open = ref(false)
+const input = ref<HTMLInputElement | null>(null)
 const active = ref(-1)
 /** What was done last, for a screen reader ("GPS on"). */
 const announced = ref('')
@@ -155,6 +159,20 @@ function toggle(index: number): void {
   emit('edit', String(withBit(props.value, option.bit, on, props.type)))
   active.value = index
   announced.value = t(on ? 'bits.on' : 'bits.off', { name: option.name })
+}
+
+/**
+ * The chevron: opens the list when it is closed, and closes it (settling the value, as Enter does) when it is open. The press
+ * did not take the focus from the field, so the field has it after either.
+ */
+function toggleList(): void {
+  if (open.value) {
+    settle()
+
+    return
+  }
+  input.value?.focus()
+  open.value = true
 }
 
 /**

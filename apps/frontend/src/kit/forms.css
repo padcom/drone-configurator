@@ -34,15 +34,24 @@
   transform: translateY(-50%);
 }
 
-.enum-field .chevron {
+/* The chevron is a place to press: it opens and closes the list (the press does not take the focus from the field). */
+.enum-field .chevron-hit {
   position: absolute;
-  top: 50%;
-  right: var(--space-3);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  cursor: pointer;
+}
+
+.enum-field .chevron {
   width: 12px;
   height: 12px;
   color: var(--color-text-muted);
   pointer-events: none;
-  transform: translateY(-50%);
 }
 
 .enum-field .listbox {
