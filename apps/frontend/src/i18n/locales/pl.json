@@ -72,7 +72,7 @@
       "never": "Nigdy nie zgłoszone",
       "neverRule": "Kreska, nigdy zmyślone zero.",
       "verified": "Zapis potwierdzony",
-      "verifiedRule": "Sukces dopiero wtedy, po potwierdzeniu wartości przez pojazd."
+      "verifiedRule": "Sukces dopiero po potwierdzeniu wartości przez pojazd."
     },
     "feedback": {
       "menu": "Mapa",
@@ -394,14 +394,14 @@
       "none": "Połącz się, aby pobrać parametry.",
       "loading": "Pobieranie parametrów…",
       "failed": "Pobieranie się nie udało.",
-      "incomplete": "Parametrów: {total}, ale {missing} nigdy nie dotarło (indeksy {indexes}). Pobierz ponownie, aby spróbować jeszcze raz.",
+      "incomplete": "Parametrów: {total}, nie dotarło: {missing} (indeksy {indexes}). Pobierz ponownie, aby spróbować jeszcze raz.",
       "all": "Parametrów: {total}",
       "some": "{shown} z {total} parametrów"
     },
     "metadata": "Metadane dla parametrów: {count}",
     "metadataLoaded": "Wczytano opisy dla {described} z {total} parametrów",
-    "metadataSome": "Dopasowano {matched} z {total} parametrów, {described} ma opis",
-    "metadataNone": "Dopasowano 0 z {total} parametrów: żaden z {known} opisanych w pliku nie jest parametrem tego pojazdu."
+    "metadataSome": "Dopasowano {matched} z {total} parametrów; z opisem: {described}",
+    "metadataNone": "Dopasowano 0 z {total} parametrów. Parametry opisane w pliku: {known}, żaden z tego pojazdu."
   },
   "snapshot": {
     "save": "Zapisz migawkę",
@@ -428,7 +428,7 @@
     "allWritten": "Wszystko zapisano i odczytano z powrotem.",
     "stopped": "Zatrzymano tutaj: reszta nie została zapisana.",
     "apply": "Zastosuj {id}",
-    "write": "Zapisz zaznaczone ({count})",
+    "write": "Zapisz zaznaczone: {count}",
     "backup": "Zapisz kopię zapasową",
     "close": "Zamknij"
   },

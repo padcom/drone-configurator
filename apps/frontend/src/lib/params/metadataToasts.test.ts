@@ -58,7 +58,9 @@ it('tells a file that matched nothing, and one that could not be read, in an err
 
   handle.metadata.load(fileOf({ NOT_ON_THIS_VEHICLE: { description: 'x' } }))
   await flushPromises()
-  expect(shown()).toEqual([['error', expect.stringMatching(/^0 of 12 parameters matched: none of the 1/u)]])
+  const none = /^0 of 12 parameters matched\. Parameters the file describes: 1, none of them/u
+
+  expect(shown()).toEqual([['error', expect.stringMatching(none)]])
 
   handle.metadata.load('{')
   await flushPromises()
@@ -89,7 +91,7 @@ it('says a partial match as a warning', async () => {
   handle.metadata.load(fileOf({ RTL_ALT: { description: 'Return altitude' }, BATT_CAPACITY: { units: 'mAh' } }))
   await flushPromises()
 
-  expect(shown()).toEqual([['warning', '2 of 12 parameters matched, 1 have a description']])
+  expect(shown()).toEqual([['warning', '2 of 12 parameters matched; with a description: 1']])
   // Read for as long as an error is, not the 6 s of a plain warning.
   expect(useToasts().visible.value.map(toast => [toast.long, toast.sticky])).toEqual([[true, false]])
 })

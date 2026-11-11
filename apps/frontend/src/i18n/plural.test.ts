@@ -84,6 +84,10 @@ describe('a message about a count that has to read right for one', () => {
     ['es', 'staged.allWritten', 1, '1 escrito y releído.'],
     ['es', 'staged.allWritten', 2, 'Los 2 escritos y releídos.'],
     ['de', 'staged.allWritten', 1, '1 geschrieben und zurückgelesen.'],
+    ['en', 'params.status.all', 1, '1 parameter'],
+    ['en', 'params.status.all', 12, '12 parameters'],
+    ['it', 'params.status.all', 1, '1 parametro'],
+    ['es', 'params.status.all', 1, '1 parámetro'],
     ['en', 'params.metadata', 1, 'Metadata for 1 parameter'],
     ['en', 'params.metadata', 12, 'Metadata for 12 parameters'],
   ] as const
@@ -91,7 +95,7 @@ describe('a message about a count that has to read right for one', () => {
   it.each(CASES)('is in %s, %s with %i', (language, key, count, text) => {
     setLanguage(language)
 
-    expect(i18n.global.t(key, { count }, count)).toBe(text)
+    expect(i18n.global.t(key, { count, total: count }, count)).toBe(text)
   })
 })
 

@@ -394,14 +394,14 @@
       "none": "Connect to download the parameters.",
       "loading": "Downloading the parameters…",
       "failed": "The download failed.",
-      "incomplete": "{total} parameters, but {missing} never arrived (indexes {indexes}). Download again to retry.",
-      "all": "{total} parameters",
+      "incomplete": "Parameters: {total}, never arrived: {missing} (indexes {indexes}). Download again to retry.",
+      "all": "{total} parameter | {total} parameters",
       "some": "{shown} of {total} parameters"
     },
     "metadata": "Metadata for {count} parameter | Metadata for {count} parameters",
     "metadataLoaded": "Loaded descriptions for {described} of {total} parameters",
-    "metadataSome": "{matched} of {total} parameters matched, {described} have a description",
-    "metadataNone": "0 of {total} parameters matched: none of the {known} the file describes is a parameter of this vehicle."
+    "metadataSome": "{matched} of {total} parameters matched; with a description: {described}",
+    "metadataNone": "0 of {total} parameters matched. Parameters the file describes: {known}, none of them on this vehicle."
   },
   "snapshot": {
     "save": "Save snapshot",
@@ -411,7 +411,7 @@
   "import": {
     "from": "Snapshot from {savedAt}",
     "itWas": "It was {warning}.",
-    "summary": "{differ} differ, {same} already the same. Tick the ones to write.",
+    "summary": "Different: {differ}; already the same: {same}. Tick the ones to write.",
     "noValue": "—",
     "column": {
       "apply": "Apply",

@@ -67,9 +67,7 @@ describe('the parameters in that order', () => {
     const took = performance.now() - started
 
     expect(result.map(p => p.id)).toEqual(sorted(names))
-    // Generous headroom: this guards against a slow-down of a different order, not a budget (a loaded runner took 155 ms
-    // for what takes a few ms alone).
-    expect(took).toBeLessThan(1000)
+    expect(took).toBeLessThan(100)
   })
 })
 

@@ -193,7 +193,7 @@
   "messages": {
     "heading": "Mensajes",
     "list": "Mensajes del vehículo, los más recientes primero",
-    "unread": "{count} nuevos",
+    "unread": "Nuevos: {count}",
     "none": "El vehículo todavía no ha dicho nada.",
     "dismiss": "Cerrar",
     "severity": {
@@ -297,7 +297,7 @@
     "region": "Notificaciones",
     "dismiss": "Cerrar",
     "count": "×{count}",
-    "waiting": "{count} más esperando"
+    "waiting": "Más esperando: {count}"
   },
   "enum": {
     "noName": "sin nombre",
@@ -354,7 +354,7 @@
       "clearMissing": "Quitar {count} favorito que este vehículo no tiene… | Quitar los {count} favoritos que este vehículo no tiene…",
       "clearMissingHelp": "Quita de tu lista, para todos los vehículos, {count} favorito que este vehículo no tiene. Antes pregunta una vez más. | Quita de tu lista, para todos los vehículos, los {count} favoritos que este vehículo no tiene. Antes pregunta una vez más.",
       "clearAsk": "¿Quitar {count} de tu lista para todos los vehículos? Pulsa de nuevo",
-      "cleared": "{count} quitados de los favoritos",
+      "cleared": "Quitados de los favoritos: {count}",
       "emptyTitle": "Aún no hay favoritos",
       "emptyHelp": "Pulsa la estrella junto a un parámetro, o * con el parámetro seleccionado, para guardarlo aquí.",
       "notOnVehicle": "{count} de tus favoritos no está en este vehículo. | {count} de tus favoritos no están en este vehículo.",
@@ -394,14 +394,14 @@
       "none": "Conéctate para descargar los parámetros.",
       "loading": "Descargando los parámetros…",
       "failed": "La descarga ha fallado.",
-      "incomplete": "{total} parámetros, pero {missing} no llegaron nunca (índices {indexes}). Descarga de nuevo para reintentar.",
-      "all": "{total} parámetros",
+      "incomplete": "Parámetros: {total}, no llegaron nunca: {missing} (índices {indexes}). Descarga de nuevo para reintentar.",
+      "all": "{total} parámetro | {total} parámetros",
       "some": "{shown} de {total} parámetros"
     },
     "metadata": "Metadatos de {count} parámetro | Metadatos de {count} parámetros",
     "metadataLoaded": "Descripciones cargadas para {described} de {total} parámetros",
-    "metadataSome": "{matched} de {total} parámetros coinciden, {described} tienen descripción",
-    "metadataNone": "0 de {total} parámetros coinciden: ninguno de los {known} que describe el archivo es un parámetro de este vehículo."
+    "metadataSome": "Parámetros que coinciden: {matched} de {total}; con descripción: {described}",
+    "metadataNone": "Coinciden 0 de {total} parámetros. Parámetros que describe el archivo: {known}, ninguno de este vehículo."
   },
   "snapshot": {
     "save": "Guardar instantánea",
@@ -411,7 +411,7 @@
   "import": {
     "from": "Instantánea del {savedAt}",
     "itWas": "Era {warning}.",
-    "summary": "{differ} difieren, {same} ya son iguales. Marca los que quieras escribir.",
+    "summary": "Distintos: {differ}; ya iguales: {same}. Marca los que quieras escribir.",
     "noValue": "—",
     "column": {
       "apply": "Aplicar",
@@ -423,12 +423,12 @@
     "notVerified": "✕ {detail}",
     "notWritten": "No escrito",
     "tick": "Marca los cambios que quieras.",
-    "ready": "{count} marcados. Los valores actuales se guardan antes como copia de seguridad.",
+    "ready": "Marcados: {count}. Los valores actuales se guardan antes como copia de seguridad.",
     "writing": "Escribiendo… esperando a que el vehículo relea cada valor.",
     "allWritten": "Todo escrito y releído.",
     "stopped": "Se detuvo aquí: el resto no se escribió.",
     "apply": "Aplicar {id}",
-    "write": "Escribir {count} marcados",
+    "write": "Escribir los marcados: {count}",
     "backup": "Guardar la copia de seguridad",
     "close": "Cerrar"
   },
@@ -443,7 +443,7 @@
     "writeKey": "Escribir los cambios (Ctrl+Intro)",
     "alreadyMatch": "{count} restablecimiento en cola ya coincide con el vehículo. | {count} restablecimientos en cola ya coinciden con el vehículo.",
     "leftOut": "{count} excluido: el vehículo ya tenía su valor cuando confirmaste. | {count} excluidos: el vehículo ya tenía sus valores cuando confirmaste.",
-    "partlyWritten": "{count} escritos y releídos.",
+    "partlyWritten": "Escritos y releídos: {count}.",
     "alertChanged": "{id}: {detail}.",
     "alertFailed": "{id} no se confirmó: {detail}. Su valor en el vehículo es desconocido; descarga de nuevo para verlo.",
     "stopped": "Se detuvo aquí: el resto no se escribió."

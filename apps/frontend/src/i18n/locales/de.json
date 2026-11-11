@@ -297,7 +297,7 @@
     "region": "Benachrichtigungen",
     "dismiss": "Schließen",
     "count": "×{count}",
-    "waiting": "{count} weitere warten"
+    "waiting": "Weitere warten: {count}"
   },
   "enum": {
     "noName": "kein Name",
@@ -394,14 +394,14 @@
       "none": "Verbinde, um die Parameter zu laden.",
       "loading": "Parameter werden geladen…",
       "failed": "Das Laden ist fehlgeschlagen.",
-      "incomplete": "{total} Parameter, aber {missing} sind nie angekommen (Indizes {indexes}). Lade erneut, um es noch einmal zu versuchen.",
+      "incomplete": "Parameter: {total}, nie angekommen: {missing} (Indizes {indexes}). Lade erneut, um es noch einmal zu versuchen.",
       "all": "{total} Parameter",
       "some": "{shown} von {total} Parametern"
     },
     "metadata": "Metadaten für {count} Parameter",
     "metadataLoaded": "Beschreibungen für {described} von {total} Parametern geladen",
-    "metadataSome": "{matched} von {total} Parametern zugeordnet, {described} haben eine Beschreibung",
-    "metadataNone": "0 von {total} Parametern zugeordnet: keiner der {known}, die die Datei beschreibt, ist ein Parameter dieses Fahrzeugs."
+    "metadataSome": "{matched} von {total} Parametern zugeordnet; mit Beschreibung: {described}",
+    "metadataNone": "0 von {total} Parametern zugeordnet. Von der Datei beschriebene Parameter: {known}, keiner davon an diesem Fahrzeug."
   },
   "snapshot": {
     "save": "Snapshot speichern",
@@ -411,7 +411,7 @@
   "import": {
     "from": "Snapshot vom {savedAt}",
     "itWas": "Es war {warning}.",
-    "summary": "{differ} unterscheiden sich, {same} sind schon gleich. Hake die zu schreibenden an.",
+    "summary": "Abweichend: {differ}; schon gleich: {same}. Hake die zu schreibenden an.",
     "noValue": "—",
     "column": {
       "apply": "Anwenden",
