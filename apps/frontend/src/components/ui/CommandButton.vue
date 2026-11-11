@@ -1,12 +1,14 @@
 
 <template>
   <component
-    :is="asLink ? 'a' : 'button'"
+    :is="isLink ? 'a' : 'button'"
     v-if="cmd"
     class="command-button"
     :class="classes"
     :href="asLink ? href : undefined"
-    :type="asLink ? undefined : 'button'"
+    :type="isLink ? undefined : 'button'"
+    :role="isLink && !asLink ? 'link' : undefined"
+    :tabindex="isLink && !asLink ? 0 : undefined"
     :aria-disabled="reason !== null ? 'true' : undefined"
     :aria-current="current ? 'page' : undefined"
     :aria-describedby="reason !== null ? reasonId : undefined"
@@ -85,8 +87,11 @@ function hrefOf(route: string | undefined): string | undefined {
 }
 
 const href = computed(() => hrefOf(cmd.value?.href))
-// A link while it may run; a disabled one is a button that cannot be pressed.
-const asLink = computed(() => href.value !== undefined && reason.value === null)
+// A command that leads somewhere is always the same element, an <a>: replacing it by a <button> when the command turns off
+// would lose the focus. While it may run it has its href (a real link); while it may not it has none, so that nothing opens,
+// and it is kept focusable (a link without an href is not) and still a link for a screen reader, `aria-disabled` as any other.
+const isLink = computed(() => href.value !== undefined)
+const asLink = computed(() => isLink.value && reason.value === null)
 
 /** Without an icon there is nothing to put by the words. */
 const position = computed(() => (cmd.value?.icon === undefined ? 'none' : props.iconPosition))
@@ -102,7 +107,7 @@ const parts = computed(() => {
   return ['bottom', 'right'].includes(position.value) ? ['label', 'icon'] : ['icon', 'label']
 })
 
-// `plain` draws nothing of its own: the caller's class gives the look (the top bar's palette button has one).
+// `plain` draws nothing of its own: the caller's class gives the look.
 const LOOK_CLASSES: Record<string, string[]> = {
   rail: ['rail-item'],
   default: ['kit-button'],

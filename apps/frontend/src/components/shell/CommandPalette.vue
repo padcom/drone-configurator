@@ -65,6 +65,7 @@ import type { Command } from '@/lib/commands/command'
 import { useCommandContext, useCommands } from '@/composables/useCommands'
 import { useCommandRunner } from '@/composables/useCommandRunner'
 import { useCommandPalette } from '@/composables/useCommandPalette'
+import { hintOf } from '@/lib/app/keymap'
 
 // The command palette: a search box over the commands of the application (lib/commands). It lists, filters, shows why a command
 // may not run, and calls `invoke` of the registry; it has no behaviour of its own. Built on the kit's dialog (a modal over the
@@ -115,7 +116,8 @@ const rows = computed<Row[]>(() => registry.search(query.value, ctx).map(command
     command,
     label: command.label ?? ctx.say(command.labelKey),
     group: ctx.say(command.groupKey),
-    hint: command.shortcut ?? '',
+    // The key of the command's own id in the keymap table ("Ctrl P", or "⌘ P" on a Mac), unless it names one itself.
+    hint: command.shortcut ?? hintOf(command.id),
     reason: availability.enabled ? null : ctx.say(availability.reasonKey, availability.reasonParams),
   }
 }))

@@ -49,17 +49,7 @@
       </div>
     </dl>
     <div class="actions">
-      <CommandButton
-        id="open-palette"
-        command="palette.open"
-        look="plain"
-        icon-position="left"
-        class="palette-button"
-        aria-haspopup="dialog"
-        aria-keyshortcuts="Control+P"
-      >
-        <kbd class="palette-button-key">{{ hint }}</kbd>
-      </CommandButton>
+      <!-- The command palette has no button here: it is the command "Show command palette", reached by its key. -->
       <CommandButton id="disconnect-button" command="vehicle.disconnect" icon-position="none" />
     </div>
   </header>
@@ -75,7 +65,6 @@ import { HOME } from '@/screens/registry'
 import { cellsFor, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useCommandRunner } from '@/composables/useCommandRunner'
-import { hintOf } from '@/lib/app/keymap'
 import { useFormat } from '@/i18n/useFormat'
 import { useTelemetry } from '@/composables/useTelemetry'
 
@@ -86,8 +75,6 @@ const { t } = useI18n()
 const configurator = useConfigurator()
 // The vehicle chip opens the connect dialog by running the `connect.open` command, as the buttons next to it run theirs.
 const run = useCommandRunner()
-// "Ctrl P", or "⌘ P" on a Mac.
-const hint = hintOf('palette.open')
 const format = useFormat()
 const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)

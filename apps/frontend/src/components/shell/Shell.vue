@@ -25,7 +25,7 @@
 
 <script setup lang="ts">
 import { usePaneKeys } from '@/lib/app/paneFocus'
-import { usePaletteKey } from '@/composables/useCommandPalette'
+import { useCommandKeys } from '@/composables/useCommandKeys'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'
@@ -43,5 +43,5 @@ const REGIONS = '.rail, .app-main, .fly-aside'
 // of the Fly screen.
 usePaneKeys(REGIONS)
 // Ctrl+P opens the command palette from anywhere (keymap.ts has the key).
-usePaletteKey()
+useCommandKeys()
 </script>

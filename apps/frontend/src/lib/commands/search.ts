@@ -93,21 +93,43 @@ function rankOf(texts: Texts, query: string, tokens: string[]): number | null {
 }
 
 /**
- * The commands that match a query, best first; those that match equally well keep the order they came in.
+ * The commands in the order the palette prefers: the ones run last first, then the rest by their label, in the language of the
+ * page.
  *
- * @param commands the commands, in registry order
+ * @param commands the commands
+ * @param ctx where the messages and the usage come from
+ * @returns a new list
+ */
+export function preferred(commands: readonly Command[], ctx: CommandContext): Command[] {
+  const recent = ctx.usage.recent()
+  const used = (command: Command) => {
+    const at = recent.indexOf(command.id)
+
+    return at < 0 ? Number.MAX_SAFE_INTEGER : at
+  }
+  const label = (command: Command) => command.label ?? ctx.say(command.labelKey)
+
+  return commands.toSorted((a, b) => used(a) - used(b) || label(a).localeCompare(label(b), undefined, { sensitivity: 'base' }))
+}
+
+/**
+ * The commands that match a query, best first; those that match equally well keep the order of `preferred` (the ones run last,
+ * then by label). An empty query gives every command in that order.
+ *
+ * @param commands the commands
  * @param query what the user typed
- * @param ctx where the messages come from
- * @returns the matching commands; all of them, as they are, for an empty query
+ * @param ctx where the messages and the usage come from
+ * @returns the matching commands
  */
 export function rankCommands(commands: readonly Command[], query: string, ctx: CommandContext): Command[] {
+  const ordered = preferred(commands, ctx)
   const tokens = tokensOf(fold(query))
   if (tokens.length === 0) {
-    return [...commands]
+    return ordered
   }
   const typed = tokens.join(' ')
 
-  return commands
+  return ordered
     .map((command, order) => ({ command, order, rank: rankOf(textsOf(command, ctx), typed, tokens) }))
     .filter((hit): hit is typeof hit & { rank: number } => hit.rank !== null)
     .toSorted((a, b) => a.rank - b.rank || a.order - b.order)

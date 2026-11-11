@@ -240,6 +240,8 @@
     "languageHelp": "The language of the interface.",
     "groups": "Show parameter groups",
     "groupsHelp": "Shows the group list and the favourites stars. Your favourites are kept while it is off.",
+    "notify": "Show a notification when a command runs",
+    "notifyHelp": "Every command that is run, from the palette, a key or a button, says its name in a short notice. For debugging.",
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "connection": {

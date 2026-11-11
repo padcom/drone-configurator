@@ -1,7 +1,6 @@
-// Whether the command palette is open: one flag the top bar's button and the Ctrl+P key (which open it) and the palette
-// (which closes itself) share.
-import { type Ref, onBeforeUnmount, onMounted, ref } from 'vue'
-import { matches } from '@/lib/app/keymap'
+// Whether the command palette is open: one flag that the command "Show command palette" (run by its key, Ctrl+P) and the
+// palette (which closes itself) share.
+import { type Ref, ref } from 'vue'
 
 /** The open state of the command palette. */
 export interface CommandPaletteState {
@@ -40,32 +39,13 @@ function otherDialogOpen(): boolean {
   return document.querySelector('dialog[open]') !== null
 }
 
-/** Closes the palette if it is open; opens it unless another dialog is open. */
-function toggleUnlessCovered(): void {
+/** Closes the palette if it is open; opens it unless another dialog is open. What the command "Show command palette" does. */
+export function toggleUnlessCovered(): void {
   if (shared.open.value) {
     shared.hide()
   } else if (!otherDialogOpen()) {
     shared.show()
   }
-}
-
-/**
- * Makes Ctrl+P (Cmd+P on a Mac) open the palette from anywhere in the window, and close it when it is open, for as long as the
- * component that asks is mounted. The key is Chromium's print key: the listener is on the window in the capture phase and always
- * prevents the default, so that nothing prints; a held key (repeat) is ignored, so the palette does not flicker.
- */
-export function usePaletteKey(): void {
-  const onKey = (event: KeyboardEvent) => {
-    if (matches(event, 'palette.open')) {
-      event.preventDefault()
-
-      if (!event.repeat) {
-        toggleUnlessCovered()
-      }
-    }
-  }
-  onMounted(() => window.addEventListener('keydown', onKey, true))
-  onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 }
 
 /**

@@ -10,6 +10,10 @@
       <Toggle id="show-groups" v-model="groups" :aria-describedby="`${uid}-groups-help`">{{ t('settings.groups') }}</Toggle>
       <p :id="`${uid}-groups-help`" class="muted">{{ t('settings.groupsHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <Toggle id="notify-commands" v-model="notify" :aria-describedby="`${uid}-notify-help`">{{ t('settings.notify') }}</Toggle>
+      <p :id="`${uid}-notify-help`" class="muted">{{ t('settings.notifyHelp') }}</p>
+    </div>
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
 </template>
@@ -21,6 +25,7 @@ import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
 import Select from '@/components/ui/Select.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { useCommandNotice } from '@/composables/useCommandNotice'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 
 // What the user chooses about the application. For now that is the language of the interface, of which there is one; the
@@ -35,6 +40,12 @@ const { shown, choose } = useGroupsSetting()
 const groups = computed({
   get: () => shown.value,
   set: (next: boolean) => void choose(next),
+})
+// "Show a notification when a command runs" (off by default): the same way.
+const { shown: noticeShown, choose: chooseNotice } = useCommandNotice()
+const notify = computed({
+  get: () => noticeShown.value,
+  set: (next: boolean) => void chooseNotice(next),
 })
 // Each language is named in itself (Deutsch, not German): a person who cannot read the current language can still find theirs.
 const options = LANGUAGES.map(code => ({ value: code, label: LANGUAGE_NAMES[code] }))

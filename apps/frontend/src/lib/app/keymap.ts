@@ -1,6 +1,8 @@
-// The keys of the application, in ONE table: what listens for a key (the command palette) and what shows one (the key hint in
-// the top bar and in a row of the palette) read it here. The keys are fixed for now; a user-defined map (#20) replaces the
-// contents of this table, and nothing else changes, because listeners ask the table and commands only carry a string.
+// The keys of the application, in ONE table: what listens for a key (composables/useCommandKeys.ts: a key whose `actionId` is
+// a command's id runs that command, with no visible element) and what shows one (the key hint in a row of the palette) read it
+// here. To give a command a key, add a row with the command's id as `actionId`. The keys are fixed for now; a user-defined map
+// (#20) replaces the contents of this table, and nothing else changes, because listeners ask the table and commands only carry
+// a string.
 //
 // The table also lists, as documentation and for #20 to take over, the keys that exist today in their own modules (F6 and
 // Shift+F6 in paneFocus.ts, Ctrl+/ and Ctrl+Enter in paramShortcuts.ts). They are listened for there, not here: moving them
