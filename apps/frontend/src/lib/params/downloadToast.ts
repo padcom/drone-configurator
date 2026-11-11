@@ -57,11 +57,14 @@ class RunningToast implements DownloadToast {
   }
 
   done(count: number, missing: number): void {
-    // A list that is not whole is not good news: a warning, with how many are missing.
+    // A list that is not whole is not good news: a warning, with how many are missing. A whole one needs no toast: it would sit
+    // over the list for the time of a toast after every connection (the line under the list, a polite status, says how it came).
     if (missing > 0) {
       this.end('warning', say('params.progress.incomplete', { count, missing }))
-    } else {
-      this.end('success', say('params.progress.done', { count }, count))
+    } else if (this.open) {
+      this.open = false
+      this.toasts.update(this.key, { onDismiss: null })
+      this.toasts.dismiss(this.key)
     }
   }
 

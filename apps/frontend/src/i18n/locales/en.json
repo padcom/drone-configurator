@@ -356,7 +356,6 @@
         "list": "by list",
         "ftp": "by file transfer"
       },
-      "done": "{count} parameter downloaded | {count} parameters downloaded",
       "cancelled": "Download cancelled",
       "cancelDownload": "Cancel download",
       "incomplete": "Download incomplete. Downloaded: {count}, missing: {missing}",

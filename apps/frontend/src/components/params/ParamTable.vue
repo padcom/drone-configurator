@@ -113,7 +113,8 @@
       {{ t(armed ? 'params.favourites.clearAsk' : 'params.favourites.clearMissing', { count: missingFavourites }) }}
     </Button>
     <!-- How the last download came (by file transfer or by list, and how long it took): a diagnostic, not a choice. -->
-    <p v-if="downloadText" id="download-status" class="list-status muted">{{ downloadText }}</p>
+    <!-- A polite status, always in the page: a download that has finished is not a toast, so this is what says it was done. -->
+    <p id="download-status" class="list-status muted" role="status">{{ downloadText }}</p>
     <!-- When the initial values were taken, so that "changed" always says what it is changed from. -->
     <p v-if="fields.initial.value" id="initial-status" class="list-status muted">
       {{ t('params.initial.footer', { time: clockText(fields.initial.value.at) }) }}

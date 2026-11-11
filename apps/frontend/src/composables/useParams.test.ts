@@ -191,9 +191,8 @@ it('shows a toast that stays while it runs, with the count and the way, and says
   expect(toast.text).toBe('Downloading the parameters…')
   await downloading
 
-  expect(texts(toasts)).toEqual([`${PARAMS.length} parameters downloaded`])
-  expect(toasts.visible.value[0]?.sticky).toBe(false)
-  expect(toasts.visible.value[0]?.progress).toBeNull()
+  // A whole list leaves no toast behind (it would cover the list after every connection): the line under the list says it.
+  expect(texts(toasts)).toEqual([])
   expect(parameters.progress.value).toBeNull()
 })
 
@@ -203,6 +202,21 @@ it('names the close button of the running download "Cancel download", and the us
   const downloading = parameters.refresh()
   expect(toasts.visible.value[0]?.dismissLabel).toBe('Cancel download')
   await downloading
+
+  expect(texts(toasts)).toEqual([])
+})
+
+it('names the close button of a download that ends incomplete the usual way', async () => {
+  const sent = [{ id: 'P0', index: 0, kind: 'int' as const, type: 'INT16', value: 0 }]
+  const client = {
+    call: () => Promise.resolve({ params: sent, count: 2, complete: false, missing: [1] }),
+    onEvent: () => () => undefined,
+  }
+  const toasts = createToasts()
+  const deps = { client: client as never, toasts, fail: () => undefined, problemWith: () => null, warningWith: () => null }
+  const parameters = useParams(deps)
+
+  await parameters.refresh()
 
   expect(toasts.visible.value[0]?.dismissLabel).toBeNull()
 })

@@ -59,7 +59,9 @@ it('says when the initial values were taken, under the list', async () => {
 
 it('says how the last download came, under the list: the way, the time and why not the other', async () => {
   const { table, handle } = await screen()
-  expect(table.find('#download-status').exists()).toBe(false)
+  // A polite status that is always there, so that what is put in it is read out.
+  expect(table.get('#download-status').attributes('role')).toBe('status')
+  expect(table.get('#download-status').text()).toBe('')
 
   feed(handle, { downloadInfo: { source: 'ftp', elapsedMs: 800 } })
   await table.vm.$nextTick()
@@ -72,7 +74,7 @@ it('says how the last download came, under the list: the way, the time and why n
   feed(handle, { list: 'loading' })
   await table.vm.$nextTick()
 
-  expect(table.find('#download-status').exists()).toBe(false)
+  expect(table.get('#download-status').text()).toBe('')
 })
 
 it('says nothing of initial values before there is a complete download', () => {
