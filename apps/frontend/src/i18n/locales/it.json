@@ -521,6 +521,7 @@
     "count": "{count} risultato | {count} risultati",
     "failed": "Il comando non è riuscito.",
     "group": {
+      "parameters": "Parametri",
       "navigate": "Navigazione",
       "parameter": "Parametro",
       "vehicle": "Veicolo"
@@ -541,6 +542,12 @@
       "armed": "Disarma prima il veicolo. Un veicolo in volo non viene mai riavviato.",
       "writing": "Attendi che i parametri siano stati scritti.",
       "downloading": "Attendi che i parametri siano stati scaricati."
+    },
+    "metadata": {
+      "load": {
+        "label": "Carica i metadati dei parametri…",
+        "keywords": "metadati descrizioni apm.pdef pdef file apri"
+      }
     },
     "vehicle": {
       "reboot": {

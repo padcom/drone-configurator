@@ -12,10 +12,17 @@ export type Availability
   = | { enabled: true }
     | { enabled: false, reasonKey: string, reasonParams?: Record<string, unknown> }
 
-/** What a command leaves behind for the caller: where the focus goes once the palette has closed. */
+/** Where the focus can be sent after a command: a place of the application, by name (the command does not touch the page). */
+export type FocusTarget = 'restore' | 'main' | 'params.search'
+
+/** What a command leaves behind for the caller: where the focus goes. */
 export interface CommandOutcome {
-  /** `restore`: back to what had it before the palette opened. `main`: into the screen (the old element may be hidden now). */
-  focus?: 'restore' | 'main'
+  /**
+   * `restore`: back to what had it before the palette opened. `main`: into the screen (the old element may be hidden now; a click
+   * on the rail keeps the focus on the rail). `params.search`: the Parameters screen's search box, wherever the command was run
+   * from (the same place Ctrl+/ goes to).
+   */
+  focus?: FocusTarget
 }
 
 /** What the vehicle says to a reboot. */
@@ -53,6 +60,15 @@ export interface ParameterFacts {
   reveal(id: string): void
 }
 
+/** The files the application opens, as the commands that ask for one see them. */
+export interface FileFacts {
+  /**
+   * Opens a parameter metadata file and loads it: the same flow as the Load metadata button (the host's dialog in Pico Desktop, a
+   * file input in a browser; the result is told in a toast).
+   */
+  loadMetadata(): void
+}
+
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
 export interface CommandContext {
   /** Goes to a route. */
@@ -61,6 +77,8 @@ export interface CommandContext {
   parameters: ParameterFacts
   /** The vehicle. */
   vehicle: VehicleFacts
+  /** Files: what a command may ask to be opened. */
+  files: FileFacts
   /** Asks the user to confirm (the one route for dangerous actions); false for "no" and for Escape. */
   confirm(options: SafetyOptions): Promise<boolean>
   /** Tells the user something short. */

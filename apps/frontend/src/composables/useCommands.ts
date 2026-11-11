@@ -6,9 +6,11 @@ import { useRouter } from 'vue-router'
 import type { CommandContext, ParameterFacts, VehicleFacts } from '@/lib/commands/command'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens } from '@/lib/commands/navigation'
+import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
+import { openFile } from '@/lib/app/files'
 import { say, sayEnglish } from '@/i18n/say'
 import { useConfigurator } from './useConfigurator'
 import { useFavourites } from './favourites'
@@ -29,6 +31,7 @@ function makeRegistry(): CommandRegistry {
   const registry = new CommandRegistry()
   goToScreens().forEach(command => registry.register(command))
   registry.register(new RebootFlightController())
+  registry.register(new LoadMetadata())
   registry.register(new ParameterProvider())
 
   return registry
@@ -123,7 +126,7 @@ function parameterFacts(): ParameterFacts {
 export function useCommandContext(): CommandContext {
   const router = useRouter()
   const toasts = useToasts()
-  const { confirmWith } = useConfigurator()
+  const { confirmWith, metadata } = useConfigurator()
 
   return {
     navigate: async path => {
@@ -131,6 +134,9 @@ export function useCommandContext(): CommandContext {
     },
     parameters: parameterFacts(),
     vehicle: vehicleFacts(),
+    // The Load metadata button's own flow: the host's dialog in Pico Desktop, a file input in a browser (made for the moment,
+    // as the button's input is only there while the Parameters screen is), and the toast of what was found.
+    files: { loadMetadata: () => openFile(() => metadata.openFile(), text => metadata.load(text)) },
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),
     toast: input => toasts.push(input),

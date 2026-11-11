@@ -521,6 +521,7 @@
     "count": "{count} Ergebnis | {count} Ergebnisse",
     "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
+      "parameters": "Parameter",
       "navigate": "Navigation",
       "parameter": "Parameter",
       "vehicle": "Fahrzeug"
@@ -541,6 +542,12 @@
       "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",
       "writing": "Warte, bis die Parameter geschrieben sind.",
       "downloading": "Warte, bis die Parameter geladen sind."
+    },
+    "metadata": {
+      "load": {
+        "label": "Parameter-Metadaten laden…",
+        "keywords": "metadaten beschreibungen apm.pdef pdef datei öffnen"
+      }
     },
     "vehicle": {
       "reboot": {

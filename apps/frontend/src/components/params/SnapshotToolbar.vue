@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { chosenText, hasHost, saveText, snapshotFileName } from '@/lib/app/files'
+import { chosenText, openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 
@@ -29,24 +29,21 @@ const metadataInput = ref<HTMLInputElement | null>(null)
  * In Pico Desktop the host's dialog opens the file; in a browser the button presses the file input.
  *
  * @param open asks the backend to open a file with the host's dialog
+ * @param onText takes the text of the file chosen in the browser
  * @param input the browser's file input
  */
-function openWith(open: () => Promise<void>, input: HTMLInputElement | null) {
-  if (hasHost()) {
-    void open()
-  } else {
-    input?.click()
-  }
+function openWith(open: () => Promise<void>, onText: (text: string) => void, input: HTMLInputElement | null) {
+  openFile(open, onText, input)
 }
 
 /** Opens a snapshot file: with the host's dialog in Pico Desktop, with the file input in a browser. */
 function openSnapshot() {
-  openWith(() => snapshots.openFile(), snapshotInput.value)
+  openWith(() => snapshots.openFile(), text => snapshots.load(text), snapshotInput.value)
 }
 
 /** Opens a parameter metadata file: with the host's dialog in Pico Desktop, with the file input in a browser. */
 function openMetadata() {
-  openWith(() => metadata.openFile(), metadataInput.value)
+  openWith(() => metadata.openFile(), text => metadata.load(text), metadataInput.value)
 }
 
 /**

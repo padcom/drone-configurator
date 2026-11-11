@@ -167,10 +167,11 @@ it('lists every command in registry order with its group, the Navigate ones firs
     'Switch to Logs',
     'Switch to Settings',
     'Reboot flight controller',
+    'Load parameter metadata…',
   ])
   expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text()))
-    .toEqual([...Array(7).fill('Navigate'), 'Vehicle'])
-  expect(wrapper.findAll('.palette-row .palette-key').map(key => key.text())).toEqual(Array(8).fill(''))
+    .toEqual([...Array(7).fill('Navigate'), 'Vehicle', 'Parameters'])
+  expect(wrapper.findAll('.palette-row .palette-key').map(key => key.text())).toEqual(Array(9).fill(''))
 })
 
 it('filters by what is typed, and says so when nothing matches', async () => {
@@ -179,7 +180,7 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
-  expect(labels(wrapper)).toEqual(['Switch to Parameters'])
+  expect(labels(wrapper)).toEqual(['Switch to Parameters', 'Load parameter metadata…'])
   await type(wrapper, 'xyz')
 
   expect(labels(wrapper)).toEqual([])
@@ -199,7 +200,7 @@ it('finds a command by its English name in another language, and by its own with
   expect(labels(wrapper)).toEqual(['Przejdź do ekranu Dane lotu'])
 })
 
-it('runs the selected row on Enter: goes to the screen, closes, and puts the focus in the screen', async () => {
+it('runs the selected row on Enter: goes to the screen, closes, and puts the focus in the Parameters search box', async () => {
   const { wrapper, router } = await shellAt()
   ctrlP()
   await flushPromises()
@@ -209,6 +210,24 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
 
   await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/parameters'))
   expect(wrapper.find('#palette-input').exists()).toBe(false)
+  // The palette gave the focus back and was gone before the command ran: nothing takes the focus from the search box.
+  await vi.waitFor(() => expect(document.activeElement).toBe(document.getElementById('filter')))
+  const search = document.getElementById('filter') as HTMLInputElement
+  await new Promise(resolve => {
+    setTimeout(resolve, 100)
+  })
+
+  expect(document.activeElement).toBe(search)
+})
+
+it('puts the focus in the screen itself for a screen that has no place of its own', async () => {
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+  await type(wrapper, 'switch to plan')
+  await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
+  await flushPromises()
+
   await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.app-main')))
 })
 
@@ -230,15 +249,15 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   expect(active()).toBe('go.flight')
 
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('vehicle.reboot')
+  expect(active()).toBe('metadata.load')
   await input.trigger('keydown', { key: 'ArrowDown' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('vehicle.reboot')
+  expect(active()).toBe('metadata.load')
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('vehicle.reboot')
+  expect(active()).toBe('metadata.load')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('go.flight')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-go.flight')
@@ -285,7 +304,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(7).fill('false')])
+  expect(selected).toEqual(['true', ...Array(8).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -298,12 +317,12 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('8 results')
+  expect(status()).toBe('9 results')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('1 result')
+  expect(status()).toBe('2 results')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 
@@ -377,12 +396,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(8)
+  expect(labels(wrapper)).toHaveLength(9)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('8 results')
+  expect(wrapper.get('.palette-status').text()).toBe('9 results')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

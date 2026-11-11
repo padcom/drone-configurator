@@ -39,12 +39,13 @@ export class GoToScreen implements Command {
    * Shows the screen.
    *
    * @param ctx the context
-   * @returns the focus goes into the screen: the element that had it is in a screen that is hidden now
+   * @returns where the focus goes: the screen's own place when it has one (the Parameters screen's search box, so that the user
+   * can type at once), else into the screen (the element that had it is in a screen that is hidden now)
    */
   async execute(ctx: CommandContext): Promise<CommandOutcome> {
     await ctx.navigate(this.screen.path)
 
-    return { focus: 'main' }
+    return { focus: this.screen.focus ?? 'main' }
   }
 }
 

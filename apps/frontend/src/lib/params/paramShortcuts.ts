@@ -36,8 +36,10 @@ export function inDialogField(target: EventTarget | null): boolean {
   return field && target.closest('dialog') !== null
 }
 
-/** Goes to the search, with its text selected. */
-function focusSearch(): void {
+/**
+ * Goes to the search, with its text selected (what Ctrl+/ does, and what choosing the Parameters screen with its command does).
+ */
+export function focusSearch(): void {
   const search = document.getElementById('filter') as HTMLInputElement | null
   search?.focus()
   search?.select()
