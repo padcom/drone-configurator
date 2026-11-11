@@ -13,6 +13,9 @@ export class LoadMetadata implements Command {
 
   readonly labelKey = 'palette.metadata.load.label'
 
+  // On the Parameters toolbar the words are the button's, as they always were.
+  readonly buttonLabelKey = 'snapshot.loadMetadata'
+
   readonly groupKey = PARAMETERS_GROUP
 
   readonly icon = 'folder'

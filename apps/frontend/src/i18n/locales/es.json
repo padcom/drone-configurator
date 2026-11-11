@@ -522,7 +522,8 @@
     "count": "{count} comando | {count} comandos",
     "failed": "El comando falló.",
     "group": {
-      "parameters": "Parámetros",
+      "app": "Aplicación",
+      "parameters":"Parámetros",
       "navigate": "Navegación",
       "vehicle": "Vehículo"
     },
@@ -535,8 +536,35 @@
       "logs": "Ir a Registros",
       "settings": "Ir a Ajustes"
     },
+    "show": {
+      "label": "Mostrar la paleta de comandos"
+    },
+    "connect": {
+      "label": "Conectar con un vehículo…",
+      "keywords": "enlace serie tcp udp puerto abrir"
+    },
+    "disconnect": {
+      "keywords": "cerrar enlace terminar sesión"
+    },
+    "params": {
+      "download": {
+        "label": "Descargar los parámetros",
+        "keywords": "leer actualizar recargar lista"
+      }
+    },
+    "snapshot": {
+      "save": {
+        "label": "Guardar una instantánea de los parámetros…",
+        "keywords": "exportar copia archivo escribir"
+      },
+      "load": {
+        "label": "Cargar una instantánea de los parámetros…",
+        "keywords": "importar restaurar archivo abrir"
+      }
+    },
     "reason": {
-      "busy": "Se están escribiendo o descargando parámetros, o ya hay un reinicio en curso.",
+      "noParameters": "Todavía no hay parámetros.",
+      "busy":"Se están escribiendo o descargando parámetros, o ya hay un reinicio en curso.",
       "notConnected": "Conéctate primero a un vehículo.",
       "stateUnknown": "Se desconoce el estado del vehículo (sin heartbeat reciente).",
       "armed": "Desarma primero el vehículo. Un vehículo en vuelo nunca se reinicia.",

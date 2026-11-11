@@ -144,7 +144,7 @@ it('is opened by the top bar\'s button, which says what it does and what key it 
   const { wrapper } = await shellAt()
   const button = wrapper.get('#open-palette')
 
-  expect(button.get('.palette-button-text').text()).toBe('Search or run a command')
+  expect(button.get('.command-button-label').text()).toBe('Search or run a command')
   expect(button.get('kbd').text()).toBe('Ctrl P')
   expect(button.attributes('aria-haspopup')).toBe('dialog')
   expect(button.attributes('aria-keyshortcuts')).toBe('Control+P')
@@ -168,10 +168,41 @@ it('lists every command in registry order with its group, the Navigate ones firs
     'Switch to Settings',
     'Reboot flight controller',
     'Load parameter metadata…',
+    'Show command palette',
+    'Connect to a vehicle…',
+    'Disconnect',
+    'Download parameters',
+    'Save parameter snapshot…',
+    'Load parameter snapshot…',
   ])
-  expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text()))
-    .toEqual([...Array(7).fill('Navigate'), 'Vehicle', 'Parameters'])
-  expect(wrapper.findAll('.palette-row .palette-key').map(key => key.text())).toEqual(Array(9).fill(''))
+})
+
+it('names the group of each command in its row', async () => {
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+
+  expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text())).toEqual([
+    ...Array(7).fill('Navigate'),
+    'Vehicle',
+    'Parameters',
+    'Application',
+    'Vehicle',
+    'Vehicle',
+    'Parameters',
+    'Parameters',
+    'Parameters',
+  ])
+})
+
+it('shows a key only in the row of the command that has one: the palette\'s own', async () => {
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+
+  const keys = wrapper.findAll('.palette-row .palette-key').map(key => key.text())
+
+  expect(keys).toEqual([...Array(9).fill(''), 'Ctrl P', ...Array(5).fill('')])
 })
 
 it('filters by what is typed, and says so when nothing matches', async () => {
@@ -180,7 +211,13 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
-  expect(labels(wrapper)).toEqual(['Switch to Parameters', 'Load parameter metadata…'])
+  expect(labels(wrapper)).toEqual([
+    'Switch to Parameters',
+    'Load parameter metadata…',
+    'Download parameters',
+    'Save parameter snapshot…',
+    'Load parameter snapshot…',
+  ])
   await type(wrapper, 'xyz')
 
   expect(labels(wrapper)).toEqual([])
@@ -249,11 +286,11 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   expect(active()).toBe('go.flight')
 
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('metadata.load')
+  expect(active()).toBe('snapshot.load')
   await input.trigger('keydown', { key: 'ArrowDown' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('metadata.load')
+  expect(active()).toBe('snapshot.load')
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('go.flight')
   await input.trigger('keydown', { key: 'PageDown' })
@@ -304,7 +341,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(8).fill('false')])
+  expect(selected).toEqual(['true', ...Array(14).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -317,12 +354,12 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('9 commands')
+  expect(status()).toBe('15 commands')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('2 commands')
+  expect(status()).toBe('5 commands')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 
@@ -396,12 +433,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(9)
+  expect(labels(wrapper)).toHaveLength(15)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('9 commands')
+  expect(wrapper.get('.palette-status').text()).toBe('15 commands')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

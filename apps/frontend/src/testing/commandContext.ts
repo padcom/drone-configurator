@@ -20,6 +20,10 @@ export interface Fake {
     path: string
     /** When set, `vehicle.reboot` rejects with it (the backend's refusal, or a failure). */
     rebootError?: unknown
+    /** How many parameters the list has. */
+    paramCount: number
+    /** Whether the parameters are held by a write or another job. */
+    paramsBusy: boolean
   }
   /** What the confirmation will answer. */
   answer: { confirm: boolean | (() => boolean) }
@@ -32,10 +36,29 @@ export interface Fake {
     toast: ToastInput[]
     /** One entry per call to `vehicle.reboot`: the arguments it got (always none). */
     reboot: unknown[][]
+    /** One entry per call to `vehicle.disconnect`. */
+    disconnect: string[]
+    /** One entry per download of the parameters that was asked for. */
+    download: string[]
+    /** One entry per snapshot file that was asked to be saved (`save`) or opened (`load`). */
+    snapshot: string[]
+    /** The dialogs that were opened: `connect`, `palette`. */
+    dialogs: string[]
   }
 }
 
 const IDENTITY = { sysid: 1, compid: 1, type: 'QUADROTOR', autopilot: 'ARDUPILOTMEGA' }
+
+/** A connected, disarmed vehicle with twelve parameters and nothing under way. */
+const DEFAULT_FACTS: Fake['facts'] = {
+  connection: { state: 'connected', vehicle: IDENTITY } satisfies Connection,
+  armed: false,
+  busy: null,
+  path: '/flight',
+  rebootResult: { result: 'accepted' },
+  paramCount: 12,
+  paramsBusy: false,
+}
 
 /**
  * The vehicle of a fake: its facts are read when asked, so a test can change them between calls.
@@ -55,6 +78,51 @@ function vehicleOf(fake: Fake): VehicleFacts {
 
       return rebootError === undefined ? Promise.resolve(rebootResult) : Promise.reject(rebootError)
     },
+    disconnect: () => void fake.calls.disconnect.push('disconnect'),
+  }
+}
+
+/**
+ * The parts of the context that the toolbars' commands use: the files, the parameters and the dialogs. They record.
+ *
+ * @param fake the fake
+ * @returns the three parts
+ */
+function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs'> {
+  return {
+    files: {
+      loadMetadata: () => void fake.calls.metadata.push('load'),
+      saveSnapshot: () => void fake.calls.snapshot.push('save'),
+      loadSnapshot: () => void fake.calls.snapshot.push('load'),
+    },
+    params: {
+      count: () => fake.facts.paramCount,
+      busy: () => fake.facts.paramsBusy,
+      download: () => void fake.calls.download.push('download'),
+    },
+    dialogs: {
+      showConnect: () => void fake.calls.dialogs.push('connect'),
+      showPalette: () => void fake.calls.dialogs.push('palette'),
+    },
+  }
+}
+
+/**
+ * The record of what the commands did to the outside, with nothing done yet.
+ *
+ * @returns the empty record
+ */
+function noCalls(): Fake['calls'] {
+  return {
+    navigate: [],
+    metadata: [],
+    confirm: [],
+    toast: [],
+    reboot: [],
+    disconnect: [],
+    download: [],
+    snapshot: [],
+    dialogs: [],
   }
 }
 
@@ -65,15 +133,14 @@ function vehicleOf(fake: Fake): VehicleFacts {
  * @returns the context and the things to set and to read
  */
 export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
-  const connection: Connection = { state: 'connected', vehicle: IDENTITY }
   const fake: Fake = {
-    facts: { connection, armed: false, busy: null, path: '/flight', rebootResult: { result: 'accepted' }, ...facts },
+    facts: { ...DEFAULT_FACTS, ...facts },
     answer: { confirm: true },
-    calls: { navigate: [], metadata: [], confirm: [], toast: [], reboot: [] },
+    calls: noCalls(),
     ctx: {} as CommandContext,
   }
   fake.ctx = {
-    files: { loadMetadata: () => void fake.calls.metadata.push('load') },
+    ...toolbarOf(fake),
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
     currentPath: () => fake.facts.path,
     vehicle: vehicleOf(fake),

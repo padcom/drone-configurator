@@ -37,7 +37,7 @@ it('has Download as the kit\'s default button, like Save snapshot (no accent or 
   expect(classes).toContain('kit-button')
   expect(classes).not.toContain('primary')
   expect(classes).not.toContain('flight')
-  expect(wrapper.get('#refresh').text()).toBe('Download')
+  expect(wrapper.get('#refresh .command-button-label').text()).toBe('Download')
 })
 
 it('offers Download only while connected and not downloading', async () => {

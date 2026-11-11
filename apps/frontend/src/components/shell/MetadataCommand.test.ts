@@ -81,7 +81,8 @@ it('presses a file input in a browser: the screen\'s own when it has one, one ma
 
   await vi.waitFor(() => expect(press).toHaveBeenCalledTimes(1))
   const made = press.mock.contexts[0] as HTMLInputElement
-  expect([made.type, made.accept, made.isConnected]).toEqual(['file', '.json,application/json', false])
+  // In the document, hidden (a detached input may not open its dialog in every browser).
+  expect([made.type, made.accept, made.isConnected, made.hidden]).toEqual(['file', '.json,application/json', true, true])
 })
 
 it('loads what the input that was made chooses, with the same flow as the button: the toast of what was found', async () => {
@@ -96,4 +97,18 @@ it('loads what the input that was made chooses, with the same flow as the button
   made.dispatchEvent(new Event('change'))
 
   await vi.waitFor(() => expect(load).toHaveBeenCalledWith('{"version":1,"params":{}}'))
+  // The input that was made is taken out of the document again.
+  expect(made.isConnected).toBe(false)
+})
+
+it('takes the input that was made out of the document when the dialog is cancelled', async () => {
+  const press = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined)
+  const wrapper = await shellAt('/flight')
+  await runFromThePalette(wrapper)
+  await vi.waitFor(() => expect(press).toHaveBeenCalledTimes(1))
+  const made = press.mock.contexts[0] as HTMLInputElement
+
+  made.dispatchEvent(new Event('cancel'))
+
+  expect(made.isConnected).toBe(false)
 })

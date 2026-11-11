@@ -92,15 +92,22 @@ export function openFile(open: () => Promise<void>, onText: (text: string) => vo
   } else if (input) {
     input.click()
   } else {
+    // Hidden, in the document (a detached input may not open its dialog in every browser), and taken out again when a file is
+    // chosen or the dialog is cancelled.
     const made = document.createElement('input')
     made.type = 'file'
     made.accept = '.json,application/json'
+    made.hidden = true
+    made.addEventListener('cancel', () => made.remove())
     made.addEventListener('change', async () => {
       const text = await chosenText(made)
+      made.remove()
+
       if (text !== null) {
         onText(text)
       }
     })
+    document.body.append(made)
     made.click()
   }
 }

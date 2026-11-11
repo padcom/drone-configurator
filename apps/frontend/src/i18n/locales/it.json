@@ -522,7 +522,8 @@
     "count": "{count} comando | {count} comandi",
     "failed": "Il comando non è riuscito.",
     "group": {
-      "parameters": "Parametri",
+      "app": "Applicazione",
+      "parameters":"Parametri",
       "navigate": "Navigazione",
       "vehicle": "Veicolo"
     },
@@ -535,8 +536,35 @@
       "logs": "Vai a Log",
       "settings": "Vai a Impostazioni"
     },
+    "show": {
+      "label": "Mostra la tavolozza dei comandi"
+    },
+    "connect": {
+      "label": "Connetti a un veicolo…",
+      "keywords": "collegamento seriale tcp udp porta apri"
+    },
+    "disconnect": {
+      "keywords": "chiudi collegamento termina sessione"
+    },
+    "params": {
+      "download": {
+        "label": "Scarica i parametri",
+        "keywords": "leggi aggiorna ricarica elenco"
+      }
+    },
+    "snapshot": {
+      "save": {
+        "label": "Salva l'istantanea dei parametri…",
+        "keywords": "esporta backup file scrivi"
+      },
+      "load": {
+        "label": "Carica l'istantanea dei parametri…",
+        "keywords": "importa ripristina file apri"
+      }
+    },
     "reason": {
-      "busy": "Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
+      "noParameters": "Non ci sono ancora parametri.",
+      "busy":"Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
       "notConnected": "Connettiti prima a un veicolo.",
       "stateUnknown": "Lo stato del veicolo è sconosciuto (nessun heartbeat recente).",
       "armed": "Disarma prima il veicolo. Un veicolo in volo non viene mai riavviato.",

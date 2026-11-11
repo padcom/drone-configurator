@@ -1,72 +1,11 @@
 <template>
-  <Button id="save" :disabled="fields.params.value.length === 0" @click="saveSnapshot">{{ t('snapshot.save') }}</Button>
-  <!-- Real buttons (a label over a hidden input cannot be reached by keyboard); in a browser they press the hidden input. -->
-  <Button id="load-button" @click="openSnapshot">{{ t('snapshot.load') }}</Button>
-  <input id="load" ref="snapshotInput" type="file" accept=".json,application/json" hidden @change="loadSnapshot">
-  <Button id="metadata-button" @click="openMetadata">{{ t('snapshot.loadMetadata') }}</Button>
-  <input id="metadata" ref="metadataInput" type="file" accept=".json,application/json" hidden @change="loadMetadata">
+  <!-- The buttons of the toolbar are commands: what they say, whether they may be pressed (and why not), and what a press does
+       are the command's own (lib/commands/snapshots.ts, metadata.ts), the same as in the palette. -->
+  <CommandButton id="save" command="snapshot.save" icon-position="left" />
+  <CommandButton id="load-button" command="snapshot.load" icon-position="left" />
+  <CommandButton id="metadata-button" command="metadata.load" icon-position="left" />
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { chosenText, openFile, saveText, snapshotFileName } from '@/lib/app/files'
-import Button from '@/components/ui/Button.vue'
-import { useConfigurator } from '@/composables/useConfigurator'
-
-const { t } = useI18n()
-const { snapshots, metadata, fields } = useConfigurator()
-
-/** Saves the parameters as a snapshot file. */
-function saveSnapshot() {
-  saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle))
-}
-
-const snapshotInput = ref<HTMLInputElement | null>(null)
-const metadataInput = ref<HTMLInputElement | null>(null)
-
-/**
- * In Pico Desktop the host's dialog opens the file; in a browser the button presses the file input.
- *
- * @param open asks the backend to open a file with the host's dialog
- * @param onText takes the text of the file chosen in the browser
- * @param input the browser's file input
- */
-function openWith(open: () => Promise<void>, onText: (text: string) => void, input: HTMLInputElement | null) {
-  openFile(open, onText, input)
-}
-
-/** Opens a snapshot file: with the host's dialog in Pico Desktop, with the file input in a browser. */
-function openSnapshot() {
-  openWith(() => snapshots.openFile(), text => snapshots.load(text), snapshotInput.value)
-}
-
-/** Opens a parameter metadata file: with the host's dialog in Pico Desktop, with the file input in a browser. */
-function openMetadata() {
-  openWith(() => metadata.openFile(), text => metadata.load(text), metadataInput.value)
-}
-
-/**
- * Loads the snapshot file chosen in the browser's file input.
- *
- * @param event the input's change
- */
-async function loadSnapshot(event: Event) {
-  const text = await chosenText(event.target as HTMLInputElement)
-  if (text !== null) {
-    snapshots.load(text)
-  }
-}
-
-/**
- * Loads the metadata file chosen in the browser's file input.
- *
- * @param event the input's change
- */
-async function loadMetadata(event: Event) {
-  const text = await chosenText(event.target as HTMLInputElement)
-  if (text !== null) {
-    metadata.load(text)
-  }
-}
+import CommandButton from '@/components/ui/CommandButton.vue'
 </script>

@@ -522,7 +522,8 @@
     "count": "{count} Befehl | {count} Befehle",
     "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
-      "parameters": "Parameter",
+      "app": "Anwendung",
+      "parameters":"Parameter",
       "navigate": "Navigation",
       "vehicle": "Fahrzeug"
     },
@@ -535,8 +536,35 @@
       "logs": "Zu Logs wechseln",
       "settings": "Zu Einstellungen wechseln"
     },
+    "show": {
+      "label": "Befehlspalette anzeigen"
+    },
+    "connect": {
+      "label": "Mit einem Fahrzeug verbinden …",
+      "keywords": "verbindung seriell tcp udp port öffnen"
+    },
+    "disconnect": {
+      "keywords": "trennen schließen verbindung sitzung beenden"
+    },
+    "params": {
+      "download": {
+        "label": "Parameter herunterladen",
+        "keywords": "lesen aktualisieren neu laden abrufen liste"
+      }
+    },
+    "snapshot": {
+      "save": {
+        "label": "Parameter-Snapshot speichern …",
+        "keywords": "exportieren sicherung datei schreiben"
+      },
+      "load": {
+        "label": "Parameter-Snapshot laden …",
+        "keywords": "importieren wiederherstellen datei öffnen"
+      }
+    },
     "reason": {
-      "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
+      "noParameters": "Es gibt noch keine Parameter.",
+      "busy":"Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
       "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",
       "stateUnknown": "Der Zustand des Fahrzeugs ist unbekannt (kein aktueller Heartbeat).",
       "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",

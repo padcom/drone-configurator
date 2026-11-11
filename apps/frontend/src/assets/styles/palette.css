@@ -30,7 +30,8 @@
   outline-offset: 2px;
 }
 
-.palette-button-text {
+.palette-button-text,
+.palette-button .command-button-label {
   white-space: nowrap;
 }
 
