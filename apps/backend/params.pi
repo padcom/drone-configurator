@@ -107,12 +107,13 @@ async function listParams(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   try {
     r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run()
   } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  } finally {
+    // Whatever ends the download (an error of any kind included): a flag left set would hold off the reboot, and the
+    // announcements, until the session ends.
     announced.listing = false
     link.listing = false
-    throw new CommunicatorError(e.code, e.message)
   }
-  announced.listing = false
-  link.listing = false
   const list = r!
   const out = ParamList {
     params: list.params.map((p) => toParam(p.id, p.index, p.value)),

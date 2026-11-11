@@ -152,6 +152,7 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
   const identity = identityOf(found, version)
   // It is back: the reboot that was waited for is over, and a new one may be asked for.
   link.rebootAt = 0
+  link.rebootUnsure = false
   if (identity == link.identity) {
     link.update(Connection { state: ConnectionState.Connected, vehicle: link.state.vehicle, resumed: true })
     return

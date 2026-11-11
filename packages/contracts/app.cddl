@@ -97,7 +97,9 @@ param-write-result = {
 ; within 3 s (`STATE_UNKNOWN`: unknown counts as armed), or a parameter is being written or downloaded (`BUSY`).
 ; `accepted`: the vehicle acknowledged and will reboot; the connection then goes `reconnecting` with `errorCode`
 ; "REBOOTING" until it is back. `refused`: it answered with a failure (`detail` says which). `unsupported`: it does not
-; know the command. `no-answer`: no acknowledgement within 3 s; nothing is resent.
+; know the command. `no-answer`: no acknowledgement within 3 s; nothing is resent, and the command may still have arrived,
+; so the vehicle may still reboot (the backend refuses a second request with `BUSY` for 10 s, and a link that then goes quiet is
+; reported as `REBOOTING`). A vehicle that says IN_PROGRESS is waited for (up to 10 s) and counts as `accepted`.
 reboot-result = {
   result: "accepted" / "refused" / "unsupported" / "no-answer",
   ? detail: tstr,

@@ -17,6 +17,7 @@ import {
   encodeConnectRequest,
   encodeParamWrite,
 } from "./generated/app"
+import { waits } from "./reboot"
 import { link } from "./session"
 import { Frontend, start } from "./testing"
 
@@ -30,12 +31,17 @@ class Heard {
 
 /// Listens for reboot commands on the vehicle's end, and answers each with `result` (-1: does not answer).
 function listen(sim: SimulatedAutopilot, result: int): Heard {
+  listenAll(sim, if (result >= 0) [result] else [])
+}
+
+/// The same, answering each command with all of `results`, one after the other (IN_PROGRESS, then the final one).
+function listenAll(sim: SimulatedAutopilot, results: int[]): Heard {
   const heard = new Heard()
   sim.conn.on((r: Received) => {
     const m = r.message
     if (m instanceof CommandLong && m.command as int == REBOOT) {
       heard.frames.push(m)
-      if (result >= 0) {
+      for (const result of results) {
         const ack = new CommandAck()
         ack.command = m.command
         ack.result = result as u8
@@ -147,10 +153,86 @@ async function reportsARefusal(): Promise<void> throws Error {
 async function reportsNoAnswerAndDoesNotResend(): Promise<void> throws Error {
   const f = await connected()
   const heard = listen(simulatorForTests()!, -1)
-  expect(await reboot(f)).toBe("no-answer")
-  // Three seconds of silence, one command: nothing was sent again.
+  waits.ackMs = 400
+  try {
+    expect(await reboot(f)).toBe("no-answer")
+    // Silence, one command: nothing was sent again. The command may have arrived, so a second request is refused for a few
+    // seconds, and the link going quiet is taken for a reboot.
+    expect(heard.frames.length).toBe(1)
+    expect(`${link.rebootAt > 0} ${link.rebootUnsure}`).toBe("true true")
+    expect(await reboot(f)).toBe("BUSY")
+    expect(heard.frames.length).toBe(1)
+  } finally {
+    waits.ackMs = 3000
+  }
+  await f.call("vehicle.disconnect")
+}
+
+async function reportsAnUnsupportedCommand(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.UNSUPPORTED)
+  expect(await reboot(f)).toBe("unsupported")
   expect(heard.frames.length).toBe(1)
   expect(link.rebootAt).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+/// IN_PROGRESS is the vehicle at it, not silence: the final answer is waited for, the command is not sent again, even when
+/// both answers arrive back to back.
+async function waitsPastInProgress(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listenAll(simulatorForTests()!, [MavResult.IN_PROGRESS, MavResult.ACCEPTED])
+  expect(await reboot(f)).toBe("accepted")
+  expect(heard.frames.length).toBe(1)
+  expect(`${link.rebootAt > 0} ${link.rebootUnsure}`).toBe("true false")
+  link.close()
+}
+
+/// IN_PROGRESS and then nothing: accepted (the vehicle is at it), still with one command, and a reboot is expected.
+async function takesInProgressAloneForAccepted(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listenAll(simulatorForTests()!, [MavResult.IN_PROGRESS])
+  waits.finalMs = 400
+  try {
+    expect(await reboot(f)).toBe("accepted")
+    expect(heard.frames.length).toBe(1)
+    expect(`${link.rebootAt > 0} ${link.rebootUnsure}`).toBe("true false")
+    expect(await reboot(f)).toBe("BUSY")
+  } finally {
+    waits.finalMs = 10000
+  }
+  link.close()
+}
+
+async function refusesWhileADownloadIsUnderWay(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  const heard = listen(sim, MavResult.ACCEPTED)
+  // A vehicle that says nothing: the download is in flight for seconds.
+  sim.down = true
+  const listing = await f.send("params.list")
+  await delay(100)
+  expect(await reboot(f)).toBe("BUSY")
+  expect(heard.frames.length).toBe(0)
+  await f.call("vehicle.disconnect")
+  await f.reply(listing)
+  expect(`${link.listing} ${link.writes}`).toBe("false 0")
+}
+
+/// A download or a write that ends in an error leaves nothing set: the next reboot is not held off.
+async function leavesNoCounterAfterAFailure(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  const w = ParamWrite { id: "NO_SUCH_PARAM", kind: ParamWriteKind.Int, type: "INT32", value: 1.0 }
+  sim.down = true
+  const listing = await f.send("params.list")
+  const writing = await f.send("params.write", encodeParamWrite(w))
+  await delay(100)
+  link.abortOperations()
+  expect((await f.reply(listing)).err != null).toBe(true)
+  expect((await f.reply(writing)).err != null).toBe(true)
+  expect(`${link.listing} ${link.writes}`).toBe("false 0")
+  sim.down = false
   await f.call("vehicle.disconnect")
 }
 
@@ -196,6 +278,11 @@ describe("the reboot service", () => {
   it("refuses while a parameter write is under way, sending nothing", refusesWhileAWriteIsUnderWay)
   it("sends one command, with parameter 1 set and the force value (parameter 6) never", sendsOneCommandWithoutTheForceValue)
   it("reports a refusal of the vehicle", reportsARefusal)
-  it("reports no answer after the wait, without sending again", reportsNoAnswerAndDoesNotResend)
+  it("reports no answer after the wait, without sending again, and holds a second request off", reportsNoAnswerAndDoesNotResend)
+  it("reports a command the vehicle does not support", reportsAnUnsupportedCommand)
+  it("waits past IN_PROGRESS for the final answer, sending the command once", waitsPastInProgress)
+  it("takes IN_PROGRESS alone for accepted, and expects the reboot", takesInProgressAloneForAccepted)
+  it("refuses while a download is under way, sending nothing", refusesWhileADownloadIsUnderWay)
+  it("leaves no download or write set after one ends in an error", leavesNoCounterAfterAFailure)
   it("says REBOOTING while the vehicle boots, and resumes when it is back", saysRebootingWhileItBoots)
 })
