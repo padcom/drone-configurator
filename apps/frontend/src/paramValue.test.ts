@@ -15,6 +15,26 @@ describe('negative zero and NaN', () => {
 
     expect(canonParam(wire)).toBe(wire)
   })
+
+  it('are never a negative zero for a float either: from the wire, typed, or too small for a REAL32', () => {
+    const zero = (n: number) => Object.is(n, 0)
+
+    expect(zero(canonical(REAL32, -0))).toBe(true)
+    expect(zero(canonical(REAL32, -1e-50))).toBe(true)
+    expect(zero(canonical(REAL64, -0))).toBe(true)
+    expect(zero(typedValue(REAL32, '-0'))).toBe(true)
+    expect(zero(typedValue(REAL32, '-0.0'))).toBe(true)
+    expect(zero(canonParam({ id: 'T', ...REAL32, value: -0 }).value)).toBe(true)
+    expect(canonical(REAL32, Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY)
+    expect(canonical(REAL64, Number.NEGATIVE_INFINITY)).toBe(Number.NEGATIVE_INFINITY)
+    expect(Number.isNaN(canonical(REAL32, Number.NaN))).toBe(true)
+  })
+
+  it('show a zero as 0, not -0', () => {
+    expect(showNumber(canonical(REAL32, -0))).toBe('0')
+    expect(showNumber(canonical(REAL32, -1e-50))).toBe('0')
+    expect(showNumber(-0)).toBe('0')
+  })
 })
 
 describe('the number the vehicle holds', () => {

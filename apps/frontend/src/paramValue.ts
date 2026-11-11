@@ -27,12 +27,13 @@ const DOUBLE_DIGITS = 15
  * @returns the number the vehicle would hold
  */
 export function canonical(param: ValueType, n: number): number {
+  // `+ 0` makes a -0 a 0 (the rounding of -0.4, a -0.0 from the wire, a typed "-0", a float that is too small for a REAL32 and
+  // rounds to -0): nothing is compared, shown, queued or sent as a negative zero. NaN and the infinities are not changed by it.
   if (param.kind === 'int') {
-    // `+ 0` makes a -0 (the rounding of -0.4) a 0: nothing is queued or sent as a negative zero.
     return Math.round(n) + 0
   }
 
-  return param.type === 'REAL32' ? Math.fround(n) : n
+  return (param.type === 'REAL32' ? Math.fround(n) : n) + 0
 }
 
 /**
