@@ -115,8 +115,11 @@
   cursor: pointer;
 }
 
+/* The selected row: the tint, and a bar at its left edge (as the parameter list marks its selected row), so that it is not told
+   by colour alone; aria-selected says it to a screen reader. */
 .palette-row.active {
   background: var(--color-accent-soft);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .palette-row.disabled {

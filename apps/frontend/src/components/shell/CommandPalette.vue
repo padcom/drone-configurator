@@ -34,7 +34,7 @@
         :aria-describedby="row.reason !== null ? `palette-reason-${row.command.id}` : undefined"
         :data-command="row.command.id"
         @mousedown.prevent
-        @mousemove="active = at"
+        @mousemove="hover($event, at)"
         @click="run(row)"
       >
         <span class="palette-label">{{ row.label }}</span>
@@ -74,6 +74,12 @@ const PAGE = 8
 /** How long the count is left alone before it is announced (ms): not on every key. */
 const ANNOUNCE_MS = 400
 
+/** How long after the palette opens its count is announced, and after a reason is asked for (ms): the region is there first. */
+const OPEN_ANNOUNCE_MS = 100
+
+/** How long after the selection was moved with the keys a mouse movement is taken for the scroll's, not the user's (ms). */
+const KEYBOARD_QUIET_MS = 250
+
 /** One row of the list. */
 interface Row {
   command: Command
@@ -88,6 +94,11 @@ const query = ref('')
 const active = ref(0)
 const announced = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
+/** Whether the palette is just being opened (its state is being put back to the start). */
+let opening = false
+/** Where the pointer was at the last mouse movement over a row, and when the selection was last moved with the keys. */
+let pointer = { x: Number.NaN, y: Number.NaN }
+let keyboardAt = Number.NEGATIVE_INFINITY
 
 const rows = computed<Row[]>(() => registry.search(query.value, ctx).map(command => {
   const availability = command.isEnabled(ctx)
@@ -118,17 +129,52 @@ function countText(): string {
   return count === 0 ? t('palette.empty', { query: query.value.trim() }) : t('palette.count', { count }, count)
 }
 
+/**
+ * Says something through the live region: the region is emptied first and filled after `after` ms, so that the same words
+ * said twice (a disabled command's reason, asked for again) are spoken again, and a region that was only just made is already
+ * there when it is filled. Only the last thing said counts.
+ *
+ * @param text what to say, as a function, so that it is worked out when it is said (the list may have changed since)
+ * @param after how long to wait first (ms)
+ */
+function announce(text: () => string, after: number): void {
+  clearTimeout(timer)
+  announced.value = ''
+  timer = setTimeout(() => {
+    announced.value = text()
+  }, after)
+}
+
+/**
+ * The first row that may run: the one Enter runs when nothing was selected yet.
+ *
+ * @returns its index, or 0 when none may
+ */
+function firstEnabled(): number {
+  return Math.max(0, rows.value.findIndex(row => row.reason === null))
+}
+
 /** The list changed with the query: the first row is the one to run, and the new count is announced a moment later. */
 watch(query, () => {
-  active.value = 0
-  clearTimeout(timer)
-  timer = setTimeout(() => {
-    announced.value = countText()
-  }, ANNOUNCE_MS)
+  active.value = firstEnabled()
+
+  // (Not when the opening cleared the query: it announces the count itself, sooner.)
+  if (!opening) {
+    announce(countText, ANNOUNCE_MS)
+  }
 })
 
-// The count is said when the palette opens, too.
-announced.value = countText()
+/** Every opening starts afresh: no old query, the first row that may run selected, nothing left of the last count. */
+watch(palette.open, async open => {
+  if (open) {
+    opening = true
+    query.value = ''
+    active.value = firstEnabled()
+    announce(countText, OPEN_ANNOUNCE_MS)
+    await nextTick()
+    opening = false
+  }
+})
 
 watch(active, async () => {
   await nextTick()
@@ -181,7 +227,7 @@ function afterRun(result: InvokeResult): void {
  */
 async function run(row: Row): Promise<void> {
   if (row.reason !== null) {
-    announced.value = row.reason
+    announce(() => row.reason ?? '', OPEN_ANNOUNCE_MS)
 
     return
   }
@@ -262,7 +308,25 @@ function onKey(event: KeyboardEvent): void {
   const handler = handlerFor(event)
   if (handler !== undefined) {
     event.preventDefault()
+    keyboardAt = performance.now()
     handler()
+  }
+}
+
+/**
+ * The pointer moved over a row: it is the selected one. Only a real movement counts: scrolling a row into view under a pointer
+ * that is at rest makes the browser send a mouse movement, with the same position or just after a key moved the selection, and
+ * that must not take the selection back from the keyboard.
+ *
+ * @param event the mouse movement
+ * @param at the row's index
+ */
+function hover(event: MouseEvent, at: number): void {
+  const still = event.clientX === pointer.x && event.clientY === pointer.y
+  pointer = { x: event.clientX, y: event.clientY }
+
+  if (!still && performance.now() - keyboardAt > KEYBOARD_QUIET_MS) {
+    active.value = at
   }
 }
 </script>

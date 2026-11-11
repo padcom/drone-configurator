@@ -4,7 +4,7 @@
     class="kit-dialog"
     aria-modal="true"
     :aria-labelledby="`${uid}-title`"
-    :aria-describedby="`${uid}-body`"
+    :aria-describedby="bare ? undefined : `${uid}-body`"
     @cancel.prevent="emit('close')"
     @close="closed"
     @keydown.tab="trap"

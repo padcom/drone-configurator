@@ -293,9 +293,12 @@ it('says how many commands there are, a moment after the query changes (not on e
   await flushPromises()
   const status = () => wrapper.get('.palette-status').text()
 
+  // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
+  expect(status()).toBe('')
+  await vi.advanceTimersByTimeAsync(200)
   expect(status()).toBe('7 commands')
   await type(wrapper, 'param')
-  expect(status()).toBe('7 commands')
+  expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
   expect(status()).toBe('1 command')
@@ -344,10 +347,83 @@ it('keeps a command that may not run in the list, dimmed, with its reason; Enter
 
     expect(execute).not.toHaveBeenCalled()
     expect(wrapper.find('#palette-input').exists()).toBe(true)
-    expect(wrapper.get('.palette-status').text()).toBe('Connect to a vehicle first.')
+    await vi.waitFor(() => expect(wrapper.get('.palette-status').text()).toBe('Connect to a vehicle first.'))
+    // Asked again, the same reason is spoken again: the region is emptied first, and filled a moment later.
+    await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
+
+    expect(wrapper.get('.palette-status').text()).toBe('')
+    await vi.waitFor(() => expect(wrapper.get('.palette-status').text()).toBe('Connect to a vehicle first.'))
   } finally {
     unregister()
   }
+})
+
+it('starts afresh on every opening: no old query, the first row selected, the count said again', async () => {
+  vi.useFakeTimers()
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+  const input = wrapper.get('#palette-input')
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  await input.trigger('keydown', { key: 'ArrowDown' })
+  await type(wrapper, 'switch')
+  await vi.advanceTimersByTimeAsync(500)
+  wrapper.get('dialog').element.dispatchEvent(new Event('cancel', { cancelable: true }))
+  await flushPromises()
+  ctrlP()
+  await flushPromises()
+
+  expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
+  expect(labels(wrapper)).toHaveLength(7)
+  expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
+  expect(wrapper.get('.palette-status').text()).toBe('')
+  await vi.advanceTimersByTimeAsync(200)
+
+  expect(wrapper.get('.palette-status').text()).toBe('7 commands')
+})
+
+it('selects the first row that may run, not a disabled one at the top', async () => {
+  const unregister = registerBlocked(() => undefined)
+  try {
+    const { wrapper } = await shellAt()
+    ctrlP()
+    await flushPromises()
+
+    expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
+    expect(wrapper.findAll('.palette-row').at(-1)?.attributes('data-command')).toBe('test.blocked')
+  } finally {
+    unregister()
+  }
+})
+
+it('does not describe the dialog by the whole list, which a screen reader would read out on opening', async () => {
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+
+  expect(wrapper.get('dialog').attributes('aria-describedby')).toBeUndefined()
+  expect(wrapper.get('dialog').attributes('aria-labelledby')).toBeDefined()
+})
+
+it('follows a mouse that moves, but not the scroll of a pointer at rest or a key that just moved it', async () => {
+  const { wrapper } = await shellAt()
+  ctrlP()
+  await flushPromises()
+  const active = () => wrapper.get('.palette-row.active').attributes('data-command')
+  const over = (command: string, x: number, y: number) => wrapper.get(`[data-command="${command}"]`)
+    .trigger('mousemove', { clientX: x, clientY: y })
+  await over('go.plan', 10, 10)
+  expect(active()).toBe('go.plan')
+
+  // The same place again: the scroll that a key caused, with the pointer at rest.
+  await over('go.tune', 10, 10)
+  expect(active()).toBe('go.plan')
+  // A key has just moved the selection: a movement now is not the user's.
+  await wrapper.get('#palette-input').trigger('keydown', { key: 'ArrowDown' })
+  await over('go.logs', 30, 30)
+
+  expect(active()).toBe('go.setup')
 })
 
 it.each(LANGUAGES)('shows the placeholder, the group tags and the rows in %s', async language => {
