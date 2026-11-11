@@ -2,6 +2,15 @@
 import { i18n } from './i18n'
 import type { State } from './state'
 import type { ConfiguratorHandle, Fields } from './useConfigurator'
+import { useGroupsSetting } from './useGroupsSetting'
+
+/**
+ * Turns the setting "Show parameter groups" on for the Configurator that was made last (it is off by default): the tests of the
+ * group list and of the stars ask for it. It shows at once; the settings keep it a moment later.
+ */
+export function groupsOn(): void {
+  void useGroupsSetting().choose(true)
+}
 
 /** Mount options that give a component the translations, as `main.ts` does in the page. */
 export const withI18n = { global: { plugins: [i18n] } }

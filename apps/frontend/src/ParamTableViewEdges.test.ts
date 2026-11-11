@@ -11,6 +11,7 @@ import ParamTable from './ParamTable.vue'
 import ParamView from './ParamView.vue'
 import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
+import { GROUPS_KEY } from './useGroupsSetting'
 import { useParamGroup } from './useParamGroup'
 
 afterEach(() => {
@@ -31,7 +32,8 @@ const METADATA: Metadata = new Map<string, ParamMeta>([
  * @returns the components and the Configurator
  */
 async function screen() {
-  const handle = createConfigurator(mockBackend(), () => Promise.resolve(true))
+  const shownGroups = { key: GROUPS_KEY, value: 'on' }
+  const handle = createConfigurator(mockBackend({ settings: { version: 1, ui: [shownGroups] } }), () => Promise.resolve(true))
   await handle.settings.load()
   const table = mount(ParamTable, { ...withI18n, attachTo: document.body })
   const groups = mount(ParamGroups, withI18n)

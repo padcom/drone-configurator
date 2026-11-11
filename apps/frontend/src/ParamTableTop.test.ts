@@ -7,7 +7,7 @@ import { mockBackend } from './mock-backend'
 import ParamFilter from './ParamFilter.vue'
 import ParamGroups from './ParamGroups.vue'
 import ParamTable from './ParamTable.vue'
-import { feed, withI18n } from './testing'
+import { feed, groupsOn, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 
@@ -23,6 +23,7 @@ afterEach(() => {
  */
 async function screen() {
   const handle = createConfigurator(mockBackend())
+  groupsOn()
   feed(handle, { params: PARAMS, list: 'complete' })
   const table = mount(ParamTable, { ...withI18n, attachTo: document.body })
   const filter = mount(ParamFilter, { ...withI18n, attachTo: document.body })

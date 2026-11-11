@@ -8,7 +8,7 @@ import ParamEditor from './ParamEditor.vue'
 import ParamFilter from './ParamFilter.vue'
 import ParamGroups from './ParamGroups.vue'
 import ParamTable from './ParamTable.vue'
-import { feed, withI18n } from './testing'
+import { feed, groupsOn, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 
@@ -41,6 +41,7 @@ function onPage(component: Parameters<typeof mount>[0]): VueWrapper {
  */
 function list() {
   const handle = createConfigurator(mockBackend())
+  groupsOn()
   feed(handle, { params: PARAMS, list: 'complete' })
   const wrapper = onPage(ParamTable)
   Object.defineProperty(wrapper.get('.param-scroll').element, 'clientHeight', { configurable: true, value: 5 * 44 })

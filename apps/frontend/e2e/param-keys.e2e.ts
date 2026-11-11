@@ -4,7 +4,7 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, confirmWrite, showScreen } from './click'
+import { cancelConfirm, clickConnect, confirmWrite, showGroups, showScreen } from './click'
 
 let app: E2eApp
 
@@ -91,6 +91,7 @@ beforeAll(async () => {
   await app.waitForText('#connection', 'connected · system', 60_000)
   await showScreen(app, 'parameters')
   await app.waitForText('#list-status', '12 parameters', 60_000)
+  await showGroups(app)
 })
 
 afterAll(async () => {

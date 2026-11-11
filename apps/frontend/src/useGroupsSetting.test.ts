@@ -24,24 +24,30 @@ async function rig(stored?: string) {
 }
 
 describe('the setting in the settings entry', () => {
-  it('is on unless the entry says off', () => {
-    expect([parseGroups(undefined), parseGroups('on'), parseGroups('off'), parseGroups('x')]).toEqual([true, true, false, true])
+  it('is off unless the entry says on', () => {
+    expect([parseGroups(undefined), parseGroups('on'), parseGroups('off'), parseGroups('x')]).toEqual([false, true, false, false])
   })
 })
 
 describe('the setting "Show parameter groups"', () => {
-  it('is on by default, and is kept as off in the settings when it is turned off', async () => {
+  it('is off by default, and is kept as on in the settings when it is turned on', async () => {
     const handle = await rig()
     const setting = useGroupsSetting()
-    expect(setting.shown.value).toBe(true)
-
-    await setting.choose(false)
-
     expect(setting.shown.value).toBe(false)
-    expect(handle.settings.uiValue(GROUPS_KEY)).toBe('off')
+
     await setting.choose(true)
+
     expect(setting.shown.value).toBe(true)
     expect(handle.settings.uiValue(GROUPS_KEY)).toBe('on')
+    await setting.choose(false)
+    expect(setting.shown.value).toBe(false)
+    expect(handle.settings.uiValue(GROUPS_KEY)).toBe('off')
+  })
+
+  it('stays on for a user who had switched it on (an explicit on in the settings)', async () => {
+    await rig('on')
+
+    expect(useGroupsSetting().shown.value).toBe(true)
   })
 })
 
@@ -74,13 +80,13 @@ describe('the setting "Show parameter groups", when the settings answer late', (
       answer = resolve
     }))
 
-    const choosing = setting.choose(false)
-    expect(setting.shown.value).toBe(false)
+    const choosing = setting.choose(true)
+    expect(setting.shown.value).toBe(true)
     answer()
     await choosing
     await flushPromises()
 
-    // Nothing was kept (the mock does not store), so the settings still say on.
-    expect(setting.shown.value).toBe(true)
+    // Nothing was kept (the mock does not store), so the settings still say what they said: off.
+    expect(setting.shown.value).toBe(false)
   })
 })

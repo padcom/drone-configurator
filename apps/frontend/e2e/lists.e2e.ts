@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, showScreen } from './click'
+import { clickConnect, showGroups, showScreen } from './click'
 
 const NAMES = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [String(i), `Choice number ${i}`]))
 const METADATA = {
@@ -81,6 +81,7 @@ beforeAll(async () => {
   await app.waitForText('#connection', 'connected · system', 60_000)
   await showScreen(app, 'parameters')
   await app.waitForText('#list-status', '12 parameters', 60_000)
+  await showGroups(app)
 })
 
 afterAll(async () => {

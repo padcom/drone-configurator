@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import ParamTable from './ParamTable.vue'
 import { FALLBACK_ROWS, OVERSCAN } from './rowWindow'
 import { mockBackend } from './mock-backend'
-import { feed, withI18n } from './testing'
+import { feed, groupsOn, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 import { PARAMS, telemetryAt } from './fixtures'
@@ -17,6 +17,7 @@ import type { Param } from './generated/app'
  */
 function tableWith(params: Param[]) {
   const handle = createConfigurator(mockBackend())
+  groupsOn()
   feed(handle, { params, list: 'complete' })
 
   return { wrapper: mount(ParamTable, withI18n), handle }

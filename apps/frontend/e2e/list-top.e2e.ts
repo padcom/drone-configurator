@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { clickConnect, showScreen } from './click'
+import { clickConnect, showGroups, showScreen } from './click'
 
 const PDEF = {
   json: { version: 0 },
@@ -32,6 +32,7 @@ beforeAll(async () => {
   await app.waitForText('#connection', 'connected · system', 60_000)
   await showScreen(app, 'parameters')
   await app.waitForText('#list-status', '12 parameters', 60_000)
+  await showGroups(app)
   await app.devtools('Emulation.setDeviceMetricsOverride', { width: 1440, height: 420, deviceScaleFactor: 1, mobile: false })
   await app.evaluate('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))')
 })
