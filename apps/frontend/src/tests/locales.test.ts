@@ -92,11 +92,14 @@ function wrongPlaceholders(messages: Flat): string[] {
  * @returns what is wrong, by key
  */
 function wrongForms(messages: Flat, code: string): string[] {
-  const wanted = (text: string) => formsOf(text).length > 1 ? pluralFormsOf(code) : 1
+  // Where English has plural forms a language has its own number of them, or one form that reads right for every count
+  // (a "label: {count}" does, and the Slavic languages use it where a count with an ending of its own would be wrong).
+  const allowed = (text: string) => formsOf(text).length > 1 ? [pluralFormsOf(code), 1] : [1]
+  const forms = (key: string) => formsOf(messages.get(key) ?? '').length
 
   return [...english]
-    .filter(([key, text]) => formsOf(messages.get(key) ?? '').length !== wanted(text))
-    .map(([key]) => `${key}: ${formsOf(messages.get(key) ?? '').length} forms, ${wanted(english.get(key) ?? '')} wanted`)
+    .filter(([key, text]) => !allowed(text).includes(forms(key)))
+    .map(([key, text]) => `${key}: ${forms(key)} forms, ${allowed(text).join(' or ')} wanted`)
 }
 
 it('has a locale file for every language of the table, and a row of the table for every locale file', () => {

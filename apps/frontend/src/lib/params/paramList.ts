@@ -52,7 +52,10 @@ export function listStatusText(counts: ListCounts, translate: Translate): string
     return translate('params.status.incomplete', { total, missing: missing.length, indexes: missing.join(', ') })
   }
   if (list === 'complete') {
-    return shown === total ? translate('params.status.all', { total }) : translate('params.status.some', { shown, total })
+    // `count` is what picks the plural form: "1 parameter", "12 parameters".
+    const all = shown === total
+
+    return all ? translate('params.status.all', { total, count: total }) : translate('params.status.some', { shown, total })
   }
 
   return translate(NO_LIST[list])

@@ -193,7 +193,7 @@
   "messages": {
     "heading": "Messaggi",
     "list": "Messaggi dal veicolo, i più recenti per primi",
-    "unread": "{count} nuovi",
+    "unread": "Nuovi: {count}",
     "none": "Il veicolo non ha ancora detto nulla.",
     "dismiss": "Chiudi",
     "severity": {
@@ -297,7 +297,7 @@
     "region": "Notifiche",
     "dismiss": "Chiudi",
     "count": "×{count}",
-    "waiting": "Altre {count} in attesa"
+    "waiting": "Altre in attesa: {count}"
   },
   "enum": {
     "noName": "senza nome",
@@ -351,13 +351,13 @@
       "star": "Preferito: {id}",
       "added": "{id} aggiunto ai preferiti",
       "removed": "{id} rimosso dai preferiti",
-      "clearMissing": "Rimuovi i {count} preferiti che questo veicolo non ha…",
-      "clearMissingHelp": "Toglie dalla tua lista, per tutti i veicoli, i {count} preferiti che questo veicolo non ha. Chiede ancora una conferma prima.",
+      "clearMissing": "Rimuovi {count} preferito che questo veicolo non ha… | Rimuovi i {count} preferiti che questo veicolo non ha…",
+      "clearMissingHelp": "Toglie dalla tua lista, per tutti i veicoli, {count} preferito che questo veicolo non ha. Chiede ancora una conferma prima. | Toglie dalla tua lista, per tutti i veicoli, i {count} preferiti che questo veicolo non ha. Chiede ancora una conferma prima.",
       "clearAsk": "Rimuovere {count} dalla tua lista per tutti i veicoli? Premi di nuovo",
-      "cleared": "{count} rimossi dai preferiti",
+      "cleared": "Rimossi dai preferiti: {count}",
       "emptyTitle": "Ancora nessun preferito",
       "emptyHelp": "Premi la stella accanto a un parametro, oppure * con il parametro selezionato, per tenerlo qui.",
-      "notOnVehicle": "{count} dei tuoi preferiti non sono su questo veicolo.",
+      "notOnVehicle": "{count} dei tuoi preferiti non è su questo veicolo. | {count} dei tuoi preferiti non sono su questo veicolo.",
       "full": "Nelle impostazioni non c'è più spazio per altri preferiti."
     },
     "selectionChanged": "{id}, {position} di {total}, modificato rispetto a {initial}",
@@ -366,10 +366,10 @@
       "changedFrom": "Modificato rispetto al valore iniziale {initial}",
       "reset": "Ripristina il valore iniziale",
       "resetHelp": "Mette in coda il valore che questo parametro aveva all'ultimo scaricamento completo, {initial}. Non viene scritto nulla finché non premi Scrivi.",
-      "resetAll": "Ripristina i valori iniziali ({count} modificati)",
+      "resetAll": "Ripristina il valore iniziale ({count} modificato) | Ripristina i valori iniziali ({count} modificati)",
       "resetAllHelp": "Mette in coda il valore iniziale di ogni parametro cambiato dall'ultimo scaricamento completo, tranne la contabilità propria del veicolo (STAT_*, MIS_TOTAL, FENCE_TOTAL, RALLY_TOTAL, LOG_LASTFILE e ciò che i metadati segnano come sola lettura o volatile), che si possono comunque ripristinare uno a uno. Non viene scritto nulla finché non premi Scrivi.",
       "resetAllNone": "Nessun parametro è cambiato rispetto al suo valore iniziale.",
-      "queued": "{count} in coda per tornare ai valori iniziali. Premi Scrivi per inviarli.",
+      "queued": "{count} in coda per tornare al valore iniziale. Premi Scrivi per inviarlo. | {count} in coda per tornare ai valori iniziali. Premi Scrivi per inviarli.",
       "includesCalibration": "Include valori di calibrazione"
     },
     "closeMatch": "Corrispondenza vicina",
@@ -394,14 +394,14 @@
       "none": "Connettiti per scaricare i parametri.",
       "loading": "Scaricamento dei parametri…",
       "failed": "Lo scaricamento non è riuscito.",
-      "incomplete": "{total} parametri, ma {missing} non sono mai arrivati (indici {indexes}). Scarica di nuovo per riprovare.",
-      "all": "{total} parametri",
+      "incomplete": "Parametri: {total}, mai arrivati: {missing} (indici {indexes}). Scarica di nuovo per riprovare.",
+      "all": "{total} parametro | {total} parametri",
       "some": "{shown} di {total} parametri"
     },
-    "metadata": "Metadati per {count} parametri",
-    "metadataLoaded": "Descrizioni caricate per {described} parametri su {total}",
-    "metadataSome": "{matched} parametri su {total} corrispondono, {described} hanno una descrizione",
-    "metadataNone": "0 parametri su {total} corrispondono: nessuno dei {known} descritti dal file è un parametro di questo veicolo."
+    "metadata": "Metadati per {count} parametro | Metadati per {count} parametri",
+    "metadataLoaded": "Descrizioni caricate: {described} su {total} parametri",
+    "metadataSome": "Parametri corrispondenti: {matched} su {total}; con descrizione: {described}",
+    "metadataNone": "Corrispondenze: 0 su {total} parametri. Parametri descritti dal file: {known}, nessuno su questo veicolo."
   },
   "snapshot": {
     "save": "Salva istantanea",
@@ -411,7 +411,7 @@
   "import": {
     "from": "Istantanea del {savedAt}",
     "itWas": "Era {warning}.",
-    "summary": "{differ} differiscono, {same} già uguali. Spunta quelli da scrivere.",
+    "summary": "Diversi: {differ}; già uguali: {same}. Spunta quelli da scrivere.",
     "noValue": "—",
     "column": {
       "apply": "Applica",
@@ -423,12 +423,12 @@
     "notVerified": "✕ {detail}",
     "notWritten": "Non scritto",
     "tick": "Spunta le modifiche che vuoi.",
-    "ready": "{count} spuntati. I valori attuali vengono prima conservati come copia di sicurezza.",
+    "ready": "Spuntati: {count}. I valori attuali vengono prima conservati come copia di sicurezza.",
     "writing": "Scrittura in corso… attendo che il veicolo rilegga ogni valore.",
     "allWritten": "Tutto scritto e riletto.",
     "stopped": "Fermato qui: il resto non è stato scritto.",
     "apply": "Applica {id}",
-    "write": "Scrivi {count} spuntati",
+    "write": "Scrivi gli spuntati: {count}",
     "backup": "Salva la copia di sicurezza",
     "close": "Chiudi"
   },
@@ -439,11 +439,11 @@
     "verified": "✓ Scritto e riletto: {detail}",
     "notVerified": "✕ {detail}",
     "writing": "Scrittura in corso… attendo che il veicolo rilegga ogni valore.",
-    "allWritten": "Tutti i {count} scritti e riletti.",
+    "allWritten": "{count} scritto e riletto. | Tutti i {count} scritti e riletti.",
     "writeKey": "Scrivi le modifiche (Ctrl+Invio)",
-    "alreadyMatch": "{count} ripristini in coda coincidono già con il veicolo.",
-    "leftOut": "{count} esclusi: il veicolo aveva già i loro valori quando hai confermato.",
-    "partlyWritten": "{count} scritti e riletti.",
+    "alreadyMatch": "{count} ripristino in coda coincide già con il veicolo. | {count} ripristini in coda coincidono già con il veicolo.",
+    "leftOut": "{count} escluso: il veicolo aveva già il suo valore quando hai confermato. | {count} esclusi: il veicolo aveva già i loro valori quando hai confermato.",
+    "partlyWritten": "Scritti e riletti: {count}.",
     "alertChanged": "{id}: {detail}.",
     "alertFailed": "{id} non è stato confermato: {detail}. Il suo valore sul veicolo è sconosciuto; scarica di nuovo per vederlo.",
     "stopped": "Fermato qui: il resto non è stato scritto."

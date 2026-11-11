@@ -48,7 +48,7 @@ describe('the initial values', () => {
     await app.waitForText('#initial-status', /^Initial values: downloaded \d\d:\d\d:\d\d$/u)
 
     expect(await changedRows()).toEqual([])
-    expect(await app.text('#reset-all')).toBe('Reset 0 changed to initial values')
+    expect(await app.text('#reset-all')).toBe('Reset 0 changed parameters to their initial values')
     expect(await app.evaluate<boolean>(`document.querySelector('#reset-all').disabled`)).toBe(true)
   })
 
@@ -58,7 +58,7 @@ describe('the initial values', () => {
     expect(await changedRows()).toEqual(['RTL_ALT'])
     expect(await app.evaluate<string>(`document.querySelector('tr[data-id="RTL_ALT"] td.num').getAttribute('title')`))
       .toBe('Changed from its initial value 1500')
-    await app.waitForText('#reset-all', 'Reset 1 changed to initial values')
+    await app.waitForText('#reset-all', 'Reset 1 changed parameter to its initial value')
     await app.click('tr[data-id="RTL_ALT"]')
     expect(await app.text('#reset-one')).toBe('Reset to initial value')
   })
@@ -84,13 +84,13 @@ describe('the reset', () => {
 
     // (An older toast, that the write before said, may still be in front of it.)
     await app.waitFor(`[...document.querySelectorAll('.kit-toast.sev-success')]
-      .some(toast => /1 queued to go back to their initial values/u.test(toast.textContent))`)
+      .some(toast => /1 queued to go back to its initial value/u.test(toast.textContent))`)
     await askToWriteQueued(app, [{ id: 'RTL_ALT', from: 1700, to: 1500 }])
     await confirmWrite(app)
     await waitForQueuedWritten(app, 'RTL_ALT', 1500)
 
     expect(await changedRows()).toEqual([])
-    await app.waitForText('#reset-all', 'Reset 0 changed to initial values')
+    await app.waitForText('#reset-all', 'Reset 0 changed parameters to their initial values')
   })
 })
 
@@ -102,7 +102,7 @@ describe('the Download the user presses', () => {
     await app.click('#refresh')
 
     await app.waitFor(`document.querySelectorAll('td.num.changed').length === 0`)
-    await app.waitForText('#reset-all', 'Reset 0 changed to initial values')
+    await app.waitForText('#reset-all', 'Reset 0 changed parameters to their initial values')
     expect(await app.text('tr[data-id="RTL_ALT"] td.num')).toBe('1800')
   })
 

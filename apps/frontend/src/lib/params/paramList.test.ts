@@ -10,7 +10,7 @@ it('says how complete the list is', () => {
   expect(listStatusText(counts, translate)).toBe('12 parameters')
   expect(listStatusText({ ...counts, shown: 2 }, translate)).toBe('2 of 12 parameters')
   expect(listStatusText({ ...counts, list: 'incomplete', missing: [3, 7] }, translate))
-    .toBe('12 parameters, but 2 never arrived (indexes 3, 7). Download again to retry.')
+    .toBe('Parameters: 12, never arrived: 2 (indexes 3, 7). Download again to retry.')
 })
 
 it('says what to do while there is no list', () => {

@@ -72,7 +72,7 @@
       "never": "Nigdy nie zgłoszone",
       "neverRule": "Kreska, nigdy zmyślone zero.",
       "verified": "Zapis potwierdzony",
-      "verifiedRule": "Sukces dopiero wtedy, gdy pojazd potwierdzi wartość."
+      "verifiedRule": "Sukces dopiero po potwierdzeniu wartości przez pojazd."
     },
     "feedback": {
       "menu": "Mapa",
@@ -193,7 +193,7 @@
   "messages": {
     "heading": "Komunikaty",
     "list": "Komunikaty z pojazdu, najnowsze na górze",
-    "unread": "{count} nowych",
+    "unread": "nowych: {count}",
     "none": "Pojazd jeszcze nic nie zgłosił.",
     "dismiss": "Zamknij",
     "severity": {
@@ -351,8 +351,8 @@
       "star": "Ulubiony: {id}",
       "added": "Dodano {id} do ulubionych",
       "removed": "Usunięto {id} z ulubionych",
-      "clearMissing": "Usuń te {count}, których nie ma w tym pojeździe…",
-      "clearMissingHelp": "Usuwa z Twojej listy, dla wszystkich pojazdów, {count} ulubionych, których ten pojazd nie ma. Najpierw zapyta jeszcze raz.",
+      "clearMissing": "Usuń nieobecne w tym pojeździe: {count}…",
+      "clearMissingHelp": "Usuwa z Twojej listy, dla wszystkich pojazdów, ulubione, których ten pojazd nie ma (liczba: {count}). Najpierw zapyta jeszcze raz.",
       "clearAsk": "Usunąć {count} z Twojej listy dla wszystkich pojazdów? Naciśnij jeszcze raz",
       "cleared": "Usunięto z ulubionych: {count}",
       "emptyTitle": "Brak ulubionych",
@@ -366,7 +366,7 @@
       "changedFrom": "Zmieniony względem wartości początkowej {initial}",
       "reset": "Przywróć wartość początkową",
       "resetHelp": "Kolejkuje wartość, jaką ten parametr miał przy ostatnim pełnym pobraniu, {initial}. Nic nie zostanie zapisane, dopóki nie naciśniesz Zapisz.",
-      "resetAll": "Przywróć wartości początkowe ({count} zmienionych)",
+      "resetAll": "Przywróć wartości początkowe zmienionych: {count}",
       "resetAllHelp": "Kolejkuje wartość początkową każdego parametru, który zmienił się od ostatniego pełnego pobrania, z wyjątkiem własnej buchalterii pojazdu (STAT_*, MIS_TOTAL, FENCE_TOTAL, RALLY_TOTAL, LOG_LASTFILE oraz tego, co metadane oznaczają jako tylko do odczytu lub zmienne); te nadal można przywracać pojedynczo. Nic nie zostanie zapisane, dopóki nie naciśniesz Zapisz.",
       "resetAllNone": "Żaden parametr nie zmienił się względem wartości początkowej.",
       "queued": "W kolejce do przywrócenia wartości początkowych: {count}. Naciśnij Zapisz, aby je wysłać.",
@@ -394,14 +394,14 @@
       "none": "Połącz się, aby pobrać parametry.",
       "loading": "Pobieranie parametrów…",
       "failed": "Pobieranie się nie udało.",
-      "incomplete": "Parametrów: {total}, ale {missing} nigdy nie dotarło (indeksy {indexes}). Pobierz ponownie, aby spróbować jeszcze raz.",
+      "incomplete": "Parametrów: {total}, nie dotarło: {missing} (indeksy {indexes}). Pobierz ponownie, aby spróbować jeszcze raz.",
       "all": "Parametrów: {total}",
       "some": "{shown} z {total} parametrów"
     },
-    "metadata": "Metadane dla {count} parametrów",
+    "metadata": "Metadane dla parametrów: {count}",
     "metadataLoaded": "Wczytano opisy dla {described} z {total} parametrów",
-    "metadataSome": "Dopasowano {matched} z {total} parametrów, {described} ma opis",
-    "metadataNone": "Dopasowano 0 z {total} parametrów: żaden z {known} opisanych w pliku nie jest parametrem tego pojazdu."
+    "metadataSome": "Dopasowano {matched} z {total} parametrów; z opisem: {described}",
+    "metadataNone": "Dopasowano 0 z {total} parametrów. Parametry opisane w pliku: {known}, żaden z tego pojazdu."
   },
   "snapshot": {
     "save": "Zapisz migawkę",
@@ -428,7 +428,7 @@
     "allWritten": "Wszystko zapisano i odczytano z powrotem.",
     "stopped": "Zatrzymano tutaj: reszta nie została zapisana.",
     "apply": "Zastosuj {id}",
-    "write": "Zapisz zaznaczone ({count})",
+    "write": "Zapisz zaznaczone: {count}",
     "backup": "Zapisz kopię zapasową",
     "close": "Zamknij"
   },
@@ -442,7 +442,7 @@
     "allWritten": "Wszystkie zapisane i odczytane z powrotem: {count}.",
     "writeKey": "Zapisz zmiany (Ctrl+Enter)",
     "alreadyMatch": "Przywróceń w kolejce, które już zgadzają się z pojazdem: {count}.",
-    "leftOut": "Pominięto: {count}. Pojazd miał już ich wartości, gdy potwierdziłeś.",
+    "leftOut": "Pominięto: {count}. Pojazd miał już te wartości w chwili potwierdzenia.",
     "partlyWritten": "Zapisano i odczytano z powrotem: {count}.",
     "alertChanged": "{id}: {detail}.",
     "alertFailed": "{id} nie został potwierdzony: {detail}. Jego wartość w pojeździe jest nieznana; pobierz ponownie, aby ją zobaczyć.",

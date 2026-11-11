@@ -94,7 +94,8 @@ describe('how a metadata file went', () => {
   it('is told by an error toast for a file that matches none of the parameters, and by no line of text', async () => {
     await loadMetadata(JSON.stringify({ ...METADATA, params: { NOT_HERE: { description: 'x' } } }))
 
-    expect(await app.waitForText('.kit-toast.sev-error', /^0 of 12 parameters matched/u)).toMatch(/none of the 1/u)
+    expect(await app.waitForText('.kit-toast.sev-error', /^0 of 12 parameters matched/u))
+      .toMatch(/Parameters the file describes: 1, none of them/u)
     expect(await app.evaluate<boolean>(`document.querySelector('#metadata-status') === null`)).toBe(true)
   })
 

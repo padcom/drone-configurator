@@ -54,7 +54,7 @@ it('shows what the snapshot would change, and the warning for a different vehicl
   expect(wrapper.get('#import-panel').attributes('hidden')).toBeUndefined()
   expect(text).toContain('Snapshot from 2026-11-07T12:00:00.000Z')
   expect(text).toContain('It was saved from a FIXED_WING (ARDUPILOTMEGA); this is a QUADROTOR (ARDUPILOTMEGA).')
-  expect(text).toContain('2 differ, 10 already the same. Tick the ones to write.')
+  expect(text).toContain('Different: 2; already the same: 10. Tick the ones to write.')
   const row = (id: string) => wrapper.findAll('tbody tr').find(candidate => candidate.get('th').text() === id)
   const cells = (id: string) => row(id)?.findAll('td').map(cell => cell.text())
   expect(cells('RTL_ALT')).toEqual(['', '1500', '→ 2000', ''])
