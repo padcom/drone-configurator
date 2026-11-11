@@ -2,7 +2,7 @@
 // through the registry's `invoke` (enabled, confirmation, check again, execute), and what follows is the same for all: the focus
 // goes where the command says, and a command that failed, or could no longer run, says so in a toast.
 import { useI18n } from 'vue-i18n'
-import type { Command, CommandContext, FocusTarget, InvokeResult } from '@/lib/commands/command'
+import type { Command, CommandContext, CommandOutcome, FocusTarget, InvokeResult } from '@/lib/commands/command'
 import { focusSearch } from '@/lib/params/paramShortcuts'
 import { askForFocus } from './useFocusIntent'
 import { useCommandNotice } from './useCommandNotice'
@@ -38,11 +38,24 @@ function focusParamSearch(): void {
   }
 }
 
+/**
+ * Asks for the focus to go to the value editor of a parameter. The editor takes it (ParamEditor, `wantedFocus`) once the
+ * Parameters screen is shown and that parameter is the selected one, which may be a moment after this (the list clears its
+ * filter and group first, and a screen that is not loaded yet is loaded): nothing here waits or polls.
+ *
+ * @param _from who asked
+ * @param id the parameter
+ */
+function focusParamValue(_from: RunFrom, id: string): void {
+  askForFocus('params.value', Date.now(), id)
+}
+
 /** Where the focus goes for each place a command can name. Anything else leaves it where it is. */
-const PLACES: Record<FocusTarget, (from: RunFrom) => void> = {
+const PLACES: Record<FocusTarget, (from: RunFrom, id: string) => void> = {
   'restore': () => undefined,
   'main': focusScreen,
   'params.search': focusParamSearch,
+  'params.value': focusParamValue,
 }
 
 /**
@@ -100,6 +113,16 @@ function useRunNote(): (command: Command) => void {
 }
 
 /**
+ * Puts the focus where a command that ran says.
+ *
+ * @param outcome what it left behind
+ * @param from who asked
+ */
+function moveFocus(outcome: CommandOutcome, from: RunFrom): void {
+  PLACES[outcome.focus ?? 'restore'](from, outcome.focusId ?? '')
+}
+
+/**
  * What follows a command that was asked for: a complaint when it did not run, else a note of it and the focus where it says.
  *
  * @param result how it ended
@@ -123,7 +146,7 @@ function followUp(
   if (command !== undefined) {
     follow.note(command)
   }
-  PLACES[result.outcome.focus ?? 'restore'](from)
+  moveFocus(result.outcome, from)
 }
 
 /**

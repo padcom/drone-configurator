@@ -6,7 +6,7 @@ import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import { FAVOURITES_KEY } from '@/composables/favourites'
 import { i18n, setLanguage } from '@/i18n/i18n'
-import { PARAMS } from '@/mock/fixtures'
+import { PARAMS, VEHICLE } from '@/mock/fixtures'
 import { mockBackend } from '@/mock/mock-backend'
 import { createAppRouter } from '@/router'
 import { feed } from '@/testing/testing'
@@ -156,4 +156,32 @@ it('shows an advanced parameter in the Standard view for now, and does not chang
   expect(handle.settings.uiValue(VIEW_KEY)).toBe('standard')
   await view.choose('standard')
   expect(view.view.value).toBe('standard')
+})
+
+it('puts the focus in the parameter\'s value editor, also when the list had to clear its search and group', async () => {
+  const { wrapper, handle } = await shellWith()
+  await flushPromises()
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  handle.parameters.setFilter('something typed before')
+  useParamGroup().choose('RTL')
+  await ask(wrapper, 'FENCE_RADIUS')
+
+  await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
+
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('draft'))
+  expect(handle.fields.selected.value).toBe('FENCE_RADIUS')
+  expect(handle.fields.filter.value).toBe('')
+  // The field's own behaviour is unchanged: Escape goes back to the list.
+  await wrapper.get('#draft').trigger('keydown', { key: 'Escape' })
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('param-list'))
+})
+
+it('puts the focus on the parameter\'s row when there is no editor (not connected)', async () => {
+  const { wrapper, handle } = await shellWith()
+  await ask(wrapper, 'FENCE_RADIUS')
+
+  await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
+
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('param-list'))
+  expect(handle.fields.selected.value).toBe('FENCE_RADIUS')
 })

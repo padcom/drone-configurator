@@ -20,6 +20,24 @@ import {
 import type { Endpoint } from './endpoint'
 import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 
+/** DevTools modifier bit for Ctrl, and the virtual key codes of the keys the palette is driven with. */
+const CTRL = 2
+const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
+
+/**
+ * Presses a key, with the modifiers, as the host receives it.
+ *
+ * @param app the running app
+ * @param key the key: `p`, `Escape` or `Enter`
+ * @param modifiers the DevTools modifier bits
+ */
+async function chord(app: E2eApp, key: string, modifiers = 0): Promise<void> {
+  const [code, name] = CODES[key] as [number, string]
+  const event = { windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, key, code: name, modifiers }
+  await app.devtools('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...event })
+  await app.devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
+}
+
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
   params: { id: string, value: number }[]
@@ -170,6 +188,30 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
     expect(Object.keys(times)).toHaveLength(6)
     await showScreen(app, 'parameters')
+  })
+
+  it('puts the focus in the value editor of a parameter that is chosen in the command palette', async () => {
+    await showScreen(app, 'flight')
+    await chord(app, 'p', CTRL)
+    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await app.fill('#palette-input', vehicle.param)
+    await app.waitFor(`document.querySelector('[data-command="param.${vehicle.param}"]') !== null`)
+
+    await chord(app, 'Enter')
+
+    await app.waitFor(`location.hash === '#/parameters' && document.activeElement?.id === 'draft'`)
+    // It is the parameter that was chosen that the editor shows, and its row is selected (and scrolled into view).
+    expect(await app.evaluate<string>(`document.querySelector('#detail .param-name').textContent`)).toBe(vehicle.param)
+    expect(await app.evaluate<unknown[]>(`(() => {
+      const row = document.querySelector('tr[aria-selected="true"]')
+      const box = document.querySelector('.param-scroll').getBoundingClientRect()
+      const at = row.getBoundingClientRect()
+
+      return [row.dataset.id, at.top >= box.top - 1, at.bottom <= box.bottom + 1]
+    })()`)).toEqual([vehicle.param, true, true])
+    // Escape in the field goes back to the list, as always.
+    await chord(app, 'Escape')
+    await app.waitFor(`document.activeElement?.id === 'param-list'`)
   })
 
   it('has a description for every parameter, every name and value in its column, and switches within the budget', async () => {
