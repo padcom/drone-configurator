@@ -68,6 +68,12 @@ class Link {
   public stream: ByteStream? = null
   /// Who the vehicle is (see `identityOf`): the one that comes back must be this one to be the same.
   public identity: string = ""
+  /// The board the vehicle is (see `boardOf`), "" when it has no unique id that tells it from another.
+  public board: string = ""
+  /// Whether this session has changed what kind of vehicle the board is (a verified write of FRAME_CLASS and the like, see
+  /// `changesVehicleType`) since it connected or was last taken up: only then may the same board come back as another type.
+  /// Cleared by a taking up, by the end of the session, and by a write of such a parameter that did not succeed.
+  public typeMayChange: bool = false
   /// A vehicle that has not been heard from for this long (ms) is gone, whatever the link says.
   public silenceMs: int = 5000
   /// The waits between tries to bring the link back (ms): the n-th try waits the n-th, the last one repeats.
@@ -101,6 +107,8 @@ class Link {
     router = null
     stream = null
     identity = ""
+    board = ""
+    typeMayChange = false
     armed = false
     heartbeatAt = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
@@ -181,11 +189,67 @@ export function infoOf(v: Vehicle): VehicleInfo {
   }
 }
 
-/// Who a vehicle is: its ids, its kind and, when it says (AUTOPILOT_VERSION), its unique id. A vehicle that
-/// comes back after the link dropped is "the same" only if this is the same; "0" for no unique id.
+/// Who a vehicle is. A board that says its unique id (AUTOPILOT_VERSION: a non-zero `uid`) is identified by its ids, its
+/// autopilot and that id, and NOT by its type: changing FRAME_CLASS (a quad becomes a hexa) and rebooting changes the MAV_TYPE it
+/// reports, and it is still the same board, with the same parameters, initial values and queued changes. A vehicle with no unique
+/// id (uid 0, as the simulator and SITL report) is identified by its ids, its type and its autopilot, as before. A vehicle that
+/// comes back after the link dropped is "the same" only if this is the same.
 export function identityOf(v: Vehicle, version: AutopilotVersion?): string {
-  const uid = if (version == null) "0" else `${version!.uid}`
-  `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/${uid}`
+  const unique = uniqueIdOf(version)
+  `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/${if (unique == "") "0" else `uid:${unique}`}`
+}
+
+/// Which board a vehicle is, without its type: by its ids, its autopilot and its unique id, or "" when it has no unique id that
+/// tells boards apart. Two vehicles with the same board but another type are the same vehicle ONLY when this session changed
+/// the type itself (`link.typeMayChange`): a unique id alone is not proof (two SITL instances on one host report the same one).
+export function boardOf(v: Vehicle, version: AutopilotVersion?): string {
+  const unique = uniqueIdOf(version)
+  if (unique == "") "" else `${v.sysid}/${v.compid}/${v.autopilot}/uid:${unique}`
+}
+
+/// The parameters that change what kind of vehicle the autopilot says it is (its MAV_TYPE): the frame of a copter, the VTOL frame
+/// of a plane. After a verified write of one of them and a reboot, the same board reports another type.
+export function changesVehicleType(id: string): bool {
+  id == "FRAME_CLASS" || id == "FRAME_TYPE" || id == "Q_ENABLE" || id == "Q_FRAME_CLASS"
+}
+
+/// Whether some bytes can tell one board from another: they are not missing, and not all the same (all zero is "no id", all
+/// ones is what a flash that was never written reads as, and a constant is what a firmware that fills the field with a
+/// placeholder sends: any of those is the same on every board, so it would make two different boards "the same vehicle").
+function tellsBoardsApart(bytes: int[]): bool {
+  if (bytes.length == 0) {
+    return false
+  }
+  for (const b of bytes) {
+    if (b != bytes[0]) {
+      return true
+    }
+  }
+  false
+}
+
+/// The bytes of a 64-bit unique id, least significant first.
+function bytesOf(uid: u64): int[] {
+  // (Shifted and masked as u64, one byte at a time: a 64-bit value with its top bit set does not fit an `int`, and converting it panics.)
+  const bytes: int[] = []
+  for (let i = 0; i < 8; i++) {
+    bytes.push(((uid >> ((8 * i) as u64)) & (255 as u64)) as int)
+  }
+  bytes
+}
+
+/// The board's unique id as text, or "" when it has none that tells it from another. `uid2` (18 bytes, which supersedes `uid`)
+/// is used when it can tell boards apart, else `uid`.
+export function uniqueIdOf(version: AutopilotVersion?): string {
+  if (version == null) {
+    return ""
+  }
+  const long: int[] = version!.uid2.map((b: u8) => b as int)
+  if (tellsBoardsApart(long)) {
+    return `2.${long.join(".")}`
+  }
+  const short = bytesOf(version!.uid)
+  if (tellsBoardsApart(short)) `1.${short.join(".")}` else ""
 }
 
 /// The connection to the vehicle, if one is up.
