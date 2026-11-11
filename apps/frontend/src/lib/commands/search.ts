@@ -1,0 +1,115 @@
+// Finding a command by what the user types. Few commands (a dozen), so no typo tolerance and no index: every command is
+// checked on every key. What is matched is the label and the group and the extra words, in the language of the page AND in
+// English, so that a person who reads Polish can type "reboot". Letters are folded (diacritics removed, case ignored), so
+// "ubersicht" finds "Übersicht" and "polet" finds "Полёт".
+import { type Command, type CommandContext } from './command'
+import { tokensOf } from '@/lib/params/paramSearch'
+
+/**
+ * The text without its case and its accents, for comparing.
+ *
+ * @param text any text
+ * @returns it in lower case, with the combining marks of its decomposed form removed
+ */
+export function fold(text: string): string {
+  return text.normalize('NFD').replaceAll(/\p{M}/gu, '').toLowerCase()
+}
+
+/** The words of a command that are searched, folded: its label, and the rest. */
+interface Texts {
+  /** The label, in the language of the page and in English. */
+  labels: string[]
+  /** The group and the extra words, in the language of the page and in English. */
+  others: string[]
+}
+
+/**
+ * What a command can be found by.
+ *
+ * @param command the command
+ * @param ctx where the messages come from
+ * @returns its texts, folded
+ */
+function textsOf(command: Command, ctx: CommandContext): Texts {
+  const keys = [command.groupKey, ...command.keywordKeys ?? []]
+  const both = (key: string) => [ctx.say(key), ctx.sayEnglish(key)]
+
+  return {
+    labels: both(command.labelKey).map(fold),
+    others: keys.flatMap(both).map(fold),
+  }
+}
+
+/** How well a command matches: lower is better. */
+const RANK = { starts: 0, word: 1, contains: 2, other: 3 } as const
+
+/**
+ * Whether a word of the text starts with the token.
+ *
+ * @param text a folded text
+ * @param token a folded word of the query
+ * @returns true if some word of the text begins with it
+ */
+function startsAWord(text: string, token: string): boolean {
+  return text.split(/[\s_]+/u).some(word => word.startsWith(token))
+}
+
+/**
+ * The rank of the label alone: how well all of the tokens are in it.
+ *
+ * @param labels the folded labels
+ * @param query the folded query as typed, with its spaces made one
+ * @param tokens the words of the query
+ * @returns the rank, or null when a token is not in the label
+ */
+function rankInLabels(labels: string[], query: string, tokens: string[]): number | null {
+  if (labels.some(label => label.startsWith(query))) {
+    return RANK.starts
+  }
+  if (labels.some(label => tokens.every(token => startsAWord(label, token)))) {
+    return RANK.word
+  }
+
+  return labels.some(label => tokens.every(token => label.includes(token))) ? RANK.contains : null
+}
+
+/**
+ * How well one command matches a query.
+ *
+ * @param texts what the command can be found by
+ * @param query the folded query, with its spaces made one
+ * @param tokens the words of the query
+ * @returns the rank, or null when the command does not match
+ */
+function rankOf(texts: Texts, query: string, tokens: string[]): number | null {
+  const inLabel = rankInLabels(texts.labels, query, tokens)
+  if (inLabel !== null) {
+    return inLabel
+  }
+  const everywhere = [...texts.labels, ...texts.others]
+  const found = tokens.every(token => everywhere.some(text => text.includes(token)))
+
+  return found ? RANK.other : null
+}
+
+/**
+ * The commands that match a query, best first; those that match equally well keep the order they came in.
+ *
+ * @param commands the commands, in registry order
+ * @param query what the user typed
+ * @param ctx where the messages come from
+ * @returns the matching commands; all of them, as they are, for an empty query
+ */
+export function rankCommands(commands: readonly Command[], query: string, ctx: CommandContext): Command[] {
+  const tokens = tokensOf(fold(query))
+  if (tokens.length === 0) {
+    return [...commands]
+  }
+  const typed = tokens.join(' ')
+
+  return commands
+    .map((command, order) => ({ command, order, rank: rankOf(textsOf(command, ctx), typed, tokens) }))
+    .filter((hit): hit is typeof hit & { rank: number } => hit.rank !== null)
+    .toSorted((a, b) => a.rank - b.rank || a.order - b.order)
+    .map(hit => hit.command)
+}
