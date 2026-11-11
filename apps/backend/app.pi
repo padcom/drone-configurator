@@ -7,6 +7,7 @@ import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
 import { register as registerMessages } from "./messages"
 import { register as registerParams } from "./params"
+import { register as registerReboot } from "./reboot"
 import { register as registerSerial } from "./serial"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
@@ -30,6 +31,7 @@ export function createBackend(transport: Transport): Communicator {
   c.onClosing = () => link.close()
   registerConnection(c)
   registerParams(c)
+  registerReboot(c)
   registerTelemetry(c)
   registerMessages(c)
   registerFiles(c)

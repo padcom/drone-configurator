@@ -123,6 +123,9 @@ class Heard implements SessionPart {
       mode = modeName(m.autopilot as int, m.type as int, m.customMode as int)
       lastHeartbeat = Date.now() as int
       heardHeartbeat = true
+      // The session keeps the armed state too (reboot.pi decides on it): the telemetry is not what is asked.
+      link.armed = armed
+      link.heartbeatAt = lastHeartbeat
     } else if (m instanceof SysStatus) {
       // UINT16_MAX: the vehicle doesn't know its voltage.
       if (m.voltageBattery as int != 65535) {

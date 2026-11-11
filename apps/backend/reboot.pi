@@ -1,0 +1,198 @@
+// The reboot service: `vehicle.reboot` restarts the flight controller (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, parameter 1 = 1). It is
+// not a reset of the parameters. The command is sent ONCE: a resend after a reboot that has already happened could land on the
+// freshly booted vehicle. And it is never sent with ArduPilot's force value (parameter 6), which would make the autopilot
+// reboot even when armed: every parameter but the first is 0.
+//
+// The backend refuses before it sends anything, whatever the page believes (the page's view of the vehicle may be late):
+// no connected vehicle (`NOT_CONNECTED`), a vehicle that is armed (`ARMED`), one whose armed state is not known because its
+// heartbeat is older than 3 s (`STATE_UNKNOWN`: unknown counts as armed), and a parameter write or download under way, or a
+// reboot already asked for (`BUSY`: a write cut by a reboot would be reported as not confirmed for no reason).
+//
+// The command is sent here and not with pico-mavlink's `CommandCall`: that one asks again when no final ack comes, and an
+// IN_PROGRESS ack counts as no final ack, so with no retries it ends as a timeout although the vehicle is at it, and with
+// retries it would send the command twice. Here IN_PROGRESS is waited past (up to `waits.finalMs`) and the command is sent once.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { delay } from "std/timers"
+import { CommandAck, CommandLong, MavCmd, MavLinkConnection, MavLinkError, MavResult, Received } from "padcom/pico-mavlink"
+import { RebootResult, RebootResultResult, encodeRebootResult } from "./generated/app"
+import { armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// How long the waits are (ms); the tests shorten them.
+class Waits {
+  /// For the first acknowledgement.
+  public ackMs: int = 3000
+  /// For the final one, once the vehicle has said IN_PROGRESS.
+  public finalMs: int = 10000
+}
+
+export const waits = new Waits()
+
+/// The command's parameters: only the first (1 = reboot the autopilot) is set. Parameter 2 (companion computer) stays 0 for
+/// "do nothing", and parameter 6 stays 0: it is ArduPilot's force value, which is never sent.
+export function rebootParams(): f64[] {
+  [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+}
+
+/// What the vehicle's MAV_RESULT means for the page. IN_PROGRESS is the vehicle at it: accepted.
+export function answerOf(result: int): RebootResult {
+  if (result == MavResult.ACCEPTED) {
+    return RebootResult { result: RebootResultResult.Accepted }
+  }
+  if (result == MavResult.IN_PROGRESS) {
+    return RebootResult { result: RebootResultResult.Accepted, detail: "the vehicle is working on it" }
+  }
+  if (result == MavResult.UNSUPPORTED) {
+    return RebootResult { result: RebootResultResult.Unsupported, detail: "the vehicle does not support the command" }
+  }
+  const detail = if (result == MavResult.FAILED) "the vehicle refused (is it armed?)"
+    else if (result == MavResult.DENIED) "the vehicle denied the command"
+    else if (result == MavResult.TEMPORARILY_REJECTED) "the vehicle can't do it at this time"
+    else `the vehicle answered ${result}`
+  RebootResult { result: RebootResultResult.Refused, detail: detail }
+}
+
+/// No acknowledgement: the command may still have arrived, so the vehicle may still reboot.
+export function silence(): RebootResult {
+  RebootResult { result: RebootResultResult.NoAnswer, detail: "no answer; the vehicle may still reboot" }
+}
+
+/// Registers the service's method on `c`.
+export function register(c: Communicator): void {
+  c.handle("vehicle.reboot", reboot)
+}
+
+/// Whether a reboot request is waiting for its acknowledgement: a second one is refused, never sent.
+class Asking {
+  public busy: bool = false
+}
+
+const asking = new Asking()
+
+/// Why the reboot may not be asked for now, as a code, or null when it may.
+export function refusal(): string? {
+  const armed = armedState()
+  if (armed == null) {
+    return "STATE_UNKNOWN"
+  }
+  if (armed!) {
+    return "ARMED"
+  }
+  if (link.listing || link.writes > 0 || asking.busy || rebootExpected()) {
+    return "BUSY"
+  }
+  null
+}
+
+/// The words for a refusal's code.
+function reasonOf(code: string): string {
+  if (code == "STATE_UNKNOWN") {
+    return "the vehicle's state is unknown (no heartbeat for 3 s)"
+  }
+  if (code == "ARMED") {
+    return "the vehicle is armed"
+  }
+  "parameters are being written or downloaded, or a reboot is already under way"
+}
+
+/// The MAV_RESULT of an acknowledgement of the reboot command from the connected autopilot, or null for any other message.
+function ackOf(r: Received): int? {
+  if (r.packet.header.sysid as int != link.sysid || r.packet.header.compid as int != link.compid) {
+    return null
+  }
+  const m = r.message
+  if (m instanceof CommandAck) {
+    if (m.command as int == MavCmd.PREFLIGHT_REBOOT_SHUTDOWN) {
+      return m.result as int
+    }
+  }
+  null
+}
+
+/// The command, as it is sent: parameter 1 is 1, the others 0.
+function rebootCommand(): CommandLong {
+  const params = rebootParams()
+  const c = new CommandLong()
+  c.targetSystem = link.sysid as u8
+  c.targetComponent = link.compid as u8
+  c.command = MavCmd.PREFLIGHT_REBOOT_SHUTDOWN as u16
+  c.confirmation = 0
+  c._param1 = params[0] as f32
+  c._param2 = params[1] as f32
+  c._param3 = params[2] as f32
+  c._param4 = params[3] as f32
+  c._param5 = params[4] as f32
+  c._param6 = params[5] as f32
+  c._param7 = params[6] as f32
+  c
+}
+
+/// Sends the command once and waits for its acknowledgement: the vehicle's MAV_RESULT, IN_PROGRESS if that was all it said
+/// within the longer wait, or null when nothing was said (or the session ended while waiting).
+async function askOnce(conn: MavLinkConnection, signal: AbortSignal): Promise<int?> throws Error {
+  const acks: int[] = []
+  const listener = conn.on((r: Received) => {
+    const a = ackOf(r)
+    if (a != null) {
+      acks.push(a!)
+    }
+  })
+  try {
+    await conn.send(rebootCommand())
+    return await waitForAnswer(acks, signal)
+  } finally {
+    conn.off(listener)
+  }
+}
+
+/// Waits for a final acknowledgement among `acks` as they come: the first wait is `waits.ackMs`, and once IN_PROGRESS has
+/// been said the wait for the final one is `waits.finalMs`. The wait ends when the session's operations are aborted (the link was
+/// lost or the user disconnected): `signal` is the one of the session that asked.
+async function waitForAnswer(acks: int[], signal: AbortSignal): Promise<int?> throws Error {
+  let seen = 0
+  let progress = false
+  const started = Date.now() as int
+  let limit = waits.ackMs
+  while ((Date.now() as int) - started < limit && !signal.aborted) {
+    while (seen < acks.length) {
+      const a = acks[seen]
+      seen += 1
+      if (a != MavResult.IN_PROGRESS) {
+        return a
+      }
+      progress = true
+      limit = waits.finalMs
+    }
+    await delay(20)
+  }
+  if (progress) MavResult.IN_PROGRESS else null
+}
+
+async function reboot(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  const why = refusal()
+  if (why != null) {
+    throw new CommunicatorError(why!, reasonOf(why!))
+  }
+  asking.busy = true
+  const signal = link.session.signal
+  const generation = link.generation
+  let got: int? = null
+  try {
+    got = await askOnce(conn, signal)
+  } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  } finally {
+    asking.busy = false
+  }
+  const out = if (got == null) silence() else answerOf(got!)
+  // A session that ended while waiting (the user disconnected or connected elsewhere: the generation moved on) has nothing to
+  // expect, and the next one starts clean. A link that was only lost keeps its generation: the reboot is still expected.
+  const sameSession = link.generation == generation
+  if (sameSession && (out.result == RebootResultResult.Accepted || out.result == RebootResultResult.NoAnswer)) {
+    // Accepted: it is going to reboot. No answer: it may. Either way the link going quiet is a reboot, and a second request
+    // is refused (for good once accepted, for a few seconds after silence).
+    link.rebootAt = Date.now() as int
+    link.rebootUnsure = out.result == RebootResultResult.NoAnswer
+  }
+  encodeRebootResult(out)
+}
