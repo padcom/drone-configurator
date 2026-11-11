@@ -523,7 +523,7 @@
     "failed": "The command failed.",
     "group": {
       "app": "Application",
-      "parameters":"Parameters",
+      "parameters": "Parameters",
       "navigate": "Navigate",
       "parameter": "Parameter",
       "vehicle": "Vehicle"
@@ -565,7 +565,7 @@
     },
     "reason": {
       "noParameters": "There are no parameters yet.",
-      "busy":"Parameters are being written or downloaded, or a reboot is already under way.",
+      "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
       "notConnected": "Connect to a vehicle first.",
       "stateUnknown": "The vehicle's state is unknown (no recent heartbeat).",
       "armed": "Disarm the vehicle first. A flying vehicle is never rebooted.",

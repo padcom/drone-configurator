@@ -18,6 +18,9 @@ export class ShowPalette implements Command {
 
   readonly groupKey = APP_GROUP
 
+  // Choosing it in the palette would close and reopen the palette (a flicker, and the query lost): it is reached by its key.
+  readonly listed = false
+
   readonly icon = 'search'
 
   /**

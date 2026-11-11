@@ -523,7 +523,7 @@
     "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
       "app": "Anwendung",
-      "parameters":"Parameter",
+      "parameters": "Parameter",
       "navigate": "Navigation",
       "parameter": "Parameter",
       "vehicle": "Fahrzeug"
@@ -565,7 +565,7 @@
     },
     "reason": {
       "noParameters": "Es gibt noch keine Parameter.",
-      "busy":"Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
+      "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
       "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",
       "stateUnknown": "Der Zustand des Fahrzeugs ist unbekannt (kein aktueller Heartbeat).",
       "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",

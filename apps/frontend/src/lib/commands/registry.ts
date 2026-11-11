@@ -110,7 +110,7 @@ export class CommandRegistry {
    * @returns the commands to list
    */
   search(query: string, ctx: CommandContext): Command[] {
-    const found = rankCommands(this.commands, query, ctx)
+    const found = rankCommands(this.commands.filter(command => command.listed !== false), query, ctx)
     if (query.trim() === '') {
       return found
     }

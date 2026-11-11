@@ -523,7 +523,7 @@
     "failed": "Polecenie się nie powiodło.",
     "group": {
       "app": "Aplikacja",
-      "parameters":"Parametry",
+      "parameters": "Parametry",
       "navigate": "Nawigacja",
       "parameter": "Parametr",
       "vehicle": "Pojazd"
@@ -565,7 +565,7 @@
     },
     "reason": {
       "noParameters": "Nie ma jeszcze parametrów.",
-      "busy":"Parametry są zapisywane lub pobierane albo restart już trwa.",
+      "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
       "notConnected": "Najpierw połącz się z pojazdem.",
       "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
       "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",

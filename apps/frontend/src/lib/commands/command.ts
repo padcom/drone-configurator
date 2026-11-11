@@ -140,6 +140,8 @@ export interface Command {
   readonly keywordKeys?: readonly string[]
   /** The key to show in its row (a plain string, filled from the keymap), when it has one. */
   readonly shortcut?: string
+  /** False for a command the palette does not offer in its list (one that is the palette itself); it still runs by its id. */
+  readonly listed?: boolean
   /** An icon of the kit's set (lib/ui/icons), for the places that draw one: the rail, a button, a row of the palette. */
   readonly icon?: IconName
   /** The route a command that goes to a place leads to: a control draws a real link with it (middle click, the status bar). */
