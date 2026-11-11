@@ -36,9 +36,10 @@ function mountEditor(): VueWrapper {
  * editor).
  *
  * @param connected whether the vehicle is connected (else the editor's form is hidden)
+ * @param meta what the metadata says about RTL_ALT: names for its values (an EnumField), or bits (a BitField)
  * @returns the editor and the Configurator
  */
-async function editor(connected = true) {
+async function editor(connected = true, meta: object = {}) {
   const list = document.createElement('div')
   list.id = 'param-list'
   list.tabIndex = 0
@@ -47,7 +48,7 @@ async function editor(connected = true) {
   const wrapper = mountEditor()
   await flushPromises()
   const connection = connected ? { state: 'connected' as const, vehicle: { ...VEHICLE } } : { state: 'disconnected' as const }
-  feed(handle, { params: PARAMS, connection })
+  feed(handle, { params: PARAMS, connection, metadata: new Map([['RTL_ALT', meta]]) })
   await wrapper.vm.$nextTick()
 
   return { wrapper, handle }
@@ -106,6 +107,37 @@ it('is there when the editor is mounted after the asking (the Parameters screen 
 
 it('puts the focus on the parameter\'s row in the list when there is no editor (the vehicle is not connected)', async () => {
   const { handle } = await editor(false)
+
+  askForFocus('params.value', Date.now(), 'RTL_ALT')
+  handle.parameters.select('RTL_ALT')
+
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('param-list'))
+})
+
+it('puts the focus in the field of names (EnumField, the same id) of a parameter whose values have names', async () => {
+  const { handle } = await editor(true, { values: { 0: 'Disabled', 1: 'Enabled' } })
+
+  askForFocus('params.value', Date.now(), 'RTL_ALT')
+  handle.parameters.select('RTL_ALT')
+
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('draft'))
+  expect(document.activeElement?.getAttribute('role')).toBe('combobox')
+})
+
+it('puts the focus in the field of bits (BitField, the same id) of a parameter whose bits have names', async () => {
+  const { handle } = await editor(true, { bits: { 0: 'All', 1: 'Barometer', 2: 'Compass' } })
+
+  askForFocus('params.value', Date.now(), 'RTL_ALT')
+  handle.parameters.select('RTL_ALT')
+
+  await vi.waitFor(() => expect(document.activeElement?.id).toBe('draft'))
+})
+
+it('falls back to the parameter\'s row when the field does not take the focus (disabled during a write)', async () => {
+  const { wrapper, handle } = await editor()
+  handle.staged.writing.value = true
+  await flushPromises()
+  expect(wrapper.get('fieldset').attributes('disabled')).toBeDefined()
 
   askForFocus('params.value', Date.now(), 'RTL_ALT')
   handle.parameters.select('RTL_ALT')

@@ -141,21 +141,25 @@ function backToList(event: KeyboardEvent): void {
 }
 
 /**
- * Puts the focus in a field and selects its text, when it has any to select.
+ * Puts the focus in the first of these elements that takes it, and selects its text when it has any to select. An element that
+ * is not there, is hidden or is disabled does not take the focus (`focus()` does nothing then): the next one is tried.
  *
- * @param field the element, if it is there
+ * @param ids the elements, in the order of preference
  */
-function focusField(field: HTMLElement | null): void {
-  const input = field as HTMLInputElement | null
+function focusFirst(ids: string[]): void {
+  const taker = ids.map(id => document.getElementById(id) as HTMLInputElement | null).find(field => {
+    field?.focus()
 
-  input?.focus()
-  input?.select?.()
+    return field !== null && document.activeElement === field
+  })
+
+  taker?.select?.()
 }
 
-// What is shown now: the id of the selected parameter, and where its value is typed (the field; its row in the list when the
-// form is hidden because the vehicle is not connected).
+// What is shown now: the id of the selected parameter, and where its value is typed: the field, and its row in the list when
+// the field does not take the focus (the vehicle is not connected and the form is hidden, or a write is under way: disabled).
 const shownId = computed(() => param.value?.id ?? '')
-const valueField = computed(() => editable.value ? 'draft' : 'param-list')
+const valueFields = computed(() => editable.value ? ['draft', 'param-list'] : ['param-list'])
 
 /**
  * A command that chose this parameter (the palette's parameter row) asked for the focus to be in its value editor. It goes
@@ -167,7 +171,7 @@ async function takeAskedFocus(): Promise<void> {
   await nextTick()
 
   if (takeFocusFor('params.value', shownId.value)) {
-    focusField(document.getElementById(valueField.value))
+    focusFirst(valueFields.value)
   }
 }
 
