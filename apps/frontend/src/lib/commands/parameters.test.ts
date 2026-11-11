@@ -106,13 +106,13 @@ describe('going to a parameter', () => {
     expect(new GoToParameter('FRAME_CLASS', '').isEnabled()).toEqual({ enabled: true })
   })
 
-  it('shows the Parameters screen, with the parameter revealed, and puts the focus in the screen', async () => {
+  it('shows the Parameters screen, with the parameter revealed, and puts the focus in its value editor', async () => {
     const { fake } = withParameters()
 
     const outcome = await new GoToParameter('FRAME_CLASS', '').execute(fake.ctx)
 
     expect(fake.calls.navigate).toEqual(['/parameters'])
     expect(fake.calls.reveal).toEqual(['FRAME_CLASS'])
-    expect(outcome).toEqual({ focus: 'main' })
+    expect(outcome).toEqual({ focus: 'params.value', focusId: 'FRAME_CLASS' })
   })
 })

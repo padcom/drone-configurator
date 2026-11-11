@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onActivated, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BitField from '@/components/fields/BitField.vue'
 import type { BitOption } from '@/lib/params/bitmask'
@@ -97,6 +97,7 @@ import { initialIfChanged } from '@/lib/params/initialValues'
 import { bitNamesOf, numberOr, valueOptions } from '@/lib/params/paramEditor'
 import { canonical, showNumber } from '@/lib/params/paramValue'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { focusAsked, takeFocusFor } from '@/composables/useFocusIntent'
 
 // The detail of the selected parameter: its name and what it is, the field for a value (a choice from the names when the
 // metadata has them), then the description (with the related parameters of its group) and the changes collected. A value that
@@ -138,6 +139,41 @@ function backToList(event: KeyboardEvent): void {
     document.getElementById('param-list')?.focus()
   }
 }
+
+/**
+ * Puts the focus in a field and selects its text, when it has any to select.
+ *
+ * @param field the element, if it is there
+ */
+function focusField(field: HTMLElement | null): void {
+  const input = field as HTMLInputElement | null
+
+  input?.focus()
+  input?.select?.()
+}
+
+// What is shown now: the id of the selected parameter, and where its value is typed (the field; its row in the list when the
+// form is hidden because the vehicle is not connected).
+const shownId = computed(() => param.value?.id ?? '')
+const valueField = computed(() => editable.value ? 'draft' : 'param-list')
+
+/**
+ * A command that chose this parameter (the palette's parameter row) asked for the focus to be in its value editor. It goes
+ * there once the editor shows that parameter (the selection may come a moment after the asking: the list clears its filter and
+ * its group first, and the screen may not be loaded yet), scrolled into view by the list; a parameter that has no editor has the
+ * focus on its row in the list instead. Escape and leaving the field are the field's own, as always.
+ */
+async function takeAskedFocus(): Promise<void> {
+  await nextTick()
+
+  if (takeFocusFor('params.value', shownId.value)) {
+    focusField(document.getElementById(valueField.value))
+  }
+}
+
+watch([focusAsked, () => fields.selected.value, editable], takeAskedFocus)
+onMounted(takeAskedFocus)
+onActivated(takeAskedFocus)
 const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 // The named bits of an integer parameter (none when the metadata has none, or the value is not an integer).
 const bitNames = computed<BitOption[] | null>(() => bitNamesOf(param.value, meta.value?.bits))

@@ -14,16 +14,19 @@ export type Availability
     | { enabled: false, reasonKey: string, reasonParams?: Record<string, unknown> }
 
 /** Where the focus can be sent after a command: a place of the application, by name (the command does not touch the page). */
-export type FocusTarget = 'restore' | 'main' | 'params.search'
+export type FocusTarget = 'restore' | 'main' | 'params.search' | 'params.value'
 
 /** What a command leaves behind for the caller: where the focus goes. */
 export interface CommandOutcome {
   /**
    * `restore`: back to what had it before the palette opened. `main`: into the screen (the old element may be hidden now; a click
    * on the rail keeps the focus on the rail). `params.search`: the Parameters screen's search box, wherever the command was run
-   * from (the same place Ctrl+/ goes to).
+   * from (the same place Ctrl+/ goes to). `params.value`: the value editor of the parameter named in `focusId` (its row when it
+   * has no editor).
    */
   focus?: FocusTarget
+  /** What `focus` needs to know: the parameter, for `params.value`. */
+  focusId?: string
 }
 
 /** What the vehicle says to a reboot. */

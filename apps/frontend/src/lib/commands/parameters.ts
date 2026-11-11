@@ -59,13 +59,14 @@ export class GoToParameter implements Command {
    * Shows the Parameters screen, with the search cleared and this parameter selected. It writes nothing.
    *
    * @param ctx the context
-   * @returns the focus goes into the screen
+   * @returns the focus goes to that parameter's value editor
    */
   async execute(ctx: CommandContext): Promise<CommandOutcome> {
     await ctx.navigate(PARAMETERS_PATH)
     ctx.parameters.reveal(this.label)
 
-    return { focus: 'main' }
+    // The value editor of that parameter (its row when it has none): where a person who chose it wants to type.
+    return { focus: 'params.value', focusId: this.label }
   }
 }
 
