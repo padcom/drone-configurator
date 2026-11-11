@@ -8,6 +8,7 @@ import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens } from '@/lib/commands/navigation'
 import { ParameterProvider } from '@/lib/commands/parameters'
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
+import { RebootFlightController } from '@/lib/commands/vehicle'
 import { say, sayEnglish } from '@/i18n/say'
 import { useConfigurator } from './useConfigurator'
 import { useFavourites } from './favourites'
@@ -27,6 +28,7 @@ export const HEARTBEAT_FRESH_MS = 3000
 function makeRegistry(): CommandRegistry {
   const registry = new CommandRegistry()
   goToScreens().forEach(command => registry.register(command))
+  registry.register(new RebootFlightController())
   registry.register(new ParameterProvider())
 
   return registry
@@ -49,7 +51,7 @@ export function useCommands(): CommandRegistry {
  * @returns the facts
  */
 function vehicleFacts(): VehicleFacts {
-  const { fields, staged } = useConfigurator()
+  const { fields, staged, vehicle } = useConfigurator()
   const armed = () => {
     const telemetry = fields.telemetry.value
 
@@ -62,8 +64,7 @@ function vehicleFacts(): VehicleFacts {
     connection: () => fields.connection.value,
     armed,
     busy,
-    // The reboot is asked of the backend where it is wired in (the Reboot command): the screens' commands do not use it.
-    reboot: () => Promise.reject(new Error('the vehicle reboot is not wired to the backend yet')),
+    reboot: () => vehicle.reboot(),
   }
 }
 
@@ -122,6 +123,7 @@ function parameterFacts(): ParameterFacts {
 export function useCommandContext(): CommandContext {
   const router = useRouter()
   const toasts = useToasts()
+  const { confirmWith } = useConfigurator()
 
   return {
     navigate: async path => {
@@ -129,8 +131,8 @@ export function useCommandContext(): CommandContext {
     },
     parameters: parameterFacts(),
     vehicle: vehicleFacts(),
-    // No command of the screens asks for a confirmation: the commands that do get theirs where they are wired in.
-    confirm: () => Promise.resolve(false),
+    // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
+    confirm: options => confirmWith(options),
     toast: input => toasts.push(input),
     say,
     sayEnglish,

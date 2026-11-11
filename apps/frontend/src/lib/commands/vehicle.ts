@@ -4,14 +4,17 @@
 // and it asks for a hold before it goes. The backend checks all of it again: this page's view of the vehicle may be late.
 import type { Availability, Command, CommandContext, CommandOutcome, RebootResult, VehicleFacts } from './command'
 import type { SafetyOptions } from '@/lib/app/safety'
+import { refusalKeyOf, tellRefusal, tellResult } from './rebootReport'
 
 /** The group of the commands that act on the vehicle. */
 export const VEHICLE_GROUP = 'palette.group.vehicle'
 
 /** How a reboot ended, with the command's usual outcome. */
 export interface RebootOutcome extends CommandOutcome {
-  /** What the vehicle said. */
-  reboot: RebootResult
+  /** What the vehicle said: absent when the backend refused before it sent anything. */
+  reboot?: RebootResult
+  /** The message of the reason, when the backend refused before it sent anything (ARMED, STATE_UNKNOWN, BUSY, NOT_CONNECTED). */
+  refusedBy?: string
 }
 
 /**
@@ -102,6 +105,20 @@ export class RebootFlightController implements Command {
    * @returns what the vehicle said
    */
   async execute(ctx: CommandContext): Promise<RebootOutcome> {
-    return { focus: 'restore', reboot: await ctx.vehicle.reboot() }
+    try {
+      const reboot = await ctx.vehicle.reboot()
+      tellResult(ctx, reboot)
+
+      return { focus: 'restore', reboot }
+    } catch (error) {
+      const refusedBy = refusalKeyOf(error)
+      if (refusedBy === undefined) {
+        throw error
+      }
+      // The backend looked again, and would not send it (the page's view was late): told, and nothing was sent.
+      tellRefusal(ctx, refusedBy)
+
+      return { focus: 'restore', refusedBy }
+    }
   }
 }

@@ -1,5 +1,5 @@
 <template>
-  <p id="connection" class="visually-hidden" role="status"><span>{{ t(`connection.state.${state}`) }}</span>{{ found }}
+  <p id="connection" class="visually-hidden" role="status"><span>{{ t(stateKey) }}</span>{{ found }}
     <span v-if="retrying">{{ retrying }}</span>
     <span v-if="resumed">{{ t('connection.resumed') }}</span>
     <span v-if="fields.error.value">{{ fields.error.value }}</span>
@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { isRebooting, rebootProgress } from '@/lib/fly/reboot'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useConnectDialog } from '@/composables/useConnectDialog'
 import { useToasts } from '@/composables/toasts'
@@ -22,6 +23,9 @@ const { fields } = useConfigurator()
 const dialog = useConnectDialog()
 const toasts = useToasts()
 const state = computed(() => fields.connection.value.state)
+// The vehicle went quiet because it was told to reboot: said as that, not as a lost link.
+const quiet = computed(() => isRebooting(fields.connection.value))
+const stateKey = computed(() => (quiet.value ? 'connection.rebooting' : `connection.state.${state.value}`))
 // Said only while the link is up: `resumed` describes the `connected` that followed a reconnect, not a later state.
 const resumed = computed(() => state.value === 'connected' && fields.connection.value.resumed === true)
 // While the backend brings the link back: which try this is, and how long until the next.
@@ -67,6 +71,19 @@ watch(fields.notice, message => {
 watch(state, now => {
   if (now === 'connected') {
     clearNoticeToast()
+  }
+})
+
+// A vehicle that was rebooting and is the same vehicle again is welcome back: a toast, since the cell only says "connected".
+let rebooting = false
+
+watch(fields.connection, connection => {
+  const { rebooting: now, back } = rebootProgress(rebooting, connection)
+  rebooting = now
+
+  if (back) {
+    const vehicle = connection.vehicle?.type ?? ''
+    toasts.push({ id: 'reboot-back', severity: 'success', text: t('palette.vehicle.reboot.back', { vehicle }) })
   }
 })
 </script>

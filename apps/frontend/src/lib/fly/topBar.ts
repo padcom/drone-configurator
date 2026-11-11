@@ -3,6 +3,7 @@
 // that has gone quiet is said so in words.
 import type { Connection, Telemetry } from '@/generated/app'
 import { batteryText, isStale } from './telemetryCards'
+import { isRebooting } from './reboot'
 import type { Translate } from './telemetryCards'
 import type { Format } from '@/i18n/useFormat'
 
@@ -119,6 +120,17 @@ const TONES: Record<Connection['state'], VehicleCell['tone']> = {
 }
 
 /**
+ * The message that names the state of the link. A vehicle that went quiet because it was told to reboot says so, not the generic
+ * state of a lost link.
+ *
+ * @param connection the link's state
+ * @returns the key of the message
+ */
+function stateKey(connection: Connection): string {
+  return isRebooting(connection) ? 'topBar.rebooting' : `connection.state.${connection.state}`
+}
+
+/**
  * The first line: the vehicle's type while the link is up, else the state of the link.
  *
  * @param connection the link's state
@@ -128,7 +140,7 @@ const TONES: Record<Connection['state'], VehicleCell['tone']> = {
 function titleOf(connection: Connection, translate: Translate): string {
   const type = connection.state === 'connected' ? connection.vehicle?.type : undefined
 
-  return type ?? translate(`connection.state.${connection.state}`)
+  return type ?? translate(stateKey(connection))
 }
 
 /**

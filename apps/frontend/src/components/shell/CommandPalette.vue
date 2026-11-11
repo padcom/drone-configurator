@@ -221,6 +221,19 @@ function afterRun(result: InvokeResult): void {
 }
 
 /**
+ * Waits until the palette is gone and has given the focus back to what had it before it opened. A confirmation that the command
+ * asks for opens next, and the element it remembers to give the focus back to is the one that has it when it opens: if that were
+ * still the palette's input (about to be removed), the focus would be lost to the page when the question is answered.
+ */
+async function focusSettled(): Promise<void> {
+  await nextTick()
+  // The dialog gives the focus back a task after it closes: a task queued now runs after it.
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, 0)
+  })
+}
+
+/**
  * Runs a command through the registry, the one way a command runs. The palette is closed first (a confirmation the command asks
  * for must not open under it). A command that may not run says why, and nothing happens.
  *
@@ -233,6 +246,7 @@ async function run(row: Row): Promise<void> {
     return
   }
   palette.hide()
+  await focusSettled()
   afterRun(await registry.invoke(row.command, ctx))
 }
 
