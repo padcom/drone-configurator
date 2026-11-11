@@ -99,6 +99,58 @@ function registry(): CommandRegistry {
   return commands
 }
 
+const NO_ANSWER = [
+  'No answer from QUADROTOR.', 'If it is rebooting, the link comes back by itself.', 'If nothing happens, try again.',
+].join(' ')
+
+describe('what the user is told of the vehicle\'s answer', () => {
+  it.each([
+    ['accepted', 'success', 'Rebooting QUADROTOR…'],
+    ['refused', 'error', 'QUADROTOR refused to reboot.'],
+    ['unsupported', 'warning', 'QUADROTOR does not support a reboot from here.'],
+    ['no-answer', 'warning', NO_ANSWER],
+  ] as const)('is, for %s, a %s toast', async (result, severity, text) => {
+    const fake = fakeContext({ rebootResult: { result } })
+    const outcome = await reboot.execute(fake.ctx)
+
+    expect(fake.calls.toast).toMatchObject([{ severity, text }])
+    expect(outcome.reboot).toEqual({ result })
+  })
+
+  it('is in the language of the page', async () => {
+    setLanguage('pl')
+    const fake = fakeContext()
+    await reboot.execute(fake.ctx)
+
+    expect(fake.calls.toast[0]?.text).toBe('Pojazd QUADROTOR uruchamia się ponownie…')
+  })
+})
+
+describe('when the backend refuses before it sends anything', () => {
+  it.each([
+    ['ARMED', 'Disarm the vehicle first. A flying vehicle is never rebooted.'],
+    ['STATE_UNKNOWN', 'The vehicle\'s state is unknown (no recent heartbeat).'],
+    ['BUSY', 'Parameters are being written or downloaded, or a reboot is already under way.'],
+    ['NOT_CONNECTED', 'Connect to a vehicle first.'],
+  ])('tells why, for %s, as an error toast, and the outcome says which reason', async (code, text) => {
+    const fake = fakeContext({ rebootError: Object.assign(new Error('no'), { code }) })
+    const outcome = await reboot.execute(fake.ctx)
+
+    expect(fake.calls.toast).toMatchObject([{ severity: 'error', text }])
+    expect(outcome.refusedBy).toBeDefined()
+    expect(outcome.reboot).toBeUndefined()
+  })
+
+  it('lets any other failure through, for the registry to report as failed', async () => {
+    const failure = new Error('the link broke')
+    const fake = fakeContext({ rebootError: failure })
+
+    await expect(reboot.execute(fake.ctx)).rejects.toBe(failure)
+    expect(fake.calls.toast).toEqual([])
+    expect(await registry().invoke('vehicle.reboot', fake.ctx)).toEqual({ status: 'failed', error: failure })
+  })
+})
+
 describe('the reboot run by the registry', () => {
   it('reboots once after the hold is given', async () => {
     const fake = fakeContext()

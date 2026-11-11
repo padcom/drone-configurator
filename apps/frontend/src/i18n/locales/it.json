@@ -22,6 +22,7 @@
     }
   },
   "topBar": {
+    "rebooting": "Riavvio…",
     "home": "Home",
     "noVehicle": "Nessun veicolo",
     "vehicleSub": "{autopilot} · sistema {sysid}/{compid}",
@@ -241,6 +242,7 @@
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
   },
   "connection": {
+    "rebooting": "riavvio",
     "state": {
       "disconnected": "disconnesso",
       "connecting": "connessione in corso",
@@ -532,6 +534,7 @@
       "settings": "Vai a Impostazioni"
     },
     "reason": {
+      "busy": "Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
       "notConnected": "Connettiti prima a un veicolo.",
       "stateUnknown": "Lo stato del veicolo è sconosciuto (nessun heartbeat recente).",
       "armed": "Disarma prima il veicolo. Un veicolo in volo non viene mai riavviato.",
@@ -540,6 +543,11 @@
     },
     "vehicle": {
       "reboot": {
+        "accepted": "Il veicolo {vehicle} si sta riavviando…",
+        "refused": "Il veicolo {vehicle} ha rifiutato il riavvio.",
+        "unsupported": "Il veicolo {vehicle} non supporta il riavvio da qui.",
+        "noAnswer": "Nessuna risposta dal veicolo {vehicle}. Se si sta riavviando, il collegamento torna da solo. Se non succede nulla, riprova.",
+        "back": "Il veicolo {vehicle} è tornato.",
         "label": "Riavvia il controller di volo",
         "keywords": "riavvio reset ripartenza",
         "title": "Riavvia il controller di volo",

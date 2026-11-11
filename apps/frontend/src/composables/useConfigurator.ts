@@ -8,6 +8,7 @@ import { draftWarning, validateDraft } from '@/lib/params/draft'
 import { showNumber } from '@/lib/params/paramValue'
 import { legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
 import type { State } from '@/state/state'
+import type { SafetyOptions } from '@/lib/app/safety'
 import { type MetadataModel, useMetadata } from './useMetadata'
 import { type ParamsDeps, type ParamsModel, useParams } from './useParams'
 import { toastSeverity } from '@/lib/fly/messages'
@@ -25,6 +26,8 @@ export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
 export interface Confirmation {
   /** What the user is asked. */
   question: string
+  /** How it is asked, when it is not the usual plain confirmation of a write (a command that needs a hold asks its own). */
+  options?: SafetyOptions
   /** Settles the pending confirmation. */
   answer: (yes: boolean) => void
 }
@@ -49,6 +52,8 @@ export interface ConfiguratorHandle {
   fields: Fields
   /** The question the confirmation dialog shows, or null. */
   confirmation: ShallowRef<Confirmation | null>
+  /** Asks the user a question that has its own options (a hold, for a command that must not be one click). */
+  confirmWith: (options: SafetyOptions) => Promise<boolean>
 }
 
 /**
@@ -56,9 +61,10 @@ export interface ConfiguratorHandle {
  *
  * @param confirmation the ref the dialog shows
  * @param question what to ask
+ * @param options how to ask it, when not as the usual plain confirmation
  * @returns whether the user said yes
  */
-function ask(confirmation: ShallowRef<Confirmation | null>, question: string): Promise<boolean> {
+function ask(confirmation: ShallowRef<Confirmation | null>, question: string, options?: SafetyOptions): Promise<boolean> {
   // One question at a time: a second one (a double click on Write) replaces the first, which is answered no, not left hanging.
   confirmation.value?.answer(false)
 
@@ -67,7 +73,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string): P
       confirmation.value = null
       resolve(yes)
     }
-    confirmation.value = { question, answer }
+    confirmation.value = { question, options, answer }
   })
 }
 
@@ -275,7 +281,8 @@ export function createConfigurator(
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
-  current = { ...models, fields: fieldsOf(models, error), confirmation }
+  const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
+  current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
   return current
 }

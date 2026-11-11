@@ -3,7 +3,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import type { Connection, ConnectRequest, SerialPort, Telemetry } from '@/generated/app'
+import type { Connection, ConnectRequest, RebootResult, SerialPort, Telemetry } from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
 export interface VehicleDeps {
@@ -30,6 +30,11 @@ export interface Vehicle {
   connect: (request: ConnectRequest) => Promise<void>
   /** Disconnects. */
   disconnect: () => Promise<void>
+  /**
+   * Asks the backend to reboot the flight controller, once. Resolves with what the vehicle said; rejects with a BackendError
+   * whose code says why the backend refused before sending anything (NOT_CONNECTED, ARMED, STATE_UNKNOWN, BUSY).
+   */
+  reboot: () => Promise<RebootResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
   /** Starts listening to the backend: the connection and the telemetry. */
@@ -44,9 +49,9 @@ export interface Vehicle {
  * Why a connection failed, if it did.
  *
  * @param connection what the backend reported
- * @returns its error, or null
+ * @returns its error, or null (a vehicle that is rebooting went quiet on purpose: that is not a failure to tell the user of)
  */
-const errorOf = (connection: Connection) => connection.error ?? null
+const errorOf = (connection: Connection) => (connection.errorCode === 'REBOOTING' ? null : connection.error ?? null)
 
 /**
  * The text for a vehicle session that ended because the backend did.
@@ -149,6 +154,10 @@ class VehicleLink implements Vehicle {
     } catch (error) {
       this.deps.fail(describeError(error))
     }
+  }
+
+  reboot(): Promise<RebootResult> {
+    return this.deps.client.call('vehicle.reboot', null)
   }
 
   async listPorts(): Promise<void> {
