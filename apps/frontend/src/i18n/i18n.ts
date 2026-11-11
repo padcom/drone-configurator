@@ -7,6 +7,8 @@ import en from '@/i18n/locales/en.json'
 import es from '@/i18n/locales/es.json'
 import it from '@/i18n/locales/it.json'
 import pl from '@/i18n/locales/pl.json'
+import ru from '@/i18n/locales/ru.json'
+import uk from '@/i18n/locales/uk.json'
 
 /**
  * The languages of the interface: ONE table. A new language is a locale file in `locales/`, a row here (its code, its name in
@@ -19,6 +21,8 @@ const TABLE = {
   pl: { name: 'Polski', messages: pl },
   it: { name: 'Italiano', messages: it },
   es: { name: 'Español', messages: es },
+  uk: { name: 'Українська', messages: uk },
+  ru: { name: 'Русский', messages: ru },
 }
 
 /** One of the languages in the table. */

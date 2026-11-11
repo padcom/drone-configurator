@@ -102,7 +102,9 @@ describe('the production build and the component gallery', () => {
 })
 
 describe('the fonts in the production build', () => {
-  it.each(['latin', 'latin-ext'])('has IBM Plex Sans in four weights and Mono in three, as woff2 of the %s subset', subset => {
+  const subsets = ['latin', 'latin-ext', 'cyrillic']
+
+  it.each(subsets)('has Plex Sans in four weights and Mono in three, as woff2 of the %s subset', subset => {
     const sans = new RegExp(`^ibm-plex-sans-${subset}-(?:400|500|600|700)-normal-.+\\.woff2$`, 'u')
     const mono = new RegExp(`^ibm-plex-mono-${subset}-(?:400|500|600)-normal-.+\\.woff2$`, 'u')
 
@@ -115,16 +117,18 @@ describe('the fonts in the production build', () => {
   it('gives every face the unicode-range of its subset, so that a file is fetched only when a character of it is shown', () => {
     const faces = built.css.match(/@font-face\s*\{[^}]*\}/gu) ?? []
 
-    expect(faces.length).toBeGreaterThanOrEqual(14)
+    expect(faces.length).toBeGreaterThanOrEqual(21)
     expect(faces.filter(face => !face.includes('unicode-range'))).toEqual([])
   })
 
-  it('keeps the font files of every subset to a sane total (the Latin and Latin Extended ones together under 400 KB)', () => {
+  it('keeps the font files of all subsets to a sane total (Latin, Latin Extended, Cyrillic: under 600 KB)', () => {
     const sizes = built.files.filter(f => /^ibm-plex-.*\.woff2$/u.test(f)).map(f => built.sizes[f] ?? 0)
 
-    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThan(400 * 1024)
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThan(600 * 1024)
   })
+})
 
+describe('the fonts in the production build: where they come from', () => {
   it('fetches nothing from the network: every font and every URL in the CSS is the app\'s own', () => {
     expect(built.css).not.toMatch(/url\(\s*["']?(?:https?:)?\/\//iu)
     expect(built.css).not.toMatch(/@import/iu)

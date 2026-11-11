@@ -54,6 +54,17 @@ describe('a message in the interface', () => {
     expect(t('bits.count', { count: 3, names: 'GPS' }, 3)).toBe('3 Bits: GPS')
   })
 
+  it.each([
+    ['ru', [[1, '1 бит'], [2, '2 бита'], [5, '5 бит'], [11, '11 бит'], [21, '21 бит'], [22, '22 бита'], [0, '0 бит']]],
+    ['uk', [[1, '1 біт'], [3, '3 біти'], [5, '5 бітів'], [11, '11 бітів'], [21, '21 біт'], [24, '24 біти'], [0, '0 бітів']]],
+  ] as const)('takes the three forms of %s for the count: one, few, many', (language, cases) => {
+    setLanguage(language)
+    const { t } = i18n.global
+
+    expect(cases.map(([count]) => t('bits.count', { count, names: 'GPS' }, count)))
+      .toEqual(cases.map(([, text]) => `${text}: GPS`))
+  })
+
   it('keeps the English forms: "1 bit" and "0 bits"', () => {
     const { t } = i18n.global
 
