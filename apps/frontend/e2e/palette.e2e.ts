@@ -76,15 +76,9 @@ describe('opening the palette', () => {
   })
 })
 
-describe('opening the palette from the top bar', () => {
-  it('opens from the top bar\'s button, which has the key on it', async () => {
-    expect(await app.text('#open-palette')).toContain('Ctrl P')
-    expect(await app.evaluate<string>(`document.querySelector('#open-palette').getAttribute('aria-keyshortcuts')`))
-      .toBe('Control+P')
-    await app.click('#open-palette')
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
-    await chord('Escape')
-    await app.waitFor(`document.querySelector('#palette-input') === null`)
+describe('the top bar', () => {
+  it('has no button for the palette: it is the command "Show command palette", reached by its key', async () => {
+    expect(await app.evaluate<boolean>(`document.querySelector('#open-palette') === null`)).toBe(true)
   })
 })
 
@@ -93,16 +87,10 @@ describe('running a command', () => {
     await showScreen(app, 'flight')
     await chord('p', CTRL)
     await app.waitFor(`document.querySelector('#palette-input') !== null`)
-    await app.fill('#palette-input', 'param')
-    await app.waitFor(`${ROWS}.length === 5`)
+    await app.fill('#palette-input', 'switch to param')
+    await app.waitFor(`${ROWS}.length === 1`)
 
-    expect(await app.evaluate<string[]>(ROWS)).toEqual([
-      'go.parameters',
-      'metadata.load',
-      'params.download',
-      'snapshot.save',
-      'snapshot.load',
-    ])
+    expect(await app.evaluate<string[]>(ROWS)).toEqual(['go.parameters'])
     await chord('Enter')
     await app.waitFor(`document.querySelector('#palette-input') === null && location.hash === '#/parameters'`)
 

@@ -3,6 +3,7 @@
 // that change nothing of what it says or does.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
+import { type Ref, ref } from 'vue'
 import { createMemoryHistory } from 'vue-router'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { mockBackend } from '@/mock/mock-backend'
@@ -135,6 +136,61 @@ describe('a command that may not run', () => {
     button.focus()
 
     expect(document.activeElement).toBe(button)
+  })
+})
+
+/**
+ * A command that leads to the Logs screen and may run while the ref says so.
+ *
+ * @param enabled whether it may run
+ * @returns the command
+ */
+function linkThatTurns(enabled: Ref<boolean>): Command {
+  return {
+    id: 'test.link',
+    labelKey: 'palette.go.logs',
+    groupKey: 'palette.group.navigate',
+    icon: 'file',
+    href: '/logs',
+    isEnabled: () => (enabled.value ? { enabled: true } : { enabled: false, reasonKey: 'palette.reason.notConnected' }),
+    execute: () => ({}),
+  }
+}
+
+describe('a command that leads somewhere and turns off and on', () => {
+  it('stays the same element and keeps the focus: an <a> with no href while it may not run', async () => {
+    const enabled = ref(true)
+    const { wrapper } = await buttonFor({ command: linkThatTurns(enabled) })
+    const element = wrapper.element as HTMLElement
+    element.focus()
+    expect([element.tagName, element.getAttribute('href')]).toEqual(['A', '/logs'])
+
+    enabled.value = false
+    await flushPromises()
+
+    expect(wrapper.element).toBe(element)
+    expect(document.activeElement).toBe(element)
+    expect([element.tagName, element.hasAttribute('href')]).toEqual(['A', false])
+    const kept = ['role', 'tabindex', 'aria-disabled'].map(name => element.getAttribute(name))
+
+    expect(kept).toEqual(['link', '0', 'true'])
+  })
+})
+
+describe('a command that leads somewhere and may run again', () => {
+  it('is a real link again when it may run again, still the same element with the focus on it', async () => {
+    const enabled = ref(false)
+    const { wrapper } = await buttonFor({ command: linkThatTurns(enabled) })
+    const element = wrapper.element as HTMLElement
+    element.focus()
+
+    enabled.value = true
+    await flushPromises()
+
+    expect(wrapper.element).toBe(element)
+    expect(document.activeElement).toBe(element)
+    expect(element.getAttribute('href')).toBe('/logs')
+    expect(element.hasAttribute('aria-disabled')).toBe(false)
   })
 })
 

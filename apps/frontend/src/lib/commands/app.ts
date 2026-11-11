@@ -48,7 +48,7 @@ export class ShowPalette implements Command {
    * @returns the focus stays where the palette finds it
    */
   execute(ctx: CommandContext): CommandOutcome {
-    ctx.dialogs.showPalette()
+    ctx.dialogs.togglePalette()
 
     return { focus: 'restore' }
   }

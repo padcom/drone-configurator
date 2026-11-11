@@ -140,39 +140,39 @@ it('leaves Ctrl+/, Ctrl+Enter and F6 alone', async () => {
   expect(useCommandPalette().open.value).toBe(false)
 })
 
-it('is opened by the top bar\'s button, which says what it does and what key it has', async () => {
+it('has no button in the top bar: the palette is the command "Show command palette", run by its key', async () => {
   const { wrapper } = await shellAt()
-  const button = wrapper.get('#open-palette')
+  const invoke = vi.spyOn(useCommands(), 'invoke')
 
-  expect(button.get('.command-button-label').text()).toBe('Search or run a command')
-  expect(button.get('kbd').text()).toBe('Ctrl P')
-  expect(button.attributes('aria-haspopup')).toBe('dialog')
-  expect(button.attributes('aria-keyshortcuts')).toBe('Control+P')
-  await button.trigger('click')
+  expect(wrapper.find('#open-palette').exists()).toBe(false)
+  ctrlP()
+  await flushPromises()
 
+  // The same path as the buttons and the palette: through the registry, by the id the keymap names.
+  expect(invoke).toHaveBeenCalledWith('palette.open', expect.anything())
   expect(wrapper.find('#palette-input').exists()).toBe(true)
 })
 
-it('lists every command in registry order with its group, the Navigate ones first', async () => {
+it('lists every command alphabetically by its label when none was run lately', async () => {
   const { wrapper } = await shellAt()
   ctrlP()
   await flushPromises()
 
   expect(labels(wrapper)).toEqual([
-    'Switch to Flight data',
-    'Switch to Plan',
-    'Switch to Setup',
-    'Switch to Parameters',
-    'Switch to Tune',
-    'Switch to Logs',
-    'Switch to Settings',
-    'Reboot flight controller',
-    'Load parameter metadata…',
     'Connect to a vehicle…',
     'Disconnect',
     'Download parameters',
-    'Save parameter snapshot…',
+    'Load parameter metadata…',
     'Load parameter snapshot…',
+    'Reboot flight controller',
+    'Save parameter snapshot…',
+    'Switch to Flight data',
+    'Switch to Logs',
+    'Switch to Parameters',
+    'Switch to Plan',
+    'Switch to Settings',
+    'Switch to Setup',
+    'Switch to Tune',
   ])
 })
 
@@ -182,15 +182,27 @@ it('names the group of each command in its row', async () => {
   await flushPromises()
 
   expect(wrapper.findAll('.palette-row .palette-group').map(group => group.text())).toEqual([
+    'Vehicle',
+    'Vehicle',
+    'Parameters',
+    'Parameters',
+    'Parameters',
+    'Vehicle',
+    'Parameters',
     ...Array(7).fill('Navigate'),
-    'Vehicle',
-    'Parameters',
-    'Vehicle',
-    'Vehicle',
-    'Parameters',
-    'Parameters',
-    'Parameters',
   ])
+})
+
+it('lists the command that was run last first, and remembers it for the next opening', async () => {
+  const { wrapper, router } = await shellAt()
+  ctrlP()
+  await flushPromises()
+  await wrapper.get('[data-command="go.tune"]').trigger('click')
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/tune'))
+  ctrlP()
+  await flushPromises()
+
+  expect(labels(wrapper).slice(0, 2)).toEqual(['Switch to Tune', 'Connect to a vehicle…'])
 })
 
 it('does not list the command that opens the palette: choosing it would close and reopen it, and lose the query', async () => {
@@ -209,12 +221,13 @@ it('filters by what is typed, and says so when nothing matches', async () => {
   await flushPromises()
   await type(wrapper, 'param')
 
+  // The same rank for all five: alphabetical by label.
   expect(labels(wrapper)).toEqual([
-    'Switch to Parameters',
-    'Load parameter metadata…',
     'Download parameters',
-    'Save parameter snapshot…',
+    'Load parameter metadata…',
     'Load parameter snapshot…',
+    'Save parameter snapshot…',
+    'Switch to Parameters',
   ])
   await type(wrapper, 'xyz')
 
@@ -239,7 +252,7 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
   const { wrapper, router } = await shellAt()
   ctrlP()
   await flushPromises()
-  await type(wrapper, 'param')
+  await type(wrapper, 'switch to param')
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
 
@@ -281,21 +294,21 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await flushPromises()
   const input = wrapper.get('#palette-input')
   const active = () => wrapper.get('.palette-row.active').attributes('data-command')
-  expect(active()).toBe('go.flight')
+  expect(active()).toBe('connect.open')
 
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('snapshot.load')
+  expect(active()).toBe('go.tune')
   await input.trigger('keydown', { key: 'ArrowDown' })
-  expect(active()).toBe('go.flight')
+  expect(active()).toBe('connect.open')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('snapshot.load')
+  expect(active()).toBe('go.tune')
   await input.trigger('keydown', { key: 'Home' })
-  expect(active()).toBe('go.flight')
+  expect(active()).toBe('connect.open')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('metadata.load')
+  expect(active()).toBe('go.logs')
   await input.trigger('keydown', { key: 'PageUp' })
-  expect(active()).toBe('go.flight')
-  expect(input.attributes('aria-activedescendant')).toBe('palette-option-go.flight')
+  expect(active()).toBe('connect.open')
+  expect(input.attributes('aria-activedescendant')).toBe('palette-option-connect.open')
 })
 
 it('leaves Home and End to the caret once there is text, and puts the selection on the first row of a new query', async () => {
@@ -368,12 +381,14 @@ it('says how many commands there are, a moment after the query changes (not on e
  * Registers a command that may not run, for the test of a disabled row.
  *
  * @param execute what it does, if it is run
+ * @param label a label of its own, in place of the reboot's
  * @returns the function that takes it out again
  */
-function registerBlocked(execute: () => void) {
+function registerBlocked(execute: () => void, label?: string) {
   return useCommands().register({
     id: 'test.blocked',
     labelKey: 'palette.vehicle.reboot.label',
+    ...(label === undefined ? {} : { label }),
     groupKey: 'palette.group.vehicle',
     isEnabled: () => ({ enabled: false, reasonKey: 'palette.reason.notConnected' }),
     execute: () => {
@@ -432,7 +447,7 @@ it('starts afresh on every opening: no old query, the first row selected, the co
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
   expect(labels(wrapper)).toHaveLength(14)
-  expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
+  expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('connect.open')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
@@ -440,14 +455,15 @@ it('starts afresh on every opening: no old query, the first row selected, the co
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {
-  const unregister = registerBlocked(() => undefined)
+  // Its label puts it first in the alphabetical list.
+  const unregister = registerBlocked(() => undefined, 'A blocked command')
   try {
     const { wrapper } = await shellAt()
     ctrlP()
     await flushPromises()
 
-    expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('go.flight')
-    expect(wrapper.findAll('.palette-row').at(-1)?.attributes('data-command')).toBe('test.blocked')
+    expect(wrapper.findAll('.palette-row').at(0)?.attributes('data-command')).toBe('test.blocked')
+    expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('connect.open')
   } finally {
     unregister()
   }
@@ -479,7 +495,7 @@ it('follows a mouse that moves, but not the scroll of a pointer at rest or a key
   await wrapper.get('#palette-input').trigger('keydown', { key: 'ArrowDown' })
   await over('go.logs', 30, 30)
 
-  expect(active()).toBe('go.setup')
+  expect(active()).toBe('go.settings')
 })
 
 it.each(LANGUAGES)('shows the placeholder, the group tags and the rows in %s', async language => {
@@ -490,14 +506,8 @@ it.each(LANGUAGES)('shows the placeholder, the group tags and the rows in %s', a
   const input = wrapper.get('#palette-input')
 
   expect(input.attributes('placeholder')).toBe(i18n.global.t('palette.placeholder'))
-  expect(wrapper.get('.palette-group').text()).toBe(i18n.global.t('palette.group.navigate'))
-  expect(labels(wrapper)[3]).toBe(i18n.global.t('palette.go.parameters'))
-})
+  const row = wrapper.get('[data-command="go.parameters"]')
 
-it('is Cmd P in the hint on a Mac', async () => {
-  const platform = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel')
-  const { wrapper } = await shellAt()
-
-  expect(wrapper.get('#open-palette kbd').text()).toBe('⌘ P')
-  platform.mockRestore()
+  expect(row.get('.palette-group').text()).toBe(i18n.global.t('palette.group.navigate'))
+  expect(row.get('.palette-label').text()).toBe(i18n.global.t('palette.go.parameters'))
 })

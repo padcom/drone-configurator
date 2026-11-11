@@ -240,6 +240,8 @@
     "languageHelp": "Język interfejsu.",
     "groups": "Pokaż grupy parametrów",
     "groupsHelp": "Pokazuje listę grup i gwiazdki ulubionych. Twoje ulubione zostają zachowane, gdy jest wyłączone.",
+    "notify": "Pokazuj powiadomienie, gdy polecenie jest wykonywane",
+    "notifyHelp": "Każde wykonane polecenie, z palety, klawiszem lub przyciskiem, podaje swoją nazwę w krótkim powiadomieniu. Do debugowania.",
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
   },
   "connection": {

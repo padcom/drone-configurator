@@ -41,11 +41,14 @@ describe('fold', () => {
   })
 })
 
+/** The screens' commands by their English labels ("Switch to Flight data", "… Logs", …): the order when nothing was run. */
+const SCREENS_BY_LABEL = ['go.flight', 'go.logs', 'go.parameters', 'go.plan', 'go.settings', 'go.setup', 'go.tune']
+
 describe('an empty query', () => {
-  it('lists every command in registry order: Navigate, then Vehicle', () => {
+  it('lists every command alphabetically by its label when none was run lately (order.test.ts has the rest of the order)', () => {
     const all = ids('')
 
-    expect(all).toEqual([...goToScreens().map(command => command.id), 'vehicle.reboot'])
+    expect(all).toEqual(['vehicle.reboot', ...SCREENS_BY_LABEL])
     expect(ids('   ')).toEqual(all)
   })
 })
@@ -71,7 +74,7 @@ describe('a query', () => {
 
   it('finds the group: Vehicle lists the vehicle commands, Navigate the screens', () => {
     expect(ids('vehicle')).toEqual(['vehicle.reboot'])
-    expect(ids('navigate')).toEqual(goToScreens().map(command => command.id))
+    expect(ids('navigate')).toEqual(SCREENS_BY_LABEL)
   })
 
   it('ignores case, and finds nothing for what is not there', () => {
@@ -81,12 +84,13 @@ describe('a query', () => {
 })
 
 describe('the order of what a query finds', () => {
-  it('has a word of the label before the extra words, and registry order within a rank', () => {
-    // "p" starts a word of "Plan" and of "Parameters" (in registry order), is inside a word of "Setup", and in the reboot
-    // it is only in a keyword ("power").
-    expect(ids('p')).toEqual(['go.plan', 'go.parameters', 'go.setup', 'vehicle.reboot'])
-    expect(ids('switch to')).toEqual(goToScreens().map(command => command.id))
-    expect(ids('flight')).toEqual(['go.flight', 'vehicle.reboot'])
+  it('has a word of the label before the extra words, and the alphabetical order within a rank', () => {
+    // "p" starts a word of "Parameters" and of "Plan" (alphabetically), is inside a word of "Setup", and in the reboot it is
+    // only in a keyword ("power").
+    expect(ids('p')).toEqual(['go.parameters', 'go.plan', 'go.setup', 'vehicle.reboot'])
+    expect(ids('switch to')).toEqual(SCREENS_BY_LABEL)
+    // "flight" is a word of both labels: the same rank, so the alphabetical order of the labels.
+    expect(ids('flight')).toEqual(['vehicle.reboot', 'go.flight'])
   })
 })
 

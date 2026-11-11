@@ -240,6 +240,8 @@
     "languageHelp": "Die Sprache der Oberfläche.",
     "groups": "Parametergruppen anzeigen",
     "groupsHelp": "Zeigt die Gruppenliste und die Favoritensterne. Deine Favoriten bleiben erhalten, solange es aus ist.",
+    "notify": "Eine Benachrichtigung zeigen, wenn ein Befehl ausgeführt wird",
+    "notifyHelp": "Jeder ausgeführte Befehl, aus der Palette, per Taste oder Schaltfläche, nennt seinen Namen in einer kurzen Meldung. Zum Debuggen.",
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
   },
   "connection": {

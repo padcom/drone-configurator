@@ -240,6 +240,8 @@
     "languageHelp": "La lingua dell'interfaccia.",
     "groups": "Mostra i gruppi di parametri",
     "groupsHelp": "Mostra l'elenco dei gruppi e le stelle dei preferiti. I tuoi preferiti vengono conservati mentre è disattivato.",
+    "notify": "Mostra una notifica quando un comando viene eseguito",
+    "notifyHelp": "Ogni comando eseguito, dalla tavolozza, da un tasto o da un pulsante, dice il suo nome in una breve notifica. Per il debug.",
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
   },
   "connection": {

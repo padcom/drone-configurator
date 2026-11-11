@@ -65,8 +65,8 @@ export interface ParamsFacts {
 export interface DialogFacts {
   /** Opens the dialog to connect to a vehicle. */
   showConnect(): void
-  /** Opens the command palette. */
-  showPalette(): void
+  /** Opens the command palette, or closes it when it is open; it does not open over another dialog. */
+  togglePalette(): void
 }
 
 /** The vehicle's parameters, as the commands that go to one see them. */
@@ -94,6 +94,12 @@ export interface FileFacts {
   loadSnapshot(): void
 }
 
+/** What is known of how the commands have been used: the palette lists the ones run last first. */
+export interface UsageFacts {
+  /** The ids of the commands run lately, the one run last first. */
+  recent(): readonly string[]
+}
+
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
 export interface CommandContext {
   /** Goes to a route. */
@@ -108,6 +114,8 @@ export interface CommandContext {
   params: ParamsFacts
   /** The dialogs that open on a command. */
   dialogs: DialogFacts
+  /** How the commands have been used. */
+  usage: UsageFacts
   /** Files: what a command may ask to be opened. */
   files: FileFacts
   /** Asks the user to confirm (the one route for dangerous actions); false for "no" and for Escape. */

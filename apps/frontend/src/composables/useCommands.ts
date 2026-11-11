@@ -16,9 +16,10 @@ import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { say, sayEnglish } from '@/i18n/say'
-import { useCommandPalette } from './useCommandPalette'
+import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
 import { useConnectDialog } from './useConnectDialog'
+import { useCommandUsage } from './useCommandUsage'
 import { useFavourites } from './favourites'
 import { useParamGroup } from './useParamGroup'
 import { useParamSearchIndex } from './useParamSearchIndex'
@@ -173,9 +174,8 @@ function fileFacts(): FileFacts {
  */
 function dialogFacts(): DialogFacts {
   const connect = useConnectDialog()
-  const palette = useCommandPalette()
 
-  return { showConnect: () => connect.show(), showPalette: () => palette.show() }
+  return { showConnect: () => connect.show(), togglePalette: toggleUnlessCovered }
 }
 
 /**
@@ -190,6 +190,7 @@ export function useCommandContext(): CommandContext {
   const route = inject(routeLocationKey, null)
   const toasts = useToasts()
   const { confirmWith } = useConfigurator()
+  const { recent } = useCommandUsage()
 
   return {
     navigate: async path => {
@@ -201,6 +202,7 @@ export function useCommandContext(): CommandContext {
     vehicle: vehicleFacts(),
     params: paramsFacts(),
     dialogs: dialogFacts(),
+    usage: { recent: () => recent.value },
     files: fileFacts(),
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),

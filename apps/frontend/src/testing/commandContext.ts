@@ -26,6 +26,8 @@ export interface Fake {
     paramCount: number
     /** Whether the parameters are held by a write or another job. */
     paramsBusy: boolean
+    /** The ids of the commands run lately, the one run last first. */
+    recent: string[]
   }
   /** The vehicle's parameters as the commands will see them: change them between calls. */
   parameters: {
@@ -68,6 +70,7 @@ const DEFAULT_FACTS: Fake['facts'] = {
   rebootResult: { result: 'accepted' },
   paramCount: 12,
   paramsBusy: false,
+  recent: [],
 }
 
 /**
@@ -98,8 +101,9 @@ function vehicleOf(fake: Fake): VehicleFacts {
  * @param fake the fake
  * @returns the three parts
  */
-function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs'> {
+function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage'> {
   return {
+    usage: { recent: () => fake.facts.recent },
     files: {
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
@@ -112,7 +116,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
     },
     dialogs: {
       showConnect: () => void fake.calls.dialogs.push('connect'),
-      showPalette: () => void fake.calls.dialogs.push('palette'),
+      togglePalette: () => void fake.calls.dialogs.push('palette'),
     },
   }
 }
@@ -166,7 +170,7 @@ function parametersOf(fake: Fake): ParameterFacts {
  */
 export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   const fake: Fake = {
-    facts: { ...DEFAULT_FACTS, ...facts },
+    facts: { ...DEFAULT_FACTS, recent: [], ...facts },
     parameters: { ids: [], metadata: new Map(), favourites: new Set() },
     answer: { confirm: true },
     calls: noCalls(),
