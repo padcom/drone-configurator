@@ -1,7 +1,8 @@
-// Parameters in the palette: typing a name, or a word of what a parameter does, offers the parameters that match, and choosing one
-// shows it on the Parameters screen, selected. The parameters are found with the Parameters screen's own search (paramSearch.ts,
-// on the one index that is made for the list and the metadata), so the same words find the same parameters in both places. A
-// parameter the user has starred comes before the others that match as well. Nothing is written: this only goes to a parameter.
+// Parameters in the palette: typing a name, or a word of what a parameter does, offers the parameters that match, and choosing
+// one shows it on the Parameters screen, selected. The parameters are found with the Parameters screen's own search
+// (paramSearch.ts, on the one index that is made for the list and the metadata), so the same words find the same parameters
+// in both places. A parameter the user has starred comes before the others that match as well. Nothing is written: this only
+// goes to one.
 import type { Command, CommandContext, CommandOutcome, CommandProvider } from './command'
 import { type SearchHit, search } from '@/lib/params/paramSearch'
 import { PRODUCT_SCREENS } from '@/screens/registry'
@@ -77,7 +78,9 @@ const REASON_ORDER = { name: 0, description: 1, close: 2 } as const
 export function favouritesFirst(hits: SearchHit[], favourites: ReadonlySet<string>): SearchHit[] {
   const rank = (hit: SearchHit) => REASON_ORDER[hit.reason] * 2 + (favourites.has(hit.id) ? 0 : 1)
 
-  return hits.map((hit, order) => ({ hit, order })).toSorted((a, b) => rank(a.hit) - rank(b.hit) || a.order - b.order).map(({ hit }) => hit)
+  const ranked = hits.map((hit, order) => ({ hit, order }))
+
+  return ranked.toSorted((a, b) => rank(a.hit) - rank(b.hit) || a.order - b.order).map(({ hit }) => hit)
 }
 
 /** The parameters, offered for a query of two letters or more. */

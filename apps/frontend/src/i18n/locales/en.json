@@ -520,6 +520,7 @@
     "failed": "The command failed.",
     "group": {
       "navigate": "Navigate",
+      "parameter": "Parameter",
       "vehicle": "Vehicle"
     },
     "go": {

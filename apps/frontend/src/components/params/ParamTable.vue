@@ -147,13 +147,14 @@ import Icon from '@/components/ui/Icon.vue'
 import { useFavourites } from '@/composables/favourites'
 import { useToasts } from '@/composables/toasts'
 import { registerListNav } from '@/lib/params/paramListNav'
-import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from '@/lib/params/paramSearch'
+import { type SearchHit, search, tokensOf } from '@/lib/params/paramSearch'
 import type { Param } from '@/generated/app'
 import Marked from './Marked.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { showNumber } from '@/lib/params/paramValue'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamGroup } from '@/composables/useParamGroup'
+import { useParamSearchIndex } from '@/composables/useParamSearchIndex'
 import { useParamView } from '@/composables/useParamView'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
 
@@ -263,6 +264,7 @@ const hits = computed(() => {
   if (tokens.value.length === 0) {
     return null
   }
+
   return search(searchIndexNow(), fields.filter.value)
 })
 const visible = computed(() => {

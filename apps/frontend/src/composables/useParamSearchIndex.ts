@@ -1,6 +1,6 @@
 // What is searched of the parameters, made ONCE for the list and the metadata: the Parameters screen's search and the command
-// palette's parameters use this one index (not one each, and not one for each key typed). It is rebuilt only when the names or the
-// metadata change (paramSearch.indexFor says when).
+// palette's parameters use this one index (not one each, and not one for each key typed). It is rebuilt only when the names or
+// the metadata change (paramSearch.indexFor says when).
 import { type SearchIndex, indexFor } from '@/lib/params/paramSearch'
 import { useConfigurator } from './useConfigurator'
 

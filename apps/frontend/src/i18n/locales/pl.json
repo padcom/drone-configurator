@@ -520,6 +520,7 @@
     "failed": "Polecenie się nie powiodło.",
     "group": {
       "navigate": "Nawigacja",
+      "parameter": "Parametr",
       "vehicle": "Pojazd"
     },
     "go": {
