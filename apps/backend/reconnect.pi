@@ -17,7 +17,7 @@ import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
-import { encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
+import { boardOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
 
 /// The waits are in slices, so that a disconnect is noticed at once.
@@ -150,11 +150,18 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
     return
   }
   const identity = identityOf(found, version)
+  const board = boardOf(found, version)
   // It is back: the reboot that was waited for is over, and a new one may be asked for.
   link.rebootAt = 0
   link.rebootUnsure = false
-  if (identity == link.identity) {
-    // The same board: what it says it is now (a changed frame is another type) is shown, and the session goes on.
+  // The exception for a changed type is for one change, the one this session made: it ends with this taking up.
+  const mayChange = link.typeMayChange
+  link.typeMayChange = false
+  // The same vehicle: the very identity, or (only after this session changed the frame of the board) the same board, whatever
+  // type it reports now. A unique id alone is not enough: two vehicles on one host may report the same one.
+  if (identity == link.identity || (mayChange && board != "" && board == link.board)) {
+    // What it says it is now (a changed frame is another type) is shown, and the session goes on.
+    link.identity = identity
     link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found), resumed: true })
     return
   }
@@ -164,6 +171,7 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   link.autopilot = found.autopilot
   link.encoding = encodingFor(found, version)
   link.identity = identity
+  link.board = board
   link.attach(conn!)
   link.update(Connection {
     state: ConnectionState.Connected,

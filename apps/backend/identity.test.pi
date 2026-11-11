@@ -1,13 +1,26 @@
-// Who a vehicle is (`identityOf`): by the board's unique id when it says one, whatever type it reports (a changed frame class
-// makes a quad a hexa and the board is still the same); by ids, type and autopilot when it says none.
+// Who a vehicle is. `identityOf` has the ids, the type, the autopilot and the unique id; `boardOf` is the board alone (ids, autopilot
+// and a unique id that can tell boards apart, "" when there is none). A vehicle that comes back as another type is the same vehicle
+// only when THIS session changed the type itself (a verified write of FRAME_CLASS and the like) and the board is the same: a unique
+// id alone is not proof (two ArduPilot SITL instances on one host report the same one), so without such a write a changed type is
+// another vehicle, as it always was.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { AutopilotVersion, CommandLong, MavAutopilot, MavCmd, MavType, Received, Vehicle } from "padcom/pico-mavlink"
+import { AutopilotVersion, CommandLong, MavAutopilot, MavCmd, MavParamType, MavType, Received, TypedParamValue, Vehicle } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport, VehicleInfo, encodeConnectRequest } from "./generated/app"
+import {
+  Connection,
+  ConnectionState,
+  ConnectRequest,
+  ConnectRequestTransport,
+  ParamWrite,
+  ParamWriteKind,
+  VehicleInfo,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
 import { takeUp } from "./reconnect"
-import { identityOf, link } from "./session"
-import { start } from "./testing"
+import { boardOf, changesVehicleType, identityOf, link } from "./session"
+import { Frontend, start } from "./testing"
 
 /// A vehicle of `type`, system 1, component 1, ArduPilot.
 function vehicle(type: int, sysid: int = 1): Vehicle {
@@ -24,39 +37,70 @@ function versionWith(uid: int): AutopilotVersion {
   v
 }
 
-function sameBoardAfterAFrameChange(): void {
+/// A version with the unique id `uid` (64 bits, any bit pattern) and the 18-byte `uid2`.
+function versionWithBoth(uid: u64, uid2: u8[]): AutopilotVersion {
+  const v = new AutopilotVersion()
+  v.uid = uid
+  v.uid2 = uid2
+  v
+}
+
+function identityHasTheType(): void {
   const quad = identityOf(vehicle(MavType.QUADROTOR), versionWith(77))
-  const hexa = identityOf(vehicle(MavType.HEXAROTOR), versionWith(77))
-  expect(hexa).toBe(quad)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77))).toBe(quad)
+  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWith(77)) == quad).toBe(false)
+  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWith(0)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(false)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(false)
 }
 
-function anotherBoardIsAnotherVehicle(): void {
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(78))).toBe(false)
+function sameBoardWhateverTheType(): void {
+  expect(boardOf(vehicle(MavType.HEXAROTOR), versionWith(77))).toBe(boardOf(vehicle(MavType.QUADROTOR), versionWith(77)))
 }
 
-function idsAndAutopilotStillCount(): void {
-  const board = identityOf(vehicle(MavType.QUADROTOR), versionWith(77))
-  expect(identityOf(vehicle(MavType.QUADROTOR, 2), versionWith(77)) == board).toBe(false)
+function anotherBoardIsAnotherBoard(): void {
+  expect(boardOf(vehicle(MavType.QUADROTOR), versionWith(77)) == boardOf(vehicle(MavType.QUADROTOR), versionWith(78))).toBe(false)
+  const board = boardOf(vehicle(MavType.QUADROTOR), versionWith(77))
+  expect(boardOf(vehicle(MavType.QUADROTOR, 2), versionWith(77)) == board).toBe(false)
   const other = vehicle(MavType.QUADROTOR)
   other.autopilot = MavAutopilot.PX4
-  expect(identityOf(other, versionWith(77)) == board).toBe(false)
+  expect(boardOf(other, versionWith(77)) == board).toBe(false)
 }
 
-function noUniqueIdKeepsTheType(): void {
-  const quad = identityOf(vehicle(MavType.QUADROTOR), versionWith(0))
-  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWith(0)) == quad).toBe(false)
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(quad)
+/// 0, all ones and a constant byte are what a board that has no id sends: each is the same on every board, so none of them is a
+/// board (two different boards must not be "the same vehicle").
+function junkIdsAreNoBoard(): void {
+  const ones = (0x7FFFFFFFFFFFFFFF as u64) | ((1 as u64) << 63)
+  const junk: u64[] = [0 as u64, ones, 0x0101010101010101 as u64, 0x4242424242424242 as u64]
+  for (const uid of junk) {
+    expect(boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(uid, []))).toBe("")
+  }
+  expect(boardOf(vehicle(MavType.QUADROTOR), null)).toBe("")
 }
 
-function noAnswerToTheVersionIsNoUniqueId(): void {
-  const quad = identityOf(vehicle(MavType.QUADROTOR), null)
-  expect(quad).toBe(identityOf(vehicle(MavType.QUADROTOR), versionWith(0)))
-  expect(identityOf(vehicle(MavType.HEXAROTOR), null) == quad).toBe(false)
+function junkUid2IsNoBoardAndThenTheUidIsUsed(): void {
+  const none: u8[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  const ones: u8[] = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
+  expect(boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(0 as u64, none))).toBe("")
+  expect(boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(77 as u64, ones))).toBe(boardOf(vehicle(MavType.HEXAROTOR), versionWithBoth(77 as u64, none)))
 }
 
-function aUniqueIdIsNeverTakenForNone(): void {
-  // A board with a unique id is not "the same" as one that says none, whatever their types: nothing is reused silently.
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(false)
+/// uid2 supersedes uid: boards that differ in uid2 are different whatever uid says, and the same uid2 is the same board.
+function uid2IsPreferred(): void {
+  const a: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+  const b: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19]
+  const first = boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, a))
+  expect(boardOf(vehicle(MavType.HEXAROTOR), versionWithBoth(5 as u64, a))).toBe(first)
+  expect(boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, b)) == first).toBe(false)
+  expect(boardOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, [])) == first).toBe(false)
+}
+
+function theParametersThatChangeTheKind(): void {
+  expect(changesVehicleType("FRAME_CLASS")).toBe(true)
+  expect(changesVehicleType("FRAME_TYPE")).toBe(true)
+  expect(changesVehicleType("Q_ENABLE")).toBe(true)
+  expect(changesVehicleType("Q_FRAME_CLASS")).toBe(true)
+  expect(changesVehicleType("RTL_ALT")).toBe(false)
+  expect(changesVehicleType("frame_class")).toBe(false)
 }
 
 /// Waits up to `ms` for the session to be in `want`.
@@ -69,15 +113,14 @@ async function waitForState(want: ConnectionState, ms: int): Promise<bool> throw
   link.state.state == want
 }
 
-/// The same vehicle comes back (resumed), and what is shown of it is what it says now: after a frame change that is another type.
-async function showsWhatTheBoardSaysNow(): Promise<void> throws Error {
+/// The same vehicle comes back (resumed), and what is shown of it is what it says now.
+async function showsWhatTheVehicleSaysNow(): Promise<void> throws Error {
   link.silenceMs = 2500
   link.retryDelaysMs = [100]
   try {
     const f = await start()
     await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
-    // What is shown is a hexarotor; the board that answers says it is a quadrotor (the identity, by the ids and the type here
-    // as the simulator says no unique id, is the one it connected with).
+    // What is shown is a hexarotor; the vehicle that answers says it is a quadrotor (the identity is the one it connected with).
     const shown = VehicleInfo { sysid: 1, compid: 1, type: "HEXAROTOR", autopilot: "ARDUPILOTMEGA" }
     link.update(Connection { state: ConnectionState.Connected, vehicle: shown })
     simulatorForTests()!.reboot(4000)
@@ -89,44 +132,6 @@ async function showsWhatTheBoardSaysNow(): Promise<void> throws Error {
     link.silenceMs = 5000
     link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
   }
-}
-
-/// A version with the unique id `uid` (64 bits, any bit pattern) and the 18-byte `uid2`.
-function versionWithBoth(uid: u64, uid2: u8[]): AutopilotVersion {
-  const v = new AutopilotVersion()
-  v.uid = uid
-  v.uid2 = uid2
-  v
-}
-
-/// 0, all ones and a constant byte are what a board that has no id sends: each is the same on every board, so none of them is an
-/// identity (two different boards must not be "the same vehicle").
-function junkIdsAreNoIds(): void {
-  const ones = (0x7FFFFFFFFFFFFFFF as u64) | ((1 as u64) << 63)
-  const junk: u64[] = [0 as u64, ones, 0x0101010101010101 as u64, 0x4242424242424242 as u64]
-  for (const uid of junk) {
-    const quad = identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(uid, []))
-    expect(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(uid, [])) == quad).toBe(false)
-    expect(quad).toBe(identityOf(vehicle(MavType.QUADROTOR), null))
-  }
-}
-
-function junkUid2IsNoId(): void {
-  const none: u8[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  const ones: u8[] = [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
-  // No usable uid2, no usable uid: the type counts. No usable uid2 but a good uid: the uid is used.
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(0 as u64, none)) == identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(0 as u64, none))).toBe(false)
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(77 as u64, ones))).toBe(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(77 as u64, none)))
-}
-
-/// uid2 supersedes uid: boards that differ in uid2 are different whatever uid says, and the same uid2 is the same board.
-function uid2IsPreferred(): void {
-  const a: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
-  const b: u8[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19]
-  const first = identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, a))
-  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWithBoth(5 as u64, a))).toBe(first)
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, b)) == first).toBe(false)
-  expect(identityOf(vehicle(MavType.QUADROTOR), versionWithBoth(5 as u64, [])) == first).toBe(false)
 }
 
 /// Makes the simulated vehicle answer the request for its version with `version` (the simulator says no unique id by itself).
@@ -145,45 +150,140 @@ function answerWith(version: AutopilotVersion): void {
   })
 }
 
-/// A vehicle answers on the link again, as another type than the one that was connected, and the session takes it up.
-async function takesUpAfterAFrameChange(first: AutopilotVersion, now: AutopilotVersion): Promise<string> throws Error {
+/// A connected simulator that has FRAME_CLASS, whose board (as the session knows it) is a quadrotor with the unique id `first`.
+async function connectedBoard(first: AutopilotVersion): Promise<Frontend> throws Error {
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
-  // The vehicle that was connected: a quadrotor whose version said `first`.
+  simulatorForTests()!.params.push({ id: "FRAME_CLASS", value: TypedParamValue.Int(1, MavParamType.INT32) })
   link.identity = identityOf(vehicle(MavType.QUADROTOR), first)
+  link.board = boardOf(vehicle(MavType.QUADROTOR), first)
+  f
+}
+
+/// Writes FRAME_CLASS through the backend, as the page's queue does.
+async function writeFrameClass(f: Frontend, value: f64): Promise<string> throws Error {
+  const w = ParamWrite { id: "FRAME_CLASS", kind: ParamWriteKind.Int, type: "INT32", value: value }
+  const e = await f.call("params.write", encodeParamWrite(w))
+  e.err?.code ?? "ok"
+}
+
+/// What a taking up comes to, for a vehicle that answers as a hexarotor with the version `now`.
+async function takeUpAsAHexarotor(now: AutopilotVersion): Promise<string> throws Error {
   answerWith(now)
+  await takeUp(vehicle(MavType.HEXAROTOR), link.generation)
+  `${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.state.vehicle!.type}`
+}
+
+async function resumesAfterTheFrameWasChangedHere(): Promise<void> throws Error {
+  await connectedBoard(versionWith(77))
+  // (What a verified write of FRAME_CLASS leaves is the next test; here the session has it.)
+  link.typeMayChange = true
   try {
-    await takeUp(vehicle(MavType.HEXAROTOR), link.generation)
-    `${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.state.vehicle!.type}`
+    expect(await takeUpAsAHexarotor(versionWith(77))).toBe("true  HEXAROTOR")
+    expect(link.identity).toBe(identityOf(vehicle(MavType.HEXAROTOR), versionWith(77)))
   } finally {
     link.close()
   }
 }
 
-async function resumesABoardWithAUidThatChangedType(): Promise<void> throws Error {
-  expect(await takesUpAfterAFrameChange(versionWith(77), versionWith(77))).toBe("true  HEXAROTOR")
+/// The same unique id and another type, with no write of the frame by this session: another vehicle, as before. (This is what two
+/// SITL instances on one host are, and the case that must not be taken for the same vehicle.)
+async function dropsAChangedTypeWithoutAWrite(): Promise<void> throws Error {
+  await connectedBoard(versionWith(77))
+  try {
+    expect(link.typeMayChange).toBe(false)
+    expect(await takeUpAsAHexarotor(versionWith(77))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+  } finally {
+    link.close()
+  }
 }
 
-async function dropsABoardWithAJunkUidThatChangedType(): Promise<void> throws Error {
-  expect(await takesUpAfterAFrameChange(versionWith(0), versionWith(0))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+async function dropsAnotherBoardAfterAFrameWrite(): Promise<void> throws Error {
+  await connectedBoard(versionWith(77))
+  link.typeMayChange = true
+  try {
+    expect(await takeUpAsAHexarotor(versionWith(78))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+  } finally {
+    link.close()
+  }
 }
 
-async function dropsAnotherUid(): Promise<void> throws Error {
-  expect(await takesUpAfterAFrameChange(versionWith(77), versionWith(78))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+async function dropsAJunkIdEvenAfterAFrameWrite(): Promise<void> throws Error {
+  await connectedBoard(versionWith(0))
+  link.typeMayChange = true
+  try {
+    expect(await takeUpAsAHexarotor(versionWith(0))).toBe("false VEHICLE_CHANGED HEXAROTOR")
+  } finally {
+    link.close()
+  }
+}
+
+/// The exception is for one taking up: a change of type after a later, successful resume (with no write since) is another vehicle.
+async function theExceptionEndsWithTheTakingUp(): Promise<void> throws Error {
+  await connectedBoard(versionWith(77))
+  link.typeMayChange = true
+  try {
+    expect(await takeUpAsAHexarotor(versionWith(77))).toBe("true  HEXAROTOR")
+    expect(link.typeMayChange).toBe(false)
+    // Back as a quadrotor, with no write since: not the same vehicle.
+    answerWith(versionWith(77))
+    await takeUp(vehicle(MavType.QUADROTOR), link.generation)
+    expect(`${link.state.resumed ?? false} ${link.state.errorCode ?? ""}`).toBe("false VEHICLE_CHANGED")
+  } finally {
+    link.close()
+  }
+}
+
+async function theExceptionEndsWithTheSession(): Promise<void> throws Error {
+  const f = await connectedBoard(versionWith(77))
+  expect(await writeFrameClass(f, 2.0)).toBe("ok")
+  expect(link.typeMayChange).toBe(true)
+  link.close()
+  expect(`${link.typeMayChange} ${link.board == ""}`).toBe("false true")
+}
+
+/// A write of the frame that does not succeed takes the exception away (the parameter is not on the vehicle: the write times out).
+async function aWriteThatFailsEndsTheException(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  link.typeMayChange = true
+  try {
+    expect(await writeFrameClass(f, 2.0) != "ok").toBe(true)
+    expect(link.typeMayChange).toBe(false)
+  } finally {
+    link.close()
+  }
+}
+
+async function aWriteOfAnotherParameterChangesNothing(): Promise<void> throws Error {
+  const f = await connectedBoard(versionWith(77))
+  try {
+    const w = ParamWrite { id: "RTL_ALT", kind: ParamWriteKind.Int, type: "INT32", value: 2500.0 }
+    await f.call("params.write", encodeParamWrite(w))
+    expect(link.typeMayChange).toBe(false)
+  } finally {
+    link.close()
+  }
 }
 
 describe("who a vehicle is", () => {
-  it("is the same board after a frame change: the unique id is what counts, not the type", sameBoardAfterAFrameChange)
-  it("is another vehicle when the unique id is another", anotherBoardIsAnotherVehicle)
-  it("still counts the system, the component and the autopilot", idsAndAutopilotStillCount)
-  it("keeps the type when the vehicle says no unique id (the simulator, SITL)", noUniqueIdKeepsTheType)
-  it("takes no answer to the request for the version as no unique id", noAnswerToTheVersionIsNoUniqueId)
-  it("does not take a board with a unique id for one that says none", aUniqueIdIsNeverTakenForNone)
-  it("shows what the same board says it is when it comes back", showsWhatTheBoardSaysNow)
-  it("takes 0, all ones and a constant for no id at all", junkIdsAreNoIds)
-  it("takes a uid2 of zeros or ones for no id, and then uses the uid", junkUid2IsNoId)
+  it("has the type in its identity, with a unique id and without", identityHasTheType)
+  it("is the same board whatever type it reports", sameBoardWhateverTheType)
+  it("is another board with another unique id, another system or another autopilot", anotherBoardIsAnotherBoard)
+  it("is no board when the id is 0, all ones, a constant, or missing", junkIdsAreNoBoard)
+  it("takes a uid2 of zeros or ones for no id, and then uses the uid", junkUid2IsNoBoardAndThenTheUidIsUsed)
   it("prefers the 18-byte uid2 to the uid", uid2IsPreferred)
-  it("takes up a board with a unique id that changed type: the same vehicle, resumed, the new type shown", resumesABoardWithAUidThatChangedType)
-  it("takes up a board with a junk id that changed type as another vehicle: VEHICLE_CHANGED", dropsABoardWithAJunkUidThatChangedType)
-  it("takes up a board with another unique id as another vehicle", dropsAnotherUid)
+  it("knows the parameters that change the kind of vehicle", theParametersThatChangeTheKind)
+  it("shows what the same vehicle says it is when it comes back", showsWhatTheVehicleSaysNow)
+})
+
+describe("a vehicle that comes back as another type", () => {
+  it("is the same vehicle after this session changed its frame, and the board is the same", resumesAfterTheFrameWasChangedHere)
+  it("is another vehicle without such a write, even with the same unique id", dropsAChangedTypeWithoutAWrite)
+  it("is another vehicle when the unique id is another, even after a frame write", dropsAnotherBoardAfterAFrameWrite)
+  it("is another vehicle when it has no unique id, even after a frame write", dropsAJunkIdEvenAfterAFrameWrite)
+  it("is another vehicle when the type changes again after a resume with no write since", theExceptionEndsWithTheTakingUp)
+  it("is armed by a verified write of the frame, and ends with the session", theExceptionEndsWithTheSession)
+  it("is not armed by a frame write that did not succeed, and a failed one takes it away", aWriteThatFailsEndsTheException)
+  it("is not made the same by a write of another parameter", aWriteOfAnotherParameterChangesNothing)
 })

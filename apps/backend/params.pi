@@ -25,7 +25,7 @@ import {
   encodeParamList,
   encodeParamWriteResult,
 } from "./generated/app"
-import { SessionPart, connectedLink, link } from "./session"
+import { SessionPart, changesVehicleType, connectedLink, link } from "./session"
 
 /// Registers the service's methods on `c`, and its part of the session.
 export function register(c: Communicator): void {
@@ -140,14 +140,27 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   }
   // A reboot is refused while a write is in flight (reboot.pi): it would cut the write.
   link.writes += 1
+  const generation = link.generation
   try {
     const r = await new ParamWriteOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: link.session.signal }).run(w.id, value)
+    noteTypeChange(w.id, r.verified, generation)
     encodeParamWriteResult(ParamWriteResult { param: toParam(r.param.id, r.param.index, r.param.value), verified: r.verified })
   } catch (e: MavLinkError) {
+    noteTypeChange(w.id, false, generation)
     throw new CommunicatorError(e.code, e.message)
   } catch (e: ParamError) {
+    noteTypeChange(w.id, false, generation)
     throw new CommunicatorError(e.code, e.message)
   } finally {
     link.writes -= 1
+  }
+}
+
+/// A write of a parameter that changes the kind of vehicle the board reports (FRAME_CLASS ...): when the vehicle read it back,
+/// the board may come back from its reboot as another type and still be the same vehicle (session.pi, `typeMayChange`); a
+/// write that did not succeed takes that away. Another parameter changes nothing. A session that has ended since is not touched.
+function noteTypeChange(id: string, verified: bool, generation: int): void {
+  if (changesVehicleType(id) && link.generation == generation) {
+    link.typeMayChange = verified
   }
 }
