@@ -218,6 +218,24 @@ export async function showScreen(app: E2eApp, id: string): Promise<void> {
   await clickLinkUntilShown(app, link, `document.querySelector('${link}').getAttribute('aria-current') === 'page'`, ATTEMPTS)
 }
 
+/**
+ * Turns the setting "Show parameter groups" on through the Settings screen (it is off by default: the group list and the stars
+ * are not there until it is), and goes back to the Parameters screen.
+ *
+ * @param app the running app
+ */
+export async function showGroups(app: E2eApp): Promise<void> {
+  await showScreen(app, 'settings')
+  await app.waitFor(`document.querySelector('#show-groups') !== null`)
+
+  if (!(await app.evaluate<boolean>(`document.querySelector('#show-groups').getAttribute('aria-checked') === 'true'`))) {
+    await app.click('#show-groups')
+  }
+  await app.waitFor(`document.querySelector('#show-groups').getAttribute('aria-checked') === 'true'`)
+  await showScreen(app, 'parameters')
+  await app.waitFor(`document.querySelector('.param-groups') !== null`)
+}
+
 /** How long the page ignores presses on a confirmation after it appears (IGNORE_MS in src/safety.ts), and a margin. */
 const CONFIRMATION_ARMS_MS = 400 + 150
 

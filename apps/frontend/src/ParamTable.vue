@@ -412,7 +412,11 @@ function reveal(index: number): void {
   const box = scroller.value
   // A box that is not laid out (hidden, with the screen that is kept alive) has no height to scroll by.
   if (box && box.clientHeight > 0) {
-    box.scrollTop = scrollToRow(index, viewport(box))
+    const top = scrollToRow(index, viewport(box))
+    // Not set when it is where it is (a scroll that does not move is no work, and a second reveal of the same row is free).
+    if (box.scrollTop !== top) {
+      box.scrollTop = top
+    }
     measure()
   }
 }
@@ -567,9 +571,9 @@ function onRowClick(id: string): void {
   parameters.select(id)
 }
 
-// A parameter that becomes the selected one by another way (the Related list, the changes, a group, the search) is scrolled
-// into view; choosing a group selects its first parameter, with the list at the top. The focus is not moved.
-watch([() => fields.selected.value, () => fields.filter.value], async () => {
+// A parameter that becomes the selected one by another way (the Related list, the changes, the arrows in the search) is
+// scrolled into view. The focus is not moved.
+watch(() => fields.selected.value, async () => {
   await nextTick()
   const byClick = clicked !== '' && clicked === fields.selected.value
   clicked = ''
@@ -578,15 +582,19 @@ watch([() => fields.selected.value, () => fields.filter.value], async () => {
     reveal(selectedAt.value)
   }
 })
-watch(() => choice.chosen.value, () => selectAt(0))
-// After a change of view the selected row, if it is still listed, is brought back into view (the rows above it came or went).
-watch(view, async () => {
-  await nextTick()
 
-  if (selectedAt.value >= 0) {
-    reveal(selectedAt.value)
+/** The list is of another scope: the first row is selected and the list is at the top (once, whatever changed together). */
+function toTop(): void {
+  selectAt(0)
+
+  // Nothing to select (no row matches): the list is still left at the top, for the rows that come back.
+  if (rows.value.length === 0 && scroller.value) {
+    scroller.value.scrollTop = 0
   }
-})
+}
+// What is searched, which group is chosen, and which view: a change of any of them is a new list, from its top. The focus stays
+// where it is (the typing in the search goes on).
+watch([() => fields.filter.value, () => choice.chosen.value, view], toTop)
 
 let frame = 0
 /** Follows the scroll, once a frame at most (the scroll event comes more often than that). */

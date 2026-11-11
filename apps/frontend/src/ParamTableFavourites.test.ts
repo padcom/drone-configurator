@@ -11,6 +11,7 @@ import ParamTable from './ParamTable.vue'
 import { FAVOURITES_GROUP } from './paramGroups'
 import { feed, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
+import { GROUPS_KEY } from './useGroupsSetting'
 import { useParamGroup } from './useParamGroup'
 
 afterEach(() => {
@@ -25,7 +26,8 @@ afterEach(() => {
  * @returns the components and the Configurator
  */
 async function screen(starred: string[] = []) {
-  const settings = { version: 1, ui: [{ key: FAVOURITES_KEY, value: JSON.stringify(starred) }] }
+  const shownGroups = { key: GROUPS_KEY, value: 'on' }
+  const settings = { version: 1, ui: [{ key: FAVOURITES_KEY, value: JSON.stringify(starred) }, shownGroups] }
   const handle = createConfigurator(mockBackend({ settings }))
   await handle.settings.load()
   feed(handle, { params: PARAMS, list: 'complete' })

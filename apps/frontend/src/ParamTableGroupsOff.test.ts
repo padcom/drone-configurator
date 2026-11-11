@@ -35,8 +35,15 @@ async function screen(groups?: string) {
   return { page, handle }
 }
 
-it('has the group list and the star column when the setting is on (the default)', async () => {
+it('has no group list and no stars for a user who never touched the setting (it is off by default)', async () => {
   const { page } = await screen()
+
+  expect(page.find('.param-groups').exists()).toBe(false)
+  expect(page.find('td.star, th.star, col.col-star').exists()).toBe(false)
+})
+
+it('has the group list and the star column when the settings hold an explicit on', async () => {
+  const { page } = await screen('on')
 
   expect(page.find('.param-groups').exists()).toBe(true)
   expect(page.findAll('#rows td.star')).toHaveLength(PARAMS.length)
@@ -87,20 +94,32 @@ it('brings the groups and the stars back, with the favourites that were kept, wh
   expect(page.get('tr[data-id="FENCE_RADIUS"] td.star button').attributes('aria-pressed')).toBe('false')
 })
 
-it('is a switch in the Settings screen, labelled, with its help, on by default', async () => {
+it('is a switch in the Settings screen, labelled, with its help, off by default', async () => {
   await screen()
   const settings = mount(Settings, withI18n)
   const toggle = settings.get('#show-groups')
 
   expect(toggle.attributes('role')).toBe('switch')
-  expect(toggle.attributes('aria-checked')).toBe('true')
+  expect(toggle.attributes('aria-checked')).toBe('false')
   expect(toggle.text()).toBe('Show parameter groups')
   const help = settings.get(`#${toggle.attributes('aria-describedby')}`)
-  expect(help.text()).toBe('Hides the group list and the favourites stars. Your favourites are kept.')
+  expect(help.text()).toBe('Shows the group list and the favourites stars. Your favourites are kept while it is off.')
+})
+
+it('turns the groups on from the Settings screen, and keeps it', async () => {
+  const { page, handle } = await screen()
+  const settings = mount(Settings, withI18n)
+
+  await settings.get('#show-groups').trigger('click')
+  await flushPromises()
+
+  expect(settings.get('#show-groups').attributes('aria-checked')).toBe('true')
+  expect(handle.settings.uiValue(GROUPS_KEY)).toBe('on')
+  expect(page.find('.param-groups').exists()).toBe(true)
 })
 
 it('turns the groups off from the Settings screen, keeps it, and resets the scope to All', async () => {
-  const { page, handle } = await screen()
+  const { page, handle } = await screen('on')
   const settings = mount(Settings, withI18n)
   useParamGroup().choose('BATT')
 
@@ -122,5 +141,5 @@ it('puts the switch back when the settings could not keep the choice', async () 
   await settings.get('#show-groups').trigger('click')
   await flushPromises()
 
-  expect(settings.get('#show-groups').attributes('aria-checked')).toBe('true')
+  expect(settings.get('#show-groups').attributes('aria-checked')).toBe('false')
 })

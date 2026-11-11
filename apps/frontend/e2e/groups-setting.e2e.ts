@@ -68,9 +68,18 @@ async function setGroups(on: boolean): Promise<void> {
   await showScreen(win(), 'parameters')
 }
 
-describe('the setting with the groups on', () => {
-  it('has the groups and the stars, and keeps a star', async () => {
+describe('the setting before it is touched', () => {
+  it('is off: there are no groups and no stars', async () => {
     shown.app = await open()
+
+    expect(await groupsShown()).toBe(false)
+    expect(await starsShown()).toBe(0)
+  })
+})
+
+describe('the setting turned on', () => {
+  it('has the groups and the stars, and keeps a star', async () => {
+    await setGroups(true)
     expect(await groupsShown()).toBe(true)
     expect(await starsShown()).toBe(12)
 

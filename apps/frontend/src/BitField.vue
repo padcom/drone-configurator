@@ -32,6 +32,7 @@
       role="listbox"
       aria-multiselectable="true"
       :aria-label="label"
+      @mousedown.prevent
     >
       <button
         v-for="(option, i) in options"
