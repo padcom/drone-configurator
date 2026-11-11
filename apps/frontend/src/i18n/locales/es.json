@@ -512,6 +512,12 @@
     "backendStopped": "El backend se detuvo: la sesión del vehículo terminó. Vuelve a conectar para continuar."
   },
   "palette": {
+    "placeholder": "Buscar o ejecutar un comando",
+    "label": "Paleta de comandos",
+    "list": "Comandos",
+    "empty": "Nada coincide con «{query}».",
+    "count": "{count} comando | {count} comandos",
+    "failed": "El comando falló.",
     "group": {
       "navigate": "Navegación",
       "vehicle": "Vehículo"

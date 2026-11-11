@@ -512,6 +512,12 @@
     "backendStopped": "The backend stopped: the vehicle session ended. Connect again to continue."
   },
   "palette": {
+    "placeholder": "Search or run a command",
+    "label": "Command palette",
+    "list": "Commands",
+    "empty": "Nothing matches “{query}”.",
+    "count": "{count} command | {count} commands",
+    "failed": "The command failed.",
     "group": {
       "navigate": "Navigate",
       "vehicle": "Vehicle"

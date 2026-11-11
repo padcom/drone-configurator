@@ -20,10 +20,13 @@
   <ToastHost />
   <ConnectDialog />
   <ConfirmDialog />
+  <CommandPalette />
 </template>
 
 <script setup lang="ts">
 import { usePaneKeys } from '@/lib/app/paneFocus'
+import { usePaletteKey } from '@/composables/useCommandPalette'
+import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'
 import Rail from './Rail.vue'
@@ -39,4 +42,6 @@ const REGIONS = '.rail, .app-main, .fly-aside'
 // are in a corner of the window, over everything. F6 and Shift+F6 move the focus between the rail, the screen and the aside
 // of the Fly screen.
 usePaneKeys(REGIONS)
+// Ctrl+P opens the command palette from anywhere (keymap.ts has the key).
+usePaletteKey()
 </script>

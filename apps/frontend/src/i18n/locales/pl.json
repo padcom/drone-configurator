@@ -512,6 +512,12 @@
     "backendStopped": "Backend został zatrzymany: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować."
   },
   "palette": {
+    "placeholder": "Szukaj lub uruchom polecenie",
+    "label": "Paleta poleceń",
+    "list": "Polecenia",
+    "empty": "Nic nie pasuje do „{query}”.",
+    "count": "{count} polecenie | {count} polecenia | {count} poleceń",
+    "failed": "Polecenie się nie powiodło.",
     "group": {
       "navigate": "Nawigacja",
       "vehicle": "Pojazd"
