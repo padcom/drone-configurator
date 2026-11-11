@@ -54,7 +54,7 @@ describe('opening the palette', () => {
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
-    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(8)
+    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(9)
     // Nothing printed and no other window: the page is still the only dialog, and still the one document.
     expect(await app.evaluate<number>(`document.querySelectorAll('dialog[open]').length`)).toBe(1)
   })
@@ -89,18 +89,22 @@ describe('opening the palette from the top bar', () => {
 })
 
 describe('running a command', () => {
-  it('goes to the screen that was typed, closes, and puts the focus in the screen', async () => {
+  it('goes to the screen that was typed, closes, and puts the focus in the search box of the screen', async () => {
     await showScreen(app, 'flight')
     await chord('p', CTRL)
     await app.waitFor(`document.querySelector('#palette-input') !== null`)
     await app.fill('#palette-input', 'param')
-    await app.waitFor(`${ROWS}.length === 1`)
+    await app.waitFor(`${ROWS}.length === 2`)
 
-    expect(await app.evaluate<string[]>(ROWS)).toEqual(['go.parameters'])
+    expect(await app.evaluate<string[]>(ROWS)).toEqual(['go.parameters', 'metadata.load'])
     await chord('Enter')
     await app.waitFor(`document.querySelector('#palette-input') === null && location.hash === '#/parameters'`)
 
-    await app.waitFor(`document.activeElement === document.querySelector('.app-main')`)
+    // The Parameters screen's search box has the focus, and what is typed goes into it.
+    await app.waitFor(`document.activeElement === document.getElementById('filter')`)
+    await app.press('b')
+    await app.press('a')
+    await app.waitFor(`document.getElementById('filter').value === 'ba'`)
   })
 })
 

@@ -15,6 +15,8 @@ export interface Screen {
   icon: IconName
   /** `end` pins it to the bottom of the rail (Settings), apart from the screens of the flight work. */
   placement?: 'end'
+  /** Where the focus goes when the screen is chosen with its command (the rail, the palette): a place of its own, by name. */
+  focus?: 'params.search'
   /** Loads its component. */
   load: () => Promise<{ default: Component }>
 }
@@ -29,7 +31,14 @@ export const PRODUCT_SCREENS: readonly Screen[] = [
   { id: 'flight', path: '/flight', titleKey: 'screen.flight', icon: 'navigation', load: FLIGHT },
   { id: 'plan', path: '/plan', titleKey: 'screen.plan', icon: 'route', load: NOT_AVAILABLE },
   { id: 'setup', path: '/setup', titleKey: 'screen.setup', icon: 'wrench', load: NOT_AVAILABLE },
-  { id: 'parameters', path: '/parameters', titleKey: 'screen.parameters', icon: 'sliders', load: PARAMETERS },
+  {
+    id: 'parameters',
+    path: '/parameters',
+    titleKey: 'screen.parameters',
+    icon: 'sliders',
+    focus: 'params.search',
+    load: PARAMETERS,
+  },
   { id: 'tune', path: '/tune', titleKey: 'screen.tune', icon: 'activity', load: NOT_AVAILABLE },
   { id: 'logs', path: '/logs', titleKey: 'screen.logs', icon: 'file', load: NOT_AVAILABLE },
   { id: 'settings', path: '/settings', titleKey: 'screen.settings', icon: 'gear', placement: 'end', load: SETTINGS },

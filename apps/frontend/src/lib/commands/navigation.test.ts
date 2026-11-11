@@ -40,10 +40,28 @@ describe('what a command that goes to a screen does', () => {
 
   it('navigate to the path of the screen, and leave the focus to the screen', async () => {
     const fake = fakeContext()
+    const plan = goToScreens().find(command => command.id === 'go.plan')
+
+    expect(await plan?.execute(fake.ctx)).toEqual({ focus: 'main' })
+    expect(fake.calls.navigate).toEqual(['/plan'])
+  })
+})
+
+describe('where the focus goes after a command that goes to a screen', () => {
+  it('is the place the screen names: the Parameters screen\'s search box, so that typing can start', async () => {
+    const fake = fakeContext()
     const parameters = goToScreens().find(command => command.id === 'go.parameters')
 
-    expect(await parameters?.execute(fake.ctx)).toEqual({ focus: 'main' })
+    expect(await parameters?.execute(fake.ctx)).toEqual({ focus: 'params.search' })
     expect(fake.calls.navigate).toEqual(['/parameters'])
+  })
+
+  it('take the place from the screen\'s own entry, so that another screen can have one', async () => {
+    const load = () => Promise.reject(new Error('x'))
+    const screen: Screen = { id: 'next', path: '/next', titleKey: 'screen.logs', icon: 'file', focus: 'params.search', load }
+    const fake = fakeContext()
+
+    expect(await goToScreens([screen])[0]?.execute(fake.ctx)).toEqual({ focus: 'params.search' })
   })
 })
 

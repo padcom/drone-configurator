@@ -521,6 +521,7 @@
     "count": "{count} command | {count} commands",
     "failed": "The command failed.",
     "group": {
+      "parameters": "Parameters",
       "navigate": "Navigate",
       "vehicle": "Vehicle"
     },
@@ -540,6 +541,12 @@
       "armed": "Disarm the vehicle first. A flying vehicle is never rebooted.",
       "writing": "Wait until the parameters have been written.",
       "downloading": "Wait until the parameters have been downloaded."
+    },
+    "metadata": {
+      "load": {
+        "label": "Load parameter metadata…",
+        "keywords": "metadata descriptions apm.pdef pdef file open"
+      }
     },
     "vehicle": {
       "reboot": {
