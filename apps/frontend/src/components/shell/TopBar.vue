@@ -49,6 +49,18 @@
       </div>
     </dl>
     <div class="actions">
+      <button
+        id="open-palette"
+        type="button"
+        class="palette-button"
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Control+P"
+        @click="palette.show()"
+      >
+        <Icon name="search" />
+        <span class="palette-button-text">{{ t('palette.placeholder') }}</span>
+        <kbd class="palette-button-key">{{ hint }}</kbd>
+      </button>
       <Button id="disconnect-button" :disabled="!canDisconnect" @click="configurator.vehicle.disconnect()">
         {{ t('connection.disconnect') }}
       </Button>
@@ -66,6 +78,8 @@ import { HOME } from '@/screens/registry'
 import { cellsFor, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useConnectDialog } from '@/composables/useConnectDialog'
+import { useCommandPalette } from '@/composables/useCommandPalette'
+import { hintOf } from '@/lib/app/keymap'
 import { useFormat } from '@/i18n/useFormat'
 import { useTelemetry } from '@/composables/useTelemetry'
 
@@ -75,6 +89,9 @@ import { useTelemetry } from '@/composables/useTelemetry'
 const { t } = useI18n()
 const configurator = useConfigurator()
 const connectDialog = useConnectDialog()
+const palette = useCommandPalette()
+// "Ctrl P", or "⌘ P" on a Mac.
+const hint = hintOf('palette.open')
 const format = useFormat()
 const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)
