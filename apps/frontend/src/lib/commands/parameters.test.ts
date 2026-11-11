@@ -58,6 +58,32 @@ describe('how many parameters the palette offers, and in which order', () => {
     expect(registry.search('TUNE', fake.ctx)).toHaveLength(PROVIDED_MAX)
   })
 
+  it('makes commands (and asks for descriptions) only for the rows it offers, not for every match', () => {
+    const many = Array.from({ length: 30 }, (_, i) => `TUNE_P${String(i).padStart(2, '0')}`)
+    const { fake } = withParameters(many)
+    const described: string[] = []
+    const { describe: describeOne } = fake.ctx.parameters
+    fake.ctx.parameters.describe = id => {
+      described.push(id)
+
+      return describeOne(id)
+    }
+
+    const made = new ParameterProvider().search('TUNE', fake.ctx)
+
+    expect(made).toHaveLength(PROVIDED_MAX)
+    expect(described).toHaveLength(PROVIDED_MAX)
+  })
+})
+
+describe('the order of the parameters the palette offers', () => {
+  it('says which of the parameters it offers are starred', () => {
+    const { fake } = withParameters()
+    fake.parameters.favourites = new Set(['BATT_MONITOR'])
+
+    expect(new ParameterProvider().search('BATT', fake.ctx).map(command => command.starred)).toEqual([true, false])
+  })
+
   it('puts a starred parameter first among the ones that match the same way', () => {
     const { fake, registry } = withParameters()
     fake.parameters.favourites = new Set(['BATT_MONITOR'])

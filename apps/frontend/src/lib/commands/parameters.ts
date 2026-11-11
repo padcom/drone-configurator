@@ -5,6 +5,7 @@
 // goes to one.
 import type { Command, CommandContext, CommandOutcome, CommandProvider } from './command'
 import { type SearchHit, search } from '@/lib/params/paramSearch'
+import { PROVIDED_MAX } from './registry'
 import { PRODUCT_SCREENS } from '@/screens/registry'
 
 /** Where the Parameters screen is, from the list of the screens (the route is not written out twice). */
@@ -29,16 +30,20 @@ export class GoToParameter implements Command {
 
   readonly detail: string
 
+  readonly starred: boolean
+
   /**
    * Makes the command for a parameter.
    *
    * @param name the parameter's name
    * @param description its short description, if the metadata has one
+   * @param starred whether the user has starred it (the palette marks it, so that the order has a visible reason)
    */
-  constructor(name: string, description: string) {
+  constructor(name: string, description: string, starred = false) {
     this.id = `param.${name}`
     this.label = name
     this.detail = description
+    this.starred = starred
   }
 
   /**
@@ -103,8 +108,10 @@ export class ParameterProvider implements CommandProvider {
     if (index.entries.length === 0) {
       return []
     }
-    const hits = favouritesFirst(search(index, query), ctx.parameters.favourites())
+    const favourites = ctx.parameters.favourites()
+    // Only the first few are made into commands (two letters match up to a thousand parameters).
+    const hits = favouritesFirst(search(index, query), favourites).slice(0, PROVIDED_MAX)
 
-    return hits.map(hit => new GoToParameter(hit.id, ctx.parameters.describe(hit.id)))
+    return hits.map(hit => new GoToParameter(hit.id, ctx.parameters.describe(hit.id), favourites.has(hit.id)))
   }
 }

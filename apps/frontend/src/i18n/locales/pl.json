@@ -518,7 +518,7 @@
     "label": "Paleta poleceń",
     "list": "Polecenia",
     "empty": "Nic nie pasuje do „{query}”.",
-    "count": "{count} polecenie | {count} polecenia | {count} poleceń",
+    "count": "{count} wynik | {count} wyniki | {count} wyników",
     "failed": "Polecenie się nie powiodło.",
     "group": {
       "navigate": "Nawigacja",

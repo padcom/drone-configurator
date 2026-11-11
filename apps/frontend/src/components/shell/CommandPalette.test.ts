@@ -298,12 +298,12 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('8 commands')
+  expect(status()).toBe('8 results')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
 
-  expect(status()).toBe('1 command')
+  expect(status()).toBe('1 result')
   await type(wrapper, 'xyz')
   await vi.advanceTimersByTimeAsync(500)
 
@@ -382,7 +382,7 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('8 commands')
+  expect(wrapper.get('.palette-status').text()).toBe('8 results')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

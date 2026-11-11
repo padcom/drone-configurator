@@ -137,6 +137,16 @@
   font-family: var(--font-mono);
 }
 
+/* The mark of a starred parameter: it says why the row is before the others. */
+.palette-star {
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-2);
+  vertical-align: -2px;
+  color: var(--color-warn);
+  fill: currentcolor;
+}
+
 .palette-detail {
   grid-column: 1 / -1;
   font-size: var(--font-size-sm);

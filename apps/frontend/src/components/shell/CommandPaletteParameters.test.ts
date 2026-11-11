@@ -14,6 +14,8 @@ import Shell from './Shell.vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { useCommandPalette } from '@/composables/useCommandPalette'
 import { useParamGroup } from '@/composables/useParamGroup'
+import { resetViewOverride, useParamView } from '@/composables/useParamView'
+import { VIEW_KEY } from '@/lib/params/paramView'
 
 let mounted: VueWrapper | undefined
 
@@ -58,6 +60,7 @@ afterEach(() => {
   setLanguage('en')
   useCommandPalette().hide()
   useParamGroup().choose('')
+  resetViewOverride()
   mounted?.unmount()
   mounted = undefined
   document.body.innerHTML = ''
@@ -90,7 +93,7 @@ it('puts a starred parameter before the others that match the same way', async (
   const { wrapper } = await shellWith(PARAMS, ['BATT_CAPACITY'])
   await ask(wrapper, 'BATT')
 
-  expect(rows(wrapper)[0]?.get('.palette-label').text()).toBe('BATT_CAPACITY')
+  expect(rows(wrapper)[0]?.get('.palette-label').text()).toMatch(/^BATT_CAPACITY/u)
 })
 
 it('shows the chosen parameter on the Parameters screen, selected, with the search cleared and All chosen', async () => {
@@ -118,4 +121,39 @@ it('keeps the chosen group when the parameter is in it', async () => {
   await vi.waitFor(() => expect(handle.fields.selected.value).toBe('RTL_ALT'))
 
   expect(useParamGroup().chosen.value).toBe('RTL')
+})
+
+it('marks a starred row with a star that a screen reader hears as "Favourite", and not the others', async () => {
+  const { wrapper } = await shellWith(PARAMS, ['BATT_CAPACITY'])
+  await ask(wrapper, 'BATT')
+
+  const [first, second] = rows(wrapper)
+  expect(first?.find('svg.palette-star').attributes('aria-hidden')).toBe('true')
+  expect(first?.get('.palette-label').text()).toContain('(Favourite)')
+  expect(second?.find('.palette-star').exists()).toBe(false)
+})
+
+it('says "results" for the count, whether the rows are commands or parameters', async () => {
+  const { wrapper } = await shellWith()
+  await ask(wrapper, 'FENCE')
+
+  await vi.waitFor(() => expect(wrapper.get('.palette-status').text()).toMatch(/^\d+ results?$/u))
+})
+
+it('shows an advanced parameter in the Standard view for now, and does not change the view that the settings keep', async () => {
+  const { wrapper, handle } = await shellWith()
+  feed(handle, { metadata: new Map([['FENCE_RADIUS', { user: 'advanced' }], ['ARMING_CHECK', { user: 'standard' }]]) })
+  await handle.settings.setUi(VIEW_KEY, 'standard')
+  const view = useParamView()
+  expect(view.view.value).toBe('standard')
+  expect(view.listed.value.some(param => param.id === 'FENCE_RADIUS')).toBe(false)
+  await ask(wrapper, 'FENCE_RADIUS')
+
+  await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
+  await vi.waitFor(() => expect(handle.fields.selected.value).toBe('FENCE_RADIUS'))
+
+  expect(view.view.value).toBe('full')
+  expect(handle.settings.uiValue(VIEW_KEY)).toBe('standard')
+  await view.choose('standard')
+  expect(view.view.value).toBe('standard')
 })

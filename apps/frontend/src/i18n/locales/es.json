@@ -518,7 +518,7 @@
     "label": "Paleta de comandos",
     "list": "Comandos",
     "empty": "Nada coincide con «{query}».",
-    "count": "{count} comando | {count} comandos",
+    "count": "{count} resultado | {count} resultados",
     "failed": "El comando falló.",
     "group": {
       "navigate": "Navegación",

@@ -37,7 +37,13 @@
         @mousemove="hover($event, at)"
         @click="run(row)"
       >
-        <span class="palette-label" :class="{ literal: row.command.label !== undefined }">{{ row.label }}</span>
+        <span class="palette-label" :class="{ literal: row.command.label !== undefined }">
+          {{ row.label }}
+          <template v-if="row.command.starred">
+            <Icon name="star" class="palette-star" aria-hidden="true" />
+            <span class="visually-hidden"> ({{ t('params.favourites.column') }})</span>
+          </template>
+        </span>
         <span class="palette-group">{{ row.group }}</span>
         <kbd class="palette-key">{{ row.hint }}</kbd>
         <span v-if="row.command.detail" class="palette-detail">{{ row.command.detail }}</span>

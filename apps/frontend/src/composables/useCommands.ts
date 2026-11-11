@@ -107,7 +107,7 @@ function parameterFacts(): ParameterFacts {
       }
 
       if (!view.listed.value.some(param => param.id === id)) {
-        void view.choose('full')
+        view.showFullForNow()
       }
 
       void selectAfterTable(() => parameters.select(id))

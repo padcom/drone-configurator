@@ -81,6 +81,8 @@ export interface Command {
   readonly label?: string
   /** A line of explanation under the name, shown as it is (a parameter's description). */
   readonly detail?: string
+  /** Whether the user has starred what it names (a parameter): the palette marks the row. */
+  readonly starred?: boolean
   /** The message that names its group (Navigate, Vehicle). */
   readonly groupKey: string
   /** Messages with more words to find it by: each holds words separated by spaces. */
