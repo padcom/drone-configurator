@@ -12,6 +12,10 @@ let mounted: VueWrapper | undefined
 afterEach(() => {
   mounted?.unmount()
   mounted = undefined
+
+  for (const host of document.querySelectorAll('fieldset')) {
+    host.remove()
+  }
 })
 
 const OPTIONS = [{ value: 0, label: 'Zero' }, { value: 1, label: 'One' }]
@@ -88,5 +92,86 @@ describe('the chevron of the field of bits, closing', () => {
     await pressChevron(wrapper)
 
     expect(wrapper.emitted('settle')).toHaveLength(1)
+  })
+})
+
+describe('the chevron of the field of names, closing', () => {
+  it('uses a number that is typed, as leaving the field or Enter would, and closes', async () => {
+    const wrapper = field('names')
+    await wrapper.get('input').trigger('focus')
+    await wrapper.get('input').setValue('7')
+
+    await pressChevron(wrapper)
+
+    expect(wrapper.emitted('update:modelValue')).toEqual([[7]])
+    expect(isOpen(wrapper)).toBe(false)
+  })
+
+  it('lets go of what is typed that is not a number, and keeps the value', async () => {
+    const wrapper = field('names')
+    await wrapper.get('input').trigger('focus')
+    await wrapper.get('input').setValue('zer')
+
+    await pressChevron(wrapper)
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(isOpen(wrapper)).toBe(false)
+  })
+})
+
+/**
+ * A field in a fieldset, as the Value field is while the changes are written.
+ *
+ * @param kind the field of names or the field of bits
+ * @param fieldsetOff whether the fieldset is disabled
+ * @returns the wrapper
+ */
+function inFieldset(kind: 'names' | 'bits', fieldsetOff: boolean): VueWrapper {
+  const host = document.body.appendChild(document.createElement('fieldset'))
+  host.disabled = fieldsetOff
+  const bits = { options: bitOptions({ 0: 'A' }, 'UINT8'), type: 'UINT8', value: 0, draft: '0', label: 'Value' }
+  mounted = kind === 'names'
+    ? mount(EnumField, { ...withI18n, props: { modelValue: 1, options: OPTIONS, label: 'Value' }, attachTo: host })
+    : mount(BitField, { ...withI18n, props: bits, attachTo: host })
+
+  return mounted
+}
+
+describe.each([['names'], ['bits']] as const)('the chevron of the field of %s while a fieldset round it is disabled', kind => {
+  it('does nothing: the list does not open', async () => {
+    const wrapper = inFieldset(kind, true)
+
+    await wrapper.get('.chevron-hit').trigger('click')
+
+    expect(isOpen(wrapper)).toBe(false)
+  })
+
+  it('works when the fieldset is not disabled', async () => {
+    const wrapper = inFieldset(kind, false)
+
+    await wrapper.get('.chevron-hit').trigger('click')
+
+    expect(isOpen(wrapper)).toBe(true)
+  })
+})
+
+describe.each([['names'], ['bits']] as const)('the chevron of the field of %s that is told it is disabled', kind => {
+  it('does nothing', async () => {
+    const wrapper = field(kind)
+    await wrapper.setProps({ disabled: true })
+
+    await wrapper.get('.chevron-hit').trigger('click')
+
+    expect(isOpen(wrapper)).toBe(false)
+  })
+
+  it('closes a list that is open when the field becomes disabled', async () => {
+    const wrapper = field(kind)
+    await wrapper.get('input').trigger('focus')
+    expect(isOpen(wrapper)).toBe(true)
+
+    await wrapper.setProps({ disabled: true })
+
+    expect(isOpen(wrapper)).toBe(false)
   })
 })

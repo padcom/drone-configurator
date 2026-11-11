@@ -2,6 +2,7 @@
   <div class="enum-field">
     <input
       ref="input"
+      :disabled="disabled"
       class="kit-input enum-input"
       :class="{ open, named: name !== undefined }"
       :id="inputId"
@@ -80,6 +81,8 @@ const props = defineProps<{
   invalid?: boolean
   /** The id of an element that says more about the field (why it is invalid), read after its name. */
   describedby?: string
+  /** The field cannot be used now (a fieldset round it being disabled is seen too): the list is closed and does not open. */
+  disabled?: boolean
 }>()
 
 const model = defineModel<number>({ required: true })
@@ -128,20 +131,6 @@ function pick(value: number): void {
 }
 
 /**
- * The chevron: opens the list when it is closed, and closes it when it is open. The press did not take the focus from the field
- * (nor give it: it is given here), so the field has the focus after either.
- */
-function toggleList(): void {
-  if (open.value) {
-    close()
-
-    return
-  }
-  input.value?.focus()
-  open.value = true
-}
-
-/**
  * The field got the focus: its text is selected, so typing replaces it, and the list opens.
  *
  * @param event the focus event
@@ -171,6 +160,39 @@ function onBlur(): void {
     pick(typed)
   }
 }
+
+/**
+ * Whether the field cannot be used now: it is disabled, or in a fieldset that is (the `disabled` property of the input does not
+ * see that, the `:disabled` selector does).
+ *
+ * @returns true when a press on it does nothing
+ */
+const unusable = (): boolean => props.disabled === true || input.value?.matches(':disabled') === true
+
+/**
+ * The chevron: opens the list when it is closed, and closes it when it is open, as leaving the field does (a number that is
+ * typed is used, as Enter would use it). The press did not take the focus from the field (nor give it: it is given here), so
+ * the field has the focus after either. Nothing opens while the field cannot be used (the changes are being written).
+ */
+function toggleList(): void {
+  if (unusable()) {
+    return
+  }
+  if (open.value) {
+    onBlur()
+
+    return
+  }
+  input.value?.focus()
+  open.value = true
+}
+
+// A list that is open when the field becomes unusable closes (its options are disabled buttons then).
+watch(() => props.disabled, disabled => {
+  if (disabled) {
+    close()
+  }
+})
 
 /**
  * How many rows the list shows at once, for Page Up and Page Down (a few when it is not laid out).

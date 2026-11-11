@@ -37,6 +37,7 @@
         :label="t('editor.newValue')"
         :invalid="Boolean(fields.draftError.value)"
         :describedby="describedBy"
+        :disabled="staged.writing.value"
         @edit="parameters.editDraft($event)"
         @settle="staged.sync()"
       />
@@ -48,6 +49,7 @@
         :label="t('editor.newValue')"
         :invalid="Boolean(fields.draftError.value)"
         :describedby="describedBy"
+        :disabled="staged.writing.value"
       />
       <!-- Red when the draft is not a valid value, and the reason is in words in #draft-error, which the field points to. -->
       <TextInput

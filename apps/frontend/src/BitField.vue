@@ -2,6 +2,7 @@
   <div class="enum-field bit-field">
     <input
       ref="input"
+      :disabled="disabled"
       class="kit-input enum-input bit-input"
       :class="{ open }"
       :id="inputId"
@@ -90,6 +91,8 @@ const props = defineProps<{
   invalid?: boolean
   /** The id of an element that says more about the field (why it is invalid), read after its name. */
   describedby?: string
+  /** The field cannot be used now (a fieldset round it being disabled is seen too): the list is closed and does not open. */
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -162,10 +165,21 @@ function toggle(index: number): void {
 }
 
 /**
+ * Whether the field cannot be used now: it is disabled, or in a fieldset that is (the `disabled` property of the input does not
+ * see that, the `:disabled` selector does).
+ *
+ * @returns true when a press on it does nothing
+ */
+const unusable = (): boolean => props.disabled === true || input.value?.matches(':disabled') === true
+
+/**
  * The chevron: opens the list when it is closed, and closes it (settling the value, as Enter does) when it is open. The press
  * did not take the focus from the field, so the field has it after either.
  */
 function toggleList(): void {
+  if (unusable()) {
+    return
+  }
   if (open.value) {
     settle()
 
@@ -174,6 +188,13 @@ function toggleList(): void {
   input.value?.focus()
   open.value = true
 }
+
+// A list that is open when the field becomes unusable closes (its options are disabled buttons then).
+watch(() => props.disabled, disabled => {
+  if (disabled) {
+    close()
+  }
+})
 
 /**
  * The field got the focus: its text is selected, and the list opens.
