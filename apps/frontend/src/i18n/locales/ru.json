@@ -349,6 +349,29 @@
     "groups": "Группы параметров",
     "allGroups": "Все",
     "list": "Параметры",
+    "progress": {
+      "running": "Загрузка параметров…",
+      "label": "{received} из {total} · {method}",
+      "method": {
+        "list": "списком",
+        "ftp": "передачей файла"
+      },
+      "done": "Загружен {count} параметр | Загружено {count} параметра | Загружено {count} параметров",
+      "cancelled": "Загрузка отменена",
+      "failed": "Не удалось загрузить параметры",
+      "info": {
+        "ftp": "Параметров: {count} · передачей файла за {seconds} с",
+        "list": "Параметров: {count} · списком за {seconds} с",
+        "listBecause": "Параметров: {count} · списком за {seconds} с (передача файла не используется: {reason})"
+      },
+      "fallback": {
+        "unsupported": "аппарат её не предлагает",
+        "timeout": "он не ответил",
+        "protocol": "он дал бессмысленный ответ",
+        "incomplete": "он дал слишком мало параметров",
+        "disabled": "запрошен список"
+      }
+    },
     "selection": "{id}, {position} из {total}",
     "favourites": {
       "group": "Избранное",

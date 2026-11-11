@@ -245,6 +245,73 @@ describe('a toast that is held by both the pointer and the focus', () => {
   })
 })
 
+describe('a toast with a bar that is updated', () => {
+  it('stays as long as it is sticky, and goes after its time once it is not', () => {
+    const { toasts, clock } = queue()
+    const key = toasts.push({ severity: 'success', text: 'Downloading', sticky: true, progress: { value: 0, max: 10 } })
+
+    clock.advance(10 * ERROR_SHOW_MS)
+    expect(shown(toasts)).toEqual(['Downloading'])
+    toasts.update(key, { progress: { value: 5, max: 10, label: '50 %' } })
+    expect(toasts.visible.value[0]?.progress).toEqual({ value: 5, max: 10, label: '50 %' })
+    toasts.update(key, { text: 'Done', sticky: false, progress: null })
+    expect(toasts.visible.value[0]?.progress).toBeNull()
+    clock.advance(SHOW_MS - 1)
+    expect(shown(toasts)).toEqual(['Done'])
+    clock.advance(1)
+
+    expect(shown(toasts)).toEqual([])
+  })
+})
+
+describe('a toast that is updated after it is gone, or that becomes sticky', () => {
+  it('does nothing for a toast that is gone', () => {
+    const { toasts } = queue()
+    const key = toasts.push({ severity: 'success', text: 'one' })
+    toasts.dismiss(key)
+
+    expect(() => toasts.update(key, { text: 'two' })).not.toThrow()
+    expect(shown(toasts)).toEqual([])
+  })
+
+  it('can become sticky again (its time stops)', () => {
+    const { toasts, clock } = queue()
+    const key = toasts.push({ severity: 'success', text: 'one' })
+    clock.advance(SHOW_MS - 1)
+    toasts.update(key, { sticky: true })
+    clock.advance(10 * SHOW_MS)
+
+    expect(shown(toasts)).toEqual(['one'])
+  })
+})
+
+describe('what a toast says when it goes', () => {
+  it('is told why: the user closed it, its time ran out, or the program took it away', () => {
+    const { toasts, clock } = queue()
+    const reasons: string[] = []
+    const onDismiss = (reason: string) => reasons.push(reason)
+    toasts.push({ severity: 'success', text: 'timed', onDismiss })
+    const manual = toasts.push({ severity: 'success', text: 'manual', sticky: true, onDismiss })
+    const program = toasts.push({ severity: 'success', text: 'program', sticky: true, onDismiss })
+
+    clock.advance(SHOW_MS)
+    toasts.dismiss(manual, 'manual')
+    toasts.dismiss(program)
+
+    expect(reasons).toEqual(['timeout', 'manual', 'program'])
+  })
+
+  it('is not told again for a toast whose callback was taken away', () => {
+    const { toasts } = queue()
+    const reasons: string[] = []
+    const key = toasts.push({ severity: 'success', text: 'one', sticky: true, onDismiss: reason => reasons.push(reason) })
+    toasts.update(key, { onDismiss: null })
+    toasts.dismiss(key, 'manual')
+
+    expect(reasons).toEqual([])
+  })
+})
+
 describe('a toast that is held while another goes', () => {
   it('stays held when another toast goes', () => {
     const { toasts, clock } = queue()

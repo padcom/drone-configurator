@@ -3,6 +3,7 @@ import { createBackendClient } from '@/backend/client'
 import { PARAMS } from '@/mock/fixtures'
 import { type MockOptions, mockBackend } from '@/mock/mock-backend'
 import { compareNames } from '@/lib/params/naturalOrder'
+import { type Toasts, createToasts } from './toasts'
 import { useParams } from './useParams'
 
 /**
@@ -18,15 +19,25 @@ async function rig(connected = true, options: MockOptions = {}) {
     await client.call('vehicle.connect', { transport: 'simulator' })
   }
   const failures: (string | null)[] = []
+  const toasts = createToasts()
   const deps = {
     client,
+    toasts,
     fail: (message: string | null) => failures.push(message),
     problemWith: vi.fn((): string | null => null),
     warningWith: vi.fn((): string | null => null),
   }
 
-  return { parameters: useParams(deps), deps, failures }
+  return { parameters: useParams(deps), deps, failures, toasts }
 }
+
+/**
+ * The texts of the toasts that are shown.
+ *
+ * @param toasts the queue
+ * @returns their texts
+ */
+const texts = (toasts: Toasts) => toasts.visible.value.map(toast => toast.text)
 
 it('downloads the list, saying it is loading meanwhile', async () => {
   const { parameters } = await rig()
@@ -147,9 +158,13 @@ it('puts a downloaded list in the natural order of the names, once, whatever ord
   const sent = ['RC10_MIN', 'SERVO3_MIN', 'RC2_MIN', 'ARMING_CHECK', 'RC1_MIN', 'SERVO10_MIN'].map((id, index) => ({
     id, index, kind: 'int' as const, type: 'INT16', value: index,
   }))
-  const client = { call: () => Promise.resolve({ params: sent, count: sent.length, complete: true, missing: [] }) }
+  const client = {
+    call: () => Promise.resolve({ params: sent, count: sent.length, complete: true, missing: [] }),
+    onEvent: () => () => undefined,
+  }
   const parameters = useParams({
     client: client as never,
+    toasts: createToasts(),
     fail: () => undefined,
     problemWith: () => null,
     warningWith: () => null,
@@ -161,6 +176,106 @@ it('puts a downloaded list in the natural order of the names, once, whatever ord
     .toEqual(['ARMING_CHECK', 'RC1_MIN', 'RC2_MIN', 'RC10_MIN', 'SERVO3_MIN', 'SERVO10_MIN'])
   // The values and the vehicle's own indexes go with their parameters.
   expect(parameters.params.value.find(param => param.id === 'RC10_MIN')).toMatchObject({ index: 0, value: 0 })
+})
+
+it('shows a toast that stays while it runs, with the count and the way, and says how it ended', async () => {
+  const { parameters, toasts } = await rig(true, { progress: { steps: 4, intervalMs: 20 } })
+
+  const downloading = parameters.refresh()
+  expect(texts(toasts)).toEqual(['Downloading the parameters…'])
+  await vi.waitFor(() => expect(parameters.progress.value).not.toBeNull())
+  const toast = toasts.visible.value[0]!
+  expect(toast.sticky).toBe(true)
+  expect(toast.progress).toMatchObject({ max: PARAMS.length, label: expect.stringMatching(/^\d+ of \d+ · by file transfer$/) })
+  // The words do not change while it runs (a screen reader hears only how it starts and ends).
+  expect(toast.text).toBe('Downloading the parameters…')
+  await downloading
+
+  expect(texts(toasts)).toEqual([`${PARAMS.length} parameters downloaded`])
+  expect(toasts.visible.value[0]?.sticky).toBe(false)
+  expect(toasts.visible.value[0]?.progress).toBeNull()
+  expect(parameters.progress.value).toBeNull()
+})
+
+it('records how the download came: the way, why not the other, how long', async () => {
+  const { parameters } = await rig(true, { ftp: 'timeout' })
+
+  await parameters.refresh()
+
+  expect(parameters.downloadInfo.value).toMatchObject({ source: 'list', fallback: 'timeout' })
+  expect(parameters.downloadInfo.value?.elapsedMs).toBeGreaterThan(0)
+})
+
+it('records a download by file transfer without a reason', async () => {
+  const { parameters } = await rig()
+
+  await parameters.refresh()
+
+  expect(parameters.downloadInfo.value?.source).toBe('ftp')
+  expect(parameters.downloadInfo.value?.fallback).toBeUndefined()
+})
+
+it('is cancelled from the toast: the list stays as it was, and a new toast says so', async () => {
+  const { parameters, toasts, failures } = await rig(true, { progress: { steps: 5, intervalMs: 30 } })
+  await parameters.refresh()
+  const before = parameters.params.value
+  const initial = parameters.initial.value
+
+  const downloading = parameters.refresh()
+  await vi.waitFor(() => expect(parameters.progress.value).not.toBeNull())
+  toasts.dismiss(toasts.visible.value.find(toast => toast.sticky)!.key, 'manual')
+  await downloading
+
+  expect(parameters.list.value).toBe('complete')
+  expect(parameters.params.value).toBe(before)
+  expect(parameters.initial.value).toBe(initial)
+  expect(texts(toasts).at(-1)).toBe('Download cancelled')
+  expect(failures).toEqual([])
+})
+
+it('is cancelled by cancel(): the same toast says so, and a first download goes back to none', async () => {
+  const { parameters, toasts, failures } = await rig(true, { progress: { steps: 5, intervalMs: 30 } })
+
+  const downloading = parameters.refresh()
+  await vi.waitFor(() => expect(parameters.progress.value).not.toBeNull())
+  await parameters.cancel()
+  await downloading
+
+  expect(parameters.list.value).toBe('none')
+  expect(texts(toasts)).toEqual(['Download cancelled'])
+  expect(failures).toEqual([])
+})
+
+it('does nothing to cancel when no download runs', async () => {
+  const { parameters, toasts } = await rig()
+
+  await parameters.cancel()
+
+  expect(parameters.list.value).toBe('none')
+  expect(texts(toasts)).toEqual([])
+})
+
+it('can be done again after a cancel', async () => {
+  const { parameters } = await rig(true, { progress: { steps: 3, intervalMs: 20 } })
+  const first = parameters.refresh()
+  await vi.waitFor(() => expect(parameters.progress.value).not.toBeNull())
+  await parameters.cancel()
+  await first
+
+  await parameters.refresh()
+
+  expect(parameters.list.value).toBe('complete')
+})
+
+it('is a failure, not a cancel, when the backend aborts it on its own', async () => {
+  const { parameters, toasts, failures } = await rig(false)
+
+  await parameters.refresh()
+
+  expect(parameters.list.value).toBe('failed')
+  expect(texts(toasts)).toEqual(['The parameters could not be downloaded'])
+  expect(toasts.visible.value[0]?.severity).toBe('error')
+  expect(failures.at(-1)).toBe('NOT_CONNECTED: no vehicle is connected')
 })
 
 it('replaces a parameter by its newer self', async () => {

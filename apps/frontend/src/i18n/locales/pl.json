@@ -349,6 +349,29 @@
     "groups": "Grupy parametrów",
     "allGroups": "Wszystkie",
     "list": "Parametry",
+    "progress": {
+      "running": "Pobieranie parametrów…",
+      "label": "{received} z {total} · {method}",
+      "method": {
+        "list": "listą",
+        "ftp": "transferem plików"
+      },
+      "done": "Pobrano {count} parametr | Pobrano {count} parametry | Pobrano {count} parametrów",
+      "cancelled": "Pobieranie anulowane",
+      "failed": "Nie udało się pobrać parametrów",
+      "info": {
+        "ftp": "Parametrów: {count} · transferem plików w {seconds} s",
+        "list": "Parametrów: {count} · listą w {seconds} s",
+        "listBecause": "Parametrów: {count} · listą w {seconds} s (transfer plików nie jest używany: {reason})"
+      },
+      "fallback": {
+        "unsupported": "pojazd go nie oferuje",
+        "timeout": "nie odpowiedział",
+        "protocol": "odpowiedział bez sensu",
+        "incomplete": "podał za mało parametrów",
+        "disabled": "poproszono o listę"
+      }
+    },
     "selection": "{id}, {position} z {total}",
     "favourites": {
       "group": "Ulubione",

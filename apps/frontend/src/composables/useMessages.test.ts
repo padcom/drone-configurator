@@ -24,11 +24,18 @@ async function connected() {
 }
 
 /**
+ * The toasts that are shown, except those of a parameter download (the connection makes one).
+ *
+ * @returns the toasts
+ */
+const shownToasts = () => useToasts().visible.value.filter(toast => !toast.id.startsWith('params.download'))
+
+/**
  * The texts of the toasts that are shown.
  *
  * @returns the texts
  */
-const toastTexts = () => useToasts().visible.value.map(toast => toast.text)
+const toastTexts = () => shownToasts().map(toast => toast.text)
 
 it('fills the list with what the vehicle said before, oldest first, and makes no toast of it', async () => {
   const { handle } = await connected()
@@ -55,7 +62,7 @@ it('makes a toast of a new warning, an error toast of a new error, and counts bo
   control.say?.(3, 'Compass error')
   await vi.waitFor(() => expect(toastTexts()).toEqual(['PreArm: Battery low', 'Compass error']))
 
-  expect(useToasts().visible.value.map(toast => toast.severity)).toEqual(['warning', 'error'])
+  expect(shownToasts().map(toast => toast.severity)).toEqual(['warning', 'error'])
   expect(handle.messages.unread.value).toBe(2)
 })
 

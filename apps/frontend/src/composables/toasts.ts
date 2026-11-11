@@ -3,8 +3,35 @@
 // test needs no waiting.
 import { type Ref, reactive, ref } from 'vue'
 
-/** How a toast is told: success, a warning, an error (each with its glyph and its colour, and its words). */
-export type Severity = 'success' | 'warning' | 'error'
+/** How a toast is told: something under way (info), success, a warning, an error (each with its glyph, colour and words). */
+export type Severity = 'info' | 'success' | 'warning' | 'error'
+
+/** Why a toast went: its button was pressed (`manual`), its time ran out (`timeout`), or the program removed it. */
+export type DismissReason = 'manual' | 'timeout' | 'program'
+
+/** How far something has got: `value` of `max` (a bar), or `null` for no bar. */
+export interface ToastProgress {
+  /** What is done. */
+  value: number
+  /** What is to be done. */
+  max: number
+  /** What is written beside the bar ("45 %"): for the eye only, a screen reader is told what the toast says, not each step. */
+  label?: string
+}
+
+/** What can change in a toast that is shown. */
+export interface ToastPatch {
+  /** The words. */
+  text?: string
+  /** How it is told. */
+  severity?: Severity
+  /** Whether it stays until dismissed; letting go of it starts its time. */
+  sticky?: boolean
+  /** The bar; `null` takes it away. */
+  progress?: ToastProgress | null
+  /** Called when it goes (`null` takes the callback away: the toast has ended in a way that needs none). */
+  onDismiss?: ((reason: DismissReason) => void) | null
+}
 
 /** What is pushed. */
 export interface ToastInput {
@@ -18,6 +45,10 @@ export interface ToastInput {
   sticky?: boolean
   /** Stays as long as an error does (for what takes a while to read), though it is not one. */
   long?: boolean
+  /** A bar, for something that is under way (`update` moves it). */
+  progress?: ToastProgress
+  /** Called when the toast goes, with why: for a toast whose closing means something (it stops what it shows). */
+  onDismiss?: (reason: DismissReason) => void
 }
 
 /** A toast as it is kept. */
@@ -36,6 +67,8 @@ export interface Toast {
   long: boolean
   /** How many times the same event was pushed within the de-duplication window (1 for a single one). */
   count: number
+  /** The bar, or null. */
+  progress: ToastProgress | null
 }
 
 /** At most this many are shown; the rest wait their turn. */
@@ -73,8 +106,10 @@ export interface Toasts {
   waiting: Ref<number>
   /** Adds a toast (or counts a repeat of one); gives its key, for dismissing it when what it says stops being true. */
   push: (input: ToastInput) => number
-  /** Removes a toast. */
-  dismiss: (key: number) => void
+  /** Removes a toast (`reason`: `manual` when the user did it, `timeout` when its time ran out, else `program`). */
+  dismiss: (key: number, reason?: DismissReason) => void
+  /** Changes a toast that is shown (its words, its bar, whether it stays); nothing happens when it is gone. */
+  update: (key: number, patch: ToastPatch) => void
   /** Stops a toast's time running out, for as long as `by` holds it (the pointer is on it, or the focus is in it). */
   pause: (key: number, by: Hold) => void
   /** Lets go of one hold; it runs out again, with the time it had left, when nothing holds it any more. */
@@ -95,6 +130,8 @@ interface Entry {
   since: number
   /** What holds it: while the pointer or the focus is on it, its time does not run (each is let go on its own). */
   holds: Set<Hold>
+  /** Called when it goes. */
+  onDismiss?: (reason: DismissReason) => void
 }
 
 /**
@@ -131,6 +168,28 @@ function startable(entry: Entry): boolean {
   return entry.timer === undefined && entry.holds.size === 0 && Number.isFinite(entry.left)
 }
 
+/**
+ * The entries of an object that are not undefined.
+ *
+ * @param fields the object
+ * @returns a copy without them
+ */
+function definedOnly(fields: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined))
+}
+
+/**
+ * Puts what a patch changes of the words, the bar and the callback of a toast (not how long it stays) in it.
+ *
+ * @param entry the toast
+ * @param patch what changes
+ */
+function showPatch(entry: Entry, patch: ToastPatch): void {
+  Object.assign(entry.toast, definedOnly({ text: patch.text, severity: patch.severity }))
+  Object.assign(entry.toast, 'progress' in patch ? { progress: patch.progress } : {})
+  Object.assign(entry, 'onDismiss' in patch ? { onDismiss: patch.onDismiss ?? undefined } : {})
+}
+
 /** The queue: which toasts are shown, and when each of them goes. */
 class ToastQueue implements Toasts {
   readonly visible = ref<Toast[]>([])
@@ -158,8 +217,16 @@ class ToastQueue implements Toasts {
       text: input.text,
       ...lasting(input),
       count: 1,
+      progress: input.progress ?? null,
     })
-    this.entries.push({ toast, lastAt: this.clock.now(), left: lifeOf(toast), since: 0, holds: new Set() })
+    this.entries.push({
+      toast,
+      lastAt: this.clock.now(),
+      left: lifeOf(toast),
+      since: 0,
+      holds: new Set(),
+      onDismiss: input.onDismiss,
+    })
     this.refresh()
 
     return toast.key
@@ -169,14 +236,37 @@ class ToastQueue implements Toasts {
    * Removes a toast.
    *
    * @param key its number
+   * @param reason why it goes
    */
-  dismiss = (key: number): void => {
+  dismiss = (key: number, reason: DismissReason = 'program'): void => {
     const at = this.entries.findIndex(e => e.toast.key === key)
     const gone = this.entries[at]
     if (gone) {
       this.stop(gone)
       this.entries.splice(at, 1)
       this.refresh()
+      gone.onDismiss?.(reason)
+    }
+  }
+
+  /**
+   * Changes a toast that is shown. When it stops being sticky its time starts.
+   *
+   * @param key its number
+   * @param patch what changes
+   */
+  update = (key: number, patch: ToastPatch): void => {
+    const entry = this.entries.find(e => e.toast.key === key)
+    if (entry) {
+      showPatch(entry, patch)
+
+      if (patch.sticky !== undefined && patch.sticky !== entry.toast.sticky) {
+        entry.toast.sticky = patch.sticky
+        // Its time starts over, with the life of a toast that is not sticky any more (or stops, for one that becomes sticky).
+        this.stop(entry)
+        entry.left = lifeOf(entry.toast)
+        this.refresh()
+      }
     }
   }
 
@@ -231,7 +321,7 @@ class ToastQueue implements Toasts {
    */
   private run(entry: Entry): void {
     entry.since = this.clock.now()
-    entry.timer = this.clock.set(() => this.dismiss(entry.toast.key), entry.left)
+    entry.timer = this.clock.set(() => this.dismiss(entry.toast.key, 'timeout'), entry.left)
   }
 
   /** Shows what fits, starts the time of what has just appeared, and counts what waits. */

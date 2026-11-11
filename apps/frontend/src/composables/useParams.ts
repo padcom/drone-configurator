@@ -3,8 +3,10 @@
 // changes (useStaged.ts), which share the write lock kept here. It talks to the backend through the client
 // (docs/frontend-state.md).
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
-import { type BackendClient, describeError } from '@/backend/client'
-import type { Param } from '@/generated/app'
+import { type BackendClient, describeError, toBackendError } from '@/backend/client'
+import type { Param, ParamList, ParamsProgress } from '@/generated/app'
+import { type DownloadToast, startDownloadToast } from '@/lib/params/downloadToast'
+import { type Toasts, useToasts } from './toasts'
 import { type Initial, changedIds, initialOf } from '@/lib/params/initialValues'
 import { sortedByName, withInPlace } from '@/lib/params/naturalOrder'
 import { visibleParams } from '@/lib/params/paramList'
@@ -14,8 +16,20 @@ import { type WriteLock, createWriteLock } from './writeLock'
 /** How the parameter list stands: `loading`, or how the last download ended. */
 export type ListState = 'none' | 'loading' | 'complete' | 'incomplete' | 'failed'
 
+/** How a download came, as the backend reports it. */
+export interface DownloadInfo {
+  /** `ftp` (the vehicle's parameter file) or `list`; absent from a backend that does not say. */
+  source?: ParamList['source']
+  /** Why the file transfer was not used, when the list was. */
+  fallback?: string
+  /** How long it took (ms). */
+  elapsedMs?: number
+}
+
 /** What the parameters need from the rest of the interface. */
 export interface ParamsDeps {
+  /** The toasts the download is shown in (the application's unless a test gives its own). */
+  toasts?: Toasts
   /** The link to the backend. */
   client: BackendClient
   /** Records why the last thing failed. */
@@ -55,6 +69,12 @@ export interface ParamsModel {
   readonly draftWarning: ShallowRef<string | null>
   /** Held by whichever write is under way (the changes collected, a snapshot): no other starts meanwhile. */
   readonly lock: WriteLock
+  /** How far the download that runs is (null when none does, or before the first report). */
+  readonly progress: ShallowRef<ParamsProgress | null>
+  /** How the last download came: by which way, why not by the other, how long it took (null until there is one). */
+  readonly downloadInfo: ShallowRef<DownloadInfo | null>
+  /** Stops the download that runs (the list stays as it was, with its initial values); nothing happens when none runs. */
+  cancel: () => Promise<void>
   /**
    * Downloads the list again. A complete download makes its values the initial ones, unless it is the automatic one that
    * follows a link that came back to the same vehicle (`keepInitial`): that updates the values and keeps what "changed" is
@@ -97,6 +117,10 @@ class Parameters implements ParamsModel {
   readonly draftError = shallowRef<string | null>(null)
   readonly draftWarning = shallowRef<string | null>(null)
   readonly lock = createWriteLock()
+  readonly progress = shallowRef<ParamsProgress | null>(null)
+  readonly downloadInfo = shallowRef<DownloadInfo | null>(null)
+  /** Whether the user has asked for the download that runs to stop (so that the ABORTED that follows is not a failure). */
+  private cancelling = false
 
   /**
    * Makes the parameters.
@@ -147,21 +171,69 @@ class Parameters implements ParamsModel {
    * @param keepInitial whether the initial values are kept if there are any
    */
   private async download(keepInitial: boolean): Promise<void> {
+    const before = this.list.value === 'loading' ? 'none' : this.list.value
     this.list.value = 'loading'
+    this.progress.value = null
+    this.cancelling = false
+    const toast = startDownloadToast(this.deps.toasts ?? useToasts(), () => void this.cancel())
+    const stop = this.deps.client.onEvent('params.progress', progress => {
+      this.progress.value = progress
+      toast.progress(progress)
+    })
 
     try {
-      const downloaded = await this.deps.client.call('params.list', null)
-      // The values are the numbers the vehicle holds (a float comes over the wire widened to a double), and the list is in the
-      // order of the names, made once here: the list, the groups, the favourites and the search all follow it.
-      const params = sortedByName(downloaded.params.map(canonParam))
-      this.takeInitial(params, downloaded.complete, keepInitial)
-      this.params.value = params
-      this.missing.value = downloaded.missing
-      this.list.value = downloaded.complete ? 'complete' : 'incomplete'
+      this.take(await this.deps.client.call('params.list', {}), keepInitial)
+      toast.done(this.params.value.length)
     } catch (error) {
+      this.ended(error, before, toast)
+    } finally {
+      stop()
+      this.progress.value = null
+      this.cancelling = false
+    }
+  }
+
+  /**
+   * Takes in a downloaded list. The values are the numbers the vehicle holds (a float comes over the wire widened to a double),
+   * and the list is in the order of the names, made once here: the list, the groups, the favourites and the search follow it.
+   *
+   * @param downloaded the result of `params.list`
+   * @param keepInitial whether the initial values are kept if there are any
+   */
+  private take(downloaded: ParamList, keepInitial: boolean): void {
+    const params = sortedByName(downloaded.params.map(canonParam))
+    this.takeInitial(params, downloaded.complete, keepInitial)
+    this.params.value = params
+    this.missing.value = downloaded.missing
+    this.list.value = downloaded.complete ? 'complete' : 'incomplete'
+    this.downloadInfo.value = { source: downloaded.source, fallback: downloaded.fallback, elapsedMs: downloaded.elapsedMs }
+  }
+
+  /**
+   * A download that did not give a list. One the user cancelled is no failure: the list stays as it was, and the toast says so.
+   *
+   * @param error what the call threw
+   * @param before how the list stood before the download
+   * @param toast the toast of the download
+   */
+  private ended(error: unknown, before: ListState, toast: DownloadToast): void {
+    if (this.cancelling && toBackendError(error).code === 'ABORTED') {
+      this.list.value = before
+      toast.cancelled()
+    } else {
       this.list.value = 'failed'
+      toast.failed()
       this.deps.fail(describeError(error))
     }
+  }
+
+  async cancel(): Promise<void> {
+    if (this.list.value !== 'loading') {
+      return
+    }
+    this.cancelling = true
+    // The download fails with ABORTED when the backend stops it; a backend that has none running (or fails) leaves it be.
+    await this.deps.client.call('params.cancel', null).catch(() => undefined)
   }
 
   async refresh(options: { keepInitial?: boolean } = {}): Promise<void> {

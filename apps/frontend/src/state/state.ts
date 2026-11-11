@@ -4,7 +4,7 @@ import type { Connection, Param, SerialPort, Telemetry } from '@/generated/app'
 import type { Initial } from '@/lib/params/initialValues'
 import type { Metadata } from '@/lib/params/metadata'
 import type { Review } from '@/lib/params/snapshot'
-import type { ListState } from '@/composables/useParams'
+import type { DownloadInfo, ListState } from '@/composables/useParams'
 
 /** How a change of a snapshot went when it was applied. */
 export interface AppliedChange {
@@ -26,6 +26,8 @@ export interface State {
   list: ListState
   /** The indexes that never arrived. */
   missing: number[]
+  /** How the last download came (by which way, why not by file transfer, how long), or null before the first. */
+  downloadInfo: DownloadInfo | null
   /** What the user typed to narrow the list. */
   filter: string
   /** The values at the last complete download: what "changed" is measured against, and what a reset puts back. */

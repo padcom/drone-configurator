@@ -57,6 +57,24 @@ it('says when the initial values were taken, under the list', async () => {
   expect(table.get('#list-status').text()).toBe('12 parameters')
 })
 
+it('says how the last download came, under the list: the way, the time and why not the other', async () => {
+  const { table, handle } = await screen()
+  expect(table.find('#download-status').exists()).toBe(false)
+
+  feed(handle, { downloadInfo: { source: 'ftp', elapsedMs: 800 } })
+  await table.vm.$nextTick()
+  expect(table.get('#download-status').text()).toBe('Parameters: 12 · by file transfer in 0.8 s')
+  feed(handle, { downloadInfo: { source: 'list', fallback: 'timeout', elapsedMs: 6200 } })
+  await table.vm.$nextTick()
+  expect(table.get('#download-status').text())
+    .toBe('Parameters: 12 · by list in 6.2 s (file transfer is not used: it did not answer)')
+  // Not while a download runs: the line is about the last one.
+  feed(handle, { list: 'loading' })
+  await table.vm.$nextTick()
+
+  expect(table.find('#download-status').exists()).toBe(false)
+})
+
 it('says nothing of initial values before there is a complete download', () => {
   const handle = createConfigurator(mockBackend())
   feed(handle, { params: PARAMS, list: 'incomplete' })
