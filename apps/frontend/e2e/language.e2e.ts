@@ -68,7 +68,7 @@ describe('the language of the interface', () => {
 
     expect(await win().evaluate<string>('document.documentElement.lang')).toBe('en')
     expect(await win().evaluate<string[]>(`[...document.querySelectorAll('main select option')].map(o => o.textContent.trim())`))
-      .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español'])
+      .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español', 'Українська', 'Русский'])
   })
 
   it('changes the text at once when another is picked (the rail names), and the page\'s lang', async () => {
@@ -114,7 +114,7 @@ describe('the longer text of the language', () => {
   })
 })
 
-describe('Polish, with the letters of Latin Extended', () => {
+describe('Polish, Italian, Spanish, Ukrainian and Russian: Latin Extended and Cyrillic letters', () => {
   it('shows the rail in Polish, and loads the Latin Extended face for ą ć ę ł ń ś ź ż once they are shown', async () => {
     await pick('pl')
 
@@ -124,8 +124,22 @@ describe('Polish, with the letters of Latin Extended', () => {
     await win().waitFor(`[...document.fonts].some(face => face.status === 'loaded' && /U\\+0*100\\b/u.test(face.unicodeRange))`)
     expect(await win().evaluate<string>('document.documentElement.lang')).toBe('pl')
   })
+})
 
-  const RAILS = [['pl', 'Dane lotu'], ['it', 'Dati di volo'], ['es', 'Datos de vuelo']]
+describe('Russian, Ukrainian and the rest: Cyrillic letters, and no clipped text', () => {
+  it('shows the rail in Russian, and loads the Cyrillic face once Cyrillic is shown', async () => {
+    await pick('ru')
+
+    await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Полёт'`)
+    expect(await rail()).toEqual(expect.arrayContaining(['Полёт', 'Параметры', 'Настройки']))
+    // U+0400-045F is the Cyrillic range of the face: it is fetched for the letters on the page, and not before.
+    await win().waitFor(`[...document.fonts].some(face => face.status === 'loaded' && /U\\+0*400\\b/u.test(face.unicodeRange))`)
+    expect(await win().evaluate<string>('document.documentElement.lang')).toBe('ru')
+  })
+
+  const RAILS = [
+    ['pl', 'Dane lotu'], ['it', 'Dati di volo'], ['es', 'Datos de vuelo'], ['uk', 'Політ'], ['ru', 'Полёт'],
+  ]
 
   it.each(RAILS)('shows the rail in %s, with no text cut off at 1000 px', async (code, flight) => {
     await pick(code)
@@ -138,15 +152,15 @@ describe('Polish, with the letters of Latin Extended', () => {
     expect(await clippedOn('settings')).toEqual([])
     await win().devtools('Emulation.clearDeviceMetricsOverride', {})
   })
+})
 
-  it('goes back to German for the test of what is kept', async () => {
+describe('the language that was picked', () => {
+  it('is German again, to see what is kept', async () => {
     await pick('de')
 
     await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Flugdaten'`)
   })
-})
 
-describe('the language that was picked', () => {
   it('is kept: a window that is opened again is in it', async () => {
     await win().close()
     shown.app = await launchApp()
