@@ -37,9 +37,16 @@
         @mousemove="hover($event, at)"
         @click="run(row)"
       >
-        <span class="palette-label">{{ row.label }}</span>
+        <span class="palette-label" :class="{ literal: row.command.label !== undefined }">
+          {{ row.label }}
+          <template v-if="row.command.starred">
+            <Icon name="star" class="palette-star" aria-hidden="true" />
+            <span class="visually-hidden"> ({{ t('params.favourites.column') }})</span>
+          </template>
+        </span>
         <span class="palette-group">{{ row.group }}</span>
         <kbd class="palette-key">{{ row.hint }}</kbd>
+        <span v-if="row.command.detail" class="palette-detail">{{ row.command.detail }}</span>
         <span v-if="row.reason !== null" :id="`palette-reason-${row.command.id}`" class="palette-reason">{{ row.reason }}</span>
       </li>
     </ul>
@@ -105,7 +112,7 @@ const rows = computed<Row[]>(() => registry.search(query.value, ctx).map(command
 
   return {
     command,
-    label: ctx.say(command.labelKey),
+    label: command.label ?? ctx.say(command.labelKey),
     group: ctx.say(command.groupKey),
     hint: command.shortcut ?? '',
     reason: availability.enabled ? null : ctx.say(availability.reasonKey, availability.reasonParams),

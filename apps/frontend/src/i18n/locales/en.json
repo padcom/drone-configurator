@@ -518,11 +518,12 @@
     "label": "Command palette",
     "list": "Commands",
     "empty": "Nothing matches “{query}”.",
-    "count": "{count} command | {count} commands",
+    "count": "{count} result | {count} results",
     "failed": "The command failed.",
     "group": {
       "parameters": "Parameters",
       "navigate": "Navigate",
+      "parameter": "Parameter",
       "vehicle": "Vehicle"
     },
     "go": {
