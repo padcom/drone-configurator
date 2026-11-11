@@ -37,6 +37,7 @@
         @mousemove="hover($event, at)"
         @click="run(row)"
       >
+        <span class="palette-icon" aria-hidden="true"><Icon v-if="row.command.icon" :name="row.command.icon" /></span>
         <span class="palette-label" :class="{ literal: row.command.label !== undefined }">
           {{ row.label }}
           <template v-if="row.command.starred">

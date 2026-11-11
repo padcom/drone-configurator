@@ -15,6 +15,8 @@ export class LoadMetadata implements Command {
 
   readonly groupKey = PARAMETERS_GROUP
 
+  readonly icon = 'folder'
+
   readonly keywordKeys = ['palette.metadata.load.keywords']
 
   /**

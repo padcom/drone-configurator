@@ -111,11 +111,11 @@
   outline-offset: -2px;
 }
 
-.rail-item.router-link-exact-active {
+.rail-item[aria-current="page"] {
   color: var(--color-accent);
 }
 
-.rail-item.router-link-exact-active .rail-icon {
+.rail-item[aria-current="page"] .rail-icon {
   background: var(--color-accent-soft);
 }
 

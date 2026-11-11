@@ -18,6 +18,8 @@ export interface Fake {
     armed: boolean | undefined
     busy: ParameterWork | null
     rebootResult: RebootResult
+    /** The route that is shown. */
+    path: string
     /** When set, `vehicle.reboot` rejects with it (the backend's refusal, or a failure). */
     rebootError?: unknown
   }
@@ -96,7 +98,7 @@ function parametersOf(fake: Fake): ParameterFacts {
 export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   const connection: Connection = { state: 'connected', vehicle: IDENTITY }
   const fake: Fake = {
-    facts: { connection, armed: false, busy: null, rebootResult: { result: 'accepted' }, ...facts },
+    facts: { connection, armed: false, busy: null, path: '/flight', rebootResult: { result: 'accepted' }, ...facts },
     parameters: { ids: [], metadata: new Map(), favourites: new Set() },
     answer: { confirm: true },
     calls: { navigate: [], metadata: [], confirm: [], toast: [], reboot: [], reveal: [] },
@@ -105,6 +107,7 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   fake.ctx = {
     files: { loadMetadata: () => void fake.calls.metadata.push('load') },
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
+    currentPath: () => fake.facts.path,
     parameters: parametersOf(fake),
     vehicle: vehicleOf(fake),
     confirm: (options: SafetyOptions) => {

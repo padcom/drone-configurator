@@ -2,7 +2,7 @@
 // (`goToScreens`); more are registered where they belong (the reboot, with the vehicle). The context is what a command may
 // touch, made from the router, the configurator and the toasts: commands get nothing else (lib/commands/command.ts).
 import { nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { CommandContext, ParameterFacts, VehicleFacts } from '@/lib/commands/command'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens } from '@/lib/commands/navigation'
@@ -125,6 +125,7 @@ function parameterFacts(): ParameterFacts {
  */
 export function useCommandContext(): CommandContext {
   const router = useRouter()
+  const route = useRoute()
   const toasts = useToasts()
   const { confirmWith, metadata } = useConfigurator()
 
@@ -132,6 +133,8 @@ export function useCommandContext(): CommandContext {
     navigate: async path => {
       await router.push(path)
     },
+    // Read from the route when asked, so that what depends on it (the rail's current screen) follows a change.
+    currentPath: () => route.path,
     parameters: parameterFacts(),
     vehicle: vehicleFacts(),
     // The Load metadata button's own flow: the host's dialog in Pico Desktop, a file input in a browser (made for the moment,

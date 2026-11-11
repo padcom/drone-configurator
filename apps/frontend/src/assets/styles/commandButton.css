@@ -1,0 +1,64 @@
+/*
+ * CommandButton.vue: where the icon is. The look itself is not here: the rail's look is .rail-item (frame.css) and the other looks
+ * are the kit button's own classes (kit.css), so nothing of either is drawn twice. Any look with the icon in any place has to
+ * be sane: the icon and the words side by side, or one over the other, with a gap.
+ */
+
+.command-button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.command-button.icon-top,
+.command-button.icon-bottom {
+  flex-direction: column;
+}
+
+.command-button.icon-left,
+.command-button.icon-right,
+.command-button.icon-none {
+  flex-direction: row;
+}
+
+/* The rail's cell is a block of the rail's width (frame.css), not an inline box; as a row it has the gap of any button. */
+.rail-item.command-button {
+  display: flex;
+}
+
+.rail-item.icon-left,
+.rail-item.icon-right {
+  gap: var(--space-2);
+}
+
+.command-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15em;
+}
+
+.command-button-label {
+  min-width: 0;
+}
+
+/*
+ * A command that may not run is `aria-disabled`, not a native disabled button: it stays in the tab order (the focus is not lost
+ * when it turns off, and its reason can be reached) and does nothing when pressed. It looks as the kit's disabled button does.
+ */
+.kit-button.command-button[aria-disabled="true"],
+.kit-button.command-button[aria-disabled="true"]:hover {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: var(--color-border);
+  border-color: transparent;
+}
+
+.rail-item.command-button[aria-disabled="true"] {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}

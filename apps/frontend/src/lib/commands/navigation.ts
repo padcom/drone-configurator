@@ -1,6 +1,7 @@
 // Going to a screen. One command per screen of the product, made from the screens' own list, so that a new screen is in the
 // palette without a change here (it needs a message `palette.go.<id>` in every locale, which a test checks).
 import type { Command, CommandContext, CommandOutcome } from './command'
+import type { IconName } from '@/lib/ui/icons'
 import { PRODUCT_SCREENS, type Screen } from '@/screens/registry'
 
 /** The group of the commands that go to a screen. */
@@ -14,6 +15,13 @@ export class GoToScreen implements Command {
 
   readonly groupKey = NAVIGATE_GROUP
 
+  readonly icon: IconName
+
+  // On the rail the words are the screen's name, as they always were.
+  readonly buttonLabelKey: string
+
+  readonly href: string
+
   /**
    * Makes the command of a screen.
    *
@@ -24,6 +32,19 @@ export class GoToScreen implements Command {
     // One whole message per screen and language, not a template with the screen's name in it: in Polish, Ukrainian and
     // Russian the name would need another ending.
     this.labelKey = `palette.go.${screen.id}`
+    this.icon = screen.icon
+    this.buttonLabelKey = screen.titleKey
+    this.href = screen.path
+  }
+
+  /**
+   * Whether the screen is the one that is shown.
+   *
+   * @param ctx the context
+   * @returns true for the current screen
+   */
+  isActive(ctx: CommandContext): boolean {
+    return ctx.currentPath() === this.screen.path
   }
 
   /**

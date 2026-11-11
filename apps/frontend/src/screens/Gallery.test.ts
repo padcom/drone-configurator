@@ -1,6 +1,10 @@
 import { afterEach, expect, it } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
+import { createMemoryHistory } from 'vue-router'
 import { i18n } from '@/i18n/i18n'
+import { mockBackend } from '@/mock/mock-backend'
+import { createAppRouter } from '@/router'
+import { createConfigurator } from '@/composables/useConfigurator'
 import { ICONS } from '@/lib/ui/icons'
 import Gallery from './Gallery.vue'
 
@@ -12,7 +16,10 @@ let mounted: VueWrapper | undefined
  * @returns the wrapper
  */
 function gallery(): VueWrapper {
-  mounted = mount(Gallery, { global: { plugins: [i18n] }, attachTo: document.body })
+  // The command buttons of the gallery need the application's router and state, as the screens do in the shell.
+  createConfigurator(mockBackend())
+  const router = createAppRouter(createMemoryHistory())
+  mounted = mount(Gallery, { global: { plugins: [i18n, router] }, attachTo: document.body })
 
   return mounted
 }
