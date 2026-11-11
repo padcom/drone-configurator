@@ -17,7 +17,7 @@ import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
-import { encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
+import { boardOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
 
 /// The waits are in slices, so that a disconnect is noticed at once.
@@ -140,7 +140,7 @@ async function heardSince(since: int, generation: int): Promise<Vehicle?> throws
 }
 
 /// A vehicle answered: the same one, and the session goes on, or another one, and it is a new connection.
-async function takeUp(found: Vehicle, generation: int): Promise<void> throws Error {
+export async function takeUp(found: Vehicle, generation: int): Promise<void> throws Error {
   const conn = link.conn
   if (conn == null) {
     return
@@ -150,11 +150,19 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
     return
   }
   const identity = identityOf(found, version)
+  const board = boardOf(found, version)
   // It is back: the reboot that was waited for is over, and a new one may be asked for.
   link.rebootAt = 0
   link.rebootUnsure = false
-  if (identity == link.identity) {
-    link.update(Connection { state: ConnectionState.Connected, vehicle: link.state.vehicle, resumed: true })
+  // The exception for a changed type is for one change, the one this session made: it ends with this taking up.
+  const mayChange = link.typeMayChange
+  link.typeMayChange = false
+  // The same vehicle: the very identity, or (only after this session changed the frame of the board) the same board, whatever
+  // type it reports now. A unique id alone is not enough: two vehicles on one host may report the same one.
+  if (identity == link.identity || (mayChange && board != "" && board == link.board)) {
+    // What it says it is now (a changed frame is another type) is shown, and the session goes on.
+    link.identity = identity
+    link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found), resumed: true })
     return
   }
   // Never a silent reuse: the parts listen to the new vehicle, and the dashboard downloads its parameters again.
@@ -163,6 +171,7 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
   link.autopilot = found.autopilot
   link.encoding = encodingFor(found, version)
   link.identity = identity
+  link.board = board
   link.attach(conn!)
   link.update(Connection {
     state: ConnectionState.Connected,
