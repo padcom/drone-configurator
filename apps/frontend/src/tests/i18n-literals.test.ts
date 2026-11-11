@@ -16,6 +16,7 @@ const FOLDERS = ['composables', 'lib', 'state', 'backend']
 const ALLOWED: [string, string][] = [
   ['composables/useConfigurator.ts', 'has not been called'],
   ['lib/commands/registry.ts', 'is already registered'],
+  ['composables/useCommands.ts', 'not wired to the backend'],
 ]
 
 /**

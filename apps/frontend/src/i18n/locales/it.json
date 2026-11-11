@@ -512,6 +512,12 @@
     "backendStopped": "Il backend si è fermato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare."
   },
   "palette": {
+    "placeholder": "Cerca o esegui un comando",
+    "label": "Riquadro dei comandi",
+    "list": "Comandi",
+    "empty": "Nessuna corrispondenza per “{query}”.",
+    "count": "{count} comando | {count} comandi",
+    "failed": "Il comando non è riuscito.",
     "group": {
       "navigate": "Navigazione",
       "vehicle": "Veicolo"

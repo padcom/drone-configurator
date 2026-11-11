@@ -1,0 +1,151 @@
+/*
+ * The command palette (CommandPalette.vue) and the top bar's button that opens it: tokens only. The palette is a modal of 720 by
+ * 520 px at most, a search row of 64 px, and rows of 50 px: the label, the group (small, muted) and the key (mono, muted, at the
+ * right); the row that Enter would run is on the soft accent; a command that may not run is dimmed and says why under its label.
+ */
+
+.top-bar .palette-button {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.top-bar .palette-button:hover {
+  color: var(--color-text);
+  background: var(--color-border);
+}
+
+.top-bar .palette-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.palette-button-text {
+  white-space: nowrap;
+}
+
+.palette-button-key,
+.palette-key {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.palette-button-key {
+  padding: 2px 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.kit-dialog.palette {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(520px, calc(100vh - 2rem));
+  padding: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.kit-dialog.palette:not([open]) {
+  display: none;
+}
+
+.kit-dialog.palette .kit-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.palette-search {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 64px;
+  gap: var(--space-3);
+  align-items: center;
+  padding: 0 var(--space-5);
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.palette-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  font-size: 18px;
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+}
+
+.palette-input:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.palette-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.palette-row {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr auto 56px;
+  column-gap: var(--space-3);
+  align-items: center;
+  min-height: 50px;
+  padding: var(--space-2) var(--space-5);
+  cursor: pointer;
+}
+
+.palette-row.active {
+  background: var(--color-accent-soft);
+}
+
+.palette-row.disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.palette-label {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.palette-group {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.palette-key {
+  text-align: right;
+}
+
+.palette-reason {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-sm);
+  color: var(--color-warn);
+}
+
+.palette-empty {
+  padding: var(--space-6) var(--space-5);
+  margin: 0;
+  color: var(--color-text-muted);
+}

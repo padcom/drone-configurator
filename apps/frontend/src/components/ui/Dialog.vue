@@ -9,9 +9,9 @@
     @close="closed"
     @keydown.tab="trap"
   >
-    <h2 :id="`${uid}-title`" class="kit-dialog-title">{{ title }}</h2>
+    <h2 :id="`${uid}-title`" class="kit-dialog-title" :class="{ 'visually-hidden': bare }">{{ title }}</h2>
     <div :id="`${uid}-body`" class="kit-dialog-body"><slot /></div>
-    <div class="kit-dialog-actions"><slot name="actions" /></div>
+    <div v-if="!bare" class="kit-dialog-actions"><slot name="actions" /></div>
   </dialog>
 </template>
 
@@ -25,6 +25,8 @@ import { onBeforeUnmount, onMounted, ref, useId } from 'vue'
 defineProps<{
   /** The heading, and the dialog's accessible name. */
   title: string
+  /** No visible heading (it is still the accessible name) and no row of actions: for a dialog that is all body (the palette). */
+  bare?: boolean
 }>()
 
 const emit = defineEmits<{

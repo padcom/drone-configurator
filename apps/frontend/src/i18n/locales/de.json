@@ -512,6 +512,12 @@
     "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
   },
   "palette": {
+    "placeholder": "Befehl suchen oder ausführen",
+    "label": "Befehlspalette",
+    "list": "Befehle",
+    "empty": "Nichts passt zu „{query}“.",
+    "count": "{count} Befehl | {count} Befehle",
+    "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
       "navigate": "Navigation",
       "vehicle": "Fahrzeug"
