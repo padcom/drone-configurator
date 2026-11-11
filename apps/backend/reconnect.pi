@@ -154,7 +154,8 @@ async function takeUp(found: Vehicle, generation: int): Promise<void> throws Err
   link.rebootAt = 0
   link.rebootUnsure = false
   if (identity == link.identity) {
-    link.update(Connection { state: ConnectionState.Connected, vehicle: link.state.vehicle, resumed: true })
+    // The same board: what it says it is now (a changed frame is another type) is shown, and the session goes on.
+    link.update(Connection { state: ConnectionState.Connected, vehicle: infoOf(found), resumed: true })
     return
   }
   // Never a silent reuse: the parts listen to the new vehicle, and the dashboard downloads its parameters again.

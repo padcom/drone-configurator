@@ -1,0 +1,101 @@
+// Who a vehicle is (`identityOf`): by the board's unique id when it says one, whatever type it reports (a changed frame class
+// makes a quad a hexa and the board is still the same); by ids, type and autopilot when it says none.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { AutopilotVersion, MavAutopilot, MavType, Vehicle } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport, VehicleInfo, encodeConnectRequest } from "./generated/app"
+import { identityOf, link } from "./session"
+import { start } from "./testing"
+
+/// A vehicle of `type`, system 1, component 1, ArduPilot.
+function vehicle(type: int, sysid: int = 1): Vehicle {
+  const v = new Vehicle(sysid, 1)
+  v.type = type
+  v.autopilot = MavAutopilot.ARDUPILOTMEGA
+  v
+}
+
+/// What the board answers to the request for its version, with this unique id.
+function versionWith(uid: int): AutopilotVersion {
+  const v = new AutopilotVersion()
+  v.uid = uid as u64
+  v
+}
+
+function sameBoardAfterAFrameChange(): void {
+  const quad = identityOf(vehicle(MavType.QUADROTOR), versionWith(77))
+  const hexa = identityOf(vehicle(MavType.HEXAROTOR), versionWith(77))
+  expect(hexa).toBe(quad)
+}
+
+function anotherBoardIsAnotherVehicle(): void {
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(78))).toBe(false)
+}
+
+function idsAndAutopilotStillCount(): void {
+  const board = identityOf(vehicle(MavType.QUADROTOR), versionWith(77))
+  expect(identityOf(vehicle(MavType.QUADROTOR, 2), versionWith(77)) == board).toBe(false)
+  const other = vehicle(MavType.QUADROTOR)
+  other.autopilot = MavAutopilot.PX4
+  expect(identityOf(other, versionWith(77)) == board).toBe(false)
+}
+
+function noUniqueIdKeepsTheType(): void {
+  const quad = identityOf(vehicle(MavType.QUADROTOR), versionWith(0))
+  expect(identityOf(vehicle(MavType.HEXAROTOR), versionWith(0)) == quad).toBe(false)
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(quad)
+}
+
+function noAnswerToTheVersionIsNoUniqueId(): void {
+  const quad = identityOf(vehicle(MavType.QUADROTOR), null)
+  expect(quad).toBe(identityOf(vehicle(MavType.QUADROTOR), versionWith(0)))
+  expect(identityOf(vehicle(MavType.HEXAROTOR), null) == quad).toBe(false)
+}
+
+function aUniqueIdIsNeverTakenForNone(): void {
+  // A board with a unique id is not "the same" as one that says none, whatever their types: nothing is reused silently.
+  expect(identityOf(vehicle(MavType.QUADROTOR), versionWith(77)) == identityOf(vehicle(MavType.QUADROTOR), versionWith(0))).toBe(false)
+}
+
+/// Waits up to `ms` for the session to be in `want`.
+async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.state.state != want) {
+    await delay(50)
+    waited += 50
+  }
+  link.state.state == want
+}
+
+/// The same vehicle comes back (resumed), and what is shown of it is what it says now: after a frame change that is another type.
+async function showsWhatTheBoardSaysNow(): Promise<void> throws Error {
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  try {
+    const f = await start()
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    // What is shown is a hexarotor; the board that answers says it is a quadrotor (the identity, by the ids and the type here
+    // as the simulator says no unique id, is the one it connected with).
+    const shown = VehicleInfo { sysid: 1, compid: 1, type: "HEXAROTOR", autopilot: "ARDUPILOTMEGA" }
+    link.update(Connection { state: ConnectionState.Connected, vehicle: shown })
+    simulatorForTests()!.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${link.state.vehicle!.type}`).toBe("true QUADROTOR")
+  } finally {
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+describe("who a vehicle is", () => {
+  it("is the same board after a frame change: the unique id is what counts, not the type", sameBoardAfterAFrameChange)
+  it("is another vehicle when the unique id is another", anotherBoardIsAnotherVehicle)
+  it("still counts the system, the component and the autopilot", idsAndAutopilotStillCount)
+  it("keeps the type when the vehicle says no unique id (the simulator, SITL)", noUniqueIdKeepsTheType)
+  it("takes no answer to the request for the version as no unique id", noAnswerToTheVersionIsNoUniqueId)
+  it("does not take a board with a unique id for one that says none", aUniqueIdIsNeverTakenForNone)
+  it("shows what the same board says it is when it comes back", showsWhatTheBoardSaysNow)
+})

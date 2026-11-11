@@ -181,11 +181,14 @@ export function infoOf(v: Vehicle): VehicleInfo {
   }
 }
 
-/// Who a vehicle is: its ids, its kind and, when it says (AUTOPILOT_VERSION), its unique id. A vehicle that
-/// comes back after the link dropped is "the same" only if this is the same; "0" for no unique id.
+/// Who a vehicle is. A board that says its unique id (AUTOPILOT_VERSION: a non-zero `uid`) is identified by its ids, its
+/// autopilot and that id, and NOT by its type: changing FRAME_CLASS (a quad becomes a hexa) and rebooting changes the MAV_TYPE it
+/// reports, and it is still the same board, with the same parameters, initial values and queued changes. A vehicle with no unique
+/// id (uid 0, as the simulator and SITL report) is identified by its ids, its type and its autopilot, as before. A vehicle that
+/// comes back after the link dropped is "the same" only if this is the same.
 export function identityOf(v: Vehicle, version: AutopilotVersion?): string {
   const uid = if (version == null) "0" else `${version!.uid}`
-  `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/${uid}`
+  if (uid == "0") `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/0` else `${v.sysid}/${v.compid}/${v.autopilot}/uid:${uid}`
 }
 
 /// The connection to the vehicle, if one is up.
