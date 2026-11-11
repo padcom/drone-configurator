@@ -1,0 +1,201 @@
+// The reboot service (`vehicle.reboot`), over an in-memory link against the simulated vehicle. The simulator does not answer
+// MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN yet, so each test scripts the answer on the vehicle's end, and counts the commands that
+// reached it: a refusal sends nothing, and the command is sent once and never with the force value.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { CommandAck, CommandLong, MavResult, Received, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  ParamWrite,
+  ParamWriteKind,
+  RebootResultResult,
+  decodeRebootResult,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN.
+const REBOOT: int = 246
+
+/// What reached the vehicle: the reboot commands, as they were sent.
+class Heard {
+  public frames: CommandLong[] = []
+}
+
+/// Listens for reboot commands on the vehicle's end, and answers each with `result` (-1: does not answer).
+function listen(sim: SimulatedAutopilot, result: int): Heard {
+  const heard = new Heard()
+  sim.conn.on((r: Received) => {
+    const m = r.message
+    if (m instanceof CommandLong && m.command as int == REBOOT) {
+      heard.frames.push(m)
+      if (result >= 0) {
+        const ack = new CommandAck()
+        ack.command = m.command
+        ack.result = result as u8
+        sim.conn.send(ack)
+      }
+    }
+  })
+  heard
+}
+
+/// A connected simulator, with a fresh heartbeat heard (the armed state is only known after one).
+async function connected(): Promise<Frontend> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  await afterBeat()
+  f
+}
+
+/// Waits for the next heartbeat of the vehicle: what is set after it holds for about a second.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// What a `vehicle.reboot` call came to: the error code, or the result.
+async function reboot(f: Frontend): Promise<string> throws Error {
+  const e = await f.call("vehicle.reboot")
+  if (e.err != null) {
+    return e.err!.code
+  }
+  nameOf(decodeRebootResult(e.p ?? Cbor.Null, "$").result)
+}
+
+function nameOf(result: RebootResultResult): string {
+  match (result) {
+    Accepted => "accepted",
+    Refused => "refused",
+    Unsupported => "unsupported",
+    NoAnswer => "no-answer",
+  }
+}
+
+async function refusesWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.disconnect")
+  expect(await reboot(f)).toBe("NOT_CONNECTED")
+}
+
+async function refusesWhileArmed(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.ACCEPTED)
+  await afterBeat()
+  link.armed = true
+  expect(await reboot(f)).toBe("ARMED")
+  expect(heard.frames.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function refusesWhenTheStateIsUnknown(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.ACCEPTED)
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(await reboot(f)).toBe("STATE_UNKNOWN")
+  expect(heard.frames.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function refusesWhileAWriteIsUnderWay(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.ACCEPTED)
+  // The simulator never answers a parameter it doesn't have: the write is in flight for seconds.
+  const w = ParamWrite { id: "NO_SUCH_PARAM", kind: ParamWriteKind.Int, type: "INT32", value: 1.0 }
+  const writing = await f.send("params.write", encodeParamWrite(w))
+  await delay(100)
+  expect(await reboot(f)).toBe("BUSY")
+  expect(heard.frames.length).toBe(0)
+  await f.call("vehicle.disconnect")
+  await f.reply(writing)
+  expect(link.writes).toBe(0)
+}
+
+async function sendsOneCommandWithoutTheForceValue(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.ACCEPTED)
+  expect(await reboot(f)).toBe("accepted")
+  expect(heard.frames.length).toBe(1)
+  const m = heard.frames[0]
+  expect(`${m.command} ${m._param1} ${m._param2} ${m._param3} ${m._param4} ${m._param5} ${m._param6} ${m._param7}`).toBe("246 1 0 0 0 0 0 0")
+  expect(link.rebootAt > 0).toBe(true)
+  // A second request while the reboot is expected is refused and sends nothing.
+  expect(await reboot(f)).toBe("BUSY")
+  expect(heard.frames.length).toBe(1)
+  link.close()
+}
+
+async function reportsARefusal(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, MavResult.FAILED)
+  expect(await reboot(f)).toBe("refused")
+  expect(heard.frames.length).toBe(1)
+  expect(link.rebootAt).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function reportsNoAnswerAndDoesNotResend(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!, -1)
+  expect(await reboot(f)).toBe("no-answer")
+  // Three seconds of silence, one command: nothing was sent again.
+  expect(heard.frames.length).toBe(1)
+  expect(link.rebootAt).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+/// Waits up to `ms` for the session to be in `want`.
+async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.state.state != want) {
+    await delay(50)
+    waited += 50
+  }
+  link.state.state == want
+}
+
+/// The vehicle that accepted goes quiet while it boots: the connection is `reconnecting` with the code REBOOTING, and when it
+/// is back it is the same vehicle (resumed) and a new reboot may be asked for.
+async function saysRebootingWhileItBoots(): Promise<void> throws Error {
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  try {
+    const f = await connected()
+    const sim = simulatorForTests()!
+    const heard = listen(sim, MavResult.ACCEPTED)
+    expect(await reboot(f)).toBe("accepted")
+    sim.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(link.state.errorCode ?? "none").toBe("REBOOTING")
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.rebootAt}`).toBe("true  0")
+    await afterBeat()
+    expect(await reboot(f)).toBe("accepted")
+    expect(heard.frames.length).toBe(2)
+  } finally {
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+describe("the reboot service", () => {
+  it("refuses without a connected vehicle", refusesWithoutAVehicle)
+  it("refuses while the vehicle is armed, sending nothing", refusesWhileArmed)
+  it("refuses when the armed state is not known, sending nothing", refusesWhenTheStateIsUnknown)
+  it("refuses while a parameter write is under way, sending nothing", refusesWhileAWriteIsUnderWay)
+  it("sends one command, with parameter 1 set and the force value (parameter 6) never", sendsOneCommandWithoutTheForceValue)
+  it("reports a refusal of the vehicle", reportsARefusal)
+  it("reports no answer after the wait, without sending again", reportsNoAnswerAndDoesNotResend)
+  it("says REBOOTING while the vehicle boots, and resumes when it is back", saysRebootingWhileItBoots)
+})

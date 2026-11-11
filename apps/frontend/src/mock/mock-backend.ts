@@ -5,7 +5,8 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  Connection, ConnectRequest, MessagesParams, Param, ParamWrite, Settings, SettingsPatch, SettingsState, VehicleMessage,
+  Connection, ConnectRequest, MessagesParams, Param, ParamWrite, RebootResult, Settings, SettingsPatch, SettingsState,
+  VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
 
@@ -24,6 +25,8 @@ export interface MockOptions {
   /** The settings the backend starts with (what an earlier run saved), and the notice it gives about them. */
   settings?: Settings
   settingsNotice?: { notice: string, noticeCode: string }
+  /** How long a vehicle that accepted a reboot stays gone (ms; 300 by default). */
+  rebootMs?: number
 }
 
 /**
@@ -70,7 +73,21 @@ export interface MockControl {
   connection?: (connection: Connection) => void
   /** The vehicle says something (a STATUSTEXT): stored and sent to the subscribers of `vehicle.messages`. */
   say?: (severity: number, text: string) => void
+  /**
+   * Sets what `vehicle.reboot` sees of the vehicle's armed state, and what the telemetry says: true or false, or null for
+   * "not known" (no recent heartbeat). Until it is called, the state is the telemetry's own (armed from its fourth sample).
+   */
+  armed?: (armed: boolean | null) => void
+  /** Whether a parameter write or download is under way, as `vehicle.reboot` sees it (it refuses with BUSY). */
+  busy?: (busy: boolean) => void
+  /** What the vehicle answers to a reboot (`accepted` unless set). */
+  rebootAnswer?: (answer: RebootResult['result']) => void
+  /** How many reboot commands the vehicle has been sent (a refused call sends none). */
+  rebootsSent?: () => number
 }
+
+/** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
+const REBOOT_MS = 300
 
 /** How many messages the mock keeps, how many it replays by default, and at most (as the backend does). */
 const MESSAGE_RING = 500
@@ -86,6 +103,13 @@ class MockVehicle {
   readonly messageSubscribers = new Set<number>()
   messages: VehicleMessage[] = []
   nextMessageId = 1
+
+  /** What a test set for the armed state (undefined: the telemetry's own, null: not known), and what the telemetry last said. */
+  armedOverride: boolean | null | undefined
+  telemetryArmed: boolean | undefined
+  busy = false
+  rebootAnswer: RebootResult['result'] = 'accepted'
+  rebootsSent = 0
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -105,6 +129,10 @@ class MockVehicle {
       }
       options.control.connection = connection => this.push(connection)
       options.control.say = (severity, text) => this.say(severity, text)
+      options.control.armed = armed => { this.armedOverride = armed }
+      options.control.busy = busy => { this.busy = busy }
+      options.control.rebootAnswer = answer => { this.rebootAnswer = answer }
+      options.control.rebootsSent = () => this.rebootsSent
     }
   }
 
@@ -149,6 +177,7 @@ class MockVehicle {
       case 'params.list':
         return this.connected(fail) && ok({ params: this.params, count: this.params.length, complete: true, missing: [] })
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
+      case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
@@ -188,6 +217,7 @@ class MockVehicle {
     // The flight controller on the mock's USB port is the simulated vehicle too.
     if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
       this.params = PARAMS.map(p => ({ ...p }))
+      this.telemetryArmed = undefined
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
       this.messages = []
       for (const [severity, text] of SCRIPTED_MESSAGES) {
@@ -225,6 +255,46 @@ class MockVehicle {
     param.value = this.options.rounding?.includes(w.id) ? Math.round(w.value) : w.value
 
     return ok({ param: { ...param }, verified: param.value === w.value })
+  }
+
+  /**
+   * The backend's `vehicle.reboot`: refuses, sending nothing, when the vehicle is not connected, is armed or not known to be
+   * disarmed, or a parameter operation is under way; otherwise "sends" the command once and answers as set. A vehicle that
+   * accepted goes `reconnecting` with the code REBOOTING, and comes back as the same vehicle (resumed).
+   */
+  reboot(ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    if (!this.connected(fail)) {
+      return undefined
+    }
+    const armed = this.armedOverride === undefined ? this.telemetryArmed : this.armedOverride
+    if (armed === undefined || armed === null) {
+      return fail('STATE_UNKNOWN', 'the vehicle\'s state is unknown (no heartbeat for 3 s)')
+    }
+    if (armed) {
+      return fail('ARMED', 'the vehicle is armed')
+    }
+    if (this.busy) {
+      return fail('BUSY', 'parameters are being written or downloaded, or a reboot is already under way')
+    }
+    this.rebootsSent += 1
+    if (this.rebootAnswer === 'accepted') {
+      this.goesAndComesBack()
+    }
+
+    return ok({ result: this.rebootAnswer })
+  }
+
+  /** The vehicle reboots: the link goes quiet for a moment (REBOOTING), then it is the same vehicle again. */
+  goesAndComesBack() {
+    const { vehicle } = this.connection
+    this.busy = true
+    setTimeout(() => {
+      this.push({ state: 'reconnecting', vehicle, error: 'the vehicle is rebooting', errorCode: 'REBOOTING', attempt: 1, nextRetryMs: 1000 })
+      setTimeout(() => {
+        this.busy = false
+        this.push({ state: 'connected', vehicle, resumed: true })
+      }, this.options.rebootMs ?? REBOOT_MS)
+    }, 20)
   }
 
   /** The vehicle says something: kept (the last 500) and sent to everyone who is subscribed. */
@@ -265,7 +335,12 @@ class MockVehicle {
     this.send({ k: 'response', id: s, s })
     this.timers.set(s, setInterval(() => {
       if (this.connection.state === 'connected') {
-        this.send({ k: 'event', n: 'telemetry.stream', s, p: telemetryAt(n++) })
+        const sample = telemetryAt(n++)
+        if (this.armedOverride !== undefined && this.armedOverride !== null) {
+          sample.armed = this.armedOverride
+        }
+        this.telemetryArmed = sample.armed
+        this.send({ k: 'event', n: 'telemetry.stream', s, p: sample })
       }
     }, this.options.telemetryMs ?? 1000))
   }

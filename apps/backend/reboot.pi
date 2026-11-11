@@ -1,0 +1,99 @@
+// The reboot service: `vehicle.reboot` restarts the flight controller (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, parameter 1 = 1). It is
+// not a reset of the parameters. The command is sent ONCE: a resend after a reboot that has already happened could land on the
+// freshly booted vehicle. And it is never sent with ArduPilot's force value (parameter 6), which would make the autopilot
+// reboot even when armed: every parameter but the first is 0.
+//
+// The backend refuses before it sends anything, whatever the page believes (the page's view of the vehicle may be late):
+// no connected vehicle (`NOT_CONNECTED`), a vehicle that is armed (`ARMED`), one whose armed state is not known because its
+// heartbeat is older than 3 s (`STATE_UNKNOWN`: unknown counts as armed), and a parameter write or download under way, or a
+// reboot already asked for (`BUSY`: a write cut by a reboot would be reported as not confirmed for no reason).
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { CommandCall, MavCmd, MavLinkError, MavResult } from "padcom/pico-mavlink"
+import { RebootResult, RebootResultResult, encodeRebootResult } from "./generated/app"
+import { armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// How long the vehicle has to acknowledge the command (ms).
+export const REBOOT_ACK_MS: int = 3000
+
+/// The command's parameters: only the first (1 = reboot the autopilot) is set. Parameter 2 (companion computer) stays 0 for
+/// "do nothing", and parameter 6 stays 0: it is ArduPilot's force value, which is never sent.
+export function rebootParams(): f64[] {
+  [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+}
+
+/// What the vehicle's MAV_RESULT means for the page.
+export function answerOf(result: int): RebootResult {
+  if (result == MavResult.ACCEPTED) {
+    return RebootResult { result: RebootResultResult.Accepted }
+  }
+  if (result == MavResult.UNSUPPORTED) {
+    return RebootResult { result: RebootResultResult.Unsupported, detail: "the vehicle does not support the command" }
+  }
+  const detail = if (result == MavResult.FAILED) "the vehicle refused (is it armed?)"
+    else if (result == MavResult.DENIED) "the vehicle denied the command"
+    else if (result == MavResult.TEMPORARILY_REJECTED) "the vehicle can't do it at this time"
+    else `the vehicle answered ${result}`
+  RebootResult { result: RebootResultResult.Refused, detail: detail }
+}
+
+/// Registers the service's method on `c`.
+export function register(c: Communicator): void {
+  c.handle("vehicle.reboot", reboot)
+}
+
+/// Whether a reboot request is waiting for its acknowledgement: a second one is refused, never sent.
+class Asking {
+  public busy: bool = false
+}
+
+const asking = new Asking()
+
+/// Why the reboot may not be asked for now, as a code, or null when it may.
+export function refusal(): string? {
+  const armed = armedState()
+  if (armed == null) {
+    return "STATE_UNKNOWN"
+  }
+  if (armed!) {
+    return "ARMED"
+  }
+  if (link.listing || link.writes > 0 || asking.busy || rebootExpected()) {
+    return "BUSY"
+  }
+  null
+}
+
+/// The words for a refusal's code.
+function reasonOf(code: string): string {
+  if (code == "STATE_UNKNOWN") {
+    return "the vehicle's state is unknown (no heartbeat for 3 s)"
+  }
+  if (code == "ARMED") {
+    return "the vehicle is armed"
+  }
+  "parameters are being written or downloaded, or a reboot is already under way"
+}
+
+async function reboot(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  const why = refusal()
+  if (why != null) {
+    throw new CommunicatorError(why!, reasonOf(why!))
+  }
+  asking.busy = true
+  let out = RebootResult { result: RebootResultResult.NoAnswer, detail: "no answer from the vehicle" }
+  try {
+    const call = new CommandCall(conn, { system: link.sysid, component: link.compid }, { timeoutMs: REBOOT_ACK_MS, retries: 0, signal: link.session.signal })
+    out = answerOf(await call.run(MavCmd.PREFLIGHT_REBOOT_SHUTDOWN, rebootParams()))
+  } catch (e: MavLinkError) {
+    if (e.code != "TIMEOUT") {
+      throw new CommunicatorError(e.code, e.message)
+    }
+  } finally {
+    asking.busy = false
+  }
+  if (out.result == RebootResultResult.Accepted) {
+    link.rebootAt = Date.now() as int
+  }
+  encodeRebootResult(out)
+}

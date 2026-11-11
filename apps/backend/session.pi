@@ -99,7 +99,7 @@ class Link {
     identity = ""
     armed = false
     heartbeatAt = 0
-    writes = 0
+    // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
     rebootAt = 0
     for (const p of parts.values()) {
