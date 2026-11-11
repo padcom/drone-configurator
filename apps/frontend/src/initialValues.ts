@@ -39,7 +39,8 @@ export function changedIds(params: Param[], initial: Initial | null): Set<string
   const moved = (param: Param) => {
     const was = initial.values.get(param.id)
 
-    return was !== undefined && was !== param.value
+    // Object.is: a NaN from the wire is the same as itself (it is not "changed" at every look).
+    return was !== undefined && !Object.is(was, param.value)
   }
 
   return new Set(params.filter(moved).map(param => param.id))

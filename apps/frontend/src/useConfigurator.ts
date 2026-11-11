@@ -5,6 +5,7 @@
 import { type ShallowRef, shallowRef, watch } from 'vue'
 import { type BackendClient, type Transport, createBackendClient } from './backend/client'
 import { draftWarning, validateDraft } from './draft'
+import { showNumber } from './paramValue'
 import { legacyLanguage, setLanguage, storageOf } from './i18n'
 import type { State } from './state'
 import { type MetadataModel, useMetadata } from './useMetadata'
@@ -175,7 +176,7 @@ function stagedFor(
   watch(parameters.selected, id => {
     const queued = staged.changes.value.find(change => change.id === id)
     if (queued) {
-      parameters.editDraft(String(queued.to))
+      parameters.editDraft(showNumber(queued.to))
     }
   })
 

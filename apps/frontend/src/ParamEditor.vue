@@ -70,7 +70,7 @@
       id="reset-one"
       class="reset-one"
       :disabled="staged.writing.value"
-      :title="t('params.initial.resetHelp', { initial: initialValue })"
+      :title="t('params.initial.resetHelp', { initial: showNumber(initialValue) })"
       @click="resetToInitial"
     >
       {{ t('params.initial.reset') }}
@@ -93,6 +93,7 @@ import Button from './kit/Button.vue'
 import TextInput from './kit/TextInput.vue'
 import { initialIfChanged } from './initialValues'
 import { bitNamesOf, numberOr, valueOptions } from './paramEditor'
+import { canonical, showNumber } from './paramValue'
 import { useConfigurator } from './useConfigurator'
 
 // The detail of the selected parameter: its name and what it is, the field for a value (a choice from the names when the
@@ -140,9 +141,14 @@ const named = computed<EnumOption[] | null>(() => valueOptions(meta.value))
 const bitNames = computed<BitOption[] | null>(() => bitNamesOf(param.value, meta.value?.bits))
 // The field of names holds a number; the draft is the text of it. Picking a name settles the value: it is queued.
 const draftNumber = computed({
-  get: () => numberOr(fields.draft.value, param.value?.value ?? 0),
+  get: () => {
+    const typed = numberOr(fields.draft.value, param.value?.value ?? 0)
+
+    // The number as the vehicle holds it: an integer has no decimals (the boxes of the bits and the names are of that number).
+    return param.value ? canonical(param.value, typed) : typed
+  },
   set: (value: number) => {
-    parameters.editDraft(String(value))
+    parameters.editDraft(showNumber(value))
     staged.sync()
   },
 })

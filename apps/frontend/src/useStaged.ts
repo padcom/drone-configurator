@@ -5,6 +5,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from './backend/client'
 import { CALIBRATION_NOTE, isCalibration } from './calibrationParams'
 import type { Connection, Param } from './generated/app'
+import { canonical, notConfirmedText, showNumber, typedValue } from './paramValue'
 import type { ParamsModel } from './useParams'
 
 /** One change collected to be written. */
@@ -100,7 +101,8 @@ export interface StagedModel {
  */
 export function questionFor(changes: StagedChange[]): string {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
-  const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}${change.warning ? ` (${change.warning})` : ''}`)
+  const values = (change: StagedChange) => `${showNumber(change.from)} → ${showNumber(change.to)}`
+  const lines = changes.map(change => `${change.id} ${values(change)}${change.warning ? ` (${change.warning})` : ''}`)
   // Said at the top, where a long list that scrolls does not hide it.
   const note = changes.some(change => isCalibration(change.id)) ? [CALIBRATION_NOTE] : []
 
@@ -162,7 +164,8 @@ class Staged implements StagedModel {
     const text = parameters.draft.value.trim()
     const usable = [param !== null, text !== '', parameters.draftError.value === null].every(Boolean)
 
-    return usable && param ? { param, value: Number(text) } : null
+    // The number the vehicle would hold for what was typed (a whole number for an integer, the float nearest for a REAL32).
+    return usable && param ? { param, value: typedValue(param, text) } : null
   }
 
   /**
@@ -218,14 +221,15 @@ class Staged implements StagedModel {
    */
   private putBack(param: Param, to: number): boolean {
     const { parameters } = this.deps
-    const differs = to !== param.value
+    const value = canonical(param, to)
+    const differs = !Object.is(value, canonical(param, param.value))
     if (differs) {
-      this.queue(param, to, 'reset')
+      this.queue(param, value, 'reset')
     } else {
       this.discard(param.id)
     }
     if (parameters.selectedParam()?.id === param.id) {
-      parameters.editDraft(String(to))
+      parameters.editDraft(showNumber(value))
     }
 
     return differs
@@ -235,7 +239,7 @@ class Staged implements StagedModel {
     if (this.writing.value) {
       return
     }
-    const now = new Map(this.deps.parameters.params.value.map(param => [param.id, param.value]))
+    const now = new Map(this.deps.parameters.params.value.map(param => [param.id, canonical(param, param.value)]))
     const gone = this.changes.value.filter(change => now.get(change.id) === change.to)
     if (gone.length === 0) {
       return
@@ -257,10 +261,12 @@ class Staged implements StagedModel {
     if (!draft || this.writing.value) {
       return
     }
-    if (draft.value === draft.param.value) {
+    if (draft.value === canonical(draft.param, draft.param.value)) {
       this.discard(draft.param.id)
     } else {
       this.queue(draft.param, draft.value)
+      // The field shows the number that will be written (3 for a typed 2.6 of an integer, 0.1 for a float typed as 0.1000000001).
+      this.deps.parameters.editDraft(showNumber(draft.value))
     }
   }
 
@@ -281,7 +287,7 @@ class Staged implements StagedModel {
     // The Value field does not keep a value that was queued for a vehicle that is gone.
     const param = this.deps.parameters.selectedParam()
     if (param) {
-      this.deps.parameters.editDraft(String(param.value))
+      this.deps.parameters.editDraft(showNumber(param.value))
     }
   }
 
@@ -294,7 +300,7 @@ class Staged implements StagedModel {
     const { parameters } = this.deps
     const param = parameters.selectedParam()
     if (param?.id === id) {
-      parameters.editDraft(String(param.value))
+      parameters.editDraft(showNumber(param.value))
     }
   }
 
@@ -315,8 +321,8 @@ class Staged implements StagedModel {
       this.deps.parameters.replace(result.param)
 
       return result.verified
-        ? { id, outcome: 'verified', detail: `${result.param.value}` }
-        : { id, outcome: 'changed', detail: `the vehicle reports ${result.param.value}, not ${change.to}` }
+        ? { id, outcome: 'verified', detail: showNumber(result.param.value) }
+        : { id, outcome: 'changed', detail: notConfirmedText(result.param.value, change.to) }
     } catch (error) {
       return { id: change.id, outcome: 'failed', detail: describeError(error) }
     }

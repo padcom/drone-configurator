@@ -2,6 +2,7 @@
 // unusual (a warning).
 import type { Param } from './generated/app'
 import { type Metadata, checkMeta } from './metadata'
+import { typedValue } from './paramValue'
 
 /** The range of each integer type of the vehicle's parameters. */
 const RANGES: Record<string, [number, number]> = {
@@ -13,9 +14,6 @@ const RANGES: Record<string, [number, number]> = {
   INT32: [-2147483648, 2147483647],
 }
 
-/** The largest magnitude a REAL32 holds. */
-const REAL32_MAX = 3.4e38
-
 /**
  * Whether a value is outside a range.
  *
@@ -26,19 +24,18 @@ const REAL32_MAX = 3.4e38
 const outside = (range: [number, number], n: number) => n < range[0] || n > range[1]
 
 /**
- * Why a whole-number parameter cannot take a value.
+ * Why a whole-number parameter cannot take a value. A number with decimals is not a problem: it is taken as the nearest whole
+ * number (the field shows that number once the value is settled), and it is that number that has to be in the range.
  *
  * @param param the parameter
  * @param n the value
  * @returns the problem, or null
  */
 function integerProblem(param: Param, n: number): string | null {
-  if (!Number.isInteger(n)) {
-    return `${param.id} is an integer (${param.type})`
-  }
   const range = RANGES[param.type]
+  const whole = Math.round(n)
 
-  return range && outside(range, n) ? `${param.type} goes from ${range[0]} to ${range[1]}` : null
+  return range && outside(range, whole) ? `${param.type} goes from ${range[0]} to ${range[1]}` : null
 }
 
 /**
@@ -53,7 +50,7 @@ function typeProblem(param: Param, n: number): string | null {
     return integerProblem(param, n)
   }
 
-  return param.type === 'REAL32' && Math.abs(n) > REAL32_MAX ? 'too large for a REAL32' : null
+  return param.type === 'REAL32' && !Number.isFinite(Math.fround(n)) ? 'too large for a REAL32' : null
 }
 
 /**
@@ -82,5 +79,5 @@ export function validateDraft(param: Param, text: string): string | null {
  * @returns the warning, or null
  */
 export function draftWarning(metadata: Metadata, param: Param, text: string): string | null {
-  return validateDraft(param, text) === null ? checkMeta(metadata.get(param.id), Number(text.trim())) : null
+  return validateDraft(param, text) === null ? checkMeta(metadata.get(param.id), typedValue(param, text)) : null
 }

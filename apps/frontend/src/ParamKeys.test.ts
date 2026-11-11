@@ -8,7 +8,7 @@ import ParamEditor from './ParamEditor.vue'
 import ParamFilter from './ParamFilter.vue'
 import ParamGroups from './ParamGroups.vue'
 import ParamTable from './ParamTable.vue'
-import { feed, groupsOn, withI18n } from './testing'
+import { feed, groupsOff, groupsOn, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 
@@ -19,6 +19,7 @@ afterEach(() => {
     wrapper.unmount()
   }
   useParamGroup().choose('')
+  groupsOff()
 })
 
 /**
@@ -266,11 +267,12 @@ it('says politely which parameter the selection is on, and where in the list, wh
   await wrapper.vm.$nextTick()
 
   expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
-  // Typing in the search makes a new list, whose first parameter is selected: the region says it (only when it is another
-  // parameter than before), and says the new place when the selected parameter changes.
+  // Typing in the search makes a new list, whose first parameter is selected: the region says nothing (it would speak with every
+  // key typed, and the user did not move to it), and says the new place when the user moves the selection.
   feed(handle, { filter: 'batt' })
   await wrapper.vm.$nextTick()
-  expect(status.text()).toBe('BATT_CAPACITY, 1 of 2')
+  expect(handle.fields.selected.value).toBe('BATT_CAPACITY')
+  expect(status.text()).toBe('BATT_LOW_VOLT, 3 of 12')
   handle.parameters.select('BATT_LOW_VOLT')
   await wrapper.vm.$nextTick()
   expect(status.text()).toBe('BATT_LOW_VOLT, 2 of 2')

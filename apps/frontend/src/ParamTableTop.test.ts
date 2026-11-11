@@ -7,12 +7,13 @@ import { mockBackend } from './mock-backend'
 import ParamFilter from './ParamFilter.vue'
 import ParamGroups from './ParamGroups.vue'
 import ParamTable from './ParamTable.vue'
-import { feed, groupsOn, withI18n } from './testing'
+import { feed, groupsOff, groupsOn, withI18n } from './testing'
 import { createConfigurator } from './useConfigurator'
 import { useParamGroup } from './useParamGroup'
 
 afterEach(() => {
   useParamGroup().choose('')
+  groupsOff()
 })
 
 /**

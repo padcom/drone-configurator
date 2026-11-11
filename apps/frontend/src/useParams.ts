@@ -8,6 +8,7 @@ import type { Param } from './generated/app'
 import { type Initial, changedIds, initialOf } from './initialValues'
 import { sortedByName, withInPlace } from './naturalOrder'
 import { visibleParams } from './paramList'
+import { canonParam, canonical, showNumber, typedValue } from './paramValue'
 import { type WriteLock, createWriteLock } from './writeLock'
 
 /** How the parameter list stands: `loading`, or how the last download ended. */
@@ -150,8 +151,9 @@ class Parameters implements ParamsModel {
 
     try {
       const downloaded = await this.deps.client.call('params.list', null)
-      // In the order of the names, made once here: the list, the groups, the favourites and the search all follow it.
-      const params = sortedByName(downloaded.params)
+      // The values are the numbers the vehicle holds (a float comes over the wire widened to a double), and the list is in the
+      // order of the names, made once here: the list, the groups, the favourites and the search all follow it.
+      const params = sortedByName(downloaded.params.map(canonParam))
       this.takeInitial(params, downloaded.complete, keepInitial)
       this.params.value = params
       this.missing.value = downloaded.missing
@@ -209,7 +211,7 @@ class Parameters implements ParamsModel {
    */
   private show(param: Param | undefined): void {
     this.selected.value = param?.id ?? null
-    this.draft.value = param === undefined ? '' : String(param.value)
+    this.draft.value = param === undefined ? '' : showNumber(param.value)
     this.draftError.value = null
     this.refreshWarning()
   }
@@ -230,7 +232,7 @@ class Parameters implements ParamsModel {
   private isCurrent(param: Param): boolean {
     const text = this.draft.value.trim()
 
-    return text !== '' && Number(text) === param.value
+    return text !== '' && typedValue(param, text) === canonical(param, param.value)
   }
 
   refreshWarning(): string | null {
@@ -249,23 +251,25 @@ class Parameters implements ParamsModel {
    * @returns true if the draft can follow the announcement
    */
   private untouched(param: Param, old: Param | undefined): boolean {
-    return this.selected.value === param.id && old !== undefined && this.draft.value === String(old.value)
+    return this.selected.value === param.id && old !== undefined && this.draft.value === showNumber(old.value)
   }
 
   announced(param: Param): void {
     const old = this.params.value.find(candidate => candidate.id === param.id)
-    if (this.untouched(param, old)) {
-      this.draft.value = String(param.value)
+    const held = canonParam(param)
+    if (this.untouched(held, old)) {
+      this.draft.value = showNumber(held.value)
     }
     if (old) {
-      this.replace(param)
+      this.replace(held)
     } else {
-      this.params.value = withInPlace(this.params.value, param)
+      this.params.value = withInPlace(this.params.value, held)
     }
   }
 
   replace(param: Param): void {
-    this.params.value = this.params.value.map(candidate => candidate.id === param.id ? param : candidate)
+    const held = canonParam(param)
+    this.params.value = this.params.value.map(candidate => candidate.id === held.id ? held : candidate)
   }
 
   visible(): Param[] {
