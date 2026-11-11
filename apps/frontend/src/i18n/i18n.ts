@@ -142,6 +142,24 @@ export const i18n = createI18n({
   pluralRules: Object.fromEntries(LANGUAGES.map(code => [code, (n: number, forms: number) => pluralIndex(code, n, forms)])),
 })
 
+/** Where the language last shown is kept in the browser, only to start in it: the settings stay the one place it is chosen. */
+export const LANGUAGE_HINT_KEY = 'drone-configurator:language-hint:v1'
+
+/**
+ * Keeps the language that is shown, so that the next start can show it before the settings (which come from the backend, a
+ * moment after the page) have been read: without it the page would start in English and change.
+ *
+ * @param storage localStorage, or null
+ * @param language the language that is shown
+ */
+export function rememberLanguage(storage: Pick<Storage, 'setItem'> | null, language: Language): void {
+  try {
+    storage?.setItem(LANGUAGE_HINT_KEY, language)
+  } catch {
+    // Storage that cannot be written to is only a lost hint.
+  }
+}
+
 /**
  * Switches the interface language, and the `lang` of the page (for the browser's hyphenation, quotes and screen readers).
  * (Keeping the choice is the settings' business: useSettings.)
@@ -153,5 +171,23 @@ export function setLanguage(language: Language): void {
 
   if (typeof document !== 'undefined') {
     document.documentElement.lang = language
+  }
+  rememberLanguage(typeof window === 'undefined' ? null : storageOf(window), language)
+}
+
+/**
+ * Starts in the language that was shown last, if it is known (it is not trusted: it has to be one of the languages). The
+ * settings, once read, decide, and change it if they name another.
+ *
+ * @param storage localStorage, or null
+ */
+export function startInRememberedLanguage(storage: Pick<Storage, 'getItem'> | null): void {
+  try {
+    const hint = storage?.getItem(LANGUAGE_HINT_KEY)
+    if (isLanguage(hint)) {
+      setLanguage(hint)
+    }
+  } catch {
+    // Storage that cannot be read gives no hint: the page starts in English.
   }
 }

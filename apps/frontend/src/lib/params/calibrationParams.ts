@@ -2,9 +2,6 @@
 // them says so: a reset to the initial values puts back what a calibration made since the download, and the user should see that
 // it does. It only adds a sentence to the question: nothing is excluded and nothing is decided by it. One list, here.
 
-/** What the question says when a write has calibration values in it. */
-export const CALIBRATION_NOTE = 'Includes calibration values'
-
 /** The names of calibration values (ArduPilot Copter's): compass offsets, diagonals and the like, accelerometer, trim, radio. */
 const CALIBRATION: readonly RegExp[] = [
   /^COMPASS_(?:OFS|DIA|ODI|MOT|SCALE|ORIENT|DEV_ID)\d?(?:_|$)/u,

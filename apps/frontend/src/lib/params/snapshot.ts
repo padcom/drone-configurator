@@ -1,5 +1,6 @@
 // Parameter snapshots: a vehicle's parameters saved as JSON, and what loading one would change.
 // Nothing here writes: only the changes the user picked and confirmed are applied (useSnapshots).
+import { say } from '@/i18n/say'
 import { validateDraft } from './draft'
 import type { Param, VehicleInfo } from '@/generated/app'
 import { canonical } from './paramValue'
@@ -104,7 +105,7 @@ function isSnapshotParam(param: Partial<SnapshotParam> | null): boolean {
  * @returns the problem, or null
  */
 function versionProblem(version: unknown): string | null {
-  return version === VERSION ? null : `snapshot version ${String(version)} (this app reads version ${VERSION})`
+  return version === VERSION ? null : say('reason.snapshotVersion', { version: String(version), supported: VERSION })
 }
 
 /**
@@ -114,7 +115,7 @@ function versionProblem(version: unknown): string | null {
  * @returns the problem, or null
  */
 function paramsProblem(params: unknown): string | null {
-  return Array.isArray(params) && params.every(isSnapshotParam) ? null : 'its parameters are malformed'
+  return Array.isArray(params) && params.every(isSnapshotParam) ? null : say('reason.malformed')
 }
 
 /**
@@ -125,7 +126,7 @@ function paramsProblem(params: unknown): string | null {
  */
 function problemWith(snapshot: Partial<Snapshot> | null): string | null {
   if (snapshot?.format !== FORMAT) {
-    return 'not a Drone Configurator parameter snapshot'
+    return say('reason.notSnapshot')
   }
 
   return versionProblem(snapshot.version) ?? paramsProblem(snapshot.params)
@@ -142,7 +143,7 @@ export function parseSnapshot(text: string): Snapshot | string {
   try {
     data = JSON.parse(text)
   } catch {
-    return 'not JSON'
+    return say('reason.notJson')
   }
   const snapshot = data as Partial<Snapshot> | null
 
@@ -168,10 +169,10 @@ const differentType = (current: Param, wanted: SnapshotParam) => current.kind !=
 function changeFor(wanted: SnapshotParam, current: Param | undefined): Change | null {
   const { id, value: to } = wanted
   if (!current) {
-    return { id, from: null, to, problem: 'not on this vehicle' }
+    return { id, from: null, to, problem: say('problem.notOnVehicle') }
   }
   if (differentType(current, wanted)) {
-    return { id, from: current.value, to, problem: `${wanted.type} in the snapshot, ${current.type} on the vehicle` }
+    return { id, from: current.value, to, problem: say('problem.otherType', { snapshot: wanted.type, vehicle: current.type }) }
   }
 
   // Compared, and written, as the numbers the vehicle holds (0.1 in a file is the same as the float that came back for it).
@@ -205,7 +206,7 @@ function warningFor(was: VehicleInfo | undefined, now: VehicleInfo | undefined):
     return null
   }
 
-  return `saved from a ${was.type} (${was.autopilot}); this is a ${now.type} (${now.autopilot})`
+  return say('problem.otherVehicle', { was: was.type, wasAutopilot: was.autopilot, now: now.type, nowAutopilot: now.autopilot })
 }
 
 /**

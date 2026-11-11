@@ -3,7 +3,7 @@
 // (a label that does not fit has an ellipsis and a title, so that scrollWidth over clientWidth is not left unsaid).
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, describe, expect, it } from 'vitest'
-import { clickConnect, showScreen } from './click'
+import { cancelConfirm, clickConnect, showScreen } from './click'
 
 /** The window that is open (a test closes it and opens another to see what the settings kept). */
 const shown: { app: E2eApp | null } = { app: null }
@@ -87,6 +87,20 @@ describe('the longer text of the language', () => {
     await win().waitForText('#connection', /verbunden/u, 60_000)
     await showScreen(win(), 'parameters')
     await win().waitForText('#list-status', /12 Parameter/u, 60_000)
+  })
+
+  it('asks the question of a write, and says what is wrong with a value, in the language (words made in code)', async () => {
+    await showScreen(win(), 'parameters')
+    await win().click('tr[data-id="SERIAL0_BAUD"]')
+    await win().waitFor(`document.querySelector('#draft')?.value === '115'`)
+    await win().fill('#draft', 'abc')
+    await win().waitForText('#draft-error', 'bitte eine Zahl')
+    await win().fill('#draft', '57')
+    await win().waitFor(`document.querySelector('#staged .staged-row[data-id="SERIAL0_BAUD"]') !== null`)
+    await win().click('#write-staged')
+
+    expect(await win().waitForText('#question', /^1 Parameter ans Fahrzeug schreiben\?/u)).toContain('SERIAL0_BAUD 115 → 57')
+    await cancelConfirm(win())
   })
 
   it.each([[1440], [1000]])('has no text cut off without a title at %i px, on Fly, Parameters and Settings', async width => {

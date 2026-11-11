@@ -283,7 +283,8 @@ describe('editing, and the typing of a decimal comma', () => {
     expect(validateDraft(int8, '5,4')).toBeNull()
     expect(validateDraft(int8, '127,5')).toBe('INT8 goes from -128 to 127')
     expect(validateDraft(int8, '1,2,3')).toBe('a number, please')
-    expect(validateDraft(int8, '1,500')).toBe('a number, please')
+    expect(validateDraft(int8, '1,500')).toBe('a number with a point, please: 1,500 could be a decimal or a thousands group')
+    expect(validateDraft(int8, '0,500')).toContain('could be a decimal or a thousands group')
   })
 
   it('warns about edits outside the loaded metadata, only when it\'s there, and still lets them be written', async () => {

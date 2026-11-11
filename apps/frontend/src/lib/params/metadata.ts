@@ -18,6 +18,8 @@
 //    megabytes). The display name is the short description, ArduPilot's description is the long one; when a name is in more
 //    than one group the first is kept.
 
+import { say } from '@/i18n/say'
+
 export const METADATA_FORMAT = 'drone-configurator/param-metadata'
 
 export interface ParamMeta {
@@ -230,7 +232,7 @@ function fromArduPilot(file: Raw): Metadata {
  * @returns it, or why there is nothing to load (so that an empty file does not replace what is loaded)
  */
 function nonEmpty(metadata: Metadata): Metadata | string {
-  return metadata.size > 0 ? metadata : 'it describes no parameters'
+  return metadata.size > 0 ? metadata : say('reason.noParameters')
 }
 
 /**
@@ -244,9 +246,7 @@ export function parseMetadata(text: string): Metadata | string {
   try {
     data = JSON.parse(text)
   } catch {
-    return text.trimStart().startsWith('<')
-      ? 'an XML file: only JSON is read (ArduPilot\'s apm.pdef.json, or our own format)'
-      : 'not JSON'
+    return say(text.trimStart().startsWith('<') ? 'reason.xml' : 'reason.notJson')
   }
   const d = objectOf(data)
   // ArduPilot's own file starts with `"json": { "version": … }` (the real one has a number, a copy may not).
@@ -254,14 +254,14 @@ export function parseMetadata(text: string): Metadata | string {
     return nonEmpty(fromArduPilot(d))
   }
   if (d?.format !== METADATA_FORMAT) {
-    return 'not a parameter metadata file: expected ArduPilot\'s apm.pdef.json, or our own format'
+    return say('reason.notMetadata')
   }
   if (d.version !== 1) {
-    return `metadata version ${String(d.version)} (this app reads version 1)`
+    return say('reason.metadataVersion', { version: String(d.version) })
   }
   const params = objectOf(d.params)
 
-  return params ? nonEmpty(fromOwn(params)) : 'it has no params'
+  return params ? nonEmpty(fromOwn(params)) : say('reason.noParams')
 }
 
 /**
@@ -280,11 +280,11 @@ export function checkMeta(meta: ParamMeta | undefined, value: number): string | 
   if (meta.values && Object.keys(meta.values).length > 0 && !(String(value) in meta.values)) {
     const allowed = Object.entries(meta.values).map(([v, name]) => `${v} (${name})`).join(', ')
 
-    return `Not one of the usual values: ${allowed}`
+    return say('warn.values', { allowed })
   }
   const { min, max } = meta
   if ((min !== undefined && value < min) || (max !== undefined && value > max)) {
-    return `Outside the usual range ${min ?? '…'}–${max ?? '…'}${meta.units ? ` ${meta.units}` : ''}`
+    return say('warn.range', { min: min ?? '…', max: max ?? '…', units: meta.units ? ` ${meta.units}` : '' })
   }
 
   return null
