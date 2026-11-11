@@ -1,6 +1,8 @@
 <template>
   <div class="enum-field bit-field">
     <input
+      ref="input"
+      :disabled="disabled"
       class="kit-input enum-input bit-input"
       :class="{ open }"
       :id="inputId"
@@ -24,7 +26,9 @@
       @blur="onBlur"
     >
     <span :id="`${listId}-summary`" class="bit-summary" :title="fullSummary">{{ summary }}</span>
-    <Icon class="chevron" name="chevron-down" />
+    <span class="chevron-hit" aria-hidden="true" @mousedown.prevent @click="toggleList">
+      <Icon class="chevron" name="chevron-down" />
+    </span>
     <div
       v-if="open"
       :id="listId"
@@ -87,6 +91,8 @@ const props = defineProps<{
   invalid?: boolean
   /** The id of an element that says more about the field (why it is invalid), read after its name. */
   describedby?: string
+  /** The field cannot be used now (a fieldset round it being disabled is seen too): the list is closed and does not open. */
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -104,6 +110,7 @@ const ROOM = 3
 const { t } = useI18n()
 const listId = useId()
 const open = ref(false)
+const input = ref<HTMLInputElement | null>(null)
 const active = ref(-1)
 /** What was done last, for a screen reader ("GPS on"). */
 const announced = ref('')
@@ -156,6 +163,38 @@ function toggle(index: number): void {
   active.value = index
   announced.value = t(on ? 'bits.on' : 'bits.off', { name: option.name })
 }
+
+/**
+ * Whether the field cannot be used now: it is disabled, or in a fieldset that is (the `disabled` property of the input does not
+ * see that, the `:disabled` selector does).
+ *
+ * @returns true when a press on it does nothing
+ */
+const unusable = (): boolean => props.disabled === true || input.value?.matches(':disabled') === true
+
+/**
+ * The chevron: opens the list when it is closed, and closes it (settling the value, as Enter does) when it is open. The press
+ * did not take the focus from the field, so the field has it after either.
+ */
+function toggleList(): void {
+  if (unusable()) {
+    return
+  }
+  if (open.value) {
+    settle()
+
+    return
+  }
+  input.value?.focus()
+  open.value = true
+}
+
+// A list that is open when the field becomes unusable closes (its options are disabled buttons then).
+watch(() => props.disabled, disabled => {
+  if (disabled) {
+    close()
+  }
+})
 
 /**
  * The field got the focus: its text is selected, and the list opens.

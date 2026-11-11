@@ -1,6 +1,8 @@
 <template>
   <div class="enum-field">
     <input
+      ref="input"
+      :disabled="disabled"
       class="kit-input enum-input"
       :class="{ open, named: name !== undefined }"
       :id="inputId"
@@ -24,7 +26,9 @@
     >
     <span class="enum-badge" aria-hidden="true">{{ badge }}</span>
     <span v-if="nameless" :id="`${listId}-noname`" class="visually-hidden">{{ t('enum.noName') }}</span>
-    <Icon class="chevron" name="chevron-down" />
+    <span class="chevron-hit" aria-hidden="true" @mousedown.prevent @click="toggleList">
+      <Icon class="chevron" name="chevron-down" />
+    </span>
     <!-- A press anywhere in the list (its scrollbar too) does not take the focus from the field, so the list stays open: the
          bar can be dragged and clicked. Only a press outside, Escape, Tab and Enter close it. -->
     <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label" @mousedown.prevent>
@@ -77,6 +81,8 @@ const props = defineProps<{
   invalid?: boolean
   /** The id of an element that says more about the field (why it is invalid), read after its name. */
   describedby?: string
+  /** The field cannot be used now (a fieldset round it being disabled is seen too): the list is closed and does not open. */
+  disabled?: boolean
 }>()
 
 const model = defineModel<number>({ required: true })
@@ -87,6 +93,7 @@ const FALLBACK_PAGE = 5
 const { t } = useI18n()
 const listId = useId()
 const open = ref(false)
+const input = ref<HTMLInputElement | null>(null)
 /** What is being typed, or null when nothing is (the field then shows the name of the value). */
 const query = ref<string | null>(null)
 const active = ref(-1)
@@ -153,6 +160,39 @@ function onBlur(): void {
     pick(typed)
   }
 }
+
+/**
+ * Whether the field cannot be used now: it is disabled, or in a fieldset that is (the `disabled` property of the input does not
+ * see that, the `:disabled` selector does).
+ *
+ * @returns true when a press on it does nothing
+ */
+const unusable = (): boolean => props.disabled === true || input.value?.matches(':disabled') === true
+
+/**
+ * The chevron: opens the list when it is closed, and closes it when it is open, as leaving the field does (a number that is
+ * typed is used, as Enter would use it). The press did not take the focus from the field (nor give it: it is given here), so
+ * the field has the focus after either. Nothing opens while the field cannot be used (the changes are being written).
+ */
+function toggleList(): void {
+  if (unusable()) {
+    return
+  }
+  if (open.value) {
+    onBlur()
+
+    return
+  }
+  input.value?.focus()
+  open.value = true
+}
+
+// A list that is open when the field becomes unusable closes (its options are disabled buttons then).
+watch(() => props.disabled, disabled => {
+  if (disabled) {
+    close()
+  }
+})
 
 /**
  * How many rows the list shows at once, for Page Up and Page Down (a few when it is not laid out).

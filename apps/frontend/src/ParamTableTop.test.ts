@@ -76,6 +76,30 @@ it('selects the first parameter and scrolls to the top when a group is chosen', 
   expect(tops.count).toBe(1)
 })
 
+it('says nothing politely while the first match changes with every key typed, and speaks when the user moves', async () => {
+  const { handle, table, filter } = await screen()
+  handle.parameters.select('WPNAV_SPEED')
+  await flushPromises()
+  const said = table.get('#selection-status').text()
+  expect(said).toBe('WPNAV_SPEED, 12 of 12')
+  const search = filter.get<HTMLInputElement>('#filter')
+
+  await search.setValue('A')
+  await flushPromises()
+  const first = handle.fields.selected.value
+  await search.setValue('FE')
+  await flushPromises()
+  await search.setValue('FENCE')
+  await flushPromises()
+
+  expect(handle.fields.selected.value).toBe('FENCE_ENABLE')
+  expect(first).not.toBe('FENCE_ENABLE')
+  expect(table.get('#selection-status').text()).toBe(said)
+  handle.parameters.select('FENCE_RADIUS')
+  await flushPromises()
+  expect(table.get('#selection-status').text()).toBe('FENCE_RADIUS, 2 of 2')
+})
+
 it('does it again when the search is cleared, and when a search finds nothing the list is still left at the top', async () => {
   const { handle, tops, filter } = await screen()
   const search = filter.get<HTMLInputElement>('#filter')

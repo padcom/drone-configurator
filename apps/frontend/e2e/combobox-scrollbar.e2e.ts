@@ -103,6 +103,18 @@ async function turnWheel(): Promise<void> {
   await app.waitFor(`document.querySelector('#edit [role="listbox"]').scrollTop > ${before}`)
 }
 
+/**
+ * Clicks the chevron of the open field's input, and waits for the list to be as it is meant to be after.
+ *
+ * @param opens whether the click is to open the list (else it is to close it); the focus is to stay in the field
+ */
+async function clickChevron(opens: boolean): Promise<void> {
+  await app.click('#edit .chevron-hit')
+  await app.waitFor(opens ? `!(${CLOSED})` : CLOSED)
+
+  expect(await app.evaluate<string>('document.activeElement.id')).toBe('draft')
+}
+
 /** Presses Escape, as the keyboard does. */
 async function escape(): Promise<void> {
   const event = { windowsVirtualKeyCode: 27, key: 'Escape', code: 'Escape' }
@@ -139,5 +151,15 @@ describe.each([['the field of names', 'SERIAL0_BAUD'], ['the field of bits', 'AR
     await escape()
 
     await app.waitFor(CLOSED)
+  })
+})
+
+describe.each([['the field of names', 'SERIAL0_BAUD'], ['the field of bits', 'ARMING_CHECK']])('%s, its chevron', (_, id) => {
+  it('opens and closes with a real click, the focus staying in the field', async () => {
+    await openFieldOf(id)
+
+    await clickChevron(false)
+    await clickChevron(true)
+    await clickChevron(false)
   })
 })
