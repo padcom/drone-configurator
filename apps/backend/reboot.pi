@@ -175,6 +175,7 @@ async function reboot(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> thr
   }
   asking.busy = true
   const signal = link.session.signal
+  const generation = link.generation
   let got: int? = null
   try {
     got = await askOnce(conn, signal)
@@ -184,9 +185,10 @@ async function reboot(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> thr
     asking.busy = false
   }
   const out = if (got == null) silence() else answerOf(got!)
-  // (A session that ended while waiting has nothing to expect: the next one starts clean.)
-  const ended = signal.aborted && out.result == RebootResultResult.NoAnswer
-  if (!ended && (out.result == RebootResultResult.Accepted || out.result == RebootResultResult.NoAnswer)) {
+  // A session that ended while waiting (the user disconnected or connected elsewhere: the generation moved on) has nothing to
+  // expect, and the next one starts clean. A link that was only lost keeps its generation: the reboot is still expected.
+  const sameSession = link.generation == generation
+  if (sameSession && (out.result == RebootResultResult.Accepted || out.result == RebootResultResult.NoAnswer)) {
     // Accepted: it is going to reboot. No answer: it may. Either way the link going quiet is a reboot, and a second request
     // is refused (for good once accepted, for a few seconds after silence).
     link.rebootAt = Date.now() as int

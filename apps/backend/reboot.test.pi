@@ -3,8 +3,8 @@
 // reached it: a refusal sends nothing, and the command is sent once and never with the force value.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { Cbor } from "pico-desktop/communicator"
-import { CommandAck, CommandLong, MavResult, Received, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { CommandAck, CommandLong, MavResult, MemoryStream, Received, SimulatedAutopilot, defaultSimParams } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
@@ -72,7 +72,11 @@ async function afterBeat(): Promise<void> throws Error {
 
 /// What a `vehicle.reboot` call came to: the error code, or the result.
 async function reboot(f: Frontend): Promise<string> throws Error {
-  const e = await f.call("vehicle.reboot")
+  described(await f.call("vehicle.reboot"))
+}
+
+/// What a reply to `vehicle.reboot` says: the error code, or the result.
+function described(e: Envelope): string {
   if (e.err != null) {
     return e.err!.code
   }
@@ -204,6 +208,60 @@ async function takesInProgressAloneForAccepted(): Promise<void> throws Error {
   link.close()
 }
 
+/// An acknowledgement of another command, or of the same command from another system, is not the answer: it is ignored, the
+/// call ends as no answer, and the command is still sent once.
+async function ignoresAcksThatAreNotTheAnswer(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  const ends = MemoryStream.pair()
+  const other = new SimulatedAutopilot(ends[1], defaultSimParams(), 2, 1)
+  other.start(300)
+  link.router!.addLink(ends[0])
+  const heard = listen(sim, -1)
+  sim.conn.on((r: Received) => {
+    const m = r.message
+    if (m instanceof CommandLong && m.command as int == REBOOT) {
+      // Another command acknowledged by the vehicle itself ...
+      const unrelated = new CommandAck()
+      unrelated.command = 400 as u16
+      unrelated.result = MavResult.ACCEPTED as u8
+      sim.conn.send(unrelated)
+      // ... and this command acknowledged by another system.
+      const stranger = new CommandAck()
+      stranger.command = m.command
+      stranger.result = MavResult.ACCEPTED as u8
+      other.conn.send(stranger)
+    }
+  })
+  waits.ackMs = 600
+  try {
+    expect(await reboot(f)).toBe("no-answer")
+    expect(heard.frames.length).toBe(1)
+  } finally {
+    waits.ackMs = 3000
+    other.stop()
+  }
+  await f.call("vehicle.disconnect")
+}
+
+/// IN_PROGRESS, and the user disconnects while the final answer is awaited: the call ends at once, and the session that ended
+/// has no reboot to expect (the next connection must not be held off, nor say REBOOTING).
+async function expectsNothingOfASessionThatEnded(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listenAll(simulatorForTests()!, [MavResult.IN_PROGRESS])
+  const asking = await f.send("vehicle.reboot")
+  await delay(200)
+  await f.call("vehicle.disconnect")
+  expect(described(await f.reply(asking))).toBe("accepted")
+  expect(heard.frames.length).toBe(1)
+  expect(`${link.rebootAt} ${link.rebootUnsure}`).toBe("0 false")
+  // And a new connection is not held off.
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  await afterBeat()
+  expect(await reboot(f)).not.toBe("BUSY")
+  link.close()
+}
+
 async function refusesWhileADownloadIsUnderWay(): Promise<void> throws Error {
   const f = await connected()
   const sim = simulatorForTests()!
@@ -282,6 +340,8 @@ describe("the reboot service", () => {
   it("reports a command the vehicle does not support", reportsAnUnsupportedCommand)
   it("waits past IN_PROGRESS for the final answer, sending the command once", waitsPastInProgress)
   it("takes IN_PROGRESS alone for accepted, and expects the reboot", takesInProgressAloneForAccepted)
+  it("ignores acknowledgements of another command or from another system", ignoresAcksThatAreNotTheAnswer)
+  it("expects nothing of a session that ended while the answer was awaited", expectsNothingOfASessionThatEnded)
   it("refuses while a download is under way, sending nothing", refusesWhileADownloadIsUnderWay)
   it("leaves no download or write set after one ends in an error", leavesNoCounterAfterAFailure)
   it("says REBOOTING while the vehicle boots, and resumes when it is back", saysRebootingWhileItBoots)

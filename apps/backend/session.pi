@@ -49,8 +49,9 @@ class Link {
   /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
   /// says so (reconnect.pi). See `rebootExpected()`.
   public rebootAt: int = 0
-  /// True when the vehicle did not answer the reboot (or only said IN_PROGRESS): it may still reboot, so the link going quiet
-  /// is taken for a reboot too, but a second request is refused only for a few seconds (`REBOOT_UNSURE_MS`).
+  /// True when the vehicle did not answer the reboot at all (IN_PROGRESS counts as an answer: accepted): it may still reboot,
+  /// so the link going quiet is taken for a reboot too, but a second request is refused only for a few seconds
+  /// (`REBOOT_UNSURE_MS`).
   public rebootUnsure: bool = false
   /// The services that listen to the vehicle, by name (registering one again replaces it).
   public parts: Map<string, SessionPart> = new Map<string, SessionPart>()
