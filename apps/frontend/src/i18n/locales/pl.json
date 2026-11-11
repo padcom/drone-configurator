@@ -22,6 +22,7 @@
     }
   },
   "topBar": {
+    "rebooting": "Restart…",
     "home": "Start",
     "noVehicle": "Brak pojazdu",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",
@@ -241,6 +242,7 @@
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
   },
   "connection": {
+    "rebooting": "restart",
     "state": {
       "disconnected": "rozłączono",
       "connecting": "łączenie",
@@ -532,7 +534,8 @@
       "settings": "Przejdź do ekranu Ustawienia"
     },
     "reason": {
-      "notConnected": "Najpierw połącz się z pojazdem.",
+      "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
+      "notConnected":"Najpierw połącz się z pojazdem.",
       "stateUnknown": "Stan pojazdu jest nieznany (brak świeżego heartbeat).",
       "armed": "Najpierw rozbrój pojazd. Pojazd w locie nigdy nie jest restartowany.",
       "writing": "Poczekaj, aż parametry zostaną zapisane.",
@@ -540,7 +543,12 @@
     },
     "vehicle": {
       "reboot": {
-        "label": "Uruchom ponownie kontroler lotu",
+        "accepted": "Pojazd {vehicle} uruchamia się ponownie…",
+        "refused": "Pojazd {vehicle} odrzucił restart.",
+        "unsupported": "Pojazd {vehicle} nie obsługuje restartu z tego miejsca.",
+        "noAnswer": "Pojazd {vehicle} nie odpowiedział. Jeśli się restartuje, łącze wróci samo. Jeśli nic się nie dzieje, spróbuj jeszcze raz.",
+        "back": "Pojazd {vehicle} wrócił.",
+        "label":"Uruchom ponownie kontroler lotu",
         "keywords": "restart reset ponowne uruchomienie",
         "title": "Uruchom ponownie kontroler lotu",
         "what": "Uruchamia kontroler lotu od nowa. Łącze zniknie na kilka sekund i wróci samo. Parametry nie są zmieniane. Tylko przy rozbrojonym pojeździe.",

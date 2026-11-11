@@ -22,6 +22,7 @@
     }
   },
   "topBar": {
+    "rebooting": "Neustart…",
     "home": "Start",
     "noVehicle": "Kein Fahrzeug",
     "vehicleSub": "{autopilot} · System {sysid}/{compid}",
@@ -241,6 +242,7 @@
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
   },
   "connection": {
+    "rebooting": "Neustart",
     "state": {
       "disconnected": "getrennt",
       "connecting": "verbinde",
@@ -532,7 +534,8 @@
       "settings": "Zu Einstellungen wechseln"
     },
     "reason": {
-      "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",
+      "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
+      "notConnected":"Verbinde dich zuerst mit einem Fahrzeug.",
       "stateUnknown": "Der Zustand des Fahrzeugs ist unbekannt (kein aktueller Heartbeat).",
       "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",
       "writing": "Warte, bis die Parameter geschrieben sind.",
@@ -540,7 +543,12 @@
     },
     "vehicle": {
       "reboot": {
-        "label": "Flugcontroller neu starten",
+        "accepted": "{vehicle} startet neu…",
+        "refused": "{vehicle} hat den Neustart abgelehnt.",
+        "unsupported": "{vehicle} unterstützt keinen Neustart von hier aus.",
+        "noAnswer": "Keine Antwort von {vehicle}. Wenn es neu startet, kommt die Verbindung von selbst zurück. Wenn nichts passiert, versuche es noch einmal.",
+        "back": "{vehicle} ist wieder da.",
+        "label":"Flugcontroller neu starten",
         "keywords": "neustart neu starten reset zurücksetzen",
         "title": "Flugcontroller neu starten",
         "what": "Startet den Flugcontroller neu. Die Verbindung bricht für einige Sekunden ab und kommt von selbst zurück. Parameter werden nicht verändert. Nur im unscharfen Zustand.",
