@@ -50,6 +50,15 @@ const BLOCKED: Command = {
   execute: () => ({}),
 }
 
+/** A command that may run and has no icon. */
+const NO_ICON: Command = {
+  id: 'test.no-icon',
+  labelKey: 'palette.vehicle.reboot.label',
+  groupKey: 'palette.group.vehicle',
+  isEnabled: () => ({ enabled: true }),
+  execute: () => ({}),
+}
+
 describe('what a command button says', () => {
   it('is a link with the route, the command\'s button words and its icon, for a command that leads somewhere', async () => {
     const { wrapper } = await buttonFor({ command: 'go.parameters' })
@@ -108,13 +117,41 @@ describe('what a press does', () => {
 })
 
 describe('a command that may not run', () => {
-  it('is a disabled button, with the reason as its description', async () => {
+  it('is an aria-disabled button, not a native disabled one, with the reason as its description', async () => {
     const { wrapper } = await buttonFor({ command: BLOCKED })
 
     expect(wrapper.element.tagName).toBe('BUTTON')
-    expect(wrapper.attributes('disabled')).toBeDefined()
+    expect(wrapper.attributes('aria-disabled')).toBe('true')
+    expect(wrapper.attributes('disabled')).toBeUndefined()
     const described = wrapper.attributes('aria-describedby') as string
     expect(wrapper.get(`#${described}`).text()).toBe('Connect to a vehicle first.')
+    // The reason is not drawn: it is not part of what the button shows.
+    expect(wrapper.get(`#${described}`).attributes('hidden')).toBeDefined()
+  })
+
+  it('can be focused, so its reason can be reached, and keeps the focus when it turns off under it', async () => {
+    const { wrapper } = await buttonFor({ command: BLOCKED })
+    const button = wrapper.element as HTMLElement
+    button.focus()
+
+    expect(document.activeElement).toBe(button)
+  })
+})
+
+describe('a press on a command that may not run', () => {
+  it.each([
+    ['a click', () => new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })],
+    ['Enter on the focused button (the browser clicks it)', () => new MouseEvent('click', { bubbles: true, cancelable: true })],
+  ])('does nothing for %s: the command is not run', async (_name, make) => {
+    const invoke = vi.spyOn(useCommands(), 'invoke')
+    const { wrapper } = await buttonFor({ command: BLOCKED })
+    const event = make()
+
+    wrapper.element.dispatchEvent(event)
+    await flushPromises()
+
+    expect(invoke).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(true)
   })
 })
 
@@ -140,14 +177,25 @@ describe('where the icon is', () => {
     expect(wrapper.classes()).toContain('icon-none')
     expect(wrapper.text()).toBe('Logs')
   })
+})
 
-  it('is only the icon for icon-only, with the words as the accessible name and the tooltip', async () => {
+describe('icon-only', () => {
+  it('is only the icon, with the words as the accessible name and the tooltip', async () => {
     const { wrapper } = await buttonFor({ command: 'go.logs', iconOnly: true })
 
     expect(wrapper.attributes('aria-label')).toBe('Logs')
     expect(wrapper.attributes('title')).toBe('Logs')
     expect(wrapper.get('.visually-hidden').text()).toBe('Logs')
     expect(wrapper.find('svg').exists()).toBe(true)
+  })
+
+  it('keeps the words for icon-only when the command has no icon: nothing else would be drawn', async () => {
+    const { wrapper } = await buttonFor({ command: NO_ICON, iconOnly: true })
+
+    expect(wrapper.find('svg').exists()).toBe(false)
+    expect(wrapper.find('.visually-hidden').exists()).toBe(false)
+    expect(wrapper.classes()).not.toContain('icon-only')
+    expect(wrapper.text()).toBe('Reboot flight controller')
   })
 })
 
@@ -173,7 +221,7 @@ describe('how it looks', () => {
   it.each(['rail', 'default', 'primary', 'flight'] as const)('does not change what the %s look disables', async look => {
     const { wrapper } = await buttonFor({ command: BLOCKED, look })
 
-    expect(wrapper.attributes('disabled')).toBeDefined()
+    expect(wrapper.attributes('aria-disabled')).toBe('true')
   })
 
   it('is the kit\'s default look when none is asked for, with the icon over the words', async () => {

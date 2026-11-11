@@ -139,6 +139,28 @@
   overflow-wrap: anywhere;
 }
 
+/* A name that is not a message (a parameter's) is in the mono face, as in the parameter list. */
+.palette-label.literal {
+  font-family: var(--font-mono);
+}
+
+/* The mark of a starred parameter: it says why the row is before the others. */
+.palette-star {
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-2);
+  vertical-align: -2px;
+  color: var(--color-warn);
+  fill: currentcolor;
+}
+
+.palette-detail {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
 .palette-group {
   font-size: 12.5px;
   color: var(--color-text-muted);

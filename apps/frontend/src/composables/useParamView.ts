@@ -8,6 +8,9 @@ import { useConfigurator } from './useConfigurator'
 /** What was chosen and the settings have not answered for yet: the view shows it at once (shared by the screen's parts). */
 const local = shallowRef<View | null>(null)
 
+/** The view that something other than the user's choice asked for, for this session only: it is never saved. */
+const override = shallowRef<View | null>(null)
+
 /** The view, as refs and an action. */
 export interface ParamView {
   /** Whether the choice is offered: the metadata has a `User` for some parameter. */
@@ -18,6 +21,13 @@ export interface ParamView {
   listed: ComputedRef<Param[]>
   /** Chooses a view: it shows at once, and goes back to what the settings hold if they could not keep it (they say why). */
   choose: (view: View) => Promise<void>
+  /** Shows the Full view until the user chooses a view themselves: not saved (a parameter that is asked for is not a choice). */
+  showFullForNow: () => void
+}
+
+/** Forgets the override (for the tests: it is shared by the whole page). */
+export function resetViewOverride(): void {
+  override.value = null
 }
 
 /**
@@ -28,7 +38,8 @@ export interface ParamView {
 export function useParamView(): ParamView {
   const { settings, fields } = useConfigurator()
   const available = computed(() => hasUsers(fields.metadata.value))
-  const view = computed<View>(() => available.value ? (local.value ?? parseView(settings.uiValue(VIEW_KEY))) : 'full')
+  const chosen = () => local.value ?? parseView(settings.uiValue(VIEW_KEY))
+  const view = computed<View>(() => available.value ? (override.value ?? chosen()) : 'full')
   const listed = computed(() => inViewOf(fields.params.value, fields.metadata.value, view.value))
 
   /**
@@ -38,6 +49,7 @@ export function useParamView(): ParamView {
    * @param next the view
    */
   async function choose(next: View): Promise<void> {
+    override.value = null
     local.value = next
     await settings.setUi(VIEW_KEY, next)
 
@@ -47,5 +59,5 @@ export function useParamView(): ParamView {
     }
   }
 
-  return { available, view, listed, choose }
+  return { available, view, listed, choose, showFullForNow: () => void (override.value = 'full') }
 }

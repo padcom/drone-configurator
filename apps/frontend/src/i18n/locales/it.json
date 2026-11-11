@@ -519,11 +519,12 @@
     "label": "Riquadro dei comandi",
     "list": "Comandi",
     "empty": "Nessuna corrispondenza per “{query}”.",
-    "count": "{count} comando | {count} comandi",
+    "count": "{count} risultato | {count} risultati",
     "failed": "Il comando non è riuscito.",
     "group": {
       "parameters": "Parametri",
       "navigate": "Navigazione",
+      "parameter": "Parametro",
       "vehicle": "Veicolo"
     },
     "go": {

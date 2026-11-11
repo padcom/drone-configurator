@@ -147,13 +147,14 @@ import Icon from '@/components/ui/Icon.vue'
 import { useFavourites } from '@/composables/favourites'
 import { useToasts } from '@/composables/toasts'
 import { registerListNav } from '@/lib/params/paramListNav'
-import { type SearchHit, type SearchIndex, indexFor, search, tokensOf } from '@/lib/params/paramSearch'
+import { type SearchHit, search, tokensOf } from '@/lib/params/paramSearch'
 import type { Param } from '@/generated/app'
 import Marked from './Marked.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { showNumber } from '@/lib/params/paramValue'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamGroup } from '@/composables/useParamGroup'
+import { useParamSearchIndex } from '@/composables/useParamSearchIndex'
 import { useParamView } from '@/composables/useParamView'
 import { type Viewport, movedRow, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
 
@@ -251,7 +252,7 @@ function pressClearMissing(): void {
 }
 // What is searched is made once for the names and the metadata (not for each key typed, and not for a value that changes), and
 // a search spans every parameter whatever the group (choosing a group clears the search, and one typed after is across all).
-let searchIndex: SearchIndex | null = null
+const searchIndexNow = useParamSearchIndex()
 // What the chosen group lists: its parameters that the view lists (Standard leaves out the advanced ones), or the starred ones
 // that the vehicle has (a star is a choice of the user's: the view does not hide it). A search is over all, whatever the view.
 const { listed, view, choose: chooseView } = useParamView()
@@ -263,9 +264,8 @@ const hits = computed(() => {
   if (tokens.value.length === 0) {
     return null
   }
-  searchIndex = indexFor(searchIndex, params.value.map(param => param.id), fields.metadata.value)
 
-  return search(searchIndex, fields.filter.value)
+  return search(searchIndexNow(), fields.filter.value)
 })
 const visible = computed(() => {
   const found = hits.value
@@ -586,6 +586,17 @@ function onRowClick(id: string): void {
   parameters.select(id)
 }
 
+/** The parameter whose row the list has been scrolled to (or that the user clicked, so that it is in view). */
+let scrolledTo: string | null = null
+
+/** Scrolls the selected row into view, if the list is laid out (a screen kept alive and hidden has no height to scroll by). */
+function scrollToSelected(): void {
+  if ((scroller.value?.clientHeight ?? 0) > 0) {
+    reveal(selectedAt.value)
+    scrolledTo = fields.selected.value
+  }
+}
+
 // A parameter that becomes the selected one by another way (the Related list, the changes, the arrows in the search) is
 // scrolled into view. The focus is not moved.
 watch(() => fields.selected.value, async () => {
@@ -593,10 +604,26 @@ watch(() => fields.selected.value, async () => {
   const byClick = clicked !== '' && clicked === fields.selected.value
   clicked = ''
 
-  if (selectedAt.value >= 0 && !byClick) {
-    reveal(selectedAt.value)
+  if (byClick) {
+    scrolledTo = fields.selected.value
+  } else if (selectedAt.value >= 0) {
+    scrollToSelected()
   }
 })
+
+/**
+ * A parameter that was selected while the screen was not there (the palette chose it before the screen was first shown, or
+ * while it was kept alive and hidden) is scrolled to when the screen is shown: no watcher fires for a change that was made
+ * before the table existed, and one that fired while hidden had no layout to scroll by. A row that was scrolled to already, or
+ * clicked, is left where the user put it.
+ */
+async function scrollToSelectedOnShow(): Promise<void> {
+  await nextTick()
+
+  if (fields.selected.value !== null && fields.selected.value !== scrolledTo && selectedAt.value >= 0) {
+    scrollToSelected()
+  }
+}
 
 /** Once the status has seen the selection change (in this flush), what the next change is is the user's. */
 async function forgetSelectedByList(): Promise<void> {
@@ -637,6 +664,7 @@ let observer: ResizeObserver | undefined
 let forgetNav: (() => void) | undefined
 onMounted(() => {
   measure()
+  void scrollToSelectedOnShow()
   forgetNav = registerListNav(moveSelection)
 
   if (scroller.value && typeof ResizeObserver !== 'undefined') {
@@ -645,7 +673,10 @@ onMounted(() => {
   }
 })
 // A screen that was kept alive comes back with its scroll box scrolled to wherever the browser put it.
-onActivated(measure)
+onActivated(() => {
+  measure()
+  void scrollToSelectedOnShow()
+})
 onBeforeUnmount(() => {
   forgetNav?.()
   observer?.disconnect()
