@@ -107,7 +107,7 @@
 .palette-row {
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: 1fr auto 56px;
+  grid-template-columns: 20px 1fr auto 56px;
   column-gap: var(--space-3);
   align-items: center;
   min-height: 50px;
@@ -125,6 +125,13 @@
 .palette-row.disabled {
   color: var(--color-text-muted);
   cursor: not-allowed;
+}
+
+.palette-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
 }
 
 .palette-label {

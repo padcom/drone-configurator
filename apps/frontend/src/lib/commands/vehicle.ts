@@ -63,6 +63,8 @@ export class RebootFlightController implements Command {
 
   readonly groupKey = VEHICLE_GROUP
 
+  readonly icon = 'refresh'
+
   readonly keywordKeys = ['palette.vehicle.reboot.keywords']
 
   /**

@@ -3,6 +3,7 @@
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
 import type { Connection } from '@/generated/app'
+import type { IconName } from '@/lib/ui/icons'
 import type { SafetyOptions } from '@/lib/app/safety'
 import type { ToastInput } from '@/composables/toasts'
 
@@ -60,6 +61,8 @@ export interface FileFacts {
 export interface CommandContext {
   /** Goes to a route. */
   navigate(path: string): Promise<void>
+  /** The route that is shown now. */
+  currentPath(): string
   /** The vehicle. */
   vehicle: VehicleFacts
   /** Files: what a command may ask to be opened. */
@@ -80,14 +83,24 @@ export interface Command {
   readonly id: string
   /** The message that names it: the palette translates it, there is no text here. */
   readonly labelKey: string
+  /** The message for the words on a button, when shorter than the palette's ("Flight data" for "Switch to Flight data"). */
+  readonly buttonLabelKey?: string
+  /** A name that is not a message and is shown as it is (a parameter's name): a control uses it in place of `labelKey`. */
+  readonly label?: string
   /** The message that names its group (Navigate, Vehicle). */
   readonly groupKey: string
   /** Messages with more words to find it by: each holds words separated by spaces. */
   readonly keywordKeys?: readonly string[]
   /** The key to show in its row (a plain string, filled from the keymap), when it has one. */
   readonly shortcut?: string
+  /** An icon of the kit's set (lib/ui/icons), for the places that draw one: the rail, a button, a row of the palette. */
+  readonly icon?: IconName
+  /** The route a command that goes to a place leads to: a control draws a real link with it (middle click, the status bar). */
+  readonly href?: string
   /** Whether it may run now, and if not, why. */
   isEnabled(ctx: CommandContext): Availability
+  /** Whether it is what the user is in now (the screen that is shown): a control marks it as the current one. */
+  isActive?(ctx: CommandContext): boolean
   /** What to ask before it runs; null (or no method) when nothing needs asking. */
   confirmation?(ctx: CommandContext): SafetyOptions | null
   /** Does it. */

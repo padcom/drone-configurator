@@ -37,6 +37,7 @@
         @mousemove="hover($event, at)"
         @click="run(row)"
       >
+        <span class="palette-icon" aria-hidden="true"><Icon v-if="row.command.icon" :name="row.command.icon" /></span>
         <span class="palette-label">{{ row.label }}</span>
         <span class="palette-group">{{ row.group }}</span>
         <kbd class="palette-key">{{ row.hint }}</kbd>

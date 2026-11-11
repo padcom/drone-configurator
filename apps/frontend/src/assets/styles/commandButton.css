@@ -1,0 +1,45 @@
+/*
+ * CommandButton.vue: where the icon is. The look itself is not here: the rail's look is .rail-item (frame.css) and the other looks
+ * are the kit button's own classes (kit.css), so nothing of either is drawn twice. Any look with the icon in any place has to
+ * be sane: the icon and the words side by side, or one over the other, with a gap.
+ */
+
+.command-button {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.command-button.icon-top,
+.command-button.icon-bottom {
+  flex-direction: column;
+}
+
+.command-button.icon-left,
+.command-button.icon-right,
+.command-button.icon-none {
+  flex-direction: row;
+}
+
+/* The rail's cell is a block of the rail's width (frame.css), not an inline box; as a row it has the gap of any button. */
+.rail-item.command-button {
+  display: flex;
+}
+
+.rail-item.icon-left,
+.rail-item.icon-right {
+  gap: var(--space-2);
+}
+
+.command-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15em;
+}
+
+.command-button-label {
+  min-width: 0;
+}

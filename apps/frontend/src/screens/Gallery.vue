@@ -106,6 +106,22 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.commandButtons') }}</h3>
+      <!-- Each look with the icon in each place, icon only, and a command that may not run (no vehicle is connected here). -->
+      <div v-for="look in COMMAND_LOOKS" :key="look" class="row" :data-look="look">
+        <CommandButton
+          v-for="position in COMMAND_POSITIONS"
+          :key="position"
+          command="go.logs"
+          :look="look"
+          :icon-position="position"
+        />
+        <CommandButton command="go.logs" :look="look" icon-only />
+        <CommandButton command="vehicle.reboot" :look="look" icon-position="left" />
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.fields') }}</h3>
       <div class="row">
         <TextInput v-model="text" :aria-label="t('gallery.sample.text')" :placeholder="t('gallery.sample.text')" />
@@ -179,6 +195,7 @@ import Badge from '@/components/ui/Badge.vue'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
+import CommandButton from '@/components/ui/CommandButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import HoldButton from '@/components/ui/HoldButton.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -208,6 +225,10 @@ import TruthValue from '@/components/fields/TruthValue.vue'
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
 // It is only in the development build (screens.ts).
 const { t } = useI18n()
+
+/** The looks of a command button, and the places its icon can be, for the section that shows them all. */
+const COMMAND_LOOKS = ['rail', 'default', 'primary', 'flight'] as const
+const COMMAND_POSITIONS = ['top', 'left', 'right', 'bottom', 'none'] as const
 
 const COLOUR_TOKENS = [
   '--color-bg',
