@@ -6,6 +6,7 @@ import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from '
 import { type BackendClient, describeError } from './backend/client'
 import type { Param } from './generated/app'
 import { type Initial, changedIds, initialOf } from './initialValues'
+import { sortedByName, withInPlace } from './naturalOrder'
 import { visibleParams } from './paramList'
 import { type WriteLock, createWriteLock } from './writeLock'
 
@@ -149,8 +150,10 @@ class Parameters implements ParamsModel {
 
     try {
       const downloaded = await this.deps.client.call('params.list', null)
-      this.takeInitial(downloaded.params, downloaded.complete, keepInitial)
-      this.params.value = downloaded.params
+      // In the order of the names, made once here: the list, the groups, the favourites and the search all follow it.
+      const params = sortedByName(downloaded.params)
+      this.takeInitial(params, downloaded.complete, keepInitial)
+      this.params.value = params
       this.missing.value = downloaded.missing
       this.list.value = downloaded.complete ? 'complete' : 'incomplete'
     } catch (error) {
@@ -257,7 +260,7 @@ class Parameters implements ParamsModel {
     if (old) {
       this.replace(param)
     } else {
-      this.params.value = [...this.params.value, param]
+      this.params.value = withInPlace(this.params.value, param)
     }
   }
 

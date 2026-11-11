@@ -2,6 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { createBackendClient } from './backend/client'
 import { PARAMS } from './fixtures'
 import { type MockOptions, mockBackend } from './mock-backend'
+import { compareNames } from './naturalOrder'
 import { useParams } from './useParams'
 
 /**
@@ -136,7 +137,30 @@ it('follows a parameter the vehicle announces, and the draft too unless it is be
   expect(parameters.draft.value).toBe('1800')
 
   parameters.announced({ ...announced, id: 'NEW_ONE', index: 99 })
-  expect(parameters.params.value.at(-1)?.id).toBe('NEW_ONE')
+  // Put in its place by name, not at the end.
+  const names = parameters.params.value.map(param => param.id)
+  expect(names).toContain('NEW_ONE')
+  expect(names).toEqual([...names].sort((a, b) => compareNames(a, b)))
+})
+
+it('puts a downloaded list in the natural order of the names, once, whatever order the vehicle sent it in', async () => {
+  const sent = ['RC10_MIN', 'SERVO3_MIN', 'RC2_MIN', 'ARMING_CHECK', 'RC1_MIN', 'SERVO10_MIN'].map((id, index) => ({
+    id, index, kind: 'int' as const, type: 'INT16', value: index,
+  }))
+  const client = { call: () => Promise.resolve({ params: sent, count: sent.length, complete: true, missing: [] }) }
+  const parameters = useParams({
+    client: client as never,
+    fail: () => undefined,
+    problemWith: () => null,
+    warningWith: () => null,
+  })
+
+  await parameters.refresh()
+
+  expect(parameters.params.value.map(param => param.id))
+    .toEqual(['ARMING_CHECK', 'RC1_MIN', 'RC2_MIN', 'RC10_MIN', 'SERVO3_MIN', 'SERVO10_MIN'])
+  // The values and the vehicle's own indexes go with their parameters.
+  expect(parameters.params.value.find(param => param.id === 'RC10_MIN')).toMatchObject({ index: 0, value: 0 })
 })
 
 it('replaces a parameter by its newer self', async () => {
