@@ -230,13 +230,12 @@
     "axes": "x {x} · y {y} · z {z}"
   },
   "language": {
-    "label": "Language",
-    "en": "English"
+    "label": "Language"
   },
   "settings": {
     "dismiss": "Dismiss",
     "title": "Settings",
-    "languageHelp": "The language of the interface. English is the only one there is for now.",
+    "languageHelp": "The language of the interface.",
     "groups": "Show parameter groups",
     "groupsHelp": "Shows the group list and the favourites stars. Your favourites are kept while it is off.",
     "more": "Units, the map and the vehicle's defaults come with their screens."
@@ -468,5 +467,48 @@
     "related": "Related",
     "openEnd": "…",
     "newValue": "Value"
+  },
+  "question": {
+    "write": "Write {count} parameter to the vehicle? | Write {count} parameters to the vehicle?",
+    "snapshot": "Write {count} parameter to the vehicle ({names})? | Write {count} parameters to the vehicle ({names})?"
+  },
+  "draft": {
+    "number": "a number, please",
+    "ambiguous": "a number with a point, please: {text} could be a decimal or a thousands group",
+    "range": "{type} goes from {min} to {max}",
+    "tooLarge": "too large for a REAL32"
+  },
+  "warn": {
+    "values": "Not one of the usual values: {allowed}",
+    "range": "Outside the usual range {min}–{max}{units}"
+  },
+  "reason": {
+    "notJson": "not JSON",
+    "xml": "an XML file: only JSON is read (ArduPilot's apm.pdef.json, or our own format)",
+    "notMetadata": "not a parameter metadata file: expected ArduPilot's apm.pdef.json, or our own format",
+    "metadataVersion": "metadata version {version} (this app reads version 1)",
+    "noParameters": "it describes no parameters",
+    "noParams": "it has no params",
+    "snapshotVersion": "snapshot version {version} (this app reads version {supported})",
+    "malformed": "its parameters are malformed",
+    "notSnapshot": "not a Drone Configurator parameter snapshot"
+  },
+  "problem": {
+    "notOnVehicle": "not on this vehicle",
+    "otherType": "{snapshot} in the snapshot, {vehicle} on the vehicle",
+    "otherVehicle": "saved from a {was} ({wasAutopilot}); this is a {now} ({nowAutopilot})",
+    "notConfirmed": "the vehicle reports {reported}, not {written}"
+  },
+  "notice": {
+    "metadataLoad": "Can't load the metadata: {reason}.",
+    "open": "Couldn't open it: {error}",
+    "settingsUnavailable": "The settings are not available: {error}",
+    "settingKept": "A setting could not be kept: {error}",
+    "snapshotSave": "Couldn't save: {error}",
+    "snapshotLoad": "Can't load it: {reason}.",
+    "serialPorts": "Couldn't list the serial ports: {error}",
+    "backendError": "the backend: {error}",
+    "backendRestarted": "The backend restarted: the vehicle session ended. Connect again to continue.",
+    "backendStopped": "The backend stopped: the vehicle session ended. Connect again to continue."
   }
 }

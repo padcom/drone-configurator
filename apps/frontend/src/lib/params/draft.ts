@@ -2,7 +2,11 @@
 // unusual (a warning).
 import type { Param } from '@/generated/app'
 import { type Metadata, checkMeta } from './metadata'
-import { typedValue } from './paramValue'
+import { say } from '@/i18n/say'
+import { plainNumber, typedValue } from './paramValue'
+
+/** A comma with exactly three digits after it: a decimal comma or a thousands group (see `plainNumber`). */
+const AMBIGUOUS = /^[+-]?\d*,\d{3}$/u
 
 /** The range of each integer type of the vehicle's parameters. */
 const RANGES: Record<string, [number, number]> = {
@@ -35,7 +39,7 @@ function integerProblem(param: Param, n: number): string | null {
   const range = RANGES[param.type]
   const whole = Math.round(n)
 
-  return range && outside(range, whole) ? `${param.type} goes from ${range[0]} to ${range[1]}` : null
+  return range && outside(range, whole) ? say('draft.range', { type: param.type, min: range[0], max: range[1] }) : null
 }
 
 /**
@@ -50,7 +54,7 @@ function typeProblem(param: Param, n: number): string | null {
     return integerProblem(param, n)
   }
 
-  return param.type === 'REAL32' && !Number.isFinite(Math.fround(n)) ? 'too large for a REAL32' : null
+  return param.type === 'REAL32' && !Number.isFinite(Math.fround(n)) ? say('draft.tooLarge') : null
 }
 
 /**
@@ -61,9 +65,10 @@ function typeProblem(param: Param, n: number): string | null {
  * @returns the problem, or null
  */
 export function validateDraft(param: Param, text: string): string | null {
-  const trimmed = text.trim()
+  const trimmed = plainNumber(text)
   if (trimmed === '' || !Number.isFinite(Number(trimmed))) {
-    return 'a number, please'
+    // "1,500" and "0,500" may be a decimal or a thousands group: they are not guessed at, and the text says why.
+    return AMBIGUOUS.test(text.trim()) ? say('draft.ambiguous', { text: text.trim() }) : say('draft.number')
   }
 
   return typeProblem(param, Number(trimmed))

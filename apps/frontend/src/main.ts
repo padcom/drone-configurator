@@ -17,12 +17,14 @@ import '@/assets/styles/snapshots.css'
 import '@/assets/styles/style.css'
 import { bridgeTransport } from '@pico-desktop/communicator'
 import { createApp } from 'vue'
-import { i18n } from '@/i18n/i18n'
+import { i18n, startInRememberedLanguage, storageOf } from '@/i18n/i18n'
 import { mockBackend } from '@/mock/mock-backend'
 import { createAppRouter } from './router'
 import Shell from '@/components/shell/Shell.vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 
+// The language shown last, before the first paint (the settings are read a moment later and decide).
+startInRememberedLanguage(storageOf(window))
 document.title = i18n.global.t('app.title')
 
 // In Pico Desktop the native bridge; in a plain browser (`pnpm ui`) the mock backend.

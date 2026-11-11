@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { LANGUAGES, isLanguage } from '@/i18n/i18n'
+import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
 import Select from '@/components/ui/Select.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -36,7 +36,8 @@ const groups = computed({
   get: () => shown.value,
   set: (next: boolean) => void choose(next),
 })
-const options = LANGUAGES.map(code => ({ value: code, label: t(`language.${code}`) }))
+// Each language is named in itself (Deutsch, not German): a person who cannot read the current language can still find theirs.
+const options = LANGUAGES.map(code => ({ value: code, label: LANGUAGE_NAMES[code] }))
 const language = computed<string>({
   get: () => locale.value,
   set: (next: string) => {

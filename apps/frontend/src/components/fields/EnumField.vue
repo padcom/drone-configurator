@@ -32,7 +32,14 @@
     <!-- A press anywhere in the list (its scrollbar too) does not take the focus from the field, so the list stays open: the
          bar can be dragged and clicked. Only a press outside, Escape, Tab and Enter close it. -->
     <div v-if="open" :id="listId" class="listbox" role="listbox" :aria-label="label" @mousedown.prevent>
-      <button v-if="custom" type="button" class="option custom" tabindex="-1" @mousedown.prevent @click="pick(Number(query))">
+      <button
+        v-if="custom"
+        type="button"
+        class="option custom"
+        tabindex="-1"
+        @mousedown.prevent
+        @click="pick(typedNumber(query) ?? 0)"
+      >
         <span class="num">{{ query?.trim() }}</span>
         <span>{{ t('enum.useNumber') }}</span>
       </button>

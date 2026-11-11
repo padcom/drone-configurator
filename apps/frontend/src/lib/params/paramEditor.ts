@@ -4,6 +4,7 @@ import { type BitOption, bitOptions } from './bitmask'
 import type { EnumOption } from './enumField'
 import type { Param } from '@/generated/app'
 import { OTHER, groupOf } from './paramGroups'
+import { plainNumber } from './paramValue'
 import type { ParamMeta } from './metadata'
 import type { Translate } from '@/lib/fly/telemetryCards'
 
@@ -100,7 +101,7 @@ export function metadataToast(
  * @returns the number
  */
 export function numberOr(text: string, fallback: number): number {
-  const number = Number(text)
+  const number = Number(plainNumber(text))
 
   return text.trim() === '' || !Number.isFinite(number) ? fallback : number
 }

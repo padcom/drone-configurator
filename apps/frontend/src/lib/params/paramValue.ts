@@ -3,6 +3,7 @@
 // is 0.10000000149011612, and a typed 0.1 is not equal to it until both are the float. So every value enters the interface as
 // the number the vehicle holds (`canonical`), values are compared as those numbers, and they are shown as the shortest text that
 // reads back as the same number (`showNumber`): 0.1, 3.3, 16777216.
+import { say } from '@/i18n/say'
 
 /** The parameter's kind and type: what decides how its values are held. */
 export interface ValueType {
@@ -48,6 +49,24 @@ export function canonParam<T extends ValueType & { value: number }>(param: T): T
   return Object.is(value, param.value) ? param : { ...param, value }
 }
 
+/** One comma, and not exactly three digits after it ("1,500" may be a thousand five hundred: it is not guessed at). */
+const DECIMAL_COMMA = /^[+-]?\d*,(?!\d{3}$)\d*$/u
+
+/**
+ * A typed number with the decimal comma of many languages ("0,5") as a number with the decimal point. Only one comma, with no
+ * point in the text and not exactly three digits after the comma, is taken for a decimal comma; anything else is left as it is
+ * ("1,2,3" and "1,500.5" are not numbers, and "1,500" is not guessed to be 1.5: it is not a number either, rather than a wrong
+ * one). Values are shown with a point whatever the language (they are the wire's), but a person may type either.
+ *
+ * @param text what was typed
+ * @returns the text, trimmed, with the comma made a point when it was a decimal comma
+ */
+export function plainNumber(text: string): string {
+  const trimmed = text.trim()
+
+  return DECIMAL_COMMA.test(trimmed) ? trimmed.replace(',', '.') : trimmed
+}
+
 /**
  * The number a typed text stands for, as the vehicle holds it.
  *
@@ -56,7 +75,7 @@ export function canonParam<T extends ValueType & { value: number }>(param: T): T
  * @returns the number the vehicle would hold
  */
 export function typedValue(param: ValueType, text: string): number {
-  return canonical(param, Number(text.trim()))
+  return canonical(param, Number(plainNumber(text)))
 }
 
 /**
@@ -99,5 +118,5 @@ export function showNumber(n: number): string {
  * @returns the sentence
  */
 export function notConfirmedText(reported: number, written: number): string {
-  return `the vehicle reports ${showNumber(reported)}, not ${showNumber(written)}`
+  return say('problem.notConfirmed', { reported: showNumber(reported), written: showNumber(written) })
 }

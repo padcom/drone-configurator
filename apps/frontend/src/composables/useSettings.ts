@@ -5,6 +5,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import type { Settings, SettingsState } from '@/generated/app'
 import { type Language, type LegacyLanguage, isLanguage } from '@/i18n/i18n'
+import { say } from '@/i18n/say'
 
 /** What the settings need from the rest of the interface. */
 export interface SettingsDeps {
@@ -112,7 +113,7 @@ class SettingsLink implements SettingsModel {
       this.adopt(await this.deps.client.call('settings.get', null))
       await this.importLanguage()
     } catch (error) {
-      this.notice.value = `The settings are not available: ${describeError(error)}`
+      this.notice.value = say('notice.settingsUnavailable', { error: describeError(error) })
     } finally {
       this.loaded.value = true
     }
@@ -126,7 +127,7 @@ class SettingsLink implements SettingsModel {
     try {
       this.changed(await this.deps.client.call('settings.set', { language }))
     } catch (error) {
-      this.notice.value = `A setting could not be kept: ${describeError(error)}`
+      this.notice.value = say('notice.settingKept', { error: describeError(error) })
     }
   }
 
@@ -134,7 +135,7 @@ class SettingsLink implements SettingsModel {
     try {
       this.changed(await this.deps.client.call('settings.set', { ui: [{ key, value }] }))
     } catch (error) {
-      this.notice.value = `A setting could not be kept: ${describeError(error)}`
+      this.notice.value = say('notice.settingKept', { error: describeError(error) })
     }
   }
 
