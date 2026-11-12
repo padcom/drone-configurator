@@ -237,6 +237,7 @@
       },
       "armed": "The vehicle is armed, or its state is not known. Logging settings are changed only when it is disarmed.",
       "notEditable": "A logging mask on the vehicle is not a whole number of 32 bits, so its bits cannot be shown or changed here.",
+      "inexact": "This vehicle takes parameters as 32-bit floats. A box that is turned off here would give a mask that cannot be written exactly, so it is left alone.",
       "fills": "More logging fills the vehicle's storage faster. Check the estimate below before turning streams on.",
       "streams": "What the vehicle logs",
       "unnamed": "The names of the bits come from the parameter metadata, which is not loaded. The bits are shown as numbers.",
@@ -281,6 +282,9 @@
       "spectrogram": "Spectrogram (the three axes together)",
       "spectrogramLabel": "Spectrogram of {rows} rows of time, up to {hz} Hz",
       "spectrogramAxes": "Frequency across, 0 to {hz} Hz; time down, {from} to {to}",
+      "caveats": "The sample rate is the nominal one the log gives; vibration above half of it is folded into the spectrum (aliasing). A peak at the lowest frequencies may be the vehicle's own motion.",
+      "batchCut": "The batches have {samples} samples; the FFT uses the first {size}.",
+      "rowBatches": "Each row of the spectrogram is the mean of {count} batch. | Each row of the spectrogram is the mean of {count} batches.",
       "band": "Harmonic {n}: {from} to {to} Hz",
       "gyro": "Gyro {instance}",
       "accel": "Accelerometer {instance}",
@@ -319,6 +323,9 @@
         "afterReboot": "after a reboot",
         "atOnce": "at once",
         "rebootNote": "ArduPilot builds the notch when the vehicle starts: INS_HNTCH_ENABLE and INS_HNTCH_HMNCS (and the tracking mode and reference) take effect only after a reboot. The frequency and bandwidth apply at once.",
+        "armed": "The vehicle is armed, or its state is not known: the notch values are not added while it may be armed.",
+        "modeRef": "Tracking on the vehicle: INS_HNTCH_MODE {mode}, INS_HNTCH_REF {ref}.",
+        "tracking": "With tracking on (a reference above 0), INS_HNTCH_FREQ is the frequency at the reference, not the peak seen in this flight: check it before adding.",
         "offline": "Connect the vehicle to add these values to its parameter changes.",
         "add": "Add {count} value to the changes | Add {count} values to the changes",
         "addDifferent": "Confirm: add values from a {log} log to a {vehicle}",
@@ -805,6 +812,7 @@
     "close": "Close"
   },
   "staged": {
+    "armedGuarded": "Logging and notch settings are not written while the vehicle is armed, or may be. Disarm it first.",
     "armedLogging": "Logging settings are not written while the vehicle is armed, or may be. Disarm it first.",
     "region": "Changes to write",
     "discard": "Discard {id}",
@@ -849,6 +857,7 @@
     "number": "a number, please",
     "ambiguous": "a number with a point, please: {text} could be a decimal or a thousands group",
     "range": "{type} goes from {min} to {max}",
+    "notExact": "this vehicle takes parameters as 32-bit floats: {value} cannot be written exactly",
     "tooLarge": "too large for a REAL32"
   },
   "warn": {

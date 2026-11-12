@@ -15,6 +15,7 @@
       <Banner v-if="!logging.editable.value" id="setup-not-editable" tone="warn">{{ t('logs.setup.notEditable') }}</Banner>
       <Banner id="setup-fills" tone="warn">{{ t('logs.setup.fills') }}</Banner>
 
+      <p v-if="inexact" id="setup-inexact" class="muted">{{ t('logs.setup.inexact') }}</p>
       <fieldset class="setup-group">
         <legend>{{ t('logs.setup.streams') }}</legend>
         <p v-if="!logging.named.value" id="setup-unnamed" class="muted">
@@ -26,7 +27,7 @@
             <Checkbox
               :model-value="row.on"
               :data-bit="row.bit"
-              :disabled="locked"
+              :disabled="locked || !row.exact"
               @update:model-value="tick('LOG_BITMASK', row.bit, $event)"
             >
               {{ row.name ?? t('logs.setup.bit', { bit: row.bit }) }}
@@ -43,7 +44,7 @@
             <Checkbox
               :model-value="row.on"
               :data-bit="row.bit"
-              :disabled="locked"
+              :disabled="locked || !row.exact"
               @update:model-value="tick('INS_LOG_BAT_MASK', row.bit, $event)"
             >
               {{ row.name ?? t('logs.setup.bit', { bit: row.bit }) }}
@@ -119,6 +120,7 @@ const hasBatch = computed(() => parameters.params.value.some(param => param.id =
 const canRevert = computed(() => logging.changes.value.length > 0)
 /** Nothing is ticked or queued while the vehicle is armed (or may be), or when a mask is not an int32. */
 const locked = computed(() => logging.armed.value || !logging.editable.value)
+const inexact = computed(() => [...logging.streams.value, ...logging.imus.value].some(row => !row.exact))
 const canQueue = computed(() => !locked.value && logging.changes.value.length > 0)
 const statusText = computed(() => (logging.armed.value ? t('logs.setup.armed') : ''))
 

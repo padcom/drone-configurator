@@ -237,6 +237,7 @@
       },
       "armed": "Das Fahrzeug ist scharf geschaltet, oder sein Zustand ist nicht bekannt. Logging-Einstellungen werden nur im entschärften Zustand geändert.",
       "notEditable": "Eine Logging-Maske des Fahrzeugs ist keine ganze 32-Bit-Zahl, ihre Bits können hier nicht angezeigt oder geändert werden.",
+      "inexact": "Dieses Fahrzeug nimmt Parameter als 32-Bit-Gleitkommazahlen. Ein hier ausgeschaltetes Feld würde eine Maske ergeben, die sich nicht exakt schreiben lässt, und bleibt daher unverändert.",
       "fills": "Mehr Logging füllt den Speicher des Fahrzeugs schneller. Prüfen Sie die Schätzung unten, bevor Sie Datenströme einschalten.",
       "streams": "Was das Fahrzeug aufzeichnet",
       "unnamed": "Die Namen der Bits stammen aus den Parameter-Metadaten, die nicht geladen sind. Die Bits werden als Zahlen gezeigt.",
@@ -281,6 +282,9 @@
       "spectrogram": "Spektrogramm (die drei Achsen zusammen)",
       "spectrogramLabel": "Spektrogramm aus {rows} Zeilen, bis {hz} Hz",
       "spectrogramAxes": "Frequenz quer, 0 bis {hz} Hz; Zeit nach unten, {from} bis {to}",
+      "caveats": "Die Abtastrate ist die nominelle aus dem Log; Vibrationen über der Hälfte davon werden ins Spektrum gefaltet (Aliasing). Ein Maximum bei den tiefsten Frequenzen kann die Eigenbewegung des Fahrzeugs sein.",
+      "batchCut": "Die Pakete haben {samples} Werte; die FFT nimmt die ersten {size}.",
+      "rowBatches": "Jede Zeile des Spektrogramms ist der Mittelwert von {count} Paket. | Jede Zeile des Spektrogramms ist der Mittelwert von {count} Paketen.",
       "band": "Oberwelle {n}: {from} bis {to} Hz",
       "gyro": "Gyro {instance}",
       "accel": "Beschleunigungssensor {instance}",
@@ -319,6 +323,9 @@
         "afterReboot": "nach einem Neustart",
         "atOnce": "sofort",
         "rebootNote": "ArduPilot baut den Notch beim Start des Fahrzeugs auf: INS_HNTCH_ENABLE und INS_HNTCH_HMNCS (und Tracking-Modus und Referenz) wirken erst nach einem Neustart. Frequenz und Bandbreite wirken sofort.",
+        "armed": "Das Fahrzeug ist scharf, oder sein Zustand ist nicht bekannt: Die Notch-Werte werden nicht hinzugefügt, solange es scharf sein könnte.",
+        "modeRef": "Tracking am Fahrzeug: INS_HNTCH_MODE {mode}, INS_HNTCH_REF {ref}.",
+        "tracking": "Bei eingeschaltetem Tracking (Referenz über 0) ist INS_HNTCH_FREQ die Frequenz bei der Referenz, nicht das in diesem Flug gesehene Maximum: Prüfen Sie das vor dem Hinzufügen.",
         "offline": "Verbinden Sie das Fahrzeug, um diese Werte zu seinen Parameteränderungen hinzuzufügen.",
         "add": "{count} Wert zu den Änderungen hinzufügen | {count} Werte zu den Änderungen hinzufügen",
         "addDifferent": "Bestätigen: Werte aus einem {log}-Log zu einem {vehicle} hinzufügen",
@@ -805,6 +812,7 @@
     "close": "Schließen"
   },
   "staged": {
+    "armedGuarded": "Logging- und Notch-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "armedLogging": "Logging-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "region": "Zu schreibende Änderungen",
     "discard": "{id} verwerfen",
@@ -849,6 +857,7 @@
     "number": "bitte eine Zahl",
     "ambiguous": "bitte eine Zahl mit Punkt: {text} könnte eine Dezimalzahl oder eine Tausendergruppe sein",
     "range": "{type} reicht von {min} bis {max}",
+    "notExact": "dieses Fahrzeug nimmt Parameter als 32-Bit-Gleitkommazahlen: {value} lässt sich nicht exakt schreiben",
     "tooLarge": "zu groß für einen REAL32"
   },
   "warn": {

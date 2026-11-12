@@ -218,6 +218,8 @@ async function givesTheSpectrogramInTimeOrderWithinItsBounds(): Promise<void> th
   expect(s.size as int).toBe(128)
   // 300 batches are merged to at most 120 rows, in time order, all of the same width.
   expect(s.rows.length <= 120 && s.rows.length >= 60).toBe(true)
+  expect(s.rowBatches as int).toBe(4)
+  expect(s.unrowed as int).toBe(0)
   // 65 bins (128 samples) are 65 columns, a column to a bin.
   expect(s.columns as int).toBe(65)
   let ordered = true
@@ -229,6 +231,34 @@ async function givesTheSpectrogramInTimeOrderWithinItsBounds(): Promise<void> th
   // The tone is in the same column in every row: 150 Hz is at 19.2 of the 7.8125 Hz bins.
   const column = (150.0 / s.columnHz) as int
   expect(s.rows[0].values[column] > 1.0).toBe(true)
+  await done(r)
+}
+
+/// Every row of the spectrogram is the mean of the same number of batches, so the time axis is even: a row starts the same time after
+/// the one before it, at any length of flight. 1000 batches of 128 samples: the group doubles to 16, which holds 1920, so there
+/// are 62 rows of 16 batches and 8 batches left over that are not drawn (and are in the averages).
+async function keepsTheTimeAxisEven(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  defineBatchMessages(e)
+  for (let n = 1; n <= 1000; n++) {
+    batch(e, n, 1, 0, 128, 1000.0, motorTones())
+  }
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await spectrumOf(r, key, BatchSensor.Gyro, 0)
+
+  expect(s.batches as int).toBe(1000)
+  expect(s.rowBatches as int).toBe(16)
+  expect(s.rows.length).toBe(62)
+  expect(s.unrowed as int).toBe(8)
+  expect(s.samples as int).toBe(128)
+  // The batches are a second apart, from 2 s: a row of 16 starts 16 s after the one before it, every row, the first to the last.
+  let even = true
+  for (let i = 0; i < s.rows.length; i++) {
+    even = even && s.rows[i].timeUs as int == 2000000 + i * 16000000
+  }
+  expect(even).toBe(true)
   await done(r)
 }
 
@@ -337,6 +367,7 @@ describe("the spectrum of the raw IMU batches of the logs on this computer", () 
   it("has no source and no spectrum for a log with no batch", saysNothingForALogWithNoBatch)
   it("finds the peak and the harmonic of tones that were put in", findsThePeakAndItsHarmonic)
   it("gives the spectrogram in time order within its bounds", givesTheSpectrogramInTimeOrderWithinItsBounds)
+  it("keeps the time axis of the spectrogram even: the same number of batches in every row", keepsTheTimeAxisEven)
   it("does not show silence as a measurement", doesNotShowSilenceAsAMeasurement)
   it("does not call the noise of a sensor at rest a peak", doesNotCallNoiseAPeak)
   it("skips batches that are not whole or cannot be, and counts them", skipsBatchesThatAreNotWholeOrCannotBe)

@@ -14,6 +14,7 @@ import {
   type BitRow,
   batchBytesPerMinute,
   bitsOf,
+  canSet,
   isMask,
   measuredBytesPerMinute,
   measuredOf,
@@ -69,11 +70,11 @@ export interface LoggingModel {
   /** Whether the masks are int32 (they are, unless the vehicle sent a number that cannot be a mask): else no bit is editable. */
   readonly editable: ComputedRef<boolean>
   /** The bits of the log bitmask listed, with whether each is ticked. */
-  readonly streams: ComputedRef<(BitRow & { on: boolean })[]>
+  readonly streams: ComputedRef<(BitRow & { on: boolean, exact: boolean })[]>
   /** Which IMUs the batch sampling logs (the bits of its mask), ticked or not. */
-  readonly imus: ComputedRef<{ bit: number, on: boolean, name: string | null }[]>
+  readonly imus: ComputedRef<{ bit: number, on: boolean, exact: boolean, name: string | null }[]>
   /** The batch options and whether each is ticked. */
-  readonly options: ComputedRef<{ bit: number, on: boolean, name: string | null }[]>
+  readonly options: ComputedRef<{ bit: number, on: boolean, exact: boolean, name: string | null }[]>
   /** What the ticks change on the vehicle. */
   readonly changes: ComputedRef<WantedChange[]>
   /** The estimate. */
@@ -112,7 +113,7 @@ class Logging implements LoggingModel {
     this.editable = computed(() => MASKS.every(id => !this.has(id) || isMask(this.vehicleValue(id))))
     this.named = computed(() => Object.keys(deps.metadata().get(LOG_BITMASK)?.bits ?? {}).length > 0)
     this.streams = computed(() => streamRows(deps.metadata(), this.vehicleValue(LOG_BITMASK))
-      .map(row => ({ ...row, on: bitsOf(this.value(LOG_BITMASK)).includes(row.bit) })))
+      .map(row => ({ ...row, ...this.stateOf(LOG_BITMASK, row.bit) })))
     this.imus = computed(() => this.bitList(BATCH_MASK, [0, 1, 2]))
     this.options = computed(() => this.bitList(BATCH_OPT, [0, 1, 2]))
     this.changes = computed(() => this.wantedChanges())
@@ -150,16 +151,30 @@ class Logging implements LoggingModel {
   }
 
   /**
+   * Whether a bit is ticked, and whether ticking it the other way gives a value the vehicle can be given exactly (it takes a
+   * parameter as a 32-bit float: a mask above 2^24 is exact only where a float is).
+   *
+   * @param id the parameter
+   * @param bit the position
+   * @returns the state of the box
+   */
+  private stateOf(id: string, bit: number): { on: boolean, exact: boolean } {
+    const on = bitsOf(this.value(id)).includes(bit)
+
+    return { on, exact: canSet(this.value(id), bit, !on) }
+  }
+
+  /**
    * The bits of a parameter to list, with the names the metadata gives.
    *
    * @param id the parameter
    * @param bits the positions
    * @returns the rows
    */
-  private bitList(id: string, bits: number[]): { bit: number, on: boolean, name: string | null }[] {
+  private bitList(id: string, bits: number[]): { bit: number, on: boolean, exact: boolean, name: string | null }[] {
     const names = this.deps.metadata().get(id)?.bits ?? {}
 
-    return bits.map(bit => ({ bit, on: bitsOf(this.value(id)).includes(bit), name: names[String(bit)] ?? null }))
+    return bits.map(bit => ({ bit, ...this.stateOf(id, bit), name: names[String(bit)] ?? null }))
   }
 
   /**
@@ -193,7 +208,7 @@ class Logging implements LoggingModel {
   }
 
   set(id: string, bit: number, on: boolean): void {
-    if (this.has(id) && this.editable.value) {
+    if (this.has(id) && this.editable.value && canSet(this.value(id), bit, on)) {
       this.wanted.value = { ...this.wanted.value, [id]: withBit(this.value(id), bit, on) }
     }
   }

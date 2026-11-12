@@ -1904,17 +1904,20 @@ export struct LocalLogSpectrum {
   axes: SpectrumAxis[]
   columns: u16
   columnHz: f64
+  samples: u16
+  rowBatches: u32
+  unrowed: u32
   rows: SpectrumRow[]
   silent: bool
   peak?: SpectrumPeak
 }
 
 export function decodeLocalLogSpectrum(v: Cbor, path: string): LocalLogSpectrum throws InvalidPayload {
-  const m = members(v, path, ["sensor", "instance", "rateHz", "size", "resolutionHz", "unit", "batches", "skipped", "axes", "columns", "columnHz", "rows", "silent", "peak"])
-  const cbor13 = m.get("peak")
-  let opt13: SpectrumPeak? = null
-  if (cbor13 != null) {
-    opt13 = decodeSpectrumPeak(cbor13, `${path}.peak`)
+  const m = members(v, path, ["sensor", "instance", "rateHz", "size", "resolutionHz", "unit", "batches", "skipped", "axes", "columns", "columnHz", "samples", "rowBatches", "unrowed", "rows", "silent", "peak"])
+  const cbor16 = m.get("peak")
+  let opt16: SpectrumPeak? = null
+  if (cbor16 != null) {
+    opt16 = decodeSpectrumPeak(cbor16, `${path}.peak`)
   }
   LocalLogSpectrum {
     sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
@@ -1928,9 +1931,12 @@ export function decodeLocalLogSpectrum(v: Cbor, path: string): LocalLogSpectrum 
     axes: decodeLocalLogSpectrumAxesList(required(m, "axes", path), `${path}.axes`),
     columns: (uint(required(m, "columns", path), `${path}.columns`, 65535) as u16),
     columnHz: float(required(m, "columnHz", path), `${path}.columnHz`),
+    samples: (uint(required(m, "samples", path), `${path}.samples`, 65535) as u16),
+    rowBatches: (uint(required(m, "rowBatches", path), `${path}.rowBatches`, 4294967295) as u32),
+    unrowed: (uint(required(m, "unrowed", path), `${path}.unrowed`, 4294967295) as u32),
     rows: decodeLocalLogSpectrumRowsList(required(m, "rows", path), `${path}.rows`),
     silent: boolean(required(m, "silent", path), `${path}.silent`),
-    peak: opt13,
+    peak: opt16,
   }
 }
 
@@ -1947,11 +1953,14 @@ export function encodeLocalLogSpectrum(v: LocalLogSpectrum): Cbor {
   m.set("axes", encodeLocalLogSpectrumAxesList(v.axes))
   m.set("columns", Cbor.Uint(v.columns as u64))
   m.set("columnHz", Cbor.Float(v.columnHz))
+  m.set("samples", Cbor.Uint(v.samples as u64))
+  m.set("rowBatches", Cbor.Uint(v.rowBatches as u64))
+  m.set("unrowed", Cbor.Uint(v.unrowed as u64))
   m.set("rows", encodeLocalLogSpectrumRowsList(v.rows))
   m.set("silent", Cbor.Bool(v.silent))
-  const opt13 = v.peak
-  if (opt13 != null) {
-    m.set("peak", encodeSpectrumPeak(opt13))
+  const opt16 = v.peak
+  if (opt16 != null) {
+    m.set("peak", encodeSpectrumPeak(opt16))
   }
   Cbor.Dict(m)
 }

@@ -561,6 +561,33 @@ describe('logging settings while the vehicle may be armed', () => {
   })
 })
 
+describe('values the vehicle cannot be given exactly', () => {
+  it('are not queued from another page: it takes a parameter as a 32-bit float, and an integer above 2^24 may not be one', () => {
+    const { staged, params } = rig((_id, value) => value)
+    params.value = [...params.value, { id: 'LOG_BITMASK', index: 9, kind: 'int', type: 'INT32', value: 5 }]
+
+    // 2^24 + 1 is not a float; 2^24 and -17 are; a real parameter is a float to begin with.
+    expect(staged.stage([{ id: 'LOG_BITMASK', to: 16777217 }])).toBe(0)
+    expect(staged.stage([{ id: 'LOG_BITMASK', to: 16777216 }, { id: 'FENCE_RADIUS', to: 100.5 }])).toBe(2)
+    expect(staged.changes.value.map(change => change.to)).toEqual([16777216, 100.5])
+  })
+})
+
+describe('the notch values while the vehicle may be armed', () => {
+  it('are not queued or written, like the logging ones', async () => {
+    const { staged, params, call, askedOnce } = rig((_id, value) => value, { mayBeArmed: true })
+    params.value = [...params.value, ...['INS_HNTCH_ENABLE', 'INS_HNTCH_FREQ', 'INS_HNTCH_BW', 'INS_HNTCH_HMNCS']
+      .map((id, index) => ({ id, index: 20 + index, kind: 'int' as const, type: 'INT16', value: 1 }))]
+
+    expect(staged.stage([{ id: 'INS_HNTCH_FREQ', to: 150 }, { id: 'INS_HNTCH_ENABLE', to: 0 }])).toBe(0)
+    staged.changes.value = [{ id: 'INS_HNTCH_BW', from: 1, to: 75 }]
+    await staged.writeAll()
+
+    expect(askedOnce).not.toHaveBeenCalled()
+    expect(call).not.toHaveBeenCalled()
+  })
+})
+
 describe('writing what was put back', () => {
   it('writes them as any change, after the one question, which says the value the vehicle has when it is asked', async () => {
     const { staged, askedOnce, params, call } = rig((_id, value) => value)

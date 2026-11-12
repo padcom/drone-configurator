@@ -237,6 +237,7 @@
       },
       "armed": "Il veicolo è armato o il suo stato non è noto. Le impostazioni del logging si cambiano solo a veicolo disarmato.",
       "notEditable": "Una maschera di logging del veicolo non è un intero a 32 bit: i suoi bit non possono essere mostrati o modificati qui.",
+      "inexact": "Questo veicolo accetta i parametri come numeri a virgola mobile a 32 bit. Una casella disattivata qui darebbe una maschera che non si può scrivere esattamente, quindi resta com'è.",
       "fills": "Più logging riempie prima la memoria del veicolo. Controlla la stima qui sotto prima di attivare i flussi.",
       "streams": "Cosa registra il veicolo",
       "unnamed": "I nomi dei bit vengono dai metadati dei parametri, che non sono caricati. I bit sono mostrati come numeri.",
@@ -281,6 +282,9 @@
       "spectrogram": "Spettrogramma (i tre assi insieme)",
       "spectrogramLabel": "Spettrogramma di {rows} righe di tempo, fino a {hz} Hz",
       "spectrogramAxes": "Frequenza in orizzontale, da 0 a {hz} Hz; tempo in basso, da {from} a {to}",
+      "caveats": "La frequenza di campionamento è quella nominale del log; le vibrazioni oltre la sua metà si ripiegano nello spettro (aliasing). Un picco alle frequenze più basse può essere il movimento del veicolo stesso.",
+      "batchCut": "I blocchi hanno {samples} campioni; la FFT usa i primi {size}.",
+      "rowBatches": "Ogni riga dello spettrogramma è la media di {count} blocco. | Ogni riga dello spettrogramma è la media di {count} blocchi.",
       "band": "Armonica {n}: da {from} a {to} Hz",
       "gyro": "Giroscopio {instance}",
       "accel": "Accelerometro {instance}",
@@ -319,6 +323,9 @@
         "afterReboot": "dopo un riavvio",
         "atOnce": "subito",
         "rebootNote": "ArduPilot costruisce il notch all'avvio del veicolo: INS_HNTCH_ENABLE e INS_HNTCH_HMNCS (e modo di inseguimento e riferimento) hanno effetto solo dopo un riavvio. Frequenza e larghezza di banda valgono subito.",
+        "armed": "Il veicolo è armato o il suo stato non è noto: i valori del notch non vengono aggiunti finché potrebbe essere armato.",
+        "modeRef": "Inseguimento sul veicolo: INS_HNTCH_MODE {mode}, INS_HNTCH_REF {ref}.",
+        "tracking": "Con l'inseguimento attivo (un riferimento sopra 0), INS_HNTCH_FREQ è la frequenza al riferimento, non il picco visto in questo volo: controllalo prima di aggiungere.",
         "offline": "Collega il veicolo per aggiungere questi valori alle modifiche dei parametri.",
         "add": "Aggiungi {count} valore alle modifiche | Aggiungi {count} valori alle modifiche",
         "addDifferent": "Conferma: aggiungi valori da un log di {log} a un {vehicle}",
@@ -805,6 +812,7 @@
     "close": "Chiudi"
   },
   "staged": {
+    "armedGuarded": "Le impostazioni del logging e del notch non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
     "armedLogging": "Le impostazioni del logging non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
     "region": "Modifiche da scrivere",
     "discard": "Scarta {id}",
@@ -849,6 +857,7 @@
     "number": "inserisci un numero",
     "ambiguous": "inserisci un numero con il punto: {text} potrebbe essere un decimale o un gruppo di migliaia",
     "range": "{type} va da {min} a {max}",
+    "notExact": "questo veicolo accetta i parametri come numeri a virgola mobile a 32 bit: {value} non può essere scritto esattamente",
     "tooLarge": "troppo grande per un REAL32"
   },
   "warn": {

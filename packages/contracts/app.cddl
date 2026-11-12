@@ -388,7 +388,8 @@ logs-local-spectrum-ask = { key: tstr, sensor: batch-sensor, instance: uint .siz
 ; k * `resolutionHz`; `axes` have the average amplitude of each bin (0 to size / 2) in `unit` (rad/s for a gyro, m/s/s for an
 ; accelerometer: what the log's multiplier makes of the samples); `rows` are the spectrogram, at most 120 of them in time order, each
 ; the amplitude of the three axes together in `columns` columns (the largest of the bins that fall in a column; a column is
-; `columnHz` wide), starting at `timeUs` (the first sample of its first batch). `batches` were used, `skipped` were not (not whole,
+; `columnHz` wide; every row is the mean of the same number of batches, `rowBatches`, so the time axis is even; the batches left over at
+; the end, fewer than a row, are `unrowed`: not drawn, but in the averages), starting at `timeUs` (the first sample of its first batch). `batches` were used, `skipped` were not (not whole,
 ; not at the first rate, a size or a multiplier that cannot be). `silent`: every amplitude is zero (no signal), and then there is
 ; no peak. `peak` is the largest bin from 20 Hz up that stands well above the rest and is at least four steps of the samples high
 ; (the noise of a sensor at rest is not a peak), with the harmonics that are there.
@@ -404,6 +405,9 @@ local-log-spectrum = {
   axes: [* spectrum-axis],
   columns: uint .size 2,
   columnHz: float,
+  samples: uint .size 2,
+  rowBatches: uint .size 4,
+  unrowed: uint .size 4,
   rows: [* spectrum-row],
   silent: bool,
   ? peak: spectrum-peak,

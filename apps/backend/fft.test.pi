@@ -104,6 +104,13 @@ function usesTheFirstSizeSamplesAndLeavesTheRest(): void {
   expect(peakOf(s.amplitudes(long))).toBe(5)
 }
 
+function givesNothingForFewerSamplesThanTheSize(): void {
+  const s = new Spectrum(64)
+  expect(s.amplitudes([]).length).toBe(0)
+  expect(s.amplitudes(tones(63, [[5.0, 1.0]], 0.0)).length).toBe(0)
+  expect(s.amplitudes(tones(64, [[5.0, 1.0]], 0.0)).length).toBe(33)
+}
+
 function knowsWhichSizesItTakes(): void {
   expect(isSize(1024)).toBe(true)
   expect(isSize(32)).toBe(true)
@@ -126,5 +133,6 @@ describe("the amplitude spectrum", () => {
   it("does not double the Nyquist frequency", aToneAtTheNyquistFrequencyIsNotDoubled)
   it("gives nothing for a constant", silenceIsSilence)
   it("uses the first size samples of a longer block", usesTheFirstSizeSamplesAndLeavesTheRest)
+  it("gives no spectrum for fewer samples than its size", givesNothingForFewerSamplesThanTheSize)
   it("knows which sizes it takes", knowsWhichSizesItTakes)
 })

@@ -61,6 +61,10 @@
           :peak="result.peak"
           :bands="bands"
         />
+        <p id="spectrum-caveats" class="muted">{{ t('logs.spectrum.caveats') }}</p>
+        <p v-if="result.samples > result.size" id="spectrum-cut" class="muted">
+          {{ t('logs.spectrum.batchCut', { samples: number(result.samples, 0), size: number(result.size, 0) }) }}
+        </p>
         <p v-if="!result.peak" id="spectrum-no-peak" class="muted">{{ t('logs.spectrum.noPeak') }}</p>
         <table v-else class="logs-table spectrum-peak">
           <caption class="visually-hidden">{{ t('logs.spectrum.peakTitle') }}</caption>
@@ -85,6 +89,7 @@
           :columns="result.columns"
           :nyquist="nyquist"
           :first-us="firstUs"
+          :row-batches="result.rowBatches"
         />
       </template>
       <NotchPreview v-model="notch" :from-vehicle="fromVehicle" />

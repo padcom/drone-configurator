@@ -4,7 +4,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import { includesLogging } from '@/lib/logs/loggingSetup'
+import { includesGuarded } from '@/lib/logs/loggingSetup'
 import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
@@ -273,6 +273,18 @@ class Staged implements StagedModel {
   }
 
   /**
+   * Whether the vehicle can be given a value exactly: it takes a parameter over MAVLink as a 32-bit float, which holds every
+   * integer up to 2^24 and above that only some. A value it cannot hold is refused here, not at the write.
+   *
+   * @param param the parameter
+   * @param value the value
+   * @returns false for a whole-number parameter and a number a float cannot hold
+   */
+  private writable(param: Param, value: number): boolean {
+    return param.kind !== 'int' || Math.fround(value) === value
+  }
+
+  /**
    * Queues one value (an edit, as if typed), or takes the change out when the vehicle has the value already.
    *
    * @param id the parameter
@@ -288,6 +300,9 @@ class Staged implements StagedModel {
     if (Object.is(value, canonical(param, param.value))) {
       this.discard(id)
 
+      return false
+    }
+    if (!this.writable(param, value)) {
       return false
     }
     // Not `queue`: that carries the warning of the selected parameter's draft, which is another parameter's.
@@ -451,7 +466,7 @@ class Staged implements StagedModel {
    * @returns true if they are refused
    */
   private refusesLogging(ids: readonly string[]): boolean {
-    return includesLogging(ids) && (this.deps.mayBeArmed?.() ?? false)
+    return includesGuarded(ids) && (this.deps.mayBeArmed?.() ?? false)
   }
 
   /**

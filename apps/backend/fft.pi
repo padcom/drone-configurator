@@ -79,9 +79,13 @@ export class Spectrum {
     out
   }
 
-  /// The amplitudes of the bins 0 to size / 2 of `samples` (at least `size` of them; the first `size` are used): the mean is taken out,
+  /// The amplitudes of the bins 0 to size / 2 of `samples` (at least `size` of them, else an empty list; the first `size` are used): the mean is taken out,
   /// the Hann window applied. Bin 0 is the mean's leftover (zero), the last bin is the Nyquist frequency.
   public amplitudes(samples: f64[]): f64[] {
+    // Fewer samples than the size are no block: no spectrum (an empty list), never one made of zeros.
+    if (samples.length < size) {
+      return []
+    }
     let mean = 0.0
     for (let i = 0; i < size; i++) {
       mean += samples[i]

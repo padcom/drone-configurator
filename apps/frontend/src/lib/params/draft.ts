@@ -38,8 +38,12 @@ const outside = (range: [number, number], n: number) => n < range[0] || n > rang
 function integerProblem(param: Param, n: number): string | null {
   const range = RANGES[param.type]
   const whole = Math.round(n)
+  if (range && outside(range, whole)) {
+    return say('draft.range', { type: param.type, min: range[0], max: range[1] })
+  }
 
-  return range && outside(range, whole) ? say('draft.range', { type: param.type, min: range[0], max: range[1] }) : null
+  // ArduPilot takes a value over MAVLink as a 32-bit float: an integer above 2^24 is exact only where a float is.
+  return Math.fround(whole) === whole ? null : say('draft.notExact', { value: whole })
 }
 
 /**

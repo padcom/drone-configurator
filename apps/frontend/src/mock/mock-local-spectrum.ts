@@ -92,6 +92,9 @@ export function spectrumOf(ask: LogsLocalSpectrumAsk): LocalLogSpectrum | null {
     axes: [{ name: 'x', amplitude: axisOf(1) }, { name: 'y', amplitude: axisOf(0.25) }, { name: 'z', amplitude: axisOf(0.1) }],
     columns: COLUMNS,
     columnHz: (RESOLUTION * BINS) / COLUMNS,
+    samples: SIZE + 32,
+    rowBatches: Math.max(1, Math.round(source.batches / 60)),
+    unrowed: 0,
     rows: rowsOf(),
     silent: false,
     peak: {

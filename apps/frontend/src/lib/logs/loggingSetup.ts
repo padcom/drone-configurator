@@ -15,6 +15,7 @@
 //     pushed as BAT_CNT / 32 ISBD messages, no more often than one per LGIN ms.
 import type { LocalLog, LocalLogSummary } from '@/generated/app'
 import { asNumber, lengthOf } from '@/lib/logs/localLogs'
+import { NOTCH } from '@/lib/logs/spectrum'
 import type { Metadata } from '@/lib/params/metadata'
 
 /** The logging parameters the page reads and queues. */
@@ -45,6 +46,17 @@ export const ISBD_BYTES = 207
  */
 export function isMask(value: number): boolean {
   return Number.isInteger(value) && value >= -(2 ** 31) && value < 2 ** 31
+}
+
+/**
+ * Whether a value can be written to the vehicle exactly: ArduPilot takes a parameter over MAVLink as a 32-bit float, which holds
+ * every integer up to 2^24 and above that only some (a power of two, or a multiple of one).
+ *
+ * @param value the value
+ * @returns true if a 32-bit float is that value
+ */
+export function isExact(value: number): boolean {
+  return Math.fround(value) === value
 }
 
 /**
@@ -93,6 +105,18 @@ export function withBit(value: number, bit: number, on: boolean): number {
   }
 
   return signedOf(unsignedOf(value) + (on ? 2 ** bit : -(2 ** bit)))
+}
+
+/**
+ * Whether ticking or unticking a bit gives a value that can be written exactly (a bit that is already as asked changes nothing).
+ *
+ * @param value the parameter's value
+ * @param bit the position
+ * @param on whether the bit is to be set
+ * @returns true if the result is a value the vehicle can be given
+ */
+export function canSet(value: number, bit: number, on: boolean): boolean {
+  return isExact(withBit(value, bit, on))
 }
 
 /** One bit of a bitmask, as the page lists it. */
@@ -195,6 +219,20 @@ export function measuredBytesPerMinute(measured: Measured | null): number | null
  */
 export function megabytes(bytes: number): number {
   return Math.round(bytes / 1e5) / 10
+}
+
+/** The notch parameters the Spectrum suggests: they act on the running filter (or at its start), so they are refused armed. */
+const NOTCH_PARAMS: readonly string[] = [NOTCH.enable, NOTCH.freq, NOTCH.bandwidth, NOTCH.harmonics]
+
+/**
+ * Whether queued changes include a parameter that is not written while the vehicle is armed, or may be: a logging parameter, or
+ * one of the harmonic notch that the Spectrum suggests.
+ *
+ * @param ids the parameters with a change queued
+ * @returns true if any is
+ */
+export function includesGuarded(ids: readonly string[]): boolean {
+  return ids.some(id => LOGGING_PARAMS.includes(id) || NOTCH_PARAMS.includes(id))
 }
 
 /**

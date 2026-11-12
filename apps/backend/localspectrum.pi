@@ -39,7 +39,6 @@ const MAX_BATCH: int = 16384
 /// The columns of a spectrogram row, and the most rows kept while reading and given.
 const COLUMNS: int = 256
 const MAX_ROWS: int = 120
-const KEEP_ROWS: int = 240
 
 /// The lowest frequency a peak is looked for at: below it is the vehicle's own motion, not its vibration.
 const PEAK_FROM_HZ: f64 = 20.0
@@ -287,6 +286,10 @@ class Collector {
   readonly spectrum: Spectrum
   public readonly sums: f64[][] = []
   public rows: Row[] = []
+  /// How many batches a row of the spectrogram holds (all but the last, which fills up).
+  public group: int = 1
+  /// The samples in a batch (the first one's), of which the FFT uses `size`.
+  public samples: int = 0
   public batches: int = 0
   public readonly bins: int
   /// The columns of a row of the spectrogram: a column to a bin, or `COLUMNS` when there are more bins.
@@ -318,10 +321,36 @@ class Collector {
       sums[2][k] += az[k]
     }
     batches += 1
-    rows.push(new Row(batch.startUs, columnsOf(ax, ay, az)))
-    if (rows.length >= KEEP_ROWS) {
-      mergeNeighbours()
+    if (batches == 1) {
+      samples = batch.count
     }
+    addRow(batch.startUs, columnsOf(ax, ay, az))
+  }
+
+  /// Puts a batch in the spectrogram: in the last row while that has fewer than `group` batches, else in a row of its own. When
+  /// there would be more than `MAX_ROWS` rows the group doubles first (the rows are merged in pairs, in place), so that every row
+  /// but the last holds the same number of batches and the time axis is even, whatever the length of the flight.
+  addRow(startUs: int, values: f64[]): void {
+    if (rows.length > 0 && rows[rows.length - 1].weight < group) {
+      join(rows[rows.length - 1], values)
+      return
+    }
+    if (rows.length >= MAX_ROWS) {
+      regroup()
+      if (rows[rows.length - 1].weight < group) {
+        join(rows[rows.length - 1], values)
+        return
+      }
+    }
+    rows.push(new Row(startUs, values))
+  }
+
+  /// Adds the columns of one batch to a row.
+  join(row: Row, values: f64[]): void {
+    for (let c = 0; c < columns; c++) {
+      row.sums[c] += values[c]
+    }
+    row.weight += 1
   }
 
   /// The three axes together (the root of the sum of squares) in `columns` columns, each the largest of the bins that fall in it.
@@ -346,8 +375,10 @@ class Collector {
     if (c >= columns) columns - 1 else c
   }
 
-  /// Halves the rows by merging each with the next (the sums add, the weights add): the whole flight stays in at most `KEEP_ROWS`.
-  public mergeNeighbours(): void {
+  /// Doubles the group: each row is merged with the next (the sums add, the weights add), so every row but the last (which may be
+  /// left with only the old group) now holds twice as many batches.
+  regroup(): void {
+    group = group * 2
     const merged: Row[] = []
     let i = 0
     while (i < rows.length) {
@@ -458,13 +489,21 @@ function averages(c: Collector): f64[][] {
   out
 }
 
-/// The rows of the spectrogram, at most `MAX_ROWS`: neighbours are merged until they fit, each value the mean of its batches.
-function rowsOf(c: Collector): SpectrumRow[] {
-  while (c.rows.length > MAX_ROWS) {
-    c.mergeNeighbours()
+/// How many batches the last row has too few of: it is not drawn (a row of fewer batches would be drawn as long as the others), and
+/// its batches are in the averages all the same.
+function unrowedOf(c: Collector): int {
+  if (c.rows.length > 1 && c.rows[c.rows.length - 1].weight < c.group) {
+    return c.rows[c.rows.length - 1].weight
   }
+  0
+}
+
+/// The rows of the spectrogram, at most `MAX_ROWS`, each of the same number of batches (`group`), each value the mean of its batches.
+function rowsOf(c: Collector): SpectrumRow[] {
   const out: SpectrumRow[] = []
-  for (const r of c.rows) {
+  const drawn = c.rows.length - (if (unrowedOf(c) > 0) 1 else 0)
+  for (let i = 0; i < drawn; i++) {
+    const r = c.rows[i]
     const values: f64[] = []
     for (const v of r.sums) {
       values.push(v / (r.weight as f64))
@@ -503,6 +542,9 @@ function resultOf(c: Collector, skipped: int, sensor: int, instance: int): Local
     axes: axes,
     columns: c.columns as u16,
     columnHz: resolution * (c.bins as f64) / (c.columns as f64),
+    samples: c.samples as u16,
+    rowBatches: c.group as u32,
+    unrowed: unrowedOf(c) as u32,
     rows: rowsOf(c),
     silent: silent,
   }

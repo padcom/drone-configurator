@@ -7,7 +7,7 @@ import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import type { Param } from '@/generated/app'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { mockBackend } from '@/mock/mock-backend'
-import { VEHICLE } from '@/mock/fixtures'
+import { VEHICLE, telemetryAt } from '@/mock/fixtures'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { feed } from '@/testing/testing'
 import LogsSpectrum from './LogsSpectrum.vue'
@@ -26,6 +26,10 @@ afterEach(() => {
 const WITH_BATCHES = 'uid-mock/00000003-1a2b3c4d.BIN'
 const WITHOUT = 'uid-mock/00000001-1a2b3c4d.BIN'
 
+/** The telemetry ticks after connecting: 1 is disarmed, 5 is armed. */
+const DISARMED = 1
+const ARMED = 5
+
 /**
  * A parameter of the vehicle.
  *
@@ -37,6 +41,8 @@ const WITHOUT = 'uid-mock/00000001-1a2b3c4d.BIN'
 const param = (id: string, value: number, index: number): Param => ({ id, kind: 'int', type: 'INT32', value, index })
 
 const NOTCH_PARAMS: Param[] = [
+  param('INS_HNTCH_MODE', 1, 5),
+  param('INS_HNTCH_REF', 0.3, 6),
   param('INS_HNTCH_ENABLE', 0, 0),
   param('INS_HNTCH_FREQ', 80, 1),
   param('INS_HNTCH_BW', 40, 2),
@@ -44,21 +50,40 @@ const NOTCH_PARAMS: Param[] = [
   param('INS_HNTCH_HMNCS', 1, 4),
 ]
 
+/** What the vehicle is and says: its type (none for no vehicle), and the telemetry as ticks after connecting (null for none). */
+interface Vehicle {
+  type?: string
+  tick?: number | null
+}
+
+/**
+ * Connects a vehicle of a type, with telemetry that says it is disarmed unless the test says otherwise (none for no vehicle).
+ *
+ * @param handle the configurator
+ * @param options what the vehicle is and says
+ */
+async function connect(handle: ReturnType<typeof createConfigurator>, options: Vehicle): Promise<void> {
+  if (options.type === undefined) {
+    return
+  }
+  const vehicle = { ...VEHICLE, type: options.type } as unknown as typeof VEHICLE
+  feed(handle, { params: NOTCH_PARAMS, list: 'complete', connection: { state: 'connected', vehicle } })
+  // After the connection has settled: a new connection clears the telemetry of the one before it.
+  await flushPromises()
+  const tick = options.tick === undefined ? DISARMED : options.tick
+  feed(handle, { telemetry: tick === null ? null : telemetryAt(tick) })
+}
+
 /**
  * The screen over the mock, with the list of logs read.
  *
- * @param options what the vehicle has
- * @param options.type the type of the connected vehicle, none for no vehicle
+ * @param options what the vehicle is and says
  * @returns the wrapper and the handle
  */
-async function screen(options: { type?: string } = {}) {
+async function screen(options: Vehicle = {}) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, localLogsStepMs: 1 }))
   await flushPromises()
-
-  if (options.type !== undefined) {
-    const vehicle = { ...VEHICLE, type: options.type } as unknown as typeof VEHICLE
-    feed(handle, { params: NOTCH_PARAMS, list: 'complete', connection: { state: 'connected', vehicle } })
-  }
+  await connect(handle, options)
   mounted = mount(LogsSpectrum, { global: { plugins: [i18n] }, props: { section: 'spectrum' }, attachTo: document.body })
   await vi.waitFor(() => expect(handle.flights.listed.value).toBe(true))
   await flushPromises()
@@ -226,4 +251,59 @@ it('cannot add the values without a vehicle, and says so', async () => {
   expect(wrapper.get('#spectrum-suggest-offline').text()).toContain('Connect the vehicle')
   expect(wrapper.find('#spectrum-add').exists()).toBe(false)
   expect(handle.staged.pending()).toEqual([])
+})
+
+/**
+ * Opens the log of the mock on a vehicle with this telemetry and says what the suggestions say.
+ *
+ * @param tick the telemetry, as ticks after connecting (null for none)
+ */
+async function suggestionsWith(tick: number | null): Promise<void> {
+  const { wrapper, handle } = await screen({ type: 'QUADROTOR', tick })
+  await open(wrapper, WITH_BATCHES)
+
+  expect(wrapper.get('#spectrum-suggest-armed').text()).toContain('armed')
+  expect(wrapper.find('#spectrum-add').exists()).toBe(false)
+  expect(handle.staged.pending()).toEqual([])
+}
+
+it('adds nothing while the vehicle is armed, and says why (the notch acts on the running filter)', async () => {
+  await suggestionsWith(ARMED)
+})
+
+it('adds nothing while the vehicle\'s state is not known, and says why', async () => {
+  await suggestionsWith(null)
+})
+
+it('refuses the four notch values in the queue itself while the vehicle may be armed, and takes them when not', async () => {
+  const armed = await screen({ type: 'QUADROTOR', tick: ARMED })
+  const values = [
+    { id: 'INS_HNTCH_ENABLE', to: 1 },
+    { id: 'INS_HNTCH_FREQ', to: 150 },
+    { id: 'INS_HNTCH_BW', to: 75 },
+    { id: 'INS_HNTCH_HMNCS', to: 3 },
+  ]
+  expect(armed.handle.staged.stage(values)).toBe(0)
+  expect(armed.handle.staged.pending()).toEqual([])
+  mounted?.unmount()
+
+  const still = await screen({ type: 'QUADROTOR' })
+  expect(still.handle.staged.stage(values)).toBe(4)
+})
+
+it('shows the tracking the vehicle has, and warns that with a reference FREQ is the frequency at the reference', async () => {
+  const { wrapper } = await screen({ type: 'QUADROTOR' })
+  await open(wrapper, WITH_BATCHES)
+
+  expect(wrapper.get('#spectrum-mode-ref').text()).toBe('Tracking on the vehicle: INS_HNTCH_MODE 1, INS_HNTCH_REF 0.3.')
+  expect(wrapper.get('#spectrum-tracking').text()).toContain('frequency at the reference')
+})
+
+it('says what the spectrum cannot tell, that batches are cut to the FFT size, and how many a row is', async () => {
+  const { wrapper } = await screen()
+  await open(wrapper, WITH_BATCHES)
+
+  expect(wrapper.get('#spectrum-caveats').text()).toContain('aliasing')
+  expect(wrapper.get('#spectrum-cut').text()).toBe('The batches have 1,056 samples; the FFT uses the first 1,024.')
+  expect(wrapper.text()).toContain('Each row of the spectrogram is the mean of 2 batches.')
 })

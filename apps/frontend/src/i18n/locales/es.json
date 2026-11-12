@@ -237,6 +237,7 @@
       },
       "armed": "El vehículo está armado, o no se conoce su estado. Los ajustes del registro solo se cambian con el vehículo desarmado.",
       "notEditable": "Una máscara de registro del vehículo no es un entero de 32 bits, así que sus bits no se pueden mostrar ni cambiar aquí.",
+      "inexact": "Este vehículo toma los parámetros como flotantes de 32 bits. Una casilla desactivada aquí daría una máscara que no se puede escribir exactamente, así que se deja como está.",
       "fills": "Registrar más llena antes el almacenamiento del vehículo. Revisa la estimación de abajo antes de activar flujos.",
       "streams": "Qué registra el vehículo",
       "unnamed": "Los nombres de los bits vienen de los metadatos de parámetros, que no están cargados. Los bits se muestran como números.",
@@ -281,6 +282,9 @@
       "spectrogram": "Espectrograma (los tres ejes juntos)",
       "spectrogramLabel": "Espectrograma de {rows} filas de tiempo, hasta {hz} Hz",
       "spectrogramAxes": "Frecuencia en horizontal, de 0 a {hz} Hz; tiempo hacia abajo, de {from} a {to}",
+      "caveats": "La frecuencia de muestreo es la nominal que da el registro; la vibración por encima de su mitad se pliega en el espectro (aliasing). Un pico en las frecuencias más bajas puede ser el movimiento propio del vehículo.",
+      "batchCut": "Los lotes tienen {samples} muestras; la FFT usa las primeras {size}.",
+      "rowBatches": "Cada fila del espectrograma es la media de {count} lote. | Cada fila del espectrograma es la media de {count} lotes.",
       "band": "Armónico {n}: de {from} a {to} Hz",
       "gyro": "Giroscopio {instance}",
       "accel": "Acelerómetro {instance}",
@@ -319,6 +323,9 @@
         "afterReboot": "tras reiniciar",
         "atOnce": "al instante",
         "rebootNote": "ArduPilot construye el notch al arrancar el vehículo: INS_HNTCH_ENABLE e INS_HNTCH_HMNCS (y el modo de seguimiento y la referencia) solo surten efecto tras reiniciar. La frecuencia y el ancho de banda valen al instante.",
+        "armed": "El vehículo está armado, o no se conoce su estado: los valores del notch no se añaden mientras pueda estar armado.",
+        "modeRef": "Seguimiento en el vehículo: INS_HNTCH_MODE {mode}, INS_HNTCH_REF {ref}.",
+        "tracking": "Con el seguimiento activado (una referencia mayor que 0), INS_HNTCH_FREQ es la frecuencia en la referencia, no el pico visto en este vuelo: compruébalo antes de añadir.",
         "offline": "Conecta el vehículo para añadir estos valores a sus cambios de parámetros.",
         "add": "Añadir {count} valor a los cambios | Añadir {count} valores a los cambios",
         "addDifferent": "Confirmar: añadir valores de un registro de {log} a un {vehicle}",
@@ -805,6 +812,7 @@
     "close": "Cerrar"
   },
   "staged": {
+    "armedGuarded": "Los ajustes del registro y del notch no se escriben mientras el vehículo está armado o podría estarlo. Desármalo primero.",
     "armedLogging": "Los ajustes del registro no se escriben mientras el vehículo está armado o podría estarlo. Desármalo primero.",
     "region": "Cambios por escribir",
     "discard": "Descartar {id}",
@@ -849,6 +857,7 @@
     "number": "introduce un número",
     "ambiguous": "introduce un número con punto: {text} podría ser un decimal o un grupo de millares",
     "range": "{type} va de {min} a {max}",
+    "notExact": "este vehículo toma los parámetros como flotantes de 32 bits: {value} no se puede escribir exactamente",
     "tooLarge": "demasiado grande para un REAL32"
   },
   "warn": {
