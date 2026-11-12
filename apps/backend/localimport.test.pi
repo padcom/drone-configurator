@@ -187,6 +187,64 @@ async function aRecordingThatEndsInTheMiddleOfARecordIsCutEnd(): Promise<void> t
   }
 }
 
+/// Bytes that look like nothing in particular, from a fixed seed.
+function noise(length: int): Uint8Array {
+  let x = 4242
+  const out = new Uint8Array(length)
+  for (let i = 0; i < length; i++) {
+    x = (x * 1103515245 + 12345) % 2147483648
+    out.set(i, (x / 65536) % 256)
+  }
+  out
+}
+
+async function hostileFilesNeitherHangNorLeaveAnything(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    // A megabyte of noise, a megabyte of one repeated start byte, and a header that claims a huge frame, over and over.
+    const repeated = new Uint8Array(1048576)
+    const claims = new Uint8Array(1048576)
+    for (let i = 0; i < repeated.length; i++) {
+      repeated.set(i, 0xFD)
+      claims.set(i, [0, 0, 0, 0, 0, 0, 0, 0, 0xFD, 255, 1, 0][i % 12])
+    }
+    for (const bytes of [noise(1048576), repeated, claims, new Uint8Array(0)]) {
+      await writeBytes(join(r.out, "import.tlog"), bytes)
+      const e = await r.f.call("logs.import", null)
+
+      expect(codeOf(e)).toBe("BAD_REQUEST")
+      expect((await imported(r)).length).toBe(0)
+    }
+  } finally {
+    await done(r)
+  }
+}
+
+async function aStoppedImportLeavesNothingAndTheFileAsItWas(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    // Records spread over enough megabytes that the import is still running when it is stopped.
+    const w = new TlogWriter()
+    for (let i = 0; i < 400000; i++) {
+      const h = new Heartbeat()
+      h.type = MavType.QUADROTOR as u8
+      w.addMessage(T0 + i * 1000, h, i % 256)
+    }
+    const bytes = w.bytes()
+    await writeBytes(join(r.out, "import.tlog"), bytes)
+    const asked = await r.f.send("logs.import", null)
+    await r.f.event("logs.local.progress")
+    await r.f.call("logs.local.cancel")
+    const e = await r.f.reply(asked)
+
+    expect(codeOf(e)).toBe("ABORTED")
+    expect((await imported(r)).length).toBe(0)
+    expect(crc32Of(await readBytes(join(r.out, "import.tlog")))).toBe(crc32Of(bytes))
+  } finally {
+    await done(r)
+  }
+}
+
 function theNameOfAFileHasNoFolder(): void {
   expect(baseName("/home/pilot/flights/a.tlog")).toBe("a.tlog")
   expect(baseName("C:\\Users\\pilot\\a.tlog")).toBe("a.tlog")
@@ -204,5 +262,7 @@ describe("logs.import", () => {
   it("refuses a file with no record and leaves nothing", aFileWithNoRecordLeavesNothing)
   it("answers a cancelled dialog with cancelled, not an error", aCancelledDialogIsNotAnError)
   it("says a recording cut in the middle of a record is cutEnd", aRecordingThatEndsInTheMiddleOfARecordIsCutEnd)
+  it("refuses hostile files (noise, one repeated byte, huge length fields, an empty file) and leaves nothing", hostileFilesNeitherHangNorLeaveAnything)
+  it("leaves nothing and the file as it was when the import is stopped", aStoppedImportLeavesNothingAndTheFileAsItWas)
   it("names a file without its folder, and knows the names of imported copies", theNameOfAFileHasNoFolder)
 })
