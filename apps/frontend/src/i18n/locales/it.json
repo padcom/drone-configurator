@@ -35,8 +35,17 @@
       "link": "LINK"
     }
   },
+  "chart": {
+    "noData": "Nessun dato",
+    "stale": "Dati vecchi",
+    "noValue": "nessun valore",
+    "noCursor": "Cursore fuori dal grafico",
+    "cursor": "Cursore di {chart}",
+    "summary": "Da {low} a {high}, tra {from} e {to}"
+  },
   "logs": {
     "sections": "Sezioni dei Log",
+    "shown": "Log: {section}",
     "section": {
       "flights": "Voli",
       "replay": "Riproduzione",
@@ -94,7 +103,14 @@
       "choices": "Scelte",
       "badges": "Etichette",
       "panels": "Pannelli",
-      "icons": "Icone"
+      "icons": "Icone",
+      "charts": "Grafici"
+    },
+    "chart": {
+      "altitude": "Quota, m (5000 campioni ridotti, un picco di un campione resta)",
+      "battery": "Batteria, V (un tratto senza valore è un vuoto)",
+      "old": "Dati vecchi (attenuati, tratteggiati, e lo dice)",
+      "none": "Nessun dato"
     },
     "truth": {
       "live": "In diretta",

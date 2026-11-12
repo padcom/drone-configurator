@@ -35,8 +35,17 @@
       "link": "LINK"
     }
   },
+  "chart": {
+    "noData": "No data",
+    "stale": "Old data",
+    "noValue": "no value",
+    "noCursor": "Cursor off the chart",
+    "cursor": "Cursor of {chart}",
+    "summary": "From {low} to {high}, over {from} to {to}"
+  },
   "logs": {
     "sections": "Logs sections",
+    "shown": "Logs: {section}",
     "section": {
       "flights": "Flights",
       "replay": "Replay",
@@ -94,7 +103,14 @@
       "choices": "Choices",
       "badges": "Badges",
       "panels": "Panels",
-      "icons": "Icons"
+      "icons": "Icons",
+      "charts": "Charts"
+    },
+    "chart": {
+      "altitude": "Altitude, m (5000 samples thinned, a spike of one sample kept)",
+      "battery": "Battery, V (a stretch with no value is a gap)",
+      "old": "Old data (muted, dashed, and it says so)",
+      "none": "No data"
     },
     "truth": {
       "live": "Live",

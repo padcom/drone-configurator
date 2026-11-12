@@ -92,6 +92,8 @@ describe('the commands that go to a part of a screen', () => {
     expect([active('go.logs', '/logs/replay'), active('go.logs.replay', '/logs/replay'), active('go.parameters', '/logs/replay')])
       .toEqual([true, true, false])
     expect([active('go.logs', '/logsx'), active('go.logs.replay', '/logsx')]).toEqual([false, false])
+    // A slash at the end of the address is the same address.
+    expect([active('go.logs', '/logs/replay/'), active('go.logs.replay', '/logs/replay/')]).toEqual([true, true])
   })
 })
 

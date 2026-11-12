@@ -35,8 +35,17 @@
       "link": "ENLACE"
     }
   },
+  "chart": {
+    "noData": "Sin datos",
+    "stale": "Datos antiguos",
+    "noValue": "sin valor",
+    "noCursor": "Cursor fuera del gráfico",
+    "cursor": "Cursor de {chart}",
+    "summary": "De {low} a {high}, entre {from} y {to}"
+  },
   "logs": {
     "sections": "Secciones de Registros",
+    "shown": "Registros: {section}",
     "section": {
       "flights": "Vuelos",
       "replay": "Reproducción",
@@ -94,7 +103,14 @@
       "choices": "Opciones",
       "badges": "Insignias",
       "panels": "Paneles",
-      "icons": "Iconos"
+      "icons": "Iconos",
+      "charts": "Gráficos"
+    },
+    "chart": {
+      "altitude": "Altitud, m (5000 muestras reducidas, se conserva un pico de una muestra)",
+      "battery": "Batería, V (un tramo sin valor es un hueco)",
+      "old": "Datos antiguos (atenuados, discontinuos, y lo dice)",
+      "none": "Sin datos"
     },
     "truth": {
       "live": "En directo",
