@@ -124,6 +124,8 @@ jobs:
         env:
           # How many backend test files run at once (empty: pico's default, one per CPU).
           BACKEND_TEST_JOBS: ${{ matrix.test-jobs }}
+          # The memory test of the passes over a 100 MB log (localmemory.test.pi) runs here, not on a developer's machine.
+          MEMORY_TEST: '1'
         run: |
           probe() {
             # Not under the step's -e and pipefail: a reading that fails (a pipe closed early) must not end the probe, which

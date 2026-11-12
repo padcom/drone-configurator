@@ -1,4 +1,5 @@
-// Memory of the passes over a big log (Linux only: the process's peak is read from /proc/self/status). A log of about 100 MB is
+// Memory of the passes over a big log (Linux only: the process's peak is read from /proc/self/status; and only where MEMORY_TEST=1
+// is set, which CI does: it is heavy). A log of about 100 MB is
 // generated (ten kinds of message, round robin, the time going up), then read, listed by kind, looked at in time, charted and
 // exported as CSV. None of that may hold the log, or the rows of the export: the peak of the process may not rise more than
 // `BOUND_KB` over what it was before. Off Linux the test passes without measuring (there is nothing to read).
@@ -85,7 +86,9 @@ async function generate(path: string): Promise<int> throws Error {
 }
 
 async function stayInTheBoundOnALogOfAHundredMegabytes(): Promise<void> throws Error {
-  if ((await statusKb("VmHWM")) < 0) {
+  // Heavy (a log of 100 MB is made and passed over four times; about 150 s and 200 to 400 MB): it runs where MEMORY_TEST=1 is set
+  // (CI), and on Linux only, where the peak can be read.
+  if (env.get("MEMORY_TEST") != "1" || (await statusKb("VmHWM")) < 0) {
     return
   }
   const root = `/tmp/drone-configurator-memory-${pid}-${Date.now()}`
