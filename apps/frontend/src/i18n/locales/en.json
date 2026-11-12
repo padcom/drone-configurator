@@ -257,6 +257,76 @@
       "queue": "Add {count} change to the queue | Add {count} changes to the queue",
       "revert": "Put the ticks back"
     },
+    "spectrum": {
+      "title": "Spectrum",
+      "log": "Log",
+      "sensor": "Sensor",
+      "chooseLog": "Choose a log…",
+      "reading": "Reading log {id}…",
+      "listing": "Looking for raw IMU batches in log {id}…",
+      "computing": "Making the spectrum of log {id}…",
+      "statusReady": "The spectrum of log {id} is ready.",
+      "mixed": "The batches of this sensor are not all at one rate. Only those at the rate of the first batch are used.",
+      "silent": "Every sample of this sensor is zero, so there is no signal to show. Nothing is drawn.",
+      "chart": "{sensor}: amplitude, {unit}",
+      "axes": "Amplitude in {unit} against frequency in Hz",
+      "noPeak": "No peak stands well above the rest of the spectrum.",
+      "peakSummary": "Peak at {hz} Hz, amplitude {amplitude} {unit}",
+      "peakTitle": "Peak and harmonics",
+      "peakWhat": "What",
+      "frequency": "Frequency (Hz)",
+      "amplitude": "Amplitude ({unit})",
+      "peakAt": "Peak on {axis}",
+      "harmonic": "Harmonic {n}×",
+      "spectrogram": "Spectrogram (the three axes together)",
+      "spectrogramLabel": "Spectrogram of {rows} rows of time, up to {hz} Hz",
+      "spectrogramAxes": "Frequency across, 0 to {hz} Hz; time down, {from} to {to}",
+      "band": "Harmonic {n}: {from} to {to} Hz",
+      "gyro": "Gyro {instance}",
+      "accel": "Accelerometer {instance}",
+      "source": "{sensor}: {count} batches at {rate} Hz",
+      "facts": "{batches} batches used, {skipped} skipped. An FFT of {size} samples, a bin every {resolution} Hz; sampled at {rate} Hz.",
+      "accelNote": "A harmonic notch is set from the gyro: choose a gyro to get suggested values.",
+      "idle": {
+        "title": "No log chosen",
+        "help": "Choose a log to see the vibration of its flight by frequency. It needs a log that holds raw IMU batches."
+      },
+      "none": {
+        "title": "This log has no raw IMU batches",
+        "help": "A spectrum is made from the batches of raw gyro and accelerometer samples that ArduPilot writes when batch sampling is on. Turn it on in Logging setup (INS_LOG_BAT_MASK), restart the vehicle, fly, and download the new log.",
+        "link": "Go to Logging setup"
+      },
+      "notch": {
+        "title": "Harmonic notch (preview)",
+        "fromVehicle": "Starting from the values on the vehicle.",
+        "defaults": "The vehicle's values are not known: starting from ArduPilot's defaults.",
+        "freq": "Base frequency (Hz)",
+        "bandwidth": "Bandwidth (Hz)",
+        "attenuation": "Attenuation (dB)",
+        "harmonics": "Harmonics (bitmask)",
+        "preview": "The shaded bands are what a notch with these values takes out. Nothing is written."
+      },
+      "suggest": {
+        "title": "Suggested notch values",
+        "source": "From log {log}, {sensor}: the peak seen there. These are suggestions, not measurements of your vehicle.",
+        "different": "This log is from {log}; the connected vehicle is {vehicle}. The values may not suit it.",
+        "parameter": "Parameter",
+        "now": "Now",
+        "value": "Suggested",
+        "because": "Because",
+        "note": "Mode, reference and attenuation are not suggested: they depend on the vehicle. Instances from the number of IMUs up are data after the filter: set the notch from a gyro before it.",
+        "offline": "Connect the vehicle to add these values to its parameter changes.",
+        "add": "Add {count} value to the changes | Add {count} values to the changes",
+        "addDifferent": "Confirm: add values from a {log} log to a {vehicle}",
+        "added": "Added {count} change to the list. | Added {count} changes to the list.",
+        "why": {
+          "enable": "the notch has to be on",
+          "peak": "the peak is at {hz} Hz",
+          "bandwidth": "half of the frequency, as ArduPilot suggests",
+          "harmonics": "the base frequency and the {count} harmonics found"
+        }
+      }
+    },
     "section": {
       "flights": "Flights",
       "replay": "Replay",

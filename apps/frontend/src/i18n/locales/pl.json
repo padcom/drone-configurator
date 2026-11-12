@@ -257,6 +257,76 @@
       "queue": "Dodaj {count} zmianę do kolejki | Dodaj {count} zmiany do kolejki | Dodaj {count} zmian do kolejki",
       "revert": "Cofnij zaznaczenia"
     },
+    "spectrum": {
+      "title": "Widmo",
+      "log": "Log",
+      "sensor": "Czujnik",
+      "chooseLog": "Wybierz log…",
+      "reading": "Czytanie logu {id}…",
+      "listing": "Szukanie surowych paczek IMU w logu {id}…",
+      "computing": "Liczenie widma logu {id}…",
+      "statusReady": "Widmo logu {id} jest gotowe.",
+      "mixed": "Paczki tego czujnika nie mają jednej częstotliwości próbkowania. Używane są tylko te z częstotliwością pierwszej paczki.",
+      "silent": "Wszystkie próbki tego czujnika są zerowe, więc nie ma sygnału do pokazania. Nic nie rysuję.",
+      "chart": "{sensor}: amplituda, {unit}",
+      "axes": "Amplituda w {unit} względem częstotliwości w Hz",
+      "noPeak": "Żaden szczyt nie wyróżnia się wyraźnie ponad resztę widma.",
+      "peakSummary": "Szczyt przy {hz} Hz, amplituda {amplitude} {unit}",
+      "peakTitle": "Szczyt i harmoniczne",
+      "peakWhat": "Co",
+      "frequency": "Częstotliwość (Hz)",
+      "amplitude": "Amplituda ({unit})",
+      "peakAt": "Szczyt na osi {axis}",
+      "harmonic": "Harmoniczna {n}×",
+      "spectrogram": "Spektrogram (trzy osie razem)",
+      "spectrogramLabel": "Spektrogram: {rows} wierszy czasu, do {hz} Hz",
+      "spectrogramAxes": "Częstotliwość w poprzek, od 0 do {hz} Hz; czas w dół, od {from} do {to}",
+      "band": "Harmoniczna {n}: od {from} do {to} Hz",
+      "gyro": "Żyroskop {instance}",
+      "accel": "Akcelerometr {instance}",
+      "source": "{sensor}: {count} paczek, {rate} Hz",
+      "facts": "Użyto {batches} paczek, pominięto {skipped}. FFT z {size} próbek, jeden przedział co {resolution} Hz; próbkowanie {rate} Hz.",
+      "accelNote": "Filtr harmoniczny ustawia się według żyroskopu: wybierz żyroskop, aby dostać proponowane wartości.",
+      "idle": {
+        "title": "Nie wybrano logu",
+        "help": "Wybierz log, aby zobaczyć drgania lotu według częstotliwości. Potrzebny jest log z surowymi paczkami IMU."
+      },
+      "none": {
+        "title": "W tym logu nie ma surowych paczek IMU",
+        "help": "Widmo powstaje z paczek surowych próbek żyroskopu i akcelerometru, które ArduPilot zapisuje przy włączonym próbkowaniu paczkami. Włącz je w Ustawieniach logowania (INS_LOG_BAT_MASK), uruchom pojazd ponownie, polataj i pobierz nowy log.",
+        "link": "Przejdź do ustawień logowania"
+      },
+      "notch": {
+        "title": "Filtr harmoniczny (podgląd)",
+        "fromVehicle": "Zaczynam od wartości z pojazdu.",
+        "defaults": "Wartości z pojazdu nie są znane: zaczynam od domyślnych wartości ArduPilota.",
+        "freq": "Częstotliwość bazowa (Hz)",
+        "bandwidth": "Szerokość pasma (Hz)",
+        "attenuation": "Tłumienie (dB)",
+        "harmonics": "Harmoniczne (maska bitowa)",
+        "preview": "Zacieniowane pasma to to, co wycina filtr z tymi wartościami. Nic nie jest zapisywane."
+      },
+      "suggest": {
+        "title": "Proponowane wartości filtra",
+        "source": "Z logu {log}, {sensor}: szczyt widoczny w tym logu. To propozycje, nie pomiary twojego pojazdu.",
+        "different": "Ten log pochodzi z {log}, a podłączony pojazd to {vehicle}. Wartości mogą do niego nie pasować.",
+        "parameter": "Parametr",
+        "now": "Teraz",
+        "value": "Proponowana",
+        "because": "Dlaczego",
+        "note": "Tryb, odniesienie i tłumienie nie są proponowane: zależą od pojazdu. Egzemplarze od liczby IMU w górę to dane po filtrze: filtr ustawiaj według żyroskopu sprzed niego.",
+        "offline": "Połącz się z pojazdem, aby dodać te wartości do zmian parametrów.",
+        "add": "Dodaj {count} wartość do zmian | Dodaj {count} wartości do zmian | Dodaj {count} wartości do zmian",
+        "addDifferent": "Potwierdź: dodaj wartości z logu {log} do {vehicle}",
+        "added": "Dodano {count} zmianę do listy. | Dodano {count} zmiany do listy. | Dodano {count} zmian do listy.",
+        "why": {
+          "enable": "filtr musi być włączony",
+          "peak": "szczyt jest przy {hz} Hz",
+          "bandwidth": "połowa częstotliwości, jak proponuje ArduPilot",
+          "harmonics": "częstotliwość bazowa i znalezione harmoniczne: {count}"
+        }
+      }
+    },
     "section": {
       "flights": "Loty",
       "replay": "Odtwarzanie",

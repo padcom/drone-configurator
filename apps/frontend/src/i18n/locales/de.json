@@ -257,6 +257,76 @@
       "queue": "{count} Änderung zur Warteschlange hinzufügen | {count} Änderungen zur Warteschlange hinzufügen",
       "revert": "Haken zurücksetzen"
     },
+    "spectrum": {
+      "title": "Spektrum",
+      "log": "Log",
+      "sensor": "Sensor",
+      "chooseLog": "Log wählen…",
+      "reading": "Log {id} wird gelesen…",
+      "listing": "Suche nach Roh-IMU-Paketen im Log {id}…",
+      "computing": "Das Spektrum von Log {id} wird berechnet…",
+      "statusReady": "Das Spektrum von Log {id} ist fertig.",
+      "mixed": "Die Pakete dieses Sensors haben nicht alle dieselbe Rate. Nur die mit der Rate des ersten Pakets werden verwendet.",
+      "silent": "Jeder Wert dieses Sensors ist null, es gibt also kein Signal zu zeigen. Es wird nichts gezeichnet.",
+      "chart": "{sensor}: Amplitude, {unit}",
+      "axes": "Amplitude in {unit} über der Frequenz in Hz",
+      "noPeak": "Kein Maximum hebt sich deutlich vom Rest des Spektrums ab.",
+      "peakSummary": "Maximum bei {hz} Hz, Amplitude {amplitude} {unit}",
+      "peakTitle": "Maximum und Oberwellen",
+      "peakWhat": "Was",
+      "frequency": "Frequenz (Hz)",
+      "amplitude": "Amplitude ({unit})",
+      "peakAt": "Maximum auf {axis}",
+      "harmonic": "Oberwelle {n}×",
+      "spectrogram": "Spektrogramm (die drei Achsen zusammen)",
+      "spectrogramLabel": "Spektrogramm aus {rows} Zeilen, bis {hz} Hz",
+      "spectrogramAxes": "Frequenz quer, 0 bis {hz} Hz; Zeit nach unten, {from} bis {to}",
+      "band": "Oberwelle {n}: {from} bis {to} Hz",
+      "gyro": "Gyro {instance}",
+      "accel": "Beschleunigungssensor {instance}",
+      "source": "{sensor}: {count} Pakete mit {rate} Hz",
+      "facts": "{batches} Pakete verwendet, {skipped} übersprungen. FFT über {size} Werte, ein Bin alle {resolution} Hz; abgetastet mit {rate} Hz.",
+      "accelNote": "Ein harmonischer Notch wird nach dem Gyro eingestellt: Wählen Sie ein Gyro, um Vorschläge zu erhalten.",
+      "idle": {
+        "title": "Kein Log gewählt",
+        "help": "Wählen Sie ein Log, um die Vibration des Flugs nach Frequenz zu sehen. Es muss Roh-IMU-Pakete enthalten."
+      },
+      "none": {
+        "title": "Dieses Log hat keine Roh-IMU-Pakete",
+        "help": "Ein Spektrum entsteht aus den Paketen roher Gyro- und Beschleunigungswerte, die ArduPilot bei eingeschaltetem Batch-Sampling schreibt. Schalten Sie es in der Logging-Einrichtung ein (INS_LOG_BAT_MASK), starten Sie das Fahrzeug neu, fliegen Sie und laden Sie das neue Log herunter.",
+        "link": "Zur Logging-Einrichtung"
+      },
+      "notch": {
+        "title": "Harmonischer Notch (Vorschau)",
+        "fromVehicle": "Ausgangspunkt sind die Werte des Fahrzeugs.",
+        "defaults": "Die Werte des Fahrzeugs sind nicht bekannt: Ausgangspunkt sind die Standardwerte von ArduPilot.",
+        "freq": "Grundfrequenz (Hz)",
+        "bandwidth": "Bandbreite (Hz)",
+        "attenuation": "Dämpfung (dB)",
+        "harmonics": "Oberwellen (Bitmaske)",
+        "preview": "Die schattierten Bänder sind das, was ein Notch mit diesen Werten herausnimmt. Es wird nichts geschrieben."
+      },
+      "suggest": {
+        "title": "Vorgeschlagene Notch-Werte",
+        "source": "Aus Log {log}, {sensor}: das dort gesehene Maximum. Das sind Vorschläge, keine Messungen Ihres Fahrzeugs.",
+        "different": "Dieses Log stammt von {log}; das verbundene Fahrzeug ist {vehicle}. Die Werte passen vielleicht nicht.",
+        "parameter": "Parameter",
+        "now": "Jetzt",
+        "value": "Vorgeschlagen",
+        "because": "Weil",
+        "note": "Modus, Referenz und Dämpfung werden nicht vorgeschlagen: Sie hängen vom Fahrzeug ab. Instanzen ab der Anzahl der IMUs sind Daten nach dem Filter: Stellen Sie den Notch nach einem Gyro davor ein.",
+        "offline": "Verbinden Sie das Fahrzeug, um diese Werte zu seinen Parameteränderungen hinzuzufügen.",
+        "add": "{count} Wert zu den Änderungen hinzufügen | {count} Werte zu den Änderungen hinzufügen",
+        "addDifferent": "Bestätigen: Werte aus einem {log}-Log zu einem {vehicle} hinzufügen",
+        "added": "{count} Änderung zur Liste hinzugefügt. | {count} Änderungen zur Liste hinzugefügt.",
+        "why": {
+          "enable": "der Notch muss eingeschaltet sein",
+          "peak": "das Maximum liegt bei {hz} Hz",
+          "bandwidth": "die Hälfte der Frequenz, wie ArduPilot vorschlägt",
+          "harmonics": "die Grundfrequenz und die {count} gefundenen Oberwellen"
+        }
+      }
+    },
     "section": {
       "flights": "Flüge",
       "replay": "Wiedergabe",

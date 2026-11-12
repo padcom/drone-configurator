@@ -257,6 +257,76 @@
       "queue": "Añadir {count} cambio a la cola | Añadir {count} cambios a la cola",
       "revert": "Deshacer las marcas"
     },
+    "spectrum": {
+      "title": "Espectro",
+      "log": "Registro",
+      "sensor": "Sensor",
+      "chooseLog": "Elige un registro…",
+      "reading": "Leyendo el registro {id}…",
+      "listing": "Buscando lotes IMU en bruto en el registro {id}…",
+      "computing": "Calculando el espectro del registro {id}…",
+      "statusReady": "El espectro del registro {id} está listo.",
+      "mixed": "Los lotes de este sensor no están todos a la misma frecuencia. Solo se usan los de la frecuencia del primero.",
+      "silent": "Todas las muestras de este sensor son cero, así que no hay señal que mostrar. No se dibuja nada.",
+      "chart": "{sensor}: amplitud, {unit}",
+      "axes": "Amplitud en {unit} frente a la frecuencia en Hz",
+      "noPeak": "Ningún pico destaca claramente sobre el resto del espectro.",
+      "peakSummary": "Pico en {hz} Hz, amplitud {amplitude} {unit}",
+      "peakTitle": "Pico y armónicos",
+      "peakWhat": "Qué",
+      "frequency": "Frecuencia (Hz)",
+      "amplitude": "Amplitud ({unit})",
+      "peakAt": "Pico en el eje {axis}",
+      "harmonic": "Armónico {n}×",
+      "spectrogram": "Espectrograma (los tres ejes juntos)",
+      "spectrogramLabel": "Espectrograma de {rows} filas de tiempo, hasta {hz} Hz",
+      "spectrogramAxes": "Frecuencia en horizontal, de 0 a {hz} Hz; tiempo hacia abajo, de {from} a {to}",
+      "band": "Armónico {n}: de {from} a {to} Hz",
+      "gyro": "Giroscopio {instance}",
+      "accel": "Acelerómetro {instance}",
+      "source": "{sensor}: {count} lotes a {rate} Hz",
+      "facts": "{batches} lotes usados, {skipped} omitidos. FFT de {size} muestras, un intervalo cada {resolution} Hz; muestreado a {rate} Hz.",
+      "accelNote": "Un filtro notch armónico se ajusta desde el giroscopio: elige un giroscopio para obtener valores sugeridos.",
+      "idle": {
+        "title": "Ningún registro elegido",
+        "help": "Elige un registro para ver la vibración del vuelo por frecuencia. Necesita un registro con lotes IMU en bruto."
+      },
+      "none": {
+        "title": "Este registro no tiene lotes IMU en bruto",
+        "help": "Un espectro se hace con los lotes de muestras en bruto del giroscopio y el acelerómetro que ArduPilot escribe cuando el muestreo por lotes está activado. Actívalo en Configuración del registro (INS_LOG_BAT_MASK), reinicia el vehículo, vuela y descarga el nuevo registro.",
+        "link": "Ir a la configuración del registro"
+      },
+      "notch": {
+        "title": "Notch armónico (vista previa)",
+        "fromVehicle": "Se parte de los valores del vehículo.",
+        "defaults": "Los valores del vehículo no se conocen: se parte de los valores por defecto de ArduPilot.",
+        "freq": "Frecuencia base (Hz)",
+        "bandwidth": "Ancho de banda (Hz)",
+        "attenuation": "Atenuación (dB)",
+        "harmonics": "Armónicos (máscara de bits)",
+        "preview": "Las bandas sombreadas son lo que quita un notch con estos valores. No se escribe nada."
+      },
+      "suggest": {
+        "title": "Valores de notch sugeridos",
+        "source": "Del registro {log}, {sensor}: el pico visto allí. Son sugerencias, no mediciones de tu vehículo.",
+        "different": "Este registro es de {log}; el vehículo conectado es {vehicle}. Los valores pueden no servirle.",
+        "parameter": "Parámetro",
+        "now": "Ahora",
+        "value": "Sugerido",
+        "because": "Porque",
+        "note": "No se sugieren el modo, la referencia ni la atenuación: dependen del vehículo. Las instancias desde el número de IMU hacia arriba son datos después del filtro: ajusta el notch desde un giroscopio anterior a él.",
+        "offline": "Conecta el vehículo para añadir estos valores a sus cambios de parámetros.",
+        "add": "Añadir {count} valor a los cambios | Añadir {count} valores a los cambios",
+        "addDifferent": "Confirmar: añadir valores de un registro de {log} a un {vehicle}",
+        "added": "Añadido {count} cambio a la lista. | Añadidos {count} cambios a la lista.",
+        "why": {
+          "enable": "el notch tiene que estar activado",
+          "peak": "el pico está en {hz} Hz",
+          "bandwidth": "la mitad de la frecuencia, como sugiere ArduPilot",
+          "harmonics": "la frecuencia base y los {count} armónicos encontrados"
+        }
+      }
+    },
     "section": {
       "flights": "Vuelos",
       "replay": "Reproducción",

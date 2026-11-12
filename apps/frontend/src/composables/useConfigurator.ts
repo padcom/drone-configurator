@@ -21,6 +21,7 @@ import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
 import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
+import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -56,6 +57,8 @@ export interface ConfiguratorHandle {
   flights: FlightsModel
   /** The message browser and the export of the open flight log. */
   browser: BrowserModel
+  /** The raw IMU batches of a flight log and their spectrum. */
+  spectrum: SpectrumModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -90,7 +93,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum' | 'staged'
 >
 
 /**
@@ -329,7 +332,8 @@ export function createConfigurator(
   watch(metadata.metadata, () => parameters.refreshWarning())
   const flights = useFlights({ client })
   const browser = useLogBrowser({ client })
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, browser, staged }
+  const spectrum = useSpectrum({ client })
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, browser, spectrum, staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

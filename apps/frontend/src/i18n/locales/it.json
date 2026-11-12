@@ -257,6 +257,76 @@
       "queue": "Aggiungi {count} modifica alla coda | Aggiungi {count} modifiche alla coda",
       "revert": "Annulla le selezioni"
     },
+    "spectrum": {
+      "title": "Spettro",
+      "log": "Log",
+      "sensor": "Sensore",
+      "chooseLog": "Scegli un log…",
+      "reading": "Lettura del log {id}…",
+      "listing": "Ricerca dei blocchi IMU grezzi nel log {id}…",
+      "computing": "Calcolo dello spettro del log {id}…",
+      "statusReady": "Lo spettro del log {id} è pronto.",
+      "mixed": "I blocchi di questo sensore non sono tutti alla stessa frequenza. Si usano solo quelli alla frequenza del primo.",
+      "silent": "Ogni campione di questo sensore è zero, quindi non c'è segnale da mostrare. Non si disegna nulla.",
+      "chart": "{sensor}: ampiezza, {unit}",
+      "axes": "Ampiezza in {unit} rispetto alla frequenza in Hz",
+      "noPeak": "Nessun picco spicca nettamente sul resto dello spettro.",
+      "peakSummary": "Picco a {hz} Hz, ampiezza {amplitude} {unit}",
+      "peakTitle": "Picco e armoniche",
+      "peakWhat": "Cosa",
+      "frequency": "Frequenza (Hz)",
+      "amplitude": "Ampiezza ({unit})",
+      "peakAt": "Picco sull'asse {axis}",
+      "harmonic": "Armonica {n}×",
+      "spectrogram": "Spettrogramma (i tre assi insieme)",
+      "spectrogramLabel": "Spettrogramma di {rows} righe di tempo, fino a {hz} Hz",
+      "spectrogramAxes": "Frequenza in orizzontale, da 0 a {hz} Hz; tempo in basso, da {from} a {to}",
+      "band": "Armonica {n}: da {from} a {to} Hz",
+      "gyro": "Giroscopio {instance}",
+      "accel": "Accelerometro {instance}",
+      "source": "{sensor}: {count} blocchi a {rate} Hz",
+      "facts": "{batches} blocchi usati, {skipped} saltati. FFT di {size} campioni, un intervallo ogni {resolution} Hz; campionato a {rate} Hz.",
+      "accelNote": "Un filtro notch armonico si imposta dal giroscopio: scegli un giroscopio per avere i valori suggeriti.",
+      "idle": {
+        "title": "Nessun log scelto",
+        "help": "Scegli un log per vedere la vibrazione del volo per frequenza. Serve un log con blocchi IMU grezzi."
+      },
+      "none": {
+        "title": "Questo log non ha blocchi IMU grezzi",
+        "help": "Uno spettro si fa con i blocchi di campioni grezzi di giroscopio e accelerometro che ArduPilot scrive quando il campionamento a blocchi è attivo. Attivalo in Impostazione del logging (INS_LOG_BAT_MASK), riavvia il veicolo, vola e scarica il nuovo log.",
+        "link": "Vai a Impostazione del logging"
+      },
+      "notch": {
+        "title": "Notch armonico (anteprima)",
+        "fromVehicle": "Si parte dai valori del veicolo.",
+        "defaults": "I valori del veicolo non sono noti: si parte dai valori predefiniti di ArduPilot.",
+        "freq": "Frequenza base (Hz)",
+        "bandwidth": "Larghezza di banda (Hz)",
+        "attenuation": "Attenuazione (dB)",
+        "harmonics": "Armoniche (maschera di bit)",
+        "preview": "Le bande colorate sono ciò che un notch con questi valori toglie. Non si scrive nulla."
+      },
+      "suggest": {
+        "title": "Valori del notch suggeriti",
+        "source": "Dal log {log}, {sensor}: il picco visto lì. Sono suggerimenti, non misure del tuo veicolo.",
+        "different": "Questo log è di {log}; il veicolo collegato è {vehicle}. I valori potrebbero non adattarsi.",
+        "parameter": "Parametro",
+        "now": "Ora",
+        "value": "Suggerito",
+        "because": "Perché",
+        "note": "Modo, riferimento e attenuazione non sono suggeriti: dipendono dal veicolo. Le istanze dal numero di IMU in su sono dati dopo il filtro: imposta il notch da un giroscopio prima di esso.",
+        "offline": "Collega il veicolo per aggiungere questi valori alle modifiche dei parametri.",
+        "add": "Aggiungi {count} valore alle modifiche | Aggiungi {count} valori alle modifiche",
+        "addDifferent": "Conferma: aggiungi valori da un log di {log} a un {vehicle}",
+        "added": "Aggiunta {count} modifica all'elenco. | Aggiunte {count} modifiche all'elenco.",
+        "why": {
+          "enable": "il notch deve essere attivo",
+          "peak": "il picco è a {hz} Hz",
+          "bandwidth": "metà della frequenza, come suggerisce ArduPilot",
+          "harmonics": "la frequenza base e le {count} armoniche trovate"
+        }
+      }
+    },
     "section": {
       "flights": "Voli",
       "replay": "Riproduzione",
