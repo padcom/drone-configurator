@@ -246,6 +246,19 @@ async function goesOnFromAPart(): Promise<void> throws Error {
   await finish(r)
 }
 
+async function goesOnFromAPartOfMoreThanAMegabyte(): Promise<void> throws Error {
+  // The CRC of the part is read in pieces of a megabyte: a part of 2.5 MB takes three.
+  const r = await connected()
+  simulatorForTests()!.fsFiles.set(FIRST, content(3_200_000, 1))
+  await mkdir(r.folder(), true)
+  const whole = content(3_200_000, 1)
+  await writeBytes(join(r.folder(), "00000001.BIN.part"), whole.slice(0, 2_500_000))
+  const done = await download(r, [1])
+  expect(done.ids.join(",")).toBe("1")
+  expect(same(await readBytes(copyPath(r, 1, whole)), whole)).toBe(true)
+  await finish(r)
+}
+
 async function refusesWhileArmedOrNotKnownOrBusy(): Promise<void> throws Error {
   const r = await connected()
   link.armed = true
@@ -481,6 +494,7 @@ describe("the logs service", () => {
   it("answers a listing that cannot be trusted with LOGS_UNAVAILABLE and the reason", saysWhyAListThatCannotBeTrustedIsNone)
   it("downloads a log into the data folder, checked by the vehicle's CRC, with progress", downloadsALogAndChecksIt)
   it("goes on from a part that is there, and says where it began", goesOnFromAPart)
+  it("goes on from a part of more than a megabyte", goesOnFromAPartOfMoreThanAMegabyte)
   it("refuses while armed, while that is not known, and while busy, touching nothing", refusesWhileArmedOrNotKnownOrBusy)
   it("stops a download when the vehicle arms, keeping the part", stopsWhenTheVehicleArms)
   it("keeps the part on cancel, and the next download goes on from it", cancelKeepsThePartAndTheNextOneGoesOn)

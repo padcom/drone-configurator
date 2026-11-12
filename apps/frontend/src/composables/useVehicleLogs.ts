@@ -308,11 +308,30 @@ class VehicleLogs implements LogsModel {
     if (how === 'stale') {
       return
     }
-    this.progress.value = how === 'failed' ? {} : this.progress.value
-    this.running.value = false
+    const reason = this.ended(how, reported)
     // What came whole is no longer to be downloaded: the list says which, once read again.
     await this.refresh()
-    this.keepReason(reported)
+    this.keepReason(reason)
+  }
+
+  /**
+   * Notes that a download is over.
+   *
+   * @param how how the call went
+   * @param reported the reason the backend gave for stopping, if it gave one
+   * @returns the reason to keep on the screen: a call that failed (not a stop the backend explained) has its error shown now,
+   * and the read of the list that follows would clear it
+   */
+  private ended(how: 'ok' | 'failed' | 'busy', reported: string | null): string | null {
+    this.running.value = false
+
+    if (how === 'failed') {
+      this.progress.value = {}
+
+      return this.error.value
+    }
+
+    return reported
   }
 
   /**

@@ -213,6 +213,24 @@ function modelOver(busy: number, code = 'BUSY', parametersLoading?: () => boolea
   return { model: useVehicleLogs({ client, connection, telemetry, retryMs: 5, parametersLoading }), calls }
 }
 
+it('keeps the error of a download that failed as a call, past the read of the list that follows it', async () => {
+  const client = {
+    call: (method: string) => (method === 'logs.download'
+      ? Promise.reject(new BackendError('FTP_ABORTED', 'FTP 3: cancelled'))
+      : Promise.resolve({ logs: [{ id: 1, size: 10, downloaded: false }], source: 'ftp', canErase: false })),
+    onEvent: () => () => {},
+  } as unknown as BackendClient
+  const connection = shallowRef<Connection>({ state: 'connected' })
+  const telemetry = shallowRef<Telemetry | null>({ ...telemetryAt(0), armed: false })
+  const model = useVehicleLogs({ client, connection, telemetry, retryMs: 5 })
+  await model.refresh()
+  model.selectNew()
+  await model.download()
+
+  expect(model.error.value).toContain('FTP_ABORTED')
+  expect(model.running.value).toBe(false)
+})
+
 it('asks again, with no error shown, when the backend is busy with the parameters just after connecting', async () => {
   const { model, calls } = modelOver(3)
   await model.refresh()

@@ -512,7 +512,9 @@ async function fetch(client: FtpClient, id: int, listed: int, dir: string): Prom
 async function chase(client: FtpClient, id: int, listed: int, sink: PartFile, startedAt: int): Promise<Outcome> throws Error {
   const remote = `${LOG_DIRECTORY}/${nameOfLog(id)}`
   let last = ""
+  let grew = false
   for (let attempt = 0; attempt < CHASES; attempt++) {
+    const before = sink.total
     try {
       const got = await downloadFile(
         client, remote, sink, sink.total, sink.crc.crc, -1,
@@ -534,7 +536,14 @@ async function chase(client: FtpClient, id: int, listed: int, sink: PartFile, st
         return failed(`log ${id}: ${e.message}`)
       }
       last = e.message
+      // A try after the first that brought bytes found the file longer than before.
+      grew = grew || (attempt > 0 && sink.total > before)
     }
+  }
+  // A file that was longer at each try is one the vehicle still writes (it keeps the log of a connected ground station open):
+  // what came is the start of it, and the next download goes on from there. Otherwise the bytes are wrong.
+  if (grew) {
+    return failed(`log ${id} is still being written by the vehicle; what came is kept as a part (${last})`)
   }
   failed(`the copy does not match the vehicle's file after ${CHASES} tries (${last})`)
 }
@@ -575,7 +584,16 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   try {
     const dir = await folder()
     const client = clientFor(conn, own.signal)
-    const listing = await entriesOf(client)
+    // A cancel that comes while the list is read ends the download as a stopped one, like any other cancel.
+    let listing: FtpEntry[] = []
+    try {
+      listing = await entriesOf(client)
+    } catch (e: FtpError) {
+      if (e.code != "FTP_ABORTED") {
+        throw e
+      }
+      stoppedEarly = true
+    }
     const wanted: u32[] = []
     for (const id of asked.ids) {
       if (!wanted.includes(id)) {
