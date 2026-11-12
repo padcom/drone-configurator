@@ -273,7 +273,40 @@ async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
   }
 }
 
+/// Three heartbeats of a vehicle of the type `type` and the autopilot `autopilot`, a mode change among them, and no firmware banner.
+function heartbeatsOnly(type: int, autopilot: int): Uint8Array {
+  const w = new TlogWriter()
+  for (let i = 0; i < 3; i++) {
+    const h = heartbeat(if (i < 2) 5 else 6)
+    h.type = type as u8
+    h.autopilot = autopilot as u8
+    w.addMessage(T0 + i * 1000000, h, i, true, 1, 1)
+  }
+  w.bytes()
+}
+
+/// The firmware a recording of heartbeats of this vehicle type and autopilot is named by.
+async function firmwareOfHeartbeats(type: int, autopilot: int): Promise<string> throws Error {
+  const r = await rig(heartbeatsOnly(type, autopilot))
+  try {
+    decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$").firmware ?? ""
+  } finally {
+    await done(r)
+  }
+}
+
+async function namesACopterByItsHeartbeatAndNothingElse(): Promise<void> throws Error {
+  const copter = "ArduCopter (from the vehicle type in its heartbeat)"
+  // An ArduPilot quadcopter and helicopter are copters. A fixed wing, a rover and a quadcopter of another autopilot are not.
+  expect(await firmwareOfHeartbeats(2, 3)).toBe(copter)
+  expect(await firmwareOfHeartbeats(4, 3)).toBe(copter)
+  expect(await firmwareOfHeartbeats(1, 3)).toBe("")
+  expect(await firmwareOfHeartbeats(10, 3)).toBe("")
+  expect(await firmwareOfHeartbeats(2, 12)).toBe("")
+}
+
 describe("an imported recording in the library", () => {
+  it("names a copter by its heartbeat, and no other vehicle (their modes stay numbers)", namesACopterByItsHeartbeatAndNothingElse)
   it("is listed as a tlog and read as verified when the copy has the CRC taken at import", isListedAsATlogAndReadAsVerified)
   it("charts what the Flights view asks for, and finds nothing for what a recording does not have", chartsWhatTheFlightsViewAsksFor)
   it("is reviewed with no data for what a recording can't say", reviewsWithNoDataForWhatARecordingCannotSay)

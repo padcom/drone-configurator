@@ -453,7 +453,12 @@ export class TlogDecoder implements LogReader {
       return
     }
     modes.set(record.sysid, mode)
-    give("MODE", ["Mode", "ModeNum"], ["", ""], t, [mode as f64, mode as f64])
+    give("MODE", ["Mode", "ModeNum", "Type", "Autopilot"], ["", "", "", ""], t, [
+      mode as f64,
+      mode as f64,
+      field(info, payload, "type"),
+      field(info, payload, "autopilot"),
+    ])
   }
 
   /// STATUSTEXT: a line of the vehicle's text, as the DataFlash MSG message has it.

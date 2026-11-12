@@ -40,6 +40,24 @@ const READ_CHUNK: int = 1048576
 /// At most this often (ms) a `logs.local.progress` is sent (the last always).
 const PROGRESS_EVERY_MS: int = 100
 
+/// What a recording's firmware is called when only its heartbeat says it is an ArduPilot copter (ArduCopter/GCS_MAVLink_Copter.cpp
+/// frame_type and AP_Motors: MAV_TYPE_QUADROTOR 2, COAXIAL 3, HELICOPTER 4, HEXAROTOR 13, OCTOROTOR 14, TRICOPTER 15, DODECAROTOR 29,
+/// DECAROTOR 35, with MAV_AUTOPILOT_ARDUPILOTMEGA 3). Any other type or autopilot names no firmware, and the modes are numbers.
+const HEARTBEAT_COPTER: string = "ArduCopter (from the vehicle type in its heartbeat)"
+
+/// Whether a heartbeat's vehicle type and autopilot are those of an ArduPilot copter.
+function isCopter(type: f64?, autopilot: f64?): bool {
+  if (type == null || autopilot == null || autopilot! != 3.0) {
+    return false
+  }
+  for (const t of [2.0, 3.0, 4.0, 13.0, 14.0, 15.0, 29.0, 35.0]) {
+    if (type! == t) {
+      return true
+    }
+  }
+  false
+}
+
 /// The changes of flight mode that are kept of a log; more are counted away (`modesCut`).
 const MAX_MODES: int = 5000
 
@@ -252,6 +270,8 @@ class Scan implements Taker {
   public firmware: string = ""
   public readonly modes: ModeChange[] = []
   public modesCut: bool = false
+  /// For a recording without a firmware banner: what the heartbeat's vehicle type and autopilot say ("" when they don't say a copter).
+  public heartbeatFirmware: string = ""
 
   /// Takes note of one message.
   public take(m: DfMessage): void {
@@ -287,6 +307,9 @@ class Scan implements Taker {
       return
     }
     modes.push(ModeChange { timeUs: t as u64, mode: (number! as int) as u16 })
+    if (heartbeatFirmware == "" && isCopter(m.num("Type"), m.num("Autopilot"))) {
+      heartbeatFirmware = HEARTBEAT_COPTER
+    }
   }
 }
 
@@ -517,6 +540,8 @@ function summaryOf(scan: Scan, done: Streamed, verified: bool): LocalLogSummary 
   }
   if (scan.firmware != "") {
     s.firmware = scan.firmware
+  } else if (scan.heartbeatFirmware != "") {
+    s.firmware = scan.heartbeatFirmware
   }
   s
 }
