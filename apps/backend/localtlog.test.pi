@@ -2,7 +2,7 @@
 // CRC taken at import), charted, reviewed with "no data" for what a recording can't say, browsed as the MAVLink messages it holds
 // (not the ones made up for the views), and exported. A copy that was changed afterwards is not verified.
 import { describe, it, expect } from "std/test"
-import { mkdir, readText, remove, writeBytes } from "std/fs"
+import { mkdir, readBytes, readText, remove, writeBytes } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import { Cbor, Envelope } from "pico-desktop/communicator"
@@ -290,6 +290,44 @@ async function hasNoRawImuBatchesForTheSpectrum(): Promise<void> throws Error {
   }
 }
 
+/// The recording MAVProxy wrote from the CI-firmware SITL (pico-mavlink's src/fixtures/mavproxy.tlog, a sibling of this repository, the
+/// same one the dependency is taken from): a real file of another program's, imported and looked at like any log.
+async function readsTheRecordingAnotherProgramWrote(): Promise<void> throws Error {
+  const r = await rig(await readBytes("../pico-mavlink/src/fixtures/mavproxy.tlog"))
+  try {
+    const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
+    const ask = LogsLocalSeriesAsk {
+      key: r.key,
+      series: [
+        SeriesAsk { message: "ATT", field: "Roll" },
+        SeriesAsk { message: "CTUN", field: "Alt" },
+        SeriesAsk { message: "VIBE", field: "VibeX", whereField: "IMU", whereValue: 0.0 },
+        SeriesAsk { message: "BAT", field: "Volt", whereField: "Inst", whereValue: 0.0 },
+        SeriesAsk { message: "GPS", field: "NSats" },
+      ],
+      buckets: 20 as u16,
+    }
+    const series = decodeLogsLocalSeries((await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
+
+    expect(s.verified).toBe(true)
+    expect(s.report!.records).toBe(2480 as u32)
+    expect(s.report!.crcFailures).toBe(0 as u32)
+    expect(s.report!.segments).toBe(1 as u32)
+    expect(s.problems).toBe(0 as u32)
+    expect(s.firmware).toBe("ArduCopter (from the vehicle type in its heartbeat)")
+    expect(s.modeChanges > (0 as u32)).toBe(true)
+    // The seconds of the flight: from 0, about the 25 s MAVProxy recorded.
+    expect(s.firstUs).toBe(0 as u64)
+    expect(s.lastUs! > (20000000 as u64) && s.lastUs! < (30000000 as u64)).toBe(true)
+    for (const one of series.series) {
+      expect(one.found).toBe(true)
+      expect(one.points.length > 5).toBe(true)
+    }
+  } finally {
+    await done(r)
+  }
+}
+
 async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
   const r = await rig(flight())
   try {
@@ -374,5 +412,6 @@ describe("an imported recording in the library", () => {
   it("exports a CSV of one kind of message", exportsACsvOfOneKindOfMessage)
   it("exports the track of the GPS fixes as GPX", exportsATrackFromTheGpsFixes)
   it("has no raw IMU batches, so no sensor for the spectrum", hasNoRawImuBatchesForTheSpectrum)
+  it("reads the recording that MAVProxy wrote: its report, its modes and every chart", readsTheRecordingAnotherProgramWrote)
   it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
 })

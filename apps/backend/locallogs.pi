@@ -45,6 +45,14 @@ const PROGRESS_EVERY_MS: int = 100
 /// DECAROTOR 35, with MAV_AUTOPILOT_ARDUPILOTMEGA 3). Any other type or autopilot names no firmware, and the modes are numbers.
 const HEARTBEAT_COPTER: string = "ArduCopter (from the vehicle type in its heartbeat)"
 
+/// Whether a text is the firmware's banner ("ArduCopter V4.7.2 (fb773567)"): the name of an Ardu vehicle, then a version. Other
+/// texts that start the same ("ArduPilot Ready") are not.
+function isBanner(text: string): bool {
+  const parts = text.split(" ")
+
+  parts.length >= 2 && parts[0].startsWith("Ardu") && parts[1].startsWith("V") && parts[1].length >= 2
+}
+
 /// Whether a heartbeat's vehicle type and autopilot are those of an ArduPilot copter.
 function isCopter(type: f64?, autopilot: f64?): bool {
   if (type == null || autopilot == null || autopilot! != 3.0) {
@@ -291,7 +299,7 @@ class Scan implements Taker {
       takeMode(m, t)
     } else if (name == "MSG" && firmware == "") {
       const text = m.text("Message") ?? ""
-      if (text.startsWith("Ardu")) {
+      if (isBanner(text)) {
         firmware = text.slice(0, MAX_FIRMWARE)
       }
     }
