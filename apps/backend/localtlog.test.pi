@@ -1,0 +1,283 @@
+// An imported recording (.tlog) in the log library, end to end: it is listed as a tlog, read (verified means the copy still has the
+// CRC taken at import), charted, reviewed with "no data" for what a recording can't say, browsed as the MAVLink messages it holds
+// (not the ones made up for the views), and exported. A copy that was changed afterwards is not verified.
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { Attitude, GlobalPositionInt, GpsRawInt, Heartbeat, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
+import {
+  LocalLogSource,
+  LogsImported,
+  LogsLocalExportAsk,
+  LogsLocalExportAskFormat,
+  LogsLocalRead,
+  LogsLocalSeriesAsk,
+  ReviewFindingLevel,
+  SeriesAsk,
+  decodeLocalLogExported,
+  decodeLocalLogMessages,
+  decodeLocalLogModes,
+  decodeLocalLogSummary,
+  decodeLocalLogs,
+  decodeLogsImported,
+  decodeLogsLocalSeries,
+  decodeLogsReview,
+  encodeLogsLocalExportAsk,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+const T0: int = 1794500000000000
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly out: string
+  public readonly was: string?
+  public key: string = ""
+
+  constructor(f: Frontend, root: string, out: string, was: string?) {
+    this.f = f
+    this.root = root
+    this.out = out
+    this.was = was
+  }
+}
+
+async function rig(bytes: Uint8Array): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-tlog-${pid}-${Date.now()}`
+  const out = join(root, "chosen")
+  await mkdir(out, true)
+  const was = env.get(VARIABLE)
+  env.set(VARIABLE, out)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  await writeBytes(join(out, "import.tlog"), bytes)
+  const r = new Rig(await start(), root, out, was)
+  const e = await r.f.call("logs.import", null)
+  const got: LogsImported = decodeLogsImported(e.p ?? Cbor.Null, "$")
+  r.key = got.key ?? ""
+  r
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  if (r.was == null) env.delete(VARIABLE) else env.set(VARIABLE, r.was!)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+function heartbeat(mode: int): Heartbeat {
+  const h = new Heartbeat()
+  h.type = MavType.QUADROTOR as u8
+  h.autopilot = 3
+  h.customMode = mode as u32
+  h.mavlinkVersion = 3
+  h
+}
+
+/// 20 seconds of a flight: a heartbeat, attitude, position, vibration, battery and GPS every second, a mode change, a text.
+function flight(): Uint8Array {
+  const w = new TlogWriter()
+  for (let i = 0; i < 20; i++) {
+    const t = T0 + i * 1000000
+    w.addMessage(t, heartbeat(if (i < 10) 5 else 6), (i * 8) % 256, true, 1, 1)
+    const att = new Attitude()
+    att.roll = (0.1 * (i as f64)) as f32
+    att.pitch = 0.0
+    w.addMessage(t + 100000, att, (i * 8 + 1) % 256)
+    const pos = new GlobalPositionInt()
+    pos.relativeAlt = (i * 1000) as i32
+    pos.lat = 525000000
+    pos.lon = 169000000
+    w.addMessage(t + 200000, pos, (i * 8 + 2) % 256)
+    const vib = new Vibration()
+    vib.vibrationX = (5.0 + (i as f64)) as f32
+    vib.vibrationY = 2.0
+    vib.vibrationZ = 3.0
+    w.addMessage(t + 300000, vib, (i * 8 + 3) % 256)
+    const sys = new SysStatus()
+    sys.voltageBattery = (12600 - i * 10) as u16
+    sys.currentBattery = 500
+    w.addMessage(t + 400000, sys, (i * 8 + 4) % 256)
+    const gps = new GpsRawInt()
+    gps.fixType = 3
+    gps.satellitesVisible = 12
+    gps.eph = 90
+    gps.lat = (525000000 + i * 100) as i32
+    gps.lon = 169000000
+    gps.alt = 80000
+    w.addMessage(t + 500000, gps, (i * 8 + 5) % 256)
+  }
+  const text = new StatusText()
+  text.text = "ArduCopter V4.7.2 (abcd1234)"
+  w.addMessage(T0 + 20000000, text, 200)
+  w.bytes()
+}
+
+async function read(r: Rig): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: r.key }))
+}
+
+async function isListedAsATlogAndReadAsVerified(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    const list = decodeLocalLogs((await r.f.call("logs.local.list", null)).p ?? Cbor.Null, "$")
+    expect(list.logs.length).toBe(1)
+    expect(list.logs[0].source).toBe(LocalLogSource.Tlog)
+    expect(list.logs[0].key).toBe(r.key)
+    expect(list.logs[0].vehicle).toBe("imported")
+
+    const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
+    expect(s.verified).toBe(true)
+    expect(s.messages).toBe(121 as u32)
+    expect(s.problems).toBe(0 as u32)
+    expect(s.cutEnd == null).toBe(true)
+    expect(s.firmware).toBe("ArduCopter V4.7.2 (abcd1234)")
+    expect(s.modeChanges).toBe(2 as u32)
+    expect(s.report!.records).toBe(121 as u32)
+    expect(s.report!.segments).toBe(1 as u32)
+    // The times count from the first record.
+    expect(s.firstUs).toBe(0 as u64)
+    const modes = decodeLocalLogModes((await r.f.call("logs.local.modes", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+    expect(modes.modes.map((m) => `${m.timeUs}:${m.mode}`).join(" ")).toBe("0:5 10000000:6")
+  } finally {
+    await done(r)
+  }
+}
+
+async function chartsWhatTheFlightsViewAsksFor(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const ask = LogsLocalSeriesAsk {
+      key: r.key,
+      series: [
+        SeriesAsk { message: "ATT", field: "Roll" },
+        SeriesAsk { message: "CTUN", field: "Alt" },
+        SeriesAsk { message: "VIBE", field: "VibeX", whereField: "IMU", whereValue: 0.0 },
+        SeriesAsk { message: "BAT", field: "Volt", whereField: "Inst", whereValue: 0.0 },
+        SeriesAsk { message: "ERR", field: "ECode" },
+      ],
+      buckets: 1 as u16,
+    }
+    const s = decodeLogsLocalSeries((await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
+
+    expect(s.series[0].found).toBe(true)
+    expect(s.series[0].points[0].count).toBe(20 as u32)
+    expect(s.series[0].points[0].max > 100.0).toBe(true)
+    expect(s.series[1].points[0].max).toBe(19.0)
+    expect(s.series[2].points[0].min).toBe(5.0)
+    expect(s.series[2].points[0].max).toBe(24.0)
+    expect(s.series[3].points[0].max).toBe(12.6)
+    // A recording has no ERR messages: not found, not zero.
+    expect(s.series[4].found).toBe(false)
+  } finally {
+    await done(r)
+  }
+}
+
+async function reviewsWithNoDataForWhatARecordingCannotSay(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const review = decodeLogsReview((await r.f.call("logs.local.review", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+    const levelIs = (id: string, want: ReviewFindingLevel): bool => {
+      let out = false
+      for (const f of review.findings) {
+        if (f.id == id) {
+          out = f.level == want
+        }
+      }
+      out
+    }
+
+    expect(levelIs("vibration.x", ReviewFindingLevel.Ok)).toBe(true)
+    expect(levelIs("gps.satellites", ReviewFindingLevel.Ok)).toBe(true)
+    expect(levelIs("gps.fix", ReviewFindingLevel.Ok)).toBe(true)
+    // A recording has no EKF message here and no ERR records: no data, never an "ok".
+    expect(levelIs("ekf.variance", ReviewFindingLevel.NoData)).toBe(true)
+    expect(levelIs("errors.logged", ReviewFindingLevel.NoData)).toBe(true)
+  } finally {
+    await done(r)
+  }
+}
+
+async function browsesTheMessagesTheRecordingHolds(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const m = decodeLocalLogMessages((await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+    const names = m.types.map((t) => t.name)
+
+    expect(names.includes("ATTITUDE")).toBe(true)
+    expect(names.includes("SYS_STATUS")).toBe(true)
+    expect(names.includes("HEARTBEAT")).toBe(true)
+    // The messages made up for the Flights view are not in the file and not in the browser.
+    expect(names.includes("ATT")).toBe(false)
+    expect(names.includes("BAT")).toBe(false)
+    expect(names.includes("MODE")).toBe(false)
+    let sys = ""
+    for (const t of m.types) {
+      if (t.name == "SYS_STATUS") {
+        sys = t.fields.map((f) => `${f.name}${if (f.unit != null) `(${f.unit})` else ""}`).join(",")
+      }
+    }
+    expect(sys.includes("voltage_battery(mV)")).toBe(true)
+  } finally {
+    await done(r)
+  }
+}
+
+async function exportsACsvOfOneKindOfMessage(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const ask = LogsLocalExportAsk { key: r.key, format: LogsLocalExportAskFormat.Csv, message: "SYS_STATUS" }
+    const e = await r.f.call("logs.local.export", encodeLogsLocalExportAsk(ask))
+    expect(codeOf(e)).toBe("")
+    const exported = decodeLocalLogExported(e.p ?? Cbor.Null, "$")
+    expect(exported.rows).toBe(20 as u32)
+    const text = await readText(exported.path!)
+    const lines = text.split("\n")
+
+    expect(lines[0].startsWith("TimeUS")).toBe(true)
+    expect(lines[0].includes("voltage_battery (mV)")).toBe(true)
+    expect(lines.length > 20).toBe(true)
+  } finally {
+    await done(r)
+  }
+}
+
+async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    const path = join(r.root, "logs", r.key)
+    await writeBytes(path, new Uint8Array(3), true)
+    const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
+
+    expect(s.verified).toBe(false)
+    // Nothing is taken from a copy that is not verified.
+    const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: r.key }))
+    expect(codeOf(e)).toBe("NOT_VERIFIED")
+  } finally {
+    await done(r)
+  }
+}
+
+describe("an imported recording in the library", () => {
+  it("is listed as a tlog and read as verified when the copy has the CRC taken at import", isListedAsATlogAndReadAsVerified)
+  it("charts what the Flights view asks for, and finds nothing for what a recording does not have", chartsWhatTheFlightsViewAsksFor)
+  it("is reviewed with no data for what a recording can't say", reviewsWithNoDataForWhatARecordingCannotSay)
+  it("is browsed as the MAVLink messages it holds, not the ones made up for the views", browsesTheMessagesTheRecordingHolds)
+  it("exports a CSV of one kind of message", exportsACsvOfOneKindOfMessage)
+  it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
+})
