@@ -4,10 +4,23 @@
     <h3 :id="`${uid}-title`" class="logs-flights-title">{{ t('logs.flights.title') }}</h3>
     <!-- Always in the page, so that its words are read out when they change (a read that finished, was stopped or failed). -->
     <p id="flights-status" class="visually-hidden" role="status">{{ statusText }}</p>
-    <Banner v-if="flights.error.value" id="flights-error" tone="error">{{ flights.error.value }}</Banner>
+    <!-- The error of a log that failed to open is spoken by the status line; the banner shows it and does not speak it again. -->
+    <Banner
+      v-if="flights.error.value"
+      id="flights-error"
+      tone="error"
+      :role="flights.phase.value === 'failed' ? 'presentation' : undefined"
+    >
+      {{ flights.error.value }}
+    </Banner>
     <div class="logs-toolbar">
       <!-- aria-disabled, not disabled: a button that is turned off while it has the focus must not take the focus with it. -->
-      <Button id="flights-refresh" :aria-disabled="busyOrLoading ? 'true' : undefined" @click="refreshList()">
+      <Button
+        id="flights-refresh"
+        :aria-disabled="busyOrLoading ? 'true' : undefined"
+        :aria-describedby="busy ? 'flights-busy' : undefined"
+        @click="refreshList()"
+      >
         {{ t('logs.flights.refresh') }}
       </Button>
     </div>
@@ -41,6 +54,7 @@
             <Button
               class="flights-open"
               :aria-disabled="busy ? 'true' : undefined"
+              :aria-describedby="busy ? 'flights-busy' : undefined"
               :aria-label="t('logs.flights.openLabel', { id: row.log.id })"
               @click="openByKey(row.log.key)"
             >
@@ -67,7 +81,7 @@
           :value="readFraction"
           :label="t('logs.flights.readingBar', { id: openId })"
         />
-        <span class="muted">{{ busyText }}</span>
+        <span id="flights-busy" class="muted">{{ busyText }}</span>
         <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stop') }}</Button>
       </div>
       <!-- A copy that is not verified is not looked into: the reason, and the way to a checked copy. -->
@@ -330,7 +344,12 @@ function giveFocusBack(stopHadFocus: boolean): void {
 }
 
 // Before the page is changed (flush: pre), while the Stop button is still there to be asked.
-watch(() => flights.phase.value, () => giveFocusBack(document.activeElement?.id === 'flights-stop'), { flush: 'pre' })
+// Only a change after which Stop is gone: from reading to loading it stays, and keeps the focus.
+watch(() => flights.phase.value, now => {
+  if (now !== 'reading' && now !== 'loading') {
+    giveFocusBack(document.activeElement?.id === 'flights-stop')
+  }
+}, { flush: 'pre' })
 
 onMounted(() => {
   if (!flights.listed.value) {

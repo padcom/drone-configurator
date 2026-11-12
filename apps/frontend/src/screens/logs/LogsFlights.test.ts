@@ -188,6 +188,38 @@ it('keeps the focus on the button that was pressed while its read goes on (aria-
   expect(document.activeElement).toBe(button?.element)
 })
 
+it('points the buttons that are off at the line that says why; Stop keeps the focus from reading to loading', async () => {
+  const { wrapper, handle } = await screen(60)
+  await wrapper.findAll('.flights-open')[0]?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('reading'), { interval: 5 })
+  focusOn(wrapper.get('#flights-stop').element)
+
+  const described = [...wrapper.findAll('.flights-open'), wrapper.get('#flights-refresh')]
+  expect(described.every(button => button.attributes('aria-describedby') === 'flights-busy')).toBe(true)
+  expect(wrapper.get('#flights-busy').text()).toBe('Reading log 3…')
+  // The read ends and the charts are asked for: Stop is still there, and still has the focus (it is not taken to the heading).
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('loading'), { interval: 5 })
+  await flushPromises()
+  expect(document.activeElement).toBe(wrapper.get('#flights-stop').element)
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('ready'))
+  await flushPromises()
+  // Nothing is described any more when nothing is busy.
+  expect(wrapper.findAll('.flights-open').some(button => button.attributes('aria-describedby') !== undefined)).toBe(false)
+})
+
+it('speaks the error of a log that failed to open once: in the status line, the banner only shows it', async () => {
+  const { wrapper, handle } = await screen()
+  await handle.flights.select('uid-mock/00000009-00000000.BIN')
+  await flushPromises()
+
+  const said = handle.flights.error.value ?? ''
+  expect(said).toContain('NOT_FOUND')
+  expect(wrapper.get('#flights-status').text()).toBe(said)
+  expect(wrapper.get('#flights-error').text()).toBe(said)
+  const speakers = wrapper.findAll('[role="status"], [role="alert"]').filter(element => element.text().includes(said))
+  expect(speakers.map(element => element.attributes('id'))).toEqual(['flights-status'])
+})
+
 it('gives the focus to the heading of the log when Stop goes because the read is through', async () => {
   const { wrapper, handle } = await screen(60)
   await wrapper.findAll('.flights-open')[0]?.trigger('click')
