@@ -221,9 +221,12 @@ it('shows no log as downloading or queued after a cancel', async () => {
   const { wrapper, handle } = await screen(true, { logs: { steps: 4, intervalMs: 30 } })
   handle.logs.selectNew()
   const first = handle.logs.download()
-  await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists()).toBe(true))
-  const during = cells(wrapper).map(row => row[4] ?? '')
-  expect(during).toEqual([expect.stringMatching(/^Downloading/u), 'Queued', 'Downloaded', 'Queued'])
+  // Waits for the state it then asserts (the bar and the first row's words, and the others queued), not for the bar alone.
+  await vi.waitFor(() => {
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    const states = cells(wrapper).map(row => row[4] ?? '')
+    expect(states).toEqual([expect.stringMatching(/^Downloading/u), 'Queued', 'Downloaded', 'Queued'])
+  })
   await handle.logs.cancel()
   await first
   await flushPromises()
