@@ -21,7 +21,7 @@ import {
   encodeConnectRequest,
   encodeLogsDownload,
 } from "./generated/app"
-import { copyName, copyNumbers, folderName, folderOf, hex8, nameOfLog, numberOfLog } from "./logs"
+import { copyName, copyNumbers, folderName, folderOf, hex8, limitCrcQuestions, nameOfLog, numberOfLog } from "./logs"
 import { link } from "./session"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -508,6 +508,109 @@ async function stopsACancelDuringTheListing(): Promise<void> throws Error {
   await finish(r)
 }
 
+/// How many CalcFileCRC32 (opcode 14) the vehicle has been asked.
+function crcAsks(): int {
+  simulatorForTests()!.ftpLog.filter((line) => line.startsWith("14 ")).length
+}
+
+/// Two logs on the vehicle, both downloaded (so that each has a copy of its number and size), and the questions about CRCs counted
+/// from here.
+async function twoCopies(r: Rig): Promise<int> throws Error {
+  simulatorForTests()!.fsFiles.set("/logs/00000002.BIN", content(5000, 2))
+  await download(r, [1, 2])
+  crcAsks()
+}
+
+/// A third log on the vehicle with a copy, which the vehicle has not been asked about on this connection yet (the first two were,
+/// by a list in good order).
+async function oneNotAskedYet(r: Rig): Promise<void> throws Error {
+  await twoCopies(r)
+  expect((await list(r)).logs.map((l) => l.downloaded).join(",")).toBe("true,true")
+  simulatorForTests()!.fsFiles.set("/logs/00000003.BIN", content(3000, 3))
+  await download(r, [3])
+}
+
+async function doesNotAskTheVehicleForCrcsWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  const before = await twoCopies(r)
+  link.armed = true
+  const logs = (await list(r)).logs
+  // The copies are there, but the card is not read while the vehicle is armed: not known, not "downloaded", and not asked.
+  expect(logs.map((l) => `${l.id}:${l.downloaded}:${l.unchecked ?? false}`).join(",")).toBe("1:false:true,2:false:true")
+  expect(crcAsks()).toBe(before)
+  // The same when the state is not known.
+  link.armed = false
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect((await list(r)).logs.map((l) => l.unchecked ?? false).join(",")).toBe("true,true")
+  expect(crcAsks()).toBe(before)
+  // Disarmed again: asked, and known.
+  await afterBeat()
+  link.armed = false
+  expect((await list(r)).logs.map((l) => `${l.downloaded}:${l.unchecked ?? false}`).join(",")).toBe("true:false,true:false")
+  await finish(r)
+}
+
+async function doesNotAskAgainForALogThatIsTheSame(): Promise<void> throws Error {
+  const r = await connected()
+  const before = await twoCopies(r)
+  expect((await list(r)).logs.map((l) => l.downloaded).join(",")).toBe("true,true")
+  const asked = crcAsks()
+  expect(asked).toBe(before + 2)
+  // The vehicle's log 1 is another one of the same size now; what the vehicle said of that number and size is not asked again
+  // on this connection, so the second list costs the card nothing.
+  simulatorForTests()!.fsFiles.set(FIRST, content(100000, 9))
+  expect((await list(r)).logs.map((l) => l.downloaded).join(",")).toBe("true,true")
+  expect(crcAsks()).toBe(asked)
+  // A log that grew has no copy of its size any more: nothing to ask about.
+  simulatorForTests()!.fsFiles.set(FIRST, content(100001, 9))
+  expect((await list(r)).logs.map((l) => l.downloaded).join(",")).toBe("false,true")
+  expect(crcAsks()).toBe(asked)
+  await finish(r)
+}
+
+async function stopsAskingWhenTheTimeIsUp(): Promise<void> throws Error {
+  const r = await connected()
+  await oneNotAskedYet(r)
+  // No time left for the questions: what the vehicle said before on this connection is still known, the rest is not asked.
+  limitCrcQuestions(0)
+  const before = crcAsks()
+  const logs = (await list(r)).logs
+  limitCrcQuestions(20000)
+  expect(logs.map((l) => `${l.downloaded}:${l.unchecked ?? false}`).join(",")).toBe("true:false,true:false,false:true")
+  expect(crcAsks()).toBe(before)
+  await finish(r)
+}
+
+async function stopsTheListOnCancel(): Promise<void> throws Error {
+  const r = await connected()
+  // The vehicle says nothing: the list is waiting for it (the same wait as for a CRC that the vehicle reads from its card).
+  simulatorForTests()!.ftpMode = "silent"
+  const asked = await r.f.send("logs.vehicle.list")
+  await delay(150)
+  expect(link.logging).toBe(true)
+  const started = Date.now() as int
+  await r.f.call("logs.cancel")
+  expect(codeOf(await r.f.reply(asked))).toBe("STOPPED")
+  expect((Date.now() as int) - started < 5000).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
+async function stopsTheListWhenTheVehicleArms(): Promise<void> throws Error {
+  const r = await connected()
+  simulatorForTests()!.ftpMode = "silent"
+  const asked = await r.f.send("logs.vehicle.list")
+  await delay(150)
+  expect(link.logging).toBe(true)
+  const started = Date.now() as int
+  // The vehicle's next heartbeat says it is armed: its card is for flying, the list ends.
+  r.letItArm()
+  expect(codeOf(await r.f.reply(asked))).toBe("STOPPED")
+  expect((Date.now() as int) - started < 5000).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
 async function doesNotErase(): Promise<void> throws Error {
   const r = await connected()
   expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
@@ -544,5 +647,10 @@ describe("the logs service", () => {
   it("refuses a second download that comes before the first has begun", refusesTwoDownloadsAtTheSameTime)
   it("holds off a parameter download, a reboot, a download and another listing while the list is read", holdsEverythingElseOffWhileTheListIsRead)
   it("ends a download as stopped, not failed, when the cancel comes while the list is read", stopsACancelDuringTheListing)
+  it("does not ask the vehicle for CRCs while it is armed or its state is not known", doesNotAskTheVehicleForCrcsWhileArmed)
+  it("does not ask again for a log of the same number and size on the same connection", doesNotAskAgainForALogThatIsTheSame)
+  it("stops asking for CRCs when the time for the whole list is up", stopsAskingWhenTheTimeIsUp)
+  it("stops the list on logs.cancel", stopsTheListOnCancel)
+  it("stops the list when the vehicle arms", stopsTheListWhenTheVehicleArms)
   it("does not erase yet", doesNotErase)
 })

@@ -72,6 +72,7 @@
       "noDateNote": "Niektóre logi nie mają daty: firmware tego pojazdu nie podaje, kiedy plik był ostatnio zmieniony.",
       "state": {
         "new": "Nie pobrany",
+        "unchecked": "Nie sprawdzony",
         "downloaded": "Pobrany",
         "queued": "W kolejce",
         "downloading": "Pobieranie: {percent}%",

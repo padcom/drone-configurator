@@ -137,11 +137,17 @@ param-write-result = {
 ; log protocol (LOG_DATA) has no checksum, so a log fetched that way cannot be checked: it is reported `downloaded: false`,
 ; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log
 ; that could not be checked is never erased.
+;
+; `downloaded` needs the vehicle's CRC of the log, which the vehicle reads from its card: the backend does not ask while the
+; vehicle is armed or its state is unknown, nor after the vehicle arms, nor past a time limit for the whole list; it keeps what it
+; was told for a log of that number and size for as long as the connection lasts. A log that has a copy of its number and size
+; and whose CRC was not had is `unchecked: true` (and `downloaded: false`); a later list answers it.
 vehicle-log = {
   id: uint .size 4,
   size: uint .size 4,
   ? time: uint .size 8,
   downloaded: bool,
+  ? unchecked: bool,
 }
 
 ; The logs, how they were listed ("ftp": the vehicle's files, or "mavlink": the log protocol), and whether `logs.erase` can be

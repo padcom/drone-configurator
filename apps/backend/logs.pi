@@ -68,6 +68,9 @@ const PROGRESS_EVERY_MS: int = 100
 /// How long the vehicle is given to compute the CRC of a log (ms): it reads the whole file.
 const CRC_WAIT_MS: int = 30000
 
+/// How long (ms) the list may spend asking the vehicle for CRCs, all of them together: what is not had by then is `unchecked`.
+const CRC_PHASE_MS: int = 20000
+
 /// Registers the service's methods on `c`, and its part of the session.
 export function register(c: Communicator): void {
   running.communicator = c
@@ -87,6 +90,15 @@ class Running implements SessionPart {
   public download: AbortController? = null
   /// Whether the list of logs is being read (it resets the FTP sessions first, so nothing else may use them meanwhile).
   public listing: bool = false
+  /// The list's questions about CRCs while they are asked, so that `logs.cancel`, the vehicle arming and the session ending can
+  /// stop them (the vehicle reads a whole file from its card for each).
+  public asking: AbortController? = null
+  /// What the vehicle said of the CRC of a log, by "number:size", for the connection `cachedFor` (kept so that a log that has not
+  /// changed is not read from the card again at every list).
+  public crcs: Map<string, int> = new Map<string, int>()
+  public cachedFor: AbortSignal? = null
+  /// How long (ms) the list may spend on those questions, all together.
+  public crcPhaseMs: int = CRC_PHASE_MS
   /// Why it was stopped, when it was not by `logs.cancel`: "" or the words.
   public stoppedFor: string = ""
   /// The session signal that is followed (once for each session, not once for each download).
@@ -115,7 +127,7 @@ class Running implements SessionPart {
 
   /// A heartbeat that says the vehicle is armed stops the download that runs: the vehicle's card and its link are for flying.
   public seen(r: Received): void {
-    if (download == null || link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
+    if ((download == null && asking == null) || link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
       return
     }
     const m = r.message
@@ -133,6 +145,25 @@ class Running implements SessionPart {
       }
       d!.abort()
     }
+    const a = asking
+    if (a != null) {
+      a!.abort()
+    }
+  }
+
+  /// The CRC the vehicle gave for a log of this number and size on this connection, or -1 when it was not asked (or the
+  /// connection is another one).
+  public crcOf(id: int, size: int): int {
+    if (cachedFor != link.session.signal) {
+      cachedFor = link.session.signal
+      crcs = new Map<string, int>()
+    }
+    crcs.get(`${id}:${size}`) ?? -1
+  }
+
+  public remember(id: int, size: int, crc: int): void {
+    crcOf(id, size)
+    crcs.set(`${id}:${size}`, crc)
   }
 
   /// Makes the session ending stop the download that runs. One listener on a session's signal, however many downloads it has.
@@ -146,6 +177,11 @@ class Running implements SessionPart {
 }
 
 const running = new Running()
+
+/// For tests: how long (ms) the list may spend asking the vehicle for CRCs, all together (the default is `CRC_PHASE_MS`).
+export function limitCrcQuestions(ms: int): void {
+  running.crcPhaseMs = ms
+}
 
 /// The name of the log file of number `id`: eight digits and ".BIN".
 export function nameOfLog(id: int): string {
@@ -310,32 +346,54 @@ async function copiesIn(dir: string): Promise<Copy[]> throws Error {
   out
 }
 
-/// Whether the vehicle's log `id` is the one a checked copy in the folder holds: a copy of that number and size whose CRC-32 (in its
-/// name) is the one the vehicle computes for its file now. Another log of that number and size (the card was changed, the logs were
-/// erased and the numbers began again) has another CRC and is not "downloaded". A vehicle that cannot say its CRC leaves it
-/// unproven: not downloaded.
-async function copyIsOnVehicle(client: FtpClient, id: int, size: int, copies: Copy[]): Promise<bool> {
-  let candidate = false
-  for (const c of copies) {
-    candidate = candidate || (c.id == id && c.size == size)
+/// The vehicle's CRC-32 of its log `id` of `size` bytes, or -1 when it is not had. What the vehicle said before on this connection
+/// is used again. The vehicle reads the whole file from its card to compute one, so it is not asked while the vehicle is armed or
+/// its state is not known, nor once the list was stopped (`logs.cancel`, the vehicle arming, the session ending), nor past `until`
+/// (ms since 1970), the time limit of the list as a whole.
+async function crcOnVehicle(client: FtpClient, id: int, size: int, until: int, stop: AbortSignal): Promise<int> {
+  const known = running.crcOf(id, size)
+  if (known >= 0) {
+    return known
   }
-  if (!candidate) {
-    return false
+  const left = until - (Date.now() as int)
+  const armed = armedState()
+  if (left <= 0 || stop.aborted || armed == null || armed!) {
+    return -1
   }
   try {
-    const theirs = await client.calcCrc32(`${LOG_DIRECTORY}/${nameOfLog(id)}`, CRC_WAIT_MS)
-    return copies.some((c: Copy) => c.id == id && c.size == size && c.crc == theirs)
+    const theirs = await client.calcCrc32(`${LOG_DIRECTORY}/${nameOfLog(id)}`, if (left < CRC_WAIT_MS) left else CRC_WAIT_MS)
+    running.remember(id, size, theirs)
+    return theirs
   } catch (e: FtpError) {
-    false
+    -1
   }
 }
 
+/// Whether the vehicle's log `id` is the one a checked copy in the folder holds: a copy of that number and size whose CRC-32 (in its
+/// name) is the one the vehicle computes for its file now (1). Another log of that number and size (the card was changed, the logs
+/// were erased and the numbers began again) has another CRC (0), as has a log that has no copy of its number and size. -1 when
+/// there is a copy and the vehicle's CRC could not be had: it is not known.
+async function copyState(client: FtpClient, id: int, size: int, copies: Copy[], until: int, stop: AbortSignal): Promise<int> {
+  const candidates = copies.filter((c: Copy) => c.id == id && c.size == size)
+  if (candidates.length == 0) {
+    return 0
+  }
+  const theirs = await crcOnVehicle(client, id, size, until, stop)
+  if (theirs < 0) {
+    return -1
+  }
+  if (candidates.some((c: Copy) => c.crc == theirs)) 1 else 0
+}
+
 /// A log of the vehicle as the contract has it. It is downloaded when a checked copy of that number and size is here and the
-/// vehicle's CRC of the log is the copy's.
-async function toLog(client: FtpClient, e: FtpEntry, copies: Copy[]): Promise<VehicleLog> {
+/// vehicle's CRC of the log is the copy's; `unchecked` when there is such a copy and the CRC could not be asked.
+async function toLog(client: FtpClient, e: FtpEntry, copies: Copy[], until: int, stop: AbortSignal): Promise<VehicleLog> {
   const id = numberOfLog(e.name)
-  const have = await copyIsOnVehicle(client, id, e.size, copies)
-  const log = VehicleLog { id: id as u32, size: e.size as u32, downloaded: have }
+  const state = await copyState(client, id, e.size, copies, until, stop)
+  const log = VehicleLog { id: id as u32, size: e.size as u32, downloaded: state == 1 }
+  if (state < 0) {
+    log.unchecked = true
+  }
   if (e.time != null) {
     // The vehicle gives seconds since 1970 (the time of the last write); the contract has milliseconds.
     log.time = (e.time! * 1000) as u64
@@ -363,13 +421,37 @@ async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> t
 
 /// The listing, once it is claimed.
 async function listInFolder(conn: MavLinkConnection): Promise<Cbor?> throws Error {
+  // The list can be stopped as a whole (`logs.cancel`, the vehicle arming, the session ending): the vehicle reads its card for the
+  // CRCs it is asked for, and the card is for flying.
+  const own = new AbortController()
+  running.follow(link.session.signal)
+  running.asking = own
+  try {
+    return await listWith(conn, own)
+  } finally {
+    running.asking = null
+  }
+}
+
+/// The listing, stoppable with `own`. A stop while the directory is read is the error `STOPPED`; a stop while the vehicle is asked
+/// for CRCs leaves the rest of them unasked (`unchecked`), and the list is answered with what is known.
+async function listWith(conn: MavLinkConnection, own: AbortController): Promise<Cbor?> throws Error {
   const dir = await folder()
-  const client = clientFor(conn, link.session.signal)
-  const entries = await entriesOf(client)
+  const client = clientFor(conn, own.signal)
+  let entries: FtpEntry[] = []
+  try {
+    entries = await entriesOf(client)
+  } catch (e: CommunicatorError) {
+    if (e.code == "FTP_ABORTED") {
+      throw new CommunicatorError("STOPPED", "the list was stopped: cancelled, the vehicle armed, or the connection ended")
+    }
+    throw e
+  }
   const copies = await copiesIn(dir)
   const logs: VehicleLog[] = []
+  const until = (Date.now() as int) + running.crcPhaseMs
   for (const e of entries) {
-    logs.push(await toLog(client, e, copies))
+    logs.push(await toLog(client, e, copies, until, own.signal))
   }
   encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
 }

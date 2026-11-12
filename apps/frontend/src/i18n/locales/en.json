@@ -72,6 +72,7 @@
       "noDateNote": "Some logs have no date: this vehicle's firmware does not say when a file was last changed.",
       "state": {
         "new": "Not downloaded",
+        "unchecked": "Not checked",
         "downloaded": "Downloaded",
         "queued": "Queued",
         "downloading": "Downloading: {percent}%",

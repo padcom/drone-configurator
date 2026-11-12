@@ -6,7 +6,7 @@ import type { LogsProgress, VehicleLog } from '@/generated/app'
 export type Blocked = 'offline' | 'armed' | 'unknown' | 'busy' | null
 
 /** How a log is doing, for its row: not fetched yet (`new`), fetched and checked (`downloaded`), or what the download says. */
-export type LogState = 'new' | 'downloaded' | 'queued' | 'downloading' | 'done' | 'failed'
+export type LogState = 'new' | 'unchecked' | 'downloaded' | 'queued' | 'downloading' | 'done' | 'failed'
 
 /**
  * What the armed state alone says about it: not known counts as armed, with its own reason.
@@ -50,7 +50,12 @@ export function stateOf(log: VehicleLog, progress: LogsProgress | undefined): Lo
     return progress.state
   }
 
-  return log.downloaded ? 'downloaded' : 'new'
+  if (log.downloaded) {
+    return 'downloaded'
+  }
+
+  // A copy of its number and size is here, but the vehicle's CRC could not be asked (armed, a limit of time): the next list says.
+  return log.unchecked ? 'unchecked' : 'new'
 }
 
 /**
