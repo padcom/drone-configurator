@@ -23,6 +23,11 @@ export function setSimulatorFtpForTests(on: bool): void {
   link.simulatorFtp = on
 }
 
+/// For tests: the simulated vehicles of the connections that follow answer AUTOPILOT_VERSION or do not.
+export function setSimulatorVersionForTests(on: bool): void {
+  link.simulatorVersion = on
+}
+
 /// For tests: a shorter wait for the autopilot's heartbeat than 3 s.
 export function setHeartbeatWait(ms: int): void {
   link.heartbeatWaitMs = ms

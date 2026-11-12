@@ -57,7 +57,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   link.update(Connection { state: ConnectionState.Connecting })
   let stream: ByteStream? = null
   try {
-    const opened = await open(request, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; link.sim = sim })
+    const opened = await open(request, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim })
     // A link that is opened again later may be closed by the session while the router holds it (see guarded.pi).
     stream = if (reopenable(request)) new GuardedStream(opened) else opened
   } catch (e: Error) {

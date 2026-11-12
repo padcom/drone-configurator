@@ -108,7 +108,7 @@ async function reopen(generation: int): Promise<string?> {
   // opener only, and a socket nobody listens to is a leak.
   dropStream()
   try {
-    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; link.sim = sim }))
+    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim }))
     if (link.generation != generation) {
       stream.close()
       return null

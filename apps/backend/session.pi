@@ -40,8 +40,11 @@ class Link {
   public compid: int = 0
   public autopilot: int = 0
   public encoding: ParamEncoding = ParamEncoding.CCast
-  /// The low 32 bits of the autopilot's capabilities (AUTOPILOT_VERSION): 0 when it did not say (then it is taken to have no FTP).
-  public capabilities: int = 0
+  /// The low 32 bits of the autopilot's capabilities (AUTOPILOT_VERSION), or -1 when it was never read (a missed packet is not
+  /// "no file transfer": the download asks for it itself then).
+  public capabilities: int = -1
+  /// Whether the simulated vehicle answers AUTOPILOT_VERSION (a test can turn it off).
+  public simulatorVersion: bool = true
   /// Why file transfer was given up for the downloads that follow, for this vehicle on this connection: "" (not given up),
   /// "unsupported" (the vehicle has no parameter file: kept until the connection ends) or "timeout" (it did not answer: kept for
   /// the next download only, so the one after tries again). See params.pi.
@@ -121,7 +124,7 @@ class Link {
     heartbeatAt = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
-    capabilities = 0
+    capabilities = -1
     ftpMemo = ""
     rebootAt = 0
     rebootUnsure = false
@@ -190,9 +193,9 @@ export function encodingFor(v: Vehicle, version: AutopilotVersion?): ParamEncodi
 }
 
 /// The low 32 bits of the capabilities the autopilot gave (the u64 does not fit an int: its upper bits are not asked about, and
-/// must not panic the conversion), or 0 when it gave none.
+/// must not panic the conversion), or -1 when it gave none (it was not asked, or did not answer: not "has none").
 export function capabilitiesOf(version: AutopilotVersion?): int {
-  if (version == null) 0 else ((version!.capabilities & (0xFFFFFFFF as u64)) as int)
+  if (version == null) -1 else ((version!.capabilities & (0xFFFFFFFF as u64)) as int)
 }
 
 /// The vehicle as the dashboard names it: the protocol's names for its type and autopilot.

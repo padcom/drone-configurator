@@ -46,6 +46,24 @@ export function register(c: Communicator): void {
   c.handle("params.write", writeParam)
 }
 
+/// The most a progress count can be (the contract's `uint .size 2`).
+const MAX_COUNT: int = 65535
+
+/// The numbers of a progress event, `[received, total]` in parameters, always inside the contract's range: the file reports bytes
+/// and the size the vehicle gave on opening is any four bytes (an estimate of 12 a parameter, here a garbled or hostile one
+/// could be billions), the list reports parameters (and a vehicle can claim any count). Clamped before they are converted.
+/// A total of 0 or less is nothing to report: `[0, 0]`.
+export function progressCounts(received: int, total: int, fromFile: bool): int[] {
+  const all = if (fromFile) total / BYTES_A_PARAM else total
+  const done = if (fromFile) received / BYTES_A_PARAM else received
+  if (all <= 0) {
+    return [0, 0]
+  }
+  const top = if (all > MAX_COUNT) MAX_COUNT else all
+  const shown = if (done < 0) 0 else if (done > top) top else done
+  [shown, top]
+}
+
 /// At most this often (ms) a `params.progress` is sent while a download runs.
 const PROGRESS_EVERY_MS: int = 100
 
@@ -96,17 +114,16 @@ class Announced implements SessionPart {
       mode = "list"
       pending.clear()
     }
-    const all = if (fromFile) total / BYTES_A_PARAM else total
-    const done = if (fromFile) received / BYTES_A_PARAM else received
+    const counts = progressCounts(received, total, fromFile)
+    const all = counts[1]
     const c = communicator
     const now = Date.now() as int
-    if (c == null || all <= 0 || (progressAt != 0 && done < all && now - progressAt < PROGRESS_EVERY_MS)) {
+    if (c == null || all <= 0 || (progressAt != 0 && counts[0] < all && now - progressAt < PROGRESS_EVERY_MS)) {
       return
     }
     progressAt = now
-    const shown = if (done > all) all else done
     const source = if (fromFile) ParamsProgressSource.Ftp else ParamsProgressSource.List
-    c!.emit("params.progress", encodeParamsProgress(ParamsProgress { received: shown as u16, total: all as u16, source: source }))
+    c!.emit("params.progress", encodeParamsProgress(ParamsProgress { received: counts[0] as u16, total: all as u16, source: source }))
   }
 
   /// Puts what other ground stations announced during the file transfer over the list that came (their values are newer).
@@ -216,18 +233,33 @@ function planFor(asked: ParamListRequestMethod?): Plan {
   plan
 }
 
-/// Whether the vehicle's capabilities say it has file transfer.
+/// Whether the file transfer may be tried: the vehicle's capabilities say it has it, or were never read (then the download asks
+/// for them itself, and a missed packet at connect is not "no file transfer").
 function vehicleHasFtp(): bool {
-  (link.capabilities & MavProtocolCapability.FTP) != 0
+  link.capabilities < 0 || (link.capabilities & MavProtocolCapability.FTP) != 0
+}
+
+/// What is remembered about a failure of the file transfer: "unsupported" only when it comes from capabilities that were read
+/// (a download that had to ask for them, and got no answer, knows nothing), "timeout" always, nothing else.
+function worthRemembering(fallback: string): bool {
+  fallback == "timeout" || (fallback == "unsupported" && link.capabilities >= 0)
 }
 
 /// A download that is not forced remembers why the file transfer failed, if it was for a reason worth remembering.
 function remember(plan: Plan, source: string, fallback: string?): void {
-  if (plan.method == "auto" && source == "list" && fallback != null) {
-    if (fallback! == "unsupported" || fallback! == "timeout") {
-      link.ftpMemo = fallback!
-    }
+  if (plan.method == "auto" && source == "list" && fallback != null && worthRemembering(fallback!)) {
+    link.ftpMemo = fallback!
   }
+}
+
+/// The options of a download: the capabilities only when they were read at connect (else `ParamDownload` asks).
+function optionsFor(plan: Plan, signal: AbortSignal): ParamDownloadOptions {
+  if (link.capabilities < 0) {
+    const asking: ParamDownloadOptions = { method: plan.method, signal: signal }
+    return asking
+  }
+  const known: ParamDownloadOptions = { method: plan.method, capabilities: link.capabilities, signal: signal }
+  known
 }
 
 /// The parameters as the contract has them: the way they came, why not the other way, how long it took.
@@ -264,7 +296,7 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   link.listing = true
   let out: ParamList
   try {
-    const options: ParamDownloadOptions = { method: plan.method, capabilities: link.capabilities, signal: own.signal }
+    const options = optionsFor(plan, own.signal)
     const target: Target = { system: link.sysid, component: link.compid }
     const r = await new ParamDownload(conn, target, link.encoding, options).run((received: int, total: int, unit: string) => announced.progressed(received, total, unit))
     out = listOf(r, plan)
