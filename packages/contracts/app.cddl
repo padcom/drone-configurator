@@ -45,6 +45,10 @@ services = {
   ; value and how many there are, so that a spike of one sample is never lost. A part with no sample is not in the answer (a gap,
   ; never a zero). One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), with `logs.local.progress`.
   "logs.local.series": ["method", logs-local-series-ask, logs-local-series],
+  ; The automatic review of a log that was read (`NOT_READ` otherwise): findings from the messages every log has, each with what it
+  ; rests on. ONLY a verified log is reviewed (`NOT_VERIFIED` otherwise): nothing is concluded from bytes that are not known to be the
+  ; vehicle's. One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), `CHANGED` if the file changed meanwhile.
+  "logs.local.review": ["method", logs-local-read, logs-review],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -221,7 +225,8 @@ logs-local-progress = { key: tstr, bytes: uint .size 8, total: uint .size 8 }
 ; of the first and last message that has one; there are none in a log without any. `firmware` is the first MSG that names the
 ; firmware ("ArduCopter V4.7.2 (...)"), absent when there is none: the modes are numbers, and what a number means depends on it.
 ; `modeChanges` is how many changes of flight mode there are; they themselves are in `logs.local.modes` (a summary is small, and
-; is in every entry of the list; the changes can be thousands).
+; is in every entry of the list; the changes can be thousands). `cutEnd`: the file ends in the middle of a message (a log copied
+; while the vehicle writes it ends like that); that is not damage and is not in `problems`.
 local-log-summary = {
   verified: bool,
   messages: uint .size 4,
@@ -230,6 +235,7 @@ local-log-summary = {
   ? lastUs: uint .size 8,
   ? firmware: tstr,
   modeChanges: uint .size 4,
+  ? cutEnd: bool,
 }
 
 ; Which values: up to 16 series (a field of a message type, such as ATT and Roll), `buckets` from 1 to 2000, and the time (the
@@ -276,6 +282,29 @@ logs-local-series = {
   buckets: uint .size 2,
   series: [* series-result],
 }
+
+; One finding. `id` says what it is (`vibration.x`, `vibration.y`, `vibration.z`, `vibration.clipping`, `gps.satellites`, `gps.hdop`,
+; `gps.fix`, `ekf.variance`, `errors.logged`, `battery.voltage`, `battery.current`; the page words them and the limits). `value` is
+; the number it rests on, `limit` the limit it was held against (the one it crossed, else the first), `atUs` when in the log it was
+; found, where there is a when. `level`: "ok", "warn" and "bad" against this app's limits; "info" for what is only told (the battery:
+; whether it is a problem depends on the battery); "no-data" when the log has nothing to say (a finding is then absent of value, not a
+; pass). `samples` is how many samples it rests on (for `gps.satellites`: those with a 3D fix). The whole log is looked at: with
+; ArduPilot's defaults a log begins at the arm, so that is the flight, and a log that holds time on the ground has it in the numbers
+; (the page says so where it knows). `ekf.variance` leaves out the first 10 s of the log, while the filter converges. The limits are
+; guidelines, not facts; `battery.voltage` is the PACK voltage (the log does not say how many cells there are). A message that has
+; instances (GPS `I`, BAT `Inst`, XKF4 `C`, VIBE `IMU`) counts for ANY instance: the finding takes the extreme across all of them (a
+; second battery monitor at 0 V is the lowest voltage). `errors.logged` is "ok" with 0 only where the log DEFINES ERR (an FMT for it:
+; an ArduPilot log does, whether or not anything happened); a log that does not is "no-data".
+review-finding = {
+  id: tstr,
+  level: "ok" / "warn" / "bad" / "info" / "no-data",
+  ? value: float,
+  ? limit: float,
+  ? atUs: uint .size 8,
+  ? samples: uint .size 4,
+}
+
+logs-review = { findings: [* review-finding] }
 
 ; The changes of flight mode of a log that was read, in the order they are in the log (at most 5000, `cut` when there were more).
 ; The backend keeps them for the last few logs it read (16) and the file still the one that was read; for another it fails with

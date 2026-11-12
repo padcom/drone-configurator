@@ -294,6 +294,25 @@ async function appliesTheMultiplierTheLogNamesToCountsInTheirUnit(): Promise<voi
   await done(r)
 }
 
+async function doesNotAnswerWithAValueThatOverflowed(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(132, "MULT", "Qbd", "TimeUS,Id,Mult")
+  e.define(150, "BIG", "Qi", "TimeUS,V")
+  // A multiplier of 9e299 on a count of 1e10 is not a number any more.
+  e.add(132, [0.0, 67.0, 9.0e299], ["", "", ""])
+  e.add(130, [0.0, 150.0, 0.0, 0.0], ["", "", "-s", "-C"])
+  e.add(150, [1000.0, 2000000000.0], ["", ""])
+  e.add(150, [2000.0, 1000000000.0], ["", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("BIG", "V")], 1))
+  expect(s.series[0].points.length).toBe(0)
+  expect(s.series[0].invalid).toBe(2)
+  await done(r)
+}
+
 async function refusesAnInstanceThatIsNotAFieldAndAValue(): Promise<void> throws Error {
   const r = await rig()
   const key = await put(r, flight(10))
@@ -375,6 +394,7 @@ describe("the series of the logs on this computer", () => {
   it("looks only at the time asked, cut to the log", looksOnlyAtTheTimeAsked)
   it("says the unit the log names", saysTheUnitTheLogNames)
   it("puts counts in their unit with the multiplier the log names (not twice for c C e E L)", appliesTheMultiplierTheLogNamesToCountsInTheirUnit)
+  it("counts a value that a multiplier made too big as not a number", doesNotAnswerWithAValueThatOverflowed)
   it("refuses an instance that is not a field and a value, and finds none by a text", refusesAnInstanceThatIsNotAFieldAndAValue)
   it("wants the log to have been read, and to be the same file", wantsTheLogToHaveBeenRead)
   it("refuses requests that are too big", refusesRequestsThatAreTooBig)

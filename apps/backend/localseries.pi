@@ -215,15 +215,21 @@ function resultOf(g: Gathering, tables: DfTables): SeriesResult {
   const points: SeriesPoint[] = []
   const src = g.source
   const factor = if (src == null) 1.0 else factorOf(src!, tables)
+  let overflowed = 0
   for (let i = 0; i < g.buckets; i++) {
     if (g.counts[i] > 0) {
       // A negative factor turns the order round.
       const a = g.mins[i] * factor
       const b = g.maxs[i] * factor
+      // A multiplier that makes a value too big to be a number (the log's to give) leaves the samples out, counted as not numbers.
+      if (a != a || b != b || a > 1.0e300 || a < -1.0e300 || b > 1.0e300 || b < -1.0e300) {
+        overflowed += g.counts[i]
+        continue
+      }
       points.push(SeriesPoint { index: i as u16, min: if (a < b) a else b, max: if (a < b) b else a, count: g.counts[i] as u32 })
     }
   }
-  const r = SeriesResult { message: g.message, field: g.fieldName, found: g.found, points: points, invalid: g.invalid as u32 }
+  const r = SeriesResult { message: g.message, field: g.fieldName, found: g.found, points: points, invalid: (g.invalid + overflowed) as u32 }
   const f = g.source
   if (f != null) {
     const unit = tables.unitOf(f!)

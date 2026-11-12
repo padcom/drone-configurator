@@ -134,6 +134,7 @@ async function readsALogAndSaysWhatIsInIt(): Promise<void> throws Error {
   // 3 FMTs, 2 MSG, 3 MODE, 100 ATT.
   expect(s.messages).toBe(3 + 2 + 3 + 100)
   expect(s.problems).toBe(0)
+  expect(s.cutEnd == null).toBe(true)
   expect(s.firstUs! as int).toBe(1000)
   expect(s.lastUs! as int).toBe(10000 + 99 * 10000)
   expect(s.firmware!).toBe("ArduCopter V4.7.2 (fb773567)")
@@ -290,9 +291,10 @@ async function readsALogCutInTheMiddleOfAMessage(): Promise<void> throws Error {
   const cut = whole.slice(0, whole.length - 20)
   const key = await put(r, "uid-a", 1, cut)
   const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
-  // What came is read; the end that is not a message is said to be damage; the bytes are the ones in the name.
+  // What came is read; the end that is not a message is how the file ends (cutEnd), not damage; the bytes are the ones in the name.
   expect(s.messages).toBe(3 + 2 + 3 + 48)
-  expect(s.problems > 0).toBe(true)
+  expect(s.cutEnd!).toBe(true)
+  expect(s.problems).toBe(0)
   expect(s.verified).toBe(true)
   expect(s.modeChanges).toBe(3)
   await done(r)
