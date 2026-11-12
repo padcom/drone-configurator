@@ -6,6 +6,7 @@ import { SimulatedAutopilot } from "padcom/pico-mavlink"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
 import { register as registerLogs } from "./logs"
+import { register as registerLocalImport } from "./localimport"
 import { register as registerLocalLogs } from "./locallogs"
 import { register as registerLocalExport } from "./localexport"
 import { register as registerLocalMessages } from "./localmessages"
@@ -54,6 +55,7 @@ export function createBackend(transport: Transport): Communicator {
   registerLocalReview(c)
   registerLocalMessages(c)
   registerLocalExport(c)
+  registerLocalImport(c)
   registerTelemetry(c)
   registerMessages(c)
   registerFiles(c)

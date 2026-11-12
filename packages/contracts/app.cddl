@@ -63,6 +63,15 @@ services = {
   ; offered with `exists`, for the same log, format and kind, and once: any other `path` is `BAD_REQUEST`). `UNAVAILABLE` for GPX or
   ; KML of a log with no position fixes (with the reason); the file is streamed, not built in memory.
   "logs.local.export": ["method", logs-local-export-ask, local-log-exported],
+  ; Imports a ground station's recording (`.tlog`): the user chooses the file in the host's open dialog (or the test folder), and
+  ; the backend STREAMS it into the library (`<data>/logs/imported/NNNNNNNN-CCCCCCCC.tlog`: an import counter and the CRC-32 of the
+  ; content) with a sidecar of the name, the time of the import and what the reader found. The page never gets the bytes. The file
+  ; chosen is only read. The same content (same CRC-32) is not copied twice: `duplicate` is true and `key` is the entry that was
+  ; there. A copy is written under a temporary name and moved in when it is whole; a stopped or failed import leaves nothing.
+  ; `cancelled` when the user closed the dialog (nothing else is set). One read at a time (`BUSY`), cancelable with
+  ; `logs.local.cancel` (`ABORTED`), with `logs.local.progress` (its `key` is the file's name). `TOO_LARGE` over the size cap,
+  ; `NO_SPACE` when the library's disk could not hold the copy, `BAD_REQUEST` for a file with no record in it.
+  "logs.import": ["method", null, logs-imported],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -228,6 +237,41 @@ local-log = {
 local-logs = { logs: [* local-log], truncated: bool }
 
 logs-local-read = { key: tstr }
+
+; What the reader found in a recording (see pico-mavlink's TlogReport): frames given (`records`: of MAVLink 1 `v1`, of 2 `v2`, of
+; which `signed` carry a signature that is NEVER verified here), frames with a wrong CRC and frames of messages the dialect does not
+; have (skipped whole, their CRC cannot be checked), steps back of up to a second (`jitter`, no new segment) and the stretches
+; (`segments`, a step back of more than a second or a jump of more than 30 s starts one), bytes that were no record, bytes cut off
+; at the end (`cutEnd`: the recording ends in the middle of a record, normal when it was cut), whether the times can be a real date
+; (`dated`; relative otherwise) and the first and last time (microseconds since 1970 as recorded).
+tlog-report = {
+  records: uint .size 4,
+  v1: uint .size 4,
+  v2: uint .size 4,
+  signed: uint .size 4,
+  crcFailures: uint .size 4,
+  unknown: uint .size 4,
+  jitter: uint .size 4,
+  segments: uint .size 4,
+  bytesSkipped: uint .size 8,
+  bytesCut: uint .size 4,
+  cutEnd: bool,
+  dated: bool,
+  ? firstUs: uint .size 8,
+  ? lastUs: uint .size 8,
+}
+
+; The answer of `logs.import`. `key` is the entry in the library (`imported/NNNNNNNN-CCCCCCCC.tlog`), `name` the file's name (no
+; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already.
+logs-imported = {
+  cancelled: bool,
+  duplicate: bool,
+  ? key: tstr,
+  ? name: tstr,
+  ? crc: tstr,
+  ? size: uint .size 8,
+  ? report: tlog-report,
+}
 
 ; How far the read has got, of how many bytes.
 logs-local-progress = { key: tstr, bytes: uint .size 8, total: uint .size 8 }

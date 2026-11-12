@@ -1,6 +1,6 @@
 // The files service: saving and opening a parameter snapshot where the user chooses.
 import { Cbor, Communicator, Host, OpenFile, RequestContext, SaveFile } from "pico-desktop/communicator"
-import { readText, writeText } from "std/fs"
+import { exists, readText, writeText } from "std/fs"
 import { env } from "std/process"
 import { FileOpened, FileSaved, decodeFileSave, encodeFileOpened, encodeFileSaved } from "./generated/app"
 
@@ -32,6 +32,8 @@ export interface FileChooser {
   forSaving(title: string, name: string): Promise<string?, Error>
   /// The file to open; null if the user cancelled.
   forOpening(): Promise<string?, Error>
+  /// The recording (`.tlog`) to import; null if the user cancelled.
+  forImporting(): Promise<string?, Error>
 }
 
 /// The host's native dialogs.
@@ -42,6 +44,11 @@ class DialogFileChooser implements FileChooser {
 
   public async forOpening(): Promise<string?> throws Error {
     const paths = await host().openFile(OpenFile { title: "Load parameters", filters: [".json"] })
+    if (paths.length == 0) null else paths[0]
+  }
+
+  public async forImporting(): Promise<string?> throws Error {
+    const paths = await host().openFile(OpenFile { title: "Open a log file", filters: [".tlog"] })
     if (paths.length == 0) null else paths[0]
   }
 }
@@ -61,6 +68,12 @@ class DirectoryFileChooser implements FileChooser {
 
   public async forOpening(): Promise<string?> throws Error {
     `${dir}/open.json`
+  }
+
+  /// `import.tlog` in the folder, or null (a cancelled dialog) when there is none.
+  public async forImporting(): Promise<string?> throws Error {
+    const path = `${dir}/import.tlog`
+    if (await exists(path)) path else null
   }
 }
 

@@ -901,6 +901,153 @@ export function encodeLogsLocalRead(v: LogsLocalRead): Cbor {
   Cbor.Dict(m)
 }
 
+export struct TlogReport {
+  records: u32
+  v1: u32
+  v2: u32
+  signed: u32
+  crcFailures: u32
+  unknown: u32
+  jitter: u32
+  segments: u32
+  bytesSkipped: u64
+  bytesCut: u32
+  cutEnd: bool
+  dated: bool
+  firstUs?: u64
+  lastUs?: u64
+}
+
+export function decodeTlogReport(v: Cbor, path: string): TlogReport throws InvalidPayload {
+  const m = members(v, path, ["records", "v1", "v2", "signed", "crcFailures", "unknown", "jitter", "segments", "bytesSkipped", "bytesCut", "cutEnd", "dated", "firstUs", "lastUs"])
+  const cbor12 = m.get("firstUs")
+  let opt12: u64? = null
+  if (cbor12 != null) {
+    opt12 = (uint(cbor12, `${path}.firstUs`, 18446744073709551615) as u64)
+  }
+  const cbor13 = m.get("lastUs")
+  let opt13: u64? = null
+  if (cbor13 != null) {
+    opt13 = (uint(cbor13, `${path}.lastUs`, 18446744073709551615) as u64)
+  }
+  TlogReport {
+    records: (uint(required(m, "records", path), `${path}.records`, 4294967295) as u32),
+    v1: (uint(required(m, "v1", path), `${path}.v1`, 4294967295) as u32),
+    v2: (uint(required(m, "v2", path), `${path}.v2`, 4294967295) as u32),
+    signed: (uint(required(m, "signed", path), `${path}.signed`, 4294967295) as u32),
+    crcFailures: (uint(required(m, "crcFailures", path), `${path}.crcFailures`, 4294967295) as u32),
+    unknown: (uint(required(m, "unknown", path), `${path}.unknown`, 4294967295) as u32),
+    jitter: (uint(required(m, "jitter", path), `${path}.jitter`, 4294967295) as u32),
+    segments: (uint(required(m, "segments", path), `${path}.segments`, 4294967295) as u32),
+    bytesSkipped: (uint(required(m, "bytesSkipped", path), `${path}.bytesSkipped`, 18446744073709551615) as u64),
+    bytesCut: (uint(required(m, "bytesCut", path), `${path}.bytesCut`, 4294967295) as u32),
+    cutEnd: boolean(required(m, "cutEnd", path), `${path}.cutEnd`),
+    dated: boolean(required(m, "dated", path), `${path}.dated`),
+    firstUs: opt12,
+    lastUs: opt13,
+  }
+}
+
+export function encodeTlogReport(v: TlogReport): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("records", Cbor.Uint(v.records as u64))
+  m.set("v1", Cbor.Uint(v.v1 as u64))
+  m.set("v2", Cbor.Uint(v.v2 as u64))
+  m.set("signed", Cbor.Uint(v.signed as u64))
+  m.set("crcFailures", Cbor.Uint(v.crcFailures as u64))
+  m.set("unknown", Cbor.Uint(v.unknown as u64))
+  m.set("jitter", Cbor.Uint(v.jitter as u64))
+  m.set("segments", Cbor.Uint(v.segments as u64))
+  m.set("bytesSkipped", Cbor.Uint(v.bytesSkipped as u64))
+  m.set("bytesCut", Cbor.Uint(v.bytesCut as u64))
+  m.set("cutEnd", Cbor.Bool(v.cutEnd))
+  m.set("dated", Cbor.Bool(v.dated))
+  const opt12 = v.firstUs
+  if (opt12 != null) {
+    m.set("firstUs", Cbor.Uint(opt12 as u64))
+  }
+  const opt13 = v.lastUs
+  if (opt13 != null) {
+    m.set("lastUs", Cbor.Uint(opt13 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export struct LogsImported {
+  cancelled: bool
+  duplicate: bool
+  key?: string
+  name?: string
+  crc?: string
+  size?: u64
+  report?: TlogReport
+}
+
+export function decodeLogsImported(v: Cbor, path: string): LogsImported throws InvalidPayload {
+  const m = members(v, path, ["cancelled", "duplicate", "key", "name", "crc", "size", "report"])
+  const cbor2 = m.get("key")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.key`)
+  }
+  const cbor3 = m.get("name")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.name`)
+  }
+  const cbor4 = m.get("crc")
+  let opt4: string? = null
+  if (cbor4 != null) {
+    opt4 = text(cbor4, `${path}.crc`)
+  }
+  const cbor5 = m.get("size")
+  let opt5: u64? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.size`, 18446744073709551615) as u64)
+  }
+  const cbor6 = m.get("report")
+  let opt6: TlogReport? = null
+  if (cbor6 != null) {
+    opt6 = decodeTlogReport(cbor6, `${path}.report`)
+  }
+  LogsImported {
+    cancelled: boolean(required(m, "cancelled", path), `${path}.cancelled`),
+    duplicate: boolean(required(m, "duplicate", path), `${path}.duplicate`),
+    key: opt2,
+    name: opt3,
+    crc: opt4,
+    size: opt5,
+    report: opt6,
+  }
+}
+
+export function encodeLogsImported(v: LogsImported): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("cancelled", Cbor.Bool(v.cancelled))
+  m.set("duplicate", Cbor.Bool(v.duplicate))
+  const opt2 = v.key
+  if (opt2 != null) {
+    m.set("key", Cbor.Text(opt2))
+  }
+  const opt3 = v.name
+  if (opt3 != null) {
+    m.set("name", Cbor.Text(opt3))
+  }
+  const opt4 = v.crc
+  if (opt4 != null) {
+    m.set("crc", Cbor.Text(opt4))
+  }
+  const opt5 = v.size
+  if (opt5 != null) {
+    m.set("size", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.report
+  if (opt6 != null) {
+    m.set("report", encodeTlogReport(opt6))
+  }
+  Cbor.Dict(m)
+}
+
 export struct LogsLocalProgress {
   key: string
   bytes: u64

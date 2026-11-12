@@ -1,0 +1,319 @@
+// Importing a ground station's recording (`.tlog`) into the library: `logs.import`. The user chooses the file (the host's open dialog,
+// or the test folder); the backend STREAMS it, a megabyte at a time, into `<data>/logs/imported/` while it works out the CRC-32 of the
+// content and lets the reader (padcom/pico-mavlink's TlogReader) count what is in it. The page never gets the bytes and the memory
+// held is a chunk and a record, whatever the size of the file.
+//
+// The copy is `NNNNNNNN-CCCCCCCC.tlog` (an eight-digit import counter, the CRC-32 of the content in hex) with a sidecar
+// `NNNNNNNN-CCCCCCCC.tlog.json` (the file's name without its folder, the time of the import, what the reader found). It is written
+// as `.part` and renamed when it is whole, so a stopped or failed import leaves nothing; the same content (the CRC-32 and the size)
+// is not copied twice. The file the user chose is only read.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { Crc32, TlogReader } from "padcom/pico-mavlink"
+import { File, exists, mkdir, open, readDir, remove, rename, stat, writeText } from "std/fs"
+import { join } from "std/path"
+import { LogsImported, LogsLocalProgress, TlogReport, encodeLogsImported, encodeLogsLocalProgress } from "./generated/app"
+import { fileChooser } from "./files"
+import { hex8 } from "./logs"
+import { claimRead, releaseRead } from "./locallogs"
+import { dataDirectory } from "./settings"
+
+/// How much of a file is read at a time.
+const CHUNK: int = 1048576
+
+/// The most that is imported: a recording of 8 GiB is not a recording of a flight.
+export const MAX_IMPORT_BYTES: int = 8589934592
+
+/// At most this often (ms) a `logs.local.progress` is sent (the last always).
+const PROGRESS_EVERY_MS: int = 100
+
+/// The most entries looked at in the folder of imports.
+const MAX_ENTRIES: int = 100000
+
+/// The folder of the imported recordings, next to the folders of the vehicles.
+export const IMPORTED: string = "imported"
+
+class State {
+  public communicator: Communicator? = null
+}
+
+const state = new State()
+
+export function register(c: Communicator): void {
+  state.communicator = c
+  c.handle("logs.import", importLog)
+}
+
+/// An imported recording found in the folder: its counter, its CRC-32 (hex) and its name.
+class Entry {
+  public readonly counter: int
+  public readonly crc: string
+  public readonly name: string
+
+  constructor(counter: int, crc: string, name: string) {
+    this.counter = counter
+    this.crc = crc
+    this.name = name
+  }
+}
+
+/// The counter and the CRC (hex) in the name of an imported copy (`NNNNNNNN-CCCCCCCC.tlog`), or null when the name is not one.
+export function entryOf(name: string): Entry? {
+  if (name.length != 22 || name.slice(8, 9) != "-" || name.slice(17, 22) != ".tlog") {
+    return null
+  }
+  const digits = "0123456789abcdef"
+  let counter = 0
+  for (const ch of name.slice(0, 8).split("")) {
+    const d = "0123456789".indexOf(ch)
+    if (d < 0) {
+      return null
+    }
+    counter = counter * 10 + d
+  }
+  for (const ch of name.slice(9, 17).split("")) {
+    if (digits.indexOf(ch) < 0) {
+      return null
+    }
+  }
+  new Entry(counter, name.slice(9, 17), name)
+}
+
+/// The name of an imported copy.
+export function importedName(counter: int, crc: int): string {
+  `${pad8(counter)}-${hex8(crc)}.tlog`
+}
+
+function pad8(n: int): string {
+  const text = `${n}`
+  `${"00000000".slice(0, 8 - text.length)}${text}`
+}
+
+/// The name of a file without its folder (either kind of separator).
+export function baseName(path: string): string {
+  let at = 0
+  for (let i = 0; i < path.length; i++) {
+    const ch = path.slice(i, i + 1)
+    if (ch == "/" || ch == "\\") {
+      at = i + 1
+    }
+  }
+  path.slice(at, path.length)
+}
+
+/// The key of an imported copy, as the library names it: the folder of imports and the file.
+export function importedKey(name: string): string {
+  `${IMPORTED}/${name}`
+}
+
+async function importLog(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const path = await fileChooser().forImporting()
+  if (path == null) {
+    return encodeLogsImported(LogsImported { cancelled: true, duplicate: false })
+  }
+  const own = claimRead()
+  try {
+    return encodeLogsImported(await copyIn(path!, own))
+  } finally {
+    releaseRead()
+  }
+}
+
+/// The folder of imports (made when it is not there).
+async function folder(): Promise<string> throws Error {
+  let top = ""
+  try {
+    top = join(await dataDirectory(), "logs", IMPORTED)
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
+  }
+  await mkdir(top, true)
+  top
+}
+
+/// The copies in the folder.
+async function entriesIn(dir: string): Promise<Entry[]> throws Error {
+  const out: Entry[] = []
+  let seen = 0
+  for await (const item of readDir(dir)) {
+    seen += 1
+    if (seen > MAX_ENTRIES) {
+      break
+    }
+    const entry = if (item.isFile) entryOf(item.name) else null
+    if (entry != null) {
+      out.push(entry!)
+    }
+  }
+  out
+}
+
+/// Copies the file at `path` in: streamed, counted, and moved to its place when whole.
+async function copyIn(path: string, own: AbortController): Promise<LogsImported> throws Error {
+  const dir = await folder()
+  const info = await stat(path)
+  if (!info.isFile) {
+    throw new CommunicatorError("BAD_REQUEST", "that is not a file")
+  }
+  if (info.size > MAX_IMPORT_BYTES) {
+    throw new CommunicatorError("TOO_LARGE", `the file is larger than the ${MAX_IMPORT_BYTES / 1073741824} GiB that are imported`)
+  }
+  const part = join(dir, `import-${Date.now()}.part`)
+  const name = baseName(path)
+  const result = await streamCopy(path, part, name, info.size, own)
+  try {
+    return await settle(dir, part, name, result)
+  } catch (e: Error) {
+    await removeQuietly(part)
+    throw e
+  }
+}
+
+/// What a copy found: the CRC-32, the size and the reader's report.
+class Copied {
+  public readonly crc: int
+  public readonly size: int
+  public readonly reader: TlogReader
+
+  constructor(crc: int, size: int, reader: TlogReader) {
+    this.crc = crc
+    this.size = size
+    this.reader = reader
+  }
+}
+
+/// Reads `path` through into `part`, a chunk at a time, with the CRC-32 and the reader; the part is removed if anything goes wrong.
+async function streamCopy(path: string, part: string, name: string, total: int, own: AbortController): Promise<Copied> throws Error {
+  await removeQuietly(part)
+  const crc = new Crc32()
+  const reader = new TlogReader()
+  const from = await open(path)
+  const to = await open(part, false, true, true, true)
+  try {
+    let bytes = 0
+    let told = 0
+    while (true) {
+      if (own.signal.aborted) {
+        throw new CommunicatorError("ABORTED", "the import was stopped")
+      }
+      const piece = await from.read(CHUNK)
+      if (piece == null) {
+        break
+      }
+      crc.update(piece!)
+      await writeChunk(to, piece!)
+      reader.push(piece!)
+      while (reader.next() != null) {
+      }
+      bytes += piece!.length
+      const now = Date.now() as int
+      if (now - told >= PROGRESS_EVERY_MS) {
+        told = now
+        say(name, bytes, total)
+      }
+    }
+    reader.finish()
+    while (reader.next() != null) {
+    }
+    say(name, bytes, total)
+    await to.close()
+    await from.close()
+    return new Copied(crc.crc, bytes, reader)
+  } catch (e: Error) {
+    await to.close()
+    await from.close()
+    await removeQuietly(part)
+    throw e
+  }
+}
+
+/// Writes a chunk; a disk that can't hold it is `NO_SPACE`.
+async function writeChunk(to: File, piece: Uint8Array): Promise<void> throws Error {
+  try {
+    await to.write(piece)
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_SPACE", `the copy could not be written: ${e.message}`)
+  }
+}
+
+/// Puts the finished part in its place, or finds that the content is in the library already.
+async function settle(dir: string, part: string, name: string, result: Copied): Promise<LogsImported> throws Error {
+  if (result.reader.report.records == 0) {
+    throw new CommunicatorError("BAD_REQUEST", "there is no MAVLink record in that file")
+  }
+  const crcText = hex8(result.crc)
+  const entries = await entriesIn(dir)
+  let counter = 0
+  for (const entry of entries) {
+    if (entry.counter >= counter) {
+      counter = entry.counter + 1
+    }
+    if (entry.crc == crcText && (await stat(join(dir, entry.name))).size == result.size) {
+      await removeQuietly(part)
+      return answer(importedKey(entry.name), name, crcText, result, true)
+    }
+  }
+  const finalName = importedName(counter, result.crc)
+  await rename(part, join(dir, finalName))
+  try {
+    await writeText(join(dir, `${finalName}.json`), sidecar(name, result))
+  } catch (e: Error) {
+    await removeQuietly(join(dir, finalName))
+    throw e
+  }
+  answer(importedKey(finalName), name, crcText, result, false)
+}
+
+function answer(key: string, name: string, crc: string, result: Copied, duplicate: bool): LogsImported {
+  LogsImported { cancelled: false, duplicate: duplicate, key: key, name: name, crc: crc, size: result.size as u64, report: reportOf(result.reader) }
+}
+
+/// What the reader found, in the contract's shape.
+export function reportOf(reader: TlogReader): TlogReport {
+  const p = reader.report
+  const r = TlogReport {
+    records: clamp32(p.records),
+    v1: clamp32(p.v1),
+    v2: clamp32(p.v2),
+    signed: clamp32(p.signed),
+    crcFailures: clamp32(p.crcFailures),
+    unknown: clamp32(p.unknown),
+    jitter: clamp32(p.jitter),
+    segments: clamp32(p.segments),
+    bytesSkipped: p.bytesSkipped as u64,
+    bytesCut: clamp32(p.bytesCut),
+    cutEnd: p.cutEnd,
+    dated: p.dated,
+  }
+  if (p.records > 0) {
+    r.firstUs = p.firstUs as u64
+    r.lastUs = p.lastUs as u64
+  }
+  r
+}
+
+function clamp32(n: int): u32 {
+  (if (n > 4294967295) 4294967295 else n) as u32
+}
+
+/// The sidecar: the name the file had (no folder), when it was imported, what the reader found.
+function sidecar(name: string, result: Copied): string {
+  const p = result.reader.report
+  `{ "name": ${JSON.stringify(name)}, "importedAt": ${Date.now() as int}, "size": ${result.size}, "records": ${p.records}, "crcFailures": ${p.crcFailures}, "unknown": ${p.unknown}, "segments": ${p.segments}, "cutEnd": ${p.cutEnd}, "dated": ${p.dated} }\n`
+}
+
+async function removeQuietly(path: string): Promise<void> {
+  try {
+    if (await exists(path)) {
+      await remove(path)
+    }
+  } catch (e: Error) {
+  }
+}
+
+/// Tells the interface how far an import is.
+function say(name: string, bytes: int, total: int): void {
+  const c = state.communicator
+  if (c != null) {
+    c!.emit("logs.local.progress", encodeLogsLocalProgress(LogsLocalProgress { key: name, bytes: bytes as u64, total: total as u64 }))
+  }
+}

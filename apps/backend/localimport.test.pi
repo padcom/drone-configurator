@@ -1,0 +1,208 @@
+// Importing a recording (`logs.import`): the file is copied into the library under a name made of a counter and its CRC-32, with a
+// sidecar; the same content is not copied twice; a file with no record in it, a cancelled dialog and an unreadable choice leave
+// nothing; the file chosen is not changed; what the reader found is told.
+import { describe, it, expect } from "std/test"
+import { exists, mkdir, readBytes, readDir, readText, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { Heartbeat, MavType, TlogWriter, crc32Of } from "padcom/pico-mavlink"
+import { LogsImported, decodeLogsImported } from "./generated/app"
+import { baseName, entryOf, importedName } from "./localimport"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+const T0: int = 1794500000000000
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly out: string
+  public readonly was: string?
+
+  constructor(f: Frontend, root: string, out: string, was: string?) {
+    this.f = f
+    this.root = root
+    this.out = out
+    this.was = was
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-import-${pid}-${Date.now()}`
+  const out = join(root, "chosen")
+  await mkdir(out, true)
+  const was = env.get(VARIABLE)
+  env.set(VARIABLE, out)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root, out, was)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  if (r.was == null) env.delete(VARIABLE) else env.set(VARIABLE, r.was!)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// A recording of `count` heartbeats a second apart.
+function recording(count: int): Uint8Array {
+  const w = new TlogWriter()
+  for (let i = 0; i < count; i++) {
+    const h = new Heartbeat()
+    h.type = MavType.QUADROTOR as u8
+    h.mavlinkVersion = 3
+    w.addMessage(T0 + i * 1000000, h, i % 256)
+  }
+  w.bytes()
+}
+
+async function importEnvelope(r: Rig): Promise<Envelope> throws Error {
+  await r.f.call("logs.import", null)
+}
+
+async function importIt(r: Rig): Promise<LogsImported> throws Error {
+  const e = await importEnvelope(r)
+  if (e.err != null) {
+    panic(`import failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  decodeLogsImported(e.p ?? Cbor.Null, "$")
+}
+
+/// The names in the folder of imports ("" list when there is none), sorted.
+async function imported(r: Rig): Promise<string[]> throws Error {
+  const dir = join(r.root, "logs", "imported")
+  const names: string[] = []
+  if (await exists(dir)) {
+    for await (const item of readDir(dir)) {
+      names.push(item.name)
+    }
+  }
+  names.sort()
+  names
+}
+
+async function copiesAreCountedAndNamedByTheirCrc(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const bytes = recording(30)
+    await writeBytes(join(r.out, "import.tlog"), bytes)
+    const got = await importIt(r)
+
+    const crc = crc32Of(bytes)
+    expect(got.cancelled).toBe(false)
+    expect(got.duplicate).toBe(false)
+    expect(got.key).toBe(`imported/${importedName(0, crc)}`)
+    expect(got.name).toBe("import.tlog")
+    expect(got.size).toBe(bytes.length as u64)
+    expect(got.report!.records).toBe(30)
+    expect(got.report!.v2).toBe(30)
+    expect(got.report!.cutEnd).toBe(false)
+    expect(got.report!.dated).toBe(true)
+    expect(got.report!.segments).toBe(1)
+
+    const names = await imported(r)
+    expect(names.join(",")).toBe(`${importedName(0, crc)},${importedName(0, crc)}.json`)
+    // The copy is the file, byte for byte; the file chosen is as it was.
+    const copy = await readBytes(join(r.root, "logs", "imported", importedName(0, crc)))
+    expect(crc32Of(copy)).toBe(crc)
+    expect(copy.length).toBe(bytes.length)
+    expect(crc32Of(await readBytes(join(r.out, "import.tlog")))).toBe(crc)
+    // The sidecar has the name, not a folder.
+    const side = await readText(join(r.root, "logs", "imported", `${importedName(0, crc)}.json`))
+    expect(side.includes("\"name\": \"import.tlog\"")).toBe(true)
+    expect(side.includes(r.out)).toBe(false)
+    const entry = entryOf(importedName(0, crc))
+    expect(entry != null).toBe(true)
+  } finally {
+    await done(r)
+  }
+}
+
+async function theSameContentIsOneEntryAndAnotherIsTheNext(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const bytes = recording(10)
+    await writeBytes(join(r.out, "import.tlog"), bytes)
+    const first = await importIt(r)
+    const again = await importIt(r)
+
+    expect(again.duplicate).toBe(true)
+    expect(again.key).toBe(first.key)
+    expect((await imported(r)).length).toBe(2)
+
+    await writeBytes(join(r.out, "import.tlog"), recording(11))
+    const other = await importIt(r)
+    expect(other.duplicate).toBe(false)
+    expect(other.key!.startsWith("imported/00000001-")).toBe(true)
+    expect((await imported(r)).length).toBe(4)
+  } finally {
+    await done(r)
+  }
+}
+
+async function aFileWithNoRecordLeavesNothing(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    await writeBytes(join(r.out, "import.tlog"), new Uint8Array(5000))
+    const e = await importEnvelope(r)
+
+    expect(codeOf(e)).toBe("BAD_REQUEST")
+    expect((await imported(r)).length).toBe(0)
+  } finally {
+    await done(r)
+  }
+}
+
+async function aCancelledDialogIsNotAnError(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const got = await importIt(r)
+
+    expect(got.cancelled).toBe(true)
+    expect(got.key == null).toBe(true)
+    expect((await imported(r)).length).toBe(0)
+  } finally {
+    await done(r)
+  }
+}
+
+async function aRecordingThatEndsInTheMiddleOfARecordIsCutEnd(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const bytes = recording(5)
+    await writeBytes(join(r.out, "import.tlog"), bytes.slice(0, bytes.length - 5))
+    const got = await importIt(r)
+
+    expect(got.report!.records).toBe(4)
+    expect(got.report!.cutEnd).toBe(true)
+    expect(got.report!.bytesSkipped).toBe(0 as u64)
+  } finally {
+    await done(r)
+  }
+}
+
+function theNameOfAFileHasNoFolder(): void {
+  expect(baseName("/home/pilot/flights/a.tlog")).toBe("a.tlog")
+  expect(baseName("C:\\Users\\pilot\\a.tlog")).toBe("a.tlog")
+  expect(baseName("a.tlog")).toBe("a.tlog")
+  expect(entryOf("00000003-0a1b2c3d.tlog") != null).toBe(true)
+  expect(entryOf("00000003-0a1b2c3d.BIN") == null).toBe(true)
+  expect(entryOf("0000000x-0a1b2c3d.tlog") == null).toBe(true)
+  expect(entryOf("00000003-0a1b2c3g.tlog") == null).toBe(true)
+  expect(entryOf("../0000003-0a1b2c3d.tlog") == null).toBe(true)
+}
+
+describe("logs.import", () => {
+  it("copies the file in under a counter and its CRC with a sidecar, and leaves the file as it was", copiesAreCountedAndNamedByTheirCrc)
+  it("does not copy the same content twice, and numbers another one next", theSameContentIsOneEntryAndAnotherIsTheNext)
+  it("refuses a file with no record and leaves nothing", aFileWithNoRecordLeavesNothing)
+  it("answers a cancelled dialog with cancelled, not an error", aCancelledDialogIsNotAnError)
+  it("says a recording cut in the middle of a record is cutEnd", aRecordingThatEndsInTheMiddleOfARecordIsCutEnd)
+  it("names a file without its folder, and knows the names of imported copies", theNameOfAFileHasNoFolder)
+})
