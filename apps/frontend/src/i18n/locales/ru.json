@@ -47,6 +47,7 @@
     "sections": "Разделы экрана «Логи»",
     "shown": "Логи: {section}",
     "flights": {
+      "stopImport": "Остановить импорт",
       "import": "Открыть файл лога…",
       "importing": "Импорт файла лога…",
       "importingBar": "Импорт файла лога",

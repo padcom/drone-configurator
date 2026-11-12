@@ -47,6 +47,7 @@
     "sections": "Secciones de Registros",
     "shown": "Registros: {section}",
     "flights": {
+      "stopImport": "Detener la importación",
       "import": "Abrir archivo de registro…",
       "importing": "Importando el archivo de registro…",
       "importingBar": "Importación del archivo de registro",

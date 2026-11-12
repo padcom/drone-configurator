@@ -47,6 +47,7 @@
     "sections": "Sekcje ekranu Logi",
     "shown": "Logi: {section}",
     "flights": {
+      "stopImport": "Zatrzymaj import",
       "import": "Otwórz plik logu…",
       "importing": "Importowanie pliku logu…",
       "importingBar": "Importowanie pliku logu",

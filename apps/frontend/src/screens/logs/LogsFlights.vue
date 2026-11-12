@@ -36,7 +36,7 @@
     <div v-if="flights.importing.value" id="flights-importing" class="flight-reading">
       <ProgressBar :value="readFraction" :label="t('logs.flights.importingBar')" />
       <span id="flights-busy" class="muted">{{ t('logs.flights.importing') }}</span>
-      <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stop') }}</Button>
+      <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stopImport') }}</Button>
     </div>
     <p v-if="flights.loading.value && !flights.listed.value" class="muted">{{ t('logs.flights.loading') }}</p>
     <EmptyState

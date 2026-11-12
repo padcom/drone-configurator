@@ -47,6 +47,7 @@
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
     "flights": {
+      "stopImport": "Interrompi l'importazione",
       "import": "Apri file di log…",
       "importing": "Importazione del file di log…",
       "importingBar": "Importazione del file di log",
