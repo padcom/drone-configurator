@@ -91,7 +91,8 @@ class Gathering {
     type = m.format.type
     at = m.format.indexOf(fieldName)
     whereAt = if (whereField == "") -1 else m.format.indexOf(whereField)
-    const usable = at >= 0 && !isText(m, at) && (whereField == "" || whereAt >= 0)
+    // The field is a number, and so is the one that tells the instance (a text is not compared with a number).
+    const usable = at >= 0 && !isText(m, at) && (whereField == "" || (whereAt >= 0 && !isText(m, whereAt)))
     if (!usable) {
       dead = true
       return false
@@ -159,6 +160,12 @@ async function seriesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor
   if (ask.series.length > MAX_SERIES || ask.buckets < 1 || (ask.buckets as int) > MAX_BUCKETS) {
     throw new CommunicatorError("BAD_REQUEST", `at most ${MAX_SERIES} series, and from 1 to ${MAX_BUCKETS} parts of time`)
   }
+  for (const s of ask.series) {
+    // An instance is asked for with a field and a value, both.
+    if ((s.whereField == null) != (s.whereValue == null)) {
+      throw new CommunicatorError("BAD_REQUEST", "whereField and whereValue go together")
+    }
+  }
   const own = claimRead()
   try {
     return await gather(ask.key, ask.series, ask.buckets as int, ask.fromUs, ask.toUs, own)
@@ -193,11 +200,27 @@ async function gather(key: string, series: SeriesAsk[], buckets: int, fromUs: u6
   encodeLogsLocalSeries(LogsLocalSeries { fromUs: from as u64, toUs: to as u64, buckets: buckets as u16, series: results })
 }
 
+/// The factor that takes the numbers of a field to the unit the log names for it. A field whose character scales it already (c C e
+/// E L) is in its unit; the others are counts that the log's multiplier takes there (MAG's `h` fields are milligauss with the
+/// multiplier 0.001 and the unit G). 1 when the log names no multiplier ('-' is 0 in the log), or the field has no unit to be in.
+function factorOf(f: DfField, tables: DfTables): f64 {
+  const k = f.kind
+  if (k == 0x63 || k == 0x43 || k == 0x65 || k == 0x45 || k == 0x4C) {
+    return 1.0
+  }
+  tables.multOf(f)
+}
+
 function resultOf(g: Gathering, tables: DfTables): SeriesResult {
   const points: SeriesPoint[] = []
+  const src = g.source
+  const factor = if (src == null) 1.0 else factorOf(src!, tables)
   for (let i = 0; i < g.buckets; i++) {
     if (g.counts[i] > 0) {
-      points.push(SeriesPoint { index: i as u16, min: g.mins[i], max: g.maxs[i], count: g.counts[i] as u32 })
+      // A negative factor turns the order round.
+      const a = g.mins[i] * factor
+      const b = g.maxs[i] * factor
+      points.push(SeriesPoint { index: i as u16, min: if (a < b) a else b, max: if (a < b) b else a, count: g.counts[i] as u32 })
     }
   }
   const r = SeriesResult { message: g.message, field: g.fieldName, found: g.found, points: points, invalid: g.invalid as u32 }

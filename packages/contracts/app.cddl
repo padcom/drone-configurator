@@ -253,7 +253,11 @@ logs-local-series-ask = {
 
 ; The time that was cut in parts (`fromUs` to `toUs`, both in the log, and the `buckets` asked), and a result for each series
 ; asked, in the order asked. `found`: the log has the message with that field (as a number); without it there is nothing to draw,
-; and the page says "no data", not a flat line. `unit` is the unit the log names for the field, when it does. `points` are the parts
+; and the page says "no data", not a flat line. `unit` is the unit the log names for the field, when it does, and the values are IN
+; that unit: a field whose character scales it already (c C e E L) is scaled by that, and any other field by the multiplier the log
+; names for it (MAG's int16 milligauss have the multiplier 0.001 and the unit Gauss), not at all when the log names none. A
+; field that is an instance of the message (`I`, `Inst`, `C`) is told apart with `whereField`/`whereValue`, which go together
+; (`BAD_REQUEST` otherwise) and name a number, not a text. `points` are the parts
 ; that have samples, `index` from 0. `invalid` counts the samples that were not numbers (NaN, infinity) and are not in the points.
 series-result = {
   message: tstr,

@@ -245,6 +245,70 @@ async function saysTheUnitTheLogNames(): Promise<void> throws Error {
   await done(r)
 }
 
+/// The tables of units and multipliers as ArduPilot writes them: ids are characters.
+function tablesOf(e: DfEncoder): void {
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(131, "UNIT", "QbZ", "TimeUS,Id,Label")
+  e.define(132, "MULT", "Qbd", "TimeUS,Id,Mult")
+  e.add(131, [0.0, 115.0, 0.0], ["", "", "s"])
+  e.add(131, [0.0, 35.0, 0.0], ["", "", "instance"])
+  e.add(131, [0.0, 71.0, 0.0], ["", "", "Gauss"])
+  e.add(131, [0.0, 45.0, 0.0], ["", "", ""])
+  e.add(132, [0.0, 70.0, 0.000001], ["", "", ""])
+  e.add(132, [0.0, 45.0, 0.0], ["", "", ""])
+  e.add(132, [0.0, 67.0, 0.001], ["", "", ""])
+  e.add(132, [0.0, 66.0, 0.01], ["", "", ""])
+  e.add(132, [0.0, 78.0, -1.0], ["", "", ""])
+}
+
+async function appliesTheMultiplierTheLogNamesToCountsInTheirUnit(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  tablesOf(e)
+  // MAG as AP_Compass/LogStructure.h has it: int16 milligauss, unit G, multiplier C (0.001); time in microseconds, multiplier F.
+  e.define(152, "MAG", "QBhhhhhhhhhBI", "TimeUS,I,MagX,MagY,MagZ,OfsX,OfsY,OfsZ,MOX,MOY,MOZ,Health,S")
+  e.add(130, [0.0, 152.0, 0.0, 0.0], ["", "", "s#GGGGGGGGG-s", "F-CCCCCCCCC-F"])
+  // 'c' says 0.01 itself, and the multiplier B (0.01) says the same: not twice. 'h' with the multiplier N (-1) turns round.
+  e.define(153, "CEN", "QchhB", "TimeUS,Cc,Neg,Plain,Count")
+  e.add(130, [0.0, 153.0, 0.0, 0.0], ["", "", "sGGG", "FBN-"])
+  e.add(152, [1000000.0, 0.0, 1500.0, -250.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], ["", "", "", "", "", "", "", "", "", "", "", "", ""])
+  e.add(152, [2000000.0, 0.0, 500.0, 300.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0], ["", "", "", "", "", "", "", "", "", "", "", "", ""])
+  e.add(153, [1000000.0, 12.34, 1.0, 7.0, 3.0], ["", "", "", "", ""])
+  e.add(153, [2000000.0, 12.34, 3.0, 7.0, 3.0], ["", "", "", "", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("MAG", "MagX"), ask("MAG", "MagY"), ask("MAG", "Health"), ask("MAG", "TimeUS"),
+    ask("CEN", "Cc"), ask("CEN", "Neg"), ask("CEN", "Plain")], 1))
+  // The counts are milligauss; the unit is Gauss; the numbers are in it.
+  expect(show(s, 0)).toBe("0:0.5-1.5/2")
+  expect(s.series[0].unit!).toBe("Gauss")
+  expect(show(s, 1)).toBe("0:-0.25-0.3/2")
+  // '-' (and 0) is no multiplier: the count is the value.
+  expect(show(s, 2)).toBe("0:1-1/2")
+  // The time of a message in seconds, as its unit says.
+  expect(show(s, 3)).toBe("0:1-2/2")
+  expect(s.series[3].unit!).toBe("s")
+  expect(show(s, 4)).toBe("0:12.34-12.34/2")
+  expect(show(s, 5)).toBe("0:-3--1/2")
+  expect(show(s, 6)).toBe("0:7-7/2")
+  await done(r)
+}
+
+async function refusesAnInstanceThatIsNotAFieldAndAValue(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(10))
+  await readIt(r, key)
+  const noValue = SeriesAsk { message: "ATT", field: "Roll", whereField: "Pitch" }
+  const noField = SeriesAsk { message: "ATT", field: "Roll", whereValue: 1.0 }
+  expect(codeOf(await seriesOf(r, request(key, [noValue], 1)))).toBe("BAD_REQUEST")
+  expect(codeOf(await seriesOf(r, request(key, [noField], 1)))).toBe("BAD_REQUEST")
+  // A text field is not compared with a number: nothing found.
+  const text = SeriesAsk { message: "MSG", field: "TimeUS", whereField: "Message", whereValue: 0.0 }
+  const s = await series(r, request(key, [text], 1))
+  expect(s.series[0].found).toBe(false)
+  await done(r)
+}
+
 async function wantsTheLogToHaveBeenRead(): Promise<void> throws Error {
   const r = await rig()
   const key = await put(r, flight(10))
@@ -310,6 +374,8 @@ describe("the series of the logs on this computer", () => {
   it("tells the instances of a message apart", tellsInstancesApart)
   it("looks only at the time asked, cut to the log", looksOnlyAtTheTimeAsked)
   it("says the unit the log names", saysTheUnitTheLogNames)
+  it("puts counts in their unit with the multiplier the log names (not twice for c C e E L)", appliesTheMultiplierTheLogNamesToCountsInTheirUnit)
+  it("refuses an instance that is not a field and a value, and finds none by a text", refusesAnInstanceThatIsNotAFieldAndAValue)
   it("wants the log to have been read, and to be the same file", wantsTheLogToHaveBeenRead)
   it("refuses requests that are too big", refusesRequestsThatAreTooBig)
   it("stops on cancel, and knows a file that changed while it was read", stopsOnCancelAndKnowsAFileThatChangedMeanwhile)
