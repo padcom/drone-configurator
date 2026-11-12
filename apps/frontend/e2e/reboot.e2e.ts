@@ -7,27 +7,20 @@
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { clickConnect } from './click'
+import { chord as press, openPalette } from './palette-keys'
 
 let app: E2eApp
-
-const CTRL = 2
-const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
 
 /** The reboot's row in the palette. */
 const ROW = `document.querySelector('[data-command="vehicle.reboot"]')`
 
 /**
- * Presses a key, with the modifiers, as the host receives it.
+ * Presses a key as the host receives it.
  *
- * @param key the key: `p`, `Escape` or `Enter`
- * @param modifiers the DevTools modifier bits
+ * @param key the key: `Escape` or `Enter`
+ * @returns once the key is pressed and let go
  */
-async function chord(key: string, modifiers = 0): Promise<void> {
-  const [code, name] = CODES[key] as [number, string]
-  const event = { windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, key, code: name, modifiers }
-  await app.devtools('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...event })
-  await app.devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
-}
+const chord = (key: string) => press(app, key)
 
 /**
  * Waits.
@@ -40,8 +33,7 @@ const wait = (ms: number) => new Promise<void>(resolve => {
 
 /** Opens the palette and finds the reboot command. */
 async function findReboot(): Promise<void> {
-  await chord('p', CTRL)
-  await app.waitFor(`document.querySelector('#palette-input') !== null`)
+  await openPalette(app)
   await app.fill('#palette-input', 'reboot')
   await app.waitFor(`${ROW} !== null`)
 }

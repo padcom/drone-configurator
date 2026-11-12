@@ -18,25 +18,8 @@ import {
   waitForQueuedWritten,
 } from './click'
 import type { Endpoint } from './endpoint'
+import { chord, openPalette } from './palette-keys'
 import { SWITCH_LIMIT_MS, switchRounds } from './switch'
-
-/** DevTools modifier bit for Ctrl, and the virtual key codes of the keys the palette is driven with. */
-const CTRL = 2
-const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
-
-/**
- * Presses a key, with the modifiers, as the host receives it.
- *
- * @param app the running app
- * @param key the key: `p`, `Escape` or `Enter`
- * @param modifiers the DevTools modifier bits
- */
-async function chord(app: E2eApp, key: string, modifiers = 0): Promise<void> {
-  const [code, name] = CODES[key] as [number, string]
-  const event = { windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, key, code: name, modifiers }
-  await app.devtools('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...event })
-  await app.devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
-}
 
 /** A saved snapshot, as far as these checks read it. */
 interface Saved {
@@ -192,8 +175,7 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
 
   it('puts the focus in the value editor of a parameter that is chosen in the command palette', async () => {
     await showScreen(app, 'flight')
-    await chord(app, 'p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
     await app.fill('#palette-input', vehicle.param)
     await app.waitFor(`document.querySelector('[data-command="param.${vehicle.param}"]') !== null`)
 
