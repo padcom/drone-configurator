@@ -2,7 +2,7 @@
   "workspace": [
     "apps/backend",
     "node_modules/@pico-desktop/communicator-pico",
-    "../pico-mavlink-dataflash-reader",
+    "../pico-mavlink",
     "../pico-serialport"
   ]
 }
