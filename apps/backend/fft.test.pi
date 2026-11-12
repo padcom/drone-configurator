@@ -1,0 +1,131 @@
+// The FFT on synthetic tones: a sine on a bin gives its amplitude there and nothing worth speaking of elsewhere, a sine between two
+// bins is within the Hann window's scalloping, the mean is not a tone, two tones are two peaks, and silence is silence.
+import { describe, it, expect } from "std/test"
+import { Spectrum, isSize, sizeFor } from "./fft"
+
+const SIZE: int = 1024
+const RATE: f64 = 1000.0
+
+/// `count` samples of the sum of sines, each (frequency in bins, amplitude), and an offset.
+function tones(count: int, parts: f64[][], offset: f64): f64[] {
+  const out: f64[] = []
+  for (let i = 0; i < count; i++) {
+    let v = offset
+    for (const p of parts) {
+      v += p[1] * Math.sin(2.0 * Math.PI * p[0] * (i as f64) / (count as f64))
+    }
+    out.push(v)
+  }
+  out
+}
+
+/// The bin with the largest amplitude, from bin 1.
+function peakOf(amps: f64[]): int {
+  let at = 1
+  for (let i = 2; i < amps.length; i++) {
+    if (amps[i] > amps[at]) {
+      at = i
+    }
+  }
+  at
+}
+
+function near(a: f64, b: f64, tolerance: f64): bool {
+  a - b < tolerance && b - a < tolerance
+}
+
+function aSineOnABinGivesItsAmplitudeThere(): void {
+  const s = new Spectrum(SIZE)
+  const amps = s.amplitudes(tones(SIZE, [[100.0, 3.0]], 0.0))
+  expect(amps.length).toBe(SIZE / 2 + 1)
+  expect(peakOf(amps)).toBe(100)
+  expect(near(amps[100], 3.0, 0.001)).toBe(true)
+  // The Hann window leaks into the two bins beside it (half of the amplitude) and no further.
+  expect(near(amps[99], 1.5, 0.01)).toBe(true)
+  expect(near(amps[101], 1.5, 0.01)).toBe(true)
+  expect(amps[103] < 0.001).toBe(true)
+  expect(amps[10] < 0.001).toBe(true)
+}
+
+function aSineBetweenTwoBinsIsWithinTheScalloping(): void {
+  const s = new Spectrum(SIZE)
+  const amps = s.amplitudes(tones(SIZE, [[100.5, 3.0]], 0.0))
+  const at = peakOf(amps)
+  expect(at == 100 || at == 101).toBe(true)
+  // Half a bin off is the worst case: 1.42 dB down, 0.8488 of the amplitude, and no more than the amplitude.
+  expect(amps[at] > 0.84 * 3.0 && amps[at] <= 3.0).toBe(true)
+}
+
+function theMeanIsNotATone(): void {
+  const s = new Spectrum(SIZE)
+  const amps = s.amplitudes(tones(SIZE, [[50.0, 2.0]], 1000.0))
+  expect(amps[0] < 0.000001).toBe(true)
+  expect(peakOf(amps)).toBe(50)
+  expect(near(amps[50], 2.0, 0.001)).toBe(true)
+}
+
+function twoTonesAreTwoPeaks(): void {
+  const s = new Spectrum(SIZE)
+  const amps = s.amplitudes(tones(SIZE, [[80.0, 4.0], [160.0, 1.0]], 0.0))
+  expect(near(amps[80], 4.0, 0.001)).toBe(true)
+  expect(near(amps[160], 1.0, 0.001)).toBe(true)
+  expect(amps[120] < 0.001).toBe(true)
+}
+
+function aToneAtTheNyquistFrequencyIsNotDoubled(): void {
+  const s = new Spectrum(SIZE)
+  const samples: f64[] = []
+  for (let i = 0; i < SIZE; i++) {
+    samples.push(if (i % 2 == 0) 2.0 else -2.0)
+  }
+  const amps = s.amplitudes(samples)
+  expect(near(amps[SIZE / 2], 2.0, 0.001)).toBe(true)
+}
+
+function silenceIsSilence(): void {
+  const s = new Spectrum(64)
+  const flat: f64[] = []
+  for (let i = 0; i < 64; i++) {
+    flat.push(7.0)
+  }
+  const amps = s.amplitudes(flat)
+  let largest = 0.0
+  for (const a of amps) {
+    if (a > largest) {
+      largest = a
+    }
+  }
+  expect(largest < 0.000000001).toBe(true)
+}
+
+function usesTheFirstSizeSamplesAndLeavesTheRest(): void {
+  const s = new Spectrum(64)
+  const long = tones(128, [[10.0, 1.0]], 0.0)
+  // 128 samples hold 10 periods; the first 64 hold 5, so the tone is on bin 5 of 64 samples.
+  expect(peakOf(s.amplitudes(long))).toBe(5)
+}
+
+function knowsWhichSizesItTakes(): void {
+  expect(isSize(1024)).toBe(true)
+  expect(isSize(32)).toBe(true)
+  expect(isSize(4096)).toBe(true)
+  expect(isSize(16)).toBe(false)
+  expect(isSize(1000)).toBe(false)
+  expect(isSize(8192)).toBe(false)
+  expect(isSize(0)).toBe(false)
+  expect(sizeFor(1024)).toBe(1024)
+  expect(sizeFor(1500)).toBe(1024)
+  expect(sizeFor(31)).toBe(0)
+  expect(sizeFor(100000)).toBe(4096)
+}
+
+describe("the amplitude spectrum", () => {
+  it("gives a sine that falls on a bin its amplitude, and leaks only into the bins beside it", aSineOnABinGivesItsAmplitudeThere)
+  it("keeps a sine between two bins within the window's scalloping", aSineBetweenTwoBinsIsWithinTheScalloping)
+  it("does not take the mean for a tone", theMeanIsNotATone)
+  it("shows two tones as two peaks", twoTonesAreTwoPeaks)
+  it("does not double the Nyquist frequency", aToneAtTheNyquistFrequencyIsNotDoubled)
+  it("gives nothing for a constant", silenceIsSilence)
+  it("uses the first size samples of a longer block", usesTheFirstSizeSamplesAndLeavesTheRest)
+  it("knows which sizes it takes", knowsWhichSizesItTakes)
+})
