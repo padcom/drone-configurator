@@ -292,14 +292,18 @@ export class Streamed {
   public readonly named: int
   public readonly unchanged: bool
   public readonly decoder: DfDecoder
+  /// How many bytes at the end are the start of a message that is not whole: a log is cut in the middle of one when it is copied
+  /// while the vehicle writes it. That is how the file ends, not damage in it.
+  public readonly tail: int
 
-  constructor(size: int, mtime: int, crc: int, named: int, unchanged: bool, decoder: DfDecoder) {
+  constructor(size: int, mtime: int, crc: int, named: int, unchanged: bool, decoder: DfDecoder, tail: int) {
     this.size = size
     this.mtime = mtime
     this.crc = crc
     this.named = named
     this.unchanged = unchanged
     this.decoder = decoder
+    this.tail = tail
   }
 }
 
@@ -343,10 +347,12 @@ export async function streamLog(key: string, file: LogFile, own: AbortController
     throw e
   }
   await handle.close()
+  const before = decoder.problems.skipped
   decoder.finish()
+  const tail = decoder.problems.skipped - before
   const after = await statOf(file.path)
   const same = after != null && after!.size == file.facts.size && after!.mtime == file.facts.mtime
-  new Streamed(file.facts.size, file.facts.mtime, crc.crc, file.named, same, decoder)
+  new Streamed(file.facts.size, file.facts.mtime, crc.crc, file.named, same, decoder, tail)
 }
 
 /// What a read found, if the file is still the one it was read from.
@@ -360,7 +366,7 @@ async function readLog(key: string, own: AbortController): Promise<Cbor?> throws
   const file = await locate(key)
   const scan = new Scan()
   const done = await streamLog(key, file, own, scan)
-  const summary = summaryOf(scan, done.decoder, done.crc == done.named && done.unchanged)
+  const summary = summaryOf(scan, done, done.crc == done.named && done.unchanged)
   keepNewest(state.known, key, new Known(done.size, done.mtime, summary), MAX_KNOWN)
   keepNewest(state.modes, key, new KnownModes(done.size, done.mtime, scan.modes, scan.modesCut), MAX_KNOWN_MODES)
   encodeLocalLogSummary(summary)
@@ -406,13 +412,16 @@ function say(key: string, bytes: int, total: int): void {
 }
 
 /// The summary the contract has, from what was gathered.
-function summaryOf(scan: Scan, decoder: DfDecoder, verified: bool): LocalLogSummary {
-  const damage = decoder.problems.skipped + decoder.problems.count + scan.problems
+function summaryOf(scan: Scan, done: Streamed, verified: bool): LocalLogSummary {
+  const damage = done.decoder.problems.skipped - done.tail + done.decoder.problems.count + scan.problems
   const s = LocalLogSummary {
     verified: verified,
     messages: (if (scan.messages > 4294967295) 4294967295 else scan.messages) as u32,
     problems: (if (damage > 4294967295) 4294967295 else damage) as u32,
     modeChanges: scan.modes.length as u32,
+  }
+  if (done.tail > 0) {
+    s.cutEnd = true
   }
   if (scan.firstUs >= 0) {
     s.firstUs = scan.firstUs as u64

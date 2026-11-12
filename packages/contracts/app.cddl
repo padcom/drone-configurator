@@ -225,7 +225,8 @@ logs-local-progress = { key: tstr, bytes: uint .size 8, total: uint .size 8 }
 ; of the first and last message that has one; there are none in a log without any. `firmware` is the first MSG that names the
 ; firmware ("ArduCopter V4.7.2 (...)"), absent when there is none: the modes are numbers, and what a number means depends on it.
 ; `modeChanges` is how many changes of flight mode there are; they themselves are in `logs.local.modes` (a summary is small, and
-; is in every entry of the list; the changes can be thousands).
+; is in every entry of the list; the changes can be thousands). `cutEnd`: the file ends in the middle of a message (a log copied
+; while the vehicle writes it ends like that); that is not damage and is not in `problems`.
 local-log-summary = {
   verified: bool,
   messages: uint .size 4,
@@ -234,6 +235,7 @@ local-log-summary = {
   ? lastUs: uint .size 8,
   ? firmware: tstr,
   modeChanges: uint .size 4,
+  ? cutEnd: bool,
 }
 
 ; Which values: up to 16 series (a field of a message type, such as ATT and Roll), `buckets` from 1 to 2000, and the time (the
