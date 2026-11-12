@@ -1,0 +1,212 @@
+// A tlog read as messages: every MAVLink message as it is (the dialect's names and units), and the few DataFlash-named messages the
+// Flights view asks for made from the ones that carry the same thing, in the units those have. Values the vehicle marks "unknown"
+// are NaN; the first record is time 0; a ground station's heartbeat is no vehicle's mode.
+import { describe, it, expect } from "std/test"
+import { Attitude, GlobalPositionInt, GpsRawInt, Heartbeat, MavAutopilot, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
+import { DfMessage } from "padcom/pico-mavlink"
+import { TlogDecoder } from "./tlogdecoder"
+
+const T0: int = 1794500000000000
+
+function heartbeat(autopilot: int, mode: int): Heartbeat {
+  const h = new Heartbeat()
+  h.type = MavType.QUADROTOR as u8
+  h.autopilot = autopilot as u8
+  h.customMode = mode as u32
+  h.mavlinkVersion = 3
+  h
+}
+
+/// All the messages a decoder gives for a recording fed in chunks of `chunk` bytes.
+function readAll(bytes: Uint8Array, chunk: int): DfMessage[] {
+  const d = new TlogDecoder()
+  const out: DfMessage[] = []
+  let at = 0
+  while (at < bytes.length) {
+    const end = if (at + chunk < bytes.length) at + chunk else bytes.length
+    d.push(bytes.slice(at, end))
+    at = end
+    while (true) {
+      const m = d.next()
+      if (m == null) {
+        break
+      }
+      out.push(m!)
+    }
+  }
+  d.finish()
+  while (true) {
+    const m = d.next()
+    if (m == null) {
+      break
+    }
+    out.push(m!)
+  }
+  out
+}
+
+function named(all: DfMessage[], name: string): DfMessage[] {
+  all.filter((m) => m.format.name == name)
+}
+
+function flight(): TlogWriter {
+  const w = new TlogWriter()
+  w.addMessage(T0, heartbeat(MavAutopilot.INVALID, 0), 1, true, 255, 190)
+  w.addMessage(T0 + 100000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
+  const att = new Attitude()
+  att.roll = 0.5
+  att.pitch = -0.25
+  att.yaw = 3.0
+  w.addMessage(T0 + 200000, att, 2)
+  w.addMessage(T0 + 300000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 3, true, 1, 1)
+  const pos = new GlobalPositionInt()
+  pos.relativeAlt = 12500
+  pos.lat = 525000000
+  pos.lon = 169000000
+  w.addMessage(T0 + 400000, pos, 4)
+  const vib = new Vibration()
+  vib.vibrationX = 3.5
+  vib.vibrationY = 4.5
+  vib.vibrationZ = 5.5
+  vib.clipping1 = 7
+  w.addMessage(T0 + 500000, vib, 5)
+  const sys = new SysStatus()
+  sys.voltageBattery = 11800
+  sys.currentBattery = 1250
+  w.addMessage(T0 + 600000, sys, 6)
+  const none = new SysStatus()
+  none.voltageBattery = 65535
+  none.currentBattery = -1
+  w.addMessage(T0 + 700000, none, 7)
+  const gps = new GpsRawInt()
+  gps.fixType = 3
+  gps.satellitesVisible = 255
+  gps.eph = 120
+  gps.lat = 525000000
+  gps.lon = 2147483647
+  gps.alt = 80500
+  w.addMessage(T0 + 800000, gps, 8)
+  w.addMessage(T0 + 900000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 6), 9, true, 1, 1)
+  const text = new StatusText()
+  text.text = "ArduCopter V4.7.2 (abcd1234)"
+  w.addMessage(T0 + 1000000, text, 10)
+  w
+}
+
+function giveTheMessagesAsTheyAreWithTheirUnits(): void {
+  const all = readAll(flight().bytes(), 1000000)
+  const sys = named(all, "SYS_STATUS")
+
+  expect(sys.length).toBe(2)
+  expect(sys[0].format.fields[0].name).toBe("TimeUS")
+  expect(sys[0].timeUs()).toBe(600000 - 0)
+  expect(sys[0].num("voltage_battery")).toBe(11800.0)
+  expect(sys[0].num("current_battery")).toBe(1250.0)
+  expect(sys[0].num("sysid")).toBe(1.0)
+  expect(named(all, "ATTITUDE").length).toBe(1)
+  expect(named(all, "HEARTBEAT").length).toBe(4)
+  expect(named(all, "STATUSTEXT")[0].text("text")).toBe("ArduCopter V4.7.2 (abcd1234)")
+  // The first record (a ground station's heartbeat) is time 0.
+  expect(named(all, "HEARTBEAT")[0].timeUs()).toBe(0)
+}
+
+function makeTheDataflashNamedOnesInTheirUnits(): void {
+  const all = readAll(flight().bytes(), 777)
+
+  const att = named(all, "ATT")[0]
+  expect(Math.round((att.num("Roll") ?? 0.0) * 1000.0)).toBe(28648.0)
+  expect(Math.round((att.num("Pitch") ?? 0.0) * 1000.0)).toBe(-14324.0)
+  expect(att.timeUs()).toBe(200000)
+  expect(named(all, "CTUN")[0].num("Alt")).toBe(12.5)
+
+  const vibe = named(all, "VIBE")
+  expect(vibe.length).toBe(3)
+  expect(vibe[0].num("IMU")).toBe(0.0)
+  expect(vibe[0].num("VibeX")).toBe(3.5)
+  expect(vibe[0].num("VibeZ")).toBe(5.5)
+  const second = vibe[1].num("VibeX") ?? 0.0
+  expect(second != second).toBe(true)
+  expect(vibe[1].num("Clip")).toBe(7.0)
+
+  const bat = named(all, "BAT")
+  expect(bat.length).toBe(1)
+  expect(bat[0].num("Volt")).toBe(11.8)
+  expect(bat[0].num("Curr")).toBe(12.5)
+}
+
+function takeWhatTheVehicleMarksUnknownForNotANumber(): void {
+  const all = readAll(flight().bytes(), 5)
+  const gps = named(all, "GPS")[0]
+  const sats = gps.num("NSats") ?? 0.0
+  const lng = gps.num("Lng") ?? 0.0
+
+  expect(gps.num("Status")).toBe(3.0)
+  expect(sats != sats).toBe(true)
+  expect(lng != lng).toBe(true)
+  expect(gps.num("Lat")).toBe(52.5)
+  expect(gps.num("HDop")).toBe(1.2)
+  expect(gps.num("Alt")).toBe(80.5)
+  // The battery message with no voltage makes no BAT message at all.
+  expect(named(all, "BAT").length).toBe(1)
+}
+
+function makeAModeOnlyWhenTheVehicleChangesIt(): void {
+  const all = readAll(flight().bytes(), 1000000)
+  const modes = named(all, "MODE")
+
+  // The ground station's heartbeat is no mode; the vehicle's three heartbeats are two modes (5, then 6).
+  expect(modes.length).toBe(2)
+  expect(modes[0].num("Mode")).toBe(5.0)
+  expect(modes[0].timeUs()).toBe(100000)
+  expect(modes[1].num("Mode")).toBe(6.0)
+  expect(named(all, "MSG")[0].text("Message")).toBe("ArduCopter V4.7.2 (abcd1234)")
+}
+
+function sayWhatItDoesNotHave(): void {
+  const all = readAll(flight().bytes(), 1000000)
+
+  // A tlog has no ERR, EV, FMT or IMU batch messages, so the review and the spectrum find nothing and say so.
+  expect(named(all, "ERR").length).toBe(0)
+  expect(named(all, "FMT").length).toBe(0)
+  expect(named(all, "ISBD").length).toBe(0)
+  expect(named(all, "XKF4").length).toBe(0)
+}
+
+function unitsComeFromTheDialectAndOurTable(): void {
+  const d = new TlogDecoder()
+  d.push(flight().bytes())
+  const sys: DfMessage[] = []
+  while (true) {
+    const m = d.next()
+    if (m == null) {
+      break
+    }
+    if (m!.format.name == "SYS_STATUS" || m!.format.name == "VIBRATION" || m!.format.name == "ATT") {
+      sys.push(m!)
+    }
+  }
+  const tables = d.tables()
+  const at = (name: string, field: string): string => {
+    let out = "?"
+    for (const m of sys) {
+      if (m.format.name == name) {
+        out = tables.unitOf(m.format.fields[m.format.indexOf(field)])
+      }
+    }
+    out
+  }
+
+  expect(at("SYS_STATUS", "voltage_battery")).toBe("mV")
+  expect(at("SYS_STATUS", "current_battery")).toBe("cA")
+  expect(at("VIBRATION", "vibration_x")).toBe("m/s/s")
+  expect(at("ATT", "Roll")).toBe("deg")
+}
+
+describe("the tlog decoder", () => {
+  it("gives every MAVLink message as it is, with the dialect's names", giveTheMessagesAsTheyAreWithTheirUnits)
+  it("makes the DataFlash-named messages in their units", makeTheDataflashNamedOnesInTheirUnits)
+  it("takes what the vehicle marks unknown for not a number", takeWhatTheVehicleMarksUnknownForNotANumber)
+  it("makes a MODE only for a vehicle's change of mode", makeAModeOnlyWhenTheVehicleChangesIt)
+  it("makes nothing a tlog can't say", sayWhatItDoesNotHave)
+  it("takes units from the dialect and from our table where it has none", unitsComeFromTheDialectAndOurTable)
+})
