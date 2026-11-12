@@ -1,0 +1,316 @@
+// The thinned values of a log on this computer: parts of time with their smallest and largest value, gaps that stay gaps, spikes
+// that are kept, values that are not numbers counted and left out, instances told apart, and requests that are refused.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import {
+  LogsLocalRead,
+  LogsLocalSeries,
+  LogsLocalSeriesAsk,
+  SeriesAsk,
+  decodeLogsLocalSeries,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-series-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// A log with ATT every 10 ms from 10 ms on (`Roll` is the step modulo 10), whose first message (a MSG) is at 1 ms.
+function flight(steps: int): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(59, [1000.0, 0.0], ["", "ArduCopter V4.7.2"])
+  for (let i = 0; i < steps; i++) {
+    e.add(72, [(10000 + i * 10000) as f64, (i % 10) as f64, 0.5], ["", "", ""])
+  }
+  e.bytes()
+}
+
+async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  `uid-a/${name}`
+}
+
+async function readIt(r: Rig, key: string): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+function ask(message: string, field: string): SeriesAsk {
+  SeriesAsk { message: message, field: field }
+}
+
+function request(key: string, series: SeriesAsk[], buckets: int): LogsLocalSeriesAsk {
+  LogsLocalSeriesAsk { key: key, series: series, buckets: buckets as u16 }
+}
+
+async function seriesOf(r: Rig, a: LogsLocalSeriesAsk): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(a))
+}
+
+async function series(r: Rig, a: LogsLocalSeriesAsk): Promise<LogsLocalSeries> throws Error {
+  decodeLogsLocalSeries((await seriesOf(r, a)).p ?? Cbor.Null, "$")
+}
+
+/// "index:min-max/count" of each point.
+function show(s: LogsLocalSeries, i: int): string {
+  s.series[i].points.map((p) => `${p.index}:${p.min}-${p.max}/${p.count}`).join(" ")
+}
+
+async function cutsTheTimeInPartsWithTheirSmallestAndLargest(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(100))
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("ATT", "Roll")], 10))
+  expect(s.fromUs as int).toBe(1000)
+  expect(s.toUs as int).toBe(1000000)
+  expect(s.buckets as int).toBe(10)
+  expect(s.series.length).toBe(1)
+  expect(s.series[0].found).toBe(true)
+  expect(s.series[0].points.length).toBe(10)
+  expect(show(s, 0)).toBe("0:0-9/10 1:0-9/10 2:0-9/10 3:0-9/10 4:0-9/10 5:0-9/10 6:0-9/10 7:0-9/10 8:0-9/10 9:0-9/10")
+  expect(s.series[0].invalid).toBe(0)
+  // Another series of the same message, and one of nothing, in the same pass.
+  const two = await series(r, request(key, [ask("ATT", "Pitch"), ask("ATT", "Nope"), ask("NOPE", "Roll")], 1))
+  expect(show(two, 0)).toBe("0:0.5-0.5/100")
+  expect(two.series[1].found).toBe(false)
+  expect(two.series[1].points.length).toBe(0)
+  expect(two.series[2].found).toBe(false)
+  await done(r)
+}
+
+async function keepsASpikeOfOneSample(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  for (let i = 0; i < 1000; i++) {
+    e.add(72, [(i * 1000) as f64, if (i == 513) 500.0 else 1.0, 0.0], ["", "", ""])
+  }
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  // 1000 samples in 4 parts: the spike is in the third, and is its largest value.
+  const s = await series(r, request(key, [ask("ATT", "Roll")], 4))
+  expect(show(s, 0)).toBe("0:1-1/250 1:1-1/250 2:1-500/250 3:1-1/250")
+  await done(r)
+}
+
+async function leavesGapsAsGaps(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  for (let i = 1; i <= 5; i++) {
+    e.add(72, [(i * 10000) as f64, 3.0, 0.0], ["", "", ""])
+    e.add(72, [(900000 + i * 10000) as f64, 4.0, 0.0], ["", "", ""])
+  }
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("ATT", "Roll")], 10))
+  // Nothing from the middle: no part there, not a part of zeros.
+  expect(show(s, 0)).toBe("0:3-3/5 9:4-4/5")
+  await done(r)
+}
+
+async function countsValuesThatAreNotNumbersAndDoesNotDrawThem(): Promise<void> throws Error {
+  const r = await rig()
+  const nan = f64Of([0, 0, 0, 0, 0, 0, 0xF8, 0x7F])
+  const inf = f64Of([0, 0, 0, 0, 0, 0, 0xF0, 0x7F])
+  const e = new DfEncoder()
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(72, [1000.0, 2.0, 0.0], ["", "", ""])
+  e.add(72, [2000.0, nan, 0.0], ["", "", ""])
+  e.add(72, [3000.0, inf, 0.0], ["", "", ""])
+  e.add(72, [4000.0, 6.0, 0.0], ["", "", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("ATT", "Roll")], 1))
+  expect(show(s, 0)).toBe("0:2-6/2")
+  expect(s.series[0].invalid).toBe(2)
+  await done(r)
+}
+
+/// The f64 whose 8 bytes (little-endian) are these.
+function f64Of(list: int[]): f64 {
+  const buffer = new ArrayBuffer(8)
+  const bytes = new Uint8Array(buffer, 0)
+  const numbers = new Float64Array(buffer, 0)
+  for (let i = 0; i < 8; i++) {
+    bytes.set(i, list[i])
+  }
+  numbers.get(0)
+}
+
+function bytes8(list: int[]): Uint8Array {
+  const out = new Uint8Array(list.length)
+  for (let i = 0; i < list.length; i++) {
+    out.set(i, list[i])
+  }
+  out
+}
+
+async function tellsInstancesApart(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(88, "BAT", "QBf", "TimeUS,Inst,Volt")
+  for (let i = 0; i < 10; i++) {
+    e.add(88, [(i * 1000) as f64, (i % 2) as f64, if (i % 2 == 0) 10.0 else 20.0], ["", "", ""])
+  }
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const one = SeriesAsk { message: "BAT", field: "Volt", whereField: "Inst", whereValue: 1.0 }
+  const zero = SeriesAsk { message: "BAT", field: "Volt", whereField: "Inst", whereValue: 0.0 }
+  const none = SeriesAsk { message: "BAT", field: "Volt", whereField: "Nope", whereValue: 0.0 }
+  const s = await series(r, request(key, [one, zero, ask("BAT", "Volt"), none], 1))
+  expect(show(s, 0)).toBe("0:20-20/5")
+  expect(show(s, 1)).toBe("0:10-10/5")
+  expect(show(s, 2)).toBe("0:10-20/10")
+  expect(s.series[3].found).toBe(false)
+  await done(r)
+}
+
+async function looksOnlyAtTheTimeAsked(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(100))
+  await readIt(r, key)
+  const a = request(key, [ask("ATT", "Roll")], 1)
+  a.fromUs = 500000 as u64
+  a.toUs = 600000 as u64
+  const s = await series(r, a)
+  expect(s.fromUs as int).toBe(500000)
+  expect(s.toUs as int).toBe(600000)
+  // The samples at 500, 510, ... 600 ms: 11 of them.
+  expect(s.series[0].points[0].count as int).toBe(11)
+  // Outside the log it is cut to the log; an empty time gives nothing.
+  const wide = request(key, [ask("ATT", "Roll")], 1)
+  wide.fromUs = 0 as u64
+  wide.toUs = 99999999 as u64
+  const all = await series(r, wide)
+  expect(all.fromUs as int).toBe(1000)
+  expect(all.toUs as int).toBe(1000000)
+  expect(all.series[0].points[0].count as int).toBe(100)
+  const empty = request(key, [ask("ATT", "Roll")], 3)
+  empty.fromUs = 700000 as u64
+  empty.toUs = 600000 as u64
+  expect((await series(r, empty)).series[0].points.length).toBe(0)
+  await done(r)
+}
+
+async function saysTheUnitTheLogNames(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(131, "UNIT", "QbZ", "TimeUS,Id,Label")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(131, [0.0, 100.0, 0.0], ["", "", "deg"])
+  e.add(130, [0.0, 72.0, 0.0, 0.0], ["", "", "-dd", "---"])
+  e.add(72, [1000.0, 1.0, 2.0], ["", "", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("ATT", "Roll"), ask("ATT", "TimeUS")], 1))
+  expect(s.series[0].unit!).toBe("deg")
+  expect(s.series[1].unit == null).toBe(true)
+  await done(r)
+}
+
+async function wantsTheLogToHaveBeenRead(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(10))
+  expect(codeOf(await seriesOf(r, request(key, [ask("ATT", "Roll")], 4)))).toBe("NOT_READ")
+  await readIt(r, key)
+  expect(codeOf(await seriesOf(r, request(key, [ask("ATT", "Roll")], 4)))).toBe("")
+  // A file that changed since is not the one that was read.
+  await writeBytes(join(r.root, "logs", "uid-a", key.slice(6, key.length)), flight(11))
+  expect(codeOf(await seriesOf(r, request(key, [ask("ATT", "Roll")], 4)))).toBe("NOT_READ")
+  expect(codeOf(await seriesOf(r, request("uid-a/../x", [ask("ATT", "Roll")], 4)))).toBe("NOT_FOUND")
+  await done(r)
+}
+
+async function refusesRequestsThatAreTooBig(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(10))
+  await readIt(r, key)
+  expect(codeOf(await seriesOf(r, request(key, [ask("ATT", "Roll")], 0)))).toBe("BAD_REQUEST")
+  expect(codeOf(await seriesOf(r, request(key, [ask("ATT", "Roll")], 2001)))).toBe("BAD_REQUEST")
+  const many: SeriesAsk[] = []
+  for (let i = 0; i < 17; i++) {
+    many.push(ask("ATT", "Roll"))
+  }
+  expect(codeOf(await seriesOf(r, request(key, many, 10)))).toBe("BAD_REQUEST")
+  expect(codeOf(await seriesOf(r, request(key, many.slice(0, 16), 2000)))).toBe("")
+  await done(r)
+}
+
+/// A log of about 3.5 MB: three chunks are read.
+function bigLog(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(70, "BIG", "QZZ", "TimeUS,A,B")
+  for (let i = 0; i < 26000; i++) {
+    e.add(70, [(i * 1000) as f64, 0.0, 0.0], ["", "a", "b"])
+  }
+  e.bytes()
+}
+
+async function stopsOnCancelAndKnowsAFileThatChangedMeanwhile(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, bigLog())
+  await readIt(r, key)
+  const path = join(r.root, "logs", "uid-a", key.slice(6, key.length))
+  // Cancelled.
+  let asked = await r.f.send("logs.local.series", encodeLogsLocalSeriesAsk(request(key, [ask("BIG", "TimeUS")], 100)))
+  await r.f.event("logs.local.progress")
+  expect(codeOf(await seriesOf(r, request(key, [ask("BIG", "TimeUS")], 100)))).toBe("BUSY")
+  await r.f.call("logs.local.cancel")
+  expect(codeOf(await r.f.reply(asked))).toBe("ABORTED")
+  // The file grows while it is read.
+  asked = await r.f.send("logs.local.series", encodeLogsLocalSeriesAsk(request(key, [ask("BIG", "TimeUS")], 100)))
+  await r.f.event("logs.local.progress")
+  await writeBytes(path, bytes8([1, 2, 3]), true)
+  expect(codeOf(await r.f.reply(asked))).toBe("CHANGED")
+  await done(r)
+}
+
+describe("the series of the logs on this computer", () => {
+  it("cuts the time in parts, each with its smallest and largest value and how many", cutsTheTimeInPartsWithTheirSmallestAndLargest)
+  it("keeps a spike of one sample", keepsASpikeOfOneSample)
+  it("leaves a gap where there are no samples", leavesGapsAsGaps)
+  it("counts values that are not numbers and does not draw them", countsValuesThatAreNotNumbersAndDoesNotDrawThem)
+  it("tells the instances of a message apart", tellsInstancesApart)
+  it("looks only at the time asked, cut to the log", looksOnlyAtTheTimeAsked)
+  it("says the unit the log names", saysTheUnitTheLogNames)
+  it("wants the log to have been read, and to be the same file", wantsTheLogToHaveBeenRead)
+  it("refuses requests that are too big", refusesRequestsThatAreTooBig)
+  it("stops on cancel, and knows a file that changed while it was read", stopsOnCancelAndKnowsAFileThatChangedMeanwhile)
+})

@@ -1,0 +1,212 @@
+// The values of fields of a log on this computer, thinned for a chart (`logs.local.series`). The log is read through once, in
+// order, a chunk at a time (locallogs.pi), and every series asked for is gathered in the same pass: the time of the log is cut in
+// `buckets` equal parts and each part keeps the smallest and the largest value, and how many samples there were, so that a spike of
+// one sample is still there. A part with no sample is left out (a gap), and a value that is not a number is counted, not drawn: no
+// value is ever made up.
+//
+// Memory is a few arrays of `buckets` numbers for each of the (at most 16) series, whatever the size of the log. The log has to
+// have been read (`logs.local.read`) and be the same file: the times to cut are the ones that read found.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfField, DfMessage, DfTables } from "padcom/pico-mavlink"
+import {
+  LogsLocalSeries,
+  SeriesAsk,
+  SeriesPoint,
+  SeriesResult,
+  decodeLogsLocalSeriesAsk,
+  encodeLogsLocalSeries,
+} from "./generated/app"
+import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "./locallogs"
+
+/// The most series in one request, and the most parts the time is cut in.
+const MAX_SERIES: int = 16
+const MAX_BUCKETS: int = 2000
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.series", seriesOfLocal)
+}
+
+/// One series being gathered.
+class Gathering {
+  public readonly message: string
+  public readonly fieldName: string
+  public readonly whereField: string
+  public readonly whereValue: f64
+  public readonly from: int
+  public readonly span: int
+  public readonly buckets: int
+  public readonly mins: f64[] = []
+  public readonly maxs: f64[] = []
+  public readonly counts: int[] = []
+  /// Whether the log has this message with this field as a number.
+  public found: bool = false
+  public invalid: int = 0
+  /// The type of the message once it is known (-1 before), and where the field and the one that tells instances are in it.
+  type: int = -1
+  at: int = -1
+  whereAt: int = -1
+  /// A series whose message or field the log does not have has nothing more to look at.
+  dead: bool = false
+  /// The field in the format of the message, once it is known (for its unit).
+  public source: DfField? = null
+
+  constructor(ask: SeriesAsk, from: int, span: int, buckets: int) {
+    this.message = ask.message
+    this.fieldName = ask.field
+    this.whereField = ask.whereField ?? ""
+    this.whereValue = ask.whereValue ?? 0.0
+    this.from = from
+    this.span = span
+    this.buckets = buckets
+    for (let i = 0; i < buckets; i++) {
+      mins.push(0.0)
+      maxs.push(0.0)
+      counts.push(0)
+    }
+  }
+
+  /// Looks at a message: is it of this series, and if so, in which part of the time and what is the value.
+  public look(m: DfMessage, t: int, to: int): void {
+    if (dead) {
+      return
+    }
+    if (type < 0) {
+      if (m.format.name != message || !begin(m)) {
+        return
+      }
+    } else if (m.format.type != type) {
+      return
+    }
+    if (t < from || t > to) {
+      return
+    }
+    if (whereAt >= 0 && !(m.nums[whereAt] - whereValue < 0.000001 && whereValue - m.nums[whereAt] < 0.000001)) {
+      return
+    }
+    add(t, m.nums[at])
+  }
+
+  /// A message of the type asked for, the first time: where the fields are. False when the series cannot be had from it.
+  begin(m: DfMessage): bool {
+    type = m.format.type
+    at = m.format.indexOf(fieldName)
+    whereAt = if (whereField == "") -1 else m.format.indexOf(whereField)
+    const usable = at >= 0 && !isText(m, at) && (whereField == "" || whereAt >= 0)
+    if (!usable) {
+      dead = true
+      return false
+    }
+    found = true
+    source = m.format.fields[at]
+    true
+  }
+
+  /// Whether field `i` holds text (a text is not a value).
+  isText(m: DfMessage, i: int): bool {
+    const k = m.format.fields[i].kind
+    k == 0x6E || k == 0x4E || k == 0x5A
+  }
+
+  /// One value at time `t` (in range): a part of the time, its smallest, its largest.
+  add(t: int, v: f64): void {
+    if (v != v || v > 1.0e300 || v < -1.0e300) {
+      invalid += 1
+      return
+    }
+    // The part is worked out in floating point (a long log times 2000 would overflow an int) and kept inside the parts.
+    const pos = (((t - from) as f64) / (span as f64)) * (buckets as f64)
+    let i = if (pos < 0.0) 0 else pos as int
+    if (i >= buckets) {
+      i = buckets - 1
+    }
+    if (counts[i] == 0 || v < mins[i]) {
+      mins[i] = v
+    }
+    if (counts[i] == 0 || v > maxs[i]) {
+      maxs[i] = v
+    }
+    counts[i] += 1
+  }
+}
+
+/// Gives each message to every series.
+class Collector implements Taker {
+  public readonly all: Gathering[] = []
+  public readonly to: int
+
+  constructor(to: int) {
+    this.to = to
+  }
+
+  public take(m: DfMessage): void {
+    const t = m.timeUs()
+    if (t < 0) {
+      return
+    }
+    for (const g of all) {
+      g.look(m, t, to)
+    }
+  }
+}
+
+/// A u64 as an int, held to what an int can be.
+function clampInt(v: u64): int {
+  if (v > (9000000000000000000 as u64)) 9000000000000000000 else v as int
+}
+
+async function seriesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeLogsLocalSeriesAsk(payload ?? Cbor.Null, "$")
+  if (ask.series.length > MAX_SERIES || ask.buckets < 1 || (ask.buckets as int) > MAX_BUCKETS) {
+    throw new CommunicatorError("BAD_REQUEST", `at most ${MAX_SERIES} series, and from 1 to ${MAX_BUCKETS} parts of time`)
+  }
+  const own = claimRead()
+  try {
+    return await gather(ask.key, ask.series, ask.buckets as int, ask.fromUs, ask.toUs, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+async function gather(key: string, series: SeriesAsk[], buckets: int, fromUs: u64?, toUs: u64?, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(key)
+  const known = knownSummary(key, file.facts)
+  if (known == null) {
+    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
+  }
+  const first = clampInt(known!.firstUs ?? (0 as u64))
+  const last = clampInt(known!.lastUs ?? (0 as u64))
+  const from = if (fromUs == null || clampInt(fromUs!) < first) first else clampInt(fromUs!)
+  const to = if (toUs == null || clampInt(toUs!) > last) last else clampInt(toUs!)
+  const span = if (to >= from) to - from + 1 else 1
+  const collector = new Collector(if (known!.firstUs == null) -1 else to)
+  for (const ask of series) {
+    collector.all.push(new Gathering(ask, from, span, buckets))
+  }
+  const done = await streamLog(key, file, own, collector)
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  const results: SeriesResult[] = []
+  for (const g of collector.all) {
+    results.push(resultOf(g, done.decoder.tables))
+  }
+  encodeLogsLocalSeries(LogsLocalSeries { fromUs: from as u64, toUs: to as u64, buckets: buckets as u16, series: results })
+}
+
+function resultOf(g: Gathering, tables: DfTables): SeriesResult {
+  const points: SeriesPoint[] = []
+  for (let i = 0; i < g.buckets; i++) {
+    if (g.counts[i] > 0) {
+      points.push(SeriesPoint { index: i as u16, min: g.mins[i], max: g.maxs[i], count: g.counts[i] as u32 })
+    }
+  }
+  const r = SeriesResult { message: g.message, field: g.fieldName, found: g.found, points: points, invalid: g.invalid as u32 }
+  const f = g.source
+  if (f != null) {
+    const unit = tables.unitOf(f!)
+    if (unit != "") {
+      r.unit = unit
+    }
+  }
+  r
+}

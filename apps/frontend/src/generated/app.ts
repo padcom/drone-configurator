@@ -234,6 +234,51 @@ function validateLocalLogSummaryInto(value: any, path: string): boolean {
 /** The first problem with `value` as a local-log-summary, or null. */
 export const validateLocalLogSummary = (value: unknown) => run(validateLocalLogSummaryInto, value)
 
+export type SeriesAsk = { "message": string, "field": string, "whereField"?: string, "whereValue"?: number }
+
+function validateSeriesAskInto(value: any, path: string): boolean {
+  return map(value, path, ["message","field","whereField","whereValue"]) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["field"] === undefined ? fail(`${path}.field`, 'present') : nested(value["field"], `${path}.field`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["whereField"] === undefined || nested(value["whereField"], `${path}.whereField`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["whereValue"] === undefined || nested(value["whereValue"], `${path}.whereValue`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a series-ask, or null. */
+export const validateSeriesAsk = (value: unknown) => run(validateSeriesAskInto, value)
+
+export type LogsLocalSeriesAsk = { "key": string, "series": (SeriesAsk)[], "buckets": number, "fromUs"?: number | bigint, "toUs"?: number | bigint }
+
+function validateLogsLocalSeriesAskInto(value: any, path: string): boolean {
+  return map(value, path, ["key","series","buckets","fromUs","toUs"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["series"] === undefined ? fail(`${path}.series`, 'present') : nested(value["series"], `${path}.series`, (value, path) => list(value, path, (value, path) => validateSeriesAskInto(value, path)))) && (value["buckets"] === undefined ? fail(`${path}.buckets`, 'present') : nested(value["buckets"], `${path}.buckets`, (value, path) => uint(value, path, 0xffff))) && (value["fromUs"] === undefined || nested(value["fromUs"], `${path}.fromUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["toUs"] === undefined || nested(value["toUs"], `${path}.toUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a logs-local-series-ask, or null. */
+export const validateLogsLocalSeriesAsk = (value: unknown) => run(validateLogsLocalSeriesAskInto, value)
+
+export type SeriesResult = { "message": string, "field": string, "found": boolean, "unit"?: string, "points": (SeriesPoint)[], "invalid": number }
+
+function validateSeriesResultInto(value: any, path: string): boolean {
+  return map(value, path, ["message","field","found","unit","points","invalid"]) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["field"] === undefined ? fail(`${path}.field`, 'present') : nested(value["field"], `${path}.field`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["found"] === undefined ? fail(`${path}.found`, 'present') : nested(value["found"], `${path}.found`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["unit"] === undefined || nested(value["unit"], `${path}.unit`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["points"] === undefined ? fail(`${path}.points`, 'present') : nested(value["points"], `${path}.points`, (value, path) => list(value, path, (value, path) => validateSeriesPointInto(value, path)))) && (value["invalid"] === undefined ? fail(`${path}.invalid`, 'present') : nested(value["invalid"], `${path}.invalid`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a series-result, or null. */
+export const validateSeriesResult = (value: unknown) => run(validateSeriesResultInto, value)
+
+export type SeriesPoint = { "index": number, "min": number, "max": number, "count": number }
+
+function validateSeriesPointInto(value: any, path: string): boolean {
+  return map(value, path, ["index","min","max","count"]) && (value["index"] === undefined ? fail(`${path}.index`, 'present') : nested(value["index"], `${path}.index`, (value, path) => uint(value, path, 0xffff))) && (value["min"] === undefined ? fail(`${path}.min`, 'present') : nested(value["min"], `${path}.min`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["max"] === undefined ? fail(`${path}.max`, 'present') : nested(value["max"], `${path}.max`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a series-point, or null. */
+export const validateSeriesPoint = (value: unknown) => run(validateSeriesPointInto, value)
+
+export type LogsLocalSeries = { "fromUs": number | bigint, "toUs": number | bigint, "buckets": number, "series": (SeriesResult)[] }
+
+function validateLogsLocalSeriesInto(value: any, path: string): boolean {
+  return map(value, path, ["fromUs","toUs","buckets","series"]) && (value["fromUs"] === undefined ? fail(`${path}.fromUs`, 'present') : nested(value["fromUs"], `${path}.fromUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["toUs"] === undefined ? fail(`${path}.toUs`, 'present') : nested(value["toUs"], `${path}.toUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["buckets"] === undefined ? fail(`${path}.buckets`, 'present') : nested(value["buckets"], `${path}.buckets`, (value, path) => uint(value, path, 0xffff))) && (value["series"] === undefined ? fail(`${path}.series`, 'present') : nested(value["series"], `${path}.series`, (value, path) => list(value, path, (value, path) => validateSeriesResultInto(value, path))))
+}
+
+/** The first problem with `value` as a logs-local-series, or null. */
+export const validateLogsLocalSeries = (value: unknown) => run(validateLogsLocalSeriesInto, value)
+
 export type LocalLogModes = { "modes": (ModeChange)[], "cut": boolean }
 
 function validateLocalLogModesInto(value: any, path: string): boolean {
@@ -485,6 +530,7 @@ export interface Services {
   "logs.local.list": { kind: 'method', request: null, response: LocalLogs }
   "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
   "logs.local.modes": { kind: 'method', request: LogsLocalRead, response: LocalLogModes }
+  "logs.local.series": { kind: 'method', request: LogsLocalSeriesAsk, response: LogsLocalSeries }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
@@ -557,6 +603,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.modes": {
     request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
     response: (value: any, path: string) => validateLocalLogModesInto(value, path),
+  },
+  "logs.local.series": {
+    request: (value: any, path: string) => validateLogsLocalSeriesAskInto(value, path),
+    response: (value: any, path: string) => validateLogsLocalSeriesInto(value, path),
   },
   "logs.local.cancel": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

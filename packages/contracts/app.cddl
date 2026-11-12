@@ -40,6 +40,11 @@ services = {
   "logs.local.list": ["method", null, local-logs],
   "logs.local.read": ["method", logs-local-read, local-log-summary],
   "logs.local.modes": ["method", logs-local-read, local-log-modes],
+  ; The values of fields of a log that was read (and is still the file that was read: else `NOT_READ`), thinned for a chart: the
+  ; time from `fromUs` to `toUs` is cut in `buckets` equal parts and each part that has samples gives their smallest and largest
+  ; value and how many there are, so that a spike of one sample is never lost. A part with no sample is not in the answer (a gap,
+  ; never a zero). One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), with `logs.local.progress`.
+  "logs.local.series": ["method", logs-local-series-ask, logs-local-series],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -225,6 +230,47 @@ local-log-summary = {
   ? lastUs: uint .size 8,
   ? firmware: tstr,
   modeChanges: uint .size 4,
+}
+
+; Which values: up to 16 series (a field of a message type, such as ATT and Roll), `buckets` from 1 to 2000, and the time (the
+; microseconds since the vehicle's boot, as `firstUs` and `lastUs` of the summary) to look at: all of the log by default, else
+; cut to it. Several instances of a message (IMU 0 and 1, BAT 0 and 1) are told apart by `whereField` and `whereValue`: only the
+; messages whose field of that name has that value count.
+series-ask = {
+  message: tstr,
+  field: tstr,
+  ? whereField: tstr,
+  ? whereValue: float,
+}
+
+logs-local-series-ask = {
+  key: tstr,
+  series: [+ series-ask],
+  buckets: uint .size 2,
+  ? fromUs: uint .size 8,
+  ? toUs: uint .size 8,
+}
+
+; The time that was cut in parts (`fromUs` to `toUs`, both in the log, and the `buckets` asked), and a result for each series
+; asked, in the order asked. `found`: the log has the message with that field (as a number); without it there is nothing to draw,
+; and the page says "no data", not a flat line. `unit` is the unit the log names for the field, when it does. `points` are the parts
+; that have samples, `index` from 0. `invalid` counts the samples that were not numbers (NaN, infinity) and are not in the points.
+series-result = {
+  message: tstr,
+  field: tstr,
+  found: bool,
+  ? unit: tstr,
+  points: [* series-point],
+  invalid: uint .size 4,
+}
+
+series-point = { index: uint .size 2, min: float, max: float, count: uint .size 4 }
+
+logs-local-series = {
+  fromUs: uint .size 8,
+  toUs: uint .size 8,
+  buckets: uint .size 2,
+  series: [* series-result],
 }
 
 ; The changes of flight mode of a log that was read, in the order they are in the log (at most 5000, `cut` when there were more).
