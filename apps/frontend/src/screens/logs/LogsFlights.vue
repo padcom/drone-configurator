@@ -22,7 +22,7 @@
           <th scope="col">{{ t('logs.flights.column.id') }}</th>
           <th scope="col">{{ t('logs.flights.column.modified') }}</th>
           <th scope="col">{{ t('logs.flights.column.size') }}</th>
-          <th scope="col">{{ t('logs.flights.duration') }}</th>
+          <th scope="col" :title="t('logs.flights.durationTip')">{{ t('logs.flights.duration') }}</th>
           <th scope="col">{{ t('logs.flights.column.state') }}</th>
           <th scope="col"><span class="visually-hidden">{{ t('logs.flights.open') }}</span></th>
         </tr>

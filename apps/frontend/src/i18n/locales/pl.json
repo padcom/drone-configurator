@@ -68,6 +68,7 @@
       },
       "open": "Otwórz",
       "duration": "Czas trwania",
+      "durationTip": "Czasy są w logu: czas trwania jest znany po otwarciu logu.",
       "downloadAgain": "Przejdź do „Na pojeździe”, aby pobrać go ponownie.",
       "openLabel": "Otwórz log {id}",
       "reading": "Czytam log {id}…",

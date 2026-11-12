@@ -68,6 +68,7 @@
       },
       "open": "Apri",
       "duration": "Durata",
+      "durationTip": "I tempi sono nel log: la durata è nota dopo che il log è stato aperto.",
       "downloadAgain": "Vai a «Sul veicolo» per scaricarlo di nuovo.",
       "openLabel": "Apri il log {id}",
       "reading": "Lettura del log {id}…",

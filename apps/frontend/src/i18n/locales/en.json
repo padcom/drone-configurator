@@ -68,6 +68,7 @@
       },
       "open": "Open",
       "duration": "Duration",
+      "durationTip": "The times are in the log: the duration is known once the log has been opened.",
       "downloadAgain": "Go to On the vehicle to download it again.",
       "openLabel": "Open log {id}",
       "reading": "Reading log {id}…",

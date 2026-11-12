@@ -68,6 +68,7 @@
       },
       "open": "Abrir",
       "duration": "Duración",
+      "durationTip": "Los tiempos están en el registro: la duración se conoce cuando el registro se ha abierto.",
       "downloadAgain": "Ve a «En el vehículo» para descargarlo de nuevo.",
       "openLabel": "Abrir el registro {id}",
       "reading": "Leyendo el registro {id}…",
