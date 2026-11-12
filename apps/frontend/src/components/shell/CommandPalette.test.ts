@@ -170,6 +170,11 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Save parameter snapshot…',
     'Switch to Flight data',
     'Switch to Logs',
+    'Switch to Logs: Flights',
+    'Switch to Logs: On the vehicle',
+    'Switch to Logs: Replay',
+    'Switch to Logs: Spectrum',
+    'Switch to Logs: Tools',
     'Switch to Parameters',
     'Switch to Plan',
     'Switch to Settings',
@@ -191,7 +196,7 @@ it('names the group of each command in its row', async () => {
     'Parameters',
     'Vehicle',
     'Parameters',
-    ...Array(7).fill('Navigate'),
+    ...Array(12).fill('Navigate'),
   ])
 })
 
@@ -354,7 +359,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(13).fill('false')])
+  expect(selected).toEqual(['true', ...Array(18).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -367,7 +372,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('14 results')
+  expect(status()).toBe('19 results')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
@@ -448,12 +453,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(14)
+  expect(labels(wrapper)).toHaveLength(19)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('connect.open')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('14 results')
+  expect(wrapper.get('.palette-status').text()).toBe('19 results')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

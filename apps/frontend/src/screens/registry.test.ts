@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { createMemoryHistory } from 'vue-router'
 import { i18n } from '@/i18n/i18n'
 import { createAppRouter } from '@/router'
-import { HOME, PRODUCT_SCREENS, SCREENS } from './registry'
+import { HOME, PRODUCT_SCREENS, SCREENS, sectionRouteName } from './registry'
 
 it('has the screens of the product, Flight data first and Settings pinned to the end of the rail', () => {
   expect(PRODUCT_SCREENS.map(screen => screen.id))
@@ -26,6 +26,23 @@ it('names every screen once, with a path and a title that exist', () => {
   }
 })
 
+it('gives Logs its five parts, in the order of the design, each with a name, a path of its own and a component', async () => {
+  const logs = SCREENS.find(screen => screen.id === 'logs')
+  const parts = logs?.sections ?? []
+
+  expect(parts.map(part => part.id)).toEqual(['flights', 'replay', 'spectrum', 'vehicle', 'tools'])
+  expect(new Set(parts.map(part => part.path)).size).toBe(parts.length)
+  expect(sectionRouteName('logs', 'vehicle')).toBe('logs.vehicle')
+
+  for (const part of parts) {
+    expect(i18n.global.te(part.titleKey), part.titleKey).toBe(true)
+  }
+  const loaded = await Promise.all(parts.map(part => part.load()))
+  expect(loaded.every(module => Boolean(module.default))).toBe(true)
+  // Only Logs has parts so far.
+  expect(SCREENS.filter(screen => screen.sections).map(screen => screen.id)).toEqual(['logs'])
+})
+
 it('loads each screen only when it is asked for, and every one loads', async () => {
   const loaded = await Promise.all(SCREENS.map(screen => screen.load()))
 
@@ -35,7 +52,9 @@ it('loads each screen only when it is asked for, and every one loads', async () 
 it('has a route for each screen, and sends anything else to the first', async () => {
   const router = createAppRouter(createMemoryHistory())
 
-  expect(router.getRoutes().map(route => route.name).filter(Boolean)).toEqual(SCREENS.map(screen => screen.id))
+  // A route for each screen, and for each part of one (named `<screen>.<part>`).
+  const named = SCREENS.flatMap(screen => [screen.id, ...(screen.sections ?? []).map(section => `${screen.id}.${section.id}`)])
+  expect(router.getRoutes().map(route => String(route.name)).filter(name => name !== 'undefined').sort()).toEqual(named.sort())
   await router.push('/nowhere/at/all')
   expect(router.currentRoute.value.fullPath).toBe('/flight')
   await router.push('/')

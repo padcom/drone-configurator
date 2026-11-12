@@ -47,6 +47,7 @@ it('remembers each screen on its own', async () => {
   await router.push('/flight')
 
   expect(scrollTo(router, '/parameters')).toEqual({ top: 300 })
-  expect(scrollTo(router, '/logs')).toEqual({ top: 90 })
+  // (The address of Logs opens its first part, and the position is that part's.)
+  expect(scrollTo(router, '/logs/flights')).toEqual({ top: 90 })
   expect(scrollTo(router, '/setup')).toEqual({ top: 0 })
 })

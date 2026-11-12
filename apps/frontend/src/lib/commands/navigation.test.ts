@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { LANGUAGES, i18n, setLanguage } from '@/i18n/i18n'
 import { PRODUCT_SCREENS, SCREENS, type Screen } from '@/screens/registry'
 import { fakeContext } from '@/testing/commandContext'
-import { goToScreens } from './navigation'
+import { goToScreens, goToSections } from './navigation'
 
 afterEach(() => {
   setLanguage('en')
@@ -62,6 +62,62 @@ describe('where the focus goes after a command that goes to a screen', () => {
     const fake = fakeContext()
 
     expect(await goToScreens([screen])[0]?.execute(fake.ctx)).toEqual({ focus: 'params.search' })
+  })
+})
+
+describe('the commands that go to a part of a screen', () => {
+  it('are one for each part of each screen that has parts, in order, with the address of the part', () => {
+    const commands = goToSections()
+
+    expect(commands.map(command => command.id))
+      .toEqual(['go.logs.flights', 'go.logs.replay', 'go.logs.spectrum', 'go.logs.vehicle', 'go.logs.tools'])
+    expect(commands.map(command => command.href))
+      .toEqual(['/logs/flights', '/logs/replay', '/logs/spectrum', '/logs/vehicle', '/logs/tools'])
+    expect(commands.every(command => command.groupKey === 'palette.group.navigate')).toBe(true)
+    expect(commands.every(command => command.isEnabled().enabled)).toBe(true)
+  })
+
+  it('go to the part, and leave the focus to the screen', async () => {
+    const fake = fakeContext()
+    const vehicle = goToSections().find(command => command.id === 'go.logs.vehicle')
+
+    expect(await vehicle?.execute(fake.ctx)).toEqual({ focus: 'main' })
+    expect(fake.calls.navigate).toEqual(['/logs/vehicle'])
+  })
+
+  it('make the screen current for every part, and the part current only for its own address', () => {
+    const all = [...goToScreens(), ...goToSections()]
+    const active = (id: string, path: string) => all.find(command => command.id === id)?.isActive(fakeContext({ path }).ctx)
+
+    expect([active('go.logs', '/logs/replay'), active('go.logs.replay', '/logs/replay'), active('go.parameters', '/logs/replay')])
+      .toEqual([true, true, false])
+    expect([active('go.logs', '/logsx'), active('go.logs.replay', '/logsx')]).toEqual([false, false])
+  })
+})
+
+describe('the commands that go to a part, made and named', () => {
+  it('are made from the parts the screens are given', () => {
+    const load = () => Promise.reject(new Error('x'))
+    const screen: Screen = {
+      id: 'new',
+      path: '/new',
+      titleKey: 'screen.logs',
+      icon: 'file',
+      sections: [{ id: 'a', path: 'a', titleKey: 'logs.section.tools', load }],
+      load,
+    }
+
+    expect(goToSections([screen]).map(command => [command.id, command.labelKey])).toEqual([['go.new.a', 'palette.section.new.a']])
+  })
+
+  it.each(LANGUAGES)('have one whole message each in %s, naming the screen and the part', language => {
+    for (const command of goToSections()) {
+      const text = i18n.global.t(command.labelKey, {}, { locale: language })
+      const [, , part = ''] = command.id.split('.')
+      const name = i18n.global.t(`logs.section.${part}`, {}, { locale: language })
+
+      expect([text !== command.labelKey, text.includes(name)], `${language} ${command.id}`).toEqual([true, true])
+    }
   })
 })
 

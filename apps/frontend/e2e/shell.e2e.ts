@@ -12,7 +12,7 @@ const MARKERS: [id: string, check: string, title: string][] = [
   ['setup', '.not-available', 'Setup'],
   ['parameters', '#list-status', 'Parameters'],
   ['tune', '.not-available', 'Tune'],
-  ['logs', '.not-available', 'Logs'],
+  ['logs', '.logs', 'Logs'],
   ['settings', '.settings', 'Settings'],
 ]
 

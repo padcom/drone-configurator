@@ -1,7 +1,40 @@
 // The router. The host serves one document, so the screens are told apart by the part of the URL after the `#`
 // (no server routing).
-import { type Router, type RouterHistory, createRouter, createWebHashHistory } from 'vue-router'
-import { HOME, MOVED, SCREENS } from '@/screens/registry'
+import { type RouteRecordRaw, type Router, type RouterHistory, createRouter, createWebHashHistory } from 'vue-router'
+import { HOME, MOVED, SCREENS, type Screen, sectionRouteName } from '@/screens/registry'
+
+/**
+ * The route of a screen: a plain one, or, for a screen with parts, the screen with a route for each part under it. The screen's
+ * own address opens the part that was shown last (`lastShown`), else the first.
+ *
+ * @param screen the screen
+ * @param lastShown the part of each screen that was shown last, by the screen's id
+ * @returns the route
+ */
+function routeOf(screen: Screen, lastShown: ReadonlyMap<string, string>): RouteRecordRaw {
+  const meta = { titleKey: screen.titleKey }
+  const sections = screen.sections ?? []
+  const [first] = sections
+  if (!first) {
+    return { path: screen.path, name: screen.id, component: screen.load, meta }
+  }
+  const opens = () => ({ name: sectionRouteName(screen.id, lastShown.get(screen.id) ?? first.id) })
+
+  return {
+    path: screen.path,
+    component: screen.load,
+    meta,
+    children: [
+      { path: '', name: screen.id, redirect: opens },
+      ...sections.map(section => ({
+        path: section.path,
+        name: sectionRouteName(screen.id, section.id),
+        component: section.load,
+        meta: { titleKey: section.titleKey, screen: screen.id, section: section.id },
+      })),
+    ],
+  }
+}
 
 /**
  * A router over the screens: the first screen at `/` and for any path that is none of them. A screen that was shown
@@ -14,15 +47,12 @@ import { HOME, MOVED, SCREENS } from '@/screens/registry'
  */
 export function createAppRouter(history: RouterHistory = createWebHashHistory(), scrolled = () => window.scrollY): Router {
   const leftAt = new Map<string, number>()
+  // The part of a screen that was shown last, so that the screen's own address (the rail) comes back to it.
+  const lastShown = new Map<string, string>()
   const router = createRouter({
     history,
     routes: [
-      ...SCREENS.map(screen => ({
-        path: screen.path,
-        name: screen.id,
-        component: screen.load,
-        meta: { titleKey: screen.titleKey },
-      })),
+      ...SCREENS.map(screen => routeOf(screen, lastShown)),
       ...Object.entries(MOVED).map(([path, redirect]) => ({ path, redirect })),
       { path: '/:rest(.*)*', redirect: HOME },
     ],
@@ -31,6 +61,12 @@ export function createAppRouter(history: RouterHistory = createWebHashHistory(),
   })
   router.beforeEach((_to, from) => {
     leftAt.set(from.path, scrolled())
+  })
+  router.afterEach(to => {
+    const { screen, section } = to.meta
+    if (typeof screen === 'string' && typeof section === 'string') {
+      lastShown.set(screen, section)
+    }
   })
 
   return router
