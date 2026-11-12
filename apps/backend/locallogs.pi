@@ -16,11 +16,13 @@ import { File, open, readDir, stat } from "std/fs"
 import { join } from "std/path"
 import {
   LocalLog,
+  LocalLogModes,
   LocalLogSummary,
   LocalLogs,
   LogsLocalProgress,
   ModeChange,
   decodeLogsLocalRead,
+  encodeLocalLogModes,
   encodeLocalLogSummary,
   encodeLocalLogs,
   encodeLogsLocalProgress,
@@ -50,6 +52,7 @@ export function register(c: Communicator): void {
   state.communicator = c
   c.handle("logs.local.list", listLocal)
   c.handle("logs.local.read", readLocal)
+  c.handle("logs.local.modes", modesOfLocal)
   c.handle("logs.local.cancel", cancelRead)
 }
 
@@ -66,12 +69,32 @@ class Known {
   }
 }
 
+/// The changes of flight mode a read found, with the file as it was then.
+class KnownModes {
+  public readonly size: int
+  public readonly mtime: int
+  public readonly modes: ModeChange[]
+  public readonly cut: bool
+
+  constructor(size: int, mtime: int, modes: ModeChange[], cut: bool) {
+    this.size = size
+    this.mtime = mtime
+    this.modes = modes
+    this.cut = cut
+  }
+}
+
+/// How many summaries are kept (they are small), and how many logs' changes of mode (they can be thousands): the oldest go.
+const MAX_KNOWN: int = 2000
+const MAX_KNOWN_MODES: int = 16
+
 class State {
   public communicator: Communicator? = null
   /// The read that runs, so that `logs.local.cancel` can stop it.
   public reading: AbortController? = null
-  /// What the reads found, by the key of the log.
+  /// What the reads found, by the key of the log, at most `MAX_KNOWN` of them, and the modes of the last `MAX_KNOWN_MODES`.
   public readonly known: Map<string, Known> = new Map<string, Known>()
+  public readonly modes: Map<string, KnownModes> = new Map<string, KnownModes>()
 }
 
 const state = new State()
@@ -79,6 +102,19 @@ const state = new State()
 /// For tests: forget what the reads found.
 export function forgetLocalReads(): void {
   state.known.clear()
+  state.modes.clear()
+}
+
+/// Puts `value` under `key` as the newest entry of `kept`, and drops the oldest ones past `cap`.
+export function keepNewest<T>(kept: Map<string, T>, key: string, value: T, cap: int): void {
+  kept.delete(key)
+  kept.set(key, value)
+  while (kept.size > cap) {
+    for (const oldest of kept.keys()) {
+      kept.delete(oldest)
+      break
+    }
+  }
 }
 
 /// The folder all the vehicles' folders of logs are in.
@@ -106,10 +142,12 @@ export function partsOfKey(key: string): string[] {
 }
 
 /// A copy found in a folder: its facts, and the cached summary when the file is still the one that was read.
-function describe(vehicle: string, file: string, size: int, mtime: int): LocalLog {
+export function describeCopy(vehicle: string, file: string, size: int, mtime: int): LocalLog {
   const numbers = copyNumbers(file)
   const key = keyOf(vehicle, file)
-  const log = LocalLog { key: key, vehicle: vehicle, id: numbers[0] as u32, size: size as u64, modified: mtime as u64, crc: hex8(numbers[1]) }
+  // A time before 1970 (a file with a wrong clock) is not a time that can be told: it is 0, looked at before it is converted.
+  const modified = if (mtime < 0) 0 else mtime
+  const log = LocalLog { key: key, vehicle: vehicle, id: numbers[0] as u32, size: size as u64, modified: modified as u64, crc: hex8(numbers[1]) }
   const known = state.known.get(key)
   if (known != null && known!.size == size && known!.mtime == mtime) {
     log.summary = known!.summary
@@ -152,7 +190,7 @@ async function listLocal(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
           break
         }
         const info = await stat(join(top, vehicle.name, entry.name))
-        insertNewest(list, describe(vehicle.name, entry.name, info.size, info.mtime))
+        insertNewest(list, describeCopy(vehicle.name, entry.name, info.size, info.mtime))
       }
     }
   }
@@ -257,7 +295,8 @@ async function readLog(key: string, own: AbortController): Promise<Cbor?> throws
   const after = await statOf(path)
   const same = after != null && after!.size == before.size && after!.mtime == before.mtime
   const summary = summaryOf(scan, decoder, crc.crc == wanted && same)
-  state.known.set(key, new Known(before.size, before.mtime, summary))
+  keepNewest(state.known, key, new Known(before.size, before.mtime, summary), MAX_KNOWN)
+  keepNewest(state.modes, key, new KnownModes(before.size, before.mtime, scan.modes, scan.modesCut), MAX_KNOWN_MODES)
   encodeLocalLogSummary(summary)
 }
 
@@ -307,8 +346,7 @@ function summaryOf(scan: Scan, decoder: DfDecoder, verified: bool): LocalLogSumm
     verified: verified,
     messages: (if (scan.messages > 4294967295) 4294967295 else scan.messages) as u32,
     problems: (if (damage > 4294967295) 4294967295 else damage) as u32,
-    modes: scan.modes,
-    modesCut: scan.modesCut,
+    modeChanges: scan.modes.length as u32,
   }
   if (scan.firstUs >= 0) {
     s.firstUs = scan.firstUs as u64
@@ -338,6 +376,24 @@ class FileFacts {
     this.size = size
     this.mtime = mtime
   }
+}
+
+/// The changes of flight mode of a log that was read lately, if the file is still the one that was read.
+async function modesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
+  const parts = partsOfKey(asked.key)
+  if (parts.length == 0) {
+    throw new CommunicatorError("NOT_FOUND", "there is no such log")
+  }
+  const now = await statOf(join(await root(), parts[0], parts[1]))
+  if (now == null) {
+    throw new CommunicatorError("NOT_FOUND", "there is no such log")
+  }
+  const kept = state.modes.get(asked.key)
+  if (kept == null || kept!.size != now!.size || kept!.mtime != now!.mtime) {
+    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
+  }
+  encodeLocalLogModes(LocalLogModes { modes: kept!.modes, cut: kept!.cut })
 }
 
 /// Stops the read that runs, if any: it fails with ABORTED.

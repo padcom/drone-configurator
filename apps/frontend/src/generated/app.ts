@@ -225,14 +225,23 @@ function validateLogsLocalProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-local-progress, or null. */
 export const validateLogsLocalProgress = (value: unknown) => run(validateLogsLocalProgressInto, value)
 
-export type LocalLogSummary = { "verified": boolean, "messages": number, "problems": number, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "firmware"?: string, "modes": (ModeChange)[], "modesCut": boolean }
+export type LocalLogSummary = { "verified": boolean, "messages": number, "problems": number, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "firmware"?: string, "modeChanges": number }
 
 function validateLocalLogSummaryInto(value: any, path: string): boolean {
-  return map(value, path, ["verified","messages","problems","firstUs","lastUs","firmware","modes","modesCut"]) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => uint(value, path, 0xffffffff))) && (value["problems"] === undefined ? fail(`${path}.problems`, 'present') : nested(value["problems"], `${path}.problems`, (value, path) => uint(value, path, 0xffffffff))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["firmware"] === undefined || nested(value["firmware"], `${path}.firmware`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["modes"] === undefined ? fail(`${path}.modes`, 'present') : nested(value["modes"], `${path}.modes`, (value, path) => list(value, path, (value, path) => validateModeChangeInto(value, path)))) && (value["modesCut"] === undefined ? fail(`${path}.modesCut`, 'present') : nested(value["modesCut"], `${path}.modesCut`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+  return map(value, path, ["verified","messages","problems","firstUs","lastUs","firmware","modeChanges"]) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => uint(value, path, 0xffffffff))) && (value["problems"] === undefined ? fail(`${path}.problems`, 'present') : nested(value["problems"], `${path}.problems`, (value, path) => uint(value, path, 0xffffffff))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["firmware"] === undefined || nested(value["firmware"], `${path}.firmware`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["modeChanges"] === undefined ? fail(`${path}.modeChanges`, 'present') : nested(value["modeChanges"], `${path}.modeChanges`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a local-log-summary, or null. */
 export const validateLocalLogSummary = (value: unknown) => run(validateLocalLogSummaryInto, value)
+
+export type LocalLogModes = { "modes": (ModeChange)[], "cut": boolean }
+
+function validateLocalLogModesInto(value: any, path: string): boolean {
+  return map(value, path, ["modes","cut"]) && (value["modes"] === undefined ? fail(`${path}.modes`, 'present') : nested(value["modes"], `${path}.modes`, (value, path) => list(value, path, (value, path) => validateModeChangeInto(value, path)))) && (value["cut"] === undefined ? fail(`${path}.cut`, 'present') : nested(value["cut"], `${path}.cut`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a local-log-modes, or null. */
+export const validateLocalLogModes = (value: unknown) => run(validateLocalLogModesInto, value)
 
 export type ModeChange = { "timeUs": number | bigint, "mode": number }
 
@@ -475,6 +484,7 @@ export interface Services {
   "logs.progress": { kind: 'event', payload: LogsProgress }
   "logs.local.list": { kind: 'method', request: null, response: LocalLogs }
   "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
+  "logs.local.modes": { kind: 'method', request: LogsLocalRead, response: LocalLogModes }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
@@ -543,6 +553,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.read": {
     request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
     response: (value: any, path: string) => validateLocalLogSummaryInto(value, path),
+  },
+  "logs.local.modes": {
+    request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
+    response: (value: any, path: string) => validateLocalLogModesInto(value, path),
   },
   "logs.local.cancel": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

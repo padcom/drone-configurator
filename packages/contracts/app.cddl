@@ -39,6 +39,7 @@ services = {
   ; `logs.local.cancel` stops it, with `BUSY` when another read runs, with `NOT_FOUND` for a log that is not in the list.
   "logs.local.list": ["method", null, local-logs],
   "logs.local.read": ["method", logs-local-read, local-log-summary],
+  "logs.local.modes": ["method", logs-local-read, local-log-modes],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -214,7 +215,8 @@ logs-local-progress = { key: tstr, bytes: uint .size 8, total: uint .size 8 }
 ; formats that were refused, values that meant nothing). `firstUs` and `lastUs` are the times (microseconds since the vehicle's boot)
 ; of the first and last message that has one; there are none in a log without any. `firmware` is the first MSG that names the
 ; firmware ("ArduCopter V4.7.2 (...)"), absent when there is none: the modes are numbers, and what a number means depends on it.
-; `modes` are the changes of flight mode in the order they are in the log (at most 5000, `modesCut` when there were more).
+; `modeChanges` is how many changes of flight mode there are; they themselves are in `logs.local.modes` (a summary is small, and
+; is in every entry of the list; the changes can be thousands).
 local-log-summary = {
   verified: bool,
   messages: uint .size 4,
@@ -222,9 +224,13 @@ local-log-summary = {
   ? firstUs: uint .size 8,
   ? lastUs: uint .size 8,
   ? firmware: tstr,
-  modes: [* mode-change],
-  modesCut: bool,
+  modeChanges: uint .size 4,
 }
+
+; The changes of flight mode of a log that was read, in the order they are in the log (at most 5000, `cut` when there were more).
+; The backend keeps them for the last few logs it read (16) and the file still the one that was read; for another it fails with
+; `NOT_READ` and the log is to be read again.
+local-log-modes = { modes: [* mode-change], cut: bool }
 
 mode-change = { timeUs: uint .size 8, mode: uint .size 2 }
 

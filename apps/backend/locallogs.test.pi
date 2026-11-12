@@ -9,13 +9,14 @@ import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
 import {
   LocalLogs,
   LogsLocalRead,
+  decodeLocalLogModes,
   decodeLocalLogSummary,
   decodeLocalLogs,
   decodeLogsLocalProgress,
   encodeLogsLocalRead,
 } from "./generated/app"
 import { copyName } from "./logs"
-import { forgetLocalReads, partsOfKey } from "./locallogs"
+import { describeCopy, forgetLocalReads, keepNewest, partsOfKey } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
 
@@ -136,8 +137,11 @@ async function readsALogAndSaysWhatIsInIt(): Promise<void> throws Error {
   expect(s.firstUs! as int).toBe(1000)
   expect(s.lastUs! as int).toBe(10000 + 99 * 10000)
   expect(s.firmware!).toBe("ArduCopter V4.7.2 (fb773567)")
-  expect(s.modes.map((m) => `${m.timeUs}:${m.mode}`).join(",")).toBe("2000:0,20000:4,50000:9")
-  expect(s.modesCut).toBe(false)
+  // The summary has how many changes of mode there are; the changes themselves come on their own.
+  expect(s.modeChanges).toBe(3)
+  const modes = decodeLocalLogModes((await r.f.call("logs.local.modes", encodeLogsLocalRead(LogsLocalRead { key: key }))).p ?? Cbor.Null, "$")
+  expect(modes.modes.map((m) => `${m.timeUs}:${m.mode}`).join(",")).toBe("2000:0,20000:4,50000:9")
+  expect(modes.cut).toBe(false)
   // The list has it now, and knows no more about a log that was not read.
   const other = await put(r, "uid-a", 2, flight(5))
   const logs = (await list(r)).logs
@@ -201,7 +205,7 @@ async function readsADamagedLogAndCountsTheDamage(): Promise<void> throws Error 
   const key = await put(r, "uid-a", 1, damaged)
   const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
   expect(s.problems > 100).toBe(true)
-  expect(s.modes.length).toBe(3)
+  expect(s.modeChanges).toBe(3)
   expect(s.messages >= 3 + 2 + 3 + 20).toBe(true)
   await done(r)
 }
@@ -227,6 +231,92 @@ async function refusesKeysThatAreNotLogs(): Promise<void> throws Error {
   expect(partsOfKey(key).length).toBe(2)
   expect(partsOfKey("a/b/c").length).toBe(0)
   await done(r)
+}
+
+async function modes(r: Rig, key: string): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.modes", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+async function keepsTheModesOfTheLastFewLogsAndOnlyWhileTheFileIsTheSame(): Promise<void> throws Error {
+  const r = await rig()
+  // The modes of a log that was not read are not known; of one that was, they are, until the file changes.
+  const first = await put(r, "uid-a", 1, flight(10))
+  expect(codeOf(await modes(r, first))).toBe("NOT_READ")
+  await read(r, first)
+  expect(codeOf(await modes(r, first))).toBe("")
+  await writeBytes(join(r.root, "logs", "uid-a", first.slice(6, first.length)), flight(11))
+  expect(codeOf(await modes(r, first))).toBe("NOT_READ")
+  expect(codeOf(await modes(r, "uid-a/00000009-00000009.BIN"))).toBe("NOT_FOUND")
+  // Only the last 16 are kept: after 16 more, the first is read again if it is wanted. The summaries are kept longer.
+  await read(r, first)
+  for (let i = 2; i < 18; i++) {
+    await read(r, await put(r, "uid-a", i, flight(3)))
+  }
+  expect(codeOf(await modes(r, first))).toBe("NOT_READ")
+  expect(codeOf(await modes(r, "uid-a/" + copyName(17, crc32Of(flight(3)))))).toBe("")
+  let summaries = 0
+  for (const l of (await list(r)).logs) {
+    summaries += if (l.summary == null) 0 else 1
+  }
+  expect(summaries).toBe(17)
+  await done(r)
+}
+
+function dropsTheOldestPastTheCap(): void {
+  const kept = new Map<string, int>()
+  keepNewest(kept, "a", 1, 2)
+  keepNewest(kept, "b", 2, 2)
+  keepNewest(kept, "a", 3, 2)
+  keepNewest(kept, "c", 4, 2)
+  // "b" was the oldest when "c" came.
+  expect(kept.size).toBe(2)
+  expect(kept.has("b")).toBe(false)
+  expect(kept.get("a") ?? -1).toBe(3)
+  expect(kept.get("c") ?? -1).toBe(4)
+}
+
+function toleratesATimeBefore1970(): void {
+  // A file whose clock was wrong: the list still works, and its time is 0, not a stop.
+  const log = describeCopy("uid-a", copyName(1, 5), 100, -86400000)
+  expect(log.modified as int).toBe(0)
+  expect(describeCopy("uid-a", copyName(1, 5), 100, 5).modified as int).toBe(5)
+  expect(describeCopy("uid-a", copyName(1, 5), 100, 9000000000000000000).modified as int).toBe(9000000000000000000)
+}
+
+async function readsALogCutInTheMiddleOfAMessage(): Promise<void> throws Error {
+  const r = await rig()
+  const whole = flight(50)
+  // Cut 20 bytes before the end: the last ATT (3 + 8 + 4 + 4 = 19 bytes) is gone, and part of the one before it.
+  const cut = whole.slice(0, whole.length - 20)
+  const key = await put(r, "uid-a", 1, cut)
+  const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
+  // What came is read; the end that is not a message is said to be damage; the bytes are the ones in the name.
+  expect(s.messages).toBe(3 + 2 + 3 + 48)
+  expect(s.problems > 0).toBe(true)
+  expect(s.verified).toBe(true)
+  expect(s.modeChanges).toBe(3)
+  await done(r)
+}
+
+async function doesNotVerifyALogThatChangesWhileItIsRead(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, bigLog())
+  const asked = await r.f.send("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  await r.f.event("logs.local.progress")
+  // The file grows by a few bytes after the first chunk was read.
+  await writeBytes(join(r.root, "logs", "uid-a", key.slice(6, key.length)), content(10), true)
+  const s = decodeLocalLogSummary((await r.f.reply(asked)).p ?? Cbor.Null, "$")
+  expect(s.verified).toBe(false)
+  await done(r)
+}
+
+/// `n` bytes that are the same on every run.
+function content(n: int): Uint8Array {
+  const out = new Uint8Array(n)
+  for (let i = 0; i < n; i++) {
+    out.set(i, (i * 31 + 7) & 0xFF)
+  }
+  out
 }
 
 /// A log of about 3.5 MB: three chunks are read.
@@ -266,5 +356,10 @@ describe("the logs on this computer", () => {
   it("reads a damaged log and counts the damage", readsADamagedLogAndCountsTheDamage)
   it("reads an empty file: no times, no firmware, nothing made up", readsAnEmptyFileAndOneWithoutTimes)
   it("refuses keys that are not a copy in a vehicle's folder", refusesKeysThatAreNotLogs)
+  it("keeps the modes of the last few logs, and only while the file is the same", keepsTheModesOfTheLastFewLogsAndOnlyWhileTheFileIsTheSame)
+  it("drops the oldest entry past the cap", dropsTheOldestPastTheCap)
+  it("tolerates a file time before 1970", toleratesATimeBefore1970)
+  it("reads a log cut in the middle of a message", readsALogCutInTheMiddleOfAMessage)
+  it("does not verify a log that changes while it is read", doesNotVerifyALogThatChangesWhileItIsRead)
   it("stops a read on cancel, keeps nothing of it, and does only one read at a time", stopsOnCancelAndRefusesASecondRead)
 })

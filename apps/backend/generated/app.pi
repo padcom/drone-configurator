@@ -924,24 +924,6 @@ export function encodeLogsLocalProgress(v: LogsLocalProgress): Cbor {
   Cbor.Dict(m)
 }
 
-function decodeLocalLogSummaryModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
-  const out: ModeChange[] = []
-  let i = 0
-  for (const e of items(v, path)) {
-    out.push(decodeModeChange(e, `${path}[${i}]`))
-    i += 1
-  }
-  out
-}
-
-function encodeLocalLogSummaryModesList(v: ModeChange[]): Cbor {
-  const out: Cbor[] = []
-  for (const e of v) {
-    out.push(encodeModeChange(e))
-  }
-  Cbor.List(out)
-}
-
 export struct LocalLogSummary {
   verified: bool
   messages: u32
@@ -949,12 +931,11 @@ export struct LocalLogSummary {
   firstUs?: u64
   lastUs?: u64
   firmware?: string
-  modes: ModeChange[]
-  modesCut: bool
+  modeChanges: u32
 }
 
 export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary throws InvalidPayload {
-  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modes", "modesCut"])
+  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modeChanges"])
   const cbor3 = m.get("firstUs")
   let opt3: u64? = null
   if (cbor3 != null) {
@@ -977,8 +958,7 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
     firstUs: opt3,
     lastUs: opt4,
     firmware: opt5,
-    modes: decodeLocalLogSummaryModesList(required(m, "modes", path), `${path}.modes`),
-    modesCut: boolean(required(m, "modesCut", path), `${path}.modesCut`),
+    modeChanges: (uint(required(m, "modeChanges", path), `${path}.modeChanges`, 4294967295) as u32),
   }
 }
 
@@ -999,8 +979,45 @@ export function encodeLocalLogSummary(v: LocalLogSummary): Cbor {
   if (opt5 != null) {
     m.set("firmware", Cbor.Text(opt5))
   }
-  m.set("modes", encodeLocalLogSummaryModesList(v.modes))
-  m.set("modesCut", Cbor.Bool(v.modesCut))
+  m.set("modeChanges", Cbor.Uint(v.modeChanges as u64))
+  Cbor.Dict(m)
+}
+
+function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
+  const out: ModeChange[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeModeChange(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogModesModesList(v: ModeChange[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeModeChange(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogModes {
+  modes: ModeChange[]
+  cut: bool
+}
+
+export function decodeLocalLogModes(v: Cbor, path: string): LocalLogModes throws InvalidPayload {
+  const m = members(v, path, ["modes", "cut"])
+  LocalLogModes {
+    modes: decodeLocalLogModesModesList(required(m, "modes", path), `${path}.modes`),
+    cut: boolean(required(m, "cut", path), `${path}.cut`),
+  }
+}
+
+export function encodeLocalLogModes(v: LocalLogModes): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("modes", encodeLocalLogModesModesList(v.modes))
+  m.set("cut", Cbor.Bool(v.cut))
   Cbor.Dict(m)
 }
 
