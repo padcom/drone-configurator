@@ -2,15 +2,19 @@
 // telling the dashboard about a parameter the vehicle announces on its own.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import {
+  FtpError,
   MavLinkConnection,
   MavLinkError,
   MavParamType,
+  MavProtocolCapability,
+  ParamDownload,
+  ParamDownloadOptions,
+  ParamDownloadResult,
   ParamError,
-  ParamList as ParamListOp,
   ParamWrite as ParamWriteOp,
   Received,
+  Target,
   TypedParamValue,
-  ParamListResult,
   ParamValue,
   decodeParam,
 } from "padcom/pico-mavlink"
@@ -45,18 +49,23 @@ export function register(c: Communicator): void {
 /// At most this often (ms) a `params.progress` is sent while a download runs.
 const PROGRESS_EVERY_MS: int = 100
 
+/// The vehicle's reckoning of the size of its parameter file: this many bytes a parameter (so progress by file is in parameters).
+const BYTES_A_PARAM: int = 12
+
 /// Parameters the vehicle announces on its own (`params.changed`).
 class Announced implements SessionPart {
   public communicator: Communicator? = null
   public conn: MavLinkConnection? = null
   public listener: int = 0
-  /// While a list download runs, PARAM_VALUEs are its answers, not news.
-  public listing: bool = false
+  /// What a PARAM_VALUE of the vehicle is while a download runs: `news` (no download, or the file transfer is not under way: it
+  /// is announced), `file` (the file transfer is under way: a PARAM_VALUE is news from another ground station, kept to be
+  /// applied over the downloaded list), `list` (the list is being downloaded: a PARAM_VALUE is its answer).
+  public mode: string = "news"
+  /// Announcements that came during the file transfer, by name: applied over the list when it is in.
+  public pending: Map<string, Param> = new Map<string, Param>()
   /// The download that runs, so that `params.cancel` can stop it (and nothing else: the session goes on).
   public download: AbortController? = null
-  /// The indexes that have arrived in this download, how many the vehicle says there are, and when progress was last sent.
-  public got: Map<int, bool> = new Map<int, bool>()
-  public total: int = 0
+  /// When progress was last sent (ms since 1970).
   public progressAt: int = 0
   /// The session signal that is followed (once for each session, not once for each download).
   public followed: AbortSignal? = null
@@ -78,21 +87,39 @@ class Announced implements SessionPart {
     }
   }
 
-  /// A PARAM_VALUE that answers the download: progress, at most `PROGRESS_EVERY_MS` apart (the first at once, the last when
-  /// all have arrived).
-  public listed(m: ParamValue): void {
-    got.set(m.paramIndex as int, true)
-    total = m.paramCount as int
-    if (total <= 0) {
+  /// How far the download is, in parameters: `bytes` (the file, `total` the vehicle's estimate of 12 bytes a parameter, clamped:
+  /// the file can be bigger than it said) or `parameters` (the list). Sent at most `PROGRESS_EVERY_MS` apart (the first at once,
+  /// the last when all have arrived). The first report of the list means the file transfer was given up.
+  public progressed(received: int, total: int, unit: string): void {
+    const fromFile = unit == "bytes"
+    if (!fromFile && mode == "file") {
+      mode = "list"
+      pending.clear()
+    }
+    const all = if (fromFile) total / BYTES_A_PARAM else total
+    const done = if (fromFile) received / BYTES_A_PARAM else received
+    const c = communicator
+    const now = Date.now() as int
+    if (c == null || all <= 0 || (progressAt != 0 && done < all && now - progressAt < PROGRESS_EVERY_MS)) {
       return
     }
-    const now = Date.now() as int
-    const c = communicator
-    if (c != null && (got.size == 1 || got.size >= total || now - progressAt >= PROGRESS_EVERY_MS)) {
-      progressAt = now
-      const received = if (got.size > total) total else got.size
-      c!.emit("params.progress", encodeParamsProgress(ParamsProgress { received: received as u16, total: total as u16, source: ParamsProgressSource.List }))
+    progressAt = now
+    const shown = if (done > all) all else done
+    const source = if (fromFile) ParamsProgressSource.Ftp else ParamsProgressSource.List
+    c!.emit("params.progress", encodeParamsProgress(ParamsProgress { received: shown as u16, total: all as u16, source: source }))
+  }
+
+  /// Puts what other ground stations announced during the file transfer over the list that came (their values are newer).
+  public applyPending(params: Param[]): void {
+    for (const p of params) {
+      const news = pending.get(p.id)
+      if (news != null) {
+        p.value = news!.value
+        p.kind = news!.kind
+        p.type = news!.type
+      }
     }
+    pending.clear()
   }
 
   public attach(c: MavLinkConnection): void {
@@ -118,14 +145,17 @@ class Announced implements SessionPart {
     }
     const m = r.message
     if (m instanceof ParamValue) {
-      // A parameter the vehicle announced on its own: tell the dashboard.
-      const c = communicator
-      if (listing) {
-        listed(m)
+      // A parameter the vehicle announced on its own: tell the dashboard (or, during the list download, it is an answer of it).
+      if (mode == "list") {
         return
       }
+      const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
+      if (mode == "file") {
+        pending.set(p.id, p)
+        return
+      }
+      const c = communicator
       if (c != null) {
-        const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
         c!.emit("params.changed", encodeParam(p))
       }
     }
@@ -161,47 +191,97 @@ async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cb
   null
 }
 
-async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const method = if (payload == null) null else decodeParamListRequest(payload!, "$").method
-  if (method != null && method! == ParamListRequestMethod.Ftp) {
-    // Not here yet: a request for the file transfer only is an error, there is no fallback to it.
-    throw new CommunicatorError("UNSUPPORTED", "downloading the parameters by file transfer is not available yet")
+/// How a download is made, given what was asked for and what is known of the vehicle: the way for `ParamDownload` (`auto`, `list`
+/// or `ftp`), and why the file transfer is skipped when it is. A download that is not forced skips the file transfer when it
+/// failed before for a reason that will not change soon: `unsupported` (the vehicle has no such file: for as long as the
+/// connection lasts) or `timeout` (it did not answer: for the next download only, so that the one after tries again).
+class Plan {
+  public method: string = "auto"
+  public skipped: string = ""
+}
+
+function planFor(asked: ParamListRequestMethod?): Plan {
+  const plan = new Plan()
+  if (asked != null && asked! == ParamListRequestMethod.Ftp) {
+    plan.method = "ftp"
+  } else if (asked != null && asked! == ParamListRequestMethod.List) {
+    plan.method = "list"
+  } else if (link.ftpMemo != "") {
+    plan.method = "list"
+    plan.skipped = link.ftpMemo
+    if (link.ftpMemo == "timeout") {
+      link.ftpMemo = ""
+    }
   }
+  plan
+}
+
+/// Whether the vehicle's capabilities say it has file transfer.
+function vehicleHasFtp(): bool {
+  (link.capabilities & MavProtocolCapability.FTP) != 0
+}
+
+/// A download that is not forced remembers why the file transfer failed, if it was for a reason worth remembering.
+function remember(plan: Plan, source: string, fallback: string?): void {
+  if (plan.method == "auto" && source == "list" && fallback != null) {
+    if (fallback! == "unsupported" || fallback! == "timeout") {
+      link.ftpMemo = fallback!
+    }
+  }
+}
+
+/// The parameters as the contract has them: the way they came, why not the other way, how long it took.
+function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
+  const source = if (r.source == "ftp") ParamListSource.Ftp else ParamListSource.List
+  // A download that skipped the file transfer says why (what it remembered), not that the list was asked for.
+  const why = if (plan.skipped != "") plan.skipped else r.fallback ?? ""
+  ParamList {
+    params: r.params.map((p) => toParam(p.id, p.index, p.value)),
+    count: r.count as u16,
+    complete: r.complete,
+    missing: r.missing.map((i: int) => i as u16),
+    source: source,
+    fallback: if (why == "") null else why,
+    elapsedMs: r.elapsedMs as u32,
+  }
+}
+
+async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = if (payload == null) null else decodeParamListRequest(payload!, "$").method
   const conn = connectedLink()
   if (announced.download != null) {
     // One download at a time: a second would share its progress and take its place for `params.cancel`.
     throw new CommunicatorError("BUSY", "a parameter download is already running")
   }
-  let r: ParamListResult? = null
-  const started = Date.now() as int
+  const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
   announced.follow(link.session.signal)
   announced.download = own
-  announced.got.clear()
-  announced.total = 0
   announced.progressAt = 0
-  announced.listing = true
+  announced.pending.clear()
+  announced.mode = if (plan.method != "list" && vehicleHasFtp()) "file" else "list"
   link.listing = true
+  let out: ParamList
   try {
-    r = await new ParamListOp(conn, { system: link.sysid, component: link.compid }, link.encoding, { signal: own.signal }).run()
+    const options: ParamDownloadOptions = { method: plan.method, capabilities: link.capabilities, signal: own.signal }
+    const target: Target = { system: link.sysid, component: link.compid }
+    const r = await new ParamDownload(conn, target, link.encoding, options).run((received: int, total: int, unit: string) => announced.progressed(received, total, unit))
+    out = listOf(r, plan)
+    announced.applyPending(out.params)
+    remember(plan, r.source, r.fallback)
   } catch (e: MavLinkError) {
+    throw new CommunicatorError(e.code, e.message)
+  } catch (e: FtpError) {
+    // A forced file transfer that failed: its own error, no fallback.
     throw new CommunicatorError(e.code, e.message)
   } finally {
     // Whatever ends the download (an error of any kind included): a flag left set would hold off the reboot, and the
     // announcements, until the session ends.
-    announced.listing = false
+    announced.mode = "news"
+    announced.pending.clear()
     link.listing = false
     announced.download = null
-  }
-  const list = r!
-  const out = ParamList {
-    params: list.params.map((p) => toParam(p.id, p.index, p.value)),
-    count: list.count as u16,
-    complete: list.complete,
-    missing: list.missing.map((i: int) => i as u16),
-    source: ParamListSource.List,
-    elapsedMs: ((Date.now() as int) - started) as u32,
   }
   encodeParamList(out)
 }

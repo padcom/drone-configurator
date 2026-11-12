@@ -18,6 +18,11 @@ export function simulatorForTests(): SimulatedAutopilot? {
   link.sim
 }
 
+/// For tests: the simulated vehicles of the connections that follow have file transfer or have not.
+export function setSimulatorFtpForTests(on: bool): void {
+  link.simulatorFtp = on
+}
+
 /// For tests: a shorter wait for the autopilot's heartbeat than 3 s.
 export function setHeartbeatWait(ms: int): void {
   link.heartbeatWaitMs = ms

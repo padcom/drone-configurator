@@ -29,6 +29,8 @@ export interface SessionPart {
 class Link {
   public conn: MavLinkConnection? = null
   public sim: SimulatedAutopilot? = null
+  /// Whether the simulated vehicle of a "simulator" connection has file transfer (a test can turn it off).
+  public simulatorFtp: bool = true
   public beats: Beats? = null
   public discovery: VehicleDiscovery? = null
   public state: Connection = Connection { state: ConnectionState.Disconnected }
@@ -38,6 +40,12 @@ class Link {
   public compid: int = 0
   public autopilot: int = 0
   public encoding: ParamEncoding = ParamEncoding.CCast
+  /// The low 32 bits of the autopilot's capabilities (AUTOPILOT_VERSION): 0 when it did not say (then it is taken to have no FTP).
+  public capabilities: int = 0
+  /// Why file transfer was given up for the downloads that follow, for this vehicle on this connection: "" (not given up),
+  /// "unsupported" (the vehicle has no parameter file: kept until the connection ends) or "timeout" (it did not answer: kept for
+  /// the next download only, so the one after tries again). See params.pi.
+  public ftpMemo: string = ""
   public watchers: Sink[] = []
   /// Whether the autopilot's last heartbeat said it is armed, and when it was received (ms since 1970; 0 = none yet).
   /// Set by telemetry.pi; `armedState()` says whether it can be trusted.
@@ -113,6 +121,8 @@ class Link {
     heartbeatAt = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
+    capabilities = 0
+    ftpMemo = ""
     rebootAt = 0
     rebootUnsure = false
     for (const p of parts.values()) {
@@ -177,6 +187,12 @@ export function armedState(): bool? {
 export function encodingFor(v: Vehicle, version: AutopilotVersion?): ParamEncoding {
   const guess = if (v.autopilot == MavAutopilot.PX4) ParamEncoding.Bytewise else ParamEncoding.CCast
   if (version == null) guess else encodingOf(version!.capabilities) ?? guess
+}
+
+/// The low 32 bits of the capabilities the autopilot gave (the u64 does not fit an int: its upper bits are not asked about, and
+/// must not panic the conversion), or 0 when it gave none.
+export function capabilitiesOf(version: AutopilotVersion?): int {
+  if (version == null) 0 else ((version!.capabilities & (0xFFFFFFFF as u64)) as int)
 }
 
 /// The vehicle as the dashboard names it: the protocol's names for its type and autopilot.
