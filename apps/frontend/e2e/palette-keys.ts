@@ -70,25 +70,65 @@ async function opensWithin(app: E2eApp, ms: number): Promise<boolean> {
 }
 
 /**
- * Opens the palette with Ctrl+P. A press that does not open it within two seconds is made again (the key can go out before the
- * window has the focus, or while something else has it), up to three presses; then it fails, saying what the page was doing.
+ * How a press went: the palette opened in time, opened late (after the wait, but before it was looked at again), or is not open.
+ *
+ * @param app the running app
+ * @returns what happened
+ */
+async function outcome(app: E2eApp): Promise<'opened' | 'late' | 'closed'> {
+  if (await opensWithin(app, OPEN_WAIT_MS)) {
+    return 'opened'
+  }
+
+  return await app.evaluate<boolean>(OPEN) ? 'late' : 'closed'
+}
+
+/**
+ * Says in the run's log that a press went otherwise than the first one that opened the palette at once, so that it is seen.
+ *
+ * @param result how the press went
+ * @param number which press it was
+ */
+function say(result: 'opened' | 'late', number: number): void {
+  if (result === 'late') {
+    console.warn(`palette-keys: the palette opened late, more than ${OPEN_WAIT_MS} ms after press ${number}`)
+  } else if (number > 1) {
+    console.warn(`palette-keys: the palette opened on press ${number} of ${PRESSES}: the earlier one(s) were lost`)
+  }
+}
+
+/**
+ * Presses Ctrl+P, number `number` of at most three. Ctrl+P TOGGLES the palette, so a press is made again only when the palette is
+ * still not open right before it (a palette that opened late must not be closed by the next press); a palette that opened on a
+ * press after the first, or late, is said in the run's log, so that it is seen.
+ *
+ * @param app the running app
+ * @param number which press this is, from 1
+ * @throws {Error} when no press opened the palette
+ */
+async function press(app: E2eApp, number: number): Promise<void> {
+  await chord(app, 'p', CTRL)
+  const result = await outcome(app)
+
+  if (result !== 'closed') {
+    say(result, number)
+  } else if (number < PRESSES) {
+    await press(app, number + 1)
+  } else {
+    const situation = await app.evaluate<string>(SITUATION).catch(() => '(unreadable)')
+    throw new Error(`Ctrl+P did not open the palette in ${PRESSES} presses, ${OPEN_WAIT_MS} ms each. The page: ${situation}`)
+  }
+}
+
+/**
+ * Opens the palette with Ctrl+P, once the page is ready. A press that does not open it within two seconds is made again (the
+ * key can go out before the window has the focus, or while something else has it), up to three presses; then it fails, saying
+ * what the page was doing.
  *
  * @param app the running app
  * @throws {Error} when the palette did not open
  */
 export async function openPalette(app: E2eApp): Promise<void> {
   await pageIsReady(app)
-
-  for (let press = 1; press <= PRESSES; press++) {
-    // One press after the other: a second is only made when the first did not open it.
-    // eslint-disable-next-line no-await-in-loop
-    await chord(app, 'p', CTRL)
-
-    // eslint-disable-next-line no-await-in-loop
-    if (await opensWithin(app, OPEN_WAIT_MS)) {
-      return
-    }
-  }
-  const situation = await app.evaluate<string>(SITUATION).catch(() => '(unreadable)')
-  throw new Error(`Ctrl+P did not open the palette in ${PRESSES} presses. The page: ${situation}`)
+  await press(app, 1)
 }
