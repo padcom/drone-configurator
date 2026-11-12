@@ -13,7 +13,9 @@
       :height="rows.length"
       :aria-label="t('logs.spectrum.spectrogramLabel', { rows: rows.length, hz: number(nyquist, 0) })"
     />
-    <p class="spectrum-axis-label muted">{{ t('logs.spectrum.spectrogramAxes', { hz: number(nyquist, 0), from: clock(first), to: clock(last) }) }}</p>
+    <p class="spectrum-axis-label muted">
+      {{ t('logs.spectrum.spectrogramAxes', { hz: number(nyquist, 0), from: clock(first), to: clock(last) }) }}
+    </p>
   </figure>
 </template>
 
@@ -58,9 +60,18 @@ function clock(seconds: number): string {
   return clockOf(seconds)
 }
 
-/** Draws the cells (not where there is no canvas: a test environment has none). */
+/**
+ * The context to draw in, if there is one (a test environment has no canvas).
+ *
+ * @returns the context, or null
+ */
+function contextOf(): CanvasRenderingContext2D | null {
+  return canvas.value?.getContext?.('2d') ?? null
+}
+
+/** Draws the cells (not where there is no canvas, or nothing to draw). */
 function draw(): void {
-  const context = canvas.value?.getContext?.('2d')
+  const context = contextOf()
   if (!context || props.rows.length === 0) {
     return
   }

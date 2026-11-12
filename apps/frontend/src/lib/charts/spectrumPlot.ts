@@ -30,6 +30,14 @@ export interface Tick {
   label: string
 }
 
+/** The amplitude of the bins of one axis. */
+export interface SpectrumLine {
+  /** The axis. */
+  name: string
+  /** The amplitude of each bin. */
+  amplitude: readonly number[]
+}
+
 /** What the chart draws. */
 export interface Plot {
   /** The lines, one for each axis. */
@@ -50,14 +58,14 @@ export interface Plot {
  * @returns the step
  */
 export function niceStep(span: number, count: number): number {
-  if (!(span > 0) || count < 1) {
+  const raw = span / count
+  if (!(raw > 0) || !Number.isFinite(raw)) {
     return 1
   }
-  const raw = span / count
   const power = 10 ** Math.floor(Math.log10(raw))
   const unit = raw / power
 
-  return power * (unit >= 5 ? 5 : unit >= 2 ? 2 : 1)
+  return power * ([5, 2, 1].find(multiple => unit >= multiple) ?? 1)
 }
 
 /**
@@ -106,7 +114,7 @@ function pathOf(amplitude: readonly number[], top: number, box: Box): string {
  * @param format writes a number for a label
  * @returns what to draw; nothing when there is no amplitude above zero
  */
-export function plotOf(axes: readonly { name: string, amplitude: readonly number[] }[], nyquist: number, box: Box, format: (value: number) => string): Plot {
+export function plotOf(axes: readonly SpectrumLine[], nyquist: number, box: Box, format: (value: number) => string): Plot {
   const top = Math.max(0, ...axes.flatMap(axis => axis.amplitude.filter(Number.isFinite)))
   if (!(top > 0) || !(nyquist > 0)) {
     return { lines: [], top: 0, xTicks: [], yTicks: [] }

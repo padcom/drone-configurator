@@ -1,7 +1,7 @@
-// The raw IMU batches and the spectrum of the mock's logs (the contract's `logs.local.batches` and `.spectrum`): only the mock flight
-// with the track (log 3) has batches, a gyro and an accelerometer. The numbers are made up for the mock (a motor line at 150 Hz and
-// its second harmonic on a gentle floor); the rules are the backend's: no batch is an empty list, and a sensor with none is
-// `UNAVAILABLE`, never an empty spectrum.
+// The raw IMU batches and the spectrum of the mock's logs (the contract's `logs.local.batches` and `.spectrum`): only the mock
+// flight with the track (log 3) has batches, a gyro and an accelerometer. The numbers are made up for the mock (a motor line at
+// 150 Hz and its second harmonic on a gentle floor); the rules are the backend's: no batch is an empty list, and a sensor with
+// none is `UNAVAILABLE`, never an empty spectrum.
 import type { BatchSource, LocalLogBatches, LocalLogSpectrum, LogsLocalSpectrumAsk } from '@/generated/app'
 
 /** The sample rate of the mock batches, and the FFT size. */
@@ -53,6 +53,21 @@ function axisOf(scale: number): number[] {
   return Array.from({ length: BINS }, (_, bin) => 0.02 + scale * (line(bin, 150, 2) + line(bin, 300, 0.5)))
 }
 
+/** The columns of a row of the spectrogram. */
+const COLUMNS = 256
+
+/**
+ * The rows of the spectrogram: 60 of them two seconds apart, each with the same lines.
+ *
+ * @returns the rows
+ */
+function rowsOf(): LocalLogSpectrum['rows'] {
+  return Array.from({ length: 60 }, (_, row) => ({
+    timeUs: 2_000_000 + row * 2_000_000,
+    values: Array.from({ length: COLUMNS }, (__, column) => 0.02 + line(column * 2, 150, 2) + line(column * 2, 300, 0.5)),
+  }))
+}
+
 /**
  * The spectrum of a sensor of the mock flight, or null for a sensor the log has no batches of.
  *
@@ -64,11 +79,6 @@ export function spectrumOf(ask: LogsLocalSpectrumAsk): LocalLogSpectrum | null {
   if (source === undefined) {
     return null
   }
-  const columns = 256
-  const rows = Array.from({ length: 60 }, (_, row) => ({
-    timeUs: 2_000_000 + row * 2_000_000,
-    values: Array.from({ length: columns }, (__, column) => 0.02 + line(column * 2, 150, 2) + line(column * 2, 300, 0.5)),
-  }))
 
   return {
     sensor: source.sensor,
@@ -80,9 +90,9 @@ export function spectrumOf(ask: LogsLocalSpectrumAsk): LocalLogSpectrum | null {
     batches: source.batches,
     skipped: 0,
     axes: [{ name: 'x', amplitude: axisOf(1) }, { name: 'y', amplitude: axisOf(0.25) }, { name: 'z', amplitude: axisOf(0.1) }],
-    columns,
-    columnHz: (RESOLUTION * BINS) / columns,
-    rows,
+    columns: COLUMNS,
+    columnHz: (RESOLUTION * BINS) / COLUMNS,
+    rows: rowsOf(),
     silent: false,
     peak: {
       hz: 150,

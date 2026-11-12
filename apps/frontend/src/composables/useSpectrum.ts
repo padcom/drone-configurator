@@ -1,4 +1,5 @@
-// The Spectrum screen's model: a log on this computer is read, the raw IMU batches it holds are listed, and the amplitude spectrum
+// The Spectrum screen's model: a log on this computer is read, the raw IMU batches it holds are listed, and the amplitude
+// spectrum
 // of one sensor is asked for. The backend (`logs.local.read`, `.batches`, `.spectrum`) does one pass over the file for each, so
 // they are asked one after the other, with progress and a way to stop. A log with no batch says so (the page then says how to
 // capture one), and a spectrum is only ever what the log holds: an error or an empty answer is not drawn as a measurement.

@@ -323,7 +323,7 @@
           "enable": "il notch deve essere attivo",
           "peak": "il picco è a {hz} Hz",
           "bandwidth": "metà della frequenza, come suggerisce ArduPilot",
-          "harmonics": "la frequenza base e le {count} armoniche trovate"
+          "harmonics": "la frequenza base e {count} armonica trovata | la frequenza base e {count} armoniche trovate"
         }
       }
     },

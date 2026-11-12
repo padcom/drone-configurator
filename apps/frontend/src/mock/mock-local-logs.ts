@@ -5,7 +5,8 @@
 // sample is left out, and a field the log lacks is not found.
 import type { Envelope } from '@pico-desktop/protocol'
 import type {
-  LocalLog, LocalLogSummary, LogsLocalSeries, LogsLocalSpectrumAsk, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint, SeriesResult,
+  LocalLog, LocalLogSummary, LogsLocalSeries, LogsLocalSpectrumAsk, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint,
+  SeriesResult,
 } from '@/generated/app'
 import { type ExportAsk, MOCK_MESSAGES, MockSaved, atAnswer } from './mock-local-browser'
 import { batchesOf, spectrumOf } from './mock-local-spectrum'

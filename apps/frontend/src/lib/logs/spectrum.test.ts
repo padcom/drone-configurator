@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 import type { SpectrumPeak } from '@/generated/app'
 import { familyOfLog, harmonicsMask, notchBands, sameKind, shadeOf, suggestNotch } from './spectrum'
 
-const peak = (hz: number, harmonics: { n: number, hz: number, amplitude: number }[] = []): SpectrumPeak => ({ hz, amplitude: 2, axis: 'x', harmonics })
+/**
+ * A peak at a frequency, with harmonics.
+ *
+ * @param hz its frequency
+ * @param harmonics the harmonics found
+ * @returns the peak
+ */
+function peak(hz: number, harmonics: SpectrumPeak['harmonics'] = []): SpectrumPeak {
+  return { hz, amplitude: 2, axis: 'x', harmonics }
+}
 
 describe('the bands of a notch', () => {
   it('has a band for each harmonic that is set, n times the base frequency, as wide as n times the bandwidth', () => {

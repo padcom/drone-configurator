@@ -323,7 +323,7 @@
           "enable": "filtr musi być włączony",
           "peak": "szczyt jest przy {hz} Hz",
           "bandwidth": "połowa częstotliwości, jak proponuje ArduPilot",
-          "harmonics": "częstotliwość bazowa i znalezione harmoniczne: {count}"
+          "harmonics": "częstotliwość bazowa i {count} znaleziona harmoniczna | częstotliwość bazowa i {count} znalezione harmoniczne | częstotliwość bazowa i {count} znalezionych harmonicznych"
         }
       }
     },

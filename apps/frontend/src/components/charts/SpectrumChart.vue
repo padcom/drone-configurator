@@ -4,7 +4,9 @@
     <figcaption class="chart-head">
       <span class="chart-title">{{ title }}</span>
       <span class="chart-readout" aria-hidden="true">
-        <span v-for="axis in axes" :key="axis.name" class="spectrum-legend" :class="`tone-${TONES[axis.name]}`">{{ axis.name.toUpperCase() }}</span>
+        <span v-for="axis in axes" :key="axis.name" class="spectrum-legend" :class="`tone-${TONES[axis.name]}`">
+          {{ axis.name.toUpperCase() }}
+        </span>
       </span>
     </figcaption>
     <svg class="spectrum-svg" :viewBox="`0 0 ${WIDTH} ${HEIGHT}`" role="img" :aria-label="summary">
@@ -43,7 +45,8 @@
 </template>
 
 <script setup lang="ts">
-// The amplitude spectrum of the three axes of a sensor, against frequency: a line for each axis, the peak and its harmonics marked,
+// The amplitude spectrum of the three axes of a sensor, against frequency: a line for each axis, the peak and its harmonics
+// marked,
 // and the bands of the harmonic notch as entered (the preview) behind the lines. It is an image with a name and a summary (the
 // peak, in words); the peak and its harmonics are also in a table beside it, so that nothing is the picture alone.
 import { computed } from 'vue'
@@ -83,7 +86,7 @@ const TONES: Readonly<Record<string, string>> = { x: 'accent', y: 'ok', z: 'warn
 
 const bins = computed(() => props.axes[0]?.amplitude.length ?? 0)
 const nyquist = computed(() => props.resolution * Math.max(0, bins.value - 1))
-const plot = computed(() => plotOf(props.axes.map(axis => ({ name: axis.name, amplitude: axis.amplitude })), nyquist.value, BOX, v => number(v, v < 10 ? 1 : 0)))
+const plot = computed(() => plotOf(props.axes, nyquist.value, BOX, v => number(v, v < 10 ? 1 : 0)))
 
 /**
  * Where a frequency is in the box.
@@ -95,7 +98,13 @@ function xOf(hz: number): number {
   return nyquist.value > 0 ? (Math.min(hz, nyquist.value) / nyquist.value) * BOX.width : 0
 }
 
-const bandRects = computed(() => props.bands.map(band => ({ n: band.n, from: Math.round(band.from), to: Math.round(band.to), x: xOf(band.from), width: Math.max(1, xOf(band.to) - xOf(band.from)) })))
+const bandRects = computed(() => props.bands.map(band => ({
+  n: band.n,
+  from: Math.round(band.from),
+  to: Math.round(band.to),
+  x: xOf(band.from),
+  width: Math.max(1, xOf(band.to) - xOf(band.from)),
+})))
 
 const marks = computed(() => {
   const { peak } = props
@@ -109,7 +118,11 @@ const marks = computed(() => {
   ]
 })
 
-const summary = computed(() => (props.peak === undefined
-  ? t('logs.spectrum.noPeak')
-  : t('logs.spectrum.peakSummary', { hz: number(props.peak.hz, 0), amplitude: number(props.peak.amplitude, 2), unit: props.unit })))
+const summary = computed(() => {
+  const { peak, unit } = props
+
+  return peak === undefined
+    ? t('logs.spectrum.noPeak')
+    : t('logs.spectrum.peakSummary', { hz: number(peak.hz, 0), amplitude: number(peak.amplitude, 2), unit })
+})
 </script>

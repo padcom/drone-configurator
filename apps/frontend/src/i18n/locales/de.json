@@ -323,7 +323,7 @@
           "enable": "der Notch muss eingeschaltet sein",
           "peak": "das Maximum liegt bei {hz} Hz",
           "bandwidth": "die Hälfte der Frequenz, wie ArduPilot vorschlägt",
-          "harmonics": "die Grundfrequenz und die {count} gefundenen Oberwellen"
+          "harmonics": "die Grundfrequenz und {count} gefundene Oberwelle | die Grundfrequenz und {count} gefundene Oberwellen"
         }
       }
     },

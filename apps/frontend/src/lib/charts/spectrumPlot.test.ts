@@ -25,7 +25,7 @@ describe('the plot of a spectrum', () => {
 
     expect(plot.top).toBe(2)
     expect(plot.lines.map(line => line.d)).toEqual(['M0.0,50.0L50.0,0.0L100.0,25.0', 'M0.0,50.0L50.0,25.0L100.0,50.0'])
-    expect(plot.xTicks.map(tick => tick.label)).toEqual(['0', '50', '100', '150', '200', '250', '300', '350', '400', '450', '500'])
+    expect(plot.xTicks.map(tick => tick.label).join(' ')).toBe('0 50 100 150 200 250 300 350 400 450 500')
     expect(plot.xTicks[10]?.at).toBe(100)
     expect(plot.yTicks[0]).toEqual({ at: 50, label: '0' })
   })

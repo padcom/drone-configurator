@@ -93,7 +93,8 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum' | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum'
+  | 'staged'
 >
 
 /**
@@ -299,6 +300,16 @@ function listen(client: BackendClient, vehicle: Vehicle, parameters: ParamsModel
 }
 
 /**
+ * The models of the logs on this computer: the Flights view, the message browser and the Spectrum.
+ *
+ * @param client the link to the backend
+ * @returns the three models
+ */
+function localLogModels(client: BackendClient): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum'> {
+  return { flights: useFlights({ client }), browser: useLogBrowser({ client }), spectrum: useSpectrum({ client }) }
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -330,10 +341,7 @@ export function createConfigurator(
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const flights = useFlights({ client })
-  const browser = useLogBrowser({ client })
-  const spectrum = useSpectrum({ client })
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, browser, spectrum, staged }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...localLogModels(client), staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

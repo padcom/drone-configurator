@@ -323,7 +323,7 @@
           "enable": "the notch has to be on",
           "peak": "the peak is at {hz} Hz",
           "bandwidth": "half of the frequency, as ArduPilot suggests",
-          "harmonics": "the base frequency and the {count} harmonics found"
+          "harmonics": "the base frequency and {count} harmonic found | the base frequency and {count} harmonics found"
         }
       }
     },

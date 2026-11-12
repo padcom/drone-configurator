@@ -27,7 +27,7 @@
     </table>
     <p class="muted">{{ t('logs.spectrum.suggest.note') }}</p>
     <p v-if="!connected" id="spectrum-suggest-offline" class="muted">{{ t('logs.spectrum.suggest.offline') }}</p>
-    <!-- Values from a log of another kind of vehicle (or of one that cannot be told) are added only by a second press that names both. -->
+    <!-- Values from a log of another kind of vehicle (or of one that cannot be told) need a second press that names both. -->
     <SecondPress
       v-else-if="!kind.same"
       id="spectrum-add"
@@ -41,9 +41,12 @@
 </template>
 
 <script setup lang="ts">
-// The values of the harmonic notch that the peak of a spectrum suggests, with where each comes from: the log, the sensor, the peak.
-// Nothing is written: "Add to the changes" puts them in the list of parameter changes (the review), where they are written after one
-// question, each read back. Values from a log of another kind of vehicle than the one connected (or of one that is not known) need a
+// The values of the harmonic notch that the peak of a spectrum suggests, with where each comes from: the log, the sensor, the
+// peak.
+// Nothing is written: "Add to the changes" puts them in the list of parameter changes (the review), where they are written
+// after one
+// question, each read back. Values from a log of another kind of vehicle than the one connected (or of one that is not known)
+// need a
 // second press that names both.
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -75,14 +78,33 @@ const kind = computed(() => sameKind(props.firmware, fields.connection.value.veh
 const suggestions = computed(() => suggestNotch(props.peak))
 const added = ref<number | null>(null)
 
+/**
+ * What the vehicle has for a parameter, written; a dash when it has no such parameter.
+ *
+ * @param id the parameter
+ * @returns the value
+ */
+function nowOf(id: string): string {
+  const value = parameters.params.value.find(param => param.id === id)?.value
+
+  return value === undefined ? '—' : showNumber(value)
+}
+
+/** The numbers the reasons are written with. */
+const whyValues = computed(() => ({ hz: number(props.peak.hz, 0), count: props.peak.harmonics.length }))
+
 const rows = computed(() => suggestions.value.map(s => ({
   id: s.id,
   to: s.to,
-  now: parameters.params.value.find(param => param.id === s.id)?.value,
-  because: t(`logs.spectrum.suggest.why.${s.because}`, { hz: number(props.peak.hz, 0), count: props.peak.harmonics.length }),
-})).map(row => ({ ...row, now: row.now === undefined ? '—' : showNumber(row.now) })))
+  now: nowOf(s.id),
+  because: t(`logs.spectrum.suggest.why.${s.because}`, whyValues.value, props.peak.harmonics.length),
+})))
 
-const addedText = computed(() => (added.value === null ? '' : t('logs.spectrum.suggest.added', { count: added.value }, added.value)))
+const addedText = computed(() => {
+  const count = added.value
+
+  return count === null ? '' : t('logs.spectrum.suggest.added', { count }, count)
+})
 
 /** Queues the values (nothing is written); a value the vehicle has already is not a change. */
 function add(): void {

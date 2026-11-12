@@ -1,4 +1,5 @@
-// "Spectrum": a log is chosen and its raw IMU batches are listed; the spectrum of a sensor is drawn with its peak and harmonics and a
+// "Spectrum": a log is chosen and its raw IMU batches are listed; the spectrum of a sensor is drawn with its peak and harmonics
+// and a
 // spectrogram; the notch as entered is drawn over it; the values the peak suggests are queued, never written, and flagged for a
 // vehicle of another kind; a log with no batch says how to capture one, and a spectrum of nothing is not drawn.
 import { afterEach, expect, it, vi } from 'vitest'
@@ -53,6 +54,7 @@ const NOTCH_PARAMS: Param[] = [
 async function screen(options: { type?: string } = {}) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, localLogsStepMs: 1 }))
   await flushPromises()
+
   if (options.type !== undefined) {
     const vehicle = { ...VEHICLE, type: options.type } as unknown as typeof VEHICLE
     feed(handle, { params: NOTCH_PARAMS, list: 'complete', connection: { state: 'connected', vehicle } })
@@ -76,9 +78,17 @@ async function open(wrapper: VueWrapper, key: string): Promise<void> {
   await flushPromises()
 }
 
-/** The text of each row of the peak table. */
-const peakRows = (wrapper: VueWrapper) =>
-  wrapper.findAll('.spectrum-peak tbody tr').map(row => row.findAll('th, td').map(cell => cell.text()).join(' '))
+/**
+ * The text of each row of the peak table.
+ *
+ * @param wrapper the screen
+ * @returns the cells of each row, joined
+ */
+function peakRows(wrapper: VueWrapper): string[] {
+  const rows = wrapper.findAll('.spectrum-peak tbody tr')
+
+  return rows.map(row => row.findAll('th, td').map(cell => cell.text()).join(' '))
+}
 
 it('says what is needed before a log is chosen', async () => {
   const { wrapper } = await screen()
@@ -99,7 +109,7 @@ it('draws the spectrum of the first gyro, with its peak and harmonic in a table,
   expect(wrapper.get('.spectrum-facts').text()).toContain('1,024 samples')
 })
 
-it('shows the other sensor of the log when it is chosen, in its unit, with no values suggested from an accelerometer', async () => {
+it('shows the other sensor in its unit, with no values suggested from an accelerometer', async () => {
   const { wrapper } = await screen()
   await open(wrapper, WITH_BATCHES)
   expect(wrapper.find('#spectrum-suggest').exists()).toBe(true)
@@ -127,8 +137,9 @@ it('says how to capture a batch for a log that has none, and draws nothing', asy
 it('does not draw a spectrum of nothing but zeros, and suggests nothing from it', async () => {
   const { wrapper, handle } = await screen({ type: 'QUADROTOR' })
   await open(wrapper, WITH_BATCHES)
-  const { peak: _peak, ...rest } = handle.spectrum.spectrum.value as NonNullable<typeof handle.spectrum.spectrum.value>
-  handle.spectrum.spectrum.value = { ...rest, silent: true }
+  const shown = handle.spectrum.spectrum.value as NonNullable<typeof handle.spectrum.spectrum.value>
+  // Every sample zero: no peak either.
+  handle.spectrum.spectrum.value = { ...shown, silent: true, peak: undefined }
   await flushPromises()
 
   expect(wrapper.get('#spectrum-silent').text()).toContain('zero')
@@ -168,7 +179,10 @@ it('lists the suggested values with where they come from, and queues them withou
   expect(wrapper.get('#spectrum-suggest').text()).toContain('From log 3, Gyro 0')
   expect(wrapper.findAll('.spectrum-suggestions tbody tr').map(row => row.findAll('th, td').slice(0, 3).map(cell => cell.text())))
     .toEqual([
-      ['INS_HNTCH_ENABLE', '0', '1'], ['INS_HNTCH_FREQ', '80', '150'], ['INS_HNTCH_BW', '40', '75'], ['INS_HNTCH_HMNCS', '1', '3'],
+      ['INS_HNTCH_ENABLE', '0', '1'],
+      ['INS_HNTCH_FREQ', '80', '150'],
+      ['INS_HNTCH_BW', '40', '75'],
+      ['INS_HNTCH_HMNCS', '1', '3'],
     ])
   expect(wrapper.find('#spectrum-different').exists()).toBe(false)
   expect(handle.staged.pending()).toEqual([])

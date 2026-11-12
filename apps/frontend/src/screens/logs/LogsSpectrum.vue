@@ -3,7 +3,12 @@
   <section class="logs-spectrum" :aria-labelledby="`${uid}-title`">
     <h3 :id="`${uid}-title`" class="logs-flights-title">{{ t('logs.spectrum.title') }}</h3>
     <p id="spectrum-status" class="visually-hidden" role="status">{{ statusText }}</p>
-    <Banner v-if="spectrum.error.value" id="spectrum-error" tone="error" :role="spectrum.phase.value === 'failed' ? 'presentation' : undefined">
+    <Banner
+      v-if="spectrum.error.value"
+      id="spectrum-error"
+      tone="error"
+      :role="spectrum.phase.value === 'failed' ? 'presentation' : undefined"
+    >
       {{ spectrum.error.value }}
     </Banner>
 
@@ -14,7 +19,12 @@
       </label>
       <label v-if="sourceOptions.length > 1" class="browser-pick">
         <span>{{ t('logs.spectrum.sensor') }}</span>
-        <Select id="spectrum-source" :model-value="spectrum.chosen.value ?? ''" :options="sourceOptions" @update:model-value="pick" />
+        <Select
+          id="spectrum-source"
+          :model-value="spectrum.chosen.value ?? ''"
+          :options="sourceOptions"
+          @update:model-value="pick"
+        />
       </label>
     </div>
 
@@ -23,7 +33,12 @@
       <span id="spectrum-busy" class="muted">{{ busyText }}</span>
       <Button id="spectrum-stop" @click="spectrum.cancel()">{{ t('logs.flights.stop') }}</Button>
     </div>
-    <EmptyState v-else-if="spectrum.phase.value === 'idle'" :title="t('logs.spectrum.idle.title')" :help="t('logs.spectrum.idle.help')" :level="4" />
+    <EmptyState
+      v-else-if="spectrum.phase.value === 'idle'"
+      :title="t('logs.spectrum.idle.title')"
+      :help="t('logs.spectrum.idle.help')"
+      :level="4"
+    />
     <EmptyState
       v-else-if="spectrum.phase.value === 'none'"
       id="spectrum-none"
@@ -86,10 +101,13 @@
 </template>
 
 <script setup lang="ts">
-// "Spectrum": the vibration of a flight by frequency, from the raw IMU batches a log holds (written when the batch sampling is on).
-// A log is chosen, read, and the spectrum of one sensor made by the backend (an FFT of each batch, averaged): a line for each axis,
+// "Spectrum": the vibration of a flight by frequency, from the raw IMU batches a log holds (written when the batch sampling is
+// on).
+// A log is chosen, read, and the spectrum of one sensor made by the backend (an FFT of each batch, averaged): a line for each
+// axis,
 // the peak and its harmonics, a spectrogram over the flight, and the harmonic notch as entered drawn over it. The values of the
-// notch that the peak suggests go to the list of parameter changes, never straight to the vehicle. A log with no batch says how to
+// notch that the peak suggests go to the list of parameter changes, never straight to the vehicle. A log with no batch says how
+// to
 // capture one; a spectrum of nothing but zeros says so and is not drawn.
 import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -119,13 +137,37 @@ const { number } = useFormat()
 const uid = useId()
 const { spectrum, flights, parameters } = useConfigurator()
 
+/**
+ * The words for a sensor.
+ *
+ * @param source the sensor
+ * @param source.sensor gyro or accel
+ * @param source.instance its instance
+ * @returns "Gyro 0"
+ */
+function sensorLabel(source: { sensor: string, instance: number }): string {
+  return t(`logs.spectrum.${source.sensor}`, { instance: source.instance })
+}
+
+/**
+ * A frequency and an amplitude, written.
+ *
+ * @param hz the frequency
+ * @param amplitude the amplitude
+ * @returns both as text
+ */
+function numbersOf(hz: number, amplitude: number): { hz: string, amplitude: string } {
+  return { hz: number(hz, 1), amplitude: number(amplitude, 3) }
+}
+
 const busy = computed(() => ['reading', 'listing', 'computing'].includes(spectrum.phase.value))
 const result = computed(() => spectrum.spectrum.value)
 const openId = computed(() => flights.logs.value.find(log => log.key === spectrum.open.value)?.id ?? 0)
 const firstUs = computed(() => asNumber(spectrum.summary.value?.firstUs ?? 0))
 const nyquist = computed(() => (result.value ? result.value.rateHz / 2 : 0))
-const sensorName = computed(() => (result.value ? t(`logs.spectrum.${result.value.sensor}`, { instance: result.value.instance }) : ''))
-const mixedRates = computed(() => spectrum.sources.value.find(source => idOf(source) === spectrum.chosen.value)?.mixedRates === true)
+const chosenSource = computed(() => spectrum.sources.value.find(source => idOf(source) === spectrum.chosen.value))
+const sensorName = computed(() => (chosenSource.value ? sensorLabel(chosenSource.value) : ''))
+const mixedRates = computed(() => chosenSource.value?.mixedRates === true)
 const fraction = computed(() => {
   const progress = spectrum.progress.value
 
@@ -140,7 +182,7 @@ const logOptions = computed(() => [
 const sourceOptions = computed(() => spectrum.sources.value.map(source => ({
   value: idOf(source),
   label: t('logs.spectrum.source', {
-    sensor: t(`logs.spectrum.${source.sensor}`, { instance: source.instance }),
+    sensor: sensorLabel(source),
     count: number(source.batches, 0),
     rate: number(source.rateHz, 0),
   }),
@@ -176,8 +218,8 @@ const peakRows = computed(() => {
   }
 
   return [
-    { n: 1, what: t('logs.spectrum.peakAt', { axis: peak.axis.toUpperCase() }), hz: number(peak.hz, 1), amplitude: number(peak.amplitude, 3) },
-    ...peak.harmonics.map(h => ({ n: h.n, what: t('logs.spectrum.harmonic', { n: h.n }), hz: number(h.hz, 1), amplitude: number(h.amplitude, 3) })),
+    { n: 1, what: t('logs.spectrum.peakAt', { axis: peak.axis.toUpperCase() }), ...numbersOf(peak.hz, peak.amplitude) },
+    ...peak.harmonics.map(h => ({ n: h.n, what: t('logs.spectrum.harmonic', { n: h.n }), ...numbersOf(h.hz, h.amplitude) })),
   ]
 })
 

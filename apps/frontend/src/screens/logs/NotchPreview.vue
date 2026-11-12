@@ -21,8 +21,10 @@
 </template>
 
 <script setup lang="ts">
-// The harmonic notch as the user enters it (starting from the vehicle's own values, else ArduPilot's defaults): the base frequency,
-// the bandwidth, the attenuation and the harmonics (a bitmask). Nothing is written: the values only decide the bands drawn over the
+// The harmonic notch as the user enters it (starting from the vehicle's own values, else ArduPilot's defaults): the base
+// frequency,
+// the bandwidth, the attenuation and the harmonics (a bitmask). Nothing is written: the values only decide the bands drawn over
+// the
 // spectrum, to see whether they cover the peak and its harmonics.
 import { useI18n } from 'vue-i18n'
 import TextInput from '@/components/ui/TextInput.vue'
