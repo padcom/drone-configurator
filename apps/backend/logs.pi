@@ -84,6 +84,8 @@ class Running implements SessionPart {
   public listener: int = 0
   /// The download that runs, so that `logs.cancel`, the vehicle arming and the session ending can stop it.
   public download: AbortController? = null
+  /// Whether the list of logs is being read (it resets the FTP sessions first, so nothing else may use them meanwhile).
+  public listing: bool = false
   /// Why it was stopped, when it was not by `logs.cancel`: "" or the words.
   public stoppedFor: string = ""
   /// The session signal that is followed (once for each session, not once for each download).
@@ -322,9 +324,24 @@ async function toLog(e: FtpEntry, copies: Copy[]): Promise<VehicleLog> {
 
 async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const conn = connectedLink()
-  if (running.download != null || link.listing) {
-    throw new CommunicatorError("BUSY", "a download is running")
+  if (running.download != null || running.listing || link.listing) {
+    throw new CommunicatorError("BUSY", "a download or a listing is running")
   }
+  // The listing begins with a reset of the FTP sessions (all of this system's and component's on the link), so it is marked as
+  // under way at once, before anything is awaited: a parameter download, a reboot, a download or another listing that comes now
+  // is refused (BUSY) instead of being cut by it or cutting it.
+  running.listing = true
+  link.logging = true
+  try {
+    return await listInFolder(conn)
+  } finally {
+    running.listing = false
+    link.logging = false
+  }
+}
+
+/// The listing, once it is claimed.
+async function listInFolder(conn: MavLinkConnection): Promise<Cbor?> throws Error {
   const dir = await folder()
   const entries = await entriesOf(clientFor(conn, link.session.signal))
   const copies = await copiesIn(dir)
@@ -345,7 +362,7 @@ function refuse(): void throws CommunicatorError {
   if (armed!) {
     throw new CommunicatorError("ARMED", "the vehicle is armed")
   }
-  if (running.download != null || link.listing || link.writes > 0 || rebootExpected()) {
+  if (running.download != null || running.listing || link.listing || link.writes > 0 || rebootExpected()) {
     throw new CommunicatorError("BUSY", "a download, a parameter operation or a reboot is running")
   }
 }

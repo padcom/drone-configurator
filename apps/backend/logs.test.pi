@@ -443,6 +443,24 @@ function namesACopyByItsLogAndCrc(): void {
   expect(copyNumbers("00000042-0000ABCD.BIN")[0]).toBe(-1)
 }
 
+async function holdsEverythingElseOffWhileTheListIsRead(): Promise<void> throws Error {
+  const r = await connected()
+  // The vehicle says nothing: the listing (which begins with a reset of the sessions) is under way for seconds.
+  simulatorForTests()!.ftpMode = "silent"
+  const listing = await r.f.send("logs.vehicle.list")
+  await delay(150)
+  expect(link.logging).toBe(true)
+  expect(codeOf(await r.f.call("params.list"))).toBe("BUSY")
+  expect(codeOf(await r.f.call("vehicle.reboot"))).toBe("BUSY")
+  expect(codeOf(await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("BUSY")
+  expect(codeOf(await r.f.call("logs.vehicle.list"))).toBe("BUSY")
+  // The session ending stops the listing; nothing stays set.
+  await r.f.call("vehicle.disconnect")
+  await r.f.reply(listing)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
 async function doesNotErase(): Promise<void> throws Error {
   const r = await connected()
   expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
@@ -475,5 +493,6 @@ describe("the logs service", () => {
   it("never replaces a copy: a log with the same number and another CRC gets a name of its own", neverReplacesACopyAndKnowsOneByItsCrc)
   it("gives a vehicle with no unique id a folder for each connection", givesAVehicleWithNoUniqueIdAFolderOfItsConnection)
   it("refuses a second download that comes before the first has begun", refusesTwoDownloadsAtTheSameTime)
+  it("holds off a parameter download, a reboot, a download and another listing while the list is read", holdsEverythingElseOffWhileTheListIsRead)
   it("does not erase yet", doesNotErase)
 })
