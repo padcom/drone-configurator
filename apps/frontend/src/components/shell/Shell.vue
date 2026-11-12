@@ -8,10 +8,11 @@
         <!-- A screen that was shown stays alive while another is, so what is typed or selected in it is still there when
              the user comes back. -->
         <!-- Keyed by the screen: the screens that are not built share one component, and a heading that changes in a
-             component that stays is not announced, while a new one is found. -->
+             component that stays is not announced, while a new one is found. A screen with parts is one screen whatever
+             part is shown (the key is its own address, the first of the route's records), so its tabs keep their state. -->
         <RouterView v-slot="{ Component, route }">
           <KeepAlive>
-            <component :is="Component" :key="String(route.name)" />
+            <component :is="Component" :key="String(route.matched[0]?.path ?? route.name)" />
           </KeepAlive>
         </RouterView>
       </main>

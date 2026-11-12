@@ -1,0 +1,130 @@
+// The Logs screen: a title, the tabs of its parts, and the part the address names; the parts are nested routes under the screen.
+import { afterEach, expect, it, vi } from 'vitest'
+import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
+import { createMemoryHistory } from 'vue-router'
+import Shell from '@/components/shell/Shell.vue'
+import { i18n, setLanguage } from '@/i18n/i18n'
+import { mockBackend } from '@/mock/mock-backend'
+import { createAppRouter } from '@/router'
+import { createConfigurator } from '@/composables/useConfigurator'
+import { useCommandPalette } from '@/composables/useCommandPalette'
+
+let mounted: VueWrapper | undefined
+
+/**
+ * The shell at `path`.
+ *
+ * @param path where the application is
+ * @returns the shell and its router
+ */
+async function shellAt(path: string) {
+  createConfigurator(mockBackend())
+  const router = createAppRouter(createMemoryHistory())
+  await router.push(path)
+  mounted = mount(Shell, { global: { plugins: [i18n, router] }, attachTo: document.body })
+  await router.isReady()
+  await flushPromises()
+
+  return { wrapper: mounted, router }
+}
+
+afterEach(() => {
+  setLanguage('en')
+  useCommandPalette().hide()
+  mounted?.unmount()
+  mounted = undefined
+  document.body.innerHTML = ''
+  vi.restoreAllMocks()
+})
+
+it('shows the title, the five tabs in the order of the design, and the first part, for the address of the screen', async () => {
+  const { wrapper, router } = await shellAt('/logs')
+
+  expect(router.currentRoute.value.path).toBe('/logs/flights')
+  expect(wrapper.get('.logs-title').text()).toBe('Logs')
+  expect(wrapper.findAll('.kit-section-nav .tab').map(tab => tab.text()))
+    .toEqual(['Flights', 'Replay', 'Spectrum', 'On the vehicle', 'Tools'])
+  expect(wrapper.get('.logs-section .title').text()).toBe('No flights yet')
+})
+
+it('names the navigation, marks the tab that is shown by aria-current, and the tabs are links to the parts', async () => {
+  const { wrapper } = await shellAt('/logs/vehicle')
+  const nav = wrapper.get('.kit-section-nav')
+
+  expect(nav.element.tagName).toBe('NAV')
+  expect(nav.attributes('aria-label')).toBe('Logs sections')
+  expect(nav.findAll('a[aria-current="page"]').map(tab => tab.text())).toEqual(['On the vehicle'])
+  expect(nav.findAll('a').map(tab => tab.attributes('href')))
+    .toEqual(['/logs/flights', '/logs/replay', '/logs/spectrum', '/logs/vehicle', '/logs/tools'])
+})
+
+it('says in each part what is missing and what it will take, never a blank panel', async () => {
+  const { wrapper, router } = await shellAt('/logs/flights')
+  const said: string[] = []
+
+  for (const part of ['flights', 'replay', 'spectrum', 'vehicle', 'tools']) {
+    // One part after the other: each is looked at while it is the one shown.
+    // eslint-disable-next-line no-await-in-loop
+    await router.push(`/logs/${part}`)
+    // eslint-disable-next-line no-await-in-loop
+    await flushPromises()
+    const visible = wrapper.findAll('.logs-section').filter(section => section.isVisible())
+    expect(visible, part).toHaveLength(1)
+    said.push(`${visible[0]?.get('.title').text()} / ${visible[0]?.get('.help').text()}`)
+  }
+
+  expect(said.map(line => line.length > 20).every(Boolean)).toBe(true)
+  expect(new Set(said).size).toBe(5)
+  expect(said[1]).toContain('Replay is not available yet')
+  expect(said[3]).toContain('Logs on the vehicle are not available yet')
+})
+
+it('keeps the screen alive when a part is chosen: the title is the same element, and each part keeps its own state', async () => {
+  const { wrapper, router } = await shellAt('/logs/flights')
+  const title = wrapper.get('.logs-title').element
+  const flights = wrapper.get('.logs-section').element
+
+  await router.push('/logs/tools')
+  await flushPromises()
+  expect(wrapper.get('.logs-title').element).toBe(title)
+  await router.push('/logs/flights')
+  await flushPromises()
+
+  expect(wrapper.get('.logs-title').element).toBe(title)
+  // The part that was left is the element that comes back, not a new one.
+  expect(wrapper.findAll('.logs-section').some(section => section.element === flights && section.isVisible())).toBe(true)
+})
+
+it('opens the part that was shown last for the address of the screen, and the first before any was', async () => {
+  const { router } = await shellAt('/flight')
+  await router.push('/logs')
+  expect(router.currentRoute.value.path).toBe('/logs/flights')
+  await router.push('/logs/spectrum')
+  await router.push('/parameters')
+  await router.push('/logs')
+
+  expect(router.currentRoute.value.path).toBe('/logs/spectrum')
+})
+
+it('marks the Logs button of the rail as current whichever part is shown', async () => {
+  const { wrapper } = await shellAt('/logs/replay')
+  const current = wrapper.findAll('nav a[data-command-button][aria-current="page"]')
+    .map(link => link.attributes('data-command-button'))
+
+  expect(current).toEqual(['go.logs'])
+})
+
+it('sends an address under Logs that is no part to the first screen of the application', async () => {
+  const { router } = await shellAt('/logs/nothing')
+
+  expect(router.currentRoute.value.path).toBe('/flight')
+})
+
+it('has the title and the words in another language, where the screen is: the tabs follow the language', async () => {
+  const { wrapper } = await shellAt('/logs/flights')
+  setLanguage('pl')
+  await flushPromises()
+
+  expect(wrapper.findAll('.kit-section-nav .tab').map(tab => tab.text()))
+    .toEqual(['Loty', 'Odtwarzanie', 'Widmo', 'W pojeździe', 'Narzędzia'])
+})

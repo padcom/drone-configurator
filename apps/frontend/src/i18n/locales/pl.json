@@ -35,6 +35,38 @@
       "link": "ŁĄCZE"
     }
   },
+  "logs": {
+    "sections": "Sekcje ekranu Logi",
+    "section": {
+      "flights": "Loty",
+      "replay": "Odtwarzanie",
+      "spectrum": "Widmo",
+      "vehicle": "W pojeździe",
+      "tools": "Narzędzia"
+    },
+    "empty": {
+      "flights": {
+        "title": "Brak lotów",
+        "help": "Tu pojawią się loty z pobranych logów. Czytanie logów nie jest jeszcze dostępne."
+      },
+      "replay": {
+        "title": "Odtwarzanie nie jest jeszcze dostępne",
+        "help": "Pojawi się razem z mapą: lot będzie narysowany jako trasa, którą można odtworzyć."
+      },
+      "spectrum": {
+        "title": "Widmo nie jest jeszcze dostępne",
+        "help": "Pokaże drgania w locie według częstotliwości, z logu, który je zapisał."
+      },
+      "vehicle": {
+        "title": "Logi w pojeździe nie są jeszcze dostępne",
+        "help": "Pojawią się tu do pobrania, a już pobrane będą oznaczone."
+      },
+      "tools": {
+        "title": "Narzędzia do logów nie są jeszcze dostępne",
+        "help": "Przeglądarka komunikatów, eksport i ustawienia zapisu pojawią się później."
+      }
+    }
+  },
   "screen": {
     "flight": "Dane lotu",
     "plan": "Planowanie",
@@ -563,6 +595,15 @@
       "parameters": "Przejdź do ekranu Parametry",
       "logs": "Przejdź do ekranu Logi",
       "settings": "Przejdź do ekranu Ustawienia"
+    },
+    "section": {
+      "logs": {
+        "flights": "Przejdź do ekranu Logi: Loty",
+        "replay": "Przejdź do ekranu Logi: Odtwarzanie",
+        "spectrum": "Przejdź do ekranu Logi: Widmo",
+        "vehicle": "Przejdź do ekranu Logi: W pojeździe",
+        "tools": "Przejdź do ekranu Logi: Narzędzia"
+      }
     },
     "show": {
       "label": "Pokaż paletę poleceń"

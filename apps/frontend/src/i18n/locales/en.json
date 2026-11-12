@@ -35,6 +35,38 @@
       "link": "LINK"
     }
   },
+  "logs": {
+    "sections": "Logs sections",
+    "section": {
+      "flights": "Flights",
+      "replay": "Replay",
+      "spectrum": "Spectrum",
+      "vehicle": "On the vehicle",
+      "tools": "Tools"
+    },
+    "empty": {
+      "flights": {
+        "title": "No flights yet",
+        "help": "Flights from downloaded logs will be listed here. Reading logs is not available yet."
+      },
+      "replay": {
+        "title": "Replay is not available yet",
+        "help": "It comes with the map: a flight is drawn as a path that can be played back."
+      },
+      "spectrum": {
+        "title": "Spectrum is not available yet",
+        "help": "It will show the vibration of a flight by frequency, from a log that recorded it."
+      },
+      "vehicle": {
+        "title": "Logs on the vehicle are not available yet",
+        "help": "They will be listed here to download, with the ones already downloaded marked."
+      },
+      "tools": {
+        "title": "Log tools are not available yet",
+        "help": "The message browser, export and logging setup come later."
+      }
+    }
+  },
   "screen": {
     "flight": "Flight data",
     "plan": "Plan",
@@ -563,6 +595,15 @@
       "parameters": "Switch to Parameters",
       "logs": "Switch to Logs",
       "settings": "Switch to Settings"
+    },
+    "section": {
+      "logs": {
+        "flights": "Switch to Logs: Flights",
+        "replay": "Switch to Logs: Replay",
+        "spectrum": "Switch to Logs: Spectrum",
+        "vehicle": "Switch to Logs: On the vehicle",
+        "tools": "Switch to Logs: Tools"
+      }
     },
     "show": {
       "label": "Show command palette"

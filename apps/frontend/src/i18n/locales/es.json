@@ -35,6 +35,38 @@
       "link": "ENLACE"
     }
   },
+  "logs": {
+    "sections": "Secciones de Registros",
+    "section": {
+      "flights": "Vuelos",
+      "replay": "Reproducción",
+      "spectrum": "Espectro",
+      "vehicle": "En el vehículo",
+      "tools": "Herramientas"
+    },
+    "empty": {
+      "flights": {
+        "title": "Aún no hay vuelos",
+        "help": "Aquí se listarán los vuelos de los registros descargados. Leer registros todavía no está disponible."
+      },
+      "replay": {
+        "title": "La reproducción todavía no está disponible",
+        "help": "Llega con el mapa: un vuelo se dibuja como una trayectoria que se puede reproducir."
+      },
+      "spectrum": {
+        "title": "El espectro todavía no está disponible",
+        "help": "Mostrará la vibración de un vuelo por frecuencia, a partir de un registro que la grabó."
+      },
+      "vehicle": {
+        "title": "Los registros del vehículo todavía no están disponibles",
+        "help": "Se listarán aquí para descargarlos, con los ya descargados marcados."
+      },
+      "tools": {
+        "title": "Las herramientas de registros todavía no están disponibles",
+        "help": "El explorador de mensajes, la exportación y la configuración del registro llegarán más tarde."
+      }
+    }
+  },
   "screen": {
     "flight": "Datos de vuelo",
     "plan": "Plan",
@@ -563,6 +595,15 @@
       "parameters": "Ir a Parámetros",
       "logs": "Ir a Registros",
       "settings": "Ir a Ajustes"
+    },
+    "section": {
+      "logs": {
+        "flights": "Ir a Registros: Vuelos",
+        "replay": "Ir a Registros: Reproducción",
+        "spectrum": "Ir a Registros: Espectro",
+        "vehicle": "Ir a Registros: En el vehículo",
+        "tools": "Ir a Registros: Herramientas"
+      }
     },
     "show": {
       "label": "Mostrar la paleta de comandos"

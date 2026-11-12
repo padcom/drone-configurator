@@ -35,6 +35,38 @@
       "link": "LINK"
     }
   },
+  "logs": {
+    "sections": "Sezioni dei Log",
+    "section": {
+      "flights": "Voli",
+      "replay": "Riproduzione",
+      "spectrum": "Spettro",
+      "vehicle": "Sul veicolo",
+      "tools": "Strumenti"
+    },
+    "empty": {
+      "flights": {
+        "title": "Ancora nessun volo",
+        "help": "Qui saranno elencati i voli dei log scaricati. La lettura dei log non è ancora disponibile."
+      },
+      "replay": {
+        "title": "La riproduzione non è ancora disponibile",
+        "help": "Arriva con la mappa: un volo è disegnato come un percorso che si può riprodurre."
+      },
+      "spectrum": {
+        "title": "Lo spettro non è ancora disponibile",
+        "help": "Mostrerà la vibrazione di un volo per frequenza, da un log che l'ha registrata."
+      },
+      "vehicle": {
+        "title": "I log sul veicolo non sono ancora disponibili",
+        "help": "Saranno elencati qui da scaricare, con quelli già scaricati segnati."
+      },
+      "tools": {
+        "title": "Gli strumenti per i log non sono ancora disponibili",
+        "help": "Il browser dei messaggi, l'esportazione e la configurazione della registrazione arriveranno più avanti."
+      }
+    }
+  },
   "screen": {
     "flight": "Dati di volo",
     "plan": "Piano",
@@ -563,6 +595,15 @@
       "parameters": "Vai a Parametri",
       "logs": "Vai a Log",
       "settings": "Vai a Impostazioni"
+    },
+    "section": {
+      "logs": {
+        "flights": "Vai a Log: Voli",
+        "replay": "Vai a Log: Riproduzione",
+        "spectrum": "Vai a Log: Spettro",
+        "vehicle": "Vai a Log: Sul veicolo",
+        "tools": "Vai a Log: Strumenti"
+      }
     },
     "show": {
       "label": "Mostra la tavolozza dei comandi"

@@ -7,7 +7,7 @@ import type {
   CommandContext, DialogFacts, FileFacts, ParameterFacts, ParamsFacts, VehicleFacts,
 } from '@/lib/commands/command'
 import { CommandRegistry } from '@/lib/commands/registry'
-import { goToScreens } from '@/lib/commands/navigation'
+import { goToScreens, goToSections } from '@/lib/commands/navigation'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from '@/lib/commands/app'
 import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
@@ -37,6 +37,7 @@ export const HEARTBEAT_FRESH_MS = 3000
 function makeRegistry(): CommandRegistry {
   const registry = new CommandRegistry()
   goToScreens().forEach(command => registry.register(command))
+  goToSections().forEach(command => registry.register(command))
   registry.register(new RebootFlightController())
   const others = [
     new LoadMetadata(),

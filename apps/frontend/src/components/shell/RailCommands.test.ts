@@ -102,7 +102,9 @@ it('is a real link with the route: opened elsewhere on a middle click or Ctrl, t
 
 it('marks only the screen that is shown as current, and follows a change', async () => {
   const { wrapper, router } = await shellAt('/setup')
-  const current = () => wrapper.findAll('nav a[aria-current="page"]').map(link => link.attributes('data-command-button'))
+  // (The rail's links only: a screen with parts has tabs of its own, one of them current as well.)
+  const current = () => wrapper.findAll('nav a[data-command-button][aria-current="page"]')
+    .map(link => link.attributes('data-command-button'))
 
   expect(current()).toEqual(['go.setup'])
   await router.push('/logs')

@@ -54,7 +54,8 @@ describe('opening the palette', () => {
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
-    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(14)
+    // (The screens' commands, five for the parts of Logs, and the others.)
+    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(19)
     // Nothing printed and no other window: the page is still the only dialog, and still the one document.
     expect(await app.evaluate<number>(`document.querySelectorAll('dialog[open]').length`)).toBe(1)
   })
@@ -121,7 +122,8 @@ describe('what the palette says', () => {
     await chord('p', CTRL)
     await app.waitFor(`document.querySelector('#palette-input') !== null`)
     await app.fill('#palette-input', 'switch to logs')
-    await app.waitFor(`${ROWS}.length === 1`)
+    // The screen, and one command for each of its five parts ("Switch to Logs: Flights" ...): the screen's own is the first.
+    await app.waitFor(`${ROWS}.length === 6`)
 
     expect(await app.text('.palette-label')).toBe('Przejdź do ekranu Logi')
     await chord('Escape')

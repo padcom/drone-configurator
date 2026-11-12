@@ -35,6 +35,38 @@
       "link": "LINK"
     }
   },
+  "logs": {
+    "sections": "Bereiche der Logs",
+    "section": {
+      "flights": "Flüge",
+      "replay": "Wiedergabe",
+      "spectrum": "Spektrum",
+      "vehicle": "Am Fahrzeug",
+      "tools": "Werkzeuge"
+    },
+    "empty": {
+      "flights": {
+        "title": "Noch keine Flüge",
+        "help": "Flüge aus heruntergeladenen Logs werden hier aufgelistet. Logs lesen ist noch nicht verfügbar."
+      },
+      "replay": {
+        "title": "Die Wiedergabe ist noch nicht verfügbar",
+        "help": "Sie kommt mit der Karte: Ein Flug wird als Pfad gezeichnet, der abgespielt werden kann."
+      },
+      "spectrum": {
+        "title": "Das Spektrum ist noch nicht verfügbar",
+        "help": "Es zeigt die Vibration eines Fluges nach Frequenz, aus einem Log, das sie aufgezeichnet hat."
+      },
+      "vehicle": {
+        "title": "Die Logs am Fahrzeug sind noch nicht verfügbar",
+        "help": "Sie werden hier zum Herunterladen aufgelistet, die bereits heruntergeladenen sind markiert."
+      },
+      "tools": {
+        "title": "Die Log-Werkzeuge sind noch nicht verfügbar",
+        "help": "Nachrichtenbrowser, Export und Protokollierung kommen später."
+      }
+    }
+  },
   "screen": {
     "flight": "Flugdaten",
     "plan": "Planung",
@@ -563,6 +595,15 @@
       "parameters": "Zu Parameter wechseln",
       "logs": "Zu Logs wechseln",
       "settings": "Zu Einstellungen wechseln"
+    },
+    "section": {
+      "logs": {
+        "flights": "Zu Logs wechseln: Flüge",
+        "replay": "Zu Logs wechseln: Wiedergabe",
+        "spectrum": "Zu Logs wechseln: Spektrum",
+        "vehicle": "Zu Logs wechseln: Am Fahrzeug",
+        "tools": "Zu Logs wechseln: Werkzeuge"
+      }
     },
     "show": {
       "label": "Befehlspalette anzeigen"
