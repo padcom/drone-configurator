@@ -110,7 +110,8 @@ async function waitForTheLogToSettle(file: string, last?: number, since = Date.n
 }
 
 async function startAll(): Promise<void> {
-  sitl = await startSitl({ vehicle: 'copter' })
+  // The raw IMU batches are on from the boot (a parameter that takes effect at one): the Spectrum is checked on this log.
+  sitl = await startSitl({ vehicle: 'copter', defaultParams: { INS_LOG_BAT_MASK: 1 } })
   // The log is made at the arm: the flight comes first, and the app is connected after it. It is closed at the disarm: left open
   // (the default), the vehicle goes on writing a few bytes to it for as long as it runs, and its CRC is never the same twice.
   await sitl.setParam('LOG_FILE_DSRMROT', 1)
@@ -504,6 +505,45 @@ async function exportsTheTrackThatParses(): Promise<void> {
   expect(kml).toEqual(gpx)
 }
 
+/** The Spectrum has made something, or said why not. */
+const SPECTRUM_DONE = `document.querySelectorAll('.spectrum-chart, #spectrum-none, #spectrum-silent, #spectrum-error').length > 0`
+
+/** What the Spectrum page shows, as one object. */
+const SPECTRUM_FACTS = `JSON.stringify({
+  none: document.querySelector('#spectrum-none') !== null,
+  silent: document.querySelector('#spectrum-silent') !== null,
+  error: document.querySelector('#spectrum-error')?.textContent ?? '',
+  chart: document.querySelector('.spectrum-chart svg')?.getAttribute('aria-label') ?? '',
+  facts: document.querySelector('.spectrum-facts')?.textContent ?? '',
+  sources: [...document.querySelectorAll('#spectrum-source option')].map(option => option.textContent),
+  peak: [...document.querySelectorAll('.spectrum-peak tbody tr')].map(row => row.textContent),
+  spectrogram: document.querySelector('.spectrogram canvas')?.getAttribute('aria-label') ?? '',
+})`
+
+/**
+ * The Spectrum of the real log: the CI-firmware vehicle was started with the raw IMU batches on (INS_LOG_BAT_MASK), so the log
+ * the app downloaded holds ISBH and ISBD. The log is opened in Spectrum, which reads it, lists its batches and makes the
+ * spectrum of the first gyro. What the page shows is printed, with a screenshot. The vehicle sits and flies a little, so the
+ * check is that there is a spectrum of batches that were whole (not that it has a particular peak).
+ */
+async function opensTheSpectrumOfTheRealLog(): Promise<void> {
+  await window().click('a[href="#/logs/spectrum"]')
+  await waitOrExplain(`document.querySelectorAll('#spectrum-log option').length >= 2`, 60_000, 'Spectrum lists no log')
+  const key = await window().evaluate<string>(`document.querySelectorAll('#spectrum-log option')[1].value`)
+  await chooseIn('#spectrum-log', key)
+  await waitOrExplain(SPECTRUM_DONE, READ_MS, 'the spectrum was not made')
+  const shot = join(tmpdir(), 'drone-configurator-spectrum.png')
+  await window().screenshot(shot)
+  const facts = JSON.parse(await window().evaluate<string>(SPECTRUM_FACTS)) as Record<string, unknown>
+  console.info(`sitl-logs: screenshot of Spectrum: ${shot}; Spectrum shows: ${JSON.stringify(facts, null, 2)}`)
+
+  expect(facts.error).toBe('')
+  expect(facts.none).toBe(false)
+  expect(String(facts.facts)).toMatch(/^\d+ batches used/u)
+  expect(Number(/^(?<count>\d+) batches/u.exec(String(facts.facts))?.groups?.count)).toBeGreaterThan(5)
+  expect(String(facts.spectrogram)).toContain('rows')
+}
+
 describeSitl(
   'the logs of the vehicle (SITL)',
   () => {
@@ -520,6 +560,7 @@ describeSitl(
     it('exports ATT as a CSV that a reader reads back', exportsACsvThatIsReadBack, READ_MS)
     it('does not replace a file without a second press that names it', doesNotReplaceTheFileWithoutASecondPress, READ_MS)
     it('exports the GPS track as GPX and KML that parse', exportsTheTrackThatParses, READ_MS)
+    it('makes the spectrum of the raw IMU batches of the real log', opensTheSpectrumOfTheRealLog, READ_MS)
   },
   { launchOnly: true },
 )

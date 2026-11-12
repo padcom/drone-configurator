@@ -10,7 +10,7 @@ import {
   encodeParamSet,
 } from './mavlink-wire'
 import {
-  claimInstance, cleanupAllSync, findSitlBinary, flightStep, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply,
+  claimInstance, cleanupAllSync, defaultsFile, findSitlBinary, flightStep, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply,
   startSitl,
 } from './sitl'
 
@@ -125,6 +125,13 @@ describe('SITL ports and arguments', () => {
     expect(sitlArguments({ instance: 3, frame: 'hexa', speedup: 4 })).toEqual(['-w', '--model', 'hexa', '--speedup', '4', '-I', '3', '--sim-address=127.0.0.1'])
   })
 
+
+  it('writes the parameters a test starts SITL with, one on a line, and refuses what is not one', () => {
+    expect(defaultsFile({ INS_LOG_BAT_MASK: 1, LOG_FILE_DSRMROT: 1 })).toBe('INS_LOG_BAT_MASK 1\nLOG_FILE_DSRMROT 1\n')
+    expect(defaultsFile({})).toBe('')
+    expect(() => defaultsFile({ 'bad name': 1 })).toThrow('not a parameter')
+    expect(() => defaultsFile({ ABC: Number.NaN })).toThrow('not a parameter')
+  })
 
   it('passes the default parameter files, comma separated, when it has them', () => {
     expect(sitlArguments({ instance: 0, frame: 'x', speedup: 1, defaults: ['/d/copter.parm', '/d/copter-X.parm'] })).toEqual([
