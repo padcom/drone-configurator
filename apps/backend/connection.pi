@@ -17,7 +17,7 @@ import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } f
 import { GuardedStream } from "./guarded"
 import { Beats } from "./heartbeat"
 import { reopenable, watchSession } from "./reconnect"
-import { boardOf, encodingFor, identityOf, infoOf, link } from "./session"
+import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
 
 /// Registers the service's methods and subscription on `c`.
@@ -57,7 +57,7 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   link.update(Connection { state: ConnectionState.Connecting })
   let stream: ByteStream? = null
   try {
-    const opened = await open(request, (sim: SimulatedAutopilot) => { link.sim = sim })
+    const opened = await open(request, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim })
     // A link that is opened again later may be closed by the session while the router holds it (see guarded.pi).
     stream = if (reopenable(request)) new GuardedStream(opened) else opened
   } catch (e: Error) {
@@ -97,6 +97,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
       link.attach(conn)
       const version = await new AutopilotVersionRead(conn, { system: found.sysid, component: found.compid }, { timeoutMs: 500, retries: 1 }).run()
       link.encoding = encodingFor(found, version)
+      link.capabilities = capabilitiesOf(version)
+      link.ftpMemo = ""
       link.identity = identityOf(found, version)
       link.board = boardOf(found, version)
       link.typeMayChange = false

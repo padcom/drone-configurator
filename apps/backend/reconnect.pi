@@ -17,7 +17,7 @@ import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
-import { boardOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
+import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
 
 /// The waits are in slices, so that a disconnect is noticed at once.
@@ -108,7 +108,7 @@ async function reopen(generation: int): Promise<string?> {
   // opener only, and a socket nobody listens to is a leak.
   dropStream()
   try {
-    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { link.sim = sim }))
+    const stream = new GuardedStream(await open(request!, (sim: SimulatedAutopilot) => { sim.ftp = link.simulatorFtp; sim.answersVersion = link.simulatorVersion; link.sim = sim }))
     if (link.generation != generation) {
       stream.close()
       return null
@@ -170,6 +170,8 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   link.compid = found.compid
   link.autopilot = found.autopilot
   link.encoding = encodingFor(found, version)
+  link.capabilities = capabilitiesOf(version)
+  link.ftpMemo = ""
   link.identity = identity
   link.board = board
   link.attach(conn!)
