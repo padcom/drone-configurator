@@ -30,8 +30,13 @@ function routeOf(screen: Screen, lastShown: ReadonlyMap<string, string>): RouteR
         path: section.path,
         name: sectionRouteName(screen.id, section.id),
         component: section.load,
-        meta: { titleKey: section.titleKey, screen: screen.id, section: section.id },
+        // The part's own name is its title; the screen's stays available (a document title says both). The part is also a
+        // prop, so that a part that is kept alive while hidden does not change with the route.
+        meta: { titleKey: section.titleKey, screenTitleKey: screen.titleKey, screen: screen.id, section: section.id },
+        props: { section: section.id },
       })),
+      // An address under the screen that is no part opens the screen (the part shown last, else the first), not the home page.
+      { path: ':rest(.*)*', redirect: opens },
     ],
   }
 }

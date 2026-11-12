@@ -35,8 +35,17 @@
       "link": "ŁĄCZE"
     }
   },
+  "chart": {
+    "noData": "Brak danych",
+    "stale": "Stare dane",
+    "noValue": "brak wartości",
+    "noCursor": "Kursor poza wykresem",
+    "cursor": "Kursor wykresu {chart}",
+    "summary": "Od {low} do {high}, w zakresie od {from} do {to}"
+  },
   "logs": {
     "sections": "Sekcje ekranu Logi",
+    "shown": "Logi: {section}",
     "section": {
       "flights": "Loty",
       "replay": "Odtwarzanie",
@@ -94,7 +103,14 @@
       "choices": "Wybory",
       "badges": "Znaczki",
       "panels": "Panele",
-      "icons": "Ikony"
+      "icons": "Ikony",
+      "charts": "Wykresy"
+    },
+    "chart": {
+      "altitude": "Wysokość, m (5000 próbek zredukowanych, pik jednej próbki zostaje)",
+      "battery": "Bateria, V (odcinek bez wartości to przerwa)",
+      "old": "Stare dane (przygaszone, kreskowane, i tak mówi)",
+      "none": "Brak danych"
     },
     "truth": {
       "live": "Na żywo",

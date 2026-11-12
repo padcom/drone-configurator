@@ -179,6 +179,25 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.charts') }}</h3>
+      <div class="charts-demo">
+        <!-- A long series thinned: the one-sample spike is in the envelope. The two charts share the cursor. -->
+        <LineChart
+          v-model:cursor="chartCursor"
+          :title="t('gallery.chart.altitude')"
+          :series="[{ id: 'a', label: 'm', points: WAVE }]"
+        />
+        <LineChart
+          v-model:cursor="chartCursor"
+          :title="t('gallery.chart.battery')"
+          :series="[{ id: 'b', label: 'V', points: GAPPED, tone: 'ok' }]"
+        />
+        <LineChart :title="t('gallery.chart.old')" :series="[{ id: 'c', label: 'm', points: WAVE }]" stale />
+        <LineChart :title="t('gallery.chart.none')" :series="[{ id: 'd', label: 'm', points: [] }]" />
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.icons') }}</h3>
       <ul class="icons">
         <li v-for="name in ICON_NAMES" :key="name"><Icon :name="name" /> <code>{{ name }}</code></li>
@@ -191,6 +210,8 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import '@/assets/styles/gallery.css'
+import LineChart from '@/components/charts/LineChart.vue'
+import { decimate } from '@/lib/charts/chart'
 import Badge from '@/components/ui/Badge.vue'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
@@ -281,6 +302,15 @@ const TRUTH = [
   { key: 'verified', state: 'verified', value: '✓ 300' },
 ] as const
 const ICON_NAMES = Object.keys(ICONS) as IconName[]
+
+/** Sample data for the charts: a wave of 5000 samples with one spike, thinned; and the same with a stretch absent. */
+const SAMPLES = Array.from({ length: 5000 }, (_unused, n) => ({
+  x: n / 10,
+  y: 20 + 10 * Math.sin(n / 400) + (n === 3333 ? 40 : 0),
+}))
+const WAVE = decimate(SAMPLES, 240)
+const GAPPED = decimate(SAMPLES.map(s => ({ x: s.x, y: s.x > 200 && s.x < 260 ? null : s.y / 2 })), 240)
+const chartCursor = ref<number | null>(null)
 
 const options = computed(() => [
   { value: 'one', label: t('gallery.sample.optionOne') },

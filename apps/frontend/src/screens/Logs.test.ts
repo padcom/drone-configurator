@@ -114,10 +114,43 @@ it('marks the Logs button of the rail as current whichever part is shown', async
   expect(current).toEqual(['go.logs'])
 })
 
-it('sends an address under Logs that is no part to the first screen of the application', async () => {
+it('sends an address under Logs that is no part to Logs itself (the part shown last), not to the first screen', async () => {
   const { router } = await shellAt('/logs/nothing')
+  expect(router.currentRoute.value.path).toBe('/logs/flights')
 
+  await router.push('/logs/tools')
+  await router.push('/logs/zzz/deeper')
+
+  expect(router.currentRoute.value.path).toBe('/logs/tools')
+  // An address that is no screen at all still goes to the first screen.
+  await router.push('/logsx')
   expect(router.currentRoute.value.path).toBe('/flight')
+})
+
+it('says which part was chosen, politely, in a status that is in the screen all the time', async () => {
+  const { wrapper, router } = await shellAt('/logs/flights')
+  const status = () => wrapper.get('.logs [role="status"]').text()
+
+  expect(status()).toBe('Logs: Flights')
+  await router.push('/logs/vehicle')
+  await flushPromises()
+  expect(status()).toBe('Logs: On the vehicle')
+  // Another screen is shown: what the status says does not follow the route away from the screen.
+  await router.push('/parameters')
+  await flushPromises()
+  await router.push('/logs')
+  await flushPromises()
+
+  expect(status()).toBe('Logs: On the vehicle')
+})
+
+it('keeps the words of its own part in a part that is kept alive while another is shown', async () => {
+  const { router } = await shellAt('/logs/tools')
+  // The part is a prop of the route's component, not read from the route that is current.
+  const record = router.getRoutes().find(route => route.name === 'logs.vehicle')
+
+  expect(record?.props.default).toEqual({ section: 'vehicle' })
+  expect(router.resolve('/logs/spectrum').meta).toMatchObject({ section: 'spectrum', screenTitleKey: 'screen.logs' })
 })
 
 it('has the title and the words in another language, where the screen is: the tabs follow the language', async () => {

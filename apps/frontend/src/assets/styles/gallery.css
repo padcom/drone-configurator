@@ -153,6 +153,12 @@
 .gallery .specimen[data-size='--font-size-hero'] .sample { font-size: var(--font-size-hero); }
 
 /* The pattern for a value that is not live. */
+.gallery .charts-demo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-5);
+}
+
 .gallery .hatch-sample {
   padding: var(--space-3);
   margin: var(--space-3) 0 0;

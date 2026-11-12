@@ -15,7 +15,9 @@ export const NAVIGATE_GROUP = 'palette.group.navigate'
  * @returns true for `/logs` and `/logs/vehicle` under `/logs`, not for `/logsx`
  */
 function isUnder(path: string, screenPath: string): boolean {
-  return path === screenPath || path.startsWith(`${screenPath}/`)
+  const own = path.replace(/\/+$/u, '')
+
+  return own === screenPath || own.startsWith(`${screenPath}/`)
 }
 
 /** The command that shows a screen. */
@@ -116,7 +118,8 @@ export class GoToSection implements Command {
    * @returns true for its address
    */
   isActive(ctx: CommandContext): boolean {
-    return ctx.currentPath() === this.href
+    // (An address with a slash at its end is the same address.)
+    return ctx.currentPath().replace(/\/+$/u, '') === this.href
   }
 
   /**
