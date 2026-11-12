@@ -46,6 +46,102 @@
   "logs": {
     "sections": "Secciones de Registros",
     "shown": "Registros: {section}",
+    "flights": {
+      "title": "Vuelos",
+      "refresh": "Actualizar la lista",
+      "loading": "Leyendo la carpeta de registros…",
+      "none": {
+        "title": "No hay registros en este equipo",
+        "help": "Descarga un registro del vehículo (Registros, En el vehículo) y estará aquí."
+      },
+      "column": {
+        "id": "Registro",
+        "modified": "Último cambio",
+        "size": "Tamaño",
+        "state": "Estado"
+      },
+      "noDate": "Sin fecha",
+      "state": {
+        "unread": "Sin abrir",
+        "verified": "Verificado",
+        "unverified": "Sin verificar"
+      },
+      "open": "Abrir",
+      "duration": "Duración",
+      "durationTip": "Los tiempos están en el registro: la duración se conoce cuando el registro se ha abierto.",
+      "downloadAgain": "Ve a «En el vehículo» para descargarlo de nuevo.",
+      "openLabel": "Abrir el registro {id}",
+      "reading": "Leyendo el registro {id}…",
+      "readingBar": "Lectura del registro {id}",
+      "loadingParts": "Leyendo los gráficos y la revisión del registro {id}…",
+      "statusOpened": "El registro {id} está abierto.",
+      "statusStopped": "Lectura detenida.",
+      "stop": "Detener la lectura",
+      "heading": "Registro {id}",
+      "summary": "{length} · {messages} mensajes · {firmware}",
+      "summaryNoFirmware": "{length} · {messages} mensajes",
+      "notVerified": "La suma de comprobación de esta copia no es la que dio el vehículo al descargar el registro. No se saca ninguna conclusión de él: no hay resumen, gráficos ni revisión.",
+      "noTimes": "Este registro no tiene tiempos, así que no hay nada que dibujar.",
+      "damaged": "Daños encontrados al leer: {count}. Se muestra lo que se pudo leer.",
+      "cutEnd": "El registro termina a mitad de un mensaje: se copió mientras el vehículo aún lo escribía. Se muestra todo lo anterior.",
+      "modes": {
+        "title": "Modos de vuelo",
+        "number": "Modo {mode}",
+        "under": "bajo el cursor"
+      },
+      "chart": {
+        "attitude": "Actitud",
+        "altitude": "Altitud",
+        "vibration": "Vibración",
+        "roll": "Alabeo",
+        "pitch": "Cabeceo",
+        "alt": "Altitud",
+        "battery": "Tensión de la batería",
+        "volt": "Tensión",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      },
+      "level": {
+        "ok": "OK",
+        "warn": "Revisar",
+        "bad": "Problema",
+        "info": "Info",
+        "noData": "Sin datos"
+      },
+      "review": {
+        "title": "Revisión automática",
+        "noData": "{name}: este registro no tiene datos.",
+        "name": {
+          "vibration": { "x": "Vibración en X", "y": "Vibración en Y", "z": "Vibración en Z", "clipping": "Clipping" },
+          "gps": { "satellites": "Satélites GPS", "hdop": "HDOP del GPS", "fix": "Fijación del GPS" },
+          "ekf": { "variance": "Varianza del EKF" },
+          "errors": { "logged": "Errores" },
+          "battery": { "voltage": "Tensión de la batería", "current": "Corriente de la batería" }
+        },
+        "vibration": {
+          "x": "Vibración en X: pico de {value} m/s², en {at}, límite {limit}.",
+          "y": "Vibración en Y: pico de {value} m/s², en {at}, límite {limit}.",
+          "z": "Vibración en Z: pico de {value} m/s², en {at}, límite {limit}.",
+          "clipping": "Clipping: se contaron {value} durante el registro."
+        },
+        "gps": {
+          "satellites": "GPS: nunca por debajo de {value} satélites, límite {limit} ({samples} muestras con fijación 3D).",
+          "hdop": "HDOP del GPS: el peor {value}, en {at}, límite {limit}.",
+          "fix": "GPS: {value} de {samples} muestras sin fijación 3D."
+        },
+        "ekf": {
+          "variance": "EKF: pico de varianza {value}, en {at}, límite {limit} (se omiten los primeros 10 s del registro)."
+        },
+        "errors": {
+          "logged": "Errores registrados por el vehículo: {value}."
+        },
+        "battery": {
+          "voltage": "Batería: tensión mínima del paquete {value} V (no se sabe cuántas celdas tiene).",
+          "current": "Batería: corriente máxima {value} A."
+        }
+      }
+    },
     "vehicle": {
       "title": "Registros en el vehículo",
       "offline": {

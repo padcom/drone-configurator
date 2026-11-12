@@ -62,6 +62,26 @@
   border-color: transparent;
 }
 
+/*
+ * A button that may not be pressed now, but must keep the focus it has (the page turned it off while it had it), is `aria-disabled`
+ * and not `disabled`; it does nothing when pressed. It looks as the disabled button does, also under the pointer.
+ */
+.kit-button[aria-disabled="true"] {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: var(--color-border);
+  border-color: transparent;
+}
+
+.kit-button[aria-disabled="true"]:hover {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  background: var(--color-border);
+  border-color: transparent;
+}
+
 .kit-input:hover:not(:disabled),
 .kit-select:hover:not(:disabled) {
   border-color: var(--color-text-muted);

@@ -4,25 +4,18 @@
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { showScreen } from './click'
+import { CTRL, chord as press, openPalette } from './palette-keys'
 
 let app: E2eApp
-
-/** DevTools modifier bit for Ctrl, and the virtual key codes of the keys used. */
-const CTRL = 2
-const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
 
 /**
  * Presses a key, with the modifiers, as the host receives it.
  *
  * @param key the key: `p`, `Escape` or `Enter`
  * @param modifiers the DevTools modifier bits
+ * @returns once the key is pressed and let go
  */
-async function chord(key: string, modifiers = 0): Promise<void> {
-  const [code, name] = CODES[key] as [number, string]
-  const event = { windowsVirtualKeyCode: code, nativeVirtualKeyCode: code, key, code: name, modifiers }
-  await app.devtools('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...event })
-  await app.devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
-}
+const chord = (key: string, modifiers = 0) => press(app, key, modifiers)
 
 /** What the page saw of Ctrl+P: recorded in the bubble phase, after the palette's own listener ran. */
 const WATCH = `(() => {
@@ -49,8 +42,7 @@ afterAll(async () => {
 
 describe('opening the palette', () => {
   it('opens on Ctrl+P, which the page prevents, with the focus in the search box', async () => {
-    await chord('p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
@@ -68,8 +60,7 @@ describe('opening the palette', () => {
     await app.evaluate(`document.querySelector('#filter').focus()`)
 
     // From inside a text field too.
-    await chord('p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
     await chord('Escape')
     await app.waitFor(`document.querySelector('#palette-input') === null`)
 
@@ -86,8 +77,7 @@ describe('the top bar', () => {
 describe('running a command', () => {
   it('goes to the screen that was typed, closes, and puts the focus in the search box of the screen', async () => {
     await showScreen(app, 'flight')
-    await chord('p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
     await app.fill('#palette-input', 'switch to param')
     await app.waitFor(`${ROWS}.length === 1`)
 
@@ -105,8 +95,7 @@ describe('running a command', () => {
 
 describe('what the palette says', () => {
   it('says when nothing matches', async () => {
-    await chord('p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
     await app.fill('#palette-input', 'zzzz')
     await app.waitFor(`document.querySelector('.palette-empty') !== null`)
 
@@ -119,8 +108,7 @@ describe('what the palette says', () => {
     await app.waitFor(`document.querySelector('main select[id$="-language"]') !== null`)
     await app.fill('main select[id$="-language"]', 'pl')
     await app.waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Dane lotu'`)
-    await chord('p', CTRL)
-    await app.waitFor(`document.querySelector('#palette-input') !== null`)
+    await openPalette(app)
     await app.fill('#palette-input', 'switch to logs')
     // The screen, and one command for each of its five parts ("Switch to Logs: Flights" ...): the screen's own is the first.
     await app.waitFor(`${ROWS}.length === 6`)

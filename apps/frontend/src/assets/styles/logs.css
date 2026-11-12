@@ -61,3 +61,117 @@
 .logs-erase p {
   margin: 0;
 }
+
+/* "Flights" in Logs (screens/logs/LogsFlights.vue): the table of the logs on this computer, and the log that is open: the modes
+   along its time, the charts that share a cursor, and the review. */
+.logs-flights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.logs-flights-title,
+.flight-detail-title,
+.flight-review-title {
+  margin: 0;
+}
+
+.flights-table tr.open {
+  background: var(--color-surface-raised, transparent);
+}
+
+.flight-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.flight-reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.flight-reading .kit-progress {
+  flex: 1 1 12rem;
+}
+
+.flight-summary {
+  margin: 0;
+}
+
+/* The modes: one cell for each stretch, as wide as it lasted; the name is written, the line only marks the cell under the cursor. */
+.flight-modes {
+  display: flex;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flight-mode {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 0;
+  min-width: 3.5rem;
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-1, 4px);
+  background: var(--color-surface, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.flight-mode.cursor {
+  border-color: var(--color-accent);
+}
+
+.flight-mode-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flight-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flight-finding {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.flight-glyph {
+  flex: 0 0 1.25rem;
+  text-align: center;
+}
+
+.flight-level {
+  flex: 0 0 6rem;
+  font-weight: 600;
+}
+
+.flight-finding.ok .flight-level {
+  color: var(--color-ok);
+}
+
+.flight-finding.warn .flight-level {
+  color: var(--color-warn);
+}
+
+.flight-finding.error .flight-level {
+  color: var(--color-error);
+}
+
+.flight-finding.muted .flight-level {
+  color: var(--color-text-muted, inherit);
+}

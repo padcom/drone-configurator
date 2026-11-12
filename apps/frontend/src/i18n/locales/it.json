@@ -46,6 +46,102 @@
   "logs": {
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
+    "flights": {
+      "title": "Voli",
+      "refresh": "Aggiorna l'elenco",
+      "loading": "Lettura della cartella dei log…",
+      "none": {
+        "title": "Nessun log su questo computer",
+        "help": "Scarica un log dal veicolo (Log, Sul veicolo) e sarà qui."
+      },
+      "column": {
+        "id": "Log",
+        "modified": "Ultima modifica",
+        "size": "Dimensione",
+        "state": "Stato"
+      },
+      "noDate": "Nessuna data",
+      "state": {
+        "unread": "Non aperto",
+        "verified": "Verificato",
+        "unverified": "Non verificato"
+      },
+      "open": "Apri",
+      "duration": "Durata",
+      "durationTip": "I tempi sono nel log: la durata è nota dopo che il log è stato aperto.",
+      "downloadAgain": "Vai a «Sul veicolo» per scaricarlo di nuovo.",
+      "openLabel": "Apri il log {id}",
+      "reading": "Lettura del log {id}…",
+      "readingBar": "Lettura del log {id}",
+      "loadingParts": "Lettura dei grafici e della revisione del log {id}…",
+      "statusOpened": "Il log {id} è aperto.",
+      "statusStopped": "Lettura interrotta.",
+      "stop": "Interrompi la lettura",
+      "heading": "Log {id}",
+      "summary": "{length} · {messages} messaggi · {firmware}",
+      "summaryNoFirmware": "{length} · {messages} messaggi",
+      "notVerified": "Il checksum di questa copia non è quello che il veicolo ha dato al download del log. Non se ne trae nessuna conclusione: non ci sono riepilogo, grafici né revisione.",
+      "noTimes": "Questo log non ha tempi, quindi non c'è nulla da disegnare.",
+      "damaged": "Danni trovati durante la lettura: {count}. È mostrato ciò che si è potuto leggere.",
+      "cutEnd": "Il log finisce a metà di un messaggio: è stato copiato mentre il veicolo lo stava ancora scrivendo. Tutto ciò che precede è mostrato.",
+      "modes": {
+        "title": "Modalità di volo",
+        "number": "Modalità {mode}",
+        "under": "sotto il cursore"
+      },
+      "chart": {
+        "attitude": "Assetto",
+        "altitude": "Altitudine",
+        "vibration": "Vibrazioni",
+        "roll": "Rollio",
+        "pitch": "Beccheggio",
+        "alt": "Altitudine",
+        "battery": "Tensione della batteria",
+        "volt": "Tensione",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      },
+      "level": {
+        "ok": "OK",
+        "warn": "Controlla",
+        "bad": "Problema",
+        "info": "Info",
+        "noData": "Nessun dato"
+      },
+      "review": {
+        "title": "Revisione automatica",
+        "noData": "{name}: questo log non ha dati.",
+        "name": {
+          "vibration": { "x": "Vibrazioni su X", "y": "Vibrazioni su Y", "z": "Vibrazioni su Z", "clipping": "Clipping" },
+          "gps": { "satellites": "Satelliti GPS", "hdop": "HDOP del GPS", "fix": "Fix del GPS" },
+          "ekf": { "variance": "Varianza EKF" },
+          "errors": { "logged": "Errori" },
+          "battery": { "voltage": "Tensione della batteria", "current": "Corrente della batteria" }
+        },
+        "vibration": {
+          "x": "Vibrazioni su X: picco {value} m/s², a {at}, limite {limit}.",
+          "y": "Vibrazioni su Y: picco {value} m/s², a {at}, limite {limit}.",
+          "z": "Vibrazioni su Z: picco {value} m/s², a {at}, limite {limit}.",
+          "clipping": "Clipping: durante il log ne sono stati contati {value}."
+        },
+        "gps": {
+          "satellites": "GPS: mai sotto {value} satelliti, limite {limit} ({samples} campioni con fix 3D).",
+          "hdop": "HDOP del GPS: il peggiore {value}, a {at}, limite {limit}.",
+          "fix": "GPS: {value} campioni su {samples} senza fix 3D."
+        },
+        "ekf": {
+          "variance": "EKF: picco di varianza {value}, a {at}, limite {limit} (i primi 10 s del log sono esclusi)."
+        },
+        "errors": {
+          "logged": "Errori registrati dal veicolo: {value}."
+        },
+        "battery": {
+          "voltage": "Batteria: tensione minima del pacco {value} V (il numero di celle non è noto).",
+          "current": "Batteria: corrente massima {value} A."
+        }
+      }
+    },
     "vehicle": {
       "title": "Log sul veicolo",
       "offline": {

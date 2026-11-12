@@ -46,6 +46,102 @@
   "logs": {
     "sections": "Logs sections",
     "shown": "Logs: {section}",
+    "flights": {
+      "title": "Flights",
+      "refresh": "Refresh the list",
+      "loading": "Reading the folder of logs…",
+      "none": {
+        "title": "No logs on this computer",
+        "help": "Download a log from the vehicle (Logs, On the vehicle) and it is here."
+      },
+      "column": {
+        "id": "Log",
+        "modified": "Last changed",
+        "size": "Size",
+        "state": "State"
+      },
+      "noDate": "No date",
+      "state": {
+        "unread": "Not opened",
+        "verified": "Verified",
+        "unverified": "Not verified"
+      },
+      "open": "Open",
+      "duration": "Duration",
+      "durationTip": "The times are in the log: the duration is known once the log has been opened.",
+      "downloadAgain": "Go to On the vehicle to download it again.",
+      "openLabel": "Open log {id}",
+      "reading": "Reading log {id}…",
+      "readingBar": "Reading of log {id}",
+      "loadingParts": "Reading the charts and the review of log {id}…",
+      "statusOpened": "Log {id} is open.",
+      "statusStopped": "Reading stopped.",
+      "stop": "Stop reading",
+      "heading": "Log {id}",
+      "summary": "{length} · {messages} messages · {firmware}",
+      "summaryNoFirmware": "{length} · {messages} messages",
+      "notVerified": "This copy's checksum is not the one the vehicle gave when the log was downloaded. Nothing is concluded from it: no summary, charts or review are shown.",
+      "noTimes": "This log has no times, so there is nothing to draw.",
+      "damaged": "Damage met while reading: {count}. What could be read is shown.",
+      "cutEnd": "The log ends in the middle of a message: it was copied while the vehicle was still writing it. Everything before that is shown.",
+      "modes": {
+        "title": "Flight modes",
+        "number": "Mode {mode}",
+        "under": "under the cursor"
+      },
+      "chart": {
+        "attitude": "Attitude",
+        "altitude": "Altitude",
+        "vibration": "Vibration",
+        "roll": "Roll",
+        "pitch": "Pitch",
+        "alt": "Altitude",
+        "battery": "Battery voltage",
+        "volt": "Voltage",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      },
+      "level": {
+        "ok": "OK",
+        "warn": "Check",
+        "bad": "Problem",
+        "info": "Info",
+        "noData": "No data"
+      },
+      "review": {
+        "title": "Automatic review",
+        "noData": "{name}: this log has no data.",
+        "name": {
+          "vibration": { "x": "Vibration on X", "y": "Vibration on Y", "z": "Vibration on Z", "clipping": "Clipping" },
+          "gps": { "satellites": "GPS satellites", "hdop": "GPS HDOP", "fix": "GPS fix" },
+          "ekf": { "variance": "EKF variance" },
+          "errors": { "logged": "Errors" },
+          "battery": { "voltage": "Battery voltage", "current": "Battery current" }
+        },
+        "vibration": {
+          "x": "Vibration on X: peak {value} m/s², at {at}, limit {limit}.",
+          "y": "Vibration on Y: peak {value} m/s², at {at}, limit {limit}.",
+          "z": "Vibration on Z: peak {value} m/s², at {at}, limit {limit}.",
+          "clipping": "Clipping: {value} clips were counted during the log."
+        },
+        "gps": {
+          "satellites": "GPS: never below {value} satellites, limit {limit} ({samples} samples with a 3D fix).",
+          "hdop": "GPS HDOP: worst {value}, at {at}, limit {limit}.",
+          "fix": "GPS: {value} of {samples} samples had no 3D fix."
+        },
+        "ekf": {
+          "variance": "EKF: variance peak {value}, at {at}, limit {limit} (the first 10 s of the log are left out)."
+        },
+        "errors": {
+          "logged": "Errors logged by the vehicle: {value}."
+        },
+        "battery": {
+          "voltage": "Battery: lowest pack voltage {value} V (how many cells there are is not known).",
+          "current": "Battery: highest current {value} A."
+        }
+      }
+    },
     "vehicle": {
       "title": "Logs on the vehicle",
       "offline": {

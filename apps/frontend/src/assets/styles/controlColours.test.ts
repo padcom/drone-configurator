@@ -66,6 +66,8 @@ const VARIANTS: [name: string, sheet: string, words: string, fill: string][] = [
   ['hold, red', 'dialog.css', '.kit-hold.error', '.kit-hold.error'],
   ['hold, unavailable', 'dialog.css', '.kit-hold:disabled', '.kit-hold:disabled'],
   ['disabled', 'kit.css', '.kit-button:disabled', '.kit-button:disabled'],
+  ['aria-disabled', 'kit.css', '.kit-button[aria-disabled="true"]', '.kit-button[aria-disabled="true"]'],
+  ['aria-disabled, hover', 'kit.css', '.kit-button[aria-disabled="true"]:hover', '.kit-button[aria-disabled="true"]:hover'],
   ['badge, info', 'kit.css', '.kit-badge.info', '.kit-badge.info'],
   ['badge, ok', 'kit.css', '.kit-badge.ok', '.kit-badge.ok'],
   ['badge, warn', 'kit.css', '.kit-badge.warn', '.kit-badge.warn'],
@@ -116,5 +118,12 @@ describe('the disabled button', () => {
     expect(fill).toBe(tokens['--color-border'])
     expect(fill).not.toBe(tokens['--color-accent'])
     expect(fill).not.toBe(tokens['--color-warn'])
+  })
+
+  it('is drawn the same when it is aria-disabled (a button that keeps its focus), also under the pointer', () => {
+    for (const selector of ['.kit-button[aria-disabled="true"]', '.kit-button[aria-disabled="true"]:hover']) {
+      expect(colourOf('kit.css', selector, 'background')).toBe(colourOf('kit.css', '.kit-button:disabled', 'background'))
+      expect(colourOf('kit.css', selector, 'color')).toBe(colourOf('kit.css', '.kit-button:disabled', 'color'))
+    }
   })
 })

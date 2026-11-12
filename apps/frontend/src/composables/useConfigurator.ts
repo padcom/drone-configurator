@@ -18,6 +18,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
+import { type FlightsModel, useFlights } from './useFlights'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -49,6 +50,8 @@ export interface ConfiguratorHandle {
   messages: MessagesModel
   /** The flight logs on the vehicle: listed, downloaded, erased. */
   logs: LogsModel
+  /** The flight logs on this computer: listed, opened, read, charted and reviewed. */
+  flights: FlightsModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -83,7 +86,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'staged'
 >
 
 /**
@@ -314,7 +317,8 @@ export function createConfigurator(
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, staged }
+  const flights = useFlights({ client })
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
