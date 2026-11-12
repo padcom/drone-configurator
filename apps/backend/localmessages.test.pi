@@ -215,7 +215,22 @@ async function wantsTheLogToHaveBeenRead(): Promise<void> throws Error {
   await done(r)
 }
 
+async function takesNothingFromALogThatIsNotVerified(): Promise<void> throws Error {
+  const r = await rig()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, 305419896)
+  await writeBytes(join(dir, name), flight())
+  const key = `uid-a/${name}`
+  await readIt(r, key)
+  expect(codeOf(await atEnvelope(r, key, "ATT", 99999999))).toBe("NOT_VERIFIED")
+  const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  expect(codeOf(e)).toBe("NOT_VERIFIED")
+  await done(r)
+}
+
 describe("the message browser of the logs on this computer", () => {
+  it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
   it("lists the kinds with counts, fields, units and the field that tells instances apart", listsTheKindsWithCountsFieldsAndUnits)
   it("gives the last message of each instance at or before the time", givesTheLastOfEachInstanceAtOrBeforeTheTime)
   it("says nothing for a time before the first message or a kind the log does not have", saysNothingForATimeBeforeTheFirstOrAKindTheLogDoesNotHave)

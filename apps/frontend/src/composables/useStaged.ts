@@ -4,6 +4,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
+import { includesLogging } from '@/lib/logs/loggingSetup'
 import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
@@ -43,6 +44,8 @@ export interface StagedDeps {
   isConnected: () => boolean
   /** Asks the user to confirm `question`; the writes go ahead only on true. */
   confirm: (question: string) => Promise<boolean>
+  /** Whether the vehicle is armed or may be (unknown counts as armed): logging settings are neither queued nor written then. */
+  mayBeArmed?: () => boolean
 }
 
 /** The staged changes, as refs and actions. */
@@ -264,7 +267,9 @@ class Staged implements StagedModel {
   }
 
   stage(targets: { id: string, to: number }[]): number {
-    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to)).length
+    const allowed = targets.filter(({ id }) => !this.refusesLogging([id]))
+
+    return this.writing.value ? 0 : allowed.filter(({ id, to }) => this.stageOne(id, to)).length
   }
 
   /**
@@ -416,9 +421,37 @@ class Staged implements StagedModel {
   private startable(todo: StagedChange[]): boolean {
     // Not while the list is being downloaded: the values in it, and the initial ones taken from it, would be half and half.
     // (A download is not started while the changes are written either: ParamsModel.refresh.)
-    const idle = !this.writing.value && this.deps.parameters.list.value !== 'loading'
+    return todo.length > 0 && this.isIdle() && this.deps.isConnected() && !this.refusesChanges(todo)
+  }
 
-    return todo.length > 0 && idle && this.deps.isConnected()
+  /**
+   * Whether nothing is being written and the list is not being downloaded.
+   *
+   * @returns true if neither
+   */
+  private isIdle(): boolean {
+    return !this.writing.value && this.deps.parameters.list.value !== 'loading'
+  }
+
+  /**
+   * Whether these changes include logging settings while the vehicle may be armed.
+   *
+   * @param todo the changes
+   * @returns true if they are refused
+   */
+  private refusesChanges(todo: StagedChange[]): boolean {
+    return this.refusesLogging(todo.map(change => change.id))
+  }
+
+  /**
+   * Whether logging settings are among `ids` while the vehicle is armed, or may be (its state is not known): they are never
+   * queued or written then. This is the rule itself; the buttons only show it.
+   *
+   * @param ids the parameters
+   * @returns true if they are refused
+   */
+  private refusesLogging(ids: readonly string[]): boolean {
+    return includesLogging(ids) && (this.deps.mayBeArmed?.() ?? false)
   }
 
   /**
@@ -435,6 +468,19 @@ class Staged implements StagedModel {
     return todo.map(change => ({ ...change, from: now.get(change.id) ?? change.from }))
   }
 
+  /**
+   * Whether the writes go ahead after the question: the user said yes, the changes were not forgotten meanwhile, and the vehicle
+   * did not arm (logging settings only).
+   *
+   * @param yes the user's answer
+   * @param epoch the run the question was asked in
+   * @param todo the changes
+   * @returns true to write
+   */
+  private stillYes(yes: boolean, epoch: number, todo: StagedChange[]): boolean {
+    return yes && epoch === this.epoch && !this.refusesChanges(todo)
+  }
+
   async writeAll(): Promise<void> {
     const todo = this.pending()
     if (!this.startable(todo)) {
@@ -443,7 +489,9 @@ class Staged implements StagedModel {
     const { epoch } = this
     // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
     // focus that the dialog gives back.
-    if (await this.deps.confirm(questionFor(this.withCurrentValues(todo))) && epoch === this.epoch) {
+    const yes = await this.deps.confirm(questionFor(this.withCurrentValues(todo)))
+    // The vehicle may have armed while the question was open.
+    if (this.stillYes(yes, epoch, todo)) {
       await this.writeLocked(todo, epoch)
     }
   }

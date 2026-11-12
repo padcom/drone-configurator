@@ -53,12 +53,14 @@ services = {
   ; the unit the log names), `logs.local.at` gives the fields of one kind at a time (the last message of each instance at or
   ; before it: what the vehicle had last said by then, with the time of that message, never a value from a later time). Both are
   ; one pass over the file, cancelable and told with `logs.local.progress`, one read at a time (`BUSY`), `NOT_READ` for a log that was
-  ; not read (or changed since), `CHANGED` if the file changed meanwhile.
+  ; not read (or changed since), `NOT_VERIFIED` for a log whose bytes are not the vehicle's (nothing is taken from it, and nothing
+  ; exported), `CHANGED` if the file changed meanwhile.
   "logs.local.messages": ["method", logs-local-read, local-log-messages],
   "logs.local.at": ["method", logs-local-at-ask, local-log-at],
   ; Writes a log, or one kind of message of it, to a file the user chooses (the host's save dialog, or the test folder): CSV (one
   ; kind of message, a column for each field), GPX or KML (the track of the GPS fixes). Never overwrites: a file that is there is
-  ; answered with `exists` and nothing is written; asking again with `path` and `overwrite` replaces it. `UNAVAILABLE` for GPX or
+  ; answered with `exists` and nothing is written; asking again with that `path` and `overwrite` true replaces it (only the file the backend
+  ; offered with `exists`, for the same log, format and kind, and once: any other `path` is `BAD_REQUEST`). `UNAVAILABLE` for GPX or
   ; KML of a log with no position fixes (with the reason); the file is streamed, not built in memory.
   "logs.local.export": ["method", logs-local-export-ask, local-log-exported],
   "logs.local.cancel": ["method", null, null],

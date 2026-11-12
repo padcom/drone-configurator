@@ -23,7 +23,7 @@ import {
   encodeLocalLogExported,
 } from "./generated/app"
 import { fileChooser } from "./files"
-import { Flusher, Taker, claimRead, knownSummary, locate, partsOfKey, releaseRead, streamLog } from "./locallogs"
+import { Flusher, Taker, claimRead, locate, partsOfKey, releaseRead, streamLog, verifiedSummary } from "./locallogs"
 import { factorOf } from "./localseries"
 import { kindOf, usable } from "./localmessages"
 
@@ -257,14 +257,52 @@ function nameFor(ask: LogsLocalExportAsk): string {
   }
 }
 
+/// What the last answer `exists` offered to be replaced: the log, what of it, and the file. Only a request that names exactly this
+/// replaces a file, once; any request without a path, and any use, takes the offer away.
+class Offered {
+  public readonly key: string
+  public readonly format: LogsLocalExportAskFormat
+  public readonly message: string
+  public readonly path: string
+
+  constructor(key: string, format: LogsLocalExportAskFormat, message: string, path: string) {
+    this.key = key
+    this.format = format
+    this.message = message
+    this.path = path
+  }
+}
+
+class Offers {
+  public offered: Offered? = null
+}
+
+const offers = new Offers()
+
+/// A request with a path must name the file that was offered, for the same log, format and kind; the offer is used up either way.
+/// A request without a path takes any offer away (the page asked for something else).
+function takeTheOffer(ask: LogsLocalExportAsk): void throws CommunicatorError {
+  const offer = offers.offered
+  offers.offered = null
+  if (ask.path == null) {
+    return
+  }
+  const same = offer != null && offer!.key == ask.key && offer!.format == ask.format && offer!.message == (ask.message ?? "") && offer!.path == ask.path!
+  if (!same) {
+    throw new CommunicatorError("BAD_REQUEST", "that file was not offered to be replaced: ask again and choose it")
+  }
+}
+
 async function exportLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const ask = decodeLogsLocalExportAsk(payload ?? Cbor.Null, "$")
   if (ask.format == LogsLocalExportAskFormat.Csv && (ask.message ?? "") == "") {
     throw new CommunicatorError("BAD_REQUEST", "a CSV is of one kind of message: say which")
   }
-  if ((ask.path == null) != (ask.overwrite == null)) {
-    throw new CommunicatorError("BAD_REQUEST", "path and overwrite go together")
+  if ((ask.path == null) != (ask.overwrite == null) || (ask.path != null && !(ask.overwrite ?? false))) {
+    throw new CommunicatorError("BAD_REQUEST", "path and overwrite go together, and overwrite is true")
   }
+  // The file to replace is the one this backend offered, once: a path that is named by the page is never trusted.
+  takeTheOffer(ask)
   const own = claimRead()
   try {
     return await exportIt(ask, own)
@@ -275,9 +313,7 @@ async function exportLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
 
 async function exportIt(ask: LogsLocalExportAsk, own: AbortController): Promise<Cbor?> throws Error {
   const file = await locate(ask.key)
-  if (knownSummary(ask.key, file.facts) == null) {
-    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
-  }
+  verifiedSummary(ask.key, file.facts)
   const name = nameFor(ask)
   const target = if (ask.path != null) ask.path else await fileChooser().forSaving("Export the log", name)
   if (target == null) {
@@ -286,21 +322,34 @@ async function exportIt(ask: LogsLocalExportAsk, own: AbortController): Promise<
   refuseTheLog(target!, file.path)
   const there = await exists(target!)
   if (there && !(ask.overwrite ?? false)) {
+    offers.offered = new Offered(ask.key, ask.format, ask.message ?? "", target!)
+
     return encodeLocalLogExported(LocalLogExported { path: target!, exists: true, rows: 0, bytes: 0 })
   }
   const part = `${target!}.part`
   try {
     const written = await writeIt(ask, name, file.path, part, own)
-    if (there) {
-      await remove(target!)
-    }
-    await rename(part, target!)
+    await moveIn(part, target!, there)
     return encodeLocalLogExported(LocalLogExported { path: target!, rows: written.rows as u32, bytes: written.bytes as u64 })
   } catch (e: Error) {
     if (await exists(part)) {
       await remove(part)
     }
     throw e
+  }
+}
+
+/// Moves the whole file in place of the target: renamed over it, so there is no moment without a file there. Where a rename cannot
+/// replace a file, the old one is removed after the rename failed (not before).
+async function moveIn(part: string, destination: string, there: bool): Promise<void> throws Error {
+  try {
+    await rename(part, destination)
+  } catch (e: Error) {
+    if (!there) {
+      throw e
+    }
+    await remove(destination)
+    await rename(part, destination)
   }
 }
 

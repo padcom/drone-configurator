@@ -7,6 +7,7 @@ import {
   batchBytesPerMinute,
   bitsOf,
   includesLogging,
+  isMask,
   measuredBytesPerMinute,
   megabytes,
   streamRows,
@@ -18,10 +19,34 @@ describe('bits of a mask', () => {
     expect(bitsOf(0)).toEqual([])
     expect(bitsOf(0b1000101)).toEqual([0, 2, 6])
     expect(bitsOf(2 ** 19 + 1)).toEqual([0, 19])
-    expect(bitsOf(-1)).toEqual([])
     expect(bitsOf(1.5)).toEqual([])
     expect(bitsOf(Number.NaN)).toEqual([])
     expect(bitsOf(2 ** 40)).toEqual([])
+    expect(bitsOf(2 ** 31)).toEqual([])
+  })
+
+  it('holds a mask as an int32: -1 is every bit, bit 31 is the sign', () => {
+    expect(bitsOf(-1)).toEqual(Array.from({ length: 32 }, (_, bit) => bit))
+    expect(bitsOf(-(2 ** 31))).toEqual([31])
+    expect(bitsOf(2 ** 31 - 1)).toEqual(Array.from({ length: 31 }, (_, bit) => bit))
+    expect(isMask(-1)).toBe(true)
+    expect(isMask(2 ** 31)).toBe(false)
+    expect(isMask(-(2 ** 31) - 1)).toBe(false)
+    expect(isMask(0.5)).toBe(false)
+  })
+})
+
+describe('bits of an int32 mask', () => {
+  it('edits -1 as an int32: unticking a bit takes it from -1, ticking one in 0 bit 31 gives the smallest int32', () => {
+    expect(withBit(-1, 2, false)).toBe(-5)
+    expect(withBit(-1, 31, false)).toBe(2 ** 31 - 1)
+    expect(withBit(-1, 7, true)).toBe(-1)
+    expect(withBit(0, 31, true)).toBe(-(2 ** 31))
+    expect(withBit(-(2 ** 31), 31, false)).toBe(0)
+    expect(withBit(-5, 2, true)).toBe(-1)
+    // A value that is no mask is left as it is: nothing is made up from it.
+    expect(withBit(2 ** 40, 2, true)).toBe(2 ** 40)
+    expect(withBit(1.5, 0, true)).toBe(1.5)
   })
 
   it('turns a bit on or off and leaves the others', () => {

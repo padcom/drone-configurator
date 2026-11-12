@@ -12,6 +12,7 @@
     />
     <template v-else>
       <Banner v-if="logging.armed.value" id="setup-armed" tone="warn">{{ t('logs.setup.armed') }}</Banner>
+      <Banner v-if="!logging.editable.value" id="setup-not-editable" tone="warn">{{ t('logs.setup.notEditable') }}</Banner>
       <Banner id="setup-fills" tone="warn">{{ t('logs.setup.fills') }}</Banner>
 
       <fieldset class="setup-group">
@@ -25,7 +26,7 @@
             <Checkbox
               :model-value="row.on"
               :data-bit="row.bit"
-              :disabled="logging.armed.value"
+              :disabled="locked"
               @update:model-value="tick('LOG_BITMASK', row.bit, $event)"
             >
               {{ row.name ?? t('logs.setup.bit', { bit: row.bit }) }}
@@ -42,7 +43,7 @@
             <Checkbox
               :model-value="row.on"
               :data-bit="row.bit"
-              :disabled="logging.armed.value"
+              :disabled="locked"
               @update:model-value="tick('INS_LOG_BAT_MASK', row.bit, $event)"
             >
               {{ row.name ?? t('logs.setup.bit', { bit: row.bit }) }}
@@ -116,7 +117,9 @@ const logging = useLoggingSetup({
 
 const hasBatch = computed(() => parameters.params.value.some(param => param.id === BATCH_MASK))
 const canRevert = computed(() => logging.changes.value.length > 0)
-const canQueue = computed(() => !logging.armed.value && logging.changes.value.length > 0)
+/** Nothing is ticked or queued while the vehicle is armed (or may be), or when a mask is not an int32. */
+const locked = computed(() => logging.armed.value || !logging.editable.value)
+const canQueue = computed(() => !locked.value && logging.changes.value.length > 0)
 const statusText = computed(() => (logging.armed.value ? t('logs.setup.armed') : ''))
 
 const measuredText = computed(() => {
@@ -148,7 +151,7 @@ const batchText = computed(() => {
  * @param on whether it is ticked
  */
 function tick(id: string, bit: number, on: boolean): void {
-  if (!logging.armed.value) {
+  if (!locked.value) {
     logging.set(id, bit, on)
   }
 }

@@ -23,7 +23,7 @@ import {
   encodeLocalLogAt,
   encodeLocalLogMessages,
 } from "./generated/app"
-import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "./locallogs"
+import { Taker, claimRead, locate, releaseRead, streamLog, verifiedSummary } from "./locallogs"
 import { factorOf } from "./localseries"
 
 /// The most instances of a kind that `logs.local.at` gives.
@@ -94,9 +94,7 @@ async function messagesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cb
   const own = claimRead()
   try {
     const file = await locate(asked.key)
-    if (knownSummary(asked.key, file.facts) == null) {
-      throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
-    }
+    verifiedSummary(asked.key, file.facts)
     const counter = new Counter()
     const done = await streamLog(asked.key, file, own, counter)
     if (!done.unchanged) {
@@ -185,9 +183,7 @@ async function atOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> t
 
 async function findAt(asked: LogsLocalAtAsk, own: AbortController): Promise<Cbor?> throws Error {
   const file = await locate(asked.key)
-  if (knownSummary(asked.key, file.facts) == null) {
-    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
-  }
+  verifiedSummary(asked.key, file.facts)
   const limit = if (asked.timeUs > (9000000000000000000 as u64)) 9000000000000000000 else asked.timeUs as int
   const latest = new Latest(asked.message, limit)
   const done = await streamLog(asked.key, file, own, latest)

@@ -236,6 +236,7 @@
         "help": "Połącz się z pojazdem i pobierz jego parametry, aby ustawić logowanie."
       },
       "armed": "Pojazd jest uzbrojony albo jego stan nie jest znany. Ustawienia logowania zmienia się tylko po rozbrojeniu.",
+      "notEditable": "Maska logowania w pojeździe nie jest 32-bitową liczbą całkowitą, więc jej bitów nie można tu pokazać ani zmienić.",
       "fills": "Więcej logowania szybciej zapełnia pamięć pojazdu. Sprawdź szacunek poniżej, zanim włączysz strumienie.",
       "streams": "Co pojazd zapisuje w logu",
       "unnamed": "Nazwy bitów pochodzą z metadanych parametrów, które nie są wczytane. Bity pokazano jako liczby.",

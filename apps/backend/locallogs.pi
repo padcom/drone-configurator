@@ -368,6 +368,19 @@ export function knownSummary(key: string, facts: FileFacts): LocalLogSummary? {
   if (known != null && known!.size == facts.size && known!.mtime == facts.mtime) known!.summary else null
 }
 
+/// What a read found, for a question that looks into the log: `NOT_READ` when the log was not read (lately) or changed since, and
+/// `NOT_VERIFIED` when its bytes are not known to be the vehicle's (nothing is concluded from, or exported of, such a log).
+export function verifiedSummary(key: string, facts: FileFacts): LocalLogSummary throws CommunicatorError {
+  const known = knownSummary(key, facts)
+  if (known == null) {
+    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
+  }
+  if (!known!.verified) {
+    throw new CommunicatorError("NOT_VERIFIED", "the log is not verified (its CRC is not the one the vehicle gave): nothing is taken from it")
+  }
+  known!
+}
+
 /// Reads the log named by `key` through, and keeps and gives what is in it.
 async function readLog(key: string, own: AbortController): Promise<Cbor?> throws Error {
   const file = await locate(key)

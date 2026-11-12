@@ -193,6 +193,39 @@ it('does not write a logging change that was queued before the vehicle armed, an
   expect(wrapper.get('#staged-armed').text()).toContain('Disarm it first')
 })
 
+it('shows -1 (every bit) as every box ticked, and unticking one queues -1 minus that bit, as an int32', async () => {
+  const { wrapper, handle } = await page({ params: [param('LOG_BITMASK', -1, 0), ...LOGGING_PARAMS.slice(1)] })
+
+  expect([0, 1, 2, 3].map(index => ticked(wrapper, 0, index))).toEqual([true, true, true, true])
+  await box(wrapper, 0, 1).setValue(false)
+  await wrapper.get('#setup-queue').trigger('click')
+  await flushPromises()
+
+  // The boxes are bits 0 to 31 (every bit is on), so the second box is bit 1: -1 - 2.
+  expect(handle.staged.pending()).toEqual([{ id: 'LOG_BITMASK', from: -1, to: -3 }])
+})
+
+it('ticks nothing and queues nothing when a mask is not an int32, and says why', async () => {
+  const { wrapper, handle } = await page({ params: [param('LOG_BITMASK', 2 ** 33, 0), ...LOGGING_PARAMS.slice(1)] })
+
+  expect(wrapper.get('#setup-not-editable').text()).toContain('32 bits')
+  expect(wrapper.findAll('fieldset input').every(input => (input.element as HTMLInputElement).disabled)).toBe(true)
+  await wrapper.get('#setup-queue').trigger('click')
+
+  expect(handle.staged.pending()).toEqual([])
+})
+
+it('refuses a logging change in the queue itself while the vehicle is armed or unknown, not only in the page', async () => {
+  const armed = await page({ tick: ARMED })
+  expect(armed.handle.staged.stage([{ id: 'LOG_BITMASK', to: 7 }, { id: 'RTL_ALT', to: 2000 }])).toBe(1)
+  expect(armed.handle.staged.pending().map(change => change.id)).toEqual(['RTL_ALT'])
+  mounted?.unmount()
+
+  const unknown = await page({ tick: null })
+  expect(unknown.handle.staged.stage([{ id: 'INS_LOG_BAT_MASK', to: 1 }])).toBe(0)
+  expect(unknown.handle.staged.pending()).toEqual([])
+})
+
 it('does not block the write of a change that is not a logging setting', async () => {
   const { wrapper, handle } = await page({ tick: ARMED })
   handle.staged.stage([{ id: 'RTL_ALT', to: 2000 }])

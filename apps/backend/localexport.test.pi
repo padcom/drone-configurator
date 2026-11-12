@@ -305,6 +305,76 @@ async function neverOverwritesWithoutASecondRequestThatNamesTheFile(): Promise<v
   await done(r)
 }
 
+/// The replacement of a file is the one the backend offered, once, for the same log, format and kind: a path the page names is not
+/// trusted, so no file is written or removed at a place the dialog did not give.
+async function replacesOnlyTheFileThatWasOffered(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const path = (await exportIt(r, csvAsk(key, "ATT"))).path!
+  const stranger = join(r.root, "important.txt")
+  await writeText(stranger, "keep me")
+
+  // A path that was never offered: refused, nothing created, nothing removed.
+  const unoffered = csvAsk(key, "ATT")
+  unoffered.path = stranger
+  unoffered.overwrite = true
+  expect(codeOf(await exportEnvelope(r, unoffered))).toBe("BAD_REQUEST")
+  expect(await readText(stranger)).toBe("keep me")
+  const fresh = csvAsk(key, "ATT")
+  fresh.path = join(r.root, "new-file.csv")
+  fresh.overwrite = true
+  expect(codeOf(await exportEnvelope(r, fresh))).toBe("BAD_REQUEST")
+  expect(await exists(join(r.root, "new-file.csv"))).toBe(false)
+
+  // Offered, then used once: the second use is refused.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const use = csvAsk(key, "ATT")
+  use.path = path
+  use.overwrite = true
+  expect((await exportEnvelope(r, use)).k).toBe("response")
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+
+  // Offered for one file, used for another one: refused, and the offer is gone.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const swapped = csvAsk(key, "ATT")
+  swapped.path = stranger
+  swapped.overwrite = true
+  expect(codeOf(await exportEnvelope(r, swapped))).toBe("BAD_REQUEST")
+  expect(await readText(stranger)).toBe("keep me")
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+
+  // Offered, then something else is asked for (a GPX): the offer has expired. Another kind or format never uses it either.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  await exportEnvelope(r, trackAsk(key, LogsLocalExportAskFormat.Gpx))
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const other = csvAsk(key, "MSG")
+  other.path = path
+  other.overwrite = true
+  expect(codeOf(await exportEnvelope(r, other))).toBe("BAD_REQUEST")
+  await done(r)
+}
+
+/// Nothing is taken from a log whose bytes are not the vehicle's: not the kinds, not the fields, not an export.
+async function takesNothingFromALogThatIsNotVerified(): Promise<void> throws Error {
+  const r = await rig()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, 305419896)
+  await writeBytes(join(dir, name), flight())
+  const key = `uid-a/${name}`
+  await readIt(r, key)
+  expect(codeOf(await exportEnvelope(r, csvAsk(key, "ATT")))).toBe("NOT_VERIFIED")
+  expect(codeOf(await exportEnvelope(r, trackAsk(key, LogsLocalExportAskFormat.Gpx)))).toBe("NOT_VERIFIED")
+  let files = ""
+  for await (const entry of readDir(r.out)) {
+    files += entry.name
+  }
+  expect(files).toBe("")
+  await done(r)
+}
+
 async function neverWritesOverALog(): Promise<void> throws Error {
   const r = await rig()
   const bytes = flight()
@@ -385,6 +455,8 @@ describe("the export of the logs on this computer", () => {
   it("escapes the text that goes into XML", escapesXml)
   it("leaves arrays out of the CSV", leavesArraysOutOfTheCsv)
   it("never overwrites without a second request that names the file", neverOverwritesWithoutASecondRequestThatNamesTheFile)
+  it("replaces only the file that was offered, once", replacesOnlyTheFileThatWasOffered)
+  it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
   it("never writes over a log or any .BIN", neverWritesOverALog)
   it("writes a GPX and a KML of the 3D fixes of one receiver", writesAGpxAndAKmlOfTheTrack)
   it("says why there is no track and writes nothing", saysWhyThereIsNoTrackAndWritesNothing)

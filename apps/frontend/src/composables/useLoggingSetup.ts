@@ -14,6 +14,7 @@ import {
   type BitRow,
   batchBytesPerMinute,
   bitsOf,
+  isMask,
   measuredBytesPerMinute,
   measuredOf,
   streamRows,
@@ -56,12 +57,17 @@ export interface Estimate {
   batchNow: number
 }
 
+/** The parameters of the page that are bitmasks. */
+const MASKS: readonly string[] = [LOG_BITMASK, BATCH_MASK, BATCH_OPT]
+
 /** The Logging setup model. */
 export interface LoggingModel {
   /** Whether the vehicle has the logging parameters at all. */
   readonly available: ComputedRef<boolean>
   /** Whether the vehicle is armed or may be: nothing is queued then. */
   readonly armed: ComputedRef<boolean>
+  /** Whether the masks are int32 (they are, unless the vehicle sent a number that cannot be a mask): else no bit is editable. */
+  readonly editable: ComputedRef<boolean>
   /** The bits of the log bitmask listed, with whether each is ticked. */
   readonly streams: ComputedRef<(BitRow & { on: boolean })[]>
   /** Which IMUs the batch sampling logs (the bits of its mask), ticked or not. */
@@ -87,6 +93,7 @@ class Logging implements LoggingModel {
   private readonly wanted: ShallowRef<Record<string, number>> = shallowRef({})
   readonly available: ComputedRef<boolean>
   readonly armed: ComputedRef<boolean>
+  readonly editable: ComputedRef<boolean>
   readonly streams: LoggingModel['streams']
   readonly imus: LoggingModel['imus']
   readonly options: LoggingModel['options']
@@ -102,6 +109,7 @@ class Logging implements LoggingModel {
   constructor(private readonly deps: LoggingDeps) {
     this.available = computed(() => this.has(LOG_BITMASK))
     this.armed = computed(() => armedOf(deps.telemetry()) !== false)
+    this.editable = computed(() => MASKS.every(id => !this.has(id) || isMask(this.vehicleValue(id))))
     this.named = computed(() => Object.keys(deps.metadata().get(LOG_BITMASK)?.bits ?? {}).length > 0)
     this.streams = computed(() => streamRows(deps.metadata(), this.vehicleValue(LOG_BITMASK))
       .map(row => ({ ...row, on: bitsOf(this.value(LOG_BITMASK)).includes(row.bit) })))
@@ -185,7 +193,7 @@ class Logging implements LoggingModel {
   }
 
   set(id: string, bit: number, on: boolean): void {
-    if (this.has(id)) {
+    if (this.has(id) && this.editable.value) {
       this.wanted.value = { ...this.wanted.value, [id]: withBit(this.value(id), bit, on) }
     }
   }
@@ -195,7 +203,7 @@ class Logging implements LoggingModel {
   }
 
   queue(): number {
-    if (this.armed.value || this.changes.value.length === 0) {
+    if (this.armed.value || !this.editable.value || this.changes.value.length === 0) {
       return 0
     }
     const queued = this.deps.stage(this.changes.value.map(({ id, to }) => ({ id, to })))

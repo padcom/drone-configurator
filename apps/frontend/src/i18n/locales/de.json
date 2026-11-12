@@ -236,6 +236,7 @@
         "help": "Verbinden Sie ein Fahrzeug und laden Sie seine Parameter, um das Logging einzurichten."
       },
       "armed": "Das Fahrzeug ist scharf geschaltet, oder sein Zustand ist nicht bekannt. Logging-Einstellungen werden nur im entschärften Zustand geändert.",
+      "notEditable": "Eine Logging-Maske des Fahrzeugs ist keine ganze 32-Bit-Zahl, ihre Bits können hier nicht angezeigt oder geändert werden.",
       "fills": "Mehr Logging füllt den Speicher des Fahrzeugs schneller. Prüfen Sie die Schätzung unten, bevor Sie Datenströme einschalten.",
       "streams": "Was das Fahrzeug aufzeichnet",
       "unnamed": "Die Namen der Bits stammen aus den Parameter-Metadaten, die nicht geladen sind. Die Bits werden als Zahlen gezeigt.",

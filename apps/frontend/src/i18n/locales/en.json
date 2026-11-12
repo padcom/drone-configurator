@@ -236,6 +236,7 @@
         "help": "Connect a vehicle and download its parameters to set up logging."
       },
       "armed": "The vehicle is armed, or its state is not known. Logging settings are changed only when it is disarmed.",
+      "notEditable": "A logging mask on the vehicle is not a whole number of 32 bits, so its bits cannot be shown or changed here.",
       "fills": "More logging fills the vehicle's storage faster. Check the estimate below before turning streams on.",
       "streams": "What the vehicle logs",
       "unnamed": "The names of the bits come from the parameter metadata, which is not loaded. The bits are shown as numbers.",

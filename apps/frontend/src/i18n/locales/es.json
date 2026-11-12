@@ -236,6 +236,7 @@
         "help": "Conecta un vehículo y descarga sus parámetros para configurar el registro."
       },
       "armed": "El vehículo está armado, o no se conoce su estado. Los ajustes del registro solo se cambian con el vehículo desarmado.",
+      "notEditable": "Una máscara de registro del vehículo no es un entero de 32 bits, así que sus bits no se pueden mostrar ni cambiar aquí.",
       "fills": "Registrar más llena antes el almacenamiento del vehículo. Revisa la estimación de abajo antes de activar flujos.",
       "streams": "Qué registra el vehículo",
       "unnamed": "Los nombres de los bits vienen de los metadatos de parámetros, que no están cargados. Los bits se muestran como números.",

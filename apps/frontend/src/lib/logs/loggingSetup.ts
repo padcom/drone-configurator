@@ -38,17 +38,45 @@ export const STREAM_BITS: readonly number[] = [0, 2, 17, 19]
 export const ISBD_BYTES = 207
 
 /**
+ * Whether a value is an int32, which is what a bitmask parameter holds (-1 is legal: every bit), so that its bits can be edited.
+ *
+ * @param value the parameter's value
+ * @returns true if it is a whole number from -2^31 to 2^31 - 1
+ */
+export function isMask(value: number): boolean {
+  return Number.isInteger(value) && value >= -(2 ** 31) && value < 2 ** 31
+}
+
+/**
+ * The 32 bits of an int32 as a number from 0 to 2^32 - 1 (-1 is every bit).
+ *
+ * @param value an int32
+ * @returns the bits as an unsigned number
+ */
+function unsignedOf(value: number): number {
+  return value < 0 ? value + 2 ** 32 : value
+}
+
+/**
+ * The int32 that has the 32 bits of an unsigned number.
+ *
+ * @param unsigned a number from 0 to 2^32 - 1
+ * @returns the int32
+ */
+function signedOf(unsigned: number): number {
+  return unsigned >= 2 ** 31 ? unsigned - 2 ** 32 : unsigned
+}
+
+/**
  * The bit positions that are set in a value.
  *
  * @param value the parameter's value
- * @returns the positions, ascending (none for a value that is not a whole number from 0 up to 2^31)
+ * @returns the positions, ascending: 32 bits of an int32 (-1 is every bit); none for a value that is not an int32
  */
 export function bitsOf(value: number): number[] {
-  if (!Number.isInteger(value) || value < 0 || value > 0x7FFFFFFF) {
-    return []
-  }
+  const unsigned = unsignedOf(value)
 
-  return Array.from({ length: 31 }, (_, bit) => bit).filter(bit => Math.floor(value / 2 ** bit) % 2 === 1)
+  return isMask(value) ? Array.from({ length: 32 }, (_, bit) => bit).filter(bit => Math.floor(unsigned / 2 ** bit) % 2 === 1) : []
 }
 
 /**
@@ -57,16 +85,14 @@ export function bitsOf(value: number): number[] {
  * @param value the parameter's value
  * @param bit the position
  * @param on whether the bit is to be set
- * @returns the new value
+ * @returns the new value as an int32 (bit 31 is the sign: -1 minus bit 2 is -5); the value itself when it is no mask
  */
 export function withBit(value: number, bit: number, on: boolean): number {
-  const set = bitsOf(value).includes(bit)
-
-  if (set === on) {
+  if (!isMask(value) || bitsOf(value).includes(bit) === on) {
     return value
   }
 
-  return on ? value + 2 ** bit : value - 2 ** bit
+  return signedOf(unsignedOf(value) + (on ? 2 ** bit : -(2 ** bit)))
 }
 
 /** One bit of a bitmask, as the page lists it. */

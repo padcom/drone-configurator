@@ -18,6 +18,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
+import { armedOf } from '@/lib/app/armed'
 import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
@@ -182,7 +183,13 @@ function stagedFor(
   vehicle: Vehicle,
   confirm: (question: string) => Promise<boolean>,
 ): StagedModel {
-  const staged = useStaged({ client, parameters, isConnected: () => vehicle.connection.value.state === 'connected', confirm })
+  const staged = useStaged({
+    client,
+    parameters,
+    isConnected: () => vehicle.connection.value.state === 'connected',
+    confirm,
+    mayBeArmed: () => armedOf(vehicle.telemetry.value) !== false,
+  })
   // What was staged is for the vehicle it was staged on: not for the next one, which may have parameters of the same names.
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {

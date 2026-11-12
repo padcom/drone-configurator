@@ -236,6 +236,7 @@
         "help": "Collega un veicolo e scarica i suoi parametri per impostare il logging."
       },
       "armed": "Il veicolo è armato o il suo stato non è noto. Le impostazioni del logging si cambiano solo a veicolo disarmato.",
+      "notEditable": "Una maschera di logging del veicolo non è un intero a 32 bit: i suoi bit non possono essere mostrati o modificati qui.",
       "fills": "Più logging riempie prima la memoria del veicolo. Controlla la stima qui sotto prima di attivare i flussi.",
       "streams": "Cosa registra il veicolo",
       "unnamed": "I nomi dei bit vengono dai metadati dei parametri, che non sono caricati. I bit sono mostrati come numeri.",
