@@ -4,6 +4,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
+import { includesGuarded } from '@/lib/logs/loggingSetup'
 import type { Connection, Param } from '@/generated/app'
 import { notConfirmedText, showNumber } from '@/lib/params/paramValue'
 import { type Change, type Review, parseSnapshot, review, saveSnapshot } from '@/lib/params/snapshot'
@@ -22,6 +23,8 @@ export interface SnapshotsDeps {
   parameters: { params: ShallowRef<Param[]>, replace: (param: Param) => void, lock: WriteLock }
   /** The connection: the vehicle the snapshot is saved from, and whether writing is possible. */
   connection: ShallowRef<Connection>
+  /** Whether the vehicle is armed or may be (unknown counts as armed): a logging or notch parameter is not written then. */
+  mayBeArmed?: () => boolean
 }
 
 /** The snapshots, as refs and actions. */
@@ -172,11 +175,47 @@ class Snapshots implements SnapshotsModel {
    * @param change the change
    * @returns how it went
    */
-  private async applyOne(change: Change): Promise<AppliedChange> {
+  private applyOne(change: Change): Promise<AppliedChange> {
     const param = this.deps.parameters.params.value.find(candidate => candidate.id === change.id)
     if (!param) {
-      return { id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') }
+      return Promise.resolve({ id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') })
     }
+    const refused = this.refusedWhileArmed(change.id)
+
+    return refused === null ? this.write(param, change) : Promise.resolve(refused)
+  }
+
+  /**
+   * The result of a change that is not written because the vehicle is armed or may be (a logging or notch parameter).
+   *
+   * @param id the parameter
+   * @returns the result, or null when the parameter may be written
+   */
+  private refusedWhileArmed(id: string): AppliedChange | null {
+    if (!includesGuarded([id]) || !this.mayBeArmed()) {
+      return null
+    }
+
+    return { id, outcome: 'failed', detail: say('staged.armedGuarded') }
+  }
+
+  /**
+   * Whether the vehicle is armed or may be.
+   *
+   * @returns true if it may be
+   */
+  private mayBeArmed(): boolean {
+    return this.deps.mayBeArmed?.() ?? false
+  }
+
+  /**
+   * Writes one change to the vehicle, and says how it went.
+   *
+   * @param param the parameter
+   * @param change the change
+   * @returns how it went
+   */
+  private async write(param: Param, change: Change): Promise<AppliedChange> {
     try {
       const { id, kind, type } = param
       const result = await this.deps.client.call('params.write', { id, kind, type, value: change.to })

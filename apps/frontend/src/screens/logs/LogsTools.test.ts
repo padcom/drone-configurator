@@ -237,6 +237,28 @@ it('turns off the box whose tick would give a mask that cannot be written exactl
   expect(disabled(30)).toBe(true)
 })
 
+/**
+ * Resets a mix of guarded and other parameters on a vehicle with this telemetry, and says what was queued.
+ *
+ * @param tick the telemetry, as ticks after connecting (null for none)
+ */
+async function resetsWith(tick: number | null): Promise<void> {
+  const { handle } = await page({ tick })
+  const targets = [{ id: 'LOG_BITMASK', to: 0 }, { id: 'INS_HNTCH_FREQ', to: 0 }, { id: 'RTL_ALT', to: 1000 }]
+
+  expect(handle.staged.resetTo(targets)).toBe(1)
+  expect(handle.staged.pending().map(change => change.id)).toEqual(['RTL_ALT'])
+  expect(handle.staged.refused.value).not.toBeNull()
+}
+
+it('refuses a reset of a guarded parameter in the queue while the vehicle is armed', async () => {
+  await resetsWith(ARMED)
+})
+
+it('refuses a reset of a guarded parameter in the queue while the vehicle\'s state is not known (the app wiring)', async () => {
+  await resetsWith(null)
+})
+
 it('does not block the write of a change that is not a logging setting', async () => {
   const { wrapper, handle } = await page({ tick: ARMED })
   handle.staged.stage([{ id: 'RTL_ALT', to: 2000 }])

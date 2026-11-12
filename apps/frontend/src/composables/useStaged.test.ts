@@ -573,6 +573,70 @@ describe('values the vehicle cannot be given exactly', () => {
   })
 })
 
+/** The logging and notch parameters a guarded test has on its vehicle. */
+const GUARDED = ['LOG_BITMASK', 'INS_LOG_BAT_MASK', 'INS_HNTCH_ENABLE', 'INS_HNTCH_FREQ', 'INS_HNTCH_BW', 'INS_HNTCH_HMNCS']
+
+/**
+ * A rig whose vehicle has the guarded parameters.
+ *
+ * @param mayBeArmed whether the vehicle is armed or may be
+ * @returns the rig
+ */
+function guardedRig(mayBeArmed: boolean) {
+  const made = rig((_id, value) => value, { mayBeArmed })
+  const more = GUARDED.map((id, index) => ({ id, index: 30 + index, kind: 'int' as const, type: 'INT32', value: 1 }))
+  made.params.value = [...made.params.value, ...more]
+
+  return made
+}
+
+describe('every way of queueing a change while the vehicle may be armed', () => {
+  it('puts nothing in the list for a guarded parameter: not a reset, not a typed value, not a value from another page', () => {
+    const { staged, pick } = guardedRig(true)
+
+    // The initial values put back (the Parameters screen's reset): refused for the six, and the reason is kept.
+    expect(staged.resetTo(GUARDED.map(id => ({ id, to: 0 })))).toBe(0)
+    expect(staged.changes.value).toEqual([])
+    expect(staged.refused.value).toContain('not written while the vehicle is armed')
+    // A value typed in the Value field.
+    pick('LOG_BITMASK', '7')
+    staged.sync()
+    expect(staged.changes.value).toEqual([])
+    // A value from another page.
+    expect(staged.stage(GUARDED.map(id => ({ id, to: 5 })))).toBe(0)
+    expect(staged.changes.value).toEqual([])
+  })
+
+  it('goes on queueing the others, and says the reason when it refused something', () => {
+    const { staged } = guardedRig(true)
+
+    expect(staged.resetTo([{ id: 'INS_HNTCH_FREQ', to: 0 }, { id: 'RTL_ALT', to: 1400 }])).toBe(1)
+    expect(staged.changes.value.map(change => change.id)).toEqual(['RTL_ALT'])
+    expect(staged.refused.value).not.toBeNull()
+  })
+})
+
+describe('the reason a change was refused', () => {
+  it('has no reason when nothing was refused, and forgets it when the changes are forgotten', () => {
+    const { staged } = guardedRig(true)
+    staged.resetTo([{ id: 'LOG_BITMASK', to: 0 }])
+    expect(staged.refused.value).not.toBeNull()
+
+    staged.resetTo([{ id: 'RTL_ALT', to: 1400 }])
+    expect(staged.refused.value).toBeNull()
+    staged.resetTo([{ id: 'LOG_BITMASK', to: 0 }])
+    staged.reset()
+    expect(staged.refused.value).toBeNull()
+  })
+
+  it('queues them all when the vehicle is known to be disarmed', () => {
+    const { staged } = guardedRig(false)
+
+    expect(staged.resetTo(GUARDED.map(id => ({ id, to: 0 })))).toBe(6)
+    expect(staged.refused.value).toBeNull()
+  })
+})
+
 describe('the notch values while the vehicle may be armed', () => {
   it('are not queued or written, like the logging ones', async () => {
     const { staged, params, call, askedOnce } = rig((_id, value) => value, { mayBeArmed: true })

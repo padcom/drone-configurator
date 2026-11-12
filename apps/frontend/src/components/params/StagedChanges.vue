@@ -27,6 +27,7 @@
     <!-- Always in the page, so that how the writing went is read out. -->
     <p class="staged-status" role="status" :class="{ quiet: !summary.polite }">{{ summary.polite }}</p>
     <p class="staged-status warn" role="alert" :class="{ quiet: !summary.urgent }">{{ summary.urgent }}</p>
+    <p v-if="staged.refused.value" id="staged-refused" class="staged-status warn" role="alert">{{ staged.refused.value }}</p>
     <p v-if="armedBlock" id="staged-armed" class="staged-status warn">{{ t('staged.armedGuarded') }}</p>
     <Button
       id="write-staged"
