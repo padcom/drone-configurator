@@ -4,7 +4,6 @@ import { describe, it, expect } from "std/test"
 import { Spectrum, isSize, sizeFor } from "./fft"
 
 const SIZE: int = 1024
-const RATE: f64 = 1000.0
 
 /// `count` samples of the sum of sines, each (frequency in bins, amplitude), and an offset.
 function tones(count: int, parts: f64[][], offset: f64): f64[] {

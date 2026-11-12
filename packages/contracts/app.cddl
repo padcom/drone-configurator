@@ -63,6 +63,15 @@ services = {
   ; offered with `exists`, for the same log, format and kind, and once: any other `path` is `BAD_REQUEST`). `UNAVAILABLE` for GPX or
   ; KML of a log with no position fixes (with the reason); the file is streamed, not built in memory.
   "logs.local.export": ["method", logs-local-export-ask, local-log-exported],
+  ; The raw IMU batches of a log that was read (ArduPilot's ISBH and ISBD, written when `INS_LOG_BAT_MASK` is set): which sensors
+  ; (gyro or accelerometer, of which IMU) have batches, how many, at what rate. A log with none has an empty list; the page then
+  ; says how to capture one. `logs.local.spectrum` is the amplitude spectrum of one of them: an FFT of each batch, averaged, with a
+  ; spectrogram over the flight, the peak and its harmonics. Both are one pass over the file, cancelable, told with
+  ; `logs.local.progress`, one read at a time (`BUSY`), `NOT_READ` for a log that was not read (or changed since), `NOT_VERIFIED` for
+  ; one that is not verified, `CHANGED` if the file changed meanwhile. `UNAVAILABLE` when the log has no usable batch of that sensor
+  ; (never an empty spectrum shown as a measurement).
+  "logs.local.batches": ["method", logs-local-read, local-log-batches],
+  "logs.local.spectrum": ["method", logs-local-spectrum-ask, local-log-spectrum],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -358,6 +367,51 @@ logs-local-export-ask = {
 ; `path` is absent when the user cancelled the dialog. `exists`: the file is there and nothing was written. Else the file was written:
 ; `rows` of data (messages for CSV, points for GPX and KML) and `bytes`.
 local-log-exported = { ? path: tstr, ? exists: bool, rows: uint .size 4, bytes: uint .size 8 }
+
+; The sensors a log has batches of. `instance` is ISBH's: an instance from the number of IMUs up is the post-filter data of the IMU
+; that many below. `rateHz` is the first batch's; `mixedRates` is true when batches of the sensor differ in rate (only those at the
+; first rate are used). `samples` is the samples in a batch (the first batch's).
+batch-sensor = "accel" / "gyro"
+local-log-batches = { sources: [* batch-source] }
+batch-source = {
+  sensor: batch-sensor,
+  instance: uint .size 1,
+  batches: uint .size 4,
+  rateHz: float,
+  samples: uint .size 2,
+  mixedRates: bool,
+}
+
+logs-local-spectrum-ask = { key: tstr, sensor: batch-sensor, instance: uint .size 1 }
+
+; The spectrum of one sensor: `size` samples to an FFT (a power of two, at most the samples in a batch), the frequency of bin k is
+; k * `resolutionHz`; `axes` have the average amplitude of each bin (0 to size / 2) in `unit` (rad/s for a gyro, m/s/s for an
+; accelerometer: what the log's multiplier makes of the samples); `rows` are the spectrogram, at most 120 of them in time order, each
+; the amplitude of the three axes together in `columns` columns (the largest of the bins that fall in a column; a column is
+; `columnHz` wide), starting at `timeUs` (the first sample of its first batch). `batches` were used, `skipped` were not (not whole,
+; not at the first rate, a size or a multiplier that cannot be). `silent`: every amplitude is zero (no signal), and then there is
+; no peak. `peak` is the largest bin from 20 Hz up that stands well above the rest, with the harmonics that are there.
+local-log-spectrum = {
+  sensor: batch-sensor,
+  instance: uint .size 1,
+  rateHz: float,
+  size: uint .size 2,
+  resolutionHz: float,
+  unit: tstr,
+  batches: uint .size 4,
+  skipped: uint .size 4,
+  axes: [* spectrum-axis],
+  columns: uint .size 2,
+  columnHz: float,
+  rows: [* spectrum-row],
+  silent: bool,
+  ? peak: spectrum-peak,
+}
+
+spectrum-axis = { name: "x" / "y" / "z", amplitude: [* float] }
+spectrum-row = { timeUs: uint .size 8, values: [* float] }
+spectrum-peak = { hz: float, amplitude: float, axis: "x" / "y" / "z", harmonics: [* spectrum-harmonic] }
+spectrum-harmonic = { n: uint .size 1, hz: float, amplitude: float }
 
 ; The changes of flight mode of a log that was read, in the order they are in the log (at most 5000, `cut` when there were more).
 ; The backend keeps them for the last few logs it read (16) and the file still the one that was read; for another it fails with
