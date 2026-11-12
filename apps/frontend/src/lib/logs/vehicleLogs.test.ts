@@ -31,6 +31,9 @@ it('says what a log is: what the download said of it, else downloaded or new', (
   expect(stateOf(NEW, progress)).toBe('downloading')
   expect(stateOf(NEW, undefined)).toBe('new')
   expect(stateOf(FETCHED, undefined)).toBe('downloaded')
+  // A copy is here, but the vehicle's CRC could not be asked: not known, and it can still be downloaded.
+  expect(stateOf({ ...NEW, unchecked: true }, undefined)).toBe('unchecked')
+  expect(undownloadedIds([{ ...NEW, unchecked: true }])).toEqual([NEW.id])
 })
 
 it('lists the logs that are not downloaded, and sums the sizes listed', () => {

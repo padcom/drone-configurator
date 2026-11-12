@@ -69,8 +69,10 @@
       },
       "select": "Seleziona il log {id}",
       "noDate": "Nessuna data",
+      "noDateNote": "Alcuni log non hanno una data: il firmware di questo veicolo non indica quando un file è stato modificato l'ultima volta.",
       "state": {
         "new": "Non scaricato",
+        "unchecked": "Non verificato",
         "downloaded": "Scaricato",
         "queued": "In coda",
         "downloading": "Download in corso: {percent}%",

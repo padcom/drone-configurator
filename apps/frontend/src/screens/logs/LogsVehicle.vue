@@ -67,6 +67,7 @@
           </tr>
         </tbody>
       </table>
+      <p v-if="undated" class="muted logs-nodate">{{ t('logs.vehicle.noDateNote') }}</p>
       <div class="logs-actions">
         <Button v-if="logs.running.value" id="logs-cancel" @click="logs.cancel()">{{ t('logs.vehicle.cancel') }}</Button>
         <Button v-else id="logs-download" :disabled="!canDownload" @click="logs.download()">
@@ -136,6 +137,7 @@ const { connection } = fields
 const used = computed(() => usedBytes(logs.logs.value))
 const hasNew = computed(() => undownloadedIds(logs.logs.value).length > 0)
 const chosen = computed(() => logs.selected.value.length)
+const undated = computed(() => logs.logs.value.some(log => madeAt(log) === null))
 const downloaded = computed(() => logs.logs.value.filter(log => log.downloaded).length)
 const kept = computed(() => undownloadedIds(logs.logs.value).length)
 const canDownload = computed(() => logs.blocked.value === null && chosen.value > 0)

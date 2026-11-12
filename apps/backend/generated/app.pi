@@ -525,20 +525,27 @@ export struct VehicleLog {
   size: u32
   time?: u64
   downloaded: bool
+  unchecked?: bool
 }
 
 export function decodeVehicleLog(v: Cbor, path: string): VehicleLog throws InvalidPayload {
-  const m = members(v, path, ["id", "size", "time", "downloaded"])
+  const m = members(v, path, ["id", "size", "time", "downloaded", "unchecked"])
   const cbor2 = m.get("time")
   let opt2: u64? = null
   if (cbor2 != null) {
     opt2 = (uint(cbor2, `${path}.time`, 18446744073709551615) as u64)
+  }
+  const cbor4 = m.get("unchecked")
+  let opt4: bool? = null
+  if (cbor4 != null) {
+    opt4 = boolean(cbor4, `${path}.unchecked`)
   }
   VehicleLog {
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
     size: (uint(required(m, "size", path), `${path}.size`, 4294967295) as u32),
     time: opt2,
     downloaded: boolean(required(m, "downloaded", path), `${path}.downloaded`),
+    unchecked: opt4,
   }
 }
 
@@ -551,6 +558,10 @@ export function encodeVehicleLog(v: VehicleLog): Cbor {
     m.set("time", Cbor.Uint(opt2 as u64))
   }
   m.set("downloaded", Cbor.Bool(v.downloaded))
+  const opt4 = v.unchecked
+  if (opt4 != null) {
+    m.set("unchecked", Cbor.Bool(opt4))
+  }
   Cbor.Dict(m)
 }
 

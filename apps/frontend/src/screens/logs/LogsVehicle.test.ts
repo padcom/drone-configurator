@@ -221,9 +221,12 @@ it('shows no log as downloading or queued after a cancel', async () => {
   const { wrapper, handle } = await screen(true, { logs: { steps: 4, intervalMs: 30 } })
   handle.logs.selectNew()
   const first = handle.logs.download()
-  await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists()).toBe(true))
-  const during = cells(wrapper).map(row => row[4] ?? '')
-  expect(during).toEqual([expect.stringMatching(/^Downloading/u), 'Queued', 'Downloaded', 'Queued'])
+  // Waits for the state it then asserts (the bar and the first row's words, and the others queued), not for the bar alone.
+  await vi.waitFor(() => {
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    const states = cells(wrapper).map(row => row[4] ?? '')
+    expect(states).toEqual([expect.stringMatching(/^Downloading/u), 'Queued', 'Downloaded', 'Queued'])
+  })
   await handle.logs.cancel()
   await first
   await flushPromises()
@@ -236,6 +239,9 @@ it('shows no date where the vehicle gives none, and the time of the last change 
   const { wrapper } = await screen()
 
   expect(cells(wrapper).map(row => row[2] === 'No date')).toEqual([false, true, true, true])
+  // And says why, once: the firmware does not say.
+  expect(wrapper.findAll('.logs-nodate')).toHaveLength(1)
+  expect(wrapper.get('.logs-nodate').text()).toContain('firmware does not say when a file was last changed')
 })
 
 it('says that erasing is not available yet, and keeps its button off, when the backend cannot erase', async () => {
