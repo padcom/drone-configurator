@@ -379,6 +379,8 @@ async function opensTheDownloadedLogInFlights(): Promise<void> {
   expect(facts.modes.every(name => name !== null && !/^Mode \d+$/u.test(name))).toBe(true)
   // ATT is in the log: the attitude chart has data.
   expect(facts.charts.find(chart => chart.title.startsWith('Attitude'))?.absent).toBe(false)
+  // BAT is in the log too: the battery chart has data, with the unit the log names.
+  expect(facts.charts.find(chart => chart.title.startsWith('Battery'))).toMatchObject({ absent: false, title: 'Battery voltage, V' })
   expect(facts.findings.length).toBe(11)
 }
 

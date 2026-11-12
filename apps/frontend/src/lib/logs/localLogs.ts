@@ -163,6 +163,25 @@ export function toneOf(finding: ReviewFinding): Tone {
   }
 }
 
+/** The glyph of each level of a finding: with the word, so that the level is never the colour alone. */
+const GLYPHS: Readonly<Record<ReviewFinding['level'], string>> = {
+  'ok': '✓',
+  'warn': '⚠',
+  'bad': '✕',
+  'info': 'ℹ',
+  'no-data': '–',
+}
+
+/**
+ * The glyph of a finding's level.
+ *
+ * @param finding the finding
+ * @returns the glyph
+ */
+export function glyphOf(finding: ReviewFinding): string {
+  return GLYPHS[finding.level]
+}
+
 /** The levels that count for "the worst", from the best. */
 const RANK: readonly string[] = ['ok', 'warn', 'bad']
 

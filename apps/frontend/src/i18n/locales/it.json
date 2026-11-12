@@ -67,6 +67,8 @@
         "unverified": "Non verificato"
       },
       "open": "Apri",
+      "duration": "Durata",
+      "downloadAgain": "Vai a «Sul veicolo» per scaricarlo di nuovo.",
       "openLabel": "Apri il log {id}",
       "reading": "Lettura del log {id}…",
       "readingBar": "Lettura del log {id}",
@@ -74,7 +76,7 @@
       "heading": "Log {id}",
       "summary": "{length} · {messages} messaggi · {firmware}",
       "summaryNoFirmware": "{length} · {messages} messaggi",
-      "notVerified": "Il checksum di questa copia non è quello che il veicolo ha dato al download del log. Il log è mostrato, ma non se ne trae nessuna conclusione: non c'è revisione.",
+      "notVerified": "Il checksum di questa copia non è quello che il veicolo ha dato al download del log. Non se ne trae nessuna conclusione: non ci sono riepilogo, grafici né revisione.",
       "noTimes": "Questo log non ha tempi, quindi non c'è nulla da disegnare.",
       "damaged": "Danni trovati durante la lettura: {count}. È mostrato ciò che si è potuto leggere.",
       "cutEnd": "Il log finisce a metà di un messaggio: è stato copiato mentre il veicolo lo stava ancora scrivendo. Tutto ciò che precede è mostrato.",
@@ -89,6 +91,8 @@
         "roll": "Rollio",
         "pitch": "Beccheggio",
         "alt": "Altitudine",
+        "battery": "Tensione della batteria",
+        "volt": "Tensione",
         "x": "X",
         "y": "Y",
         "z": "Z"

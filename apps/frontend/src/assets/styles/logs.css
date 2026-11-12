@@ -150,6 +150,11 @@
   align-items: baseline;
 }
 
+.flight-glyph {
+  flex: 0 0 1.25rem;
+  text-align: center;
+}
+
 .flight-level {
   flex: 0 0 6rem;
   font-weight: 600;

@@ -22,6 +22,7 @@
           <th scope="col">{{ t('logs.flights.column.id') }}</th>
           <th scope="col">{{ t('logs.flights.column.modified') }}</th>
           <th scope="col">{{ t('logs.flights.column.size') }}</th>
+          <th scope="col">{{ t('logs.flights.duration') }}</th>
           <th scope="col">{{ t('logs.flights.column.state') }}</th>
           <th scope="col"><span class="visually-hidden">{{ t('logs.flights.open') }}</span></th>
         </tr>
@@ -31,6 +32,7 @@
           <th scope="row">{{ row.log.id }}</th>
           <td>{{ row.date }}</td>
           <td>{{ row.size }}</td>
+          <td class="flights-duration">{{ row.duration }}</td>
           <td class="flights-state">{{ row.state }}</td>
           <td>
             <Button
@@ -59,9 +61,13 @@
         <span class="muted">{{ t('logs.flights.reading', { id: openId }) }}</span>
         <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stop') }}</Button>
       </div>
+      <!-- A copy that is not verified is not looked into: the reason, and the way to a checked copy. -->
+      <template v-else-if="summary && !summary.verified">
+        <Banner id="flights-not-verified" tone="warn">{{ t('logs.flights.notVerified') }}</Banner>
+        <p class="muted"><a id="flights-download-again" href="#/logs/vehicle">{{ t('logs.flights.downloadAgain') }}</a></p>
+      </template>
       <template v-else-if="summary">
         <p class="flight-summary muted">{{ summaryText }}</p>
-        <Banner v-if="!summary.verified" id="flights-not-verified" tone="warn">{{ t('logs.flights.notVerified') }}</Banner>
         <Banner v-if="summary.problems > 0" id="flights-damaged" tone="warn">
           {{ t('logs.flights.damaged', { count: summary.problems }) }}
         </Banner>
@@ -80,7 +86,6 @@
         </template>
         <h4 class="flight-review-title">{{ t('logs.flights.review.title') }}</h4>
         <FlightReview v-if="flights.review.value" :findings="flights.review.value" :first-us="firstUs" />
-        <p v-else-if="flights.reviewMissing.value" class="muted">{{ t('logs.flights.notVerified') }}</p>
       </template>
     </section>
   </section>
@@ -165,6 +170,19 @@ function stateText(log: LocalLog): string {
 }
 
 /**
+ * How long the log is, as far as a read said (the times are in the log, so a log that was not read has none to show: a dash,
+ * and so is a log that has no times).
+ *
+ * @param log the log
+ * @returns minutes and seconds, or a dash
+ */
+function durationText(log: LocalLog): string {
+  const seconds = log.summary?.verified ? lengthOf(log.summary) : null
+
+  return seconds === null ? '—' : clockOf(seconds)
+}
+
+/**
  * When the file was last changed, in the language of the interface.
  *
  * @param log the log
@@ -181,6 +199,7 @@ const rows = computed(() => flights.logs.value.map(log => ({
   open: log.key === flights.open.value,
   date: dateText(log),
   size: sizeText(asNumber(log.size), number),
+  duration: durationText(log),
   state: stateText(log),
 })))
 
@@ -218,6 +237,11 @@ const charts = computed(() => [
     id: 'altitude',
     title: t('logs.flights.chart.altitude') + unitOf(['CTUN.Alt']),
     series: [line('CTUN.Alt', t('logs.flights.chart.alt'), 'accent')],
+  },
+  {
+    id: 'battery',
+    title: t('logs.flights.chart.battery') + unitOf(['BAT.Volt']),
+    series: [line('BAT.Volt', t('logs.flights.chart.volt'), 'accent')],
   },
   {
     id: 'vibration',

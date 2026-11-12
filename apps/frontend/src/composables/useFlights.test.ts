@@ -49,7 +49,7 @@ it('opens a verified log: reads it, then has its modes, its review and its serie
   expect(model.review.value).toHaveLength(11)
   expect(model.reviewMissing.value).toBeNull()
   expect(Object.keys(model.series.value).sort()).toEqual([
-    'ATT.Pitch', 'ATT.Roll', 'CTUN.Alt', 'VIBE.VibeX', 'VIBE.VibeY', 'VIBE.VibeZ',
+    'ATT.Pitch', 'ATT.Roll', 'BAT.Volt', 'CTUN.Alt', 'VIBE.VibeX', 'VIBE.VibeY', 'VIBE.VibeZ',
   ])
   expect(model.series.value['ATT.Roll']).toMatchObject({ found: true })
 })
@@ -74,7 +74,7 @@ it('keeps the gap in a series where the log has no samples, and the peak of one 
   expect(Math.max(...pointsOf(model, 'VIBE.VibeX').map(p => p.max ?? 0))).toBe(41)
 })
 
-it('opens a log that is not verified without a review, and says why', async () => {
+it('opens a log that is not verified without a review, modes or series, and says why', async () => {
   const model = await flights()
   await model.select(NOT_VERIFIED)
 
@@ -82,8 +82,9 @@ it('opens a log that is not verified without a review, and says why', async () =
   expect(model.summary.value?.verified).toBe(false)
   expect(model.review.value).toBeNull()
   expect(model.reviewMissing.value).toBe('not-verified')
-  // What it has is still drawn: nothing is concluded from it, but it can be looked at.
-  expect(model.series.value['ATT.Roll']?.points.length).toBeGreaterThan(10)
+  // Nothing is concluded from bytes that are not known to be the vehicle's: nothing of it is asked for or drawn.
+  expect(model.modes.value).toEqual([])
+  expect(model.series.value).toEqual({})
 })
 
 it('opens a log with no times without asking for series', async () => {

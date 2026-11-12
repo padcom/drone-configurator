@@ -2,6 +2,7 @@
 <template>
   <ul class="flight-review" :aria-label="t('logs.flights.review.title')">
     <li v-for="row in rows" :key="row.id" class="flight-finding" :class="row.tone">
+      <span class="flight-glyph" aria-hidden="true">{{ row.glyph }}</span>
       <span class="flight-level">{{ row.level }}</span>
       <span class="flight-text">{{ row.text }}</span>
     </li>
@@ -16,7 +17,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ReviewFinding } from '@/generated/app'
 import { useFormat } from '@/i18n/useFormat'
-import { asNumber, clockOf, toneOf } from '@/lib/logs/localLogs'
+import { asNumber, clockOf, glyphOf, toneOf } from '@/lib/logs/localLogs'
 
 const props = defineProps<{
   /** The findings. */
@@ -70,6 +71,7 @@ function sentence(f: ReviewFinding): string {
 const rows = computed(() => props.findings.map(f => ({
   id: f.id,
   tone: toneOf(f),
+  glyph: glyphOf(f),
   level: t(`logs.flights.level.${f.level === 'no-data' ? 'noData' : f.level}`),
   text: sentence(f),
 })))

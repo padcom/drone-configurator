@@ -123,7 +123,11 @@ const SIGNALS: Readonly<Record<string, Signal>> = {
   'VIBE.VibeX': s => 8 + 4 * Math.sin(s / 3 + 1),
   'VIBE.VibeY': s => 8 + 4 * Math.sin(s / 3 + 2),
   'VIBE.VibeZ': s => 8 + 4 * Math.sin(s / 3 + 3),
+  'BAT.Volt': s => 16.8 - s * 0.02,
 }
+
+/** The units the mock flight's log names, by message (as a real log's FMTU and UNIT do). */
+const UNITS: Readonly<Record<string, string>> = { ATT: 'deg', CTUN: 'm', BAT: 'V', VIBE: 'm/s/s' }
 
 /** The mock flight's one vibration peak: 41 m/s/s on X, one sample, at 47 s from the start of the log. */
 const PEAK_S = 47
@@ -185,6 +189,19 @@ function pointsOf(signal: Signal, key: string, range: Range): SeriesPoint[] {
 }
 
 /**
+ * The unit of a series that was found, if the mock log names one.
+ *
+ * @param found whether the series is in the log
+ * @param message the message
+ * @returns `{ unit }`, or nothing
+ */
+function unitOf(found: boolean, message: string): { unit?: string } {
+  const unit = UNITS[message]
+
+  return found && unit !== undefined ? { unit } : {}
+}
+
+/**
  * One series of the answer.
  *
  * @param ask what is asked
@@ -200,6 +217,7 @@ function resultOf(ask: SeriesAsk, range: Range): SeriesResult {
     message: ask.message,
     field: ask.field,
     found,
+    ...unitOf(found, ask.message),
     points: found ? pointsOf(signal, key, range) : [],
     invalid: 0,
   }

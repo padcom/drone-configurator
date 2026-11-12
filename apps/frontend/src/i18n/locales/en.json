@@ -67,6 +67,8 @@
         "unverified": "Not verified"
       },
       "open": "Open",
+      "duration": "Duration",
+      "downloadAgain": "Go to On the vehicle to download it again.",
       "openLabel": "Open log {id}",
       "reading": "Reading log {id}…",
       "readingBar": "Reading of log {id}",
@@ -74,7 +76,7 @@
       "heading": "Log {id}",
       "summary": "{length} · {messages} messages · {firmware}",
       "summaryNoFirmware": "{length} · {messages} messages",
-      "notVerified": "This copy's checksum is not the one the vehicle gave when the log was downloaded. It is shown, but nothing is concluded from it: there is no review.",
+      "notVerified": "This copy's checksum is not the one the vehicle gave when the log was downloaded. Nothing is concluded from it: no summary, charts or review are shown.",
       "noTimes": "This log has no times, so there is nothing to draw.",
       "damaged": "Damage met while reading: {count}. What could be read is shown.",
       "cutEnd": "The log ends in the middle of a message: it was copied while the vehicle was still writing it. Everything before that is shown.",
@@ -89,6 +91,8 @@
         "roll": "Roll",
         "pitch": "Pitch",
         "alt": "Altitude",
+        "battery": "Battery voltage",
+        "volt": "Voltage",
         "x": "X",
         "y": "Y",
         "z": "Z"

@@ -23,6 +23,7 @@ export const FLIGHT_SERIES: readonly SeriesAsk[] = [
   { message: 'VIBE', field: 'VibeX', whereField: 'IMU', whereValue: 0 },
   { message: 'VIBE', field: 'VibeY', whereField: 'IMU', whereValue: 0 },
   { message: 'VIBE', field: 'VibeZ', whereField: 'IMU', whereValue: 0 },
+  { message: 'BAT', field: 'Volt', whereField: 'Inst', whereValue: 0 },
 ]
 
 /** How many parts the time of a log is cut in for a chart. */
@@ -166,9 +167,15 @@ class Flights implements FlightsModel {
    * @param summary what the read found
    */
   private async load(key: string, summary: LocalLogSummary): Promise<void> {
-    await this.loadModes(key)
-    await this.loadReview(key, summary)
-    await this.loadSeries(key, summary)
+    // A log that is not verified is not looked into: its bytes are not known to be the vehicle's, so no modes, no series and no
+    // review, and the screen says why (and offers to download it again).
+    if (summary.verified) {
+      await this.loadModes(key)
+      await this.loadReview(key)
+      await this.loadSeries(key, summary)
+    } else {
+      this.reviewMissing.value = 'not-verified'
+    }
 
     if (this.open.value === key) {
       this.phase.value = 'ready'
@@ -189,17 +196,11 @@ class Flights implements FlightsModel {
   }
 
   /**
-   * The review: a log that is not verified has none, and the screen says why.
+   * The review of a verified log.
    *
    * @param key the log
-   * @param summary what the read found
    */
-  private async loadReview(key: string, summary: LocalLogSummary): Promise<void> {
-    if (!summary.verified) {
-      this.reviewMissing.value = 'not-verified'
-
-      return
-    }
+  private async loadReview(key: string): Promise<void> {
     const review = await this.deps.client.call('logs.local.review', { key })
     if (this.open.value === key) {
       this.review.value = review.findings

@@ -54,21 +54,24 @@ const cells = (wrapper: VueWrapper) => wrapper.findAll('tbody tr').map(row => ro
 it('lists the logs on this computer, newest first, none of them opened and none read on its own', async () => {
   const { wrapper } = await screen()
 
-  expect(cells(wrapper).map(row => [row[0], row[3]])).toEqual([
-    ['3', 'Not opened'], ['2', 'Not opened'], ['1', 'Not opened'], ['4', 'Not opened'],
+  // The state cell is the fifth; the duration (the fourth) is known only from a read, and is a dash until then.
+  expect(cells(wrapper).map(row => [row[0], row[3], row[4]])).toEqual([
+    ['3', '—', 'Not opened'], ['2', '—', 'Not opened'], ['1', '—', 'Not opened'], ['4', '—', 'Not opened'],
   ])
   expect(wrapper.find('.flight-detail').exists()).toBe(false)
   expect(wrapper.find('#flights-error').exists()).toBe(false)
 })
 
-it('opens a verified log: its length and firmware, the modes by name, three charts and the review in words', async () => {
+it('opens a verified log: its length and firmware, the modes by name, four charts and the review in words', async () => {
   const { wrapper } = await screen()
   await open(wrapper, 0)
 
   expect(wrapper.get('.flight-detail-title').text()).toBe('Log 3')
   expect(wrapper.get('.flight-summary').text()).toBe('2:00 · 152,000 messages · ArduCopter V4.7.2 (fb773567)')
   expect(wrapper.findAll('.flight-mode-name').map(m => m.text())).toEqual(['Stabilize', 'Guided', 'Loiter', 'Land'])
-  expect(wrapper.findAll('figure.kit-chart')).toHaveLength(3)
+  expect(wrapper.findAll('figure.kit-chart').map(chart => chart.get('.chart-title').text())).toEqual([
+    'Attitude, deg', 'Altitude, m', 'Battery voltage, V', 'Vibration, m/s/s',
+  ])
   expect(wrapper.find('#flights-not-verified').exists()).toBe(false)
   const lines = wrapper.findAll('.flight-finding').map(f => `${f.get('.flight-level').text()} ${f.get('.flight-text').text()}`)
   expect(lines).toHaveLength(11)
@@ -76,8 +79,10 @@ it('opens a verified log: its length and firmware, the modes by name, three char
   expect(lines[0]).toBe('Check Vibration on X: peak 41 m/s², at 0:47, limit 30.')
   expect(lines[4]).toBe('OK GPS: never below 13 satellites, limit 12 (400 samples with a 3D fix).')
   expect(lines[9]).toContain('Info Battery: lowest pack voltage 14.9 V')
+  // The review says its level with a glyph too, not by colour alone.
+  expect(wrapper.findAll('.flight-glyph').map(g => g.text()).slice(0, 2)).toEqual(['⚠', '✓'])
   // The list now says what the read found.
-  expect(cells(wrapper)[0]?.[3]).toBe('Verified')
+  expect(cells(wrapper)[0]?.slice(3, 5)).toEqual(['2:00', 'Verified'])
 })
 
 it('shares one cursor between the charts', async () => {
@@ -85,7 +90,7 @@ it('shares one cursor between the charts', async () => {
   await open(wrapper, 0)
 
   const sliders = wrapper.findAll('[role="slider"]')
-  expect(sliders).toHaveLength(3)
+  expect(sliders).toHaveLength(4)
   await sliders[0]?.trigger('keydown', { key: 'Home' })
   await flushPromises()
   const readouts = wrapper.findAll('.chart-readout').map(r => r.text())
@@ -94,14 +99,18 @@ it('shares one cursor between the charts', async () => {
   expect(wrapper.findAll('.flight-mode.cursor')).toHaveLength(1)
 })
 
-it('opens a log that is not verified: shown, with the reason, and no review', async () => {
+it('opens a log that is not verified: the reason and the way to a checked copy, and nothing of its content', async () => {
   const { wrapper } = await screen()
   await open(wrapper, 1)
 
-  expect(wrapper.get('#flights-not-verified').text()).toContain('nothing is concluded from it')
+  expect(wrapper.get('#flights-not-verified').text()).toContain('Nothing is concluded from it')
+  expect(wrapper.get('#flights-download-again').attributes('href')).toBe('#/logs/vehicle')
   expect(wrapper.findAll('.flight-finding')).toHaveLength(0)
-  expect(wrapper.findAll('figure.kit-chart')).toHaveLength(3)
-  expect(cells(wrapper)[1]?.[3]).toBe('Not verified')
+  expect(wrapper.findAll('figure.kit-chart')).toHaveLength(0)
+  expect(wrapper.find('.flight-summary').exists()).toBe(false)
+  expect(wrapper.find('.flight-modes').exists()).toBe(false)
+  // The list says so too, and has no duration for it.
+  expect(cells(wrapper)[1]?.slice(3, 5)).toEqual(['—', 'Not verified'])
 })
 
 it('says a log has no times, and draws nothing, for one that has none', async () => {

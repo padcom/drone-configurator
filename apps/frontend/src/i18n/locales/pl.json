@@ -67,6 +67,8 @@
         "unverified": "Niezweryfikowany"
       },
       "open": "Otwórz",
+      "duration": "Czas trwania",
+      "downloadAgain": "Przejdź do „Na pojeździe”, aby pobrać go ponownie.",
       "openLabel": "Otwórz log {id}",
       "reading": "Czytam log {id}…",
       "readingBar": "Czytanie logu {id}",
@@ -74,7 +76,7 @@
       "heading": "Log {id}",
       "summary": "{length} · {messages} komunikatów · {firmware}",
       "summaryNoFirmware": "{length} · {messages} komunikatów",
-      "notVerified": "Suma kontrolna tej kopii nie jest tą, którą pojazd podał przy pobieraniu logu. Log jest pokazany, ale nic się z niego nie wnioskuje: nie ma przeglądu.",
+      "notVerified": "Suma kontrolna tej kopii nie jest tą, którą pojazd podał przy pobieraniu logu. Nic się z niego nie wnioskuje: nie pokazuje się podsumowania, wykresów ani przeglądu.",
       "noTimes": "Ten log nie ma czasów, więc nie ma czego rysować.",
       "damaged": "Uszkodzenia napotkane przy czytaniu: {count}. Pokazane jest to, co dało się przeczytać.",
       "cutEnd": "Log kończy się w połowie komunikatu: skopiowano go, gdy pojazd jeszcze go zapisywał. Pokazane jest wszystko, co jest przed tym.",
@@ -89,6 +91,8 @@
         "roll": "Przechył",
         "pitch": "Pochylenie",
         "alt": "Wysokość",
+        "battery": "Napięcie baterii",
+        "volt": "Napięcie",
         "x": "X",
         "y": "Y",
         "z": "Z"

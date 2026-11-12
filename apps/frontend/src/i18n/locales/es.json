@@ -67,6 +67,8 @@
         "unverified": "Sin verificar"
       },
       "open": "Abrir",
+      "duration": "Duración",
+      "downloadAgain": "Ve a «En el vehículo» para descargarlo de nuevo.",
       "openLabel": "Abrir el registro {id}",
       "reading": "Leyendo el registro {id}…",
       "readingBar": "Lectura del registro {id}",
@@ -74,7 +76,7 @@
       "heading": "Registro {id}",
       "summary": "{length} · {messages} mensajes · {firmware}",
       "summaryNoFirmware": "{length} · {messages} mensajes",
-      "notVerified": "La suma de comprobación de esta copia no es la que dio el vehículo al descargar el registro. Se muestra, pero no se saca ninguna conclusión de él: no hay revisión.",
+      "notVerified": "La suma de comprobación de esta copia no es la que dio el vehículo al descargar el registro. No se saca ninguna conclusión de él: no hay resumen, gráficos ni revisión.",
       "noTimes": "Este registro no tiene tiempos, así que no hay nada que dibujar.",
       "damaged": "Daños encontrados al leer: {count}. Se muestra lo que se pudo leer.",
       "cutEnd": "El registro termina a mitad de un mensaje: se copió mientras el vehículo aún lo escribía. Se muestra todo lo anterior.",
@@ -89,6 +91,8 @@
         "roll": "Alabeo",
         "pitch": "Cabeceo",
         "alt": "Altitud",
+        "battery": "Tensión de la batería",
+        "volt": "Tensión",
         "x": "X",
         "y": "Y",
         "z": "Z"
