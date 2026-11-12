@@ -474,6 +474,23 @@ async function holdsEverythingElseOffWhileTheListIsRead(): Promise<void> throws 
   await finish(r)
 }
 
+async function stopsACancelDuringTheListing(): Promise<void> throws Error {
+  const r = await connected()
+  // The vehicle says nothing: the download is still reading the list when the cancel comes.
+  simulatorForTests()!.ftpMode = "silent"
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await delay(150)
+  expect(link.logging).toBe(true)
+  await r.f.call("logs.cancel")
+  // A download that was stopped, not an error: nothing came, nothing is kept, nothing stays set.
+  const reply = await r.f.reply(asked)
+  const done = decodeLogsDownloaded(reply.p ?? Cbor.Null, "$")
+  expect(done.ids.length).toBe(0)
+  expect(done.stopped).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
 async function doesNotErase(): Promise<void> throws Error {
   const r = await connected()
   expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
@@ -508,5 +525,6 @@ describe("the logs service", () => {
   it("gives a vehicle with no unique id a folder for each connection", givesAVehicleWithNoUniqueIdAFolderOfItsConnection)
   it("refuses a second download that comes before the first has begun", refusesTwoDownloadsAtTheSameTime)
   it("holds off a parameter download, a reboot, a download and another listing while the list is read", holdsEverythingElseOffWhileTheListIsRead)
+  it("ends a download as stopped, not failed, when the cancel comes while the list is read", stopsACancelDuringTheListing)
   it("does not erase yet", doesNotErase)
 })

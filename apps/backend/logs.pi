@@ -588,7 +588,8 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
     let listing: FtpEntry[] = []
     try {
       listing = await entriesOf(client)
-    } catch (e: FtpError) {
+    } catch (e: CommunicatorError) {
+      // `entriesOf` gives an FtpError as a CommunicatorError with the same code.
       if (e.code != "FTP_ABORTED") {
         throw e
       }
