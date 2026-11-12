@@ -6,7 +6,10 @@ import {
   STREAM_BITS,
   batchBytesPerMinute,
   bitsOf,
+  canSet,
+  includesGuarded,
   includesLogging,
+  isExact,
   isMask,
   measuredBytesPerMinute,
   megabytes,
@@ -55,6 +58,36 @@ describe('bits of an int32 mask', () => {
     expect(withBit(5, 2, true)).toBe(5)
     expect(withBit(5, 1, false)).toBe(5)
     expect(withBit(65535, 17, true)).toBe(65535 + 131072)
+  })
+})
+
+describe('masks the vehicle can be given exactly', () => {
+  it('knows what a 32-bit float holds: every integer to 2^24, and above that powers of two and their multiples', () => {
+    expect(isExact(16777216)).toBe(true)
+    expect(isExact(16777217)).toBe(false)
+    expect(isExact(-17)).toBe(true)
+    expect(isExact(2147483520)).toBe(true)
+    expect(isExact(2147483647)).toBe(false)
+  })
+
+  it('refuses a tick that cannot be written: bit 24 alone is exact, with bit 0 it is not, -1 minus bit 30 is not', () => {
+    expect(canSet(-1, 4, false)).toBe(true)
+    expect(canSet(0, 24, true)).toBe(true)
+    expect(canSet(1, 24, true)).toBe(false)
+    expect(canSet(-1, 30, false)).toBe(false)
+    expect(canSet(0, 3, true)).toBe(true)
+    // A bit that is already as asked changes nothing, and that is exact if the value is.
+    expect(canSet(5, 0, true)).toBe(true)
+  })
+})
+
+describe('the parameters that are not written while the vehicle may be armed', () => {
+  it('are the logging ones and the four of the notch that the Spectrum suggests', () => {
+    const ids = ['LOG_BITMASK', 'INS_LOG_BAT_MASK', 'INS_HNTCH_ENABLE', 'INS_HNTCH_FREQ', 'INS_HNTCH_BW', 'INS_HNTCH_HMNCS']
+    for (const id of ids) {
+      expect(includesGuarded([id])).toBe(true)
+    }
+    expect(includesGuarded(['INS_HNTCH_ATT', 'RTL_ALT'])).toBe(false)
   })
 })
 

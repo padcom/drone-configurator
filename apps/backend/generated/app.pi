@@ -1749,6 +1749,403 @@ export function encodeLocalLogExported(v: LocalLogExported): Cbor {
   Cbor.Dict(m)
 }
 
+export enum BatchSensor { Accel, Gyro }
+
+export function decodeBatchSensor(v: Cbor, path: string): BatchSensor throws InvalidPayload {
+  match (text(v, path)) {
+    "accel" => BatchSensor.Accel,
+    "gyro" => BatchSensor.Gyro,
+    _ => throw new InvalidPayload(path, "accel or gyro"),
+  }
+}
+
+export function encodeBatchSensor(v: BatchSensor): Cbor {
+  match (v) {
+    Accel => Cbor.Text("accel"),
+    Gyro => Cbor.Text("gyro"),
+  }
+}
+
+function decodeLocalLogBatchesSourcesList(v: Cbor, path: string): BatchSource[] throws InvalidPayload {
+  const out: BatchSource[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeBatchSource(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogBatchesSourcesList(v: BatchSource[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeBatchSource(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogBatches {
+  sources: BatchSource[]
+}
+
+export function decodeLocalLogBatches(v: Cbor, path: string): LocalLogBatches throws InvalidPayload {
+  const m = members(v, path, ["sources"])
+  LocalLogBatches {
+    sources: decodeLocalLogBatchesSourcesList(required(m, "sources", path), `${path}.sources`),
+  }
+}
+
+export function encodeLocalLogBatches(v: LocalLogBatches): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("sources", encodeLocalLogBatchesSourcesList(v.sources))
+  Cbor.Dict(m)
+}
+
+export struct BatchSource {
+  sensor: BatchSensor
+  instance: u8
+  batches: u32
+  rateHz: f64
+  samples: u16
+  mixedRates: bool
+}
+
+export function decodeBatchSource(v: Cbor, path: string): BatchSource throws InvalidPayload {
+  const m = members(v, path, ["sensor", "instance", "batches", "rateHz", "samples", "mixedRates"])
+  BatchSource {
+    sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
+    instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
+    batches: (uint(required(m, "batches", path), `${path}.batches`, 4294967295) as u32),
+    rateHz: float(required(m, "rateHz", path), `${path}.rateHz`),
+    samples: (uint(required(m, "samples", path), `${path}.samples`, 65535) as u16),
+    mixedRates: boolean(required(m, "mixedRates", path), `${path}.mixedRates`),
+  }
+}
+
+export function encodeBatchSource(v: BatchSource): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("sensor", encodeBatchSensor(v.sensor))
+  m.set("instance", Cbor.Uint(v.instance as u64))
+  m.set("batches", Cbor.Uint(v.batches as u64))
+  m.set("rateHz", Cbor.Float(v.rateHz))
+  m.set("samples", Cbor.Uint(v.samples as u64))
+  m.set("mixedRates", Cbor.Bool(v.mixedRates))
+  Cbor.Dict(m)
+}
+
+export struct LogsLocalSpectrumAsk {
+  key: string
+  sensor: BatchSensor
+  instance: u8
+}
+
+export function decodeLogsLocalSpectrumAsk(v: Cbor, path: string): LogsLocalSpectrumAsk throws InvalidPayload {
+  const m = members(v, path, ["key", "sensor", "instance"])
+  LogsLocalSpectrumAsk {
+    key: text(required(m, "key", path), `${path}.key`),
+    sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
+    instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
+  }
+}
+
+export function encodeLogsLocalSpectrumAsk(v: LogsLocalSpectrumAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  m.set("sensor", encodeBatchSensor(v.sensor))
+  m.set("instance", Cbor.Uint(v.instance as u64))
+  Cbor.Dict(m)
+}
+
+function decodeLocalLogSpectrumAxesList(v: Cbor, path: string): SpectrumAxis[] throws InvalidPayload {
+  const out: SpectrumAxis[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSpectrumAxis(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeLocalLogSpectrumRowsList(v: Cbor, path: string): SpectrumRow[] throws InvalidPayload {
+  const out: SpectrumRow[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSpectrumRow(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogSpectrumAxesList(v: SpectrumAxis[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSpectrumAxis(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeLocalLogSpectrumRowsList(v: SpectrumRow[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSpectrumRow(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogSpectrum {
+  sensor: BatchSensor
+  instance: u8
+  rateHz: f64
+  size: u16
+  resolutionHz: f64
+  unit: string
+  batches: u32
+  skipped: u32
+  axes: SpectrumAxis[]
+  columns: u16
+  columnHz: f64
+  samples: u16
+  rowBatches: u32
+  unrowed: u32
+  rows: SpectrumRow[]
+  silent: bool
+  peak?: SpectrumPeak
+}
+
+export function decodeLocalLogSpectrum(v: Cbor, path: string): LocalLogSpectrum throws InvalidPayload {
+  const m = members(v, path, ["sensor", "instance", "rateHz", "size", "resolutionHz", "unit", "batches", "skipped", "axes", "columns", "columnHz", "samples", "rowBatches", "unrowed", "rows", "silent", "peak"])
+  const cbor16 = m.get("peak")
+  let opt16: SpectrumPeak? = null
+  if (cbor16 != null) {
+    opt16 = decodeSpectrumPeak(cbor16, `${path}.peak`)
+  }
+  LocalLogSpectrum {
+    sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
+    instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
+    rateHz: float(required(m, "rateHz", path), `${path}.rateHz`),
+    size: (uint(required(m, "size", path), `${path}.size`, 65535) as u16),
+    resolutionHz: float(required(m, "resolutionHz", path), `${path}.resolutionHz`),
+    unit: text(required(m, "unit", path), `${path}.unit`),
+    batches: (uint(required(m, "batches", path), `${path}.batches`, 4294967295) as u32),
+    skipped: (uint(required(m, "skipped", path), `${path}.skipped`, 4294967295) as u32),
+    axes: decodeLocalLogSpectrumAxesList(required(m, "axes", path), `${path}.axes`),
+    columns: (uint(required(m, "columns", path), `${path}.columns`, 65535) as u16),
+    columnHz: float(required(m, "columnHz", path), `${path}.columnHz`),
+    samples: (uint(required(m, "samples", path), `${path}.samples`, 65535) as u16),
+    rowBatches: (uint(required(m, "rowBatches", path), `${path}.rowBatches`, 4294967295) as u32),
+    unrowed: (uint(required(m, "unrowed", path), `${path}.unrowed`, 4294967295) as u32),
+    rows: decodeLocalLogSpectrumRowsList(required(m, "rows", path), `${path}.rows`),
+    silent: boolean(required(m, "silent", path), `${path}.silent`),
+    peak: opt16,
+  }
+}
+
+export function encodeLocalLogSpectrum(v: LocalLogSpectrum): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("sensor", encodeBatchSensor(v.sensor))
+  m.set("instance", Cbor.Uint(v.instance as u64))
+  m.set("rateHz", Cbor.Float(v.rateHz))
+  m.set("size", Cbor.Uint(v.size as u64))
+  m.set("resolutionHz", Cbor.Float(v.resolutionHz))
+  m.set("unit", Cbor.Text(v.unit))
+  m.set("batches", Cbor.Uint(v.batches as u64))
+  m.set("skipped", Cbor.Uint(v.skipped as u64))
+  m.set("axes", encodeLocalLogSpectrumAxesList(v.axes))
+  m.set("columns", Cbor.Uint(v.columns as u64))
+  m.set("columnHz", Cbor.Float(v.columnHz))
+  m.set("samples", Cbor.Uint(v.samples as u64))
+  m.set("rowBatches", Cbor.Uint(v.rowBatches as u64))
+  m.set("unrowed", Cbor.Uint(v.unrowed as u64))
+  m.set("rows", encodeLocalLogSpectrumRowsList(v.rows))
+  m.set("silent", Cbor.Bool(v.silent))
+  const opt16 = v.peak
+  if (opt16 != null) {
+    m.set("peak", encodeSpectrumPeak(opt16))
+  }
+  Cbor.Dict(m)
+}
+
+export enum SpectrumAxisName { X, Y, Z }
+
+export function decodeSpectrumAxisName(v: Cbor, path: string): SpectrumAxisName throws InvalidPayload {
+  match (text(v, path)) {
+    "x" => SpectrumAxisName.X,
+    "y" => SpectrumAxisName.Y,
+    "z" => SpectrumAxisName.Z,
+    _ => throw new InvalidPayload(path, "x or y or z"),
+  }
+}
+
+export function encodeSpectrumAxisName(v: SpectrumAxisName): Cbor {
+  match (v) {
+    X => Cbor.Text("x"),
+    Y => Cbor.Text("y"),
+    Z => Cbor.Text("z"),
+  }
+}
+
+function decodeSpectrumAxisAmplitudeList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSpectrumAxisAmplitudeList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+export struct SpectrumAxis {
+  name: SpectrumAxisName
+  amplitude: f64[]
+}
+
+export function decodeSpectrumAxis(v: Cbor, path: string): SpectrumAxis throws InvalidPayload {
+  const m = members(v, path, ["name", "amplitude"])
+  SpectrumAxis {
+    name: decodeSpectrumAxisName(required(m, "name", path), `${path}.name`),
+    amplitude: decodeSpectrumAxisAmplitudeList(required(m, "amplitude", path), `${path}.amplitude`),
+  }
+}
+
+export function encodeSpectrumAxis(v: SpectrumAxis): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("name", encodeSpectrumAxisName(v.name))
+  m.set("amplitude", encodeSpectrumAxisAmplitudeList(v.amplitude))
+  Cbor.Dict(m)
+}
+
+function decodeSpectrumRowValuesList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSpectrumRowValuesList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+export struct SpectrumRow {
+  timeUs: u64
+  values: f64[]
+}
+
+export function decodeSpectrumRow(v: Cbor, path: string): SpectrumRow throws InvalidPayload {
+  const m = members(v, path, ["timeUs", "values"])
+  SpectrumRow {
+    timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
+    values: decodeSpectrumRowValuesList(required(m, "values", path), `${path}.values`),
+  }
+}
+
+export function encodeSpectrumRow(v: SpectrumRow): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("timeUs", Cbor.Uint(v.timeUs as u64))
+  m.set("values", encodeSpectrumRowValuesList(v.values))
+  Cbor.Dict(m)
+}
+
+export enum SpectrumPeakAxis { X, Y, Z }
+
+export function decodeSpectrumPeakAxis(v: Cbor, path: string): SpectrumPeakAxis throws InvalidPayload {
+  match (text(v, path)) {
+    "x" => SpectrumPeakAxis.X,
+    "y" => SpectrumPeakAxis.Y,
+    "z" => SpectrumPeakAxis.Z,
+    _ => throw new InvalidPayload(path, "x or y or z"),
+  }
+}
+
+export function encodeSpectrumPeakAxis(v: SpectrumPeakAxis): Cbor {
+  match (v) {
+    X => Cbor.Text("x"),
+    Y => Cbor.Text("y"),
+    Z => Cbor.Text("z"),
+  }
+}
+
+function decodeSpectrumPeakHarmonicsList(v: Cbor, path: string): SpectrumHarmonic[] throws InvalidPayload {
+  const out: SpectrumHarmonic[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSpectrumHarmonic(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSpectrumPeakHarmonicsList(v: SpectrumHarmonic[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSpectrumHarmonic(e))
+  }
+  Cbor.List(out)
+}
+
+export struct SpectrumPeak {
+  hz: f64
+  amplitude: f64
+  axis: SpectrumPeakAxis
+  harmonics: SpectrumHarmonic[]
+}
+
+export function decodeSpectrumPeak(v: Cbor, path: string): SpectrumPeak throws InvalidPayload {
+  const m = members(v, path, ["hz", "amplitude", "axis", "harmonics"])
+  SpectrumPeak {
+    hz: float(required(m, "hz", path), `${path}.hz`),
+    amplitude: float(required(m, "amplitude", path), `${path}.amplitude`),
+    axis: decodeSpectrumPeakAxis(required(m, "axis", path), `${path}.axis`),
+    harmonics: decodeSpectrumPeakHarmonicsList(required(m, "harmonics", path), `${path}.harmonics`),
+  }
+}
+
+export function encodeSpectrumPeak(v: SpectrumPeak): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("hz", Cbor.Float(v.hz))
+  m.set("amplitude", Cbor.Float(v.amplitude))
+  m.set("axis", encodeSpectrumPeakAxis(v.axis))
+  m.set("harmonics", encodeSpectrumPeakHarmonicsList(v.harmonics))
+  Cbor.Dict(m)
+}
+
+export struct SpectrumHarmonic {
+  n: u8
+  hz: f64
+  amplitude: f64
+}
+
+export function decodeSpectrumHarmonic(v: Cbor, path: string): SpectrumHarmonic throws InvalidPayload {
+  const m = members(v, path, ["n", "hz", "amplitude"])
+  SpectrumHarmonic {
+    n: (uint(required(m, "n", path), `${path}.n`, 255) as u8),
+    hz: float(required(m, "hz", path), `${path}.hz`),
+    amplitude: float(required(m, "amplitude", path), `${path}.amplitude`),
+  }
+}
+
+export function encodeSpectrumHarmonic(v: SpectrumHarmonic): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("n", Cbor.Uint(v.n as u64))
+  m.set("hz", Cbor.Float(v.hz))
+  m.set("amplitude", Cbor.Float(v.amplitude))
+  Cbor.Dict(m)
+}
+
 function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
   const out: ModeChange[] = []
   let i = 0

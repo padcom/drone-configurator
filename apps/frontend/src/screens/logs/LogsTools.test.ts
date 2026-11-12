@@ -226,6 +226,39 @@ it('refuses a logging change in the queue itself while the vehicle is armed or u
   expect(unknown.handle.staged.pending()).toEqual([])
 })
 
+it('turns off the box whose tick would give a mask that cannot be written exactly, and says why', async () => {
+  // -1 is every bit; unticking bit 4 gives -17, which a 32-bit float holds; unticking bit 30 gives -1073741825, which does not.
+  const { wrapper } = await page({ params: [param('LOG_BITMASK', -1, 0), ...LOGGING_PARAMS.slice(1)] })
+  const disabled = (index: number) => (box(wrapper, 0, index).element as HTMLInputElement).disabled
+
+  expect(wrapper.get('#setup-inexact').text()).toContain('32-bit floats')
+  // The boxes are bits 0 to 31, in order.
+  expect(disabled(4)).toBe(false)
+  expect(disabled(30)).toBe(true)
+})
+
+/**
+ * Resets a mix of guarded and other parameters on a vehicle with this telemetry, and says what was queued.
+ *
+ * @param tick the telemetry, as ticks after connecting (null for none)
+ */
+async function resetsWith(tick: number | null): Promise<void> {
+  const { handle } = await page({ tick })
+  const targets = [{ id: 'LOG_BITMASK', to: 0 }, { id: 'INS_HNTCH_FREQ', to: 0 }, { id: 'RTL_ALT', to: 1000 }]
+
+  expect(handle.staged.resetTo(targets)).toBe(1)
+  expect(handle.staged.pending().map(change => change.id)).toEqual(['RTL_ALT'])
+  expect(handle.staged.refused.value).not.toBeNull()
+}
+
+it('refuses a reset of a guarded parameter in the queue while the vehicle is armed', async () => {
+  await resetsWith(ARMED)
+})
+
+it('refuses a reset of a guarded parameter in the queue while the vehicle\'s state is not known (the app wiring)', async () => {
+  await resetsWith(null)
+})
+
 it('does not block the write of a change that is not a logging setting', async () => {
   const { wrapper, handle } = await page({ tick: ARMED })
   handle.staged.stage([{ id: 'RTL_ALT', to: 2000 }])

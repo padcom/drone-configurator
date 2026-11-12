@@ -378,6 +378,87 @@ function validateLocalLogExportedInto(value: any, path: string): boolean {
 /** The first problem with `value` as a local-log-exported, or null. */
 export const validateLocalLogExported = (value: unknown) => run(validateLocalLogExportedInto, value)
 
+export type BatchSensor = "accel" | "gyro"
+
+function validateBatchSensorInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["accel","gyro"])
+}
+
+/** The first problem with `value` as a batch-sensor, or null. */
+export const validateBatchSensor = (value: unknown) => run(validateBatchSensorInto, value)
+
+export type LocalLogBatches = { "sources": (BatchSource)[] }
+
+function validateLocalLogBatchesInto(value: any, path: string): boolean {
+  return map(value, path, ["sources"]) && (value["sources"] === undefined ? fail(`${path}.sources`, 'present') : nested(value["sources"], `${path}.sources`, (value, path) => list(value, path, (value, path) => validateBatchSourceInto(value, path))))
+}
+
+/** The first problem with `value` as a local-log-batches, or null. */
+export const validateLocalLogBatches = (value: unknown) => run(validateLocalLogBatchesInto, value)
+
+export type BatchSource = { "sensor": BatchSensor, "instance": number, "batches": number, "rateHz": number, "samples": number, "mixedRates": boolean }
+
+function validateBatchSourceInto(value: any, path: string): boolean {
+  return map(value, path, ["sensor","instance","batches","rateHz","samples","mixedRates"]) && (value["sensor"] === undefined ? fail(`${path}.sensor`, 'present') : nested(value["sensor"], `${path}.sensor`, (value, path) => validateBatchSensorInto(value, path))) && (value["instance"] === undefined ? fail(`${path}.instance`, 'present') : nested(value["instance"], `${path}.instance`, (value, path) => uint(value, path, 0xff))) && (value["batches"] === undefined ? fail(`${path}.batches`, 'present') : nested(value["batches"], `${path}.batches`, (value, path) => uint(value, path, 0xffffffff))) && (value["rateHz"] === undefined ? fail(`${path}.rateHz`, 'present') : nested(value["rateHz"], `${path}.rateHz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["samples"] === undefined ? fail(`${path}.samples`, 'present') : nested(value["samples"], `${path}.samples`, (value, path) => uint(value, path, 0xffff))) && (value["mixedRates"] === undefined ? fail(`${path}.mixedRates`, 'present') : nested(value["mixedRates"], `${path}.mixedRates`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a batch-source, or null. */
+export const validateBatchSource = (value: unknown) => run(validateBatchSourceInto, value)
+
+export type LogsLocalSpectrumAsk = { "key": string, "sensor": BatchSensor, "instance": number }
+
+function validateLogsLocalSpectrumAskInto(value: any, path: string): boolean {
+  return map(value, path, ["key","sensor","instance"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["sensor"] === undefined ? fail(`${path}.sensor`, 'present') : nested(value["sensor"], `${path}.sensor`, (value, path) => validateBatchSensorInto(value, path))) && (value["instance"] === undefined ? fail(`${path}.instance`, 'present') : nested(value["instance"], `${path}.instance`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a logs-local-spectrum-ask, or null. */
+export const validateLogsLocalSpectrumAsk = (value: unknown) => run(validateLogsLocalSpectrumAskInto, value)
+
+export type LocalLogSpectrum = { "sensor": BatchSensor, "instance": number, "rateHz": number, "size": number, "resolutionHz": number, "unit": string, "batches": number, "skipped": number, "axes": (SpectrumAxis)[], "columns": number, "columnHz": number, "samples": number, "rowBatches": number, "unrowed": number, "rows": (SpectrumRow)[], "silent": boolean, "peak"?: SpectrumPeak }
+
+function validateLocalLogSpectrumInto(value: any, path: string): boolean {
+  return map(value, path, ["sensor","instance","rateHz","size","resolutionHz","unit","batches","skipped","axes","columns","columnHz","samples","rowBatches","unrowed","rows","silent","peak"]) && (value["sensor"] === undefined ? fail(`${path}.sensor`, 'present') : nested(value["sensor"], `${path}.sensor`, (value, path) => validateBatchSensorInto(value, path))) && (value["instance"] === undefined ? fail(`${path}.instance`, 'present') : nested(value["instance"], `${path}.instance`, (value, path) => uint(value, path, 0xff))) && (value["rateHz"] === undefined ? fail(`${path}.rateHz`, 'present') : nested(value["rateHz"], `${path}.rateHz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, 0xffff))) && (value["resolutionHz"] === undefined ? fail(`${path}.resolutionHz`, 'present') : nested(value["resolutionHz"], `${path}.resolutionHz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["unit"] === undefined ? fail(`${path}.unit`, 'present') : nested(value["unit"], `${path}.unit`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batches"] === undefined ? fail(`${path}.batches`, 'present') : nested(value["batches"], `${path}.batches`, (value, path) => uint(value, path, 0xffffffff))) && (value["skipped"] === undefined ? fail(`${path}.skipped`, 'present') : nested(value["skipped"], `${path}.skipped`, (value, path) => uint(value, path, 0xffffffff))) && (value["axes"] === undefined ? fail(`${path}.axes`, 'present') : nested(value["axes"], `${path}.axes`, (value, path) => list(value, path, (value, path) => validateSpectrumAxisInto(value, path)))) && (value["columns"] === undefined ? fail(`${path}.columns`, 'present') : nested(value["columns"], `${path}.columns`, (value, path) => uint(value, path, 0xffff))) && (value["columnHz"] === undefined ? fail(`${path}.columnHz`, 'present') : nested(value["columnHz"], `${path}.columnHz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["samples"] === undefined ? fail(`${path}.samples`, 'present') : nested(value["samples"], `${path}.samples`, (value, path) => uint(value, path, 0xffff))) && (value["rowBatches"] === undefined ? fail(`${path}.rowBatches`, 'present') : nested(value["rowBatches"], `${path}.rowBatches`, (value, path) => uint(value, path, 0xffffffff))) && (value["unrowed"] === undefined ? fail(`${path}.unrowed`, 'present') : nested(value["unrowed"], `${path}.unrowed`, (value, path) => uint(value, path, 0xffffffff))) && (value["rows"] === undefined ? fail(`${path}.rows`, 'present') : nested(value["rows"], `${path}.rows`, (value, path) => list(value, path, (value, path) => validateSpectrumRowInto(value, path)))) && (value["silent"] === undefined ? fail(`${path}.silent`, 'present') : nested(value["silent"], `${path}.silent`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["peak"] === undefined || nested(value["peak"], `${path}.peak`, (value, path) => validateSpectrumPeakInto(value, path)))
+}
+
+/** The first problem with `value` as a local-log-spectrum, or null. */
+export const validateLocalLogSpectrum = (value: unknown) => run(validateLocalLogSpectrumInto, value)
+
+export type SpectrumAxis = { "name": "x" | "y" | "z", "amplitude": (number)[] }
+
+function validateSpectrumAxisInto(value: any, path: string): boolean {
+  return map(value, path, ["name","amplitude"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => oneOf(value, path, ["x","y","z"]))) && (value["amplitude"] === undefined ? fail(`${path}.amplitude`, 'present') : nested(value["amplitude"], `${path}.amplitude`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number'))))
+}
+
+/** The first problem with `value` as a spectrum-axis, or null. */
+export const validateSpectrumAxis = (value: unknown) => run(validateSpectrumAxisInto, value)
+
+export type SpectrumRow = { "timeUs": number | bigint, "values": (number)[] }
+
+function validateSpectrumRowInto(value: any, path: string): boolean {
+  return map(value, path, ["timeUs","values"]) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["values"] === undefined ? fail(`${path}.values`, 'present') : nested(value["values"], `${path}.values`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number'))))
+}
+
+/** The first problem with `value` as a spectrum-row, or null. */
+export const validateSpectrumRow = (value: unknown) => run(validateSpectrumRowInto, value)
+
+export type SpectrumPeak = { "hz": number, "amplitude": number, "axis": "x" | "y" | "z", "harmonics": (SpectrumHarmonic)[] }
+
+function validateSpectrumPeakInto(value: any, path: string): boolean {
+  return map(value, path, ["hz","amplitude","axis","harmonics"]) && (value["hz"] === undefined ? fail(`${path}.hz`, 'present') : nested(value["hz"], `${path}.hz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["amplitude"] === undefined ? fail(`${path}.amplitude`, 'present') : nested(value["amplitude"], `${path}.amplitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["axis"] === undefined ? fail(`${path}.axis`, 'present') : nested(value["axis"], `${path}.axis`, (value, path) => oneOf(value, path, ["x","y","z"]))) && (value["harmonics"] === undefined ? fail(`${path}.harmonics`, 'present') : nested(value["harmonics"], `${path}.harmonics`, (value, path) => list(value, path, (value, path) => validateSpectrumHarmonicInto(value, path))))
+}
+
+/** The first problem with `value` as a spectrum-peak, or null. */
+export const validateSpectrumPeak = (value: unknown) => run(validateSpectrumPeakInto, value)
+
+export type SpectrumHarmonic = { "n": number, "hz": number, "amplitude": number }
+
+function validateSpectrumHarmonicInto(value: any, path: string): boolean {
+  return map(value, path, ["n","hz","amplitude"]) && (value["n"] === undefined ? fail(`${path}.n`, 'present') : nested(value["n"], `${path}.n`, (value, path) => uint(value, path, 0xff))) && (value["hz"] === undefined ? fail(`${path}.hz`, 'present') : nested(value["hz"], `${path}.hz`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["amplitude"] === undefined ? fail(`${path}.amplitude`, 'present') : nested(value["amplitude"], `${path}.amplitude`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a spectrum-harmonic, or null. */
+export const validateSpectrumHarmonic = (value: unknown) => run(validateSpectrumHarmonicInto, value)
+
 export type LocalLogModes = { "modes": (ModeChange)[], "cut": boolean }
 
 function validateLocalLogModesInto(value: any, path: string): boolean {
@@ -634,6 +715,8 @@ export interface Services {
   "logs.local.messages": { kind: 'method', request: LogsLocalRead, response: LocalLogMessages }
   "logs.local.at": { kind: 'method', request: LogsLocalAtAsk, response: LocalLogAt }
   "logs.local.export": { kind: 'method', request: LogsLocalExportAsk, response: LocalLogExported }
+  "logs.local.batches": { kind: 'method', request: LogsLocalRead, response: LocalLogBatches }
+  "logs.local.spectrum": { kind: 'method', request: LogsLocalSpectrumAsk, response: LocalLogSpectrum }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
@@ -726,6 +809,14 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.export": {
     request: (value: any, path: string) => validateLogsLocalExportAskInto(value, path),
     response: (value: any, path: string) => validateLocalLogExportedInto(value, path),
+  },
+  "logs.local.batches": {
+    request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
+    response: (value: any, path: string) => validateLocalLogBatchesInto(value, path),
+  },
+  "logs.local.spectrum": {
+    request: (value: any, path: string) => validateLogsLocalSpectrumAskInto(value, path),
+    response: (value: any, path: string) => validateLocalLogSpectrumInto(value, path),
   },
   "logs.local.cancel": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

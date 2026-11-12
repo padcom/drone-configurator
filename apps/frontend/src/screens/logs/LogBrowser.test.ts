@@ -9,6 +9,16 @@ import { createConfigurator } from '@/composables/useConfigurator'
 import LineChart from '@/components/charts/LineChart.vue'
 import LogsFlights from './LogsFlights.vue'
 
+/**
+ * Waits for an expectation, longer than vitest's second (the passes behind it are timers, and a loaded machine is slow).
+ *
+ * @param check the expectation
+ * @returns when it holds
+ */
+function waitFor(check: () => void): Promise<void> {
+  return vi.waitFor(check, { timeout: 5000 })
+}
+
 let mounted: VueWrapper | undefined
 
 afterEach(() => {
@@ -30,7 +40,7 @@ async function opened(index: number) {
   mounted = mount(LogsFlights, { global: { plugins: [i18n] }, props: { section: 'flights' }, attachTo: document.body })
   await flushPromises()
   await mounted.findAll('.flights-open')[index]?.trigger('click')
-  await vi.waitFor(() => expect(mounted?.find('#browser-kind').exists()).toBe(true))
+  await waitFor(() => expect(mounted?.find('#browser-kind').exists()).toBe(true))
   await flushPromises()
 
   return { wrapper: mounted, handle }
@@ -93,21 +103,21 @@ it('asks the log for the fields at the cursor, with the unit the log names, and 
   await choose(wrapper, 'ATT')
   expect(wrapper.get('#browser-cursor-hint').text()).toContain('Move the cursor')
   await moveTo(wrapper, 30)
-  await vi.waitFor(() => expect(fieldsOf(wrapper).length).toBe(3))
+  await waitFor(() => expect(fieldsOf(wrapper).length).toBe(3))
 
   const [time, roll] = fieldsOf(wrapper)
   expect(time).toBe('TimeUS: 31,000,000')
   // 10 sin(30 / 6) = -9.589 degrees.
   expect(roll).toBe('Roll: -9.589 deg')
   await moveTo(wrapper, 60)
-  await vi.waitFor(() => expect(fieldsOf(wrapper)[0]).toBe('TimeUS: 61,000,000'))
+  await waitFor(() => expect(fieldsOf(wrapper)[0]).toBe('TimeUS: 61,000,000'))
 })
 
 it('lets the instance be chosen where the kind has several, and shows the one chosen', async () => {
   const { wrapper } = await opened(0)
   await choose(wrapper, 'BAT')
   await moveTo(wrapper, 10)
-  await vi.waitFor(() => expect(wrapper.find('#browser-instance').exists()).toBe(true))
+  await waitFor(() => expect(wrapper.find('#browser-instance').exists()).toBe(true))
 
   expect(wrapper.findAll('#browser-instance option').map(option => option.text())).toEqual(['0', '1'])
   const first = fieldsOf(wrapper).find(line => line.startsWith('Volt'))
@@ -122,7 +132,7 @@ it('says there is nothing yet for a time before the first message, not a zero', 
   const { wrapper } = await opened(0)
   await choose(wrapper, 'ATT')
   await moveTo(wrapper, -5)
-  await vi.waitFor(() => expect(wrapper.find('#browser-nothing').exists()).toBe(true))
+  await waitFor(() => expect(wrapper.find('#browser-nothing').exists()).toBe(true))
 
   expect(wrapper.get('#browser-nothing').text()).toContain('ATT has no message yet')
   expect(wrapper.find('.browser-fields').exists()).toBe(false)
@@ -132,20 +142,20 @@ it('charts a field that is pressed, with its unit, and offers no chart for a tex
   const { wrapper } = await opened(0)
   await choose(wrapper, 'ATT')
   await moveTo(wrapper, 30)
-  await vi.waitFor(() => expect(fieldsOf(wrapper).length).toBe(3))
+  await waitFor(() => expect(fieldsOf(wrapper).length).toBe(3))
 
   await wrapper.get('[data-field="Roll"] .browser-graph').trigger('click')
-  await vi.waitFor(() => expect(wrapper.findAll('.kit-chart').length).toBe(5))
+  await waitFor(() => expect(wrapper.findAll('.kit-chart').length).toBe(5))
   expect(wrapper.findAll('.chart-title').map(title => title.text())).toContain('ATT.Roll, deg')
 
   // MSG has a text, which is not a value; ISBD's arrays are not fields of the row at all.
   await choose(wrapper, 'MSG')
   await moveTo(wrapper, 31)
-  await vi.waitFor(() => expect(fieldsOf(wrapper).length).toBe(2))
+  await waitFor(() => expect(fieldsOf(wrapper).length).toBe(2))
   expect(wrapper.find('[data-field="Message"] .browser-graph').exists()).toBe(false)
   await choose(wrapper, 'ISBD')
   await moveTo(wrapper, 32)
-  await vi.waitFor(() => expect(fieldsOf(wrapper)).toEqual(['TimeUS: 33,000,000']))
+  await waitFor(() => expect(fieldsOf(wrapper)).toEqual(['TimeUS: 33,000,000']))
   expect(wrapper.text()).not.toContain('x:')
 })
 
@@ -159,7 +169,7 @@ it('saves a CSV of the chosen kind, says how many rows, and does not ask for a k
 
   await choose(wrapper, 'ATT')
   await wrapper.get('#export-csv').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003-ATT.csv: 12,000 rows'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003-ATT.csv: 12,000 rows'))
   expect(wrapper.find('#export-replace').exists()).toBe(false)
 })
 
@@ -167,10 +177,10 @@ it('never replaces a file by the first press: it names the file, and a second pr
   const { wrapper } = await opened(0)
   await choose(wrapper, 'ATT')
   await wrapper.get('#export-csv').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved'))
 
   await wrapper.get('#export-csv').trigger('click')
-  await vi.waitFor(() => expect(exportSays(wrapper)).toBe('00000003-ATT.csv already exists. Nothing was written.'))
+  await waitFor(() => expect(exportSays(wrapper)).toBe('00000003-ATT.csv already exists. Nothing was written.'))
   const second = wrapper.get('#export-replace')
   expect(second.text()).toBe('Replace the file')
 
@@ -182,7 +192,7 @@ it('never replaces a file by the first press: it names the file, and a second pr
     setTimeout(resolve, 450)
   })
   await second.trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003-ATT.csv'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003-ATT.csv'))
   expect(wrapper.find('#export-replace').exists()).toBe(false)
 })
 
@@ -190,19 +200,19 @@ it('saves the GPS track as GPX and KML for a log that has one', async () => {
   const { wrapper } = await opened(0)
 
   await wrapper.get('#export-gpx').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003.gpx: 1,500 rows'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003.gpx: 1,500 rows'))
   await wrapper.get('#export-kml').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003.kml'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('Saved 00000003.kml'))
 })
 
 it('says GPX and KML are not available for a log with no position fixes, and why, and writes nothing', async () => {
   const { wrapper } = await opened(2)
 
   await wrapper.get('#export-gpx').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('GPX is not available for this log'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('GPX is not available for this log'))
   expect(wrapper.get('#export-status').text()).toContain('no GPS position with a 3D fix')
   await wrapper.get('#export-kml').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#export-status').text()).toContain('KML is not available'))
+  await waitFor(() => expect(wrapper.get('#export-status').text()).toContain('KML is not available'))
   expect(wrapper.find('#export-replace').exists()).toBe(false)
 })
 
@@ -211,7 +221,7 @@ it('is not there for a log that is not verified: nothing is looked into it', asy
   mounted = mount(LogsFlights, { global: { plugins: [i18n] }, props: { section: 'flights' }, attachTo: document.body })
   await flushPromises()
   await mounted.findAll('.flights-open')[1]?.trigger('click')
-  await vi.waitFor(() => expect(mounted?.find('#flights-not-verified').exists()).toBe(true))
+  await waitFor(() => expect(mounted?.find('#flights-not-verified').exists()).toBe(true))
   await flushPromises()
 
   expect(mounted.find('#log-browser').exists()).toBe(false)

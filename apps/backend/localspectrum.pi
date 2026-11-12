@@ -1,0 +1,638 @@
+// The raw IMU batches of a log on this computer (ArduPilot's ISBH and ISBD, written when `INS_LOG_BAT_MASK` is set) and their
+// spectrum (`logs.local.batches`, `logs.local.spectrum`). Checked in the ArduPilot source (shared/tools/ardupilot, commit 2a54162):
+// libraries/AP_InertialSensor/LogStructure.h:74-114 (ISBH "QHBBHHQf" TimeUS,N,type,instance,mul,smp_cnt,SampleUS,smp_rate; ISBD
+// "QHHaaa" TimeUS,N,seqno,x,y,z with 32 int16 to an axis), AP_InertialSensor_Logging.cpp:105-141 (a batch is an ISBH and then
+// smp_cnt / 32 ISBD, `seqno` counting them; the samples are the sensor's value times `mul`; type 0 is the accelerometer, 1 the
+// gyro (AP_InertialSensor.h:386); the instance of a post-filter batch is the IMU's plus the number of IMUs), BatchSampler.cpp.
+//
+// The log is read through once, a chunk at a time (locallogs.pi). A batch is held while it is put together (three arrays of its
+// samples), is given to the FFT when whole, and is gone; what is kept is the sum of the amplitudes of each bin, the spectrogram rows
+// (at most 240, neighbours merged as they come), and a few counters: whatever the size of the log. A batch that is not whole, or
+// whose size, multiplier or rate cannot be, is skipped and counted: nothing is made up for it.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfMessage } from "padcom/pico-mavlink"
+import {
+  BatchSensor,
+  BatchSource,
+  LocalLogBatches,
+  LocalLogSpectrum,
+  SpectrumAxis,
+  SpectrumAxisName,
+  SpectrumHarmonic,
+  SpectrumPeak,
+  SpectrumPeakAxis,
+  SpectrumRow,
+  decodeLogsLocalRead,
+  decodeLogsLocalSpectrumAsk,
+  encodeLocalLogBatches,
+  encodeLocalLogSpectrum,
+} from "./generated/app"
+import { Spectrum, sizeFor } from "./fft"
+import { LogFile, Taker, claimRead, locate, releaseRead, streamLog, verifiedSummary } from "./locallogs"
+
+/// The most sources listed (3 IMUs, gyro and accelerometer, before and after the filter).
+const MAX_SOURCES: int = 24
+
+/// The most samples in a batch that are taken (ArduPilot's `INS_LOG_BAT_CNT` is a multiple of 32, 1024 by default).
+const MAX_BATCH: int = 16384
+
+/// The columns of a spectrogram row, and the most rows kept while reading and given.
+const COLUMNS: int = 256
+const MAX_ROWS: int = 120
+
+/// The lowest frequency a peak is looked for at: below it is the vehicle's own motion, not its vibration.
+const PEAK_FROM_HZ: f64 = 20.0
+
+/// A peak must stand this many times above the mean amplitude of the bins from `PEAK_FROM_HZ` up.
+const PROMINENCE: f64 = 3.0
+
+/// A peak must be at least this many steps of the samples (1 / multiplier) high: below that it is the noise of the sensor.
+const QUANTA: f64 = 4.0
+
+/// The most harmonics looked for (2 to 8 times the peak).
+const MAX_HARMONIC: int = 8
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.batches", batchesOfLocal)
+  c.handle("logs.local.spectrum", spectrumOfLocal)
+}
+
+/// The header of the batch that is being put together.
+class Batch {
+  public readonly seqno: int
+  public readonly sensor: int
+  public readonly instance: int
+  public readonly mul: f64
+  public readonly count: int
+  public readonly rateHz: f64
+  public readonly startUs: int
+  public readonly x: f64[] = []
+  public readonly y: f64[] = []
+  public readonly z: f64[] = []
+  /// Which of its ISBD messages have come.
+  public readonly have: bool[] = []
+  public got: int = 0
+
+  constructor(seqno: int, sensor: int, instance: int, mul: f64, count: int, rateHz: f64, startUs: int) {
+    this.seqno = seqno
+    this.sensor = sensor
+    this.instance = instance
+    this.mul = mul
+    this.count = count
+    this.rateHz = rateHz
+    this.startUs = startUs
+    for (let i = 0; i < count; i++) {
+      x.push(0.0)
+      y.push(0.0)
+      z.push(0.0)
+    }
+    for (let i = 0; i < count / 32; i++) {
+      have.push(false)
+    }
+  }
+
+  /// Whether every ISBD message of the batch has come.
+  public whole(): bool {
+    got == have.length
+  }
+}
+
+/// What is known of one source while the log is read.
+class Source {
+  public readonly sensor: int
+  public readonly instance: int
+  public batches: int = 0
+  public rateHz: f64 = 0.0
+  public samples: int = 0
+  public mixed: bool = false
+
+  constructor(sensor: int, instance: int) {
+    this.sensor = sensor
+    this.instance = instance
+  }
+}
+
+/// A row of the spectrogram while it is put together: the sums of its batches.
+class Row {
+  public readonly timeUs: int
+  public readonly sums: f64[]
+  public weight: int = 1
+
+  constructor(timeUs: int, sums: f64[]) {
+    this.timeUs = timeUs
+    this.sums = sums
+  }
+}
+
+/// Whether a number can be a measurement: not NaN, not infinite.
+function finite(v: f64): bool {
+  v == v && v < 1.0e300 && v > -1.0e300
+}
+
+/// The numbers of an ISBH or an ISBD, by name (a field the format lacks is -1: the message is no batch).
+function numberOf(m: DfMessage, name: string): f64 {
+  m.num(name) ?? -1.0
+}
+
+/// Gives each message of a batch to the right place. In the listing mode (`wanted` < 0) only the headers are looked at.
+class BatchTaker implements Taker {
+  readonly wantSensor: int
+  readonly wantInstance: int
+  public readonly sources: Source[] = []
+  public current: Batch? = null
+  /// Batches that were not whole, or that cannot be used.
+  public skipped: int = 0
+  public readonly collector: Collector?
+
+  constructor(wantSensor: int, wantInstance: int, collector: Collector?) {
+    this.wantSensor = wantSensor
+    this.wantInstance = wantInstance
+    this.collector = collector
+  }
+
+  public take(m: DfMessage): void {
+    const name = m.format.name
+    if (name == "ISBH") {
+      header(m)
+    } else if (name == "ISBD" && wantSensor >= 0) {
+      data(m)
+    }
+  }
+
+  /// An ISBH: the batch before it, if it was not whole, is skipped; this one is the source's, and begins if it is wanted.
+  header(m: DfMessage): void {
+    if (current != null) {
+      skipped += 1
+      current = null
+    }
+    const seqno = numberOf(m, "N")
+    const sensor = numberOf(m, "type")
+    const instance = numberOf(m, "instance")
+    const mul = numberOf(m, "mul")
+    const count = numberOf(m, "smp_cnt")
+    const rate = numberOf(m, "smp_rate")
+    if (seqno < 0.0 || (sensor != 0.0 && sensor != 1.0) || instance < 0.0 || instance > 255.0) {
+      return
+    }
+    const source = sourceOf(sensor as int, instance as int)
+    if (source == null) {
+      return
+    }
+    note(source!, count, rate)
+    if (wantSensor == sensor as int && wantInstance == instance as int) {
+      begin(m, source!, seqno as int, mul, count, rate)
+    }
+  }
+
+  /// The source of a sensor and instance, made at the first sight of it; null when there are too many.
+  sourceOf(sensor: int, instance: int): Source? {
+    for (const s of sources) {
+      if (s.sensor == sensor && s.instance == instance) {
+        return s
+      }
+    }
+    if (sources.length >= MAX_SOURCES) {
+      return null
+    }
+    const made = new Source(sensor, instance)
+    sources.push(made)
+    made
+  }
+
+  /// Counts a batch of a source: its rate is the first one's, and a different one makes the source mixed.
+  note(source: Source, count: f64, rate: f64): void {
+    source.batches += 1
+    // What a source is like is learnt from a batch that could be used: a rate that can be, and a size that can be.
+    if (!finite(rate) || rate <= 0.0 || count < 32.0 || count > MAX_BATCH as f64 || (count as int) % 32 != 0) {
+      return
+    }
+    if (source.rateHz <= 0.0) {
+      source.rateHz = rate
+      source.samples = count as int
+    } else if (rate - source.rateHz > 0.01 * source.rateHz || source.rateHz - rate > 0.01 * source.rateHz) {
+      source.mixed = true
+    }
+  }
+
+  /// Starts the batch of the wanted source, if its size, multiplier and rate can be.
+  begin(m: DfMessage, source: Source, seqno: int, mul: f64, count: f64, rate: f64): void {
+    const usable = finite(mul) && mul > 0.0 && finite(rate) && rate > 0.0 && count >= 32.0 && count <= MAX_BATCH as f64 && (count as int) % 32 == 0
+    // Only batches at the rate of the first are used (the frequency of a bin depends on it).
+    const sameRate = source.rateHz - rate < 0.01 * source.rateHz && rate - source.rateHz < 0.01 * source.rateHz
+    if (!usable || !sameRate || collector == null || (count as int) < collector!.size) {
+      skipped += 1
+      return
+    }
+    current = new Batch(seqno, source.sensor, source.instance, mul, count as int, rate, intOf(m.num("SampleUS")))
+  }
+
+  /// An ISBD: its samples go into the batch that is being put together, at the place its `seqno` says; a whole batch is taken.
+  data(m: DfMessage): void {
+    const batch = current
+    if (batch == null) {
+      return
+    }
+    const at = numberOf(m, "seqno")
+    const x = m.list("x")
+    const y = m.list("y")
+    const z = m.list("z")
+    if (numberOf(m, "N") != batch!.seqno as f64 || at < 0.0 || at >= batch!.have.length as f64 || x == null || y == null || z == null) {
+      skipped += 1
+      current = null
+      return
+    }
+    const place = at as int
+    if (!batch!.have[place]) {
+      batch!.have[place] = true
+      batch!.got += 1
+      fill(batch!, place * 32, x!, y!, z!)
+    }
+    if (batch!.whole()) {
+      current = null
+      collector!.add(batch!)
+    }
+  }
+
+  /// Puts the 32 samples of an ISBD in the batch, divided by the multiplier that turns them back into the sensor's unit.
+  fill(batch: Batch, from: int, x: f64[], y: f64[], z: f64[]): void {
+    for (let i = 0; i < 32 && i < x.length && i < y.length && i < z.length; i++) {
+      batch.x[from + i] = x[i] / batch.mul
+      batch.y[from + i] = y[i] / batch.mul
+      batch.z[from + i] = z[i] / batch.mul
+    }
+  }
+
+  /// A batch still being put together when the log ends is not whole.
+  public finish(): void {
+    if (current != null) {
+      skipped += 1
+      current = null
+    }
+  }
+}
+
+/// A time (microseconds) that is a number, or 0.
+function intOf(v: f64?): int {
+  if (v == null || !finite(v!) || v! < 0.0 || v! > 9.0e18) 0 else v! as int
+}
+
+/// Gathers the spectrum of the whole batches: the sum of each axis' amplitudes, the spectrogram, how many batches.
+class Collector {
+  public readonly size: int
+  public rateHz: f64 = 0.0
+  /// The smallest amplitude worth calling a peak: a few steps of what the log can tell apart (its samples are whole numbers of
+  /// 1 / mul), so that the noise of a sensor at rest is not shown as a vibration.
+  public floor: f64 = 0.0
+  readonly spectrum: Spectrum
+  public readonly sums: f64[][] = []
+  public rows: Row[] = []
+  /// How many batches a row of the spectrogram holds (all but the last, which fills up).
+  public group: int = 1
+  /// The samples in a batch (the first one's), of which the FFT uses `size`.
+  public samples: int = 0
+  public batches: int = 0
+  public readonly bins: int
+  /// The columns of a row of the spectrogram: a column to a bin, or `COLUMNS` when there are more bins.
+  public readonly columns: int
+
+  constructor(size: int) {
+    this.size = size
+    this.spectrum = new Spectrum(size)
+    this.bins = size / 2 + 1
+    this.columns = if (size / 2 + 1 < COLUMNS) size / 2 + 1 else COLUMNS
+    for (let a = 0; a < 3; a++) {
+      const sum: f64[] = []
+      for (let k = 0; k < bins; k++) {
+        sum.push(0.0)
+      }
+      sums.push(sum)
+    }
+  }
+
+  public add(batch: Batch): void {
+    rateHz = batch.rateHz
+    floor = QUANTA / batch.mul
+    const ax = spectrum.amplitudes(batch.x)
+    const ay = spectrum.amplitudes(batch.y)
+    const az = spectrum.amplitudes(batch.z)
+    for (let k = 0; k < bins; k++) {
+      sums[0][k] += ax[k]
+      sums[1][k] += ay[k]
+      sums[2][k] += az[k]
+    }
+    batches += 1
+    if (batches == 1) {
+      samples = batch.count
+    }
+    addRow(batch.startUs, columnsOf(ax, ay, az))
+  }
+
+  /// Puts a batch in the spectrogram: in the last row while that has fewer than `group` batches, else in a row of its own. When
+  /// there would be more than `MAX_ROWS` rows the group doubles first (the rows are merged in pairs, in place), so that every row
+  /// but the last holds the same number of batches and the time axis is even, whatever the length of the flight.
+  addRow(startUs: int, values: f64[]): void {
+    if (rows.length > 0 && rows[rows.length - 1].weight < group) {
+      join(rows[rows.length - 1], values)
+      return
+    }
+    if (rows.length >= MAX_ROWS) {
+      regroup()
+      if (rows[rows.length - 1].weight < group) {
+        join(rows[rows.length - 1], values)
+        return
+      }
+    }
+    rows.push(new Row(startUs, values))
+  }
+
+  /// Adds the columns of one batch to a row.
+  join(row: Row, values: f64[]): void {
+    for (let c = 0; c < columns; c++) {
+      row.sums[c] += values[c]
+    }
+    row.weight += 1
+  }
+
+  /// The three axes together (the root of the sum of squares) in `columns` columns, each the largest of the bins that fall in it.
+  columnsOf(ax: f64[], ay: f64[], az: f64[]): f64[] {
+    const out: f64[] = []
+    for (let c = 0; c < columns; c++) {
+      out.push(0.0)
+    }
+    for (let k = 0; k < bins; k++) {
+      const c = columnOf(k)
+      const v = Math.sqrt(ax[k] * ax[k] + ay[k] * ay[k] + az[k] * az[k])
+      if (v > out[c]) {
+        out[c] = v
+      }
+    }
+    out
+  }
+
+  /// The column a bin falls in: the bins 0 to size / 2 are spread evenly over the columns.
+  public columnOf(k: int): int {
+    const c = (k * columns) / bins
+    if (c >= columns) columns - 1 else c
+  }
+
+  /// Doubles the group: each row is merged with the next (the sums add, the weights add), so every row but the last (which may be
+  /// left with only the old group) now holds twice as many batches.
+  regroup(): void {
+    group = group * 2
+    const merged: Row[] = []
+    let i = 0
+    while (i < rows.length) {
+      const a = rows[i]
+      if (i + 1 < rows.length) {
+        const b = rows[i + 1]
+        for (let c = 0; c < columns; c++) {
+          a.sums[c] += b.sums[c]
+        }
+        a.weight += b.weight
+      }
+      merged.push(a)
+      i += 2
+    }
+    rows = merged
+  }
+}
+
+async function batchesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
+  const own = claimRead()
+  try {
+    const file = await locate(asked.key)
+    verifiedSummary(asked.key, file.facts)
+    const taker = new BatchTaker(-1, -1, null)
+    const done = await streamLog(asked.key, file, own, taker)
+    if (!done.unchanged) {
+      throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+    }
+    return encodeLocalLogBatches(LocalLogBatches { sources: sourcesOf(taker.sources) })
+  } finally {
+    releaseRead()
+  }
+}
+
+function sourcesOf(found: Source[]): BatchSource[] {
+  const out: BatchSource[] = []
+  for (const s of found) {
+    out.push(BatchSource {
+      sensor: if (s.sensor == 0) BatchSensor.Accel else BatchSensor.Gyro,
+      instance: s.instance as u8,
+      batches: (if (s.batches > 4294967295) 4294967295 else s.batches) as u32,
+      rateHz: s.rateHz,
+      samples: s.samples as u16,
+      mixedRates: s.mixed,
+    })
+  }
+  out
+}
+
+async function spectrumOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalSpectrumAsk(payload ?? Cbor.Null, "$")
+  const sensor = if (asked.sensor == BatchSensor.Accel) 0 else 1
+  const own = claimRead()
+  try {
+    const file = await locate(asked.key)
+    verifiedSummary(asked.key, file.facts)
+    // The size of an FFT is that of the first batch of the sensor (the listing pass tells it); a second pass makes the spectrum.
+    const listing = new BatchTaker(-1, -1, null)
+    const first = await streamLog(asked.key, file, own, listing)
+    if (!first.unchanged) {
+      throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+    }
+    const size = sizeOfSource(listing.sources, sensor, asked.instance as int)
+    if (size == 0) {
+      throw new CommunicatorError("UNAVAILABLE", "the log has no batch of that sensor to make a spectrum of")
+    }
+    return await spectrumPass(asked.key, file, own, sensor, asked.instance as int, size)
+  } finally {
+    releaseRead()
+  }
+}
+
+/// The size of the FFT for a source: the largest power of two within a batch; 0 when the log has no batch of it.
+function sizeOfSource(sources: Source[], sensor: int, instance: int): int {
+  for (const s of sources) {
+    if (s.sensor == sensor && s.instance == instance) {
+      return if (s.samples >= 32) sizeFor(s.samples) else 0
+    }
+  }
+  0
+}
+
+async function spectrumPass(key: string, file: LogFile, own: AbortController, sensor: int, instance: int, size: int): Promise<Cbor?> throws Error {
+  const collector = new Collector(size)
+  const taker = new BatchTaker(sensor, instance, collector)
+  const done = await streamLog(key, file, own, taker)
+  taker.finish()
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  if (collector.batches == 0) {
+    throw new CommunicatorError("UNAVAILABLE", "the log has no whole batch of that sensor to make a spectrum of")
+  }
+  encodeLocalLogSpectrum(resultOf(collector, taker.skipped, sensor, instance))
+}
+
+/// The averaged amplitude of the three axes: each bin's sum over the batches.
+function averages(c: Collector): f64[][] {
+  const out: f64[][] = []
+  for (const sum of c.sums) {
+    const axis: f64[] = []
+    for (const v of sum) {
+      axis.push(v / (c.batches as f64))
+    }
+    out.push(axis)
+  }
+  out
+}
+
+/// How many batches the last row has too few of: it is not drawn (a row of fewer batches would be drawn as long as the others), and
+/// its batches are in the averages all the same.
+function unrowedOf(c: Collector): int {
+  if (c.rows.length > 1 && c.rows[c.rows.length - 1].weight < c.group) {
+    return c.rows[c.rows.length - 1].weight
+  }
+  0
+}
+
+/// The rows of the spectrogram, at most `MAX_ROWS`, each of the same number of batches (`group`), each value the mean of its batches.
+function rowsOf(c: Collector): SpectrumRow[] {
+  const out: SpectrumRow[] = []
+  const drawn = c.rows.length - (if (unrowedOf(c) > 0) 1 else 0)
+  for (let i = 0; i < drawn; i++) {
+    const r = c.rows[i]
+    const values: f64[] = []
+    for (const v of r.sums) {
+      values.push(v / (r.weight as f64))
+    }
+    out.push(SpectrumRow { timeUs: r.timeUs as u64, values: values })
+  }
+  out
+}
+
+function resultOf(c: Collector, skipped: int, sensor: int, instance: int): LocalLogSpectrum {
+  const avg = averages(c)
+  const resolution = c.rateHz / (c.size as f64)
+  const axes: SpectrumAxis[] = []
+  const names = [SpectrumAxisName.X, SpectrumAxisName.Y, SpectrumAxisName.Z]
+  for (let a = 0; a < 3; a++) {
+    axes.push(SpectrumAxis { name: names[a], amplitude: avg[a] })
+  }
+  let largest = 0.0
+  for (const axis of avg) {
+    for (const v of axis) {
+      if (v > largest) {
+        largest = v
+      }
+    }
+  }
+  const silent = largest < 0.000000000001
+  const r = LocalLogSpectrum {
+    sensor: if (sensor == 0) BatchSensor.Accel else BatchSensor.Gyro,
+    instance: instance as u8,
+    rateHz: c.rateHz,
+    size: c.size as u16,
+    resolutionHz: resolution,
+    unit: if (sensor == 0) "m/s/s" else "rad/s",
+    batches: c.batches as u32,
+    skipped: (if (skipped > 4294967295) 4294967295 else skipped) as u32,
+    axes: axes,
+    columns: c.columns as u16,
+    columnHz: resolution * (c.bins as f64) / (c.columns as f64),
+    samples: c.samples as u16,
+    rowBatches: c.group as u32,
+    unrowed: unrowedOf(c) as u32,
+    rows: rowsOf(c),
+    silent: silent,
+  }
+  if (!silent) {
+    const peak = peakOf(avg, resolution, c.floor)
+    if (peak != null) {
+      r.peak = peak!
+    }
+  }
+  r
+}
+
+/// The root of the sum of squares of the three axes at a bin.
+function together(avg: f64[][], k: int): f64 {
+  Math.sqrt(avg[0][k] * avg[0][k] + avg[1][k] * avg[1][k] + avg[2][k] * avg[2][k])
+}
+
+/// The axis with the largest amplitude at a bin: 0, 1 or 2.
+function strongest(avg: f64[][], k: int): int {
+  let at = 0
+  for (let a = 1; a < 3; a++) {
+    if (avg[a][k] > avg[at][k]) {
+      at = a
+    }
+  }
+  at
+}
+
+/// The peak: the largest local maximum from `PEAK_FROM_HZ` up, if it stands `PROMINENCE` times above the mean of the bins there,
+/// with its frequency refined by a parabola through the three bins, and the harmonics (2 to `MAX_HARMONIC` times) that stand as well.
+function peakOf(avg: f64[][], resolution: f64, floor: f64): SpectrumPeak? {
+  const bins = avg[0].length
+  let from = Math.ceil(PEAK_FROM_HZ / resolution) as int
+  if (from < 2) {
+    from = 2
+  }
+  if (from >= bins - 2) {
+    return null
+  }
+  let sum = 0.0
+  let best = from
+  for (let k = from; k < bins - 1; k++) {
+    sum += together(avg, k)
+    if (together(avg, k) > together(avg, best)) {
+      best = k
+    }
+  }
+  const mean = sum / ((bins - 1 - from) as f64)
+  if (together(avg, best) < PROMINENCE * mean || best <= from || best >= bins - 2 || avg[strongest(avg, best)][best] < floor) {
+    return null
+  }
+  const hz = (best as f64 + offsetOf(avg, best)) * resolution
+  const axis = strongest(avg, best)
+  const axisNames = [SpectrumPeakAxis.X, SpectrumPeakAxis.Y, SpectrumPeakAxis.Z]
+  SpectrumPeak { hz: hz, amplitude: avg[axis][best], axis: axisNames[axis], harmonics: harmonicsOf(avg, hz, resolution, PROMINENCE * mean) }
+}
+
+/// How far from the bin the top of the peak is, in bins (-0.5 to 0.5): the vertex of the parabola through the bin and its neighbours.
+function offsetOf(avg: f64[][], k: int): f64 {
+  const a = together(avg, k - 1)
+  const b = together(avg, k)
+  const c = together(avg, k + 1)
+  const d = a - 2.0 * b + c
+  if (d >= 0.0) {
+    return 0.0
+  }
+  const offset = 0.5 * (a - c) / d
+  if (offset > 0.5) 0.5 else if (offset < -0.5) -0.5 else offset
+}
+
+/// The harmonics of a peak that are there: the largest bin within one of where n times the frequency falls, if it stands above the bar.
+function harmonicsOf(avg: f64[][], hz: f64, resolution: f64, bar: f64): SpectrumHarmonic[] {
+  const out: SpectrumHarmonic[] = []
+  const bins = avg[0].length
+  for (let n = 2; n <= MAX_HARMONIC; n++) {
+    const centre = Math.round(hz * (n as f64) / resolution) as int
+    if (centre + 1 >= bins - 1) {
+      break
+    }
+    let at = centre
+    for (let k = centre - 1; k <= centre + 1; k++) {
+      if (together(avg, k) > together(avg, at)) {
+        at = k
+      }
+    }
+    if (together(avg, at) >= bar) {
+      out.push(SpectrumHarmonic { n: n as u8, hz: (at as f64) * resolution, amplitude: avg[strongest(avg, at)][at] })
+    }
+  }
+  out
+}
