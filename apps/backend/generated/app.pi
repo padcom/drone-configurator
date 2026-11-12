@@ -1349,6 +1349,406 @@ export function encodeLogsReview(v: LogsReview): Cbor {
   Cbor.Dict(m)
 }
 
+function decodeLocalLogMessagesTypesList(v: Cbor, path: string): MessageType[] throws InvalidPayload {
+  const out: MessageType[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeMessageType(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogMessagesTypesList(v: MessageType[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeMessageType(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogMessages {
+  types: MessageType[]
+}
+
+export function decodeLocalLogMessages(v: Cbor, path: string): LocalLogMessages throws InvalidPayload {
+  const m = members(v, path, ["types"])
+  LocalLogMessages {
+    types: decodeLocalLogMessagesTypesList(required(m, "types", path), `${path}.types`),
+  }
+}
+
+export function encodeLocalLogMessages(v: LocalLogMessages): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("types", encodeLocalLogMessagesTypesList(v.types))
+  Cbor.Dict(m)
+}
+
+function decodeMessageTypeFieldsList(v: Cbor, path: string): MessageField[] throws InvalidPayload {
+  const out: MessageField[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeMessageField(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeMessageTypeFieldsList(v: MessageField[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeMessageField(e))
+  }
+  Cbor.List(out)
+}
+
+export struct MessageType {
+  name: string
+  count: u32
+  fields: MessageField[]
+  instanceField?: string
+}
+
+export function decodeMessageType(v: Cbor, path: string): MessageType throws InvalidPayload {
+  const m = members(v, path, ["name", "count", "fields", "instanceField"])
+  const cbor3 = m.get("instanceField")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.instanceField`)
+  }
+  MessageType {
+    name: text(required(m, "name", path), `${path}.name`),
+    count: (uint(required(m, "count", path), `${path}.count`, 4294967295) as u32),
+    fields: decodeMessageTypeFieldsList(required(m, "fields", path), `${path}.fields`),
+    instanceField: opt3,
+  }
+}
+
+export function encodeMessageType(v: MessageType): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("name", Cbor.Text(v.name))
+  m.set("count", Cbor.Uint(v.count as u64))
+  m.set("fields", encodeMessageTypeFieldsList(v.fields))
+  const opt3 = v.instanceField
+  if (opt3 != null) {
+    m.set("instanceField", Cbor.Text(opt3))
+  }
+  Cbor.Dict(m)
+}
+
+export enum MessageFieldKind { Number, Text, Array }
+
+export function decodeMessageFieldKind(v: Cbor, path: string): MessageFieldKind throws InvalidPayload {
+  match (text(v, path)) {
+    "number" => MessageFieldKind.Number,
+    "text" => MessageFieldKind.Text,
+    "array" => MessageFieldKind.Array,
+    _ => throw new InvalidPayload(path, "number or text or array"),
+  }
+}
+
+export function encodeMessageFieldKind(v: MessageFieldKind): Cbor {
+  match (v) {
+    Number => Cbor.Text("number"),
+    Text => Cbor.Text("text"),
+    Array => Cbor.Text("array"),
+  }
+}
+
+export struct MessageField {
+  name: string
+  unit?: string
+  kind: MessageFieldKind
+}
+
+export function decodeMessageField(v: Cbor, path: string): MessageField throws InvalidPayload {
+  const m = members(v, path, ["name", "unit", "kind"])
+  const cbor1 = m.get("unit")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.unit`)
+  }
+  MessageField {
+    name: text(required(m, "name", path), `${path}.name`),
+    unit: opt1,
+    kind: decodeMessageFieldKind(required(m, "kind", path), `${path}.kind`),
+  }
+}
+
+export function encodeMessageField(v: MessageField): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("name", Cbor.Text(v.name))
+  const opt1 = v.unit
+  if (opt1 != null) {
+    m.set("unit", Cbor.Text(opt1))
+  }
+  m.set("kind", encodeMessageFieldKind(v.kind))
+  Cbor.Dict(m)
+}
+
+export struct LogsLocalAtAsk {
+  key: string
+  message: string
+  timeUs: u64
+}
+
+export function decodeLogsLocalAtAsk(v: Cbor, path: string): LogsLocalAtAsk throws InvalidPayload {
+  const m = members(v, path, ["key", "message", "timeUs"])
+  LogsLocalAtAsk {
+    key: text(required(m, "key", path), `${path}.key`),
+    message: text(required(m, "message", path), `${path}.message`),
+    timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeLogsLocalAtAsk(v: LogsLocalAtAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  m.set("message", Cbor.Text(v.message))
+  m.set("timeUs", Cbor.Uint(v.timeUs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeLocalLogAtRowsList(v: Cbor, path: string): AtRow[] throws InvalidPayload {
+  const out: AtRow[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeAtRow(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogAtRowsList(v: AtRow[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeAtRow(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogAt {
+  found: bool
+  rows: AtRow[]
+}
+
+export function decodeLocalLogAt(v: Cbor, path: string): LocalLogAt throws InvalidPayload {
+  const m = members(v, path, ["found", "rows"])
+  LocalLogAt {
+    found: boolean(required(m, "found", path), `${path}.found`),
+    rows: decodeLocalLogAtRowsList(required(m, "rows", path), `${path}.rows`),
+  }
+}
+
+export function encodeLocalLogAt(v: LocalLogAt): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("found", Cbor.Bool(v.found))
+  m.set("rows", encodeLocalLogAtRowsList(v.rows))
+  Cbor.Dict(m)
+}
+
+function decodeAtRowFieldsList(v: Cbor, path: string): AtField[] throws InvalidPayload {
+  const out: AtField[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeAtField(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeAtRowFieldsList(v: AtField[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeAtField(e))
+  }
+  Cbor.List(out)
+}
+
+export struct AtRow {
+  instance?: f64
+  timeUs: u64
+  fields: AtField[]
+}
+
+export function decodeAtRow(v: Cbor, path: string): AtRow throws InvalidPayload {
+  const m = members(v, path, ["instance", "timeUs", "fields"])
+  const cbor0 = m.get("instance")
+  let opt0: f64? = null
+  if (cbor0 != null) {
+    opt0 = float(cbor0, `${path}.instance`)
+  }
+  AtRow {
+    instance: opt0,
+    timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
+    fields: decodeAtRowFieldsList(required(m, "fields", path), `${path}.fields`),
+  }
+}
+
+export function encodeAtRow(v: AtRow): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.instance
+  if (opt0 != null) {
+    m.set("instance", Cbor.Float(opt0))
+  }
+  m.set("timeUs", Cbor.Uint(v.timeUs as u64))
+  m.set("fields", encodeAtRowFieldsList(v.fields))
+  Cbor.Dict(m)
+}
+
+export struct AtField {
+  name: string
+  value?: f64
+  text?: string
+}
+
+export function decodeAtField(v: Cbor, path: string): AtField throws InvalidPayload {
+  const m = members(v, path, ["name", "value", "text"])
+  const cbor1 = m.get("value")
+  let opt1: f64? = null
+  if (cbor1 != null) {
+    opt1 = float(cbor1, `${path}.value`)
+  }
+  const cbor2 = m.get("text")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.text`)
+  }
+  AtField {
+    name: text(required(m, "name", path), `${path}.name`),
+    value: opt1,
+    text: opt2,
+  }
+}
+
+export function encodeAtField(v: AtField): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("name", Cbor.Text(v.name))
+  const opt1 = v.value
+  if (opt1 != null) {
+    m.set("value", Cbor.Float(opt1))
+  }
+  const opt2 = v.text
+  if (opt2 != null) {
+    m.set("text", Cbor.Text(opt2))
+  }
+  Cbor.Dict(m)
+}
+
+export enum LogsLocalExportAskFormat { Csv, Gpx, Kml }
+
+export function decodeLogsLocalExportAskFormat(v: Cbor, path: string): LogsLocalExportAskFormat throws InvalidPayload {
+  match (text(v, path)) {
+    "csv" => LogsLocalExportAskFormat.Csv,
+    "gpx" => LogsLocalExportAskFormat.Gpx,
+    "kml" => LogsLocalExportAskFormat.Kml,
+    _ => throw new InvalidPayload(path, "csv or gpx or kml"),
+  }
+}
+
+export function encodeLogsLocalExportAskFormat(v: LogsLocalExportAskFormat): Cbor {
+  match (v) {
+    Csv => Cbor.Text("csv"),
+    Gpx => Cbor.Text("gpx"),
+    Kml => Cbor.Text("kml"),
+  }
+}
+
+export struct LogsLocalExportAsk {
+  key: string
+  format: LogsLocalExportAskFormat
+  message?: string
+  path?: string
+  overwrite?: bool
+}
+
+export function decodeLogsLocalExportAsk(v: Cbor, path: string): LogsLocalExportAsk throws InvalidPayload {
+  const m = members(v, path, ["key", "format", "message", "path", "overwrite"])
+  const cbor2 = m.get("message")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.message`)
+  }
+  const cbor3 = m.get("path")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.path`)
+  }
+  const cbor4 = m.get("overwrite")
+  let opt4: bool? = null
+  if (cbor4 != null) {
+    opt4 = boolean(cbor4, `${path}.overwrite`)
+  }
+  LogsLocalExportAsk {
+    key: text(required(m, "key", path), `${path}.key`),
+    format: decodeLogsLocalExportAskFormat(required(m, "format", path), `${path}.format`),
+    message: opt2,
+    path: opt3,
+    overwrite: opt4,
+  }
+}
+
+export function encodeLogsLocalExportAsk(v: LogsLocalExportAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  m.set("format", encodeLogsLocalExportAskFormat(v.format))
+  const opt2 = v.message
+  if (opt2 != null) {
+    m.set("message", Cbor.Text(opt2))
+  }
+  const opt3 = v.path
+  if (opt3 != null) {
+    m.set("path", Cbor.Text(opt3))
+  }
+  const opt4 = v.overwrite
+  if (opt4 != null) {
+    m.set("overwrite", Cbor.Bool(opt4))
+  }
+  Cbor.Dict(m)
+}
+
+export struct LocalLogExported {
+  path?: string
+  exists?: bool
+  rows: u32
+  bytes: u64
+}
+
+export function decodeLocalLogExported(v: Cbor, path: string): LocalLogExported throws InvalidPayload {
+  const m = members(v, path, ["path", "exists", "rows", "bytes"])
+  const cbor0 = m.get("path")
+  let opt0: string? = null
+  if (cbor0 != null) {
+    opt0 = text(cbor0, `${path}.path`)
+  }
+  const cbor1 = m.get("exists")
+  let opt1: bool? = null
+  if (cbor1 != null) {
+    opt1 = boolean(cbor1, `${path}.exists`)
+  }
+  LocalLogExported {
+    path: opt0,
+    exists: opt1,
+    rows: (uint(required(m, "rows", path), `${path}.rows`, 4294967295) as u32),
+    bytes: (uint(required(m, "bytes", path), `${path}.bytes`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeLocalLogExported(v: LocalLogExported): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.path
+  if (opt0 != null) {
+    m.set("path", Cbor.Text(opt0))
+  }
+  const opt1 = v.exists
+  if (opt1 != null) {
+    m.set("exists", Cbor.Bool(opt1))
+  }
+  m.set("rows", Cbor.Uint(v.rows as u64))
+  m.set("bytes", Cbor.Uint(v.bytes as u64))
+  Cbor.Dict(m)
+}
+
 function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
   const out: ModeChange[] = []
   let i = 0

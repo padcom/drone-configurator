@@ -197,6 +197,66 @@
         "nothing": "Noch kein Log ist heruntergeladen, also gibt es nichts zu löschen."
       }
     },
+    "browser": {
+      "title": "Nachrichten",
+      "loading": "Nachrichtenarten werden gelesen…",
+      "none": "Dieses Log enthält keine Nachrichten zum Durchsuchen.",
+      "kind": "Nachrichtenart",
+      "instance": "Instanz ({field})",
+      "pick": "Wählen Sie eine Nachrichtenart, um ihre Felder zu sehen.",
+      "pickOption": "Wählen…",
+      "moveCursor": "Bewegen Sie den Cursor in einem Diagramm oben, um die Felder zu diesem Zeitpunkt zu sehen.",
+      "nothingYet": "{kind} hat zu diesem Zeitpunkt noch keine Nachricht.",
+      "fieldsAt": "Felder von {kind} bei {time}",
+      "field": "Feld",
+      "value": "Wert",
+      "graph": "Diagramm",
+      "graphLabel": "Diagramm von {field}",
+      "writtenAt": "Die Nachricht wurde bei {time} geschrieben.",
+      "notNumbers": "Dieses Feld hat im Log keine Zahlenwerte, es gibt also nichts zu zeichnen.",
+      "asking": "Das Log wird gefragt…"
+    },
+    "export": {
+      "title": "Export",
+      "csv": "{kind} als CSV speichern…",
+      "gpx": "Strecke als GPX speichern…",
+      "kml": "Strecke als KML speichern…",
+      "saved": "{name} gespeichert: {count} Zeile | {name} gespeichert: {count} Zeilen",
+      "cancelled": "Es wurde nichts gespeichert.",
+      "exists": "{name} existiert bereits. Es wurde nichts geschrieben.",
+      "replace": "Datei ersetzen",
+      "replaceConfirm": "Bestätigen: {name} ersetzen",
+      "noKind": "Dieses Log hat keine Nachrichten dieser Art, es gibt also nichts zu exportieren.",
+      "noTrack": "{format} ist für dieses Log nicht verfügbar: Es hat keine GPS-Position mit 3D-Fix, also keine Strecke."
+    },
+    "setup": {
+      "title": "Logging-Einrichtung",
+      "none": {
+        "title": "Noch keine Logging-Parameter",
+        "help": "Verbinden Sie ein Fahrzeug und laden Sie seine Parameter, um das Logging einzurichten."
+      },
+      "armed": "Das Fahrzeug ist scharf geschaltet, oder sein Zustand ist nicht bekannt. Logging-Einstellungen werden nur im entschärften Zustand geändert.",
+      "notEditable": "Eine Logging-Maske des Fahrzeugs ist keine ganze 32-Bit-Zahl, ihre Bits können hier nicht angezeigt oder geändert werden.",
+      "fills": "Mehr Logging füllt den Speicher des Fahrzeugs schneller. Prüfen Sie die Schätzung unten, bevor Sie Datenströme einschalten.",
+      "streams": "Was das Fahrzeug aufzeichnet",
+      "unnamed": "Die Namen der Bits stammen aus den Parameter-Metadaten, die nicht geladen sind. Die Bits werden als Zahlen gezeigt.",
+      "loadMetadata": "Parameter-Metadaten laden…",
+      "bit": "Bit {bit}",
+      "batch": "Rohdaten-Batch-Sampling der IMU (für das Spektrum)",
+      "batchHelp": "Zeichnet Pakete von Gyro- und Beschleunigungs-Rohwerten auf (ISBH, ISBD). Wählen Sie die IMUs.",
+      "batchReboot": "Das Batch-Sampling wird nach einem Neustart des Fahrzeugs wirksam.",
+      "estimate": {
+        "title": "Größenschätzung",
+        "noLog": "Noch kein heruntergeladenes Log mit Dauer, die Schreibrate des Fahrzeugs ist daher nicht bekannt.",
+        "measured": "Das neueste geprüfte Log wurde mit etwa {mb} MB pro Minute geschrieben (Größe geteilt durch Dauer).",
+        "batchOff": "Batch-Sampling ist aus.",
+        "batch": "Batch-Sampling schreibt höchstens {mb} MB pro Minute.",
+        "batchChange": "Mit diesen Einstellungen schreibt das Batch-Sampling höchstens {mb} MB pro Minute (jetzt höchstens {now}).",
+        "assumes": "Das ist eine Schätzung. Als Höchstwert des Batch-Samplings gilt eine ISBD-Nachricht von 207 Bytes alle INS_LOG_BAT_LGIN Millisekunden; für die übrigen Datenströme wird nichts hinzugerechnet: Sie erhöhen die oben genannte Rate Ihrer eigenen Logs."
+      },
+      "queue": "{count} Änderung zur Warteschlange hinzufügen | {count} Änderungen zur Warteschlange hinzufügen",
+      "revert": "Haken zurücksetzen"
+    },
     "section": {
       "flights": "Flüge",
       "replay": "Wiedergabe",
@@ -671,6 +731,7 @@
     "close": "Schließen"
   },
   "staged": {
+    "armedLogging": "Logging-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "region": "Zu schreibende Änderungen",
     "discard": "{id} verwerfen",
     "write": "{count} schreiben und prüfen",

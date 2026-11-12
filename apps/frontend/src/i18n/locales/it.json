@@ -197,6 +197,66 @@
         "nothing": "Nessun log è ancora scaricato, quindi non c'è nulla da cancellare."
       }
     },
+    "browser": {
+      "title": "Messaggi",
+      "loading": "Lettura dei tipi di messaggio…",
+      "none": "Questo log non ha messaggi da sfogliare.",
+      "kind": "Tipo di messaggio",
+      "instance": "Istanza ({field})",
+      "pick": "Scegli un tipo di messaggio per vederne i campi.",
+      "pickOption": "Scegli…",
+      "moveCursor": "Sposta il cursore su un grafico qui sopra per vedere i campi in quell'istante.",
+      "nothingYet": "{kind} non ha ancora messaggi in questo istante.",
+      "fieldsAt": "Campi di {kind} a {time}",
+      "field": "Campo",
+      "value": "Valore",
+      "graph": "Grafico",
+      "graphLabel": "Grafico di {field}",
+      "writtenAt": "Il messaggio è stato scritto a {time}.",
+      "notNumbers": "Questo campo non ha valori numerici nel log, quindi non c'è nulla da disegnare.",
+      "asking": "Richiesta al log…"
+    },
+    "export": {
+      "title": "Esporta",
+      "csv": "Salva {kind} come CSV…",
+      "gpx": "Salva il percorso come GPX…",
+      "kml": "Salva il percorso come KML…",
+      "saved": "Salvato {name}: {count} riga | Salvato {name}: {count} righe",
+      "cancelled": "Non è stato salvato nulla.",
+      "exists": "{name} esiste già. Non è stato scritto nulla.",
+      "replace": "Sostituisci il file",
+      "replaceConfirm": "Conferma: sostituisci {name}",
+      "noKind": "Questo log non ha messaggi di quel tipo, quindi non c'è nulla da esportare.",
+      "noTrack": "{format} non è disponibile per questo log: non ha posizioni GPS con fix 3D, quindi non c'è un percorso."
+    },
+    "setup": {
+      "title": "Impostazione del logging",
+      "none": {
+        "title": "Ancora nessun parametro di logging",
+        "help": "Collega un veicolo e scarica i suoi parametri per impostare il logging."
+      },
+      "armed": "Il veicolo è armato o il suo stato non è noto. Le impostazioni del logging si cambiano solo a veicolo disarmato.",
+      "notEditable": "Una maschera di logging del veicolo non è un intero a 32 bit: i suoi bit non possono essere mostrati o modificati qui.",
+      "fills": "Più logging riempie prima la memoria del veicolo. Controlla la stima qui sotto prima di attivare i flussi.",
+      "streams": "Cosa registra il veicolo",
+      "unnamed": "I nomi dei bit vengono dai metadati dei parametri, che non sono caricati. I bit sono mostrati come numeri.",
+      "loadMetadata": "Carica i metadati dei parametri…",
+      "bit": "Bit {bit}",
+      "batch": "Campionamento a blocchi dei dati grezzi IMU (per lo spettro)",
+      "batchHelp": "Registra blocchi di campioni grezzi di giroscopio e accelerometro (ISBH, ISBD). Scegli gli IMU da registrare.",
+      "batchReboot": "Il campionamento a blocchi ha effetto dopo il riavvio del veicolo.",
+      "estimate": {
+        "title": "Stima della dimensione",
+        "noLog": "Non c'è ancora un log scaricato con una durata, quindi la scrittura attuale del veicolo non è nota.",
+        "measured": "Il log verificato più recente è stato scritto a circa {mb} MB al minuto (la sua dimensione divisa per la durata).",
+        "batchOff": "Il campionamento a blocchi è spento.",
+        "batch": "Il campionamento a blocchi scrive al massimo {mb} MB al minuto.",
+        "batchChange": "Con queste impostazioni il campionamento a blocchi scrive al massimo {mb} MB al minuto (ora al massimo {now}).",
+        "assumes": "È una stima. Come massimo del campionamento a blocchi conta un messaggio ISBD di 207 byte ogni INS_LOG_BAT_LGIN millisecondi e non aggiunge nulla per gli altri flussi: attivarli aumenta la velocità dei tuoi log indicata sopra."
+      },
+      "queue": "Aggiungi {count} modifica alla coda | Aggiungi {count} modifiche alla coda",
+      "revert": "Annulla le selezioni"
+    },
     "section": {
       "flights": "Voli",
       "replay": "Riproduzione",
@@ -671,6 +731,7 @@
     "close": "Chiudi"
   },
   "staged": {
+    "armedLogging": "Le impostazioni del logging non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
     "region": "Modifiche da scrivere",
     "discard": "Scarta {id}",
     "write": "Scrivi {count} e verifica",

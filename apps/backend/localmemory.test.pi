@@ -1,0 +1,112 @@
+// Memory of the passes over a log of 16 MB (Linux only: the process's peak is read from /proc/self/status). The log is made a
+// piece of about a megabyte at a time and written to the file at once, so the generator never holds more than a piece. It is
+// then read and charted: neither may hold the log, so the peak of the process may not rise more than `BOUND_KB` over what it was
+// before. (A one-off measurement on a log of 104 MB with 728 thousand messages: +14 MB; the PR text has it.) Off Linux the test
+// passes without measuring, there is nothing to read.
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, rename, stat, writeBytes, writeText } from "std/fs"
+import { join } from "std/path"
+import { gc } from "std/gc"
+import { pid } from "std/process"
+import { Crc32, DfEncoder } from "padcom/pico-mavlink"
+import {
+  LogsLocalRead,
+  LogsLocalSeriesAsk,
+  SeriesAsk,
+  decodeLogsLocalSeries,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { start } from "./testing"
+
+/// How far above what it was the peak of the process may rise: 32 MB.
+const BOUND_KB: int = 32768
+
+/// 16 pieces of about a megabyte (55000 messages of 19 bytes).
+const PIECES: int = 16
+const PER_PIECE: int = 55000
+
+/// The number of kilobytes on the line `name` of /proc/self/status, or -1 when there is no such line (not Linux).
+async function statusKb(name: string): Promise<int> {
+  try {
+    const text = await readText("/proc/self/status")
+    for (const line of text.split("\n")) {
+      if (line.startsWith(`${name}:`)) {
+        let n = 0
+        for (const ch of line.slice(name.length + 1).trim().split(" ")[0]) {
+          n = n * 10 + "0123456789".indexOf(`${ch}`)
+        }
+        return n
+      }
+    }
+  } catch (e: Error) {
+    return -1
+  }
+  -1
+}
+
+/// Makes the peak start from what the process holds now (Linux 4.0+): writing 5 to clear_refs.
+async function resetPeak(): Promise<void> {
+  try {
+    await writeText("/proc/self/clear_refs", "5")
+  } catch (e: Error) {
+  }
+}
+
+/// Writes the log into `path` a piece at a time (never a whole log in memory) and gives its CRC-32.
+async function generate(path: string): Promise<int> throws Error {
+  const crc = new Crc32()
+  let t = 1000
+  for (let piece = 0; piece < PIECES; piece++) {
+    const e = new DfEncoder()
+    e.define(160, "KIND", "Qff", "TimeUS,Roll,Pitch")
+    for (let i = 0; i < PER_PIECE; i++) {
+      e.add(160, [t as f64, (i % 360) as f64, 0.5], ["", "", ""])
+      t += 1000
+    }
+    const bytes = e.bytes()
+    crc.update(bytes)
+    await writeBytes(path, bytes, piece > 0)
+  }
+  crc.crc
+}
+
+async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
+  if ((await statusKb("VmHWM")) < 0) {
+    return
+  }
+  const root = `/tmp/drone-configurator-memory-${pid}-${Date.now()}`
+  try {
+    await mkdir(join(root, "logs", "uid-a"), true)
+    useDirectoryForTests(root)
+    forgetLocalReads()
+    const f = await start()
+    const tmp = join(root, "logs", "uid-a", "generating.bin")
+    const name = copyName(1, await generate(tmp))
+    await rename(tmp, join(root, "logs", "uid-a", name))
+    expect((await stat(join(root, "logs", "uid-a", name))).size > 15000000).toBe(true)
+    const key = `uid-a/${name}`
+    // What making the log left behind is garbage: collected, so that the baseline is what the process needs, not what it once held.
+    gc.collect()
+    await resetPeak()
+    const before = await statusKb("VmRSS")
+    const read = await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+    expect(read.k).toBe("response")
+    const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
+    const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
+    expect(series.series[0].found).toBe(true)
+    const rose = (await statusKb("VmHWM")) - before
+    if (rose >= BOUND_KB) {
+      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+    }
+  } finally {
+    await remove(root, true)
+  }
+}
+
+describe("the memory of the passes over a log of 16 MB (Linux)", () => {
+  it("stays within 32 MB of where it began", stayInTheBoundOnALogOf16Megabytes)
+})

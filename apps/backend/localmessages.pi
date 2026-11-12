@@ -1,0 +1,246 @@
+// The message browser for a log on this computer: `logs.local.messages` lists the kinds of message the log has (how many of each, and
+// their fields with the unit the log names), and `logs.local.at` gives the fields of one kind as they were at a time: the last
+// message of each instance (the IMU, the battery, ...) at or before that time, with the time it was written, never a value from
+// later. Each is one pass over the file, a chunk at a time (locallogs.pi), cancelable, with `logs.local.progress`.
+//
+// What is kept is a counter for each of the (at most 256) kinds, and at most `MAX_INSTANCES` messages: whatever the size of the log.
+// The log has to have been read (`logs.local.read`) and be the same file. A value that is not a number (NaN, infinity, or too big
+// once the log's multiplier is applied) is given without a value, never as 0; an array field (a batch of samples) is not a value
+// and is not given at all.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfField, DfFormat, DfMessage, DfTables } from "padcom/pico-mavlink"
+import {
+  AtField,
+  AtRow,
+  LocalLogAt,
+  LocalLogMessages,
+  LogsLocalAtAsk,
+  MessageField,
+  MessageFieldKind,
+  MessageType,
+  decodeLogsLocalAtAsk,
+  decodeLogsLocalRead,
+  encodeLocalLogAt,
+  encodeLocalLogMessages,
+} from "./generated/app"
+import { Taker, claimRead, locate, releaseRead, streamLog, verifiedSummary } from "./locallogs"
+import { factorOf } from "./localseries"
+
+/// The most instances of a kind that `logs.local.at` gives.
+const MAX_INSTANCES: int = 16
+
+/// The fields that tell the instances of a kind apart (the IMU, the battery, the GPS), in the order they are looked for.
+const INSTANCE_FIELDS: string[] = ["I", "Inst", "IMU", "C", "Instance"]
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.messages", messagesOfLocal)
+  c.handle("logs.local.at", atOfLocal)
+}
+
+/// What a field holds, for the contract: a text (n N Z), an array (a), or a number.
+export function kindOf(f: DfField): MessageFieldKind {
+  const k = f.kind
+  if (k == 0x6E || k == 0x4E || k == 0x5A) {
+    return MessageFieldKind.Text
+  }
+  if (k == 0x61) MessageFieldKind.Array else MessageFieldKind.Number
+}
+
+/// The index of the field that tells the instances of a kind apart (a number), or -1 when it has none.
+export function instanceIndexOf(format: DfFormat): int {
+  for (const name of INSTANCE_FIELDS) {
+    const i = format.indexOf(name)
+    if (i >= 0 && kindOf(format.fields[i]) == MessageFieldKind.Number) {
+      return i
+    }
+  }
+  -1
+}
+
+/// Whether `v` is a number that can be shown.
+export function usable(v: f64): bool {
+  v == v && v <= 1.0e300 && v >= -1.0e300
+}
+
+/// Counts the messages of each kind, and remembers the format of each.
+class Counter implements Taker {
+  /// For each type of message (0..255): its place in `formats`, or -1.
+  readonly slot: int[] = []
+  public readonly formats: DfFormat[] = []
+  public readonly counts: int[] = []
+
+  constructor() {
+    for (let i = 0; i < 256; i++) {
+      slot.push(-1)
+    }
+  }
+
+  public take(m: DfMessage): void {
+    const t = m.format.type
+    if (t < 0 || t > 255) {
+      return
+    }
+    if (slot[t] < 0) {
+      slot[t] = formats.length
+      formats.push(m.format)
+      counts.push(0)
+    }
+    counts[slot[t]] += 1
+  }
+}
+
+async function messagesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
+  const own = claimRead()
+  try {
+    const file = await locate(asked.key)
+    verifiedSummary(asked.key, file.facts)
+    const counter = new Counter()
+    const done = await streamLog(asked.key, file, own, counter)
+    if (!done.unchanged) {
+      throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+    }
+    return encodeLocalLogMessages(LocalLogMessages { types: typesOf(counter, done.decoder.tables) })
+  } finally {
+    releaseRead()
+  }
+}
+
+function typesOf(counter: Counter, tables: DfTables): MessageType[] {
+  const types: MessageType[] = []
+  for (let i = 0; i < counter.formats.length; i++) {
+    const format = counter.formats[i]
+    const fields: MessageField[] = []
+    for (const f of format.fields) {
+      const field = MessageField { name: f.name, kind: kindOf(f) }
+      const unit = tables.unitOf(f)
+      if (unit != "" && field.kind == MessageFieldKind.Number) {
+        field.unit = unit
+      }
+      fields.push(field)
+    }
+    const t = MessageType { name: format.name, count: (if (counter.counts[i] > 4294967295) 4294967295 else counter.counts[i]) as u32, fields: fields }
+    const at = instanceIndexOf(format)
+    if (at >= 0) {
+      t.instanceField = format.fields[at].name
+    }
+    types.push(t)
+  }
+  types
+}
+
+/// The last message of each instance of one kind at or before a time.
+class Latest implements Taker {
+  readonly message: string
+  readonly limit: int
+  public readonly instances: f64[] = []
+  public readonly last: DfMessage[] = []
+  public instanceAt: int = -1
+  type: int = -1
+
+  constructor(message: string, limit: int) {
+    this.message = message
+    this.limit = limit
+  }
+
+  public take(m: DfMessage): void {
+    if (type < 0) {
+      if (m.format.name != message) {
+        return
+      }
+      type = m.format.type
+      instanceAt = instanceIndexOf(m.format)
+    } else if (m.format.type != type) {
+      return
+    }
+    const t = m.timeUs()
+    if (t < 0 || t > limit) {
+      return
+    }
+    const instance = if (instanceAt >= 0) m.nums[instanceAt] else 0.0
+    for (let i = 0; i < instances.length; i++) {
+      if (instances[i] == instance) {
+        last[i] = m
+        return
+      }
+    }
+    if (instances.length < MAX_INSTANCES) {
+      instances.push(instance)
+      last.push(m)
+    }
+  }
+}
+
+async function atOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalAtAsk(payload ?? Cbor.Null, "$")
+  const own = claimRead()
+  try {
+    return await findAt(asked, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+async function findAt(asked: LogsLocalAtAsk, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(asked.key)
+  verifiedSummary(asked.key, file.facts)
+  const limit = if (asked.timeUs > (9000000000000000000 as u64)) 9000000000000000000 else asked.timeUs as int
+  const latest = new Latest(asked.message, limit)
+  const done = await streamLog(asked.key, file, own, latest)
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  const rows: AtRow[] = []
+  for (const i of orderOf(latest.instances)) {
+    rows.push(rowOf(latest, i, done.decoder.tables))
+  }
+  encodeLocalLogAt(LocalLogAt { found: rows.length > 0, rows: rows })
+}
+
+/// The indexes of the instances, the smallest instance first.
+function orderOf(instances: f64[]): int[] {
+  const order: int[] = []
+  for (let i = 0; i < instances.length; i++) {
+    order.push(i)
+  }
+  for (let i = 1; i < order.length; i++) {
+    let j = i
+    while (j > 0 && instances[order[j - 1]] > instances[order[j]]) {
+      const x = order[j]
+      order[j] = order[j - 1]
+      order[j - 1] = x
+      j -= 1
+    }
+  }
+  order
+}
+
+function rowOf(latest: Latest, i: int, tables: DfTables): AtRow {
+  const m = latest.last[i]
+  const row = AtRow { timeUs: m.timeUs() as u64, fields: fieldsOf(m, tables) }
+  if (latest.instanceAt >= 0) {
+    row.instance = latest.instances[i]
+  }
+  row
+}
+
+/// The fields of a message with the log's multiplier applied: a text as it is, an array left out, a number that cannot be shown
+/// without a value.
+function fieldsOf(m: DfMessage, tables: DfTables): AtField[] {
+  const fields: AtField[] = []
+  for (let i = 0; i < m.format.fields.length; i++) {
+    const f = m.format.fields[i]
+    const kind = kindOf(f)
+    if (kind == MessageFieldKind.Text) {
+      fields.push(AtField { name: f.name, text: m.texts[i] })
+    } else if (kind == MessageFieldKind.Number) {
+      const v = m.nums[i] * factorOf(f, tables)
+      const field = AtField { name: f.name }
+      if (usable(v)) {
+        field.value = v
+      }
+      fields.push(field)
+    }
+  }
+  fields
+}

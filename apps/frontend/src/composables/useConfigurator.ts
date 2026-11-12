@@ -18,7 +18,9 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
+import { armedOf } from '@/lib/app/armed'
 import { type FlightsModel, useFlights } from './useFlights'
+import { type BrowserModel, useLogBrowser } from './useLogBrowser'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -52,6 +54,8 @@ export interface ConfiguratorHandle {
   logs: LogsModel
   /** The flight logs on this computer: listed, opened, read, charted and reviewed. */
   flights: FlightsModel
+  /** The message browser and the export of the open flight log. */
+  browser: BrowserModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -86,7 +90,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'staged'
 >
 
 /**
@@ -179,7 +183,13 @@ function stagedFor(
   vehicle: Vehicle,
   confirm: (question: string) => Promise<boolean>,
 ): StagedModel {
-  const staged = useStaged({ client, parameters, isConnected: () => vehicle.connection.value.state === 'connected', confirm })
+  const staged = useStaged({
+    client,
+    parameters,
+    isConnected: () => vehicle.connection.value.state === 'connected',
+    confirm,
+    mayBeArmed: () => armedOf(vehicle.telemetry.value) !== false,
+  })
   // What was staged is for the vehicle it was staged on: not for the next one, which may have parameters of the same names.
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {
@@ -318,7 +328,8 @@ export function createConfigurator(
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
   const flights = useFlights({ client })
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, staged }
+  const browser = useLogBrowser({ client })
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, browser, staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

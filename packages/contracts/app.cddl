@@ -49,6 +49,20 @@ services = {
   ; rests on. ONLY a verified log is reviewed (`NOT_VERIFIED` otherwise): nothing is concluded from bytes that are not known to be the
   ; vehicle's. One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), `CHANGED` if the file changed meanwhile.
   "logs.local.review": ["method", logs-local-read, logs-review],
+  ; The message browser: `logs.local.messages` lists the kinds of message a log that was read has (name, how many, their fields with
+  ; the unit the log names), `logs.local.at` gives the fields of one kind at a time (the last message of each instance at or
+  ; before it: what the vehicle had last said by then, with the time of that message, never a value from a later time). Both are
+  ; one pass over the file, cancelable and told with `logs.local.progress`, one read at a time (`BUSY`), `NOT_READ` for a log that was
+  ; not read (or changed since), `NOT_VERIFIED` for a log whose bytes are not the vehicle's (nothing is taken from it, and nothing
+  ; exported), `CHANGED` if the file changed meanwhile.
+  "logs.local.messages": ["method", logs-local-read, local-log-messages],
+  "logs.local.at": ["method", logs-local-at-ask, local-log-at],
+  ; Writes a log, or one kind of message of it, to a file the user chooses (the host's save dialog, or the test folder): CSV (one
+  ; kind of message, a column for each field), GPX or KML (the track of the GPS fixes). Never overwrites: a file that is there is
+  ; answered with `exists` and nothing is written; asking again with that `path` and `overwrite` true replaces it (only the file the backend
+  ; offered with `exists`, for the same log, format and kind, and once: any other `path` is `BAD_REQUEST`). `UNAVAILABLE` for GPX or
+  ; KML of a log with no position fixes (with the reason); the file is streamed, not built in memory.
+  "logs.local.export": ["method", logs-local-export-ask, local-log-exported],
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
@@ -305,6 +319,45 @@ review-finding = {
 }
 
 logs-review = { findings: [* review-finding] }
+
+; The kinds of message of a log, with how many there are of each (at most 255 kinds). A field is a `number` (the value is scaled by its
+; character, `unit` is the unit the log names), a `text`, or an `array` (a batch of raw samples, not shown as a value). `instanceField`
+; is the field that tells the instances of the kind apart (`I`, `Inst`, `IMU`, `C`, `Instance`), when it has one.
+local-log-messages = { types: [* message-type] }
+
+message-type = {
+  name: tstr,
+  count: uint .size 4,
+  fields: [* message-field],
+  ? instanceField: tstr,
+}
+
+message-field = { name: tstr, ? unit: tstr, kind: "number" / "text" / "array" }
+
+; The message browser's question: the kind, and the time (microseconds since the vehicle's boot, as `firstUs` of the summary).
+logs-local-at-ask = { key: tstr, message: tstr, timeUs: uint .size 8 }
+
+; The last message of each instance of the kind at or before the time (`rows`, at most 16 instances, in the order of the instance), each
+; with the time it was written; `found` is false when there is none (the log has none of this kind, or none yet by this time).
+local-log-at = { found: bool, rows: [* at-row] }
+
+at-row = { ? instance: float, timeUs: uint .size 8, fields: [* at-field] }
+
+; A number field has `value`; a text field has `text`; a number that is not a number (NaN, infinity) has neither (no value).
+at-field = { name: tstr, ? value: float, ? text: tstr }
+
+; What to write and where. `message` is the kind for CSV. `path` and `overwrite` are for asking again after `exists`.
+logs-local-export-ask = {
+  key: tstr,
+  format: "csv" / "gpx" / "kml",
+  ? message: tstr,
+  ? path: tstr,
+  ? overwrite: bool,
+}
+
+; `path` is absent when the user cancelled the dialog. `exists`: the file is there and nothing was written. Else the file was written:
+; `rows` of data (messages for CSV, points for GPX and KML) and `bytes`.
+local-log-exported = { ? path: tstr, ? exists: bool, rows: uint .size 4, bytes: uint .size 8 }
 
 ; The changes of flight mode of a log that was read, in the order they are in the log (at most 5000, `cut` when there were more).
 ; The backend keeps them for the last few logs it read (16) and the file still the one that was read; for another it fails with

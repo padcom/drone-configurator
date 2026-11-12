@@ -66,10 +66,13 @@ function fakeParameters(params: ShallowRef<Param[]>) {
  * A staged model on a fake vehicle: the parameters it holds, and what a write to it answers.
  *
  * @param answer what the vehicle reports after a write: the value read back, or an error to throw
- * @param confirm whether the user says yes to the question
+ * @param options what is different from the usual
+ * @param options.confirm whether the user says yes to the question (yes by default)
+ * @param options.mayBeArmed whether the vehicle is armed or may be (no by default)
  * @returns the model, the parameters model it works with, and the spies
  */
-function rig(answer: (id: string, value: number) => number | Error, confirm = true) {
+function rig(answer: (id: string, value: number) => number | Error, options: { confirm?: boolean, mayBeArmed?: boolean } = {}) {
+  const confirm = options.confirm ?? true
   const params = shallowRef<Param[]>([RTL, FENCE, BATT])
   const { parameters, selected, draft, draftError, draftWarning, lock } = fakeParameters(params)
   const call = vehicleAnswering(params, answer)
@@ -79,6 +82,7 @@ function rig(answer: (id: string, value: number) => number | Error, confirm = tr
     parameters,
     isConnected: () => true,
     confirm: askedOnce,
+    mayBeArmed: () => options.mayBeArmed ?? false,
   })
   const pick = (id: string, text: string) => {
     selected.value = id
@@ -276,7 +280,7 @@ describe('a write that is only partly confirmed', () => {
 
 describe('a write that does not start or that is done', () => {
   it('writes nothing when the user says no, or there is nothing to write', async () => {
-    const { staged, pick, call } = rig((_id, value) => value, false)
+    const { staged, pick, call } = rig((_id, value) => value, { confirm: false })
 
     await staged.writeAll()
     pick('RTL_ALT', '1600')
@@ -365,7 +369,7 @@ describe('another write under way', () => {
       answered.push(lock.busy.value)
 
       return value
-    }, false)
+    }, { confirm: false })
     pick('RTL_ALT', '1600')
     staged.sync()
 
@@ -508,6 +512,52 @@ describe('putting parameters back to their initial values', () => {
     staged.resetTo([{ id: 'RTL_ALT', to: 1400 }])
 
     expect(draft.value).toBe('1400')
+  })
+})
+
+describe('staging values chosen on another page', () => {
+  it('queues them as edits, with no warning of the selected parameter, and writes nothing', () => {
+    const { staged, pick, draftWarning, call } = rig((_id, value) => value)
+    pick('FENCE_RADIUS', '150')
+    draftWarning.value = 'outside the range'
+
+    expect(staged.stage([{ id: 'RTL_ALT', to: 1400 }, { id: 'BATT_CAPACITY', to: 6000 }])).toBe(2)
+
+    expect(staged.changes.value).toEqual([
+      { id: 'RTL_ALT', from: 1500, to: 1400 },
+      { id: 'BATT_CAPACITY', from: 5200, to: 6000 },
+    ])
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('takes a change out for the vehicle\'s own value, and skips what is not on the vehicle or while writing', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    staged.stage([{ id: 'RTL_ALT', to: 1400 }])
+
+    expect(staged.stage([{ id: 'RTL_ALT', to: 1500 }, { id: 'NOT_THERE', to: 1 }])).toBe(0)
+    expect(staged.changes.value).toEqual([])
+
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    const writing = staged.writeAll()
+    await Promise.resolve()
+    expect(staged.stage([{ id: 'FENCE_RADIUS', to: 1 }])).toBe(0)
+    await writing
+  })
+})
+
+describe('logging settings while the vehicle may be armed', () => {
+  it('are not written, and not even asked about, when the vehicle may be armed, and are when it is not', async () => {
+    const { staged, params, call, askedOnce } = rig((_id, value) => value, { mayBeArmed: true })
+    params.value = [...params.value, { id: 'LOG_BITMASK', index: 9, kind: 'int', type: 'INT32', value: 5 }]
+    expect(staged.stage([{ id: 'LOG_BITMASK', to: 7 }])).toBe(0)
+
+    // Queued while it was safe, written when it is not: the write is refused.
+    staged.changes.value = [{ id: 'LOG_BITMASK', from: 5, to: 7 }]
+    await staged.writeAll()
+
+    expect(askedOnce).not.toHaveBeenCalled()
+    expect(call).not.toHaveBeenCalled()
   })
 })
 

@@ -197,6 +197,66 @@
         "nothing": "Aún no hay ningún registro descargado, así que no hay nada que borrar."
       }
     },
+    "browser": {
+      "title": "Mensajes",
+      "loading": "Leyendo los tipos de mensaje…",
+      "none": "Este registro no tiene mensajes que explorar.",
+      "kind": "Tipo de mensaje",
+      "instance": "Instancia ({field})",
+      "pick": "Elige un tipo de mensaje para ver sus campos.",
+      "pickOption": "Elegir…",
+      "moveCursor": "Mueve el cursor sobre un gráfico de arriba para ver los campos en ese momento.",
+      "nothingYet": "{kind} aún no tiene mensajes en este momento.",
+      "fieldsAt": "Campos de {kind} en {time}",
+      "field": "Campo",
+      "value": "Valor",
+      "graph": "Gráfico",
+      "graphLabel": "Gráfico de {field}",
+      "writtenAt": "El mensaje se escribió en {time}.",
+      "notNumbers": "Este campo no tiene valores numéricos en el registro, así que no hay nada que dibujar.",
+      "asking": "Consultando el registro…"
+    },
+    "export": {
+      "title": "Exportar",
+      "csv": "Guardar {kind} como CSV…",
+      "gpx": "Guardar la ruta como GPX…",
+      "kml": "Guardar la ruta como KML…",
+      "saved": "Guardado {name}: {count} fila | Guardado {name}: {count} filas",
+      "cancelled": "No se guardó nada.",
+      "exists": "{name} ya existe. No se escribió nada.",
+      "replace": "Reemplazar el archivo",
+      "replaceConfirm": "Confirmar: reemplazar {name}",
+      "noKind": "Este registro no tiene mensajes de ese tipo, así que no hay nada que exportar.",
+      "noTrack": "{format} no está disponible para este registro: no tiene posición GPS con fijación 3D, así que no hay ruta."
+    },
+    "setup": {
+      "title": "Configuración del registro",
+      "none": {
+        "title": "Aún no hay parámetros de registro",
+        "help": "Conecta un vehículo y descarga sus parámetros para configurar el registro."
+      },
+      "armed": "El vehículo está armado, o no se conoce su estado. Los ajustes del registro solo se cambian con el vehículo desarmado.",
+      "notEditable": "Una máscara de registro del vehículo no es un entero de 32 bits, así que sus bits no se pueden mostrar ni cambiar aquí.",
+      "fills": "Registrar más llena antes el almacenamiento del vehículo. Revisa la estimación de abajo antes de activar flujos.",
+      "streams": "Qué registra el vehículo",
+      "unnamed": "Los nombres de los bits vienen de los metadatos de parámetros, que no están cargados. Los bits se muestran como números.",
+      "loadMetadata": "Cargar metadatos de parámetros…",
+      "bit": "Bit {bit}",
+      "batch": "Muestreo por lotes de datos brutos de la IMU (para el espectro)",
+      "batchHelp": "Registra lotes de muestras brutas del giroscopio y el acelerómetro (ISBH, ISBD). Elige las IMU a registrar.",
+      "batchReboot": "El muestreo por lotes tiene efecto tras reiniciar el vehículo.",
+      "estimate": {
+        "title": "Estimación del tamaño",
+        "noLog": "Aún no hay un registro descargado con duración, así que no se sabe cuánto escribe ahora el vehículo.",
+        "measured": "El registro verificado más reciente se escribió a unos {mb} MB por minuto (su tamaño dividido por su duración).",
+        "batchOff": "El muestreo por lotes está desactivado.",
+        "batch": "El muestreo por lotes escribe como máximo {mb} MB por minuto.",
+        "batchChange": "Con estos ajustes el muestreo por lotes escribe como máximo {mb} MB por minuto (ahora como máximo {now}).",
+        "assumes": "Es una estimación. Cuenta un mensaje ISBD de 207 bytes cada INS_LOG_BAT_LGIN milisegundos como lo máximo que escribe el muestreo por lotes y no suma nada por los demás flujos: activarlos aumenta la velocidad de tus registros indicada arriba."
+      },
+      "queue": "Añadir {count} cambio a la cola | Añadir {count} cambios a la cola",
+      "revert": "Deshacer las marcas"
+    },
     "section": {
       "flights": "Vuelos",
       "replay": "Reproducción",
@@ -671,6 +731,7 @@
     "close": "Cerrar"
   },
   "staged": {
+    "armedLogging": "Los ajustes del registro no se escriben mientras el vehículo está armado o podría estarlo. Desármalo primero.",
     "region": "Cambios por escribir",
     "discard": "Descartar {id}",
     "write": "Escribir {count} y verificar",

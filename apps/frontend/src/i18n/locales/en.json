@@ -197,6 +197,66 @@
         "nothing": "No log is downloaded yet, so there is nothing to erase."
       }
     },
+    "browser": {
+      "title": "Messages",
+      "loading": "Reading the kinds of message…",
+      "none": "This log has no messages to browse.",
+      "kind": "Kind of message",
+      "instance": "Instance ({field})",
+      "pick": "Choose a kind of message to see its fields.",
+      "pickOption": "Choose…",
+      "moveCursor": "Move the cursor on a chart above to see the fields at that time.",
+      "nothingYet": "{kind} has no message yet at this time.",
+      "fieldsAt": "Fields of {kind} at {time}",
+      "field": "Field",
+      "value": "Value",
+      "graph": "Graph",
+      "graphLabel": "Graph {field}",
+      "writtenAt": "The message was written at {time}.",
+      "notNumbers": "This field has no numeric values in the log, so there is nothing to draw.",
+      "asking": "Asking the log…"
+    },
+    "export": {
+      "title": "Export",
+      "csv": "Save {kind} as CSV…",
+      "gpx": "Save the track as GPX…",
+      "kml": "Save the track as KML…",
+      "saved": "Saved {name}: {count} row | Saved {name}: {count} rows",
+      "cancelled": "Nothing was saved.",
+      "exists": "{name} already exists. Nothing was written.",
+      "replace": "Replace the file",
+      "replaceConfirm": "Confirm: replace {name}",
+      "noKind": "This log has no messages of that kind, so there is nothing to export.",
+      "noTrack": "{format} is not available for this log: it has no GPS position with a 3D fix, so there is no track."
+    },
+    "setup": {
+      "title": "Logging setup",
+      "none": {
+        "title": "No logging parameters yet",
+        "help": "Connect a vehicle and download its parameters to set up logging."
+      },
+      "armed": "The vehicle is armed, or its state is not known. Logging settings are changed only when it is disarmed.",
+      "notEditable": "A logging mask on the vehicle is not a whole number of 32 bits, so its bits cannot be shown or changed here.",
+      "fills": "More logging fills the vehicle's storage faster. Check the estimate below before turning streams on.",
+      "streams": "What the vehicle logs",
+      "unnamed": "The names of the bits come from the parameter metadata, which is not loaded. The bits are shown as numbers.",
+      "loadMetadata": "Load parameter metadata…",
+      "bit": "Bit {bit}",
+      "batch": "Raw IMU batch sampling (for the Spectrum)",
+      "batchHelp": "Logs batches of raw gyro and accelerometer samples (ISBH, ISBD). Choose the IMUs to log.",
+      "batchReboot": "Batch sampling takes effect after the vehicle is restarted.",
+      "estimate": {
+        "title": "Size estimate",
+        "noLog": "No downloaded log with a length yet, so the size of what the vehicle writes now is not known.",
+        "measured": "The newest verified log was written at about {mb} MB a minute (its size over its length).",
+        "batchOff": "Batch sampling is off.",
+        "batch": "Batch sampling writes at most {mb} MB a minute.",
+        "batchChange": "With these settings batch sampling writes at most {mb} MB a minute (now at most {now}).",
+        "assumes": "This is an estimate. It counts one 207-byte ISBD message every INS_LOG_BAT_LGIN milliseconds as the most batch sampling can write, and adds nothing for the other streams: turning them on adds to the rate of your own logs above."
+      },
+      "queue": "Add {count} change to the queue | Add {count} changes to the queue",
+      "revert": "Put the ticks back"
+    },
     "section": {
       "flights": "Flights",
       "replay": "Replay",
@@ -671,6 +731,7 @@
     "close": "Close"
   },
   "staged": {
+    "armedLogging": "Logging settings are not written while the vehicle is armed, or may be. Disarm it first.",
     "region": "Changes to write",
     "discard": "Discard {id}",
     "write": "Write {count} and verify",

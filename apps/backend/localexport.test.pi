@@ -1,0 +1,464 @@
+// The export of a log: CSV of one kind of message, GPX and KML of the GPS track. The files are read back here by parsers that are
+// not the exporter's (a CSV state machine; the GPX and KML by their own tags). Safety: a file is never overwritten without a second
+// request that names it, a log (or any .BIN) is never a target, a failed or empty export leaves no file, a text that a spreadsheet
+// would run as a formula is made safe, a value that is not a number is an empty cell, an array is no cell, and a position that is
+// not a 3D fix (or is out of the globe, or is the null island) is not in the track.
+import { describe, it, expect } from "std/test"
+import { exists, mkdir, readBytes, readDir, readText, remove, writeBytes, writeText } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import {
+  LocalLogExported,
+  LogsLocalExportAsk,
+  LogsLocalExportAskFormat,
+  LogsLocalRead,
+  decodeLocalLogExported,
+  encodeLogsLocalExportAsk,
+  encodeLogsLocalRead,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { csvCell, xmlEscape } from "./localexport"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly out: string
+  public readonly was: string?
+
+  constructor(f: Frontend, root: string, out: string, was: string?) {
+    this.f = f
+    this.root = root
+    this.out = out
+    this.was = was
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-export-${pid}-${Date.now()}`
+  const out = join(root, "saved")
+  await mkdir(out, true)
+  const was = env.get(VARIABLE)
+  env.set(VARIABLE, out)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root, out, was)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  if (r.was == null) env.delete(VARIABLE) else env.set(VARIABLE, r.was!)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// A log with: tables for units; a MSG whose text is hostile; ATT with a unit, a NaN and a negative; GPS of two receivers with fixes
+/// that are good and ones that are not; and an ISBD with arrays.
+function flight(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(131, "UNIT", "QbZ", "TimeUS,Id,Label")
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.define(151, "ISBD", "QHHaaa", "TimeUS,N,seqno,x,y,z")
+  e.add(131, [0.0, 100.0, 0.0], ["", "", "deg"])
+  e.add(130, [0.0, 72.0, 0.0, 0.0], ["", "", "-dd", "---"])
+  e.add(59, [1000.0, 0.0], ["", "=HYPERLINK(\"http://x\",\"y\")"])
+  e.add(59, [2000.0, 0.0], ["", "a,b \"quoted\"\nline two"])
+  e.add(59, [3000.0, 0.0], ["", "plain"])
+  e.add(72, [1000.0, 1.5, -2.25], ["", "", ""])
+  e.add(72, [2000.0, f64Of([0, 0, 0, 0, 0, 0, 0xF8, 0x7F]), 0.0], ["", "", ""])
+  e.add(151, [3000.0, 1.0, 0.0, 0.0, 0.0, 0.0], ["", "", "", "", "", ""], [[], [], [], [1.0], [2.0], [3.0]])
+  e.bytes()
+}
+
+function f64Of(list: int[]): f64 {
+  const buffer = new ArrayBuffer(8)
+  const bytes = new Uint8Array(buffer, 0)
+  const numbers = new Float64Array(buffer, 0)
+  for (let i = 0; i < 8; i++) {
+    bytes.set(i, list[i])
+  }
+  numbers.get(0)
+}
+
+/// GPS as ArduPilot has it for what matters here: the receiver (I), the fix (Status), position (degrees, L) and altitude.
+function withGps(e: DfEncoder): void {
+  e.define(140, "GPS", "QBBLLf", "TimeUS,I,Status,Lat,Lng,Alt")
+  e.add(140, [1000.0, 0.0, 3.0, 47.5, 8.5, 100.0], ["", "", "", "", "", ""])
+  // No fix; the null island; another receiver; out of the globe: none of these is in the track.
+  e.add(140, [2000.0, 0.0, 2.0, 10.0, 10.0, 5.0], ["", "", "", "", "", ""])
+  e.add(140, [3000.0, 0.0, 3.0, 0.0, 0.0, 5.0], ["", "", "", "", "", ""])
+  e.add(140, [4000.0, 1.0, 3.0, 50.0, 9.0, 5.0], ["", "", "", "", "", ""])
+  e.add(140, [5000.0, 0.0, 3.0, 47.6, 8.6, 101.5], ["", "", "", "", "", ""])
+  e.add(140, [6000.0, 0.0, 4.0, 91.0, 8.0, 5.0], ["", "", "", "", "", ""])
+}
+
+function gpsFlight(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.add(59, [500.0, 0.0], ["", "ArduCopter V4.7.2"])
+  withGps(e)
+  e.bytes()
+}
+
+async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  `uid-a/${name}`
+}
+
+async function readIt(r: Rig, key: string): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+function csvAsk(key: string, message: string): LogsLocalExportAsk {
+  LogsLocalExportAsk { key: key, format: LogsLocalExportAskFormat.Csv, message: message }
+}
+
+function trackAsk(key: string, format: LogsLocalExportAskFormat): LogsLocalExportAsk {
+  LogsLocalExportAsk { key: key, format: format }
+}
+
+async function exportEnvelope(r: Rig, a: LogsLocalExportAsk): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.export", encodeLogsLocalExportAsk(a))
+}
+
+async function exportIt(r: Rig, a: LogsLocalExportAsk): Promise<LocalLogExported> throws Error {
+  const e = await exportEnvelope(r, a)
+  if (e.err != null) {
+    panic(`export failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  decodeLocalLogExported(e.p ?? Cbor.Null, "$")
+}
+
+/// A CSV read by a state machine of RFC 4180 (not the exporter's code): rows of cells.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let cell = ""
+  let quoted = false
+  let i = 0
+  const chars: string[] = []
+  for (const ch of text) {
+    chars.push(`${ch}`)
+  }
+  while (i < chars.length) {
+    const ch = chars[i]
+    if (quoted) {
+      if (ch == "\"" && i + 1 < chars.length && chars[i + 1] == "\"") {
+        cell += "\""
+        i += 1
+      } else if (ch == "\"") {
+        quoted = false
+      } else {
+        cell += ch
+      }
+    } else if (ch == "\"") {
+      quoted = true
+    } else if (ch == ",") {
+      row.push(cell)
+      cell = ""
+    } else if (ch == "\r" && i + 1 < chars.length && chars[i + 1] == "\n") {
+      row.push(cell)
+      rows.push(row)
+      row = []
+      cell = ""
+      i += 1
+    } else {
+      cell += ch
+    }
+    i += 1
+  }
+  if (cell != "" || row.length > 0) {
+    row.push(cell)
+    rows.push(row)
+  }
+  rows
+}
+
+/// What is between `open` and `close`, each time `open` is found.
+function between(text: string, open: string, close: string): string[] {
+  const found: string[] = []
+  const pieces = text.split(open)
+  for (let i = 1; i < pieces.length; i++) {
+    const end = pieces[i].indexOf(close)
+    if (end >= 0) {
+      found.push(pieces[i].slice(0, end))
+    }
+  }
+  found
+}
+
+async function writesACsvThatAParserReadsBack(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const x = await exportIt(r, csvAsk(key, "ATT"))
+  expect(x.rows as int).toBe(2)
+  const path = x.path!
+  expect(path.endsWith("-ATT.csv")).toBe(true)
+  const text = await readText(path)
+  expect((x.bytes as int)).toBe(text.length)
+  const rows = parseCsv(text)
+  expect(rows.length).toBe(3)
+  expect(rows[0].join("|")).toBe("TimeUS|Roll (deg)|Pitch (deg)")
+  expect(rows[1].join("|")).toBe("1000|1.5|-2.25")
+  // A NaN is an empty cell, never 0.
+  expect(rows[2].join("|")).toBe("2000||0")
+  expect(await exists(`${path}.part`)).toBe(false)
+  await done(r)
+}
+
+async function quotesCellsAndMakesFormulasSafe(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const x = await exportIt(r, csvAsk(key, "MSG"))
+  const rows = parseCsv(await readText(x.path!))
+  expect(rows.length).toBe(4)
+  // A formula gets a quote in front; commas, quotes and a newline are inside quotes and read back whole.
+  expect(rows[1][1]).toBe("'=HYPERLINK(\"http://x\",\"y\")")
+  expect(rows[2][1]).toBe("a,b \"quoted\"\nline two")
+  expect(rows[3][1]).toBe("plain")
+  await done(r)
+}
+
+/// OWASP's list of what a spreadsheet takes for a formula: = + - @ tab and carriage return. A text starting with any of them gets a
+/// quote in front; one that does not is left as it is. A number is never a text cell.
+function makesEveryFormulaStartSafe(): void {
+  for (const start of ["=", "+", "-", "@", "\t"]) {
+    expect(csvCell(`${start}cmd|' /C calc'!A0`, true).includes(`'${start}cmd`)).toBe(true)
+  }
+  expect(csvCell("\rcmd", true)).toBe("\"'\rcmd\"")
+  expect(csvCell("a=b", true)).toBe("a=b")
+  expect(csvCell("", true)).toBe("")
+  expect(csvCell("-1.5", false)).toBe("-1.5")
+}
+
+/// The names of the fields and their units are the log's text too: a header that is a formula is made safe.
+async function makesAHostileHeaderSafe(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(170, "EVIL", "Qf", "TimeUS,=HYPERLINK(\"http://x\")")
+  e.add(170, [1000.0, 1.0], ["", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const rows = parseCsv(await readText((await exportIt(r, csvAsk(key, "EVIL"))).path!))
+  expect(rows[0][1]).toBe("'=HYPERLINK(\"http://x\")")
+  expect(rows[1][1]).toBe("1")
+  await done(r)
+}
+
+/// Text that goes into GPX and KML is escaped: no tag, entity or quote of a log's text can come out as markup.
+function escapesXml(): void {
+  expect(xmlEscape("a&b<c>d\"e'f")).toBe("a&amp;b&lt;c&gt;d&quot;e&apos;f")
+  expect(xmlEscape("</name><script>x</script>")).toBe("&lt;/name&gt;&lt;script&gt;x&lt;/script&gt;")
+  expect(xmlEscape("plain 1-2_3")).toBe("plain 1-2_3")
+}
+
+async function leavesArraysOutOfTheCsv(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const x = await exportIt(r, csvAsk(key, "ISBD"))
+  const rows = parseCsv(await readText(x.path!))
+  expect(rows[0].join("|")).toBe("TimeUS|N|seqno")
+  expect(rows[1].join("|")).toBe("3000|1|0")
+  await done(r)
+}
+
+async function neverOverwritesWithoutASecondRequestThatNamesTheFile(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const first = await exportIt(r, csvAsk(key, "ATT"))
+  const path = first.path!
+  await writeText(path, "mine")
+  // The same again: the file is there, nothing is written, the answer names it.
+  const again = await exportIt(r, csvAsk(key, "ATT"))
+  expect(again.exists ?? false).toBe(true)
+  expect(again.path!).toBe(path)
+  expect(await readText(path)).toBe("mine")
+  expect(await exists(`${path}.part`)).toBe(false)
+  // A path without overwrite (or the other way round) is not a question.
+  const half = csvAsk(key, "ATT")
+  half.path = path
+  expect(codeOf(await exportEnvelope(r, half))).toBe("BAD_REQUEST")
+  // The second request names the file and says overwrite: now it is replaced.
+  const second = csvAsk(key, "ATT")
+  second.path = path
+  second.overwrite = true
+  const replaced = await exportIt(r, second)
+  expect(replaced.exists == null).toBe(true)
+  expect((await readText(path)).startsWith("TimeUS,Roll (deg)")).toBe(true)
+  await done(r)
+}
+
+/// The replacement of a file is the one the backend offered, once, for the same log, format and kind: a path the page names is not
+/// trusted, so no file is written or removed at a place the dialog did not give.
+async function replacesOnlyTheFileThatWasOffered(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const path = (await exportIt(r, csvAsk(key, "ATT"))).path!
+  const stranger = join(r.root, "important.txt")
+  await writeText(stranger, "keep me")
+
+  // A path that was never offered: refused, nothing created, nothing removed.
+  const unoffered = csvAsk(key, "ATT")
+  unoffered.path = stranger
+  unoffered.overwrite = true
+  expect(codeOf(await exportEnvelope(r, unoffered))).toBe("BAD_REQUEST")
+  expect(await readText(stranger)).toBe("keep me")
+  const fresh = csvAsk(key, "ATT")
+  fresh.path = join(r.root, "new-file.csv")
+  fresh.overwrite = true
+  expect(codeOf(await exportEnvelope(r, fresh))).toBe("BAD_REQUEST")
+  expect(await exists(join(r.root, "new-file.csv"))).toBe(false)
+
+  // Offered, then used once: the second use is refused.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const use = csvAsk(key, "ATT")
+  use.path = path
+  use.overwrite = true
+  expect((await exportEnvelope(r, use)).k).toBe("response")
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+
+  // Offered for one file, used for another one: refused, and the offer is gone.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const swapped = csvAsk(key, "ATT")
+  swapped.path = stranger
+  swapped.overwrite = true
+  expect(codeOf(await exportEnvelope(r, swapped))).toBe("BAD_REQUEST")
+  expect(await readText(stranger)).toBe("keep me")
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+
+  // Offered, then something else is asked for (a GPX): the offer has expired. Another kind or format never uses it either.
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  await exportEnvelope(r, trackAsk(key, LogsLocalExportAskFormat.Gpx))
+  expect(codeOf(await exportEnvelope(r, use))).toBe("BAD_REQUEST")
+  expect((await exportIt(r, csvAsk(key, "ATT"))).exists ?? false).toBe(true)
+  const other = csvAsk(key, "MSG")
+  other.path = path
+  other.overwrite = true
+  expect(codeOf(await exportEnvelope(r, other))).toBe("BAD_REQUEST")
+  await done(r)
+}
+
+/// Nothing is taken from a log whose bytes are not the vehicle's: not the kinds, not the fields, not an export.
+async function takesNothingFromALogThatIsNotVerified(): Promise<void> throws Error {
+  const r = await rig()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, 305419896)
+  await writeBytes(join(dir, name), flight())
+  const key = `uid-a/${name}`
+  await readIt(r, key)
+  expect(codeOf(await exportEnvelope(r, csvAsk(key, "ATT")))).toBe("NOT_VERIFIED")
+  expect(codeOf(await exportEnvelope(r, trackAsk(key, LogsLocalExportAskFormat.Gpx)))).toBe("NOT_VERIFIED")
+  let files = ""
+  for await (const entry of readDir(r.out)) {
+    files += entry.name
+  }
+  expect(files).toBe("")
+  await done(r)
+}
+
+async function neverWritesOverALog(): Promise<void> throws Error {
+  const r = await rig()
+  const bytes = flight()
+  const key = await put(r, bytes)
+  await readIt(r, key)
+  const logPath = join(r.root, "logs", key)
+  const a = csvAsk(key, "ATT")
+  a.path = logPath
+  a.overwrite = true
+  expect(codeOf(await exportEnvelope(r, a))).toBe("BAD_REQUEST")
+  // Any .BIN is refused, and the log is the same afterwards.
+  const other = csvAsk(key, "ATT")
+  other.path = join(r.out, "x.BIN")
+  other.overwrite = true
+  expect(codeOf(await exportEnvelope(r, other))).toBe("BAD_REQUEST")
+  expect(await exists(join(r.out, "x.BIN"))).toBe(false)
+  expect(crc32Of(await readBytes(logPath))).toBe(crc32Of(bytes))
+  await done(r)
+}
+
+async function writesAGpxAndAKmlOfTheTrack(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, gpsFlight())
+  await readIt(r, key)
+  const g = await exportIt(r, trackAsk(key, LogsLocalExportAskFormat.Gpx))
+  expect(g.rows as int).toBe(2)
+  const gpx = await readText(g.path!)
+  expect(gpx.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")).toBe(true)
+  expect(gpx.includes("<gpx version=\"1.1\"")).toBe(true)
+  expect(gpx.trim().endsWith("</gpx>")).toBe(true)
+  expect(between(gpx, "<trkpt ", ">").join("|")).toBe("lat=\"47.5\" lon=\"8.5\"|lat=\"47.6\" lon=\"8.6\"")
+  expect(between(gpx, "<ele>", "</ele>").join("|")).toBe("100|101.5")
+  const k = await exportIt(r, trackAsk(key, LogsLocalExportAskFormat.Kml))
+  expect(k.rows as int).toBe(2)
+  const kml = await readText(k.path!)
+  expect(kml.includes("xmlns=\"http://www.opengis.net/kml/2.2\"")).toBe(true)
+  expect(kml.trim().endsWith("</kml>")).toBe(true)
+  // KML is longitude,latitude.
+  expect(between(kml, "<coordinates>", "</coordinates>")[0].trim()).toBe("8.5,47.5 8.6,47.6")
+  await done(r)
+}
+
+async function saysWhyThereIsNoTrackAndWritesNothing(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  for (const format of [LogsLocalExportAskFormat.Gpx, LogsLocalExportAskFormat.Kml]) {
+    const e = await exportEnvelope(r, trackAsk(key, format))
+    expect(codeOf(e)).toBe("UNAVAILABLE")
+    expect((e.err?.message ?? "").includes("GPS")).toBe(true)
+  }
+  // A kind the log does not have is the same for CSV.
+  expect(codeOf(await exportEnvelope(r, csvAsk(key, "NOPE")))).toBe("UNAVAILABLE")
+  // And there is no file, not even a part of one.
+  let files = ""
+  for await (const entry of readDir(r.out)) {
+    files += entry.name
+  }
+  expect(files).toBe("")
+  await done(r)
+}
+
+async function refusesWhatItCannotDo(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  expect(codeOf(await exportEnvelope(r, csvAsk(key, "ATT")))).toBe("NOT_READ")
+  await readIt(r, key)
+  expect(codeOf(await exportEnvelope(r, trackAsk(key, LogsLocalExportAskFormat.Csv)))).toBe("BAD_REQUEST")
+  expect(codeOf(await exportEnvelope(r, csvAsk("uid-a/../x", "ATT")))).toBe("NOT_FOUND")
+  await done(r)
+}
+
+describe("the export of the logs on this computer", () => {
+  it("writes a CSV that a parser reads back, with units and empty cells for what is not a number", writesACsvThatAParserReadsBack)
+  it("quotes cells and makes a text that is a formula safe", quotesCellsAndMakesFormulasSafe)
+  it("makes every start of a formula safe (OWASP: = + - @ tab CR)", makesEveryFormulaStartSafe)
+  it("makes a header that is a formula safe", makesAHostileHeaderSafe)
+  it("escapes the text that goes into XML", escapesXml)
+  it("leaves arrays out of the CSV", leavesArraysOutOfTheCsv)
+  it("never overwrites without a second request that names the file", neverOverwritesWithoutASecondRequestThatNamesTheFile)
+  it("replaces only the file that was offered, once", replacesOnlyTheFileThatWasOffered)
+  it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
+  it("never writes over a log or any .BIN", neverWritesOverALog)
+  it("writes a GPX and a KML of the 3D fixes of one receiver", writesAGpxAndAKmlOfTheTrack)
+  it("says why there is no track and writes nothing", saysWhyThereIsNoTrackAndWritesNothing)
+  it("refuses a log that was not read, a CSV of no kind and a key that is no log", refusesWhatItCannotDo)
+})

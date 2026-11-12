@@ -297,6 +297,87 @@ function validateLogsReviewInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-review, or null. */
 export const validateLogsReview = (value: unknown) => run(validateLogsReviewInto, value)
 
+export type LocalLogMessages = { "types": (MessageType)[] }
+
+function validateLocalLogMessagesInto(value: any, path: string): boolean {
+  return map(value, path, ["types"]) && (value["types"] === undefined ? fail(`${path}.types`, 'present') : nested(value["types"], `${path}.types`, (value, path) => list(value, path, (value, path) => validateMessageTypeInto(value, path))))
+}
+
+/** The first problem with `value` as a local-log-messages, or null. */
+export const validateLocalLogMessages = (value: unknown) => run(validateLocalLogMessagesInto, value)
+
+export type MessageType = { "name": string, "count": number, "fields": (MessageField)[], "instanceField"?: string }
+
+function validateMessageTypeInto(value: any, path: string): boolean {
+  return map(value, path, ["name","count","fields","instanceField"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffffffff))) && (value["fields"] === undefined ? fail(`${path}.fields`, 'present') : nested(value["fields"], `${path}.fields`, (value, path) => list(value, path, (value, path) => validateMessageFieldInto(value, path)))) && (value["instanceField"] === undefined || nested(value["instanceField"], `${path}.instanceField`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a message-type, or null. */
+export const validateMessageType = (value: unknown) => run(validateMessageTypeInto, value)
+
+export type MessageField = { "name": string, "unit"?: string, "kind": "number" | "text" | "array" }
+
+function validateMessageFieldInto(value: any, path: string): boolean {
+  return map(value, path, ["name","unit","kind"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["unit"] === undefined || nested(value["unit"], `${path}.unit`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => oneOf(value, path, ["number","text","array"])))
+}
+
+/** The first problem with `value` as a message-field, or null. */
+export const validateMessageField = (value: unknown) => run(validateMessageFieldInto, value)
+
+export type LogsLocalAtAsk = { "key": string, "message": string, "timeUs": number | bigint }
+
+function validateLogsLocalAtAskInto(value: any, path: string): boolean {
+  return map(value, path, ["key","message","timeUs"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["message"] === undefined ? fail(`${path}.message`, 'present') : nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a logs-local-at-ask, or null. */
+export const validateLogsLocalAtAsk = (value: unknown) => run(validateLogsLocalAtAskInto, value)
+
+export type LocalLogAt = { "found": boolean, "rows": (AtRow)[] }
+
+function validateLocalLogAtInto(value: any, path: string): boolean {
+  return map(value, path, ["found","rows"]) && (value["found"] === undefined ? fail(`${path}.found`, 'present') : nested(value["found"], `${path}.found`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["rows"] === undefined ? fail(`${path}.rows`, 'present') : nested(value["rows"], `${path}.rows`, (value, path) => list(value, path, (value, path) => validateAtRowInto(value, path))))
+}
+
+/** The first problem with `value` as a local-log-at, or null. */
+export const validateLocalLogAt = (value: unknown) => run(validateLocalLogAtInto, value)
+
+export type AtRow = { "instance"?: number, "timeUs": number | bigint, "fields": (AtField)[] }
+
+function validateAtRowInto(value: any, path: string): boolean {
+  return map(value, path, ["instance","timeUs","fields"]) && (value["instance"] === undefined || nested(value["instance"], `${path}.instance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["fields"] === undefined ? fail(`${path}.fields`, 'present') : nested(value["fields"], `${path}.fields`, (value, path) => list(value, path, (value, path) => validateAtFieldInto(value, path))))
+}
+
+/** The first problem with `value` as a at-row, or null. */
+export const validateAtRow = (value: unknown) => run(validateAtRowInto, value)
+
+export type AtField = { "name": string, "value"?: number, "text"?: string }
+
+function validateAtFieldInto(value: any, path: string): boolean {
+  return map(value, path, ["name","value","text"]) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["value"] === undefined || nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["text"] === undefined || nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a at-field, or null. */
+export const validateAtField = (value: unknown) => run(validateAtFieldInto, value)
+
+export type LogsLocalExportAsk = { "key": string, "format": "csv" | "gpx" | "kml", "message"?: string, "path"?: string, "overwrite"?: boolean }
+
+function validateLogsLocalExportAskInto(value: any, path: string): boolean {
+  return map(value, path, ["key","format","message","path","overwrite"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["format"] === undefined ? fail(`${path}.format`, 'present') : nested(value["format"], `${path}.format`, (value, path) => oneOf(value, path, ["csv","gpx","kml"]))) && (value["message"] === undefined || nested(value["message"], `${path}.message`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["overwrite"] === undefined || nested(value["overwrite"], `${path}.overwrite`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a logs-local-export-ask, or null. */
+export const validateLogsLocalExportAsk = (value: unknown) => run(validateLogsLocalExportAskInto, value)
+
+export type LocalLogExported = { "path"?: string, "exists"?: boolean, "rows": number, "bytes": number | bigint }
+
+function validateLocalLogExportedInto(value: any, path: string): boolean {
+  return map(value, path, ["path","exists","rows","bytes"]) && (value["path"] === undefined || nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["exists"] === undefined || nested(value["exists"], `${path}.exists`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["rows"] === undefined ? fail(`${path}.rows`, 'present') : nested(value["rows"], `${path}.rows`, (value, path) => uint(value, path, 0xffffffff))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a local-log-exported, or null. */
+export const validateLocalLogExported = (value: unknown) => run(validateLocalLogExportedInto, value)
+
 export type LocalLogModes = { "modes": (ModeChange)[], "cut": boolean }
 
 function validateLocalLogModesInto(value: any, path: string): boolean {
@@ -550,6 +631,9 @@ export interface Services {
   "logs.local.modes": { kind: 'method', request: LogsLocalRead, response: LocalLogModes }
   "logs.local.series": { kind: 'method', request: LogsLocalSeriesAsk, response: LogsLocalSeries }
   "logs.local.review": { kind: 'method', request: LogsLocalRead, response: LogsReview }
+  "logs.local.messages": { kind: 'method', request: LogsLocalRead, response: LocalLogMessages }
+  "logs.local.at": { kind: 'method', request: LogsLocalAtAsk, response: LocalLogAt }
+  "logs.local.export": { kind: 'method', request: LogsLocalExportAsk, response: LocalLogExported }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
@@ -630,6 +714,18 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.review": {
     request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
     response: (value: any, path: string) => validateLogsReviewInto(value, path),
+  },
+  "logs.local.messages": {
+    request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
+    response: (value: any, path: string) => validateLocalLogMessagesInto(value, path),
+  },
+  "logs.local.at": {
+    request: (value: any, path: string) => validateLogsLocalAtAskInto(value, path),
+    response: (value: any, path: string) => validateLocalLogAtInto(value, path),
+  },
+  "logs.local.export": {
+    request: (value: any, path: string) => validateLogsLocalExportAskInto(value, path),
+    response: (value: any, path: string) => validateLocalLogExportedInto(value, path),
   },
   "logs.local.cancel": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

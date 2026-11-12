@@ -1,0 +1,240 @@
+// The message browser: the kinds of message of a log with their counts, fields and units, and the fields of a kind as they were at
+// a time (the last message of each instance at or before it, never a later one), with values that are not numbers given without a
+// value, texts as they are, arrays left out, and requests for a log that was not read refused.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import {
+  LocalLogAt,
+  LocalLogMessages,
+  LogsLocalAtAsk,
+  LogsLocalRead,
+  MessageFieldKind,
+  decodeLocalLogAt,
+  decodeLocalLogMessages,
+  encodeLogsLocalAtAsk,
+  encodeLogsLocalRead,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-messages-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// f64 whose bytes are these (NaN and infinity cannot be written as literals).
+function f64Of(list: int[]): f64 {
+  const buffer = new ArrayBuffer(8)
+  const bytes = new Uint8Array(buffer, 0)
+  const numbers = new Float64Array(buffer, 0)
+  for (let i = 0; i < 8; i++) {
+    bytes.set(i, list[i])
+  }
+  numbers.get(0)
+}
+
+/// A log with two batteries (BAT, instance in `Inst`), a text message, ATT with a unit, and an ISBD with arrays.
+function flight(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(131, "UNIT", "QbZ", "TimeUS,Id,Label")
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.define(88, "BAT", "QBf", "TimeUS,Inst,Volt")
+  e.define(151, "ISBD", "QHHaaa", "TimeUS,N,seqno,x,y,z")
+  e.add(131, [0.0, 100.0, 0.0], ["", "", "deg"])
+  e.add(130, [0.0, 72.0, 0.0, 0.0], ["", "", "-dd", "---"])
+  e.add(59, [1000.0, 0.0], ["", "ArduCopter V4.7.2"])
+  for (let i = 0; i < 10; i++) {
+    const t = (10000 + i * 10000) as f64
+    e.add(72, [t, i as f64, 0.5], ["", "", ""])
+    e.add(88, [t, 0.0, 12.0 + i as f64], ["", "", ""])
+    e.add(88, [t + 1.0, 1.0, 20.0 + i as f64], ["", "", ""])
+  }
+  e.add(151, [50000.0, 1.0, 0.0, 0.0, 0.0, 0.0], ["", "", "", "", "", ""], [[], [], [], [1.0], [2.0], [3.0]])
+  e.bytes()
+}
+
+async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  `uid-a/${name}`
+}
+
+async function readIt(r: Rig, key: string): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+async function messagesOf(r: Rig, key: string): Promise<LocalLogMessages> throws Error {
+  const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  decodeLocalLogMessages(e.p ?? Cbor.Null, "$")
+}
+
+async function atEnvelope(r: Rig, key: string, message: string, timeUs: int): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.at", encodeLogsLocalAtAsk(LogsLocalAtAsk { key: key, message: message, timeUs: timeUs as u64 }))
+}
+
+async function at(r: Rig, key: string, message: string, timeUs: int): Promise<LocalLogAt> throws Error {
+  decodeLocalLogAt((await atEnvelope(r, key, message, timeUs)).p ?? Cbor.Null, "$")
+}
+
+async function listsTheKindsWithCountsFieldsAndUnits(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const m = await messagesOf(r, key)
+  let seen = ""
+  for (const t of m.types) {
+    if (t.name == "ATT" || t.name == "BAT" || t.name == "MSG" || t.name == "ISBD") {
+      seen += `${t.name}=${t.count} `
+    }
+  }
+  expect(seen).toBe("MSG=1 ATT=10 BAT=20 ISBD=1 ")
+  for (const t of m.types) {
+    if (t.name == "ATT") {
+      expect(t.fields.map((f) => f.name).join(",")).toBe("TimeUS,Roll,Pitch")
+      expect(t.fields[1].unit!).toBe("deg")
+      expect(t.fields[0].unit == null).toBe(true)
+      expect(t.instanceField == null).toBe(true)
+    }
+    if (t.name == "BAT") {
+      expect(t.instanceField!).toBe("Inst")
+    }
+    if (t.name == "MSG") {
+      expect(t.fields[1].kind).toBe(MessageFieldKind.Text)
+    }
+    if (t.name == "ISBD") {
+      expect(t.fields[3].kind).toBe(MessageFieldKind.Array)
+    }
+  }
+  await done(r)
+}
+
+async function givesTheLastOfEachInstanceAtOrBeforeTheTime(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  // At 45 ms: ATT of 40 ms (Roll 3), BAT 0 of 40 ms (15 V), BAT 1 of 40.001 ms (23 V): both at or before 45 ms.
+  const a = await at(r, key, "BAT", 45000)
+  expect(a.found).toBe(true)
+  expect(a.rows.length).toBe(2)
+  expect(a.rows[0].instance!).toBe(0.0)
+  expect(a.rows[1].instance!).toBe(1.0)
+  expect(a.rows[0].timeUs as int).toBe(40000)
+  expect(a.rows[0].fields[2].value!).toBe(15.0)
+  expect(a.rows[1].timeUs as int).toBe(40001)
+  expect(a.rows[1].fields[2].value!).toBe(23.0)
+  // Exactly at 40000: instance 1's message is 1 µs later, so it is the one before it.
+  const exact = await at(r, key, "BAT", 40000)
+  expect(exact.rows[1].timeUs as int).toBe(30001)
+  expect(exact.rows[1].fields[2].value!).toBe(22.0)
+  // A kind with no instance has one row without an instance.
+  const att = await at(r, key, "ATT", 45000)
+  expect(att.rows.length).toBe(1)
+  expect(att.rows[0].instance == null).toBe(true)
+  expect(att.rows[0].fields[1].value!).toBe(3.0)
+  await done(r)
+}
+
+async function saysNothingForATimeBeforeTheFirstOrAKindTheLogDoesNotHave(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const early = await at(r, key, "ATT", 5000)
+  expect(early.found).toBe(false)
+  expect(early.rows.length).toBe(0)
+  const none = await at(r, key, "NOPE", 99999999)
+  expect(none.found).toBe(false)
+  await done(r)
+}
+
+async function giveTextsAsTheyAreAndLeavesArraysOut(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  await readIt(r, key)
+  const text = await at(r, key, "MSG", 99999999)
+  expect(text.rows[0].fields[1].text!).toBe("ArduCopter V4.7.2")
+  expect(text.rows[0].fields[1].value == null).toBe(true)
+  // ISBD: TimeUS, N, seqno are fields; x, y, z (arrays) are not given at all, not as 0.
+  const batch = await at(r, key, "ISBD", 99999999)
+  expect(batch.rows[0].fields.map((f) => f.name).join(",")).toBe("TimeUS,N,seqno")
+  await done(r)
+}
+
+async function givesNoValueForWhatIsNotANumber(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(72, [1000.0, f64Of([0, 0, 0, 0, 0, 0, 0xF8, 0x7F]), f64Of([0, 0, 0, 0, 0, 0, 0xF0, 0x7F])], ["", "", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const a = await at(r, key, "ATT", 5000)
+  expect(a.found).toBe(true)
+  expect(a.rows[0].fields[0].value!).toBe(1000.0)
+  expect(a.rows[0].fields[1].value == null).toBe(true)
+  expect(a.rows[0].fields[2].value == null).toBe(true)
+  await done(r)
+}
+
+async function wantsTheLogToHaveBeenRead(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight())
+  expect(codeOf(await atEnvelope(r, key, "ATT", 1000))).toBe("NOT_READ")
+  const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  expect(codeOf(e)).toBe("NOT_READ")
+  expect(codeOf(await atEnvelope(r, "uid-a/../x", "ATT", 1000))).toBe("NOT_FOUND")
+  await done(r)
+}
+
+async function takesNothingFromALogThatIsNotVerified(): Promise<void> throws Error {
+  const r = await rig()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, 305419896)
+  await writeBytes(join(dir, name), flight())
+  const key = `uid-a/${name}`
+  await readIt(r, key)
+  expect(codeOf(await atEnvelope(r, key, "ATT", 99999999))).toBe("NOT_VERIFIED")
+  const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  expect(codeOf(e)).toBe("NOT_VERIFIED")
+  await done(r)
+}
+
+describe("the message browser of the logs on this computer", () => {
+  it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
+  it("lists the kinds with counts, fields, units and the field that tells instances apart", listsTheKindsWithCountsFieldsAndUnits)
+  it("gives the last message of each instance at or before the time", givesTheLastOfEachInstanceAtOrBeforeTheTime)
+  it("says nothing for a time before the first message or a kind the log does not have", saysNothingForATimeBeforeTheFirstOrAKindTheLogDoesNotHave)
+  it("gives texts as they are and leaves arrays out", giveTextsAsTheyAreAndLeavesArraysOut)
+  it("gives no value for what is not a number", givesNoValueForWhatIsNotANumber)
+  it("wants the log to have been read", wantsTheLogToHaveBeenRead)
+})

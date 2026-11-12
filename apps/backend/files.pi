@@ -27,17 +27,17 @@ function host(): Host {
 }
 
 /// How the backend learns which file the user means.
-interface FileChooser {
-  /// Where to save `name`; null if the user cancelled.
-  forSaving(name: string): Promise<string?, Error>
+export interface FileChooser {
+  /// Where to save `name` (the dialog is titled `title`); null if the user cancelled.
+  forSaving(title: string, name: string): Promise<string?, Error>
   /// The file to open; null if the user cancelled.
   forOpening(): Promise<string?, Error>
 }
 
 /// The host's native dialogs.
 class DialogFileChooser implements FileChooser {
-  public async forSaving(name: string): Promise<string?> throws Error {
-    await host().saveFile(SaveFile { title: "Save the parameters", defaultPath: name })
+  public async forSaving(title: string, name: string): Promise<string?> throws Error {
+    await host().saveFile(SaveFile { title: title, defaultPath: name })
   }
 
   public async forOpening(): Promise<string?> throws Error {
@@ -55,7 +55,7 @@ class DirectoryFileChooser implements FileChooser {
     this.dir = dir
   }
 
-  public async forSaving(name: string): Promise<string?> throws Error {
+  public async forSaving(_title: string, name: string): Promise<string?> throws Error {
     `${dir}/${name}`
   }
 
@@ -64,7 +64,7 @@ class DirectoryFileChooser implements FileChooser {
   }
 }
 
-function fileChooser(): FileChooser {
+export function fileChooser(): FileChooser {
   const dir = env.get("DRONE_CONFIGURATOR_TEST_FILES")
   if (dir != null) {
     return new DirectoryFileChooser(dir!)
@@ -75,7 +75,7 @@ function fileChooser(): FileChooser {
 /// Saves a snapshot where the user chooses.
 async function saveFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const f = decodeFileSave(payload ?? Cbor.Null, "$")
-  const path = await fileChooser().forSaving(f.name)
+  const path = await fileChooser().forSaving("Save the parameters", f.name)
   if (path == null) {
     return encodeFileSaved(FileSaved {})
   }

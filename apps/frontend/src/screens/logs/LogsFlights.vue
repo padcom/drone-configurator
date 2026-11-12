@@ -107,6 +107,7 @@
             :format-x="clockOf"
           />
         </template>
+        <LogBrowser v-if="length !== null" v-model:cursor="cursor" :first-us="firstUs" />
         <h4 class="flight-review-title">{{ t('logs.flights.review.title') }}</h4>
         <FlightReview v-if="flights.review.value" :findings="flights.review.value" :first-us="firstUs" />
       </template>
@@ -134,6 +135,7 @@ import { asNumber, clockOf, lengthOf, modeSpans } from '@/lib/logs/localLogs'
 import { sizeText } from '@/lib/logs/vehicleLogs'
 import FlightModeStrip from './FlightModeStrip.vue'
 import FlightReview from './FlightReview.vue'
+import LogBrowser from './LogBrowser.vue'
 
 defineProps<{
   /** The part of the Logs screen (the router gives it). */
@@ -143,7 +145,7 @@ defineProps<{
 const { t, locale } = useI18n()
 const { number } = useFormat()
 const uid = useId()
-const { flights } = useConfigurator()
+const { flights, browser } = useConfigurator()
 
 /** The place of the cursor shared by the charts (seconds from the start of the log). */
 const cursor = ref<number | null>(null)
@@ -299,6 +301,16 @@ const statusText = computed(() => (busy.value ? busyText.value : AFTER[flights.p
 let lastOpened = ''
 
 /**
+ * Opens a log once the questions the message browser has asked are answered (the backend reads one thing at a time).
+ *
+ * @param key the log
+ */
+async function openAfterTheBrowser(key: string): Promise<void> {
+  await browser.settled()
+  await flights.select(key)
+}
+
+/**
  * Opens a log, unless one is being read (the buttons say so with aria-disabled, which keeps the focus; the press is ignored).
  *
  * @param key the log
@@ -306,7 +318,7 @@ let lastOpened = ''
 function openByKey(key: string): void {
   if (!busy.value) {
     lastOpened = key
-    void flights.select(key)
+    void openAfterTheBrowser(key)
   }
 }
 
@@ -350,6 +362,28 @@ watch(() => flights.phase.value, now => {
     giveFocusBack(document.activeElement?.id === 'flights-stop')
   }
 }, { flush: 'pre' })
+
+/**
+ * Asks for the kinds of message of the log that was loaded, if it is verified (nothing is looked into one that is not).
+ *
+ * @param key the log
+ */
+function loadBrowser(key: string): void {
+  if (flights.summary.value?.verified === true) {
+    void browser.load(key)
+  }
+}
+
+// The kinds of message of a log are asked for once it is loaded and verified (the backend does one pass at a time, and the
+// browser's questions come after the charts'); a log that is closed or another one takes them away.
+watch(() => [flights.phase.value, flights.open.value] as const, ([phase, key]) => {
+  if (phase !== 'ready') {
+    browser.clear()
+    cursor.value = null
+  } else if (key !== null) {
+    loadBrowser(key)
+  }
+})
 
 onMounted(() => {
   if (!flights.listed.value) {

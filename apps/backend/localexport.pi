@@ -1,0 +1,407 @@
+// Export of a log on this computer (`logs.local.export`): one kind of message as CSV, or the GPS track as GPX or KML, to a file the
+// user chooses (the host's save dialog; a test folder in tests). The log is read through once, a chunk at a time, and what each
+// chunk gives is written at once: the file is never built in memory, whatever the size of the log.
+//
+// Safety: the original log is never touched (a target that is the log, or a `.BIN`, is refused). A file that is already there is
+// never overwritten without a second request that names it (`path` and `overwrite`): the first answers `exists`. The file is written
+// next to its place as `<name>.part` and moved in only when whole, so a stopped or failed export leaves no half file, and an export
+// that cannot be made (a log with no position fixes) leaves none either. The text of a log is data: a text cell that a
+// spreadsheet would run as a formula is made safe, and the XML is escaped.
+//
+// Honesty: a value that is not a number (NaN, infinity) is an empty cell, never 0; an array field (a batch of samples) is no cell;
+// a position is a fix only with a 3D fix, inside the globe and not (0, 0); there is no time in GPX or KML because the log has no
+// absolute clock that does not rest on a guess of leap seconds.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfDecoder, DfMessage } from "padcom/pico-mavlink"
+import { exists, remove, rename, stat, writeText } from "std/fs"
+import {
+  LocalLogExported,
+  LogsLocalExportAsk,
+  LogsLocalExportAskFormat,
+  MessageFieldKind,
+  decodeLogsLocalExportAsk,
+  encodeLocalLogExported,
+} from "./generated/app"
+import { fileChooser } from "./files"
+import { Flusher, Taker, claimRead, locate, partsOfKey, releaseRead, streamLog, verifiedSummary } from "./locallogs"
+import { factorOf } from "./localseries"
+import { kindOf, usable } from "./localmessages"
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.export", exportLocal)
+}
+
+/// The common part of the writers: pieces of text gathered while messages are taken, written to the `.part` file between chunks.
+class Output implements Flusher {
+  readonly path: string
+  pieces: string[] = []
+  public rows: int = 0
+  started: bool = false
+
+  constructor(path: string) {
+    this.path = path
+  }
+
+  /// Adds a piece of text.
+  public put(text: string): void {
+    pieces.push(text)
+  }
+
+  public async flush(): Promise<void> throws Error {
+    if (pieces.length == 0 && started) {
+      return
+    }
+    // The first write creates (and empties) the file; the others append.
+    await writeText(path, pieces.join(""), started)
+    started = true
+    pieces = []
+  }
+}
+
+/// Escapes text for XML.
+export function xmlEscape(text: string): string {
+  let out = ""
+  for (const ch of text) {
+    out += if (ch == "&") "&amp;" else if (ch == "<") "&lt;" else if (ch == ">") "&gt;" else if (ch == "\"") "&quot;" else if (ch == "'") "&apos;" else `${ch}`
+  }
+  out
+}
+
+/// One cell of a CSV (RFC 4180). A text that starts like a formula gets a quote in front (a spreadsheet would run it otherwise).
+export function csvCell(text: string, isText: bool): string {
+  let value = text
+  if (isText && value.length > 0) {
+    const first = value.slice(0, 1)
+    if (first == "=" || first == "+" || first == "-" || first == "@" || first == "\t" || first == "\r") {
+      value = `'${value}`
+    }
+  }
+  if (value.includes(",") || value.includes("\"") || value.includes("\n") || value.includes("\r")) {
+    let out = "\""
+    for (const ch of value) {
+      out += if (ch == "\"") "\"\"" else `${ch}`
+    }
+    return out + "\""
+  }
+  value
+}
+
+/// The rows of one kind of message: a column for each field that is a number or a text, the numbers in the unit the log names.
+class CsvWriter implements Taker {
+  readonly out: Output
+  readonly message: string
+  readonly decoder: DfDecoder
+  type: int = -1
+
+  constructor(out: Output, message: string, decoder: DfDecoder) {
+    this.out = out
+    this.message = message
+    this.decoder = decoder
+  }
+
+  public take(m: DfMessage): void {
+    if (type < 0) {
+      if (m.format.name != message) {
+        return
+      }
+      type = m.format.type
+      out.put(headerOf(m))
+    } else if (m.format.type != type) {
+      return
+    }
+    const cells: string[] = []
+    for (let i = 0; i < m.format.fields.length; i++) {
+      const f = m.format.fields[i]
+      const kind = kindOf(f)
+      if (kind == MessageFieldKind.Text) {
+        cells.push(csvCell(m.texts[i], true))
+      } else if (kind == MessageFieldKind.Number) {
+        const v = m.nums[i] * factorOf(f, decoder.tables)
+        cells.push(if (usable(v)) `${v}` else "")
+      }
+    }
+    out.put(cells.join(",") + "\r\n")
+    out.rows += 1
+  }
+
+  /// The names of the columns, with the unit the log names.
+  headerOf(m: DfMessage): string {
+    const names: string[] = []
+    for (const f of m.format.fields) {
+      if (kindOf(f) != MessageFieldKind.Array) {
+        const unit = if (kindOf(f) == MessageFieldKind.Number) decoder.tables.unitOf(f) else ""
+        // The names and units are the log's text too: a hostile one (=cmd|...) is made safe like any other text cell.
+        names.push(csvCell(if (unit == "") f.name else `${f.name} (${unit})`, true))
+      }
+    }
+    names.join(",") + "\r\n"
+  }
+}
+
+/// The fixes of the GPS: the first GPS to have a 3D fix is the track (a log with two receivers is not mixed up).
+class TrackWriter implements Taker {
+  readonly out: Output
+  readonly kml: bool
+  readonly decoder: DfDecoder
+  instance: f64 = -1.0
+  chosen: bool = false
+  /// Where the position, the fix and the instance are in the GPS format, once known.
+  latAt: int = -1
+  lngAt: int = -1
+  altAt: int = -1
+  statusAt: int = -1
+  instanceAt: int = -1
+  type: int = -1
+
+  constructor(out: Output, kml: bool, decoder: DfDecoder) {
+    this.out = out
+    this.kml = kml
+    this.decoder = decoder
+  }
+
+  public take(m: DfMessage): void {
+    if (type < 0) {
+      if (m.format.name != "GPS") {
+        return
+      }
+      type = m.format.type
+      latAt = m.format.indexOf("Lat")
+      lngAt = m.format.indexOf("Lng")
+      altAt = m.format.indexOf("Alt")
+      statusAt = m.format.indexOf("Status")
+      instanceAt = m.format.indexOf("I")
+    } else if (m.format.type != type) {
+      return
+    }
+    if (latAt < 0 || lngAt < 0 || statusAt < 0 || !fixOf(m)) {
+      return
+    }
+    const lat = degrees(m.nums[latAt] * factorOf(m.format.fields[latAt], decoder.tables))
+    const lng = degrees(m.nums[lngAt] * factorOf(m.format.fields[lngAt], decoder.tables))
+    if (!usable(lat) || !usable(lng) || lat > 90.0 || lat < -90.0 || lng > 180.0 || lng < -180.0 || (lat == 0.0 && lng == 0.0)) {
+      return
+    }
+    write(m, lat, lng)
+  }
+
+  /// Whether the message is a 3D fix of the receiver the track is of.
+  fixOf(m: DfMessage): bool {
+    if (!(m.nums[statusAt] >= 3.0)) {
+      return false
+    }
+    const i = if (instanceAt >= 0) m.nums[instanceAt] else 0.0
+    if (!chosen) {
+      chosen = true
+      instance = i
+    }
+    i == instance
+  }
+
+  /// The elevation element of a fix, or nothing when the log's altitude is not a number.
+  elevationOf(m: DfMessage): string {
+    if (altAt < 0) {
+      return ""
+    }
+    const alt = m.nums[altAt] * factorOf(m.format.fields[altAt], decoder.tables)
+    if (usable(alt)) `<ele>${alt}</ele>` else ""
+  }
+
+  write(m: DfMessage, lat: f64, lng: f64): void {
+    if (kml) {
+      out.put(`${lng},${lat} `)
+    } else {
+      out.put(`<trkpt lat="${lat}" lon="${lng}">${elevationOf(m)}</trkpt>\n`)
+    }
+    out.rows += 1
+  }
+}
+
+/// A position in degrees at the resolution of the GPS (1e-7): the scaling of the log's integers leaves noise in the last digits
+/// (47.599999999999994) that is not in the data.
+function degrees(v: f64): f64 {
+  if (usable(v) && v < 1.0e9 && v > -1.0e9) Math.round(v * 1.0e7) / 1.0e7 else v
+}
+
+function headOf(kml: bool, name: string): string {
+  const title = xmlEscape(name)
+  if (kml) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${title}</name><Placemark><name>${title}</name><LineString><coordinates>`
+  }
+  `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Drone Configurator" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${title}</name><trkseg>\n`
+}
+
+function footOf(kml: bool): string {
+  if (kml) "</coordinates></LineString></Placemark></Document></kml>\n" else "</trkseg></trk></gpx>\n"
+}
+
+/// A name that is safe as a part of a file name.
+function safe(text: string): string {
+  let out = ""
+  for (const ch of text) {
+    const c = `${ch}`
+    out += if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".includes(c)) c else "_"
+  }
+  out
+}
+
+/// The name to propose: the log's file, without its extension, then the message and the extension of the format.
+function nameFor(ask: LogsLocalExportAsk): string {
+  const parts = partsOfKey(ask.key)
+  const file = if (parts.length == 2) parts[1] else "log"
+  const dot = file.lastIndexOf(".")
+  const base = safe(if (dot > 0) file.slice(0, dot) else file)
+  match (ask.format) {
+    LogsLocalExportAskFormat.Csv => `${base}-${safe(ask.message ?? "")}.csv`,
+    LogsLocalExportAskFormat.Gpx => `${base}.gpx`,
+    LogsLocalExportAskFormat.Kml => `${base}.kml`,
+  }
+}
+
+/// What the last answer `exists` offered to be replaced: the log, what of it, and the file. Only a request that names exactly this
+/// replaces a file, once; any request without a path, and any use, takes the offer away.
+class Offered {
+  public readonly key: string
+  public readonly format: LogsLocalExportAskFormat
+  public readonly message: string
+  public readonly path: string
+
+  constructor(key: string, format: LogsLocalExportAskFormat, message: string, path: string) {
+    this.key = key
+    this.format = format
+    this.message = message
+    this.path = path
+  }
+}
+
+class Offers {
+  public offered: Offered? = null
+}
+
+const offers = new Offers()
+
+/// A request with a path must name the file that was offered, for the same log, format and kind; the offer is used up either way.
+/// A request without a path takes any offer away (the page asked for something else).
+function takeTheOffer(ask: LogsLocalExportAsk): void throws CommunicatorError {
+  const offer = offers.offered
+  offers.offered = null
+  if (ask.path == null) {
+    return
+  }
+  const same = offer != null && offer!.key == ask.key && offer!.format == ask.format && offer!.message == (ask.message ?? "") && offer!.path == ask.path!
+  if (!same) {
+    throw new CommunicatorError("BAD_REQUEST", "that file was not offered to be replaced: ask again and choose it")
+  }
+}
+
+async function exportLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeLogsLocalExportAsk(payload ?? Cbor.Null, "$")
+  if (ask.format == LogsLocalExportAskFormat.Csv && (ask.message ?? "") == "") {
+    throw new CommunicatorError("BAD_REQUEST", "a CSV is of one kind of message: say which")
+  }
+  if ((ask.path == null) != (ask.overwrite == null) || (ask.path != null && !(ask.overwrite ?? false))) {
+    throw new CommunicatorError("BAD_REQUEST", "path and overwrite go together, and overwrite is true")
+  }
+  // The file to replace is the one this backend offered, once: a path that is named by the page is never trusted.
+  takeTheOffer(ask)
+  const own = claimRead()
+  try {
+    return await exportIt(ask, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+async function exportIt(ask: LogsLocalExportAsk, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(ask.key)
+  verifiedSummary(ask.key, file.facts)
+  const name = nameFor(ask)
+  const target = if (ask.path != null) ask.path else await fileChooser().forSaving("Export the log", name)
+  if (target == null) {
+    return encodeLocalLogExported(LocalLogExported { rows: 0, bytes: 0 })
+  }
+  refuseTheLog(target!, file.path)
+  const there = await exists(target!)
+  if (there && !(ask.overwrite ?? false)) {
+    offers.offered = new Offered(ask.key, ask.format, ask.message ?? "", target!)
+
+    return encodeLocalLogExported(LocalLogExported { path: target!, exists: true, rows: 0, bytes: 0 })
+  }
+  const part = `${target!}.part`
+  try {
+    const written = await writeIt(ask, name, file.path, part, own)
+    await moveIn(part, target!, there)
+    return encodeLocalLogExported(LocalLogExported { path: target!, rows: written.rows as u32, bytes: written.bytes as u64 })
+  } catch (e: Error) {
+    if (await exists(part)) {
+      await remove(part)
+    }
+    throw e
+  }
+}
+
+/// Moves the whole file in place of the target: renamed over it, so there is no moment without a file there. Where a rename cannot
+/// replace a file, the old one is removed after the rename failed (not before).
+async function moveIn(part: string, destination: string, there: bool): Promise<void> throws Error {
+  try {
+    await rename(part, destination)
+  } catch (e: Error) {
+    if (!there) {
+      throw e
+    }
+    await remove(destination)
+    await rename(part, destination)
+  }
+}
+
+/// The original is never a target: not the log, and not any `.BIN`.
+function refuseTheLog(target: string, log: string): void throws CommunicatorError {
+  if (target == log || target.toLowerCase().endsWith(".bin")) {
+    throw new CommunicatorError("BAD_REQUEST", "a log is never written over: choose another file")
+  }
+}
+
+class Written {
+  public readonly rows: int
+  public readonly bytes: int
+
+  constructor(rows: int, bytes: int) {
+    this.rows = rows
+    this.bytes = bytes
+  }
+}
+
+/// Streams the log into the `.part` file.
+async function writeIt(ask: LogsLocalExportAsk, name: string, log: string, part: string, own: AbortController): Promise<Written> throws Error {
+  const out = new Output(part)
+  const decoder = new DfDecoder()
+  const track = ask.format != LogsLocalExportAskFormat.Csv
+  const kml = ask.format == LogsLocalExportAskFormat.Kml
+  let taker: Taker = new CsvWriter(out, ask.message ?? "", decoder)
+  if (track) {
+    taker = new TrackWriter(out, kml, decoder)
+  }
+  if (track) {
+    out.put(headOf(kml, name))
+  }
+  const file = await locate(ask.key)
+  const done = await streamLog(ask.key, file, own, taker, out, decoder)
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  if (out.rows == 0) {
+    throw new CommunicatorError("UNAVAILABLE", unavailableWhy(ask))
+  }
+  if (track) {
+    out.put(footOf(kml))
+  }
+  await out.flush()
+  const info = await stat(part)
+  new Written(out.rows, info.size)
+}
+
+function unavailableWhy(ask: LogsLocalExportAsk): string {
+  if (ask.format == LogsLocalExportAskFormat.Csv) {
+    return `the log has no ${ask.message ?? ""} messages`
+  }
+  "the log has no GPS position with a 3D fix, so there is no track to write"
+}

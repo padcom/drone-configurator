@@ -4,12 +4,13 @@
 // launches its own SITL (at speedup 1: the vehicle's file transfer fails at higher ones), so it ignores SITL_ENDPOINT.
 //
 // The checks go on from one another (one app, one connection): if the first fails, the rest fail for that reason.
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, home, launchApp } from './launch'
+import { csvRows, gpxPoints, isPlace, kmlPoints, savedFile } from './exported'
 import { crc32 } from './mavlink-wire'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
@@ -27,6 +28,8 @@ const OPEN_TEST_MS = READ_MS + 120_000
 /** The first row of the table, and its parts. */
 const ROW = 'table.logs-table tbody tr'
 const STATE = `${ROW} .logs-state-text`
+/** Where the exports of the checks go: the backend writes there instead of asking in a dialog (a test cannot click one). */
+const SAVED = join(home, 'saved')
 
 let sitl: Sitl | undefined
 let app: E2eApp | undefined
@@ -113,6 +116,9 @@ async function startAll(): Promise<void> {
   await sitl.setParam('LOG_FILE_DSRMROT', 1)
   await sitl.fly()
   await waitForTheLogToSettle(join(sitl.directory, 'logs', '00000001.BIN'))
+  // The exports go to a folder (the backend's test chooser) instead of a dialog nobody can click.
+  mkdirSync(SAVED, { recursive: true })
+  process.env.DRONE_CONFIGURATOR_TEST_FILES = SAVED
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
   const { transport, host, port } = sitl.endpoint
@@ -120,6 +126,8 @@ async function startAll(): Promise<void> {
 }
 
 async function stopAll(): Promise<void> {
+  delete process.env.DRONE_CONFIGURATOR_TEST_FILES
+
   try {
     await app?.close()
   } finally {
@@ -385,6 +393,117 @@ async function opensTheDownloadedLogInFlights(): Promise<void> {
   expect(facts.findings.length).toBe(11)
 }
 
+/**
+ * Chooses a value of a select, as the user would.
+ *
+ * @param selector the select
+ * @param value the option's value
+ */
+async function chooseIn(selector: string, value: string): Promise<void> {
+  await window().evaluate(`(() => {
+    const select = document.querySelector('${selector}')
+    select.value = '${value}'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })()`)
+}
+
+/** What the export's status line says now. */
+const EXPORT_SAYS = `(document.querySelector('#export-status')?.textContent ?? '')`
+
+/**
+ * Waits until the export's status line says a file was saved.
+ *
+ * @param extension the file's extension, with its dot ("-ATT.csv", ".gpx")
+ * @param what what did not happen
+ */
+async function waitForSaved(extension: string, what: string): Promise<void> {
+  const pattern = `^Saved .*${extension.replaceAll('.', '\\\\.')}: [\\\\d,]+ rows?$`
+  await waitOrExplain(`new RegExp('${pattern}').test(${EXPORT_SAYS})`, 120_000, what)
+}
+
+/** The kinds of message the vehicle wrote are listed, and the fields of ATT are shown at the end of the log, with the unit. */
+async function listsTheKindsAndShowsTheFields(): Promise<void> {
+  await waitOrExplain(`document.querySelector('#browser-kind') !== null`, 60_000, 'the message browser is not there')
+  const options = `[...document.querySelectorAll('#browser-kind option')].map(option => option.value)`
+  const kinds = await window().evaluate<string[]>(options)
+  console.info(`sitl-logs: the kinds of message: ${kinds.join(' ')}`)
+  expect(kinds).toEqual(expect.arrayContaining(['ATT', 'BAT', 'GPS', 'MODE']))
+
+  await chooseIn('#browser-kind', 'ATT')
+  // End on the slider over the first chart: the cursor goes to the end of the log, and the browser asks for ATT there.
+  await window().evaluate(`(() => {
+    const slider = document.querySelector('.kit-chart .chart-cursor-control')
+    slider.focus()
+    slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }))
+  })()`)
+  const roll = `document.querySelector('[data-field="Roll"] .browser-value')?.textContent.endsWith(' deg')`
+  await waitOrExplain(roll, 60_000, 'no Roll with its unit at the cursor')
+}
+
+/** A field that is pressed is charted, with the unit the log names. */
+async function chartsAFieldThatIsPressed(): Promise<void> {
+  await window().click('[data-field="Roll"] .browser-graph')
+  const charted = `[...document.querySelectorAll('.chart-title')].some(title => title.textContent === 'ATT.Roll, deg')`
+  await waitOrExplain(charted, 60_000, 'Roll was not charted')
+}
+
+/**
+ * The number of rows the export's status line says were written.
+ *
+ * @param said the line ("Saved x-ATT.csv: 12,000 rows")
+ * @returns the number, NaN when the line does not say
+ */
+function rowsSaid(said: string): number {
+  return Number(/: (?<count>[\d,]+) rows?$/u.exec(said)?.groups?.count?.replaceAll(',', ''))
+}
+
+/** ATT is exported as CSV, and the file is read back by a reader that is not the exporter's. */
+async function exportsACsvThatIsReadBack(): Promise<void> {
+  await window().click('#export-csv')
+  await waitForSaved('-ATT.csv', 'no CSV was saved')
+  const rows = csvRows(savedFile(SAVED, '-ATT.csv') ?? '')
+  const [header = []] = rows
+
+  // The log names seconds as the unit of TimeUS.
+  expect(header[0]).toBe('TimeUS (s)')
+  expect(header).toContain('Roll (deg)')
+  expect(rows.length).toBeGreaterThan(100)
+  expect(rows.every(row => row.length === header.length)).toBe(true)
+  expect(rowsSaid(await window().evaluate<string>(EXPORT_SAYS))).toBe(rows.length - 1)
+}
+
+/** The same export again names the file and writes nothing; a second press that names it replaces it. */
+async function doesNotReplaceTheFileWithoutASecondPress(): Promise<void> {
+  const before = statSync(savedFile(SAVED, '-ATT.csv') ?? '').mtimeMs
+  await window().click('#export-csv')
+  await waitOrExplain(`document.querySelector('#export-replace') !== null`, 120_000, 'the file that is there was not named')
+  expect(await window().evaluate<string>(EXPORT_SAYS)).toMatch(/-ATT\.csv already exists\. Nothing was written\.$/u)
+  expect(statSync(savedFile(SAVED, '-ATT.csv') ?? '').mtimeMs).toBe(before)
+
+  await window().click('#export-replace')
+  expect(await window().text('#export-replace')).toMatch(/^Confirm: replace .*-ATT\.csv$/u)
+  await pause(500)
+  await window().click('#export-replace')
+  await waitForSaved('-ATT.csv', 'the file was not replaced')
+  expect(statSync(savedFile(SAVED, '-ATT.csv') ?? '').mtimeMs).toBeGreaterThan(before)
+}
+
+/** The GPS track is exported as GPX and KML that parse, with the same points. */
+async function exportsTheTrackThatParses(): Promise<void> {
+  await window().click('#export-gpx')
+  await waitForSaved('.gpx', 'no GPX was saved')
+  await window().click('#export-kml')
+  await waitForSaved('.kml', 'no KML was saved')
+  const gpx = gpxPoints(readFileSync(savedFile(SAVED, '.gpx') ?? '', 'utf8'))
+  const kml = kmlPoints(readFileSync(savedFile(SAVED, '.kml') ?? '', 'utf8'))
+  console.info(`sitl-logs: the track has ${gpx.length} points; the exports: ${readdirSync(SAVED).join(', ')}`)
+
+  expect(gpx.length).toBeGreaterThan(10)
+  expect(gpx.every(isPlace)).toBe(true)
+  // KML is longitude then latitude, and the same points in the same order.
+  expect(kml).toEqual(gpx)
+}
+
 describeSitl(
   'the logs of the vehicle (SITL)',
   () => {
@@ -396,6 +515,11 @@ describeSitl(
     it('goes on from there, and the vehicle checks the copy, which is its file', goesOnAndChecksIt, DOWNLOAD_MS + 30_000)
     it('offers nothing to download when everything is downloaded', offersNothingMore)
     it('opens the downloaded log in Flights: verified, its modes, charts, review', opensTheDownloadedLogInFlights, OPEN_TEST_MS)
+    it('lists the kinds of message and shows the fields of ATT at the cursor', listsTheKindsAndShowsTheFields, READ_MS)
+    it('charts a field that is pressed', chartsAFieldThatIsPressed, READ_MS)
+    it('exports ATT as a CSV that a reader reads back', exportsACsvThatIsReadBack, READ_MS)
+    it('does not replace a file without a second press that names it', doesNotReplaceTheFileWithoutASecondPress, READ_MS)
+    it('exports the GPS track as GPX and KML that parse', exportsTheTrackThatParses, READ_MS)
   },
   { launchOnly: true },
 )

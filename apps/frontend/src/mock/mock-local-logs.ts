@@ -7,6 +7,7 @@ import type { Envelope } from '@pico-desktop/protocol'
 import type {
   LocalLog, LocalLogSummary, LogsLocalSeries, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint, SeriesResult,
 } from '@/generated/app'
+import { type ExportAsk, MOCK_MESSAGES, MockSaved, atAnswer } from './mock-local-browser'
 
 type Reply = (p: Envelope['p']) => void
 type Fail = (code: string, message: string) => void
@@ -241,6 +242,8 @@ function rangeOf(summary: LocalLogSummary, buckets: number): Range {
 /** The logs on this computer, as the mock has them. */
 export class MockLocalLogs {
   copies = initial()
+  /** The files the exports wrote. */
+  readonly saved = new MockSaved()
   /** The read that is under way, to stop it. */
   reading: { timer: ReturnType<typeof setInterval>, fail: Fail } | undefined
 
@@ -397,5 +400,52 @@ export class MockLocalLogs {
     }
     // A pass over the file takes its time (two steps of a read here): the page is in its loading phase meanwhile.
     setTimeout(() => ok(answer), this.stepMs * 2)
+  }
+
+  /**
+   * The kinds of message of a log that was read.
+   *
+   * @param key the log
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  messages(key: string, ok: Reply, fail: Fail): void {
+    if (this.findRead(key, fail)) {
+      setTimeout(() => ok(MOCK_MESSAGES), this.stepMs)
+    }
+  }
+
+  /**
+   * The fields of a kind at a time.
+   *
+   * @param ask the request
+   * @param ask.key the log
+   * @param ask.message the kind
+   * @param ask.timeUs the time
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  at(ask: { key: string, message: string, timeUs: number }, ok: Reply, fail: Fail): void {
+    if (this.findRead(ask.key, fail)) {
+      setTimeout(() => ok(atAnswer(SIGNALS, { message: ask.message, timeUs: Number(ask.timeUs) }, FIRST_US)), this.stepMs)
+    }
+  }
+
+  /**
+   * Writes a log or a kind to a file: the first press never replaces a file, GPX and KML need a track (only log 3 has one).
+   *
+   * @param ask the request
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  export(ask: ExportAsk, ok: Reply, fail: Fail): void {
+    if (!this.findRead(ask.key, fail)) {
+      return
+    }
+    if (ask.format !== 'csv' && !ask.key.includes('00000003')) {
+      fail('UNAVAILABLE', 'the log has no GPS position with a 3D fix, so there is no track to write')
+    } else {
+      setTimeout(() => ok(this.saved.save(ask)), this.stepMs)
+    }
   }
 }
