@@ -116,8 +116,8 @@ describe('what the palette says', () => {
 
   it('finds a command by its English name in another language', async () => {
     await showScreen(app, 'settings')
-    await app.waitFor(`document.querySelector('main select') !== null`)
-    await app.fill('main select', 'pl')
+    await app.waitFor(`document.querySelector('main select[id$="-language"]') !== null`)
+    await app.fill('main select[id$="-language"]', 'pl')
     await app.waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Dane lotu'`)
     await chord('p', CTRL)
     await app.waitFor(`document.querySelector('#palette-input') !== null`)
@@ -128,6 +128,6 @@ describe('what the palette says', () => {
     expect(await app.text('.palette-label')).toBe('Przejdź do ekranu Logi')
     await chord('Escape')
     await showScreen(app, 'settings')
-    await app.fill('main select', 'en')
+    await app.fill('main select[id$="-language"]', 'en')
   })
 })
