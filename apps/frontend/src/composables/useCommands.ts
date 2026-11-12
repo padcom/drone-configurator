@@ -9,6 +9,7 @@ import type {
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from '@/lib/commands/app'
+import { OpenLogFile } from '@/lib/commands/logs'
 import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
 import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/snapshots'
@@ -47,6 +48,7 @@ function makeRegistry(): CommandRegistry {
     new DownloadParameters(),
     new SaveSnapshot(),
     new LoadSnapshot(),
+    new OpenLogFile(),
     new ParameterProvider(),
   ]
   others.forEach(command => registry.register(command))
@@ -155,12 +157,14 @@ function parameterFacts(): ParameterFacts {
  * @returns the facts
  */
 function fileFacts(): FileFacts {
-  const { metadata, snapshots, fields } = useConfigurator()
+  const { metadata, snapshots, fields, flights } = useConfigurator()
 
   return {
     loadMetadata: () => openFile(() => metadata.openFile(), text => metadata.load(text)),
     loadSnapshot: () => openFile(() => snapshots.openFile(), text => snapshots.load(text)),
     saveSnapshot: () => saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle)),
+    openLog: () => void flights.importFile(),
+    logBusy: () => flights.importing.value || flights.phase.value === 'reading' || flights.phase.value === 'loading',
   }
 }
 

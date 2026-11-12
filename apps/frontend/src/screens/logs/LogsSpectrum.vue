@@ -12,6 +12,9 @@
       {{ spectrum.error.value }}
     </Banner>
 
+    <!-- A recording of a ground station (.tlog) has no raw IMU batches: it is not offered, and the page says why. -->
+    <p v-if="hasRecordings" id="spectrum-tlog" class="muted">{{ t('logs.spectrum.tlog') }}</p>
+
     <div class="logs-toolbar spectrum-picker">
       <label class="browser-pick">
         <span>{{ t('logs.spectrum.log') }}</span>
@@ -181,8 +184,12 @@ const fraction = computed(() => {
 
 const logOptions = computed(() => [
   { value: '', label: t('logs.spectrum.chooseLog') },
-  ...flights.logs.value.map(log => ({ value: log.key, label: t('logs.flights.heading', { id: log.id }) })),
+  ...flights.logs.value
+    .filter(log => log.source === 'dataflash')
+    .map(log => ({ value: log.key, label: t('logs.flights.heading', { id: log.id }) })),
 ])
+
+const hasRecordings = computed(() => flights.logs.value.some(log => log.source === 'tlog'))
 
 const sourceOptions = computed(() => spectrum.sources.value.map(source => ({
   value: idOf(source),

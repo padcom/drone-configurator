@@ -47,6 +47,24 @@
     "sections": "Logs sections",
     "shown": "Logs: {section}",
     "flights": {
+      "import": "Open log file…",
+      "importing": "Importing the log file…",
+      "importingBar": "Importing the log file",
+      "statusImported": "Imported {name} and opened it.",
+      "statusImportedAgain": "{name} is in the library already (same content): opened that one.",
+      "statusImportStopped": "The import was stopped. Nothing was added.",
+      "importedRow": "Imported #{id}",
+      "importedHeading": "Imported log file #{id}",
+      "stateImported": "Imported, copy intact",
+      "stateImportedChanged": "Imported, copy changed since",
+      "importedMark": "Imported, not checked against a vehicle. Values are as recorded by the program that wrote the file.",
+      "notVerifiedImported": "This copy is not the file that was imported (its checksum has changed): nothing is taken from it. Open the log file again.",
+      "reportRead": "Records read: {records}. Skipped: {skipped} bytes of damage, {crc} frames with a wrong checksum, {unknown} frames of message types this app does not know.",
+      "reportSegments": "Stretches of time in the recording: {count}. A gap or a step back of the clock starts a new one.",
+      "reportCutEnd": "The file ends in the middle of a record. That is how a recording ends when it is cut (power loss, a program closed): it is not damage.",
+      "reportSigned": "Signed frames: {count}. Signatures are not checked, so nothing here is proven to come from the vehicle.",
+      "reportUndated": "The times in this recording cannot be real dates: they count from its first record.",
+      "reviewTlogNote": "Based on the ground station's samples, with the same limits as for a vehicle's log. What a recording cannot say shows as no data.",
       "title": "Flights",
       "refresh": "Refresh the list",
       "loading": "Reading the folder of logs…",
@@ -259,6 +277,7 @@
       "revert": "Put the ticks back"
     },
     "spectrum": {
+      "tlog": "Not available for a log file (.tlog): it holds no raw IMU batches. Open a log downloaded from the vehicle.",
       "title": "Spectrum",
       "log": "Log",
       "sensor": "Sensor",
@@ -894,6 +913,12 @@
     "backendStopped": "The backend stopped: the vehicle session ended. Connect again to continue."
   },
   "palette": {
+    "logs": {
+      "openFile": {
+        "label": "Open log file…",
+        "keywords": "tlog import recording telemetry file mavproxy mission planner qgroundcontrol"
+      }
+    },
     "placeholder": "Search or run a command",
     "label": "Command palette",
     "list": "Commands",
@@ -901,6 +926,7 @@
     "count": "{count} result | {count} results",
     "failed": "The command failed.",
     "group": {
+      "logs": "Logs",
       "app": "Application",
       "parameters": "Parameters",
       "navigate": "Navigate",
@@ -952,6 +978,7 @@
       }
     },
     "reason": {
+      "logBusy": "A log is being read or imported",
       "noParameters": "There are no parameters yet.",
       "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
       "notConnected": "Connect to a vehicle first.",

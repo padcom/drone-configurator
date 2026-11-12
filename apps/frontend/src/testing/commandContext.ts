@@ -26,6 +26,8 @@ export interface Fake {
     paramCount: number
     /** Whether the parameters are held by a write or another job. */
     paramsBusy: boolean
+    /** Whether a log is being read or imported. */
+    logBusy?: boolean
     /** The ids of the commands run lately, the one run last first. */
     recent: string[]
   }
@@ -108,6 +110,8 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
       loadSnapshot: () => void fake.calls.snapshot.push('load'),
+      openLog: () => void fake.calls.snapshot.push('openLog'),
+      logBusy: () => fake.facts.logBusy ?? false,
     },
     params: {
       count: () => fake.facts.paramCount,

@@ -14,6 +14,14 @@
       {{ flights.error.value }}
     </Banner>
     <div class="logs-toolbar">
+      <Button
+        id="flights-import"
+        :aria-disabled="busyOrLoading ? 'true' : undefined"
+        :aria-describedby="busy ? 'flights-busy' : undefined"
+        @click="importFile()"
+      >
+        {{ t('logs.flights.import') }}
+      </Button>
       <!-- aria-disabled, not disabled: a button that is turned off while it has the focus must not take the focus with it. -->
       <Button
         id="flights-refresh"
@@ -23,6 +31,12 @@
       >
         {{ t('logs.flights.refresh') }}
       </Button>
+    </div>
+    <!-- Importing a recording: copied into the library a chunk at a time; it can be stopped, and then adds nothing. -->
+    <div v-if="flights.importing.value" id="flights-importing" class="flight-reading">
+      <ProgressBar :value="readFraction" :label="t('logs.flights.importingBar')" />
+      <span id="flights-busy" class="muted">{{ t('logs.flights.importing') }}</span>
+      <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stop') }}</Button>
     </div>
     <p v-if="flights.loading.value && !flights.listed.value" class="muted">{{ t('logs.flights.loading') }}</p>
     <EmptyState
@@ -45,7 +59,7 @@
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="row.log.key" :class="{ open: row.open }" :data-key="row.log.key">
-          <th scope="row">{{ row.log.id }}</th>
+          <th scope="row">{{ row.name }}</th>
           <td>{{ row.date }}</td>
           <td>{{ row.size }}</td>
           <td class="flights-duration">{{ row.duration }}</td>
@@ -55,7 +69,7 @@
               class="flights-open"
               :aria-disabled="busy ? 'true' : undefined"
               :aria-describedby="busy ? 'flights-busy' : undefined"
-              :aria-label="t('logs.flights.openLabel', { id: row.log.id })"
+              :aria-label="row.openLabel"
               @click="openByKey(row.log.key)"
             >
               {{ t('logs.flights.open') }}
@@ -73,6 +87,8 @@
       :aria-label="detailTitle"
     >
       <h4 ref="title" class="flight-detail-title" tabindex="-1">{{ detailTitle }}</h4>
+      <!-- Every view of a recording carries this; nothing in the page can take it away. -->
+      <Banner v-if="isTlog && !busy" id="flights-imported-mark" tone="info">{{ t('logs.flights.importedMark') }}</Banner>
       <!-- Reading the file, and then asking for the modes, the review and the charts (two more passes over it): nothing is drawn
            and nothing else is opened until it is through; it can be stopped throughout. -->
       <div v-if="busy" class="flight-reading">
@@ -86,15 +102,26 @@
       </div>
       <!-- A copy that is not verified is not looked into: the reason, and the way to a checked copy. -->
       <template v-else-if="summary && !summary.verified">
-        <Banner id="flights-not-verified" tone="warn">{{ t('logs.flights.notVerified') }}</Banner>
-        <p class="muted"><a id="flights-download-again" href="#/logs/vehicle">{{ t('logs.flights.downloadAgain') }}</a></p>
+        <Banner id="flights-not-verified" tone="warn">
+          {{ t(isTlog ? 'logs.flights.notVerifiedImported' : 'logs.flights.notVerified') }}
+        </Banner>
+        <p v-if="!isTlog" class="muted">
+          <a id="flights-download-again" href="#/logs/vehicle">{{ t('logs.flights.downloadAgain') }}</a>
+        </p>
       </template>
       <template v-else-if="summary">
         <p class="flight-summary muted">{{ summaryText }}</p>
-        <Banner v-if="summary.problems > 0" id="flights-damaged" tone="warn">
-          {{ t('logs.flights.damaged', { count: summary.problems }) }}
+        <Banner v-if="damage > 0" id="flights-damaged" tone="warn">
+          {{ t('logs.flights.damaged', { count: damage }) }}
         </Banner>
-        <p v-if="summary.cutEnd" id="flights-cut-end" class="muted">{{ t('logs.flights.cutEnd') }}</p>
+        <div v-if="summary.report" id="flights-report" class="muted">
+          <p>{{ readText }}</p>
+          <p v-if="summary.report.segments > 1">{{ t('logs.flights.reportSegments', { count: summary.report.segments }) }}</p>
+          <p v-if="summary.report.signed > 0">{{ t('logs.flights.reportSigned', { count: summary.report.signed }) }}</p>
+          <p v-if="!summary.report.dated">{{ t('logs.flights.reportUndated') }}</p>
+          <p v-if="summary.cutEnd" id="flights-cut-end">{{ t('logs.flights.reportCutEnd') }}</p>
+        </div>
+        <p v-else-if="summary.cutEnd" id="flights-cut-end" class="muted">{{ t('logs.flights.cutEnd') }}</p>
         <p v-if="length === null" class="muted">{{ t('logs.flights.noTimes') }}</p>
         <template v-else>
           <FlightModeStrip :spans="spans" :firmware="summary.firmware" :cursor="cursor" />
@@ -109,6 +136,7 @@
         </template>
         <LogBrowser v-if="length !== null" v-model:cursor="cursor" :first-us="firstUs" />
         <h4 class="flight-review-title">{{ t('logs.flights.review.title') }}</h4>
+        <p v-if="isTlog" id="flights-review-tlog" class="muted">{{ t('logs.flights.reviewTlogNote') }}</p>
         <FlightReview v-if="flights.review.value" :findings="flights.review.value" :first-us="firstUs" />
       </template>
     </section>
@@ -147,11 +175,25 @@ const { number } = useFormat()
 const uid = useId()
 const { flights, browser } = useConfigurator()
 
+/**
+ * The heading of an open log.
+ *
+ * @param log the log, if it is in the list
+ * @returns the words
+ */
+function headingOf(log: LocalLog | undefined): string {
+  if (log === undefined) {
+    return ''
+  }
+
+  return t(log.source === 'tlog' ? 'logs.flights.importedHeading' : 'logs.flights.heading', { id: log.id })
+}
+
 /** The place of the cursor shared by the charts (seconds from the start of the log). */
 const cursor = ref<number | null>(null)
 
 /** A log is being read, or what is drawn of it is being asked for: the backend does one read at a time. */
-const busy = computed(() => flights.phase.value === 'reading' || flights.phase.value === 'loading')
+const busy = computed(() => flights.importing.value || flights.phase.value === 'reading' || flights.phase.value === 'loading')
 const busyOrLoading = computed(() => busy.value || flights.loading.value)
 const summary = computed(() => flights.summary.value)
 const length = computed(() => (summary.value ? lengthOf(summary.value) : null))
@@ -159,7 +201,27 @@ const firstUs = computed(() => asNumber(summary.value?.firstUs ?? 0))
 const spans = computed(() => (summary.value ? modeSpans(flights.modes.value, summary.value) : []))
 const openLog = computed(() => flights.logs.value.find(log => log.key === flights.open.value))
 const openId = computed(() => openLog.value?.id ?? 0)
-const detailTitle = computed(() => t('logs.flights.heading', { id: openId.value }))
+const isTlog = computed(() => openLog.value?.source === 'tlog')
+const detailTitle = computed(() => (isTlog.value ? headingOf(openLog.value) : t('logs.flights.heading', { id: openId.value })))
+const report = computed(() => summary.value?.report)
+
+/** What is damaged: for a recording the frames with a wrong checksum and the bytes skipped (unknown messages are not damage). */
+const damage = computed(() => {
+  const r = report.value
+
+  return r === undefined ? summary.value?.problems ?? 0 : r.crcFailures + asNumber(r.bytesSkipped)
+})
+const readText = computed(() => {
+  const r = report.value
+  if (r === undefined) {
+    return ''
+  }
+  const skipped = number(asNumber(r.bytesSkipped), 0)
+
+  const counts = { records: number(r.records, 0), skipped, crc: number(r.crcFailures, 0), unknown: number(r.unknown, 0) }
+
+  return t('logs.flights.reportRead', counts)
+})
 const readFraction = computed(() => {
   const progress = flights.progress.value
 
@@ -182,6 +244,12 @@ function summaryLine(s: LocalLogSummary): string {
 
 const summaryText = computed(() => (summary.value ? summaryLine(summary.value) : ''))
 
+/** The words for a verified copy and for one that is not, by who wrote the log. */
+const STATE_KEYS: Readonly<Record<LocalLog['source'], readonly [string, string]>> = {
+  dataflash: ['logs.flights.state.verified', 'logs.flights.state.unverified'],
+  tlog: ['logs.flights.stateImported', 'logs.flights.stateImportedChanged'],
+}
+
 /**
  * What the state cell of a log says: what a read found of the copy, or that it has not been opened.
  *
@@ -192,8 +260,9 @@ function stateText(log: LocalLog): string {
   if (log.summary === undefined) {
     return t('logs.flights.state.unread')
   }
+  const keys = STATE_KEYS[log.source]
 
-  return t(log.summary.verified ? 'logs.flights.state.verified' : 'logs.flights.state.unverified')
+  return t(log.summary.verified ? keys[0] : keys[1])
 }
 
 /**
@@ -221,8 +290,20 @@ function dateText(log: LocalLog): string {
   return modified === 0 ? t('logs.flights.noDate') : new Date(modified).toLocaleString(locale.value)
 }
 
+/**
+ * What a log is called: its number, and for an imported recording that it is one.
+ *
+ * @param log the log
+ * @returns the words
+ */
+function nameOf(log: LocalLog): string {
+  return log.source === 'tlog' ? t('logs.flights.importedRow', { id: log.id }) : String(log.id)
+}
+
 const rows = computed(() => flights.logs.value.map(log => ({
   log,
+  name: nameOf(log),
+  openLabel: log.source === 'tlog' ? nameOf(log) : t('logs.flights.openLabel', { id: log.id }),
   open: log.key === flights.open.value,
   date: dateText(log),
   size: sizeText(asNumber(log.size), number),
@@ -287,11 +368,38 @@ const busyText = computed(() => {
   return t(key, { id: openId.value })
 })
 
+/**
+ * What the status says of a log that was just imported, when it is the one that is open.
+ *
+ * @returns the words, or null when the open log is not the one that was imported
+ */
+function importedNow(): string | null {
+  const last = flights.imported.value
+  if (last === null || last.key !== flights.open.value) {
+    return null
+  }
+
+  return t(last.duplicate ? 'logs.flights.statusImportedAgain' : 'logs.flights.statusImported', { name: last.name })
+}
+
+/**
+ * What the status says when nothing is open: an import or a read that was stopped, else nothing.
+ *
+ * @returns the words
+ */
+function idleStatus(): string {
+  if (flights.importStopped.value) {
+    return t('logs.flights.statusImportStopped')
+  }
+
+  return flights.stopped.value ? t('logs.flights.statusStopped') : ''
+}
+
 /** What the polite status says when nothing is being read: the log is open, it failed (and why), or it was stopped. */
 const AFTER: Readonly<Record<string, () => string>> = {
-  ready: () => t('logs.flights.statusOpened', { id: openId.value }),
+  ready: () => (importedNow() ?? t('logs.flights.statusOpened', { id: openId.value })),
   failed: () => flights.error.value ?? '',
-  idle: () => (flights.stopped.value ? t('logs.flights.statusStopped') : ''),
+  idle: () => idleStatus(),
 }
 
 /** What the polite status says. It is always in the page, so a change of it is read out. */
@@ -319,6 +427,13 @@ function openByKey(key: string): void {
   if (!busy.value) {
     lastOpened = key
     void openAfterTheBrowser(key)
+  }
+}
+
+/** Lets the user choose a log file and imports it, unless a read is going on (as for `openByKey`). */
+function importFile(): void {
+  if (!busyOrLoading.value) {
+    void flights.importFile()
   }
 }
 

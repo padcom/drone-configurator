@@ -47,6 +47,24 @@
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
     "flights": {
+      "import": "Apri file di log…",
+      "importing": "Importazione del file di log…",
+      "importingBar": "Importazione del file di log",
+      "statusImported": "{name} importato e aperto.",
+      "statusImportedAgain": "{name} è già nella libreria (stesso contenuto): aperto quello esistente.",
+      "statusImportStopped": "L'importazione è stata interrotta. Non è stato aggiunto nulla.",
+      "importedRow": "Importato n. {id}",
+      "importedHeading": "File di log importato n. {id}",
+      "stateImported": "Importato, copia integra",
+      "stateImportedChanged": "Importato, copia modificata dopo l'importazione",
+      "importedMark": "Importato, non verificato con un veicolo. I valori sono quelli registrati dal programma che ha scritto il file.",
+      "notVerifiedImported": "Questa copia non è il file importato (il suo checksum è cambiato): non se ne ricava nulla. Apri di nuovo il file di log.",
+      "reportRead": "Record letti: {records}. Saltati: {skipped} byte di danni, {crc} frame con checksum errato, {unknown} frame di tipi di messaggio che questa app non conosce.",
+      "reportSegments": "Tratti di tempo nella registrazione: {count}. Un vuoto o un salto indietro dell'orologio ne inizia uno nuovo.",
+      "reportCutEnd": "Il file termina a metà di un record. Così finisce una registrazione interrotta (mancanza di corrente, programma chiuso): non è un danno.",
+      "reportSigned": "Frame firmati: {count}. Le firme non vengono verificate, quindi nulla qui è dimostrato provenire dal veicolo.",
+      "reportUndated": "I tempi di questa registrazione non possono essere date reali: contano dal primo record.",
+      "reviewTlogNote": "In base ai campioni della stazione di terra, con gli stessi limiti di un log del veicolo. Ciò che una registrazione non può dire appare come nessun dato.",
       "title": "Voli",
       "refresh": "Aggiorna l'elenco",
       "loading": "Lettura della cartella dei log…",
@@ -259,6 +277,7 @@
       "revert": "Annulla le selezioni"
     },
     "spectrum": {
+      "tlog": "Non disponibile per un file di log (.tlog): non contiene pacchetti IMU grezzi. Apri un log scaricato dal veicolo.",
       "title": "Spettro",
       "log": "Log",
       "sensor": "Sensore",
@@ -894,6 +913,12 @@
     "backendStopped": "Il backend si è fermato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare."
   },
   "palette": {
+    "logs": {
+      "openFile": {
+        "label": "Apri file di log…",
+        "keywords": "tlog importa registrazione telemetria file mavproxy mission planner qgroundcontrol"
+      }
+    },
     "placeholder": "Cerca o esegui un comando",
     "label": "Riquadro dei comandi",
     "list": "Comandi",
@@ -901,6 +926,7 @@
     "count": "{count} risultato | {count} risultati",
     "failed": "Il comando non è riuscito.",
     "group": {
+      "logs": "Log",
       "app": "Applicazione",
       "parameters": "Parametri",
       "navigate": "Navigazione",
@@ -952,6 +978,7 @@
       }
     },
     "reason": {
+      "logBusy": "Un log è in lettura o in importazione",
       "noParameters": "Non ci sono ancora parametri.",
       "busy": "Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
       "notConnected": "Connettiti prima a un veicolo.",

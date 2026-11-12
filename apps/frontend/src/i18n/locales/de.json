@@ -47,6 +47,24 @@
     "sections": "Bereiche der Logs",
     "shown": "Logs: {section}",
     "flights": {
+      "import": "Logdatei öffnen…",
+      "importing": "Logdatei wird importiert…",
+      "importingBar": "Import der Logdatei",
+      "statusImported": "{name} importiert und geöffnet.",
+      "statusImportedAgain": "{name} ist schon in der Bibliothek (gleicher Inhalt): der vorhandene wurde geöffnet.",
+      "statusImportStopped": "Der Import wurde gestoppt. Nichts wurde hinzugefügt.",
+      "importedRow": "Importiert Nr. {id}",
+      "importedHeading": "Importierte Logdatei Nr. {id}",
+      "stateImported": "Importiert, Kopie unverändert",
+      "stateImportedChanged": "Importiert, Kopie seitdem verändert",
+      "importedMark": "Importiert, nicht mit einem Fahrzeug abgeglichen. Die Werte sind so, wie das Programm sie aufgezeichnet hat, das die Datei geschrieben hat.",
+      "notVerifiedImported": "Diese Kopie ist nicht die importierte Datei (ihre Prüfsumme hat sich geändert): nichts wird aus ihr verwendet. Öffne die Logdatei erneut.",
+      "reportRead": "Gelesene Einträge: {records}. Übersprungen: {skipped} Byte Schaden, {crc} Frames mit falscher Prüfsumme, {unknown} Frames von Nachrichtentypen, die diese App nicht kennt.",
+      "reportSegments": "Zeitabschnitte in der Aufzeichnung: {count}. Eine Lücke oder ein Rücksprung der Uhr beginnt einen neuen.",
+      "reportCutEnd": "Die Datei endet mitten in einem Eintrag. So endet eine Aufzeichnung, die abgebrochen wurde (Stromausfall, Programm beendet): das ist kein Schaden.",
+      "reportSigned": "Signierte Frames: {count}. Signaturen werden nicht geprüft, daher ist nichts hier als vom Fahrzeug stammend bewiesen.",
+      "reportUndated": "Die Zeiten in dieser Aufzeichnung können keine echten Datumsangaben sein: sie zählen ab dem ersten Eintrag.",
+      "reviewTlogNote": "Auf Grundlage der Messwerte der Bodenstation, mit denselben Grenzen wie für ein Fahrzeug-Log. Was eine Aufzeichnung nicht sagen kann, erscheint als keine Daten.",
       "title": "Flüge",
       "refresh": "Liste aktualisieren",
       "loading": "Der Ordner mit den Logs wird gelesen…",
@@ -259,6 +277,7 @@
       "revert": "Haken zurücksetzen"
     },
     "spectrum": {
+      "tlog": "Für eine Logdatei (.tlog) nicht verfügbar: sie enthält keine rohen IMU-Pakete. Öffne ein vom Fahrzeug heruntergeladenes Log.",
       "title": "Spektrum",
       "log": "Log",
       "sensor": "Sensor",
@@ -894,6 +913,12 @@
     "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
   },
   "palette": {
+    "logs": {
+      "openFile": {
+        "label": "Logdatei öffnen…",
+        "keywords": "tlog import aufzeichnung telemetrie datei mavproxy mission planner qgroundcontrol"
+      }
+    },
     "placeholder": "Befehl suchen oder ausführen",
     "label": "Befehlspalette",
     "list": "Befehle",
@@ -901,6 +926,7 @@
     "count": "{count} Ergebnis | {count} Ergebnisse",
     "failed": "Der Befehl ist fehlgeschlagen.",
     "group": {
+      "logs": "Logs",
       "app": "Anwendung",
       "parameters": "Parameter",
       "navigate": "Navigation",
@@ -952,6 +978,7 @@
       }
     },
     "reason": {
+      "logBusy": "Ein Log wird gerade gelesen oder importiert",
       "noParameters": "Es gibt noch keine Parameter.",
       "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
       "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",

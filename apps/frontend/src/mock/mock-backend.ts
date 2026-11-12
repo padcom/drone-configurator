@@ -217,6 +217,7 @@ class MockVehicle {
       case 'logs.cancel': return this.logs.cancel(ok)
       case 'logs.erase': return this.connected(fail) && this.logs.erase(ok, fail)
       case 'logs.local.list': return this.localLogs.list(ok)
+      case 'logs.import': return this.localLogs.importFile(ok)
       case 'logs.local.read': return this.localLogs.read((e.p as { key: string }).key, ok, fail)
       case 'logs.local.modes': return this.localLogs.modes((e.p as { key: string }).key, ok, fail)
       case 'logs.local.review': return this.localLogs.review((e.p as { key: string }).key, ok, fail)

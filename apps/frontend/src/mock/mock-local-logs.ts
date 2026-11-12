@@ -5,8 +5,8 @@
 // sample is left out, and a field the log lacks is not found.
 import type { Envelope } from '@pico-desktop/protocol'
 import type {
-  LocalLog, LocalLogSummary, LogsLocalSeries, LogsLocalSpectrumAsk, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint,
-  SeriesResult,
+  LocalLog, LocalLogSummary, LogsImported, LogsLocalSeries, LogsLocalSpectrumAsk, ModeChange, ReviewFinding, SeriesAsk,
+  SeriesPoint, SeriesResult, TlogReport,
 } from '@/generated/app'
 import { type ExportAsk, MOCK_MESSAGES, MockSaved, atAnswer } from './mock-local-browser'
 import { batchesOf, spectrumOf } from './mock-local-spectrum'
@@ -61,6 +61,59 @@ function reviewOf(peak: number): ReviewFinding[] {
   ]
 }
 
+/** What the reader found in the mock's recording: it ends in the middle of a record (normal for a recording that was cut). */
+const TLOG_REPORT: TlogReport = {
+  records: 5230,
+  v1: 0,
+  v2: 5230,
+  signed: 0,
+  crcFailures: 0,
+  unknown: 3,
+  jitter: 12,
+  segments: 1,
+  bytesSkipped: 0,
+  bytesCut: 17,
+  cutEnd: true,
+  dated: true,
+  firstUs: 0,
+  lastUs: LAST_US - FIRST_US,
+}
+
+/** The findings a recording cannot support: no data, never a pass. */
+const NO_DATA_IN_A_TLOG = ['ekf.variance', 'errors.logged']
+
+/** The name the mock's recording had, and its key in the library. */
+const TLOG_NAME = 'flight.tlog'
+const TLOG_KEY = 'imported/00000000-5eed5eed.tlog'
+
+/**
+ * The recording the mock imports: verified (the copy has the CRC taken at import), with the reader's report and its review.
+ *
+ * @returns the copy
+ */
+function importedCopy(): MockCopy {
+  return {
+    log: {
+      vehicle: 'imported', crc: '5eed5eed', key: TLOG_KEY, id: 0, size: 1_480_000, modified: 1_783_400_000_000, source: 'tlog',
+    },
+    summary: {
+      verified: true,
+      messages: TLOG_REPORT.records,
+      problems: 3,
+      firstUs: 0,
+      lastUs: LAST_US - FIRST_US,
+      firmware: 'ArduCopter (from the vehicle type in its heartbeat)',
+      modeChanges: MODES.length,
+      cutEnd: true,
+      report: TLOG_REPORT,
+    },
+    modes: MODES.map(m => ({ ...m, timeUs: Number(m.timeUs) - FIRST_US })),
+    // A recording cannot say these: no data, never a pass.
+    review: reviewOf(16).map(f => (NO_DATA_IN_A_TLOG.includes(f.id) ? { id: f.id, level: 'no-data' as const } : f)),
+    read: false,
+  }
+}
+
 /** What a mock flight is like. */
 interface Flight {
   id: number
@@ -85,6 +138,7 @@ function copyOf(f: Flight): MockCopy {
       id: f.id,
       size: 6_200_000 + f.id,
       modified: f.modified,
+      source: 'dataflash',
     },
     summary: {
       verified: f.verified,
@@ -299,6 +353,29 @@ export class MockLocalLogs {
   list(ok: Reply): void {
     const logs = this.copies.map(c => (c.read ? { ...c.log, summary: c.summary } : { ...c.log }))
     ok({ logs: logs.sort((a, b) => Number(b.modified) - Number(a.modified)), truncated: false })
+  }
+
+  /**
+   * Imports a recording: the first time it is a new entry, the same content again is the entry that is there.
+   *
+   * @param ok sends the answer
+   */
+  importFile(ok: Reply): void {
+    const there = this.copies.find(c => c.log.source === 'tlog')
+    const copy = there ?? importedCopy()
+    if (!there) {
+      this.copies.push(copy)
+    }
+    const answer: LogsImported = {
+      cancelled: false,
+      duplicate: there !== undefined,
+      key: copy.log.key,
+      name: TLOG_NAME,
+      crc: copy.log.crc,
+      size: copy.log.size,
+      report: TLOG_REPORT,
+    }
+    setTimeout(() => ok(answer), this.stepMs * 2)
   }
 
   /**
