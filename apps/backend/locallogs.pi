@@ -207,7 +207,7 @@ async function folderExists(path: string): Promise<bool> {
 }
 
 /// What is gathered of a log while it is read.
-class Scan {
+class Scan implements Taker {
   public messages: int = 0
   public problems: int = 0
   public firstUs: int = -1
@@ -255,53 +255,119 @@ class Scan {
 
 async function readLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
-  // Claimed at once, before anything is awaited: a second read that comes now is refused.
+  const own = claimRead()
+  try {
+    return await readLog(asked.key, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+/// Claims the one read there can be at a time (`BUSY` when one runs). Claimed at once, before anything is awaited, so a second
+/// read that comes now is refused.
+export function claimRead(): AbortController throws CommunicatorError {
   if (state.reading != null) {
     throw new CommunicatorError("BUSY", "a log is being read")
   }
   const own = new AbortController()
   state.reading = own
-  try {
-    return await readLog(asked.key, own)
-  } finally {
-    state.reading = null
+  own
+}
+
+export function releaseRead(): void {
+  state.reading = null
+}
+
+/// What is taking the messages of a log while it is read.
+export interface Taker {
+  take(m: DfMessage): void
+}
+
+/// A log that was read through: the file as it was when the read began, the CRC-32 of what was read, the CRC in the file's name,
+/// whether the file was the same when the read was over, and the reader (for its tables and its problems).
+export class Streamed {
+  public readonly size: int
+  public readonly mtime: int
+  public readonly crc: int
+  public readonly named: int
+  public readonly unchanged: bool
+  public readonly decoder: DfDecoder
+
+  constructor(size: int, mtime: int, crc: int, named: int, unchanged: bool, decoder: DfDecoder) {
+    this.size = size
+    this.mtime = mtime
+    this.crc = crc
+    this.named = named
+    this.unchanged = unchanged
+    this.decoder = decoder
   }
 }
 
-/// Reads the log named by `key` through, and keeps and gives what is in it.
-async function readLog(key: string, own: AbortController): Promise<Cbor?> throws Error {
+/// The path of the log named by `key` and the facts of its file, or `NOT_FOUND`.
+export async function locate(key: string): Promise<LogFile> throws CommunicatorError {
   const parts = partsOfKey(key)
   if (parts.length == 0) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }
   const path = join(await root(), parts[0], parts[1])
-  const before = await statOf(path)
-  if (before == null) {
+  const facts = await statOf(path)
+  if (facts == null) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }
-  const wanted = copyNumbers(parts[1])[1]
+  new LogFile(path, facts!, copyNumbers(parts[1])[1])
+}
+
+export class LogFile {
+  public readonly path: string
+  public readonly facts: FileFacts
+  /// The CRC-32 in the file's name.
+  public readonly named: int
+
+  constructor(path: string, facts: FileFacts, named: int) {
+    this.path = path
+    this.facts = facts
+    this.named = named
+  }
+}
+
+/// Reads the log through once, in order, a chunk at a time, giving each message to `taker`, with progress, until it is done or `own`
+/// is aborted (`ABORTED`).
+export async function streamLog(key: string, file: LogFile, own: AbortController, taker: Taker): Promise<Streamed> throws Error {
   const crc = new Crc32()
   const decoder = new DfDecoder()
-  const scan = new Scan()
-  const file = await open(path)
+  const handle = await open(file.path)
   try {
-    await readThrough(key, file, before.size, own, crc, decoder, scan)
+    await readThrough(key, handle, file.facts.size, own, crc, decoder, taker)
   } catch (e: Error) {
-    await file.close()
+    await handle.close()
     throw e
   }
-  await file.close()
+  await handle.close()
   decoder.finish()
-  const after = await statOf(path)
-  const same = after != null && after!.size == before.size && after!.mtime == before.mtime
-  const summary = summaryOf(scan, decoder, crc.crc == wanted && same)
-  keepNewest(state.known, key, new Known(before.size, before.mtime, summary), MAX_KNOWN)
-  keepNewest(state.modes, key, new KnownModes(before.size, before.mtime, scan.modes, scan.modesCut), MAX_KNOWN_MODES)
+  const after = await statOf(file.path)
+  const same = after != null && after!.size == file.facts.size && after!.mtime == file.facts.mtime
+  new Streamed(file.facts.size, file.facts.mtime, crc.crc, file.named, same, decoder)
+}
+
+/// What a read found, if the file is still the one it was read from.
+export function knownSummary(key: string, facts: FileFacts): LocalLogSummary? {
+  const known = state.known.get(key)
+  if (known != null && known!.size == facts.size && known!.mtime == facts.mtime) known!.summary else null
+}
+
+/// Reads the log named by `key` through, and keeps and gives what is in it.
+async function readLog(key: string, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(key)
+  const scan = new Scan()
+  const done = await streamLog(key, file, own, scan)
+  const summary = summaryOf(scan, done.decoder, done.crc == done.named && done.unchanged)
+  keepNewest(state.known, key, new Known(done.size, done.mtime, summary), MAX_KNOWN)
+  keepNewest(state.modes, key, new KnownModes(done.size, done.mtime, scan.modes, scan.modesCut), MAX_KNOWN_MODES)
   encodeLocalLogSummary(summary)
 }
 
 /// Feeds the file to the reader and the CRC, a chunk at a time, telling how far it got.
-async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Scan): Promise<void> throws Error {
+async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Taker): Promise<void> throws Error {
   let bytes = 0
   let told = 0
   while (true) {
@@ -368,7 +434,7 @@ async function statOf(path: string): Promise<FileFacts?> {
   }
 }
 
-class FileFacts {
+export class FileFacts {
   public readonly size: int
   public readonly mtime: int
 

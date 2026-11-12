@@ -983,6 +983,239 @@ export function encodeLocalLogSummary(v: LocalLogSummary): Cbor {
   Cbor.Dict(m)
 }
 
+export struct SeriesAsk {
+  message: string
+  field: string
+  whereField?: string
+  whereValue?: f64
+}
+
+export function decodeSeriesAsk(v: Cbor, path: string): SeriesAsk throws InvalidPayload {
+  const m = members(v, path, ["message", "field", "whereField", "whereValue"])
+  const cbor2 = m.get("whereField")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.whereField`)
+  }
+  const cbor3 = m.get("whereValue")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.whereValue`)
+  }
+  SeriesAsk {
+    message: text(required(m, "message", path), `${path}.message`),
+    field: text(required(m, "field", path), `${path}.field`),
+    whereField: opt2,
+    whereValue: opt3,
+  }
+}
+
+export function encodeSeriesAsk(v: SeriesAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("message", Cbor.Text(v.message))
+  m.set("field", Cbor.Text(v.field))
+  const opt2 = v.whereField
+  if (opt2 != null) {
+    m.set("whereField", Cbor.Text(opt2))
+  }
+  const opt3 = v.whereValue
+  if (opt3 != null) {
+    m.set("whereValue", Cbor.Float(opt3))
+  }
+  Cbor.Dict(m)
+}
+
+function decodeLogsLocalSeriesAskSeriesList(v: Cbor, path: string): SeriesAsk[] throws InvalidPayload {
+  const out: SeriesAsk[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSeriesAsk(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsLocalSeriesAskSeriesList(v: SeriesAsk[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSeriesAsk(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsLocalSeriesAsk {
+  key: string
+  series: SeriesAsk[]
+  buckets: u16
+  fromUs?: u64
+  toUs?: u64
+}
+
+export function decodeLogsLocalSeriesAsk(v: Cbor, path: string): LogsLocalSeriesAsk throws InvalidPayload {
+  const m = members(v, path, ["key", "series", "buckets", "fromUs", "toUs"])
+  const cbor3 = m.get("fromUs")
+  let opt3: u64? = null
+  if (cbor3 != null) {
+    opt3 = (uint(cbor3, `${path}.fromUs`, 18446744073709551615) as u64)
+  }
+  const cbor4 = m.get("toUs")
+  let opt4: u64? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.toUs`, 18446744073709551615) as u64)
+  }
+  LogsLocalSeriesAsk {
+    key: text(required(m, "key", path), `${path}.key`),
+    series: decodeLogsLocalSeriesAskSeriesList(required(m, "series", path), `${path}.series`),
+    buckets: (uint(required(m, "buckets", path), `${path}.buckets`, 65535) as u16),
+    fromUs: opt3,
+    toUs: opt4,
+  }
+}
+
+export function encodeLogsLocalSeriesAsk(v: LogsLocalSeriesAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  m.set("series", encodeLogsLocalSeriesAskSeriesList(v.series))
+  m.set("buckets", Cbor.Uint(v.buckets as u64))
+  const opt3 = v.fromUs
+  if (opt3 != null) {
+    m.set("fromUs", Cbor.Uint(opt3 as u64))
+  }
+  const opt4 = v.toUs
+  if (opt4 != null) {
+    m.set("toUs", Cbor.Uint(opt4 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+function decodeSeriesResultPointsList(v: Cbor, path: string): SeriesPoint[] throws InvalidPayload {
+  const out: SeriesPoint[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSeriesPoint(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeSeriesResultPointsList(v: SeriesPoint[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSeriesPoint(e))
+  }
+  Cbor.List(out)
+}
+
+export struct SeriesResult {
+  message: string
+  field: string
+  found: bool
+  unit?: string
+  points: SeriesPoint[]
+  invalid: u32
+}
+
+export function decodeSeriesResult(v: Cbor, path: string): SeriesResult throws InvalidPayload {
+  const m = members(v, path, ["message", "field", "found", "unit", "points", "invalid"])
+  const cbor3 = m.get("unit")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.unit`)
+  }
+  SeriesResult {
+    message: text(required(m, "message", path), `${path}.message`),
+    field: text(required(m, "field", path), `${path}.field`),
+    found: boolean(required(m, "found", path), `${path}.found`),
+    unit: opt3,
+    points: decodeSeriesResultPointsList(required(m, "points", path), `${path}.points`),
+    invalid: (uint(required(m, "invalid", path), `${path}.invalid`, 4294967295) as u32),
+  }
+}
+
+export function encodeSeriesResult(v: SeriesResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("message", Cbor.Text(v.message))
+  m.set("field", Cbor.Text(v.field))
+  m.set("found", Cbor.Bool(v.found))
+  const opt3 = v.unit
+  if (opt3 != null) {
+    m.set("unit", Cbor.Text(opt3))
+  }
+  m.set("points", encodeSeriesResultPointsList(v.points))
+  m.set("invalid", Cbor.Uint(v.invalid as u64))
+  Cbor.Dict(m)
+}
+
+export struct SeriesPoint {
+  index: u16
+  min: f64
+  max: f64
+  count: u32
+}
+
+export function decodeSeriesPoint(v: Cbor, path: string): SeriesPoint throws InvalidPayload {
+  const m = members(v, path, ["index", "min", "max", "count"])
+  SeriesPoint {
+    index: (uint(required(m, "index", path), `${path}.index`, 65535) as u16),
+    min: float(required(m, "min", path), `${path}.min`),
+    max: float(required(m, "max", path), `${path}.max`),
+    count: (uint(required(m, "count", path), `${path}.count`, 4294967295) as u32),
+  }
+}
+
+export function encodeSeriesPoint(v: SeriesPoint): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("index", Cbor.Uint(v.index as u64))
+  m.set("min", Cbor.Float(v.min))
+  m.set("max", Cbor.Float(v.max))
+  m.set("count", Cbor.Uint(v.count as u64))
+  Cbor.Dict(m)
+}
+
+function decodeLogsLocalSeriesSeriesList(v: Cbor, path: string): SeriesResult[] throws InvalidPayload {
+  const out: SeriesResult[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSeriesResult(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsLocalSeriesSeriesList(v: SeriesResult[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSeriesResult(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsLocalSeries {
+  fromUs: u64
+  toUs: u64
+  buckets: u16
+  series: SeriesResult[]
+}
+
+export function decodeLogsLocalSeries(v: Cbor, path: string): LogsLocalSeries throws InvalidPayload {
+  const m = members(v, path, ["fromUs", "toUs", "buckets", "series"])
+  LogsLocalSeries {
+    fromUs: (uint(required(m, "fromUs", path), `${path}.fromUs`, 18446744073709551615) as u64),
+    toUs: (uint(required(m, "toUs", path), `${path}.toUs`, 18446744073709551615) as u64),
+    buckets: (uint(required(m, "buckets", path), `${path}.buckets`, 65535) as u16),
+    series: decodeLogsLocalSeriesSeriesList(required(m, "series", path), `${path}.series`),
+  }
+}
+
+export function encodeLogsLocalSeries(v: LogsLocalSeries): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("fromUs", Cbor.Uint(v.fromUs as u64))
+  m.set("toUs", Cbor.Uint(v.toUs as u64))
+  m.set("buckets", Cbor.Uint(v.buckets as u64))
+  m.set("series", encodeLogsLocalSeriesSeriesList(v.series))
+  Cbor.Dict(m)
+}
+
 function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
   const out: ModeChange[] = []
   let i = 0

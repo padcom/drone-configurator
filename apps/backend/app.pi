@@ -7,6 +7,7 @@ import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
 import { register as registerLogs } from "./logs"
 import { register as registerLocalLogs } from "./locallogs"
+import { register as registerLocalSeries } from "./localseries"
 import { register as registerMessages } from "./messages"
 import { register as registerParams } from "./params"
 import { register as registerReboot } from "./reboot"
@@ -46,6 +47,7 @@ export function createBackend(transport: Transport): Communicator {
   registerReboot(c)
   registerLogs(c)
   registerLocalLogs(c)
+  registerLocalSeries(c)
   registerTelemetry(c)
   registerMessages(c)
   registerFiles(c)
