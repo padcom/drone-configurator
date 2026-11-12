@@ -46,6 +46,56 @@
   "logs": {
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
+    "vehicle": {
+      "title": "Log sul veicolo",
+      "offline": {
+        "title": "Nessun veicolo collegato",
+        "help": "Collega un veicolo per elencarne i log."
+      },
+      "refresh": "Aggiorna l'elenco",
+      "selectNew": "Seleziona i nuovi",
+      "selectNone": "Deseleziona tutto",
+      "used": "Log: {count}. In tutto: {size}",
+      "loading": "Lettura dell'elenco…",
+      "none": "Il veicolo non ha log.",
+      "column": {
+        "select": "Seleziona",
+        "id": "Log",
+        "date": "Data",
+        "size": "Dimensione",
+        "state": "Stato"
+      },
+      "select": "Seleziona il log {id}",
+      "noDate": "Nessuna data",
+      "state": {
+        "new": "Non scaricato",
+        "downloaded": "Scaricato",
+        "queued": "In coda",
+        "downloading": "Download in corso: {percent}%",
+        "done": "Scaricato",
+        "failed": "Non riuscito"
+      },
+      "progress": "Download del log {id}",
+      "resumed": "Ripreso da {size} già ricevuti",
+      "download": "Scarica i selezionati: {count}",
+      "cancel": "Annulla il download",
+      "blocked": {
+        "armed": "Il veicolo è armato. I log non vengono scaricati né cancellati finché non è disarmato.",
+        "unknown": "Non si sa se il veicolo sia disarmato (nessun heartbeat recente), perciò i log non vengono scaricati né cancellati.",
+        "busy": "Un download è in corso."
+      },
+      "outcome": {
+        "downloaded": "Download terminato. Scaricati: {count}",
+        "stopped": "Download interrotto. Scaricati: {count}. Ciò che è stato ricevuto resta, e il prossimo download riparte da lì.",
+        "erased": "Cancellati dal veicolo: {erased}. Conservati perché non scaricati: {kept}"
+      },
+      "erase": {
+        "label": "Cancella dal veicolo i log scaricati",
+        "confirm": "Conferma: cancella dal veicolo i log scaricati: {erased}. Non scaricati, e conservati: {kept}",
+        "note": "Cancella solo i log scaricati e verificati: {erased}. Gli altri restano sul veicolo: {kept}.",
+        "nothing": "Nessun log è ancora scaricato, quindi non c'è nulla da cancellare."
+      }
+    },
     "section": {
       "flights": "Voli",
       "replay": "Riproduzione",
@@ -290,6 +340,15 @@
     "groupsHelp": "Mostra l'elenco dei gruppi e le stelle dei preferiti. I tuoi preferiti vengono conservati mentre è disattivato.",
     "notify": "Mostra una notifica quando un comando viene eseguito",
     "notifyHelp": "Ogni comando eseguito, dalla tavolozza, da un tasto o da un pulsante, dice il suo nome in una breve notifica. Per il debug.",
+    "logs": {
+      "title": "Log",
+      "inert": "Queste scelte vengono salvate, ma per ora nulla le usa: i log non vengono scaricati né rimossi da soli.",
+      "autoDownload": "Scarica i log dopo l'atterraggio",
+      "autoDownloadHelp": "Disattivato in modo predefinito, perché il disco non si riempia senza che tu lo chieda. Non scarica mai mentre il veicolo è armato.",
+      "retention": "Conserva i log scaricati",
+      "sizeCap": "Spazio massimo per i log scaricati",
+      "days": "Giorni: {days}"
+    },
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
   },
   "connection": {

@@ -46,6 +46,56 @@
   "logs": {
     "sections": "Logs sections",
     "shown": "Logs: {section}",
+    "vehicle": {
+      "title": "Logs on the vehicle",
+      "offline": {
+        "title": "No vehicle is connected",
+        "help": "Connect a vehicle to list its logs."
+      },
+      "refresh": "Refresh the list",
+      "selectNew": "Select the new ones",
+      "selectNone": "Select none",
+      "used": "Logs: {count}. Together: {size}",
+      "loading": "Reading the list…",
+      "none": "The vehicle has no logs.",
+      "column": {
+        "select": "Select",
+        "id": "Log",
+        "date": "Date",
+        "size": "Size",
+        "state": "State"
+      },
+      "select": "Select log {id}",
+      "noDate": "No date",
+      "state": {
+        "new": "Not downloaded",
+        "downloaded": "Downloaded",
+        "queued": "Queued",
+        "downloading": "Downloading: {percent}%",
+        "done": "Downloaded",
+        "failed": "Failed"
+      },
+      "progress": "Download of log {id}",
+      "resumed": "Went on from {size} fetched before",
+      "download": "Download selected: {count}",
+      "cancel": "Cancel download",
+      "blocked": {
+        "armed": "The vehicle is armed. Logs are not downloaded or erased until it is disarmed.",
+        "unknown": "It is not known whether the vehicle is disarmed (no recent heartbeat), so logs are not downloaded or erased.",
+        "busy": "A download is under way."
+      },
+      "outcome": {
+        "downloaded": "Download finished. Downloaded: {count}",
+        "stopped": "Download stopped. Downloaded: {count}. What was fetched is kept, and the next download goes on from there.",
+        "erased": "Erased from the vehicle: {erased}. Kept, because not downloaded: {kept}"
+      },
+      "erase": {
+        "label": "Erase downloaded logs from the vehicle",
+        "confirm": "Confirm: erase downloaded logs from the vehicle: {erased}. Not downloaded, and kept: {kept}",
+        "note": "Erases only logs that were downloaded and checked: {erased}. The others stay on the vehicle: {kept}.",
+        "nothing": "No log is downloaded yet, so there is nothing to erase."
+      }
+    },
     "section": {
       "flights": "Flights",
       "replay": "Replay",
@@ -290,6 +340,15 @@
     "groupsHelp": "Shows the group list and the favourites stars. Your favourites are kept while it is off.",
     "notify": "Show a notification when a command runs",
     "notifyHelp": "Every command that is run, from the palette, a key or a button, says its name in a short notice. For debugging.",
+    "logs": {
+      "title": "Logs",
+      "inert": "These are kept, but nothing acts on them yet: logs are not downloaded or removed on their own.",
+      "autoDownload": "Download logs after landing",
+      "autoDownloadHelp": "Off by default, so that the disk is not filled without you asking. It never downloads while the vehicle is armed.",
+      "retention": "Keep downloaded logs",
+      "sizeCap": "Most room for downloaded logs",
+      "days": "Days: {days}"
+    },
     "more": "Units, the map and the vehicle's defaults come with their screens."
   },
   "connection": {

@@ -46,6 +46,56 @@
   "logs": {
     "sections": "Secciones de Registros",
     "shown": "Registros: {section}",
+    "vehicle": {
+      "title": "Registros en el vehículo",
+      "offline": {
+        "title": "No hay ningún vehículo conectado",
+        "help": "Conecte un vehículo para listar sus registros."
+      },
+      "refresh": "Actualizar la lista",
+      "selectNew": "Seleccionar los nuevos",
+      "selectNone": "No seleccionar ninguno",
+      "used": "Registros: {count}. En total: {size}",
+      "loading": "Leyendo la lista…",
+      "none": "El vehículo no tiene registros.",
+      "column": {
+        "select": "Seleccionar",
+        "id": "Registro",
+        "date": "Fecha",
+        "size": "Tamaño",
+        "state": "Estado"
+      },
+      "select": "Seleccionar el registro {id}",
+      "noDate": "Sin fecha",
+      "state": {
+        "new": "Sin descargar",
+        "downloaded": "Descargado",
+        "queued": "En cola",
+        "downloading": "Descargando: {percent}%",
+        "done": "Descargado",
+        "failed": "Con error"
+      },
+      "progress": "Descarga del registro {id}",
+      "resumed": "Continuó desde {size} recibidos antes",
+      "download": "Descargar los seleccionados: {count}",
+      "cancel": "Cancelar la descarga",
+      "blocked": {
+        "armed": "El vehículo está armado. Los registros no se descargan ni se borran hasta que se desarme.",
+        "unknown": "No se sabe si el vehículo está desarmado (sin latido reciente), así que los registros no se descargan ni se borran.",
+        "busy": "Hay una descarga en curso."
+      },
+      "outcome": {
+        "downloaded": "Descarga terminada. Descargados: {count}",
+        "stopped": "Descarga detenida. Descargados: {count}. Lo recibido se conserva y la próxima descarga continúa desde ahí.",
+        "erased": "Borrados del vehículo: {erased}. Conservados por no estar descargados: {kept}"
+      },
+      "erase": {
+        "label": "Borrar del vehículo los registros descargados",
+        "confirm": "Confirmar: borrar del vehículo los registros descargados: {erased}. Sin descargar, y conservados: {kept}",
+        "note": "Solo borra los registros descargados y comprobados: {erased}. Los demás siguen en el vehículo: {kept}.",
+        "nothing": "Aún no hay ningún registro descargado, así que no hay nada que borrar."
+      }
+    },
     "section": {
       "flights": "Vuelos",
       "replay": "Reproducción",
@@ -290,6 +340,15 @@
     "groupsHelp": "Muestra la lista de grupos y las estrellas de favoritos. Tus favoritos se conservan mientras está desactivado.",
     "notify": "Mostrar una notificación cuando se ejecuta un comando",
     "notifyHelp": "Cada comando que se ejecuta, desde la paleta, una tecla o un botón, dice su nombre en un aviso breve. Para depurar.",
+    "logs": {
+      "title": "Registros",
+      "inert": "Esto se guarda, pero por ahora nada lo usa: los registros no se descargan ni se quitan por sí solos.",
+      "autoDownload": "Descargar los registros tras aterrizar",
+      "autoDownloadHelp": "Desactivado por defecto, para que el disco no se llene sin que usted lo pida. Nunca descarga con el vehículo armado.",
+      "retention": "Conservar los registros descargados",
+      "sizeCap": "Máximo de espacio para registros descargados",
+      "days": "Días: {days}"
+    },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
   },
   "connection": {

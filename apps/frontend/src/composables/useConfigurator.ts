@@ -18,6 +18,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
+import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -46,6 +47,8 @@ export interface ConfiguratorHandle {
   settings: SettingsModel
   /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
   messages: MessagesModel
+  /** The flight logs on the vehicle: listed, downloaded, erased. */
+  logs: LogsModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -78,7 +81,10 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 }
 
 /** The composables that hold the state. */
-type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'staged'>
+type Models = Pick<
+  ConfiguratorHandle,
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'staged'
+>
 
 /**
  * The state as the refs that hold it.
@@ -279,10 +285,13 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
+  const logs = useVehicleLogs({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
+  // The logs listed are the vehicle's: another vehicle, or none, has its own.
+  vehicle.onSession(connected => !connected && logs.reset())
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

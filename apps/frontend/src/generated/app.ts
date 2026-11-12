@@ -135,6 +135,60 @@ function validateParamWriteResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param-write-result, or null. */
 export const validateParamWriteResult = (value: unknown) => run(validateParamWriteResultInto, value)
 
+export type VehicleLog = { "id": number, "size": number, "time"?: number | bigint, "downloaded": boolean }
+
+function validateVehicleLogInto(value: any, path: string): boolean {
+  return map(value, path, ["id","size","time","downloaded"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, 0xffffffff))) && (value["time"] === undefined || nested(value["time"], `${path}.time`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["downloaded"] === undefined ? fail(`${path}.downloaded`, 'present') : nested(value["downloaded"], `${path}.downloaded`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a vehicle-log, or null. */
+export const validateVehicleLog = (value: unknown) => run(validateVehicleLogInto, value)
+
+export type VehicleLogs = { "logs": (VehicleLog)[], "source": "ftp" | "mavlink" }
+
+function validateVehicleLogsInto(value: any, path: string): boolean {
+  return map(value, path, ["logs","source"]) && (value["logs"] === undefined ? fail(`${path}.logs`, 'present') : nested(value["logs"], `${path}.logs`, (value, path) => list(value, path, (value, path) => validateVehicleLogInto(value, path)))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","mavlink"])))
+}
+
+/** The first problem with `value` as a vehicle-logs, or null. */
+export const validateVehicleLogs = (value: unknown) => run(validateVehicleLogsInto, value)
+
+export type LogsDownload = { "ids": (number)[] }
+
+function validateLogsDownloadInto(value: any, path: string): boolean {
+  return map(value, path, ["ids"]) && (value["ids"] === undefined ? fail(`${path}.ids`, 'present') : nested(value["ids"], `${path}.ids`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff))))
+}
+
+/** The first problem with `value` as a logs-download, or null. */
+export const validateLogsDownload = (value: unknown) => run(validateLogsDownloadInto, value)
+
+export type LogsDownloaded = { "ids": (number)[], "stopped": boolean }
+
+function validateLogsDownloadedInto(value: any, path: string): boolean {
+  return map(value, path, ["ids","stopped"]) && (value["ids"] === undefined ? fail(`${path}.ids`, 'present') : nested(value["ids"], `${path}.ids`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff)))) && (value["stopped"] === undefined ? fail(`${path}.stopped`, 'present') : nested(value["stopped"], `${path}.stopped`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a logs-downloaded, or null. */
+export const validateLogsDownloaded = (value: unknown) => run(validateLogsDownloadedInto, value)
+
+export type LogsErased = { "erased": (number)[], "kept": number }
+
+function validateLogsErasedInto(value: any, path: string): boolean {
+  return map(value, path, ["erased","kept"]) && (value["erased"] === undefined ? fail(`${path}.erased`, 'present') : nested(value["erased"], `${path}.erased`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff)))) && (value["kept"] === undefined ? fail(`${path}.kept`, 'present') : nested(value["kept"], `${path}.kept`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a logs-erased, or null. */
+export const validateLogsErased = (value: unknown) => run(validateLogsErasedInto, value)
+
+export type LogsProgress = { "id": number, "state": "queued" | "downloading" | "done" | "failed", "received": number, "total": number, "resumedFrom"?: number }
+
+function validateLogsProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["id","state","received","total","resumedFrom"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["queued","downloading","done","failed"]))) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffffffff))) && (value["resumedFrom"] === undefined || nested(value["resumedFrom"], `${path}.resumedFrom`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a logs-progress, or null. */
+export const validateLogsProgress = (value: unknown) => run(validateLogsProgressInto, value)
+
 export type RebootResult = { "result": "accepted" | "refused" | "unsupported" | "no-answer", "detail"?: string }
 
 function validateRebootResultInto(value: any, path: string): boolean {
@@ -360,6 +414,11 @@ export interface Services {
   "params.cancel": { kind: 'method', request: null, response: null }
   "params.progress": { kind: 'event', payload: ParamsProgress }
   "params.write": { kind: 'method', request: ParamWrite, response: ParamWriteResult }
+  "logs.vehicle.list": { kind: 'method', request: null, response: VehicleLogs }
+  "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
+  "logs.cancel": { kind: 'method', request: null, response: null }
+  "logs.erase": { kind: 'method', request: null, response: LogsErased }
+  "logs.progress": { kind: 'event', payload: LogsProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
@@ -399,6 +458,25 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "params.write": {
     request: (value: any, path: string) => validateParamWriteInto(value, path),
     response: (value: any, path: string) => validateParamWriteResultInto(value, path),
+  },
+  "logs.vehicle.list": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateVehicleLogsInto(value, path),
+  },
+  "logs.download": {
+    request: (value: any, path: string) => validateLogsDownloadInto(value, path),
+    response: (value: any, path: string) => validateLogsDownloadedInto(value, path),
+  },
+  "logs.cancel": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "logs.erase": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateLogsErasedInto(value, path),
+  },
+  "logs.progress": {
+    payload: (value: any, path: string) => validateLogsProgressInto(value, path),
   },
   "vehicle.reboot": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

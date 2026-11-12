@@ -46,6 +46,56 @@
   "logs": {
     "sections": "Bereiche der Logs",
     "shown": "Logs: {section}",
+    "vehicle": {
+      "title": "Logs auf dem Fahrzeug",
+      "offline": {
+        "title": "Kein Fahrzeug verbunden",
+        "help": "Verbinden Sie ein Fahrzeug, um seine Logs aufzulisten."
+      },
+      "refresh": "Liste aktualisieren",
+      "selectNew": "Neue auswählen",
+      "selectNone": "Nichts auswählen",
+      "used": "Logs: {count}. Zusammen: {size}",
+      "loading": "Liste wird gelesen…",
+      "none": "Das Fahrzeug hat keine Logs.",
+      "column": {
+        "select": "Auswählen",
+        "id": "Log",
+        "date": "Datum",
+        "size": "Größe",
+        "state": "Status"
+      },
+      "select": "Log {id} auswählen",
+      "noDate": "Kein Datum",
+      "state": {
+        "new": "Nicht heruntergeladen",
+        "downloaded": "Heruntergeladen",
+        "queued": "In der Warteschlange",
+        "downloading": "Wird heruntergeladen: {percent}%",
+        "done": "Heruntergeladen",
+        "failed": "Fehlgeschlagen"
+      },
+      "progress": "Download von Log {id}",
+      "resumed": "Fortgesetzt ab {size}, die vorher geholt wurden",
+      "download": "Auswahl herunterladen: {count}",
+      "cancel": "Download abbrechen",
+      "blocked": {
+        "armed": "Das Fahrzeug ist scharf. Logs werden erst heruntergeladen oder gelöscht, wenn es entschärft ist.",
+        "unknown": "Es ist nicht bekannt, ob das Fahrzeug entschärft ist (kein aktueller Heartbeat); deshalb werden Logs nicht heruntergeladen oder gelöscht.",
+        "busy": "Ein Download läuft."
+      },
+      "outcome": {
+        "downloaded": "Download beendet. Heruntergeladen: {count}",
+        "stopped": "Download angehalten. Heruntergeladen: {count}. Was geholt wurde, bleibt erhalten; der nächste Download setzt dort fort.",
+        "erased": "Auf dem Fahrzeug gelöscht: {erased}. Behalten, weil nicht heruntergeladen: {kept}"
+      },
+      "erase": {
+        "label": "Heruntergeladene Logs vom Fahrzeug löschen",
+        "confirm": "Bestätigen: heruntergeladene Logs vom Fahrzeug löschen: {erased}. Nicht heruntergeladen und behalten: {kept}",
+        "note": "Löscht nur Logs, die heruntergeladen und geprüft wurden: {erased}. Die übrigen bleiben auf dem Fahrzeug: {kept}.",
+        "nothing": "Noch kein Log ist heruntergeladen, also gibt es nichts zu löschen."
+      }
+    },
     "section": {
       "flights": "Flüge",
       "replay": "Wiedergabe",
@@ -290,6 +340,15 @@
     "groupsHelp": "Zeigt die Gruppenliste und die Favoritensterne. Deine Favoriten bleiben erhalten, solange es aus ist.",
     "notify": "Eine Benachrichtigung zeigen, wenn ein Befehl ausgeführt wird",
     "notifyHelp": "Jeder ausgeführte Befehl, aus der Palette, per Taste oder Schaltfläche, nennt seinen Namen in einer kurzen Meldung. Zum Debuggen.",
+    "logs": {
+      "title": "Logs",
+      "inert": "Diese Einstellungen werden gespeichert, aber noch wirkt nichts danach: Logs werden nicht von selbst heruntergeladen oder entfernt.",
+      "autoDownload": "Logs nach der Landung herunterladen",
+      "autoDownloadHelp": "Standardmäßig aus, damit die Festplatte nicht ungefragt gefüllt wird. Es wird nie heruntergeladen, solange das Fahrzeug scharf ist.",
+      "retention": "Heruntergeladene Logs behalten",
+      "sizeCap": "Höchster Platz für heruntergeladene Logs",
+      "days": "Tage: {days}"
+    },
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
   },
   "connection": {

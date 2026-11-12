@@ -46,6 +46,56 @@
   "logs": {
     "sections": "Sekcje ekranu Logi",
     "shown": "Logi: {section}",
+    "vehicle": {
+      "title": "Logi na pojeździe",
+      "offline": {
+        "title": "Żaden pojazd nie jest połączony",
+        "help": "Połącz pojazd, aby wyświetlić jego logi."
+      },
+      "refresh": "Odśwież listę",
+      "selectNew": "Zaznacz nowe",
+      "selectNone": "Odznacz wszystko",
+      "used": "Logi: {count}. Razem: {size}",
+      "loading": "Czytanie listy…",
+      "none": "Pojazd nie ma logów.",
+      "column": {
+        "select": "Zaznacz",
+        "id": "Log",
+        "date": "Data",
+        "size": "Rozmiar",
+        "state": "Stan"
+      },
+      "select": "Zaznacz log {id}",
+      "noDate": "Brak daty",
+      "state": {
+        "new": "Nie pobrany",
+        "downloaded": "Pobrany",
+        "queued": "W kolejce",
+        "downloading": "Pobieranie: {percent}%",
+        "done": "Pobrany",
+        "failed": "Nie udało się"
+      },
+      "progress": "Pobieranie logu {id}",
+      "resumed": "Wznowiono od {size} pobranych wcześniej",
+      "download": "Pobierz zaznaczone: {count}",
+      "cancel": "Anuluj pobieranie",
+      "blocked": {
+        "armed": "Pojazd jest uzbrojony. Logi nie są pobierane ani kasowane, dopóki nie zostanie rozbrojony.",
+        "unknown": "Nie wiadomo, czy pojazd jest rozbrojony (brak świeżego heartbeatu), więc logi nie są pobierane ani kasowane.",
+        "busy": "Trwa pobieranie."
+      },
+      "outcome": {
+        "downloaded": "Pobieranie zakończone. Pobrane: {count}",
+        "stopped": "Pobieranie przerwane. Pobrane: {count}. To, co pobrano, zostaje, a następne pobieranie zacznie od tego miejsca.",
+        "erased": "Skasowano na pojeździe: {erased}. Zostawione, bo nie pobrane: {kept}"
+      },
+      "erase": {
+        "label": "Skasuj pobrane logi na pojeździe",
+        "confirm": "Potwierdź: skasuj pobrane logi na pojeździe: {erased}. Nie pobrane i zostawione: {kept}",
+        "note": "Kasuje tylko logi, które pobrano i sprawdzono: {erased}. Pozostałe zostają na pojeździe: {kept}.",
+        "nothing": "Żaden log nie jest jeszcze pobrany, więc nie ma czego kasować."
+      }
+    },
     "section": {
       "flights": "Loty",
       "replay": "Odtwarzanie",
@@ -290,6 +340,15 @@
     "groupsHelp": "Pokazuje listę grup i gwiazdki ulubionych. Twoje ulubione zostają zachowane, gdy jest wyłączone.",
     "notify": "Pokazuj powiadomienie, gdy polecenie jest wykonywane",
     "notifyHelp": "Każde wykonane polecenie, z palety, klawiszem lub przyciskiem, podaje swoją nazwę w krótkim powiadomieniu. Do debugowania.",
+    "logs": {
+      "title": "Logi",
+      "inert": "Te wybory są zapisywane, ale na razie nic z nich nie korzysta: logi nie są pobierane ani usuwane same.",
+      "autoDownload": "Pobieraj logi po lądowaniu",
+      "autoDownloadHelp": "Domyślnie wyłączone, aby dysk nie zapełniał się bez Twojej prośby. Nigdy nie pobiera, gdy pojazd jest uzbrojony.",
+      "retention": "Przechowuj pobrane logi",
+      "sizeCap": "Największe miejsce na pobrane logi",
+      "days": "Dni: {days}"
+    },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
   },
   "connection": {
