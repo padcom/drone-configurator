@@ -1,0 +1,350 @@
+// The flight logs on this computer: the checked copies that `logs.download` keeps in `<data directory>/logs/<vehicle>/` as
+// `NNNNNNNN-CCCCCCCC.BIN` (the vehicle's number of the log and the CRC-32 the vehicle gave for it). `logs.local.list` lists them
+// without reading them; `logs.local.read` reads one through, once and in order, with the DataFlash reader (padcom/pico-mavlink),
+// and says what is in it.
+//
+// A log can be of any size: it is read a megabyte at a time and the reader holds a chunk and a message, never the log; what is
+// kept of it is a few counters and the changes of flight mode (at most `MAX_MODES`). The read is cancelable and tells how far it
+// is. While it reads it works out the file's CRC-32 too: a log is `verified` when that is the CRC in its name and the file did
+// not change meanwhile. Nothing may be concluded from a log that is not verified.
+//
+// What a read found is kept (in memory) for as long as the file is the one that was read: the same size and the same time of the
+// last change. A file that changed is read again before anything is said of it.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { Crc32, DfDecoder, DfMessage } from "padcom/pico-mavlink"
+import { File, open, readDir, stat } from "std/fs"
+import { join } from "std/path"
+import {
+  LocalLog,
+  LocalLogSummary,
+  LocalLogs,
+  LogsLocalProgress,
+  ModeChange,
+  decodeLogsLocalRead,
+  encodeLocalLogSummary,
+  encodeLocalLogs,
+  encodeLogsLocalProgress,
+} from "./generated/app"
+import { copyNumbers, hex8 } from "./logs"
+import { dataDirectory } from "./settings"
+
+/// How much of a log is read at a time.
+const READ_CHUNK: int = 1048576
+
+/// At most this often (ms) a `logs.local.progress` is sent (the last always).
+const PROGRESS_EVERY_MS: int = 100
+
+/// The changes of flight mode that are kept of a log; more are counted away (`modesCut`).
+const MAX_MODES: int = 5000
+
+/// The most logs `logs.local.list` gives (the most recently changed).
+const MAX_LISTED: int = 2000
+
+/// The most files looked at in the folders of the vehicles: a folder with more than this is not a folder of logs.
+const MAX_LOOKED_AT: int = 100000
+
+/// The longest firmware text that is kept.
+const MAX_FIRMWARE: int = 120
+
+export function register(c: Communicator): void {
+  state.communicator = c
+  c.handle("logs.local.list", listLocal)
+  c.handle("logs.local.read", readLocal)
+  c.handle("logs.local.cancel", cancelRead)
+}
+
+/// What a read of a log found, with the file as it was then.
+class Known {
+  public readonly size: int
+  public readonly mtime: int
+  public readonly summary: LocalLogSummary
+
+  constructor(size: int, mtime: int, summary: LocalLogSummary) {
+    this.size = size
+    this.mtime = mtime
+    this.summary = summary
+  }
+}
+
+class State {
+  public communicator: Communicator? = null
+  /// The read that runs, so that `logs.local.cancel` can stop it.
+  public reading: AbortController? = null
+  /// What the reads found, by the key of the log.
+  public readonly known: Map<string, Known> = new Map<string, Known>()
+}
+
+const state = new State()
+
+/// For tests: forget what the reads found.
+export function forgetLocalReads(): void {
+  state.known.clear()
+}
+
+/// The folder all the vehicles' folders of logs are in.
+async function root(): Promise<string> throws CommunicatorError {
+  try {
+    return join(await dataDirectory(), "logs")
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
+  }
+}
+
+/// The key of a log: its vehicle's folder and its file.
+export function keyOf(vehicle: string, file: string): string {
+  `${vehicle}/${file}`
+}
+
+/// The vehicle's folder and the file named by a key, or an empty list when it is not the key of a copy: exactly two names, neither
+/// of them a way out of the folder, the second a checked copy's.
+export function partsOfKey(key: string): string[] {
+  const parts = key.split("/")
+  if (parts.length != 2 || parts[0] == "" || parts[0].startsWith(".") || parts[0].includes("\\") || copyNumbers(parts[1])[0] < 0) {
+    return []
+  }
+  parts
+}
+
+/// A copy found in a folder: its facts, and the cached summary when the file is still the one that was read.
+function describe(vehicle: string, file: string, size: int, mtime: int): LocalLog {
+  const numbers = copyNumbers(file)
+  const key = keyOf(vehicle, file)
+  const log = LocalLog { key: key, vehicle: vehicle, id: numbers[0] as u32, size: size as u64, modified: mtime as u64, crc: hex8(numbers[1]) }
+  const known = state.known.get(key)
+  if (known != null && known!.size == size && known!.mtime == mtime) {
+    log.summary = known!.summary
+  }
+  log
+}
+
+/// Puts `log` into `list`, which is kept in order of the most recently changed first and at most `MAX_LISTED` long.
+function insertNewest(list: LocalLog[], log: LocalLog): void {
+  let at = list.length
+  while (at > 0 && list[at - 1].modified < log.modified) {
+    at -= 1
+  }
+  if (at >= MAX_LISTED) {
+    return
+  }
+  list.splice(at, 0, log)
+  if (list.length > MAX_LISTED) {
+    list.pop()
+  }
+}
+
+async function listLocal(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const top = await root()
+  const list: LocalLog[] = []
+  let seen = 0
+  let truncated = false
+  if (await folderExists(top)) {
+    for await (const vehicle of readDir(top)) {
+      if (!vehicle.isDirectory || vehicle.name.startsWith(".")) {
+        continue
+      }
+      for await (const entry of readDir(join(top, vehicle.name))) {
+        if (!entry.isFile || copyNumbers(entry.name)[0] < 0) {
+          continue
+        }
+        seen += 1
+        if (seen > MAX_LOOKED_AT) {
+          truncated = true
+          break
+        }
+        const info = await stat(join(top, vehicle.name, entry.name))
+        insertNewest(list, describe(vehicle.name, entry.name, info.size, info.mtime))
+      }
+    }
+  }
+  encodeLocalLogs(LocalLogs { logs: list, truncated: truncated || seen > MAX_LISTED })
+}
+
+async function folderExists(path: string): Promise<bool> {
+  try {
+    const info = await stat(path)
+    info.isDirectory
+  } catch (e: Error) {
+    false
+  }
+}
+
+/// What is gathered of a log while it is read.
+class Scan {
+  public messages: int = 0
+  public problems: int = 0
+  public firstUs: int = -1
+  public lastUs: int = -1
+  public firmware: string = ""
+  public readonly modes: ModeChange[] = []
+  public modesCut: bool = false
+
+  /// Takes note of one message.
+  public take(m: DfMessage): void {
+    messages += 1
+    const t = m.timeUs()
+    if (t >= 0) {
+      if (firstUs < 0) {
+        firstUs = t
+      }
+      lastUs = t
+    }
+    const name = m.format.name
+    if (name == "MODE") {
+      takeMode(m, t)
+    } else if (name == "MSG" && firmware == "") {
+      const text = m.text("Message") ?? ""
+      if (text.startsWith("Ardu")) {
+        firmware = text.slice(0, MAX_FIRMWARE)
+      }
+    }
+  }
+
+  /// A MODE message: a change of flight mode, when it says which mode, and when.
+  takeMode(m: DfMessage, t: int): void {
+    const number = m.num("Mode")
+    // A number that is not a mode (not a number, or out of range) is damage: looked at before it is converted.
+    if (t < 0 || number == null || number! != number! || number! < 0.0 || number! > 65535.0) {
+      problems += 1
+      return
+    }
+    if (modes.length >= MAX_MODES) {
+      modesCut = true
+      return
+    }
+    modes.push(ModeChange { timeUs: t as u64, mode: (number! as int) as u16 })
+  }
+}
+
+async function readLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
+  // Claimed at once, before anything is awaited: a second read that comes now is refused.
+  if (state.reading != null) {
+    throw new CommunicatorError("BUSY", "a log is being read")
+  }
+  const own = new AbortController()
+  state.reading = own
+  try {
+    return await readLog(asked.key, own)
+  } finally {
+    state.reading = null
+  }
+}
+
+/// Reads the log named by `key` through, and keeps and gives what is in it.
+async function readLog(key: string, own: AbortController): Promise<Cbor?> throws Error {
+  const parts = partsOfKey(key)
+  if (parts.length == 0) {
+    throw new CommunicatorError("NOT_FOUND", "there is no such log")
+  }
+  const path = join(await root(), parts[0], parts[1])
+  const before = await statOf(path)
+  if (before == null) {
+    throw new CommunicatorError("NOT_FOUND", "there is no such log")
+  }
+  const wanted = copyNumbers(parts[1])[1]
+  const crc = new Crc32()
+  const decoder = new DfDecoder()
+  const scan = new Scan()
+  const file = await open(path)
+  try {
+    await readThrough(key, file, before.size, own, crc, decoder, scan)
+  } catch (e: Error) {
+    await file.close()
+    throw e
+  }
+  await file.close()
+  decoder.finish()
+  const after = await statOf(path)
+  const same = after != null && after!.size == before.size && after!.mtime == before.mtime
+  const summary = summaryOf(scan, decoder, crc.crc == wanted && same)
+  state.known.set(key, new Known(before.size, before.mtime, summary))
+  encodeLocalLogSummary(summary)
+}
+
+/// Feeds the file to the reader and the CRC, a chunk at a time, telling how far it got.
+async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Scan): Promise<void> throws Error {
+  let bytes = 0
+  let told = 0
+  while (true) {
+    if (own.signal.aborted) {
+      throw new CommunicatorError("ABORTED", "the read was stopped")
+    }
+    const piece = await file.read(READ_CHUNK)
+    if (piece == null) {
+      break
+    }
+    bytes += piece!.length
+    crc.update(piece!)
+    decoder.push(piece!)
+    while (true) {
+      const m = decoder.next()
+      if (m == null) {
+        break
+      }
+      scan.take(m!)
+    }
+    const now = Date.now() as int
+    if (now - told >= PROGRESS_EVERY_MS) {
+      told = now
+      say(key, bytes, total)
+    }
+  }
+  say(key, bytes, total)
+}
+
+/// Tells the interface how far a read is.
+function say(key: string, bytes: int, total: int): void {
+  const c = state.communicator
+  if (c != null) {
+    c!.emit("logs.local.progress", encodeLogsLocalProgress(LogsLocalProgress { key: key, bytes: bytes as u64, total: total as u64 }))
+  }
+}
+
+/// The summary the contract has, from what was gathered.
+function summaryOf(scan: Scan, decoder: DfDecoder, verified: bool): LocalLogSummary {
+  const damage = decoder.problems.skipped + decoder.problems.count + scan.problems
+  const s = LocalLogSummary {
+    verified: verified,
+    messages: (if (scan.messages > 4294967295) 4294967295 else scan.messages) as u32,
+    problems: (if (damage > 4294967295) 4294967295 else damage) as u32,
+    modes: scan.modes,
+    modesCut: scan.modesCut,
+  }
+  if (scan.firstUs >= 0) {
+    s.firstUs = scan.firstUs as u64
+    s.lastUs = scan.lastUs as u64
+  }
+  if (scan.firmware != "") {
+    s.firmware = scan.firmware
+  }
+  s
+}
+
+/// The size and time of the last change of a file, or null when it is not there.
+async function statOf(path: string): Promise<FileFacts?> {
+  try {
+    const info = await stat(path)
+    if (info.isFile) new FileFacts(info.size, info.mtime) else null
+  } catch (e: Error) {
+    null
+  }
+}
+
+class FileFacts {
+  public readonly size: int
+  public readonly mtime: int
+
+  constructor(size: int, mtime: int) {
+    this.size = size
+    this.mtime = mtime
+  }
+}
+
+/// Stops the read that runs, if any: it fails with ABORTED.
+async function cancelRead(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const r = state.reading
+  if (r != null) {
+    r!.abort()
+  }
+  null
+}

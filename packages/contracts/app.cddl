@@ -32,6 +32,15 @@ services = {
   "logs.cancel": ["method", null, null],
   "logs.erase": ["method", null, logs-erased],
   "logs.progress": ["event", logs-progress],
+  ; The flight logs on this computer (the checked copies `logs.download` made, in the app's data folder; no vehicle needed).
+  ; `logs.local.list` lists them, with what is known of each from an earlier `logs.local.read` (no log is read by listing).
+  ; `logs.local.read` reads one log through, once and in order, whatever its size (a few kilobytes of it are in memory at any
+  ; time), with `logs.local.progress` events (at most 10 a second), and answers with what is in it. It fails with `ABORTED` when
+  ; `logs.local.cancel` stops it, with `BUSY` when another read runs, with `NOT_FOUND` for a log that is not in the list.
+  "logs.local.list": ["method", null, local-logs],
+  "logs.local.read": ["method", logs-local-read, local-log-summary],
+  "logs.local.cancel": ["method", null, null],
+  "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
@@ -175,6 +184,49 @@ logs-progress = {
   total: uint .size 4,
   ? resumedFrom: uint .size 4,
 }
+
+; A log on this computer. `key` names it (for `logs.local.read`: the vehicle's folder and the file, which is
+; `NNNNNNNN-CCCCCCCC.BIN`: the vehicle's number of the log and the CRC-32 the vehicle gave for it when it was downloaded, `crc` in
+; hex). `modified` is when the FILE was last changed on this computer (milliseconds since 1970), not the date of the flight. The
+; `summary` is there only when the log was read since the app started and the file is still the one that was read (same size and
+; time); a file that changed is read again before anything is said of it.
+local-log = {
+  key: tstr,
+  vehicle: tstr,
+  id: uint .size 4,
+  size: uint .size 8,
+  modified: uint .size 8,
+  crc: tstr,
+  ? summary: local-log-summary,
+}
+
+; The logs, and whether there were more than the backend lists (it lists the 2000 most recently changed).
+local-logs = { logs: [* local-log], truncated: bool }
+
+logs-local-read = { key: tstr }
+
+; How far the read has got, of how many bytes.
+logs-local-progress = { key: tstr, bytes: uint .size 8, total: uint .size 8 }
+
+; What a read found. `verified`: the CRC-32 of the file, worked out during the read, is the one in its name (the vehicle's CRC
+; when it was downloaded), and the file did not change while it was read. Nothing may be concluded from a log that is not
+; verified (no review). `messages` were read; `problems` counts the damage met on the way (bytes that were not part of any message,
+; formats that were refused, values that meant nothing). `firstUs` and `lastUs` are the times (microseconds since the vehicle's boot)
+; of the first and last message that has one; there are none in a log without any. `firmware` is the first MSG that names the
+; firmware ("ArduCopter V4.7.2 (...)"), absent when there is none: the modes are numbers, and what a number means depends on it.
+; `modes` are the changes of flight mode in the order they are in the log (at most 5000, `modesCut` when there were more).
+local-log-summary = {
+  verified: bool,
+  messages: uint .size 4,
+  problems: uint .size 4,
+  ? firstUs: uint .size 8,
+  ? lastUs: uint .size 8,
+  ? firmware: tstr,
+  modes: [* mode-change],
+  modesCut: bool,
+}
+
+mode-change = { timeUs: uint .size 8, mode: uint .size 2 }
 
 ; Reboots the flight controller (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, parameter 1 = 1: a restart, not a reset of the
 ; parameters). It is sent ONCE (no resend: a second request could reach the freshly booted vehicle) and never with

@@ -189,6 +189,60 @@ function validateLogsProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-progress, or null. */
 export const validateLogsProgress = (value: unknown) => run(validateLogsProgressInto, value)
 
+export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "summary"?: LocalLogSummary }
+
+function validateLocalLogInto(value: any, path: string): boolean {
+  return map(value, path, ["key","vehicle","id","size","modified","crc","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
+}
+
+/** The first problem with `value` as a local-log, or null. */
+export const validateLocalLog = (value: unknown) => run(validateLocalLogInto, value)
+
+export type LocalLogs = { "logs": (LocalLog)[], "truncated": boolean }
+
+function validateLocalLogsInto(value: any, path: string): boolean {
+  return map(value, path, ["logs","truncated"]) && (value["logs"] === undefined ? fail(`${path}.logs`, 'present') : nested(value["logs"], `${path}.logs`, (value, path) => list(value, path, (value, path) => validateLocalLogInto(value, path)))) && (value["truncated"] === undefined ? fail(`${path}.truncated`, 'present') : nested(value["truncated"], `${path}.truncated`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a local-logs, or null. */
+export const validateLocalLogs = (value: unknown) => run(validateLocalLogsInto, value)
+
+export type LogsLocalRead = { "key": string }
+
+function validateLogsLocalReadInto(value: any, path: string): boolean {
+  return map(value, path, ["key"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a logs-local-read, or null. */
+export const validateLogsLocalRead = (value: unknown) => run(validateLogsLocalReadInto, value)
+
+export type LogsLocalProgress = { "key": string, "bytes": number | bigint, "total": number | bigint }
+
+function validateLogsLocalProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["key","bytes","total"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a logs-local-progress, or null. */
+export const validateLogsLocalProgress = (value: unknown) => run(validateLogsLocalProgressInto, value)
+
+export type LocalLogSummary = { "verified": boolean, "messages": number, "problems": number, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "firmware"?: string, "modes": (ModeChange)[], "modesCut": boolean }
+
+function validateLocalLogSummaryInto(value: any, path: string): boolean {
+  return map(value, path, ["verified","messages","problems","firstUs","lastUs","firmware","modes","modesCut"]) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => uint(value, path, 0xffffffff))) && (value["problems"] === undefined ? fail(`${path}.problems`, 'present') : nested(value["problems"], `${path}.problems`, (value, path) => uint(value, path, 0xffffffff))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["firmware"] === undefined || nested(value["firmware"], `${path}.firmware`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["modes"] === undefined ? fail(`${path}.modes`, 'present') : nested(value["modes"], `${path}.modes`, (value, path) => list(value, path, (value, path) => validateModeChangeInto(value, path)))) && (value["modesCut"] === undefined ? fail(`${path}.modesCut`, 'present') : nested(value["modesCut"], `${path}.modesCut`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a local-log-summary, or null. */
+export const validateLocalLogSummary = (value: unknown) => run(validateLocalLogSummaryInto, value)
+
+export type ModeChange = { "timeUs": number | bigint, "mode": number }
+
+function validateModeChangeInto(value: any, path: string): boolean {
+  return map(value, path, ["timeUs","mode"]) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a mode-change, or null. */
+export const validateModeChange = (value: unknown) => run(validateModeChangeInto, value)
+
 export type RebootResult = { "result": "accepted" | "refused" | "unsupported" | "no-answer", "detail"?: string }
 
 function validateRebootResultInto(value: any, path: string): boolean {
@@ -419,6 +473,10 @@ export interface Services {
   "logs.cancel": { kind: 'method', request: null, response: null }
   "logs.erase": { kind: 'method', request: null, response: LogsErased }
   "logs.progress": { kind: 'event', payload: LogsProgress }
+  "logs.local.list": { kind: 'method', request: null, response: LocalLogs }
+  "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
+  "logs.local.cancel": { kind: 'method', request: null, response: null }
+  "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
@@ -477,6 +535,21 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "logs.progress": {
     payload: (value: any, path: string) => validateLogsProgressInto(value, path),
+  },
+  "logs.local.list": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateLocalLogsInto(value, path),
+  },
+  "logs.local.read": {
+    request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
+    response: (value: any, path: string) => validateLocalLogSummaryInto(value, path),
+  },
+  "logs.local.cancel": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "logs.local.progress": {
+    payload: (value: any, path: string) => validateLogsLocalProgressInto(value, path),
   },
   "vehicle.reboot": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

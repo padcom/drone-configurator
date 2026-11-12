@@ -1,0 +1,270 @@
+// The logs on this computer: listed without being read, read through (verified by the CRC in the name), cached while the file is
+// the one that was read, cancelable, and safe against keys and damage. The logs are generated with the DataFlash encoder.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import {
+  LocalLogs,
+  LogsLocalRead,
+  decodeLocalLogSummary,
+  decodeLocalLogs,
+  decodeLogsLocalProgress,
+  encodeLogsLocalRead,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads, partsOfKey } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-local-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// A log of a flight: the formats of MSG, MODE and ATT, the firmware text, and `steps` of ATT with a time of 10 ms each; the modes
+/// change at 20 ms and at 50 ms.
+function flight(steps: int): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(121, "MODE", "QMBB", "TimeUS,Mode,ModeNum,Rsn")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(59, [1000.0, 0.0], ["", "ArduCopter V4.7.2 (fb773567)"])
+  e.add(59, [1100.0, 0.0], ["", "Frame: QUAD"])
+  e.add(121, [2000.0, 0.0, 0.0, 0.0], ["", "", "", ""])
+  for (let i = 0; i < steps; i++) {
+    const t = 10000.0 + (i * 10000) as f64
+    e.add(72, [t, (i % 10) as f64, 0.5], ["", "", ""])
+    if (i == 1) {
+      e.add(121, [t, 4.0, 4.0, 1.0], ["", "", "", ""])
+    }
+    if (i == 4) {
+      e.add(121, [t, 9.0, 9.0, 1.0], ["", "", "", ""])
+    }
+  }
+  e.bytes()
+}
+
+/// Writes a copy of log `id` with these bytes where the downloads put it (named by its CRC, unless `crc` says another), and gives
+/// its key.
+async function put(r: Rig, vehicle: string, id: int, bytes: Uint8Array, crc: int = -1): Promise<string> throws Error {
+  const dir = join(r.root, "logs", vehicle)
+  await mkdir(dir, true)
+  const name = copyName(id, if (crc < 0) crc32Of(bytes) else crc)
+  await writeBytes(join(dir, name), bytes)
+  `${vehicle}/${name}`
+}
+
+async function list(r: Rig): Promise<LocalLogs> throws Error {
+  decodeLocalLogs((await r.f.call("logs.local.list")).p ?? Cbor.Null, "$")
+}
+
+async function read(r: Rig, key: string): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+async function listsNothingWithoutAFolder(): Promise<void> throws Error {
+  const r = await rig()
+  const logs = await list(r)
+  expect(logs.logs.length).toBe(0)
+  expect(logs.truncated).toBe(false)
+  await done(r)
+}
+
+async function listsTheCopiesAndNothingElse(): Promise<void> throws Error {
+  const r = await rig()
+  const a = flight(10)
+  const keyA = await put(r, "uid-a", 1, a)
+  const keyB = await put(r, "uid-b", 7, flight(20))
+  // Not copies: a part, a log by its vehicle's name, a note, a file at the top.
+  const dir = join(r.root, "logs", "uid-a")
+  await writeBytes(join(dir, "00000002.BIN.part"), a)
+  await writeBytes(join(dir, "00000002.BIN"), a)
+  await writeBytes(join(dir, "notes.txt"), a)
+  await writeBytes(join(r.root, "logs", "stray.BIN"), a)
+  const logs = (await list(r)).logs
+  expect(logs.length).toBe(2)
+  const keys = logs.map((l) => l.key)
+  expect(keys.includes(keyA)).toBe(true)
+  expect(keys.includes(keyB)).toBe(true)
+  for (const l of logs) {
+    expect(l.summary == null).toBe(true)
+    if (l.key == keyB) {
+      expect(l.id).toBe(7)
+      expect(l.vehicle).toBe("uid-b")
+      expect(l.size as int).toBe(flight(20).length)
+      expect(l.modified as int > 0).toBe(true)
+    }
+  }
+  expect(logs[0].crc.length).toBe(8)
+  await done(r)
+}
+
+async function readsALogAndSaysWhatIsInIt(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, flight(100))
+  const e = await read(r, key)
+  expect(codeOf(e)).toBe("")
+  const s = decodeLocalLogSummary(e.p ?? Cbor.Null, "$")
+  expect(s.verified).toBe(true)
+  // 3 FMTs, 2 MSG, 3 MODE, 100 ATT.
+  expect(s.messages).toBe(3 + 2 + 3 + 100)
+  expect(s.problems).toBe(0)
+  expect(s.firstUs! as int).toBe(1000)
+  expect(s.lastUs! as int).toBe(10000 + 99 * 10000)
+  expect(s.firmware!).toBe("ArduCopter V4.7.2 (fb773567)")
+  expect(s.modes.map((m) => `${m.timeUs}:${m.mode}`).join(",")).toBe("2000:0,20000:4,50000:9")
+  expect(s.modesCut).toBe(false)
+  // The list has it now, and knows no more about a log that was not read.
+  const other = await put(r, "uid-a", 2, flight(5))
+  const logs = (await list(r)).logs
+  for (const l of logs) {
+    expect(l.summary == null).toBe(l.key == other)
+  }
+  await done(r)
+}
+
+async function tellsHowFarItGot(): Promise<void> throws Error {
+  const r = await rig()
+  const bytes = flight(100)
+  const key = await put(r, "uid-a", 1, bytes)
+  const asked = await r.f.send("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  const p = decodeLogsLocalProgress((await r.f.event("logs.local.progress")).p ?? Cbor.Null, "$")
+  expect(p.key).toBe(key)
+  expect(p.total as int).toBe(bytes.length)
+  await r.f.reply(asked)
+  await done(r)
+}
+
+async function doesNotVerifyALogWhoseCrcIsNotTheNames(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, flight(20), 0x12345678)
+  const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
+  expect(s.verified).toBe(false)
+  // It is still read: what is in it is said, with no claim that it is the vehicle's.
+  expect(s.messages > 0).toBe(true)
+  await done(r)
+}
+
+async function readsAgainAFileThatChanged(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, flight(20))
+  await read(r, key)
+  expect((await list(r)).logs[0].summary == null).toBe(false)
+  // The file is longer now (the same name, as if the copy were changed): nothing is said of it until it is read again.
+  const path = join(r.root, "logs", "uid-a", key.slice(6, key.length))
+  await writeBytes(path, flight(30))
+  expect((await list(r)).logs[0].summary == null).toBe(true)
+  const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
+  // Its bytes are not the CRC in its name any more.
+  expect(s.verified).toBe(false)
+  expect(s.messages).toBe(3 + 2 + 3 + 30)
+  await done(r)
+}
+
+async function readsADamagedLogAndCountsTheDamage(): Promise<void> throws Error {
+  const r = await rig()
+  const good = flight(20)
+  const damaged = new Uint8Array(good.length + 300)
+  for (let i = 0; i < 100; i++) {
+    damaged.set(i, 7)
+  }
+  for (let i = 0; i < good.length; i++) {
+    damaged.set(100 + i, good[i])
+  }
+  for (let i = 0; i < 200; i++) {
+    damaged.set(100 + good.length + i, (i * 31) & 0xFF)
+  }
+  const key = await put(r, "uid-a", 1, damaged)
+  const s = decodeLocalLogSummary((await read(r, key)).p ?? Cbor.Null, "$")
+  expect(s.problems > 100).toBe(true)
+  expect(s.modes.length).toBe(3)
+  expect(s.messages >= 3 + 2 + 3 + 20).toBe(true)
+  await done(r)
+}
+
+async function readsAnEmptyFileAndOneWithoutTimes(): Promise<void> throws Error {
+  const r = await rig()
+  const empty = await put(r, "uid-a", 1, new Uint8Array(0))
+  const s = decodeLocalLogSummary((await read(r, empty)).p ?? Cbor.Null, "$")
+  expect(s.messages).toBe(0)
+  expect(s.firstUs == null).toBe(true)
+  expect(s.lastUs == null).toBe(true)
+  expect(s.firmware == null).toBe(true)
+  expect(s.verified).toBe(true)
+  await done(r)
+}
+
+async function refusesKeysThatAreNotLogs(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, flight(5))
+  for (const bad of ["", "uid-a", "../uid-a/" + key.slice(6, key.length), "uid-a/../uid-a/x", "uid-a/00000001.BIN", ".hidden/" + key.slice(6, key.length), "uid-a/" + key.slice(6, key.length) + "/x", "uid-z/" + key.slice(6, key.length)]) {
+    expect(codeOf(await read(r, bad))).toBe("NOT_FOUND")
+  }
+  expect(partsOfKey(key).length).toBe(2)
+  expect(partsOfKey("a/b/c").length).toBe(0)
+  await done(r)
+}
+
+/// A log of about 3.5 MB: three chunks are read.
+function bigLog(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(70, "BIG", "QZZ", "TimeUS,A,B")
+  for (let i = 0; i < 26000; i++) {
+    e.add(70, [(i * 1000) as f64, 0.0, 0.0], ["", "a", "b"])
+  }
+  e.bytes()
+}
+
+async function stopsOnCancelAndRefusesASecondRead(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, "uid-a", 1, bigLog())
+  const asked = await r.f.send("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  await r.f.event("logs.local.progress")
+  // One read at a time.
+  expect(codeOf(await read(r, key))).toBe("BUSY")
+  await r.f.call("logs.local.cancel")
+  expect(codeOf(await r.f.reply(asked))).toBe("ABORTED")
+  // Nothing was kept of it, and a new read goes through.
+  expect((await list(r)).logs[0].summary == null).toBe(true)
+  expect(codeOf(await read(r, key))).toBe("")
+  // A cancel with nothing to stop is nothing.
+  expect(codeOf(await r.f.call("logs.local.cancel"))).toBe("")
+  await done(r)
+}
+
+describe("the logs on this computer", () => {
+  it("lists nothing when there is no folder of logs", listsNothingWithoutAFolder)
+  it("lists the checked copies and nothing else, without reading them", listsTheCopiesAndNothingElse)
+  it("reads a log and says what is in it: counts, times, firmware, modes, verified by its CRC", readsALogAndSaysWhatIsInIt)
+  it("tells how far a read got", tellsHowFarItGot)
+  it("does not call a log verified whose CRC is not the one in its name", doesNotVerifyALogWhoseCrcIsNotTheNames)
+  it("forgets what it found of a file that changed, and reads it again", readsAgainAFileThatChanged)
+  it("reads a damaged log and counts the damage", readsADamagedLogAndCountsTheDamage)
+  it("reads an empty file: no times, no firmware, nothing made up", readsAnEmptyFileAndOneWithoutTimes)
+  it("refuses keys that are not a copy in a vehicle's folder", refusesKeysThatAreNotLogs)
+  it("stops a read on cancel, keeps nothing of it, and does only one read at a time", stopsOnCancelAndRefusesASecondRead)
+})
