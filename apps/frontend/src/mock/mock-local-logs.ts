@@ -395,6 +395,7 @@ export class MockLocalLogs {
       buckets: ask.buckets,
       series: ask.series.map(s => resultOf(s, range)),
     }
-    ok(answer)
+    // A pass over the file takes its time (two steps of a read here): the page is in its loading phase meanwhile.
+    setTimeout(() => ok(answer), this.stepMs * 2)
   }
 }

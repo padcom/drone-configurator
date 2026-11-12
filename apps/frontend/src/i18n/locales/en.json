@@ -73,6 +73,9 @@
       "openLabel": "Open log {id}",
       "reading": "Reading log {id}…",
       "readingBar": "Reading of log {id}",
+      "loadingParts": "Reading the charts and the review of log {id}…",
+      "statusOpened": "Log {id} is open.",
+      "statusStopped": "Reading stopped.",
       "stop": "Stop reading",
       "heading": "Log {id}",
       "summary": "{length} · {messages} messages · {firmware}",
@@ -83,7 +86,8 @@
       "cutEnd": "The log ends in the middle of a message: it was copied while the vehicle was still writing it. Everything before that is shown.",
       "modes": {
         "title": "Flight modes",
-        "number": "Mode {mode}"
+        "number": "Mode {mode}",
+        "under": "under the cursor"
       },
       "chart": {
         "attitude": "Attitude",

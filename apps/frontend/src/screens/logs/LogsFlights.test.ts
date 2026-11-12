@@ -13,6 +13,7 @@ afterEach(() => {
   setLanguage('en')
   mounted?.unmount()
   mounted = undefined
+  document.body.innerHTML = ''
   vi.restoreAllMocks()
 })
 
@@ -24,7 +25,8 @@ afterEach(() => {
  */
 async function screen(localLogsStepMs = 5) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, localLogsStepMs }))
-  mounted = mount(LogsFlights, { global: { plugins: [i18n] }, props: { section: 'flights' } })
+  // In the document: the focus is a fact of the page, and is looked at.
+  mounted = mount(LogsFlights, { global: { plugins: [i18n] }, props: { section: 'flights' }, attachTo: document.body })
   await flushPromises()
 
   return { wrapper: mounted, handle }
@@ -129,14 +131,116 @@ it('shows a bar while a log is read, and stops the read on request without an er
   await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists()).toBe(true))
 
   expect(wrapper.get('.flight-reading').text()).toContain('Reading log 3')
-  // Nothing else can be opened while one is read.
-  expect(wrapper.findAll('.flights-open').every(button => button.attributes('disabled') !== undefined)).toBe(true)
+  // Nothing else can be opened while one is read: the buttons say so, and keep the focus (aria-disabled, not disabled).
+  expect(wrapper.findAll('.flights-open').every(button => button.attributes('aria-disabled') === 'true')).toBe(true)
+  expect(wrapper.findAll('.flights-open').some(button => button.attributes('disabled') !== undefined)).toBe(false)
+  await wrapper.findAll('.flights-open')[1]?.trigger('click')
+  expect(handle.flights.open.value).toBe('uid-mock/00000003-1a2b3c4d.BIN')
   await wrapper.get('#flights-stop').trigger('click')
   await vi.waitFor(() => expect(handle.flights.phase.value).toBe('idle'))
   await flushPromises()
 
   expect(wrapper.find('.flight-detail').exists()).toBe(false)
   expect(wrapper.find('#flights-error').exists()).toBe(false)
+})
+
+it('holds the charts back while the review and series are asked for (a line and Stop), and opens nothing else', async () => {
+  const { wrapper, handle } = await screen(60)
+  await wrapper.findAll('.flights-open')[0]?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('loading'), { interval: 5 })
+  await flushPromises()
+
+  // No chart that says "No data" before the data is asked for; a line says what is going on, and Stop is there.
+  expect(wrapper.findAll('figure.kit-chart')).toHaveLength(0)
+  expect(wrapper.get('.flight-reading').text()).toContain('Reading the charts and the review of log 3')
+  expect(wrapper.find('#flights-stop').exists()).toBe(true)
+  expect(wrapper.get('#flights-status').text()).toBe('Reading the charts and the review of log 3…')
+  // Pressing Open meanwhile does nothing (it would fail with BUSY), and does not move the focus away.
+  const [, second] = wrapper.findAll('.flights-open')
+  expect(second?.attributes('aria-disabled')).toBe('true')
+  await second?.trigger('click')
+  expect(handle.flights.open.value).toBe('uid-mock/00000003-1a2b3c4d.BIN')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('ready'))
+  await flushPromises()
+
+  expect(handle.flights.error.value).toBeNull()
+  expect(wrapper.findAll('figure.kit-chart')).toHaveLength(4)
+})
+
+/**
+ * Gives an element the focus (the screen is in the document, so the focus is a fact of the page).
+ *
+ * @param element the element
+ */
+function focusOn(element: Element | undefined): void {
+  if (element instanceof HTMLElement) {
+    element.focus()
+  }
+}
+
+it('keeps the focus on the button that was pressed while its read goes on (aria-disabled, not disabled)', async () => {
+  const { wrapper, handle } = await screen(60)
+  const [button] = wrapper.findAll('.flights-open')
+  focusOn(button?.element)
+  await button?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('reading'), { interval: 5 })
+
+  expect(document.activeElement).toBe(button?.element)
+})
+
+it('gives the focus to the heading of the log when Stop goes because the read is through', async () => {
+  const { wrapper, handle } = await screen(60)
+  await wrapper.findAll('.flights-open')[0]?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('reading'), { interval: 5 })
+  focusOn(wrapper.get('#flights-stop').element)
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('ready'))
+  await flushPromises()
+
+  expect(document.activeElement).toBe(wrapper.get('.flight-detail-title').element)
+})
+
+it('gives the focus back to the button that opened the log when Stop is pressed and the log closes', async () => {
+  const { wrapper, handle } = await screen(60)
+  await wrapper.findAll('.flights-open')[0]?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('reading'), { interval: 5 })
+  focusOn(wrapper.get('#flights-stop').element)
+  await wrapper.get('#flights-stop').trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('idle'))
+  await flushPromises()
+
+  expect(document.activeElement).toBe(wrapper.findAll('.flights-open')[0]?.element)
+})
+
+it('says in an always-present polite status that a read finished, was stopped or failed', async () => {
+  const { wrapper, handle } = await screen(20)
+  const status = () => wrapper.get('#flights-status')
+
+  // There from the start, with nothing to say.
+  expect(status().attributes('role')).toBe('status')
+  expect(status().text()).toBe('')
+  await open(wrapper, 0)
+  expect(status().text()).toBe('Log 3 is open.')
+  // Stopped.
+  await wrapper.findAll('.flights-open')[1]?.trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('reading'), { interval: 2 })
+  await wrapper.get('#flights-stop').trigger('click')
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('idle'))
+  await flushPromises()
+  expect(status().text()).toBe('Reading stopped.')
+})
+
+it('marks the mode under the cursor by aria-current and in words, and reads a thinned part as a range', async () => {
+  const { wrapper } = await screen()
+  await open(wrapper, 0)
+
+  await wrapper.findAll('[role="slider"]')[0]?.trigger('keydown', { key: 'Home' })
+  await flushPromises()
+  const marked = wrapper.findAll('.flight-mode[aria-current="true"]')
+  expect(marked).toHaveLength(1)
+  expect(marked[0]?.text()).toContain('under the cursor')
+  // A part that has several samples reads as a range (the line goes through the middle, which no sample had).
+  const readouts = wrapper.findAll('.chart-readout').map(r => r.text())
+  expect(readouts.some(text => text.includes(' … '))).toBe(true)
 })
 
 it('says there are no logs on this computer, and why the list failed', async () => {

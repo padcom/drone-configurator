@@ -529,6 +529,33 @@ export function pointAt(points: readonly ChartPoint[], x: number): ChartPoint | 
 }
 
 /**
+ * Whether a point stands for samples that differ: it has a lowest and a highest value, and they are not the same.
+ *
+ * @param point the point
+ * @returns true for a point that is a range
+ */
+function spreads(point: ChartPoint): boolean {
+  return point.min !== undefined && point.max !== undefined && point.min !== point.max
+}
+
+/**
+ * What a point says to the reader. A point that stands for several samples (a part of a thinned series whose lowest and highest
+ * values differ) says the RANGE of its samples: its `y` is only where the line is drawn, and is not a value that any sample had
+ * (a roll that swung from -40 to 40 would read 0). A point of one value says that value.
+ *
+ * @param point the point, which has a value
+ * @param writing how to write it
+ * @returns the text
+ */
+function rangeOrValue(point: ChartPoint, writing: Writing): string {
+  if (spreads(point)) {
+    return `${writing.formatY(point.min as number)} … ${writing.formatY(point.max as number)}`
+  }
+
+  return point.y === null ? writing.noValue : writing.formatY(point.y)
+}
+
+/**
  * What every series has at a place, written: "12 s: Altitude 3.4 m; Speed no value". A series says "no value" where its sample
  * has none, and where it does not reach the place at all (see `pointAt`): it is never given a reading from somewhere else.
  *
@@ -541,7 +568,7 @@ export function readoutOf(series: readonly Named[], x: number, writing: Writing)
   const parts = series.map(line => {
     const point = pointAt(line.points, x)
 
-    return `${line.label} ${point && hasValue(point) && point.y !== null ? writing.formatY(point.y) : writing.noValue}`
+    return `${line.label} ${point && hasValue(point) ? rangeOrValue(point, writing) : writing.noValue}`
   })
 
   return `${writing.formatX(x)}: ${parts.join('; ')}`

@@ -73,6 +73,9 @@
       "openLabel": "Otwórz log {id}",
       "reading": "Czytam log {id}…",
       "readingBar": "Czytanie logu {id}",
+      "loadingParts": "Pobieram wykresy i przegląd logu {id}…",
+      "statusOpened": "Log {id} jest otwarty.",
+      "statusStopped": "Czytanie przerwane.",
       "stop": "Przerwij czytanie",
       "heading": "Log {id}",
       "summary": "{length} · {messages} komunikatów · {firmware}",
@@ -83,7 +86,8 @@
       "cutEnd": "Log kończy się w połowie komunikatu: skopiowano go, gdy pojazd jeszcze go zapisywał. Pokazane jest wszystko, co jest przed tym.",
       "modes": {
         "title": "Tryby lotu",
-        "number": "Tryb {mode}"
+        "number": "Tryb {mode}",
+        "under": "pod kursorem"
       },
       "chart": {
         "attitude": "Położenie",

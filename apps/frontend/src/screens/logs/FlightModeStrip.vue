@@ -6,11 +6,13 @@
       :key="i"
       class="flight-mode"
       :class="{ cursor: span.under }"
+      :aria-current="span.under ? 'true' : undefined"
       :style="{ flexGrow: span.length }"
       :title="span.title"
     >
       <span class="flight-mode-name">{{ span.name }}</span>
       <span class="flight-mode-time muted">{{ span.from }}</span>
+      <span v-if="span.under" class="visually-hidden">{{ t('logs.flights.modes.under') }}</span>
     </li>
   </ol>
 </template>

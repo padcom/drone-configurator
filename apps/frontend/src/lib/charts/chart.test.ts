@@ -276,6 +276,16 @@ describe('the readout', () => {
     expect(readoutOf(series, 1, writing)).toBe('1 s: A 2 m; B no value')
     expect(readoutOf([], 2, writing)).toBe('2 s: ')
   })
+
+  it('says the range of a point that stands for several samples, never the middle of it as a value', () => {
+    // A roll that swung from -40 to 40 in the part: the line is drawn through 0, but no sample was 0.
+    const swing = [{ label: 'Roll', points: [{ x: 0, y: 0, min: -40, max: 40 }, { x: 1, y: 3, min: 3, max: 3 }, { x: 2, y: 5 }] }]
+
+    expect(readoutOf(swing, 0, writing)).toBe('0 s: Roll -40 m … 40 m')
+    // A part of one value, and a point with no envelope, say the value.
+    expect(readoutOf(swing, 1, writing)).toBe('1 s: Roll 3 m')
+    expect(readoutOf(swing, 2, writing)).toBe('2 s: Roll 5 m')
+  })
 })
 
 describe('the readout of series that do not all reach the place', () => {

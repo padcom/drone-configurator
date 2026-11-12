@@ -66,6 +66,8 @@ export interface FlightsModel {
   readonly review: ShallowRef<ReviewFinding[] | null>
   /** Why a review is missing, when the log is open and loaded without one: the log is not verified. */
   readonly reviewMissing: Readonly<Ref<'not-verified' | null>>
+  /** Whether the last log that was being opened was stopped (by Stop): there is no log open then, and no error. */
+  readonly stopped: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
   readonly error: ShallowRef<string | null>
   /** Reads the list. */
@@ -112,6 +114,7 @@ class Flights implements FlightsModel {
   readonly series = shallowRef<Record<string, DrawnSeries>>({})
   readonly review = shallowRef<ReviewFinding[] | null>(null)
   readonly reviewMissing = ref<'not-verified' | null>(null)
+  readonly stopped = ref(false)
   readonly error = shallowRef<string | null>(null)
 
   /**
@@ -142,8 +145,22 @@ class Flights implements FlightsModel {
     }
   }
 
+  /**
+   * Whether a log is being read, or what is drawn of it is being asked for.
+   *
+   * @returns true while it is
+   */
+  private isBusy(): boolean {
+    return this.phase.value === 'reading' || this.phase.value === 'loading'
+  }
+
   async select(key: string): Promise<void> {
+    // The backend does one read at a time (BUSY): while a log is read, or its charts and review are asked for, none is opened.
+    if (this.isBusy()) {
+      return
+    }
     this.close()
+    this.stopped.value = false
     this.open.value = key
     this.phase.value = 'reading'
 
@@ -237,6 +254,7 @@ class Flights implements FlightsModel {
 
     if (toBackendError(error).code === 'ABORTED') {
       this.close()
+      this.stopped.value = true
 
       return
     }

@@ -73,6 +73,9 @@
       "openLabel": "Abrir el registro {id}",
       "reading": "Leyendo el registro {id}…",
       "readingBar": "Lectura del registro {id}",
+      "loadingParts": "Leyendo los gráficos y la revisión del registro {id}…",
+      "statusOpened": "El registro {id} está abierto.",
+      "statusStopped": "Lectura detenida.",
       "stop": "Detener la lectura",
       "heading": "Registro {id}",
       "summary": "{length} · {messages} mensajes · {firmware}",
@@ -83,7 +86,8 @@
       "cutEnd": "El registro termina a mitad de un mensaje: se copió mientras el vehículo aún lo escribía. Se muestra todo lo anterior.",
       "modes": {
         "title": "Modos de vuelo",
-        "number": "Modo {mode}"
+        "number": "Modo {mode}",
+        "under": "bajo el cursor"
       },
       "chart": {
         "attitude": "Actitud",

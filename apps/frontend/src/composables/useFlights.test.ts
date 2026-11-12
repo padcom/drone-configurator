@@ -120,6 +120,30 @@ it('stops on cancel without calling it an error, and closes the log', async () =
   expect(model.error.value).toBeNull()
 })
 
+it('does not open another log while one is read or its charts are asked for, and says it was stopped', async () => {
+  const model = await flights(60)
+  const opening = model.select(VERIFIED)
+  await vi.waitFor(() => expect(model.phase.value).toBe('reading'), { interval: 5 })
+  // In the reading phase, and later in the loading phase (the backend would answer BUSY): the second is ignored.
+  await model.select(NOT_VERIFIED)
+  expect(model.open.value).toBe(VERIFIED)
+  await vi.waitFor(() => expect(model.phase.value).toBe('loading'), { interval: 5 })
+  await model.select(NOT_VERIFIED)
+  expect(model.open.value).toBe(VERIFIED)
+  expect(model.error.value).toBeNull()
+  await opening
+  expect(model.phase.value).toBe('ready')
+  expect(model.stopped.value).toBe(false)
+
+  // Stopped: no error, and the model says so (the page announces it).
+  const again = model.select(NOT_VERIFIED)
+  await vi.waitFor(() => expect(model.phase.value).toBe('reading'), { interval: 5 })
+  await model.cancel()
+  await again
+  expect(model.stopped.value).toBe(true)
+  expect(model.error.value).toBeNull()
+})
+
 it('drops what comes for a log that is not the open one any more', async () => {
   const model = await flights(100)
   const first = model.select(VERIFIED)

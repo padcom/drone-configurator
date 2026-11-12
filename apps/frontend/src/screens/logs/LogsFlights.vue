@@ -2,9 +2,12 @@
 <template>
   <section class="logs-flights" :data-section="section" :aria-labelledby="`${uid}-title`">
     <h3 :id="`${uid}-title`" class="logs-flights-title">{{ t('logs.flights.title') }}</h3>
+    <!-- Always in the page, so that its words are read out when they change (a read that finished, was stopped or failed). -->
+    <p id="flights-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <Banner v-if="flights.error.value" id="flights-error" tone="error">{{ flights.error.value }}</Banner>
     <div class="logs-toolbar">
-      <Button id="flights-refresh" :disabled="flights.loading.value || reading" @click="flights.refresh()">
+      <!-- aria-disabled, not disabled: a button that is turned off while it has the focus must not take the focus with it. -->
+      <Button id="flights-refresh" :aria-disabled="busyOrLoading ? 'true' : undefined" @click="refreshList()">
         {{ t('logs.flights.refresh') }}
       </Button>
     </div>
@@ -37,9 +40,9 @@
           <td>
             <Button
               class="flights-open"
-              :disabled="reading"
+              :aria-disabled="busy ? 'true' : undefined"
               :aria-label="t('logs.flights.openLabel', { id: row.log.id })"
-              @click="flights.select(row.log.key)"
+              @click="openByKey(row.log.key)"
             >
               {{ t('logs.flights.open') }}
             </Button>
@@ -55,10 +58,16 @@
       :data-phase="flights.phase.value"
       :aria-label="detailTitle"
     >
-      <h4 class="flight-detail-title">{{ detailTitle }}</h4>
-      <div v-if="flights.phase.value === 'reading'" class="flight-reading">
-        <ProgressBar :value="readFraction" :label="t('logs.flights.readingBar', { id: openId })" />
-        <span class="muted">{{ t('logs.flights.reading', { id: openId }) }}</span>
+      <h4 ref="title" class="flight-detail-title" tabindex="-1">{{ detailTitle }}</h4>
+      <!-- Reading the file, and then asking for the modes, the review and the charts (two more passes over it): nothing is drawn
+           and nothing else is opened until it is through; it can be stopped throughout. -->
+      <div v-if="busy" class="flight-reading">
+        <ProgressBar
+          v-if="flights.phase.value === 'reading'"
+          :value="readFraction"
+          :label="t('logs.flights.readingBar', { id: openId })"
+        />
+        <span class="muted">{{ busyText }}</span>
         <Button id="flights-stop" @click="flights.cancel()">{{ t('logs.flights.stop') }}</Button>
       </div>
       <!-- A copy that is not verified is not looked into: the reason, and the way to a checked copy. -->
@@ -97,7 +106,7 @@
 // the flight modes along the time, three charts that share one cursor (attitude, altitude, vibration), and the automatic review.
 // The review exists only for a verified log; one that is not verified is shown and says so. A series the log lacks, and a part
 // of the time with no samples, say so (no data, a gap): nothing is drawn that the log does not hold.
-import { computed, onActivated, onMounted, ref, useId } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LineChart, { type LineSeries } from '@/components/charts/LineChart.vue'
 import Banner from '@/components/ui/Banner.vue'
@@ -125,7 +134,9 @@ const { flights } = useConfigurator()
 /** The place of the cursor shared by the charts (seconds from the start of the log). */
 const cursor = ref<number | null>(null)
 
-const reading = computed(() => flights.phase.value === 'reading')
+/** A log is being read, or what is drawn of it is being asked for: the backend does one read at a time. */
+const busy = computed(() => flights.phase.value === 'reading' || flights.phase.value === 'loading')
+const busyOrLoading = computed(() => busy.value || flights.loading.value)
 const summary = computed(() => flights.summary.value)
 const length = computed(() => (summary.value ? lengthOf(summary.value) : null))
 const firstUs = computed(() => asNumber(summary.value?.firstUs ?? 0))
@@ -254,6 +265,73 @@ const charts = computed(() => [
   },
 ])
 
+const busyText = computed(() => {
+  const key = flights.phase.value === 'reading' ? 'logs.flights.reading' : 'logs.flights.loadingParts'
+
+  return t(key, { id: openId.value })
+})
+
+/** What the polite status says when nothing is being read: the log is open, it failed (and why), or it was stopped. */
+const AFTER: Readonly<Record<string, () => string>> = {
+  ready: () => t('logs.flights.statusOpened', { id: openId.value }),
+  failed: () => flights.error.value ?? '',
+  idle: () => (flights.stopped.value ? t('logs.flights.statusStopped') : ''),
+}
+
+/** What the polite status says. It is always in the page, so a change of it is read out. */
+const statusText = computed(() => (busy.value ? busyText.value : AFTER[flights.phase.value]?.() ?? ''))
+
+/** The log that was opened last, to give the focus back to its button when the block that had it goes. */
+let lastOpened = ''
+
+/**
+ * Opens a log, unless one is being read (the buttons say so with aria-disabled, which keeps the focus; the press is ignored).
+ *
+ * @param key the log
+ */
+function openByKey(key: string): void {
+  if (!busy.value) {
+    lastOpened = key
+    void flights.select(key)
+  }
+}
+
+/** Reads the list again, unless a read is going on (the same reason as for `openByKey`). */
+function refreshList(): void {
+  if (!busyOrLoading.value) {
+    void flights.refresh()
+  }
+}
+
+/** The heading of the open log, which takes the focus when the block with Stop goes (a script can give a heading the focus). */
+const title = ref<HTMLElement | null>(null)
+
+/**
+ * The button that opened the log that was opened last.
+ *
+ * @returns the button, if it is there
+ */
+function openerOfLast(): HTMLElement | undefined {
+  const tableRows = [...document.querySelectorAll<HTMLElement>('[data-key]')]
+
+  return tableRows.find(item => item.dataset.key === lastOpened)?.querySelector<HTMLElement>('.flights-open') ?? undefined
+}
+
+/**
+ * The Stop button goes when the read is through, fails or is stopped: the focus must not go with it. It goes to the heading of
+ * the log when one is open, else back to the button that opened the log.
+ *
+ * @param stopHadFocus whether the Stop button had the focus before the page changed
+ */
+function giveFocusBack(stopHadFocus: boolean): void {
+  if (stopHadFocus) {
+    void nextTick(() => (flights.open.value === null ? openerOfLast() : title.value)?.focus())
+  }
+}
+
+// Before the page is changed (flush: pre), while the Stop button is still there to be asked.
+watch(() => flights.phase.value, () => giveFocusBack(document.activeElement?.id === 'flights-stop'), { flush: 'pre' })
+
 onMounted(() => {
   if (!flights.listed.value) {
     void flights.refresh()
@@ -263,7 +341,7 @@ onMounted(() => {
 // The screen is kept alive while another part is shown, and logs may have been downloaded meanwhile (in "On the vehicle"): the
 // list is read again whenever this part is shown again (not while it is being read, as on the first show).
 onActivated(() => {
-  if (flights.listed.value && !flights.loading.value && !reading.value) {
+  if (flights.listed.value && !flights.loading.value && !busy.value) {
     void flights.refresh()
   }
 })
