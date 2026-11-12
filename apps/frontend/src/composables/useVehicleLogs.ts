@@ -17,7 +17,13 @@ export interface LogsDeps {
   connection: Readonly<Ref<Connection>>
   /** The latest telemetry (the armed state is read from it). */
   telemetry: Readonly<Ref<Telemetry | null>>
+  /** How long to wait before asking again when the backend is busy (ms; a second by default). */
+  retryMs?: number
 }
+
+/** A backend that is busy when the list is asked for (the parameters are coming) is asked again this often, this many times. */
+const LIST_RETRY_MS = 1000
+const LIST_RETRIES = 30
 
 /** What the last download or erase came to. */
 export type Outcome
@@ -81,6 +87,9 @@ class VehicleLogs implements LogsModel {
   readonly blocked: ComputedRef<Blocked>
   /** Goes up with every reset: an answer that comes for an earlier vehicle is dropped. */
   private epoch = 0
+  /** Whether the list is being read, and what the backend said when it was busy (kept to be shown if it stays so). */
+  private listing = false
+  private busyText = ''
 
   /**
    * Makes the model, and listens to the progress the backend reports.
@@ -107,8 +116,11 @@ class VehicleLogs implements LogsModel {
    * @param error what the call threw
    */
   private failed(error: unknown): void {
-    if (toBackendError(error).code === 'UNKNOWN_METHOD') {
+    const { code } = toBackendError(error)
+    if (code === 'UNKNOWN_METHOD') {
       this.unavailable.value = true
+    } else if (code === 'BUSY' && this.listing) {
+      this.busyText = describeError(error)
     } else {
       this.error.value = describeError(error)
     }
@@ -147,14 +159,39 @@ class VehicleLogs implements LogsModel {
 
   async refresh(): Promise<void> {
     this.loading.value = true
-    await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs, canErase }) => {
+    this.listing = true
+    await this.listOnce(0)
+    this.listing = false
+    this.loading.value = false
+  }
+
+  /**
+   * Reads the list once. A backend that is busy (it is downloading the parameters just after connecting, and the file transfer
+   * does one thing at a time) is asked again after a moment, a few times, without an error on the screen; if it stays busy the
+   * error is shown.
+   *
+   * @param tried how many times it was busy already
+   */
+  private async listOnce(tried: number): Promise<void> {
+    this.busyText = ''
+    const how = await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs, canErase }) => {
       this.logs.value = logs
       this.canErase.value = canErase
       this.selected.value = this.pickable()
       this.listed.value = true
       this.error.value = null
     })
-    this.loading.value = false
+    if (how !== 'failed' || this.busyText === '') {
+      return
+    }
+    if (tried < LIST_RETRIES) {
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, this.deps.retryMs ?? LIST_RETRY_MS)
+      })
+      await this.listOnce(tried + 1)
+    } else {
+      this.error.value = this.busyText
+    }
   }
 
   toggle(id: number): void {

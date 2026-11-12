@@ -1,10 +1,14 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import { shallowRef } from 'vue'
+import { type BackendClient, BackendError } from '@/backend/client'
+import type { Connection, Telemetry } from '@/generated/app'
 import { telemetryAt } from '@/mock/fixtures'
 import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import type { MockLogsOptions } from '@/mock/mock-logs'
 import { feed } from '@/testing/testing'
 import { useToasts } from './toasts'
 import { createConfigurator } from './useConfigurator'
+import { useVehicleLogs } from './useVehicleLogs'
 
 afterEach(() => {
   const toasts = useToasts()
@@ -179,4 +183,55 @@ it('does not count a copy of the right size and the wrong checksum as downloaded
 
   expect(model.outcome.value).toEqual({ kind: 'erased', erased: 1, kept: 1 })
   expect(model.logs.value.map(log => log.id)).toEqual([2])
+})
+
+/**
+ * A model over a client that answers the list with the given errors first, then with one log.
+ *
+ * @param busy how many calls fail with the given code
+ * @param code the error code of those calls
+ * @returns the model and a counter of the calls
+ */
+function modelOver(busy: number, code = 'BUSY') {
+  const calls = { list: 0 }
+  const client = {
+    call: () => {
+      calls.list += 1
+
+      if (calls.list <= busy) {
+        return Promise.reject(new BackendError(code, 'a parameter download is running'))
+      }
+
+      return Promise.resolve({ logs: [{ id: 1, size: 10, downloaded: false }], source: 'ftp', canErase: false })
+    },
+    onEvent: () => () => {},
+  } as unknown as BackendClient
+  const connection = shallowRef<Connection>({ state: 'connected' })
+  const telemetry = shallowRef<Telemetry | null>(null)
+
+  return { model: useVehicleLogs({ client, connection, telemetry, retryMs: 5 }), calls }
+}
+
+it('asks again, with no error shown, when the backend is busy with the parameters just after connecting', async () => {
+  const { model, calls } = modelOver(3)
+  await model.refresh()
+
+  expect(calls.list).toBe(4)
+  expect(model.logs.value.map(log => log.id)).toEqual([1])
+  expect(model.listed.value).toBe(true)
+  expect(model.error.value).toBeNull()
+})
+
+it('shows the error when the backend stays busy, and any other error at once', async () => {
+  const stays = modelOver(1000)
+  await stays.model.refresh()
+
+  expect(stays.calls.list).toBe(31)
+  expect(stays.model.error.value).toContain('BUSY')
+  expect(stays.model.listed.value).toBe(false)
+  const other = modelOver(1, 'LOGS_UNAVAILABLE')
+  await other.model.refresh()
+
+  expect(other.calls.list).toBe(1)
+  expect(other.model.error.value).toContain('LOGS_UNAVAILABLE')
 })

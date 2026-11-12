@@ -83,12 +83,28 @@ async function stopAll(): Promise<void> {
   }
 }
 
+/**
+ * Waits for the first row of the table. When it does not come, the failure says what the page shows instead (its text, which
+ * has the error or the empty-state words), and what is in the SITL's log folder, so that the run's log explains itself.
+ */
+async function waitForTheLog(): Promise<void> {
+  try {
+    await window().waitFor(`document.querySelectorAll('${ROW}').length >= 1`, 60_000)
+  } catch (error) {
+    const text = `document.querySelector('main')?.innerText ?? '(no main)'`
+    const page = await window().evaluate<string>(text).catch(() => '(unreadable)')
+    const folder = readdirSync(join(sitl?.directory ?? '', 'logs')).join(', ')
+    const message = `the log of the flight is not listed. The page says:\n${page}\nSITL's logs/ holds: ${folder}`
+    throw new Error(`${message}\n${String(error)}`, { cause: error })
+  }
+}
+
 async function listsTheLogOfTheFlight(): Promise<void> {
   await clickConnect(window())
   await window().waitForText('#connection', 'connected · system', 60_000)
   await showScreen(window(), 'logs')
   await window().click('a[href="#/logs/vehicle"]')
-  await window().waitFor(`document.querySelectorAll('${ROW}').length >= 1`, 60_000)
+  await waitForTheLog()
 
   // It is a log of 8 digits, the first, with a time (the last write: SITL's files have one), not downloaded, and nothing was
   // downloaded on its own.
