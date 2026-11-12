@@ -77,6 +77,7 @@
       "notVerified": "La suma de comprobación de esta copia no es la que dio el vehículo al descargar el registro. Se muestra, pero no se saca ninguna conclusión de él: no hay revisión.",
       "noTimes": "Este registro no tiene tiempos, así que no hay nada que dibujar.",
       "damaged": "Daños encontrados al leer: {count}. Se muestra lo que se pudo leer.",
+      "cutEnd": "El registro termina a mitad de un mensaje: se copió mientras el vehículo aún lo escribía. Se muestra todo lo anterior.",
       "modes": {
         "title": "Modos de vuelo",
         "number": "Modo {mode}"

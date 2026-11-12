@@ -77,6 +77,7 @@
       "notVerified": "This copy's checksum is not the one the vehicle gave when the log was downloaded. It is shown, but nothing is concluded from it: there is no review.",
       "noTimes": "This log has no times, so there is nothing to draw.",
       "damaged": "Damage met while reading: {count}. What could be read is shown.",
+      "cutEnd": "The log ends in the middle of a message: it was copied while the vehicle was still writing it. Everything before that is shown.",
       "modes": {
         "title": "Flight modes",
         "number": "Mode {mode}"

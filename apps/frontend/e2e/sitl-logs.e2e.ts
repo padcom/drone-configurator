@@ -5,6 +5,7 @@
 //
 // The checks go on from one another (one app, one connection): if the first fails, the rest fail for that reason.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
@@ -360,6 +361,10 @@ async function opensTheDownloadedLogInFlights(): Promise<void> {
   await waitOrExplain(`document.querySelectorAll('table.flights-table tbody tr').length >= 1`, 60_000, 'Flights lists no log')
   await pressUntil('.flights-open', `document.querySelector('.flight-detail') !== null`, 4)
   await waitOrExplain(OPENED, READ_MS, 'the log was not opened in Flights')
+  // The page as the user sees it (a file to look at: the run prints where).
+  const shot = join(tmpdir(), 'drone-configurator-flights.png')
+  await window().screenshot(shot)
+  console.info(`sitl-logs: screenshot of Flights: ${shot}`)
 
   const facts = JSON.parse(await window().evaluate<string>(FLIGHT_FACTS)) as FlightFacts
   console.info(`sitl-logs: Flights shows: ${JSON.stringify(facts, null, 2)}`)
@@ -367,6 +372,7 @@ async function opensTheDownloadedLogInFlights(): Promise<void> {
   expect(facts.notVerified).toBe(false)
   expect(messagesOf(facts.summary)).toBeGreaterThan(1000)
   expect(facts.summary).toContain('ArduCopter')
+  // The log may end in the middle of a message (copied while the vehicle writes it): the page says so, and it is not damage.
   expect(facts.damaged).toBe('')
   // MODE is in the log: the strip has a mode, by name (the firmware is ArduCopter).
   expect(facts.modes.length).toBeGreaterThan(0)

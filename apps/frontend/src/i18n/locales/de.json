@@ -77,6 +77,7 @@
       "notVerified": "Die Prüfsumme dieser Kopie ist nicht die, die das Fahrzeug beim Herunterladen des Logs angegeben hat. Das Log wird gezeigt, aber daraus wird nichts geschlossen: Es gibt keine Auswertung.",
       "noTimes": "Dieses Log hat keine Zeiten, also gibt es nichts zu zeichnen.",
       "damaged": "Beim Lesen gefundene Schäden: {count}. Gezeigt wird, was gelesen werden konnte.",
+      "cutEnd": "Das Log endet mitten in einer Nachricht: Es wurde kopiert, während das Fahrzeug es noch schrieb. Alles davor wird gezeigt.",
       "modes": {
         "title": "Flugmodi",
         "number": "Modus {mode}"

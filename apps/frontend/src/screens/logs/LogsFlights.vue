@@ -65,6 +65,7 @@
         <Banner v-if="summary.problems > 0" id="flights-damaged" tone="warn">
           {{ t('logs.flights.damaged', { count: summary.problems }) }}
         </Banner>
+        <p v-if="summary.cutEnd" id="flights-cut-end" class="muted">{{ t('logs.flights.cutEnd') }}</p>
         <p v-if="length === null" class="muted">{{ t('logs.flights.noTimes') }}</p>
         <template v-else>
           <FlightModeStrip :spans="spans" :firmware="summary.firmware" :cursor="cursor" />

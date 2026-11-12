@@ -77,6 +77,7 @@
       "notVerified": "Suma kontrolna tej kopii nie jest tą, którą pojazd podał przy pobieraniu logu. Log jest pokazany, ale nic się z niego nie wnioskuje: nie ma przeglądu.",
       "noTimes": "Ten log nie ma czasów, więc nie ma czego rysować.",
       "damaged": "Uszkodzenia napotkane przy czytaniu: {count}. Pokazane jest to, co dało się przeczytać.",
+      "cutEnd": "Log kończy się w połowie komunikatu: skopiowano go, gdy pojazd jeszcze go zapisywał. Pokazane jest wszystko, co jest przed tym.",
       "modes": {
         "title": "Tryby lotu",
         "number": "Tryb {mode}"
