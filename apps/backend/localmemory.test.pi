@@ -1,0 +1,135 @@
+// Memory of the passes over a big log (Linux only: the process's peak is read from /proc/self/status). A log of about 100 MB is
+// generated (ten kinds of message, round robin, the time going up), then read, listed by kind, looked at in time, charted and
+// exported as CSV. None of that may hold the log, or the rows of the export: the peak of the process may not rise more than
+// `BOUND_KB` over what it was before. Off Linux the test passes without measuring (there is nothing to read).
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, rename, stat, writeBytes, writeText } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor } from "pico-desktop/communicator"
+import { Crc32, DfEncoder } from "padcom/pico-mavlink"
+import {
+  LogsLocalAtAsk,
+  LogsLocalExportAsk,
+  LogsLocalExportAskFormat,
+  LogsLocalRead,
+  LogsLocalSeriesAsk,
+  SeriesAsk,
+  decodeLocalLogExported,
+  decodeLocalLogMessages,
+  encodeLogsLocalAtAsk,
+  encodeLogsLocalExportAsk,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
+
+/// How far above what it was the peak of the process may rise: 64 MB.
+const BOUND_KB: int = 65536
+
+/// About 100 MB: a hundred pieces of about a megabyte.
+const PIECES: int = 100
+const PER_PIECE: int = 55000
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+
+/// The number of kilobytes on the line `name` of /proc/self/status, or -1 when there is no such line (not Linux).
+async function statusKb(name: string): Promise<int> {
+  try {
+    const text = await readText("/proc/self/status")
+    for (const line of text.split("\n")) {
+      if (line.startsWith(`${name}:`)) {
+        let n = 0
+        for (const ch of line.slice(name.length + 1).trim().split(" ")[0]) {
+          n = n * 10 + "0123456789".indexOf(`${ch}`)
+        }
+        return n
+      }
+    }
+  } catch (e: Error) {
+    return -1
+  }
+  -1
+}
+
+/// Makes the peak start from what the process holds now (Linux 4.0+): writing 5 to clear_refs.
+async function resetPeak(): Promise<void> {
+  try {
+    await writeText("/proc/self/clear_refs", "5")
+  } catch (e: Error) {
+  }
+}
+
+/// Writes the log into `path` a piece at a time and gives its CRC-32.
+async function generate(path: string): Promise<int> throws Error {
+  const crc = new Crc32()
+  let t = 1000
+  for (let piece = 0; piece < PIECES; piece++) {
+    const e = new DfEncoder()
+    for (let k = 0; k < 10; k++) {
+      e.define(160 + k, `K${k}`, "Qff", "TimeUS,Roll,Pitch")
+    }
+    for (let i = 0; i < PER_PIECE; i++) {
+      e.add(160 + i % 10, [t as f64, (i % 360) as f64, 0.5], ["", "", ""])
+      t += 1000
+    }
+    const bytes = e.bytes()
+    crc.update(bytes)
+    await writeBytes(path, bytes, piece > 0)
+  }
+  crc.crc
+}
+
+async function stayInTheBoundOnALogOfAHundredMegabytes(): Promise<void> throws Error {
+  if ((await statusKb("VmHWM")) < 0) {
+    return
+  }
+  const root = `/tmp/drone-configurator-memory-${pid}-${Date.now()}`
+  const out = join(root, "saved")
+  const was = env.get(VARIABLE)
+  try {
+    await mkdir(join(root, "logs", "uid-a"), true)
+    await mkdir(out, true)
+    env.set(VARIABLE, out)
+    useDirectoryForTests(root)
+    forgetLocalReads()
+    const f = await start()
+    // Each pass over 100 MB takes a while: ten minutes for each, for this test only.
+    setDeadline(600000)
+    const tmp = join(root, "logs", "uid-a", "generating.bin")
+    const crc = await generate(tmp)
+    const name = copyName(1, crc)
+    const path = join(root, "logs", "uid-a", name)
+    await rename(tmp, path)
+    expect((await stat(path)).size > 90000000).toBe(true)
+    const key = `uid-a/${name}`
+    await resetPeak()
+    const before = await statusKb("VmRSS")
+    await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+    const kinds = decodeLocalLogMessages((await f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))).p ?? Cbor.Null, "$")
+    expect(kinds.types.length > 10).toBe(true)
+    await f.call("logs.local.at", encodeLogsLocalAtAsk(LogsLocalAtAsk { key: key, message: "K3", timeUs: 2000000000 as u64 }))
+    const series = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "K3", field: "Roll" }], buckets: 500 as u16 }
+    await f.call("logs.local.series", encodeLogsLocalSeriesAsk(series))
+    const ask = LogsLocalExportAsk { key: key, format: LogsLocalExportAskFormat.Csv, message: "K3" }
+    const exported = decodeLocalLogExported((await f.call("logs.local.export", encodeLogsLocalExportAsk(ask))).p ?? Cbor.Null, "$")
+    expect(exported.rows as int).toBe(PIECES * PER_PIECE / 10)
+    const peak = await statusKb("VmHWM")
+    const rose = peak - before
+    expect(rose < BOUND_KB).toBe(true)
+    if (rose >= BOUND_KB) {
+      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+    }
+  } finally {
+    setDeadline(DEFAULT_DEADLINE_MS)
+    if (was == null) env.delete(VARIABLE) else env.set(VARIABLE, was!)
+    await remove(root, true)
+  }
+}
+
+describe("the memory of the passes over a big log (Linux)", () => {
+  it("stays within 64 MB of where it began on a log of 100 MB", stayInTheBoundOnALogOfAHundredMegabytes)
+})

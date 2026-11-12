@@ -283,6 +283,12 @@ export interface Taker {
   take(m: DfMessage): void
 }
 
+/// What a taker that writes somewhere does between the chunks of the log (the takers take synchronously, so what they gathered is
+/// written here).
+export interface Flusher {
+  flush(): Promise<void, Error>
+}
+
 /// A log that was read through: the file as it was when the read began, the CRC-32 of what was read, the CRC in the file's name,
 /// whether the file was the same when the read was over, and the reader (for its tables and its problems).
 export class Streamed {
@@ -335,13 +341,14 @@ export class LogFile {
 }
 
 /// Reads the log through once, in order, a chunk at a time, giving each message to `taker`, with progress, until it is done or `own`
-/// is aborted (`ABORTED`).
-export async function streamLog(key: string, file: LogFile, own: AbortController, taker: Taker): Promise<Streamed> throws Error {
+/// is aborted (`ABORTED`). Between the chunks `flusher` writes what the taker gathered; `reader` is the decoder to use when the taker
+/// needs its tables (the units and multipliers) while it takes.
+export async function streamLog(key: string, file: LogFile, own: AbortController, taker: Taker, flusher: Flusher? = null, reader: DfDecoder? = null): Promise<Streamed> throws Error {
   const crc = new Crc32()
-  const decoder = new DfDecoder()
+  const decoder = reader ?? new DfDecoder()
   const handle = await open(file.path)
   try {
-    await readThrough(key, handle, file.facts.size, own, crc, decoder, taker)
+    await readThrough(key, handle, file.facts.size, own, crc, decoder, taker, flusher)
   } catch (e: Error) {
     await handle.close()
     throw e
@@ -373,7 +380,7 @@ async function readLog(key: string, own: AbortController): Promise<Cbor?> throws
 }
 
 /// Feeds the file to the reader and the CRC, a chunk at a time, telling how far it got.
-async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Taker): Promise<void> throws Error {
+async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Taker, flusher: Flusher?): Promise<void> throws Error {
   let bytes = 0
   let told = 0
   while (true) {
@@ -393,6 +400,9 @@ async function readThrough(key: string, file: File, total: int, own: AbortContro
         break
       }
       scan.take(m!)
+    }
+    if (flusher != null) {
+      await flusher!.flush()
     }
     const now = Date.now() as int
     if (now - told >= PROGRESS_EVERY_MS) {

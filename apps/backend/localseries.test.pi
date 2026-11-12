@@ -328,6 +328,26 @@ async function refusesAnInstanceThatIsNotAFieldAndAValue(): Promise<void> throws
   await done(r)
 }
 
+/// An `a` field (the raw IMU batch ISBD) has no single value: charting it would be zeros that were never measured.
+async function doesNotChartAnArrayField(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(150, "ISBD", "QHHaaa", "TimeUS,N,seqno,x,y,z")
+  const x: f64[] = []
+  for (let i = 0; i < 32; i++) {
+    x.push(i as f64)
+  }
+  e.add(150, [1000.0, 1.0, 0.0, 0.0, 0.0, 0.0], ["", "", "", "", "", ""], [[], [], [], x, x, x])
+  e.add(150, [2000.0, 1.0, 1.0, 0.0, 0.0, 0.0], ["", "", "", "", "", ""], [[], [], [], x, x, x])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const s = await series(r, request(key, [ask("ISBD", "x"), ask("ISBD", "seqno")], 4))
+  expect(s.series[0].found).toBe(false)
+  expect(s.series[0].points.length).toBe(0)
+  expect(s.series[1].found).toBe(true)
+  await done(r)
+}
+
 async function wantsTheLogToHaveBeenRead(): Promise<void> throws Error {
   const r = await rig()
   const key = await put(r, flight(10))
@@ -396,6 +416,7 @@ describe("the series of the logs on this computer", () => {
   it("puts counts in their unit with the multiplier the log names (not twice for c C e E L)", appliesTheMultiplierTheLogNamesToCountsInTheirUnit)
   it("counts a value that a multiplier made too big as not a number", doesNotAnswerWithAValueThatOverflowed)
   it("refuses an instance that is not a field and a value, and finds none by a text", refusesAnInstanceThatIsNotAFieldAndAValue)
+  it("does not chart an array field (a batch of samples has no value)", doesNotChartAnArrayField)
   it("wants the log to have been read, and to be the same file", wantsTheLogToHaveBeenRead)
   it("refuses requests that are too big", refusesRequestsThatAreTooBig)
   it("stops on cancel, and knows a file that changed while it was read", stopsOnCancelAndKnowsAFileThatChangedMeanwhile)

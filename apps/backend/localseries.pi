@@ -102,10 +102,10 @@ class Gathering {
     true
   }
 
-  /// Whether field `i` holds text (a text is not a value).
+  /// Whether field `i` holds no single value: a text (not a value), or an array (`a`, a batch of samples: charting it would be zeros).
   isText(m: DfMessage, i: int): bool {
     const k = m.format.fields[i].kind
-    k == 0x6E || k == 0x4E || k == 0x5A
+    k == 0x6E || k == 0x4E || k == 0x5A || k == 0x61
   }
 
   /// One value at time `t` (in range): a part of the time, its smallest, its largest.
@@ -203,7 +203,7 @@ async function gather(key: string, series: SeriesAsk[], buckets: int, fromUs: u6
 /// The factor that takes the numbers of a field to the unit the log names for it. A field whose character scales it already (c C e
 /// E L) is in its unit; the others are counts that the log's multiplier takes there (MAG's `h` fields are milligauss with the
 /// multiplier 0.001 and the unit G). 1 when the log names no multiplier ('-' is 0 in the log), or the field has no unit to be in.
-function factorOf(f: DfField, tables: DfTables): f64 {
+export function factorOf(f: DfField, tables: DfTables): f64 {
   const k = f.kind
   if (k == 0x63 || k == 0x43 || k == 0x65 || k == 0x45 || k == 0x4C) {
     return 1.0
