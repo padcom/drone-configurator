@@ -39,10 +39,10 @@ describe('the values a peak suggests', () => {
     const found = [{ n: 2, hz: 301, amplitude: 0.5 }, { n: 4, hz: 600, amplitude: 0.2 }]
 
     expect(suggestNotch(peak(150.4, found))).toEqual([
-      { id: 'INS_HNTCH_ENABLE', to: 1, because: 'enable' },
-      { id: 'INS_HNTCH_FREQ', to: 150, because: 'peak' },
-      { id: 'INS_HNTCH_BW', to: 75, because: 'bandwidth' },
-      { id: 'INS_HNTCH_HMNCS', to: 0b1011, because: 'harmonics' },
+      { id: 'INS_HNTCH_ENABLE', to: 1, because: 'enable', reboot: true },
+      { id: 'INS_HNTCH_FREQ', to: 150, because: 'peak', reboot: false },
+      { id: 'INS_HNTCH_BW', to: 75, because: 'bandwidth', reboot: false },
+      { id: 'INS_HNTCH_HMNCS', to: 0b1011, because: 'harmonics', reboot: true },
     ])
   })
 

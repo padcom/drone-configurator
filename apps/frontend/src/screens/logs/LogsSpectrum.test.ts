@@ -184,6 +184,10 @@ it('lists the suggested values with where they come from, and queues them withou
       ['INS_HNTCH_BW', '40', '75'],
       ['INS_HNTCH_HMNCS', '1', '3'],
     ])
+  // The enable and the harmonics take effect after a reboot (ArduPilot allocates the filters when it starts); the rest at once.
+  expect(wrapper.findAll('.spectrum-takes').map(cell => cell.text()))
+    .toEqual(['after a reboot', 'at once', 'at once', 'after a reboot'])
+  expect(wrapper.get('#spectrum-reboot-note').text()).toContain('reboot')
   expect(wrapper.find('#spectrum-different').exists()).toBe(false)
   expect(handle.staged.pending()).toEqual([])
 

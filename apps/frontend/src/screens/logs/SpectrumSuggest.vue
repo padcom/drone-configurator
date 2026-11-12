@@ -14,6 +14,7 @@
           <th scope="col">{{ t('logs.spectrum.suggest.now') }}</th>
           <th scope="col">{{ t('logs.spectrum.suggest.value') }}</th>
           <th scope="col">{{ t('logs.spectrum.suggest.because') }}</th>
+          <th scope="col">{{ t('logs.spectrum.suggest.takes') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -22,10 +23,12 @@
           <td>{{ row.now }}</td>
           <td class="spectrum-suggested">{{ row.to }}</td>
           <td>{{ row.because }}</td>
+          <td class="spectrum-takes">{{ row.takes }}</td>
         </tr>
       </tbody>
     </table>
     <p class="muted">{{ t('logs.spectrum.suggest.note') }}</p>
+    <p id="spectrum-reboot-note" class="muted">{{ t('logs.spectrum.suggest.rebootNote') }}</p>
     <p v-if="!connected" id="spectrum-suggest-offline" class="muted">{{ t('logs.spectrum.suggest.offline') }}</p>
     <!-- Values from a log of another kind of vehicle (or of one that cannot be told) need a second press that names both. -->
     <SecondPress
@@ -97,6 +100,7 @@ const rows = computed(() => suggestions.value.map(s => ({
   id: s.id,
   to: s.to,
   now: nowOf(s.id),
+  takes: t(s.reboot ? 'logs.spectrum.suggest.afterReboot' : 'logs.spectrum.suggest.atOnce'),
   because: t(`logs.spectrum.suggest.why.${s.because}`, whyValues.value, props.peak.harmonics.length),
 })))
 

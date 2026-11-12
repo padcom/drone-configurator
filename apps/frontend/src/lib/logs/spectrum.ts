@@ -9,6 +9,10 @@
 //   first (the base frequency), 16 bits (default 3); _MODE 0 fixed, 1 throttle, 2 RPM sensor, 3 ESC telemetry, 4 dynamic FFT;
 //   _REF the reference for tracking (0 disables it). The page suggests ENABLE, FREQ, BW and HMNCS only: the tracking mode and
 //   its reference depend on the vehicle, and the attenuation has a good default.
+//   What takes effect only after a reboot: _HMNCS ("takes effect on the next reboot", @RebootRequired, :92-112), and so
+//   _ENABLE: the filters are allocated, for the harmonics that are set, only when the inertial sensor starts and the notch is
+//   enabled (AP_InertialSensor.cpp:1098-1104, `notch.params.enabled()` then `allocate_filters(..., harmonics(), ...)`). _FREQ and
+//   _BW are read as the filter runs.
 import type { SpectrumHarmonic, SpectrumPeak } from '@/generated/app'
 
 /** The harmonic notch parameters, by what the page needs of them. */
@@ -108,6 +112,8 @@ export interface Suggestion {
   to: number
   /** What the value comes from, as a key of the page's words. */
   because: 'enable' | 'peak' | 'bandwidth' | 'harmonics'
+  /** Whether it takes effect only after the vehicle is restarted. */
+  reboot: boolean
 }
 
 /**
@@ -145,10 +151,10 @@ export function suggestNotch(peak: SpectrumPeak): Suggestion[] {
   const freq = within(peak.hz, FREQ_RANGE)
 
   return [
-    { id: NOTCH.enable, to: 1, because: 'enable' },
-    { id: NOTCH.freq, to: freq, because: 'peak' },
-    { id: NOTCH.bandwidth, to: within(freq / 2, BANDWIDTH_RANGE), because: 'bandwidth' },
-    { id: NOTCH.harmonics, to: harmonicsMask(peak.harmonics), because: 'harmonics' },
+    { id: NOTCH.enable, to: 1, because: 'enable', reboot: true },
+    { id: NOTCH.freq, to: freq, because: 'peak', reboot: false },
+    { id: NOTCH.bandwidth, to: within(freq / 2, BANDWIDTH_RANGE), because: 'bandwidth', reboot: false },
+    { id: NOTCH.harmonics, to: harmonicsMask(peak.harmonics), because: 'harmonics', reboot: true },
   ]
 }
 
