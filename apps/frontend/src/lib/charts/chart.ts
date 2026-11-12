@@ -53,28 +53,38 @@ export interface Extent {
 }
 
 /**
+ * A number that can be drawn, else null.
+ *
+ * @param value a value that came from a vehicle or a log, which can hold NaN or an infinity
+ * @returns the value when it is a finite number, else null
+ */
+function finiteOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/**
  * The value of a point, 0 where it has none (the callers have left those out).
  *
  * @param point the point
  * @returns its value
  */
-const valueOf = (point: ChartPoint): number => point.y ?? 0
+const valueOf = (point: ChartPoint): number => finiteOrNull(point.y) ?? 0
 
 /**
  * The lowest value a point stands for.
  *
  * @param point the point
- * @returns its `min`, else its value
+ * @returns its `min` when that is a number, else its value
  */
-const lowOf = (point: ChartPoint): number => point.min ?? valueOf(point)
+const lowOf = (point: ChartPoint): number => finiteOrNull(point.min) ?? valueOf(point)
 
 /**
  * The highest value a point stands for.
  *
  * @param point the point
- * @returns its `max`, else its value
+ * @returns its `max` when that is a number, else its value
  */
-const highOf = (point: ChartPoint): number => point.max ?? valueOf(point)
+const highOf = (point: ChartPoint): number => finiteOrNull(point.max) ?? valueOf(point)
 
 /**
  * Whether a point stands for more than its value (it is a bucket whose samples were not all the same).
@@ -93,6 +103,60 @@ const isWide = (point: ChartPoint): boolean => lowOf(point) < valueOf(point) || 
 const placeOf = (sample: Sample | undefined): number => sample ? sample.x : 0
 
 /**
+ * Whether a point has a value that can be drawn: a place and a value that are finite numbers. A NaN or an infinity (which
+ * telemetry and logs do carry) is absent, like a null, wherever the points are looked at.
+ *
+ * @param point the point (or sample)
+ * @returns true when both its place and its value are finite
+ */
+export function hasValue(point: Sample): boolean {
+  return finiteOrNull(point.x) !== null && finiteOrNull(point.y) !== null
+}
+
+/**
+ * A point with the lowest and highest values of another, when those are numbers.
+ *
+ * @param base the point (a place and a value)
+ * @param from the point that may have an envelope
+ * @returns the point with `min` and `max` that are finite, and without the others
+ */
+function withEnvelope(base: ChartPoint, from: ChartPoint): ChartPoint {
+  const min = finiteOrNull(from.min)
+  const max = finiteOrNull(from.max)
+
+  return { ...base, ...min === null ? {} : { min }, ...max === null ? {} : { max } }
+}
+
+/**
+ * A point that can be drawn: no NaN or infinity anywhere. A value that is not finite is absent (a gap), its envelope is dropped
+ * with it, and a point whose place along `x` is not finite is not a point at all.
+ *
+ * @param point a point as it came
+ * @returns the point as it can be drawn, or null when it has no place
+ */
+function cleanPoint(point: ChartPoint): ChartPoint | null {
+  const x = finiteOrNull(point.x)
+  const y = finiteOrNull(point.y)
+
+  return x === null ? null : y === null ? { x, y: null } : withEnvelope({ x, y }, point)
+}
+
+/**
+ * The points of a series as they can be drawn: a value that is NaN or infinite is a gap, never a number (it would put "NaN" in a
+ * path and make the scales infinite). Telemetry and logs do carry such values.
+ *
+ * @param points the points as they came
+ * @returns the points without a non-finite number in them
+ */
+export function cleaned(points: readonly ChartPoint[]): ChartPoint[] {
+  return points.flatMap(point => {
+    const clean = cleanPoint(point)
+
+    return clean === null ? [] : [clean]
+  })
+}
+
+/**
  * The point that stands for a bucket of samples.
  *
  * @param bucket the samples (at least one)
@@ -100,17 +164,22 @@ const placeOf = (sample: Sample | undefined): number => sample ? sample.x : 0
  */
 function bucketOf(bucket: readonly Sample[]): ChartPoint {
   const x = (placeOf(bucket[0]) + placeOf(bucket.at(-1))) / 2
-  const values = bucket.flatMap(sample => sample.y === null ? [] : [sample.y])
-  if (values.length === 0) {
-    return { x, y: null }
+  // (Loops, not Math.min(...values): a spread of tens of thousands of numbers is a RangeError.)
+  let count = 0
+  let sum = 0
+  let low = Number.POSITIVE_INFINITY
+  let high = Number.NEGATIVE_INFINITY
+  for (const sample of bucket) {
+    const value = finiteOrNull(sample.y)
+    if (value !== null) {
+      count += 1
+      sum += value
+      low = Math.min(low, value)
+      high = Math.max(high, value)
+    }
   }
 
-  return {
-    x,
-    y: values.reduce((sum, value) => sum + value, 0) / values.length,
-    min: Math.min(...values),
-    max: Math.max(...values),
-  }
+  return count === 0 ? { x, y: null } : { x, y: sum / count, min: low, max: high }
 }
 
 /**
@@ -118,13 +187,15 @@ function bucketOf(bucket: readonly Sample[]): ChartPoint {
  * samples, with their mean as its value and their lowest and highest as `min` and `max`. A bucket that has no value at all (the
  * samples are absent) is an absent point, so a gap stays a gap. A series that is short enough is returned as it is.
  *
- * @param samples the samples, in order of `x`
+ * @param raw the samples, in order of `x` (a value that is NaN or infinite is absent)
  * @param maxPoints the most points to return (at least 2)
  * @returns the points
  */
-export function decimate(samples: readonly Sample[], maxPoints: number): ChartPoint[] {
+export function decimate(raw: readonly Sample[], maxPoints: number): ChartPoint[] {
+  // (A sample with a value that is NaN or infinite is absent; one with no place is left out.)
+  const samples = cleaned(raw)
   if (samples.length <= maxPoints) {
-    return samples.map(sample => ({ x: sample.x, y: sample.y }))
+    return samples
   }
   const buckets = Math.max(2, Math.floor(maxPoints))
   const size = samples.length / buckets
@@ -150,10 +221,10 @@ export function runsOf(points: readonly ChartPoint[]): ChartPoint[][] {
     run = []
   }
   for (const point of points) {
-    if (point.y === null) {
-      close()
-    } else {
+    if (hasValue(point)) {
       run.push(point)
+    } else {
+      close()
     }
   }
   close()
@@ -168,14 +239,21 @@ export function runsOf(points: readonly ChartPoint[]): ChartPoint[][] {
  * @returns the lowest and highest `x` and `y`, or null when no point has a value
  */
 export function extentOf(points: readonly ChartPoint[]): Extent | null {
-  const drawn = points.filter(point => point.y !== null)
-  if (drawn.length === 0) {
-    return null
+  // (Loops, not Math.min(...array): a spread of tens of thousands of numbers is a RangeError.)
+  const reach: Extent = {
+    x: [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY],
+    y: [Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY],
   }
-  const xs = drawn.map(point => point.x)
-  const ys = drawn.flatMap(point => [lowOf(point), highOf(point)])
+  let any = false
+  for (const point of points) {
+    if (hasValue(point)) {
+      any = true
+      reach.x = [Math.min(reach.x[0], point.x), Math.max(reach.x[1], point.x)]
+      reach.y = [Math.min(reach.y[0], lowOf(point)), Math.max(reach.y[1], highOf(point))]
+    }
+  }
 
-  return { x: [Math.min(...xs), Math.max(...xs)], y: [Math.min(...ys), Math.max(...ys)] }
+  return any ? reach : null
 }
 
 /**
@@ -347,7 +425,7 @@ function nearestWhere(points: readonly ChartPoint[], x: number, wanted: (point: 
  * @returns its index, or -1 when no point has a value
  */
 export function nearest(points: readonly ChartPoint[], x: number): number {
-  return nearestWhere(points, x, point => point.y !== null)
+  return nearestWhere(points, x, hasValue)
 }
 
 /**
@@ -370,7 +448,7 @@ export function nearestAny(points: readonly ChartPoint[], x: number): number {
  * @returns the index it arrives at (the first or last point with a value if it runs out), or -1 when none has a value
  */
 export function stepFrom(points: readonly ChartPoint[], from: number, steps: number): number {
-  const valued = points.flatMap((point, index) => point.y === null ? [] : [index])
+  const valued = points.flatMap((point, index) => hasValue(point) ? [index] : [])
   const here = valued.indexOf(from)
   // Without a point to start from, the steps start at an end: the first for forward, past the last for back.
   const start = here >= 0 ? here : (steps < 0 ? valued.length : -1)
@@ -408,8 +486,51 @@ export interface Writing {
 }
 
 /**
- * What every series has at a place, written: "12 s: Altitude 3.4 m; Speed no value". The sample nearest to the place counts
- * whether it has a value or not, so where a series has none it says so.
+ * The middle of some numbers.
+ *
+ * @param numbers the numbers
+ * @returns the one in the middle when they are in order, 0 for none
+ */
+function medianOf(numbers: readonly number[]): number {
+  const sorted = [...numbers].sort((a, b) => a - b)
+
+  return sorted[Math.floor(sorted.length / 2)] ?? 0
+}
+
+/**
+ * How far apart the points of a series usually are: the median distance between neighbours, worked out from about a hundred
+ * pairs spread over the series (so that a series of a million points costs no more than a short one).
+ *
+ * @param points the points, in order of `x`
+ * @returns the spacing along `x`; 0 for a series of fewer than two points
+ */
+export function spacingOf(points: readonly ChartPoint[]): number {
+  const stride = Math.max(1, Math.floor(points.length / 100))
+  const gaps: number[] = []
+  for (let index = stride; index < points.length; index += stride) {
+    gaps.push((placeOf(points[index]) - placeOf(points[index - stride])) / stride)
+  }
+
+  return medianOf(gaps)
+}
+
+/**
+ * The sample of a series that stands for a place: the nearest one, if it is within half the series' usual spacing (a series
+ * that ended long before the place, or has not begun, has nothing there; its last value is not its value now).
+ *
+ * @param points the points, in order of `x`
+ * @param x the place along `x`
+ * @returns the point, or undefined when the series does not reach the place
+ */
+export function pointAt(points: readonly ChartPoint[], x: number): ChartPoint | undefined {
+  const point = points[nearestAny(points, x)]
+
+  return point && Math.abs(point.x - x) <= spacingOf(points) / 2 + 1e-9 ? point : undefined
+}
+
+/**
+ * What every series has at a place, written: "12 s: Altitude 3.4 m; Speed no value". A series says "no value" where its sample
+ * has none, and where it does not reach the place at all (see `pointAt`): it is never given a reading from somewhere else.
  *
  * @param series the series
  * @param x the place along `x`
@@ -418,9 +539,9 @@ export interface Writing {
  */
 export function readoutOf(series: readonly Named[], x: number, writing: Writing): string {
   const parts = series.map(line => {
-    const y = line.points[nearestAny(line.points, x)]?.y
+    const point = pointAt(line.points, x)
 
-    return `${line.label} ${typeof y === 'number' ? writing.formatY(y) : writing.noValue}`
+    return `${line.label} ${point && hasValue(point) && point.y !== null ? writing.formatY(point.y) : writing.noValue}`
   })
 
   return `${writing.formatX(x)}: ${parts.join('; ')}`

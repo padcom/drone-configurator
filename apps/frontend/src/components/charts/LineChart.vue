@@ -57,6 +57,13 @@
 // Drawn in a fixed box that is stretched to the width of its place (the strokes keep their width), with the numbers along the
 // axes in HTML, so that they are not stretched with it. The chart is an image with a name and a summary (its range); the cursor
 // is a slider over it with the readout as its value, which the keyboard reaches. The arithmetic is in lib/charts/chart.ts.
+//
+// Values that are not numbers (null, NaN, an infinity: telemetry and logs do carry them) are absent: a gap, "no value" in the
+// readout, never drawn and never in the scales. A series is read at a place only where it reaches it (within half its usual
+// spacing): one that ended earlier says "no value" there, not its last reading.
+//
+// The cursor: left out (`cursor` not passed) the chart keeps its own. When a parent passes `cursor`, the cursor is the parent's:
+// it must listen to `update:cursor` (that is, use `v-model:cursor`) or the pointer and the keys move nothing that can be seen.
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -64,6 +71,7 @@ import {
   type Scale,
   draw,
   extentOf,
+  hasValue,
   moveByKey,
   nearest,
   readoutOf,
@@ -94,8 +102,8 @@ const HEIGHT = 160
  * @param line the series
  * @returns true when one of its points has one
  */
-function hasValue(line: LineSeries): boolean {
-  return line.points.some(point => point.y !== null)
+function lineHasValue(line: LineSeries): boolean {
+  return line.points.some(hasValue)
 }
 
 const props = withDefaults(defineProps<{
@@ -160,7 +168,7 @@ const yTicks = computed(() => ticksOf(domainYShown.value, 4).map(value => ({
 const xTicks = computed(() => ticksOf(domainX.value, 5).map(value => ({ value, at: sx.value(value) / WIDTH * 100 })))
 
 // The points the cursor follows: those of the first series that has a value.
-const lead = computed(() => props.series.find(hasValue)?.points ?? [])
+const lead = computed(() => props.series.find(lineHasValue)?.points ?? [])
 const current = computed(() => lead.value[placed.value === null ? -1 : nearest(lead.value, placed.value)]?.x ?? null)
 const cursorX = computed(() => current.value === null ? null : sx.value(current.value))
 

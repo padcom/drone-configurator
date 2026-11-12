@@ -54,6 +54,24 @@ it('says there is no data when no series has a value, and has no cursor to move'
   expect(chart([]).get('.chart-empty').text()).toBe('No data')
 })
 
+it('treats NaN and infinities as absent: a gap in the line, nothing "NaN" drawn, "No data" when nothing is left', () => {
+  const dirty: ChartPoint[] = [
+    { x: 0, y: 1 },
+    { x: 1, y: Number.NaN },
+    { x: 2, y: 3 },
+    { x: 3, y: Number.POSITIVE_INFINITY },
+    { x: 4, y: 5 },
+  ]
+  const wrapper = chart([{ id: 'a', label: 'Alt', points: dirty }])
+
+  expect(wrapper.html()).not.toContain('NaN')
+  expect(wrapper.html()).not.toContain('Infinity')
+  expect(wrapper.findAll('circle.dot')).toHaveLength(3)
+  expect(wrapper.get('svg').attributes('aria-label')).toBe('Altitude, m. From 1 to 5, over 0 to 4')
+  const none = chart([{ id: 'a', label: 'Alt', points: [{ x: 0, y: Number.NaN }, { x: 1, y: Number.NEGATIVE_INFINITY }] }])
+  expect(none.get('.chart-empty').text()).toBe('No data')
+})
+
 it('says the data is old, with words, and marks the chart (muted and dashed by its stylesheet)', () => {
   const wrapper = chart([{ id: 'a', label: 'Alt', points: RAMP }], { stale: true })
 

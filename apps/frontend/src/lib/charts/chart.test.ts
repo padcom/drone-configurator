@@ -5,7 +5,10 @@ import {
   decimate,
   draw,
   extentOf,
+  hasValue,
   moveByKey,
+  pointAt,
+  spacingOf,
   nearest,
   nearestAny,
   readoutOf,
@@ -143,6 +146,92 @@ describe('the point under the cursor', () => {
   })
 })
 
+describe('values that are not numbers', () => {
+  const x = scaleOf([0, 10], [0, 100])
+  const y = scaleOf([0, 10], [100, 0])
+  const points = (ys: Array<number | null>): ChartPoint[] => ys.map((value, at) => ({ x: at, y: value }))
+
+  it('are absent, like null, wherever the points are looked at: runs, reach, drawing, the nearest point, the steps', () => {
+    const mixed = points([1, Number.NaN, 3, Number.POSITIVE_INFINITY, 5, Number.NEGATIVE_INFINITY])
+
+    expect(runsOf(mixed).map(run => run.map(point => point.x))).toEqual([[0], [2], [4]])
+    expect(extentOf(mixed)).toEqual({ x: [0, 4], y: [1, 5] })
+    expect(draw(mixed, x, y)).toMatchObject({ line: '', dots: [[0, 90], [20, 70], [40, 50]] })
+    expect(nearest(mixed, 1)).toBe(0)
+    expect(nearest(mixed, 3)).toBe(2)
+    expect(stepFrom(mixed, 0, 1)).toBe(2)
+    expect(stepFrom(mixed, 4, 5)).toBe(4)
+    expect(hasValue({ x: 0, y: Number.NaN })).toBe(false)
+    expect(hasValue({ x: Number.NaN, y: 1 })).toBe(false)
+    expect(hasValue({ x: 0, y: 1 })).toBe(true)
+  })
+
+  it('leave a gap in the middle of a line, not a "NaN" in its path or a line to nowhere', () => {
+    const drawn = draw(points([1, 2, Number.NaN, 4, 5]), x, y)
+
+    expect(drawn.line).toBe('M0 90L10 80M30 60L40 50')
+    expect(drawn.line).not.toContain('NaN')
+    expect(drawn.envelope).not.toContain('NaN')
+  })
+})
+
+describe('a series of values that are not numbers', () => {
+  const x = scaleOf([0, 10], [0, 100])
+  const y = scaleOf([0, 10], [100, 0])
+  const points = (ys: Array<number | null>): ChartPoint[] => ys.map((value, at) => ({ x: at, y: value }))
+
+  it('make a series of nothing but such values a series with no extent', () => {
+    expect(extentOf(points([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]))).toBeNull()
+    expect(draw(points([Number.NaN, Number.POSITIVE_INFINITY]), x, y)).toEqual({ line: '', dots: [], envelope: '' })
+  })
+
+  it('do not poison the reach of a series that also has real values, envelope included', () => {
+    const wide: ChartPoint[] = [
+      { x: 0, y: 5, min: Number.NaN, max: 8 },
+      { x: 1, y: Number.NaN, min: -100, max: 100 },
+      { x: 2, y: 6 },
+    ]
+
+    expect(extentOf(wide)).toEqual({ x: [0, 2], y: [5, 8] })
+  })
+})
+
+describe('values that are not numbers, in a thinned series', () => {
+  it('are left out of a thinned series: a bucket of them is a gap, and a sample with no place is dropped', () => {
+    const inGap = (at: number): boolean => at >= 400 && at < 600
+    const samples: Sample[] = Array.from({ length: 1000 }, (_unused, at) => ({ x: at, y: inGap(at) ? Number.NaN : 2 }))
+    samples.push({ x: Number.POSITIVE_INFINITY, y: 9 }, { x: Number.NaN, y: 9 })
+    const thinned = decimate(samples, 10)
+
+    expect(thinned.map(point => point.y)).toEqual([2, 2, 2, 2, null, null, 2, 2, 2, 2])
+    expect(thinned.every(point => Number.isFinite(point.x))).toBe(true)
+    expect(JSON.stringify(thinned)).not.toContain('null,"min"')
+  })
+
+  it('are scattered over a huge series, and the thinned series is finite throughout', () => {
+    const value = (at: number): number => at % 997 === 0 ? Number.NaN : at % 5
+    const samples: Sample[] = Array.from({ length: 200_000 }, (_unused, at) => ({ x: at, y: value(at) }))
+    const thinned = decimate(samples, 500)
+    const reach = extentOf(thinned)
+
+    expect(thinned).toHaveLength(500)
+    expect(reach).toEqual({ x: [expect.any(Number), expect.any(Number)], y: [0, 4] })
+    expect(thinned.every(point => point.y !== null && Number.isFinite(point.y))).toBe(true)
+  })
+})
+
+describe('a long series', () => {
+  it('has a reach and a thinned form with no limit of its own: 500 000 points, a million thinned to 2 and to 10', () => {
+    const long: ChartPoint[] = Array.from({ length: 500_000 }, (_unused, at) => ({ x: at, y: at % 100 }))
+    const samples: Sample[] = Array.from({ length: 1_000_000 }, (_unused, at) => ({ x: at, y: at % 100 }))
+
+    expect(extentOf(long)).toEqual({ x: [0, 499_999], y: [0, 99] })
+    expect(decimate(samples, 2)).toHaveLength(2)
+    expect(decimate(samples, 2).map(point => [point.min, point.max])).toEqual([[0, 99], [0, 99]])
+    expect(decimate(samples, 10)).toHaveLength(10)
+  })
+})
+
 describe('the keys of the cursor', () => {
   const line: ChartPoint[] = Array.from({ length: 30 }, (_unused, x) => ({ x, y: x }))
 
@@ -186,5 +275,44 @@ describe('the readout', () => {
     expect(readoutOf(series, 0, writing)).toBe('0 s: A 1 m; B 5 m')
     expect(readoutOf(series, 1, writing)).toBe('1 s: A 2 m; B no value')
     expect(readoutOf([], 2, writing)).toBe('2 s: ')
+  })
+})
+
+describe('the readout of series that do not all reach the place', () => {
+  const writing = { formatX: (x: number) => `${x} s`, formatY: (y: number) => `${y} m`, noValue: 'no value' }
+
+  it('gives a series that ended earlier no reading at a place beyond its end, nor one before its start', () => {
+    const long = Array.from({ length: 60 }, (_unused, at) => ({ x: at, y: at }))
+    const short = Array.from({ length: 11 }, (_unused, at) => ({ x: at, y: 12 + at / 100 }))
+    const series = [{ label: 'Alt', points: long }, { label: 'Battery', points: short }]
+
+    expect(readoutOf(series, 5, writing)).toBe('5 s: Alt 5 m; Battery 12.05 m')
+    expect(readoutOf(series, 10, writing)).toBe('10 s: Alt 10 m; Battery 12.1 m')
+    expect(readoutOf(series, 50, writing)).toBe('50 s: Alt 50 m; Battery no value')
+    const late = [{ label: 'Late', points: [{ x: 40, y: 1 }, { x: 41, y: 2 }, { x: 42, y: 3 }] }]
+    expect(readoutOf(late, 5, writing)).toBe('5 s: Late no value')
+  })
+
+  it('reads a series of another rate at its own nearest sample, within half its spacing', () => {
+    const fast = Array.from({ length: 101 }, (_unused, at) => ({ x: at / 10, y: at }))
+    const slow = Array.from({ length: 11 }, (_unused, at) => ({ x: at, y: at * 100 }))
+    const series = [{ label: 'Fast', points: fast }, { label: 'Slow', points: slow }]
+
+    // At 3.2 s the slow series (a sample a second) is 0.2 s from its sample at 3: within half a second, so it is read.
+    expect(readoutOf(series, 3.2, writing)).toBe('3.2 s: Fast 32 m; Slow 300 m')
+    // At 3.7 s the nearest slow sample is 0.3 s away at 4: also within half a second.
+    expect(readoutOf(series, 3.7, writing)).toBe('3.7 s: Fast 37 m; Slow 400 m')
+    // Past the end of the slow series by more than half a second: no value.
+    expect(readoutOf(series, 10.6, writing)).toBe('10.6 s: Fast no value; Slow no value')
+  })
+})
+
+describe('the spacing of a series', () => {
+  it('has a spacing that is the median gap, found from a hundred pairs, and none for a series of one', () => {
+    expect(spacingOf(Array.from({ length: 1000 }, (_unused, at) => ({ x: at * 2, y: at })))).toBe(2)
+    expect(spacingOf([{ x: 0, y: 1 }])).toBe(0)
+    expect(spacingOf([])).toBe(0)
+    expect(pointAt([{ x: 5, y: 1 }], 5)?.y).toBe(1)
+    expect(pointAt([{ x: 5, y: 1 }], 5.5)).toBeUndefined()
   })
 })
