@@ -39,6 +39,8 @@ export const OWN_UNITS: string[][] = [
 /// The first type number of the derived formats (the raw ones have their message id).
 const DERIVED_TYPE: int = 100000
 const MAV_AUTOPILOT_INVALID: int = 8
+/// The gap (microseconds) put before a stretch of the recording whose clock went back: 30 s.
+const SEGMENT_GAP_US: int = 30000000
 const DEG: f64 = 57.29577951308232
 
 const SCRATCH = new ArrayBuffer(8)
@@ -187,6 +189,11 @@ export class TlogDecoder implements LogReader {
   readonly pending: DfMessage[] = []
   /// The time of the first record: the messages' `TimeUS` counts from it.
   origin: int = -1
+  /// The stretch of the recording the last record was in, what is added to the times of the stretches that began before the end of the
+  /// one before, and the latest time given.
+  segment: int = 0
+  shift: int = 0
+  latest: int = 0
   /// The mode last given by each sender (key `sysid`), so that `MODE` is a change and not every heartbeat.
   readonly modes: Map<int, int> = new Map<int, int>()
   /// Messages of a kind the dialects don't have (cannot happen for a record the reader gave) and messages made from a record.
@@ -262,6 +269,24 @@ export class TlogDecoder implements LogReader {
     isDerived(name)
   }
 
+  /// The time of a record on the axis of the views: microseconds from the first record. A new stretch of the recording (the recorder's
+  /// clock went back: a restart, a second recording appended) that would begin before the end of what came before is put
+  /// `SEGMENT_GAP_US` after it, so that the axis only goes forward and the stretches are told apart by a gap.
+  timeOf(record: TlogRecord): int {
+    let t = record.timeUs - origin + shift
+    if (record.segment != segment) {
+      segment = record.segment
+      if (t < latest) {
+        shift += latest + SEGMENT_GAP_US - t
+        t = latest + SEGMENT_GAP_US
+      }
+    }
+    if (t > latest) {
+      latest = t
+    }
+    t
+  }
+
   /// Makes the messages of one record.
   convert(record: TlogRecord): void {
     if (origin < 0) {
@@ -273,7 +298,7 @@ export class TlogDecoder implements LogReader {
       return
     }
     const payload = record.payload()
-    const t = (record.timeUs - origin) as f64
+    const t = timeOf(record) as f64
     pending.push(rawMessage(info!, record, payload, t))
     deriveFrom(info!, record, payload, t)
   }

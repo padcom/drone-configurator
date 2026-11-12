@@ -1,0 +1,116 @@
+// Memory of importing, reading and charting a recording of 16 MB (Linux only: the process's peak is read from /proc/self/status).
+// The recording is made a piece of about a megabyte at a time and written at once, so the generator never holds more than a piece.
+// The import (a streamed copy), the read and a chart may not hold the recording: the peak of the process may not rise more than
+// `BOUND_KB` over what it was before. Off Linux the test passes without measuring.
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, stat, writeBytes, writeText } from "std/fs"
+import { join } from "std/path"
+import { gc } from "std/gc"
+import { env, pid } from "std/process"
+import { Cbor } from "pico-desktop/communicator"
+import { Attitude, TlogWriter } from "padcom/pico-mavlink"
+import {
+  LogsLocalRead,
+  LogsLocalSeriesAsk,
+  SeriesAsk,
+  decodeLocalLogSummary,
+  decodeLogsImported,
+  decodeLogsLocalSeries,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+
+/// How far above what it was the peak of the process may rise: 32 MB.
+const BOUND_KB: int = 32768
+
+/// 16 pieces of about a megabyte (36000 attitude messages of 28 bytes each: the zeros at the end of a payload are not sent).
+const PIECES: int = 16
+const PER_PIECE: int = 36000
+const T0: int = 1794500000000000
+
+/// The number of kilobytes on the line `name` of /proc/self/status, or -1 when there is no such line (not Linux).
+async function statusKb(name: string): Promise<int> {
+  try {
+    const text = await readText("/proc/self/status")
+    for (const line of text.split("\n")) {
+      if (line.startsWith(`${name}:`)) {
+        let n = 0
+        for (const ch of line.slice(name.length + 1).trim().split(" ")[0]) {
+          n = n * 10 + "0123456789".indexOf(`${ch}`)
+        }
+        return n
+      }
+    }
+  } catch (e: Error) {
+    return -1
+  }
+  -1
+}
+
+/// Makes the peak start from what the process holds now (Linux 4.0+): writing 5 to clear_refs.
+async function resetPeak(): Promise<void> {
+  try {
+    await writeText("/proc/self/clear_refs", "5")
+  } catch (e: Error) {
+  }
+}
+
+/// Writes the recording into `path` a piece at a time.
+async function generate(path: string): Promise<void> throws Error {
+  let t = T0
+  for (let piece = 0; piece < PIECES; piece++) {
+    const w = new TlogWriter()
+    for (let i = 0; i < PER_PIECE; i++) {
+      const att = new Attitude()
+      att.roll = ((i % 360) as f64 * 0.01) as f32
+      w.addMessage(t, att, i % 256)
+      t += 1000
+    }
+    await writeBytes(path, w.bytes(), piece > 0)
+  }
+}
+
+async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws Error {
+  if ((await statusKb("VmHWM")) < 0) {
+    return
+  }
+  const root = `/tmp/drone-configurator-tlogmemory-${pid}-${Date.now()}`
+  const was = env.get(VARIABLE)
+  try {
+    const out = join(root, "chosen")
+    await mkdir(out, true)
+    env.set(VARIABLE, out)
+    useDirectoryForTests(root)
+    forgetLocalReads()
+    const f = await start()
+    await generate(join(out, "import.tlog"))
+    expect((await stat(join(out, "import.tlog"))).size > 15000000).toBe(true)
+    gc.collect()
+    await resetPeak()
+    const before = await statusKb("VmRSS")
+    const imported = decodeLogsImported((await f.call("logs.import", null)).p ?? Cbor.Null, "$")
+    const key = imported.key!
+    expect(imported.report!.records).toBe((PIECES * PER_PIECE) as u32)
+    const summary = decodeLocalLogSummary((await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))).p ?? Cbor.Null, "$")
+    expect(summary.verified).toBe(true)
+    const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "ATT", field: "Roll" }], buckets: 200 as u16 }
+    const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
+    expect(series.series[0].found).toBe(true)
+    const rose = (await statusKb("VmHWM")) - before
+    if (rose >= BOUND_KB) {
+      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+    }
+  } finally {
+    if (was == null) env.delete(VARIABLE) else env.set(VARIABLE, was!)
+    await remove(root, true)
+  }
+}
+
+describe("the memory of the passes over a recording of 16 MB (Linux)", () => {
+  it("stays within 32 MB of where it began", stayInTheBoundOnARecordingOf16Megabytes)
+})

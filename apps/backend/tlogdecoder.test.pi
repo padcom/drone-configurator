@@ -202,7 +202,22 @@ function unitsComeFromTheDialectAndOurTable(): void {
   expect(at("ATT", "Roll")).toBe("deg")
 }
 
+function putAGapWhereTheRecordersClockWentBack(): void {
+  const w = new TlogWriter()
+  w.addMessage(T0 + 10000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
+  w.addMessage(T0 + 11000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 2, true, 1, 1)
+  // The clock goes back by 9 s (a second recording appended, or a restart): the times must not go back or overlap.
+  w.addMessage(T0 + 2000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 3, true, 1, 1)
+  w.addMessage(T0 + 3000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 4, true, 1, 1)
+  // And a jump forward of more than 30 s keeps its real distance.
+  w.addMessage(T0 + 103000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 5, true, 1, 1)
+  const times = named(readAll(w.bytes(), 1000000), "HEARTBEAT").map((m) => `${m.timeUs()}`)
+
+  expect(times.join(" ")).toBe("0 1000000 31000000 32000000 132000000")
+}
+
 describe("the tlog decoder", () => {
+  it("puts a gap of 30 s where the recorder's clock went back, so that the time only goes forward", putAGapWhereTheRecordersClockWentBack)
   it("gives every MAVLink message as it is, with the dialect's names", giveTheMessagesAsTheyAreWithTheirUnits)
   it("makes the DataFlash-named messages in their units", makeTheDataflashNamedOnesInTheirUnits)
   it("takes what the vehicle marks unknown for not a number", takeWhatTheVehicleMarksUnknownForNotANumber)
