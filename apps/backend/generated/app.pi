@@ -932,10 +932,11 @@ export struct LocalLogSummary {
   lastUs?: u64
   firmware?: string
   modeChanges: u32
+  cutEnd?: bool
 }
 
 export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary throws InvalidPayload {
-  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modeChanges"])
+  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modeChanges", "cutEnd"])
   const cbor3 = m.get("firstUs")
   let opt3: u64? = null
   if (cbor3 != null) {
@@ -951,6 +952,11 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
   if (cbor5 != null) {
     opt5 = text(cbor5, `${path}.firmware`)
   }
+  const cbor7 = m.get("cutEnd")
+  let opt7: bool? = null
+  if (cbor7 != null) {
+    opt7 = boolean(cbor7, `${path}.cutEnd`)
+  }
   LocalLogSummary {
     verified: boolean(required(m, "verified", path), `${path}.verified`),
     messages: (uint(required(m, "messages", path), `${path}.messages`, 4294967295) as u32),
@@ -959,6 +965,7 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
     lastUs: opt4,
     firmware: opt5,
     modeChanges: (uint(required(m, "modeChanges", path), `${path}.modeChanges`, 4294967295) as u32),
+    cutEnd: opt7,
   }
 }
 
@@ -980,6 +987,10 @@ export function encodeLocalLogSummary(v: LocalLogSummary): Cbor {
     m.set("firmware", Cbor.Text(opt5))
   }
   m.set("modeChanges", Cbor.Uint(v.modeChanges as u64))
+  const opt7 = v.cutEnd
+  if (opt7 != null) {
+    m.set("cutEnd", Cbor.Bool(opt7))
+  }
   Cbor.Dict(m)
 }
 
