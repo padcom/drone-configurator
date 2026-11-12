@@ -308,13 +308,14 @@ async function offersNothingMore(): Promise<void> {
 }
 
 /** The log is open in Flights, read through: the summary line is there, nothing is reading, and there is a review or a reason. */
-const OPENED = `document.querySelector('.flight-detail .flight-summary') !== null
+const OPENED = `document.querySelector('.flight-detail[data-phase="ready"] .flight-summary') !== null
   && document.querySelector('.flight-reading') === null
   && (document.querySelector('.flight-finding') !== null || document.querySelector('#flights-not-verified') !== null)`
 
 /** What the Flights page shows of the open log, as one object. */
 const FLIGHT_FACTS = `JSON.stringify({
   summary: document.querySelector('.flight-summary')?.textContent ?? '',
+  error: document.querySelector('#flights-error')?.textContent ?? '',
   notVerified: document.querySelector('#flights-not-verified') !== null,
   damaged: document.querySelector('#flights-damaged')?.textContent ?? '',
   modes: [...document.querySelectorAll('.flight-mode-name')].map(m => m.textContent),
@@ -328,6 +329,7 @@ const FLIGHT_FACTS = `JSON.stringify({
 
 /** The facts of the Flights page. */
 interface FlightFacts {
+  error: string
   summary: string
   notVerified: boolean
   damaged: string
@@ -361,6 +363,7 @@ async function opensTheDownloadedLogInFlights(): Promise<void> {
 
   const facts = JSON.parse(await window().evaluate<string>(FLIGHT_FACTS)) as FlightFacts
   console.info(`sitl-logs: Flights shows: ${JSON.stringify(facts, null, 2)}`)
+  expect(facts.error).toBe('')
   expect(facts.notVerified).toBe(false)
   expect(messagesOf(facts.summary)).toBeGreaterThan(1000)
   expect(facts.summary).toContain('ArduCopter')

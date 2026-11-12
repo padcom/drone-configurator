@@ -46,7 +46,13 @@
       </tbody>
     </table>
 
-    <section v-if="flights.open.value" id="flight-detail" class="flight-detail" :aria-label="detailTitle">
+    <section
+      v-if="flights.open.value"
+      id="flight-detail"
+      class="flight-detail"
+      :data-phase="flights.phase.value"
+      :aria-label="detailTitle"
+    >
       <h4 class="flight-detail-title">{{ detailTitle }}</h4>
       <div v-if="flights.phase.value === 'reading'" class="flight-reading">
         <ProgressBar :value="readFraction" :label="t('logs.flights.readingBar', { id: openId })" />
@@ -85,7 +91,7 @@
 // the flight modes along the time, three charts that share one cursor (attitude, altitude, vibration), and the automatic review.
 // The review exists only for a verified log; one that is not verified is shown and says so. A series the log lacks, and a part
 // of the time with no samples, say so (no data, a gap): nothing is drawn that the log does not hold.
-import { computed, onMounted, ref, useId } from 'vue'
+import { computed, onActivated, onMounted, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LineChart, { type LineSeries } from '@/components/charts/LineChart.vue'
 import Banner from '@/components/ui/Banner.vue'
@@ -225,6 +231,14 @@ const charts = computed(() => [
 
 onMounted(() => {
   if (!flights.listed.value) {
+    void flights.refresh()
+  }
+})
+
+// The screen is kept alive while another part is shown, and logs may have been downloaded meanwhile (in "On the vehicle"): the
+// list is read again whenever this part is shown again (not while it is being read, as on the first show).
+onActivated(() => {
+  if (flights.listed.value && !flights.loading.value && !reading.value) {
     void flights.refresh()
   }
 })
