@@ -390,7 +390,8 @@ logs-local-spectrum-ask = { key: tstr, sensor: batch-sensor, instance: uint .siz
 ; the amplitude of the three axes together in `columns` columns (the largest of the bins that fall in a column; a column is
 ; `columnHz` wide), starting at `timeUs` (the first sample of its first batch). `batches` were used, `skipped` were not (not whole,
 ; not at the first rate, a size or a multiplier that cannot be). `silent`: every amplitude is zero (no signal), and then there is
-; no peak. `peak` is the largest bin from 20 Hz up that stands well above the rest, with the harmonics that are there.
+; no peak. `peak` is the largest bin from 20 Hz up that stands well above the rest and is at least four steps of the samples high
+; (the noise of a sensor at rest is not a peak), with the harmonics that are there.
 local-log-spectrum = {
   sensor: batch-sensor,
   instance: uint .size 1,

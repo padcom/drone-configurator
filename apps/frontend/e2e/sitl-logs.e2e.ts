@@ -542,6 +542,9 @@ async function opensTheSpectrumOfTheRealLog(): Promise<void> {
   expect(String(facts.facts)).toMatch(/^\d+ batches used/u)
   expect(Number(/^(?<count>\d+) batches/u.exec(String(facts.facts))?.groups?.count)).toBeGreaterThan(5)
   expect(String(facts.spectrogram)).toContain('rows')
+  // The vehicle is nearly still: a peak is not made of the noise of its sensor (its amplitude is more than a few steps of the
+  // samples), so a page that shows one must show an amplitude above the floor.
+  expect((facts.peak as string[]).every(row => !/\s0\.000$/u.test(row))).toBe(true)
 }
 
 describeSitl(

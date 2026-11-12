@@ -47,6 +47,9 @@ const PEAK_FROM_HZ: f64 = 20.0
 /// A peak must stand this many times above the mean amplitude of the bins from `PEAK_FROM_HZ` up.
 const PROMINENCE: f64 = 3.0
 
+/// A peak must be at least this many steps of the samples (1 / multiplier) high: below that it is the noise of the sensor.
+const QUANTA: f64 = 4.0
+
 /// The most harmonics looked for (2 to 8 times the peak).
 const MAX_HARMONIC: int = 8
 
@@ -278,6 +281,9 @@ function intOf(v: f64?): int {
 class Collector {
   public readonly size: int
   public rateHz: f64 = 0.0
+  /// The smallest amplitude worth calling a peak: a few steps of what the log can tell apart (its samples are whole numbers of
+  /// 1 / mul), so that the noise of a sensor at rest is not shown as a vibration.
+  public floor: f64 = 0.0
   readonly spectrum: Spectrum
   public readonly sums: f64[][] = []
   public rows: Row[] = []
@@ -302,6 +308,7 @@ class Collector {
 
   public add(batch: Batch): void {
     rateHz = batch.rateHz
+    floor = QUANTA / batch.mul
     const ax = spectrum.amplitudes(batch.x)
     const ay = spectrum.amplitudes(batch.y)
     const az = spectrum.amplitudes(batch.z)
@@ -500,7 +507,7 @@ function resultOf(c: Collector, skipped: int, sensor: int, instance: int): Local
     silent: silent,
   }
   if (!silent) {
-    const peak = peakOf(avg, resolution)
+    const peak = peakOf(avg, resolution, c.floor)
     if (peak != null) {
       r.peak = peak!
     }
@@ -526,7 +533,7 @@ function strongest(avg: f64[][], k: int): int {
 
 /// The peak: the largest local maximum from `PEAK_FROM_HZ` up, if it stands `PROMINENCE` times above the mean of the bins there,
 /// with its frequency refined by a parabola through the three bins, and the harmonics (2 to `MAX_HARMONIC` times) that stand as well.
-function peakOf(avg: f64[][], resolution: f64): SpectrumPeak? {
+function peakOf(avg: f64[][], resolution: f64, floor: f64): SpectrumPeak? {
   const bins = avg[0].length
   let from = Math.ceil(PEAK_FROM_HZ / resolution) as int
   if (from < 2) {
@@ -544,7 +551,7 @@ function peakOf(avg: f64[][], resolution: f64): SpectrumPeak? {
     }
   }
   const mean = sum / ((bins - 1 - from) as f64)
-  if (together(avg, best) < PROMINENCE * mean || best <= from || best >= bins - 2) {
+  if (together(avg, best) < PROMINENCE * mean || best <= from || best >= bins - 2 || avg[strongest(avg, best)][best] < floor) {
     return null
   }
   const hz = (best as f64 + offsetOf(avg, best)) * resolution

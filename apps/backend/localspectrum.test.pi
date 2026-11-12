@@ -247,6 +247,33 @@ async function doesNotShowSilenceAsAMeasurement(): Promise<void> throws Error {
   await done(r)
 }
 
+/// A tone of a few steps of the samples (the noise of a sensor at rest) is a spectrum, but not a peak: the multiplier here is 100, so
+/// a step is 0.01 and the floor is 4 steps, 0.04.
+async function doesNotCallNoiseAPeak(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  defineBatchMessages(e)
+  for (let n = 1; n <= 3; n++) {
+    batch(e, n, 1, 0, 1024, 1000.0, [[[150.0, 0.03]], [], []])
+  }
+  const faint = await put(r, e.bytes())
+  await readIt(r, faint)
+  const s = await spectrumOf(r, faint, BatchSensor.Gyro, 0)
+  expect(s.silent).toBe(false)
+  expect(s.peak == null).toBe(true)
+
+  // Twice as loud as the floor is a peak.
+  const loud = new DfEncoder()
+  defineBatchMessages(loud)
+  for (let n = 1; n <= 3; n++) {
+    batch(loud, n, 1, 0, 1024, 1000.0, [[[150.0, 0.2]], [], []])
+  }
+  const key = await put(r, loud.bytes())
+  await readIt(r, key)
+  expect((await spectrumOf(r, key, BatchSensor.Gyro, 0)).peak != null).toBe(true)
+  await done(r)
+}
+
 async function skipsBatchesThatAreNotWholeOrCannotBe(): Promise<void> throws Error {
   const r = await rig()
   const e = new DfEncoder()
@@ -311,6 +338,7 @@ describe("the spectrum of the raw IMU batches of the logs on this computer", () 
   it("finds the peak and the harmonic of tones that were put in", findsThePeakAndItsHarmonic)
   it("gives the spectrogram in time order within its bounds", givesTheSpectrogramInTimeOrderWithinItsBounds)
   it("does not show silence as a measurement", doesNotShowSilenceAsAMeasurement)
+  it("does not call the noise of a sensor at rest a peak", doesNotCallNoiseAPeak)
   it("skips batches that are not whole or cannot be, and counts them", skipsBatchesThatAreNotWholeOrCannotBe)
   it("refuses a log not read, a sensor it has none of, and a log that is not verified", refusesWhatItCannotDo)
 })
