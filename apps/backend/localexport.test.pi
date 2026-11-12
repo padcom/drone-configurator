@@ -19,6 +19,7 @@ import {
   encodeLogsLocalRead,
 } from "./generated/app"
 import { copyName } from "./logs"
+import { csvCell, xmlEscape } from "./localexport"
 import { forgetLocalReads } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -233,6 +234,39 @@ async function quotesCellsAndMakesFormulasSafe(): Promise<void> throws Error {
   await done(r)
 }
 
+/// OWASP's list of what a spreadsheet takes for a formula: = + - @ tab and carriage return. A text starting with any of them gets a
+/// quote in front; one that does not is left as it is. A number is never a text cell.
+function makesEveryFormulaStartSafe(): void {
+  for (const start of ["=", "+", "-", "@", "\t"]) {
+    expect(csvCell(`${start}cmd|' /C calc'!A0`, true).includes(`'${start}cmd`)).toBe(true)
+  }
+  expect(csvCell("\rcmd", true)).toBe("\"'\rcmd\"")
+  expect(csvCell("a=b", true)).toBe("a=b")
+  expect(csvCell("", true)).toBe("")
+  expect(csvCell("-1.5", false)).toBe("-1.5")
+}
+
+/// The names of the fields and their units are the log's text too: a header that is a formula is made safe.
+async function makesAHostileHeaderSafe(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(170, "EVIL", "Qf", "TimeUS,=HYPERLINK(\"http://x\")")
+  e.add(170, [1000.0, 1.0], ["", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const rows = parseCsv(await readText((await exportIt(r, csvAsk(key, "EVIL"))).path!))
+  expect(rows[0][1]).toBe("'=HYPERLINK(\"http://x\")")
+  expect(rows[1][1]).toBe("1")
+  await done(r)
+}
+
+/// Text that goes into GPX and KML is escaped: no tag, entity or quote of a log's text can come out as markup.
+function escapesXml(): void {
+  expect(xmlEscape("a&b<c>d\"e'f")).toBe("a&amp;b&lt;c&gt;d&quot;e&apos;f")
+  expect(xmlEscape("</name><script>x</script>")).toBe("&lt;/name&gt;&lt;script&gt;x&lt;/script&gt;")
+  expect(xmlEscape("plain 1-2_3")).toBe("plain 1-2_3")
+}
+
 async function leavesArraysOutOfTheCsv(): Promise<void> throws Error {
   const r = await rig()
   const key = await put(r, flight())
@@ -346,6 +380,9 @@ async function refusesWhatItCannotDo(): Promise<void> throws Error {
 describe("the export of the logs on this computer", () => {
   it("writes a CSV that a parser reads back, with units and empty cells for what is not a number", writesACsvThatAParserReadsBack)
   it("quotes cells and makes a text that is a formula safe", quotesCellsAndMakesFormulasSafe)
+  it("makes every start of a formula safe (OWASP: = + - @ tab CR)", makesEveryFormulaStartSafe)
+  it("makes a header that is a formula safe", makesAHostileHeaderSafe)
+  it("escapes the text that goes into XML", escapesXml)
   it("leaves arrays out of the CSV", leavesArraysOutOfTheCsv)
   it("never overwrites without a second request that names the file", neverOverwritesWithoutASecondRequestThatNamesTheFile)
   it("never writes over a log or any .BIN", neverWritesOverALog)

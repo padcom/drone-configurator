@@ -130,7 +130,8 @@ class CsvWriter implements Taker {
     for (const f of m.format.fields) {
       if (kindOf(f) != MessageFieldKind.Array) {
         const unit = if (kindOf(f) == MessageFieldKind.Number) decoder.tables.unitOf(f) else ""
-        names.push(csvCell(if (unit == "") f.name else `${f.name} (${unit})`, false))
+        // The names and units are the log's text too: a hostile one (=cmd|...) is made safe like any other text cell.
+        names.push(csvCell(if (unit == "") f.name else `${f.name} (${unit})`, true))
       }
     }
     names.join(",") + "\r\n"
