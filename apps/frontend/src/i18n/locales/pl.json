@@ -197,6 +197,65 @@
         "nothing": "Żaden log nie jest jeszcze pobrany, więc nie ma czego kasować."
       }
     },
+    "browser": {
+      "title": "Wiadomości",
+      "loading": "Czytanie rodzajów wiadomości…",
+      "none": "W tym logu nie ma wiadomości do przeglądania.",
+      "kind": "Rodzaj wiadomości",
+      "instance": "Egzemplarz ({field})",
+      "pick": "Wybierz rodzaj wiadomości, aby zobaczyć jej pola.",
+      "pickOption": "Wybierz…",
+      "moveCursor": "Przesuń kursor na wykresie powyżej, aby zobaczyć pola w tej chwili.",
+      "nothingYet": "{kind} nie ma jeszcze wiadomości w tej chwili.",
+      "fieldsAt": "Pola {kind} w chwili {time}",
+      "field": "Pole",
+      "value": "Wartość",
+      "graph": "Wykres",
+      "graphLabel": "Pokaż wykres: {field}",
+      "writtenAt": "Wiadomość zapisano w chwili {time}.",
+      "notNumbers": "To pole nie ma w logu wartości liczbowych, więc nie ma czego rysować.",
+      "asking": "Pytanie do logu…"
+    },
+    "export": {
+      "title": "Eksport",
+      "csv": "Zapisz {kind} jako CSV…",
+      "gpx": "Zapisz trasę jako GPX…",
+      "kml": "Zapisz trasę jako KML…",
+      "saved": "Zapisano {name}: {count} wiersz | Zapisano {name}: {count} wiersze | Zapisano {name}: {count} wierszy",
+      "cancelled": "Nic nie zapisano.",
+      "exists": "Plik {name} już istnieje. Nic nie zapisano.",
+      "replace": "Zastąp plik",
+      "replaceConfirm": "Potwierdź: zastąp {name}",
+      "noKind": "W tym logu nie ma wiadomości tego rodzaju, więc nie ma czego eksportować.",
+      "noTrack": "{format} jest niedostępny dla tego logu: nie ma w nim pozycji GPS z fixem 3D, więc nie ma trasy."
+    },
+    "setup": {
+      "title": "Ustawienia logowania",
+      "none": {
+        "title": "Brak parametrów logowania",
+        "help": "Połącz się z pojazdem i pobierz jego parametry, aby ustawić logowanie."
+      },
+      "armed": "Pojazd jest uzbrojony albo jego stan nie jest znany. Ustawienia logowania zmienia się tylko po rozbrojeniu.",
+      "fills": "Więcej logowania szybciej zapełnia pamięć pojazdu. Sprawdź szacunek poniżej, zanim włączysz strumienie.",
+      "streams": "Co pojazd zapisuje w logu",
+      "unnamed": "Nazwy bitów pochodzą z metadanych parametrów, które nie są wczytane. Bity pokazano jako liczby.",
+      "loadMetadata": "Wczytaj metadane parametrów…",
+      "bit": "Bit {bit}",
+      "batch": "Próbkowanie surowych danych IMU (dla widma)",
+      "batchHelp": "Zapisuje paczki surowych próbek żyroskopu i akcelerometru (ISBH, ISBD). Wybierz IMU do zapisu.",
+      "batchReboot": "Próbkowanie paczkami zaczyna działać po ponownym uruchomieniu pojazdu.",
+      "estimate": {
+        "title": "Szacunek rozmiaru",
+        "noLog": "Nie ma jeszcze pobranego logu z czasem trwania, więc nie wiadomo, ile pojazd zapisuje teraz.",
+        "measured": "Najnowszy zweryfikowany log zapisywano z szybkością około {mb} MB na minutę (jego rozmiar przez czas trwania).",
+        "batchOff": "Próbkowanie paczkami jest wyłączone.",
+        "batch": "Próbkowanie paczkami zapisuje co najwyżej {mb} MB na minutę.",
+        "batchChange": "Przy tych ustawieniach próbkowanie paczkami zapisuje co najwyżej {mb} MB na minutę (teraz co najwyżej {now}).",
+        "assumes": "To jest szacunek. Za najwięcej, co zapisuje próbkowanie paczkami, uznaje jedną wiadomość ISBD (207 bajtów) co INS_LOG_BAT_LGIN milisekund i nie dolicza nic za pozostałe strumienie: ich włączenie zwiększa szybkość zapisu twoich logów podaną wyżej."
+      },
+      "queue": "Dodaj {count} zmianę do kolejki | Dodaj {count} zmiany do kolejki | Dodaj {count} zmian do kolejki",
+      "revert": "Cofnij zaznaczenia"
+    },
     "section": {
       "flights": "Loty",
       "replay": "Odtwarzanie",
@@ -671,6 +730,7 @@
     "close": "Zamknij"
   },
   "staged": {
+    "armedLogging": "Ustawień logowania nie zapisuje się, gdy pojazd jest uzbrojony albo może być. Najpierw go rozbrój.",
     "region": "Zmiany do zapisania",
     "discard": "Odrzuć {id}",
     "write": "Zapisz {count} i zweryfikuj",

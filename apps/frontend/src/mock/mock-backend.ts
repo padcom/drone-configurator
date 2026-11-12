@@ -9,6 +9,7 @@ import type {
   SettingsState, VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
+import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 
@@ -220,6 +221,9 @@ class MockVehicle {
       case 'logs.local.modes': return this.localLogs.modes((e.p as { key: string }).key, ok, fail)
       case 'logs.local.review': return this.localLogs.review((e.p as { key: string }).key, ok, fail)
       case 'logs.local.series': return this.localLogs.series(e.p as { key: string, series: SeriesAsk[], buckets: number }, ok, fail)
+      case 'logs.local.messages': return this.localLogs.messages((e.p as { key: string }).key, ok, fail)
+      case 'logs.local.at': return this.localLogs.at(e.p as { key: string, message: string, timeUs: number }, ok, fail)
+      case 'logs.local.export': return this.localLogs.export(e.p as ExportAsk, ok, fail)
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)

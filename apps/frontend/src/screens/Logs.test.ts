@@ -62,8 +62,9 @@ it('says in each part what is missing and what it will take, never a blank panel
   const { wrapper, router } = await shellAt('/logs/flights')
   const said: string[] = []
 
-  // "Flights" and "On the vehicle" are built (LogsFlights.test.ts, LogsVehicle.test.ts); the others are still placeholders.
-  for (const part of ['replay', 'spectrum', 'tools']) {
+  // "Flights", "On the vehicle" and "Tools" are built (LogsFlights.test.ts, LogsVehicle.test.ts, LogsTools.test.ts); the others
+  // are still placeholders.
+  for (const part of ['replay', 'spectrum']) {
     // One part after the other: each is looked at while it is the one shown.
     // eslint-disable-next-line no-await-in-loop
     await router.push(`/logs/${part}`)
@@ -75,7 +76,7 @@ it('says in each part what is missing and what it will take, never a blank panel
   }
 
   expect(said.map(line => line.length > 20).every(Boolean)).toBe(true)
-  expect(new Set(said).size).toBe(3)
+  expect(new Set(said).size).toBe(2)
   expect(said[0]).toContain('Replay is not available yet')
 })
 

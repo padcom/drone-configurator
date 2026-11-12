@@ -27,6 +27,7 @@
     <!-- Always in the page, so that how the writing went is read out. -->
     <p class="staged-status" role="status" :class="{ quiet: !summary.polite }">{{ summary.polite }}</p>
     <p class="staged-status warn" role="alert" :class="{ quiet: !summary.urgent }">{{ summary.urgent }}</p>
+    <p v-if="armedBlock" id="staged-armed" class="staged-status warn">{{ t('staged.armedLogging') }}</p>
     <Button
       id="write-staged"
       variant="primary"
@@ -45,6 +46,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import Icon from '@/components/ui/Icon.vue'
+import { armedOf } from '@/lib/app/armed'
+import { includesLogging } from '@/lib/logs/loggingSetup'
 import { showNumber } from '@/lib/params/paramValue'
 import { linesFor, summaryOf } from '@/lib/params/stagedChanges'
 import { useToasts } from '@/composables/toasts'
@@ -59,7 +62,11 @@ const pending = computed(() => staged.pending())
 const connected = computed(() => fields.connection.value.state === 'connected')
 // Not while a write holds the lock, or the list is being downloaded (the values in it would be half old and half new).
 const idle = computed(() => !parameters.lock.busy.value && parameters.list.value !== 'loading')
-const writable = computed(() => connected.value && idle.value && pending.value.length > 0)
+// Logging settings (the Logging setup page queues them) are not written while the vehicle is armed or may be (unknown counts as
+// armed): more logging can fill its storage, and ArduPilot may refuse. The button says why instead of failing.
+const mayBeArmed = computed(() => armedOf(fields.telemetry.value) !== false)
+const armedBlock = computed(() => includesLogging(pending.value.map(change => change.id)) && mayBeArmed.value)
+const writable = computed(() => connected.value && idle.value && pending.value.length > 0 && !armedBlock.value)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
 const summary = computed(() => summaryOf(staged.results.value, staged.writing.value, staged.readBack.value, t))
 const list = ref<HTMLElement | null>(null)

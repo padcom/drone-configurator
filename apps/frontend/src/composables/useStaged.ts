@@ -84,6 +84,13 @@ export interface StagedModel {
    * @returns how many are queued now
    */
   resetTo: (targets: { id: string, to: number }[]) => number
+  /**
+   * Queues new values chosen on another page (the Logging setup), each in place of any change queued for it; the vehicle's own
+   * value takes the change out. Nothing is written: the question is asked when the changes are.
+   *
+   * @returns how many are queued now
+   */
+  stage: (targets: { id: string, to: number }[]) => number
   /** Forgets every change and result (the session ended, or another vehicle was connected). */
   reset: () => void
   /** Writes the changes that are not written yet, after one question, and stops at the first that is not confirmed. */
@@ -254,6 +261,36 @@ class Staged implements StagedModel {
 
   resetTo(targets: { id: string, to: number }[]): number {
     return this.writing.value ? 0 : targets.filter(({ id, to }) => this.resetOne(id, to)).length
+  }
+
+  stage(targets: { id: string, to: number }[]): number {
+    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to)).length
+  }
+
+  /**
+   * Queues one value (an edit, as if typed), or takes the change out when the vehicle has the value already.
+   *
+   * @param id the parameter
+   * @param to the value
+   * @returns true if a change is queued now
+   */
+  private stageOne(id: string, to: number): boolean {
+    const param = this.deps.parameters.params.value.find(candidate => candidate.id === id)
+    if (!param) {
+      return false
+    }
+    const value = canonical(param, to)
+    if (Object.is(value, canonical(param, param.value))) {
+      this.discard(id)
+
+      return false
+    }
+    // Not `queue`: that carries the warning of the selected parameter's draft, which is another parameter's.
+    const kept = this.changes.value.filter(change => change.id !== id)
+    this.changes.value = [...kept, { id, from: param.value, to: value }]
+    this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+
+    return true
   }
 
   sync(): void {

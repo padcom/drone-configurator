@@ -511,6 +511,37 @@ describe('putting parameters back to their initial values', () => {
   })
 })
 
+describe('staging values chosen on another page', () => {
+  it('queues them as edits, with no warning of the selected parameter, and writes nothing', () => {
+    const { staged, pick, draftWarning, call } = rig((_id, value) => value)
+    pick('FENCE_RADIUS', '150')
+    draftWarning.value = 'outside the range'
+
+    expect(staged.stage([{ id: 'RTL_ALT', to: 1400 }, { id: 'BATT_CAPACITY', to: 6000 }])).toBe(2)
+
+    expect(staged.changes.value).toEqual([
+      { id: 'RTL_ALT', from: 1500, to: 1400 },
+      { id: 'BATT_CAPACITY', from: 5200, to: 6000 },
+    ])
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('takes a change out for the vehicle\'s own value, and skips what is not on the vehicle or while writing', async () => {
+    const { staged, pick } = rig((_id, value) => value)
+    staged.stage([{ id: 'RTL_ALT', to: 1400 }])
+
+    expect(staged.stage([{ id: 'RTL_ALT', to: 1500 }, { id: 'NOT_THERE', to: 1 }])).toBe(0)
+    expect(staged.changes.value).toEqual([])
+
+    pick('RTL_ALT', '1600')
+    staged.sync()
+    const writing = staged.writeAll()
+    await Promise.resolve()
+    expect(staged.stage([{ id: 'FENCE_RADIUS', to: 1 }])).toBe(0)
+    await writing
+  })
+})
+
 describe('writing what was put back', () => {
   it('writes them as any change, after the one question, which says the value the vehicle has when it is asked', async () => {
     const { staged, askedOnce, params, call } = rig((_id, value) => value)
