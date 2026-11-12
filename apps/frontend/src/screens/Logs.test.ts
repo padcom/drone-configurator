@@ -62,7 +62,8 @@ it('says in each part what is missing and what it will take, never a blank panel
   const { wrapper, router } = await shellAt('/logs/flights')
   const said: string[] = []
 
-  for (const part of ['flights', 'replay', 'spectrum', 'vehicle', 'tools']) {
+  // "On the vehicle" is built (LogsVehicle.test.ts); the others are still placeholders.
+  for (const part of ['flights', 'replay', 'spectrum', 'tools']) {
     // One part after the other: each is looked at while it is the one shown.
     // eslint-disable-next-line no-await-in-loop
     await router.push(`/logs/${part}`)
@@ -74,9 +75,15 @@ it('says in each part what is missing and what it will take, never a blank panel
   }
 
   expect(said.map(line => line.length > 20).every(Boolean)).toBe(true)
-  expect(new Set(said).size).toBe(5)
+  expect(new Set(said).size).toBe(4)
   expect(said[1]).toContain('Replay is not available yet')
-  expect(said[3]).toContain('Logs on the vehicle are not available yet')
+})
+
+it('shows in "On the vehicle" that a vehicle must be connected, not a placeholder', async () => {
+  const { wrapper } = await shellAt('/logs/vehicle')
+
+  expect(wrapper.get('.logs-vehicle .kit-empty .title').text()).toBe('No vehicle is connected')
+  expect(wrapper.find('.logs-section').exists()).toBe(false)
 })
 
 it('keeps the screen alive when a part is chosen: the title is the same element, and each part keeps its own state', async () => {

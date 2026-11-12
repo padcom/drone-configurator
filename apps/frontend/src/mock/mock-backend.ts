@@ -9,6 +9,7 @@ import type {
   VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
+import { MockLogs, type MockLogsOptions } from './mock-logs'
 
 type Outgoing = Omit<Envelope, 'v'>
 type Send = (e: Outgoing) => void
@@ -31,6 +32,10 @@ export interface MockOptions {
   progress?: { steps: number, intervalMs: number }
   /** How the vehicle's file transfer behaves at the start (see `MockControl.ftp`). */
   ftp?: 'ok' | 'unsupported' | 'timeout'
+  /** How the logs on the vehicle download (four events of 20 ms for each log by default), and which they are. */
+  logs?: MockLogsOptions
+  /** The backend has no `logs.*` handler, as the real one has none yet: every call is answered with UNKNOWN_METHOD. */
+  withoutLogs?: boolean
 }
 
 /**
@@ -120,6 +125,7 @@ class MockVehicle {
   pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
   rebootsSent = 0
+  readonly logs: MockLogs
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -129,6 +135,7 @@ class MockVehicle {
   constructor(private readonly send: Send, private readonly options: MockOptions) {
     this.settings = options.settings ?? { version: 1, ui: [] }
     this.ftpMode = options.ftp ?? 'ok'
+    this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
     if (options.control) {
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => {
@@ -159,6 +166,7 @@ class MockVehicle {
       clearInterval(this.pendingList.timer)
       this.pendingList = undefined
     }
+    this.logs.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
@@ -183,6 +191,9 @@ class MockVehicle {
   answer(e: Envelope) {
     const ok = (p: Envelope['p']) => this.send({ k: 'response', id: e.id!, p })
     const fail = (code: string, message: string) => this.send({ k: 'error', id: e.id!, err: { code, message } })
+    if (this.options.withoutLogs && e.n?.startsWith('logs.')) {
+      return fail('UNKNOWN_METHOD', `no handler for ${e.n}`)
+    }
     switch (e.n) {
       case 'vehicle.connect': return this.connect(e.p as ConnectRequest, ok)
       case 'vehicle.disconnect': return this.update({ state: 'disconnected' }, ok)
@@ -194,6 +205,10 @@ class MockVehicle {
       case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
+      case 'logs.vehicle.list': return this.connected(fail) && this.logs.list(ok)
+      case 'logs.download': return this.connected(fail) && this.logs.download((e.p as { ids: number[] }).ids, ok, fail)
+      case 'logs.cancel': return this.logs.cancel(ok)
+      case 'logs.erase': return this.connected(fail) && this.logs.erase(ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
@@ -281,6 +296,11 @@ class MockVehicle {
     return { settings: this.settings, ...this.options.settingsNotice }
   }
 
+  /** Whether the vehicle is armed: a test's say, else the telemetry's; undefined or null when it is not known. */
+  armedState(): boolean | null | undefined {
+    return this.armedOverride === undefined ? this.telemetryArmed : this.armedOverride
+  }
+
   connected(fail: (code: string, message: string) => void): boolean {
     if (this.connection.state !== 'connected') {
       fail('NOT_CONNECTED', 'no vehicle is connected')
@@ -294,6 +314,7 @@ class MockVehicle {
     if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
       this.params = PARAMS.map(p => ({ ...p }))
       this.telemetryArmed = undefined
+      this.logs.reset()
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
       this.messages = []
       for (const [severity, text] of SCRIPTED_MESSAGES) {
@@ -342,7 +363,7 @@ class MockVehicle {
     if (!this.connected(fail)) {
       return undefined
     }
-    const armed = this.armedOverride === undefined ? this.telemetryArmed : this.armedOverride
+    const armed = this.armedState()
     if (armed === undefined || armed === null) {
       return fail('STATE_UNKNOWN', 'the vehicle\'s state is unknown (no heartbeat for 3 s)')
     }

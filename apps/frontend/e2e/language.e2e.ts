@@ -56,8 +56,8 @@ async function clippedOn(screen: string): Promise<string[]> {
  */
 async function pick(code: string): Promise<void> {
   await showScreen(win(), 'settings')
-  await win().waitFor(`document.querySelector('main select') !== null`)
-  await win().fill('main select', code)
+  await win().waitFor(`document.querySelector('main select[id$="-language"]') !== null`)
+  await win().fill('main select[id$="-language"]', code)
 }
 
 describe('the language of the interface', () => {
@@ -67,7 +67,9 @@ describe('the language of the interface', () => {
     await showScreen(win(), 'settings')
 
     expect(await win().evaluate<string>('document.documentElement.lang')).toBe('en')
-    expect(await win().evaluate<string[]>(`[...document.querySelectorAll('main select option')].map(o => o.textContent.trim())`))
+    // The language select only: Settings has more selects now (the preferences about logs).
+    const options = `[...document.querySelectorAll('main select[id$="-language"] option')].map(o => o.textContent.trim())`
+    expect(await win().evaluate<string[]>(options))
       .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español', 'Українська', 'Русский'])
   })
 

@@ -1,0 +1,63 @@
+/* "On the vehicle" in Logs (screens/logs/LogsVehicle.vue): the buttons, the table of logs, the download and, last, the erase. The
+   state of a log is written in words in its cell; the bar and the colour only add to it. */
+.logs-vehicle {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.logs-vehicle-title {
+  margin: 0;
+}
+
+.logs-toolbar,
+.logs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.logs-table th,
+.logs-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logs-table tr.failed .logs-state-text {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+.logs-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logs-outcome {
+  min-height: 1.5em;
+  margin: 0;
+}
+
+/* Erasing is the last thing on the page, set apart from the rest. */
+.logs-erase {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.logs-erase p {
+  margin: 0;
+}

@@ -15,6 +15,7 @@ import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/s
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
+import { HEARTBEAT_FRESH_MS, armedOf } from '@/lib/app/armed'
 import { pageLanguage, say, sayEnglish } from '@/i18n/say'
 import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
@@ -26,8 +27,7 @@ import { useParamSearchIndex } from './useParamSearchIndex'
 import { useParamView } from './useParamView'
 import { useToasts } from './toasts'
 
-/** Telemetry older than this (ms) does not say whether the vehicle is armed: it is not known. */
-export const HEARTBEAT_FRESH_MS = 3000
+export { HEARTBEAT_FRESH_MS }
 
 /**
  * The registry, with the commands every session has.
@@ -72,11 +72,7 @@ export function useCommands(): CommandRegistry {
  */
 function vehicleFacts(): VehicleFacts {
   const { fields, staged, vehicle } = useConfigurator()
-  const armed = () => {
-    const telemetry = fields.telemetry.value
-
-    return telemetry !== null && telemetry.heartbeatAgeMs <= HEARTBEAT_FRESH_MS ? telemetry.armed : undefined
-  }
+  const armed = () => armedOf(fields.telemetry.value)
   const downloading = () => (fields.list.value === 'loading' ? 'downloading' : null)
   const busy = () => (staged.writing.value ? 'writing' : downloading())
 

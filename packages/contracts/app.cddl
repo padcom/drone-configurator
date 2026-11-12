@@ -19,6 +19,18 @@ services = {
   ; arrived).
   "params.progress": ["event", params-progress],
   "params.write": ["method", param-write, param-write-result],
+  ; The flight logs on the vehicle (draft: the mock backend serves it; the real backend comes with the log download).
+  ; `logs.vehicle.list` lists them, `logs.download` fetches the ones named, one after the other, with `logs.progress` events
+  ; for each, and `logs.cancel` stops it (what was fetched is kept, and the next download of that log goes on from there).
+  ; Neither downloads nor erases while the vehicle is armed (`ARMED`), is not known to be disarmed (`STATE_UNKNOWN`) or while a
+  ; download runs (`BUSY`). A backend that implements this must also STOP a download that is running when the vehicle arms
+  ; (the refusal at the start is not enough), and keep what was fetched. `logs.erase` erases only logs that were downloaded
+  ; and checked (see `vehicle-log`); the others stay, and are counted.
+  "logs.vehicle.list": ["method", null, vehicle-logs],
+  "logs.download": ["method", logs-download, logs-downloaded],
+  "logs.cancel": ["method", null, null],
+  "logs.erase": ["method", null, logs-erased],
+  "logs.progress": ["event", logs-progress],
   "vehicle.reboot": ["method", null, reboot-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
@@ -113,6 +125,41 @@ param-write = {
 param-write-result = {
   param: param,
   verified: bool,
+}
+
+; One log on the vehicle: its number, its size in bytes, when it was made (milliseconds since 1970, absent when the vehicle has
+; no clock for it), and whether a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
+; checksum is the vehicle's: over FTP the vehicle computes it (CalcFileCRC32) and it is compared with that of the copy. The
+; log protocol (LOG_DATA) has no checksum, so a log fetched that way cannot be checked: it is reported `downloaded: false`,
+; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log
+; that could not be checked is never erased.
+vehicle-log = {
+  id: uint .size 4,
+  size: uint .size 4,
+  ? time: uint .size 8,
+  downloaded: bool,
+}
+
+; The logs, and how they were listed: "ftp" (the vehicle's files) or "mavlink" (the log protocol).
+vehicle-logs = { logs: [* vehicle-log], source: "ftp" / "mavlink" }
+
+; The logs to download, by number, in the order they are fetched.
+logs-download = { ids: [* uint .size 4] }
+
+; The logs that are whole now, and whether the download stopped before it was through (cancelled, or a log that failed).
+logs-downloaded = { ids: [* uint .size 4], stopped: bool }
+
+; The logs erased (they were downloaded), and how many were kept because they are not downloaded.
+logs-erased = { erased: [* uint .size 4], kept: uint .size 4 }
+
+; How a log is doing: queued, being fetched (`received` of `total` bytes; `resumedFrom` is where it began, when it went on from
+; what an earlier try had fetched), done, or failed.
+logs-progress = {
+  id: uint .size 4,
+  state: "queued" / "downloading" / "done" / "failed",
+  received: uint .size 4,
+  total: uint .size 4,
+  ? resumedFrom: uint .size 4,
 }
 
 ; Reboots the flight controller (MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN, parameter 1 = 1: a restart, not a reset of the

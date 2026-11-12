@@ -25,6 +25,8 @@ const props = withDefaults(defineProps<{
 }>(), { waitMs: SECOND_PRESS_MS })
 
 const emit = defineEmits<{
+  /** The first press: the button now says what it will do (a place can bring what it counts up to date). */
+  arm: []
   /** The second press: do it. */
   confirm: []
 }>()
@@ -45,6 +47,7 @@ function press(): void {
     armed.value = true
     armedAt = Date.now()
     timer = setTimeout(reset, props.waitMs)
+    emit('arm')
   } else if (Date.now() - armedAt >= BETWEEN_MS) {
     reset()
     emit('confirm')

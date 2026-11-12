@@ -520,6 +520,264 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   Cbor.Dict(m)
 }
 
+export struct VehicleLog {
+  id: u32
+  size: u32
+  time?: u64
+  downloaded: bool
+}
+
+export function decodeVehicleLog(v: Cbor, path: string): VehicleLog throws InvalidPayload {
+  const m = members(v, path, ["id", "size", "time", "downloaded"])
+  const cbor2 = m.get("time")
+  let opt2: u64? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.time`, 18446744073709551615) as u64)
+  }
+  VehicleLog {
+    id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
+    size: (uint(required(m, "size", path), `${path}.size`, 4294967295) as u32),
+    time: opt2,
+    downloaded: boolean(required(m, "downloaded", path), `${path}.downloaded`),
+  }
+}
+
+export function encodeVehicleLog(v: VehicleLog): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Uint(v.id as u64))
+  m.set("size", Cbor.Uint(v.size as u64))
+  const opt2 = v.time
+  if (opt2 != null) {
+    m.set("time", Cbor.Uint(opt2 as u64))
+  }
+  m.set("downloaded", Cbor.Bool(v.downloaded))
+  Cbor.Dict(m)
+}
+
+export enum VehicleLogsSource { Ftp, Mavlink }
+
+export function decodeVehicleLogsSource(v: Cbor, path: string): VehicleLogsSource throws InvalidPayload {
+  match (text(v, path)) {
+    "ftp" => VehicleLogsSource.Ftp,
+    "mavlink" => VehicleLogsSource.Mavlink,
+    _ => throw new InvalidPayload(path, "ftp or mavlink"),
+  }
+}
+
+export function encodeVehicleLogsSource(v: VehicleLogsSource): Cbor {
+  match (v) {
+    Ftp => Cbor.Text("ftp"),
+    Mavlink => Cbor.Text("mavlink"),
+  }
+}
+
+function decodeVehicleLogsLogsList(v: Cbor, path: string): VehicleLog[] throws InvalidPayload {
+  const out: VehicleLog[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeVehicleLog(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeVehicleLogsLogsList(v: VehicleLog[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeVehicleLog(e))
+  }
+  Cbor.List(out)
+}
+
+export struct VehicleLogs {
+  logs: VehicleLog[]
+  source: VehicleLogsSource
+}
+
+export function decodeVehicleLogs(v: Cbor, path: string): VehicleLogs throws InvalidPayload {
+  const m = members(v, path, ["logs", "source"])
+  VehicleLogs {
+    logs: decodeVehicleLogsLogsList(required(m, "logs", path), `${path}.logs`),
+    source: decodeVehicleLogsSource(required(m, "source", path), `${path}.source`),
+  }
+}
+
+export function encodeVehicleLogs(v: VehicleLogs): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("logs", encodeVehicleLogsLogsList(v.logs))
+  m.set("source", encodeVehicleLogsSource(v.source))
+  Cbor.Dict(m)
+}
+
+function decodeLogsDownloadIdsList(v: Cbor, path: string): u32[] throws InvalidPayload {
+  const out: u32[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsDownloadIdsList(v: u32[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsDownload {
+  ids: u32[]
+}
+
+export function decodeLogsDownload(v: Cbor, path: string): LogsDownload throws InvalidPayload {
+  const m = members(v, path, ["ids"])
+  LogsDownload {
+    ids: decodeLogsDownloadIdsList(required(m, "ids", path), `${path}.ids`),
+  }
+}
+
+export function encodeLogsDownload(v: LogsDownload): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ids", encodeLogsDownloadIdsList(v.ids))
+  Cbor.Dict(m)
+}
+
+function decodeLogsDownloadedIdsList(v: Cbor, path: string): u32[] throws InvalidPayload {
+  const out: u32[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsDownloadedIdsList(v: u32[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsDownloaded {
+  ids: u32[]
+  stopped: bool
+}
+
+export function decodeLogsDownloaded(v: Cbor, path: string): LogsDownloaded throws InvalidPayload {
+  const m = members(v, path, ["ids", "stopped"])
+  LogsDownloaded {
+    ids: decodeLogsDownloadedIdsList(required(m, "ids", path), `${path}.ids`),
+    stopped: boolean(required(m, "stopped", path), `${path}.stopped`),
+  }
+}
+
+export function encodeLogsDownloaded(v: LogsDownloaded): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ids", encodeLogsDownloadedIdsList(v.ids))
+  m.set("stopped", Cbor.Bool(v.stopped))
+  Cbor.Dict(m)
+}
+
+function decodeLogsErasedErasedList(v: Cbor, path: string): u32[] throws InvalidPayload {
+  const out: u32[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsErasedErasedList(v: u32[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsErased {
+  erased: u32[]
+  kept: u32
+}
+
+export function decodeLogsErased(v: Cbor, path: string): LogsErased throws InvalidPayload {
+  const m = members(v, path, ["erased", "kept"])
+  LogsErased {
+    erased: decodeLogsErasedErasedList(required(m, "erased", path), `${path}.erased`),
+    kept: (uint(required(m, "kept", path), `${path}.kept`, 4294967295) as u32),
+  }
+}
+
+export function encodeLogsErased(v: LogsErased): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("erased", encodeLogsErasedErasedList(v.erased))
+  m.set("kept", Cbor.Uint(v.kept as u64))
+  Cbor.Dict(m)
+}
+
+export enum LogsProgressState { Queued, Downloading, Done, Failed }
+
+export function decodeLogsProgressState(v: Cbor, path: string): LogsProgressState throws InvalidPayload {
+  match (text(v, path)) {
+    "queued" => LogsProgressState.Queued,
+    "downloading" => LogsProgressState.Downloading,
+    "done" => LogsProgressState.Done,
+    "failed" => LogsProgressState.Failed,
+    _ => throw new InvalidPayload(path, "queued or downloading or done or failed"),
+  }
+}
+
+export function encodeLogsProgressState(v: LogsProgressState): Cbor {
+  match (v) {
+    Queued => Cbor.Text("queued"),
+    Downloading => Cbor.Text("downloading"),
+    Done => Cbor.Text("done"),
+    Failed => Cbor.Text("failed"),
+  }
+}
+
+export struct LogsProgress {
+  id: u32
+  state: LogsProgressState
+  received: u32
+  total: u32
+  resumedFrom?: u32
+}
+
+export function decodeLogsProgress(v: Cbor, path: string): LogsProgress throws InvalidPayload {
+  const m = members(v, path, ["id", "state", "received", "total", "resumedFrom"])
+  const cbor4 = m.get("resumedFrom")
+  let opt4: u32? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.resumedFrom`, 4294967295) as u32)
+  }
+  LogsProgress {
+    id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
+    state: decodeLogsProgressState(required(m, "state", path), `${path}.state`),
+    received: (uint(required(m, "received", path), `${path}.received`, 4294967295) as u32),
+    total: (uint(required(m, "total", path), `${path}.total`, 4294967295) as u32),
+    resumedFrom: opt4,
+  }
+}
+
+export function encodeLogsProgress(v: LogsProgress): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Uint(v.id as u64))
+  m.set("state", encodeLogsProgressState(v.state))
+  m.set("received", Cbor.Uint(v.received as u64))
+  m.set("total", Cbor.Uint(v.total as u64))
+  const opt4 = v.resumedFrom
+  if (opt4 != null) {
+    m.set("resumedFrom", Cbor.Uint(opt4 as u64))
+  }
+  Cbor.Dict(m)
+}
+
 export enum RebootResultResult { Accepted, Refused, Unsupported, NoAnswer }
 
 export function decodeRebootResultResult(v: Cbor, path: string): RebootResultResult throws InvalidPayload {

@@ -18,6 +18,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
+import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -46,6 +47,8 @@ export interface ConfiguratorHandle {
   settings: SettingsModel
   /** The texts the vehicle sends, for the Fly aside, the toasts and the failsafe banner. */
   messages: MessagesModel
+  /** The flight logs on the vehicle: listed, downloaded, erased. */
+  logs: LogsModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -78,7 +81,10 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 }
 
 /** The composables that hold the state. */
-type Models = Pick<ConfiguratorHandle, 'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'staged'>
+type Models = Pick<
+  ConfiguratorHandle,
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'staged'
+>
 
 /**
  * The state as the refs that hold it.
@@ -225,6 +231,25 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
 }
 
 /**
+ * The vehicle's logs. They are the vehicle's: another vehicle, or none, has its own. So they go when the session ends, and with
+ * every connected report that is not the same vehicle coming back (`resumed`), also one that follows another with no gap.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the logs
+ */
+function startLogs(client: BackendClient, vehicle: Vehicle): LogsModel {
+  const logs = useVehicleLogs({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
+  watch(vehicle.connection, next => {
+    if (next.state !== 'connected' || next.resumed !== true) {
+      logs.reset()
+    }
+  })
+
+  return logs
+}
+
+/**
  * What the parameters ask about a draft: whether it is a value at all (an error) and what the loaded metadata finds unusual
  * about it (a warning, which does not stop a write).
  *
@@ -279,10 +304,11 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
+  const logs = startLogs(client, vehicle)
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, staged }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
