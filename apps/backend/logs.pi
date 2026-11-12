@@ -1,0 +1,656 @@
+// The logs service: the flight logs on the vehicle, listed and downloaded over MAVLink FTP (`logs.vehicle.list`, `logs.download`
+// with `logs.progress`, `logs.cancel`). The logs of ArduPilot are `/logs/NNNNNNNN.BIN` (8 digits), created when the vehicle arms
+// (a directory that is not there yet is an empty list). `logs.erase` is not implemented (answered with UNSUPPORTED).
+//
+// A log is downloaded to `<data directory>/logs/<vehicle>/`. While it comes it is `NNNNNNNN.BIN.part`: a download that stops
+// (cancelled, the vehicle armed, the link lost) leaves the part, and the next one goes on from its end. Only a copy whose CRC-32
+// is the vehicle's own (CalcFileCRC32) is given its real name, `NNNNNNNN-CCCCCCCC.BIN` (the number of the log on the vehicle and
+// the CRC in hex): the CRC is part of the name because the NUMBER alone does not say which log it is. ArduPilot starts numbering
+// again after a format or with another card, so a second log with the same number is another file: a copy is never replaced, a
+// file that is there is kept and the new one gets its own name. A log that cannot be checked (the vehicle has no CRC) stays a part.
+//
+// "Downloaded" (the list) is a copy of that number and the listing's size. That is a probable match, not a proof: the CRC in the
+// name is what proves it, and the vehicle's CRC is asked for before a log is taken for the one that is here (`logs.download`),
+// and must be asked before anything is ever erased on the vehicle (not implemented: `logs.erase` is UNSUPPORTED).
+//
+// The folder is the vehicle's: by its identity, which for a board with a unique id is that id. A vehicle with none (the identity is
+// only ids and type, the same for every such vehicle) gets a folder for each connection, so that two of them never share one.
+//
+// The log of a flight that has just ended is still written to for a while, so the size in the listing is not final: the download
+// asks for no size, and a CRC that differs because the file grew is chased: the download goes on from what it has (up to a few
+// times) until the vehicle's CRC is the one of the bytes written.
+//
+// Safety: nothing is downloaded while the vehicle is armed (`ARMED`) or while that is not known (`STATE_UNKNOWN`), nor while a
+// parameter operation runs or another download (`BUSY`); a download that runs is STOPPED when the vehicle arms (at its next
+// heartbeat: up to a second after the arm, which the vehicle's own link and card absorb). The listing of a
+// directory that cannot be trusted (a name that is not UTF-8) is an error with the reason (`LOGS_UNAVAILABLE`), never a partial list.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import {
+  Crc32,
+  FileSink,
+  FtpClient,
+  FtpEntry,
+  FtpError,
+  Heartbeat,
+  MavLinkConnection,
+  MavModeFlag,
+  Received,
+  Target,
+  downloadFile,
+} from "padcom/pico-mavlink"
+import { File, exists, mkdir, open, readDir, remove, rename, stat } from "std/fs"
+import { join } from "std/path"
+import {
+  LogsDownloaded,
+  LogsProgress,
+  LogsProgressState,
+  VehicleLog,
+  VehicleLogs,
+  VehicleLogsSource,
+  decodeLogsDownload,
+  encodeLogsDownloaded,
+  encodeLogsProgress,
+  encodeVehicleLogs,
+} from "./generated/app"
+import { dataDirectory } from "./settings"
+import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// Where ArduPilot keeps its logs on the vehicle.
+const LOG_DIRECTORY: string = "/logs"
+
+/// How many times a download chases a log that grows while it is fetched (each time it goes on from what it has).
+const CHASES: int = 4
+
+/// At most this often (ms) a `logs.progress` is sent for the log that is coming (the first and the last always).
+const PROGRESS_EVERY_MS: int = 100
+
+/// How long the vehicle is given to compute the CRC of a log (ms): it reads the whole file.
+const CRC_WAIT_MS: int = 30000
+
+/// Registers the service's methods on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  running.communicator = c
+  link.parts.set("logs", running)
+  c.handle("logs.vehicle.list", listLogs)
+  c.handle("logs.download", downloadLogs)
+  c.handle("logs.cancel", cancelDownload)
+  c.handle("logs.erase", eraseLogs)
+}
+
+/// The log download that runs, if any, and the vehicle's arming, which stops it.
+class Running implements SessionPart {
+  public communicator: Communicator? = null
+  public conn: MavLinkConnection? = null
+  public listener: int = 0
+  /// The download that runs, so that `logs.cancel`, the vehicle arming and the session ending can stop it.
+  public download: AbortController? = null
+  /// Whether the list of logs is being read (it resets the FTP sessions first, so nothing else may use them meanwhile).
+  public listing: bool = false
+  /// Why it was stopped, when it was not by `logs.cancel`: "" or the words.
+  public stoppedFor: string = ""
+  /// The session signal that is followed (once for each session, not once for each download).
+  public followed: AbortSignal? = null
+  /// When progress was last sent (ms since 1970).
+  public progressAt: int = 0
+  /// A mark of the connection (the time it was first asked for, ms since 1970), for a vehicle that has no unique id: its folder.
+  public mark: string = ""
+  public markGeneration: int = -1
+
+  public attach(c: MavLinkConnection): void {
+    if (conn != null) {
+      detach()
+    }
+    conn = c
+    listener = c.on((r: Received) => seen(r))
+  }
+
+  public detach(): void {
+    const c = conn
+    if (c != null) {
+      c!.off(listener)
+    }
+    conn = null
+  }
+
+  /// A heartbeat that says the vehicle is armed stops the download that runs: the vehicle's card and its link are for flying.
+  public seen(r: Received): void {
+    if (download == null || link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
+      return
+    }
+    const m = r.message
+    if (m instanceof Heartbeat && ((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0) {
+      stop("the vehicle armed")
+    }
+  }
+
+  /// Stops the download that runs, if any, and notes why (the first reason stays).
+  public stop(why: string): void {
+    const d = download
+    if (d != null) {
+      if (stoppedFor == "") {
+        stoppedFor = why
+      }
+      d!.abort()
+    }
+  }
+
+  /// Makes the session ending stop the download that runs. One listener on a session's signal, however many downloads it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => stop("the session ended"))
+  }
+}
+
+const running = new Running()
+
+/// The name of the log file of number `id`: eight digits and ".BIN".
+export function nameOfLog(id: int): string {
+  let digits = `${id}`
+  while (digits.length < 8) {
+    digits = `0${digits}`
+  }
+  `${digits}.BIN`
+}
+
+/// The number of a log file, or -1 when the name is not that of a log: eight digits and ".BIN" (LASTLOG.TXT and the like are not).
+export function numberOfLog(name: string): int {
+  if (name.length != 12 || name.slice(8, 12) != ".BIN") {
+    return -1
+  }
+  let n = 0
+  for (const ch of name.slice(0, 8).split("")) {
+    const digit = "0123456789".indexOf(ch)
+    if (digit < 0) {
+      return -1
+    }
+    n = n * 10 + digit
+  }
+  n
+}
+
+/// The vehicle as a folder name: its identity, with what a path does not allow turned into '-'.
+export function folderOf(identity: string): string {
+  let out = ""
+  for (const ch of identity.split("")) {
+    out += if ("/:\\ ".indexOf(ch) >= 0) "-" else ch
+  }
+  if (out == "") "vehicle" else out
+}
+
+/// The name of the connected vehicle's folder: its identity; for a vehicle with no unique id (the identity has no "uid:", it is the
+/// same for every such vehicle) the identity and a mark of this connection, so that two of them never share a folder (a later
+/// connection to the same one has a folder of its own too: nothing says it is the same).
+export function folderName(): string {
+  const base = folderOf(link.identity)
+  if (link.identity.indexOf("uid:") >= 0) {
+    return base
+  }
+  if (running.markGeneration != link.generation) {
+    running.markGeneration = link.generation
+    running.mark = `${Date.now()}`
+  }
+  `${base}-c${running.mark}`
+}
+
+/// The folder the logs of the connected vehicle are kept in.
+async function folder(): Promise<string> throws CommunicatorError {
+  try {
+    const root = await dataDirectory()
+    return join(root, "logs", folderName())
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
+  }
+}
+
+/// The client for the vehicle's file transfer.
+function clientFor(conn: MavLinkConnection, signal: AbortSignal?): FtpClient {
+  const target: Target = { system: link.sysid, component: link.compid }
+  if (signal == null) {
+    return new FtpClient(conn, target, { timeoutMs: 1000, retries: 3 })
+  }
+  new FtpClient(conn, target, { timeoutMs: 1000, retries: 3, signal: signal! })
+}
+
+/// The log files of the vehicle, in the order it lists them: `.BIN` files of eight digits. A directory that is not there is none.
+/// A listing that cannot be trusted is `LOGS_UNAVAILABLE`.
+async function entriesOf(client: FtpClient): Promise<FtpEntry[]> throws CommunicatorError {
+  let all: FtpEntry[] = []
+  try {
+    all = await client.listDirectory(LOG_DIRECTORY)
+  } catch (e: FtpError) {
+    if (e.code == "FTP_NOT_FOUND" || (e.code == "FTP_ERRNO" && e.errno == 2)) {
+      return []
+    }
+    if (e.code == "FTP_PROTOCOL") {
+      throw new CommunicatorError("LOGS_UNAVAILABLE", `the list of logs on the vehicle can't be trusted: ${e.message}`)
+    }
+    throw new CommunicatorError(e.code, e.message)
+  }
+  const logs: FtpEntry[] = []
+  for (const e of all) {
+    if (!e.directory && numberOfLog(e.name) >= 0) {
+      logs.push(e)
+    }
+  }
+  logs
+}
+
+/// The size of the file at `path`, or -1 when there is none.
+async function sizeOf(path: string): Promise<int> {
+  try {
+    const info = await stat(path)
+    if (info.isFile) info.size else -1
+  } catch (e: Error) {
+    -1
+  }
+}
+
+/// Eight hex digits (lower case) of a 32-bit value.
+export function hex8(n: int): string {
+  const digits = "0123456789abcdef"
+  let out = ""
+  for (let i = 7; i >= 0; i--) {
+    const d = (n >> (i * 4)) & 15
+    out += digits.slice(d, d + 1)
+  }
+  out
+}
+
+/// The name of the checked copy of log `id` whose CRC-32 is `crc`: `NNNNNNNN-CCCCCCCC.BIN`.
+export function copyName(id: int, crc: int): string {
+  `${nameOfLog(id).slice(0, 8)}-${hex8(crc)}.BIN`
+}
+
+/// A checked copy that is in the folder: the log's number, the CRC-32 in its name, and its size.
+export class Copy {
+  public readonly id: int
+  public readonly crc: int
+  public readonly size: int
+
+  constructor(id: int, crc: int, size: int) {
+    this.id = id
+    this.crc = crc
+    this.size = size
+  }
+}
+
+/// The number and CRC in the name of a checked copy, as [number, crc], or [-1, 0] when the name is not one.
+export function copyNumbers(name: string): int[] {
+  if (name.length != 21 || name.slice(8, 9) != "-" || name.slice(17, 21) != ".BIN") {
+    return [-1, 0]
+  }
+  const id = numberOfLog(`${name.slice(0, 8)}.BIN`)
+  let crc = 0
+  for (const ch of name.slice(9, 17).split("")) {
+    const digit = "0123456789abcdef".indexOf(ch)
+    if (digit < 0) {
+      return [-1, 0]
+    }
+    crc = crc * 16 + digit
+  }
+  [id, crc]
+}
+
+/// The checked copies in a folder (none when it is not there).
+async function copiesIn(dir: string): Promise<Copy[]> throws Error {
+  const out: Copy[] = []
+  if (!(await exists(dir))) {
+    return out
+  }
+  for await (const entry of readDir(dir)) {
+    const numbers = copyNumbers(entry.name)
+    if (entry.isFile && numbers[0] >= 0) {
+      out.push(new Copy(numbers[0], numbers[1], await sizeOf(join(dir, entry.name))))
+    }
+  }
+  out
+}
+
+/// A log of the vehicle as the contract has it. It is downloaded when a checked copy of that number and size is here (a probable
+/// match: see the head of this file).
+async function toLog(e: FtpEntry, copies: Copy[]): Promise<VehicleLog> {
+  const id = numberOfLog(e.name)
+  const have = copies.some((c: Copy) => c.id == id && c.size == e.size)
+  const log = VehicleLog { id: id as u32, size: e.size as u32, downloaded: have }
+  if (e.time != null) {
+    // The vehicle gives seconds since 1970 (the time of the last write); the contract has milliseconds.
+    log.time = (e.time! * 1000) as u64
+  }
+  log
+}
+
+async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  if (running.download != null || running.listing || link.listing) {
+    throw new CommunicatorError("BUSY", "a download or a listing is running")
+  }
+  // The listing begins with a reset of the FTP sessions (all of this system's and component's on the link), so it is marked as
+  // under way at once, before anything is awaited: a parameter download, a reboot, a download or another listing that comes now
+  // is refused (BUSY) instead of being cut by it or cutting it.
+  running.listing = true
+  link.logging = true
+  try {
+    return await listInFolder(conn)
+  } finally {
+    running.listing = false
+    link.logging = false
+  }
+}
+
+/// The listing, once it is claimed.
+async function listInFolder(conn: MavLinkConnection): Promise<Cbor?> throws Error {
+  const dir = await folder()
+  const entries = await entriesOf(clientFor(conn, link.session.signal))
+  const copies = await copiesIn(dir)
+  const logs: VehicleLog[] = []
+  for (const e of entries) {
+    logs.push(await toLog(e, copies))
+  }
+  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
+}
+
+/// Why a log may not be downloaded now, as an error, or nothing: armed or not known to be disarmed, another download, a parameter
+/// operation.
+function refuse(): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed")
+  }
+  if (running.download != null || running.listing || link.listing || link.writes > 0 || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a download, a parameter operation or a reboot is running")
+  }
+}
+
+/// Tells the interface how a log is doing.
+function say(id: int, state: LogsProgressState, received: int, total: int, resumedFrom: int): void {
+  const c = running.communicator
+  if (c == null) {
+    return
+  }
+  const p = LogsProgress { id: id as u32, state: state, received: received as u32, total: total as u32 }
+  if (resumedFrom > 0) {
+    p.resumedFrom = resumedFrom as u32
+  }
+  c!.emit("logs.progress", encodeLogsProgress(p))
+}
+
+/// The part of a log being fetched: the file is written in order, and its CRC kept as it goes.
+class PartFile implements FileSink {
+  public readonly file: File
+  public readonly crc: Crc32
+  /// How many bytes the part holds.
+  public total: int
+
+  constructor(file: File, crc: Crc32, total: int) {
+    this.file = file
+    this.crc = crc
+    this.total = total
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    await file.write(bytes)
+    crc.update(bytes)
+    total += bytes.length
+  }
+}
+
+/// The CRC-32 of the bytes of a file, read a piece at a time.
+async function crcOfFile(path: string): Promise<Crc32> throws Error {
+  const crc = new Crc32()
+  const f = await open(path)
+  try {
+    while (true) {
+      const piece = await f.read(1048576)
+      if (piece == null) {
+        break
+      }
+      crc.update(piece!)
+    }
+  } catch (e: Error) {
+    await f.close()
+    throw e
+  }
+  await f.close()
+  crc
+}
+
+/// How a log came: `done`, `stopped` (cancelled, the vehicle armed, the session ended: what came is kept), or `failed` with the
+/// words for why.
+class Outcome {
+  public state: string = "done"
+  public why: string = ""
+  /// The CRC-32 of the copy, when it is done.
+  public crc: int = 0
+}
+
+function failed(why: string): Outcome {
+  const o = new Outcome()
+  o.state = "failed"
+  o.why = why
+  o
+}
+
+/// Whether the folder has a copy of log `id` of `listed` bytes that IS this log: the vehicle's CRC of the log now is the one in the
+/// copy's name. (A log of that number and size may be another one; a vehicle that cannot say its CRC leaves it unproven.)
+async function hasThisCopy(client: FtpClient, id: int, listed: int, dir: string): Promise<bool> throws Error {
+  for (const c of await copiesIn(dir)) {
+    if (c.id == id && c.size == listed) {
+      try {
+        const theirs = await client.calcCrc32(`${LOG_DIRECTORY}/${nameOfLog(id)}`, CRC_WAIT_MS)
+        if (theirs == c.crc) {
+          return true
+        }
+      } catch (e: FtpError) {
+      }
+    }
+  }
+  false
+}
+
+/// Gives a checked part its real name. A file that is there already (the same bytes: the name has their CRC) is kept as it is,
+/// and the part goes; nothing is ever replaced.
+async function keep(part: string, to: string): Promise<void> throws Error {
+  if (await exists(to)) {
+    await remove(part)
+  } else {
+    await rename(part, to)
+  }
+}
+
+/// `chase`, and the part's file closed whatever ends it.
+async function chaseAndClose(client: FtpClient, id: int, listed: int, sink: PartFile, file: File, startedAt: int): Promise<Outcome> throws Error {
+  let outcome = new Outcome()
+  try {
+    outcome = await chase(client, id, listed, sink, startedAt)
+  } catch (e: Error) {
+    await file.close()
+    throw e
+  }
+  await file.close()
+  outcome
+}
+
+/// Downloads the log `id`, whose listing says `listed` bytes, to its folder: the part goes on from where it is, the file is renamed
+/// to its real name when the vehicle's CRC is the one of the bytes. Told progress as `logs.progress`.
+async function fetch(client: FtpClient, id: int, listed: int, dir: string): Promise<Outcome> {
+  const part = join(dir, `${nameOfLog(id)}.part`)
+  try {
+    await mkdir(dir, true)
+    if (await hasThisCopy(client, id, listed, dir)) {
+      say(id, LogsProgressState.Done, listed, listed, 0)
+      return new Outcome()
+    }
+    let held = await sizeOf(part)
+    // A part longer than the log (the vehicle's log of that number is another one now) is no part of it.
+    if (held > listed && listed > 0) {
+      await remove(part)
+      held = -1
+    }
+    const crc = if (held > 0) await crcOfFile(part) else new Crc32()
+    const file = await open(part, false, true, true, true)
+    const sink = new PartFile(file, crc, if (held > 0) held else 0)
+    const outcome = await chaseAndClose(client, id, listed, sink, file, if (held > 0) held else 0)
+    if (outcome.state == "done") {
+      await keep(part, join(dir, copyName(id, outcome.crc)))
+    } else if (outcome.state == "failed" && outcome.why.startsWith("the copy does not match")) {
+      // Bytes that do not match the vehicle's file and did not grow with it are of no use to a resume.
+      await remove(part)
+    }
+    return outcome
+  } catch (e: Error) {
+    return failed(`log ${id}: ${e.message}`)
+  }
+}
+
+/// The downloads of one log: the first, and the ones that follow a CRC that differs because the file grew.
+async function chase(client: FtpClient, id: int, listed: int, sink: PartFile, startedAt: int): Promise<Outcome> throws Error {
+  const remote = `${LOG_DIRECTORY}/${nameOfLog(id)}`
+  let last = ""
+  let grew = false
+  for (let attempt = 0; attempt < CHASES; attempt++) {
+    const before = sink.total
+    try {
+      const got = await downloadFile(
+        client, remote, sink, sink.total, sink.crc.crc, -1,
+        (bytes: int, estimate: int) => progressed(id, bytes, estimate, listed, startedAt),
+        250, 0, 2000000000, true, CRC_WAIT_MS,
+      )
+      if (!got.verified) {
+        return failed(`log ${id} could not be checked by the vehicle (${got.crcError}); it is kept as a part`)
+      }
+      say(id, LogsProgressState.Done, got.size, got.size, startedAt)
+      const done = new Outcome()
+      done.crc = got.crc
+      return done
+    } catch (e: FtpError) {
+      if (e.code == "FTP_ABORTED") {
+        return stopped()
+      }
+      if (e.code != "FTP_CRC") {
+        return failed(`log ${id}: ${e.message}`)
+      }
+      last = e.message
+      // A try after the first that brought bytes found the file longer than before.
+      grew = grew || (attempt > 0 && sink.total > before)
+    }
+  }
+  // A file that was longer at each try is one the vehicle still writes (it keeps the log of a connected ground station open):
+  // what came is the start of it, and the next download goes on from there. Otherwise the bytes are wrong.
+  if (grew) {
+    return failed(`log ${id} is still being written by the vehicle; what came is kept as a part (${last})`)
+  }
+  failed(`the copy does not match the vehicle's file after ${CHASES} tries (${last})`)
+}
+
+function stopped(): Outcome {
+  const o = new Outcome()
+  o.state = "stopped"
+  o
+}
+
+/// Progress of the log that comes, at most every `PROGRESS_EVERY_MS`; the total is the larger of the listing's size and what has come.
+function progressed(id: int, bytes: int, estimate: int, listed: int, resumedFrom: int): void {
+  const now = Date.now() as int
+  const total = if (bytes > listed) bytes else if (estimate > listed) estimate else listed
+  if (running.progressAt != 0 && bytes < total && now - running.progressAt < PROGRESS_EVERY_MS) {
+    return
+  }
+  running.progressAt = now
+  say(id, LogsProgressState.Downloading, bytes, total, resumedFrom)
+}
+
+async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsDownload(payload ?? Cbor.Null, "$")
+  const conn = connectedLink()
+  refuse()
+  // The download is claimed at once, before anything is awaited: a second call that comes while the first is still looking for
+  // its folder finds it busy, and is refused (two downloads would reset each other's FTP sessions, and the first to end would
+  // clear the flag of the other).
+  const own = new AbortController()
+  running.follow(link.session.signal)
+  running.download = own
+  running.stoppedFor = ""
+  running.progressAt = 0
+  link.logging = true
+  const finished: u32[] = []
+  let error = ""
+  let stoppedEarly = false
+  try {
+    const dir = await folder()
+    const client = clientFor(conn, own.signal)
+    // A cancel that comes while the list is read ends the download as a stopped one, like any other cancel.
+    let listing: FtpEntry[] = []
+    try {
+      listing = await entriesOf(client)
+    } catch (e: CommunicatorError) {
+      // `entriesOf` gives an FtpError as a CommunicatorError with the same code.
+      if (e.code != "FTP_ABORTED") {
+        throw e
+      }
+      stoppedEarly = true
+    }
+    const wanted: u32[] = []
+    for (const id of asked.ids) {
+      if (!wanted.includes(id)) {
+        wanted.push(id)
+      }
+    }
+    for (const id of wanted) {
+      const entry = listing.find((e: FtpEntry) => numberOfLog(e.name) == (id as int))
+      say(id as int, LogsProgressState.Queued, 0, if (entry == null) 0 else entry!.size, 0)
+    }
+    for (const id of wanted) {
+      if (own.signal.aborted) {
+        stoppedEarly = true
+        break
+      }
+      const entry = listing.find((e: FtpEntry) => numberOfLog(e.name) == (id as int))
+      if (entry == null) {
+        say(id as int, LogsProgressState.Failed, 0, 0, 0)
+        error = `log ${id} is not on the vehicle`
+        stoppedEarly = true
+        break
+      }
+      const outcome = await fetch(client, id as int, entry!.size, dir)
+      if (outcome.state == "done") {
+        finished.push(id)
+      } else {
+        stoppedEarly = true
+        if (outcome.state == "failed") {
+          say(id as int, LogsProgressState.Failed, 0, entry!.size, 0)
+          error = outcome.why
+        }
+        break
+      }
+    }
+  } finally {
+    link.logging = false
+    running.download = null
+  }
+  const why = running.stoppedFor
+  running.stoppedFor = ""
+  const result = LogsDownloaded { ids: finished, stopped: stoppedEarly }
+  if (error != "") {
+    result.error = error
+  } else if (why != "") {
+    result.error = `the download was stopped: ${why}`
+  }
+  encodeLogsDownloaded(result)
+}
+
+/// Stops the download that runs, if any: what came is kept.
+async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  running.stop("")
+  null
+}
+
+/// Erasing logs on the vehicle needs a file removal that the file transfer here does not have yet.
+async function eraseLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  throw new CommunicatorError("UNSUPPORTED", "erasing the logs on the vehicle is not available yet")
+}

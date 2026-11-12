@@ -318,6 +318,18 @@ function check(s: Settings): void throws SettingsFileError {
   }
 }
 
+/// The app's data directory (the directory under test, when there is one), made if it is not there; for what other services keep
+/// (the logs). Fails with the reason, and says nothing about the settings.
+export async function dataDirectory(): Promise<string> throws Error {
+  const wanted = store.override
+  if (wanted != null) {
+    await mkdir(wanted!, true)
+    return wanted!
+  }
+  const dirs = await appDirs(APP_ID)
+  dirs.data
+}
+
 /// Where the file goes: the directory under test, or the app's data directory. Null (and a notice) when there is none.
 async function locate(): Promise<string?> {
   const wanted = store.override

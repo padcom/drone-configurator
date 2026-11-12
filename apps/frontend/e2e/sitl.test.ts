@@ -5,8 +5,14 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { delimiter, isAbsolute, join, relative as relativePath } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asHeartbeat, asParamValue, crc16, encodeFrame, encodeParamSet } from './mavlink-wire'
-import { claimInstance, cleanupAllSync, findSitlBinary, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply, startSitl } from './sitl'
+import {
+  FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asCommandAck, asHeartbeat, asParamValue, asRelativeAltitude, crc16, encodeCommandLong, encodeFrame,
+  encodeParamSet,
+} from './mavlink-wire'
+import {
+  claimInstance, cleanupAllSync, findSitlBinary, flightStep, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply,
+  startSitl,
+} from './sitl'
 
 describe('the MAVLink wire format', () => {
   it('computes the X.25 CRC', () => {
@@ -20,7 +26,37 @@ describe('the MAVLink wire format', () => {
     const reader = new FrameReader()
     expect(reader.push(bytes.subarray(0, 5))).toEqual([])
     const [frame] = reader.push(bytes.subarray(5))
-    expect(frame && asHeartbeat(frame)).toEqual({ systemId: 1, componentId: 1, type: 2, autopilot: 3 })
+    expect(frame && asHeartbeat(frame)).toEqual({ systemId: 1, componentId: 1, type: 2, autopilot: 3, armed: false, customMode: 0 })
+  })
+
+  it('reads the armed flag and the flight mode of a heartbeat', () => {
+    // custom_mode 4 (GUIDED), base_mode 0xd1 (armed, custom mode enabled, ...).
+    const armed = Uint8Array.of(4, 0, 0, 0, 2, 3, 0xd1, 4, 3)
+    const [frame] = new FrameReader().push(encodeFrame(MSG_HEARTBEAT, armed, { systemId: 1, componentId: 1 }))
+    expect(frame && asHeartbeat(frame)).toMatchObject({ armed: true, customMode: 4 })
+  })
+
+  it('writes a COMMAND_LONG that reads back, and reads an ack and a height', () => {
+    const sent = encodeCommandLong({ systemId: 1, componentId: 1 }, 400, [1])
+    const [command] = new FrameReader().push(sent)
+    expect(command?.messageId).toBe(76)
+    // The seven parameters (the first is 1), the command (400) after them, the target after that.
+    const view = new DataView(command?.payload.buffer ?? new ArrayBuffer(0), command?.payload.byteOffset)
+    expect([view.getFloat32(0, true), view.getUint16(28, true), command?.payload[30], command?.payload[31]]).toEqual([1, 400, 1, 1])
+    const ack = new FrameReader().push(encodeFrame(77, Uint8Array.of(0x90, 0x01, 0), { systemId: 1, componentId: 1 }))[0]
+    expect(ack && asCommandAck(ack)).toEqual({ command: 400, result: 0 })
+    const position = new Uint8Array(28)
+    new DataView(position.buffer).setInt32(16, 8224, true)
+    const height = new FrameReader().push(encodeFrame(33, position, { systemId: 1, componentId: 1 }))[0]
+    expect(height && asRelativeAltitude(height)).toBe(8224)
+  })
+
+  it('asks for the next command of a flight: guided and armed, then up, then land', () => {
+    const base = { armed: false, mode: -1, heightMm: 0, wasHigh: false, wasArmed: false }
+    expect(flightStep(base).map(step => step.command)).toEqual([176, 400])
+    expect(flightStep({ ...base, armed: true, wasArmed: true }).map(step => step.command)).toEqual([22])
+    expect(flightStep({ ...base, armed: true, wasArmed: true, wasHigh: true, mode: 4 }).map(step => step.command)).toEqual([176])
+    expect(flightStep({ ...base, armed: true, wasArmed: true, wasHigh: true, mode: 9 })).toEqual([])
   })
 
   it('reads several frames from one chunk and skips garbage and bad CRCs', () => {

@@ -69,7 +69,7 @@ it('says a vehicle must be connected, with no table, when none is', async () => 
 it('lists the logs in a table of number, date, size and state, and the sum of the sizes (never "of" a total)', async () => {
   const { wrapper } = await screen()
 
-  expect(wrapper.findAll('thead th').map(th => th.text())).toEqual(['Select', 'Log', 'Date', 'Size', 'State'])
+  expect(wrapper.findAll('thead th').map(th => th.text())).toEqual(['Select', 'Log', 'Last changed', 'Size', 'State'])
   expect(cells(wrapper).map(row => [row[1], row[3], row[4]])).toEqual([
     ['1', '1.2 MB', 'Not downloaded'],
     ['2', '48 kB', 'Not downloaded'],
@@ -217,14 +217,40 @@ it('reads the list again when the erase is armed, so that the counts it names ar
 })
 
 it('shows no log as downloading or queued after a cancel', async () => {
-  const { wrapper, handle } = await screen()
+  // Slow steps: log 1 is being fetched (a bar), logs 2 and 4 are queued, when the cancel comes.
+  const { wrapper, handle } = await screen(true, { logs: { steps: 4, intervalMs: 30 } })
   handle.logs.selectNew()
   const first = handle.logs.download()
-  await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists() || handle.logs.running.value).toBe(true))
+  await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists()).toBe(true))
+  const during = cells(wrapper).map(row => row[4] ?? '')
+  expect(during).toEqual([expect.stringMatching(/^Downloading/u), 'Queued', 'Downloaded', 'Queued'])
   await handle.logs.cancel()
   await first
   await flushPromises()
 
   expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
-  expect(cells(wrapper).map(row => row[4] ?? '').filter(text => /Downloading|Queued/u.test(text))).toEqual([])
+  expect(cells(wrapper).map(row => row[4] ?? '')).toEqual(['Not downloaded', 'Not downloaded', 'Downloaded', 'Not downloaded'])
+})
+
+it('shows no date where the vehicle gives none, and the time of the last change where it does', async () => {
+  const { wrapper } = await screen()
+
+  expect(cells(wrapper).map(row => row[2] === 'No date')).toEqual([false, true, true, true])
+})
+
+it('says that erasing is not available yet, and keeps its button off, when the backend cannot erase', async () => {
+  const { wrapper } = await screen(true, { logs: { steps: 2, intervalMs: 5, canErase: false } })
+
+  expect(wrapper.get('.logs-erase p').text()).toBe('Erasing the logs on the vehicle is not available yet.')
+  expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
+})
+
+it('shows the reason a download stopped, and the progress of the log that failed is gone', async () => {
+  const { wrapper, handle } = await screen(true, { logs: { steps: 2, intervalMs: 5, failId: 2 } })
+  handle.logs.selectNew()
+  await handle.logs.download()
+  await flushPromises()
+
+  expect(wrapper.get('#logs-error').text()).toBe('log 2: the copy does not match the vehicle\'s file')
+  expect(cells(wrapper).map(row => row[4] ?? '')).toEqual(['Downloaded', 'Not downloaded', 'Downloaded', 'Not downloaded'])
 })

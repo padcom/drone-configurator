@@ -1,10 +1,14 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import { shallowRef } from 'vue'
+import { type BackendClient, BackendError } from '@/backend/client'
+import type { Connection, Telemetry } from '@/generated/app'
 import { telemetryAt } from '@/mock/fixtures'
 import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import type { MockLogsOptions } from '@/mock/mock-logs'
 import { feed } from '@/testing/testing'
 import { useToasts } from './toasts'
 import { createConfigurator } from './useConfigurator'
+import { useVehicleLogs } from './useVehicleLogs'
 
 afterEach(() => {
   const toasts = useToasts()
@@ -179,4 +183,117 @@ it('does not count a copy of the right size and the wrong checksum as downloaded
 
   expect(model.outcome.value).toEqual({ kind: 'erased', erased: 1, kept: 1 })
   expect(model.logs.value.map(log => log.id)).toEqual([2])
+})
+
+/**
+ * A model over a client that answers the list with the given errors first, then with one log.
+ *
+ * @param busy how many calls fail with the given code
+ * @param code the error code of those calls
+ * @param parametersLoading whether the parameter list is being downloaded (asked when the backend is busy)
+ * @returns the model and a counter of the calls
+ */
+function modelOver(busy: number, code = 'BUSY', parametersLoading?: () => boolean) {
+  const calls = { list: 0 }
+  const client = {
+    call: () => {
+      calls.list += 1
+
+      if (calls.list <= busy) {
+        return Promise.reject(new BackendError(code, 'a parameter download is running'))
+      }
+
+      return Promise.resolve({ logs: [{ id: 1, size: 10, downloaded: false }], source: 'ftp', canErase: false })
+    },
+    onEvent: () => () => {},
+  } as unknown as BackendClient
+  const connection = shallowRef<Connection>({ state: 'connected' })
+  const telemetry = shallowRef<Telemetry | null>(null)
+
+  return { model: useVehicleLogs({ client, connection, telemetry, retryMs: 5, parametersLoading }), calls }
+}
+
+it('keeps the error of a download that failed as a call, past the read of the list that follows it', async () => {
+  const client = {
+    call: (method: string) => (method === 'logs.download'
+      ? Promise.reject(new BackendError('FTP_ABORTED', 'FTP 3: cancelled'))
+      : Promise.resolve({ logs: [{ id: 1, size: 10, downloaded: false }], source: 'ftp', canErase: false })),
+    onEvent: () => () => {},
+  } as unknown as BackendClient
+  const connection = shallowRef<Connection>({ state: 'connected' })
+  const telemetry = shallowRef<Telemetry | null>({ ...telemetryAt(0), armed: false })
+  const model = useVehicleLogs({ client, connection, telemetry, retryMs: 5 })
+  await model.refresh()
+  model.selectNew()
+  await model.download()
+
+  expect(model.error.value).toContain('FTP_ABORTED')
+  expect(model.running.value).toBe(false)
+})
+
+it('asks again, with no error shown, when the backend is busy with the parameters just after connecting', async () => {
+  const { model, calls } = modelOver(3)
+  await model.refresh()
+
+  expect(calls.list).toBe(4)
+  expect(model.logs.value.map(log => log.id)).toEqual([1])
+  expect(model.listed.value).toBe(true)
+  expect(model.error.value).toBeNull()
+})
+
+it('shows the error when the backend stays busy, and any other error at once', async () => {
+  const stays = modelOver(1000)
+  await stays.model.refresh()
+
+  expect(stays.calls.list).toBe(31)
+  // In words, not the backend's code.
+  expect(stays.model.error.value).toBe('The vehicle is busy with its parameters. Refresh the list in a moment.')
+  expect(stays.model.listed.value).toBe(false)
+  const other = modelOver(1, 'LOGS_UNAVAILABLE')
+  await other.model.refresh()
+
+  expect(other.calls.list).toBe(1)
+  expect(other.model.error.value).toContain('LOGS_UNAVAILABLE')
+})
+
+it('asks again only while the parameters are coming (and once more), not for the whole cap', async () => {
+  let coming = true
+  const { model, calls } = modelOver(1000, 'BUSY', () => coming)
+  const reading = model.refresh()
+  await vi.waitFor(() => expect(calls.list).toBeGreaterThan(3))
+  coming = false
+  await reading
+
+  // Busy for another reason (a log download): the words, after the one more ask.
+  expect(calls.list).toBeLessThan(31)
+  expect(model.error.value).toBe('The vehicle is busy with its parameters. Refresh the list in a moment.')
+})
+
+it('stops asking, and shows nothing, when the vehicle goes away during the wait', async () => {
+  const { model, calls } = modelOver(1000)
+  const reading = model.refresh()
+  await vi.waitFor(() => expect(calls.list).toBeGreaterThan(2))
+  model.reset()
+  await reading
+  const asked = calls.list
+  await new Promise(resolve => {
+    setTimeout(resolve, 60)
+  })
+
+  expect(calls.list).toBe(asked)
+  expect(model.error.value).toBeNull()
+  expect(model.loading.value).toBe(false)
+  expect(model.listed.value).toBe(false)
+})
+
+it('does not let one read switch off what another is doing', async () => {
+  const { model } = modelOver(2)
+  const first = model.refresh()
+  const second = model.refresh()
+  await first
+  await second
+
+  expect(model.loading.value).toBe(false)
+  expect(model.listed.value).toBe(true)
+  expect(model.error.value).toBeNull()
 })

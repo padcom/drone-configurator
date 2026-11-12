@@ -236,10 +236,16 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
  *
  * @param client the link to the backend
  * @param vehicle the vehicle link
+ * @param parametersLoading whether the parameter list is being downloaded (the list of logs waits for it)
  * @returns the logs
  */
-function startLogs(client: BackendClient, vehicle: Vehicle): LogsModel {
-  const logs = useVehicleLogs({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
+function startLogs(client: BackendClient, vehicle: Vehicle, parametersLoading: () => boolean): LogsModel {
+  const logs = useVehicleLogs({
+    client,
+    connection: vehicle.connection,
+    telemetry: vehicle.telemetry,
+    parametersLoading,
+  })
   watch(vehicle.connection, next => {
     if (next.state !== 'connected' || next.resumed !== true) {
       logs.reset()
@@ -304,7 +310,7 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  const logs = startLogs(client, vehicle)
+  const logs = startLogs(client, vehicle, () => parameters.list.value === 'loading')
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())

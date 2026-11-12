@@ -12,7 +12,9 @@ import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve as absolute } from 'node:path'
 import { type Endpoint, parseEndpoint } from './endpoint'
-import { MAV_AUTOPILOT_ARDUPILOTMEGA, FrameReader, asHeartbeat, asParamValue, encodeParamSet } from './mavlink-wire'
+import {
+  MAV_AUTOPILOT_ARDUPILOTMEGA, FrameReader, asCommandAck, asHeartbeat, asParamValue, asRelativeAltitude, encodeCommandLong, encodeParamSet,
+} from './mavlink-wire'
 
 /** The vehicle types SITL can be started for. One at a time: a test names its vehicle. */
 export const vehicles = {
@@ -43,6 +45,12 @@ export interface Sitl {
   readonly directory: string
   /** Sets a parameter, usually a `SIM_*` one, and waits for the vehicle to report the value it now has. */
   setParam(name: string, value: number): Promise<void>
+  /**
+   * Flies it: arms in GUIDED, takes off to about 10 m, lands, and resolves once it is disarmed again (SITL has made a log in
+   * `logs/` by then). It is driven over SERIAL1, so SERIAL0 stays free for the app. Pre-arm checks take up to a minute of
+   * simulated time, so give it a long timeout; keep the speedup at 1 (the vehicle's file transfer fails at higher ones).
+   */
+  fly(timeoutMs?: number): Promise<void>
   /** Stops it and removes its directory. Safe to call again. */
   stop(): Promise<void>
 }
@@ -456,6 +464,7 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
     pid: child.pid ?? 0,
     directory,
     setParam: (name, value) => setParam(serial1, name, value, alive),
+    fly: (timeoutMs = FLIGHT_MS) => flyOnce(serial1, alive, timeoutMs),
     stop,
   }
   try {
@@ -468,6 +477,122 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
   }
 
   return sitl
+}
+
+/** How long a flight may take: the pre-arm checks (GPS, EKF) up to a minute, the climb, the landing. */
+const FLIGHT_MS = 240_000
+const MAV_CMD_DO_SET_MODE = 176
+const MAV_CMD_NAV_TAKEOFF = 22
+const MAV_CMD_COMPONENT_ARM_DISARM = 400
+const MAV_CMD_SET_MESSAGE_INTERVAL = 511
+const MSG_ID_GLOBAL_POSITION_INT = 33
+/** ArduCopter's flight modes by number. */
+const COPTER_GUIDED = 4
+const COPTER_LAND = 9
+/** The height (mm) that is high enough to land from, and the height asked for (m). */
+const HIGH_ENOUGH_MM = 8000
+const TAKEOFF_METRES = 10
+
+/** What a flight has seen of the vehicle, and what it has been told to do. */
+interface FlightState {
+  target?: { systemId: number; componentId: number }
+  armed: boolean
+  mode: number
+  heightMm: number
+  /** Whether it has been high enough since it took off. */
+  wasHigh: boolean
+  /** Whether it has been armed since the flight began (a vehicle that is not armed yet has not flown). */
+  wasArmed: boolean
+}
+
+/**
+ * The next command of a flight, given what the vehicle has said: guided and armed first, then up, then land. Each is repeated every
+ * tick until the vehicle shows it has done it, since a vehicle that is not ready refuses (pre-arm checks).
+ *
+ * @param state what has been seen
+ * @returns the commands to send now (MAV_CMD and parameters)
+ */
+export function flightStep(state: FlightState): { command: number; params: number[] }[] {
+  if (state.wasHigh) {
+    return state.mode === COPTER_LAND ? [] : [{ command: MAV_CMD_DO_SET_MODE, params: [1, COPTER_LAND] }]
+  }
+  if (!state.armed) {
+    return [{ command: MAV_CMD_DO_SET_MODE, params: [1, COPTER_GUIDED] }, { command: MAV_CMD_COMPONENT_ARM_DISARM, params: [1] }]
+  }
+
+  return [{ command: MAV_CMD_NAV_TAKEOFF, params: [0, 0, 0, 0, 0, 0, TAKEOFF_METRES] }]
+}
+
+/**
+ * Flies the vehicle once over SERIAL1: arms in GUIDED, takes off, lands, and waits for the disarm.
+ *
+ * @param port SERIAL1's TCP port
+ * @param alive whether SITL is running
+ * @param timeoutMs how long the whole flight may take
+ * @throws {Error} when it does not get through in time (the message says how far it got)
+ */
+async function flyOnce(port: number, alive: () => boolean, timeoutMs: number): Promise<void> {
+  if (!alive()) {
+    throw new Error('SITL is not running, so it cannot fly')
+  }
+  const socket = await connect(port, 10_000, alive)
+  const reader = new FrameReader()
+  const state: FlightState = { armed: false, mode: -1, heightMm: 0, wasHigh: false, wasArmed: false }
+  const refusals: number[] = []
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        clearInterval(ticker)
+        reject(new Error(`the flight did not finish within ${timeoutMs} ms: armed ${state.armed}, mode ${state.mode}, height ${state.heightMm} mm, refused with ${refusals.join(',') || 'nothing'}`))
+      }, timeoutMs)
+      const send = (command: number, params: number[]) => {
+        if (state.target) {
+          socket.write(encodeCommandLong(state.target, command, params))
+        }
+      }
+      const ticker = setInterval(() => {
+        for (const step of flightStep(state)) {
+          send(step.command, step.params)
+        }
+      }, 1000)
+      socket.on('data', (data: Buffer) => {
+        for (const frame of reader.push(data)) {
+          const heartbeat = asHeartbeat(frame)
+          if (heartbeat?.autopilot === MAV_AUTOPILOT_ARDUPILOTMEGA) {
+            if (!state.target) {
+              state.target = { systemId: heartbeat.systemId, componentId: heartbeat.componentId }
+              // The height comes in GLOBAL_POSITION_INT: asked for at 5 Hz.
+              send(MAV_CMD_SET_MESSAGE_INTERVAL, [MSG_ID_GLOBAL_POSITION_INT, 200_000])
+            }
+            state.armed = heartbeat.armed
+            state.mode = heartbeat.customMode
+            state.wasArmed ||= heartbeat.armed
+            if (state.wasHigh && state.wasArmed && !heartbeat.armed) {
+              clearTimeout(timer)
+              clearInterval(ticker)
+              resolve()
+            }
+          }
+          const height = asRelativeAltitude(frame)
+          if (height !== undefined) {
+            state.heightMm = height
+            state.wasHigh ||= state.armed && height > HIGH_ENOUGH_MM
+          }
+          const ack = asCommandAck(frame)
+          if (ack && ack.result !== 0 && ack.result !== 5) {
+            refusals.push(ack.result)
+          }
+        }
+      })
+      socket.once('close', () => {
+        clearTimeout(timer)
+        clearInterval(ticker)
+        reject(new Error('the connection closed during the flight'))
+      })
+    })
+  } finally {
+    socket.destroy()
+  }
 }
 
 /** Sets a parameter over a short-lived connection to SERIAL1, so SERIAL0 stays free for the app under test. */

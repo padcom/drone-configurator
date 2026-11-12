@@ -57,11 +57,13 @@
       "selectNone": "Deseleziona tutto",
       "used": "Log: {count}. In tutto: {size}",
       "loading": "Lettura dell'elenco…",
+      "busy": "Il veicolo è occupato con i suoi parametri. Aggiorna l'elenco tra un momento.",
       "none": "Il veicolo non ha log.",
       "column": {
         "select": "Seleziona",
         "id": "Log",
         "date": "Data",
+        "modified": "Ultima modifica",
         "size": "Dimensione",
         "state": "Stato"
       },
@@ -93,6 +95,7 @@
         "label": "Cancella dal veicolo i log scaricati",
         "confirm": "Conferma: cancella dal veicolo i log scaricati: {erased}. Non scaricati, e conservati: {kept}",
         "note": "Cancella solo i log scaricati e verificati: {erased}. Gli altri restano sul veicolo: {kept}.",
+        "unavailable": "La cancellazione dei log sul veicolo non è ancora disponibile.",
         "nothing": "Nessun log è ancora scaricato, quindi non c'è nulla da cancellare."
       }
     },

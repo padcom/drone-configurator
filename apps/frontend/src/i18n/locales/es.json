@@ -57,11 +57,13 @@
       "selectNone": "No seleccionar ninguno",
       "used": "Registros: {count}. En total: {size}",
       "loading": "Leyendo la lista…",
+      "busy": "El vehículo está ocupado con sus parámetros. Actualice la lista dentro de un momento.",
       "none": "El vehículo no tiene registros.",
       "column": {
         "select": "Seleccionar",
         "id": "Registro",
         "date": "Fecha",
+        "modified": "Último cambio",
         "size": "Tamaño",
         "state": "Estado"
       },
@@ -93,6 +95,7 @@
         "label": "Borrar del vehículo los registros descargados",
         "confirm": "Confirmar: borrar del vehículo los registros descargados: {erased}. Sin descargar, y conservados: {kept}",
         "note": "Solo borra los registros descargados y comprobados: {erased}. Los demás siguen en el vehículo: {kept}.",
+        "unavailable": "Borrar los registros del vehículo todavía no está disponible.",
         "nothing": "Aún no hay ningún registro descargado, así que no hay nada que borrar."
       }
     },

@@ -285,6 +285,10 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // One download at a time: a second would share its progress and take its place for `params.cancel`.
     throw new CommunicatorError("BUSY", "a parameter download is already running")
   }
+  if (link.logging) {
+    // The file transfer is busy with a log: two requests would take turns with the same vehicle's one.
+    throw new CommunicatorError("BUSY", "a log is being downloaded")
+  }
   const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()

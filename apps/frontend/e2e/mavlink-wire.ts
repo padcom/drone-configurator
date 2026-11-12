@@ -9,12 +9,18 @@ const INCOMPAT_SIGNED = 0x01
 export const MSG_HEARTBEAT = 0
 export const MSG_PARAM_VALUE = 22
 export const MSG_PARAM_SET = 23
+export const MSG_GLOBAL_POSITION_INT = 33
+export const MSG_COMMAND_LONG = 76
+export const MSG_COMMAND_ACK = 77
 
 /** The CRC_EXTRA byte of each message, from the common dialect's XML. */
 const CRC_EXTRA: Record<number, number> = {
   [MSG_HEARTBEAT]: 50,
   [MSG_PARAM_VALUE]: 220,
   [MSG_PARAM_SET]: 168,
+  [MSG_GLOBAL_POSITION_INT]: 104,
+  [MSG_COMMAND_LONG]: 152,
+  [MSG_COMMAND_ACK]: 143,
 }
 
 export const MAV_AUTOPILOT_ARDUPILOTMEGA = 3
@@ -33,6 +39,16 @@ export interface Heartbeat {
   componentId: number
   type: number
   autopilot: number
+  /** MAV_MODE_FLAG_SAFETY_ARMED (128) is set in the base mode. */
+  armed: boolean
+  /** The flight mode (ArduPilot's custom mode). */
+  customMode: number
+}
+
+export interface CommandAck {
+  command: number
+  /** MAV_RESULT: 0 is accepted. */
+  result: number
 }
 
 export interface ParamValue {
@@ -175,7 +191,57 @@ export function asHeartbeat(frame: Frame): Heartbeat | undefined {
   }
   const payload = padded(frame.payload, 9)
 
-  return { systemId: frame.systemId, componentId: frame.componentId, type: payload[4] ?? 0, autopilot: payload[5] ?? 0 }
+  const view = new DataView(payload.buffer, payload.byteOffset)
+
+  return {
+    systemId: frame.systemId,
+    componentId: frame.componentId,
+    type: payload[4] ?? 0,
+    autopilot: payload[5] ?? 0,
+    armed: ((payload[6] ?? 0) & 0x80) !== 0,
+    customMode: view.getUint32(0, true),
+  }
+}
+
+/** @returns the answer to a command in a frame, if it is a COMMAND_ACK */
+export function asCommandAck(frame: Frame): CommandAck | undefined {
+  if (frame.messageId !== MSG_COMMAND_ACK) {
+    return undefined
+  }
+  const payload = padded(frame.payload, 3)
+
+  return { command: (payload[0] ?? 0) | ((payload[1] ?? 0) << 8), result: payload[2] ?? 0 }
+}
+
+/** @returns the height above home in millimetres in a frame, if it is a GLOBAL_POSITION_INT */
+export function asRelativeAltitude(frame: Frame): number | undefined {
+  if (frame.messageId !== MSG_GLOBAL_POSITION_INT) {
+    return undefined
+  }
+  const payload = padded(frame.payload, 28)
+
+  return new DataView(payload.buffer, payload.byteOffset).getInt32(16, true)
+}
+
+/**
+ * COMMAND_LONG to one vehicle (the confirmation is 0).
+ *
+ * @param target who it is for
+ * @param command the MAV_CMD
+ * @param params its seven parameters (missing ones are 0)
+ * @returns the bytes of the frame
+ */
+export function encodeCommandLong(target: { systemId: number; componentId: number }, command: number, params: readonly number[] = []): Uint8Array {
+  const payload = new Uint8Array(33)
+  const view = new DataView(payload.buffer)
+  for (let i = 0; i < 7; i++) {
+    view.setFloat32(i * 4, params[i] ?? 0, true)
+  }
+  view.setUint16(28, command, true)
+  payload[30] = target.systemId
+  payload[31] = target.componentId
+
+  return encodeFrame(MSG_COMMAND_LONG, payload, { systemId: 255, componentId: 190 })
 }
 
 /** @returns the parameter in a frame, if it is a PARAM_VALUE */

@@ -57,11 +57,13 @@
       "selectNone": "Select none",
       "used": "Logs: {count}. Together: {size}",
       "loading": "Reading the list…",
+      "busy": "The vehicle is busy with its parameters. Refresh the list in a moment.",
       "none": "The vehicle has no logs.",
       "column": {
         "select": "Select",
         "id": "Log",
         "date": "Date",
+        "modified": "Last changed",
         "size": "Size",
         "state": "State"
       },
@@ -93,6 +95,7 @@
         "label": "Erase downloaded logs from the vehicle",
         "confirm": "Confirm: erase downloaded logs from the vehicle: {erased}. Not downloaded, and kept: {kept}",
         "note": "Erases only logs that were downloaded and checked: {erased}. The others stay on the vehicle: {kept}.",
+        "unavailable": "Erasing the logs on the vehicle is not available yet.",
         "nothing": "No log is downloaded yet, so there is nothing to erase."
       }
     },

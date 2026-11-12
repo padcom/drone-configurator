@@ -19,7 +19,8 @@ services = {
   ; arrived).
   "params.progress": ["event", params-progress],
   "params.write": ["method", param-write, param-write-result],
-  ; The flight logs on the vehicle (draft: the mock backend serves it; the real backend comes with the log download).
+  ; The flight logs on the vehicle (the backend serves `logs.vehicle.list` and `logs.download`, `logs.cancel`, `logs.progress`;
+  ; `logs.erase` is still the mock's: the backend answers it with UNSUPPORTED, and says so with `can-erase` false).
   ; `logs.vehicle.list` lists them, `logs.download` fetches the ones named, one after the other, with `logs.progress` events
   ; for each, and `logs.cancel` stops it (what was fetched is kept, and the next download of that log goes on from there).
   ; Neither downloads nor erases while the vehicle is armed (`ARMED`), is not known to be disarmed (`STATE_UNKNOWN`) or while a
@@ -127,8 +128,11 @@ param-write-result = {
   verified: bool,
 }
 
-; One log on the vehicle: its number, its size in bytes, when it was made (milliseconds since 1970, absent when the vehicle has
-; no clock for it), and whether a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
+; One log on the vehicle: its number, its size in bytes (not final for the log of a flight that has just ended: the vehicle goes on
+; writing for a while), when it was last written (milliseconds since 1970; absent when the vehicle gives no time: it is the time
+; of the last write, not the start of the flight), and whether (`downloaded`: a checked copy of that number and size is here; the
+; number alone does not say which log it is, since the vehicle starts numbering again after a format, so this is a probable match,
+; and the vehicle's CRC must be asked before anything is ever erased on the strength of it) a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
 ; checksum is the vehicle's: over FTP the vehicle computes it (CalcFileCRC32) and it is compared with that of the copy. The
 ; log protocol (LOG_DATA) has no checksum, so a log fetched that way cannot be checked: it is reported `downloaded: false`,
 ; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log
@@ -140,14 +144,18 @@ vehicle-log = {
   downloaded: bool,
 }
 
-; The logs, and how they were listed: "ftp" (the vehicle's files) or "mavlink" (the log protocol).
-vehicle-logs = { logs: [* vehicle-log], source: "ftp" / "mavlink" }
+; The logs, how they were listed ("ftp": the vehicle's files, or "mavlink": the log protocol), and whether `logs.erase` can be
+; used. A directory that is not there (nothing was logged yet) is an empty list. A listing that cannot be trusted (a file name
+; that is not UTF-8, a reply that makes no sense) is an error of `logs.vehicle.list`, with the reason in words, not a partial list.
+vehicle-logs = { logs: [* vehicle-log], source: "ftp" / "mavlink", canErase: bool }
 
 ; The logs to download, by number, in the order they are fetched.
 logs-download = { ids: [* uint .size 4] }
 
-; The logs that are whole now, and whether the download stopped before it was through (cancelled, or a log that failed).
-logs-downloaded = { ids: [* uint .size 4], stopped: bool }
+; The logs that are whole now (copied and checked), and whether the download stopped before it was through (cancelled, the vehicle
+; armed, or a log that failed: then `error` says why, in words). What was fetched of a log that did not finish is kept, and the next
+; download of that log goes on from there.
+logs-downloaded = { ids: [* uint .size 4], stopped: bool, ? error: tstr }
 
 ; The logs erased (they were downloaded), and how many were kept because they are not downloaded.
 logs-erased = { erased: [* uint .size 4], kept: uint .size 4 }

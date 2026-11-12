@@ -37,7 +37,7 @@
           <tr>
             <th scope="col"><span class="visually-hidden">{{ t('logs.vehicle.column.select') }}</span></th>
             <th scope="col">{{ t('logs.vehicle.column.id') }}</th>
-            <th scope="col">{{ t('logs.vehicle.column.date') }}</th>
+            <th scope="col">{{ t('logs.vehicle.column.modified') }}</th>
             <th scope="col">{{ t('logs.vehicle.column.size') }}</th>
             <th scope="col">{{ t('logs.vehicle.column.state') }}</th>
           </tr>
@@ -82,7 +82,7 @@
         id="logs-erase"
         :label="t('logs.vehicle.erase.label')"
         :confirm-label="t('logs.vehicle.erase.confirm', { erased: downloaded, kept })"
-        :disabled="logs.blocked.value !== null || downloaded === 0"
+        :disabled="logs.blocked.value !== null || downloaded === 0 || !logs.canErase.value"
         :aria-describedby="`${uid}-erase-note`"
         @arm="logs.refresh()"
         @confirm="logs.erase()"
@@ -140,9 +140,15 @@ const downloaded = computed(() => logs.logs.value.filter(log => log.downloaded).
 const kept = computed(() => undownloadedIds(logs.logs.value).length)
 const canDownload = computed(() => logs.blocked.value === null && chosen.value > 0)
 const reason = computed(() => (logs.blocked.value === null ? '' : t(`logs.vehicle.blocked.${logs.blocked.value}`)))
-const eraseNote = computed(() => downloaded.value === 0
-  ? t('logs.vehicle.erase.nothing')
-  : t('logs.vehicle.erase.note', { erased: downloaded.value, kept: kept.value }))
+const eraseNote = computed(() => {
+  if (!logs.canErase.value) {
+    return t('logs.vehicle.erase.unavailable')
+  }
+
+  return downloaded.value === 0
+    ? t('logs.vehicle.erase.nothing')
+    : t('logs.vehicle.erase.note', { erased: downloaded.value, kept: kept.value })
+})
 
 /**
  * What a row says of the log's state.

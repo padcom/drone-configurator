@@ -57,11 +57,13 @@
       "selectNone": "Nichts auswählen",
       "used": "Logs: {count}. Zusammen: {size}",
       "loading": "Liste wird gelesen…",
+      "busy": "Das Fahrzeug ist mit seinen Parametern beschäftigt. Aktualisieren Sie die Liste gleich noch einmal.",
       "none": "Das Fahrzeug hat keine Logs.",
       "column": {
         "select": "Auswählen",
         "id": "Log",
         "date": "Datum",
+        "modified": "Zuletzt geändert",
         "size": "Größe",
         "state": "Status"
       },
@@ -93,6 +95,7 @@
         "label": "Heruntergeladene Logs vom Fahrzeug löschen",
         "confirm": "Bestätigen: heruntergeladene Logs vom Fahrzeug löschen: {erased}. Nicht heruntergeladen und behalten: {kept}",
         "note": "Löscht nur Logs, die heruntergeladen und geprüft wurden: {erased}. Die übrigen bleiben auf dem Fahrzeug: {kept}.",
+        "unavailable": "Das Löschen der Logs auf dem Fahrzeug ist noch nicht verfügbar.",
         "nothing": "Noch kein Log ist heruntergeladen, also gibt es nichts zu löschen."
       }
     },
