@@ -289,7 +289,10 @@ logs-local-series = {
 ; pass). `samples` is how many samples it rests on (for `gps.satellites`: those with a 3D fix). The whole log is looked at: with
 ; ArduPilot's defaults a log begins at the arm, so that is the flight, and a log that holds time on the ground has it in the numbers
 ; (the page says so where it knows). `ekf.variance` leaves out the first 10 s of the log, while the filter converges. The limits are
-; guidelines, not facts; `battery.voltage` is the PACK voltage (the log does not say how many cells there are).
+; guidelines, not facts; `battery.voltage` is the PACK voltage (the log does not say how many cells there are). A message that has
+; instances (GPS `I`, BAT `Inst`, XKF4 `C`, VIBE `IMU`) counts for ANY instance: the finding takes the extreme across all of them (a
+; second battery monitor at 0 V is the lowest voltage). `errors.logged` is "ok" with 0 only where the log DEFINES ERR (an FMT for it:
+; an ArduPilot log does, whether or not anything happened); a log that does not is "no-data".
 review-finding = {
   id: tstr,
   level: "ok" / "warn" / "bad" / "info" / "no-data",

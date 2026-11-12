@@ -109,7 +109,8 @@ class Gathered implements Taker {
   public noFix: int = 0
   public readonly variance: Extreme = new Extreme(true)
   public errors: int = 0
-  public sawErrors: bool = false
+  /// Whether the log defines the format of ERR (an FMT for it): an ArduPilot log does, at its start, for every message it can have.
+  public definesErr: bool = false
   public readonly volts: Extreme = new Extreme(false)
   public readonly amps: Extreme = new Extreme(true)
   /// The time of the first message that has one (microseconds), -1 before.
@@ -132,8 +133,9 @@ class Gathered implements Taker {
       takeGps(m)
     } else if (name == "XKF4") {
       takeEkf(m)
+    } else if (name == "FMT") {
+      definesErr = definesErr || (m.text("Name") ?? "") == "ERR"
     } else if (name == "ERR") {
-      sawErrors = true
       if ((m.num("ECode") ?? 0.0) != 0.0) {
         errors += 1
       }
@@ -273,10 +275,12 @@ function ekf(g: Gathered): ReviewFinding {
 }
 
 function errors(g: Gathered): ReviewFinding {
-  if (!g.sawErrors) {
-    // The vehicle logs an ERR only when something happened: a log without any has no errors, which is a finding, not a gap.
-    return finding("errors.logged", ReviewFindingLevel.Ok, 0.0, 0.0, -1)
+  if (!g.definesErr) {
+    // A log that does not even define ERR (cut, foreign, not from ArduPilot) cannot be said to have no errors.
+    return noData("errors.logged")
   }
+  // An ArduPilot log defines every message at its start and logs an ERR only when something happened: with the format and no
+  // ERR (or only the ones that say an error is over, code 0) it has no errors, which is a finding, not a gap.
   finding("errors.logged", if (g.errors > 0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, g.errors as f64, 0.0, -1)
 }
 

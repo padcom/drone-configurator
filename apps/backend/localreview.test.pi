@@ -225,11 +225,37 @@ async function saysNoDataWhereTheLogHasNone(): Promise<void> throws Error {
   await readIt(r, key)
   const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
   for (const id of ["vibration.x", "vibration.y", "vibration.z", "vibration.clipping", "gps.satellites", "gps.hdop", "gps.fix",
-    "ekf.variance", "battery.voltage", "battery.current"]) {
+    "ekf.variance", "battery.voltage", "battery.current", "errors.logged"]) {
     expect(show(review, id)).toBe("no-data - - -")
   }
-  // No ERR in a log means no error was logged.
-  expect(show(review, "errors.logged")).toBe("ok 0 0 -")
+  // A log that does not define ERR at all (cut, foreign) is not one with no errors.
+  await done(r)
+}
+
+async function saysNoErrorsOnlyWhereTheLogDefinesThem(): Promise<void> throws Error {
+  const r = await rig()
+  // ERR is defined and has no rows: no errors. Rows that only say an error is over (code 0) are no errors either.
+  const none = new DfEncoder()
+  formats(none)
+  vibe(none, 1000000, 0, 1.0, 1.0, 1.0, 0)
+  const noRows = await put(r, none.bytes())
+  await readIt(r, noRows)
+  expect(show(decodeLogsReview((await reviewOf(r, noRows)).p ?? Cbor.Null, "$"), "errors.logged")).toBe("ok 0 0 -")
+  const cleared = new DfEncoder()
+  formats(cleared)
+  error(cleared, 1000000, 16, 0)
+  error(cleared, 2000000, 8, 0)
+  const clearedKey = await put(r, cleared.bytes())
+  await readIt(r, clearedKey)
+  expect(show(decodeLogsReview((await reviewOf(r, clearedKey)).p ?? Cbor.Null, "$"), "errors.logged")).toBe("ok 0 0 -")
+  // One that is an error is counted.
+  const bad = new DfEncoder()
+  formats(bad)
+  error(bad, 1000000, 16, 2)
+  error(bad, 2000000, 8, 0)
+  const badKey = await put(r, bad.bytes())
+  await readIt(r, badKey)
+  expect(show(decodeLogsReview((await reviewOf(r, badKey)).p ?? Cbor.Null, "$"), "errors.logged")).toBe("warn 1 0 -")
   await done(r)
 }
 
@@ -256,6 +282,7 @@ describe("the review of the logs on this computer", () => {
   it("reviews a flight that went badly, against the limit it crossed", reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit)
   it("does not count a GPS sample without a 3D fix, and counts it as having none", doesNotCountGpsWithoutAFixAndSaysSo)
   it("leaves out the first 10 s of the EKF's variance", leavesOutTheFirstSecondsOfTheEkf)
-  it("says no data where the log has none", saysNoDataWhereTheLogHasNone)
+  it("says no data where the log has none, also for errors when it does not define ERR", saysNoDataWhereTheLogHasNone)
+  it("says there were no errors only where the log defines ERR", saysNoErrorsOnlyWhereTheLogDefinesThem)
   it("reviews only a verified log that was read", reviewsOnlyAVerifiedLogThatWasRead)
 })
