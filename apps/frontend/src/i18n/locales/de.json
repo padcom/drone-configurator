@@ -62,6 +62,7 @@
         "select": "Auswählen",
         "id": "Log",
         "date": "Datum",
+        "modified": "Zuletzt geändert",
         "size": "Größe",
         "state": "Status"
       },
@@ -93,6 +94,7 @@
         "label": "Heruntergeladene Logs vom Fahrzeug löschen",
         "confirm": "Bestätigen: heruntergeladene Logs vom Fahrzeug löschen: {erased}. Nicht heruntergeladen und behalten: {kept}",
         "note": "Löscht nur Logs, die heruntergeladen und geprüft wurden: {erased}. Die übrigen bleiben auf dem Fahrzeug: {kept}.",
+        "unavailable": "Das Löschen der Logs auf dem Fahrzeug ist noch nicht verfügbar.",
         "nothing": "Noch kein Log ist heruntergeladen, also gibt es nichts zu löschen."
       }
     },

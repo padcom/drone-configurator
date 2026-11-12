@@ -592,13 +592,15 @@ function encodeVehicleLogsLogsList(v: VehicleLog[]): Cbor {
 export struct VehicleLogs {
   logs: VehicleLog[]
   source: VehicleLogsSource
+  canErase: bool
 }
 
 export function decodeVehicleLogs(v: Cbor, path: string): VehicleLogs throws InvalidPayload {
-  const m = members(v, path, ["logs", "source"])
+  const m = members(v, path, ["logs", "source", "canErase"])
   VehicleLogs {
     logs: decodeVehicleLogsLogsList(required(m, "logs", path), `${path}.logs`),
     source: decodeVehicleLogsSource(required(m, "source", path), `${path}.source`),
+    canErase: boolean(required(m, "canErase", path), `${path}.canErase`),
   }
 }
 
@@ -606,6 +608,7 @@ export function encodeVehicleLogs(v: VehicleLogs): Cbor {
   const m = new Map<string, Cbor>()
   m.set("logs", encodeVehicleLogsLogsList(v.logs))
   m.set("source", encodeVehicleLogsSource(v.source))
+  m.set("canErase", Cbor.Bool(v.canErase))
   Cbor.Dict(m)
 }
 
@@ -665,13 +668,20 @@ function encodeLogsDownloadedIdsList(v: u32[]): Cbor {
 export struct LogsDownloaded {
   ids: u32[]
   stopped: bool
+  error?: string
 }
 
 export function decodeLogsDownloaded(v: Cbor, path: string): LogsDownloaded throws InvalidPayload {
-  const m = members(v, path, ["ids", "stopped"])
+  const m = members(v, path, ["ids", "stopped", "error"])
+  const cbor2 = m.get("error")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.error`)
+  }
   LogsDownloaded {
     ids: decodeLogsDownloadedIdsList(required(m, "ids", path), `${path}.ids`),
     stopped: boolean(required(m, "stopped", path), `${path}.stopped`),
+    error: opt2,
   }
 }
 
@@ -679,6 +689,10 @@ export function encodeLogsDownloaded(v: LogsDownloaded): Cbor {
   const m = new Map<string, Cbor>()
   m.set("ids", encodeLogsDownloadedIdsList(v.ids))
   m.set("stopped", Cbor.Bool(v.stopped))
+  const opt2 = v.error
+  if (opt2 != null) {
+    m.set("error", Cbor.Text(opt2))
+  }
   Cbor.Dict(m)
 }
 

@@ -77,7 +77,7 @@ export function refusal(): string? {
   if (armed!) {
     return "ARMED"
   }
-  if (link.listing || link.writes > 0 || asking.busy || rebootExpected()) {
+  if (link.listing || link.writes > 0 || link.logging || asking.busy || rebootExpected()) {
     return "BUSY"
   }
   null
@@ -91,7 +91,7 @@ function reasonOf(code: string): string {
   if (code == "ARMED") {
     return "the vehicle is armed"
   }
-  "parameters are being written or downloaded, or a reboot is already under way"
+  "parameters are being written or downloaded, a log is being downloaded, or a reboot is already under way"
 }
 
 /// The MAV_RESULT of an acknowledgement of the reboot command from the connected autopilot, or null for any other message.

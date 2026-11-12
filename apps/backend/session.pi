@@ -57,6 +57,9 @@ class Link {
   /// Parameter work that a reboot must not cut: writes in flight, and whether a download runs (params.pi).
   public writes: int = 0
   public listing: bool = false
+  /// Whether a log download runs (logs.pi): a reboot is held off, and so is a parameter download (both use the vehicle's file
+  /// transfer or would cut the download).
+  public logging: bool = false
   /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
   /// says so (reconnect.pi). See `rebootExpected()`.
   public rebootAt: int = 0

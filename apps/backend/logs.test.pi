@@ -1,0 +1,392 @@
+// The logs service (`logs.*`), over an in-memory link against the simulated vehicle, whose file system holds the logs. The folder
+// for downloaded logs is a directory made for each test.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { exists, readBytes, remove, writeBytes, mkdir } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  LogsDownload,
+  LogsDownloaded,
+  LogsProgressState,
+  VehicleLogs,
+  decodeLogsDownloaded,
+  decodeLogsProgress,
+  decodeVehicleLogs,
+  encodeConnectRequest,
+  encodeLogsDownload,
+} from "./generated/app"
+import { folderOf, nameOfLog, numberOfLog } from "./logs"
+import { link } from "./session"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const FIRST: string = "/logs/00000001.BIN"
+const SECOND: string = "/logs/00000002.BIN"
+
+/// `n` bytes that look like data and are the same on every run.
+function content(n: int, seed: int): Uint8Array {
+  const out = new Uint8Array(n)
+  let x = seed
+  for (let i = 0; i < n; i++) {
+    x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+    out.set(i, (x >> 16) & 0xFF)
+  }
+  out
+}
+
+function same(a: Uint8Array, b: Uint8Array): bool {
+  if (a.length != b.length) {
+    return false
+  }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) {
+      return false
+    }
+  }
+  true
+}
+
+/// What a test has: the frontend, the folder the app's files go to, and the folder of the vehicle's downloaded logs.
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  /// The timer that keeps the simulated vehicle disarmed (it arms itself at its 3rd tick): it sets the tick back.
+  public hold: int = -1
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+
+  /// Lets the simulated vehicle go on: its next tick arms it.
+  public letItArm(): void {
+    clearInterval(hold)
+    simulatorForTests()!.ticks = 2
+  }
+
+  /// Where the downloaded logs of the connected vehicle are.
+  public folder(): string {
+    join(root, "logs", folderOf(link.identity))
+  }
+}
+
+/// A connected simulator with a log in the vehicle's file system, kept disarmed (the simulator arms itself after 3 ticks).
+async function connected(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-logs-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.ticks = 0
+  const r = new Rig(f, root)
+  r.hold = setInterval(() => { sim.ticks = 0 }, 100)
+  await afterBeat()
+  sim.fsFiles.set(FIRST, content(100000, 1))
+  r
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+async function finish(r: Rig): Promise<void> throws Error {
+  clearInterval(r.hold)
+  await r.f.call("vehicle.disconnect")
+  await remove(r.root, true)
+}
+
+async function list(r: Rig): Promise<VehicleLogs> throws Error {
+  const e = await r.f.call("logs.vehicle.list")
+  decodeVehicleLogs(e.p ?? Cbor.Null, "$")
+}
+
+/// The error code of a call, or "".
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+async function download(r: Rig, ids: u32[]): Promise<LogsDownloaded> throws Error {
+  const e = await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: ids }))
+  decodeLogsDownloaded(e.p ?? Cbor.Null, "$")
+}
+
+/// The progress events heard so far for log `id`, as "state received/total" lines.
+function progressOf(r: Rig, id: int): string[] {
+  const out: string[] = []
+  for (const h of r.f.heard) {
+    if (h.n == "logs.progress") {
+      const p = decodeLogsProgress(h.p ?? Cbor.Null, "$")
+      if (p.id as int == id) {
+        out.push(`${stateName(p.state)} ${p.received}/${p.total}${if (p.resumedFrom != null) ` from ${p.resumedFrom!}` else ""}`)
+      }
+    }
+  }
+  out
+}
+
+function stateName(s: LogsProgressState): string {
+  match (s) {
+    Queued => "queued",
+    Downloading => "downloading",
+    Done => "done",
+    Failed => "failed",
+  }
+}
+
+function namesTheLogFiles(): void {
+  expect(nameOfLog(1)).toBe("00000001.BIN")
+  expect(nameOfLog(12345678)).toBe("12345678.BIN")
+  expect(numberOfLog("00000042.BIN")).toBe(42)
+  expect(numberOfLog("LASTLOG.TXT")).toBe(-1)
+  expect(numberOfLog("0000001.BIN")).toBe(-1)
+  expect(numberOfLog("00000001.BIN.part")).toBe(-1)
+  expect(numberOfLog("0000000a.BIN")).toBe(-1)
+  expect(folderOf("1/1/2/3/uid:ab:cd")).toBe("1-1-2-3-uid-ab-cd")
+  expect(folderOf("")).toBe("vehicle")
+}
+
+async function listsNothingBeforeTheFirstArm(): Promise<void> throws Error {
+  const r = await connected()
+  simulatorForTests()!.fsFiles.clear()
+  const logs = await list(r)
+  expect(logs.logs.length).toBe(0)
+  expect(logs.canErase).toBe(false)
+  await finish(r)
+}
+
+async function listsTheLogsAndNothingElse(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(SECOND, content(500, 2))
+  sim.fsFiles.set("/logs/LASTLOG.TXT", content(3, 3))
+  sim.fsFiles.set("/logs/00000003.BIN.part", content(3, 4))
+  sim.fsTimes.set(FIRST, 1783000000)
+  const logs = await list(r)
+  expect(logs.logs.map((l) => `${l.id}:${l.size}:${l.downloaded}`).join(",")).toBe("1:100000:false,2:500:false")
+  // The time is the vehicle's seconds, given in milliseconds; a log it gives no time for has none.
+  expect(logs.logs[0].time!).toBe(1783000000000 as u64)
+  expect(logs.logs[1].time == null).toBe(true)
+  await finish(r)
+}
+
+async function saysWhyAListThatCannotBeTrustedIsNone(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  // A name with a tab in it, in a listing without times, reads as a size and a time: the listing is refused, not partly shown.
+  sim.ftpMode = "oldlist"
+  sim.fsFiles.set("/logs/a\t5", content(10, 5))
+  const e = await r.f.call("logs.vehicle.list")
+  expect(codeOf(e)).toBe("LOGS_UNAVAILABLE")
+  expect(e.err!.message.includes("can't be trusted")).toBe(true)
+  await finish(r)
+}
+
+async function downloadsALogAndChecksIt(): Promise<void> throws Error {
+  const r = await connected()
+  const done = await download(r, [1])
+  expect(done.ids.join(",")).toBe("1")
+  expect(done.stopped).toBe(false)
+  expect(done.error == null).toBe(true)
+  const file = join(r.folder(), "00000001.BIN")
+  expect(same(await readBytes(file), content(100000, 1))).toBe(true)
+  expect(await exists(`${file}.part`)).toBe(false)
+  const lines = progressOf(r, 1)
+  expect(lines[0]).toBe("queued 0/100000")
+  expect(lines[lines.length - 1]).toBe("done 100000/100000")
+  expect((await list(r)).logs[0].downloaded).toBe(true)
+  // A log asked for again is whole already: nothing is fetched.
+  const again = await download(r, [1])
+  expect(again.ids.join(",")).toBe("1")
+  await finish(r)
+}
+
+async function goesOnFromAPart(): Promise<void> throws Error {
+  const r = await connected()
+  await mkdir(r.folder(), true)
+  const whole = content(100000, 1)
+  await writeBytes(join(r.folder(), "00000001.BIN.part"), whole.slice(0, 33333))
+  const done = await download(r, [1])
+  expect(done.ids.join(",")).toBe("1")
+  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), whole)).toBe(true)
+  const lines = progressOf(r, 1)
+  expect(lines[lines.length - 1]).toBe("done 100000/100000 from 33333")
+  expect(lines.filter((l) => l.startsWith("downloading")).length > 0 || lines.length >= 2).toBe(true)
+  await finish(r)
+}
+
+async function refusesWhileArmedOrNotKnownOrBusy(): Promise<void> throws Error {
+  const r = await connected()
+  link.armed = true
+  expect(codeOf(await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("ARMED")
+  link.armed = false
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(codeOf(await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("STATE_UNKNOWN")
+  await afterBeat()
+  link.armed = false
+  link.listing = true
+  expect(codeOf(await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("BUSY")
+  link.listing = false
+  // Nothing was sent to the vehicle's file system, nothing written.
+  expect(simulatorForTests()!.ftpLog.filter((line) => line.startsWith("4 ")).length).toBe(0)
+  expect(await exists(r.folder())).toBe(false)
+  await finish(r)
+}
+
+async function stopsWhenTheVehicleArms(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(FIRST, content(400000, 1))
+  // Bursts of 100 packets: the download takes a while.
+  sim.ftpStallAfter = 100
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await r.f.event("logs.progress")
+  await r.f.event("logs.progress")
+  // The next tick of the simulator arms it: its heartbeat says so.
+  r.letItArm()
+  const e = await r.f.reply(asked)
+  const done = decodeLogsDownloaded(e.p ?? Cbor.Null, "$")
+  expect(done.stopped).toBe(true)
+  expect(done.ids.length).toBe(0)
+  expect(done.error!.includes("armed")).toBe(true)
+  // What came is kept as a part; the log is not a downloaded one.
+  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
+async function cancelKeepsThePartAndTheNextOneGoesOn(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(FIRST, content(400000, 1))
+  sim.ftpStallAfter = 100
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await r.f.event("logs.progress")
+  await r.f.event("logs.progress")
+  await r.f.call("logs.cancel")
+  const done = decodeLogsDownloaded((await r.f.reply(asked)).p ?? Cbor.Null, "$")
+  expect(done.stopped).toBe(true)
+  expect(done.error == null).toBe(true)
+  const part = join(r.folder(), "00000001.BIN.part")
+  const held = (await readBytes(part)).length
+  expect(held > 0 && held < 400000).toBe(true)
+  sim.ftpStallAfter = 0
+  const again = await download(r, [1])
+  expect(again.ids.join(",")).toBe("1")
+  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), content(400000, 1))).toBe(true)
+  const lines = progressOf(r, 1)
+  expect(lines[lines.length - 1].includes(`from ${held}`)).toBe(true)
+  await finish(r)
+}
+
+async function chasesALogThatGrowsWhileItComes(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  const longer = content(130000, 1)
+  sim.fsFiles.set(FIRST, content(100000, 1))
+  sim.ftpStallAfter = 100
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await r.f.event("logs.progress")
+  await r.f.event("logs.progress")
+  // The vehicle goes on writing the log: it is longer from now on (the open file the download has is the old one).
+  sim.fsFiles.set(FIRST, longer)
+  sim.ftpStallAfter = 0
+  const done = decodeLogsDownloaded((await r.f.reply(asked)).p ?? Cbor.Null, "$")
+  expect(done.ids.join(",")).toBe("1")
+  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), longer)).toBe(true)
+  await finish(r)
+}
+
+async function failsAWrongCrcAndDropsTheBadPart(): Promise<void> throws Error {
+  const r = await connected()
+  simulatorForTests()!.ftpMode = "badcrc"
+  const done = await download(r, [1])
+  expect(done.ids.length).toBe(0)
+  expect(done.stopped).toBe(true)
+  expect(done.error!.includes("does not match")).toBe(true)
+  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(false)
+  expect(progressOf(r, 1)[progressOf(r, 1).length - 1].startsWith("failed")).toBe(true)
+  await finish(r)
+}
+
+async function keepsAPartThatTheVehicleCannotCheck(): Promise<void> throws Error {
+  const r = await connected()
+  simulatorForTests()!.ftpMode = "nocrc"
+  const done = await download(r, [1])
+  expect(done.ids.length).toBe(0)
+  expect(done.error!.includes("could not be checked")).toBe(true)
+  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect(same(await readBytes(join(r.folder(), "00000001.BIN.part")), content(100000, 1))).toBe(true)
+  expect((await list(r)).logs[0].downloaded).toBe(false)
+  await finish(r)
+}
+
+async function stopsAtALogThatIsNotThere(): Promise<void> throws Error {
+  const r = await connected()
+  const done = await download(r, [1, 7])
+  expect(done.ids.join(",")).toBe("1")
+  expect(done.stopped).toBe(true)
+  expect(done.error!.includes("not on the vehicle")).toBe(true)
+  await finish(r)
+}
+
+async function holdsOffARebootAndAParameterDownloadWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(FIRST, content(300000, 1))
+  sim.ftpStallAfter = 100
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await r.f.event("logs.progress")
+  await r.f.event("logs.progress")
+  expect(codeOf(await r.f.call("vehicle.reboot"))).toBe("BUSY")
+  expect(codeOf(await r.f.call("params.list"))).toBe("BUSY")
+  expect(codeOf(await r.f.call("logs.vehicle.list"))).toBe("BUSY")
+  expect(codeOf(await r.f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("BUSY")
+  await r.f.call("logs.cancel")
+  await r.f.reply(asked)
+  await finish(r)
+}
+
+async function doesNotErase(): Promise<void> throws Error {
+  const r = await connected()
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
+  await finish(r)
+}
+
+async function refusesWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  expect(codeOf(await f.call("logs.vehicle.list"))).toBe("NOT_CONNECTED")
+  expect(codeOf(await f.call("logs.download", encodeLogsDownload(LogsDownload { ids: [1] })))).toBe("NOT_CONNECTED")
+}
+
+describe("the logs service", () => {
+  it("names log files and finds their numbers", namesTheLogFiles)
+  it("refuses without a connected vehicle", refusesWithoutAVehicle)
+  it("lists nothing when the vehicle has no log directory yet (nothing was logged)", listsNothingBeforeTheFirstArm)
+  it("lists only the log files, with the time in milliseconds when the vehicle gives one", listsTheLogsAndNothingElse)
+  it("answers a listing that cannot be trusted with LOGS_UNAVAILABLE and the reason", saysWhyAListThatCannotBeTrustedIsNone)
+  it("downloads a log into the data folder, checked by the vehicle's CRC, with progress", downloadsALogAndChecksIt)
+  it("goes on from a part that is there, and says where it began", goesOnFromAPart)
+  it("refuses while armed, while that is not known, and while busy, touching nothing", refusesWhileArmedOrNotKnownOrBusy)
+  it("stops a download when the vehicle arms, keeping the part", stopsWhenTheVehicleArms)
+  it("keeps the part on cancel, and the next download goes on from it", cancelKeepsThePartAndTheNextOneGoesOn)
+  it("chases a log that grows while it is fetched until the vehicle's CRC is the copy's", chasesALogThatGrowsWhileItComes)
+  it("fails a copy that does not match the vehicle's CRC and drops it", failsAWrongCrcAndDropsTheBadPart)
+  it("keeps a part that the vehicle cannot check, and does not call it downloaded", keepsAPartThatTheVehicleCannotCheck)
+  it("stops at a log that is not on the vehicle", stopsAtALogThatIsNotThere)
+  it("holds off a reboot, a parameter download and a second download while one runs", holdsOffARebootAndAParameterDownloadWhileItRuns)
+  it("does not erase yet", doesNotErase)
+})

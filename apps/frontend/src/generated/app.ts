@@ -144,10 +144,10 @@ function validateVehicleLogInto(value: any, path: string): boolean {
 /** The first problem with `value` as a vehicle-log, or null. */
 export const validateVehicleLog = (value: unknown) => run(validateVehicleLogInto, value)
 
-export type VehicleLogs = { "logs": (VehicleLog)[], "source": "ftp" | "mavlink" }
+export type VehicleLogs = { "logs": (VehicleLog)[], "source": "ftp" | "mavlink", "canErase": boolean }
 
 function validateVehicleLogsInto(value: any, path: string): boolean {
-  return map(value, path, ["logs","source"]) && (value["logs"] === undefined ? fail(`${path}.logs`, 'present') : nested(value["logs"], `${path}.logs`, (value, path) => list(value, path, (value, path) => validateVehicleLogInto(value, path)))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","mavlink"])))
+  return map(value, path, ["logs","source","canErase"]) && (value["logs"] === undefined ? fail(`${path}.logs`, 'present') : nested(value["logs"], `${path}.logs`, (value, path) => list(value, path, (value, path) => validateVehicleLogInto(value, path)))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","mavlink"]))) && (value["canErase"] === undefined ? fail(`${path}.canErase`, 'present') : nested(value["canErase"], `${path}.canErase`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a vehicle-logs, or null. */
@@ -162,10 +162,10 @@ function validateLogsDownloadInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-download, or null. */
 export const validateLogsDownload = (value: unknown) => run(validateLogsDownloadInto, value)
 
-export type LogsDownloaded = { "ids": (number)[], "stopped": boolean }
+export type LogsDownloaded = { "ids": (number)[], "stopped": boolean, "error"?: string }
 
 function validateLogsDownloadedInto(value: any, path: string): boolean {
-  return map(value, path, ["ids","stopped"]) && (value["ids"] === undefined ? fail(`${path}.ids`, 'present') : nested(value["ids"], `${path}.ids`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff)))) && (value["stopped"] === undefined ? fail(`${path}.stopped`, 'present') : nested(value["stopped"], `${path}.stopped`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+  return map(value, path, ["ids","stopped","error"]) && (value["ids"] === undefined ? fail(`${path}.ids`, 'present') : nested(value["ids"], `${path}.ids`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffffffff)))) && (value["stopped"] === undefined ? fail(`${path}.stopped`, 'present') : nested(value["stopped"], `${path}.stopped`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["error"] === undefined || nested(value["error"], `${path}.error`, (value, path) => typeof value === 'string' || fail(path, 'text')))
 }
 
 /** The first problem with `value` as a logs-downloaded, or null. */

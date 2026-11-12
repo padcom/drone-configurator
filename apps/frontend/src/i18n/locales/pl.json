@@ -62,6 +62,7 @@
         "select": "Zaznacz",
         "id": "Log",
         "date": "Data",
+        "modified": "Ostatnia zmiana",
         "size": "Rozmiar",
         "state": "Stan"
       },
@@ -93,6 +94,7 @@
         "label": "Skasuj pobrane logi na pojeździe",
         "confirm": "Potwierdź: skasuj pobrane logi na pojeździe: {erased}. Nie pobrane i zostawione: {kept}",
         "note": "Kasuje tylko logi, które pobrano i sprawdzono: {erased}. Pozostałe zostają na pojeździe: {kept}.",
+        "unavailable": "Kasowanie logów na pojeździe nie jest jeszcze dostępne.",
         "nothing": "Żaden log nie jest jeszcze pobrany, więc nie ma czego kasować."
       }
     },

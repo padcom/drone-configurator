@@ -1,6 +1,7 @@
 // The harness itself, against real Copter SITL: it starts, takes parameters, runs fast, runs twice,
 // and leaves no process, directory or port behind, even when a test fails.
-import { access } from 'node:fs/promises'
+import { access, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { createConnection } from 'node:net'
 import { expect, it } from 'vitest'
 import { type Sitl, startSitl, withSitl } from './sitl'
@@ -79,6 +80,14 @@ describeSitl(
         await sitl.setParam('SIM_WIND_SPD', 1)
       })
     }, 90_000)
+
+    it('flies it (arm in GUIDED, take off, land) and leaves a log in logs/', async () => {
+      await withSitl({}, async sitl => {
+        await sitl.fly()
+        // The log is created at the arm and is still written for a while after the disarm.
+        expect(await readdir(join(sitl.directory, 'logs'))).toContain('00000001.BIN')
+      })
+    }, 330_000)
 
     it('leaves nothing behind when the test body throws', async () => {
       let started: Sitl | undefined

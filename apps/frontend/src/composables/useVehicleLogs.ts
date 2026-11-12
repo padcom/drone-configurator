@@ -42,6 +42,8 @@ export interface LogsModel {
   readonly blocked: ComputedRef<Blocked>
   /** The backend has no logs to offer (it does not know the methods yet): the screen says so, and has no controls. */
   readonly unavailable: Readonly<Ref<boolean>>
+  /** Whether the backend can erase the logs on the vehicle (as last listed). */
+  readonly canErase: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
   readonly error: ShallowRef<string | null>
   /** What the last download or erase came to. */
@@ -75,6 +77,7 @@ class VehicleLogs implements LogsModel {
   readonly loading = ref(false)
   readonly running = ref(false)
   readonly unavailable = ref(false)
+  readonly canErase = ref(false)
   readonly blocked: ComputedRef<Blocked>
   /** Goes up with every reset: an answer that comes for an earlier vehicle is dropped. */
   private epoch = 0
@@ -144,8 +147,9 @@ class VehicleLogs implements LogsModel {
 
   async refresh(): Promise<void> {
     this.loading.value = true
-    await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs }) => {
+    await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs, canErase }) => {
       this.logs.value = logs
+      this.canErase.value = canErase
       this.selected.value = this.pickable()
       this.listed.value = true
       this.error.value = null
@@ -196,9 +200,12 @@ class VehicleLogs implements LogsModel {
     this.progress.value = {}
     this.outcome.value = null
     this.running.value = true
+    // Why the backend stopped a download (a log that failed its check, the vehicle arming), in its words.
+    let reported: string | null = null
     const how = await this.attempt(() => this.deps.client.call('logs.download', { ids }), done => {
       this.outcome.value = { kind: 'downloaded', count: done.ids.length, stopped: done.stopped }
-      this.error.value = null
+      reported = done.error ?? null
+      this.error.value = reported
       // A download that was stopped leaves no log "downloading" or "queued": the rows say what the list says.
       this.progress.value = done.stopped ? {} : this.progress.value
     })
@@ -209,6 +216,16 @@ class VehicleLogs implements LogsModel {
     this.running.value = false
     // What came whole is no longer to be downloaded: the list says which, once read again.
     await this.refresh()
+    this.keepReason(reported)
+  }
+
+  /**
+   * Reading the list again clears an error; the reason a download stopped stays.
+   *
+   * @param reported the reason the backend gave, if it gave one
+   */
+  private keepReason(reported: string | null): void {
+    this.error.value = reported ?? this.error.value
   }
 
   async cancel(): Promise<void> {
@@ -235,6 +252,7 @@ class VehicleLogs implements LogsModel {
     this.epoch += 1
     this.loading.value = false
     this.unavailable.value = false
+    this.canErase.value = false
     this.logs.value = []
     this.selected.value = []
     this.progress.value = {}

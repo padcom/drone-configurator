@@ -16,6 +16,10 @@ export interface MockLogsOptions {
   intervalMs: number
   /** The logs on the vehicle, when not the usual four. */
   logs?: VehicleLog[]
+  /** The log whose download fails its check (the download stops with the reason). */
+  failId?: number
+  /** Whether the backend can erase (as the real one cannot yet): true unless said. */
+  canErase?: boolean
   /**
    * The logs whose copy here has the size of the listing and not its checksum (a block lost or garbled): the mock does not
    * count such a copy as downloaded, and never erases the log.
@@ -23,11 +27,14 @@ export interface MockLogsOptions {
   damaged?: number[]
 }
 
-/** The logs a mock vehicle has, oldest first (the time is a day in 2026, milliseconds). */
+/**
+ * The logs a mock vehicle has, oldest first. Most have no time, as on a real vehicle (the time is the last write of the file, and
+ * a file system without a clock gives none); the one that has it is a day in 2026, in milliseconds.
+ */
 export const MOCK_LOGS: VehicleLog[] = [
   { id: 1, size: 1_200_000, time: 1_783_000_000_000, downloaded: false },
-  { id: 2, size: 48_000, time: 1_783_086_400_000, downloaded: false },
-  { id: 3, size: 3_400_000, time: 1_783_172_800_000, downloaded: true },
+  { id: 2, size: 48_000, downloaded: false },
+  { id: 3, size: 3_400_000, downloaded: true },
   { id: 4, size: 760_000, downloaded: false },
 ]
 
@@ -36,7 +43,7 @@ interface Run {
   queue: number[]
   done: number[]
   timer: ReturnType<typeof setInterval>
-  finish: (stopped: boolean) => void
+  finish: (stopped: boolean, error?: string) => void
   step: number
   /** Where the log being fetched began (bytes). */
   from: number
@@ -104,7 +111,8 @@ export class MockLogs {
    * @param ok sends the answer
    */
   list(ok: Reply): void {
-    ok({ logs: this.logs.map(log => ({ ...log, downloaded: this.isChecked(log) })), source: 'ftp' })
+    const logs = this.logs.map(log => ({ ...log, downloaded: this.isChecked(log) }))
+    ok({ logs, source: 'ftp', canErase: this.options.canErase ?? true })
   }
 
   /**
@@ -195,10 +203,10 @@ export class MockLogs {
       timer,
       step: 0,
       from: 0,
-      finish: stopped => {
+      finish: (stopped, error) => {
         clearInterval(timer)
         this.run = undefined
-        ok({ ids: run.done, stopped })
+        ok({ ids: run.done, stopped, ...error === undefined ? {} : { error } })
       },
     }
 
@@ -249,6 +257,13 @@ export class MockLogs {
    * @param log the log
    */
   private fetch(run: Run, log: VehicleLog): void {
+    if (log.id === this.options.failId) {
+      // A log whose copy does not match the vehicle's CRC: the backend says so and stops.
+      this.progress(log.id, 'failed', 0)
+      run.finish(true, `log ${log.id}: the copy does not match the vehicle's file`)
+
+      return
+    }
     this.startLog(run, log)
     const { from } = run
     const resumedFrom = from > 0 ? from : undefined
