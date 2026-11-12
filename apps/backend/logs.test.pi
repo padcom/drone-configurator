@@ -403,8 +403,8 @@ async function neverReplacesACopyAndKnowsOneByItsCrc(): Promise<void> throws Err
   sim.fsFiles.set(FIRST, other)
   const names = await copyNames(r)
   expect(names.join(",")).toBe(copyName(1, crc32Of(first)))
-  // The list takes a copy of that number and size for it (a probable match); asking for it checks the vehicle's CRC.
-  expect((await list(r)).logs[0].downloaded).toBe(true)
+  // The copy has that number and size, but not the CRC the vehicle has for its log: the list does not call it downloaded.
+  expect((await list(r)).logs[0].downloaded).toBe(false)
   const done = await download(r, [1])
   expect(done.ids.join(",")).toBe("1")
   expect((await copyNames(r)).length).toBe(2)
@@ -413,6 +413,23 @@ async function neverReplacesACopyAndKnowsOneByItsCrc(): Promise<void> throws Err
   // The same log asked for again is the copy that is here: nothing new.
   await download(r, [1])
   expect((await copyNames(r)).length).toBe(2)
+  // And both are downloaded now, as far as the list can tell: the vehicle's log is the second copy.
+  expect((await list(r)).logs[0].downloaded).toBe(true)
+  await finish(r)
+}
+
+async function doesNotTrustACopyByItsNameAlone(): Promise<void> throws Error {
+  const r = await connected()
+  const whole = content(100000, 1)
+  await download(r, [1])
+  const copy = copyPath(r, 1, whole)
+  // The copy was damaged since (same name, same size, other bytes): the list still takes it for the log (the vehicle's CRC is the
+  // name's), but a download reads the file, finds it wrong, and fetches the log again in its place.
+  await writeBytes(copy, content(100000, 7))
+  const done = await download(r, [1])
+  expect(done.ids.join(",")).toBe("1")
+  expect(same(await readBytes(copy), whole)).toBe(true)
+  expect((await copyNames(r)).length).toBe(1)
   await finish(r)
 }
 
@@ -522,6 +539,7 @@ describe("the logs service", () => {
   it("holds off a reboot, a parameter download and a second download while one runs", holdsOffARebootAndAParameterDownloadWhileItRuns)
   it("names a copy by its log and CRC", namesACopyByItsLogAndCrc)
   it("never replaces a copy: a log with the same number and another CRC gets a name of its own", neverReplacesACopyAndKnowsOneByItsCrc)
+  it("does not trust a copy by its name alone: a damaged one is fetched again", doesNotTrustACopyByItsNameAlone)
   it("gives a vehicle with no unique id a folder for each connection", givesAVehicleWithNoUniqueIdAFolderOfItsConnection)
   it("refuses a second download that comes before the first has begun", refusesTwoDownloadsAtTheSameTime)
   it("holds off a parameter download, a reboot, a download and another listing while the list is read", holdsEverythingElseOffWhileTheListIsRead)

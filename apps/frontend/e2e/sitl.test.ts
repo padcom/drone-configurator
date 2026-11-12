@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, isAbsolute, join, relative as relativePath } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asCommandAck, asHeartbeat, asParamValue, asRelativeAltitude, crc16, encodeCommandLong, encodeFrame,
+  FrameReader, MSG_HEARTBEAT, MSG_PARAM_VALUE, asCommandAck, asHeartbeat, asParamValue, asRelativeAltitude, crc16, crc32, encodeCommandLong, encodeFrame,
   encodeParamSet,
 } from './mavlink-wire'
 import {
@@ -17,6 +17,15 @@ import {
 describe('the MAVLink wire format', () => {
   it('computes the X.25 CRC', () => {
     expect(crc16(new TextEncoder().encode('123456789'))).toBe(0x6f_91)
+  })
+
+  it('computes the CRC-32 of the file transfer: the usual one with no inversion at either end', () => {
+    const bytes = new TextEncoder().encode('123456789')
+    // The usual CRC-32 of "123456789" is 0xcbf43926: seeded with all ones, and inverted at the end.
+    expect((crc32(bytes, 0xff_ff_ff_ff) ^ 0xff_ff_ff_ff) >>> 0).toBe(0xcb_f4_39_26)
+    // It carries on: the CRC of a file is the CRC of its first part carried on over the rest.
+    expect(crc32(bytes.subarray(4), crc32(bytes.subarray(0, 4)))).toBe(crc32(bytes))
+    expect(crc32(new Uint8Array(0))).toBe(0)
   })
 
   const heartbeat = Uint8Array.of(0, 0, 0, 0, 2, 3, 81, 4, 3)

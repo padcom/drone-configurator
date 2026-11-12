@@ -236,6 +236,9 @@ it('shows no date where the vehicle gives none, and the time of the last change 
   const { wrapper } = await screen()
 
   expect(cells(wrapper).map(row => row[2] === 'No date')).toEqual([false, true, true, true])
+  // And says why, once: the firmware does not say.
+  expect(wrapper.findAll('.logs-nodate')).toHaveLength(1)
+  expect(wrapper.get('.logs-nodate').text()).toContain('firmware does not say when a file was last changed')
 })
 
 it('says that erasing is not available yet, and keeps its button off, when the backend cannot erase', async () => {

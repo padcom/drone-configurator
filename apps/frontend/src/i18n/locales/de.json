@@ -69,6 +69,7 @@
       },
       "select": "Log {id} auswählen",
       "noDate": "Kein Datum",
+      "noDateNote": "Einige Logs haben kein Datum: Die Firmware dieses Fahrzeugs gibt nicht an, wann eine Datei zuletzt geändert wurde.",
       "state": {
         "new": "Nicht heruntergeladen",
         "downloaded": "Heruntergeladen",

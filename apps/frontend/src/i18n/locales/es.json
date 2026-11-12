@@ -69,6 +69,7 @@
       },
       "select": "Seleccionar el registro {id}",
       "noDate": "Sin fecha",
+      "noDateNote": "Algunos registros no tienen fecha: el firmware de este vehículo no indica cuándo se modificó un archivo por última vez.",
       "state": {
         "new": "Sin descargar",
         "downloaded": "Descargado",

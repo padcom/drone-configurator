@@ -68,6 +68,33 @@ export function crc16(bytes: Uint8Array, seed = 0xffff): number {
   return crc
 }
 
+/** The table of the reflected CRC-32 polynomial 0xEDB88320. */
+const CRC32_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+  let crc = index
+  for (let bit = 0; bit < 8; bit++) {
+    crc = crc & 1 ? 0xed_b8_83_20 ^ (crc >>> 1) : crc >>> 1
+  }
+
+  return crc >>> 0
+})
+
+/**
+ * The CRC-32 that ArduPilot gives for a file (MAVLink FTP CalcFileCRC32): the usual polynomial, but with no inversion at the start
+ * and none at the end. (With the seed 0xffffffff and the result inverted it is the usual CRC-32, of zip and PNG.)
+ *
+ * @param bytes the file
+ * @param seed the CRC of what came before
+ * @returns the CRC, 32 bits, not negative
+ */
+export function crc32(bytes: Uint8Array, seed = 0): number {
+  let crc = seed >>> 0
+  for (const byte of bytes) {
+    crc = (CRC32_TABLE[(crc ^ byte) & 0xff] ?? 0) ^ (crc >>> 8)
+  }
+
+  return crc >>> 0
+}
+
 /**
  * Builds an unsigned MAVLink 2 frame.
  *

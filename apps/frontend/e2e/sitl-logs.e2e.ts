@@ -9,6 +9,7 @@ import { dirname, join, sep } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, home, launchApp } from './launch'
+import { crc32 } from './mavlink-wire'
 import { type Sitl, startSitl } from './sitl'
 import { describeSitl } from './sitl-suite'
 
@@ -277,6 +278,14 @@ function checkTheCopy(): void {
   expect(mine.length).toBeGreaterThan(100_000)
   expect(mine.length).toBeLessThanOrEqual(theirs.length)
   expect(mine.equals(theirs.subarray(0, mine.length))).toBe(true)
+  // The name has the CRC the vehicle computes for its file (what the app compared before it gave the copy this name), and it is
+  // the CRC of the bytes in the copy.
+  const named = /-(?<crc>[0-9a-f]{8})\.BIN$/u.exec(copy)?.groups?.crc
+  expect(named).toBe(crc32(mine).toString(16).padStart(8, '0'))
+
+  if (mine.length === theirs.length) {
+    expect(named).toBe(crc32(theirs).toString(16).padStart(8, '0'))
+  }
   expect(statSync(join(dirname(copy), '00000001.BIN.part'), { throwIfNoEntry: false })).toBeUndefined()
 }
 

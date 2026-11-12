@@ -69,6 +69,7 @@
       },
       "select": "Zaznacz log {id}",
       "noDate": "Brak daty",
+      "noDateNote": "Niektóre logi nie mają daty: firmware tego pojazdu nie podaje, kiedy plik był ostatnio zmieniony.",
       "state": {
         "new": "Nie pobrany",
         "downloaded": "Pobrany",
