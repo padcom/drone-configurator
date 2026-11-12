@@ -1,0 +1,308 @@
+// The automatic review of a log on this computer (`logs.local.review`): a handful of findings from the messages every ArduPilot log
+// has, each with the number it rests on and the limit it was held against, so that the page can say both. Only a VERIFIED log is
+// reviewed (its CRC is the one the vehicle gave when it was downloaded): nothing is concluded from bytes that are not known to be
+// the vehicle's. A thing the log has no data for is `no-data`, never a pass.
+//
+// What is looked at, from the fields of Copter-4.7.2's own log:
+//   vibration.x/y/z   VIBE VibeX, VibeY, VibeZ (m/s/s): the largest, over all IMUs.
+//   vibration.clipping VIBE Clip (a running count for each IMU): the most clips any IMU counted during the log.
+//   gps.satellites    GPS NSats: the fewest, while the GPS had a 3D fix (Status 3 or more).
+//   gps.hdop          GPS HDop: the largest, while it had a 3D fix.
+//   gps.fix           GPS Status: how many of the samples had no 3D fix.
+//   ekf.variance      XKF4 SV, SP, SH, SM (the variance ratios of the EKF; 1 is where the EKF calls itself unhealthy): the largest.
+//   errors.logged     ERR: how many errors were logged that were not a clearing (ECode 0).
+//   battery.voltage   BAT Volt: the lowest, and battery.current BAT Curr: the highest. These are `info`: whether they are a problem
+//                     depends on the battery, which the log does not say here.
+// The whole log is looked at, the time on the ground included. The limits are this app's, written in the findings, not ArduPilot's.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfMessage } from "padcom/pico-mavlink"
+import {
+  LogsReview,
+  ReviewFinding,
+  ReviewFindingLevel,
+  decodeLogsLocalRead,
+  encodeLogsReview,
+} from "./generated/app"
+import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "./locallogs"
+
+/// Vibration (m/s/s): above `VIBE_WARN` it may hurt, above `VIBE_BAD` it does.
+const VIBE_WARN: f64 = 30.0
+const VIBE_BAD: f64 = 60.0
+/// Satellites: fewer than `SATS_BAD` is bad, fewer than `SATS_OK` is a warning.
+const SATS_OK: f64 = 9.0
+const SATS_BAD: f64 = 6.0
+/// HDOP: above `HDOP_OK` is a warning, above `HDOP_BAD` is bad.
+const HDOP_OK: f64 = 1.5
+const HDOP_BAD: f64 = 2.5
+/// EKF variance ratio: from `EKF_WARN` a warning (ArduCopter's default failsafe threshold), from `EKF_BAD` it is unhealthy.
+const EKF_WARN: f64 = 0.8
+const EKF_BAD: f64 = 1.0
+/// The most IMUs told apart for the clip counts.
+const MAX_IMUS: int = 8
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.review", reviewLocal)
+}
+
+/// The largest or the smallest of some values, and when it was.
+class Extreme {
+  public readonly wantMax: bool
+  public value: f64 = 0.0
+  public at: int = -1
+  public seen: int = 0
+
+  constructor(wantMax: bool) {
+    this.wantMax = wantMax
+  }
+
+  /// The value of field `name` of the message, if it has one.
+  public offerField(m: DfMessage, name: string): void {
+    const v = m.num(name)
+    if (v != null) {
+      offer(v!, m.timeUs())
+    }
+  }
+
+  public offer(v: f64, t: int): void {
+    if (v != v || v > 1.0e300 || v < -1.0e300) {
+      return
+    }
+    if (seen == 0 || (if (wantMax) v > value else v < value)) {
+      value = v
+      at = t
+    }
+    seen += 1
+  }
+}
+
+/// A running count (clips of one IMU): where it began, and its last value.
+class Running {
+  public first: f64 = 0.0
+  public last: f64 = 0.0
+  public seen: int = 0
+
+  public offer(v: f64): void {
+    if (v != v || v > 1.0e300 || v < 0.0) {
+      return
+    }
+    if (seen == 0) {
+      first = v
+    }
+    last = v
+    seen += 1
+  }
+}
+
+/// What is gathered of a log for the review.
+class Gathered implements Taker {
+  public readonly vibeX: Extreme = new Extreme(true)
+  public readonly vibeY: Extreme = new Extreme(true)
+  public readonly vibeZ: Extreme = new Extreme(true)
+  public readonly clips: Running[] = []
+  public readonly sats: Extreme = new Extreme(false)
+  public readonly hdop: Extreme = new Extreme(true)
+  public gpsSamples: int = 0
+  public noFix: int = 0
+  public readonly variance: Extreme = new Extreme(true)
+  public errors: int = 0
+  public sawErrors: bool = false
+  public readonly volts: Extreme = new Extreme(false)
+  public readonly amps: Extreme = new Extreme(true)
+
+  constructor() {
+    for (let i = 0; i < MAX_IMUS; i++) {
+      this.clips.push(new Running())
+    }
+  }
+
+  public take(m: DfMessage): void {
+    const name = m.format.name
+    if (name == "VIBE") {
+      takeVibe(m)
+    } else if (name == "GPS") {
+      takeGps(m)
+    } else if (name == "XKF4") {
+      takeEkf(m)
+    } else if (name == "ERR") {
+      sawErrors = true
+      if ((m.num("ECode") ?? 0.0) != 0.0) {
+        errors += 1
+      }
+    } else if (name == "BAT") {
+      volts.offerField(m, "Volt")
+      amps.offerField(m, "Curr")
+    }
+  }
+
+  takeVibe(m: DfMessage): void {
+    vibeX.offerField(m, "VibeX")
+    vibeY.offerField(m, "VibeY")
+    vibeZ.offerField(m, "VibeZ")
+    const imu = m.num("IMU") ?? 0.0
+    const clip = m.num("Clip")
+    if (clip != null && imu >= 0.0 && imu < (MAX_IMUS as f64)) {
+      clips[imu as int].offer(clip!)
+    }
+  }
+
+  /// A GPS sample counts for the satellites and the HDOP only with a 3D fix; without one it is counted as having none.
+  takeGps(m: DfMessage): void {
+    const status = m.num("Status")
+    if (status == null) {
+      return
+    }
+    gpsSamples += 1
+    if (status! < 3.0) {
+      noFix += 1
+      return
+    }
+    sats.offerField(m, "NSats")
+    hdop.offerField(m, "HDop")
+  }
+
+  takeEkf(m: DfMessage): void {
+    variance.offerField(m, "SV")
+    variance.offerField(m, "SP")
+    variance.offerField(m, "SH")
+    variance.offerField(m, "SM")
+  }
+}
+
+/// A finding with no data behind it.
+function noData(id: string): ReviewFinding {
+  ReviewFinding { id: id, level: ReviewFindingLevel.NoData }
+}
+
+/// A finding: what was found, the limit it was held to, when it was found, and how it fared.
+function finding(id: string, level: ReviewFindingLevel, value: f64, limit: f64, at: int): ReviewFinding {
+  const f = ReviewFinding { id: id, level: level, value: value, limit: limit }
+  if (at >= 0) {
+    f.atUs = at as u64
+  }
+  f
+}
+
+/// How a value fares against a warning limit and a bad one, for things that are worse the larger they are.
+export function levelAbove(v: f64, warn: f64, bad: f64): ReviewFindingLevel {
+  if (v > bad) ReviewFindingLevel.Bad else if (v > warn) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok
+}
+
+/// The same, for things that are worse the smaller they are.
+export function levelBelow(v: f64, ok: f64, bad: f64): ReviewFindingLevel {
+  if (v < bad) ReviewFindingLevel.Bad else if (v < ok) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok
+}
+
+/// The limit a finding was held to: the one that was crossed, else the first.
+function limitOf(level: ReviewFindingLevel, warn: f64, bad: f64): f64 {
+  if (level == ReviewFindingLevel.Bad) bad else warn
+}
+
+function vibration(id: string, e: Extreme): ReviewFinding {
+  if (e.seen == 0) {
+    return noData(id)
+  }
+  const level = levelAbove(e.value, VIBE_WARN, VIBE_BAD)
+  finding(id, level, e.value, limitOf(level, VIBE_WARN, VIBE_BAD), e.at)
+}
+
+function clipping(g: Gathered): ReviewFinding {
+  let most = 0.0
+  let any = false
+  for (const r of g.clips) {
+    if (r.seen > 0) {
+      any = true
+      most = if (r.last - r.first > most) r.last - r.first else most
+    }
+  }
+  if (!any) {
+    return noData("vibration.clipping")
+  }
+  finding("vibration.clipping", if (most > 0.0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, most, 0.0, -1)
+}
+
+function satellites(g: Gathered): ReviewFinding {
+  if (g.sats.seen == 0) {
+    return noData("gps.satellites")
+  }
+  const level = levelBelow(g.sats.value, SATS_OK, SATS_BAD)
+  finding("gps.satellites", level, g.sats.value, if (level == ReviewFindingLevel.Bad) SATS_BAD else SATS_OK, g.sats.at)
+}
+
+function hdop(g: Gathered): ReviewFinding {
+  if (g.hdop.seen == 0) {
+    return noData("gps.hdop")
+  }
+  const level = levelAbove(g.hdop.value, HDOP_OK, HDOP_BAD)
+  finding("gps.hdop", level, g.hdop.value, limitOf(level, HDOP_OK, HDOP_BAD), g.hdop.at)
+}
+
+/// How many GPS samples had no 3D fix; the limit is none.
+function fix(g: Gathered): ReviewFinding {
+  if (g.gpsSamples == 0) {
+    return noData("gps.fix")
+  }
+  finding("gps.fix", if (g.noFix > 0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, g.noFix as f64, 0.0, -1)
+}
+
+function ekf(g: Gathered): ReviewFinding {
+  if (g.variance.seen == 0) {
+    return noData("ekf.variance")
+  }
+  const level = levelAbove(g.variance.value, EKF_WARN, EKF_BAD)
+  finding("ekf.variance", level, g.variance.value, limitOf(level, EKF_WARN, EKF_BAD), g.variance.at)
+}
+
+function errors(g: Gathered): ReviewFinding {
+  if (!g.sawErrors) {
+    // The vehicle logs an ERR only when something happened: a log without any has no errors, which is a finding, not a gap.
+    return finding("errors.logged", ReviewFindingLevel.Ok, 0.0, 0.0, -1)
+  }
+  finding("errors.logged", if (g.errors > 0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, g.errors as f64, 0.0, -1)
+}
+
+function battery(id: string, e: Extreme): ReviewFinding {
+  if (e.seen == 0) {
+    return noData(id)
+  }
+  finding(id, ReviewFindingLevel.Info, e.value, 0.0, e.at)
+}
+
+async function reviewLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const asked = decodeLogsLocalRead(payload ?? Cbor.Null, "$")
+  const own = claimRead()
+  try {
+    return await review(asked.key, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+async function review(key: string, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(key)
+  const known = knownSummary(key, file.facts)
+  if (known == null) {
+    throw new CommunicatorError("NOT_READ", "the log has not been read (lately), or it changed since: read it again")
+  }
+  if (!known!.verified) {
+    throw new CommunicatorError("NOT_VERIFIED", "the log is not verified (its CRC is not the one the vehicle gave): no review")
+  }
+  const g = new Gathered()
+  const done = await streamLog(key, file, own, g)
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  const findings: ReviewFinding[] = [
+    vibration("vibration.x", g.vibeX),
+    vibration("vibration.y", g.vibeY),
+    vibration("vibration.z", g.vibeZ),
+    clipping(g),
+    satellites(g),
+    hdop(g),
+    fix(g),
+    ekf(g),
+    errors(g),
+    battery("battery.voltage", g.volts),
+    battery("battery.current", g.amps),
+  ]
+  encodeLogsReview(LogsReview { findings: findings })
+}

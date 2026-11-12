@@ -1,0 +1,236 @@
+// The review of a log on this computer: findings with the number they rest on and the limit they were held to, nothing for a log that
+// is not verified, "no data" where the log has none. The messages have the formats of Copter-4.7.2's own log.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import { LogsReview, LogsLocalRead, ReviewFindingLevel, decodeLogsReview, encodeLogsLocalRead } from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-review-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// The formats as the CI firmware's log has them.
+function formats(e: DfEncoder): void {
+  e.define(167, "VIBE", "QBfffI", "TimeUS,IMU,VibeX,VibeY,VibeZ,Clip")
+  e.define(94, "GPS", "QBBIHBcLLeffffB", "TimeUS,I,Status,GMS,GWk,NSats,HDop,Lat,Lng,Alt,Spd,GCrs,VZ,Yaw,U")
+  e.define(47, "XKF4", "QBcccccfffHBIHb", "TimeUS,C,SV,SP,SH,SM,SVT,errRP,OFN,OFE,FS,TS,SS,GPS,PI")
+  e.define(88, "BAT", "QBfffffcfBBB", "TimeUS,Inst,Volt,VoltR,Curr,CurrTot,EnrgTot,Temp,Res,RemPct,H,SH")
+  e.define(185, "ERR", "QBB", "TimeUS,Subsys,ECode")
+}
+
+function blank(n: int): string[] {
+  const out: string[] = []
+  for (let i = 0; i < n; i++) {
+    out.push("")
+  }
+  out
+}
+
+function vibe(e: DfEncoder, t: int, imu: int, x: f64, y: f64, z: f64, clip: int): void {
+  e.add(167, [t as f64, imu as f64, x, y, z, clip as f64], blank(6))
+}
+
+function gps(e: DfEncoder, t: int, status: int, sats: int, hdop: f64): void {
+  e.add(94, [t as f64, 0.0, status as f64, 0.0, 0.0, sats as f64, hdop, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], blank(15))
+}
+
+function ekf(e: DfEncoder, t: int, sv: f64, sp: f64, sh: f64, sm: f64): void {
+  e.add(47, [t as f64, 0.0, sv, sp, sh, sm, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], blank(15))
+}
+
+function battery(e: DfEncoder, t: int, volt: f64, amps: f64): void {
+  e.add(88, [t as f64, 0.0, volt, volt, amps, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], blank(12))
+}
+
+function error(e: DfEncoder, t: int, subsystem: int, code: int): void {
+  e.add(185, [t as f64, subsystem as f64, code as f64], blank(3))
+}
+
+async function put(r: Rig, bytes: Uint8Array, crc: int = -1): Promise<string> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, if (crc < 0) crc32Of(bytes) else crc)
+  await writeBytes(join(dir, name), bytes)
+  `uid-a/${name}`
+}
+
+async function readIt(r: Rig, key: string): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+async function reviewOf(r: Rig, key: string): Promise<Envelope> throws Error {
+  await r.f.call("logs.local.review", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+function levelName(l: ReviewFindingLevel): string {
+  if (l == ReviewFindingLevel.Ok) "ok"
+  else if (l == ReviewFindingLevel.Warn) "warn"
+  else if (l == ReviewFindingLevel.Bad) "bad"
+  else if (l == ReviewFindingLevel.Info) "info"
+  else "no-data"
+}
+
+/// "level value limit at" of the finding `id`, with `-` for what it does not have.
+function show(review: LogsReview, id: string): string {
+  for (const f of review.findings) {
+    if (f.id == id) {
+      const level = levelName(f.level)
+      const v = if (f.value == null) "-" else `${f.value!}`
+      const l = if (f.limit == null) "-" else `${f.limit!}`
+      const at = if (f.atUs == null) "-" else `${f.atUs! as int}`
+      return `${level} ${v} ${l} ${at}`
+    }
+  }
+  "missing"
+}
+
+async function reviewsAHealthyFlight(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  formats(e)
+  for (let i = 0; i < 20; i++) {
+    const t = 1000000 + i * 100000
+    vibe(e, t, 0, 8.0 + (i % 5) as f64, 10.0, 6.0, 0)
+    vibe(e, t, 1, 7.0, 11.5, 5.0, 0)
+    gps(e, t, 3, 12 - i % 3, 0.9)
+    ekf(e, t, 0.2, 0.1, 0.3, 0.25)
+    battery(e, t, 12.6 - (i as f64) * 0.05, 4.0 + (i % 7) as f64)
+  }
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
+  expect(review.findings.length).toBe(11)
+  expect(show(review, "vibration.x")).toBe("ok 12 30 1400000")
+  expect(show(review, "vibration.y")).toBe("ok 11.5 30 1000000")
+  expect(show(review, "vibration.z").startsWith("ok 6 30")).toBe(true)
+  expect(show(review, "vibration.clipping")).toBe("ok 0 0 -")
+  expect(show(review, "gps.satellites")).toBe("ok 10 9 1200000")
+  expect(show(review, "gps.hdop").startsWith("ok 0.9 1.5")).toBe(true)
+  expect(show(review, "gps.fix")).toBe("ok 0 0 -")
+  expect(show(review, "ekf.variance").startsWith("ok 0.3 0.8")).toBe(true)
+  expect(show(review, "errors.logged")).toBe("ok 0 0 -")
+  // The battery is only told: whether it is a problem depends on the battery.
+  expect(show(review, "battery.voltage").startsWith("info 11.6")).toBe(true)
+  expect(show(review, "battery.current").startsWith("info 10 0 ")).toBe(true)
+  await done(r)
+}
+
+async function reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  formats(e)
+  vibe(e, 1000000, 0, 70.0, 45.0, 10.0, 3)
+  vibe(e, 2000000, 0, 20.0, 20.0, 10.0, 8)
+  vibe(e, 2000000, 1, 5.0, 5.0, 5.0, 1)
+  gps(e, 1000000, 3, 5, 3.0)
+  gps(e, 2000000, 3, 8, 2.0)
+  ekf(e, 1000000, 0.9, 0.1, 0.1, 0.1)
+  ekf(e, 2000000, 0.1, 1.2, 0.1, 0.1)
+  error(e, 1500000, 16, 2)
+  error(e, 1600000, 16, 0)
+  error(e, 1700000, 8, 1)
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
+  // The limit named is the one that was crossed.
+  expect(show(review, "vibration.x")).toBe("bad 70 60 1000000")
+  expect(show(review, "vibration.y")).toBe("warn 45 30 1000000")
+  expect(show(review, "vibration.z")).toBe("ok 10 30 1000000")
+  // IMU 0 counted 8 - 3 = 5 clips during the log.
+  expect(show(review, "vibration.clipping")).toBe("warn 5 0 -")
+  expect(show(review, "gps.satellites")).toBe("bad 5 6 1000000")
+  expect(show(review, "gps.hdop")).toBe("bad 3 2.5 1000000")
+  expect(show(review, "ekf.variance").startsWith("bad 1.2 1 2000000")).toBe(true)
+  // Two errors; the one with code 0 is the vehicle saying it is over.
+  expect(show(review, "errors.logged")).toBe("warn 2 0 -")
+  await done(r)
+}
+
+async function doesNotCountGpsWithoutAFixAndSaysSo(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  formats(e)
+  gps(e, 1000000, 2, 3, 9.0)
+  gps(e, 2000000, 0, 0, 99.0)
+  gps(e, 3000000, 3, 11, 0.8)
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
+  // Only the sample with a 3D fix is in the satellites and the HDOP; the other two are counted as having none.
+  expect(show(review, "gps.satellites")).toBe("ok 11 9 3000000")
+  expect(show(review, "gps.hdop").startsWith("ok 0.8")).toBe(true)
+  expect(show(review, "gps.fix")).toBe("warn 2 0 -")
+  await done(r)
+}
+
+async function saysNoDataWhereTheLogHasNone(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.add(72, [1000.0, 1.0, 2.0], ["", "", ""])
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
+  for (const id of ["vibration.x", "vibration.y", "vibration.z", "vibration.clipping", "gps.satellites", "gps.hdop", "gps.fix",
+    "ekf.variance", "battery.voltage", "battery.current"]) {
+    expect(show(review, id)).toBe("no-data - - -")
+  }
+  // No ERR in a log means no error was logged.
+  expect(show(review, "errors.logged")).toBe("ok 0 0 -")
+  await done(r)
+}
+
+async function reviewsOnlyAVerifiedLogThatWasRead(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  formats(e)
+  vibe(e, 1000000, 0, 1.0, 1.0, 1.0, 0)
+  const bytes = e.bytes()
+  const key = await put(r, bytes)
+  expect(codeOf(await reviewOf(r, key))).toBe("NOT_READ")
+  await readIt(r, key)
+  expect(codeOf(await reviewOf(r, key))).toBe("")
+  // A copy whose bytes are not the CRC in its name: read, but not reviewed.
+  const other = await put(r, bytes, 0x1234abcd)
+  await readIt(r, other)
+  expect(codeOf(await reviewOf(r, other))).toBe("NOT_VERIFIED")
+  expect(codeOf(await reviewOf(r, "uid-a/../x"))).toBe("NOT_FOUND")
+  await done(r)
+}
+
+describe("the review of the logs on this computer", () => {
+  it("reviews a healthy flight, with the number and the limit of each finding", reviewsAHealthyFlight)
+  it("reviews a flight that went badly, against the limit it crossed", reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit)
+  it("does not count a GPS sample without a 3D fix, and counts it as having none", doesNotCountGpsWithoutAFixAndSaysSo)
+  it("says no data where the log has none", saysNoDataWhereTheLogHasNone)
+  it("reviews only a verified log that was read", reviewsOnlyAVerifiedLogThatWasRead)
+})

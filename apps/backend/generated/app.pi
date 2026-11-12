@@ -1216,6 +1216,117 @@ export function encodeLogsLocalSeries(v: LogsLocalSeries): Cbor {
   Cbor.Dict(m)
 }
 
+export enum ReviewFindingLevel { Ok, Warn, Bad, Info, NoData }
+
+export function decodeReviewFindingLevel(v: Cbor, path: string): ReviewFindingLevel throws InvalidPayload {
+  match (text(v, path)) {
+    "ok" => ReviewFindingLevel.Ok,
+    "warn" => ReviewFindingLevel.Warn,
+    "bad" => ReviewFindingLevel.Bad,
+    "info" => ReviewFindingLevel.Info,
+    "no-data" => ReviewFindingLevel.NoData,
+    _ => throw new InvalidPayload(path, "ok or warn or bad or info or no-data"),
+  }
+}
+
+export function encodeReviewFindingLevel(v: ReviewFindingLevel): Cbor {
+  match (v) {
+    Ok => Cbor.Text("ok"),
+    Warn => Cbor.Text("warn"),
+    Bad => Cbor.Text("bad"),
+    Info => Cbor.Text("info"),
+    NoData => Cbor.Text("no-data"),
+  }
+}
+
+export struct ReviewFinding {
+  id: string
+  level: ReviewFindingLevel
+  value?: f64
+  limit?: f64
+  atUs?: u64
+}
+
+export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws InvalidPayload {
+  const m = members(v, path, ["id", "level", "value", "limit", "atUs"])
+  const cbor2 = m.get("value")
+  let opt2: f64? = null
+  if (cbor2 != null) {
+    opt2 = float(cbor2, `${path}.value`)
+  }
+  const cbor3 = m.get("limit")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.limit`)
+  }
+  const cbor4 = m.get("atUs")
+  let opt4: u64? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.atUs`, 18446744073709551615) as u64)
+  }
+  ReviewFinding {
+    id: text(required(m, "id", path), `${path}.id`),
+    level: decodeReviewFindingLevel(required(m, "level", path), `${path}.level`),
+    value: opt2,
+    limit: opt3,
+    atUs: opt4,
+  }
+}
+
+export function encodeReviewFinding(v: ReviewFinding): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Text(v.id))
+  m.set("level", encodeReviewFindingLevel(v.level))
+  const opt2 = v.value
+  if (opt2 != null) {
+    m.set("value", Cbor.Float(opt2))
+  }
+  const opt3 = v.limit
+  if (opt3 != null) {
+    m.set("limit", Cbor.Float(opt3))
+  }
+  const opt4 = v.atUs
+  if (opt4 != null) {
+    m.set("atUs", Cbor.Uint(opt4 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+function decodeLogsReviewFindingsList(v: Cbor, path: string): ReviewFinding[] throws InvalidPayload {
+  const out: ReviewFinding[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeReviewFinding(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsReviewFindingsList(v: ReviewFinding[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeReviewFinding(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsReview {
+  findings: ReviewFinding[]
+}
+
+export function decodeLogsReview(v: Cbor, path: string): LogsReview throws InvalidPayload {
+  const m = members(v, path, ["findings"])
+  LogsReview {
+    findings: decodeLogsReviewFindingsList(required(m, "findings", path), `${path}.findings`),
+  }
+}
+
+export function encodeLogsReview(v: LogsReview): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("findings", encodeLogsReviewFindingsList(v.findings))
+  Cbor.Dict(m)
+}
+
 function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
   const out: ModeChange[] = []
   let i = 0

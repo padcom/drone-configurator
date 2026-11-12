@@ -279,6 +279,24 @@ function validateLogsLocalSeriesInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-local-series, or null. */
 export const validateLogsLocalSeries = (value: unknown) => run(validateLogsLocalSeriesInto, value)
 
+export type ReviewFinding = { "id": string, "level": "ok" | "warn" | "bad" | "info" | "no-data", "value"?: number, "limit"?: number, "atUs"?: number | bigint }
+
+function validateReviewFindingInto(value: any, path: string): boolean {
+  return map(value, path, ["id","level","value","limit","atUs"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["level"] === undefined ? fail(`${path}.level`, 'present') : nested(value["level"], `${path}.level`, (value, path) => oneOf(value, path, ["ok","warn","bad","info","no-data"]))) && (value["value"] === undefined || nested(value["value"], `${path}.value`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["limit"] === undefined || nested(value["limit"], `${path}.limit`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["atUs"] === undefined || nested(value["atUs"], `${path}.atUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a review-finding, or null. */
+export const validateReviewFinding = (value: unknown) => run(validateReviewFindingInto, value)
+
+export type LogsReview = { "findings": (ReviewFinding)[] }
+
+function validateLogsReviewInto(value: any, path: string): boolean {
+  return map(value, path, ["findings"]) && (value["findings"] === undefined ? fail(`${path}.findings`, 'present') : nested(value["findings"], `${path}.findings`, (value, path) => list(value, path, (value, path) => validateReviewFindingInto(value, path))))
+}
+
+/** The first problem with `value` as a logs-review, or null. */
+export const validateLogsReview = (value: unknown) => run(validateLogsReviewInto, value)
+
 export type LocalLogModes = { "modes": (ModeChange)[], "cut": boolean }
 
 function validateLocalLogModesInto(value: any, path: string): boolean {
@@ -531,6 +549,7 @@ export interface Services {
   "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
   "logs.local.modes": { kind: 'method', request: LogsLocalRead, response: LocalLogModes }
   "logs.local.series": { kind: 'method', request: LogsLocalSeriesAsk, response: LogsLocalSeries }
+  "logs.local.review": { kind: 'method', request: LogsLocalRead, response: LogsReview }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
@@ -607,6 +626,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.series": {
     request: (value: any, path: string) => validateLogsLocalSeriesAskInto(value, path),
     response: (value: any, path: string) => validateLogsLocalSeriesInto(value, path),
+  },
+  "logs.local.review": {
+    request: (value: any, path: string) => validateLogsLocalReadInto(value, path),
+    response: (value: any, path: string) => validateLogsReviewInto(value, path),
   },
   "logs.local.cancel": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
