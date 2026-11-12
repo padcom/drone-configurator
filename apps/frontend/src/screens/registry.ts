@@ -46,7 +46,7 @@ const LOGS_SECTION = () => import('./logs/LogsSection.vue')
 const LOGS_SECTIONS: readonly Section[] = [
   { id: 'flights', path: 'flights', titleKey: 'logs.section.flights', load: () => import('./logs/LogsFlights.vue') },
   { id: 'replay', path: 'replay', titleKey: 'logs.section.replay', load: LOGS_SECTION },
-  { id: 'spectrum', path: 'spectrum', titleKey: 'logs.section.spectrum', load: LOGS_SECTION },
+  { id: 'spectrum', path: 'spectrum', titleKey: 'logs.section.spectrum', load: () => import('./logs/LogsSpectrum.vue') },
   { id: 'vehicle', path: 'vehicle', titleKey: 'logs.section.vehicle', load: () => import('./logs/LogsVehicle.vue') },
   { id: 'tools', path: 'tools', titleKey: 'logs.section.tools', load: () => import('./logs/LogsTools.vue') },
 ]

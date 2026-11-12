@@ -4,7 +4,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import { includesLogging } from '@/lib/logs/loggingSetup'
+import { includesGuarded } from '@/lib/logs/loggingSetup'
 import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
@@ -52,6 +52,8 @@ export interface StagedDeps {
 export interface StagedModel {
   /** The changes, in the order they were added. */
   readonly changes: ShallowRef<StagedChange[]>
+  /** Why the last attempt to queue a change was refused (armed or unknown, and a guarded parameter), or null. */
+  readonly refused: ShallowRef<string | null>
   /**
    * How each change that was written and not confirmed went, in order. (A change the vehicle read back is done: it leaves the
    * changes, and is counted in `written`.)
@@ -139,6 +141,7 @@ export function endsSession(next: Connection, before: Connection): boolean {
 /** The staged changes. */
 class Staged implements StagedModel {
   readonly changes = shallowRef<StagedChange[]>([])
+  readonly refused = shallowRef<string | null>(null)
   readonly results = shallowRef<StagedResult[]>([])
   readonly written = shallowRef<{ count: number } | null>(null)
   readonly matched = shallowRef<{ count: number } | null>(null)
@@ -198,13 +201,35 @@ class Staged implements StagedModel {
    * @param param the parameter
    * @param to the value to write
    * @param origin `reset` for the initial value put back (it has no warning of the draft to carry), else `edit`
+   * @returns false when the parameter is refused (the vehicle may be armed)
    */
-  private queue(param: Param, to: number, origin: 'edit' | 'reset' = 'edit'): void {
+  private queue(param: Param, to: number, origin: 'edit' | 'reset' = 'edit'): boolean {
+    if (this.refuses(param.id)) {
+      return false
+    }
     const kept = this.changes.value.filter(change => change.id !== param.id)
     const queued: StagedChange = origin === 'reset' ? { id: param.id, from: param.value, to, origin } : this.changeFor(param, to)
     this.changes.value = [...kept, queued]
     // The words about the rows that stay (why one was not confirmed) stay with them; the rest go.
     this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+
+    return true
+  }
+
+  /**
+   * Whether a parameter is refused while the vehicle is armed, or may be: it is not queued (by any path: an edit, a reset, a
+   * value from another page), and the reason is kept for the page to say.
+   *
+   * @param id the parameter
+   * @returns true if it is refused
+   */
+  private refuses(id: string): boolean {
+    if (!this.refusesLogging([id])) {
+      return false
+    }
+    this.refused.value = say('staged.armedGuarded')
+
+    return true
   }
 
   /**
@@ -230,19 +255,32 @@ class Staged implements StagedModel {
    * @returns true if a change is queued now
    */
   private putBack(param: Param, to: number): boolean {
-    const { parameters } = this.deps
     const value = canonical(param, to)
-    const differs = !Object.is(value, canonical(param, param.value))
-    if (differs) {
-      this.queue(param, value, 'reset')
-    } else {
+    if (Object.is(value, canonical(param, param.value))) {
       this.discard(param.id)
+      this.showValue(param, value)
+
+      return false
     }
+    const queued = this.queue(param, value, 'reset')
+    if (queued) {
+      this.showValue(param, value)
+    }
+
+    return queued
+  }
+
+  /**
+   * The Value field of the selected parameter says what will be written for it.
+   *
+   * @param param the parameter
+   * @param value the value
+   */
+  private showValue(param: Param, value: number): void {
+    const { parameters } = this.deps
     if (parameters.selectedParam()?.id === param.id) {
       parameters.editDraft(showNumber(value))
     }
-
-    return differs
   }
 
   dropMatching(): void {
@@ -263,13 +301,38 @@ class Staged implements StagedModel {
   }
 
   resetTo(targets: { id: string, to: number }[]): number {
+    this.refused.value = null
+
     return this.writing.value ? 0 : targets.filter(({ id, to }) => this.resetOne(id, to)).length
   }
 
   stage(targets: { id: string, to: number }[]): number {
-    const allowed = targets.filter(({ id }) => !this.refusesLogging([id]))
+    this.refused.value = null
 
-    return this.writing.value ? 0 : allowed.filter(({ id, to }) => this.stageOne(id, to)).length
+    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to)).length
+  }
+
+  /**
+   * Whether the vehicle can be given a value exactly: it takes a parameter over MAVLink as a 32-bit float, which holds every
+   * integer up to 2^24 and above that only some. A value it cannot hold is refused here, not at the write.
+   *
+   * @param param the parameter
+   * @param value the value
+   * @returns false for a whole-number parameter and a number a float cannot hold
+   */
+  private writable(param: Param, value: number): boolean {
+    return param.kind !== 'int' || Math.fround(value) === value
+  }
+
+  /**
+   * Whether a value from another page can be queued: the vehicle can be given it exactly, and the parameter is not refused.
+   *
+   * @param param the parameter
+   * @param value the value
+   * @returns true if it can
+   */
+  private stageable(param: Param, value: number): boolean {
+    return this.writable(param, value) && !this.refuses(param.id)
   }
 
   /**
@@ -290,6 +353,9 @@ class Staged implements StagedModel {
 
       return false
     }
+    if (!this.stageable(param, value)) {
+      return false
+    }
     // Not `queue`: that carries the warning of the selected parameter's draft, which is another parameter's.
     const kept = this.changes.value.filter(change => change.id !== id)
     this.changes.value = [...kept, { id, from: param.value, to: value }]
@@ -303,10 +369,22 @@ class Staged implements StagedModel {
     if (!draft || this.writing.value) {
       return
     }
+    this.syncDraft(draft)
+  }
+
+  /**
+   * Makes the changes follow a draft: the vehicle's own value takes the change out, any other is queued.
+   *
+   * @param draft the parameter and the value typed for it
+   * @param draft.param the parameter
+   * @param draft.value the value
+   */
+  private syncDraft(draft: { param: Param, value: number }): void {
+    this.refused.value = null
+
     if (draft.value === canonical(draft.param, draft.param.value)) {
       this.discard(draft.param.id)
-    } else {
-      this.queue(draft.param, draft.value)
+    } else if (this.queue(draft.param, draft.value)) {
       // The field shows the number that will be written (3 for a typed 2.6 of an integer, 0.1 for a float typed as 0.1000000001).
       this.deps.parameters.editDraft(showNumber(draft.value))
     }
@@ -321,6 +399,7 @@ class Staged implements StagedModel {
     this.release = null
     this.writing.value = false
     this.changes.value = []
+    this.refused.value = null
     this.results.value = []
     this.written.value = null
     this.matched.value = null
@@ -451,7 +530,7 @@ class Staged implements StagedModel {
    * @returns true if they are refused
    */
   private refusesLogging(ids: readonly string[]): boolean {
-    return includesLogging(ids) && (this.deps.mayBeArmed?.() ?? false)
+    return includesGuarded(ids) && (this.deps.mayBeArmed?.() ?? false)
   }
 
   /**

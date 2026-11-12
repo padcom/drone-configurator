@@ -15,12 +15,13 @@ import { toastSeverity } from '@/lib/fly/messages'
 import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
-import { type SnapshotsModel, useSnapshots } from './useSnapshots'
+import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
 import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
+import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
@@ -56,6 +57,8 @@ export interface ConfiguratorHandle {
   flights: FlightsModel
   /** The message browser and the export of the open flight log. */
   browser: BrowserModel
+  /** The raw IMU batches of a flight log and their spectrum. */
+  spectrum: SpectrumModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -90,7 +93,8 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum'
+  | 'staged'
 >
 
 /**
@@ -296,6 +300,40 @@ function listen(client: BackendClient, vehicle: Vehicle, parameters: ParamsModel
 }
 
 /**
+ * Whether the vehicle is armed or may be: unknown (no telemetry, or no recent heartbeat) counts as armed.
+ *
+ * @param vehicle the vehicle link
+ * @returns true if it may be armed
+ */
+function mayBeArmed(vehicle: Vehicle): boolean {
+  return armedOf(vehicle.telemetry.value) !== false
+}
+
+/**
+ * The models of the logs on this computer: the Flights view, the message browser and the Spectrum.
+ *
+ * @param client the link to the backend
+ * @returns the three models
+ */
+function localLogModels(client: BackendClient): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum'> {
+  return { flights: useFlights({ client }), browser: useLogBrowser({ client }), spectrum: useSpectrum({ client }) }
+}
+
+/**
+ * The snapshots: the parameters are written from them one after the other, and not a logging or notch parameter while the
+ * vehicle may be armed.
+ *
+ * @param deps the link to the backend, how a failure is recorded, the questions, and the parameters
+ * @param vehicle the vehicle link
+ * @returns the snapshots
+ */
+function snapshotsFor(deps: Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 'parameters'>, vehicle: Vehicle): SnapshotsModel {
+  const { connection } = vehicle
+
+  return useSnapshots({ ...deps, connection, mayBeArmed: () => mayBeArmed(vehicle) })
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -316,7 +354,7 @@ export function createConfigurator(
   const settings = startSettings(client)
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
-  const snapshots = useSnapshots({ client, fail, confirm: askUser, parameters, connection: vehicle.connection })
+  const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
   // A vehicle that has just been connected has its parameters downloaded.
   // A link that came back to the same vehicle (`resumed`) has them downloaded again too, but that does not replace the initial
   // values: only the user's Download does, and a connection to another vehicle.
@@ -327,9 +365,7 @@ export function createConfigurator(
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const flights = useFlights({ client })
-  const browser = useLogBrowser({ client })
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, flights, browser, staged }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...localLogModels(client), staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

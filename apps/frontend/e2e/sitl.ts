@@ -32,6 +32,11 @@ export interface SitlOptions {
   speedup?: number
   /** SIM_* parameters to set once it is up, for example `{ SIM_WIND_SPD: 8 }`. */
   simParams?: Record<string, number>
+  /**
+   * Parameters it starts with (a defaults file after the shipped ones), for what only takes effect at a boot, for example
+   * `{ INS_LOG_BAT_MASK: 1 }` (the raw IMU batches of the Spectrum).
+   */
+  defaultParams?: Record<string, number>
   /** How long it may take to answer with a heartbeat. @default 60_000 */
   startTimeoutMs?: number
 }
@@ -99,11 +104,46 @@ export function shippedDefaults(binary: string, frame: string): string[] {
   return []
 }
 
+/**
+ * The text of a defaults file for SITL (`NAME value` on a line each).
+ *
+ * @param params the parameters
+ * @returns the text
+ * @throws {Error} for a name that is not a parameter's or a value that is not a number
+ */
+export function defaultsFile(params: Record<string, number>): string {
+  return Object.entries(params).map(([name, value]) => {
+    if (!/^[A-Z][A-Z0-9_]*$/u.test(name) || !Number.isFinite(value)) {
+      throw new Error(`SITL: ${JSON.stringify(name)}=${value} is not a parameter and a number`)
+    }
+
+    return `${name} ${value}
+`
+  }).join('')
+}
+
 /** The command line for SITL. */
 export function sitlArguments(options: { instance: number; frame: string; speedup: number; defaults?: readonly string[] }): string[] {
   const defaults = options.defaults?.length ? ['--defaults', options.defaults.join(',')] : []
 
   return ['-w', '--model', options.frame, '--speedup', String(options.speedup), '-I', String(options.instance), '--sim-address=127.0.0.1', ...defaults]
+}
+
+/**
+ * Writes the defaults file for the parameters a test starts SITL with.
+ *
+ * @param directory SITL's working directory
+ * @param params the parameters, if any
+ * @returns the path of the file, or none
+ */
+async function ownDefaults(directory: string, params: Record<string, number> | undefined): Promise<string[]> {
+  if (params === undefined || Object.keys(params).length === 0) {
+    return []
+  }
+  const file = join(directory, 'own.parm')
+  await writeFile(file, defaultsFile(params))
+
+  return [file]
 }
 
 /** How a test that needs SITL behaves when it isn't there: it fails in CI and is skipped elsewhere. */
@@ -406,7 +446,7 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
   let child: ChildProcess & { stdout: NonNullable<ChildProcess['stdout']>; stderr: NonNullable<ChildProcess['stderr']> }
   try {
     directory = await mkdtemp(join(tmpdir(), 'sitl-'))
-    const defaults = shippedDefaults(found.path, frame)
+    const defaults = [...shippedDefaults(found.path, frame), ...await ownDefaults(directory, options.defaultParams)]
     child = spawn(found.path, sitlArguments({ instance, frame, speedup, defaults }), { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] })
   } catch (error) {
     claim.release()

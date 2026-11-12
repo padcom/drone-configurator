@@ -175,3 +175,138 @@
 .flight-finding.muted .flight-level {
   color: var(--color-text-muted, inherit);
 }
+
+/* The message browser of the open log: the pickers, the fields at the cursor, the export. */
+.log-browser,
+.logs-tools,
+.logs-spectrum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.log-browser {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.log-browser-title,
+.browser-export-title,
+.spectrum-suggest h4,
+.setup-estimate h4 {
+  margin: 0;
+}
+
+.browser-pickers,
+.spectrum-picker,
+.setup-actions,
+.browser-export-buttons,
+.spectrum-notch-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.browser-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.browser-export {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.browser-value,
+.spectrum-suggested {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono, monospace);
+}
+
+/* The logging setup: groups of boxes, and the size estimate. */
+.setup-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2, 6px);
+}
+
+.setup-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The spectrum: the plot fills the width; the notch bands lie behind the lines; the peak and its harmonics are marked. */
+.spectrum-svg {
+  width: 100%;
+  height: auto;
+}
+
+.spectrum-tick {
+  fill: var(--color-text-muted, currentcolor);
+  font-size: 12px;
+}
+
+.spectrum-band {
+  fill: var(--color-warn);
+  fill-opacity: 0.18;
+}
+
+.spectrum-mark line {
+  stroke: var(--color-text-muted, currentcolor);
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.spectrum-mark text {
+  fill: var(--color-text, currentcolor);
+  font-size: 12px;
+}
+
+.spectrum-mark.peak line {
+  stroke: var(--color-error);
+}
+
+.spectrum-legend {
+  margin-left: var(--space-2);
+  font-weight: 600;
+}
+
+.spectrum-legend.tone-accent {
+  color: var(--color-accent);
+}
+
+.spectrum-legend.tone-ok {
+  color: var(--color-ok);
+}
+
+.spectrum-legend.tone-warn {
+  color: var(--color-warn);
+}
+
+.spectrogram {
+  margin: 0;
+}
+
+.spectrogram-canvas {
+  width: 100%;
+  height: 12rem;
+  image-rendering: pixelated;
+  background: #000;
+}
+
+.spectrum-notch,
+.spectrum-suggest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

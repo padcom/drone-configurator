@@ -1,0 +1,132 @@
+// The amplitude spectrum of a block of samples: a radix-2 FFT with its tables made once for a size, a Hann window, and the mean taken
+// out first (the offset of a sensor is not a vibration). The amplitude of a bin is that of the sine wave that would give it: a sine
+// of amplitude A that falls on a bin gives A there; one between two bins gives at least 0.84 A (the Hann window's scalloping loss
+// is 1.42 dB at the worst, half a bin off).
+
+/// The smallest and largest size of a block: 32 samples are one ISBD message, and 4096 is more than ArduPilot's `INS_LOG_BAT_CNT`
+/// is usually set to (its default is 1024).
+export const MIN_SIZE: int = 32
+export const MAX_SIZE: int = 4096
+
+/// Whether `n` is a size the FFT takes: a power of two from `MIN_SIZE` to `MAX_SIZE`.
+export function isSize(n: int): bool {
+  if (n < MIN_SIZE || n > MAX_SIZE) {
+    return false
+  }
+  let m = n
+  while (m > 1 && m % 2 == 0) {
+    m = m / 2
+  }
+  m == 1
+}
+
+/// The largest size the FFT takes that is not more than `n` samples, or 0 when there are fewer than `MIN_SIZE`.
+export function sizeFor(n: int): int {
+  let size = MIN_SIZE
+  if (n < size) {
+    return 0
+  }
+  while (size * 2 <= n && size * 2 <= MAX_SIZE) {
+    size = size * 2
+  }
+  size
+}
+
+/// The tables for blocks of one size.
+export class Spectrum {
+  public readonly size: int
+  readonly cosine: f64[] = []
+  readonly sine: f64[] = []
+  readonly reversed: int[] = []
+  readonly window: f64[] = []
+  /// The sum of the window: the amplitude of a bin is 2 |X| over it.
+  readonly gain: f64
+  /// Working space, reused for every block.
+  readonly re: f64[] = []
+  readonly im: f64[] = []
+
+  constructor(size: int) {
+    this.size = size
+    let sum = 0.0
+    for (let i = 0; i < size; i++) {
+      // The twiddles: exp(-2 pi i k / size), for k below half the size.
+      if (i < size / 2) {
+        const angle = -2.0 * Math.PI * (i as f64) / (size as f64)
+        cosine.push(Math.cos(angle))
+        sine.push(Math.sin(angle))
+      }
+      // The periodic Hann window.
+      const w = 0.5 - 0.5 * Math.cos(2.0 * Math.PI * (i as f64) / (size as f64))
+      window.push(w)
+      sum += w
+      reversed.push(reverse(i, size))
+      re.push(0.0)
+      im.push(0.0)
+    }
+    this.gain = sum
+  }
+
+  /// The index `i` with the bits of its log2(size) places turned round.
+  reverse(i: int, size: int): int {
+    let out = 0
+    let value = i
+    let places = size
+    while (places > 1) {
+      out = out * 2 + value % 2
+      value = value / 2
+      places = places / 2
+    }
+    out
+  }
+
+  /// The amplitudes of the bins 0 to size / 2 of `samples` (at least `size` of them, else an empty list; the first `size` are used): the mean is taken out,
+  /// the Hann window applied. Bin 0 is the mean's leftover (zero), the last bin is the Nyquist frequency.
+  public amplitudes(samples: f64[]): f64[] {
+    // Fewer samples than the size are no block: no spectrum (an empty list), never one made of zeros.
+    if (samples.length < size) {
+      return []
+    }
+    let mean = 0.0
+    for (let i = 0; i < size; i++) {
+      mean += samples[i]
+    }
+    mean = mean / (size as f64)
+    for (let i = 0; i < size; i++) {
+      re[reversed[i]] = (samples[i] - mean) * window[i]
+      im[reversed[i]] = 0.0
+    }
+    butterflies()
+    const half = size / 2
+    const out: f64[] = []
+    for (let k = 0; k <= half; k++) {
+      const magnitude = Math.sqrt(re[k] * re[k] + im[k] * im[k])
+      // Every bin but the first and the last stands for a positive and a negative frequency.
+      out.push(if (k == 0 || k == half) magnitude / gain else 2.0 * magnitude / gain)
+    }
+    out
+  }
+
+  /// The stages of the transform, over `re` and `im` already in bit-reversed order.
+  butterflies(): void {
+    let length = 2
+    while (length <= size) {
+      const half = length / 2
+      const step = size / length
+      for (let start = 0; start < size; start += length) {
+        for (let k = 0; k < half; k++) {
+          const wr = cosine[k * step]
+          const wi = sine[k * step]
+          const a = start + k
+          const b = a + half
+          const tr = re[b] * wr - im[b] * wi
+          const ti = re[b] * wi + im[b] * wr
+          re[b] = re[a] - tr
+          im[b] = im[a] - ti
+          re[a] = re[a] + tr
+          im[a] = im[a] + ti
+        }
+      }
+      length = length * 2
+    }
+  }
+}

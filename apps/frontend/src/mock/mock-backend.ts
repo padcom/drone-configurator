@@ -5,7 +5,7 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, Settings, SettingsPatch,
+  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   SettingsState, VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
@@ -224,6 +224,8 @@ class MockVehicle {
       case 'logs.local.messages': return this.localLogs.messages((e.p as { key: string }).key, ok, fail)
       case 'logs.local.at': return this.localLogs.at(e.p as { key: string, message: string, timeUs: number }, ok, fail)
       case 'logs.local.export': return this.localLogs.export(e.p as ExportAsk, ok, fail)
+      case 'logs.local.batches': return this.localLogs.batches((e.p as { key: string }).key, ok, fail)
+      case 'logs.local.spectrum': return this.localLogs.spectrum(e.p as LogsLocalSpectrumAsk, ok, fail)
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)

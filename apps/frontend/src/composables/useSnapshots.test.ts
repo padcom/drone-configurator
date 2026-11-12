@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { createBackendClient } from '@/backend/client'
+import type { Param } from '@/generated/app'
 import { mockBackend } from '@/mock/mock-backend'
 import { createConfigurator } from './useConfigurator'
 import { type SnapshotsModel, useSnapshots } from './useSnapshots'
@@ -98,6 +99,24 @@ it('writes nothing when no vehicle is connected', async () => {
 
   expect(questions).toEqual([])
   expect(handle.snapshots.applied.value).toEqual([])
+})
+
+it('does not write a logging or notch parameter while the vehicle may be armed (nothing known), and says why', async () => {
+  const { snapshots, parameters, fields } = await connected()
+  const added: Param = { id: 'LOG_BITMASK', index: 99, kind: 'int', type: 'INT32', value: 5 }
+  parameters.params.value = [...parameters.params.value, added]
+  snapshots.load(edited(snapshots, { LOG_BITMASK: 7, RTL_ALT: 2000 }))
+  snapshots.toggle('LOG_BITMASK')
+  snapshots.toggle('RTL_ALT')
+  // The telemetry says nothing: the state is not known, and that counts as armed.
+  fields.telemetry.value = null
+
+  await snapshots.apply()
+
+  const applied = snapshots.applied.value
+  expect(applied.map(item => [item.id, item.outcome])).toEqual([['RTL_ALT', 'verified'], ['LOG_BITMASK', 'failed']])
+  expect(applied.find(item => item.id === 'LOG_BITMASK')?.detail).toContain('not written while the vehicle is armed')
+  expect(parameters.params.value.find(param => param.id === 'LOG_BITMASK')?.value).toBe(5)
 })
 
 it('closes the review and forgets its ticks and results', async () => {

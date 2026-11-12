@@ -237,6 +237,7 @@
       },
       "armed": "Das Fahrzeug ist scharf geschaltet, oder sein Zustand ist nicht bekannt. Logging-Einstellungen werden nur im entschärften Zustand geändert.",
       "notEditable": "Eine Logging-Maske des Fahrzeugs ist keine ganze 32-Bit-Zahl, ihre Bits können hier nicht angezeigt oder geändert werden.",
+      "inexact": "Dieses Fahrzeug nimmt Parameter als 32-Bit-Gleitkommazahlen. Ein hier ausgeschaltetes Feld würde eine Maske ergeben, die sich nicht exakt schreiben lässt, und bleibt daher unverändert.",
       "fills": "Mehr Logging füllt den Speicher des Fahrzeugs schneller. Prüfen Sie die Schätzung unten, bevor Sie Datenströme einschalten.",
       "streams": "Was das Fahrzeug aufzeichnet",
       "unnamed": "Die Namen der Bits stammen aus den Parameter-Metadaten, die nicht geladen sind. Die Bits werden als Zahlen gezeigt.",
@@ -256,6 +257,86 @@
       },
       "queue": "{count} Änderung zur Warteschlange hinzufügen | {count} Änderungen zur Warteschlange hinzufügen",
       "revert": "Haken zurücksetzen"
+    },
+    "spectrum": {
+      "title": "Spektrum",
+      "log": "Log",
+      "sensor": "Sensor",
+      "chooseLog": "Log wählen…",
+      "reading": "Log {id} wird gelesen…",
+      "listing": "Suche nach Roh-IMU-Paketen im Log {id}…",
+      "computing": "Das Spektrum von Log {id} wird berechnet…",
+      "statusReady": "Das Spektrum von Log {id} ist fertig.",
+      "mixed": "Die Pakete dieses Sensors haben nicht alle dieselbe Rate. Nur die mit der Rate des ersten Pakets werden verwendet.",
+      "silent": "Jeder Wert dieses Sensors ist null, es gibt also kein Signal zu zeigen. Es wird nichts gezeichnet.",
+      "chart": "{sensor}: Amplitude, {unit}",
+      "axes": "Amplitude in {unit} über der Frequenz in Hz",
+      "noPeak": "Kein Maximum hebt sich deutlich vom Rest des Spektrums ab.",
+      "peakSummary": "Maximum bei {hz} Hz, Amplitude {amplitude} {unit}",
+      "peakTitle": "Maximum und Oberwellen",
+      "peakWhat": "Was",
+      "frequency": "Frequenz (Hz)",
+      "amplitude": "Amplitude ({unit})",
+      "peakAt": "Maximum auf {axis}",
+      "harmonic": "Oberwelle {n}×",
+      "spectrogram": "Spektrogramm (die drei Achsen zusammen)",
+      "spectrogramLabel": "Spektrogramm aus {rows} Zeilen, bis {hz} Hz",
+      "spectrogramAxes": "Frequenz quer, 0 bis {hz} Hz; Zeit nach unten, {from} bis {to}",
+      "caveats": "Die Abtastrate ist die nominelle aus dem Log; Vibrationen über der Hälfte davon werden ins Spektrum gefaltet (Aliasing). Ein Maximum bei den tiefsten Frequenzen kann die Eigenbewegung des Fahrzeugs sein.",
+      "batchCut": "Die Pakete haben {samples} Werte; die FFT nimmt die ersten {size}.",
+      "rowBatches": "Jede Zeile des Spektrogramms ist der Mittelwert von {count} Paket. | Jede Zeile des Spektrogramms ist der Mittelwert von {count} Paketen.",
+      "band": "Oberwelle {n}: {from} bis {to} Hz",
+      "gyro": "Gyro {instance}",
+      "accel": "Beschleunigungssensor {instance}",
+      "source": "{sensor}: {count} Pakete mit {rate} Hz",
+      "facts": "{batches} Pakete verwendet, {skipped} übersprungen. FFT über {size} Werte, ein Bin alle {resolution} Hz; abgetastet mit {rate} Hz.",
+      "accelNote": "Ein harmonischer Notch wird nach dem Gyro eingestellt: Wählen Sie ein Gyro, um Vorschläge zu erhalten.",
+      "idle": {
+        "title": "Kein Log gewählt",
+        "help": "Wählen Sie ein Log, um die Vibration des Flugs nach Frequenz zu sehen. Es muss Roh-IMU-Pakete enthalten."
+      },
+      "none": {
+        "title": "Dieses Log hat keine Roh-IMU-Pakete",
+        "help": "Ein Spektrum entsteht aus den Paketen roher Gyro- und Beschleunigungswerte, die ArduPilot bei eingeschaltetem Batch-Sampling schreibt. Schalten Sie es in der Logging-Einrichtung ein (INS_LOG_BAT_MASK), starten Sie das Fahrzeug neu, fliegen Sie und laden Sie das neue Log herunter.",
+        "link": "Zur Logging-Einrichtung"
+      },
+      "notch": {
+        "title": "Harmonischer Notch (Vorschau)",
+        "fromVehicle": "Ausgangspunkt sind die Werte des Fahrzeugs.",
+        "defaults": "Die Werte des Fahrzeugs sind nicht bekannt: Ausgangspunkt sind die Standardwerte von ArduPilot.",
+        "freq": "Grundfrequenz (Hz)",
+        "bandwidth": "Bandbreite (Hz)",
+        "attenuation": "Dämpfung (dB)",
+        "harmonics": "Oberwellen (Bitmaske)",
+        "preview": "Die schattierten Bänder sind das, was ein Notch mit diesen Werten herausnimmt. Es wird nichts geschrieben."
+      },
+      "suggest": {
+        "title": "Vorgeschlagene Notch-Werte",
+        "source": "Aus Log {log}, {sensor}: das dort gesehene Maximum. Das sind Vorschläge, keine Messungen Ihres Fahrzeugs.",
+        "different": "Dieses Log stammt von {log}; das verbundene Fahrzeug ist {vehicle}. Die Werte passen vielleicht nicht.",
+        "parameter": "Parameter",
+        "now": "Jetzt",
+        "value": "Vorgeschlagen",
+        "because": "Weil",
+        "note": "Modus, Referenz und Dämpfung werden nicht vorgeschlagen: Sie hängen vom Fahrzeug ab. Instanzen ab der Anzahl der IMUs sind Daten nach dem Filter: Stellen Sie den Notch nach einem Gyro davor ein.",
+        "takes": "Wirksam",
+        "afterReboot": "nach einem Neustart",
+        "atOnce": "sofort",
+        "rebootNote": "ArduPilot baut den Notch beim Start des Fahrzeugs auf: INS_HNTCH_ENABLE und INS_HNTCH_HMNCS (und Tracking-Modus und Referenz) wirken erst nach einem Neustart. Frequenz und Bandbreite wirken sofort.",
+        "armed": "Das Fahrzeug ist scharf, oder sein Zustand ist nicht bekannt: Die Notch-Werte werden nicht hinzugefügt, solange es scharf sein könnte.",
+        "modeRef": "Tracking am Fahrzeug: INS_HNTCH_MODE {mode}, INS_HNTCH_REF {ref}.",
+        "tracking": "Bei eingeschaltetem Tracking (Referenz über 0) ist INS_HNTCH_FREQ die Frequenz bei der Referenz, nicht das in diesem Flug gesehene Maximum: Prüfen Sie das vor dem Hinzufügen.",
+        "offline": "Verbinden Sie das Fahrzeug, um diese Werte zu seinen Parameteränderungen hinzuzufügen.",
+        "add": "{count} Wert zu den Änderungen hinzufügen | {count} Werte zu den Änderungen hinzufügen",
+        "addDifferent": "Bestätigen: Werte aus einem {log}-Log zu einem {vehicle} hinzufügen",
+        "added": "{count} Änderung zur Liste hinzugefügt. | {count} Änderungen zur Liste hinzugefügt.",
+        "why": {
+          "enable": "der Notch muss eingeschaltet sein",
+          "peak": "das Maximum liegt bei {hz} Hz",
+          "bandwidth": "die Hälfte der Frequenz, wie ArduPilot vorschlägt",
+          "harmonics": "die Grundfrequenz und {count} gefundene Oberwelle | die Grundfrequenz und {count} gefundene Oberwellen"
+        }
+      }
     },
     "section": {
       "flights": "Flüge",
@@ -731,6 +812,7 @@
     "close": "Schließen"
   },
   "staged": {
+    "armedGuarded": "Logging- und Notch-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "armedLogging": "Logging-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "region": "Zu schreibende Änderungen",
     "discard": "{id} verwerfen",
@@ -775,6 +857,7 @@
     "number": "bitte eine Zahl",
     "ambiguous": "bitte eine Zahl mit Punkt: {text} könnte eine Dezimalzahl oder eine Tausendergruppe sein",
     "range": "{type} reicht von {min} bis {max}",
+    "notExact": "dieses Fahrzeug nimmt Parameter als 32-Bit-Gleitkommazahlen: {value} lässt sich nicht exakt schreiben",
     "tooLarge": "zu groß für einen REAL32"
   },
   "warn": {

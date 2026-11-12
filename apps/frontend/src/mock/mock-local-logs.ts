@@ -5,9 +5,11 @@
 // sample is left out, and a field the log lacks is not found.
 import type { Envelope } from '@pico-desktop/protocol'
 import type {
-  LocalLog, LocalLogSummary, LogsLocalSeries, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint, SeriesResult,
+  LocalLog, LocalLogSummary, LogsLocalSeries, LogsLocalSpectrumAsk, ModeChange, ReviewFinding, SeriesAsk, SeriesPoint,
+  SeriesResult,
 } from '@/generated/app'
 import { type ExportAsk, MOCK_MESSAGES, MockSaved, atAnswer } from './mock-local-browser'
+import { batchesOf, spectrumOf } from './mock-local-spectrum'
 
 type Reply = (p: Envelope['p']) => void
 type Fail = (code: string, message: string) => void
@@ -428,6 +430,38 @@ export class MockLocalLogs {
   at(ask: { key: string, message: string, timeUs: number }, ok: Reply, fail: Fail): void {
     if (this.findRead(ask.key, fail)) {
       setTimeout(() => ok(atAnswer(SIGNALS, { message: ask.message, timeUs: Number(ask.timeUs) }, FIRST_US)), this.stepMs)
+    }
+  }
+
+  /**
+   * The raw IMU batches of a log that was read.
+   *
+   * @param key the log
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  batches(key: string, ok: Reply, fail: Fail): void {
+    if (this.findRead(key, fail)) {
+      setTimeout(() => ok(batchesOf(key)), this.stepMs)
+    }
+  }
+
+  /**
+   * The spectrum of one sensor of a log that was read; a sensor with no batch is not an empty spectrum but unavailable.
+   *
+   * @param ask the request
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  spectrum(ask: LogsLocalSpectrumAsk, ok: Reply, fail: Fail): void {
+    if (!this.findRead(ask.key, fail)) {
+      return
+    }
+    const answer = spectrumOf(ask)
+    if (answer === null) {
+      fail('UNAVAILABLE', 'the log has no batch of that sensor to make a spectrum of')
+    } else {
+      setTimeout(() => ok(answer), this.stepMs * 2)
     }
   }
 
