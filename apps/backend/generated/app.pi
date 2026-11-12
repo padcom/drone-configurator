@@ -1245,10 +1245,11 @@ export struct ReviewFinding {
   value?: f64
   limit?: f64
   atUs?: u64
+  samples?: u32
 }
 
 export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws InvalidPayload {
-  const m = members(v, path, ["id", "level", "value", "limit", "atUs"])
+  const m = members(v, path, ["id", "level", "value", "limit", "atUs", "samples"])
   const cbor2 = m.get("value")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -1264,12 +1265,18 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
   if (cbor4 != null) {
     opt4 = (uint(cbor4, `${path}.atUs`, 18446744073709551615) as u64)
   }
+  const cbor5 = m.get("samples")
+  let opt5: u32? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.samples`, 4294967295) as u32)
+  }
   ReviewFinding {
     id: text(required(m, "id", path), `${path}.id`),
     level: decodeReviewFindingLevel(required(m, "level", path), `${path}.level`),
     value: opt2,
     limit: opt3,
     atUs: opt4,
+    samples: opt5,
   }
 }
 
@@ -1288,6 +1295,10 @@ export function encodeReviewFinding(v: ReviewFinding): Cbor {
   const opt4 = v.atUs
   if (opt4 != null) {
     m.set("atUs", Cbor.Uint(opt4 as u64))
+  }
+  const opt5 = v.samples
+  if (opt5 != null) {
+    m.set("samples", Cbor.Uint(opt5 as u64))
   }
   Cbor.Dict(m)
 }

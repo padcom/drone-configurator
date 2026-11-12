@@ -286,13 +286,17 @@ logs-local-series = {
 ; the number it rests on, `limit` the limit it was held against (the one it crossed, else the first), `atUs` when in the log it was
 ; found, where there is a when. `level`: "ok", "warn" and "bad" against this app's limits; "info" for what is only told (the battery:
 ; whether it is a problem depends on the battery); "no-data" when the log has nothing to say (a finding is then absent of value, not a
-; pass). The whole log is looked at, the time on the ground too.
+; pass). `samples` is how many samples it rests on (for `gps.satellites`: those with a 3D fix). The whole log is looked at: with
+; ArduPilot's defaults a log begins at the arm, so that is the flight, and a log that holds time on the ground has it in the numbers
+; (the page says so where it knows). `ekf.variance` leaves out the first 10 s of the log, while the filter converges. The limits are
+; guidelines, not facts; `battery.voltage` is the PACK voltage (the log does not say how many cells there are).
 review-finding = {
   id: tstr,
   level: "ok" / "warn" / "bad" / "info" / "no-data",
   ? value: float,
   ? limit: float,
   ? atUs: uint .size 8,
+  ? samples: uint .size 4,
 }
 
 logs-review = { findings: [* review-finding] }

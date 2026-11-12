@@ -121,8 +121,8 @@ async function reviewsAHealthyFlight(): Promise<void> throws Error {
     const t = 1000000 + i * 100000
     vibe(e, t, 0, 8.0 + (i % 5) as f64, 10.0, 6.0, 0)
     vibe(e, t, 1, 7.0, 11.5, 5.0, 0)
-    gps(e, t, 3, 12 - i % 3, 0.9)
-    ekf(e, t, 0.2, 0.1, 0.3, 0.25)
+    gps(e, t, 3, 14 - i % 3, 0.9)
+    ekf(e, t + 10000000, 0.2, 0.1, 0.3, 0.25)
     battery(e, t, 12.6 - (i as f64) * 0.05, 4.0 + (i % 7) as f64)
   }
   const key = await put(r, e.bytes())
@@ -133,7 +133,9 @@ async function reviewsAHealthyFlight(): Promise<void> throws Error {
   expect(show(review, "vibration.y")).toBe("ok 11.5 30 1000000")
   expect(show(review, "vibration.z").startsWith("ok 6 30")).toBe(true)
   expect(show(review, "vibration.clipping")).toBe("ok 0 0 -")
-  expect(show(review, "gps.satellites")).toBe("ok 10 9 1200000")
+  // The fewest satellites: 12, with a 3D fix, in 20 samples (the board's limit is 12).
+  expect(show(review, "gps.satellites")).toBe("ok 12 12 1200000")
+  expect(review.findings[4].samples! as int).toBe(20)
   expect(show(review, "gps.hdop").startsWith("ok 0.9 1.5")).toBe(true)
   expect(show(review, "gps.fix")).toBe("ok 0 0 -")
   expect(show(review, "ekf.variance").startsWith("ok 0.3 0.8")).toBe(true)
@@ -153,8 +155,8 @@ async function reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit(): Promise<voi
   vibe(e, 2000000, 1, 5.0, 5.0, 5.0, 1)
   gps(e, 1000000, 3, 5, 3.0)
   gps(e, 2000000, 3, 8, 2.0)
-  ekf(e, 1000000, 0.9, 0.1, 0.1, 0.1)
-  ekf(e, 2000000, 0.1, 1.2, 0.1, 0.1)
+  ekf(e, 11000000, 0.9, 0.1, 0.1, 0.1)
+  ekf(e, 12000000, 0.1, 1.2, 0.1, 0.1)
   error(e, 1500000, 16, 2)
   error(e, 1600000, 16, 0)
   error(e, 1700000, 8, 1)
@@ -169,7 +171,7 @@ async function reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit(): Promise<voi
   expect(show(review, "vibration.clipping")).toBe("warn 5 0 -")
   expect(show(review, "gps.satellites")).toBe("bad 5 6 1000000")
   expect(show(review, "gps.hdop")).toBe("bad 3 2.5 1000000")
-  expect(show(review, "ekf.variance").startsWith("bad 1.2 1 2000000")).toBe(true)
+  expect(show(review, "ekf.variance").startsWith("bad 1.2 1 12000000")).toBe(true)
   // Two errors; the one with code 0 is the vehicle saying it is over.
   expect(show(review, "errors.logged")).toBe("warn 2 0 -")
   await done(r)
@@ -181,14 +183,36 @@ async function doesNotCountGpsWithoutAFixAndSaysSo(): Promise<void> throws Error
   formats(e)
   gps(e, 1000000, 2, 3, 9.0)
   gps(e, 2000000, 0, 0, 99.0)
-  gps(e, 3000000, 3, 11, 0.8)
+  gps(e, 3000000, 3, 13, 0.8)
   const key = await put(r, e.bytes())
   await readIt(r, key)
   const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
   // Only the sample with a 3D fix is in the satellites and the HDOP; the other two are counted as having none.
-  expect(show(review, "gps.satellites")).toBe("ok 11 9 3000000")
+  expect(show(review, "gps.satellites")).toBe("ok 13 12 3000000")
+  expect(review.findings[4].samples! as int).toBe(1)
   expect(show(review, "gps.hdop").startsWith("ok 0.8")).toBe(true)
   expect(show(review, "gps.fix")).toBe("warn 2 0 -")
+  await done(r)
+}
+
+async function leavesOutTheFirstSecondsOfTheEkf(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  formats(e)
+  vibe(e, 1000000, 0, 1.0, 1.0, 1.0, 0)
+  // The filter converging: high variance in the first 10 s of the log is not a finding.
+  ekf(e, 2000000, 5.0, 5.0, 5.0, 5.0)
+  ekf(e, 10900000, 5.0, 5.0, 5.0, 5.0)
+  const early = await put(r, e.bytes())
+  await readIt(r, early)
+  expect(show(decodeLogsReview((await reviewOf(r, early)).p ?? Cbor.Null, "$"), "ekf.variance")).toBe("no-data - - -")
+  // From 10 s on it is.
+  ekf(e, 11000000, 0.4, 0.1, 0.1, 0.1)
+  const later = await put(r, e.bytes())
+  await readIt(r, later)
+  const review = decodeLogsReview((await reviewOf(r, later)).p ?? Cbor.Null, "$")
+  expect(show(review, "ekf.variance")).toBe("ok 0.4 0.8 11000000")
+  expect(review.findings[7].samples! as int).toBe(4)
   await done(r)
 }
 
@@ -231,6 +255,7 @@ describe("the review of the logs on this computer", () => {
   it("reviews a healthy flight, with the number and the limit of each finding", reviewsAHealthyFlight)
   it("reviews a flight that went badly, against the limit it crossed", reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit)
   it("does not count a GPS sample without a 3D fix, and counts it as having none", doesNotCountGpsWithoutAFixAndSaysSo)
+  it("leaves out the first 10 s of the EKF's variance", leavesOutTheFirstSecondsOfTheEkf)
   it("says no data where the log has none", saysNoDataWhereTheLogHasNone)
   it("reviews only a verified log that was read", reviewsOnlyAVerifiedLogThatWasRead)
 })

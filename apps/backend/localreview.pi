@@ -9,11 +9,13 @@
 //   gps.satellites    GPS NSats: the fewest, while the GPS had a 3D fix (Status 3 or more).
 //   gps.hdop          GPS HDop: the largest, while it had a 3D fix.
 //   gps.fix           GPS Status: how many of the samples had no 3D fix.
-//   ekf.variance      XKF4 SV, SP, SH, SM (the variance ratios of the EKF; 1 is where the EKF calls itself unhealthy): the largest.
+//   ekf.variance      XKF4 SV, SP, SH, SM (the variance ratios of the EKF; 1 is where the EKF calls itself unhealthy): the largest,
+//                     not counting the first 10 s of the log (the filter converges then).
 //   errors.logged     ERR: how many errors were logged that were not a clearing (ECode 0).
 //   battery.voltage   BAT Volt: the lowest, and battery.current BAT Curr: the highest. These are `info`: whether they are a problem
-//                     depends on the battery, which the log does not say here.
-// The whole log is looked at, the time on the ground included. The limits are this app's, written in the findings, not ArduPilot's.
+//                     depends on the battery, which the log does not say here (the pack voltage: the cells are not known).
+// The whole log is looked at. With ArduPilot's defaults a log begins at the arm, so that is the flight; a log that holds time on
+// the ground (LOG_DISARMED) has it in these numbers too. The limits are guidelines, this app's, written in the findings, not facts.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import { DfMessage } from "padcom/pico-mavlink"
 import {
@@ -29,7 +31,7 @@ import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "
 const VIBE_WARN: f64 = 30.0
 const VIBE_BAD: f64 = 60.0
 /// Satellites: fewer than `SATS_BAD` is bad, fewer than `SATS_OK` is a warning.
-const SATS_OK: f64 = 9.0
+const SATS_OK: f64 = 12.0
 const SATS_BAD: f64 = 6.0
 /// HDOP: above `HDOP_OK` is a warning, above `HDOP_BAD` is bad.
 const HDOP_OK: f64 = 1.5
@@ -37,6 +39,8 @@ const HDOP_BAD: f64 = 2.5
 /// EKF variance ratio: from `EKF_WARN` a warning (ArduCopter's default failsafe threshold), from `EKF_BAD` it is unhealthy.
 const EKF_WARN: f64 = 0.8
 const EKF_BAD: f64 = 1.0
+/// The EKF's variance is high for a moment after the log begins (the filter is converging): the first 10 s are not looked at.
+const EKF_SETTLE_US: int = 10000000
 /// The most IMUs told apart for the clip counts.
 const MAX_IMUS: int = 8
 
@@ -108,6 +112,8 @@ class Gathered implements Taker {
   public sawErrors: bool = false
   public readonly volts: Extreme = new Extreme(false)
   public readonly amps: Extreme = new Extreme(true)
+  /// The time of the first message that has one (microseconds), -1 before.
+  public start: int = -1
 
   constructor() {
     for (let i = 0; i < MAX_IMUS; i++) {
@@ -117,6 +123,9 @@ class Gathered implements Taker {
 
   public take(m: DfMessage): void {
     const name = m.format.name
+    if (start < 0) {
+      start = m.timeUs()
+    }
     if (name == "VIBE") {
       takeVibe(m)
     } else if (name == "GPS") {
@@ -160,7 +169,12 @@ class Gathered implements Taker {
     hdop.offerField(m, "HDop")
   }
 
+  /// The EKF's variance ratios, but not those of the first seconds of the log, while the filter settles.
   takeEkf(m: DfMessage): void {
+    const t = m.timeUs()
+    if (t < 0 || start < 0 || t - start < EKF_SETTLE_US) {
+      return
+    }
     variance.offerField(m, "SV")
     variance.offerField(m, "SP")
     variance.offerField(m, "SH")
@@ -179,6 +193,12 @@ function finding(id: string, level: ReviewFindingLevel, value: f64, limit: f64, 
   if (at >= 0) {
     f.atUs = at as u64
   }
+  f
+}
+
+/// Says how many samples a finding rests on.
+function counted(f: ReviewFinding, samples: int): ReviewFinding {
+  f.samples = (if (samples > 4294967295) 4294967295 else samples) as u32
   f
 }
 
@@ -202,7 +222,7 @@ function vibration(id: string, e: Extreme): ReviewFinding {
     return noData(id)
   }
   const level = levelAbove(e.value, VIBE_WARN, VIBE_BAD)
-  finding(id, level, e.value, limitOf(level, VIBE_WARN, VIBE_BAD), e.at)
+  counted(finding(id, level, e.value, limitOf(level, VIBE_WARN, VIBE_BAD), e.at), e.seen)
 }
 
 function clipping(g: Gathered): ReviewFinding {
@@ -225,7 +245,7 @@ function satellites(g: Gathered): ReviewFinding {
     return noData("gps.satellites")
   }
   const level = levelBelow(g.sats.value, SATS_OK, SATS_BAD)
-  finding("gps.satellites", level, g.sats.value, if (level == ReviewFindingLevel.Bad) SATS_BAD else SATS_OK, g.sats.at)
+  counted(finding("gps.satellites", level, g.sats.value, if (level == ReviewFindingLevel.Bad) SATS_BAD else SATS_OK, g.sats.at), g.sats.seen)
 }
 
 function hdop(g: Gathered): ReviewFinding {
@@ -233,7 +253,7 @@ function hdop(g: Gathered): ReviewFinding {
     return noData("gps.hdop")
   }
   const level = levelAbove(g.hdop.value, HDOP_OK, HDOP_BAD)
-  finding("gps.hdop", level, g.hdop.value, limitOf(level, HDOP_OK, HDOP_BAD), g.hdop.at)
+  counted(finding("gps.hdop", level, g.hdop.value, limitOf(level, HDOP_OK, HDOP_BAD), g.hdop.at), g.hdop.seen)
 }
 
 /// How many GPS samples had no 3D fix; the limit is none.
@@ -241,7 +261,7 @@ function fix(g: Gathered): ReviewFinding {
   if (g.gpsSamples == 0) {
     return noData("gps.fix")
   }
-  finding("gps.fix", if (g.noFix > 0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, g.noFix as f64, 0.0, -1)
+  counted(finding("gps.fix", if (g.noFix > 0) ReviewFindingLevel.Warn else ReviewFindingLevel.Ok, g.noFix as f64, 0.0, -1), g.gpsSamples)
 }
 
 function ekf(g: Gathered): ReviewFinding {
@@ -249,7 +269,7 @@ function ekf(g: Gathered): ReviewFinding {
     return noData("ekf.variance")
   }
   const level = levelAbove(g.variance.value, EKF_WARN, EKF_BAD)
-  finding("ekf.variance", level, g.variance.value, limitOf(level, EKF_WARN, EKF_BAD), g.variance.at)
+  counted(finding("ekf.variance", level, g.variance.value, limitOf(level, EKF_WARN, EKF_BAD), g.variance.at), g.variance.seen)
 }
 
 function errors(g: Gathered): ReviewFinding {
@@ -264,7 +284,7 @@ function battery(id: string, e: Extreme): ReviewFinding {
   if (e.seen == 0) {
     return noData(id)
   }
-  finding(id, ReviewFindingLevel.Info, e.value, 0.0, e.at)
+  counted(finding(id, ReviewFindingLevel.Info, e.value, 0.0, e.at), e.seen)
 }
 
 async function reviewLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
