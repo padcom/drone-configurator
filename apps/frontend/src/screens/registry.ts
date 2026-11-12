@@ -44,7 +44,7 @@ const LOGS_SECTION = () => import('./logs/LogsSection.vue')
 
 /** The parts of the Logs screen, in the order of their tabs (the design's LogsNav). */
 const LOGS_SECTIONS: readonly Section[] = [
-  { id: 'flights', path: 'flights', titleKey: 'logs.section.flights', load: LOGS_SECTION },
+  { id: 'flights', path: 'flights', titleKey: 'logs.section.flights', load: () => import('./logs/LogsFlights.vue') },
   { id: 'replay', path: 'replay', titleKey: 'logs.section.replay', load: LOGS_SECTION },
   { id: 'spectrum', path: 'spectrum', titleKey: 'logs.section.spectrum', load: LOGS_SECTION },
   { id: 'vehicle', path: 'vehicle', titleKey: 'logs.section.vehicle', load: () => import('./logs/LogsVehicle.vue') },

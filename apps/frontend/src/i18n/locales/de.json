@@ -46,6 +46,92 @@
   "logs": {
     "sections": "Bereiche der Logs",
     "shown": "Logs: {section}",
+    "flights": {
+      "title": "Flüge",
+      "refresh": "Liste aktualisieren",
+      "loading": "Der Ordner mit den Logs wird gelesen…",
+      "none": {
+        "title": "Keine Logs auf diesem Computer",
+        "help": "Lade ein Log vom Fahrzeug herunter (Logs, Auf dem Fahrzeug), dann ist es hier."
+      },
+      "column": {
+        "id": "Log",
+        "modified": "Zuletzt geändert",
+        "size": "Größe",
+        "state": "Zustand"
+      },
+      "noDate": "Kein Datum",
+      "state": {
+        "unread": "Nicht geöffnet",
+        "verified": "Verifiziert",
+        "unverified": "Nicht verifiziert"
+      },
+      "open": "Öffnen",
+      "openLabel": "Log {id} öffnen",
+      "reading": "Log {id} wird gelesen…",
+      "readingBar": "Lesen von Log {id}",
+      "stop": "Lesen abbrechen",
+      "heading": "Log {id}",
+      "summary": "{length} · {messages} Nachrichten · {firmware}",
+      "summaryNoFirmware": "{length} · {messages} Nachrichten",
+      "notVerified": "Die Prüfsumme dieser Kopie ist nicht die, die das Fahrzeug beim Herunterladen des Logs angegeben hat. Das Log wird gezeigt, aber daraus wird nichts geschlossen: Es gibt keine Auswertung.",
+      "noTimes": "Dieses Log hat keine Zeiten, also gibt es nichts zu zeichnen.",
+      "damaged": "Beim Lesen gefundene Schäden: {count}. Gezeigt wird, was gelesen werden konnte.",
+      "modes": {
+        "title": "Flugmodi",
+        "number": "Modus {mode}"
+      },
+      "chart": {
+        "attitude": "Lage",
+        "altitude": "Höhe",
+        "vibration": "Vibration",
+        "roll": "Rollen",
+        "pitch": "Nicken",
+        "alt": "Höhe",
+        "x": "X",
+        "y": "Y",
+        "z": "Z"
+      },
+      "level": {
+        "ok": "OK",
+        "warn": "Prüfen",
+        "bad": "Problem",
+        "info": "Info",
+        "noData": "Keine Daten"
+      },
+      "review": {
+        "title": "Automatische Auswertung",
+        "noData": "{name}: Dieses Log hat keine Daten.",
+        "name": {
+          "vibration": { "x": "Vibration auf X", "y": "Vibration auf Y", "z": "Vibration auf Z", "clipping": "Clipping" },
+          "gps": { "satellites": "GPS-Satelliten", "hdop": "GPS-HDOP", "fix": "GPS-Fix" },
+          "ekf": { "variance": "EKF-Varianz" },
+          "errors": { "logged": "Fehler" },
+          "battery": { "voltage": "Akkuspannung", "current": "Akkustrom" }
+        },
+        "vibration": {
+          "x": "Vibration auf X: Spitze {value} m/s², bei {at}, Grenze {limit}.",
+          "y": "Vibration auf Y: Spitze {value} m/s², bei {at}, Grenze {limit}.",
+          "z": "Vibration auf Z: Spitze {value} m/s², bei {at}, Grenze {limit}.",
+          "clipping": "Clipping: Im Log wurden {value} Fälle gezählt."
+        },
+        "gps": {
+          "satellites": "GPS: nie unter {value} Satelliten, Grenze {limit} ({samples} Proben mit 3D-Fix).",
+          "hdop": "GPS-HDOP: schlechtester Wert {value}, bei {at}, Grenze {limit}.",
+          "fix": "GPS: {value} von {samples} Proben ohne 3D-Fix."
+        },
+        "ekf": {
+          "variance": "EKF: Varianzspitze {value}, bei {at}, Grenze {limit} (die ersten 10 s des Logs sind ausgelassen)."
+        },
+        "errors": {
+          "logged": "Vom Fahrzeug protokollierte Fehler: {value}."
+        },
+        "battery": {
+          "voltage": "Akku: niedrigste Pack-Spannung {value} V (die Zellenzahl ist nicht bekannt).",
+          "current": "Akku: höchster Strom {value} A."
+        }
+      }
+    },
     "vehicle": {
       "title": "Logs auf dem Fahrzeug",
       "offline": {

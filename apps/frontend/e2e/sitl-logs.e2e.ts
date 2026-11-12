@@ -19,6 +19,8 @@ const FLIGHT_MS = 300_000
 const STARTUP_MS = 420_000
 /** A download of a log of some megabytes. */
 const DOWNLOAD_MS = 180_000
+/** The backend reading a log of some megabytes through, and the series and review that follow. */
+const READ_MS = 180_000
 /** The first row of the table, and its parts. */
 const ROW = 'table.logs-table tbody tr'
 const STATE = `${ROW} .logs-state-text`
@@ -303,6 +305,72 @@ async function offersNothingMore(): Promise<void> {
   await waitOrExplain(`document.querySelector('#logs-download')?.disabled === true`, 5000, 'Download is still offered')
 }
 
+/** The log is open in Flights, read through: the summary line is there, nothing is reading, and there is a review or a reason. */
+const OPENED = `document.querySelector('.flight-detail .flight-summary') !== null
+  && document.querySelector('.flight-reading') === null
+  && (document.querySelector('.flight-finding') !== null || document.querySelector('#flights-not-verified') !== null)`
+
+/** What the Flights page shows of the open log, as one object. */
+const FLIGHT_FACTS = `JSON.stringify({
+  summary: document.querySelector('.flight-summary')?.textContent ?? '',
+  notVerified: document.querySelector('#flights-not-verified') !== null,
+  damaged: document.querySelector('#flights-damaged')?.textContent ?? '',
+  modes: [...document.querySelectorAll('.flight-mode-name')].map(m => m.textContent),
+  charts: [...document.querySelectorAll('figure.kit-chart')].map(c => ({
+    title: c.querySelector('.chart-title')?.textContent ?? '',
+    absent: c.classList.contains('absent'),
+  })),
+  findings: [...document.querySelectorAll('.flight-finding')].map(f =>
+    [f.querySelector('.flight-level')?.textContent, f.querySelector('.flight-text')?.textContent].join(' ')),
+})`
+
+/** The facts of the Flights page. */
+interface FlightFacts {
+  summary: string
+  notVerified: boolean
+  damaged: string
+  modes: string[]
+  charts: { title: string, absent: boolean }[]
+  findings: string[]
+}
+
+/**
+ * How many messages the summary line of the open log says.
+ *
+ * @param summary the line ("2:00 · 152,000 messages · ArduCopter ...")
+ * @returns the number, NaN when the line does not say
+ */
+function messagesOf(summary: string): number {
+  const said = /·\s*(?<count>[^·]+?)\s+messages/u.exec(summary)?.groups?.count ?? ''
+
+  return Number(said.replaceAll(/\D/gu, ''))
+}
+
+/**
+ * The real-log proof of the library of logs: the log the app downloaded from the CI-firmware SITL is opened in Flights, which
+ * asks the backend to read it (the DataFlash reader over the 6 MB file), and the page says it is verified (its CRC is the
+ * vehicle's), how many messages it has, its flight modes, what the charts hold, and the review. What the page shows is printed.
+ */
+async function opensTheDownloadedLogInFlights(): Promise<void> {
+  await window().click('a[href="#/logs/flights"]')
+  await waitOrExplain(`document.querySelectorAll('table.flights-table tbody tr').length >= 1`, 60_000, 'Flights lists no log')
+  await pressUntil('.flights-open', `document.querySelector('.flight-detail') !== null`, 4)
+  await waitOrExplain(OPENED, READ_MS, 'the log was not opened in Flights')
+
+  const facts = JSON.parse(await window().evaluate<string>(FLIGHT_FACTS)) as FlightFacts
+  console.info(`sitl-logs: Flights shows: ${JSON.stringify(facts, null, 2)}`)
+  expect(facts.notVerified).toBe(false)
+  expect(messagesOf(facts.summary)).toBeGreaterThan(1000)
+  expect(facts.summary).toContain('ArduCopter')
+  expect(facts.damaged).toBe('')
+  // MODE is in the log: the strip has a mode, by name (the firmware is ArduCopter).
+  expect(facts.modes.length).toBeGreaterThan(0)
+  expect(facts.modes.every(name => name !== null && !/^Mode \d+$/u.test(name))).toBe(true)
+  // ATT is in the log: the attitude chart has data.
+  expect(facts.charts.find(chart => chart.title.startsWith('Attitude'))?.absent).toBe(false)
+  expect(facts.findings.length).toBe(11)
+}
+
 describeSitl(
   'the logs of the vehicle (SITL)',
   () => {
@@ -313,6 +381,7 @@ describeSitl(
     it('can be cancelled part way, keeping what came', cancelsPartWay, DOWNLOAD_MS + 30_000)
     it('goes on from there, and the vehicle checks the copy, which is its file', goesOnAndChecksIt, DOWNLOAD_MS + 30_000)
     it('offers nothing to download when everything is downloaded', offersNothingMore)
+    it('opens the downloaded log in Flights: verified, its modes, charts and review', opensTheDownloadedLogInFlights, READ_MS + 120_000)
   },
   { launchOnly: true },
 )

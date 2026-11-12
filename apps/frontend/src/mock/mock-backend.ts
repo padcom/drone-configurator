@@ -5,10 +5,11 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, Settings, SettingsPatch, SettingsState,
-  VehicleMessage,
+  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, Settings, SettingsPatch,
+  SettingsState, VehicleMessage,
 } from '@/generated/app'
 import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
+import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 
 type Outgoing = Omit<Envelope, 'v'>
@@ -17,6 +18,8 @@ type Send = (e: Outgoing) => void
 export interface MockOptions {
   /** Telemetry interval (ms). */
   telemetryMs?: number
+  /** How long a step of reading a log on this computer takes (ms; it reads in three steps; 5 by default). */
+  localLogsStepMs?: number
   /** Parameters the vehicle rounds to whole numbers on write (it reports the rounded value). */
   rounding?: string[]
   /** Parameters whose writes get no reply (the write times out). */
@@ -126,6 +129,8 @@ class MockVehicle {
   rebootAnswer: RebootResult['result'] = 'accepted'
   rebootsSent = 0
   readonly logs: MockLogs
+  /** The logs on this computer (no vehicle needed). */
+  readonly localLogs: MockLocalLogs
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -136,6 +141,7 @@ class MockVehicle {
     this.settings = options.settings ?? { version: 1, ui: [] }
     this.ftpMode = options.ftp ?? 'ok'
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
+    this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
     if (options.control) {
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => {
@@ -209,6 +215,12 @@ class MockVehicle {
       case 'logs.download': return this.connected(fail) && this.logs.download((e.p as { ids: number[] }).ids, ok, fail)
       case 'logs.cancel': return this.logs.cancel(ok)
       case 'logs.erase': return this.connected(fail) && this.logs.erase(ok, fail)
+      case 'logs.local.list': return this.localLogs.list(ok)
+      case 'logs.local.read': return this.localLogs.read((e.p as { key: string }).key, ok, fail)
+      case 'logs.local.modes': return this.localLogs.modes((e.p as { key: string }).key, ok, fail)
+      case 'logs.local.review': return this.localLogs.review((e.p as { key: string }).key, ok, fail)
+      case 'logs.local.series': return this.localLogs.series(e.p as { key: string, series: SeriesAsk[], buckets: number }, ok, fail)
+      case 'logs.local.cancel': return this.localLogs.cancel(ok)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {

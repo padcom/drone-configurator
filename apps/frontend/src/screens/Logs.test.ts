@@ -44,7 +44,7 @@ it('shows the title, the five tabs in the order of the design, and the first par
   expect(wrapper.get('.logs-title').text()).toBe('Logs')
   expect(wrapper.findAll('.kit-section-nav .tab').map(tab => tab.text()))
     .toEqual(['Flights', 'Replay', 'Spectrum', 'On the vehicle', 'Tools'])
-  expect(wrapper.get('.logs-section .title').text()).toBe('No flights yet')
+  expect(wrapper.get('.logs-flights .logs-flights-title').text()).toBe('Flights')
 })
 
 it('names the navigation, marks the tab that is shown by aria-current, and the tabs are links to the parts', async () => {
@@ -62,8 +62,8 @@ it('says in each part what is missing and what it will take, never a blank panel
   const { wrapper, router } = await shellAt('/logs/flights')
   const said: string[] = []
 
-  // "On the vehicle" is built (LogsVehicle.test.ts); the others are still placeholders.
-  for (const part of ['flights', 'replay', 'spectrum', 'tools']) {
+  // "Flights" and "On the vehicle" are built (LogsFlights.test.ts, LogsVehicle.test.ts); the others are still placeholders.
+  for (const part of ['replay', 'spectrum', 'tools']) {
     // One part after the other: each is looked at while it is the one shown.
     // eslint-disable-next-line no-await-in-loop
     await router.push(`/logs/${part}`)
@@ -75,8 +75,8 @@ it('says in each part what is missing and what it will take, never a blank panel
   }
 
   expect(said.map(line => line.length > 20).every(Boolean)).toBe(true)
-  expect(new Set(said).size).toBe(4)
-  expect(said[1]).toContain('Replay is not available yet')
+  expect(new Set(said).size).toBe(3)
+  expect(said[0]).toContain('Replay is not available yet')
 })
 
 it('shows in "On the vehicle" that a vehicle must be connected, not a placeholder', async () => {
@@ -89,7 +89,7 @@ it('shows in "On the vehicle" that a vehicle must be connected, not a placeholde
 it('keeps the screen alive when a part is chosen: the title is the same element, and each part keeps its own state', async () => {
   const { wrapper, router } = await shellAt('/logs/flights')
   const title = wrapper.get('.logs-title').element
-  const flights = wrapper.get('.logs-section').element
+  const flights = wrapper.get('.logs-flights').element
 
   await router.push('/logs/tools')
   await flushPromises()
@@ -99,7 +99,7 @@ it('keeps the screen alive when a part is chosen: the title is the same element,
 
   expect(wrapper.get('.logs-title').element).toBe(title)
   // The part that was left is the element that comes back, not a new one.
-  expect(wrapper.findAll('.logs-section').some(section => section.element === flights && section.isVisible())).toBe(true)
+  expect(wrapper.findAll('.logs-flights').some(section => section.element === flights && section.isVisible())).toBe(true)
 })
 
 it('opens the part that was shown last for the address of the screen, and the first before any was', async () => {
