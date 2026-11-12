@@ -11,11 +11,13 @@ import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desk
 import { Crc32, TlogReader } from "padcom/pico-mavlink"
 import { File, exists, mkdir, open, readDir, remove, rename, stat, writeText } from "std/fs"
 import { join } from "std/path"
-import { LogsImported, LogsLocalProgress, TlogReport, encodeLogsImported, encodeLogsLocalProgress } from "./generated/app"
+import { LogsImported, LogsLocalProgress, encodeLogsImported, encodeLogsLocalProgress } from "./generated/app"
 import { fileChooser } from "./files"
+import { Entry, IMPORTED, baseName, entryOf, importedKey, importedName } from "./importednames"
 import { hex8 } from "./logs"
 import { claimRead, releaseRead } from "./locallogs"
 import { dataDirectory } from "./settings"
+import { reportOf } from "./tlogdecoder"
 
 /// How much of a file is read at a time.
 const CHUNK: int = 1048576
@@ -29,9 +31,6 @@ const PROGRESS_EVERY_MS: int = 100
 /// The most entries looked at in the folder of imports.
 const MAX_ENTRIES: int = 100000
 
-/// The folder of the imported recordings, next to the folders of the vehicles.
-export const IMPORTED: string = "imported"
-
 class State {
   public communicator: Communicator? = null
 }
@@ -41,68 +40,6 @@ const state = new State()
 export function register(c: Communicator): void {
   state.communicator = c
   c.handle("logs.import", importLog)
-}
-
-/// An imported recording found in the folder: its counter, its CRC-32 (hex) and its name.
-class Entry {
-  public readonly counter: int
-  public readonly crc: string
-  public readonly name: string
-
-  constructor(counter: int, crc: string, name: string) {
-    this.counter = counter
-    this.crc = crc
-    this.name = name
-  }
-}
-
-/// The counter and the CRC (hex) in the name of an imported copy (`NNNNNNNN-CCCCCCCC.tlog`), or null when the name is not one.
-export function entryOf(name: string): Entry? {
-  if (name.length != 22 || name.slice(8, 9) != "-" || name.slice(17, 22) != ".tlog") {
-    return null
-  }
-  const digits = "0123456789abcdef"
-  let counter = 0
-  for (const ch of name.slice(0, 8).split("")) {
-    const d = "0123456789".indexOf(ch)
-    if (d < 0) {
-      return null
-    }
-    counter = counter * 10 + d
-  }
-  for (const ch of name.slice(9, 17).split("")) {
-    if (digits.indexOf(ch) < 0) {
-      return null
-    }
-  }
-  new Entry(counter, name.slice(9, 17), name)
-}
-
-/// The name of an imported copy.
-export function importedName(counter: int, crc: int): string {
-  `${pad8(counter)}-${hex8(crc)}.tlog`
-}
-
-function pad8(n: int): string {
-  const text = `${n}`
-  `${"00000000".slice(0, 8 - text.length)}${text}`
-}
-
-/// The name of a file without its folder (either kind of separator).
-export function baseName(path: string): string {
-  let at = 0
-  for (let i = 0; i < path.length; i++) {
-    const ch = path.slice(i, i + 1)
-    if (ch == "/" || ch == "\\") {
-      at = i + 1
-    }
-  }
-  path.slice(at, path.length)
-}
-
-/// The key of an imported copy, as the library names it: the folder of imports and the file.
-export function importedKey(name: string): string {
-  `${IMPORTED}/${name}`
 }
 
 async function importLog(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -265,34 +202,6 @@ async function settle(dir: string, part: string, name: string, result: Copied): 
 
 function answer(key: string, name: string, crc: string, result: Copied, duplicate: bool): LogsImported {
   LogsImported { cancelled: false, duplicate: duplicate, key: key, name: name, crc: crc, size: result.size as u64, report: reportOf(result.reader) }
-}
-
-/// What the reader found, in the contract's shape.
-export function reportOf(reader: TlogReader): TlogReport {
-  const p = reader.report
-  const r = TlogReport {
-    records: clamp32(p.records),
-    v1: clamp32(p.v1),
-    v2: clamp32(p.v2),
-    signed: clamp32(p.signed),
-    crcFailures: clamp32(p.crcFailures),
-    unknown: clamp32(p.unknown),
-    jitter: clamp32(p.jitter),
-    segments: clamp32(p.segments),
-    bytesSkipped: p.bytesSkipped as u64,
-    bytesCut: clamp32(p.bytesCut),
-    cutEnd: p.cutEnd,
-    dated: p.dated,
-  }
-  if (p.records > 0) {
-    r.firstUs = p.firstUs as u64
-    r.lastUs = p.lastUs as u64
-  }
-  r
-}
-
-function clamp32(n: int): u32 {
-  (if (n > 4294967295) 4294967295 else n) as u32
 }
 
 /// The sidecar: the name the file had (no folder), when it was imported, what the reader found.

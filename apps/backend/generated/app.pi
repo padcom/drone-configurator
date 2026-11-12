@@ -803,6 +803,23 @@ export function encodeLogsProgress(v: LogsProgress): Cbor {
   Cbor.Dict(m)
 }
 
+export enum LocalLogSource { Dataflash, Tlog }
+
+export function decodeLocalLogSource(v: Cbor, path: string): LocalLogSource throws InvalidPayload {
+  match (text(v, path)) {
+    "dataflash" => LocalLogSource.Dataflash,
+    "tlog" => LocalLogSource.Tlog,
+    _ => throw new InvalidPayload(path, "dataflash or tlog"),
+  }
+}
+
+export function encodeLocalLogSource(v: LocalLogSource): Cbor {
+  match (v) {
+    Dataflash => Cbor.Text("dataflash"),
+    Tlog => Cbor.Text("tlog"),
+  }
+}
+
 export struct LocalLog {
   key: string
   vehicle: string
@@ -810,15 +827,16 @@ export struct LocalLog {
   size: u64
   modified: u64
   crc: string
+  source: LocalLogSource
   summary?: LocalLogSummary
 }
 
 export function decodeLocalLog(v: Cbor, path: string): LocalLog throws InvalidPayload {
-  const m = members(v, path, ["key", "vehicle", "id", "size", "modified", "crc", "summary"])
-  const cbor6 = m.get("summary")
-  let opt6: LocalLogSummary? = null
-  if (cbor6 != null) {
-    opt6 = decodeLocalLogSummary(cbor6, `${path}.summary`)
+  const m = members(v, path, ["key", "vehicle", "id", "size", "modified", "crc", "source", "summary"])
+  const cbor7 = m.get("summary")
+  let opt7: LocalLogSummary? = null
+  if (cbor7 != null) {
+    opt7 = decodeLocalLogSummary(cbor7, `${path}.summary`)
   }
   LocalLog {
     key: text(required(m, "key", path), `${path}.key`),
@@ -827,7 +845,8 @@ export function decodeLocalLog(v: Cbor, path: string): LocalLog throws InvalidPa
     size: (uint(required(m, "size", path), `${path}.size`, 18446744073709551615) as u64),
     modified: (uint(required(m, "modified", path), `${path}.modified`, 18446744073709551615) as u64),
     crc: text(required(m, "crc", path), `${path}.crc`),
-    summary: opt6,
+    source: decodeLocalLogSource(required(m, "source", path), `${path}.source`),
+    summary: opt7,
   }
 }
 
@@ -839,9 +858,10 @@ export function encodeLocalLog(v: LocalLog): Cbor {
   m.set("size", Cbor.Uint(v.size as u64))
   m.set("modified", Cbor.Uint(v.modified as u64))
   m.set("crc", Cbor.Text(v.crc))
-  const opt6 = v.summary
-  if (opt6 != null) {
-    m.set("summary", encodeLocalLogSummary(opt6))
+  m.set("source", encodeLocalLogSource(v.source))
+  const opt7 = v.summary
+  if (opt7 != null) {
+    m.set("summary", encodeLocalLogSummary(opt7))
   }
   Cbor.Dict(m)
 }
@@ -1080,10 +1100,11 @@ export struct LocalLogSummary {
   firmware?: string
   modeChanges: u32
   cutEnd?: bool
+  report?: TlogReport
 }
 
 export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary throws InvalidPayload {
-  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modeChanges", "cutEnd"])
+  const m = members(v, path, ["verified", "messages", "problems", "firstUs", "lastUs", "firmware", "modeChanges", "cutEnd", "report"])
   const cbor3 = m.get("firstUs")
   let opt3: u64? = null
   if (cbor3 != null) {
@@ -1104,6 +1125,11 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
   if (cbor7 != null) {
     opt7 = boolean(cbor7, `${path}.cutEnd`)
   }
+  const cbor8 = m.get("report")
+  let opt8: TlogReport? = null
+  if (cbor8 != null) {
+    opt8 = decodeTlogReport(cbor8, `${path}.report`)
+  }
   LocalLogSummary {
     verified: boolean(required(m, "verified", path), `${path}.verified`),
     messages: (uint(required(m, "messages", path), `${path}.messages`, 4294967295) as u32),
@@ -1113,6 +1139,7 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
     firmware: opt5,
     modeChanges: (uint(required(m, "modeChanges", path), `${path}.modeChanges`, 4294967295) as u32),
     cutEnd: opt7,
+    report: opt8,
   }
 }
 
@@ -1137,6 +1164,10 @@ export function encodeLocalLogSummary(v: LocalLogSummary): Cbor {
   const opt7 = v.cutEnd
   if (opt7 != null) {
     m.set("cutEnd", Cbor.Bool(opt7))
+  }
+  const opt8 = v.report
+  if (opt8 != null) {
+    m.set("report", encodeTlogReport(opt8))
   }
   Cbor.Dict(m)
 }

@@ -2,6 +2,7 @@
 // `DfDecoder` (here `DataflashReader`), a `.tlog` by `TlogDecoder` (tlogdecoder.pi), which gives the same `DfMessage`s. The readers of
 // the library (series, review, messages, export) work on `DfMessage`s and do not know which kind of log they have.
 import { DfDecoder, DfMessage, DfTables } from "padcom/pico-mavlink"
+import { TlogReport } from "./generated/app"
 
 /// A reader of a log: fed chunks of its file, it gives the messages in them.
 export interface LogReader {
@@ -19,6 +20,10 @@ export interface LogReader {
   problemCount(): int
   /// Whether this reads a recording of a ground station (a `.tlog`) and not a log the vehicle wrote.
   isTlog(): bool
+  /// What the reader of a recording found (null for a log a vehicle wrote).
+  tlogReport(): TlogReport?
+  /// Whether a message is made up of others to feed a view and is not in the log as such (the message browser leaves it out).
+  hides(name: string): bool
 }
 
 /// The reader of DataFlash logs.
@@ -50,6 +55,14 @@ export class DataflashReader implements LogReader {
   }
 
   public isTlog(): bool {
+    false
+  }
+
+  public tlogReport(): TlogReport? {
+    null
+  }
+
+  public hides(_name: string): bool {
     false
   }
 }

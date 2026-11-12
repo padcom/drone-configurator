@@ -230,6 +230,11 @@ local-log = {
   size: uint .size 8,
   modified: uint .size 8,
   crc: tstr,
+  ; Who wrote the log: a vehicle (`dataflash`, a checked copy downloaded from it) or a ground station (`tlog`, a recording
+  ; imported by `logs.import`, key `imported/NNNNNNNN-CCCCCCCC.tlog`). For a `tlog`, `crc` is the CRC-32 taken when it was
+  ; imported, `verified` in the summary means only that the copy still has that CRC, and nothing is known of where the file
+  ; came from ("imported, not checked against a vehicle").
+  source: "dataflash" / "tlog",
   ? summary: local-log-summary,
 }
 
@@ -294,6 +299,10 @@ local-log-summary = {
   ? firmware: tstr,
   modeChanges: uint .size 4,
   ? cutEnd: bool,
+  ; For a `tlog` only: what the reader found (frames skipped, unknown message ids, segments, a cut end, ...). For a recording,
+  ; `firstUs` and `lastUs` count from the first record (0), and `problems` counts frames with a wrong CRC and frames of
+  ; messages the dialects don't have.
+  ? report: tlog-report,
 }
 
 ; Which values: up to 16 series (a field of a message type, such as ATT and Roll), `buckets` from 1 to 2000, and the time (the

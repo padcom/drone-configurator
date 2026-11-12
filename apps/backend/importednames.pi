@@ -1,0 +1,82 @@
+// The names of the recordings imported into the library (`<data>/logs/imported/NNNNNNNN-CCCCCCCC.tlog`): an eight-digit import
+// counter, and the CRC-32 (hex) of the content as it was when it was imported. The library tells them from a vehicle's logs
+// (`NNNNNNNN-CCCCCCCC.BIN` in the vehicle's own folder) by the folder, which no vehicle can have.
+import { hex8 } from "./logs"
+
+/// The folder of the imported recordings, next to the folders of the vehicles.
+export const IMPORTED: string = "imported"
+
+/// An imported recording found in the folder: its counter, its CRC-32 (hex) and its name.
+export class Entry {
+  public readonly counter: int
+  public readonly crc: string
+  public readonly name: string
+
+  constructor(counter: int, crc: string, name: string) {
+    this.counter = counter
+    this.crc = crc
+    this.name = name
+  }
+}
+
+/// The counter and the CRC (hex) in the name of an imported copy (`NNNNNNNN-CCCCCCCC.tlog`), or null when the name is not one.
+export function entryOf(name: string): Entry? {
+  if (name.length != 22 || name.slice(8, 9) != "-" || name.slice(17, 22) != ".tlog") {
+    return null
+  }
+  let counter = 0
+  for (const ch of name.slice(0, 8).split("")) {
+    const d = "0123456789".indexOf(ch)
+    if (d < 0) {
+      return null
+    }
+    counter = counter * 10 + d
+  }
+  if (hexValue(name.slice(9, 17)) < 0) {
+    return null
+  }
+  new Entry(counter, name.slice(9, 17), name)
+}
+
+/// The value of eight lower-case hex digits, or -1 when the text is not that.
+export function hexValue(text: string): int {
+  if (text.length != 8) {
+    return -1
+  }
+  let v = 0
+  for (const ch of text.split("")) {
+    const d = "0123456789abcdef".indexOf(ch)
+    if (d < 0) {
+      return -1
+    }
+    v = v * 16 + d
+  }
+  v
+}
+
+/// The name of an imported copy.
+export function importedName(counter: int, crc: int): string {
+  `${pad8(counter)}-${hex8(crc)}.tlog`
+}
+
+function pad8(n: int): string {
+  const text = `${n}`
+  `${"00000000".slice(0, 8 - text.length)}${text}`
+}
+
+/// The name of a file without its folder (either kind of separator).
+export function baseName(path: string): string {
+  let at = 0
+  for (let i = 0; i < path.length; i++) {
+    const ch = path.slice(i, i + 1)
+    if (ch == "/" || ch == "\\") {
+      at = i + 1
+    }
+  }
+  path.slice(at, path.length)
+}
+
+/// The key of an imported copy, as the library names it: the folder of imports and the file.
+export function importedKey(name: string): string {
+  `${IMPORTED}/${name}`
+}

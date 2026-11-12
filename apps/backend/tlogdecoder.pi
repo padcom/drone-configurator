@@ -14,6 +14,7 @@
 // The units are the dialect's where it has them; where the MAVLink dialect has none (VIBRATION) the table `OWN_UNITS` says (the
 // values ArduPilot documents), and the derived messages are in the units their DataFlash fields have (deg, m, V, A, m/s/s).
 import { DfField, DfFormat, DfMessage, DfTables, MavLinkPacketField, MessageInfo, Registry, TlogReader, TlogRecord, defaultRegistry } from "padcom/pico-mavlink"
+import { TlogReport } from "./generated/app"
 import { LogReader } from "./logreader"
 
 /// The MAVLink messages that make the DataFlash-named ones: [the MAVLink message, the DataFlash one].
@@ -146,6 +147,34 @@ function unitId(label: string, ids: Map<string, int>): int {
   id
 }
 
+/// What the reader found, in the contract's shape.
+export function reportOf(reader: TlogReader): TlogReport {
+  const p = reader.report
+  const r = TlogReport {
+    records: clamp32(p.records),
+    v1: clamp32(p.v1),
+    v2: clamp32(p.v2),
+    signed: clamp32(p.signed),
+    crcFailures: clamp32(p.crcFailures),
+    unknown: clamp32(p.unknown),
+    jitter: clamp32(p.jitter),
+    segments: clamp32(p.segments),
+    bytesSkipped: p.bytesSkipped as u64,
+    bytesCut: clamp32(p.bytesCut),
+    cutEnd: p.cutEnd,
+    dated: p.dated,
+  }
+  if (p.records > 0) {
+    r.firstUs = p.firstUs as u64
+    r.lastUs = p.lastUs as u64
+  }
+  r
+}
+
+function clamp32(n: int): u32 {
+  (if (n > 4294967295) 4294967295 else n) as u32
+}
+
 /// A tlog as messages. Feed it with `push`, take with `next`, `finish` at the end of the file.
 export class TlogDecoder implements LogReader {
   public readonly reader: TlogReader = new TlogReader()
@@ -222,6 +251,15 @@ export class TlogDecoder implements LogReader {
 
   public isTlog(): bool {
     true
+  }
+
+  public tlogReport(): TlogReport? {
+    reportOf(reader)
+  }
+
+  /// Whether a message is made by this decoder (named as DataFlash names it) and not a MAVLink message as it was.
+  public hides(name: string): bool {
+    isDerived(name)
   }
 
   /// Makes the messages of one record.

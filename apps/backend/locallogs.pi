@@ -11,12 +11,13 @@
 // What a read found is kept (in memory) for as long as the file is the one that was read: the same size and the same time of the
 // last change. A file that changed is read again before anything is said of it.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
-import { Crc32, DfDecoder, DfMessage } from "padcom/pico-mavlink"
+import { Crc32, DfMessage } from "padcom/pico-mavlink"
 import { File, open, readDir, stat } from "std/fs"
 import { join } from "std/path"
 import {
   LocalLog,
   LocalLogModes,
+  LocalLogSource,
   LocalLogSummary,
   LocalLogs,
   LogsLocalProgress,
@@ -27,8 +28,11 @@ import {
   encodeLocalLogs,
   encodeLogsLocalProgress,
 } from "./generated/app"
+import { IMPORTED, entryOf, hexValue } from "./importednames"
+import { DataflashReader, LogReader } from "./logreader"
 import { copyNumbers, hex8 } from "./logs"
 import { dataDirectory } from "./settings"
+import { TlogDecoder } from "./tlogdecoder"
 
 /// How much of a log is read at a time.
 const READ_CHUNK: int = 1048576
@@ -132,13 +136,45 @@ export function keyOf(vehicle: string, file: string): string {
 }
 
 /// The vehicle's folder and the file named by a key, or an empty list when it is not the key of a copy: exactly two names, neither
-/// of them a way out of the folder, the second a checked copy's.
+/// of them a way out of the folder, the second a checked copy's (in the folder of imports: an imported recording's).
 export function partsOfKey(key: string): string[] {
   const parts = key.split("/")
-  if (parts.length != 2 || parts[0] == "" || parts[0].startsWith(".") || parts[0].includes("\\") || copyNumbers(parts[1])[0] < 0) {
+  if (parts.length != 2 || parts[0] == "" || parts[0].startsWith(".") || parts[0].includes("\\")) {
+    return []
+  }
+  const named = if (parts[0] == IMPORTED) entryOf(parts[1]) != null else copyNumbers(parts[1])[0] >= 0
+  if (!named) {
     return []
   }
   parts
+}
+
+/// Whether the key names an imported recording (a `.tlog`) and not a log a vehicle wrote.
+export function isImportedKey(key: string): bool {
+  key.startsWith(`${IMPORTED}/`)
+}
+
+/// An imported recording found in the folder of imports: its facts, and the cached summary when the file is still the one read.
+export function describeImported(file: string, size: int, mtime: int): LocalLog {
+  const entry = entryOf(file)
+  const key = keyOf(IMPORTED, file)
+  const modified = if (mtime < 0) 0 else mtime
+  const counter = if (entry == null) 0 else entry!.counter
+  const crc = if (entry == null) "" else entry!.crc
+  const log = LocalLog {
+    key: key,
+    vehicle: IMPORTED,
+    id: counter as u32,
+    size: size as u64,
+    modified: modified as u64,
+    crc: crc,
+    source: LocalLogSource.Tlog,
+  }
+  const known = state.known.get(key)
+  if (known != null && known!.size == size && known!.mtime == mtime) {
+    log.summary = known!.summary
+  }
+  log
 }
 
 /// A copy found in a folder: its facts, and the cached summary when the file is still the one that was read.
@@ -147,7 +183,7 @@ export function describeCopy(vehicle: string, file: string, size: int, mtime: in
   const key = keyOf(vehicle, file)
   // A time before 1970 (a file with a wrong clock) is not a time that can be told: it is 0, looked at before it is converted.
   const modified = if (mtime < 0) 0 else mtime
-  const log = LocalLog { key: key, vehicle: vehicle, id: numbers[0] as u32, size: size as u64, modified: modified as u64, crc: hex8(numbers[1]) }
+  const log = LocalLog { key: key, vehicle: vehicle, id: numbers[0] as u32, size: size as u64, modified: modified as u64, crc: hex8(numbers[1]), source: LocalLogSource.Dataflash }
   const known = state.known.get(key)
   if (known != null && known!.size == size && known!.mtime == mtime) {
     log.summary = known!.summary
@@ -180,8 +216,9 @@ async function listLocal(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
       if (!vehicle.isDirectory || vehicle.name.startsWith(".")) {
         continue
       }
+      const imported = vehicle.name == IMPORTED
       for await (const entry of readDir(join(top, vehicle.name))) {
-        if (!entry.isFile || copyNumbers(entry.name)[0] < 0) {
+        if (!entry.isFile || (if (imported) entryOf(entry.name) == null else copyNumbers(entry.name)[0] < 0)) {
           continue
         }
         seen += 1
@@ -190,7 +227,7 @@ async function listLocal(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
           break
         }
         const info = await stat(join(top, vehicle.name, entry.name))
-        insertNewest(list, describeCopy(vehicle.name, entry.name, info.size, info.mtime))
+        insertNewest(list, if (imported) describeImported(entry.name, info.size, info.mtime) else describeCopy(vehicle.name, entry.name, info.size, info.mtime))
       }
     }
   }
@@ -297,18 +334,18 @@ export class Streamed {
   public readonly crc: int
   public readonly named: int
   public readonly unchanged: bool
-  public readonly decoder: DfDecoder
+  public readonly reader: LogReader
   /// How many bytes at the end are the start of a message that is not whole: a log is cut in the middle of one when it is copied
   /// while the vehicle writes it. That is how the file ends, not damage in it.
   public readonly tail: int
 
-  constructor(size: int, mtime: int, crc: int, named: int, unchanged: bool, decoder: DfDecoder, tail: int) {
+  constructor(size: int, mtime: int, crc: int, named: int, unchanged: bool, reader: LogReader, tail: int) {
     this.size = size
     this.mtime = mtime
     this.crc = crc
     this.named = named
     this.unchanged = unchanged
-    this.decoder = decoder
+    this.reader = reader
     this.tail = tail
   }
 }
@@ -324,28 +361,37 @@ export async function locate(key: string): Promise<LogFile> throws CommunicatorE
   if (facts == null) {
     throw new CommunicatorError("NOT_FOUND", "there is no such log")
   }
-  new LogFile(path, facts!, copyNumbers(parts[1])[1])
+  const imported = parts[0] == IMPORTED
+  new LogFile(path, facts!, if (imported) hexValue(entryOf(parts[1])!.crc) else copyNumbers(parts[1])[1], imported)
 }
 
 export class LogFile {
   public readonly path: string
   public readonly facts: FileFacts
-  /// The CRC-32 in the file's name.
+  /// The CRC-32 in the file's name (for an imported recording: the one taken when it was imported).
   public readonly named: int
+  /// Whether it is an imported recording (a `.tlog`).
+  public readonly imported: bool
 
-  constructor(path: string, facts: FileFacts, named: int) {
+  constructor(path: string, facts: FileFacts, named: int, imported: bool) {
     this.path = path
     this.facts = facts
     this.named = named
+    this.imported = imported
+  }
+
+  /// A reader for the kind of log this is.
+  public newReader(): LogReader {
+    if (imported) new TlogDecoder() else new DataflashReader()
   }
 }
 
 /// Reads the log through once, in order, a chunk at a time, giving each message to `taker`, with progress, until it is done or `own`
 /// is aborted (`ABORTED`). Between the chunks `flusher` writes what the taker gathered; `reader` is the decoder to use when the taker
 /// needs its tables (the units and multipliers) while it takes.
-export async function streamLog(key: string, file: LogFile, own: AbortController, taker: Taker, flusher: Flusher? = null, reader: DfDecoder? = null): Promise<Streamed> throws Error {
+export async function streamLog(key: string, file: LogFile, own: AbortController, taker: Taker, flusher: Flusher? = null, reader: LogReader? = null): Promise<Streamed> throws Error {
   const crc = new Crc32()
-  const decoder = reader ?? new DfDecoder()
+  const decoder = reader ?? file.newReader()
   const handle = await open(file.path)
   try {
     await readThrough(key, handle, file.facts.size, own, crc, decoder, taker, flusher)
@@ -354,9 +400,20 @@ export async function streamLog(key: string, file: LogFile, own: AbortController
     throw e
   }
   await handle.close()
-  const before = decoder.problems.skipped
+  const before = decoder.skippedBytes()
   decoder.finish()
-  const tail = decoder.problems.skipped - before
+  // What the end of the file turned out to hold (a recording's tail is looked at again once it is known to be the end).
+  while (true) {
+    const m = decoder.next()
+    if (m == null) {
+      break
+    }
+    taker.take(m!)
+  }
+  if (flusher != null) {
+    await flusher!.flush()
+  }
+  const tail = decoder.skippedBytes() - before
   const after = await statOf(file.path)
   const same = after != null && after!.size == file.facts.size && after!.mtime == file.facts.mtime
   new Streamed(file.facts.size, file.facts.mtime, crc.crc, file.named, same, decoder, tail)
@@ -393,7 +450,7 @@ async function readLog(key: string, own: AbortController): Promise<Cbor?> throws
 }
 
 /// Feeds the file to the reader and the CRC, a chunk at a time, telling how far it got.
-async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: DfDecoder, scan: Taker, flusher: Flusher?): Promise<void> throws Error {
+async function readThrough(key: string, file: File, total: int, own: AbortController, crc: Crc32, decoder: LogReader, scan: Taker, flusher: Flusher?): Promise<void> throws Error {
   let bytes = 0
   let told = 0
   while (true) {
@@ -436,14 +493,22 @@ function say(key: string, bytes: int, total: int): void {
 
 /// The summary the contract has, from what was gathered.
 function summaryOf(scan: Scan, done: Streamed, verified: bool): LocalLogSummary {
-  const damage = done.decoder.problems.skipped - done.tail + done.decoder.problems.count + scan.problems
+  const report = done.reader.tlogReport()
+  // A recording's report says which bytes are the cut end (the reader looked at the tail again); a log's tail is what finish skipped.
+  const cut = if (report != null) report!.bytesCut as int else done.tail
+  const damage = done.reader.skippedBytes() - cut + done.reader.problemCount() + scan.problems
+  // The messages of a recording are its records (the messages made up for the views are not in the file).
+  const count = if (report != null) report!.records as int else scan.messages
   const s = LocalLogSummary {
     verified: verified,
-    messages: (if (scan.messages > 4294967295) 4294967295 else scan.messages) as u32,
+    messages: (if (count > 4294967295) 4294967295 else count) as u32,
     problems: (if (damage > 4294967295) 4294967295 else damage) as u32,
     modeChanges: scan.modes.length as u32,
   }
-  if (done.tail > 0) {
+  if (report != null) {
+    s.report = report!
+  }
+  if (if (report != null) report!.cutEnd else done.tail > 0) {
     s.cutEnd = true
   }
   if (scan.firstUs >= 0) {

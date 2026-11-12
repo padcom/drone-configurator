@@ -25,6 +25,7 @@ import {
 } from "./generated/app"
 import { Taker, claimRead, locate, releaseRead, streamLog, verifiedSummary } from "./locallogs"
 import { factorOf } from "./localseries"
+import { LogReader } from "./logreader"
 
 /// The most instances of a kind that `logs.local.at` gives.
 const MAX_INSTANCES: int = 16
@@ -100,16 +101,20 @@ async function messagesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cb
     if (!done.unchanged) {
       throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
     }
-    return encodeLocalLogMessages(LocalLogMessages { types: typesOf(counter, done.decoder.tables) })
+    return encodeLocalLogMessages(LocalLogMessages { types: typesOf(counter, done.reader.tables(), done.reader) })
   } finally {
     releaseRead()
   }
 }
 
-function typesOf(counter: Counter, tables: DfTables): MessageType[] {
+function typesOf(counter: Counter, tables: DfTables, reader: LogReader): MessageType[] {
   const types: MessageType[] = []
   for (let i = 0; i < counter.formats.length; i++) {
     const format = counter.formats[i]
+    // The messages a reader makes up to feed the views are not in the file: the browser shows what is.
+    if (reader.hides(format.name)) {
+      continue
+    }
     const fields: MessageField[] = []
     for (const f of format.fields) {
       const field = MessageField { name: f.name, kind: kindOf(f) }
@@ -192,7 +197,7 @@ async function findAt(asked: LogsLocalAtAsk, own: AbortController): Promise<Cbor
   }
   const rows: AtRow[] = []
   for (const i of orderOf(latest.instances)) {
-    rows.push(rowOf(latest, i, done.decoder.tables))
+    rows.push(rowOf(latest, i, done.reader.tables()))
   }
   encodeLocalLogAt(LocalLogAt { found: rows.length > 0, rows: rows })
 }
