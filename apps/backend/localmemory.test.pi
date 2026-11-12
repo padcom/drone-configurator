@@ -5,6 +5,7 @@
 import { describe, it, expect } from "std/test"
 import { mkdir, readText, remove, rename, stat, writeBytes, writeText } from "std/fs"
 import { join } from "std/path"
+import { gc } from "std/gc"
 import { env, pid } from "std/process"
 import { Cbor } from "pico-desktop/communicator"
 import { Crc32, DfEncoder } from "padcom/pico-mavlink"
@@ -106,22 +107,28 @@ async function stayInTheBoundOnALogOfAHundredMegabytes(): Promise<void> throws E
     await rename(tmp, path)
     expect((await stat(path)).size > 90000000).toBe(true)
     const key = `uid-a/${name}`
+    // What making the log left behind is garbage: collected, so that the baseline is what the process needs, not what it once held.
+    gc.collect()
     await resetPeak()
     const before = await statusKb("VmRSS")
+    let report = `before ${before} hwm ${await statusKb("VmHWM")};`
     await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+    report += ` read hwm ${await statusKb("VmHWM")} rss ${await statusKb("VmRSS")};`
     const kinds = decodeLocalLogMessages((await f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: key }))).p ?? Cbor.Null, "$")
     expect(kinds.types.length > 10).toBe(true)
+    report += ` messages hwm ${await statusKb("VmHWM")} rss ${await statusKb("VmRSS")};`
     await f.call("logs.local.at", encodeLogsLocalAtAsk(LogsLocalAtAsk { key: key, message: "K3", timeUs: 2000000000 as u64 }))
+    report += ` at hwm ${await statusKb("VmHWM")} rss ${await statusKb("VmRSS")};`
     const series = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "K3", field: "Roll" }], buckets: 500 as u16 }
     await f.call("logs.local.series", encodeLogsLocalSeriesAsk(series))
+    report += ` series hwm ${await statusKb("VmHWM")} rss ${await statusKb("VmRSS")};`
     const ask = LogsLocalExportAsk { key: key, format: LogsLocalExportAskFormat.Csv, message: "K3" }
     const exported = decodeLocalLogExported((await f.call("logs.local.export", encodeLogsLocalExportAsk(ask))).p ?? Cbor.Null, "$")
     expect(exported.rows as int).toBe(PIECES * PER_PIECE / 10)
-    const peak = await statusKb("VmHWM")
-    const rose = peak - before
-    expect(rose < BOUND_KB).toBe(true)
+    report += ` export hwm ${await statusKb("VmHWM")} rss ${await statusKb("VmRSS")};`
+    const rose = (await statusKb("VmHWM")) - before
     if (rose >= BOUND_KB) {
-      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB (peak and size after each pass, kB: ${report})`)
     }
   } finally {
     setDeadline(DEFAULT_DEADLINE_MS)
