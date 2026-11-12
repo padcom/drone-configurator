@@ -57,6 +57,7 @@
       "selectNone": "Deseleziona tutto",
       "used": "Log: {count}. In tutto: {size}",
       "loading": "Lettura dell'elenco…",
+      "busy": "Il veicolo è occupato con i suoi parametri. Aggiorna l'elenco tra un momento.",
       "none": "Il veicolo non ha log.",
       "column": {
         "select": "Seleziona",

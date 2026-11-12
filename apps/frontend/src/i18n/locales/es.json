@@ -57,6 +57,7 @@
       "selectNone": "No seleccionar ninguno",
       "used": "Registros: {count}. En total: {size}",
       "loading": "Leyendo la lista…",
+      "busy": "El vehículo está ocupado con sus parámetros. Actualice la lista dentro de un momento.",
       "none": "El vehículo no tiene registros.",
       "column": {
         "select": "Seleccionar",

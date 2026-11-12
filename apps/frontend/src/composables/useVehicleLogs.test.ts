@@ -190,9 +190,10 @@ it('does not count a copy of the right size and the wrong checksum as downloaded
  *
  * @param busy how many calls fail with the given code
  * @param code the error code of those calls
+ * @param parametersLoading whether the parameter list is being downloaded (asked when the backend is busy)
  * @returns the model and a counter of the calls
  */
-function modelOver(busy: number, code = 'BUSY') {
+function modelOver(busy: number, code = 'BUSY', parametersLoading?: () => boolean) {
   const calls = { list: 0 }
   const client = {
     call: () => {
@@ -209,7 +210,7 @@ function modelOver(busy: number, code = 'BUSY') {
   const connection = shallowRef<Connection>({ state: 'connected' })
   const telemetry = shallowRef<Telemetry | null>(null)
 
-  return { model: useVehicleLogs({ client, connection, telemetry, retryMs: 5 }), calls }
+  return { model: useVehicleLogs({ client, connection, telemetry, retryMs: 5, parametersLoading }), calls }
 }
 
 it('asks again, with no error shown, when the backend is busy with the parameters just after connecting', async () => {
@@ -227,11 +228,54 @@ it('shows the error when the backend stays busy, and any other error at once', a
   await stays.model.refresh()
 
   expect(stays.calls.list).toBe(31)
-  expect(stays.model.error.value).toContain('BUSY')
+  // In words, not the backend's code.
+  expect(stays.model.error.value).toBe('The vehicle is busy with its parameters. Refresh the list in a moment.')
   expect(stays.model.listed.value).toBe(false)
   const other = modelOver(1, 'LOGS_UNAVAILABLE')
   await other.model.refresh()
 
   expect(other.calls.list).toBe(1)
   expect(other.model.error.value).toContain('LOGS_UNAVAILABLE')
+})
+
+it('asks again only while the parameters are coming (and once more), not for the whole cap', async () => {
+  let coming = true
+  const { model, calls } = modelOver(1000, 'BUSY', () => coming)
+  const reading = model.refresh()
+  await vi.waitFor(() => expect(calls.list).toBeGreaterThan(3))
+  coming = false
+  await reading
+
+  // Busy for another reason (a log download): the words, after the one more ask.
+  expect(calls.list).toBeLessThan(31)
+  expect(model.error.value).toBe('The vehicle is busy with its parameters. Refresh the list in a moment.')
+})
+
+it('stops asking, and shows nothing, when the vehicle goes away during the wait', async () => {
+  const { model, calls } = modelOver(1000)
+  const reading = model.refresh()
+  await vi.waitFor(() => expect(calls.list).toBeGreaterThan(2))
+  model.reset()
+  await reading
+  const asked = calls.list
+  await new Promise(resolve => {
+    setTimeout(resolve, 60)
+  })
+
+  expect(calls.list).toBe(asked)
+  expect(model.error.value).toBeNull()
+  expect(model.loading.value).toBe(false)
+  expect(model.listed.value).toBe(false)
+})
+
+it('does not let one read switch off what another is doing', async () => {
+  const { model } = modelOver(2)
+  const first = model.refresh()
+  const second = model.refresh()
+  await first
+  await second
+
+  expect(model.loading.value).toBe(false)
+  expect(model.listed.value).toBe(true)
+  expect(model.error.value).toBeNull()
 })

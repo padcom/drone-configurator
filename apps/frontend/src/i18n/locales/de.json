@@ -57,6 +57,7 @@
       "selectNone": "Nichts auswählen",
       "used": "Logs: {count}. Zusammen: {size}",
       "loading": "Liste wird gelesen…",
+      "busy": "Das Fahrzeug ist mit seinen Parametern beschäftigt. Aktualisieren Sie die Liste gleich noch einmal.",
       "none": "Das Fahrzeug hat keine Logs.",
       "column": {
         "select": "Auswählen",

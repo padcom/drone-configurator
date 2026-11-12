@@ -57,6 +57,7 @@
       "selectNone": "Select none",
       "used": "Logs: {count}. Together: {size}",
       "loading": "Reading the list…",
+      "busy": "The vehicle is busy with its parameters. Refresh the list in a moment.",
       "none": "The vehicle has no logs.",
       "column": {
         "select": "Select",
