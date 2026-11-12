@@ -21,6 +21,8 @@ const STARTUP_MS = 420_000
 const DOWNLOAD_MS = 180_000
 /** The backend reading a log of some megabytes through, and the series and review that follow. */
 const READ_MS = 180_000
+/** The whole of opening the log in Flights: the list, the read, the charts. */
+const OPEN_TEST_MS = READ_MS + 120_000
 /** The first row of the table, and its parts. */
 const ROW = 'table.logs-table tbody tr'
 const STATE = `${ROW} .logs-state-text`
@@ -381,7 +383,7 @@ describeSitl(
     it('can be cancelled part way, keeping what came', cancelsPartWay, DOWNLOAD_MS + 30_000)
     it('goes on from there, and the vehicle checks the copy, which is its file', goesOnAndChecksIt, DOWNLOAD_MS + 30_000)
     it('offers nothing to download when everything is downloaded', offersNothingMore)
-    it('opens the downloaded log in Flights: verified, its modes, charts and review', opensTheDownloadedLogInFlights, READ_MS + 120_000)
+    it('opens the downloaded log in Flights: verified, its modes, charts, review', opensTheDownloadedLogInFlights, OPEN_TEST_MS)
   },
   { launchOnly: true },
 )
