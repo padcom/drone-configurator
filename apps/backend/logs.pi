@@ -2,17 +2,27 @@
 // with `logs.progress`, `logs.cancel`). The logs of ArduPilot are `/logs/NNNNNNNN.BIN` (8 digits), created when the vehicle arms
 // (a directory that is not there yet is an empty list). `logs.erase` is not implemented (answered with UNSUPPORTED).
 //
-// A log is downloaded to `<data directory>/logs/<vehicle>/NNNNNNNN.BIN`. While it comes it is `NNNNNNNN.BIN.part`: a download
-// that stops (cancelled, the vehicle armed, the link lost) leaves the part, and the next one goes on from its end. Only a copy
-// whose CRC-32 is the vehicle's own (CalcFileCRC32) is renamed to its real name: that file is "downloaded" (and is the only kind
-// that may one day be erased on the vehicle). A log that cannot be checked (the vehicle has no CRC) stays a part.
+// A log is downloaded to `<data directory>/logs/<vehicle>/`. While it comes it is `NNNNNNNN.BIN.part`: a download that stops
+// (cancelled, the vehicle armed, the link lost) leaves the part, and the next one goes on from its end. Only a copy whose CRC-32
+// is the vehicle's own (CalcFileCRC32) is given its real name, `NNNNNNNN-CCCCCCCC.BIN` (the number of the log on the vehicle and
+// the CRC in hex): the CRC is part of the name because the NUMBER alone does not say which log it is. ArduPilot starts numbering
+// again after a format or with another card, so a second log with the same number is another file: a copy is never replaced, a
+// file that is there is kept and the new one gets its own name. A log that cannot be checked (the vehicle has no CRC) stays a part.
+//
+// "Downloaded" (the list) is a copy of that number and the listing's size. That is a probable match, not a proof: the CRC in the
+// name is what proves it, and the vehicle's CRC is asked for before a log is taken for the one that is here (`logs.download`),
+// and must be asked before anything is ever erased on the vehicle (not implemented: `logs.erase` is UNSUPPORTED).
+//
+// The folder is the vehicle's: by its identity, which for a board with a unique id is that id. A vehicle with none (the identity is
+// only ids and type, the same for every such vehicle) gets a folder for each connection, so that two of them never share one.
 //
 // The log of a flight that has just ended is still written to for a while, so the size in the listing is not final: the download
 // asks for no size, and a CRC that differs because the file grew is chased: the download goes on from what it has (up to a few
 // times) until the vehicle's CRC is the one of the bytes written.
 //
 // Safety: nothing is downloaded while the vehicle is armed (`ARMED`) or while that is not known (`STATE_UNKNOWN`), nor while a
-// parameter operation runs or another download (`BUSY`); a download that runs is STOPPED when the vehicle arms. The listing of a
+// parameter operation runs or another download (`BUSY`); a download that runs is STOPPED when the vehicle arms (at its next
+// heartbeat: up to a second after the arm, which the vehicle's own link and card absorb). The listing of a
 // directory that cannot be trusted (a name that is not UTF-8) is an error with the reason (`LOGS_UNAVAILABLE`), never a partial list.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import {
@@ -28,7 +38,7 @@ import {
   Target,
   downloadFile,
 } from "padcom/pico-mavlink"
-import { File, mkdir, open, remove, rename, stat } from "std/fs"
+import { File, exists, mkdir, open, readDir, remove, rename, stat } from "std/fs"
 import { join } from "std/path"
 import {
   LogsDownloaded,
@@ -43,7 +53,7 @@ import {
   encodeVehicleLogs,
 } from "./generated/app"
 import { dataDirectory } from "./settings"
-import { SessionPart, armedState, connectedLink, link } from "./session"
+import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
 
 /// Where ArduPilot keeps its logs on the vehicle.
 const LOG_DIRECTORY: string = "/logs"
@@ -80,6 +90,9 @@ class Running implements SessionPart {
   public followed: AbortSignal? = null
   /// When progress was last sent (ms since 1970).
   public progressAt: int = 0
+  /// A mark of the connection (the time it was first asked for, ms since 1970), for a vehicle that has no unique id: its folder.
+  public mark: string = ""
+  public markGeneration: int = -1
 
   public attach(c: MavLinkConnection): void {
     if (conn != null) {
@@ -165,11 +178,26 @@ export function folderOf(identity: string): string {
   if (out == "") "vehicle" else out
 }
 
+/// The name of the connected vehicle's folder: its identity; for a vehicle with no unique id (the identity has no "uid:", it is the
+/// same for every such vehicle) the identity and a mark of this connection, so that two of them never share a folder (a later
+/// connection to the same one has a folder of its own too: nothing says it is the same).
+export function folderName(): string {
+  const base = folderOf(link.identity)
+  if (link.identity.indexOf("uid:") >= 0) {
+    return base
+  }
+  if (running.markGeneration != link.generation) {
+    running.markGeneration = link.generation
+    running.mark = `${Date.now()}`
+  }
+  `${base}-c${running.mark}`
+}
+
 /// The folder the logs of the connected vehicle are kept in.
 async function folder(): Promise<string> throws CommunicatorError {
   try {
     const root = await dataDirectory()
-    return join(root, "logs", folderOf(link.identity))
+    return join(root, "logs", folderName())
   } catch (e: Error) {
     throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
   }
@@ -218,10 +246,73 @@ async function sizeOf(path: string): Promise<int> {
   }
 }
 
-/// A log of the vehicle as the contract has it. It is downloaded when a checked copy of the same size is here.
-async function toLog(e: FtpEntry, dir: string): Promise<VehicleLog> {
-  const have = await sizeOf(join(dir, e.name))
-  const log = VehicleLog { id: numberOfLog(e.name) as u32, size: e.size as u32, downloaded: have == e.size }
+/// Eight hex digits (lower case) of a 32-bit value.
+export function hex8(n: int): string {
+  const digits = "0123456789abcdef"
+  let out = ""
+  for (let i = 7; i >= 0; i--) {
+    const d = (n >> (i * 4)) & 15
+    out += digits.slice(d, d + 1)
+  }
+  out
+}
+
+/// The name of the checked copy of log `id` whose CRC-32 is `crc`: `NNNNNNNN-CCCCCCCC.BIN`.
+export function copyName(id: int, crc: int): string {
+  `${nameOfLog(id).slice(0, 8)}-${hex8(crc)}.BIN`
+}
+
+/// A checked copy that is in the folder: the log's number, the CRC-32 in its name, and its size.
+export class Copy {
+  public readonly id: int
+  public readonly crc: int
+  public readonly size: int
+
+  constructor(id: int, crc: int, size: int) {
+    this.id = id
+    this.crc = crc
+    this.size = size
+  }
+}
+
+/// The number and CRC in the name of a checked copy, as [number, crc], or [-1, 0] when the name is not one.
+export function copyNumbers(name: string): int[] {
+  if (name.length != 21 || name.slice(8, 9) != "-" || name.slice(17, 21) != ".BIN") {
+    return [-1, 0]
+  }
+  const id = numberOfLog(`${name.slice(0, 8)}.BIN`)
+  let crc = 0
+  for (const ch of name.slice(9, 17).split("")) {
+    const digit = "0123456789abcdef".indexOf(ch)
+    if (digit < 0) {
+      return [-1, 0]
+    }
+    crc = crc * 16 + digit
+  }
+  [id, crc]
+}
+
+/// The checked copies in a folder (none when it is not there).
+async function copiesIn(dir: string): Promise<Copy[]> throws Error {
+  const out: Copy[] = []
+  if (!(await exists(dir))) {
+    return out
+  }
+  for await (const entry of readDir(dir)) {
+    const numbers = copyNumbers(entry.name)
+    if (entry.isFile && numbers[0] >= 0) {
+      out.push(new Copy(numbers[0], numbers[1], await sizeOf(join(dir, entry.name))))
+    }
+  }
+  out
+}
+
+/// A log of the vehicle as the contract has it. It is downloaded when a checked copy of that number and size is here (a probable
+/// match: see the head of this file).
+async function toLog(e: FtpEntry, copies: Copy[]): Promise<VehicleLog> {
+  const id = numberOfLog(e.name)
+  const have = copies.some((c: Copy) => c.id == id && c.size == e.size)
+  const log = VehicleLog { id: id as u32, size: e.size as u32, downloaded: have }
   if (e.time != null) {
     // The vehicle gives seconds since 1970 (the time of the last write); the contract has milliseconds.
     log.time = (e.time! * 1000) as u64
@@ -236,9 +327,10 @@ async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> t
   }
   const dir = await folder()
   const entries = await entriesOf(clientFor(conn, link.session.signal))
+  const copies = await copiesIn(dir)
   const logs: VehicleLog[] = []
   for (const e of entries) {
-    logs.push(await toLog(e, dir))
+    logs.push(await toLog(e, copies))
   }
   encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
 }
@@ -253,8 +345,8 @@ function refuse(): void throws CommunicatorError {
   if (armed!) {
     throw new CommunicatorError("ARMED", "the vehicle is armed")
   }
-  if (running.download != null || link.listing || link.writes > 0) {
-    throw new CommunicatorError("BUSY", "a download or a parameter operation is running")
+  if (running.download != null || link.listing || link.writes > 0 || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a download, a parameter operation or a reboot is running")
   }
 }
 
@@ -316,6 +408,8 @@ async function crcOfFile(path: string): Promise<Crc32> throws Error {
 class Outcome {
   public state: string = "done"
   public why: string = ""
+  /// The CRC-32 of the copy, when it is done.
+  public crc: int = 0
 }
 
 function failed(why: string): Outcome {
@@ -325,17 +419,54 @@ function failed(why: string): Outcome {
   o
 }
 
+/// Whether the folder has a copy of log `id` of `listed` bytes that IS this log: the vehicle's CRC of the log now is the one in the
+/// copy's name. (A log of that number and size may be another one; a vehicle that cannot say its CRC leaves it unproven.)
+async function hasThisCopy(client: FtpClient, id: int, listed: int, dir: string): Promise<bool> throws Error {
+  for (const c of await copiesIn(dir)) {
+    if (c.id == id && c.size == listed) {
+      try {
+        const theirs = await client.calcCrc32(`${LOG_DIRECTORY}/${nameOfLog(id)}`, CRC_WAIT_MS)
+        if (theirs == c.crc) {
+          return true
+        }
+      } catch (e: FtpError) {
+      }
+    }
+  }
+  false
+}
+
+/// Gives a checked part its real name. A file that is there already (the same bytes: the name has their CRC) is kept as it is,
+/// and the part goes; nothing is ever replaced.
+async function keep(part: string, to: string): Promise<void> throws Error {
+  if (await exists(to)) {
+    await remove(part)
+  } else {
+    await rename(part, to)
+  }
+}
+
+/// `chase`, and the part's file closed whatever ends it.
+async function chaseAndClose(client: FtpClient, id: int, listed: int, sink: PartFile, file: File, startedAt: int): Promise<Outcome> throws Error {
+  let outcome = new Outcome()
+  try {
+    outcome = await chase(client, id, listed, sink, startedAt)
+  } catch (e: Error) {
+    await file.close()
+    throw e
+  }
+  await file.close()
+  outcome
+}
+
 /// Downloads the log `id`, whose listing says `listed` bytes, to its folder: the part goes on from where it is, the file is renamed
 /// to its real name when the vehicle's CRC is the one of the bytes. Told progress as `logs.progress`.
 async function fetch(client: FtpClient, id: int, listed: int, dir: string): Promise<Outcome> {
-  const name = nameOfLog(id)
-  const whole = join(dir, name)
-  const part = `${whole}.part`
+  const part = join(dir, `${nameOfLog(id)}.part`)
   try {
     await mkdir(dir, true)
-    const done = await sizeOf(whole)
-    if (done == listed) {
-      say(id, LogsProgressState.Done, done, done, 0)
+    if (await hasThisCopy(client, id, listed, dir)) {
+      say(id, LogsProgressState.Done, listed, listed, 0)
       return new Outcome()
     }
     let held = await sizeOf(part)
@@ -347,10 +478,9 @@ async function fetch(client: FtpClient, id: int, listed: int, dir: string): Prom
     const crc = if (held > 0) await crcOfFile(part) else new Crc32()
     const file = await open(part, false, true, true, true)
     const sink = new PartFile(file, crc, if (held > 0) held else 0)
-    const outcome = await chase(client, id, listed, sink, if (held > 0) held else 0)
-    await file.close()
+    const outcome = await chaseAndClose(client, id, listed, sink, file, if (held > 0) held else 0)
     if (outcome.state == "done") {
-      await rename(part, whole)
+      await keep(part, join(dir, copyName(id, outcome.crc)))
     } else if (outcome.state == "failed" && outcome.why.startsWith("the copy does not match")) {
       // Bytes that do not match the vehicle's file and did not grow with it are of no use to a resume.
       await remove(part)
@@ -376,7 +506,9 @@ async function chase(client: FtpClient, id: int, listed: int, sink: PartFile, st
         return failed(`log ${id} could not be checked by the vehicle (${got.crcError}); it is kept as a part`)
       }
       say(id, LogsProgressState.Done, got.size, got.size, startedAt)
-      return new Outcome()
+      const done = new Outcome()
+      done.crc = got.crc
+      return done
     } catch (e: FtpError) {
       if (e.code == "FTP_ABORTED") {
         return stopped()
@@ -411,7 +543,9 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   const asked = decodeLogsDownload(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
   refuse()
-  const dir = await folder()
+  // The download is claimed at once, before anything is awaited: a second call that comes while the first is still looking for
+  // its folder finds it busy, and is refused (two downloads would reset each other's FTP sessions, and the first to end would
+  // clear the flag of the other).
   const own = new AbortController()
   running.follow(link.session.signal)
   running.download = own
@@ -422,6 +556,7 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   let error = ""
   let stoppedEarly = false
   try {
+    const dir = await folder()
     const client = clientFor(conn, own.signal)
     const listing = await entriesOf(client)
     const wanted: u32[] = []

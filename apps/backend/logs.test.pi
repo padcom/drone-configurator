@@ -2,10 +2,11 @@
 // for downloaded logs is a directory made for each test.
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
-import { exists, readBytes, remove, writeBytes, mkdir } from "std/fs"
+import { exists, readBytes, readDir, remove, writeBytes, mkdir } from "std/fs"
 import { join } from "std/path"
 import { pid } from "std/process"
 import { Cbor, Envelope } from "pico-desktop/communicator"
+import { crc32Of } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
@@ -20,7 +21,7 @@ import {
   encodeConnectRequest,
   encodeLogsDownload,
 } from "./generated/app"
-import { folderOf, nameOfLog, numberOfLog } from "./logs"
+import { copyName, copyNumbers, folderName, folderOf, hex8, nameOfLog, numberOfLog } from "./logs"
 import { link } from "./session"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -71,7 +72,7 @@ class Rig {
 
   /// Where the downloaded logs of the connected vehicle are.
   public folder(): string {
-    join(root, "logs", folderOf(link.identity))
+    join(root, "logs", folderName())
   }
 }
 
@@ -99,6 +100,25 @@ async function afterBeat(): Promise<void> throws Error {
     await delay(20)
     waited += 20
   }
+}
+
+/// The names of the checked copies in the vehicle's folder (not the parts).
+async function copyNames(r: Rig): Promise<string[]> throws Error {
+  const out: string[] = []
+  if (!(await exists(r.folder()))) {
+    return out
+  }
+  for await (const e of readDir(r.folder())) {
+    if (e.isFile && e.name.slice(e.name.length - 4, e.name.length) == ".BIN") {
+      out.push(e.name)
+    }
+  }
+  out
+}
+
+/// Where the checked copy of log `id` with these bytes is (or would be).
+function copyPath(r: Rig, id: int, bytes: Uint8Array): string {
+  join(r.folder(), copyName(id, crc32Of(bytes)))
 }
 
 async function finish(r: Rig): Promise<void> throws Error {
@@ -199,9 +219,9 @@ async function downloadsALogAndChecksIt(): Promise<void> throws Error {
   expect(done.ids.join(",")).toBe("1")
   expect(done.stopped).toBe(false)
   expect(done.error == null).toBe(true)
-  const file = join(r.folder(), "00000001.BIN")
+  const file = copyPath(r, 1, content(100000, 1))
   expect(same(await readBytes(file), content(100000, 1))).toBe(true)
-  expect(await exists(`${file}.part`)).toBe(false)
+  expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(false)
   const lines = progressOf(r, 1)
   expect(lines[0]).toBe("queued 0/100000")
   expect(lines[lines.length - 1]).toBe("done 100000/100000")
@@ -219,7 +239,7 @@ async function goesOnFromAPart(): Promise<void> throws Error {
   await writeBytes(join(r.folder(), "00000001.BIN.part"), whole.slice(0, 33333))
   const done = await download(r, [1])
   expect(done.ids.join(",")).toBe("1")
-  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), whole)).toBe(true)
+  expect(same(await readBytes(copyPath(r, 1, whole)), whole)).toBe(true)
   const lines = progressOf(r, 1)
   expect(lines[lines.length - 1]).toBe("done 100000/100000 from 33333")
   expect(lines.filter((l) => l.startsWith("downloading")).length > 0 || lines.length >= 2).toBe(true)
@@ -261,7 +281,7 @@ async function stopsWhenTheVehicleArms(): Promise<void> throws Error {
   expect(done.ids.length).toBe(0)
   expect(done.error!.includes("armed")).toBe(true)
   // What came is kept as a part; the log is not a downloaded one.
-  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect((await copyNames(r)).length).toBe(0)
   expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(true)
   expect(link.logging).toBe(false)
   await finish(r)
@@ -285,7 +305,7 @@ async function cancelKeepsThePartAndTheNextOneGoesOn(): Promise<void> throws Err
   sim.ftpStallAfter = 0
   const again = await download(r, [1])
   expect(again.ids.join(",")).toBe("1")
-  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), content(400000, 1))).toBe(true)
+  expect(same(await readBytes(copyPath(r, 1, content(400000, 1))), content(400000, 1))).toBe(true)
   const lines = progressOf(r, 1)
   expect(lines[lines.length - 1].includes(`from ${held}`)).toBe(true)
   await finish(r)
@@ -305,7 +325,7 @@ async function chasesALogThatGrowsWhileItComes(): Promise<void> throws Error {
   sim.ftpStallAfter = 0
   const done = decodeLogsDownloaded((await r.f.reply(asked)).p ?? Cbor.Null, "$")
   expect(done.ids.join(",")).toBe("1")
-  expect(same(await readBytes(join(r.folder(), "00000001.BIN")), longer)).toBe(true)
+  expect(same(await readBytes(copyPath(r, 1, longer)), longer)).toBe(true)
   await finish(r)
 }
 
@@ -316,7 +336,7 @@ async function failsAWrongCrcAndDropsTheBadPart(): Promise<void> throws Error {
   expect(done.ids.length).toBe(0)
   expect(done.stopped).toBe(true)
   expect(done.error!.includes("does not match")).toBe(true)
-  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect((await copyNames(r)).length).toBe(0)
   expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(false)
   expect(progressOf(r, 1)[progressOf(r, 1).length - 1].startsWith("failed")).toBe(true)
   await finish(r)
@@ -328,7 +348,7 @@ async function keepsAPartThatTheVehicleCannotCheck(): Promise<void> throws Error
   const done = await download(r, [1])
   expect(done.ids.length).toBe(0)
   expect(done.error!.includes("could not be checked")).toBe(true)
-  expect(await exists(join(r.folder(), "00000001.BIN"))).toBe(false)
+  expect((await copyNames(r)).length).toBe(0)
   expect(same(await readBytes(join(r.folder(), "00000001.BIN.part")), content(100000, 1))).toBe(true)
   expect((await list(r)).logs[0].downloaded).toBe(false)
   await finish(r)
@@ -360,6 +380,69 @@ async function holdsOffARebootAndAParameterDownloadWhileItRuns(): Promise<void> 
   await finish(r)
 }
 
+async function neverReplacesACopyAndKnowsOneByItsCrc(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  await download(r, [1])
+  const first = content(100000, 1)
+  // The vehicle's log 1 is another one now (a new card, the numbering started again), of the same size.
+  const other = content(100000, 9)
+  sim.fsFiles.set(FIRST, other)
+  const names = await copyNames(r)
+  expect(names.join(",")).toBe(copyName(1, crc32Of(first)))
+  // The list takes a copy of that number and size for it (a probable match); asking for it checks the vehicle's CRC.
+  expect((await list(r)).logs[0].downloaded).toBe(true)
+  const done = await download(r, [1])
+  expect(done.ids.join(",")).toBe("1")
+  expect((await copyNames(r)).length).toBe(2)
+  expect(same(await readBytes(copyPath(r, 1, first)), first)).toBe(true)
+  expect(same(await readBytes(copyPath(r, 1, other)), other)).toBe(true)
+  // The same log asked for again is the copy that is here: nothing new.
+  await download(r, [1])
+  expect((await copyNames(r)).length).toBe(2)
+  await finish(r)
+}
+
+async function givesAVehicleWithNoUniqueIdAFolderOfItsConnection(): Promise<void> throws Error {
+  const r = await connected()
+  const before = folderName()
+  expect(before.startsWith(folderOf(link.identity))).toBe(true)
+  expect(folderName()).toBe(before)
+  await r.f.call("vehicle.disconnect")
+  await delay(5)
+  await r.f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  expect(folderName() == before).toBe(false)
+  await finish(r)
+}
+
+async function refusesTwoDownloadsAtTheSameTime(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(FIRST, content(300000, 1))
+  sim.ftpStallAfter = 100
+  const ask = encodeLogsDownload(LogsDownload { ids: [1] })
+  // Both are sent before either is answered.
+  const one = await r.f.send("logs.download", ask)
+  const two = await r.f.send("logs.download", ask)
+  expect(codeOf(await r.f.reply(two))).toBe("BUSY")
+  expect(link.logging).toBe(true)
+  await r.f.event("logs.progress")
+  await r.f.call("logs.cancel")
+  expect(decodeLogsDownloaded((await r.f.reply(one)).p ?? Cbor.Null, "$").stopped).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
+function namesACopyByItsLogAndCrc(): void {
+  expect(hex8(0)).toBe("00000000")
+  expect(hex8(0xCBF43926)).toBe("cbf43926")
+  expect(copyName(42, 0x0000ABCD)).toBe("00000042-0000abcd.BIN")
+  expect(copyNumbers("00000042-0000abcd.BIN").join(",")).toBe(`42,${0xABCD}`)
+  expect(copyNumbers("00000042.BIN")[0]).toBe(-1)
+  expect(copyNumbers("00000042-0000abcg.BIN")[0]).toBe(-1)
+  expect(copyNumbers("00000042-0000ABCD.BIN")[0]).toBe(-1)
+}
+
 async function doesNotErase(): Promise<void> throws Error {
   const r = await connected()
   expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
@@ -388,5 +471,9 @@ describe("the logs service", () => {
   it("keeps a part that the vehicle cannot check, and does not call it downloaded", keepsAPartThatTheVehicleCannotCheck)
   it("stops at a log that is not on the vehicle", stopsAtALogThatIsNotThere)
   it("holds off a reboot, a parameter download and a second download while one runs", holdsOffARebootAndAParameterDownloadWhileItRuns)
+  it("names a copy by its log and CRC", namesACopyByItsLogAndCrc)
+  it("never replaces a copy: a log with the same number and another CRC gets a name of its own", neverReplacesACopyAndKnowsOneByItsCrc)
+  it("gives a vehicle with no unique id a folder for each connection", givesAVehicleWithNoUniqueIdAFolderOfItsConnection)
+  it("refuses a second download that comes before the first has begun", refusesTwoDownloadsAtTheSameTime)
   it("does not erase yet", doesNotErase)
 })

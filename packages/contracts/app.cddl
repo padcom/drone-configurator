@@ -130,7 +130,9 @@ param-write-result = {
 
 ; One log on the vehicle: its number, its size in bytes (not final for the log of a flight that has just ended: the vehicle goes on
 ; writing for a while), when it was last written (milliseconds since 1970; absent when the vehicle gives no time: it is the time
-; of the last write, not the start of the flight), and whether a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
+; of the last write, not the start of the flight), and whether (`downloaded`: a checked copy of that number and size is here; the
+; number alone does not say which log it is, since the vehicle starts numbering again after a format, so this is a probable match,
+; and the vehicle's CRC must be asked before anything is ever erased on the strength of it) a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
 ; checksum is the vehicle's: over FTP the vehicle computes it (CalcFileCRC32) and it is compared with that of the copy. The
 ; log protocol (LOG_DATA) has no checksum, so a log fetched that way cannot be checked: it is reported `downloaded: false`,
 ; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log

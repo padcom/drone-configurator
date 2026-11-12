@@ -5,7 +5,7 @@
 //
 // The checks go on from one another (one app, one connection): if the first fails, the rest fail for that reason.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, sep } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, home, launchApp } from './launch'
@@ -14,6 +14,8 @@ import { describeSitl } from './sitl-suite'
 
 /** The flight, and the app's connection and first list, may take this long. */
 const FLIGHT_MS = 300_000
+/** Everything before the first check: SITL starting (up to 60 s), the flight (up to 240 s), and the app launching. */
+const STARTUP_MS = 420_000
 /** A download of a log of some megabytes. */
 const DOWNLOAD_MS = 180_000
 /** The first row of the table, and its parts. */
@@ -22,6 +24,8 @@ const STATE = `${ROW} .logs-state-text`
 
 let sitl: Sitl | undefined
 let app: E2eApp | undefined
+/** Whether the first check found the download still running and cancelled it (on a very fast link it may be through already). */
+let cancelled = false
 
 /**
  * The app under test.
@@ -38,16 +42,20 @@ function window(): E2eApp {
 }
 
 /**
- * The copy of the first log in the app's data folder: `<data>/.../logs/<vehicle>/00000001.BIN`.
+ * The checked copy of the first log in the app's data folder: `<data>/.../logs/<vehicle>/00000001-<crc>.BIN`.
  *
  * @param dir the folder to look in
- * @returns its path, undefined when there is none
+ * @returns its path
+ * @throws {Error} when there is none
  */
-function copyIn(dir: string): string | undefined {
+function copyIn(dir: string): string {
   const found = readdirSync(dir, { recursive: true }).map(String)
-    .find(path => path.includes(`logs${sep}`) && path.endsWith(`${sep}00000001.BIN`))
+    .find(path => path.includes(`logs${sep}`) && /00000001-[0-9a-f]{8}\.BIN$/u.test(path))
+  if (found === undefined) {
+    throw new Error(`no checked copy of log 1 under ${dir}`)
+  }
 
-  return found === undefined ? undefined : join(dir, found)
+  return join(dir, found)
 }
 
 /**
@@ -90,34 +98,61 @@ async function listsTheLogOfTheFlight(): Promise<void> {
   expect(await window().evaluate<boolean>(`document.querySelector('#logs-erase')?.disabled === true`)).toBe(true)
 }
 
-async function cancelsPartWay(): Promise<void> {
-  await window().click(`${ROW} input[type="checkbox"]`)
-  await window().click('#logs-download')
-  // The bar of the log being fetched is there, and so is Cancel; after it, nothing says "Downloading" or has a bar.
-  await window().waitFor(`document.querySelector('${ROW} [role="progressbar"]') !== null`, DOWNLOAD_MS)
+async function cancelIt(): Promise<void> {
   await window().click('#logs-cancel')
   await window().waitForText('#logs-outcome', /^Download stopped\./u, DOWNLOAD_MS)
   expect(await stateOfFirst()).toBe('Not downloaded')
   expect(await window().evaluate<boolean>(`document.querySelector('${ROW} [role="progressbar"]') === null`)).toBe(true)
 }
 
-async function goesOnAndChecksIt(): Promise<void> {
-  // The part is kept: the next download says it went on from what came before.
+async function cancelsPartWay(): Promise<void> {
+  await window().click(`${ROW} input[type="checkbox"]`)
+  await window().click('#logs-download')
+  // The bar of the log being fetched is there, and so is Cancel; after it, nothing says "Downloading" or has a bar. On a link so
+  // fast that the download is through before the bar is looked for, there is nothing to cancel: the check says so and goes on.
+  await window().waitFor(`document.querySelector('${ROW} [role="progressbar"]') !== null
+    || /^Download finished/.test(document.querySelector('#logs-outcome')?.textContent ?? '')`, DOWNLOAD_MS)
+  cancelled = await window().evaluate<boolean>(`document.querySelector('#logs-cancel') !== null`)
+
+  if (cancelled) {
+    await cancelIt()
+  } else {
+    console.warn('sitl-logs: the download was through before it could be cancelled; the cancel and resume checks are skipped')
+  }
+}
+
+async function goesOn(): Promise<void> {
   await window().click('#logs-download')
   await window().waitForText('#logs-outcome', /^Download finished\. Downloaded: 1$/u, DOWNLOAD_MS)
-  expect(await stateOfFirst()).toBe('Downloaded')
   const resumed = await window().evaluate<string>(`document.querySelector('${ROW} .logs-resumed')?.textContent ?? ''`)
   expect(resumed).toMatch(/^Went on from /u)
+}
 
-  // The copy is the vehicle's file: as long as it is, byte for byte (the vehicle may have written more since).
+/**
+ * The vehicle's own file of the first log, in SITL's folder.
+ *
+ * @returns its path
+ */
+const theirsPath = () => join(sitl?.directory ?? '', 'logs', '00000001.BIN')
+
+/** The copy in the app's folder is the vehicle's file, byte for byte as long as it is (it may have grown since). */
+function checkTheCopy(): void {
   const copy = copyIn(home)
-  expect(copy).toBeDefined()
-  const mine = readFileSync(copy ?? '')
-  const theirs = readFileSync(join(sitl?.directory ?? '', 'logs', '00000001.BIN'))
+  const mine = readFileSync(copy)
+  const theirs = readFileSync(theirsPath())
   expect(mine.length).toBeGreaterThan(100_000)
   expect(mine.length).toBeLessThanOrEqual(theirs.length)
   expect(mine.equals(theirs.subarray(0, mine.length))).toBe(true)
-  expect(statSync(`${copy}.part`, { throwIfNoEntry: false })).toBeUndefined()
+  expect(statSync(join(dirname(copy), '00000001.BIN.part'), { throwIfNoEntry: false })).toBeUndefined()
+}
+
+async function goesOnAndChecksIt(): Promise<void> {
+  // The part is kept: the next download says it went on from what came before (unless the first one was through already).
+  if (cancelled) {
+    await goesOn()
+  }
+  expect(await stateOfFirst()).toBe('Downloaded')
+  checkTheCopy()
 }
 
 async function offersNothingMore(): Promise<void> {
@@ -128,7 +163,7 @@ async function offersNothingMore(): Promise<void> {
 describeSitl(
   'the logs of the vehicle (SITL)',
   () => {
-    beforeAll(startAll, FLIGHT_MS)
+    beforeAll(startAll, STARTUP_MS)
     afterAll(stopAll, 60_000)
 
     it('lists the log of a flight in "On the vehicle"', listsTheLogOfTheFlight, FLIGHT_MS)
