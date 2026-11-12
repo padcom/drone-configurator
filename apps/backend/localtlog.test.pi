@@ -16,6 +16,7 @@ import {
   LogsLocalSeriesAsk,
   ReviewFindingLevel,
   SeriesAsk,
+  decodeLocalLogBatches,
   decodeLocalLogExported,
   decodeLocalLogMessages,
   decodeLocalLogModes,
@@ -257,6 +258,38 @@ async function exportsACsvOfOneKindOfMessage(): Promise<void> throws Error {
   }
 }
 
+async function exportsATrackFromTheGpsFixes(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const ask = LogsLocalExportAsk { key: r.key, format: LogsLocalExportAskFormat.Gpx }
+    const e = await r.f.call("logs.local.export", encodeLogsLocalExportAsk(ask))
+    expect(codeOf(e)).toBe("")
+    const exported = decodeLocalLogExported(e.p ?? Cbor.Null, "$")
+    const text = await readText(exported.path!)
+
+    expect(exported.rows).toBe(20 as u32)
+    expect(text.includes("<trkpt lat=\"52.5")).toBe(true)
+    // The altitude is the receiver's, above sea level, in metres.
+    expect(text.includes("<ele>80</ele>")).toBe(true)
+  } finally {
+    await done(r)
+  }
+}
+
+async function hasNoRawImuBatchesForTheSpectrum(): Promise<void> throws Error {
+  const r = await rig(flight())
+  try {
+    await read(r)
+    const batches = decodeLocalLogBatches((await r.f.call("logs.local.batches", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+
+    // A recording holds no ISBH/ISBD: no sensor to make a spectrum of, never an empty spectrum shown as a measurement.
+    expect(batches.sources.length).toBe(0)
+  } finally {
+    await done(r)
+  }
+}
+
 async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
   const r = await rig(flight())
   try {
@@ -268,6 +301,32 @@ async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
     // Nothing is taken from a copy that is not verified.
     const e = await r.f.call("logs.local.messages", encodeLogsLocalRead(LogsLocalRead { key: r.key }))
     expect(codeOf(e)).toBe("NOT_VERIFIED")
+  } finally {
+    await done(r)
+  }
+}
+
+async function toleratesTimesThatStepBackALittle(): Promise<void> throws Error {
+  const w = new TlogWriter()
+  // Real recordings step back a little (frames are stamped when they are received): 5 ms back, then 700 ms back, in one stretch.
+  let seq = 0
+  for (const at of [0, 1000000, 995000, 2000000, 1300000, 3000000]) {
+    const att = new Attitude()
+    att.roll = 0.5
+    w.addMessage(T0 + at, att, seq, true, 1, 1)
+    seq += 1
+  }
+  const r = await rig(w.bytes())
+  try {
+    const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
+    const ask = LogsLocalSeriesAsk { key: r.key, series: [SeriesAsk { message: "ATT", field: "Roll" }], buckets: 3 as u16 }
+    const series = decodeLogsLocalSeries((await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
+
+    expect(s.report!.segments).toBe(1 as u32)
+    expect(s.report!.jitter).toBe(2 as u32)
+    // The length is up to the latest time, not the last message's, and every sample is in some part of the time.
+    expect(s.lastUs).toBe(3000000 as u64)
+    expect(series.series[0].points.map((p) => p.count).reduce((a, b) => a + b, 0 as u32)).toBe(6 as u32)
   } finally {
     await done(r)
   }
@@ -306,11 +365,14 @@ async function namesACopterByItsHeartbeatAndNothingElse(): Promise<void> throws 
 }
 
 describe("an imported recording in the library", () => {
+  it("tolerates times that step back a little: one stretch, the latest time is the end, every sample is in a part", toleratesTimesThatStepBackALittle)
   it("names a copter by its heartbeat, and no other vehicle (their modes stay numbers)", namesACopterByItsHeartbeatAndNothingElse)
   it("is listed as a tlog and read as verified when the copy has the CRC taken at import", isListedAsATlogAndReadAsVerified)
   it("charts what the Flights view asks for, and finds nothing for what a recording does not have", chartsWhatTheFlightsViewAsksFor)
   it("is reviewed with no data for what a recording can't say", reviewsWithNoDataForWhatARecordingCannotSay)
   it("is browsed as the MAVLink messages it holds, not the ones made up for the views", browsesTheMessagesTheRecordingHolds)
   it("exports a CSV of one kind of message", exportsACsvOfOneKindOfMessage)
+  it("exports the track of the GPS fixes as GPX", exportsATrackFromTheGpsFixes)
+  it("has no raw IMU batches, so no sensor for the spectrum", hasNoRawImuBatchesForTheSpectrum)
   it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
 })

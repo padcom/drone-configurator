@@ -281,7 +281,10 @@ class Scan implements Taker {
       if (firstUs < 0) {
         firstUs = t
       }
-      lastUs = t
+      // The latest time, not the last message's: a recording's times step back by up to a second (jitter).
+      if (t > lastUs) {
+        lastUs = t
+      }
     }
     const name = m.format.name
     if (name == "MODE") {
