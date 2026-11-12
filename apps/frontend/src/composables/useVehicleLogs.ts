@@ -4,7 +4,7 @@
 // download runs): the screen says why, and nothing is sent. Nothing here downloads on its own: not on connecting, and not after
 // landing (the "auto-download" preference is a setting only, until the backend can act on it).
 import { type ComputedRef, type Ref, type ShallowRef, computed, ref, shallowRef } from 'vue'
-import { type BackendClient, describeError } from '@/backend/client'
+import { type BackendClient, describeError, toBackendError } from '@/backend/client'
 import type { Connection, LogsProgress, Telemetry, VehicleLog } from '@/generated/app'
 import { armedOf } from '@/lib/app/armed'
 import { type Blocked, blockedBy, undownloadedIds } from '@/lib/logs/vehicleLogs'
@@ -40,6 +40,8 @@ export interface LogsModel {
   readonly running: Readonly<Ref<boolean>>
   /** Why the logs cannot be downloaded or erased now, or null. */
   readonly blocked: ComputedRef<Blocked>
+  /** The backend has no logs to offer (it does not know the methods yet): the screen says so, and has no controls. */
+  readonly unavailable: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
   readonly error: ShallowRef<string | null>
   /** What the last download or erase came to. */
@@ -58,7 +60,7 @@ export interface LogsModel {
   cancel: () => Promise<void>
   /** Erases the logs that were downloaded (the others stay). */
   erase: () => Promise<void>
-  /** The vehicle is gone: forgets what was listed. */
+  /** The vehicle is gone, or another one is there: forgets what was listed, selected and downloaded. */
   reset: () => void
 }
 
@@ -72,7 +74,10 @@ class VehicleLogs implements LogsModel {
   readonly listed = ref(false)
   readonly loading = ref(false)
   readonly running = ref(false)
+  readonly unavailable = ref(false)
   readonly blocked: ComputedRef<Blocked>
+  /** Goes up with every reset: an answer that comes for an earlier vehicle is dropped. */
+  private epoch = 0
 
   /**
    * Makes the model, and listens to the progress the backend reports.
@@ -86,24 +91,66 @@ class VehicleLogs implements LogsModel {
       this.running.value,
     ))
     deps.client.onEvent('logs.progress', progress => {
-      this.progress.value = { ...this.progress.value, [progress.id]: progress }
+      if (this.running.value) {
+        this.progress.value = { ...this.progress.value, [progress.id]: progress }
+      }
     })
+  }
+
+  /**
+   * Records a call that failed: a backend that does not know the methods makes the logs unavailable (no error to show), any
+   * other failure is the error shown.
+   *
+   * @param error what the call threw
+   */
+  private failed(error: unknown): void {
+    if (toBackendError(error).code === 'UNKNOWN_METHOD') {
+      this.unavailable.value = true
+    } else {
+      this.error.value = describeError(error)
+    }
+  }
+
+  /**
+   * Makes a call for this vehicle: what it answers is used only if the vehicle is still the one it was asked about, and a
+   * failure is recorded the same way.
+   *
+   * @param call makes the call
+   * @param apply uses the answer
+   * @returns how it went: `stale` when another vehicle has taken the place, and nothing was used or recorded
+   */
+  private async attempt<T>(call: () => Promise<T>, apply: (answer: T) => void): Promise<'ok' | 'failed' | 'stale'> {
+    const { epoch } = this
+    let answer: T
+
+    try {
+      answer = await call()
+    } catch (error) {
+      if (epoch !== this.epoch) {
+        return 'stale'
+      }
+      this.failed(error)
+
+      return 'failed'
+    }
+
+    if (epoch !== this.epoch) {
+      return 'stale'
+    }
+    apply(answer)
+
+    return 'ok'
   }
 
   async refresh(): Promise<void> {
     this.loading.value = true
-
-    try {
-      this.logs.value = (await this.deps.client.call('logs.vehicle.list', null)).logs
-      const known = new Set(this.logs.value.map(log => log.id))
-      this.selected.value = this.selected.value.filter(id => known.has(id))
+    await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs }) => {
+      this.logs.value = logs
+      this.selected.value = this.pickable()
       this.listed.value = true
       this.error.value = null
-    } catch (error) {
-      this.error.value = describeError(error)
-    } finally {
-      this.loading.value = false
-    }
+    })
+    this.loading.value = false
   }
 
   toggle(id: number): void {
@@ -120,34 +167,55 @@ class VehicleLogs implements LogsModel {
     this.selected.value = []
   }
 
+  /**
+   * The selected logs that are still to be downloaded.
+   *
+   * @returns their ids
+   */
+  private pickable(): number[] {
+    const wanted = undownloadedIds(this.logs.value)
+
+    return this.selected.value.filter(id => wanted.includes(id))
+  }
+
+  /**
+   * Whether a download of these logs may begin.
+   *
+   * @param ids the logs to fetch
+   * @returns true when there are some and nothing blocks it
+   */
+  private ready(ids: number[]): boolean {
+    return this.blocked.value === null && ids.length > 0
+  }
+
   async download(): Promise<void> {
-    const ids = this.selected.value.filter(id => undownloadedIds(this.logs.value).includes(id))
-    if (this.blocked.value !== null || ids.length === 0) {
+    const ids = this.pickable()
+    if (!this.ready(ids)) {
       return
     }
     this.progress.value = {}
     this.outcome.value = null
     this.running.value = true
-
-    try {
-      const done = await this.deps.client.call('logs.download', { ids })
+    const how = await this.attempt(() => this.deps.client.call('logs.download', { ids }), done => {
       this.outcome.value = { kind: 'downloaded', count: done.ids.length, stopped: done.stopped }
       this.error.value = null
-    } catch (error) {
-      this.error.value = describeError(error)
-    } finally {
-      this.running.value = false
+      // A download that was stopped leaves no log "downloading" or "queued": the rows say what the list says.
+      this.progress.value = done.stopped ? {} : this.progress.value
+    })
+    if (how === 'stale') {
+      return
     }
+    this.progress.value = how === 'failed' ? {} : this.progress.value
+    this.running.value = false
     // What came whole is no longer to be downloaded: the list says which, once read again.
     await this.refresh()
-    this.selected.value = this.selected.value.filter(id => undownloadedIds(this.logs.value).includes(id))
   }
 
   async cancel(): Promise<void> {
     try {
       await this.deps.client.call('logs.cancel', null)
     } catch (error) {
-      this.error.value = describeError(error)
+      this.failed(error)
     }
   }
 
@@ -155,18 +223,18 @@ class VehicleLogs implements LogsModel {
     if (this.blocked.value !== null) {
       return
     }
-    try {
-      const { erased, kept } = await this.deps.client.call('logs.erase', null)
+    await this.attempt(() => this.deps.client.call('logs.erase', null), ({ erased, kept }) => {
       this.outcome.value = { kind: 'erased', erased: erased.length, kept }
       this.error.value = null
       this.progress.value = {}
-    } catch (error) {
-      this.error.value = describeError(error)
-    }
+    })
     await this.refresh()
   }
 
   reset(): void {
+    this.epoch += 1
+    this.loading.value = false
+    this.unavailable.value = false
     this.logs.value = []
     this.selected.value = []
     this.progress.value = {}

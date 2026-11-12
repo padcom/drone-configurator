@@ -34,6 +34,8 @@ export interface MockOptions {
   ftp?: 'ok' | 'unsupported' | 'timeout'
   /** How the logs on the vehicle download (four events of 20 ms for each log by default), and which they are. */
   logs?: MockLogsOptions
+  /** The backend has no `logs.*` handler, as the real one has none yet: every call is answered with UNKNOWN_METHOD. */
+  withoutLogs?: boolean
 }
 
 /**
@@ -189,6 +191,9 @@ class MockVehicle {
   answer(e: Envelope) {
     const ok = (p: Envelope['p']) => this.send({ k: 'response', id: e.id!, p })
     const fail = (code: string, message: string) => this.send({ k: 'error', id: e.id!, err: { code, message } })
+    if (this.options.withoutLogs && e.n?.startsWith('logs.')) {
+      return fail('UNKNOWN_METHOD', `no handler for ${e.n}`)
+    }
     switch (e.n) {
       case 'vehicle.connect': return this.connect(e.p as ConnectRequest, ok)
       case 'vehicle.disconnect': return this.update({ state: 'disconnected' }, ok)

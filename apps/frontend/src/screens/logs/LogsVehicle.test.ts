@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { telemetryAt } from '@/mock/fixtures'
-import { type MockControl, mockBackend } from '@/mock/mock-backend'
+import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { feed } from '@/testing/testing'
 import LogsVehicle from './LogsVehicle.vue'
@@ -19,20 +19,31 @@ afterEach(() => {
 })
 
 /**
- * The screen with a vehicle connected and (unless told otherwise) known to be disarmed.
+ * Connects the simulated vehicle, and says it is disarmed, when asked to.
  *
- * @param connect whether to connect the vehicle
- * @returns the wrapper and the handle
+ * @param handle the Configurator
+ * @param connect whether to connect
  */
-async function screen(connect = true) {
-  const control: MockControl = {}
-  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, logs: { steps: 2, intervalMs: 5 }, control }))
-  control.armed?.(false)
-
+async function connectIf(handle: ReturnType<typeof createConfigurator>, connect: boolean): Promise<void> {
   if (connect) {
     await handle.vehicle.connect({ transport: 'simulator' })
     feed(handle, { telemetry: { ...telemetryAt(0), armed: false } })
   }
+}
+
+/**
+ * The screen with a vehicle connected and (unless told otherwise) known to be disarmed.
+ *
+ * @param connect whether to connect the vehicle
+ * @param more more of the mock's options
+ * @returns the wrapper and the handle
+ */
+async function screen(connect = true, more: MockOptions = {}) {
+  const control: MockControl = {}
+  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, logs: { steps: 2, intervalMs: 5 }, control, ...more }))
+  control.armed?.(false)
+
+  await connectIf(handle, connect)
   mounted = mount(LogsVehicle, { global: { plugins: [i18n] }, props: { section: 'vehicle' } })
   await flushPromises()
 
@@ -179,4 +190,41 @@ it('has its words in another language', async () => {
   const { wrapper } = await screen()
 
   expect(wrapper.get('.logs-vehicle-title').text()).toBe('Logs auf dem Fahrzeug')
+})
+
+it('says the logs are not available yet, with no controls, when the backend has no logs methods', async () => {
+  const { wrapper } = await screen(true, { withoutLogs: true })
+
+  expect(wrapper.get('.kit-empty .title').text()).toBe('Logs on the vehicle are not available yet')
+  expect(wrapper.find('#logs-error').exists()).toBe(false)
+  expect(wrapper.findAll('button')).toHaveLength(0)
+  expect(wrapper.find('table').exists()).toBe(false)
+})
+
+it('writes sizes with the decimal sign of the language', async () => {
+  setLanguage('de')
+  const { wrapper } = await screen()
+
+  expect(wrapper.get('.logs-used').text()).toBe('Logs: 4. Zusammen: 5,4 MB')
+})
+
+it('reads the list again when the erase is armed, so that the counts it names are the vehicle\'s now', async () => {
+  const { wrapper, handle } = await screen()
+  const refresh = vi.spyOn(handle.logs, 'refresh')
+  await wrapper.get('#logs-erase').trigger('click')
+
+  expect(refresh).toHaveBeenCalledTimes(1)
+})
+
+it('shows no log as downloading or queued after a cancel', async () => {
+  const { wrapper, handle } = await screen()
+  handle.logs.selectNew()
+  const first = handle.logs.download()
+  await vi.waitFor(() => expect(wrapper.find('[role="progressbar"]').exists() || handle.logs.running.value).toBe(true))
+  await handle.logs.cancel()
+  await first
+  await flushPromises()
+
+  expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+  expect(cells(wrapper).map(row => row[4] ?? '').filter(text => /Downloading|Queued/u.test(text))).toEqual([])
 })

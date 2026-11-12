@@ -231,6 +231,25 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
 }
 
 /**
+ * The vehicle's logs. They are the vehicle's: another vehicle, or none, has its own. So they go when the session ends, and with
+ * every connected report that is not the same vehicle coming back (`resumed`), also one that follows another with no gap.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the logs
+ */
+function startLogs(client: BackendClient, vehicle: Vehicle): LogsModel {
+  const logs = useVehicleLogs({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
+  watch(vehicle.connection, next => {
+    if (next.state !== 'connected' || next.resumed !== true) {
+      logs.reset()
+    }
+  })
+
+  return logs
+}
+
+/**
  * What the parameters ask about a draft: whether it is a value at all (an error) and what the loaded metadata finds unusual
  * about it (a warning, which does not stop a write).
  *
@@ -285,9 +304,7 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  const logs = useVehicleLogs({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
-  // The logs listed are the vehicle's: another vehicle, or none, has its own.
-  vehicle.onSession(connected => !connected && logs.reset())
+  const logs = startLogs(client, vehicle)
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())

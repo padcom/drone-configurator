@@ -7,6 +7,13 @@
       :help="t('logs.vehicle.offline.help')"
       :level="4"
     />
+    <!-- A backend that has no logs to offer (yet): the words of the placeholder, and no controls that could not work. -->
+    <EmptyState
+      v-else-if="logs.unavailable.value"
+      :title="t('logs.empty.vehicle.title')"
+      :help="t('logs.empty.vehicle.help')"
+      :level="4"
+    />
     <template v-else>
       <Banner v-if="reason" id="logs-blocked" tone="warn">{{ reason }}</Banner>
       <Banner v-if="logs.error.value" id="logs-error" tone="error">{{ logs.error.value }}</Banner>
@@ -21,8 +28,8 @@
           {{ t('logs.vehicle.selectNone') }}
         </Button>
       </div>
-      <p class="logs-used muted">{{ t('logs.vehicle.used', { count: logs.logs.value.length, size: sizeText(used) }) }}</p>
-      <p v-if="logs.loading.value" class="muted">{{ t('logs.vehicle.loading') }}</p>
+      <p class="logs-used muted">{{ t('logs.vehicle.used', { count: logs.logs.value.length, size: size(used) }) }}</p>
+      <p v-if="logs.loading.value && !logs.listed.value" class="muted">{{ t('logs.vehicle.loading') }}</p>
       <p v-else-if="logs.listed.value && logs.logs.value.length === 0" class="muted">{{ t('logs.vehicle.none') }}</p>
       <table v-else-if="logs.logs.value.length > 0" class="logs-table">
         <caption class="visually-hidden">{{ t('logs.vehicle.title') }}</caption>
@@ -47,7 +54,7 @@
             </td>
             <th scope="row">{{ row.log.id }}</th>
             <td>{{ row.date }}</td>
-            <td>{{ sizeText(row.log.size) }}</td>
+            <td>{{ size(row.log.size) }}</td>
             <td class="logs-state">
               <span class="logs-state-text">{{ row.text }}</span>
               <ProgressBar
@@ -70,13 +77,14 @@
     <!-- What the last download or erase came to: always in the page, so that the words are read out when they change. -->
     <p id="logs-outcome" class="logs-outcome" role="status">{{ outcome }}</p>
     <!-- Erasing is last in the page, and later in the work: the second press says what will happen, the note says what stays. -->
-    <div v-if="connection.state === 'connected'" class="logs-erase">
+    <div v-if="connection.state === 'connected' && !logs.unavailable.value" class="logs-erase">
       <SecondPress
         id="logs-erase"
         :label="t('logs.vehicle.erase.label')"
         :confirm-label="t('logs.vehicle.erase.confirm', { erased: downloaded, kept })"
         :disabled="logs.blocked.value !== null || downloaded === 0"
         :aria-describedby="`${uid}-erase-note`"
+        @arm="logs.refresh()"
         @confirm="logs.erase()"
       />
       <p :id="`${uid}-erase-note`" class="muted">{{ eraseNote }}</p>
@@ -100,6 +108,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import SecondPress from '@/components/ui/SecondPress.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { useFormat } from '@/i18n/useFormat'
 import type { VehicleLog } from '@/generated/app'
 import { madeAt, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from '@/lib/logs/vehicleLogs'
 
@@ -109,6 +118,17 @@ defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const { number } = useFormat()
+
+/**
+ * A size in the language of the interface.
+ *
+ * @param bytes the size
+ * @returns the text
+ */
+function size(bytes: number): string {
+  return sizeText(bytes, number)
+}
 const uid = useId()
 const { logs, fields } = useConfigurator()
 const { connection } = fields
@@ -152,7 +172,7 @@ function dateText(log: VehicleLog): string {
  * @returns the words, or an empty text
  */
 function resumedText(from: number | undefined): string {
-  return from === undefined ? '' : t('logs.vehicle.resumed', { size: sizeText(from) })
+  return from === undefined ? '' : t('logs.vehicle.resumed', { size: size(from) })
 }
 
 const rows = computed(() => logs.logs.value.map(log => {
@@ -183,11 +203,12 @@ const outcome = computed(() => {
 
 /** Reads the list when a vehicle is connected and it has not been read (listing is harmless; nothing is downloaded). */
 function listWhenConnected(): void {
-  if (connection.value.state === 'connected' && !logs.listed.value) {
+  if (connection.value.state === 'connected' && !logs.listed.value && !logs.unavailable.value) {
     void logs.refresh()
   }
 }
 
 onMounted(listWhenConnected)
-watch(() => connection.value.state, listWhenConnected)
+// Also when the list was forgotten (another vehicle took the place of the one listed) with the link still connected.
+watch(() => [connection.value.state, logs.listed.value], listWhenConnected)
 </script>

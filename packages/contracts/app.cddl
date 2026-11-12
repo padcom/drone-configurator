@@ -22,8 +22,10 @@ services = {
   ; The flight logs on the vehicle (draft: the mock backend serves it; the real backend comes with the log download).
   ; `logs.vehicle.list` lists them, `logs.download` fetches the ones named, one after the other, with `logs.progress` events
   ; for each, and `logs.cancel` stops it (what was fetched is kept, and the next download of that log goes on from there).
-  ; Neither downloads nor erases while the vehicle is armed (`ARMED`) or while a download runs (`BUSY`). `logs.erase`
-  ; erases only logs that were downloaded and checked; the others stay, and are counted.
+  ; Neither downloads nor erases while the vehicle is armed (`ARMED`), is not known to be disarmed (`STATE_UNKNOWN`) or while a
+  ; download runs (`BUSY`). A backend that implements this must also STOP a download that is running when the vehicle arms
+  ; (the refusal at the start is not enough), and keep what was fetched. `logs.erase` erases only logs that were downloaded
+  ; and checked (see `vehicle-log`); the others stay, and are counted.
   "logs.vehicle.list": ["method", null, vehicle-logs],
   "logs.download": ["method", logs-download, logs-downloaded],
   "logs.cancel": ["method", null, null],
@@ -126,7 +128,11 @@ param-write-result = {
 }
 
 ; One log on the vehicle: its number, its size in bytes, when it was made (milliseconds since 1970, absent when the vehicle has
-; no clock for it), and whether a copy that was checked (its size is the listing's) is on this computer.
+; no clock for it), and whether a copy that was CHECKED is on this computer. Checked means the size is the listing's AND the
+; checksum is the vehicle's: over FTP the vehicle computes it (CalcFileCRC32) and it is compared with that of the copy. The
+; log protocol (LOG_DATA) has no checksum, so a log fetched that way cannot be checked: it is reported `downloaded: false`,
+; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log
+; that could not be checked is never erased.
 vehicle-log = {
   id: uint .size 4,
   size: uint .size 4,

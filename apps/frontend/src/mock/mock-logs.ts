@@ -16,6 +16,11 @@ export interface MockLogsOptions {
   intervalMs: number
   /** The logs on the vehicle, when not the usual four. */
   logs?: VehicleLog[]
+  /**
+   * The logs whose copy here has the size of the listing and not its checksum (a block lost or garbled): the mock does not
+   * count such a copy as downloaded, and never erases the log.
+   */
+  damaged?: number[]
 }
 
 /** The logs a mock vehicle has, oldest first (the time is a day in 2026, milliseconds). */
@@ -57,6 +62,9 @@ function refusal(armed: unknown, running: boolean): [string, string] | null {
 
 /** The logs of the mock vehicle. */
 export class MockLogs {
+  /** The logs whose copy fails the checksum. */
+  readonly damaged: Set<number>
+
   logs: VehicleLog[]
   /** How many bytes of each log an interrupted download fetched (a log that is whole is not in here). */
   readonly fetched = new Map<number, number>()
@@ -75,6 +83,7 @@ export class MockLogs {
     private readonly armed: () => boolean | null | undefined,
   ) {
     this.logs = this.initial()
+    this.damaged = new Set(options.damaged)
   }
 
   /** The vehicle went away: nothing is under way any more. */
@@ -84,7 +93,9 @@ export class MockLogs {
       this.run = undefined
     }
     this.logs = this.initial()
+    this.damaged.clear()
     this.fetched.clear()
+    this.options.damaged?.forEach(id => this.damaged.add(id))
   }
 
   /**
@@ -93,7 +104,18 @@ export class MockLogs {
    * @param ok sends the answer
    */
   list(ok: Reply): void {
-    ok({ logs: this.logs.map(log => ({ ...log })), source: 'ftp' })
+    ok({ logs: this.logs.map(log => ({ ...log, downloaded: this.isChecked(log) })), source: 'ftp' })
+  }
+
+  /**
+   * Whether a log counts as downloaded: a copy is here, and its size and its checksum are the vehicle's (the FTP checksum,
+   * CalcFileCRC32). A copy of the right size with a block lost or garbled is not.
+   *
+   * @param log the log
+   * @returns true for a copy that was checked
+   */
+  isChecked(log: VehicleLog): boolean {
+    return log.downloaded && !this.damaged.has(log.id)
   }
 
   /**
@@ -110,9 +132,9 @@ export class MockLogs {
 
       return
     }
-    const wanted = ids.filter(id => this.logs.some(log => log.id === id && !log.downloaded))
+    const wanted = ids.filter(id => this.logs.some(log => log.id === id && !this.isChecked(log)))
     wanted.forEach(id => this.progress(id, 'queued', this.fetched.get(id) ?? 0))
-    const whole = ids.filter(id => this.logs.some(log => log.id === id && log.downloaded))
+    const whole = ids.filter(id => this.logs.some(log => log.id === id && this.isChecked(log)))
     this.run = this.begin(wanted, whole, ok)
 
     if (wanted.length === 0) {
@@ -143,8 +165,8 @@ export class MockLogs {
 
       return
     }
-    const erased = this.logs.filter(log => log.downloaded).map(log => log.id)
-    this.logs = this.logs.filter(log => !log.downloaded)
+    const erased = this.logs.filter(log => this.isChecked(log)).map(log => log.id)
+    this.logs = this.logs.filter(log => !this.isChecked(log))
     ok({ erased, kept: this.logs.length })
   }
 
@@ -250,6 +272,7 @@ export class MockLogs {
    */
   private complete(run: Run, log: VehicleLog, resumedFrom: number | undefined): void {
     log.downloaded = true
+    this.damaged.delete(log.id)
     this.fetched.delete(log.id)
     this.progress(log.id, 'done', log.size, resumedFrom)
     run.done.push(log.id)

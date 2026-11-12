@@ -1,7 +1,10 @@
 import { expect, it } from 'vitest'
 import type { LogsProgress, VehicleLog } from '@/generated/app'
+import { formatFor } from '@/i18n/useFormat'
 import { blockedBy, madeAt, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from './vehicleLogs'
 
+const EN = formatFor('en').number
+const DE = formatFor('de').number
 const NEW: VehicleLog = { id: 1, size: 1000, time: 1_783_000_000_000, downloaded: false }
 const FETCHED: VehicleLog = { id: 2, size: 500, downloaded: true }
 const LOGS: VehicleLog[] = [NEW, FETCHED, { id: 3, size: 250, downloaded: false }]
@@ -37,11 +40,15 @@ it('lists the logs that are not downloaded, and sums the sizes listed', () => {
 })
 
 it('writes sizes for people: bytes, kB, MB and GB', () => {
-  expect(sizeText(12)).toBe('12 B')
-  expect(sizeText(48_000)).toBe('48 kB')
-  expect(sizeText(1_200_000)).toBe('1.2 MB')
-  expect(sizeText(500_000_000)).toBe('500 MB')
-  expect(sizeText(2_000_000_000)).toBe('2 GB')
+  expect(sizeText(12, EN)).toBe('12 B')
+  expect(sizeText(48_000, EN)).toBe('48 kB')
+  expect(sizeText(1_200_000, EN)).toBe('1.2 MB')
+  expect(sizeText(500_000_000, EN)).toBe('500 MB')
+  expect(sizeText(2_000_000_000, EN)).toBe('2 GB')
+})
+
+it('writes the decimal sign of the language: 1,2 MB in German', () => {
+  expect(sizeText(1_200_000, DE)).toBe('1,2 MB')
 })
 
 it('gives the percent of a log fetched, held to 0 to 100, and 0 for a log of no size or none yet', () => {

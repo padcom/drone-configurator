@@ -45,6 +45,7 @@ import { useCommandNotice } from '@/composables/useCommandNotice'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { RETENTION_DAYS, SIZE_CAPS_MB, useLogsSettings } from '@/composables/useLogsSettings'
 import { sizeText } from '@/lib/logs/vehicleLogs'
+import { useFormat } from '@/i18n/useFormat'
 
 // What the user chooses about the application. For now that is the language of the interface, of which there is one; the
 // choice is kept in the settings (the backend's file), which shows the interface in it, so it is still there at the next
@@ -66,6 +67,7 @@ const notify = computed({
   set: (next: boolean) => void chooseNotice(next),
 })
 // The preferences about logs (kept; nothing acts on them until the backend downloads and removes logs).
+const { number } = useFormat()
 const logsSettings = useLogsSettings()
 const autoDownload = computed({
   get: () => logsSettings.autoDownload.value,
@@ -80,7 +82,7 @@ const sizeCap = computed({
   set: (next: string) => void logsSettings.chooseSizeCap(next),
 })
 const retentionOptions = computed(() => RETENTION_DAYS.map(value => ({ value, label: t('settings.logs.days', { days: value }) })))
-const capOptions = computed(() => SIZE_CAPS_MB.map(value => ({ value, label: sizeText(Number(value) * 1_000_000) })))
+const capOptions = computed(() => SIZE_CAPS_MB.map(value => ({ value, label: sizeText(Number(value) * 1_000_000, number) })))
 // Each language is named in itself (Deutsch, not German): a person who cannot read the current language can still find theirs.
 const options = LANGUAGES.map(code => ({ value: code, label: LANGUAGE_NAMES[code] }))
 const language = computed<string>({

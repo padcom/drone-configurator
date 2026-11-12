@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { telemetryAt } from '@/mock/fixtures'
-import { type MockControl, mockBackend } from '@/mock/mock-backend'
+import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
+import type { MockLogsOptions } from '@/mock/mock-logs'
 import { feed } from '@/testing/testing'
 import { useToasts } from './toasts'
 import { createConfigurator } from './useConfigurator'
@@ -15,11 +16,12 @@ afterEach(() => {
  * telemetry is too slow to matter: the test says what the vehicle is).
  *
  * @param logs how the mock downloads
+ * @param more more of the mock's options
  * @returns the handle
  */
-async function listed(logs = { steps: 2, intervalMs: 5 }) {
+async function listed(logs: MockLogsOptions = { steps: 2, intervalMs: 5 }, more: MockOptions = {}) {
   const control: MockControl = {}
-  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, logs, control }))
+  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, logs, control, ...more }))
   control.armed?.(false)
   await handle.vehicle.connect({ transport: 'simulator' })
   feed(handle, { telemetry: { ...telemetryAt(0), armed: false } })
@@ -110,6 +112,8 @@ it('stops on cancel, keeps what was fetched, and the next download says it went 
   await first
 
   expect(logs.outcome.value).toMatchObject({ kind: 'downloaded', stopped: true })
+  // No log is left "downloading" or "queued": the rows say what the list says.
+  expect(logs.progress.value).toEqual({})
   expect(logs.logs.value.find(log => log.id === 1)?.downloaded).toBe(false)
   logs.selectNew()
   await logs.download()
@@ -124,4 +128,55 @@ it('forgets the logs when the vehicle is disconnected', async () => {
   await vi.waitFor(() => expect(handle.logs.logs.value).toEqual([]))
 
   expect(handle.logs.listed.value).toBe(false)
+})
+
+it('is unavailable, with no error, when the backend has no logs methods (UNKNOWN_METHOD)', async () => {
+  const { logs } = await listed(undefined, { withoutLogs: true })
+
+  expect(logs.unavailable.value).toBe(true)
+  expect(logs.error.value).toBeNull()
+  expect(logs.listed.value).toBe(false)
+})
+
+it('shows another error as the error, and does not call the logs unavailable', async () => {
+  const handle = await listed()
+  await handle.vehicle.disconnect()
+  await handle.logs.refresh()
+
+  expect(handle.logs.unavailable.value).toBe(false)
+  expect(handle.logs.error.value).toContain('NOT_CONNECTED')
+})
+
+it('forgets the list, the marks, the selection and the outcome when another vehicle is reported connected', async () => {
+  const control: MockControl = {}
+  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, control }))
+  control.armed?.(false)
+  await handle.vehicle.connect({ transport: 'simulator' })
+  await handle.logs.refresh()
+  handle.logs.selectNew()
+  control.connection?.({ state: 'connected', vehicle: { sysid: 2, compid: 1, type: 'HEXAROTOR', autopilot: 'ARDUPILOTMEGA' } })
+  await vi.waitFor(() => expect(handle.logs.listed.value).toBe(false))
+
+  expect(handle.logs.logs.value).toEqual([])
+  expect(handle.logs.selected.value).toEqual([])
+})
+
+it('keeps the list when the same vehicle comes back (resumed)', async () => {
+  const handle = await listed()
+  handle.vehicle.connection.value = { ...handle.vehicle.connection.value, resumed: true }
+  await Promise.resolve()
+
+  expect(handle.logs.listed.value).toBe(true)
+})
+
+it('does not count a copy of the right size and the wrong checksum as downloaded, and never erases it', async () => {
+  const logs = [{ id: 1, size: 100, downloaded: true }, { id: 2, size: 100, downloaded: true }]
+  const handle = await listed({ steps: 2, intervalMs: 5, logs, damaged: [2] })
+  const model = handle.logs
+
+  expect(model.logs.value.map(log => [log.id, log.downloaded])).toEqual([[1, true], [2, false]])
+  await model.erase()
+
+  expect(model.outcome.value).toEqual({ kind: 'erased', erased: 1, kept: 1 })
+  expect(model.logs.value.map(log => log.id)).toEqual([2])
 })

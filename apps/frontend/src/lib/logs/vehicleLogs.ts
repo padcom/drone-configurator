@@ -77,18 +77,28 @@ export function usedBytes(logs: VehicleLog[]): number {
 const UNITS = ['B', 'kB', 'MB', 'GB']
 
 /**
+ * How many decimals a size takes: one for a small number of a unit (1.2 MB), none for a whole one or a large one (48 kB, 3 MB).
+ *
+ * @param value the number of the unit
+ * @param unit the index of the unit (0 is bytes)
+ * @returns 0 or 1
+ */
+function decimalsOf(value: number, unit: number): number {
+  return unit === 0 || value >= 100 || Number.isInteger(Math.round(value * 10) / 10) ? 0 : 1
+}
+
+/**
  * A size for people: 1.2 MB, 48 kB, 12 B.
  *
  * @param bytes the size
+ * @param number writes a number with a given count of decimals in the language of the interface (`useFormat().number`)
  * @returns the text
  */
-export function sizeText(bytes: number): string {
+export function sizeText(bytes: number, number: (value: number, digits: number) => string): string {
   const unit = Math.min(UNITS.length - 1, Math.max(0, Math.floor(Math.log10(Math.max(1, bytes)) / 3)))
   const value = bytes / 1000 ** unit
-  // One decimal for a small number of a unit (1.2 MB), none for a whole one (48 kB, 12 B).
-  const tenths = Math.round(value * 10) / 10
 
-  return `${value >= 100 || unit === 0 ? Math.round(value) : tenths} ${UNITS[unit]}`
+  return `${number(value, decimalsOf(value, unit))} ${UNITS[unit]}`
 }
 
 /**
