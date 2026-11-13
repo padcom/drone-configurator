@@ -5,10 +5,11 @@
 import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
-  Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
+  CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   SettingsState, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
+import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
@@ -42,6 +43,8 @@ export interface MockOptions {
   withoutLogs?: boolean
   /** The vehicle's parameters, when not the usual few (`SETUP_PARAMS` is a Copter that was set up). */
   params?: Param[]
+  /** How the vehicle calibrates (its steps are 25 ms apart by default). */
+  calibration?: MockCalibrationOptions
 }
 
 /**
@@ -132,6 +135,8 @@ class MockVehicle {
   rebootAnswer: RebootResult['result'] = 'accepted'
   rebootsSent = 0
   readonly logs: MockLogs
+  /** The calibration of the vehicle's sensors. */
+  readonly calibration: MockCalibration
   /** The logs on this computer (no vehicle needed). */
   readonly localLogs: MockLocalLogs
 
@@ -146,15 +151,10 @@ class MockVehicle {
     this.ftpMode = options.ftp ?? 'ok'
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
     this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
+    this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     if (options.control) {
       options.control.restart = () => this.restart()
-      options.control.announce = (id, value) => {
-        const param = this.params.find(p => p.id === id)
-        if (param) {
-          param.value = value
-          this.send({ k: 'event', n: 'params.changed', p: { ...param } })
-        }
-      }
+      options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
       options.control.say = (severity, text) => this.say(severity, text)
       options.control.armed = armed => { this.armedOverride = armed }
@@ -162,6 +162,20 @@ class MockVehicle {
       options.control.ftp = mode => { this.ftpMode = mode }
       options.control.rebootAnswer = answer => { this.rebootAnswer = answer }
       options.control.rebootsSent = () => this.rebootsSent
+    }
+  }
+
+  /**
+   * The vehicle announces a parameter it changed on its own (another ground station, a calibration that was accepted).
+   *
+   * @param id the parameter
+   * @param value its new value
+   */
+  announceParam(id: string, value: number) {
+    const param = this.params.find(p => p.id === id)
+    if (param) {
+      param.value = value
+      this.send({ k: 'event', n: 'params.changed', p: { ...param } })
     }
   }
 
@@ -177,6 +191,7 @@ class MockVehicle {
       this.pendingList = undefined
     }
     this.logs.reset()
+    this.calibration.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
@@ -217,6 +232,11 @@ class MockVehicle {
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'vehicle.info': return this.connected(fail) && ok({ ...VEHICLE_DETAILS, sensors: [...VEHICLE_DETAILS.sensors] })
       case 'vehicle.modes': return this.connected(fail) && ok({ kind: 'copter', modes: COPTER_MODES })
+      case 'calibration.start': return this.connected(fail) && this.calibration.start(e.p as CalibrationStart, ok, fail)
+      case 'calibration.confirm': return this.calibration.confirm((e.p as { position: number }).position, ok, fail)
+      case 'calibration.accept': return this.calibration.accept((e.p as { compasses?: number } | null)?.compasses ?? 0, ok, fail)
+      case 'calibration.cancel': return this.calibration.cancel(ok)
+      case 'calibration.status': return this.calibration.status(ok)
       case 'logs.vehicle.list': return this.connected(fail) && this.logs.list(ok)
       case 'logs.download': return this.connected(fail) && this.logs.download((e.p as { ids: number[] }).ids, ok, fail)
       case 'logs.cancel': return this.logs.cancel(ok)

@@ -1446,6 +1446,111 @@
         "serial": "Seriell",
         "wspi": "Wide SPI"
       }
+    },
+    "calibration": {
+      "blocked": {
+        "offline": "Verbinden Sie ein Fahrzeug, um zu kalibrieren.",
+        "armed": "Das Fahrzeug ist scharf. Entschärfen Sie es zum Kalibrieren.",
+        "unknown": "Der Scharfzustand ist nicht bekannt (kein aktueller Heartbeat), er gilt als scharf. Die Kalibrierung wartet."
+      },
+      "error": {
+        "ARMED": "Das Fahrzeug ist scharf: entschärfen Sie es zum Kalibrieren.",
+        "STATE_UNKNOWN": "Der Zustand des Fahrzeugs ist nicht bekannt (seit 3 s kein Heartbeat): nichts wurde gestartet.",
+        "BUSY": "Es läuft etwas anderes (eine Kalibrierung, eine Parameter- oder Log-Übertragung oder ein Neustart): versuchen Sie es danach erneut.",
+        "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",
+        "NOT_ASKED": "Das Fahrzeug fragt (noch) nicht nach dieser Lage.",
+        "NOT_RUNNING": "Dafür läuft keine Kalibrierung.",
+        "NOT_ACCEPTED": "Das Fahrzeug hat die Ergebnisse nicht angenommen: war ein Kompass erfolgreich?"
+      },
+      "result": {
+        "success": "Kalibrierung abgeschlossen",
+        "failed": "Kalibrierung fehlgeschlagen",
+        "cancelled": "Kalibrierung abgebrochen",
+        "refused": "Kalibrierung nicht gestartet"
+      },
+      "code": {
+        "CANCELLED": "nichts wurde übernommen",
+        "LINK_LOST": "die Verbindung zum Fahrzeug ging verloren",
+        "ARMED": "das Fahrzeug wurde scharf",
+        "NOT_UP": "das Fahrzeug meldete nicht, dass es bereit ist: kurz warten und erneut versuchen",
+        "REFUSED": "das Fahrzeug lehnte ab",
+        "TIMEOUT": "das Fahrzeug antwortet nicht mehr",
+        "FAILED": "das Fahrzeug meldet einen Fehlschlag"
+      },
+      "unsure": "Das Fahrzeug kalibriert eventuell noch oder hat die Ergebnisse übernommen: prüfen Sie die Werte, bevor Sie ihnen trauen; hört es nicht auf, starten Sie es neu.",
+      "vehicleSays": "Das Fahrzeug meldet"
+    },
+    "accel": {
+      "summary": "Bringen Sie das Fahrzeug nacheinander in sechs Lagen. Das Fahrzeug fragt jede an; drücken Sie Platziert, wenn es in der Lage und ruhig ist. Halten Sie es von Anfang an ruhig: zuerst werden die Gyros kalibriert.",
+      "positions": "Lagen",
+      "position": {
+        "level": "Waagerecht",
+        "left": "Auf der linken Seite",
+        "right": "Auf der rechten Seite",
+        "noseDown": "Nase unten",
+        "noseUp": "Nase oben",
+        "back": "Auf dem Rücken"
+      },
+      "state": {
+        "done": "erledigt",
+        "current": "jetzt gefragt",
+        "todo": "offen"
+      },
+      "start": "Kalibrieren (sechs Lagen)",
+      "level": "Nur Horizont",
+      "placed": "Platziert",
+      "cancel": "Abbrechen",
+      "cancelNote": "Abbrechen beendet das Warten der Seite; das Fahrzeug hält die Kalibrierung offen, bis sie endet oder es neu startet, und der nächste Start setzt dort fort.",
+      "idle": "Es läuft keine Kalibrierung.",
+      "starting": "Warte auf das Fahrzeug, dann werden die Gyros kalibriert: halten Sie es ruhig.",
+      "waiting": "Warte, bis das Fahrzeug eine Lage anfragt.",
+      "place": "Bringen Sie das Fahrzeug in die Lage: {where}, halten Sie es ruhig und drücken Sie Platziert.",
+      "holding": "Ruhig halten: das Fahrzeug nimmt die Probe.",
+      "values": "Die Werte des Fahrzeugs jetzt"
+    },
+    "compass": {
+      "summary": "Drehen Sie das Fahrzeug in alle Richtungen, fern von Metall und Kabeln, während das Fahrzeug den Fortschritt jedes Kompasses meldet. Nichts wird übernommen, bis Sie annehmen.",
+      "start": "Kalibrieren",
+      "cancel": "Abbrechen",
+      "autosave": "Das Fahrzeug das Ergebnis selbst übernehmen lassen",
+      "autosaveHelp": "Aus: die Ergebnisse warten auf Ihr Annehmen.",
+      "idle": "Es läuft keine Kalibrierung.",
+      "starting": "Warte auf das Fahrzeug…",
+      "running": "Drehen Sie das Fahrzeug in alle Richtungen, bis jeder Kompass fertig ist.",
+      "review": "Jeder Kompass hat gemeldet. Prüfen Sie die Ergebnisse und nehmen Sie die an, die Sie behalten wollen, oder verwerfen Sie sie.",
+      "number": "Kompass {n}",
+      "status": {
+        "WAITING_TO_START": "Wartet auf den Start",
+        "RUNNING_STEP_ONE": "Sammelt Proben",
+        "RUNNING_STEP_TWO": "Verfeinert",
+        "SUCCESS": "Erfolg",
+        "FAILED": "Fehlgeschlagen",
+        "FAILED_ORIENTATION": "Fehlgeschlagen: Ausrichtung",
+        "FAILED_RADIUS": "Fehlgeschlagen: Radius",
+        "FAILED_OFFSETS": "Fehlgeschlagen: Offsets",
+        "FAILED_DIAG_SCALING": "Fehlgeschlagen: Skalierung",
+        "FAILED_RESIDUALS_HIGH": "Fehlgeschlagen: Residuen zu hoch"
+      },
+      "progress": "Fortschritt Kompass {n}",
+      "sphere": "{lit} von {all} Abschnitten der Kugel haben Proben",
+      "fitness": "Güte (niedriger ist besser)",
+      "offsets": "Neue Offsets",
+      "oldOffsets": "Alte Offsets",
+      "diagonals": "Diagonalen",
+      "orientation": "Ausrichtung (vorher → nachher)",
+      "noRotation": "Keine",
+      "turnedKept": "Das Fahrzeug fand diesen Kompass gedreht. Annehmen übernimmt die neue Ausrichtung (COMPASS_AUTO_ROT ist 2 oder mehr).",
+      "turnedNotKept": "Das Fahrzeug fand diesen Kompass gedreht. Die Ausrichtung wird nicht geändert (COMPASS_AUTO_ROT ist unter 2).",
+      "accept": "Ergebnisse annehmen",
+      "discard": "Verwerfen",
+      "acceptHelp": "Annehmen übernimmt Offsets, Diagonalen, Nebendiagonalen und Skalierung und ersetzt die alten (die Parameterübersicht hält sie zum Zurücksetzen). Die neuen Werte gelten nach einem Neustart.",
+      "kept": "Die Ergebnisse wurden übernommen. Die alten Offsets sind ersetzt; die Parameterübersicht hält sie zum Zurücksetzen.",
+      "order": "Reihenfolge der Kompasse",
+      "orderHelp": "Der Kompass auf Platz 1 wird vom Fahrzeug zuerst verwendet. Änderungen schreibt die Schaltfläche rechts, sie gelten nach einem Neustart.",
+      "place": "Platz {n}",
+      "up": "Platz {n} nach oben",
+      "down": "Platz {n} nach unten",
+      "emptyPlace": "kein Kompass"
     }
   }
 }

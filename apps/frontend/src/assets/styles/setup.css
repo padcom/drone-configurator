@@ -401,3 +401,136 @@
     grid-row: auto;
   }
 }
+
+/* The accelerometer: the six positions, the one the vehicle asks for marked. */
+.setup-positions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-position {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.setup-position.current {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.setup-position.placed {
+  border-color: var(--color-ok);
+}
+
+.setup-position-no {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.setup-position-name {
+  flex: 1;
+}
+
+.setup-position .setup-mark.current {
+  color: var(--color-accent);
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* What the vehicle says (its STATUSTEXT) while it calibrates. */
+.setup-vehicle-says ul {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+/* The compass: a card for each, its sphere of 80 sections (10 bytes of 8 bits) lit from the vehicle's completion mask, and its report. */
+.setup-compasses {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-compass {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.setup-compass-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.setup-compass-percent {
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
+
+.setup-sphere {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  max-width: 320px;
+}
+
+.setup-section {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+}
+
+.setup-section.lit {
+  background: var(--color-accent);
+}
+
+.setup-report {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.setup-report dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.setup-order {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-order-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.setup-order-row .muted {
+  flex: 1;
+}

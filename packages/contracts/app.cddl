@@ -104,6 +104,25 @@ services = {
   ; The flight modes of the connected vehicle's kind, by their number in `custom_mode` (the names ArduPilot's dialect gives them),
   ; so that a page names a mode and never shows a number it has no name for as a name.
   "vehicle.modes": ["method", null, vehicle-modes],
+  ; The calibrations of the vehicle's sensors, one at a time (`BUSY` while one runs): the accelerometer (`accel`: the vehicle asks for its six
+  ; positions one after the other and the page says when it is in each, `calibration.confirm`; `level`: one command that sets the level
+  ; of the board) and the compass (`compass`: the vehicle is turned round while the vehicle says how far each compass is; the results
+  ; are KEPT only when `calibration.accept` says so, and dropped by `calibration.cancel`; `autosave` is off unless asked). The backend
+  ; refuses before it sends anything, whatever the page believes: no vehicle (`NOT_CONNECTED`), an armed one (`ARMED`; ArduPilot refuses too:
+  ; "Disarm to allow calibration"), one whose armed state is not known (`STATE_UNKNOWN`), a parameter, log or reboot operation under way
+  ; (`BUSY`). A calibration is never sent to a vehicle that has just booted: the backend waits until it says it is up. `calibration.start`
+  ; answers with the state at once; the rest is told with `calibration.progress` (the whole state, at most 10 a second) and, when it ends, `calibration.result`
+  ; (also in the state). `calibration.status` is the state now (a page that is shown again asks it). A calibration that is cancelled, whose page
+  ; is left (the page cancels), whose link is lost or whose session ends, or that is cut by a reboot, ENDS: a compass calibration is
+  ; cancelled on the vehicle (`DO_CANCEL_MAG_CAL`; if that cannot be told, the result says the vehicle may still be calibrating); the accelerometer
+  ; protocol has no cancel, so the vehicle stays in its calibration until it ends or it reboots, and the next `accel` start goes on from there.
+  "calibration.start": ["method", calibration-start, calibration-state],
+  "calibration.confirm": ["method", calibration-confirm, calibration-state],
+  "calibration.accept": ["method", calibration-accept, calibration-state],
+  "calibration.cancel": ["method", null, calibration-state],
+  "calibration.status": ["method", null, calibration-state],
+  "calibration.progress": ["event", calibration-state],
+  "calibration.result": ["event", calibration-result],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
@@ -797,3 +816,86 @@ serial-ports = { ports: [* serial-port] }
 
 ; `description` names a USB adapter: vendor:product and the product name.
 serial-port = { path: tstr, ? description: tstr }
+
+; ---- Calibrations ----
+
+calibration-kind = "accel" / "level" / "compass"
+
+; `compasses` is the mask of the compasses to calibrate (a bit for each, 0 or absent: all); `autosave` lets the vehicle keep a
+; compass result by itself (off unless true); `retry` starts a failed compass attempt again by itself.
+calibration-start = {
+  kind: calibration-kind,
+  ? compasses: uint .size 1,
+  ? autosave: bool,
+  ? retry: bool,
+}
+
+; The vehicle is in `position` (1 level, 2 left side, 3 right side, 4 nose down, 5 nose up, 6 on its back): the one it asked for.
+calibration-confirm = { position: uint .size 1 }
+
+; Keeps the results of the compasses in `compasses` (a mask; 0 or absent: all that succeeded).
+calibration-accept = { ? compasses: uint .size 1 }
+
+; Where a calibration is. `state`: `idle` (none; `result` may still be there from the last), `starting` (waiting for the vehicle to be up,
+; then for the command: the gyros are calibrated first, so the vehicle must be still), `running` (the vehicle is at it), `review` (a compass
+; calibration is over and its results wait for `calibration.accept` or `calibration.cancel`), `finished` (it ended: see `result`).
+; `texts` are the vehicle's own STATUSTEXT since it began (the last 40, oldest first): that is how a calibration says why it failed.
+calibration-state = {
+  state: "idle" / "starting" / "running" / "review" / "finished",
+  ? kind: calibration-kind,
+  ? accel: calibration-accel,
+  ? compasses: [* calibration-compass],
+  ? result: calibration-result,
+  texts: [* tstr],
+}
+
+; The accelerometer: `position` is the one the vehicle asks for now (0: none yet), `placed` the ones it has accepted, `confirming` that
+; the page said it is in `position` and the vehicle has not answered yet.
+calibration-accel = {
+  position: uint .size 1,
+  placed: [* uint .size 1],
+  confirming: bool,
+}
+
+; One compass: ArduPilot's `status` (WAITING_TO_START, RUNNING_STEP_ONE, RUNNING_STEP_TWO, SUCCESS, FAILED, FAILED_ORIENTATION,
+; FAILED_RADIUS, FAILED_OFFSETS, FAILED_DIAG_SCALING, FAILED_RESIDUALS_HIGH), `percent`, `attempt`, and `mask`, the 10 bytes of the
+; vehicle's completion mask (80 sections of a sphere that have samples, bit 0 of byte 0 first). `report` is there when the compass
+; is done.
+calibration-compass = {
+  id: uint .size 1,
+  status: tstr,
+  percent: uint .size 1,
+  attempt: uint .size 1,
+  mask: [* uint .size 1],
+  ? report: calibration-compass-report,
+}
+
+; What a compass came to. `ok` is SUCCESS. `oldOrientation` and `newOrientation` are ArduPilot's rotation numbers; they differ when
+; the vehicle found the compass turned (only kept when COMPASS_AUTO_ROT is 2 or more). Accepting keeps the offsets, the diagonals, the
+; off-diagonals and the scale. `accepted` is true when the result was kept (by `calibration.accept`, or by itself with `autosave`).
+calibration-compass-report = {
+  ok: bool,
+  fitness: float,
+  offsets: [3*3 float],
+  diagonals: [3*3 float],
+  offDiagonals: [3*3 float],
+  oldOrientation: uint .size 1,
+  newOrientation: uint .size 1,
+  orientationConfidence: float,
+  scale: float,
+  accepted: bool,
+}
+
+; How a calibration ended: `success` (the vehicle said so itself: its own success for the accelerometer, the ack of the level, an
+; accepted compass result), `failed`, `cancelled` (by the user, the page, the link, the session or a reboot; nothing was kept) or `refused`
+; (never started: `code` says why). `code`: ARMED, STATE_UNKNOWN, BUSY, NOT_CONNECTED, NOT_UP (the vehicle did not say it is up), REFUSED (the
+; vehicle's answer), LINK_LOST, CANCELLED, TIMEOUT. `detail` is English (the vehicle's own words where it has them). `unsure` is true when
+; the vehicle may still be calibrating (a cancel that could not be told), or may have kept the results of a compass although its
+; answer to the accept was lost (`TIMEOUT`: look at the parameters).
+calibration-result = {
+  kind: calibration-kind,
+  outcome: "success" / "failed" / "cancelled" / "refused",
+  ? code: tstr,
+  ? detail: tstr,
+  ? unsure: bool,
+}

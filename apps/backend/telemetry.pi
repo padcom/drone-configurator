@@ -62,6 +62,11 @@ async function askFor(rates: TelemetryRates, wish: Wish): Promise<bool> {
   }
 }
 
+/// The rate manager of the connected vehicle (it holds what was asked and asks again after a reboot), or null when there is none.
+export function ratesNow(): TelemetryRates? {
+  heard.rates
+}
+
 /// What the vehicle has reported since connecting (telemetry shows only that).
 class Heard implements SessionPart {
   public conn: MavLinkConnection? = null

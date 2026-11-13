@@ -6,7 +6,9 @@
 // logs of different lengths, in `/logs`, which file transfer and the MAVLink log protocol serve) and stays DISARMED (the
 // simulator arms itself after three ticks; a logs download is refused while armed), so that logs can be listed, downloaded and
 // erased through the window. With VEHICLE_SETUP=1 it has the parameters the Setup pages read (a Copter with its frame, flight modes
-// and failsafes set, and a compass that was never calibrated) and stays disarmed too, so that they can be written.
+// and failsafes set, and a compass that was never calibrated) and stays disarmed too, so that they can be written. Its
+// calibrations (the accelerometer's six positions, the level, the compass of two compasses) are quick, and it says "AHRS: EKF3
+// active" a second and a half after the link is made, as a vehicle that is up does (the app waits for it before it calibrates).
 import { Conn, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
 import {
@@ -16,6 +18,7 @@ import {
   Received,
   SimParam,
   SimulatedAutopilot,
+  StatusText,
   TcpStream,
   TypedParamValue,
   defaultSimParams,
@@ -81,7 +84,21 @@ function serve(conn: Conn): void {
   }
   if (setup) {
     stayDisarmed(sim!)
+    calibratesQuickly(sim!)
   }
+}
+
+/// A vehicle whose calibrations take a moment (the real ones take seconds to minutes), and that says it is up.
+function calibratesQuickly(sim: SimulatedAutopilot): void {
+  sim.calibration.takesMs = 200
+  sim.calibration.repeatMs = 300
+  sim.compass.progressMs = 100
+  sim.compass.stepPct = 25
+  setTimeout(() => {
+    const up = new StatusText()
+    up.text = "AHRS: EKF3 active"
+    sim.conn.send(up)
+  }, 1500)
 }
 
 /// The parameters of a Copter that was set up as far as the Setup pages can see, except its compass (its offsets are zero), so that
@@ -95,6 +112,11 @@ function setupParams(): SimParam[] {
   for (let i = 0; i < whole.length; i++) {
     out.push(SimParam { id: whole[i], value: TypedParamValue.Int(wholeValues[i], MavParamType.INT8) })
   }
+  // The compasses' order (device ids: an I2C compass and an SPI one, and an empty place) and whether a calibration may turn one.
+  out.push(SimParam { id: "COMPASS_PRIO1_ID", value: TypedParamValue.Int(466441, MavParamType.INT32) })
+  out.push(SimParam { id: "COMPASS_PRIO2_ID", value: TypedParamValue.Int(466697, MavParamType.INT32) })
+  out.push(SimParam { id: "COMPASS_PRIO3_ID", value: TypedParamValue.Int(0, MavParamType.INT32) })
+  out.push(SimParam { id: "COMPASS_AUTO_ROT", value: TypedParamValue.Int(2, MavParamType.INT8) })
   const reals = ["INS_ACCOFFS_X", "INS_ACCOFFS_Y", "INS_ACCOFFS_Z", "INS_ACCSCAL_X", "INS_ACCSCAL_Y", "INS_ACCSCAL_Z",
     "COMPASS_OFS_X", "COMPASS_OFS_Y", "COMPASS_OFS_Z", "BATT_CRT_VOLT", "BATT_VOLT_MULT", "BATT_AMP_PERVLT"]
   const realValues = [0.12, -0.03, 0.2, 1.001, 0.999, 1.0, 0.0, 0.0, 0.0, 10.0, 10.1, 17.0]

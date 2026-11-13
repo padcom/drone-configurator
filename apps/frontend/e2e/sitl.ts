@@ -18,7 +18,7 @@ import {
 
 /** The vehicle types SITL can be started for. One at a time: a test names its vehicle. */
 export const vehicles = {
-  copter: { binary: 'arducopter', frames: ['quad', 'x', 'hexa', 'octa', 'tri', 'deca'] },
+  copter: { binary: 'arducopter', frames: ['quad', 'x', 'hexa', 'octa', 'tri', 'deca', 'calibration'] },
 } as const
 
 export type VehicleName = keyof typeof vehicles
@@ -56,6 +56,12 @@ export interface Sitl {
    * simulated time, so give it a long timeout; keep the speedup at 1 (the vehicle's file transfer fails at higher ones).
    */
   fly(timeoutMs?: number): Promise<void>
+  /**
+   * Sets the servo outputs with MAV_CMD_DO_SET_SERVO, over SERIAL1, as `[output, microseconds]`. On the `calibration` frame outputs 5 to 8
+   * turn the vehicle: 5 above 1100 and below 1200 puts it at the angles of 6 (roll), 7 (pitch) and 8 (yaw), each 1500 + angle * 500 / pi;
+   * 5 from 1300 spins it about the axis of 6 to 8; 5 below 1100 stops it.
+   */
+  setServos(servos: readonly (readonly [number, number])[]): Promise<void>
   /** Stops it and removes its directory. Safe to call again. */
   stop(): Promise<void>
 }
@@ -77,6 +83,8 @@ const copterDefaults: Record<string, string[]> = {
   octa: ['copter.parm', 'copter-octa.parm'],
   tri: ['copter.parm', 'copter-tri.parm'],
   deca: ['copter.parm', 'copter-deca.parm'],
+  // A vehicle that is turned to the angles its servo outputs 5 to 8 say (libraries/SITL/SIM_Calibration.cpp): for the calibrations.
+  calibration: ['copter.parm'],
 }
 
 /**
@@ -505,6 +513,7 @@ export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
     directory,
     setParam: (name, value) => setParam(serial1, name, value, alive),
     fly: (timeoutMs = FLIGHT_MS) => flyOnce(serial1, alive, timeoutMs),
+    setServos: servos => setServos(serial1, servos, alive),
     stop,
   }
   try {
@@ -667,6 +676,52 @@ async function setParam(port: number, name: string, value: number, alive: () => 
       socket.once('close', () => {
         clearTimeout(timer)
         reject(new Error('the connection closed before SITL confirmed the parameter'))
+      })
+    })
+  } finally {
+    socket.destroy()
+  }
+}
+
+const MAV_CMD_DO_SET_SERVO = 183
+
+/**
+ * Sets servo outputs over SERIAL1 (see `Sitl.setServos`): waits for the vehicle's heartbeat, sends each command, and lets them arrive.
+ *
+ * @param port SERIAL1's TCP port
+ * @param servos `[output, microseconds]` for each
+ * @param alive whether SITL is running
+ */
+async function setServos(port: number, servos: readonly (readonly [number, number])[], alive: () => boolean): Promise<void> {
+  if (!alive()) {
+    throw new Error('SITL is not running, so its servo outputs cannot be set')
+  }
+  const socket = await connect(port, 10_000, alive)
+  const reader = new FrameReader()
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('SITL sent no heartbeat on SERIAL1 within 10 s')), 10_000)
+      let sent = false
+      socket.on('data', (data: Buffer) => {
+        for (const frame of reader.push(data)) {
+          const heartbeat = asHeartbeat(frame)
+          if (heartbeat?.autopilot === MAV_AUTOPILOT_ARDUPILOTMEGA && !sent) {
+            sent = true
+            const target = { systemId: heartbeat.systemId, componentId: heartbeat.componentId }
+            for (const [output, pwm] of servos) {
+              socket.write(encodeCommandLong(target, MAV_CMD_DO_SET_SERVO, [output, pwm]))
+            }
+            // The commands are on their way; the vehicle keeps the outputs after this link is closed.
+            setTimeout(() => {
+              clearTimeout(timer)
+              resolve()
+            }, 500)
+          }
+        }
+      })
+      socket.once('close', () => {
+        clearTimeout(timer)
+        reject(new Error('the connection closed before the servo outputs were sent'))
       })
     })
   } finally {

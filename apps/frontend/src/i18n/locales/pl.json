@@ -1446,6 +1446,111 @@
         "serial": "Szeregowa",
         "wspi": "Szeroki SPI"
       }
+    },
+    "calibration": {
+      "blocked": {
+        "offline": "Podłącz pojazd, aby kalibrować.",
+        "armed": "Pojazd jest uzbrojony. Rozbrój go, aby kalibrować.",
+        "unknown": "Nie wiadomo, czy pojazd jest uzbrojony (brak niedawnego heartbeatu), więc liczy się jako uzbrojony. Kalibracja czeka."
+      },
+      "error": {
+        "ARMED": "Pojazd jest uzbrojony: rozbrój go, aby kalibrować.",
+        "STATE_UNKNOWN": "Stan pojazdu jest nieznany (brak heartbeatu od 3 s): nic nie uruchomiono.",
+        "BUSY": "Trwa coś innego (kalibracja, transfer parametrów lub logów albo restart): spróbuj ponownie po zakończeniu.",
+        "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
+        "NOT_ASKED": "Pojazd (jeszcze) nie prosi o tę pozycję.",
+        "NOT_RUNNING": "Żadna kalibracja tego nie dotyczy.",
+        "NOT_ACCEPTED": "Pojazd nie przyjął wyników: czy któryś kompas się udał?"
+      },
+      "result": {
+        "success": "Kalibracja zakończona",
+        "failed": "Kalibracja nie powiodła się",
+        "cancelled": "Kalibracja anulowana",
+        "refused": "Kalibracja nie ruszyła"
+      },
+      "code": {
+        "CANCELLED": "nic nie zachowano",
+        "LINK_LOST": "utracono łączność z pojazdem",
+        "ARMED": "pojazd został uzbrojony",
+        "NOT_UP": "pojazd nie zgłosił gotowości: poczekaj chwilę i spróbuj ponownie",
+        "REFUSED": "pojazd odmówił",
+        "TIMEOUT": "pojazd przestał odpowiadać",
+        "FAILED": "pojazd mówi, że się nie udało"
+      },
+      "unsure": "Pojazd może nadal kalibrować albo mógł zachować wyniki: sprawdź wartości, zanim im zaufasz; jeśli kalibruje dalej, zrestartuj go.",
+      "vehicleSays": "Pojazd mówi"
+    },
+    "accel": {
+      "summary": "Ustaw pojazd w sześciu pozycjach, jedna po drugiej. Pojazd prosi o każdą; naciśnij Ustawiono, gdy jest w danej pozycji i nieruchomy. Trzymaj go nieruchomo od początku: najpierw kalibrowane są żyroskopy.",
+      "positions": "Pozycje",
+      "position": {
+        "level": "Poziomo",
+        "left": "Na lewym boku",
+        "right": "Na prawym boku",
+        "noseDown": "Dziobem w dół",
+        "noseUp": "Dziobem w górę",
+        "back": "Na grzbiecie"
+      },
+      "state": {
+        "done": "gotowe",
+        "current": "teraz wymagane",
+        "todo": "do zrobienia"
+      },
+      "start": "Kalibruj (sześć pozycji)",
+      "level": "Tylko poziom",
+      "placed": "Ustawiono",
+      "cancel": "Anuluj",
+      "cancelNote": "Anulowanie przerywa oczekiwanie strony; pojazd trzyma kalibrację otwartą, aż się skończy lub zrestartuje, a następny start jest od tego miejsca.",
+      "idle": "Żadna kalibracja nie trwa.",
+      "starting": "Czekam na pojazd, potem kalibracja żyroskopów: trzymaj pojazd nieruchomo.",
+      "waiting": "Czekam, aż pojazd poprosi o pozycję.",
+      "place": "Ustaw pojazd: {where}, trzymaj nieruchomo, potem naciśnij Ustawiono.",
+      "holding": "Bez ruchu: pojazd pobiera próbkę.",
+      "values": "Wartości w pojeździe teraz"
+    },
+    "compass": {
+      "summary": "Obracaj pojazd na wszystkie strony, z dala od metalu i kabli, a pojazd pokazuje postęp każdego kompasu. Nic nie jest zachowywane, dopóki nie zaakceptujesz.",
+      "start": "Kalibruj",
+      "cancel": "Anuluj",
+      "autosave": "Pozwól pojazdowi zachować wynik samemu",
+      "autosaveHelp": "Wyłączone: wyniki czekają na Twoją akceptację.",
+      "idle": "Żadna kalibracja nie trwa.",
+      "starting": "Czekam na pojazd…",
+      "running": "Obracaj pojazd na wszystkie strony, aż każdy kompas będzie gotowy.",
+      "review": "Każdy kompas się zgłosił. Sprawdź wyniki, potem zaakceptuj te, które chcesz zachować, albo odrzuć je.",
+      "number": "Kompas {n}",
+      "status": {
+        "WAITING_TO_START": "Czeka na start",
+        "RUNNING_STEP_ONE": "Zbiera próbki",
+        "RUNNING_STEP_TWO": "Dopracowuje",
+        "SUCCESS": "Sukces",
+        "FAILED": "Nie powiodło się",
+        "FAILED_ORIENTATION": "Niepowodzenie: orientacja",
+        "FAILED_RADIUS": "Niepowodzenie: promień",
+        "FAILED_OFFSETS": "Niepowodzenie: offsety",
+        "FAILED_DIAG_SCALING": "Niepowodzenie: skalowanie",
+        "FAILED_RESIDUALS_HIGH": "Niepowodzenie: zbyt duże reszty"
+      },
+      "progress": "Postęp kompasu {n}",
+      "sphere": "{lit} z {all} sekcji sfery ma próbki",
+      "fitness": "Dopasowanie (niższe lepsze)",
+      "offsets": "Nowe offsety",
+      "oldOffsets": "Stare offsety",
+      "diagonals": "Przekątne",
+      "orientation": "Orientacja (przed → po)",
+      "noRotation": "Brak",
+      "turnedKept": "Pojazd uznał, że ten kompas jest obrócony. Akceptacja zachowa nową orientację (COMPASS_AUTO_ROT to 2 lub więcej).",
+      "turnedNotKept": "Pojazd uznał, że ten kompas jest obrócony. Orientacja nie zostanie zmieniona (COMPASS_AUTO_ROT jest poniżej 2).",
+      "accept": "Zaakceptuj wyniki",
+      "discard": "Odrzuć",
+      "acceptHelp": "Akceptacja zachowuje offsety, przekątne, wyrazy pozaprzekątniowe i skalę, zastępując stare (przegląd parametrów trzyma je do cofnięcia). Nowe wartości działają po restarcie.",
+      "kept": "Wyniki zachowano. Stare offsety zastąpiono; przegląd parametrów trzyma je do cofnięcia.",
+      "order": "Kolejność kompasów",
+      "orderHelp": "Kompas na miejscu 1 jest używany przez pojazd jako pierwszy. Zmiany zapisuje przycisk po prawej, działają po restarcie.",
+      "place": "Miejsce {n}",
+      "up": "Przesuń miejsce {n} w górę",
+      "down": "Przesuń miejsce {n} w dół",
+      "emptyPlace": "brak kompasu"
     }
   }
 }

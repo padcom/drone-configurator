@@ -3929,3 +3929,508 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   }
   Cbor.Dict(m)
 }
+
+export enum CalibrationKind { Accel, Level, Compass }
+
+export function decodeCalibrationKind(v: Cbor, path: string): CalibrationKind throws InvalidPayload {
+  match (text(v, path)) {
+    "accel" => CalibrationKind.Accel,
+    "level" => CalibrationKind.Level,
+    "compass" => CalibrationKind.Compass,
+    _ => throw new InvalidPayload(path, "accel or level or compass"),
+  }
+}
+
+export function encodeCalibrationKind(v: CalibrationKind): Cbor {
+  match (v) {
+    Accel => Cbor.Text("accel"),
+    Level => Cbor.Text("level"),
+    Compass => Cbor.Text("compass"),
+  }
+}
+
+export struct CalibrationStart {
+  kind: CalibrationKind
+  compasses?: u8
+  autosave?: bool
+  retry?: bool
+}
+
+export function decodeCalibrationStart(v: Cbor, path: string): CalibrationStart throws InvalidPayload {
+  const m = members(v, path, ["kind", "compasses", "autosave", "retry"])
+  const cbor1 = m.get("compasses")
+  let opt1: u8? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.compasses`, 255) as u8)
+  }
+  const cbor2 = m.get("autosave")
+  let opt2: bool? = null
+  if (cbor2 != null) {
+    opt2 = boolean(cbor2, `${path}.autosave`)
+  }
+  const cbor3 = m.get("retry")
+  let opt3: bool? = null
+  if (cbor3 != null) {
+    opt3 = boolean(cbor3, `${path}.retry`)
+  }
+  CalibrationStart {
+    kind: decodeCalibrationKind(required(m, "kind", path), `${path}.kind`),
+    compasses: opt1,
+    autosave: opt2,
+    retry: opt3,
+  }
+}
+
+export function encodeCalibrationStart(v: CalibrationStart): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodeCalibrationKind(v.kind))
+  const opt1 = v.compasses
+  if (opt1 != null) {
+    m.set("compasses", Cbor.Uint(opt1 as u64))
+  }
+  const opt2 = v.autosave
+  if (opt2 != null) {
+    m.set("autosave", Cbor.Bool(opt2))
+  }
+  const opt3 = v.retry
+  if (opt3 != null) {
+    m.set("retry", Cbor.Bool(opt3))
+  }
+  Cbor.Dict(m)
+}
+
+export struct CalibrationConfirm {
+  position: u8
+}
+
+export function decodeCalibrationConfirm(v: Cbor, path: string): CalibrationConfirm throws InvalidPayload {
+  const m = members(v, path, ["position"])
+  CalibrationConfirm {
+    position: (uint(required(m, "position", path), `${path}.position`, 255) as u8),
+  }
+}
+
+export function encodeCalibrationConfirm(v: CalibrationConfirm): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("position", Cbor.Uint(v.position as u64))
+  Cbor.Dict(m)
+}
+
+export struct CalibrationAccept {
+  compasses?: u8
+}
+
+export function decodeCalibrationAccept(v: Cbor, path: string): CalibrationAccept throws InvalidPayload {
+  const m = members(v, path, ["compasses"])
+  const cbor0 = m.get("compasses")
+  let opt0: u8? = null
+  if (cbor0 != null) {
+    opt0 = (uint(cbor0, `${path}.compasses`, 255) as u8)
+  }
+  CalibrationAccept {
+    compasses: opt0,
+  }
+}
+
+export function encodeCalibrationAccept(v: CalibrationAccept): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.compasses
+  if (opt0 != null) {
+    m.set("compasses", Cbor.Uint(opt0 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export enum CalibrationStateState { Idle, Starting, Running, Review, Finished }
+
+export function decodeCalibrationStateState(v: Cbor, path: string): CalibrationStateState throws InvalidPayload {
+  match (text(v, path)) {
+    "idle" => CalibrationStateState.Idle,
+    "starting" => CalibrationStateState.Starting,
+    "running" => CalibrationStateState.Running,
+    "review" => CalibrationStateState.Review,
+    "finished" => CalibrationStateState.Finished,
+    _ => throw new InvalidPayload(path, "idle or starting or running or review or finished"),
+  }
+}
+
+export function encodeCalibrationStateState(v: CalibrationStateState): Cbor {
+  match (v) {
+    Idle => Cbor.Text("idle"),
+    Starting => Cbor.Text("starting"),
+    Running => Cbor.Text("running"),
+    Review => Cbor.Text("review"),
+    Finished => Cbor.Text("finished"),
+  }
+}
+
+function decodeCalibrationStateCompassesList(v: Cbor, path: string): CalibrationCompass[] throws InvalidPayload {
+  const out: CalibrationCompass[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeCalibrationCompass(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeCalibrationStateTextsList(v: Cbor, path: string): string[] throws InvalidPayload {
+  const out: string[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(text(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeCalibrationStateCompassesList(v: CalibrationCompass[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeCalibrationCompass(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeCalibrationStateTextsList(v: string[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Text(e))
+  }
+  Cbor.List(out)
+}
+
+export struct CalibrationState {
+  state: CalibrationStateState
+  kind?: CalibrationKind
+  accel?: CalibrationAccel
+  compasses?: CalibrationCompass[]
+  result?: CalibrationResult
+  texts: string[]
+}
+
+export function decodeCalibrationState(v: Cbor, path: string): CalibrationState throws InvalidPayload {
+  const m = members(v, path, ["state", "kind", "accel", "compasses", "result", "texts"])
+  const cbor1 = m.get("kind")
+  let opt1: CalibrationKind? = null
+  if (cbor1 != null) {
+    opt1 = decodeCalibrationKind(cbor1, `${path}.kind`)
+  }
+  const cbor2 = m.get("accel")
+  let opt2: CalibrationAccel? = null
+  if (cbor2 != null) {
+    opt2 = decodeCalibrationAccel(cbor2, `${path}.accel`)
+  }
+  const cbor3 = m.get("compasses")
+  let opt3: CalibrationCompass[]? = null
+  if (cbor3 != null) {
+    opt3 = decodeCalibrationStateCompassesList(cbor3, `${path}.compasses`)
+  }
+  const cbor4 = m.get("result")
+  let opt4: CalibrationResult? = null
+  if (cbor4 != null) {
+    opt4 = decodeCalibrationResult(cbor4, `${path}.result`)
+  }
+  CalibrationState {
+    state: decodeCalibrationStateState(required(m, "state", path), `${path}.state`),
+    kind: opt1,
+    accel: opt2,
+    compasses: opt3,
+    result: opt4,
+    texts: decodeCalibrationStateTextsList(required(m, "texts", path), `${path}.texts`),
+  }
+}
+
+export function encodeCalibrationState(v: CalibrationState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("state", encodeCalibrationStateState(v.state))
+  const opt1 = v.kind
+  if (opt1 != null) {
+    m.set("kind", encodeCalibrationKind(opt1))
+  }
+  const opt2 = v.accel
+  if (opt2 != null) {
+    m.set("accel", encodeCalibrationAccel(opt2))
+  }
+  const opt3 = v.compasses
+  if (opt3 != null) {
+    m.set("compasses", encodeCalibrationStateCompassesList(opt3))
+  }
+  const opt4 = v.result
+  if (opt4 != null) {
+    m.set("result", encodeCalibrationResult(opt4))
+  }
+  m.set("texts", encodeCalibrationStateTextsList(v.texts))
+  Cbor.Dict(m)
+}
+
+function decodeCalibrationAccelPlacedList(v: Cbor, path: string): u8[] throws InvalidPayload {
+  const out: u8[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 255) as u8))
+    i += 1
+  }
+  out
+}
+
+function encodeCalibrationAccelPlacedList(v: u8[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct CalibrationAccel {
+  position: u8
+  placed: u8[]
+  confirming: bool
+}
+
+export function decodeCalibrationAccel(v: Cbor, path: string): CalibrationAccel throws InvalidPayload {
+  const m = members(v, path, ["position", "placed", "confirming"])
+  CalibrationAccel {
+    position: (uint(required(m, "position", path), `${path}.position`, 255) as u8),
+    placed: decodeCalibrationAccelPlacedList(required(m, "placed", path), `${path}.placed`),
+    confirming: boolean(required(m, "confirming", path), `${path}.confirming`),
+  }
+}
+
+export function encodeCalibrationAccel(v: CalibrationAccel): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("position", Cbor.Uint(v.position as u64))
+  m.set("placed", encodeCalibrationAccelPlacedList(v.placed))
+  m.set("confirming", Cbor.Bool(v.confirming))
+  Cbor.Dict(m)
+}
+
+function decodeCalibrationCompassMaskList(v: Cbor, path: string): u8[] throws InvalidPayload {
+  const out: u8[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 255) as u8))
+    i += 1
+  }
+  out
+}
+
+function encodeCalibrationCompassMaskList(v: u8[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct CalibrationCompass {
+  id: u8
+  status: string
+  percent: u8
+  attempt: u8
+  mask: u8[]
+  report?: CalibrationCompassReport
+}
+
+export function decodeCalibrationCompass(v: Cbor, path: string): CalibrationCompass throws InvalidPayload {
+  const m = members(v, path, ["id", "status", "percent", "attempt", "mask", "report"])
+  const cbor5 = m.get("report")
+  let opt5: CalibrationCompassReport? = null
+  if (cbor5 != null) {
+    opt5 = decodeCalibrationCompassReport(cbor5, `${path}.report`)
+  }
+  CalibrationCompass {
+    id: (uint(required(m, "id", path), `${path}.id`, 255) as u8),
+    status: text(required(m, "status", path), `${path}.status`),
+    percent: (uint(required(m, "percent", path), `${path}.percent`, 255) as u8),
+    attempt: (uint(required(m, "attempt", path), `${path}.attempt`, 255) as u8),
+    mask: decodeCalibrationCompassMaskList(required(m, "mask", path), `${path}.mask`),
+    report: opt5,
+  }
+}
+
+export function encodeCalibrationCompass(v: CalibrationCompass): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Uint(v.id as u64))
+  m.set("status", Cbor.Text(v.status))
+  m.set("percent", Cbor.Uint(v.percent as u64))
+  m.set("attempt", Cbor.Uint(v.attempt as u64))
+  m.set("mask", encodeCalibrationCompassMaskList(v.mask))
+  const opt5 = v.report
+  if (opt5 != null) {
+    m.set("report", encodeCalibrationCompassReport(opt5))
+  }
+  Cbor.Dict(m)
+}
+
+function decodeCalibrationCompassReportOffsetsList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeCalibrationCompassReportDiagonalsList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeCalibrationCompassReportOffDiagonalsList(v: Cbor, path: string): f64[] throws InvalidPayload {
+  const out: f64[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(float(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeCalibrationCompassReportOffsetsList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeCalibrationCompassReportDiagonalsList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeCalibrationCompassReportOffDiagonalsList(v: f64[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Float(e))
+  }
+  Cbor.List(out)
+}
+
+export struct CalibrationCompassReport {
+  ok: bool
+  fitness: f64
+  offsets: f64[]
+  diagonals: f64[]
+  offDiagonals: f64[]
+  oldOrientation: u8
+  newOrientation: u8
+  orientationConfidence: f64
+  scale: f64
+  accepted: bool
+}
+
+export function decodeCalibrationCompassReport(v: Cbor, path: string): CalibrationCompassReport throws InvalidPayload {
+  const m = members(v, path, ["ok", "fitness", "offsets", "diagonals", "offDiagonals", "oldOrientation", "newOrientation", "orientationConfidence", "scale", "accepted"])
+  CalibrationCompassReport {
+    ok: boolean(required(m, "ok", path), `${path}.ok`),
+    fitness: float(required(m, "fitness", path), `${path}.fitness`),
+    offsets: decodeCalibrationCompassReportOffsetsList(required(m, "offsets", path), `${path}.offsets`),
+    diagonals: decodeCalibrationCompassReportDiagonalsList(required(m, "diagonals", path), `${path}.diagonals`),
+    offDiagonals: decodeCalibrationCompassReportOffDiagonalsList(required(m, "offDiagonals", path), `${path}.offDiagonals`),
+    oldOrientation: (uint(required(m, "oldOrientation", path), `${path}.oldOrientation`, 255) as u8),
+    newOrientation: (uint(required(m, "newOrientation", path), `${path}.newOrientation`, 255) as u8),
+    orientationConfidence: float(required(m, "orientationConfidence", path), `${path}.orientationConfidence`),
+    scale: float(required(m, "scale", path), `${path}.scale`),
+    accepted: boolean(required(m, "accepted", path), `${path}.accepted`),
+  }
+}
+
+export function encodeCalibrationCompassReport(v: CalibrationCompassReport): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ok", Cbor.Bool(v.ok))
+  m.set("fitness", Cbor.Float(v.fitness))
+  m.set("offsets", encodeCalibrationCompassReportOffsetsList(v.offsets))
+  m.set("diagonals", encodeCalibrationCompassReportDiagonalsList(v.diagonals))
+  m.set("offDiagonals", encodeCalibrationCompassReportOffDiagonalsList(v.offDiagonals))
+  m.set("oldOrientation", Cbor.Uint(v.oldOrientation as u64))
+  m.set("newOrientation", Cbor.Uint(v.newOrientation as u64))
+  m.set("orientationConfidence", Cbor.Float(v.orientationConfidence))
+  m.set("scale", Cbor.Float(v.scale))
+  m.set("accepted", Cbor.Bool(v.accepted))
+  Cbor.Dict(m)
+}
+
+export enum CalibrationResultOutcome { Success, Failed, Cancelled, Refused }
+
+export function decodeCalibrationResultOutcome(v: Cbor, path: string): CalibrationResultOutcome throws InvalidPayload {
+  match (text(v, path)) {
+    "success" => CalibrationResultOutcome.Success,
+    "failed" => CalibrationResultOutcome.Failed,
+    "cancelled" => CalibrationResultOutcome.Cancelled,
+    "refused" => CalibrationResultOutcome.Refused,
+    _ => throw new InvalidPayload(path, "success or failed or cancelled or refused"),
+  }
+}
+
+export function encodeCalibrationResultOutcome(v: CalibrationResultOutcome): Cbor {
+  match (v) {
+    Success => Cbor.Text("success"),
+    Failed => Cbor.Text("failed"),
+    Cancelled => Cbor.Text("cancelled"),
+    Refused => Cbor.Text("refused"),
+  }
+}
+
+export struct CalibrationResult {
+  kind: CalibrationKind
+  outcome: CalibrationResultOutcome
+  code?: string
+  detail?: string
+  unsure?: bool
+}
+
+export function decodeCalibrationResult(v: Cbor, path: string): CalibrationResult throws InvalidPayload {
+  const m = members(v, path, ["kind", "outcome", "code", "detail", "unsure"])
+  const cbor2 = m.get("code")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.code`)
+  }
+  const cbor3 = m.get("detail")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.detail`)
+  }
+  const cbor4 = m.get("unsure")
+  let opt4: bool? = null
+  if (cbor4 != null) {
+    opt4 = boolean(cbor4, `${path}.unsure`)
+  }
+  CalibrationResult {
+    kind: decodeCalibrationKind(required(m, "kind", path), `${path}.kind`),
+    outcome: decodeCalibrationResultOutcome(required(m, "outcome", path), `${path}.outcome`),
+    code: opt2,
+    detail: opt3,
+    unsure: opt4,
+  }
+}
+
+export function encodeCalibrationResult(v: CalibrationResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodeCalibrationKind(v.kind))
+  m.set("outcome", encodeCalibrationResultOutcome(v.outcome))
+  const opt2 = v.code
+  if (opt2 != null) {
+    m.set("code", Cbor.Text(opt2))
+  }
+  const opt3 = v.detail
+  if (opt3 != null) {
+    m.set("detail", Cbor.Text(opt3))
+  }
+  const opt4 = v.unsure
+  if (opt4 != null) {
+    m.set("unsure", Cbor.Bool(opt4))
+  }
+  Cbor.Dict(m)
+}
