@@ -55,12 +55,12 @@ export function parseAmount(text: string): number | null {
 }
 
 /**
- * Round to three decimals (what the vehicle's float shows of a multiplier).
+ * Round to three decimals (what the vehicle's float shows of a multiplier: a REAL32 10.1 is 10.100000381469727).
  *
  * @param value the number
  * @returns the rounded number
  */
-function rounded(value: number): number {
+export function rounded(value: number): number {
   return Math.round(value * 1000) / 1000
 }
 

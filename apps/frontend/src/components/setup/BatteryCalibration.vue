@@ -12,10 +12,11 @@
       </div>
       <p v-if="proposal !== null" class="setup-proposal">
         <span>{{ param }}</span>
-        <span>{{ current }}</span>
+        <span>{{ rounded(current ?? 0) }}</span>
         <span aria-hidden="true">→</span>
         <strong>{{ proposal }}</strong>
       </p>
+      <p v-if="proposal !== null && !changes" class="muted" data-same>{{ t('setup.battery.sameValue') }}</p>
       <p v-if="second" class="setup-warn" role="alert">{{ t('setup.battery.secondLook') }}</p>
       <Checkbox v-if="second" v-model="checked" :disabled="disabled">{{ t('setup.battery.checked') }}</Checkbox>
       <Button :disabled="!usable" @click="use">{{ t('setup.battery.use') }}</Button>
@@ -33,7 +34,7 @@ import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
 import TextInput from '@/components/ui/TextInput.vue'
-import { calibrated, needsSecondLook, parseAmount } from '@/lib/setup/battery'
+import { calibrated, needsSecondLook, parseAmount, rounded } from '@/lib/setup/battery'
 
 const props = defineProps<{
   /** Which calibration: `voltage` or `current`. */
@@ -64,7 +65,9 @@ const proposal = computed(() => {
   return current === null || shown === null || measured.value === null ? null : calibrated(current, measured.value, shown)
 })
 const second = computed(() => measured.value !== null && props.shown !== null && needsSecondLook(measured.value, props.shown))
-const usable = computed(() => !props.disabled && proposal.value !== null && (!second.value || checked.value))
+/** The proposal is a value the vehicle does not have: taking the one it has changes nothing, so it is not offered. */
+const changes = computed(() => proposal.value !== null && proposal.value !== rounded(props.current ?? 0))
+const usable = computed(() => !props.disabled && changes.value && (!second.value || checked.value))
 
 /** Hands the proposed value to the page, and forgets the reading. */
 function use(): void {

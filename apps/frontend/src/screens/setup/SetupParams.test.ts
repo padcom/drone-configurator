@@ -103,6 +103,19 @@ it('works out the new voltage multiplier from the meter and what the vehicle sho
   expect(valueOf(rig, 'BATT_VOLT_MULT')).toBeCloseTo(10.164, 3)
 })
 
+it('does not offer a reading that works out to the value the vehicle has, and says so', async () => {
+  const { wrapper } = await page(SetupBattery)
+  await wrapper.get('[data-calibrate="voltage"] input').setValue('12.54')
+  await flushPromises()
+
+  expect(wrapper.get('[data-calibrate="voltage"] [data-same]').text()).toContain('already')
+  expect(wrapper.get('[data-calibrate="voltage"] button').attributes('disabled')).toBeDefined()
+  await wrapper.get('[data-calibrate="voltage"] button').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.get('#setup-battery-write').text()).toBe('No changes')
+})
+
 it('asks for a second look at a reading more than 15% from what the vehicle shows, and waits for the tick', async () => {
   const { wrapper } = await page(SetupBattery)
   await wrapper.get('[data-calibrate="voltage"] input[type="text"]').setValue('16')
