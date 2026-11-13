@@ -114,11 +114,19 @@ describe('select: what a change needs', () => {
   })
 
   it('maps a screen change to its specs plus the smoke set, with no SITL and no backend tests', () => {
-    const result = pick(['apps/frontend/src/components/setup/CalibrationNotice.vue'])
+    const result = pick(['apps/frontend/src/components/shell/Rail.vue'])
     expect(result.full).toBe(false)
-    expect(result.e2e).toEqual(expect.arrayContaining(['setup.e2e.ts', 'frame.e2e.ts', ...tree.map.smoke]))
+    expect(result.e2e).toEqual(expect.arrayContaining(['shell.e2e.ts', 'palette.e2e.ts', ...tree.map.smoke]))
     expect(result.e2e).not.toContain('vehicle-logs.e2e.ts')
     expect(result).toMatchObject({ backend: [], sitl: false })
+  })
+
+  it('selects the calibration specs, the real-SITL one too, for a change to a Setup page or the calibration service', () => {
+    for (const file of ['apps/frontend/src/components/setup/CalibrationNotice.vue', 'apps/backend/calibration.pi']) {
+      const result = pick([file])
+      expect(result.e2e, file).toEqual(expect.arrayContaining(['setup.e2e.ts', 'calibration.e2e.ts', 'sitl-calibration.e2e.ts']))
+      expect(result.sitl, file).toBe(true)
+    }
   })
 })
 
