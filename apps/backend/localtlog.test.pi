@@ -2,7 +2,7 @@
 // CRC taken at import), charted, reviewed with "no data" for what a recording can't say, browsed as the MAVLink messages it holds
 // (not the ones made up for the views), and exported. A copy that was changed afterwards is not verified.
 import { describe, it, expect } from "std/test"
-import { mkdir, readBytes, readText, remove, writeBytes } from "std/fs"
+import { exists, mkdir, readBytes, readText, remove, writeBytes } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import { Cbor, Envelope } from "pico-desktop/communicator"
@@ -295,8 +295,20 @@ async function hasNoRawImuBatchesForTheSpectrum(): Promise<void> throws Error {
 
 /// The recording MAVProxy wrote from the CI-firmware SITL (pico-mavlink's src/fixtures/mavproxy.tlog, a sibling of this repository, the
 /// same one the dependency is taken from): a real file of another program's, imported and looked at like any log.
+/// The fixture's path from where the tests run: pico-mavlink is a sibling of this repository, and the tests run from the repository's
+/// root (a developer) or from apps/backend (CI: `cd apps/backend && pico test .`). It must be found: nothing is skipped.
+async function fixturePath(): Promise<string> throws Error {
+  const name = "pico-mavlink/src/fixtures/mavproxy.tlog"
+  for (const base of ["..", "../../.."]) {
+    if (await exists(`${base}/${name}`)) {
+      return `${base}/${name}`
+    }
+  }
+  panic(`the recording MAVProxy wrote is not at ../${name} or ../../../${name}: pico-mavlink must be a sibling of this repository`)
+}
+
 async function readsTheRecordingAnotherProgramWrote(): Promise<void> throws Error {
-  const r = await rig(await readBytes("../pico-mavlink/src/fixtures/mavproxy.tlog"))
+  const r = await rig(await readBytes(await fixturePath()))
   try {
     const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
     const ask = LogsLocalSeriesAsk {

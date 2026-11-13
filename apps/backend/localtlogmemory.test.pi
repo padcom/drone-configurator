@@ -21,9 +21,12 @@ import {
 } from "./generated/app"
 import { forgetLocalReads } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
-import { start } from "./testing"
+import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
 
 const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+
+/// How long a reply is waited for (ms).
+const REPLY_MS: int = 60000
 
 /// How far above what it was the peak of the process may rise: 32 MB.
 const BOUND_KB: int = 32768
@@ -96,6 +99,8 @@ async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws E
     useDirectoryForTests(root)
     forgetLocalReads()
     const f = await start()
+    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 16 MB: a minute.
+    setDeadline(REPLY_MS)
     await generate(join(out, "import.tlog"))
     expect((await stat(join(out, "import.tlog"))).size > 15000000).toBe(true)
     gc.collect()
@@ -116,6 +121,7 @@ async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws E
       panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
     }
   } finally {
+    setDeadline(DEFAULT_DEADLINE_MS)
     if (was == null) env.delete(VARIABLE) else env.set(VARIABLE, was!)
     await remove(root, true)
   }
