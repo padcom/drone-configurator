@@ -14,12 +14,17 @@ import {
   CalibrationStateState,
   ConnectRequest,
   ConnectRequestTransport,
+  LogsDownload,
+  ParamWrite,
+  ParamWriteKind,
   decodeCalibrationResult,
   decodeCalibrationState,
   encodeCalibrationAccept,
   encodeCalibrationConfirm,
   encodeCalibrationStart,
   encodeConnectRequest,
+  encodeLogsDownload,
+  encodeParamWrite,
   CalibrationAccept,
   CalibrationConfirm,
   CalibrationStart,
@@ -247,6 +252,44 @@ async function onlyOneCalibrationRunsAtATime(): Promise<void> throws Error {
   await r.close()
 }
 
+/// What a call is answered while a compass waits for the user's decision: the code of its error.
+async function whileCompassWaits(r: Rig, name: string, payload: Cbor?): Promise<string> throws Error {
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  const code = errorOf(await r.f.call(name, payload))
+  await r.f.call("calibration.cancel")
+  await r.close()
+  code
+}
+
+async function aParameterDownloadIsRefusedWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  expect(await whileCompassWaits(r, "params.list", null)).toBe("BUSY")
+}
+
+async function aParameterWriteIsRefusedWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  const write = ParamWrite { id: "COMPASS_OFS_X", kind: ParamWriteKind.Real, type: "REAL32", value: 1.5 }
+  expect(await whileCompassWaits(r, "params.write", encodeParamWrite(write))).toBe("BUSY")
+  // nothing reached the vehicle
+  expect(r.sim.params.filter((p) => p.id == "COMPASS_OFS_X").length).toBe(0)
+}
+
+async function aGuardedParameterWriteIsRefusedWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  const write = ParamWrite { id: "COMPASS_PRIO1_ID", kind: ParamWriteKind.Int, type: "INT32", value: 466441.0, guarded: true }
+  expect(await whileCompassWaits(r, "params.write", encodeParamWrite(write))).toBe("BUSY")
+}
+
+async function theLogsAreRefusedWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  expect(await whileCompassWaits(r, "logs.vehicle.list", null)).toBe("BUSY")
+  const again = await connected()
+  expect(await whileCompassWaits(again, "logs.download", encodeLogsDownload(LogsDownload { ids: [1 as u32] }))).toBe("BUSY")
+  const last = await connected()
+  expect(await whileCompassWaits(last, "logs.erase", null)).toBe("BUSY")
+}
+
 async function aRebootIsRefusedWhileItRuns(): Promise<void> throws Error {
   const r = await connected()
   await startOf(r.f, CalibrationKind.Accel)
@@ -388,6 +431,23 @@ async function compassAcceptsOnlyTheCompassesNamed(): Promise<void> throws Error
   expect(r.sim.compass.saved(1)).toBe(true)
 }
 
+async function anAcceptThatIsNotAnsweredSaysTheVehicleMayHaveKeptIt(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  r.sim.compass.swallowAcks = 1   // the vehicle keeps the results, and its answer is lost
+  const accepted = await r.f.call("calibration.accept", encodeCalibrationAccept(CalibrationAccept {}))
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(errorOf(accepted)).toBe("NOT_ACCEPTED")
+  expect(outcomeOf(done)).toBe("failed")
+  expect(codeOf(done)).toBe("TIMEOUT")
+  expect(done.result!.unsure!).toBe(true)
+  expect(done.result!.detail!.indexOf("may have kept the results") >= 0).toBe(true)
+  // the vehicle did keep them: the page must not say nothing was kept
+  expect(r.sim.compass.saved(0) && r.sim.compass.saved(1)).toBe(true)
+}
+
 async function compassCancelledFromTheReviewKeepsNothing(): Promise<void> throws Error {
   const r = await connected()
   await startOf(r.f, CalibrationKind.Compass)
@@ -506,6 +566,10 @@ describe("what the calibration service refuses", () => {
   it("refuses when the vehicle is armed, and sends nothing", refusesWhenTheVehicleIsArmed)
   it("refuses when the armed state is not known, and sends nothing", refusesWhenTheArmedStateIsNotKnown)
   it("runs one calibration at a time", onlyOneCalibrationRunsAtATime)
+  it("refuses a parameter download while a calibration runs", aParameterDownloadIsRefusedWhileItRuns)
+  it("refuses a parameter write while a calibration runs", aParameterWriteIsRefusedWhileItRuns)
+  it("refuses a guarded Setup write while a calibration runs", aGuardedParameterWriteIsRefusedWhileItRuns)
+  it("refuses the log list, a log download and an erase while a calibration runs", theLogsAreRefusedWhileItRuns)
   it("refuses a reboot while a calibration runs", aRebootIsRefusedWhileItRuns)
   it("sends nothing to a vehicle that has not said it is up", sendsNothingToAVehicleThatIsNotUp)
   it("takes an accept only when compass results wait", acceptNeedsAFinishedRun)
@@ -528,6 +592,7 @@ describe("the compass calibration", () => {
   it("cancels on the vehicle when the link is lost", compassCancelledByTheLinkIsToldToTheVehicle)
   it("says the vehicle may still calibrate when the cancel cannot be told", aLinkThatIsGoneSaysTheVehicleMayStillCalibrate)
   it("is cancelled when the vehicle arms", compassIsCancelledWhenTheVehicleArms)
+  it("says the vehicle may have kept the results when its answer to the accept is lost", anAcceptThatIsNotAnsweredSaysTheVehicleMayHaveKeptIt)
   it("cannot accept a failure", compassFailureCannotBeAccepted)
   it("says so when the vehicle refuses to start", theVehicleRefusingTheStartIsTold)
 })

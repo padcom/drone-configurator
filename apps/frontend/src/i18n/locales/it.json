@@ -1477,7 +1477,7 @@
         "TIMEOUT": "il veicolo ha smesso di rispondere",
         "FAILED": "il veicolo dice che è fallita"
       },
-      "unsure": "Il veicolo potrebbe essere ancora in calibrazione: se non si ferma, riavvialo.",
+      "unsure": "Il veicolo potrebbe essere ancora in calibrazione o aver mantenuto i risultati: controlla i valori prima di fidarti; se continua, riavvialo.",
       "vehicleSays": "Il veicolo dice"
     },
     "accel": {

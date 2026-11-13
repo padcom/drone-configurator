@@ -470,8 +470,8 @@ async function toLog(client: FtpClient, e: FtpEntry, copies: Copy[], until: int,
 
 async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const conn = connectedLink()
-  if (running.download != null || running.listing || link.listing) {
-    throw new CommunicatorError("BUSY", "a download or a listing is running")
+  if (running.download != null || running.listing || link.listing || link.calibrating) {
+    throw new CommunicatorError("BUSY", "a download, a listing or a calibration is running")
   }
   // The listing begins with a reset of the FTP sessions (all of this system's and component's on the link), so it is marked as
   // under way at once, before anything is awaited: a parameter download, a reboot, a download or another listing that comes now
@@ -575,8 +575,8 @@ function refuse(): void throws CommunicatorError {
   if (armed!) {
     throw new CommunicatorError("ARMED", "the vehicle is armed")
   }
-  if (running.download != null || running.listing || link.listing || link.writes > 0 || rebootExpected()) {
-    throw new CommunicatorError("BUSY", "a download, a parameter operation or a reboot is running")
+  if (running.download != null || running.listing || link.listing || link.writes > 0 || link.calibrating || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a download, a parameter operation, a calibration or a reboot is running")
   }
 }
 

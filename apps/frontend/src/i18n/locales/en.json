@@ -1477,7 +1477,7 @@
         "TIMEOUT": "the vehicle stopped answering",
         "FAILED": "the vehicle says it failed"
       },
-      "unsure": "The vehicle may still be calibrating: if it does not stop, restart it.",
+      "unsure": "The vehicle may still be calibrating, or may have kept the results: check the values before you trust them; if it keeps calibrating, restart it.",
       "vehicleSays": "The vehicle says"
     },
     "accel": {

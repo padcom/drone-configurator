@@ -890,7 +890,8 @@ calibration-compass-report = {
 ; accepted compass result), `failed`, `cancelled` (by the user, the page, the link, the session or a reboot; nothing was kept) or `refused`
 ; (never started: `code` says why). `code`: ARMED, STATE_UNKNOWN, BUSY, NOT_CONNECTED, NOT_UP (the vehicle did not say it is up), REFUSED (the
 ; vehicle's answer), LINK_LOST, CANCELLED, TIMEOUT. `detail` is English (the vehicle's own words where it has them). `unsure` is true when
-; the vehicle may still be calibrating (a cancel that could not be told).
+; the vehicle may still be calibrating (a cancel that could not be told), or may have kept the results of a compass although its
+; answer to the accept was lost (`TIMEOUT`: look at the parameters).
 calibration-result = {
   kind: calibration-kind,
   outcome: "success" / "failed" / "cancelled" / "refused",

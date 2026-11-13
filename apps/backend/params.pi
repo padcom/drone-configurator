@@ -289,6 +289,10 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // The file transfer is busy with a log: two requests would take turns with the same vehicle's one.
     throw new CommunicatorError("BUSY", "a log is being downloaded")
   }
+  if (link.calibrating) {
+    // A calibration is the vehicle's own work on parameters (it keeps its results in them): what is read now is not what it leaves.
+    throw new CommunicatorError("BUSY", "a calibration is running")
+  }
   const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
@@ -336,6 +340,11 @@ function refuseWhileArmed(): void throws CommunicatorError {
 async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const w = decodeParamWrite(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
+  if (link.calibrating) {
+    // A write now could be overwritten by what a calibration keeps (a compass result replaces COMPASS_OFS*), and the page's
+    // comparison of the old values with the new would be false.
+    throw new CommunicatorError("BUSY", "a calibration is running")
+  }
   // A write from a Setup page is refused while the vehicle is armed or not known to be disarmed: the page says so, and so does this.
   if (w.guarded != null && w.guarded!) {
     refuseWhileArmed()

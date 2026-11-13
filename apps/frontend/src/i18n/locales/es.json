@@ -1477,7 +1477,7 @@
         "TIMEOUT": "el vehículo dejó de responder",
         "FAILED": "el vehículo dice que falló"
       },
-      "unsure": "El vehículo podría seguir calibrando: si no se detiene, reinícialo.",
+      "unsure": "El vehículo podría seguir calibrando o haber guardado los resultados: revisa los valores antes de fiarte; si sigue calibrando, reinícialo.",
       "vehicleSays": "El vehículo dice"
     },
     "accel": {

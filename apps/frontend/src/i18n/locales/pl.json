@@ -1477,7 +1477,7 @@
         "TIMEOUT": "pojazd przestał odpowiadać",
         "FAILED": "pojazd mówi, że się nie udało"
       },
-      "unsure": "Pojazd może nadal kalibrować: jeśli nie przestanie, zrestartuj go.",
+      "unsure": "Pojazd może nadal kalibrować albo mógł zachować wyniki: sprawdź wartości, zanim im zaufasz; jeśli kalibruje dalej, zrestartuj go.",
       "vehicleSays": "Pojazd mówi"
     },
     "accel": {

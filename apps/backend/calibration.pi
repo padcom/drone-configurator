@@ -128,6 +128,8 @@ class Running implements SessionPart {
   public compasses: CalibrationCompass[] = []
   /// The compass decision the page made: "", "accept" or "cancel"; the mask to accept, and what came of it ("" none yet, "ok", or the words).
   public decision: string = ""
+  /// Whether the vehicle may have kept the results although the accept was not answered.
+  public unsure: bool = false
   public acceptMask: int = 0
   public accepted: string = ""
   /// What the vehicle said (STATUSTEXT) since the calibration began.
@@ -280,6 +282,7 @@ class Running implements SessionPart {
     confirming = false
     compasses = []
     decision = ""
+    unsure = false
     acceptMask = 0
     accepted = ""
     texts = []
@@ -574,7 +577,7 @@ async function runCompass(conn: MavLinkConnection, mask: int, autosave: bool, re
       if (e.code == "REFUSED") {
         running.finish(CalibrationResultOutcome.Refused, "REFUSED", lastWords("the vehicle refused to start the compass calibration"), false)
       } else {
-        endedBy(e, cal.cancelFailed)
+        endedBy(e, cal.cancelFailed || running.unsure)
       }
     }
     if (!failed) {
@@ -642,6 +645,21 @@ async function driveCompass(cal: CompassCalibration): Promise<void> throws Error
   await review(cal)
 }
 
+/// Asks the vehicle to keep the results. When it does not answer, it may have kept them all the same (the command may have arrived and
+/// the answer been lost): that is an error that says so, and the result says `unsure`.
+async function acceptAsked(cal: CompassCalibration, mask: int): Promise<int> throws Error {
+  try {
+    return await cal.accept(mask)
+  } catch (e: MavLinkError) {
+    if (e.code == "TIMEOUT") {
+      running.unsure = true
+      running.accepted = "the vehicle did not answer the accept: it may have kept the results (look at COMPASS_OFS in the parameters)"
+      throw new MavLinkError("TIMEOUT", running.accepted)
+    }
+    throw e
+  }
+}
+
 /// The results are in: they wait for the page to accept (what succeeded) or cancel. Leaving the page, the link and the vehicle's arming end
 /// the wait as a cancel (they stop the calibration).
 async function review(cal: CompassCalibration): Promise<void> throws Error {
@@ -665,7 +683,7 @@ async function review(cal: CompassCalibration): Promise<void> throws Error {
 /// Asks the vehicle to keep the results the page chose: what it accepts is marked; what it refuses is said (and the page may try again).
 async function acceptOnVehicle(cal: CompassCalibration): Promise<void> throws Error {
   const mask = running.acceptMask
-  const result = await cal.accept(mask)
+  const result = await acceptAsked(cal, mask)
   if (result != MavResult.ACCEPTED) {
     running.accepted = lastWords("the vehicle did not accept the results (did any compass succeed?)")
     running.decision = ""

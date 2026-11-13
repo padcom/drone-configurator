@@ -1477,7 +1477,7 @@
         "TIMEOUT": "das Fahrzeug antwortet nicht mehr",
         "FAILED": "das Fahrzeug meldet einen Fehlschlag"
       },
-      "unsure": "Das Fahrzeug kalibriert eventuell noch: hört es nicht auf, starten Sie es neu.",
+      "unsure": "Das Fahrzeug kalibriert eventuell noch oder hat die Ergebnisse übernommen: prüfen Sie die Werte, bevor Sie ihnen trauen; hört es nicht auf, starten Sie es neu.",
       "vehicleSays": "Das Fahrzeug meldet"
     },
     "accel": {
