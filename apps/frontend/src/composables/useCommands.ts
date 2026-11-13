@@ -150,6 +150,24 @@ function parameterFacts(): ParameterFacts {
   }
 }
 
+/** Waits for something and then does something: the two halves of an import. */
+interface ImportSteps {
+  /** Resolves when the message browser's questions are answered. */
+  settled: () => Promise<void>
+  /** Chooses a log file, imports it and opens it. */
+  importFile: () => Promise<void>
+}
+
+/**
+ * Imports a log file once the questions the message browser has asked of the open log are answered.
+ *
+ * @param steps the browser's wait and the import
+ */
+async function importAfter(steps: ImportSteps): Promise<void> {
+  await steps.settled()
+  await steps.importFile()
+}
+
 /**
  * The files the commands open and save, with the flows of the toolbar's buttons: the host's dialog in Pico Desktop, a file input
  * (made for the moment) in a browser, and the toast of what was found.
@@ -157,13 +175,14 @@ function parameterFacts(): ParameterFacts {
  * @returns the facts
  */
 function fileFacts(): FileFacts {
-  const { metadata, snapshots, fields, flights } = useConfigurator()
+  const { metadata, snapshots, fields, flights, browser } = useConfigurator()
 
   return {
     loadMetadata: () => openFile(() => metadata.openFile(), text => metadata.load(text)),
     loadSnapshot: () => openFile(() => snapshots.openFile(), text => snapshots.load(text)),
     saveSnapshot: () => saveText(snapshots, snapshots.snapshot(), snapshotFileName('params', fields.connection.value.vehicle)),
-    openLog: () => void flights.importFile(),
+    // The questions the message browser has asked of the open log are answered first (the backend reads one thing at a time).
+    openLog: () => void importAfter({ settled: () => browser.settled(), importFile: () => flights.importFile() }),
     logBusy: () => flights.importing.value || flights.phase.value === 'reading' || flights.phase.value === 'loading',
   }
 }

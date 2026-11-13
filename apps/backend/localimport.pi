@@ -15,7 +15,7 @@ import { LogsImported, LogsLocalProgress, encodeLogsImported, encodeLogsLocalPro
 import { fileChooser } from "./files"
 import { Entry, IMPORTED, baseName, entryOf, importedKey, importedName } from "./importednames"
 import { hex8 } from "./logs"
-import { claimRead, releaseRead } from "./locallogs"
+import { claimReadWhenFree, releaseRead } from "./locallogs"
 import { dataDirectory } from "./settings"
 import { reportOf } from "./tlogdecoder"
 
@@ -47,7 +47,8 @@ async function importLog(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   if (path == null) {
     return encodeLogsImported(LogsImported { cancelled: true, duplicate: false })
   }
-  const own = claimRead()
+  // (Waits for a read that runs: the log that was opened last may still be having its kinds of message counted.)
+  const own = await claimReadWhenFree()
   try {
     return encodeLogsImported(await copyIn(path!, own))
   } finally {

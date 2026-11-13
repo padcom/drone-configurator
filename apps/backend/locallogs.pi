@@ -14,6 +14,7 @@ import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desk
 import { Crc32, DfMessage } from "padcom/pico-mavlink"
 import { File, open, readDir, stat } from "std/fs"
 import { join } from "std/path"
+import { delay } from "std/timers"
 import {
   LocalLog,
   LocalLogModes,
@@ -343,6 +344,21 @@ export function claimRead(): AbortController throws CommunicatorError {
   const own = new AbortController()
   state.reading = own
   own
+}
+
+/// How long an import waits for a read that is running (ms) before it says the library is busy: the page's own reads (the message
+/// browser's pass after a log is opened) end in seconds, and an import is no reason to fail because of one.
+const WAIT_FOR_READ_MS: int = 60000
+
+/// Claims the one read there can be at a time, waiting for the one that runs to end (`BUSY` only if it does not within a minute).
+/// The wait and the claim have no `await` between them, so two waiting callers cannot both get it.
+export async function claimReadWhenFree(): Promise<AbortController> throws Error {
+  let waited = 0
+  while (state.reading != null && waited < WAIT_FOR_READ_MS) {
+    await delay(50)
+    waited += 50
+  }
+  claimRead()
 }
 
 export function releaseRead(): void {

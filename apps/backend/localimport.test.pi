@@ -5,12 +5,13 @@ import { describe, it, expect } from "std/test"
 import { exists, mkdir, readBytes, readDir, readText, remove, writeBytes } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
+import { delay } from "std/timers"
 import { Cbor, CommunicatorError, Envelope } from "pico-desktop/communicator"
 import { Heartbeat, MavType, TlogWriter, crc32Of } from "padcom/pico-mavlink"
 import { LogsImported, decodeLogsImported } from "./generated/app"
 import { baseName, entryOf, importedName } from "./importednames"
 import { checkRead } from "./localimport"
-import { forgetLocalReads } from "./locallogs"
+import { claimRead, forgetLocalReads, releaseRead } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
 
@@ -271,6 +272,27 @@ function readingMoreThanTheCapOrThanTheFileHadStops(): void {
   expect(said.includes("changed while it was copied")).toBe(true)
 }
 
+async function waitsForAReadThatRunsInsteadOfFailingBusy(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    await writeBytes(join(r.out, "import.tlog"), recording(10))
+    const first = await importIt(r)
+    // A read holds the library (the message browser's pass over the log that was opened); the same file is chosen again meanwhile.
+    claimRead()
+    const asked = await r.f.send("logs.import", null)
+    await delay(300)
+    releaseRead()
+    const e = await r.f.reply(asked)
+
+    expect(codeOf(e)).toBe("")
+    const again = decodeLogsImported(e.p ?? Cbor.Null, "$")
+    expect(again.duplicate).toBe(true)
+    expect(again.key).toBe(first.key)
+  } finally {
+    await done(r)
+  }
+}
+
 function theNameOfAFileHasNoFolder(): void {
   expect(baseName("/home/pilot/flights/a.tlog")).toBe("a.tlog")
   expect(baseName("C:\\Users\\pilot\\a.tlog")).toBe("a.tlog")
@@ -291,5 +313,6 @@ describe("logs.import", () => {
   it("refuses hostile files (noise, one repeated byte, huge length fields, an empty file) and leaves nothing", hostileFilesNeitherHangNorLeaveAnything)
   it("leaves nothing and the file as it was when the import is stopped", aStoppedImportLeavesNothingAndTheFileAsItWas)
   it("stops when the bytes read pass the cap or the size the file had, whatever stat said", readingMoreThanTheCapOrThanTheFileHadStops)
+  it("waits for a read that runs and then answers, instead of failing with BUSY", waitsForAReadThatRunsInsteadOfFailingBusy)
   it("names a file without its folder, and knows the names of imported copies", theNameOfAFileHasNoFolder)
 })

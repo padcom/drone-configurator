@@ -437,10 +437,16 @@ function openByKey(key: string): void {
   }
 }
 
+/** Imports once the questions the message browser has asked are answered (the backend reads one thing at a time). */
+async function importAfterTheBrowser(): Promise<void> {
+  await browser.settled()
+  await flights.importFile()
+}
+
 /** Lets the user choose a log file and imports it, unless a read is going on (as for `openByKey`). */
 function importFile(): void {
   if (!busyOrLoading.value) {
-    void flights.importFile()
+    void importAfterTheBrowser()
   }
 }
 
