@@ -1,0 +1,55 @@
+{
+  "comment": "Which window e2e specs (apps/frontend/e2e/*.e2e.ts) a changed source file needs. A file in no entry runs the specs that share its name, else every spec. apps/frontend/src/components/ui, assets, i18n and the shared backend modules are not here: they always run everything (.github/ci-select.mjs, FULL). The test apps/frontend/e2e/ci-select.test.ts fails when a spec is in no entry, a pattern matches no file, or a spec named here does not exist.",
+  "smoke": ["shell.e2e.ts", "configurator.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts"],
+  "smokeSitl": "sitl.e2e.ts",
+  "entries": [
+    {
+      "when": [
+        "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
+        "apps/frontend/src/composables/{useParam*,useStaged,useGroupsSetting,useMetadata,favourites}.ts",
+        "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,groups}.pi"
+      ],
+      "specs": [
+        "param-*.e2e.ts", "configurator.e2e.ts", "confirm.e2e.ts", "favourites.e2e.ts", "view.e2e.ts", "initial.e2e.ts", "bitmask.e2e.ts",
+        "lists.e2e.ts", "list-top.e2e.ts", "value-rounding.e2e.ts", "groups-setting.e2e.ts", "combobox-scrollbar.e2e.ts", "sitl.e2e.ts"
+      ]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/shell/**", "apps/frontend/src/lib/{app,commands}/**", "apps/frontend/src/screens/{registry.ts,Gallery.vue,NotAvailable.vue}",
+        "apps/frontend/src/composables/{useCommand*,useFocusIntent,useDownloadText,toasts}.ts"
+      ],
+      "specs": ["shell.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "fonts.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/setup/**", "apps/frontend/src/lib/setup/**", "apps/frontend/src/screens/{Setup.vue,setup/**}",
+        "apps/frontend/src/composables/{useSetup,useSetupStatus}.ts", "apps/frontend/src/state/frame.ts", "apps/backend/vehicleinfo.pi"
+      ],
+      "specs": ["setup.e2e.ts", "frame.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/charts/**", "apps/frontend/src/lib/{charts,logs}/**", "apps/frontend/src/screens/{Logs.vue,logs/**}",
+        "apps/frontend/src/composables/{useLogBrowser,useVehicleLogs,useLoggingSetup,useLogsSettings,useHousekeeping,useHousekeepingGuard,useSpectrum,useFlights,useSnapshots}.ts",
+        "apps/backend/{log*,local*,tlog*,fft,files,importednames}.pi"
+      ],
+      "specs": ["vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
+        "apps/frontend/src/composables/{useConnectDialog,useVehicle,useAutoDownload,useConfigurator,useTelemetry,useMessages,writeLock}.ts",
+        "apps/backend/{reconnect,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups}.pi"
+      ],
+      "specs": [
+        "configurator.e2e.ts", "flight-data.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts", "sitl-reconnect.e2e.ts",
+        "sitl-harness.e2e.ts", "sitl.e2e.ts"
+      ]
+    },
+    {
+      "when": ["apps/frontend/src/screens/Settings.vue", "apps/frontend/src/composables/useSettings.ts", "apps/backend/settings.pi"],
+      "specs": ["language.e2e.ts", "i18n.e2e.ts"]
+    }
+  ]
+}
