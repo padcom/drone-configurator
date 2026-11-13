@@ -9,8 +9,28 @@ permissions:
   contents: read
 
 jobs:
+  # SHADOW MODE (step 1 of shared/decisions/drone-configurator-ci-strategy.md): says which tests the change would need and
+  # writes it to the job summary. Nothing reads the outputs yet: every job below still runs everything, and this job cannot
+  # fail the run (the step is continue-on-error), so it gates nothing. Compare its summary with what failed, on the next
+  # PRs, before selection is switched on.
+  select:
+    name: select (shadow)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: What the change would need
+        continue-on-error: true
+        run: bash .github/ci-select.sh --shadow
+
   ci:
     name: ${{ matrix.target }} (${{ matrix.backend && 'full' || 'frontend only' }})
+    # Only this job, and only to read its own run's step times (.github/step-times.sh); nothing broader, nothing for `select`.
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -243,3 +263,23 @@ jobs:
           if [ -e apps/frontend/e2e/sitl-harness.e2e.ts ]; then
             bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-harness\.e2e\.ts'
           fi
+
+      # Measurement only (step 0 of the CI strategy): the time of each step in the job summary, and the test logs, so that
+      # what takes the minutes is known before anything is split or selected. Neither can fail the job.
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+      - name: Keep the test logs
+        if: ${{ always() && matrix.backend }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/unit.log
+            ${{ runner.temp }}/e2e.log
+          if-no-files-found: ignore
+          retention-days: 14
