@@ -21,7 +21,11 @@ jobs:
           # used=15774MB available=209MB ten seconds later, and the step was killed; the "operation was canceled" of
           # linux-arm64 before it was the same). With 2 at once linux-arm64 passed that run. The macOS and Windows jobs run no
           # backend tests, so they have none.
-          - { target: linux-x64, runner: ubuntu-24.04, backend: true, test-jobs: 2 }
+          # linux-x64 has one: on head afa2df8 of #432 (run 43456254640) two `pico run` processes (`localimport.test.pi`, `locallogs.test.pi`)
+          # held 7.0 to 8.4 GB each (5.1 and 3.4 GB after 9 s, so it is the build of the test and not its heap: measured here, the
+          # tests' own heap is 144 MB and 84 MB at their peak), and the job was killed with 143 (used=15.8 GB of 16). The build of a
+          # test file takes as much as the program it links is big (the whole of the backend, and padcom/pico-mavlink's dialects).
+          - { target: linux-x64, runner: ubuntu-24.04, backend: true, test-jobs: 1 }
           - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true, test-jobs: 2 }
           # The backend doesn't link on these yet: padcom/serialport is Linux only, and
           # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
@@ -29,7 +33,8 @@ jobs:
           - { target: windows-x64, runner: windows-2025, backend: false }
           - { target: windows-arm64, runner: windows-11-arm, backend: false }
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    # 60 for the two Linux jobs (they run the whole suite: linux-arm64 took 44 of 45 minutes in run 43446895926), 45 for the rest.
+    timeout-minutes: ${{ matrix.backend && 60 || 45 }}
     defaults:
       run:
         # Explicitly bash, which GitHub runs with -eo pipefail: a failing test isn't hidden by tee.
