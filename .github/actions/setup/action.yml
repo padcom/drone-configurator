@@ -7,7 +7,7 @@ description: >
 
 inputs:
   target:
-    description: The platform (linux-x64, linux-arm64, macos-arm64, windows-x64, windows-arm64): picks the Pico build.
+    description: "The platform (linux-x64, linux-arm64, macos-arm64, windows-x64 or windows-arm64): picks the Pico build."
     required: true
   pico:
     description: "'true' to install the pinned Pico (the backend's lint, tests and the window e2e need it)."
