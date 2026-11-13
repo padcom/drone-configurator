@@ -313,10 +313,14 @@ function mayBeArmed(vehicle: Vehicle): boolean {
  * The models of the logs on this computer: the Flights view, the message browser and the Spectrum.
  *
  * @param client the link to the backend
+ * @param confirm asks the user (a file larger than 500 MB is not imported before the user says yes)
  * @returns the three models
  */
-function localLogModels(client: BackendClient): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum'> {
-  return { flights: useFlights({ client }), browser: useLogBrowser({ client }), spectrum: useSpectrum({ client }) }
+function logModels(
+  client: BackendClient,
+  confirm: (question: string) => Promise<boolean>,
+): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum'> {
+  return { flights: useFlights({ client, confirm }), browser: useLogBrowser({ client }), spectrum: useSpectrum({ client }) }
 }
 
 /**
@@ -365,7 +369,7 @@ export function createConfigurator(
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...localLogModels(client), staged }
+  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...logModels(client, askUser), staged }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

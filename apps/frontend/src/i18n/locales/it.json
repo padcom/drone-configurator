@@ -873,6 +873,7 @@
     "newValue": "Valore"
   },
   "question": {
+    "importLarge": "Questo file è grande ({size}): {name}. Copiarlo nella libreria? Richiede un po\u2019 di tempo e tanto spazio su disco quanto il file.",
     "write": "Scrivere {count} parametro sul veicolo? | Scrivere {count} parametri sul veicolo?",
     "snapshot": "Scrivere {count} parametro sul veicolo ({names})? | Scrivere {count} parametri sul veicolo ({names})?"
   },

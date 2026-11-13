@@ -71,7 +71,7 @@ services = {
   ; `cancelled` when the user closed the dialog (nothing else is set). One read at a time (`BUSY`), cancelable with
   ; `logs.local.cancel` (`ABORTED`), with `logs.local.progress` (its `key` is the file's name). `TOO_LARGE` over the size cap,
   ; `NO_SPACE` when the library's disk could not hold the copy, `BAD_REQUEST` for a file with no record in it.
-  "logs.import": ["method", null, logs-imported],
+  "logs.import": ["method", logs-import-ask, logs-imported],
   ; The raw IMU batches of a log that was read (ArduPilot's ISBH and ISBD, written when `INS_LOG_BAT_MASK` is set): which sensors
   ; (gyro or accelerometer, of which IMU) have batches, how many, at what rate. A log with none has an empty list; the page then
   ; says how to capture one. `logs.local.spectrum` is the amplitude spectrum of one of them: an FFT of each batch, averaged, with a
@@ -281,12 +281,19 @@ tlog-report = {
   ? compid: uint .size 2,
 }
 
+; `confirmLarge`: go on with the file that was offered as `large` (no dialog is opened).
+logs-import-ask = { ? confirmLarge: bool }
+
 ; The answer of `logs.import`. `key` is the entry in the library (`imported/NNNNNNNN-CCCCCCCC.tlog`), `name` the file's name (no
 ; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already (the test is
 ; the CRC-32 and the size, nothing stronger: two different files with both the same would be taken for one).
 logs-imported = {
   cancelled: bool,
   duplicate: bool,
+  ; True when the file the user chose is larger than 500 MB: NOTHING was copied, `name` and `size` say which file. The page asks the
+  ; user, and calls `logs.import` again with `confirmLarge` to go on with that same file (the backend remembers the one it offered,
+  ; once; without an offer `confirmLarge` is `BAD_REQUEST`).
+  ? large: bool,
   ? key: tstr,
   ? name: tstr,
   ? crc: tstr,

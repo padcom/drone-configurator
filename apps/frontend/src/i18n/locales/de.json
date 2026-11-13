@@ -873,6 +873,7 @@
     "newValue": "Wert"
   },
   "question": {
+    "importLarge": "Diese Datei ist groß ({size}): {name}. In die Bibliothek kopieren? Das dauert eine Weile und braucht so viel Speicherplatz wie die Datei.",
     "write": "{count} Parameter ans Fahrzeug schreiben? | {count} Parameter ans Fahrzeug schreiben?",
     "snapshot": "{count} Parameter ans Fahrzeug schreiben ({names})? | {count} Parameter ans Fahrzeug schreiben ({names})?"
   },

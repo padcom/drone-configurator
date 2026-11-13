@@ -873,6 +873,7 @@
     "newValue": "Wartość"
   },
   "question": {
+    "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",
     "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
     "snapshot": "Zapisać {count} parametr w pojeździe ({names})? | Zapisać {count} parametry w pojeździe ({names})? | Zapisać {count} parametrów w pojeździe ({names})?"
   },

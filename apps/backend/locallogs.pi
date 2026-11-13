@@ -123,6 +123,8 @@ class State {
   public communicator: Communicator? = null
   /// The read that runs, so that `logs.local.cancel` can stop it.
   public reading: AbortController? = null
+  /// An import that waits for the read that runs: `logs.local.cancel` stops this wait first, not the read it waits for.
+  public waiting: AbortController? = null
   /// What the reads found, by the key of the log, at most `MAX_KNOWN` of them, and the modes of the last `MAX_KNOWN_MODES`.
   public readonly known: Map<string, Known> = new Map<string, Known>()
   public readonly modes: Map<string, KnownModes> = new Map<string, KnownModes>()
@@ -352,11 +354,23 @@ const WAIT_FOR_READ_MS: int = 60000
 
 /// Claims the one read there can be at a time, waiting for the one that runs to end (`BUSY` only if it does not within a minute).
 /// The wait and the claim have no `await` between them, so two waiting callers cannot both get it.
+/// `logs.local.cancel` while it waits stops the wait (`ABORTED`) and leaves the read it waits for alone.
 export async function claimReadWhenFree(): Promise<AbortController> throws Error {
+  const wait = new AbortController()
+  state.waiting = wait
   let waited = 0
-  while (state.reading != null && waited < WAIT_FOR_READ_MS) {
-    await delay(50)
-    waited += 50
+  try {
+    while (state.reading != null && waited < WAIT_FOR_READ_MS && !wait.signal.aborted) {
+      await delay(50)
+      waited += 50
+    }
+  } finally {
+    if (state.waiting == wait) {
+      state.waiting = null
+    }
+  }
+  if (wait.signal.aborted) {
+    throw new CommunicatorError("ABORTED", "the import was stopped while it waited for another read")
   }
   claimRead()
 }
@@ -613,6 +627,12 @@ async function modesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
 
 /// Stops the read that runs, if any: it fails with ABORTED.
 async function cancelRead(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  // An import that is waiting for a read is what Stop was meant for: it stops, and the read it waits for goes on.
+  const waiting = state.waiting
+  if (waiting != null) {
+    waiting!.abort()
+    return null
+  }
   const r = state.reading
   if (r != null) {
     r!.abort()

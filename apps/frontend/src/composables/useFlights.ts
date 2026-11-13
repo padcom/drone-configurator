@@ -9,12 +9,16 @@ import type {
   LocalLog, LocalLogSummary, LogsImported, LogsLocalSeries, ModeChange, ReviewFinding, SeriesAsk,
 } from '@/generated/app'
 import type { ChartPoint } from '@/lib/charts/chart'
+import { pageLanguage, say } from '@/i18n/say'
 import { asNumber, pointsOf } from '@/lib/logs/localLogs'
+import { sizeText } from '@/lib/logs/vehicleLogs'
 
 /** What the Flights model needs. */
 export interface FlightsDeps {
   /** The link to the backend. */
   client: BackendClient
+  /** Asks the user to confirm `question` (a file larger than 500 MB is copied only on a yes). */
+  confirm: (question: string) => Promise<boolean>
 }
 
 /** The series the charts draw, asked for together: the message, the field, and the instance (IMU 0) where there are several. */
@@ -228,9 +232,9 @@ class Flights implements FlightsModel {
     this.progress.value = null
 
     try {
-      const answer = await this.deps.client.call('logs.import', null)
+      const answer = await this.deps.client.call('logs.import', {})
 
-      return importedOf(answer)
+      return importedOf(answer.large === true ? await this.goOnWithLarge(answer) : answer)
     } catch (error) {
       this.importFailed(error)
 
@@ -239,6 +243,23 @@ class Flights implements FlightsModel {
       this.importing.value = false
       this.progress.value = null
     }
+  }
+
+  /**
+   * The user chose a file larger than 500 MB: nothing was copied. They are asked (with the name and the size), and on a yes the
+   * import goes on with that same file; on a no there is nothing more to do.
+   *
+   * @param offered what the backend said of the file
+   * @returns what the backend answered when it went on, or the answer of a cancel
+   */
+  private async goOnWithLarge(offered: LogsImported): Promise<LogsImported> {
+    const write = (value: number, digits: number) => value.toLocaleString(pageLanguage(), { maximumFractionDigits: digits })
+    const size = sizeText(asNumber(offered.size ?? 0), write)
+    if (!await this.deps.confirm(say('question.importLarge', { name: offered.name ?? '', size }))) {
+      return { cancelled: true, duplicate: false }
+    }
+
+    return this.deps.client.call('logs.import', { confirmLarge: true })
   }
 
   /**
