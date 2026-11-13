@@ -1458,12 +1458,16 @@
       "MOT_SPIN_MINHelp": "The lowest part of the throttle range the motors are driven at in flight (MOT_SPIN_MIN), from 0 to 0.25.",
       "MOT_SPIN_MAX": "Highest spin",
       "MOT_SPIN_MAXHelp": "The highest part of the throttle range the motors are driven at (MOT_SPIN_MAX), from 0.9 to 1.",
-      "order": "The thresholds must rise: spin when armed below the lowest spin in flight, and that below the highest spin. Nothing is written until they do.",
+      "order": "The thresholds must not fall: spin when armed at most the lowest spin in flight, and that at most the highest spin. Nothing is written until they are in that order.",
       "outputs": "Outputs now",
       "noOutputs": "No outputs yet",
       "noOutputsHelp": "They appear when the vehicle reports them.",
       "output": "Output {n}",
-      "pulse": "{us} µs"
+      "pulse": "{us} µs",
+      "range": "{name} must be from {low} to {high}. What is typed is not written.",
+      "outputsOld": "The vehicle has stopped reporting its outputs.",
+      "outputsOldHelp": "The last pulses are not shown: they would look current. They appear again when the vehicle reports them.",
+      "protocolUnknown": "This vehicle does not report its ESC protocol."
     },
     "radio": {
       "summary": "Move every stick and switch of the transmitter: its bar moves with it. To calibrate, start, move each stick to all its ends and each switch to all its positions, put the sticks back in the middle (the throttle low), and press Done. Nothing is written until you write it.",

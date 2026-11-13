@@ -565,6 +565,10 @@
   gap: var(--space-3);
 }
 
+.setup-esc-error {
+  color: var(--color-error);
+}
+
 .setup-outputs {
   width: 100%;
   border-collapse: collapse;

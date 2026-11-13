@@ -1458,12 +1458,16 @@
       "MOT_SPIN_MINHelp": "La parte más baja del rango del acelerador con la que se manejan los motores en vuelo (MOT_SPIN_MIN), de 0 a 0,25.",
       "MOT_SPIN_MAX": "Giro máximo",
       "MOT_SPIN_MAXHelp": "La parte más alta del rango del acelerador con la que se manejan los motores (MOT_SPIN_MAX), de 0,9 a 1.",
-      "order": "Los umbrales deben ir creciendo: el giro al armar por debajo del giro mínimo en vuelo, y este por debajo del giro máximo. No se escribe nada hasta entonces.",
+      "order": "Los umbrales no deben bajar: el giro armado como mucho el giro mínimo en vuelo, y este como mucho el giro máximo. No se escribe nada hasta que estén en ese orden.",
       "outputs": "Salidas ahora",
       "noOutputs": "Aún no hay salidas",
       "noOutputsHelp": "Aparecen cuando el vehículo las informa.",
       "output": "Salida {n}",
-      "pulse": "{us} µs"
+      "pulse": "{us} µs",
+      "range": "{name} debe estar entre {low} y {high}. Lo escrito no se guarda.",
+      "outputsOld": "El vehículo ha dejado de informar de sus salidas.",
+      "outputsOldHelp": "No se muestran los últimos pulsos: parecerían actuales. Reaparecen cuando el vehículo los comunique.",
+      "protocolUnknown": "Este vehículo no informa de su protocolo de ESC."
     },
     "radio": {
       "summary": "Mueva cada palanca e interruptor del transmisor: su barra se mueve con él. Para calibrar, inicie, lleve cada palanca a todos sus extremos y cada interruptor a todas sus posiciones, vuelva las palancas al centro (acelerador abajo) y pulse Hecho. No se escribe nada hasta que usted lo escriba.",

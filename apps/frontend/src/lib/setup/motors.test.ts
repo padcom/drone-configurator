@@ -1,5 +1,14 @@
 import { expect, it } from 'vitest'
-import { MOTOR_PARAMS, PWM_TYPES, SPIN_RANGES, outputRows, parseFraction, spinProblem } from './motors'
+import {
+  MOTOR_PARAMS,
+  OUTPUTS_OLD_MS,
+  PWM_TYPES,
+  SPIN_RANGES,
+  outputRows,
+  outputsOld,
+  parseFraction,
+  spinProblem,
+} from './motors'
 
 it('lists the four parameters of the page, and names each protocol once', () => {
   expect(MOTOR_PARAMS).toEqual(['MOT_PWM_TYPE', 'MOT_SPIN_ARM', 'MOT_SPIN_MIN', 'MOT_SPIN_MAX'])
@@ -29,11 +38,12 @@ it('takes a spin threshold as a fraction from 0 to 1, with a comma or a point, a
   }
 })
 
-it('says the thresholds are out of order when arm is not below min, or min is not below max', () => {
+it('says the thresholds are out of order only when arm is above min, or min is above max (equal is valid)', () => {
   expect(spinProblem(0.1, 0.15, 0.95)).toBeNull()
-  expect(spinProblem(0.15, 0.15, 0.95)).toBe('order')
+  expect(spinProblem(0.15, 0.15, 0.95)).toBeNull()
+  expect(spinProblem(0, 0, 0.95)).toBeNull()
+  expect(spinProblem(0.1, 0.95, 0.95)).toBeNull()
   expect(spinProblem(0.2, 0.15, 0.95)).toBe('order')
-  expect(spinProblem(0.1, 0.95, 0.95)).toBe('order')
   expect(spinProblem(0.1, 0.99, 0.95)).toBe('order')
   // a threshold the vehicle does not have is not judged
   expect(spinProblem(null, 0.15, 0.95)).toBeNull()
@@ -52,4 +62,13 @@ it('makes a row of each output that is used, numbered across the ports, and none
   expect(rows.map(row => row.fraction)).toEqual([0, 0.5, 1, 0.25])
   // a pulse outside 1000 to 2000 is held to the bar
   expect(outputRows({ ports: [{ port: 0, outputs: [900, 2300] }], ageMs: 0 }).map(row => row.fraction)).toEqual([0, 1])
+})
+
+it('shows no outputs once the vehicle has not reported them for more than 3 s', () => {
+  const ports = [{ port: 0, outputs: [1000, 1500] }]
+  expect(outputsOld(undefined)).toBe(false)
+  expect(outputsOld({ ports, ageMs: OUTPUTS_OLD_MS })).toBe(false)
+  expect(outputRows({ ports, ageMs: OUTPUTS_OLD_MS })).toHaveLength(2)
+  expect(outputsOld({ ports, ageMs: OUTPUTS_OLD_MS + 1 })).toBe(true)
+  expect(outputRows({ ports, ageMs: OUTPUTS_OLD_MS + 1 })).toEqual([])
 })

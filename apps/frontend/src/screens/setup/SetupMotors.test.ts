@@ -33,12 +33,13 @@ interface Rig {
 /**
  * The page over a connected simulated vehicle that was set up and is disarmed.
  *
+ * @param params the parameters of the vehicle
  * @returns the page and what drives it
  */
-async function page(): Promise<Rig> {
+async function page(params = SETUP_PARAMS): Promise<Rig> {
   const control: MockControl = {}
   const asked: string[] = []
-  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, params: SETUP_PARAMS, control }), question => {
+  const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, params, control }), question => {
     asked.push(question)
 
     return Promise.resolve(true)
@@ -88,6 +89,28 @@ it('numbers an output of a second port from 17, and leaves out an output that is
   expect(wrapper.findAll('#setup-outputs tr').map(row => row.attributes('data-output'))).toEqual(['1', '3', '17'])
 })
 
+it('stops showing the outputs when the vehicle has stopped reporting them, and says so', async () => {
+  const { wrapper, handle } = await page()
+  const servo = { ports: [{ port: 0, outputs: [1100, 1500] }], ageMs: 3001 }
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false, servo } })
+  await flushPromises()
+
+  expect(wrapper.find('#setup-outputs').exists()).toBe(false)
+  expect(wrapper.get('#setup-outputs-old').text()).toContain('stopped reporting')
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false, servo: { ...servo, ageMs: 500 } } })
+  await flushPromises()
+  expect(wrapper.find('#setup-outputs-old').exists()).toBe(false)
+  expect(wrapper.findAll('#setup-outputs tr')).toHaveLength(2)
+})
+
+it('shows no protocol, and no field for it, when the vehicle does not have MOT_PWM_TYPE', async () => {
+  const rig = await page(SETUP_PARAMS.filter(param => param.id !== 'MOT_PWM_TYPE'))
+
+  expect(rig.wrapper.findComponent(EnumField).exists()).toBe(false)
+  expect(rig.wrapper.get('#setup-protocol-unknown').text()).toContain('does not report its ESC protocol')
+  expect(rig.wrapper.text()).not.toContain('Normal')
+})
+
 it('has nothing on the page that is a button other than the write and the revert of the parameters', async () => {
   const { wrapper } = await page()
 
@@ -123,13 +146,24 @@ it('writes a changed protocol after one question that names it, then says a rebo
 
 it('takes a spin threshold as a fraction, ignores what is not one, and writes it', async () => {
   const rig = await page()
-  const field = rig.wrapper.get('[data-spin="MOT_SPIN_MAX"] input')
+  const field = rig.wrapper.get<HTMLInputElement>('[data-spin="MOT_SPIN_MAX"] input')
   await field.setValue('abc')
   await field.setValue('1.5')
   // 0.85 is a fraction, but below the 0.9 that ArduPilot documents for the highest spin
   await field.setValue('0.85')
   expect(rig.wrapper.get('.setup-writes').text()).toBe('')
+  // the field is marked, with the range in words that the field is described by, and the text stays as typed
+  expect(field.element.value).toBe('0.85')
+  expect(field.attributes('aria-invalid')).toBe('true')
+  const describedBy = field.attributes('aria-describedby') ?? ''
+  expect(rig.wrapper.get(`[id="${describedBy}"]`).text()).toContain('from 0.9 to 1')
+  expect(rig.wrapper.get(`[id="${describedBy}"]`).text()).toContain('not written')
+  await field.trigger('blur')
+  expect(field.element.value).toBe('0.85')
+  expect(field.attributes('aria-invalid')).toBe('true')
   await field.setValue('0.9')
+  expect(field.attributes('aria-invalid')).toBeUndefined()
+  expect(field.attributes('aria-describedby')).toBeUndefined()
   expect(rig.wrapper.get('.setup-writes').text()).toBe('MOT_SPIN_MAX')
   await rig.wrapper.get('#setup-motors-write').trigger('click')
   await flushPromises()
@@ -142,10 +176,14 @@ it('takes a spin threshold as a fraction, ignores what is not one, and writes it
 
 it('writes nothing while the thresholds are out of order, and says so', async () => {
   const rig = await page()
-  // the vehicle has 0.1, 0.15 and 0.95: arm at or above min is wrong
+  // the vehicle has 0.1, 0.15 and 0.95: arm equal to min is valid (ArduPilot refuses only arm above min)
+  await rig.wrapper.get('[data-spin="MOT_SPIN_ARM"] input').setValue('0.15')
+  expect(rig.wrapper.find('#setup-spin-order').exists()).toBe(false)
+  expect(rig.wrapper.get('#setup-motors-write').attributes('disabled')).toBeUndefined()
+  // arm above min is wrong
   await rig.wrapper.get('[data-spin="MOT_SPIN_ARM"] input').setValue('0.2')
 
-  expect(rig.wrapper.get('#setup-spin-order').text()).toContain('must rise')
+  expect(rig.wrapper.get('#setup-spin-order').text()).toContain('must not fall')
   expect(rig.wrapper.get('#setup-motors-write').attributes('disabled')).toBeDefined()
   expect(rig.asked).toHaveLength(0)
   // set in order again: it can be written
