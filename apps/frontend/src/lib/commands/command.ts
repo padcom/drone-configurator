@@ -95,6 +95,10 @@ export interface FileFacts {
   saveSnapshot(): void
   /** Opens a snapshot file and loads it, the same way as `loadMetadata` does for metadata. */
   loadSnapshot(): void
+  /** Lets the user choose a log file (a ground station's recording), imports it and opens it in Flights. */
+  openLog(): void
+  /** Whether a log is being read or imported (the backend does one read at a time). */
+  logBusy(): boolean
 }
 
 /** What is known of how the commands have been used: the palette lists the ones run last first. */

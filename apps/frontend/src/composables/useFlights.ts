@@ -5,7 +5,9 @@
 // series the log lacks, a part of the time without samples, and a review that does not exist are said to be absent.
 import { type Ref, type ShallowRef, ref, shallowRef } from 'vue'
 import { type BackendClient, describeError, toBackendError } from '@/backend/client'
-import type { LocalLog, LocalLogSummary, LogsLocalSeries, ModeChange, ReviewFinding, SeriesAsk } from '@/generated/app'
+import type {
+  LocalLog, LocalLogSummary, LogsImported, LogsLocalSeries, ModeChange, ReviewFinding, SeriesAsk,
+} from '@/generated/app'
 import type { ChartPoint } from '@/lib/charts/chart'
 import { asNumber, pointsOf } from '@/lib/logs/localLogs'
 
@@ -42,6 +44,16 @@ export interface DrawnSeries {
 /** How far the open log has got. */
 export type Phase = 'idle' | 'reading' | 'loading' | 'ready' | 'failed'
 
+/** What the last import of a recording did: the entry it opened, and whether the same content was in the library already. */
+export interface ImportedLog {
+  /** The key of the entry in the library. */
+  key: string
+  /** The name the file had (no folder). */
+  name: string
+  /** True when the same content (the same CRC-32) was there before: nothing was copied. */
+  duplicate: boolean
+}
+
 /** The Flights model. */
 export interface FlightsModel {
   /** The logs on this computer, newest first. */
@@ -70,6 +82,14 @@ export interface FlightsModel {
   readonly stopped: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
   readonly error: ShallowRef<string | null>
+  /** Whether a recording is being imported (the backend copies it into the library a chunk at a time, and can be stopped). */
+  readonly importing: Readonly<Ref<boolean>>
+  /** The last recording that was imported, or null. */
+  readonly imported: ShallowRef<ImportedLog | null>
+  /** Whether the last import was stopped (by Stop): nothing was added. */
+  readonly importStopped: Readonly<Ref<boolean>>
+  /** Lets the user choose a recording (`.tlog`; the host's open dialog), imports it, and opens it. */
+  importFile: () => Promise<void>
   /** Reads the list. */
   refresh: () => Promise<void>
   /** Opens a log: reads it and asks for what the charts and the review need. */
@@ -101,6 +121,20 @@ function drawn(answer: LogsLocalSeries, firstUs: number): Record<string, DrawnSe
   return out
 }
 
+/**
+ * What an import did, when it added or found an entry (not when the user closed the dialog).
+ *
+ * @param answer what the backend answered
+ * @returns the entry, or null
+ */
+function importedOf(answer: LogsImported): ImportedLog | null {
+  if (answer.cancelled || answer.key === undefined) {
+    return null
+  }
+
+  return { key: answer.key, name: answer.name ?? '', duplicate: answer.duplicate }
+}
+
 /** The Flights model. */
 class Flights implements FlightsModel {
   readonly logs = shallowRef<LocalLog[]>([])
@@ -116,15 +150,19 @@ class Flights implements FlightsModel {
   readonly reviewMissing = ref<'not-verified' | null>(null)
   readonly stopped = ref(false)
   readonly error = shallowRef<string | null>(null)
+  readonly importing = ref(false)
+  readonly imported = shallowRef<ImportedLog | null>(null)
+  readonly importStopped = ref(false)
 
   /**
-   * Makes the model, and listens to the progress of reads.
+   * Makes the model, and listens to the progress of reads and imports.
    *
    * @param deps the client
    */
   constructor(private readonly deps: FlightsDeps) {
     deps.client.onEvent('logs.local.progress', progress => {
-      if (progress.key === this.open.value && this.phase.value === 'reading') {
+      const reading = progress.key === this.open.value && this.phase.value === 'reading'
+      if (reading || this.importing.value) {
         this.progress.value = { bytes: asNumber(progress.bytes), total: asNumber(progress.total) }
       }
     })
@@ -146,12 +184,74 @@ class Flights implements FlightsModel {
   }
 
   /**
-   * Whether a log is being read, or what is drawn of it is being asked for.
+   * Whether a log is being read or imported, or what is drawn of it is being asked for.
    *
    * @returns true while it is
    */
   private isBusy(): boolean {
-    return this.phase.value === 'reading' || this.phase.value === 'loading'
+    return this.importing.value || this.phase.value === 'reading' || this.phase.value === 'loading'
+  }
+
+  async importFile(): Promise<void> {
+    // The backend does one read at a time (BUSY).
+    if (this.isBusy()) {
+      return
+    }
+    this.close()
+    this.stopped.value = false
+    this.importStopped.value = false
+    this.error.value = null
+    const entry = await this.runImport()
+    if (entry !== null) {
+      await this.openImported(entry)
+    }
+  }
+
+  /**
+   * Shows the entry that was imported: the list is read again, and the entry is opened.
+   *
+   * @param entry what the import did
+   */
+  private async openImported(entry: ImportedLog): Promise<void> {
+    this.imported.value = entry
+    await this.refresh()
+    await this.select(entry.key)
+  }
+
+  /**
+   * Asks the backend to import a recording: the user chooses it, it is copied, and the progress is told meanwhile.
+   *
+   * @returns the entry that was added or found, or null when it failed, was stopped, or the user closed the dialog
+   */
+  private async runImport(): Promise<ImportedLog | null> {
+    this.importing.value = true
+    this.progress.value = null
+
+    try {
+      const answer = await this.deps.client.call('logs.import', null)
+
+      return importedOf(answer)
+    } catch (error) {
+      this.importFailed(error)
+
+      return null
+    } finally {
+      this.importing.value = false
+      this.progress.value = null
+    }
+  }
+
+  /**
+   * An import failed: stopping it by hand is not an error, anything else is shown.
+   *
+   * @param error what it threw
+   */
+  private importFailed(error: unknown): void {
+    if (toBackendError(error).code === 'ABORTED') {
+      this.importStopped.value = true
+    } else {
+      this.error.value = describeError(error)
+    }
   }
 
   async select(key: string): Promise<void> {

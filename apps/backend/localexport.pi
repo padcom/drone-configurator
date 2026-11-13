@@ -12,7 +12,8 @@
 // a position is a fix only with a 3D fix, inside the globe and not (0, 0); there is no time in GPX or KML because the log has no
 // absolute clock that does not rest on a guess of leap seconds.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
-import { DfDecoder, DfMessage } from "padcom/pico-mavlink"
+import { DfMessage } from "padcom/pico-mavlink"
+import { LogReader } from "./logreader"
 import { exists, remove, rename, stat, writeText } from "std/fs"
 import {
   LocalLogExported,
@@ -90,10 +91,10 @@ export function csvCell(text: string, isText: bool): string {
 class CsvWriter implements Taker {
   readonly out: Output
   readonly message: string
-  readonly decoder: DfDecoder
+  readonly decoder: LogReader
   type: int = -1
 
-  constructor(out: Output, message: string, decoder: DfDecoder) {
+  constructor(out: Output, message: string, decoder: LogReader) {
     this.out = out
     this.message = message
     this.decoder = decoder
@@ -116,7 +117,7 @@ class CsvWriter implements Taker {
       if (kind == MessageFieldKind.Text) {
         cells.push(csvCell(m.texts[i], true))
       } else if (kind == MessageFieldKind.Number) {
-        const v = m.nums[i] * factorOf(f, decoder.tables)
+        const v = m.nums[i] * factorOf(f, decoder.tables())
         cells.push(if (usable(v)) `${v}` else "")
       }
     }
@@ -129,7 +130,7 @@ class CsvWriter implements Taker {
     const names: string[] = []
     for (const f of m.format.fields) {
       if (kindOf(f) != MessageFieldKind.Array) {
-        const unit = if (kindOf(f) == MessageFieldKind.Number) decoder.tables.unitOf(f) else ""
+        const unit = if (kindOf(f) == MessageFieldKind.Number) decoder.tables().unitOf(f) else ""
         // The names and units are the log's text too: a hostile one (=cmd|...) is made safe like any other text cell.
         names.push(csvCell(if (unit == "") f.name else `${f.name} (${unit})`, true))
       }
@@ -142,7 +143,7 @@ class CsvWriter implements Taker {
 class TrackWriter implements Taker {
   readonly out: Output
   readonly kml: bool
-  readonly decoder: DfDecoder
+  readonly decoder: LogReader
   instance: f64 = -1.0
   chosen: bool = false
   /// Where the position, the fix and the instance are in the GPS format, once known.
@@ -153,7 +154,7 @@ class TrackWriter implements Taker {
   instanceAt: int = -1
   type: int = -1
 
-  constructor(out: Output, kml: bool, decoder: DfDecoder) {
+  constructor(out: Output, kml: bool, decoder: LogReader) {
     this.out = out
     this.kml = kml
     this.decoder = decoder
@@ -176,8 +177,8 @@ class TrackWriter implements Taker {
     if (latAt < 0 || lngAt < 0 || statusAt < 0 || !fixOf(m)) {
       return
     }
-    const lat = degrees(m.nums[latAt] * factorOf(m.format.fields[latAt], decoder.tables))
-    const lng = degrees(m.nums[lngAt] * factorOf(m.format.fields[lngAt], decoder.tables))
+    const lat = degrees(m.nums[latAt] * factorOf(m.format.fields[latAt], decoder.tables()))
+    const lng = degrees(m.nums[lngAt] * factorOf(m.format.fields[lngAt], decoder.tables()))
     if (!usable(lat) || !usable(lng) || lat > 90.0 || lat < -90.0 || lng > 180.0 || lng < -180.0 || (lat == 0.0 && lng == 0.0)) {
       return
     }
@@ -202,7 +203,7 @@ class TrackWriter implements Taker {
     if (altAt < 0) {
       return ""
     }
-    const alt = m.nums[altAt] * factorOf(m.format.fields[altAt], decoder.tables)
+    const alt = m.nums[altAt] * factorOf(m.format.fields[altAt], decoder.tables())
     if (usable(alt)) `<ele>${alt}</ele>` else ""
   }
 
@@ -373,7 +374,8 @@ class Written {
 /// Streams the log into the `.part` file.
 async function writeIt(ask: LogsLocalExportAsk, name: string, log: string, part: string, own: AbortController): Promise<Written> throws Error {
   const out = new Output(part)
-  const decoder = new DfDecoder()
+  const file = await locate(ask.key)
+  const decoder = file.newReader()
   const track = ask.format != LogsLocalExportAskFormat.Csv
   const kml = ask.format == LogsLocalExportAskFormat.Kml
   let taker: Taker = new CsvWriter(out, ask.message ?? "", decoder)
@@ -383,7 +385,6 @@ async function writeIt(ask: LogsLocalExportAsk, name: string, log: string, part:
   if (track) {
     out.put(headOf(kml, name))
   }
-  const file = await locate(ask.key)
   const done = await streamLog(ask.key, file, own, taker, out, decoder)
   if (!done.unchanged) {
     throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")

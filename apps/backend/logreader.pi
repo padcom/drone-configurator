@@ -1,0 +1,68 @@
+// What the log library needs of whatever reads a log's bytes into messages: a DataFlash log is read by padcom/pico-mavlink's
+// `DfDecoder` (here `DataflashReader`), a `.tlog` by `TlogDecoder` (tlogdecoder.pi), which gives the same `DfMessage`s. The readers of
+// the library (series, review, messages, export) work on `DfMessage`s and do not know which kind of log they have.
+import { DfDecoder, DfMessage, DfTables } from "padcom/pico-mavlink"
+import { TlogReport } from "./generated/app"
+
+/// A reader of a log: fed chunks of its file, it gives the messages in them.
+export interface LogReader {
+  /// Takes the next chunk of the file.
+  push(chunk: Uint8Array): void
+  /// The next message in what was pushed, or null when there is no more whole one (push more, or `finish`).
+  next(): DfMessage?
+  /// The end of the file.
+  finish(): void
+  /// The units and multipliers the log names.
+  tables(): DfTables
+  /// The bytes that were no message, so far (a cut end is counted when `finish` has been called).
+  skippedBytes(): int
+  /// The problems met, apart from skipped bytes (formats refused, messages of no known kind, frames with a wrong CRC).
+  problemCount(): int
+  /// Whether this reads a recording of a ground station (a `.tlog`) and not a log the vehicle wrote.
+  isTlog(): bool
+  /// What the reader of a recording found (null for a log a vehicle wrote).
+  tlogReport(): TlogReport?
+  /// Whether a message is made up of others to feed a view and is not in the log as such (the message browser leaves it out).
+  hides(name: string): bool
+}
+
+/// The reader of DataFlash logs.
+export class DataflashReader implements LogReader {
+  public readonly decoder: DfDecoder = new DfDecoder()
+
+  public push(chunk: Uint8Array): void {
+    decoder.push(chunk)
+  }
+
+  public next(): DfMessage? {
+    decoder.next()
+  }
+
+  public finish(): void {
+    decoder.finish()
+  }
+
+  public tables(): DfTables {
+    decoder.tables
+  }
+
+  public skippedBytes(): int {
+    decoder.problems.skipped
+  }
+
+  public problemCount(): int {
+    decoder.problems.count
+  }
+
+  public isTlog(): bool {
+    false
+  }
+
+  public tlogReport(): TlogReport? {
+    null
+  }
+
+  public hides(_name: string): bool {
+    false
+  }
+}

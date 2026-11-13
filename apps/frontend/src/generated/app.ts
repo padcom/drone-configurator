@@ -189,10 +189,10 @@ function validateLogsProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-progress, or null. */
 export const validateLogsProgress = (value: unknown) => run(validateLogsProgressInto, value)
 
-export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "summary"?: LocalLogSummary }
+export type LocalLog = { "key": string, "vehicle": string, "id": number, "size": number | bigint, "modified": number | bigint, "crc": string, "source": "dataflash" | "tlog", "summary"?: LocalLogSummary }
 
 function validateLocalLogInto(value: any, path: string): boolean {
-  return map(value, path, ["key","vehicle","id","size","modified","crc","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
+  return map(value, path, ["key","vehicle","id","size","modified","crc","source","summary"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xffffffff))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["modified"] === undefined ? fail(`${path}.modified`, 'present') : nested(value["modified"], `${path}.modified`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["crc"] === undefined ? fail(`${path}.crc`, 'present') : nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["dataflash","tlog"]))) && (value["summary"] === undefined || nested(value["summary"], `${path}.summary`, (value, path) => validateLocalLogSummaryInto(value, path)))
 }
 
 /** The first problem with `value` as a local-log, or null. */
@@ -216,6 +216,24 @@ function validateLogsLocalReadInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-local-read, or null. */
 export const validateLogsLocalRead = (value: unknown) => run(validateLogsLocalReadInto, value)
 
+export type TlogReport = { "records": number, "v1": number, "v2": number, "signed": number, "crcFailures": number, "unknown": number, "jitter": number, "segments": number, "bytesSkipped": number | bigint, "bytesCut": number, "cutEnd": boolean, "dated": boolean, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "vehicles"?: number, "sysid"?: number, "compid"?: number }
+
+function validateTlogReportInto(value: any, path: string): boolean {
+  return map(value, path, ["records","v1","v2","signed","crcFailures","unknown","jitter","segments","bytesSkipped","bytesCut","cutEnd","dated","firstUs","lastUs","vehicles","sysid","compid"]) && (value["records"] === undefined ? fail(`${path}.records`, 'present') : nested(value["records"], `${path}.records`, (value, path) => uint(value, path, 0xffffffff))) && (value["v1"] === undefined ? fail(`${path}.v1`, 'present') : nested(value["v1"], `${path}.v1`, (value, path) => uint(value, path, 0xffffffff))) && (value["v2"] === undefined ? fail(`${path}.v2`, 'present') : nested(value["v2"], `${path}.v2`, (value, path) => uint(value, path, 0xffffffff))) && (value["signed"] === undefined ? fail(`${path}.signed`, 'present') : nested(value["signed"], `${path}.signed`, (value, path) => uint(value, path, 0xffffffff))) && (value["crcFailures"] === undefined ? fail(`${path}.crcFailures`, 'present') : nested(value["crcFailures"], `${path}.crcFailures`, (value, path) => uint(value, path, 0xffffffff))) && (value["unknown"] === undefined ? fail(`${path}.unknown`, 'present') : nested(value["unknown"], `${path}.unknown`, (value, path) => uint(value, path, 0xffffffff))) && (value["jitter"] === undefined ? fail(`${path}.jitter`, 'present') : nested(value["jitter"], `${path}.jitter`, (value, path) => uint(value, path, 0xffffffff))) && (value["segments"] === undefined ? fail(`${path}.segments`, 'present') : nested(value["segments"], `${path}.segments`, (value, path) => uint(value, path, 0xffffffff))) && (value["bytesSkipped"] === undefined ? fail(`${path}.bytesSkipped`, 'present') : nested(value["bytesSkipped"], `${path}.bytesSkipped`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["bytesCut"] === undefined ? fail(`${path}.bytesCut`, 'present') : nested(value["bytesCut"], `${path}.bytesCut`, (value, path) => uint(value, path, 0xffffffff))) && (value["cutEnd"] === undefined ? fail(`${path}.cutEnd`, 'present') : nested(value["cutEnd"], `${path}.cutEnd`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["dated"] === undefined ? fail(`${path}.dated`, 'present') : nested(value["dated"], `${path}.dated`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["vehicles"] === undefined || nested(value["vehicles"], `${path}.vehicles`, (value, path) => uint(value, path, 0xffffffff))) && (value["sysid"] === undefined || nested(value["sysid"], `${path}.sysid`, (value, path) => uint(value, path, 0xffff))) && (value["compid"] === undefined || nested(value["compid"], `${path}.compid`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a tlog-report, or null. */
+export const validateTlogReport = (value: unknown) => run(validateTlogReportInto, value)
+
+export type LogsImported = { "cancelled": boolean, "duplicate": boolean, "key"?: string, "name"?: string, "crc"?: string, "size"?: number | bigint, "report"?: TlogReport }
+
+function validateLogsImportedInto(value: any, path: string): boolean {
+  return map(value, path, ["cancelled","duplicate","key","name","crc","size","report"]) && (value["cancelled"] === undefined ? fail(`${path}.cancelled`, 'present') : nested(value["cancelled"], `${path}.cancelled`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["duplicate"] === undefined ? fail(`${path}.duplicate`, 'present') : nested(value["duplicate"], `${path}.duplicate`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["key"] === undefined || nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["name"] === undefined || nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["crc"] === undefined || nested(value["crc"], `${path}.crc`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["size"] === undefined || nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["report"] === undefined || nested(value["report"], `${path}.report`, (value, path) => validateTlogReportInto(value, path)))
+}
+
+/** The first problem with `value` as a logs-imported, or null. */
+export const validateLogsImported = (value: unknown) => run(validateLogsImportedInto, value)
+
 export type LogsLocalProgress = { "key": string, "bytes": number | bigint, "total": number | bigint }
 
 function validateLogsLocalProgressInto(value: any, path: string): boolean {
@@ -225,10 +243,10 @@ function validateLogsLocalProgressInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-local-progress, or null. */
 export const validateLogsLocalProgress = (value: unknown) => run(validateLogsLocalProgressInto, value)
 
-export type LocalLogSummary = { "verified": boolean, "messages": number, "problems": number, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "firmware"?: string, "modeChanges": number, "cutEnd"?: boolean }
+export type LocalLogSummary = { "verified": boolean, "messages": number, "problems": number, "firstUs"?: number | bigint, "lastUs"?: number | bigint, "firmware"?: string, "modeChanges": number, "cutEnd"?: boolean, "report"?: TlogReport }
 
 function validateLocalLogSummaryInto(value: any, path: string): boolean {
-  return map(value, path, ["verified","messages","problems","firstUs","lastUs","firmware","modeChanges","cutEnd"]) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => uint(value, path, 0xffffffff))) && (value["problems"] === undefined ? fail(`${path}.problems`, 'present') : nested(value["problems"], `${path}.problems`, (value, path) => uint(value, path, 0xffffffff))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["firmware"] === undefined || nested(value["firmware"], `${path}.firmware`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["modeChanges"] === undefined ? fail(`${path}.modeChanges`, 'present') : nested(value["modeChanges"], `${path}.modeChanges`, (value, path) => uint(value, path, 0xffffffff))) && (value["cutEnd"] === undefined || nested(value["cutEnd"], `${path}.cutEnd`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+  return map(value, path, ["verified","messages","problems","firstUs","lastUs","firmware","modeChanges","cutEnd","report"]) && (value["verified"] === undefined ? fail(`${path}.verified`, 'present') : nested(value["verified"], `${path}.verified`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => uint(value, path, 0xffffffff))) && (value["problems"] === undefined ? fail(`${path}.problems`, 'present') : nested(value["problems"], `${path}.problems`, (value, path) => uint(value, path, 0xffffffff))) && (value["firstUs"] === undefined || nested(value["firstUs"], `${path}.firstUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lastUs"] === undefined || nested(value["lastUs"], `${path}.lastUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["firmware"] === undefined || nested(value["firmware"], `${path}.firmware`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["modeChanges"] === undefined ? fail(`${path}.modeChanges`, 'present') : nested(value["modeChanges"], `${path}.modeChanges`, (value, path) => uint(value, path, 0xffffffff))) && (value["cutEnd"] === undefined || nested(value["cutEnd"], `${path}.cutEnd`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["report"] === undefined || nested(value["report"], `${path}.report`, (value, path) => validateTlogReportInto(value, path)))
 }
 
 /** The first problem with `value` as a local-log-summary, or null. */
@@ -297,10 +315,10 @@ function validateLogsReviewInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-review, or null. */
 export const validateLogsReview = (value: unknown) => run(validateLogsReviewInto, value)
 
-export type LocalLogMessages = { "types": (MessageType)[] }
+export type LocalLogMessages = { "types": (MessageType)[], "more"?: number }
 
 function validateLocalLogMessagesInto(value: any, path: string): boolean {
-  return map(value, path, ["types"]) && (value["types"] === undefined ? fail(`${path}.types`, 'present') : nested(value["types"], `${path}.types`, (value, path) => list(value, path, (value, path) => validateMessageTypeInto(value, path))))
+  return map(value, path, ["types","more"]) && (value["types"] === undefined ? fail(`${path}.types`, 'present') : nested(value["types"], `${path}.types`, (value, path) => list(value, path, (value, path) => validateMessageTypeInto(value, path)))) && (value["more"] === undefined || nested(value["more"], `${path}.more`, (value, path) => uint(value, path, 0xffffffff)))
 }
 
 /** The first problem with `value` as a local-log-messages, or null. */
@@ -715,6 +733,7 @@ export interface Services {
   "logs.local.messages": { kind: 'method', request: LogsLocalRead, response: LocalLogMessages }
   "logs.local.at": { kind: 'method', request: LogsLocalAtAsk, response: LocalLogAt }
   "logs.local.export": { kind: 'method', request: LogsLocalExportAsk, response: LocalLogExported }
+  "logs.import": { kind: 'method', request: null, response: LogsImported }
   "logs.local.batches": { kind: 'method', request: LogsLocalRead, response: LocalLogBatches }
   "logs.local.spectrum": { kind: 'method', request: LogsLocalSpectrumAsk, response: LocalLogSpectrum }
   "logs.local.cancel": { kind: 'method', request: null, response: null }
@@ -809,6 +828,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.export": {
     request: (value: any, path: string) => validateLogsLocalExportAskInto(value, path),
     response: (value: any, path: string) => validateLocalLogExportedInto(value, path),
+  },
+  "logs.import": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateLogsImportedInto(value, path),
   },
   "logs.local.batches": {
     request: (value: any, path: string) => validateLogsLocalReadInto(value, path),

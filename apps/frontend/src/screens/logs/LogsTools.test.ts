@@ -302,6 +302,7 @@ function logOf(id: number, size: number, summary: { verified: boolean, seconds: 
     id,
     size,
     modified: id * 1000,
+    source: 'dataflash',
     summary: { verified: summary.verified, messages: 1, problems: 0, modeChanges: 0, firstUs: 0, lastUs: summary.seconds * 1e6 },
   }
 }

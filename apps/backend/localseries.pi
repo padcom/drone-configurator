@@ -195,7 +195,7 @@ async function gather(key: string, series: SeriesAsk[], buckets: int, fromUs: u6
   }
   const results: SeriesResult[] = []
   for (const g of collector.all) {
-    results.push(resultOf(g, done.decoder.tables))
+    results.push(resultOf(g, done.reader.tables()))
   }
   encodeLogsLocalSeries(LogsLocalSeries { fromUs: from as u64, toUs: to as u64, buckets: buckets as u16, series: results })
 }

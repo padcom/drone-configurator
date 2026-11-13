@@ -6,6 +6,9 @@
     <Banner v-if="browser.error.value" id="browser-error" tone="error">{{ browser.error.value }}</Banner>
     <p v-if="browser.types.value.length === 0" class="muted">{{ emptyText }}</p>
     <template v-else>
+      <p v-if="browser.more.value > 0" id="browser-more" class="muted">
+        {{ t('logs.browser.more', { count: browser.more.value }) }}
+      </p>
       <div class="browser-pickers">
         <label class="browser-pick">
           <span>{{ t('logs.browser.kind') }}</span>
