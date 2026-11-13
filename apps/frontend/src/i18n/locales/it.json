@@ -1343,6 +1343,102 @@
       "terrain": "Dati del terreno",
       "fence": "Geofence",
       "propulsion": "Propulsione"
+    },
+    "reboot": {
+      "needed": "Riavvio necessario: ciò che è stato scritto ha effetto al riavvio del controller di volo."
+    },
+    "battery": {
+      "summary": "Tensione e capacità accurate rendono affidabili i failsafe e le stime del tempo di volo.",
+      "which": "Quale batteria",
+      "tab": "Batteria {n}",
+      "noLiveSecond": "Tensione e corrente dal vivo sono della prima batteria. La seconda ha qui monitor e capacità, senza calibrazione.",
+      "monitor": "Monitor",
+      "capacity": "Capacità (mAh)",
+      "tileVoltage": "Tensione",
+      "tileCurrent": "Corrente",
+      "tileRemaining": "Rimanente",
+      "noReading": "Il veicolo non mostra ancora una lettura, quindi non c'è nulla con cui calibrare.",
+      "shown": "Il veicolo mostra {value}",
+      "secondLook": "Si discosta di oltre il 15% da ciò che mostra il veicolo. Controlla la lettura.",
+      "checked": "Ho riletto il tester ed è corretto",
+      "use": "Usa questo valore",
+      "thresholds": "Le tensioni bassa e critica e cosa fa il veicolo sono in Failsafe.",
+      "voltage": {
+        "title": "Calibra la tensione",
+        "help": "Misura la batteria con un multimetro e scrivi il valore. Il nuovo moltiplicatore è il vecchio per il tester diviso ciò che mostra il veicolo.",
+        "measured": "Lettura del multimetro (V)"
+      },
+      "current": {
+        "title": "Calibra la corrente",
+        "help": "Misura la corrente con una pinza amperometrica sotto carico e scrivi il valore. I nuovi ampere per volt sono i vecchi per il tester diviso ciò che mostra il veicolo.",
+        "measured": "Lettura della pinza (A)"
+      },
+      "noMultiplier": "Questo monitor non usa un moltiplicatore di tensione, quindi qui non c'è nulla da calibrare.",
+      "offsetNote": "Questo calcola solo il moltiplicatore: l'eventuale offset del sensore resta com'è."
+    },
+    "monitor": {
+      "disabled": "Disattivato",
+      "analogVoltage": "Solo tensione analogica",
+      "analogVoltageCurrent": "Tensione e corrente analogiche",
+      "smbus": "SMBus (batteria smart)",
+      "dronecan": "Info batteria DroneCAN",
+      "esc": "Dagli ESC",
+      "sum": "Somma dei monitor scelti",
+      "syntheticCurrent": "Corrente sintetica e tensione analogica",
+      "analogCurrent": "Solo corrente analogica"
+    },
+    "frame": {
+      "summary": "Quanti motori ha il veicolo, come sono miscelati e come è montata la scheda.",
+      "warning": "Un telaio sbagliato rende il veicolo ingovernabile. Cambialo solo a veicolo disarmato, senza eliche, e controlla l'ordine dei motori prima di volare.",
+      "class": "Classe del telaio",
+      "type": "Tipo di telaio",
+      "orientation": "Orientamento della scheda",
+      "orientationHelp": "Ha effetto al prossimo avvio. Dopo la modifica livella di nuovo il veicolo.",
+      "undefined": "Non definita",
+      "noRotation": "Nessuno",
+      "noDrawing": "Per questo telaio non c'è un disegno.",
+      "caption": "Il davanti è in alto. Il numero è quello del motore nel test dei motori, non l'uscita a cui è collegato; la freccia è il verso di rotazione.",
+      "motor": "Motore {number} a {angle} gradi, gira {spin}",
+      "cw": "in senso orario",
+      "ccw": "in senso antiorario"
+    },
+    "serial": {
+      "summary": "A cosa serve ogni porta seriale della scheda e a che velocità parla.",
+      "inUse": "Porte in uso: {used}",
+      "mayCut": "Una modifica a Serial {ports} può interrompere la connessione usata da questa app: porta MAVLink o può essere la porta di una stazione a terra.",
+      "port": "Serial {n}",
+      "protocol": "Protocollo di serial {n}",
+      "baud": "Velocità di serial {n}",
+      "none": "Questo veicolo non ha parametri per le porte seriali.",
+      "noProtocol": "Nessuno",
+      "willCut": "Dopo il riavvio la connessione su Serial {ports} andrà persa se questa app la usa: portava MAVLink o può essere la porta di una stazione a terra."
+    },
+    "devices": {
+      "summary": "I sensori visti dal veicolo, con l'id che conserva per ciascuno decodificato in bus, indirizzo e tipo di dispositivo.",
+      "none": "Il veicolo non ha i parametri con gli id dei dispositivi.",
+      "sensor": "Sensore",
+      "bus": "Bus",
+      "address": "Indirizzo",
+      "type": "Tipo di dispositivo",
+      "id": "Id",
+      "absent": "Non visto",
+      "typeHelp": "Il tipo di dispositivo è un numero che ha senso solo per quel tipo di sensore, quindi è mostrato come numero.",
+      "kind": {
+        "compass": "Bussola",
+        "accel": "Accelerometro",
+        "gyro": "Giroscopio",
+        "baro": "Barometro"
+      },
+      "buses": {
+        "unknown": "Bus sconosciuto",
+        "i2c": "I2C",
+        "spi": "SPI",
+        "dronecan": "DroneCAN",
+        "sitl": "Simulatore",
+        "msp": "MSP",
+        "serial": "Seriale",
+        "wspi": "Wide SPI"
+      }
     }
   }
 }

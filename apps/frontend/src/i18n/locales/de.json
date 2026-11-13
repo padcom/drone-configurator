@@ -1343,6 +1343,102 @@
       "terrain": "Geländedaten",
       "fence": "Geofence",
       "propulsion": "Antrieb"
+    },
+    "reboot": {
+      "needed": "Neustart nötig: Das Geschriebene gilt erst, wenn der Flugcontroller neu startet."
+    },
+    "battery": {
+      "summary": "Genaue Spannung und Kapazität machen die Failsafes und die Flugzeitschätzung verlässlich.",
+      "which": "Welcher Akku",
+      "tab": "Akku {n}",
+      "noLiveSecond": "Spannung und Strom live gehören zum ersten Akku. Der zweite hat hier Monitor und Kapazität, aber keine Kalibrierung.",
+      "monitor": "Monitor",
+      "capacity": "Kapazität (mAh)",
+      "tileVoltage": "Spannung",
+      "tileCurrent": "Strom",
+      "tileRemaining": "Verbleibend",
+      "noReading": "Das Fahrzeug zeigt noch keinen Wert, also gibt es nichts zum Abgleichen.",
+      "shown": "Das Fahrzeug zeigt {value}",
+      "secondLook": "Das sind mehr als 15 % Abweichung von der Anzeige des Fahrzeugs. Prüfe den Messwert.",
+      "checked": "Ich habe das Messgerät noch einmal abgelesen, der Wert stimmt",
+      "use": "Diesen Wert verwenden",
+      "thresholds": "Die niedrige und die kritische Spannung und was das Fahrzeug dann tut, stehen unter Failsafes.",
+      "voltage": {
+        "title": "Spannung kalibrieren",
+        "help": "Miss den Akku mit einem Multimeter und tippe den Wert ein. Der neue Multiplikator ist der alte mal Messgerät durch Anzeige des Fahrzeugs.",
+        "measured": "Multimeter-Wert (V)"
+      },
+      "current": {
+        "title": "Strom kalibrieren",
+        "help": "Miss den Strom unter Last mit einer Stromzange und tippe den Wert ein. Die neuen Ampere pro Volt sind die alten mal Messgerät durch Anzeige des Fahrzeugs.",
+        "measured": "Stromzangen-Wert (A)"
+      },
+      "noMultiplier": "Dieser Monitor nutzt keinen Spannungsmultiplikator, also gibt es hier nichts zu kalibrieren.",
+      "offsetNote": "Das berechnet nur den Multiplikator: ein Offset des Sensors bleibt unverändert."
+    },
+    "monitor": {
+      "disabled": "Aus",
+      "analogVoltage": "Nur analoge Spannung",
+      "analogVoltageCurrent": "Analoge Spannung und Strom",
+      "smbus": "SMBus (Smart-Akku)",
+      "dronecan": "DroneCAN-Akkuinfo",
+      "esc": "Von den Reglern",
+      "sum": "Summe gewählter Monitore",
+      "syntheticCurrent": "Synthetischer Strom und analoge Spannung",
+      "analogCurrent": "Nur analoger Strom"
+    },
+    "frame": {
+      "summary": "Wie viele Motoren das Fahrzeug hat, wie sie gemischt werden und wie das Board darin sitzt.",
+      "warning": "Ein falscher Rahmen macht das Fahrzeug unsteuerbar. Ändere ihn nur bei entschärftem Fahrzeug ohne Propeller und prüfe die Motorreihenfolge vor dem Flug.",
+      "class": "Rahmenklasse",
+      "type": "Rahmentyp",
+      "orientation": "Board-Ausrichtung",
+      "orientationHelp": "Gilt ab dem nächsten Start. Nach der Änderung das Fahrzeug neu nivellieren.",
+      "undefined": "Nicht definiert",
+      "noRotation": "Keine",
+      "noDrawing": "Für diesen Rahmen gibt es keine Zeichnung.",
+      "caption": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest, nicht der Ausgang, an dem er angeschlossen ist; der Pfeil ist die Drehrichtung.",
+      "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
+      "cw": "im Uhrzeigersinn",
+      "ccw": "gegen den Uhrzeigersinn"
+    },
+    "serial": {
+      "summary": "Wofür jeder serielle Port des Boards genutzt wird und wie schnell er spricht.",
+      "inUse": "Ports in Benutzung: {used}",
+      "mayCut": "Eine Änderung an Serial {ports} kann die Verbindung kappen, über die diese App spricht: Er trägt MAVLink oder ist vielleicht der Port einer Bodenstation.",
+      "port": "Serial {n}",
+      "protocol": "Protokoll von Serial {n}",
+      "baud": "Geschwindigkeit von Serial {n}",
+      "none": "Dieses Fahrzeug hat keine Parameter für serielle Ports.",
+      "noProtocol": "Keiner",
+      "willCut": "Nach dem Neustart geht die Verbindung über Serial {ports} verloren, wenn diese App darüber spricht: Er trug MAVLink oder ist vielleicht der Port einer Bodenstation."
+    },
+    "devices": {
+      "summary": "Die Sensoren, die das Fahrzeug gesehen hat, mit der gemerkten ID, zerlegt in Bus, Adresse und Gerätetyp.",
+      "none": "Das Fahrzeug hat keine Parameter mit Geräte-IDs.",
+      "sensor": "Sensor",
+      "bus": "Bus",
+      "address": "Adresse",
+      "type": "Gerätetyp",
+      "id": "ID",
+      "absent": "Nicht gesehen",
+      "typeHelp": "Der Gerätetyp ist eine Zahl, die nur für die jeweilige Sensorart etwas bedeutet, daher wird sie als Zahl gezeigt.",
+      "kind": {
+        "compass": "Kompass",
+        "accel": "Beschleunigungssensor",
+        "gyro": "Gyroskop",
+        "baro": "Barometer"
+      },
+      "buses": {
+        "unknown": "Unbekannter Bus",
+        "i2c": "I2C",
+        "spi": "SPI",
+        "dronecan": "DroneCAN",
+        "sitl": "Simulator",
+        "msp": "MSP",
+        "serial": "Seriell",
+        "wspi": "Wide SPI"
+      }
     }
   }
 }

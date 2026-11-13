@@ -1343,6 +1343,102 @@
       "terrain": "Dane terenu",
       "fence": "Geofence",
       "propulsion": "Napęd"
+    },
+    "reboot": {
+      "needed": "Potrzebny restart: zapisane zmiany działają po restarcie kontrolera lotu."
+    },
+    "battery": {
+      "summary": "Dokładne napięcie i pojemność sprawiają, że zabezpieczenia i szacunki czasu lotu są wiarygodne.",
+      "which": "Która bateria",
+      "tab": "Bateria {n}",
+      "noLiveSecond": "Napięcie i prąd na żywo dotyczą pierwszej baterii. Druga ma tu monitor i pojemność, bez kalibracji.",
+      "monitor": "Monitor",
+      "capacity": "Pojemność (mAh)",
+      "tileVoltage": "Napięcie",
+      "tileCurrent": "Prąd",
+      "tileRemaining": "Pozostało",
+      "noReading": "Pojazd nie pokazuje jeszcze odczytu, więc nie ma do czego kalibrować.",
+      "shown": "Pojazd pokazuje {value}",
+      "secondLook": "To ponad 15% od tego, co pokazuje pojazd. Sprawdź odczyt.",
+      "checked": "Odczytałem miernik ponownie i jest prawidłowy",
+      "use": "Użyj tej wartości",
+      "thresholds": "Napięcia niskie i krytyczne oraz to, co robi pojazd, są w Zabezpieczeniach.",
+      "voltage": {
+        "title": "Skalibruj napięcie",
+        "help": "Zmierz baterię multimetrem i wpisz odczyt. Nowy mnożnik to stary razy miernik podzielony przez to, co pokazuje pojazd.",
+        "measured": "Odczyt multimetru (V)"
+      },
+      "current": {
+        "title": "Skalibruj prąd",
+        "help": "Zmierz prąd miernikiem cęgowym pod obciążeniem i wpisz odczyt. Nowe ampery na wolt to stare razy miernik podzielony przez to, co pokazuje pojazd.",
+        "measured": "Odczyt miernika cęgowego (A)"
+      },
+      "noMultiplier": "Ten monitor nie używa mnożnika napięcia, więc nie ma tu czego kalibrować.",
+      "offsetNote": "To wylicza tylko mnożnik: offset czujnika zostaje bez zmian."
+    },
+    "monitor": {
+      "disabled": "Wyłączony",
+      "analogVoltage": "Tylko napięcie analogowe",
+      "analogVoltageCurrent": "Napięcie i prąd analogowy",
+      "smbus": "SMBus (inteligentna bateria)",
+      "dronecan": "Informacje o baterii DroneCAN",
+      "esc": "Z regulatorów",
+      "sum": "Suma wybranych monitorów",
+      "syntheticCurrent": "Prąd syntetyczny i napięcie analogowe",
+      "analogCurrent": "Tylko prąd analogowy"
+    },
+    "frame": {
+      "summary": "Ile silników ma pojazd, jak są miksowane i jak płytka jest w nim ułożona.",
+      "warning": "Zła rama sprawia, że pojazd jest niesterowalny. Zmieniaj ją tylko przy rozbrojonym pojeździe, bez śmigieł, i sprawdź kolejność silników przed lotem.",
+      "class": "Klasa ramy",
+      "type": "Typ ramy",
+      "orientation": "Orientacja płytki",
+      "orientationHelp": "Działa po następnym uruchomieniu. Po zmianie wypoziomuj pojazd ponownie.",
+      "undefined": "Niezdefiniowana",
+      "noRotation": "Brak",
+      "noDrawing": "Dla tej ramy nie ma rysunku.",
+      "caption": "Przód jest u góry. Numer to numer silnika w teście silników, a nie wyjście, do którego jest podłączony; strzałka to kierunek obrotów.",
+      "motor": "Silnik {number} pod kątem {angle} stopni, obraca się {spin}",
+      "cw": "zgodnie z ruchem wskazówek zegara",
+      "ccw": "przeciwnie do ruchu wskazówek zegara"
+    },
+    "serial": {
+      "summary": "Do czego służy każdy port szeregowy płytki i jak szybko rozmawia.",
+      "inUse": "Używane porty: {used}",
+      "mayCut": "Zmiana portu Serial {ports} może przerwać połączenie, którym rozmawia ta aplikacja: niesie MAVLink lub może być portem stacji naziemnej.",
+      "port": "Serial {n}",
+      "protocol": "Protokół portu serial {n}",
+      "baud": "Prędkość portu serial {n}",
+      "none": "Ten pojazd nie ma parametrów portów szeregowych.",
+      "noProtocol": "Brak",
+      "willCut": "Po restarcie połączenie przez Serial {ports} zostanie utracone, jeśli ta aplikacja rozmawia przez ten port: niósł MAVLink lub może być portem stacji naziemnej."
+    },
+    "devices": {
+      "summary": "Czujniki, które widział pojazd, z zapamiętanym id każdego rozkodowanym na magistralę, adres i typ urządzenia.",
+      "none": "Pojazd nie ma parametrów z id urządzeń.",
+      "sensor": "Czujnik",
+      "bus": "Magistrala",
+      "address": "Adres",
+      "type": "Typ urządzenia",
+      "id": "Id",
+      "absent": "Nie widziany",
+      "typeHelp": "Typ urządzenia to liczba, która ma sens tylko dla danego rodzaju czujnika, więc jest pokazana jako liczba.",
+      "kind": {
+        "compass": "Kompas",
+        "accel": "Akcelerometr",
+        "gyro": "Żyroskop",
+        "baro": "Barometr"
+      },
+      "buses": {
+        "unknown": "Nieznana magistrala",
+        "i2c": "I2C",
+        "spi": "SPI",
+        "dronecan": "DroneCAN",
+        "sitl": "Symulator",
+        "msp": "MSP",
+        "serial": "Szeregowa",
+        "wspi": "Szeroki SPI"
+      }
     }
   }
 }

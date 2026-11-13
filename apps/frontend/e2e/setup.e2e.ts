@@ -129,3 +129,31 @@ it('shows the vehicle and its autopilot on the information page', async () => {
 
   expect(await window().text('.setup-facts-list')).toContain('QUADROTOR')
 })
+
+it('proposes a new voltage multiplier from a meter reading, and writes nothing until asked', async () => {
+  await openPage('battery')
+  await window().waitFor(`document.querySelector('[data-calibrate="voltage"] input') !== null`, 30_000)
+  await window().fill('[data-calibrate="voltage"] input', '12.6')
+  await window().waitFor(`document.querySelector('[data-calibrate="voltage"] .setup-proposal') !== null`, 10_000)
+
+  expect(await window().text('[data-calibrate="voltage"] .setup-proposal')).toContain('BATT_VOLT_MULT')
+  expect(await window().text('#setup-battery-write')).toBe('No changes')
+})
+
+it('lists the serial ports the vehicle has, and how many are in use', async () => {
+  await openPage('serial')
+  await window().waitFor(`document.querySelectorAll('.setup-port').length === 3`, 30_000)
+
+  expect(await window().text('#setup-serial-inuse')).toBe('Ports in use: 3')
+})
+
+it('warns about the frame and draws the quad, and decodes the device ids', async () => {
+  await openPage('frame')
+  await window().waitFor(`document.querySelectorAll('[data-motor]').length === 4`, 30_000)
+
+  expect(await window().text('#setup-frame-warning')).toContain('uncontrollable')
+  await openPage('devices')
+  await window().waitFor(`document.querySelector('[data-device="COMPASS_DEV_ID"]') !== null`, 30_000)
+
+  expect(await window().text('[data-device="COMPASS_DEV_ID"]')).toContain('I2C')
+})

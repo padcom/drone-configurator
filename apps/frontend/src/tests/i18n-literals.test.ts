@@ -18,6 +18,28 @@ const ALLOWED: [string, string][] = [
   ['lib/commands/registry.ts', 'is already registered'],
   ['composables/useCommands.ts', 'not wired to the backend'],
   ['lib/app/keymap.ts', 'Ctrl Enter'], // the name of a key, as it is printed on it: not translated
+  // The names ArduPilot gives the values of its own parameters (its frames and serial protocols): the vehicle's vocabulary,
+  // shown as it says them, like a flight mode's name or a parameter's.
+  ...[
+    'Scripting Matrix', 'Dynamic Scripting Matrix', 'Custom 4.1 and older',
+  ].map((name): [string, string] => ['lib/setup/frame.ts', name]),
+  ...[
+    'Frsky SPort',
+    'Alexmos Gimbal Serial',
+    'FrSky SPort Passthrough (OpenTX)',
+    'Volz servo out',
+    'SBus servo out',
+    'ESC Telemetry',
+    'Devo Telemetry',
+    'NMEA Output',
+    'EFI Serial',
+    'Crossfire VTX',
+    'DJI FPV',
+    'MAVLink High Latency',
+    'IRC Tramp',
+    'DDS XRCE',
+    'i-BUS Telemetry',
+  ].map((name): [string, string] => ['lib/setup/serial.ts', name]),
 ]
 
 /**

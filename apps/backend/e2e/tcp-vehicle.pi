@@ -89,16 +89,23 @@ function serve(conn: Conn): void {
 function setupParams(): SimParam[] {
   const out = defaultSimParams()
   const whole = ["FRAME_CLASS", "FRAME_TYPE", "FLTMODE1", "FLTMODE2", "FLTMODE3", "FLTMODE4", "FLTMODE5", "FLTMODE6", "FLTMODE_CH",
-    "FS_GCS_ENABLE", "FS_EKF_ACTION", "BATT_MONITOR", "BATT_FS_LOW_ACT", "BATT_FS_CRT_ACT"]
-  const wholeValues = [1, 1, 0, 5, 6, 3, 9, 16, 5, 0, 1, 4, 2, 1]
+    "FS_GCS_ENABLE", "FS_EKF_ACTION", "BATT_MONITOR", "BATT_FS_LOW_ACT", "BATT_FS_CRT_ACT", "AHRS_ORIENTATION",
+    "SERIAL0_PROTOCOL", "SERIAL0_BAUD", "SERIAL1_PROTOCOL", "SERIAL1_BAUD", "SERIAL2_PROTOCOL", "SERIAL2_BAUD"]
+  const wholeValues = [1, 1, 0, 5, 6, 3, 9, 16, 5, 0, 1, 4, 2, 1, 0, 2, 115, 2, 57, 5, 115]
   for (let i = 0; i < whole.length; i++) {
     out.push(SimParam { id: whole[i], value: TypedParamValue.Int(wholeValues[i], MavParamType.INT8) })
   }
   const reals = ["INS_ACCOFFS_X", "INS_ACCOFFS_Y", "INS_ACCOFFS_Z", "INS_ACCSCAL_X", "INS_ACCSCAL_Y", "INS_ACCSCAL_Z",
-    "COMPASS_OFS_X", "COMPASS_OFS_Y", "COMPASS_OFS_Z", "BATT_CRT_VOLT"]
-  const realValues = [0.12, -0.03, 0.2, 1.001, 0.999, 1.0, 0.0, 0.0, 0.0, 10.0]
+    "COMPASS_OFS_X", "COMPASS_OFS_Y", "COMPASS_OFS_Z", "BATT_CRT_VOLT", "BATT_VOLT_MULT", "BATT_AMP_PERVLT"]
+  const realValues = [0.12, -0.03, 0.2, 1.001, 0.999, 1.0, 0.0, 0.0, 0.0, 10.0, 10.1, 17.0]
   for (let i = 0; i < reals.length; i++) {
     out.push(SimParam { id: reals[i], value: TypedParamValue.Real(realValues[i], MavParamType.REAL32) })
+  }
+  // Device ids are 24 bits: a 32-bit parameter (an I2C compass, an SPI accelerometer and gyro, an SPI barometer).
+  const devices = ["COMPASS_DEV_ID", "INS_ACC_ID", "INS_GYR_ID", "BARO1_DEVID"]
+  const deviceValues = [466441, 590082, 590338, 721666]
+  for (let i = 0; i < devices.length; i++) {
+    out.push(SimParam { id: devices[i], value: TypedParamValue.Int(deviceValues[i], MavParamType.INT32) })
   }
   for (const n of [1, 2, 3, 4]) {
     out.push(SimParam { id: `RC${n}_MIN`, value: TypedParamValue.Int(1008, MavParamType.INT16) })

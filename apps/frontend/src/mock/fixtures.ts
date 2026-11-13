@@ -68,6 +68,24 @@ export const SETUP_PARAMS: Param[] = [
   p('BATT_CRT_VOLT', 'real', 'REAL32', 10),
   p('BATT_FS_LOW_ACT', 'int', 'INT8', 2),
   p('BATT_FS_CRT_ACT', 'int', 'INT8', 1),
+  p('BATT_VOLT_MULT', 'real', 'REAL32', 10.1),
+  p('BATT_AMP_PERVLT', 'real', 'REAL32', 17),
+  p('AHRS_ORIENTATION', 'int', 'INT8', 0),
+  p('SERIAL0_PROTOCOL', 'int', 'INT8', 2),
+  p('SERIAL0_BAUD', 'int', 'INT32', 115),
+  p('SERIAL1_PROTOCOL', 'int', 'INT8', 2),
+  p('SERIAL1_BAUD', 'int', 'INT32', 57),
+  p('SERIAL2_PROTOCOL', 'int', 'INT8', 5),
+  p('SERIAL2_BAUD', 'int', 'INT32', 115),
+  p('SERIAL3_PROTOCOL', 'int', 'INT8', -1),
+  p('SERIAL3_BAUD', 'int', 'INT32', 38),
+  // Device ids: an I2C compass (bus 1, address 0x1e, type 7), an SPI accelerometer and gyro (bus 0, addresses 1 and 2, type 9),
+  // an SPI barometer (address 3, type 11); the second accelerometer was never seen.
+  p('COMPASS_DEV_ID', 'int', 'INT32', 466_441),
+  p('INS_ACC_ID', 'int', 'INT32', 590_082),
+  p('INS_ACC2_ID', 'int', 'INT32', 0),
+  p('INS_GYR_ID', 'int', 'INT32', 590_338),
+  p('BARO1_DEVID', 'int', 'INT32', 721_666),
 ].map((param, index) => ({ ...param, index }))
 
 /** What the simulated vehicle says of itself (AUTOPILOT_VERSION and SYS_STATUS) when asked by `vehicle.info`. */

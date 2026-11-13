@@ -1343,6 +1343,102 @@
       "terrain": "Terrain data",
       "fence": "Geofence",
       "propulsion": "Propulsion"
+    },
+    "reboot": {
+      "needed": "Reboot needed: what was written takes effect when the flight controller restarts."
+    },
+    "battery": {
+      "summary": "Accurate voltage and capacity are what make the failsafes and the flight-time estimates trustworthy.",
+      "which": "Which battery",
+      "tab": "Battery {n}",
+      "noLiveSecond": "The vehicle's live voltage and current are of the first battery. The second has its monitor and capacity here, and no calibration.",
+      "monitor": "Monitor",
+      "capacity": "Capacity (mAh)",
+      "tileVoltage": "Voltage",
+      "tileCurrent": "Current",
+      "tileRemaining": "Remaining",
+      "noReading": "The vehicle shows no reading yet, so there is nothing to calibrate against.",
+      "shown": "The vehicle shows {value}",
+      "secondLook": "That is more than 15% from what the vehicle shows. Check the reading.",
+      "checked": "I read the meter again and it is right",
+      "use": "Use this value",
+      "thresholds": "The low and critical voltages and what the vehicle does at them are under Failsafes.",
+      "voltage": {
+        "title": "Calibrate the voltage",
+        "help": "Measure the battery with a multimeter and type the reading. The new multiplier is the old one times the meter over what the vehicle shows.",
+        "measured": "Multimeter reading (V)"
+      },
+      "current": {
+        "title": "Calibrate the current",
+        "help": "Measure the current with a clamp meter under load and type the reading. The new amps per volt is the old one times the meter over what the vehicle shows.",
+        "measured": "Clamp meter reading (A)"
+      },
+      "noMultiplier": "This monitor does not use a voltage multiplier, so there is nothing to calibrate here.",
+      "offsetNote": "This works out the multiplier only: an offset the sensor has is left as it is."
+    },
+    "monitor": {
+      "disabled": "Disabled",
+      "analogVoltage": "Analog voltage only",
+      "analogVoltageCurrent": "Analog voltage and current",
+      "smbus": "SMBus (smart battery)",
+      "dronecan": "DroneCAN battery info",
+      "esc": "From the ESCs",
+      "sum": "Sum of selected monitors",
+      "syntheticCurrent": "Synthetic current and analog voltage",
+      "analogCurrent": "Analog current only"
+    },
+    "frame": {
+      "summary": "How many motors the vehicle has and how they are mixed, and how the board sits in it.",
+      "warning": "A wrong frame makes the vehicle uncontrollable. Change it only while the vehicle is disarmed, with the propellers off, and check the motor order before you fly.",
+      "class": "Frame class",
+      "type": "Frame type",
+      "orientation": "Board orientation",
+      "orientationHelp": "It takes effect at the next boot. After changing it, level the vehicle again.",
+      "undefined": "Undefined",
+      "noRotation": "None",
+      "noDrawing": "There is no drawing for this frame.",
+      "caption": "Front is up. The number is the motor's number in the motor test, not the output it is wired to; the arrow is the way it spins.",
+      "motor": "Motor {number} at {angle} degrees, spins {spin}",
+      "cw": "clockwise",
+      "ccw": "counter-clockwise"
+    },
+    "serial": {
+      "summary": "What each serial port of the board is used for, and how fast it talks.",
+      "inUse": "Ports in use: {used}",
+      "mayCut": "A change to Serial {ports} may cut the connection this app talks over: it carries MAVLink, or may be the port a ground station uses.",
+      "port": "Serial {n}",
+      "protocol": "Protocol of serial {n}",
+      "baud": "Speed of serial {n}",
+      "none": "This vehicle has no serial port parameters.",
+      "noProtocol": "None",
+      "willCut": "After the reboot the connection over Serial {ports} will be lost if this app talks over it: it carried MAVLink, or may be the port a ground station uses."
+    },
+    "devices": {
+      "summary": "The sensors the vehicle has seen, with the id it keeps for each decoded into the bus, the address and the device type.",
+      "none": "The vehicle has none of the parameters that hold device ids.",
+      "sensor": "Sensor",
+      "bus": "Bus",
+      "address": "Address",
+      "type": "Device type",
+      "id": "Id",
+      "absent": "Not seen",
+      "typeHelp": "The device type is a number that only means something for that kind of sensor, so it is shown as the number.",
+      "kind": {
+        "compass": "Compass",
+        "accel": "Accelerometer",
+        "gyro": "Gyroscope",
+        "baro": "Barometer"
+      },
+      "buses": {
+        "unknown": "Unknown bus",
+        "i2c": "I2C",
+        "spi": "SPI",
+        "dronecan": "DroneCAN",
+        "sitl": "Simulator",
+        "msp": "MSP",
+        "serial": "Serial",
+        "wspi": "Wide SPI"
+      }
     }
   }
 }
