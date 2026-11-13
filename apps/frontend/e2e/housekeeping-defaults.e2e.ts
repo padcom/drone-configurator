@@ -1,5 +1,5 @@
-// End to end, in the real window with the real backend and no vehicle: with the settings as they are on a new or an existing
-// install (Never and No limit), NOTHING is removed, whatever the age of the copies, and not a stale part of a download either: the
+// End to end, in the real window with the real backend and no vehicle: with the settings as they are on a new or an
+// existing install (Never and No limit), NOTHING is removed, whatever the age of the copies, and not a stale part of a download either: the
 // housekeeping asks the backend, which removes nothing without a rule, and no toast says otherwise.
 import { existsSync, mkdirSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
