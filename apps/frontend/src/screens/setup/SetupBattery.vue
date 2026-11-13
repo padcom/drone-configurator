@@ -40,6 +40,7 @@
         />
       </div>
       <template v-if="tab === 0">
+        <p v-if="hasVoltage || hasCurrent" class="muted">{{ t('setup.battery.offsetNote') }}</p>
         <p v-if="!hasVoltage" id="setup-battery-novoltage" class="muted">{{ t('setup.battery.noMultiplier') }}</p>
         <BatteryCalibration
           v-else

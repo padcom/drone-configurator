@@ -2,7 +2,6 @@
   <section class="setup-calibrate" :data-calibrate="kind" :aria-labelledby="`${uid}-title`">
     <h3 :id="`${uid}-title`" class="setup-subheading">{{ t(`setup.battery.${kind}.title`) }}</h3>
     <p class="muted">{{ t(`setup.battery.${kind}.help`) }}</p>
-    <p class="muted">{{ t('setup.battery.offsetNote') }}</p>
     <p v-if="shown === null" class="muted" role="status">{{ t('setup.battery.noReading') }}</p>
     <template v-else>
       <div class="setup-calibrate-row">
@@ -19,7 +18,7 @@
       <p v-if="proposal !== null && !changes" class="muted" data-same>{{ t('setup.battery.sameValue') }}</p>
       <p v-if="second" class="setup-warn" role="alert">{{ t('setup.battery.secondLook') }}</p>
       <Checkbox v-if="second" v-model="checked" :disabled="disabled">{{ t('setup.battery.checked') }}</Checkbox>
-      <Button :disabled="!usable" @click="use">{{ t('setup.battery.use') }}</Button>
+      <Button :disabled="!usable" @click="use">{{ t(`setup.battery.${kind}.use`) }}</Button>
     </template>
   </section>
 </template>

@@ -50,15 +50,16 @@ async function connectIf(handle: ReturnType<typeof createConfigurator>, connect:
 }
 
 /**
- * Mounts a page under the router at the Setup home. The screen is what the router shows at its own depth, so it is mounted by
+ * Mounts a page under the router at an address. The screen is what the router shows at its own depth, so it is mounted by
  * the router's view, as the shell does.
  *
  * @param component the page
+ * @param at the address
  * @returns the mounted page
  */
-async function mountPage(component: Component): Promise<VueWrapper> {
+async function mountPage(component: Component, at: string): Promise<VueWrapper> {
   const router = createAppRouter(createMemoryHistory(), () => 0)
-  await router.push('/setup/home')
+  await router.push(at)
   await router.isReady()
   const shown = component === Setup ? defineComponent({ render: () => h(RouterView) }) : component
   const wrapper = mount(shown, { global: { plugins: [i18n, router] }, props: { section: 'home' } })
@@ -73,9 +74,10 @@ async function mountPage(component: Component): Promise<VueWrapper> {
  * @param component the page
  * @param more more of the mock's options
  * @param connect whether to connect the vehicle
+ * @param at the address
  * @returns the page and what drives it
  */
-async function page(component: Component, more: MockOptions = {}, connect = true): Promise<Rig> {
+async function open(component: Component, more: MockOptions, connect: boolean, at: string): Promise<Rig> {
   const control: MockControl = {}
   const asked: string[] = []
   const handle = createConfigurator(
@@ -88,9 +90,21 @@ async function page(component: Component, more: MockOptions = {}, connect = true
   )
   control.armed?.(false)
   await connectIf(handle, connect)
-  mounted = await mountPage(component)
+  mounted = await mountPage(component, at)
 
   return { wrapper: mounted, handle, control, asked }
+}
+
+/**
+ * A page at the Setup home over a connected simulated vehicle, or as the options say.
+ *
+ * @param component the page
+ * @param more more of the mock's options
+ * @param connect whether to connect the vehicle
+ * @returns the page and what drives it
+ */
+function page(component: Component, more: MockOptions = {}, connect = true): Promise<Rig> {
+  return open(component, more, connect, '/setup/home')
 }
 
 it('says a vehicle must be connected, with no list of pages, when none is', async () => {
@@ -110,8 +124,18 @@ it('says Setup is not available yet for a vehicle that is not a multicopter, and
   expect(wrapper.find('.setup-nav').exists()).toBe(false)
 })
 
+it('shows no list of pages on the overview (its cards are the list), and the list on the other pages', async () => {
+  const overview = await page(Setup)
+  expect(overview.wrapper.find('.setup-nav').exists()).toBe(false)
+  expect(overview.wrapper.findAll('.setup-card').length).toBeGreaterThan(0)
+
+  const { wrapper } = await open(Setup, {}, true, '/setup/modes')
+  expect(wrapper.find('.setup-nav').exists()).toBe(true)
+  expect(wrapper.find('.setup-card').exists()).toBe(false)
+})
+
 it('lists the pages in the groups of the design, and marks the steps by what the parameters say, in words as well', async () => {
-  const { wrapper } = await page(Setup)
+  const { wrapper } = await open(Setup, {}, true, '/setup/modes')
   const links = wrapper.findAll('.setup-nav a').map(link => link.text().replace(/\s+/gu, ' ').trim())
 
   expect(links[0]).toBe('Overview')
@@ -272,6 +296,13 @@ it('says what each failsafe does in words, and warns for the one that is off', a
   expect(gcs.get('.setup-warn').text()).toContain('is off')
   expect(wrapper.findAll('.setup-warn')).toHaveLength(1)
   expect(wrapper.get('[data-failsafe="batteryLow"]').find('.setup-warn').exists()).toBe(false)
+})
+
+it('tells the low voltage from the critical one by the label of each, not "Below (V)" twice', async () => {
+  const { wrapper } = await page(SetupFailsafes)
+
+  expect(wrapper.get('[data-failsafe="batteryLow"] label').text()).toBe('Low when below (V)')
+  expect(wrapper.get('[data-failsafe="batteryCritical"] label').text()).toBe('Critical when below (V)')
 })
 
 it('does not say a failsafe that is disabled warns: for the radio and the ground station 0 is off, nothing warns', async () => {

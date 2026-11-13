@@ -1270,10 +1270,12 @@
       "order": "La tensione critica deve essere inferiore a quella bassa.",
       "noName": "esegue l'azione {value}, che qui non ha nome",
       "batteryLow": {
-        "name": "Batteria bassa"
+        "name": "Batteria bassa",
+        "below": "Basso sotto (V)"
       },
       "batteryCritical": {
-        "name": "Batteria critica"
+        "name": "Batteria critica",
+        "below": "Critico sotto (V)"
       },
       "radio": {
         "name": "Radio persa"
@@ -1368,12 +1370,14 @@
       "voltage": {
         "title": "Calibra la tensione",
         "help": "Misura la batteria con un multimetro e scrivi il valore. Il nuovo moltiplicatore è il vecchio per il tester diviso ciò che mostra il veicolo.",
-        "measured": "Lettura del multimetro (V)"
+        "measured": "Lettura del multimetro (V)",
+        "use": "Usa questo moltiplicatore di tensione"
       },
       "current": {
         "title": "Calibra la corrente",
         "help": "Misura la corrente con una pinza amperometrica sotto carico e scrivi il valore. I nuovi ampere per volt sono i vecchi per il tester diviso ciò che mostra il veicolo.",
-        "measured": "Lettura della pinza (A)"
+        "measured": "Lettura della pinza (A)",
+        "use": "Usa questo moltiplicatore di corrente"
       },
       "noMultiplier": "Questo monitor non usa un moltiplicatore di tensione, quindi qui non c'è nulla da calibrare.",
       "offsetNote": "Questo calcola solo il moltiplicatore: l'eventuale offset del sensore resta com'è.",

@@ -1270,10 +1270,12 @@
       "order": "Napięcie krytyczne musi być niższe niż niskie.",
       "noName": "wykonuje działanie {value}, które nie ma tu nazwy",
       "batteryLow": {
-        "name": "Niski poziom baterii"
+        "name": "Niski poziom baterii",
+        "below": "Niski poniżej (V)"
       },
       "batteryCritical": {
-        "name": "Krytyczny poziom baterii"
+        "name": "Krytyczny poziom baterii",
+        "below": "Krytyczny poniżej (V)"
       },
       "radio": {
         "name": "Utrata radia"
@@ -1368,12 +1370,14 @@
       "voltage": {
         "title": "Skalibruj napięcie",
         "help": "Zmierz baterię multimetrem i wpisz odczyt. Nowy mnożnik to stary razy miernik podzielony przez to, co pokazuje pojazd.",
-        "measured": "Odczyt multimetru (V)"
+        "measured": "Odczyt multimetru (V)",
+        "use": "Użyj tego mnożnika napięcia"
       },
       "current": {
         "title": "Skalibruj prąd",
         "help": "Zmierz prąd miernikiem cęgowym pod obciążeniem i wpisz odczyt. Nowe ampery na wolt to stare razy miernik podzielony przez to, co pokazuje pojazd.",
-        "measured": "Odczyt miernika cęgowego (A)"
+        "measured": "Odczyt miernika cęgowego (A)",
+        "use": "Użyj tego mnożnika prądu"
       },
       "noMultiplier": "Ten monitor nie używa mnożnika napięcia, więc nie ma tu czego kalibrować.",
       "offsetNote": "To wylicza tylko mnożnik: offset czujnika zostaje bez zmian.",

@@ -1270,10 +1270,12 @@
       "order": "Die kritische Spannung muss unter der niedrigen liegen.",
       "noName": "es führt Aktion {value} aus, die hier keinen Namen hat",
       "batteryLow": {
-        "name": "Akku niedrig"
+        "name": "Akku niedrig",
+        "below": "Niedrig unter (V)"
       },
       "batteryCritical": {
-        "name": "Akku kritisch"
+        "name": "Akku kritisch",
+        "below": "Kritisch unter (V)"
       },
       "radio": {
         "name": "Funk verloren"
@@ -1368,12 +1370,14 @@
       "voltage": {
         "title": "Spannung kalibrieren",
         "help": "Miss den Akku mit einem Multimeter und tippe den Wert ein. Der neue Multiplikator ist der alte mal Messgerät durch Anzeige des Fahrzeugs.",
-        "measured": "Multimeter-Wert (V)"
+        "measured": "Multimeter-Wert (V)",
+        "use": "Diesen Spannungsfaktor verwenden"
       },
       "current": {
         "title": "Strom kalibrieren",
         "help": "Miss den Strom unter Last mit einer Stromzange und tippe den Wert ein. Die neuen Ampere pro Volt sind die alten mal Messgerät durch Anzeige des Fahrzeugs.",
-        "measured": "Stromzangen-Wert (A)"
+        "measured": "Stromzangen-Wert (A)",
+        "use": "Diesen Stromfaktor verwenden"
       },
       "noMultiplier": "Dieser Monitor nutzt keinen Spannungsmultiplikator, also gibt es hier nichts zu kalibrieren.",
       "offsetNote": "Das berechnet nur den Multiplikator: ein Offset des Sensors bleibt unverändert.",

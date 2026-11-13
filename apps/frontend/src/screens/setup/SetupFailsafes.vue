@@ -17,7 +17,7 @@
           <p v-if="row.danger" class="setup-warn" role="note">{{ t(`setup.failsafes.warn.${row.action}`) }}</p>
         </div>
         <div v-if="row.threshold" class="setup-threshold">
-          <label :for="`${uid}-${row.kind}`">{{ t('setup.failsafes.below') }}</label>
+          <label :for="`${uid}-${row.kind}`">{{ t(`setup.failsafes.${row.kind}.below`) }}</label>
           <TextInput
             :id="`${uid}-${row.kind}`"
             :model-value="String(row.thresholdValue ?? '')"

@@ -14,7 +14,8 @@
       :level="3"
     />
     <div v-else class="setup-body">
-      <SetupNav :status="status" />
+      <!-- The overview is the list of the pages, as cards: the list beside the other pages would name every step twice. -->
+      <SetupNav v-if="!onHome" :status="status" />
       <!-- The page shown stays alive when another is: what was chosen and not written is there when it is shown again. -->
       <div class="setup-page">
         <RouterView v-slot="{ Component, route }">
@@ -32,11 +33,13 @@
 // it), and the page the address names. Setup is for a multicopter that is connected; another kind of vehicle, or none, is told
 // so in words, with no page that could not work. Each page is a nested route of the registry, loaded when it is first shown.
 import { computed, useId } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useSetupStatus } from '@/composables/useSetupStatus'
 import { isMulticopter } from '@/lib/setup/vehicleKind'
+import { sectionRouteName } from '@/screens/registry'
 import SetupNav from './setup/SetupNav.vue'
 
 const { t } = useI18n()
@@ -46,4 +49,6 @@ const { connection } = handle.fields
 const vehicleType = computed(() => connection.value.vehicle?.type ?? '')
 const multicopter = computed(() => isMulticopter(connection.value.vehicle?.type))
 const status = useSetupStatus(handle)
+const route = useRoute()
+const onHome = computed(() => route.name === sectionRouteName('setup', 'home'))
 </script>
