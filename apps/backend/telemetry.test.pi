@@ -63,7 +63,7 @@ function ratesAsked(): string {
 }
 
 /// Every message of the table (groups.pi): position, speed and attitude four times a second, GPS,
-/// navigation and EKF twice, the battery, wind and vibration once.
+/// navigation and EKF twice, the battery, wind and vibration once, the radio's channels ten times.
 async function asksForTheRates(): Promise<void> throws Error {
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
@@ -74,8 +74,8 @@ async function asksForTheRates(): Promise<void> throws Error {
     expect(ratesAsked()).toBe("1000 250")
     // Every message of the table is asked for and held, at its rate.
     const held = ratesHeldForTests()
-    expect(held.length).toBe(10)
-    expect(wishes().length).toBe(10)
+    expect(held.length).toBe(11)
+    expect(wishes().length).toBe(11)
     for (let i = 0; i < held.length; i++) {
       expect(held[i].messageId).toBe(wishes()[i].id)
       expect(held[i].intervalUs).toBe(Math.round(1000000.0 / wishes()[i].hz) as int)
