@@ -40,14 +40,6 @@ const props = defineProps<{
   onlyPresent?: boolean
 }>()
 
-const { t } = useI18n()
-const reason = computed(() => {
-  const { blocked } = props.panel
-
-  return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
-})
-const shown = computed(() => props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids)
-
 /**
  * Whether the vehicle has a parameter of the page.
  *
@@ -57,6 +49,14 @@ const shown = computed(() => props.onlyPresent ? props.panel.ids.filter(present)
 function present(id: string): boolean {
   return !props.panel.missing.value.includes(id)
 }
+
+const { t } = useI18n()
+const reason = computed(() => {
+  const { blocked } = props.panel
+
+  return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
+})
+const shown = computed(() => props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids)
 
 const changed = computed(() => props.panel.dirty.value.length > 0)
 const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)

@@ -78,7 +78,7 @@ import PanelAside from '@/components/setup/PanelAside.vue'
 import Button from '@/components/ui/Button.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import EnumField from '@/components/fields/EnumField.vue'
-import type { BatteryGroup, Telemetry } from '@/generated/app'
+import type { BatteryGroup } from '@/generated/app'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { BATTERY_PREFIXES, MONITORS, batteryParams, parseAmount } from '@/lib/setup/battery'
@@ -92,19 +92,11 @@ const panel = computed(() => panels[tab.value] ?? panels[0]!)
 const ids = computed(() => batteryParams(tab.value))
 const monitors = MONITORS.map(monitor => ({ value: monitor.value, label: t(`setup.monitor.${monitor.name}`) }))
 const battery = computed(() => handle.fields.telemetry.value?.battery)
-const shownVoltage = computed(() => voltageOf(handle.fields.telemetry.value))
+const groupVoltage = computed(() => battery.value?.voltage)
+const flatVoltage = computed(() => handle.fields.telemetry.value?.batteryVoltage)
+const shownVoltage = computed(() => groupVoltage.value ?? flatVoltage.value ?? null)
 const shownCurrent = computed(() => battery.value?.current ?? null)
 const hasCurrent = computed(() => panel.value.value(ids.value[0] ?? '') === 4)
-
-/**
- * The voltage the vehicle shows: the battery group's, else the flat field's.
- *
- * @param telemetry the latest telemetry
- * @returns volts, or null when it shows none
- */
-function voltageOf(telemetry: Telemetry | null): number | null {
-  return telemetry?.battery?.voltage ?? telemetry?.batteryVoltage ?? null
-}
 
 /**
  * The charge remaining, in words.

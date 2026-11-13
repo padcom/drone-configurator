@@ -197,7 +197,8 @@ export function layoutOf(frameClass: number, frameType: number): readonly Motor[
 export function pointOf(angle: number, radius: number): { x: number, y: number } {
   const turn = angle * Math.PI / 180
 
-  return { x: Math.round(Math.sin(turn) * radius * 100) / 100, y: Math.round(-Math.cos(turn) * radius * 100) / 100 }
+  // (`+ 0` turns a negative zero into 0.)
+  return { x: Math.round(Math.sin(turn) * radius * 100) / 100 + 0, y: Math.round(-Math.cos(turn) * radius * 100) / 100 + 0 }
 }
 
 /** The parameters of the page: the frame and how the board sits. */
@@ -208,8 +209,8 @@ export const FRAME_PARAMS: readonly string[] = ['FRAME_CLASS', 'FRAME_TYPE', 'AH
  *
  * @param list the list
  * @param first an option of the interface's own (a value that has no name in the list), or undefined
- * @param first.value
- * @param first.label
+ * @param first.value the number the vehicle holds
+ * @param first.label the words for it
  * @returns the options
  */
 export function optionsOf(list: readonly Named[], first?: { value: number, label: string }): { value: number, label: string }[] {
