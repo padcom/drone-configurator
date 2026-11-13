@@ -227,9 +227,10 @@ async function hostileFilesNeitherHangNorLeaveAnything(): Promise<void> throws E
 async function aStoppedImportLeavesNothingAndTheFileAsItWas(): Promise<void> throws Error {
   const r = await rig()
   try {
-    // Records spread over enough megabytes that the import is still running when it is stopped.
+    // Records spread over enough megabytes that the import is still running when it is stopped (150000 are about 5 MB: it takes
+    // the importer most of a second, and the stop comes after its first progress; 400000 held 200 MB of the test's heap).
     const w = new TlogWriter()
-    for (let i = 0; i < 400000; i++) {
+    for (let i = 0; i < 150000; i++) {
       const h = new Heartbeat()
       h.type = MavType.QUADROTOR as u8
       w.addMessage(T0 + i * 1000, h, i % 256)
