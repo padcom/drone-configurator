@@ -146,6 +146,7 @@ it('shows a bar for every channel that follows the sticks and never shows a puls
 })
 
 it('cancels, chooses nothing, and can start again', async () => {
+  await openPage('radio')
   await pressWhenEnabled('setup-radio-start')
   await window().waitFor(`document.querySelector('#setup-radio-finish')?.disabled === false`, 60_000)
   await window().click('#setup-radio-cancel')
@@ -157,6 +158,7 @@ it('cancels, chooses nothing, and can start again', async () => {
 })
 
 it('cancels a calibration when its page is left', async () => {
+  await openPage('radio')
   await pressWhenEnabled('setup-radio-start')
   await window().waitFor(`document.querySelector('#setup-radio-finish')?.disabled === false`, 60_000)
   await openPage('modes')
@@ -168,16 +170,22 @@ it('cancels a calibration when its page is left', async () => {
 })
 
 it('ends only when the user says so, and then chooses the ranges of the sticks that moved (and writes nothing)', async () => {
+  // this check does not depend on the ones before it: it opens the page itself
+  await openPage('radio')
   await pressWhenEnabled('setup-radio-start')
   await window().waitFor(`document.querySelector('#setup-radio-finish')?.disabled === false`, 60_000)
+  // roll and pitch have been taken from one end of their sweep (1100 µs) to the other (1900): the range a bar spans while it
+  // runs is the captured one. Pressing Done sooner would find a stick that has not moved far enough to be a range.
+  await window().waitFor(`document.querySelector('[data-channel="1"] .setup-channel-range')?.textContent === '1100–1900'`, 60_000)
+  await window().waitFor(`document.querySelector('[data-channel="2"] .setup-channel-range')?.textContent === '1100–1900'`, 60_000)
   // the yaw stick's spikes are counted and kept out
-  await window().waitFor(`document.querySelector('#setup-radio-glitches') !== null`, 30_000)
+  await window().waitFor(`document.querySelector('#setup-radio-glitches') !== null`, 60_000)
   // the calibration has not ended by itself: nothing is chosen yet
   expect(await window().evaluate<number>(`document.querySelectorAll('.setup-writes li').length`)).toBe(0)
   await window().click('#setup-radio-finish')
 
-  expect(await outcome()).toBe('success')
-  await window().waitFor(`document.querySelector('#setup-radio-staged') !== null`, 10_000)
+  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'success'`, 60_000)
+  await window().waitFor(`document.querySelectorAll('.setup-writes li').length > 0`, 10_000)
   const writes = await window().text('.setup-writes')
   expect(writes).toContain('RC1_MIN')
   expect(writes).toContain('RC2_MAX')
