@@ -2,22 +2,27 @@
 // the defaults. They are here, not in a composable, because the things that act on them (the auto-download after landing and the
 // removal of old copies) are made when the configurator is, before any component asks for them.
 
-/** The keys of the settings entries. */
-export const AUTO_DOWNLOAD_KEY = 'logs.autoDownload'
+/**
+ * The keys of the settings entries. These are NEW keys: while nothing acted on the preferences (before the housekeeping and the
+ * auto-download existed) the settings kept what a user clicked (the old keys `logs.autoDownload`, `logs.retentionDays` and
+ * `logs.sizeCapMb`), and that was never a choice to have files removed or downloaded. Those values are left where they are and
+ * not read: every existing install starts at "never" and "no limit" and the auto-download off, until the user chooses.
+ */
+export const AUTO_DOWNLOAD_KEY = 'logs.autoDownloadAfterLanding'
 
-export const RETENTION_KEY = 'logs.retentionDays'
+export const RETENTION_KEY = 'logs.removeAfterDays'
 
-export const SIZE_CAP_KEY = 'logs.sizeCapMb'
+export const SIZE_CAP_KEY = 'logs.removeAboveMb'
 
 /** What the choices are: days (0 = never remove an old copy), and megabytes (0 = no limit). */
 export const RETENTION_DAYS = ['30', '90', '180', '365', '0'] as const
 
 export const SIZE_CAPS_MB = ['500', '2000', '5000', '10000', '0'] as const
 
-/** What is chosen until the settings say otherwise. */
-export const DEFAULT_RETENTION = '90'
+/** What is chosen until the settings say otherwise: nothing is ever removed until the user turns it on. */
+export const DEFAULT_RETENTION = '0'
 
-export const DEFAULT_SIZE_CAP = '2000'
+export const DEFAULT_SIZE_CAP = '0'
 
 /**
  * A choice among the ones offered.

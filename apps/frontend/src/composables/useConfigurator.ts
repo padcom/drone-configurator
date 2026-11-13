@@ -284,6 +284,8 @@ function startLogs(
   const housekeeping = useHousekeeping({ client, prefs, tell })
   // Old copies are looked at when the settings have been read, and after every download (which may have filled the disk).
   watch(settings.loaded, loaded => loaded && void housekeeping.run(), { immediate: true })
+  // ... and when the user changes what to remove (after the settings were read).
+  watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && void housekeeping.run())
   watch(logs.outcome, outcome => outcome?.kind === 'downloaded' && void housekeeping.run())
   const { connection, telemetry } = vehicle
   useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell })

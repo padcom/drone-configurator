@@ -3,7 +3,7 @@
 import { expect, it } from 'vitest'
 import { BackendError, type BackendClient } from '@/backend/client'
 import type { LogsHousekept } from '@/generated/app'
-import { logsPrefsOf } from '@/lib/logs/logsPrefs'
+import { AUTO_DOWNLOAD_KEY, RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
 import type { ToastInput } from './toasts'
 import { numberOf, removedText, useHousekeeping } from './useHousekeeping'
 
@@ -109,11 +109,20 @@ it('does not overlap: a run asked for while one is going on is not sent', async 
   expect(t.asks).toHaveLength(1)
 })
 
-it('reads the preferences from the settings: the defaults, and 0 for never and no limit', () => {
-  expect(logsPrefsOf(() => undefined)).toEqual({ retentionDays: 90, sizeCapMb: 2000, autoDownload: false })
-  const values: Record<string, string> = { 'logs.retentionDays': '0', 'logs.sizeCapMb': '0', 'logs.autoDownload': 'on' }
+it('removes nothing and downloads nothing until the user turns it on: the defaults are never, no limit, off', () => {
+  expect(logsPrefsOf(() => undefined)).toEqual({ retentionDays: 0, sizeCapMb: 0, autoDownload: false })
+})
 
-  expect(logsPrefsOf(key => values[key])).toEqual({ retentionDays: 0, sizeCapMb: 0, autoDownload: true })
-  // What is not one of the choices is the default (a hand-edited file cannot make a retention of 1 day).
-  expect(logsPrefsOf(() => '1')).toMatchObject({ retentionDays: 90, sizeCapMb: 2000 })
+it('reads what the user chose, and takes what is not one of the choices for the default', () => {
+  const values: Record<string, string> = { [RETENTION_KEY]: '90', [SIZE_CAP_KEY]: '2000', [AUTO_DOWNLOAD_KEY]: 'on' }
+
+  expect(logsPrefsOf(key => values[key])).toEqual({ retentionDays: 90, sizeCapMb: 2000, autoDownload: true })
+  // A hand-edited file cannot make a retention of 1 day.
+  expect(logsPrefsOf(() => '1')).toMatchObject({ retentionDays: 0, sizeCapMb: 0 })
+})
+
+it('does not read the values an install kept while nothing acted on them: those were never a choice to remove files', () => {
+  const old: Record<string, string> = { 'logs.retentionDays': '30', 'logs.sizeCapMb': '500', 'logs.autoDownload': 'on' }
+
+  expect(logsPrefsOf(key => old[key])).toEqual({ retentionDays: 0, sizeCapMb: 0, autoDownload: false })
 })

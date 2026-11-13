@@ -1,9 +1,9 @@
 // End to end, in the real window with the real backend and no vehicle: the housekeeping of the downloaded logs. Before the app
 // starts, the library holds six copies of a vehicle's logs of different ages (the files' times are set), one of them (an old one)
 // whose bytes do not have the CRC in its name, and an imported recording that is very old. When the settings have been read the
-// backend removes by the default retention (90 days): the old copies that verify, but never the newest 3 of the vehicle, never
-// the one that does not verify, and never the recording. The page names what was removed (a toast) and the vehicle's logs page
-// says what the last check did.
+// backend removes by the retention the user chose (90 days; the defaults remove nothing): the old copies that verify, but never
+// the newest 3 of the vehicle, never the one that does not verify, and never the recording. The page names what was removed (a
+// toast) and the vehicle's logs page says what the last check did.
 import { existsSync, mkdirSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, expect, it } from 'vitest'
@@ -12,7 +12,8 @@ import { type E2eApp, home, launchApp } from './launch'
 import { crc32 } from './mavlink-wire'
 
 const DAY_S = 86400
-const LIBRARY = join(home, 'data', 'pico-desktop', 'apps', 'dev.pico-desktop.drone-configurator', 'logs')
+const DATA = join(home, 'data', 'pico-desktop', 'apps', 'dev.pico-desktop.drone-configurator')
+const LIBRARY = join(DATA, 'logs')
 const VEHICLE = join(LIBRARY, 'uid-test')
 
 let app: E2eApp
@@ -69,8 +70,21 @@ function left(): number[] {
   return readdirSync(VEHICLE).filter(name => name.endsWith('.BIN')).map(name => Number(name.slice(0, 8))).sort((a, b) => a - b)
 }
 
+/**
+ * The settings of a user who turned the removal on (90 days), and who has the values an earlier version kept while nothing acted
+ * on them (30 days, 500 MB, auto-download on): those are not read, only the new keys are.
+ */
+function chooseNinetyDays(): void {
+  mkdirSync(DATA, { recursive: true })
+  const entries = [
+    ['logs.removeAfterDays', '90'], ['logs.retentionDays', '30'], ['logs.sizeCapMb', '500'], ['logs.autoDownload', 'on'],
+  ].map(([key, value]) => `{ "key": "${key}", "value": "${value}" }`)
+  writeFileSync(join(DATA, 'settings.json'), `{ "version": 1, "ui": [${entries.join(', ')}] }\n`)
+}
+
 beforeAll(async () => {
   fillTheLibrary()
+  chooseNinetyDays()
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
 })
