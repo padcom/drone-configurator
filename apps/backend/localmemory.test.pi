@@ -20,7 +20,7 @@ import {
 import { copyName } from "./logs"
 import { forgetLocalReads } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
-import { start } from "./testing"
+import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
 
 /// How far above what it was the peak of the process may rise: 32 MB.
 const BOUND_KB: int = 32768
@@ -84,6 +84,8 @@ async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
     useDirectoryForTests(root)
     forgetLocalReads()
     const f = await start()
+    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 16 MB: a minute.
+    setDeadline(60000)
     const tmp = join(root, "logs", "uid-a", "generating.bin")
     const name = copyName(1, await generate(tmp))
     await rename(tmp, join(root, "logs", "uid-a", name))
@@ -103,6 +105,7 @@ async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
       panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
     }
   } finally {
+    setDeadline(DEFAULT_DEADLINE_MS)
     await remove(root, true)
   }
 }

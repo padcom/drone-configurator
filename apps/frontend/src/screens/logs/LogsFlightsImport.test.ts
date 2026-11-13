@@ -108,7 +108,12 @@ it('says no data for what a recording cannot say, and that the review rests on g
 it('opens the same recording again as the entry that is there, and says so', async () => {
   const { wrapper, handle } = await screen()
   await importIt(wrapper)
-  await importIt(wrapper)
+  // The detail of the first import is still on the page: wait for the second import itself to be through (it says it found the
+  // entry, and the log is loaded again), not for a moment.
+  await wrapper.get('#flights-import').trigger('click')
+  await vi.waitFor(() => expect(handle.flights.imported.value?.duplicate).toBe(true))
+  await vi.waitFor(() => expect(handle.flights.phase.value).toBe('ready'))
+  await flushPromises()
 
   expect(handle.flights.logs.value.filter(log => log.source === 'tlog')).toHaveLength(1)
   expect(wrapper.get('#flights-status').text()).toBe('flight.tlog is in the library already (same content): opened that one.')
