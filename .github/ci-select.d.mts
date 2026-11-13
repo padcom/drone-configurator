@@ -32,3 +32,4 @@ export function select(input: {
 export function summaryOf(result: Selection, totals: { specs: number, tests: number, files: number, shadow: boolean }): string
 export function readTree(root: string): { specs: string[], sitlSpecs: string[], backend: BackendTree, map: E2eMap }
 export function run(argv: string[], input: string): string
+export function listSpecs(root: string, kind: 'sitl' | 'fake'): string[]

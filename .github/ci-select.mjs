@@ -246,6 +246,24 @@ export function run(argv, input) {
   return `${text}\n${lines}\n`
 }
 
+/**
+ * The window specs of one kind, as `pnpm e2e` takes them (run from apps/frontend): the specs that start a SITL, or the others.
+ * @param {string} root the repository root
+ * @param {'sitl' | 'fake'} kind which specs
+ * @returns {string[]} paths such as `e2e/shell.e2e.ts`, sorted
+ */
+export function listSpecs(root, kind) {
+  const tree = readTree(root)
+  return tree.specs.filter(name => tree.sitlSpecs.includes(name) === (kind === 'sitl')).map(name => `e2e/${name}`)
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.stdout.write(run(process.argv.slice(2), readFileSync(0, 'utf8')))
+  const args = process.argv.slice(2)
+  const kind = args[args.indexOf('--list') + 1]
+  if (args.includes('--list')) {
+    if (kind !== 'sitl' && kind !== 'fake') throw new Error('--list takes sitl or fake')
+    process.stdout.write(`${listSpecs(args[args.indexOf('--root') + 1] ?? '.', kind).join('\n')}\n`)
+  } else {
+    process.stdout.write(run(args, readFileSync(0, 'utf8')))
+  }
 }
