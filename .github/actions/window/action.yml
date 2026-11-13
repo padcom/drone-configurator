@@ -1,0 +1,39 @@
+name: Set up the real window
+description: >
+  What the window e2e needs on Linux, in the steps of pico-desktop's own CI: the pinned CEF and the host build (both cached), the
+  runtime libraries and Xvfb, and the user namespaces the sandbox needs (never disabled). Runs after the `setup` action.
+
+inputs:
+  target:
+    description: The platform, for the cache keys.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Cache the pinned CEF
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pico-desktop/cef
+        key: cef-${{ inputs.target }}-${{ hashFiles('pico-desktop/toolchain.json') }}
+    - name: Cache the host build
+      id: host
+      uses: actions/cache@v4
+      with:
+        path: pico-desktop/build/cef
+        key: cef-host-${{ inputs.target }}-${{ hashFiles('pico-desktop/toolchain.json', 'pico-desktop/CMakeLists.txt', 'pico-desktop/CMakePresets.json', 'pico-desktop/runtime/**') }}
+    - name: Runtime libraries and Xvfb
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends xvfb xauth libx11-dev libnss3 libatk1.0-0t64 \
+          libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+          libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libgtk-3-0t64
+    - name: Allow unprivileged user namespaces (the sandbox needs them; it's never disabled)
+      shell: bash
+      run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+    - name: Build the host
+      if: ${{ steps.host.outputs.cache-hit != 'true' }}
+      shell: bash
+      working-directory: pico-desktop
+      run: pnpm cef:configure && pnpm cef:build

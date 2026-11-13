@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, relative, resolve, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import {
-  FULL, SHARED_BACKEND, SITL_USE, UNIT_ONLY, backendTestsFor, dependents, globToRegExp, importsOf, matchesAny, readTree,
-  run, select, specsFor, summaryOf, unmappedSpecs,
+  FULL, SHARED_BACKEND, SITL_USE, UNIT_ONLY, backendTestsFor, dependents, globToRegExp, importsOf, listSpecs, matchesAny,
+  readTree, run, select, specsFor, summaryOf, unmappedSpecs,
 } from '../../../.github/ci-select.mjs'
 
 // vitest runs in apps/frontend
@@ -297,6 +297,26 @@ function runScript(dir: string, env: Record<string, string>): ScriptRun {
 
   return { out: result.stdout, outputs, summary: readFileSync(summaryFile, 'utf8') }
 }
+
+describe('the split of the CI jobs', () => {
+  it('lists every spec once, as a SITL spec or a fake-vehicle one (the two e2e jobs together run them all)', () => {
+    const sitl = listSpecs(root, 'sitl')
+    const fake = listSpecs(root, 'fake')
+    expect([...sitl, ...fake].sort()).toEqual(tree.specs.map(spec => `e2e/${spec}`).sort())
+    expect(sitl).toContain('e2e/sitl-harness.e2e.ts')
+    expect(fake).toContain('e2e/shell.e2e.ts')
+    expect(fake.filter(spec => sitl.includes(spec))).toEqual([])
+  })
+
+  it.skipIf(process.platform === 'win32')('splits the backend test files into shards that cover each file once', () => {
+    const shard = (n: number) => spawnSync('bash', ['.github/backend-shard.sh', `${n}`, '2'], { cwd: root, encoding: 'utf8' })
+    const listed = [shard(1), shard(2)].map(result => result.stdout.split('\n').filter(Boolean))
+    expect(shard(1).status).toBe(0)
+    expect([...listed[0] ?? [], ...listed[1] ?? []].sort()).toEqual([...tree.backend.tests].sort())
+    expect(listed.every(shardFiles => shardFiles.length > 0)).toBe(true)
+    expect(shard(3).status).toBe(2)
+  })
+})
 
 // bash and git are on every runner, but the Windows jobs run the unit tests only to check the selector's logic.
 describe.skipIf(process.platform === 'win32')('ci-select.sh in a throwaway repository', () => {
