@@ -1,4 +1,4 @@
-// Memory of importing, reading and charting a recording of 16 MB (Linux only: the process's peak is read from /proc/self/status).
+// Memory of importing, reading and charting a recording of 64 MB (Linux only: the process's peak is read from /proc/self/status).
 // The recording is made a piece of about a megabyte at a time and written at once, so the generator never holds more than a piece.
 // The import (a streamed copy), the read and a chart may not hold the recording: the peak of the process may not rise more than
 // `BOUND_KB` over what it was before. Off Linux the test passes without measuring.
@@ -26,13 +26,15 @@ import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
 const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
 
 /// How long a reply is waited for (ms).
-const REPLY_MS: int = 60000
+const REPLY_MS: int = 180000
 
-/// How far above what it was the peak of the process may rise: 32 MB.
-const BOUND_KB: int = 32768
+/// How far above what it was the peak of the process may rise: 56 MB. What the passes take that does not depend on the size
+/// (the decoders, the first growth of the heap) is under 20 MB, and a pass that holds the recording rises by its 64 MB more
+/// (shown by mutation: keeping every chunk of the import in a list rose 23 MB over a recording of 16 MB, under a bound of 32).
+const BOUND_KB: int = 57344
 
-/// 16 pieces of about a megabyte (36000 attitude messages of 28 bytes each: the zeros at the end of a payload are not sent).
-const PIECES: int = 16
+/// 64 pieces of about a megabyte (36000 attitude messages of 28 bytes each: the zeros at the end of a payload are not sent).
+const PIECES: int = 64
 const PER_PIECE: int = 36000
 const T0: int = 1794500000000000
 
@@ -86,7 +88,7 @@ async function generate(path: string): Promise<void> throws Error {
   }
 }
 
-async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws Error {
+async function stayInTheBoundOnARecordingOf64Megabytes(): Promise<void> throws Error {
   if ((await statusKb("VmHWM")) < 0) {
     return
   }
@@ -99,10 +101,10 @@ async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws E
     useDirectoryForTests(root)
     forgetLocalReads()
     const f = await start()
-    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 16 MB: a minute.
+    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 64 MB: three minutes.
     setDeadline(REPLY_MS)
     await generate(join(out, "import.tlog"))
-    expect((await stat(join(out, "import.tlog"))).size > 15000000).toBe(true)
+    expect((await stat(join(out, "import.tlog"))).size > 60000000).toBe(true)
     gc.collect()
     await resetPeak()
     const before = await statusKb("VmRSS")
@@ -127,6 +129,6 @@ async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws E
   }
 }
 
-describe("the memory of the passes over a recording of 16 MB (Linux)", () => {
-  it("stays within 32 MB of where it began", stayInTheBoundOnARecordingOf16Megabytes)
+describe("the memory of the passes over a recording of 64 MB (Linux)", () => {
+  it("stays within 56 MB of where it began", stayInTheBoundOnARecordingOf64Megabytes)
 })
