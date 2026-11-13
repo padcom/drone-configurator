@@ -1374,7 +1374,8 @@
         "measured": "Lettura della pinza (A)"
       },
       "noMultiplier": "Questo monitor non usa un moltiplicatore di tensione, quindi qui non c'è nulla da calibrare.",
-      "offsetNote": "Questo calcola solo il moltiplicatore: l'eventuale offset del sensore resta com'è."
+      "offsetNote": "Questo calcola solo il moltiplicatore: l'eventuale offset del sensore resta com'è.",
+      "sameValue": "È il valore che il veicolo ha già: non c'è nulla da cambiare."
     },
     "monitor": {
       "disabled": "Disattivato",

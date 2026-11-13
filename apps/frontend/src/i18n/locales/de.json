@@ -1374,7 +1374,8 @@
         "measured": "Stromzangen-Wert (A)"
       },
       "noMultiplier": "Dieser Monitor nutzt keinen Spannungsmultiplikator, also gibt es hier nichts zu kalibrieren.",
-      "offsetNote": "Das berechnet nur den Multiplikator: ein Offset des Sensors bleibt unverändert."
+      "offsetNote": "Das berechnet nur den Multiplikator: ein Offset des Sensors bleibt unverändert.",
+      "sameValue": "Das ist der Wert, den das Fahrzeug schon hat: es gibt nichts zu ändern."
     },
     "monitor": {
       "disabled": "Aus",
