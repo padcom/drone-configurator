@@ -190,9 +190,11 @@
       "select": "Seleziona il log {id}",
       "noDate": "Nessuna data",
       "noDateNote": "Alcuni log non hanno una data: il firmware di questo veicolo non indica quando un file è stato modificato l'ultima volta.",
+      "viaProtocol": "Questo veicolo non ha il trasferimento di file, quindi i suoi log arrivano con il protocollo log di MAVLink: più lento e senza checksum, quindi una copia non si può verificare. L'app non cancella mai i log di un veicolo così.",
       "state": {
         "new": "Non scaricato",
         "unchecked": "Non verificato",
+        "noChecksum": "Non verificato (nessun checksum)",
         "downloaded": "Scaricato",
         "queued": "In coda",
         "downloading": "Download in corso: {percent}%",
@@ -211,14 +213,15 @@
       "outcome": {
         "downloaded": "Download terminato. Scaricati: {count}",
         "stopped": "Download interrotto. Scaricati: {count}. Ciò che è stato ricevuto resta, e il prossimo download riparte da lì.",
-        "erased": "Cancellati dal veicolo: {erased}. Conservati perché non scaricati: {kept}"
+        "erased": "Cancellati dal veicolo: {erased}."
       },
       "erase": {
-        "label": "Cancella dal veicolo i log scaricati",
-        "confirm": "Conferma: cancella dal veicolo i log scaricati: {erased}. Non scaricati, e conservati: {kept}",
-        "note": "Cancella solo i log scaricati e verificati: {erased}. Gli altri restano sul veicolo: {kept}.",
-        "unavailable": "La cancellazione dei log sul veicolo non è ancora disponibile.",
-        "nothing": "Nessun log è ancora scaricato, quindi non c'è nulla da cancellare."
+        "label": "Cancella tutti i log dal veicolo",
+        "confirm": "Conferma: cancella dal veicolo tutti i log: {count}. Ognuno ha una copia verificata su questo computer.",
+        "note": "Cancella ogni log del veicolo: {count}. Solo se ognuno ha su questo computer una copia verificata con il veicolo.",
+        "unavailable": "Questo veicolo non ha il trasferimento di file, quindi i suoi log non si possono verificare e l'app non li cancella.",
+        "nothing": "Il veicolo non ha log, quindi non c'è nulla da cancellare.",
+        "notAll": "Non ogni log ha già una copia verificata: mancano {missing} su {total}. La cancellazione riguarda ogni log del veicolo, quindi scarica prima gli altri."
       }
     },
     "browser": {

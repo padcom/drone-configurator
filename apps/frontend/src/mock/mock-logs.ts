@@ -1,7 +1,8 @@
-// The flight logs of the mock vehicle (the draft of `logs.*` in packages/contracts/app.cddl): a list, a download that goes on
-// from what an earlier try fetched, a cancel that keeps what was fetched, and an erase that takes only the logs that were
-// downloaded. Like the backend will, it refuses to download or erase while the vehicle is armed (or not known to be disarmed)
-// and while a download runs.
+// The flight logs of the mock vehicle (`logs.*` in packages/contracts/app.cddl): a list, a download that goes on from what an
+// earlier try fetched, a cancel that keeps what was fetched, and an erase that takes EVERY log, and only when each has a checked
+// copy (else `NOT_DOWNLOADED`, and nothing is erased). Like the backend, it refuses to download or erase while the vehicle is
+// armed (or not known to be disarmed) and while a download runs. A vehicle that `source`s 'mavlink' has no file transfer: its
+// logs come over the log protocol, a copy has no checksum (`noChecksum`, never "downloaded"), and nothing can be erased.
 import type { Envelope } from '@pico-desktop/protocol'
 import type { LogsProgress, VehicleLog } from '@/generated/app'
 
@@ -18,8 +19,10 @@ export interface MockLogsOptions {
   logs?: VehicleLog[]
   /** The log whose download fails its check (the download stops with the reason). */
   failId?: number
-  /** Whether the backend can erase (as the real one cannot yet): true unless said. */
+  /** Whether the backend can erase: true unless said (and never for a vehicle with no file transfer). */
   canErase?: boolean
+  /** How the vehicle's logs are listed: 'ftp' (the default), or 'mavlink' (the log protocol: no checksum). */
+  source?: 'ftp' | 'mavlink'
   /**
    * The logs whose copy here has the size of the listing and not its checksum (a block lost or garbled): the mock does not
    * count such a copy as downloaded, and never erases the log.
@@ -111,8 +114,12 @@ export class MockLogs {
    * @param ok sends the answer
    */
   list(ok: Reply): void {
-    const logs = this.logs.map(log => ({ ...log, downloaded: this.isChecked(log) }))
-    ok({ logs, source: 'ftp', canErase: this.options.canErase ?? true })
+    const source = this.options.source ?? 'ftp'
+    // Over the log protocol nothing is checked: a copy that is here (the mock's own, or one made by a download) has no checksum.
+    const logs = this.logs.map(log => source === 'mavlink'
+      ? { ...log, downloaded: false, noChecksum: log.downloaded || log.noChecksum === true }
+      : { ...log, downloaded: this.isChecked(log) })
+    ok({ logs, source, canErase: source === 'ftp' && (this.options.canErase ?? true) })
   }
 
   /**
@@ -140,9 +147,9 @@ export class MockLogs {
 
       return
     }
-    const wanted = ids.filter(id => this.logs.some(log => log.id === id && !this.isChecked(log)))
+    const wanted = ids.filter(id => this.logs.some(log => log.id === id && !this.isChecked(log) && !log.noChecksum))
     wanted.forEach(id => this.progress(id, 'queued', this.fetched.get(id) ?? 0))
-    const whole = ids.filter(id => this.logs.some(log => log.id === id && this.isChecked(log)))
+    const whole = ids.filter(id => this.logs.some(log => log.id === id && (this.isChecked(log) || log.noChecksum)))
     this.run = this.begin(wanted, whole, ok)
 
     if (wanted.length === 0) {
@@ -161,7 +168,7 @@ export class MockLogs {
   }
 
   /**
-   * Erases the logs that were downloaded and keeps the others.
+   * Erases every log, when each has a checked copy; else nothing.
    *
    * @param ok sends the answer
    * @param fail sends an error
@@ -173,9 +180,20 @@ export class MockLogs {
 
       return
     }
-    const erased = this.logs.filter(log => this.isChecked(log)).map(log => log.id)
-    this.logs = this.logs.filter(log => !this.isChecked(log))
-    ok({ erased, kept: this.logs.length })
+    if (this.options.source === 'mavlink') {
+      fail('NOT_VERIFIABLE', 'the vehicle has no file transfer to check the copies against: nothing was erased')
+
+      return
+    }
+    const missing = this.logs.filter(log => !this.isChecked(log)).length
+    if (missing > 0) {
+      fail('NOT_DOWNLOADED', `${missing} of ${this.logs.length} logs on the vehicle have no checked copy here: none was erased`)
+
+      return
+    }
+    const erased = this.logs.map(log => log.id)
+    this.logs = []
+    ok({ erased, kept: 0 })
   }
 
   /**
@@ -286,7 +304,12 @@ export class MockLogs {
    * @param resumedFrom where it began, when that was not the start
    */
   private complete(run: Run, log: VehicleLog, resumedFrom: number | undefined): void {
-    log.downloaded = true
+    if (this.options.source === 'mavlink') {
+      // Over the log protocol: a copy that has no checksum, which is never "downloaded".
+      log.noChecksum = true
+    } else {
+      log.downloaded = true
+    }
     this.damaged.delete(log.id)
     this.fetched.delete(log.id)
     this.progress(log.id, 'done', log.size, resumedFrom)

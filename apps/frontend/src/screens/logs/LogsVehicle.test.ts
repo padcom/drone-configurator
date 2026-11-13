@@ -50,6 +50,13 @@ async function screen(connect = true, more: MockOptions = {}) {
   return { wrapper: mounted, handle }
 }
 
+/** Two logs, both downloaded and checked: an erase may be sent. */
+const ALL_CHECKED = {
+  steps: 2,
+  intervalMs: 5,
+  logs: [{ id: 1, size: 1000, downloaded: true }, { id: 2, size: 2000, downloaded: true }],
+}
+
 /**
  * The text of each cell of a row.
  *
@@ -143,38 +150,49 @@ it('counts a vehicle that is not known to be disarmed as armed, and says that is
   expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
 })
 
-it('puts the erase last in the page, and its note counts what stays on the vehicle', async () => {
-  const { wrapper } = await screen()
+it('puts the erase last in the page, and its note says it takes every log and needs a checked copy of each', async () => {
+  const { wrapper } = await screen(true, { logs: ALL_CHECKED })
   const last = wrapper.get('.logs-vehicle').element.lastElementChild
 
   expect(last).toBe(wrapper.get('.logs-erase').element)
   expect(wrapper.get('.logs-erase p').text())
-    .toBe('Erases only logs that were downloaded and checked: 1. The others stay on the vehicle: 3.')
+    .toBe(`Erases every log on the vehicle: 2. Only when each one has a copy on this computer ${
+      'that was checked against the vehicle.'}`)
   expect(wrapper.get('#logs-erase').attributes('aria-describedby')).toBe(wrapper.get('.logs-erase p').attributes('id'))
+  expect(wrapper.get('#logs-erase').attributes('disabled')).toBeUndefined()
 })
 
-it('erases on the second press only, which names what happens, and keeps the logs not downloaded', async () => {
-  const { wrapper, handle } = await screen()
+it('erases on the second press only, which names the count and that each log has a checked copy', async () => {
+  const { wrapper, handle } = await screen(true, { logs: ALL_CHECKED })
   const erase = wrapper.get('#logs-erase')
   await erase.trigger('click')
 
-  expect(erase.text()).toBe('Confirm: erase downloaded logs from the vehicle: 1. Not downloaded, and kept: 3')
-  expect(handle.logs.logs.value).toHaveLength(4)
+  expect(erase.text()).toBe('Confirm: erase all logs from the vehicle: 2. Each has a checked copy on this computer.')
+  expect(handle.logs.logs.value).toHaveLength(2)
   const now = Date.now()
   vi.spyOn(Date, 'now').mockReturnValue(now + 1000)
   await erase.trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#logs-outcome').text())
-    .toBe('Erased from the vehicle: 1. Kept, because not downloaded: 3'))
+  await vi.waitFor(() => expect(wrapper.get('#logs-outcome').text()).toBe('Erased from the vehicle: 2.'))
 
-  expect(cells(wrapper).map(row => row[1])).toEqual(['1', '2', '4'])
+  expect(cells(wrapper)).toEqual([])
 })
 
-it('says there is nothing to erase when no log is downloaded, and keeps the button off', async () => {
+it('keeps the erase off, and says how many logs have no checked copy, while there are any', async () => {
   const { wrapper, handle } = await screen()
   await handle.logs.erase()
   await flushPromises()
 
-  expect(wrapper.get('.logs-erase p').text()).toBe('No log is downloaded yet, so there is nothing to erase.')
+  expect(wrapper.get('.logs-erase p').text()).toBe(
+    'Not every log has a checked copy yet: 3 of 4 do not. An erase takes every log on the vehicle, so download the rest first.',
+  )
+  expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
+  expect(handle.logs.logs.value).toHaveLength(4)
+})
+
+it('says there is nothing to erase on a vehicle with no logs, and keeps the button off', async () => {
+  const { wrapper } = await screen(true, { logs: { steps: 2, intervalMs: 5, logs: [] } })
+
+  expect(wrapper.get('.logs-erase p').text()).toBe('The vehicle has no logs, so there is nothing to erase.')
   expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
 })
 
@@ -209,7 +227,7 @@ it('writes sizes with the decimal sign of the language', async () => {
 })
 
 it('reads the list again when the erase is armed, so that the counts it names are the vehicle\'s now', async () => {
-  const { wrapper, handle } = await screen()
+  const { wrapper, handle } = await screen(true, { logs: ALL_CHECKED })
   const refresh = vi.spyOn(handle.logs, 'refresh')
   await wrapper.get('#logs-erase').trigger('click')
 
@@ -244,11 +262,34 @@ it('shows no date where the vehicle gives none, and the time of the last change 
   expect(wrapper.get('.logs-nodate').text()).toContain('firmware does not say when a file was last changed')
 })
 
-it('says that erasing is not available yet, and keeps its button off, when the backend cannot erase', async () => {
-  const { wrapper } = await screen(true, { logs: { steps: 2, intervalMs: 5, canErase: false } })
+it('says the app does not erase when the backend cannot erase, and keeps its button off', async () => {
+  const { wrapper } = await screen(true, { logs: { ...ALL_CHECKED, canErase: false } })
 
-  expect(wrapper.get('.logs-erase p').text()).toBe('Erasing the logs on the vehicle is not available yet.')
+  expect(wrapper.get('.logs-erase p').text()).toBe(
+    'This vehicle has no file transfer, so its logs can\'t be checked, and the app does not erase them.',
+  )
   expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
+})
+
+it('shows a vehicle with no file transfer: the log protocol is said, a copy is not checked, nothing can be erased', async () => {
+  const { wrapper, handle } = await screen(true, { logs: { steps: 2, intervalMs: 5, source: 'mavlink' } })
+
+  expect(wrapper.get('#logs-protocol').text()).toContain('no file transfer')
+  handle.logs.selectNew()
+  await handle.logs.download()
+  await flushPromises()
+
+  expect(cells(wrapper).map(row => row[4])).toEqual([
+    'Not checked (no checksum)', 'Not checked (no checksum)', 'Not checked (no checksum)', 'Not checked (no checksum)',
+  ])
+  expect(wrapper.findAll('tbody input[type="checkbox"]').every(box => box.attributes('disabled') !== undefined)).toBe(true)
+  expect(wrapper.get('#logs-erase').attributes('disabled')).toBeDefined()
+})
+
+it('does not say anything of the log protocol for a vehicle with file transfer', async () => {
+  const { wrapper } = await screen()
+
+  expect(wrapper.find('#logs-protocol').exists()).toBe(false)
 })
 
 it('shows the reason a download stopped, and the progress of the log that failed is gone', async () => {

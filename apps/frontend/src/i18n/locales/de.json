@@ -190,9 +190,11 @@
       "select": "Log {id} auswählen",
       "noDate": "Kein Datum",
       "noDateNote": "Einige Logs haben kein Datum: Die Firmware dieses Fahrzeugs gibt nicht an, wann eine Datei zuletzt geändert wurde.",
+      "viaProtocol": "Dieses Fahrzeug hat keine Dateiübertragung, deshalb kommen seine Logs über das MAVLink-Log-Protokoll: langsamer und ohne Prüfsumme, eine Kopie lässt sich also nicht prüfen. Die App löscht auf so einem Fahrzeug nie Logs.",
       "state": {
         "new": "Nicht heruntergeladen",
         "unchecked": "Nicht geprüft",
+        "noChecksum": "Nicht geprüft (keine Prüfsumme)",
         "downloaded": "Heruntergeladen",
         "queued": "In der Warteschlange",
         "downloading": "Wird heruntergeladen: {percent}%",
@@ -211,14 +213,15 @@
       "outcome": {
         "downloaded": "Download beendet. Heruntergeladen: {count}",
         "stopped": "Download angehalten. Heruntergeladen: {count}. Was geholt wurde, bleibt erhalten; der nächste Download setzt dort fort.",
-        "erased": "Auf dem Fahrzeug gelöscht: {erased}. Behalten, weil nicht heruntergeladen: {kept}"
+        "erased": "Auf dem Fahrzeug gelöscht: {erased}."
       },
       "erase": {
-        "label": "Heruntergeladene Logs vom Fahrzeug löschen",
-        "confirm": "Bestätigen: heruntergeladene Logs vom Fahrzeug löschen: {erased}. Nicht heruntergeladen und behalten: {kept}",
-        "note": "Löscht nur Logs, die heruntergeladen und geprüft wurden: {erased}. Die übrigen bleiben auf dem Fahrzeug: {kept}.",
-        "unavailable": "Das Löschen der Logs auf dem Fahrzeug ist noch nicht verfügbar.",
-        "nothing": "Noch kein Log ist heruntergeladen, also gibt es nichts zu löschen."
+        "label": "Alle Logs vom Fahrzeug löschen",
+        "confirm": "Bestätigen: alle Logs vom Fahrzeug löschen: {count}. Von jedem gibt es eine geprüfte Kopie auf diesem Computer.",
+        "note": "Löscht jedes Log auf dem Fahrzeug: {count}. Nur wenn von jedem eine am Fahrzeug geprüfte Kopie auf diesem Computer liegt.",
+        "unavailable": "Dieses Fahrzeug hat keine Dateiübertragung, seine Logs lassen sich nicht prüfen, und die App löscht sie nicht.",
+        "nothing": "Das Fahrzeug hat keine Logs, also gibt es nichts zu löschen.",
+        "notAll": "Nicht jedes Log hat schon eine geprüfte Kopie: bei {missing} von {total} fehlt sie. Das Löschen erfasst jedes Log auf dem Fahrzeug, lade also zuerst den Rest herunter."
       }
     },
     "browser": {

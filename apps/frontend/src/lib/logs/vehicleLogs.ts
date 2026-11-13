@@ -5,8 +5,11 @@ import type { LogsProgress, VehicleLog } from '@/generated/app'
 /** Why the vehicle's logs cannot be downloaded or erased now; null when they can. */
 export type Blocked = 'offline' | 'armed' | 'unknown' | 'busy' | null
 
-/** How a log is doing, for its row: not fetched yet (`new`), fetched and checked (`downloaded`), or what the download says. */
-export type LogState = 'new' | 'unchecked' | 'downloaded' | 'queued' | 'downloading' | 'done' | 'failed'
+/**
+ * How a log is doing, for its row: not fetched yet (`new`), fetched and checked (`downloaded`), fetched over the log protocol
+ * and not checkable (`noChecksum`), or what the download says.
+ */
+export type LogState = 'new' | 'unchecked' | 'noChecksum' | 'downloaded' | 'queued' | 'downloading' | 'done' | 'failed'
 
 /**
  * What the armed state alone says about it: not known counts as armed, with its own reason.
@@ -39,6 +42,33 @@ export function blockedBy(connected: boolean, armed: boolean | undefined, runnin
 }
 
 /**
+ * The state of a log no download is saying anything about.
+ *
+ * @param log the log
+ * @returns downloaded, unchecked (a copy of its number and size is here, but the vehicle's CRC could not be asked: armed, a limit
+ * of time; the next list says) or new
+ */
+function quietState(log: VehicleLog): LogState {
+  if (log.downloaded) {
+    return 'downloaded'
+  }
+
+  return log.unchecked ? 'unchecked' : 'new'
+}
+
+/**
+ * Whether a log's row says its copy has no checksum: it came whole over the log protocol (it is fetched, not checked, so the row
+ * does not say "Downloaded" when the download is done).
+ *
+ * @param log the log
+ * @param progress what the download said of it last, if it did
+ * @returns true when it does
+ */
+function lacksChecksum(log: VehicleLog, progress: LogsProgress | undefined): boolean {
+  return log.noChecksum === true && (progress === undefined || progress.state === 'done')
+}
+
+/**
  * What a log's row says about it.
  *
  * @param log the log
@@ -46,26 +76,32 @@ export function blockedBy(connected: boolean, armed: boolean | undefined, runnin
  * @returns the state
  */
 export function stateOf(log: VehicleLog, progress: LogsProgress | undefined): LogState {
-  if (progress) {
-    return progress.state
+  if (lacksChecksum(log, progress)) {
+    return 'noChecksum'
   }
 
-  if (log.downloaded) {
-    return 'downloaded'
-  }
-
-  // A copy of its number and size is here, but the vehicle's CRC could not be asked (armed, a limit of time): the next list says.
-  return log.unchecked ? 'unchecked' : 'new'
+  return progress?.state ?? quietState(log)
 }
 
 /**
- * The logs that are not on this computer (what an erase would leave, and what a download is for).
+ * The logs a download is for: those that have no copy here (one that came over the log protocol is a copy: it has no checksum,
+ * and a second download could not give it one).
  *
  * @param logs the logs
- * @returns the ids of those not downloaded
+ * @returns the ids of those to fetch
  */
 export function undownloadedIds(logs: VehicleLog[]): number[] {
-  return logs.filter(log => !log.downloaded).map(log => log.id)
+  return logs.filter(log => !log.downloaded && !log.noChecksum).map(log => log.id)
+}
+
+/**
+ * How many logs have no checked copy here: the logs that stand between the vehicle and an erase, which takes every log.
+ *
+ * @param logs the logs
+ * @returns how many are not downloaded and checked
+ */
+export function notChecked(logs: VehicleLog[]): number {
+  return logs.filter(log => !log.downloaded).length
 }
 
 /**

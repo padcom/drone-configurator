@@ -190,9 +190,11 @@
       "select": "Select log {id}",
       "noDate": "No date",
       "noDateNote": "Some logs have no date: this vehicle's firmware does not say when a file was last changed.",
+      "viaProtocol": "This vehicle has no file transfer, so its logs come over the MAVLink log protocol: slower, and with no checksum, so a copy can't be checked. The app never erases logs on such a vehicle.",
       "state": {
         "new": "Not downloaded",
         "unchecked": "Not checked",
+        "noChecksum": "Not checked (no checksum)",
         "downloaded": "Downloaded",
         "queued": "Queued",
         "downloading": "Downloading: {percent}%",
@@ -211,14 +213,15 @@
       "outcome": {
         "downloaded": "Download finished. Downloaded: {count}",
         "stopped": "Download stopped. Downloaded: {count}. What was fetched is kept, and the next download goes on from there.",
-        "erased": "Erased from the vehicle: {erased}. Kept, because not downloaded: {kept}"
+        "erased": "Erased from the vehicle: {erased}."
       },
       "erase": {
-        "label": "Erase downloaded logs from the vehicle",
-        "confirm": "Confirm: erase downloaded logs from the vehicle: {erased}. Not downloaded, and kept: {kept}",
-        "note": "Erases only logs that were downloaded and checked: {erased}. The others stay on the vehicle: {kept}.",
-        "unavailable": "Erasing the logs on the vehicle is not available yet.",
-        "nothing": "No log is downloaded yet, so there is nothing to erase."
+        "label": "Erase all logs from the vehicle",
+        "confirm": "Confirm: erase all logs from the vehicle: {count}. Each has a checked copy on this computer.",
+        "note": "Erases every log on the vehicle: {count}. Only when each one has a copy on this computer that was checked against the vehicle.",
+        "unavailable": "This vehicle has no file transfer, so its logs can't be checked, and the app does not erase them.",
+        "nothing": "The vehicle has no logs, so there is nothing to erase.",
+        "notAll": "Not every log has a checked copy yet: {missing} of {total} do not. An erase takes every log on the vehicle, so download the rest first."
       }
     },
     "browser": {

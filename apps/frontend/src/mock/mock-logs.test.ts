@@ -82,12 +82,24 @@ it('keeps what was fetched when cancelled, and goes on from there the next time'
   expect(run.events.at(-1)).toMatchObject({ id: 1, state: 'done', resumedFrom: half })
 })
 
-it('erases only the logs that were downloaded, and says how many it kept', () => {
+it('erases nothing while a log has no checked copy: an erase takes every log, or none', () => {
   const run = logsOf(false)
   run.logs.erase(run.ok, run.fail)
 
-  expect(run.replies).toEqual([{ erased: [3], kept: 3 }])
-  expect(run.logs.logs.map(log => log.id)).toEqual([1, 2, 4])
+  expect(run.errors).toEqual(['NOT_DOWNLOADED'])
+  expect(run.replies).toEqual([])
+  expect(run.logs.logs.map(log => log.id)).toEqual([1, 2, 3, 4])
+})
+
+it('erases every log when each has a checked copy', () => {
+  const run = logsOf(false)
+  run.logs.logs.forEach(log => {
+    log.downloaded = true
+  })
+  run.logs.erase(run.ok, run.fail)
+
+  expect(run.replies).toEqual([{ erased: [1, 2, 3, 4], kept: 0 }])
+  expect(run.logs.logs).toEqual([])
 })
 
 it('forgets what it listed and fetched when the vehicle is gone', () => {

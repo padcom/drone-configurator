@@ -1,14 +1,14 @@
 // The flight logs on the vehicle: the list, which are selected, the download of the selected ones with each log's progress,
-// and the erase. The backend (so far only the mock) does the work; this keeps what the screen shows, and refuses early what the
-// backend would refuse anyway (a download or an erase while the vehicle is armed, or not known to be disarmed, or while a
-// download runs): the screen says why, and nothing is sent. Nothing here downloads on its own: not on connecting, and not after
-// landing (the "auto-download" preference is a setting only, until the backend can act on it).
+// and the erase. The backend does the work; this keeps what the screen shows, and refuses early what the backend would refuse
+// anyway (a download or an erase while the vehicle is armed, or not known to be disarmed, or while a download runs, and an erase
+// while any log on the vehicle has no checked copy here: an erase takes every log): the screen says why, and nothing is sent.
+// Nothing here downloads on its own: not on connecting.
 import { type ComputedRef, type Ref, type ShallowRef, computed, ref, shallowRef } from 'vue'
 import { type BackendClient, describeError, toBackendError } from '@/backend/client'
-import type { Connection, LogsProgress, Telemetry, VehicleLog } from '@/generated/app'
+import type { Connection, LogsProgress, Telemetry, VehicleLog, VehicleLogs as Listing } from '@/generated/app'
 import { armedOf } from '@/lib/app/armed'
 import { say } from '@/i18n/say'
-import { type Blocked, blockedBy, undownloadedIds } from '@/lib/logs/vehicleLogs'
+import { type Blocked, blockedBy, notChecked, undownloadedIds } from '@/lib/logs/vehicleLogs'
 
 /** What the logs need from the rest of the interface. */
 export interface LogsDeps {
@@ -31,7 +31,7 @@ const LIST_RETRIES = 30
 /** What the last download or erase came to. */
 export type Outcome
   = | { kind: 'downloaded', count: number, stopped: boolean }
-    | { kind: 'erased', erased: number, kept: number }
+    | { kind: 'erased', erased: number }
 
 /** The vehicle's logs, as refs and actions. */
 export interface LogsModel {
@@ -53,6 +53,8 @@ export interface LogsModel {
   readonly unavailable: Readonly<Ref<boolean>>
   /** Whether the backend can erase the logs on the vehicle (as last listed). */
   readonly canErase: Readonly<Ref<boolean>>
+  /** How the logs were listed: the vehicle's file transfer, or the log protocol (slower, no checksum). */
+  readonly source: Readonly<Ref<Listing['source']>>
   /** What the last call that failed said. */
   readonly error: ShallowRef<string | null>
   /** What the last download or erase came to. */
@@ -69,7 +71,7 @@ export interface LogsModel {
   download: () => Promise<void>
   /** Stops the download; what was fetched is kept. */
   cancel: () => Promise<void>
-  /** Erases the logs that were downloaded (the others stay). */
+  /** Erases every log on the vehicle: only when each has a copy here that was checked, and the backend checks again. */
   erase: () => Promise<void>
   /** The vehicle is gone, or another one is there: forgets what was listed, selected and downloaded. */
   reset: () => void
@@ -87,6 +89,7 @@ class VehicleLogs implements LogsModel {
   readonly running = ref(false)
   readonly unavailable = ref(false)
   readonly canErase = ref(false)
+  readonly source = ref<Listing['source']>('ftp')
   readonly blocked: ComputedRef<Blocked>
   /** Goes up with every reset: an answer that comes for an earlier vehicle is dropped. */
   private epoch = 0
@@ -220,9 +223,10 @@ class VehicleLogs implements LogsModel {
    * @param tried how many times it was busy already
    */
   private async listFrom(epoch: number, tried: number): Promise<void> {
-    const how = await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs, canErase }) => {
+    const how = await this.attempt(() => this.deps.client.call('logs.vehicle.list', null), ({ logs, canErase, source }) => {
       this.logs.value = logs
       this.canErase.value = canErase
+      this.source.value = source
       this.selected.value = this.pickable()
       this.listed.value = true
       this.error.value = null
@@ -351,12 +355,24 @@ class VehicleLogs implements LogsModel {
     }
   }
 
+  /**
+   * Whether an erase may be sent: an erase takes every log, so there must be one, each with a checked copy here (the backend
+   * checks them again), nothing may block it, and the backend must be able to erase.
+   *
+   * @returns true when it may
+   */
+  private mayErase(): boolean {
+    const { logs } = this
+
+    return this.blocked.value === null && this.canErase.value && logs.value.length > 0 && notChecked(logs.value) === 0
+  }
+
   async erase(): Promise<void> {
-    if (this.blocked.value !== null) {
+    if (!this.mayErase()) {
       return
     }
-    await this.attempt(() => this.deps.client.call('logs.erase', null), ({ erased, kept }) => {
-      this.outcome.value = { kind: 'erased', erased: erased.length, kept }
+    await this.attempt(() => this.deps.client.call('logs.erase', null), ({ erased }) => {
+      this.outcome.value = { kind: 'erased', erased: erased.length }
       this.error.value = null
       this.progress.value = {}
     }, false)
@@ -369,6 +385,7 @@ class VehicleLogs implements LogsModel {
     this.reading = 0
     this.unavailable.value = false
     this.canErase.value = false
+    this.source.value = 'ftp'
     this.logs.value = []
     this.selected.value = []
     this.progress.value = {}

@@ -24,11 +24,13 @@ export class TcpVehicle {
   /**
    * Builds and starts it.
    *
+   * @param withLogs whether it holds three flight logs and never arms (for the checks of the logs page)
    * @returns the running vehicle, with its port known
    */
-  static async start(): Promise<TcpVehicle> {
+  static async start(withLogs = false): Promise<TcpVehicle> {
     await promisify(execFile)('pico', ['build', source, '-o', binary])
-    const vehicle = new TcpVehicle(spawn(binary, [], { stdio: ['pipe', 'pipe', 'inherit'] }))
+    const env = withLogs ? { ...process.env, VEHICLE_LOGS: '1' } : process.env
+    const vehicle = new TcpVehicle(spawn(binary, [], { stdio: ['pipe', 'pipe', 'inherit'], env }))
     await vehicle.#listen()
 
     return vehicle
