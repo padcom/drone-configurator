@@ -1203,7 +1203,7 @@
     "modes": {
       "summary": "Cada ranura es una posición del interruptor de modos de tu emisora. Elige qué hace el vehículo en cada una.",
       "loading": "Leyendo los modos de este vehículo…",
-      "channel": "Canal del interruptor de modos",
+      "channel": "Canal del interruptor de modos (0 es ninguno)",
       "channelNone": "Ninguno",
       "channelN": "Canal {n}",
       "noLive": "La posición actual del interruptor aún no se muestra aquí.",

@@ -207,8 +207,9 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await screen()
 
-  expect(wrapper.get('.logs-vehicle').attributes('aria-label')).toBe('Logs auf dem Fahrzeug')
-  expect(wrapper.find('.logs-vehicle-title').exists()).toBe(false)
+  const heading = wrapper.get('.logs-vehicle h3')
+  expect(heading.text()).toBe('Logs auf dem Fahrzeug')
+  expect(heading.classes()).toContain('visually-hidden')
 })
 
 it('says the logs are not available yet, with no controls, when the backend has no logs methods', async () => {

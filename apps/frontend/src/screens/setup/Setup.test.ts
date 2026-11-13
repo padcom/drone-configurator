@@ -361,8 +361,10 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFailsafes)
 
-  // The page has no header of its own (the list beside it names it): it is named for a screen reader.
-  expect(wrapper.get('.setup-page-body').attributes('aria-label')).toBe('Failsafes')
-  expect(wrapper.find('.setup-heading').exists()).toBe(false)
+  // The list beside the page names it, so no header is shown; the heading stays for a screen reader (hidden).
+  const heading = wrapper.get('.setup-page-body h3')
+  expect(heading.text()).toBe('Failsafes')
+  expect(heading.classes()).toContain('visually-hidden')
+  expect(wrapper.get('.setup-page-body').attributes('aria-labelledby')).toBe(heading.attributes('id'))
   expect(wrapper.get('[data-failsafe="batteryLow"] h4').text()).toBe('Akku niedrig')
 })

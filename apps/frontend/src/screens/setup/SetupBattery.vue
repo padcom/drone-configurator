@@ -1,6 +1,7 @@
 <template>
-  <section class="setup-page-body" :aria-label="t('setup.section.battery')">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.battery') }}</h3>
       <p class="muted">{{ t('setup.battery.summary') }}</p>
       <div class="setup-tabs" role="group" :aria-label="t('setup.battery.which')">
         <Button

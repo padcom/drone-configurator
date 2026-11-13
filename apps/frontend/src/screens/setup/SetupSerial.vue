@@ -1,6 +1,7 @@
 <template>
-  <section class="setup-page-body" :aria-label="t('setup.section.serial')">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.serial') }}</h3>
       <p class="muted">{{ t('setup.serial.summary') }}</p>
       <p v-if="ports.length > 0" id="setup-serial-inuse" class="setup-progress">{{ t('setup.serial.inUse', { used }) }}</p>
       <RebootBanner :show="rebootNeeded" />
@@ -41,7 +42,7 @@
 // offers the reboot (held, refused while armed); it never reboots by itself. A change to a port that carries MAVLink, or to
 // SERIAL0, may cut the connection this app talks over: the page says "may" (it does not know which port the link is on)
 // before it is written.
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
@@ -53,6 +54,7 @@ import { optionsOf } from '@/lib/setup/frame'
 import { BAUDS, MAX_PORTS, PROTOCOLS, cutByReboot, idsOf, inUse, mayCutLink, portParams, portsOn } from '@/lib/setup/serial'
 
 const { t } = useI18n()
+const uid = useId()
 const handle = useConfigurator()
 const panel = useParamPanel(idsOf(Array.from({ length: MAX_PORTS }, (_unused, port) => port)), handle)
 const ports = computed(() => portsOn(id => panel.vehicleValue(id) !== null))

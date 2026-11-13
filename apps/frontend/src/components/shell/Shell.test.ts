@@ -101,16 +101,18 @@ it('says it as an empty state with no header over it, and the old Simulation add
   const { wrapper, router } = await shellAt('/simulation')
 
   expect(router.currentRoute.value.path).toBe('/setup/home')
-  expect(wrapper.get('main .setup').attributes('aria-label')).toBe('Setup')
-  expect(wrapper.find('.setup-title').exists()).toBe(false)
+  // The rail names the screen: its heading is there for a screen reader, and not shown.
+  const heading = wrapper.get('main .setup > h2')
+  expect(heading.text()).toBe('Setup')
+  expect(heading.classes()).toContain('visually-hidden')
   expect(wrapper.get('.kit-empty .title').text()).toBe('No vehicle is connected')
 })
 
 it('has a Settings screen with the language of the interface, English being the one there is', async () => {
   const { wrapper } = await shellAt('/settings')
 
-  expect(wrapper.get('main .settings').attributes('aria-label')).toBe('Settings')
-  expect(wrapper.find('main h2').exists()).toBe(false)
+  expect(wrapper.get('main h2').text()).toBe('Settings')
+  expect(wrapper.get('main h2').classes()).toContain('visually-hidden')
   const select = wrapper.get<HTMLSelectElement>('main select')
   expect(select.findAll('option').map(option => option.text()))
     .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español', 'Українська', 'Русский'])
@@ -134,7 +136,7 @@ it('gives each screen that is not built its own component, so that what it says 
   await follow(wrapper, 'Setup')
 
   expect(wrapper.element.contains(plan)).toBe(false)
-  expect(wrapper.get('main .setup').attributes('aria-label')).toBe('Setup')
+  expect(wrapper.get('main .setup > h2').text()).toBe('Setup')
 })
 
 it('says that a screen that is not built yet is not available, under its own name', async () => {

@@ -1,5 +1,6 @@
 <template>
-  <section class="setup-home" :aria-label="t('setup.section.home')">
+  <section class="setup-home" :aria-labelledby="`${uid}-title`">
+    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.home.heading') }}</h3>
     <p class="muted">{{ t('setup.home.summary') }}</p>
     <p v-if="listing" class="muted" id="setup-loading">{{ t('setup.home.loading') }}</p>
     <template v-else>
@@ -50,7 +51,7 @@
 // The Setup home: how many of the steps the parameters can speak of look set up, the first that does not (NEXT), a card for
 // each step with its value and WHAT WAS CHECKED to say so, and the facts of the vehicle. It is read from the parameters, so it
 // is a guess and says so: no card says "verified", "valid" or "calibrated" (ArduPilot has no such flag over MAVLink).
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -60,6 +61,7 @@ import type { VehicleInfo } from '@/generated/app'
 import type { Fact, StepState } from '@/lib/setup/setupStatus'
 
 const { t } = useI18n()
+const uid = useId()
 const handle = useConfigurator()
 const status = useSetupStatus(handle)
 const GLYPH: Record<StepState, string> = { done: '✓', open: '!', unknown: '–' }

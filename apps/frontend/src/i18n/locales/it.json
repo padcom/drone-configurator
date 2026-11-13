@@ -1203,7 +1203,7 @@
     "modes": {
       "summary": "Ogni slot è una posizione dell'interruttore di modalità sul trasmettitore. Scegli cosa fa il veicolo in ciascuna.",
       "loading": "Lettura delle modalità di questo veicolo…",
-      "channel": "Canale dell'interruttore di modalità",
+      "channel": "Canale dell'interruttore di modalità (0 è nessuno)",
       "channelNone": "Nessuno",
       "channelN": "Canale {n}",
       "noLive": "La posizione attuale dell'interruttore non è ancora mostrata qui.",

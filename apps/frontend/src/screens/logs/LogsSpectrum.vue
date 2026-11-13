@@ -1,6 +1,7 @@
 
 <template>
-  <section class="logs-spectrum" :aria-label="t('logs.spectrum.title')">
+  <section class="logs-spectrum" :aria-labelledby="`${uid}-title`">
+    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('logs.spectrum.title') }}</h3>
     <p id="spectrum-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <Banner
       v-if="spectrum.error.value"
@@ -116,7 +117,7 @@
 // notch that the peak suggests go to the list of parameter changes, never straight to the vehicle. A log with no batch says how
 // to
 // capture one; a spectrum of nothing but zeros says so and is not drawn.
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Spectrogram from '@/components/charts/Spectrogram.vue'
 import SpectrumChart from '@/components/charts/SpectrumChart.vue'
@@ -140,6 +141,7 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
+const uid = useId()
 const { number } = useFormat()
 const { spectrum, flights, parameters } = useConfigurator()
 

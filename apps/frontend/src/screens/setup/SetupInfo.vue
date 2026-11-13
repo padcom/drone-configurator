@@ -1,6 +1,7 @@
 <template>
-  <section class="setup-page-body single" :aria-label="t('setup.section.info')">
+  <section class="setup-page-body single" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.info') }}</h3>
       <p class="muted">{{ t('setup.info.summary') }}</p>
       <Banner v-if="error" id="setup-info-error" tone="error">{{ error }}</Banner>
       <p v-if="!details && !error" id="setup-info-loading" class="muted">{{ t('setup.info.loading') }}</p>
@@ -43,7 +44,7 @@
 // Vehicle information: what the board says of itself (AUTOPILOT_VERSION: firmware version, its kind and git hash, board and
 // vendor ids, the unique id) and which sensors it has, uses and finds healthy (SYS_STATUS). A field the vehicle did not give
 // is not shown: a dash would look like a value, and a zero like a fact. It is read when the page is shown and when asked.
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
@@ -51,6 +52,7 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { infoRows } from '@/lib/setup/vehicleInfo'
 
 const { t } = useI18n()
+const uid = useId()
 const handle = useConfigurator()
 const details = computed(() => handle.setup.details.value)
 const error = computed(() => handle.setup.error.value)

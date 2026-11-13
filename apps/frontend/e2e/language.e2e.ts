@@ -79,9 +79,7 @@ describe('the language of the interface', () => {
     await win().waitFor(`document.querySelector('nav a[href="#/flight"]').textContent.trim() === 'Flugdaten'`)
     expect(await rail()).toEqual(expect.arrayContaining(['Flugdaten', 'Parameter', 'Einstellungen']))
     expect(await win().evaluate<string>('document.documentElement.lang')).toBe('de')
-    // The screen is named by the rail, not by a header of its own; the page names it for a screen reader.
-    const named = `document.querySelector('main .settings').getAttribute('aria-label')`
-    expect(await win().evaluate<string>(named)).toBe('Einstellungen')
+    expect(await win().text('main h2')).toBe('Einstellungen')
   })
 })
 

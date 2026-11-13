@@ -41,12 +41,12 @@ it('shows the five tabs in the order of the design and the first part, with no h
   const { wrapper, router } = await shellAt('/logs')
 
   expect(router.currentRoute.value.path).toBe('/logs/flights')
-  expect(wrapper.get('main .logs').attributes('aria-label')).toBe('Logs')
-  expect(wrapper.find('.logs-title').exists()).toBe(false)
+  expect(wrapper.get('main .logs > h2').text()).toBe('Logs')
+  expect(wrapper.get('main .logs > h2').classes()).toContain('visually-hidden')
   expect(wrapper.findAll('.kit-section-nav .tab').map(tab => tab.text()))
     .toEqual(['Flights', 'Replay', 'Spectrum', 'On the vehicle', 'Tools'])
-  expect(wrapper.get('.logs-flights').attributes('aria-label')).toBe('Flights')
-  expect(wrapper.find('.logs-flights-title').exists()).toBe(false)
+  expect(wrapper.get('.logs-flights > h3').text()).toBe('Flights')
+  expect(wrapper.get('.logs-flights > h3').classes()).toContain('visually-hidden')
 })
 
 it('names the navigation, marks the tab that is shown by aria-current, and the tabs are links to the parts', async () => {

@@ -1,6 +1,7 @@
 <template>
-  <section class="setup-page-body" :aria-label="t('setup.section.modes')">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.modes') }}</h3>
       <p class="muted">{{ t('setup.modes.summary') }}</p>
       <EmptyState v-if="!modes" :title="t('setup.modes.loading')" :help="error ?? ''" :level="4" />
       <template v-else>

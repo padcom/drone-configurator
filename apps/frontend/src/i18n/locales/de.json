@@ -1203,7 +1203,7 @@
     "modes": {
       "summary": "Jeder Slot ist eine Stellung des Modusschalters an deinem Sender. Wähle, was das Fahrzeug in jeder tut.",
       "loading": "Die Modi dieses Fahrzeugs werden gelesen…",
-      "channel": "Kanal des Modusschalters",
+      "channel": "Kanal des Modusschalters (0 ist keiner)",
       "channelNone": "Keiner",
       "channelN": "Kanal {n}",
       "noLive": "Die aktuelle Stellung des Schalters wird hier noch nicht gezeigt.",

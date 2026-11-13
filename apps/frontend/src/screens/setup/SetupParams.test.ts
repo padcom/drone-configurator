@@ -342,6 +342,7 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFrame)
 
-  expect(wrapper.get('.setup-page-body').attributes('aria-label')).toBe('Rahmen und Ausrichtung')
-  expect(wrapper.find('.setup-heading').exists()).toBe(false)
+  const heading = wrapper.get('.setup-page-body h3')
+  expect(heading.text()).toBe('Rahmen und Ausrichtung')
+  expect(heading.classes()).toContain('visually-hidden')
 })

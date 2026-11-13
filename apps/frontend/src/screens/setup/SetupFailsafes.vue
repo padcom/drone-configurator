@@ -1,6 +1,7 @@
 <template>
-  <section class="setup-page-body" :aria-label="t('setup.section.failsafes')">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.failsafes') }}</h3>
       <p class="muted">{{ t('setup.failsafes.summary') }}</p>
       <article
         v-for="row in rows"
