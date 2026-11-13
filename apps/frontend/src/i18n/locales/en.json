@@ -1372,7 +1372,9 @@
         "title": "Calibrate the current",
         "help": "Measure the current with a clamp meter under load and type the reading. The new amps per volt is the old one times the meter over what the vehicle shows.",
         "measured": "Clamp meter reading (A)"
-      }
+      },
+      "noMultiplier": "This monitor does not use a voltage multiplier, so there is nothing to calibrate here.",
+      "offsetNote": "This works out the multiplier only: an offset the sensor has is left as it is."
     },
     "monitor": {
       "disabled": "Disabled",
@@ -1395,7 +1397,7 @@
       "undefined": "Undefined",
       "noRotation": "None",
       "noDrawing": "There is no drawing for this frame.",
-      "caption": "Front is up. The number is the motor's number in the motor test; the arrow is the way it spins.",
+      "caption": "Front is up. The number is the motor's number in the motor test, not the output it is wired to; the arrow is the way it spins.",
       "motor": "Motor {number} at {angle} degrees, spins {spin}",
       "cw": "clockwise",
       "ccw": "counter-clockwise"
@@ -1408,7 +1410,8 @@
       "protocol": "Protocol of serial {n}",
       "baud": "Speed of serial {n}",
       "none": "This vehicle has no serial port parameters.",
-      "noProtocol": "None"
+      "noProtocol": "None",
+      "willCut": "After the reboot the connection over Serial {ports} will be lost if this app talks over it: it carried MAVLink, or may be the port a ground station uses."
     },
     "devices": {
       "summary": "The sensors the vehicle has seen, with the id it keeps for each decoded into the bus, the address and the device type.",

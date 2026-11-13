@@ -5,6 +5,9 @@
       <p class="muted">{{ t('setup.serial.summary') }}</p>
       <p v-if="ports.length > 0" id="setup-serial-inuse" class="setup-progress">{{ t('setup.serial.inUse', { used }) }}</p>
       <RebootBanner :show="rebootNeeded" />
+      <Banner v-if="cutAfter.length > 0" id="setup-serial-cut-after" tone="warn">
+        {{ t('setup.serial.willCut', { ports: cutAfter.join(', ') }) }}
+      </Banner>
       <Banner v-if="cutting.length > 0" id="setup-serial-cut" tone="warn">
         {{ t('setup.serial.mayCut', { ports: cutting.join(', ') }) }}
       </Banner>
@@ -48,7 +51,7 @@ import EnumField from '@/components/fields/EnumField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { optionsOf } from '@/lib/setup/frame'
-import { BAUDS, MAX_PORTS, PROTOCOLS, idsOf, inUse, mayCutLink, portParams, portsOn } from '@/lib/setup/serial'
+import { BAUDS, MAX_PORTS, PROTOCOLS, cutByReboot, idsOf, inUse, mayCutLink, portParams, portsOn } from '@/lib/setup/serial'
 
 const { t } = useI18n()
 const uid = useId()
@@ -59,6 +62,8 @@ const used = computed(() => inUse(ports.value.map(port => panel.vehicleValue(por
 const protocols = computed(() => optionsOf(PROTOCOLS, { value: -1, label: t('setup.serial.noProtocol') }))
 const bauds = optionsOf(BAUDS)
 const rebootNeeded = computed(() => panel.written.value.length > 0)
+/** The ports written and not rebooted for yet whose change will probably cut the link at the reboot (MAVLink, or SERIAL0). */
+const cutAfter = computed(() => cutByReboot(panel.written.value, panel.writtenWas.value, id => panel.vehicleValue(id)))
 /**
  * Whether the user has changed a port.
  *

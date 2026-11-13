@@ -1372,7 +1372,9 @@
         "title": "Calibra la corrente",
         "help": "Misura la corrente con una pinza amperometrica sotto carico e scrivi il valore. I nuovi ampere per volt sono i vecchi per il tester diviso ciò che mostra il veicolo.",
         "measured": "Lettura della pinza (A)"
-      }
+      },
+      "noMultiplier": "Questo monitor non usa un moltiplicatore di tensione, quindi qui non c'è nulla da calibrare.",
+      "offsetNote": "Questo calcola solo il moltiplicatore: l'eventuale offset del sensore resta com'è."
     },
     "monitor": {
       "disabled": "Disattivato",
@@ -1395,7 +1397,7 @@
       "undefined": "Non definita",
       "noRotation": "Nessuno",
       "noDrawing": "Per questo telaio non c'è un disegno.",
-      "caption": "Il davanti è in alto. Il numero è quello del motore nel test dei motori; la freccia è il verso di rotazione.",
+      "caption": "Il davanti è in alto. Il numero è quello del motore nel test dei motori, non l'uscita a cui è collegato; la freccia è il verso di rotazione.",
       "motor": "Motore {number} a {angle} gradi, gira {spin}",
       "cw": "in senso orario",
       "ccw": "in senso antiorario"
@@ -1408,7 +1410,8 @@
       "protocol": "Protocollo di serial {n}",
       "baud": "Velocità di serial {n}",
       "none": "Questo veicolo non ha parametri per le porte seriali.",
-      "noProtocol": "Nessuno"
+      "noProtocol": "Nessuno",
+      "willCut": "Dopo il riavvio la connessione su Serial {ports} andrà persa se questa app la usa: portava MAVLink o può essere la porta di una stazione a terra."
     },
     "devices": {
       "summary": "I sensori visti dal veicolo, con l'id che conserva per ciascuno decodificato in bus, indirizzo e tipo di dispositivo.",

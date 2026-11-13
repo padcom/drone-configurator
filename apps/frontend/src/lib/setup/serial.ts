@@ -128,6 +128,39 @@ export function mayCutLink(port: number, protocolNow: number): boolean {
 }
 
 /**
+ * Whether a write changed a port.
+ *
+ * @param written the parameters written
+ * @param port the port
+ * @returns true when its protocol or its speed is among them
+ */
+function wasWritten(written: readonly string[], port: number): boolean {
+  const { protocol, baud } = portParams(port)
+
+  return written.includes(protocol) || written.includes(baud)
+}
+
+/**
+ * The ports a write changed that may cut the link when the vehicle reboots: the ones that carried MAVLink before the write (or
+ * are SERIAL0).
+ *
+ * @param written the parameters written and not rebooted for yet
+ * @param was what each had before it was written
+ * @param now what the vehicle has now
+ * @returns the ports, in order
+ */
+export function cutByReboot(
+  written: readonly string[],
+  was: Readonly<Record<string, number>>,
+  now: (id: string) => number | null,
+): number[] {
+  const ports = Array.from({ length: MAX_PORTS }, (_unused, port) => port)
+  const before = (port: number) => was[portParams(port).protocol] ?? now(portParams(port).protocol) ?? -1
+
+  return ports.filter(port => wasWritten(written, port) && mayCutLink(port, before(port)))
+}
+
+/**
  * Every parameter of some ports.
  *
  * @param ports the ports

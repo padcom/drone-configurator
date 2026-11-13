@@ -1372,7 +1372,9 @@
         "title": "Skalibruj prąd",
         "help": "Zmierz prąd miernikiem cęgowym pod obciążeniem i wpisz odczyt. Nowe ampery na wolt to stare razy miernik podzielony przez to, co pokazuje pojazd.",
         "measured": "Odczyt miernika cęgowego (A)"
-      }
+      },
+      "noMultiplier": "Ten monitor nie używa mnożnika napięcia, więc nie ma tu czego kalibrować.",
+      "offsetNote": "To wylicza tylko mnożnik: offset czujnika zostaje bez zmian."
     },
     "monitor": {
       "disabled": "Wyłączony",
@@ -1395,7 +1397,7 @@
       "undefined": "Niezdefiniowana",
       "noRotation": "Brak",
       "noDrawing": "Dla tej ramy nie ma rysunku.",
-      "caption": "Przód jest u góry. Numer to numer silnika w teście silników; strzałka to kierunek obrotów.",
+      "caption": "Przód jest u góry. Numer to numer silnika w teście silników, a nie wyjście, do którego jest podłączony; strzałka to kierunek obrotów.",
       "motor": "Silnik {number} pod kątem {angle} stopni, obraca się {spin}",
       "cw": "zgodnie z ruchem wskazówek zegara",
       "ccw": "przeciwnie do ruchu wskazówek zegara"
@@ -1408,7 +1410,8 @@
       "protocol": "Protokół portu serial {n}",
       "baud": "Prędkość portu serial {n}",
       "none": "Ten pojazd nie ma parametrów portów szeregowych.",
-      "noProtocol": "Brak"
+      "noProtocol": "Brak",
+      "willCut": "Po restarcie połączenie przez Serial {ports} zostanie utracone, jeśli ta aplikacja rozmawia przez ten port: niósł MAVLink lub może być portem stacji naziemnej."
     },
     "devices": {
       "summary": "Czujniki, które widział pojazd, z zapamiętanym id każdego rozkodowanym na magistralę, adres i typ urządzenia.",

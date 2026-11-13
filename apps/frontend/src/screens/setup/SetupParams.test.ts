@@ -128,6 +128,28 @@ it('calibrates the current only for a monitor that reads it, from the amps the v
   expect(other.wrapper.find('[data-calibrate="current"]').exists()).toBe(false)
 })
 
+it('offers the voltage calibration only for a monitor with a multiplier, from the vehicle\'s value and not a draft', async () => {
+  const smbus = SETUP_PARAMS.map(param => param.id === 'BATT_MONITOR' ? { ...param, value: 7 } : param)
+  const { wrapper } = await page(SetupBattery, { params: smbus })
+
+  expect(wrapper.find('[data-calibrate="voltage"]').exists()).toBe(false)
+  expect(wrapper.get('#setup-battery-novoltage').text()).toContain('does not use a voltage multiplier')
+  // A monitor that is chosen and not written yet changes nothing: what the vehicle does is what it is set to.
+  wrapper.findAllComponents(EnumField)[0]?.vm.$emit('update:modelValue', 4)
+  await flushPromises()
+
+  expect(wrapper.find('[data-calibrate="voltage"]').exists()).toBe(false)
+})
+
+it('offers the current calibration for the analog current monitor, which has no voltage multiplier', async () => {
+  const analog = SETUP_PARAMS.map(param => param.id === 'BATT_MONITOR' ? { ...param, value: 31 } : param)
+  const { wrapper } = await page(SetupBattery, { params: analog })
+
+  expect(wrapper.find('[data-calibrate="voltage"]').exists()).toBe(false)
+  expect(wrapper.find('[data-calibrate="current"]').exists()).toBe(true)
+  expect(wrapper.get('[data-calibrate="current"]').text()).toContain('offset the sensor has is left as it is')
+})
+
 it('says there is nothing to calibrate against when the vehicle shows no reading', async () => {
   const { wrapper, handle } = await page(SetupBattery)
   feed(handle, { telemetry: { ...telemetryAt(0), armed: false, batteryVoltage: undefined, battery: undefined } })
@@ -209,6 +231,32 @@ it('says a change to SERIAL0 or to a port that carries MAVLink may cut the conne
   await flushPromises()
 
   expect(wrapper.find('#setup-serial-cut').exists()).toBe(false)
+})
+
+it('keeps saying the connection will be lost after a SERIAL0 write, beside the reboot button', async () => {
+  const rig = await page(SetupSerial)
+  const { wrapper } = rig
+  wrapper.get('[data-port="0"]').findAllComponents(EnumField)[0]?.vm.$emit('update:modelValue', 5)
+  await flushPromises()
+  await wrapper.get('#setup-serial-write').trigger('click')
+  await flushPromises()
+
+  // The write cleared the user's choices, and the warning is still there: the change takes effect at the boot.
+  expect(valueOf(rig, 'SERIAL0_PROTOCOL')).toBe(5)
+  expect(wrapper.find('#setup-serial-cut').exists()).toBe(false)
+  expect(wrapper.find('#setup-reboot').exists()).toBe(true)
+  expect(wrapper.get('#setup-serial-cut-after').text()).toContain('Serial 0 will be lost')
+})
+
+it('does not say the connection will be lost after a write to a port that carried nothing of it', async () => {
+  const { wrapper } = await page(SetupSerial)
+  wrapper.get('[data-port="2"]').findAllComponents(EnumField)[1]?.vm.$emit('update:modelValue', 921)
+  await flushPromises()
+  await wrapper.get('#setup-serial-write').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.find('#setup-reboot').exists()).toBe(true)
+  expect(wrapper.find('#setup-serial-cut-after').exists()).toBe(false)
 })
 
 it('says a vehicle with no serial parameters has no ports to set', async () => {

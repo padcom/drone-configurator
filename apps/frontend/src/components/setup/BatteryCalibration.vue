@@ -2,6 +2,7 @@
   <section class="setup-calibrate" :data-calibrate="kind" :aria-labelledby="`${uid}-title`">
     <h3 :id="`${uid}-title`" class="setup-subheading">{{ t(`setup.battery.${kind}.title`) }}</h3>
     <p class="muted">{{ t(`setup.battery.${kind}.help`) }}</p>
+    <p class="muted">{{ t('setup.battery.offsetNote') }}</p>
     <p v-if="shown === null" class="muted" role="status">{{ t('setup.battery.noReading') }}</p>
     <template v-else>
       <div class="setup-calibrate-row">

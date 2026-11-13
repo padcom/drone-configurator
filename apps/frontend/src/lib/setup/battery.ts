@@ -11,6 +11,12 @@ export const BATTERY_PREFIXES: readonly string[] = ['BATT', 'BATT2']
 /** How far (as a fraction of what the vehicle shows) a meter may differ before the page asks for a second look at the reading. */
 export const SECOND_LOOK = 0.15
 
+/** The monitors that use `BATT_VOLT_MULT` (analog voltage, and analog voltage and current): AP_BattMonitor_Analog.cpp 76-87. */
+export const VOLTAGE_MONITORS: readonly number[] = [3, 4]
+
+/** The monitors that use `BATT_AMP_PERVLT` (analog voltage and current, and analog current only). */
+export const CURRENT_MONITORS: readonly number[] = [4, 31]
+
 /** The monitor choices that have a name here: the value, and the name of its words (`setup.monitor.<name>`). */
 export const MONITORS: readonly { value: number, name: string }[] = [
   { value: 0, name: 'disabled' },

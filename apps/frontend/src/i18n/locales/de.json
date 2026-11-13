@@ -1372,7 +1372,9 @@
         "title": "Strom kalibrieren",
         "help": "Miss den Strom unter Last mit einer Stromzange und tippe den Wert ein. Die neuen Ampere pro Volt sind die alten mal Messgerät durch Anzeige des Fahrzeugs.",
         "measured": "Stromzangen-Wert (A)"
-      }
+      },
+      "noMultiplier": "Dieser Monitor nutzt keinen Spannungsmultiplikator, also gibt es hier nichts zu kalibrieren.",
+      "offsetNote": "Das berechnet nur den Multiplikator: ein Offset des Sensors bleibt unverändert."
     },
     "monitor": {
       "disabled": "Aus",
@@ -1395,7 +1397,7 @@
       "undefined": "Nicht definiert",
       "noRotation": "Keine",
       "noDrawing": "Für diesen Rahmen gibt es keine Zeichnung.",
-      "caption": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest; der Pfeil ist die Drehrichtung.",
+      "caption": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest, nicht der Ausgang, an dem er angeschlossen ist; der Pfeil ist die Drehrichtung.",
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
       "ccw": "gegen den Uhrzeigersinn"
@@ -1408,7 +1410,8 @@
       "protocol": "Protokoll von Serial {n}",
       "baud": "Geschwindigkeit von Serial {n}",
       "none": "Dieses Fahrzeug hat keine Parameter für serielle Ports.",
-      "noProtocol": "Keiner"
+      "noProtocol": "Keiner",
+      "willCut": "Nach dem Neustart geht die Verbindung über Serial {ports} verloren, wenn diese App darüber spricht: Er trug MAVLink oder ist vielleicht der Port einer Bodenstation."
     },
     "devices": {
       "summary": "Die Sensoren, die das Fahrzeug gesehen hat, mit der gemerkten ID, zerlegt in Bus, Adresse und Gerätetyp.",

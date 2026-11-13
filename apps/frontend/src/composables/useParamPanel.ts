@@ -35,6 +35,11 @@ export interface ParamPanel {
   readonly detail: ShallowRef<string>
   /** The parameters the last write wrote and read back (for a "reboot needed"); forgotten when the link goes. */
   readonly written: ShallowRef<string[]>
+  /**
+   * What the vehicle had for each of them before the first write that has not been rebooted for yet: what a change took effect
+   * from (a serial port's protocol before it was changed), for as long as `written` lives.
+   */
+  readonly writtenWas: ShallowRef<Record<string, number>>
   /** Whether a write is under way. */
   readonly writing: ComputedRef<boolean>
   /** Writes what differs, after the one question. */
@@ -77,6 +82,7 @@ class Panel implements ParamPanel {
   readonly state = shallowRef<PanelState>('idle')
   readonly detail = shallowRef('')
   readonly written = shallowRef<string[]>([])
+  readonly writtenWas = shallowRef<Record<string, number>>({})
   readonly missing: ComputedRef<string[]>
   readonly dirty: ComputedRef<string[]>
   readonly blocked: ComputedRef<PanelBlock>
@@ -106,6 +112,7 @@ class Panel implements ParamPanel {
     watch(() => fields.connection.value.state, state => {
       if (state !== 'connected') {
         this.written.value = []
+        this.writtenWas.value = {}
       }
     })
   }
@@ -133,15 +140,18 @@ class Panel implements ParamPanel {
    * Takes the outcome of a write: what was not read back is told, in words.
    *
    * @param sent the parameters that were sent
+   * @param was what the vehicle had for each of them before
    */
-  private settle(sent: string[]): void {
+  private settle(sent: string[], was: Record<string, number>): void {
     const { staged } = this.handle
     const left = this.ids.filter(id => staged.pending().some(change => change.id === id))
     if (left.length === 0) {
       this.chosen.value = {}
       this.state.value = 'written'
       this.detail.value = ''
-      this.written.value = sent
+      // What was written before and not rebooted for yet stays, with what it was written over (the first value is in force).
+      this.written.value = [...new Set([...this.written.value, ...sent])]
+      this.writtenWas.value = { ...was, ...this.writtenWas.value }
 
       return
     }
@@ -165,6 +175,7 @@ class Panel implements ParamPanel {
     }
     const { staged } = this.handle
     const sent = [...this.dirty.value]
+    const was = Object.fromEntries(sent.map(id => [id, this.vehicleValue(id) ?? 0]))
     this.state.value = 'idle'
     this.detail.value = ''
     staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), { guarded: true })
@@ -176,7 +187,7 @@ class Panel implements ParamPanel {
       return
     }
     await staged.writeAll()
-    this.settle(sent)
+    this.settle(sent, was)
   }
 
   revert = (): void => {

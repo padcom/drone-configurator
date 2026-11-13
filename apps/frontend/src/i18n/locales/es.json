@@ -1372,7 +1372,9 @@
         "title": "Calibrar la corriente",
         "help": "Mide la corriente con una pinza amperimétrica bajo carga y escribe la lectura. Los nuevos amperios por voltio son los anteriores por el medidor entre lo que muestra el vehículo.",
         "measured": "Lectura de la pinza (A)"
-      }
+      },
+      "noMultiplier": "Este monitor no usa un multiplicador de tensión, así que aquí no hay nada que calibrar.",
+      "offsetNote": "Esto calcula solo el multiplicador: el desplazamiento que tenga el sensor se deja como está."
     },
     "monitor": {
       "disabled": "Desactivado",
@@ -1395,7 +1397,7 @@
       "undefined": "Sin definir",
       "noRotation": "Ninguna",
       "noDrawing": "No hay dibujo para este bastidor.",
-      "caption": "El frente está arriba. El número es el del motor en la prueba de motores; la flecha, su sentido de giro.",
+      "caption": "El frente está arriba. El número es el del motor en la prueba de motores, no la salida a la que está conectado; la flecha, su sentido de giro.",
       "motor": "Motor {number} a {angle} grados, gira {spin}",
       "cw": "en sentido horario",
       "ccw": "en sentido antihorario"
@@ -1408,7 +1410,8 @@
       "protocol": "Protocolo de serial {n}",
       "baud": "Velocidad de serial {n}",
       "none": "Este vehículo no tiene parámetros de puertos serie.",
-      "noProtocol": "Ninguno"
+      "noProtocol": "Ninguno",
+      "willCut": "Tras el reinicio se perderá la conexión por Serial {ports} si esta aplicación la usa: llevaba MAVLink o puede ser el puerto de una estación en tierra."
     },
     "devices": {
       "summary": "Los sensores que ha visto el vehículo, con el id que guarda de cada uno descodificado en bus, dirección y tipo de dispositivo.",

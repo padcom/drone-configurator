@@ -40,7 +40,9 @@
         />
       </div>
       <template v-if="tab === 0">
+        <p v-if="!hasVoltage" id="setup-battery-novoltage" class="muted">{{ t('setup.battery.noMultiplier') }}</p>
         <BatteryCalibration
+          v-else
           kind="voltage"
           :param="ids[2] ?? ''"
           :current="panel.vehicleValue(ids[2] ?? '')"
@@ -81,7 +83,7 @@ import EnumField from '@/components/fields/EnumField.vue'
 import type { BatteryGroup } from '@/generated/app'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { BATTERY_PREFIXES, MONITORS, batteryParams, parseAmount } from '@/lib/setup/battery'
+import { BATTERY_PREFIXES, CURRENT_MONITORS, MONITORS, VOLTAGE_MONITORS, batteryParams, parseAmount } from '@/lib/setup/battery'
 
 const { t } = useI18n()
 const uid = useId()
@@ -96,7 +98,10 @@ const groupVoltage = computed(() => battery.value?.voltage)
 const flatVoltage = computed(() => handle.fields.telemetry.value?.batteryVoltage)
 const shownVoltage = computed(() => groupVoltage.value ?? flatVoltage.value ?? null)
 const shownCurrent = computed(() => battery.value?.current ?? null)
-const hasCurrent = computed(() => panel.value.value(ids.value[0] ?? '') === 4)
+/** The monitor the vehicle has (not a draft that was not written: what it does is what it is set to). */
+const monitor = computed(() => panel.value.vehicleValue(ids.value[0] ?? ''))
+const hasVoltage = computed(() => VOLTAGE_MONITORS.includes(monitor.value ?? -1))
+const hasCurrent = computed(() => CURRENT_MONITORS.includes(monitor.value ?? -1))
 
 /**
  * The charge remaining, in words.
