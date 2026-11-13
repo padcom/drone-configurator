@@ -162,8 +162,14 @@ it('points to the first step that is open, with its page, when the parameters ar
   const { wrapper } = await page(SetupHome, { params: fresh })
 
   expect(wrapper.get('#setup-progress').text()).toBe('6 of 7 steps look set up')
-  expect(wrapper.get('#setup-next').text()).toContain('Compass')
-  expect(wrapper.get('#setup-next').attributes('href')).toContain('/setup/compass')
+  // NEXT is a mark on the card of the step, which says its name and value: they are not said twice.
+  const next = wrapper.get('#setup-next')
+  expect(next.classes()).toContain('setup-card')
+  expect(next.get('.setup-next-mark').text()).toBe('Next')
+  expect(next.text()).toContain('Compass')
+  expect(next.attributes('href')).toContain('/setup/compass')
+  expect(wrapper.findAll('.setup-card').filter(card => card.text().includes('No offsets'))).toHaveLength(1)
+  expect(wrapper.find('.setup-next-title').exists()).toBe(false)
   expect(wrapper.get('.setup-card.open').text()).toContain('COMPASS_OFS are all zero')
 })
 
