@@ -71,7 +71,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import type { CalibrationRadio } from '@/generated/app'
+import type { CalibrationRadio, CalibrationResult } from '@/generated/app'
 import { RADIO_PARAMS, RCMAP_PARAMS, endedWithDone, fractionOf, paramsOf, plannedWrites, roleOf, spanOf } from '@/lib/setup/radio'
 
 const { t } = useI18n()
@@ -167,6 +167,18 @@ function choose(radio: CalibrationRadio): void {
   staged.value = planned.length
 }
 
+/**
+ * Chooses from how a calibration ended, if it ended with Done.
+ *
+ * @param result how it ended
+ * @param radio what it captured
+ */
+function chooseFrom(result: CalibrationResult, radio: CalibrationRadio | undefined): void {
+  if (radio !== undefined && endedWithDone(result)) {
+    choose(radio)
+  }
+}
+
 /** Whether a calibration ran while this page looked: only what the user saw end is chosen from, not an old result on return. */
 const watched = ref(false)
 /** A calibration starting forgets what the last one chose (the page says nothing of it any more). */
@@ -177,12 +189,15 @@ watch(running, now => {
 
 /** The result comes twice (the event, then the answer of the call): it is chosen from once, the first time it is seen. */
 watch(() => calibration.result.value, result => {
-  const { radio } = state.value
+  // A calibration that starts clears the last result: that is not an end.
+  if (result === null) {
+    return
+  }
   const seen = watched.value
   watched.value = false
 
-  if (seen && radio !== undefined && endedWithDone(result)) {
-    choose(radio)
+  if (seen) {
+    chooseFrom(result, state.value.radio)
   }
 })
 

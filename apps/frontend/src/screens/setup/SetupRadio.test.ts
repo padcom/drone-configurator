@@ -176,6 +176,37 @@ it('chooses nothing from a calibration that is cancelled, and says it was cancel
   expect(wrapper.get('#setup-radio-start').attributes('disabled')).toBeUndefined()
 })
 
+it('does not let what was chosen be written while the vehicle is armed, or may be (the guarded queue says why)', async () => {
+  const { wrapper, handle } = await page()
+  await press(wrapper, 'setup-radio-start')
+  await readyToFinish(wrapper)
+  await press(wrapper, 'setup-radio-finish')
+  await vi.waitFor(() => expect(wrapper.find('#setup-radio-staged').exists()).toBe(true))
+  expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeUndefined()
+
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
+  await flushPromises()
+  expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#setup-radio-blocked').text()).toContain('armed')
+  // the armed state is not known (no telemetry): it counts as armed
+  feed(handle, { telemetry: null })
+  await flushPromises()
+  expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeDefined()
+})
+
+it('chooses what a calibration found even when an earlier one was cancelled', async () => {
+  const { wrapper } = await page()
+  await press(wrapper, 'setup-radio-start')
+  await readyToFinish(wrapper)
+  await press(wrapper, 'setup-radio-cancel')
+  await press(wrapper, 'setup-radio-start')
+  await readyToFinish(wrapper)
+  await press(wrapper, 'setup-radio-finish')
+
+  await vi.waitFor(() => expect(wrapper.find('#setup-radio-staged').exists()).toBe(true))
+  expect(writes(wrapper)).toContain('RC1_MIN')
+})
+
 it('cancels the calibration when the page is left, so that the vehicle is never left calibrating', async () => {
   const { wrapper, handle } = await page()
   await press(wrapper, 'setup-radio-start')

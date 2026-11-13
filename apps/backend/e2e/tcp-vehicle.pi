@@ -85,6 +85,7 @@ function serve(conn: Conn): void {
   if (setup) {
     stayDisarmed(sim!)
     calibratesQuickly(sim!)
+    movesTheSticks(sim!)
   }
 }
 
@@ -132,8 +133,27 @@ function setupParams(): SimParam[] {
   for (const n of [1, 2, 3, 4]) {
     out.push(SimParam { id: `RC${n}_MIN`, value: TypedParamValue.Int(1008, MavParamType.INT16) })
     out.push(SimParam { id: `RC${n}_MAX`, value: TypedParamValue.Int(1992, MavParamType.INT16) })
+    out.push(SimParam { id: `RC${n}_TRIM`, value: TypedParamValue.Int(1496, MavParamType.INT16) })
+  }
+  for (const n of [5, 6, 7, 8]) {
+    out.push(SimParam { id: `RC${n}_OPTION`, value: TypedParamValue.Int(if (n == 7) 4 else 0, MavParamType.INT16) })
   }
   out
+}
+
+/// A radio whose sticks keep moving: roll and pitch sweep their whole range, the yaw stick sends a pulse that is not a reading every
+/// few steps (the app must not take it for one), and the throttle and the switches stay where they are. 8 channels, 10 times a second.
+function movesTheSticks(sim: SimulatedAutopilot): void {
+  const sweep = [1100, 1500, 1900, 1500]
+  let step = 0
+  sim.rc = [1500, 1500, 1000, 1500, 1000, 1000, 1500, 1000]
+  sim.rcStream = true
+  setInterval(() => {
+    step += 1
+    sim.rc[0] = sweep[step % 4]
+    sim.rc[1] = sweep[(step + 2) % 4]
+    sim.rc[3] = if (step % 7 == 3) 9000 else 1500
+  }, 100)
 }
 
 /// A vehicle that never arms: its tick is set back before it counts 3 (a Setup write is refused while armed).
