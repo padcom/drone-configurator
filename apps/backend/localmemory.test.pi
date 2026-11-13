@@ -1,4 +1,4 @@
-// Memory of the passes over a log of 16 MB (Linux only: the process's peak is read from /proc/self/status). The log is made a
+// Memory of the passes over a log of 64 MB (Linux only: the process's peak is read from /proc/self/status). The log is made a
 // piece of about a megabyte at a time and written to the file at once, so the generator never holds more than a piece. It is
 // then read and charted: neither may hold the log, so the peak of the process may not rise more than `BOUND_KB` over what it was
 // before. (A one-off measurement on a log of 104 MB with 728 thousand messages: +14 MB; the PR text has it.) Off Linux the test
@@ -20,13 +20,13 @@ import {
 import { copyName } from "./logs"
 import { forgetLocalReads } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
-import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
+import { DEFAULT_DEADLINE_MS, Frontend, setDeadline, start } from "./testing"
 
-/// How far above what it was the peak of the process may rise: 32 MB.
-const BOUND_KB: int = 32768
+/// How far above what it was the peak of the process may rise: 70 MB (the log is 64 MB).
+const BOUND_KB: int = 71680
 
-/// 16 pieces of about a megabyte (55000 messages of 19 bytes).
-const PIECES: int = 16
+/// 64 pieces of about a megabyte (55000 messages of 19 bytes).
+const PIECES: int = 64
 const PER_PIECE: int = 55000
 
 /// The number of kilobytes on the line `name` of /proc/self/status, or -1 when there is no such line (not Linux).
@@ -74,7 +74,28 @@ async function generate(path: string): Promise<int> throws Error {
   crc.crc
 }
 
-async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
+/// What one pass leaves: the memory before it and how far the peak rose over it.
+struct Pass {
+  before: int
+  rose: int
+}
+
+/// One read and one chart of the log, measured from a clean start: nothing cached, the garbage of what made the log collected (so
+/// the baseline is what the process needs, not what it once held), and the peak reset to what the process holds now.
+async function onePass(f: Frontend, key: string): Promise<Pass> throws Error {
+  forgetLocalReads()
+  gc.collect()
+  await resetPeak()
+  const before = await statusKb("VmRSS")
+  const read = await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  expect(read.k).toBe("response")
+  const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
+  const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
+  expect(series.series[0].found).toBe(true)
+  Pass { before: before, rose: (await statusKb("VmHWM")) - before }
+}
+
+async function stayInTheBoundOnALogOf64Megabytes(): Promise<void> throws Error {
   if ((await statusKb("VmHWM")) < 0) {
     return
   }
@@ -84,25 +105,21 @@ async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
     useDirectoryForTests(root)
     forgetLocalReads()
     const f = await start()
-    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 16 MB: a minute.
-    setDeadline(60000)
+    // A slow machine (a CI runner) takes longer than the 10 s a reply is waited for by default to read 64 MB: three minutes.
+    setDeadline(180000)
     const tmp = join(root, "logs", "uid-a", "generating.bin")
     const name = copyName(1, await generate(tmp))
     await rename(tmp, join(root, "logs", "uid-a", name))
-    expect((await stat(join(root, "logs", "uid-a", name))).size > 15000000).toBe(true)
+    expect((await stat(join(root, "logs", "uid-a", name))).size > 60000000).toBe(true)
     const key = `uid-a/${name}`
-    // What making the log left behind is garbage: collected, so that the baseline is what the process needs, not what it once held.
-    gc.collect()
-    await resetPeak()
-    const before = await statusKb("VmRSS")
-    const read = await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
-    expect(read.k).toBe("response")
-    const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
-    const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
-    expect(series.series[0].found).toBe(true)
-    const rose = (await statusKb("VmHWM")) - before
-    if (rose >= BOUND_KB) {
-      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+    // One cold pass: a second one would find the memory the first grew to still held by the allocator, and a read that holds
+    // the whole log would then not raise the peak at all (shown by mutation: keeping every chunk in a list passed the bound
+    // in three repeated passes with rises of 0.7 to 4.4 MB). What a read takes that does not depend on the size of the log (the
+    // decoders, the first growth of the heap, whatever ran before in this process) is 22 MB here and up to about 55 MB on a CI
+    // runner, so the log is 64 MB: a read that holds it rises by 64 MB more than that (the mutation proof: 86 MB or more against the bound of 70).
+    const measured = await onePass(f, key)
+    if (measured.rose >= BOUND_KB) {
+      panic(`the peak rose ${measured.rose} kB over ${measured.before} kB: more than ${BOUND_KB} kB`)
     }
   } finally {
     setDeadline(DEFAULT_DEADLINE_MS)
@@ -110,6 +127,6 @@ async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
   }
 }
 
-describe("the memory of the passes over a log of 16 MB (Linux)", () => {
-  it("stays within 32 MB of where it began", stayInTheBoundOnALogOf16Megabytes)
+describe("the memory of the passes over a log of 64 MB (Linux)", () => {
+  it("stays within 70 MB of where it began", stayInTheBoundOnALogOf64Megabytes)
 })
