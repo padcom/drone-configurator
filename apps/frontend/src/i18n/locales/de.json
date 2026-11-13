@@ -1464,7 +1464,7 @@
       "noOutputsHelp": "Sie erscheinen, sobald das Fahrzeug sie meldet.",
       "output": "Ausgang {n}",
       "pulse": "{us} µs",
-      "range": "{name} muss zwischen {low} und {high} liegen. Das Eingegebene wird nicht geschrieben.",
+      "range": "Außerhalb des Bereichs: das Eingegebene wird nicht geschrieben.",
       "outputsOld": "Das Fahrzeug meldet seine Ausgänge nicht mehr.",
       "outputsOldHelp": "Die letzten Impulse werden nicht gezeigt, sie sähen aktuell aus. Sie erscheinen wieder, wenn das Fahrzeug sie meldet.",
       "protocolUnknown": "Dieses Fahrzeug meldet sein ESC-Protokoll nicht."
