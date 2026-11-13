@@ -17,7 +17,7 @@
 // The whole log is looked at. With ArduPilot's defaults a log begins at the arm, so that is the flight; a log that holds time on
 // the ground (LOG_DISARMED) has it in these numbers too. The limits are guidelines, this app's, written in the findings, not facts.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
-import { DfMessage } from "padcom/pico-mavlink"
+import { DfMessage, DfTables } from "padcom/pico-mavlink"
 import {
   LogsReview,
   ReviewFinding,
@@ -25,6 +25,8 @@ import {
   decodeLogsLocalRead,
   encodeLogsReview,
 } from "./generated/app"
+import { factorOf } from "./localseries"
+import { LogReader } from "./logreader"
 import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "./locallogs"
 
 /// Vibration (m/s/s): above `VIBE_WARN` it may hurt, above `VIBE_BAD` it does.
@@ -114,6 +116,8 @@ class Gathered implements Taker {
   public readonly volts: Extreme = new Extreme(false)
   /// The lowest cell voltage of a battery that reports its cells (BCL: V1..V12; 0 is a cell that is not there).
   public readonly cells: Extreme = new Extreme(false)
+  /// The units and multipliers the log names (a DataFlash BCL has its cells in millivolts with the multiplier 0.001).
+  readonly reader: LogReader
   /// The VIBE samples of IMU 0 (the ones the review rests on): how many, and the first and last time (microseconds).
   public vibeSamples: int = 0
   public vibeFirst: int = -1
@@ -122,7 +126,8 @@ class Gathered implements Taker {
   /// The time of the first message that has one (microseconds), -1 before.
   public start: int = -1
 
-  constructor() {
+  constructor(reader: LogReader) {
+    this.reader = reader
     for (let i = 0; i < MAX_IMUS; i++) {
       this.clips.push(new Running())
     }
@@ -155,10 +160,16 @@ class Gathered implements Taker {
 
   /// The cells of one BCL message: each that is there (above 0) may be the lowest.
   takeCells(m: DfMessage): void {
+    const tables: DfTables = reader.tables()
     for (let i = 1; i <= 12; i++) {
-      const v = m.num(`V${i}`)
-      if (v != null && v! > 0.0) {
-        cells.offer(v!, m.timeUs())
+      const at = m.format.indexOf(`V${i}`)
+      if (at < 0) {
+        continue
+      }
+      // In volts: the log's multiplier takes a count of millivolts there, as the series and the export do.
+      const v = m.nums[at] * factorOf(m.format.fields[at], tables)
+      if (v > 0.0) {
+        cells.offer(v, m.timeUs())
       }
     }
   }
@@ -351,8 +362,9 @@ async function review(key: string, own: AbortController): Promise<Cbor?> throws 
   if (!known!.verified) {
     throw new CommunicatorError("NOT_VERIFIED", "the log is not verified (its CRC is not the one the vehicle gave): no review")
   }
-  const g = new Gathered()
-  const done = await streamLog(key, file, own, g)
+  const reader = file.newReader()
+  const g = new Gathered(reader)
+  const done = await streamLog(key, file, own, g, null, reader)
   if (!done.unchanged) {
     throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
   }

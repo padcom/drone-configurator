@@ -446,6 +446,30 @@ async function reviewsTheCellsAndSaysTheRateOfTheSamples(): Promise<void> throws
   }
 }
 
+async function skipsACellOfZeroLikeUint16Max(): Promise<void> throws Error {
+  const w = new TlogWriter()
+  w.addMessage(T0, heartbeat(5), 1, true, 1, 1)
+  const batt = new BatteryStatus()
+  // 3850 mV is the lowest cell that is there; 0 (ArduPilot's "unused") and 65535 (UINT16_MAX, "not used") are no cells.
+  batt.voltages = [3900, 0, 3850, 65535, 0, 65535, 65535, 65535, 65535, 65535]
+  w.addMessage(T0 + 100000, batt, 2, true, 1, 1)
+  const r = await rig(w.bytes())
+  try {
+    await read(r)
+    const review = decodeLogsReview((await r.f.call("logs.local.review", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+    let value = -1.0
+    for (const f of review.findings) {
+      if (f.id == "battery.cell") {
+        value = f.value ?? 0.0
+      }
+    }
+
+    expect(Math.round(value * 1000.0)).toBe(3850.0)
+  } finally {
+    await done(r)
+  }
+}
+
 async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
   const r = await rig(flight())
   try {
@@ -536,5 +560,6 @@ describe("an imported recording in the library", () => {
   it("lists at most 255 kinds of message, ids above 255 included, and counts the rest", listsAtMost255KindsAndCountsTheRest)
   it("takes as the source only an autopilot's heartbeat: not a companion, a gimbal or a ground station", dropsAllButAnAutopilotsHeartbeatAsTheSource)
   it("reviews the lowest cell and says the rate of the samples a recording's vibration finding rests on", reviewsTheCellsAndSaysTheRateOfTheSamples)
+  it("skips a cell of 0 like UINT16_MAX: the lowest cell is the lowest that is there, 3850 mV is 3.85 V", skipsACellOfZeroLikeUint16Max)
   it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
 })

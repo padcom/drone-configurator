@@ -113,6 +113,38 @@ function show(review: LogsReview, id: string): string {
   "missing"
 }
 
+/// The lowest cell of a DataFlash BCL, whose cells are counts of millivolts with the log's multiplier 0.001: volts, not 3850 V.
+async function givesTheLowestCellInVoltsForADataflashLog(): Promise<void> throws Error {
+  const r = await rig()
+  const e = new DfEncoder()
+  e.define(130, "FMTU", "QBNN", "TimeUS,FmtType,UnitIds,MultIds")
+  e.define(131, "UNIT", "QbZ", "TimeUS,Id,Label")
+  e.define(132, "MULT", "Qbd", "TimeUS,Id,Mult")
+  e.add(131, [0.0, 115.0, 0.0], ["", "", "s"])
+  e.add(131, [0.0, 35.0, 0.0], ["", "", "instance"])
+  e.add(131, [0.0, 118.0, 0.0], ["", "", "V"])
+  e.add(132, [0.0, 70.0, 0.000001], ["", "", ""])
+  e.add(132, [0.0, 45.0, 0.0], ["", "", ""])
+  e.add(132, [0.0, 67.0, 0.001], ["", "", ""])
+  e.define(150, "BCL", "QBfHHH", "TimeUS,Instance,Volt,V1,V2,V3")
+  e.add(130, [0.0, 150.0, 0.0, 0.0], ["", "", "s#vvvv", "F--CCC"])
+  // Cells of 3.90 V and 3.85 V, and a third that is not there (ArduPilot writes it as 0).
+  e.add(150, [1000000.0, 0.0, 7.75, 3900.0, 3850.0, 0.0], blank(6))
+  e.add(150, [2000000.0, 0.0, 7.80, 3950.0, 3900.0, 0.0], blank(6))
+  const key = await put(r, e.bytes())
+  await readIt(r, key)
+  const review = decodeLogsReview((await reviewOf(r, key)).p ?? Cbor.Null, "$")
+  let value = 0.0
+  for (const f of review.findings) {
+    if (f.id == "battery.cell") {
+      value = f.value ?? 0.0
+    }
+  }
+
+  expect(Math.round(value * 1000.0)).toBe(3850.0)
+  await done(r)
+}
+
 async function reviewsAHealthyFlight(): Promise<void> throws Error {
   const r = await rig()
   const e = new DfEncoder()
@@ -278,6 +310,7 @@ async function reviewsOnlyAVerifiedLogThatWasRead(): Promise<void> throws Error 
 }
 
 describe("the review of the logs on this computer", () => {
+  it("gives the lowest cell of a DataFlash log in volts (3850 mV is 3.85 V)", givesTheLowestCellInVoltsForADataflashLog)
   it("reviews a healthy flight, with the number and the limit of each finding", reviewsAHealthyFlight)
   it("reviews a flight that went badly, against the limit it crossed", reviewsAFlightThatWentBadlyAndSaysAgainstWhatLimit)
   it("does not count a GPS sample without a 3D fix, and counts it as having none", doesNotCountGpsWithoutAFixAndSaysSo)
