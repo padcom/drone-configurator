@@ -1376,7 +1376,8 @@
         "measured": "Clamp meter reading (A)"
       },
       "noMultiplier": "This monitor does not use a voltage multiplier, so there is nothing to calibrate here.",
-      "offsetNote": "This works out the multiplier only: an offset the sensor has is left as it is."
+      "offsetNote": "This works out the multiplier only: an offset the sensor has is left as it is.",
+      "sameValue": "That is the value the vehicle has already: there is nothing to change."
     },
     "monitor": {
       "disabled": "Disabled",

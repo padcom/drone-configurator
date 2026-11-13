@@ -1376,7 +1376,8 @@
         "measured": "Lectura de la pinza (A)"
       },
       "noMultiplier": "Este monitor no usa un multiplicador de tensión, así que aquí no hay nada que calibrar.",
-      "offsetNote": "Esto calcula solo el multiplicador: el desplazamiento que tenga el sensor se deja como está."
+      "offsetNote": "Esto calcula solo el multiplicador: el desplazamiento que tenga el sensor se deja como está.",
+      "sameValue": "Es el valor que el vehículo ya tiene: no hay nada que cambiar."
     },
     "monitor": {
       "disabled": "Desactivado",

@@ -1376,7 +1376,8 @@
         "measured": "Odczyt miernika cęgowego (A)"
       },
       "noMultiplier": "Ten monitor nie używa mnożnika napięcia, więc nie ma tu czego kalibrować.",
-      "offsetNote": "To wylicza tylko mnożnik: offset czujnika zostaje bez zmian."
+      "offsetNote": "To wylicza tylko mnożnik: offset czujnika zostaje bez zmian.",
+      "sameValue": "To jest wartość, którą pojazd już ma: nie ma czego zmieniać."
     },
     "monitor": {
       "disabled": "Wyłączony",

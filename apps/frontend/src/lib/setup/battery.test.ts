@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { MONITORS, batteryParams, calibrated, needsSecondLook, parseAmount } from './battery'
+import { MONITORS, batteryParams, calibrated, needsSecondLook, parseAmount, rounded } from './battery'
 
 it('names the parameters of each battery by its prefix', () => {
   expect(batteryParams(0)).toEqual(['BATT_MONITOR', 'BATT_CAPACITY', 'BATT_VOLT_MULT', 'BATT_AMP_PERVLT'])
@@ -34,6 +34,11 @@ it('takes a number that is not negative, and nothing else', () => {
   expect(parseAmount('')).toBeNull()
   expect(parseAmount('-1')).toBeNull()
   expect(parseAmount('abc')).toBeNull()
+})
+
+it('rounds a float the vehicle holds to the three decimals a multiplier has', () => {
+  expect(rounded(10.100000381469727)).toBe(10.1)
+  expect(rounded(10.1644)).toBe(10.164)
 })
 
 it('has a name for each monitor choice, once', () => {
