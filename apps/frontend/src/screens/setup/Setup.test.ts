@@ -188,6 +188,30 @@ it('lists exactly what the modes page writes, and writes a changed slot after on
   expect(handle.parameters.params.value.find(param => param.id === 'FLTMODE2')?.value).toBe(9)
 })
 
+it('chooses the channel of the mode switch from a list: None, then the channels ArduPilot lists, by number', async () => {
+  const { wrapper, asked } = await page(SetupModes)
+  const channel = wrapper.get<HTMLSelectElement>('select')
+
+  const offered = channel.findAll('option').map(option => `${option.attributes('value')} ${option.text()}`)
+  expect(offered.join(', ')).toBe('0 None, 5 Channel 5, 6 Channel 6, 7 Channel 7, 8 Channel 8, 9 Channel 9, 10 Channel 10, '
+    + '11 Channel 11, 12 Channel 12, 13 Channel 13, 14 Channel 14, 15 Channel 15')
+  expect(channel.element.value).toBe('5')
+  await channel.setValue('8')
+  await flushPromises()
+  await wrapper.get('#setup-modes-write').trigger('click')
+  await flushPromises()
+
+  expect(asked[0]).toContain('FLTMODE_CH 5 → 8')
+})
+
+it('shows a channel the vehicle has that the list does not hold, as the number it is', async () => {
+  const odd = SETUP_PARAMS.map(param => param.id === 'FLTMODE_CH' ? { ...param, value: 2 } : param)
+  const { wrapper } = await page(SetupModes, { params: odd })
+
+  expect(wrapper.get<HTMLSelectElement>('select').element.value).toBe('2')
+  expect(wrapper.get('select option[value="2"]').text()).toBe('2')
+})
+
 it('warns when no slot can bring the vehicle home or down, and writes nothing until asked', async () => {
   const { wrapper, asked } = await page(SetupModes)
   for (const slot of [2, 4]) {
@@ -337,6 +361,8 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFailsafes)
 
-  expect(wrapper.get('.setup-heading').text()).toBe('Failsafes')
+  // The page has no header of its own (the list beside it names it): it is named for a screen reader.
+  expect(wrapper.get('.setup-page-body').attributes('aria-label')).toBe('Failsafes')
+  expect(wrapper.find('.setup-heading').exists()).toBe(false)
   expect(wrapper.get('[data-failsafe="batteryLow"] h4').text()).toBe('Akku niedrig')
 })

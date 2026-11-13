@@ -1,6 +1,5 @@
 <template>
-  <div class="gallery">
-    <h2>{{ t('gallery.title') }}</h2>
+  <section class="gallery" :aria-label="t('gallery.title')">
     <p class="muted">{{ t('gallery.intro') }}</p>
 
     <section>
@@ -203,7 +202,7 @@
         <li v-for="name in ICON_NAMES" :key="name"><Icon :name="name" /> <code>{{ name }}</code></li>
       </ul>
     </section>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">

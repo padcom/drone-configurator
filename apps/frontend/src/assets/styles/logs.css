@@ -7,10 +7,6 @@
   padding: var(--space-4) 0;
 }
 
-.logs-vehicle-title {
-  margin: 0;
-}
-
 .logs-toolbar,
 .logs-actions {
   display: flex;
@@ -71,7 +67,6 @@
   padding: var(--space-4) 0;
 }
 
-.logs-flights-title,
 .flight-detail-title,
 .flight-review-title {
   margin: 0;

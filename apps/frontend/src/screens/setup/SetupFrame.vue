@@ -1,7 +1,6 @@
 <template>
-  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
+  <section class="setup-page-body" :aria-label="t('setup.section.frame')">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.frame') }}</h3>
       <p class="muted">{{ t('setup.frame.summary') }}</p>
       <Banner id="setup-frame-warning" tone="warn">{{ t('setup.frame.warning') }}</Banner>
       <RebootBanner :show="rebootNeeded" />
@@ -44,7 +43,7 @@
 // vehicle is disarmed (here and in the backend), and the change takes effect at the next boot: the page says "reboot needed"
 // after the write and offers the reboot, which is held; it never reboots by itself. After a reboot the vehicle may report
 // another kind (a hexa is not a quad); the connection follows it.
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FrameDiagram from '@/components/setup/FrameDiagram.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
@@ -56,7 +55,6 @@ import { useParamPanel } from '@/composables/useParamPanel'
 import { FRAME_CLASSES, FRAME_PARAMS, FRAME_TYPES, ORIENTATIONS, optionsOf } from '@/lib/setup/frame'
 
 const { t } = useI18n()
-const uid = useId()
 const panel = useParamPanel(FRAME_PARAMS, useConfigurator())
 const classes = computed(() => optionsOf(FRAME_CLASSES, { value: 0, label: t('setup.frame.undefined') }))
 const types = optionsOf(FRAME_TYPES)

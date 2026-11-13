@@ -1203,7 +1203,9 @@
     "modes": {
       "summary": "Każdy slot to pozycja przełącznika trybów w nadajniku. Wybierz, co robi pojazd w każdej.",
       "loading": "Czytanie trybów tego pojazdu…",
-      "channel": "Kanał przełącznika trybów (0 to brak)",
+      "channel": "Kanał przełącznika trybów",
+      "channelNone": "Brak",
+      "channelN": "Kanał {n}",
       "noLive": "Aktualna pozycja przełącznika nie jest tu jeszcze pokazywana.",
       "slot": "Tryb dla pozycji {n}",
       "upTo": "do {to}",

@@ -1,7 +1,6 @@
 
 <template>
-  <section class="logs-tools" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-tools-title">{{ t('logs.setup.title') }}</h3>
+  <section class="logs-tools" :aria-label="t('logs.setup.title')">
     <p id="setup-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <EmptyState
       v-if="!logging.available.value"
@@ -86,7 +85,7 @@
 // "Add to the changes" puts the new values in the list of parameter changes, written from there after one question and read back.
 // The page says that more logging fills the vehicle's storage faster, gives a size it labels as an estimate and says what it
 // rests on, and queues nothing while the vehicle is armed (or may be).
-import { computed, useId } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import StagedChanges from '@/components/params/StagedChanges.vue'
 import Banner from '@/components/ui/Banner.vue'
@@ -105,7 +104,6 @@ defineProps<{
 
 const { t } = useI18n()
 const { number } = useFormat()
-const uid = useId()
 const { parameters, metadata, flights, staged, fields } = useConfigurator()
 
 const logging = useLoggingSetup({

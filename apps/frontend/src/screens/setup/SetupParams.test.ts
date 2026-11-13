@@ -329,5 +329,6 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFrame)
 
-  expect(wrapper.get('.setup-heading').text()).toBe('Rahmen und Ausrichtung')
+  expect(wrapper.get('.setup-page-body').attributes('aria-label')).toBe('Rahmen und Ausrichtung')
+  expect(wrapper.find('.setup-heading').exists()).toBe(false)
 })

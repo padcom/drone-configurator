@@ -37,14 +37,16 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('shows the title, the five tabs in the order of the design, and the first part, for the address of the screen', async () => {
+it('shows the five tabs in the order of the design and the first part, with no header (the rail names it)', async () => {
   const { wrapper, router } = await shellAt('/logs')
 
   expect(router.currentRoute.value.path).toBe('/logs/flights')
-  expect(wrapper.get('.logs-title').text()).toBe('Logs')
+  expect(wrapper.get('main .logs').attributes('aria-label')).toBe('Logs')
+  expect(wrapper.find('.logs-title').exists()).toBe(false)
   expect(wrapper.findAll('.kit-section-nav .tab').map(tab => tab.text()))
     .toEqual(['Flights', 'Replay', 'Spectrum', 'On the vehicle', 'Tools'])
-  expect(wrapper.get('.logs-flights .logs-flights-title').text()).toBe('Flights')
+  expect(wrapper.get('.logs-flights').attributes('aria-label')).toBe('Flights')
+  expect(wrapper.find('.logs-flights-title').exists()).toBe(false)
 })
 
 it('names the navigation, marks the tab that is shown by aria-current, and the tabs are links to the parts', async () => {
@@ -87,18 +89,18 @@ it('shows in "On the vehicle" that a vehicle must be connected, not a placeholde
   expect(wrapper.find('.logs-section').exists()).toBe(false)
 })
 
-it('keeps the screen alive when a part is chosen: the title is the same element, and each part keeps its own state', async () => {
+it('keeps the screen alive when a part is chosen: it is the same element, and each part keeps its own state', async () => {
   const { wrapper, router } = await shellAt('/logs/flights')
-  const title = wrapper.get('.logs-title').element
+  const screen = wrapper.get('main .logs').element
   const flights = wrapper.get('.logs-flights').element
 
   await router.push('/logs/tools')
   await flushPromises()
-  expect(wrapper.get('.logs-title').element).toBe(title)
+  expect(wrapper.get('main .logs').element).toBe(screen)
   await router.push('/logs/flights')
   await flushPromises()
 
-  expect(wrapper.get('.logs-title').element).toBe(title)
+  expect(wrapper.get('main .logs').element).toBe(screen)
   // The part that was left is the element that comes back, not a new one.
   expect(wrapper.findAll('.logs-flights').some(section => section.element === flights && section.isVisible())).toBe(true)
 })

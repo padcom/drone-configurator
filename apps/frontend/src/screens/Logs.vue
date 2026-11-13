@@ -1,6 +1,5 @@
 <template>
-  <section class="logs" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="logs-title">{{ t('screen.logs') }}</h2>
+  <section class="logs" :aria-label="t('screen.logs')">
     <SectionNav :label="t('logs.sections')" :sections="tabs" />
     <!-- Which part was chosen, said politely (a screen reader hears no change when only the part under the tabs is another). -->
     <p class="visually-hidden" role="status">{{ shown }}</p>
@@ -14,7 +13,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import SectionNav from '@/components/ui/SectionNav.vue'
@@ -23,7 +22,6 @@ import { SCREENS, sectionRouteName } from '@/screens/registry'
 // The Logs screen: a title, the tabs of its parts (the registry's list, so a part is added in one place), and the part that the
 // address names. Each part is a screen of its own in the registry's sense (a nested route), loaded when it is first shown.
 const { t } = useI18n()
-const uid = useId()
 const route = useRoute()
 const SCREEN = 'logs'
 const sections = SCREENS.find(screen => screen.id === SCREEN)?.sections ?? []

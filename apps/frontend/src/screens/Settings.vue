@@ -1,6 +1,5 @@
 <template>
-  <section class="settings" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="settings-title">{{ t('settings.title') }}</h2>
+  <section class="settings" :aria-label="t('screen.settings')">
     <div class="settings-row">
       <label :for="`${uid}-language`">{{ t('language.label') }}</label>
       <Select :id="`${uid}-language`" v-model="language" :options="options" :aria-describedby="`${uid}-help`" />

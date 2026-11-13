@@ -75,6 +75,13 @@ export function hasHint(mode: number): boolean {
 }
 
 /**
+ * The channels the mode switch is offered on: 0 (none) and 5 to 15, as ArduCopter lists the values of `FLTMODE_CH`
+ * (ArduCopter/Parameters.cpp line 190: "0:Disabled,5:Channel5 ... 15:Channel 15"; channels 1 to 4 are the sticks). The parameter
+ * itself is not limited to them: a value it has outside the list is shown as it is, and `parseChannel` takes 0 to 16.
+ */
+export const CHANNELS: readonly number[] = [0, ...Array.from({ length: 11 }, (_unused, i) => i + 5)]
+
+/**
  * Whether a number is a channel of the receiver the mode switch can be on: a whole number from 0 (none) to 16.
  *
  * @param channel the number

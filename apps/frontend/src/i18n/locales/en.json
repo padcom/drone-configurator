@@ -1203,7 +1203,9 @@
     "modes": {
       "summary": "Each slot is a position of the mode switch on your transmitter. Choose what the vehicle does in each.",
       "loading": "Reading the modes of this vehicle…",
-      "channel": "Channel of the mode switch (0 is none)",
+      "channel": "Channel of the mode switch",
+      "channelNone": "None",
+      "channelN": "Channel {n}",
       "noLive": "The position the switch is in now is not shown here yet.",
       "slot": "Mode for position {n}",
       "upTo": "up to {to}",

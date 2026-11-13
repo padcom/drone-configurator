@@ -1,6 +1,5 @@
 <template>
-  <section class="logs-vehicle" :data-section="section" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-vehicle-title">{{ t('logs.vehicle.title') }}</h3>
+  <section class="logs-vehicle" :data-section="section" :aria-label="t('logs.vehicle.title')">
     <!-- What the last look at the downloaded logs on this computer did (it removes by the preferences in Settings). -->
     <p v-if="housekeepingText" id="logs-housekeeping" class="muted">{{ housekeepingText }}</p>
     <EmptyState

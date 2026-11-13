@@ -7,11 +7,6 @@
   min-height: 0;
 }
 
-.setup-title,
-.setup-heading {
-  margin: 0;
-}
-
 .setup-body {
   display: flex;
   flex-wrap: wrap;

@@ -1,7 +1,6 @@
 
 <template>
-  <section class="logs-flights" :data-section="section" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-flights-title">{{ t('logs.flights.title') }}</h3>
+  <section class="logs-flights" :data-section="section" :aria-label="t('logs.flights.title')">
     <!-- Always in the page, so that its words are read out when they change (a read that finished, was stopped or failed). -->
     <p id="flights-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <!-- The error of a log that failed to open is spoken by the status line; the banner shows it and does not speak it again. -->
@@ -151,7 +150,7 @@
 // the flight modes along the time, three charts that share one cursor (attitude, altitude, vibration), and the automatic review.
 // The review exists only for a verified log; one that is not verified is shown and says so. A series the log lacks, and a part
 // of the time with no samples, say so (no data, a gap): nothing is drawn that the log does not hold.
-import { computed, nextTick, onActivated, onMounted, ref, useId, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LineChart, { type LineSeries } from '@/components/charts/LineChart.vue'
 import Banner from '@/components/ui/Banner.vue'
@@ -174,7 +173,6 @@ defineProps<{
 
 const { t, locale } = useI18n()
 const { number } = useFormat()
-const uid = useId()
 const { flights, browser } = useConfigurator()
 
 /**
