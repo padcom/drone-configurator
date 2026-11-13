@@ -21,9 +21,10 @@ export const MOTOR_PARAMS: readonly string[] = [PWM_TYPE, SPIN_ARM, SPIN_MIN, SP
 export const SPIN_PARAMS: readonly string[] = [SPIN_ARM, SPIN_MIN, SPIN_MAX]
 
 /**
- * What the ESC protocol (MOT_PWM_TYPE) can be set to: ArduPilot's list for a Copter (AP_MotorsMulticopter.cpp in
- * libraries/AP_Motors, the values of MOT_PWM_TYPE). A value that is not here (a removed one, a newer firmware's) has no name
- * and is shown as its number, never as a name that was guessed. The names are the protocols' own, the same in every language.
+ * What the ESC protocol (MOT_PWM_TYPE) can be set to: ArduPilot's list, copied from its source (libraries/AP_Motors/
+ * AP_MotorsMulticopter.cpp, the Values of PWM_TYPE: the same in Copter-4.7.2, which CI's SITL is, and in the 4.8 development
+ * tree). A value that is not here (a removed one, a newer firmware's) has no name and is shown as its number, never as a name
+ * that was guessed. The names are the protocols' own, the same in every language.
  */
 export const PWM_TYPES: { value: number, label: string }[] = [
   { value: 0, label: 'Normal' },
@@ -35,23 +36,36 @@ export const PWM_TYPES: { value: number, label: string }[] = [
   { value: 6, label: 'DShot600' },
   { value: 7, label: 'DShot1200' },
   { value: 8, label: 'PWMRange' },
+  { value: 9, label: 'PWMAngle' },
 ]
 
 /**
- * A spin threshold as typed: a fraction from 0 to 1, else it is not taken.
+ * The range ArduPilot documents for each spin threshold (the Range of MOT_SPIN_ARM, MOT_SPIN_MIN and MOT_SPIN_MAX): a value
+ * outside it is not taken, and the page says the range.
+ */
+export const SPIN_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+  [SPIN_ARM]: [0, 0.2],
+  [SPIN_MIN]: [0, 0.25],
+  [SPIN_MAX]: [0.9, 1],
+}
+
+/**
+ * A spin threshold as typed: a number inside the threshold's documented range, else it is not taken.
  *
  * @param typed what was typed
- * @returns the fraction, or null
+ * @param low the least it may be
+ * @param high the most it may be
+ * @returns the value, or null
  */
-export function parseFraction(typed: string): number | null {
+export function parseFraction(typed: string, low: number, high: number): number | null {
   const text = typed.trim()
   if (text === '') {
     return null
   }
   const value = Number(text.replace(',', '.'))
 
-  // (NaN is neither above 0 nor below 1)
-  return value >= 0 && value <= 1 ? value : null
+  // (NaN is neither above `low` nor below `high`)
+  return value >= low && value <= high ? value : null
 }
 
 /** How the spin thresholds are wrong, if they are. */

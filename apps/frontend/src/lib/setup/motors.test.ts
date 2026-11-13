@@ -1,20 +1,31 @@
 import { expect, it } from 'vitest'
-import { MOTOR_PARAMS, PWM_TYPES, outputRows, parseFraction, spinProblem } from './motors'
+import { MOTOR_PARAMS, PWM_TYPES, SPIN_RANGES, outputRows, parseFraction, spinProblem } from './motors'
 
 it('lists the four parameters of the page, and names each protocol once', () => {
   expect(MOTOR_PARAMS).toEqual(['MOT_PWM_TYPE', 'MOT_SPIN_ARM', 'MOT_SPIN_MIN', 'MOT_SPIN_MAX'])
   expect(new Set(PWM_TYPES.map(type => type.value)).size).toBe(PWM_TYPES.length)
   expect(PWM_TYPES.find(type => type.value === 6)?.label).toBe('DShot600')
+  // ArduPilot's list ends with PWMRange (8) and PWMAngle (9)
+  expect(PWM_TYPES.map(type => type.label).slice(-2)).toEqual(['PWMRange', 'PWMAngle'])
+})
+
+it('holds each spin threshold to the range ArduPilot documents for it', () => {
+  expect(SPIN_RANGES).toEqual({ MOT_SPIN_ARM: [0, 0.2], MOT_SPIN_MIN: [0, 0.25], MOT_SPIN_MAX: [0.9, 1] })
+  expect(parseFraction('0.2', 0, 0.2)).toBe(0.2)
+  expect(parseFraction('0.21', 0, 0.2)).toBeNull()
+  expect(parseFraction('0.89', 0.9, 1)).toBeNull()
+  expect(parseFraction('0.9', 0.9, 1)).toBe(0.9)
+  expect(parseFraction('1', 0.9, 1)).toBe(1)
 })
 
 it('takes a spin threshold as a fraction from 0 to 1, with a comma or a point, and nothing else', () => {
-  expect(parseFraction('0.15')).toBe(0.15)
-  expect(parseFraction(' 0,95 ')).toBe(0.95)
-  expect(parseFraction('0')).toBe(0)
-  expect(parseFraction('1')).toBe(1)
+  expect(parseFraction('0.15', 0, 1)).toBe(0.15)
+  expect(parseFraction(' 0,95 ', 0, 1)).toBe(0.95)
+  expect(parseFraction('0', 0, 1)).toBe(0)
+  expect(parseFraction('1', 0, 1)).toBe(1)
 
   for (const text of ['', ' ', '1.01', '-0.1', 'abc', '15 %', 'NaN', 'Infinity']) {
-    expect(parseFraction(text), text).toBeNull()
+    expect(parseFraction(text, 0, 1), text).toBeNull()
   }
 })
 

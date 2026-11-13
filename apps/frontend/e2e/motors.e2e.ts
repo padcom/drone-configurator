@@ -84,8 +84,8 @@ it('chooses a spin threshold, and holds the write when they are out of order', a
   await window().waitFor(`document.querySelector('.setup-writes')?.textContent === 'MOT_SPIN_MAX'`, 10_000)
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(false)
 
-  // arm at 0.3 is above min (0.15): out of order, nothing can be written until it is put right
-  await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.3')
+  // arm at 0.2 (the top of its range) is above min (0.15): out of order, nothing can be written until it is put right
+  await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.2')
   await window().waitFor(`document.querySelector('#setup-spin-order') !== null`, 10_000)
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(true)
   await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.1')

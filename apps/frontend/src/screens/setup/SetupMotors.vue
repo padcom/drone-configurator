@@ -67,7 +67,16 @@ import ProgressBar from '@/components/ui/ProgressBar.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { MOTOR_PARAMS, PWM_TYPE, PWM_TYPES, SPIN_PARAMS, outputRows, parseFraction, spinProblem } from '@/lib/setup/motors'
+import {
+  MOTOR_PARAMS,
+  PWM_TYPE,
+  PWM_TYPES,
+  SPIN_PARAMS,
+  SPIN_RANGES,
+  outputRows,
+  parseFraction,
+  spinProblem,
+} from '@/lib/setup/motors'
 
 const { t } = useI18n()
 const uid = useId()
@@ -95,7 +104,8 @@ function locked(id: string): boolean {
  * @param text what was typed
  */
 function setSpin(id: string, text: string): void {
-  const value = parseFraction(text)
+  const [low, high] = SPIN_RANGES[id] ?? [0, 1]
+  const value = parseFraction(text, low, high)
   if (value !== null) {
     panel.set(id, value)
   }

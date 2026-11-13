@@ -126,6 +126,8 @@ it('takes a spin threshold as a fraction, ignores what is not one, and writes it
   const field = rig.wrapper.get('[data-spin="MOT_SPIN_MAX"] input')
   await field.setValue('abc')
   await field.setValue('1.5')
+  // 0.85 is a fraction, but below the 0.9 that ArduPilot documents for the highest spin
+  await field.setValue('0.85')
   expect(rig.wrapper.get('.setup-writes').text()).toBe('')
   await field.setValue('0.9')
   expect(rig.wrapper.get('.setup-writes').text()).toBe('MOT_SPIN_MAX')
