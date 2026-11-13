@@ -1447,6 +1447,24 @@
         "wspi": "Szeroki SPI"
       }
     },
+    "motors": {
+      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, i co teraz robią wyjścia pojazdu. Nic na tej stronie nie kręci silnikiem.",
+      "escTitle": "Ustawienia ESC",
+      "protocol": "Protokół ESC",
+      "protocolHelp": "Protokół wyjść silników (MOT_PWM_TYPE). Działa po ponownym uruchomieniu, a regulatory ESC muszą go rozumieć.",
+      "MOT_SPIN_ARM": "Obroty po uzbrojeniu",
+      "MOT_SPIN_ARMHelp": "Część zakresu gazu, przy której kręcą się silniki uzbrojone i na jałowym biegu (MOT_SPIN_ARM), od 0 do 1.",
+      "MOT_SPIN_MIN": "Najniższe obroty w locie",
+      "MOT_SPIN_MINHelp": "Najniższa część zakresu gazu, z jaką sterowane są silniki w locie (MOT_SPIN_MIN), od 0 do 1.",
+      "MOT_SPIN_MAX": "Najwyższe obroty",
+      "MOT_SPIN_MAXHelp": "Najwyższa część zakresu gazu, z jaką sterowane są silniki (MOT_SPIN_MAX), od 0 do 1.",
+      "order": "Progi muszą rosnąć: obroty po uzbrojeniu poniżej najniższych obrotów w locie, a te poniżej najwyższych. Do tego czasu nic nie jest zapisywane.",
+      "outputs": "Wyjścia teraz",
+      "noOutputs": "Brak jeszcze wyjść",
+      "noOutputsHelp": "Pojawią się, gdy pojazd je zgłosi.",
+      "output": "Wyjście {n}",
+      "pulse": "{us} µs"
+    },
     "radio": {
       "summary": "Poruszaj każdą wajchą i każdym przełącznikiem nadajnika: jego pasek porusza się razem z nim. Aby skalibrować, uruchom, ustaw każdą wajchę we wszystkich skrajnych położeniach i każdy przełącznik we wszystkich pozycjach, wróć wajchami na środek (gaz na dole) i naciśnij Gotowe. Nic nie jest zapisywane, dopóki sam tego nie zapiszesz.",
       "start": "Skalibruj radio",
@@ -1465,7 +1483,6 @@
       "staged": "Wartości wybrane z tej kalibracji: {count} (zakres każdego poruszonego kanału, trym przechylenia, pochylenia i odchylenia). Zapisz je przyciskiem „Zapisz i sprawdź”.",
       "nothingMoved": "Żaden kanał nie ruszył się na tyle, by dać zakres: nic nie wybrano.",
       "offCentre": "Nie wybrano trymu dla kanału {channels}: jego wajcha nie była na środku, gdy naciśnięto Gotowe. Wycentruj ją i skalibruj ponownie, aby ustawić trym.",
-      "aux": "Funkcje przełączników",
       "auxHelp": "Co robi każdy kanał dodatkowy po przestawieniu jego przełącznika (RCn_OPTION). Nazwy pochodzą z metadanych parametrów: wczytaj je na stronie Parametry, aby je zobaczyć; bez nich widać numer.",
       "function": "Funkcja kanału {n}",
       "role": {

@@ -9,12 +9,13 @@ import {
   GpsRawInt,
   NavControllerOutput,
   RcChannels,
+  ServoOutputRaw,
   SysStatus,
   VfrHud,
   Vibration,
   Wind,
 } from "padcom/pico-mavlink"
-import { Telemetry } from "./generated/app"
+import { ServoPort, Telemetry } from "./generated/app"
 import { Groups, Wish, wishes } from "./groups"
 
 /// The telemetry as `groups` fills it `later` milliseconds after the messages arrived at time 1000.
@@ -276,6 +277,36 @@ function aGlitchKeepsTheLastValidPulse(): void {
   expect(filled(groups, 0).rc!.channels[0] as int).toBe(0)
 }
 
+function servoOutputsByPort(): void {
+  const groups = new Groups()
+  expect(filled(groups, 0).servo == null).toBe(true)
+  const m = new ServoOutputRaw()
+  m.port = 1 as u8
+  m.servo1Raw = 1500 as u16
+  m.servo3Raw = 1100 as u16
+  groups.take(m, 1000)
+  // an unused output is 0, in the middle too, and the outputs end at the last one used
+  const first = filled(groups, 200).servo!
+  expect(first.ports.length).toBe(1)
+  expect(first.ports[0].port as int).toBe(1)
+  expect(first.ports[0].outputs.map((p: u16) => p as int)).toEqual([1500, 0, 1100])
+  expect(first.ageMs as int).toBe(200)
+  // a port that comes later is added in order; a port that comes again replaces its outputs and leaves the others
+  const main = new ServoOutputRaw()
+  main.port = 0 as u8
+  main.servo1Raw = 1000 as u16
+  main.servo4Raw = 1000 as u16
+  groups.take(main, 1100)
+  m.servo1Raw = 1600 as u16
+  groups.take(m, 1200)
+  const both = filled(groups, 0).servo!
+  expect(both.ports.map((p: ServoPort) => p.port as int)).toEqual([0, 1])
+  expect(both.ports[0].outputs.map((p: u16) => p as int)).toEqual([1000, 0, 0, 1000])
+  expect(both.ports[1].outputs[0] as int).toBe(1600)
+  groups.clear()
+  expect(filled(groups, 0).servo == null).toBe(true)
+}
+
 function theRadioIsAskedForAt10Hz(): void {
   const rc = wishes().filter((w: Wish) => w.id == RcChannels.MSG_ID)
   expect(rc.length).toBe(1)
@@ -285,6 +316,7 @@ function theRadioIsAskedForAt10Hz(): void {
 describe("the telemetry groups", () => {
   it("make the radio's channels, with a pulse outside 800 to 2200 µs and one that is not given as 0", radioChannelsWithoutGlitches)
   it("ask the vehicle for RC_CHANNELS at 10 Hz", theRadioIsAskedForAt10Hz)
+  it("keep the outputs of each servo port, in order, with a port replaced when it comes again", servoOutputsByPort)
   it("give the radio's signal strength in percent (the message has 0 to 254)", radioStrengthIsAPercent)
   it("keep the last valid pulse of a channel when a glitch comes", aGlitchKeepsTheLastValidPulse)
   it("are absent until their message arrives", absentUntilHeard)

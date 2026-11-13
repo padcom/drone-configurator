@@ -28,7 +28,7 @@
         "apps/frontend/src/composables/{useSetup,useSetupStatus,useCalibration}.ts", "apps/frontend/src/state/frame.ts",
         "apps/backend/{vehicleinfo,calibration}.pi"
       ],
-      "specs": ["setup.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts"]
+      "specs": ["setup.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"]
     },
     {
       "when": [
@@ -48,7 +48,7 @@
       ],
       "specs": [
         "configurator.e2e.ts", "flight-data.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts", "sitl-reconnect.e2e.ts",
-        "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts"
+        "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"
       ]
     },
     {

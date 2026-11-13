@@ -86,6 +86,7 @@ function serve(conn: Conn): void {
     stayDisarmed(sim!)
     calibratesQuickly(sim!)
     movesTheSticks(sim!)
+    showsTheOutputs(sim!)
   }
 }
 
@@ -138,7 +139,19 @@ function setupParams(): SimParam[] {
   for (const n of [5, 6, 7, 8]) {
     out.push(SimParam { id: `RC${n}_OPTION`, value: TypedParamValue.Int(if (n == 7) 4 else 0, MavParamType.INT16) })
   }
+  // The motors: the ESC protocol and the spin thresholds.
+  out.push(SimParam { id: "MOT_PWM_TYPE", value: TypedParamValue.Int(0, MavParamType.INT8) })
+  const spins = ["MOT_SPIN_ARM", "MOT_SPIN_MIN", "MOT_SPIN_MAX"]
+  const spinValues = [0.1, 0.15, 0.95]
+  for (let i = 0; i < spins.length; i++) {
+    out.push(SimParam { id: spins[i], value: TypedParamValue.Real(spinValues[i], MavParamType.REAL32) })
+  }
   out
+}
+
+/// The outputs of a quad at rest: SERVO_OUTPUT_RAW of the four motors, two times a second.
+function showsTheOutputs(sim: SimulatedAutopilot): void {
+  sim.servoStream = true
 }
 
 /// A radio whose sticks keep moving: roll and pitch sweep their whole range, the yaw stick sends a pulse that is not a reading every
