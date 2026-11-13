@@ -8,33 +8,44 @@ on:
 permissions:
   contents: read
 
+# The work is split into parallel jobs (step 3 of shared/decisions/drone-configurator-ci-strategy.md), so that the wall time is that of
+# the slowest part and each job has a runner of its own, and its memory (the backend tests and the host build no longer share one).
+# What runs is the same as before: nothing is selected yet (`select` is in shadow mode) and every job runs everything of its kind.
+# `ci-gate` is the one check that says the whole of it passed.
+#
+# Common to the jobs on Linux (x64 and arm64): the `setup` action (siblings, pnpm, Node, the framework, the contract, Pico), a
+# `Step times` step (each job's time per step in its summary), and its logs kept as an artifact. The macOS and Windows jobs run the
+# frontend only, as before.
 jobs:
-  ci:
-    name: ${{ matrix.target }} (${{ matrix.backend && 'full' || 'frontend only' }})
+  # SHADOW MODE (step 1 of the plan): says which tests the change would need and writes it to the job summary. Nothing reads the
+  # outputs yet: every job still runs everything, and this job cannot fail the run (the step is continue-on-error), so it gates
+  # nothing. Compare its summary with what failed, on the next PRs, before selection is switched on.
+  select:
+    name: select (shadow)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: What the change would need
+        continue-on-error: true
+        run: bash .github/ci-select.sh --shadow
+
+  # Format and lint of the backend (`pico lint` builds it), ESLint, vue-tsc, tsc on e2e, and all the frontend unit tests.
+  lint:
+    name: lint and unit (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          # test-jobs: how many backend test files run at once (`pico test -j`). The probe in "Unit and backend tests" showed
-          # why it is 2: each `pico run` of a backend test file takes 1.8 GB growing to 3.8 GB, so the default of one per CPU
-          # (4 on these runners) needs about 15 GB of the 16 the runner has (run 42735673539, linux-x64: used=8077MB, then
-          # used=15774MB available=209MB ten seconds later, and the step was killed; the "operation was canceled" of
-          # linux-arm64 before it was the same). With 2 at once linux-arm64 passed that run. The macOS and Windows jobs run no
-          # backend tests, so they have none.
-          # linux-x64 has one: on head afa2df8 of #432 (run 43456254640) two `pico run` processes (`localimport.test.pi`, `locallogs.test.pi`)
-          # held 7.0 to 8.4 GB each (5.1 and 3.4 GB after 9 s, so it is the build of the test and not its heap: measured here, the
-          # tests' own heap is 144 MB and 84 MB at their peak), and the job was killed with 143 (used=15.8 GB of 16). The build of a
-          # test file takes as much as the program it links is big (the whole of the backend, and padcom/pico-mavlink's dialects).
-          - { target: linux-x64, runner: ubuntu-24.04, backend: true, test-jobs: 1 }
-          - { target: linux-arm64, runner: ubuntu-24.04-arm, backend: true, test-jobs: 2 }
-          # The backend doesn't link on these yet: padcom/serialport is Linux only, and
-          # `pico-desktop test --e2e` assumes Linux. The "Not run here" step says so on every run.
-          - { target: macos-arm64, runner: macos-15, backend: false }
-          - { target: windows-x64, runner: windows-2025, backend: false }
-          - { target: windows-arm64, runner: windows-11-arm, backend: false }
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
     runs-on: ${{ matrix.runner }}
-    # 60 for the two Linux jobs (they run the whole suite: linux-arm64 took 44 of 45 minutes in run 43446895926), 45 for the rest.
-    timeout-minutes: ${{ matrix.backend && 60 || 45 }}
+    timeout-minutes: 30
     defaults:
       run:
         # Explicitly bash, which GitHub runs with -eo pipefail: a failing test isn't hidden by tee.
@@ -43,92 +54,65 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: drone-configurator
-      # The siblings, next to this repo, so the link: and workspace paths resolve unchanged. Each
-      # is its default branch: none has a published package to pin, and this app is developed
-      # against them as they are. All are public, so no token is needed. "Sibling revisions" logs
-      # what a run used.
-      - uses: actions/checkout@v4
+      - uses: ./drone-configurator/.github/actions/setup
         with:
-          repository: padcom/pico-desktop
-          path: pico-desktop
-      - uses: actions/checkout@v4
-        with:
-          repository: padcom/pico-mavlink
-          path: pico-mavlink
-      - uses: actions/checkout@v4
-        with:
-          repository: padcom/pico-serialport
-          path: pico-serialport
-      - name: Sibling revisions
-        run: for r in pico-desktop pico-mavlink pico-serialport; do echo "$r $(git -C "$r" rev-parse HEAD)"; done
-
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: pico-desktop/package.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: pico-desktop/.nvmrc
-          cache: pnpm
-          cache-dependency-path: |
-            pico-desktop/pnpm-lock.yaml
-            drone-configurator/pnpm-lock.yaml
-
-      - name: Install the framework and build its packages
-        working-directory: pico-desktop
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --filter pico-desktop... build
-          pnpm --filter './packages/*' build
-      - name: Install the app and generate its contract
-        working-directory: drone-configurator
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm generate
-
-      - name: Not run here
-        if: ${{ !matrix.backend }}
-        run: echo "::warning::${{ matrix.target }} runs the frontend's type check and unit tests only. The backend's lint and tests and the E2E suite are not run, because the backend doesn't link on this platform yet."
-      - name: Frontend type check
-        if: ${{ !matrix.backend }}
-        working-directory: drone-configurator/apps/frontend
-        # vue-tsc (the package's own `typecheck`, as `pnpm lint` runs it on Linux): plain tsc can't read .vue files.
-        run: |
-          pnpm typecheck
-          pnpm exec tsc --noEmit -p e2e
-      - name: Frontend unit tests
-        if: ${{ !matrix.backend }}
-        working-directory: drone-configurator/apps/frontend
-        run: |
-          pnpm test | tee "$RUNNER_TEMP/unit.log"
-          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
-
-      - name: Install the pinned Pico
-        if: ${{ matrix.backend }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        # Fails the job if the pin or its release is missing: nothing below is optional.
-        run: |
-          v=$(jq -er .pico.minimum pico-desktop/toolchain.json)
-          gh release download "v$v" -R padcom/pico-lang -p "pico-$v-${{ matrix.target }}.tar.gz" -D "$RUNNER_TEMP"
-          mkdir -p "$RUNNER_TEMP/pico"
-          tar -xzf "$RUNNER_TEMP/pico-$v-${{ matrix.target }}.tar.gz" -C "$RUNNER_TEMP/pico"
-          dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico -perm -u+x | head -1)" >> "$GITHUB_PATH"
+          target: ${{ matrix.target }}
+          pico: 'true'
       - name: Lint
-        if: ${{ matrix.backend }}
         working-directory: drone-configurator
         run: pico --version && pnpm lint
-      # `pnpm test` (pico-desktop test) is the contract generation (done above), then Vitest, then `pico test .` in the
-      # backend, each backend file in a process of its own, as many at once as there are CPUs. The two are run here
-      # directly so that the backend's parallelism can be set, and so that a probe can run beside them: this step has been
-      # cancelled on linux-arm64, always during the backend tests and with no output ("The operation was canceled"),
-      # while linux-x64 passes, which looks like a runner that runs out of memory. The probe prints a line of memory use
-      # every 10 s into the log, so that whatever is there when the step dies shows how it went.
-      - name: Unit and backend tests
-        if: ${{ matrix.backend }}
+      - name: Frontend unit tests
+        working-directory: drone-configurator
+        run: |
+          pnpm --filter ./apps/frontend test 2>&1 | tee "$RUNNER_TEMP/unit.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+
+  # The backend's tests (`pico test`): each file in a process of its own. The files are split in two shards by name
+  # (.github/backend-shard.sh), each with a runner of its own, so the wall time is that of half the files.
+  backend:
+    name: backend ${{ matrix.shard }}/2 (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-x64, linux-arm64]
+        shard: [1, 2]
+        include:
+          # test-jobs: how many files of the shard run at once (`pico test -j`). The build of a test file takes 4 to 8 GB (the
+          # probe below: on head afa2df8 of #432, run 43456254640, two `pico run` of localimport and locallogs held 7.0 to 8.4 GB
+          # each and linux-x64 was killed with 143 at used=15.8 GB of 16), so linux-x64 runs one at a time. linux-arm64 passed with
+          # two at once, which is what it keeps. The macOS and Windows jobs run no backend tests.
+          - { target: linux-x64, runner: ubuntu-24.04, test-jobs: 1 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, test-jobs: 2 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: drone-configurator
+      - uses: ./drone-configurator/.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+          pico: 'true'
+      # The probe prints a line of memory use every 10 s into the log, so that whatever is there when the step dies (a runner that
+      # runs out of memory has been cancelled with no output before: run 42735673539) shows how it went.
+      - name: Backend tests
         working-directory: drone-configurator
         env:
-          # How many backend test files run at once (empty: pico's default, one per CPU).
-          BACKEND_TEST_JOBS: ${{ matrix.test-jobs }}
+          SHARD: ${{ matrix.shard }}
+          SHARDS: 2
+          JOBS: ${{ matrix.test-jobs }}
         run: |
           probe() {
             # Not under the step's -e and pipefail: a reading that fails (a pipe closed early) must not end the probe, which
@@ -144,21 +128,20 @@ jobs:
               sleep 10
             done
           }
-          echo "probe machine: $(nproc) CPUs, backend test jobs: ${BACKEND_TEST_JOBS:-default}"
+          mapfile -t files < <(bash .github/backend-shard.sh "$SHARD" "$SHARDS")
+          echo "shard $SHARD of $SHARDS: ${#files[@]} files: ${files[*]}"
+          test "${#files[@]}" -gt 0
+          echo "probe machine: $(nproc) CPUs, backend test jobs: $JOBS"
           free -m
           probe &
           probe_pid=$!
           trap 'kill "$probe_pid" 2>/dev/null || true' EXIT
-          status=0
-          pnpm --filter ./apps/frontend test 2>&1 | tee "$RUNNER_TEMP/unit.log" || status=$?
-          (cd apps/backend && pico test . ${BACKEND_TEST_JOBS:+-j "$BACKEND_TEST_JOBS"}) 2>&1 | tee -a "$RUNNER_TEMP/unit.log" || status=$?
+          (cd apps/backend && pico test "${files[@]}" -j "$JOBS") 2>&1 | tee "$RUNNER_TEMP/backend.log"
           echo "probe after the tests:"
           free -m
-          test "$status" -eq 0
-          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
-          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'tests: [1-9][0-9]* passed'
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/backend.log" 'tests: [1-9][0-9]* passed'
       - name: Why the tests ended (memory, the kernel's log)
-        if: ${{ always() && matrix.backend }}
+        if: ${{ always() }}
         run: |
           free -m
           if log=$(sudo dmesg 2>&1); then
@@ -166,80 +149,216 @@ jobs:
           else
             echo "dmesg itself failed, so the kernel log could not be read: $log"
           fi
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+      - name: Keep the test log
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log-${{ matrix.target }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/backend.log
+          if-no-files-found: ignore
+          retention-days: 14
 
-      # The same steps as pico-desktop's own CI, for the host E2E runs in.
-      - name: Cache the pinned CEF
-        if: ${{ matrix.backend }}
-        uses: actions/cache@v4
+  # The window e2e (`pnpm e2e` = `pico-desktop test --e2e`) with the fake vehicles: the specs that don't start a SITL (told by
+  # what a spec uses: `ci-select.mjs --list fake`).
+  e2e:
+    name: e2e (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
         with:
-          path: ~/.cache/pico-desktop/cef
-          key: cef-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json') }}
-      - name: Cache the host build
-        if: ${{ matrix.backend }}
-        id: host
-        uses: actions/cache@v4
+          path: drone-configurator
+      - uses: ./drone-configurator/.github/actions/setup
         with:
-          path: pico-desktop/build/cef
-          key: cef-host-${{ matrix.target }}-${{ hashFiles('pico-desktop/toolchain.json', 'pico-desktop/CMakeLists.txt', 'pico-desktop/CMakePresets.json', 'pico-desktop/runtime/**') }}
-      - name: Runtime libraries and Xvfb
-        if: ${{ matrix.backend }}
+          target: ${{ matrix.target }}
+          pico: 'true'
+      - uses: ./drone-configurator/.github/actions/window
+        with:
+          target: ${{ matrix.target }}
+      - name: End-to-end tests in the real window (fake vehicles)
+        working-directory: drone-configurator
+        env:
+          PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb xauth libx11-dev libnss3 libatk1.0-0t64 \
-            libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
-            libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 libgtk-3-0t64
-      - name: Allow unprivileged user namespaces (the sandbox needs them; it's never disabled)
-        if: ${{ matrix.backend }}
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - name: Build the host
-        if: ${{ matrix.backend && steps.host.outputs.cache-hit != 'true' }}
-        working-directory: pico-desktop
-        run: pnpm cef:configure && pnpm cef:build
-      # ArduPilot SITL for the E2E suites that need a simulator. The ref is pinned in one line,
-      # .github/ardupilot-ref (a commit or a tag). The binary is cached by ref and target, so only the
-      # first run after a change to the ref, to sitl-build.sh or to this step's key builds it.
+          mapfile -t specs < <(node .github/ci-select.mjs --list fake --root .)
+          echo "${#specs[@]} specs: ${specs[*]}"
+          test "${#specs[@]}" -gt 0
+          xvfb-run -a pnpm e2e "${specs[@]}" | tee "$RUNNER_TEMP/e2e.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+      - name: Keep the test log
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-log-${{ matrix.target }}
+          path: ${{ runner.temp }}/e2e.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The window e2e that start an ArduPilot SITL. The ref is pinned in one line, .github/ardupilot-ref (a commit or a tag). The
+  # binary is cached by ref and target, so only the first run after a change to the ref, to sitl-build.sh or to this job's key
+  # builds it.
+  e2e-sitl:
+    name: e2e SITL (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: drone-configurator
+      - uses: ./drone-configurator/.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+          pico: 'true'
+      - uses: ./drone-configurator/.github/actions/window
+        with:
+          target: ${{ matrix.target }}
       - name: Pinned ArduPilot ref
-        if: ${{ matrix.backend }}
         id: ardupilot
         run: echo "ref=$(tr -d '[:space:]' < drone-configurator/.github/ardupilot-ref)" >> "$GITHUB_OUTPUT"
       # Restore and save are separate steps: a cache is only saved when the whole job succeeds, so with
       # actions/cache a failing E2E would throw the build away. Saving right after the build keeps it.
       - name: Restore the SITL build
-        if: ${{ matrix.backend }}
         id: sitl
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/sitl
           key: sitl-copter-${{ matrix.target }}-${{ steps.ardupilot.outputs.ref }}-${{ hashFiles('drone-configurator/.github/sitl-build.sh', 'drone-configurator/.github/sitl-requirements.txt') }}
       - name: Build SITL (cache miss)
-        if: ${{ matrix.backend && steps.sitl.outputs.cache-hit != 'true' }}
+        if: ${{ steps.sitl.outputs.cache-hit != 'true' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends build-essential g++ gawk git make wget pkg-config libtool-bin python3-dev python3-venv
           bash drone-configurator/.github/sitl-build.sh "${{ steps.ardupilot.outputs.ref }}" copter "$RUNNER_TEMP/sitl" "$RUNNER_TEMP/sitl-work"
       - name: Save the SITL build
-        if: ${{ matrix.backend && steps.sitl.outputs.cache-hit != 'true' }}
+        if: ${{ steps.sitl.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/sitl
           key: ${{ steps.sitl.outputs.cache-primary-key }}
       - name: SITL is there
-        if: ${{ matrix.backend }}
         run: |
           test -x "$RUNNER_TEMP/sitl/arducopter"
           echo "SITL ${{ steps.ardupilot.outputs.ref }}, cache hit: ${{ steps.sitl.outputs.cache-hit == 'true' }}"
-      - name: End-to-end tests in the real window
-        if: ${{ matrix.backend }}
+      - name: End-to-end tests in the real window (SITL)
         working-directory: drone-configurator
         env:
           PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
           SITL_BINARY: ${{ runner.temp }}/sitl/arducopter
         run: |
-          xvfb-run -a pnpm e2e | tee "$RUNNER_TEMP/e2e.log"
+          mapfile -t specs < <(node .github/ci-select.mjs --list sitl --root .)
+          echo "${#specs[@]} specs: ${specs[*]}"
+          test "${#specs[@]}" -gt 0
+          xvfb-run -a pnpm e2e "${specs[@]}" | tee "$RUNNER_TEMP/e2e.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
-          # The SITL suites, once they are in the repo, must have run: a skipped or missing one isn't green.
-          # TODO(#272): this guard only takes effect once sitl-harness.e2e.ts is on main. Check then that
-          # the pattern matches vitest's line for it in this log (`✓ e2e/sitl-harness.e2e.ts (N tests)`).
+          # The SITL suites must have run: a skipped or missing one isn't green.
+          # TODO(#272): check that the pattern matches vitest's line for it in this log (`✓ e2e/sitl-harness.e2e.ts (N tests)`).
           if [ -e apps/frontend/e2e/sitl-harness.e2e.ts ]; then
             bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-harness\.e2e\.ts'
           fi
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+      - name: Keep the test log
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-sitl-log-${{ matrix.target }}
+          path: ${{ runner.temp }}/e2e.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The backend doesn't link on these yet: padcom/serialport is Linux only, and `pico-desktop test --e2e` assumes Linux. The
+  # "Not run here" step says so on every run.
+  frontend-only:
+    name: ${{ matrix.target }} (frontend only)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: macos-arm64, runner: macos-15 }
+          - { target: windows-x64, runner: windows-2025 }
+          - { target: windows-arm64, runner: windows-11-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: drone-configurator
+      - uses: ./drone-configurator/.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+      - name: Not run here
+        run: echo "::warning::${{ matrix.target }} runs the frontend's type check and unit tests only. The backend's lint and tests and the E2E suite are not run, because the backend doesn't link on this platform yet."
+      - name: Frontend type check
+        working-directory: drone-configurator/apps/frontend
+        # vue-tsc (the package's own `typecheck`, as `pnpm lint` runs it on Linux): plain tsc can't read .vue files.
+        run: |
+          pnpm typecheck
+          pnpm exec tsc --noEmit -p e2e
+      - name: Frontend unit tests
+        working-directory: drone-configurator/apps/frontend
+        run: |
+          pnpm test | tee "$RUNNER_TEMP/unit.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
+
+  # The one check that says the whole of it passed: every job it needs must have succeeded (a failed, cancelled or skipped one
+  # fails it), and it runs even when one of them failed. It is what branch protection would require, and it keeps working when jobs
+  # are added here (add them to `needs`). `select` is not in `needs`: it only reports, in shadow mode.
+  ci-gate:
+    name: ci-gate
+    if: ${{ always() }}
+    needs: [lint, backend, e2e, e2e-sitl, frontend-only]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null

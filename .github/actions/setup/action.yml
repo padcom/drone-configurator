@@ -1,0 +1,74 @@
+name: Set up the workspace
+description: >
+  What every CI job needs before it does its own work: the three sibling repositories next to this one (the link: and workspace
+  paths resolve unchanged), pnpm and Node as the framework pins them, the framework installed and built, the app installed and its
+  contract generated, and optionally the pinned Pico. The calling job has already checked out this repository into
+  `drone-configurator` (the action is read from there).
+
+inputs:
+  target:
+    description: "The platform (linux-x64, linux-arm64, macos-arm64, windows-x64 or windows-arm64): picks the Pico build."
+    required: true
+  pico:
+    description: "'true' to install the pinned Pico (the backend's lint, tests and the window e2e need it)."
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # Each sibling is its default branch: none has a published package to pin, and this app is developed against them as they
+    # are. All are public, so no token is needed. "Sibling revisions" logs what a run used.
+    - uses: actions/checkout@v4
+      with:
+        repository: padcom/pico-desktop
+        path: pico-desktop
+    - uses: actions/checkout@v4
+      with:
+        repository: padcom/pico-mavlink
+        path: pico-mavlink
+    - uses: actions/checkout@v4
+      with:
+        repository: padcom/pico-serialport
+        path: pico-serialport
+    - name: Sibling revisions
+      shell: bash
+      run: for r in pico-desktop pico-mavlink pico-serialport; do echo "$r $(git -C "$r" rev-parse HEAD)"; done
+
+    - uses: pnpm/action-setup@v4
+      with:
+        package_json_file: pico-desktop/package.json
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: pico-desktop/.nvmrc
+        cache: pnpm
+        cache-dependency-path: |
+          pico-desktop/pnpm-lock.yaml
+          drone-configurator/pnpm-lock.yaml
+
+    - name: Install the framework and build its packages
+      shell: bash
+      working-directory: pico-desktop
+      run: |
+        pnpm install --frozen-lockfile
+        pnpm --filter pico-desktop... build
+        pnpm --filter './packages/*' build
+    - name: Install the app and generate its contract
+      shell: bash
+      working-directory: drone-configurator
+      run: |
+        pnpm install --frozen-lockfile
+        pnpm generate
+
+    - name: Install the pinned Pico
+      if: ${{ inputs.pico == 'true' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TARGET: ${{ inputs.target }}
+      # Fails the job if the pin or its release is missing: nothing below is optional.
+      run: |
+        v=$(jq -er .pico.minimum pico-desktop/toolchain.json)
+        gh release download "v$v" -R padcom/pico-lang -p "pico-$v-$TARGET.tar.gz" -D "$RUNNER_TEMP"
+        mkdir -p "$RUNNER_TEMP/pico"
+        tar -xzf "$RUNNER_TEMP/pico-$v-$TARGET.tar.gz" -C "$RUNNER_TEMP/pico"
+        dirname "$(find "$RUNNER_TEMP/pico" -type f -name pico -perm -u+x | head -1)" >> "$GITHUB_PATH"
