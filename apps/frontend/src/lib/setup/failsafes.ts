@@ -1,12 +1,14 @@
 // What each failsafe parameter of a Copter can be set to, in words. The lists are ArduPilot's own (ArduCopter/Parameters.cpp:
 // FS_GCS_ENABLE line 99, FS_THR_ENABLE line 127, FS_EKF_ACTION line 270; libraries/AP_BattMonitor/AP_BattMonitor_Params.cpp:
 // BATT_FS_LOW_ACT and BATT_FS_CRT_ACT line 146, the values of Copter); a value that is not in the list (a removed one, a newer
-// firmware's) has no name here and is shown as its number, never as a name that was guessed.
+// firmware's) has no name here and is shown as its number, never as a name that was guessed. What a value does is what
+// ArduPilot's list says: for the radio and the ground station 0 is "Disabled" (the failsafe is off and nothing warns at all), for
+// the battery 0 is "Warn only" and for the EKF "Report only"; EKF 1 and 2 act only in a mode that needs a position.
 
 /** What a failsafe does, by a name that is the same in every language (the words are `setup.action.<name>`). */
 export type Action
-  = | 'nothing' | 'rtl' | 'land' | 'smartRtlOrRtl' | 'smartRtlOrLand' | 'terminate' | 'autoLandOrRtl' | 'brakeOrLand'
-    | 'altHold' | 'landAnyMode'
+  = | 'nothing' | 'disabled' | 'rtl' | 'land' | 'smartRtlOrRtl' | 'smartRtlOrLand' | 'terminate' | 'autoLandOrRtl'
+    | 'brakeOrLand' | 'landIfPosition' | 'altHold' | 'landAnyMode'
 
 /** The failsafes the page has a row for. */
 export type FailsafeKind = 'batteryLow' | 'batteryCritical' | 'radio' | 'gcs' | 'ekf'
@@ -29,7 +31,7 @@ const BATTERY: readonly Choice[] = [
 ]
 
 const RADIO: readonly Choice[] = [
-  { value: 0, action: 'nothing' },
+  { value: 0, action: 'disabled' },
   { value: 1, action: 'rtl' },
   { value: 3, action: 'land' },
   { value: 4, action: 'smartRtlOrRtl' },
@@ -39,7 +41,7 @@ const RADIO: readonly Choice[] = [
 ]
 
 const GCS: readonly Choice[] = [
-  { value: 0, action: 'nothing' },
+  { value: 0, action: 'disabled' },
   { value: 1, action: 'rtl' },
   { value: 3, action: 'smartRtlOrRtl' },
   { value: 4, action: 'smartRtlOrLand' },
@@ -50,7 +52,7 @@ const GCS: readonly Choice[] = [
 
 const EKF: readonly Choice[] = [
   { value: 0, action: 'nothing' },
-  { value: 1, action: 'land' },
+  { value: 1, action: 'landIfPosition' },
   { value: 2, action: 'altHold' },
   { value: 3, action: 'landAnyMode' },
 ]
@@ -116,14 +118,14 @@ export function choicesOf(kind: FailsafeKind): readonly { value: number, action:
 }
 
 /**
- * Whether a choice leaves the vehicle without a failsafe, or stops its motors: the page says so in a line of its own (a failsafe
- * set to "do nothing" is the one thing that must not look like a setting made).
+ * Whether a choice leaves the vehicle without a failsafe, only warns, or stops its motors: the page says so in a line of its own
+ * (a failsafe that is off is the one thing that must not look like a setting made).
  *
  * @param action the action
- * @returns true for do nothing, and for stopping the motors
+ * @returns true for disabled, warn only, and stopping the motors
  */
 export function isDangerous(action: Action | null): boolean {
-  return action === 'nothing' || action === 'terminate'
+  return action === 'nothing' || action === 'disabled' || action === 'terminate'
 }
 
 /**

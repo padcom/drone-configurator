@@ -1235,6 +1235,8 @@
     },
     "action": {
       "nothing": "Nichts tun",
+      "disabled": "Aus",
+      "landIfPosition": "Landen, in einem Modus, der eine Position braucht",
       "rtl": "Nach Hause zurückkehren",
       "land": "Landen",
       "smartRtlOrRtl": "SmartRTL oder nach Hause",
@@ -1248,6 +1250,8 @@
     "failsafes": {
       "does": {
         "nothing": "es fliegt weiter und warnt nur",
+        "disabled": "das Failsafe ist aus: das Fahrzeug reagiert nicht",
+        "landIfPosition": "es landet in einem Modus, der eine Position braucht (in Stabilize oder AltHold tut es nichts)",
         "rtl": "es fliegt nach Hause und landet",
         "land": "es landet dort, wo es ist",
         "smartRtlOrRtl": "es fliegt den eigenen Weg zurück, sonst nach Hause",
@@ -1255,7 +1259,7 @@
         "terminate": "es stoppt die Motoren und fällt",
         "autoLandOrRtl": "es fliegt zum Landestartpunkt der Mission oder nach Hause",
         "brakeOrLand": "es bremst oder landet, wenn es nicht geht",
-        "altHold": "es hält die Höhe und gibt dir die Steuerung",
+        "altHold": "in einem Modus, der eine Position braucht, hält es die Höhe und gibt dir die Steuerung",
         "landAnyMode": "es landet, auch in Stabilize"
       },
       "summary": "Was das Fahrzeug von selbst tut, wenn etwas schiefgeht. Es wird nichts geschrieben, bis du schreibst, und nie, solange es scharf ist.",
@@ -1287,6 +1291,7 @@
       },
       "warn": {
         "nothing": "Dieses Failsafe tut nichts: Das Fahrzeug fliegt weiter und warnt nur.",
+        "disabled": "Dieses Failsafe ist aus: Tritt es ein, reagiert das Fahrzeug nicht, und nichts warnt dich.",
         "terminate": "Dieses Failsafe stoppt die Motoren in der Luft: Das Fahrzeug fällt."
       }
     },

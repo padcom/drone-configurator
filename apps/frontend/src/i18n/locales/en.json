@@ -1235,6 +1235,8 @@
     },
     "action": {
       "nothing": "Do nothing",
+      "disabled": "Disabled",
+      "landIfPosition": "Land, in a mode that needs a position",
       "rtl": "Return home",
       "land": "Land",
       "smartRtlOrRtl": "SmartRTL, or return home",
@@ -1248,6 +1250,8 @@
     "failsafes": {
       "does": {
         "nothing": "it keeps flying and only warns you",
+        "disabled": "the failsafe is off: the vehicle does not react",
+        "landIfPosition": "it lands in a mode that needs a position (in Stabilize or AltHold it does nothing)",
         "rtl": "it flies home and lands",
         "land": "it lands where it is",
         "smartRtlOrRtl": "it retraces its path, then returns home",
@@ -1255,7 +1259,7 @@
         "terminate": "it stops the motors and falls",
         "autoLandOrRtl": "it goes to the landing start point of the mission, or returns home",
         "brakeOrLand": "it brakes, or lands if it cannot",
-        "altHold": "it holds altitude and hands you control",
+        "altHold": "in a mode that needs a position it holds altitude and hands you control",
         "landAnyMode": "it lands, even in Stabilize"
       },
       "summary": "What the vehicle does on its own when something goes wrong. Nothing is written until you write, and never while it is armed.",
@@ -1287,6 +1291,7 @@
       },
       "warn": {
         "nothing": "This failsafe does nothing: the vehicle goes on and only warns you.",
+        "disabled": "This failsafe is off: when it happens the vehicle does not react at all.",
         "terminate": "This failsafe stops the motors in the air: the vehicle falls."
       }
     },

@@ -1235,6 +1235,8 @@
     },
     "action": {
       "nothing": "Nic nie rób",
+      "disabled": "Wyłączone",
+      "landIfPosition": "Lądowanie w trybie wymagającym pozycji",
       "rtl": "Wróć do domu",
       "land": "Ląduj",
       "smartRtlOrRtl": "SmartRTL lub powrót do domu",
@@ -1248,6 +1250,8 @@
     "failsafes": {
       "does": {
         "nothing": "leci dalej i tylko ostrzega",
+        "disabled": "zabezpieczenie jest wyłączone: pojazd nie reaguje",
+        "landIfPosition": "ląduje w trybie wymagającym pozycji (w Stabilize i AltHold nic nie robi)",
         "rtl": "leci do domu i ląduje",
         "land": "ląduje tam, gdzie jest",
         "smartRtlOrRtl": "wraca własną trasą, a potem do domu",
@@ -1255,7 +1259,7 @@
         "terminate": "zatrzymuje silniki i spada",
         "autoLandOrRtl": "leci do punktu rozpoczęcia lądowania z misji albo do domu",
         "brakeOrLand": "hamuje, a jeśli nie może, ląduje",
-        "altHold": "trzyma wysokość i oddaje ci sterowanie",
+        "altHold": "w trybie wymagającym pozycji trzyma wysokość i oddaje ci sterowanie",
         "landAnyMode": "ląduje, nawet w Stabilize"
       },
       "summary": "Co pojazd robi sam, gdy coś pójdzie nie tak. Nic nie jest zapisywane, dopóki nie zapiszesz, i nigdy, gdy jest uzbrojony.",
@@ -1287,6 +1291,7 @@
       },
       "warn": {
         "nothing": "To zabezpieczenie nic nie robi: pojazd leci dalej i tylko ostrzega.",
+        "disabled": "To zabezpieczenie jest wyłączone: gdy się zdarzy, pojazd nie reaguje i nic cię nie ostrzega.",
         "terminate": "To zabezpieczenie zatrzymuje silniki w powietrzu: pojazd spada."
       }
     },

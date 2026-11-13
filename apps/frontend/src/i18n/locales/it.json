@@ -1235,6 +1235,8 @@
     },
     "action": {
       "nothing": "Non fare nulla",
+      "disabled": "Disattivato",
+      "landIfPosition": "Atterra, in una modalità che richiede la posizione",
       "rtl": "Torna a casa",
       "land": "Atterra",
       "smartRtlOrRtl": "SmartRTL o torna a casa",
@@ -1248,6 +1250,8 @@
     "failsafes": {
       "does": {
         "nothing": "continua a volare e ti avvisa soltanto",
+        "disabled": "il failsafe è spento: il veicolo non reagisce",
+        "landIfPosition": "atterra in una modalità che richiede la posizione (in Stabilize o AltHold non fa nulla)",
         "rtl": "torna a casa e atterra",
         "land": "atterra dove si trova",
         "smartRtlOrRtl": "ripercorre il suo percorso, altrimenti torna a casa",
@@ -1255,7 +1259,7 @@
         "terminate": "ferma i motori e cade",
         "autoLandOrRtl": "va al punto di inizio atterraggio della missione o torna a casa",
         "brakeOrLand": "frena, oppure atterra se non può",
-        "altHold": "mantiene la quota e ti passa il controllo",
+        "altHold": "in una modalità che richiede la posizione mantiene la quota e ti passa il controllo",
         "landAnyMode": "atterra, anche in Stabilize"
       },
       "summary": "Cosa fa il veicolo da solo quando qualcosa va storto. Non si scrive nulla finché non scrivi, e mai quando è armato.",
@@ -1287,6 +1291,7 @@
       },
       "warn": {
         "nothing": "Questo failsafe non fa nulla: il veicolo continua e ti avvisa soltanto.",
+        "disabled": "Questo failsafe è spento: quando succede il veicolo non reagisce e nulla ti avvisa.",
         "terminate": "Questo failsafe ferma i motori in aria: il veicolo cade."
       }
     },

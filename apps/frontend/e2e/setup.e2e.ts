@@ -87,7 +87,7 @@ it('says what each failsafe does, and warns for the ground station failsafe that
 
   expect(await window().text('[data-failsafe="radio"] .setup-say'))
     .toBe('If the transmitter signal stops, it flies home and lands.')
-  expect(await window().text('[data-failsafe="gcs"] .setup-warn')).toContain('does nothing')
+  expect(await window().text('[data-failsafe="gcs"] .setup-warn')).toContain('is off')
 })
 
 it('shows the vehicle and its autopilot on the information page', async () => {

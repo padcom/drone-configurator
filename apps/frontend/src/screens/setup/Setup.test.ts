@@ -235,7 +235,7 @@ it('puts back what the vehicle has when asked, and the button says there is noth
   expect(wrapper.findAllComponents(EnumField)[0]?.props('modelValue')).toBe(0)
 })
 
-it('says what each failsafe does in words, and warns for the one that does nothing', async () => {
+it('says what each failsafe does in words, and warns for the one that is off', async () => {
   const { wrapper } = await page(SetupFailsafes)
   const rows = wrapper.findAll('.setup-failsafe')
 
@@ -243,10 +243,35 @@ it('says what each failsafe does in words, and warns for the one that does nothi
   expect(rows[0]?.get('.setup-say').text()).toBe('If the voltage stays low, it flies home and lands.')
   expect(rows[2]?.get('.setup-say').text()).toBe('If the transmitter signal stops, it flies home and lands.')
   const gcs = wrapper.get('[data-failsafe="gcs"]')
-  expect(gcs.get('.setup-say').text()).toBe('If the ground station is lost for 5 s, it keeps flying and only warns you.')
-  expect(gcs.get('.setup-warn').text()).toContain('does nothing')
+  expect(gcs.get('.setup-say').text())
+    .toBe('If the ground station is lost for 5 s, the failsafe is off: the vehicle does not react.')
+  expect(gcs.get('.setup-warn').text()).toContain('is off')
   expect(wrapper.findAll('.setup-warn')).toHaveLength(1)
   expect(wrapper.get('[data-failsafe="batteryLow"]').find('.setup-warn').exists()).toBe(false)
+})
+
+it('does not say a failsafe that is disabled warns: for the radio and the ground station 0 is off, nothing warns', async () => {
+  const off = SETUP_PARAMS.map(param => param.id === 'FS_THR_ENABLE' ? { ...param, value: 0 } : param)
+  const { wrapper } = await page(SetupFailsafes, { params: off })
+
+  for (const kind of ['radio', 'gcs']) {
+    const row = wrapper.get(`[data-failsafe="${kind}"]`)
+
+    expect(row.get('.setup-say').text()).toContain('the failsafe is off')
+    expect(row.text()).not.toMatch(/warns/u)
+  }
+})
+
+it('says the EKF failsafe acts only in a mode that needs a position, and warns only for report only', async () => {
+  const { wrapper } = await page(SetupFailsafes)
+  const say = wrapper.get('[data-failsafe="ekf"] .setup-say').text()
+
+  expect(say).toContain('in a mode that needs a position')
+  expect(say).toContain('in Stabilize or AltHold it does nothing')
+  wrapper.findAllComponents(EnumField)[4]?.vm.$emit('update:modelValue', 0)
+  await flushPromises()
+
+  expect(wrapper.get('[data-failsafe="ekf"] .setup-say').text()).toContain('only warns')
 })
 
 it('says a value with no name is the number it is, never a name that was guessed', async () => {

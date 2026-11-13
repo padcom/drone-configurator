@@ -124,6 +124,11 @@ it('names the actions of ArduPilot\'s lists, and no action for a value that is n
   expect(actionOf('radio', 3)).toBe('land')
   expect(actionOf('radio', 2)).toBeNull()
   expect(actionOf('gcs', 5)).toBe('land')
+  expect(actionOf('radio', 0)).toBe('disabled')
+  expect(actionOf('gcs', 0)).toBe('disabled')
+  expect(actionOf('batteryLow', 0)).toBe('nothing')
+  expect(actionOf('ekf', 0)).toBe('nothing')
+  expect(actionOf('ekf', 1)).toBe('landIfPosition')
   expect(actionOf('ekf', 2)).toBe('altHold')
   expect(actionOf('ekf', 9)).toBeNull()
 })
@@ -135,7 +140,8 @@ it('writes the four failsafe parameters of the battery and the three others, and
   expect(choicesOf('ekf').map(choice => choice.value)).toEqual([0, 1, 2, 3])
 })
 
-it('warns for a failsafe that does nothing and for one that stops the motors', () => {
+it('warns for a failsafe that is off, one that only warns, and one that stops the motors', () => {
+  expect(isDangerous('disabled')).toBe(true)
   expect(isDangerous('nothing')).toBe(true)
   expect(isDangerous('terminate')).toBe(true)
   expect(isDangerous('rtl')).toBe(false)
