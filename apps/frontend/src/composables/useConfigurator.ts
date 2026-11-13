@@ -15,6 +15,7 @@ import { toastSeverity } from '@/lib/fly/messages'
 import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
+import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -68,6 +69,8 @@ export interface ConfiguratorHandle {
   spectrum: SpectrumModel
   /** What the Setup pages ask of the vehicle besides parameters: its details and its flight modes. */
   setup: SetupModel
+  /** The calibration of the vehicle's sensors (the accelerometer and the compass): its state, and the actions. */
+  calibration: CalibrationModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -294,6 +297,26 @@ function downloadOnConnect(vehicle: Vehicle, parameters: ParamsModel): void {
 }
 
 /**
+ * The calibration of the vehicle's sensors. It is the vehicle's: another vehicle, or none, has no calibration, so it goes
+ * with every connected report that is not the same vehicle coming back (what a lost link ended is told until then).
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the calibration
+ */
+function startCalibration(client: BackendClient, vehicle: Vehicle): CalibrationModel {
+  const calibration = useCalibration({ client, connection: vehicle.connection, telemetry: vehicle.telemetry })
+  // (A link that is lost ends the calibration, and the model says so; what it says stays until another vehicle is connected.)
+  watch(vehicle.connection, next => {
+    if (next.state === 'connected' && next.resumed !== true) {
+      calibration.reset()
+    }
+  })
+
+  return calibration
+}
+
+/**
  * What the Setup pages ask of the vehicle besides parameters. What the board said is the vehicle's: another vehicle, or none, has
  * its own, so it goes with every connected report that is not the same vehicle coming back.
  *
@@ -449,6 +472,7 @@ export function createConfigurator(
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle),
+    calibration: startCalibration(client, vehicle),
   }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }

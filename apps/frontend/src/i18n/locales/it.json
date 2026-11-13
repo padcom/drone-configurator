@@ -1446,6 +1446,111 @@
         "serial": "Seriale",
         "wspi": "Wide SPI"
       }
+    },
+    "calibration": {
+      "blocked": {
+        "offline": "Collega un veicolo per calibrare.",
+        "armed": "Il veicolo è armato. Disarmalo per calibrare.",
+        "unknown": "Lo stato di armamento non è noto (nessun heartbeat recente): conta come armato. La calibrazione attende."
+      },
+      "error": {
+        "ARMED": "Il veicolo è armato: disarmalo per calibrare.",
+        "STATE_UNKNOWN": "Lo stato del veicolo non è noto (nessun heartbeat da 3 s): non è stato avviato nulla.",
+        "BUSY": "È in corso altro (una calibrazione, un trasferimento di parametri o log, o un riavvio): riprova al termine.",
+        "NOT_CONNECTED": "Nessun veicolo collegato.",
+        "NOT_ASKED": "Il veicolo non chiede (ancora) quella posizione.",
+        "NOT_RUNNING": "Nessuna calibrazione in corso per questo.",
+        "NOT_ACCEPTED": "Il veicolo non ha accettato i risultati: qualche bussola è riuscita?"
+      },
+      "result": {
+        "success": "Calibrazione completata",
+        "failed": "Calibrazione non riuscita",
+        "cancelled": "Calibrazione annullata",
+        "refused": "Calibrazione non avviata"
+      },
+      "code": {
+        "CANCELLED": "non è stato mantenuto nulla",
+        "LINK_LOST": "il collegamento con il veicolo è andato perso",
+        "ARMED": "il veicolo si è armato",
+        "NOT_UP": "il veicolo non ha detto di essere pronto: attendi un momento e riprova",
+        "REFUSED": "il veicolo ha rifiutato",
+        "TIMEOUT": "il veicolo ha smesso di rispondere",
+        "FAILED": "il veicolo dice che è fallita"
+      },
+      "unsure": "Il veicolo potrebbe essere ancora in calibrazione: se non si ferma, riavvialo.",
+      "vehicleSays": "Il veicolo dice"
+    },
+    "accel": {
+      "summary": "Metti il veicolo in sei posizioni, una dopo l'altra. Il veicolo le chiede una per una; premi Posizionato quando è in quella posizione e fermo. Tienilo fermo fin dall'inizio: prima si calibrano i giroscopi.",
+      "positions": "Posizioni",
+      "position": {
+        "level": "In piano",
+        "left": "Sul lato sinistro",
+        "right": "Sul lato destro",
+        "noseDown": "Muso in basso",
+        "noseUp": "Muso in alto",
+        "back": "Sul dorso"
+      },
+      "state": {
+        "done": "fatto",
+        "current": "richiesta ora",
+        "todo": "da fare"
+      },
+      "start": "Calibra (sei posizioni)",
+      "level": "Solo il livello",
+      "placed": "Posizionato",
+      "cancel": "Annulla",
+      "cancelNote": "Annullare ferma l'attesa della pagina; il veicolo tiene aperta la calibrazione finché non finisce o si riavvia, e il prossimo avvio riparte da lì.",
+      "idle": "Nessuna calibrazione in corso.",
+      "starting": "Attendo il veicolo, poi calibro i giroscopi: tieni il veicolo fermo.",
+      "waiting": "Attendo che il veicolo chieda una posizione.",
+      "place": "Metti il veicolo: {where}, tienilo fermo, poi premi Posizionato.",
+      "holding": "Fermo: il veicolo sta prendendo il campione.",
+      "values": "I valori del veicolo ora"
+    },
+    "compass": {
+      "summary": "Ruota il veicolo in ogni direzione, lontano da metallo e cavi, mentre il veicolo dice a che punto è ogni bussola. Non viene mantenuto nulla finché non accetti.",
+      "start": "Calibra",
+      "cancel": "Annulla",
+      "autosave": "Lascia che il veicolo mantenga il risultato da solo",
+      "autosaveHelp": "Spento: i risultati aspettano la tua accettazione.",
+      "idle": "Nessuna calibrazione in corso.",
+      "starting": "Attendo il veicolo…",
+      "running": "Ruota il veicolo in ogni direzione finché ogni bussola è completa.",
+      "review": "Ogni bussola ha riferito. Controlla i risultati, poi accetta quelli da mantenere o scartali.",
+      "number": "Bussola {n}",
+      "status": {
+        "WAITING_TO_START": "In attesa di avvio",
+        "RUNNING_STEP_ONE": "Raccolta campioni",
+        "RUNNING_STEP_TWO": "Rifinitura",
+        "SUCCESS": "Riuscita",
+        "FAILED": "Fallita",
+        "FAILED_ORIENTATION": "Fallita: orientamento",
+        "FAILED_RADIUS": "Fallita: raggio",
+        "FAILED_OFFSETS": "Fallita: offset",
+        "FAILED_DIAG_SCALING": "Fallita: scala",
+        "FAILED_RESIDUALS_HIGH": "Fallita: residui troppo alti"
+      },
+      "progress": "Avanzamento bussola {n}",
+      "sphere": "{lit} di {all} sezioni della sfera hanno campioni",
+      "fitness": "Qualità (più basso è meglio)",
+      "offsets": "Nuovi offset",
+      "oldOffsets": "Vecchi offset",
+      "diagonals": "Diagonali",
+      "orientation": "Orientamento (prima → dopo)",
+      "noRotation": "Nessuno",
+      "turnedKept": "Il veicolo ha trovato questa bussola ruotata. Accettare mantiene il nuovo orientamento (COMPASS_AUTO_ROT è 2 o più).",
+      "turnedNotKept": "Il veicolo ha trovato questa bussola ruotata. L'orientamento non cambia (COMPASS_AUTO_ROT è sotto 2).",
+      "accept": "Accetta i risultati",
+      "discard": "Scarta",
+      "acceptHelp": "Accettare mantiene offset, diagonali, fuori diagonale e scala, sostituendo i vecchi (la revisione dei parametri li tiene per un ripristino). I nuovi valori valgono dopo un riavvio.",
+      "kept": "I risultati sono stati mantenuti. I vecchi offset sono sostituiti; la revisione dei parametri li tiene per un ripristino.",
+      "order": "Ordine delle bussole",
+      "orderHelp": "La bussola al posto 1 è quella usata per prima. Le modifiche si scrivono con il pulsante a destra e valgono dopo un riavvio.",
+      "place": "Posto {n}",
+      "up": "Sposta su il posto {n}",
+      "down": "Sposta giù il posto {n}",
+      "emptyPlace": "nessuna bussola"
     }
   }
 }

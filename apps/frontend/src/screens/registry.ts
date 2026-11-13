@@ -57,8 +57,8 @@ const SETUP_SECTION = () => import('./setup/SetupSection.vue')
 const SETUP_SECTIONS: readonly Section[] = [
   { id: 'home', path: 'home', titleKey: 'setup.section.home', load: () => import('./setup/SetupHome.vue') },
   { id: 'frame', path: 'frame', titleKey: 'setup.section.frame', load: () => import('./setup/SetupFrame.vue') },
-  { id: 'accel', path: 'accel', titleKey: 'setup.section.accel', load: SETUP_SECTION },
-  { id: 'compass', path: 'compass', titleKey: 'setup.section.compass', load: SETUP_SECTION },
+  { id: 'accel', path: 'accel', titleKey: 'setup.section.accel', load: () => import('./setup/SetupAccel.vue') },
+  { id: 'compass', path: 'compass', titleKey: 'setup.section.compass', load: () => import('./setup/SetupCompass.vue') },
   { id: 'radio', path: 'radio', titleKey: 'setup.section.radio', load: SETUP_SECTION },
   { id: 'motors', path: 'motors', titleKey: 'setup.section.motors', load: SETUP_SECTION },
   { id: 'modes', path: 'modes', titleKey: 'setup.section.modes', load: () => import('./setup/SetupModes.vue') },

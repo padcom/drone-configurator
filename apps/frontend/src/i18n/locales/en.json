@@ -1446,6 +1446,111 @@
         "serial": "Serial",
         "wspi": "Wide SPI"
       }
+    },
+    "calibration": {
+      "blocked": {
+        "offline": "Connect a vehicle to calibrate.",
+        "armed": "The vehicle is armed. Disarm it to calibrate.",
+        "unknown": "The vehicle's armed state is not known (no recent heartbeat), so it counts as armed. Calibration waits."
+      },
+      "error": {
+        "ARMED": "The vehicle is armed: disarm it to calibrate.",
+        "STATE_UNKNOWN": "The vehicle's state is not known (no heartbeat for 3 s): nothing was started.",
+        "BUSY": "Something else is running (a calibration, a parameter or log transfer, or a reboot): try again when it is done.",
+        "NOT_CONNECTED": "No vehicle is connected.",
+        "NOT_ASKED": "The vehicle is not asking for that position (yet).",
+        "NOT_RUNNING": "No calibration is running for that.",
+        "NOT_ACCEPTED": "The vehicle did not accept the results: did any compass succeed?"
+      },
+      "result": {
+        "success": "Calibration done",
+        "failed": "Calibration failed",
+        "cancelled": "Calibration cancelled",
+        "refused": "Calibration not started"
+      },
+      "code": {
+        "CANCELLED": "nothing was kept",
+        "LINK_LOST": "the link to the vehicle was lost",
+        "ARMED": "the vehicle armed",
+        "NOT_UP": "the vehicle did not say it is up: wait a moment and try again",
+        "REFUSED": "the vehicle refused",
+        "TIMEOUT": "the vehicle stopped answering",
+        "FAILED": "the vehicle says it failed"
+      },
+      "unsure": "The vehicle may still be calibrating: if it does not stop, restart it.",
+      "vehicleSays": "The vehicle says"
+    },
+    "accel": {
+      "summary": "Place the vehicle in six positions, one after the other. The vehicle asks for each; press Placed when it is in that position and still. Keep it still from the start: the gyros are calibrated first.",
+      "positions": "Positions",
+      "position": {
+        "level": "Level",
+        "left": "On its left side",
+        "right": "On its right side",
+        "noseDown": "Nose down",
+        "noseUp": "Nose up",
+        "back": "On its back"
+      },
+      "state": {
+        "done": "done",
+        "current": "asked for now",
+        "todo": "to do"
+      },
+      "start": "Calibrate (six positions)",
+      "level": "Level only",
+      "placed": "Placed",
+      "cancel": "Cancel",
+      "cancelNote": "Cancelling stops the page waiting; the vehicle keeps its calibration open until it ends or it restarts, and the next start goes on from there.",
+      "idle": "No calibration is running.",
+      "starting": "Waiting for the vehicle, then calibrating the gyros: keep the vehicle still.",
+      "waiting": "Waiting for the vehicle to ask for a position.",
+      "place": "Place the vehicle {where}, keep it still, then press Placed.",
+      "holding": "Holding still: the vehicle is taking the sample.",
+      "values": "The vehicle's values now"
+    },
+    "compass": {
+      "summary": "Turn the vehicle round, every way, away from metal and cables, while the vehicle says how far each compass is. Nothing is kept until you accept.",
+      "start": "Calibrate",
+      "cancel": "Cancel",
+      "autosave": "Let the vehicle keep the result by itself",
+      "autosaveHelp": "Off: the results wait for your Accept.",
+      "idle": "No calibration is running.",
+      "starting": "Waiting for the vehicle…",
+      "running": "Turn the vehicle round, every way, until every compass is complete.",
+      "review": "Every compass has reported. Check the results, then accept the ones you want to keep, or discard them.",
+      "number": "Compass {n}",
+      "status": {
+        "WAITING_TO_START": "Waiting to start",
+        "RUNNING_STEP_ONE": "Collecting samples",
+        "RUNNING_STEP_TWO": "Refining",
+        "SUCCESS": "Success",
+        "FAILED": "Failed",
+        "FAILED_ORIENTATION": "Failed: orientation",
+        "FAILED_RADIUS": "Failed: radius",
+        "FAILED_OFFSETS": "Failed: offsets",
+        "FAILED_DIAG_SCALING": "Failed: scaling",
+        "FAILED_RESIDUALS_HIGH": "Failed: residuals too high"
+      },
+      "progress": "Compass {n} progress",
+      "sphere": "{lit} of {all} sections of the sphere have samples",
+      "fitness": "Fitness (lower is better)",
+      "offsets": "New offsets",
+      "oldOffsets": "Old offsets",
+      "diagonals": "Diagonals",
+      "orientation": "Orientation (before → after)",
+      "noRotation": "None",
+      "turnedKept": "The vehicle found this compass turned. Accepting keeps the new orientation (COMPASS_AUTO_ROT is 2 or more).",
+      "turnedNotKept": "The vehicle found this compass turned. The orientation is not changed (COMPASS_AUTO_ROT is below 2).",
+      "accept": "Accept the results",
+      "discard": "Discard",
+      "acceptHelp": "Accepting keeps the offsets, diagonals, off-diagonals and scale, replacing the old ones (the parameter review keeps them for a revert). The new values are used after a reboot.",
+      "kept": "The results were kept. The old offsets are replaced; the parameter review keeps them for a revert.",
+      "order": "Order of the compasses",
+      "orderHelp": "The compass in place 1 is the one the vehicle uses first. Changes are written with the button on the right, and used after a reboot.",
+      "place": "Place {n}",
+      "up": "Move place {n} up",
+      "down": "Move place {n} down",
+      "emptyPlace": "no compass"
     }
   }
 }

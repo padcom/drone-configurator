@@ -1446,6 +1446,111 @@
         "serial": "Serie",
         "wspi": "Wide SPI"
       }
+    },
+    "calibration": {
+      "blocked": {
+        "offline": "Conecta un vehículo para calibrar.",
+        "armed": "El vehículo está armado. Desármalo para calibrar.",
+        "unknown": "No se conoce el estado de armado (sin heartbeat reciente), cuenta como armado. La calibración espera."
+      },
+      "error": {
+        "ARMED": "El vehículo está armado: desármalo para calibrar.",
+        "STATE_UNKNOWN": "No se conoce el estado del vehículo (sin heartbeat desde hace 3 s): no se inició nada.",
+        "BUSY": "Hay algo más en curso (una calibración, una transferencia de parámetros o logs, o un reinicio): inténtalo de nuevo al terminar.",
+        "NOT_CONNECTED": "No hay ningún vehículo conectado.",
+        "NOT_ASKED": "El vehículo (todavía) no pide esa posición.",
+        "NOT_RUNNING": "No hay ninguna calibración en curso para eso.",
+        "NOT_ACCEPTED": "El vehículo no aceptó los resultados: ¿alguna brújula tuvo éxito?"
+      },
+      "result": {
+        "success": "Calibración terminada",
+        "failed": "La calibración falló",
+        "cancelled": "Calibración cancelada",
+        "refused": "La calibración no se inició"
+      },
+      "code": {
+        "CANCELLED": "no se guardó nada",
+        "LINK_LOST": "se perdió el enlace con el vehículo",
+        "ARMED": "el vehículo se armó",
+        "NOT_UP": "el vehículo no dijo que está listo: espera un momento e inténtalo de nuevo",
+        "REFUSED": "el vehículo se negó",
+        "TIMEOUT": "el vehículo dejó de responder",
+        "FAILED": "el vehículo dice que falló"
+      },
+      "unsure": "El vehículo podría seguir calibrando: si no se detiene, reinícialo.",
+      "vehicleSays": "El vehículo dice"
+    },
+    "accel": {
+      "summary": "Coloca el vehículo en seis posiciones, una tras otra. El vehículo pide cada una; pulsa Colocado cuando esté en esa posición y quieto. Mantenlo quieto desde el principio: primero se calibran los giroscopios.",
+      "positions": "Posiciones",
+      "position": {
+        "level": "Nivelado",
+        "left": "Sobre el lado izquierdo",
+        "right": "Sobre el lado derecho",
+        "noseDown": "Morro abajo",
+        "noseUp": "Morro arriba",
+        "back": "Boca arriba"
+      },
+      "state": {
+        "done": "hecho",
+        "current": "pedida ahora",
+        "todo": "pendiente"
+      },
+      "start": "Calibrar (seis posiciones)",
+      "level": "Solo el nivel",
+      "placed": "Colocado",
+      "cancel": "Cancelar",
+      "cancelNote": "Cancelar detiene la espera de la página; el vehículo mantiene su calibración abierta hasta que termine o se reinicie, y el siguiente inicio continúa desde ahí.",
+      "idle": "No hay ninguna calibración en curso.",
+      "starting": "Esperando al vehículo y luego calibrando los giroscopios: mantén el vehículo quieto.",
+      "waiting": "Esperando a que el vehículo pida una posición.",
+      "place": "Coloca el vehículo: {where}, mantenlo quieto y pulsa Colocado.",
+      "holding": "Quieto: el vehículo está tomando la muestra.",
+      "values": "Los valores del vehículo ahora"
+    },
+    "compass": {
+      "summary": "Gira el vehículo en todas direcciones, lejos de metal y cables, mientras el vehículo dice cuánto lleva cada brújula. No se guarda nada hasta que aceptes.",
+      "start": "Calibrar",
+      "cancel": "Cancelar",
+      "autosave": "Dejar que el vehículo guarde el resultado por sí mismo",
+      "autosaveHelp": "Desactivado: los resultados esperan tu aceptación.",
+      "idle": "No hay ninguna calibración en curso.",
+      "starting": "Esperando al vehículo…",
+      "running": "Gira el vehículo en todas direcciones hasta que cada brújula esté completa.",
+      "review": "Cada brújula ha informado. Revisa los resultados y acepta los que quieras guardar, o descártalos.",
+      "number": "Brújula {n}",
+      "status": {
+        "WAITING_TO_START": "Esperando para empezar",
+        "RUNNING_STEP_ONE": "Recogiendo muestras",
+        "RUNNING_STEP_TWO": "Refinando",
+        "SUCCESS": "Éxito",
+        "FAILED": "Falló",
+        "FAILED_ORIENTATION": "Falló: orientación",
+        "FAILED_RADIUS": "Falló: radio",
+        "FAILED_OFFSETS": "Falló: offsets",
+        "FAILED_DIAG_SCALING": "Falló: escala",
+        "FAILED_RESIDUALS_HIGH": "Falló: residuos demasiado altos"
+      },
+      "progress": "Progreso de la brújula {n}",
+      "sphere": "{lit} de {all} secciones de la esfera tienen muestras",
+      "fitness": "Ajuste (menor es mejor)",
+      "offsets": "Nuevos offsets",
+      "oldOffsets": "Offsets anteriores",
+      "diagonals": "Diagonales",
+      "orientation": "Orientación (antes → después)",
+      "noRotation": "Ninguna",
+      "turnedKept": "El vehículo encontró esta brújula girada. Aceptar guarda la nueva orientación (COMPASS_AUTO_ROT es 2 o más).",
+      "turnedNotKept": "El vehículo encontró esta brújula girada. La orientación no cambia (COMPASS_AUTO_ROT es menor que 2).",
+      "accept": "Aceptar los resultados",
+      "discard": "Descartar",
+      "acceptHelp": "Aceptar guarda los offsets, diagonales, fuera de diagonal y escala, sustituyendo los anteriores (la revisión de parámetros los conserva para revertir). Los nuevos valores se usan tras un reinicio.",
+      "kept": "Se guardaron los resultados. Los offsets anteriores se sustituyeron; la revisión de parámetros los conserva para revertir.",
+      "order": "Orden de las brújulas",
+      "orderHelp": "La brújula en el lugar 1 es la que el vehículo usa primero. Los cambios se escriben con el botón de la derecha y se usan tras un reinicio.",
+      "place": "Lugar {n}",
+      "up": "Subir el lugar {n}",
+      "down": "Bajar el lugar {n}",
+      "emptyPlace": "sin brújula"
     }
   }
 }

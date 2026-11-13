@@ -55,6 +55,9 @@ import { ratesNow } from "./telemetry"
 /// How long a calibration waits for the vehicle to say it is up (ms).
 export const UP_WAIT_MS: int = 30000
 
+/// How long (ms) a level that was accepted waits for the vehicle's own words about it (it says them just after its answer).
+const LEVEL_TEXT_WAIT_MS: int = 400
+
 /// How many STATUSTEXT of the vehicle the state keeps.
 const TEXTS_KEPT: int = 40
 
@@ -202,10 +205,12 @@ class Running implements SessionPart {
     if (active || result != null) {
       s.kind = kind
     }
-    if (active && kind == CalibrationKind.Accel) {
+    // What the calibration found stays in the state after it ends (the positions that were taken, the compasses that were kept): a
+    // calibration that was cancelled or failed drops its compasses, which were not kept.
+    if ((active || result != null) && kind == CalibrationKind.Accel) {
       s.accel = CalibrationAccel { position: position as u8, placed: placed.slice(0), confirming: confirming }
     }
-    if (active && kind == CalibrationKind.Compass) {
+    if ((active || result != null) && kind == CalibrationKind.Compass && compasses.length > 0) {
       s.compasses = compasses.slice(0)
     }
     if (result != null) {
@@ -247,8 +252,13 @@ class Running implements SessionPart {
     active = false
     link.calibrating = false
     phase = CalibrationStateState.Finished
+    position = 0
     pending = 0
     confirming = false
+    if (outcome != CalibrationResultOutcome.Success) {
+      // Compass results that were not accepted are gone with the calibration.
+      compasses = []
+    }
     const c = communicator
     if (c != null) {
       c!.emit("calibration.result", encodeCalibrationResult(r))
@@ -446,6 +456,9 @@ async function runAccel(conn: MavLinkConnection, full: bool): Promise<void> {
 async function runLevel(cal: Calibration): Promise<void> throws Error {
   const result = await cal.startAccel(AccelCalKind.LEVEL)
   if (result == MavResult.ACCEPTED) {
+    // The vehicle says "Trim OK: ..." in the moment of its answer (ArduPilot sends the text just after the ack): it is waited for, so
+    // that the result carries it and it is in the state.
+    await delay(LEVEL_TEXT_WAIT_MS)
     running.finish(CalibrationResultOutcome.Success, "", lastWords("the level was set"), false)
   } else if (result == MavResult.TEMPORARILY_REJECTED) {
     running.finish(CalibrationResultOutcome.Failed, "REFUSED", "the vehicle is not ready for the level calibration yet: wait a moment and try again", false)
