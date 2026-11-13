@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Log rimossi da questo computer: {count} (log {names}). Motivo: {reason}.",
     "namesMore": "{names}; altri: {count}",
+    "parts": "Sono stati rimossi i download incompleti che nessuno ha ripreso per 7 giorni: {count}.",
     "why": {
       "age": "erano più vecchi di {days} giorni",
       "size": "i log scaricati occupavano più di {megabytes} MB",

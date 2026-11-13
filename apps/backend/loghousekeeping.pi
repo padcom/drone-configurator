@@ -8,7 +8,7 @@
 //  - by age first (older than the retention), then the oldest ones while the copies are over the cap.
 // A copy that cannot be read or removed is kept, with the rest going on. Nothing is removed on the vehicle.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
-import { readDir, remove, stat } from "std/fs"
+import { exists, readDir, remove, stat } from "std/fs"
 import { join } from "std/path"
 import {
   LogsHousekept,
@@ -34,6 +34,14 @@ const DAY_MS: int = 86400000
 
 export function register(c: Communicator): void {
   c.handle("logs.housekeeping", housekeeping)
+}
+
+/// A part of a download that was not touched for this long (ms) is removed: 7 days.
+export const STALE_PART_MS: int = 7 * 86400000
+
+/// Whether a file is the part of a download (`NNNNNNNN.BIN.part`, as logs.pi names it) that nobody has gone on from for `STALE_PART_MS`.
+export function isStalePart(name: string, mtime: int, now: int): bool {
+  name.length == 17 && name.slice(8, 17) == ".BIN.part" && copyNumbers(`${name.slice(0, 8)}-00000000.BIN`)[0] >= 0 && now - mtime > STALE_PART_MS
 }
 
 /// A downloaded copy found in a vehicle's folder.
@@ -63,6 +71,10 @@ export class Copy {
 async function copiesOf(top: string): Promise<Copy[]> throws Error {
   const out: Copy[] = []
   let seen = 0
+  // No folder of logs yet (an app that has downloaded none): there is nothing to look at, and that is no failure.
+  if (!await exists(top)) {
+    return out
+  }
   for await (const dir of readDir(top)) {
     if (!dir.isDirectory || dir.name.startsWith(".") || dir.name == IMPORTED) {
       continue
@@ -150,6 +162,7 @@ async function housekeeping(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   } catch (e: Error) {
     throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
   }
+  const parts = await removeStaleParts(top)
   const copies = await copiesOf(top)
   const cap = (ask.sizeCapMb as int) * 1000000
   mark(copies, Date.now() as int, ask.retentionDays as int, cap)
@@ -166,7 +179,37 @@ async function housekeeping(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
     kept: protectedCount(copies) as u32,
     unverified: out.unverified as u32,
     overCap: cap > 0 && left > cap,
+    partsRemoved: parts as u32,
   })
+}
+
+/// Removes the parts of downloads that nobody has gone on from for a week; how many. One that cannot be removed stays.
+async function removeStaleParts(top: string): Promise<int> throws Error {
+  let removedCount = 0
+  if (!await exists(top)) {
+    return 0
+  }
+  const now = Date.now() as int
+  for await (const dir of readDir(top)) {
+    if (!dir.isDirectory || dir.name.startsWith(".") || dir.name == IMPORTED) {
+      continue
+    }
+    for await (const entry of readDir(join(top, dir.name))) {
+      if (entry.isFile && isStalePart(entry.name, (await stat(join(top, dir.name, entry.name))).mtime, now) && await removedPath(join(top, dir.name, entry.name))) {
+        removedCount += 1
+      }
+    }
+  }
+  removedCount
+}
+
+async function removedPath(path: string): Promise<bool> {
+  try {
+    await remove(path)
+    true
+  } catch (e: Error) {
+    false
+  }
 }
 
 function protectedCount(copies: Copy[]): int {

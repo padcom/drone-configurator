@@ -83,14 +83,28 @@ class Housekeeping implements HousekeepingModel {
     try {
       const done = await this.deps.client.call('logs.housekeeping', { retentionDays, sizeCapMb })
       this.last.value = done
-
-      if (done.removedCount > 0) {
-        this.deps.tell({ id: 'housekeeping', severity: 'info', text: removedText(done, retentionDays, sizeCapMb), long: true })
-      }
+      this.tellWhatWasRemoved(done, retentionDays, sizeCapMb)
     } catch (error) {
       this.failed(error)
     } finally {
       this.running = false
+    }
+  }
+
+  /**
+   * Tells what a run removed: the logs (named, with why) and the unfinished downloads.
+   *
+   * @param done what the backend answered
+   * @param retentionDays the retention asked for
+   * @param sizeCapMb the cap asked for
+   */
+  private tellWhatWasRemoved(done: LogsHousekept, retentionDays: number, sizeCapMb: number): void {
+    const { tell } = this.deps
+    if (done.removedCount > 0) {
+      tell({ id: 'housekeeping', severity: 'info', text: removedText(done, retentionDays, sizeCapMb), long: true })
+    }
+    if (done.partsRemoved > 0) {
+      tell({ id: 'housekeeping-parts', severity: 'info', text: say('housekeeping.parts', { count: done.partsRemoved }) })
     }
   }
 

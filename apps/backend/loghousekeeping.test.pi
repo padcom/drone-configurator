@@ -19,7 +19,7 @@ import {
   encodeLogsHousekeepingAsk,
 } from "./generated/app"
 import { copyName } from "./logs"
-import { Copy, mark } from "./loghousekeeping"
+import { Copy, isStalePart, mark } from "./loghousekeeping"
 import { link } from "./session"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -69,6 +69,16 @@ function removesTheOldestWhileOverTheCapAndNotTheProtected(): void {
   mark(copies, 1000 * DAY, 90, 20_000_000)
 
   expect(marks(copies)).toBe("5:P 4:P 3:P 2:size 1:size")
+}
+
+function recognisesAPartOfADownloadThatIsStale(): void {
+  const now = 1000 * DAY
+  // A part nobody went on from for 8 days is stale; one of 6 days is not; nothing else that is not a part is.
+  expect(isStalePart("00000012.BIN.part", now - 8 * DAY, now)).toBe(true)
+  expect(isStalePart("00000012.BIN.part", now - 6 * DAY, now)).toBe(false)
+  expect(isStalePart("00000012-1a2b3c4d.BIN", now - 800 * DAY, now)).toBe(false)
+  expect(isStalePart("notes.txt.part", now - 800 * DAY, now)).toBe(false)
+  expect(isStalePart("0000001x.BIN.part", now - 800 * DAY, now)).toBe(false)
 }
 
 function keepsTheNewestThreeOfEveryVehicle(): void {
@@ -167,6 +177,23 @@ async function removesOnlyVerifiedCopiesOfAVehicleAndNothingElse(): Promise<void
   }
 }
 
+async function isNotAnErrorWhenThereIsNoFolderOfLogsYet(): Promise<void> throws Error {
+  const root = `/tmp/drone-configurator-housekeeping-empty-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  const r = new Rig(await start(), root)
+  try {
+    const e = await housekeep(r, 90, 2000)
+
+    expect(codeOf(e)).toBe("")
+    const out = decodeLogsHousekept(e.p ?? Cbor.Null, "$")
+    expect(out.removedCount).toBe(0 as u32)
+    expect(out.kept).toBe(0 as u32)
+  } finally {
+    await done(r)
+  }
+}
+
 async function removesNothingWhenThereIsNoRuleOrNoRoom(): Promise<void> throws Error {
   const r = await rig()
   try {
@@ -226,7 +253,9 @@ describe("housekeeping of the logs on this computer", () => {
   it("marks by age and keeps the newest three whatever their age; a retention of 0 is never", marksByAgeAndKeepsTheNewestThree)
   it("removes the oldest while over the cap, never the protected ones", removesTheOldestWhileOverTheCapAndNotTheProtected)
   it("keeps the newest three of every vehicle", keepsTheNewestThreeOfEveryVehicle)
+  it("recognises the part of a download that nobody went on from for a week, and nothing else", recognisesAPartOfADownloadThatIsStale)
   it("removes only verified copies of a vehicle's logs: not a copy that does not verify, a part, another file or a recording", removesOnlyVerifiedCopiesOfAVehicleAndNothingElse)
+  it("is not an error when there is no folder of logs yet (an app that downloaded none)", isNotAnErrorWhenThereIsNoFolderOfLogsYet)
   it("removes nothing with no rule or with room", removesNothingWhenThereIsNoRuleOrNoRoom)
   it("refuses while a connected vehicle is armed or not known to be disarmed", refusesWhileAConnectedVehicleIsArmedOrNotKnown)
 })

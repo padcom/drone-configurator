@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Logi usunięte z tego komputera: {count} (log {names}). Powód: {reason}.",
     "namesMore": "{names}; pozostałe: {count}",
+    "parts": "Usunięto niedokończone pobierania, do których nikt nie wrócił przez 7 dni: {count}.",
     "why": {
       "age": "były starsze niż {days} dni",
       "size": "pobrane logi zajmowały więcej niż {megabytes} MB",

@@ -216,7 +216,7 @@ class MockVehicle {
       case 'logs.download': return this.connected(fail) && this.logs.download((e.p as { ids: number[] }).ids, ok, fail)
       case 'logs.cancel': return this.logs.cancel(ok)
       case 'logs.erase': return this.connected(fail) && this.logs.erase(ok, fail)
-      case 'logs.housekeeping': return ok({ removed: [], removedCount: 0, freed: 0, kept: 0, unverified: 0, overCap: false })
+      case 'logs.housekeeping': return ok({ removed: [], removedCount: 0, freed: 0, kept: 0, unverified: 0, overCap: false, partsRemoved: 0 })
       case 'logs.local.list': return this.localLogs.list(ok)
       case 'logs.import': return this.localLogs.importFile(ok)
       case 'logs.local.read': return this.localLogs.read((e.p as { key: string }).key, ok, fail)

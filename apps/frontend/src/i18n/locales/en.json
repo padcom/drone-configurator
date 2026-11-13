@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Logs removed from this computer: {count} (log {names}). Why: {reason}.",
     "namesMore": "{names}; others: {count}",
+    "parts": "Unfinished downloads that nobody went on from for 7 days were removed: {count}.",
     "why": {
       "age": "they were older than {days} days",
       "size": "the downloaded logs took more than {megabytes} MB",

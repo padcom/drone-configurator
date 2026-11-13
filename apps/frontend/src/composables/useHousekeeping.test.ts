@@ -7,7 +7,7 @@ import { logsPrefsOf } from '@/lib/logs/logsPrefs'
 import type { ToastInput } from './toasts'
 import { numberOf, removedText, useHousekeeping } from './useHousekeeping'
 
-const NONE: LogsHousekept = { removed: [], removedCount: 0, freed: 0, kept: 3, unverified: 0, overCap: false }
+const NONE: LogsHousekept = { removed: [], removedCount: 0, freed: 0, kept: 3, unverified: 0, overCap: false, partsRemoved: 0 }
 
 /**
  * A housekeeping over a backend that answers as given.
@@ -58,6 +58,14 @@ it('names five logs and counts the rest, and says both reasons when there are tw
 
   expect(text).toContain('log 1, 2, 3, 4, 5; others: 4')
   expect(text).toContain('older than 90 days, or the downloaded logs took more than 2000 MB')
+})
+
+it('says that unfinished downloads nobody went on from for a week were removed', async () => {
+  const t = setup(() => Promise.resolve({ ...NONE, partsRemoved: 2 }))
+  await t.model.run()
+
+  expect(t.told).toHaveLength(1)
+  expect(t.told[0]?.text).toBe('Unfinished downloads that nobody went on from for 7 days were removed: 2.')
 })
 
 it('says nothing when nothing was removed, and keeps the result for the page', async () => {

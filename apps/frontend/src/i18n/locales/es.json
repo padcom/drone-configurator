@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Registros eliminados de este ordenador: {count} (registro {names}). Motivo: {reason}.",
     "namesMore": "{names}; otros: {count}",
+    "parts": "Se eliminaron las descargas incompletas que nadie continuó en 7 días: {count}.",
     "why": {
       "age": "tenían más de {days} días",
       "size": "los registros descargados ocupaban más de {megabytes} MB",
