@@ -190,7 +190,7 @@
       "select": "Log {id} auswählen",
       "noDate": "Kein Datum",
       "noDateNote": "Einige Logs haben kein Datum: Die Firmware dieses Fahrzeugs gibt nicht an, wann eine Datei zuletzt geändert wurde.",
-      "viaProtocol": "Dieses Fahrzeug hat keine Dateiübertragung, deshalb kommen seine Logs über das MAVLink-Log-Protokoll: langsamer und ohne Prüfsumme, eine Kopie lässt sich also nicht prüfen. Die App löscht auf so einem Fahrzeug nie Logs.",
+      "viaProtocol": "Dieses Fahrzeug hat keine Dateiübertragung, deshalb kommen seine Logs über das MAVLink-Log-Protokoll: langsamer und ohne Prüfsumme, eine Kopie lässt sich also nicht prüfen. Die App löscht auf so einem Fahrzeug nie Logs. Eine auf diesem Weg gekommene Kopie wird einem Log nur über Nummer und Größe zugeordnet.",
       "state": {
         "new": "Nicht heruntergeladen",
         "unchecked": "Nicht geprüft",

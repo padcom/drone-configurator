@@ -190,7 +190,7 @@
       "select": "Zaznacz log {id}",
       "noDate": "Brak daty",
       "noDateNote": "Niektóre logi nie mają daty: firmware tego pojazdu nie podaje, kiedy plik był ostatnio zmieniony.",
-      "viaProtocol": "Ten pojazd nie ma transferu plików, więc jego logi przychodzą protokołem logów MAVLink: wolniej i bez sumy kontrolnej, więc kopii nie da się sprawdzić. Aplikacja nigdy nie kasuje logów na takim pojeździe.",
+      "viaProtocol": "Ten pojazd nie ma transferu plików, więc jego logi przychodzą protokołem logów MAVLink: wolniej i bez sumy kontrolnej, więc kopii nie da się sprawdzić. Aplikacja nigdy nie kasuje logów na takim pojeździe. Kopia, która przyszła tą drogą, jest dopasowana do logu tylko po numerze i rozmiarze.",
       "state": {
         "new": "Nie pobrany",
         "unchecked": "Nie sprawdzony",

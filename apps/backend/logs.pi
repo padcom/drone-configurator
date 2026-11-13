@@ -43,7 +43,7 @@ import {
   Target,
   downloadFile,
 } from "padcom/pico-mavlink"
-import { UNCHECKED_TAIL, eraseByProtocol, fetchByProtocol, listByProtocol, protocolClient } from "./logsfallback"
+import { ProtocolOutcome, UNCHECKED_TAIL, eraseByProtocol, fetchByProtocol, listByProtocol, protocolClient } from "./logsfallback"
 import { File, exists, mkdir, open, readDir, remove, rename, stat } from "std/fs"
 import { join } from "std/path"
 import {
@@ -527,7 +527,7 @@ async function listWith(conn: MavLinkConnection, own: AbortController): Promise<
   for (const e of entries) {
     logs.push(await toLog(client, e, copies, until, own.signal))
   }
-  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: true })
+  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: logs.length > 0 })
 }
 
 /// The listing over the log protocol (the vehicle has no file transfer): no CRC can be had, so no log is "downloaded"; one that has a
@@ -844,7 +844,14 @@ async function fetchViaProtocol(conn: MavLinkConnection, id: int, listed: int, d
     const began = sink.total
     const target: Target = { system: link.sysid, component: link.compid }
     const client = protocolClient(conn, target, signal)
-    let got = await fetchByProtocol(client, id, listed, sink, began, crc.crc, (bytes: int, total: int) => progressed(id, bytes, total, listed, began))
+    let got = new ProtocolOutcome()
+    try {
+      got = await fetchByProtocol(client, id, listed, sink, began, crc.crc, (bytes: int, total: int) => progressed(id, bytes, total, listed, began))
+    } catch (e: Error) {
+      // The part's handle is closed whatever ends the download.
+      await file.close()
+      throw e
+    }
     await file.close()
     if (got.state != "done") {
       return fromProtocol(got.state, got.why)
@@ -1041,7 +1048,7 @@ async function eraseChecked(conn: MavLinkConnection, own: AbortController): Prom
     return encodeLogsErased(LogsErased { erased: [], kept: 0 })
   }
   const target: Target = { system: link.sysid, component: link.compid }
-  const left = await eraseByProtocol(protocolClient(conn, target, own.signal), checked)
+  const left = await eraseByProtocol(protocolClient(conn, target, own.signal), checked, () => removalBlocked() != "")
   if (left > 0) {
     throw new CommunicatorError("ERASE_FAILED", `the vehicle still has ${left} logs after the erase (it does not answer one)`)
   }

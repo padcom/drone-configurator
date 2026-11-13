@@ -88,14 +88,15 @@ export function changedSince(checked: int[], now: LogInfo[]): bool {
   false
 }
 
-/// Erases ALL the logs on the vehicle, unless the list it gives right before is not the one that was checked (`changedSince`): then
-/// nothing is sent, and the error is `CHANGED`. Gives how many logs it still has (0 when the erase took).
-export async function eraseByProtocol(client: LogProtocolClient, checked: int[]): Promise<int> throws CommunicatorError {
+/// Erases ALL the logs on the vehicle, unless the list it gives right before is not the one that was checked (`changedSince`), or
+/// `blocked()` says it may not be done now (the vehicle armed, or is not known to be disarmed): then nothing is sent, and the error
+/// is `CHANGED`. Gives how many logs it still has (0 when the erase took).
+export async function eraseByProtocol(client: LogProtocolClient, checked: int[], blocked: () => bool): Promise<int> throws CommunicatorError {
   try {
-    return await client.erase((now: LogInfo[]) => changedSince(checked, now))
+    return await client.erase((now: LogInfo[]) => blocked() || changedSince(checked, now))
   } catch (e: LogProtocolError) {
     if (e.code == "LOG_VETOED") {
-      throw new CommunicatorError("CHANGED", "the vehicle's logs are not the ones that were checked (one came or grew): nothing was erased")
+      throw new CommunicatorError("CHANGED", "the vehicle's logs are not the ones that were checked (one came or grew), or it armed: nothing was erased")
     }
     throw asError(e)
   }

@@ -190,7 +190,7 @@
       "select": "Select log {id}",
       "noDate": "No date",
       "noDateNote": "Some logs have no date: this vehicle's firmware does not say when a file was last changed.",
-      "viaProtocol": "This vehicle has no file transfer, so its logs come over the MAVLink log protocol: slower, and with no checksum, so a copy can't be checked. The app never erases logs on such a vehicle.",
+      "viaProtocol": "This vehicle has no file transfer, so its logs come over the MAVLink log protocol: slower, and with no checksum, so a copy can't be checked. The app never erases logs on such a vehicle. A copy that came this way is matched to a log by its number and size only.",
       "state": {
         "new": "Not downloaded",
         "unchecked": "Not checked",

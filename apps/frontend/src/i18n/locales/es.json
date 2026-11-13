@@ -190,7 +190,7 @@
       "select": "Seleccionar el registro {id}",
       "noDate": "Sin fecha",
       "noDateNote": "Algunos registros no tienen fecha: el firmware de este vehículo no indica cuándo se modificó un archivo por última vez.",
-      "viaProtocol": "Este vehículo no tiene transferencia de archivos, así que sus registros llegan por el protocolo de registros de MAVLink: más lento y sin suma de verificación, por lo que una copia no se puede comprobar. La aplicación nunca borra los registros de un vehículo así.",
+      "viaProtocol": "Este vehículo no tiene transferencia de archivos, así que sus registros llegan por el protocolo de registros de MAVLink: más lento y sin suma de verificación, por lo que una copia no se puede comprobar. La aplicación nunca borra los registros de un vehículo así. Una copia que llegó así se asocia a un registro solo por su número y tamaño.",
       "state": {
         "new": "Sin descargar",
         "unchecked": "Sin comprobar",
