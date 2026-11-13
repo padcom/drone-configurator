@@ -8,13 +8,14 @@ import {
   GlobalPositionInt,
   GpsRawInt,
   NavControllerOutput,
+  RcChannels,
   SysStatus,
   VfrHud,
   Vibration,
   Wind,
 } from "padcom/pico-mavlink"
 import { Telemetry } from "./generated/app"
-import { Groups } from "./groups"
+import { Groups, Wish, wishes } from "./groups"
 
 /// The telemetry as `groups` fills it `later` milliseconds after the messages arrived at time 1000.
 function filled(groups: Groups, later: int): Telemetry {
@@ -212,7 +213,80 @@ function clearForgetsEverything(): void {
   expect(t.attitude == null && t.battery == null).toBe(true)
 }
 
+function radioChannelsWithoutGlitches(): void {
+  const groups = new Groups()
+  const m = new RcChannels()
+  m.chancount = 8 as u8
+  m.chan1Raw = 1500 as u16
+  m.chan2Raw = 1000 as u16
+  m.chan3Raw = 2200 as u16
+  m.chan4Raw = 1 as u16       // a glitch: not a reading
+  m.chan5Raw = 9000 as u16    // a spike
+  m.chan6Raw = 65535 as u16   // the receiver does not give it
+  m.chan7Raw = 800 as u16
+  m.chan8Raw = 2201 as u16
+  m.rssi = 87 as u8
+  groups.take(m, 1000)
+  const rc = filled(groups, 300).rc!
+  expect(rc.channels.map((p: u16) => p as int)).toEqual([1500, 1000, 2200, 0, 0, 0, 800, 0])
+  // RC_CHANNELS has the strength as 0 to 254, not a percent: 87 of 254 is 34 %
+  expect(rc.rssi!).toBe(34 as u8)
+  expect(rc.ageMs as int).toBe(300)
+  // 255: the vehicle does not know it.
+  m.rssi = 255 as u8
+  groups.take(m, 2000)
+  expect(filled(groups, 0).rc!.rssi == null).toBe(true)
+}
+
+function radioStrengthIsAPercent(): void {
+  const groups = new Groups()
+  const m = new RcChannels()
+  m.chancount = 4 as u8
+  const strength = [0, 76, 127, 229, 254]
+  const percent = [0, 30, 50, 90, 100]
+  for (let i = 0; i < strength.length; i++) {
+    m.rssi = strength[i] as u8
+    groups.take(m, 1000)
+    expect(filled(groups, 0).rc!.rssi! as int).toBe(percent[i])
+  }
+}
+
+function aGlitchKeepsTheLastValidPulse(): void {
+  const groups = new Groups()
+  const m = new RcChannels()
+  m.chancount = 3 as u8
+  m.chan1Raw = 1500 as u16
+  m.chan2Raw = 1200 as u16
+  m.chan3Raw = 65535 as u16
+  groups.take(m, 1000)
+  // a spike on channel 1, a pulse of 1 on channel 2, and channel 3 still not given: the bar of 1 and 2 does not drop
+  m.chan1Raw = 9000 as u16
+  m.chan2Raw = 1 as u16
+  groups.take(m, 1100)
+  expect(filled(groups, 0).rc!.channels.map((p: u16) => p as int)).toEqual([1500, 1200, 0])
+  // a valid pulse moves it again; "no pulse" (65535) is 0 and not the last one
+  m.chan1Raw = 1700 as u16
+  m.chan2Raw = 65535 as u16
+  groups.take(m, 1200)
+  expect(filled(groups, 0).rc!.channels.map((p: u16) => p as int)).toEqual([1700, 0, 0])
+  // the link ending forgets them
+  groups.clear()
+  m.chan1Raw = 9000 as u16
+  groups.take(m, 3000)
+  expect(filled(groups, 0).rc!.channels[0] as int).toBe(0)
+}
+
+function theRadioIsAskedForAt10Hz(): void {
+  const rc = wishes().filter((w: Wish) => w.id == RcChannels.MSG_ID)
+  expect(rc.length).toBe(1)
+  expect(rc[0].hz).toBe(10.0)
+}
+
 describe("the telemetry groups", () => {
+  it("make the radio's channels, with a pulse outside 800 to 2200 µs and one that is not given as 0", radioChannelsWithoutGlitches)
+  it("ask the vehicle for RC_CHANNELS at 10 Hz", theRadioIsAskedForAt10Hz)
+  it("give the radio's signal strength in percent (the message has 0 to 254)", radioStrengthIsAPercent)
+  it("keep the last valid pulse of a channel when a glitch comes", aGlitchKeepsTheLastValidPulse)
   it("are absent until their message arrives", absentUntilHeard)
   it("convert a position to metres, metres a second and degrees, and leave out an unknown heading", positionInSiUnits)
   it("make no position group while the vehicle has no position (latitude and longitude 0)", noPositionYetIsNoGroup)

@@ -235,6 +235,7 @@ class MockVehicle {
       case 'calibration.start': return this.connected(fail) && this.calibration.start(e.p as CalibrationStart, ok, fail)
       case 'calibration.confirm': return this.calibration.confirm((e.p as { position: number }).position, ok, fail)
       case 'calibration.accept': return this.calibration.accept((e.p as { compasses?: number } | null)?.compasses ?? 0, ok, fail)
+      case 'calibration.finish': return this.calibration.finishRadio(ok, fail)
       case 'calibration.cancel': return this.calibration.cancel(ok)
       case 'calibration.status': return this.calibration.status(ok)
       case 'logs.vehicle.list': return this.connected(fail) && this.logs.list(ok)

@@ -1447,6 +1447,34 @@
         "wspi": "Wide SPI"
       }
     },
+    "radio": {
+      "summary": "Muovi ogni stick e ogni interruttore del trasmettitore: la sua barra si muove con lui. Per calibrare, avvia, porta ogni stick a tutti i suoi estremi e ogni interruttore in tutte le sue posizioni, rimetti gli stick al centro (gas in basso) e premi Fatto. Non viene scritto nulla finché non lo scrivi tu.",
+      "start": "Calibra la radio",
+      "finish": "Fatto",
+      "cancel": "Annulla",
+      "idle": "Nessuna calibrazione in corso.",
+      "starting": "In attesa del veicolo…",
+      "running": "Calibrazione in corso: muovi ogni stick e interruttore per tutta la sua corsa, centra gli stick e premi Fatto.",
+      "noChannels": "Ancora nessun canale radio",
+      "noChannelsHelp": "Accendi il trasmettitore e controlla che il ricevitore sia collegato al veicolo.",
+      "channel": "Canale {n}",
+      "stick": "Canale {n} · {role}",
+      "pulse": "{us} µs",
+      "rssi": "Intensità del segnale {percent} %",
+      "glitches": "Le letture fuori da 800–2200 µs non sono letture e sono state ignorate: {count}.",
+      "staged": "Valori scelti da questa calibrazione: {count} (l’intervallo di ogni canale mosso, il trim di rollio, beccheggio e imbardata). Scrivili con «Scrivi e verifica».",
+      "nothingMoved": "Nessun canale si è mosso abbastanza da dare un intervallo: non è stato scelto nulla.",
+      "offCentre": "Nessun trim scelto per il canale {channels}: il suo stick non era al centro quando hai premuto Fatto. Centralo e calibra di nuovo per impostare il trim.",
+      "aux": "Funzioni degli interruttori",
+      "auxHelp": "Cosa fa ogni canale ausiliario quando si muove il suo interruttore (RCn_OPTION). I nomi vengono dai metadati dei parametri: caricali nella pagina Parametri per vederli; senza, viene mostrato il numero.",
+      "function": "Funzione del canale {n}",
+      "role": {
+        "roll": "Rollio",
+        "pitch": "Beccheggio",
+        "throttle": "Gas",
+        "yaw": "Imbardata"
+      }
+    },
     "calibration": {
       "blocked": {
         "offline": "Collega un veicolo per calibrare.",
@@ -1460,7 +1488,8 @@
         "NOT_CONNECTED": "Nessun veicolo collegato.",
         "NOT_ASKED": "Il veicolo non chiede (ancora) quella posizione.",
         "NOT_RUNNING": "Nessuna calibrazione in corso per questo.",
-        "NOT_ACCEPTED": "Il veicolo non ha accettato i risultati: qualche bussola è riuscita?"
+        "NOT_ACCEPTED": "Il veicolo non ha accettato i risultati: qualche bussola è riuscita?",
+        "NO_READINGS": "Non è ancora stata presa alcuna lettura della radio: muovi prima stick e interruttori."
       },
       "result": {
         "success": "Calibrazione completata",

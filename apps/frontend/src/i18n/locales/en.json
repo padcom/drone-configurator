@@ -1447,6 +1447,34 @@
         "wspi": "Wide SPI"
       }
     },
+    "radio": {
+      "summary": "Move every stick and switch of the transmitter: its bar moves with it. To calibrate, start, move each stick to all its ends and each switch to all its positions, put the sticks back in the middle (the throttle low), and press Done. Nothing is written until you write it.",
+      "start": "Calibrate the radio",
+      "finish": "Done",
+      "cancel": "Cancel",
+      "idle": "Not calibrating.",
+      "starting": "Waiting for the vehicle…",
+      "running": "Calibrating: move every stick and switch through its whole range, centre the sticks, then press Done.",
+      "noChannels": "No radio channels yet",
+      "noChannelsHelp": "Switch the transmitter on, and check that the receiver is connected to the vehicle.",
+      "channel": "Channel {n}",
+      "stick": "Channel {n} · {role}",
+      "pulse": "{us} µs",
+      "rssi": "Signal strength {percent} %",
+      "glitches": "Readings outside 800–2200 µs are not readings and were ignored: {count}.",
+      "staged": "Values chosen from this calibration: {count} (the range of each channel that moved, the trim of roll, pitch and yaw). Write them with “Write and verify”.",
+      "nothingMoved": "No channel moved enough to give a range: nothing was chosen.",
+      "offCentre": "No trim was chosen for channel {channels}: its stick was not in the middle when you pressed Done. Centre it and calibrate again to set the trim.",
+      "aux": "Switch functions",
+      "auxHelp": "What each auxiliary channel does when its switch is moved (RCn_OPTION). The names come from the parameter metadata: load it on the Parameters page to see them; without it the number is shown.",
+      "function": "Function of channel {n}",
+      "role": {
+        "roll": "Roll",
+        "pitch": "Pitch",
+        "throttle": "Throttle",
+        "yaw": "Yaw"
+      }
+    },
     "calibration": {
       "blocked": {
         "offline": "Connect a vehicle to calibrate.",
@@ -1460,7 +1488,8 @@
         "NOT_CONNECTED": "No vehicle is connected.",
         "NOT_ASKED": "The vehicle is not asking for that position (yet).",
         "NOT_RUNNING": "No calibration is running for that.",
-        "NOT_ACCEPTED": "The vehicle did not accept the results: did any compass succeed?"
+        "NOT_ACCEPTED": "The vehicle did not accept the results: did any compass succeed?",
+        "NO_READINGS": "No radio reading has been taken yet: move the sticks and switches first."
       },
       "result": {
         "success": "Calibration done",

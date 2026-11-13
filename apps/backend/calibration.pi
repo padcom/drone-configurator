@@ -12,6 +12,10 @@
 //    `unsure`); the accelerometer protocol has no cancel, so the vehicle stays in its calibration until it ends or it reboots, and the next start
 //    goes on from where it is (the result says so).
 //  - nothing a compass found is kept unless the user accepts (`calibration.accept`); `autosave` is off unless asked.
+//  - the radio calibration (`radio`) sets the vehicle's RC calibration flag (pico-mavlink's `rcCalibration`, which clears it however the
+//    work ends: finish, cancel, the page left, the link lost, the session ended, the vehicle arming; a clear that cannot be confirmed says
+//    `unsure`), takes the RC_CHANNELS in while the user moves the sticks, and ends when the user says so (`calibration.finish`). A set that
+//    the vehicle refuses means the work never runs. It captures; the PAGE writes RCn_MIN/MAX/TRIM, through the parameter queue.
 //  - an accelerometer calibration is a success only when the VEHICLE says so (its own success code), never by the end of the positions; a
 //    failure is a failure, with the vehicle's own words (its STATUSTEXT during the calibration are in the state).
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
@@ -29,6 +33,11 @@ import {
   MavLinkError,
   MavModeFlag,
   MavResult,
+  MAX_PULSE,
+  MIN_PULSE,
+  RcExtremes,
+  RcMonitor,
+  RcReading,
   Received,
   StatusText,
   Target,
@@ -39,6 +48,7 @@ import {
   CalibrationCompass,
   CalibrationCompassReport,
   CalibrationKind,
+  CalibrationRadio,
   CalibrationResult,
   CalibrationResultOutcome,
   CalibrationState,
@@ -73,6 +83,9 @@ const COMPASS_SILENCE_MS: int = 30000
 /// The rate (Hz) the vehicle is asked to send the compass messages at: they are in its stream EXTRA3, which a new link has at none.
 const COMPASS_MESSAGES_HZ: f64 = 5.0
 
+/// How often (ms) the radio calibration looks for a new RC_CHANNELS (the vehicle sends them at 10 Hz: none is missed).
+const RADIO_POLL_MS: int = 20
+
 /// MAG_CAL_PROGRESS and MAG_CAL_REPORT.
 const MAG_CAL_PROGRESS_ID: int = 191
 const MAG_CAL_REPORT_ID: int = 192
@@ -86,6 +99,8 @@ class Waits {
   public acceptMs: int = ACCEPT_WAIT_MS
   public accelSilenceMs: int = ACCEL_SILENCE_MS
   public compassSilenceMs: int = COMPASS_SILENCE_MS
+  /// How long (ms) the vehicle may send no RC_CHANNELS during a radio calibration before it is given up.
+  public radioSilenceMs: int = 10000
   /// How long the vehicle is given to answer a calibrating command (the gyros and the level take a while).
   public ackMs: int = 30000
 }
@@ -99,6 +114,7 @@ export function register(c: Communicator): void {
   c.handle("calibration.start", startCalibration)
   c.handle("calibration.confirm", confirmPosition)
   c.handle("calibration.accept", acceptResults)
+  c.handle("calibration.finish", finishRadio)
   c.handle("calibration.cancel", cancelCalibration)
   c.handle("calibration.status", calibrationStatus)
 }
@@ -132,6 +148,15 @@ class Running implements SessionPart {
   public unsure: bool = false
   public acceptMask: int = 0
   public accepted: string = ""
+  /// The radio: the page said it is done (`calibration.finish`), whether the work ended by that (the flag is cleared after it), and what
+  /// was captured: the least, the greatest and the latest valid pulse of each channel, the glitches and the readings.
+  public finishing: bool = false
+  public workDone: bool = false
+  public mins: u16[] = []
+  public maxs: u16[] = []
+  public last: u16[] = []
+  public glitches: int = 0
+  public readings: int = 0
   /// What the vehicle said (STATUSTEXT) since the calibration began.
   public texts: string[] = []
   public result: CalibrationResult? = null
@@ -215,10 +240,31 @@ class Running implements SessionPart {
     if ((active || result != null) && kind == CalibrationKind.Compass && compasses.length > 0) {
       s.compasses = compasses.slice(0)
     }
+    if ((active || result != null) && kind == CalibrationKind.Radio && readings > 0) {
+      s.radio = CalibrationRadio { mins: mins.slice(0), maxs: maxs.slice(0), last: last.slice(0), glitches: glitches as u32, readings: readings as u32 }
+    }
     if (result != null) {
       s.result = result
     }
     s
+  }
+
+  /// Takes what the extremes of the radio say (and the reading they come from) into the state: the latest VALID pulse of a channel is kept
+  /// (a glitch is not a reading), so a trim is never taken from one.
+  public takeRadio(extremes: RcExtremes, r: RcReading): void {
+    mins = extremes.mins.map((p: int) => p as u16)
+    maxs = extremes.maxs.map((p: int) => p as u16)
+    glitches = extremes.glitches
+    readings = extremes.readings
+    while (last.length < r.count) {
+      last.push(0 as u16)
+    }
+    for (let i = 0; i < r.count; i++) {
+      const p = r.pulses[i]
+      if (p >= MIN_PULSE && p <= MAX_PULSE) {
+        last[i] = p as u16
+      }
+    }
   }
 
   /// Tells the page how the calibration is doing: at once when `now`, else at most every `PROGRESS_EVERY_MS`.
@@ -258,8 +304,13 @@ class Running implements SessionPart {
     pending = 0
     confirming = false
     if (outcome != CalibrationResultOutcome.Success) {
-      // Compass results that were not accepted are gone with the calibration.
+      // Compass results that were not accepted are gone with the calibration, and so are the ranges of a radio that did not end well.
       compasses = []
+      mins = []
+      maxs = []
+      last = []
+      glitches = 0
+      readings = 0
     }
     const c = communicator
     if (c != null) {
@@ -285,6 +336,13 @@ class Running implements SessionPart {
     unsure = false
     acceptMask = 0
     accepted = ""
+    finishing = false
+    workDone = false
+    mins = []
+    maxs = []
+    last = []
+    glitches = 0
+    readings = 0
     texts = []
     result = null
     progressAt = 0
@@ -328,6 +386,9 @@ async function startCalibration(payload: Cbor?, _ctx: RequestContext): Promise<C
     Compass => {
       runCompass(conn, (ask.compasses ?? 0) as int, ask.autosave ?? false, ask.retry ?? false)
     },
+    Radio => {
+      runRadio(conn)
+    },
   }
   encodeCalibrationState(running.snapshot())
 }
@@ -363,6 +424,24 @@ async function acceptResults(payload: Cbor?, _ctx: RequestContext): Promise<Cbor
   if (running.accepted != "ok") {
     running.decision = ""
     throw new CommunicatorError("NOT_ACCEPTED", if (running.accepted == "") "the vehicle did not answer" else running.accepted)
+  }
+  encodeCalibrationState(running.snapshot())
+}
+
+/// The user says the radio calibration is done: what was captured is kept, the vehicle's RC calibration flag is cleared, and the answer is
+/// the state when that has happened (a few seconds at most).
+async function finishRadio(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (!running.active || running.kind != CalibrationKind.Radio || running.phase != CalibrationStateState.Running) {
+    throw new CommunicatorError("NOT_RUNNING", "no radio calibration is running")
+  }
+  if (running.readings == 0) {
+    throw new CommunicatorError("NO_READINGS", "no radio reading has been taken yet: move the sticks and switches first")
+  }
+  running.finishing = true
+  let waited = 0
+  while (running.active && waited < 5000) {
+    await delay(20)
+    waited += 20
   }
   encodeCalibrationState(running.snapshot())
 }
@@ -520,6 +599,78 @@ async function runFull(cal: Calibration): Promise<void> throws Error {
       }
     }
   }
+}
+
+/// The radio: the vehicle's RC calibration flag is set (and cleared however this ends), the channels are read while the user moves the
+/// sticks, and it ends when the user says so. A flag that the vehicle refuses to set means the work never runs.
+async function runRadio(conn: MavLinkConnection): Promise<void> {
+  try {
+    if (!await waitUp(conn)) {
+      return
+    }
+    const cal = new Calibration(conn, target(), { timeoutMs: 2000, signal: running.own.signal }, waits.ackMs)
+    const monitor = new RcMonitor(conn, target())
+    try {
+      await cal.rcCalibration(() => driveRadio(monitor))
+      endRadio(false)
+    } catch (e: MavLinkError) {
+      endedRadio(e, cal.rcFlagStuck)
+    } finally {
+      monitor.stop()
+    }
+  } catch (e: Error) {
+    endedBy(e, false)
+  }
+}
+
+/// The radio calibration ended with an error. After the work was done (the user finished), an error is the flag that could not be cleared:
+/// what was captured is good, and the result says the vehicle may still have the flag (`unsure`).
+function endedRadio(e: MavLinkError, stuck: bool): void {
+  if (running.workDone) {
+    endRadio(true)
+  } else if (e.code == "REFUSED") {
+    running.finish(CalibrationResultOutcome.Refused, "REFUSED", "the vehicle refused the radio calibration (is it armed?)", stuck)
+  } else if (e.code == "TIMEOUT") {
+    running.finish(CalibrationResultOutcome.Failed, "TIMEOUT", e.message, stuck)
+  } else {
+    endedBy(e, stuck)
+  }
+}
+
+/// The user finished: the captured ranges are the result, to be written by the page.
+function endRadio(unsure: bool): void {
+  const detail = if (unsure) "the ranges were captured, but the vehicle did not confirm that the radio calibration ended: it may still be set (restart it, or reboot)"
+    else "the ranges were captured: write them to the parameters"
+  running.finish(CalibrationResultOutcome.Success, "", detail, unsure)
+}
+
+/// The radio work: the channels are read until the user says the calibration is done.
+async function driveRadio(monitor: RcMonitor): Promise<void> throws Error {
+  running.phase = CalibrationStateState.Running
+  running.tell(true)
+  const extremes = new RcExtremes()
+  let seen = 0
+  let silent = 0
+  while (!running.finishing) {
+    if (running.own.signal.aborted) {
+      throw new MavLinkError("ABORTED", "stopped")
+    }
+    await delay(RADIO_POLL_MS)
+    const latest = monitor.latest
+    if (monitor.count != seen && latest != null) {
+      seen = monitor.count
+      silent = 0
+      extremes.observe(latest!)
+      running.takeRadio(extremes, latest!)
+      running.tell(false)
+    } else {
+      silent += RADIO_POLL_MS
+      if (silent >= waits.radioSilenceMs) {
+        throw new MavLinkError("TIMEOUT", "the vehicle sends no radio channels: is the receiver connected and the transmitter on?")
+      }
+    }
+  }
+  running.workDone = true
 }
 
 /// The compass entry for the id: a copy (the entries are values), or a new one when it is first heard of. `putCompass` puts it back.

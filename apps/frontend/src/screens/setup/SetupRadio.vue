@@ -1,0 +1,232 @@
+<template>
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
+    <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.radio') }}</h3>
+      <p class="muted">{{ t('setup.radio.summary') }}</p>
+      <CalibrationNotice />
+      <div class="setup-actions">
+        <Button id="setup-radio-start" variant="primary" :disabled="!canStart" @click="calibration.start('radio')">
+          {{ t('setup.radio.start') }}
+        </Button>
+        <Button id="setup-radio-finish" variant="flight" :disabled="!canFinish" @click="calibration.finish()">
+          {{ t('setup.radio.finish') }}
+        </Button>
+        <Button id="setup-radio-cancel" :disabled="!running" @click="calibration.cancel()">{{ t('setup.radio.cancel') }}</Button>
+      </div>
+      <p id="setup-radio-status" class="setup-status" role="status">{{ status }}</p>
+      <p v-if="glitches > 0" id="setup-radio-glitches" class="muted">{{ t('setup.radio.glitches', { count: glitches }) }}</p>
+      <p v-if="staged !== null" id="setup-radio-staged" class="muted">
+        {{ staged === 0 ? t('setup.radio.nothingMoved') : t('setup.radio.staged', { count: staged }) }}
+      </p>
+      <p v-if="uncentred.length > 0" id="setup-radio-uncentred" class="muted" role="note">
+        {{ t('setup.radio.offCentre', { channels: uncentred.join(', ') }) }}
+      </p>
+      <EmptyState
+        v-if="rows.length === 0"
+        :title="t('setup.radio.noChannels')"
+        :help="t('setup.radio.noChannelsHelp')"
+        :level="4"
+      />
+      <ul v-else class="setup-channels">
+        <li v-for="row in rows" :key="row.n" class="setup-channel-row" :data-channel="row.n">
+          <span class="setup-channel-name">{{ row.name }}</span>
+          <ProgressBar :value="row.fraction" :label="row.name" />
+          <span class="setup-channel-pulse">{{ row.pulse }}</span>
+          <span class="muted setup-channel-range">{{ row.range }}</span>
+          <EnumField
+            v-if="row.hasOption"
+            :model-value="panel.value(paramsOf(row.n).option) ?? 0"
+            :options="optionNames(row.n)"
+            :label="t('setup.radio.function', { n: row.n })"
+            :disabled="panel.blocked.value !== null || calibration.running.value"
+            @update:model-value="panel.set(paramsOf(row.n).option, $event)"
+          />
+          <span v-else />
+        </li>
+      </ul>
+      <p v-if="hasSwitches" class="muted">{{ t('setup.radio.auxHelp') }}</p>
+      <p v-if="rssi !== null" class="muted">{{ t('setup.radio.rssi', { percent: rssi }) }}</p>
+    </div>
+    <PanelAside :panel="panel" id-prefix="setup-radio" :hold="calibration.running.value" only-changed />
+  </section>
+</template>
+
+<script setup lang="ts">
+// The radio: every channel of the receiver as a bar that follows the transmitter live (the `rc` telemetry group: a pulse
+// outside 800 to 2200 µs is not a reading and never moves a bar), the calibration, and what each aux switch does. The
+// calibration is the backend's: it sets the vehicle's RC calibration flag, captures the least and the greatest pulse of each
+// channel while the user moves the sticks and switches, and ends only when the user presses Done (never by itself). What it
+// captured is then CHOSEN here, not written: RCn_MIN and RCn_MAX of the channels that moved and RCn_TRIM of roll, pitch and
+// yaw, to be written with the page's one question like any Setup parameter (refused while the vehicle is armed or may be).
+// Cancelling, leaving the page, losing the link and the vehicle arming all end the calibration, and nothing is chosen from
+// one that did not end with Done.
+import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import EnumField from '@/components/fields/EnumField.vue'
+import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
+import PanelAside from '@/components/setup/PanelAside.vue'
+import Button from '@/components/ui/Button.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
+import { useConfigurator } from '@/composables/useConfigurator'
+import { useParamPanel } from '@/composables/useParamPanel'
+import type { CalibrationRadio, CalibrationResult } from '@/generated/app'
+import {
+  RADIO_PARAMS,
+  RCMAP_PARAMS,
+  endedWithDone,
+  fractionOf,
+  offCentre,
+  paramsOf,
+  plannedWrites,
+  roleOf,
+  spanOf,
+} from '@/lib/setup/radio'
+
+const { t } = useI18n()
+const uid = useId()
+const handle = useConfigurator()
+const { calibration } = handle
+const { state } = calibration
+const panel = useParamPanel(RADIO_PARAMS, handle)
+const mine = computed(() => state.value.kind === 'radio')
+const running = computed(() => calibration.running.value && mine.value)
+const idle = computed(() => !calibration.running.value && !calibration.calling.value)
+const canStart = computed(() => calibration.blocked.value === null && idle.value)
+const taken = computed(() => state.value.radio?.readings ?? 0)
+const live = computed(() => running.value && state.value.state === 'running' && !calibration.calling.value)
+const canFinish = computed(() => live.value && taken.value > 0)
+const captured = computed(() => (mine.value ? state.value.radio : undefined))
+const glitches = computed(() => captured.value?.glitches ?? 0)
+/** How many values the calibration that just ended chose (null: none ended well while this page looked). */
+const staged = ref<number | null>(null)
+/** The sticks that were not centred when the user pressed Done: no trim was chosen for them. */
+const uncentred = ref<number[]>([])
+const channels = computed(() => handle.vehicle.telemetry.value?.rc?.channels ?? [])
+const rssi = computed(() => handle.vehicle.telemetry.value?.rc?.rssi ?? null)
+/** What the page says of where the calibration is, in words. */
+const status = computed(() => {
+  const key = mine.value ? state.value.state : 'idle'
+
+  return key === 'finished' ? '' : t(`setup.radio.${key}`)
+})
+
+/**
+ * What the vehicle has for a parameter.
+ *
+ * @param id the parameter
+ * @returns its value, or null when the vehicle has none
+ */
+function vehicleValue(id: string): number | null {
+  return handle.parameters.params.value.find(param => param.id === id)?.value ?? null
+}
+
+/** Which channel each stick is on (RCMAP_ROLL, _PITCH, _THROTTLE, _YAW): read here, never written from this page. */
+const mapped = computed(() => RCMAP_PARAMS.map(vehicleValue))
+
+/**
+ * What a channel's row shows.
+ *
+ * @param n the channel, 1 based
+ * @param pulse its pulse now (µs; 0: none)
+ * @returns the name, the place in its range, the pulse, the range in words, and whether the channel's switch has a function here
+ */
+function rowOf(n: number, pulse: number): ChannelRow {
+  const role = roleOf(n, mapped.value)
+  const own = paramsOf(n)
+  const [min, max] = spanOf(captured.value, n - 1, [panel.value(own.min), panel.value(own.max)])
+
+  return {
+    n,
+    name: role === 'aux' ? t('setup.radio.channel', { n }) : t('setup.radio.stick', { n, role: t(`setup.radio.role.${role}`) }),
+    fraction: fractionOf(pulse, min, max),
+    pulse: pulse > 0 ? t('setup.radio.pulse', { us: pulse }) : '—',
+    range: `${min}–${max}`,
+    hasOption: role === 'aux' && !panel.missing.value.includes(own.option),
+  }
+}
+
+/** One channel, one row: its bar, its pulse and range, and (an auxiliary channel the vehicle has a function for) what it does. */
+interface ChannelRow {
+  n: number
+  name: string
+  fraction: number
+  pulse: string
+  range: string
+  hasOption: boolean
+}
+
+const rows = computed(() => channels.value.map((pulse, index) => rowOf(index + 1, pulse)))
+const hasSwitches = computed(() => rows.value.some(row => row.hasOption))
+
+/**
+ * The named functions a channel's switch can have: the parameter metadata's names for it (empty without metadata: the field then
+ * shows the number, and says so).
+ *
+ * @param n the channel, 1 based
+ * @returns the options, by number
+ */
+function optionNames(n: number): { value: number, label: string }[] {
+  const values = handle.metadata.metadata.value.get(paramsOf(n).option)?.values ?? {}
+
+  return Object.entries(values).map(([value, label]) => ({ value: Number(value), label }))
+}
+
+/**
+ * Chooses what a calibration that ended with Done found (nothing is written: the panel's write does that).
+ *
+ * @param radio what the calibration captured
+ */
+function choose(radio: CalibrationRadio): void {
+  const planned = plannedWrites(radio, id => !panel.missing.value.includes(id))
+  planned.forEach(p => panel.set(p.id, p.value))
+  staged.value = planned.length
+  uncentred.value = offCentre(radio)
+}
+
+/**
+ * Chooses from how a calibration ended, if it ended with Done.
+ *
+ * @param result how it ended
+ * @param radio what it captured
+ */
+function chooseFrom(result: CalibrationResult, radio: CalibrationRadio | undefined): void {
+  if (radio !== undefined && endedWithDone(result)) {
+    choose(radio)
+  }
+}
+
+/** Whether a calibration ran while this page looked: only what the user saw end is chosen from, not an old result on return. */
+const watched = ref(false)
+/** A calibration starting forgets what the last one chose (the page says nothing of it any more). */
+watch(running, now => {
+  watched.value = watched.value || now
+  staged.value = now ? null : staged.value
+  uncentred.value = now ? [] : uncentred.value
+})
+
+/** The result comes twice (the event, then the answer of the call): it is chosen from once, the first time it is seen. */
+watch(() => calibration.result.value, result => {
+  // A calibration that starts clears the last result: that is not an end.
+  if (result === null) {
+    return
+  }
+  const seen = watched.value
+  watched.value = false
+
+  if (seen) {
+    chooseFrom(result, state.value.radio)
+  }
+})
+
+/** Leaving the page cancels what runs: the vehicle's RC calibration flag is cleared, and nothing is left calibrating unseen. */
+function leave(): void {
+  if (calibration.running.value && mine.value) {
+    void calibration.cancel()
+  }
+}
+
+onMounted(() => void calibration.refresh())
+onDeactivated(leave)
+onBeforeUnmount(leave)
+</script>

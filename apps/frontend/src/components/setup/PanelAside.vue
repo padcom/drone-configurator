@@ -38,6 +38,8 @@ const props = defineProps<{
   hold?: boolean
   /** List only the parameters this vehicle has (a page for a board with a variable number of ports). */
   onlyPresent?: boolean
+  /** List only the parameters that have a change to write (a page with many parameters, most of them left as they are). */
+  onlyChanged?: boolean
 }>()
 
 /**
@@ -56,7 +58,13 @@ const reason = computed(() => {
 
   return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
 })
-const shown = computed(() => props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids)
+const shown = computed(() => {
+  if (props.onlyChanged) {
+    return props.panel.dirty.value
+  }
+
+  return props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids
+})
 
 const changed = computed(() => props.panel.dirty.value.length > 0)
 const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)

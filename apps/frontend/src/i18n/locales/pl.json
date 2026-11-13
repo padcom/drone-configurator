@@ -1447,6 +1447,34 @@
         "wspi": "Szeroki SPI"
       }
     },
+    "radio": {
+      "summary": "Poruszaj każdą wajchą i każdym przełącznikiem nadajnika: jego pasek porusza się razem z nim. Aby skalibrować, uruchom, ustaw każdą wajchę we wszystkich skrajnych położeniach i każdy przełącznik we wszystkich pozycjach, wróć wajchami na środek (gaz na dole) i naciśnij Gotowe. Nic nie jest zapisywane, dopóki sam tego nie zapiszesz.",
+      "start": "Skalibruj radio",
+      "finish": "Gotowe",
+      "cancel": "Anuluj",
+      "idle": "Kalibracja nie trwa.",
+      "starting": "Czekam na pojazd…",
+      "running": "Kalibracja trwa: poruszaj każdą wajchą i przełącznikiem w pełnym zakresie, wycentruj wajchy i naciśnij Gotowe.",
+      "noChannels": "Brak jeszcze kanałów radiowych",
+      "noChannelsHelp": "Włącz nadajnik i sprawdź, czy odbiornik jest podłączony do pojazdu.",
+      "channel": "Kanał {n}",
+      "stick": "Kanał {n} · {role}",
+      "pulse": "{us} µs",
+      "rssi": "Siła sygnału {percent} %",
+      "glitches": "Odczyty spoza zakresu 800–2200 µs nie są odczytami i zostały pominięte: {count}.",
+      "staged": "Wartości wybrane z tej kalibracji: {count} (zakres każdego poruszonego kanału, trym przechylenia, pochylenia i odchylenia). Zapisz je przyciskiem „Zapisz i sprawdź”.",
+      "nothingMoved": "Żaden kanał nie ruszył się na tyle, by dać zakres: nic nie wybrano.",
+      "offCentre": "Nie wybrano trymu dla kanału {channels}: jego wajcha nie była na środku, gdy naciśnięto Gotowe. Wycentruj ją i skalibruj ponownie, aby ustawić trym.",
+      "aux": "Funkcje przełączników",
+      "auxHelp": "Co robi każdy kanał dodatkowy po przestawieniu jego przełącznika (RCn_OPTION). Nazwy pochodzą z metadanych parametrów: wczytaj je na stronie Parametry, aby je zobaczyć; bez nich widać numer.",
+      "function": "Funkcja kanału {n}",
+      "role": {
+        "roll": "Przechylenie",
+        "pitch": "Pochylenie",
+        "throttle": "Gaz",
+        "yaw": "Odchylenie"
+      }
+    },
     "calibration": {
       "blocked": {
         "offline": "Podłącz pojazd, aby kalibrować.",
@@ -1460,7 +1488,8 @@
         "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
         "NOT_ASKED": "Pojazd (jeszcze) nie prosi o tę pozycję.",
         "NOT_RUNNING": "Żadna kalibracja tego nie dotyczy.",
-        "NOT_ACCEPTED": "Pojazd nie przyjął wyników: czy któryś kompas się udał?"
+        "NOT_ACCEPTED": "Pojazd nie przyjął wyników: czy któryś kompas się udał?",
+        "NO_READINGS": "Nie odczytano jeszcze radia: najpierw poruszaj wajchami i przełącznikami."
       },
       "result": {
         "success": "Kalibracja zakończona",

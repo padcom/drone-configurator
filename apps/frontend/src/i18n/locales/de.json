@@ -1447,6 +1447,34 @@
         "wspi": "Wide SPI"
       }
     },
+    "radio": {
+      "summary": "Bewegen Sie jeden Knüppel und jeden Schalter des Senders: Sein Balken bewegt sich mit. Zum Kalibrieren starten Sie, bewegen jeden Knüppel in alle Endlagen und jeden Schalter in alle Stellungen, bringen die Knüppel zurück in die Mitte (Gas unten) und drücken Fertig. Geschrieben wird erst, wenn Sie schreiben.",
+      "start": "Funk kalibrieren",
+      "finish": "Fertig",
+      "cancel": "Abbrechen",
+      "idle": "Keine Kalibrierung läuft.",
+      "starting": "Warte auf das Fahrzeug …",
+      "running": "Kalibrierung läuft: Bewegen Sie jeden Knüppel und Schalter durch den ganzen Bereich, zentrieren Sie die Knüppel und drücken Sie dann Fertig.",
+      "noChannels": "Noch keine Funkkanäle",
+      "noChannelsHelp": "Schalten Sie den Sender ein und prüfen Sie, ob der Empfänger am Fahrzeug angeschlossen ist.",
+      "channel": "Kanal {n}",
+      "stick": "Kanal {n} · {role}",
+      "pulse": "{us} µs",
+      "rssi": "Signalstärke {percent} %",
+      "glitches": "Werte außerhalb von 800–2200 µs sind keine Messwerte und wurden ignoriert: {count}.",
+      "staged": "Aus dieser Kalibrierung übernommene Werte: {count} (der Bereich jedes bewegten Kanals, die Trimmung von Roll, Nick und Gier). Schreiben Sie sie mit „Schreiben und prüfen“.",
+      "nothingMoved": "Kein Kanal wurde genug bewegt, um einen Bereich zu ergeben: Es wurde nichts übernommen.",
+      "offCentre": "Für Kanal {channels} wurde keine Trimmung übernommen: Der Knüppel war beim Drücken von Fertig nicht in der Mitte. Zentrieren Sie ihn und kalibrieren Sie erneut, um die Trimmung zu setzen.",
+      "aux": "Schalterfunktionen",
+      "auxHelp": "Was jeder Zusatzkanal tut, wenn sein Schalter bewegt wird (RCn_OPTION). Die Namen stammen aus den Parameter-Metadaten: Laden Sie sie auf der Seite Parameter, um sie zu sehen; ohne sie wird die Nummer angezeigt.",
+      "function": "Funktion von Kanal {n}",
+      "role": {
+        "roll": "Roll",
+        "pitch": "Nick",
+        "throttle": "Gas",
+        "yaw": "Gier"
+      }
+    },
     "calibration": {
       "blocked": {
         "offline": "Verbinden Sie ein Fahrzeug, um zu kalibrieren.",
@@ -1460,7 +1488,8 @@
         "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",
         "NOT_ASKED": "Das Fahrzeug fragt (noch) nicht nach dieser Lage.",
         "NOT_RUNNING": "Dafür läuft keine Kalibrierung.",
-        "NOT_ACCEPTED": "Das Fahrzeug hat die Ergebnisse nicht angenommen: war ein Kompass erfolgreich?"
+        "NOT_ACCEPTED": "Das Fahrzeug hat die Ergebnisse nicht angenommen: war ein Kompass erfolgreich?",
+        "NO_READINGS": "Es wurde noch kein Funkwert gelesen: Bewegen Sie zuerst Knüppel und Schalter."
       },
       "result": {
         "success": "Kalibrierung abgeschlossen",

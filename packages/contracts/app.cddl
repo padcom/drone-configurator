@@ -119,6 +119,9 @@ services = {
   "calibration.start": ["method", calibration-start, calibration-state],
   "calibration.confirm": ["method", calibration-confirm, calibration-state],
   "calibration.accept": ["method", calibration-accept, calibration-state],
+  ; The radio calibration ends when the user says it does (`calibration.finish`: the values captured are kept in the state and the
+  ; vehicle's RC calibration flag is cleared) or cancels (`calibration.cancel`: nothing is kept). `NOT_RUNNING` when no radio calibration runs.
+  "calibration.finish": ["method", null, calibration-state],
   "calibration.cancel": ["method", null, calibration-state],
   "calibration.status": ["method", null, calibration-state],
   "calibration.progress": ["event", calibration-state],
@@ -666,6 +669,7 @@ telemetry = {
   ? vibration: vibration-group,
   ? battery: battery-group,
   ? attitude: attitude-group,
+  ? rc: rc-group,
 }
 
 ; GLOBAL_POSITION_INT: the vehicle's own fused position. Altitudes: above mean sea level, and above
@@ -728,6 +732,16 @@ ekf-group = {
   positionVertVariance: float,
   compassVariance: float,
   terrainAltVariance: float,
+  ageMs: uint .size 4,
+}
+
+; RC_CHANNELS: `channels` are the pulses (µs) of the channels the receiver has, in order (channel 1 first). A channel with no pulse
+; (the receiver does not give it), or none valid yet, is 0. A pulse outside 800 to 2200 µs is a glitch and not a reading: the channel
+; keeps its last valid pulse. `rssi` is the signal strength in percent (the message has 0 to 254, scaled), absent when the vehicle
+; does not know it.
+rc-group = {
+  channels: [* uint .size 2],
+  ? rssi: uint .size 1,
   ageMs: uint .size 4,
 }
 
@@ -819,7 +833,7 @@ serial-port = { path: tstr, ? description: tstr }
 
 ; ---- Calibrations ----
 
-calibration-kind = "accel" / "level" / "compass"
+calibration-kind = "accel" / "level" / "compass" / "radio"
 
 ; `compasses` is the mask of the compasses to calibrate (a bit for each, 0 or absent: all); `autosave` lets the vehicle keep a
 ; compass result by itself (off unless true); `retry` starts a failed compass attempt again by itself.
@@ -845,8 +859,23 @@ calibration-state = {
   ? kind: calibration-kind,
   ? accel: calibration-accel,
   ? compasses: [* calibration-compass],
+  ? radio: calibration-radio,
   ? result: calibration-result,
   texts: [* tstr],
+}
+
+; The radio calibration (`radio`): while it runs, `running` is the vehicle's RC calibration flag set and the backend capturing the least
+; and the greatest pulse (µs) of each channel while the user moves the sticks and switches (a pulse outside 800 to 2200 µs is a glitch:
+; counted in `glitches` and kept out). `last` is the latest pulse of each channel (what a trim is taken from: the sticks centred), and
+; `readings` how many RC_CHANNELS were taken in. A channel that was not seen has 0 in `mins` and `maxs`. The values stay in the state
+; after the calibration ends (`calibration.finish`): the PAGE writes RCn_MIN, RCn_MAX and RCn_TRIM through the parameter queue; the
+; backend writes nothing itself.
+calibration-radio = {
+  mins: [* uint .size 2],
+  maxs: [* uint .size 2],
+  last: [* uint .size 2],
+  glitches: uint .size 4,
+  readings: uint .size 4,
 }
 
 ; The accelerometer: `position` is the one the vehicle asks for now (0: none yet), `placed` the ones it has accepted, `confirming` that

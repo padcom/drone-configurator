@@ -145,10 +145,12 @@ export const COPTER_MODES = [
 function groupsAt(
   n: number,
   flat: { batteryVoltage: number, batteryRemaining: number, roll: number, pitch: number, yaw: number },
-): Pick<Telemetry, 'position' | 'gps' | 'speed' | 'battery' | 'attitude'> {
+): Pick<Telemetry, 'position' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc'> {
   const ageMs = 200
 
   return {
+    // Eight channels: the sticks sway a little round the middle, the throttle low, the switches at rest (low).
+    rc: { channels: [1500 + (n % 5) * 20, 1500, 1000, 1500 - (n % 3) * 10, 1000, 1000, 1500, 1000], rssi: 87, ageMs },
     battery: { voltage: flat.batteryVoltage, remaining: flat.batteryRemaining, cells: [4.19, 4.2, 4.21], ageMs },
     attitude: { roll: flat.roll, pitch: flat.pitch, yaw: flat.yaw, rollSpeed: 0, pitchSpeed: 0, yawSpeed: 0, ageMs },
     position: {
