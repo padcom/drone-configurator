@@ -18,6 +18,9 @@
       <p v-if="staged !== null" id="setup-radio-staged" class="muted">
         {{ staged === 0 ? t('setup.radio.nothingMoved') : t('setup.radio.staged', { count: staged }) }}
       </p>
+      <p v-if="uncentred.length > 0" id="setup-radio-uncentred" class="muted" role="note">
+        {{ t('setup.radio.offCentre', { channels: uncentred.join(', ') }) }}
+      </p>
       <EmptyState
         v-if="rows.length === 0"
         :title="t('setup.radio.noChannels')"
@@ -30,23 +33,19 @@
           <ProgressBar :value="row.fraction" :label="row.name" />
           <span class="setup-channel-pulse">{{ row.pulse }}</span>
           <span class="muted setup-channel-range">{{ row.range }}</span>
+          <EnumField
+            v-if="row.hasOption"
+            :model-value="panel.value(paramsOf(row.n).option) ?? 0"
+            :options="optionNames(row.n)"
+            :label="t('setup.radio.function', { n: row.n })"
+            :disabled="panel.blocked.value !== null || calibration.running.value"
+            @update:model-value="panel.set(paramsOf(row.n).option, $event)"
+          />
+          <span v-else />
         </li>
       </ul>
+      <p v-if="hasSwitches" class="muted">{{ t('setup.radio.auxHelp') }}</p>
       <p v-if="rssi !== null" class="muted">{{ t('setup.radio.rssi', { percent: rssi }) }}</p>
-      <h4 class="setup-label">{{ t('setup.radio.aux') }}</h4>
-      <p class="muted">{{ t('setup.radio.auxHelp') }}</p>
-      <ol class="setup-aux">
-        <li v-for="n in auxChannels" :key="n" class="setup-aux-row" :data-aux="n">
-          <span>{{ t('setup.radio.channel', { n }) }}</span>
-          <EnumField
-            :model-value="panel.value(paramsOf(n).option) ?? 0"
-            :options="optionNames(n)"
-            :label="t('setup.radio.function', { n })"
-            :disabled="panel.blocked.value !== null || calibration.running.value"
-            @update:model-value="panel.set(paramsOf(n).option, $event)"
-          />
-        </li>
-      </ol>
     </div>
     <PanelAside :panel="panel" id-prefix="setup-radio" :hold="calibration.running.value" only-changed />
   </section>
@@ -72,7 +71,17 @@ import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import type { CalibrationRadio, CalibrationResult } from '@/generated/app'
-import { RADIO_PARAMS, RCMAP_PARAMS, endedWithDone, fractionOf, paramsOf, plannedWrites, roleOf, spanOf } from '@/lib/setup/radio'
+import {
+  RADIO_PARAMS,
+  RCMAP_PARAMS,
+  endedWithDone,
+  fractionOf,
+  offCentre,
+  paramsOf,
+  plannedWrites,
+  roleOf,
+  spanOf,
+} from '@/lib/setup/radio'
 
 const { t } = useI18n()
 const uid = useId()
@@ -91,15 +100,10 @@ const captured = computed(() => (mine.value ? state.value.radio : undefined))
 const glitches = computed(() => captured.value?.glitches ?? 0)
 /** How many values the calibration that just ended chose (null: none ended well while this page looked). */
 const staged = ref<number | null>(null)
+/** The sticks that were not centred when the user pressed Done: no trim was chosen for them. */
+const uncentred = ref<number[]>([])
 const channels = computed(() => handle.vehicle.telemetry.value?.rc?.channels ?? [])
 const rssi = computed(() => handle.vehicle.telemetry.value?.rc?.rssi ?? null)
-/** The auxiliary channels the vehicle has a function parameter for (channel 5 on), with the receiver's channels, at least 8. */
-const auxChannels = computed(() => {
-  const last = Math.max(8, channels.value.length)
-  const all = Array.from({ length: last - 4 }, (_unused, i) => i + 5)
-
-  return all.filter(n => !panel.missing.value.includes(paramsOf(n).option))
-})
 /** What the page says of where the calibration is, in words. */
 const status = computed(() => {
   const key = mine.value ? state.value.state : 'idle'
@@ -125,9 +129,9 @@ const mapped = computed(() => RCMAP_PARAMS.map(vehicleValue))
  *
  * @param n the channel, 1 based
  * @param pulse its pulse now (µs; 0: none)
- * @returns the name, the place in its range, the pulse and the range in words
+ * @returns the name, the place in its range, the pulse, the range in words, and whether the channel's switch has a function here
  */
-function rowOf(n: number, pulse: number): { n: number, name: string, fraction: number, pulse: string, range: string } {
+function rowOf(n: number, pulse: number): ChannelRow {
   const role = roleOf(n, mapped.value)
   const own = paramsOf(n)
   const [min, max] = spanOf(captured.value, n - 1, [panel.value(own.min), panel.value(own.max)])
@@ -138,10 +142,22 @@ function rowOf(n: number, pulse: number): { n: number, name: string, fraction: n
     fraction: fractionOf(pulse, min, max),
     pulse: pulse > 0 ? t('setup.radio.pulse', { us: pulse }) : '—',
     range: `${min}–${max}`,
+    hasOption: role === 'aux' && !panel.missing.value.includes(own.option),
   }
 }
 
+/** One channel, one row: its bar, its pulse and range, and (an auxiliary channel the vehicle has a function for) what it does. */
+interface ChannelRow {
+  n: number
+  name: string
+  fraction: number
+  pulse: string
+  range: string
+  hasOption: boolean
+}
+
 const rows = computed(() => channels.value.map((pulse, index) => rowOf(index + 1, pulse)))
+const hasSwitches = computed(() => rows.value.some(row => row.hasOption))
 
 /**
  * The named functions a channel's switch can have: the parameter metadata's names for it (empty without metadata: the field then
@@ -165,6 +181,7 @@ function choose(radio: CalibrationRadio): void {
   const planned = plannedWrites(radio, id => !panel.missing.value.includes(id))
   planned.forEach(p => panel.set(p.id, p.value))
   staged.value = planned.length
+  uncentred.value = offCentre(radio)
 }
 
 /**
@@ -185,6 +202,7 @@ const watched = ref(false)
 watch(running, now => {
   watched.value = watched.value || now
   staged.value = now ? null : staged.value
+  uncentred.value = now ? [] : uncentred.value
 })
 
 /** The result comes twice (the event, then the answer of the call): it is chosen from once, the first time it is seen. */

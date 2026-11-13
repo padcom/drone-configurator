@@ -71,6 +71,18 @@ async function outcome(): Promise<string> {
 }
 
 /**
+ * The channels the page says it chose no trim for (their sticks were not centred when Done was pressed).
+ *
+ * @returns the channel numbers, as text
+ */
+async function uncentred(): Promise<string[]> {
+  const note = await window().evaluate<string>(`document.querySelector('#setup-radio-uncentred')?.textContent ?? ''`)
+  const list = /channel (?<list>[\d, ]+):/u.exec(note)?.groups?.list ?? ''
+
+  return list.split(',').map(n => n.trim())
+}
+
+/**
  * What the page shows for the pulse of a channel.
  *
  * @param channel the channel, 1 based
@@ -130,7 +142,7 @@ it('shows a bar for every channel that follows the sticks and never shows a puls
   expect(seen.roll.size).toBeGreaterThan(1)
   expect(seen.spiked).toBe(false)
   // the function of channel 7 is a number with no name here (no metadata is loaded): it is shown as the number
-  expect(await window().evaluate<string>(`document.querySelector('[data-aux="7"] input').value`)).toBe('4')
+  expect(await window().evaluate<string>(`document.querySelector('[data-channel="7"] input').value`)).toBe('4')
 })
 
 it('cancels, chooses nothing, and can start again', async () => {
@@ -169,7 +181,12 @@ it('ends only when the user says so, and then chooses the ranges of the sticks t
   const writes = await window().text('.setup-writes')
   expect(writes).toContain('RC1_MIN')
   expect(writes).toContain('RC2_MAX')
-  expect(writes).toContain('RC1_TRIM')
+  // the sticks sweep, so each is at an end or in the middle when Done is pressed: a trim is chosen for exactly the centred ones,
+  // and the page names the others
+  const named = await uncentred()
+  for (const channel of ['1', '2']) {
+    expect(writes.includes(`RC${channel}_TRIM`)).toBe(!named.includes(channel))
+  }
   // the yaw stick never moved but for the spikes, which are not readings: no range for it
   expect(writes).not.toContain('RC4_')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-radio-write')?.disabled === false`)).toBe(true)

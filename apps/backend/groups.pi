@@ -146,17 +146,34 @@ function vibrationOf(m: Vibration): VibrationGroup {
   }
 }
 
-/// The radio's channels: a pulse outside 800 to 2200 µs is a glitch and not a reading (0, like a channel with no pulse), the same rule as
-/// the calibration's extremes (padcom/pico-mavlink's RcExtremes), so a spike never moves a bar.
-function rcOf(m: RcChannels): RcGroup {
+/// The pulse a channel shows: a pulse of 800 to 2200 µs is a reading; 0 is "no pulse" (the receiver does not give the channel); anything
+/// else is a glitch (the same rule as the calibration's extremes, padcom/pico-mavlink's RcExtremes) and is not a reading: the channel
+/// keeps the last valid pulse it had (`before`), so a spike moves no bar, not even for a frame. A channel with no valid pulse yet is 0.
+function shownPulse(p: int, before: RcGroup?, index: int): int {
+  if (p >= MIN_PULSE && p <= MAX_PULSE) {
+    return p
+  }
+  if (p > 0 && before != null && index < before!.channels.length) {
+    return before!.channels[index] as int
+  }
+  0
+}
+
+/// RC_CHANNELS rssi is 0 to 254 (ArduPilot's receiver strength times 254; 255: unknown), not a percent: the group has a percent.
+function rssiPercent(rssi: int): int {
+  Math.round((rssi as f64) * 100.0 / 254.0) as int
+}
+
+/// The radio's channels (see `shownPulse`), and the signal strength in percent when the vehicle knows it.
+function rcOf(m: RcChannels, before: RcGroup?): RcGroup {
   const reading = rcReadingOf(m)
   const channels: u16[] = []
-  for (const p of reading.pulses) {
-    channels.push((if (p < MIN_PULSE || p > MAX_PULSE) 0 else p) as u16)
+  for (let i = 0; i < reading.pulses.length; i++) {
+    channels.push(shownPulse(reading.pulses[i], before, i) as u16)
   }
   const g = RcGroup { channels: channels, ageMs: 0 }
-  if (reading.rssi >= 0 && reading.rssi <= 100) {
-    g.rssi = reading.rssi as u8
+  if (reading.rssi >= 0 && reading.rssi <= 254) {
+    g.rssi = rssiPercent(reading.rssi) as u8
   }
   g
 }
@@ -305,7 +322,7 @@ export class Groups {
       vibration = vibrationOf(m)
       stamp("vibration", now)
     } else if (m instanceof RcChannels) {
-      rc = rcOf(m)
+      rc = rcOf(m, rc)
       stamp("rc", now)
     } else {
       return false

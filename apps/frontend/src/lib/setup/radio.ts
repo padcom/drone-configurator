@@ -19,6 +19,12 @@ export const DEFAULT_MAX = 1900
 /** A channel that moved less than this (µs) during a calibration was not moved: it is left as it is (a spare channel). */
 export const MOVED_AT_LEAST = 100
 
+/**
+ * How far from the middle of its captured range a stick may be, when the user presses Done, to be taken as centred: a tenth of
+ * the range (100 µs of 1000). A stick further out makes no trim.
+ */
+export const CENTRED_WITHIN = 0.1
+
 /** The channels that have a trim: roll, pitch and yaw (the throttle has none that matters). */
 export const TRIM_CHANNELS: readonly number[] = [1, 2, 4]
 
@@ -183,8 +189,8 @@ export interface Planned {
 }
 
 /**
- * The trim of a channel: the pulse the stick was at when the user ended, when it is a stick that has one and it is inside the
- * range it was seen in (a stick that is not centred does not make a trim).
+ * The trim of a channel: the pulse the stick was at when the user ended, when it is a stick that has one and it is centred, that
+ * is within `CENTRED_WITHIN` of the range it was seen in from the middle of it (a stick at an end does not make a trim).
  *
  * @param radio what the calibration captured
  * @param index the channel, 0 based
@@ -192,9 +198,22 @@ export interface Planned {
  */
 function trimOf(radio: CalibrationRadio, index: number): number | null {
   const last = pulseAt(radio.last, index)
-  const inside = last >= pulseAt(radio.mins, index) && last <= pulseAt(radio.maxs, index)
+  const min = pulseAt(radio.mins, index)
+  const max = pulseAt(radio.maxs, index)
+  const centred = Math.abs(last - (min + max) / 2) <= (max - min) * CENTRED_WITHIN
 
-  return TRIM_CHANNELS.includes(index + 1) && inside ? last : null
+  return TRIM_CHANNELS.includes(index + 1) && centred ? last : null
+}
+
+/**
+ * The channels that have a trim and moved, but whose stick was not centred when the user pressed Done: no trim is chosen for them
+ * (a stick held at one end would make that end the middle), and the page says so.
+ *
+ * @param radio what the calibration captured
+ * @returns the channels, 1 based, in order
+ */
+export function offCentre(radio: CalibrationRadio): number[] {
+  return TRIM_CHANNELS.filter(channel => moved(radio, channel - 1) && trimOf(radio, channel - 1) === null)
 }
 
 /**

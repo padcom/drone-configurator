@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { CalibrationRadio } from '@/generated/app'
-import { RADIO_PARAMS, fractionOf, moved, paramsOf, plannedWrites, roleOf } from './radio'
+import { RADIO_PARAMS, fractionOf, moved, offCentre, paramsOf, plannedWrites, roleOf } from './radio'
 
 /** A capture of 4 channels: roll moved, pitch moved, throttle moved, yaw only a little. */
 const CAPTURE: CalibrationRadio = {
@@ -53,6 +53,30 @@ it('writes the range of the channels that moved, and the trim of roll, pitch and
     'RC3_MIN=1004',
     'RC3_MAX=1996',
   ])
+})
+
+it('chooses no trim for a stick that was at an end when the user pressed Done, and names the channels that have none', () => {
+  // roll was left at its top (1900), pitch is centred (1500 of 1011 to 2002), yaw did not move
+  const atAnEnd = { ...CAPTURE, last: [2011, 1500, 1004, 1495] }
+  const ids = plannedWrites(atAnEnd, everything).map(p => p.id)
+
+  expect(ids).not.toContain('RC1_TRIM')
+  expect(ids).toContain('RC2_TRIM')
+  expect(offCentre(atAnEnd)).toEqual([1])
+  expect(offCentre(CAPTURE)).toEqual([])
+})
+
+it('takes a stick as centred within a tenth of the range from the middle, and no further', () => {
+  // roll was seen from 1000 to 2000: the middle is 1500, and a tenth of 1000 is 100
+  const range = { ...CAPTURE, mins: [1000, 1000, 1000, 1000], maxs: [2000, 2000, 2000, 2000] }
+  const trimAt = (last: number) => {
+    const planned = plannedWrites({ ...range, last: [last, 1500, 1000, 1500] }, everything)
+
+    return planned.some(p => p.id === 'RC1_TRIM')
+  }
+
+  expect([1400, 1500, 1600].map(trimAt)).toEqual([true, true, true])
+  expect([1399, 1601, 1900].map(trimAt)).toEqual([false, false, false])
 })
 
 it('writes no trim for a stick outside its range when the user ended, and nothing to a parameter the vehicle lacks', () => {

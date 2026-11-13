@@ -735,9 +735,10 @@ ekf-group = {
   ageMs: uint .size 4,
 }
 
-; RC_CHANNELS: `channels` are the pulses (µs) of the channels the receiver has, in order (channel 1 first). A channel with no pulse (the
-; receiver does not give it) or a pulse outside 800 to 2200 µs (a glitch, which is not a reading) is 0. `rssi` is 0 to 100 percent, absent when
-; the vehicle does not know it.
+; RC_CHANNELS: `channels` are the pulses (µs) of the channels the receiver has, in order (channel 1 first). A channel with no pulse
+; (the receiver does not give it), or none valid yet, is 0. A pulse outside 800 to 2200 µs is a glitch and not a reading: the channel
+; keeps its last valid pulse. `rssi` is the signal strength in percent (the message has 0 to 254, scaled), absent when the vehicle
+; does not know it.
 rc-group = {
   channels: [* uint .size 2],
   ? rssi: uint .size 1,

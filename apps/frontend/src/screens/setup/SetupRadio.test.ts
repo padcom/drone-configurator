@@ -130,9 +130,13 @@ it('shows no bar for a pulse that is not a reading, and says nothing is there be
 
 it('lists the switch of each auxiliary channel the vehicle has a function for, with the names the metadata gives', async () => {
   const { wrapper, handle } = await page()
-  expect(wrapper.findAll('.setup-aux-row').map(row => row.attributes('data-aux'))).toEqual(['5', '6', '7', '8'])
+  // one row for each channel: the function of a switch is in the row of its channel, not in a second list of the same names
+  expect(wrapper.findAll('.setup-channel-row')).toHaveLength(8)
+  const switches = wrapper.findAll('.setup-channel-row').filter(row => row.find('input').exists())
+  expect(switches.map(row => row.attributes('data-channel'))).toEqual(['5', '6', '7', '8'])
+  expect(wrapper.text().match(/Channel 5/gu)).toHaveLength(1)
   // the function of channel 7 is 4 and no metadata names it: the number is shown, never a made-up name
-  expect(wrapper.get('[data-aux="7"] input').element).toHaveProperty('value', '4')
+  expect(wrapper.get('[data-channel="7"] input').element).toHaveProperty('value', '4')
 
   handle.metadata.load(JSON.stringify({
     format: 'drone-configurator/param-metadata',
@@ -140,7 +144,7 @@ it('lists the switch of each auxiliary channel the vehicle has a function for, w
     params: { RC7_OPTION: { values: { 0: 'Do Nothing', 4: 'RTL' } } },
   }))
   await flushPromises()
-  expect(wrapper.get('[data-aux="7"] input').element).toHaveProperty('value', 'RTL')
+  expect(wrapper.get('[data-channel="7"] input').element).toHaveProperty('value', 'RTL')
 })
 
 it('captures while the user moves the sticks, ends only when the user says so, and chooses what it found', async () => {
@@ -194,6 +198,29 @@ it('does not let what was chosen be written while the vehicle is armed, or may b
   expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeDefined()
 })
 
+it('chooses no trim for a stick that was at an end when Done was pressed, and says so', async () => {
+  const { wrapper } = await page({ calibration: { intervalMs: 5, rollAt: 1950 } })
+  await press(wrapper, 'setup-radio-start')
+  await readyToFinish(wrapper)
+  await press(wrapper, 'setup-radio-finish')
+  await vi.waitFor(() => expect(wrapper.find('#setup-radio-staged').exists()).toBe(true))
+
+  expect(writes(wrapper)).toContain('RC1_MIN')
+  expect(writes(wrapper)).not.toContain('RC1_TRIM')
+  expect(writes(wrapper)).toContain('RC2_TRIM')
+  expect(wrapper.get('#setup-radio-uncentred').text()).toContain('channel 1')
+})
+
+it('says nothing of the trim when the sticks were centred', async () => {
+  const { wrapper } = await page()
+  await press(wrapper, 'setup-radio-start')
+  await readyToFinish(wrapper)
+  await press(wrapper, 'setup-radio-finish')
+  await vi.waitFor(() => expect(wrapper.find('#setup-radio-staged').exists()).toBe(true))
+
+  expect(wrapper.find('#setup-radio-uncentred').exists()).toBe(false)
+})
+
 it('chooses what a calibration found even when an earlier one was cancelled', async () => {
   const { wrapper } = await page()
   await press(wrapper, 'setup-radio-start')
@@ -242,6 +269,6 @@ it('does not let a switch function be chosen while a calibration runs', async ()
   await press(wrapper, 'setup-radio-start')
   await readyToFinish(wrapper)
 
-  expect(wrapper.get('[data-aux="5"] input').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('[data-channel="5"] input').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeDefined()
 })

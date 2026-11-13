@@ -19,6 +19,8 @@ export interface MockCalibrationOptions {
   failAt?: number
   /** The status the compasses end in instead of SUCCESS. */
   compassStatus?: string
+  /** Where the roll stick of the mock transmitter is when the user presses Done on the radio page (µs; 1500: centred). */
+  rollAt?: number
 }
 
 /** The offsets the mock's compass report gives (milligauss). */
@@ -398,7 +400,8 @@ export class MockCalibration {
       const reach = Math.min(500, step * 100)
       const mins = RADIO_CHANNELS.map(rest => Math.max(1000, rest - reach))
       const maxs = RADIO_CHANNELS.map(rest => Math.min(2000, rest + reach))
-      this.tell({ ...this.state, state: 'running', radio: { mins, maxs, last: RADIO_CHANNELS, glitches: 0, readings: step } })
+      const last = RADIO_CHANNELS.map((rest, i) => (i === 0 ? this.options.rollAt ?? rest : rest))
+      this.tell({ ...this.state, state: 'running', radio: { mins, maxs, last, glitches: 0, readings: step } })
     }, this.every)
   }
 
