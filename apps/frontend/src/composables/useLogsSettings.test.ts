@@ -7,13 +7,13 @@ afterEach(() => {
   forgetLogsChoices()
 })
 
-it('does not download after landing, keeps 90 days and 2000 MB, until the settings say otherwise', () => {
+it('does not download after landing and removes nothing (never, no limit) until the settings say otherwise', () => {
   createConfigurator(mockBackend())
   const prefs = useLogsSettings()
 
   expect(prefs.autoDownload.value).toBe(false)
-  expect(prefs.retentionDays.value).toBe('90')
-  expect(prefs.sizeCapMb.value).toBe('2000')
+  expect(prefs.retentionDays.value).toBe('0')
+  expect(prefs.sizeCapMb.value).toBe('0')
 })
 
 it('keeps a choice in the settings, shows it at once, and reads it back at the next start', async () => {

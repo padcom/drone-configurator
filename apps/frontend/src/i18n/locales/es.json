@@ -615,6 +615,9 @@
       "autoDownloadHelp": "Desactivado por defecto, para que el disco no se llene sin que usted lo pida. Nunca descarga con el vehículo armado.",
       "retention": "Conservar los registros descargados",
       "sizeCap": "Máximo de espacio para registros descargados",
+      "acts": "Solo se eliminan copias verificadas descargadas de un vehículo. Los 3 registros más recientes de cada vehículo se conservan siempre y las grabaciones importadas nunca se eliminan. No se elimina nada mientras un vehículo está armado.",
+      "never": "Nunca",
+      "noLimit": "Sin límite",
       "days": "Días: {days}"
     },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
@@ -874,6 +877,28 @@
     "related": "Relacionados",
     "openEnd": "…",
     "newValue": "Valor"
+  },
+  "housekeeping": {
+    "removed": "Registros eliminados de este ordenador: {count} (registro {names}). Motivo: {reason}.",
+    "namesMore": "{names}; otros: {count}",
+    "blocked": "Este ajuste no se puede cambiar mientras el vehículo está armado (o su estado no se conoce) o hay una descarga en curso: volvió a lo que era. Cámbialo de nuevo cuando termine.",
+    "ask": "Este ajuste elimina registros de este ordenador: {count} ({size}; registro {names}). ¿Eliminarlos ahora? Si no, el ajuste vuelve a lo que era.",
+    "parts": "Se eliminaron las descargas incompletas que nadie continuó en 7 días: {count}.",
+    "why": {
+      "age": "tenían más de {days} días",
+      "size": "los registros descargados ocupaban más de {megabytes} MB",
+      "both": "tenían más de {days} días o los registros descargados ocupaban más de {megabytes} MB"
+    },
+    "failed": "No se eliminaron los registros antiguos: {error}",
+    "line": "Última revisión de los registros descargados: eliminados {removed}, conservados {kept} como los más recientes de su vehículo.",
+    "lineOver": " Aún ocupan más que el límite, porque los 3 registros más recientes de cada vehículo nunca se eliminan.",
+    "lineUnverified": " Sin tocar, no verificados: {count}."
+  },
+  "autoDownload": {
+    "done": "Registro {id} descargado tras el aterrizaje; su suma de comprobación es la del vehículo.",
+    "failed": "El registro {id} no se descargó tras el aterrizaje: {why}. No se reintenta solo.",
+    "interrupted": "se interrumpió la descarga",
+    "notSettled": "El registro más reciente seguía creciendo tras un minuto, así que tras el aterrizaje no se descargó nada."
   },
   "question": {
     "importLarge": "Este archivo es grande ({size}): {name}. ¿Copiarlo en la biblioteca? Tarda un rato y ocupa tanto espacio en disco como el archivo.",

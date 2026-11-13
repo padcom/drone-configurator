@@ -31,6 +31,13 @@ services = {
   "logs.download": ["method", logs-download, logs-downloaded],
   "logs.cancel": ["method", null, null],
   "logs.erase": ["method", null, logs-erased],
+  ; Removes downloaded logs from THIS computer by the user's two preferences, and says which: a copy older than `retentionDays` (0 =
+  ; never), and then the oldest ones while the copies together are over `sizeCapMb` (0 = no cap). Only copies that were downloaded
+  ; from a vehicle (`<vehicle>/NNNNNNNN-CCCCCCCC.BIN`, never an imported recording) and are VERIFIED (their bytes have the CRC-32 in
+  ; their name, read again now) are removed; the newest 3 of each vehicle are never (so the log of the last flight is always
+  ; kept), and a copy that does not verify is kept and counted. Refused with `ARMED` or `STATE_UNKNOWN` while a connected vehicle is
+  ; armed or not known to be disarmed, and with `BUSY` while a download runs. Nothing is removed on the vehicle.
+  "logs.housekeeping": ["method", logs-housekeeping-ask, logs-housekept],
   "logs.progress": ["event", logs-progress],
   ; The flight logs on this computer (the checked copies `logs.download` made, in the app's data folder; no vehicle needed).
   ; `logs.local.list` lists them, with what is known of each from an earlier `logs.local.read` (no log is read by listing).
@@ -287,6 +294,36 @@ logs-import-ask = { ? confirmLarge: bool }
 ; The answer of `logs.import`. `key` is the entry in the library (`imported/NNNNNNNN-CCCCCCCC.tlog`), `name` the file's name (no
 ; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already (the test is
 ; the CRC-32 and the size, nothing stronger: two different files with both the same would be taken for one).
+; The preferences a housekeeping holds to (whole numbers; 0 turns a rule off).
+; `dryRun`: nothing is removed (no copy, no part); the answer says what a real run would remove (the same marking, and the same
+; verification of each copy), so that the page can ask before it does.
+logs-housekeeping-ask = { retentionDays: uint .size 2, sizeCapMb: uint .size 4, ? dryRun: bool }
+
+; One copy that was removed, and why: `age` (older than the retention) or `size` (the copies were over the cap).
+removed-log = {
+  vehicle: tstr,
+  name: tstr,
+  size: uint .size 8,
+  why: "age" / "size",
+}
+
+; What a housekeeping did. `removed` are the copies it removed (at most 1000 are listed, `removedCount` is how many), `freed` their
+; bytes; `kept` how many copies are protected as the newest of their vehicle; `unverified` how many copies it would have removed but
+; did not, because their bytes do not have the CRC in their name; `overCap` is true when the copies are still over the cap (the
+; protected ones alone take more than it).
+logs-housekept = {
+  removed: [* removed-log],
+  removedCount: uint .size 4,
+  freed: uint .size 8,
+  kept: uint .size 4,
+  unverified: uint .size 4,
+  overCap: bool,
+  ; Parts of downloads (`NNNNNNNN.BIN.part`) that were not touched for 7 days and were removed (only when a rule is on: with Never and No
+; limit nothing is removed at all): a download that was stopped keeps its part
+  ; so that the next one goes on from it, but a part nobody went on from is not kept for ever.
+  partsRemoved: uint .size 4,
+}
+
 logs-imported = {
   cancelled: bool,
   duplicate: bool,

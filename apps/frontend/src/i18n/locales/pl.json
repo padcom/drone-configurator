@@ -615,6 +615,9 @@
       "autoDownloadHelp": "Domyślnie wyłączone, aby dysk nie zapełniał się bez Twojej prośby. Nigdy nie pobiera, gdy pojazd jest uzbrojony.",
       "retention": "Przechowuj pobrane logi",
       "sizeCap": "Największe miejsce na pobrane logi",
+      "acts": "Usuwane są tylko sprawdzone kopie pobrane z pojazdu. Trzy najnowsze logi każdego pojazdu zawsze zostają, a zaimportowane nagrania nigdy nie są usuwane. Nic nie jest usuwane, gdy pojazd jest uzbrojony.",
+      "never": "Nigdy",
+      "noLimit": "Bez limitu",
       "days": "Dni: {days}"
     },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
@@ -874,6 +877,28 @@
     "related": "Powiązane",
     "openEnd": "…",
     "newValue": "Wartość"
+  },
+  "housekeeping": {
+    "removed": "Logi usunięte z tego komputera: {count} (log {names}). Powód: {reason}.",
+    "namesMore": "{names}; pozostałe: {count}",
+    "blocked": "Tego ustawienia nie można zmienić, gdy pojazd jest uzbrojony (albo jego stan jest nieznany) lub trwa pobieranie: wróciło do poprzedniego. Zmień je ponownie, gdy to minie.",
+    "ask": "To ustawienie usuwa logi z tego komputera: {count} ({size}; log {names}). Usunąć je teraz? Jeśli nie, ustawienie wróci do poprzedniego.",
+    "parts": "Usunięto niedokończone pobierania, do których nikt nie wrócił przez 7 dni: {count}.",
+    "why": {
+      "age": "były starsze niż {days} dni",
+      "size": "pobrane logi zajmowały więcej niż {megabytes} MB",
+      "both": "były starsze niż {days} dni albo pobrane logi zajmowały więcej niż {megabytes} MB"
+    },
+    "failed": "Starych logów nie usunięto: {error}",
+    "line": "Ostatnie sprawdzenie pobranych logów: usunięto {removed}, zostawiono {kept} jako najnowsze swojego pojazdu.",
+    "lineOver": " Nadal zajmują więcej niż limit, bo trzy najnowsze logi każdego pojazdu nigdy nie są usuwane.",
+    "lineUnverified": " Nietknięte, bez weryfikacji: {count}."
+  },
+  "autoDownload": {
+    "done": "Pobrano log {id} po lądowaniu; jego suma kontrolna jest taka, jak w pojeździe.",
+    "failed": "Logu {id} nie pobrano po lądowaniu: {why}. Nie jest ponawiane samo.",
+    "interrupted": "pobieranie przerwano",
+    "notSettled": "Najnowszy log po minucie wciąż rósł, więc nic nie pobrano po lądowaniu."
   },
   "question": {
     "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",

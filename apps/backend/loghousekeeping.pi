@@ -1,0 +1,281 @@
+// Housekeeping of the logs on this computer: `logs.housekeeping` removes downloaded copies by the user's preferences (a retention in
+// days, a cap on the room they take). It deletes files, so it is held to rules that make a mistake hard:
+//  - only copies a vehicle's log was downloaded to (`<data>/logs/<vehicle>/NNNNNNNN-CCCCCCCC.BIN`): never an imported recording
+//    (`imported/`), never a `.part` (a download that can be gone on with), never any other file in the folder;
+//  - only VERIFIED copies: the bytes are read again now and must have the CRC-32 in the name; one that does not is kept and counted;
+//  - never the newest `KEEP_NEWEST` copies of a vehicle (by the time of the file), so that the log of the last flight stays;
+//  - never while a connected vehicle is armed or not known to be disarmed, and never while a download runs;
+//  - by age first (older than the retention), then the oldest ones while the copies are over the cap.
+// A copy that cannot be read or removed is kept, with the rest going on. Nothing is removed on the vehicle.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { exists, readDir, remove, stat } from "std/fs"
+import { join } from "std/path"
+import {
+  LogsHousekept,
+  RemovedLog,
+  RemovedLogWhy,
+  decodeLogsHousekeepingAsk,
+  encodeLogsHousekept,
+} from "./generated/app"
+import { copyNumbers, crcOfFile, removalBlocked } from "./logs"
+import { IMPORTED } from "./importednames"
+import { dataDirectory } from "./settings"
+
+/// The newest copies of each vehicle that are never removed.
+export const KEEP_NEWEST: int = 3
+
+/// The most removed copies that are listed in the answer.
+const MAX_LISTED: int = 1000
+
+/// The most files looked at in all the folders (a folder with more is not a folder of logs).
+const MAX_LOOKED_AT: int = 100000
+
+const DAY_MS: int = 86400000
+
+export function register(c: Communicator): void {
+  c.handle("logs.housekeeping", housekeeping)
+}
+
+/// A part of a download that was not touched for this long (ms) is removed: 7 days.
+export const STALE_PART_MS: int = 7 * 86400000
+
+/// Whether a file is the part of a download (`NNNNNNNN.BIN.part`, as logs.pi names it) that nobody has gone on from for `STALE_PART_MS`.
+export function isStalePart(name: string, mtime: int, now: int): bool {
+  name.length == 17 && name.slice(8, 17) == ".BIN.part" && copyNumbers(`${name.slice(0, 8)}-00000000.BIN`)[0] >= 0 && now - mtime > STALE_PART_MS
+}
+
+/// A downloaded copy found in a vehicle's folder.
+export class Copy {
+  public readonly vehicle: string
+  public readonly name: string
+  public readonly path: string
+  public readonly size: int
+  public readonly mtime: int
+  public readonly crc: int
+  /// Whether it is one of the newest of its vehicle.
+  public protectedCopy: bool = false
+  /// Why it is to be removed: "" for no, "age" or "size".
+  public why: string = ""
+
+  constructor(vehicle: string, name: string, path: string, size: int, mtime: int, crc: int) {
+    this.vehicle = vehicle
+    this.name = name
+    this.path = path
+    this.size = size
+    this.mtime = mtime
+    this.crc = crc
+  }
+}
+
+/// The copies in all the vehicles' folders.
+async function copiesOf(top: string): Promise<Copy[]> throws Error {
+  const out: Copy[] = []
+  let seen = 0
+  // No folder of logs yet (an app that has downloaded none): there is nothing to look at, and that is no failure.
+  if (!await exists(top)) {
+    return out
+  }
+  for await (const dir of readDir(top)) {
+    if (!dir.isDirectory || dir.name.startsWith(".") || dir.name == IMPORTED) {
+      continue
+    }
+    for await (const entry of readDir(join(top, dir.name))) {
+      const numbers = copyNumbers(entry.name)
+      seen += 1
+      if (seen > MAX_LOOKED_AT) {
+        return out
+      }
+      if (!entry.isFile || numbers[0] < 0) {
+        continue
+      }
+      const path = join(top, dir.name, entry.name)
+      const info = await stat(path)
+      out.push(new Copy(dir.name, entry.name, path, info.size, info.mtime, numbers[1]))
+    }
+  }
+  out
+}
+
+/// Marks the newest `KEEP_NEWEST` copies of each vehicle as protected (the list is newest first).
+function protect(copies: Copy[]): int {
+  const count: Map<string, int> = new Map<string, int>()
+  let kept = 0
+  for (const c of copies) {
+    const n = count.get(c.vehicle) ?? 0
+    count.set(c.vehicle, n + 1)
+    if (n < KEEP_NEWEST) {
+      c.protectedCopy = true
+      kept += 1
+    }
+  }
+  kept
+}
+
+/// The copies, newest first by the time of the file (the name breaks a tie, so the order is always the same).
+function newestFirst(copies: Copy[]): void {
+  copies.sort((a, b) => if (a.mtime != b.mtime) b.mtime - a.mtime else if (a.name < b.name) 1 else -1)
+}
+
+/// Marks what is older than the retention, and then the oldest of the rest while the whole is over the cap.
+export function mark(copies: Copy[], now: int, retentionDays: int, capBytes: int): void {
+  newestFirst(copies)
+  protect(copies)
+  let total = 0
+  for (const c of copies) {
+    total += c.size
+  }
+  if (retentionDays > 0) {
+    for (const c of copies) {
+      if (!c.protectedCopy && now - c.mtime > retentionDays * DAY_MS) {
+        c.why = "age"
+        total -= c.size
+      }
+    }
+  }
+  if (capBytes > 0) {
+    // The oldest first: from the end of the list.
+    for (let i = copies.length - 1; i >= 0 && total > capBytes; i--) {
+      const c = copies[i]
+      if (!c.protectedCopy && c.why == "") {
+        c.why = "size"
+        total -= c.size
+      }
+    }
+  }
+}
+
+async function housekeeping(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeLogsHousekeepingAsk(payload ?? Cbor.Null, "$")
+  const blocked = removalBlocked()
+  if (blocked == "ARMED") {
+    throw new CommunicatorError("ARMED", "the vehicle is armed: no log is removed")
+  }
+  if (blocked == "STATE_UNKNOWN") {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown: no log is removed")
+  }
+  if (blocked == "BUSY") {
+    throw new CommunicatorError("BUSY", "a download is running: no log is removed")
+  }
+  let top = ""
+  try {
+    top = join(await dataDirectory(), "logs")
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
+  }
+  // Stale parts go only when a rule is on (Never and No limit remove nothing), and never in a dry run.
+  const rulesOn = (ask.retentionDays as int) > 0 || (ask.sizeCapMb as int) > 0
+  const dry = ask.dryRun == true
+  const parts = if (partsMayGo(rulesOn, dry)) await removeStaleParts(top) else 0
+  const copies = await copiesOf(top)
+  const cap = (ask.sizeCapMb as int) * 1000000
+  mark(copies, Date.now() as int, ask.retentionDays as int, cap)
+  const out = await removeMarked(copies, dry)
+  let left = 0
+  for (const c of copies) {
+    left += c.size
+  }
+  left -= out.freed
+  encodeLogsHousekept(LogsHousekept {
+    removed: out.listed,
+    removedCount: out.count as u32,
+    freed: out.freed as u64,
+    kept: protectedCount(copies) as u32,
+    unverified: out.unverified as u32,
+    overCap: cap > 0 && left > cap,
+    partsRemoved: parts as u32,
+  })
+}
+
+/// Removes the parts of downloads that nobody has gone on from for a week; how many. One that cannot be removed stays.
+async function removeStaleParts(top: string): Promise<int> throws Error {
+  let removedCount = 0
+  if (!await exists(top)) {
+    return 0
+  }
+  const now = Date.now() as int
+  for await (const dir of readDir(top)) {
+    if (!dir.isDirectory || dir.name.startsWith(".") || dir.name == IMPORTED) {
+      continue
+    }
+    for await (const entry of readDir(join(top, dir.name))) {
+      if (entry.isFile && isStalePart(entry.name, (await stat(join(top, dir.name, entry.name))).mtime, now) && await removedPath(join(top, dir.name, entry.name))) {
+        removedCount += 1
+      }
+    }
+  }
+  removedCount
+}
+
+async function removedPath(path: string): Promise<bool> {
+  try {
+    await remove(path)
+    true
+  } catch (e: Error) {
+    false
+  }
+}
+
+function protectedCount(copies: Copy[]): int {
+  let n = 0
+  for (const c of copies) {
+    if (c.protectedCopy) {
+      n += 1
+    }
+  }
+  n
+}
+
+/// What removing did.
+class Removal {
+  public readonly listed: RemovedLog[] = []
+  public count: int = 0
+  public freed: int = 0
+  public unverified: int = 0
+}
+
+/// Whether the stale parts of downloads may be removed now: a rule is on, and it is not a dry run.
+export function partsMayGo(rulesOn: bool, dry: bool): bool {
+  rulesOn && !dry
+}
+
+/// Removes the marked copies that verify, one at a time (in a dry run: only counts them); one that can't be read, removed or verified
+/// is kept.
+async function removeMarked(copies: Copy[], dry: bool): Promise<Removal> throws Error {
+  const out = new Removal()
+  for (const c of copies) {
+    if (c.why == "") {
+      continue
+    }
+    if (!await verified(c)) {
+      out.unverified += 1
+      continue
+    }
+    if (!dry && !await removed(c)) {
+      continue
+    }
+    out.count += 1
+    out.freed += c.size
+    if (out.listed.length < MAX_LISTED) {
+      out.listed.push(RemovedLog { vehicle: c.vehicle, name: c.name, size: c.size as u64, why: if (c.why == "age") RemovedLogWhy.Age else RemovedLogWhy.Size })
+    }
+  }
+  out
+}
+
+/// Whether the bytes of the copy, read now, have the CRC-32 in its name.
+async function verified(c: Copy): Promise<bool> {
+  try {
+    (await crcOfFile(c.path)).crc == c.crc
+  } catch (e: Error) {
+    false
+  }
+}
+
+async function removed(c: Copy): Promise<bool> {
+  try {
+    await remove(c.path)
+    true
+  } catch (e: Error) {
+    false
+  }
+}

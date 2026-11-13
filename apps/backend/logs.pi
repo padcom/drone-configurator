@@ -42,6 +42,7 @@ import {
 import { File, exists, mkdir, open, readDir, remove, rename, stat } from "std/fs"
 import { join } from "std/path"
 import {
+  ConnectionState,
   LogsDownloaded,
   LogsProgress,
   LogsProgressState,
@@ -456,6 +457,21 @@ async function listWith(conn: MavLinkConnection, own: AbortController): Promise<
   encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
 }
 
+/// Why downloaded copies may not be removed now: "" when they may, else "ARMED", "STATE_UNKNOWN" (a connected vehicle that is armed, or
+/// not known to be disarmed: unknown counts as armed) or "BUSY" (a download runs). No vehicle connected is no flight to protect.
+export function removalBlocked(): string {
+  if (link.conn != null && link.state.state == ConnectionState.Connected) {
+    const armed = armedState()
+    if (armed == null) {
+      return "STATE_UNKNOWN"
+    }
+    if (armed!) {
+      return "ARMED"
+    }
+  }
+  if (running.download != null) "BUSY" else ""
+}
+
 /// Why a log may not be downloaded now, as an error, or nothing: armed or not known to be disarmed, another download, a parameter
 /// operation.
 function refuse(): void throws CommunicatorError {
@@ -505,7 +521,7 @@ class PartFile implements FileSink {
 }
 
 /// The CRC-32 of the bytes of a file, read a piece at a time.
-async function crcOfFile(path: string): Promise<Crc32> throws Error {
+export async function crcOfFile(path: string): Promise<Crc32> throws Error {
   const crc = new Crc32()
   const f = await open(path)
   try {

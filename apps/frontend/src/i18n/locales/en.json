@@ -615,6 +615,9 @@
       "autoDownloadHelp": "Off by default, so that the disk is not filled without you asking. It never downloads while the vehicle is armed.",
       "retention": "Keep downloaded logs",
       "sizeCap": "Most room for downloaded logs",
+      "acts": "Only verified copies downloaded from a vehicle are removed. The newest 3 logs of each vehicle are always kept, and imported recordings are never removed. Nothing is removed while a vehicle is armed.",
+      "never": "Never",
+      "noLimit": "No limit",
       "days": "Days: {days}"
     },
     "more": "Units, the map and the vehicle's defaults come with their screens."
@@ -874,6 +877,28 @@
     "related": "Related",
     "openEnd": "…",
     "newValue": "Value"
+  },
+  "housekeeping": {
+    "removed": "Logs removed from this computer: {count} (log {names}). Why: {reason}.",
+    "namesMore": "{names}; others: {count}",
+    "blocked": "This setting cannot be changed while the vehicle is armed (or its state is not known) or a download is running: it was put back to what it was. Change it again when they are over.",
+    "ask": "This setting removes logs from this computer: {count} ({size}; log {names}). Remove them now? If not, the setting goes back to what it was.",
+    "parts": "Unfinished downloads that nobody went on from for 7 days were removed: {count}.",
+    "why": {
+      "age": "they were older than {days} days",
+      "size": "the downloaded logs took more than {megabytes} MB",
+      "both": "they were older than {days} days, or the downloaded logs took more than {megabytes} MB"
+    },
+    "failed": "Old logs were not removed: {error}",
+    "line": "Last check of the downloaded logs: removed {removed}, kept {kept} as the newest of their vehicle.",
+    "lineOver": " They still take more than the limit, because the newest 3 logs of each vehicle are never removed.",
+    "lineUnverified": " Left alone, not verified: {count}."
+  },
+  "autoDownload": {
+    "done": "Downloaded log {id} after landing; its checksum is the vehicle\u2019s.",
+    "failed": "Log {id} was not downloaded after landing: {why}. It is not tried again by itself.",
+    "interrupted": "the download was interrupted",
+    "notSettled": "The newest log was still growing after a minute, so nothing was downloaded after landing."
   },
   "question": {
     "importLarge": "This file is large ({size}): {name}. Copy it into the library? It takes a while and as much disk space as the file has.",

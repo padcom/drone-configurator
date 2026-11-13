@@ -23,6 +23,10 @@ import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
 import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
+import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
+import { useAutoDownload } from './useAutoDownload'
+import { RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
+import { type Guard, type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -53,6 +57,8 @@ export interface ConfiguratorHandle {
   messages: MessagesModel
   /** The flight logs on the vehicle: listed, downloaded, erased. */
   logs: LogsModel
+  /** The removal of old downloaded logs by the user's preferences. */
+  housekeeping: HousekeepingModel
   /** The flight logs on this computer: listed, opened, read, charted and reviewed. */
   flights: FlightsModel
   /** The message browser and the export of the open flight log. */
@@ -93,8 +99,8 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum'
-  | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'housekeeping' | 'flights' | 'browser'
+  | 'spectrum' | 'staged'
 >
 
 /**
@@ -247,29 +253,69 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
   return messages
 }
 
+/** What the logs are started with. */
+interface LogsStart {
+  /** The link to the backend. */
+  client: BackendClient
+  /** The vehicle link. */
+  vehicle: Vehicle
+  /** The settings (the preferences about logs are in them). */
+  settings: SettingsModel
+  /** The parameters (the list of logs waits while their list is being downloaded). */
+  parameters: ParamsModel
+  /** Asks the user a question (a removal that a changed setting would make is asked about first). */
+  confirm: (question: string) => Promise<boolean>
+}
+
+/**
+ * Puts the two preferences that remove something back to a choice (the user said no to what the change would remove).
+ *
+ * @param settings the settings
+ * @param to the choice
+ */
+async function restoreRemoval(settings: SettingsModel, to: Removal): Promise<void> {
+  await settings.setUi(RETENTION_KEY, String(to.retentionDays))
+  await settings.setUi(SIZE_CAP_KEY, String(to.sizeCapMb))
+}
+
 /**
  * The vehicle's logs. They are the vehicle's: another vehicle, or none, has its own. So they go when the session ends, and with
  * every connected report that is not the same vehicle coming back (`resumed`), also one that follows another with no gap.
  *
- * @param client the link to the backend
- * @param vehicle the vehicle link
- * @param parametersLoading whether the parameter list is being downloaded (the list of logs waits for it)
- * @returns the logs
+ * @param deps the link, the vehicle, the settings and the way to ask the user
+ * @returns the logs and their housekeeping
  */
-function startLogs(client: BackendClient, vehicle: Vehicle, parametersLoading: () => boolean): LogsModel {
+function startLogs(deps: LogsStart): Pick<ConfiguratorHandle, 'logs' | 'housekeeping'> {
+  const { client, vehicle, settings } = deps
   const logs = useVehicleLogs({
     client,
     connection: vehicle.connection,
     telemetry: vehicle.telemetry,
-    parametersLoading,
+    parametersLoading: () => deps.parameters.list.value === 'loading',
   })
   watch(vehicle.connection, next => {
     if (next.state !== 'connected' || next.resumed !== true) {
       logs.reset()
     }
   })
+  const tell = useToasts().push
+  const prefs = () => logsPrefsOf(key => settings.uiValue(key))
+  // Every removal is held to the choice that was ACCEPTED (see the guard), not to what is chosen at this moment.
+  const holder: { guard?: Guard } = {}
+  const held = () => holder.guard?.accepted() ?? prefs()
+  const housekeeping = useHousekeeping({ client, prefs: held, tell })
+  // Old copies are looked at when the settings have been read, and after every download (which may have filled the disk).
+  const restore = (to: Removal) => restoreRemoval(settings, to)
+  const guard = useHousekeepingGuard({ housekeeping, prefs, confirm: deps.confirm, restore, tell })
+  holder.guard = guard
+  watch(settings.loaded, loaded => loaded && (guard.begin(), void housekeeping.run()), { immediate: true })
+  // A change of what to remove removes nothing by itself: it is asked about first (see the guard).
+  watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && guard.changed())
+  watch(logs.outcome, outcome => outcome?.kind === 'downloaded' && void housekeeping.run())
+  const { connection, telemetry } = vehicle
+  useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell })
 
-  return logs
+  return { logs, housekeeping }
 }
 
 /**
@@ -365,11 +411,13 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  const logs = startLogs(client, vehicle, () => parameters.list.value === 'loading')
+  const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser })
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...logModels(client, askUser), staged }
+  const models = {
+    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, ...logModels(client, askUser), staged,
+  }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

@@ -234,6 +234,33 @@ function validateLogsImportAskInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-import-ask, or null. */
 export const validateLogsImportAsk = (value: unknown) => run(validateLogsImportAskInto, value)
 
+export type LogsHousekeepingAsk = { "retentionDays": number, "sizeCapMb": number, "dryRun"?: boolean }
+
+function validateLogsHousekeepingAskInto(value: any, path: string): boolean {
+  return map(value, path, ["retentionDays","sizeCapMb","dryRun"]) && (value["retentionDays"] === undefined ? fail(`${path}.retentionDays`, 'present') : nested(value["retentionDays"], `${path}.retentionDays`, (value, path) => uint(value, path, 0xffff))) && (value["sizeCapMb"] === undefined ? fail(`${path}.sizeCapMb`, 'present') : nested(value["sizeCapMb"], `${path}.sizeCapMb`, (value, path) => uint(value, path, 0xffffffff))) && (value["dryRun"] === undefined || nested(value["dryRun"], `${path}.dryRun`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a logs-housekeeping-ask, or null. */
+export const validateLogsHousekeepingAsk = (value: unknown) => run(validateLogsHousekeepingAskInto, value)
+
+export type RemovedLog = { "vehicle": string, "name": string, "size": number | bigint, "why": "age" | "size" }
+
+function validateRemovedLogInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","name","size","why"]) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["why"] === undefined ? fail(`${path}.why`, 'present') : nested(value["why"], `${path}.why`, (value, path) => oneOf(value, path, ["age","size"])))
+}
+
+/** The first problem with `value` as a removed-log, or null. */
+export const validateRemovedLog = (value: unknown) => run(validateRemovedLogInto, value)
+
+export type LogsHousekept = { "removed": (RemovedLog)[], "removedCount": number, "freed": number | bigint, "kept": number, "unverified": number, "overCap": boolean, "partsRemoved": number }
+
+function validateLogsHousekeptInto(value: any, path: string): boolean {
+  return map(value, path, ["removed","removedCount","freed","kept","unverified","overCap","partsRemoved"]) && (value["removed"] === undefined ? fail(`${path}.removed`, 'present') : nested(value["removed"], `${path}.removed`, (value, path) => list(value, path, (value, path) => validateRemovedLogInto(value, path)))) && (value["removedCount"] === undefined ? fail(`${path}.removedCount`, 'present') : nested(value["removedCount"], `${path}.removedCount`, (value, path) => uint(value, path, 0xffffffff))) && (value["freed"] === undefined ? fail(`${path}.freed`, 'present') : nested(value["freed"], `${path}.freed`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["kept"] === undefined ? fail(`${path}.kept`, 'present') : nested(value["kept"], `${path}.kept`, (value, path) => uint(value, path, 0xffffffff))) && (value["unverified"] === undefined ? fail(`${path}.unverified`, 'present') : nested(value["unverified"], `${path}.unverified`, (value, path) => uint(value, path, 0xffffffff))) && (value["overCap"] === undefined ? fail(`${path}.overCap`, 'present') : nested(value["overCap"], `${path}.overCap`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["partsRemoved"] === undefined ? fail(`${path}.partsRemoved`, 'present') : nested(value["partsRemoved"], `${path}.partsRemoved`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a logs-housekept, or null. */
+export const validateLogsHousekept = (value: unknown) => run(validateLogsHousekeptInto, value)
+
 export type LogsImported = { "cancelled": boolean, "duplicate": boolean, "large"?: boolean, "key"?: string, "name"?: string, "crc"?: string, "size"?: number | bigint, "report"?: TlogReport }
 
 function validateLogsImportedInto(value: any, path: string): boolean {
@@ -733,6 +760,7 @@ export interface Services {
   "logs.download": { kind: 'method', request: LogsDownload, response: LogsDownloaded }
   "logs.cancel": { kind: 'method', request: null, response: null }
   "logs.erase": { kind: 'method', request: null, response: LogsErased }
+  "logs.housekeeping": { kind: 'method', request: LogsHousekeepingAsk, response: LogsHousekept }
   "logs.progress": { kind: 'event', payload: LogsProgress }
   "logs.local.list": { kind: 'method', request: null, response: LocalLogs }
   "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
@@ -802,6 +830,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.erase": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateLogsErasedInto(value, path),
+  },
+  "logs.housekeeping": {
+    request: (value: any, path: string) => validateLogsHousekeepingAskInto(value, path),
+    response: (value: any, path: string) => validateLogsHousekeptInto(value, path),
   },
   "logs.progress": {
     payload: (value: any, path: string) => validateLogsProgressInto(value, path),

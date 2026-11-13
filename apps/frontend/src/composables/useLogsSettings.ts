@@ -1,35 +1,22 @@
 // The preferences about logs: whether to download them after landing (off unless the settings say on, for the disk's sake), how
-// long to keep downloaded ones, and how much room they may take. They are kept in the settings; nothing acts on them yet (the
-// backend that downloads, and removes, comes later), and the Settings screen says so.
+// long to keep downloaded ones, and how much room they may take. They are kept in the settings, and acted on (useAutoDownload and
+// useHousekeeping, made with the configurator); this is what the Settings screen shows and changes.
 import { type ComputedRef, computed, shallowRef } from 'vue'
 import { useConfigurator } from './useConfigurator'
 
-/** The keys of the settings entries. */
-export const AUTO_DOWNLOAD_KEY = 'logs.autoDownload'
+import {
+  AUTO_DOWNLOAD_KEY,
+  DEFAULT_RETENTION,
+  DEFAULT_SIZE_CAP,
+  RETENTION_DAYS,
+  RETENTION_KEY,
+  SIZE_CAPS_MB,
+  SIZE_CAP_KEY,
+  choiceOf,
+} from '@/lib/logs/logsPrefs'
 
-export const RETENTION_KEY = 'logs.retentionDays'
-
-export const SIZE_CAP_KEY = 'logs.sizeCapMb'
-
-/** What the choices are, and what is chosen until the settings say otherwise. */
-export const RETENTION_DAYS = ['30', '90', '180', '365'] as const
-
-export const SIZE_CAPS_MB = ['500', '2000', '5000', '10000'] as const
-
-export const DEFAULT_RETENTION = '90'
-
-export const DEFAULT_SIZE_CAP = '2000'
-
-/**
- * A choice among the ones offered.
- *
- * @param text what the settings hold, if anything
- * @param choices what can be chosen
- * @param fallback what a missing or unknown entry means
- * @returns the choice
- */
-export function choiceOf(text: string | undefined, choices: readonly string[], fallback: string): string {
-  return text !== undefined && choices.includes(text) ? text : fallback
+export {
+  AUTO_DOWNLOAD_KEY, DEFAULT_RETENTION, DEFAULT_SIZE_CAP, RETENTION_DAYS, RETENTION_KEY, SIZE_CAPS_MB, SIZE_CAP_KEY, choiceOf,
 }
 
 /** The preferences, as refs and actions. */
