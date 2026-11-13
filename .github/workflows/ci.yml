@@ -33,7 +33,8 @@ jobs:
           - { target: windows-x64, runner: windows-2025, backend: false }
           - { target: windows-arm64, runner: windows-11-arm, backend: false }
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    # 60 for the two Linux jobs (they run the whole suite: linux-arm64 took 44 of 45 minutes in run 43446895926), 45 for the rest.
+    timeout-minutes: ${{ matrix.backend && 60 || 45 }}
     defaults:
       run:
         # Explicitly bash, which GitHub runs with -eo pipefail: a failing test isn't hidden by tee.

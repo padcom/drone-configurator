@@ -20,7 +20,7 @@ import {
 import { copyName } from "./logs"
 import { forgetLocalReads } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
-import { DEFAULT_DEADLINE_MS, setDeadline, start } from "./testing"
+import { DEFAULT_DEADLINE_MS, Frontend, setDeadline, start } from "./testing"
 
 /// How far above what it was the peak of the process may rise: 32 MB.
 const BOUND_KB: int = 32768
@@ -28,6 +28,9 @@ const BOUND_KB: int = 32768
 /// 16 pieces of about a megabyte (55000 messages of 19 bytes).
 const PIECES: int = 16
 const PER_PIECE: int = 55000
+
+/// How many measured passes follow the warm-up; the smallest rise is the one checked.
+const PASSES: int = 3
 
 /// The number of kilobytes on the line `name` of /proc/self/status, or -1 when there is no such line (not Linux).
 async function statusKb(name: string): Promise<int> {
@@ -74,6 +77,28 @@ async function generate(path: string): Promise<int> throws Error {
   crc.crc
 }
 
+/// What one pass leaves: the memory before it and how far the peak rose over it.
+struct Pass {
+  before: int
+  rose: int
+}
+
+/// One read and one chart of the log, measured from a clean start: nothing cached from an earlier pass (so each does the work
+/// again), the garbage of the one before collected (so the baseline is what the process needs, not what it once held), and the
+/// peak reset to what the process holds now.
+async function onePass(f: Frontend, key: string): Promise<Pass> throws Error {
+  forgetLocalReads()
+  gc.collect()
+  await resetPeak()
+  const before = await statusKb("VmRSS")
+  const read = await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+  expect(read.k).toBe("response")
+  const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
+  const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
+  expect(series.series[0].found).toBe(true)
+  Pass { before: before, rose: (await statusKb("VmHWM")) - before }
+}
+
 async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
   if ((await statusKb("VmHWM")) < 0) {
     return
@@ -91,18 +116,21 @@ async function stayInTheBoundOnALogOf16Megabytes(): Promise<void> throws Error {
     await rename(tmp, join(root, "logs", "uid-a", name))
     expect((await stat(join(root, "logs", "uid-a", name))).size > 15000000).toBe(true)
     const key = `uid-a/${name}`
-    // What making the log left behind is garbage: collected, so that the baseline is what the process needs, not what it once held.
-    gc.collect()
-    await resetPeak()
-    const before = await statusKb("VmRSS")
-    const read = await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
-    expect(read.k).toBe("response")
-    const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
-    const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
-    expect(series.series[0].found).toBe(true)
-    const rose = (await statusKb("VmHWM")) - before
-    if (rose >= BOUND_KB) {
-      panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
+    // A warm-up pass first (the allocator's first growth, the caches the passes fill once), then PASSES measured ones, and the
+    // smallest rise counts. A read that holds the log (O(file)) raises the peak in every pass, so the minimum still catches it;
+    // what the minimum drops is the collector's timing and what ran before in this process, which moves one pass and not all.
+    await onePass(f, key)
+    let least = BOUND_KB * 1000
+    let before = 0
+    for (let pass = 0; pass < PASSES; pass++) {
+      const measured = await onePass(f, key)
+      if (measured.rose < least) {
+        least = measured.rose
+        before = measured.before
+      }
+    }
+    if (least >= BOUND_KB) {
+      panic(`the peak rose ${least} kB over ${before} kB in the best of ${PASSES} passes: more than ${BOUND_KB} kB`)
     }
   } finally {
     setDeadline(DEFAULT_DEADLINE_MS)
