@@ -33,11 +33,14 @@ function window(): E2eApp {
  * @param left how many presses remain
  */
 async function openPage(page: string, left = 4): Promise<void> {
-  const shown = `document.querySelector('a[href="#/setup/${page}"]')?.getAttribute('aria-current') === 'page'`
-  await window().click(`a[href="#/setup/${page}"]`)
+  const link = `document.querySelector('a[href="#/setup/${page}"]')`
+  // The link is there once the parameters are read (the overview has its step cards then, and the other pages their list): a
+  // press before that has nothing to press.
+  await window().waitFor(`${link} !== null`, 120_000)
 
   try {
-    await window().waitFor(shown, 5000)
+    await window().click(`a[href="#/setup/${page}"]`)
+    await window().waitFor(`${link}?.getAttribute('aria-current') === 'page'`, 5000)
   } catch (error) {
     if (left <= 1) {
       throw error
@@ -76,6 +79,8 @@ beforeAll(async () => {
   await clickConnect(app)
   await app.waitForText('#connection', 'connected · system', 60_000)
   await showScreen(app, 'setup')
+  // The overview has said what the parameters say: they are read, and the page can be used.
+  await app.waitFor(`document.querySelector('#setup-progress') !== null`, 120_000)
 }, 180_000)
 
 afterAll(async () => {

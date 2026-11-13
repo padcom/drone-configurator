@@ -121,9 +121,9 @@ async function openPage(page: string, left = 4): Promise<void> {
   const shown = `document.querySelector('a[href="#/setup/${page}"]')?.getAttribute('aria-current') === 'page'`
   // (The links are there once the parameters are in: the overview shows its cards then.)
   await window().waitFor(`document.querySelector('a[href="#/setup/${page}"]') !== null`, 120_000)
-  await window().click(`a[href="#/setup/${page}"]`)
 
   try {
+    await window().click(`a[href="#/setup/${page}"]`)
     await window().waitFor(shown, 5000)
   } catch (error) {
     if (left <= 1) {
