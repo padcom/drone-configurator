@@ -169,10 +169,13 @@ function choose(radio: CalibrationRadio): void {
 
 /** Whether a calibration ran while this page looked: only what the user saw end is chosen from, not an old result on return. */
 const watched = ref(false)
+/** A calibration starting forgets what the last one chose (the page says nothing of it any more). */
 watch(running, now => {
   watched.value = watched.value || now
+  staged.value = now ? null : staged.value
 })
 
+/** The result comes twice (the event, then the answer of the call): it is chosen from once, the first time it is seen. */
 watch(() => calibration.result.value, result => {
   const { radio } = state.value
   const seen = watched.value
@@ -180,8 +183,6 @@ watch(() => calibration.result.value, result => {
 
   if (seen && radio !== undefined && endedWithDone(result)) {
     choose(radio)
-  } else {
-    staged.value = null
   }
 })
 
