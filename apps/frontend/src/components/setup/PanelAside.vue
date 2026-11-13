@@ -4,7 +4,7 @@
     <div>
       <h2 class="setup-label">{{ t('setup.writes') }}</h2>
       <ul class="setup-writes">
-        <li v-for="id in panel.ids" :key="id" :class="{ missing: panel.missing.value.includes(id) }">
+        <li v-for="id in shown" :key="id" :class="{ missing: panel.missing.value.includes(id) }">
           {{ id }}<span v-if="panel.missing.value.includes(id)"> · {{ t('setup.notOnVehicle') }}</span>
         </li>
       </ul>
@@ -36,6 +36,8 @@ const props = defineProps<{
   idPrefix: string
   /** The page has a reason of its own not to write (a pair of values out of order). */
   hold?: boolean
+  /** List only the parameters this vehicle has (a page for a board with a variable number of ports). */
+  onlyPresent?: boolean
 }>()
 
 const { t } = useI18n()
@@ -44,6 +46,18 @@ const reason = computed(() => {
 
   return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
 })
+const shown = computed(() => props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids)
+
+/**
+ * Whether the vehicle has a parameter of the page.
+ *
+ * @param id the parameter
+ * @returns true if it does
+ */
+function present(id: string): boolean {
+  return !props.panel.missing.value.includes(id)
+}
+
 const changed = computed(() => props.panel.dirty.value.length > 0)
 const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)
 const label = computed(() => t(changed.value ? 'setup.write' : 'setup.noChanges'))

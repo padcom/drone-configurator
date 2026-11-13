@@ -56,16 +56,16 @@ const SETUP_SECTION = () => import('./setup/SetupSection.vue')
 /** The parts of the Setup screen, in the order of the design's list (the home first). Those that are not built say so. */
 const SETUP_SECTIONS: readonly Section[] = [
   { id: 'home', path: 'home', titleKey: 'setup.section.home', load: () => import('./setup/SetupHome.vue') },
-  { id: 'frame', path: 'frame', titleKey: 'setup.section.frame', load: SETUP_SECTION },
+  { id: 'frame', path: 'frame', titleKey: 'setup.section.frame', load: () => import('./setup/SetupFrame.vue') },
   { id: 'accel', path: 'accel', titleKey: 'setup.section.accel', load: SETUP_SECTION },
   { id: 'compass', path: 'compass', titleKey: 'setup.section.compass', load: SETUP_SECTION },
   { id: 'radio', path: 'radio', titleKey: 'setup.section.radio', load: SETUP_SECTION },
   { id: 'motors', path: 'motors', titleKey: 'setup.section.motors', load: SETUP_SECTION },
   { id: 'modes', path: 'modes', titleKey: 'setup.section.modes', load: () => import('./setup/SetupModes.vue') },
   { id: 'failsafes', path: 'failsafes', titleKey: 'setup.section.failsafes', load: () => import('./setup/SetupFailsafes.vue') },
-  { id: 'battery', path: 'battery', titleKey: 'setup.section.battery', load: SETUP_SECTION },
-  { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: SETUP_SECTION },
-  { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: SETUP_SECTION },
+  { id: 'battery', path: 'battery', titleKey: 'setup.section.battery', load: () => import('./setup/SetupBattery.vue') },
+  { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: () => import('./setup/SetupSerial.vue') },
+  { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: () => import('./setup/SetupDevices.vue') },
   { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },
 ]
 const FLIGHT = () => import('./FlightData.vue')

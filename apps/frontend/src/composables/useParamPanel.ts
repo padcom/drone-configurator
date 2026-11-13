@@ -3,7 +3,7 @@
 // parameter, each read back, the first that is not confirmed stops the rest). The page declares the parameters it writes;
 // nothing else is written from it. A Setup write is GUARDED: it is refused while the vehicle is armed, or may be (unknown counts
 // as armed), by the queue here and by the backend, and the panel says why instead of failing.
-import { type ComputedRef, type ShallowRef, computed, shallowRef } from 'vue'
+import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { armedOf } from '@/lib/app/armed'
 import type { ConfiguratorHandle } from './useConfigurator'
 
@@ -33,6 +33,8 @@ export interface ParamPanel {
   readonly state: ShallowRef<PanelState>
   /** What a failed write says, in words. */
   readonly detail: ShallowRef<string>
+  /** The parameters the last write wrote and read back (for a "reboot needed"); forgotten when the link goes. */
+  readonly written: ShallowRef<string[]>
   /** Whether a write is under way. */
   readonly writing: ComputedRef<boolean>
   /** Writes what differs, after the one question. */
@@ -74,6 +76,7 @@ function armedBlock(armed: boolean | undefined): PanelBlock {
 class Panel implements ParamPanel {
   readonly state = shallowRef<PanelState>('idle')
   readonly detail = shallowRef('')
+  readonly written = shallowRef<string[]>([])
   readonly missing: ComputedRef<string[]>
   readonly dirty: ComputedRef<string[]>
   readonly blocked: ComputedRef<PanelBlock>
@@ -98,6 +101,13 @@ class Panel implements ParamPanel {
       return listBlock(connected, parameters.list.value) ?? armedBlock(armedOf(fields.telemetry.value))
     })
     this.writing = computed(() => staged.writing.value || parameters.lock.busy.value)
+    // What was written needs a reboot to take effect: that is said until the link goes (the vehicle rebooted, or was
+    // disconnected).
+    watch(() => fields.connection.value.state, state => {
+      if (state !== 'connected') {
+        this.written.value = []
+      }
+    })
   }
 
   /**
@@ -119,14 +129,19 @@ class Panel implements ParamPanel {
     this.state.value = 'idle'
   }
 
-  /** Takes the outcome of a write: what was not read back is told, in words. */
-  private settle(): void {
+  /**
+   * Takes the outcome of a write: what was not read back is told, in words.
+   *
+   * @param sent the parameters that were sent
+   */
+  private settle(sent: string[]): void {
     const { staged } = this.handle
     const left = this.ids.filter(id => staged.pending().some(change => change.id === id))
     if (left.length === 0) {
       this.chosen.value = {}
       this.state.value = 'written'
       this.detail.value = ''
+      this.written.value = sent
 
       return
     }
@@ -149,9 +164,10 @@ class Panel implements ParamPanel {
       return
     }
     const { staged } = this.handle
+    const sent = [...this.dirty.value]
     this.state.value = 'idle'
     this.detail.value = ''
-    staged.stage(this.dirty.value.map(id => ({ id, to: this.value(id) ?? 0 })), { guarded: true })
+    staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), { guarded: true })
 
     if (staged.refused.value !== null) {
       this.state.value = 'failed'
@@ -160,7 +176,7 @@ class Panel implements ParamPanel {
       return
     }
     await staged.writeAll()
-    this.settle()
+    this.settle(sent)
   }
 
   revert = (): void => {

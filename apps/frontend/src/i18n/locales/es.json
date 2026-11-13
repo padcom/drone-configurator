@@ -1343,6 +1343,99 @@
       "terrain": "Datos del terreno",
       "fence": "Geovalla",
       "propulsion": "Propulsión"
+    },
+    "reboot": {
+      "needed": "Hace falta reiniciar: lo escrito surte efecto cuando se reinicia la controladora de vuelo."
+    },
+    "battery": {
+      "summary": "Una tensión y una capacidad exactas hacen fiables los failsafes y las estimaciones de tiempo de vuelo.",
+      "which": "Qué batería",
+      "tab": "Batería {n}",
+      "noLiveSecond": "La tensión y la corriente en vivo son de la primera batería. La segunda tiene aquí monitor y capacidad, sin calibración.",
+      "monitor": "Monitor",
+      "capacity": "Capacidad (mAh)",
+      "tileVoltage": "Tensión",
+      "tileCurrent": "Corriente",
+      "tileRemaining": "Restante",
+      "noReading": "El vehículo aún no muestra ninguna lectura, así que no hay con qué calibrar.",
+      "shown": "El vehículo muestra {value}",
+      "secondLook": "Difiere más del 15% de lo que muestra el vehículo. Revisa la lectura.",
+      "checked": "He leído el medidor otra vez y es correcto",
+      "use": "Usar este valor",
+      "thresholds": "Las tensiones baja y crítica y lo que hace el vehículo están en Failsafes.",
+      "voltage": {
+        "title": "Calibrar la tensión",
+        "help": "Mide la batería con un multímetro y escribe la lectura. El nuevo multiplicador es el anterior por el medidor entre lo que muestra el vehículo.",
+        "measured": "Lectura del multímetro (V)"
+      },
+      "current": {
+        "title": "Calibrar la corriente",
+        "help": "Mide la corriente con una pinza amperimétrica bajo carga y escribe la lectura. Los nuevos amperios por voltio son los anteriores por el medidor entre lo que muestra el vehículo.",
+        "measured": "Lectura de la pinza (A)"
+      }
+    },
+    "monitor": {
+      "disabled": "Desactivado",
+      "analogVoltage": "Solo tensión analógica",
+      "analogVoltageCurrent": "Tensión y corriente analógicas",
+      "smbus": "SMBus (batería inteligente)",
+      "dronecan": "Info de batería DroneCAN",
+      "esc": "De los ESC",
+      "sum": "Suma de monitores elegidos",
+      "syntheticCurrent": "Corriente sintética y tensión analógica",
+      "analogCurrent": "Solo corriente analógica"
+    },
+    "frame": {
+      "summary": "Cuántos motores tiene el vehículo, cómo se mezclan y cómo está colocada la placa.",
+      "warning": "Un bastidor equivocado hace el vehículo incontrolable. Cámbialo solo con el vehículo desarmado y sin hélices, y comprueba el orden de los motores antes de volar.",
+      "class": "Clase de bastidor",
+      "type": "Tipo de bastidor",
+      "orientation": "Orientación de la placa",
+      "orientationHelp": "Surte efecto en el próximo arranque. Tras cambiarla, vuelve a nivelar el vehículo.",
+      "undefined": "Sin definir",
+      "noRotation": "Ninguna",
+      "noDrawing": "No hay dibujo para este bastidor.",
+      "caption": "El frente está arriba. El número es el del motor en la prueba de motores; la flecha, su sentido de giro.",
+      "motor": "Motor {number} a {angle} grados, gira {spin}",
+      "cw": "en sentido horario",
+      "ccw": "en sentido antihorario"
+    },
+    "serial": {
+      "summary": "Para qué sirve cada puerto serie de la placa y a qué velocidad habla.",
+      "inUse": "Puertos en uso: {used}",
+      "mayCut": "Un cambio en Serial {ports} puede cortar la conexión que usa esta aplicación: lleva MAVLink o puede ser el puerto de una estación en tierra.",
+      "port": "Serial {n}",
+      "protocol": "Protocolo de serial {n}",
+      "baud": "Velocidad de serial {n}",
+      "none": "Este vehículo no tiene parámetros de puertos serie.",
+      "noProtocol": "Ninguno"
+    },
+    "devices": {
+      "summary": "Los sensores que ha visto el vehículo, con el id que guarda de cada uno descodificado en bus, dirección y tipo de dispositivo.",
+      "none": "El vehículo no tiene los parámetros con los ids de dispositivo.",
+      "sensor": "Sensor",
+      "bus": "Bus",
+      "address": "Dirección",
+      "type": "Tipo de dispositivo",
+      "id": "Id",
+      "absent": "No visto",
+      "typeHelp": "El tipo de dispositivo es un número que solo significa algo para ese tipo de sensor, así que se muestra como número.",
+      "kind": {
+        "compass": "Brújula",
+        "accel": "Acelerómetro",
+        "gyro": "Giroscopio",
+        "baro": "Barómetro"
+      },
+      "buses": {
+        "unknown": "Bus desconocido",
+        "i2c": "I2C",
+        "spi": "SPI",
+        "dronecan": "DroneCAN",
+        "sitl": "Simulador",
+        "msp": "MSP",
+        "serial": "Serie",
+        "wspi": "Wide SPI"
+      }
     }
   }
 }
