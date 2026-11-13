@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { LocalLog } from '@/generated/app'
 import type { Metadata } from '@/lib/params/metadata'
 import {
   ISBD_BYTES,
@@ -12,6 +13,7 @@ import {
   isExact,
   isMask,
   measuredBytesPerMinute,
+  measuredOf,
   megabytes,
   streamRows,
   withBit,
@@ -141,5 +143,35 @@ describe('what is a logging parameter', () => {
     expect(includesLogging(['RTL_ALT', 'INS_LOG_BAT_MASK'])).toBe(true)
     expect(includesLogging(['RTL_ALT'])).toBe(false)
     expect(includesLogging([])).toBe(false)
+  })
+})
+
+/**
+ * A verified log with a length.
+ *
+ * @param source who wrote it
+ * @param modified when it was last changed
+ * @returns the log
+ */
+function logOf(source: LocalLog['source'], modified: number): LocalLog {
+  return {
+    key: `${source}/${modified}`,
+    vehicle: 'v',
+    id: modified,
+    size: 6_000_000,
+    modified,
+    crc: 'c',
+    source,
+    summary: { verified: true, messages: 1, problems: 0, modeChanges: 0, firstUs: 0, lastUs: 60_000_000 },
+  }
+}
+
+describe('how fast the vehicle wrote its logs', () => {
+  it('is measured on a log the vehicle wrote, never on a ground station recording (which says nothing of the vehicle)', () => {
+    // The recording is the newest; the measure is still the vehicle's log.
+    const measured = measuredOf([logOf('dataflash', 1000), logOf('tlog', 2000)])
+
+    expect(measured).toEqual({ bytes: 6_000_000, seconds: 60 })
+    expect(measuredOf([logOf('tlog', 2000)])).toBeNull()
   })
 })

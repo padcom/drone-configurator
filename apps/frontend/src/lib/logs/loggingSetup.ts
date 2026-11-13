@@ -180,13 +180,14 @@ export interface Measured {
 }
 
 /**
- * Whether a log can say how fast it was written: it is verified and has a length.
+ * Whether a log can say how fast the vehicle wrote it: the vehicle wrote it (a ground station's recording says nothing of the
+ * vehicle's logging), it is verified, and it has a length.
  *
  * @param log the log
  * @returns true if it can
  */
 function isMeasurable(log: LocalLog): boolean {
-  return log.summary !== undefined && log.summary.verified && lengthOf(log.summary) !== null
+  return log.source === 'dataflash' && log.summary !== undefined && log.summary.verified && lengthOf(log.summary) !== null
 }
 
 /**
