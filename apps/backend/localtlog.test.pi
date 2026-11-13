@@ -9,7 +9,7 @@ import { Cbor, Envelope } from "pico-desktop/communicator"
 import { DfField, DfFormat, DfMessage } from "padcom/pico-mavlink"
 import { Counter } from "./localmessages"
 import { DataflashReader } from "./logreader"
-import { Attitude, GlobalPositionInt, GpsRawInt, Heartbeat, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
+import { Attitude, BatteryStatus, VfrHud, GlobalPositionInt, GpsRawInt, Heartbeat, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
 import {
   LocalLogSource,
   LogsImported,
@@ -400,6 +400,52 @@ async function dropsAllButAnAutopilotsHeartbeatAsTheSource(): Promise<void> thro
   }
 }
 
+async function reviewsTheCellsAndSaysTheRateOfTheSamples(): Promise<void> throws Error {
+  const w = new TlogWriter()
+  w.addMessage(T0, heartbeat(5), 1, true, 1, 1)
+  // Vibration 10 times a second for 5 s; a battery that reports three cells, the lowest 3.85 V; no GLOBAL_POSITION_INT, only VFR_HUD.
+  for (let i = 0; i < 51; i++) {
+    const vib = new Vibration()
+    vib.vibrationX = 4.0
+    w.addMessage(T0 + i * 100000, vib, i % 256, true, 1, 1)
+  }
+  const batt = new BatteryStatus()
+  batt.voltages = [3900, 3850, 3950, 65535, 65535, 65535, 65535, 65535, 65535, 65535]
+  w.addMessage(T0 + 1000000, batt, 7, true, 1, 1)
+  const hud = new VfrHud()
+  hud.alt = 584.0
+  w.addMessage(T0 + 1100000, hud, 8, true, 1, 1)
+  const r = await rig(w.bytes())
+  try {
+    await read(r)
+    const review = decodeLogsReview((await r.f.call("logs.local.review", encodeLogsLocalRead(LogsLocalRead { key: r.key }))).p ?? Cbor.Null, "$")
+    let cell = 0.0
+    let rate = 0.0
+    let found = false
+    for (const f of review.findings) {
+      if (f.id == "battery.cell") {
+        cell = f.value ?? 0.0
+        found = true
+      }
+      if (f.id == "vibration.x") {
+        rate = f.rateHz ?? 0.0
+      }
+    }
+    const ask = LogsLocalSeriesAsk { key: r.key, series: [SeriesAsk { message: "VFR", field: "Alt" }, SeriesAsk { message: "CTUN", field: "Alt" }], buckets: 2 as u16 }
+    const series = decodeLogsLocalSeries((await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
+
+    expect(found).toBe(true)
+    expect(cell).toBe(3.85)
+    // 51 samples in 5 s: 10 a second.
+    expect(Math.round(rate)).toBe(10.0)
+    // The altitude above sea level is found as its own series, and the altitude above home is not (nothing is made up of it).
+    expect(series.series[0].found).toBe(true)
+    expect(series.series[1].found).toBe(false)
+  } finally {
+    await done(r)
+  }
+}
+
 async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
   const r = await rig(flight())
   try {
@@ -489,5 +535,6 @@ describe("an imported recording in the library", () => {
   it("reads the recording that MAVProxy wrote: its report, its modes and every chart", readsTheRecordingAnotherProgramWrote)
   it("lists at most 255 kinds of message, ids above 255 included, and counts the rest", listsAtMost255KindsAndCountsTheRest)
   it("takes as the source only an autopilot's heartbeat: not a companion, a gimbal or a ground station", dropsAllButAnAutopilotsHeartbeatAsTheSource)
+  it("reviews the lowest cell and says the rate of the samples a recording's vibration finding rests on", reviewsTheCellsAndSaysTheRateOfTheSamples)
   it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
 })

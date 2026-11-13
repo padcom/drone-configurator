@@ -1504,10 +1504,11 @@ export struct ReviewFinding {
   limit?: f64
   atUs?: u64
   samples?: u32
+  rateHz?: f64
 }
 
 export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws InvalidPayload {
-  const m = members(v, path, ["id", "level", "value", "limit", "atUs", "samples"])
+  const m = members(v, path, ["id", "level", "value", "limit", "atUs", "samples", "rateHz"])
   const cbor2 = m.get("value")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -1528,6 +1529,11 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
   if (cbor5 != null) {
     opt5 = (uint(cbor5, `${path}.samples`, 4294967295) as u32)
   }
+  const cbor6 = m.get("rateHz")
+  let opt6: f64? = null
+  if (cbor6 != null) {
+    opt6 = float(cbor6, `${path}.rateHz`)
+  }
   ReviewFinding {
     id: text(required(m, "id", path), `${path}.id`),
     level: decodeReviewFindingLevel(required(m, "level", path), `${path}.level`),
@@ -1535,6 +1541,7 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
     limit: opt3,
     atUs: opt4,
     samples: opt5,
+    rateHz: opt6,
   }
 }
 
@@ -1557,6 +1564,10 @@ export function encodeReviewFinding(v: ReviewFinding): Cbor {
   const opt5 = v.samples
   if (opt5 != null) {
     m.set("samples", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.rateHz
+  if (opt6 != null) {
+    m.set("rateHz", Cbor.Float(opt6))
   }
   Cbor.Dict(m)
 }

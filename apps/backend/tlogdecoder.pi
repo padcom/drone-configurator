@@ -27,6 +27,8 @@ export const DERIVED: string[][] = [
   ["EKF_STATUS_REPORT", "XKF4"],
   ["HEARTBEAT", "MODE"],
   ["STATUSTEXT", "MSG"],
+  ["BATTERY_STATUS", "BCL"],
+  ["VFR_HUD", "VFR"],
 ]
 
 /// Units for fields the dialect gives none (by message and field): ArduPilot documents VIBRATION in m/s/s.
@@ -427,6 +429,11 @@ export class TlogDecoder implements LogReader {
       deriveMode(info, record, payload, t)
     } else if (name == "STATUSTEXT") {
       deriveText(info, payload, t)
+    } else if (name == "BATTERY_STATUS") {
+      deriveCells(info, payload, t)
+    } else if (name == "VFR_HUD") {
+      // The altitude of VFR_HUD is above sea level (MSL), not above home: its own message, never taken for CTUN.Alt.
+      give("VFR", ["Alt"], ["m"], t, [field(info, payload, "alt")])
     }
   }
 
@@ -508,6 +515,30 @@ export class TlogDecoder implements LogReader {
       field(info, payload, "type"),
       field(info, payload, "autopilot"),
     ])
+  }
+
+  /// BATTERY_STATUS: the voltage of each cell the battery reports (UINT16_MAX: not used), as the DataFlash BCL message has them, and
+  /// the pack voltage as their sum (NaN when there is no cell). Millivolts to volts.
+  deriveCells(info: MessageInfo, payload: Uint8Array, t: f64): void {
+    const values: f64[] = [field(info, payload, "id"), 0.0]
+    let sum = 0.0
+    let cells = 0
+    for (const f of info.fields) {
+      if (f.source != "voltages") {
+        continue
+      }
+      for (let i = 0; i < 10; i++) {
+        const mv = known(valueAt(payload, f.offset + i * f.size, f.type), 65535.0)
+        const volts = if (mv == mv && mv > 0.0) mv / 1000.0 else nan()
+        if (volts == volts) {
+          sum += volts
+          cells += 1
+        }
+        values.push(volts)
+      }
+    }
+    values[1] = if (cells > 0) sum else nan()
+    give("BCL", ["Instance", "Volt", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10"], ["", "V", "V", "V", "V", "V", "V", "V", "V", "V", "V", "V"], t, values)
   }
 
   /// STATUSTEXT: a line of the vehicle's text, as the DataFlash MSG message has it.

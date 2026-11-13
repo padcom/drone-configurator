@@ -26,6 +26,8 @@ export const FLIGHT_SERIES: readonly SeriesAsk[] = [
   { message: 'ATT', field: 'Roll' },
   { message: 'ATT', field: 'Pitch' },
   { message: 'CTUN', field: 'Alt' },
+  // The altitude above sea level, for a recording that has no height above home (VFR_HUD): drawn only when CTUN.Alt is not there.
+  { message: 'VFR', field: 'Alt' },
   { message: 'VIBE', field: 'VibeX', whereField: 'IMU', whereValue: 0 },
   { message: 'VIBE', field: 'VibeY', whereField: 'IMU', whereValue: 0 },
   { message: 'VIBE', field: 'VibeZ', whereField: 'IMU', whereValue: 0 },

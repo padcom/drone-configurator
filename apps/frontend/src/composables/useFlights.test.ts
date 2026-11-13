@@ -49,7 +49,7 @@ it('opens a verified log: reads it, then has its modes, its review and its serie
   expect(model.review.value).toHaveLength(11)
   expect(model.reviewMissing.value).toBeNull()
   expect(Object.keys(model.series.value).sort()).toEqual([
-    'ATT.Pitch', 'ATT.Roll', 'BAT.Volt', 'CTUN.Alt', 'VIBE.VibeX', 'VIBE.VibeY', 'VIBE.VibeZ',
+    'ATT.Pitch', 'ATT.Roll', 'BAT.Volt', 'CTUN.Alt', 'VFR.Alt', 'VIBE.VibeX', 'VIBE.VibeY', 'VIBE.VibeZ',
   ])
   expect(model.series.value['ATT.Roll']).toMatchObject({ found: true })
 })

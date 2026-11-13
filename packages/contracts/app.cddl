@@ -392,6 +392,9 @@ review-finding = {
   ? limit: float,
   ? atUs: uint .size 8,
   ? samples: uint .size 4,
+  ; For a finding of a recording (`.tlog`) that rests on samples the ground station took: how many a second there were, measured from
+  ; the file. A spike between two samples is not seen, and the page says so.
+  ? rateHz: float,
 }
 
 logs-review = { findings: [* review-finding] }

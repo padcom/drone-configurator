@@ -112,6 +112,12 @@ class Gathered implements Taker {
   /// Whether the log defines the format of ERR (an FMT for it): an ArduPilot log does, at its start, for every message it can have.
   public definesErr: bool = false
   public readonly volts: Extreme = new Extreme(false)
+  /// The lowest cell voltage of a battery that reports its cells (BCL: V1..V12; 0 is a cell that is not there).
+  public readonly cells: Extreme = new Extreme(false)
+  /// The VIBE samples of IMU 0 (the ones the review rests on): how many, and the first and last time (microseconds).
+  public vibeSamples: int = 0
+  public vibeFirst: int = -1
+  public vibeLast: int = -1
   public readonly amps: Extreme = new Extreme(true)
   /// The time of the first message that has one (microseconds), -1 before.
   public start: int = -1
@@ -142,6 +148,18 @@ class Gathered implements Taker {
     } else if (name == "BAT") {
       volts.offerField(m, "Volt")
       amps.offerField(m, "Curr")
+    } else if (name == "BCL") {
+      takeCells(m)
+    }
+  }
+
+  /// The cells of one BCL message: each that is there (above 0) may be the lowest.
+  takeCells(m: DfMessage): void {
+    for (let i = 1; i <= 12; i++) {
+      const v = m.num(`V${i}`)
+      if (v != null && v! > 0.0) {
+        cells.offer(v!, m.timeUs())
+      }
     }
   }
 
@@ -150,6 +168,15 @@ class Gathered implements Taker {
     vibeY.offerField(m, "VibeY")
     vibeZ.offerField(m, "VibeZ")
     const imu = m.num("IMU") ?? 0.0
+    const t = m.timeUs()
+    const x = m.num("VibeX")
+    if (imu == 0.0 && x != null && x! == x! && t >= 0) {
+      vibeSamples += 1
+      if (vibeFirst < 0) {
+        vibeFirst = t
+      }
+      vibeLast = t
+    }
     const clip = m.num("Clip")
     if (clip != null && imu >= 0.0 && imu < (MAX_IMUS as f64)) {
       clips[imu as int].offer(clip!)
@@ -181,6 +208,20 @@ class Gathered implements Taker {
     variance.offerField(m, "SP")
     variance.offerField(m, "SH")
     variance.offerField(m, "SM")
+  }
+}
+
+/// Puts the rate of the VIBE samples (per second, from the first to the last) on the vibration findings that rest on them.
+function sayRate(findings: ReviewFinding[], g: Gathered): void {
+  if (g.vibeSamples < 2 || g.vibeLast <= g.vibeFirst) {
+    return
+  }
+  const rate = ((g.vibeSamples - 1) as f64) / ((g.vibeLast - g.vibeFirst) as f64 / 1000000.0)
+  for (let i = 0; i < findings.length; i++) {
+    const f = findings[i]
+    if (f.id.startsWith("vibration.") && f.level != ReviewFindingLevel.NoData && f.id != "vibration.clipping") {
+      findings[i].rateHz = rate
+    }
   }
 }
 
@@ -328,5 +369,13 @@ async function review(key: string, own: AbortController): Promise<Cbor?> throws 
     battery("battery.voltage", g.volts),
     battery("battery.current", g.amps),
   ]
+  // A battery that reports its cells has the lowest cell voltage as a finding of its own (no row for one that does not).
+  if (g.cells.seen > 0) {
+    findings.push(battery("battery.cell", g.cells))
+  }
+  // A recording's samples are the ground station's: the rate they came at is said, a spike between two is not seen.
+  if (done.reader.isTlog()) {
+    sayRate(findings, g)
+  }
   encodeLogsReview(LogsReview { findings: findings })
 }
