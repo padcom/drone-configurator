@@ -1204,6 +1204,8 @@
       "summary": "Cada ranura es una posición del interruptor de modos de tu emisora. Elige qué hace el vehículo en cada una.",
       "loading": "Leyendo los modos de este vehículo…",
       "channel": "Canal del interruptor de modos (0 es ninguno)",
+      "channelNone": "Ninguno",
+      "channelN": "Canal {n}",
       "noLive": "La posición actual del interruptor aún no se muestra aquí.",
       "slot": "Modo para la posición {n}",
       "upTo": "hasta {to}",
@@ -1268,10 +1270,12 @@
       "order": "La tensión crítica debe ser menor que la baja.",
       "noName": "hace la acción {value}, que aquí no tiene nombre",
       "batteryLow": {
-        "name": "Batería baja"
+        "name": "Batería baja",
+        "below": "Bajo por debajo de (V)"
       },
       "batteryCritical": {
-        "name": "Batería crítica"
+        "name": "Batería crítica",
+        "below": "Crítico por debajo de (V)"
       },
       "radio": {
         "name": "Radio perdida"
@@ -1366,12 +1370,14 @@
       "voltage": {
         "title": "Calibrar la tensión",
         "help": "Mide la batería con un multímetro y escribe la lectura. El nuevo multiplicador es el anterior por el medidor entre lo que muestra el vehículo.",
-        "measured": "Lectura del multímetro (V)"
+        "measured": "Lectura del multímetro (V)",
+        "use": "Usar este multiplicador de tensión"
       },
       "current": {
         "title": "Calibrar la corriente",
         "help": "Mide la corriente con una pinza amperimétrica bajo carga y escribe la lectura. Los nuevos amperios por voltio son los anteriores por el medidor entre lo que muestra el vehículo.",
-        "measured": "Lectura de la pinza (A)"
+        "measured": "Lectura de la pinza (A)",
+        "use": "Usar este multiplicador de corriente"
       },
       "noMultiplier": "Este monitor no usa un multiplicador de tensión, así que aquí no hay nada que calibrar.",
       "offsetNote": "Esto calcula solo el multiplicador: el desplazamiento que tenga el sensor se deja como está.",

@@ -1,15 +1,16 @@
 <template>
   <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.modes') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.modes') }}</h3>
       <p class="muted">{{ t('setup.modes.summary') }}</p>
       <EmptyState v-if="!modes" :title="t('setup.modes.loading')" :help="error ?? ''" :level="4" />
       <template v-else>
         <div class="setup-channel">
           <label :for="`${uid}-channel`">{{ t('setup.modes.channel') }}</label>
-          <TextInput
+          <Select
             :id="`${uid}-channel`"
-            :model-value="String(panel.value('FLTMODE_CH') ?? '')"
+            :model-value="String(panel.value('FLTMODE_CH') ?? 0)"
+            :options="channelOptions"
             :disabled="panel.blocked.value !== null"
             @update:model-value="setChannel"
           />
@@ -56,11 +57,11 @@ import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Banner from '@/components/ui/Banner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import TextInput from '@/components/ui/TextInput.vue'
+import Select from '@/components/ui/Select.vue'
 import EnumField from '@/components/fields/EnumField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { MODE_PARAMS, SLOT_PARAMS, hasHint, noEscape, parseChannel, slotRange } from '@/lib/setup/flightModes'
+import { CHANNELS, MODE_PARAMS, SLOT_PARAMS, hasHint, noEscape, parseChannel, slotRange } from '@/lib/setup/flightModes'
 
 /**
  * A mode's name as the dialect gives it, readable: `ALT_HOLD` is shown as `ALT HOLD` (nothing is made up).
@@ -79,6 +80,16 @@ const panel = useParamPanel(MODE_PARAMS, handle)
 const modes = computed(() => handle.setup.modes.value)
 const error = computed(() => handle.setup.error.value)
 const options = computed(() => (modes.value?.modes ?? []).map(mode => ({ value: mode.number, label: nameOf(mode.name) })))
+/** The channels the switch can be on (0 is none), and the vehicle's own value when it is none of them (shown, not hidden). */
+const channelOptions = computed(() => {
+  const now = panel.value('FLTMODE_CH')
+  const named = CHANNELS.map(n => ({
+    value: String(n),
+    label: n === 0 ? t('setup.modes.channelNone') : t('setup.modes.channelN', { n }),
+  }))
+
+  return now === null || CHANNELS.includes(now) ? named : [...named, { value: String(now), label: String(now) }]
+})
 const escapeMissing = computed(() => noEscape(SLOT_PARAMS.map(param => panel.value(param) ?? -1)))
 
 onMounted(() => {
@@ -111,9 +122,9 @@ function hint(mode: number | null): string {
 }
 
 /**
- * The channel as typed: a whole number from 0 to 16 (0 is none), else it is not taken.
+ * The channel chosen: a whole number from 0 to 16 (0 is none), else it is not taken.
  *
- * @param text what was typed
+ * @param text the option's value
  */
 function setChannel(text: string): void {
   const channel = parseChannel(text)

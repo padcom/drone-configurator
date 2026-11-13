@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.frame') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.frame') }}</h3>
       <p class="muted">{{ t('setup.frame.summary') }}</p>
       <Banner id="setup-frame-warning" tone="warn">{{ t('setup.frame.warning') }}</Banner>
       <RebootBanner :show="rebootNeeded" />

@@ -1,7 +1,7 @@
 
 <template>
   <section class="logs-tools" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-tools-title">{{ t('logs.setup.title') }}</h3>
+    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('logs.setup.title') }}</h3>
     <p id="setup-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <EmptyState
       v-if="!logging.available.value"
@@ -104,8 +104,8 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
-const { number } = useFormat()
 const uid = useId()
+const { number } = useFormat()
 const { parameters, metadata, flights, staged, fields } = useConfigurator()
 
 const logging = useLoggingSetup({

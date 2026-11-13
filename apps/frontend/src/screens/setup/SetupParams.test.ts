@@ -116,6 +116,14 @@ it('does not offer a reading that works out to the value the vehicle has, and sa
   expect(wrapper.get('#setup-battery-write').text()).toBe('No changes')
 })
 
+it('says once that only the multiplier is worked out, and tells the two calibrations apart by their buttons', async () => {
+  const { wrapper } = await page(SetupBattery)
+
+  expect(wrapper.text().split('This works out the multiplier only').length - 1).toBe(1)
+  expect(wrapper.get('[data-calibrate="voltage"] button').text()).toBe('Use this voltage multiplier')
+  expect(wrapper.get('[data-calibrate="current"] button').text()).toBe('Use this current multiplier')
+})
+
 it('asks for a second look at a reading more than 15% from what the vehicle shows, and waits for the tick', async () => {
   const { wrapper } = await page(SetupBattery)
   await wrapper.get('[data-calibrate="voltage"] input[type="text"]').setValue('16')
@@ -160,7 +168,9 @@ it('offers the current calibration for the analog current monitor, which has no 
 
   expect(wrapper.find('[data-calibrate="voltage"]').exists()).toBe(false)
   expect(wrapper.find('[data-calibrate="current"]').exists()).toBe(true)
-  expect(wrapper.get('[data-calibrate="current"]').text()).toContain('offset the sensor has is left as it is')
+  // The note is the page's, said once, whichever calibration there is.
+  expect(wrapper.text()).toContain('offset the sensor has is left as it is')
+  expect(wrapper.get('[data-calibrate="current"]').text()).not.toContain('offset the sensor has')
 })
 
 it('says there is nothing to calibrate against when the vehicle shows no reading', async () => {
@@ -342,5 +352,7 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFrame)
 
-  expect(wrapper.get('.setup-heading').text()).toBe('Rahmen und Ausrichtung')
+  const heading = wrapper.get('.setup-page-body h3')
+  expect(heading.text()).toBe('Rahmen und Ausrichtung')
+  expect(heading.classes()).toContain('visually-hidden')
 })

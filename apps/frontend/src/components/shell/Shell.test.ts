@@ -97,11 +97,14 @@ it('shows the screen followed, and says in the link which one it is', async () =
   expect(current.map(link => link.text())).toEqual(['Parameters'])
 })
 
-it('says it as an empty state with a heading and what works now, and the old Simulation address goes to Setup', async () => {
+it('says it as an empty state with no header over it, and the old Simulation address goes to Setup', async () => {
   const { wrapper, router } = await shellAt('/simulation')
 
   expect(router.currentRoute.value.path).toBe('/setup/home')
-  expect(wrapper.get('.setup-title').text()).toBe('Setup')
+  // The rail names the screen: its heading is there for a screen reader, and not shown.
+  const heading = wrapper.get('main .setup > h2')
+  expect(heading.text()).toBe('Setup')
+  expect(heading.classes()).toContain('visually-hidden')
   expect(wrapper.get('.kit-empty .title').text()).toBe('No vehicle is connected')
 })
 
@@ -109,6 +112,7 @@ it('has a Settings screen with the language of the interface, English being the 
   const { wrapper } = await shellAt('/settings')
 
   expect(wrapper.get('main h2').text()).toBe('Settings')
+  expect(wrapper.get('main h2').classes()).toContain('visually-hidden')
   const select = wrapper.get<HTMLSelectElement>('main select')
   expect(select.findAll('option').map(option => option.text()))
     .toEqual(['English', 'Deutsch', 'Polski', 'Italiano', 'Español', 'Українська', 'Русский'])
@@ -125,14 +129,14 @@ it('sends the language that is picked on the Settings screen to the settings, so
   expect(setLanguage).toHaveBeenCalledWith('de')
 })
 
-it('gives each screen that is not built its own component, so that its heading is a new one on a change', async () => {
+it('gives each screen that is not built its own component, so that what it says is new on a change', async () => {
   const { wrapper } = await shellAt('/plan')
-  const plan = wrapper.get('main h2').element
+  const plan = wrapper.get('main .kit-empty .title').element
 
   await follow(wrapper, 'Setup')
 
-  expect(wrapper.get('main h2').element).not.toBe(plan)
-  expect(wrapper.get('main h2').text()).toBe('Setup')
+  expect(wrapper.element.contains(plan)).toBe(false)
+  expect(wrapper.get('main .setup > h2').text()).toBe('Setup')
 })
 
 it('says that a screen that is not built yet is not available, under its own name', async () => {

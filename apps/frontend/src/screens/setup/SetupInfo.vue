@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body single" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.info') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.info') }}</h3>
       <p class="muted">{{ t('setup.info.summary') }}</p>
       <Banner v-if="error" id="setup-info-error" tone="error">{{ error }}</Banner>
       <p v-if="!details && !error" id="setup-info-loading" class="muted">{{ t('setup.info.loading') }}</p>

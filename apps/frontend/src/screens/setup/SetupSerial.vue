@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.serial') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.serial') }}</h3>
       <p class="muted">{{ t('setup.serial.summary') }}</p>
       <p v-if="ports.length > 0" id="setup-serial-inuse" class="setup-progress">{{ t('setup.serial.inUse', { used }) }}</p>
       <RebootBanner :show="rebootNeeded" />

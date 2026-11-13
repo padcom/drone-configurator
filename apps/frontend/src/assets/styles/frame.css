@@ -30,10 +30,6 @@
   max-width: 40rem;
 }
 
-.settings-title {
-  margin: 0 0 var(--space-4);
-}
-
 .settings-row {
   display: grid;
   gap: var(--space-2);

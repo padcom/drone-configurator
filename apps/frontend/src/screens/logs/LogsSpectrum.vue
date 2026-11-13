@@ -1,7 +1,7 @@
 
 <template>
   <section class="logs-spectrum" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-flights-title">{{ t('logs.spectrum.title') }}</h3>
+    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('logs.spectrum.title') }}</h3>
     <p id="spectrum-status" class="visually-hidden" role="status">{{ statusText }}</p>
     <Banner
       v-if="spectrum.error.value"
@@ -141,8 +141,8 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
-const { number } = useFormat()
 const uid = useId()
+const { number } = useFormat()
 const { spectrum, flights, parameters } = useConfigurator()
 
 /**

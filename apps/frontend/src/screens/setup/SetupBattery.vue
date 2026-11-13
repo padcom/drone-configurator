@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.battery') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.battery') }}</h3>
       <p class="muted">{{ t('setup.battery.summary') }}</p>
       <div class="setup-tabs" role="group" :aria-label="t('setup.battery.which')">
         <Button
@@ -40,6 +40,7 @@
         />
       </div>
       <template v-if="tab === 0">
+        <p v-if="hasVoltage || hasCurrent" class="muted">{{ t('setup.battery.offsetNote') }}</p>
         <p v-if="!hasVoltage" id="setup-battery-novoltage" class="muted">{{ t('setup.battery.noMultiplier') }}</p>
         <BatteryCalibration
           v-else

@@ -50,15 +50,16 @@ async function connectIf(handle: ReturnType<typeof createConfigurator>, connect:
 }
 
 /**
- * Mounts a page under the router at the Setup home. The screen is what the router shows at its own depth, so it is mounted by
+ * Mounts a page under the router at an address. The screen is what the router shows at its own depth, so it is mounted by
  * the router's view, as the shell does.
  *
  * @param component the page
+ * @param at the address
  * @returns the mounted page
  */
-async function mountPage(component: Component): Promise<VueWrapper> {
+async function mountPage(component: Component, at: string): Promise<VueWrapper> {
   const router = createAppRouter(createMemoryHistory(), () => 0)
-  await router.push('/setup/home')
+  await router.push(at)
   await router.isReady()
   const shown = component === Setup ? defineComponent({ render: () => h(RouterView) }) : component
   const wrapper = mount(shown, { global: { plugins: [i18n, router] }, props: { section: 'home' } })
@@ -73,9 +74,10 @@ async function mountPage(component: Component): Promise<VueWrapper> {
  * @param component the page
  * @param more more of the mock's options
  * @param connect whether to connect the vehicle
+ * @param at the address
  * @returns the page and what drives it
  */
-async function page(component: Component, more: MockOptions = {}, connect = true): Promise<Rig> {
+async function open(component: Component, more: MockOptions, connect: boolean, at: string): Promise<Rig> {
   const control: MockControl = {}
   const asked: string[] = []
   const handle = createConfigurator(
@@ -88,9 +90,21 @@ async function page(component: Component, more: MockOptions = {}, connect = true
   )
   control.armed?.(false)
   await connectIf(handle, connect)
-  mounted = await mountPage(component)
+  mounted = await mountPage(component, at)
 
   return { wrapper: mounted, handle, control, asked }
+}
+
+/**
+ * A page at the Setup home over a connected simulated vehicle, or as the options say.
+ *
+ * @param component the page
+ * @param more more of the mock's options
+ * @param connect whether to connect the vehicle
+ * @returns the page and what drives it
+ */
+function page(component: Component, more: MockOptions = {}, connect = true): Promise<Rig> {
+  return open(component, more, connect, '/setup/home')
 }
 
 it('says a vehicle must be connected, with no list of pages, when none is', async () => {
@@ -110,8 +124,18 @@ it('says Setup is not available yet for a vehicle that is not a multicopter, and
   expect(wrapper.find('.setup-nav').exists()).toBe(false)
 })
 
+it('shows no list of pages on the overview (its cards are the list), and the list on the other pages', async () => {
+  const overview = await page(Setup)
+  expect(overview.wrapper.find('.setup-nav').exists()).toBe(false)
+  expect(overview.wrapper.findAll('.setup-card').length).toBeGreaterThan(0)
+
+  const { wrapper } = await open(Setup, {}, true, '/setup/modes')
+  expect(wrapper.find('.setup-nav').exists()).toBe(true)
+  expect(wrapper.find('.setup-card').exists()).toBe(false)
+})
+
 it('lists the pages in the groups of the design, and marks the steps by what the parameters say, in words as well', async () => {
-  const { wrapper } = await page(Setup)
+  const { wrapper } = await open(Setup, {}, true, '/setup/modes')
   const links = wrapper.findAll('.setup-nav a').map(link => link.text().replace(/\s+/gu, ' ').trim())
 
   expect(links[0]).toBe('Overview')
@@ -138,8 +162,14 @@ it('points to the first step that is open, with its page, when the parameters ar
   const { wrapper } = await page(SetupHome, { params: fresh })
 
   expect(wrapper.get('#setup-progress').text()).toBe('6 of 7 steps look set up')
-  expect(wrapper.get('#setup-next').text()).toContain('Compass')
-  expect(wrapper.get('#setup-next').attributes('href')).toContain('/setup/compass')
+  // NEXT is a mark on the card of the step, which says its name and value: they are not said twice.
+  const next = wrapper.get('#setup-next')
+  expect(next.classes()).toContain('setup-card')
+  expect(next.get('.setup-next-mark').text()).toBe('Next')
+  expect(next.text()).toContain('Compass')
+  expect(next.attributes('href')).toContain('/setup/compass')
+  expect(wrapper.findAll('.setup-card').filter(card => card.text().includes('No offsets'))).toHaveLength(1)
+  expect(wrapper.find('.setup-next-title').exists()).toBe(false)
   expect(wrapper.get('.setup-card.open').text()).toContain('COMPASS_OFS are all zero')
 })
 
@@ -186,6 +216,30 @@ it('lists exactly what the modes page writes, and writes a changed slot after on
   expect(asked[0]).not.toContain('FLTMODE1')
   expect(wrapper.get('#setup-modes-status').text()).toBe('Written and read back')
   expect(handle.parameters.params.value.find(param => param.id === 'FLTMODE2')?.value).toBe(9)
+})
+
+it('chooses the channel of the mode switch from a list: None, then the channels ArduPilot lists, by number', async () => {
+  const { wrapper, asked } = await page(SetupModes)
+  const channel = wrapper.get<HTMLSelectElement>('select')
+
+  const offered = channel.findAll('option').map(option => `${option.attributes('value')} ${option.text()}`)
+  expect(offered.join(', ')).toBe('0 None, 5 Channel 5, 6 Channel 6, 7 Channel 7, 8 Channel 8, 9 Channel 9, 10 Channel 10, '
+    + '11 Channel 11, 12 Channel 12, 13 Channel 13, 14 Channel 14, 15 Channel 15')
+  expect(channel.element.value).toBe('5')
+  await channel.setValue('8')
+  await flushPromises()
+  await wrapper.get('#setup-modes-write').trigger('click')
+  await flushPromises()
+
+  expect(asked[0]).toContain('FLTMODE_CH 5 → 8')
+})
+
+it('shows a channel the vehicle has that the list does not hold, as the number it is', async () => {
+  const odd = SETUP_PARAMS.map(param => param.id === 'FLTMODE_CH' ? { ...param, value: 2 } : param)
+  const { wrapper } = await page(SetupModes, { params: odd })
+
+  expect(wrapper.get<HTMLSelectElement>('select').element.value).toBe('2')
+  expect(wrapper.get('select option[value="2"]').text()).toBe('2')
 })
 
 it('warns when no slot can bring the vehicle home or down, and writes nothing until asked', async () => {
@@ -248,6 +302,13 @@ it('says what each failsafe does in words, and warns for the one that is off', a
   expect(gcs.get('.setup-warn').text()).toContain('is off')
   expect(wrapper.findAll('.setup-warn')).toHaveLength(1)
   expect(wrapper.get('[data-failsafe="batteryLow"]').find('.setup-warn').exists()).toBe(false)
+})
+
+it('tells the low voltage from the critical one by the label of each, not "Below (V)" twice', async () => {
+  const { wrapper } = await page(SetupFailsafes)
+
+  expect(wrapper.get('[data-failsafe="batteryLow"] label').text()).toBe('Low when below (V)')
+  expect(wrapper.get('[data-failsafe="batteryCritical"] label').text()).toBe('Critical when below (V)')
 })
 
 it('does not say a failsafe that is disabled warns: for the radio and the ground station 0 is off, nothing warns', async () => {
@@ -337,6 +398,10 @@ it('has its words in another language', async () => {
   setLanguage('de')
   const { wrapper } = await page(SetupFailsafes)
 
-  expect(wrapper.get('.setup-heading').text()).toBe('Failsafes')
+  // The list beside the page names it, so no header is shown; the heading stays for a screen reader (hidden).
+  const heading = wrapper.get('.setup-page-body h3')
+  expect(heading.text()).toBe('Failsafes')
+  expect(heading.classes()).toContain('visually-hidden')
+  expect(wrapper.get('.setup-page-body').attributes('aria-labelledby')).toBe(heading.attributes('id'))
   expect(wrapper.get('[data-failsafe="batteryLow"] h4').text()).toBe('Akku niedrig')
 })

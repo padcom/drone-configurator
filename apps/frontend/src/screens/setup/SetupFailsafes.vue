@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.failsafes') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.failsafes') }}</h3>
       <p class="muted">{{ t('setup.failsafes.summary') }}</p>
       <article
         v-for="row in rows"
@@ -17,7 +17,7 @@
           <p v-if="row.danger" class="setup-warn" role="note">{{ t(`setup.failsafes.warn.${row.action}`) }}</p>
         </div>
         <div v-if="row.threshold" class="setup-threshold">
-          <label :for="`${uid}-${row.kind}`">{{ t('setup.failsafes.below') }}</label>
+          <label :for="`${uid}-${row.kind}`">{{ t(`setup.failsafes.${row.kind}.below`) }}</label>
           <TextInput
             :id="`${uid}-${row.kind}`"
             :model-value="String(row.thresholdValue ?? '')"

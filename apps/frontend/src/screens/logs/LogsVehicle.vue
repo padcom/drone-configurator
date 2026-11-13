@@ -1,6 +1,6 @@
 <template>
   <section class="logs-vehicle" :data-section="section" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="logs-vehicle-title">{{ t('logs.vehicle.title') }}</h3>
+    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('logs.vehicle.title') }}</h3>
     <!-- What the last look at the downloaded logs on this computer did (it removes by the preferences in Settings). -->
     <p v-if="housekeepingText" id="logs-housekeeping" class="muted">{{ housekeepingText }}</p>
     <EmptyState
@@ -34,7 +34,6 @@
       <p v-if="logs.loading.value && !logs.listed.value" class="muted">{{ t('logs.vehicle.loading') }}</p>
       <p v-else-if="logs.listed.value && logs.logs.value.length === 0" class="muted">{{ t('logs.vehicle.none') }}</p>
       <table v-else-if="logs.logs.value.length > 0" class="logs-table">
-        <caption class="visually-hidden">{{ t('logs.vehicle.title') }}</caption>
         <thead>
           <tr>
             <th scope="col"><span class="visually-hidden">{{ t('logs.vehicle.column.select') }}</span></th>

@@ -1,6 +1,6 @@
 <template>
   <section class="logs" :aria-labelledby="`${uid}-title`">
-    <h2 :id="`${uid}-title`" class="logs-title">{{ t('screen.logs') }}</h2>
+    <h2 :id="`${uid}-title`" class="visually-hidden">{{ t('screen.logs') }}</h2>
     <SectionNav :label="t('logs.sections')" :sections="tabs" />
     <!-- Which part was chosen, said politely (a screen reader hears no change when only the part under the tabs is another). -->
     <p class="visually-hidden" role="status">{{ shown }}</p>

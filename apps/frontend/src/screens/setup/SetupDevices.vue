@@ -1,7 +1,7 @@
 <template>
   <section class="setup-page-body single" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="setup-heading">{{ t('setup.section.devices') }}</h3>
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.devices') }}</h3>
       <p class="muted">{{ t('setup.devices.summary') }}</p>
       <p v-if="rows.length === 0" id="setup-devices-none" class="muted">{{ t('setup.devices.none') }}</p>
       <table v-else class="setup-sensors">

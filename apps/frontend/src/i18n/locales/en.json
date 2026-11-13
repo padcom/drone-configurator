@@ -1204,6 +1204,8 @@
       "summary": "Each slot is a position of the mode switch on your transmitter. Choose what the vehicle does in each.",
       "loading": "Reading the modes of this vehicle…",
       "channel": "Channel of the mode switch (0 is none)",
+      "channelNone": "None",
+      "channelN": "Channel {n}",
       "noLive": "The position the switch is in now is not shown here yet.",
       "slot": "Mode for position {n}",
       "upTo": "up to {to}",
@@ -1268,10 +1270,12 @@
       "order": "The critical voltage must be below the low voltage.",
       "noName": "it does action {value}, which has no name here",
       "batteryLow": {
-        "name": "Battery low"
+        "name": "Battery low",
+        "below": "Low when below (V)"
       },
       "batteryCritical": {
-        "name": "Battery critical"
+        "name": "Battery critical",
+        "below": "Critical when below (V)"
       },
       "radio": {
         "name": "Radio lost"
@@ -1366,12 +1370,14 @@
       "voltage": {
         "title": "Calibrate the voltage",
         "help": "Measure the battery with a multimeter and type the reading. The new multiplier is the old one times the meter over what the vehicle shows.",
-        "measured": "Multimeter reading (V)"
+        "measured": "Multimeter reading (V)",
+        "use": "Use this voltage multiplier"
       },
       "current": {
         "title": "Calibrate the current",
         "help": "Measure the current with a clamp meter under load and type the reading. The new amps per volt is the old one times the meter over what the vehicle shows.",
-        "measured": "Clamp meter reading (A)"
+        "measured": "Clamp meter reading (A)",
+        "use": "Use this current multiplier"
       },
       "noMultiplier": "This monitor does not use a voltage multiplier, so there is nothing to calibrate here.",
       "offsetNote": "This works out the multiplier only: an offset the sensor has is left as it is.",

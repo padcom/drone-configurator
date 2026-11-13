@@ -1,6 +1,6 @@
 <template>
-  <div class="gallery">
-    <h2>{{ t('gallery.title') }}</h2>
+  <section class="gallery" :aria-labelledby="`${uid}-title`">
+    <h2 :id="`${uid}-title`" class="visually-hidden">{{ t('gallery.title') }}</h2>
     <p class="muted">{{ t('gallery.intro') }}</p>
 
     <section>
@@ -203,11 +203,11 @@
         <li v-for="name in ICON_NAMES" :key="name"><Icon :name="name" /> <code>{{ name }}</code></li>
       </ul>
     </section>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import '@/assets/styles/gallery.css'
 import LineChart from '@/components/charts/LineChart.vue'
@@ -246,6 +246,7 @@ import TruthValue from '@/components/fields/TruthValue.vue'
 // Every control of the kit in its states: what a developer looks at to see that a change to a token or a control holds.
 // It is only in the development build (screens.ts).
 const { t } = useI18n()
+const uid = useId()
 
 /** The looks of a command button, and the places its icon can be, for the section that shows them all. */
 const COMMAND_LOOKS = ['rail', 'default', 'primary', 'flight'] as const
