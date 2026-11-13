@@ -15,7 +15,7 @@
       <p :id="`${uid}-notify-help`" class="muted">{{ t('settings.notifyHelp') }}</p>
     </div>
     <h3 class="settings-group">{{ t('settings.logs.title') }}</h3>
-    <p class="muted">{{ t('settings.logs.inert') }}</p>
+    <p class="muted">{{ t('settings.logs.acts') }}</p>
     <div class="settings-row">
       <Toggle id="logs-auto-download" v-model="autoDownload" :aria-describedby="`${uid}-auto-help`">
         {{ t('settings.logs.autoDownload') }}
@@ -81,8 +81,14 @@ const sizeCap = computed({
   get: () => logsSettings.sizeCapMb.value,
   set: (next: string) => void logsSettings.chooseSizeCap(next),
 })
-const retentionOptions = computed(() => RETENTION_DAYS.map(value => ({ value, label: t('settings.logs.days', { days: value }) })))
-const capOptions = computed(() => SIZE_CAPS_MB.map(value => ({ value, label: sizeText(Number(value) * 1_000_000, number) })))
+const retentionOptions = computed(() => RETENTION_DAYS.map(value => ({
+  value,
+  label: value === '0' ? t('settings.logs.never') : t('settings.logs.days', { days: value }),
+})))
+const capOptions = computed(() => SIZE_CAPS_MB.map(value => ({
+  value,
+  label: value === '0' ? t('settings.logs.noLimit') : sizeText(Number(value) * 1_000_000, number),
+})))
 // Each language is named in itself (Deutsch, not German): a person who cannot read the current language can still find theirs.
 const options = LANGUAGES.map(code => ({ value: code, label: LANGUAGE_NAMES[code] }))
 const language = computed<string>({

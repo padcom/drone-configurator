@@ -1,6 +1,8 @@
 <template>
   <section class="logs-vehicle" :data-section="section" :aria-labelledby="`${uid}-title`">
     <h3 :id="`${uid}-title`" class="logs-vehicle-title">{{ t('logs.vehicle.title') }}</h3>
+    <!-- What the last look at the downloaded logs on this computer did (it removes by the preferences in Settings). -->
+    <p v-if="housekeepingText" id="logs-housekeeping" class="muted">{{ housekeepingText }}</p>
     <EmptyState
       v-if="connection.state !== 'connected'"
       :title="t('logs.vehicle.offline.title')"
@@ -131,7 +133,20 @@ function size(bytes: number): string {
   return sizeText(bytes, number)
 }
 const uid = useId()
-const { logs, fields } = useConfigurator()
+const { logs, fields, housekeeping } = useConfigurator()
+
+/** What the last housekeeping did, in words (nothing before one). */
+const housekeepingText = computed(() => {
+  const done = housekeeping.last.value
+  if (done === null) {
+    return ''
+  }
+  const line = t('housekeeping.line', { removed: done.removedCount, kept: done.kept })
+  const over = done.overCap ? t('housekeeping.lineOver') : ''
+  const unverified = done.unverified > 0 ? t('housekeeping.lineUnverified', { count: done.unverified }) : ''
+
+  return `${line}${over}${unverified}`
+})
 const { connection } = fields
 
 const used = computed(() => usedBytes(logs.logs.value))

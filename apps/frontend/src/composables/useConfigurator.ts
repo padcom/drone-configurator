@@ -23,6 +23,9 @@ import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
 import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
+import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
+import { useAutoDownload } from './useAutoDownload'
+import { logsPrefsOf } from '@/lib/logs/logsPrefs'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -53,6 +56,8 @@ export interface ConfiguratorHandle {
   messages: MessagesModel
   /** The flight logs on the vehicle: listed, downloaded, erased. */
   logs: LogsModel
+  /** The removal of old downloaded logs by the user's preferences. */
+  housekeeping: HousekeepingModel
   /** The flight logs on this computer: listed, opened, read, charted and reviewed. */
   flights: FlightsModel
   /** The message browser and the export of the open flight log. */
@@ -93,8 +98,8 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 /** The composables that hold the state. */
 type Models = Pick<
   ConfiguratorHandle,
-  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'flights' | 'browser' | 'spectrum'
-  | 'staged'
+  'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'housekeeping' | 'flights' | 'browser'
+  | 'spectrum' | 'staged'
 >
 
 /**
@@ -254,9 +259,15 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
  * @param client the link to the backend
  * @param vehicle the vehicle link
  * @param parametersLoading whether the parameter list is being downloaded (the list of logs waits for it)
- * @returns the logs
+ * @param settings the settings (the preferences about logs are in them)
+ * @returns the logs and their housekeeping
  */
-function startLogs(client: BackendClient, vehicle: Vehicle, parametersLoading: () => boolean): LogsModel {
+function startLogs(
+  client: BackendClient,
+  vehicle: Vehicle,
+  parametersLoading: () => boolean,
+  settings: SettingsModel,
+): Pick<ConfiguratorHandle, 'logs' | 'housekeeping'> {
   const logs = useVehicleLogs({
     client,
     connection: vehicle.connection,
@@ -268,8 +279,16 @@ function startLogs(client: BackendClient, vehicle: Vehicle, parametersLoading: (
       logs.reset()
     }
   })
+  const tell = useToasts().push
+  const prefs = () => logsPrefsOf(key => settings.uiValue(key))
+  const housekeeping = useHousekeeping({ client, prefs, tell })
+  // Old copies are looked at when the settings have been read, and after every download (which may have filled the disk).
+  watch(settings.loaded, loaded => loaded && void housekeeping.run(), { immediate: true })
+  watch(logs.outcome, outcome => outcome?.kind === 'downloaded' && void housekeeping.run())
+  const { connection, telemetry } = vehicle
+  useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell })
 
-  return logs
+  return { logs, housekeeping }
 }
 
 /**
@@ -365,11 +384,13 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  const logs = startLogs(client, vehicle, () => parameters.list.value === 'loading')
+  const { logs, housekeeping } = startLogs(client, vehicle, () => parameters.list.value === 'loading', settings)
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
-  const models = { vehicle, parameters, metadata, snapshots, settings, messages, logs, ...logModels(client, askUser), staged }
+  const models = {
+    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, ...logModels(client, askUser), staged,
+  }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

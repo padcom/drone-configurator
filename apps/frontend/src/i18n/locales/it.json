@@ -615,6 +615,9 @@
       "autoDownloadHelp": "Disattivato in modo predefinito, perché il disco non si riempia senza che tu lo chieda. Non scarica mai mentre il veicolo è armato.",
       "retention": "Conserva i log scaricati",
       "sizeCap": "Spazio massimo per i log scaricati",
+      "acts": "Si rimuovono solo le copie verificate scaricate da un veicolo. I 3 log più recenti di ogni veicolo restano sempre e le registrazioni importate non vengono mai rimosse. Non si rimuove nulla mentre un veicolo è armato.",
+      "never": "Mai",
+      "noLimit": "Nessun limite",
       "days": "Giorni: {days}"
     },
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
@@ -874,6 +877,25 @@
     "related": "Correlati",
     "openEnd": "…",
     "newValue": "Valore"
+  },
+  "housekeeping": {
+    "removed": "Log rimossi da questo computer: {count} (log {names}). Motivo: {reason}.",
+    "namesMore": "{names}; altri: {count}",
+    "why": {
+      "age": "erano più vecchi di {days} giorni",
+      "size": "i log scaricati occupavano più di {megabytes} MB",
+      "both": "erano più vecchi di {days} giorni oppure i log scaricati occupavano più di {megabytes} MB"
+    },
+    "failed": "I vecchi log non sono stati rimossi: {error}",
+    "line": "Ultimo controllo dei log scaricati: rimossi {removed}, tenuti {kept} come i più recenti del loro veicolo.",
+    "lineOver": " Occupano ancora più del limite, perché i 3 log più recenti di ogni veicolo non vengono mai rimossi.",
+    "lineUnverified": " Lasciati stare, non verificati: {count}."
+  },
+  "autoDownload": {
+    "done": "Log {id} scaricato dopo l\u2019atterraggio; il suo checksum è quello del veicolo.",
+    "failed": "Il log {id} non è stato scaricato dopo l\u2019atterraggio: {why}. Non viene ritentato da solo.",
+    "interrupted": "il download è stato interrotto",
+    "notSettled": "Il log più recente cresceva ancora dopo un minuto, quindi dopo l\u2019atterraggio non è stato scaricato nulla."
   },
   "question": {
     "importLarge": "Questo file è grande ({size}): {name}. Copiarlo nella libreria? Richiede un po\u2019 di tempo e tanto spazio su disco quanto il file.",

@@ -615,6 +615,9 @@
       "autoDownloadHelp": "Standardmäßig aus, damit die Festplatte nicht ungefragt gefüllt wird. Es wird nie heruntergeladen, solange das Fahrzeug scharf ist.",
       "retention": "Heruntergeladene Logs behalten",
       "sizeCap": "Höchster Platz für heruntergeladene Logs",
+      "acts": "Nur geprüfte, vom Fahrzeug heruntergeladene Kopien werden entfernt. Die neuesten 3 Logs jedes Fahrzeugs bleiben immer, importierte Aufzeichnungen werden nie entfernt. Solange ein Fahrzeug scharf ist, wird nichts entfernt.",
+      "never": "Nie",
+      "noLimit": "Keine Grenze",
       "days": "Tage: {days}"
     },
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
@@ -874,6 +877,25 @@
     "related": "Verwandt",
     "openEnd": "…",
     "newValue": "Wert"
+  },
+  "housekeeping": {
+    "removed": "Von diesem Computer entfernte Logs: {count} (Log {names}). Grund: {reason}.",
+    "namesMore": "{names}; weitere: {count}",
+    "why": {
+      "age": "sie waren älter als {days} Tage",
+      "size": "die heruntergeladenen Logs belegten mehr als {megabytes} MB",
+      "both": "sie waren älter als {days} Tage, oder die heruntergeladenen Logs belegten mehr als {megabytes} MB"
+    },
+    "failed": "Alte Logs wurden nicht entfernt: {error}",
+    "line": "Letzte Prüfung der heruntergeladenen Logs: {removed} entfernt, {kept} als die neuesten ihres Fahrzeugs behalten.",
+    "lineOver": " Sie belegen noch mehr als die Grenze, weil die neuesten 3 Logs jedes Fahrzeugs nie entfernt werden.",
+    "lineUnverified": " Unberührt, nicht geprüft: {count}."
+  },
+  "autoDownload": {
+    "done": "Log {id} nach der Landung heruntergeladen; seine Prüfsumme ist die des Fahrzeugs.",
+    "failed": "Log {id} wurde nach der Landung nicht heruntergeladen: {why}. Es wird nicht von selbst erneut versucht.",
+    "interrupted": "der Download wurde unterbrochen",
+    "notSettled": "Das neueste Log wuchs nach einer Minute noch, daher wurde nach der Landung nichts heruntergeladen."
   },
   "question": {
     "importLarge": "Diese Datei ist groß ({size}): {name}. In die Bibliothek kopieren? Das dauert eine Weile und braucht so viel Speicherplatz wie die Datei.",
