@@ -117,6 +117,7 @@
         <div v-if="summary.report" id="flights-report" class="muted">
           <p>{{ readText }}</p>
           <p v-if="summary.report.segments > 1">{{ t('logs.flights.reportSegments', { count: summary.report.segments }) }}</p>
+          <p v-if="(summary.report.vehicles ?? 0) > 1" id="flights-vehicles">{{ vehiclesText }}</p>
           <p v-if="summary.report.signed > 0">{{ t('logs.flights.reportSigned', { count: summary.report.signed }) }}</p>
           <p v-if="!summary.report.dated">{{ t('logs.flights.reportUndated') }}</p>
           <p v-if="summary.cutEnd" id="flights-cut-end">{{ t('logs.flights.reportCutEnd') }}</p>
@@ -210,6 +211,11 @@ const damage = computed(() => {
   const r = report.value
 
   return r === undefined ? summary.value?.problems ?? 0 : r.crcFailures + asNumber(r.bytesSkipped)
+})
+const vehiclesText = computed(() => {
+  const { vehicles, sysid, compid } = { vehicles: 0, sysid: 0, compid: 0, ...report.value }
+
+  return t('logs.flights.reportVehicles', { count: vehicles, system: sysid, component: compid })
 })
 const readText = computed(() => {
   const r = report.value

@@ -47,6 +47,7 @@
     "sections": "Logs sections",
     "shown": "Logs: {section}",
     "flights": {
+      "reportVehicles": "Vehicles in the recording: {count}. The charts, modes and review are of the first one (system {system}, component {component}).",
       "stopImport": "Stop import",
       "import": "Open log file…",
       "importing": "Importing the log file…",
@@ -217,6 +218,7 @@
       }
     },
     "browser": {
+      "more": "More kinds of message are not listed: {count}.",
       "title": "Messages",
       "loading": "Reading the kinds of message…",
       "none": "This log has no messages to browse.",

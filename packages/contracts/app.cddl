@@ -273,10 +273,17 @@ tlog-report = {
   dated: bool,
   ? firstUs: uint .size 8,
   ? lastUs: uint .size 8,
+  ; Set when the recording has been read through the views (not at import): `vehicles` is how many senders had a heartbeat with an
+  ; autopilot, and `sysid`/`compid` the first of them, the only one the charts, the modes and the review are made from. A recording
+  ; with several vehicles shows the first and says how many there were.
+  ? vehicles: uint .size 4,
+  ? sysid: uint .size 2,
+  ? compid: uint .size 2,
 }
 
 ; The answer of `logs.import`. `key` is the entry in the library (`imported/NNNNNNNN-CCCCCCCC.tlog`), `name` the file's name (no
-; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already.
+; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already (the test is
+; the CRC-32 and the size, nothing stronger: two different files with both the same would be taken for one).
 logs-imported = {
   cancelled: bool,
   duplicate: bool,
@@ -385,7 +392,9 @@ logs-review = { findings: [* review-finding] }
 ; The kinds of message of a log, with how many there are of each (at most 255 kinds). A field is a `number` (the value is scaled by its
 ; character, `unit` is the unit the log names), a `text`, or an `array` (a batch of raw samples, not shown as a value). `instanceField`
 ; is the field that tells the instances of the kind apart (`I`, `Inst`, `IMU`, `C`, `Instance`), when it has one.
-local-log-messages = { types: [* message-type] }
+; `more` is how many kinds past the 255 listed were met (a recording's kinds are MAVLink message ids, of which there can be more
+; than that); they are not listed.
+local-log-messages = { types: [* message-type], ? more: uint .size 4 }
 
 message-type = {
   name: tstr,

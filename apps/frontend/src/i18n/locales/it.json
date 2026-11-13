@@ -47,6 +47,7 @@
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
     "flights": {
+      "reportVehicles": "Veicoli nella registrazione: {count}. Grafici, modalità e revisione sono del primo (sistema {system}, componente {component}).",
       "stopImport": "Interrompi l'importazione",
       "import": "Apri file di log…",
       "importing": "Importazione del file di log…",
@@ -217,6 +218,7 @@
       }
     },
     "browser": {
+      "more": "Altri tipi di messaggio non elencati: {count}.",
       "title": "Messaggi",
       "loading": "Lettura dei tipi di messaggio…",
       "none": "Questo log non ha messaggi da sfogliare.",

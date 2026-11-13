@@ -58,6 +58,8 @@ const PARTS = 400
 export interface BrowserModel {
   /** The kinds of message the open log has. */
   readonly types: ShallowRef<MessageType[]>
+  /** How many more kinds there are than are listed (a recording can have more than 255). */
+  readonly more: Ref<number>
   /** The kind that is chosen ('' when none). */
   readonly message: Ref<string>
   /** The last message of each instance of that kind at the cursor, or null before the first answer. */
@@ -172,6 +174,7 @@ function instanceAmong(rows: AtRow[], chosen: number | null): number | null {
 /** The browser. */
 class Browser implements BrowserModel {
   readonly types = shallowRef<MessageType[]>([])
+  readonly more = ref(0)
   readonly message = ref('')
   readonly at = shallowRef<LocalLogAt | null>(null)
   readonly instance = ref<number | null>(null)
@@ -198,6 +201,7 @@ class Browser implements BrowserModel {
       const answer = await this.deps.client.call('logs.local.messages', { key })
       if (this.key === key) {
         this.types.value = [...answer.types].sort((a, b) => a.name.localeCompare(b.name))
+        this.more.value = answer.more ?? 0
       }
     })
   }
@@ -333,6 +337,7 @@ class Browser implements BrowserModel {
     this.key = ''
     this.time = null
     this.types.value = []
+    this.more.value = 0
     this.message.value = ''
     this.at.value = null
     this.instance.value = null

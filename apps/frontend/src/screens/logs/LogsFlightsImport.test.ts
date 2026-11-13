@@ -73,6 +73,12 @@ it('says what the reader found, with a cut end as a normal end and unknown messa
   expect(report).toContain('Skipped: 0 bytes of damage, 0 frames with a wrong checksum,')
   expect(report).toContain('3 frames of message types this app does not know.')
   expect(wrapper.get('#flights-cut-end').text()).toContain('it is not damage')
+  // Two vehicles: the views are of the first, and the page says so. The browser says kinds are not listed.
+  expect(wrapper.get('#flights-vehicles').text()).toBe(
+    'Vehicles in the recording: 2. The charts, modes and review are of the first one (system 1, component 1).',
+  )
+  await vi.waitFor(() => expect(wrapper.find('#browser-more').exists()).toBe(true))
+  expect(wrapper.get('#browser-more').text()).toBe('More kinds of message are not listed: 3.')
   // Three unknown frames are counted in the report and are not damage.
   expect(wrapper.find('#flights-damaged').exists()).toBe(false)
 })

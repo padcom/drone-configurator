@@ -142,11 +142,15 @@ async function streamCopy(path: string, part: string, name: string, total: int, 
       while (reader.next() != null) {
       }
       bytes += piece!.length
+      checkRead(bytes, total, MAX_IMPORT_BYTES)
       const now = Date.now() as int
       if (now - told >= PROGRESS_EVERY_MS) {
         told = now
         say(name, bytes, total)
       }
+    }
+    if (bytes != total) {
+      throw grew(bytes, total)
     }
     reader.finish()
     while (reader.next() != null) {
@@ -161,6 +165,22 @@ async function streamCopy(path: string, part: string, name: string, total: int, 
     await removeQuietly(part)
     throw e
   }
+}
+
+/// The bytes read so far may not pass the cap (`TOO_LARGE`), whatever `stat` said: a file that is still being written, or one whose
+/// size `stat` cannot give, is not copied without bound. Nor may they pass the size the file had when the copy began (`CHANGED`).
+export function checkRead(bytes: int, total: int, max: int): void throws CommunicatorError {
+  if (bytes > max) {
+    throw new CommunicatorError("TOO_LARGE", `the file is larger than the ${max / 1073741824} GiB that are imported (it may still be being written)`)
+  }
+  if (bytes > total) {
+    throw grew(bytes, total)
+  }
+}
+
+/// The error for a file whose size is not the one it had when the copy began.
+export function grew(bytes: int, total: int): CommunicatorError {
+  new CommunicatorError("CHANGED", `the file changed while it was copied (it was ${total} bytes, ${bytes} were read): it may still be being written; try again when it is closed`)
 }
 
 /// Writes a chunk; a disk that can't hold it is `NO_SPACE`.

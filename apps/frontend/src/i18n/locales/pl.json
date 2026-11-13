@@ -47,6 +47,7 @@
     "sections": "Sekcje ekranu Logi",
     "shown": "Logi: {section}",
     "flights": {
+      "reportVehicles": "Pojazdów w nagraniu: {count}. Wykresy, tryby i przegląd dotyczą pierwszego (system {system}, komponent {component}).",
       "stopImport": "Zatrzymaj import",
       "import": "Otwórz plik logu…",
       "importing": "Importowanie pliku logu…",
@@ -217,6 +218,7 @@
       }
     },
     "browser": {
+      "more": "Rodzajów wiadomości, które nie są wymienione: {count}.",
       "title": "Wiadomości",
       "loading": "Czytanie rodzajów wiadomości…",
       "none": "W tym logu nie ma wiadomości do przeglądania.",

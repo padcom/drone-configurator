@@ -202,6 +202,58 @@ function unitsComeFromTheDialectAndOurTable(): void {
   expect(at("ATT", "Roll")).toBe("deg")
 }
 
+/// A heartbeat from a sender that is not the first vehicle: another vehicle, or a gimbal (no autopilot).
+function twoVehiclesAndAGimbal(): TlogWriter {
+  const w = new TlogWriter()
+  // A gimbal's heartbeat first (autopilot INVALID): it is no vehicle, whatever it sends.
+  w.addMessage(T0, heartbeat(MavAutopilot.INVALID, 7), 1, true, 1, 154)
+  w.addMessage(T0 + 100000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
+  w.addMessage(T0 + 150000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 9), 1, true, 2, 1)
+  for (let i = 0; i < 3; i++) {
+    const att = new Attitude()
+    att.roll = (0.1 * ((i + 1) as f64)) as f32
+    w.addMessage(T0 + 200000 + i * 1000, att, 2 + i, true, 1, 1)
+    const other = new Attitude()
+    other.roll = 1.0
+    w.addMessage(T0 + 201000 + i * 1000, other, 2 + i, true, 2, 1)
+    const gimbal = new Attitude()
+    gimbal.roll = 2.0
+    w.addMessage(T0 + 202000 + i * 1000, gimbal, 2 + i, true, 1, 154)
+  }
+  w.addMessage(T0 + 300000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 6), 9, true, 1, 1)
+  w.addMessage(T0 + 310000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 3), 9, true, 2, 1)
+  w.addMessage(T0 + 320000, heartbeat(MavAutopilot.INVALID, 99), 9, true, 1, 154)
+  w
+}
+
+function makeTheViewsFromTheFirstVehicleOnly(): void {
+  const all = readAll(twoVehiclesAndAGimbal().bytes(), 1000000)
+  const att = named(all, "ATT")
+  const modes = named(all, "MODE")
+
+  // Only the first vehicle's attitude (3 messages of 0.1..0.3 rad), not the second vehicle's or the gimbal's.
+  expect(att.length).toBe(3)
+  expect(Math.round((att[0].num("Roll") ?? 0.0) * 10.0)).toBe(57.0)
+  // Only its modes: 5 then 6; the second vehicle's 9 and 3 and the gimbal's 7 and 99 are not changes of its mode.
+  expect(modes.map((m) => `${m.num("Mode")}`).join(" ")).toBe("5 6")
+  // The raw messages are all there, from every sender, with who sent them.
+  expect(named(all, "ATTITUDE").length).toBe(9)
+  expect(named(all, "HEARTBEAT").length).toBe(6)
+}
+
+function countTheVehiclesAndSayWhichIsTheSource(): void {
+  const d = new TlogDecoder()
+  d.push(twoVehiclesAndAGimbal().bytes())
+  while (d.next() != null) {
+  }
+  d.finish()
+  const report = d.tlogReport()!
+
+  expect(report.vehicles).toBe(2 as u32)
+  expect(report.sysid).toBe(1 as u16)
+  expect(report.compid).toBe(1 as u16)
+}
+
 function putAGapWhereTheRecordersClockWentBack(): void {
   const w = new TlogWriter()
   w.addMessage(T0 + 10000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
@@ -217,6 +269,8 @@ function putAGapWhereTheRecordersClockWentBack(): void {
 }
 
 describe("the tlog decoder", () => {
+  it("makes the views from the first vehicle only: not a second vehicle, not a gimbal's heartbeat", makeTheViewsFromTheFirstVehicleOnly)
+  it("counts the vehicles and says which one the views are made from", countTheVehiclesAndSayWhichIsTheSource)
   it("puts a gap of 30 s where the recorder's clock went back, so that the time only goes forward", putAGapWhereTheRecordersClockWentBack)
   it("gives every MAVLink message as it is, with the dialect's names", giveTheMessagesAsTheyAreWithTheirUnits)
   it("makes the DataFlash-named messages in their units", makeTheDataflashNamedOnesInTheirUnits)

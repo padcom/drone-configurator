@@ -936,10 +936,13 @@ export struct TlogReport {
   dated: bool
   firstUs?: u64
   lastUs?: u64
+  vehicles?: u32
+  sysid?: u16
+  compid?: u16
 }
 
 export function decodeTlogReport(v: Cbor, path: string): TlogReport throws InvalidPayload {
-  const m = members(v, path, ["records", "v1", "v2", "signed", "crcFailures", "unknown", "jitter", "segments", "bytesSkipped", "bytesCut", "cutEnd", "dated", "firstUs", "lastUs"])
+  const m = members(v, path, ["records", "v1", "v2", "signed", "crcFailures", "unknown", "jitter", "segments", "bytesSkipped", "bytesCut", "cutEnd", "dated", "firstUs", "lastUs", "vehicles", "sysid", "compid"])
   const cbor12 = m.get("firstUs")
   let opt12: u64? = null
   if (cbor12 != null) {
@@ -949,6 +952,21 @@ export function decodeTlogReport(v: Cbor, path: string): TlogReport throws Inval
   let opt13: u64? = null
   if (cbor13 != null) {
     opt13 = (uint(cbor13, `${path}.lastUs`, 18446744073709551615) as u64)
+  }
+  const cbor14 = m.get("vehicles")
+  let opt14: u32? = null
+  if (cbor14 != null) {
+    opt14 = (uint(cbor14, `${path}.vehicles`, 4294967295) as u32)
+  }
+  const cbor15 = m.get("sysid")
+  let opt15: u16? = null
+  if (cbor15 != null) {
+    opt15 = (uint(cbor15, `${path}.sysid`, 65535) as u16)
+  }
+  const cbor16 = m.get("compid")
+  let opt16: u16? = null
+  if (cbor16 != null) {
+    opt16 = (uint(cbor16, `${path}.compid`, 65535) as u16)
   }
   TlogReport {
     records: (uint(required(m, "records", path), `${path}.records`, 4294967295) as u32),
@@ -965,6 +983,9 @@ export function decodeTlogReport(v: Cbor, path: string): TlogReport throws Inval
     dated: boolean(required(m, "dated", path), `${path}.dated`),
     firstUs: opt12,
     lastUs: opt13,
+    vehicles: opt14,
+    sysid: opt15,
+    compid: opt16,
   }
 }
 
@@ -989,6 +1010,18 @@ export function encodeTlogReport(v: TlogReport): Cbor {
   const opt13 = v.lastUs
   if (opt13 != null) {
     m.set("lastUs", Cbor.Uint(opt13 as u64))
+  }
+  const opt14 = v.vehicles
+  if (opt14 != null) {
+    m.set("vehicles", Cbor.Uint(opt14 as u64))
+  }
+  const opt15 = v.sysid
+  if (opt15 != null) {
+    m.set("sysid", Cbor.Uint(opt15 as u64))
+  }
+  const opt16 = v.compid
+  if (opt16 != null) {
+    m.set("compid", Cbor.Uint(opt16 as u64))
   }
   Cbor.Dict(m)
 }
@@ -1547,18 +1580,29 @@ function encodeLocalLogMessagesTypesList(v: MessageType[]): Cbor {
 
 export struct LocalLogMessages {
   types: MessageType[]
+  more?: u32
 }
 
 export function decodeLocalLogMessages(v: Cbor, path: string): LocalLogMessages throws InvalidPayload {
-  const m = members(v, path, ["types"])
+  const m = members(v, path, ["types", "more"])
+  const cbor1 = m.get("more")
+  let opt1: u32? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.more`, 4294967295) as u32)
+  }
   LocalLogMessages {
     types: decodeLocalLogMessagesTypesList(required(m, "types", path), `${path}.types`),
+    more: opt1,
   }
 }
 
 export function encodeLocalLogMessages(v: LocalLogMessages): Cbor {
   const m = new Map<string, Cbor>()
   m.set("types", encodeLocalLogMessagesTypesList(v.types))
+  const opt1 = v.more
+  if (opt1 != null) {
+    m.set("more", Cbor.Uint(opt1 as u64))
+  }
   Cbor.Dict(m)
 }
 

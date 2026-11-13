@@ -47,6 +47,7 @@
     "sections": "Bereiche der Logs",
     "shown": "Logs: {section}",
     "flights": {
+      "reportVehicles": "Fahrzeuge in der Aufzeichnung: {count}. Diagramme, Modi und Überprüfung beziehen sich auf das erste (System {system}, Komponente {component}).",
       "stopImport": "Import stoppen",
       "import": "Logdatei öffnen…",
       "importing": "Logdatei wird importiert…",
@@ -217,6 +218,7 @@
       }
     },
     "browser": {
+      "more": "Weitere Nachrichtenarten, die nicht aufgelistet sind: {count}.",
       "title": "Nachrichten",
       "loading": "Nachrichtenarten werden gelesen…",
       "none": "Dieses Log enthält keine Nachrichten zum Durchsuchen.",

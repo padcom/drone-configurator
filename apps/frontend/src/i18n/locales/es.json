@@ -47,6 +47,7 @@
     "sections": "Secciones de Registros",
     "shown": "Registros: {section}",
     "flights": {
+      "reportVehicles": "Vehículos en la grabación: {count}. Los gráficos, modos y revisión son del primero (sistema {system}, componente {component}).",
       "stopImport": "Detener la importación",
       "import": "Abrir archivo de registro…",
       "importing": "Importando el archivo de registro…",
@@ -217,6 +218,7 @@
       }
     },
     "browser": {
+      "more": "Más tipos de mensaje que no se listan: {count}.",
       "title": "Mensajes",
       "loading": "Leyendo los tipos de mensaje…",
       "none": "Este registro no tiene mensajes que explorar.",

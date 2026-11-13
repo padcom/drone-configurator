@@ -3,7 +3,7 @@
 // message of each instance (the IMU, the battery, ...) at or before that time, with the time it was written, never a value from
 // later. Each is one pass over the file, a chunk at a time (locallogs.pi), cancelable, with `logs.local.progress`.
 //
-// What is kept is a counter for each of the (at most 256) kinds, and at most `MAX_INSTANCES` messages: whatever the size of the log.
+// What is kept is a counter for each of the (at most 255) kinds, and at most `MAX_INSTANCES` messages: whatever the size of the log.
 // The log has to have been read (`logs.local.read`) and be the same file. A value that is not a number (NaN, infinity, or too big
 // once the log's multiplier is applied) is given without a value, never as 0; an array field (a batch of samples) is not a value
 // and is not given at all.
@@ -63,30 +63,46 @@ export function usable(v: f64): bool {
   v == v && v <= 1.0e300 && v >= -1.0e300
 }
 
-/// Counts the messages of each kind, and remembers the format of each.
-class Counter implements Taker {
-  /// For each type of message (0..255): its place in `formats`, or -1.
-  readonly slot: int[] = []
+/// The most kinds of message the browser lists (the contract's 255); more kinds are counted, not listed.
+const MAX_KINDS: int = 255
+
+/// The most kinds that are counted as not listed (a hostile recording can have a message id for each of 16 million).
+const MAX_OMITTED: int = 100000
+
+/// Counts the messages of each kind, and remembers the format of each. A kind is its type: a DataFlash log's is a byte, a
+/// recording's is the MAVLink message id (up to 16 million), so the kinds are kept in a map and not in a table of 256.
+export class Counter implements Taker {
+  /// For each type of message that is listed: its place in `formats`.
+  readonly slot: Map<int, int> = new Map<int, int>()
   public readonly formats: DfFormat[] = []
   public readonly counts: int[] = []
+  /// The types met past `MAX_KINDS`, which are not listed (up to `MAX_OMITTED` of them are told apart).
+  readonly omitted: Map<int, bool> = new Map<int, bool>()
 
-  constructor() {
-    for (let i = 0; i < 256; i++) {
-      slot.push(-1)
-    }
+  /// How many kinds are not listed.
+  public get more(): int {
+    omitted.size
   }
 
   public take(m: DfMessage): void {
     const t = m.format.type
-    if (t < 0 || t > 255) {
+    if (t < 0) {
       return
     }
-    if (slot[t] < 0) {
-      slot[t] = formats.length
-      formats.push(m.format)
-      counts.push(0)
+    const known = slot.get(t)
+    if (known != null) {
+      counts[known!] += 1
+      return
     }
-    counts[slot[t]] += 1
+    if (formats.length < MAX_KINDS) {
+      slot.set(t, formats.length)
+      formats.push(m.format)
+      counts.push(1)
+      return
+    }
+    if (omitted.size < MAX_OMITTED) {
+      omitted.set(t, true)
+    }
   }
 }
 
@@ -101,7 +117,11 @@ async function messagesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cb
     if (!done.unchanged) {
       throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
     }
-    return encodeLocalLogMessages(LocalLogMessages { types: typesOf(counter, done.reader.tables(), done.reader) })
+    const listed = LocalLogMessages { types: typesOf(counter, done.reader.tables(), done.reader) }
+    if (counter.more > 0) {
+      listed.more = counter.more as u32
+    }
+    return encodeLocalLogMessages(listed)
   } finally {
     releaseRead()
   }

@@ -77,6 +77,9 @@ const TLOG_REPORT: TlogReport = {
   dated: true,
   firstUs: 0,
   lastUs: LAST_US - FIRST_US,
+  vehicles: 2,
+  sysid: 1,
+  compid: 1,
 }
 
 /** The findings a recording cannot support: no data, never a pass. */
@@ -489,8 +492,11 @@ export class MockLocalLogs {
    * @param fail sends an error
    */
   messages(key: string, ok: Reply, fail: Fail): void {
-    if (this.findRead(key, fail)) {
-      setTimeout(() => ok(MOCK_MESSAGES), this.stepMs)
+    const copy = this.findRead(key, fail)
+    if (copy) {
+      // A recording can have more kinds than are listed.
+      const answer = copy.log.source === 'tlog' ? { ...MOCK_MESSAGES, more: 3 } : MOCK_MESSAGES
+      setTimeout(() => ok(answer), this.stepMs)
     }
   }
 

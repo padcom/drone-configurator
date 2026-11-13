@@ -37,8 +37,10 @@ export const OWN_UNITS: string[][] = [
 ]
 
 /// The first type number of the derived formats (the raw ones have their message id).
-const DERIVED_TYPE: int = 100000
+const DERIVED_TYPE: int = 1073741824
 const MAV_AUTOPILOT_INVALID: int = 8
+/// The most senders of heartbeats that are told apart (a recording can have 255 systems of 255 components).
+const MAX_VEHICLES: int = 1000
 /// The gap (microseconds) put before a stretch of the recording whose clock went back: 30 s.
 const SEGMENT_GAP_US: int = 30000000
 const DEG: f64 = 57.29577951308232
@@ -194,8 +196,14 @@ export class TlogDecoder implements LogReader {
   segment: int = 0
   shift: int = 0
   latest: int = 0
-  /// The mode last given by each sender (key `sysid`), so that `MODE` is a change and not every heartbeat.
-  readonly modes: Map<int, int> = new Map<int, int>()
+  /// The one source the DataFlash-named messages are made from: the first sender (system, component) whose heartbeat has an
+  /// autopilot (not MAV_AUTOPILOT_INVALID: a ground station, a companion computer or a gimbal sends heartbeats too). -1 until one.
+  sourceSystem: int = -1
+  sourceComponent: int = -1
+  /// The senders of such heartbeats (key system * 256 + component): how many vehicles the recording has.
+  readonly vehicles: Map<int, bool> = new Map<int, bool>()
+  /// The mode last given by the source, so that `MODE` is a change and not every heartbeat.
+  lastMode: int = -1
   /// Messages of a kind the dialects don't have (cannot happen for a record the reader gave) and messages made from a record.
   public unmapped: int = 0
 
@@ -261,7 +269,13 @@ export class TlogDecoder implements LogReader {
   }
 
   public tlogReport(): TlogReport? {
-    reportOf(reader)
+    const report = reportOf(reader)
+    report.vehicles = vehicles.size as u32
+    if (sourceSystem >= 0) {
+      report.sysid = sourceSystem as u16
+      report.compid = sourceComponent as u16
+    }
+    report
   }
 
   /// Whether a message is made by this decoder (named as DataFlash names it) and not a MAVLink message as it was.
@@ -300,7 +314,25 @@ export class TlogDecoder implements LogReader {
     const payload = record.payload()
     const t = timeOf(record) as f64
     pending.push(rawMessage(info!, record, payload, t))
-    deriveFrom(info!, record, payload, t)
+    noteVehicle(info!, record, payload)
+    if (record.sysid == sourceSystem && record.compid == sourceComponent) {
+      deriveFrom(info!, record, payload, t)
+    }
+  }
+
+  /// A heartbeat with an autopilot is a vehicle; the first one is the source of the DataFlash-named messages (a recording with two
+  /// vehicles would otherwise be one line in each chart and one review).
+  noteVehicle(info: MessageInfo, record: TlogRecord, payload: Uint8Array): void {
+    if (info.name != "HEARTBEAT" || field(info, payload, "autopilot") == (MAV_AUTOPILOT_INVALID as f64)) {
+      return
+    }
+    if (vehicles.size < MAX_VEHICLES) {
+      vehicles.set(record.sysid * 256 + record.compid, true)
+    }
+    if (sourceSystem < 0) {
+      sourceSystem = record.sysid
+      sourceComponent = record.compid
+    }
   }
 
   /// The MAVLink message as it is.
@@ -448,11 +480,10 @@ export class TlogDecoder implements LogReader {
       return
     }
     const mode = field(info, payload, "custom_mode") as int
-    const before = modes.get(record.sysid)
-    if (before != null && before! == mode) {
+    if (mode == lastMode) {
       return
     }
-    modes.set(record.sysid, mode)
+    lastMode = mode
     give("MODE", ["Mode", "ModeNum", "Type", "Autopilot"], ["", "", "", ""], t, [
       mode as f64,
       mode as f64,
