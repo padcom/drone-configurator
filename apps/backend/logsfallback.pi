@@ -1,0 +1,103 @@
+// The flight logs over the MAVLink log protocol (LOG_REQUEST_LIST / LOG_ENTRY, LOG_REQUEST_DATA / LOG_DATA, LOG_ERASE), for a vehicle
+// whose file transfer cannot be used (it has none: `BRD_OPTIONS`, or an old firmware). Slower than file transfer (90 bytes in a
+// packet), and with NO checksum: what comes this way can't be compared with anything the vehicle says, so it is never "checked". It
+// is kept as `NNNNNNNN-CCCCCCCC.unchecked.BIN` (the CCCCCCCC is the CRC-32 of the bytes THIS computer got, only a name), a name that
+// the list of copies, housekeeping and the erase do not recognize: such a copy is never removed by the app, never counts for an erase,
+// and the interface says "Not checked (no checksum)". This file knows nothing of the folders: logs.pi owns them and calls here.
+import { CommunicatorError } from "pico-desktop/communicator"
+import { LogInfo, LogProtocolClient, LogProtocolError, LogSink, MavLinkConnection, Target } from "padcom/pico-mavlink"
+
+/// What a copy that came over the log protocol is called after its number and CRC-32 (hex, 8 digits): the tail of its name.
+export const UNCHECKED_TAIL: string = ".unchecked.BIN"
+
+/// The client of the log protocol for the connected vehicle, stoppable with `signal`. The waits are long: the vehicle sends nothing
+/// until it has had a heartbeat of ours, and a card is slow.
+export function protocolClient(conn: MavLinkConnection, target: Target, signal: AbortSignal?): LogProtocolClient {
+  if (signal == null) {
+    return new LogProtocolClient(conn, target, { timeoutMs: 2000, retries: 4, silenceMs: 500 })
+  }
+  new LogProtocolClient(conn, target, { timeoutMs: 2000, retries: 4, silenceMs: 500, signal: signal! })
+}
+
+/// A failure of the protocol as the error of a call: the same code, with `STOPPED` for a stop.
+export function asError(e: LogProtocolError): CommunicatorError {
+  if (e.code == "LOG_ABORTED") {
+    return new CommunicatorError("STOPPED", "stopped: cancelled, the vehicle armed, or the connection ended")
+  }
+  new CommunicatorError(e.code, e.message)
+}
+
+/// The logs the vehicle lists over the protocol, oldest first.
+export async function listByProtocol(client: LogProtocolClient): Promise<LogInfo[]> throws CommunicatorError {
+  try {
+    return await client.list()
+  } catch (e: LogProtocolError) {
+    throw asError(e)
+  }
+}
+
+/// How a download over the protocol ended: `done` (the CRC-32 of the bytes is `crc`, a name only), `stopped` (cancelled, the vehicle
+/// armed, the session ended: what came is kept), or `failed` with the words.
+export class ProtocolOutcome {
+  public state: string = "done"
+  public why: string = ""
+  public crc: int = 0
+  public size: int = 0
+}
+
+/// Downloads log `id` of `listed` bytes into `sink`, which holds `held` bytes of it already (their CRC-32 is `crcOfHeld`): told how
+/// far it has come as `progress(bytes, total)`. The log is whole when it has the listed size: a log that has another size is a log
+/// that is still being written, and is a failure with the words (what came is kept as a part).
+export async function fetchByProtocol(
+  client: LogProtocolClient,
+  id: int,
+  listed: int,
+  sink: LogSink,
+  held: int,
+  crcOfHeld: int,
+  progress: (bytes: int, total: int) => void throws Error,
+): Promise<ProtocolOutcome> {
+  const outcome = new ProtocolOutcome()
+  try {
+    const got = await client.download(id, sink, held, crcOfHeld, listed, progress)
+    outcome.crc = got.crc
+    outcome.size = got.size
+  } catch (e: LogProtocolError) {
+    if (e.code == "LOG_ABORTED") {
+      outcome.state = "stopped"
+    } else {
+      outcome.state = "failed"
+      outcome.why = `log ${id}: ${e.message}; what came is kept as a part`
+    }
+  }
+  outcome
+}
+
+/// Whether the logs the vehicle lists now are NOT the ones that were checked: there are not as many, or one is larger than it was
+/// when it was checked (it was written to since: part of it was never read). `checked` are the sizes of the logs that were checked, in
+/// the order of their numbers; the protocol's own ids are not compared (they number the logs from 1, and the files may not).
+export function changedSince(checked: int[], now: LogInfo[]): bool {
+  if (now.length != checked.length) {
+    return true
+  }
+  for (let i = 0; i < now.length; i++) {
+    if (now[i].size > checked[i]) {
+      return true
+    }
+  }
+  false
+}
+
+/// Erases ALL the logs on the vehicle, unless the list it gives right before is not the one that was checked (`changedSince`), or
+/// `blocked()` says it may not be done now (the vehicle armed, or is not known to be disarmed): then nothing is sent, and the error
+/// is `CHANGED`. Gives how many logs it still has (0 when the erase took).
+export async function eraseByProtocol(client: LogProtocolClient, checked: int[], blocked: () => bool): Promise<int> throws CommunicatorError {
+  try {
+    return await client.erase((now: LogInfo[]) => blocked() || changedSince(checked, now))
+  } catch (e: LogProtocolError) {
+    if (e.code == "LOG_VETOED") {
+      throw new CommunicatorError("CHANGED", "the vehicle's logs are not the ones that were checked (one came or grew), or it armed: nothing was erased")
+    }
+    throw asError(e)
+  }
+}

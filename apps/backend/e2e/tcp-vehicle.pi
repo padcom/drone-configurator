@@ -2,10 +2,13 @@
 // same MAVLink over the same socket path as ArduPilot SITL's port 5760, without SITL. It prints
 // `listening <port>`, then serves one vehicle per connection until it's killed. It prints
 // `param-set` for each PARAM_SET it receives. Any input on stdin makes the current vehicle go
-// silent, so a write stays in flight.
+// silent, so a write stays in flight. With the environment variable VEHICLE_LOGS=1 it holds three flight logs (valid DataFlash
+// logs of different lengths, in `/logs`, which file transfer and the MAVLink log protocol serve) and stays DISARMED (the
+// simulator arms itself after three ticks; a logs download is refused while armed), so that logs can be listed, downloaded and
+// erased through the window.
 import { Conn, listen } from "std/net"
-import { stdin, stdout } from "std/process"
-import { ByteStream, ParamSet, Received, SimulatedAutopilot, TcpStream } from "padcom/pico-mavlink"
+import { env, stdin, stdout } from "std/process"
+import { ByteStream, ParamSet, Received, SimulatedAutopilot, TcpStream, simulatedLog } from "padcom/pico-mavlink"
 
 let muted = false
 
@@ -60,6 +63,19 @@ function serve(conn: Conn): void {
     }
   })
   sim!.start(250)
+  if (env.get("VEHICLE_LOGS") == "1") {
+    withLogs(sim!)
+  }
+}
+
+/// Three logs, oldest first (their times are a day apart), and a vehicle that never arms: its tick is set back before it counts 3.
+function withLogs(sim: SimulatedAutopilot): void {
+  sim.addLog(1, simulatedLog(9000, 1), 1783000000)
+  sim.addLog(2, simulatedLog(2500, 2), 1783086400)
+  sim.addLog(3, simulatedLog(16000, 3), 1783172800)
+  setInterval(() => {
+    sim.ticks = 0
+  }, 100)
 }
 
 async function muteOnInput(): Promise<void> throws Error {

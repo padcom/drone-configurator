@@ -19,14 +19,20 @@ services = {
   ; arrived).
   "params.progress": ["event", params-progress],
   "params.write": ["method", param-write, param-write-result],
-  ; The flight logs on the vehicle (the backend serves `logs.vehicle.list` and `logs.download`, `logs.cancel`, `logs.progress`;
-  ; `logs.erase` is still the mock's: the backend answers it with UNSUPPORTED, and says so with `can-erase` false).
+  ; The flight logs on the vehicle (the backend serves `logs.vehicle.list`, `logs.download`, `logs.cancel`, `logs.progress` and
+  ; `logs.erase`). Over MAVLink FTP when the vehicle has it; when it has none (it answers nothing, or does not know the
+  ; commands) over the MAVLink log protocol (LOG_REQUEST_LIST / LOG_DATA): slower, with no checksum, so what it fetches is never
+  ; "checked" (see `vehicle-log`); `vehicle-logs` says which one listed them.
   ; `logs.vehicle.list` lists them, `logs.download` fetches the ones named, one after the other, with `logs.progress` events
   ; for each, and `logs.cancel` stops it (what was fetched is kept, and the next download of that log goes on from there).
   ; Neither downloads nor erases while the vehicle is armed (`ARMED`), is not known to be disarmed (`STATE_UNKNOWN`) or while a
   ; download runs (`BUSY`). A backend that implements this must also STOP a download that is running when the vehicle arms
-  ; (the refusal at the start is not enough), and keep what was fetched. `logs.erase` erases only logs that were downloaded
-  ; and checked (see `vehicle-log`); the others stay, and are counted.
+  ; (the refusal at the start is not enough), and keep what was fetched. `logs.erase` erases ALL the logs on the vehicle (the log
+  ; protocol has no way to erase one) and only when EVERY one of them has a copy here that was checked by the vehicle's own CRC-32
+  ; (read again now, on both sides): else nothing is erased and it fails with `NOT_DOWNLOADED` (with the count in words). It also
+  ; fails with `NOT_VERIFIABLE` when the vehicle has no file transfer to check against, with `CHANGED` when the vehicle's logs
+  ; are not the ones that were checked (a log came or grew meanwhile), and with `ERASE_FAILED` when it still has logs afterwards
+  ; (it does not answer an erase). The page asks the user once, naming the count. Nothing on this computer is removed.
   "logs.vehicle.list": ["method", null, vehicle-logs],
   "logs.download": ["method", logs-download, logs-downloaded],
   "logs.cancel": ["method", null, null],
@@ -196,6 +202,9 @@ param-write-result = {
 ; and `logs.erase` never takes it. A copy of the right size with a block lost or garbled is not checked either, and a log
 ; that could not be checked is never erased.
 ;
+; `noChecksum` is the other thing a log can be: a copy of its number and size is here that came over the log protocol, which has
+; no checksum (it is `downloaded: false`: it is not "checked", it does not count for an erase, housekeeping never removes it).
+;
 ; `downloaded` needs the vehicle's CRC of the log, which the vehicle reads from its card: the backend does not ask while the
 ; vehicle is armed or its state is unknown, nor after the vehicle arms, nor past a time limit for the whole list; it keeps what it
 ; was told for a log of that number and size for as long as the connection lasts. A log that has a copy of its number and size
@@ -206,6 +215,7 @@ vehicle-log = {
   ? time: uint .size 8,
   downloaded: bool,
   ? unchecked: bool,
+  ? noChecksum: bool,
 }
 
 ; The logs, how they were listed ("ftp": the vehicle's files, or "mavlink": the log protocol), and whether `logs.erase` can be
@@ -221,7 +231,7 @@ logs-download = { ids: [* uint .size 4] }
 ; download of that log goes on from there.
 logs-downloaded = { ids: [* uint .size 4], stopped: bool, ? error: tstr }
 
-; The logs erased (they were downloaded), and how many were kept because they are not downloaded.
+; The logs erased (all of them, each had a checked copy here) and how many were kept (always 0: an erase is all or nothing).
 logs-erased = { erased: [* uint .size 4], kept: uint .size 4 }
 
 ; How a log is doing: queued, being fetched (`received` of `total` bytes; `resumedFrom` is where it began, when it went on from

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { LogsProgress, VehicleLog } from '@/generated/app'
 import { formatFor } from '@/i18n/useFormat'
-import { blockedBy, madeAt, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from './vehicleLogs'
+import { blockedBy, madeAt, notChecked, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from './vehicleLogs'
 
 const EN = formatFor('en').number
 const DE = formatFor('de').number
@@ -64,4 +64,22 @@ it('gives the percent of a log fetched, held to 0 to 100, and 0 for a log of no 
 it('gives the time a log was made, or none when the vehicle gave none', () => {
   expect(madeAt(NEW)?.getTime()).toBe(1_783_000_000_000)
   expect(madeAt(FETCHED)).toBeNull()
+})
+
+it('says a copy that came over the log protocol has no checksum, also when its download says it is done', () => {
+  const copy: VehicleLog = { id: 4, size: 90, downloaded: false, noChecksum: true }
+
+  expect(stateOf(copy, undefined)).toBe('noChecksum')
+  expect(stateOf(copy, { id: 4, state: 'done', received: 90, total: 90 })).toBe('noChecksum')
+  // While it is fetched again the row says so.
+  expect(stateOf(copy, { id: 4, state: 'downloading', received: 9, total: 90 })).toBe('downloading')
+})
+
+it('does not offer a copy with no checksum for a download, and counts it among the logs with no checked copy', () => {
+  const copy: VehicleLog = { id: 4, size: 90, downloaded: false, noChecksum: true }
+
+  expect(undownloadedIds([...LOGS, copy])).toEqual([1, 3])
+  expect(notChecked([...LOGS, copy])).toBe(3)
+  expect(notChecked([FETCHED])).toBe(0)
+  expect(notChecked([])).toBe(0)
 })

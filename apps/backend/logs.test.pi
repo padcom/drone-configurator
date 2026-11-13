@@ -6,22 +6,26 @@ import { exists, readBytes, readDir, remove, writeBytes, mkdir } from "std/fs"
 import { join } from "std/path"
 import { pid } from "std/process"
 import { Cbor, Envelope } from "pico-desktop/communicator"
-import { crc32Of } from "padcom/pico-mavlink"
+import { LogInfo, crc32Of } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
   ConnectRequestTransport,
   LogsDownload,
   LogsDownloaded,
+  LogsErased,
   LogsProgressState,
   VehicleLogs,
+  VehicleLogsSource,
   decodeLogsDownloaded,
+  decodeLogsErased,
   decodeLogsProgress,
   decodeVehicleLogs,
   encodeConnectRequest,
   encodeLogsDownload,
 } from "./generated/app"
-import { copyName, copyNumbers, folderName, folderOf, hex8, limitCrcQuestions, nameOfLog, numberOfLog } from "./logs"
+import { copyName, copyNumbers, folderName, folderOf, forgetNoFtp, ftpUnusable, hex8, limitCrcQuestions, nameOfLog, numberOfLog, uncheckedName, uncheckedNumbers } from "./logs"
+import { changedSince } from "./logsfallback"
 import { link } from "./session"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -225,7 +229,11 @@ async function downloadsALogAndChecksIt(): Promise<void> throws Error {
   const lines = progressOf(r, 1)
   expect(lines[0]).toBe("queued 0/100000")
   expect(lines[lines.length - 1]).toBe("done 100000/100000")
-  expect((await list(r)).logs[0].downloaded).toBe(true)
+  const listed = await list(r)
+  expect(listed.logs[0].downloaded).toBe(true)
+  // Over file transfer an erase is possible (the page decides whether now).
+  expect(listed.source).toBe(VehicleLogsSource.Ftp)
+  expect(listed.canErase).toBe(true)
   // A log asked for again is whole already: nothing is fetched.
   const again = await download(r, [1])
   expect(again.ids.join(",")).toBe("1")
@@ -611,10 +619,226 @@ async function stopsTheListWhenTheVehicleArms(): Promise<void> throws Error {
   await finish(r)
 }
 
-async function doesNotErase(): Promise<void> throws Error {
+async function erase(r: Rig): Promise<LogsErased> throws Error {
+  const e = await r.f.call("logs.erase")
+  decodeLogsErased(e.p ?? Cbor.Null, "$")
+}
+
+/// The vehicle has no file transfer: it answers nothing to it (a read that waits for it takes seconds).
+function withoutFileTransfer(): void {
+  simulatorForTests()!.ftpMode = "silent"
+}
+
+function namesAProtocolCopy(): void {
+  expect(uncheckedName(1, 0xABCDEF01)).toBe("00000001-abcdef01.unchecked.BIN")
+  expect(uncheckedNumbers("00000007-0000002a.unchecked.BIN").join(",")).toBe("7,42")
+  // A checked copy's name is not one with no checksum, and the reverse: the one list never takes the other.
+  expect(uncheckedNumbers("00000007-0000002a.BIN")[0]).toBe(-1)
+  expect(copyNumbers("00000007-0000002a.unchecked.BIN")[0]).toBe(-1)
+  expect(uncheckedNumbers("00000007-0000002a.unchecked.BIN.part")[0]).toBe(-1)
+  expect(ftpUnusable("FTP_TIMEOUT")).toBe(true)
+  expect(ftpUnusable("FTP_UNKNOWN_COMMAND")).toBe(true)
+  expect(ftpUnusable("FTP_PROTOCOL")).toBe(false)
+  expect(ftpUnusable("FTP_ABORTED")).toBe(false)
+}
+
+async function listsOverTheLogProtocolWhenThereIsNoFileTransfer(): Promise<void> throws Error {
   const r = await connected()
-  expect(codeOf(await r.f.call("logs.erase"))).toBe("UNSUPPORTED")
+  withoutFileTransfer()
+  const logs = await list(r)
+
+  expect(logs.source).toBe(VehicleLogsSource.Mavlink)
+  expect(logs.canErase).toBe(false)
+  expect(logs.logs.length).toBe(1)
+  expect(logs.logs[0].id as int).toBe(1)
+  expect(logs.logs[0].size as int).toBe(100000)
+  expect(logs.logs[0].downloaded).toBe(false)
+  expect(logs.logs[0].noChecksum == null).toBe(true)
   await finish(r)
+}
+
+async function downloadsOverTheLogProtocolAndNeverChecksTheCopy(): Promise<void> throws Error {
+  const r = await connected()
+  withoutFileTransfer()
+  const whole = content(100000, 1)
+  const done = await download(r, [1])
+
+  expect(done.ids.join(",")).toBe("1")
+  expect(done.stopped).toBe(false)
+  expect(done.error == null).toBe(true)
+  // The copy is kept under a name that says nothing was checked, and the bytes are the vehicle's.
+  expect(same(await readBytes(join(r.folder(), uncheckedName(1, crc32Of(whole)))), whole)).toBe(true)
+  expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(false)
+  expect(await exists(copyPath(r, 1, whole))).toBe(false)
+  const lines = progressOf(r, 1)
+  expect(lines[0]).toBe("queued 0/100000")
+  expect(lines[lines.length - 1]).toBe("done 100000/100000")
+  // Listed again: a copy is here, with no checksum; it is not "downloaded".
+  const logs = await list(r)
+  expect(logs.logs[0].downloaded).toBe(false)
+  expect(logs.logs[0].noChecksum!).toBe(true)
+  // And asked for again, nothing is fetched.
+  const sent = simulatorForTests()!.logs.sentData
+  expect((await download(r, [1])).ids.join(",")).toBe("1")
+  expect(simulatorForTests()!.logs.sentData).toBe(sent)
+  await finish(r)
+}
+
+async function goesOnFromAPartOverTheLogProtocol(): Promise<void> throws Error {
+  const r = await connected()
+  withoutFileTransfer()
+  const whole = content(100000, 1)
+  await mkdir(r.folder(), true)
+  await writeBytes(join(r.folder(), "00000001.BIN.part"), whole.slice(0, 33300))
+  const done = await download(r, [1])
+
+  expect(done.ids.join(",")).toBe("1")
+  expect(same(await readBytes(join(r.folder(), uncheckedName(1, crc32Of(whole)))), whole)).toBe(true)
+  const lines = progressOf(r, 1)
+  expect(lines[lines.length - 1]).toBe("done 100000/100000 from 33300")
+  // Only what was missing was asked for: 33300 bytes are 370 packets of 90.
+  expect(simulatorForTests()!.logs.sentData < 760).toBe(true)
+  await finish(r)
+}
+
+async function stopsAProtocolDownloadWhenTheVehicleArms(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  withoutFileTransfer()
+  sim.fsFiles.set(FIRST, content(400000, 1))
+  // A few packets at a time, slowly: the download takes a while.
+  sim.logs.perPump = 5
+  sim.logs.pumpMs = 10
+  const asked = await r.f.send("logs.download", encodeLogsDownload(LogsDownload { ids: [1] }))
+  await r.f.event("logs.progress")
+  await r.f.event("logs.progress")
+  r.letItArm()
+  const done = decodeLogsDownloaded((await r.f.reply(asked)).p ?? Cbor.Null, "$")
+
+  expect(done.stopped).toBe(true)
+  expect(done.ids.length).toBe(0)
+  // What came is kept as a part; nothing is called a copy.
+  expect(await exists(join(r.folder(), "00000001.BIN.part"))).toBe(true)
+  expect(link.logging).toBe(false)
+  await finish(r)
+}
+
+async function erasesEveryLogWhenEachHasACheckedCopy(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(SECOND, content(5000, 2))
+  expect((await download(r, [1, 2])).ids.join(",")).toBe("1,2")
+  const gone = await erase(r)
+
+  expect(gone.erased.length).toBe(2)
+  expect(gone.erased[0] as int).toBe(1)
+  expect(gone.erased[1] as int).toBe(2)
+  expect(gone.kept as int).toBe(0)
+  expect(sim.logs.paths().length).toBe(0)
+  expect(sim.logs.log.includes("erase")).toBe(true)
+  // The copies here are not touched.
+  expect(await exists(copyPath(r, 1, content(100000, 1)))).toBe(true)
+  expect(await exists(copyPath(r, 2, content(5000, 2)))).toBe(true)
+  expect(link.logging).toBe(false)
+  expect(link.listing).toBe(false)
+  await finish(r)
+}
+
+async function erasesNothingWhileALogHasNoCheckedCopy(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.set(SECOND, content(5000, 2))
+  await download(r, [1])
+
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("NOT_DOWNLOADED")
+  expect(sim.logs.paths().length).toBe(2)
+  expect(sim.logs.log.includes("erase")).toBe(false)
+  await finish(r)
+}
+
+async function doesNotTakeACopyWithNoChecksumForAChecked(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  withoutFileTransfer()
+  await download(r, [1])
+  // File transfer is back (and tried again): the copy that came without a checksum still does not count.
+  sim.ftpMode = "ok"
+  forgetNoFtp()
+
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("NOT_DOWNLOADED")
+  expect(sim.logs.paths().length).toBe(1)
+  await finish(r)
+}
+
+async function doesNotEraseWhatTheCopyDoesNotMatch(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  await download(r, [1])
+  // The copy is damaged after it was checked: the name is only a claim, the file is read again.
+  const file = copyPath(r, 1, content(100000, 1))
+  const bytes = await readBytes(file)
+  bytes.set(500, (bytes[500] as int + 1) & 0xFF)
+  await writeBytes(file, bytes)
+
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("NOT_DOWNLOADED")
+  expect(sim.logs.paths().length).toBe(1)
+  await finish(r)
+}
+
+async function doesNotEraseWithNoFileTransferToCheckAgainst(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  withoutFileTransfer()
+
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("NOT_VERIFIABLE")
+  expect(sim.logs.paths().length).toBe(1)
+  // It is known now: the next call does not wait for the file transfer to answer.
+  const began = Date.now() as int
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("NOT_VERIFIABLE")
+  expect((Date.now() as int) - began < 2000).toBe(true)
+  await finish(r)
+}
+
+async function erasesNothingOnAVehicleWithNoLogs(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  sim.fsFiles.delete(FIRST)
+  const gone = await erase(r)
+
+  expect(gone.erased.length).toBe(0)
+  expect(sim.logs.log.includes("erase")).toBe(false)
+  await finish(r)
+}
+
+async function refusesToEraseWhileArmedOrNotKnownOrBusy(): Promise<void> throws Error {
+  const r = await connected()
+  const sim = simulatorForTests()!
+  await download(r, [1])
+  link.armed = true
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("ARMED")
+  link.armed = false
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("STATE_UNKNOWN")
+  await afterBeat()
+  link.armed = false
+  link.listing = true
+  expect(codeOf(await r.f.call("logs.erase"))).toBe("BUSY")
+  link.listing = false
+  expect(sim.logs.paths().length).toBe(1)
+  expect(sim.logs.log.includes("erase")).toBe(false)
+  await finish(r)
+}
+
+function vetoesAnEraseOfLogsThatAreNotTheOnesThatWereChecked(): void {
+  const checked: int[] = [100000, 5000]
+  expect(changedSince(checked, [new LogInfo(1, 100000, 0), new LogInfo(2, 5000, 0)])).toBe(false)
+  // Smaller or the same is nothing that was not read; larger is a log that was written to since; another count is another vehicle's logs.
+  expect(changedSince(checked, [new LogInfo(1, 99000, 0), new LogInfo(2, 5000, 0)])).toBe(false)
+  expect(changedSince(checked, [new LogInfo(1, 100000, 0), new LogInfo(2, 5090, 0)])).toBe(true)
+  expect(changedSince(checked, [new LogInfo(1, 100000, 0)])).toBe(true)
+  expect(changedSince(checked, [new LogInfo(1, 100000, 0), new LogInfo(2, 5000, 0), new LogInfo(3, 1, 0)])).toBe(true)
+  // The protocol numbers the logs from 1 whatever the files are called: ids are not compared.
+  expect(changedSince(checked, [new LogInfo(7, 100000, 0), new LogInfo(9, 5000, 0)])).toBe(false)
 }
 
 async function refusesWithoutAVehicle(): Promise<void> throws Error {
@@ -652,5 +876,17 @@ describe("the logs service", () => {
   it("stops asking for CRCs when the time for the whole list is up", stopsAskingWhenTheTimeIsUp)
   it("stops the list on logs.cancel", stopsTheListOnCancel)
   it("stops the list when the vehicle arms", stopsTheListWhenTheVehicleArms)
-  it("does not erase yet", doesNotErase)
+  it("names a copy that has no checksum, apart from a checked copy", namesAProtocolCopy)
+  it("lists over the log protocol when the vehicle has no file transfer", listsOverTheLogProtocolWhenThereIsNoFileTransfer)
+  it("downloads over the log protocol, and never calls the copy checked", downloadsOverTheLogProtocolAndNeverChecksTheCopy)
+  it("goes on from a part over the log protocol, asking only for what is missing", goesOnFromAPartOverTheLogProtocol)
+  it("stops a download over the log protocol when the vehicle arms, keeping the part", stopsAProtocolDownloadWhenTheVehicleArms)
+  it("erases every log, when each has a copy that the vehicle's CRC confirms", erasesEveryLogWhenEachHasACheckedCopy)
+  it("erases nothing while a log on the vehicle has no checked copy", erasesNothingWhileALogHasNoCheckedCopy)
+  it("does not take a copy with no checksum for a checked one", doesNotTakeACopyWithNoChecksumForAChecked)
+  it("reads the copy again, and erases nothing when it is not the one that was checked", doesNotEraseWhatTheCopyDoesNotMatch)
+  it("erases nothing when there is no file transfer to check the copies against", doesNotEraseWithNoFileTransferToCheckAgainst)
+  it("sends no erase to a vehicle with no logs", erasesNothingOnAVehicleWithNoLogs)
+  it("refuses to erase while armed, while that is not known, and while busy", refusesToEraseWhileArmedOrNotKnownOrBusy)
+  it("vetoes the erase when the vehicle's logs are not the ones that were checked", vetoesAnEraseOfLogsThatAreNotTheOnesThatWereChecked)
 })

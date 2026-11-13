@@ -20,10 +20,10 @@
       <Banner v-if="reason" id="logs-blocked" tone="warn">{{ reason }}</Banner>
       <Banner v-if="logs.error.value" id="logs-error" tone="error">{{ logs.error.value }}</Banner>
       <div class="logs-toolbar">
-        <Button :disabled="logs.loading.value || logs.running.value" @click="logs.refresh()">
+        <Button id="logs-refresh" :disabled="logs.loading.value || logs.running.value" @click="logs.refresh()">
           {{ t('logs.vehicle.refresh') }}
         </Button>
-        <Button :disabled="logs.running.value || !hasNew" @click="logs.selectNew()">
+        <Button id="logs-select-new" :disabled="logs.running.value || !hasNew" @click="logs.selectNew()">
           {{ t('logs.vehicle.selectNew') }}
         </Button>
         <Button :disabled="logs.running.value || chosen === 0" @click="logs.clearSelection()">
@@ -49,7 +49,7 @@
             <td>
               <Checkbox
                 :model-value="logs.selected.value.includes(row.log.id)"
-                :disabled="row.log.downloaded || logs.running.value"
+                :disabled="row.log.downloaded || row.log.noChecksum === true || logs.running.value"
                 :aria-label="t('logs.vehicle.select', { id: row.log.id })"
                 @update:model-value="logs.toggle(row.log.id)"
               />
@@ -70,6 +70,7 @@
         </tbody>
       </table>
       <p v-if="undated" class="muted logs-nodate">{{ t('logs.vehicle.noDateNote') }}</p>
+      <p v-if="logs.source.value === 'mavlink'" id="logs-protocol" class="muted">{{ t('logs.vehicle.viaProtocol') }}</p>
       <div class="logs-actions">
         <Button v-if="logs.running.value" id="logs-cancel" @click="logs.cancel()">{{ t('logs.vehicle.cancel') }}</Button>
         <Button v-else id="logs-download" :disabled="!canDownload" @click="logs.download()">
@@ -84,8 +85,8 @@
       <SecondPress
         id="logs-erase"
         :label="t('logs.vehicle.erase.label')"
-        :confirm-label="t('logs.vehicle.erase.confirm', { erased: downloaded, kept })"
-        :disabled="logs.blocked.value !== null || downloaded === 0 || !logs.canErase.value"
+        :confirm-label="t('logs.vehicle.erase.confirm', { count: logs.logs.value.length })"
+        :disabled="!canEraseNow"
         :aria-describedby="`${uid}-erase-note`"
         @arm="logs.refresh()"
         @confirm="logs.erase()"
@@ -100,7 +101,8 @@
 // selected (a bar for the log being fetched, the others queued; a log that went on from what an earlier try fetched says
 // so), and the erase. Safety comes first: nothing is downloaded on its own, nothing is downloaded or erased while the vehicle
 // is armed or not known to be disarmed (the page says why, and the buttons are off), and erasing is a second press that says
-// exactly what will happen and takes only the logs that were downloaded; the others stay, and the page counts them. How much
+// exactly what will happen: it takes EVERY log on the vehicle, so it is off until each has a copy here that was checked (the page
+// says how many have not). A vehicle listed over the log protocol has no checksum, so none is checked there. How much
 // the vehicle holds is the sum of the sizes listed: the vehicle does not say how much room it has, so no total is shown.
 import { computed, onMounted, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -113,7 +115,7 @@ import SecondPress from '@/components/ui/SecondPress.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useFormat } from '@/i18n/useFormat'
 import type { VehicleLog } from '@/generated/app'
-import { madeAt, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from '@/lib/logs/vehicleLogs'
+import { madeAt, notChecked, percentOf, sizeText, stateOf, undownloadedIds, usedBytes } from '@/lib/logs/vehicleLogs'
 
 defineProps<{
   /** The part of the Logs screen (the router gives it). */
@@ -153,8 +155,13 @@ const used = computed(() => usedBytes(logs.logs.value))
 const hasNew = computed(() => undownloadedIds(logs.logs.value).length > 0)
 const chosen = computed(() => logs.selected.value.length)
 const undated = computed(() => logs.logs.value.some(log => madeAt(log) === null))
-const downloaded = computed(() => logs.logs.value.filter(log => log.downloaded).length)
-const kept = computed(() => undownloadedIds(logs.logs.value).length)
+const missing = computed(() => notChecked(logs.logs.value))
+/** An erase takes every log on the vehicle: it needs one, and a checked copy of each. */
+const canEraseNow = computed(() => {
+  const listed = logs.logs.value.length
+
+  return logs.blocked.value === null && logs.canErase.value && listed > 0 && missing.value === 0
+})
 const canDownload = computed(() => logs.blocked.value === null && chosen.value > 0)
 const reason = computed(() => (logs.blocked.value === null ? '' : t(`logs.vehicle.blocked.${logs.blocked.value}`)))
 const eraseNote = computed(() => {
@@ -162,9 +169,13 @@ const eraseNote = computed(() => {
     return t('logs.vehicle.erase.unavailable')
   }
 
-  return downloaded.value === 0
-    ? t('logs.vehicle.erase.nothing')
-    : t('logs.vehicle.erase.note', { erased: downloaded.value, kept: kept.value })
+  if (logs.logs.value.length === 0) {
+    return t('logs.vehicle.erase.nothing')
+  }
+
+  return missing.value > 0
+    ? t('logs.vehicle.erase.notAll', { missing: missing.value, total: logs.logs.value.length })
+    : t('logs.vehicle.erase.note', { count: logs.logs.value.length })
 })
 
 /**
@@ -220,7 +231,7 @@ const outcome = computed(() => {
   }
 
   return done.kind === 'erased'
-    ? t('logs.vehicle.outcome.erased', { erased: done.erased, kept: done.kept })
+    ? t('logs.vehicle.outcome.erased', { erased: done.erased })
     : t(done.stopped ? 'logs.vehicle.outcome.stopped' : 'logs.vehicle.outcome.downloaded', { count: done.count })
 })
 

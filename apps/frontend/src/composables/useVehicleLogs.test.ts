@@ -99,12 +99,49 @@ it('does not erase while armed or not known to be disarmed', async () => {
   expect(handle.logs.logs.value).toHaveLength(4)
 })
 
-it('erases only what was downloaded, and says how many stayed', async () => {
+it('sends no erase while any log has no checked copy: an erase takes every log', async () => {
   const { logs } = await listed()
   await logs.erase()
 
-  expect(logs.outcome.value).toEqual({ kind: 'erased', erased: 1, kept: 3 })
-  expect(logs.logs.value.map(log => log.id)).toEqual([1, 2, 4])
+  expect(logs.outcome.value).toBeNull()
+  expect(logs.error.value).toBeNull()
+  expect(logs.logs.value.map(log => log.id)).toEqual([1, 2, 3, 4])
+})
+
+it('erases every log once each has a checked copy', async () => {
+  const { logs } = await listed()
+  logs.selectNew()
+  await logs.download()
+  await logs.erase()
+
+  expect(logs.outcome.value).toEqual({ kind: 'erased', erased: 4 })
+  expect(logs.logs.value).toEqual([])
+})
+
+it('does not erase a vehicle that has no logs', async () => {
+  const { logs } = await listed({ steps: 2, intervalMs: 5, logs: [] })
+  await logs.erase()
+
+  expect(logs.outcome.value).toBeNull()
+})
+
+it('lists a vehicle with no file transfer by the log protocol: a copy has no checksum, and nothing can be erased', async () => {
+  const { logs } = await listed({ steps: 2, intervalMs: 5, source: 'mavlink' })
+
+  expect(logs.source.value).toBe('mavlink')
+  expect(logs.canErase.value).toBe(false)
+  logs.selectNew()
+  await logs.download()
+
+  expect(logs.outcome.value).toEqual({ kind: 'downloaded', count: 3, stopped: false })
+  // Every log has a copy now, none "downloaded"; the one that was is still the only checked one.
+  expect(logs.logs.value.map(log => [log.id, log.downloaded, log.noChecksum ?? false]))
+    .toEqual([[1, false, true], [2, false, true], [3, false, true], [4, false, true]])
+  logs.selectNew()
+  expect(logs.selected.value).toEqual([])
+  await logs.erase()
+
+  expect(logs.outcome.value).toEqual({ kind: 'downloaded', count: 3, stopped: false })
 })
 
 it('stops on cancel, keeps what was fetched, and the next download says it went on from there', async () => {
@@ -173,7 +210,7 @@ it('keeps the list when the same vehicle comes back (resumed)', async () => {
   expect(handle.logs.listed.value).toBe(true)
 })
 
-it('does not count a copy of the right size and the wrong checksum as downloaded, and never erases it', async () => {
+it('does not count a copy of the right size and the wrong checksum as downloaded, and so never erases the logs', async () => {
   const logs = [{ id: 1, size: 100, downloaded: true }, { id: 2, size: 100, downloaded: true }]
   const handle = await listed({ steps: 2, intervalMs: 5, logs, damaged: [2] })
   const model = handle.logs
@@ -181,8 +218,8 @@ it('does not count a copy of the right size and the wrong checksum as downloaded
   expect(model.logs.value.map(log => [log.id, log.downloaded])).toEqual([[1, true], [2, false]])
   await model.erase()
 
-  expect(model.outcome.value).toEqual({ kind: 'erased', erased: 1, kept: 1 })
-  expect(model.logs.value.map(log => log.id)).toEqual([2])
+  expect(model.outcome.value).toBeNull()
+  expect(model.logs.value.map(log => log.id)).toEqual([1, 2])
 })
 
 /**

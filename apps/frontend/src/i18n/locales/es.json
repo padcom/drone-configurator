@@ -190,9 +190,11 @@
       "select": "Seleccionar el registro {id}",
       "noDate": "Sin fecha",
       "noDateNote": "Algunos registros no tienen fecha: el firmware de este vehículo no indica cuándo se modificó un archivo por última vez.",
+      "viaProtocol": "Este vehículo no tiene transferencia de archivos, así que sus registros llegan por el protocolo de registros de MAVLink: más lento y sin suma de verificación, por lo que una copia no se puede comprobar. La aplicación nunca borra los registros de un vehículo así. Una copia que llegó así se asocia a un registro solo por su número y tamaño.",
       "state": {
         "new": "Sin descargar",
         "unchecked": "Sin comprobar",
+        "noChecksum": "Sin comprobar (sin suma de verificación)",
         "downloaded": "Descargado",
         "queued": "En cola",
         "downloading": "Descargando: {percent}%",
@@ -211,14 +213,15 @@
       "outcome": {
         "downloaded": "Descarga terminada. Descargados: {count}",
         "stopped": "Descarga detenida. Descargados: {count}. Lo recibido se conserva y la próxima descarga continúa desde ahí.",
-        "erased": "Borrados del vehículo: {erased}. Conservados por no estar descargados: {kept}"
+        "erased": "Borrados del vehículo: {erased}."
       },
       "erase": {
-        "label": "Borrar del vehículo los registros descargados",
-        "confirm": "Confirmar: borrar del vehículo los registros descargados: {erased}. Sin descargar, y conservados: {kept}",
-        "note": "Solo borra los registros descargados y comprobados: {erased}. Los demás siguen en el vehículo: {kept}.",
-        "unavailable": "Borrar los registros del vehículo todavía no está disponible.",
-        "nothing": "Aún no hay ningún registro descargado, así que no hay nada que borrar."
+        "label": "Borrar todos los registros del vehículo",
+        "confirm": "Confirmar: borrar del vehículo todos los registros: {count}. Cada uno tiene una copia comprobada en este equipo.",
+        "note": "Borra todos los registros del vehículo: {count}. Solo si cada uno tiene en este equipo una copia comprobada con el vehículo.",
+        "unavailable": "Este vehículo no tiene transferencia de archivos, así que sus registros no se pueden comprobar y la aplicación no los borra.",
+        "nothing": "El vehículo no tiene registros, así que no hay nada que borrar.",
+        "notAll": "No todos los registros tienen ya una copia comprobada: faltan {missing} de {total}. Borrar afecta a todos los registros del vehículo, así que descarga primero el resto."
       }
     },
     "browser": {

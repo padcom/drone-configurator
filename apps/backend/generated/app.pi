@@ -526,10 +526,11 @@ export struct VehicleLog {
   time?: u64
   downloaded: bool
   unchecked?: bool
+  noChecksum?: bool
 }
 
 export function decodeVehicleLog(v: Cbor, path: string): VehicleLog throws InvalidPayload {
-  const m = members(v, path, ["id", "size", "time", "downloaded", "unchecked"])
+  const m = members(v, path, ["id", "size", "time", "downloaded", "unchecked", "noChecksum"])
   const cbor2 = m.get("time")
   let opt2: u64? = null
   if (cbor2 != null) {
@@ -540,12 +541,18 @@ export function decodeVehicleLog(v: Cbor, path: string): VehicleLog throws Inval
   if (cbor4 != null) {
     opt4 = boolean(cbor4, `${path}.unchecked`)
   }
+  const cbor5 = m.get("noChecksum")
+  let opt5: bool? = null
+  if (cbor5 != null) {
+    opt5 = boolean(cbor5, `${path}.noChecksum`)
+  }
   VehicleLog {
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
     size: (uint(required(m, "size", path), `${path}.size`, 4294967295) as u32),
     time: opt2,
     downloaded: boolean(required(m, "downloaded", path), `${path}.downloaded`),
     unchecked: opt4,
+    noChecksum: opt5,
   }
 }
 
@@ -561,6 +568,10 @@ export function encodeVehicleLog(v: VehicleLog): Cbor {
   const opt4 = v.unchecked
   if (opt4 != null) {
     m.set("unchecked", Cbor.Bool(opt4))
+  }
+  const opt5 = v.noChecksum
+  if (opt5 != null) {
+    m.set("noChecksum", Cbor.Bool(opt5))
   }
   Cbor.Dict(m)
 }

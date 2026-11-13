@@ -1,6 +1,9 @@
 // The logs service: the flight logs on the vehicle, listed and downloaded over MAVLink FTP (`logs.vehicle.list`, `logs.download`
 // with `logs.progress`, `logs.cancel`). The logs of ArduPilot are `/logs/NNNNNNNN.BIN` (8 digits), created when the vehicle arms
-// (a directory that is not there yet is an empty list). `logs.erase` is not implemented (answered with UNSUPPORTED).
+// (a directory that is not there yet is an empty list). A vehicle whose file transfer can't be used (it has none) is listed and
+// downloaded over the MAVLink log protocol instead (logsfallback.pi): slower, and with no checksum, so such a copy is never
+// "checked" (`NNNNNNNN-CCCCCCCC.unchecked.BIN`, `noChecksum` in the list). `logs.erase` erases ALL the logs, only when every one of
+// them has a copy here that the vehicle's CRC-32 confirms (read again now), and asks the vehicle by the log protocol.
 //
 // A log is downloaded to `<data directory>/logs/<vehicle>/`. While it comes it is `NNNNNNNN.BIN.part`: a download that stops
 // (cancelled, the vehicle armed, the link lost) leaves the part, and the next one goes on from its end. Only a copy whose CRC-32
@@ -12,7 +15,7 @@
 // "Downloaded" (the list) is a copy of that number and the listing's size whose CRC (in its name) is the one the vehicle computes for
 // its file now: another log of the same number and size (a card swapped, logs erased and numbered again) is not "downloaded". A
 // vehicle that cannot say its CRC leaves it not downloaded. A download that finds such a copy keeps it as it is only after it has
-// read the copy and found its CRC to be the one in the name. (Nothing is erased on the vehicle: `logs.erase` is UNSUPPORTED.)
+// read the copy and found its CRC to be the one in the name.
 //
 // The folder is the vehicle's: by its identity, which for a board with a unique id is that id. A vehicle with none (the identity is
 // only ids and type, the same for every such vehicle) gets a folder for each connection, so that two of them never share one.
@@ -33,17 +36,20 @@ import {
   FtpEntry,
   FtpError,
   Heartbeat,
+  LogSink,
   MavLinkConnection,
   MavModeFlag,
   Received,
   Target,
   downloadFile,
 } from "padcom/pico-mavlink"
+import { ProtocolOutcome, UNCHECKED_TAIL, eraseByProtocol, fetchByProtocol, listByProtocol, protocolClient } from "./logsfallback"
 import { File, exists, mkdir, open, readDir, remove, rename, stat } from "std/fs"
 import { join } from "std/path"
 import {
   ConnectionState,
   LogsDownloaded,
+  LogsErased,
   LogsProgress,
   LogsProgressState,
   VehicleLog,
@@ -51,6 +57,7 @@ import {
   VehicleLogsSource,
   decodeLogsDownload,
   encodeLogsDownloaded,
+  encodeLogsErased,
   encodeLogsProgress,
   encodeVehicleLogs,
 } from "./generated/app"
@@ -65,6 +72,9 @@ const CHASES: int = 4
 
 /// At most this often (ms) a `logs.progress` is sent for the log that is coming (the first and the last always).
 const PROGRESS_EVERY_MS: int = 100
+
+/// How long (ms) a vehicle that has no file transfer is taken to have none, before the file transfer is tried again.
+const NO_FTP_MS: int = 60000
 
 /// How long the vehicle is given to compute the CRC of a log (ms): it reads the whole file.
 const CRC_WAIT_MS: int = 30000
@@ -100,6 +110,11 @@ class Running implements SessionPart {
   public cachedFor: AbortSignal? = null
   /// How long (ms) the list may spend on those questions, all together.
   public crcPhaseMs: int = CRC_PHASE_MS
+  /// The connection whose vehicle was found to have no file transfer, and until when (ms since 1970) that is taken as so: asking for
+  /// the file transfer to answer takes seconds, so the next list, download or erase goes to the log protocol at once. After a minute
+  /// the file transfer is tried again (it may have been busy).
+  public noFtpFor: AbortSignal? = null
+  public noFtpUntil: int = 0
   /// Why it was stopped, when it was not by `logs.cancel`: "" or the words.
   public stoppedFor: string = ""
   /// The session signal that is followed (once for each session, not once for each download).
@@ -178,6 +193,22 @@ class Running implements SessionPart {
 }
 
 const running = new Running()
+
+/// Whether the connected vehicle was found, a moment ago, to have no file transfer.
+function noFtpNow(): bool {
+  running.noFtpFor == link.session.signal && (Date.now() as int) < running.noFtpUntil
+}
+
+/// Notes that the connected vehicle has no file transfer.
+function noteNoFtp(): void {
+  running.noFtpFor = link.session.signal
+  running.noFtpUntil = (Date.now() as int) + NO_FTP_MS
+}
+
+/// For tests: the file transfer is tried again next time.
+export function forgetNoFtp(): void {
+  running.noFtpFor = null
+}
 
 /// For tests: how long (ms) the list may spend asking the vehicle for CRCs, all together (the default is `CRC_PHASE_MS`).
 export function limitCrcQuestions(ms: int): void {
@@ -332,6 +363,41 @@ export function copyNumbers(name: string): int[] {
   [id, crc]
 }
 
+/// Whether an FTP failure means the vehicle has no file transfer to use (it does not answer, or does not know the commands): the log
+/// protocol is the way then. A listing that can't be trusted (`FTP_PROTOCOL`) or any other failure is not: it is an error.
+export function ftpUnusable(code: string): bool {
+  code == "FTP_TIMEOUT" || code == "FTP_UNKNOWN_COMMAND" || code == "FTP_FAILED" || code == "FTP_NO_SESSIONS"
+}
+
+/// The name of a copy that came over the log protocol (no checksum): `NNNNNNNN-CCCCCCCC.unchecked.BIN`, the CRC-32 being of the
+/// bytes this computer got.
+export function uncheckedName(id: int, crc: int): string {
+  `${copyName(id, crc).slice(0, 17)}${UNCHECKED_TAIL}`
+}
+
+/// The number and CRC of a copy with no checksum, as [number, crc], or [-1, 0] when the name is not one.
+export function uncheckedNumbers(name: string): int[] {
+  if (name.length != 17 + UNCHECKED_TAIL.length || !name.endsWith(UNCHECKED_TAIL)) {
+    return [-1, 0]
+  }
+  copyNumbers(`${name.slice(0, 17)}.BIN`)
+}
+
+/// The copies with no checksum in a folder (none when it is not there): their number and size (`crc` is a name only).
+async function uncheckedIn(dir: string): Promise<Copy[]> throws Error {
+  const out: Copy[] = []
+  if (!(await exists(dir))) {
+    return out
+  }
+  for await (const entry of readDir(dir)) {
+    const numbers = uncheckedNumbers(entry.name)
+    if (entry.isFile && numbers[0] >= 0) {
+      out.push(new Copy(numbers[0], numbers[1], await sizeOf(join(dir, entry.name))))
+    }
+  }
+  out
+}
+
 /// The checked copies in a folder (none when it is not there).
 async function copiesIn(dir: string): Promise<Copy[]> throws Error {
   const out: Copy[] = []
@@ -439,12 +505,19 @@ async function listInFolder(conn: MavLinkConnection): Promise<Cbor?> throws Erro
 async function listWith(conn: MavLinkConnection, own: AbortController): Promise<Cbor?> throws Error {
   const dir = await folder()
   const client = clientFor(conn, own.signal)
+  if (noFtpNow()) {
+    return await listViaProtocol(conn, dir, own)
+  }
   let entries: FtpEntry[] = []
   try {
     entries = await entriesOf(client)
   } catch (e: CommunicatorError) {
     if (e.code == "FTP_ABORTED") {
       throw new CommunicatorError("STOPPED", "the list was stopped: cancelled, the vehicle armed, or the connection ended")
+    }
+    if (ftpUnusable(e.code)) {
+      noteNoFtp()
+      return await listViaProtocol(conn, dir, own)
     }
     throw e
   }
@@ -454,7 +527,27 @@ async function listWith(conn: MavLinkConnection, own: AbortController): Promise<
   for (const e of entries) {
     logs.push(await toLog(client, e, copies, until, own.signal))
   }
-  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
+  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: logs.length > 0 })
+}
+
+/// The listing over the log protocol (the vehicle has no file transfer): no CRC can be had, so no log is "downloaded"; one that has a
+/// copy of its number and size that came this way is `noChecksum`. It can't be erased by the app (`canErase` false).
+async function listViaProtocol(conn: MavLinkConnection, dir: string, own: AbortController): Promise<Cbor?> throws Error {
+  const target: Target = { system: link.sysid, component: link.compid }
+  const infos = await listByProtocol(protocolClient(conn, target, own.signal))
+  const copies = await uncheckedIn(dir)
+  const logs: VehicleLog[] = []
+  for (const info of infos) {
+    const log = VehicleLog { id: info.id as u32, size: info.size as u32, downloaded: false }
+    if (info.timeUtc > 0) {
+      log.time = (info.timeUtc * 1000) as u64
+    }
+    if (copies.some((c: Copy) => c.id == info.id && c.size == info.size)) {
+      log.noChecksum = true
+    }
+    logs.push(log)
+  }
+  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Mavlink, canErase: false })
 }
 
 /// Why downloaded copies may not be removed now: "" when they may, else "ARMED", "STATE_UNKNOWN" (a connected vehicle that is armed, or
@@ -501,7 +594,7 @@ function say(id: int, state: LogsProgressState, received: int, total: int, resum
 }
 
 /// The part of a log being fetched: the file is written in order, and its CRC kept as it goes.
-class PartFile implements FileSink {
+class PartFile implements FileSink, LogSink {
   public readonly file: File
   public readonly crc: Crc32
   /// How many bytes the part holds.
@@ -691,6 +784,95 @@ function progressed(id: int, bytes: int, estimate: int, listed: int, resumedFrom
   say(id, LogsProgressState.Downloading, bytes, total, resumedFrom)
 }
 
+/// Reads the sizes of the vehicle's logs by number into `sizes`: by file transfer ("ftp"), or by the log protocol when the vehicle has
+/// no file transfer ("protocol"); "stopped" and "stopped-protocol" are the same when a cancel (or the vehicle arming) came meanwhile.
+async function readSizes(conn: MavLinkConnection, client: FtpClient, own: AbortController, sizes: Map<int, int>): Promise<string> throws CommunicatorError {
+  if (!noFtpNow()) {
+    try {
+      for (const e of await entriesOf(client)) {
+        sizes.set(numberOfLog(e.name), e.size)
+      }
+      return "ftp"
+    } catch (e: CommunicatorError) {
+      // `entriesOf` gives an FtpError as a CommunicatorError with the same code.
+      if (e.code == "FTP_ABORTED") {
+        return "stopped"
+      }
+      if (!ftpUnusable(e.code)) {
+        throw e
+      }
+      noteNoFtp()
+    }
+  }
+  if (await sizesByProtocol(conn, own, sizes)) "protocol" else "stopped-protocol"
+}
+
+/// Puts the sizes of the logs the vehicle lists over the log protocol into `sizes`, by number. False when it was stopped meanwhile.
+async function sizesByProtocol(conn: MavLinkConnection, own: AbortController, sizes: Map<int, int>): Promise<bool> throws CommunicatorError {
+  const target: Target = { system: link.sysid, component: link.compid }
+  try {
+    for (const info of await listByProtocol(protocolClient(conn, target, own.signal))) {
+      sizes.set(info.id, info.size)
+    }
+  } catch (e: CommunicatorError) {
+    if (e.code == "STOPPED") {
+      return false
+    }
+    throw e
+  }
+  true
+}
+
+/// Downloads log `id` over the log protocol, into the part, which goes on from where it is; it is given the name of a copy with no
+/// checksum when it is whole (`NNNNNNNN-CCCCCCCC.unchecked.BIN`): the vehicle has no CRC to compare with, so it is never "checked".
+async function fetchViaProtocol(conn: MavLinkConnection, id: int, listed: int, dir: string, signal: AbortSignal): Promise<Outcome> {
+  const part = join(dir, `${nameOfLog(id)}.part`)
+  try {
+    await mkdir(dir, true)
+    if ((await uncheckedIn(dir)).some((c: Copy) => c.id == id && c.size == listed)) {
+      say(id, LogsProgressState.Done, listed, listed, 0)
+      return new Outcome()
+    }
+    let held = await sizeOf(part)
+    if (held > listed && listed > 0) {
+      await remove(part)
+      held = -1
+    }
+    const crc = if (held > 0) await crcOfFile(part) else new Crc32()
+    const file = await open(part, false, true, true, true)
+    const sink = new PartFile(file, crc, if (held > 0) held else 0)
+    const began = sink.total
+    const target: Target = { system: link.sysid, component: link.compid }
+    const client = protocolClient(conn, target, signal)
+    let got = new ProtocolOutcome()
+    try {
+      got = await fetchByProtocol(client, id, listed, sink, began, crc.crc, (bytes: int, total: int) => progressed(id, bytes, total, listed, began))
+    } catch (e: Error) {
+      // The part's handle is closed whatever ends the download.
+      await file.close()
+      throw e
+    }
+    await file.close()
+    if (got.state != "done") {
+      return fromProtocol(got.state, got.why)
+    }
+    await keep(part, join(dir, uncheckedName(id, got.crc)), got.crc)
+    say(id, LogsProgressState.Done, got.size, got.size, began)
+    const done = new Outcome()
+    done.crc = got.crc
+    return done
+  } catch (e: Error) {
+    return failed(`log ${id}: ${e.message}`)
+  }
+}
+
+function fromProtocol(state: string, why: string): Outcome {
+  const o = new Outcome()
+  o.state = state
+  o.why = why
+  o
+}
+
 async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const asked = decodeLogsDownload(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
@@ -710,17 +892,12 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   try {
     const dir = await folder()
     const client = clientFor(conn, own.signal)
+    // The sizes the vehicle lists, by number: by file transfer, or by the log protocol when it has none.
+    const sizes = new Map<int, int>()
     // A cancel that comes while the list is read ends the download as a stopped one, like any other cancel.
-    let listing: FtpEntry[] = []
-    try {
-      listing = await entriesOf(client)
-    } catch (e: CommunicatorError) {
-      // `entriesOf` gives an FtpError as a CommunicatorError with the same code.
-      if (e.code != "FTP_ABORTED") {
-        throw e
-      }
-      stoppedEarly = true
-    }
+    const how = await readSizes(conn, client, own, sizes)
+    const viaProtocol = how == "protocol" || how == "stopped-protocol"
+    stoppedEarly = how == "stopped" || how == "stopped-protocol"
     const wanted: u32[] = []
     for (const id of asked.ids) {
       if (!wanted.includes(id)) {
@@ -728,28 +905,32 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
       }
     }
     for (const id of wanted) {
-      const entry = listing.find((e: FtpEntry) => numberOfLog(e.name) == (id as int))
-      say(id as int, LogsProgressState.Queued, 0, if (entry == null) 0 else entry!.size, 0)
+      say(id as int, LogsProgressState.Queued, 0, sizes.get(id as int) ?? 0, 0)
     }
     for (const id of wanted) {
       if (own.signal.aborted) {
         stoppedEarly = true
         break
       }
-      const entry = listing.find((e: FtpEntry) => numberOfLog(e.name) == (id as int))
-      if (entry == null) {
+      const listed = sizes.get(id as int)
+      if (listed == null) {
         say(id as int, LogsProgressState.Failed, 0, 0, 0)
         error = `log ${id} is not on the vehicle`
         stoppedEarly = true
         break
       }
-      const outcome = await fetch(client, id as int, entry!.size, dir)
+      let outcome = new Outcome()
+      if (viaProtocol) {
+        outcome = await fetchViaProtocol(conn, id as int, listed!, dir, own.signal)
+      } else {
+        outcome = await fetch(client, id as int, listed!, dir)
+      }
       if (outcome.state == "done") {
         finished.push(id)
       } else {
         stoppedEarly = true
         if (outcome.state == "failed") {
-          say(id as int, LogsProgressState.Failed, 0, entry!.size, 0)
+          say(id as int, LogsProgressState.Failed, 0, listed!, 0)
           error = outcome.why
         }
         break
@@ -776,7 +957,100 @@ async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cb
   null
 }
 
-/// Erasing logs on the vehicle needs a file removal that the file transfer here does not have yet.
+/// The listed logs in the order of their numbers.
+function inOrder(entries: FtpEntry[]): FtpEntry[] {
+  const out: FtpEntry[] = []
+  for (const e of entries) {
+    let at = out.length
+    while (at > 0 && numberOfLog(out[at - 1].name) > numberOfLog(e.name)) {
+      at -= 1
+    }
+    out.splice(at, 0, e)
+  }
+  out
+}
+
+/// Whether the folder has a copy of log `id` that the vehicle's own CRC-32 confirms now (see `hasThisCopy`); a copy that can't be read
+/// is not one.
+async function isChecked(client: FtpClient, id: int, size: int, dir: string): Promise<bool> {
+  try {
+    return await hasThisCopy(client, id, size, dir)
+  } catch (e: Error) {
+    return false
+  }
+}
+
+/// Erases ALL the logs on the vehicle: only when each of them has a copy here that was checked (FtpClient's CRC, read again now),
+/// and only when the vehicle's list when the erase is sent is the one that was checked. Refused while the vehicle is armed or not
+/// known to be disarmed, or while a download or a listing runs. A vehicle with no file transfer has nothing to check against.
 async function eraseLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  throw new CommunicatorError("UNSUPPORTED", "erasing the logs on the vehicle is not available yet")
+  const conn = connectedLink()
+  refuse()
+  // Claimed at once, like a listing; the vehicle arming stops it (it is `asking`), and the list is not read meanwhile.
+  const own = new AbortController()
+  running.follow(link.session.signal)
+  running.asking = own
+  running.listing = true
+  link.logging = true
+  try {
+    return await eraseChecked(conn, own)
+  } finally {
+    running.asking = null
+    running.listing = false
+    link.logging = false
+  }
+}
+
+function stoppedError(): CommunicatorError {
+  new CommunicatorError("STOPPED", "stopped: cancelled, the vehicle armed, or the connection ended")
+}
+
+/// The erase, once it is claimed.
+async function eraseChecked(conn: MavLinkConnection, own: AbortController): Promise<Cbor?> throws Error {
+  const dir = await folder()
+  const client = clientFor(conn, own.signal)
+  const noTransfer = new CommunicatorError("NOT_VERIFIABLE", "the vehicle has no file transfer to check the copies against: nothing was erased")
+  if (noFtpNow()) {
+    throw noTransfer
+  }
+  let entries: FtpEntry[] = []
+  try {
+    entries = await entriesOf(client)
+  } catch (e: CommunicatorError) {
+    if (e.code == "FTP_ABORTED") {
+      throw stoppedError()
+    }
+    if (ftpUnusable(e.code)) {
+      noteNoFtp()
+      throw noTransfer
+    }
+    throw e
+  }
+  const listed = inOrder(entries)
+  const checked: int[] = []
+  const ids: u32[] = []
+  let missing = 0
+  for (const e of listed) {
+    if (await isChecked(client, numberOfLog(e.name), e.size, dir)) {
+      checked.push(e.size)
+      ids.push(numberOfLog(e.name) as u32)
+    } else {
+      missing += 1
+    }
+    if (own.signal.aborted) {
+      throw stoppedError()
+    }
+  }
+  if (missing > 0) {
+    throw new CommunicatorError("NOT_DOWNLOADED", `${missing} of the ${listed.length} logs on the vehicle have no checked copy here: nothing was erased`)
+  }
+  if (listed.length == 0) {
+    return encodeLogsErased(LogsErased { erased: [], kept: 0 })
+  }
+  const target: Target = { system: link.sysid, component: link.compid }
+  const left = await eraseByProtocol(protocolClient(conn, target, own.signal), checked, () => removalBlocked() != "")
+  if (left > 0) {
+    throw new CommunicatorError("ERASE_FAILED", `the vehicle still has ${left} logs after the erase (it does not answer one)`)
+  }
+  encodeLogsErased(LogsErased { erased: ids, kept: 0 })
 }

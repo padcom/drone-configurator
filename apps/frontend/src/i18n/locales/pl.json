@@ -190,9 +190,11 @@
       "select": "Zaznacz log {id}",
       "noDate": "Brak daty",
       "noDateNote": "Niektóre logi nie mają daty: firmware tego pojazdu nie podaje, kiedy plik był ostatnio zmieniony.",
+      "viaProtocol": "Ten pojazd nie ma transferu plików, więc jego logi przychodzą protokołem logów MAVLink: wolniej i bez sumy kontrolnej, więc kopii nie da się sprawdzić. Aplikacja nigdy nie kasuje logów na takim pojeździe. Kopia, która przyszła tą drogą, jest dopasowana do logu tylko po numerze i rozmiarze.",
       "state": {
         "new": "Nie pobrany",
         "unchecked": "Nie sprawdzony",
+        "noChecksum": "Nie sprawdzony (brak sumy kontrolnej)",
         "downloaded": "Pobrany",
         "queued": "W kolejce",
         "downloading": "Pobieranie: {percent}%",
@@ -211,14 +213,15 @@
       "outcome": {
         "downloaded": "Pobieranie zakończone. Pobrane: {count}",
         "stopped": "Pobieranie przerwane. Pobrane: {count}. To, co pobrano, zostaje, a następne pobieranie zacznie od tego miejsca.",
-        "erased": "Skasowano na pojeździe: {erased}. Zostawione, bo nie pobrane: {kept}"
+        "erased": "Skasowano na pojeździe: {erased}."
       },
       "erase": {
-        "label": "Skasuj pobrane logi na pojeździe",
-        "confirm": "Potwierdź: skasuj pobrane logi na pojeździe: {erased}. Nie pobrane i zostawione: {kept}",
-        "note": "Kasuje tylko logi, które pobrano i sprawdzono: {erased}. Pozostałe zostają na pojeździe: {kept}.",
-        "unavailable": "Kasowanie logów na pojeździe nie jest jeszcze dostępne.",
-        "nothing": "Żaden log nie jest jeszcze pobrany, więc nie ma czego kasować."
+        "label": "Skasuj wszystkie logi na pojeździe",
+        "confirm": "Potwierdź: skasuj wszystkie logi na pojeździe: {count}. Każdy ma sprawdzoną kopię na tym komputerze.",
+        "note": "Kasuje każdy log na pojeździe: {count}. Tylko gdy każdy ma na tym komputerze kopię sprawdzoną z pojazdem.",
+        "unavailable": "Ten pojazd nie ma transferu plików, więc jego logów nie da się sprawdzić, a aplikacja ich nie kasuje.",
+        "nothing": "Pojazd nie ma logów, więc nie ma czego kasować.",
+        "notAll": "Nie każdy log ma już sprawdzoną kopię: brakuje {missing} z {total}. Kasowanie obejmuje każdy log na pojeździe, więc najpierw pobierz resztę."
       }
     },
     "browser": {
