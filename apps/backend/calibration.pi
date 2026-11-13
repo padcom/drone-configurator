@@ -1,0 +1,684 @@
+// The calibration service: the accelerometer (`accel`, the six positions; `level`, the board's level) and the compass (`compass`) of the
+// connected vehicle, one at a time, with their state told to the page (`calibration.progress`, `calibration.result`). The protocols are in
+// padcom/pico-mavlink (accelcal.pi, compasscal.pi, ready.pi): this module is the session around them.
+//
+// Safety, whatever the page believes (the backend refuses before it sends anything):
+//  - no vehicle: `NOT_CONNECTED`; an armed one: `ARMED`; one whose armed state is not known (no heartbeat for 3 s): `STATE_UNKNOWN` (ArduPilot
+//    refuses too); a parameter, log or reboot operation under way, or another calibration: `BUSY`.
+//  - nothing is sent to a vehicle that has just booted: the calibration waits until the vehicle says it is up (`waitUntilUp`), and then
+//    sends its command. A vehicle that never says so: `NOT_UP`.
+//  - a calibration ENDS when the user cancels, the page is left (the page cancels), the link is lost, the session ends, the vehicle arms, or the
+//    vehicle reboots (the link goes quiet): a compass calibration is cancelled on the vehicle (and if that cannot be told, the result says
+//    `unsure`); the accelerometer protocol has no cancel, so the vehicle stays in its calibration until it ends or it reboots, and the next start
+//    goes on from where it is (the result says so).
+//  - nothing a compass found is kept unless the user accepts (`calibration.accept`); `autosave` is off unless asked.
+//  - an accelerometer calibration is a success only when the VEHICLE says so (its own success code), never by the end of the positions; a
+//    failure is a failure, with the vehicle's own words (its STATUSTEXT during the calibration are in the state).
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { delay } from "std/timers"
+import {
+  AccelCalKind,
+  AccelPosition,
+  Calibration,
+  CompassCalibration,
+  CompassOptions,
+  CompassReport,
+  CompassStatus,
+  Heartbeat,
+  MavLinkConnection,
+  MavLinkError,
+  MavModeFlag,
+  MavResult,
+  Received,
+  StatusText,
+  Target,
+  waitUntilUp,
+} from "padcom/pico-mavlink"
+import {
+  CalibrationAccel,
+  CalibrationCompass,
+  CalibrationCompassReport,
+  CalibrationKind,
+  CalibrationResult,
+  CalibrationResultOutcome,
+  CalibrationState,
+  CalibrationStateState,
+  decodeCalibrationAccept,
+  decodeCalibrationConfirm,
+  decodeCalibrationStart,
+  encodeCalibrationResult,
+  encodeCalibrationState,
+} from "./generated/app"
+import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
+import { ratesNow } from "./telemetry"
+
+/// How long a calibration waits for the vehicle to say it is up (ms).
+export const UP_WAIT_MS: int = 30000
+
+/// How many STATUSTEXT of the vehicle the state keeps.
+const TEXTS_KEPT: int = 40
+
+/// At most this often (ms) `calibration.progress` is sent (a change of state is sent at once).
+const PROGRESS_EVERY_MS: int = 100
+
+/// How long (ms) the vehicle may say nothing of an accelerometer calibration before it is given up.
+const ACCEL_SILENCE_MS: int = 60000
+
+/// How long (ms) the vehicle may say nothing of a compass calibration before it is given up.
+const COMPASS_SILENCE_MS: int = 30000
+
+/// The rate (Hz) the vehicle is asked to send the compass messages at: they are in its stream EXTRA3, which a new link has at none.
+const COMPASS_MESSAGES_HZ: f64 = 5.0
+
+/// MAG_CAL_PROGRESS and MAG_CAL_REPORT.
+const MAG_CAL_PROGRESS_ID: int = 191
+const MAG_CAL_REPORT_ID: int = 192
+
+/// How long (ms) `calibration.accept` waits for the vehicle's answer.
+const ACCEPT_WAIT_MS: int = 8000
+
+/// The shortest wait the waits of this module are given in a test (ms): the tests turn them down.
+class Waits {
+  public upMs: int = UP_WAIT_MS
+  public acceptMs: int = ACCEPT_WAIT_MS
+  public accelSilenceMs: int = ACCEL_SILENCE_MS
+  public compassSilenceMs: int = COMPASS_SILENCE_MS
+  /// How long the vehicle is given to answer a calibrating command (the gyros and the level take a while).
+  public ackMs: int = 30000
+}
+
+export const waits = new Waits()
+
+/// Registers the service's methods on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  running.communicator = c
+  link.parts.set("calibration", running)
+  c.handle("calibration.start", startCalibration)
+  c.handle("calibration.confirm", confirmPosition)
+  c.handle("calibration.accept", acceptResults)
+  c.handle("calibration.cancel", cancelCalibration)
+  c.handle("calibration.status", calibrationStatus)
+}
+
+/// The calibration that runs, or the one that ended last.
+class Running implements SessionPart {
+  public communicator: Communicator? = null
+  public conn: MavLinkConnection? = null
+  public listener: int = 0
+  /// Whether a calibration is going on (from the start until it ends).
+  public active: bool = false
+  public kind: CalibrationKind = CalibrationKind.Accel
+  public phase: CalibrationStateState = CalibrationStateState.Idle
+  /// Ends the operations of this calibration (the user's cancel, the session ending, the vehicle arming).
+  public own: AbortController = new AbortController()
+  /// Why it was stopped: "" (not), or the code of the result (`CANCELLED`, `LINK_LOST`, `ARMED`).
+  public stopCode: string = ""
+  /// The session signal that is followed (once for each session, not once for each calibration).
+  public followed: AbortSignal? = null
+  /// The accelerometer: the position the vehicle asks for, the ones it accepted, the one the page said it is in (0: none), and whether
+  /// that is being answered.
+  public position: int = 0
+  public placed: u8[] = []
+  public pending: int = 0
+  public confirming: bool = false
+  /// The compasses (a `report` in each that is done).
+  public compasses: CalibrationCompass[] = []
+  /// The compass decision the page made: "", "accept" or "cancel"; the mask to accept, and what came of it ("" none yet, "ok", or the words).
+  public decision: string = ""
+  public acceptMask: int = 0
+  public accepted: string = ""
+  /// What the vehicle said (STATUSTEXT) since the calibration began.
+  public texts: string[] = []
+  public result: CalibrationResult? = null
+  /// When progress was last sent (ms since 1970).
+  public progressAt: int = 0
+
+  public attach(c: MavLinkConnection): void {
+    if (conn != null) {
+      detach()
+    }
+    conn = c
+    listener = c.on((r: Received) => seen(r))
+    // Another vehicle, or the same one again: what the last calibration said is not what this connection has said.
+    if (!active) {
+      phase = CalibrationStateState.Idle
+      result = null
+      texts = []
+    }
+  }
+
+  public detach(): void {
+    const c = conn
+    if (c != null) {
+      c!.off(listener)
+    }
+    conn = null
+    // The session ended (or another vehicle is there): a calibration that runs ends with it.
+    stop("LINK_LOST")
+  }
+
+  /// What the vehicle says during a calibration: its texts are kept (they are how a failure is told), and its arming stops it.
+  public seen(r: Received): void {
+    if (!active || link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
+      return
+    }
+    const m = r.message
+    if (m instanceof StatusText) {
+      texts.push(m.text)
+      if (texts.length > TEXTS_KEPT) {
+        texts = texts.slice(texts.length - TEXTS_KEPT)
+      }
+      tell(false)
+    } else if (m instanceof Heartbeat) {
+      if (((m.baseMode as int) & MavModeFlag.SAFETY_ARMED) != 0) {
+        stop("ARMED")
+      }
+    }
+  }
+
+  /// Stops the calibration that runs, if any, and notes why (the first reason stays).
+  public stop(code: string): void {
+    if (!active) {
+      return
+    }
+    if (stopCode == "") {
+      stopCode = code
+    }
+    own.abort()
+  }
+
+  /// Makes the session ending stop the calibration. One listener on a session's signal, however many calibrations it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => stop("LINK_LOST"))
+  }
+
+  /// The state as the page sees it.
+  public snapshot(): CalibrationState {
+    const s = CalibrationState { state: phase, texts: texts.slice(0) }
+    if (active || result != null) {
+      s.kind = kind
+    }
+    if (active && kind == CalibrationKind.Accel) {
+      s.accel = CalibrationAccel { position: position as u8, placed: placed.slice(0), confirming: confirming }
+    }
+    if (active && kind == CalibrationKind.Compass) {
+      s.compasses = compasses.slice(0)
+    }
+    if (result != null) {
+      s.result = result
+    }
+    s
+  }
+
+  /// Tells the page how the calibration is doing: at once when `now`, else at most every `PROGRESS_EVERY_MS`.
+  public tell(now: bool): void {
+    const c = communicator
+    if (c == null) {
+      return
+    }
+    const t = Date.now() as int
+    if (!now && t - progressAt < PROGRESS_EVERY_MS) {
+      return
+    }
+    progressAt = t
+    c!.emit("calibration.progress", encodeCalibrationState(snapshot()))
+  }
+
+  /// The calibration ends: the result is kept, told, and the next calibration may begin.
+  public finish(outcome: CalibrationResultOutcome, code: string, detail: string, unsure: bool): void {
+    if (!active) {
+      return
+    }
+    const r = CalibrationResult { kind: kind, outcome: outcome }
+    if (code != "") {
+      r.code = code
+    }
+    if (detail != "") {
+      r.detail = detail
+    }
+    if (unsure) {
+      r.unsure = true
+    }
+    result = r
+    active = false
+    link.calibrating = false
+    phase = CalibrationStateState.Finished
+    pending = 0
+    confirming = false
+    const c = communicator
+    if (c != null) {
+      c!.emit("calibration.result", encodeCalibrationResult(r))
+    }
+    tell(true)
+  }
+
+  /// A calibration begins: everything of the one before is forgotten.
+  public begin(k: CalibrationKind): void {
+    kind = k
+    active = true
+    link.calibrating = true
+    phase = CalibrationStateState.Starting
+    own = new AbortController()
+    stopCode = ""
+    position = 0
+    placed = []
+    pending = 0
+    confirming = false
+    compasses = []
+    decision = ""
+    acceptMask = 0
+    accepted = ""
+    texts = []
+    result = null
+    progressAt = 0
+    follow(link.session.signal)
+  }
+}
+
+const running = new Running()
+
+/// Why a calibration may not begin now, as an error, or nothing.
+function refuse(): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed: disarm it to calibrate")
+  }
+  if (running.active) {
+    throw new CommunicatorError("BUSY", "a calibration is already running")
+  }
+  if (link.listing || link.writes > 0 || link.logging || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "parameters are being written or downloaded, a log is being downloaded, or a reboot is under way")
+  }
+}
+
+async function startCalibration(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeCalibrationStart(payload ?? Cbor.Null, "$")
+  const conn = connectedLink()
+  refuse()
+  // The calibration is claimed at once, before anything is awaited: a second call that comes now finds it busy.
+  running.begin(ask.kind)
+  running.tell(true)
+  match (ask.kind) {
+    Accel => {
+      runAccel(conn, true)
+    },
+    Level => {
+      runAccel(conn, false)
+    },
+    Compass => {
+      runCompass(conn, (ask.compasses ?? 0) as int, ask.autosave ?? false, ask.retry ?? false)
+    },
+  }
+  encodeCalibrationState(running.snapshot())
+}
+
+async function confirmPosition(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeCalibrationConfirm(payload ?? Cbor.Null, "$")
+  if (!running.active || running.kind != CalibrationKind.Accel) {
+    throw new CommunicatorError("NOT_RUNNING", "no accelerometer calibration is running")
+  }
+  const position = ask.position as int
+  if (position != running.position || running.position == 0) {
+    throw new CommunicatorError("NOT_ASKED", "the vehicle is not asking for that position")
+  }
+  running.pending = position
+  running.tell(true)
+  encodeCalibrationState(running.snapshot())
+}
+
+async function acceptResults(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeCalibrationAccept(payload ?? Cbor.Null, "$")
+  if (!running.active || running.kind != CalibrationKind.Compass || running.phase != CalibrationStateState.Review) {
+    throw new CommunicatorError("NOT_RUNNING", "no compass calibration is waiting to be accepted")
+  }
+  running.accepted = ""
+  running.acceptMask = (ask.compasses ?? 0) as int
+  running.decision = "accept"
+  // The calibration's own task asks the vehicle (it holds the command's link); this waits for what came of it.
+  let waited = 0
+  while (running.accepted == "" && running.active && waited < waits.acceptMs) {
+    await delay(20)
+    waited += 20
+  }
+  if (running.accepted != "ok") {
+    running.decision = ""
+    throw new CommunicatorError("NOT_ACCEPTED", if (running.accepted == "") "the vehicle did not answer" else running.accepted)
+  }
+  encodeCalibrationState(running.snapshot())
+}
+
+async function cancelCalibration(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (running.active) {
+    if (running.phase == CalibrationStateState.Review) {
+      running.decision = "cancel"
+    } else {
+      running.stop("CANCELLED")
+    }
+    // It ends in a moment (the cancel is told to the vehicle first): the answer waits for that, up to a few seconds.
+    let waited = 0
+    while (running.active && waited < 5000) {
+      await delay(20)
+      waited += 20
+    }
+  }
+  encodeCalibrationState(running.snapshot())
+}
+
+async function calibrationStatus(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  encodeCalibrationState(running.snapshot())
+}
+
+/// The vehicle's last words, for a failure that has none of its own: its last text, or `fallback`.
+function lastWords(fallback: string): string {
+  if (running.texts.length > 0) running.texts[running.texts.length - 1] else fallback
+}
+
+/// Ends the calibration for an error of the protocol: stopped by the user, the link or the vehicle's arming, or another.
+function endedBy(e: Error, unsure: bool): void {
+  if (e instanceof MavLinkError) {
+    if (e.code == "ABORTED") {
+      const code = if (running.stopCode == "") "CANCELLED" else running.stopCode
+      running.finish(CalibrationResultOutcome.Cancelled, code, wordsOf(code), unsure)
+      return
+    }
+    running.finish(CalibrationResultOutcome.Failed, e.code, e.message, unsure)
+    return
+  }
+  running.finish(CalibrationResultOutcome.Failed, "ERROR", e.message, unsure)
+}
+
+/// The words for the code of a stop.
+function wordsOf(code: string): string {
+  if (code == "LINK_LOST") {
+    return "the link to the vehicle was lost or the session ended"
+  }
+  if (code == "ARMED") {
+    return "the vehicle armed"
+  }
+  "cancelled"
+}
+
+/// The vehicle that is calibrated: the autopilot the session has.
+function target(): Target {
+  const t: Target = { system: link.sysid, component: link.compid }
+  t
+}
+
+/// Waits until the vehicle says it is up. False when it did not (the calibration is ended, as `NOT_UP` or as stopped).
+async function waitUp(conn: MavLinkConnection): Promise<bool> throws Error {
+  const up = await waitUntilUp(conn, target(), waits.upMs, running.own.signal)
+  if (up) {
+    return true
+  }
+  if (running.own.signal.aborted) {
+    endedBy(new MavLinkError("ABORTED", "stopped"), false)
+  } else {
+    running.finish(CalibrationResultOutcome.Failed, "NOT_UP", "the vehicle did not say it is up (it may still be starting): wait a moment and try again", false)
+  }
+  false
+}
+
+/// The accelerometer: the full calibration (six positions) or the level.
+async function runAccel(conn: MavLinkConnection, full: bool): Promise<void> {
+  try {
+    if (!await waitUp(conn)) {
+      return
+    }
+    const cal = new Calibration(conn, target(), { timeoutMs: 2000, signal: running.own.signal }, waits.ackMs)
+    if (!full) {
+      await runLevel(cal)
+      return
+    }
+    await runFull(cal)
+  } catch (e: Error) {
+    endedBy(e, false)
+  }
+}
+
+/// The level: one command, answered when the vehicle is done.
+async function runLevel(cal: Calibration): Promise<void> throws Error {
+  const result = await cal.startAccel(AccelCalKind.LEVEL)
+  if (result == MavResult.ACCEPTED) {
+    running.finish(CalibrationResultOutcome.Success, "", lastWords("the level was set"), false)
+  } else if (result == MavResult.TEMPORARILY_REJECTED) {
+    running.finish(CalibrationResultOutcome.Failed, "REFUSED", "the vehicle is not ready for the level calibration yet: wait a moment and try again", false)
+  } else {
+    running.finish(CalibrationResultOutcome.Failed, "REFUSED", lastWords("the vehicle refused the level calibration"), false)
+  }
+}
+
+/// The six positions: the vehicle asks for each, the page says when it is in it, the vehicle takes the sample and asks for the next.
+async function runFull(cal: Calibration): Promise<void> throws Error {
+  const started = await cal.startAccel(AccelCalKind.FULL)
+  if (started != MavResult.ACCEPTED) {
+    running.finish(CalibrationResultOutcome.Failed, "REFUSED", lastWords("the vehicle refused the accelerometer calibration"), false)
+    return
+  }
+  running.phase = CalibrationStateState.Running
+  running.tell(true)
+  let answered = 0
+  let silent = 0
+  while (true) {
+    const asked = await cal.prompt(1500)
+    if (asked == null) {
+      silent += 1500
+      if (silent >= waits.accelSilenceMs) {
+        running.finish(CalibrationResultOutcome.Failed, "TIMEOUT", "the vehicle stopped asking for positions", false)
+        return
+      }
+      continue
+    }
+    silent = 0
+    const p = asked!
+    if (AccelPosition.isEnd(p)) {
+      if (p == AccelPosition.SUCCESS) {
+        running.finish(CalibrationResultOutcome.Success, "", lastWords("calibration successful"), false)
+      } else {
+        running.finish(CalibrationResultOutcome.Failed, "FAILED", lastWords("the vehicle says the calibration failed"), false)
+      }
+      return
+    }
+    if (AccelPosition.isPlacement(p) && p != answered) {
+      if (running.position != p) {
+        running.position = p
+        running.tell(true)
+      }
+      if (running.pending == p) {
+        running.confirming = true
+        running.tell(true)
+        const accepted = await cal.confirm(p) == MavResult.ACCEPTED
+        running.confirming = false
+        if (accepted) {
+          running.placed.push(p as u8)
+          answered = p
+          running.pending = 0
+        }
+        running.tell(true)
+      }
+    }
+  }
+}
+
+/// The compass entry for the id: a copy (the entries are values), or a new one when it is first heard of. `putCompass` puts it back.
+function compassOf(id: int): CalibrationCompass {
+  for (const c of running.compasses) {
+    if (c.id as int == id) {
+      return c
+    }
+  }
+  CalibrationCompass { id: id as u8, status: "WAITING_TO_START", percent: 0, attempt: 0, mask: [] }
+}
+
+/// Puts a compass entry in its place (or at the end, when the compass is new).
+function putCompass(c: CalibrationCompass): void {
+  for (let i = 0; i < running.compasses.length; i++) {
+    if (running.compasses[i].id == c.id) {
+      running.compasses[i] = c
+      return
+    }
+  }
+  running.compasses.push(c)
+}
+
+/// What a report says, as the contract has it.
+function reportOf(r: CompassReport): CalibrationCompassReport {
+  CalibrationCompassReport {
+    ok: r.status == CompassStatus.SUCCESS,
+    fitness: r.fitness,
+    offsets: r.offsets,
+    diagonals: r.diagonals,
+    offDiagonals: r.offDiagonals,
+    oldOrientation: r.oldOrientation as u8,
+    newOrientation: r.newOrientation as u8,
+    orientationConfidence: r.orientationConfidence,
+    scale: r.scaleFactor,
+    accepted: r.autosaved,
+  }
+}
+
+/// The compass calibration: it starts, the page watches, and the results wait for the page's decision.
+async function runCompass(conn: MavLinkConnection, mask: int, autosave: bool, retry: bool): Promise<void> {
+  try {
+    if (!await waitUp(conn)) {
+      return
+    }
+    await askForMessages()
+    const cal = new CompassCalibration(conn, target(), { timeoutMs: 2000, signal: running.own.signal })
+    const options: CompassOptions = { mask: mask, autosave: autosave, retry: retry }
+    let failed = false
+    try {
+      await cal.calibration(options, () => driveCompass(cal))
+    } catch (e: MavLinkError) {
+      failed = true
+      // The vehicle was told to cancel (the guard does, whatever happened): the calibration ends here.
+      if (e.code == "REFUSED") {
+        running.finish(CalibrationResultOutcome.Refused, "REFUSED", lastWords("the vehicle refused to start the compass calibration"), false)
+      } else {
+        endedBy(e, cal.cancelFailed)
+      }
+    }
+    if (!failed) {
+      endCompass(cal.cancelFailed)
+    }
+  } catch (e: Error) {
+    endedBy(e, false)
+  }
+}
+
+/// Asks the vehicle to send the compass messages (its stream EXTRA3): a new link has them at no rate, and a run would be silent.
+async function askForMessages(): Promise<void> {
+  const rates = ratesNow()
+  if (rates == null) {
+    return
+  }
+  try {
+    await rates!.set(MAG_CAL_PROGRESS_ID, COMPASS_MESSAGES_HZ)
+    await rates!.set(MAG_CAL_REPORT_ID, COMPASS_MESSAGES_HZ)
+  } catch (e: Error) {
+  }
+}
+
+/// The compass work: the vehicle's events are read until every compass has reported, then the results wait for the page's decision.
+async function driveCompass(cal: CompassCalibration): Promise<void> throws Error {
+  running.phase = CalibrationStateState.Running
+  running.tell(true)
+  let expected = 0
+  let have = 0
+  let silent = 0
+  while (expected == 0 || (expected & have) != expected) {
+    const e = await cal.next(1500)
+    if (e == null) {
+      silent += 1500
+      if (silent >= waits.compassSilenceMs) {
+        throw new MavLinkError("TIMEOUT", "the vehicle stopped reporting the compass calibration")
+      }
+      continue
+    }
+    silent = 0
+    const event = e!
+    if (event.progress != null) {
+      const p = event.progress!
+      expected = expected | p.calMask
+      const c = compassOf(p.compassId)
+      if (c.report == null) {
+        c.status = CompassStatus.nameOf(p.status) ?? `${p.status}`
+        c.percent = p.completionPct as u8
+        c.attempt = p.attempt as u8
+        c.mask = p.completionMask.map((b: int) => b as u8)
+      }
+      putCompass(c)
+      running.tell(false)
+    } else if (event.report != null) {
+      const r = event.report!
+      expected = expected | r.calMask
+      have = have | (1 << r.compassId)
+      const c = compassOf(r.compassId)
+      c.status = CompassStatus.nameOf(r.status) ?? `${r.status}`
+      c.report = reportOf(r)
+      putCompass(c)
+      running.tell(true)
+    }
+  }
+  await review(cal)
+}
+
+/// The results are in: they wait for the page to accept (what succeeded) or cancel. Leaving the page, the link and the vehicle's arming end
+/// the wait as a cancel (they stop the calibration).
+async function review(cal: CompassCalibration): Promise<void> throws Error {
+  // A compass that the vehicle kept by itself (autosave) needs no decision.
+  if (running.compasses.length > 0 && running.compasses.every((c: CalibrationCompass) => c.report != null && c.report!.accepted)) {
+    return
+  }
+  running.phase = CalibrationStateState.Review
+  running.tell(true)
+  while (running.decision == "" && !running.own.signal.aborted) {
+    await delay(50)
+  }
+  if (running.own.signal.aborted) {
+    throw new MavLinkError("ABORTED", "stopped")
+  }
+  if (running.decision == "accept") {
+    await acceptOnVehicle(cal)
+  }
+}
+
+/// Asks the vehicle to keep the results the page chose: what it accepts is marked; what it refuses is said (and the page may try again).
+async function acceptOnVehicle(cal: CompassCalibration): Promise<void> throws Error {
+  const mask = running.acceptMask
+  const result = await cal.accept(mask)
+  if (result != MavResult.ACCEPTED) {
+    running.accepted = lastWords("the vehicle did not accept the results (did any compass succeed?)")
+    running.decision = ""
+    await review(cal)
+    return
+  }
+  for (let i = 0; i < running.compasses.length; i++) {
+    const c = running.compasses[i]
+    const named = mask == 0 || ((mask >> (c.id as int)) & 1) != 0
+    if (named && c.report != null && c.report!.ok) {
+      const kept = c.report!
+      kept.accepted = true
+      c.report = kept
+      running.compasses[i] = c
+    }
+  }
+  running.accepted = "ok"
+  running.tell(true)
+}
+
+/// The compass calibration is over (the vehicle was told to cancel): success when the page accepted what succeeded.
+function endCompass(unsure: bool): void {
+  const accepted = running.compasses.some((c: CalibrationCompass) => c.report != null && c.report!.accepted)
+  if (accepted) {
+    running.finish(CalibrationResultOutcome.Success, "", "the results were kept: the new values are used after a reboot", unsure)
+  } else {
+    running.finish(CalibrationResultOutcome.Cancelled, "CANCELLED", "nothing was kept", unsure)
+  }
+}

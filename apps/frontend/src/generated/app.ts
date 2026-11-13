@@ -783,6 +783,87 @@ function validateSerialPortInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-port, or null. */
 export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
 
+export type CalibrationKind = "accel" | "level" | "compass"
+
+function validateCalibrationKindInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["accel","level","compass"])
+}
+
+/** The first problem with `value` as a calibration-kind, or null. */
+export const validateCalibrationKind = (value: unknown) => run(validateCalibrationKindInto, value)
+
+export type CalibrationStart = { "kind": CalibrationKind, "compasses"?: number, "autosave"?: boolean, "retry"?: boolean }
+
+function validateCalibrationStartInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","compasses","autosave","retry"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validateCalibrationKindInto(value, path))) && (value["compasses"] === undefined || nested(value["compasses"], `${path}.compasses`, (value, path) => uint(value, path, 0xff))) && (value["autosave"] === undefined || nested(value["autosave"], `${path}.autosave`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["retry"] === undefined || nested(value["retry"], `${path}.retry`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a calibration-start, or null. */
+export const validateCalibrationStart = (value: unknown) => run(validateCalibrationStartInto, value)
+
+export type CalibrationConfirm = { "position": number }
+
+function validateCalibrationConfirmInto(value: any, path: string): boolean {
+  return map(value, path, ["position"]) && (value["position"] === undefined ? fail(`${path}.position`, 'present') : nested(value["position"], `${path}.position`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a calibration-confirm, or null. */
+export const validateCalibrationConfirm = (value: unknown) => run(validateCalibrationConfirmInto, value)
+
+export type CalibrationAccept = { "compasses"?: number }
+
+function validateCalibrationAcceptInto(value: any, path: string): boolean {
+  return map(value, path, ["compasses"]) && (value["compasses"] === undefined || nested(value["compasses"], `${path}.compasses`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a calibration-accept, or null. */
+export const validateCalibrationAccept = (value: unknown) => run(validateCalibrationAcceptInto, value)
+
+export type CalibrationState = { "state": "idle" | "starting" | "running" | "review" | "finished", "kind"?: CalibrationKind, "accel"?: CalibrationAccel, "compasses"?: (CalibrationCompass)[], "result"?: CalibrationResult, "texts": (string)[] }
+
+function validateCalibrationStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","kind","accel","compasses","result","texts"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["idle","starting","running","review","finished"]))) && (value["kind"] === undefined || nested(value["kind"], `${path}.kind`, (value, path) => validateCalibrationKindInto(value, path))) && (value["accel"] === undefined || nested(value["accel"], `${path}.accel`, (value, path) => validateCalibrationAccelInto(value, path))) && (value["compasses"] === undefined || nested(value["compasses"], `${path}.compasses`, (value, path) => list(value, path, (value, path) => validateCalibrationCompassInto(value, path)))) && (value["result"] === undefined || nested(value["result"], `${path}.result`, (value, path) => validateCalibrationResultInto(value, path))) && (value["texts"] === undefined ? fail(`${path}.texts`, 'present') : nested(value["texts"], `${path}.texts`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+}
+
+/** The first problem with `value` as a calibration-state, or null. */
+export const validateCalibrationState = (value: unknown) => run(validateCalibrationStateInto, value)
+
+export type CalibrationAccel = { "position": number, "placed": (number)[], "confirming": boolean }
+
+function validateCalibrationAccelInto(value: any, path: string): boolean {
+  return map(value, path, ["position","placed","confirming"]) && (value["position"] === undefined ? fail(`${path}.position`, 'present') : nested(value["position"], `${path}.position`, (value, path) => uint(value, path, 0xff))) && (value["placed"] === undefined ? fail(`${path}.placed`, 'present') : nested(value["placed"], `${path}.placed`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xff)))) && (value["confirming"] === undefined ? fail(`${path}.confirming`, 'present') : nested(value["confirming"], `${path}.confirming`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a calibration-accel, or null. */
+export const validateCalibrationAccel = (value: unknown) => run(validateCalibrationAccelInto, value)
+
+export type CalibrationCompass = { "id": number, "status": string, "percent": number, "attempt": number, "mask": (number)[], "report"?: CalibrationCompassReport }
+
+function validateCalibrationCompassInto(value: any, path: string): boolean {
+  return map(value, path, ["id","status","percent","attempt","mask","report"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => uint(value, path, 0xff))) && (value["status"] === undefined ? fail(`${path}.status`, 'present') : nested(value["status"], `${path}.status`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["percent"] === undefined ? fail(`${path}.percent`, 'present') : nested(value["percent"], `${path}.percent`, (value, path) => uint(value, path, 0xff))) && (value["attempt"] === undefined ? fail(`${path}.attempt`, 'present') : nested(value["attempt"], `${path}.attempt`, (value, path) => uint(value, path, 0xff))) && (value["mask"] === undefined ? fail(`${path}.mask`, 'present') : nested(value["mask"], `${path}.mask`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xff)))) && (value["report"] === undefined || nested(value["report"], `${path}.report`, (value, path) => validateCalibrationCompassReportInto(value, path)))
+}
+
+/** The first problem with `value` as a calibration-compass, or null. */
+export const validateCalibrationCompass = (value: unknown) => run(validateCalibrationCompassInto, value)
+
+export type CalibrationCompassReport = { "ok": boolean, "fitness": number, "offsets": (number)[], "diagonals": (number)[], "offDiagonals": (number)[], "oldOrientation": number, "newOrientation": number, "orientationConfidence": number, "scale": number, "accepted": boolean }
+
+function validateCalibrationCompassReportInto(value: any, path: string): boolean {
+  return map(value, path, ["ok","fitness","offsets","diagonals","offDiagonals","oldOrientation","newOrientation","orientationConfidence","scale","accepted"]) && (value["ok"] === undefined ? fail(`${path}.ok`, 'present') : nested(value["ok"], `${path}.ok`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fitness"] === undefined ? fail(`${path}.fitness`, 'present') : nested(value["fitness"], `${path}.fitness`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["offsets"] === undefined ? fail(`${path}.offsets`, 'present') : nested(value["offsets"], `${path}.offsets`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number')))) && (value["diagonals"] === undefined ? fail(`${path}.diagonals`, 'present') : nested(value["diagonals"], `${path}.diagonals`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number')))) && (value["offDiagonals"] === undefined ? fail(`${path}.offDiagonals`, 'present') : nested(value["offDiagonals"], `${path}.offDiagonals`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number')))) && (value["oldOrientation"] === undefined ? fail(`${path}.oldOrientation`, 'present') : nested(value["oldOrientation"], `${path}.oldOrientation`, (value, path) => uint(value, path, 0xff))) && (value["newOrientation"] === undefined ? fail(`${path}.newOrientation`, 'present') : nested(value["newOrientation"], `${path}.newOrientation`, (value, path) => uint(value, path, 0xff))) && (value["orientationConfidence"] === undefined ? fail(`${path}.orientationConfidence`, 'present') : nested(value["orientationConfidence"], `${path}.orientationConfidence`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["scale"] === undefined ? fail(`${path}.scale`, 'present') : nested(value["scale"], `${path}.scale`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["accepted"] === undefined ? fail(`${path}.accepted`, 'present') : nested(value["accepted"], `${path}.accepted`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a calibration-compass-report, or null. */
+export const validateCalibrationCompassReport = (value: unknown) => run(validateCalibrationCompassReportInto, value)
+
+export type CalibrationResult = { "kind": CalibrationKind, "outcome": "success" | "failed" | "cancelled" | "refused", "code"?: string, "detail"?: string, "unsure"?: boolean }
+
+function validateCalibrationResultInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","outcome","code","detail","unsure"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validateCalibrationKindInto(value, path))) && (value["outcome"] === undefined ? fail(`${path}.outcome`, 'present') : nested(value["outcome"], `${path}.outcome`, (value, path) => oneOf(value, path, ["success","failed","cancelled","refused"]))) && (value["code"] === undefined || nested(value["code"], `${path}.code`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["detail"] === undefined || nested(value["detail"], `${path}.detail`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["unsure"] === undefined || nested(value["unsure"], `${path}.unsure`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a calibration-result, or null. */
+export const validateCalibrationResult = (value: unknown) => run(validateCalibrationResultInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -814,6 +895,13 @@ export interface Services {
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
   "vehicle.info": { kind: 'method', request: null, response: VehicleDetails }
   "vehicle.modes": { kind: 'method', request: null, response: VehicleModes }
+  "calibration.start": { kind: 'method', request: CalibrationStart, response: CalibrationState }
+  "calibration.confirm": { kind: 'method', request: CalibrationConfirm, response: CalibrationState }
+  "calibration.accept": { kind: 'method', request: CalibrationAccept, response: CalibrationState }
+  "calibration.cancel": { kind: 'method', request: null, response: CalibrationState }
+  "calibration.status": { kind: 'method', request: null, response: CalibrationState }
+  "calibration.progress": { kind: 'event', payload: CalibrationState }
+  "calibration.result": { kind: 'event', payload: CalibrationResult }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
@@ -938,6 +1026,32 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "vehicle.modes": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateVehicleModesInto(value, path),
+  },
+  "calibration.start": {
+    request: (value: any, path: string) => validateCalibrationStartInto(value, path),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.confirm": {
+    request: (value: any, path: string) => validateCalibrationConfirmInto(value, path),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.accept": {
+    request: (value: any, path: string) => validateCalibrationAcceptInto(value, path),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.cancel": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.status": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.progress": {
+    payload: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.result": {
+    payload: (value: any, path: string) => validateCalibrationResultInto(value, path),
   },
   "telemetry.stream": {
     params: (value: any, path: string) => validateTelemetryParamsInto(value, path),

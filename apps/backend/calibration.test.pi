@@ -1,0 +1,532 @@
+// The calibration service (`calibration.*`), over an in-memory link against the simulated vehicle of pico-mavlink: its accelerometer and
+// compass calibrations (SimulatedAutopilot.calibration and .compass). Each exit path of a calibration has a test of its own, and so has each
+// refusal.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { CommandLong, MavCmd, Received, SimulatedAutopilot, StatusText } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { waits } from "./calibration"
+import {
+  CalibrationKind,
+  CalibrationResultOutcome,
+  CalibrationState,
+  CalibrationStateState,
+  ConnectRequest,
+  ConnectRequestTransport,
+  decodeCalibrationResult,
+  decodeCalibrationState,
+  encodeCalibrationAccept,
+  encodeCalibrationConfirm,
+  encodeCalibrationStart,
+  encodeConnectRequest,
+  CalibrationAccept,
+  CalibrationConfirm,
+  CalibrationStart,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// A connected simulator, quick to calibrate and disarmed, that has said it is up; and the interval that keeps it disarmed.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+  }
+
+  /// Ends the connection (its timers would keep the test process alive).
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// The vehicle says it is up, as ArduPilot does (the text is what `waitUntilUp` looks for).
+function saysUp(sim: SimulatedAutopilot): void {
+  const t = new StatusText()
+  t.text = "AHRS: EKF3 active"
+  sim.conn.send(t)
+}
+
+async function connected(): Promise<Rig> throws Error {
+  waits.upMs = 800
+  waits.acceptMs = 3000
+  waits.accelSilenceMs = 3000
+  waits.compassSilenceMs = 3000
+  waits.ackMs = 1000
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.calibration.takesMs = 0
+  sim.calibration.repeatMs = 20
+  sim.compass.progressMs = 10
+  sim.compass.stepPct = 25
+  // The simulator arms itself after three ticks: a calibration is for a vehicle on the ground.
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  await afterBeat()
+  saysUp(sim)
+  new Rig(f, sim, hold)
+}
+
+async function startOf(f: Frontend, kind: CalibrationKind): Promise<Envelope> throws Error {
+  await f.call("calibration.start", encodeCalibrationStart(CalibrationStart { kind: kind }))
+}
+
+async function state(f: Frontend): Promise<CalibrationState> throws Error {
+  decodeCalibrationState((await f.call("calibration.status")).p ?? Cbor.Null, "$")
+}
+
+/// Waits until the state says what `done` wants (the calibration runs in the background), or fails after a few seconds.
+async function until(f: Frontend, what: string, done: (s: CalibrationState) => bool): Promise<CalibrationState> throws Error {
+  let s = await state(f)
+  let waited = 0
+  while (!done(s) && waited < 6000) {
+    await delay(25)
+    waited += 25
+    s = await state(f)
+  }
+  expect(done(s)).toBe(true)
+  if (!done(s)) {
+    throw new Error(`the state never was: ${what}`)
+  }
+  s
+}
+
+function isFinished(s: CalibrationState): bool {
+  s.state == CalibrationStateState.Finished
+}
+
+function outcomeOf(s: CalibrationState): string {
+  const r = s.result
+  if (r == null) {
+    return "none"
+  }
+  match (r!.outcome) {
+    Success => "success",
+    Failed => "failed",
+    Cancelled => "cancelled",
+    Refused => "refused",
+  }
+}
+
+function codeOf(s: CalibrationState): string {
+  const r = s.result
+  if (r == null || r!.code == null) "" else r!.code!
+}
+
+/// The error code of a reply, or "ok".
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+/// The position the vehicle asks for, once it does (the page's confirmation is only taken for that).
+async function asksFor(f: Frontend, position: int): Promise<void> throws Error {
+  await until(f, `a request for position ${position}`, (s: CalibrationState) => s.accel != null && s.accel!.position as int == position)
+}
+
+async function confirms(f: Frontend, position: int): Promise<string> throws Error {
+  errorOf(await f.call("calibration.confirm", encodeCalibrationConfirm(CalibrationConfirm { position: position as u8 })))
+}
+
+/// The six positions, one after the other, each said to be placed when the vehicle asks for it.
+async function walkTheSixPositions(f: Frontend): Promise<void> throws Error {
+  for (const p of [1, 2, 3, 4, 5, 6]) {
+    await asksFor(f, p)
+    expect(await confirms(f, p)).toBe("ok")
+  }
+}
+
+async function fullAccelerometerEndsWithTheVehiclesOwnSuccess(): Promise<void> throws Error {
+  const r = await connected()
+  const first = await startOf(r.f, CalibrationKind.Accel)
+  expect(errorOf(first)).toBe("ok")
+  await walkTheSixPositions(r.f)
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("success")
+  expect(r.sim.calibration.confirmed.join(",")).toBe("1,2,3,4,5,6")
+  expect(done.accel == null).toBe(true)
+  expect(done.texts.indexOf("Calibration successful") >= 0).toBe(true)
+  // the first prompt and the vehicle's own words are in the state
+  expect(done.texts.indexOf("Place vehicle level and press any key.") >= 0).toBe(true)
+}
+
+async function aFailureIsShownAsAFailure(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.calibration.failAt = 3
+  await startOf(r.f, CalibrationKind.Accel)
+  for (const p of [1, 2, 3]) {
+    await asksFor(r.f, p)
+    expect(await confirms(r.f, p)).toBe("ok")
+  }
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("failed")
+  expect(codeOf(done)).toBe("FAILED")
+  expect(done.result!.detail!).toBe("Calibration FAILED")
+  expect(done.texts.indexOf("Calibration FAILED") >= 0).toBe(true)
+}
+
+async function theLevelIsOneCommand(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Level)
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("success")
+  expect(r.sim.calibration.levelRuns).toBe(1)
+  expect(r.sim.calibration.accelRuns).toBe(0)
+}
+
+async function aPositionThatIsNotAskedForIsRefused(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  expect(await confirms(r.f, 4)).toBe("NOT_ASKED")
+  expect(await confirms(r.f, 1)).toBe("ok")
+  await until(r.f, "the next position", (s: CalibrationState) => s.accel != null && s.accel!.position as int == 2)
+  // nothing runs after the end
+  await r.f.call("calibration.cancel")
+  expect(await confirms(r.f, 2)).toBe("NOT_RUNNING")
+  await r.close()
+}
+
+async function refusesWhenNoVehicleIsConnected(): Promise<void> throws Error {
+  const f = await start()
+  link.close()
+  expect(errorOf(await startOf(f, CalibrationKind.Accel))).toBe("NOT_CONNECTED")
+}
+
+async function refusesWhenTheVehicleIsArmed(): Promise<void> throws Error {
+  const r = await connected()
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await delay(1500)   // a heartbeat that says armed
+  const refused = errorOf(await startOf(r.f, CalibrationKind.Accel))
+  const level = errorOf(await startOf(r.f, CalibrationKind.Compass))
+  expect(refused).toBe("ARMED")
+  expect(level).toBe("ARMED")
+  expect(r.sim.calibration.preflightCommands).toBe(0)
+  expect(r.sim.compass.starts).toBe(0)
+  await r.close()
+}
+
+async function refusesWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  expect(errorOf(await startOf(r.f, CalibrationKind.Level))).toBe("STATE_UNKNOWN")
+  expect(r.sim.calibration.preflightCommands).toBe(0)
+  await r.close()
+}
+
+async function onlyOneCalibrationRunsAtATime(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  expect(errorOf(await startOf(r.f, CalibrationKind.Compass))).toBe("BUSY")
+  expect(errorOf(await startOf(r.f, CalibrationKind.Level))).toBe("BUSY")
+  expect(r.sim.compass.starts).toBe(0)
+  await r.f.call("calibration.cancel")
+  await r.close()
+}
+
+async function aRebootIsRefusedWhileItRuns(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  expect(errorOf(await r.f.call("vehicle.reboot"))).toBe("BUSY")
+  await r.f.call("calibration.cancel")
+  await r.close()
+}
+
+async function sendsNothingToAVehicleThatIsNotUp(): Promise<void> throws Error {
+  waits.upMs = 300
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  await afterBeat()
+  expect(errorOf(await startOf(f, CalibrationKind.Accel))).toBe("ok")
+  const done = await until(f, "finished", isFinished)
+  clearInterval(hold)
+  await f.call("vehicle.disconnect")
+  expect(outcomeOf(done)).toBe("failed")
+  expect(codeOf(done)).toBe("NOT_UP")
+  // never a command to the vehicle that has just booted
+  expect(sim.calibration.preflightCommands).toBe(0)
+}
+
+async function cancelEndsTheAccelerometerCalibration(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  const after = decodeCalibrationState((await r.f.call("calibration.cancel")).p ?? Cbor.Null, "$")
+  expect(isFinished(after)).toBe(true)
+  expect(outcomeOf(after)).toBe("cancelled")
+  expect(codeOf(after)).toBe("CANCELLED")
+  expect(r.sim.calibration.confirmed.length).toBe(0)
+  // another one may begin at once
+  expect(errorOf(await startOf(r.f, CalibrationKind.Level))).toBe("ok")
+  await until(r.f, "finished", isFinished)
+  await r.close()
+}
+
+async function theLinkBeingLostEndsIt(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  link.abortOperations()
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("LINK_LOST")
+}
+
+async function theSessionEndingEndsIt(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  link.close()
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("LINK_LOST")
+}
+
+async function theVehicleArmingEndsIt(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Accel)
+  await asksFor(r.f, 1)
+  clearInterval(r.hold)
+  r.sim.ticks = 5   // the next heartbeat says armed
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("ARMED")
+}
+
+async function compassGoesToTheReportsAndWaitsForTheUser(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await startOf(r.f, CalibrationKind.Compass))).toBe("ok")
+  const review = await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  expect(review.compasses!.length).toBe(2)
+  const first = review.compasses![0]
+  expect(first.status).toBe("SUCCESS")
+  expect(first.report!.ok).toBe(true)
+  expect(first.report!.fitness).toBe(12.5)
+  expect(first.report!.accepted).toBe(false)
+  expect(first.mask.length).toBe(10)
+  // nothing was kept, and nothing is while the user does not say so
+  await delay(150)
+  expect(r.sim.compass.accepts).toBe(0)
+  expect(r.sim.compass.saved(0) || r.sim.compass.saved(1)).toBe(false)
+  expect(r.sim.compass.lastAutosave).toBe(false)
+  expect((await state(r.f)).state == CalibrationStateState.Review).toBe(true)
+  await r.f.call("calibration.cancel")
+  await r.close()
+}
+
+async function compassAskedForItsMessages(): Promise<void> throws Error {
+  const r = await connected()
+  const asked: int[] = []
+  r.sim.conn.on((m: Received) => {
+    const c = m.message
+    if (c instanceof CommandLong && c.command as int == MavCmd.SET_MESSAGE_INTERVAL) {
+      asked.push(c._param1 as int)
+    }
+  })
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  await r.f.call("calibration.cancel")
+  await r.close()
+  expect(asked.indexOf(191) >= 0).toBe(true)
+  expect(asked.indexOf(192) >= 0).toBe(true)
+}
+
+async function compassIsKeptOnlyWhenAccepted(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  const accepted = await r.f.call("calibration.accept", encodeCalibrationAccept(CalibrationAccept {}))
+  expect(errorOf(accepted)).toBe("ok")
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("success")
+  expect(r.sim.compass.accepts).toBe(1)
+  expect(r.sim.compass.saved(0) && r.sim.compass.saved(1)).toBe(true)
+  // the vehicle was told to stop calibrating at the end (the guard), after the accept
+  expect(r.sim.compass.cancels).toBe(1)
+}
+
+async function compassAcceptsOnlyTheCompassesNamed(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  await r.f.call("calibration.accept", encodeCalibrationAccept(CalibrationAccept { compasses: 2 as u8 }))
+  await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(r.sim.compass.saved(0)).toBe(false)
+  expect(r.sim.compass.saved(1)).toBe(true)
+}
+
+async function compassCancelledFromTheReviewKeepsNothing(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  const after = decodeCalibrationState((await r.f.call("calibration.cancel")).p ?? Cbor.Null, "$")
+  await r.close()
+  expect(outcomeOf(after)).toBe("cancelled")
+  expect(r.sim.compass.accepts).toBe(0)
+  expect(r.sim.compass.cancels).toBe(1)
+  expect(r.sim.compass.saved(0) || r.sim.compass.saved(1)).toBe(false)
+}
+
+async function compassCancelledWhileItRunsIsToldToTheVehicle(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.stepPct = 5   // slow: it is still running when it is cancelled
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "running", (s: CalibrationState) => s.compasses != null && s.compasses!.length > 0)
+  const after = decodeCalibrationState((await r.f.call("calibration.cancel")).p ?? Cbor.Null, "$")
+  await r.close()
+  expect(outcomeOf(after)).toBe("cancelled")
+  expect(r.sim.compass.cancels).toBe(1)
+  expect(r.sim.compass.statusOf(0)).toBe(0)
+  expect(after.result!.unsure == null).toBe(true)
+}
+
+async function compassCancelledByTheLinkIsToldToTheVehicle(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.stepPct = 5
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "running", (s: CalibrationState) => s.compasses != null && s.compasses!.length > 0)
+  link.abortOperations()
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("LINK_LOST")
+  expect(r.sim.compass.cancels >= 1).toBe(true)
+}
+
+async function aLinkThatIsGoneSaysTheVehicleMayStillCalibrate(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.stepPct = 5
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "running", (s: CalibrationState) => s.compasses != null && s.compasses!.length > 0)
+  r.sim.down = true   // the vehicle hears nothing from now on
+  link.abortOperations()
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(done.result!.unsure!).toBe(true)
+}
+
+async function compassIsCancelledWhenTheVehicleArms(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.stepPct = 5
+  await startOf(r.f, CalibrationKind.Compass)
+  await until(r.f, "running", (s: CalibrationState) => s.compasses != null && s.compasses!.length > 0)
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("ARMED")
+}
+
+async function compassFailureCannotBeAccepted(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.failWith = 7   // FAILED_RADIUS
+  await startOf(r.f, CalibrationKind.Compass)
+  const review = await until(r.f, "review", (s: CalibrationState) => s.state == CalibrationStateState.Review)
+  expect(review.compasses![0].status).toBe("FAILED_RADIUS")
+  expect(review.compasses![0].report!.ok).toBe(false)
+  expect(errorOf(await r.f.call("calibration.accept", encodeCalibrationAccept(CalibrationAccept {})))).toBe("NOT_ACCEPTED")
+  expect(r.sim.compass.accepts).toBe(0)
+  // still waiting: the user cancels
+  const after = decodeCalibrationState((await r.f.call("calibration.cancel")).p ?? Cbor.Null, "$")
+  await r.close()
+  expect(outcomeOf(after)).toBe("cancelled")
+}
+
+async function theVehicleRefusingTheStartIsTold(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.compass.refuse = true
+  await startOf(r.f, CalibrationKind.Compass)
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("refused")
+  expect(codeOf(done)).toBe("REFUSED")
+  expect(done.texts.indexOf("Compass calibration failed to start") >= 0).toBe(true)
+}
+
+async function acceptNeedsAFinishedRun(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await r.f.call("calibration.accept", encodeCalibrationAccept(CalibrationAccept {})))).toBe("NOT_RUNNING")
+  await r.close()
+}
+
+async function theResultIsTold(): Promise<void> throws Error {
+  const r = await connected()
+  await startOf(r.f, CalibrationKind.Level)
+  const told = decodeCalibrationResult((await r.f.event("calibration.result")).p ?? Cbor.Null, "$")
+  await r.close()
+  expect(told.outcome == CalibrationResultOutcome.Success).toBe(true)
+  expect(told.kind == CalibrationKind.Level).toBe(true)
+}
+
+describe("the calibration service", () => {
+  it("runs the six positions of the accelerometer, and ends with the vehicle's own success", fullAccelerometerEndsWithTheVehiclesOwnSuccess)
+  it("shows a failure as a failure, with the vehicle's words", aFailureIsShownAsAFailure)
+  it("sets the level with one command", theLevelIsOneCommand)
+  it("takes a position only when the vehicle asks for it", aPositionThatIsNotAskedForIsRefused)
+  it("tells the result as an event", theResultIsTold)
+})
+
+describe("what the calibration service refuses", () => {
+  it("refuses when no vehicle is connected", refusesWhenNoVehicleIsConnected)
+  it("refuses when the vehicle is armed, and sends nothing", refusesWhenTheVehicleIsArmed)
+  it("refuses when the armed state is not known, and sends nothing", refusesWhenTheArmedStateIsNotKnown)
+  it("runs one calibration at a time", onlyOneCalibrationRunsAtATime)
+  it("refuses a reboot while a calibration runs", aRebootIsRefusedWhileItRuns)
+  it("sends nothing to a vehicle that has not said it is up", sendsNothingToAVehicleThatIsNotUp)
+  it("takes an accept only when compass results wait", acceptNeedsAFinishedRun)
+})
+
+describe("the exits of an accelerometer calibration", () => {
+  it("ends when the user cancels, and another may begin", cancelEndsTheAccelerometerCalibration)
+  it("ends when the link is lost", theLinkBeingLostEndsIt)
+  it("ends when the session ends", theSessionEndingEndsIt)
+  it("ends when the vehicle arms", theVehicleArmingEndsIt)
+})
+
+describe("the compass calibration", () => {
+  it("goes to the reports and waits for the user: nothing is kept", compassGoesToTheReportsAndWaitsForTheUser)
+  it("asks the vehicle for its compass messages", compassAskedForItsMessages)
+  it("keeps the results only when they are accepted", compassIsKeptOnlyWhenAccepted)
+  it("keeps only the compasses that were named", compassAcceptsOnlyTheCompassesNamed)
+  it("keeps nothing when it is cancelled from the review, and tells the vehicle", compassCancelledFromTheReviewKeepsNothing)
+  it("cancels on the vehicle when it is cancelled while it runs", compassCancelledWhileItRunsIsToldToTheVehicle)
+  it("cancels on the vehicle when the link is lost", compassCancelledByTheLinkIsToldToTheVehicle)
+  it("says the vehicle may still calibrate when the cancel cannot be told", aLinkThatIsGoneSaysTheVehicleMayStillCalibrate)
+  it("is cancelled when the vehicle arms", compassIsCancelledWhenTheVehicleArms)
+  it("cannot accept a failure", compassFailureCannotBeAccepted)
+  it("says so when the vehicle refuses to start", theVehicleRefusingTheStartIsTold)
+})
