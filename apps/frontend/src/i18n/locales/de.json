@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Von diesem Computer entfernte Logs: {count} (Log {names}). Grund: {reason}.",
     "namesMore": "{names}; weitere: {count}",
+    "ask": "Diese Einstellung entfernt Logs von diesem Computer: {count} ({size}; Log {names}). Jetzt entfernen? Wenn nicht, geht die Einstellung auf den früheren Wert zurück.",
     "parts": "Unfertige Downloads, die 7 Tage lang niemand fortgesetzt hat, wurden entfernt: {count}.",
     "why": {
       "age": "sie waren älter als {days} Tage",

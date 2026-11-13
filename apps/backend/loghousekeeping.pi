@@ -162,11 +162,14 @@ async function housekeeping(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
   } catch (e: Error) {
     throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
   }
-  const parts = await removeStaleParts(top)
+  // Stale parts go only when a rule is on (Never and No limit remove nothing), and never in a dry run.
+  const rulesOn = (ask.retentionDays as int) > 0 || (ask.sizeCapMb as int) > 0
+  const dry = ask.dryRun == true
+  const parts = if (partsMayGo(rulesOn, dry)) await removeStaleParts(top) else 0
   const copies = await copiesOf(top)
   const cap = (ask.sizeCapMb as int) * 1000000
   mark(copies, Date.now() as int, ask.retentionDays as int, cap)
-  const out = await removeMarked(copies)
+  const out = await removeMarked(copies, dry)
   let left = 0
   for (const c of copies) {
     left += c.size
@@ -230,8 +233,14 @@ class Removal {
   public unverified: int = 0
 }
 
-/// Removes the marked copies that verify, one at a time; one that can't be read, removed or verified is kept.
-async function removeMarked(copies: Copy[]): Promise<Removal> throws Error {
+/// Whether the stale parts of downloads may be removed now: a rule is on, and it is not a dry run.
+export function partsMayGo(rulesOn: bool, dry: bool): bool {
+  rulesOn && !dry
+}
+
+/// Removes the marked copies that verify, one at a time (in a dry run: only counts them); one that can't be read, removed or verified
+/// is kept.
+async function removeMarked(copies: Copy[], dry: bool): Promise<Removal> throws Error {
   const out = new Removal()
   for (const c of copies) {
     if (c.why == "") {
@@ -241,7 +250,7 @@ async function removeMarked(copies: Copy[]): Promise<Removal> throws Error {
       out.unverified += 1
       continue
     }
-    if (!await removed(c)) {
+    if (!dry && !await removed(c)) {
       continue
     }
     out.count += 1

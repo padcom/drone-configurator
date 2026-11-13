@@ -19,7 +19,7 @@ import {
   encodeLogsHousekeepingAsk,
 } from "./generated/app"
 import { copyName } from "./logs"
-import { Copy, isStalePart, mark } from "./loghousekeeping"
+import { Copy, isStalePart, mark, partsMayGo } from "./loghousekeeping"
 import { link } from "./session"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -136,8 +136,12 @@ async function names(r: Rig, vehicle: string): Promise<string[]> throws Error {
   out
 }
 
-async function housekeep(r: Rig, days: int, mb: int): Promise<Envelope> throws Error {
-  await r.f.call("logs.housekeeping", encodeLogsHousekeepingAsk(LogsHousekeepingAsk { retentionDays: days as u16, sizeCapMb: mb as u32 }))
+async function housekeep(r: Rig, days: int, mb: int, dry: bool = false): Promise<Envelope> throws Error {
+  const ask = LogsHousekeepingAsk { retentionDays: days as u16, sizeCapMb: mb as u32 }
+  if (dry) {
+    ask.dryRun = true
+  }
+  await r.f.call("logs.housekeeping", encodeLogsHousekeepingAsk(ask))
 }
 
 async function removesOnlyVerifiedCopiesOfAVehicleAndNothingElse(): Promise<void> throws Error {
@@ -192,6 +196,41 @@ async function isNotAnErrorWhenThereIsNoFolderOfLogsYet(): Promise<void> throws 
   } finally {
     await done(r)
   }
+}
+
+async function aDryRunSaysWhatWouldGoAndRemovesNothing(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const all: string[] = []
+    for (let n = 1; n <= 5; n++) {
+      all.push(await put(r, "uid-a", n, n, 400000, n != 1))
+    }
+    const dry = decodeLogsHousekept((await housekeep(r, 0, 1, true)).p ?? Cbor.Null, "$")
+
+    // The same marking and verification as a real run: copy 2 would go (copy 1 does not verify), 400 kB.
+    expect(dry.removedCount).toBe(1 as u32)
+    expect(dry.removed[0].name).toBe(all[1])
+    expect(dry.freed).toBe(400000 as u64)
+    expect(dry.unverified).toBe(1 as u32)
+    expect(dry.partsRemoved).toBe(0 as u32)
+    // Nothing was removed.
+    expect((await names(r, "uid-a")).length).toBe(5)
+    // The real run then does what the dry run said.
+    const real = decodeLogsHousekept((await housekeep(r, 0, 1)).p ?? Cbor.Null, "$")
+    expect(real.removedCount).toBe(1 as u32)
+    expect(real.removed[0].name).toBe(all[1])
+    expect((await names(r, "uid-a")).length).toBe(4)
+  } finally {
+    await done(r)
+  }
+}
+
+function stalePartsGoOnlyWhenARuleIsOnAndNotInADryRun(): void {
+  expect(partsMayGo(true, false)).toBe(true)
+  // Never and No limit remove nothing at all, a stale part included.
+  expect(partsMayGo(false, false)).toBe(false)
+  expect(partsMayGo(true, true)).toBe(false)
+  expect(partsMayGo(false, true)).toBe(false)
 }
 
 async function removesNothingWhenThereIsNoRuleOrNoRoom(): Promise<void> throws Error {
@@ -256,6 +295,8 @@ describe("housekeeping of the logs on this computer", () => {
   it("recognises the part of a download that nobody went on from for a week, and nothing else", recognisesAPartOfADownloadThatIsStale)
   it("removes only verified copies of a vehicle's logs: not a copy that does not verify, a part, another file or a recording", removesOnlyVerifiedCopiesOfAVehicleAndNothingElse)
   it("is not an error when there is no folder of logs yet (an app that downloaded none)", isNotAnErrorWhenThereIsNoFolderOfLogsYet)
+  it("says in a dry run what would go, as a real run does, and removes nothing", aDryRunSaysWhatWouldGoAndRemovesNothing)
+  it("removes a stale part only when a rule is on, and never in a dry run", stalePartsGoOnlyWhenARuleIsOnAndNotInADryRun)
   it("removes nothing with no rule or with room", removesNothingWhenThereIsNoRuleOrNoRoom)
   it("refuses while a connected vehicle is armed or not known to be disarmed", refusesWhileAConnectedVehicleIsArmedOrNotKnown)
 })

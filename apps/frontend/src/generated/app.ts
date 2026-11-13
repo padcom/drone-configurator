@@ -234,10 +234,10 @@ function validateLogsImportAskInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-import-ask, or null. */
 export const validateLogsImportAsk = (value: unknown) => run(validateLogsImportAskInto, value)
 
-export type LogsHousekeepingAsk = { "retentionDays": number, "sizeCapMb": number }
+export type LogsHousekeepingAsk = { "retentionDays": number, "sizeCapMb": number, "dryRun"?: boolean }
 
 function validateLogsHousekeepingAskInto(value: any, path: string): boolean {
-  return map(value, path, ["retentionDays","sizeCapMb"]) && (value["retentionDays"] === undefined ? fail(`${path}.retentionDays`, 'present') : nested(value["retentionDays"], `${path}.retentionDays`, (value, path) => uint(value, path, 0xffff))) && (value["sizeCapMb"] === undefined ? fail(`${path}.sizeCapMb`, 'present') : nested(value["sizeCapMb"], `${path}.sizeCapMb`, (value, path) => uint(value, path, 0xffffffff)))
+  return map(value, path, ["retentionDays","sizeCapMb","dryRun"]) && (value["retentionDays"] === undefined ? fail(`${path}.retentionDays`, 'present') : nested(value["retentionDays"], `${path}.retentionDays`, (value, path) => uint(value, path, 0xffff))) && (value["sizeCapMb"] === undefined ? fail(`${path}.sizeCapMb`, 'present') : nested(value["sizeCapMb"], `${path}.sizeCapMb`, (value, path) => uint(value, path, 0xffffffff))) && (value["dryRun"] === undefined || nested(value["dryRun"], `${path}.dryRun`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a logs-housekeeping-ask, or null. */

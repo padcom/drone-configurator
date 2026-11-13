@@ -295,7 +295,9 @@ logs-import-ask = { ? confirmLarge: bool }
 ; folder), `crc` the CRC-32 (hex) of the content, `size` its bytes, `duplicate` whether it was in the library already (the test is
 ; the CRC-32 and the size, nothing stronger: two different files with both the same would be taken for one).
 ; The preferences a housekeeping holds to (whole numbers; 0 turns a rule off).
-logs-housekeeping-ask = { retentionDays: uint .size 2, sizeCapMb: uint .size 4 }
+; `dryRun`: nothing is removed (no copy, no part); the answer says what a real run would remove (the same marking, and the same
+; verification of each copy), so that the page can ask before it does.
+logs-housekeeping-ask = { retentionDays: uint .size 2, sizeCapMb: uint .size 4, ? dryRun: bool }
 
 ; One copy that was removed, and why: `age` (older than the retention) or `size` (the copies were over the cap).
 removed-log = {
@@ -316,7 +318,8 @@ logs-housekept = {
   kept: uint .size 4,
   unverified: uint .size 4,
   overCap: bool,
-  ; Parts of downloads (`NNNNNNNN.BIN.part`) that were not touched for 7 days and were removed: a download that was stopped keeps its part
+  ; Parts of downloads (`NNNNNNNN.BIN.part`) that were not touched for 7 days and were removed (only when a rule is on: with Never and No
+; limit nothing is removed at all): a download that was stopped keeps its part
   ; so that the next one goes on from it, but a part nobody went on from is not kept for ever.
   partsRemoved: uint .size 4,
 }

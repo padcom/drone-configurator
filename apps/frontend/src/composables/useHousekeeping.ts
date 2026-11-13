@@ -24,6 +24,8 @@ export interface HousekeepingModel {
   readonly last: ShallowRef<LogsHousekept | null>
   /** Asks the backend to remove what the preferences say; says what it removed. */
   run: () => Promise<void>
+  /** Asks the backend what a run with these preferences WOULD remove (nothing is removed); null when it cannot say now. */
+  preview: (prefs: { retentionDays: number, sizeCapMb: number }) => Promise<LogsHousekept | null>
 }
 
 /** The errors that only mean "not now": the vehicle may be flying, or a download runs. */
@@ -88,6 +90,16 @@ class Housekeeping implements HousekeepingModel {
       this.failed(error)
     } finally {
       this.running = false
+    }
+  }
+
+  async preview(prefs: { retentionDays: number, sizeCapMb: number }): Promise<LogsHousekept | null> {
+    try {
+      return await this.deps.client.call('logs.housekeeping', { ...prefs, dryRun: true })
+    } catch (error) {
+      this.failed(error)
+
+      return null
     }
   }
 

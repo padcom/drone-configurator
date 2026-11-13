@@ -25,7 +25,8 @@ import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
 import { useAutoDownload } from './useAutoDownload'
-import { logsPrefsOf } from '@/lib/logs/logsPrefs'
+import { RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
+import { type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -252,27 +253,45 @@ function startMessages(client: BackendClient, vehicle: Vehicle): MessagesModel {
   return messages
 }
 
+/** What the logs are started with. */
+interface LogsStart {
+  /** The link to the backend. */
+  client: BackendClient
+  /** The vehicle link. */
+  vehicle: Vehicle
+  /** The settings (the preferences about logs are in them). */
+  settings: SettingsModel
+  /** The parameters (the list of logs waits while their list is being downloaded). */
+  parameters: ParamsModel
+  /** Asks the user a question (a removal that a changed setting would make is asked about first). */
+  confirm: (question: string) => Promise<boolean>
+}
+
+/**
+ * Puts the two preferences that remove something back to a choice (the user said no to what the change would remove).
+ *
+ * @param settings the settings
+ * @param to the choice
+ */
+async function restoreRemoval(settings: SettingsModel, to: Removal): Promise<void> {
+  await settings.setUi(RETENTION_KEY, String(to.retentionDays))
+  await settings.setUi(SIZE_CAP_KEY, String(to.sizeCapMb))
+}
+
 /**
  * The vehicle's logs. They are the vehicle's: another vehicle, or none, has its own. So they go when the session ends, and with
  * every connected report that is not the same vehicle coming back (`resumed`), also one that follows another with no gap.
  *
- * @param client the link to the backend
- * @param vehicle the vehicle link
- * @param parametersLoading whether the parameter list is being downloaded (the list of logs waits for it)
- * @param settings the settings (the preferences about logs are in them)
+ * @param deps the link, the vehicle, the settings and the way to ask the user
  * @returns the logs and their housekeeping
  */
-function startLogs(
-  client: BackendClient,
-  vehicle: Vehicle,
-  parametersLoading: () => boolean,
-  settings: SettingsModel,
-): Pick<ConfiguratorHandle, 'logs' | 'housekeeping'> {
+function startLogs(deps: LogsStart): Pick<ConfiguratorHandle, 'logs' | 'housekeeping'> {
+  const { client, vehicle, settings } = deps
   const logs = useVehicleLogs({
     client,
     connection: vehicle.connection,
     telemetry: vehicle.telemetry,
-    parametersLoading,
+    parametersLoading: () => deps.parameters.list.value === 'loading',
   })
   watch(vehicle.connection, next => {
     if (next.state !== 'connected' || next.resumed !== true) {
@@ -283,9 +302,10 @@ function startLogs(
   const prefs = () => logsPrefsOf(key => settings.uiValue(key))
   const housekeeping = useHousekeeping({ client, prefs, tell })
   // Old copies are looked at when the settings have been read, and after every download (which may have filled the disk).
-  watch(settings.loaded, loaded => loaded && void housekeeping.run(), { immediate: true })
-  // ... and when the user changes what to remove (after the settings were read).
-  watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && void housekeeping.run())
+  const guard = useHousekeepingGuard({ housekeeping, prefs, confirm: deps.confirm, restore: to => restoreRemoval(settings, to) })
+  watch(settings.loaded, loaded => loaded && (guard.begin(), void housekeeping.run()), { immediate: true })
+  // A change of what to remove removes nothing by itself: it is asked about first (see the guard).
+  watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && guard.changed())
   watch(logs.outcome, outcome => outcome?.kind === 'downloaded' && void housekeeping.run())
   const { connection, telemetry } = vehicle
   useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell })
@@ -386,7 +406,7 @@ export function createConfigurator(
   vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
-  const { logs, housekeeping } = startLogs(client, vehicle, () => parameters.list.value === 'loading', settings)
+  const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser })
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())

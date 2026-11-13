@@ -1054,13 +1054,20 @@ export function encodeLogsImportAsk(v: LogsImportAsk): Cbor {
 export struct LogsHousekeepingAsk {
   retentionDays: u16
   sizeCapMb: u32
+  dryRun?: bool
 }
 
 export function decodeLogsHousekeepingAsk(v: Cbor, path: string): LogsHousekeepingAsk throws InvalidPayload {
-  const m = members(v, path, ["retentionDays", "sizeCapMb"])
+  const m = members(v, path, ["retentionDays", "sizeCapMb", "dryRun"])
+  const cbor2 = m.get("dryRun")
+  let opt2: bool? = null
+  if (cbor2 != null) {
+    opt2 = boolean(cbor2, `${path}.dryRun`)
+  }
   LogsHousekeepingAsk {
     retentionDays: (uint(required(m, "retentionDays", path), `${path}.retentionDays`, 65535) as u16),
     sizeCapMb: (uint(required(m, "sizeCapMb", path), `${path}.sizeCapMb`, 4294967295) as u32),
+    dryRun: opt2,
   }
 }
 
@@ -1068,6 +1075,10 @@ export function encodeLogsHousekeepingAsk(v: LogsHousekeepingAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("retentionDays", Cbor.Uint(v.retentionDays as u64))
   m.set("sizeCapMb", Cbor.Uint(v.sizeCapMb as u64))
+  const opt2 = v.dryRun
+  if (opt2 != null) {
+    m.set("dryRun", Cbor.Bool(opt2))
+  }
   Cbor.Dict(m)
 }
 
