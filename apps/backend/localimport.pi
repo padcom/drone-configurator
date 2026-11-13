@@ -52,17 +52,37 @@ async function importLog(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     return encodeLogsImported(await copyIn(path!, own))
   } finally {
     releaseRead()
+    await tidy()
+  }
+}
+
+/// The folder of imports (not made).
+async function folderPath(): Promise<string> throws CommunicatorError {
+  try {
+    return join(await dataDirectory(), "logs", IMPORTED)
+  } catch (e: Error) {
+    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
+  }
+}
+
+/// A refused or stopped import leaves nothing, also no empty folder of imports: it is taken away when there is nothing in it.
+async function tidy(): Promise<void> {
+  try {
+    const dir = await folderPath()
+    if (!await exists(dir)) {
+      return
+    }
+    for await (const _item of readDir(dir)) {
+      return
+    }
+    await remove(dir)
+  } catch (e: Error) {
   }
 }
 
 /// The folder of imports (made when it is not there).
 async function folder(): Promise<string> throws Error {
-  let top = ""
-  try {
-    top = join(await dataDirectory(), "logs", IMPORTED)
-  } catch (e: Error) {
-    throw new CommunicatorError("NO_STORAGE", `can't use the folder for logs: ${e.message}`)
-  }
+  const top = await folderPath()
   await mkdir(top, true)
   top
 }

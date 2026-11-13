@@ -64,6 +64,17 @@ it('imports a recording from the button, opens it and marks it as not checked ag
   expect(wrapper.find('#flights-imported-mark').exists()).toBe(false)
 })
 
+it('says why a recording with no vehicle heartbeat has no charts', async () => {
+  const { wrapper, handle } = await screen()
+  await importIt(wrapper)
+  const summary = handle.flights.summary.value
+  expect(summary?.report).toBeDefined()
+  handle.flights.summary.value = { ...summary!, report: { ...summary!.report!, vehicles: 0 } }
+  await flushPromises()
+
+  expect(wrapper.get('#flights-no-vehicle').text()).toContain('No vehicle heartbeat in this recording')
+})
+
 it('says what the reader found, with a cut end as a normal end and unknown messages not as damage', async () => {
   const { wrapper } = await screen()
   await importIt(wrapper)

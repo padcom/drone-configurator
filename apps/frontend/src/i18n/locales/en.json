@@ -47,6 +47,7 @@
     "sections": "Logs sections",
     "shown": "Logs: {section}",
     "flights": {
+      "reportNoVehicle": "No vehicle heartbeat in this recording: the charts, modes and review need one, so only the messages as recorded are shown.",
       "reportVehicles": "Vehicles in the recording: {count}. The charts, modes and review are of the first one (system {system}, component {component}).",
       "stopImport": "Stop import",
       "import": "Open log file…",

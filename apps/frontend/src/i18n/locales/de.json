@@ -47,6 +47,7 @@
     "sections": "Bereiche der Logs",
     "shown": "Logs: {section}",
     "flights": {
+      "reportNoVehicle": "Diese Aufzeichnung enthält keinen Heartbeat eines Fahrzeugs: Diagramme, Modi und Überprüfung brauchen einen, daher werden nur die Nachrichten wie aufgezeichnet gezeigt.",
       "reportVehicles": "Fahrzeuge in der Aufzeichnung: {count}. Diagramme, Modi und Überprüfung beziehen sich auf das erste (System {system}, Komponente {component}).",
       "stopImport": "Import stoppen",
       "import": "Logdatei öffnen…",

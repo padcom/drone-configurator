@@ -79,6 +79,13 @@ export class Counter implements Taker {
   /// The types met past `MAX_KINDS`, which are not listed (up to `MAX_OMITTED` of them are told apart).
   readonly omitted: Map<int, bool> = new Map<int, bool>()
 
+  /// Whose messages these are: the kinds it makes up for the views are not in the file, and are not counted (they are not listed).
+  readonly reader: LogReader
+
+  constructor(reader: LogReader) {
+    this.reader = reader
+  }
+
   /// How many kinds are not listed.
   public get more(): int {
     omitted.size
@@ -86,7 +93,7 @@ export class Counter implements Taker {
 
   public take(m: DfMessage): void {
     const t = m.format.type
-    if (t < 0) {
+    if (t < 0 || reader.hides(m.format.name)) {
       return
     }
     const known = slot.get(t)
@@ -112,8 +119,9 @@ async function messagesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cb
   try {
     const file = await locate(asked.key)
     verifiedSummary(asked.key, file.facts)
-    const counter = new Counter()
-    const done = await streamLog(asked.key, file, own, counter)
+    const reader = file.newReader()
+    const counter = new Counter(reader)
+    const done = await streamLog(asked.key, file, own, counter, null, reader)
     if (!done.unchanged) {
       throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
     }

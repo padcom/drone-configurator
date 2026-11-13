@@ -215,6 +215,8 @@ async function hostileFilesNeitherHangNorLeaveAnything(): Promise<void> throws E
 
       expect(codeOf(e)).toBe("BAD_REQUEST")
       expect((await imported(r)).length).toBe(0)
+      // Not even an empty folder of imports is left.
+      expect(await exists(join(r.root, "logs", "imported"))).toBe(false)
     }
   } finally {
     await done(r)

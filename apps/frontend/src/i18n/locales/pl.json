@@ -47,6 +47,7 @@
     "sections": "Sekcje ekranu Logi",
     "shown": "Logi: {section}",
     "flights": {
+      "reportNoVehicle": "W tym nagraniu nie ma pulsu (heartbeat) pojazdu: wykresy, tryby i przegląd go wymagają, więc widać tylko wiadomości tak, jak je nagrano.",
       "reportVehicles": "Pojazdów w nagraniu: {count}. Wykresy, tryby i przegląd dotyczą pierwszego (system {system}, komponent {component}).",
       "stopImport": "Zatrzymaj import",
       "import": "Otwórz plik logu…",

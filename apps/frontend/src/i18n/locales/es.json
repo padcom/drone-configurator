@@ -47,6 +47,7 @@
     "sections": "Secciones de Registros",
     "shown": "Registros: {section}",
     "flights": {
+      "reportNoVehicle": "Esta grabación no tiene el heartbeat de un vehículo: los gráficos, modos y revisión lo necesitan, así que solo se muestran los mensajes tal como se grabaron.",
       "reportVehicles": "Vehículos en la grabación: {count}. Los gráficos, modos y revisión son del primero (sistema {system}, componente {component}).",
       "stopImport": "Detener la importación",
       "import": "Abrir archivo de registro…",

@@ -117,6 +117,7 @@
         <div v-if="summary.report" id="flights-report" class="muted">
           <p>{{ readText }}</p>
           <p v-if="summary.report.segments > 1">{{ t('logs.flights.reportSegments', { count: summary.report.segments }) }}</p>
+          <p v-if="summary.report.vehicles === 0" id="flights-no-vehicle">{{ t('logs.flights.reportNoVehicle') }}</p>
           <p v-if="(summary.report.vehicles ?? 0) > 1" id="flights-vehicles">{{ vehiclesText }}</p>
           <p v-if="summary.report.signed > 0">{{ t('logs.flights.reportSigned', { count: summary.report.signed }) }}</p>
           <p v-if="!summary.report.dated">{{ t('logs.flights.reportUndated') }}</p>

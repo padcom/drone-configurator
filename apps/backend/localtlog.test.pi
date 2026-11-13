@@ -8,6 +8,7 @@ import { env, pid } from "std/process"
 import { Cbor, Envelope } from "pico-desktop/communicator"
 import { DfField, DfFormat, DfMessage } from "padcom/pico-mavlink"
 import { Counter } from "./localmessages"
+import { DataflashReader } from "./logreader"
 import { Attitude, GlobalPositionInt, GpsRawInt, Heartbeat, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
 import {
   LocalLogSource,
@@ -338,7 +339,7 @@ async function readsTheRecordingAnotherProgramWrote(): Promise<void> throws Erro
 }
 
 function listsAtMost255KindsAndCountsTheRest(): void {
-  const counter = new Counter()
+  const counter = new Counter(new DataflashReader())
   // 300 kinds, each a message id above 255 (a recording's kinds are MAVLink ids); one of them twice.
   for (let id = 1000; id < 1300; id++) {
     const format = new DfFormat(id, 11, `KIND${id}`, "Q", "TimeUS", [new DfField("TimeUS", 0x51, 0)])
@@ -355,6 +356,36 @@ function listsAtMost255KindsAndCountsTheRest(): void {
   const late = new DfFormat(1299, 11, "KIND1299", "Q", "TimeUS", [new DfField("TimeUS", 0x51, 0)])
   counter.take(new DfMessage(late, 0, [3.0], [""]))
   expect(counter.more).toBe(45)
+}
+
+async function dropsAllButAnAutopilotsHeartbeatAsTheSource(): Promise<void> throws Error {
+  const w = new TlogWriter()
+  // A companion computer first: autopilot GENERIC (0), but an onboard controller (18) on component 191; then a gimbal (26) that says
+  // autopilot 3 on component 1; a ground station (6) with an autopilot; then the real vehicle.
+  const companion = heartbeat(5)
+  companion.type = 18
+  companion.autopilot = 0
+  w.addMessage(T0, companion, 1, true, 1, 191)
+  const gimbal = heartbeat(5)
+  gimbal.type = 26
+  w.addMessage(T0 + 1000, gimbal, 1, true, 3, 1)
+  const gcs = heartbeat(5)
+  gcs.type = 6
+  w.addMessage(T0 + 2000, gcs, 1, true, 255, 1)
+  w.addMessage(T0 + 3000, heartbeat(5), 1, true, 1, 1)
+  const att = new Attitude()
+  att.roll = 0.5
+  w.addMessage(T0 + 4000, att, 2, true, 1, 1)
+  const r = await rig(w.bytes())
+  try {
+    const s = decodeLocalLogSummary((await read(r)).p ?? Cbor.Null, "$")
+
+    expect(s.report!.vehicles).toBe(1 as u32)
+    expect(s.report!.sysid).toBe(1 as u16)
+    expect(s.report!.compid).toBe(1 as u16)
+  } finally {
+    await done(r)
+  }
 }
 
 async function doesNotVerifyACopyThatWasChanged(): Promise<void> throws Error {
@@ -445,5 +476,6 @@ describe("an imported recording in the library", () => {
   it("has no raw IMU batches, so no sensor for the spectrum", hasNoRawImuBatchesForTheSpectrum)
   it("reads the recording that MAVProxy wrote: its report, its modes and every chart", readsTheRecordingAnotherProgramWrote)
   it("lists at most 255 kinds of message, ids above 255 included, and counts the rest", listsAtMost255KindsAndCountsTheRest)
+  it("takes as the source only an autopilot's heartbeat: not a companion, a gimbal or a ground station", dropsAllButAnAutopilotsHeartbeatAsTheSource)
   it("does not verify a copy that was changed after the import", doesNotVerifyACopyThatWasChanged)
 })

@@ -8,7 +8,7 @@ import { join } from "std/path"
 import { gc } from "std/gc"
 import { env, pid } from "std/process"
 import { Cbor } from "pico-desktop/communicator"
-import { Attitude, TlogWriter } from "padcom/pico-mavlink"
+import { Attitude, Heartbeat, TlogWriter } from "padcom/pico-mavlink"
 import {
   LogsLocalRead,
   LogsLocalSeriesAsk,
@@ -65,6 +65,14 @@ async function generate(path: string): Promise<void> throws Error {
   let t = T0
   for (let piece = 0; piece < PIECES; piece++) {
     const w = new TlogWriter()
+    if (piece == 0) {
+      // The vehicle's heartbeat first: the charts are made from the messages of the sender of the first heartbeat.
+      const h = new Heartbeat()
+      h.type = 2
+      h.autopilot = 3
+      h.mavlinkVersion = 3
+      w.addMessage(t, h, 0, true, 1, 1)
+    }
     for (let i = 0; i < PER_PIECE; i++) {
       const att = new Attitude()
       att.roll = ((i % 360) as f64 * 0.01) as f32
@@ -95,13 +103,15 @@ async function stayInTheBoundOnARecordingOf16Megabytes(): Promise<void> throws E
     const before = await statusKb("VmRSS")
     const imported = decodeLogsImported((await f.call("logs.import", null)).p ?? Cbor.Null, "$")
     const key = imported.key!
-    expect(imported.report!.records).toBe((PIECES * PER_PIECE) as u32)
+    expect(imported.report!.records).toBe((PIECES * PER_PIECE + 1) as u32)
     const summary = decodeLocalLogSummary((await f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))).p ?? Cbor.Null, "$")
     expect(summary.verified).toBe(true)
     const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "ATT", field: "Roll" }], buckets: 200 as u16 }
     const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p ?? Cbor.Null, "$")
     expect(series.series[0].found).toBe(true)
+    expect(series.series[0].points.length > 100).toBe(true)
     const rose = (await statusKb("VmHWM")) - before
+    println(`tlog memory: the peak rose ${rose} kB over ${before} kB (bound ${BOUND_KB} kB)`)
     if (rose >= BOUND_KB) {
       panic(`the peak rose ${rose} kB over ${before} kB: more than ${BOUND_KB} kB`)
     }

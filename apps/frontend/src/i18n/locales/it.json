@@ -47,6 +47,7 @@
     "sections": "Sezioni dei Log",
     "shown": "Log: {section}",
     "flights": {
+      "reportNoVehicle": "In questa registrazione non c'è l'heartbeat di un veicolo: grafici, modalità e revisione ne hanno bisogno, quindi si vedono solo i messaggi come registrati.",
       "reportVehicles": "Veicoli nella registrazione: {count}. Grafici, modalità e revisione sono del primo (sistema {system}, componente {component}).",
       "stopImport": "Interrompi l'importazione",
       "import": "Apri file di log…",

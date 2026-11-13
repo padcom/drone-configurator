@@ -39,6 +39,10 @@ export const OWN_UNITS: string[][] = [
 /// The first type number of the derived formats (the raw ones have their message id).
 const DERIVED_TYPE: int = 1073741824
 const MAV_AUTOPILOT_INVALID: int = 8
+/// The component of an autopilot (MAV_COMP_ID_AUTOPILOT1), and the MAV_TYPEs that are no vehicle: GCS 6, ONBOARD_CONTROLLER 18,
+/// GIMBAL 26, ADSB 27.
+const MAV_COMP_ID_AUTOPILOT1: int = 1
+const NOT_VEHICLES: int[] = [6, 18, 26, 27]
 /// The most senders of heartbeats that are told apart (a recording can have 255 systems of 255 components).
 const MAX_VEHICLES: int = 1000
 /// The gap (microseconds) put before a stretch of the recording whose clock went back: 30 s.
@@ -320,10 +324,24 @@ export class TlogDecoder implements LogReader {
     }
   }
 
+  /// Whether a heartbeat is a vehicle's: its autopilot component (1) says it has an autopilot, and it is not a ground station (6), an
+  /// onboard controller (18), a gimbal (26) or an ADS-B receiver (27), also when it is not honest about the autopilot.
+  isVehicle(record: TlogRecord, autopilot: f64, type: f64): bool {
+    if (record.compid != MAV_COMP_ID_AUTOPILOT1 || autopilot == (MAV_AUTOPILOT_INVALID as f64)) {
+      return false
+    }
+    for (const other of NOT_VEHICLES) {
+      if (type == (other as f64)) {
+        return false
+      }
+    }
+    true
+  }
+
   /// A heartbeat with an autopilot is a vehicle; the first one is the source of the DataFlash-named messages (a recording with two
   /// vehicles would otherwise be one line in each chart and one review).
   noteVehicle(info: MessageInfo, record: TlogRecord, payload: Uint8Array): void {
-    if (info.name != "HEARTBEAT" || field(info, payload, "autopilot") == (MAV_AUTOPILOT_INVALID as f64)) {
+    if (info.name != "HEARTBEAT" || !isVehicle(record, field(info, payload, "autopilot"), field(info, payload, "type"))) {
       return
     }
     if (vehicles.size < MAX_VEHICLES) {
