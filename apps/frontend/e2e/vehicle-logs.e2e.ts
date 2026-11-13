@@ -134,7 +134,8 @@ it('goes on from the part that is left when a copy is lost, and gets the same by
   rmSync(join(folder(), first))
   await window().click('#logs-refresh')
   await window().waitFor(`document.querySelectorAll('${ROWS}').length === 3`, 30_000)
-  await window().waitFor(`document.querySelector('${STATES}')?.textContent.trim() === 'Not downloaded'`, 30_000)
+  // The list says log 1 is not downloaded again (the row's words still come from the download that finished): it can be selected.
+  await window().waitFor(`document.querySelector('#logs-select-new')?.disabled === false`, 30_000)
   await downloadTheNew()
   await waitForOutcome('Download finished')
 

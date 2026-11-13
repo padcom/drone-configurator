@@ -229,7 +229,11 @@ async function downloadsALogAndChecksIt(): Promise<void> throws Error {
   const lines = progressOf(r, 1)
   expect(lines[0]).toBe("queued 0/100000")
   expect(lines[lines.length - 1]).toBe("done 100000/100000")
-  expect((await list(r)).logs[0].downloaded).toBe(true)
+  const listed = await list(r)
+  expect(listed.logs[0].downloaded).toBe(true)
+  // Over file transfer an erase is possible (the page decides whether now).
+  expect(listed.source).toBe(VehicleLogsSource.Ftp)
+  expect(listed.canErase).toBe(true)
   // A log asked for again is whole already: nothing is fetched.
   const again = await download(r, [1])
   expect(again.ids.join(",")).toBe("1")

@@ -527,7 +527,7 @@ async function listWith(conn: MavLinkConnection, own: AbortController): Promise<
   for (const e of entries) {
     logs.push(await toLog(client, e, copies, until, own.signal))
   }
-  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: false })
+  encodeVehicleLogs(VehicleLogs { logs: logs, source: VehicleLogsSource.Ftp, canErase: true })
 }
 
 /// The listing over the log protocol (the vehicle has no file transfer): no CRC can be had, so no log is "downloaded"; one that has a
