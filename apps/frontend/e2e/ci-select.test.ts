@@ -1,5 +1,5 @@
-// The test selector (.github/ci-select.mjs) with diff fixtures, and the e2e map's consistency with the real tree: a spec in no entry,
-// a pattern that matches nothing, or a spec that does not exist fails here, so the map cannot rot silently.
+// The test selector (.github/ci-select.mjs) with diff fixtures, and the e2e map's consistency with the real tree:
+// a spec in no entry, a pattern that matches nothing, or a spec that does not exist fails here, so the map cannot rot silently.
 import { readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -13,6 +13,7 @@ const tree = readTree(root)
 
 /**
  * The tracked-looking files of the repository (no dependencies, no build output).
+ *
  * @param dir the directory to list
  * @returns paths relative to the root
  */
@@ -39,7 +40,8 @@ describe('globs', () => {
 
 describe('backend imports', () => {
   it('reads single and multi-line imports', () => {
-    expect(importsOf('import { a } from "./one"\nimport {\n  b,\n} from "./two"\nimport { c } from "./generated/app"')).toEqual(['one', 'two'])
+    const text = 'import { a } from "./one"\nimport {\n  b,\n} from "./two"\nimport { c } from "./generated/app"'
+    expect(importsOf(text)).toEqual(['one', 'two'])
   })
 
   it('follows dependents but not the shared modules', () => {
@@ -48,7 +50,8 @@ describe('backend imports', () => {
   })
 
   it('selects the test of a module and the tests of what imports it', () => {
-    const backend = { tests: ['a.test.pi', 'b.test.pi', 'x.test.pi'], imports: { a: [], b: ['a'], 'a.test': [], 'b.test': [], 'x.test': ['a'] } }
+    const imports = { 'a': [], 'b': ['a'], 'a.test': [], 'b.test': [], 'x.test': ['a'] }
+    const backend = { tests: ['a.test.pi', 'b.test.pi', 'x.test.pi'], imports }
     expect(backendTestsFor('apps/backend/a.pi', backend)).toEqual(['a.test.pi', 'b.test.pi', 'x.test.pi'])
     expect(backendTestsFor('apps/backend/b.pi', backend)).toEqual(['b.test.pi'])
     expect(backendTestsFor('apps/backend/b.test.pi', backend)).toEqual(['b.test.pi'])
@@ -60,15 +63,27 @@ describe('select', () => {
   it('runs everything on a full run, an unknown diff, and shared infrastructure', () => {
     expect(select({ files: ['x'], specs: tree.specs, backend: tree.backend, map: tree.map, full: true }).full).toBe(true)
     expect(pick([]).reasons[0]).toContain('unknown')
+
     for (const file of [
-      '.github/workflows/ci.yml', 'pnpm-lock.yaml', 'apps/frontend/package.json', 'packages/contracts/app.cddl', 'apps/backend/session.pi',
-      'apps/backend/generated/app.pi', 'apps/frontend/src/main.ts', 'apps/frontend/src/components/ui/Button.vue', 'apps/frontend/src/i18n/locales/en.json',
-      'apps/frontend/e2e/launch.ts', 'apps/frontend/tsconfig.json', 'examples/other/thing.ts',
+      '.github/workflows/ci.yml',
+      'pnpm-lock.yaml',
+      'apps/frontend/package.json',
+      'packages/contracts/app.cddl',
+      'apps/backend/session.pi',
+      'apps/backend/generated/app.pi',
+      'apps/frontend/src/main.ts',
+      'apps/frontend/src/components/ui/Button.vue',
+      'apps/frontend/src/i18n/locales/en.json',
+      'apps/frontend/e2e/launch.ts',
+      'apps/frontend/tsconfig.json',
+      'examples/other/thing.ts',
     ]) {
       expect(pick([file]).full, file).toBe(true)
     }
   })
+})
 
+describe('select: what a change needs', () => {
   it('runs no e2e for a document or a unit test, and a mixed diff selects only by its code', () => {
     const docs = pick(['README.md', 'docs/a/b.md'])
     expect(docs).toMatchObject({ full: false, backend: [], e2e: [], sitl: false })
@@ -87,7 +102,9 @@ describe('select', () => {
     expect(result.e2e).not.toContain('vehicle-logs.e2e.ts')
     expect(result).toMatchObject({ backend: [], sitl: false })
   })
+})
 
+describe('select: a backend change', () => {
   it('maps a backend module to its tests, its specs, SITL and the smoke SITL spec', () => {
     const result = pick(['apps/backend/locallogs.pi'])
     expect(result.full).toBe(false)
@@ -101,7 +118,9 @@ describe('select', () => {
     expect(result.backend).toEqual(['params.test.pi'])
     expect(result.e2e).toEqual(expect.arrayContaining(tree.map.smoke))
   })
+})
 
+describe('select: failing open, and reporting', () => {
   it('falls open when a source is in no entry and shares no name with a spec', () => {
     const result = pick(['apps/frontend/src/lib/ui/zzzzz.ts'])
     expect(result.full).toBe(true)
@@ -121,7 +140,8 @@ describe('select', () => {
   })
 
   it('writes the outputs on the command line, and everything when the diff is empty', () => {
-    expect(run(['--root', root], 'apps/backend/params.pi\n')).toMatch(/full=false\nsitl=true\nbackend=.*params\.test\.pi\ne2e=.*param-/u)
+    const output = run(['--root', root], 'apps/backend/params.pi\n')
+    expect(output).toMatch(/full=false\nsitl=true\nbackend=.*params\.test\.pi\ne2e=.*param-/u)
     expect(run(['--root', root], '')).toMatch(/full=true\nsitl=true\nbackend=\.\ne2e=\n/u)
   })
 })
