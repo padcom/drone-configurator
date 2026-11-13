@@ -19,4 +19,5 @@ elif ! files=$(git diff --name-only "$base"...HEAD); then
   files=""
 fi
 
-exec node "$root/.github/ci-select.mjs" --root "$root" "${shadow[@]}" "${mode[@]}" <<< "$files"
+# ${arr[@]+"${arr[@]}"}: an empty array is not an unbound variable under `set -u` on bash before 4.4 either.
+exec node "$root/.github/ci-select.mjs" --root "$root" ${shadow[@]+"${shadow[@]}"} ${mode[@]+"${mode[@]}"} <<< "$files"

@@ -3,15 +3,29 @@
 // the command line (ci-select.sh) feeds it the changed file names on stdin and the files of the working tree.
 //
 // The rule is "fail open": whatever cannot be placed selects everything. A wrong map costs time, never safety.
+//
+// Known limits, for when selection is switched on: (1) a backend test that imports app/testing exercises every module but is
+// selected only by what it imports directly; the shared modules' own changes select everything, and the smoke set and main cover
+// the rest. (2) The outputs `backend` and `e2e` are space-separated file names from this repository's own tree; a later step must
+// pass them quoted or as arguments through an environment variable, never inline in a `run:` script.
 import { appendFileSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+/**
+ * The backend's shared modules (without `.pi`): a change to one selects everything, and none is followed as an importer
+ * (app.pi imports almost every module, so following it would select everything for any backend change). The one list.
+ */
+export const SHARED_BACKEND = ['app', 'main', 'session', 'testing', 'test-frontend', 'guarded']
+
+/** What a spec uses to start a SITL: a spec that does is a SITL spec, whatever its name. */
+export const SITL_USE = /\b(?:describeSitl|withSitl|startSitl)\b/u
 
 /** Changes that always run everything: shared infrastructure, the contract, the kit, the backend's shared modules. */
 export const FULL = [
   '.github/**', 'pnpm-lock.yaml', '**/package.json', 'pnpm-workspace.yaml', 'pico-desktop.config.ts', 'project.json',
   'packages/contracts/**', 'apps/backend/project.json', 'apps/backend/generated/**',
-  'apps/backend/{app,main,session,testing,test-frontend,guarded}.pi',
+  `apps/backend/{${SHARED_BACKEND.join(',')}}.pi`,
   'apps/frontend/{vite,vitest}.config.ts', '**/tsconfig*.json', '**/eslint.config.*', 'apps/frontend/index.html',
   'apps/frontend/src/{main,router,test-setup}.ts', 'apps/frontend/src/{backend,state,generated}/**',
   'apps/frontend/src/components/ui/**', 'apps/frontend/src/assets/**', 'apps/frontend/src/i18n/**',
@@ -27,7 +41,6 @@ const SPEC = /^apps\/frontend\/e2e\/([^/]+\.e2e\.ts)$/u
 const E2E_DIR = 'apps/frontend/e2e/'
 const BACKEND_DIR = 'apps/backend/'
 const SOURCE = /^apps\/(?:backend\/[^/]+\.pi|frontend\/src\/.+)$/u
-const SITL = /^sitl[.-]/u
 
 /**
  * Turns a glob into a RegExp: `**` any depth, `*` and `?` inside one path segment, `{a,b}` alternatives.
@@ -63,7 +76,7 @@ export function matchesAny(file, globs) {
  * @returns {string[]} the module names without `./`
  */
 export function importsOf(text) {
-  return [...text.matchAll(/from\s+"\.\/([A-Za-z0-9_-]+)"/gu)].map(match => match[1] ?? '')
+  return [...text.matchAll(/(?:from|import)\s+"\.\/([A-Za-z0-9_-]+)"/gu)].map(match => match[1] ?? '')
 }
 
 /**
@@ -96,8 +109,7 @@ export function dependents(module, imports, shared) {
 export function backendTestsFor(file, backend) {
   const name = file.slice(BACKEND_DIR.length).replace(/\.pi$/u, '')
   if (name.endsWith('.test')) return [`${name}.pi`]
-  const shared = new Set(['app', 'main', 'session', 'testing', 'test-frontend', 'guarded'])
-  const related = dependents(name, backend.imports, shared)
+  const related = dependents(name, backend.imports, new Set(SHARED_BACKEND))
   const wanted = backend.tests.filter(test => related.has(test.replace(/\.test\.pi$/u, '')) ||
     (backend.imports[test.replace(/\.pi$/u, '')] ?? []).some(used => related.has(used)))
   return wanted.length > 0 ? wanted : null
@@ -125,10 +137,11 @@ export function specsFor(file, map, specs) {
  * @param {string[]} input.specs spec file names in apps/frontend/e2e
  * @param {{ tests: string[], imports: Record<string, string[]> }} input.backend backend test files and imports
  * @param {{ smoke: string[], smokeSitl: string, entries: { when: string[], specs: string[] }[] }} input.map the e2e map
+ * @param {string[]} input.sitlSpecs the specs that start a SITL (from their content: see `sitlSpecsOf`)
  * @param {boolean} [input.full] force everything (main, the label, a manual run)
  * @returns {{ full: boolean, backend: string[] | 'all', e2e: string[] | 'all', sitl: boolean, reasons: string[] }} the selection
  */
-export function select({ files, specs, backend, map, full = false }) {
+export function select({ files, specs, sitlSpecs, backend, map, full = false }) {
   const reasons = []
   const everything = reason => ({ full: true, backend: 'all', e2e: 'all', sitl: true, reasons: [reason, ...reasons] })
   if (full) return everything('a full run was asked for (main, the full-ci label or a manual run)')
@@ -146,7 +159,7 @@ export function select({ files, specs, backend, map, full = false }) {
     }
     if (!SOURCE.test(file)) return everything(`${file} is not a place the selector knows`)
     const isBackend = file.startsWith(BACKEND_DIR)
-    touchesBackend ||= isBackend
+    touchesBackend ||= isBackend && !file.endsWith('.test.pi')
     const tests = isBackend ? backendTestsFor(file, backend) : []
     if (tests === null) return everything(`${file} has no test that covers it`)
     tests.forEach(test => backendTests.add(test))
@@ -158,7 +171,7 @@ export function select({ files, specs, backend, map, full = false }) {
   // The smoke set runs whenever something that is not only a document or a unit test changed.
   if (files.some(file => !matchesAny(file, UNIT_ONLY))) map.smoke.forEach(name => e2e.add(name))
   if (touchesBackend) e2e.add(map.smokeSitl)
-  const sitl = [...e2e].some(name => SITL.test(name))
+  const sitl = [...e2e].some(name => sitlSpecs.includes(name))
   return { full: false, backend: [...backendTests].sort(), e2e: [...e2e].sort(), sitl, reasons }
 }
 
@@ -185,16 +198,28 @@ export function summaryOf(result, totals) {
 }
 
 /**
+ * The specs no entry of the map (nor the smoke set) names: a new spec must be placed in the map.
+ * @param {string[]} specs spec file names
+ * @param {{ smoke: string[], smokeSitl: string, entries: { when: string[], specs: string[] }[] }} map the e2e map
+ * @returns {string[]} the unplaced specs
+ */
+export function unmappedSpecs(specs, map) {
+  const globs = [...map.entries.flatMap(entry => entry.specs), ...map.smoke, map.smokeSitl]
+  return specs.filter(spec => !matchesAny(spec, globs))
+}
+
+/**
  * What the working tree offers the selector.
  * @param {string} root the repository root
- * @returns {{ specs: string[], backend: { tests: string[], imports: Record<string, string[]> }, map: object }} the tree
+ * @returns {{ specs: string[], sitlSpecs: string[], backend: { tests: string[], imports: Record<string, string[]> }, map: object }} the tree
  */
 export function readTree(root) {
   const specs = readdirSync(join(root, E2E_DIR)).filter(name => name.endsWith('.e2e.ts')).sort()
+  const sitlSpecs = specs.filter(name => SITL_USE.test(readFileSync(join(root, E2E_DIR, name), 'utf8')))
   const sources = readdirSync(join(root, BACKEND_DIR)).filter(name => name.endsWith('.pi')).sort()
   const imports = Object.fromEntries(sources.map(name => [name.replace(/\.pi$/u, ''), importsOf(readFileSync(join(root, BACKEND_DIR, name), 'utf8'))]))
   const map = JSON.parse(readFileSync(join(root, '.github/e2e-map.json'), 'utf8'))
-  return { specs, backend: { tests: sources.filter(name => name.endsWith('.test.pi')), imports }, map }
+  return { specs, sitlSpecs, backend: { tests: sources.filter(name => name.endsWith('.test.pi')), imports }, map }
 }
 
 /**
