@@ -1447,6 +1447,33 @@
         "wspi": "Wide SPI"
       }
     },
+    "radio": {
+      "summary": "Mueva cada palanca e interruptor del transmisor: su barra se mueve con él. Para calibrar, inicie, lleve cada palanca a todos sus extremos y cada interruptor a todas sus posiciones, vuelva las palancas al centro (acelerador abajo) y pulse Hecho. No se escribe nada hasta que usted lo escriba.",
+      "start": "Calibrar la radio",
+      "finish": "Hecho",
+      "cancel": "Cancelar",
+      "idle": "No se está calibrando.",
+      "starting": "Esperando al vehículo…",
+      "running": "Calibrando: mueva cada palanca e interruptor por todo su recorrido, centre las palancas y pulse Hecho.",
+      "noChannels": "Aún no hay canales de radio",
+      "noChannelsHelp": "Aún no hay canales de radio: encienda el transmisor y compruebe que el receptor está conectado al vehículo.",
+      "channel": "Canal {n}",
+      "stick": "Canal {n} · {role}",
+      "pulse": "{us} µs",
+      "rssi": "Intensidad de la señal {percent} %",
+      "glitches": "Se ignoraron {count} lecturas fuera de 800–2200 µs (no son lecturas).",
+      "staged": "Se eligieron {count} valores de esta calibración (el rango de cada canal que se movió, el trim de alabeo, cabeceo y guiñada). Escríbalos con «Escribir y verificar».",
+      "nothingMoved": "Ningún canal se movió lo bastante para dar un rango: no se eligió nada.",
+      "aux": "Funciones de los interruptores",
+      "auxHelp": "Lo que hace cada canal auxiliar cuando se mueve su interruptor (RCn_OPTION). Los nombres vienen de los metadatos de parámetros: cárguelos en la página Parámetros para verlos; sin ellos se muestra el número.",
+      "function": "Función del canal {n}",
+      "role": {
+        "roll": "Alabeo",
+        "pitch": "Cabeceo",
+        "throttle": "Acelerador",
+        "yaw": "Guiñada"
+      }
+    },
     "calibration": {
       "blocked": {
         "offline": "Conecta un vehículo para calibrar.",
@@ -1460,7 +1487,8 @@
         "NOT_CONNECTED": "No hay ningún vehículo conectado.",
         "NOT_ASKED": "El vehículo (todavía) no pide esa posición.",
         "NOT_RUNNING": "No hay ninguna calibración en curso para eso.",
-        "NOT_ACCEPTED": "El vehículo no aceptó los resultados: ¿alguna brújula tuvo éxito?"
+        "NOT_ACCEPTED": "El vehículo no aceptó los resultados: ¿alguna brújula tuvo éxito?",
+        "NO_READINGS": "Aún no se ha tomado ninguna lectura de la radio: mueva primero las palancas e interruptores."
       },
       "result": {
         "success": "Calibración terminada",

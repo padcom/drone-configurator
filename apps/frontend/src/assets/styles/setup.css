@@ -534,3 +534,33 @@
 .setup-order-row .muted {
   flex: 1;
 }
+
+/* The radio: a bar for each channel of the receiver, and the function of each auxiliary switch. */
+.setup-channels,
+.setup-aux {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-channel-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 80px 112px;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.setup-channel-pulse,
+.setup-channel-range {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.setup-aux-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 320px);
+  align-items: center;
+  gap: var(--space-3);
+}

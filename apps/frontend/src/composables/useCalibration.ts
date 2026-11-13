@@ -1,8 +1,8 @@
 // The calibration of the vehicle's sensors, as the Setup pages see it: the state the backend tells (`calibration.progress`),
-// and the actions (`calibration.start`, `.confirm`, `.accept`, `.cancel`). One calibration runs at a time (the backend refuses
-// a second). The state is the backend's: this keeps it, and never makes one up. A calibration that is under way when the link
-// goes ends on the backend (it says so in the state it sends), and here at once: nothing is shown as running for a vehicle that
-// is not connected.
+// and the actions (`calibration.start`, `.confirm`, `.accept`, `.finish`, `.cancel`). One calibration runs at a time (the
+// backend refuses a second). The state is the backend's: this keeps it, and never makes one up. A calibration that is under way
+// when the link goes ends on the backend (it says so in the state it sends), and here at once: nothing is shown as running for
+// a vehicle that is not connected.
 import { type ComputedRef, type Ref, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type BackendClient, toBackendError } from '@/backend/client'
 import type { CalibrationKind, CalibrationResult, CalibrationState, Connection, Telemetry } from '@/generated/app'
@@ -51,6 +51,8 @@ export interface CalibrationModel {
   confirm: (position: number) => Promise<void>
   /** Keeps the compass results (of the compasses in `compasses`, all that succeeded when absent). */
   accept: (compasses?: number) => Promise<void>
+  /** Ends the radio calibration: what it captured stays in the state, for the page to write. */
+  finish: () => Promise<void>
   /** Cancels the calibration that runs (nothing is kept). */
   cancel: () => Promise<void>
   /** Asks the backend where it is (a page that is shown again, or after the backend restarted). */
@@ -174,6 +176,10 @@ class Calibration implements CalibrationModel {
 
   async accept(compasses?: number): Promise<void> {
     await this.ask(() => this.deps.client.call('calibration.accept', compasses === undefined ? {} : { compasses }))
+  }
+
+  async finish(): Promise<void> {
+    await this.ask(() => this.deps.client.call('calibration.finish', null))
   }
 
   async cancel(): Promise<void> {

@@ -4,7 +4,7 @@
 // accelerometer asks for its six positions; the compass has two compasses that advance by a quarter at a time and then wait
 // for the decision.
 import type { Envelope } from '@pico-desktop/protocol'
-import type { CalibrationCompass, CalibrationResult, CalibrationStart, CalibrationState } from '@/generated/app'
+import type { CalibrationCompass, CalibrationKind, CalibrationResult, CalibrationStart, CalibrationState } from '@/generated/app'
 
 type Reply = (p: Envelope['p']) => void
 type Fail = (code: string, message: string) => void
@@ -26,6 +26,9 @@ const OFFSETS = [12.5, -4.25, 8]
 
 /** The parameters an accepted compass calibration changes (the first compass's offsets). */
 const OFFSET_PARAMS = ['COMPASS_OFS_X', 'COMPASS_OFS_Y', 'COMPASS_OFS_Z']
+
+/** Where the mock transmitter rests (µs): roll, pitch and yaw centred, the throttle low, then four switches. */
+const RADIO_CHANNELS = [1500, 1500, 1000, 1500, 1000, 1000, 1500, 1000]
 
 /** What the vehicle says when the level is set. */
 const TRIM_TEXT = 'Trim OK: roll=0.01 pitch=-0.01 yaw=0.00'
@@ -227,6 +230,7 @@ export class MockCalibration {
     }
     if (result.outcome !== 'success') {
       delete next.compasses
+      delete next.radio
     }
     this.send({ k: 'event', n: 'calibration.result', p: result as unknown as Envelope['p'] })
     this.tell(next)
@@ -285,13 +289,13 @@ export class MockCalibration {
    * @param ask what to start
    */
   private begin(ask: CalibrationStart): void {
-    if (ask.kind === 'accel') {
-      this.later(() => this.askFor(1))
-    } else if (ask.kind === 'level') {
-      this.later(() => this.setLevel())
-    } else {
-      this.compass(ask.compasses ?? 0)
+    const starts: Record<CalibrationKind, () => void> = {
+      accel: () => this.later(() => this.askFor(1)),
+      level: () => this.later(() => this.setLevel()),
+      radio: () => this.radio(),
+      compass: () => this.compass(ask.compasses ?? 0),
     }
+    starts[ask.kind]()
   }
 
   /** The level is set. */
@@ -384,6 +388,66 @@ export class MockCalibration {
         this.timer = undefined
       }
     }, this.every)
+  }
+
+  /** The radio calibration: the sticks of a mock transmitter are moved a little further every step, and the user ends it. */
+  private radio(): void {
+    let step = 0
+    this.timer = setInterval(() => {
+      step += 1
+      const reach = Math.min(500, step * 100)
+      const mins = RADIO_CHANNELS.map(rest => Math.max(1000, rest - reach))
+      const maxs = RADIO_CHANNELS.map(rest => Math.min(2000, rest + reach))
+      this.tell({ ...this.state, state: 'running', radio: { mins, maxs, last: RADIO_CHANNELS, glitches: 0, readings: step } })
+    }, this.every)
+  }
+
+  /**
+   * `calibration.finish`.
+   *
+   * @param ok answers with the state
+   * @param fail answers with an error
+   */
+  finishRadio(ok: Reply, fail: Fail): void {
+    const refused = this.finishRefusal()
+    if (refused) {
+      fail(...refused)
+
+      return
+    }
+    this.finish({ kind: 'radio', outcome: 'success', detail: 'the ranges were captured: write them to the parameters' })
+    ok(this.state as unknown as Envelope['p'])
+  }
+
+  /**
+   * Why a finish is refused, if it is: no radio calibration runs, or it has taken no reading in.
+   *
+   * @returns the code and the words, or null
+   */
+  private finishRefusal(): Refusal | null {
+    if (!this.radioRuns) {
+      return ['NOT_RUNNING', 'no radio calibration is running']
+    }
+
+    return this.readings === 0 ? ['NO_READINGS', 'no radio reading has been taken yet: move the sticks and switches first'] : null
+  }
+
+  /**
+   * Whether a radio calibration runs (and not only starts).
+   *
+   * @returns true if it does
+   */
+  private get radioRuns(): boolean {
+    return this.active && this.state.kind === 'radio' && this.state.state === 'running'
+  }
+
+  /**
+   * How many readings the radio calibration has taken in.
+   *
+   * @returns the count
+   */
+  private get readings(): number {
+    return this.state.radio?.readings ?? 0
   }
 
   /**
