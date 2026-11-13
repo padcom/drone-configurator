@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Logi usunięte z tego komputera: {count} (log {names}). Powód: {reason}.",
     "namesMore": "{names}; pozostałe: {count}",
+    "blocked": "Tego ustawienia nie można zmienić, gdy pojazd jest uzbrojony (albo jego stan jest nieznany) lub trwa pobieranie: wróciło do poprzedniego. Zmień je ponownie, gdy to minie.",
     "ask": "To ustawienie usuwa logi z tego komputera: {count} ({size}; log {names}). Usunąć je teraz? Jeśli nie, ustawienie wróci do poprzedniego.",
     "parts": "Usunięto niedokończone pobierania, do których nikt nie wrócił przez 7 dni: {count}.",
     "why": {

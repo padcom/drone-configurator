@@ -4,8 +4,9 @@
 // of the logs; only a yes removes them. A no puts the setting back to what it was. A change that would remove nothing is simply
 // kept. While a question is open further changes wait for the answer, and are looked at after it.
 import type { LogsHousekept } from '@/generated/app'
-import { say } from '@/i18n/say'
+import { pageLanguage, say } from '@/i18n/say'
 import { sizeText } from '@/lib/logs/vehicleLogs'
+import type { ToastInput } from './toasts'
 import type { HousekeepingModel } from './useHousekeeping'
 import { numberOf } from './useHousekeeping'
 
@@ -27,6 +28,8 @@ export interface GuardDeps {
   confirm: (question: string) => Promise<boolean>
   /** Puts the settings back to a choice. */
   restore: (to: Removal) => Promise<void>
+  /** Tells the user something (a toast). */
+  tell: (input: ToastInput) => void
   /** How long (ms) the choice must stay as it is before it is looked at (default 600). */
   settleMs?: number
 }
@@ -37,6 +40,8 @@ export interface Guard {
   begin: () => void
   /** The choice may have changed. */
   changed: () => void
+  /** What every removal is held to: the last choice that was accepted (answered yes, or one that would remove nothing). */
+  accepted: () => Removal | null
 }
 
 /**
@@ -57,7 +62,7 @@ function same(a: Removal, b: Removal): boolean {
  * @returns the question
  */
 export function questionOf(preview: LogsHousekept): string {
-  const write = (value: number, digits: number) => value.toLocaleString(undefined, { maximumFractionDigits: digits })
+  const write = (value: number, digits: number) => value.toLocaleString(pageLanguage(), { maximumFractionDigits: digits })
   const names = preview.removed.slice(0, 5).map(log => numberOf(log.name)).join(', ')
 
   return say('housekeeping.ask', { count: preview.removedCount, size: sizeText(Number(preview.freed), write), names })
@@ -65,7 +70,7 @@ export function questionOf(preview: LogsHousekept): string {
 
 /** The guard of the changes of what to remove. */
 class RemovalGuard implements Guard {
-  private accepted: Removal | null = null
+  private choice: Removal | null = null
   private asking = false
   private again = false
   private timer: ReturnType<typeof setTimeout> | undefined
@@ -78,7 +83,11 @@ class RemovalGuard implements Guard {
   constructor(private readonly deps: GuardDeps) {}
 
   begin(): void {
-    this.accepted = this.deps.prefs()
+    this.choice = this.deps.prefs()
+  }
+
+  accepted(): Removal | null {
+    return this.choice
   }
 
   changed(): void {
@@ -88,7 +97,7 @@ class RemovalGuard implements Guard {
 
   /** Looks at what is chosen, once the user has stopped: nothing is removed without the answer. */
   private async look(): Promise<void> {
-    if (this.accepted === null) {
+    if (this.choice === null) {
       return
     }
     if (this.asking) {
@@ -99,7 +108,7 @@ class RemovalGuard implements Guard {
     this.asking = true
 
     try {
-      await this.judge(this.accepted, this.deps.prefs())
+      await this.judge(this.choice, this.deps.prefs())
     } finally {
       this.asking = false
 
@@ -121,8 +130,13 @@ class RemovalGuard implements Guard {
       return
     }
     const preview = await this.deps.housekeeping.preview(now)
-    if (preview === null || preview.removedCount === 0) {
-      this.accepted = now
+    if (preview === null) {
+      // It cannot be looked at now (the vehicle is armed or not known to be disarmed, or a download runs): the change is NOT
+      // accepted, every removal stays held to the choice before it, and the setting goes back.
+      await this.deps.restore(before)
+      this.deps.tell({ id: 'housekeeping-blocked', severity: 'warning', text: say('housekeeping.blocked') })
+    } else if (preview.removedCount === 0) {
+      this.choice = now
     } else {
       await this.ask(preview, before, now)
     }
@@ -137,7 +151,7 @@ class RemovalGuard implements Guard {
    */
   private async ask(preview: LogsHousekept, before: Removal, now: Removal): Promise<void> {
     if (await this.deps.confirm(questionOf(preview))) {
-      this.accepted = now
+      this.choice = now
       await this.deps.housekeeping.run()
     } else {
       await this.deps.restore(before)

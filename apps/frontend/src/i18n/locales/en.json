@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Logs removed from this computer: {count} (log {names}). Why: {reason}.",
     "namesMore": "{names}; others: {count}",
+    "blocked": "This setting cannot be changed while the vehicle is armed (or its state is not known) or a download is running: it was put back to what it was. Change it again when they are over.",
     "ask": "This setting removes logs from this computer: {count} ({size}; log {names}). Remove them now? If not, the setting goes back to what it was.",
     "parts": "Unfinished downloads that nobody went on from for 7 days were removed: {count}.",
     "why": {

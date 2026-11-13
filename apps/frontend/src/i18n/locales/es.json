@@ -881,6 +881,7 @@
   "housekeeping": {
     "removed": "Registros eliminados de este ordenador: {count} (registro {names}). Motivo: {reason}.",
     "namesMore": "{names}; otros: {count}",
+    "blocked": "Este ajuste no se puede cambiar mientras el vehículo está armado (o su estado no se conoce) o hay una descarga en curso: volvió a lo que era. Cámbialo de nuevo cuando termine.",
     "ask": "Este ajuste elimina registros de este ordenador: {count} ({size}; registro {names}). ¿Eliminarlos ahora? Si no, el ajuste vuelve a lo que era.",
     "parts": "Se eliminaron las descargas incompletas que nadie continuó en 7 días: {count}.",
     "why": {

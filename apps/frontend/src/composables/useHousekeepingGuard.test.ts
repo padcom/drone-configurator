@@ -33,7 +33,7 @@ afterEach(() => {
 // eslint-disable-next-line max-lines-per-function -- one fake housekeeping, kept in one place
 function setup(preview: LogsHousekept | null, answer = true) {
   const chosen: Removal = { retentionDays: 0, sizeCapMb: 0 }
-  const seen = { previews: [] as Removal[], runs: 0, questions: [] as string[], restored: [] as Removal[] }
+  const seen = { previews: [] as Removal[], runs: 0, questions: [] as string[], restored: [] as Removal[], told: [] as string[] }
   const housekeeping = {
     preview: (prefs: Removal) => {
       seen.previews.push({ ...prefs })
@@ -59,6 +59,7 @@ function setup(preview: LogsHousekept | null, answer = true) {
 
       return Promise.resolve()
     },
+    tell: input => seen.told.push(input.text),
     settleMs: 100,
   })
   guard.begin()
@@ -108,6 +109,48 @@ it('puts the setting back and removes nothing on a no', async () => {
   expect(seen.restored).toEqual([{ retentionDays: 0, sizeCapMb: 0 }])
 })
 
+it('does not accept a change while the dry run is blocked: it goes back and removals stay held to the old choice', async () => {
+  const { guard, chosen, seen } = setup(null)
+  chosen.retentionDays = 30
+  guard.changed()
+  await vi.advanceTimersByTimeAsync(150)
+
+  // Not asked, not run, put back, said once; what a run at the next download would use is still Never.
+  expect(seen.questions).toHaveLength(0)
+  expect(seen.runs).toBe(0)
+  expect(seen.restored).toEqual([{ retentionDays: 0, sizeCapMb: 0 }])
+  expect(seen.told).toHaveLength(1)
+  expect(seen.told[0]).toContain('cannot be changed while the vehicle is armed')
+  expect(guard.accepted()).toEqual({ retentionDays: 0, sizeCapMb: 0 })
+})
+
+it('holds every removal to the accepted choice while a question is open, not to what is chosen', async () => {
+  const seen = { questions: 0 }
+  const chosen: Removal = { retentionDays: 0, sizeCapMb: 0 }
+  const guard = useHousekeepingGuard({
+    housekeeping: { preview: () => Promise.resolve(WOULD_GO), run: () => Promise.resolve() } as unknown as HousekeepingModel,
+    prefs: () => ({ ...chosen }),
+    confirm: () => {
+      seen.questions += 1
+
+      return new Promise<boolean>(() => {
+        // Never answered: the question stays open.
+      })
+    },
+    restore: () => Promise.resolve(),
+    tell: () => undefined,
+    settleMs: 100,
+  })
+  guard.begin()
+  chosen.retentionDays = 30
+  // Before it is looked at, and while the question is open, a run (at the start or after a download) is held to Never.
+  expect(guard.accepted()).toEqual({ retentionDays: 0, sizeCapMb: 0 })
+  guard.changed()
+  await vi.advanceTimersByTimeAsync(150)
+  expect(seen.questions).toBe(1)
+  expect(guard.accepted()).toEqual({ retentionDays: 0, sizeCapMb: 0 })
+})
+
 it('keeps a change that would remove nothing, without a question and without a run', async () => {
   const { guard, chosen, seen } = setup(NOTHING)
   chosen.sizeCapMb = 5000
@@ -151,6 +194,7 @@ it('looks at a change made while a question is open only after the answer', asyn
       })
     },
     restore: () => Promise.resolve(),
+    tell: () => undefined,
     settleMs: 100,
   })
   guard.begin()
@@ -186,6 +230,7 @@ it('does nothing before the settings have been read, and when the choice did not
     prefs: () => ({ ...chosen }),
     confirm: () => Promise.resolve(true),
     restore: () => Promise.resolve(),
+    tell: () => undefined,
     settleMs: 100,
   })
   chosen.retentionDays = 30

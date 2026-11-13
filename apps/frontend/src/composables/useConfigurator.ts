@@ -26,7 +26,7 @@ import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
 import { useAutoDownload } from './useAutoDownload'
 import { RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
-import { type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
+import { type Guard, type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
 
 /** One ref per field of the state, each the very ref that the composable holding it changes. */
 export type Fields = { [K in keyof State]: ShallowRef<State[K]> }
@@ -300,9 +300,14 @@ function startLogs(deps: LogsStart): Pick<ConfiguratorHandle, 'logs' | 'housekee
   })
   const tell = useToasts().push
   const prefs = () => logsPrefsOf(key => settings.uiValue(key))
-  const housekeeping = useHousekeeping({ client, prefs, tell })
+  // Every removal is held to the choice that was ACCEPTED (see the guard), not to what is chosen at this moment.
+  const holder: { guard?: Guard } = {}
+  const held = () => holder.guard?.accepted() ?? prefs()
+  const housekeeping = useHousekeeping({ client, prefs: held, tell })
   // Old copies are looked at when the settings have been read, and after every download (which may have filled the disk).
-  const guard = useHousekeepingGuard({ housekeeping, prefs, confirm: deps.confirm, restore: to => restoreRemoval(settings, to) })
+  const restore = (to: Removal) => restoreRemoval(settings, to)
+  const guard = useHousekeepingGuard({ housekeeping, prefs, confirm: deps.confirm, restore, tell })
+  holder.guard = guard
   watch(settings.loaded, loaded => loaded && (guard.begin(), void housekeeping.run()), { immediate: true })
   // A change of what to remove removes nothing by itself: it is asked about first (see the guard).
   watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && guard.changed())
