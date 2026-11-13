@@ -1,0 +1,232 @@
+// Housekeeping of the downloaded logs: what is marked for removal by age and by the cap (a pure function, with the time given), and
+// what is actually removed: only verified copies of a vehicle's logs, never the newest 3 of a vehicle, never an imported recording,
+// a part or another file; nothing while a connected vehicle is armed or not known to be disarmed.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { mkdir, readDir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { crc32Of } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  LogsHousekeepingAsk,
+  LogsHousekept,
+  decodeLogsHousekept,
+  encodeConnectRequest,
+  encodeLogsHousekeepingAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { Copy, mark } from "./loghousekeeping"
+import { link } from "./session"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const DAY: int = 86400000
+
+/// `n` bytes that look like data and are the same on every run.
+function content(n: int, seed: int): Uint8Array {
+  const out = new Uint8Array(n)
+  let x = seed
+  for (let i = 0; i < n; i++) {
+    x = (x * 1103515245 + 12345) & 0x7FFFFFFF
+    out.set(i, (x >> 16) & 0xFF)
+  }
+  out
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// A copy of a vehicle that is `days` old, `size` bytes.
+function copyAged(vehicle: string, n: int, days: int, size: int): Copy {
+  new Copy(vehicle, `${n}`, `/nowhere/${n}`, size, 1000 * DAY - days * DAY, 0)
+}
+
+function marks(copies: Copy[]): string {
+  copies.map((c) => `${c.name}:${if (c.protectedCopy) "P" else ""}${c.why}`).join(" ")
+}
+
+function marksByAgeAndKeepsTheNewestThree(): void {
+  // One vehicle, five copies: 1 day, 5, 100, 200 and 300 days old. The newest three are protected whatever their age.
+  const copies = [copyAged("a", 1, 300, 10), copyAged("a", 2, 200, 10), copyAged("a", 3, 100, 10), copyAged("a", 4, 5, 10), copyAged("a", 5, 1, 10)]
+  mark(copies, 1000 * DAY, 90, 0)
+
+  // Newest first: 5, 4, 3 are protected (3 is older than 90 days and still kept); 2 and 1 are removed for their age.
+  expect(marks(copies)).toBe("5:P 4:P 3:P 2:age 1:age")
+  // A retention of 0 is never.
+  const never = [copyAged("a", 1, 3000, 10), copyAged("a", 2, 2000, 10), copyAged("a", 3, 1000, 10), copyAged("a", 4, 900, 10)]
+  mark(never, 1000 * DAY, 0, 0)
+  expect(marks(never)).toBe("4:P 3:P 2:P 1:")
+}
+
+function removesTheOldestWhileOverTheCapAndNotTheProtected(): void {
+  // Five copies of 10 bytes, all young; a cap of 20 bytes: the two oldest go, the three newest stay though they are over the cap.
+  const copies = [copyAged("a", 1, 5, 10_000_000), copyAged("a", 2, 4, 10_000_000), copyAged("a", 3, 3, 10_000_000), copyAged("a", 4, 2, 10_000_000), copyAged("a", 5, 1, 10_000_000)]
+  mark(copies, 1000 * DAY, 90, 20_000_000)
+
+  expect(marks(copies)).toBe("5:P 4:P 3:P 2:size 1:size")
+}
+
+function keepsTheNewestThreeOfEveryVehicle(): void {
+  const copies = [
+    copyAged("a", 1, 400, 1),
+    copyAged("b", 1, 400, 1),
+    copyAged("a", 2, 399, 1),
+    copyAged("b", 2, 399, 1),
+    copyAged("a", 3, 398, 1),
+    copyAged("b", 3, 398, 1),
+  ]
+  mark(copies, 1000 * DAY, 30, 0)
+
+  // Each vehicle has three, all protected, whatever their age.
+  expect(copies.filter((c) => c.why != "").length).toBe(0)
+}
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-housekeeping-${pid}-${Date.now()}`
+  await mkdir(join(root, "logs", "uid-a"), true)
+  useDirectoryForTests(root)
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+/// A downloaded copy of log `n` in a vehicle's folder: the bytes, and the name that has their CRC (or another's).
+async function put(r: Rig, vehicle: string, n: int, seed: int, size: int, honest: bool): Promise<string> throws Error {
+  const dir = join(r.root, "logs", vehicle)
+  await mkdir(dir, true)
+  const bytes = content(size, seed)
+  const name = copyName(n, if (honest) crc32Of(bytes) else crc32Of(bytes) ^ 1)
+  await writeBytes(join(dir, name), bytes)
+  name
+}
+
+async function names(r: Rig, vehicle: string): Promise<string[]> throws Error {
+  const out: string[] = []
+  for await (const e of readDir(join(r.root, "logs", vehicle))) {
+    out.push(e.name)
+  }
+  out.sort()
+  out
+}
+
+async function housekeep(r: Rig, days: int, mb: int): Promise<Envelope> throws Error {
+  await r.f.call("logs.housekeeping", encodeLogsHousekeepingAsk(LogsHousekeepingAsk { retentionDays: days as u16, sizeCapMb: mb as u32 }))
+}
+
+async function removesOnlyVerifiedCopiesOfAVehicleAndNothingElse(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    // Five copies of 400 kB: the cap of 1 MB leaves room for two, the three newest are protected (all five have the time of now,
+    // so the order is the number's).
+    const names1: string[] = []
+    for (let n = 1; n <= 5; n++) {
+      names1.push(await put(r, "uid-a", n, n, 400000, n != 1))
+    }
+    // Copy 1 does not have the CRC in its name (a copy that does not verify): it is the oldest, marked, and kept.
+    await writeBytes(join(r.root, "logs", "uid-a", "00000009.BIN.part"), content(1000, 9))
+    await writeBytes(join(r.root, "logs", "uid-a", "notes.txt"), content(10, 3))
+    // An imported recording is no vehicle's log.
+    await mkdir(join(r.root, "logs", "imported"), true)
+    await writeBytes(join(r.root, "logs", "imported", "00000000-aaaaaaaa.tlog"), content(2000000, 4))
+    const e = await housekeep(r, 0, 1)
+    expect(codeOf(e)).toBe("")
+    const out: LogsHousekept = decodeLogsHousekept(e.p ?? Cbor.Null, "$")
+
+    // The oldest is copy 1 (unverified: kept, counted), then 2 (removed for the size). The three newest stay, over the cap.
+    expect(out.removedCount).toBe(1 as u32)
+    expect(out.removed[0].name).toBe(names1[1])
+    expect(out.unverified).toBe(1 as u32)
+    expect(out.kept).toBe(3 as u32)
+    expect(out.freed).toBe(400000 as u64)
+    expect(out.overCap).toBe(true)
+    const left = await names(r, "uid-a")
+    expect(left.includes(names1[0])).toBe(true)
+    expect(left.includes(names1[1])).toBe(false)
+    expect(left.includes("00000009.BIN.part")).toBe(true)
+    expect(left.includes("notes.txt")).toBe(true)
+    expect((await names(r, "imported")).length).toBe(1)
+  } finally {
+    await done(r)
+  }
+}
+
+async function removesNothingWhenThereIsNoRuleOrNoRoom(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    for (let n = 1; n <= 6; n++) {
+      await put(r, "uid-a", n, n, 1000, true)
+    }
+    const out = decodeLogsHousekept((await housekeep(r, 0, 0)).p ?? Cbor.Null, "$")
+
+    expect(out.removedCount).toBe(0 as u32)
+    expect((await names(r, "uid-a")).length).toBe(6)
+    // A cap that all of them fit in removes nothing either.
+    const roomy = decodeLogsHousekept((await housekeep(r, 90, 100)).p ?? Cbor.Null, "$")
+    expect(roomy.removedCount).toBe(0 as u32)
+    expect(roomy.overCap).toBe(false)
+  } finally {
+    await done(r)
+  }
+}
+
+async function refusesWhileAConnectedVehicleIsArmedOrNotKnown(): Promise<void> throws Error {
+  const r = await rig()
+  let held = -1
+  try {
+    for (let n = 1; n <= 5; n++) {
+      await put(r, "uid-a", n, n, 400000, true)
+    }
+    await r.f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    const sim = simulatorForTests()!
+    sim.ticks = 0
+    const hold = setInterval(() => { sim.ticks = 0 }, 100)
+    const before = link.heartbeatAt
+    held = hold
+    let waited = 0
+    while (link.heartbeatAt == before && waited < 4000) {
+      await delay(20)
+      waited += 20
+    }
+    // Disarmed and known: it runs. (The cap of 1 MB would remove two of five; the protected three stay.)
+    link.armed = true
+    expect(codeOf(await housekeep(r, 0, 1))).toBe("ARMED")
+    // No recent heartbeat: not known, which counts as armed.
+    link.armed = false
+    const was = link.heartbeatAt
+    link.heartbeatAt = 1
+    expect(codeOf(await housekeep(r, 0, 1))).toBe("STATE_UNKNOWN")
+    link.heartbeatAt = was
+    // Nothing was removed by the refusals.
+    expect((await names(r, "uid-a")).length).toBe(5)
+  } finally {
+    clearInterval(held)
+    await r.f.call("vehicle.disconnect")
+    await done(r)
+  }
+}
+
+describe("housekeeping of the logs on this computer", () => {
+  it("marks by age and keeps the newest three whatever their age; a retention of 0 is never", marksByAgeAndKeepsTheNewestThree)
+  it("removes the oldest while over the cap, never the protected ones", removesTheOldestWhileOverTheCapAndNotTheProtected)
+  it("keeps the newest three of every vehicle", keepsTheNewestThreeOfEveryVehicle)
+  it("removes only verified copies of a vehicle's logs: not a copy that does not verify, a part, another file or a recording", removesOnlyVerifiedCopiesOfAVehicleAndNothingElse)
+  it("removes nothing with no rule or with room", removesNothingWhenThereIsNoRuleOrNoRoom)
+  it("refuses while a connected vehicle is armed or not known to be disarmed", refusesWhileAConnectedVehicleIsArmedOrNotKnown)
+})

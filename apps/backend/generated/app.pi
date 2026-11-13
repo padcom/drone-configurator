@@ -1051,6 +1051,119 @@ export function encodeLogsImportAsk(v: LogsImportAsk): Cbor {
   Cbor.Dict(m)
 }
 
+export struct LogsHousekeepingAsk {
+  retentionDays: u16
+  sizeCapMb: u32
+}
+
+export function decodeLogsHousekeepingAsk(v: Cbor, path: string): LogsHousekeepingAsk throws InvalidPayload {
+  const m = members(v, path, ["retentionDays", "sizeCapMb"])
+  LogsHousekeepingAsk {
+    retentionDays: (uint(required(m, "retentionDays", path), `${path}.retentionDays`, 65535) as u16),
+    sizeCapMb: (uint(required(m, "sizeCapMb", path), `${path}.sizeCapMb`, 4294967295) as u32),
+  }
+}
+
+export function encodeLogsHousekeepingAsk(v: LogsHousekeepingAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("retentionDays", Cbor.Uint(v.retentionDays as u64))
+  m.set("sizeCapMb", Cbor.Uint(v.sizeCapMb as u64))
+  Cbor.Dict(m)
+}
+
+export enum RemovedLogWhy { Age, Size }
+
+export function decodeRemovedLogWhy(v: Cbor, path: string): RemovedLogWhy throws InvalidPayload {
+  match (text(v, path)) {
+    "age" => RemovedLogWhy.Age,
+    "size" => RemovedLogWhy.Size,
+    _ => throw new InvalidPayload(path, "age or size"),
+  }
+}
+
+export function encodeRemovedLogWhy(v: RemovedLogWhy): Cbor {
+  match (v) {
+    Age => Cbor.Text("age"),
+    Size => Cbor.Text("size"),
+  }
+}
+
+export struct RemovedLog {
+  vehicle: string
+  name: string
+  size: u64
+  why: RemovedLogWhy
+}
+
+export function decodeRemovedLog(v: Cbor, path: string): RemovedLog throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "name", "size", "why"])
+  RemovedLog {
+    vehicle: text(required(m, "vehicle", path), `${path}.vehicle`),
+    name: text(required(m, "name", path), `${path}.name`),
+    size: (uint(required(m, "size", path), `${path}.size`, 18446744073709551615) as u64),
+    why: decodeRemovedLogWhy(required(m, "why", path), `${path}.why`),
+  }
+}
+
+export function encodeRemovedLog(v: RemovedLog): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("vehicle", Cbor.Text(v.vehicle))
+  m.set("name", Cbor.Text(v.name))
+  m.set("size", Cbor.Uint(v.size as u64))
+  m.set("why", encodeRemovedLogWhy(v.why))
+  Cbor.Dict(m)
+}
+
+function decodeLogsHousekeptRemovedList(v: Cbor, path: string): RemovedLog[] throws InvalidPayload {
+  const out: RemovedLog[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeRemovedLog(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLogsHousekeptRemovedList(v: RemovedLog[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeRemovedLog(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LogsHousekept {
+  removed: RemovedLog[]
+  removedCount: u32
+  freed: u64
+  kept: u32
+  unverified: u32
+  overCap: bool
+}
+
+export function decodeLogsHousekept(v: Cbor, path: string): LogsHousekept throws InvalidPayload {
+  const m = members(v, path, ["removed", "removedCount", "freed", "kept", "unverified", "overCap"])
+  LogsHousekept {
+    removed: decodeLogsHousekeptRemovedList(required(m, "removed", path), `${path}.removed`),
+    removedCount: (uint(required(m, "removedCount", path), `${path}.removedCount`, 4294967295) as u32),
+    freed: (uint(required(m, "freed", path), `${path}.freed`, 18446744073709551615) as u64),
+    kept: (uint(required(m, "kept", path), `${path}.kept`, 4294967295) as u32),
+    unverified: (uint(required(m, "unverified", path), `${path}.unverified`, 4294967295) as u32),
+    overCap: boolean(required(m, "overCap", path), `${path}.overCap`),
+  }
+}
+
+export function encodeLogsHousekept(v: LogsHousekept): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("removed", encodeLogsHousekeptRemovedList(v.removed))
+  m.set("removedCount", Cbor.Uint(v.removedCount as u64))
+  m.set("freed", Cbor.Uint(v.freed as u64))
+  m.set("kept", Cbor.Uint(v.kept as u64))
+  m.set("unverified", Cbor.Uint(v.unverified as u64))
+  m.set("overCap", Cbor.Bool(v.overCap))
+  Cbor.Dict(m)
+}
+
 export struct LogsImported {
   cancelled: bool
   duplicate: bool
