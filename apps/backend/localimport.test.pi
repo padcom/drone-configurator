@@ -8,9 +8,9 @@ import { env, pid } from "std/process"
 import { delay } from "std/timers"
 import { Cbor, CommunicatorError, Envelope } from "pico-desktop/communicator"
 import { Heartbeat, MavType, TlogWriter, crc32Of } from "padcom/pico-mavlink"
-import { LogsImported, decodeLogsImported } from "./generated/app"
+import { LogsImportAsk, LogsImported, decodeLogsImported, encodeLogsImportAsk } from "./generated/app"
 import { baseName, entryOf, importedName } from "./importednames"
-import { checkRead } from "./localimport"
+import { LARGE_IMPORT_BYTES, checkRead, setLargeImport } from "./localimport"
 import { claimRead, forgetLocalReads, releaseRead } from "./locallogs"
 import { useDirectoryForTests } from "./settings"
 import { Frontend, start } from "./testing"
@@ -293,6 +293,55 @@ async function waitsForAReadThatRunsInsteadOfFailingBusy(): Promise<void> throws
   }
 }
 
+async function stopDuringTheWaitStopsTheWaitNotTheRead(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    await writeBytes(join(r.out, "import.tlog"), recording(10))
+    // A read holds the library; the import waits for it; Stop is pressed.
+    const reading = claimRead()
+    const asked = await r.f.send("logs.import", null)
+    await delay(300)
+    await r.f.call("logs.local.cancel")
+    const e = await r.f.reply(asked)
+
+    expect(codeOf(e)).toBe("ABORTED")
+    // The read that was waited for was not stopped, and nothing was copied.
+    expect(reading.signal.aborted).toBe(false)
+    releaseRead()
+    expect((await imported(r)).length).toBe(0)
+  } finally {
+    await done(r)
+  }
+}
+
+async function asksBeforeCopyingAFileThatIsLarge(): Promise<void> throws Error {
+  const r = await rig()
+  try {
+    const bytes = recording(10)
+    await writeBytes(join(r.out, "import.tlog"), bytes)
+    setLargeImport(100)
+    const e1 = await r.f.call("logs.import", null)
+    expect(codeOf(e1)).toBe("")
+    const first = decodeLogsImported(e1.p ?? Cbor.Null, "$")
+
+    // Offered, not copied: the name and the size, and nothing in the library.
+    expect(first.large).toBe(true)
+    expect(first.name).toBe("import.tlog")
+    expect(first.size).toBe(bytes.length as u64)
+    expect(first.key == null).toBe(true)
+    expect((await imported(r)).length).toBe(0)
+    // Going on is for the file that was offered (no dialog is opened), and once.
+    const again = decodeLogsImported((await r.f.call("logs.import", encodeLogsImportAsk(LogsImportAsk { confirmLarge: true }))).p ?? Cbor.Null, "$")
+    expect(again.large == null).toBe(true)
+    expect(again.report!.records).toBe(10 as u32)
+    expect((await imported(r)).length).toBe(2)
+    expect(codeOf(await r.f.call("logs.import", encodeLogsImportAsk(LogsImportAsk { confirmLarge: true })))).toBe("BAD_REQUEST")
+  } finally {
+    setLargeImport(LARGE_IMPORT_BYTES)
+    await done(r)
+  }
+}
+
 function theNameOfAFileHasNoFolder(): void {
   expect(baseName("/home/pilot/flights/a.tlog")).toBe("a.tlog")
   expect(baseName("C:\\Users\\pilot\\a.tlog")).toBe("a.tlog")
@@ -314,5 +363,7 @@ describe("logs.import", () => {
   it("leaves nothing and the file as it was when the import is stopped", aStoppedImportLeavesNothingAndTheFileAsItWas)
   it("stops when the bytes read pass the cap or the size the file had, whatever stat said", readingMoreThanTheCapOrThanTheFileHadStops)
   it("waits for a read that runs and then answers, instead of failing with BUSY", waitsForAReadThatRunsInsteadOfFailingBusy)
+  it("stops the wait, not the read it waits for, when Stop is pressed", stopDuringTheWaitStopsTheWaitNotTheRead)
+  it("asks before copying a file over 500 MB (offered, once, no dialog the second time)", asksBeforeCopyingAFileThatIsLarge)
   it("names a file without its folder, and knows the names of imported copies", theNameOfAFileHasNoFolder)
 })

@@ -117,6 +117,7 @@
         "roll": "Alabeo",
         "pitch": "Cabeceo",
         "alt": "Altitud",
+        "altitudeAmsl": "Altitud sobre el nivel del mar, m (esta grabación no tiene la altura sobre el punto de partida)",
         "battery": "Tensión de la batería",
         "volt": "Tensión",
         "x": "X",
@@ -132,13 +133,14 @@
       },
       "review": {
         "title": "Revisión automática",
+        "rate": "Se basa en las muestras de la estación terrestre, unas {rate} por segundo: un pico entre dos muestras no se ve.",
         "noData": "{name}: este registro no tiene datos.",
         "name": {
           "vibration": { "x": "Vibración en X", "y": "Vibración en Y", "z": "Vibración en Z", "clipping": "Clipping" },
           "gps": { "satellites": "Satélites GPS", "hdop": "HDOP del GPS", "fix": "Fijación del GPS" },
           "ekf": { "variance": "Varianza del EKF" },
           "errors": { "logged": "Errores" },
-          "battery": { "voltage": "Tensión de la batería", "current": "Corriente de la batería" }
+          "battery": { "voltage": "Tensión de la batería", "current": "Corriente de la batería", "cell": "Tensión de celda de la batería" }
         },
         "vibration": {
           "x": "Vibración en X: pico de {value} m/s², en {at}, límite {limit}.",
@@ -158,6 +160,7 @@
           "logged": "Errores registrados por el vehículo: {value}."
         },
         "battery": {
+          "cell": "Batería: tensión mínima de celda {value} V (como la batería informa de sus celdas).",
           "voltage": "Batería: tensión mínima del paquete {value} V (no se sabe cuántas celdas tiene).",
           "current": "Batería: corriente máxima {value} A."
         }
@@ -873,6 +876,7 @@
     "newValue": "Valor"
   },
   "question": {
+    "importLarge": "Este archivo es grande ({size}): {name}. ¿Copiarlo en la biblioteca? Tarda un rato y ocupa tanto espacio en disco como el archivo.",
     "write": "¿Escribir {count} parámetro en el vehículo? | ¿Escribir {count} parámetros en el vehículo?",
     "snapshot": "¿Escribir {count} parámetro en el vehículo ({names})? | ¿Escribir {count} parámetros en el vehículo ({names})?"
   },

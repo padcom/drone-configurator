@@ -11,7 +11,7 @@ import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desk
 import { Crc32, TlogReader } from "padcom/pico-mavlink"
 import { File, exists, mkdir, open, readDir, remove, rename, stat, writeText } from "std/fs"
 import { join } from "std/path"
-import { LogsImported, LogsLocalProgress, encodeLogsImported, encodeLogsLocalProgress } from "./generated/app"
+import { LogsImportAsk, LogsImported, LogsLocalProgress, decodeLogsImportAsk, encodeLogsImported, encodeLogsLocalProgress } from "./generated/app"
 import { fileChooser } from "./files"
 import { Entry, IMPORTED, baseName, entryOf, importedKey, importedName } from "./importednames"
 import { hex8 } from "./logs"
@@ -21,6 +21,9 @@ import { reportOf } from "./tlogdecoder"
 
 /// How much of a file is read at a time.
 const CHUNK: int = 1048576
+
+/// From this size (500 MB) a file is not copied before the user has said yes.
+export const LARGE_IMPORT_BYTES: int = 500000000
 
 /// The most that is imported: a recording of 8 GiB is not a recording of a flight.
 export const MAX_IMPORT_BYTES: int = 8589934592
@@ -33,6 +36,11 @@ const MAX_ENTRIES: int = 100000
 
 class State {
   public communicator: Communicator? = null
+  /// The file offered as too large to copy without asking (the path, once), and from which size a file is that large.
+  public offered: string? = null
+  public largeBytes: int = LARGE_IMPORT_BYTES
+  /// Imports that have begun and not ended (one waits for the library while another runs): the folder is tidied only when none is.
+  public inFlight: int = 0
 }
 
 const state = new State()
@@ -42,19 +50,50 @@ export function register(c: Communicator): void {
   c.handle("logs.import", importLog)
 }
 
-async function importLog(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const path = await fileChooser().forImporting()
+async function importLog(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = if (payload == null) LogsImportAsk {} else decodeLogsImportAsk(payload!, "$")
+  const path = await chosen(ask.confirmLarge == true)
   if (path == null) {
     return encodeLogsImported(LogsImported { cancelled: true, duplicate: false })
   }
+  const size = (await stat(path!)).size
+  if (ask.confirmLarge != true && size > state.largeBytes) {
+    // Nothing is copied before the user has said yes to a file this large: it is offered, and the page asks.
+    state.offered = path
+    return encodeLogsImported(LogsImported { cancelled: false, duplicate: false, large: true, name: baseName(path!), size: size as u64 })
+  }
   // (Waits for a read that runs: the log that was opened last may still be having its kinds of message counted.)
-  const own = await claimReadWhenFree()
+  state.inFlight += 1
   try {
-    return encodeLogsImported(await copyIn(path!, own))
+    const own = await claimReadWhenFree()
+    try {
+      return encodeLogsImported(await copyIn(path!, own))
+    } finally {
+      releaseRead()
+    }
   } finally {
-    releaseRead()
+    state.inFlight -= 1
     await tidy()
   }
+}
+
+/// The file to import: the one that was offered as large when the user said yes to it (once), else the one the user chooses (null when
+/// the dialog is closed).
+async function chosen(confirmed: bool): Promise<string?> throws Error {
+  const offered = state.offered
+  state.offered = null
+  if (confirmed) {
+    if (offered == null) {
+      throw new CommunicatorError("BAD_REQUEST", "no file was offered to go on with")
+    }
+    return offered
+  }
+  await fileChooser().forImporting()
+}
+
+/// For tests: from which size (bytes) a file is asked about before it is copied.
+export function setLargeImport(bytes: int): void {
+  state.largeBytes = bytes
 }
 
 /// The folder of imports (not made).
@@ -68,6 +107,9 @@ async function folderPath(): Promise<string> throws CommunicatorError {
 
 /// A refused or stopped import leaves nothing, also no empty folder of imports: it is taken away when there is nothing in it.
 async function tidy(): Promise<void> {
+  if (state.inFlight > 0) {
+    return
+  }
   try {
     const dir = await folderPath()
     if (!await exists(dir)) {

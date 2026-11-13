@@ -1026,9 +1026,35 @@ export function encodeTlogReport(v: TlogReport): Cbor {
   Cbor.Dict(m)
 }
 
+export struct LogsImportAsk {
+  confirmLarge?: bool
+}
+
+export function decodeLogsImportAsk(v: Cbor, path: string): LogsImportAsk throws InvalidPayload {
+  const m = members(v, path, ["confirmLarge"])
+  const cbor0 = m.get("confirmLarge")
+  let opt0: bool? = null
+  if (cbor0 != null) {
+    opt0 = boolean(cbor0, `${path}.confirmLarge`)
+  }
+  LogsImportAsk {
+    confirmLarge: opt0,
+  }
+}
+
+export function encodeLogsImportAsk(v: LogsImportAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.confirmLarge
+  if (opt0 != null) {
+    m.set("confirmLarge", Cbor.Bool(opt0))
+  }
+  Cbor.Dict(m)
+}
+
 export struct LogsImported {
   cancelled: bool
   duplicate: bool
+  large?: bool
   key?: string
   name?: string
   crc?: string
@@ -1037,40 +1063,46 @@ export struct LogsImported {
 }
 
 export function decodeLogsImported(v: Cbor, path: string): LogsImported throws InvalidPayload {
-  const m = members(v, path, ["cancelled", "duplicate", "key", "name", "crc", "size", "report"])
-  const cbor2 = m.get("key")
-  let opt2: string? = null
+  const m = members(v, path, ["cancelled", "duplicate", "large", "key", "name", "crc", "size", "report"])
+  const cbor2 = m.get("large")
+  let opt2: bool? = null
   if (cbor2 != null) {
-    opt2 = text(cbor2, `${path}.key`)
+    opt2 = boolean(cbor2, `${path}.large`)
   }
-  const cbor3 = m.get("name")
+  const cbor3 = m.get("key")
   let opt3: string? = null
   if (cbor3 != null) {
-    opt3 = text(cbor3, `${path}.name`)
+    opt3 = text(cbor3, `${path}.key`)
   }
-  const cbor4 = m.get("crc")
+  const cbor4 = m.get("name")
   let opt4: string? = null
   if (cbor4 != null) {
-    opt4 = text(cbor4, `${path}.crc`)
+    opt4 = text(cbor4, `${path}.name`)
   }
-  const cbor5 = m.get("size")
-  let opt5: u64? = null
+  const cbor5 = m.get("crc")
+  let opt5: string? = null
   if (cbor5 != null) {
-    opt5 = (uint(cbor5, `${path}.size`, 18446744073709551615) as u64)
+    opt5 = text(cbor5, `${path}.crc`)
   }
-  const cbor6 = m.get("report")
-  let opt6: TlogReport? = null
+  const cbor6 = m.get("size")
+  let opt6: u64? = null
   if (cbor6 != null) {
-    opt6 = decodeTlogReport(cbor6, `${path}.report`)
+    opt6 = (uint(cbor6, `${path}.size`, 18446744073709551615) as u64)
+  }
+  const cbor7 = m.get("report")
+  let opt7: TlogReport? = null
+  if (cbor7 != null) {
+    opt7 = decodeTlogReport(cbor7, `${path}.report`)
   }
   LogsImported {
     cancelled: boolean(required(m, "cancelled", path), `${path}.cancelled`),
     duplicate: boolean(required(m, "duplicate", path), `${path}.duplicate`),
-    key: opt2,
-    name: opt3,
-    crc: opt4,
-    size: opt5,
-    report: opt6,
+    large: opt2,
+    key: opt3,
+    name: opt4,
+    crc: opt5,
+    size: opt6,
+    report: opt7,
   }
 }
 
@@ -1078,25 +1110,29 @@ export function encodeLogsImported(v: LogsImported): Cbor {
   const m = new Map<string, Cbor>()
   m.set("cancelled", Cbor.Bool(v.cancelled))
   m.set("duplicate", Cbor.Bool(v.duplicate))
-  const opt2 = v.key
+  const opt2 = v.large
   if (opt2 != null) {
-    m.set("key", Cbor.Text(opt2))
+    m.set("large", Cbor.Bool(opt2))
   }
-  const opt3 = v.name
+  const opt3 = v.key
   if (opt3 != null) {
-    m.set("name", Cbor.Text(opt3))
+    m.set("key", Cbor.Text(opt3))
   }
-  const opt4 = v.crc
+  const opt4 = v.name
   if (opt4 != null) {
-    m.set("crc", Cbor.Text(opt4))
+    m.set("name", Cbor.Text(opt4))
   }
-  const opt5 = v.size
+  const opt5 = v.crc
   if (opt5 != null) {
-    m.set("size", Cbor.Uint(opt5 as u64))
+    m.set("crc", Cbor.Text(opt5))
   }
-  const opt6 = v.report
+  const opt6 = v.size
   if (opt6 != null) {
-    m.set("report", encodeTlogReport(opt6))
+    m.set("size", Cbor.Uint(opt6 as u64))
+  }
+  const opt7 = v.report
+  if (opt7 != null) {
+    m.set("report", encodeTlogReport(opt7))
   }
   Cbor.Dict(m)
 }
@@ -1468,10 +1504,11 @@ export struct ReviewFinding {
   limit?: f64
   atUs?: u64
   samples?: u32
+  rateHz?: f64
 }
 
 export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws InvalidPayload {
-  const m = members(v, path, ["id", "level", "value", "limit", "atUs", "samples"])
+  const m = members(v, path, ["id", "level", "value", "limit", "atUs", "samples", "rateHz"])
   const cbor2 = m.get("value")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -1492,6 +1529,11 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
   if (cbor5 != null) {
     opt5 = (uint(cbor5, `${path}.samples`, 4294967295) as u32)
   }
+  const cbor6 = m.get("rateHz")
+  let opt6: f64? = null
+  if (cbor6 != null) {
+    opt6 = float(cbor6, `${path}.rateHz`)
+  }
   ReviewFinding {
     id: text(required(m, "id", path), `${path}.id`),
     level: decodeReviewFindingLevel(required(m, "level", path), `${path}.level`),
@@ -1499,6 +1541,7 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
     limit: opt3,
     atUs: opt4,
     samples: opt5,
+    rateHz: opt6,
   }
 }
 
@@ -1521,6 +1564,10 @@ export function encodeReviewFinding(v: ReviewFinding): Cbor {
   const opt5 = v.samples
   if (opt5 != null) {
     m.set("samples", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.rateHz
+  if (opt6 != null) {
+    m.set("rateHz", Cbor.Float(opt6))
   }
   Cbor.Dict(m)
 }

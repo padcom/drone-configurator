@@ -117,6 +117,7 @@
         "roll": "Rollio",
         "pitch": "Beccheggio",
         "alt": "Altitudine",
+        "altitudeAmsl": "Altitudine sul livello del mare, m (questa registrazione non ha la quota sul punto di partenza)",
         "battery": "Tensione della batteria",
         "volt": "Tensione",
         "x": "X",
@@ -132,13 +133,14 @@
       },
       "review": {
         "title": "Revisione automatica",
+        "rate": "Si basa sui campioni della stazione di terra, circa {rate} al secondo: un picco tra due campioni non si vede.",
         "noData": "{name}: questo log non ha dati.",
         "name": {
           "vibration": { "x": "Vibrazioni su X", "y": "Vibrazioni su Y", "z": "Vibrazioni su Z", "clipping": "Clipping" },
           "gps": { "satellites": "Satelliti GPS", "hdop": "HDOP del GPS", "fix": "Fix del GPS" },
           "ekf": { "variance": "Varianza EKF" },
           "errors": { "logged": "Errori" },
-          "battery": { "voltage": "Tensione della batteria", "current": "Corrente della batteria" }
+          "battery": { "voltage": "Tensione della batteria", "current": "Corrente della batteria", "cell": "Tensione della cella della batteria" }
         },
         "vibration": {
           "x": "Vibrazioni su X: picco {value} m/s², a {at}, limite {limit}.",
@@ -158,6 +160,7 @@
           "logged": "Errori registrati dal veicolo: {value}."
         },
         "battery": {
+          "cell": "Batteria: tensione minima di cella {value} V (come la batteria riporta le sue celle).",
           "voltage": "Batteria: tensione minima del pacco {value} V (il numero di celle non è noto).",
           "current": "Batteria: corrente massima {value} A."
         }
@@ -873,6 +876,7 @@
     "newValue": "Valore"
   },
   "question": {
+    "importLarge": "Questo file è grande ({size}): {name}. Copiarlo nella libreria? Richiede un po\u2019 di tempo e tanto spazio su disco quanto il file.",
     "write": "Scrivere {count} parametro sul veicolo? | Scrivere {count} parametri sul veicolo?",
     "snapshot": "Scrivere {count} parametro sul veicolo ({names})? | Scrivere {count} parametri sul veicolo ({names})?"
   },

@@ -33,7 +33,7 @@ function over(importer: () => Promise<unknown>) {
     },
   } as unknown as BackendClient
 
-  return { flights: useFlights({ client }), calls }
+  return { flights: useFlights({ client, confirm: () => Promise.resolve(true) }), calls }
 }
 
 it('imports a recording, lists it and opens it', async () => {
@@ -110,4 +110,56 @@ it('ignores an import asked for while one runs', async () => {
   await first
 
   expect(calls.filter(call => call === 'logs.import')).toHaveLength(1)
+})
+
+/**
+ * A model whose backend offers a large file first, and answers a `confirmLarge` with an entry.
+ *
+ * @param yes what the user answers to the question
+ * @returns the model, the asks `logs.import` got, and the questions asked
+ */
+function overLarge(yes: boolean) {
+  const asks: unknown[] = []
+  const questions: string[] = []
+  const client = {
+    onEvent: () => () => undefined,
+    call: (name: string, ask?: { confirmLarge?: boolean }) => {
+      if (name !== 'logs.import') {
+        return Promise.resolve({ logs: [], truncated: false })
+      }
+      asks.push(ask)
+
+      return Promise.resolve(ask?.confirmLarge === true
+        ? { cancelled: false, duplicate: false, key: 'imported/00000000-aaaaaaaa.tlog', name: 'big.tlog' }
+        : { cancelled: false, duplicate: false, large: true, name: 'big.tlog', size: 800_000_000 })
+    },
+  } as unknown as BackendClient
+  const confirm = (question: string) => {
+    questions.push(question)
+
+    return Promise.resolve(yes)
+  }
+
+  return { flights: useFlights({ client, confirm }), asks, questions }
+}
+
+it('asks before a file over 500 MB is copied, with its name and size, and goes on only on a yes', async () => {
+  const { flights, asks, questions } = overLarge(true)
+  await flights.importFile()
+
+  expect(questions).toHaveLength(1)
+  expect(questions[0]).toContain('big.tlog')
+  expect(questions[0]).toContain('800')
+  expect(asks).toEqual([{}, { confirmLarge: true }])
+  expect(flights.imported.value).toMatchObject({ key: 'imported/00000000-aaaaaaaa.tlog' })
+})
+
+it('copies nothing and says nothing more when the user says no to a large file', async () => {
+  const { flights, asks } = overLarge(false)
+  await flights.importFile()
+
+  expect(asks).toEqual([{}])
+  expect(flights.imported.value).toBeNull()
+  expect(flights.error.value).toBeNull()
+  expect(flights.importing.value).toBe(false)
 })

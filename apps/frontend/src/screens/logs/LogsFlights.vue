@@ -342,17 +342,49 @@ function unitOf(keys: string[]): string {
   return unit === undefined ? '' : `, ${unit}`
 }
 
+/**
+ * Whether the log has a series.
+ *
+ * @param key the series, `message.field`
+ * @returns true if it was found
+ */
+function hasSeries(key: string): boolean {
+  return flights.series.value[key]?.found === true
+}
+
+/**
+ * Which altitude is drawn: the height above home, unless only the altitude above sea level is there.
+ *
+ * @returns the series
+ */
+function altitudeKey(): string {
+  return !hasSeries('CTUN.Alt') && hasSeries('VFR.Alt') ? 'VFR.Alt' : 'CTUN.Alt'
+}
+
+/**
+ * The altitude chart: the height above home where the log has it; else, for a recording that has only VFR_HUD, the altitude above
+ * sea level, under a title that says so (it is another quantity, never drawn as the height above home).
+ *
+ * @returns the chart
+ */
+function altitudeChart() {
+  const aboveHome = altitudeKey() === 'CTUN.Alt'
+  const key = aboveHome ? 'CTUN.Alt' : 'VFR.Alt'
+
+  return {
+    id: 'altitude',
+    title: aboveHome ? t('logs.flights.chart.altitude') + unitOf([key]) : t('logs.flights.chart.altitudeAmsl'),
+    series: [line(key, t('logs.flights.chart.alt'), 'accent')],
+  }
+}
+
 const charts = computed(() => [
   {
     id: 'attitude',
     title: t('logs.flights.chart.attitude') + unitOf(['ATT.Roll', 'ATT.Pitch']),
     series: [line('ATT.Roll', t('logs.flights.chart.roll'), 'accent'), line('ATT.Pitch', t('logs.flights.chart.pitch'), 'ok')],
   },
-  {
-    id: 'altitude',
-    title: t('logs.flights.chart.altitude') + unitOf(['CTUN.Alt']),
-    series: [line('CTUN.Alt', t('logs.flights.chart.alt'), 'accent')],
-  },
+  altitudeChart(),
   {
     id: 'battery',
     title: t('logs.flights.chart.battery') + unitOf(['BAT.Volt']),

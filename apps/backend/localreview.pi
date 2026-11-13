@@ -17,7 +17,7 @@
 // The whole log is looked at. With ArduPilot's defaults a log begins at the arm, so that is the flight; a log that holds time on
 // the ground (LOG_DISARMED) has it in these numbers too. The limits are guidelines, this app's, written in the findings, not facts.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
-import { DfMessage } from "padcom/pico-mavlink"
+import { DfMessage, DfTables } from "padcom/pico-mavlink"
 import {
   LogsReview,
   ReviewFinding,
@@ -25,6 +25,8 @@ import {
   decodeLogsLocalRead,
   encodeLogsReview,
 } from "./generated/app"
+import { factorOf } from "./localseries"
+import { LogReader } from "./logreader"
 import { Taker, claimRead, knownSummary, locate, releaseRead, streamLog } from "./locallogs"
 
 /// Vibration (m/s/s): above `VIBE_WARN` it may hurt, above `VIBE_BAD` it does.
@@ -112,11 +114,20 @@ class Gathered implements Taker {
   /// Whether the log defines the format of ERR (an FMT for it): an ArduPilot log does, at its start, for every message it can have.
   public definesErr: bool = false
   public readonly volts: Extreme = new Extreme(false)
+  /// The lowest cell voltage of a battery that reports its cells (BCL: V1..V12; 0 is a cell that is not there).
+  public readonly cells: Extreme = new Extreme(false)
+  /// The units and multipliers the log names (a DataFlash BCL has its cells in millivolts with the multiplier 0.001).
+  readonly reader: LogReader
+  /// The VIBE samples of IMU 0 (the ones the review rests on): how many, and the first and last time (microseconds).
+  public vibeSamples: int = 0
+  public vibeFirst: int = -1
+  public vibeLast: int = -1
   public readonly amps: Extreme = new Extreme(true)
   /// The time of the first message that has one (microseconds), -1 before.
   public start: int = -1
 
-  constructor() {
+  constructor(reader: LogReader) {
+    this.reader = reader
     for (let i = 0; i < MAX_IMUS; i++) {
       this.clips.push(new Running())
     }
@@ -142,6 +153,24 @@ class Gathered implements Taker {
     } else if (name == "BAT") {
       volts.offerField(m, "Volt")
       amps.offerField(m, "Curr")
+    } else if (name == "BCL") {
+      takeCells(m)
+    }
+  }
+
+  /// The cells of one BCL message: each that is there (above 0) may be the lowest.
+  takeCells(m: DfMessage): void {
+    const tables: DfTables = reader.tables()
+    for (let i = 1; i <= 12; i++) {
+      const at = m.format.indexOf(`V${i}`)
+      if (at < 0) {
+        continue
+      }
+      // In volts: the log's multiplier takes a count of millivolts there, as the series and the export do.
+      const v = m.nums[at] * factorOf(m.format.fields[at], tables)
+      if (v > 0.0) {
+        cells.offer(v, m.timeUs())
+      }
     }
   }
 
@@ -150,6 +179,15 @@ class Gathered implements Taker {
     vibeY.offerField(m, "VibeY")
     vibeZ.offerField(m, "VibeZ")
     const imu = m.num("IMU") ?? 0.0
+    const t = m.timeUs()
+    const x = m.num("VibeX")
+    if (imu == 0.0 && x != null && x! == x! && t >= 0) {
+      vibeSamples += 1
+      if (vibeFirst < 0) {
+        vibeFirst = t
+      }
+      vibeLast = t
+    }
     const clip = m.num("Clip")
     if (clip != null && imu >= 0.0 && imu < (MAX_IMUS as f64)) {
       clips[imu as int].offer(clip!)
@@ -181,6 +219,20 @@ class Gathered implements Taker {
     variance.offerField(m, "SP")
     variance.offerField(m, "SH")
     variance.offerField(m, "SM")
+  }
+}
+
+/// Puts the rate of the VIBE samples (per second, from the first to the last) on the vibration findings that rest on them.
+function sayRate(findings: ReviewFinding[], g: Gathered): void {
+  if (g.vibeSamples < 2 || g.vibeLast <= g.vibeFirst) {
+    return
+  }
+  const rate = ((g.vibeSamples - 1) as f64) / ((g.vibeLast - g.vibeFirst) as f64 / 1000000.0)
+  for (let i = 0; i < findings.length; i++) {
+    const f = findings[i]
+    if (f.id.startsWith("vibration.") && f.level != ReviewFindingLevel.NoData && f.id != "vibration.clipping") {
+      findings[i].rateHz = rate
+    }
   }
 }
 
@@ -310,8 +362,9 @@ async function review(key: string, own: AbortController): Promise<Cbor?> throws 
   if (!known!.verified) {
     throw new CommunicatorError("NOT_VERIFIED", "the log is not verified (its CRC is not the one the vehicle gave): no review")
   }
-  const g = new Gathered()
-  const done = await streamLog(key, file, own, g)
+  const reader = file.newReader()
+  const g = new Gathered(reader)
+  const done = await streamLog(key, file, own, g, null, reader)
   if (!done.unchanged) {
     throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
   }
@@ -328,5 +381,13 @@ async function review(key: string, own: AbortController): Promise<Cbor?> throws 
     battery("battery.voltage", g.volts),
     battery("battery.current", g.amps),
   ]
+  // A battery that reports its cells has the lowest cell voltage as a finding of its own (no row for one that does not).
+  if (g.cells.seen > 0) {
+    findings.push(battery("battery.cell", g.cells))
+  }
+  // A recording's samples are the ground station's: the rate they came at is said, a spike between two is not seen.
+  if (done.reader.isTlog()) {
+    sayRate(findings, g)
+  }
   encodeLogsReview(LogsReview { findings: findings })
 }

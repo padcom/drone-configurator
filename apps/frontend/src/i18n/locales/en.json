@@ -117,6 +117,7 @@
         "roll": "Roll",
         "pitch": "Pitch",
         "alt": "Altitude",
+        "altitudeAmsl": "Altitude above sea level, m (this recording has no height above home)",
         "battery": "Battery voltage",
         "volt": "Voltage",
         "x": "X",
@@ -132,13 +133,14 @@
       },
       "review": {
         "title": "Automatic review",
+        "rate": "Rests on samples the ground station took, about {rate} a second: a spike between two samples is not seen.",
         "noData": "{name}: this log has no data.",
         "name": {
           "vibration": { "x": "Vibration on X", "y": "Vibration on Y", "z": "Vibration on Z", "clipping": "Clipping" },
           "gps": { "satellites": "GPS satellites", "hdop": "GPS HDOP", "fix": "GPS fix" },
           "ekf": { "variance": "EKF variance" },
           "errors": { "logged": "Errors" },
-          "battery": { "voltage": "Battery voltage", "current": "Battery current" }
+          "battery": { "voltage": "Battery voltage", "current": "Battery current", "cell": "Battery cell voltage" }
         },
         "vibration": {
           "x": "Vibration on X: peak {value} m/s², at {at}, limit {limit}.",
@@ -158,6 +160,7 @@
           "logged": "Errors logged by the vehicle: {value}."
         },
         "battery": {
+          "cell": "Battery: lowest cell voltage {value} V (as the battery reports its cells).",
           "voltage": "Battery: lowest pack voltage {value} V (how many cells there are is not known).",
           "current": "Battery: highest current {value} A."
         }
@@ -873,6 +876,7 @@
     "newValue": "Value"
   },
   "question": {
+    "importLarge": "This file is large ({size}): {name}. Copy it into the library? It takes a while and as much disk space as the file has.",
     "write": "Write {count} parameter to the vehicle? | Write {count} parameters to the vehicle?",
     "snapshot": "Write {count} parameter to the vehicle ({names})? | Write {count} parameters to the vehicle ({names})?"
   },

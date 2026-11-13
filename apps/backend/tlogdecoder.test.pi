@@ -2,7 +2,7 @@
 // Flights view asks for made from the ones that carry the same thing, in the units those have. Values the vehicle marks "unknown"
 // are NaN; the first record is time 0; a ground station's heartbeat is no vehicle's mode.
 import { describe, it, expect } from "std/test"
-import { Attitude, GlobalPositionInt, GpsRawInt, Heartbeat, MavAutopilot, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
+import { Attitude, BatteryStatus, VfrHud, GlobalPositionInt, GpsRawInt, Heartbeat, MavAutopilot, MavType, StatusText, SysStatus, TlogWriter, Vibration } from "padcom/pico-mavlink"
 import { DfMessage } from "padcom/pico-mavlink"
 import { TlogDecoder } from "./tlogdecoder"
 
@@ -254,6 +254,29 @@ function countTheVehiclesAndSayWhichIsTheSource(): void {
   expect(report.compid).toBe(1 as u16)
 }
 
+function makeCellsAndTheAltitudeAboveSeaLevel(): void {
+  const w = new TlogWriter()
+  w.addMessage(T0, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
+  const batt = new BatteryStatus()
+  // Three cells (mV), the others UINT16_MAX: not used.
+  batt.voltages = [3900, 4000, 3950, 65535, 65535, 65535, 65535, 65535, 65535, 65535]
+  w.addMessage(T0 + 100000, batt, 2, true, 1, 1)
+  const hud = new VfrHud()
+  hud.alt = 120.5
+  w.addMessage(T0 + 200000, hud, 3, true, 1, 1)
+  const all = readAll(w.bytes(), 1000000)
+  const bcl = named(all, "BCL")[0]
+  const unused = bcl.num("V4") ?? 0.0
+
+  expect(bcl.num("V1")).toBe(3.9)
+  expect(bcl.num("V2")).toBe(4.0)
+  expect(unused != unused).toBe(true)
+  expect(Math.round((bcl.num("Volt") ?? 0.0) * 100.0)).toBe(1185.0)
+  // The altitude of VFR_HUD is above sea level: a message of its own, and no CTUN from it.
+  expect(named(all, "VFR")[0].num("Alt")).toBe(120.5)
+  expect(named(all, "CTUN").length).toBe(0)
+}
+
 function putAGapWhereTheRecordersClockWentBack(): void {
   const w = new TlogWriter()
   w.addMessage(T0 + 10000000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 5), 1, true, 1, 1)
@@ -269,6 +292,7 @@ function putAGapWhereTheRecordersClockWentBack(): void {
 }
 
 describe("the tlog decoder", () => {
+  it("makes the cells of a battery and the altitude above sea level, each as its own message", makeCellsAndTheAltitudeAboveSeaLevel)
   it("makes the views from the first vehicle only: not a second vehicle, not a gimbal's heartbeat", makeTheViewsFromTheFirstVehicleOnly)
   it("counts the vehicles and says which one the views are made from", countTheVehiclesAndSayWhichIsTheSource)
   it("puts a gap of 30 s where the recorder's clock went back, so that the time only goes forward", putAGapWhereTheRecordersClockWentBack)

@@ -60,12 +60,15 @@ function sentence(f: ReviewFinding): string {
     return t('logs.flights.review.noData', { name: t(`logs.flights.review.name.${f.id}`) })
   }
 
-  return t(`logs.flights.review.${f.id}`, {
+  const text = t(`logs.flights.review.${f.id}`, {
     value: shown(f.value),
     limit: shown(f.limit),
     at: whenOf(f.atUs),
     samples: f.samples ?? 0,
   })
+
+  // A finding of a recording rests on the samples the ground station took, and the sentence says how often.
+  return f.rateHz === undefined ? text : `${text} ${t('logs.flights.review.rate', { rate: shown(f.rateHz) })}`
 }
 
 const rows = computed(() => props.findings.map(f => ({

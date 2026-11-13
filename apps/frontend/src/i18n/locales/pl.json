@@ -117,6 +117,7 @@
         "roll": "Przechył",
         "pitch": "Pochylenie",
         "alt": "Wysokość",
+        "altitudeAmsl": "Wysokość nad poziomem morza, m (to nagranie nie ma wysokości nad punktem startu)",
         "battery": "Napięcie baterii",
         "volt": "Napięcie",
         "x": "X",
@@ -132,13 +133,14 @@
       },
       "review": {
         "title": "Przegląd automatyczny",
+        "rate": "Opiera się na próbkach stacji naziemnej, około {rate} na sekundę: pik między dwiema próbkami nie jest widoczny.",
         "noData": "{name}: ten log nie ma danych.",
         "name": {
           "vibration": { "x": "Drgania w osi X", "y": "Drgania w osi Y", "z": "Drgania w osi Z", "clipping": "Obcinanie (clipping)" },
           "gps": { "satellites": "Satelity GPS", "hdop": "HDOP GPS", "fix": "Pozycja GPS" },
           "ekf": { "variance": "Wariancja EKF" },
           "errors": { "logged": "Błędy" },
-          "battery": { "voltage": "Napięcie baterii", "current": "Prąd baterii" }
+          "battery": { "voltage": "Napięcie baterii", "current": "Prąd baterii", "cell": "Napięcie ogniwa baterii" }
         },
         "vibration": {
           "x": "Drgania w osi X: szczyt {value} m/s², w {at}, limit {limit}.",
@@ -158,6 +160,7 @@
           "logged": "Błędy zapisane przez pojazd: {value}."
         },
         "battery": {
+          "cell": "Bateria: najniższe napięcie ogniwa {value} V (tak, jak bateria zgłasza swoje ogniwa).",
           "voltage": "Bateria: najniższe napięcie pakietu {value} V (liczba cel nie jest znana).",
           "current": "Bateria: największy prąd {value} A."
         }
@@ -873,6 +876,7 @@
     "newValue": "Wartość"
   },
   "question": {
+    "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",
     "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
     "snapshot": "Zapisać {count} parametr w pojeździe ({names})? | Zapisać {count} parametry w pojeździe ({names})? | Zapisać {count} parametrów w pojeździe ({names})?"
   },
