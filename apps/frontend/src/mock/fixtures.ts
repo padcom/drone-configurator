@@ -35,6 +35,83 @@ export const PARAMS: Param[] = [
 ].map((param, index) => ({ ...param, index }))
 
 /**
+ * A Copter that was set up, as far as the Setup pages can see: the usual parameters and those of its frame, accelerometer,
+ * compass, radio, flight modes, failsafes and battery (the values of a vehicle that was calibrated, a mode switch on channel 5).
+ */
+export const SETUP_PARAMS: Param[] = [
+  ...PARAMS.filter(param => !['BATT_CAPACITY', 'BATT_LOW_VOLT', 'FS_THR_ENABLE'].includes(param.id)),
+  p('FRAME_CLASS', 'int', 'INT8', 1),
+  p('FRAME_TYPE', 'int', 'INT8', 1),
+  p('INS_ACCOFFS_X', 'real', 'REAL32', 0.12),
+  p('INS_ACCOFFS_Y', 'real', 'REAL32', -0.03),
+  p('INS_ACCOFFS_Z', 'real', 'REAL32', 0.2),
+  p('INS_ACCSCAL_X', 'real', 'REAL32', 1.001),
+  p('INS_ACCSCAL_Y', 'real', 'REAL32', 0.999),
+  p('INS_ACCSCAL_Z', 'real', 'REAL32', 1),
+  p('COMPASS_OFS_X', 'real', 'REAL32', 14),
+  p('COMPASS_OFS_Y', 'real', 'REAL32', -8),
+  p('COMPASS_OFS_Z', 'real', 'REAL32', 31),
+  ...[1, 2, 3, 4].flatMap(n => [p(`RC${n}_MIN`, 'int', 'INT16', 1008), p(`RC${n}_MAX`, 'int', 'INT16', 1992)]),
+  p('FLTMODE1', 'int', 'INT8', 0),
+  p('FLTMODE2', 'int', 'INT8', 5),
+  p('FLTMODE3', 'int', 'INT8', 6),
+  p('FLTMODE4', 'int', 'INT8', 3),
+  p('FLTMODE5', 'int', 'INT8', 9),
+  p('FLTMODE6', 'int', 'INT8', 16),
+  p('FLTMODE_CH', 'int', 'INT8', 5),
+  p('FS_THR_ENABLE', 'int', 'INT8', 1),
+  p('FS_GCS_ENABLE', 'int', 'INT8', 0),
+  p('FS_EKF_ACTION', 'int', 'INT8', 1),
+  p('BATT_MONITOR', 'int', 'INT8', 4),
+  p('BATT_CAPACITY', 'int', 'INT32', 5200),
+  p('BATT_LOW_VOLT', 'real', 'REAL32', 10.5),
+  p('BATT_CRT_VOLT', 'real', 'REAL32', 10),
+  p('BATT_FS_LOW_ACT', 'int', 'INT8', 2),
+  p('BATT_FS_CRT_ACT', 'int', 'INT8', 1),
+].map((param, index) => ({ ...param, index }))
+
+/** What the simulated vehicle says of itself (AUTOPILOT_VERSION and SYS_STATUS) when asked by `vehicle.info`. */
+export const VEHICLE_DETAILS = {
+  vehicle: 'QUADROTOR',
+  autopilot: 'ARDUPILOTMEGA',
+  version: '4.6.2',
+  releaseType: 'official',
+  gitHash: 'a1b2c3d4',
+  boardVersion: 1_000_000,
+  vendorId: 9900,
+  productId: 17,
+  uid: '1.18.52.86.120.154.188.222',
+  sensors: [
+    { id: 'gyro', present: true, enabled: true, healthy: true },
+    { id: 'accel', present: true, enabled: true, healthy: true },
+    { id: 'mag', present: true, enabled: true, healthy: false },
+    { id: 'baro', present: true, enabled: true, healthy: true },
+    { id: 'gps', present: true, enabled: true, healthy: true },
+  ],
+} as const
+
+/** The modes of a Copter, by their number in `custom_mode` (the names are the dialect's). */
+export const COPTER_MODES = [
+  [0, 'STABILIZE'],
+  [1, 'ACRO'],
+  [2, 'ALT_HOLD'],
+  [3, 'AUTO'],
+  [4, 'GUIDED'],
+  [5, 'LOITER'],
+  [6, 'RTL'],
+  [7, 'CIRCLE'],
+  [9, 'LAND'],
+  [11, 'DRIFT'],
+  [13, 'SPORT'],
+  [14, 'FLIP'],
+  [15, 'AUTOTUNE'],
+  [16, 'POSHOLD'],
+  [17, 'BRAKE'],
+  [18, 'THROW'],
+  [21, 'SMART_RTL'],
+].map(([number, name]) => ({ number: number as number, name: name as string }))
+
+/**
  * The groups the simulated vehicle reports `n` ticks after connecting: the same battery and attitude as the flat
  * fields, a position that drifts north, a 3D GPS fix and a speed. Every group is 200 ms old.
  *

@@ -1,0 +1,193 @@
+// What the Setup pages ask of the vehicle that is not a parameter: `vehicle.info` (the board and firmware it reports in
+// AUTOPILOT_VERSION, and the sensors of SYS_STATUS) and `vehicle.modes` (the flight modes of its kind, named by ArduPilot's dialect
+// tables). Both read what the vehicle says when asked; nothing is remembered, nothing is a guess: a field the vehicle did not give is
+// absent. `vehicle.modes` answers for the kind of vehicle the heartbeat says (copter, plane, rover, sub).
+import { Cbor, Communicator, RequestContext } from "pico-desktop/communicator"
+import {
+  AutopilotVersion,
+  AutopilotVersionRead,
+  CopterMode,
+  MavAutopilot,
+  PlaneMode,
+  Received,
+  RoverMode,
+  SubMode,
+  SysStatus,
+} from "padcom/pico-mavlink"
+import {
+  SensorState,
+  VehicleDetails,
+  VehicleMode,
+  VehicleModes,
+  VehicleModesKind,
+  encodeVehicleDetails,
+  encodeVehicleModes,
+} from "./generated/app"
+import { connectedLink, link, uniqueIdOf } from "./session"
+
+/// How long the sensors are waited for (ms): SYS_STATUS comes about once a second.
+const SENSOR_WAIT_MS: int = 2500
+
+/// The sensors of SYS_STATUS that are shown (the bits of MAV_SYS_STATUS_SENSOR), and the names the contract gives them.
+const SENSOR_BITS: int[] = [
+  1, 2, 4, 8, 16, 32, 64, 65536, 131072, 262144, 524288, 33554432, 67108864, 16777216, 2097152, 4194304, 1048576, 1073741824,
+]
+const SENSOR_NAMES: string[] = [
+  "gyro", "accel", "mag", "baro", "airspeed", "gps", "flow", "rc", "gyro2", "accel2", "mag2", "battery", "proximity", "logging",
+  "ahrs", "terrain", "fence", "propulsion",
+]
+
+/// The printable ASCII characters from 32 (a space) to 126.
+const PRINTABLE: string = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
+/// Registers the methods.
+export function register(c: Communicator): void {
+  c.handle("vehicle.info", vehicleInfo)
+  c.handle("vehicle.modes", vehicleModes)
+}
+
+/// The firmware version as "4.6.2": the major, minor and patch bytes of AUTOPILOT_VERSION's flight_sw_version (its top three bytes).
+export function versionText(v: int): string {
+  `${(v >> 24) & 255}.${(v >> 16) & 255}.${(v >> 8) & 255}`
+}
+
+/// The kind of release in the last byte of flight_sw_version (FIRMWARE_VERSION_TYPE): dev, alpha, beta, rc, official; "" for another.
+export function releaseOf(v: int): string {
+  match (v & 255) {
+    0 => "dev",
+    64 => "alpha",
+    128 => "beta",
+    192 => "rc",
+    255 => "official",
+    _ => "",
+  }
+}
+
+/// The git hash of the firmware: the bytes of flight_custom_version as characters (ArduPilot puts the first 8 characters of the
+/// commit's hash there); "" when they are not printable ones.
+export function hashOf(bytes: u8[]): string {
+  let out = ""
+  for (const b of bytes) {
+    const n = b as int
+    if (n == 0) {
+      break
+    }
+    if (n < 33 || n > 126) {
+      return ""
+    }
+    out += PRINTABLE.slice(n - 32, n - 31)
+  }
+  out
+}
+
+/// The sensors that SYS_STATUS says the board has (`present`), uses (`enabled`) and finds healthy, by the contract's names.
+export function sensorsOf(m: SysStatus): SensorState[] {
+  const present = m.onboardControlSensorsPresent as int
+  const enabled = m.onboardControlSensorsEnabled as int
+  const health = m.onboardControlSensorsHealth as int
+  const out: SensorState[] = []
+  for (let i = 0; i < SENSOR_BITS.length; i++) {
+    const bit = SENSOR_BITS[i]
+    if ((present & bit) != 0) {
+      out.push(SensorState { id: SENSOR_NAMES[i], present: true, enabled: (enabled & bit) != 0, healthy: (health & bit) != 0 })
+    }
+  }
+  out
+}
+
+/// The next SYS_STATUS of the connected vehicle, or null when none comes in time.
+async function nextSysStatus(): Promise<SysStatus?> throws Error {
+  const conn = connectedLink()
+  const r = await conn.waitFor((m: Received) => m.message instanceof SysStatus && m.packet.header.sysid == link.sysid, SENSOR_WAIT_MS, link.session.signal)
+  if (r == null) {
+    return null
+  }
+  const m = r!.message
+  if (m instanceof SysStatus) m else null
+}
+
+async function vehicleInfo(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const conn = connectedLink()
+  const shown = link.state.vehicle
+  const details = VehicleDetails {
+    vehicle: if (shown == null) "" else shown!.type,
+    autopilot: if (shown == null) "" else shown!.autopilot,
+  }
+  const version = await new AutopilotVersionRead(conn, { system: link.sysid, component: link.compid }, { timeoutMs: 800, retries: 1 }).run()
+  if (version != null) {
+    fillFrom(details, version!)
+  }
+  const status = await nextSysStatus()
+  if (status != null) {
+    details.sensors = sensorsOf(status!)
+  }
+  encodeVehicleDetails(details)
+}
+
+/// What AUTOPILOT_VERSION says, into the details (a zero where the board gives none is not shown as a value).
+function fillFrom(details: VehicleDetails, v: AutopilotVersion): void {
+  const sw = v.flightSwVersion as int
+  if (sw != 0) {
+    details.version = versionText(sw)
+    const kind = releaseOf(sw)
+    if (kind != "") {
+      details.releaseType = kind
+    }
+  }
+  const hash = hashOf(v.flightCustomVersion)
+  if (hash != "") {
+    details.gitHash = hash
+  }
+  if (v.boardVersion as int != 0) {
+    details.boardVersion = v.boardVersion
+  }
+  if (v.vendorId as int != 0) {
+    details.vendorId = v.vendorId
+  }
+  if (v.productId as int != 0) {
+    details.productId = v.productId
+  }
+  const uid = uniqueIdOf(v)
+  if (uid != "") {
+    details.uid = uid
+  }
+}
+
+/// The kind of vehicle the heartbeat's type names (ArduPilot's four): copter, plane, rover or sub; "other" for anything else.
+export function kindOfType(type: string): VehicleModesKind {
+  if (["QUADROTOR", "HEXAROTOR", "OCTOROTOR", "TRICOPTER", "COAXIAL", "HELICOPTER", "DECAROTOR", "DODECAROTOR"].includes(type)) {
+    return VehicleModesKind.Copter
+  }
+  if (type == "FIXED_WING" || type.startsWith("VTOL")) {
+    return VehicleModesKind.Plane
+  }
+  if (type == "GROUND_ROVER" || type == "SURFACE_BOAT") {
+    return VehicleModesKind.Rover
+  }
+  if (type == "SUBMARINE") VehicleModesKind.Sub else VehicleModesKind.Other
+}
+
+/// The name the dialect gives mode `n` of a kind, or null.
+function nameOfMode(kind: VehicleModesKind, n: int): string? {
+  match (kind) {
+    Copter => CopterMode.nameOf(n),
+    Plane => PlaneMode.nameOf(n),
+    Rover => RoverMode.nameOf(n),
+    Sub => SubMode.nameOf(n),
+    Other => null,
+  }
+}
+
+async function vehicleModes(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  connectedLink()
+  const shown = link.state.vehicle
+  const kind = if (shown == null || link.autopilot != MavAutopilot.ARDUPILOTMEGA) VehicleModesKind.Other else kindOfType(shown!.type)
+  const modes: VehicleMode[] = []
+  for (let n = 0; n < 64; n++) {
+    const name = nameOfMode(kind, n)
+    if (name != null) {
+      modes.push(VehicleMode { number: n as u8, name: name! })
+    }
+  }
+  encodeVehicleModes(VehicleModes { kind: kind, modes: modes })
+}

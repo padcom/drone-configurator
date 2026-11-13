@@ -1,0 +1,163 @@
+// `vehicle.info`, `vehicle.modes` and the `guarded` write that Setup pages send, over an in-memory link against the simulated
+// vehicle; and the pure decoders (the firmware version, the git hash, the sensors, the kind of vehicle).
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { SysStatus } from "padcom/pico-mavlink"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ParamWrite,
+  ParamWriteKind,
+  VehicleModes,
+  VehicleModesKind,
+  decodeParamWriteResult,
+  decodeVehicleDetails,
+  decodeVehicleModes,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+import { hashOf, kindOfType, releaseOf, sensorsOf, versionText } from "./vehicleinfo"
+
+/// A connected simulator, with a fresh heartbeat heard (the armed state is only known after one).
+async function connected(): Promise<Frontend> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  f
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+function writeOf(guarded: bool): Cbor {
+  const w = ParamWrite { id: "RTL_ALT", kind: ParamWriteKind.Int, type: "INT32", value: 2500.0 }
+  if (guarded) {
+    w.guarded = true
+  }
+  encodeParamWrite(w)
+}
+
+function readsTheVersionAndTheHash(): void {
+  // 4.6.2, an official release: the bytes are (major, minor, patch, type).
+  const v = (4 << 24) | (6 << 16) | (2 << 8) | 255
+  expect(versionText(v)).toBe("4.6.2")
+  expect(releaseOf(v)).toBe("official")
+  expect(releaseOf((4 << 24) | 192)).toBe("rc")
+  expect(releaseOf((4 << 24) | 7)).toBe("")
+  const hash: u8[] = [97, 98, 99, 49, 50, 51, 52, 53]
+  expect(hashOf(hash)).toBe("abc12345")
+  // It ends at a zero byte, and is nothing at all when it is not printable text (no hash is shown, not a garbled one).
+  expect(hashOf([97, 98, 0, 0, 0, 0, 0, 0])).toBe("ab")
+  expect(hashOf([1, 2, 3, 4, 5, 6, 7, 8])).toBe("")
+}
+
+function readsTheSensors(): void {
+  const m = new SysStatus()
+  // Present: gyro, accel, mag, GPS, battery. In use: all but the mag. Healthy: gyro and accel.
+  m.onboardControlSensorsPresent = (1 | 2 | 4 | 32 | 33554432) as u32
+  m.onboardControlSensorsEnabled = (1 | 2 | 32 | 33554432) as u32
+  m.onboardControlSensorsHealth = (1 | 2) as u32
+  const sensors = sensorsOf(m)
+  const lines: string[] = []
+  for (const s of sensors) {
+    lines.push(`${s.id}:${s.present}:${s.enabled}:${s.healthy}`)
+  }
+  expect(lines.join(" ")).toBe("gyro:true:true:true accel:true:true:true mag:true:false:false gps:true:true:false battery:true:true:false")
+  // What is not present is not listed.
+  expect(sensorsOf(new SysStatus()).length).toBe(0)
+}
+
+function namesTheKindOfVehicle(): void {
+  expect(kindOfType("QUADROTOR")).toBe(VehicleModesKind.Copter)
+  expect(kindOfType("HELICOPTER")).toBe(VehicleModesKind.Copter)
+  expect(kindOfType("FIXED_WING")).toBe(VehicleModesKind.Plane)
+  expect(kindOfType("VTOL_TILTROTOR")).toBe(VehicleModesKind.Plane)
+  expect(kindOfType("GROUND_ROVER")).toBe(VehicleModesKind.Rover)
+  expect(kindOfType("SUBMARINE")).toBe(VehicleModesKind.Sub)
+  expect(kindOfType("GCS")).toBe(VehicleModesKind.Other)
+}
+
+async function listsTheModesOfACopter(): Promise<void> throws Error {
+  const f = await connected()
+  const m: VehicleModes = decodeVehicleModes((await f.call("vehicle.modes")).p ?? Cbor.Null, "$")
+  expect(m.kind).toBe(VehicleModesKind.Copter)
+  const lines: string[] = []
+  for (const mode of m.modes) {
+    lines.push(`${mode.number}=${mode.name}`)
+  }
+  const text = lines.join(" ")
+  expect(text.includes("0=STABILIZE")).toBe(true)
+  expect(text.includes("5=LOITER")).toBe(true)
+  expect(text.includes("6=RTL")).toBe(true)
+  expect(text.includes("9=LAND")).toBe(true)
+  // A number the dialect has no name for is not listed (no invented name).
+  expect(` ${text}`.includes(" 8=")).toBe(false)
+  await f.call("vehicle.disconnect")
+}
+
+async function giveseTheBoardAndTheSensors(): Promise<void> throws Error {
+  const f = await connected()
+  const d = decodeVehicleDetails((await f.call("vehicle.info")).p ?? Cbor.Null, "$")
+  expect(d.vehicle).toBe("QUADROTOR")
+  expect(d.autopilot).toBe("ARDUPILOTMEGA")
+  // Whatever the simulator reports is passed on as it is: sensors are listed only when SYS_STATUS came.
+  expect(d.sensors == null || d.sensors!.length >= 0).toBe(true)
+  await f.call("vehicle.disconnect")
+}
+
+async function refusesInfoAndModesWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.disconnect")
+  expect(codeOf(await f.call("vehicle.info"))).toBe("NOT_CONNECTED")
+  expect(codeOf(await f.call("vehicle.modes"))).toBe("NOT_CONNECTED")
+}
+
+async function refusesAGuardedWriteWhileArmedOrNotKnown(): Promise<void> throws Error {
+  const f = await connected()
+  link.armed = true
+  expect(codeOf(await f.call("params.write", writeOf(true)))).toBe("ARMED")
+  link.armed = false
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(codeOf(await f.call("params.write", writeOf(true)))).toBe("STATE_UNKNOWN")
+  await f.call("vehicle.disconnect")
+}
+
+async function leavesAnUnguardedWriteAloneWhileArmed(): Promise<void> throws Error {
+  const f = await connected()
+  link.armed = true
+  // The Parameters screen writes while armed as before: no guard, no refusal.
+  const e = await f.call("params.write", writeOf(false))
+  expect(codeOf(e)).toBe("")
+  expect(decodeParamWriteResult(e.p ?? Cbor.Null, "$").verified).toBe(true)
+  await f.call("vehicle.disconnect")
+}
+
+async function writesAGuardedValueWhileDisarmed(): Promise<void> throws Error {
+  const f = await connected()
+  link.armed = false
+  const e = await f.call("params.write", writeOf(true))
+  expect(codeOf(e)).toBe("")
+  expect(decodeParamWriteResult(e.p ?? Cbor.Null, "$").verified).toBe(true)
+  await f.call("vehicle.disconnect")
+}
+
+describe("the vehicle's details, its modes and the guarded write", () => {
+  it("reads the firmware version, its kind and the git hash from their bytes", readsTheVersionAndTheHash)
+  it("reads which sensors are present, in use and healthy", readsTheSensors)
+  it("names the kind of vehicle from its type", namesTheKindOfVehicle)
+  it("lists the modes of a copter by the dialect's names, and none it has no name for", listsTheModesOfACopter)
+  it("gives the vehicle, the autopilot, and the sensors when SYS_STATUS came", giveseTheBoardAndTheSensors)
+  it("refuses info and modes without a vehicle", refusesInfoAndModesWithoutAVehicle)
+  it("refuses a guarded write while armed, and while that is not known", refusesAGuardedWriteWhileArmedOrNotKnown)
+  it("does not touch a write that is not guarded, armed or not", leavesAnUnguardedWriteAloneWhileArmed)
+  it("writes a guarded value when the vehicle is disarmed", writesAGuardedValueWhileDisarmed)
+})

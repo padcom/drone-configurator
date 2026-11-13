@@ -845,6 +845,7 @@
   },
   "staged": {
     "armedGuarded": "Logging and notch settings are not written while the vehicle is armed, or may be. Disarm it first.",
+    "armedSetup": "Setup changes are not written while the vehicle is armed, or may be. Disarm it first.",
     "armedLogging": "Logging settings are not written while the vehicle is armed, or may be. Disarm it first.",
     "region": "Changes to write",
     "discard": "Discard {id}",
@@ -985,6 +986,20 @@
         "spectrum": "Switch to Logs: Spectrum",
         "vehicle": "Switch to Logs: On the vehicle",
         "tools": "Switch to Logs: Tools"
+      },
+      "setup": {
+        "home": "Switch to Setup: Overview",
+        "frame": "Switch to Setup: Frame and orientation",
+        "accel": "Switch to Setup: Accelerometer",
+        "compass": "Switch to Setup: Compass",
+        "radio": "Switch to Setup: Radio",
+        "motors": "Switch to Setup: Motors and ESCs",
+        "modes": "Switch to Setup: Flight modes",
+        "failsafes": "Switch to Setup: Failsafes",
+        "battery": "Switch to Setup: Battery",
+        "serial": "Switch to Setup: Serial ports",
+        "devices": "Switch to Setup: Devices",
+        "info": "Switch to Setup: Vehicle information"
       }
     },
     "show": {
@@ -1042,6 +1057,287 @@
         "what": "Restarts the flight controller. The link drops for a few seconds and comes back by itself. Parameters are not changed. Only while disarmed.",
         "button": "Hold to reboot"
       }
+    }
+  },
+  "setup": {
+    "sections": "Setup pages",
+    "section": {
+      "home": "Overview",
+      "frame": "Frame and orientation",
+      "accel": "Accelerometer",
+      "compass": "Compass",
+      "radio": "Radio",
+      "motors": "Motors and ESCs",
+      "modes": "Flight modes",
+      "failsafes": "Failsafes",
+      "battery": "Battery",
+      "serial": "Serial ports",
+      "devices": "Devices",
+      "info": "Vehicle information"
+    },
+    "group": {
+      "fly": "Get flying",
+      "connections": "Connections and devices",
+      "vehicle": "Vehicle"
+    },
+    "state": {
+      "done": "Looks set up",
+      "open": "Needs attention",
+      "unknown": "Cannot be told from the parameters"
+    },
+    "aside": "What this page writes",
+    "writes": "What this writes",
+    "notOnVehicle": "not on this vehicle",
+    "revert": "Put back what the vehicle has",
+    "write": "Write and verify",
+    "noChanges": "No changes",
+    "written": "Written and read back",
+    "failed": "Not written: {why}",
+    "blocked": {
+      "offline": "No vehicle is connected.",
+      "loading": "The parameters are still being read.",
+      "armed": "The vehicle is armed. Setup changes are not written until it is disarmed.",
+      "unknown": "It is not known whether the vehicle is disarmed (no recent heartbeat), so nothing is written."
+    },
+    "offline": {
+      "title": "No vehicle is connected",
+      "help": "Connect a vehicle to set it up."
+    },
+    "kind": {
+      "title": "Setup is not available yet for this kind of vehicle",
+      "help": "The setup pages are built for multicopters first. This vehicle says it is a {type}."
+    },
+    "home": {
+      "heading": "Setup",
+      "summary": "What the parameters say of each step. It is read from them, not checked in flight: each card says what it looked at.",
+      "loading": "Reading the parameters…",
+      "progress": "{done} of {required} steps look set up",
+      "next": "Next",
+      "allSet": "Every step that can be read from the parameters looks set up.",
+      "facts": "This vehicle",
+      "thisVehicle": "This vehicle",
+      "also": "Also available"
+    },
+    "fact": {
+      "type": "Type",
+      "autopilot": "Autopilot",
+      "system": "System",
+      "parameters": "Parameters"
+    },
+    "status": {
+      "notOnVehicle": "These parameters are not on this vehicle",
+      "unknown": "Not told",
+      "frame": {
+        "checked": "FRAME_CLASS is not 0",
+        "none": "No frame class",
+        "value": "Class {frameClass}, type {frameType}"
+      },
+      "accel": {
+        "open": "No offsets",
+        "done": "Offsets are set",
+        "checked": "INS_ACCOFFS are all zero and INS_ACCSCAL all one: not set"
+      },
+      "compass": {
+        "open": "No offsets",
+        "done": "Offsets are set",
+        "checked": "COMPASS_OFS are all zero: not set"
+      },
+      "radio": {
+        "open": "Default range",
+        "done": "Range is not the default",
+        "checked": "RC1 to RC4 MIN and MAX are all 1100 and 1900: the defaults"
+      },
+      "motors": {
+        "checked": "The motor test is not run from here yet"
+      },
+      "modes": {
+        "checked": "FLTMODE1 to FLTMODE6 include RTL, Land or SmartRTL",
+        "noEscape": "No slot brings it home",
+        "value": "Switch on channel {channel}"
+      },
+      "failsafes": {
+        "checked": "FS_THR_ENABLE is not 0",
+        "radioOff": "Radio failsafe is off",
+        "value": "Failsafes on: {on}"
+      },
+      "battery": {
+        "checked": "BATT_MONITOR and BATT_CAPACITY are not 0",
+        "open": "No battery monitor or capacity",
+        "value": "{capacity} mAh"
+      }
+    },
+    "empty": {
+      "frame": {
+        "title": "Frame and orientation are not built yet",
+        "help": "They will set FRAME_CLASS, FRAME_TYPE and the board orientation, with a drawing and a reboot prompt. Use Parameters meanwhile."
+      },
+      "accel": {
+        "title": "The accelerometer calibration is not built yet",
+        "help": "It comes with the calibrations."
+      },
+      "compass": {
+        "title": "The compass calibration is not built yet",
+        "help": "It comes with the calibrations."
+      },
+      "radio": {
+        "title": "The radio page is not built yet",
+        "help": "It will show the channels live and calibrate their range."
+      },
+      "motors": {
+        "title": "Motors and ESCs are not built yet",
+        "help": "The motor test has its own release, with its own safety review."
+      },
+      "battery": {
+        "title": "The battery page is not built yet",
+        "help": "It will set the monitor, capacity and thresholds, and calibrate voltage and current."
+      },
+      "serial": {
+        "title": "Serial ports are not built yet",
+        "help": "It will set each port's protocol and speed."
+      },
+      "devices": {
+        "title": "Devices are not built yet",
+        "help": "It will decode each sensor's bus and address."
+      }
+    },
+    "modes": {
+      "summary": "Each slot is a position of the mode switch on your transmitter. Choose what the vehicle does in each.",
+      "loading": "Reading the modes of this vehicle…",
+      "channel": "Channel of the mode switch (0 is none)",
+      "noLive": "The position the switch is in now is not shown here yet.",
+      "slot": "Mode for position {n}",
+      "upTo": "up to {to}",
+      "from": "{from} and up",
+      "noEscape": "No switch position can bring the vehicle home or down. Assign RTL, Land or SmartRTL to one of them.",
+      "goodTitle": "A good layout",
+      "good1": "Start with a mode that holds position.",
+      "good2": "Keep a return or land mode on one easy flick.",
+      "good3": "Put Auto far from the position you take off in.",
+      "hint": {
+        "0": "Pilot levels, pilot holds position",
+        "1": "Full manual rates",
+        "2": "Holds altitude, pilot steers",
+        "3": "Flies the mission",
+        "4": "Follows commands from the ground station",
+        "5": "Holds position and altitude",
+        "6": "Flies home and lands",
+        "7": "Circles a point",
+        "9": "Lands where it is",
+        "11": "Banked, car-like turns",
+        "13": "Stabilized rate control",
+        "14": "Does a flip",
+        "15": "Tunes itself in flight",
+        "16": "Holds position, direct stick feel",
+        "17": "Stops and holds",
+        "18": "Throw it into the air to start",
+        "21": "Retraces its path home"
+      }
+    },
+    "action": {
+      "nothing": "Do nothing",
+      "rtl": "Return home",
+      "land": "Land",
+      "smartRtlOrRtl": "SmartRTL, or return home",
+      "smartRtlOrLand": "SmartRTL, or land",
+      "terminate": "Stop the motors",
+      "autoLandOrRtl": "Land start point, or return home",
+      "brakeOrLand": "Brake, or land",
+      "altHold": "Hold altitude",
+      "landAnyMode": "Land, from any mode"
+    },
+    "failsafes": {
+      "does": {
+        "nothing": "it keeps flying and only warns you",
+        "rtl": "it flies home and lands",
+        "land": "it lands where it is",
+        "smartRtlOrRtl": "it retraces its path, then returns home",
+        "smartRtlOrLand": "it retraces its path, then lands",
+        "terminate": "it stops the motors and falls",
+        "autoLandOrRtl": "it goes to the landing start point of the mission, or returns home",
+        "brakeOrLand": "it brakes, or lands if it cannot",
+        "altHold": "it holds altitude and hands you control",
+        "landAnyMode": "it lands, even in Stabilize"
+      },
+      "summary": "What the vehicle does on its own when something goes wrong. Nothing is written until you write, and never while it is armed.",
+      "below": "Below (V)",
+      "then": "{name}: what it does",
+      "order": "The critical voltage must be below the low voltage.",
+      "noName": "it does action {value}, which has no name here",
+      "batteryLow": {
+        "name": "Battery low"
+      },
+      "batteryCritical": {
+        "name": "Battery critical"
+      },
+      "radio": {
+        "name": "Radio lost"
+      },
+      "gcs": {
+        "name": "Ground station lost"
+      },
+      "ekf": {
+        "name": "Position estimate bad"
+      },
+      "if": {
+        "batteryLow": "If the voltage stays low, {does}.",
+        "batteryCritical": "If the voltage stays critical, {does}.",
+        "radio": "If the transmitter signal stops, {does}.",
+        "gcs": "If the ground station is lost for 5 s, {does}.",
+        "ekf": "If the position estimate can no longer be trusted, {does}."
+      },
+      "warn": {
+        "nothing": "This failsafe does nothing: the vehicle goes on and only warns you.",
+        "terminate": "This failsafe stops the motors in the air: the vehicle falls."
+      }
+    },
+    "info": {
+      "summary": "What the board says of itself and of its sensors. A value the vehicle did not give is not shown.",
+      "loading": "Reading the vehicle's details…",
+      "refresh": "Read again",
+      "sensors": "Sensors",
+      "noSensors": "The vehicle has not sent its sensor status yet.",
+      "sensor": "Sensor",
+      "present": "Present",
+      "enabled": "In use",
+      "healthy": "Healthy",
+      "yes": "Yes",
+      "no": "No",
+      "vehicle": "Vehicle",
+      "autopilot": "Autopilot",
+      "version": "Firmware version",
+      "releaseType": "Release kind",
+      "gitHash": "Firmware build (git)",
+      "boardVersion": "Board version",
+      "vendorId": "Vendor id",
+      "productId": "Product id",
+      "uid": "Unique id",
+      "release": {
+        "dev": "development build",
+        "alpha": "alpha",
+        "beta": "beta",
+        "rc": "release candidate",
+        "official": "official release"
+      }
+    },
+    "sensor": {
+      "gyro": "Gyroscope",
+      "accel": "Accelerometer",
+      "mag": "Compass",
+      "baro": "Barometer",
+      "airspeed": "Airspeed sensor",
+      "gps": "GPS",
+      "flow": "Optical flow",
+      "rc": "Radio receiver",
+      "gyro2": "Second gyroscope",
+      "accel2": "Second accelerometer",
+      "mag2": "Second compass",
+      "battery": "Battery",
+      "proximity": "Proximity",
+      "logging": "Logging",
+      "ahrs": "Attitude estimate (AHRS)",
+      "terrain": "Terrain data",
+      "fence": "Geofence",
+      "propulsion": "Propulsion"
     }
   }
 }

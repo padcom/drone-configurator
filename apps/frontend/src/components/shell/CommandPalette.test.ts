@@ -76,6 +76,22 @@ async function type(wrapper: VueWrapper, text: string): Promise<void> {
   await wrapper.get('#palette-input').setValue(text)
 }
 
+/** The commands that go to a page of Setup, by label, in the order the palette lists them. */
+const SETUP_LABELS = [
+  'Switch to Setup: Accelerometer',
+  'Switch to Setup: Battery',
+  'Switch to Setup: Compass',
+  'Switch to Setup: Devices',
+  'Switch to Setup: Failsafes',
+  'Switch to Setup: Flight modes',
+  'Switch to Setup: Frame and orientation',
+  'Switch to Setup: Motors and ESCs',
+  'Switch to Setup: Overview',
+  'Switch to Setup: Radio',
+  'Switch to Setup: Serial ports',
+  'Switch to Setup: Vehicle information',
+]
+
 it('is shut until it is asked for, and opens on Ctrl+P, which it prevents (Chromium would print)', async () => {
   const { wrapper } = await shellAt()
   expect(wrapper.find('#palette-input').exists()).toBe(false)
@@ -180,6 +196,7 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Switch to Plan',
     'Switch to Settings',
     'Switch to Setup',
+    ...SETUP_LABELS,
     'Switch to Tune',
   ])
 })
@@ -198,7 +215,7 @@ it('names the group of each command in its row', async () => {
     'Logs',
     'Vehicle',
     'Parameters',
-    ...Array(12).fill('Navigate'),
+    ...Array(24).fill('Navigate'),
   ])
 })
 
@@ -361,7 +378,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(19).fill('false')])
+  expect(selected).toEqual(['true', ...Array(31).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -374,7 +391,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('20 results')
+  expect(status()).toBe('32 results')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
@@ -455,12 +472,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(20)
+  expect(labels(wrapper)).toHaveLength(32)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('connect.open')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('20 results')
+  expect(wrapper.get('.palette-status').text()).toBe('32 results')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

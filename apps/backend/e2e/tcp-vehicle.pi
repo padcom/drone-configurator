@@ -5,10 +5,22 @@
 // silent, so a write stays in flight. With the environment variable VEHICLE_LOGS=1 it holds three flight logs (valid DataFlash
 // logs of different lengths, in `/logs`, which file transfer and the MAVLink log protocol serve) and stays DISARMED (the
 // simulator arms itself after three ticks; a logs download is refused while armed), so that logs can be listed, downloaded and
-// erased through the window.
+// erased through the window. With VEHICLE_SETUP=1 it has the parameters the Setup pages read (a Copter with its frame, flight modes
+// and failsafes set, and a compass that was never calibrated) and stays disarmed too, so that they can be written.
 import { Conn, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
-import { ByteStream, ParamSet, Received, SimulatedAutopilot, TcpStream, simulatedLog } from "padcom/pico-mavlink"
+import {
+  ByteStream,
+  MavParamType,
+  ParamSet,
+  Received,
+  SimParam,
+  SimulatedAutopilot,
+  TcpStream,
+  TypedParamValue,
+  defaultSimParams,
+  simulatedLog,
+} from "padcom/pico-mavlink"
 
 let muted = false
 
@@ -56,7 +68,8 @@ function serve(conn: Conn): void {
   let sim: SimulatedAutopilot? = null
   const stream = new EndWatchingStream(new TcpStream(conn), () => sim?.stop())
   muted = false
-  sim = new SimulatedAutopilot(stream)
+  const setup = env.get("VEHICLE_SETUP") == "1"
+  sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
   sim!.conn.on((r: Received) => {
     if (r.message instanceof ParamSet) {
       stdout.writeText("param-set\n")
@@ -66,6 +79,39 @@ function serve(conn: Conn): void {
   if (env.get("VEHICLE_LOGS") == "1") {
     withLogs(sim!)
   }
+  if (setup) {
+    stayDisarmed(sim!)
+  }
+}
+
+/// The parameters of a Copter that was set up as far as the Setup pages can see, except its compass (its offsets are zero), so that
+/// the home has a next step; and the usual ones the simulator has.
+function setupParams(): SimParam[] {
+  const out = defaultSimParams()
+  const whole = ["FRAME_CLASS", "FRAME_TYPE", "FLTMODE1", "FLTMODE2", "FLTMODE3", "FLTMODE4", "FLTMODE5", "FLTMODE6", "FLTMODE_CH",
+    "FS_GCS_ENABLE", "FS_EKF_ACTION", "BATT_MONITOR", "BATT_FS_LOW_ACT", "BATT_FS_CRT_ACT"]
+  const wholeValues = [1, 1, 0, 5, 6, 3, 9, 16, 5, 0, 1, 4, 2, 1]
+  for (let i = 0; i < whole.length; i++) {
+    out.push(SimParam { id: whole[i], value: TypedParamValue.Int(wholeValues[i], MavParamType.INT8) })
+  }
+  const reals = ["INS_ACCOFFS_X", "INS_ACCOFFS_Y", "INS_ACCOFFS_Z", "INS_ACCSCAL_X", "INS_ACCSCAL_Y", "INS_ACCSCAL_Z",
+    "COMPASS_OFS_X", "COMPASS_OFS_Y", "COMPASS_OFS_Z", "BATT_CRT_VOLT"]
+  const realValues = [0.12, -0.03, 0.2, 1.001, 0.999, 1.0, 0.0, 0.0, 0.0, 10.0]
+  for (let i = 0; i < reals.length; i++) {
+    out.push(SimParam { id: reals[i], value: TypedParamValue.Real(realValues[i], MavParamType.REAL32) })
+  }
+  for (const n of [1, 2, 3, 4]) {
+    out.push(SimParam { id: `RC${n}_MIN`, value: TypedParamValue.Int(1008, MavParamType.INT16) })
+    out.push(SimParam { id: `RC${n}_MAX`, value: TypedParamValue.Int(1992, MavParamType.INT16) })
+  }
+  out
+}
+
+/// A vehicle that never arms: its tick is set back before it counts 3 (a Setup write is refused while armed).
+function stayDisarmed(sim: SimulatedAutopilot): void {
+  setInterval(() => {
+    sim.ticks = 0
+  }, 100)
 }
 
 /// Three logs, oldest first (their times are a day apart), and a vehicle that never arms: its tick is set back before it counts 3.

@@ -97,6 +97,13 @@ services = {
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
+  ; What the board says of itself (AUTOPILOT_VERSION: the firmware version and git hash, the board and vendor ids, the unique id) and
+  ; which sensors the autopilot has, uses and finds healthy (SYS_STATUS), read when asked (not a stream). A field the vehicle did
+  ; not give is absent, never a zero; a vehicle that does not answer AUTOPILOT_VERSION has no `version` at all.
+  "vehicle.info": ["method", null, vehicle-details],
+  ; The flight modes of the connected vehicle's kind, by their number in `custom_mode` (the names ArduPilot's dialect gives them),
+  ; so that a page names a mode and never shows a number it has no name for as a name.
+  "vehicle.modes": ["method", null, vehicle-modes],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
@@ -178,11 +185,14 @@ params-progress = {
   source: "ftp" / "list",
 }
 
+; `guarded` is set by a Setup page (flight modes, failsafes, ...): the backend then refuses the write while the vehicle is armed
+; (`ARMED`) or is not known to be disarmed (`STATE_UNKNOWN`), as the page does. The Parameters screen does not set it.
 param-write = {
   id: tstr,
   kind: "int" / "real",
   type: tstr,
   value: float,
+  ? guarded: bool,
 }
 
 ; `verified` is false when the autopilot reports a different value than the one written (it
@@ -191,6 +201,31 @@ param-write-result = {
   param: param,
   verified: bool,
 }
+
+; What the board says of itself. `version` is the firmware's ("4.6.2") and `releaseType` its kind (dev, alpha, beta, rc, official),
+; `gitHash` the first characters of the commit the firmware was built from. `boardVersion` is AUTOPILOT_VERSION's board field (its
+; first 16 bits are the board type of ArduPilot's board_types.txt), `vendorId` and `productId` the USB ids, `uid` the unique id as
+; text (absent when the board has none that tells it from another). `sensors` are absent until the vehicle has sent SYS_STATUS.
+vehicle-details = {
+  vehicle: tstr,
+  autopilot: tstr,
+  ? version: tstr,
+  ? releaseType: tstr,
+  ? gitHash: tstr,
+  ? boardVersion: uint .size 4,
+  ? vendorId: uint .size 2,
+  ? productId: uint .size 2,
+  ? uid: tstr,
+  ? sensors: [* sensor-state],
+}
+
+; One sensor or subsystem of SYS_STATUS: `id` (gyro, accel, mag, baro, airspeed, gps, flow, rc, gyro2, accel2, mag2, battery,
+; proximity, logging, ahrs, terrain, fence, propulsion), whether the board has it, uses it, and finds it healthy.
+sensor-state = { id: tstr, present: bool, enabled: bool, healthy: bool }
+
+; The modes of a kind of vehicle, as the dialect names them.
+vehicle-modes = { kind: "copter" / "plane" / "rover" / "sub" / "other", modes: [* vehicle-mode] }
+vehicle-mode = { number: uint .size 1, name: tstr }
 
 ; One log on the vehicle: its number, its size in bytes (not final for the log of a flight that has just ended: the vehicle goes on
 ; writing for a while), when it was last written (milliseconds since 1970; absent when the vehicle gives no time: it is the time

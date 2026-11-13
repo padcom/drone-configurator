@@ -479,15 +479,22 @@ export struct ParamWrite {
   kind: ParamWriteKind
   type: string
   value: f64
+  guarded?: bool
 }
 
 export function decodeParamWrite(v: Cbor, path: string): ParamWrite throws InvalidPayload {
-  const m = members(v, path, ["id", "kind", "type", "value"])
+  const m = members(v, path, ["id", "kind", "type", "value", "guarded"])
+  const cbor4 = m.get("guarded")
+  let opt4: bool? = null
+  if (cbor4 != null) {
+    opt4 = boolean(cbor4, `${path}.guarded`)
+  }
   ParamWrite {
     id: text(required(m, "id", path), `${path}.id`),
     kind: decodeParamWriteKind(required(m, "kind", path), `${path}.kind`),
     type: text(required(m, "type", path), `${path}.type`),
     value: float(required(m, "value", path), `${path}.value`),
+    guarded: opt4,
   }
 }
 
@@ -497,6 +504,10 @@ export function encodeParamWrite(v: ParamWrite): Cbor {
   m.set("kind", encodeParamWriteKind(v.kind))
   m.set("type", Cbor.Text(v.type))
   m.set("value", Cbor.Float(v.value))
+  const opt4 = v.guarded
+  if (opt4 != null) {
+    m.set("guarded", Cbor.Bool(opt4))
+  }
   Cbor.Dict(m)
 }
 
@@ -517,6 +528,239 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   const m = new Map<string, Cbor>()
   m.set("param", encodeParam(v.param))
   m.set("verified", Cbor.Bool(v.verified))
+  Cbor.Dict(m)
+}
+
+function decodeVehicleDetailsSensorsList(v: Cbor, path: string): SensorState[] throws InvalidPayload {
+  const out: SensorState[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeSensorState(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeVehicleDetailsSensorsList(v: SensorState[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeSensorState(e))
+  }
+  Cbor.List(out)
+}
+
+export struct VehicleDetails {
+  vehicle: string
+  autopilot: string
+  version?: string
+  releaseType?: string
+  gitHash?: string
+  boardVersion?: u32
+  vendorId?: u16
+  productId?: u16
+  uid?: string
+  sensors?: SensorState[]
+}
+
+export function decodeVehicleDetails(v: Cbor, path: string): VehicleDetails throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "autopilot", "version", "releaseType", "gitHash", "boardVersion", "vendorId", "productId", "uid", "sensors"])
+  const cbor2 = m.get("version")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.version`)
+  }
+  const cbor3 = m.get("releaseType")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.releaseType`)
+  }
+  const cbor4 = m.get("gitHash")
+  let opt4: string? = null
+  if (cbor4 != null) {
+    opt4 = text(cbor4, `${path}.gitHash`)
+  }
+  const cbor5 = m.get("boardVersion")
+  let opt5: u32? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.boardVersion`, 4294967295) as u32)
+  }
+  const cbor6 = m.get("vendorId")
+  let opt6: u16? = null
+  if (cbor6 != null) {
+    opt6 = (uint(cbor6, `${path}.vendorId`, 65535) as u16)
+  }
+  const cbor7 = m.get("productId")
+  let opt7: u16? = null
+  if (cbor7 != null) {
+    opt7 = (uint(cbor7, `${path}.productId`, 65535) as u16)
+  }
+  const cbor8 = m.get("uid")
+  let opt8: string? = null
+  if (cbor8 != null) {
+    opt8 = text(cbor8, `${path}.uid`)
+  }
+  const cbor9 = m.get("sensors")
+  let opt9: SensorState[]? = null
+  if (cbor9 != null) {
+    opt9 = decodeVehicleDetailsSensorsList(cbor9, `${path}.sensors`)
+  }
+  VehicleDetails {
+    vehicle: text(required(m, "vehicle", path), `${path}.vehicle`),
+    autopilot: text(required(m, "autopilot", path), `${path}.autopilot`),
+    version: opt2,
+    releaseType: opt3,
+    gitHash: opt4,
+    boardVersion: opt5,
+    vendorId: opt6,
+    productId: opt7,
+    uid: opt8,
+    sensors: opt9,
+  }
+}
+
+export function encodeVehicleDetails(v: VehicleDetails): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("vehicle", Cbor.Text(v.vehicle))
+  m.set("autopilot", Cbor.Text(v.autopilot))
+  const opt2 = v.version
+  if (opt2 != null) {
+    m.set("version", Cbor.Text(opt2))
+  }
+  const opt3 = v.releaseType
+  if (opt3 != null) {
+    m.set("releaseType", Cbor.Text(opt3))
+  }
+  const opt4 = v.gitHash
+  if (opt4 != null) {
+    m.set("gitHash", Cbor.Text(opt4))
+  }
+  const opt5 = v.boardVersion
+  if (opt5 != null) {
+    m.set("boardVersion", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.vendorId
+  if (opt6 != null) {
+    m.set("vendorId", Cbor.Uint(opt6 as u64))
+  }
+  const opt7 = v.productId
+  if (opt7 != null) {
+    m.set("productId", Cbor.Uint(opt7 as u64))
+  }
+  const opt8 = v.uid
+  if (opt8 != null) {
+    m.set("uid", Cbor.Text(opt8))
+  }
+  const opt9 = v.sensors
+  if (opt9 != null) {
+    m.set("sensors", encodeVehicleDetailsSensorsList(opt9))
+  }
+  Cbor.Dict(m)
+}
+
+export struct SensorState {
+  id: string
+  present: bool
+  enabled: bool
+  healthy: bool
+}
+
+export function decodeSensorState(v: Cbor, path: string): SensorState throws InvalidPayload {
+  const m = members(v, path, ["id", "present", "enabled", "healthy"])
+  SensorState {
+    id: text(required(m, "id", path), `${path}.id`),
+    present: boolean(required(m, "present", path), `${path}.present`),
+    enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
+    healthy: boolean(required(m, "healthy", path), `${path}.healthy`),
+  }
+}
+
+export function encodeSensorState(v: SensorState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("id", Cbor.Text(v.id))
+  m.set("present", Cbor.Bool(v.present))
+  m.set("enabled", Cbor.Bool(v.enabled))
+  m.set("healthy", Cbor.Bool(v.healthy))
+  Cbor.Dict(m)
+}
+
+export enum VehicleModesKind { Copter, Plane, Rover, Sub, Other }
+
+export function decodeVehicleModesKind(v: Cbor, path: string): VehicleModesKind throws InvalidPayload {
+  match (text(v, path)) {
+    "copter" => VehicleModesKind.Copter,
+    "plane" => VehicleModesKind.Plane,
+    "rover" => VehicleModesKind.Rover,
+    "sub" => VehicleModesKind.Sub,
+    "other" => VehicleModesKind.Other,
+    _ => throw new InvalidPayload(path, "copter or plane or rover or sub or other"),
+  }
+}
+
+export function encodeVehicleModesKind(v: VehicleModesKind): Cbor {
+  match (v) {
+    Copter => Cbor.Text("copter"),
+    Plane => Cbor.Text("plane"),
+    Rover => Cbor.Text("rover"),
+    Sub => Cbor.Text("sub"),
+    Other => Cbor.Text("other"),
+  }
+}
+
+function decodeVehicleModesModesList(v: Cbor, path: string): VehicleMode[] throws InvalidPayload {
+  const out: VehicleMode[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeVehicleMode(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeVehicleModesModesList(v: VehicleMode[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeVehicleMode(e))
+  }
+  Cbor.List(out)
+}
+
+export struct VehicleModes {
+  kind: VehicleModesKind
+  modes: VehicleMode[]
+}
+
+export function decodeVehicleModes(v: Cbor, path: string): VehicleModes throws InvalidPayload {
+  const m = members(v, path, ["kind", "modes"])
+  VehicleModes {
+    kind: decodeVehicleModesKind(required(m, "kind", path), `${path}.kind`),
+    modes: decodeVehicleModesModesList(required(m, "modes", path), `${path}.modes`),
+  }
+}
+
+export function encodeVehicleModes(v: VehicleModes): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodeVehicleModesKind(v.kind))
+  m.set("modes", encodeVehicleModesModesList(v.modes))
+  Cbor.Dict(m)
+}
+
+export struct VehicleMode {
+  number: u8
+  name: string
+}
+
+export function decodeVehicleMode(v: Cbor, path: string): VehicleMode throws InvalidPayload {
+  const m = members(v, path, ["number", "name"])
+  VehicleMode {
+    number: (uint(required(m, "number", path), `${path}.number`, 255) as u8),
+    name: text(required(m, "name", path), `${path}.name`),
+  }
+}
+
+export function encodeVehicleMode(v: VehicleMode): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("number", Cbor.Uint(v.number as u64))
+  m.set("name", Cbor.Text(v.name))
   Cbor.Dict(m)
 }
 

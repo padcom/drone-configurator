@@ -21,6 +21,7 @@ import { register as registerSerial } from "./serial"
 import { link } from "./session"
 import { register as registerSettings } from "./settings"
 import { register as registerTelemetry } from "./telemetry"
+import { register as registerVehicleInfo } from "./vehicleinfo"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
 export function simulatorForTests(): SimulatedAutopilot? {
@@ -61,6 +62,7 @@ export function createBackend(transport: Transport): Communicator {
   registerLocalImport(c)
   registerLocalSpectrum(c)
   registerTelemetry(c)
+  registerVehicleInfo(c)
   registerMessages(c)
   registerFiles(c)
   registerSerial(c)

@@ -39,8 +39,8 @@ it('gives Logs its five parts, in the order of the design, each with a name, a p
   }
   const loaded = await Promise.all(parts.map(part => part.load()))
   expect(loaded.every(module => Boolean(module.default))).toBe(true)
-  // Only Logs has parts so far.
-  expect(SCREENS.filter(screen => screen.sections).map(screen => screen.id)).toEqual(['logs'])
+  // Only Setup and Logs have parts so far.
+  expect(SCREENS.filter(screen => screen.sections).map(screen => screen.id)).toEqual(['setup', 'logs'])
 })
 
 it('loads each screen only when it is asked for, and every one loads', async () => {
