@@ -27,13 +27,48 @@ function window(): E2eApp {
 }
 
 /**
- * Opens a page of Setup from its list, and waits until the page is the one shown.
+ * Opens a page of Setup from its list, and waits until the page is the one shown. A press through DevTools at a place read a
+ * moment before the layout moved can land beside the link and do nothing (the other specs press again for that), so the press
+ * is made again while the page is not the one shown, a few times.
  *
  * @param page the page: `modes`, `failsafes`, `info`, `home`
+ * @param left how many presses remain
  */
-async function openPage(page: string): Promise<void> {
+async function openPage(page: string, left = 4): Promise<void> {
+  const shown = `document.querySelector('a[href="#/setup/${page}"]')?.getAttribute('aria-current') === 'page'`
   await window().click(`a[href="#/setup/${page}"]`)
-  await window().waitFor(`document.querySelector('a[href="#/setup/${page}"]')?.getAttribute('aria-current') === 'page'`, 15_000)
+
+  try {
+    await window().waitFor(shown, 5000)
+  } catch (error) {
+    if (left <= 1) {
+      throw error
+    }
+    await openPage(page, left - 1)
+  }
+}
+
+/**
+ * Chooses a mode in a slot the way a user does: waits until the field can be used (the page says why when it cannot: the
+ * vehicle armed or not known to be disarmed, the parameters still coming), presses it, waits for the list to be open, and picks
+ * the option with that name (the options are written as the number and the name, so the name part is looked for, in the whole
+ * page: the list is not a child of the slot's box as far as a probe is concerned).
+ *
+ * @param slot the slot, 1 to 6
+ * @param name the mode's name in the list
+ */
+async function chooseMode(slot: number, name: string): Promise<void> {
+  const field = `.setup-slot:nth-child(${slot}) input`
+  const enabled = `document.querySelector('${field}')?.disabled === false`
+  const usable = `document.querySelector('#setup-modes-blocked') === null && ${enabled}`
+  await window().waitFor(usable, 60_000)
+  await window().click(field)
+  await window().waitFor(`document.querySelector('${field}').getAttribute('aria-expanded') === 'true'`, 10_000)
+  const rows = `[...document.querySelectorAll('[role="option"]')]`
+  const option = `${rows}.find(row => row.querySelector('.name')?.textContent === '${name}')`
+  await window().waitFor(`${option} !== undefined`, 10_000)
+  await window().evaluate(`${option}.click()`)
+  await window().waitFor(`document.querySelector('${field}').value === '${name}'`, 10_000)
 }
 
 beforeAll(async () => {
@@ -70,9 +105,7 @@ it('shows the flight modes by their names and writes a changed slot after one qu
   await window().waitFor(`document.querySelectorAll('.setup-slot').length === 6`, 30_000)
 
   expect(await window().evaluate<string>(`document.querySelectorAll('.setup-slot input')[1].value`)).toBe('LOITER')
-  await window().click('.setup-slot:nth-child(2) input')
-  await window().evaluate(`[...document.querySelectorAll('.setup-slot:nth-child(2) [role="option"] .name')]
-    .find(name => name.textContent === 'LAND').click()`)
+  await chooseMode(2, 'LAND')
   await window().waitFor(`document.querySelector('#setup-modes-write')?.disabled === false`, 10_000)
   await window().click('#setup-modes-write')
   await confirmWrite(window())

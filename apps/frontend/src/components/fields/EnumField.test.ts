@@ -388,3 +388,23 @@ describe('the only option left', () => {
     expect(picked(wrapper)).toEqual([2])
   })
 })
+
+describe('pressing the field', () => {
+  it('opens when the field is pressed, as well as when it is focused (a press on an open field leaves it open)', async () => {
+    const wrapper = field(1)
+
+    await wrapper.get('input').trigger('click')
+    expect(wrapper.get('input').attributes('aria-expanded')).toBe('true')
+    await wrapper.get('input').trigger('click')
+
+    expect(wrapper.get('input').attributes('aria-expanded')).toBe('true')
+  })
+
+  it('does not open while the field cannot be used', async () => {
+    const wrapper = mount(EnumField, { ...withI18n, props: { options: OPTIONS, label: 'Mode', modelValue: 0, disabled: true } })
+
+    await wrapper.get('input').trigger('click')
+
+    expect(wrapper.get('input').attributes('aria-expanded')).toBe('false')
+  })
+})
