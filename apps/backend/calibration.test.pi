@@ -544,6 +544,169 @@ async function acceptNeedsAFinishedRun(): Promise<void> throws Error {
   await r.close()
 }
 
+/// A connected simulator whose radio is sending RC_CHANNELS, all sticks centred.
+async function radioRig(): Promise<Rig> throws Error {
+  const r = await connected()
+  waits.radioSilenceMs = 5000
+  r.sim.rc =[1500, 1500, 1000, 1500, 1000, 1000, 1000, 1000]
+  r.sim.rcStream = true
+  r
+}
+
+/// Starts a radio calibration, and has the vehicle say it is up just after (the calibration waits for that: a vehicle is up by its words or
+/// after 10 s, and a test must not depend on which came first). The error code of the answer, or "ok".
+async function startRadio(r: Rig): Promise<string> throws Error {
+  const answer = errorOf(await startOf(r.f, CalibrationKind.Radio))
+  saysUp(r.sim)
+  answer
+}
+
+/// Starts a radio calibration and waits until it has taken readings in.
+async function radioRunning(r: Rig): Promise<void> throws Error {
+  expect(await startRadio(r)).toBe("ok")
+  await until(r.f, "readings", (s: CalibrationState) => s.radio != null && s.radio!.readings as int > 0)
+}
+
+/// Whether the least pulse of channel 1 the state has is `pulse`.
+function minOneIs(s: CalibrationState, pulse: int): bool {
+  s.radio != null && s.radio!.mins.length > 0 && s.radio!.mins[0] as int == pulse
+}
+
+async function radioCapturesTheRangeAndEndsWhenTheUserSaysSo(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  // the vehicle has the flag for the time of the calibration
+  expect(r.sim.calibration.rcCalibrating).toBe(true)
+  expect(link.calibrating).toBe(true)
+  r.sim.rc[0] = 1100
+  await until(r.f, "the least", (s: CalibrationState) => minOneIs(s, 1100))
+  r.sim.rc[0] = 1900
+  await until(r.f, "the greatest", (s: CalibrationState) => s.radio != null && s.radio!.maxs[0] as int == 1900)
+  // a glitch is counted and is not a reading (it never becomes the greatest or the least)
+  r.sim.rc[0] = 9000
+  await until(r.f, "the glitch", (s: CalibrationState) => s.radio != null && s.radio!.glitches as int > 0)
+  r.sim.rc[0] = 1500
+  await until(r.f, "centred", (s: CalibrationState) => s.radio != null && s.radio!.last[0] as int == 1500)
+  const done = decodeCalibrationState((await r.f.call("calibration.finish")).p ?? Cbor.Null, "$")
+  expect(outcomeOf(done)).toBe("success")
+  expect(done.radio!.mins[0] as int).toBe(1100)
+  expect(done.radio!.maxs[0] as int).toBe(1900)
+  expect(done.radio!.last[0] as int).toBe(1500)
+  expect(done.radio!.mins.length).toBe(8)
+  // the flag is cleared when it ends, and the next calibration may begin
+  expect(r.sim.calibration.rcCalibrating).toBe(false)
+  expect(link.calibrating).toBe(false)
+  expect(done.result!.unsure == null).toBe(true)
+  await r.close()
+}
+
+async function radioFinishNeedsARunWithReadings(): Promise<void> throws Error {
+  const r = await connected()
+  // no channels are sent: nothing was captured, and the user cannot finish on nothing
+  r.sim.rcStream = false
+  waits.radioSilenceMs = 10000
+  expect(await startRadio(r)).toBe("ok")
+  await until(r.f, "running", (s: CalibrationState) => s.state == CalibrationStateState.Running)
+  expect(errorOf(await r.f.call("calibration.finish"))).toBe("NO_READINGS")
+  await r.f.call("calibration.cancel")
+  expect(errorOf(await r.f.call("calibration.finish"))).toBe("NOT_RUNNING")
+  // and a calibration of another kind is not finished by it
+  expect(errorOf(await startOf(r.f, CalibrationKind.Level))).toBe("ok")
+  expect(errorOf(await r.f.call("calibration.finish"))).toBe("NOT_RUNNING")
+  await until(r.f, "finished", isFinished)
+  await r.close()
+}
+
+async function radioCancelKeepsNothingAndClearsTheFlag(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  r.sim.rc[0] = 1100
+  await until(r.f, "the least", (s: CalibrationState) => minOneIs(s, 1100))
+  const after = decodeCalibrationState((await r.f.call("calibration.cancel")).p ?? Cbor.Null, "$")
+  expect(outcomeOf(after)).toBe("cancelled")
+  expect(codeOf(after)).toBe("CANCELLED")
+  expect(after.radio == null).toBe(true)
+  expect(r.sim.calibration.rcCalibrating).toBe(false)
+  expect(link.calibrating).toBe(false)
+  expect(after.result!.unsure == null).toBe(true)
+  await r.close()
+}
+
+async function radioEndsWhenTheLinkIsLost(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  link.abortOperations()
+  const done = await until(r.f, "finished", isFinished)
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("LINK_LOST")
+  expect(done.radio == null).toBe(true)
+  expect(r.sim.calibration.rcCalibrating).toBe(false)
+  expect(link.calibrating).toBe(false)
+  await r.close()
+}
+
+async function radioEndsWhenTheSessionEnds(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  link.close()
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("LINK_LOST")
+  expect(link.calibrating).toBe(false)
+}
+
+async function radioEndsWhenTheUserDisconnects(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  await r.f.call("vehicle.disconnect")
+  const done = await until(r.f, "finished", isFinished)
+  clearInterval(r.hold)
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(link.calibrating).toBe(false)
+}
+
+async function radioEndsWhenTheVehicleArmsAndSaysTheFlagMayStay(): Promise<void> throws Error {
+  const r = await radioRig()
+  await radioRunning(r)
+  clearInterval(r.hold)
+  r.sim.ticks = 5   // the next heartbeat says armed
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("cancelled")
+  expect(codeOf(done)).toBe("ARMED")
+  expect(link.calibrating).toBe(false)
+  // an armed vehicle refuses the clear: the flag may still be set, and the result says so
+  expect(done.result!.unsure!).toBe(true)
+}
+
+async function radioWorkDoesNotRunWhenTheVehicleRefusesTheFlag(): Promise<void> throws Error {
+  const r = await radioRig()
+  clearInterval(r.hold)
+  // the vehicle is armed, though the last heartbeat the backend has says it is not (the next is a second away)
+  r.sim.ticks = 5
+  expect(await startRadio(r)).toBe("ok")
+  const done = await until(r.f, "finished", isFinished)
+  await r.close()
+  expect(outcomeOf(done)).toBe("refused")
+  expect(codeOf(done)).toBe("REFUSED")
+  expect(done.radio == null).toBe(true)
+  expect(link.calibrating).toBe(false)
+}
+
+async function radioGivesUpWhenNoChannelsComeAndClearsTheFlag(): Promise<void> throws Error {
+  const r = await connected()
+  waits.radioSilenceMs = 400
+  r.sim.rcStream = false
+  expect(await startRadio(r)).toBe("ok")
+  const done = await until(r.f, "finished", isFinished)
+  expect(outcomeOf(done)).toBe("failed")
+  expect(codeOf(done)).toBe("TIMEOUT")
+  expect(r.sim.calibration.rcCalibrating).toBe(false)
+  expect(link.calibrating).toBe(false)
+  await r.close()
+}
+
 async function theResultIsTold(): Promise<void> throws Error {
   const r = await connected()
   await startOf(r.f, CalibrationKind.Level)
@@ -580,6 +743,18 @@ describe("the exits of an accelerometer calibration", () => {
   it("ends when the link is lost", theLinkBeingLostEndsIt)
   it("ends when the session ends", theSessionEndingEndsIt)
   it("ends when the vehicle arms", theVehicleArmingEndsIt)
+})
+
+describe("the radio calibration", () => {
+  it("captures the range of each channel, keeps glitches out, and ends when the user says so", radioCapturesTheRangeAndEndsWhenTheUserSaysSo)
+  it("is finished only while it runs and has taken readings in", radioFinishNeedsARunWithReadings)
+  it("keeps nothing when the user cancels, and clears the vehicle's flag", radioCancelKeepsNothingAndClearsTheFlag)
+  it("ends and clears the flag when the link is lost", radioEndsWhenTheLinkIsLost)
+  it("ends when the session ends", radioEndsWhenTheSessionEnds)
+  it("ends when the user disconnects", radioEndsWhenTheUserDisconnects)
+  it("ends when the vehicle arms, and says the flag may stay when the vehicle refuses to clear it", radioEndsWhenTheVehicleArmsAndSaysTheFlagMayStay)
+  it("does not run when the vehicle refuses to set the flag", radioWorkDoesNotRunWhenTheVehicleRefusesTheFlag)
+  it("gives up when no channels come, and clears the flag", radioGivesUpWhenNoChannelsComeAndClearsTheFlag)
 })
 
 describe("the compass calibration", () => {

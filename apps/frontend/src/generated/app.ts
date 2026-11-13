@@ -603,10 +603,10 @@ function validateTelemetryParamsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a telemetry-params, or null. */
 export const validateTelemetryParams = (value: unknown) => run(validateTelemetryParamsInto, value)
 
-export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup }
+export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup, "rc"?: RcGroup }
 
 function validateTelemetryInto(value: any, path: string): boolean {
-  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs","position","gps","speed","nav","wind","ekf","vibration","battery","attitude"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["position"] === undefined || nested(value["position"], `${path}.position`, (value, path) => validatePositionGroupInto(value, path))) && (value["gps"] === undefined || nested(value["gps"], `${path}.gps`, (value, path) => validateGpsGroupInto(value, path))) && (value["speed"] === undefined || nested(value["speed"], `${path}.speed`, (value, path) => validateSpeedGroupInto(value, path))) && (value["nav"] === undefined || nested(value["nav"], `${path}.nav`, (value, path) => validateNavGroupInto(value, path))) && (value["wind"] === undefined || nested(value["wind"], `${path}.wind`, (value, path) => validateWindGroupInto(value, path))) && (value["ekf"] === undefined || nested(value["ekf"], `${path}.ekf`, (value, path) => validateEkfGroupInto(value, path))) && (value["vibration"] === undefined || nested(value["vibration"], `${path}.vibration`, (value, path) => validateVibrationGroupInto(value, path))) && (value["battery"] === undefined || nested(value["battery"], `${path}.battery`, (value, path) => validateBatteryGroupInto(value, path))) && (value["attitude"] === undefined || nested(value["attitude"], `${path}.attitude`, (value, path) => validateAttitudeGroupInto(value, path)))
+  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs","position","gps","speed","nav","wind","ekf","vibration","battery","attitude","rc"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["position"] === undefined || nested(value["position"], `${path}.position`, (value, path) => validatePositionGroupInto(value, path))) && (value["gps"] === undefined || nested(value["gps"], `${path}.gps`, (value, path) => validateGpsGroupInto(value, path))) && (value["speed"] === undefined || nested(value["speed"], `${path}.speed`, (value, path) => validateSpeedGroupInto(value, path))) && (value["nav"] === undefined || nested(value["nav"], `${path}.nav`, (value, path) => validateNavGroupInto(value, path))) && (value["wind"] === undefined || nested(value["wind"], `${path}.wind`, (value, path) => validateWindGroupInto(value, path))) && (value["ekf"] === undefined || nested(value["ekf"], `${path}.ekf`, (value, path) => validateEkfGroupInto(value, path))) && (value["vibration"] === undefined || nested(value["vibration"], `${path}.vibration`, (value, path) => validateVibrationGroupInto(value, path))) && (value["battery"] === undefined || nested(value["battery"], `${path}.battery`, (value, path) => validateBatteryGroupInto(value, path))) && (value["attitude"] === undefined || nested(value["attitude"], `${path}.attitude`, (value, path) => validateAttitudeGroupInto(value, path))) && (value["rc"] === undefined || nested(value["rc"], `${path}.rc`, (value, path) => validateRcGroupInto(value, path)))
 }
 
 /** The first problem with `value` as a telemetry, or null. */
@@ -665,6 +665,15 @@ function validateEkfGroupInto(value: any, path: string): boolean {
 
 /** The first problem with `value` as a ekf-group, or null. */
 export const validateEkfGroup = (value: unknown) => run(validateEkfGroupInto, value)
+
+export type RcGroup = { "channels": (number)[], "rssi"?: number, "ageMs": number }
+
+function validateRcGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["channels","rssi","ageMs"]) && (value["channels"] === undefined ? fail(`${path}.channels`, 'present') : nested(value["channels"], `${path}.channels`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["rssi"] === undefined || nested(value["rssi"], `${path}.rssi`, (value, path) => uint(value, path, 0xff))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a rc-group, or null. */
+export const validateRcGroup = (value: unknown) => run(validateRcGroupInto, value)
 
 export type VibrationGroup = { "x": number, "y": number, "z": number, "clipping": (number)[], "ageMs": number }
 
@@ -783,10 +792,10 @@ function validateSerialPortInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-port, or null. */
 export const validateSerialPort = (value: unknown) => run(validateSerialPortInto, value)
 
-export type CalibrationKind = "accel" | "level" | "compass"
+export type CalibrationKind = "accel" | "level" | "compass" | "radio"
 
 function validateCalibrationKindInto(value: any, path: string): boolean {
-  return oneOf(value, path, ["accel","level","compass"])
+  return oneOf(value, path, ["accel","level","compass","radio"])
 }
 
 /** The first problem with `value` as a calibration-kind, or null. */
@@ -819,14 +828,23 @@ function validateCalibrationAcceptInto(value: any, path: string): boolean {
 /** The first problem with `value` as a calibration-accept, or null. */
 export const validateCalibrationAccept = (value: unknown) => run(validateCalibrationAcceptInto, value)
 
-export type CalibrationState = { "state": "idle" | "starting" | "running" | "review" | "finished", "kind"?: CalibrationKind, "accel"?: CalibrationAccel, "compasses"?: (CalibrationCompass)[], "result"?: CalibrationResult, "texts": (string)[] }
+export type CalibrationState = { "state": "idle" | "starting" | "running" | "review" | "finished", "kind"?: CalibrationKind, "accel"?: CalibrationAccel, "compasses"?: (CalibrationCompass)[], "radio"?: CalibrationRadio, "result"?: CalibrationResult, "texts": (string)[] }
 
 function validateCalibrationStateInto(value: any, path: string): boolean {
-  return map(value, path, ["state","kind","accel","compasses","result","texts"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["idle","starting","running","review","finished"]))) && (value["kind"] === undefined || nested(value["kind"], `${path}.kind`, (value, path) => validateCalibrationKindInto(value, path))) && (value["accel"] === undefined || nested(value["accel"], `${path}.accel`, (value, path) => validateCalibrationAccelInto(value, path))) && (value["compasses"] === undefined || nested(value["compasses"], `${path}.compasses`, (value, path) => list(value, path, (value, path) => validateCalibrationCompassInto(value, path)))) && (value["result"] === undefined || nested(value["result"], `${path}.result`, (value, path) => validateCalibrationResultInto(value, path))) && (value["texts"] === undefined ? fail(`${path}.texts`, 'present') : nested(value["texts"], `${path}.texts`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+  return map(value, path, ["state","kind","accel","compasses","radio","result","texts"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["idle","starting","running","review","finished"]))) && (value["kind"] === undefined || nested(value["kind"], `${path}.kind`, (value, path) => validateCalibrationKindInto(value, path))) && (value["accel"] === undefined || nested(value["accel"], `${path}.accel`, (value, path) => validateCalibrationAccelInto(value, path))) && (value["compasses"] === undefined || nested(value["compasses"], `${path}.compasses`, (value, path) => list(value, path, (value, path) => validateCalibrationCompassInto(value, path)))) && (value["radio"] === undefined || nested(value["radio"], `${path}.radio`, (value, path) => validateCalibrationRadioInto(value, path))) && (value["result"] === undefined || nested(value["result"], `${path}.result`, (value, path) => validateCalibrationResultInto(value, path))) && (value["texts"] === undefined ? fail(`${path}.texts`, 'present') : nested(value["texts"], `${path}.texts`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
 }
 
 /** The first problem with `value` as a calibration-state, or null. */
 export const validateCalibrationState = (value: unknown) => run(validateCalibrationStateInto, value)
+
+export type CalibrationRadio = { "mins": (number)[], "maxs": (number)[], "last": (number)[], "glitches": number, "readings": number }
+
+function validateCalibrationRadioInto(value: any, path: string): boolean {
+  return map(value, path, ["mins","maxs","last","glitches","readings"]) && (value["mins"] === undefined ? fail(`${path}.mins`, 'present') : nested(value["mins"], `${path}.mins`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["maxs"] === undefined ? fail(`${path}.maxs`, 'present') : nested(value["maxs"], `${path}.maxs`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["last"] === undefined ? fail(`${path}.last`, 'present') : nested(value["last"], `${path}.last`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["glitches"] === undefined ? fail(`${path}.glitches`, 'present') : nested(value["glitches"], `${path}.glitches`, (value, path) => uint(value, path, 0xffffffff))) && (value["readings"] === undefined ? fail(`${path}.readings`, 'present') : nested(value["readings"], `${path}.readings`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a calibration-radio, or null. */
+export const validateCalibrationRadio = (value: unknown) => run(validateCalibrationRadioInto, value)
 
 export type CalibrationAccel = { "position": number, "placed": (number)[], "confirming": boolean }
 
@@ -898,6 +916,7 @@ export interface Services {
   "calibration.start": { kind: 'method', request: CalibrationStart, response: CalibrationState }
   "calibration.confirm": { kind: 'method', request: CalibrationConfirm, response: CalibrationState }
   "calibration.accept": { kind: 'method', request: CalibrationAccept, response: CalibrationState }
+  "calibration.finish": { kind: 'method', request: null, response: CalibrationState }
   "calibration.cancel": { kind: 'method', request: null, response: CalibrationState }
   "calibration.status": { kind: 'method', request: null, response: CalibrationState }
   "calibration.progress": { kind: 'event', payload: CalibrationState }
@@ -1037,6 +1056,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "calibration.accept": {
     request: (value: any, path: string) => validateCalibrationAcceptInto(value, path),
+    response: (value: any, path: string) => validateCalibrationStateInto(value, path),
+  },
+  "calibration.finish": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateCalibrationStateInto(value, path),
   },
   "calibration.cancel": {

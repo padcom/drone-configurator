@@ -3007,10 +3007,11 @@ export struct Telemetry {
   vibration?: VibrationGroup
   battery?: BatteryGroup
   attitude?: AttitudeGroup
+  rc?: RcGroup
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude"])
+  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "rc"])
   const cbor2 = m.get("batteryVoltage")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -3081,6 +3082,11 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor16 != null) {
     opt16 = decodeAttitudeGroup(cbor16, `${path}.attitude`)
   }
+  const cbor17 = m.get("rc")
+  let opt17: RcGroup? = null
+  if (cbor17 != null) {
+    opt17 = decodeRcGroup(cbor17, `${path}.rc`)
+  }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
     mode: text(required(m, "mode", path), `${path}.mode`),
@@ -3099,6 +3105,7 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
     vibration: opt14,
     battery: opt15,
     attitude: opt16,
+    rc: opt17,
   }
 }
 
@@ -3162,6 +3169,10 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   const opt16 = v.attitude
   if (opt16 != null) {
     m.set("attitude", encodeAttitudeGroup(opt16))
+  }
+  const opt17 = v.rc
+  if (opt17 != null) {
+    m.set("rc", encodeRcGroup(opt17))
   }
   Cbor.Dict(m)
 }
@@ -3386,6 +3397,55 @@ export function encodeEkfGroup(v: EkfGroup): Cbor {
   m.set("positionVertVariance", Cbor.Float(v.positionVertVariance))
   m.set("compassVariance", Cbor.Float(v.compassVariance))
   m.set("terrainAltVariance", Cbor.Float(v.terrainAltVariance))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeRcGroupChannelsList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function encodeRcGroupChannelsList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct RcGroup {
+  channels: u16[]
+  rssi?: u8
+  ageMs: u32
+}
+
+export function decodeRcGroup(v: Cbor, path: string): RcGroup throws InvalidPayload {
+  const m = members(v, path, ["channels", "rssi", "ageMs"])
+  const cbor1 = m.get("rssi")
+  let opt1: u8? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.rssi`, 255) as u8)
+  }
+  RcGroup {
+    channels: decodeRcGroupChannelsList(required(m, "channels", path), `${path}.channels`),
+    rssi: opt1,
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeRcGroup(v: RcGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("channels", encodeRcGroupChannelsList(v.channels))
+  const opt1 = v.rssi
+  if (opt1 != null) {
+    m.set("rssi", Cbor.Uint(opt1 as u64))
+  }
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
   Cbor.Dict(m)
 }
@@ -3930,14 +3990,15 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   Cbor.Dict(m)
 }
 
-export enum CalibrationKind { Accel, Level, Compass }
+export enum CalibrationKind { Accel, Level, Compass, Radio }
 
 export function decodeCalibrationKind(v: Cbor, path: string): CalibrationKind throws InvalidPayload {
   match (text(v, path)) {
     "accel" => CalibrationKind.Accel,
     "level" => CalibrationKind.Level,
     "compass" => CalibrationKind.Compass,
-    _ => throw new InvalidPayload(path, "accel or level or compass"),
+    "radio" => CalibrationKind.Radio,
+    _ => throw new InvalidPayload(path, "accel or level or compass or radio"),
   }
 }
 
@@ -3946,6 +4007,7 @@ export function encodeCalibrationKind(v: CalibrationKind): Cbor {
     Accel => Cbor.Text("accel"),
     Level => Cbor.Text("level"),
     Compass => Cbor.Text("compass"),
+    Radio => Cbor.Text("radio"),
   }
 }
 
@@ -4105,12 +4167,13 @@ export struct CalibrationState {
   kind?: CalibrationKind
   accel?: CalibrationAccel
   compasses?: CalibrationCompass[]
+  radio?: CalibrationRadio
   result?: CalibrationResult
   texts: string[]
 }
 
 export function decodeCalibrationState(v: Cbor, path: string): CalibrationState throws InvalidPayload {
-  const m = members(v, path, ["state", "kind", "accel", "compasses", "result", "texts"])
+  const m = members(v, path, ["state", "kind", "accel", "compasses", "radio", "result", "texts"])
   const cbor1 = m.get("kind")
   let opt1: CalibrationKind? = null
   if (cbor1 != null) {
@@ -4126,17 +4189,23 @@ export function decodeCalibrationState(v: Cbor, path: string): CalibrationState 
   if (cbor3 != null) {
     opt3 = decodeCalibrationStateCompassesList(cbor3, `${path}.compasses`)
   }
-  const cbor4 = m.get("result")
-  let opt4: CalibrationResult? = null
+  const cbor4 = m.get("radio")
+  let opt4: CalibrationRadio? = null
   if (cbor4 != null) {
-    opt4 = decodeCalibrationResult(cbor4, `${path}.result`)
+    opt4 = decodeCalibrationRadio(cbor4, `${path}.radio`)
+  }
+  const cbor5 = m.get("result")
+  let opt5: CalibrationResult? = null
+  if (cbor5 != null) {
+    opt5 = decodeCalibrationResult(cbor5, `${path}.result`)
   }
   CalibrationState {
     state: decodeCalibrationStateState(required(m, "state", path), `${path}.state`),
     kind: opt1,
     accel: opt2,
     compasses: opt3,
-    result: opt4,
+    radio: opt4,
+    result: opt5,
     texts: decodeCalibrationStateTextsList(required(m, "texts", path), `${path}.texts`),
   }
 }
@@ -4156,11 +4225,98 @@ export function encodeCalibrationState(v: CalibrationState): Cbor {
   if (opt3 != null) {
     m.set("compasses", encodeCalibrationStateCompassesList(opt3))
   }
-  const opt4 = v.result
+  const opt4 = v.radio
   if (opt4 != null) {
-    m.set("result", encodeCalibrationResult(opt4))
+    m.set("radio", encodeCalibrationRadio(opt4))
+  }
+  const opt5 = v.result
+  if (opt5 != null) {
+    m.set("result", encodeCalibrationResult(opt5))
   }
   m.set("texts", encodeCalibrationStateTextsList(v.texts))
+  Cbor.Dict(m)
+}
+
+function decodeCalibrationRadioMinsList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function decodeCalibrationRadioMaxsList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function decodeCalibrationRadioLastList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function encodeCalibrationRadioMinsList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+function encodeCalibrationRadioMaxsList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+function encodeCalibrationRadioLastList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct CalibrationRadio {
+  mins: u16[]
+  maxs: u16[]
+  last: u16[]
+  glitches: u32
+  readings: u32
+}
+
+export function decodeCalibrationRadio(v: Cbor, path: string): CalibrationRadio throws InvalidPayload {
+  const m = members(v, path, ["mins", "maxs", "last", "glitches", "readings"])
+  CalibrationRadio {
+    mins: decodeCalibrationRadioMinsList(required(m, "mins", path), `${path}.mins`),
+    maxs: decodeCalibrationRadioMaxsList(required(m, "maxs", path), `${path}.maxs`),
+    last: decodeCalibrationRadioLastList(required(m, "last", path), `${path}.last`),
+    glitches: (uint(required(m, "glitches", path), `${path}.glitches`, 4294967295) as u32),
+    readings: (uint(required(m, "readings", path), `${path}.readings`, 4294967295) as u32),
+  }
+}
+
+export function encodeCalibrationRadio(v: CalibrationRadio): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("mins", encodeCalibrationRadioMinsList(v.mins))
+  m.set("maxs", encodeCalibrationRadioMaxsList(v.maxs))
+  m.set("last", encodeCalibrationRadioLastList(v.last))
+  m.set("glitches", Cbor.Uint(v.glitches as u64))
+  m.set("readings", Cbor.Uint(v.readings as u64))
   Cbor.Dict(m)
 }
 

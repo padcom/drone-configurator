@@ -7,12 +7,16 @@ import {
   EkfStatusReport,
   GlobalPositionInt,
   GpsRawInt,
+  MAX_PULSE,
+  MIN_PULSE,
   MavLinkData,
   NavControllerOutput,
+  RcChannels,
   SysStatus,
   VfrHud,
   Vibration,
   Wind,
+  rcReadingOf,
 } from "padcom/pico-mavlink"
 import {
   AttitudeGroup,
@@ -21,6 +25,7 @@ import {
   GpsGroup,
   NavGroup,
   PositionGroup,
+  RcGroup,
   SpeedGroup,
   Telemetry,
   VibrationGroup,
@@ -55,6 +60,7 @@ export function wishes(): Wish[] {
     new Wish(BatteryStatus.MSG_ID, 1.0),
     new Wish(Wind.MSG_ID, 1.0),
     new Wish(Vibration.MSG_ID, 1.0),
+    new Wish(RcChannels.MSG_ID, 10.0),
   ]
 }
 
@@ -140,6 +146,21 @@ function vibrationOf(m: Vibration): VibrationGroup {
   }
 }
 
+/// The radio's channels: a pulse outside 800 to 2200 µs is a glitch and not a reading (0, like a channel with no pulse), the same rule as
+/// the calibration's extremes (padcom/pico-mavlink's RcExtremes), so a spike never moves a bar.
+function rcOf(m: RcChannels): RcGroup {
+  const reading = rcReadingOf(m)
+  const channels: u16[] = []
+  for (const p of reading.pulses) {
+    channels.push((if (p < MIN_PULSE || p > MAX_PULSE) 0 else p) as u16)
+  }
+  const g = RcGroup { channels: channels, ageMs: 0 }
+  if (reading.rssi >= 0 && reading.rssi <= 100) {
+    g.rssi = reading.rssi as u8
+  }
+  g
+}
+
 function attitudeOf(m: Attitude): AttitudeGroup {
   AttitudeGroup {
     roll: (m.roll as f64) * DEGREES,
@@ -204,6 +225,7 @@ export class Groups {
   public vibration: VibrationGroup? = null
   public battery: BatteryGroup? = null
   public attitude: AttitudeGroup? = null
+  public rc: RcGroup? = null
   heardAt: Map<string, int> = new Map<string, int>()
 
   /// Forgets everything (the link ended).
@@ -217,6 +239,7 @@ export class Groups {
     vibration = null
     battery = null
     attitude = null
+    rc = null
     heardAt.clear()
   }
 
@@ -281,6 +304,9 @@ export class Groups {
     } else if (m instanceof Vibration) {
       vibration = vibrationOf(m)
       stamp("vibration", now)
+    } else if (m instanceof RcChannels) {
+      rc = rcOf(m)
+      stamp("rc", now)
     } else {
       return false
     }
@@ -356,6 +382,11 @@ export class Groups {
     if (a != null) {
       a!.ageMs = age("attitude", now)
       t.attitude = a
+    }
+    const r = rc
+    if (r != null) {
+      r!.ageMs = age("rc", now)
+      t.rc = r
     }
     t
   }
