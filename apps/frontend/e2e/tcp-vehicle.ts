@@ -8,6 +8,17 @@ import { announcedPort } from './announced-port'
 const source = fileURLToPath(new URL('../../backend/e2e/tcp-vehicle.pi', import.meta.url))
 const binary = fileURLToPath(new URL('../../../.pico-desktop/e2e/tcp-vehicle', import.meta.url))
 
+/**
+ * What the child is told by its environment: the flags that give it logs, or the parameters of a Copter that was set up.
+ *
+ * @param withLogs whether it holds three flight logs and never arms
+ * @param withSetup whether it has the Setup pages' parameters and never arms
+ * @returns the environment
+ */
+function environment(withLogs: boolean, withSetup: boolean): NodeJS.ProcessEnv {
+  return { ...process.env, ...withLogs ? { VEHICLE_LOGS: '1' } : {}, ...withSetup ? { VEHICLE_SETUP: '1' } : {} }
+}
+
 /** The simulated vehicle, as a child process listening on a TCP port. */
 export class TcpVehicle {
   /** How many PARAM_SET messages it has received. */
@@ -25,11 +36,12 @@ export class TcpVehicle {
    * Builds and starts it.
    *
    * @param withLogs whether it holds three flight logs and never arms (for the checks of the logs page)
+   * @param withSetup whether it has the parameters of a Copter that was set up, and never arms (for the Setup pages)
    * @returns the running vehicle, with its port known
    */
-  static async start(withLogs = false): Promise<TcpVehicle> {
+  static async start(withLogs = false, withSetup = false): Promise<TcpVehicle> {
     await promisify(execFile)('pico', ['build', source, '-o', binary])
-    const env = withLogs ? { ...process.env, VEHICLE_LOGS: '1' } : process.env
+    const env = environment(withLogs, withSetup)
     const vehicle = new TcpVehicle(spawn(binary, [], { stdio: ['pipe', 'pipe', 'inherit'], env }))
     await vehicle.#listen()
 

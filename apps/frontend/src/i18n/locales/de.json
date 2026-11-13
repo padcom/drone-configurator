@@ -845,6 +845,7 @@
   },
   "staged": {
     "armedGuarded": "Logging- und Notch-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
+    "armedSetup": "Änderungen aus dem Setup werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Zuerst entschärfen.",
     "armedLogging": "Logging-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "region": "Zu schreibende Änderungen",
     "discard": "{id} verwerfen",
@@ -985,6 +986,20 @@
         "spectrum": "Zu Logs wechseln: Spektrum",
         "vehicle": "Zu Logs wechseln: Am Fahrzeug",
         "tools": "Zu Logs wechseln: Werkzeuge"
+      },
+      "setup": {
+        "home": "Zu Einrichtung wechseln: Übersicht",
+        "frame": "Zu Einrichtung wechseln: Rahmen und Ausrichtung",
+        "accel": "Zu Einrichtung wechseln: Beschleunigungssensor",
+        "compass": "Zu Einrichtung wechseln: Kompass",
+        "radio": "Zu Einrichtung wechseln: Funk",
+        "motors": "Zu Einrichtung wechseln: Motoren und Regler",
+        "modes": "Zu Einrichtung wechseln: Flugmodi",
+        "failsafes": "Zu Einrichtung wechseln: Failsafes",
+        "battery": "Zu Einrichtung wechseln: Akku",
+        "serial": "Zu Einrichtung wechseln: Serielle Ports",
+        "devices": "Zu Einrichtung wechseln: Geräte",
+        "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
       }
     },
     "show": {
@@ -1042,6 +1057,292 @@
         "what": "Startet den Flugcontroller neu. Die Verbindung bricht für einige Sekunden ab und kommt von selbst zurück. Parameter werden nicht verändert. Nur im unscharfen Zustand.",
         "button": "Zum Neustart halten"
       }
+    }
+  },
+  "setup": {
+    "sections": "Setup-Seiten",
+    "section": {
+      "home": "Übersicht",
+      "frame": "Rahmen und Ausrichtung",
+      "accel": "Beschleunigungssensor",
+      "compass": "Kompass",
+      "radio": "Funk",
+      "motors": "Motoren und Regler",
+      "modes": "Flugmodi",
+      "failsafes": "Failsafes",
+      "battery": "Akku",
+      "serial": "Serielle Ports",
+      "devices": "Geräte",
+      "info": "Fahrzeuginformationen"
+    },
+    "group": {
+      "fly": "Startklar machen",
+      "connections": "Verbindungen und Geräte",
+      "vehicle": "Fahrzeug"
+    },
+    "state": {
+      "done": "Sieht eingerichtet aus",
+      "open": "Braucht Aufmerksamkeit",
+      "unknown": "Aus den Parametern nicht erkennbar"
+    },
+    "aside": "Was diese Seite schreibt",
+    "writes": "Das wird geschrieben",
+    "notOnVehicle": "nicht an diesem Fahrzeug",
+    "revert": "Auf den Stand des Fahrzeugs zurück",
+    "write": "Schreiben und prüfen",
+    "noChanges": "Keine Änderungen",
+    "written": "Geschrieben und zurückgelesen",
+    "failed": "Nicht geschrieben: {why}",
+    "blocked": {
+      "offline": "Es ist kein Fahrzeug verbunden.",
+      "loading": "Die Parameter werden noch gelesen.",
+      "armed": "Das Fahrzeug ist scharf. Änderungen werden erst nach dem Entschärfen geschrieben.",
+      "unknown": "Es ist nicht bekannt, ob das Fahrzeug entschärft ist (kein aktueller Heartbeat); deshalb wird nichts geschrieben."
+    },
+    "offline": {
+      "title": "Kein Fahrzeug verbunden",
+      "help": "Verbinde ein Fahrzeug, um es einzurichten."
+    },
+    "kind": {
+      "title": "Das Setup gibt es für diese Fahrzeugart noch nicht",
+      "help": "Die Setup-Seiten gibt es zuerst für Multikopter. Dieses Fahrzeug meldet den Typ {type}."
+    },
+    "home": {
+      "heading": "Setup",
+      "summary": "Was die Parameter zu jedem Schritt sagen. Das wird aus ihnen gelesen und nicht im Flug geprüft: Jede Karte sagt, was sie angesehen hat.",
+      "loading": "Parameter werden gelesen…",
+      "progress": "{done} von {required} Schritten sehen eingerichtet aus",
+      "next": "Als Nächstes",
+      "allSet": "Jeder Schritt, der sich aus den Parametern lesen lässt, sieht eingerichtet aus.",
+      "facts": "Dieses Fahrzeug",
+      "thisVehicle": "Dieses Fahrzeug",
+      "also": "Außerdem verfügbar"
+    },
+    "fact": {
+      "type": "Typ",
+      "autopilot": "Autopilot",
+      "system": "System",
+      "parameters": "Parameter"
+    },
+    "status": {
+      "notOnVehicle": "Diese Parameter gibt es an diesem Fahrzeug nicht",
+      "unknown": "Nicht erkennbar",
+      "frame": {
+        "checked": "FRAME_CLASS ist nicht 0",
+        "none": "Keine Rahmenklasse",
+        "value": "Klasse {frameClass}, Typ {frameType}"
+      },
+      "accel": {
+        "open": "Keine Offsets",
+        "done": "Offsets sind gesetzt",
+        "checked": "INS_ACCOFFS alle 0 und INS_ACCSCAL alle 1: nicht gesetzt"
+      },
+      "compass": {
+        "open": "Keine Offsets",
+        "done": "Offsets sind gesetzt",
+        "checked": "COMPASS_OFS alle 0: nicht gesetzt"
+      },
+      "radio": {
+        "open": "Standardbereich",
+        "done": "Bereich ist nicht der Standard",
+        "checked": "RC1 bis RC4 MIN und MAX sind alle 1100 und 1900: der Standard"
+      },
+      "motors": {
+        "checked": "Der Motortest wird von hier noch nicht ausgeführt"
+      },
+      "modes": {
+        "checked": "FLTMODE1 bis FLTMODE6 enthalten RTL, Land oder SmartRTL",
+        "noEscape": "Kein Slot bringt es nach Hause",
+        "value": "Schalter auf Kanal {channel}"
+      },
+      "failsafes": {
+        "checked": "FS_THR_ENABLE ist nicht 0",
+        "radioOff": "Funk-Failsafe ist aus",
+        "value": "Failsafes an: {on}"
+      },
+      "battery": {
+        "checked": "BATT_MONITOR und BATT_CAPACITY sind nicht 0",
+        "open": "Kein Akkumonitor oder keine Kapazität",
+        "value": "{capacity} mAh"
+      }
+    },
+    "empty": {
+      "frame": {
+        "title": "Rahmen und Ausrichtung gibt es noch nicht",
+        "help": "Hier werden FRAME_CLASS, FRAME_TYPE und die Boardausrichtung gesetzt, mit Zeichnung und Neustart-Hinweis. Nutze bis dahin die Parameter."
+      },
+      "accel": {
+        "title": "Die Beschleunigungssensor-Kalibrierung gibt es noch nicht",
+        "help": "Sie kommt mit den Kalibrierungen."
+      },
+      "compass": {
+        "title": "Die Kompass-Kalibrierung gibt es noch nicht",
+        "help": "Sie kommt mit den Kalibrierungen."
+      },
+      "radio": {
+        "title": "Die Funk-Seite gibt es noch nicht",
+        "help": "Sie zeigt die Kanäle live und kalibriert ihren Bereich."
+      },
+      "motors": {
+        "title": "Motoren und Regler gibt es noch nicht",
+        "help": "Der Motortest bekommt eine eigene Ausgabe mit eigener Sicherheitsprüfung."
+      },
+      "battery": {
+        "title": "Die Akku-Seite gibt es noch nicht",
+        "help": "Sie setzt Monitor, Kapazität und Schwellen und kalibriert Spannung und Strom."
+      },
+      "serial": {
+        "title": "Die seriellen Ports gibt es noch nicht",
+        "help": "Sie setzt Protokoll und Geschwindigkeit jedes Ports."
+      },
+      "devices": {
+        "title": "Die Geräte gibt es noch nicht",
+        "help": "Sie entschlüsselt Bus und Adresse jedes Sensors."
+      }
+    },
+    "modes": {
+      "summary": "Jeder Slot ist eine Stellung des Modusschalters an deinem Sender. Wähle, was das Fahrzeug in jeder tut.",
+      "loading": "Die Modi dieses Fahrzeugs werden gelesen…",
+      "channel": "Kanal des Modusschalters (0 ist keiner)",
+      "noLive": "Die aktuelle Stellung des Schalters wird hier noch nicht gezeigt.",
+      "slot": "Modus für Stellung {n}",
+      "upTo": "bis {to}",
+      "from": "ab {from}",
+      "noEscape": "Keine Schalterstellung kann das Fahrzeug nach Hause oder herunterbringen. Weise einer davon RTL, Land oder SmartRTL zu.",
+      "goodTitle": "Eine gute Aufteilung",
+      "good1": "Beginne mit einem Modus, der die Position hält.",
+      "good2": "Halte einen Rückkehr- oder Landemodus auf einer leicht erreichbaren Stellung.",
+      "good3": "Lege Auto weit weg von der Stellung, in der du startest.",
+      "hint": {
+        "0": "Pilot stabilisiert und hält die Position",
+        "1": "Volle manuelle Drehraten",
+        "2": "Hält die Höhe, der Pilot steuert",
+        "3": "Fliegt die Mission",
+        "4": "Folgt Befehlen der Bodenstation",
+        "5": "Hält Position und Höhe",
+        "6": "Fliegt nach Hause und landet",
+        "7": "Kreist um einen Punkt",
+        "9": "Landet dort, wo es ist",
+        "11": "Geneigte, autoähnliche Kurven",
+        "13": "Stabilisierte Drehratensteuerung",
+        "14": "Macht einen Überschlag",
+        "15": "Stimmt sich im Flug selbst ab",
+        "16": "Hält die Position, direktes Knüppelgefühl",
+        "17": "Bremst und hält",
+        "18": "Zum Starten in die Luft werfen",
+        "21": "Fliegt den eigenen Weg zurück"
+      }
+    },
+    "action": {
+      "nothing": "Nichts tun",
+      "disabled": "Aus",
+      "landIfPosition": "Landen, in einem Modus, der eine Position braucht",
+      "rtl": "Nach Hause zurückkehren",
+      "land": "Landen",
+      "smartRtlOrRtl": "SmartRTL oder nach Hause",
+      "smartRtlOrLand": "SmartRTL oder landen",
+      "terminate": "Motoren stoppen",
+      "autoLandOrRtl": "Landestartpunkt oder nach Hause",
+      "brakeOrLand": "Bremsen oder landen",
+      "altHold": "Höhe halten",
+      "landAnyMode": "Landen, aus jedem Modus"
+    },
+    "failsafes": {
+      "does": {
+        "nothing": "es fliegt weiter und warnt nur",
+        "disabled": "das Failsafe ist aus: das Fahrzeug reagiert nicht",
+        "landIfPosition": "es landet in einem Modus, der eine Position braucht (in Stabilize oder AltHold tut es nichts)",
+        "rtl": "es fliegt nach Hause und landet",
+        "land": "es landet dort, wo es ist",
+        "smartRtlOrRtl": "es fliegt den eigenen Weg zurück, sonst nach Hause",
+        "smartRtlOrLand": "es fliegt den eigenen Weg zurück, sonst landet es",
+        "terminate": "es stoppt die Motoren und fällt",
+        "autoLandOrRtl": "es fliegt zum Landestartpunkt der Mission oder nach Hause",
+        "brakeOrLand": "es bremst oder landet, wenn es nicht geht",
+        "altHold": "in einem Modus, der eine Position braucht, hält es die Höhe und gibt dir die Steuerung",
+        "landAnyMode": "es landet, auch in Stabilize"
+      },
+      "summary": "Was das Fahrzeug von selbst tut, wenn etwas schiefgeht. Es wird nichts geschrieben, bis du schreibst, und nie, solange es scharf ist.",
+      "below": "Unter (V)",
+      "then": "{name}: was es tut",
+      "order": "Die kritische Spannung muss unter der niedrigen liegen.",
+      "noName": "es führt Aktion {value} aus, die hier keinen Namen hat",
+      "batteryLow": {
+        "name": "Akku niedrig"
+      },
+      "batteryCritical": {
+        "name": "Akku kritisch"
+      },
+      "radio": {
+        "name": "Funk verloren"
+      },
+      "gcs": {
+        "name": "Bodenstation verloren"
+      },
+      "ekf": {
+        "name": "Positionsschätzung schlecht"
+      },
+      "if": {
+        "batteryLow": "Bleibt die Spannung niedrig, {does}.",
+        "batteryCritical": "Bleibt die Spannung kritisch, {does}.",
+        "radio": "Bricht das Sendersignal ab, {does}.",
+        "gcs": "Ist die Bodenstation 5 s lang weg, {does}.",
+        "ekf": "Kann man der Positionsschätzung nicht mehr trauen, {does}."
+      },
+      "warn": {
+        "nothing": "Dieses Failsafe tut nichts: Das Fahrzeug fliegt weiter und warnt nur.",
+        "disabled": "Dieses Failsafe ist aus: Tritt es ein, reagiert das Fahrzeug nicht, und nichts warnt dich.",
+        "terminate": "Dieses Failsafe stoppt die Motoren in der Luft: Das Fahrzeug fällt."
+      }
+    },
+    "info": {
+      "summary": "Was das Board über sich und seine Sensoren sagt. Ein Wert, den das Fahrzeug nicht angab, wird nicht gezeigt.",
+      "loading": "Die Fahrzeugdaten werden gelesen…",
+      "refresh": "Erneut lesen",
+      "sensors": "Sensoren",
+      "noSensors": "Das Fahrzeug hat seinen Sensorstatus noch nicht gesendet.",
+      "sensor": "Sensor",
+      "present": "Vorhanden",
+      "enabled": "In Benutzung",
+      "healthy": "In Ordnung",
+      "yes": "Ja",
+      "no": "Nein",
+      "vehicle": "Fahrzeug",
+      "autopilot": "Autopilot",
+      "version": "Firmware-Version",
+      "releaseType": "Art der Version",
+      "gitHash": "Firmware-Build (git)",
+      "boardVersion": "Board-Version",
+      "vendorId": "Hersteller-ID",
+      "productId": "Produkt-ID",
+      "uid": "Eindeutige ID",
+      "release": {
+        "dev": "Entwicklungsversion",
+        "alpha": "Alpha",
+        "beta": "Beta",
+        "rc": "Release-Kandidat",
+        "official": "offizielle Version"
+      }
+    },
+    "sensor": {
+      "gyro": "Gyroskop",
+      "accel": "Beschleunigungssensor",
+      "mag": "Kompass",
+      "baro": "Barometer",
+      "airspeed": "Fahrtmesser",
+      "gps": "GPS",
+      "flow": "Optischer Fluss",
+      "rc": "Funkempfänger",
+      "gyro2": "Zweites Gyroskop",
+      "accel2": "Zweiter Beschleunigungssensor",
+      "mag2": "Zweiter Kompass",
+      "battery": "Akku",
+      "proximity": "Näherungssensor",
+      "logging": "Protokollierung",
+      "ahrs": "Lageschätzung (AHRS)",
+      "terrain": "Geländedaten",
+      "fence": "Geofence",
+      "propulsion": "Antrieb"
     }
   }
 }

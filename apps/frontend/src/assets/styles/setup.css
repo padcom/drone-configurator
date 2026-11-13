@@ -1,0 +1,309 @@
+/* The Setup screen (screens/Setup.vue and screens/setup/): its list of pages on the left, the page, and, on the pages that write
+   parameters, an aside with what they write. A state is a glyph and words; the colour only adds to them. */
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.setup-title,
+.setup-heading {
+  margin: 0;
+}
+
+.setup-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.setup-nav {
+  display: flex;
+  flex: 0 0 240px;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.setup-page {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.setup-label {
+  margin: 0 0 var(--space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.setup-nav-home,
+.setup-nav-link,
+.setup-also {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.setup-nav-home[aria-current='page'],
+.setup-nav-link[aria-current='page'] {
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.setup-nav-home:focus-visible,
+.setup-nav-link:focus-visible,
+.setup-card:focus-visible,
+.setup-next:focus-visible,
+.setup-also:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.setup-mark {
+  font-weight: 700;
+}
+
+.setup-mark.done {
+  color: var(--color-ok);
+}
+
+.setup-mark.open {
+  color: var(--color-warn);
+}
+
+.setup-mark.unknown {
+  color: var(--color-text-muted);
+}
+
+.setup-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-3) var(--space-5);
+}
+
+.setup-home > :not(.setup-facts) {
+  grid-column: 1;
+}
+
+.setup-facts {
+  grid-column: 2;
+  grid-row: 1 / span 8;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.setup-facts dl,
+.setup-facts-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.setup-facts dd,
+.setup-facts-list dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.setup-next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text);
+  text-decoration: none;
+  background: var(--color-warn-soft);
+  border-radius: var(--radius-md);
+}
+
+.setup-next-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.setup-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-3);
+}
+
+.setup-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 98px;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text);
+  text-decoration: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.setup-card.open {
+  border-color: var(--color-warn);
+}
+
+.setup-card-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+}
+
+.setup-card-value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.setup-card-checked {
+  font-size: var(--font-size-sm);
+}
+
+.setup-page-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: var(--space-5);
+}
+
+.setup-page-body.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setup-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.setup-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.setup-writes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  list-style: none;
+}
+
+.setup-writes .missing {
+  text-decoration: line-through;
+}
+
+.setup-status {
+  min-height: 1.5em;
+  margin: 0;
+}
+
+.setup-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.setup-slot,
+.setup-failsafe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.setup-failsafe.danger {
+  border-color: var(--color-warn);
+}
+
+.setup-failsafe-text {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.setup-failsafe-text h4,
+.setup-failsafe-text p {
+  margin: 0;
+}
+
+.setup-warn {
+  font-weight: 600;
+  color: var(--color-warn);
+}
+
+.setup-slot-no {
+  width: 24px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.setup-slot-range {
+  width: 112px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.setup-slot-hint {
+  flex: 1 1 160px;
+}
+
+.setup-sensors {
+  border-collapse: collapse;
+}
+
+.setup-sensors th,
+.setup-sensors td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.setup-sensors td.bad {
+  font-weight: 600;
+  color: var(--color-warn);
+}
+
+@media (max-width: 999px) {
+  .setup-home,
+  .setup-page-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .setup-facts {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}

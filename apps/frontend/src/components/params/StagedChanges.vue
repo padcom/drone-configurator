@@ -28,7 +28,9 @@
     <p class="staged-status" role="status" :class="{ quiet: !summary.polite }">{{ summary.polite }}</p>
     <p class="staged-status warn" role="alert" :class="{ quiet: !summary.urgent }">{{ summary.urgent }}</p>
     <p v-if="staged.refused.value" id="staged-refused" class="staged-status warn" role="alert">{{ staged.refused.value }}</p>
-    <p v-if="armedBlock" id="staged-armed" class="staged-status warn">{{ t('staged.armedGuarded') }}</p>
+    <p v-if="armedBlock" id="staged-armed" class="staged-status warn">
+      {{ t(setupBlock ? 'staged.armedSetup' : 'staged.armedGuarded') }}
+    </p>
     <Button
       id="write-staged"
       variant="primary"
@@ -66,7 +68,9 @@ const idle = computed(() => !parameters.lock.busy.value && parameters.list.value
 // Logging settings (the Logging setup page queues them) are not written while the vehicle is armed or may be (unknown counts as
 // armed): more logging can fill its storage, and ArduPilot may refuse. The button says why instead of failing.
 const mayBeArmed = computed(() => armedOf(fields.telemetry.value) !== false)
-const armedBlock = computed(() => includesGuarded(pending.value.map(change => change.id)) && mayBeArmed.value)
+const setupBlock = computed(() => pending.value.some(change => change.guarded === true) && mayBeArmed.value)
+const loggingBlock = computed(() => includesGuarded(pending.value.map(change => change.id)) && mayBeArmed.value)
+const armedBlock = computed(() => loggingBlock.value || setupBlock.value)
 const writable = computed(() => connected.value && idle.value && pending.value.length > 0 && !armedBlock.value)
 const rows = computed(() => linesFor(staged.changes.value, staged.results.value, staged.writing.value, t))
 const summary = computed(() => summaryOf(staged.results.value, staged.writing.value, staged.readBack.value, t))

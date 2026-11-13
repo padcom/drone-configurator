@@ -100,9 +100,9 @@ it('shows the screen followed, and says in the link which one it is', async () =
 it('says it as an empty state with a heading and what works now, and the old Simulation address goes to Setup', async () => {
   const { wrapper, router } = await shellAt('/simulation')
 
-  expect(router.currentRoute.value.path).toBe('/setup')
-  expect(wrapper.get('.kit-empty.not-available h2').text()).toBe('Setup is not available yet.')
-  expect(wrapper.get('.kit-empty.not-available .help').text()).toBe('It comes in a later version. Fly and Parameters work now.')
+  expect(router.currentRoute.value.path).toBe('/setup/home')
+  expect(wrapper.get('.setup-title').text()).toBe('Setup')
+  expect(wrapper.get('.kit-empty .title').text()).toBe('No vehicle is connected')
 })
 
 it('has a Settings screen with the language of the interface, English being the one there is', async () => {
@@ -132,7 +132,7 @@ it('gives each screen that is not built its own component, so that its heading i
   await follow(wrapper, 'Setup')
 
   expect(wrapper.get('main h2').element).not.toBe(plan)
-  expect(wrapper.get('main h2').text()).toBe('Setup is not available yet.')
+  expect(wrapper.get('main h2').text()).toBe('Setup')
 })
 
 it('says that a screen that is not built yet is not available, under its own name', async () => {

@@ -65,14 +65,19 @@ describe('where the focus goes after a command that goes to a screen', () => {
   })
 })
 
+const LOGS_PARTS = ['flights', 'replay', 'spectrum', 'vehicle', 'tools']
+const SETUP_PARTS = [
+  'home', 'frame', 'accel', 'compass', 'radio', 'motors', 'modes', 'failsafes', 'battery', 'serial', 'devices', 'info',
+]
+
 describe('the commands that go to a part of a screen', () => {
   it('are one for each part of each screen that has parts, in order, with the address of the part', () => {
     const commands = goToSections()
 
     expect(commands.map(command => command.id))
-      .toEqual(['go.logs.flights', 'go.logs.replay', 'go.logs.spectrum', 'go.logs.vehicle', 'go.logs.tools'])
+      .toEqual([...SETUP_PARTS.map(part => `go.setup.${part}`), ...LOGS_PARTS.map(part => `go.logs.${part}`)])
     expect(commands.map(command => command.href))
-      .toEqual(['/logs/flights', '/logs/replay', '/logs/spectrum', '/logs/vehicle', '/logs/tools'])
+      .toEqual([...SETUP_PARTS.map(part => `/setup/${part}`), ...LOGS_PARTS.map(part => `/logs/${part}`)])
     expect(commands.every(command => command.groupKey === 'palette.group.navigate')).toBe(true)
     expect(commands.every(command => command.isEnabled().enabled)).toBe(true)
   })
@@ -115,8 +120,8 @@ describe('the commands that go to a part, made and named', () => {
   it.each(LANGUAGES)('have one whole message each in %s, naming the screen and the part', language => {
     for (const command of goToSections()) {
       const text = i18n.global.t(command.labelKey, {}, { locale: language })
-      const [, , part = ''] = command.id.split('.')
-      const name = i18n.global.t(`logs.section.${part}`, {}, { locale: language })
+      const [, screen = '', part = ''] = command.id.split('.')
+      const name = i18n.global.t(`${screen}.section.${part}`, {}, { locale: language })
 
       expect([text !== command.labelKey, text.includes(name)], `${language} ${command.id}`).toEqual([true, true])
     }

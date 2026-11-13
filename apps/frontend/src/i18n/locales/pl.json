@@ -845,6 +845,7 @@
   },
   "staged": {
     "armedGuarded": "Ustawień logowania i filtra nie zapisuje się, gdy pojazd jest uzbrojony albo może być. Najpierw go rozbrój.",
+    "armedSetup": "Zmian z Konfiguracji nie zapisuje się, gdy pojazd jest uzbrojony lub może być. Najpierw go rozbrój.",
     "armedLogging": "Ustawień logowania nie zapisuje się, gdy pojazd jest uzbrojony albo może być. Najpierw go rozbrój.",
     "region": "Zmiany do zapisania",
     "discard": "Odrzuć {id}",
@@ -985,6 +986,20 @@
         "spectrum": "Przejdź do ekranu Logi: Widmo",
         "vehicle": "Przejdź do ekranu Logi: W pojeździe",
         "tools": "Przejdź do ekranu Logi: Narzędzia"
+      },
+      "setup": {
+        "home": "Przejdź do ekranu Konfiguracja: Przegląd",
+        "frame": "Przejdź do ekranu Konfiguracja: Rama i orientacja",
+        "accel": "Przejdź do ekranu Konfiguracja: Akcelerometr",
+        "compass": "Przejdź do ekranu Konfiguracja: Kompas",
+        "radio": "Przejdź do ekranu Konfiguracja: Radio",
+        "motors": "Przejdź do ekranu Konfiguracja: Silniki i regulatory",
+        "modes": "Przejdź do ekranu Konfiguracja: Tryby lotu",
+        "failsafes": "Przejdź do ekranu Konfiguracja: Zabezpieczenia",
+        "battery": "Przejdź do ekranu Konfiguracja: Bateria",
+        "serial": "Przejdź do ekranu Konfiguracja: Porty szeregowe",
+        "devices": "Przejdź do ekranu Konfiguracja: Urządzenia",
+        "info": "Przejdź do ekranu Konfiguracja: Informacje o pojeździe"
       }
     },
     "show": {
@@ -1042,6 +1057,292 @@
         "what": "Uruchamia kontroler lotu od nowa. Łącze zniknie na kilka sekund i wróci samo. Parametry nie są zmieniane. Tylko przy rozbrojonym pojeździe.",
         "button": "Przytrzymaj, aby uruchomić ponownie"
       }
+    }
+  },
+  "setup": {
+    "sections": "Strony konfiguracji",
+    "section": {
+      "home": "Przegląd",
+      "frame": "Rama i orientacja",
+      "accel": "Akcelerometr",
+      "compass": "Kompas",
+      "radio": "Radio",
+      "motors": "Silniki i regulatory",
+      "modes": "Tryby lotu",
+      "failsafes": "Zabezpieczenia",
+      "battery": "Bateria",
+      "serial": "Porty szeregowe",
+      "devices": "Urządzenia",
+      "info": "Informacje o pojeździe"
+    },
+    "group": {
+      "fly": "Do lotu",
+      "connections": "Połączenia i urządzenia",
+      "vehicle": "Pojazd"
+    },
+    "state": {
+      "done": "Wygląda na ustawione",
+      "open": "Wymaga uwagi",
+      "unknown": "Nie da się stwierdzić z parametrów"
+    },
+    "aside": "Co zapisuje ta strona",
+    "writes": "Co to zapisuje",
+    "notOnVehicle": "brak w tym pojeździe",
+    "revert": "Przywróć to, co ma pojazd",
+    "write": "Zapisz i zweryfikuj",
+    "noChanges": "Brak zmian",
+    "written": "Zapisano i odczytano z powrotem",
+    "failed": "Nie zapisano: {why}",
+    "blocked": {
+      "offline": "Nie połączono żadnego pojazdu.",
+      "loading": "Parametry są jeszcze czytane.",
+      "armed": "Pojazd jest uzbrojony. Zmian nie zapisuje się, dopóki nie zostanie rozbrojony.",
+      "unknown": "Nie wiadomo, czy pojazd jest rozbrojony (brak świeżego heartbeatu), więc nic nie jest zapisywane."
+    },
+    "offline": {
+      "title": "Nie połączono pojazdu",
+      "help": "Połącz pojazd, aby go skonfigurować."
+    },
+    "kind": {
+      "title": "Konfiguracja nie jest jeszcze dostępna dla tego rodzaju pojazdu",
+      "help": "Strony konfiguracji powstają najpierw dla multikopterów. Ten pojazd podaje typ {type}."
+    },
+    "home": {
+      "heading": "Konfiguracja",
+      "summary": "Co o każdym kroku mówią parametry. To odczyt z nich, a nie sprawdzenie w locie: każda karta mówi, na co patrzyła.",
+      "loading": "Czytanie parametrów…",
+      "progress": "{done} z {required} kroków wygląda na ustawione",
+      "next": "Dalej",
+      "allSet": "Każdy krok, który da się odczytać z parametrów, wygląda na ustawiony.",
+      "facts": "Ten pojazd",
+      "thisVehicle": "Ten pojazd",
+      "also": "Dostępne także"
+    },
+    "fact": {
+      "type": "Typ",
+      "autopilot": "Autopilot",
+      "system": "System",
+      "parameters": "Parametry"
+    },
+    "status": {
+      "notOnVehicle": "Tych parametrów nie ma w tym pojeździe",
+      "unknown": "Nie wiadomo",
+      "frame": {
+        "checked": "FRAME_CLASS nie jest 0",
+        "none": "Brak klasy ramy",
+        "value": "Klasa {frameClass}, typ {frameType}"
+      },
+      "accel": {
+        "open": "Brak offsetów",
+        "done": "Offsety są ustawione",
+        "checked": "INS_ACCOFFS wszystkie 0, a INS_ACCSCAL wszystkie 1: nie ustawione"
+      },
+      "compass": {
+        "open": "Brak offsetów",
+        "done": "Offsety są ustawione",
+        "checked": "COMPASS_OFS wszystkie 0: nie ustawione"
+      },
+      "radio": {
+        "open": "Zakres domyślny",
+        "done": "Zakres nie jest domyślny",
+        "checked": "RC1–RC4 MIN i MAX to wszędzie 1100 i 1900: domyślne"
+      },
+      "motors": {
+        "checked": "Test silników nie jest jeszcze uruchamiany stąd"
+      },
+      "modes": {
+        "checked": "FLTMODE1–FLTMODE6 zawierają RTL, Land lub SmartRTL",
+        "noEscape": "Żaden slot nie sprowadza do domu",
+        "value": "Przełącznik na kanale {channel}"
+      },
+      "failsafes": {
+        "checked": "FS_THR_ENABLE nie jest 0",
+        "radioOff": "Zabezpieczenie radia wyłączone",
+        "value": "Włączone zabezpieczenia: {on}"
+      },
+      "battery": {
+        "checked": "BATT_MONITOR i BATT_CAPACITY nie są 0",
+        "open": "Brak monitora baterii lub pojemności",
+        "value": "{capacity} mAh"
+      }
+    },
+    "empty": {
+      "frame": {
+        "title": "Rama i orientacja nie są jeszcze gotowe",
+        "help": "Ustawią FRAME_CLASS, FRAME_TYPE i orientację płytki, z rysunkiem i pytaniem o restart. Na razie użyj Parametrów."
+      },
+      "accel": {
+        "title": "Kalibracja akcelerometru nie jest jeszcze gotowa",
+        "help": "Pojawi się razem z kalibracjami."
+      },
+      "compass": {
+        "title": "Kalibracja kompasu nie jest jeszcze gotowa",
+        "help": "Pojawi się razem z kalibracjami."
+      },
+      "radio": {
+        "title": "Strona radia nie jest jeszcze gotowa",
+        "help": "Pokaże kanały na żywo i skalibruje ich zakres."
+      },
+      "motors": {
+        "title": "Silniki i regulatory nie są jeszcze gotowe",
+        "help": "Test silników ma własne wydanie, z własnym przeglądem bezpieczeństwa."
+      },
+      "battery": {
+        "title": "Strona baterii nie jest jeszcze gotowa",
+        "help": "Ustawi monitor, pojemność i progi oraz skalibruje napięcie i prąd."
+      },
+      "serial": {
+        "title": "Porty szeregowe nie są jeszcze gotowe",
+        "help": "Ustawi protokół i prędkość każdego portu."
+      },
+      "devices": {
+        "title": "Urządzenia nie są jeszcze gotowe",
+        "help": "Zdekoduje magistralę i adres każdego czujnika."
+      }
+    },
+    "modes": {
+      "summary": "Każdy slot to pozycja przełącznika trybów w nadajniku. Wybierz, co robi pojazd w każdej.",
+      "loading": "Czytanie trybów tego pojazdu…",
+      "channel": "Kanał przełącznika trybów (0 to brak)",
+      "noLive": "Aktualna pozycja przełącznika nie jest tu jeszcze pokazywana.",
+      "slot": "Tryb dla pozycji {n}",
+      "upTo": "do {to}",
+      "from": "{from} i więcej",
+      "noEscape": "Żadna pozycja przełącznika nie sprowadzi pojazdu do domu ani na ziemię. Przypisz RTL, Land lub SmartRTL do jednej z nich.",
+      "goodTitle": "Dobry układ",
+      "good1": "Zacznij od trybu, który trzyma pozycję.",
+      "good2": "Trzymaj tryb powrotu lub lądowania pod jednym łatwym ruchem.",
+      "good3": "Umieść Auto daleko od pozycji, w której startujesz.",
+      "hint": {
+        "0": "Pilot poziomuje i trzyma pozycję",
+        "1": "Pełna ręczna prędkość kątowa",
+        "2": "Trzyma wysokość, pilot steruje",
+        "3": "Leci według misji",
+        "4": "Wykonuje polecenia ze stacji naziemnej",
+        "5": "Trzyma pozycję i wysokość",
+        "6": "Leci do domu i ląduje",
+        "7": "Krąży wokół punktu",
+        "9": "Ląduje tam, gdzie jest",
+        "11": "Zakręty z przechyłem, jak w samochodzie",
+        "13": "Stabilizowane sterowanie prędkością kątową",
+        "14": "Wykonuje salto",
+        "15": "Stroi się w locie",
+        "16": "Trzyma pozycję, bezpośrednie wyczucie drążków",
+        "17": "Zatrzymuje się i trzyma",
+        "18": "Rzuć w górę, aby wystartować",
+        "21": "Wraca po własnej trasie"
+      }
+    },
+    "action": {
+      "nothing": "Nic nie rób",
+      "disabled": "Wyłączone",
+      "landIfPosition": "Lądowanie w trybie wymagającym pozycji",
+      "rtl": "Wróć do domu",
+      "land": "Ląduj",
+      "smartRtlOrRtl": "SmartRTL lub powrót do domu",
+      "smartRtlOrLand": "SmartRTL lub lądowanie",
+      "terminate": "Zatrzymaj silniki",
+      "autoLandOrRtl": "Punkt zakończenia misji lub powrót do domu",
+      "brakeOrLand": "Hamuj lub ląduj",
+      "altHold": "Trzymaj wysokość",
+      "landAnyMode": "Ląduj z każdego trybu"
+    },
+    "failsafes": {
+      "does": {
+        "nothing": "leci dalej i tylko ostrzega",
+        "disabled": "zabezpieczenie jest wyłączone: pojazd nie reaguje",
+        "landIfPosition": "ląduje w trybie wymagającym pozycji (w Stabilize i AltHold nic nie robi)",
+        "rtl": "leci do domu i ląduje",
+        "land": "ląduje tam, gdzie jest",
+        "smartRtlOrRtl": "wraca własną trasą, a potem do domu",
+        "smartRtlOrLand": "wraca własną trasą, a potem ląduje",
+        "terminate": "zatrzymuje silniki i spada",
+        "autoLandOrRtl": "leci do punktu rozpoczęcia lądowania z misji albo do domu",
+        "brakeOrLand": "hamuje, a jeśli nie może, ląduje",
+        "altHold": "w trybie wymagającym pozycji trzyma wysokość i oddaje ci sterowanie",
+        "landAnyMode": "ląduje, nawet w Stabilize"
+      },
+      "summary": "Co pojazd robi sam, gdy coś pójdzie nie tak. Nic nie jest zapisywane, dopóki nie zapiszesz, i nigdy, gdy jest uzbrojony.",
+      "below": "Poniżej (V)",
+      "then": "{name}: co robi",
+      "order": "Napięcie krytyczne musi być niższe niż niskie.",
+      "noName": "wykonuje działanie {value}, które nie ma tu nazwy",
+      "batteryLow": {
+        "name": "Niski poziom baterii"
+      },
+      "batteryCritical": {
+        "name": "Krytyczny poziom baterii"
+      },
+      "radio": {
+        "name": "Utrata radia"
+      },
+      "gcs": {
+        "name": "Utrata stacji naziemnej"
+      },
+      "ekf": {
+        "name": "Zła estymata pozycji"
+      },
+      "if": {
+        "batteryLow": "Gdy napięcie pozostaje niskie, {does}.",
+        "batteryCritical": "Gdy napięcie pozostaje krytyczne, {does}.",
+        "radio": "Gdy sygnał nadajnika zaniknie, {does}.",
+        "gcs": "Gdy stacja naziemna zniknie na 5 s, {does}.",
+        "ekf": "Gdy nie można już ufać estymacie pozycji, {does}."
+      },
+      "warn": {
+        "nothing": "To zabezpieczenie nic nie robi: pojazd leci dalej i tylko ostrzega.",
+        "disabled": "To zabezpieczenie jest wyłączone: gdy się zdarzy, pojazd nie reaguje i nic cię nie ostrzega.",
+        "terminate": "To zabezpieczenie zatrzymuje silniki w powietrzu: pojazd spada."
+      }
+    },
+    "info": {
+      "summary": "Co płytka mówi o sobie i swoich czujnikach. Wartość, której pojazd nie podał, nie jest pokazywana.",
+      "loading": "Czytanie danych pojazdu…",
+      "refresh": "Czytaj ponownie",
+      "sensors": "Czujniki",
+      "noSensors": "Pojazd nie wysłał jeszcze stanu czujników.",
+      "sensor": "Czujnik",
+      "present": "Obecny",
+      "enabled": "Używany",
+      "healthy": "Sprawny",
+      "yes": "Tak",
+      "no": "Nie",
+      "vehicle": "Pojazd",
+      "autopilot": "Autopilot",
+      "version": "Wersja firmware",
+      "releaseType": "Rodzaj wydania",
+      "gitHash": "Build firmware (git)",
+      "boardVersion": "Wersja płytki",
+      "vendorId": "Id producenta",
+      "productId": "Id produktu",
+      "uid": "Unikalny id",
+      "release": {
+        "dev": "wersja rozwojowa",
+        "alpha": "alfa",
+        "beta": "beta",
+        "rc": "kandydat do wydania",
+        "official": "wydanie oficjalne"
+      }
+    },
+    "sensor": {
+      "gyro": "Żyroskop",
+      "accel": "Akcelerometr",
+      "mag": "Kompas",
+      "baro": "Barometr",
+      "airspeed": "Czujnik prędkości powietrza",
+      "gps": "GPS",
+      "flow": "Przepływ optyczny",
+      "rc": "Odbiornik radiowy",
+      "gyro2": "Drugi żyroskop",
+      "accel2": "Drugi akcelerometr",
+      "mag2": "Drugi kompas",
+      "battery": "Bateria",
+      "proximity": "Czujnik zbliżeniowy",
+      "logging": "Logowanie",
+      "ahrs": "Estymata orientacji (AHRS)",
+      "terrain": "Dane terenu",
+      "fence": "Geofence",
+      "propulsion": "Napęd"
     }
   }
 }

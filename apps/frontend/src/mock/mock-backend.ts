@@ -8,7 +8,7 @@ import type {
   Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   SettingsState, VehicleMessage,
 } from '@/generated/app'
-import { PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, telemetryAt } from './fixtures'
+import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
@@ -40,6 +40,8 @@ export interface MockOptions {
   logs?: MockLogsOptions
   /** The backend has no `logs.*` handler, as the real one has none yet: every call is answered with UNKNOWN_METHOD. */
   withoutLogs?: boolean
+  /** The vehicle's parameters, when not the usual few (`SETUP_PARAMS` is a Copter that was set up). */
+  params?: Param[]
 }
 
 /**
@@ -111,7 +113,7 @@ const MAX_REPLAY = 200
 
 class MockVehicle {
   connection: Connection = { state: 'disconnected' }
-  params: Param[] = PARAMS.map(p => ({ ...p }))
+  params: Param[]
   readonly watchers = new Set<number>()
   readonly timers = new Map<number, ReturnType<typeof setInterval>>()
   /** The subscriptions to `vehicle.messages`, and the messages kept for them (ids go up for as long as the mock runs). */
@@ -140,6 +142,7 @@ class MockVehicle {
 
   constructor(private readonly send: Send, private readonly options: MockOptions) {
     this.settings = options.settings ?? { version: 1, ui: [] }
+    this.params = (options.params ?? PARAMS).map(p => ({ ...p }))
     this.ftpMode = options.ftp ?? 'ok'
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
     this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
@@ -212,6 +215,8 @@ class MockVehicle {
       case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
+      case 'vehicle.info': return this.connected(fail) && ok({ ...VEHICLE_DETAILS, sensors: [...VEHICLE_DETAILS.sensors] })
+      case 'vehicle.modes': return this.connected(fail) && ok({ kind: 'copter', modes: COPTER_MODES })
       case 'logs.vehicle.list': return this.connected(fail) && this.logs.list(ok)
       case 'logs.download': return this.connected(fail) && this.logs.download((e.p as { ids: number[] }).ids, ok, fail)
       case 'logs.cancel': return this.logs.cancel(ok)
@@ -332,7 +337,7 @@ class MockVehicle {
   connect(request: ConnectRequest, ok: (p: Envelope['p']) => void) {
     // The flight controller on the mock's USB port is the simulated vehicle too.
     if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
-      this.params = PARAMS.map(p => ({ ...p }))
+      this.params = (this.options.params ?? PARAMS).map(p => ({ ...p }))
       this.telemetryArmed = undefined
       this.logs.reset()
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
@@ -362,6 +367,11 @@ class MockVehicle {
   }
 
   write(w: ParamWrite, ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    const armed = this.armedState()
+    // A write from a Setup page (`guarded`) is refused while the vehicle is armed or not known to be disarmed, as the backend does.
+    if (w.guarded === true && (armed === undefined || armed === null || armed)) {
+      return armed ? fail('ARMED', 'the vehicle is armed') : fail('STATE_UNKNOWN', 'the vehicle\'s state is unknown (no heartbeat for 3 s)')
+    }
     const param = this.params.find(p => p.id === w.id)
     if (!param) {
       return fail('UNKNOWN_PARAM', `the vehicle has no ${w.id}`)

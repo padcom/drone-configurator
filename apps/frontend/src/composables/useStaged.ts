@@ -6,7 +6,7 @@ import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
 import { includesGuarded } from '@/lib/logs/loggingSetup'
 import { isCalibration } from '@/lib/params/calibrationParams'
-import type { Connection, Param } from '@/generated/app'
+import type { Connection, Param, ParamWrite } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
 import type { ParamsModel } from './useParams'
 
@@ -22,6 +22,11 @@ export interface StagedChange {
   warning?: string
   /** Where it came from: typed by the user (`edit`, the default), or the initial value put back (`reset`). */
   origin?: 'edit' | 'reset'
+  /**
+   * Set when a Setup page queued it: it is not written while the vehicle is armed, or may be (unknown counts as armed), and the
+   * backend refuses it then too. A change from the Parameters screen is not guarded.
+   */
+  guarded?: boolean
 }
 
 /** How a staged change went when it was written. */
@@ -32,6 +37,12 @@ export interface StagedResult {
   outcome: 'verified' | 'changed' | 'failed'
   /** What to tell the user: the value read back, or why not. */
   detail: string
+}
+
+/** How values from another page are queued. */
+export interface StageOptions {
+  /** The page is a Setup page: the changes are refused while the vehicle is armed, or may be, here and in the backend. */
+  guarded?: boolean
 }
 
 /** What the staged changes need from the rest of the interface. */
@@ -95,7 +106,7 @@ export interface StagedModel {
    *
    * @returns how many are queued now
    */
-  stage: (targets: { id: string, to: number }[]) => number
+  stage: (targets: { id: string, to: number }[], options?: StageOptions) => number
   /** Forgets every change and result (the session ended, or another vehicle was connected). */
   reset: () => void
   /** Writes the changes that are not written yet, after one question, and stops at the first that is not confirmed. */
@@ -136,6 +147,33 @@ export function endsSession(next: Connection, before: Connection): boolean {
   }
 
   return next.state === 'disconnected' || (next.state === 'connected' && next.resumed !== true)
+}
+
+/**
+ * What `params.write` is sent for a change: a change from a Setup page is marked `guarded`, and the backend refuses it too while
+ * the vehicle is armed or not known to be disarmed.
+ *
+ * @param param the parameter
+ * @param change the change
+ * @returns the request
+ */
+function writeOf(param: Param, change: StagedChange): ParamWrite {
+  const { id, kind, type } = param
+
+  return { id, kind, type, value: change.to, ...change.guarded ? { guarded: true } : {} }
+}
+
+/**
+ * A change as a Setup page or another page queues it.
+ *
+ * @param id the parameter
+ * @param from the value on the vehicle
+ * @param to the value to write
+ * @param guarded whether a Setup page queues it
+ * @returns the change
+ */
+function changeOf(id: string, from: number, to: number, guarded: boolean): StagedChange {
+  return guarded ? { id, from, to, guarded } : { id, from, to }
 }
 
 /** The staged changes. */
@@ -221,15 +259,44 @@ class Staged implements StagedModel {
    * value from another page), and the reason is kept for the page to say.
    *
    * @param id the parameter
+   * @param guarded whether a Setup page queues it (refused armed whatever the parameter is)
    * @returns true if it is refused
    */
-  private refuses(id: string): boolean {
-    if (!this.refusesLogging([id])) {
+  private refuses(id: string, guarded = false): boolean {
+    const message = this.armedMessage(id, guarded)
+    if (message === null) {
       return false
     }
-    this.refused.value = say('staged.armedGuarded')
+    this.refused.value = message
 
     return true
+  }
+
+  /**
+   * Why a parameter is not queued now because the vehicle may be armed: a Setup page's change, or a logging or notch parameter.
+   *
+   * @param id the parameter
+   * @param guarded whether a Setup page queues it
+   * @returns the words, or null when it may be queued
+   */
+  private armedMessage(id: string, guarded: boolean): string | null {
+    if (!this.mayBeArmed()) {
+      return null
+    }
+    if (guarded) {
+      return say('staged.armedSetup')
+    }
+
+    return includesGuarded([id]) ? say('staged.armedGuarded') : null
+  }
+
+  /**
+   * Whether the vehicle is armed or may be (unknown counts as armed).
+   *
+   * @returns true if it may be
+   */
+  private mayBeArmed(): boolean {
+    return this.deps.mayBeArmed?.() ?? false
   }
 
   /**
@@ -306,10 +373,11 @@ class Staged implements StagedModel {
     return this.writing.value ? 0 : targets.filter(({ id, to }) => this.resetOne(id, to)).length
   }
 
-  stage(targets: { id: string, to: number }[]): number {
+  stage(targets: { id: string, to: number }[], options: StageOptions = {}): number {
     this.refused.value = null
+    const guarded = options.guarded === true
 
-    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to)).length
+    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to, guarded)).length
   }
 
   /**
@@ -329,10 +397,11 @@ class Staged implements StagedModel {
    *
    * @param param the parameter
    * @param value the value
+   * @param guarded whether a Setup page queues it
    * @returns true if it can
    */
-  private stageable(param: Param, value: number): boolean {
-    return this.writable(param, value) && !this.refuses(param.id)
+  private stageable(param: Param, value: number, guarded: boolean): boolean {
+    return this.writable(param, value) && !this.refuses(param.id, guarded)
   }
 
   /**
@@ -340,9 +409,10 @@ class Staged implements StagedModel {
    *
    * @param id the parameter
    * @param to the value
+   * @param guarded whether a Setup page queues it (the change is then marked, and not written while the vehicle may be armed)
    * @returns true if a change is queued now
    */
-  private stageOne(id: string, to: number): boolean {
+  private stageOne(id: string, to: number, guarded: boolean): boolean {
     const param = this.deps.parameters.params.value.find(candidate => candidate.id === id)
     if (!param) {
       return false
@@ -353,15 +423,24 @@ class Staged implements StagedModel {
 
       return false
     }
-    if (!this.stageable(param, value)) {
+    if (!this.stageable(param, value, guarded)) {
       return false
     }
-    // Not `queue`: that carries the warning of the selected parameter's draft, which is another parameter's.
-    const kept = this.changes.value.filter(change => change.id !== id)
-    this.changes.value = [...kept, { id, from: param.value, to: value }]
-    this.results.value = this.results.value.filter(result => kept.some(change => change.id === result.id))
+    this.put(changeOf(id, param.value, value, guarded))
 
     return true
+  }
+
+  /**
+   * Puts a change in the list, in place of any change for the same parameter. (Not `queue`: that carries the warning of the
+   * selected parameter's draft, which is another parameter's.)
+   *
+   * @param change the change
+   */
+  private put(change: StagedChange): void {
+    const kept = this.changes.value.filter(staged => staged.id !== change.id)
+    this.changes.value = [...kept, change]
+    this.results.value = this.results.value.filter(result => kept.some(staged => staged.id === result.id))
   }
 
   sync(): void {
@@ -437,8 +516,8 @@ class Staged implements StagedModel {
       return { id: change.id, outcome: 'failed', detail: say('problem.notOnVehicle') }
     }
     try {
-      const { id, kind, type } = param
-      const result = await this.deps.client.call('params.write', { id, kind, type, value: change.to })
+      const { id } = param
+      const result = await this.deps.client.call('params.write', writeOf(param, change))
       this.deps.parameters.replace(result.param)
 
       return result.verified
@@ -519,7 +598,9 @@ class Staged implements StagedModel {
    * @returns true if they are refused
    */
   private refusesChanges(todo: StagedChange[]): boolean {
-    return this.refusesLogging(todo.map(change => change.id))
+    const setup = todo.some(change => change.guarded === true)
+
+    return this.refusesLogging(todo.map(change => change.id)) || (setup && this.mayBeArmed())
   }
 
   /**
@@ -530,7 +611,7 @@ class Staged implements StagedModel {
    * @returns true if they are refused
    */
   private refusesLogging(ids: readonly string[]): boolean {
-    return includesGuarded(ids) && (this.deps.mayBeArmed?.() ?? false)
+    return includesGuarded(ids) && this.mayBeArmed()
   }
 
   /**

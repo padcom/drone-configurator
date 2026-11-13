@@ -50,6 +50,24 @@ const LOGS_SECTIONS: readonly Section[] = [
   { id: 'vehicle', path: 'vehicle', titleKey: 'logs.section.vehicle', load: () => import('./logs/LogsVehicle.vue') },
   { id: 'tools', path: 'tools', titleKey: 'logs.section.tools', load: () => import('./logs/LogsTools.vue') },
 ]
+const SETUP = () => import('./Setup.vue')
+const SETUP_SECTION = () => import('./setup/SetupSection.vue')
+
+/** The parts of the Setup screen, in the order of the design's list (the home first). Those that are not built say so. */
+const SETUP_SECTIONS: readonly Section[] = [
+  { id: 'home', path: 'home', titleKey: 'setup.section.home', load: () => import('./setup/SetupHome.vue') },
+  { id: 'frame', path: 'frame', titleKey: 'setup.section.frame', load: SETUP_SECTION },
+  { id: 'accel', path: 'accel', titleKey: 'setup.section.accel', load: SETUP_SECTION },
+  { id: 'compass', path: 'compass', titleKey: 'setup.section.compass', load: SETUP_SECTION },
+  { id: 'radio', path: 'radio', titleKey: 'setup.section.radio', load: SETUP_SECTION },
+  { id: 'motors', path: 'motors', titleKey: 'setup.section.motors', load: SETUP_SECTION },
+  { id: 'modes', path: 'modes', titleKey: 'setup.section.modes', load: () => import('./setup/SetupModes.vue') },
+  { id: 'failsafes', path: 'failsafes', titleKey: 'setup.section.failsafes', load: () => import('./setup/SetupFailsafes.vue') },
+  { id: 'battery', path: 'battery', titleKey: 'setup.section.battery', load: SETUP_SECTION },
+  { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: SETUP_SECTION },
+  { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: SETUP_SECTION },
+  { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },
+]
 const FLIGHT = () => import('./FlightData.vue')
 const PARAMETERS = () => import('./Parameters.vue')
 const SETTINGS = () => import('./Settings.vue')
@@ -58,7 +76,7 @@ const SETTINGS = () => import('./Settings.vue')
 export const PRODUCT_SCREENS: readonly Screen[] = [
   { id: 'flight', path: '/flight', titleKey: 'screen.flight', icon: 'navigation', load: FLIGHT },
   { id: 'plan', path: '/plan', titleKey: 'screen.plan', icon: 'route', load: NOT_AVAILABLE },
-  { id: 'setup', path: '/setup', titleKey: 'screen.setup', icon: 'wrench', load: NOT_AVAILABLE },
+  { id: 'setup', path: '/setup', titleKey: 'screen.setup', icon: 'wrench', sections: SETUP_SECTIONS, load: SETUP },
   {
     id: 'parameters',
     path: '/parameters',

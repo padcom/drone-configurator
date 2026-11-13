@@ -35,7 +35,7 @@ import {
   encodeParamsProgress,
   encodeParamWriteResult,
 } from "./generated/app"
-import { SessionPart, changesVehicleType, connectedLink, link } from "./session"
+import { SessionPart, armedState, changesVehicleType, connectedLink, link } from "./session"
 
 /// Registers the service's methods on `c`, and its part of the session.
 export function register(c: Communicator): void {
@@ -322,9 +322,24 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   encodeParamList(out)
 }
 
+/// Refuses with `ARMED`, or `STATE_UNKNOWN` when the vehicle's armed state is not known (no heartbeat for 3 s: unknown counts as armed).
+function refuseWhileArmed(): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed")
+  }
+}
+
 async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const w = decodeParamWrite(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
+  // A write from a Setup page is refused while the vehicle is armed or not known to be disarmed: the page says so, and so does this.
+  if (w.guarded != null && w.guarded!) {
+    refuseWhileArmed()
+  }
   const type = typeValue(w.type)
   if (type == null) {
     throw new CommunicatorError("INVALID_VALUE", `unknown parameter type ${w.type}`)

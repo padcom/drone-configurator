@@ -15,6 +15,7 @@ import { toastSeverity } from '@/lib/fly/messages'
 import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
+import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
 import { type Vehicle, useVehicle } from './useVehicle'
@@ -65,6 +66,8 @@ export interface ConfiguratorHandle {
   browser: BrowserModel
   /** The raw IMU batches of a flight log and their spectrum. */
   spectrum: SpectrumModel
+  /** What the Setup pages ask of the vehicle besides parameters: its details and its flight modes. */
+  setup: SetupModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -279,6 +282,37 @@ async function restoreRemoval(settings: SettingsModel, to: Removal): Promise<voi
 }
 
 /**
+ * A vehicle that has just been connected has its parameters downloaded. A link that came back to the same vehicle (`resumed`) has
+ * them downloaded again too, but that does not replace the initial values: only the user's Download does, and a connection to
+ * another vehicle.
+ *
+ * @param vehicle the vehicle link
+ * @param parameters the parameters
+ */
+function downloadOnConnect(vehicle: Vehicle, parameters: ParamsModel): void {
+  vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
+}
+
+/**
+ * What the Setup pages ask of the vehicle besides parameters. What the board said is the vehicle's: another vehicle, or none, has
+ * its own, so it goes with every connected report that is not the same vehicle coming back.
+ *
+ * @param client the link to the backend
+ * @param vehicle the vehicle link
+ * @returns the setup's details
+ */
+function startSetup(client: BackendClient, vehicle: Vehicle): SetupModel {
+  const setup = useSetup({ client })
+  watch(vehicle.connection, next => {
+    if (next.state !== 'connected' || next.resumed !== true) {
+      setup.reset()
+    }
+  })
+
+  return setup
+}
+
+/**
  * The vehicle's logs. They are the vehicle's: another vehicle, or none, has its own. So they go when the session ends, and with
  * every connected report that is not the same vehicle coming back (`resumed`), also one that follows another with no gap.
  *
@@ -405,10 +439,7 @@ export function createConfigurator(
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
-  // A vehicle that has just been connected has its parameters downloaded.
-  // A link that came back to the same vehicle (`resumed`) has them downloaded again too, but that does not replace the initial
-  // values: only the user's Download does, and a connection to another vehicle.
-  vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
+  downloadOnConnect(vehicle, parameters)
   const messages = startMessages(client, vehicle)
   const staged = stagedFor(client, parameters, vehicle, askUser)
   const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser })
@@ -416,7 +447,8 @@ export function createConfigurator(
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
-    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, ...logModels(client, askUser), staged,
+    vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
+    setup: startSetup(client, vehicle),
   }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
