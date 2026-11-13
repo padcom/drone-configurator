@@ -46,8 +46,13 @@ describe('opening the palette', () => {
 
     expect(await app.evaluate<boolean[]>('window.__ctrlP')).toEqual([true])
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('palette-input')
-    // (The screens' commands, five for the parts of Logs, and the others.)
-    expect(await app.evaluate<string[]>(ROWS)).toHaveLength(20)
+    // The commands of the screens and of their parts (Setup and Logs have parts, and each part has its command) are all there;
+    // the number is not pinned, since a new part is a new command.
+    const rows = await app.evaluate<string[]>(ROWS)
+    const goes = await app.evaluate<number>(`${ROWS}.filter(id => id.startsWith('go.')).length`)
+    expect(rows).toEqual(expect.arrayContaining(['connect.open', 'go.flight', 'go.setup', 'go.setup.modes', 'go.logs.vehicle']))
+    expect(goes).toBeGreaterThanOrEqual(7 + 5 + 12)
+    expect(rows.length).toBeGreaterThanOrEqual(20)
     // Nothing printed and no other window: the page is still the only dialog, and still the one document.
     expect(await app.evaluate<number>(`document.querySelectorAll('dialog[open]').length`)).toBe(1)
   })

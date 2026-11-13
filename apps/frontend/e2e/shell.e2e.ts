@@ -9,7 +9,7 @@ import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 const MARKERS: [id: string, check: string, title: string][] = [
   ['flight', '#telemetry', 'Flight data'],
   ['plan', '.not-available', 'Plan'],
-  ['setup', '.not-available', 'Setup'],
+  ['setup', '.setup', 'Setup'],
   ['parameters', '#list-status', 'Parameters'],
   ['tune', '.not-available', 'Tune'],
   ['logs', '.logs', 'Logs'],
