@@ -221,3 +221,75 @@ it('forgets how the last test ended when another begins', async () => {
   expect(test.ended.value).toBeNull()
   test.release()
 })
+
+it('takes the frame the vehicle started with from the list, and offers no test once the frame differs from it', async () => {
+  const { control, test, mock } = await rig()
+  expect(test.booted.value).toEqual({ class: 1, type: 1 })
+  expect(test.block.value).toBeNull()
+  // the Frame page wrote a new type (read back at once): the vehicle still has the old order until it restarts
+  control.announce?.('FRAME_TYPE', 0)
+  await wait()
+  expect(test.block.value).toBe('frame')
+  test.start(1, 5)
+  await wait()
+  expect(mock.began()).toBe(0)
+  // the frame the parameters say now does not make it the booted one
+  expect(test.booted.value).toEqual({ class: 1, type: 1 })
+})
+
+it('does not know the frame the vehicle started with before it is connected and its list is complete', () => {
+  const backend = mockBackend({ telemetryMs: 600_000, params: SETUP_PARAMS })
+  const handle = createConfigurator(backend, () => Promise.resolve(true))
+
+  expect(handle.motorTest.booted.value).toBeNull()
+})
+
+it('takes the new frame as the booted one only after the connection was lost and came back (the vehicle restarted)', async () => {
+  const { control, test } = await rig()
+  control.announce?.('FRAME_TYPE', 0)
+  await wait()
+  expect(test.block.value).toBe('frame')
+
+  control.connection?.({ state: 'reconnecting', attempt: 1, nextRetryMs: 1000 })
+  await wait()
+  expect(test.booted.value).toBeNull()
+  control.connection?.({ state: 'connected', resumed: true })
+  await wait(200)
+
+  expect(test.booted.value).toEqual({ class: 1, type: 0 })
+  expect(test.block.value).toBeNull()
+})
+
+it('keeps what was tested and confirmed for the connection only, and confirms only a motor that was tested', async () => {
+  const { control, test } = await rig()
+  test.confirm(2, true)
+  expect(test.confirmed.value).toEqual([])
+  test.start(2, 5)
+  await wait()
+  test.release()
+  await wait()
+  expect(test.tested.value).toEqual([2])
+  test.confirm(2, true)
+  expect(test.confirmed.value).toEqual([2])
+  test.confirm(2, false)
+  expect(test.confirmed.value).toEqual([])
+  test.confirm(2, true)
+
+  control.connection?.({ state: 'disconnected' })
+  await wait()
+  expect(test.tested.value).toEqual([])
+  expect(test.confirmed.value).toEqual([])
+})
+
+it('is busy while a test runs and for a few seconds after, when the armed flag is the test\'s own', async () => {
+  const { test } = await rig()
+  expect(test.busy.value).toBe(false)
+  test.start(1, 5)
+  await wait()
+  expect(test.busy.value).toBe(true)
+  test.release()
+  await wait()
+  expect(test.busy.value).toBe(true)
+  await wait(SETTLE_MS + 10)
+  expect(test.busy.value).toBe(false)
+})

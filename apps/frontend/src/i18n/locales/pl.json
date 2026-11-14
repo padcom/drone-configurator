@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, i co teraz robią wyjścia pojazdu. Nic na tej stronie nie kręci silnikiem.",
+      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, co teraz robią wyjścia pojazdu oraz test każdego silnika.",
       "escTitle": "Ustawienia ESC",
       "protocol": "Protokół ESC",
       "protocolHelp": "Protokół wyjść silników (MOT_PWM_TYPE). Działa po ponownym uruchomieniu, a regulatory ESC muszą go rozumieć.",
@@ -1476,7 +1476,9 @@
         "throttleValue": "{percent} % (najwyżej 20 %)",
         "help": "Przytrzymaj przycisk, aby kręcić tym silnikiem (spacja lub Enter przytrzymują go z klawiatury). Litery to kolejność, w jakiej pojazd testuje silniki, od A; rysunek to rama, przód jest u góry.",
         "pad": "Silniki, przód jest u góry",
-        "motor": "Silnik {letter}: przytrzymaj, aby kręcić",
+        "confirmed": "Potwierdzono",
+        "frame": "Pojazd ustala kolejność silników przy starcie. Rama została od tego czasu zmieniona (albo jeszcze nie została odczytana), więc litery mogą nie odpowiadać silnikom, które się kręcą: uruchom pojazd ponownie, aby przetestować silnik.",
+        "motor": "Silnik {letter}, kręci się {spin}: przytrzymaj, aby kręcić",
         "noLayout": "Ta strona nie ma rysunku dla tej ramy, więc nie powie, który silnik jest którym: test silników nie jest dostępny.",
         "offline": "Połącz pojazd, aby przetestować silnik.",
         "unknown": "Nie wiadomo, czy pojazd jest uzbrojony (brak świeżego heartbeatu): żadnego silnika nie można testować.",

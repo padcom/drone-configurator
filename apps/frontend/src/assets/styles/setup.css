@@ -578,18 +578,34 @@
 
 .motor-test-pad {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 380px;
+  height: 380px;
   max-width: 100%;
   border: 1px dashed var(--color-border-strong);
   border-radius: 50%;
 }
 
-.motor-test-motor {
+.motor-test-cell {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+}
+
+.motor-test-spin {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.motor-test-confirm {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.motor-test-motor {
   width: 64px;
   height: 64px;
-  transform: translate(-50%, -50%);
   border: 2px solid var(--color-warn);
   border-radius: 50%;
   background: var(--color-surface-raised);

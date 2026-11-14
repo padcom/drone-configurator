@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "Wie die ESCs angesteuert werden, die Schwellen, bei denen sich die Motoren drehen, und was die Ausgänge des Fahrzeugs gerade tun. Nichts auf dieser Seite dreht einen Motor.",
+      "summary": "Wie die ESCs angesteuert werden, die Schwellen, bei denen sich die Motoren drehen, was die Ausgänge des Fahrzeugs gerade tun, und ein Test jedes Motors.",
       "escTitle": "ESC-Einstellungen",
       "protocol": "ESC-Protokoll",
       "protocolHelp": "Das Protokoll der Motorausgänge (MOT_PWM_TYPE). Es gilt nach einem Neustart, und die ESCs müssen es verstehen.",
@@ -1476,7 +1476,9 @@
         "throttleValue": "{percent} % (höchstens 20 %)",
         "help": "Eine Taste halten, um diesen Motor zu drehen (Leertaste oder Eingabe halten sie mit der Tastatur). Die Buchstaben sind die Reihenfolge, in der das Fahrzeug seine Motoren testet, A zuerst; die Zeichnung ist der Rahmen, vorne ist oben.",
         "pad": "Motoren, vorne ist oben",
-        "motor": "Motor {letter}: halten zum Drehen",
+        "confirmed": "Bestätigt",
+        "frame": "Das Fahrzeug legt die Reihenfolge seiner Motoren beim Start fest. Der Rahmen wurde seitdem geändert (oder noch nicht gelesen), die Buchstaben müssen also nicht den drehenden Motoren entsprechen: Starten Sie das Fahrzeug neu, um einen Motor zu testen.",
+        "motor": "Motor {letter}, dreht {spin}: halten zum Drehen",
         "noLayout": "Für diesen Rahmen gibt es hier keine Zeichnung, also lässt sich nicht sagen, welcher Motor welcher ist: der Motortest wird nicht angeboten.",
         "offline": "Verbinden Sie ein Fahrzeug, um einen Motor zu testen.",
         "unknown": "Der Scharf-Zustand des Fahrzeugs ist nicht bekannt (kein aktueller Heartbeat): kein Motor kann getestet werden.",

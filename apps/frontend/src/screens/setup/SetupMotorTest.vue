@@ -21,23 +21,39 @@
       >
       <span class="muted">{{ t('setup.motors.test.throttleValue', { percent: throttle, max: MAX_THROTTLE }) }}</span>
     </div>
-    <p v-if="buttons === null" id="setup-motor-test-nolayout" class="muted">{{ t('setup.motors.test.noLayout') }}</p>
-    <template v-else>
+    <p v-if="buttons === null && model.booted.value !== null" id="setup-motor-test-nolayout" class="muted">
+      {{ t('setup.motors.test.noLayout') }}
+    </p>
+    <template v-else-if="buttons !== null">
       <p class="muted">{{ t('setup.motors.test.help') }}</p>
       <div class="motor-test-pad" role="group" :aria-label="t('setup.motors.test.pad')">
-        <MotorTestButton
+        <div
           v-for="button in buttons"
           :key="button.number"
-          class="motor-test-motor"
-          :data-motor="button.letter"
+          class="motor-test-cell"
           :style="{ left: `${button.left}%`, top: `${button.top}%` }"
-          :disabled="!usable(button.number)"
-          :aria-label="t('setup.motors.test.motor', { letter: button.letter })"
-          @press="press(button.number)"
-          @release="model.release()"
         >
-          {{ button.letter }}
-        </MotorTestButton>
+          <span class="motor-test-spin" :data-spin="button.spin" aria-hidden="true">{{ button.spin === 'cw' ? '↻' : '↺' }}</span>
+          <MotorTestButton
+            class="motor-test-motor"
+            :data-motor="button.letter"
+            :disabled="!usable(button.number)"
+            :aria-label="t('setup.motors.test.motor', { letter: button.letter, spin: t(`setup.frame.${button.spin}`) })"
+            @press="press(button.number)"
+            @release="model.release()"
+          >
+            {{ button.letter }}
+          </MotorTestButton>
+          <label class="motor-test-confirm" :data-confirm="button.letter">
+            <input
+              type="checkbox"
+              :checked="model.confirmed.value.includes(button.number)"
+              :disabled="!model.tested.value.includes(button.number)"
+              @change="model.confirm(button.number, ($event.target as HTMLInputElement).checked)"
+            >
+            {{ t('setup.motors.test.confirmed') }}
+          </label>
+        </div>
       </div>
     </template>
     <p id="setup-motor-test-status" class="motor-test-status" role="status" aria-live="polite">{{ status }}</p>
@@ -84,16 +100,6 @@ const testing = computed(() => model.motor.value !== null)
 let readyTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
- * A parameter of the vehicle as it holds it now (the frame is the vehicle's, not a draft: the test order is the vehicle's).
- *
- * @param id the parameter
- * @returns its value, or -1 when the vehicle has none (which no layout has)
- */
-function valueOf(id: string): number {
-  return handle.parameters.params.value.find(param => param.id === id)?.value ?? -1
-}
-
-/**
  * The words for how the test is.
  *
  * @param motor the motor that runs, or null
@@ -112,7 +118,12 @@ function statusOf(motor: number | null, ended: { motor: number, why: string } | 
   return t(te(key) ? key : 'setup.motors.test.stopped.OTHER', { letter: letterOf(ended.motor), why: ended.why })
 }
 
-const buttons = computed(() => testButtons(valueOf('FRAME_CLASS'), valueOf('FRAME_TYPE')))
+// The letters are for the frame the vehicle STARTED with (it fixes the test order at boot), not the one the parameters say now.
+const buttons = computed(() => {
+  const booted = model.booted.value
+
+  return booted === null ? null : testButtons(booted.class, booted.type)
+})
 const status = computed(() => statusOf(model.motor.value, model.ended.value))
 /** Whether the buttons are unlocked, the tick is not new, and the vehicle is known to be disarmed. */
 const open = computed(() => unlocked.value && ready.value && block.value === null)

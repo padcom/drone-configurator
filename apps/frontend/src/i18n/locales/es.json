@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "Cómo se manejan los ESC, los umbrales a los que giran los motores y lo que hacen ahora las salidas del vehículo. Nada en esta página hace girar un motor.",
+      "summary": "Cómo se manejan los ESC, los umbrales a los que giran los motores, qué hacen ahora las salidas del vehículo y una prueba de cada motor.",
       "escTitle": "Ajustes de los ESC",
       "protocol": "Protocolo de los ESC",
       "protocolHelp": "El protocolo de las salidas de los motores (MOT_PWM_TYPE). Se aplica tras reiniciar, y los ESC deben entenderlo.",
@@ -1476,7 +1476,9 @@
         "throttleValue": "{percent} % (20 % como máximo)",
         "help": "Mantenga pulsado un botón para girar ese motor (Espacio o Intro lo mantienen con el teclado). Las letras son el orden en que el vehículo prueba sus motores, la A primero; el dibujo es el bastidor, el frente está arriba.",
         "pad": "Motores, el frente está arriba",
-        "motor": "Motor {letter}: mantener para girar",
+        "confirmed": "Confirmado",
+        "frame": "El vehículo fija el orden de sus motores al arrancar. El bastidor se cambió desde entonces (o aún no se ha leído), así que las letras pueden no ser los motores que giran: reinicie el vehículo para probar un motor.",
+        "motor": "Motor {letter}, gira {spin}: mantener para girar",
         "noLayout": "Esta página no tiene dibujo para este bastidor, así que no puede decir qué motor es cuál: no se ofrece la prueba de motores.",
         "offline": "Conecte un vehículo para probar un motor.",
         "unknown": "No se conoce el estado de armado del vehículo (sin latido reciente): no se puede probar ningún motor.",

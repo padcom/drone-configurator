@@ -11,10 +11,12 @@ import { type ComputedRef, type Ref, type ShallowRef, computed, shallowRef, watc
 import { type BackendClient, BackendError, type Subscription } from '@/backend/client'
 import type { Connection, MotorTestState, Telemetry } from '@/generated/app'
 import {
+  type Frame,
   HOLD_PING_MS,
   SETTLE_MS,
   type TestBlock,
   clampThrottle,
+  frameBlock,
   testBlock,
 } from '@/lib/setup/motorTest'
 
@@ -26,6 +28,11 @@ export interface MotorTestDeps {
   connection: Readonly<Ref<Connection>>
   /** The latest telemetry (the armed state is read from it). */
   telemetry: Readonly<Ref<Telemetry | null>>
+  /** The parameters: the frame is read from them, and taken as the one the vehicle booted with when the list is complete. */
+  parameters: {
+    list: Readonly<Ref<string>>
+    params: Readonly<Ref<readonly { id: string, value: number }[]>>
+  }
 }
 
 /** How the last test ended. */
@@ -46,6 +53,23 @@ export interface MotorTestModel {
   readonly settling: ShallowRef<boolean>
   /** Why no test can start now. */
   readonly block: ComputedRef<TestBlock>
+  /** Whether a test runs or ended a moment ago: the armed flag is then the test's own: no landing. */
+  readonly busy: ComputedRef<boolean>
+  /**
+   * The frame the vehicle started with: ArduPilot fixes its test order at boot, so this is the frame the letters are for. It is
+   * the
+   * frame of the parameters when the list was complete after the vehicle connected (or came back after a restart), and null until
+   * then.
+   */
+  readonly booted: ShallowRef<Frame | null>
+  /** The motors (in the test order) that were tested in this session, and the ones the person confirmed turned as drawn. */
+  readonly tested: ShallowRef<readonly number[]>
+  /**
+   *
+   */
+  readonly confirmed: ShallowRef<readonly number[]>
+  /** Marks a motor that was tested in this session as confirmed (it turned as drawn), or takes the mark away. */
+  confirm: (motor: number, on: boolean) => void
   /** Starts a test of `motor` at `throttle` percent (held to 1 to 20), when none runs and the vehicle is known to be disarmed. */
   start: (motor: number, throttle: number) => void
   /** Ends the test that runs (the button was let go); nothing when none runs. */
@@ -58,6 +82,10 @@ class MotorTest implements MotorTestModel {
   readonly ended = shallowRef<MotorTestEnd | null>(null)
   readonly settling = shallowRef(false)
   readonly block: ComputedRef<TestBlock>
+  readonly busy: ComputedRef<boolean>
+  readonly booted = shallowRef<Frame | null>(null)
+  readonly tested = shallowRef<readonly number[]>([])
+  readonly confirmed = shallowRef<readonly number[]>([])
   private subscription: Subscription | undefined
   private pinger: ReturnType<typeof setInterval> | undefined
   private settler: ReturnType<typeof setTimeout> | undefined
@@ -68,14 +96,68 @@ class MotorTest implements MotorTestModel {
    * @param deps the client, the connection and the telemetry
    */
   constructor(private readonly deps: MotorTestDeps) {
-    this.block = computed(() => testBlock(
-      deps.connection.value.state === 'connected',
-      deps.telemetry.value,
-      this.motor.value !== null || this.settling.value,
-    ))
+    this.busy = computed(() => this.motor.value !== null || this.settling.value)
+    this.block = computed(() => this.vehicleBlock() ?? this.frameLock())
     // A vehicle that is gone, or not known to be disarmed any more, ends the test (the armed flag of the test itself does not
     // count).
     watch(this.block, block => block !== null && this.release())
+    // The frame the vehicle booted with is what the parameters say when the list is complete, once for each connection (a list
+    // that is
+    // read again later, after the frame was written, does not make the new frame the booted one: only a restart does, and it ends
+    // the
+    // connection first). What was tested and confirmed is of this connection too.
+    watch(() => deps.parameters.list.value, list => list === 'complete' && this.takeBooted())
+    watch(() => deps.connection.value.state, state => state !== 'connected' && this.forget())
+  }
+
+  /**
+   * Why the vehicle itself does not allow a test now.
+   *
+   * @returns the block, or null
+   */
+  private vehicleBlock(): TestBlock {
+    return testBlock(this.deps.connection.value.state === 'connected', this.deps.telemetry.value, this.busy.value)
+  }
+
+  /**
+   * Whether the frame is not the one the vehicle started with.
+   *
+   * @returns `frame` when the test order may not be what the letters say, else null
+   */
+  private frameLock(): TestBlock {
+    return frameBlock(this.booted.value, this.frameNow()) ? 'frame' : null
+  }
+
+  /**
+   * The frame as the parameters say now (-1 for a parameter the vehicle has not).
+   *
+   * @returns the frame
+   */
+  private frameNow(): Frame {
+    const value = (id: string) => this.deps.parameters.params.value.find(param => param.id === id)?.value ?? -1
+
+    return { class: value('FRAME_CLASS'), type: value('FRAME_TYPE') }
+  }
+
+  /** The list is complete: that is the frame the vehicle booted with, if the connection has not got one yet. */
+  private takeBooted(): void {
+    if (this.booted.value === null && this.deps.connection.value.state === 'connected') {
+      this.booted.value = this.frameNow()
+    }
+  }
+
+  /** The connection ended (a restart does that too): the frame it booted with, and what was tested, are not known any more. */
+  private forget(): void {
+    this.booted.value = null
+    this.tested.value = []
+    this.confirmed.value = []
+  }
+
+  confirm = (motor: number, on: boolean): void => {
+    if (this.tested.value.includes(motor)) {
+      const others = this.confirmed.value.filter(m => m !== motor)
+      this.confirmed.value = on ? [...others, motor] : others
+    }
   }
 
   start = (motor: number, throttle: number): void => {
@@ -84,6 +166,7 @@ class MotorTest implements MotorTestModel {
     }
     this.motor.value = motor
     this.ended.value = null
+    this.tested.value = [...this.tested.value.filter(m => m !== motor), motor]
     const subscription = this.deps.client.subscribe(
       'motors.test',
       { motor, throttle: clampThrottle(throttle) },

@@ -1,6 +1,15 @@
 import { expect, it } from 'vitest'
 import type { Telemetry } from '@/generated/app'
-import { DEFAULT_THROTTLE, MAX_THROTTLE, clampThrottle, endedNormally, letterOf, testBlock, testButtons } from './motorTest'
+import {
+  DEFAULT_THROTTLE,
+  MAX_THROTTLE,
+  clampThrottle,
+  endedNormally,
+  frameBlock,
+  letterOf,
+  testBlock,
+  testButtons,
+} from './motorTest'
 
 const telemetry = (armed: boolean, heartbeatAgeMs = 100): Telemetry => ({ armed, mode: 'STABILIZE', heartbeatAgeMs })
 
@@ -65,4 +74,12 @@ it('has no buttons for a frame it has no layout for', () => {
   expect(testButtons(7, 0)).toBeNull()
   expect(testButtons(1, 2)).toBeNull()
   expect(testButtons(0, 0)).toBeNull()
+})
+
+it('does not trust the letters for a frame that is not the one the vehicle started with, or not known', () => {
+  const booted = { class: 1, type: 1 }
+  expect(frameBlock(booted, { class: 1, type: 1 })).toBe(false)
+  expect(frameBlock(booted, { class: 1, type: 0 })).toBe(true)
+  expect(frameBlock(booted, { class: 2, type: 1 })).toBe(true)
+  expect(frameBlock(null, { class: 1, type: 1 })).toBe(true)
 })

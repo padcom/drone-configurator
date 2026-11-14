@@ -66,6 +66,8 @@ class Link {
   /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
   /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
   public motorTest: bool = false
+  /// How long the connection stays open after the session ends while a motor test runs (ms): the time for its stop to go out.
+  public closeGraceMs: int = 300
   /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
   /// says so (reconnect.pi). See `rebootExpected()`.
   public rebootAt: int = 0
@@ -120,6 +122,16 @@ class Link {
     session = new AbortController()
   }
 
+  /// Closes a connection and stops a simulated vehicle (when there are such).
+  closeLater(c: MavLinkConnection?, s: SimulatedAutopilot?): void {
+    if (c != null) {
+      c!.close()
+    }
+    if (s != null) {
+      s!.stop()
+    }
+  }
+
   public close(): void {
     generation += 1
     abortOperations()
@@ -149,12 +161,13 @@ class Link {
       d!.stop()
     }
     const c = conn
-    if (c != null) {
-      c!.close()
-    }
     const s = sim
-    if (s != null) {
-      s!.stop()
+    if (motorTest) {
+      // A motor test is under way: its stop was just sent (motors.pi), and the router drops a frame that was not on a link when it is closed
+      // (it takes the link's turn first, which is a tick later). So the connection stays open for a moment, only long enough for the stop.
+      const _later = setTimeout(() => this.closeLater(c, s), closeGraceMs)
+    } else {
+      closeLater(c, s)
     }
     beats = null
     discovery = null

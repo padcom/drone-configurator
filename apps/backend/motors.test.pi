@@ -194,28 +194,55 @@ async function stopsTheMotorWhenTheLinkIsLost(): Promise<void> throws Error {
   await r.close()
 }
 
+/// The motor was stopped by a STOP that reached the vehicle (not by its own timeout, which is 1.5 s away): within a moment of `ms`.
+async function stoppedPromptly(r: Rig, stopsBefore: int): Promise<void> throws Error {
+  await delay(250)
+  expect(r.sim.motors.stops > stopsBefore).toBe(true)
+  expect(r.sim.motors.running()).toBe(false)
+  await until("the test is over", () => !link.motorTest)
+  neverMoreThanTheCaps(r)
+}
+
 async function stopsTheMotorWhenTheSessionEnds(): Promise<void> throws Error {
   const r = await connected()
   await spinning(r)
+  const stopsBefore = r.sim.motors.stops
   link.close()
+  // The stop is sent as the session ends, and the connection stays open for a moment (closeGraceMs) for it: the router drops a frame that
+  // was not on a link when it is closed. The motor is stopped by it, long before the vehicle's own 1.5 s timeout would stop it.
   expect(link.motorTest).toBe(true)
-  // The stop is written before the link is closed, and that is all the backend can do: whether it arrives is the link's (here the simulator
-  // is stopped with the session, and it never sees it). What ENDS the motor is the vehicle's own timeout: every test it was sent is 1.5 s.
-  await until("the test is over", () => !link.motorTest)
-  await delay(1700)
-  expect(r.sim.motors.running()).toBe(false)
-  expect(r.sim.motors.maxSeconds).toBe(1.5)
-  neverMoreThanTheCaps(r)
+  await stoppedPromptly(r, stopsBefore)
   clearInterval(r.hold)
 }
 
 async function stopsTheMotorWhenTheUserDisconnects(): Promise<void> throws Error {
   const r = await connected()
   await spinning(r)
+  const stopsBefore = r.sim.motors.stops
   await r.close()
-  await until("the test is over", () => !link.motorTest)
-  await delay(1700)
-  expect(r.sim.motors.running()).toBe(false)
+  await stoppedPromptly(r, stopsBefore)
+}
+
+async function stopsTheMotorWhenTheWindowCloses(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  // what the host says when the app is closing: the backend ends the session
+  await r.f.announceClosing()
+  await stoppedPromptly(r, stopsBefore)
+  clearInterval(r.hold)
+}
+
+async function stopsTheMotorWhenTheHostExits(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  // the link to the frontend ends with no word (the host was killed): the subscription ends, the session does not, and the stop goes out
+  r.f.hostExits()
+  await stoppedPromptly(r, stopsBefore)
+  r.sim.stop()
+  clearInterval(r.hold)
+  link.close()
 }
 
 async function stopsTheMotorWhenTheVehicleRefusesTheStart(): Promise<void> throws Error {
@@ -368,6 +395,8 @@ describe("the exits of a motor test", () => {
   it("stops the motor when the link is lost", stopsTheMotorWhenTheLinkIsLost)
   it("stops the motor when the session ends", stopsTheMotorWhenTheSessionEnds)
   it("stops the motor when the user disconnects", stopsTheMotorWhenTheUserDisconnects)
+  it("stops the motor when the window closes", stopsTheMotorWhenTheWindowCloses)
+  it("stops the motor when the host exits without a word", stopsTheMotorWhenTheHostExits)
   it("sends a stop when the vehicle refuses the start", stopsTheMotorWhenTheVehicleRefusesTheStart)
   it("sends a stop when the vehicle does not answer the start", stopsTheMotorWhenTheVehicleDoesNotAnswerTheStart)
 })

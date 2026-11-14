@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "Come vengono pilotati gli ESC, le soglie a cui girano i motori e cosa fanno ora le uscite del veicolo. Nulla in questa pagina fa girare un motore.",
+      "summary": "Come vengono pilotati gli ESC, le soglie a cui girano i motori, cosa fanno ora le uscite del veicolo e un test di ogni motore.",
       "escTitle": "Impostazioni degli ESC",
       "protocol": "Protocollo degli ESC",
       "protocolHelp": "Il protocollo delle uscite dei motori (MOT_PWM_TYPE). Ha effetto dopo un riavvio e gli ESC devono capirlo.",
@@ -1476,7 +1476,9 @@
         "throttleValue": "{percent} % (20 % al massimo)",
         "help": "Tenere premuto un pulsante per far girare quel motore (Spazio o Invio lo tengono premuto dalla tastiera). Le lettere sono l'ordine in cui il veicolo prova i suoi motori, la A per prima; il disegno è il telaio, il fronte è in alto.",
         "pad": "Motori, il fronte è in alto",
-        "motor": "Motore {letter}: tenere premuto per girare",
+        "confirmed": "Confermato",
+        "frame": "Il veicolo fissa l'ordine dei suoi motori all'avvio. Il telaio è stato cambiato da allora (o non è ancora stato letto), quindi le lettere potrebbero non essere i motori che girano: riavvia il veicolo per provare un motore.",
+        "motor": "Motore {letter}, gira {spin}: tenere premuto per girare",
         "noLayout": "Questa pagina non ha un disegno per questo telaio, quindi non può dire quale motore sia quale: il test dei motori non viene offerto.",
         "offline": "Collega un veicolo per provare un motore.",
         "unknown": "Lo stato di armamento del veicolo non è noto (nessun heartbeat recente): nessun motore può essere provato.",

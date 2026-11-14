@@ -104,12 +104,18 @@ it('draws the buttons of the frame, labelled by the test order and not by any ou
   // (FRAME_CLASS 1, FRAME_TYPE 1: a quad X)
   expect(buttons.map(button => button.text())).toEqual(['A', 'B', 'C', 'D'])
   expect(buttons.map(button => button.attributes('aria-label'))).toEqual([
-    'Motor A: hold to spin', 'Motor B: hold to spin', 'Motor C: hold to spin', 'Motor D: hold to spin',
+    'Motor A, turns counter-clockwise: hold to spin',
+    'Motor B, turns clockwise: hold to spin',
+    'Motor C, turns counter-clockwise: hold to spin',
+    'Motor D, turns clockwise: hold to spin',
   ])
+  // the way each turns is drawn, in the order of the test (a quad X)
+  expect(wrapper.findAll('.motor-test-spin').map(spin => spin.attributes('data-spin'))).toEqual(['ccw', 'cw', 'ccw', 'cw'])
+  expect(wrapper.findAll('.motor-test-spin').map(spin => spin.text())).toEqual(['↺', '↻', '↺', '↻'])
 
   // A is front right (the front is up), D front left
   const place = (letter: string) => {
-    const { left, top } = (wrapper.get(`[data-motor="${letter}"]`).element as HTMLElement).style
+    const { left, top } = (wrapper.get(`[data-motor="${letter}"]`).element.parentElement as HTMLElement).style
 
     return [Number.parseFloat(left), Number.parseFloat(top)]
   }
@@ -388,4 +394,54 @@ it('has no way to start a test but a pressed button: a click does nothing', asyn
   await wait(20)
 
   expect(rig.mock.began()).toBe(0)
+})
+
+it('offers no test for a frame that was changed since the vehicle started, and says why', async () => {
+  const rig = await page()
+  await unlock(rig)
+  // the Frame page wrote FRAME_TYPE (a plus), read back at once; the vehicle has not restarted
+  rig.control.announce?.('FRAME_TYPE', 0)
+  await flushPromises()
+
+  expect(rig.wrapper.get('#setup-motor-test-block').text()).toContain('fixes the order of its motors when it starts')
+  expect((rig.wrapper.get('.kit-tick input').element as HTMLInputElement).checked).toBe(false)
+  expect(rig.wrapper.get('[data-motor="A"]').attributes('disabled')).toBeDefined()
+  await rig.wrapper.get('.kit-tick input').setValue(true)
+  await wait(IGNORE_AFTER_UNLOCK_MS + 50)
+  await press(rig)
+  expect(rig.mock.began()).toBe(0)
+})
+
+it('offers the test again when the frame is back to the one the vehicle started with', async () => {
+  const rig = await page()
+  rig.control.announce?.('FRAME_TYPE', 0)
+  await flushPromises()
+  expect(rig.wrapper.find('#setup-motor-test-block').exists()).toBe(true)
+  rig.control.announce?.('FRAME_TYPE', 1)
+  await flushPromises()
+
+  expect(rig.wrapper.find('#setup-motor-test-block').exists()).toBe(false)
+})
+
+it('marks a motor confirmed only once it was tested, per session, and the mark is gone with the connection', async () => {
+  const rig = await page()
+  const mark = () => rig.wrapper.get<HTMLInputElement>('[data-confirm="A"] input')
+  expect(mark().element.disabled).toBe(true)
+
+  await unlock(rig)
+  await press(rig)
+  await fire(rig.wrapper, 'A', 'pointerup')
+  await flushPromises()
+  expect(mark().element.disabled).toBe(false)
+  expect(rig.wrapper.get('[data-confirm="A"]').text()).toBe('Confirmed')
+  await mark().setValue(true)
+  expect(rig.handle.motorTest.confirmed.value).toEqual([1])
+  expect(mark().element.checked).toBe(true)
+  // B was not tested: its mark cannot be made
+  expect(rig.wrapper.get<HTMLInputElement>('[data-confirm="B"] input').element.disabled).toBe(true)
+
+  rig.control.connection?.({ state: 'disconnected' })
+  await flushPromises()
+  expect(rig.handle.motorTest.confirmed.value).toEqual([])
+  expect(rig.handle.motorTest.tested.value).toEqual([])
 })

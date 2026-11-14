@@ -20,10 +20,36 @@ export const IGNORE_AFTER_UNLOCK_MS = 400
 export const HOLD_PING_MS = 250
 
 /** How long after a test the page waits before another may start (ms): the vehicle stops the motor, and still says armed. */
-export const SETTLE_MS = 2000
+export const SETTLE_MS = 3000
 
-/** Why a test may not start now: no vehicle (`offline`), its state not known (`unknown`), or it is armed (`armed`). */
-export type TestBlock = 'offline' | 'unknown' | 'armed' | null
+/**
+ * Why a test may not start now: no vehicle (`offline`), its state not known (`unknown`), it is armed (`armed`), or the frame it
+ * started with is not the frame the parameters say now, or not known (`frame`: see `frameBlock`).
+ */
+export type TestBlock = 'offline' | 'unknown' | 'armed' | 'frame' | null
+
+/** The frame of a vehicle: FRAME_CLASS and FRAME_TYPE. */
+export interface Frame {
+  /** FRAME_CLASS. */
+  class: number
+  /** FRAME_TYPE. */
+  type: number
+}
+
+/**
+ * Whether the test order can be trusted. ArduPilot fixes the order of its motors when it boots (FRAME_CLASS and FRAME_TYPE both
+ * need a
+ * reboot), so the letters mean what the frame the vehicle STARTED with says. A frame that was written since (and read back at
+ * once) is
+ * not that one until the vehicle restarts, and a frame the page has not seen the vehicle start with is not known.
+ *
+ * @param booted the frame the vehicle started with, or null when it is not known
+ * @param now the frame the parameters say now
+ * @returns true when the test must not be offered
+ */
+export function frameBlock(booted: Frame | null, now: Frame): boolean {
+  return booted === null || booted.class !== now.class || booted.type !== now.type
+}
 
 /**
  * A throttle held to what a test takes: a whole number from 1 to 20 percent. A value outside it (a stored one, a typed one) is

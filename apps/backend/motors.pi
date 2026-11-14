@@ -6,7 +6,9 @@
 //  - the page lets go, or unsubscribes (the page leaving, a key up, the pointer leaving, a window closing: the subscription ends): `RELEASED`;
 //  - the page goes silent (`motors.hold` is its "still held", every 250 ms; none for `waits.silenceMs`, 1 s, is a page that froze): `SILENT`;
 //  - the link or the session ends (`link.session` is aborted, or the session's parts are detached before the connection is closed):
-//    `LINK_LOST`. The stop is written to the link BEFORE it is closed, and that is all the backend can do: whether it arrives is up to
+//    `LINK_LOST`. The stop is sent as the session ends, and the connection is kept open for `closeGraceMs` (session.pi) so that it can go out:
+//    the router drops a frame that has not got onto a link when it is closed (it takes the link's turn a tick later), so a stop sent in
+//    the same tick as the close would never leave. That it goes out is tested against the simulator; on a real link it is up to
 //    the link;
 //  - the vehicle refuses a start, or does not answer one: `REFUSED`, `UNACKNOWLEDGED` (a stop is sent anyway);
 //  - and when none of that can reach the vehicle (the backend killed, the cable pulled): the test the vehicle holds is never longer
@@ -70,7 +72,7 @@ class Test implements SessionPart {
     conn = c
   }
 
-  /// The session ends (or another vehicle is there). The session closes the connection right after its parts, so the stop is written FIRST.
+  /// The session ends (or another vehicle is there): the stop is sent first, and the session keeps the connection open a moment for it.
   public detach(): void {
     stopAtOnce()
     release(serial, "LINK_LOST")

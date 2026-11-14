@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "How the ESCs are driven, the thresholds the motors spin at, and what the vehicle’s outputs are doing now. Nothing on this page spins a motor.",
+      "summary": "How the ESCs are driven, the thresholds the motors spin at, what the vehicle’s outputs are doing now, and a test of each motor.",
       "escTitle": "ESC settings",
       "protocol": "ESC protocol",
       "protocolHelp": "The protocol of the motor outputs (MOT_PWM_TYPE). It takes effect after a reboot, and the ESCs must understand it.",
@@ -1476,7 +1476,9 @@
         "throttleValue": "{percent} % (20 % at most)",
         "help": "Hold a button to spin that motor (Space or Enter holds it from the keyboard). The letters are the order the vehicle tests its motors in, A first; the drawing is the frame, the front is up.",
         "pad": "Motors, the front is up",
-        "motor": "Motor {letter}: hold to spin",
+        "confirmed": "Confirmed",
+        "frame": "The vehicle fixes the order of its motors when it starts. The frame was changed since (or has not been read yet), so the letters may not be the motors that turn: restart the vehicle to test a motor.",
+        "motor": "Motor {letter}, turns {spin}: hold to spin",
         "noLayout": "This page has no drawing for this frame, so it cannot say which motor is which: the motor test is not offered.",
         "offline": "Connect a vehicle to test a motor.",
         "unknown": "The vehicle's armed state is not known (no recent heartbeat): no motor can be tested.",
