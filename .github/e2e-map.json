@@ -44,7 +44,7 @@
         "apps/backend/{log*,local*,tlog*,fft,files,importednames,settings}.pi"
       ],
       "specs": [
-        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
+        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "spectrum-after.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
       ]
     },
     {
