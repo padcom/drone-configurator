@@ -844,6 +844,17 @@
     "close": "Cerrar"
   },
   "staged": {
+    "tuning": {
+      "unknown": "No se conoce el estado del vehículo (sin latido reciente): los cambios de ajuste no se escriben.",
+      "nan": "{id} no es un parámetro que escriba la pantalla de Ajuste.",
+      "negative": "{id}: {value} es negativo: no se escribe.",
+      "above": "{id}: {value} está por encima de lo que permite la tabla de ArduPilot: no se escribe.",
+      "below": "{id}: {value} está por debajo de {min}, lo que no puede ser con el vehículo armado: no se escribe.",
+      "changed": "El vehículo se armó, o se perdió su estado, mientras se le preguntaba: no se escribió nada.",
+      "armed": "Armado: los cambios se aplican en vuelo.",
+      "holdTitle": "Escribir el ajuste en un vehículo armado",
+      "holdButton": "Mantener para escribir en vuelo"
+    },
     "armedGuarded": "Los ajustes del registro y del notch no se escriben mientras el vehículo está armado o podría estarlo. Desármalo primero.",
     "armedSetup": "Los cambios de Configuración no se escriben mientras el vehículo está armado, o puede estarlo. Desármalo primero.",
     "armedLogging": "Los ajustes del registro no se escriben mientras el vehículo está armado o podría estarlo. Desármalo primero.",
@@ -1000,6 +1011,11 @@
         "serial": "Ir a Configuración: Puertos serie",
         "devices": "Ir a Configuración: Dispositivos",
         "info": "Ir a Configuración: Información del vehículo"
+      },
+      "tune": {
+        "rate": "Ir a Ajuste: Velocidad",
+        "more": "Ir a Ajuste: Más grupos",
+        "filters": "Ir a Ajuste: Filtros"
       }
     },
     "show": {
@@ -1060,6 +1076,12 @@
     }
   },
   "setup": {
+    "refusedValue": "rechazado: no se escribe",
+    "outcome": {
+      "confirmed": "Escrito y releído: {names}.",
+      "notConfirmed": "Escrito, sin confirmar: {names}.",
+      "notWritten": "Sin escribir: {names}."
+    },
     "sections": "Páginas de configuración",
     "section": {
       "home": "Resumen",
@@ -1631,6 +1653,81 @@
       "up": "Subir el lugar {n}",
       "down": "Bajar el lugar {n}",
       "emptyPlace": "sin brújula"
+    }
+  },
+  "tune": {
+    "sections": "Secciones de Ajuste",
+    "shown": "Ajuste: {section}",
+    "section": {
+      "rate": "Velocidad",
+      "more": "Más grupos",
+      "filters": "Filtros"
+    },
+    "armed": "Armado: los cambios se aplican en vuelo",
+    "armedAnnounce": "El vehículo está armado: los cambios se aplican en vuelo.",
+    "disarmedAnnounce": "El vehículo está desarmado.",
+    "link": "Enlazar alabeo y cabeceo: un control ajusta ambos",
+    "differ": "El alabeo y el cabeceo difieren en el vehículo: no están enlazados para que uno no sobrescriba al otro. Enlácelos para ajustar ambos.",
+    "axis": {
+      "rollPitch": "Alabeo y cabeceo",
+      "roll": "Alabeo",
+      "pitch": "Cabeceo",
+      "yaw": "Guiñada"
+    },
+    "rate": {
+      "summary": "Con qué fuerza corrige el vehículo una velocidad de giro que no tiene: P según lo lejos que está, I según el tiempo que lleva así, D según lo rápido que se acerca, FF según lo que pide la palanca. Cada control se limita al rango que ArduPilot da para él.",
+      "P": "P (proporcional)",
+      "I": "I (integral)",
+      "D": "D (derivativa)",
+      "FF": "FF (prealimentación)"
+    },
+    "more": {
+      "summary": "El control de actitud, cómo responden las palancas, el control de posición y lo que ajusta la rueda del mando. Cada control se limita al rango que ArduPilot da para él."
+    },
+    "group": {
+      "attitude": "Actitud",
+      "feel": "Tacto del piloto",
+      "position": "Posición",
+      "knob": "Rueda del mando"
+    },
+    "name": {
+      "ATC_ANG_RLL_P": "Ángulo P: alabeo",
+      "ATC_ANG_PIT_P": "Ángulo P: cabeceo",
+      "ATC_ANG_YAW_P": "Ángulo P: guiñada",
+      "ATC_ACC_R_MAX": "Límite de aceleración: alabeo",
+      "ATC_ACC_P_MAX": "Límite de aceleración: cabeceo",
+      "ATC_ACC_Y_MAX": "Límite de aceleración: guiñada",
+      "ATC_RATE_R_MAX": "Límite de velocidad: alabeo",
+      "ATC_RATE_P_MAX": "Límite de velocidad: cabeceo",
+      "ATC_RATE_Y_MAX": "Límite de velocidad: guiñada",
+      "ATC_INPUT_TC": "Tiempo de respuesta de la palanca",
+      "PSC_NE_POS_P": "Posición horizontal P",
+      "PSC_D_POS_P": "Posición vertical P",
+      "PSC_NE_VEL_P": "Velocidad horizontal P",
+      "PSC_NE_VEL_I": "Velocidad horizontal I",
+      "PSC_NE_VEL_D": "Velocidad horizontal D",
+      "PSC_D_VEL_P": "Velocidad vertical P",
+      "PSC_D_ACC_P": "Aceleración vertical P",
+      "PSC_D_ACC_I": "Aceleración vertical I",
+      "TUNE": "Lo que ajusta la rueda del mando"
+    },
+    "value": "Valor de {name}",
+    "was": "era {value}",
+    "wasNone": "sin valor inicial",
+    "notNumber": "Eso no es un número: no se escribe nada para él.",
+    "refused": {
+      "negative": "Negativo: rechazado aquí y por el backend. No se escribe.",
+      "above": "Por encima del máximo que permite la tabla de ArduPilot ({max}): rechazado aquí y por el backend. No se escribe.",
+      "below": "Por debajo del mínimo de la tabla de ArduPilot ({min}) con el vehículo armado: rechazado aquí y por el backend. No se escribe.",
+      "nan": "No es un número: no se escribe."
+    },
+    "missing": "No está en este vehículo: {names}.",
+    "backToInitial": "Volver a los valores iniciales",
+    "empty": {
+      "filters": {
+        "title": "Los filtros llegan después de los registros",
+        "help": "El filtro notch se ajusta con el ruido que grabó un registro, así que llega con el análisis de registros."
+      }
     }
   }
 }

@@ -651,3 +651,54 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
+
+/* Tune: a slider with its parameter's name, "was X" and what is wrong with the value. */
+.tune-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.tune-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tune-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.tune-names {
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.tune-controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 110px auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.tune-note {
+  min-height: 1.25em;
+}
+
+.tune-note.problem {
+  color: var(--color-error);
+}
+
+.tune-link {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.setup-outcome {
+  margin: 0;
+  padding-left: var(--space-4);
+}

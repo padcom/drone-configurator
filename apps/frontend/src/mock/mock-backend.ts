@@ -14,6 +14,7 @@ import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
+import { refusalOf, tuneParam } from '@/lib/tune/table'
 
 type Outgoing = Omit<Envelope, 'v'>
 type Send = (e: Outgoing) => void
@@ -85,6 +86,8 @@ export function patchSettings(doc: Settings, patch: SettingsPatch): Settings {
 }
 
 export interface MockControl {
+  /** The parameters the vehicle has been sent a write for, in order (a write that was refused sent nothing). */
+  writesSent?: () => string[]
   restart?: () => void
   /** The vehicle announces a parameter changed elsewhere (as by another ground station). */
   announce?: (id: string, value: number) => void
@@ -117,6 +120,25 @@ const MESSAGE_RING = 500
 const DEFAULT_REPLAY = 100
 const MAX_REPLAY = 200
 
+/**
+ * Why the backend refuses a tuning write, or null: a name that is not the Tune screen's, a value outside its limits, a state not known.
+ *
+ * @param w the write
+ * @param armed the vehicle's armed state (null or undefined when it is not known)
+ * @returns the code and the words, or null
+ */
+function tuningRefusal(w: ParamWrite, armed: boolean | null | undefined): { code: string, message: string } | null {
+  const limit = refusalOf(w.id, w.value, armed === true)
+  if (tuneParam(w.id) === undefined) {
+    return { code: 'NOT_TUNING', message: `${w.id} is not a parameter the Tune screen may write` }
+  }
+  if (limit !== null) {
+    return { code: 'OUT_OF_LIMITS', message: `${w.id} is out of its limits: ${w.value}` }
+  }
+
+  return armed === undefined || armed === null ? { code: 'STATE_UNKNOWN', message: 'the vehicle\'s state is unknown (no heartbeat for 3 s)' } : null
+}
+
 class MockVehicle {
   connection: Connection = { state: 'disconnected' }
   params: Param[]
@@ -137,6 +159,8 @@ class MockVehicle {
   pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
   rebootsSent = 0
+  /** The parameters written, in order (a refused write is not here: nothing reached the vehicle). */
+  readonly writesSent: string[] = []
   readonly logs: MockLogs
   /** The calibration of the vehicle's sensors. */
   readonly calibration: MockCalibration
@@ -169,6 +193,7 @@ class MockVehicle {
       options.control.ftp = mode => { this.ftpMode = mode }
       options.control.rebootAnswer = answer => { this.rebootAnswer = answer }
       options.control.rebootsSent = () => this.rebootsSent
+      options.control.writesSent = () => [...this.writesSent]
     }
   }
 
@@ -404,10 +429,16 @@ class MockVehicle {
     if (w.guarded === true && (armed === undefined || armed === null || armed)) {
       return armed ? fail('ARMED', 'the vehicle is armed') : fail('STATE_UNKNOWN', 'the vehicle\'s state is unknown (no heartbeat for 3 s)')
     }
+    // A write from the Tune screen (`tuning`) may go while armed, but only for its own list, within its limits, and not when the state is unknown.
+    const refusal = w.tuning === true ? tuningRefusal(w, armed) : null
+    if (refusal !== null) {
+      return fail(refusal.code, refusal.message)
+    }
     const param = this.params.find(p => p.id === w.id)
     if (!param) {
       return fail('UNKNOWN_PARAM', `the vehicle has no ${w.id}`)
     }
+    this.writesSent.push(w.id)
     if (this.options.silent?.includes(w.id)) {
       return setTimeout(() => fail('TIMEOUT', `no PARAM_VALUE for ${w.id} after PARAM_SET (4 tries)`), 50)
     }

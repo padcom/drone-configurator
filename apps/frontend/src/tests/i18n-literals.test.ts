@@ -8,6 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { TUNE_FUNCTIONS } from '@/lib/tune/table'
 
 const SRC = fileURLToPath(new URL('..', import.meta.url))
 const FOLDERS = ['composables', 'lib', 'state', 'backend']
@@ -23,6 +24,8 @@ const ALLOWED: [string, string][] = [
   ...[
     'Scripting Matrix', 'Dynamic Scripting Matrix', 'Custom 4.1 and older',
   ].map((name): [string, string] => ['lib/setup/frame.ts', name]),
+  // What the radio knob can tune (ArduPilot's own `@Values` of TUNE).
+  ...TUNE_FUNCTIONS.map((one): [string, string] => ['lib/tune/table.ts', one.label]),
   ...[
     'Frsky SPort',
     'Alexmos Gimbal Serial',

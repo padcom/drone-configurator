@@ -7,11 +7,22 @@
         <li v-for="id in shown" :key="id" :class="{ missing: panel.missing.value.includes(id) }">
           {{ id }}<span v-if="panel.missing.value.includes(id)"> · {{ t('setup.notOnVehicle') }}</span>
         </li>
+        <!-- A refused value is not part of the write: it is shown as refused, and the write is held until it is fixed. -->
+        <li v-for="id in refusedIds" :key="id" class="refused">{{ id }} · {{ t('setup.refusedValue') }}</li>
       </ul>
     </div>
     <Banner v-if="reason" :id="`${idPrefix}-blocked`" tone="warn">{{ reason }}</Banner>
     <p :id="`${idPrefix}-status`" class="setup-status" role="status">{{ status }}</p>
-    <Button :id="`${idPrefix}-revert`" :disabled="panel.dirty.value.length === 0 || panel.writing.value" @click="panel.revert()">
+    <!-- A write that stopped says which parameters were read back, which were not confirmed, and which were not written. -->
+    <ul v-if="outcome.length > 0" :id="`${idPrefix}-outcome`" class="setup-outcome">
+      <li v-for="line in outcome" :key="line">{{ line }}</li>
+    </ul>
+    <Button
+      v-if="!noRevert"
+      :id="`${idPrefix}-revert`"
+      :disabled="panel.dirty.value.length === 0 || panel.writing.value"
+      @click="panel.revert()"
+    >
       {{ t('setup.revert') }}
     </Button>
     <Button :id="`${idPrefix}-write`" :disabled="!writable" @click="panel.write()">{{ label }}</Button>
@@ -28,6 +39,7 @@ import { useI18n } from 'vue-i18n'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import type { ParamPanel } from '@/composables/useParamPanel'
+import { outcomeLines } from '@/lib/setup/outcome'
 
 const props = defineProps<{
   /** The page's parameters. */
@@ -40,6 +52,10 @@ const props = defineProps<{
   onlyPresent?: boolean
   /** List only the parameters that have a change to write (a page with many parameters, most of them left as they are). */
   onlyChanged?: boolean
+  /** The changed parameters whose value is refused: they are shown as refused and are not part of the write. */
+  refusedIds?: readonly string[]
+  /** The page has its own way to put values back (not a second button for the same). */
+  noRevert?: boolean
 }>()
 
 /**
@@ -58,9 +74,10 @@ const reason = computed(() => {
 
   return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
 })
+const refusedIds = computed(() => props.refusedIds ?? [])
 const shown = computed(() => {
   if (props.onlyChanged) {
-    return props.panel.dirty.value
+    return props.panel.dirty.value.filter(id => !refusedIds.value.includes(id))
   }
 
   return props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids
@@ -69,6 +86,8 @@ const shown = computed(() => {
 const changed = computed(() => props.panel.dirty.value.length > 0)
 const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)
 const label = computed(() => t(changed.value ? 'setup.write' : 'setup.noChanges'))
+/** The lines of a write that stopped (nothing when it went through whole, or none was made). */
+const outcome = computed(() => outcomeLines(props.panel.outcome.value, (part, names) => t(`setup.outcome.${part}`, { names })))
 const status = computed(() => {
   const { state, detail } = props.panel
 

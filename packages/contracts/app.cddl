@@ -223,12 +223,18 @@ params-progress = {
 
 ; `guarded` is set by a Setup page (flight modes, failsafes, ...): the backend then refuses the write while the vehicle is armed
 ; (`ARMED`) or is not known to be disarmed (`STATE_UNKNOWN`), as the page does. The Parameters screen does not set it.
+; `tuning` is set by the Tune screen, and is the ONE exception to that rule (the leader's decision Q7): such a write is allowed while the
+; vehicle is armed, because tuning is done in flight, but only for a parameter that is on the backend's list of tuning parameters
+; (`NOT_TUNING` for any other name, armed or not), with a value inside that list's limits (`OUT_OF_LIMITS`: negative, or above the
+; most ArduPilot's own table allows), and never while the armed state is not known (`STATE_UNKNOWN`). The state is looked at again
+; at the moment of each write. With `guarded` as well, `guarded` wins (refused while armed).
 param-write = {
   id: tstr,
   kind: "int" / "real",
   type: tstr,
   value: float,
   ? guarded: bool,
+  ? tuning: bool,
 }
 
 ; `verified` is false when the autopilot reports a different value than the one written (it

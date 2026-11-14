@@ -844,6 +844,17 @@
     "close": "Chiudi"
   },
   "staged": {
+    "tuning": {
+      "unknown": "Lo stato del veicolo non è noto (nessun heartbeat recente): le modifiche di tuning non vengono scritte.",
+      "nan": "{id} non è un parametro che la schermata Tune scrive.",
+      "negative": "{id}: {value} è negativo: non scritto.",
+      "above": "{id}: {value} è sopra quanto consente la tabella di ArduPilot: non scritto.",
+      "below": "{id}: {value} è sotto {min}, cosa che non può essere con il veicolo armato: non scritto.",
+      "changed": "Il veicolo si è armato, o ne è stato perso lo stato, durante la domanda: non è stato scritto nulla.",
+      "armed": "Armato: le modifiche si applicano in volo.",
+      "holdTitle": "Scrivere il tuning su un veicolo armato",
+      "holdButton": "Tieni premuto per scrivere in volo"
+    },
     "armedGuarded": "Le impostazioni del logging e del notch non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
     "armedSetup": "Le modifiche del Setup non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
     "armedLogging": "Le impostazioni del logging non vengono scritte mentre il veicolo è armato o potrebbe esserlo. Disarmalo prima.",
@@ -1000,6 +1011,11 @@
         "serial": "Vai a Configurazione: Porte seriali",
         "devices": "Vai a Configurazione: Dispositivi",
         "info": "Vai a Configurazione: Informazioni sul veicolo"
+      },
+      "tune": {
+        "rate": "Vai a Taratura: Velocità",
+        "more": "Vai a Taratura: Altri gruppi",
+        "filters": "Vai a Taratura: Filtri"
       }
     },
     "show": {
@@ -1060,6 +1076,12 @@
     }
   },
   "setup": {
+    "refusedValue": "rifiutato: non viene scritto",
+    "outcome": {
+      "confirmed": "Scritti e riletti: {names}.",
+      "notConfirmed": "Scritti, non confermati: {names}.",
+      "notWritten": "Non scritti: {names}."
+    },
     "sections": "Pagine del setup",
     "section": {
       "home": "Panoramica",
@@ -1631,6 +1653,81 @@
       "up": "Sposta su il posto {n}",
       "down": "Sposta giù il posto {n}",
       "emptyPlace": "nessuna bussola"
+    }
+  },
+  "tune": {
+    "sections": "Sezioni di Tune",
+    "shown": "Tune: {section}",
+    "section": {
+      "rate": "Velocità",
+      "more": "Altri gruppi",
+      "filters": "Filtri"
+    },
+    "armed": "Armato: le modifiche si applicano in volo",
+    "armedAnnounce": "Il veicolo è armato: le modifiche si applicano in volo.",
+    "disarmedAnnounce": "Il veicolo è disarmato.",
+    "link": "Collega rollio e beccheggio: un cursore regola entrambi",
+    "differ": "Rollio e beccheggio differiscono sul veicolo: non sono collegati, così uno non sovrascrive l'altro. Collegali per regolare entrambi.",
+    "axis": {
+      "rollPitch": "Rollio e beccheggio",
+      "roll": "Rollio",
+      "pitch": "Beccheggio",
+      "yaw": "Imbardata"
+    },
+    "rate": {
+      "summary": "Quanto forte il veicolo corregge una velocità di rotazione che non ha: P in base a quanto è lontana, I in base a da quanto tempo lo è, D in base a quanto in fretta si avvicina, FF in base a ciò che chiede lo stick. Ogni cursore è limitato all'intervallo che ArduPilot dà per esso.",
+      "P": "P (proporzionale)",
+      "I": "I (integrale)",
+      "D": "D (derivativa)",
+      "FF": "FF (feed-forward)"
+    },
+    "more": {
+      "summary": "Il controllo di assetto, come rispondono gli stick, il controllo di posizione e ciò che regola la manopola della radio. Ogni cursore è limitato all'intervallo che ArduPilot dà per esso."
+    },
+    "group": {
+      "attitude": "Assetto",
+      "feel": "Sensazione di pilotaggio",
+      "position": "Posizione",
+      "knob": "Manopola della radio"
+    },
+    "name": {
+      "ATC_ANG_RLL_P": "Angolo P: rollio",
+      "ATC_ANG_PIT_P": "Angolo P: beccheggio",
+      "ATC_ANG_YAW_P": "Angolo P: imbardata",
+      "ATC_ACC_R_MAX": "Limite di accelerazione: rollio",
+      "ATC_ACC_P_MAX": "Limite di accelerazione: beccheggio",
+      "ATC_ACC_Y_MAX": "Limite di accelerazione: imbardata",
+      "ATC_RATE_R_MAX": "Limite di velocità: rollio",
+      "ATC_RATE_P_MAX": "Limite di velocità: beccheggio",
+      "ATC_RATE_Y_MAX": "Limite di velocità: imbardata",
+      "ATC_INPUT_TC": "Tempo di risposta dello stick",
+      "PSC_NE_POS_P": "Posizione orizzontale P",
+      "PSC_D_POS_P": "Posizione verticale P",
+      "PSC_NE_VEL_P": "Velocità orizzontale P",
+      "PSC_NE_VEL_I": "Velocità orizzontale I",
+      "PSC_NE_VEL_D": "Velocità orizzontale D",
+      "PSC_D_VEL_P": "Velocità verticale P",
+      "PSC_D_ACC_P": "Accelerazione verticale P",
+      "PSC_D_ACC_I": "Accelerazione verticale I",
+      "TUNE": "Ciò che regola la manopola della radio"
+    },
+    "value": "Valore di {name}",
+    "was": "era {value}",
+    "wasNone": "nessun valore iniziale",
+    "notNumber": "Non è un numero: non si scrive nulla per esso.",
+    "refused": {
+      "negative": "Negativo: rifiutato qui e dal backend. Non viene scritto.",
+      "above": "Sopra il massimo che la tabella di ArduPilot consente ({max}): rifiutato qui e dal backend. Non viene scritto.",
+      "below": "Sotto il minimo della tabella di ArduPilot ({min}) con il veicolo armato: rifiutato qui e dal backend. Non viene scritto.",
+      "nan": "Non è un numero: non viene scritto."
+    },
+    "missing": "Non presenti su questo veicolo: {names}.",
+    "backToInitial": "Rimetti i valori iniziali",
+    "empty": {
+      "filters": {
+        "title": "I filtri vengono dopo i log",
+        "help": "Il filtro notch si regola con il rumore che un log ha registrato, quindi arriva con l'analisi dei log."
+      }
     }
   }
 }

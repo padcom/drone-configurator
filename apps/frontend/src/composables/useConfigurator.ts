@@ -3,6 +3,7 @@
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
 import { type ShallowRef, shallowRef, watch } from 'vue'
+import { say } from '@/i18n/say'
 import { type BackendClient, type Transport, createBackendClient } from '@/backend/client'
 import { draftWarning, validateDraft } from '@/lib/params/draft'
 import { showNumber } from '@/lib/params/paramValue'
@@ -187,28 +188,17 @@ function sessionEnded(parameters: ParamsModel, disconnected: boolean): void {
   }
 }
 
+/** How the user is asked a question: it is answered yes or no. */
+type Asks = (question: string) => Promise<boolean>
+
 /**
- * The staged changes, written while a vehicle is connected.
+ * What the staged changes follow of the vehicle.
  *
- * @param client the link to the backend
+ * @param staged the staged changes
  * @param parameters the parameters
  * @param vehicle the vehicle link
- * @param confirm asks the user to confirm the writes
- * @returns the staged changes
  */
-function stagedFor(
-  client: BackendClient,
-  parameters: ParamsModel,
-  vehicle: Vehicle,
-  confirm: (question: string) => Promise<boolean>,
-): StagedModel {
-  const staged = useStaged({
-    client,
-    parameters,
-    isConnected: () => vehicle.connection.value.state === 'connected',
-    confirm,
-    mayBeArmed: () => armedOf(vehicle.telemetry.value) !== false,
-  })
+function followVehicle(staged: StagedModel, parameters: ParamsModel, vehicle: Vehicle): void {
   // What was staged is for the vehicle it was staged on: not for the next one, which may have parameters of the same names.
   watch(vehicle.connection, (next, before) => {
     if (endsSession(next, before)) {
@@ -225,6 +215,34 @@ function stagedFor(
       parameters.editDraft(showNumber(queued.to))
     }
   })
+}
+
+/**
+ * The staged changes, written while a vehicle is connected.
+ *
+ * @param client the link to the backend
+ * @param parameters the parameters
+ * @param vehicle the vehicle link
+ * @param asks how the user is asked
+ * @param asks.confirm the single question before the writes
+ * @param asks.confirmHold the hold before a tuning write to a vehicle that is armed
+ * @returns the staged changes
+ */
+function stagedFor(
+  client: BackendClient,
+  parameters: ParamsModel,
+  vehicle: Vehicle,
+  asks: { confirm: Asks, confirmHold: Asks },
+): StagedModel {
+  const staged = useStaged({
+    client,
+    parameters,
+    isConnected: () => vehicle.connection.value.state === 'connected',
+    ...asks,
+    mayBeArmed: () => armedOf(vehicle.telemetry.value) !== false,
+    armedState: () => armedOf(vehicle.telemetry.value),
+  })
+  followVehicle(staged, parameters, vehicle)
 
   return staged
 }
@@ -338,6 +356,28 @@ function startSetup(client: BackendClient, vehicle: Vehicle): SetupModel {
   })
 
   return setup
+}
+
+/**
+ * The hold that a tuning change gets while the vehicle is armed (it applies in flight): the question of the write, held for.
+ *
+ * @param confirmWith asks the user with its own options
+ * @param vehicle the vehicle link
+ * @returns asks the question as a hold
+ */
+function holdOf(confirmWith: (options: SafetyOptions) => Promise<boolean>, vehicle: Vehicle): Asks {
+  return question => {
+    const info = vehicle.connection.value.vehicle
+
+    return confirmWith({
+      title: say('staged.tuning.holdTitle'),
+      what: question,
+      vehicle: info === undefined ? '' : say('topBar.vehicleValue', { ...info }),
+      level: 'hold',
+      tone: 'warn',
+      confirmLabel: say('staged.tuning.holdButton'),
+    })
+  }
 }
 
 /**
@@ -469,7 +509,8 @@ export function createConfigurator(
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
   const messages = startMessages(client, vehicle)
-  const staged = stagedFor(client, parameters, vehicle, askUser)
+  const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
+  const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
   const motorTest = useMotorTest({ client, connection: vehicle.connection, telemetry: vehicle.telemetry, parameters })
   const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser, motorTest })
   listen(client, vehicle, parameters)
@@ -481,7 +522,6 @@ export function createConfigurator(
     calibration: startCalibration(client, vehicle),
     motorTest,
   }
-  const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
   return current

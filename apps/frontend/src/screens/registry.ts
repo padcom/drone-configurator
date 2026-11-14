@@ -50,6 +50,15 @@ const LOGS_SECTIONS: readonly Section[] = [
   { id: 'vehicle', path: 'vehicle', titleKey: 'logs.section.vehicle', load: () => import('./logs/LogsVehicle.vue') },
   { id: 'tools', path: 'tools', titleKey: 'logs.section.tools', load: () => import('./logs/LogsTools.vue') },
 ]
+const TUNE = () => import('./Tune.vue')
+const TUNE_SECTION = () => import('./tune/TuneSection.vue')
+
+/** The parts of the Tune screen, in the order of their tabs. The filters come after the logs (they need a log's noise). */
+const TUNE_SECTIONS: readonly Section[] = [
+  { id: 'rate', path: 'rate', titleKey: 'tune.section.rate', load: () => import('./tune/TuneRate.vue') },
+  { id: 'more', path: 'more', titleKey: 'tune.section.more', load: () => import('./tune/TuneMore.vue') },
+  { id: 'filters', path: 'filters', titleKey: 'tune.section.filters', load: TUNE_SECTION },
+]
 const SETUP = () => import('./Setup.vue')
 
 /** The parts of the Setup screen, in the order of the design's list (the home first). Those that are not built say so. */
@@ -84,7 +93,7 @@ export const PRODUCT_SCREENS: readonly Screen[] = [
     focus: 'params.search',
     load: PARAMETERS,
   },
-  { id: 'tune', path: '/tune', titleKey: 'screen.tune', icon: 'activity', load: NOT_AVAILABLE },
+  { id: 'tune', path: '/tune', titleKey: 'screen.tune', icon: 'activity', sections: TUNE_SECTIONS, load: TUNE },
   { id: 'logs', path: '/logs', titleKey: 'screen.logs', icon: 'file', sections: LOGS_SECTIONS, load: LOGS },
   { id: 'settings', path: '/settings', titleKey: 'screen.settings', icon: 'gear', placement: 'end', load: SETTINGS },
 ]

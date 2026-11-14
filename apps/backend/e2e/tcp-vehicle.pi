@@ -152,6 +152,14 @@ function setupParams(): SimParam[] {
   for (let i = 0; i < spins.length; i++) {
     out.push(SimParam { id: spins[i], value: TypedParamValue.Real(spinValues[i], MavParamType.REAL32) })
   }
+  // The Tune screen's rate loop and attitude (a quad's usual values).
+  const tuneNames = ["ATC_RAT_RLL_P", "ATC_RAT_RLL_I", "ATC_RAT_RLL_D", "ATC_RAT_RLL_FF", "ATC_RAT_PIT_P", "ATC_RAT_PIT_I", "ATC_RAT_PIT_D",
+    "ATC_RAT_PIT_FF", "ATC_RAT_YAW_P", "ATC_RAT_YAW_I", "ATC_RAT_YAW_D", "ATC_RAT_YAW_FF", "ATC_ANG_RLL_P", "ATC_ANG_PIT_P", "ATC_ANG_YAW_P",
+    "ATC_INPUT_TC"]
+  const tuneValues = [0.135, 0.135, 0.0036, 0.0, 0.135, 0.135, 0.0036, 0.0, 0.18, 0.018, 0.0, 0.0, 4.5, 4.5, 4.5, 0.15]
+  for (let i = 0; i < tuneNames.length; i++) {
+    out.push(SimParam { id: tuneNames[i], value: TypedParamValue.Real(tuneValues[i], MavParamType.REAL32) })
+  }
   out
 }
 

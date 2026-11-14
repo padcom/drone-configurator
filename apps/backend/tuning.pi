@@ -1,0 +1,84 @@
+// The parameters the Tune screen may write, and the limits of each. A write that carries `tuning` (param-write in the contract) is
+// the ONE kind of write that is allowed while the vehicle is armed (the leader's decision Q7: tuning is done in flight), so this
+// list is the whole of what such a write can touch: a name that is not here is refused, armed or not, and a value outside the limits
+// is refused whatever the page says. The page has the same table (apps/frontend/src/lib/tune/table.ts, with a test that the two agree).
+//
+// WHERE THE NAMES AND LIMITS COME FROM: ArduPilot's own source, `@Param` and `@Range` of each. A value above the greatest of the `@Range` is
+// refused (always), and so is a negative one (no parameter here is meant to be negative). A value below the LEAST of the `@Range` is refused
+// while the vehicle is ARMED (a rate gain of 0 leaves a vehicle that cannot be flown, and nobody can take that back in the air), and disarmed
+// it is only warned about by the page, and written. The names are those of ArduPilot master (libraries/AC_AttitudeControl/
+// AC_AttitudeControl.cpp, AC_AttitudeControl_Multi.cpp, AC_PosControl.cpp, ArduCopter/Parameters.cpp) and of the arducopter that CI's
+// SITL runs (the group names are in its binary): both have the same names. A firmware that names a parameter differently has no such
+// parameter in this table, and the page then shows no slider for it. Nothing here is a wildcard.
+import { CommunicatorError } from "pico-desktop/communicator"
+
+/// One parameter of the list: its name, the least ArduPilot's own `@Range` gives it (a value below it is refused while the vehicle is ARMED), and
+/// the most (a value above it is refused always).
+export struct Tunable {
+  id: string
+  min: f64
+  max: f64
+}
+
+/// The list, in the order of the Tune screen's groups: rate, attitude, pilot feel, position, radio knob.
+export const TUNABLE: Tunable[] = [
+  Tunable { id: "ATC_RAT_RLL_P", min: 0.01, max: 0.5 },
+  Tunable { id: "ATC_RAT_RLL_I", min: 0.01, max: 2.0 },
+  Tunable { id: "ATC_RAT_RLL_D", min: 0.0, max: 0.05 },
+  Tunable { id: "ATC_RAT_RLL_FF", min: 0.0, max: 0.5 },
+  Tunable { id: "ATC_RAT_PIT_P", min: 0.01, max: 0.5 },
+  Tunable { id: "ATC_RAT_PIT_I", min: 0.01, max: 2.0 },
+  Tunable { id: "ATC_RAT_PIT_D", min: 0.0, max: 0.05 },
+  Tunable { id: "ATC_RAT_PIT_FF", min: 0.0, max: 0.5 },
+  Tunable { id: "ATC_RAT_YAW_P", min: 0.1, max: 2.5 },
+  Tunable { id: "ATC_RAT_YAW_I", min: 0.01, max: 1.0 },
+  Tunable { id: "ATC_RAT_YAW_D", min: 0.0, max: 0.02 },
+  Tunable { id: "ATC_RAT_YAW_FF", min: 0.0, max: 0.5 },
+  Tunable { id: "ATC_ANG_RLL_P", min: 3.0, max: 12.0 },
+  Tunable { id: "ATC_ANG_PIT_P", min: 3.0, max: 12.0 },
+  Tunable { id: "ATC_ANG_YAW_P", min: 3.0, max: 12.0 },
+  Tunable { id: "ATC_INPUT_TC", min: 0.0, max: 1.0 },
+  Tunable { id: "ATC_ACC_R_MAX", min: 0.0, max: 1800.0 },
+  Tunable { id: "ATC_ACC_P_MAX", min: 0.0, max: 1800.0 },
+  Tunable { id: "ATC_ACC_Y_MAX", min: 0.0, max: 720.0 },
+  Tunable { id: "ATC_RATE_R_MAX", min: 0.0, max: 1080.0 },
+  Tunable { id: "ATC_RATE_P_MAX", min: 0.0, max: 1080.0 },
+  Tunable { id: "ATC_RATE_Y_MAX", min: 0.0, max: 1080.0 },
+  Tunable { id: "PSC_NE_POS_P", min: 0.5, max: 4.0 },
+  Tunable { id: "PSC_D_POS_P", min: 0.5, max: 4.0 },
+  Tunable { id: "PSC_NE_VEL_P", min: 0.1, max: 10.0 },
+  Tunable { id: "PSC_NE_VEL_I", min: 0.1, max: 10.0 },
+  Tunable { id: "PSC_NE_VEL_D", min: 0.0, max: 1.0 },
+  Tunable { id: "PSC_D_VEL_P", min: 1.0, max: 10.0 },
+  Tunable { id: "PSC_D_ACC_P", min: 0.01, max: 0.25 },
+  Tunable { id: "PSC_D_ACC_I", min: 0.0, max: 0.5 },
+  Tunable { id: "TUNE", min: 0.0, max: 61.0 },
+]
+
+/// The entry of a name, or null when it is not in the list.
+function entryOf(id: string): Tunable? {
+  for (const t of TUNABLE) {
+    if (t.id == id) {
+      return t
+    }
+  }
+  null
+}
+
+/// Refuses a tuning write whose name is not in the list (`NOT_TUNING`) or whose value is outside its limits (`OUT_OF_LIMITS`): negative, not a number,
+/// above the most ArduPilot's table allows, and, while the vehicle is ARMED, below the least it allows (a gain of 0 in the rate loop leaves a vehicle
+/// that cannot be flown, and a pilot cannot take it back from the ground: disarmed the same value is only warned about, by the page). Nothing is
+/// sent to the vehicle for a refused write.
+export function refuseUntunable(id: string, value: f64, armed: bool): void throws CommunicatorError {
+  const t = entryOf(id)
+  if (t == null) {
+    throw new CommunicatorError("NOT_TUNING", `${id} is not a parameter the Tune screen may write`)
+  }
+  // (written so that NaN is outside)
+  if (!(value >= 0.0 && value <= t!.max)) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `${id} is 0 to ${t!.max}, not ${value}`)
+  }
+  if (armed && value < t!.min) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `${id} may not be below ${t!.min} while the vehicle is armed, and ${value} is`)
+  }
+}

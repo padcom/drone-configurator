@@ -844,6 +844,17 @@
     "close": "Zamknij"
   },
   "staged": {
+    "tuning": {
+      "unknown": "Nie wiadomo, jaki jest stan pojazdu (brak świeżego heartbeatu): zmiany strojenia nie są zapisywane.",
+      "nan": "{id} nie jest parametrem, który zapisuje ekran Tune.",
+      "negative": "{id}: {value} jest ujemne: nie zapisano.",
+      "above": "{id}: {value} jest powyżej tego, co dopuszcza tabela ArduPilota: nie zapisano.",
+      "below": "{id}: {value} jest poniżej {min}, a przy uzbrojonym pojeździe tak być nie może: nie zapisano.",
+      "changed": "Pojazd został uzbrojony albo utracono jego stan, gdy trwało pytanie: nic nie zapisano.",
+      "armed": "Uzbrojony: zmiany działają w locie.",
+      "holdTitle": "Zapisz strojenie w uzbrojonym pojeździe",
+      "holdButton": "Przytrzymaj, aby zapisać w locie"
+    },
     "armedGuarded": "Ustawień logowania i filtra nie zapisuje się, gdy pojazd jest uzbrojony albo może być. Najpierw go rozbrój.",
     "armedSetup": "Zmian z Konfiguracji nie zapisuje się, gdy pojazd jest uzbrojony lub może być. Najpierw go rozbrój.",
     "armedLogging": "Ustawień logowania nie zapisuje się, gdy pojazd jest uzbrojony albo może być. Najpierw go rozbrój.",
@@ -1000,6 +1011,11 @@
         "serial": "Przejdź do ekranu Konfiguracja: Porty szeregowe",
         "devices": "Przejdź do ekranu Konfiguracja: Urządzenia",
         "info": "Przejdź do ekranu Konfiguracja: Informacje o pojeździe"
+      },
+      "tune": {
+        "rate": "Przejdź do ekranu Strojenie: Prędkość",
+        "more": "Przejdź do ekranu Strojenie: Więcej grup",
+        "filters": "Przejdź do ekranu Strojenie: Filtry"
       }
     },
     "show": {
@@ -1060,6 +1076,12 @@
     }
   },
   "setup": {
+    "refusedValue": "odrzucona: nie jest zapisywana",
+    "outcome": {
+      "confirmed": "Zapisane i odczytane: {names}.",
+      "notConfirmed": "Zapisane, niepotwierdzone: {names}.",
+      "notWritten": "Niezapisane: {names}."
+    },
     "sections": "Strony konfiguracji",
     "section": {
       "home": "Przegląd",
@@ -1631,6 +1653,81 @@
       "up": "Przesuń miejsce {n} w górę",
       "down": "Przesuń miejsce {n} w dół",
       "emptyPlace": "brak kompasu"
+    }
+  },
+  "tune": {
+    "sections": "Sekcje Tune",
+    "shown": "Tune: {section}",
+    "section": {
+      "rate": "Prędkość",
+      "more": "Więcej grup",
+      "filters": "Filtry"
+    },
+    "armed": "Uzbrojony: zmiany działają w locie",
+    "armedAnnounce": "Pojazd jest uzbrojony: zmiany działają w locie.",
+    "disarmedAnnounce": "Pojazd jest rozbrojony.",
+    "link": "Połącz przechylenie i pochylenie: jeden suwak ustawia oba",
+    "differ": "Przechylenie i pochylenie różnią się w pojeździe: nie są połączone, żeby jedno nie nadpisało drugiego. Połącz je, aby ustawić oba.",
+    "axis": {
+      "rollPitch": "Przechylenie i pochylenie",
+      "roll": "Przechylenie",
+      "pitch": "Pochylenie",
+      "yaw": "Odchylenie"
+    },
+    "rate": {
+      "summary": "Jak mocno pojazd koryguje prędkość obrotu, której nie ma: P według odległości od celu, I według czasu, przez jaki trwa, D według tempa zbliżania, FF według tego, czego żąda drążek. Każdy suwak jest ograniczony do zakresu, który podaje ArduPilot.",
+      "P": "P (proporcjonalna)",
+      "I": "I (całkująca)",
+      "D": "D (różniczkująca)",
+      "FF": "FF (sprzężenie w przód)"
+    },
+    "more": {
+      "summary": "Regulator orientacji, odczucie drążków, regulator pozycji i to, co stroi pokrętło radia. Każdy suwak jest ograniczony do zakresu, który podaje ArduPilot."
+    },
+    "group": {
+      "attitude": "Orientacja",
+      "feel": "Odczucie pilota",
+      "position": "Pozycja",
+      "knob": "Pokrętło radia"
+    },
+    "name": {
+      "ATC_ANG_RLL_P": "Kąt P: przechylenie",
+      "ATC_ANG_PIT_P": "Kąt P: pochylenie",
+      "ATC_ANG_YAW_P": "Kąt P: odchylenie",
+      "ATC_ACC_R_MAX": "Limit przyspieszenia: przechylenie",
+      "ATC_ACC_P_MAX": "Limit przyspieszenia: pochylenie",
+      "ATC_ACC_Y_MAX": "Limit przyspieszenia: odchylenie",
+      "ATC_RATE_R_MAX": "Limit prędkości: przechylenie",
+      "ATC_RATE_P_MAX": "Limit prędkości: pochylenie",
+      "ATC_RATE_Y_MAX": "Limit prędkości: odchylenie",
+      "ATC_INPUT_TC": "Czas reakcji drążka",
+      "PSC_NE_POS_P": "Pozycja pozioma P",
+      "PSC_D_POS_P": "Pozycja pionowa P",
+      "PSC_NE_VEL_P": "Prędkość pozioma P",
+      "PSC_NE_VEL_I": "Prędkość pozioma I",
+      "PSC_NE_VEL_D": "Prędkość pozioma D",
+      "PSC_D_VEL_P": "Prędkość pionowa P",
+      "PSC_D_ACC_P": "Przyspieszenie pionowe P",
+      "PSC_D_ACC_I": "Przyspieszenie pionowe I",
+      "TUNE": "Co stroi pokrętło radia"
+    },
+    "value": "Wartość {name}",
+    "was": "było {value}",
+    "wasNone": "brak wartości początkowej",
+    "notNumber": "To nie jest liczba: nic nie jest dla niej zapisywane.",
+    "refused": {
+      "negative": "Ujemna: odrzucona tutaj i przez backend. Nie jest zapisywana.",
+      "above": "Powyżej największej wartości w tabeli ArduPilota ({max}): odrzucona tutaj i przez backend. Nie jest zapisywana.",
+      "below": "Poniżej najmniejszej wartości w tabeli ArduPilota ({min}), gdy pojazd jest uzbrojony: odrzucona tutaj i przez backend. Nie jest zapisywana.",
+      "nan": "To nie jest liczba: nie jest zapisywana."
+    },
+    "missing": "Brak w tym pojeździe: {names}.",
+    "backToInitial": "Przywróć wartości początkowe",
+    "empty": {
+      "filters": {
+        "title": "Filtry będą po logach",
+        "help": "Filtr notch ustawia się z szumu, który zapisał log, więc pojawia się razem z analizą logów."
+      }
     }
   }
 }

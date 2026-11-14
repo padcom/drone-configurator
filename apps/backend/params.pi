@@ -35,7 +35,8 @@ import {
   encodeParamsProgress,
   encodeParamWriteResult,
 } from "./generated/app"
-import { SessionPart, armedState, changesVehicleType, connectedLink, link } from "./session"
+import { SessionPart, armedState, changesVehicleType, connectedLink, link, rebootExpected } from "./session"
+import { refuseUntunable } from "./tuning"
 
 /// Registers the service's methods on `c`, and its part of the session.
 export function register(c: Communicator): void {
@@ -341,6 +342,21 @@ function refuseWhileArmed(): void throws CommunicatorError {
   }
 }
 
+/// Why a tuning write may not go now: not a tuning parameter, outside its limits, the armed state not known, or work under way that
+/// a write would meet (a calibration and a motor test are refused above, a reboot here). Armed itself is no reason.
+function refuseTuning(id: string, value: f64): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    // (the name and the value are looked at first, so that a refusal says the first thing that is wrong with the write)
+    refuseUntunable(id, value, false)
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  refuseUntunable(id, value, armed!)
+  if (rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a reboot is under way")
+  }
+}
+
 async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const w = decodeParamWrite(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
@@ -355,6 +371,11 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   // A write from a Setup page is refused while the vehicle is armed or not known to be disarmed: the page says so, and so does this.
   if (w.guarded != null && w.guarded!) {
     refuseWhileArmed()
+  }
+  // A write from the Tune screen is the one that may go while the vehicle is armed (the leader's decision Q7), and so it is held to the
+  // list of tuning parameters and its limits, and looked at again here, at the moment of the write (after the page's hold).
+  if (w.tuning != null && w.tuning!) {
+    refuseTuning(w.id, w.value)
   }
   const type = typeValue(w.type)
   if (type == null) {

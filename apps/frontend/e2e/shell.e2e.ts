@@ -11,7 +11,7 @@ const MARKERS: [id: string, check: string, title: string][] = [
   ['plan', '.not-available', 'Plan'],
   ['setup', '.setup', 'Setup'],
   ['parameters', '#list-status', 'Parameters'],
-  ['tune', '.not-available', 'Tune'],
+  ['tune', '.tune', 'Tune'],
   ['logs', '.logs', 'Logs'],
   ['settings', '.settings', 'Settings'],
 ]
@@ -69,8 +69,8 @@ describe('the shell', () => {
   })
 
   it('says under its own name that a screen is not built yet', async () => {
-    await showScreen(app, 'tune')
-    expect(await app.waitForText('.not-available', 'Tune is not available yet.')).toContain('Tune is not available yet.')
+    await showScreen(app, 'plan')
+    expect(await app.waitForText('.not-available', 'Plan is not available yet.')).toContain('Plan is not available yet.')
   })
 
   it('switches to a screen that has been shown before within 100 ms', async () => {

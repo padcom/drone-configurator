@@ -480,14 +480,20 @@ export struct ParamWrite {
   type: string
   value: f64
   guarded?: bool
+  tuning?: bool
 }
 
 export function decodeParamWrite(v: Cbor, path: string): ParamWrite throws InvalidPayload {
-  const m = members(v, path, ["id", "kind", "type", "value", "guarded"])
+  const m = members(v, path, ["id", "kind", "type", "value", "guarded", "tuning"])
   const cbor4 = m.get("guarded")
   let opt4: bool? = null
   if (cbor4 != null) {
     opt4 = boolean(cbor4, `${path}.guarded`)
+  }
+  const cbor5 = m.get("tuning")
+  let opt5: bool? = null
+  if (cbor5 != null) {
+    opt5 = boolean(cbor5, `${path}.tuning`)
   }
   ParamWrite {
     id: text(required(m, "id", path), `${path}.id`),
@@ -495,6 +501,7 @@ export function decodeParamWrite(v: Cbor, path: string): ParamWrite throws Inval
     type: text(required(m, "type", path), `${path}.type`),
     value: float(required(m, "value", path), `${path}.value`),
     guarded: opt4,
+    tuning: opt5,
   }
 }
 
@@ -507,6 +514,10 @@ export function encodeParamWrite(v: ParamWrite): Cbor {
   const opt4 = v.guarded
   if (opt4 != null) {
     m.set("guarded", Cbor.Bool(opt4))
+  }
+  const opt5 = v.tuning
+  if (opt5 != null) {
+    m.set("tuning", Cbor.Bool(opt5))
   }
   Cbor.Dict(m)
 }

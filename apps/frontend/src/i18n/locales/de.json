@@ -844,6 +844,17 @@
     "close": "Schließen"
   },
   "staged": {
+    "tuning": {
+      "unknown": "Der Zustand des Fahrzeugs ist nicht bekannt (kein aktueller Heartbeat): Tuning-Änderungen werden nicht geschrieben.",
+      "nan": "{id} ist kein Parameter, den der Tune-Bildschirm schreibt.",
+      "negative": "{id}: {value} ist negativ: nicht geschrieben.",
+      "above": "{id}: {value} liegt über dem, was die ArduPilot-Tabelle erlaubt: nicht geschrieben.",
+      "below": "{id}: {value} liegt unter {min}, was bei scharfem Fahrzeug nicht sein darf: nicht geschrieben.",
+      "changed": "Das Fahrzeug wurde scharf oder sein Zustand ging verloren, während Sie gefragt wurden: es wurde nichts geschrieben.",
+      "armed": "Scharf: Änderungen wirken im Flug.",
+      "holdTitle": "Tuning an ein scharfes Fahrzeug schreiben",
+      "holdButton": "Halten, um im Flug zu schreiben"
+    },
     "armedGuarded": "Logging- und Notch-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
     "armedSetup": "Änderungen aus dem Setup werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Zuerst entschärfen.",
     "armedLogging": "Logging-Einstellungen werden nicht geschrieben, solange das Fahrzeug scharf ist oder sein könnte. Entschärfen Sie es zuerst.",
@@ -1000,6 +1011,11 @@
         "serial": "Zu Einrichtung wechseln: Serielle Ports",
         "devices": "Zu Einrichtung wechseln: Geräte",
         "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
+      },
+      "tune": {
+        "rate": "Zu Abstimmung wechseln: Rate",
+        "more": "Zu Abstimmung wechseln: Weitere Gruppen",
+        "filters": "Zu Abstimmung wechseln: Filter"
       }
     },
     "show": {
@@ -1060,6 +1076,12 @@
     }
   },
   "setup": {
+    "refusedValue": "abgelehnt: nicht geschrieben",
+    "outcome": {
+      "confirmed": "Geschrieben und zurückgelesen: {names}.",
+      "notConfirmed": "Geschrieben, nicht bestätigt: {names}.",
+      "notWritten": "Nicht geschrieben: {names}."
+    },
     "sections": "Setup-Seiten",
     "section": {
       "home": "Übersicht",
@@ -1631,6 +1653,81 @@
       "up": "Platz {n} nach oben",
       "down": "Platz {n} nach unten",
       "emptyPlace": "kein Kompass"
+    }
+  },
+  "tune": {
+    "sections": "Abschnitte von Tune",
+    "shown": "Tune: {section}",
+    "section": {
+      "rate": "Rate",
+      "more": "Weitere Gruppen",
+      "filters": "Filter"
+    },
+    "armed": "Scharf: Änderungen wirken im Flug",
+    "armedAnnounce": "Das Fahrzeug ist scharf: Änderungen wirken im Flug.",
+    "disarmedAnnounce": "Das Fahrzeug ist entschärft.",
+    "link": "Roll und Nick koppeln: ein Regler stellt beide ein",
+    "differ": "Roll und Nick unterscheiden sich am Fahrzeug: sie sind nicht gekoppelt, damit keiner den anderen überschreibt. Koppeln Sie sie, um beide einzustellen.",
+    "axis": {
+      "rollPitch": "Roll und Nick",
+      "roll": "Roll",
+      "pitch": "Nick",
+      "yaw": "Gier"
+    },
+    "rate": {
+      "summary": "Wie stark das Fahrzeug eine Drehrate korrigiert, die nicht erreicht ist: P nach der Abweichung, I nach ihrer Dauer, D nach der Annäherungsgeschwindigkeit, FF nach dem, was der Knüppel verlangt. Jeder Regler ist auf den Bereich begrenzt, den ArduPilot dafür angibt.",
+      "P": "P (proportional)",
+      "I": "I (Integral)",
+      "D": "D (Differential)",
+      "FF": "FF (Vorsteuerung)"
+    },
+    "more": {
+      "summary": "Der Lageregler, wie sich die Knüppel anfühlen, der Positionsregler und was der Funkknopf einstellt. Jeder Regler ist auf den Bereich begrenzt, den ArduPilot dafür angibt."
+    },
+    "group": {
+      "attitude": "Lage",
+      "feel": "Steuergefühl",
+      "position": "Position",
+      "knob": "Funkknopf"
+    },
+    "name": {
+      "ATC_ANG_RLL_P": "Winkel P: Roll",
+      "ATC_ANG_PIT_P": "Winkel P: Nick",
+      "ATC_ANG_YAW_P": "Winkel P: Gier",
+      "ATC_ACC_R_MAX": "Beschleunigungsgrenze: Roll",
+      "ATC_ACC_P_MAX": "Beschleunigungsgrenze: Nick",
+      "ATC_ACC_Y_MAX": "Beschleunigungsgrenze: Gier",
+      "ATC_RATE_R_MAX": "Ratengrenze: Roll",
+      "ATC_RATE_P_MAX": "Ratengrenze: Nick",
+      "ATC_RATE_Y_MAX": "Ratengrenze: Gier",
+      "ATC_INPUT_TC": "Reaktionszeit des Knüppels",
+      "PSC_NE_POS_P": "Horizontale Position P",
+      "PSC_D_POS_P": "Vertikale Position P",
+      "PSC_NE_VEL_P": "Horizontale Geschwindigkeit P",
+      "PSC_NE_VEL_I": "Horizontale Geschwindigkeit I",
+      "PSC_NE_VEL_D": "Horizontale Geschwindigkeit D",
+      "PSC_D_VEL_P": "Vertikale Geschwindigkeit P",
+      "PSC_D_ACC_P": "Vertikale Beschleunigung P",
+      "PSC_D_ACC_I": "Vertikale Beschleunigung I",
+      "TUNE": "Was der Funkknopf einstellt"
+    },
+    "value": "Wert von {name}",
+    "was": "war {value}",
+    "wasNone": "kein Anfangswert",
+    "notNumber": "Das ist keine Zahl: dafür wird nichts geschrieben.",
+    "refused": {
+      "negative": "Negativ: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
+      "above": "Über dem Höchstwert der ArduPilot-Tabelle ({max}): hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
+      "below": "Unter dem Mindestwert der ArduPilot-Tabelle ({min}), solange das Fahrzeug scharf ist: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
+      "nan": "Keine Zahl: es wird nicht geschrieben."
+    },
+    "missing": "Nicht an diesem Fahrzeug: {names}.",
+    "backToInitial": "Anfangswerte zurücksetzen",
+    "empty": {
+      "filters": {
+        "title": "Die Filter kommen nach den Logs",
+        "help": "Der Notch-Filter wird aus dem Rauschen eingestellt, das ein Log aufgezeichnet hat; er kommt also mit der Log-Analyse."
+      }
     }
   }
 }
