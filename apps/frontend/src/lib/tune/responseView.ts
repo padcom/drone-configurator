@@ -23,16 +23,24 @@ function newestOf(lines: RatePoint[][]): number | null {
 }
 
 /**
- * The points of a line as the chart draws them: seconds before the newest point of the chart, the last SHOWN_S seconds.
+ * The points of a line as the chart draws them: seconds from the origin (the newest point of the chart, when none is given: the
+ * last SHOWN_S seconds are drawn then, and all of the points when it is).
  *
  * @param line the points
  * @param newest the newest time of the chart (ms)
+ * @param origin the time the axis counts from (ms), if it is not the newest
  * @returns the chart's points
  */
-function chartPoints(line: RatePoint[], newest: number): ChartPoint[] {
+function chartPoints(line: RatePoint[], newest: number, origin: number | undefined): ChartPoint[] {
   return line
-    .filter(point => newest - point.t <= SHOWN_S * 1000)
-    .map(point => ({ x: (point.t - newest) / 1000, y: point.v }))
+    .filter(point => origin !== undefined || newest - point.t <= SHOWN_S * 1000)
+    .map(point => ({ x: (point.t - (origin ?? newest)) / 1000, y: point.v }))
+}
+
+/** The two lines of the chart, as points. */
+interface Lines {
+  actual: ChartPoint[]
+  desired: ChartPoint[]
 }
 
 /**
@@ -40,16 +48,17 @@ function chartPoints(line: RatePoint[], newest: number): ChartPoint[] {
  *
  * @param actual the actual rate
  * @param desired the desired rate
- * @returns the points of each, in seconds before the newest point (empty when nothing came)
+ * @param origin the time the axis counts from (ms), when it is not the newest point (a step of a log)
+ * @returns the points of each, in seconds before the newest point or from the origin (empty when nothing came)
  */
-export function linesOf(actual: RatePoint[], desired: RatePoint[]): { actual: ChartPoint[], desired: ChartPoint[] } {
+export function linesOf(actual: RatePoint[], desired: RatePoint[], origin?: number): Lines {
   const newest = newestOf([actual, desired])
 
   if (newest === null) {
     return { actual: [], desired: [] }
   }
 
-  return { actual: chartPoints(actual, newest), desired: chartPoints(desired, newest) }
+  return { actual: chartPoints(actual, newest, origin), desired: chartPoints(desired, newest, origin) }
 }
 
 /** The numbers of the metrics, as text. */

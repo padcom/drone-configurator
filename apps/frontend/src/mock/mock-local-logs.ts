@@ -174,8 +174,54 @@ function initial(): MockCopy[] {
 /** A mock signal: its value at a time (seconds from the start of the log), or null where the mock has none. */
 type Signal = (seconds: number) => number | null
 
+/**
+ * The rate the mock flight asks for on an axis: it steps from level to level at the times given (seconds from the log's start).
+ *
+ * @param steps the times and the levels they go to
+ * @returns the signal of the desired rate
+ */
+function desiredRate(steps: readonly [number, number][]): Signal {
+  return s => steps.filter(([at]) => at <= s).at(-1)?.[1] ?? 0
+}
+
+/**
+ * The level a step goes to.
+ *
+ * @param steps the times and the levels
+ * @param index which step (there is none before the first: level 0)
+ * @returns the level
+ */
+function levelOf(steps: readonly [number, number][], index: number): number {
+  return steps[index]?.[1] ?? 0
+}
+
+/**
+ * The rate the mock flight has on an axis: a lag of 100 ms behind the desired rate (a first-order response: no overshoot).
+ *
+ * @param steps the times and the levels the desired rate goes to
+ * @returns the signal of the actual rate
+ */
+function actualRate(steps: readonly [number, number][]): Signal {
+  return s => {
+    const index = steps.findLastIndex(([at]) => at <= s)
+    const from = levelOf(steps, index - 1)
+
+    return index < 0 ? 0 : from + (levelOf(steps, index) - from) * (1 - Math.exp(-(s - (steps[index]?.[0] ?? 0)) / 0.1))
+  }
+}
+
+/** The steps of the mock flight on roll (three, the first the largest) and on pitch (two); yaw has none. */
+const ROLL_STEPS: readonly [number, number][] = [[20, 57], [55, 10], [90, -30]]
+const PITCH_STEPS: readonly [number, number][] = [[30, 30], [70, 0]]
+
 /** The signals of the mock flight, by `message.field`: what the mock flight has and the log of another vehicle may not. */
 const SIGNALS: Readonly<Record<string, Signal>> = {
+  'RATE.RDes': desiredRate(ROLL_STEPS),
+  'RATE.R': actualRate(ROLL_STEPS),
+  'RATE.PDes': desiredRate(PITCH_STEPS),
+  'RATE.P': actualRate(PITCH_STEPS),
+  'RATE.YDes': desiredRate([]),
+  'RATE.Y': actualRate([]),
   'ATT.Roll': s => 10 * Math.sin(s / 6),
   'ATT.Pitch': s => 6 * Math.cos(s / 9),
   // The altitude has a gap from 70 s to 75 s.
@@ -187,7 +233,7 @@ const SIGNALS: Readonly<Record<string, Signal>> = {
 }
 
 /** The units the mock flight's log names, by message (as a real log's FMTU and UNIT do). */
-const UNITS: Readonly<Record<string, string>> = { ATT: 'deg', CTUN: 'm', BAT: 'V', VIBE: 'm/s/s' }
+const UNITS: Readonly<Record<string, string>> = { ATT: 'deg', CTUN: 'm', BAT: 'V', VIBE: 'm/s/s', RATE: 'deg/s' }
 
 /** The mock flight's one vibration peak: 41 m/s/s on X, one sample, at 47 s from the start of the log. */
 const PEAK_S = 47
@@ -198,6 +244,8 @@ interface Range {
   to: number
   buckets: number
   known: boolean
+  /** The first time of the log (microseconds): the signals count from it. */
+  origin: number
 }
 
 /**
@@ -223,7 +271,7 @@ function holdsPeak(key: string, seconds: number, length: number): boolean {
  */
 function pointAt(signal: Signal, key: string, range: Range, index: number): SeriesPoint | null {
   const part = (range.to - range.from + 1) / range.buckets
-  const seconds = (index * part) / 1e6
+  const seconds = (range.from - range.origin + index * part) / 1e6
   const a = signal(seconds)
   const b = signal(seconds + part / 2e6)
   if (a === null || b === null) {
@@ -283,19 +331,41 @@ function resultOf(ask: SeriesAsk, range: Range): SeriesResult {
   }
 }
 
+/** The part of the time a series is asked for, when it is not the whole log. */
+interface Cut {
+  /** Where it begins (microseconds of the log). */
+  fromUs?: number
+  /** Where it ends. */
+  toUs?: number
+}
+
+/**
+ * A time that may have been asked for.
+ *
+ * @param asked the time asked for, if any
+ * @param whole the time of the whole log
+ * @returns the time asked for, else the whole
+ */
+function timeOf(asked: number | undefined, whole: number): number {
+  return asked === undefined ? whole : Number(asked)
+}
+
 /**
  * The times of a log that was read, cut in parts; `known` is false for a log with no times.
  *
  * @param summary what the read found
  * @param buckets how many parts
+ * @param cut the part of the time asked for
  * @returns the range
  */
-function rangeOf(summary: LocalLogSummary, buckets: number): Range {
+function rangeOf(summary: LocalLogSummary, buckets: number, cut: Cut): Range {
   if (summary.firstUs === undefined) {
-    return { from: 0, to: 0, buckets, known: false }
+    return { from: 0, to: 0, buckets, known: false, origin: 0 }
   }
+  const first = Number(summary.firstUs)
+  const last = Number(summary.lastUs ?? first)
 
-  return { from: Number(summary.firstUs), to: Number(summary.lastUs ?? summary.firstUs), buckets, known: true }
+  return { from: timeOf(cut.fromUs, first), to: timeOf(cut.toUs, last), buckets, known: true, origin: first }
 }
 
 /** The logs on this computer, as the mock has them. */
@@ -465,15 +535,17 @@ export class MockLocalLogs {
    * @param ask.key the log
    * @param ask.series the series asked for
    * @param ask.buckets how many parts
+   * @param ask.fromUs where the part of the time begins, when it is a part
+   * @param ask.toUs where it ends
    * @param ok sends the answer
    * @param fail sends an error
    */
-  series(ask: { key: string, series: SeriesAsk[], buckets: number }, ok: Reply, fail: Fail): void {
+  series(ask: Cut & { key: string, series: SeriesAsk[], buckets: number }, ok: Reply, fail: Fail): void {
     const copy = this.findRead(ask.key, fail)
     if (!copy) {
       return
     }
-    const range = rangeOf(copy.summary, ask.buckets)
+    const range = rangeOf(copy.summary, ask.buckets, ask)
     const answer: LogsLocalSeries = {
       fromUs: range.from,
       toUs: range.to,
@@ -495,7 +567,11 @@ export class MockLocalLogs {
     const copy = this.findRead(key, fail)
     if (copy) {
       // A recording can have more kinds than are listed.
-      const answer = copy.log.source === 'tlog' ? { ...MOCK_MESSAGES, more: 3 } : MOCK_MESSAGES
+      // (a log with no times in it has no RATE either: nothing of its flight was logged)
+      const kinds = copy.summary.firstUs === undefined
+        ? { types: MOCK_MESSAGES.types.filter(type => type.name !== 'RATE') }
+        : MOCK_MESSAGES
+      const answer = copy.log.source === 'tlog' ? { ...MOCK_MESSAGES, more: 3 } : kinds
       setTimeout(() => ok(answer), this.stepMs)
     }
   }

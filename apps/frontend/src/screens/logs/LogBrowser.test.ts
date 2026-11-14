@@ -92,7 +92,7 @@ it('lists the kinds of message with how many there are of each, and asks for non
   const { wrapper } = await opened(0)
 
   const options = wrapper.findAll('#browser-kind option').map(option => option.text())
-  expect(options).toEqual(['Choose…', 'ATT (12,000)', 'BAT (2,400)', 'ISBD (400)', 'MSG (12)'])
+  expect(options).toEqual(['Choose…', 'ATT (12,000)', 'BAT (2,400)', 'ISBD (400)', 'MSG (12)', 'RATE (3,000)'])
   expect(wrapper.get('#browser-kind').element).toHaveProperty('value', '')
   expect(wrapper.text()).toContain('Choose a kind of message')
 })
