@@ -18,6 +18,7 @@ import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
+import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -75,6 +76,8 @@ export interface ConfiguratorHandle {
   calibration: CalibrationModel
   /** The motor test of the Motors page: one motor, for as long as a button is held. */
   motorTest: MotorTestModel
+  /** The live response of the Tune screen: the actual and the desired roll rate, while the screen is shown. */
+  tuning: TuningStreamModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -520,7 +523,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle),
     calibration: startCalibration(client, vehicle),
-    motorTest,
+    motorTest, tuning: useTuningStream({ client }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

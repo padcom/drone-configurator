@@ -21,7 +21,7 @@
 // a banner that says changes apply in flight (the leader's decision Q7: tuning is the one place where a write goes to an armed
 // vehicle, after a hold).
 // Arming and disarming are announced once each, politely, so that a person who is not looking at the banner hears it.
-import { computed, ref, useId, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import SectionNav from '@/components/ui/SectionNav.vue'
@@ -50,6 +50,27 @@ const announcement = ref('')
 watch(armed, now => {
   announcement.value = t(now ? 'tune.armedAnnounce' : 'tune.disarmedAnnounce')
 })
+
+// The live response runs while this screen is shown and a vehicle is connected: the backend asks the vehicle for the two
+// messages when it starts, and gives the vehicle's message rates back when it ends (the screen is left, the link lost). Pages
+// are kept alive, so leaving is a deactivation, not an unmount.
+const shownNow = ref(false)
+const connected = computed(() => handle.fields.connection.value.state === 'connected')
+onMounted(() => void (shownNow.value = true))
+onActivated(() => void (shownNow.value = true))
+onDeactivated(() => void (shownNow.value = false))
+onBeforeUnmount(() => {
+  // (the watcher below is gone with the screen: the stream is ended here)
+  shownNow.value = false
+  handle.tuning.stop()
+})
+watch([shownNow, connected], ([shown, up]) => {
+  if (shown && up) {
+    handle.tuning.start()
+  } else {
+    handle.tuning.stop()
+  }
+}, { immediate: true })
 
 const titleKey = ref('')
 watch(() => route.meta, meta => {

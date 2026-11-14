@@ -134,8 +134,10 @@ async function endsWhenTheUserDisconnects(): Promise<void> throws Error {
   const r = await connected()
   await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
   await batch(r.f)
+  // (the end comes while the disconnect is answered: waiting for it is begun first)
+  const ended = r.f.ended()
   await r.close()
-  expect(errorOf(await r.f.ended())).toBe("LINK_LOST")
+  expect(errorOf(await ended)).toBe("LINK_LOST")
 }
 
 async function refusesWithNoVehicle(): Promise<void> throws Error {
@@ -200,7 +202,7 @@ async function neverHoldsUpTheTelemetry(): Promise<void> throws Error {
   let telemetry = 0
   let waited = 0
   while (waited < 1100) {
-    const e = await r.f.event("telemetry.stream")
+    const _event = await r.f.event("telemetry.stream")
     telemetry += 1
     waited += 190
   }

@@ -1668,6 +1668,22 @@
     "disarmedAnnounce": "El vehículo está desarmado.",
     "link": "Enlazar alabeo y cabeceo: un control ajusta ambos",
     "differ": "El alabeo y el cabeceo difieren en el vehículo: no están enlazados para que uno no sobrescriba al otro. Enlácelos para ajustar ambos.",
+    "chart": {
+      "title": "Respuesta en vivo",
+      "chartTitle": "Velocidad de alabeo, grados por segundo",
+      "actual": "Real",
+      "desired": "Deseada",
+      "stale": "Datos antiguos: hace un rato que no llega nada",
+      "noData": "Sin datos: vuele o conecte",
+      "overshoot": "Sobreimpulso",
+      "rise": "Subida (10 a 90 %)",
+      "settling": "Asentamiento (a menos del 5 %)",
+      "noStep": "Ningún escalón en los últimos {seconds} segundos: no se mide nada.",
+      "step": "Medido del último escalón de la velocidad deseada: de {from} a {to} grados por segundo.",
+      "dropped": "Puntos descartados por el backend: {count}",
+      "noActual": "El vehículo no aceptó la petición de la velocidad real (ATTITUDE): no se muestra.",
+      "noDesired": "El vehículo no aceptó la petición de la velocidad deseada (ATTITUDE_TARGET): no se muestra y no se mide nada."
+    },
     "axis": {
       "rollPitch": "Alabeo y cabeceo",
       "roll": "Alabeo",

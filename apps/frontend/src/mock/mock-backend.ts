@@ -14,6 +14,7 @@ import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
+import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
 
 type Outgoing = Omit<Envelope, 'v'>
@@ -110,6 +111,8 @@ export interface MockControl {
   rebootsSent?: () => number
   /** What the motor test has done (see `MockMotorsControl`). */
   motors?: MockMotorsControl
+  /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
+  tuning?: MockTuningControl
 }
 
 /** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
@@ -168,6 +171,7 @@ class MockVehicle {
   readonly localLogs: MockLocalLogs
   /** The motor test. */
   readonly motors: MockMotors
+  readonly tuning: MockTuning
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -182,8 +186,10 @@ class MockVehicle {
     this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
+    this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
     if (options.control) {
       options.control.motors = this.motors.control()
+      options.control.tuning = this.tuning.control()
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
@@ -225,6 +231,7 @@ class MockVehicle {
     this.logs.reset()
     this.calibration.reset()
     this.motors.reset()
+    this.tuning.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
@@ -240,6 +247,7 @@ class MockVehicle {
       this.watchers.delete(e.s!)
       this.messageSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
+      this.tuning.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
     } else if (e.k === 'request' || e.k === 'subscribe') {
@@ -291,6 +299,7 @@ class MockVehicle {
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
       case 'motors.test': return this.motors.subscribe(e)
       case 'motors.hold': return this.motors.hold(ok, fail)
+      case 'tuning.stream': return this.tuning.subscribe(e)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
