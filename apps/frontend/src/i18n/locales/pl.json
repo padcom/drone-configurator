@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, i co teraz robią wyjścia pojazdu. Nic na tej stronie nie kręci silnikiem.",
+      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, co teraz robią wyjścia pojazdu oraz test każdego silnika.",
       "escTitle": "Ustawienia ESC",
       "protocol": "Protokół ESC",
       "protocolHelp": "Protokół wyjść silników (MOT_PWM_TYPE). Działa po ponownym uruchomieniu, a regulatory ESC muszą go rozumieć.",
@@ -1467,7 +1467,37 @@
       "range": "Poza zakresem: to, co wpisano, nie jest zapisywane.",
       "outputsOld": "Pojazd przestał zgłaszać swoje wyjścia.",
       "outputsOldHelp": "Ostatnie impulsy nie są pokazane: wyglądałyby na aktualne. Pojawią się znowu, gdy pojazd je zgłosi.",
-      "protocolUnknown": "Ten pojazd nie zgłasza swojego protokołu ESC."
+      "protocolUnknown": "Ten pojazd nie zgłasza swojego protokołu ESC.",
+      "test": {
+        "title": "Test silników",
+        "warning": "NAJPIERW ZDEJMIJ ŚMIGŁA. Silnik kręci się, dopóki jego przycisk jest przytrzymany, z gazem poniżej (najwyżej 20 %), i staje po puszczeniu, gdy to okno straci fokus, gdy opuścisz stronę albo gdy cokolwiek pójdzie źle.",
+        "tick": "Śmigła są zdjęte",
+        "throttle": "Gaz",
+        "throttleValue": "{percent} % (najwyżej 20 %)",
+        "help": "Przytrzymaj przycisk, aby kręcić tym silnikiem (spacja lub Enter przytrzymują go z klawiatury). Litery to kolejność, w jakiej pojazd testuje silniki, od A; rysunek to rama, przód jest u góry.",
+        "pad": "Silniki, przód jest u góry",
+        "confirmed": "Potwierdzono",
+        "frame": "Pojazd ustala kolejność silników przy starcie. Rama została zmieniona od startu albo aplikacja nie może stwierdzić, czy pojazd od tego czasu się zrestartował: litery mogą nie odpowiadać silnikom, które się kręcą. Uruchom pojazd ponownie z tej aplikacji (polecenie restartu kontrolera lotu), aby przetestować silnik.",
+        "confirmMotor": "Silnik {letter} potwierdzony",
+        "motor": "Silnik {letter}, kręci się {spin}: przytrzymaj, aby kręcić",
+        "noLayout": "Ta strona nie ma rysunku dla tej ramy, więc nie powie, który silnik jest którym: test silników nie jest dostępny.",
+        "offline": "Połącz pojazd, aby przetestować silnik.",
+        "unknown": "Nie wiadomo, czy pojazd jest uzbrojony (brak świeżego heartbeatu): żadnego silnika nie można testować.",
+        "armed": "Pojazd jest uzbrojony: rozbrój go, aby przetestować silnik.",
+        "running": "Silnik {letter} pracuje. Puść przycisk, aby go zatrzymać.",
+        "stopped": {
+          "RELEASED": "Silnik {letter} zatrzymany.",
+          "SILENT": "Ta strona przestała zgłaszać, że przycisk jest przytrzymany: silnik {letter} zatrzymano.",
+          "LINK_LOST": "Utracono łącze z pojazdem: silnik {letter} dostał polecenie zatrzymania i zatrzyma się sam w ciągu 1,5 s.",
+          "REFUSED": "Pojazd nie przyjął testu silnika {letter} (jego własny komunikat jest w komunikatach).",
+          "UNACKNOWLEDGED": "Pojazd nie odpowiedział na test silnika {letter}: wysłano zatrzymanie.",
+          "ARMED": "Pojazd jest uzbrojony: test silnika {letter} się nie rozpoczął.",
+          "STATE_UNKNOWN": "Nie wiadomo, czy pojazd jest uzbrojony: test silnika {letter} się nie rozpoczął.",
+          "BUSY": "Pojazd jest zajęty (inny test, kalibracja, operacja na parametrach lub logach albo restart): test silnika {letter} się nie rozpoczął.",
+          "NOT_CONNECTED": "Brak połączonego pojazdu: test silnika {letter} się nie rozpoczął.",
+          "OTHER": "Test silnika {letter} zakończył się ({why})."
+        }
+      }
     },
     "radio": {
       "summary": "Poruszaj każdą wajchą i każdym przełącznikiem nadajnika: jego pasek porusza się razem z nim. Aby skalibrować, uruchom, ustaw każdą wajchę we wszystkich skrajnych położeniach i każdy przełącznik we wszystkich pozycjach, wróć wajchami na środek (gaz na dole) i naciśnij Gotowe. Nic nie jest zapisywane, dopóki sam tego nie zapiszesz.",

@@ -1448,7 +1448,7 @@
       }
     },
     "motors": {
-      "summary": "How the ESCs are driven, the thresholds the motors spin at, and what the vehicle’s outputs are doing now. Nothing on this page spins a motor.",
+      "summary": "How the ESCs are driven, the thresholds the motors spin at, what the vehicle’s outputs are doing now, and a test of each motor.",
       "escTitle": "ESC settings",
       "protocol": "ESC protocol",
       "protocolHelp": "The protocol of the motor outputs (MOT_PWM_TYPE). It takes effect after a reboot, and the ESCs must understand it.",
@@ -1467,7 +1467,37 @@
       "range": "Out of range: what is typed is not written.",
       "outputsOld": "The vehicle has stopped reporting its outputs.",
       "outputsOldHelp": "The last pulses are not shown: they would look current. They appear again when the vehicle reports them.",
-      "protocolUnknown": "This vehicle does not report its ESC protocol."
+      "protocolUnknown": "This vehicle does not report its ESC protocol.",
+      "test": {
+        "title": "Motor test",
+        "warning": "TAKE THE PROPELLERS OFF first. A motor spins while its button is held, at the throttle below (20 % at most), and stops when you let go, when this window loses the focus, when you leave the page, or when anything goes wrong.",
+        "tick": "The propellers are off",
+        "throttle": "Throttle",
+        "throttleValue": "{percent} % (20 % at most)",
+        "help": "Hold a button to spin that motor (Space or Enter holds it from the keyboard). The letters are the order the vehicle tests its motors in, A first; the drawing is the frame, the front is up.",
+        "pad": "Motors, the front is up",
+        "confirmed": "Confirmed",
+        "frame": "The vehicle fixes the order of its motors when it starts. The frame was changed since it started, or the app cannot tell whether it has restarted since: the letters may not be the motors that turn. Restart the vehicle from this app (the command Reboot flight controller) to test a motor.",
+        "confirmMotor": "Motor {letter} confirmed",
+        "motor": "Motor {letter}, turns {spin}: hold to spin",
+        "noLayout": "This page has no drawing for this frame, so it cannot say which motor is which: the motor test is not offered.",
+        "offline": "Connect a vehicle to test a motor.",
+        "unknown": "The vehicle's armed state is not known (no recent heartbeat): no motor can be tested.",
+        "armed": "The vehicle is armed: disarm it to test a motor.",
+        "running": "Motor {letter} is running. Let go of the button to stop it.",
+        "stopped": {
+          "RELEASED": "Motor {letter} stopped.",
+          "SILENT": "This page stopped saying it holds the button: motor {letter} was stopped.",
+          "LINK_LOST": "The link to the vehicle was lost: motor {letter} was told to stop, and stops by itself within 1.5 s.",
+          "REFUSED": "The vehicle did not accept the test of motor {letter} (its own message is in the messages).",
+          "UNACKNOWLEDGED": "The vehicle did not answer the test of motor {letter}: a stop was sent.",
+          "ARMED": "The vehicle is armed: the test of motor {letter} did not begin.",
+          "STATE_UNKNOWN": "The vehicle's armed state is not known: the test of motor {letter} did not begin.",
+          "BUSY": "The vehicle is busy (another test, a calibration, a parameter or log operation, or a reboot): the test of motor {letter} did not begin.",
+          "NOT_CONNECTED": "No vehicle is connected: the test of motor {letter} did not begin.",
+          "OTHER": "The test of motor {letter} ended ({why})."
+        }
+      }
     },
     "radio": {
       "summary": "Move every stick and switch of the transmitter: its bar moves with it. To calibrate, start, move each stick to all its ends and each switch to all its positions, put the sticks back in the middle (the throttle low), and press Done. Nothing is written until you write it.",

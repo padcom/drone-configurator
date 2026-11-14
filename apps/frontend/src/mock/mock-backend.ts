@@ -13,6 +13,7 @@ import { MockCalibration, type MockCalibrationOptions } from './mock-calibration
 import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
+import { MockMotors, type MockMotorsControl } from './mock-motors'
 
 type Outgoing = Omit<Envelope, 'v'>
 type Send = (e: Outgoing) => void
@@ -104,6 +105,8 @@ export interface MockControl {
   rebootAnswer?: (answer: RebootResult['result']) => void
   /** How many reboot commands the vehicle has been sent (a refused call sends none). */
   rebootsSent?: () => number
+  /** What the motor test has done (see `MockMotorsControl`). */
+  motors?: MockMotorsControl
 }
 
 /** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
@@ -139,6 +142,8 @@ class MockVehicle {
   readonly calibration: MockCalibration
   /** The logs on this computer (no vehicle needed). */
   readonly localLogs: MockLocalLogs
+  /** The motor test. */
+  readonly motors: MockMotors
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -152,7 +157,9 @@ class MockVehicle {
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
     this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
+    this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     if (options.control) {
+      options.control.motors = this.motors.control()
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
@@ -192,6 +199,7 @@ class MockVehicle {
     }
     this.logs.reset()
     this.calibration.reset()
+    this.motors.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
     this.connection = { state: 'disconnected' }
@@ -206,6 +214,7 @@ class MockVehicle {
     } else if (e.k === 'unsubscribe') {
       this.watchers.delete(e.s!)
       this.messageSubscribers.delete(e.s!)
+      this.motors.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
     } else if (e.k === 'request' || e.k === 'subscribe') {
@@ -255,6 +264,8 @@ class MockVehicle {
       case 'logs.local.batches': return this.localLogs.batches((e.p as { key: string }).key, ok, fail)
       case 'logs.local.spectrum': return this.localLogs.spectrum(e.p as LogsLocalSpectrumAsk, ok, fail)
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
+      case 'motors.test': return this.motors.subscribe(e)
+      case 'motors.hold': return this.motors.hold(ok, fail)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
