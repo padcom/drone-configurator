@@ -872,6 +872,7 @@
       "negative": "{id}: {value} is negative: not written.",
       "above": "{id}: {value} is above what ArduPilot's table allows: not written.",
       "below": "{id}: {value} is below {min}, which it may not be while the vehicle is armed: not written.",
+      "reboot": "{id} takes effect only after a restart: not written while the vehicle is armed.",
       "changed": "The vehicle armed, or its state was lost, while you were asked: nothing was written.",
       "armed": "Armed: changes apply in flight.",
       "holdTitle": "Write tuning to an armed vehicle",
@@ -1794,7 +1795,9 @@
       "attitude": "Attitude",
       "feel": "Pilot feel",
       "position": "Position",
-      "knob": "Radio knob"
+      "knob": "Radio knob",
+      "gyro": "Gyro filter",
+      "notch": "Harmonic notch"
     },
     "name": {
       "ATC_ANG_RLL_P": "Angle P: roll",
@@ -1815,7 +1818,16 @@
       "PSC_D_VEL_P": "Vertical velocity P",
       "PSC_D_ACC_P": "Vertical acceleration P",
       "PSC_D_ACC_I": "Vertical acceleration I",
-      "TUNE": "What the radio knob tunes"
+      "TUNE": "What the radio knob tunes",
+      "INS_GYRO_FILTER": "Gyro low-pass cutoff",
+      "INS_HNTCH_ENABLE": "Notch filter",
+      "INS_HNTCH_MODE": "Notch tracking",
+      "INS_HNTCH_REF": "Notch reference",
+      "INS_HNTCH_FREQ": "Notch centre frequency",
+      "INS_HNTCH_BW": "Notch bandwidth",
+      "INS_HNTCH_ATT": "Notch attenuation",
+      "INS_HNTCH_HMNCS": "Notch harmonics",
+      "INS_HNTCH_OPTS": "Notch options"
     },
     "value": "Value of {name}",
     "was": "was {value}",
@@ -1825,15 +1837,18 @@
       "negative": "Negative: refused here and by the backend. It is not written.",
       "above": "Above the most ArduPilot's table allows ({max}): refused here and by the backend. It is not written.",
       "below": "Below the least of ArduPilot's table ({min}) while the vehicle is armed: refused here and by the backend. It is not written.",
-      "nan": "Not a number: it is not written."
+      "nan": "Not a number: it is not written.",
+      "reboot": "Takes effect only after a restart: it is not written while the vehicle is armed (refused here and by the backend)."
     },
     "missing": "Not on this vehicle: {names}.",
     "backToInitial": "Put back the initial values",
-    "empty": {
-      "filters": {
-        "title": "Filters come after the logs",
-        "help": "The notch filter is set from the noise a log recorded, so it comes with the analysis of logs."
-      }
+    "filters": {
+      "summary": "The gyro filter and the first harmonic notch. The gyro cutoff and the notch's centre, bandwidth and attenuation take effect in flight. The notch's switch, tracking mode, reference, harmonics and options are read only when the vehicle starts: they are written while the vehicle is disarmed, and take effect after a restart.",
+      "armed": "Armed: only the gyro cutoff and the notch's centre, bandwidth and attenuation can be changed, and they apply in flight. The rest take effect only after a restart and are written while disarmed.",
+      "afterRestart": "Takes effect only after a restart of the vehicle.",
+      "tracking": "This notch tracks the throttle, a sensor or the FFT, so its centre moves: the page does not check it against the peaks of the log that is open in Spectrum.",
+      "misses": "The notch as chosen (bands {bands} Hz) takes out none of the peaks in the spectrum of log {log} ({peaks} Hz): its centre is outside where the noise was logged.",
+      "harmonic": "Harmonic {n}"
     }
   }
 }

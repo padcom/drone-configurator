@@ -71,7 +71,14 @@ const first = computed(() => props.ids[0] ?? '')
 const value = computed(() => props.panel.value(first.value) ?? props.param.lo)
 const text = computed(() => typed.value ?? showNumber(value.value))
 const clamped = computed(() => Math.min(props.param.hi, Math.max(props.param.lo, value.value)))
-const off = computed(() => props.panel.blocked.value !== null || props.ids.some(id => props.panel.missing.value.includes(id)))
+/** The vehicle is armed and the parameter is read only when it starts: it is not written now, and the note says why. */
+const locked = computed(() => props.panel.armed.value && !props.param.armedOk)
+const off = computed(() => (
+  props.panel.blocked.value !== null || locked.value || props.ids.some(id => props.panel.missing.value.includes(id))
+))
+
+/** A parameter that is read only when the vehicle starts says so, unless there is something else to say. */
+const restartNote = computed(() => (props.param.armedOk ? '' : t('tune.filters.afterRestart')))
 
 /** What the vehicle had for each of the row's parameters at the first complete download of the session. */
 const was = computed(() => {
@@ -153,6 +160,6 @@ const note = computed((): { text: string, problem: boolean } => {
   }
   const meta = handle.metadata.metadata.value.get(first.value) ?? tableMeta(props.param)
 
-  return { text: checkMeta(meta, value.value) ?? '', problem: false }
+  return { text: checkMeta(meta, value.value) ?? restartNote.value, problem: false }
 })
 </script>

@@ -872,6 +872,7 @@
       "negative": "{id}: {value} jest ujemne: nie zapisano.",
       "above": "{id}: {value} jest powyżej tego, co dopuszcza tabela ArduPilota: nie zapisano.",
       "below": "{id}: {value} jest poniżej {min}, a przy uzbrojonym pojeździe tak być nie może: nie zapisano.",
+      "reboot": "{id} działa dopiero po restarcie: nie zapisano przy uzbrojonym pojeździe.",
       "changed": "Pojazd został uzbrojony albo utracono jego stan, gdy trwało pytanie: nic nie zapisano.",
       "armed": "Uzbrojony: zmiany działają w locie.",
       "holdTitle": "Zapisz strojenie w uzbrojonym pojeździe",
@@ -1794,7 +1795,9 @@
       "attitude": "Orientacja",
       "feel": "Odczucie pilota",
       "position": "Pozycja",
-      "knob": "Pokrętło radia"
+      "knob": "Pokrętło radia",
+      "gyro": "Filtr żyroskopu",
+      "notch": "Notch harmoniczny"
     },
     "name": {
       "ATC_ANG_RLL_P": "Kąt P: przechylenie",
@@ -1815,7 +1818,16 @@
       "PSC_D_VEL_P": "Prędkość pionowa P",
       "PSC_D_ACC_P": "Przyspieszenie pionowe P",
       "PSC_D_ACC_I": "Przyspieszenie pionowe I",
-      "TUNE": "Co stroi pokrętło radia"
+      "TUNE": "Co stroi pokrętło radia",
+      "INS_GYRO_FILTER": "Częstotliwość odcięcia żyroskopu",
+      "INS_HNTCH_ENABLE": "Filtr notch",
+      "INS_HNTCH_MODE": "Śledzenie notcha",
+      "INS_HNTCH_REF": "Odniesienie notcha",
+      "INS_HNTCH_FREQ": "Częstotliwość środkowa notcha",
+      "INS_HNTCH_BW": "Szerokość pasma notcha",
+      "INS_HNTCH_ATT": "Tłumienie notcha",
+      "INS_HNTCH_HMNCS": "Harmoniczne notcha",
+      "INS_HNTCH_OPTS": "Opcje notcha"
     },
     "value": "Wartość {name}",
     "was": "było {value}",
@@ -1825,15 +1837,18 @@
       "negative": "Ujemna: odrzucona tutaj i przez backend. Nie jest zapisywana.",
       "above": "Powyżej największej wartości w tabeli ArduPilota ({max}): odrzucona tutaj i przez backend. Nie jest zapisywana.",
       "below": "Poniżej najmniejszej wartości w tabeli ArduPilota ({min}), gdy pojazd jest uzbrojony: odrzucona tutaj i przez backend. Nie jest zapisywana.",
-      "nan": "To nie jest liczba: nie jest zapisywana."
+      "nan": "To nie jest liczba: nie jest zapisywana.",
+      "reboot": "Działa dopiero po restarcie: nie jest zapisywane przy uzbrojonym pojeździe (odrzucane tu i przez backend)."
     },
     "missing": "Brak w tym pojeździe: {names}.",
     "backToInitial": "Przywróć wartości początkowe",
-    "empty": {
-      "filters": {
-        "title": "Filtry będą po logach",
-        "help": "Filtr notch ustawia się z szumu, który zapisał log, więc pojawia się razem z analizą logów."
-      }
+    "filters": {
+      "summary": "Filtr żyroskopu i pierwszy notch harmoniczny. Częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha działają w locie. Włącznik, tryb śledzenia, odniesienie, harmoniczne i opcje notcha są czytane tylko przy starcie pojazdu: zapisuje się je przy rozbrojonym pojeździe, a działają po restarcie.",
+      "armed": "Uzbrojony: zmienić można tylko częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha, i działają w locie. Reszta działa dopiero po restarcie i jest zapisywana przy rozbrojonym pojeździe.",
+      "afterRestart": "Działa dopiero po restarcie pojazdu.",
+      "tracking": "Ten notch śledzi przepustnicę, czujnik lub FFT, więc jego środek się przesuwa: strona nie sprawdza go względem szczytów dziennika otwartego w Widmie.",
+      "misses": "Wybrany notch (pasma {bands} Hz) nie usuwa żadnego ze szczytów widma dziennika {log} ({peaks} Hz): jego środek leży poza miejscem, gdzie zapisano szum.",
+      "harmonic": "Harmoniczna {n}"
     }
   }
 }

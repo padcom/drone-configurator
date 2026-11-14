@@ -759,3 +759,75 @@ describe('the question', () => {
     ])
   })
 })
+
+/** The vehicle's state for a rig of the notch: armed (true), disarmed (false). */
+interface Arm {
+  armed: boolean
+}
+
+/**
+ * A staged model on a vehicle that has the notch's centre and bandwidth, and that can be armed and disarmed by a test.
+ *
+ * @param arm the vehicle's state
+ * @returns the model and the spies
+ */
+function notchRig(arm: Arm) {
+  const params = shallowRef<Param[]>([
+    { id: 'INS_HNTCH_FREQ', index: 0, kind: 'real', type: 'REAL32', value: 80 },
+    { id: 'INS_HNTCH_BW', index: 1, kind: 'real', type: 'REAL32', value: 40 },
+  ])
+  const { parameters } = fakeParameters(params)
+  const call = vehicleAnswering(params, (_id, value) => value)
+  const hold = vi.fn((...question: string[]) => Promise.resolve(question.length > 0))
+  const staged = useStaged({
+    client: { call } as unknown as BackendClient,
+    parameters,
+    isConnected: () => true,
+    confirm: vi.fn(() => Promise.resolve(true)),
+    confirmHold: hold,
+    mayBeArmed: () => arm.armed,
+    armedState: () => arm.armed,
+  })
+
+  return { staged, call, hold }
+}
+
+describe('the notch from the Tune screen while the vehicle is armed, written', () => {
+  it('writes a notch parameter the Tune screen queued, after the hold, and from nowhere else', async () => {
+    const { staged, call, hold } = notchRig({ armed: true })
+
+    expect(staged.stage([{ id: 'INS_HNTCH_FREQ', to: 95 }], { tuning: true })).toBe(1)
+    await staged.writeAll()
+
+    expect(hold).toHaveBeenCalledTimes(1)
+    expect(hold.mock.calls[0]?.[0]).toContain('Armed: changes apply in flight.')
+    expect(call).toHaveBeenCalledTimes(1)
+    expect(call.mock.calls[0]?.[1]).toMatchObject({ id: 'INS_HNTCH_FREQ', value: 95 })
+  })
+})
+
+describe('the notch from the Tune screen while the vehicle is armed, refused', () => {
+  it('refuses the whole queue when a change from another page is in it, and writes nothing', async () => {
+    const arm = { armed: false }
+    const { staged, call, hold } = notchRig(arm)
+
+    // queued while the vehicle is disarmed, from a page that is not the Tune screen (a suggestion of Spectrum)
+    expect(staged.stage([{ id: 'INS_HNTCH_FREQ', to: 95 }])).toBe(1)
+    expect(staged.stage([{ id: 'INS_HNTCH_BW', to: 45 }], { tuning: true })).toBe(1)
+    arm.armed = true
+    await staged.writeAll()
+
+    expect(call).not.toHaveBeenCalled()
+    expect(hold).not.toHaveBeenCalled()
+  })
+
+  it('does not let a later change of the same parameter from another page replace the one the Tune screen queued', () => {
+    const { staged } = notchRig({ armed: true })
+
+    expect(staged.stage([{ id: 'INS_HNTCH_FREQ', to: 95 }], { tuning: true })).toBe(1)
+    expect(staged.stage([{ id: 'INS_HNTCH_FREQ', to: 120 }])).toBe(0)
+
+    expect(staged.changes.value).toEqual([{ id: 'INS_HNTCH_FREQ', from: 80, to: 95, tuning: true }])
+    expect(staged.refused.value).toContain('not written while the vehicle is armed')
+  })
+})
