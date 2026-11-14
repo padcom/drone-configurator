@@ -39,6 +39,8 @@ export interface SpectrumModel {
    * after them (a source the backend marked as after the filter), else null: it is never made from a model of the filters.
    */
   readonly after: ShallowRef<LocalLogSpectrum | null>
+  /** Why the spectrum after the filters could not be made, when the log has it and the pass failed (the first stays). */
+  readonly afterError: ShallowRef<string | null>
   /** Whether the last log that was being opened was stopped. */
   readonly stopped: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
@@ -85,6 +87,7 @@ class Spectrum implements SpectrumModel {
   readonly chosen = ref<string | null>(null)
   readonly spectrum = shallowRef<LocalLogSpectrum | null>(null)
   readonly after = shallowRef<LocalLogSpectrum | null>(null)
+  readonly afterError = shallowRef<string | null>(null)
   readonly stopped = ref(false)
   readonly error = shallowRef<string | null>(null)
 
@@ -151,13 +154,35 @@ class Spectrum implements SpectrumModel {
     this.chosen.value = idOf(source)
     this.spectrum.value = null
     this.after.value = null
+    this.afterError.value = null
     const spectrum = await this.deps.client.call('logs.local.spectrum', { key, sensor: source.sensor, instance: source.instance })
-    const after = await this.afterOf(key, source)
+    const [after, why] = await this.tryAfter(key, source)
     if (this.open.value === key && this.chosen.value === idOf(source)) {
       this.spectrum.value = spectrum
       this.after.value = after
+      this.afterError.value = why
       this.phase.value = 'ready'
       this.progress.value = null
+    }
+  }
+
+  /**
+   * The spectrum after the filters, if it can be made: a pass that fails does not take the spectrum that was made with it (that
+   * stays, and the page says why the other is missing), but stopping it by hand is a stop of the whole.
+   *
+   * @param key the log
+   * @param source the sensor that is shown
+   * @returns the spectrum (or null), and why it is missing (or null)
+   */
+  private async tryAfter(key: string, source: BatchSource): Promise<[LocalLogSpectrum | null, string | null]> {
+    try {
+      return [await this.afterOf(key, source), null]
+    } catch (error) {
+      if (toBackendError(error).code === 'ABORTED') {
+        throw error
+      }
+
+      return [null, describeError(error)]
     }
   }
 
@@ -229,6 +254,7 @@ class Spectrum implements SpectrumModel {
     this.chosen.value = null
     this.spectrum.value = null
     this.after.value = null
+    this.afterError.value = null
     this.error.value = null
   }
 }

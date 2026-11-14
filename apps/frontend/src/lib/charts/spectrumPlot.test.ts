@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { niceStep, plotOf } from './spectrumPlot'
+import { niceStep, plotOf, plotWith, topOf } from './spectrumPlot'
 
 const box = { width: 100, height: 50 }
 const format = (value: number) => String(value)
@@ -16,6 +16,28 @@ describe('the step of the marks', () => {
     expect(niceStep(0, 6)).toBe(1)
     expect(niceStep(Number.NaN, 6)).toBe(1)
     expect(niceStep(10, 0)).toBe(1)
+  })
+})
+
+describe('two plots on one scale', () => {
+  const big = [{ name: 'x', amplitude: [0, 2, 1] }]
+  const small = [{ name: 'x', amplitude: [0, 0.2, 0.1] }]
+
+  it('takes the larger of the axes\' own top and the one given, so that a smaller spectrum is drawn small', () => {
+    expect(topOf(big)).toBe(2)
+    expect(topOf(small)).toBeCloseTo(0.2, 9)
+    const alone = plotWith(small, 500, box, { format })
+    const together = plotWith(small, 500, box, { format, top: 2 })
+
+    expect(alone.top).toBeCloseTo(0.2, 9)
+    expect(together.top).toBe(2)
+    // the same ticks as the large one, and the line of the small one stays low in its box
+    expect(together.yTicks).toEqual(plotWith(big, 500, box, { format, top: 2 }).yTicks)
+    expect(together.lines[0]?.d).toBe('M0.0,50.0L50.0,45.0L100.0,47.5')
+  })
+
+  it('does not lower the top of a spectrum that is larger than the one given', () => {
+    expect(plotWith(big, 500, box, { format, top: 0.5 }).top).toBe(2)
   })
 })
 

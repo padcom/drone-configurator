@@ -161,6 +161,16 @@ it('draws the same IMU after the filters beside the one before them, from the so
   expect(wrapper.findAll('.spectrum-chart')).toHaveLength(2)
 })
 
+it('draws both charts on the same vertical scale: the ticks are the same though the filtered spectrum is a tenth', async () => {
+  const { wrapper } = await screen()
+  await open(wrapper, WITH_BATCHES)
+  const [before, filtered] = wrapper.findAll('.spectrum-chart')
+  const ticks = (chart: typeof before) => chart?.findAll('.chart-grid .spectrum-tick').map(tick => tick.text())
+
+  expect(ticks(before)?.length).toBeGreaterThan(2)
+  expect(ticks(filtered)).toEqual(ticks(before))
+})
+
 it('says why there is no spectrum after the filters (an accelerometer, a source after them), and draws none', async () => {
   const { wrapper, handle } = await screen()
   await open(wrapper, WITH_BATCHES)

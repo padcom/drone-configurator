@@ -63,6 +63,7 @@
           :unit="result.unit"
           :peak="result.peak"
           :bands="bands"
+          :top="sharedTop"
         />
         <section v-if="afterText !== ''" id="spectrum-after" class="spectrum-after" :aria-label="t('logs.spectrum.after.title')">
           <p id="spectrum-after-text" class="muted">{{ afterText }}</p>
@@ -75,6 +76,7 @@
             :unit="after.unit"
             :peak="after.peak"
             :bands="bands"
+            :top="sharedTop"
           />
         </section>
         <p id="spectrum-caveats" class="muted">{{ t('logs.spectrum.caveats') }}</p>
@@ -146,7 +148,8 @@ import { useFormat } from '@/i18n/useFormat'
 import { asNumber } from '@/lib/logs/localLogs'
 import type { BatchSource } from '@/generated/app'
 import { notchBands, notchOf } from '@/lib/logs/spectrum'
-import { afterOf, stageOf } from '@/lib/logs/stage'
+import { type AfterFilter, afterOf, stageOf } from '@/lib/logs/stage'
+import { topOf } from '@/lib/charts/spectrumPlot'
 import NotchPreview from './NotchPreview.vue'
 import SpectrumSuggest from './SpectrumSuggest.vue'
 
@@ -204,16 +207,34 @@ const logOptions = computed(() => [
     .map(log => ({ value: log.key, label: t('logs.flights.heading', { id: log.id }) })),
 ])
 
+/**
+ * The key of the words for what the log holds after the filters.
+ *
+ * @param found what the log holds
+ * @returns `self`, `pair`, or why there is none
+ */
+function reasonOf(found: AfterFilter): string {
+  return found.state === 'none' ? found.why : found.state
+}
+
 const after = computed(() => spectrum.after.value)
+/** The top of the vertical axis of both charts when there are two: the larger of the two, so that they can be compared. */
+const sharedTop = computed(() => {
+  const [first, second] = [result.value, after.value]
+
+  return first && second ? Math.max(topOf(first.axes), topOf(second.axes)) : undefined
+})
+
 /** What the log holds of the data after the filters for the sensor that is shown, in words. */
 const afterText = computed(() => {
   const shown = chosenSource.value
   const found = shown === undefined ? null : afterOf(spectrum.sources.value, shown)
+  const why = spectrum.afterError.value
   if (found === null) {
     return ''
   }
 
-  return t(`logs.spectrum.after.${found.state === 'none' ? found.why : found.state}`)
+  return why === null ? t(`logs.spectrum.after.${reasonOf(found)}`) : t('logs.spectrum.after.failed', { why })
 })
 
 const hasRecordings = computed(() => flights.logs.value.some(log => log.source === 'tlog'))
