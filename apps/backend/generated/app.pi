@@ -2470,10 +2470,16 @@ export struct BatchSource {
   rateHz: f64
   samples: u16
   mixedRates: bool
+  postFilter?: bool
 }
 
 export function decodeBatchSource(v: Cbor, path: string): BatchSource throws InvalidPayload {
-  const m = members(v, path, ["sensor", "instance", "batches", "rateHz", "samples", "mixedRates"])
+  const m = members(v, path, ["sensor", "instance", "batches", "rateHz", "samples", "mixedRates", "postFilter"])
+  const cbor6 = m.get("postFilter")
+  let opt6: bool? = null
+  if (cbor6 != null) {
+    opt6 = boolean(cbor6, `${path}.postFilter`)
+  }
   BatchSource {
     sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
     instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
@@ -2481,6 +2487,7 @@ export function decodeBatchSource(v: Cbor, path: string): BatchSource throws Inv
     rateHz: float(required(m, "rateHz", path), `${path}.rateHz`),
     samples: (uint(required(m, "samples", path), `${path}.samples`, 65535) as u16),
     mixedRates: boolean(required(m, "mixedRates", path), `${path}.mixedRates`),
+    postFilter: opt6,
   }
 }
 
@@ -2492,6 +2499,10 @@ export function encodeBatchSource(v: BatchSource): Cbor {
   m.set("rateHz", Cbor.Float(v.rateHz))
   m.set("samples", Cbor.Uint(v.samples as u64))
   m.set("mixedRates", Cbor.Bool(v.mixedRates))
+  const opt6 = v.postFilter
+  if (opt6 != null) {
+    m.set("postFilter", Cbor.Bool(opt6))
+  }
   Cbor.Dict(m)
 }
 

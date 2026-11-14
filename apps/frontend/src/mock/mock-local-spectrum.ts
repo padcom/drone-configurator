@@ -13,11 +13,18 @@ const RESOLUTION = RATE / SIZE
 /** The mock's flight with batches. */
 const WITH_BATCHES = '00000003'
 
-/** The sensors of a log: the gyro and the accelerometer of IMU 0. */
+/**
+ * The sensors of a log: the gyro and the accelerometer of IMU 0 before the filters, and the gyro of IMU 0 after them (ArduPilot
+ * logs it at the instance plus the number of IMUs: 3 here), as a log with the option for before and after has them.
+ */
 const SOURCES: BatchSource[] = [
-  { sensor: 'gyro', instance: 0, batches: 120, rateHz: RATE, samples: SIZE, mixedRates: false },
-  { sensor: 'accel', instance: 0, batches: 60, rateHz: RATE, samples: SIZE, mixedRates: false },
+  { sensor: 'gyro', instance: 0, batches: 120, rateHz: RATE, samples: SIZE, mixedRates: false, postFilter: false },
+  { sensor: 'accel', instance: 0, batches: 60, rateHz: RATE, samples: SIZE, mixedRates: false, postFilter: false },
+  { sensor: 'gyro', instance: 3, batches: 120, rateHz: RATE, samples: SIZE, mixedRates: false, postFilter: true },
 ]
+
+/** What the filters leave of the mock's vibration: a tenth. */
+const AFTER = 0.1
 
 /**
  * The batches of a log.
@@ -69,6 +76,34 @@ function rowsOf(): LocalLogSpectrum['rows'] {
 }
 
 /**
+ * The three axes of a source: what the filters leave of the vibration is a tenth of it.
+ *
+ * @param source the source
+ * @returns the axes
+ */
+function axesOf(source: BatchSource): LocalLogSpectrum['axes'] {
+  const left = source.postFilter === true ? AFTER : 1
+
+  return [
+    { name: 'x', amplitude: axisOf(left) },
+    { name: 'y', amplitude: axisOf(0.25 * left) },
+    { name: 'z', amplitude: axisOf(0.1 * left) },
+  ]
+}
+
+/**
+ * The peak of a source: the motor line and its second harmonic, a tenth of it after the filters.
+ *
+ * @param source the source
+ * @returns the peak
+ */
+function peakOf(source: BatchSource): NonNullable<LocalLogSpectrum['peak']> {
+  const left = source.postFilter === true ? AFTER : 1
+
+  return { hz: 150, amplitude: 2 * left, axis: 'x', harmonics: [{ n: 2, hz: 300, amplitude: 0.5 * left }] }
+}
+
+/**
  * The spectrum of a sensor of the mock flight, or null for a sensor the log has no batches of.
  *
  * @param ask the request
@@ -89,7 +124,7 @@ export function spectrumOf(ask: LogsLocalSpectrumAsk): LocalLogSpectrum | null {
     unit: source.sensor === 'gyro' ? 'rad/s' : 'm/s/s',
     batches: source.batches,
     skipped: 0,
-    axes: [{ name: 'x', amplitude: axisOf(1) }, { name: 'y', amplitude: axisOf(0.25) }, { name: 'z', amplitude: axisOf(0.1) }],
+    axes: axesOf(source),
     columns: COLUMNS,
     columnHz: (RESOLUTION * BINS) / COLUMNS,
     samples: SIZE + 32,
@@ -97,11 +132,6 @@ export function spectrumOf(ask: LogsLocalSpectrumAsk): LocalLogSpectrum | null {
     unrowed: 0,
     rows: rowsOf(),
     silent: false,
-    peak: {
-      hz: 150,
-      amplitude: 2,
-      axis: 'x',
-      harmonics: [{ n: 2, hz: 300, amplitude: 0.5 }],
-    },
+    peak: peakOf(source),
   }
 }

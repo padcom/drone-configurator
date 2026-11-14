@@ -318,6 +318,20 @@
       "gyro": "Gyro {instance}",
       "accel": "Accelerometer {instance}",
       "source": "{sensor}: {count} batches at {rate} Hz",
+      "stage": {
+        "before": "before the filters",
+        "after": "after the filters"
+      },
+      "after": {
+        "title": "After the filters",
+        "chart": "{sensor} after the filters: amplitude, {unit}",
+        "self": "This is the data after the vehicle's filters, as the log holds it.",
+        "pair": "The same IMU after the vehicle's filters, as the log holds it, drawn on the same vertical scale as above.",
+        "unknown": "This log does not say whether its batches are before or after the filters (it has no INS_LOG_BAT_OPT), so no spectrum after the filters is shown.",
+        "onlyBefore": "This log holds only data before the filters. To get the data after them, set bit 2 of INS_LOG_BAT_OPT (before and after), fly, and download the new log. Nothing is drawn from a model of the filters.",
+        "noMatch": "This log has data after the filters, but not for this IMU: nothing is drawn for it.",
+        "failed": "The spectrum after the filters could not be made ({why}): the one above is kept."
+      },
       "facts": "{batches} batches used, {skipped} skipped. An FFT of {size} samples, a bin every {resolution} Hz; sampled at {rate} Hz.",
       "accelNote": "A harmonic notch is set from the gyro: choose a gyro to get suggested values.",
       "idle": {

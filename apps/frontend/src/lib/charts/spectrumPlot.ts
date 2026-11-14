@@ -106,6 +106,46 @@ function pathOf(amplitude: readonly number[], top: number, box: Box): string {
 }
 
 /**
+ * The largest amplitude of some axes: where the top of the vertical axis is, when nothing sets it.
+ *
+ * @param axes the amplitude of each bin, by axis
+ * @returns the largest finite amplitude, 0 for none
+ */
+export function topOf(axes: readonly SpectrumLine[]): number {
+  return Math.max(0, ...axes.flatMap(axis => axis.amplitude.filter(Number.isFinite)))
+}
+
+/**
+ * The plot of the amplitude spectra of the axes, on a vertical axis that may be set from outside, so that two plots that are to
+ * be compared (before and after the filters) have the same scale.
+ *
+ * @param axes the amplitude of each bin, by axis (every axis has the same bins)
+ * @param nyquist the frequency of the last bin (Hz)
+ * @param box the box to draw in
+ * @param options how to write a number for a label (`format`) and the top of the vertical axis (`top`: the larger of it and of
+ * the axes' own is used)
+ * @param options.format writes a number for a label
+ * @param options.top the top of the vertical axis, when it is not the axes' own
+ * @returns what to draw; nothing when there is no amplitude above zero
+ */
+export function plotWith(
+  axes: readonly SpectrumLine[],
+  nyquist: number,
+  box: Box,
+  options: { format: (value: number) => string, top?: number },
+): Plot {
+  const { format } = options
+  const top = Math.max(topOf(axes), options.top ?? 0)
+  if (!(top > 0) || !(nyquist > 0)) {
+    return { lines: [], top: 0, xTicks: [], yTicks: [] }
+  }
+  const lines = axes.map(axis => ({ name: axis.name, d: pathOf(axis.amplitude, top, box) }))
+  const yTicks = ticks(top, box.height, format).map(tick => ({ ...tick, at: box.height - tick.at }))
+
+  return { lines, top, xTicks: ticks(nyquist, box.width, format), yTicks }
+}
+
+/**
  * The plot of the amplitude spectra of the axes.
  *
  * @param axes the amplitude of each bin, by axis (every axis has the same bins)
@@ -115,12 +155,5 @@ function pathOf(amplitude: readonly number[], top: number, box: Box): string {
  * @returns what to draw; nothing when there is no amplitude above zero
  */
 export function plotOf(axes: readonly SpectrumLine[], nyquist: number, box: Box, format: (value: number) => string): Plot {
-  const top = Math.max(0, ...axes.flatMap(axis => axis.amplitude.filter(Number.isFinite)))
-  if (!(top > 0) || !(nyquist > 0)) {
-    return { lines: [], top: 0, xTicks: [], yTicks: [] }
-  }
-  const lines = axes.map(axis => ({ name: axis.name, d: pathOf(axis.amplitude, top, box) }))
-  const yTicks = ticks(top, box.height, format).map(tick => ({ ...tick, at: box.height - tick.at }))
-
-  return { lines, top, xTicks: ticks(nyquist, box.width, format), yTicks }
+  return plotWith(axes, nyquist, box, { format })
 }

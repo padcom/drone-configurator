@@ -318,6 +318,20 @@
       "gyro": "Gyro {instance}",
       "accel": "Beschleunigungssensor {instance}",
       "source": "{sensor}: {count} Pakete mit {rate} Hz",
+      "stage": {
+        "before": "vor den Filtern",
+        "after": "nach den Filtern"
+      },
+      "after": {
+        "title": "Nach den Filtern",
+        "chart": "{sensor} nach den Filtern: Amplitude, {unit}",
+        "self": "Das sind die Daten nach den Filtern des Fahrzeugs, wie das Protokoll sie enthält.",
+        "pair": "Dieselbe IMU nach den Filtern des Fahrzeugs, wie das Protokoll sie enthält, auf derselben senkrechten Skala wie oben.",
+        "unknown": "Dieses Protokoll sagt nicht, ob seine Batches vor oder nach den Filtern liegen (es hat kein INS_LOG_BAT_OPT), daher wird kein Spektrum nach den Filtern gezeigt.",
+        "onlyBefore": "Dieses Protokoll enthält nur Daten vor den Filtern. Für die Daten danach Bit 2 von INS_LOG_BAT_OPT (vor und nach) setzen, fliegen und das neue Protokoll herunterladen. Aus einem Modell der Filter wird nichts gezeichnet.",
+        "noMatch": "Dieses Protokoll hat Daten nach den Filtern, aber nicht für diese IMU: dafür wird nichts gezeichnet.",
+        "failed": "Das Spektrum nach den Filtern konnte nicht erstellt werden ({why}): das obere bleibt erhalten."
+      },
       "facts": "{batches} Pakete verwendet, {skipped} übersprungen. FFT über {size} Werte, ein Bin alle {resolution} Hz; abgetastet mit {rate} Hz.",
       "accelNote": "Ein harmonischer Notch wird nach dem Gyro eingestellt: Wählen Sie ein Gyro, um Vorschläge zu erhalten.",
       "idle": {

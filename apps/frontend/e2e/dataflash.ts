@@ -1,6 +1,6 @@
 // A DataFlash (.BIN) log written by the tests, as ArduPilot writes one: every message is the two bytes 0xA3 0x95, its type, and
 // its fields; a message is described by a FMT message (type 128) with its type, length, name, format and labels. Only the field
-// kinds the tests need are written: Q (u64), f (float32) and Z (64 characters).
+// kinds the tests need are written: Q (u64), H and B (u16, u8), f (float32), Z (64 characters), N (16) and a (32 int16).
 
 /** A message of a log: its type, name, field format and labels. */
 export interface Format {
@@ -17,7 +17,7 @@ export interface Format {
 const HEADER = [0xA3, 0x95]
 const FMT_TYPE = 128
 /** The bytes of a field of each kind. */
-const SIZES: Readonly<Record<string, number>> = { Q: 8, f: 4, Z: 64 }
+const SIZES: Readonly<Record<string, number>> = { Q: 8, H: 2, B: 1, f: 4, Z: 64, N: 16, a: 64 }
 
 /**
  * A text in a field of a fixed size, padded with zeros.
@@ -33,25 +33,32 @@ function fixed(text: string, size: number): Buffer {
   return out
 }
 
+/** How each kind of field is put in its bytes (a text, the rest, is written as it is). */
+const WRITERS: Readonly<Record<string, (out: Buffer, value: FieldValue) => void>> = {
+  a: (out, value) => (value as number[]).forEach((sample, i) => out.writeInt16LE(sample, i * 2)),
+  Q: (out, value) => out.writeBigUInt64LE(BigInt(Math.round(Number(value)))),
+  H: (out, value) => out.writeUInt16LE(Number(value)),
+  B: (out, value) => out.writeUInt8(Number(value)),
+  f: (out, value) => out.writeFloatLE(Number(value)),
+}
+
 /**
  * The bytes of a field.
  *
  * @param kind its kind in the format
- * @param value its value (a number, or text for Z)
+ * @param value its value (a number, text for Z and N, 32 numbers for a)
  * @returns its bytes
  */
-function field(kind: string, value: number | string): Buffer {
+function field(kind: string, value: FieldValue): Buffer {
   const out = Buffer.alloc(SIZES[kind] ?? 0)
-  if (kind === 'Q') {
-    out.writeBigUInt64LE(BigInt(Math.round(Number(value))))
-  } else if (kind === 'f') {
-    out.writeFloatLE(Number(value))
-  } else {
-    out.write(String(value), 'latin1')
-  }
+  const write = WRITERS[kind] ?? ((buffer: Buffer, text: FieldValue) => buffer.write(String(text), 'latin1'))
+  write(out, value)
 
   return out
 }
+
+/** What a field holds: a number, a text, or the 32 samples of an array. */
+export type FieldValue = number | string | number[]
 
 /** A DataFlash log under construction. */
 export class DataFlash {
@@ -77,7 +84,7 @@ export class DataFlash {
    * @param values its values, in the order of its format
    * @throws {Error} for a type that was not described
    */
-  add(type: number, values: (number | string)[]): void {
+  add(type: number, values: FieldValue[]): void {
     const format = this.formats.get(type)
     if (format === undefined) {
       throw new Error(`message type ${type} was not described`)
