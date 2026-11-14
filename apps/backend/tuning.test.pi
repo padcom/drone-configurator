@@ -388,10 +388,13 @@ async function refusesAFilterBelowTheLeastOfItsRangeWhileArmedAndOnlyWarnsDisarm
   expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 9.0)))).toBe("OUT_OF_LIMITS")
   expect(errorOf(await write(r, tuning("INS_HNTCH_BW", 4.0)))).toBe("OUT_OF_LIMITS")
   expect(errorOf(await write(r, tuning("INS_HNTCH_ATT", 4.0)))).toBe("OUT_OF_LIMITS")
-  // 0 would be "no filtering": not written in the air
+  // 0 would be "no filtering", and 1 to 9 Hz leaves a vehicle that cannot be flown: not written in the air
   expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 0.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 1.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 9.9)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 10.0)))).toBe("ok")
   expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 10.0)))).toBe("ok")
-  expect(r.sets).toBe(3)
+  expect(r.sets).toBe(4)
   await r.close()
 }
 

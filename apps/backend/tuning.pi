@@ -61,9 +61,10 @@ export const TUNABLE: Tunable[] = [
   // (`armedOk`): the gyro filter, and the notch's centre, bandwidth and attenuation (the notch is rebuilt in flight when they change). Read
   // only at start-up, so written disarmed only: ENABLE (the notch is allocated at start only when it is enabled), MODE and OPTS (the
   // tracking sources and the number of notches are set up at start; OPTS is also `@RebootRequired`), HMNCS and REF (`@RebootRequired`).
-  // The gyro filter's least is 1 here, not the `@Range`'s 0: ArduPilot says of 0 "no filtering (not recommended!)", and that is not
-  // something to write in the air.
-  Tunable { id: "INS_GYRO_FILTER", min: 1.0, max: 256.0, armedOk: true },
+  // The gyro filter's armed least is 10 Hz here, not the `@Range`'s 0: ArduPilot says of 0 "no filtering (not recommended!)", and a
+  // cutoff of 1 to 10 Hz leaves a vehicle that cannot be flown (as a rate gain of 0 does; ArduPilot's guidance is 20 to 80 Hz). Disarmed
+  // it is only warned about.
+  Tunable { id: "INS_GYRO_FILTER", min: 10.0, max: 256.0, armedOk: true },
   Tunable { id: "INS_HNTCH_ENABLE", min: 0.0, max: 1.0, armedOk: false },
   Tunable { id: "INS_HNTCH_MODE", min: 0.0, max: 5.0, armedOk: false },
   Tunable { id: "INS_HNTCH_REF", min: 0.0, max: 1.0, armedOk: false },

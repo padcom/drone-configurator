@@ -221,8 +221,35 @@ it('refuses a value below the least of a range while armed (a gyro cutoff of 0),
   expect(rig.wrapper.get('#tune-filters-write').attributes('disabled')).toBeDefined()
 })
 
-it('warns when the notch takes out none of the peaks of the log open in Spectrum, and not when it does', async () => {
+/** The vehicle's filters with a notch that is fixed (tracking mode Fixed), or that tracks. */
+const FIXED = WITH_FILTERS.map(param => (param.id === 'INS_HNTCH_MODE' ? { ...param, value: 0 } : param))
+
+it('refuses a gyro cutoff of 1 to 9 Hz while armed, and takes 10 Hz', async () => {
   const rig = await screen()
+  await arm(rig)
+  await type(rig, 'INS_GYRO_FILTER', '9')
+
+  expect(rig.wrapper.get('[data-tune="INS_GYRO_FILTER"] .tune-note').text()).toContain('Below the least')
+  expect(rig.wrapper.get('#tune-filters-write').attributes('disabled')).toBeDefined()
+  await type(rig, 'INS_GYRO_FILTER', '10')
+
+  expect(rig.wrapper.get('#tune-filters-write').attributes('disabled')).toBeUndefined()
+})
+
+it('does not check a notch that tracks against the peaks of the log, and says so', async () => {
+  const rig = await screen()
+  await rig.handle.spectrum.choose(LOG)
+  await vi.waitFor(() => expect(rig.handle.spectrum.spectrum.value?.peak).toBeDefined())
+  await flushPromises()
+  // the vehicle's notch tracks the throttle (mode 1, reference 0.2): at 200 Hz it would miss 150 Hz, and nothing is said of that
+  await type(rig, 'INS_HNTCH_FREQ', '200')
+
+  expect(rig.wrapper.find('#tune-filters-misses').exists()).toBe(false)
+  expect(rig.wrapper.get('#tune-filters-tracking').text()).toContain('does not check')
+})
+
+it('warns when a FIXED notch takes out none of the peaks of the log open in Spectrum, and not when it does', async () => {
+  const rig = await screen(FIXED)
   expect(rig.wrapper.find('#tune-filters-misses').exists()).toBe(false)
 
   await rig.handle.spectrum.choose(LOG)

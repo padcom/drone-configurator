@@ -120,9 +120,10 @@ export const TUNE_PARAMS: readonly TuneParam[] = [
   // The filters (libraries/AP_InertialSensor/AP_InertialSensor.cpp and libraries/Filter/HarmonicNotchFilter.cpp of ArduPilot
   // master, 4.8.0-dev). The gyro filter, and the notch's centre, bandwidth and attenuation, take effect live: the notch is
   // rebuilt when they change. The others are read when the vehicle starts (ENABLE, MODE and OPTS decide what is built then;
-  // HMNCS, REF and OPTS are `@RebootRequired`): written while disarmed only. The gyro filter's least is 1 here, not 0:
-  // ArduPilot says of 0 "no filtering (not recommended!)", which is not written in the air.
-  ...filters('gyro', [['INS_GYRO_FILTER', 'slider', 1, 256, 1, true, 'Hz']]),
+  // HMNCS, REF and OPTS are `@RebootRequired`): written while disarmed only. The gyro filter's least is 10 here, not 0:
+  // ArduPilot says of 0 "no filtering (not recommended!)", and 1 to 10 Hz leaves a vehicle that cannot be flown (ArduPilot's
+  // guidance is 20 to 80 Hz): not written in the air.
+  ...filters('gyro', [['INS_GYRO_FILTER', 'slider', 10, 256, 1, true, 'Hz']]),
   ...filters('notch', [
     ['INS_HNTCH_ENABLE', 'choice', 0, 1, 1, false],
     ['INS_HNTCH_MODE', 'choice', 0, 5, 1, false],

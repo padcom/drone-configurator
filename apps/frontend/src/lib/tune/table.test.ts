@@ -117,6 +117,8 @@ it('refuses a parameter that is read at start-up while armed, and takes it disar
   expect(refusalOf('INS_HNTCH_MODE', 6, true)).toBe('above')
   expect(refusalOf('INS_HNTCH_FREQ', 9, true)).toBe('below')
   expect(refusalOf('INS_GYRO_FILTER', 0, true)).toBe('below')
+  expect(refusalOf('INS_GYRO_FILTER', 9.9, true)).toBe('below')
+  expect(refusalOf('INS_GYRO_FILTER', 10, true)).toBeNull()
   expect(refusalOf('INS_GYRO_FILTER', 0, false)).toBeNull()
 })
 

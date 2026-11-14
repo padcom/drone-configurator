@@ -1832,6 +1832,7 @@
       "summary": "Filtr żyroskopu i pierwszy notch harmoniczny. Częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha działają w locie. Włącznik, tryb śledzenia, odniesienie, harmoniczne i opcje notcha są czytane tylko przy starcie pojazdu: zapisuje się je przy rozbrojonym pojeździe, a działają po restarcie.",
       "armed": "Uzbrojony: zmienić można tylko częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha, i działają w locie. Reszta działa dopiero po restarcie i jest zapisywana przy rozbrojonym pojeździe.",
       "afterRestart": "Działa dopiero po restarcie pojazdu.",
+      "tracking": "Ten notch śledzi przepustnicę, czujnik lub FFT, więc jego środek się przesuwa: strona nie sprawdza go względem szczytów dziennika otwartego w Widmie.",
       "misses": "Wybrany notch (pasma {bands} Hz) nie usuwa żadnego ze szczytów widma dziennika {log} ({peaks} Hz): jego środek leży poza miejscem, gdzie zapisano szum.",
       "harmonic": "Harmoniczna {n}"
     }

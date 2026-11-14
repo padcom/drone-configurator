@@ -1832,6 +1832,7 @@
       "summary": "The gyro filter and the first harmonic notch. The gyro cutoff and the notch's centre, bandwidth and attenuation take effect in flight. The notch's switch, tracking mode, reference, harmonics and options are read only when the vehicle starts: they are written while the vehicle is disarmed, and take effect after a restart.",
       "armed": "Armed: only the gyro cutoff and the notch's centre, bandwidth and attenuation can be changed, and they apply in flight. The rest take effect only after a restart and are written while disarmed.",
       "afterRestart": "Takes effect only after a restart of the vehicle.",
+      "tracking": "This notch tracks the throttle, a sensor or the FFT, so its centre moves: the page does not check it against the peaks of the log that is open in Spectrum.",
       "misses": "The notch as chosen (bands {bands} Hz) takes out none of the peaks in the spectrum of log {log} ({peaks} Hz): its centre is outside where the noise was logged.",
       "harmonic": "Harmonic {n}"
     }

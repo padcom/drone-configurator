@@ -4,6 +4,7 @@
       <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('tune.section.filters') }}</h3>
       <p class="muted">{{ t('tune.filters.summary') }}</p>
       <Banner v-if="panel.armed.value" id="tune-filters-armed" tone="warn">{{ t('tune.filters.armed') }}</Banner>
+      <p v-if="tracking" id="tune-filters-tracking" class="muted">{{ t('tune.filters.tracking') }}</p>
       <Banner v-if="misses" id="tune-filters-misses" tone="warn">
         {{ t('tune.filters.misses', { log: openId, peaks: peaksText, bands: bandsText }) }}
       </Banner>
@@ -117,7 +118,11 @@ const peak = computed(() => spectrum.spectrum.value?.peak)
 const nyquist = computed(() => (spectrum.spectrum.value ? spectrum.spectrum.value.rateHz / 2 : 0))
 const peaks = computed(() => (peak.value ? peakFrequencies(peak.value) : []))
 const enabled = computed(() => chosen('INS_HNTCH_ENABLE') !== 0)
-const misses = computed(() => enabled.value && notchMissesPeaks(setting.value, peaks.value, nyquist.value))
+/** The notch has a fixed centre: its tracking mode is Fixed, or its reference is 0 (nothing to track by). */
+const fixed = computed(() => chosen('INS_HNTCH_MODE') === 0 || chosen('INS_HNTCH_REF') === 0)
+const misses = computed(() => enabled.value && fixed.value && notchMissesPeaks(setting.value, peaks.value, nyquist.value))
+/** A notch that follows the throttle, a sensor or the FFT moves its centre: the page cannot check it against the logged peaks. */
+const tracking = computed(() => enabled.value && !fixed.value && peaks.value.length > 0)
 const openId = computed(() => flights.logs.value.find(log => log.key === spectrum.open.value)?.id ?? 0)
 const peaksText = computed(() => peaks.value.map(hz => number(hz, 0)).join(', '))
 const bandsText = computed(() => (

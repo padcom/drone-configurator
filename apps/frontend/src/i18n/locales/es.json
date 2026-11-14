@@ -1832,6 +1832,7 @@
       "summary": "El filtro del giroscopio y el primer notch armónico. La frecuencia de corte del giroscopio y el centro, el ancho de banda y la atenuación del notch actúan en vuelo. El interruptor, el modo de seguimiento, la referencia, los armónicos y las opciones del notch se leen solo al arrancar el vehículo: se escriben con el vehículo desarmado y actúan tras un reinicio.",
       "armed": "Armado: solo se pueden cambiar la frecuencia de corte del giroscopio y el centro, el ancho de banda y la atenuación del notch, y actúan en vuelo. Lo demás actúa solo tras un reinicio y se escribe con el vehículo desarmado.",
       "afterRestart": "Actúa solo tras un reinicio del vehículo.",
+      "tracking": "Este notch sigue el acelerador, un sensor o la FFT, así que su centro se mueve: la página no lo comprueba con los picos del registro abierto en Espectro.",
       "misses": "El notch elegido (bandas {bands} Hz) no elimina ninguno de los picos del espectro del registro {log} ({peaks} Hz): su centro está fuera de donde se registró el ruido.",
       "harmonic": "Armónico {n}"
     }
