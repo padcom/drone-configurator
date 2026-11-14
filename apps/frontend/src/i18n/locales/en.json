@@ -1679,6 +1679,23 @@
     "disarmedAnnounce": "The vehicle is disarmed.",
     "link": "Link roll and pitch: one slider sets both",
     "differ": "Roll and pitch differ on the vehicle: they are not linked, so that one does not overwrite the other. Link them to set both.",
+    "chart": {
+      "title": "Live response",
+      "chartTitle": "Roll rate, degrees a second",
+      "actual": "Actual",
+      "desired": "Desired",
+      "stale": "Old data: nothing has come for a while",
+      "noData": "No data: fly or connect",
+      "overshoot": "Overshoot",
+      "rise": "Rise (10 to 90 %)",
+      "settling": "Settling (to within 5 %)",
+      "noStep": "No step in the last {seconds} seconds: nothing is measured.",
+      "oldStep": "Old data: the last step is not shown as if it were current.",
+      "step": "Measured of the latest step of the desired rate: {from} to {to} degrees a second.",
+      "dropped": "Points dropped by the backend: {count}",
+      "noActual": "The vehicle did not take the request for the actual rate (ATTITUDE): it is not shown.",
+      "noDesired": "The vehicle did not take the request for the desired rate (ATTITUDE_TARGET): it is not shown, and nothing is measured."
+    },
     "axis": {
       "rollPitch": "Roll and pitch",
       "roll": "Roll",

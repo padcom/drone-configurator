@@ -66,7 +66,11 @@ class Link {
   /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
   /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
   public motorTest: bool = false
-  /// How long the connection stays open after the session ends while a motor test runs (ms): the time for its stop to go out.
+  /// Messages that must still go out as the session ends and are on their way: the rates the tuning stream gives back (tuningstream.pi).
+  /// With the motor test's stop they are the things that must say goodbye: the connection stays open for `closeGraceMs` for them.
+  public farewells: int = 0
+  /// How long the connection stays open after the session ends while something must say goodbye (a motor test runs, a release is on
+  /// its way: see `sayingGoodbye`) (ms): the time for it to go out.
   public closeGraceMs: int = 300
   /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
   /// says so (reconnect.pi). See `rebootExpected()`.
@@ -132,6 +136,21 @@ class Link {
     }
   }
 
+  /// Closes the connection once what had to be said has been (the releases are over, or they have had `FAREWELL_MAX_MS`): a release
+  /// that is tried again after the connection is closed writes to a closed stream, which is a panic of the transport.
+  closeWhenQuiet(c: MavLinkConnection?, s: SimulatedAutopilot?, since: int): void {
+    if (farewells > 0 && (Date.now() as int) - since < FAREWELL_MAX_MS) {
+      const _again = setTimeout(() => this.closeWhenQuiet(c, s, since), 20)
+      return
+    }
+    closeLater(c, s)
+  }
+
+  /// Whether something must still say goodbye as the session ends: one place for the list (a motor test, rates to give back).
+  public sayingGoodbye(): bool {
+    motorTest || farewells > 0
+  }
+
   public close(): void {
     generation += 1
     abortOperations()
@@ -162,10 +181,13 @@ class Link {
     }
     const c = conn
     const s = sim
-    if (motorTest) {
-      // A motor test is under way: its stop was just sent (motors.pi), and the router drops a frame that was not on a link when it is closed
-      // (it takes the link's turn first, which is a tick later). So the connection stays open for a moment, only long enough for the stop.
-      const _later = setTimeout(() => this.closeLater(c, s), closeGraceMs)
+    if (sayingGoodbye()) {
+      // Something must still be said: a motor test is under way (its stop was just sent, motors.pi), or the tuning stream's rates are
+      // being given back (tuningstream.pi). The router drops a frame that was not on a link when it is closed (it takes the link's turn
+      // first, which is a tick later). So the connection stays open for `closeGraceMs` at least, and while releases are on their way
+      // (they are tried again when the vehicle does not answer), for as long as they take, at most `FAREWELL_MAX_MS`.
+      const since = Date.now() as int
+      const _later = setTimeout(() => this.closeWhenQuiet(c, s, since), closeGraceMs)
     } else {
       closeLater(c, s)
     }
@@ -179,6 +201,10 @@ class Link {
 
 /// The session: one per backend.
 export const link = new Link()
+
+/// The longest the connection stays open for the releases that are on their way as the session ends (ms): a release asks twice, a
+/// request at a time, with a timeout of half a second each.
+export const FAREWELL_MAX_MS: int = 4000
 
 /// How long after the vehicle accepted a reboot the session still expects it (ms): a link that goes quiet within it is
 /// a vehicle that is rebooting, and a second reboot is refused (it could reach the freshly booted vehicle).

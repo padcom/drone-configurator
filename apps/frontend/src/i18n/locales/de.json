@@ -1679,6 +1679,23 @@
     "disarmedAnnounce": "Das Fahrzeug ist entschärft.",
     "link": "Roll und Nick koppeln: ein Regler stellt beide ein",
     "differ": "Roll und Nick unterscheiden sich am Fahrzeug: sie sind nicht gekoppelt, damit keiner den anderen überschreibt. Koppeln Sie sie, um beide einzustellen.",
+    "chart": {
+      "title": "Live-Antwort",
+      "chartTitle": "Rollrate, Grad pro Sekunde",
+      "actual": "Ist",
+      "desired": "Soll",
+      "stale": "Alte Daten: seit einer Weile ist nichts gekommen",
+      "noData": "Keine Daten: fliegen oder verbinden",
+      "overshoot": "Überschwingen",
+      "rise": "Anstieg (10 bis 90 %)",
+      "settling": "Einschwingen (auf 5 %)",
+      "noStep": "Kein Sprung in den letzten {seconds} Sekunden: es wird nichts gemessen.",
+      "oldStep": "Alte Daten: der letzte Sprung wird nicht als aktuell gezeigt.",
+      "step": "Gemessen am letzten Sprung der Soll-Rate: {from} auf {to} Grad pro Sekunde.",
+      "dropped": "Vom Backend verworfene Punkte: {count}",
+      "noActual": "Das Fahrzeug hat die Anfrage für die Ist-Rate (ATTITUDE) nicht angenommen: sie wird nicht gezeigt.",
+      "noDesired": "Das Fahrzeug hat die Anfrage für die Soll-Rate (ATTITUDE_TARGET) nicht angenommen: sie wird nicht gezeigt, und nichts wird gemessen."
+    },
     "axis": {
       "rollPitch": "Roll und Nick",
       "roll": "Roll",

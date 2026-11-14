@@ -918,6 +918,42 @@ function validateCalibrationResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a calibration-result, or null. */
 export const validateCalibrationResult = (value: unknown) => run(validateCalibrationResultInto, value)
 
+export type TuningParams = { "rateHz"?: number }
+
+function validateTuningParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["rateHz"]) && (value["rateHz"] === undefined || nested(value["rateHz"], `${path}.rateHz`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a tuning-params, or null. */
+export const validateTuningParams = (value: unknown) => run(validateTuningParamsInto, value)
+
+export type TuningPoint = { "t": number, "v": number }
+
+function validateTuningPointInto(value: any, path: string): boolean {
+  return map(value, path, ["t","v"]) && (value["t"] === undefined ? fail(`${path}.t`, 'present') : nested(value["t"], `${path}.t`, (value, path) => uint(value, path, 0xffffffff))) && (value["v"] === undefined ? fail(`${path}.v`, 'present') : nested(value["v"], `${path}.v`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a tuning-point, or null. */
+export const validateTuningPoint = (value: unknown) => run(validateTuningPointInto, value)
+
+export type TuningBatch = { "actual": (TuningPoint)[], "desired": (TuningPoint)[], "dropped": number, "asked": TuningAsked }
+
+function validateTuningBatchInto(value: any, path: string): boolean {
+  return map(value, path, ["actual","desired","dropped","asked"]) && (value["actual"] === undefined ? fail(`${path}.actual`, 'present') : nested(value["actual"], `${path}.actual`, (value, path) => list(value, path, (value, path) => validateTuningPointInto(value, path)))) && (value["desired"] === undefined ? fail(`${path}.desired`, 'present') : nested(value["desired"], `${path}.desired`, (value, path) => list(value, path, (value, path) => validateTuningPointInto(value, path)))) && (value["dropped"] === undefined ? fail(`${path}.dropped`, 'present') : nested(value["dropped"], `${path}.dropped`, (value, path) => uint(value, path, 0xffffffff))) && (value["asked"] === undefined ? fail(`${path}.asked`, 'present') : nested(value["asked"], `${path}.asked`, (value, path) => validateTuningAskedInto(value, path)))
+}
+
+/** The first problem with `value` as a tuning-batch, or null. */
+export const validateTuningBatch = (value: unknown) => run(validateTuningBatchInto, value)
+
+export type TuningAsked = { "actual": boolean, "desired": boolean }
+
+function validateTuningAskedInto(value: any, path: string): boolean {
+  return map(value, path, ["actual","desired"]) && (value["actual"] === undefined ? fail(`${path}.actual`, 'present') : nested(value["actual"], `${path}.actual`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["desired"] === undefined ? fail(`${path}.desired`, 'present') : nested(value["desired"], `${path}.desired`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a tuning-asked, or null. */
+export const validateTuningAsked = (value: unknown) => run(validateTuningAskedInto, value)
+
 export type MotorTestParams = { "motor": number, "throttle": number }
 
 function validateMotorTestParamsInto(value: any, path: string): boolean {
@@ -977,6 +1013,7 @@ export interface Services {
   "calibration.result": { kind: 'event', payload: CalibrationResult }
   "motors.test": { kind: 'subscription', params: MotorTestParams, value: MotorTestState }
   "motors.hold": { kind: 'method', request: null, response: null }
+  "tuning.stream": { kind: 'subscription', params: TuningParams, value: TuningBatch }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
@@ -1140,6 +1177,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "motors.hold": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "tuning.stream": {
+    params: (value: any, path: string) => validateTuningParamsInto(value, path),
+    value: (value: any, path: string) => validateTuningBatchInto(value, path),
   },
   "telemetry.stream": {
     params: (value: any, path: string) => validateTelemetryParamsInto(value, path),

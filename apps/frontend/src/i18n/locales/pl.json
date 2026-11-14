@@ -1679,6 +1679,23 @@
     "disarmedAnnounce": "Pojazd jest rozbrojony.",
     "link": "Połącz przechylenie i pochylenie: jeden suwak ustawia oba",
     "differ": "Przechylenie i pochylenie różnią się w pojeździe: nie są połączone, żeby jedno nie nadpisało drugiego. Połącz je, aby ustawić oba.",
+    "chart": {
+      "title": "Odpowiedź na żywo",
+      "chartTitle": "Prędkość przechylenia, stopnie na sekundę",
+      "actual": "Rzeczywista",
+      "desired": "Zadana",
+      "stale": "Stare dane: od pewnego czasu nic nie przychodzi",
+      "noData": "Brak danych: leć albo połącz się",
+      "overshoot": "Przeregulowanie",
+      "rise": "Narastanie (10 do 90 %)",
+      "settling": "Ustalanie (do 5 %)",
+      "noStep": "Brak skoku w ostatnich {seconds} sekundach: nic nie jest mierzone.",
+      "oldStep": "Stare dane: ostatni skok nie jest pokazywany jako aktualny.",
+      "step": "Zmierzone na ostatnim skoku prędkości zadanej: od {from} do {to} stopni na sekundę.",
+      "dropped": "Punkty odrzucone przez backend: {count}",
+      "noActual": "Pojazd nie przyjął prośby o prędkość rzeczywistą (ATTITUDE): nie jest pokazywana.",
+      "noDesired": "Pojazd nie przyjął prośby o prędkość zadaną (ATTITUDE_TARGET): nie jest pokazywana i nic nie jest mierzone."
+    },
     "axis": {
       "rollPitch": "Przechylenie i pochylenie",
       "roll": "Przechylenie",

@@ -3,6 +3,14 @@
     <div class="setup-main">
       <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('tune.section.rate') }}</h3>
       <p class="muted">{{ t('tune.rate.summary') }}</p>
+      <ResponseChart
+        :actual="tuning.actual.value"
+        :desired="tuning.desired.value"
+        :stale="tuning.stale.value"
+        :dropped="tuning.dropped.value"
+        :asked="tuning.asked.value"
+        :problem="tuning.problem.value"
+      />
       <label class="tune-link">
         <input v-model="linked" type="checkbox" :disabled="panel.writing.value">
         {{ t('tune.link') }}
@@ -36,6 +44,7 @@
 // under the rows.
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ResponseChart from '@/components/tune/ResponseChart.vue'
 import TuneSlider from '@/components/tune/TuneSlider.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Button from '@/components/ui/Button.vue'
@@ -60,6 +69,7 @@ interface Block {
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
+const { tuning } = handle
 const rateIds = tuneGroup('rate').map(param => param.id)
 const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(rateIds, handle)
 /** What the user chose for the link, or null while they have not: then they are linked if they are the same on the vehicle. */

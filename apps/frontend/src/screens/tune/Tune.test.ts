@@ -5,7 +5,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
-import { defineComponent, h } from 'vue'
+import { KeepAlive, defineComponent, h, ref } from 'vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import type { Param } from '@/generated/app'
 import { i18n, setLanguage } from '@/i18n/i18n'
@@ -279,16 +279,154 @@ it('has the groups Attitude, Pilot feel, Position and Radio knob, each with name
   expect(wrapper.find('[data-tune="TUNE"] input[type="range"]').exists()).toBe(false)
 })
 
-it('draws nothing from the values of the sliders: no chart, no preview, no curve', async () => {
+it('the chart renders nothing from the slider values alone: no curve, no preview, whatever they are set to', async () => {
   const rig = await screen()
   await slide(rig, 'ATC_RAT_YAW_P', 0.4)
+  await slide(rig, 'ATC_RAT_RLL_P', 0.3)
   const more = await screen('/tune/more')
   await slide(more, 'ATC_ANG_RLL_P', 8)
 
+  // the chart of the live response is there, and has no line: nothing came from the vehicle
+  expect(rig.wrapper.find('#tune-response-chart').exists()).toBe(true)
+  expect(rig.wrapper.findAll('.chart-series .line, .chart-series .dot')).toHaveLength(0)
+  expect(rig.wrapper.get('#tune-response-chart').text()).toContain('No data: fly or connect')
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('—')
+
   for (const wrapper of [rig.wrapper, more.wrapper]) {
     expect(wrapper.find('canvas').exists()).toBe(false)
-    expect(wrapper.find('.chart, polyline, [data-chart]').exists()).toBe(false)
+    expect(wrapper.find('polyline').exists()).toBe(false)
   }
+  expect(more.wrapper.find('#tune-response-chart').exists()).toBe(false)
+})
+
+/**
+ * What the vehicle sends for a step of the desired roll rate and a first-order response to it: the test's own signal, pushed
+ * as the backend would send it (the page makes nothing of its own).
+ *
+ * @returns the batch
+ */
+function stepBatch() {
+  const desired = []
+  const actual = []
+  let x = 0
+
+  for (let at = 0; at <= 3000; at += 40) {
+    const level = at >= 1000 ? 57.3 : 0
+    x += (level - x) * (1 - Math.exp(-40 / 100))
+    desired.push({ t: 5000 + at, v: level })
+    actual.push({ t: 5000 + at, v: x })
+  }
+
+  return { actual, desired, dropped: 3, asked: { actual: true, desired: true } }
+}
+
+it('the chart does not change when a slider moves: its lines are the stream\'s, the same before and after', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  rig.control.tuning?.push(stepBatch())
+  await flushPromises()
+  const drawn = () => rig.wrapper.findAll('.chart-series .line').map(line => line.attributes('d'))
+  const before = drawn()
+  expect(before).toHaveLength(2)
+
+  await slide(rig, 'ATC_RAT_YAW_P', 0.4)
+  await slide(rig, 'ATC_RAT_RLL_P', 0.01)
+  await type(rig, 'ATC_RAT_RLL_I', '1.5')
+
+  expect(drawn()).toEqual(before)
+})
+
+it('draws the two lines the vehicle sends, measures the step of the desired rate, and shows what was dropped', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+
+  rig.control.tuning?.push(stepBatch())
+  await flushPromises()
+
+  expect(rig.wrapper.findAll('.chart-series .line')).toHaveLength(2)
+  expect(rig.wrapper.get('#tune-response-chart').text()).not.toContain('No data')
+  const rise = Number.parseInt(rig.wrapper.get('#tune-rise').text(), 10)
+  expect(rise).toBeGreaterThan(200)
+  expect(rise).toBeLessThan(250)
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('0.0 %')
+  expect(rig.wrapper.get('#tune-settling').text()).toMatch(/^\d+ ms$/u)
+  expect(rig.wrapper.get('#tune-step').text()).toContain('0 to 57 degrees a second')
+  expect(rig.wrapper.get('#tune-dropped').text()).toBe('Points dropped by the backend: 3')
+})
+
+it('says there is no step, with dashes, when the desired rate does not move', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+
+  const flat = (v: number) => [{ t: 100, v }, { t: 140, v }]
+  rig.control.tuning?.push({ actual: flat(1), desired: flat(0), dropped: 0, asked: { actual: true, desired: true } })
+  await flushPromises()
+
+  expect(rig.wrapper.findAll('.chart-series .line')).toHaveLength(2)
+  expect(rig.wrapper.get('#tune-step').text()).toBe('No step in the last 10 seconds: nothing is measured.')
+  const shown = ['#tune-overshoot', '#tune-rise', '#tune-settling'].map(id => rig.wrapper.get(id).text())
+  expect(shown).toEqual(['—', '—', '—'])
+})
+
+it('says when the vehicle did not take the request for the desired rate: no line of it, and nothing measured', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+
+  const actual = [{ t: 100, v: 1 }, { t: 140, v: 2 }]
+  rig.control.tuning?.push({ actual, desired: [], dropped: 0, asked: { actual: true, desired: false } })
+  await flushPromises()
+
+  expect(rig.wrapper.get('.tune-response-missing').text()).toContain('ATTITUDE_TARGET')
+  expect(rig.wrapper.findAll('.chart-series .line')).toHaveLength(1)
+})
+
+it('asks for the stream at 25 Hz when the screen is shown, and ends it when the screen is left', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  expect(rig.control.tuning?.rateHz()).toBe(25)
+
+  rig.wrapper.unmount()
+
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(false))
+})
+
+it('ends the stream when the screen is deactivated (pages are kept alive), and asks again when it is shown again', async () => {
+  const asked: string[] = []
+  const { handle, control } = await vehicleOf({}, SETUP_PARAMS, question => asked.push(question))
+  const router = createAppRouter(createMemoryHistory(), () => 0)
+  await router.push('/tune/rate')
+  await router.isReady()
+  const open = ref(true)
+  mounted = mount(defineComponent({ render: () => h(KeepAlive, null, () => (open.value ? h(Tune, { key: 'tune' }) : null)) }), {
+    global: { plugins: [i18n, router] },
+  })
+  await vi.waitFor(() => expect(control.tuning?.running()).toBe(true))
+  expect(handle.tuning.state.value).not.toBe('idle')
+
+  open.value = false
+  await flushPromises()
+  await vi.waitFor(() => expect(control.tuning?.running()).toBe(false))
+
+  open.value = true
+  await vi.waitFor(() => expect(control.tuning?.running()).toBe(true))
+  expect(control.tuning?.began()).toBe(2)
+})
+
+it('marks old data: the stream ended (the link was lost), says why, and does not show the last step as current', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  rig.control.tuning?.push(stepBatch())
+  await flushPromises()
+
+  rig.control.tuning?.end('LINK_LOST')
+  await flushPromises()
+
+  expect(rig.wrapper.get('#tune-response-chart').text()).toContain('Old data')
+  expect(rig.wrapper.get('#tune-response-problem').text()).toContain('LINK_LOST')
+  // the numbers of the last step are not shown as if they were current: dashes, and the text says why
+  expect(rig.wrapper.get('#tune-rise').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-step').text()).toBe('Old data: the last step is not shown as if it were current.')
 })
 
 // The armed case: the one place where a write goes to a vehicle in flight.
@@ -542,4 +680,19 @@ it('has nothing to write when a typed value is the float the vehicle holds (0.18
 
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
   expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+})
+
+it('draws no point of a rate that is not a number, and shows no number made of one', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  const bad = [{ t: 100, v: Number.NaN }, { t: 140, v: Number.POSITIVE_INFINITY }, { t: 180, v: 2 }, { t: 220, v: 3 }]
+
+  rig.control.tuning?.push({ actual: bad, desired: bad, dropped: 2, asked: { actual: true, desired: true } })
+  await flushPromises()
+
+  // only the two real points of each line are drawn; nothing says NaN
+  expect(rig.wrapper.findAll('.chart-series .line')).toHaveLength(2)
+  expect(rig.wrapper.get('#tune-response-chart').text()).not.toMatch(/NaN|Infinity/u)
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-dropped').text()).toBe('Points dropped by the backend: 2')
 })

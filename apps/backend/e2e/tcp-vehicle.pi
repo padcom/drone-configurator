@@ -1,7 +1,7 @@
 // The simulated vehicle behind a real TCP port, for the end-to-end suite (apps/frontend/e2e): the
 // same MAVLink over the same socket path as ArduPilot SITL's port 5760, without SITL. It prints
 // `listening <port>`, then serves one vehicle per connection until it's killed. It prints
-// `param-set` for each PARAM_SET it receives. Any input on stdin makes the current vehicle go
+// `param-set` for each PARAM_SET it receives, and `interval <id> <us>` for each SET_MESSAGE_INTERVAL. Any input on stdin makes the current vehicle go
 // silent, so a write stays in flight. With the environment variable VEHICLE_LOGS=1 it holds three flight logs (valid DataFlash
 // logs of different lengths, in `/logs`, which file transfer and the MAVLink log protocol serve) and stays DISARMED (the
 // simulator arms itself after three ticks; a logs download is refused while armed), so that logs can be listed, downloaded and
@@ -29,10 +29,12 @@ import {
 
 let muted = false
 
-/// A stream that says when its far end has gone.
+/// A stream that says when its far end has gone, and writes nothing after that (a write to a connection the peer has closed is a panic
+/// of the runtime, and a simulator that sends at 25 Hz meets that in the moment between the peer's close and its own stop).
 class EndWatchingStream implements ByteStream {
   readonly inner: ByteStream
   readonly onEnd: () => void
+  gone: bool = false
 
   constructor(inner: ByteStream, onEnd: () => void) {
     this.inner = inner
@@ -54,12 +56,13 @@ class EndWatchingStream implements ByteStream {
   }
 
   ended(): void {
+    gone = true
     const notify = onEnd
     notify()
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
-    if (!muted) {
+    if (!muted && !gone) {
       await inner.write(bytes)
     }
   }
@@ -82,6 +85,9 @@ function serve(conn: Conn): void {
     } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
       // a test of a motor begins with a timeout above 0, and ends with one of 0
       stdout.writeText(if ((m._param4 as f64) > 0.0) "motor-start\n" else "motor-stop\n")
+    } else if (m instanceof CommandLong && m.command as int == MavCmd.SET_MESSAGE_INTERVAL) {
+      // `interval <message id> <microseconds>`: 0 gives the message back to the vehicle's own rate, -1 switches it off
+      stdout.writeText(`interval ${m._param1 as int} ${m._param2 as int}\n`)
     }
   })
   sim!.start(250)
@@ -93,6 +99,9 @@ function serve(conn: Conn): void {
     calibratesQuickly(sim!)
     movesTheSticks(sim!)
     showsTheOutputs(sim!)
+    // The roll rate has a script (a square wave of 1 rad/s every 2 s, and a second-order response to it: 16 % overshoot): the Tune
+    // screen's response chart has a step to measure. ATTITUDE_TARGET comes only when it is asked for with SET_MESSAGE_INTERVAL.
+    sim!.rateScript = true
   }
 }
 

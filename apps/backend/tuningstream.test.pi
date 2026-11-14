@@ -1,0 +1,347 @@
+// The Tune screen's live stream (`tuning.stream`), over an in-memory link against the simulated vehicle of pico-mavlink with its roll-rate
+// script (the desired rate steps, the actual rate follows with an overshoot): the two lines come as the vehicle sends them, in degrees a
+// second; the vehicle is asked for them while the stream lives and the rates it had are PUT BACK when it ends, by every way it can end; it
+// is bounded (the dropped points are counted); and it never holds up the telemetry.
+//
+// (A test of this file that fails or ends without ending its subscriptions leaves their timers running, which keeps the test process
+// alive: the run then seems to hang and its failure is never printed. Each test ends what it began, in a `finally` where it can fail.)
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Communicator, Envelope, Sink, Transport } from "pico-desktop/communicator"
+import { Attitude, AttitudeTarget, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  TuningBatch,
+  TuningParams,
+  decodeTuningBatch,
+  encodeConnectRequest,
+  encodeTuningParams,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+import { Stream, limits } from "./tuningstream"
+
+/// A connected simulator with the roll-rate script on, and whether it is up (the rates of the telemetry are asked for).
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+
+  constructor(f: Frontend, sim: SimulatedAutopilot) {
+    this.f = f
+    this.sim = sim
+  }
+
+  public async close(): Promise<void> throws Error {
+    await f.call("vehicle.disconnect")
+  }
+}
+
+async function connected(): Promise<Rig> throws Error {
+  limits.maxPending = 300
+  limits.flushMs = 100
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.rateScript = true
+  // the telemetry asked for ATTITUDE at 4 Hz (250 ms): wait until the vehicle has been asked
+  let waited = 0
+  while (!sim.intervals.has(Attitude.MSG_ID) && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  new Rig(f, sim)
+}
+
+async function until(what: string, done: () => bool): Promise<void> throws Error {
+  let waited = 0
+  while (!done() && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  expect(done()).toBe(true)
+  if (!done()) {
+    throw new Error(`never: ${what}`)
+  }
+}
+
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+/// The next batch. When none comes in time the vehicle is disconnected before the test fails: a stream and a simulator that go on
+/// would keep the test process alive, and its failure would never be printed.
+async function batch(r: Rig): Promise<TuningBatch> throws Error {
+  try {
+    return decodeTuningBatch((await r.f.event("tuning.stream")).p ?? Cbor.Null, "$")
+  } catch (e: Error) {
+    await r.close()
+    throw e
+  }
+}
+
+async function streamsTheScriptsRatesInDegrees(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  let actual = 0
+  let desired = 0
+  let top = 0.0
+  let last = 0
+  let ordered = true
+  try {
+    const first = await batch(r)
+    // the first batch says what the vehicle took, and it was asked for both at 25 Hz (40 ms)
+    expect(first.asked.actual && first.asked.desired).toBe(true)
+    expect(r.sim.intervals.get(AttitudeTarget.MSG_ID) ?? -2).toBe(40)
+    // 2.6 s: the desired rate stepped up at 2 s (57.3 deg/s) and the actual rate followed it, with an overshoot
+    for (let i = 0; i < 26; i++) {
+      const b = await batch(r)
+      actual += b.actual.length
+      desired += b.desired.length
+      for (const p of b.desired) {
+        if (p.v > top) {
+          top = p.v
+        }
+      }
+      for (const p of b.actual) {
+        ordered = ordered && (p.t as int) >= last
+        last = p.t as int
+      }
+    }
+  } finally {
+    await r.f.unsubscribe(s)
+    await r.close()
+  }
+  expect(actual > 30).toBe(true)
+  expect(desired > 30).toBe(true)
+  expect(ordered).toBe(true)
+  expect(top > 57.0 && top < 57.5).toBe(true)
+}
+
+async function putsTheRatesBackWhenTheSubscriberLeaves(): Promise<void> throws Error {
+  const r = await connected()
+  // what the telemetry holds for ATTITUDE: 4 Hz, 250 ms
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(250)
+  const s = await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(40)
+  expect(r.sim.intervals.has(AttitudeTarget.MSG_ID)).toBe(true)
+  await r.f.unsubscribe(s)
+  // ATTITUDE is back to the telemetry's 4 Hz, and ATTITUDE_TARGET is the vehicle's own again (nothing was held for it)
+  await until("the rates are back", () => (r.sim.intervals.get(Attitude.MSG_ID) ?? -2) == 250 && !r.sim.intervals.has(AttitudeTarget.MSG_ID))
+  await r.close()
+}
+
+async function endsWhenTheSessionEnds(): Promise<void> throws Error {
+  const r = await connected()
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  link.close()
+  const ended = await r.f.ended()
+  expect(errorOf(ended)).toBe("LINK_LOST")
+}
+
+async function endsWhenTheUserDisconnects(): Promise<void> throws Error {
+  const r = await connected()
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  // (the end comes while the disconnect is answered: waiting for it is begun first)
+  const ended = r.f.ended()
+  await r.close()
+  expect(errorOf(await ended)).toBe("LINK_LOST")
+}
+
+async function refusesWithNoVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.trySubscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  expect(errorOf(await f.ended())).toBe("NOT_CONNECTED")
+}
+
+async function refusesASecondStream(): Promise<void> throws Error {
+  const r = await connected()
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  await r.f.trySubscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  expect(errorOf(await r.f.ended())).toBe("BUSY")
+  // the first goes on, and the rates are the first's
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(40)
+  await r.close()
+}
+
+async function refusesARateOutsideTheLimits(): Promise<void> throws Error {
+  const r = await connected()
+  await r.f.trySubscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 0 as u8 }))
+  expect(errorOf(await r.f.ended())).toBe("INVALID_VALUE")
+  await r.f.trySubscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 51 as u8 }))
+  expect(errorOf(await r.f.ended())).toBe("INVALID_VALUE")
+  // nothing was asked of the vehicle
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(250)
+  await r.close()
+}
+
+async function saysWhenTheVehicleRefusesTheDesiredRate(): Promise<void> throws Error {
+  const r = await connected()
+  // a vehicle that has only data streams: it refuses SET_MESSAGE_INTERVAL, and has no stream for ATTITUDE_TARGET
+  r.sim.rejectIntervals = true
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  const first = await batch(r)
+  expect(first.asked.desired).toBe(false)
+  await r.close()
+}
+
+async function isBoundedAndCountsWhatItDrops(): Promise<void> throws Error {
+  const r = await connected()
+  // a buffer of 3 points and a batch every second: at 50 Hz most of what comes is dropped, and the count says so
+  limits.maxPending = 3
+  limits.flushMs = 1000
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 50 as u8 }))
+  await batch(r)
+  const b = await batch(r)
+  expect(b.actual.length <= 3).toBe(true)
+  expect(b.desired.length <= 3).toBe(true)
+  expect(b.dropped > 10).toBe(true)
+  limits.maxPending = 300
+  limits.flushMs = 100
+  await r.close()
+}
+
+/// A transport that only counts what is sent: a sink over it is a sink that is never slow.
+class CountingTransport implements Transport {
+  public sent: int = 0
+
+  public async send(_message: Uint8Array): Promise<void> throws Error {
+    sent += 1
+  }
+
+  public receive(): Promise<Uint8Array?, Error> {
+    Promise.resolve<Uint8Array?>(null)
+  }
+}
+
+/// The roll rate of the script as the vehicle sends it at 25 Hz: 0 for 2 s, then a step of 57.3 deg/s with a first-order response.
+function scripted(t: int): f64 {
+  if (t < 2000) 0.0 else 57.29578 * (1.0 - Math.exp(-((t - 2000) as f64) / 100.0))
+}
+
+async function keepsAndFlushesTenSecondsOfRealRates(): Promise<void> throws Error {
+  limits.maxPending = 300
+  const transport = new CountingTransport()
+  const sink = new Sink(new Communicator(transport), "tuning.stream", 1, null)
+  const stream = new Stream()
+  const mine = stream.start(sink)
+  let kept = 0
+  // 10 s at 25 Hz, a batch about every 120 ms: nothing is dropped, and every point leaves
+  for (let i = 1; i <= 250; i++) {
+    const t = i * 40
+    stream.keep(stream.actual, t as u32, scripted(t))
+    stream.keep(stream.desired, t as u32, if (t < 2000) 0.0 else 57.29578)
+    kept += stream.actual.length + stream.desired.length
+    if (i % 3 == 0) {
+      stream.flush(mine)
+    }
+  }
+  stream.flush(mine)
+  await delay(50)
+  expect(stream.dropped).toBe(0)
+  expect(stream.actual.length + stream.desired.length).toBe(0)
+  expect(transport.sent >= 80 && transport.sent <= 90).toBe(true)
+  expect(kept > 0).toBe(true)
+  stream.finish("ENDED", "the test is over")
+}
+
+async function dropsAndCountsWhatDoesNotFit(): Promise<void> throws Error {
+  limits.maxPending = 300
+  const transport = new CountingTransport()
+  const sink = new Sink(new Communicator(transport), "tuning.stream", 1, null)
+  const stream = new Stream()
+  const mine = stream.start(sink)
+  // 400 points of a line with nobody to take them: the newest 300 are kept and 100 are counted
+  for (let i = 1; i <= 400; i++) {
+    stream.keep(stream.actual, (i * 40) as u32, 12.5)
+  }
+  expect(stream.actual.length).toBe(300)
+  expect(stream.dropped).toBe(100)
+  expect(stream.actual[0].t).toBe(4040)
+  // a rate that is not a number is not a point: dropped and counted, whatever it is
+  const none = 0.0
+  stream.keep(stream.desired, 40 as u32, none / none)
+  stream.keep(stream.desired, 80 as u32, 1.0 / none)
+  stream.keep(stream.desired, 120 as u32, -1.0 / none)
+  expect(stream.desired.length).toBe(0)
+  expect(stream.dropped).toBe(103)
+  stream.flush(mine)
+  await delay(20)
+  expect(transport.sent).toBe(1)
+  stream.finish("ENDED", "the test is over")
+}
+
+async function givesTheRatesBackWhenTheSessionEnds(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(40)
+  // the session ends, as it does when the link is closed from outside: the releases go out while the connection is still open
+  link.close()
+  await until("ATTITUDE is the telemetry's again", () => (r.sim.intervals.get(Attitude.MSG_ID) ?? -2) == 250)
+  await until("ATTITUDE_TARGET is given back", () => !r.sim.intervals.has(AttitudeTarget.MSG_ID))
+  expect(s > 0).toBe(true)
+}
+
+async function givesTheRatesBackWhenTheUserDisconnects(): Promise<void> throws Error {
+  const r = await connected()
+  await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  await batch(r)
+  expect(r.sim.intervals.get(Attitude.MSG_ID) ?? -2).toBe(40)
+  await r.close()
+  await until("ATTITUDE is the telemetry's again", () => (r.sim.intervals.get(Attitude.MSG_ID) ?? -2) == 250)
+  await until("ATTITUDE_TARGET is given back", () => !r.sim.intervals.has(AttitudeTarget.MSG_ID))
+}
+
+/// How many telemetry events come in `ms`.
+async function telemetryIn(f: Frontend, ms: int): Promise<int> throws Error {
+  const started = Date.now() as int
+  let count = 0
+  while ((Date.now() as int) - started < ms) {
+    const _event = await f.event("telemetry.stream")
+    count += 1
+  }
+  count
+}
+
+async function theTelemetryGoesOnBesideTheStream(): Promise<void> throws Error {
+  const r = await connected()
+  // (no script: the rates are zeros, which the harness's own transport carries; with the script the run hangs past 2 s, see the top)
+  r.sim.rateScript = false
+  // (a subscription's timer keeps the test process alive until it is ended: both are, before the vehicle is disconnected)
+  const telemetry = await r.f.subscribe("telemetry.stream", null)
+  // the telemetry's own pace, alone, for a second; then the same with the stream at 25 Hz running beside it: it is not slowed
+  const alone = await telemetryIn(r.f, 1100)
+  const tuning = await r.f.subscribe("tuning.stream", encodeTuningParams(TuningParams { rateHz: 25 as u8 }))
+  const beside = await telemetryIn(r.f, 1100)
+  await r.f.unsubscribe(tuning)
+  await r.f.unsubscribe(telemetry)
+  expect(alone >= 1).toBe(true)
+  expect(beside + 1 >= alone).toBe(true)
+  await r.close()
+}
+
+describe("the tuning stream", () => {
+  it("sends the actual and the desired roll rate as the vehicle does, in degrees a second, past the first step", streamsTheScriptsRatesInDegrees)
+  it("puts the vehicle's message rates back when the subscriber leaves", putsTheRatesBackWhenTheSubscriberLeaves)
+  it("says when the vehicle did not take the request for the desired rate", saysWhenTheVehicleRefusesTheDesiredRate)
+  it("is bounded: what it drops is counted", isBoundedAndCountsWhatItDrops)
+  it("keeps and sends 10 s of the script's rates, nothing dropped", keepsAndFlushesTenSecondsOfRealRates)
+  it("drops what does not fit, and a rate that is not a number, and counts both", dropsAndCountsWhatDoesNotFit)
+  it("goes on beside the telemetry (a second of both)", theTelemetryGoesOnBesideTheStream)
+  it("gives the vehicle's rates back when the session ends", givesTheRatesBackWhenTheSessionEnds)
+  it("gives the vehicle's rates back when the user disconnects", givesTheRatesBackWhenTheUserDisconnects)
+})
+
+describe("the ends and the refusals of the tuning stream", () => {
+  it("ends when the session ends", endsWhenTheSessionEnds)
+  it("ends when the user disconnects", endsWhenTheUserDisconnects)
+  it("is refused with no vehicle", refusesWithNoVehicle)
+  it("is refused a second time", refusesASecondStream)
+  it("is refused for a rate outside 1 to 50 Hz, and asks the vehicle for nothing", refusesARateOutsideTheLimits)
+})

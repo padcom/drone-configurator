@@ -26,6 +26,8 @@ export class TcpVehicle {
   /** How many motor test commands it has received that start a motor, and that stop one. */
   motorStarts = 0
   motorStops = 0
+  /** The interval (microseconds) it was last asked for each message: 0 when it was given back to its own rate. */
+  readonly intervals = new Map<number, number>()
   /** The TCP port it listens on, once it has said so. */
   port = 0
   readonly #child: ChildProcessByStdio<Writable, Readable, null>
@@ -95,7 +97,21 @@ export class TcpVehicle {
     if (line === 'param-set') {
       this.writes += 1
       this.#waiters.splice(0).forEach(resolve => resolve())
-    } else if (line === 'motor-start') {
+    } else if (line.startsWith('interval ')) {
+      const [, id, microseconds] = line.split(' ')
+      this.intervals.set(Number(id), Number(microseconds))
+    } else {
+      this.#heardMotor(line)
+    }
+  }
+
+  /**
+   * Counts the motor test commands it says it received.
+   *
+   * @param line a line the child printed
+   */
+  #heardMotor(line: string) {
+    if (line === 'motor-start') {
       this.motorStarts += 1
     } else if (line === 'motor-stop') {
       this.motorStops += 1
