@@ -4025,6 +4025,40 @@ export function encodeFileOpened(v: FileOpened): Cbor {
   Cbor.Dict(m)
 }
 
+export struct FileRead {
+  path: string
+}
+
+export function decodeFileRead(v: Cbor, path: string): FileRead throws InvalidPayload {
+  const m = members(v, path, ["path"])
+  FileRead {
+    path: text(required(m, "path", path), `${path}.path`),
+  }
+}
+
+export function encodeFileRead(v: FileRead): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("path", Cbor.Text(v.path))
+  Cbor.Dict(m)
+}
+
+export struct FileContents {
+  text: string
+}
+
+export function decodeFileContents(v: Cbor, path: string): FileContents throws InvalidPayload {
+  const m = members(v, path, ["text"])
+  FileContents {
+    text: text(required(m, "text", path), `${path}.text`),
+  }
+}
+
+export function encodeFileContents(v: FileContents): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("text", Cbor.Text(v.text))
+  Cbor.Dict(m)
+}
+
 function decodeSerialPortsPortsList(v: Cbor, path: string): SerialPort[] throws InvalidPayload {
   const out: SerialPort[] = []
   let i = 0

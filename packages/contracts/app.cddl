@@ -144,6 +144,11 @@ services = {
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
   "files.open": ["method", null, file-opened],
+  ; The text of the JSON file at a path the user named (the metadata file kept in the settings), without a dialog. Refused, with
+  ; a code that names the rule, for a path that is not absolute or has a `..`, is not a regular file once resolved, does not
+  ; end in `.json`, is over 16 MiB, or cannot be read: "INVALID_PATH", "NOT_FOUND", "NOT_A_FILE", "NOT_JSON", "TOO_LARGE",
+  ; "UNREADABLE".
+  "files.read": ["method", file-read, file-contents],
   "serial.ports": ["method", null, serial-ports],
   ; Settings that survive a restart (see `settings`). `settings.set` takes a patch and answers with the document it made.
   "settings.get": ["method", null, settings-state],
@@ -858,6 +863,10 @@ file-save = { name: tstr, text: tstr }
 file-saved = { ? path: tstr }
 
 file-opened = { ? path: tstr, ? text: tstr }
+
+file-read = { path: tstr }
+
+file-contents = { text: tstr }
 
 ; The serial ports the backend's machine has (padcom/serialport's listPorts).
 serial-ports = { ports: [* serial-port] }

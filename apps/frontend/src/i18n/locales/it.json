@@ -604,6 +604,14 @@
     "label": "Lingua"
   },
   "settings": {
+    "metadata": {
+      "title": "Metadati dei parametri",
+      "path": "File dei metadati",
+      "pathHelp": "Dove si trova il file dei metadati dei parametri. Un file caricato a mano viene ricordato qui e ricaricato all'avvio se l'interruttore qui sotto è attivo.",
+      "choose": "Scegli file…",
+      "autoload": "Carica i metadati dei parametri all'avvio dell'applicazione",
+      "autoloadHelp": "Se è spento non si carica nulla all'avvio e il percorso qui sopra viene conservato."
+    },
     "dismiss": "Chiudi",
     "title": "Impostazioni",
     "languageHelp": "La lingua dell'interfaccia.",
@@ -950,6 +958,9 @@
   },
   "notice": {
     "metadataLoad": "Impossibile caricare i metadati: {reason}.",
+    "metadataLoadFrom": "Impossibile caricare i metadati da {path}: {reason}.",
+    "metadataReadFrom": "Impossibile caricare i metadati da {path}: {error}",
+    "metadataPathNotKept": "Il percorso di {path} non è stato ricordato: all'avvio dell'applicazione si carica solo un file .json.",
     "open": "Impossibile aprire: {error}",
     "settingsUnavailable": "Le impostazioni non sono disponibili: {error}",
     "settingKept": "Non è stato possibile conservare un'impostazione: {error}",

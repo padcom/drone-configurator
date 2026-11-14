@@ -2,11 +2,12 @@
 // names a directory instead: a snapshot is saved there under the name asked for, and `open.json`
 // is what opening gives (files.pi, DirectoryFileChooser).
 import { describe, it, expect } from "std/test"
-import { mkdir, readText, remove, writeText } from "std/fs"
+import { chmod, exists, mkdir, readText, remove, symlink, writeBytes, writeText } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import { Cbor } from "pico-desktop/communicator"
-import { FileSave, decodeFileOpened, decodeFileSaved, encodeFileSave } from "./generated/app"
+import { readLimits } from "./files"
+import { FileRead, FileSave, decodeFileContents, decodeFileOpened, decodeFileSaved, encodeFileRead, encodeFileSave } from "./generated/app"
 import { start } from "./testing"
 
 const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
@@ -52,7 +53,134 @@ async function reportsAMissingFile(): Promise<void> throws Error {
   }
 }
 
+/// A directory of its own for a test.
+async function freshDir(name: string): Promise<string> throws Error {
+  const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-${name}-${pid}`)
+  await mkdir(dir, true)
+  dir
+}
+
+/// `files.read` of a path: the error code and message, or `ok: ` and the text.
+async function readOf(path: string): Promise<string> throws Error {
+  const f = await start()
+  const e = await f.call("files.read", encodeFileRead(FileRead { path: path }))
+  if (e.k == "error") {
+    return `${e.err?.code ?? "?"}: ${e.err?.message ?? ""}`
+  }
+  `ok: ${decodeFileContents(e.p ?? Cbor.Null, "$").text}`
+}
+
+/// The code of what `readOf` said (`ok` for a file read).
+async function codeOf(path: string): Promise<string> throws Error {
+  (await readOf(path)).split(":")[0]
+}
+
+async function readsAJsonFileByItsPath(): Promise<void> throws Error {
+  const dir = await freshDir("read")
+  try {
+    await writeText(`${dir}/meta.json`, "{\"a\":1}")
+    expect(await readOf(`${dir}/meta.json`)).toBe("ok: {\"a\":1}")
+    // a link is followed, and what it leads to is read
+    await symlink(`${dir}/meta.json`, `${dir}/link.json`)
+    expect(await readOf(`${dir}/link.json`)).toBe("ok: {\"a\":1}")
+  } finally {
+    await remove(dir, true)
+  }
+}
+
+async function refusesWhatItDoesNotRead(): Promise<void> throws Error {
+  const dir = await freshDir("refuse")
+  try {
+    await writeText(`${dir}/meta.json`, "{}")
+    await writeText(`${dir}/notes.txt`, "{}")
+    await mkdir(`${dir}/folder.json`, true)
+    await symlink(`${dir}/folder.json`, `${dir}/dirlink.json`)
+    const codes = [
+      await codeOf("meta.json"),
+      await codeOf("./meta.json"),
+      await codeOf(`${dir}/../meta.json`),
+      await codeOf(`${dir}\\..\\meta.json`),
+      await codeOf(`${dir}/notes.txt`),
+      await codeOf(`${dir}/absent.json`),
+      await codeOf(`${dir}/folder.json`),
+      await codeOf(`${dir}/dirlink.json`),
+      await codeOf(""),
+    ]
+    expect(codes.join(" ")).toBe("INVALID_PATH INVALID_PATH INVALID_PATH INVALID_PATH NOT_JSON NOT_FOUND NOT_A_FILE NOT_A_FILE INVALID_PATH")
+    // the reason names the path as written, and the rule
+    expect(await readOf("meta.json")).toBe("INVALID_PATH: not an absolute path (a file is read only from a full path)")
+  } finally {
+    await remove(dir, true)
+  }
+}
+
+async function refusesAFileOver16MiB(): Promise<void> throws Error {
+  const dir = await freshDir("big")
+  try {
+    await writeBytes(`${dir}/big.json`, new Uint8Array(16777217))
+    await writeBytes(`${dir}/edge.json`, new Uint8Array(16777216))
+    expect(await codeOf(`${dir}/big.json`)).toBe("TOO_LARGE")
+    // exactly the limit is read
+    expect(await codeOf(`${dir}/edge.json`)).toBe("ok")
+  } finally {
+    await remove(dir, true)
+  }
+}
+
+async function neverPutsTheContentsInAnError(): Promise<void> throws Error {
+  const dir = await freshDir("closed")
+  try {
+    // a file that may not be read: the rule is said, and what it holds is not
+    await writeText(`${dir}/closed.json`, "{\"secret\":1}")
+    await chmod(`${dir}/closed.json`, 0)
+    const said = await readOf(`${dir}/closed.json`)
+    await chmod(`${dir}/closed.json`, 420)
+    expect(said.startsWith("UNREADABLE: it cannot be opened")).toBe(true)
+    expect(said.includes("secret")).toBe(false)
+  } finally {
+    await remove(dir, true)
+  }
+}
+
+async function readsWhatIsThereNotWhatStatSays(): Promise<void> throws Error {
+  // A file of a pseudo file system says 0 bytes and has more: the read counts what it gets, and stops at the limit.
+  if (!(await exists("/proc/self/status"))) {
+    println("skipped: no /proc")
+    return
+  }
+  const dir = await freshDir("proc")
+  const was = readLimits.maxBytes
+  try {
+    await symlink("/proc/self/status", `${dir}/status.json`)
+    expect((await codeOf(`${dir}/status.json`))).toBe("ok")
+    readLimits.maxBytes = 100
+    expect((await codeOf(`${dir}/status.json`))).toBe("TOO_LARGE")
+  } finally {
+    readLimits.maxBytes = was
+    await remove(dir, true)
+  }
+}
+
+async function refusesADeviceAndANulWithoutWaiting(): Promise<void> throws Error {
+  const dir = await freshDir("device")
+  try {
+    await symlink("/dev/zero", `${dir}/zero.json`)
+    await symlink("/dev/null", `${dir}/null.json`)
+    expect(await codeOf(`${dir}/zero.json`)).toBe("NOT_A_FILE")
+    expect(await codeOf(`${dir}/null.json`)).toBe("NOT_A_FILE")
+    expect(await codeOf(`${dir}/a\u{0}b.json`)).toBe("INVALID_PATH")
+  } finally {
+    await remove(dir, true)
+  }
+}
+
 describe("the files service", () => {
   it("saves a snapshot under the name asked for and opens the file the test directory holds", savesAndOpens)
   it("reports a file that isn't there as an error", reportsAMissingFile)
+  it("reads a .json file by its path, a link too", readsAJsonFileByItsPath)
+  it("refuses a relative path, a .., a file that is not .json, a missing one, a folder and a link to one", refusesWhatItDoesNotRead)
+  it("refuses a file over 16 MiB and reads one of exactly that", refusesAFileOver16MiB)
+  it("does not say what a file it cannot read holds", neverPutsTheContentsInAnError)
+  it("reads what is there, not what stat says, and stops at the limit", readsWhatIsThereNotWhatStatSays)
+  it("refuses a device (a link to /dev/zero) and a NUL in the path without waiting", refusesADeviceAndANulWithoutWaiting)
 })
