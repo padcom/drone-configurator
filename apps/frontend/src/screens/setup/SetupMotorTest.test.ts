@@ -423,6 +423,13 @@ it('offers the test again when the frame is back to the one the vehicle started 
   expect(rig.wrapper.find('#setup-motor-test-block').exists()).toBe(false)
 })
 
+it('names each "Confirmed" mark with its motor, so the four are not the same to a screen reader', async () => {
+  const { wrapper } = await page()
+  const names = wrapper.findAll('.motor-test-confirm input').map(box => box.attributes('aria-label'))
+
+  expect(names).toEqual(['Motor A confirmed', 'Motor B confirmed', 'Motor C confirmed', 'Motor D confirmed'])
+})
+
 it('marks a motor confirmed only once it was tested, per session, and the mark is gone with the connection', async () => {
   const rig = await page()
   const mark = () => rig.wrapper.get<HTMLInputElement>('[data-confirm="A"] input')

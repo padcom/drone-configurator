@@ -19,11 +19,12 @@ afterEach(() => {
 /**
  * A connected simulated vehicle that is disarmed, and the motor test of its configurator.
  *
+ * @param params the vehicle's parameters (a connection reads them again)
  * @returns the handle and the mock's controls
  */
-async function rig() {
+async function rig(params = SETUP_PARAMS) {
   const control: MockControl = {}
-  const backend = mockBackend({ telemetryMs: 600_000, params: SETUP_PARAMS, control })
+  const backend = mockBackend({ telemetryMs: 600_000, params, control })
   const handle = createConfigurator(backend, () => Promise.resolve(true))
   control.armed?.(false)
   await handle.vehicle.connect({ transport: 'simulator' })
@@ -244,20 +245,75 @@ it('does not know the frame the vehicle started with before it is connected and 
   expect(handle.motorTest.booted.value).toBeNull()
 })
 
-it('takes the new frame as the booted one only after the connection was lost and came back (the vehicle restarted)', async () => {
+it('keeps the lock across a blip of the link after a frame was written and not restarted', async () => {
   const { control, test } = await rig()
   control.announce?.('FRAME_TYPE', 0)
   await wait()
   expect(test.block.value).toBe('frame')
 
+  // the link goes quiet and comes back (no restart: nothing says "REBOOTING"); the list is read again
   control.connection?.({ state: 'reconnecting', attempt: 1, nextRetryMs: 1000 })
   await wait()
+  expect(test.booted.value).toEqual({ class: 1, type: 1 })
+  control.connection?.({ state: 'connected', resumed: true })
+  await wait(200)
+
+  expect(test.booted.value).toEqual({ class: 1, type: 1 })
+  expect(test.block.value).toBe('frame')
+})
+
+it('keeps the lock when the user disconnects and connects again after a frame was written and not restarted', async () => {
+  // (the vehicle's own parameters: a connection reads them again, and the frame written is in them now)
+  const params = SETUP_PARAMS.map(param => ({ ...param }))
+  const { handle, control, test } = await rig(params)
+  control.connection?.({ state: 'disconnected' })
+  await wait()
   expect(test.booted.value).toBeNull()
+  const frameType = params.find(param => param.id === 'FRAME_TYPE')
+  if (frameType) {
+    frameType.value = 0
+  }
+  await handle.vehicle.connect({ transport: 'simulator' })
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false } })
+  await wait(300)
+
+  // it is the vehicle that was seen to start with the old frame, and nothing says it restarted
+  expect(test.booted.value).toEqual({ class: 1, type: 1 })
+  expect(test.block.value).toBe('frame')
+})
+
+it('takes the new frame as the booted one when the restart is known: the app\'s own reboot completed', async () => {
+  const { control, test } = await rig()
+  control.announce?.('FRAME_TYPE', 0)
+  await wait()
+  expect(test.block.value).toBe('frame')
+
+  control.connection?.({ state: 'reconnecting', errorCode: 'REBOOTING', attempt: 1, nextRetryMs: 1000 })
+  await wait()
   control.connection?.({ state: 'connected', resumed: true })
   await wait(200)
 
   expect(test.booted.value).toEqual({ class: 1, type: 0 })
   expect(test.block.value).toBeNull()
+})
+
+it('forgets what was confirmed when the restart brings another frame', async () => {
+  const { control, test } = await rig()
+  test.start(1, 5)
+  await wait()
+  test.release()
+  await wait()
+  test.confirm(1, true)
+  control.announce?.('FRAME_TYPE', 0)
+  await wait()
+  expect(test.confirmed.value).toEqual([1])
+  control.connection?.({ state: 'reconnecting', errorCode: 'REBOOTING', attempt: 1, nextRetryMs: 1000 })
+  await wait()
+  control.connection?.({ state: 'connected', resumed: true })
+  await wait(200)
+
+  expect(test.confirmed.value).toEqual([])
+  expect(test.tested.value).toEqual([])
 })
 
 it('keeps what was tested and confirmed for the connection only, and confirms only a motor that was tested', async () => {

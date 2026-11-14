@@ -8,6 +8,7 @@
 // every 250 ms: a page that freezes stops saying it, and the backend stops the motor after a second. Nothing here is a command of
 // the palette or a shortcut: a test begins only from `start()`, which the page calls from a pressed button.
 import { type ComputedRef, type Ref, type ShallowRef, computed, shallowRef, watch } from 'vue'
+import { type BootedFrame, useBootedFrame } from './useBootedFrame'
 import { type BackendClient, BackendError, type Subscription } from '@/backend/client'
 import type { Connection, MotorTestState, Telemetry } from '@/generated/app'
 import {
@@ -57,9 +58,8 @@ export interface MotorTestModel {
   readonly busy: ComputedRef<boolean>
   /**
    * The frame the vehicle started with: ArduPilot fixes its test order at boot, so this is the frame the letters are for. It is
-   * the
-   * frame of the parameters when the list was complete after the vehicle connected (or came back after a restart), and null until
-   * then.
+   * the frame of the parameters when the list was complete after the vehicle connected (or came back after a restart), and null
+   * until then.
    */
   readonly booted: ShallowRef<Frame | null>
   /** The motors (in the test order) that were tested in this session, and the ones the person confirmed turned as drawn. */
@@ -83,7 +83,8 @@ class MotorTest implements MotorTestModel {
   readonly settling = shallowRef(false)
   readonly block: ComputedRef<TestBlock>
   readonly busy: ComputedRef<boolean>
-  readonly booted = shallowRef<Frame | null>(null)
+  readonly booted: ShallowRef<Frame | null>
+  private readonly frame: BootedFrame
   readonly tested = shallowRef<readonly number[]>([])
   readonly confirmed = shallowRef<readonly number[]>([])
   private subscription: Subscription | undefined
@@ -96,18 +97,17 @@ class MotorTest implements MotorTestModel {
    * @param deps the client, the connection and the telemetry
    */
   constructor(private readonly deps: MotorTestDeps) {
+    this.frame = useBootedFrame(deps)
+    this.booted = this.frame.booted
     this.busy = computed(() => this.motor.value !== null || this.settling.value)
     this.block = computed(() => this.vehicleBlock() ?? this.frameLock())
     // A vehicle that is gone, or not known to be disarmed any more, ends the test (the armed flag of the test itself does not
     // count).
     watch(this.block, block => block !== null && this.release())
-    // The frame the vehicle booted with is what the parameters say when the list is complete, once for each connection (a list
-    // that is
-    // read again later, after the frame was written, does not make the new frame the booted one: only a restart does, and it ends
-    // the
-    // connection first). What was tested and confirmed is of this connection too.
-    watch(() => deps.parameters.list.value, list => list === 'complete' && this.takeBooted())
-    watch(() => deps.connection.value.state, state => state !== 'connected' && this.forget())
+    // What was tested and confirmed is of one connection, and of one frame (the order of the motors may be another after a
+    // restart).
+    watch(() => deps.connection.value.state, state => state === 'disconnected' && this.forget())
+    watch(this.frame.booted, (next, was) => frameBlock(was, next ?? { class: -1, type: -1 }) && this.forget())
   }
 
   /**
@@ -125,30 +125,11 @@ class MotorTest implements MotorTestModel {
    * @returns `frame` when the test order may not be what the letters say, else null
    */
   private frameLock(): TestBlock {
-    return frameBlock(this.booted.value, this.frameNow()) ? 'frame' : null
+    return frameBlock(this.booted.value, this.frame.now.value) ? 'frame' : null
   }
 
-  /**
-   * The frame as the parameters say now (-1 for a parameter the vehicle has not).
-   *
-   * @returns the frame
-   */
-  private frameNow(): Frame {
-    const value = (id: string) => this.deps.parameters.params.value.find(param => param.id === id)?.value ?? -1
-
-    return { class: value('FRAME_CLASS'), type: value('FRAME_TYPE') }
-  }
-
-  /** The list is complete: that is the frame the vehicle booted with, if the connection has not got one yet. */
-  private takeBooted(): void {
-    if (this.booted.value === null && this.deps.connection.value.state === 'connected') {
-      this.booted.value = this.frameNow()
-    }
-  }
-
-  /** The connection ended (a restart does that too): the frame it booted with, and what was tested, are not known any more. */
+  /** The connection ended: what was tested, and what was confirmed, is of that connection. */
   private forget(): void {
-    this.booted.value = null
     this.tested.value = []
     this.confirmed.value = []
   }

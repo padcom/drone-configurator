@@ -47,6 +47,7 @@
           <label class="motor-test-confirm" :data-confirm="button.letter">
             <input
               type="checkbox"
+              :aria-label="t('setup.motors.test.confirmMotor', { letter: button.letter })"
               :checked="model.confirmed.value.includes(button.number)"
               :disabled="!model.tested.value.includes(button.number)"
               @change="model.confirm(button.number, ($event.target as HTMLInputElement).checked)"
