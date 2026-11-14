@@ -117,6 +117,8 @@ The harness only ever launches or connects to a simulator.
 
 Parameter writes change how a vehicle flies. Test against SITL or the simulator first, and keep a backup of the parameters before writing to real hardware.
 
+**The Setup pages never write to a vehicle that is armed, or may be.** The Tune screen is the one exception (the leader's decision Q7: tuning is done in flight). Its writes are allowed while the vehicle is armed, with an "Armed: changes apply in flight" banner and a HOLD (not the single question), for the parameters of a fixed list only, within the limits ArduPilot's own table gives them (a negative value, or one above the table's most, is refused), and never when the vehicle's armed state is not known (no heartbeat for 3 s counts as armed). The backend enforces the list and the limits (`apps/backend/tuning.pi`; a name that is not on it is refused armed or not) and looks at the armed state again at the moment of each write. Several parameters are written one after the other, each read back, and a write that stops says which were read back, which were not confirmed and which were not written; nothing is tried again by itself. Nothing on the screen is drawn from the values of the sliders: there is no preview of what the vehicle will do.
+
 ## License
 
 MIT
