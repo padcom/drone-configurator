@@ -38,12 +38,13 @@ interface Rig {
 /**
  * The page over a connected, disarmed simulated vehicle that has the parameters of the initial tune (except one).
  *
+ * @param values values to give some of the parameters (a vehicle that is not at the usual)
  * @returns the page and what drives it
  */
-async function page(): Promise<Rig> {
+async function page(values: Record<string, number> = {}): Promise<Rig> {
   const control: MockControl = {}
   const asked: string[] = []
-  const params = [...SETUP_PARAMS, ...TUNE_PARAMS]
+  const params = [...SETUP_PARAMS, ...TUNE_PARAMS.map(param => ({ ...param, value: values[param.id] ?? param.value }))]
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, params, control }), question => {
     asked.push(question)
 
@@ -116,8 +117,8 @@ it('says a parameter is not on this vehicle, and says the page gives no accelera
   await choose(rig, 5, '3')
 
   expect(suggestedOf(rig, 'ATC_RAT_YAW_FLTE')).toBe('not on this vehicle')
-  expect(suggestedOf(rig, 'ATC_ACC_P_MAX')).toBe('not given by the page for this size')
-  expect(suggestedOf(rig, 'ATC_ACC_Y_MAX')).toBe('not given by the page for this size')
+  expect(suggestedOf(rig, 'ATC_ACC_P_MAX')).toBe('not given by ArduPilot\'s page for this size')
+  expect(suggestedOf(rig, 'ATC_ACC_Y_MAX')).toBe('not given by ArduPilot\'s page for this size')
   expect(suggestedOf(rig, 'INS_GYRO_FILTER')).toBe('80')
 })
 
@@ -199,4 +200,62 @@ it('names the page it is from, once, and puts no other title on the page', async
   expect(text.split('Setting the Aircraft Up for Tuning')).toHaveLength(2)
   expect(text).toContain('verify MOT_THST_EXPO on a thrust stand')
   expect(wrapper.get('h3').classes()).toContain('visually-hidden')
+})
+
+it('puts the choices back when the size changes: 10 inch values are not written under a table with none for 5', async () => {
+  const rig = await page()
+  await choose(rig, 10, '4')
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+  expect(rig.wrapper.findAll('.setup-writes li').map(item => item.text())).toContain('ATC_ACC_P_MAX')
+
+  await rig.wrapper.get('#setup-initial-size-5').trigger('click')
+  await flushPromises()
+
+  expect(suggestedOf(rig, 'ATC_ACC_P_MAX')).toBe('not given by ArduPilot\'s page for this size')
+  expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+  expect(rig.wrapper.get('#setup-initial-write').attributes('disabled')).toBeDefined()
+  // and what is chosen again for 5 inch is what the table shows
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+  const listed = rig.wrapper.findAll('.setup-writes li').map(item => item.text())
+  expect(listed).toContain('INS_GYRO_FILTER')
+  expect(listed.some(name => name.startsWith('ATC_ACC_'))).toBe(false)
+  expect(rig.control.writesSent?.()).toEqual([])
+})
+
+it('puts the choices back when the cells change: the voltages of 4 cells are not written for 3', async () => {
+  const rig = await page()
+  await choose(rig, 10, '4')
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+  expect(rig.wrapper.findAll('.setup-writes li').map(item => item.text())).toContain('MOT_BAT_VOLT_MAX')
+
+  await rig.wrapper.get('input[type="text"]').setValue('3')
+  await flushPromises()
+
+  expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+  await rig.wrapper.get('#setup-initial-write').trigger('click')
+  await flushPromises()
+
+  expect(rig.asked).toHaveLength(1)
+  expect(rig.asked[0]).toMatch(/MOT_BAT_VOLT_MAX [\d.]+ → 12\.6/u)
+  expect(rig.asked[0]).not.toContain('16.8')
+})
+
+it('does not offer an acceleration limit beyond its range on the vehicle (another unit), and says why', async () => {
+  const rig = await page({ ATC_ACC_P_MAX: 110_000, ATC_ACC_Y_MAX: 720 })
+  await choose(rig, 10, '4')
+
+  expect(suggestedOf(rig, 'ATC_ACC_P_MAX')).toContain('above this parameter\'s range')
+  // (720 is the range's greatest for yaw: inside it)
+  expect(suggestedOf(rig, 'ATC_ACC_Y_MAX')).toBe('200')
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+
+  const listed = rig.wrapper.findAll('.setup-writes li').map(item => item.text())
+  expect(listed).not.toContain('ATC_ACC_P_MAX')
+  expect(listed).toContain('ATC_ACC_Y_MAX')
 })

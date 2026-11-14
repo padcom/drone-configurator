@@ -37,7 +37,7 @@
           <tr v-for="row in rows" :key="row.id" :data-param="row.id">
             <th scope="row">{{ row.id }}</th>
             <td>{{ row.now }}</td>
-            <td :class="{ muted: row.value === null || row.missing }">{{ row.suggested }}</td>
+            <td :class="{ muted: row.value === null }">{{ row.suggested }}</td>
           </tr>
         </tbody>
       </table>
@@ -57,7 +57,7 @@
 // said, or the vehicle does not have the parameter). "Use these values" only CHOOSES them here: they are written like every
 // Setup change, from the list on the side, through the one question, never while the vehicle is armed or may be. Nothing is
 // computed from what the vehicle has now.
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Button from '@/components/ui/Button.vue'
@@ -66,7 +66,7 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { showNumber } from '@/lib/params/paramValue'
 import {
-  INITIAL_TUNE_IDS, MAX_CELLS, PROP_SIZES, type PropSize, type Suggestion, initialTune, parseCells,
+  INITIAL_TUNE_IDS, MAX_CELLS, PROP_SIZES, type PropSize, type Suggestion, beyondRange, initialTune, parseCells,
 } from '@/lib/setup/initialTune'
 
 const { t } = useI18n()
@@ -89,8 +89,11 @@ function suggestedOf(item: Suggestion, missing: boolean): string {
   if (missing) {
     return t('setup.initial.notOnVehicle')
   }
+  if (beyondRange(item.id, panel.vehicleValue(item.id))) {
+    return t('setup.initial.why.aboveRange')
+  }
 
-  return item.value === null ? t(`setup.initial.why.${item.why ?? 'notGiven'}`) : showNumber(item.value)
+  return item.value === null ? t(`setup.initial.why.${String(item.why)}`) : showNumber(item.value)
 }
 
 /**
@@ -107,12 +110,18 @@ function nowOf(id: string): string {
 
 const rows = computed(() => suggestions.value.map(item => {
   const missing = panel.missing.value.includes(item.id)
+  // (a value that is not offered is shown as the reason, not as a number)
+  const offered = item.value !== null && !missing && !beyondRange(item.id, panel.vehicleValue(item.id))
 
-  return { id: item.id, value: item.value, missing, now: nowOf(item.id), suggested: suggestedOf(item, missing) }
+  return { id: item.id, value: offered ? item.value : null, missing, now: nowOf(item.id), suggested: suggestedOf(item, missing) }
 }))
 
-/** The parameters that have a value to choose: the vehicle has them and the page gives one. */
-const choosable = computed(() => rows.value.filter(row => row.value !== null && !row.missing))
+/** The parameters that have a value to choose: the vehicle has them, the page gives one and it is in the vehicle's range. */
+const choosable = computed(() => rows.value.filter(row => row.value !== null))
+
+// What was chosen is what the table shows now: a change of the size or of the cells, or a list that is read again, puts the
+// choices back to what the vehicle has (else a value chosen for another size would be written under a table with none).
+watch([size, cells, () => handle.parameters.list.value], () => panel.revert())
 const usable = computed(() => choosable.value.length > 0 && panel.blocked.value === null && !panel.writing.value)
 
 /** Chooses the suggested values in the panel (nothing is sent: the list on the side is what is written). */

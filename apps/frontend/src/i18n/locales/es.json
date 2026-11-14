@@ -1099,7 +1099,8 @@
       "now": "Ahora",
       "suggested": "Sugerido",
       "why": {
-        "notGiven": "la página no lo da para este tamaño",
+        "notGiven": "la página de ArduPilot no lo da para este tamaño",
+        "aboveRange": "el valor del vehículo está por encima del rango de este parámetro (¿otra unidad?): no se ofrece",
         "cells": "indique las celdas"
       },
       "notOnVehicle": "no está en este vehículo",

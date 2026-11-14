@@ -131,5 +131,25 @@ export function initialTune(size: PropSize, cells: number | null): Suggestion[] 
   ]
 }
 
+/**
+ * The greatest value an acceleration limit may have in ArduPilot's own range (deg/s/s, `@Range` of ATC_ACC_*_MAX in the 4.7.2
+ * tree and in master). The older parameter of the same thing, in centi-degrees, is named ATC_ACCEL_*_MAX: a vehicle that has the
+ * name used here and a value above this has a value in another unit, and a suggestion in deg/s/s must not be written over it.
+ */
+const ACCEL_RANGE_MAX: Record<string, number> = { ATC_ACC_P_MAX: 1800, ATC_ACC_R_MAX: 1800, ATC_ACC_Y_MAX: 720 }
+
+/**
+ * Whether the vehicle's value of a parameter is beyond the range the page's value is in.
+ *
+ * @param id the parameter
+ * @param now the vehicle's value, or null when it has none
+ * @returns true for an acceleration limit above its range
+ */
+export function beyondRange(id: string, now: number | null): boolean {
+  const max = ACCEL_RANGE_MAX[id]
+
+  return max !== undefined && now !== null && now > max
+}
+
 /** The names of every parameter of the initial tune (the page writes no others). */
 export const INITIAL_TUNE_IDS: readonly string[] = initialTune(10, 1).map(item => item.id)

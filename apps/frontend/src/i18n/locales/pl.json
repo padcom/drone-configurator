@@ -1099,7 +1099,8 @@
       "now": "Teraz",
       "suggested": "Proponowane",
       "why": {
-        "notGiven": "strona nie podaje dla tej wielkości",
+        "notGiven": "strona ArduPilota nie podaje dla tej wielkości",
+        "aboveRange": "wartość pojazdu jest powyżej zakresu tego parametru (inna jednostka?): nie jest proponowana",
         "cells": "podaj ogniwa"
       },
       "notOnVehicle": "brak w tym pojeździe",

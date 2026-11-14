@@ -83,7 +83,7 @@ it('says for 5 inch that the page gives no acceleration, and that a parameter is
   await window().click('#setup-initial-size-5')
   await window().waitFor(`document.querySelector('#setup-initial-table') !== null`, 10_000)
 
-  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('not given by the page for this size')
+  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('not given by ArduPilot\'s page for this size')
   expect(await cell('ATC_RAT_YAW_FLTE', 3)).toBe('not on this vehicle')
   expect(await cell('INS_GYRO_FILTER', 3)).toBe('80')
 })

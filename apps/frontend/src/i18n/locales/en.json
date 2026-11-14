@@ -1099,7 +1099,8 @@
       "now": "Now",
       "suggested": "Suggested",
       "why": {
-        "notGiven": "not given by the page for this size",
+        "notGiven": "not given by ArduPilot's page for this size",
+        "aboveRange": "the vehicle's value is above this parameter's range (another unit?): not offered",
         "cells": "say the cells"
       },
       "notOnVehicle": "not on this vehicle",

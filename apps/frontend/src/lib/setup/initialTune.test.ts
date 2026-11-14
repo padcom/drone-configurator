@@ -2,7 +2,7 @@
 // sizes
 // it gives and no others, with no value where it gives none and none made up.
 import { describe, expect, it } from 'vitest'
-import { INITIAL_TUNE_IDS, MAX_CELLS, PROP_SIZES, initialTune, isPropSize, parseCells } from './initialTune'
+import { INITIAL_TUNE_IDS, MAX_CELLS, PROP_SIZES, beyondRange, initialTune, isPropSize, parseCells } from './initialTune'
 
 /**
  * The values of a size as an object by name.
@@ -96,5 +96,16 @@ describe('the cells', () => {
     expect(['1', '4', ' 6 ', '12'].map(parseCells)).toEqual([1, 4, 6, 12])
     expect(['', ' ', '0', '13', '-3', '2.5', '4s', 'abc', '1e1'].map(parseCells)).toEqual(Array.from({ length: 9 }, () => null))
     expect(MAX_CELLS).toBe(12)
+  })
+})
+
+describe('a vehicle whose acceleration limit is in another unit', () => {
+  it('has a value beyond the range of ATC_ACC_*_MAX (1800, 720 for yaw), and only then', () => {
+    const pitchRoll = [110_000, 1800, 1801].map(now => beyondRange('ATC_ACC_R_MAX', now))
+    const yaw = [beyondRange('ATC_ACC_Y_MAX', 721), beyondRange('ATC_ACC_Y_MAX', 720), beyondRange('ATC_ACC_P_MAX', null)]
+
+    expect(pitchRoll).toEqual([true, false, true])
+    expect(yaw).toEqual([true, false, false])
+    expect(beyondRange('INS_GYRO_FILTER', 100_000)).toBe(false)
   })
 })
