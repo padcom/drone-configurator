@@ -508,7 +508,7 @@ it('lets the user link roll and pitch that differ, and then names both in the qu
   expect(valueOf(rig, 'ATC_RAT_PIT_P')).toBeCloseTo(0.3, 5)
 })
 
-it('puts the field back to the vehicle\'s value when the initial values are put back, and there is one button for it', async () => {
+it('puts the field back to the vehicle\'s value when the initial values are put back (the one button)', async () => {
   const rig = await screen()
   await type(rig, 'ATC_RAT_YAW_P', '0.25')
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeUndefined()

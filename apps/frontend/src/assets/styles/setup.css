@@ -569,6 +569,69 @@
   color: var(--color-error);
 }
 
+/* The motor test: the frame drawn as buttons (front is up), each where its motor is. A button is held, not clicked. */
+.motor-test {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.motor-test-pad {
+  position: relative;
+  width: 380px;
+  height: 380px;
+  max-width: 100%;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.motor-test-cell {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+}
+
+.motor-test-spin {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.motor-test-confirm {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.motor-test-motor {
+  width: 64px;
+  height: 64px;
+  border: 2px solid var(--color-warn);
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.motor-test-motor:disabled {
+  border-color: var(--color-border);
+  color: var(--color-text-dim);
+}
+
+.motor-test-motor.held {
+  background: var(--color-warn);
+  color: var(--color-on-warn);
+}
+
+.motor-test-status {
+  min-height: 1.5em;
+  font-weight: 600;
+}
+
 .setup-outputs {
   width: 100%;
   border-collapse: collapse;

@@ -16,6 +16,7 @@ import { register as registerLocalReview } from "./localreview"
 import { register as registerLocalSpectrum } from "./localspectrum"
 import { register as registerLocalSeries } from "./localseries"
 import { register as registerMessages } from "./messages"
+import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
 import { register as registerReboot } from "./reboot"
 import { register as registerSerial } from "./serial"
@@ -54,6 +55,7 @@ export function createBackend(transport: Transport): Communicator {
   registerParams(c)
   registerReboot(c)
   registerCalibration(c)
+  registerMotors(c)
   registerLogs(c)
   registerLogHousekeeping(c)
   registerLocalLogs(c)

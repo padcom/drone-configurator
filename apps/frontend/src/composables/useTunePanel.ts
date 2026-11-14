@@ -33,7 +33,9 @@ export interface TunePanel {
 export function useTunePanel(ids: readonly string[], handle: ConfiguratorHandle): TunePanel {
   const panel = useParamPanel(ids, handle, { tuning: true })
   const initialOf = (id: string) => handle.parameters.initial.value?.values.get(id)
-  const refusedIds = computed(() => panel.dirty.value.filter(id => refusalOf(id, panel.value(id) ?? 0, panel.armed.value) !== null))
+  const refusedIds = computed(() => (
+    panel.dirty.value.filter(id => refusalOf(id, panel.value(id) ?? 0, panel.armed.value) !== null)
+  ))
   const refused = computed(() => refusedIds.value.length > 0)
   const movable = computed(() => ids.some(id => {
     const was = initialOf(id)

@@ -60,7 +60,8 @@ interface Block {
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
-const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(tuneGroup('rate').map(param => param.id), handle)
+const rateIds = tuneGroup('rate').map(param => param.id)
+const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(rateIds, handle)
 /** What the user chose for the link, or null while they have not: then they are linked if they are the same on the vehicle. */
 const choice = ref<boolean | null>(null)
 /** Whether roll and pitch differ on the vehicle in a term both have: linked, one would overwrite the other with its value. */

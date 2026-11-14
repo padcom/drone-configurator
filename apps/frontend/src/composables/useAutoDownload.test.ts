@@ -77,15 +77,17 @@ function fakeLogs(sizes: number[], behaviour: Behaviour = {}) {
  * @param sizes the sizes of the newest log at each look
  * @param logsOptions what the fake logs do
  * @param enabled whether the user chose it
+ * @param quiet whether a motor test is under way (the armed state is then no flight's)
  * @returns what a test needs
  */
-function setup(sizes: number[], logsOptions: Behaviour = {}, enabled = true) {
+function setup(sizes: number[], logsOptions: Behaviour = {}, enabled = true, quiet = false) {
   const { model, calls } = fakeLogs(sizes, logsOptions)
   const telemetry = shallowRef<Telemetry | null>(ARMED)
   const connection = shallowRef<Connection>({ state: 'connected' })
   const told: ToastInput[] = []
   const auto = useAutoDownload({
-    logs: model, connection, telemetry, enabled: () => enabled, tell: input => told.push(input), pollMs: 10, maxWaitMs: 400,
+    logs: model, connection, telemetry, enabled: () => enabled, quiet: shallowRef(quiet), tell: input => told.push(input),
+    pollMs: 10, maxWaitMs: 400,
   })
 
   return { auto, calls, telemetry, connection, told }
@@ -114,6 +116,15 @@ it('downloads the newest log after landing, once it has stopped growing, and say
   expect(t.told).toHaveLength(1)
   expect(t.told[0]).toMatchObject({ severity: 'success' })
   expect(t.told[0]?.text).toContain('7')
+})
+
+it('does not take the armed state of a motor test for a flight: the vehicle disarming after it is no landing', async () => {
+  const t = setup([100, 100], {}, true, true)
+  await land(t)
+
+  expect(t.calls.refresh).toBe(0)
+  expect(t.calls.download).toBe(0)
+  expect(t.told).toHaveLength(0)
 })
 
 it('does nothing when it is off, the default', async () => {

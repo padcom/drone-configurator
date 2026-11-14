@@ -900,6 +900,24 @@ function validateCalibrationResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a calibration-result, or null. */
 export const validateCalibrationResult = (value: unknown) => run(validateCalibrationResultInto, value)
 
+export type MotorTestParams = { "motor": number, "throttle": number }
+
+function validateMotorTestParamsInto(value: any, path: string): boolean {
+  return map(value, path, ["motor","throttle"]) && (value["motor"] === undefined ? fail(`${path}.motor`, 'present') : nested(value["motor"], `${path}.motor`, (value, path) => uint(value, path, 0xff))) && (value["throttle"] === undefined ? fail(`${path}.throttle`, 'present') : nested(value["throttle"], `${path}.throttle`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a motor-test-params, or null. */
+export const validateMotorTestParams = (value: unknown) => run(validateMotorTestParamsInto, value)
+
+export type MotorTestState = { "state": "running" | "stopped", "motor": number, "why"?: string, "starts"?: number, "confirmed"?: boolean }
+
+function validateMotorTestStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","motor","why","starts","confirmed"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["running","stopped"]))) && (value["motor"] === undefined ? fail(`${path}.motor`, 'present') : nested(value["motor"], `${path}.motor`, (value, path) => uint(value, path, 0xff))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["starts"] === undefined || nested(value["starts"], `${path}.starts`, (value, path) => uint(value, path, 0xffffffff))) && (value["confirmed"] === undefined || nested(value["confirmed"], `${path}.confirmed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a motor-test-state, or null. */
+export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -939,6 +957,8 @@ export interface Services {
   "calibration.status": { kind: 'method', request: null, response: CalibrationState }
   "calibration.progress": { kind: 'event', payload: CalibrationState }
   "calibration.result": { kind: 'event', payload: CalibrationResult }
+  "motors.test": { kind: 'subscription', params: MotorTestParams, value: MotorTestState }
+  "motors.hold": { kind: 'method', request: null, response: null }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
@@ -1093,6 +1113,14 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "calibration.result": {
     payload: (value: any, path: string) => validateCalibrationResultInto(value, path),
+  },
+  "motors.test": {
+    params: (value: any, path: string) => validateMotorTestParamsInto(value, path),
+    value: (value: any, path: string) => validateMotorTestStateInto(value, path),
+  },
+  "motors.hold": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
   },
   "telemetry.stream": {
     params: (value: any, path: string) => validateTelemetryParamsInto(value, path),

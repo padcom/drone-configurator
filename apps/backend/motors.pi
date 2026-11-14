@@ -1,0 +1,262 @@
+// The motor test service (`motors.test`, `motors.hold`): spins ONE motor of a vehicle that stands on the ground, for as long as the page says
+// a button is held. READ pico-mavlink's motortest.pi for the danger before changing anything here: the vehicle arms its motors, turns its
+// throttle, GCS and EKF failsafes OFF, and takes a test of up to 600 s; nothing but the timeout (or a stop) ends it.
+//
+// What stops the motor, by every way a test can end (a test of its own for each, in motors.test.pi):
+//  - the page lets go, or unsubscribes (the page leaving, a key up, the pointer leaving, a window closing: the subscription ends): `RELEASED`;
+//  - the page goes silent (`motors.hold` is its "still held", every 250 ms; none for `waits.silenceMs`, 1 s, is a page that froze): `SILENT`;
+//  - the link or the session ends (`link.session` is aborted, or the session's parts are detached before the connection is closed):
+//    `LINK_LOST`. The stop is sent as the session ends, and the connection is kept open for `closeGraceMs` (session.pi) so that it can go out:
+//    the router drops a frame that has not got onto a link when it is closed (it takes the link's turn a tick later), so a stop sent in
+//    the same tick as the close would never leave. That it goes out is tested against the simulator; on a real link it is up to
+//    the link;
+//  - the vehicle refuses a start, or does not answer one: `REFUSED`, `UNACKNOWLEDGED` (a stop is sent anyway);
+//  - and when none of that can reach the vehicle (the backend killed, the cable pulled): the test the vehicle holds is never longer
+//    than 1.5 s (pico-mavlink's `MotorTest.hold`: every test is the same short one sent again every 800 ms), so the motor stops by itself.
+// One motor at a time (`BUSY`), never above 20 % (`INVALID_VALUE`), and never for a vehicle that is armed or whose state is not known: ArduPilot
+// itself takes a motor test while armed and landed, so the refusal is made here (and by the page).
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
+import {
+  HOLD_REPEAT_MS,
+  HoldResult,
+  MAX_TEST_MOTORS,
+  MAX_TEST_THROTTLE,
+  MavAutopilot,
+  MavLinkConnection,
+  MotorTest,
+  Target,
+} from "padcom/pico-mavlink"
+import { MotorTestState, MotorTestStateState, decodeMotorTestParams, encodeMotorTestState } from "./generated/app"
+import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// The times of the test (ms). A test may shorten them.
+class Waits {
+  /// How long the page may be silent (no `motors.hold`) before the motor is stopped.
+  public silenceMs: int = 1000
+  /// How long the vehicle is given to acknowledge a start or the stop.
+  public ackMs: int = 1000
+  /// How often the silence is looked for.
+  public watchMs: int = 100
+}
+
+export const waits = new Waits()
+
+/// Registers the service's methods and subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("motors", current)
+  c.handle("motors.hold", stillHeld)
+  c.publish("motors.test", startTest)
+}
+
+/// The motor test that runs, or the one that ended last.
+class Test implements SessionPart {
+  public conn: MavLinkConnection? = null
+  /// Whether a test is under way (from its start until the motor is stopped and the stop answered or given up).
+  public active: bool = false
+  /// Counts the tests: what a test's late news (its timer, its sink closing) says of an older test is ignored.
+  public serial: int = 0
+  public motor: int = 0
+  public sink: Sink? = null
+  public test: MotorTest? = null
+  /// Aborted when the test is to end: the helper then stops the motor.
+  public own: AbortController = new AbortController()
+  /// Why it ends (the first reason stays): `RELEASED`, `SILENT` or `LINK_LOST`.
+  public why: string = ""
+  /// When the page last said it holds (ms since 1970).
+  public pingAt: int = 0
+  public watchdog: int = 0
+  /// The session signal that is followed (once for each session, not once for each test).
+  public followed: AbortSignal? = null
+
+  public attach(c: MavLinkConnection): void {
+    conn = c
+  }
+
+  /// The session ends (or another vehicle is there): the stop is sent first, and the session keeps the connection open a moment for it.
+  public detach(): void {
+    stopAtOnce()
+    release(serial, "LINK_LOST")
+    conn = null
+  }
+
+  /// Sends the stop now, without waiting for the helper to see the release: what is asked of the link is done before this returns.
+  public stopAtOnce(): void {
+    const t = test
+    if (active && t != null) {
+      sendStop(t!)
+    }
+  }
+
+  /// Ends test number `of` (a late call about an older test does nothing), and notes why.
+  public release(of: int, code: string): void {
+    if (!active || of != serial) {
+      return
+    }
+    if (why == "") {
+      why = code
+    }
+    own.abort()
+  }
+
+  /// Makes the session ending end the test. One listener on a session's signal, however many tests it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => {
+      current.stopAtOnce()
+      current.release(current.serial, "LINK_LOST")
+    })
+  }
+
+  /// A test begins. The test is claimed at once, before anything is awaited: a second subscription that comes now finds it busy.
+  public begin(c: MavLinkConnection, motorNumber: int, s: Sink): int {
+    serial += 1
+    active = true
+    link.motorTest = true
+    motor = motorNumber
+    sink = s
+    why = ""
+    own = new AbortController()
+    pingAt = Date.now() as int
+    test = new MotorTest(c, target(), { timeoutMs: waits.ackMs })
+    follow(link.session.signal)
+    const mine = serial
+    watchdog = setInterval(() => this.watch(mine), waits.watchMs)
+    mine
+  }
+
+  /// The page has been silent for too long: the motor is stopped.
+  public watch(mine: int): void {
+    if (active && mine == serial && (Date.now() as int) - pingAt > waits.silenceMs) {
+      release(mine, "SILENT")
+    }
+  }
+
+  /// The test is over (the helper stopped the motor): it is told, once.
+  public finish(mine: int, result: HoldResult): void {
+    if (!active || mine != serial) {
+      return
+    }
+    clearInterval(watchdog)
+    active = false
+    link.motorTest = false
+    const code = reasonOf(result.why, why)
+    const s = sink
+    sink = null
+    tell(s, MotorTestState {
+      state: MotorTestStateState.Stopped,
+      motor: motor as u8,
+      why: code,
+      starts: result.starts as u32,
+      confirmed: result.stopped,
+    })
+    // The subscription is over with the test (a new test is a new subscription).
+    if (s != null) {
+      s!.end()
+    }
+  }
+}
+
+const current = new Test()
+
+/// The reason a test ended, as the contract says it: the helper's own (a start refused, not answered, an error) or else why it was released.
+function reasonOf(helper: string, released: string): string {
+  if (helper == "refused") {
+    return "REFUSED"
+  }
+  if (helper == "unacknowledged") {
+    return "UNACKNOWLEDGED"
+  }
+  if (helper != "") helper else if (released == "") "RELEASED" else released
+}
+
+/// Tells the subscriber how the test is, if it still listens.
+function tell(s: Sink?, state: MotorTestState): void {
+  if (s != null && s!.active) {
+    s!.next(encodeMotorTestState(state))
+  }
+}
+
+/// The vehicle that is tested: the autopilot the session has.
+function target(): Target {
+  const t: Target = { system: link.sysid, component: link.compid }
+  t
+}
+
+/// Sends a stop and does not wait for the answer (what comes of it does not matter here: the helper's own stop follows, and the vehicle's
+/// own timeout is the last of them).
+async function sendStop(t: MotorTest): Promise<void> {
+  try {
+    const _result = await t.stop()
+  } catch (e: Error) {
+    // (the link may be gone)
+  }
+}
+
+/// Why a test may not begin now, as an error, or nothing.
+function refuse(motor: int, throttle: int): void throws CommunicatorError {
+  if (motor < 1 || motor > MAX_TEST_MOTORS) {
+    throw new CommunicatorError("INVALID_VALUE", `motor ${motor} is not 1 to ${MAX_TEST_MOTORS}`)
+  }
+  if (throttle < 1 || throttle > MAX_TEST_THROTTLE) {
+    throw new CommunicatorError("INVALID_VALUE", `a throttle of ${throttle} % is not 1 to ${MAX_TEST_THROTTLE} %`)
+  }
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED", "the motor test is made for an ArduPilot vehicle")
+  }
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed: disarm it to test a motor")
+  }
+  if (current.active) {
+    throw new CommunicatorError("BUSY", "a motor test is already running")
+  }
+  if (link.calibrating || link.listing || link.writes > 0 || link.logging || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a calibration, a parameter or log operation or a reboot is under way")
+  }
+}
+
+/// The subscription: the test begins with it and ends with it. A test that may not begin ends the subscription at once, with the code of
+/// why (the page reads it as the subscription's error).
+function startTest(params: Cbor?, sink: Sink): void throws Error {
+  if (params == null) {
+    sink.end("INVALID_VALUE", "a motor and a throttle are needed")
+    return
+  }
+  const ask = decodeMotorTestParams(params!, "$")
+  const motor = ask.motor as int
+  const throttle = ask.throttle as int
+  let conn: MavLinkConnection? = null
+  try {
+    conn = connectedLink()
+    refuse(motor, throttle)
+  } catch (e: CommunicatorError) {
+    sink.end(e.code, e.message)
+    return
+  }
+  const mine = current.begin(conn!, motor, sink)
+  // The page letting go (or going away) ends the test.
+  sink.onClose = () => current.release(mine, "RELEASED")
+  tell(sink, MotorTestState { state: MotorTestStateState.Running, motor: motor as u8 })
+  hold(mine, current.test!, motor, throttle, current.own.signal)
+}
+
+/// Holds the motor until the test is released, then stops it (the helper sends the stop however the hold ends) and tells how it went.
+async function hold(mine: int, test: MotorTest, motor: int, throttle: int, released: AbortSignal): Promise<void> {
+  const result = await test.hold(motor, throttle, released, HOLD_REPEAT_MS)
+  current.finish(mine, result)
+}
+
+/// The page says it still holds the button.
+async function stillHeld(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (!current.active) {
+    throw new CommunicatorError("NOT_RUNNING", "no motor test is running")
+  }
+  current.pingAt = Date.now() as int
+  null
+}

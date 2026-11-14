@@ -243,6 +243,16 @@ async function refusesWhileACalibrationRuns(): Promise<void> throws Error {
   await r.close()
 }
 
+async function refusesWhileAMotorTestRuns(): Promise<void> throws Error {
+  const r = await connected()
+  // the motor test holds the vehicle's link: a write now would wait behind it, or meet a vehicle that spins a motor
+  link.motorTest = true
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("BUSY")
+  link.motorTest = false
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
 async function refusesWhileARebootIsUnderWay(): Promise<void> throws Error {
   const r = await connected()
   link.rebootAt = Date.now() as int
@@ -320,6 +330,7 @@ describe("what the tuning writes refuse, and send nothing", () => {
   it("refuses when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
   it("looks at the armed state again at the moment of the write", looksAtTheArmedStateAgainAtTheMomentOfTheWrite)
   it("refuses while a calibration runs", refusesWhileACalibrationRuns)
+  it("refuses while a motor test runs", refusesWhileAMotorTestRuns)
   it("refuses while a reboot is under way", refusesWhileARebootIsUnderWay)
   it("refuses when the link is lost", refusesWhenTheLinkIsLost)
 })

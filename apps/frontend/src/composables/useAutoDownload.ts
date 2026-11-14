@@ -25,6 +25,12 @@ export interface AutoDownloadDeps {
   enabled: () => boolean
   /** Tells the user something (a toast). */
   tell: (input: ToastInput) => void
+  /**
+   * Whether the vehicle's armed state is not a flight's: a motor test makes the vehicle report itself armed, and disarmed again
+   * when it
+   * stops, and that is not a landing. While it says so, an armed state is not taken for the start of a flight.
+   */
+  quiet?: Readonly<Ref<boolean>>
   /** How often the size of the newest log is looked at (ms). */
   pollMs?: number
   /** How long the newest log is waited for to stop growing (ms). */
@@ -222,11 +228,18 @@ class Watcher {
    */
   changed(armed: boolean | undefined): void {
     if (armed === true) {
-      this.wasArmed = true
-      this.stop()
+      this.armed()
     } else if (armed === false && this.wasArmed) {
       this.wasArmed = false
       this.land()
+    }
+  }
+
+  /** The vehicle says it is armed: that is a flight, unless a motor test is under way (the vehicle arms its motors for it). */
+  private armed(): void {
+    if (this.deps.quiet?.value !== true) {
+      this.wasArmed = true
+      this.stop()
     }
   }
 

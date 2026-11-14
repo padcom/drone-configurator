@@ -126,6 +126,20 @@ services = {
   "calibration.status": ["method", null, calibration-state],
   "calibration.progress": ["event", calibration-state],
   "calibration.result": ["event", calibration-result],
+  ; THE MOTOR TEST: spins ONE motor of a vehicle that stands on the ground, for as long as a button is held, with the propellers OFF. A
+  ; subscription IS the test: it starts when the subscription does and ends when it ends, by whichever way (the page's unsubscribe, the
+  ; page being closed or going away, the link lost, the session ended, the page falling silent): the backend then stops the motor.
+  ; The vehicle is told, over and over, to spin for 1.5 s (never longer: a vehicle that stops hearing from the backend stops the motor by
+  ; itself within 1.5 s, whatever else breaks), and `motors.hold` is the page's "still held": the backend stops the motor when
+  ; none has come for 1 s (a page that froze with the button down). `motor` is the number in the TEST ORDER (1 is A, 2 is B ...), not
+  ; an output (the page draws the frame and says which is which); `throttle` is a percent, 1 to 20 (more is refused with
+  ; `INVALID_VALUE`, here and in the pico-mavlink helper). A test that may not begin ENDS the subscription at once, with the reason
+  ; as the end's error code (nothing is sent to the vehicle): `NOT_CONNECTED`, `UNSUPPORTED` (not an ArduPilot), `STATE_UNKNOWN` (no
+  ; heartbeat for 3 s: counts as armed), `ARMED` (the vehicle is armed: ArduPilot would take the test all the same), `BUSY` (a test, a
+  ; calibration, a reboot, a parameter or log operation runs) and `INVALID_VALUE`. Events: `running` when it begins (the vehicle may not
+  ; have taken it: see the outputs, and `stopped`), `stopped` when it ends, once, with why; the subscription ends after it.
+  "motors.test": ["subscription", motor-test-params, motor-test-state],
+  "motors.hold": ["method", null, null],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
@@ -947,4 +961,23 @@ calibration-result = {
   ? code: tstr,
   ? detail: tstr,
   ? unsure: bool,
+}
+
+; The motor test (`motors.test`): the motor in the test order (1 to 12) and the throttle in percent (1 to 20).
+motor-test-params = {
+  motor: uint .size 1,
+  throttle: uint .size 1,
+}
+
+; Where the test is. `state`: `running` (sent when it begins) or `stopped` (once, when it is over). When `stopped`: `why` is `RELEASED` (the
+; page let go or unsubscribed), `SILENT` (the page stopped saying it holds), `LINK_LOST` (the link or the session ended), `REFUSED` (the
+; vehicle did not accept the test: its own words are in `vehicle.messages`), `UNACKNOWLEDGED` (the vehicle did not answer a start: it may
+; have spun the motor all the same) or another error's code; `starts` is how many tests the vehicle accepted; `confirmed` is true when the
+; vehicle acknowledged the stop (when it did not, the last test it took ends by itself within 1.5 s).
+motor-test-state = {
+  state: "running" / "stopped",
+  motor: uint .size 1,
+  ? why: tstr,
+  ? starts: uint .size 4,
+  ? confirmed: bool,
 }
