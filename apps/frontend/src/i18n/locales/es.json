@@ -1027,6 +1027,7 @@
       },
       "tune": {
         "rate": "Ir a Ajuste: Velocidad",
+        "analyse": "Ir a Ajuste: Analizar",
         "more": "Ir a Ajuste: Más grupos",
         "filters": "Ir a Ajuste: Filtros"
       }
@@ -1694,6 +1695,7 @@
     "section": {
       "rate": "Velocidad",
       "more": "Más grupos",
+      "analyse": "Analizar",
       "filters": "Filtros"
     },
     "armed": "Armado: los cambios se aplican en vuelo",
@@ -1717,6 +1719,47 @@
       "dropped": "Puntos descartados por el backend: {count}",
       "noActual": "El vehículo no aceptó la petición de la velocidad real (ATTITUDE): no se muestra.",
       "noDesired": "El vehículo no aceptó la petición de la velocidad deseada (ATTITUDE_TARGET): no se muestra y no se mide nada."
+    },
+    "analyse": {
+      "summary": "Mide cómo siguió el vehículo la velocidad de giro pedida en un registro de vuelo de este ordenador: los mayores escalones de la velocidad deseada, con sobreimpulso, subida y estabilización, como la respuesta en vivo. No se escribe nada en el vehículo.",
+      "tlog": "No disponible para una grabación (.tlog): solo un registro de vuelo del vehículo contiene los mensajes de velocidad.",
+      "noLogs": "No hay registros de vuelo en este ordenador. Descargue uno del vehículo (Registros: En el vehículo) o importe uno (Registros: Vuelos).",
+      "log": "Registro de vuelo",
+      "run": "Analizar",
+      "axis": "Eje",
+      "stopped": "Detenido: no se midió nada.",
+      "steps": "Escalones encontrados en el registro, el mayor primero",
+      "at": "En",
+      "size": "Escalón",
+      "slow": "RATE se registró unas {rate} veces por segundo aquí (menos de {minimum}): un escalón rápido tiene pocos puntos y su subida y estabilización son aproximadas.",
+      "chartTitle": "Velocidad de {axis} en el registro, grados por segundo",
+      "gap": "El registro tiene un hueco de {ms} ms en la velocidad real dentro de este escalón (un bloque perdido o una tarjeta bloqueada): no se miden el sobreimpulso, la subida ni la estabilización, porque una línea sobre el hueco sería un número que nadie midió.",
+      "noStep": "No se muestra ningún escalón.",
+      "second": "{seconds} s",
+      "rate": "{value} °/s",
+      "idle": {
+        "title": "Nada analizado todavía",
+        "help": "Está elegido el registro más reciente: pulse Analizar para leerlo, o elija otro."
+      },
+      "none": {
+        "noRate": {
+          "title": "Este registro no tiene mensajes RATE",
+          "help": "El vehículo los registra solo si LOG_BITMASK tiene activado «Fast Attitude» (ATTITUDE_FAST, bit 0) o «Medium Attitude» (ATTITUDE_MED, bit 1). Active uno, vuele y descargue ese registro."
+        },
+        "noStep": {
+          "title": "No hay un escalón adecuado en este registro",
+          "help": "La velocidad deseada nunca saltó con un escalón que luego se mantuviera (al menos 20 grados por segundo). Haga un alabeo, cabeceo o guiñada rápidos y analice ese registro."
+        }
+      },
+      "phase": {
+        "idle": "Nada abierto",
+        "reading": "Leyendo el registro…",
+        "finding": "Buscando escalones…",
+        "measuring": "Midiendo el escalón {done} de {of}…",
+        "ready": "Hecho",
+        "none": "Nada que mostrar",
+        "failed": "Falló"
+      }
     },
     "axis": {
       "rollPitch": "Alabeo y cabeceo",

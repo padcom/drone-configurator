@@ -55,6 +55,7 @@ const TUNE = () => import('./Tune.vue')
 /** The parts of the Tune screen, in the order of their tabs. */
 const TUNE_SECTIONS: readonly Section[] = [
   { id: 'rate', path: 'rate', titleKey: 'tune.section.rate', load: () => import('./tune/TuneRate.vue') },
+  { id: 'analyse', path: 'analyse', titleKey: 'tune.section.analyse', load: () => import('./tune/TuneAnalyse.vue') },
   { id: 'more', path: 'more', titleKey: 'tune.section.more', load: () => import('./tune/TuneMore.vue') },
   { id: 'filters', path: 'filters', titleKey: 'tune.section.filters', load: () => import('./tune/TuneFilters.vue') },
 ]

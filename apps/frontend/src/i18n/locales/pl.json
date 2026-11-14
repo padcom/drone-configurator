@@ -1027,6 +1027,7 @@
       },
       "tune": {
         "rate": "Przejdź do ekranu Strojenie: Prędkość",
+        "analyse": "Przejdź do ekranu Strojenie: Analiza",
         "more": "Przejdź do ekranu Strojenie: Więcej grup",
         "filters": "Przejdź do ekranu Strojenie: Filtry"
       }
@@ -1694,6 +1695,7 @@
     "section": {
       "rate": "Prędkość",
       "more": "Więcej grup",
+      "analyse": "Analiza",
       "filters": "Filtry"
     },
     "armed": "Uzbrojony: zmiany działają w locie",
@@ -1717,6 +1719,47 @@
       "dropped": "Punkty odrzucone przez backend: {count}",
       "noActual": "Pojazd nie przyjął prośby o prędkość rzeczywistą (ATTITUDE): nie jest pokazywana.",
       "noDesired": "Pojazd nie przyjął prośby o prędkość zadaną (ATTITUDE_TARGET): nie jest pokazywana i nic nie jest mierzone."
+    },
+    "analyse": {
+      "summary": "Mierzy, jak pojazd podążał za zadaną prędkością obrotu w dzienniku lotu na tym komputerze: największe skoki prędkości zadanej, z przeregulowaniem, narastaniem i ustalaniem, jak odpowiedź na żywo. Nic nie jest zapisywane w pojeździe.",
+      "tlog": "Niedostępne dla nagrania (.tlog): komunikaty prędkości zawiera tylko dziennik lotu z pojazdu.",
+      "noLogs": "Brak dzienników lotu na tym komputerze. Pobierz jeden z pojazdu (Dzienniki: W pojeździe) lub zaimportuj (Dzienniki: Loty).",
+      "log": "Dziennik lotu",
+      "run": "Analizuj",
+      "axis": "Oś",
+      "stopped": "Zatrzymano: nic nie zmierzono.",
+      "steps": "Skoki znalezione w dzienniku, największy pierwszy",
+      "at": "W",
+      "size": "Skok",
+      "slow": "RATE zapisywano tu około {rate} razy na sekundę (poniżej {minimum}): szybki skok ma mało punktów, a jego narastanie i ustalanie są przybliżone.",
+      "chartTitle": "Prędkość {axis} w dzienniku, stopnie na sekundę",
+      "gap": "Dziennik ma dziurę {ms} ms w prędkości rzeczywistej wewnątrz tego skoku (utracony blok lub zawieszona karta): przeregulowanie, narastanie i ustalanie nie są mierzone, bo linia przez dziurę byłaby liczbą, której nikt nie zmierzył.",
+      "noStep": "Nie pokazano żadnego skoku.",
+      "second": "{seconds} s",
+      "rate": "{value} °/s",
+      "idle": {
+        "title": "Jeszcze nic nie przeanalizowano",
+        "help": "Wybrano najnowszy dziennik: naciśnij Analizuj, aby go odczytać, lub wybierz inny."
+      },
+      "none": {
+        "noRate": {
+          "title": "Ten dziennik nie ma komunikatów RATE",
+          "help": "Pojazd zapisuje je tylko, gdy w LOG_BITMASK ustawiono „Fast Attitude” (ATTITUDE_FAST, bit 0) lub „Medium Attitude” (ATTITUDE_MED, bit 1). Ustaw jeden, polataj i pobierz ten dziennik."
+        },
+        "noStep": {
+          "title": "Brak odpowiedniego skoku w tym dzienniku",
+          "help": "Prędkość zadana nigdy nie skoczyła o skok, który potem się utrzymał (co najmniej 20 stopni na sekundę). Wykonaj szybki przechył, pochylenie lub odchylenie i przeanalizuj ten dziennik."
+        }
+      },
+      "phase": {
+        "idle": "Nic nie otwarto",
+        "reading": "Odczyt dziennika…",
+        "finding": "Szukanie skoków…",
+        "measuring": "Pomiar skoku {done} z {of}…",
+        "ready": "Gotowe",
+        "none": "Nie ma czego pokazać",
+        "failed": "Nie udało się"
+      }
     },
     "axis": {
       "rollPitch": "Przechylenie i pochylenie",

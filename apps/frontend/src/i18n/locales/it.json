@@ -1027,6 +1027,7 @@
       },
       "tune": {
         "rate": "Vai a Taratura: Velocità",
+        "analyse": "Vai a Taratura: Analisi",
         "more": "Vai a Taratura: Altri gruppi",
         "filters": "Vai a Taratura: Filtri"
       }
@@ -1694,6 +1695,7 @@
     "section": {
       "rate": "Velocità",
       "more": "Altri gruppi",
+      "analyse": "Analisi",
       "filters": "Filtri"
     },
     "armed": "Armato: le modifiche si applicano in volo",
@@ -1717,6 +1719,47 @@
       "dropped": "Punti scartati dal backend: {count}",
       "noActual": "Il veicolo non ha accettato la richiesta della velocità reale (ATTITUDE): non viene mostrata.",
       "noDesired": "Il veicolo non ha accettato la richiesta della velocità desiderata (ATTITUDE_TARGET): non viene mostrata e non si misura nulla."
+    },
+    "analyse": {
+      "summary": "Misura come il veicolo ha seguito la velocità di rotazione richiesta in un registro di volo su questo computer: i gradini maggiori della velocità desiderata, con sovraelongazione, salita e assestamento, come la risposta dal vivo. Nulla viene scritto sul veicolo.",
+      "tlog": "Non disponibile per una registrazione (.tlog): solo un registro di volo del veicolo contiene i messaggi di velocità.",
+      "noLogs": "Nessun registro di volo su questo computer. Scaricane uno dal veicolo (Registri: Sul veicolo) o importane uno (Registri: Voli).",
+      "log": "Registro di volo",
+      "run": "Analizza",
+      "axis": "Asse",
+      "stopped": "Interrotto: nulla è stato misurato.",
+      "steps": "Gradini trovati nel registro, il maggiore per primo",
+      "at": "A",
+      "size": "Gradino",
+      "slow": "RATE è stato registrato circa {rate} volte al secondo qui (meno di {minimum}): un gradino rapido ha pochi punti e salita e assestamento sono approssimativi.",
+      "chartTitle": "Velocità di {axis} nel registro, gradi al secondo",
+      "gap": "Il registro ha un buco di {ms} ms nella velocità reale dentro questo gradino (un blocco perso o una scheda bloccata): sovraelongazione, salita e assestamento non sono misurati, perché una linea sul buco sarebbe un numero che nessuno ha misurato.",
+      "noStep": "Nessun gradino mostrato.",
+      "second": "{seconds} s",
+      "rate": "{value} °/s",
+      "idle": {
+        "title": "Ancora nulla analizzato",
+        "help": "È scelto il registro più recente: premi Analizza per leggerlo, o scegline un altro."
+      },
+      "none": {
+        "noRate": {
+          "title": "Questo registro non ha messaggi RATE",
+          "help": "Il veicolo li registra solo se LOG_BITMASK ha «Fast Attitude» (ATTITUDE_FAST, bit 0) o «Medium Attitude» (ATTITUDE_MED, bit 1) attivo. Attivane uno, vola e scarica quel registro."
+        },
+        "noStep": {
+          "title": "Nessun gradino adatto in questo registro",
+          "help": "La velocità desiderata non ha mai fatto un gradino che poi si mantenesse (almeno 20 gradi al secondo). Fai un rollio, beccheggio o imbardata rapidi e analizza quel registro."
+        }
+      },
+      "phase": {
+        "idle": "Niente aperto",
+        "reading": "Lettura del registro…",
+        "finding": "Ricerca dei gradini…",
+        "measuring": "Misura del gradino {done} di {of}…",
+        "ready": "Fatto",
+        "none": "Niente da mostrare",
+        "failed": "Fallito"
+      }
     },
     "axis": {
       "rollPitch": "Rollio e beccheggio",

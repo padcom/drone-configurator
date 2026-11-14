@@ -18,9 +18,9 @@
     {
       "when": [
         "apps/frontend/src/components/tune/**", "apps/frontend/src/lib/tune/**", "apps/frontend/src/screens/{Tune.vue,tune/**}",
-        "apps/frontend/src/composables/{useTunePanel,useTuningStream}.ts", "apps/backend/{tuning,tuningstream}.pi"
+        "apps/frontend/src/composables/{useAnalysis,useTunePanel,useTuningStream}.ts", "apps/backend/{tuning,tuningstream}.pi"
       ],
-      "specs": ["tune.e2e.ts", "tune-response.e2e.ts", "shell.e2e.ts"]
+      "specs": ["tune.e2e.ts", "tune-response.e2e.ts", "analyse.e2e.ts", "shell.e2e.ts"]
     },
     {
       "when": [

@@ -131,12 +131,12 @@ function noteOf(rig: Rig, id: string): string {
   return rig.wrapper.get(`[data-tune="${id}"] .tune-note`).text()
 }
 
-it('has the tabs Rate, More groups and Filters (after the logs), opens at Rate, and says which is shown', async () => {
+it('has the tabs Rate, Analyse, More groups and Filters (after the logs), opens at Rate, and says which is shown', async () => {
   const { wrapper } = await screen('/tune')
 
   // (the nav lists them twice: the tabs, and the menu of a narrow window)
   const tabs = new Set(wrapper.findAll('nav[aria-label="Tune sections"] a').map(link => link.text()))
-  expect([...tabs]).toEqual(['Rate', 'More groups', 'Filters'])
+  expect([...tabs]).toEqual(['Rate', 'Analyse', 'More groups', 'Filters'])
   expect(wrapper.text()).toContain('Tune: Rate')
   const filters = await screen('/tune/filters')
   expect(filters.wrapper.find('#tune-filters-write').exists()).toBe(true)
