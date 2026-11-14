@@ -94,6 +94,7 @@ const SETUP_LABELS = [
   'Switch to Setup: Failsafes',
   'Switch to Setup: Flight modes',
   'Switch to Setup: Frame and orientation',
+  'Switch to Setup: Initial tune',
   'Switch to Setup: Motors and ESCs',
   'Switch to Setup: Overview',
   'Switch to Setup: Radio',

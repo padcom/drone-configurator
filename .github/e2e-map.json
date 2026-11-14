@@ -35,7 +35,7 @@
         "apps/frontend/src/composables/{useSetup,useSetupStatus,useCalibration}.ts", "apps/frontend/src/state/frame.ts",
         "apps/backend/{vehicleinfo,calibration}.pi"
       ],
-      "specs": ["setup.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"]
+      "specs": ["setup.e2e.ts", "setup-initial.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"]
     },
     {
       "when": [

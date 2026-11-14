@@ -1019,6 +1019,7 @@
         "modes": "Switch to Setup: Flight modes",
         "failsafes": "Switch to Setup: Failsafes",
         "battery": "Switch to Setup: Battery",
+        "initial": "Switch to Setup: Initial tune",
         "serial": "Switch to Setup: Serial ports",
         "devices": "Switch to Setup: Devices",
         "info": "Switch to Setup: Vehicle information"
@@ -1088,6 +1089,25 @@
     }
   },
   "setup": {
+    "initial": {
+      "summary": "Starting values ArduPilot publishes for a multicopter, from the size of its propellers and the cells of its battery. They are suggestions: choose them, look at the list on the side, and write them.",
+      "size": "Propeller size",
+      "inches": "{n} inch",
+      "cells": "Cells of the battery",
+      "cellsHelp": "A whole number from 1 to {max}. The voltages are for standard LiPo cells (4.2 V and 3.3 V a cell): for another kind of battery set them by hand.",
+      "pick": "Choose the size of the propellers to see the values.",
+      "parameter": "Parameter",
+      "now": "Now",
+      "suggested": "Suggested",
+      "why": {
+        "notGiven": "not given by ArduPilot's page for this size",
+        "aboveRange": "the vehicle's value is above this parameter's range (another unit?): not offered",
+        "cells": "say the cells"
+      },
+      "notOnVehicle": "not on this vehicle",
+      "use": "Use these values",
+      "source": "Values published by ArduPilot as a starting point, from \"Setting the Aircraft Up for Tuning\" (ardupilot.org/copter/docs/setting-up-for-tuning.html). The page says to verify MOT_THST_EXPO on a thrust stand."
+    },
     "refusedValue": "refused: not written",
     "outcome": {
       "confirmed": "Written and read back: {names}.",
@@ -1105,6 +1125,7 @@
       "modes": "Flight modes",
       "failsafes": "Failsafes",
       "battery": "Battery",
+      "initial": "Initial tune",
       "serial": "Serial ports",
       "devices": "Devices",
       "info": "Vehicle information"

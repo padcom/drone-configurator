@@ -1019,6 +1019,7 @@
         "modes": "Zu Einrichtung wechseln: Flugmodi",
         "failsafes": "Zu Einrichtung wechseln: Failsafes",
         "battery": "Zu Einrichtung wechseln: Akku",
+        "initial": "Zu Einrichtung wechseln: Erstabstimmung",
         "serial": "Zu Einrichtung wechseln: Serielle Ports",
         "devices": "Zu Einrichtung wechseln: Geräte",
         "info": "Zu Einrichtung wechseln: Fahrzeuginformationen"
@@ -1088,6 +1089,25 @@
     }
   },
   "setup": {
+    "initial": {
+      "summary": "Startwerte, die ArduPilot für einen Multicopter veröffentlicht, nach der Größe der Propeller und den Zellen des Akkus. Sie sind Vorschläge: übernehmen, die Liste an der Seite ansehen und schreiben.",
+      "size": "Propellergröße",
+      "inches": "{n} Zoll",
+      "cells": "Zellen des Akkus",
+      "cellsHelp": "Eine ganze Zahl von 1 bis {max}. Die Spannungen gelten für übliche LiPo-Zellen (4,2 V und 3,3 V je Zelle): bei einer anderen Akkuart von Hand einstellen.",
+      "pick": "Wählen Sie die Größe der Propeller, um die Werte zu sehen.",
+      "parameter": "Parameter",
+      "now": "Jetzt",
+      "suggested": "Vorgeschlagen",
+      "why": {
+        "notGiven": "von der ArduPilot-Seite für diese Größe nicht angegeben",
+        "aboveRange": "der Wert des Fahrzeugs liegt über dem Bereich dieses Parameters (andere Einheit?): nicht angeboten",
+        "cells": "Zellen angeben"
+      },
+      "notOnVehicle": "nicht an diesem Fahrzeug",
+      "use": "Diese Werte übernehmen",
+      "source": "Von ArduPilot als Ausgangspunkt veröffentlichte Werte, aus „Setting the Aircraft Up for Tuning“ (ardupilot.org/copter/docs/setting-up-for-tuning.html). Die Seite sagt, MOT_THST_EXPO auf einem Schubprüfstand zu überprüfen."
+    },
     "refusedValue": "abgelehnt: nicht geschrieben",
     "outcome": {
       "confirmed": "Geschrieben und zurückgelesen: {names}.",
@@ -1105,6 +1125,7 @@
       "modes": "Flugmodi",
       "failsafes": "Failsafes",
       "battery": "Akku",
+      "initial": "Erstabstimmung",
       "serial": "Serielle Ports",
       "devices": "Geräte",
       "info": "Fahrzeuginformationen"

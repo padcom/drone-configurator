@@ -73,6 +73,7 @@ const SETUP_SECTIONS: readonly Section[] = [
   { id: 'modes', path: 'modes', titleKey: 'setup.section.modes', load: () => import('./setup/SetupModes.vue') },
   { id: 'failsafes', path: 'failsafes', titleKey: 'setup.section.failsafes', load: () => import('./setup/SetupFailsafes.vue') },
   { id: 'battery', path: 'battery', titleKey: 'setup.section.battery', load: () => import('./setup/SetupBattery.vue') },
+  { id: 'initial', path: 'initial', titleKey: 'setup.section.initial', load: () => import('./setup/SetupInitial.vue') },
   { id: 'serial', path: 'serial', titleKey: 'setup.section.serial', load: () => import('./setup/SetupSerial.vue') },
   { id: 'devices', path: 'devices', titleKey: 'setup.section.devices', load: () => import('./setup/SetupDevices.vue') },
   { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },

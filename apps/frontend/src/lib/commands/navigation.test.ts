@@ -68,7 +68,7 @@ describe('where the focus goes after a command that goes to a screen', () => {
 const LOGS_PARTS = ['flights', 'replay', 'spectrum', 'vehicle', 'tools']
 const TUNE_PARTS = ['rate', 'analyse', 'more', 'filters']
 const SETUP_PARTS = [
-  'home', 'frame', 'accel', 'compass', 'radio', 'motors', 'modes', 'failsafes', 'battery', 'serial', 'devices', 'info',
+  'home', 'frame', 'accel', 'compass', 'radio', 'motors', 'modes', 'failsafes', 'battery', 'initial', 'serial', 'devices', 'info',
 ]
 
 /**

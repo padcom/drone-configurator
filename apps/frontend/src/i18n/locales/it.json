@@ -1019,6 +1019,7 @@
         "modes": "Vai a Configurazione: Modalità di volo",
         "failsafes": "Vai a Configurazione: Failsafe",
         "battery": "Vai a Configurazione: Batteria",
+        "initial": "Vai a Configurazione: Taratura iniziale",
         "serial": "Vai a Configurazione: Porte seriali",
         "devices": "Vai a Configurazione: Dispositivi",
         "info": "Vai a Configurazione: Informazioni sul veicolo"
@@ -1088,6 +1089,25 @@
     }
   },
   "setup": {
+    "initial": {
+      "summary": "Valori di partenza che ArduPilot pubblica per un multirotore, dalla dimensione delle eliche e dalle celle della batteria. Sono suggerimenti: sceglili, guarda l'elenco a lato e scrivili.",
+      "size": "Dimensione delle eliche",
+      "inches": "{n} pollici",
+      "cells": "Celle della batteria",
+      "cellsHelp": "Un numero intero da 1 a {max}. Le tensioni sono per celle LiPo normali (4,2 V e 3,3 V a cella): per un altro tipo di batteria impostale a mano.",
+      "pick": "Scegli la dimensione delle eliche per vedere i valori.",
+      "parameter": "Parametro",
+      "now": "Ora",
+      "suggested": "Suggerito",
+      "why": {
+        "notGiven": "la pagina di ArduPilot non lo dà per questa dimensione",
+        "aboveRange": "il valore del veicolo è sopra l'intervallo di questo parametro (altra unità?): non offerto",
+        "cells": "indica le celle"
+      },
+      "notOnVehicle": "non presente su questo veicolo",
+      "use": "Usa questi valori",
+      "source": "Valori pubblicati da ArduPilot come punto di partenza, da \"Setting the Aircraft Up for Tuning\" (ardupilot.org/copter/docs/setting-up-for-tuning.html). La pagina dice di verificare MOT_THST_EXPO su un banco di spinta."
+    },
     "refusedValue": "rifiutato: non viene scritto",
     "outcome": {
       "confirmed": "Scritti e riletti: {names}.",
@@ -1105,6 +1125,7 @@
       "modes": "Modalità di volo",
       "failsafes": "Failsafe",
       "battery": "Batteria",
+      "initial": "Taratura iniziale",
       "serial": "Porte seriali",
       "devices": "Dispositivi",
       "info": "Informazioni sul veicolo"

@@ -1019,6 +1019,7 @@
         "modes": "Ir a Configuración: Modos de vuelo",
         "failsafes": "Ir a Configuración: Failsafes",
         "battery": "Ir a Configuración: Batería",
+        "initial": "Ir a Configuración: Ajuste inicial",
         "serial": "Ir a Configuración: Puertos serie",
         "devices": "Ir a Configuración: Dispositivos",
         "info": "Ir a Configuración: Información del vehículo"
@@ -1088,6 +1089,25 @@
     }
   },
   "setup": {
+    "initial": {
+      "summary": "Valores de partida que ArduPilot publica para un multirrotor, según el tamaño de las hélices y las celdas de la batería. Son sugerencias: elíjalos, mire la lista del lado y escríbalos.",
+      "size": "Tamaño de las hélices",
+      "inches": "{n} pulgadas",
+      "cells": "Celdas de la batería",
+      "cellsHelp": "Un número entero de 1 a {max}. Los voltajes son para celdas LiPo normales (4,2 V y 3,3 V por celda): para otro tipo de batería póngalos a mano.",
+      "pick": "Elija el tamaño de las hélices para ver los valores.",
+      "parameter": "Parámetro",
+      "now": "Ahora",
+      "suggested": "Sugerido",
+      "why": {
+        "notGiven": "la página de ArduPilot no lo da para este tamaño",
+        "aboveRange": "el valor del vehículo está por encima del rango de este parámetro (¿otra unidad?): no se ofrece",
+        "cells": "indique las celdas"
+      },
+      "notOnVehicle": "no está en este vehículo",
+      "use": "Usar estos valores",
+      "source": "Valores que ArduPilot publica como punto de partida, de «Setting the Aircraft Up for Tuning» (ardupilot.org/copter/docs/setting-up-for-tuning.html). La página dice que se verifique MOT_THST_EXPO en un banco de empuje."
+    },
     "refusedValue": "rechazado: no se escribe",
     "outcome": {
       "confirmed": "Escrito y releído: {names}.",
@@ -1105,6 +1125,7 @@
       "modes": "Modos de vuelo",
       "failsafes": "Failsafes",
       "battery": "Batería",
+      "initial": "Ajuste inicial",
       "serial": "Puertos serie",
       "devices": "Dispositivos",
       "info": "Información del vehículo"
