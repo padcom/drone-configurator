@@ -61,6 +61,15 @@ async function connected(): Promise<Rig> throws Error {
   sim.params.push(SimParam { id: "ATC_ANG_RLL_P", value: TypedParamValue.Real(4.5, r32) })
   sim.params.push(SimParam { id: "PSC_D_ACC_P", value: TypedParamValue.Real(0.2, r32) })
   sim.params.push(SimParam { id: "ATC_RAT_RLL_D", value: TypedParamValue.Real(0.0036, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_FREQ", value: TypedParamValue.Real(80.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_BW", value: TypedParamValue.Real(40.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_ATT", value: TypedParamValue.Real(40.0, r32) })
+  sim.params.push(SimParam { id: "INS_GYRO_FILTER", value: TypedParamValue.Real(20.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_ENABLE", value: TypedParamValue.Real(0.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_MODE", value: TypedParamValue.Real(1.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_REF", value: TypedParamValue.Real(0.2, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_HMNCS", value: TypedParamValue.Real(3.0, r32) })
+  sim.params.push(SimParam { id: "INS_HNTCH_OPTS", value: TypedParamValue.Real(0.0, r32) })
   // The simulator arms itself after three ticks: a test arms it when it needs to, and until then it is kept disarmed.
   const hold = setInterval(() => {
     sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
@@ -308,7 +317,82 @@ async function theListHasNoNameTwiceAndNoWildcard(): Promise<void> throws Error 
     expect(t.max > 0.0).toBe(true)
     seen.push(t.id)
   }
-  expect(seen.length).toBe(31)
+  expect(seen.length).toBe(40)
+}
+
+/// The names the firmware reads only at start-up (see tuning.pi), and the ones it takes live.
+function startUpOnly(): string[] {
+  ["INS_HNTCH_ENABLE", "INS_HNTCH_MODE", "INS_HNTCH_REF", "INS_HNTCH_HMNCS", "INS_HNTCH_OPTS"]
+}
+
+async function writesTheFiltersThatTakeEffectLiveWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 95.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_BW", 45.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_ATT", 35.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 30.0)))).toBe("ok")
+  expect(r.sets).toBe(4)
+  await r.close()
+}
+
+async function writesTheStartUpFiltersWhileDisarmed(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("INS_HNTCH_ENABLE", 1.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_MODE", 4.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_REF", 0.3)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_HMNCS", 7.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_OPTS", 4.0)))).toBe("ok")
+  expect(r.sets).toBe(5)
+  await r.close()
+}
+
+async function refusesTheStartUpFiltersWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  for (const id of startUpOnly()) {
+    expect(errorOf(await write(r, tuning(id, 1.0)))).toBe("NEEDS_REBOOT")
+  }
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function saysWhyAStartUpFilterIsRefusedArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  const refused = await write(r, tuning("INS_HNTCH_HMNCS", 7.0))
+  expect(refused.err!.message.includes("needs a reboot to take effect")).toBe(true)
+  await r.close()
+}
+
+async function refusesAValueOutOfLimitsForAFilterFirst(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  // a value that is beyond the limits is said so, whatever the name needs
+  expect(errorOf(await write(r, tuning("INS_HNTCH_MODE", 6.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 496.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_BW", 251.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_ATT", 51.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 257.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", -1.0)))).toBe("OUT_OF_LIMITS")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesAFilterBelowTheLeastOfItsRangeWhileArmedAndOnlyWarnsDisarmed(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 5.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 0.0)))).toBe("ok")
+  expect(r.sets).toBe(2)
+  await armed(r)
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 9.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_BW", 4.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_ATT", 4.0)))).toBe("OUT_OF_LIMITS")
+  // 0 would be "no filtering": not written in the air
+  expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 0.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("INS_HNTCH_FREQ", 10.0)))).toBe("ok")
+  expect(r.sets).toBe(3)
+  await r.close()
 }
 
 describe("the tuning writes the backend allows", () => {
@@ -318,6 +402,8 @@ describe("the tuning writes the backend allows", () => {
   it("takes the least of the table while armed, and a 0 where 0 is the least", takesTheLeastOfTheTableWhileArmed)
   it("does not refuse a value below the least of the table while disarmed (the page warns)", onlyWarnsOfTheLeastOfTheTableWhileDisarmed)
   it("has a list with no name twice and no wildcard", theListHasNoNameTwiceAndNoWildcard)
+  it("writes the filters that take effect live while armed, read back", writesTheFiltersThatTakeEffectLiveWhileArmed)
+  it("writes the filters that are read at start-up while disarmed", writesTheStartUpFiltersWhileDisarmed)
 })
 
 describe("what the tuning writes refuse, and send nothing", () => {
@@ -333,6 +419,10 @@ describe("what the tuning writes refuse, and send nothing", () => {
   it("refuses while a motor test runs", refusesWhileAMotorTestRuns)
   it("refuses while a reboot is under way", refusesWhileARebootIsUnderWay)
   it("refuses when the link is lost", refusesWhenTheLinkIsLost)
+  it("refuses each filter that is read only at start-up while armed (NEEDS_REBOOT), and sends nothing", refusesTheStartUpFiltersWhileArmed)
+  it("says that it needs a reboot to take effect", saysWhyAStartUpFilterIsRefusedArmed)
+  it("refuses a value of a filter beyond its limits, armed", refusesAValueOutOfLimitsForAFilterFirst)
+  it("refuses a filter below the least of its range while armed, and takes it disarmed", refusesAFilterBelowTheLeastOfItsRangeWhileArmedAndOnlyWarnsDisarmed)
 })
 
 describe("what the tuning exception does not touch", () => {

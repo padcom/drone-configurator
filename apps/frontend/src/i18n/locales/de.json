@@ -858,6 +858,7 @@
       "negative": "{id}: {value} ist negativ: nicht geschrieben.",
       "above": "{id}: {value} liegt über dem, was die ArduPilot-Tabelle erlaubt: nicht geschrieben.",
       "below": "{id}: {value} liegt unter {min}, was bei scharfem Fahrzeug nicht sein darf: nicht geschrieben.",
+      "reboot": "{id} wirkt erst nach einem Neustart: bei bewaffnetem Fahrzeug nicht geschrieben.",
       "changed": "Das Fahrzeug wurde scharf oder sein Zustand ging verloren, während Sie gefragt wurden: es wurde nichts geschrieben.",
       "armed": "Scharf: Änderungen wirken im Flug.",
       "holdTitle": "Tuning an ein scharfes Fahrzeug schreiben",
@@ -1737,7 +1738,9 @@
       "attitude": "Lage",
       "feel": "Steuergefühl",
       "position": "Position",
-      "knob": "Funkknopf"
+      "knob": "Funkknopf",
+      "gyro": "Gyro-Filter",
+      "notch": "Harmonischer Notch"
     },
     "name": {
       "ATC_ANG_RLL_P": "Winkel P: Roll",
@@ -1758,7 +1761,16 @@
       "PSC_D_VEL_P": "Vertikale Geschwindigkeit P",
       "PSC_D_ACC_P": "Vertikale Beschleunigung P",
       "PSC_D_ACC_I": "Vertikale Beschleunigung I",
-      "TUNE": "Was der Funkknopf einstellt"
+      "TUNE": "Was der Funkknopf einstellt",
+      "INS_GYRO_FILTER": "Gyro-Tiefpass-Grenzfrequenz",
+      "INS_HNTCH_ENABLE": "Notch-Filter",
+      "INS_HNTCH_MODE": "Notch-Nachführung",
+      "INS_HNTCH_REF": "Notch-Referenz",
+      "INS_HNTCH_FREQ": "Notch-Mittenfrequenz",
+      "INS_HNTCH_BW": "Notch-Bandbreite",
+      "INS_HNTCH_ATT": "Notch-Dämpfung",
+      "INS_HNTCH_HMNCS": "Notch-Harmonische",
+      "INS_HNTCH_OPTS": "Notch-Optionen"
     },
     "value": "Wert von {name}",
     "was": "war {value}",
@@ -1768,15 +1780,17 @@
       "negative": "Negativ: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
       "above": "Über dem Höchstwert der ArduPilot-Tabelle ({max}): hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
       "below": "Unter dem Mindestwert der ArduPilot-Tabelle ({min}), solange das Fahrzeug scharf ist: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
-      "nan": "Keine Zahl: es wird nicht geschrieben."
+      "nan": "Keine Zahl: es wird nicht geschrieben.",
+      "reboot": "Wirkt erst nach einem Neustart: bei bewaffnetem Fahrzeug wird es nicht geschrieben (hier und vom Backend abgelehnt)."
     },
     "missing": "Nicht an diesem Fahrzeug: {names}.",
     "backToInitial": "Anfangswerte zurücksetzen",
-    "empty": {
-      "filters": {
-        "title": "Die Filter kommen nach den Logs",
-        "help": "Der Notch-Filter wird aus dem Rauschen eingestellt, das ein Log aufgezeichnet hat; er kommt also mit der Log-Analyse."
-      }
+    "filters": {
+      "summary": "Der Gyro-Filter und der erste harmonische Notch. Die Gyro-Grenzfrequenz und Mitte, Bandbreite und Dämpfung des Notch wirken im Flug. Schalter, Nachführmodus, Referenz, Harmonische und Optionen des Notch werden nur beim Start des Fahrzeugs gelesen: sie werden bei entwaffnetem Fahrzeug geschrieben und wirken nach einem Neustart.",
+      "armed": "Bewaffnet: nur die Gyro-Grenzfrequenz und Mitte, Bandbreite und Dämpfung des Notch lassen sich ändern, und sie wirken im Flug. Der Rest wirkt erst nach einem Neustart und wird nur entwaffnet geschrieben.",
+      "afterRestart": "Wirkt erst nach einem Neustart des Fahrzeugs.",
+      "misses": "Der gewählte Notch (Bänder {bands} Hz) nimmt keinen der Peaks im Spektrum von Protokoll {log} ({peaks} Hz) heraus: seine Mitte liegt außerhalb des protokollierten Rauschens.",
+      "harmonic": "Harmonische {n}"
     }
   }
 }

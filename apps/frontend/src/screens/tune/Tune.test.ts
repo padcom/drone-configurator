@@ -139,7 +139,7 @@ it('has the tabs Rate, More groups and Filters (after the logs), opens at Rate, 
   expect([...tabs]).toEqual(['Rate', 'More groups', 'Filters'])
   expect(wrapper.text()).toContain('Tune: Rate')
   const filters = await screen('/tune/filters')
-  expect(filters.wrapper.text()).toContain('Filters come after the logs')
+  expect(filters.wrapper.find('#tune-filters-write').exists()).toBe(true)
 })
 
 it('shows a slider for each rate parameter with its name and "was X", roll and pitch linked as one by default', async () => {

@@ -12,47 +12,66 @@
 // parameter in this table, and the page then shows no slider for it. Nothing here is a wildcard.
 import { CommunicatorError } from "pico-desktop/communicator"
 
-/// One parameter of the list: its name, the least ArduPilot's own `@Range` gives it (a value below it is refused while the vehicle is ARMED), and
-/// the most (a value above it is refused always).
+/// One parameter of the list: its name, the least ArduPilot's own `@Range` gives it (a value below it is refused while the vehicle is ARMED), the
+/// most (a value above it is refused always), and whether a change takes effect while the vehicle is armed (`armedOk`): a parameter that the
+/// firmware reads only when it starts (`@RebootRequired`, or what its start-up code allocates by) is written only while DISARMED, because
+/// an armed write would change nothing in flight and leave a value that is not what the vehicle runs.
 export struct Tunable {
   id: string
   min: f64
   max: f64
+  armedOk: bool
 }
 
 /// The list, in the order of the Tune screen's groups: rate, attitude, pilot feel, position, radio knob.
 export const TUNABLE: Tunable[] = [
-  Tunable { id: "ATC_RAT_RLL_P", min: 0.01, max: 0.5 },
-  Tunable { id: "ATC_RAT_RLL_I", min: 0.01, max: 2.0 },
-  Tunable { id: "ATC_RAT_RLL_D", min: 0.0, max: 0.05 },
-  Tunable { id: "ATC_RAT_RLL_FF", min: 0.0, max: 0.5 },
-  Tunable { id: "ATC_RAT_PIT_P", min: 0.01, max: 0.5 },
-  Tunable { id: "ATC_RAT_PIT_I", min: 0.01, max: 2.0 },
-  Tunable { id: "ATC_RAT_PIT_D", min: 0.0, max: 0.05 },
-  Tunable { id: "ATC_RAT_PIT_FF", min: 0.0, max: 0.5 },
-  Tunable { id: "ATC_RAT_YAW_P", min: 0.1, max: 2.5 },
-  Tunable { id: "ATC_RAT_YAW_I", min: 0.01, max: 1.0 },
-  Tunable { id: "ATC_RAT_YAW_D", min: 0.0, max: 0.02 },
-  Tunable { id: "ATC_RAT_YAW_FF", min: 0.0, max: 0.5 },
-  Tunable { id: "ATC_ANG_RLL_P", min: 3.0, max: 12.0 },
-  Tunable { id: "ATC_ANG_PIT_P", min: 3.0, max: 12.0 },
-  Tunable { id: "ATC_ANG_YAW_P", min: 3.0, max: 12.0 },
-  Tunable { id: "ATC_INPUT_TC", min: 0.0, max: 1.0 },
-  Tunable { id: "ATC_ACC_R_MAX", min: 0.0, max: 1800.0 },
-  Tunable { id: "ATC_ACC_P_MAX", min: 0.0, max: 1800.0 },
-  Tunable { id: "ATC_ACC_Y_MAX", min: 0.0, max: 720.0 },
-  Tunable { id: "ATC_RATE_R_MAX", min: 0.0, max: 1080.0 },
-  Tunable { id: "ATC_RATE_P_MAX", min: 0.0, max: 1080.0 },
-  Tunable { id: "ATC_RATE_Y_MAX", min: 0.0, max: 1080.0 },
-  Tunable { id: "PSC_NE_POS_P", min: 0.5, max: 4.0 },
-  Tunable { id: "PSC_D_POS_P", min: 0.5, max: 4.0 },
-  Tunable { id: "PSC_NE_VEL_P", min: 0.1, max: 10.0 },
-  Tunable { id: "PSC_NE_VEL_I", min: 0.1, max: 10.0 },
-  Tunable { id: "PSC_NE_VEL_D", min: 0.0, max: 1.0 },
-  Tunable { id: "PSC_D_VEL_P", min: 1.0, max: 10.0 },
-  Tunable { id: "PSC_D_ACC_P", min: 0.01, max: 0.25 },
-  Tunable { id: "PSC_D_ACC_I", min: 0.0, max: 0.5 },
-  Tunable { id: "TUNE", min: 0.0, max: 61.0 },
+  Tunable { id: "ATC_RAT_RLL_P", min: 0.01, max: 0.5, armedOk: true },
+  Tunable { id: "ATC_RAT_RLL_I", min: 0.01, max: 2.0, armedOk: true },
+  Tunable { id: "ATC_RAT_RLL_D", min: 0.0, max: 0.05, armedOk: true },
+  Tunable { id: "ATC_RAT_RLL_FF", min: 0.0, max: 0.5, armedOk: true },
+  Tunable { id: "ATC_RAT_PIT_P", min: 0.01, max: 0.5, armedOk: true },
+  Tunable { id: "ATC_RAT_PIT_I", min: 0.01, max: 2.0, armedOk: true },
+  Tunable { id: "ATC_RAT_PIT_D", min: 0.0, max: 0.05, armedOk: true },
+  Tunable { id: "ATC_RAT_PIT_FF", min: 0.0, max: 0.5, armedOk: true },
+  Tunable { id: "ATC_RAT_YAW_P", min: 0.1, max: 2.5, armedOk: true },
+  Tunable { id: "ATC_RAT_YAW_I", min: 0.01, max: 1.0, armedOk: true },
+  Tunable { id: "ATC_RAT_YAW_D", min: 0.0, max: 0.02, armedOk: true },
+  Tunable { id: "ATC_RAT_YAW_FF", min: 0.0, max: 0.5, armedOk: true },
+  Tunable { id: "ATC_ANG_RLL_P", min: 3.0, max: 12.0, armedOk: true },
+  Tunable { id: "ATC_ANG_PIT_P", min: 3.0, max: 12.0, armedOk: true },
+  Tunable { id: "ATC_ANG_YAW_P", min: 3.0, max: 12.0, armedOk: true },
+  Tunable { id: "ATC_INPUT_TC", min: 0.0, max: 1.0, armedOk: true },
+  Tunable { id: "ATC_ACC_R_MAX", min: 0.0, max: 1800.0, armedOk: true },
+  Tunable { id: "ATC_ACC_P_MAX", min: 0.0, max: 1800.0, armedOk: true },
+  Tunable { id: "ATC_ACC_Y_MAX", min: 0.0, max: 720.0, armedOk: true },
+  Tunable { id: "ATC_RATE_R_MAX", min: 0.0, max: 1080.0, armedOk: true },
+  Tunable { id: "ATC_RATE_P_MAX", min: 0.0, max: 1080.0, armedOk: true },
+  Tunable { id: "ATC_RATE_Y_MAX", min: 0.0, max: 1080.0, armedOk: true },
+  Tunable { id: "PSC_NE_POS_P", min: 0.5, max: 4.0, armedOk: true },
+  Tunable { id: "PSC_D_POS_P", min: 0.5, max: 4.0, armedOk: true },
+  Tunable { id: "PSC_NE_VEL_P", min: 0.1, max: 10.0, armedOk: true },
+  Tunable { id: "PSC_NE_VEL_I", min: 0.1, max: 10.0, armedOk: true },
+  Tunable { id: "PSC_NE_VEL_D", min: 0.0, max: 1.0, armedOk: true },
+  Tunable { id: "PSC_D_VEL_P", min: 1.0, max: 10.0, armedOk: true },
+  Tunable { id: "PSC_D_ACC_P", min: 0.01, max: 0.25, armedOk: true },
+  Tunable { id: "PSC_D_ACC_I", min: 0.0, max: 0.5, armedOk: true },
+  Tunable { id: "TUNE", min: 0.0, max: 61.0, armedOk: true },
+  // The filters (the Tune screen's Filters part), from AP_InertialSensor.cpp (INS_GYRO_FILTER, @Range 0 256 Hz) and
+  // libraries/Filter/HarmonicNotchFilter.cpp (the first harmonic notch, INS_HNTCH_*, of ArduPilot master, 4.8.0-dev). Taken effect live
+  // (`armedOk`): the gyro filter, and the notch's centre, bandwidth and attenuation (the notch is rebuilt in flight when they change). Read
+  // only at start-up, so written disarmed only: ENABLE (the notch is allocated at start only when it is enabled), MODE and OPTS (the
+  // tracking sources and the number of notches are set up at start; OPTS is also `@RebootRequired`), HMNCS and REF (`@RebootRequired`).
+  // The gyro filter's least is 1 here, not the `@Range`'s 0: ArduPilot says of 0 "no filtering (not recommended!)", and that is not
+  // something to write in the air.
+  Tunable { id: "INS_GYRO_FILTER", min: 1.0, max: 256.0, armedOk: true },
+  Tunable { id: "INS_HNTCH_ENABLE", min: 0.0, max: 1.0, armedOk: false },
+  Tunable { id: "INS_HNTCH_MODE", min: 0.0, max: 5.0, armedOk: false },
+  Tunable { id: "INS_HNTCH_REF", min: 0.0, max: 1.0, armedOk: false },
+  Tunable { id: "INS_HNTCH_FREQ", min: 10.0, max: 495.0, armedOk: true },
+  Tunable { id: "INS_HNTCH_BW", min: 5.0, max: 250.0, armedOk: true },
+  Tunable { id: "INS_HNTCH_ATT", min: 5.0, max: 50.0, armedOk: true },
+  Tunable { id: "INS_HNTCH_HMNCS", min: 0.0, max: 65535.0, armedOk: false },
+  Tunable { id: "INS_HNTCH_OPTS", min: 0.0, max: 127.0, armedOk: false },
 ]
 
 /// The entry of a name, or null when it is not in the list.
@@ -65,7 +84,8 @@ function entryOf(id: string): Tunable? {
   null
 }
 
-/// Refuses a tuning write whose name is not in the list (`NOT_TUNING`) or whose value is outside its limits (`OUT_OF_LIMITS`): negative, not a number,
+/// Refuses a tuning write whose name is not in the list (`NOT_TUNING`), whose value is outside its limits (`OUT_OF_LIMITS`), or that changes a
+/// parameter the vehicle reads only when it starts while it is ARMED (`NEEDS_REBOOT`): negative, not a number,
 /// above the most ArduPilot's table allows, and, while the vehicle is ARMED, below the least it allows (a gain of 0 in the rate loop leaves a vehicle
 /// that cannot be flown, and a pilot cannot take it back from the ground: disarmed the same value is only warned about, by the page). Nothing is
 /// sent to the vehicle for a refused write.
@@ -80,5 +100,8 @@ export function refuseUntunable(id: string, value: f64, armed: bool): void throw
   }
   if (armed && value < t!.min) {
     throw new CommunicatorError("OUT_OF_LIMITS", `${id} may not be below ${t!.min} while the vehicle is armed, and ${value} is`)
+  }
+  if (armed && !t!.armedOk) {
+    throw new CommunicatorError("NEEDS_REBOOT", `${id} needs a reboot to take effect: it is written while the vehicle is disarmed`)
   }
 }
