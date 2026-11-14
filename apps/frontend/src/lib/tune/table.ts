@@ -11,11 +11,14 @@
 // it did not find.
 // The step of a slider is the interface's own (how far a key press moves it), not ArduPilot's.
 
-/** The groups of the Tune screen, in the order of the page: the rate loop, then the others under "More groups". */
-export type TuneGroup = 'rate' | 'attitude' | 'feel' | 'position' | 'knob'
+/**
+ * The groups of the Tune screen, in the order of the page: the rate loop, then the others under "More groups", then the filters
+ * (their own part of the screen).
+ */
+export type TuneGroup = 'rate' | 'attitude' | 'feel' | 'position' | 'knob' | 'gyro' | 'notch'
 
-/** What a parameter is: a number on a slider, or one of ArduPilot's named choices. */
-export type TuneKind = 'slider' | 'choice'
+/** What a parameter is: a number on a slider, one of ArduPilot's named choices, or a mask of named bits. */
+export type TuneKind = 'slider' | 'choice' | 'bits'
 
 /** One parameter of the Tune screen. */
 export interface TuneParam {
@@ -33,6 +36,12 @@ export interface TuneParam {
   step: number
   /** The unit of its value, when ArduPilot gives one. */
   units?: string
+  /**
+   * Whether a change takes effect while the vehicle is armed. A parameter the firmware reads only when it starts
+   * (`@RebootRequired` in its source, or what its start-up code allocates by) is written while disarmed only: refused while
+   * armed, here and in the backend.
+   */
+  armedOk: boolean
 }
 
 /** A row of a group's table: the name, the least and the greatest of ArduPilot's range, the step of the slider, and the unit. */
@@ -47,7 +56,25 @@ type Row = readonly [id: string, lo: number, hi: number, step: number, units?: s
  */
 function sliders(group: TuneGroup, rows: readonly Row[]): TuneParam[] {
   return rows.map(([id, lo, hi, step, units]) => (
-    units === undefined ? { id, group, kind: 'slider', lo, hi, step } : { id, group, kind: 'slider', lo, hi, step, units }
+    units === undefined
+      ? { id, group, kind: 'slider', lo, hi, step, armedOk: true }
+      : { id, group, kind: 'slider', lo, hi, step, units, armedOk: true }
+  ))
+}
+
+/** A row of the filters' table: the name, its kind, its range, the step, whether armed is fine, and its unit. */
+type FilterRow = readonly [id: string, kind: TuneKind, lo: number, hi: number, step: number, armedOk: boolean, units?: string]
+
+/**
+ * The parameters of a filters group.
+ *
+ * @param group the group
+ * @param rows the rows of its table
+ * @returns the parameters
+ */
+function filters(group: TuneGroup, rows: readonly FilterRow[]): TuneParam[] {
+  return rows.map(([id, kind, lo, hi, step, armedOk, units]) => (
+    units === undefined ? { id, group, kind, lo, hi, step, armedOk } : { id, group, kind, lo, hi, step, units, armedOk }
   ))
 }
 
@@ -89,7 +116,24 @@ export const TUNE_PARAMS: readonly TuneParam[] = [
   ]),
   // The knob's function (ArduPilot's `@Values` of TUNE, 0 to 61): a named choice, not a slider. The knob's ends (TUNE_MIN and
   // TUNE_MAX, which ArduPilot gives no range) stay on the Parameters screen.
-  { id: 'TUNE', group: 'knob', kind: 'choice', lo: 0, hi: 61, step: 1 },
+  { id: 'TUNE', group: 'knob', kind: 'choice', lo: 0, hi: 61, step: 1, armedOk: true },
+  // The filters (libraries/AP_InertialSensor/AP_InertialSensor.cpp and libraries/Filter/HarmonicNotchFilter.cpp of ArduPilot
+  // master, 4.8.0-dev). The gyro filter, and the notch's centre, bandwidth and attenuation, take effect live: the notch is
+  // rebuilt when they change. The others are read when the vehicle starts (ENABLE, MODE and OPTS decide what is built then;
+  // HMNCS, REF and OPTS are `@RebootRequired`): written while disarmed only. The gyro filter's least is 10 here, not 0:
+  // ArduPilot says of 0 "no filtering (not recommended!)", and 1 to 10 Hz leaves a vehicle that cannot be flown (ArduPilot's
+  // guidance is 20 to 80 Hz): not written in the air.
+  ...filters('gyro', [['INS_GYRO_FILTER', 'slider', 10, 256, 1, true, 'Hz']]),
+  ...filters('notch', [
+    ['INS_HNTCH_ENABLE', 'choice', 0, 1, 1, false],
+    ['INS_HNTCH_MODE', 'choice', 0, 5, 1, false],
+    ['INS_HNTCH_REF', 'slider', 0, 1, 0.01, false],
+    ['INS_HNTCH_FREQ', 'slider', 10, 495, 1, true, 'Hz'],
+    ['INS_HNTCH_BW', 'slider', 5, 250, 1, true, 'Hz'],
+    ['INS_HNTCH_ATT', 'slider', 5, 50, 1, true, 'dB'],
+    ['INS_HNTCH_HMNCS', 'bits', 0, 65535, 1, false],
+    ['INS_HNTCH_OPTS', 'bits', 0, 127, 1, false],
+  ]),
 ]
 
 /**
@@ -113,21 +157,27 @@ export function tuneGroup(group: TuneGroup): TuneParam[] {
 }
 
 /**
- * How a value is refused: it is not a number, it is negative, it is above the most ArduPilot's table allows, or it is below the
- * least it allows WHILE THE VEHICLE IS ARMED (disarmed that is only warned about: a gain of 0 is for the bench, not the air).
+ * How a value is refused: it is not a number, it is negative, it is above the most ArduPilot's table allows, it is below the
+ * least it allows WHILE THE VEHICLE IS ARMED (disarmed that is only warned about: a gain of 0 is for the bench, not the air), or
+ * the parameter is read only when the vehicle starts and the vehicle is armed (`reboot`).
  */
-export type TuneRefusal = 'nan' | 'negative' | 'above' | 'below' | null
+export type TuneRefusal = 'nan' | 'negative' | 'above' | 'below' | 'reboot' | null
 
 /**
- * Whether a number is below the least of a parameter's range while that is a limit (the vehicle is armed).
+ * What the armed state refuses of a value that is within the greatest: the least of the range is a limit then, and so is a
+ * parameter that the vehicle reads only when it starts.
  *
  * @param value the value
  * @param param the parameter
  * @param armed whether the vehicle is armed
- * @returns true if it is
+ * @returns why it is refused, or null (always null while disarmed)
  */
-function belowLeast(value: number, param: TuneParam, armed: boolean): boolean {
-  return armed && value < param.lo
+function whileArmed(value: number, param: TuneParam, armed: boolean): TuneRefusal {
+  if (!armed) {
+    return null
+  }
+
+  return value < param.lo ? 'below' : (param.armedOk ? null : 'reboot')
 }
 
 /**
@@ -146,7 +196,7 @@ function beyond(value: number, param: TuneParam, armed: boolean): TuneRefusal {
     return 'above'
   }
 
-  return belowLeast(value, param, armed) ? 'below' : null
+  return whileArmed(value, param, armed)
 }
 
 /**

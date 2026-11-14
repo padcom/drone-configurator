@@ -858,6 +858,7 @@
       "negative": "{id}: {value} è negativo: non scritto.",
       "above": "{id}: {value} è sopra quanto consente la tabella di ArduPilot: non scritto.",
       "below": "{id}: {value} è sotto {min}, cosa che non può essere con il veicolo armato: non scritto.",
+      "reboot": "{id} agisce solo dopo un riavvio: non scritto a veicolo armato.",
       "changed": "Il veicolo si è armato, o ne è stato perso lo stato, durante la domanda: non è stato scritto nulla.",
       "armed": "Armato: le modifiche si applicano in volo.",
       "holdTitle": "Scrivere il tuning su un veicolo armato",
@@ -1780,7 +1781,9 @@
       "attitude": "Assetto",
       "feel": "Sensazione di pilotaggio",
       "position": "Posizione",
-      "knob": "Manopola della radio"
+      "knob": "Manopola della radio",
+      "gyro": "Filtro del giroscopio",
+      "notch": "Notch armonico"
     },
     "name": {
       "ATC_ANG_RLL_P": "Angolo P: rollio",
@@ -1801,7 +1804,16 @@
       "PSC_D_VEL_P": "Velocità verticale P",
       "PSC_D_ACC_P": "Accelerazione verticale P",
       "PSC_D_ACC_I": "Accelerazione verticale I",
-      "TUNE": "Ciò che regola la manopola della radio"
+      "TUNE": "Ciò che regola la manopola della radio",
+      "INS_GYRO_FILTER": "Frequenza di taglio del giroscopio",
+      "INS_HNTCH_ENABLE": "Filtro notch",
+      "INS_HNTCH_MODE": "Inseguimento del notch",
+      "INS_HNTCH_REF": "Riferimento del notch",
+      "INS_HNTCH_FREQ": "Frequenza centrale del notch",
+      "INS_HNTCH_BW": "Larghezza di banda del notch",
+      "INS_HNTCH_ATT": "Attenuazione del notch",
+      "INS_HNTCH_HMNCS": "Armoniche del notch",
+      "INS_HNTCH_OPTS": "Opzioni del notch"
     },
     "value": "Valore di {name}",
     "was": "era {value}",
@@ -1811,15 +1823,18 @@
       "negative": "Negativo: rifiutato qui e dal backend. Non viene scritto.",
       "above": "Sopra il massimo che la tabella di ArduPilot consente ({max}): rifiutato qui e dal backend. Non viene scritto.",
       "below": "Sotto il minimo della tabella di ArduPilot ({min}) con il veicolo armato: rifiutato qui e dal backend. Non viene scritto.",
-      "nan": "Non è un numero: non viene scritto."
+      "nan": "Non è un numero: non viene scritto.",
+      "reboot": "Agisce solo dopo un riavvio: non si scrive a veicolo armato (rifiutato qui e dal backend)."
     },
     "missing": "Non presenti su questo veicolo: {names}.",
     "backToInitial": "Rimetti i valori iniziali",
-    "empty": {
-      "filters": {
-        "title": "I filtri vengono dopo i log",
-        "help": "Il filtro notch si regola con il rumore che un log ha registrato, quindi arriva con l'analisi dei log."
-      }
+    "filters": {
+      "summary": "Il filtro del giroscopio e il primo notch armonico. La frequenza di taglio del giroscopio e centro, larghezza di banda e attenuazione del notch agiscono in volo. Interruttore, modo di inseguimento, riferimento, armoniche e opzioni del notch sono letti solo all'avvio del veicolo: si scrivono a veicolo disarmato e agiscono dopo un riavvio.",
+      "armed": "Armato: si possono cambiare solo la frequenza di taglio del giroscopio e centro, larghezza di banda e attenuazione del notch, e agiscono in volo. Il resto agisce solo dopo un riavvio e si scrive a veicolo disarmato.",
+      "afterRestart": "Agisce solo dopo un riavvio del veicolo.",
+      "tracking": "Questo notch segue il gas, un sensore o la FFT, quindi il suo centro si muove: la pagina non lo verifica con i picchi del registro aperto in Spettro.",
+      "misses": "Il notch scelto (bande {bands} Hz) non toglie nessuno dei picchi dello spettro del registro {log} ({peaks} Hz): il suo centro è fuori da dove è stato registrato il rumore.",
+      "harmonic": "Armonica {n}"
     }
   }
 }

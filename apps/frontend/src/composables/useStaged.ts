@@ -678,8 +678,11 @@ class Staged implements StagedModel {
    */
   private refusesChanges(todo: StagedChange[]): boolean {
     const setup = todo.some(change => change.guarded === true)
+    // A change the Tune screen queued is judged by its own rules (the limits, and whether the parameter takes effect armed): the
+    // notch's centre, bandwidth and attenuation are written in flight from there, and from nowhere else.
+    const others = todo.filter(change => change.tuning !== true).map(change => change.id)
 
-    return this.refusesLogging(todo.map(change => change.id)) || (setup && this.mayBeArmed()) || this.refusesTuning(todo)
+    return this.refusesLogging(others) || (setup && this.mayBeArmed()) || this.refusesTuning(todo)
   }
 
   /**
