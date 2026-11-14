@@ -317,12 +317,13 @@ describe('the split of the CI jobs', () => {
   })
 
   it.skipIf(process.platform === 'win32')('splits the backend test files into shards that cover each file once', () => {
-    const shard = (n: number) => spawnSync('bash', ['.github/backend-shard.sh', `${n}`, '2'], { cwd: root, encoding: 'utf8' })
-    const listed = [shard(1), shard(2)].map(result => result.stdout.split('\n').filter(Boolean))
+    // (the workflow splits them in 3: SHARDS in .github/workflows/ci.yml)
+    const shard = (n: number) => spawnSync('bash', ['.github/backend-shard.sh', `${n}`, '3'], { cwd: root, encoding: 'utf8' })
+    const listed = [shard(1), shard(2), shard(3)].map(result => result.stdout.split('\n').filter(Boolean))
     expect(shard(1).status).toBe(0)
-    expect([...listed[0] ?? [], ...listed[1] ?? []].sort()).toEqual([...tree.backend.tests].sort())
+    expect(listed.flat().sort()).toEqual([...tree.backend.tests].sort())
     expect(listed.every(shardFiles => shardFiles.length > 0)).toBe(true)
-    expect(shard(3).status).toBe(2)
+    expect(shard(4).status).toBe(2)
   })
 })
 
