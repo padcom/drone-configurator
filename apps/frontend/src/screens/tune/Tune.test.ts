@@ -532,3 +532,14 @@ it('lists under "What this writes" only what would be written: a refused value i
   expect(rig.wrapper.get('.setup-writes li.refused').text()).toBe('ATC_RAT_YAW_P · refused: not written')
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
 })
+
+it('has nothing to write when a typed value is the float the vehicle holds (0.18 and the vehicle\'s 0.18000000298)', async () => {
+  const params = SETUP_PARAMS.map(param => (param.id === 'ATC_RAT_YAW_P' ? { ...param, value: Math.fround(0.18) } : param))
+  const rig = await screen('/tune/rate', {}, params)
+  await type(rig, 'ATC_RAT_YAW_P', '0.25')
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeUndefined()
+  await type(rig, 'ATC_RAT_YAW_P', '0.18')
+
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
+  expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+})

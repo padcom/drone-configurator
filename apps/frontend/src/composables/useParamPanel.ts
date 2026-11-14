@@ -5,6 +5,7 @@
 // as armed), by the queue here and by the backend, and the panel says why instead of failing.
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { armedOf } from '@/lib/app/armed'
+import { type ValueType, canonical } from '@/lib/params/paramValue'
 import type { ConfiguratorHandle } from './useConfigurator'
 
 /** Why the panel cannot be written now, or null. */
@@ -126,6 +127,7 @@ class Panel implements ParamPanel {
   readonly outcome = shallowRef<PanelOutcome | null>(null)
   private readonly chosen = shallowRef<Record<string, number>>({})
   private readonly byId: ComputedRef<Map<string, number>>
+  private readonly typeById: ComputedRef<Map<string, ValueType>>
 
   /**
    * Makes the panel.
@@ -137,6 +139,7 @@ class Panel implements ParamPanel {
   constructor(readonly ids: readonly string[], private readonly handle: ConfiguratorHandle, private readonly tuning = false) {
     const { parameters, staged, fields } = handle
     this.byId = computed(() => new Map(parameters.params.value.map(param => [param.id, param.value])))
+    this.typeById = computed(() => new Map(parameters.params.value.map(param => [param.id, param])))
     this.missing = computed(() => ids.filter(id => !this.byId.value.has(id)))
     this.dirty = computed(() => ids.filter(id => this.isDirty(id)))
     this.blocked = computed(() => {
@@ -163,7 +166,24 @@ class Panel implements ParamPanel {
    * @returns true if it does
    */
   private isDirty(id: string): boolean {
-    return id in this.chosen.value && this.byId.value.has(id) && this.chosen.value[id] !== this.vehicleValue(id)
+    const chosen = this.chosen.value[id]
+    const vehicle = this.vehicleValue(id)
+
+    return chosen !== undefined && vehicle !== null && this.canon(id, chosen) !== this.canon(id, vehicle)
+  }
+
+  /**
+   * A value as the vehicle holds it (a REAL32 is the float nearest to it: a typed 0.18 is the vehicle's 0.18000000298), so that
+   * what is typed is compared with what the vehicle has as the same kind of number.
+   *
+   * @param id the parameter
+   * @param value the value
+   * @returns the number the vehicle would hold
+   */
+  private canon(id: string, value: number): number {
+    const type = this.typeById.value.get(id)
+
+    return type === undefined ? value : canonical(type, value)
   }
 
   vehicleValue = (id: string): number | null => this.byId.value.get(id) ?? null
