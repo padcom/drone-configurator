@@ -1,0 +1,284 @@
+// The Tune screen's writes (`params.write` with `tuning`): the one kind of write that is allowed while the vehicle is armed (the leader's
+// decision Q7). So each way it is refused has a test of its own, and each says that NOTHING WAS SENT to the vehicle: a name that is not
+// on the list (armed and not), a value outside its limits, an armed state that is not known, work under way (a calibration, a reboot),
+// a link that is lost; and a Setup write (`guarded`) is still refused while armed, with or without `tuning`.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { MavParamType, ParamSet, Received, SimParam, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ParamWrite,
+  ParamWriteKind,
+  decodeParamWriteResult,
+  encodeConnectRequest,
+  encodeParamWrite,
+} from "./generated/app"
+import { link } from "./session"
+import { TUNABLE } from "./tuning"
+import { Frontend, start } from "./testing"
+
+/// A connected simulator that has some tuning parameters, disarmed (until a test arms it), and a count of the PARAM_SET it was sent.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+  public sets: int = 0
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+  }
+
+  /// Ends the connection (its timers would keep the test process alive).
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+async function connected(): Promise<Rig> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  const r32 = MavParamType.REAL32
+  sim.params.push(SimParam { id: "ATC_RAT_RLL_P", value: TypedParamValue.Real(0.135, r32) })
+  sim.params.push(SimParam { id: "ATC_RAT_PIT_P", value: TypedParamValue.Real(0.135, r32) })
+  sim.params.push(SimParam { id: "PSC_NE_POS_P", value: TypedParamValue.Real(1.0, r32) })
+  // The simulator arms itself after three ticks: a test arms it when it needs to, and until then it is kept disarmed.
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  await afterBeat()
+  const r = new Rig(f, sim, hold)
+  sim.conn.on((m: Received) => {
+    if (m.message instanceof ParamSet) {
+      r.sets += 1
+    }
+  })
+  r
+}
+
+/// The vehicle is armed, and the backend has heard it say so.
+async function armed(r: Rig): Promise<void> throws Error {
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await delay(1500)
+  expect(link.armed).toBe(true)
+}
+
+function tuning(id: string, value: f64): ParamWrite {
+  ParamWrite { id: id, kind: ParamWriteKind.Real, type: "REAL32", value: value, tuning: true }
+}
+
+async function write(r: Rig, w: ParamWrite): Promise<Envelope> throws Error {
+  await r.f.call("params.write", encodeParamWrite(w))
+}
+
+/// The error code of a reply, or "ok".
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+async function wasConfirmed(e: Envelope): Promise<bool> throws Error {
+  decodeParamWriteResult(e.p ?? Cbor.Null, "$").verified
+}
+
+async function writesATuningParameterWhileDisarmed(): Promise<void> throws Error {
+  const r = await connected()
+  const reply = await write(r, tuning("ATC_RAT_RLL_P", 0.2))
+  expect(errorOf(reply)).toBe("ok")
+  expect(await wasConfirmed(reply)).toBe(true)
+  expect(r.sets).toBe(1)
+  await r.close()
+}
+
+async function writesATuningParameterWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  const reply = await write(r, tuning("ATC_RAT_RLL_P", 0.2))
+  expect(errorOf(reply)).toBe("ok")
+  expect(await wasConfirmed(reply)).toBe(true)
+  expect(r.sets).toBe(1)
+  await r.close()
+}
+
+async function writesTheLimitsThemselves(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.5)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.0)))).toBe("ok")
+  expect(r.sets).toBe(2)
+  await r.close()
+}
+
+async function refusesANameThatIsNotOnTheListWhileDisarmed(): Promise<void> throws Error {
+  const r = await connected()
+  // a real parameter the vehicle has, that no tuning write may touch
+  expect(errorOf(await write(r, tuning("ARMING_CHECK", 0.0)))).toBe("NOT_TUNING")
+  expect(errorOf(await write(r, tuning("FS_THR_ENABLE", 0.0)))).toBe("NOT_TUNING")
+  expect(errorOf(await write(r, tuning("atc_rat_rll_p", 0.1)))).toBe("NOT_TUNING")
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_*", 0.1)))).toBe("NOT_TUNING")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesANameThatIsNotOnTheListWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("ARMING_CHECK", 0.0)))).toBe("NOT_TUNING")
+  expect(errorOf(await write(r, tuning("FS_THR_ENABLE", 0.0)))).toBe("NOT_TUNING")
+  expect(errorOf(await write(r, tuning("SERIAL0_BAUD", 57.0)))).toBe("NOT_TUNING")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesAValueAboveTheMostOfTheTable(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.51)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 5.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("PSC_NE_POS_P", 4.5)))).toBe("OUT_OF_LIMITS")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesAValueAboveTheMostWhileArmedToo(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.51)))).toBe("OUT_OF_LIMITS")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesANegativeValue(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", -0.01)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("PSC_NE_POS_P", -1.0)))).toBe("OUT_OF_LIMITS")
+  await armed(r)
+  expect(errorOf(await write(r, tuning("ATC_RAT_PIT_P", -0.2)))).toBe("OUT_OF_LIMITS")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("STATE_UNKNOWN")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function looksAtTheArmedStateAgainAtTheMomentOfTheWrite(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("ok")
+  // the heartbeats stop: what the page saw when it asked (and held) is not what the backend finds when the write comes
+  link.heartbeatAt = 0
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.21)))).toBe("STATE_UNKNOWN")
+  expect(r.sets).toBe(1)
+  await r.close()
+}
+
+async function refusesWhileACalibrationRuns(): Promise<void> throws Error {
+  const r = await connected()
+  link.calibrating = true
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("BUSY")
+  link.calibrating = false
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesWhileARebootIsUnderWay(): Promise<void> throws Error {
+  const r = await connected()
+  link.rebootAt = Date.now() as int
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("BUSY")
+  link.rebootAt = 0
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function refusesWhenTheLinkIsLost(): Promise<void> throws Error {
+  const r = await connected()
+  clearInterval(r.hold)
+  link.close()
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.2)))).toBe("NOT_CONNECTED")
+  expect(r.sets).toBe(0)
+}
+
+async function aSetupWriteIsStillRefusedWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  const setup = ParamWrite { id: "ATC_RAT_RLL_P", kind: ParamWriteKind.Real, type: "REAL32", value: 0.2, guarded: true }
+  expect(errorOf(await write(r, setup))).toBe("ARMED")
+  // `guarded` wins when both are set: a Setup page cannot get the tuning exception by adding the flag
+  const both = ParamWrite { id: "ATC_RAT_RLL_P", kind: ParamWriteKind.Real, type: "REAL32", value: 0.2, guarded: true, tuning: true }
+  expect(errorOf(await write(r, both))).toBe("ARMED")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function aSetupWriteIsStillRefusedWhenTheStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  const setup = ParamWrite { id: "ARMING_CHECK", kind: ParamWriteKind.Real, type: "REAL32", value: 0.0, guarded: true }
+  expect(errorOf(await write(r, setup))).toBe("STATE_UNKNOWN")
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function aWriteWithoutTheFlagIsAsItWas(): Promise<void> throws Error {
+  const r = await connected()
+  // the Parameters screen's own write: no list, no limits (it was never refused while armed), and nothing of this changes it
+  const plain = ParamWrite { id: "ARMING_CHECK", kind: ParamWriteKind.Real, type: "REAL32", value: 0.0 }
+  expect(errorOf(await write(r, plain))).toBe("ok")
+  expect(r.sets).toBe(1)
+  await r.close()
+}
+
+async function theListHasNoNameTwiceAndNoWildcard(): Promise<void> throws Error {
+  const seen: string[] = []
+  for (const t of TUNABLE) {
+    expect(seen.includes(t.id)).toBe(false)
+    expect(t.id.includes("*")).toBe(false)
+    expect(t.max > 0.0).toBe(true)
+    seen.push(t.id)
+  }
+  expect(seen.length).toBe(31)
+}
+
+describe("the tuning writes the backend allows", () => {
+  it("writes a tuning parameter while disarmed, read back", writesATuningParameterWhileDisarmed)
+  it("writes a tuning parameter while armed, read back", writesATuningParameterWhileArmed)
+  it("takes the limits themselves", writesTheLimitsThemselves)
+  it("has a list with no name twice and no wildcard", theListHasNoNameTwiceAndNoWildcard)
+})
+
+describe("what the tuning writes refuse, and send nothing", () => {
+  it("refuses a name that is not on the list, disarmed", refusesANameThatIsNotOnTheListWhileDisarmed)
+  it("refuses a name that is not on the list, armed", refusesANameThatIsNotOnTheListWhileArmed)
+  it("refuses a value above the most of the table", refusesAValueAboveTheMostOfTheTable)
+  it("refuses a value above the most of the table while armed too", refusesAValueAboveTheMostWhileArmedToo)
+  it("refuses a negative value", refusesANegativeValue)
+  it("refuses when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
+  it("looks at the armed state again at the moment of the write", looksAtTheArmedStateAgainAtTheMomentOfTheWrite)
+  it("refuses while a calibration runs", refusesWhileACalibrationRuns)
+  it("refuses while a reboot is under way", refusesWhileARebootIsUnderWay)
+  it("refuses when the link is lost", refusesWhenTheLinkIsLost)
+})
+
+describe("what the tuning exception does not touch", () => {
+  it("still refuses a Setup write while armed, with or without the tuning flag", aSetupWriteIsStillRefusedWhileArmed)
+  it("still refuses a Setup write when the armed state is not known", aSetupWriteIsStillRefusedWhenTheStateIsNotKnown)
+  it("leaves a write without the flag as it was", aWriteWithoutTheFlagIsAsItWas)
+})

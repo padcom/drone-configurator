@@ -144,8 +144,7 @@ it('says that a screen that is not built yet is not available, under its own nam
 
   await follow(wrapper, 'Plan')
   expect(wrapper.text()).toContain('Plan is not available yet.')
-  await follow(wrapper, 'Tune')
-  expect(wrapper.text()).toContain('Tune is not available yet.')
+  await follow(wrapper, 'Flight data')
   expect(wrapper.text()).not.toContain('Plan is not available yet.')
 })
 

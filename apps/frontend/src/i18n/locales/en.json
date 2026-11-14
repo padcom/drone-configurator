@@ -844,6 +844,15 @@
     "close": "Close"
   },
   "staged": {
+    "tuning": {
+      "unknown": "The vehicle's state is not known (no recent heartbeat): tuning changes are not written.",
+      "nan": "{id} is not a parameter the Tune screen writes.",
+      "negative": "{id}: {value} is negative: not written.",
+      "above": "{id}: {value} is above what ArduPilot's table allows: not written.",
+      "armed": "Armed: changes apply in flight.",
+      "holdTitle": "Write tuning to an armed vehicle",
+      "holdButton": "Hold to write in flight"
+    },
     "armedGuarded": "Logging and notch settings are not written while the vehicle is armed, or may be. Disarm it first.",
     "armedSetup": "Setup changes are not written while the vehicle is armed, or may be. Disarm it first.",
     "armedLogging": "Logging settings are not written while the vehicle is armed, or may be. Disarm it first.",
@@ -1000,6 +1009,11 @@
         "serial": "Switch to Setup: Serial ports",
         "devices": "Switch to Setup: Devices",
         "info": "Switch to Setup: Vehicle information"
+      },
+      "tune": {
+        "rate": "Switch to Tune: Rate",
+        "more": "Switch to Tune: More groups",
+        "filters": "Switch to Tune: Filters"
       }
     },
     "show": {
@@ -1060,6 +1074,11 @@
     }
   },
   "setup": {
+    "outcome": {
+      "confirmed": "Written and read back: {names}.",
+      "notConfirmed": "Written, not confirmed: {names}.",
+      "notWritten": "Not written: {names}."
+    },
     "sections": "Setup pages",
     "section": {
       "home": "Overview",
@@ -1601,6 +1620,79 @@
       "up": "Move place {n} up",
       "down": "Move place {n} down",
       "emptyPlace": "no compass"
+    }
+  },
+  "tune": {
+    "sections": "Tune sections",
+    "shown": "Tune: {section}",
+    "section": {
+      "rate": "Rate",
+      "more": "More groups",
+      "filters": "Filters"
+    },
+    "armed": "Armed: changes apply in flight",
+    "armedAnnounce": "The vehicle is armed: changes apply in flight.",
+    "disarmedAnnounce": "The vehicle is disarmed.",
+    "link": "Link roll and pitch: one slider sets both",
+    "axis": {
+      "rollPitch": "Roll and pitch",
+      "roll": "Roll",
+      "pitch": "Pitch",
+      "yaw": "Yaw"
+    },
+    "rate": {
+      "summary": "How hard the vehicle corrects a turn rate it is not at: P by how far off it is, I by how long it has been off, D by how fast it is closing in, FF by what the stick asks for. Each slider is held to the range ArduPilot gives for it.",
+      "P": "P (proportional)",
+      "I": "I (integral)",
+      "D": "D (derivative)",
+      "FF": "FF (feed-forward)"
+    },
+    "more": {
+      "summary": "The attitude controller, how the sticks feel, the position controller and what the radio knob tunes. Each slider is held to the range ArduPilot gives for it."
+    },
+    "group": {
+      "attitude": "Attitude",
+      "feel": "Pilot feel",
+      "position": "Position",
+      "knob": "Radio knob"
+    },
+    "name": {
+      "ATC_ANG_RLL_P": "Angle P: roll",
+      "ATC_ANG_PIT_P": "Angle P: pitch",
+      "ATC_ANG_YAW_P": "Angle P: yaw",
+      "ATC_ACC_R_MAX": "Acceleration limit: roll",
+      "ATC_ACC_P_MAX": "Acceleration limit: pitch",
+      "ATC_ACC_Y_MAX": "Acceleration limit: yaw",
+      "ATC_RATE_R_MAX": "Rate limit: roll",
+      "ATC_RATE_P_MAX": "Rate limit: pitch",
+      "ATC_RATE_Y_MAX": "Rate limit: yaw",
+      "ATC_INPUT_TC": "Stick response time",
+      "PSC_NE_POS_P": "Horizontal position P",
+      "PSC_D_POS_P": "Vertical position P",
+      "PSC_NE_VEL_P": "Horizontal velocity P",
+      "PSC_NE_VEL_I": "Horizontal velocity I",
+      "PSC_NE_VEL_D": "Horizontal velocity D",
+      "PSC_D_VEL_P": "Vertical velocity P",
+      "PSC_D_ACC_P": "Vertical acceleration P",
+      "PSC_D_ACC_I": "Vertical acceleration I",
+      "TUNE": "What the radio knob tunes"
+    },
+    "value": "Value of {name}",
+    "was": "was {value}",
+    "wasNone": "no initial value",
+    "notNumber": "That is not a number: nothing is written for it.",
+    "refused": {
+      "negative": "Negative: refused here and by the backend. It is not written.",
+      "above": "Above the most ArduPilot's table allows ({max}): refused here and by the backend. It is not written.",
+      "nan": "Not a number: it is not written."
+    },
+    "missing": "Not on this vehicle: {names}.",
+    "backToInitial": "Put back the initial values",
+    "empty": {
+      "filters": {
+        "title": "Filters come after the logs",
+        "help": "The notch filter is set from the noise a log recorded, so it comes with the analysis of logs."
+      }
     }
   }
 }

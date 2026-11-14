@@ -11,6 +11,10 @@
     </div>
     <Banner v-if="reason" :id="`${idPrefix}-blocked`" tone="warn">{{ reason }}</Banner>
     <p :id="`${idPrefix}-status`" class="setup-status" role="status">{{ status }}</p>
+    <!-- A write that stopped says which parameters were read back, which were not confirmed, and which were not written. -->
+    <ul v-if="outcome.length > 0" :id="`${idPrefix}-outcome`" class="setup-outcome">
+      <li v-for="line in outcome" :key="line">{{ line }}</li>
+    </ul>
     <Button :id="`${idPrefix}-revert`" :disabled="panel.dirty.value.length === 0 || panel.writing.value" @click="panel.revert()">
       {{ t('setup.revert') }}
     </Button>
@@ -28,6 +32,7 @@ import { useI18n } from 'vue-i18n'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import type { ParamPanel } from '@/composables/useParamPanel'
+import { outcomeLines } from '@/lib/setup/outcome'
 
 const props = defineProps<{
   /** The page's parameters. */
@@ -69,6 +74,8 @@ const shown = computed(() => {
 const changed = computed(() => props.panel.dirty.value.length > 0)
 const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)
 const label = computed(() => t(changed.value ? 'setup.write' : 'setup.noChanges'))
+/** The lines of a write that stopped (nothing when it went through whole, or none was made). */
+const outcome = computed(() => outcomeLines(props.panel.outcome.value, (part, names) => t(`setup.outcome.${part}`, { names })))
 const status = computed(() => {
   const { state, detail } = props.panel
 

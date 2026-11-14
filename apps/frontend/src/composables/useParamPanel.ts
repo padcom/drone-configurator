@@ -13,6 +13,16 @@ export type PanelBlock = 'offline' | 'loading' | 'armed' | 'unknown' | null
 /** How the last write went: nothing yet, all written and read back, or a failure (with the words in `detail`). */
 export type PanelState = 'idle' | 'written' | 'failed'
 
+/** What a write did, parameter by parameter (never a silent partial state): which were read back, which not, which unwritten. */
+export interface PanelOutcome {
+  /** The parameters the vehicle read back with the new value. */
+  confirmed: string[]
+  /** The ones that were written and not confirmed (the vehicle reported another value, or the write failed), with the reason. */
+  notConfirmed: { id: string, detail: string }[]
+  /** The ones that were not written at all: the write stopped at the first that was not confirmed. */
+  notWritten: string[]
+}
+
 /** A page's parameters. */
 export interface ParamPanel {
   /** The parameters the page writes, in the order it lists them. */
@@ -42,6 +52,10 @@ export interface ParamPanel {
   readonly writtenWas: ShallowRef<Record<string, number>>
   /** Whether a write is under way. */
   readonly writing: ComputedRef<boolean>
+  /** Whether the vehicle is armed (known to be: a vehicle whose state is not known is blocked, not armed). */
+  readonly armed: ComputedRef<boolean>
+  /** What the last write did, parameter by parameter; null before any, and when the changes were refused before a write. */
+  readonly outcome: ShallowRef<PanelOutcome | null>
   /** Writes what differs, after the one question. */
   write: () => Promise<void>
   /** Puts back what the vehicle has: the choices are forgotten, and what was queued from here is taken out. */
@@ -67,14 +81,35 @@ function listBlock(connected: boolean, list: string): PanelBlock {
  * The block that the armed state makes.
  *
  * @param armed whether the vehicle is armed; undefined when that is not known (it counts as armed)
+ * @param tuning whether it is the Tune screen's panel (armed is no block there)
  * @returns the reason, or null
  */
-function armedBlock(armed: boolean | undefined): PanelBlock {
+function armedBlock(armed: boolean | undefined, tuning: boolean): PanelBlock {
   if (armed === undefined) {
     return 'unknown'
   }
 
-  return armed ? 'armed' : null
+  // The Tune screen is for a vehicle in flight too (the leader's decision Q7): armed blocks nothing there, only a state that is
+  // not known.
+  return armed && !tuning ? 'armed' : null
+}
+
+/**
+ * What a write did, parameter by parameter.
+ *
+ * @param sent the parameters that were sent, in the order they were written
+ * @param left the ones that are still queued (not read back)
+ * @param results how each change that was written and not confirmed went
+ * @returns which were confirmed, which were written and not confirmed (and why), and which were never written
+ */
+function outcomeOf(sent: string[], left: string[], results: { id: string, detail: string }[]): PanelOutcome {
+  const notConfirmed = results.filter(result => left.includes(result.id)).map(({ id, detail }) => ({ id, detail }))
+
+  return {
+    confirmed: sent.filter(id => !left.includes(id)),
+    notConfirmed,
+    notWritten: left.filter(id => !notConfirmed.some(result => result.id === id)),
+  }
 }
 
 /** The parameters of a page. */
@@ -87,6 +122,8 @@ class Panel implements ParamPanel {
   readonly dirty: ComputedRef<string[]>
   readonly blocked: ComputedRef<PanelBlock>
   readonly writing: ComputedRef<boolean>
+  readonly armed: ComputedRef<boolean>
+  readonly outcome = shallowRef<PanelOutcome | null>(null)
   private readonly chosen = shallowRef<Record<string, number>>({})
   private readonly byId: ComputedRef<Map<string, number>>
 
@@ -95,8 +132,9 @@ class Panel implements ParamPanel {
    *
    * @param ids the parameters the page writes
    * @param handle the parameters, the queue, the connection and the telemetry
+   * @param tuning whether it is the Tune screen's panel (armed is no block there: its changes are written after a hold)
    */
-  constructor(readonly ids: readonly string[], private readonly handle: ConfiguratorHandle) {
+  constructor(readonly ids: readonly string[], private readonly handle: ConfiguratorHandle, private readonly tuning = false) {
     const { parameters, staged, fields } = handle
     this.byId = computed(() => new Map(parameters.params.value.map(param => [param.id, param.value])))
     this.missing = computed(() => ids.filter(id => !this.byId.value.has(id)))
@@ -104,8 +142,9 @@ class Panel implements ParamPanel {
     this.blocked = computed(() => {
       const connected = fields.connection.value.state === 'connected'
 
-      return listBlock(connected, parameters.list.value) ?? armedBlock(armedOf(fields.telemetry.value))
+      return listBlock(connected, parameters.list.value) ?? armedBlock(armedOf(fields.telemetry.value), tuning)
     })
+    this.armed = computed(() => armedOf(fields.telemetry.value) === true)
     this.writing = computed(() => staged.writing.value || parameters.lock.busy.value)
     // What was written needs a reboot to take effect: that is said until the link goes (the vehicle rebooted, or was
     // disconnected).
@@ -144,7 +183,9 @@ class Panel implements ParamPanel {
    */
   private settle(sent: string[], was: Record<string, number>): void {
     const { staged } = this.handle
-    const left = this.ids.filter(id => staged.pending().some(change => change.id === id))
+    const left = sent.filter(id => staged.pending().some(change => change.id === id))
+    this.outcome.value = outcomeOf(sent, left, staged.results.value)
+
     if (left.length === 0) {
       this.chosen.value = {}
       this.state.value = 'written'
@@ -178,7 +219,8 @@ class Panel implements ParamPanel {
     const was = Object.fromEntries(sent.map(id => [id, this.vehicleValue(id) ?? 0]))
     this.state.value = 'idle'
     this.detail.value = ''
-    staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), { guarded: true })
+    this.outcome.value = null
+    staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), this.tuning ? { tuning: true } : { guarded: true })
 
     if (staged.refused.value !== null) {
       this.state.value = 'failed'
@@ -194,6 +236,7 @@ class Panel implements ParamPanel {
     this.chosen.value = {}
     this.state.value = 'idle'
     this.detail.value = ''
+    this.outcome.value = null
     this.ids.forEach(id => this.handle.staged.discard(id))
   }
 }
@@ -203,8 +246,14 @@ class Panel implements ParamPanel {
  *
  * @param ids the parameters the page writes
  * @param handle the parameters, the queue, the connection and the telemetry
+ * @param options how it is used
+ * @param options.tuning the Tune screen's panel, whose changes may be written while the vehicle is armed (after a hold)
  * @returns the panel
  */
-export function useParamPanel(ids: readonly string[], handle: ConfiguratorHandle): ParamPanel {
-  return new Panel(ids, handle)
+export function useParamPanel(
+  ids: readonly string[],
+  handle: ConfiguratorHandle,
+  options: { tuning?: boolean } = {},
+): ParamPanel {
+  return new Panel(ids, handle, options.tuning === true)
 }

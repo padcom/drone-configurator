@@ -5,6 +5,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
 import { includesGuarded } from '@/lib/logs/loggingSetup'
+import { refusalOf } from '@/lib/tune/table'
 import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param, ParamWrite } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
@@ -27,6 +28,12 @@ export interface StagedChange {
    * backend refuses it then too. A change from the Parameters screen is not guarded.
    */
   guarded?: boolean
+  /**
+   * Set when the Tune screen queued it: it MAY be written while the vehicle is armed (the leader's decision Q7), after a hold,
+   * but never
+   * while the armed state is not known, and only for a parameter of the Tune screen within its limits, here and in the backend.
+   */
+  tuning?: boolean
 }
 
 /** How a staged change went when it was written. */
@@ -43,7 +50,12 @@ export interface StagedResult {
 export interface StageOptions {
   /** The page is a Setup page: the changes are refused while the vehicle is armed, or may be, here and in the backend. */
   guarded?: boolean
+  /** The page is the Tune screen: its changes may be written while armed (after a hold), not when the state is unknown. */
+  tuning?: boolean
 }
+
+/** Who queues a change: a Setup page, the Tune screen, or neither. */
+type StageHow = Pick<StageOptions, 'guarded' | 'tuning'>
 
 /** What the staged changes need from the rest of the interface. */
 export interface StagedDeps {
@@ -57,6 +69,10 @@ export interface StagedDeps {
   confirm: (question: string) => Promise<boolean>
   /** Whether the vehicle is armed or may be (unknown counts as armed): logging settings are neither queued nor written then. */
   mayBeArmed?: () => boolean
+  /** Whether the vehicle is armed (true), disarmed (false), or its state is not known (undefined): tuning needs it known. */
+  armedState?: () => boolean | undefined
+  /** Asks the user to confirm `question` with a HOLD (a tuning change while armed); the writes go ahead only on true. */
+  confirmHold?: (question: string) => Promise<boolean>
 }
 
 /** The staged changes, as refs and actions. */
@@ -160,7 +176,9 @@ export function endsSession(next: Connection, before: Connection): boolean {
 function writeOf(param: Param, change: StagedChange): ParamWrite {
   const { id, kind, type } = param
 
-  return { id, kind, type, value: change.to, ...change.guarded ? { guarded: true } : {} }
+  const how = { ...change.guarded ? { guarded: true } : {}, ...change.tuning ? { tuning: true } : {} }
+
+  return { id, kind, type, value: change.to, ...how }
 }
 
 /**
@@ -169,11 +187,25 @@ function writeOf(param: Param, change: StagedChange): ParamWrite {
  * @param id the parameter
  * @param from the value on the vehicle
  * @param to the value to write
- * @param guarded whether a Setup page queues it
+ * @param how who queues it: a Setup page (`guarded`), the Tune screen (`tuning`), or neither
  * @returns the change
  */
-function changeOf(id: string, from: number, to: number, guarded: boolean): StagedChange {
-  return guarded ? { id, from, to, guarded } : { id, from, to }
+function changeOf(id: string, from: number, to: number, how: Pick<StageOptions, 'guarded' | 'tuning'>): StagedChange {
+  return { id, from, to, ...how.guarded === true ? { guarded: true } : {}, ...how.tuning === true ? { tuning: true } : {} }
+}
+
+/**
+ * Why a value is not queued for the Tune screen: it is outside the limits of ArduPilot's table (negative, above its most, not a
+ * number).
+ *
+ * @param id the parameter
+ * @param value the value
+ * @returns the words, or null when it is within them
+ */
+function limitMessage(id: string, value: number): string | null {
+  const refusal = refusalOf(id, value)
+
+  return refusal === null ? null : say(`staged.tuning.${refusal}`, { id, value: showNumber(value) })
 }
 
 /** The staged changes. */
@@ -186,6 +218,8 @@ class Staged implements StagedModel {
   readonly leftOut = shallowRef<{ count: number } | null>(null)
   /** How many changes of the run under way were taken out while its question was open, and so are left out of it. */
   private skipped = 0
+  /** Whether the vehicle was armed when the question of the run was asked (a tuning change then had the hold). */
+  private askedArmed = false
   readonly writing = shallowRef(false)
   readonly readBack = shallowRef(0)
   /** Goes up when the changes are forgotten, so that a run that was under way knows it is over. */
@@ -259,11 +293,12 @@ class Staged implements StagedModel {
    * value from another page), and the reason is kept for the page to say.
    *
    * @param id the parameter
-   * @param guarded whether a Setup page queues it (refused armed whatever the parameter is)
+   * @param how who queues it: a Setup page (refused armed whatever the parameter is), or the Tune screen (refused only when
+   * unknown)
    * @returns true if it is refused
    */
-  private refuses(id: string, guarded = false): boolean {
-    const message = this.armedMessage(id, guarded)
+  private refuses(id: string, how: StageHow = {}): boolean {
+    const message = this.armedMessage(id, how)
     if (message === null) {
       return false
     }
@@ -276,18 +311,41 @@ class Staged implements StagedModel {
    * Why a parameter is not queued now because the vehicle may be armed: a Setup page's change, or a logging or notch parameter.
    *
    * @param id the parameter
-   * @param guarded whether a Setup page queues it
+   * @param how who queues it
    * @returns the words, or null when it may be queued
    */
-  private armedMessage(id: string, guarded: boolean): string | null {
-    if (!this.mayBeArmed()) {
-      return null
+  private armedMessage(id: string, how: StageHow): string | null {
+    if (how.tuning === true) {
+      // The Tune screen's changes are for a vehicle in flight too: only a state that is not known stops them.
+      return this.stateUnknown() ? say('staged.tuning.unknown') : null
     }
-    if (guarded) {
+
+    return this.mayBeArmed() ? this.armedSetupMessage(id, how) : null
+  }
+
+  /**
+   * Why a parameter is not queued from a page that is not the Tune screen while the vehicle may be armed.
+   *
+   * @param id the parameter
+   * @param how who queues it
+   * @returns the words, or null when it may be queued
+   */
+  private armedSetupMessage(id: string, how: StageHow): string | null {
+    if (how.guarded === true) {
       return say('staged.armedSetup')
     }
 
     return includesGuarded([id]) ? say('staged.armedGuarded') : null
+  }
+
+  /**
+   * Whether the vehicle's armed state is not known (no recent heartbeat, or nobody to ask): a tuning change is not queued or
+   * written then.
+   *
+   * @returns true if it is not known
+   */
+  private stateUnknown(): boolean {
+    return this.deps.armedState?.() === undefined
   }
 
   /**
@@ -375,9 +433,9 @@ class Staged implements StagedModel {
 
   stage(targets: { id: string, to: number }[], options: StageOptions = {}): number {
     this.refused.value = null
-    const guarded = options.guarded === true
+    const how: StageHow = { guarded: options.guarded === true, tuning: options.tuning === true }
 
-    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to, guarded)).length
+    return this.writing.value ? 0 : targets.filter(({ id, to }) => this.stageOne(id, to, how)).length
   }
 
   /**
@@ -397,11 +455,30 @@ class Staged implements StagedModel {
    *
    * @param param the parameter
    * @param value the value
-   * @param guarded whether a Setup page queues it
+   * @param how who queues it
    * @returns true if it can
    */
-  private stageable(param: Param, value: number, guarded: boolean): boolean {
-    return this.writable(param, value) && !this.refuses(param.id, guarded)
+  private stageable(param: Param, value: number, how: StageHow): boolean {
+    return this.writable(param, value) && !this.refuses(param.id, how) && !this.beyondLimits(param.id, value, how)
+  }
+
+  /**
+   * Whether a value the Tune screen queues is outside the limits of ArduPilot's table (negative, above its most): it is not
+   * queued, and
+   * the reason is kept for the page to say.
+   *
+   * @param id the parameter
+   * @param value the value
+   * @param how who queues it
+   * @returns true if it is refused
+   */
+  private beyondLimits(id: string, value: number, how: StageHow): boolean {
+    const message = how.tuning === true ? limitMessage(id, value) : null
+    if (message !== null) {
+      this.refused.value = message
+    }
+
+    return message !== null
   }
 
   /**
@@ -409,10 +486,11 @@ class Staged implements StagedModel {
    *
    * @param id the parameter
    * @param to the value
-   * @param guarded whether a Setup page queues it (the change is then marked, and not written while the vehicle may be armed)
+   * @param how who queues it: a Setup page (marked: not written while the vehicle may be armed), the Tune screen (marked: it may
+   * be written armed, after a hold), or neither
    * @returns true if a change is queued now
    */
-  private stageOne(id: string, to: number, guarded: boolean): boolean {
+  private stageOne(id: string, to: number, how: StageHow): boolean {
     const param = this.deps.parameters.params.value.find(candidate => candidate.id === id)
     if (!param) {
       return false
@@ -423,10 +501,10 @@ class Staged implements StagedModel {
 
       return false
     }
-    if (!this.stageable(param, value, guarded)) {
+    if (!this.stageable(param, value, how)) {
       return false
     }
-    this.put(changeOf(id, param.value, value, guarded))
+    this.put(changeOf(id, param.value, value, how))
 
     return true
   }
@@ -600,7 +678,18 @@ class Staged implements StagedModel {
   private refusesChanges(todo: StagedChange[]): boolean {
     const setup = todo.some(change => change.guarded === true)
 
-    return this.refusesLogging(todo.map(change => change.id)) || (setup && this.mayBeArmed())
+    return this.refusesLogging(todo.map(change => change.id)) || (setup && this.mayBeArmed()) || this.refusesTuning(todo)
+  }
+
+  /**
+   * Whether these changes include a tuning one while the vehicle's state is not known: not written (it may be armed, and then the
+   * hold that was asked for was not the question that fits; and the backend refuses it too).
+   *
+   * @param todo the changes
+   * @returns true if they are refused
+   */
+  private refusesTuning(todo: StagedChange[]): boolean {
+    return todo.some(change => change.tuning === true) && this.stateUnknown()
   }
 
   /**
@@ -638,7 +727,45 @@ class Staged implements StagedModel {
    * @returns true to write
    */
   private stillYes(yes: boolean, epoch: number, todo: StagedChange[]): boolean {
-    return yes && epoch === this.epoch && !this.refusesChanges(todo)
+    return yes && epoch === this.epoch && !this.refusesChanges(todo) && !this.armedSinceAsked(todo)
+  }
+
+  /**
+   * Whether tuning changes would be written to a vehicle that armed while the single question (the disarmed one) was open: they
+   * need
+   * the hold, so the question is asked again.
+   *
+   * @param todo the changes
+   * @returns true if the vehicle is armed now and was not when the question was asked
+   */
+  private armedSinceAsked(todo: StagedChange[]): boolean {
+    return todo.some(change => change.tuning === true) && this.deps.armedState?.() === true && !this.askedArmed
+  }
+
+  /**
+   * Asks the question before the writes: the single question, or, for tuning changes while the vehicle is ARMED, a HOLD that says
+   * the changes apply in flight (and nothing is written when there is no way to hold: the answer is no).
+   *
+   * @param todo the changes, with the values the vehicle has now
+   * @returns whether the user said yes
+   */
+  private ask(todo: StagedChange[]): Promise<boolean> {
+    const question = questionFor(todo)
+    this.askedArmed = this.deps.armedState?.() === true
+
+    return todo.some(change => change.tuning === true) && this.askedArmed ? this.hold(question) : this.deps.confirm(question)
+  }
+
+  /**
+   * Asks the HOLD of a tuning write to a vehicle that is armed; with no way to hold, the answer is no.
+   *
+   * @param question the question of the write
+   * @returns whether the user held to confirm
+   */
+  private hold(question: string): Promise<boolean> {
+    const { confirmHold } = this.deps
+
+    return confirmHold === undefined ? Promise.resolve(false) : confirmHold([say('staged.tuning.armed'), question].join('\n'))
   }
 
   async writeAll(): Promise<void> {
@@ -649,7 +776,7 @@ class Staged implements StagedModel {
     const { epoch } = this
     // The lock is taken after the answer: the question is a modal dialog, and a button turned off behind it would lose the
     // focus that the dialog gives back.
-    const yes = await this.deps.confirm(questionFor(this.withCurrentValues(todo)))
+    const yes = await this.ask(this.withCurrentValues(todo))
     // The vehicle may have armed while the question was open.
     if (this.stillYes(yes, epoch, todo)) {
       await this.writeLocked(todo, epoch)

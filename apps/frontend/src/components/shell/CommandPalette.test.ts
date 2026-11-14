@@ -198,6 +198,9 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Switch to Setup',
     ...SETUP_LABELS,
     'Switch to Tune',
+    'Switch to Tune: Filters',
+    'Switch to Tune: More groups',
+    'Switch to Tune: Rate',
   ])
 })
 
@@ -215,7 +218,7 @@ it('names the group of each command in its row', async () => {
     'Logs',
     'Vehicle',
     'Parameters',
-    ...Array(24).fill('Navigate'),
+    ...Array(27).fill('Navigate'),
   ])
 })
 
@@ -224,7 +227,8 @@ it('lists the command that was run last first, and remembers it for the next ope
   ctrlP()
   await flushPromises()
   await wrapper.get('[data-command="go.tune"]').trigger('click')
-  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/tune'))
+  // (the screen opens at its first part)
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/tune/rate'))
   ctrlP()
   await flushPromises()
 
@@ -323,11 +327,11 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   expect(active()).toBe('connect.open')
 
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('go.tune')
+  expect(active()).toBe('go.tune.rate')
   await input.trigger('keydown', { key: 'ArrowDown' })
   expect(active()).toBe('connect.open')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('go.tune')
+  expect(active()).toBe('go.tune.rate')
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('connect.open')
   await input.trigger('keydown', { key: 'PageDown' })
@@ -378,7 +382,7 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   expect(wrapper.get('#palette-list').attributes('role')).toBe('listbox')
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
-  expect(selected).toEqual(['true', ...Array(31).fill('false')])
+  expect(selected).toEqual(['true', ...Array(34).fill('false')])
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {
@@ -391,7 +395,7 @@ it('says how many commands there are, a moment after the query changes (not on e
   // The region is there at once, and empty: what is put in it a moment later is spoken (a region made full is not).
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
-  expect(status()).toBe('32 results')
+  expect(status()).toBe('35 results')
   await type(wrapper, 'param')
   expect(status()).toBe('')
   await vi.advanceTimersByTimeAsync(500)
@@ -472,12 +476,12 @@ it('starts afresh on every opening: no old query, the first row selected, the co
   await flushPromises()
 
   expect((wrapper.get('#palette-input').element as HTMLInputElement).value).toBe('')
-  expect(labels(wrapper)).toHaveLength(32)
+  expect(labels(wrapper)).toHaveLength(35)
   expect(wrapper.get('.palette-row.active').attributes('data-command')).toBe('connect.open')
   expect(wrapper.get('.palette-status').text()).toBe('')
   await vi.advanceTimersByTimeAsync(200)
 
-  expect(wrapper.get('.palette-status').text()).toBe('32 results')
+  expect(wrapper.get('.palette-status').text()).toBe('35 results')
 })
 
 it('selects the first row that may run, not a disabled one at the top', async () => {

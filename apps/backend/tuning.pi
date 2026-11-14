@@ -1,0 +1,76 @@
+// The parameters the Tune screen may write, and the limits of each. A write that carries `tuning` (param-write in the contract) is
+// the ONE kind of write that is allowed while the vehicle is armed (the leader's decision Q7: tuning is done in flight), so this
+// list is the whole of what such a write can touch: a name that is not here is refused, armed or not, and a value outside the limits
+// is refused whatever the page says. The page has the same table (apps/frontend/src/lib/tune/table.ts, with a test that the two agree).
+//
+// WHERE THE NAMES AND LIMITS COME FROM: ArduPilot's own source, `@Param` and `@Range` of each. The limit is the greatest of the
+// `@Range` (a gain above what ArduPilot's table allows is refused), and the least is 0 for all of them (a negative gain or time is
+// refused: no parameter here is meant to be negative). The names are those of ArduPilot master (libraries/AC_AttitudeControl/
+// AC_AttitudeControl.cpp, AC_AttitudeControl_Multi.cpp, AC_PosControl.cpp, ArduCopter/Parameters.cpp) and of the arducopter that CI's
+// SITL runs (the group names are in its binary): both have the same names. A firmware that names a parameter differently has no such
+// parameter in this table, and the page then shows no slider for it. Nothing here is a wildcard.
+import { CommunicatorError } from "pico-desktop/communicator"
+
+/// One parameter of the list: its name, and the most it may be.
+export struct Tunable {
+  id: string
+  max: f64
+}
+
+/// The list, in the order of the Tune screen's groups: rate, attitude, pilot feel, position, radio knob.
+export const TUNABLE: Tunable[] = [
+  Tunable { id: "ATC_RAT_RLL_P", max: 0.5 },
+  Tunable { id: "ATC_RAT_RLL_I", max: 2.0 },
+  Tunable { id: "ATC_RAT_RLL_D", max: 0.05 },
+  Tunable { id: "ATC_RAT_RLL_FF", max: 0.5 },
+  Tunable { id: "ATC_RAT_PIT_P", max: 0.5 },
+  Tunable { id: "ATC_RAT_PIT_I", max: 2.0 },
+  Tunable { id: "ATC_RAT_PIT_D", max: 0.05 },
+  Tunable { id: "ATC_RAT_PIT_FF", max: 0.5 },
+  Tunable { id: "ATC_RAT_YAW_P", max: 2.5 },
+  Tunable { id: "ATC_RAT_YAW_I", max: 1.0 },
+  Tunable { id: "ATC_RAT_YAW_D", max: 0.02 },
+  Tunable { id: "ATC_RAT_YAW_FF", max: 0.5 },
+  Tunable { id: "ATC_ANG_RLL_P", max: 12.0 },
+  Tunable { id: "ATC_ANG_PIT_P", max: 12.0 },
+  Tunable { id: "ATC_ANG_YAW_P", max: 12.0 },
+  Tunable { id: "ATC_INPUT_TC", max: 1.0 },
+  Tunable { id: "ATC_ACC_R_MAX", max: 1800.0 },
+  Tunable { id: "ATC_ACC_P_MAX", max: 1800.0 },
+  Tunable { id: "ATC_ACC_Y_MAX", max: 720.0 },
+  Tunable { id: "ATC_RATE_R_MAX", max: 1080.0 },
+  Tunable { id: "ATC_RATE_P_MAX", max: 1080.0 },
+  Tunable { id: "ATC_RATE_Y_MAX", max: 1080.0 },
+  Tunable { id: "PSC_NE_POS_P", max: 4.0 },
+  Tunable { id: "PSC_D_POS_P", max: 4.0 },
+  Tunable { id: "PSC_NE_VEL_P", max: 10.0 },
+  Tunable { id: "PSC_NE_VEL_I", max: 10.0 },
+  Tunable { id: "PSC_NE_VEL_D", max: 1.0 },
+  Tunable { id: "PSC_D_VEL_P", max: 10.0 },
+  Tunable { id: "PSC_D_ACC_P", max: 0.25 },
+  Tunable { id: "PSC_D_ACC_I", max: 0.5 },
+  Tunable { id: "TUNE", max: 61.0 },
+]
+
+/// The entry of a name, or null when it is not in the list.
+function entryOf(id: string): Tunable? {
+  for (const t of TUNABLE) {
+    if (t.id == id) {
+      return t
+    }
+  }
+  null
+}
+
+/// Refuses a tuning write whose name is not in the list (`NOT_TUNING`) or whose value is outside its limits (`OUT_OF_LIMITS`: negative, not
+/// a number, or above the most ArduPilot's table allows). Nothing is sent to the vehicle for a refused write.
+export function refuseUntunable(id: string, value: f64): void throws CommunicatorError {
+  const t = entryOf(id)
+  if (t == null) {
+    throw new CommunicatorError("NOT_TUNING", `${id} is not a parameter the Tune screen may write`)
+  }
+  // (written so that NaN is outside)
+  if (!(value >= 0.0 && value <= t!.max)) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `${id} is 0 to ${t!.max}, not ${value}`)
+  }
+}

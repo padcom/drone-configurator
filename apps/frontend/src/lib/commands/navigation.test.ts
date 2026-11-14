@@ -66,18 +66,29 @@ describe('where the focus goes after a command that goes to a screen', () => {
 })
 
 const LOGS_PARTS = ['flights', 'replay', 'spectrum', 'vehicle', 'tools']
+const TUNE_PARTS = ['rate', 'more', 'filters']
 const SETUP_PARTS = [
   'home', 'frame', 'accel', 'compass', 'radio', 'motors', 'modes', 'failsafes', 'battery', 'serial', 'devices', 'info',
 ]
+
+/**
+ * Something made of each part of each screen that has parts, in the order of the screens.
+ *
+ * @param make makes it of a screen and a part
+ * @returns what was made
+ */
+function eachPart(make: (screen: string, part: string) => string): string[] {
+  const screens = [['setup', SETUP_PARTS], ['tune', TUNE_PARTS], ['logs', LOGS_PARTS]] as const
+
+  return screens.flatMap(([screen, parts]) => parts.map(part => make(screen, part)))
+}
 
 describe('the commands that go to a part of a screen', () => {
   it('are one for each part of each screen that has parts, in order, with the address of the part', () => {
     const commands = goToSections()
 
-    expect(commands.map(command => command.id))
-      .toEqual([...SETUP_PARTS.map(part => `go.setup.${part}`), ...LOGS_PARTS.map(part => `go.logs.${part}`)])
-    expect(commands.map(command => command.href))
-      .toEqual([...SETUP_PARTS.map(part => `/setup/${part}`), ...LOGS_PARTS.map(part => `/logs/${part}`)])
+    expect(commands.map(command => command.id)).toEqual(eachPart((screen, part) => `go.${screen}.${part}`))
+    expect(commands.map(command => command.href)).toEqual(eachPart((screen, part) => `/${screen}/${part}`))
     expect(commands.every(command => command.groupKey === 'palette.group.navigate')).toBe(true)
     expect(commands.every(command => command.isEnabled().enabled)).toBe(true)
   })

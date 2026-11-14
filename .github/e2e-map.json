@@ -7,13 +7,20 @@
       "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
         "apps/frontend/src/composables/{useParam*,useStaged,useGroupsSetting,useMetadata,favourites}.ts",
-        "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,groups,files,settings}.pi"
+        "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,groups,files,settings,tuning}.pi"
       ],
       "specs": [
         "param-*.e2e.ts", "configurator.e2e.ts", "confirm.e2e.ts", "favourites.e2e.ts", "view.e2e.ts", "initial.e2e.ts", "bitmask.e2e.ts",
         "lists.e2e.ts", "list-top.e2e.ts", "value-rounding.e2e.ts", "groups-setting.e2e.ts", "combobox-scrollbar.e2e.ts", "sitl.e2e.ts",
         "calibration.e2e.ts", "sitl-calibration.e2e.ts"
       ]
+    },
+    {
+      "when": [
+        "apps/frontend/src/components/tune/**", "apps/frontend/src/lib/tune/**", "apps/frontend/src/screens/{Tune.vue,tune/**}",
+        "apps/frontend/src/composables/useTunePanel.ts"
+      ],
+      "specs": ["tune.e2e.ts", "shell.e2e.ts"]
     },
     {
       "when": [
