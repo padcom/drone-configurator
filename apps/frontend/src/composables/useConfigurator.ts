@@ -17,6 +17,7 @@ import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
+import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -72,6 +73,8 @@ export interface ConfiguratorHandle {
   setup: SetupModel
   /** The calibration of the vehicle's sensors (the accelerometer and the compass): its state, and the actions. */
   calibration: CalibrationModel
+  /** The motor test of the Motors page: one motor, for as long as a button is held. */
+  motorTest: MotorTestModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -289,6 +292,8 @@ interface LogsStart {
   parameters: ParamsModel
   /** Asks the user a question (a removal that a changed setting would make is asked about first). */
   confirm: (question: string) => Promise<boolean>
+  /** The motor test (the armed state while it runs, and just after, is its own, and is no flight to land from). */
+  motorTest: MotorTestModel
 }
 
 /**
@@ -410,7 +415,7 @@ function startLogs(deps: LogsStart): Pick<ConfiguratorHandle, 'logs' | 'housekee
   watch(() => `${prefs().retentionDays}/${prefs().sizeCapMb}`, () => settings.loaded.value && guard.changed())
   watch(logs.outcome, outcome => outcome?.kind === 'downloaded' && void housekeeping.run())
   const { connection, telemetry } = vehicle
-  useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell })
+  useAutoDownload({ logs, connection, telemetry, enabled: () => prefs().autoDownload, tell, quiet: deps.motorTest.busy })
 
   return { logs, housekeeping }
 }
@@ -437,6 +442,7 @@ function draftChecks(metadata: ReturnType<typeof useMetadata>): Pick<ParamsDeps,
  * @param parameters the parameters
  */
 function listen(client: BackendClient, vehicle: Vehicle, parameters: ParamsModel): void {
+  downloadOnConnect(vehicle, parameters)
   client.onState(state => vehicle.backendChanged(state))
   client.onEvent('params.changed', param => parameters.announced(param))
   void vehicle.watch()
@@ -502,11 +508,11 @@ export function createConfigurator(
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)
-  downloadOnConnect(vehicle, parameters)
   const messages = startMessages(client, vehicle)
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   const staged = stagedFor(client, parameters, vehicle, { confirm: askUser, confirmHold: holdOf(confirmWith, vehicle) })
-  const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser })
+  const motorTest = useMotorTest({ client, connection: vehicle.connection, telemetry: vehicle.telemetry, parameters })
+  const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser, motorTest })
   listen(client, vehicle, parameters)
   // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
   watch(metadata.metadata, () => parameters.refreshWarning())
@@ -514,6 +520,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle),
     calibration: startCalibration(client, vehicle),
+    motorTest,
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

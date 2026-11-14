@@ -1,8 +1,9 @@
 // End to end, in the real window with the real backend and the simulated vehicle behind a TCP port (no SITL): the Motors page.
 // The outputs of the vehicle are a table that is only read (the four motors at rest), the ESC protocol is a named choice, the
-// spin thresholds are written with the page's one question or not at all when they are out of order, and nothing on the page
-// can send anything to a motor. The checks go on from one another: one app, one connection.
-import { afterAll, beforeAll, expect, it } from 'vitest'
+// spin thresholds are written with the page's one question or not at all when they are out of order, and a motor turns only while
+// a button of the motor test is HELD (with the propellers said to be off), and stops when it is let go or the page is left. The
+// checks go on from one another: one app, one connection.
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
 import { TcpVehicle } from './tcp-vehicle'
@@ -65,14 +66,18 @@ afterAll(async () => {
   }
 })
 
-it('shows the four motor outputs at rest, and has no button but the parameters\' own', async () => {
+it('shows the four motor outputs at rest, and only the parameters\' buttons and the locked ones of the motor test', async () => {
   await openPage('motors')
   await window().waitFor(`document.querySelectorAll('#setup-outputs tr').length === 4`, 30_000)
 
   expect(await window().text('[data-output="1"]')).toContain('Output 1')
   expect(await window().text('[data-output="1"]')).toContain('1000 µs')
-  const buttons = await window().evaluate<string[]>(`[...document.querySelectorAll('.setup-page-body button')].map(b => b.id)`)
+  const others = `.setup-page-body button:not(.motor-test-motor)`
+  const buttons = await window().evaluate<string[]>(`[...document.querySelectorAll('${others}')].map(b => b.id)`)
   expect(buttons).toEqual(['setup-motors-revert', 'setup-motors-write'])
+  const locked = await window().evaluate<boolean[]>(`[...document.querySelectorAll('.motor-test-motor')].map(b => b.disabled)`)
+  expect(locked).toEqual([true, true, true, true])
+  expect(vehicle?.motorStarts).toBe(0)
 })
 
 it('names the ESC protocol the vehicle has', async () => {
@@ -92,4 +97,82 @@ it('chooses a spin threshold, and holds the write when they are out of order', a
   await window().waitFor(`document.querySelector('#setup-spin-order') === null`, 10_000)
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(false)
   expect(vehicle?.writes).toBe(0)
+})
+
+/**
+ * A pointer event on a button of the motor test, as the browser sends it.
+ *
+ * @param letter the motor's letter
+ * @param type the event
+ */
+async function pointer(letter: string, type: 'pointerdown' | 'pointerup'): Promise<void> {
+  const button = `document.querySelector('[data-motor="${letter}"]')`
+  const event = `new PointerEvent('${type}', { button: 0, isPrimary: true, bubbles: true })`
+  await window().evaluate(`${button}.dispatchEvent(${event})`)
+}
+
+/**
+ * How many tests of a motor the vehicle was told to begin.
+ *
+ * @returns the count
+ */
+function started(): number {
+  return vehicle?.motorStarts ?? 0
+}
+
+/**
+ * How many times the vehicle was told to stop a motor.
+ *
+ * @returns the count
+ */
+function stopped(): number {
+  return vehicle?.motorStops ?? 0
+}
+
+it('spins a motor only while its button is held, with the propellers off, and stops it when it is let go', async () => {
+  // the buttons are locked: a press on one does nothing
+  await pointer('A', 'pointerdown')
+  await pointer('A', 'pointerup')
+  expect(started()).toBe(0)
+
+  await window().click('.kit-tick input')
+  await window().waitFor(`document.querySelector('[data-motor="A"]').disabled === false`, 10_000)
+  await pointer('A', 'pointerdown')
+  await vi.waitFor(() => expect(started()).toBeGreaterThan(0), { timeout: 15_000 })
+  expect(await window().text('#setup-motor-test-status')).toContain('Motor A is running')
+  const stops = stopped()
+  await pointer('A', 'pointerup')
+
+  await vi.waitFor(() => expect(stopped()).toBeGreaterThan(stops), { timeout: 15_000 })
+  const status = `document.querySelector('#setup-motor-test-status').textContent`
+  await window().waitFor(`${status}.includes('Motor A stopped')`, 10_000)
+})
+
+it('stops the motor when the page is left while its button is held', async () => {
+  // (the vehicle needs a moment after a test before the next)
+  await window().waitFor(`document.querySelector('[data-motor="B"]').disabled === false`, 15_000)
+  const starts = started()
+  await pointer('B', 'pointerdown')
+  await vi.waitFor(() => expect(started()).toBeGreaterThan(starts), { timeout: 15_000 })
+  const stops = stopped()
+  await openPage('radio')
+
+  await vi.waitFor(() => expect(stopped()).toBeGreaterThan(stops), { timeout: 15_000 })
+})
+
+it('stops the motor with a stop the vehicle receives when the window is closed while its button is held', async () => {
+  await openPage('motors')
+  await window().click('.kit-tick input')
+  await window().waitFor(`document.querySelector('[data-motor="C"]').disabled === false`, 20_000)
+  const starts = started()
+  await pointer('C', 'pointerdown')
+  await vi.waitFor(() => expect(started()).toBeGreaterThan(starts), { timeout: 15_000 })
+  const stops = stopped()
+  // the window closes with the button down: the host tells the backend, which ends the session (and the stop goes out first)
+  const closing = window()
+  app = undefined
+  await closing.close()
+
+  // an explicit stop (a timeout of 0), not the vehicle's own 1.5 s running out
+  await vi.waitFor(() => expect(stopped()).toBeGreaterThan(stops), { timeout: 15_000 })
 })

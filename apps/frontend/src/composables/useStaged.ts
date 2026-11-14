@@ -5,7 +5,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
 import { includesGuarded } from '@/lib/logs/loggingSetup'
-import { refusalOf } from '@/lib/tune/table'
+import { refusalOf, tuneParam } from '@/lib/tune/table'
 import { isCalibration } from '@/lib/params/calibrationParams'
 import type { Connection, Param, ParamWrite } from '@/generated/app'
 import { canonical, notConfirmedText, showNumber, typedValue } from '@/lib/params/paramValue'
@@ -200,12 +200,13 @@ function changeOf(id: string, from: number, to: number, how: Pick<StageOptions, 
  *
  * @param id the parameter
  * @param value the value
+ * @param armed whether the vehicle is armed (then the least of the table is a limit too)
  * @returns the words, or null when it is within them
  */
-function limitMessage(id: string, value: number): string | null {
-  const refusal = refusalOf(id, value)
+function limitMessage(id: string, value: number, armed: boolean): string | null {
+  const refusal = refusalOf(id, value, armed)
 
-  return refusal === null ? null : say(`staged.tuning.${refusal}`, { id, value: showNumber(value) })
+  return refusal === null ? null : say(`staged.tuning.${refusal}`, { id, value: showNumber(value), min: tuneParam(id)?.lo ?? 0 })
 }
 
 /** The staged changes. */
@@ -473,7 +474,7 @@ class Staged implements StagedModel {
    * @returns true if it is refused
    */
   private beyondLimits(id: string, value: number, how: StageHow): boolean {
-    const message = how.tuning === true ? limitMessage(id, value) : null
+    const message = how.tuning === true ? limitMessage(id, value, this.deps.armedState?.() === true) : null
     if (message !== null) {
       this.refused.value = message
     }
@@ -689,7 +690,10 @@ class Staged implements StagedModel {
    * @returns true if they are refused
    */
   private refusesTuning(todo: StagedChange[]): boolean {
-    return todo.some(change => change.tuning === true) && this.stateUnknown()
+    const tuning = todo.filter(change => change.tuning === true)
+    const armed = this.deps.armedState?.() === true
+
+    return tuning.length > 0 && (this.stateUnknown() || tuning.some(change => refusalOf(change.id, change.to, armed) !== null))
   }
 
   /**
@@ -780,6 +784,21 @@ class Staged implements StagedModel {
     // The vehicle may have armed while the question was open.
     if (this.stillYes(yes, epoch, todo)) {
       await this.writeLocked(todo, epoch)
+    } else {
+      this.sayWhyNot(yes, todo)
+    }
+  }
+
+  /**
+   * The user said yes and nothing is written, because tuning changes are now refused (the vehicle armed or lost its state while
+   * the question was open: a value is outside what is allowed for it, or its state is not known): the page is told.
+   *
+   * @param yes the user's answer
+   * @param todo the changes
+   */
+  private sayWhyNot(yes: boolean, todo: StagedChange[]): void {
+    if (yes && this.refusesTuning(todo)) {
+      this.refused.value = say('staged.tuning.changed')
     }
   }
 

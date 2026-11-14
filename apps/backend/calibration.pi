@@ -364,7 +364,7 @@ function refuse(): void throws CommunicatorError {
   if (running.active) {
     throw new CommunicatorError("BUSY", "a calibration is already running")
   }
-  if (link.listing || link.writes > 0 || link.logging || rebootExpected()) {
+  if (link.listing || link.writes > 0 || link.logging || link.motorTest || rebootExpected()) {
     throw new CommunicatorError("BUSY", "parameters are being written or downloaded, a log is being downloaded, or a reboot is under way")
   }
 }

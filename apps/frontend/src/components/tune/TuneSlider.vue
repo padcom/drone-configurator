@@ -42,7 +42,7 @@
 // with the value, in words: a value outside the range (a warning, the page still writes it) or beyond the hard limit of the table
 // (negative, above its most: it is refused here and in the backend, and the panel does not write while one is chosen). Nothing is
 // drawn from the value: there is no preview of what the vehicle will do.
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import TextInput from '@/components/ui/TextInput.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -129,12 +129,19 @@ function onType(next: string): void {
   }
 }
 
+// The field shows the queue: when the value changes under a text that was typed (put back, or written), the text goes.
+watch(value, next => {
+  if (typed.value !== null && numberOf(typed.value) !== next) {
+    typed.value = null
+  }
+})
+
 /** Why the value is not written, as a message key: a text that is not a number, or a value beyond the hard limit; else null. */
 const problem = computed((): string | null => {
   if (typed.value !== null && !Number.isFinite(numberOf(typed.value))) {
     return 'tune.notNumber'
   }
-  const refusal = refusalOf(first.value, value.value)
+  const refusal = refusalOf(first.value, value.value, props.panel.armed.value)
 
   return refusal === null ? null : `tune.refused.${refusal}`
 })
@@ -142,7 +149,7 @@ const problem = computed((): string | null => {
 /** What to say about the value: the problem, else a warning when it is outside the range (the metadata's, else the table's). */
 const note = computed((): { text: string, problem: boolean } => {
   if (problem.value !== null) {
-    return { text: t(problem.value, { max: props.param.hi }), problem: true }
+    return { text: t(problem.value, { max: props.param.hi, min: props.param.lo }), problem: true }
   }
   const meta = handle.metadata.metadata.value.get(first.value) ?? tableMeta(props.param)
 

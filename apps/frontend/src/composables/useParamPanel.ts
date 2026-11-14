@@ -5,6 +5,7 @@
 // as armed), by the queue here and by the backend, and the panel says why instead of failing.
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { armedOf } from '@/lib/app/armed'
+import { type ValueType, canonical } from '@/lib/params/paramValue'
 import type { ConfiguratorHandle } from './useConfigurator'
 
 /** Why the panel cannot be written now, or null. */
@@ -126,6 +127,7 @@ class Panel implements ParamPanel {
   readonly outcome = shallowRef<PanelOutcome | null>(null)
   private readonly chosen = shallowRef<Record<string, number>>({})
   private readonly byId: ComputedRef<Map<string, number>>
+  private readonly typeById: ComputedRef<Map<string, ValueType>>
 
   /**
    * Makes the panel.
@@ -137,6 +139,7 @@ class Panel implements ParamPanel {
   constructor(readonly ids: readonly string[], private readonly handle: ConfiguratorHandle, private readonly tuning = false) {
     const { parameters, staged, fields } = handle
     this.byId = computed(() => new Map(parameters.params.value.map(param => [param.id, param.value])))
+    this.typeById = computed(() => new Map(parameters.params.value.map(param => [param.id, param])))
     this.missing = computed(() => ids.filter(id => !this.byId.value.has(id)))
     this.dirty = computed(() => ids.filter(id => this.isDirty(id)))
     this.blocked = computed(() => {
@@ -163,7 +166,24 @@ class Panel implements ParamPanel {
    * @returns true if it does
    */
   private isDirty(id: string): boolean {
-    return id in this.chosen.value && this.byId.value.has(id) && this.chosen.value[id] !== this.vehicleValue(id)
+    const chosen = this.chosen.value[id]
+    const vehicle = this.vehicleValue(id)
+
+    return chosen !== undefined && vehicle !== null && this.canon(id, chosen) !== this.canon(id, vehicle)
+  }
+
+  /**
+   * A value as the vehicle holds it (a REAL32 is the float nearest to it: a typed 0.18 is the vehicle's 0.18000000298), so that
+   * what is typed is compared with what the vehicle has as the same kind of number.
+   *
+   * @param id the parameter
+   * @param value the value
+   * @returns the number the vehicle would hold
+   */
+  private canon(id: string, value: number): number {
+    const type = this.typeById.value.get(id)
+
+    return type === undefined ? value : canonical(type, value)
   }
 
   vehicleValue = (id: string): number | null => this.byId.value.get(id) ?? null
@@ -210,6 +230,22 @@ class Panel implements ParamPanel {
     return this.blocked.value === null && this.dirty.value.length > 0 && !this.writing.value
   }
 
+  /**
+   * Whether the queue refused: the page says why, and nothing is written.
+   *
+   * @param staged the queue
+   * @returns true if it did
+   */
+  private refusedBy(staged: ConfiguratorHandle['staged']): boolean {
+    if (staged.refused.value === null) {
+      return false
+    }
+    this.state.value = 'failed'
+    this.detail.value = staged.refused.value
+
+    return true
+  }
+
   write = async (): Promise<void> => {
     if (!this.writable()) {
       return
@@ -217,19 +253,40 @@ class Panel implements ParamPanel {
     const { staged } = this.handle
     const sent = [...this.dirty.value]
     const was = Object.fromEntries(sent.map(id => [id, this.vehicleValue(id) ?? 0]))
-    this.state.value = 'idle'
-    this.detail.value = ''
-    this.outcome.value = null
-    staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), this.tuning ? { tuning: true } : { guarded: true })
+    this.begin(sent)
 
-    if (staged.refused.value !== null) {
-      this.state.value = 'failed'
-      this.detail.value = staged.refused.value
-
+    if (this.refusedBy(staged)) {
       return
     }
     await staged.writeAll()
-    this.settle(sent, was)
+    // The queue may refuse after the question (the vehicle armed, or lost its state, meanwhile): nothing was written.
+    this.finish(sent, was)
+  }
+
+  /**
+   * Starts a write: clears what the last one said, and queues the changes.
+   *
+   * @param sent the parameters
+   */
+  private begin(sent: string[]): void {
+    this.state.value = 'idle'
+    this.detail.value = ''
+    this.outcome.value = null
+    const how = this.tuning ? { tuning: true } : { guarded: true }
+
+    this.handle.staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), how)
+  }
+
+  /**
+   * Ends a write: what it did is told, unless the queue refused after the question.
+   *
+   * @param sent the parameters
+   * @param was the values they had
+   */
+  private finish(sent: string[], was: Record<string, number>): void {
+    if (!this.refusedBy(this.handle.staged)) {
+      this.settle(sent, was)
+    }
   }
 
   revert = (): void => {

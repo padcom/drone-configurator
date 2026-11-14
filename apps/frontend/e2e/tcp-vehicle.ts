@@ -23,6 +23,9 @@ function environment(withLogs: boolean, withSetup: boolean): NodeJS.ProcessEnv {
 export class TcpVehicle {
   /** How many PARAM_SET messages it has received. */
   writes = 0
+  /** How many motor test commands it has received that start a motor, and that stop one. */
+  motorStarts = 0
+  motorStops = 0
   /** The TCP port it listens on, once it has said so. */
   port = 0
   readonly #child: ChildProcessByStdio<Writable, Readable, null>
@@ -92,6 +95,10 @@ export class TcpVehicle {
     if (line === 'param-set') {
       this.writes += 1
       this.#waiters.splice(0).forEach(resolve => resolve())
+    } else if (line === 'motor-start') {
+      this.motorStarts += 1
+    } else if (line === 'motor-stop') {
+      this.motorStops += 1
     }
   }
 }

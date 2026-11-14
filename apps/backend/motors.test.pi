@@ -1,0 +1,411 @@
+// The motor test service (`motors.test`, `motors.hold`), over an in-memory link against the simulated vehicle of pico-mavlink (its
+// motors: SimMotors, which keeps the commands it was sent and what its motor does). The test is a danger: a motor that spins with no one
+// to stop it. So each way a test can end has a test of its own, and each says the motor STOPPED; and each refusal has one that says
+// NOTHING WAS SENT to the vehicle.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { waits } from "./motors"
+import {
+  CalibrationKind,
+  CalibrationStart,
+  ConnectRequest,
+  ConnectRequestTransport,
+  MotorTestParams,
+  MotorTestState,
+  MotorTestStateState,
+  decodeMotorTestState,
+  encodeCalibrationStart,
+  encodeConnectRequest,
+  encodeMotorTestParams,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// A connected simulator, disarmed, that has not been told anything; and the interval that keeps it disarmed.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+  }
+
+  /// Ends the connection (its timers would keep the test process alive).
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+async function connected(): Promise<Rig> throws Error {
+  waits.silenceMs = 1000
+  waits.ackMs = 500
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  // The simulator arms itself after three ticks: a motor test is for a vehicle on the ground.
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  await afterBeat()
+  new Rig(f, sim, hold)
+}
+
+/// The error code of a reply, or "ok".
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+/// Subscribes to a test of `motor` at `throttle` percent; the reply.
+async function ask(f: Frontend, motor: int, throttle: int): Promise<Envelope> throws Error {
+  await f.trySubscribe("motors.test", encodeMotorTestParams(MotorTestParams { motor: motor as u8, throttle: throttle as u8 }))
+}
+
+/// The code a test that may not begin is refused with: the backend accepts the subscription and ends it at once, with the reason (the page
+/// reads it as the subscription's error). "ok" when it was not refused.
+async function refusedWith(f: Frontend, motor: int, throttle: int): Promise<string> throws Error {
+  const reply = await ask(f, motor, throttle)
+  if (errorOf(reply) != "ok") {
+    return errorOf(reply)
+  }
+  errorOf(await f.ended())
+}
+
+/// The next state the service tells.
+async function told(f: Frontend): Promise<MotorTestState> throws Error {
+  decodeMotorTestState((await f.event("motors.test")).p ?? Cbor.Null, "$")
+}
+
+/// Waits until `done` says so (up to a few seconds), and fails when it never does.
+async function until(what: string, done: () => bool): Promise<void> throws Error {
+  let waited = 0
+  while (!done() && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  expect(done()).toBe(true)
+  if (!done()) {
+    throw new Error(`never: ${what}`)
+  }
+}
+
+/// A test is running and the vehicle's motor spins.
+async function spins(r: Rig): Promise<void> throws Error {
+  await until("the motor spins", () => r.sim.motors.running())
+}
+
+/// Starts a test of motor 2 at 10 % and waits until the motor spins; the subscription's id.
+async function spinning(r: Rig): Promise<u64> throws Error {
+  const reply = await ask(r.f, 2, 10)
+  expect(errorOf(reply)).toBe("ok")
+  expect((await told(r.f)).state == MotorTestStateState.Running).toBe(true)
+  await spins(r)
+  reply.s ?? 0
+}
+
+/// The service says the motor is stopped, and the vehicle's motor is: with the stop it was sent, not by its own timeout.
+async function stoppedByAStop(r: Rig, why: string): Promise<MotorTestState> throws Error {
+  const state = await told(r.f)
+  expect(state.state == MotorTestStateState.Stopped).toBe(true)
+  expect(state.why ?? "").toBe(why)
+  expect(r.sim.motors.running()).toBe(false)
+  expect(r.sim.motors.stops >= 1).toBe(true)
+  expect(link.motorTest).toBe(false)
+  state
+}
+
+// What is never sent to the vehicle, whatever a test does.
+function neverMoreThanTheCaps(r: Rig): void {
+  expect(r.sim.motors.maxThrottle <= 20.0).toBe(true)
+  expect(r.sim.motors.maxSeconds <= 2.0).toBe(true)
+}
+
+async function holdsTheMotorWhileTheButtonIsHeldAndStopsItWhenItIsReleased(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await spinning(r)
+  // the test is the same short test sent again, never one long one (the page says it holds, as it does while the button is down)
+  let waited = 0
+  while (r.sim.motors.starts < 2 && waited < 4000) {
+    await r.f.call("motors.hold")
+    await delay(100)
+    waited += 100
+  }
+  expect(r.sim.motors.starts >= 2).toBe(true)
+  expect(r.sim.motors.lastMotor).toBe(2)
+  expect(link.motorTest).toBe(true)
+  await r.f.unsubscribe(s)
+  await until("the motor stops", () => !r.sim.motors.running())
+  await until("the test is over", () => !link.motorTest)
+  expect(r.sim.motors.stops >= 1).toBe(true)
+  neverMoreThanTheCaps(r)
+  expect(r.sim.motors.maxSeconds).toBe(1.5)
+  await r.close()
+}
+
+async function stopsTheMotorWhenThePageGoesSilent(): Promise<void> throws Error {
+  const r = await connected()
+  waits.silenceMs = 300
+  await spinning(r)
+  const state = await stoppedByAStop(r, "SILENT")
+  expect(state.confirmed ?? false).toBe(true)
+  neverMoreThanTheCaps(r)
+  await r.close()
+}
+
+async function keepsTheMotorWhileThePageSaysItHolds(): Promise<void> throws Error {
+  const r = await connected()
+  waits.silenceMs = 400
+  const s = await spinning(r)
+  // 1.2 s of "still held", three times the limit: the motor goes on
+  for (let i = 0; i < 12; i++) {
+    expect(errorOf(await r.f.call("motors.hold"))).toBe("ok")
+    await delay(100)
+  }
+  expect(r.sim.motors.running()).toBe(true)
+  expect(link.motorTest).toBe(true)
+  await r.f.unsubscribe(s)
+  await until("the motor stops", () => !r.sim.motors.running())
+  await r.close()
+}
+
+async function stopsTheMotorWhenTheLinkIsLost(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  // (the link is lost: operations stop, the connection is still there for the stop)
+  link.abortOperations()
+  const state = await stoppedByAStop(r, "LINK_LOST")
+  expect(state.confirmed ?? false).toBe(true)
+  await r.close()
+}
+
+/// The motor was stopped by a STOP that reached the vehicle (not by its own timeout, which is 1.5 s away): within a moment of `ms`.
+async function stoppedPromptly(r: Rig, stopsBefore: int): Promise<void> throws Error {
+  await delay(250)
+  expect(r.sim.motors.stops > stopsBefore).toBe(true)
+  expect(r.sim.motors.running()).toBe(false)
+  await until("the test is over", () => !link.motorTest)
+  neverMoreThanTheCaps(r)
+}
+
+async function stopsTheMotorWhenTheSessionEnds(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  link.close()
+  // The stop is sent as the session ends, and the connection stays open for a moment (closeGraceMs) for it: the router drops a frame that
+  // was not on a link when it is closed. The motor is stopped by it, long before the vehicle's own 1.5 s timeout would stop it.
+  expect(link.motorTest).toBe(true)
+  await stoppedPromptly(r, stopsBefore)
+  clearInterval(r.hold)
+}
+
+async function stopsTheMotorWhenTheUserDisconnects(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  await r.close()
+  await stoppedPromptly(r, stopsBefore)
+}
+
+async function stopsTheMotorWhenTheWindowCloses(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  // what the host says when the app is closing: the backend ends the session
+  await r.f.announceClosing()
+  await stoppedPromptly(r, stopsBefore)
+  clearInterval(r.hold)
+}
+
+async function stopsTheMotorWhenTheHostExits(): Promise<void> throws Error {
+  const r = await connected()
+  await spinning(r)
+  const stopsBefore = r.sim.motors.stops
+  // the link to the frontend ends with no word (the host was killed): the subscription ends, the session does not, and the stop goes out
+  r.f.hostExits()
+  await stoppedPromptly(r, stopsBefore)
+  r.sim.stop()
+  clearInterval(r.hold)
+  link.close()
+}
+
+async function stopsTheMotorWhenTheVehicleRefusesTheStart(): Promise<void> throws Error {
+  const r = await connected()
+  r.sim.motors.refuse = true
+  expect(errorOf(await ask(r.f, 1, 5))).toBe("ok")
+  await told(r.f)
+  const state = await told(r.f)
+  expect(state.state == MotorTestStateState.Stopped).toBe(true)
+  expect(state.why ?? "").toBe("REFUSED")
+  expect(state.starts ?? 99).toBe(0)
+  // a stop was sent all the same (and refused too: so it is not confirmed)
+  expect(r.sim.motors.commands >= 2).toBe(true)
+  expect(state.confirmed ?? true).toBe(false)
+  expect(r.sim.motors.running()).toBe(false)
+  expect(link.motorTest).toBe(false)
+  await r.close()
+}
+
+async function stopsTheMotorWhenTheVehicleDoesNotAnswerTheStart(): Promise<void> throws Error {
+  const r = await connected()
+  // the start is carried out and its ack is lost: the vehicle may be spinning the motor, so a stop goes out
+  r.sim.motors.swallowAcks = 1
+  expect(errorOf(await ask(r.f, 3, 5))).toBe("ok")
+  await told(r.f)
+  const state = await stoppedByAStop(r, "UNACKNOWLEDGED")
+  expect(state.confirmed ?? false).toBe(true)
+  expect(r.sim.motors.starts).toBe(1)
+  await r.close()
+}
+
+async function sendsNothingToAnArmedVehicle(): Promise<void> throws Error {
+  const r = await connected()
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await delay(1500)   // a heartbeat that says armed
+  expect(await refusedWith(r.f, 1, 5)).toBe("ARMED")
+  expect(r.sim.motors.commands).toBe(0)
+  expect(link.motorTest).toBe(false)
+  await r.close()
+}
+
+async function sendsNothingWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  expect(await refusedWith(r.f, 1, 5)).toBe("STATE_UNKNOWN")
+  expect(r.sim.motors.commands).toBe(0)
+  await r.close()
+}
+
+async function sendsNothingWhenNoVehicleIsConnected(): Promise<void> throws Error {
+  const f = await start()
+  link.close()
+  expect(await refusedWith(f, 1, 5)).toBe("NOT_CONNECTED")
+}
+
+async function refusesAMotorOrAThrottleOutsideTheLimits(): Promise<void> throws Error {
+  const r = await connected()
+  expect(await refusedWith(r.f, 0, 5)).toBe("INVALID_VALUE")
+  expect(await refusedWith(r.f, 13, 5)).toBe("INVALID_VALUE")
+  expect(await refusedWith(r.f, 1, 0)).toBe("INVALID_VALUE")
+  expect(await refusedWith(r.f, 1, 21)).toBe("INVALID_VALUE")
+  expect(await refusedWith(r.f, 1, 100)).toBe("INVALID_VALUE")
+  await r.f.trySubscribe("motors.test")
+  expect(errorOf(await r.f.ended())).toBe("INVALID_VALUE")
+  expect(r.sim.motors.commands).toBe(0)
+  expect(link.motorTest).toBe(false)
+  await r.close()
+}
+
+async function takesTheCapAsItIs(): Promise<void> throws Error {
+  const r = await connected()
+  const reply = await ask(r.f, 12, 20)
+  expect(errorOf(reply)).toBe("ok")
+  await told(r.f)
+  await spins(r)
+  expect(r.sim.motors.maxThrottle).toBe(20.0)
+  neverMoreThanTheCaps(r)
+  await r.f.unsubscribe(reply.s ?? 0)
+  await r.close()
+}
+
+async function spinsOneMotorAtATime(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await spinning(r)
+  expect(await refusedWith(r.f, 3, 5)).toBe("BUSY")
+  // the second was never sent, and the first goes on
+  expect(r.sim.motors.lastMotor).toBe(2)
+  expect(r.sim.motors.running()).toBe(true)
+  await r.f.unsubscribe(s)
+  await until("the test is over", () => !link.motorTest)
+  await r.close()
+}
+
+async function aTestMayBeStartedAgainOnceItIsOver(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await spinning(r)
+  await r.f.unsubscribe(s)
+  await until("the test is over", () => !link.motorTest)
+  expect(errorOf(await ask(r.f, 4, 5))).toBe("ok")
+  await told(r.f)
+  await until("motor 4 spins", () => r.sim.motors.lastMotor == 4 && r.sim.motors.running())
+  await r.f.unsubscribe(s + 1)
+  await until("the test is over", () => !link.motorTest)
+  await r.close()
+}
+
+async function isNotStartedWhileACalibrationOrAReboot(): Promise<void> throws Error {
+  const r = await connected()
+  link.calibrating = true
+  expect(await refusedWith(r.f, 1, 5)).toBe("BUSY")
+  link.calibrating = false
+  link.writes = 1
+  expect(await refusedWith(r.f, 1, 5)).toBe("BUSY")
+  link.writes = 0
+  expect(r.sim.motors.commands).toBe(0)
+  await r.close()
+}
+
+async function holdsOffTheOtherWorkOfTheLink(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await spinning(r)
+  expect(errorOf(await r.f.call("params.list"))).toBe("BUSY")
+  expect(errorOf(await r.f.call("vehicle.reboot"))).toBe("BUSY")
+  expect(errorOf(await r.f.call("calibration.start", encodeCalibrationStart(CalibrationStart { kind: CalibrationKind.Level })))).toBe("BUSY")
+  expect(errorOf(await r.f.call("logs.vehicle.list"))).toBe("BUSY")
+  expect(errorOf(await r.f.call("logs.erase"))).toBe("BUSY")
+  await r.f.unsubscribe(s)
+  await until("the test is over", () => !link.motorTest)
+  await r.close()
+}
+
+async function holdNeedsATest(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await r.f.call("motors.hold"))).toBe("NOT_RUNNING")
+  await r.close()
+}
+
+describe("the motor test", () => {
+  it("holds the motor while the button is held, in short tests, and stops it on release", holdsTheMotorWhileTheButtonIsHeldAndStopsItWhenItIsReleased)
+  it("keeps the motor while the page says it holds", keepsTheMotorWhileThePageSaysItHolds)
+  it("takes the cap of 20 % and no more", takesTheCapAsItIs)
+  it("spins one motor at a time", spinsOneMotorAtATime)
+  it("may be started again once it is over", aTestMayBeStartedAgainOnceItIsOver)
+  it("takes a hold only while it runs", holdNeedsATest)
+})
+
+describe("the exits of a motor test", () => {
+  it("stops the motor when the page goes silent", stopsTheMotorWhenThePageGoesSilent)
+  it("stops the motor when the link is lost", stopsTheMotorWhenTheLinkIsLost)
+  it("stops the motor when the session ends", stopsTheMotorWhenTheSessionEnds)
+  it("stops the motor when the user disconnects", stopsTheMotorWhenTheUserDisconnects)
+  it("stops the motor when the window closes", stopsTheMotorWhenTheWindowCloses)
+  it("stops the motor when the host exits without a word", stopsTheMotorWhenTheHostExits)
+  it("sends a stop when the vehicle refuses the start", stopsTheMotorWhenTheVehicleRefusesTheStart)
+  it("sends a stop when the vehicle does not answer the start", stopsTheMotorWhenTheVehicleDoesNotAnswerTheStart)
+})
+
+describe("what the motor test refuses", () => {
+  it("sends nothing to an armed vehicle", sendsNothingToAnArmedVehicle)
+  it("sends nothing when the armed state is not known", sendsNothingWhenTheArmedStateIsNotKnown)
+  it("sends nothing when no vehicle is connected", sendsNothingWhenNoVehicleIsConnected)
+  it("refuses a motor or a throttle outside the limits, and sends nothing", refusesAMotorOrAThrottleOutsideTheLimits)
+  it("is not started while a calibration or a parameter write is under way", isNotStartedWhileACalibrationOrAReboot)
+  it("holds off a parameter download, a reboot, a calibration and the logs while it runs", holdsOffTheOtherWorkOfTheLink)
+})

@@ -13,6 +13,8 @@ import { Conn, listen } from "std/net"
 import { env, stdin, stdout } from "std/process"
 import {
   ByteStream,
+  CommandLong,
+  MavCmd,
   MavParamType,
   ParamSet,
   Received,
@@ -74,8 +76,12 @@ function serve(conn: Conn): void {
   const setup = env.get("VEHICLE_SETUP") == "1"
   sim = new SimulatedAutopilot(stream, if (setup) setupParams() else defaultSimParams())
   sim!.conn.on((r: Received) => {
-    if (r.message instanceof ParamSet) {
+    const m = r.message
+    if (m instanceof ParamSet) {
       stdout.writeText("param-set\n")
+    } else if (m instanceof CommandLong && m.command as int == MavCmd.DO_MOTOR_TEST) {
+      // a test of a motor begins with a timeout above 0, and ends with one of 0
+      stdout.writeText(if ((m._param4 as f64) > 0.0) "motor-start\n" else "motor-stop\n")
     }
   })
   sim!.start(250)

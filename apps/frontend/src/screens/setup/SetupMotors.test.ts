@@ -1,6 +1,7 @@
 // The Motors page against the mock backend: the live outputs as a table that is only read, the ESC protocol as a named choice
 // and the spin thresholds (out of order nothing is written), writes through the page's one question that are refused while the
-// vehicle is armed or may be, and "reboot needed" after a protocol is written. Nothing on the page sends anything to a motor.
+// vehicle is armed or may be, and "reboot needed" after a protocol is written. The motor test is its own section
+// (SetupMotorTest).
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
@@ -113,10 +114,12 @@ it('shows no protocol, and no field for it, when the vehicle does not have MOT_P
   expect(rig.wrapper.text()).not.toContain('Normal')
 })
 
-it('has nothing on the page that is a button other than the write and the revert of the parameters', async () => {
+it('has no button that sends anything to a motor but the held ones of the motor test, locked at first', async () => {
   const { wrapper } = await page()
+  const others = wrapper.findAll('button').filter(button => !button.classes().includes('motor-test-motor'))
 
-  expect(wrapper.findAll('button').map(button => button.attributes('id'))).toEqual(['setup-motors-revert', 'setup-motors-write'])
+  expect(others.map(button => button.attributes('id'))).toEqual(['setup-motors-revert', 'setup-motors-write'])
+  expect(wrapper.findAll('.motor-test-motor').map(button => button.attributes('disabled'))).toEqual(['', '', '', ''])
 })
 
 it('names the ESC protocol, and shows a value it has no name for as its number', async () => {
