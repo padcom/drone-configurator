@@ -53,7 +53,7 @@ const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
 const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'knob']
-const ids = TUNE_PARAMS.filter(param => param.group !== 'rate').map(param => param.id)
+const ids = TUNE_PARAMS.filter(param => groups.includes(param.group)).map(param => param.id)
 const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
 
 /**

@@ -8,6 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { NOTCH_ENABLE, NOTCH_MODES, NOTCH_OPTIONS } from '@/lib/tune/filters'
 import { TUNE_FUNCTIONS } from '@/lib/tune/table'
 
 const SRC = fileURLToPath(new URL('..', import.meta.url))
@@ -26,6 +27,9 @@ const ALLOWED: [string, string][] = [
   ].map((name): [string, string] => ['lib/setup/frame.ts', name]),
   // What the radio knob can tune (ArduPilot's own `@Values` of TUNE).
   ...TUNE_FUNCTIONS.map((one): [string, string] => ['lib/tune/table.ts', one.label]),
+  // The names ArduPilot gives the values and the bits of the harmonic notch's parameters (`@Values` and `@Bitmask`).
+  ...[...NOTCH_ENABLE, ...NOTCH_MODES].map((one): [string, string] => ['lib/tune/filters.ts', one.label]),
+  ...NOTCH_OPTIONS.map((one): [string, string] => ['lib/tune/filters.ts', one.name]),
   ...[
     'Frsky SPort',
     'Alexmos Gimbal Serial',

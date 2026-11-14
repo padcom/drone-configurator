@@ -18,7 +18,7 @@
     {
       "when": [
         "apps/frontend/src/components/tune/**", "apps/frontend/src/lib/tune/**", "apps/frontend/src/screens/{Tune.vue,tune/**}",
-        "apps/frontend/src/composables/{useAnalysis,useTunePanel,useTuningStream}.ts", "apps/backend/tuningstream.pi"
+        "apps/frontend/src/composables/{useAnalysis,useTunePanel,useTuningStream}.ts", "apps/backend/{tuning,tuningstream}.pi"
       ],
       "specs": ["tune.e2e.ts", "tune-response.e2e.ts", "analyse.e2e.ts", "shell.e2e.ts"]
     },
@@ -51,7 +51,7 @@
         "apps/backend/{log*,local*,tlog*,fft,files,importednames,settings}.pi"
       ],
       "specs": [
-        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
+        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "spectrum-after.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
       ]
     },
     {

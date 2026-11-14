@@ -82,7 +82,7 @@ it('writes roll and pitch together after one question, each read back by the veh
   expect(await window().evaluate<string>(shown)).toBe('0.2')
 })
 
-it('says the filters come after the logs', async () => {
+it('shows the Filters part: the parameters the vehicle has not are named, none of the notch is written from here', async () => {
   await window().evaluate(`location.hash = '#/tune/filters'`)
-  await window().waitFor(`document.body.textContent.includes('Filters come after the logs')`, 10_000)
+  await window().waitFor(`document.querySelector('#tune-filters-write') !== null`, 10_000)
 })

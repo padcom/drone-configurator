@@ -131,7 +131,8 @@ const DEFAULT_REPLAY = 100
 const MAX_REPLAY = 200
 
 /**
- * Why the backend refuses a tuning write, or null: a name that is not the Tune screen's, a value outside its limits, a state not known.
+ * Why the backend refuses a tuning write, or null: a name that is not the Tune screen's, a value outside its limits, one that is read only
+ * when the vehicle starts while it is armed, a state not known.
  *
  * @param w the write
  * @param armed the vehicle's armed state (null or undefined when it is not known)
@@ -141,6 +142,9 @@ function tuningRefusal(w: ParamWrite, armed: boolean | null | undefined): { code
   const limit = refusalOf(w.id, w.value, armed === true)
   if (tuneParam(w.id) === undefined) {
     return { code: 'NOT_TUNING', message: `${w.id} is not a parameter the Tune screen may write` }
+  }
+  if (limit === 'reboot') {
+    return { code: 'NEEDS_REBOOT', message: `${w.id} needs a reboot to take effect: it is written while the vehicle is disarmed` }
   }
   if (limit !== null) {
     return { code: 'OUT_OF_LIMITS', message: `${w.id} is out of its limits: ${w.value}` }

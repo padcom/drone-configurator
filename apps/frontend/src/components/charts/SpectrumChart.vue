@@ -53,7 +53,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SpectrumAxis, SpectrumPeak } from '@/generated/app'
 import { useFormat } from '@/i18n/useFormat'
-import { plotOf } from '@/lib/charts/spectrumPlot'
+import { plotWith } from '@/lib/charts/spectrumPlot'
 import type { NotchBand } from '@/lib/logs/spectrum'
 
 const props = defineProps<{
@@ -69,6 +69,8 @@ const props = defineProps<{
   peak?: SpectrumPeak
   /** The bands of the notch to preview. */
   bands: NotchBand[]
+  /** The top of the vertical axis, when it is not this spectrum's own largest amplitude (two spectra to compare share it). */
+  top?: number
 }>()
 
 const { t } = useI18n()
@@ -86,7 +88,11 @@ const TONES: Readonly<Record<string, string>> = { x: 'accent', y: 'ok', z: 'warn
 
 const bins = computed(() => props.axes[0]?.amplitude.length ?? 0)
 const nyquist = computed(() => props.resolution * Math.max(0, bins.value - 1))
-const plot = computed(() => plotOf(props.axes, nyquist.value, BOX, v => number(v, v < 10 ? 1 : 0)))
+const plot = computed(() => {
+  const format = (v: number) => number(v, v < 10 ? 1 : 0)
+
+  return plotWith(props.axes, nyquist.value, BOX, props.top === undefined ? { format } : { format, top: props.top })
+})
 
 /**
  * Where a frequency is in the box.
