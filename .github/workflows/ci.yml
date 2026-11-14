@@ -73,10 +73,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: bash drone-configurator/.github/step-times.sh
 
-  # The backend's tests (`pico test`): each file in a process of its own. The files are split in two shards by name
-  # (.github/backend-shard.sh), each with a runner of its own, so the wall time is that of half the files.
+  # The backend's tests (`pico test`): each file in a process of its own. The files are split in three shards by name
+  # (.github/backend-shard.sh), each with a runner of its own, so the wall time is that of a third of the files.
   backend:
-    name: backend ${{ matrix.shard }}/2 (${{ matrix.target }})
+    name: backend ${{ matrix.shard }}/3 (${{ matrix.target }})
     permissions:
       contents: read
       actions: read
@@ -84,14 +84,16 @@ jobs:
       fail-fast: false
       matrix:
         target: [linux-x64, linux-arm64]
-        shard: [1, 2]
+        shard: [1, 2, 3]
         include:
           # test-jobs: how many files of the shard run at once (`pico test -j`). The build of a test file takes 4 to 8 GB (the
           # probe below: on head afa2df8 of #432, run 43456254640, two `pico run` of localimport and locallogs held 7.0 to 8.4 GB
           # each and linux-x64 was killed with 143 at used=15.8 GB of 16), so linux-x64 runs one at a time. linux-arm64 passed with
-          # two at once, which is what it keeps. The macOS and Windows jobs run no backend tests.
+          # two at once for a while, and then both its shards were killed the same way (run 43540418787 on #438: used=15.8 GB of
+          # 16), so it runs one at a time too. A shard of a third of the files at one at a time should take under 20 minutes (an estimate: half
+          # the files at two at once took about 14), well under the limit of 45. The macOS and Windows jobs run no backend tests.
           - { target: linux-x64, runner: ubuntu-24.04, test-jobs: 1 }
-          - { target: linux-arm64, runner: ubuntu-24.04-arm, test-jobs: 2 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, test-jobs: 1 }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     defaults:
@@ -111,7 +113,7 @@ jobs:
         working-directory: drone-configurator
         env:
           SHARD: ${{ matrix.shard }}
-          SHARDS: 2
+          SHARDS: 3
           JOBS: ${{ matrix.test-jobs }}
         run: |
           probe() {
