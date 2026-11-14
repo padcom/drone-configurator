@@ -1679,6 +1679,7 @@
       "rise": "Anstieg (10 bis 90 %)",
       "settling": "Einschwingen (auf 5 %)",
       "noStep": "Kein Sprung in den letzten {seconds} Sekunden: es wird nichts gemessen.",
+      "oldStep": "Alte Daten: der letzte Sprung wird nicht als aktuell gezeigt.",
       "step": "Gemessen am letzten Sprung der Soll-Rate: {from} auf {to} Grad pro Sekunde.",
       "dropped": "Vom Backend verworfene Punkte: {count}",
       "noActual": "Das Fahrzeug hat die Anfrage für die Ist-Rate (ATTITUDE) nicht angenommen: sie wird nicht gezeigt.",

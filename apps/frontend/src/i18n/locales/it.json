@@ -1679,6 +1679,7 @@
       "rise": "Salita (da 10 a 90 %)",
       "settling": "Assestamento (entro il 5 %)",
       "noStep": "Nessun gradino negli ultimi {seconds} secondi: non si misura nulla.",
+      "oldStep": "Dati vecchi: l'ultimo gradino non viene mostrato come se fosse attuale.",
       "step": "Misurato sull'ultimo gradino della velocità desiderata: da {from} a {to} gradi al secondo.",
       "dropped": "Punti scartati dal backend: {count}",
       "noActual": "Il veicolo non ha accettato la richiesta della velocità reale (ATTITUDE): non viene mostrata.",

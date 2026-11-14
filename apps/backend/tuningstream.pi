@@ -9,7 +9,8 @@
 //
 // The stream is bounded, and never holds up the telemetry: it is a subscription of its own, a batch goes out every `flushMs` with what came,
 // at most `maxPending` points of each line wait for it (the oldest are dropped, and COUNTED: the page shows the count), and a page that does
-// not take the batches (the communicator's own limit on what is unsent) loses batches, not memory. One stream at a time.
+// not take the batches (the communicator's own limit on what is unsent) loses batches, not memory. One stream at a time. Points that
+// are not numbers are dropped and counted with the rest.
 import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
 import { Attitude, AttitudeTarget, MavLinkConnection, RateLease, Received, TelemetryRates } from "padcom/pico-mavlink"
 import {
@@ -42,8 +43,8 @@ export function register(c: Communicator): void {
   c.publish("tuning.stream", startStream)
 }
 
-/// The stream that runs, or the one that ran last.
-class Stream implements SessionPart {
+/// The stream that runs, or the one that ran last (exported for the tests, which make streams of their own).
+export class Stream implements SessionPart {
   public conn: MavLinkConnection? = null
   public active: bool = false
   /// Counts the streams: what a stream's late news (its leases, its sink closing) says of an older one is ignored.
@@ -70,6 +71,13 @@ class Stream implements SessionPart {
 
   /// A stream begins on the connection `c` (claimed at once: a second subscription finds it busy).
   public begin(c: MavLinkConnection, s: Sink): int {
+    const mine = start(s)
+    listener = c.on((r: Received) => seen(r))
+    mine
+  }
+
+  /// A stream begins with the sink `s`, listening to nothing yet (a test feeds `keep` and calls `flush` by itself).
+  public start(s: Sink): int {
     serial += 1
     active = true
     sink = s
@@ -79,7 +87,6 @@ class Stream implements SessionPart {
     asked = TuningAsked { actual: false, desired: false }
     leases = []
     const mine = serial
-    listener = c.on((r: Received) => seen(r))
     timer = setInterval(() => this.flush(mine), limits.flushMs)
     mine
   }
@@ -97,8 +104,13 @@ class Stream implements SessionPart {
     }
   }
 
-  /// Waits for a point to go out: the oldest is dropped, and counted, when `maxPending` are waiting already.
+  /// Waits for a point to go out: the oldest is dropped, and counted, when `maxPending` are waiting already. A rate that is not a
+  /// number (NaN, an infinity: a vehicle may send them) is not a point: it is dropped, and counted too.
   public keep(line: TuningPoint[], t: u32, degrees: f64): void {
+    if (degrees - degrees != 0.0) {
+      dropped += 1
+      return
+    }
     if (line.length >= limits.maxPending) {
       line.splice(0, 1)
       dropped += 1
@@ -154,15 +166,19 @@ class Stream implements SessionPart {
 
 const current = new Stream()
 
-/// Puts the rates back (each lease once; a lease never throws). Not awaited: the stream is over whether or not the vehicle answers.
+/// Puts the rates back (each lease once; a lease never throws). Not awaited: the stream is over whether or not the vehicle answers. While
+/// a release is on its way the session counts it (`link.farewells`) and keeps the connection open when it ends (session.pi): the
+/// release goes out a few awaits after the stream ends, and a connection closed in between drops it.
 function giveBack(leases: RateLease[]): void {
   for (const lease of leases) {
+    link.farewells += 1
     releaseQuietly(lease)
   }
 }
 
 async function releaseQuietly(lease: RateLease): Promise<void> {
   const _put = await lease.release()
+  link.farewells -= 1
 }
 
 /// Asks the vehicle for the two messages, and tells the page how that went (the first batch carries `asked`).

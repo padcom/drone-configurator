@@ -1679,6 +1679,7 @@
       "rise": "Subida (10 a 90 %)",
       "settling": "Asentamiento (a menos del 5 %)",
       "noStep": "Ningún escalón en los últimos {seconds} segundos: no se mide nada.",
+      "oldStep": "Datos antiguos: el último escalón no se muestra como si fuera actual.",
       "step": "Medido del último escalón de la velocidad deseada: de {from} a {to} grados por segundo.",
       "dropped": "Puntos descartados por el backend: {count}",
       "noActual": "El vehículo no aceptó la petición de la velocidad real (ATTITUDE): no se muestra.",

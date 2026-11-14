@@ -71,7 +71,7 @@ export interface MetricTexts {
  * @returns the text
  */
 function withUnit(value: number | null | undefined, unit: string, digits: number): string {
-  return value === null || value === undefined ? DASH : `${value.toFixed(digits)} ${unit}`
+  return value === null || value === undefined || !Number.isFinite(value) ? DASH : `${value.toFixed(digits)} ${unit}`
 }
 
 /**

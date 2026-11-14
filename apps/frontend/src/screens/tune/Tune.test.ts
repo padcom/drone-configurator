@@ -279,7 +279,7 @@ it('has the groups Attitude, Pilot feel, Position and Radio knob, each with name
   expect(wrapper.find('[data-tune="TUNE"] input[type="range"]').exists()).toBe(false)
 })
 
-it('draws nothing from the values of the sliders: no curve, no preview, whatever they are moved to', async () => {
+it('the chart renders nothing from the slider values alone: no curve, no preview, whatever they are set to', async () => {
   const rig = await screen()
   await slide(rig, 'ATC_RAT_YAW_P', 0.4)
   await slide(rig, 'ATC_RAT_RLL_P', 0.3)
@@ -319,6 +319,22 @@ function stepBatch() {
 
   return { actual, desired, dropped: 3, asked: { actual: true, desired: true } }
 }
+
+it('the chart does not change when a slider moves: its lines are the stream\'s, the same before and after', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  rig.control.tuning?.push(stepBatch())
+  await flushPromises()
+  const drawn = () => rig.wrapper.findAll('.chart-series .line').map(line => line.attributes('d'))
+  const before = drawn()
+  expect(before).toHaveLength(2)
+
+  await slide(rig, 'ATC_RAT_YAW_P', 0.4)
+  await slide(rig, 'ATC_RAT_RLL_P', 0.01)
+  await type(rig, 'ATC_RAT_RLL_I', '1.5')
+
+  expect(drawn()).toEqual(before)
+})
 
 it('draws the two lines the vehicle sends, measures the step of the desired rate, and shows what was dropped', async () => {
   const rig = await screen()
@@ -396,7 +412,7 @@ it('ends the stream when the screen is deactivated (pages are kept alive), and a
   expect(control.tuning?.began()).toBe(2)
 })
 
-it('marks old data: the stream ended (the link was lost), and says why', async () => {
+it('marks old data: the stream ended (the link was lost), says why, and does not show the last step as current', async () => {
   const rig = await screen()
   await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
   rig.control.tuning?.push(stepBatch())
@@ -407,8 +423,10 @@ it('marks old data: the stream ended (the link was lost), and says why', async (
 
   expect(rig.wrapper.get('#tune-response-chart').text()).toContain('Old data')
   expect(rig.wrapper.get('#tune-response-problem').text()).toContain('LINK_LOST')
-  // the numbers of the last step are still there: measured of what came, shown as old
-  expect(rig.wrapper.get('#tune-rise').text()).toMatch(/^\d+ ms$/u)
+  // the numbers of the last step are not shown as if they were current: dashes, and the text says why
+  expect(rig.wrapper.get('#tune-rise').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-step').text()).toBe('Old data: the last step is not shown as if it were current.')
 })
 
 // The armed case: the one place where a write goes to a vehicle in flight.
@@ -662,4 +680,19 @@ it('has nothing to write when a typed value is the float the vehicle holds (0.18
 
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
   expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+})
+
+it('draws no point of a rate that is not a number, and shows no number made of one', async () => {
+  const rig = await screen()
+  await vi.waitFor(() => expect(rig.control.tuning?.running()).toBe(true))
+  const bad = [{ t: 100, v: Number.NaN }, { t: 140, v: Number.POSITIVE_INFINITY }, { t: 180, v: 2 }, { t: 220, v: 3 }]
+
+  rig.control.tuning?.push({ actual: bad, desired: bad, dropped: 2, asked: { actual: true, desired: true } })
+  await flushPromises()
+
+  // only the two real points of each line are drawn; nothing says NaN
+  expect(rig.wrapper.findAll('.chart-series .line')).toHaveLength(2)
+  expect(rig.wrapper.get('#tune-response-chart').text()).not.toMatch(/NaN|Infinity/u)
+  expect(rig.wrapper.get('#tune-overshoot').text()).toBe('—')
+  expect(rig.wrapper.get('#tune-dropped').text()).toBe('Points dropped by the backend: 2')
 })

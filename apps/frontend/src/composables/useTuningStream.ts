@@ -70,15 +70,16 @@ function newestOf(line: RatePoint[]): number {
 
 /**
  * The points of a line with new ones added, only the last seconds and at most KEEP_POINTS. A clock that goes back (the vehicle
- * restarted) begins the line again.
+ * restarted) begins the line again. A point whose rate or time is not a number is not kept.
  *
  * @param line what was kept
  * @param added what came
  * @returns the line
  */
 export function appended(line: RatePoint[], added: RatePoint[]): RatePoint[] {
-  const restarted = added.length > 0 && line.length > 0 && newestOf(added.slice(0, 1)) < newestOf(line)
-  const joined = [...(restarted ? [] : line), ...added]
+  const real = added.filter(point => Number.isFinite(point.v) && Number.isFinite(point.t))
+  const restarted = real.length > 0 && line.length > 0 && newestOf(real.slice(0, 1)) < newestOf(line)
+  const joined = [...(restarted ? [] : line), ...real]
   const newest = newestOf(joined)
 
   return joined.filter(point => newest - point.t <= KEEP_MS).slice(-KEEP_POINTS)

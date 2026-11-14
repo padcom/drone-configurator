@@ -984,7 +984,7 @@ tuning-point = {
   v: float,
 }
 
-; What came since the last batch. `dropped` counts the points that were dropped because the backend's buffer was full (since the stream
+; What came since the last batch. `dropped` counts the points that were dropped, because the backend's buffer was full or the rate was not a number (since the stream
 ; began), and `asked` says whether the vehicle accepted the request for each message.
 tuning-batch = {
   actual: [* tuning-point],

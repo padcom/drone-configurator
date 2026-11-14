@@ -1679,6 +1679,7 @@
       "rise": "Narastanie (10 do 90 %)",
       "settling": "Ustalanie (do 5 %)",
       "noStep": "Brak skoku w ostatnich {seconds} sekundach: nic nie jest mierzone.",
+      "oldStep": "Stare dane: ostatni skok nie jest pokazywany jako aktualny.",
       "step": "Zmierzone na ostatnim skoku prędkości zadanej: od {from} do {to} stopni na sekundę.",
       "dropped": "Punkty odrzucone przez backend: {count}",
       "noActual": "Pojazd nie przyjął prośby o prędkość rzeczywistą (ATTITUDE): nie jest pokazywana.",

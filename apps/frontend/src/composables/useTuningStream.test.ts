@@ -166,6 +166,12 @@ describe('the points that are kept', () => {
     expect(appended([], many).at(-1)?.t).toBe(KEEP_POINTS + 49)
   })
 
+  it('are only points of a real rate: NaN and infinities are not kept', () => {
+    const kept = appended([{ t: 10, v: 1 }], [{ t: 20, v: Number.NaN }, { t: 30, v: Number.NEGATIVE_INFINITY }, { t: 40, v: 2 }])
+
+    expect(kept).toEqual([{ t: 10, v: 1 }, { t: 40, v: 2 }])
+  })
+
   it('begin again when the vehicle\'s clock goes back (it restarted)', () => {
     const kept = appended([{ t: 50_000, v: 1 }, { t: 50_040, v: 2 }], [{ t: 100, v: 3 }])
 

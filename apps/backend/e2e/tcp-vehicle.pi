@@ -29,10 +29,12 @@ import {
 
 let muted = false
 
-/// A stream that says when its far end has gone.
+/// A stream that says when its far end has gone, and writes nothing after that (a write to a connection the peer has closed is a panic
+/// of the runtime, and a simulator that sends at 25 Hz meets that in the moment between the peer's close and its own stop).
 class EndWatchingStream implements ByteStream {
   readonly inner: ByteStream
   readonly onEnd: () => void
+  gone: bool = false
 
   constructor(inner: ByteStream, onEnd: () => void) {
     this.inner = inner
@@ -54,12 +56,13 @@ class EndWatchingStream implements ByteStream {
   }
 
   ended(): void {
+    gone = true
     const notify = onEnd
     notify()
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
-    if (!muted) {
+    if (!muted && !gone) {
       await inner.write(bytes)
     }
   }

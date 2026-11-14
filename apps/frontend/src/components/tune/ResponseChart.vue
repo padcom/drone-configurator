@@ -69,7 +69,8 @@ const series = computed((): LineSeries[] => [
   { id: 'actual', label: t('tune.chart.actual'), points: lines.value.actual, tone: 'accent' },
 ])
 const metrics = computed(() => measureStep(props.desired, props.actual))
-const texts = computed(() => metricTexts(metrics.value))
+// Old data is not measured as if it were current: the numbers are dashes while the chart says it is old.
+const texts = computed(() => metricTexts(props.stale ? null : metrics.value))
 
 /** What the vehicle did not take: a line it does not send is not there, and the page says so. */
 const missing = computed(() => props.asked === null
@@ -79,6 +80,9 @@ const missing = computed(() => props.asked === null
 /** What the metrics were measured of, or why there are none. */
 const stepText = computed(() => {
   const step = metrics.value
+  if (props.stale) {
+    return t('tune.chart.oldStep')
+  }
   if (step === null) {
     return t('tune.chart.noStep', { seconds: SHOWN_S })
   }

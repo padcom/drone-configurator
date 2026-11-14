@@ -22,6 +22,9 @@ describe('the numbers of the metrics', () => {
     expect(metricTexts(null)).toEqual({ overshoot: DASH, rise: DASH, settling: DASH })
     const step = { at: 0, from: 0, to: 57, until: 1000 }
 
+    const odd = metricTexts({ ...step, overshootPct: Number.NaN, riseMs: Number.POSITIVE_INFINITY, settlingMs: 5 })
+
+    expect([odd.overshoot, odd.rise, odd.settling]).toEqual([DASH, DASH, '5 ms'])
     expect(metricTexts({ ...step, overshootPct: 16.34, riseMs: 109.6, settlingMs: null })).toEqual({
       overshoot: '16.3 %',
       rise: '110 ms',
