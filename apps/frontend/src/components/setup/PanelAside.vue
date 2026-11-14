@@ -7,6 +7,8 @@
         <li v-for="id in shown" :key="id" :class="{ missing: panel.missing.value.includes(id) }">
           {{ id }}<span v-if="panel.missing.value.includes(id)"> · {{ t('setup.notOnVehicle') }}</span>
         </li>
+        <!-- A refused value is not part of the write: it is shown as refused, and the write is held until it is fixed. -->
+        <li v-for="id in refusedIds" :key="id" class="refused">{{ id }} · {{ t('setup.refusedValue') }}</li>
       </ul>
     </div>
     <Banner v-if="reason" :id="`${idPrefix}-blocked`" tone="warn">{{ reason }}</Banner>
@@ -15,7 +17,12 @@
     <ul v-if="outcome.length > 0" :id="`${idPrefix}-outcome`" class="setup-outcome">
       <li v-for="line in outcome" :key="line">{{ line }}</li>
     </ul>
-    <Button :id="`${idPrefix}-revert`" :disabled="panel.dirty.value.length === 0 || panel.writing.value" @click="panel.revert()">
+    <Button
+      v-if="!noRevert"
+      :id="`${idPrefix}-revert`"
+      :disabled="panel.dirty.value.length === 0 || panel.writing.value"
+      @click="panel.revert()"
+    >
       {{ t('setup.revert') }}
     </Button>
     <Button :id="`${idPrefix}-write`" :disabled="!writable" @click="panel.write()">{{ label }}</Button>
@@ -45,6 +52,10 @@ const props = defineProps<{
   onlyPresent?: boolean
   /** List only the parameters that have a change to write (a page with many parameters, most of them left as they are). */
   onlyChanged?: boolean
+  /** The changed parameters whose value is refused: they are shown as refused and are not part of the write. */
+  refusedIds?: readonly string[]
+  /** The page has its own way to put values back (not a second button for the same). */
+  noRevert?: boolean
 }>()
 
 /**
@@ -63,9 +74,10 @@ const reason = computed(() => {
 
   return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
 })
+const refusedIds = computed(() => props.refusedIds ?? [])
 const shown = computed(() => {
   if (props.onlyChanged) {
-    return props.panel.dirty.value
+    return props.panel.dirty.value.filter(id => !refusedIds.value.includes(id))
   }
 
   return props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids

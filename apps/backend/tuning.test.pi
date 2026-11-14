@@ -58,6 +58,9 @@ async function connected(): Promise<Rig> throws Error {
   sim.params.push(SimParam { id: "ATC_RAT_RLL_P", value: TypedParamValue.Real(0.135, r32) })
   sim.params.push(SimParam { id: "ATC_RAT_PIT_P", value: TypedParamValue.Real(0.135, r32) })
   sim.params.push(SimParam { id: "PSC_NE_POS_P", value: TypedParamValue.Real(1.0, r32) })
+  sim.params.push(SimParam { id: "ATC_ANG_RLL_P", value: TypedParamValue.Real(4.5, r32) })
+  sim.params.push(SimParam { id: "PSC_D_ACC_P", value: TypedParamValue.Real(0.2, r32) })
+  sim.params.push(SimParam { id: "ATC_RAT_RLL_D", value: TypedParamValue.Real(0.0036, r32) })
   // The simulator arms itself after three ticks: a test arms it when it needs to, and until then it is kept disarmed.
   const hold = setInterval(() => {
     sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
@@ -172,6 +175,47 @@ async function refusesANegativeValue(): Promise<void> throws Error {
   await r.close()
 }
 
+/// The four that leave a vehicle that cannot be flown when they are 0: their least is not 0.
+async function refusesTheLeastOfTheTableWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("ATC_RAT_PIT_P", 0.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("ATC_ANG_RLL_P", 0.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("PSC_D_ACC_P", 0.0)))).toBe("OUT_OF_LIMITS")
+  // just below the least is refused too
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.009)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("ATC_ANG_RLL_P", 2.99)))).toBe("OUT_OF_LIMITS")
+  // the message says the least
+  const refused = await write(r, tuning("ATC_RAT_RLL_P", 0.0))
+  expect((refused.err!.message).includes("0.01")).toBe(true)
+  expect(r.sets).toBe(0)
+  await r.close()
+}
+
+async function takesTheLeastOfTheTableWhileArmed(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.01)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("ATC_ANG_RLL_P", 3.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("PSC_D_ACC_P", 0.01)))).toBe("ok")
+  // a gain whose least is 0 may be 0 armed
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_D", 0.0)))).toBe("ok")
+  expect(r.sets).toBe(4)
+  await r.close()
+}
+
+async function onlyWarnsOfTheLeastOfTheTableWhileDisarmed(): Promise<void> throws Error {
+  const r = await connected()
+  // disarmed the page warns and the write goes (the spec): the backend does not refuse it
+  expect(errorOf(await write(r, tuning("ATC_RAT_RLL_P", 0.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("ATC_RAT_PIT_P", 0.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("ATC_ANG_RLL_P", 0.0)))).toBe("ok")
+  expect(errorOf(await write(r, tuning("PSC_D_ACC_P", 0.0)))).toBe("ok")
+  expect(r.sets).toBe(4)
+  await r.close()
+}
+
 async function refusesWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
   const r = await connected()
   link.heartbeatAt = 0
@@ -261,6 +305,8 @@ describe("the tuning writes the backend allows", () => {
   it("writes a tuning parameter while disarmed, read back", writesATuningParameterWhileDisarmed)
   it("writes a tuning parameter while armed, read back", writesATuningParameterWhileArmed)
   it("takes the limits themselves", writesTheLimitsThemselves)
+  it("takes the least of the table while armed, and a 0 where 0 is the least", takesTheLeastOfTheTableWhileArmed)
+  it("does not refuse a value below the least of the table while disarmed (the page warns)", onlyWarnsOfTheLeastOfTheTableWhileDisarmed)
   it("has a list with no name twice and no wildcard", theListHasNoNameTwiceAndNoWildcard)
 })
 
@@ -270,6 +316,7 @@ describe("what the tuning writes refuse, and send nothing", () => {
   it("refuses a value above the most of the table", refusesAValueAboveTheMostOfTheTable)
   it("refuses a value above the most of the table while armed too", refusesAValueAboveTheMostWhileArmedToo)
   it("refuses a negative value", refusesANegativeValue)
+  it("refuses a value below the least of the table while armed, for the four that leave a vehicle that cannot be flown", refusesTheLeastOfTheTableWhileArmed)
   it("refuses when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
   it("looks at the armed state again at the moment of the write", looksAtTheArmedStateAgainAtTheMomentOfTheWrite)
   it("refuses while a calibration runs", refusesWhileACalibrationRuns)

@@ -13,6 +13,8 @@ export interface TunePanel {
   readonly panel: ParamPanel
   /** Whether a chosen value is beyond the hard limit (negative, above the table's most): nothing is written until fixed. */
   readonly refused: ComputedRef<boolean>
+  /** The parameters whose chosen value is beyond the hard limit: they are not part of any write. */
+  readonly refusedIds: ComputedRef<string[]>
   /** Whether any of the parameters has an initial value to put back that the vehicle is not at. */
   readonly movable: ComputedRef<boolean>
   /** Chooses the initial value of each parameter that is not at it (what it had at the first complete download). */
@@ -31,20 +33,23 @@ export interface TunePanel {
 export function useTunePanel(ids: readonly string[], handle: ConfiguratorHandle): TunePanel {
   const panel = useParamPanel(ids, handle, { tuning: true })
   const initialOf = (id: string) => handle.parameters.initial.value?.values.get(id)
-  const refused = computed(() => panel.dirty.value.some(id => refusalOf(id, panel.value(id) ?? 0) !== null))
+  const refusedIds = computed(() => panel.dirty.value.filter(id => refusalOf(id, panel.value(id) ?? 0, panel.armed.value) !== null))
+  const refused = computed(() => refusedIds.value.length > 0)
   const movable = computed(() => ids.some(id => {
     const was = initialOf(id)
 
     return was !== undefined && panel.vehicleValue(id) !== null && panel.value(id) !== was
   }))
   const backToInitial = () => {
+    // What was chosen and not written is forgotten first (the one way back), then what the vehicle is not at is chosen again.
+    panel.revert()
     ids.forEach(id => {
       const was = initialOf(id)
-      if (was !== undefined && panel.vehicleValue(id) !== null) {
+      if (was !== undefined && panel.vehicleValue(id) !== null && panel.vehicleValue(id) !== was) {
         panel.set(id, was)
       }
     })
   }
 
-  return { panel, refused, movable, backToInitial, missing: panel.missing }
+  return { panel, refused, refusedIds, movable, backToInitial, missing: panel.missing }
 }

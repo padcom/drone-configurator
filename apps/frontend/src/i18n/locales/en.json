@@ -849,6 +849,8 @@
       "nan": "{id} is not a parameter the Tune screen writes.",
       "negative": "{id}: {value} is negative: not written.",
       "above": "{id}: {value} is above what ArduPilot's table allows: not written.",
+      "below": "{id}: {value} is below {min}, which it may not be while the vehicle is armed: not written.",
+      "changed": "The vehicle armed, or its state was lost, while you were asked: nothing was written.",
       "armed": "Armed: changes apply in flight.",
       "holdTitle": "Write tuning to an armed vehicle",
       "holdButton": "Hold to write in flight"
@@ -1074,6 +1076,7 @@
     }
   },
   "setup": {
+    "refusedValue": "refused: not written",
     "outcome": {
       "confirmed": "Written and read back: {names}.",
       "notConfirmed": "Written, not confirmed: {names}.",
@@ -1634,6 +1637,7 @@
     "armedAnnounce": "The vehicle is armed: changes apply in flight.",
     "disarmedAnnounce": "The vehicle is disarmed.",
     "link": "Link roll and pitch: one slider sets both",
+    "differ": "Roll and pitch differ on the vehicle: they are not linked, so that one does not overwrite the other. Link them to set both.",
     "axis": {
       "rollPitch": "Roll and pitch",
       "roll": "Roll",
@@ -1684,6 +1688,7 @@
     "refused": {
       "negative": "Negative: refused here and by the backend. It is not written.",
       "above": "Above the most ArduPilot's table allows ({max}): refused here and by the backend. It is not written.",
+      "below": "Below the least of ArduPilot's table ({min}) while the vehicle is armed: refused here and by the backend. It is not written.",
       "nan": "Not a number: it is not written."
     },
     "missing": "Not on this vehicle: {names}.",

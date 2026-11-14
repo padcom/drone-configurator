@@ -849,6 +849,8 @@
       "nan": "{id} no es un parámetro que escriba la pantalla de Ajuste.",
       "negative": "{id}: {value} es negativo: no se escribe.",
       "above": "{id}: {value} está por encima de lo que permite la tabla de ArduPilot: no se escribe.",
+      "below": "{id}: {value} está por debajo de {min}, lo que no puede ser con el vehículo armado: no se escribe.",
+      "changed": "El vehículo se armó, o se perdió su estado, mientras se le preguntaba: no se escribió nada.",
       "armed": "Armado: los cambios se aplican en vuelo.",
       "holdTitle": "Escribir el ajuste en un vehículo armado",
       "holdButton": "Mantener para escribir en vuelo"
@@ -1074,6 +1076,7 @@
     }
   },
   "setup": {
+    "refusedValue": "rechazado: no se escribe",
     "outcome": {
       "confirmed": "Escrito y releído: {names}.",
       "notConfirmed": "Escrito, sin confirmar: {names}.",
@@ -1634,6 +1637,7 @@
     "armedAnnounce": "El vehículo está armado: los cambios se aplican en vuelo.",
     "disarmedAnnounce": "El vehículo está desarmado.",
     "link": "Enlazar alabeo y cabeceo: un control ajusta ambos",
+    "differ": "El alabeo y el cabeceo difieren en el vehículo: no están enlazados para que uno no sobrescriba al otro. Enlácelos para ajustar ambos.",
     "axis": {
       "rollPitch": "Alabeo y cabeceo",
       "roll": "Alabeo",
@@ -1684,6 +1688,7 @@
     "refused": {
       "negative": "Negativo: rechazado aquí y por el backend. No se escribe.",
       "above": "Por encima del máximo que permite la tabla de ArduPilot ({max}): rechazado aquí y por el backend. No se escribe.",
+      "below": "Por debajo del mínimo de la tabla de ArduPilot ({min}) con el vehículo armado: rechazado aquí y por el backend. No se escribe.",
       "nan": "No es un número: no se escribe."
     },
     "missing": "No está en este vehículo: {names}.",

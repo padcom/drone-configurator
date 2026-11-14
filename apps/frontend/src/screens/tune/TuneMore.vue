@@ -29,7 +29,7 @@
         {{ t('tune.backToInitial') }}
       </Button>
     </div>
-    <PanelAside :panel="panel" id-prefix="tune-more" :hold="refused" only-changed />
+    <PanelAside :panel="panel" id-prefix="tune-more" :hold="refused" :refused-ids="refusedIds" only-changed no-revert />
   </section>
 </template>
 
@@ -54,7 +54,7 @@ const uid = useId()
 const handle = useConfigurator()
 const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'knob']
 const ids = TUNE_PARAMS.filter(param => param.group !== 'rate').map(param => param.id)
-const { panel, refused, movable, backToInitial, missing } = useTunePanel(ids, handle)
+const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
 
 /**
  * The parameters of a group that the vehicle has.

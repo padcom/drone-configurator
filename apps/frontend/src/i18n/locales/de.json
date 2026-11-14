@@ -849,6 +849,8 @@
       "nan": "{id} ist kein Parameter, den der Tune-Bildschirm schreibt.",
       "negative": "{id}: {value} ist negativ: nicht geschrieben.",
       "above": "{id}: {value} liegt über dem, was die ArduPilot-Tabelle erlaubt: nicht geschrieben.",
+      "below": "{id}: {value} liegt unter {min}, was bei scharfem Fahrzeug nicht sein darf: nicht geschrieben.",
+      "changed": "Das Fahrzeug wurde scharf oder sein Zustand ging verloren, während Sie gefragt wurden: es wurde nichts geschrieben.",
       "armed": "Scharf: Änderungen wirken im Flug.",
       "holdTitle": "Tuning an ein scharfes Fahrzeug schreiben",
       "holdButton": "Halten, um im Flug zu schreiben"
@@ -1074,6 +1076,7 @@
     }
   },
   "setup": {
+    "refusedValue": "abgelehnt: nicht geschrieben",
     "outcome": {
       "confirmed": "Geschrieben und zurückgelesen: {names}.",
       "notConfirmed": "Geschrieben, nicht bestätigt: {names}.",
@@ -1634,6 +1637,7 @@
     "armedAnnounce": "Das Fahrzeug ist scharf: Änderungen wirken im Flug.",
     "disarmedAnnounce": "Das Fahrzeug ist entschärft.",
     "link": "Roll und Nick koppeln: ein Regler stellt beide ein",
+    "differ": "Roll und Nick unterscheiden sich am Fahrzeug: sie sind nicht gekoppelt, damit keiner den anderen überschreibt. Koppeln Sie sie, um beide einzustellen.",
     "axis": {
       "rollPitch": "Roll und Nick",
       "roll": "Roll",
@@ -1684,6 +1688,7 @@
     "refused": {
       "negative": "Negativ: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
       "above": "Über dem Höchstwert der ArduPilot-Tabelle ({max}): hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
+      "below": "Unter dem Mindestwert der ArduPilot-Tabelle ({min}), solange das Fahrzeug scharf ist: hier und vom Backend abgelehnt. Es wird nicht geschrieben.",
       "nan": "Keine Zahl: es wird nicht geschrieben."
     },
     "missing": "Nicht an diesem Fahrzeug: {names}.",

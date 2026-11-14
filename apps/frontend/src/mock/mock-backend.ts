@@ -125,7 +125,7 @@ const MAX_REPLAY = 200
  * @returns the code and the words, or null
  */
 function tuningRefusal(w: ParamWrite, armed: boolean | null | undefined): { code: string, message: string } | null {
-  const limit = refusalOf(w.id, w.value)
+  const limit = refusalOf(w.id, w.value, armed === true)
   if (tuneParam(w.id) === undefined) {
     return { code: 'NOT_TUNING', message: `${w.id} is not a parameter the Tune screen may write` }
   }

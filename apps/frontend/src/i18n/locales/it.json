@@ -849,6 +849,8 @@
       "nan": "{id} non è un parametro che la schermata Tune scrive.",
       "negative": "{id}: {value} è negativo: non scritto.",
       "above": "{id}: {value} è sopra quanto consente la tabella di ArduPilot: non scritto.",
+      "below": "{id}: {value} è sotto {min}, cosa che non può essere con il veicolo armato: non scritto.",
+      "changed": "Il veicolo si è armato, o ne è stato perso lo stato, durante la domanda: non è stato scritto nulla.",
       "armed": "Armato: le modifiche si applicano in volo.",
       "holdTitle": "Scrivere il tuning su un veicolo armato",
       "holdButton": "Tieni premuto per scrivere in volo"
@@ -1074,6 +1076,7 @@
     }
   },
   "setup": {
+    "refusedValue": "rifiutato: non viene scritto",
     "outcome": {
       "confirmed": "Scritti e riletti: {names}.",
       "notConfirmed": "Scritti, non confermati: {names}.",
@@ -1634,6 +1637,7 @@
     "armedAnnounce": "Il veicolo è armato: le modifiche si applicano in volo.",
     "disarmedAnnounce": "Il veicolo è disarmato.",
     "link": "Collega rollio e beccheggio: un cursore regola entrambi",
+    "differ": "Rollio e beccheggio differiscono sul veicolo: non sono collegati, così uno non sovrascrive l'altro. Collegali per regolare entrambi.",
     "axis": {
       "rollPitch": "Rollio e beccheggio",
       "roll": "Rollio",
@@ -1684,6 +1688,7 @@
     "refused": {
       "negative": "Negativo: rifiutato qui e dal backend. Non viene scritto.",
       "above": "Sopra il massimo che la tabella di ArduPilot consente ({max}): rifiutato qui e dal backend. Non viene scritto.",
+      "below": "Sotto il minimo della tabella di ArduPilot ({min}) con il veicolo armato: rifiutato qui e dal backend. Non viene scritto.",
       "nan": "Non è un numero: non viene scritto."
     },
     "missing": "Non presenti su questo veicolo: {names}.",

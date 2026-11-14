@@ -210,6 +210,22 @@ class Panel implements ParamPanel {
     return this.blocked.value === null && this.dirty.value.length > 0 && !this.writing.value
   }
 
+  /**
+   * Whether the queue refused: the page says why, and nothing is written.
+   *
+   * @param staged the queue
+   * @returns true if it did
+   */
+  private refusedBy(staged: ConfiguratorHandle['staged']): boolean {
+    if (staged.refused.value === null) {
+      return false
+    }
+    this.state.value = 'failed'
+    this.detail.value = staged.refused.value
+
+    return true
+  }
+
   write = async (): Promise<void> => {
     if (!this.writable()) {
       return
@@ -217,19 +233,40 @@ class Panel implements ParamPanel {
     const { staged } = this.handle
     const sent = [...this.dirty.value]
     const was = Object.fromEntries(sent.map(id => [id, this.vehicleValue(id) ?? 0]))
-    this.state.value = 'idle'
-    this.detail.value = ''
-    this.outcome.value = null
-    staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), this.tuning ? { tuning: true } : { guarded: true })
+    this.begin(sent)
 
-    if (staged.refused.value !== null) {
-      this.state.value = 'failed'
-      this.detail.value = staged.refused.value
-
+    if (this.refusedBy(staged)) {
       return
     }
     await staged.writeAll()
-    this.settle(sent, was)
+    // The queue may refuse after the question (the vehicle armed, or lost its state, meanwhile): nothing was written.
+    this.finish(sent, was)
+  }
+
+  /**
+   * Starts a write: clears what the last one said, and queues the changes.
+   *
+   * @param sent the parameters
+   */
+  private begin(sent: string[]): void {
+    this.state.value = 'idle'
+    this.detail.value = ''
+    this.outcome.value = null
+    const how = this.tuning ? { tuning: true } : { guarded: true }
+
+    this.handle.staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), how)
+  }
+
+  /**
+   * Ends a write: what it did is told, unless the queue refused after the question.
+   *
+   * @param sent the parameters
+   * @param was the values they had
+   */
+  private finish(sent: string[], was: Record<string, number>): void {
+    if (!this.refusedBy(this.handle.staged)) {
+      this.settle(sent, was)
+    }
   }
 
   revert = (): void => {

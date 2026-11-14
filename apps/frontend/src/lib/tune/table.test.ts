@@ -12,11 +12,12 @@ it('has each name once, no wildcard, and a range that holds a value', () => {
 
 it('agrees, name by name and limit by limit, with the list the backend holds every tuning write to', () => {
   const source = readFileSync(resolve(process.cwd(), '../backend/tuning.pi'), 'utf8')
-  const backend = [...source.matchAll(/Tunable \{ id: "(?<id>[A-Z0-9_]+)", max: (?<max>[0-9.]+) \}/g)]
-    .map(match => [match.groups?.id, Number(match.groups?.max)] as const)
+  const backend = [...source.matchAll(/Tunable \{ id: "(?<id>[A-Z0-9_]+)", min: (?<min>[0-9.]+), max: (?<max>[0-9.]+) \}/g)]
+    .map(match => [match.groups?.id, Number(match.groups?.min), Number(match.groups?.max)] as const)
 
   expect(backend.map(([id]) => id)).toEqual(TUNE_PARAMS.map(param => param.id))
-  expect(backend.map(([, max]) => max)).toEqual(TUNE_PARAMS.map(param => param.hi))
+  expect(backend.map(([, min]) => min)).toEqual(TUNE_PARAMS.map(param => param.lo))
+  expect(backend.map(([, , max]) => max)).toEqual(TUNE_PARAMS.map(param => param.hi))
 })
 
 it('has the groups of the page: the rate loop, attitude, pilot feel, position and the radio knob', () => {
@@ -41,8 +42,24 @@ it('refuses a negative value, a value above the most of the table, and what is n
   expect(refusalOf('ATC_RAT_RLL_P', Number.POSITIVE_INFINITY)).toBe('nan')
   expect(refusalOf('ATC_RAT_RLL_P', 0.5)).toBeNull()
   expect(refusalOf('ATC_RAT_RLL_P', 0)).toBeNull()
+  // below the least of the table: only warned about disarmed, refused armed, and the least itself is allowed
+  expect(refusalOf('ATC_RAT_RLL_P', 0, false)).toBeNull()
+  expect(refusalOf('ATC_RAT_RLL_P', 0, true)).toBe('below')
+  expect(refusalOf('ATC_RAT_RLL_P', 0.01, true)).toBeNull()
   // a name that is not the Tune screen's is refused whatever the value
   expect(refusalOf('ARMING_CHECK', 1)).toBe('nan')
+})
+
+it('refuses a value below the least of the range while armed, for each of the names that have a least above zero', () => {
+  const bounded = TUNE_PARAMS.filter(param => param.lo > 0)
+
+  expect(bounded.length).toBeGreaterThan(10)
+
+  for (const param of bounded) {
+    expect(refusalOf(param.id, 0, true)).toBe('below')
+    expect(refusalOf(param.id, 0, false)).toBeNull()
+    expect(refusalOf(param.id, param.lo, true)).toBeNull()
+  }
 })
 
 it('says the range of a parameter in the shape of the metadata, with its unit when it has one', () => {

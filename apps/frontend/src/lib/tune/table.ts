@@ -112,22 +112,41 @@ export function tuneGroup(group: TuneGroup): TuneParam[] {
   return TUNE_PARAMS.filter(param => param.group === group)
 }
 
-/** How a value is refused: it is not a number, it is negative, or it is above the most ArduPilot's table allows. */
-export type TuneRefusal = 'nan' | 'negative' | 'above' | null
+/**
+ * How a value is refused: it is not a number, it is negative, it is above the most ArduPilot's table allows, or it is below the
+ * least it allows WHILE THE VEHICLE IS ARMED (disarmed that is only warned about: a gain of 0 is for the bench, not the air).
+ */
+export type TuneRefusal = 'nan' | 'negative' | 'above' | 'below' | null
+
+/**
+ * Whether a number is below the least of a parameter's range while that is a limit (the vehicle is armed).
+ *
+ * @param value the value
+ * @param param the parameter
+ * @param armed whether the vehicle is armed
+ * @returns true if it is
+ */
+function belowLeast(value: number, param: TuneParam, armed: boolean): boolean {
+  return armed && value < param.lo
+}
 
 /**
  * Whether a number is beyond the limits of a parameter.
  *
  * @param value the value
- * @param hi the most the table allows
+ * @param param the parameter
+ * @param armed whether the vehicle is armed (then the least of the table is a limit too)
  * @returns why it is refused, or null
  */
-function beyond(value: number, hi: number): TuneRefusal {
+function beyond(value: number, param: TuneParam, armed: boolean): TuneRefusal {
   if (value < 0) {
     return 'negative'
   }
+  if (value > param.hi) {
+    return 'above'
+  }
 
-  return value > hi ? 'above' : null
+  return belowLeast(value, param, armed) ? 'below' : null
 }
 
 /**
@@ -136,12 +155,13 @@ function beyond(value: number, hi: number): TuneRefusal {
  *
  * @param id the parameter
  * @param value the value
+ * @param armed whether the vehicle is armed: a value below the least of the table is refused then, else only warned about
  * @returns why it is refused, or null (an unknown name is refused too: it is `nan`, nothing of the Tune screen)
  */
-export function refusalOf(id: string, value: number): TuneRefusal {
-  const hi = tuneParam(id)?.hi
+export function refusalOf(id: string, value: number, armed = false): TuneRefusal {
+  const param = tuneParam(id)
 
-  return Number.isFinite(value) && hi !== undefined ? beyond(value, hi) : 'nan'
+  return Number.isFinite(value) && param !== undefined ? beyond(value, param, armed) : 'nan'
 }
 
 /**

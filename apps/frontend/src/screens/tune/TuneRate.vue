@@ -7,6 +7,8 @@
         <input v-model="linked" type="checkbox" :disabled="panel.writing.value">
         {{ t('tune.link') }}
       </label>
+      <!-- Linking makes pitch take roll's value, so values that differ are not linked for the user: they may link them. -->
+      <p v-if="!linked && differ" id="tune-rate-differ" class="muted">{{ t('tune.differ') }}</p>
       <section v-for="block in blocks" :key="block.key" class="tune-block" :aria-labelledby="`${uid}-${block.key}`">
         <h4 :id="`${uid}-${block.key}`" class="setup-label">{{ block.title }}</h4>
         <TuneSlider
@@ -23,7 +25,7 @@
         {{ t('tune.backToInitial') }}
       </Button>
     </div>
-    <PanelAside :panel="panel" id-prefix="tune-rate" :hold="refused" only-changed />
+    <PanelAside :panel="panel" id-prefix="tune-rate" :hold="refused" :refused-ids="refusedIds" only-changed no-revert />
   </section>
 </template>
 
@@ -58,8 +60,22 @@ interface Block {
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
-const { panel, refused, movable, backToInitial, missing } = useTunePanel(tuneGroup('rate').map(param => param.id), handle)
-const linked = ref(true)
+const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(tuneGroup('rate').map(param => param.id), handle)
+/** What the user chose for the link, or null while they have not: then they are linked if they are the same on the vehicle. */
+const choice = ref<boolean | null>(null)
+/** Whether roll and pitch differ on the vehicle in a term both have: linked, one would overwrite the other with its value. */
+const differ = computed(() => RATE_TERMS.some(term => {
+  const roll = panel.vehicleValue(rateId('RLL', term))
+  const pitch = panel.vehicleValue(rateId('PIT', term))
+
+  return roll !== null && pitch !== null && roll !== pitch
+}))
+const linked = computed({
+  get: () => choice.value ?? !differ.value,
+  set: (on: boolean) => {
+    choice.value = on
+  },
+})
 
 /**
  * The rows of one axis, or of the pair of roll and pitch (the ids of a pair are both axes').

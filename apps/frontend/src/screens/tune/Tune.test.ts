@@ -398,3 +398,137 @@ it('refuses to queue a value beyond the limits, or a name that is not the Tune s
   expect(rig.handle.staged.stage([{ id: 'FS_THR_ENABLE', to: 0 }], { tuning: true })).toBe(0)
   expect(rig.handle.staged.refused.value).toContain('not a parameter the Tune screen writes')
 })
+
+/**
+ * Tells the page and the mock that the vehicle is armed (or not).
+ *
+ * @param rig the rig
+ * @param armed whether it is armed
+ */
+async function arm(rig: Rig, armed: boolean): Promise<void> {
+  rig.control.armed?.(armed)
+  feed(rig.handle, { telemetry: { ...telemetryAt(0), armed } })
+  await flushPromises()
+}
+
+it('refuses a value below the least of the table while armed: the page says so, and nothing is written', async () => {
+  const rig = await screen()
+  await arm(rig, true)
+  await type(rig, 'ATC_RAT_YAW_P', '0')
+
+  expect(noteOf(rig, 'ATC_RAT_YAW_P')).toContain('refused')
+  expect(noteOf(rig, 'ATC_RAT_YAW_P')).toContain('0.1')
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_YAW_P"] .tune-note').classes()).toContain('problem')
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
+  await write(rig)
+  expect(rig.asked).toHaveLength(0)
+  expect(rig.control.writesSent?.()).toEqual([])
+})
+
+it('only warns of that value while the vehicle is disarmed, and writes it', async () => {
+  const rig = await screen()
+  await type(rig, 'ATC_RAT_YAW_P', '0')
+
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_YAW_P"] .tune-note').classes()).not.toContain('problem')
+  await write(rig)
+  expect(valueOf(rig, 'ATC_RAT_YAW_P')).toBe(0)
+})
+
+it('takes the least of the table itself while the vehicle is armed (after the hold)', async () => {
+  const rig = await screen()
+  await arm(rig, true)
+  await type(rig, 'ATC_RAT_YAW_P', '0.1')
+
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeUndefined()
+  await write(rig)
+  expect(rig.asked[0]?.split('\n')[0]).toBe('Armed: changes apply in flight.')
+  expect(valueOf(rig, 'ATC_RAT_YAW_P')).toBeCloseTo(0.1, 5)
+})
+
+it('refuses to queue 0 armed for the names that have a least, and queues it disarmed', async () => {
+  const rig = await screen()
+  const names = ['ATC_RAT_RLL_P', 'ATC_RAT_PIT_P', 'ATC_ANG_RLL_P', 'PSC_D_ACC_P']
+
+  await arm(rig, false)
+
+  for (const id of names) {
+    expect(rig.handle.staged.stage([{ id, to: 0 }], { tuning: true })).toBe(1)
+  }
+  rig.handle.staged.reset()
+  await arm(rig, true)
+
+  for (const id of names) {
+    expect(rig.handle.staged.stage([{ id, to: 0 }], { tuning: true })).toBe(0)
+    expect(rig.handle.staged.refused.value).toContain(`${id}: 0 is below`)
+  }
+})
+
+it('does not write what was queued while disarmed when the vehicle arms before the answer, and says so', async () => {
+  const asked: string[] = []
+  const state: { arm: () => void } = { arm: () => undefined }
+  const { handle, control } = await vehicleOf({}, SETUP_PARAMS, question => {
+    asked.push(question)
+    state.arm()
+  })
+  state.arm = () => {
+    control.armed?.(true)
+    feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
+  }
+  handle.staged.stage([{ id: 'ATC_RAT_YAW_P', to: 0 }], { tuning: true })
+  await handle.staged.writeAll()
+
+  expect(control.writesSent?.()).toEqual([])
+  expect(handle.staged.refused.value).toContain('nothing was written')
+})
+
+it('does not link roll and pitch silently when they differ on the vehicle: the link is off, and says why', async () => {
+  const params = SETUP_PARAMS.map(param => (param.id === 'ATC_RAT_PIT_P' ? { ...param, value: 0.2 } : param))
+  const rig = await screen('/tune/rate', {}, params)
+
+  expect(rig.wrapper.get('.tune-link input').element).toHaveProperty('checked', false)
+  expect(rig.wrapper.get('#tune-rate-differ').text()).toContain('differ')
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_RLL_P"] .tune-names').text()).toBe('ATC_RAT_RLL_P')
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_PIT_P"] .tune-names').text()).toBe('ATC_RAT_PIT_P')
+  // moving roll leaves pitch where it is
+  await slide(rig, 'ATC_RAT_RLL_P', 0.3)
+  await write(rig)
+  expect(valueOf(rig, 'ATC_RAT_RLL_P')).toBeCloseTo(0.3, 5)
+  expect(valueOf(rig, 'ATC_RAT_PIT_P')).toBeCloseTo(0.2, 5)
+})
+
+it('lets the user link roll and pitch that differ, and then names both in the question', async () => {
+  const params = SETUP_PARAMS.map(param => (param.id === 'ATC_RAT_PIT_P' ? { ...param, value: 0.2 } : param))
+  const rig = await screen('/tune/rate', {}, params)
+  await rig.wrapper.get('.tune-link input').setValue(true)
+  await slide(rig, 'ATC_RAT_RLL_P', 0.3)
+  await write(rig)
+
+  expect(rig.asked[0]).toContain('ATC_RAT_RLL_P 0.135 → 0.3')
+  expect(rig.asked[0]).toContain('ATC_RAT_PIT_P 0.2 → 0.3')
+  expect(valueOf(rig, 'ATC_RAT_PIT_P')).toBeCloseTo(0.3, 5)
+})
+
+it('puts the field back to the vehicle\'s value when the initial values are put back, and there is one button for it', async () => {
+  const rig = await screen()
+  await type(rig, 'ATC_RAT_YAW_P', '0.25')
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeUndefined()
+
+  expect(rig.wrapper.find('#tune-rate-revert').exists()).toBe(false)
+  await rig.wrapper.get('#tune-rate-initial').trigger('click')
+  await flushPromises()
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_YAW_P"] input[type="text"]').element).toHaveProperty('value', '0.18')
+  expect(rig.wrapper.get('[data-tune="ATC_RAT_YAW_P"] .tune-was').text()).toBe('was 0.18')
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
+  expect(rig.control.writesSent?.()).toEqual([])
+})
+
+it('lists under "What this writes" only what would be written: a refused value is shown as refused', async () => {
+  const rig = await screen()
+  await type(rig, 'ATC_RAT_YAW_P', '-1')
+  await type(rig, 'ATC_RAT_YAW_I', '0.3')
+
+  const lines = rig.wrapper.findAll('.setup-writes li')
+  expect(lines.filter(line => !line.classes().includes('refused')).map(line => line.text())).toEqual(['ATC_RAT_YAW_I'])
+  expect(rig.wrapper.get('.setup-writes li.refused').text()).toBe('ATC_RAT_YAW_P · refused: not written')
+  expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
+})
