@@ -37,6 +37,25 @@
   margin-bottom: var(--space-5);
 }
 
+/* The path of a file is long: its row is wider, with the field taking what the button leaves. */
+.settings-row:has(.settings-path) {
+  max-width: 40rem;
+}
+
+.settings-path {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.settings-path .kit-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-problem {
+  color: var(--color-error);
+}
+
 .settings-row p {
   margin: 0;
   font-size: var(--font-size-sm);

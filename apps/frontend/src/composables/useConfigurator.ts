@@ -29,6 +29,7 @@ import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
 import { useAutoDownload } from './useAutoDownload'
+import { METADATA_PATH_KEY } from '@/lib/params/metadataSettings'
 import { RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
 import { type Guard, type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
 
@@ -503,8 +504,8 @@ export function createConfigurator(
   const error = shallowRef<string | null>(null)
   const fail = (message: string | null) => void (error.value = message)
   const askUser = confirm ?? ((question: string) => ask(confirmation, question))
-  const metadata = useMetadata({ client })
   const settings = startSettings(client)
+  const metadata = useMetadata({ client, rememberPath: path => void settings.setUi(METADATA_PATH_KEY, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)

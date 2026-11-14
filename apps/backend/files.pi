@@ -1,8 +1,8 @@
 // The files service: saving and opening a parameter snapshot where the user chooses.
-import { Cbor, Communicator, Host, OpenFile, RequestContext, SaveFile } from "pico-desktop/communicator"
-import { exists, readText, writeText } from "std/fs"
+import { Cbor, Communicator, CommunicatorError, Host, OpenFile, RequestContext, SaveFile } from "pico-desktop/communicator"
+import { FileInfo, exists, readText, stat, writeText } from "std/fs"
 import { env } from "std/process"
-import { FileOpened, FileSaved, decodeFileSave, encodeFileOpened, encodeFileSaved } from "./generated/app"
+import { FileContents, FileOpened, FileSaved, decodeFileRead, decodeFileSave, encodeFileContents, encodeFileOpened, encodeFileSaved } from "./generated/app"
 
 /// The host's native services (file dialogs).
 class Dialogs {
@@ -16,6 +16,7 @@ export function register(c: Communicator): void {
   dialogs.host = new Host(c)
   c.handle("files.save", saveFile)
   c.handle("files.open", openFile)
+  c.handle("files.read", readFile)
 }
 
 function host(): Host {
@@ -104,4 +105,76 @@ async function openFile(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> t
   }
   const text = await readText(path!)
   encodeFileOpened(FileOpened { path: path!, text: text })
+}
+
+/// The most `files.read` gives: a metadata file is a few MB at the most.
+const MAX_READ_BYTES: int = 16777216
+
+/// Whether `path` is absolute: from the root of a POSIX file system, a drive (`C:\` or `C:/`) or a network share (`\\`).
+function isAbsolute(path: string): bool {
+  if (path.startsWith("/") || path.startsWith("\\\\")) {
+    return true
+  }
+  const drive = path.split(":")[0]
+  drive.length == 1 && (path.startsWith(`${drive}:/`) || path.startsWith(`${drive}:\\`))
+}
+
+/// Whether some part of `path` is `..` (either separator).
+function climbs(path: string): bool {
+  for (const part of path.split("/")) {
+    for (const piece of part.split("\\")) {
+      if (piece == "..") {
+        return true
+      }
+    }
+  }
+  false
+}
+
+/// Refuses a path `files.read` does not read, by what is written in it: not absolute, a `..` in it, or not named `.json`.
+function refuseByName(path: string): void throws CommunicatorError {
+  if (!isAbsolute(path)) {
+    throw new CommunicatorError("INVALID_PATH", "not an absolute path (a file is read only from a full path)")
+  }
+  if (climbs(path)) {
+    throw new CommunicatorError("INVALID_PATH", "it has a \"..\" in it (a path is read as written, not climbed)")
+  }
+  if (!path.toLowerCase().endsWith(".json")) {
+    throw new CommunicatorError("NOT_JSON", "not a .json file (only a .json file is read)")
+  }
+}
+
+/// What is at `path` once links are followed: refused when it is not there, cannot be looked at, or is not a regular file.
+async function regularFile(path: string): Promise<FileInfo> throws CommunicatorError {
+  let info: FileInfo
+  try {
+    info = await stat(path)
+  } catch (e: IoError) {
+    if (e.kind == "NotFound") {
+      throw new CommunicatorError("NOT_FOUND", "no such file")
+    }
+    throw new CommunicatorError("UNREADABLE", `it cannot be looked at (${e.kind})`)
+  }
+  if (!info.isFile) {
+    throw new CommunicatorError("NOT_A_FILE", "not a regular file")
+  }
+  info
+}
+
+/// Reads the JSON file at a path the user wrote (the metadata file the settings keep), under the rules in the contract. The
+/// errors give the rule and never the file's contents (the caller knows the path it asked for).
+async function readFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const path = decodeFileRead(payload ?? Cbor.Null, "$").path
+  refuseByName(path)
+  const info = await regularFile(path)
+  if (info.size > MAX_READ_BYTES) {
+    throw new CommunicatorError("TOO_LARGE", "over 16 MiB")
+  }
+  let text = ""
+  try {
+    text = await readText(path)
+  } catch (e: IoError) {
+    throw new CommunicatorError("UNREADABLE", `it cannot be read (${e.kind})`)
+  }
+  encodeFileContents(FileContents { text: text })
 }

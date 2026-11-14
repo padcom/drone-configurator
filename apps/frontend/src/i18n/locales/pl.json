@@ -604,6 +604,14 @@
     "label": "Język"
   },
   "settings": {
+    "metadata": {
+      "title": "Metadane parametrów",
+      "path": "Plik metadanych",
+      "pathHelp": "Gdzie jest plik metadanych parametrów. Plik wczytany ręcznie jest tu zapamiętywany i wczytywany ponownie przy starcie, gdy przełącznik poniżej jest włączony.",
+      "choose": "Wybierz plik…",
+      "autoload": "Wczytaj metadane parametrów przy uruchomieniu aplikacji",
+      "autoloadHelp": "Gdy wyłączony, przy starcie nic nie jest wczytywane, a ścieżka powyżej zostaje zapamiętana."
+    },
     "dismiss": "Zamknij",
     "title": "Ustawienia",
     "languageHelp": "Język interfejsu.",
@@ -950,6 +958,8 @@
   },
   "notice": {
     "metadataLoad": "Nie można wczytać metadanych: {reason}.",
+    "metadataLoadFrom": "Nie można wczytać metadanych z {path}: {reason}.",
+    "metadataReadFrom": "Nie można wczytać metadanych z {path}: {error}",
     "open": "Nie udało się otworzyć: {error}",
     "settingsUnavailable": "Ustawienia są niedostępne: {error}",
     "settingKept": "Nie udało się zapisać ustawienia: {error}",

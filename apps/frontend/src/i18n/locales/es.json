@@ -604,6 +604,14 @@
     "label": "Idioma"
   },
   "settings": {
+    "metadata": {
+      "title": "Metadatos de parámetros",
+      "path": "Archivo de metadatos",
+      "pathHelp": "Dónde está el archivo de metadatos de parámetros. Un archivo que cargue a mano se guarda aquí y se vuelve a cargar al iniciar si el interruptor de abajo está activado.",
+      "choose": "Elegir archivo…",
+      "autoload": "Cargar los metadatos de parámetros al iniciar la aplicación",
+      "autoloadHelp": "Desactivado, no se carga nada al iniciar y la ruta de arriba se conserva."
+    },
     "dismiss": "Cerrar",
     "title": "Ajustes",
     "languageHelp": "El idioma de la interfaz.",
@@ -950,6 +958,8 @@
   },
   "notice": {
     "metadataLoad": "No se pueden cargar los metadatos: {reason}.",
+    "metadataLoadFrom": "No se pueden cargar los metadatos de {path}: {reason}.",
+    "metadataReadFrom": "No se pueden cargar los metadatos de {path}: {error}",
     "open": "No se pudo abrir: {error}",
     "settingsUnavailable": "Los ajustes no están disponibles: {error}",
     "settingKept": "No se pudo guardar un ajuste: {error}",

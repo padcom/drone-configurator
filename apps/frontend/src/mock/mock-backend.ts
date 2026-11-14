@@ -43,6 +43,10 @@ export interface MockOptions {
   logs?: MockLogsOptions
   /** The backend has no `logs.*` handler, as the real one has none yet: every call is answered with UNKNOWN_METHOD. */
   withoutLogs?: boolean
+  /** What the open dialog gives, one file at each `files.open` (then what was saved last, if anything). */
+  opens?: { path: string, text: string }[]
+  /** The files `files.read` can read: path to text. Any other path is answered with NOT_FOUND, as the backend does. */
+  files?: Record<string, string>
   /** The vehicle's parameters, when not the usual few (`SETUP_PARAMS` is a Copter that was set up). */
   params?: Param[]
   /** How the vehicle calibrates (its steps are 25 ms apart by default). */
@@ -88,6 +92,8 @@ export function patchSettings(doc: Settings, patch: SettingsPatch): Settings {
 export interface MockControl {
   /** The parameters the vehicle has been sent a write for, in order (a write that was refused sent nothing). */
   writesSent?: () => string[]
+  /** The paths `files.read` was asked for, in order. */
+  filesRead?: () => string[]
   restart?: () => void
   /** The vehicle announces a parameter changed elsewhere (as by another ground station). */
   announce?: (id: string, value: number) => void
@@ -161,6 +167,7 @@ class MockVehicle {
   rebootsSent = 0
   /** The parameters written, in order (a refused write is not here: nothing reached the vehicle). */
   readonly writesSent: string[] = []
+  readonly filesRead: string[] = []
   readonly logs: MockLogs
   /** The calibration of the vehicle's sensors. */
   readonly calibration: MockCalibration
@@ -194,6 +201,7 @@ class MockVehicle {
       options.control.rebootAnswer = answer => { this.rebootAnswer = answer }
       options.control.rebootsSent = () => this.rebootsSent
       options.control.writesSent = () => [...this.writesSent]
+      options.control.filesRead = () => [...this.filesRead]
     }
   }
 
@@ -300,7 +308,14 @@ class MockVehicle {
 
         return ok({ path: this.saved.path })
       }
-      case 'files.open': return ok(this.saved ?? {})
+      case 'files.open': return ok(this.options.opens?.shift() ?? this.saved ?? {})
+      case 'files.read': {
+        const { path } = e.p as { path: string }
+        this.filesRead.push(path)
+        const text = this.options.files?.[path]
+
+        return text === undefined ? fail('NOT_FOUND', 'no such file') : ok({ text })
+      }
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
       case 'settings.get': return ok(this.settingsState())
       case 'settings.set': {

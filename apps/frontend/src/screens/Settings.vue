@@ -14,6 +14,30 @@
       <Toggle id="notify-commands" v-model="notify" :aria-describedby="`${uid}-notify-help`">{{ t('settings.notify') }}</Toggle>
       <p :id="`${uid}-notify-help`" class="muted">{{ t('settings.notifyHelp') }}</p>
     </div>
+    <h3 class="settings-group">{{ t('settings.metadata.title') }}</h3>
+    <div class="settings-row">
+      <label :for="`${uid}-metadata-path`">{{ t('settings.metadata.path') }}</label>
+      <div class="settings-path">
+        <TextInput
+          :id="`${uid}-metadata-path`"
+          v-model="pathText"
+          mono
+          :invalid="metadataProblem !== null"
+          :aria-describedby="`${uid}-metadata-help ${uid}-metadata-problem`"
+          @change="metadataSetting.choosePath(pathText)"
+        />
+        <Button :id="`${uid}-metadata-pick`" @click="metadataSetting.pick()">{{ t('settings.metadata.choose') }}</Button>
+      </div>
+      <p :id="`${uid}-metadata-help`" class="muted">{{ t('settings.metadata.pathHelp') }}</p>
+      <!-- Always there, empty when all is well: a status is announced when its text changes, not on insertion. -->
+      <p :id="`${uid}-metadata-problem`" class="settings-problem" role="status">{{ metadataProblem ?? '' }}</p>
+    </div>
+    <div class="settings-row">
+      <Toggle id="metadata-autoload" v-model="metadataAutoload" :aria-describedby="`${uid}-metadata-auto-help`">
+        {{ t('settings.metadata.autoload') }}
+      </Toggle>
+      <p :id="`${uid}-metadata-auto-help`" class="muted">{{ t('settings.metadata.autoloadHelp') }}</p>
+    </div>
     <h3 class="settings-group">{{ t('settings.logs.title') }}</h3>
     <p class="muted">{{ t('settings.logs.acts') }}</p>
     <div class="settings-row">
@@ -35,20 +59,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
+import Button from '@/components/ui/Button.vue'
 import Select from '@/components/ui/Select.vue'
+import TextInput from '@/components/ui/TextInput.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useCommandNotice } from '@/composables/useCommandNotice'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
+import { useMetadataSetting } from '@/composables/useMetadataSetting'
 import { RETENTION_DAYS, SIZE_CAPS_MB, useLogsSettings } from '@/composables/useLogsSettings'
 import { sizeText } from '@/lib/logs/vehicleLogs'
 import { useFormat } from '@/i18n/useFormat'
 
-// What the user chooses about the application. For now that is the language of the interface, of which there is one; the
-// choice is kept in the settings (the backend's file), which shows the interface in it, so it is still there at the next
+// What the user chooses about the application: the language of the interface, what the Parameters screen shows, the parameter
+// metadata file and the logs. The choices are kept in the settings (the backend's file), so they are still there at the next
 // start. The settings notice (a file that was set aside, one that cannot be written) stays where it is, under the top bar,
 // since it matters on every screen.
 const { t, locale } = useI18n()
@@ -65,6 +92,17 @@ const { shown: noticeShown, choose: chooseNotice } = useCommandNotice()
 const notify = computed({
   get: () => noticeShown.value,
   set: (next: boolean) => void chooseNotice(next),
+})
+// The parameter metadata file: its path (written here, or kept when a file is loaded by hand) and whether it is loaded at start.
+const metadataSetting = useMetadataSetting()
+const pathText = ref(metadataSetting.path.value)
+watch(metadataSetting.path, next => {
+  pathText.value = next
+})
+const metadataProblem = metadataSetting.problem
+const metadataAutoload = computed({
+  get: () => metadataSetting.autoload.value,
+  set: (next: boolean) => void metadataSetting.chooseAutoload(next),
 })
 // The preferences about logs (kept; nothing acts on them until the backend downloads and removes logs).
 const { number } = useFormat()

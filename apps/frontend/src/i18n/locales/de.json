@@ -604,6 +604,14 @@
     "label": "Sprache"
   },
   "settings": {
+    "metadata": {
+      "title": "Parameter-Metadaten",
+      "path": "Metadaten-Datei",
+      "pathHelp": "Wo die Datei mit den Parameter-Metadaten liegt. Eine Datei, die Sie von Hand laden, wird hier gemerkt und beim Start wieder geladen, wenn der Schalter unten an ist.",
+      "choose": "Datei wählen…",
+      "autoload": "Parameter-Metadaten beim Start der Anwendung laden",
+      "autoloadHelp": "Ist er aus, wird beim Start nichts geladen; der Pfad oben bleibt erhalten."
+    },
     "dismiss": "Schließen",
     "title": "Einstellungen",
     "languageHelp": "Die Sprache der Oberfläche.",
@@ -950,6 +958,8 @@
   },
   "notice": {
     "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
+    "metadataLoadFrom": "Die Metadaten aus {path} können nicht geladen werden: {reason}.",
+    "metadataReadFrom": "Die Metadaten aus {path} können nicht geladen werden: {error}",
     "open": "Konnte nicht geöffnet werden: {error}",
     "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",
     "settingKept": "Eine Einstellung konnte nicht gespeichert werden: {error}",
