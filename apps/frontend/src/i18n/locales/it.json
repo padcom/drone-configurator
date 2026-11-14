@@ -1447,6 +1447,28 @@
         "wspi": "Wide SPI"
       }
     },
+    "motors": {
+      "summary": "Come vengono pilotati gli ESC, le soglie a cui girano i motori e cosa fanno ora le uscite del veicolo. Nulla in questa pagina fa girare un motore.",
+      "escTitle": "Impostazioni degli ESC",
+      "protocol": "Protocollo degli ESC",
+      "protocolHelp": "Il protocollo delle uscite dei motori (MOT_PWM_TYPE). Ha effetto dopo un riavvio e gli ESC devono capirlo.",
+      "MOT_SPIN_ARM": "Giro da armato",
+      "MOT_SPIN_ARMHelp": "La parte della corsa del gas a cui girano i motori armati e a riposo (MOT_SPIN_ARM), da 0 a 0,2. Sotto il giro minimo in volo.",
+      "MOT_SPIN_MIN": "Giro minimo in volo",
+      "MOT_SPIN_MINHelp": "La parte più bassa della corsa del gas con cui si pilotano i motori in volo (MOT_SPIN_MIN), da 0 a 0,25.",
+      "MOT_SPIN_MAX": "Giro massimo",
+      "MOT_SPIN_MAXHelp": "La parte più alta della corsa del gas con cui si pilotano i motori (MOT_SPIN_MAX), da 0,9 a 1.",
+      "order": "Le soglie non devono scendere: il giro armato al massimo il giro minimo in volo, e questo al massimo il giro massimo. Non si scrive nulla finché non sono in quest'ordine.",
+      "outputs": "Uscite ora",
+      "noOutputs": "Ancora nessuna uscita",
+      "noOutputsHelp": "Compaiono quando il veicolo le comunica.",
+      "output": "Uscita {n}",
+      "pulse": "{us} µs",
+      "range": "Fuori intervallo: quanto digitato non viene scritto.",
+      "outputsOld": "Il veicolo ha smesso di riferire le sue uscite.",
+      "outputsOldHelp": "Gli ultimi impulsi non vengono mostrati: sembrerebbero attuali. Riappaiono quando il veicolo li riferisce.",
+      "protocolUnknown": "Questo veicolo non riferisce il suo protocollo ESC."
+    },
     "radio": {
       "summary": "Muovi ogni stick e ogni interruttore del trasmettitore: la sua barra si muove con lui. Per calibrare, avvia, porta ogni stick a tutti i suoi estremi e ogni interruttore in tutte le sue posizioni, rimetti gli stick al centro (gas in basso) e premi Fatto. Non viene scritto nulla finché non lo scrivi tu.",
       "start": "Calibra la radio",
@@ -1465,7 +1487,6 @@
       "staged": "Valori scelti da questa calibrazione: {count} (l’intervallo di ogni canale mosso, il trim di rollio, beccheggio e imbardata). Scrivili con «Scrivi e verifica».",
       "nothingMoved": "Nessun canale si è mosso abbastanza da dare un intervallo: non è stato scelto nulla.",
       "offCentre": "Nessun trim scelto per il canale {channels}: il suo stick non era al centro quando hai premuto Fatto. Centralo e calibra di nuovo per impostare il trim.",
-      "aux": "Funzioni degli interruttori",
       "auxHelp": "Cosa fa ogni canale ausiliario quando si muove il suo interruttore (RCn_OPTION). I nomi vengono dai metadati dei parametri: caricali nella pagina Parametri per vederli; senza, viene mostrato il numero.",
       "function": "Funzione del canale {n}",
       "role": {

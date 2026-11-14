@@ -52,6 +52,10 @@ export const SETUP_PARAMS: Param[] = [
   p('COMPASS_OFS_Y', 'real', 'REAL32', -8),
   p('COMPASS_OFS_Z', 'real', 'REAL32', 31),
   ...[1, 2, 3, 4].flatMap(n => [p(`RC${n}_MIN`, 'int', 'INT16', 1008), p(`RC${n}_MAX`, 'int', 'INT16', 1992)]),
+  p('MOT_PWM_TYPE', 'int', 'INT8', 0),
+  p('MOT_SPIN_ARM', 'real', 'REAL32', 0.1),
+  p('MOT_SPIN_MIN', 'real', 'REAL32', 0.15),
+  p('MOT_SPIN_MAX', 'real', 'REAL32', 0.95),
   p('FLTMODE1', 'int', 'INT8', 0),
   p('FLTMODE2', 'int', 'INT8', 5),
   p('FLTMODE3', 'int', 'INT8', 6),
@@ -145,10 +149,12 @@ export const COPTER_MODES = [
 function groupsAt(
   n: number,
   flat: { batteryVoltage: number, batteryRemaining: number, roll: number, pitch: number, yaw: number },
-): Pick<Telemetry, 'position' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc'> {
+): Pick<Telemetry, 'position' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc' | 'servo'> {
   const ageMs = 200
 
   return {
+    // The four motors of a quad: at rest, and a little above once the vehicle is armed.
+    servo: { ports: [{ port: 0, outputs: n >= 3 ? [1100, 1100, 1100, 1100] : [1000, 1000, 1000, 1000] }], ageMs },
     // Eight channels: the sticks sway a little round the middle, the throttle low, the switches at rest (low).
     rc: { channels: [1500 + (n % 5) * 20, 1500, 1000, 1500 - (n % 3) * 10, 1000, 1000, 1500, 1000], rssi: 87, ageMs },
     battery: { voltage: flat.batteryVoltage, remaining: flat.batteryRemaining, cells: [4.19, 4.2, 4.21], ageMs },

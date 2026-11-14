@@ -1447,6 +1447,28 @@
         "wspi": "Wide SPI"
       }
     },
+    "motors": {
+      "summary": "Wie die ESCs angesteuert werden, die Schwellen, bei denen sich die Motoren drehen, und was die Ausgänge des Fahrzeugs gerade tun. Nichts auf dieser Seite dreht einen Motor.",
+      "escTitle": "ESC-Einstellungen",
+      "protocol": "ESC-Protokoll",
+      "protocolHelp": "Das Protokoll der Motorausgänge (MOT_PWM_TYPE). Es gilt nach einem Neustart, und die ESCs müssen es verstehen.",
+      "MOT_SPIN_ARM": "Drehung bei scharfem Fahrzeug",
+      "MOT_SPIN_ARMHelp": "Der Teil des Gasbereichs, mit dem sich die Motoren scharf und im Leerlauf drehen (MOT_SPIN_ARM), von 0 bis 0,2. Unter der niedrigsten Drehung im Flug.",
+      "MOT_SPIN_MIN": "Niedrigste Drehung im Flug",
+      "MOT_SPIN_MINHelp": "Der niedrigste Teil des Gasbereichs, mit dem die Motoren im Flug angesteuert werden (MOT_SPIN_MIN), von 0 bis 0,25.",
+      "MOT_SPIN_MAX": "Höchste Drehung",
+      "MOT_SPIN_MAXHelp": "Der höchste Teil des Gasbereichs, mit dem die Motoren angesteuert werden (MOT_SPIN_MAX), von 0,9 bis 1.",
+      "order": "Die Schwellen dürfen nicht fallen: Drehung bei scharfem Fahrzeug höchstens die niedrigste Drehung im Flug, und diese höchstens die höchste Drehung. Bis dahin wird nichts geschrieben.",
+      "outputs": "Ausgänge jetzt",
+      "noOutputs": "Noch keine Ausgänge",
+      "noOutputsHelp": "Sie erscheinen, sobald das Fahrzeug sie meldet.",
+      "output": "Ausgang {n}",
+      "pulse": "{us} µs",
+      "range": "Außerhalb des Bereichs: das Eingegebene wird nicht geschrieben.",
+      "outputsOld": "Das Fahrzeug meldet seine Ausgänge nicht mehr.",
+      "outputsOldHelp": "Die letzten Impulse werden nicht gezeigt, sie sähen aktuell aus. Sie erscheinen wieder, wenn das Fahrzeug sie meldet.",
+      "protocolUnknown": "Dieses Fahrzeug meldet sein ESC-Protokoll nicht."
+    },
     "radio": {
       "summary": "Bewegen Sie jeden Knüppel und jeden Schalter des Senders: Sein Balken bewegt sich mit. Zum Kalibrieren starten Sie, bewegen jeden Knüppel in alle Endlagen und jeden Schalter in alle Stellungen, bringen die Knüppel zurück in die Mitte (Gas unten) und drücken Fertig. Geschrieben wird erst, wenn Sie schreiben.",
       "start": "Funk kalibrieren",
@@ -1465,7 +1487,6 @@
       "staged": "Aus dieser Kalibrierung übernommene Werte: {count} (der Bereich jedes bewegten Kanals, die Trimmung von Roll, Nick und Gier). Schreiben Sie sie mit „Schreiben und prüfen“.",
       "nothingMoved": "Kein Kanal wurde genug bewegt, um einen Bereich zu ergeben: Es wurde nichts übernommen.",
       "offCentre": "Für Kanal {channels} wurde keine Trimmung übernommen: Der Knüppel war beim Drücken von Fertig nicht in der Mitte. Zentrieren Sie ihn und kalibrieren Sie erneut, um die Trimmung zu setzen.",
-      "aux": "Schalterfunktionen",
       "auxHelp": "Was jeder Zusatzkanal tut, wenn sein Schalter bewegt wird (RCn_OPTION). Die Namen stammen aus den Parameter-Metadaten: Laden Sie sie auf der Seite Parameter, um sie zu sehen; ohne sie wird die Nummer angezeigt.",
       "function": "Funktion von Kanal {n}",
       "role": {

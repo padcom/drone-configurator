@@ -12,11 +12,13 @@ import {
   MavLinkData,
   NavControllerOutput,
   RcChannels,
+  ServoOutputRaw,
   SysStatus,
   VfrHud,
   Vibration,
   Wind,
   rcReadingOf,
+  servoReadingOf,
 } from "padcom/pico-mavlink"
 import {
   AttitudeGroup,
@@ -26,6 +28,8 @@ import {
   NavGroup,
   PositionGroup,
   RcGroup,
+  ServoGroup,
+  ServoPort,
   SpeedGroup,
   Telemetry,
   VibrationGroup,
@@ -61,6 +65,7 @@ export function wishes(): Wish[] {
     new Wish(Wind.MSG_ID, 1.0),
     new Wish(Vibration.MSG_ID, 1.0),
     new Wish(RcChannels.MSG_ID, 10.0),
+    new Wish(ServoOutputRaw.MSG_ID, 2.0),
   ]
 }
 
@@ -178,6 +183,42 @@ function rcOf(m: RcChannels, before: RcGroup?): RcGroup {
   g
 }
 
+/// The outputs of one port as the group has them: up to the last output that is used (an unused one is 0, in the middle too).
+function outputsOf(pulses: int[]): u16[] {
+  let last = pulses.length
+  while (last > 0 && pulses[last - 1] == 0) {
+    last -= 1
+  }
+  const outputs: u16[] = []
+  for (let i = 0; i < last; i++) {
+    outputs.push(pulses[i] as u16)
+  }
+  outputs
+}
+
+/// The servo group after a SERVO_OUTPUT_RAW: that port's outputs are replaced, the other ports stay as they were; the ports are in order.
+function servoAfter(before: ServoGroup?, m: ServoOutputRaw): ServoGroup {
+  const reading = servoReadingOf(m)
+  const ports: ServoPort[] = []
+  let placed = false
+  if (before != null) {
+    for (const p of before!.ports) {
+      if (!placed && reading.port <= p.port as int) {
+        ports.push(ServoPort { port: reading.port as u8, outputs: outputsOf(reading.pulses) })
+        placed = true
+        if (reading.port == p.port as int) {
+          continue
+        }
+      }
+      ports.push(p)
+    }
+  }
+  if (!placed) {
+    ports.push(ServoPort { port: reading.port as u8, outputs: outputsOf(reading.pulses) })
+  }
+  ServoGroup { ports: ports, ageMs: 0 }
+}
+
 function attitudeOf(m: Attitude): AttitudeGroup {
   AttitudeGroup {
     roll: (m.roll as f64) * DEGREES,
@@ -243,6 +284,7 @@ export class Groups {
   public battery: BatteryGroup? = null
   public attitude: AttitudeGroup? = null
   public rc: RcGroup? = null
+  public servo: ServoGroup? = null
   heardAt: Map<string, int> = new Map<string, int>()
 
   /// Forgets everything (the link ended).
@@ -257,6 +299,7 @@ export class Groups {
     battery = null
     attitude = null
     rc = null
+    servo = null
     heardAt.clear()
   }
 
@@ -324,6 +367,9 @@ export class Groups {
     } else if (m instanceof RcChannels) {
       rc = rcOf(m, rc)
       stamp("rc", now)
+    } else if (m instanceof ServoOutputRaw) {
+      servo = servoAfter(servo, m)
+      stamp("servo", now)
     } else {
       return false
     }
@@ -404,6 +450,11 @@ export class Groups {
     if (r != null) {
       r!.ageMs = age("rc", now)
       t.rc = r
+    }
+    const sv = servo
+    if (sv != null) {
+      sv!.ageMs = age("servo", now)
+      t.servo = sv
     }
     t
   }

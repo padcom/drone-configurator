@@ -669,6 +669,7 @@ telemetry = {
   ? vibration: vibration-group,
   ? battery: battery-group,
   ? attitude: attitude-group,
+  ? servo: servo-group,
   ? rc: rc-group,
 }
 
@@ -743,6 +744,19 @@ rc-group = {
   channels: [* uint .size 2],
   ? rssi: uint .size 1,
   ageMs: uint .size 4,
+}
+
+; SERVO_OUTPUT_RAW: the pulse (µs) each output of the vehicle gives, by `port` (0 MAIN, 1 AUX ...; 16 outputs a port: output n of a
+; port is number 16 * port + n). `outputs` of a port end at the last output that is used (an output that is not used is 0, in the middle
+; too). `ageMs` is the age of the latest port heard. Read-only: nothing here is a command.
+servo-group = {
+  ports: [* servo-port],
+  ageMs: uint .size 4,
+}
+
+servo-port = {
+  port: uint .size 1,
+  outputs: [* uint .size 2],
 }
 
 ; VIBRATION: `clipping` counts the accelerometers' clipping events (three sensors).

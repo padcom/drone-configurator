@@ -3007,11 +3007,12 @@ export struct Telemetry {
   vibration?: VibrationGroup
   battery?: BatteryGroup
   attitude?: AttitudeGroup
+  servo?: ServoGroup
   rc?: RcGroup
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "rc"])
+  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
   const cbor2 = m.get("batteryVoltage")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -3082,10 +3083,15 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor16 != null) {
     opt16 = decodeAttitudeGroup(cbor16, `${path}.attitude`)
   }
-  const cbor17 = m.get("rc")
-  let opt17: RcGroup? = null
+  const cbor17 = m.get("servo")
+  let opt17: ServoGroup? = null
   if (cbor17 != null) {
-    opt17 = decodeRcGroup(cbor17, `${path}.rc`)
+    opt17 = decodeServoGroup(cbor17, `${path}.servo`)
+  }
+  const cbor18 = m.get("rc")
+  let opt18: RcGroup? = null
+  if (cbor18 != null) {
+    opt18 = decodeRcGroup(cbor18, `${path}.rc`)
   }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
@@ -3105,7 +3111,8 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
     vibration: opt14,
     battery: opt15,
     attitude: opt16,
-    rc: opt17,
+    servo: opt17,
+    rc: opt18,
   }
 }
 
@@ -3170,9 +3177,13 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   if (opt16 != null) {
     m.set("attitude", encodeAttitudeGroup(opt16))
   }
-  const opt17 = v.rc
+  const opt17 = v.servo
   if (opt17 != null) {
-    m.set("rc", encodeRcGroup(opt17))
+    m.set("servo", encodeServoGroup(opt17))
+  }
+  const opt18 = v.rc
+  if (opt18 != null) {
+    m.set("rc", encodeRcGroup(opt18))
   }
   Cbor.Dict(m)
 }
@@ -3447,6 +3458,82 @@ export function encodeRcGroup(v: RcGroup): Cbor {
     m.set("rssi", Cbor.Uint(opt1 as u64))
   }
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeServoGroupPortsList(v: Cbor, path: string): ServoPort[] throws InvalidPayload {
+  const out: ServoPort[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeServoPort(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeServoGroupPortsList(v: ServoPort[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeServoPort(e))
+  }
+  Cbor.List(out)
+}
+
+export struct ServoGroup {
+  ports: ServoPort[]
+  ageMs: u32
+}
+
+export function decodeServoGroup(v: Cbor, path: string): ServoGroup throws InvalidPayload {
+  const m = members(v, path, ["ports", "ageMs"])
+  ServoGroup {
+    ports: decodeServoGroupPortsList(required(m, "ports", path), `${path}.ports`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeServoGroup(v: ServoGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ports", encodeServoGroupPortsList(v.ports))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+function decodeServoPortOutputsList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function encodeServoPortOutputsList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct ServoPort {
+  port: u8
+  outputs: u16[]
+}
+
+export function decodeServoPort(v: Cbor, path: string): ServoPort throws InvalidPayload {
+  const m = members(v, path, ["port", "outputs"])
+  ServoPort {
+    port: (uint(required(m, "port", path), `${path}.port`, 255) as u8),
+    outputs: decodeServoPortOutputsList(required(m, "outputs", path), `${path}.outputs`),
+  }
+}
+
+export function encodeServoPort(v: ServoPort): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("port", Cbor.Uint(v.port as u64))
+  m.set("outputs", encodeServoPortOutputsList(v.outputs))
   Cbor.Dict(m)
 }
 

@@ -1,0 +1,74 @@
+import { expect, it } from 'vitest'
+import {
+  MOTOR_PARAMS,
+  OUTPUTS_OLD_MS,
+  PWM_TYPES,
+  SPIN_RANGES,
+  outputRows,
+  outputsOld,
+  parseFraction,
+  spinProblem,
+} from './motors'
+
+it('lists the four parameters of the page, and names each protocol once', () => {
+  expect(MOTOR_PARAMS).toEqual(['MOT_PWM_TYPE', 'MOT_SPIN_ARM', 'MOT_SPIN_MIN', 'MOT_SPIN_MAX'])
+  expect(new Set(PWM_TYPES.map(type => type.value)).size).toBe(PWM_TYPES.length)
+  expect(PWM_TYPES.find(type => type.value === 6)?.label).toBe('DShot600')
+  // ArduPilot's list ends with PWMRange (8) and PWMAngle (9)
+  expect(PWM_TYPES.map(type => type.label).slice(-2)).toEqual(['PWMRange', 'PWMAngle'])
+})
+
+it('holds each spin threshold to the range ArduPilot documents for it', () => {
+  expect(SPIN_RANGES).toEqual({ MOT_SPIN_ARM: [0, 0.2], MOT_SPIN_MIN: [0, 0.25], MOT_SPIN_MAX: [0.9, 1] })
+  expect(parseFraction('0.2', 0, 0.2)).toBe(0.2)
+  expect(parseFraction('0.21', 0, 0.2)).toBeNull()
+  expect(parseFraction('0.89', 0.9, 1)).toBeNull()
+  expect(parseFraction('0.9', 0.9, 1)).toBe(0.9)
+  expect(parseFraction('1', 0.9, 1)).toBe(1)
+})
+
+it('takes a spin threshold as a fraction from 0 to 1, with a comma or a point, and nothing else', () => {
+  expect(parseFraction('0.15', 0, 1)).toBe(0.15)
+  expect(parseFraction(' 0,95 ', 0, 1)).toBe(0.95)
+  expect(parseFraction('0', 0, 1)).toBe(0)
+  expect(parseFraction('1', 0, 1)).toBe(1)
+
+  for (const text of ['', ' ', '1.01', '-0.1', 'abc', '15 %', 'NaN', 'Infinity']) {
+    expect(parseFraction(text, 0, 1), text).toBeNull()
+  }
+})
+
+it('says the thresholds are out of order only when arm is above min, or min is above max (equal is valid)', () => {
+  expect(spinProblem(0.1, 0.15, 0.95)).toBeNull()
+  expect(spinProblem(0.15, 0.15, 0.95)).toBeNull()
+  expect(spinProblem(0, 0, 0.95)).toBeNull()
+  expect(spinProblem(0.1, 0.95, 0.95)).toBeNull()
+  expect(spinProblem(0.2, 0.15, 0.95)).toBe('order')
+  expect(spinProblem(0.1, 0.99, 0.95)).toBe('order')
+  // a threshold the vehicle does not have is not judged
+  expect(spinProblem(null, 0.15, 0.95)).toBeNull()
+  expect(spinProblem(0.1, null, 0.95)).toBeNull()
+  expect(spinProblem(0.1, 0.15, null)).toBeNull()
+})
+
+it('makes a row of each output that is used, numbered across the ports, and none of an output that is not', () => {
+  expect(outputRows(undefined)).toEqual([])
+  const rows = outputRows({
+    ports: [{ port: 0, outputs: [1000, 0, 1500, 2000] }, { port: 1, outputs: [1250] }],
+    ageMs: 100,
+  })
+  expect(rows.map(row => row.output)).toEqual([1, 3, 4, 17])
+  expect(rows.map(row => row.pulse)).toEqual([1000, 1500, 2000, 1250])
+  expect(rows.map(row => row.fraction)).toEqual([0, 0.5, 1, 0.25])
+  // a pulse outside 1000 to 2000 is held to the bar
+  expect(outputRows({ ports: [{ port: 0, outputs: [900, 2300] }], ageMs: 0 }).map(row => row.fraction)).toEqual([0, 1])
+})
+
+it('shows no outputs once the vehicle has not reported them for more than 3 s', () => {
+  const ports = [{ port: 0, outputs: [1000, 1500] }]
+  expect(outputsOld(undefined)).toBe(false)
+  expect(outputsOld({ ports, ageMs: OUTPUTS_OLD_MS })).toBe(false)
+  expect(outputRows({ ports, ageMs: OUTPUTS_OLD_MS })).toHaveLength(2)
+  expect(outputsOld({ ports, ageMs: OUTPUTS_OLD_MS + 1 })).toBe(true)
+  expect(outputRows({ ports, ageMs: OUTPUTS_OLD_MS + 1 })).toEqual([])
+})

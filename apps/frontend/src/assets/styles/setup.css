@@ -556,3 +556,35 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
 }
+
+/* Motors: the ESC settings, and the outputs the vehicle is giving now (read only). */
+.setup-esc {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 260px) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.setup-esc-error {
+  color: var(--color-error);
+}
+
+.setup-outputs {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.setup-outputs th,
+.setup-outputs td {
+  padding: var(--space-1) var(--space-3);
+  text-align: left;
+}
+
+.setup-outputs td:nth-child(2) {
+  width: 60%;
+}
+
+.setup-output-pulse {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
