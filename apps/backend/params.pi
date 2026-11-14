@@ -293,6 +293,10 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // A calibration is the vehicle's own work on parameters (it keeps its results in them): what is read now is not what it leaves.
     throw new CommunicatorError("BUSY", "a calibration is running")
   }
+  if (link.motorTest) {
+    // The vehicle's link is the motor test's: its stop must not wait behind a download.
+    throw new CommunicatorError("BUSY", "a motor test is running")
+  }
   const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
@@ -344,6 +348,9 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // A write now could be overwritten by what a calibration keeps (a compass result replaces COMPASS_OFS*), and the page's
     // comparison of the old values with the new would be false.
     throw new CommunicatorError("BUSY", "a calibration is running")
+  }
+  if (link.motorTest) {
+    throw new CommunicatorError("BUSY", "a motor test is running")
   }
   // A write from a Setup page is refused while the vehicle is armed or not known to be disarmed: the page says so, and so does this.
   if (w.guarded != null && w.guarded!) {

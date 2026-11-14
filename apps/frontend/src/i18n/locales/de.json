@@ -1467,7 +1467,34 @@
       "range": "{name} muss zwischen {low} und {high} liegen. Das Eingegebene wird nicht geschrieben.",
       "outputsOld": "Das Fahrzeug meldet seine Ausgänge nicht mehr.",
       "outputsOldHelp": "Die letzten Impulse werden nicht gezeigt, sie sähen aktuell aus. Sie erscheinen wieder, wenn das Fahrzeug sie meldet.",
-      "protocolUnknown": "Dieses Fahrzeug meldet sein ESC-Protokoll nicht."
+      "protocolUnknown": "Dieses Fahrzeug meldet sein ESC-Protokoll nicht.",
+      "test": {
+        "title": "Motortest",
+        "warning": "ZUERST DIE PROPELLER ABNEHMEN. Ein Motor dreht sich, solange seine Taste gehalten wird, mit dem Gas unten (höchstens 20 %), und stoppt beim Loslassen, wenn dieses Fenster den Fokus verliert, wenn Sie die Seite verlassen oder wenn etwas schiefgeht.",
+        "tick": "Die Propeller sind abgenommen",
+        "throttle": "Gas",
+        "throttleValue": "{percent} % (höchstens 20 %)",
+        "help": "Eine Taste halten, um diesen Motor zu drehen (Leertaste oder Eingabe halten sie mit der Tastatur). Die Buchstaben sind die Reihenfolge, in der das Fahrzeug seine Motoren testet, A zuerst; die Zeichnung ist der Rahmen, vorne ist oben.",
+        "pad": "Motoren, vorne ist oben",
+        "motor": "Motor {letter}: halten zum Drehen",
+        "noLayout": "Für diesen Rahmen gibt es hier keine Zeichnung, also lässt sich nicht sagen, welcher Motor welcher ist: der Motortest wird nicht angeboten.",
+        "offline": "Verbinden Sie ein Fahrzeug, um einen Motor zu testen.",
+        "unknown": "Der Scharf-Zustand des Fahrzeugs ist nicht bekannt (kein aktueller Heartbeat): kein Motor kann getestet werden.",
+        "armed": "Das Fahrzeug ist scharf: entschärfen Sie es, um einen Motor zu testen.",
+        "running": "Motor {letter} läuft. Taste loslassen, um ihn zu stoppen.",
+        "stopped": {
+          "RELEASED": "Motor {letter} gestoppt.",
+          "SILENT": "Diese Seite meldete nicht mehr, dass die Taste gehalten wird: Motor {letter} wurde gestoppt.",
+          "LINK_LOST": "Die Verbindung zum Fahrzeug ging verloren: Motor {letter} sollte stoppen und stoppt von selbst innerhalb von 1,5 s.",
+          "REFUSED": "Das Fahrzeug nahm den Test von Motor {letter} nicht an (seine eigene Meldung steht in den Meldungen).",
+          "UNACKNOWLEDGED": "Das Fahrzeug antwortete nicht auf den Test von Motor {letter}: ein Stopp wurde gesendet.",
+          "ARMED": "Das Fahrzeug ist scharf: der Test von Motor {letter} begann nicht.",
+          "STATE_UNKNOWN": "Der Scharf-Zustand des Fahrzeugs ist nicht bekannt: der Test von Motor {letter} begann nicht.",
+          "BUSY": "Das Fahrzeug ist beschäftigt (ein anderer Test, eine Kalibrierung, eine Parameter- oder Log-Operation oder ein Neustart): der Test von Motor {letter} begann nicht.",
+          "NOT_CONNECTED": "Kein Fahrzeug verbunden: der Test von Motor {letter} begann nicht.",
+          "OTHER": "Der Test von Motor {letter} endete ({why})."
+        }
+      }
     },
     "radio": {
       "summary": "Bewegen Sie jeden Knüppel und jeden Schalter des Senders: Sein Balken bewegt sich mit. Zum Kalibrieren starten Sie, bewegen jeden Knüppel in alle Endlagen und jeden Schalter in alle Stellungen, bringen die Knüppel zurück in die Mitte (Gas unten) und drücken Fertig. Geschrieben wird erst, wenn Sie schreiben.",

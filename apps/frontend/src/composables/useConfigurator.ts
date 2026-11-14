@@ -16,6 +16,7 @@ import { useToasts } from './toasts'
 import { type MessagesModel, useMessages } from './useMessages'
 import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
+import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
 import { type StagedModel, endsSession, useStaged } from './useStaged'
@@ -71,6 +72,8 @@ export interface ConfiguratorHandle {
   setup: SetupModel
   /** The calibration of the vehicle's sensors (the accelerometer and the compass): its state, and the actions. */
   calibration: CalibrationModel
+  /** The motor test of the Motors page: one motor, for as long as a button is held. */
+  motorTest: MotorTestModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -473,6 +476,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle),
     calibration: startCalibration(client, vehicle),
+    motorTest: useMotorTest({ client, connection: vehicle.connection, telemetry: vehicle.telemetry }),
   }
   const confirmWith = (options: SafetyOptions) => (confirm ? confirm(options.what) : ask(confirmation, options.what, options))
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }

@@ -1467,7 +1467,34 @@
       "range": "{name} debe estar entre {low} y {high}. Lo escrito no se guarda.",
       "outputsOld": "El vehículo ha dejado de informar de sus salidas.",
       "outputsOldHelp": "No se muestran los últimos pulsos: parecerían actuales. Reaparecen cuando el vehículo los comunique.",
-      "protocolUnknown": "Este vehículo no informa de su protocolo de ESC."
+      "protocolUnknown": "Este vehículo no informa de su protocolo de ESC.",
+      "test": {
+        "title": "Prueba de motores",
+        "warning": "QUITE PRIMERO LAS HÉLICES. Un motor gira mientras se mantiene pulsado su botón, con el acelerador de abajo (20 % como máximo), y se detiene al soltar, cuando esta ventana pierde el foco, al salir de la página o cuando algo falla.",
+        "tick": "Las hélices están quitadas",
+        "throttle": "Acelerador",
+        "throttleValue": "{percent} % (20 % como máximo)",
+        "help": "Mantenga pulsado un botón para girar ese motor (Espacio o Intro lo mantienen con el teclado). Las letras son el orden en que el vehículo prueba sus motores, la A primero; el dibujo es el bastidor, el frente está arriba.",
+        "pad": "Motores, el frente está arriba",
+        "motor": "Motor {letter}: mantener para girar",
+        "noLayout": "Esta página no tiene dibujo para este bastidor, así que no puede decir qué motor es cuál: no se ofrece la prueba de motores.",
+        "offline": "Conecte un vehículo para probar un motor.",
+        "unknown": "No se conoce el estado de armado del vehículo (sin latido reciente): no se puede probar ningún motor.",
+        "armed": "El vehículo está armado: desármelo para probar un motor.",
+        "running": "El motor {letter} está girando. Suelte el botón para detenerlo.",
+        "stopped": {
+          "RELEASED": "Motor {letter} detenido.",
+          "SILENT": "Esta página dejó de decir que mantiene el botón: se detuvo el motor {letter}.",
+          "LINK_LOST": "Se perdió el enlace con el vehículo: se ordenó detener el motor {letter}, que se detiene solo en 1,5 s.",
+          "REFUSED": "El vehículo no aceptó la prueba del motor {letter} (su propio mensaje está en los mensajes).",
+          "UNACKNOWLEDGED": "El vehículo no respondió a la prueba del motor {letter}: se envió una parada.",
+          "ARMED": "El vehículo está armado: no empezó la prueba del motor {letter}.",
+          "STATE_UNKNOWN": "No se conoce el estado de armado del vehículo: no empezó la prueba del motor {letter}.",
+          "BUSY": "El vehículo está ocupado (otra prueba, una calibración, una operación de parámetros o registros, o un reinicio): no empezó la prueba del motor {letter}.",
+          "NOT_CONNECTED": "No hay ningún vehículo conectado: no empezó la prueba del motor {letter}.",
+          "OTHER": "La prueba del motor {letter} terminó ({why})."
+        }
+      }
     },
     "radio": {
       "summary": "Mueva cada palanca e interruptor del transmisor: su barra se mueve con él. Para calibrar, inicie, lleve cada palanca a todos sus extremos y cada interruptor a todas sus posiciones, vuelva las palancas al centro (acelerador abajo) y pulse Hecho. No se escribe nada hasta que usted lo escriba.",

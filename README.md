@@ -117,6 +117,8 @@ The harness only ever launches or connects to a simulator.
 
 Parameter writes change how a vehicle flies. Test against SITL or the simulator first, and keep a backup of the parameters before writing to real hardware.
 
+**The motor test (Setup > Motors) is not verified on hardware.** It was tested against the simulator and ArduPilot SITL only. It spins one motor while a button is held, at 20 % throttle at most, with the propellers OFF (the page asks you to say so); it is refused for a vehicle that is armed or whose armed state is not known, and it stops when the button is let go, the pointer or the focus leaves, the page is left, the link or the session ends, or the page stops saying it holds the button. The vehicle itself is only ever asked for a test of 1.5 s, sent again every 0.8 s, so a vehicle that stops hearing from the app stops the motor by itself within 1.5 s: that is what is relied on when nothing else can reach it (the app killed, the cable pulled). Where the stop written as the session closes arrives is up to the link, and that was not verified on a real one. A motor is named by its place in the vehicle's test order (A, B, C ...), not by an output: check on the bench which motor turns before you trust a letter.
+
 ## License
 
 MIT

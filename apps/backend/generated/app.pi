@@ -4677,3 +4677,93 @@ export function encodeCalibrationResult(v: CalibrationResult): Cbor {
   }
   Cbor.Dict(m)
 }
+
+export struct MotorTestParams {
+  motor: u8
+  throttle: u8
+}
+
+export function decodeMotorTestParams(v: Cbor, path: string): MotorTestParams throws InvalidPayload {
+  const m = members(v, path, ["motor", "throttle"])
+  MotorTestParams {
+    motor: (uint(required(m, "motor", path), `${path}.motor`, 255) as u8),
+    throttle: (uint(required(m, "throttle", path), `${path}.throttle`, 255) as u8),
+  }
+}
+
+export function encodeMotorTestParams(v: MotorTestParams): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("motor", Cbor.Uint(v.motor as u64))
+  m.set("throttle", Cbor.Uint(v.throttle as u64))
+  Cbor.Dict(m)
+}
+
+export enum MotorTestStateState { Running, Stopped }
+
+export function decodeMotorTestStateState(v: Cbor, path: string): MotorTestStateState throws InvalidPayload {
+  match (text(v, path)) {
+    "running" => MotorTestStateState.Running,
+    "stopped" => MotorTestStateState.Stopped,
+    _ => throw new InvalidPayload(path, "running or stopped"),
+  }
+}
+
+export function encodeMotorTestStateState(v: MotorTestStateState): Cbor {
+  match (v) {
+    Running => Cbor.Text("running"),
+    Stopped => Cbor.Text("stopped"),
+  }
+}
+
+export struct MotorTestState {
+  state: MotorTestStateState
+  motor: u8
+  why?: string
+  starts?: u32
+  confirmed?: bool
+}
+
+export function decodeMotorTestState(v: Cbor, path: string): MotorTestState throws InvalidPayload {
+  const m = members(v, path, ["state", "motor", "why", "starts", "confirmed"])
+  const cbor2 = m.get("why")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.why`)
+  }
+  const cbor3 = m.get("starts")
+  let opt3: u32? = null
+  if (cbor3 != null) {
+    opt3 = (uint(cbor3, `${path}.starts`, 4294967295) as u32)
+  }
+  const cbor4 = m.get("confirmed")
+  let opt4: bool? = null
+  if (cbor4 != null) {
+    opt4 = boolean(cbor4, `${path}.confirmed`)
+  }
+  MotorTestState {
+    state: decodeMotorTestStateState(required(m, "state", path), `${path}.state`),
+    motor: (uint(required(m, "motor", path), `${path}.motor`, 255) as u8),
+    why: opt2,
+    starts: opt3,
+    confirmed: opt4,
+  }
+}
+
+export function encodeMotorTestState(v: MotorTestState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("state", encodeMotorTestStateState(v.state))
+  m.set("motor", Cbor.Uint(v.motor as u64))
+  const opt2 = v.why
+  if (opt2 != null) {
+    m.set("why", Cbor.Text(opt2))
+  }
+  const opt3 = v.starts
+  if (opt3 != null) {
+    m.set("starts", Cbor.Uint(opt3 as u64))
+  }
+  const opt4 = v.confirmed
+  if (opt4 != null) {
+    m.set("confirmed", Cbor.Bool(opt4))
+  }
+  Cbor.Dict(m)
+}

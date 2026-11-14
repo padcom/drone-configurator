@@ -1467,7 +1467,34 @@
       "range": "{name} deve essere tra {low} e {high}. Quanto digitato non viene scritto.",
       "outputsOld": "Il veicolo ha smesso di riferire le sue uscite.",
       "outputsOldHelp": "Gli ultimi impulsi non vengono mostrati: sembrerebbero attuali. Riappaiono quando il veicolo li riferisce.",
-      "protocolUnknown": "Questo veicolo non riferisce il suo protocollo ESC."
+      "protocolUnknown": "Questo veicolo non riferisce il suo protocollo ESC.",
+      "test": {
+        "title": "Test dei motori",
+        "warning": "TOGLIERE PRIMA LE ELICHE. Un motore gira finché il suo pulsante è premuto, con il gas qui sotto (20 % al massimo), e si ferma quando lo si rilascia, quando questa finestra perde il focus, quando si lascia la pagina o quando qualcosa va storto.",
+        "tick": "Le eliche sono tolte",
+        "throttle": "Gas",
+        "throttleValue": "{percent} % (20 % al massimo)",
+        "help": "Tenere premuto un pulsante per far girare quel motore (Spazio o Invio lo tengono premuto dalla tastiera). Le lettere sono l'ordine in cui il veicolo prova i suoi motori, la A per prima; il disegno è il telaio, il fronte è in alto.",
+        "pad": "Motori, il fronte è in alto",
+        "motor": "Motore {letter}: tenere premuto per girare",
+        "noLayout": "Questa pagina non ha un disegno per questo telaio, quindi non può dire quale motore sia quale: il test dei motori non viene offerto.",
+        "offline": "Collega un veicolo per provare un motore.",
+        "unknown": "Lo stato di armamento del veicolo non è noto (nessun heartbeat recente): nessun motore può essere provato.",
+        "armed": "Il veicolo è armato: disarmalo per provare un motore.",
+        "running": "Il motore {letter} sta girando. Rilascia il pulsante per fermarlo.",
+        "stopped": {
+          "RELEASED": "Motore {letter} fermato.",
+          "SILENT": "Questa pagina ha smesso di dire che il pulsante è premuto: il motore {letter} è stato fermato.",
+          "LINK_LOST": "Il collegamento con il veicolo è andato perso: al motore {letter} è stato ordinato di fermarsi, e si ferma da solo entro 1,5 s.",
+          "REFUSED": "Il veicolo non ha accettato il test del motore {letter} (il suo messaggio è tra i messaggi).",
+          "UNACKNOWLEDGED": "Il veicolo non ha risposto al test del motore {letter}: è stato inviato uno stop.",
+          "ARMED": "Il veicolo è armato: il test del motore {letter} non è iniziato.",
+          "STATE_UNKNOWN": "Lo stato di armamento del veicolo non è noto: il test del motore {letter} non è iniziato.",
+          "BUSY": "Il veicolo è occupato (un altro test, una calibrazione, un'operazione su parametri o log, o un riavvio): il test del motore {letter} non è iniziato.",
+          "NOT_CONNECTED": "Nessun veicolo collegato: il test del motore {letter} non è iniziato.",
+          "OTHER": "Il test del motore {letter} è terminato ({why})."
+        }
+      }
     },
     "radio": {
       "summary": "Muovi ogni stick e ogni interruttore del trasmettitore: la sua barra si muove con lui. Per calibrare, avvia, porta ogni stick a tutti i suoi estremi e ogni interruttore in tutte le sue posizioni, rimetti gli stick al centro (gas in basso) e premi Fatto. Non viene scritto nulla finché non lo scrivi tu.",

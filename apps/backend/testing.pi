@@ -128,6 +128,11 @@ export class Frontend {
 
   /// Subscribes to `name` (with `params`); the subscription's id.
   public async subscribe(name: string, params: Cbor? = null): Promise<u64> throws Error {
+    (await trySubscribe(name, params)).s ?? 0
+  }
+
+  /// Subscribes to `name` (with `params`); the reply, which is an error when the subscription was refused.
+  public async trySubscribe(name: string, params: Cbor? = null): Promise<Envelope> throws Error {
     id += 1
     const want = id
     const e = envelope("subscribe")
@@ -135,7 +140,7 @@ export class Frontend {
     e.n = name
     e.p = params
     await t.send(encodeEnvelope(e))
-    (await reply(want)).s ?? 0
+    await reply(want)
   }
 
   /// The message that ends a subscription from the publisher's side (events on the way are skipped), or a failure after

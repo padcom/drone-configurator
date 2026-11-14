@@ -63,6 +63,9 @@ class Link {
   /// Whether a calibration of the vehicle's sensors runs (calibration.pi): a reboot is refused (reboot.pi), and so are a parameter
   /// download or write (params.pi) and a log listing, download or erase (logs.pi): they would meet what the calibration keeps.
   public calibrating: bool = false
+  /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
+  /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
+  public motorTest: bool = false
   /// When the vehicle accepted a reboot (ms since 1970; 0 = none): the link going quiet soon after is then a reboot, and
   /// says so (reconnect.pi). See `rebootExpected()`.
   public rebootAt: int = 0

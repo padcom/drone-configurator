@@ -36,6 +36,7 @@
         <span v-else class="muted">{{ t(`setup.motors.${spin.id}Help`) }}</span>
       </div>
       <Banner v-if="problem !== null" id="setup-spin-order" tone="warn">{{ t('setup.motors.order') }}</Banner>
+      <SetupMotorTest />
       <h4 class="setup-label">{{ t('setup.motors.outputs') }}</h4>
       <EmptyState
         v-if="rows.length === 0"
@@ -63,8 +64,9 @@
 // and the page says "reboot needed" after the write), the thresholds the motors spin at (MOT_SPIN_ARM not above MOT_SPIN_MIN,
 // that not above MOT_SPIN_MAX, as ArduPilot has it: out of order nothing is written), and the live outputs of the vehicle
 // (SERVO_OUTPUT_RAW through the `servo` telemetry group, not shown once they are old): a table that is only
-// READ, with nothing here that sends anything to a motor. Writes are the page's one question, each read back, and refused
-// while the vehicle is armed or may be (here and in the backend). The motor test is not on this page yet.
+// READ (the table sends nothing to a motor; the motor test is the section SetupMotorTest). Writes are the page's one question,
+// each read back, and refused
+// while the vehicle is armed or may be (here and in the backend).
 import { computed, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
@@ -74,6 +76,7 @@ import Banner from '@/components/ui/Banner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import TextInput from '@/components/ui/TextInput.vue'
+import SetupMotorTest from './SetupMotorTest.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import {
