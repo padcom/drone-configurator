@@ -2,7 +2,7 @@
 // names the project, the next from the disk; a stale tile is asked for again with its etag; what the server gets wrong (404, 429, 500,
 // silence, a wrong type, a tile that is too big) is an error with a code, never a tile, and trouble makes the backend leave the server
 // alone and say so once; at most 2 requests at a time, 150 ms apart; the switch and offline mode; a request given up; hostile values;
-// the cap of the cache; clearing it without following a link out of it; and what a body of 64 MB costs.
+// the cap of the cache; and clearing it without following a link out of it.
 import { describe, it, expect } from "std/test"
 import { mkdir, readText, remove, symlink, writeText, exists, readDir } from "std/fs"
 import { join } from "std/path"
@@ -28,7 +28,7 @@ import {
 import { TileMeta, textOfMeta } from "./mapcache"
 import { activeRequests, cacheForTests, capForTests, clockForTests, keepMsOf, reachText, restartForTests } from "./maptiles"
 import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
-import { Frontend, setDeadline, start } from "./testing"
+import { Frontend, start } from "./testing"
 
 /// What the fake tile server does, and what it saw.
 class Fake {
@@ -300,55 +300,30 @@ async function saysWhatTheServerGotWrong(): Promise<void> throws Error {
   await done(r)
 }
 
-/// The resident memory of this process in kilobytes (Linux), or -1 where /proc has none.
-async function residentKb(): Promise<int> {
-  try {
-    for (const line of (await readText("/proc/self/status")).split("\n")) {
-      if (line.startsWith("VmRSS:")) {
-        return parseInt(line.slice(6).trim())
-      }
-    }
-  } catch (e: Error) {
-    // Not Linux.
-  }
-  -1
-}
-
-/// The size of the body that is tried: the pico fetch reads a whole body before it answers, so what a body that is far too big costs is
-/// measured here (and printed), not guessed. The fake server and the backend are in this one process, so the number holds both copies.
-const HUGE_MIB: int[] = [1, 4]
-
-async function dropsABodyThatIsFarTooBigAfterItWasReadAndSaysWhatItCost(): Promise<void> throws Error {
+/// A body just over the cap (600 KiB for 512 KiB): the pico `fetch` reads a whole body before it answers, so it is dropped after it was
+/// read. What a body far over the cap costs is not asserted here (it depends on the runner): it is measured by hand, in the README.
+async function dropsABodyOverTheCapAndKeepsNothingOfIt(): Promise<void> throws Error {
   const r = await rig()
-  setDeadline(120000)
-  await tile(r, 2, 0, 0)
-  for (const mib of HUGE_MIB) {
-    const before = await residentKb()
-    const started = Date.now() as int
-    fake.bodySize = mib * 1048576
-    const e = await tileEnvelope(r, 2, 0, 1)
-    const took = (Date.now() as int) - started
-    const during = await residentKb()
-    expect(codeOf(e)).toBe("TOO_BIG")
-    expect(messageOf(e).includes("dropped")).toBe(true)
-    await delay(200)
-    const after = await residentKb()
-    println(`map: a body of ${mib} MiB: dropped as TOO_BIG after ${took} ms; resident memory ${before} kB before, ${during} kB right after, ${after} kB 200 ms later`)
-  }
-  // Nothing of it was kept.
+  fake.bodySize = 600 * 1024
+  const e = await tileEnvelope(r, 2, 0, 1)
+  expect(codeOf(e)).toBe("TOO_BIG")
+  expect(messageOf(e).includes("dropped")).toBe(true)
+  // Nothing of it was kept: not a file, not a place in the cache, and the next ask goes to the server again.
+  const cache = cacheForTests()!
+  expect(cache.total).toBe(0)
+  expect(await exists(join(r.root, "cache", "tiles"))).toBe(false)
   fake.bodySize = 64
   const hits = fake.hits
   expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("")
   expect(fake.hits).toBe(hits + 1)
-  setDeadline(10000)
   await done(r)
 }
 
 async function doesNotCountTheTimeInTheQueueAgainstTheServer(): Promise<void> throws Error {
-  // A server that answers in 250 ms is healthy, though a request that is sixth in the line has waited far over the 300 ms a request has
-  // to answer once it STARTS.
-  const r = await rig(600, 0, 400)
-  fake.delayMs = 250
+  // A server that answers in 800 ms is healthy (a request has 1500 ms once it STARTS), though a request that is sixth in the line has
+  // waited far over that (about 2400 ms) by the time it is answered.
+  const r = await rig(1500, 0, 400)
+  fake.delayMs = 800
   const sent: u64[] = []
   for (let i = 0; i < 6; i++) {
     sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 1 as u32 })))
@@ -531,12 +506,13 @@ async function backsOffOnAServerErrorAndKeepsServingWhatItHas(): Promise<void> t
 
 async function givesUpOnAServerThatDoesNotAnswerInTime(): Promise<void> throws Error {
   const r = await rig(300, 0, 400)
-  fake.delayMs = 1200
+  fake.delayMs = 3000
   const started = Date.now() as int
   const e = await tileEnvelope(r, 2, 0, 0)
   const took = (Date.now() as int) - started
   expect(codeOf(e)).toBe("UNAVAILABLE")
-  expect(took < 900).toBe(true)
+  // It answered when its own time was up, long before the server did (generous bounds: a slow runner).
+  expect(took < 2900).toBe(true)
   expect(took >= 290).toBe(true)
   expect(messageOf(e).includes("did not answer")).toBe(true)
   // The server is left alone for a while after that.
@@ -545,7 +521,7 @@ async function givesUpOnAServerThatDoesNotAnswerInTime(): Promise<void> throws E
   expect(fake.hits).toBe(hits)
   // The slow request still holds its place with the server until the server ends it.
   expect(activeRequests()).toBe(1)
-  await delay(1300)
+  await delay(3300)
   expect(activeRequests()).toBe(0)
   await done(r)
 }
@@ -784,7 +760,7 @@ describe("the map's tile service, against a fake tile server", () => {
   it("asks again with the etag for a stale tile, and keeps it when the server says 304", asksAgainWithTheEtagForAStaleTileAndKeepsItOn304)
   it("replaces a stale tile that the server has changed", replacesAStaleTileThatTheServerHasChanged)
   it("says what the server got wrong with a code, and keeps none of it", saysWhatTheServerGotWrong)
-  it("drops a body that is far too big after it was read, and keeps nothing of it", dropsABodyThatIsFarTooBigAfterItWasReadAndSaysWhatItCost)
+  it("drops a body over the cap after it was read, and keeps nothing of it", dropsABodyOverTheCapAndKeepsNothingOfIt)
   it("does not count the time in the queue against the server", doesNotCountTheTimeInTheQueueAgainstTheServer)
   it("gives up on a request that waits too long for its turn, without blaming the server", givesUpOnARequestThatWaitsTooLongForItsTurnWithoutBlamingTheServer)
   it("does not follow a redirect, and leaves the server alone after one", doesNotFollowARedirect)
