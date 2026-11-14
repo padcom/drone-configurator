@@ -29,7 +29,7 @@ import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
 import { useAutoDownload } from './useAutoDownload'
-import { METADATA_PATH_KEY } from '@/lib/params/metadataSettings'
+import { METADATA_PATH_KEY, readableAtStart } from '@/lib/params/metadataSettings'
 import { RETENTION_KEY, SIZE_CAP_KEY, logsPrefsOf } from '@/lib/logs/logsPrefs'
 import { type Guard, type Removal, useHousekeepingGuard } from './useHousekeepingGuard'
 
@@ -488,6 +488,22 @@ function snapshotsFor(deps: Pick<SnapshotsDeps, 'client' | 'fail' | 'confirm' | 
 }
 
 /**
+ * Keeps the path of a metadata file that was loaded by hand, for the load at start: only a name the backend reads (`.json`), else
+ * a file that loaded fine would be a failure at every start. Then it says once that the path was not kept, and why.
+ *
+ * @param settings the settings
+ * @param path the path of the file
+ */
+function keepMetadataPath(settings: SettingsModel, path: string): void {
+  if (readableAtStart(path)) {
+    void settings.setUi(METADATA_PATH_KEY, path)
+
+    return
+  }
+  useToasts().push({ severity: 'warning', text: say('notice.metadataPathNotKept', { path }), long: true })
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -505,7 +521,7 @@ export function createConfigurator(
   const fail = (message: string | null) => void (error.value = message)
   const askUser = confirm ?? ((question: string) => ask(confirmation, question))
   const settings = startSettings(client)
-  const metadata = useMetadata({ client, rememberPath: path => void settings.setUi(METADATA_PATH_KEY, path) })
+  const metadata = useMetadata({ client, rememberPath: path => keepMetadataPath(settings, path) })
   const vehicle = useVehicle({ client, fail })
   const parameters = useParams({ client, fail, ...draftChecks(metadata) })
   const snapshots = snapshotsFor({ client, fail, confirm: askUser, parameters }, vehicle)

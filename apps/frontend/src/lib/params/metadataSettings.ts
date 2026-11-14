@@ -19,6 +19,17 @@ export function autoloadOn(text: string | undefined): boolean {
 }
 
 /**
+ * Whether the backend reads a file of this name at start: a `.json` file (the dialog offers those; a name that got through it
+ * some other way is loaded, and its path is not kept).
+ *
+ * @param path the path
+ * @returns true when its name ends in `.json`
+ */
+export function readableAtStart(path: string): boolean {
+  return path.toLowerCase().endsWith('.json')
+}
+
+/**
  * The path to load at start.
  *
  * @param path what the settings hold under the path's key, if anything

@@ -960,6 +960,7 @@
     "metadataLoad": "Не вдалося завантажити метадані: {reason}.",
     "metadataLoadFrom": "Не вдається завантажити метадані з {path}: {reason}.",
     "metadataReadFrom": "Не вдається завантажити метадані з {path}: {error}",
+    "metadataPathNotKept": "Шлях {path} не збережено: під час запуску застосунку завантажується лише файл .json.",
     "open": "Не вдалося відкрити: {error}",
     "settingsUnavailable": "Налаштування недоступні: {error}",
     "settingKept": "Не вдалося зберегти налаштування: {error}",

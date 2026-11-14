@@ -139,3 +139,13 @@ describe('ArduPilot definition files, recognised and refused', () => {
     expect(parseMetadata('hello')).toBe('not JSON')
   })
 })
+
+it('puts the version a file claims in the message cut short and without control characters', () => {
+  const text = `{"format":"drone-configurator/param-metadata","version":"${'x'.repeat(100)}\\u0007\\nend","params":{}}`
+  const said = parseMetadata(text)
+
+  expect(typeof said).toBe('string')
+  expect(String(said)).toContain(`${'x'.repeat(40)}…`)
+  // eslint-disable-next-line no-control-regex
+  expect(/[\u0000-\u001f]/u.test(String(said))).toBe(false)
+})

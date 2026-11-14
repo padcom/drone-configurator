@@ -22,15 +22,12 @@
           :id="`${uid}-metadata-path`"
           v-model="pathText"
           mono
-          :invalid="metadataProblem !== null"
-          :aria-describedby="`${uid}-metadata-help ${uid}-metadata-problem`"
+          :aria-describedby="`${uid}-metadata-help`"
           @change="metadataSetting.choosePath(pathText)"
         />
         <Button :id="`${uid}-metadata-pick`" @click="metadataSetting.pick()">{{ t('settings.metadata.choose') }}</Button>
       </div>
       <p :id="`${uid}-metadata-help`" class="muted">{{ t('settings.metadata.pathHelp') }}</p>
-      <!-- Always there, empty when all is well: a status is announced when its text changes, not on insertion. -->
-      <p :id="`${uid}-metadata-problem`" class="settings-problem" role="status">{{ metadataProblem ?? '' }}</p>
     </div>
     <div class="settings-row">
       <Toggle id="metadata-autoload" v-model="metadataAutoload" :aria-describedby="`${uid}-metadata-auto-help`">
@@ -99,7 +96,6 @@ const pathText = ref(metadataSetting.path.value)
 watch(metadataSetting.path, next => {
   pathText.value = next
 })
-const metadataProblem = metadataSetting.problem
 const metadataAutoload = computed({
   get: () => metadataSetting.autoload.value,
   set: (next: boolean) => void metadataSetting.chooseAutoload(next),

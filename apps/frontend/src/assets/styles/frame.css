@@ -52,10 +52,6 @@
   min-width: 0;
 }
 
-.settings-problem {
-  color: var(--color-error);
-}
-
 .settings-row p {
   margin: 0;
   font-size: var(--font-size-sm);

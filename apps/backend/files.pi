@@ -1,6 +1,6 @@
 // The files service: saving and opening a parameter snapshot where the user chooses.
 import { Cbor, Communicator, CommunicatorError, Host, OpenFile, RequestContext, SaveFile } from "pico-desktop/communicator"
-import { FileInfo, exists, readText, stat, writeText } from "std/fs"
+import { File, FileInfo, exists, open, readText, stat, writeText } from "std/fs"
 import { env } from "std/process"
 import { FileContents, FileOpened, FileSaved, decodeFileRead, decodeFileSave, encodeFileContents, encodeFileOpened, encodeFileSaved } from "./generated/app"
 
@@ -107,8 +107,15 @@ async function openFile(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> t
   encodeFileOpened(FileOpened { path: path!, text: text })
 }
 
-/// The most `files.read` gives: a metadata file is a few MB at the most.
-const MAX_READ_BYTES: int = 16777216
+/// How far `files.read` reads (a test may change it).
+class ReadLimits {
+  /// The most it gives: a metadata file is a few MB at the most.
+  public maxBytes: int = 16777216
+  /// How much it asks for at a time.
+  public chunk: int = 65536
+}
+
+export const readLimits = new ReadLimits()
 
 /// Whether `path` is absolute: from the root of a POSIX file system, a drive (`C:\` or `C:/`) or a network share (`\\`).
 function isAbsolute(path: string): bool {
@@ -139,6 +146,9 @@ function refuseByName(path: string): void throws CommunicatorError {
   if (climbs(path)) {
     throw new CommunicatorError("INVALID_PATH", "it has a \"..\" in it (a path is read as written, not climbed)")
   }
+  if (path.includes("\u{0}")) {
+    throw new CommunicatorError("INVALID_PATH", "it has a NUL character in it")
+  }
   if (!path.toLowerCase().endsWith(".json")) {
     throw new CommunicatorError("NOT_JSON", "not a .json file (only a .json file is read)")
   }
@@ -167,14 +177,60 @@ async function readFile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> th
   const path = decodeFileRead(payload ?? Cbor.Null, "$").path
   refuseByName(path)
   const info = await regularFile(path)
-  if (info.size > MAX_READ_BYTES) {
+  if (info.size > readLimits.maxBytes) {
     throw new CommunicatorError("TOO_LARGE", "over 16 MiB")
   }
-  let text = ""
+  encodeFileContents(FileContents { text: await readBounded(path) })
+}
+
+/// The text of the file, read in chunks: what is read is counted, not what `stat` said (a file may grow, be swapped, or be one that
+/// says 0 and has more, like a link into /proc), and the read stops with TOO_LARGE as soon as the count passes the limit, so that
+/// nothing bigger than the limit is ever held. (A file swapped for a pipe between the check and the open is not met by this.)
+async function readBounded(path: string): Promise<string> throws CommunicatorError {
+  let file: File
   try {
-    text = await readText(path)
+    file = await open(path)
   } catch (e: IoError) {
-    throw new CommunicatorError("UNREADABLE", `it cannot be read (${e.kind})`)
+    throw new CommunicatorError("UNREADABLE", `it cannot be opened (${e.kind})`)
   }
-  encodeFileContents(FileContents { text: text })
+  const decoder = new TextDecoder()
+  let text = ""
+  let total = 0
+  let failure: CommunicatorError? = null
+  try {
+    while (failure == null) {
+      const bytes = await file.read(readLimits.chunk)
+      if (bytes == null) {
+        break
+      }
+      total += bytes!.length
+      if (total > readLimits.maxBytes) {
+        failure = new CommunicatorError("TOO_LARGE", "over 16 MiB")
+      } else {
+        try {
+          text += decoder.decode(bytes!, { stream: true })
+        } catch (e: TypeError) {
+          failure = new CommunicatorError("UNREADABLE", "it is not text (UTF-8)")
+        }
+      }
+    }
+    if (failure == null) {
+      try {
+        text += decoder.decode()
+      } catch (e: TypeError) {
+        failure = new CommunicatorError("UNREADABLE", "it is not text (UTF-8)")
+      }
+    }
+  } catch (e: IoError) {
+    failure = new CommunicatorError("UNREADABLE", `it cannot be read (${e.kind})`)
+  }
+  try {
+    await file.close()
+  } catch (e: IoError) {
+    // The text is what was wanted; a failed close changes nothing of it.
+  }
+  if (failure != null) {
+    throw failure!
+  }
+  text
 }

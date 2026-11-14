@@ -2,10 +2,14 @@
 // "Load the parameter metadata when the application starts" (on unless the settings say off).
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
+import { defineComponent } from 'vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { METADATA_AUTOLOAD_KEY, METADATA_PATH_KEY } from '@/lib/params/metadataSettings'
 import { mockBackend } from '@/mock/mock-backend'
+import { useToasts } from '@/composables/toasts'
+import { useMetadataToasts } from '@/lib/params/metadataToasts'
+import Parameters from './Parameters.vue'
 import Settings from './Settings.vue'
 
 const FILE = JSON.stringify({
@@ -17,6 +21,8 @@ const FILE = JSON.stringify({
 let mounted: VueWrapper | undefined
 
 afterEach(() => {
+  const toasts = useToasts()
+  toasts.visible.value.forEach(toast => toasts.dismiss(toast.key))
   setLanguage('en')
   mounted?.unmount()
   mounted = undefined
@@ -69,15 +75,40 @@ it('picks a file with the dialog: it is loaded, and its path is shown', async ()
 
   expect((wrapper.get('input[type="text"]').element as HTMLInputElement).value).toBe('/data/m.json')
   expect(handle.metadata.metadata.value.has('RTL_ALT')).toBe(true)
-  expect(wrapper.get('.settings-problem').text()).toBe('')
 })
 
-it('says why the picked file was not loaded, and keeps the path it had', async () => {
+it('tells a picked file that is not metadata ONCE, in a toast, with Parameters and Settings both mounted', async () => {
   const { wrapper } = await screen([{ key: METADATA_PATH_KEY, value: '/a.json' }], [{ path: '/data/n.json', text: '{}' }])
+  const parameters = mount(Parameters, { global: { plugins: [i18n] } })
+  const shell = mount(defineComponent({
+    setup() {
+      useMetadataToasts()
+
+      return () => null
+    },
+  }), { global: { plugins: [i18n] } })
 
   await wrapper.get('button[id$="metadata-pick"]').trigger('click')
   await flushPromises()
 
+  // the path it had stays, and the words are said once (not by the page too)
   expect((wrapper.get('input[type="text"]').element as HTMLInputElement).value).toBe('/a.json')
-  expect(wrapper.get('.settings-problem').text()).toMatch(/^Can't load the metadata: not a parameter metadata file/u)
+  const said = useToasts().visible.value.map(toast => toast.text)
+  expect(said).toHaveLength(1)
+  expect(said[0]).toMatch(/^Can't load the metadata: not a parameter metadata file/u)
+  expect(wrapper.text()).not.toContain('not a parameter metadata file')
+  parameters.unmount()
+  shell.unmount()
+})
+
+it('does not keep the path of a file that loaded but is not a .json, and says so once', async () => {
+  const { wrapper, handle } = await screen([], [{ path: '/data/m.txt', text: FILE }])
+
+  await wrapper.get('button[id$="metadata-pick"]').trigger('click')
+  await flushPromises()
+
+  expect(handle.metadata.metadata.value.has('RTL_ALT')).toBe(true)
+  expect(handle.settings.uiValue(METADATA_PATH_KEY)).toBeUndefined()
+  const said = useToasts().visible.value.map(toast => toast.text)
+  expect(said).toEqual(['The path of /data/m.txt was not kept: only a .json file is loaded when the application starts.'])
 })

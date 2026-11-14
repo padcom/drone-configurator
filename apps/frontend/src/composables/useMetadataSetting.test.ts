@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { autoloadOn, METADATA_AUTOLOAD_KEY, METADATA_PATH_KEY, pathToLoad } from '@/lib/params/metadataSettings'
 import { mockBackend } from '@/mock/mock-backend'
 import { createConfigurator } from './useConfigurator'
@@ -66,17 +66,18 @@ describe('the settings "Metadata file" and "Load the parameter metadata when the
 })
 
 describe('the settings "Metadata file", for a file the user picks', () => {
-  it('take the path of the file the user picks, and say why a file that is not metadata was not loaded', async () => {
+  it('take the path of the file the user picks, and not that of a file that is not metadata', async () => {
     const handle = await rig([], [{ path: '/data/m.json', text: FILE }, { path: '/data/n.json', text: '{}' }])
     const setting = useMetadataSetting()
 
     await setting.pick()
-    expect(handle.settings.uiValue(METADATA_PATH_KEY)).toBe('/data/m.json')
-    expect(setting.problem.value).toBeNull()
+    // (the settings keep it a moment after the file is loaded)
+    await vi.waitFor(() => expect(handle.settings.uiValue(METADATA_PATH_KEY)).toBe('/data/m.json'))
+    expect(handle.metadata.error.value).toBeNull()
 
     await setting.pick()
-    // the path of the file that did not load is not kept, and the page is told why
+    // the path of the file that did not load is not kept, and why is the metadata's own error (the toast tells it)
     expect(handle.settings.uiValue(METADATA_PATH_KEY)).toBe('/data/m.json')
-    expect(setting.problem.value).toMatch(/^Can't load the metadata: not a parameter metadata file/u)
+    expect(handle.metadata.error.value).toMatch(/^Can't load the metadata: not a parameter metadata file/u)
   })
 })

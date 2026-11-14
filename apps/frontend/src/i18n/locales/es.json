@@ -960,6 +960,7 @@
     "metadataLoad": "No se pueden cargar los metadatos: {reason}.",
     "metadataLoadFrom": "No se pueden cargar los metadatos de {path}: {reason}.",
     "metadataReadFrom": "No se pueden cargar los metadatos de {path}: {error}",
+    "metadataPathNotKept": "No se guardó la ruta de {path}: al iniciar la aplicación solo se carga un archivo .json.",
     "open": "No se pudo abrir: {error}",
     "settingsUnavailable": "Los ajustes no están disponibles: {error}",
     "settingKept": "No se pudo guardar un ajuste: {error}",

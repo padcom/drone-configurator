@@ -28,6 +28,7 @@
 import { usePaneKeys } from '@/lib/app/paneFocus'
 import { useCommandKeys } from '@/composables/useCommandKeys'
 import { useMetadataAtStart } from '@/composables/useMetadataAtStart'
+import { useMetadataToasts } from '@/lib/params/metadataToasts'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'
@@ -46,5 +47,7 @@ const REGIONS = '.rail, .app-main, .fly-aside'
 usePaneKeys(REGIONS)
 // Ctrl+P opens the command palette from anywhere (keymap.ts has the key).
 useCommandKeys()
+// How a metadata file went is told by a toast, once, whichever screen loaded it (Parameters, the palette, Settings).
+useMetadataToasts()
 useMetadataAtStart()
 </script>

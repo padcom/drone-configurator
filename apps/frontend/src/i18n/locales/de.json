@@ -960,6 +960,7 @@
     "metadataLoad": "Die Metadaten können nicht geladen werden: {reason}.",
     "metadataLoadFrom": "Die Metadaten aus {path} können nicht geladen werden: {reason}.",
     "metadataReadFrom": "Die Metadaten aus {path} können nicht geladen werden: {error}",
+    "metadataPathNotKept": "Der Pfad von {path} wurde nicht gemerkt: beim Start der Anwendung wird nur eine .json-Datei geladen.",
     "open": "Konnte nicht geöffnet werden: {error}",
     "settingsUnavailable": "Die Einstellungen sind nicht verfügbar: {error}",
     "settingKept": "Eine Einstellung konnte nicht gespeichert werden: {error}",

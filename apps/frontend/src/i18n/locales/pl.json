@@ -960,6 +960,7 @@
     "metadataLoad": "Nie można wczytać metadanych: {reason}.",
     "metadataLoadFrom": "Nie można wczytać metadanych z {path}: {reason}.",
     "metadataReadFrom": "Nie można wczytać metadanych z {path}: {error}",
+    "metadataPathNotKept": "Nie zapamiętano ścieżki {path}: przy uruchomieniu aplikacji wczytywany jest tylko plik .json.",
     "open": "Nie udało się otworzyć: {error}",
     "settingsUnavailable": "Ustawienia są niedostępne: {error}",
     "settingKept": "Nie udało się zapisać ustawienia: {error}",

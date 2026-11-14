@@ -2,10 +2,11 @@
 // names a directory instead: a snapshot is saved there under the name asked for, and `open.json`
 // is what opening gives (files.pi, DirectoryFileChooser).
 import { describe, it, expect } from "std/test"
-import { chmod, mkdir, readText, remove, symlink, writeBytes, writeText } from "std/fs"
+import { chmod, exists, mkdir, readText, remove, symlink, writeBytes, writeText } from "std/fs"
 import { join } from "std/path"
 import { env, pid } from "std/process"
 import { Cbor } from "pico-desktop/communicator"
+import { readLimits } from "./files"
 import { FileRead, FileSave, decodeFileContents, decodeFileOpened, decodeFileSaved, encodeFileRead, encodeFileSave } from "./generated/app"
 import { start } from "./testing"
 
@@ -134,8 +135,40 @@ async function neverPutsTheContentsInAnError(): Promise<void> throws Error {
     await chmod(`${dir}/closed.json`, 0)
     const said = await readOf(`${dir}/closed.json`)
     await chmod(`${dir}/closed.json`, 420)
-    expect(said.startsWith("UNREADABLE: it cannot be read")).toBe(true)
+    expect(said.startsWith("UNREADABLE: it cannot be opened")).toBe(true)
     expect(said.includes("secret")).toBe(false)
+  } finally {
+    await remove(dir, true)
+  }
+}
+
+async function readsWhatIsThereNotWhatStatSays(): Promise<void> throws Error {
+  // A file of a pseudo file system says 0 bytes and has more: the read counts what it gets, and stops at the limit.
+  if (!(await exists("/proc/self/status"))) {
+    println("skipped: no /proc")
+    return
+  }
+  const dir = await freshDir("proc")
+  const was = readLimits.maxBytes
+  try {
+    await symlink("/proc/self/status", `${dir}/status.json`)
+    expect((await codeOf(`${dir}/status.json`))).toBe("ok")
+    readLimits.maxBytes = 100
+    expect((await codeOf(`${dir}/status.json`))).toBe("TOO_LARGE")
+  } finally {
+    readLimits.maxBytes = was
+    await remove(dir, true)
+  }
+}
+
+async function refusesADeviceAndANulWithoutWaiting(): Promise<void> throws Error {
+  const dir = await freshDir("device")
+  try {
+    await symlink("/dev/zero", `${dir}/zero.json`)
+    await symlink("/dev/null", `${dir}/null.json`)
+    expect(await codeOf(`${dir}/zero.json`)).toBe("NOT_A_FILE")
+    expect(await codeOf(`${dir}/null.json`)).toBe("NOT_A_FILE")
+    expect(await codeOf(`${dir}/a\u{0}b.json`)).toBe("INVALID_PATH")
   } finally {
     await remove(dir, true)
   }
@@ -148,4 +181,6 @@ describe("the files service", () => {
   it("refuses a relative path, a .., a file that is not .json, a missing one, a folder and a link to one", refusesWhatItDoesNotRead)
   it("refuses a file over 16 MiB and reads one of exactly that", refusesAFileOver16MiB)
   it("does not say what a file it cannot read holds", neverPutsTheContentsInAnError)
+  it("reads what is there, not what stat says, and stops at the limit", readsWhatIsThereNotWhatStatSays)
+  it("refuses a device (a link to /dev/zero) and a NUL in the path without waiting", refusesADeviceAndANulWithoutWaiting)
 })
