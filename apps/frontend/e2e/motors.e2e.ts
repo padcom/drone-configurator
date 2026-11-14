@@ -159,3 +159,20 @@ it('stops the motor when the page is left while its button is held', async () =>
 
   await vi.waitFor(() => expect(stopped()).toBeGreaterThan(stops), { timeout: 15_000 })
 })
+
+it('stops the motor with a stop the vehicle receives when the window is closed while its button is held', async () => {
+  await openPage('motors')
+  await window().click('.kit-tick input')
+  await window().waitFor(`document.querySelector('[data-motor="C"]').disabled === false`, 20_000)
+  const starts = started()
+  await pointer('C', 'pointerdown')
+  await vi.waitFor(() => expect(started()).toBeGreaterThan(starts), { timeout: 15_000 })
+  const stops = stopped()
+  // the window closes with the button down: the host tells the backend, which ends the session (and the stop goes out first)
+  const closing = window()
+  app = undefined
+  await closing.close()
+
+  // an explicit stop (a timeout of 0), not the vehicle's own 1.5 s running out
+  await vi.waitFor(() => expect(stopped()).toBeGreaterThan(stops), { timeout: 15_000 })
+})
