@@ -127,3 +127,24 @@ it('says once that the settings could not be read when the backend says so', asy
 
   expect(wrapper.get('#map-notice').text()).toContain('could not be read')
 })
+
+it('says the server is left alone only while the settings leave it to be asked, and not after the back-off', async () => {
+  const { wrapper, handle } = await screen()
+  handle.map.status.value = { state: 'backing-off', reason: 'the server refused this client (403)', retryAfterMs: 30000 }
+  await flushPromises()
+
+  expect(wrapper.get('#map-state').text()).toContain('left alone for a while')
+  expect(wrapper.get('#map-state').text()).toContain('refused this client (403)')
+  // Offline wins over a back-off that was said earlier: nothing is asked of the server anyway.
+  await wrapper.get('#map-offline').trigger('click')
+  await flushPromises()
+  expect(wrapper.get('#map-state').text()).toContain('only the tiles that were kept')
+  await wrapper.get('#map-offline').trigger('click')
+  await flushPromises()
+  expect(wrapper.get('#map-state').text()).toContain('left alone for a while')
+  // The backend says it is over.
+  handle.map.status.value = { state: 'online' }
+  await flushPromises()
+
+  expect(wrapper.get('#map-state').text()).toContain('loaded from the internet')
+})

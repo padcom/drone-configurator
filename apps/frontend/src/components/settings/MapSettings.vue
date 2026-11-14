@@ -147,12 +147,22 @@ function settledKey(): string {
 }
 
 /**
+ * Whether the backend is staying away from the server: what it last said counts only while the settings leave the server to be
+ * asked at all (tiles on, not offline).
+ *
+ * @returns true if it is
+ */
+function backingOff(): boolean {
+  return map.status.value?.state === 'backing-off' && map.enabled.value && !map.offline.value
+}
+
+/**
  * What the tiles are doing, as the key of its words: what the settings come to, unless the backend said it is backing off.
  *
  * @returns `backingOff`, `disabled`, `offline` or `online`
  */
 function stateKey(): string {
-  return map.status.value?.state === 'backing-off' ? 'backingOff' : settledKey()
+  return backingOff() ? 'backingOff' : settledKey()
 }
 
 /** What the tiles are doing now, in words. */

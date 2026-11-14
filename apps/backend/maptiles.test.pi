@@ -26,7 +26,7 @@ import {
   encodeSettingsPatch,
 } from "./generated/app"
 import { TileMeta, textOfMeta } from "./mapcache"
-import { activeRequests, cacheForTests, capForTests, keepMsOf, restartForTests } from "./maptiles"
+import { activeRequests, cacheForTests, capForTests, clockForTests, keepMsOf, reachText, restartForTests } from "./maptiles"
 import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
 import { Frontend, setDeadline, start } from "./testing"
 
@@ -107,6 +107,11 @@ async function handle(req: Request): Promise<Response> {
     if (fake.status == 304) {
       return new Response("", { status: 304, headers: headers })
     }
+    if (fake.status >= 300 && fake.status < 400) {
+      const moved = new Map<string, string>()
+      moved.set("location", "http://example.invalid/elsewhere/1/1/1.png")
+      return new Response("", { status: fake.status, headers: moved })
+    }
     if (fake.status != 200) {
       return new Response("no", { status: fake.status, headers: new Map<string, string>() })
     }
@@ -131,12 +136,12 @@ class Rig {
 }
 
 /// A backend over a fresh directory, a fake tile server, and the settings that point the map at it (a custom source on this computer).
-async function rig(timeoutMs: int = 10000, spacingMs: int = 0, backoffMs: int = 400): Promise<Rig> throws Error {
+async function rig(timeoutMs: int = 10000, spacingMs: int = 0, backoffMs: int = 400, waitMs: int = 30000): Promise<Rig> throws Error {
   const root = `/tmp/drone-configurator-maps-${pid}-${Date.now() as int}`
   await mkdir(root, true)
   useDirectoryForTests(root)
   restartSettings()
-  restartForTests(timeoutMs, spacingMs, backoffMs)
+  restartForTests(timeoutMs, spacingMs, backoffMs, waitMs)
   resetFake()
   const server = await serve({ port: 0 }, handle)
   const port = server.addr.port
@@ -336,6 +341,153 @@ async function dropsABodyThatIsFarTooBigAfterItWasReadAndSaysWhatItCost(): Promi
   expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("")
   expect(fake.hits).toBe(hits + 1)
   setDeadline(10000)
+  await done(r)
+}
+
+async function doesNotCountTheTimeInTheQueueAgainstTheServer(): Promise<void> throws Error {
+  // A server that answers in 250 ms is healthy, though a request that is sixth in the line has waited far over the 300 ms a request has
+  // to answer once it STARTS.
+  const r = await rig(600, 0, 400)
+  fake.delayMs = 250
+  const sent: u64[] = []
+  for (let i = 0; i < 6; i++) {
+    sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 1 as u32 })))
+  }
+  for (const id of sent) {
+    expect(codeOf(await r.f.reply(id))).toBe("")
+  }
+  expect(fake.hits).toBe(6)
+  expect(fake.maxActive <= 2).toBe(true)
+  expect(heardStates(r).length).toBe(0)
+  await done(r)
+}
+
+async function givesUpOnARequestThatWaitsTooLongForItsTurnWithoutBlamingTheServer(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400, 200)
+  fake.delayMs = 600
+  const sent: u64[] = []
+  for (let i = 0; i < 3; i++) {
+    sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 2 as u32 })))
+  }
+  const codes: string[] = []
+  for (const id of sent) {
+    codes.push(codeOf(await r.f.reply(id)))
+  }
+  // (which of the three waits is the last in line is not fixed)
+  expect(codes.filter(code => code == "").length).toBe(2)
+  expect(codes.filter(code => code == "UNAVAILABLE").length).toBe(1)
+  expect(fake.hits).toBe(2)
+  // Not a server in trouble: nothing was said, and the next request goes to the server at once.
+  expect(heardStates(r).length).toBe(0)
+  fake.delayMs = 0
+  expect(codeOf(await tileEnvelope(r, 4, 5, 2))).toBe("")
+  await done(r)
+}
+
+async function doesNotFollowARedirect(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 302
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e).includes("redirect is not followed")).toBe(true)
+  // It was asked once, where it went (example.invalid, which would not even resolve) was not asked at all, and it is left alone.
+  expect(fake.hits).toBe(1)
+  expect(codeOf(await tileEnvelope(r, 3, 1, 2))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(1)
+  expect(heardStates(r)).toEqual(["backing-off"])
+  await done(r)
+}
+
+async function staysAwayFromAServerThatSaysForbidden(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 403
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e)).toBe("the server refused this client (403)")
+  const hits = fake.hits
+  expect(codeOf(await tileEnvelope(r, 3, 1, 2))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(hits)
+  expect(heardStates(r)).toEqual(["backing-off"])
+  for (const e of r.f.heard) {
+    if (e.n == "map.status") {
+      expect(decodeMapStatus(e.p ?? Cbor.Null, "$").reason!).toBe("the server refused this client (403)")
+    }
+  }
+  await done(r)
+}
+
+async function neverPutsTheRuntimesTextInAnErrorWhateverItHolds(): Promise<void> throws Error {
+  const url = "https://tiles.example.com/maps/3/4/5.png?key=SECRET"
+  const forms = [
+    url,
+    url.toUpperCase(),
+    "https%3A%2F%2Ftiles.example.com%2Fmaps%2F3%2F4%2F5.png%3Fkey%3DSECRET",
+    "fetch failed: connection refused: tiles.example.com:443 (key=SECRET)",
+    "TLS: certificate verification failed: https://tiles.example.com/maps?key=SECRET",
+    "could not resolve host tiles.example.com?key=SECRET",
+  ]
+  for (const message of forms) {
+    const text = reachText("tiles.example.com", message)
+    expect(text.includes("SECRET")).toBe(false)
+    expect(text.toLowerCase().includes("secret")).toBe(false)
+    expect(text.includes("https")).toBe(false)
+    expect(text.startsWith("couldn't reach tiles.example.com: ")).toBe(true)
+  }
+  expect(reachText("h", "connection refused: h:1")).toBe("couldn't reach h: the connection was refused")
+  expect(reachText("h", "TLS: certificate verification failed")).toBe("couldn't reach h: its certificate or the secure connection could not be checked")
+  expect(reachText("h", "could not resolve")).toBe("couldn't reach h: the name could not be found")
+  expect(reachText("h", "something else with ?key=SECRET")).toBe("couldn't reach h: a network error")
+}
+
+async function saysItWhenTheServerCannotBeReachedWithoutTheAddress(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  await setting(r, "map.customUrl", `http://127.0.0.1:${r.port}/{z}/{x}/{y}.png?key=SECRET`)
+  await r.server.shutdown()
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e).startsWith("couldn't reach 127.0.0.1: ")).toBe(true)
+  expect(messageOf(e).includes("SECRET")).toBe(false)
+  expect(messageOf(e).includes(`${r.port}`)).toBe(false)
+  await remove(r.root, true)
+}
+
+async function leavesTheBackoffWhenItsTimeIsOverByTheTimer(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 429
+  expect(codeOf(await tileEnvelope(r, 1, 0, 0))).toBe("RATE_LIMITED")
+  expect(heardStates(r)).toEqual(["backing-off"])
+  // Nobody asks anything: the state is left by itself when the time is over, and said once. (The frontend hears it when it next reads.)
+  await delay(700)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online"])
+  await done(r)
+}
+
+async function leavesTheBackoffAtTheNextCheckByTheClockAndOnAChangeOfSettings(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 60000)
+  const start = Date.now() as int
+  clockForTests(start)
+  fake.status = 500
+  expect(codeOf(await tileEnvelope(r, 1, 0, 0))).toBe("UNAVAILABLE")
+  expect(heardStates(r)).toEqual(["backing-off"])
+  // A minute and a half later (the clock, not the timer): the next check leaves it, once.
+  clockForTests(start + 90000)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online"])
+  // The next trouble backs off for longer; a change of settings leaves it: offline says offline, and on again it is backing off again.
+  fake.status = 500
+  expect(codeOf(await tileEnvelope(r, 1, 0, 1))).toBe("UNAVAILABLE")
+  await setting(r, "map.offline", "true")
+  await sourcesOf(r)
+  await setting(r, "map.offline", "false")
+  await sourcesOf(r)
+  await setting(r, "map.enabled", "false")
+  await sourcesOf(r)
+  await setting(r, "map.enabled", "true")
+  clockForTests(start + 90000 + 130000)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online", "backing-off", "offline", "backing-off", "disabled", "online"])
+  clockForTests(-1)
   await done(r)
 }
 
@@ -633,6 +785,14 @@ describe("the map's tile service, against a fake tile server", () => {
   it("replaces a stale tile that the server has changed", replacesAStaleTileThatTheServerHasChanged)
   it("says what the server got wrong with a code, and keeps none of it", saysWhatTheServerGotWrong)
   it("drops a body that is far too big after it was read, and keeps nothing of it", dropsABodyThatIsFarTooBigAfterItWasReadAndSaysWhatItCost)
+  it("does not count the time in the queue against the server", doesNotCountTheTimeInTheQueueAgainstTheServer)
+  it("gives up on a request that waits too long for its turn, without blaming the server", givesUpOnARequestThatWaitsTooLongForItsTurnWithoutBlamingTheServer)
+  it("does not follow a redirect, and leaves the server alone after one", doesNotFollowARedirect)
+  it("stays away from a server that says 403 and says why, once", staysAwayFromAServerThatSaysForbidden)
+  it("never puts the runtime's text in an error, whatever form of the address it holds", neverPutsTheRuntimesTextInAnErrorWhateverItHolds)
+  it("says it when the server cannot be reached, with the host and the kind of failure only", saysItWhenTheServerCannotBeReachedWithoutTheAddress)
+  it("leaves the back-off when its time is over, by the timer", leavesTheBackoffWhenItsTimeIsOverByTheTimer)
+  it("leaves the back-off at the next check by the clock and on a change of the settings", leavesTheBackoffAtTheNextCheckByTheClockAndOnAChangeOfSettings)
   it("leaves the server alone after a 429 and says so once, and again when it is well", leavesTheServerAloneAfterTroubleAndSaysSoOnce)
   it("backs off on a server error and serves what it has, marked stale", backsOffOnAServerErrorAndKeepsServingWhatItHas)
   it("gives up on a server that does not answer in time", givesUpOnAServerThatDoesNotAnswerInTime)
