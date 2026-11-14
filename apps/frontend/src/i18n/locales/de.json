@@ -1026,6 +1026,7 @@
       },
       "tune": {
         "rate": "Zu Abstimmung wechseln: Rate",
+        "analyse": "Zu Abstimmung wechseln: Analyse",
         "more": "Zu Abstimmung wechseln: Weitere Gruppen",
         "filters": "Zu Abstimmung wechseln: Filter"
       }
@@ -1693,6 +1694,7 @@
     "section": {
       "rate": "Rate",
       "more": "Weitere Gruppen",
+      "analyse": "Analyse",
       "filters": "Filter"
     },
     "armed": "Scharf: Änderungen wirken im Flug",
@@ -1716,6 +1718,47 @@
       "dropped": "Vom Backend verworfene Punkte: {count}",
       "noActual": "Das Fahrzeug hat die Anfrage für die Ist-Rate (ATTITUDE) nicht angenommen: sie wird nicht gezeigt.",
       "noDesired": "Das Fahrzeug hat die Anfrage für die Soll-Rate (ATTITUDE_TARGET) nicht angenommen: sie wird nicht gezeigt, und nichts wird gemessen."
+    },
+    "analyse": {
+      "summary": "Misst, wie das Fahrzeug der geforderten Drehrate in einem Flugprotokoll auf diesem Computer gefolgt ist: die größten Sprünge der Solldrehrate mit Überschwingen, Anstieg und Einschwingen, wie die Live-Antwort. Es wird nichts ins Fahrzeug geschrieben.",
+      "tlog": "Für eine Aufzeichnung (.tlog) nicht verfügbar: nur ein Flugprotokoll des Fahrzeugs enthält die Raten-Meldungen.",
+      "noLogs": "Kein Flugprotokoll auf diesem Computer. Laden Sie eines vom Fahrzeug herunter (Protokolle: Auf dem Fahrzeug) oder importieren Sie eines (Protokolle: Flüge).",
+      "log": "Flugprotokoll",
+      "run": "Analysieren",
+      "axis": "Achse",
+      "stopped": "Gestoppt: es wurde nichts gemessen.",
+      "steps": "Im Protokoll gefundene Sprünge, der größte zuerst",
+      "at": "Bei",
+      "size": "Sprung",
+      "slow": "RATE wurde hier etwa {rate}-mal pro Sekunde geschrieben (unter {minimum}): ein schneller Sprung hat wenige Punkte, Anstieg und Einschwingen sind grob.",
+      "chartTitle": "Drehrate {axis} im Protokoll, Grad pro Sekunde",
+      "gap": "Das Protokoll hat in der Ist-Rate innerhalb dieses Sprungs eine Lücke von {ms} ms (ein verlorener Block oder eine hängende Karte): Überschwingen, Anstieg und Einschwingen werden nicht gemessen, denn eine Linie über die Lücke wäre eine Zahl, die niemand gemessen hat.",
+      "noStep": "Es wird kein Sprung gezeigt.",
+      "second": "{seconds} s",
+      "rate": "{value} °/s",
+      "idle": {
+        "title": "Noch nichts analysiert",
+        "help": "Das neueste Protokoll ist gewählt: Analysieren liest es, oder wählen Sie ein anderes."
+      },
+      "none": {
+        "noRate": {
+          "title": "Dieses Protokoll hat keine RATE-Meldungen",
+          "help": "Das Fahrzeug schreibt sie nur, wenn in LOG_BITMASK „Fast Attitude“ (ATTITUDE_FAST, Bit 0) oder „Medium Attitude“ (ATTITUDE_MED, Bit 1) gesetzt ist. Setzen Sie eines, fliegen Sie und laden Sie dieses Protokoll herunter."
+        },
+        "noStep": {
+          "title": "Kein geeigneter Sprung in diesem Protokoll",
+          "help": "Die Solldrehrate ist nie um einen Sprung gesprungen, der dann gehalten wurde (mindestens 20 Grad pro Sekunde). Fliegen Sie eine schnelle Roll-, Nick- oder Gierbewegung und analysieren Sie dieses Protokoll."
+        }
+      },
+      "phase": {
+        "idle": "Nichts geöffnet",
+        "reading": "Protokoll wird gelesen…",
+        "finding": "Sprünge werden gesucht…",
+        "measuring": "Sprung {done} von {of} wird gemessen…",
+        "ready": "Fertig",
+        "none": "Nichts anzuzeigen",
+        "failed": "Fehlgeschlagen"
+      }
     },
     "axis": {
       "rollPitch": "Roll und Nick",

@@ -26,6 +26,11 @@ export const MOCK_TYPES: MessageType[] = [
     fields: [numberField('TimeUS'), numberField('Inst'), numberField('Volt', 'V')],
     instanceField: 'Inst',
   },
+  {
+    name: 'RATE',
+    count: 3000,
+    fields: [numberField('TimeUS'), ...['RDes', 'R', 'PDes', 'P', 'YDes', 'Y'].map(name => numberField(name, 'deg/s'))],
+  },
   { name: 'ISBD', count: 400, fields: [numberField('TimeUS'), { name: 'x', kind: 'array' }] },
   { name: 'MSG', count: 12, fields: [numberField('TimeUS'), { name: 'Message', kind: 'text' }] },
 ]

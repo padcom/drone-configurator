@@ -1026,6 +1026,7 @@
       },
       "tune": {
         "rate": "Switch to Tune: Rate",
+        "analyse": "Switch to Tune: Analyse",
         "more": "Switch to Tune: More groups",
         "filters": "Switch to Tune: Filters"
       }
@@ -1693,6 +1694,7 @@
     "section": {
       "rate": "Rate",
       "more": "More groups",
+      "analyse": "Analyse",
       "filters": "Filters"
     },
     "armed": "Armed: changes apply in flight",
@@ -1716,6 +1718,47 @@
       "dropped": "Points dropped by the backend: {count}",
       "noActual": "The vehicle did not take the request for the actual rate (ATTITUDE): it is not shown.",
       "noDesired": "The vehicle did not take the request for the desired rate (ATTITUDE_TARGET): it is not shown, and nothing is measured."
+    },
+    "analyse": {
+      "summary": "Measures how the vehicle followed the turn rate it asked for in a flight log on this computer: the biggest steps of the desired rate, with the overshoot, the rise and the settling, like the live response. Nothing is written to the vehicle.",
+      "tlog": "Not available for a recording (.tlog): only a flight log from the vehicle holds the rate messages.",
+      "noLogs": "No flight log on this computer. Download one from the vehicle (Logs: On the vehicle) or import one (Logs: Flights).",
+      "log": "Flight log",
+      "run": "Analyse",
+      "axis": "Axis",
+      "stopped": "Stopped: nothing was measured.",
+      "steps": "Steps found in the log, the largest first",
+      "at": "At",
+      "size": "Step",
+      "slow": "RATE was logged at about {rate} times a second here (below {minimum}): a fast step is seen with few points, and its rise and settling are rough.",
+      "chartTitle": "{axis} rate in the log, degrees a second",
+      "gap": "The log has a hole of {ms} ms in the actual rate inside this step (a dropped block or a card that stalled): the overshoot, rise and settling are not measured, because a line across the hole would be a number nobody measured.",
+      "noStep": "No step is shown.",
+      "second": "{seconds} s",
+      "rate": "{value} °/s",
+      "idle": {
+        "title": "Nothing analysed yet",
+        "help": "The newest log is chosen: press Analyse to read it, or choose another."
+      },
+      "none": {
+        "noRate": {
+          "title": "This log has no RATE messages",
+          "help": "The vehicle logs them only when LOG_BITMASK has \"Fast Attitude\" (ATTITUDE_FAST, bit 0) or \"Medium Attitude\" (ATTITUDE_MED, bit 1) set. Set one, fly, and download that log."
+        },
+        "noStep": {
+          "title": "No suitable step in this log",
+          "help": "The desired rate never jumped by a step that then held (at least 20 degrees a second). Fly a quick roll, pitch or yaw and analyse that log."
+        }
+      },
+      "phase": {
+        "idle": "Nothing is open",
+        "reading": "Reading the log…",
+        "finding": "Looking for steps…",
+        "measuring": "Measuring step {done} of {of}…",
+        "ready": "Done",
+        "none": "Nothing to show",
+        "failed": "Failed"
+      }
     },
     "axis": {
       "rollPitch": "Roll and pitch",
