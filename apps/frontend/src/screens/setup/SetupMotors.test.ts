@@ -108,6 +108,8 @@ it('shows no protocol, and no field for it, when the vehicle does not have MOT_P
   const rig = await page(SETUP_PARAMS.filter(param => param.id !== 'MOT_PWM_TYPE'))
 
   expect(rig.wrapper.findComponent(EnumField).exists()).toBe(false)
+  // the label points at nothing that does not exist
+  expect(rig.wrapper.get('.setup-esc label').attributes('for')).toBeUndefined()
   expect(rig.wrapper.get('#setup-protocol-unknown').text()).toContain('does not report its ESC protocol')
   expect(rig.wrapper.text()).not.toContain('Normal')
 })
@@ -155,18 +157,8 @@ it('takes a spin threshold as a fraction, ignores what is not one, and writes it
   // 0.85 is a fraction, but below the 0.9 that ArduPilot documents for the highest spin
   await field.setValue('0.85')
   expect(rig.wrapper.get('.setup-writes').text()).toBe('')
-  // the field is marked, with the range in words that the field is described by, and the text stays as typed
-  expect(field.element.value).toBe('0.85')
-  expect(field.attributes('aria-invalid')).toBe('true')
-  const describedBy = field.attributes('aria-describedby') ?? ''
-  expect(rig.wrapper.get(`[id="${describedBy}"]`).text()).toContain('from 0.9 to 1')
-  expect(rig.wrapper.get(`[id="${describedBy}"]`).text()).toContain('not written')
-  await field.trigger('blur')
-  expect(field.element.value).toBe('0.85')
-  expect(field.attributes('aria-invalid')).toBe('true')
   await field.setValue('0.9')
   expect(field.attributes('aria-invalid')).toBeUndefined()
-  expect(field.attributes('aria-describedby')).toBeUndefined()
   expect(rig.wrapper.get('.setup-writes').text()).toBe('MOT_SPIN_MAX')
   await rig.wrapper.get('#setup-motors-write').trigger('click')
   await flushPromises()
@@ -175,6 +167,33 @@ it('takes a spin threshold as a fraction, ignores what is not one, and writes it
   expect(valueOf(rig, 'MOT_SPIN_MAX')).toBeCloseTo(0.9, 5)
   // a spin threshold takes effect at once: no reboot is asked for
   expect(rig.wrapper.find('#setup-reboot').exists()).toBe(false)
+})
+
+it('marks a spin value that is not taken, says only what is new about it, and keeps the text as typed', async () => {
+  const rig = await page()
+  const field = rig.wrapper.get<HTMLInputElement>('[data-spin="MOT_SPIN_MAX"] input')
+  // the status line is in the row all the time (a live region is announced when its text changes, not when it is inserted), empty
+  const describedBy = field.attributes('aria-describedby') ?? ''
+  const status = rig.wrapper.get(`[id="${describedBy}"]`)
+  expect(status.attributes('role')).toBe('status')
+  expect(status.text()).toBe('')
+  await field.setValue('0.85')
+  // the field is marked, the status line says it, and the text stays as typed
+  expect(field.element.value).toBe('0.85')
+  expect(field.attributes('aria-invalid')).toBe('true')
+  const message = rig.wrapper.get(`[id="${describedBy}"]`)
+  expect(message.element).toBe(status.element)
+  // only what is new: the range is in the help line next to it, not said again
+  expect(message.text()).toBe('Out of range: what is typed is not written.')
+  expect(message.attributes('role')).toBe('status')
+  expect(message.attributes('aria-live')).toBe('polite')
+  expect(rig.wrapper.get('[data-spin="MOT_SPIN_MAX"]').text()).toContain('from 0.9 to 1')
+  await field.trigger('blur')
+  expect(field.element.value).toBe('0.85')
+  expect(field.attributes('aria-invalid')).toBe('true')
+  await field.setValue('0.9')
+  expect(field.attributes('aria-invalid')).toBeUndefined()
+  expect(status.text()).toBe('')
 })
 
 it('writes nothing while the thresholds are out of order, and says so', async () => {

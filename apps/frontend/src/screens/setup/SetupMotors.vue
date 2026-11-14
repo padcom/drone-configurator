@@ -6,7 +6,7 @@
       <RebootBanner :show="rebootNeeded" />
       <h4 class="setup-label">{{ t('setup.motors.escTitle') }}</h4>
       <div class="setup-esc">
-        <label :for="`${uid}-pwm`">{{ t('setup.motors.protocol') }}</label>
+        <label :for="protocol === null ? undefined : `${uid}-pwm`">{{ t('setup.motors.protocol') }}</label>
         <EnumField
           v-if="protocol !== null"
           :input-id="`${uid}-pwm`"
@@ -25,15 +25,17 @@
           :id="`${uid}-${spin.id}`"
           :model-value="spin.text"
           :invalid="spin.invalid"
-          :aria-describedby="spin.invalid ? `${uid}-${spin.id}-range` : undefined"
+          :aria-describedby="`${uid}-${spin.id}-range`"
           :disabled="locked(spin.id)"
           @update:model-value="setSpin(spin.id, $event)"
           @blur="settleSpin(spin.id)"
         />
-        <span v-if="spin.invalid" :id="`${uid}-${spin.id}-range`" class="setup-esc-error" role="alert">
-          {{ t('setup.motors.range', { name: t(`setup.motors.${spin.id}`), low: spin.low, high: spin.high }) }}
+        <span class="muted">
+          {{ t(`setup.motors.${spin.id}Help`) }}
+          <span :id="`${uid}-${spin.id}-range`" class="setup-esc-error" role="status" aria-live="polite">{{
+            spin.invalid ? t('setup.motors.range') : undefined
+          }}</span>
         </span>
-        <span v-else class="muted">{{ t(`setup.motors.${spin.id}Help`) }}</span>
       </div>
       <Banner v-if="problem !== null" id="setup-spin-order" tone="warn">{{ t('setup.motors.order') }}</Banner>
       <SetupMotorTest />
