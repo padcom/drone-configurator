@@ -1,0 +1,298 @@
+// The disk cache of the map's tiles, in the app's cache directory: `tiles/<source folder>/<z>/<x>/<y>.tile` (the image as the server
+// sent it) and `<y>.meta` (its type, its etag and when it came and goes stale, four lines of text). A path is made ONLY from the
+// folder of a source (a fixed id or a hash: see mapsource.pi) and three integers that were checked, so nothing from outside becomes
+// part of one.
+//
+// What is held is a running total: an index in memory of each tile (its size and when it was last used) that a first scan of the
+// folder fills in the background, and that the reads and writes keep up to date, so that the size cap is checked against a number and
+// not against a walk of the folder for each tile. When the cache is over its cap the tiles used longest ago go, down to 90 % of it.
+// Writes go to a temporary file and are renamed, so a tile is whole or not there. Clearing the cache walks the folder itself and
+// removes what it finds, links included, without ever following one out of it.
+import { mkdir, readBytes, readDir, readText, remove, rename, stat, writeBytes, writeText, exists } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+
+/// What a tile's `.meta` says.
+export class TileMeta {
+  public readonly contentType: string
+  public readonly etag: string
+  /// When the server gave the tile (milliseconds since 1970).
+  public readonly fetchedAt: int
+  /// When it goes stale (milliseconds since 1970).
+  public readonly expiresAt: int
+
+  constructor(contentType: string, etag: string, fetchedAt: int, expiresAt: int) {
+    this.contentType = contentType
+    this.etag = etag
+    this.fetchedAt = fetchedAt
+    this.expiresAt = expiresAt
+  }
+}
+
+/// A tile as the cache holds it.
+export class CachedTile {
+  public readonly bytes: Uint8Array
+  public readonly meta: TileMeta
+
+  constructor(bytes: Uint8Array, meta: TileMeta) {
+    this.bytes = bytes
+    this.meta = meta
+  }
+}
+
+/// What the cache knows of a tile without reading it.
+class Entry {
+  public size: int
+  public used: int
+
+  constructor(size: int, used: int) {
+    this.size = size
+    this.used = used
+  }
+}
+
+/// What a tile's `.meta` costs in the total (it is small: a count, not a measure).
+const META_COST: int = 256
+
+/// What is left when the cache is over its cap: 90 % of it, so that eviction is not run for every tile.
+const KEEP_PERCENT: int = 90
+
+/// What a clear took away.
+export class Cleared {
+  public files: int = 0
+  public bytes: int = 0
+}
+
+/// Whether a text is a folder name made here: lower-case letters and digits only (a fixed id, or `c` and a hash).
+export function safeFolder(name: string): bool {
+  if (name.length == 0 || name.length > 64) {
+    return false
+  }
+  for (let i = 0; i < name.length; i++) {
+    const c = name.slice(i, i + 1)
+    if (!((c >= "a" && c <= "z") || (c >= "0" && c <= "9"))) {
+      return false
+    }
+  }
+  true
+}
+
+export class TileCache {
+  public readonly root: string
+  readonly entries: Map<string, Entry> = new Map<string, Entry>()
+  /// The bytes the entries come to (what is counted so far, while the first scan runs).
+  public total: int = 0
+  /// Whether the first scan of the folder is over: until then `total` can only be too small.
+  public counted: bool = false
+  scanning: bool = false
+  written: int = 0
+
+  /// `root` is the `tiles` folder inside the app's cache directory.
+  constructor(root: string) {
+    this.root = root
+  }
+
+  /// The key of a tile in the index, and its paths (`.tile` and `.meta`) without the extension.
+  keyOf(folder: string, z: int, x: int, y: int): string {
+    `${folder}/${z}/${x}/${y}`
+  }
+
+  basePath(folder: string, z: int, x: int, y: int): string {
+    join(root, folder, `${z}`, `${x}`, `${y}`)
+  }
+
+  /// Counts the folder in the background, once: the tiles that are there with their sizes and the time they were last used (their
+  /// modification time, until a read says otherwise).
+  public startScan(): void {
+    if (scanning || counted) {
+      return
+    }
+    scanning = true
+    scan()
+  }
+
+  async scan(): Promise<void> {
+    try {
+      if (await exists(root)) {
+        for await (const folder of readDir(root)) {
+          if (folder.isDirectory && safeFolder(folder.name)) {
+            await scanLevel(folder.name, join(root, folder.name), 0)
+          }
+        }
+      }
+    } catch (e: Error) {
+      // A folder that cannot be read is counted as far as it was.
+    }
+    counted = true
+    scanning = false
+  }
+
+  /// One level of a source's folder: z, then x, then the `.tile` files (the three names are numbers; anything else is not ours).
+  async scanLevel(folder: string, path: string, level: int): Promise<void> throws Error {
+    for await (const entry of readDir(path)) {
+      if (level < 2 && entry.isDirectory && isNumber(entry.name)) {
+        await scanLevel(`${folder}/${entry.name}`, join(path, entry.name), level + 1)
+      } else if (level == 2 && entry.isFile && entry.name.endsWith(".tile")) {
+        const info = await stat(join(path, entry.name))
+        const key = `${folder}/${entry.name.slice(0, entry.name.length - 5)}`
+        if (!entries.has(key)) {
+          entries.set(key, new Entry(info.size + META_COST, info.mtime))
+          total += info.size + META_COST
+        }
+      }
+    }
+  }
+
+  /// A tile of the cache, or null when it is not there or cannot be read (a tile whose `.meta` is damaged is not a tile).
+  public async read(folder: string, z: int, x: int, y: int): Promise<CachedTile?> {
+    const base = basePath(folder, z, x, y)
+    try {
+      const meta = parseMeta(await readText(`${base}.meta`))
+      if (meta == null) {
+        return null
+      }
+      const bytes = await readBytes(`${base}.tile`)
+      const key = keyOf(folder, z, x, y)
+      const known = entries.get(key)
+      if (known == null) {
+        entries.set(key, new Entry(bytes.length + META_COST, Date.now() as int))
+        total += bytes.length + META_COST
+      } else {
+        known!.used = Date.now() as int
+      }
+      return new CachedTile(bytes, meta!)
+    } catch (e: Error) {
+      return null
+    }
+  }
+
+  /// Keeps a tile, and then the cache within `capBytes`.
+  public async write(folder: string, z: int, x: int, y: int, bytes: Uint8Array, meta: TileMeta, capBytes: int): Promise<void> throws Error {
+    const base = basePath(folder, z, x, y)
+    await mkdir(join(root, folder, `${z}`, `${x}`), true)
+    written += 1
+    const suffix = `.tmp-${pid}-${written}`
+    await writeBytes(`${base}.tile${suffix}`, bytes)
+    await writeText(`${base}.meta${suffix}`, textOfMeta(meta))
+    await rename(`${base}.tile${suffix}`, `${base}.tile`)
+    await rename(`${base}.meta${suffix}`, `${base}.meta`)
+    const key = keyOf(folder, z, x, y)
+    const known = entries.get(key)
+    if (known != null) {
+      total -= known!.size
+    }
+    entries.set(key, new Entry(bytes.length + META_COST, Date.now() as int))
+    total += bytes.length + META_COST
+    await keepWithin(capBytes)
+  }
+
+  /// Removes the tiles used longest ago while the cache is over `capBytes`, down to 90 % of it.
+  public async keepWithin(capBytes: int): Promise<void> {
+    if (total <= capBytes) {
+      return
+    }
+    const target = capBytes / 100 * KEEP_PERCENT
+    const keys: string[] = []
+    for (const key of entries.keys()) {
+      keys.push(key)
+    }
+    keys.sort((a, b) => entries.get(a)!.used - entries.get(b)!.used)
+    for (const key of keys) {
+      if (total <= target) {
+        break
+      }
+      await drop(key)
+    }
+  }
+
+  /// Takes a tile out: its files and its place in the index.
+  async drop(key: string): Promise<void> {
+    const known = entries.get(key)
+    if (known == null) {
+      return
+    }
+    const parts = key.split("/")
+    const base = join(root, parts[0], parts[1], parts[2], parts[3])
+    for (const ext of [".tile", ".meta"]) {
+      try {
+        await remove(`${base}${ext}`)
+      } catch (e: Error) {
+        // Already gone.
+      }
+    }
+    total -= known!.size
+    entries.delete(key)
+  }
+
+  /// Removes everything under the cache's folder: files and links are removed (a link is removed, not followed), a folder is emptied
+  /// and then removed. Nothing outside the folder is touched. Says how many tiles and bytes went.
+  public async clear(): Promise<Cleared> throws Error {
+    const out = new Cleared()
+    if (await exists(root)) {
+      await empty(root, out)
+    }
+    entries.clear()
+    total = 0
+    out
+  }
+
+  async empty(path: string, out: Cleared): Promise<void> throws Error {
+    const names: string[] = []
+    const kinds: bool[] = []
+    for await (const entry of readDir(path)) {
+      names.push(entry.name)
+      kinds.push(entry.isDirectory)
+    }
+    for (let i = 0; i < names.length; i++) {
+      const child = join(path, names[i])
+      if (kinds[i]) {
+        await empty(child, out)
+        await remove(child)
+      } else {
+        if (names[i].endsWith(".tile")) {
+          out.files += 1
+          out.bytes += (await stat(child, false)).size
+        }
+        await remove(child)
+      }
+    }
+  }
+}
+
+/// Whether a name is a whole number (a zoom, a column, a row).
+function isNumber(name: string): bool {
+  if (name.length == 0 || name.length > 9) {
+    return false
+  }
+  for (let i = 0; i < name.length; i++) {
+    const c = name.slice(i, i + 1)
+    if (c < "0" || c > "9") {
+      return false
+    }
+  }
+  true
+}
+
+/// A `.meta` as text: a version, the type, the etag, when it came, when it goes stale.
+export function textOfMeta(m: TileMeta): string {
+  `v1\n${clean(m.contentType)}\n${clean(m.etag)}\n${m.fetchedAt}\n${m.expiresAt}\n`
+}
+
+/// A header value as one line (a newline in it would shift the rest).
+function clean(text: string): string {
+  text.replaceAll("\n", " ").replaceAll("\r", " ")
+}
+
+/// What a `.meta` says, or null when it is not one.
+export function parseMeta(text: string): TileMeta? {
+  const lines = text.split("\n")
+  if (lines.length < 5 || lines[0] != "v1") {
+    return null
+  }
+  const fetchedAt = parseInt(lines[3])
+  const expiresAt = parseInt(lines[4])
+  if (!(fetchedAt >= 0) || !(expiresAt >= 0)) {
+    return null
+  }
+  new TileMeta(lines[1], lines[2], fetchedAt, expiresAt)
+}

@@ -14,6 +14,7 @@ import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
+import { MockMap } from './mock-map'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
 
@@ -176,6 +177,7 @@ class MockVehicle {
   readonly calibration: MockCalibration
   /** The logs on this computer (no vehicle needed). */
   readonly localLogs: MockLocalLogs
+  readonly map: MockMap
   /** The motor test. */
   readonly motors: MockMotors
   readonly tuning: MockTuning
@@ -191,6 +193,7 @@ class MockVehicle {
     this.ftpMode = options.ftp ?? 'ok'
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
     this.localLogs = new MockLocalLogs(send, options.localLogsStepMs)
+    this.map = new MockMap()
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
@@ -305,6 +308,8 @@ class MockVehicle {
       case 'logs.local.batches': return this.localLogs.batches((e.p as { key: string }).key, ok, fail)
       case 'logs.local.spectrum': return this.localLogs.spectrum(e.p as LogsLocalSpectrumAsk, ok, fail)
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
+      case 'map.sources': return this.map.sources(this.settings, ok)
+      case 'map.clear': return this.map.clear(ok)
       case 'motors.test': return this.motors.subscribe(e)
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'tuning.stream': return this.tuning.subscribe(e)

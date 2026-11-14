@@ -168,6 +168,26 @@ services = {
   ; A parameter the vehicle announced on its own (changed by another ground station, or by the
   ; autopilot): the dashboard's copy follows it.
   "params.changed": ["event", param],
+  ; The map's tiles. The BACKEND fetches them (the page's policy forbids it, and the area of a flight is not told to a third party
+  ; from a page): `map.tile` answers with the bytes of one raster tile of the chosen source, from the disk cache when it is fresh,
+  ; else from the tile server (at most 2 requests at a time, at least 150 ms apart, none for a tile the cache has, a User-Agent that
+  ; names the project), and a stale one is served, marked, when the vehicle is offline or the server cannot be reached. What the
+  ; backend does is set by the settings document, which it reads itself (`ui` entries `map.enabled` "true"/"false", `map.offline`,
+  ; `map.source` "osm" or "custom", `map.customUrl`, `map.cacheMb`), so that the switch cannot be bypassed by the page. Fails with
+  ; `BAD_REQUEST` (a zoom that is not 0 to 19, a column or row outside the zoom, a source that is not known, a custom address that
+  ; is not allowed), `DISABLED` (the switch is off), `OFFLINE_MISS` (offline, and the tile is not cached), `NOT_FOUND` (the server has
+  ; no such tile), `RATE_LIMITED` (the server said 429, or the backend is backing off after trouble), `UNAVAILABLE` (the network, the
+  ; certificate, a timeout or a server error; the message says which), `TOO_BIG` (the answer was over 512 KiB: it was read whole, as
+  ; the pico `fetch` does, and is dropped, not cached), `BAD_TYPE` (not a PNG, JPEG or WebP image: dropped too) and `ABORTED`
+  ; (`map.cancel`). `map.status` is sent when the state changes (not for every tile).
+  "map.tile": ["method", map-tile-ask, map-tile],
+  ; Stops waiting for a tile that was asked for (one that left the view): its `map.tile` fails with `ABORTED`. The request to the
+  ; server, if it already went, finishes and is cached.
+  "map.cancel": ["method", map-tile-ask, null],
+  "map.sources": ["method", null, map-sources],
+  ; Deletes every tile of the cache (only the app's own tiles folder; links in it are removed, never followed).
+  "map.clear": ["method", null, map-cleared],
+  "map.status": ["event", map-status],
 }
 
 ; How to reach the vehicle. "simulator" is a vehicle inside the backend, for trying the app
@@ -1025,3 +1045,48 @@ motor-test-state = {
   ? starts: uint .size 4,
   ? confirmed: bool,
 }
+
+; ---- The map ----
+
+; A tile: the zoom, the column and the row of the web-mercator grid (0 to 2^z - 1). `source` is `osm` or `custom`; absent, the one
+; the settings choose.
+map-tile-ask = { ? source: tstr, z: uint .size 1, x: uint .size 4, y: uint .size 4 }
+
+; A tile: `contentType` image/png, image/jpeg or image/webp, the image in `bytes`. `fromCache`: it came from the disk, not the
+; server just now; `stale`: it is past its time and was served because the vehicle is offline or the server could not be reached;
+; `fetchedAt` is when the server gave it (milliseconds since 1970).
+map-tile = { contentType: tstr, bytes: bstr, fromCache: bool, stale: bool, fetchedAt: uint .size 8 }
+
+; The sources, with the words the page must show with their tiles (`attribution`, and its address `attributionUrl`); `allowOffline`
+; is whether the source's terms allow keeping tiles for offline use beyond browsing (the built-in one does not). `host` is only the
+; host of a custom address: the rest of it may hold a key and is never shown or logged. `source` is the one in use, `enabled` and
+; `offline` the settings as the backend reads them, `cacheMb` the cap, `cacheBytes` what the cache holds now (`counted` is false
+; while the first count of an old cache is still going), `customError` why the custom address cannot be used, and `notice` something
+; to tell once (the settings could not be read: the defaults are used).
+map-sources = {
+  sources: [* map-source],
+  source: tstr,
+  enabled: bool,
+  offline: bool,
+  cacheMb: uint .size 2,
+  cacheBytes: uint .size 8,
+  counted: bool,
+  ? customError: tstr,
+  ? notice: tstr,
+}
+map-source = {
+  id: tstr,
+  name: tstr,
+  attribution: tstr,
+  attributionUrl: tstr,
+  allowOffline: bool,
+  custom: bool,
+  ? host: tstr,
+}
+
+; What the map's tiles are doing: `online`, `offline` (the setting: cached tiles only), `disabled` (the switch is off), `backing-off`
+; (the server said 429 or failed: nothing is asked of it for `retryAfterMs`). `reason` is in English, for people.
+map-state = "online" / "offline" / "disabled" / "backing-off"
+map-status = { state: map-state, ? reason: tstr, ? retryAfterMs: uint .size 4 }
+
+map-cleared = { files: uint .size 4, bytes: uint .size 8 }

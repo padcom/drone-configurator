@@ -1,0 +1,166 @@
+// The sources of map tiles, and what may be asked of them: the rules that keep a request for a tile from becoming anything else. A
+// tile is asked for by integers (zoom, column, row) and a source; the URL is built only from a template that was checked and from
+// those integers, and the folder of the cache is a fixed id or a hash, so no text from a settings file or a page ever becomes a path.
+//
+// The built-in source is OpenStreetMap's standard tile layer. A custom source is a template with {z}, {x} and {y}: https anywhere,
+// plain http only to this computer (a tile server of the user's own, and the tests' fake one), never with a user name or password
+// in it. The host is the only part of a custom URL that is ever shown or logged: the rest of it may hold a key.
+import { crc32Of } from "padcom/pico-mavlink"
+import { hex8 } from "./logs"
+
+/// The deepest zoom of the raster tiles of the sources here (OpenStreetMap's own limit).
+export const MAX_ZOOM: int = 19
+
+/// The longest template that is taken.
+export const MAX_TEMPLATE: int = 512
+
+/// The id of the built-in source, and of the custom one.
+export const OSM_ID: string = "osm"
+export const CUSTOM_ID: string = "custom"
+
+/// A source of tiles.
+export class Source {
+  public readonly id: string
+  public readonly name: string
+  public readonly attribution: string
+  public readonly attributionUrl: string
+  /// The URL with {z}, {x} and {y}.
+  public readonly template: string
+  /// Whether the source's terms allow keeping tiles for offline use beyond browsing (OpenStreetMap's do not allow bulk downloads).
+  public readonly allowOffline: bool
+  public readonly custom: bool
+  /// The name of the source's folder in the cache: a fixed id, or `c` and a hash of the custom template.
+  public readonly dir: string
+
+  constructor(id: string, name: string, attribution: string, attributionUrl: string, template: string, allowOffline: bool, custom: bool, dir: string) {
+    this.id = id
+    this.name = name
+    this.attribution = attribution
+    this.attributionUrl = attributionUrl
+    this.template = template
+    this.allowOffline = allowOffline
+    this.custom = custom
+    this.dir = dir
+  }
+}
+
+/// The built-in source.
+export function openStreetMap(): Source {
+  new Source(
+    OSM_ID,
+    "OpenStreetMap",
+    "© OpenStreetMap contributors",
+    "https://www.openstreetmap.org/copyright",
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    false,
+    false,
+    OSM_ID,
+  )
+}
+
+/// Why a tile cannot be asked for, or null when it can: the zoom is a whole number from 0 to 19 and the column and the row are
+/// whole numbers inside the 2^zoom of that zoom. Anything else (a negative, a fraction, a number that is not one) is refused.
+export function tileProblem(z: f64, x: f64, y: f64): string? {
+  if (!(z >= 0.0 && z <= MAX_ZOOM as f64) || Math.floor(z) != z) {
+    return `the zoom must be a whole number from 0 to ${MAX_ZOOM}`
+  }
+  const side = Math.pow(2.0, z)
+  if (!(x >= 0.0 && x < side) || Math.floor(x) != x || !(y >= 0.0 && y < side) || Math.floor(y) != y) {
+    return `the column and the row must be whole numbers from 0 to ${side as int - 1} at zoom ${z as int}`
+  }
+  null
+}
+
+/// Whether a character may be in a template: printable ASCII, no space, no control character, no backslash.
+function plain(text: string): bool {
+  for (let i = 0; i < text.length; i++) {
+    const c = text.slice(i, i + 1)
+    if (c <= " " || c > "~" || c == "\\") {
+      return false
+    }
+  }
+  true
+}
+
+/// How many times `part` is in `text`.
+function count(text: string, part: string): int {
+  text.split(part).length - 1
+}
+
+/// The authority of a template (what is between `://` and the first `/`).
+function authorityOf(template: string): string {
+  const rest = template.slice(template.indexOf("://") + 3)
+  const slash = rest.indexOf("/")
+  if (slash < 0) rest else rest.slice(0, slash)
+}
+
+/// The host of a template, without the port: the only part of it that is shown or logged. "" when it has none.
+export function hostOf(template: string): string {
+  const authority = authorityOf(template)
+  if (authority.startsWith("[")) {
+    const close = authority.indexOf("]")
+    return if (close < 0) "" else authority.slice(0, close + 1)
+  }
+  const colon = authority.indexOf(":")
+  if (colon < 0) authority else authority.slice(0, colon)
+}
+
+/// Whether a host is this computer: the only place plain http may go.
+export function isLoopback(host: string): bool {
+  const h = host.toLowerCase()
+  h == "localhost" || h == "127.0.0.1" || h == "[::1]"
+}
+
+/// Why a custom template cannot be used, or null when it can. https anywhere, plain http only to this computer; it names a host and
+/// has {z}, {x} and {y} (each once); it has no user name or password, no fragment, no space or control character; it is not
+/// longer than `MAX_TEMPLATE`; and with numbers in place of the three it is a URL.
+export function templateProblem(template: string): string? {
+  if (template.length == 0 || template.length > MAX_TEMPLATE) {
+    return `the address must be 1 to ${MAX_TEMPLATE} characters`
+  }
+  if (!plain(template)) {
+    return "the address has a space or a character that is not allowed"
+  }
+  const https = template.startsWith("https://")
+  if (!https && !template.startsWith("http://")) {
+    return "the address must start with https://"
+  }
+  const authority = authorityOf(template)
+  const host = hostOf(template)
+  if (host.length == 0 || authority.includes("@")) {
+    return if (authority.includes("@")) "the address must not hold a user name or a password" else "the address has no host"
+  }
+  if (!https && !isLoopback(host)) {
+    return "plain http is allowed only to this computer: use https://"
+  }
+  if (template.includes("#")) {
+    return "the address must not have a fragment"
+  }
+  for (const part of ["{z}", "{x}", "{y}"]) {
+    if (count(template, part) != 1) {
+      return `the address must have ${part} once`
+    }
+  }
+  const rest = template.replace("{z}", "").replace("{x}", "").replace("{y}", "")
+  if (rest.includes("{") || rest.includes("}")) {
+    return "the address may have only {z}, {x} and {y} in braces ({s} is not supported)"
+  }
+  try {
+    new URL(urlOf(template, 1, 1, 1))
+  } catch (e: Error) {
+    return "the address is not a URL"
+  }
+  null
+}
+
+/// The URL of a tile: the template with the three numbers in it. Only for a template that passed `templateProblem` and numbers that
+/// passed `tileProblem`.
+export function urlOf(template: string, z: int, x: int, y: int): string {
+  template.replace("{z}", `${z}`).replace("{x}", `${x}`).replace("{y}", `${y}`)
+}
+
+/// A custom source for a template that passed `templateProblem`: its folder is a hash of the template, never the template or its host.
+export function customSource(template: string): Source {
+  const crc = crc32Of(new TextEncoder().encode(template))
+  new Source(CUSTOM_ID, `Custom (${hostOf(template)})`, "", "", template, true, true, `c${hex8(crc)}${template.length}`)
+}
