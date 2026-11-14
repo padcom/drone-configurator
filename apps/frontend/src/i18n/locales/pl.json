@@ -1019,6 +1019,7 @@
         "modes": "Przejdź do ekranu Konfiguracja: Tryby lotu",
         "failsafes": "Przejdź do ekranu Konfiguracja: Zabezpieczenia",
         "battery": "Przejdź do ekranu Konfiguracja: Bateria",
+        "initial": "Przejdź do ekranu Konfiguracja: Strojenie początkowe",
         "serial": "Przejdź do ekranu Konfiguracja: Porty szeregowe",
         "devices": "Przejdź do ekranu Konfiguracja: Urządzenia",
         "info": "Przejdź do ekranu Konfiguracja: Informacje o pojeździe"
@@ -1087,6 +1088,25 @@
     }
   },
   "setup": {
+    "initial": {
+      "summary": "Wartości początkowe, które ArduPilot publikuje dla multikoptera, według wielkości śmigieł i ogniw akumulatora. To propozycje: wybierz je, obejrzyj listę z boku i zapisz.",
+      "size": "Wielkość śmigieł",
+      "inches": "{n} cali",
+      "cells": "Ogniwa akumulatora",
+      "cellsHelp": "Liczba całkowita od 1 do {max}. Napięcia są dla zwykłych ogniw LiPo (4,2 V i 3,3 V na ogniwo): dla innego rodzaju akumulatora ustaw je ręcznie.",
+      "pick": "Wybierz wielkość śmigieł, aby zobaczyć wartości.",
+      "parameter": "Parametr",
+      "now": "Teraz",
+      "suggested": "Proponowane",
+      "why": {
+        "notGiven": "strona ArduPilota nie podaje dla tej wielkości",
+        "aboveRange": "wartość pojazdu jest powyżej zakresu tego parametru (inna jednostka?): nie jest proponowana",
+        "cells": "podaj ogniwa"
+      },
+      "notOnVehicle": "brak w tym pojeździe",
+      "use": "Użyj tych wartości",
+      "source": "Wartości publikowane przez ArduPilot jako punkt wyjścia, z „Setting the Aircraft Up for Tuning” (ardupilot.org/copter/docs/setting-up-for-tuning.html). Strona każe sprawdzić MOT_THST_EXPO na stanowisku do pomiaru ciągu."
+    },
     "refusedValue": "odrzucona: nie jest zapisywana",
     "outcome": {
       "confirmed": "Zapisane i odczytane: {names}.",
@@ -1104,6 +1124,7 @@
       "modes": "Tryby lotu",
       "failsafes": "Zabezpieczenia",
       "battery": "Bateria",
+      "initial": "Strojenie początkowe",
       "serial": "Porty szeregowe",
       "devices": "Urządzenia",
       "info": "Informacje o pojeździe"

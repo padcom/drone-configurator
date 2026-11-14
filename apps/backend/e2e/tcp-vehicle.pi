@@ -161,6 +161,14 @@ function setupParams(): SimParam[] {
   for (let i = 0; i < spins.length; i++) {
     out.push(SimParam { id: spins[i], value: TypedParamValue.Real(spinValues[i], MavParamType.REAL32) })
   }
+  // The Setup page "Initial tune": the parameters it suggests for, with values that are none of its suggestions, and without
+  // ATC_RAT_YAW_FLTE (a vehicle that does not have it: the page says so).
+  const initialIds = ["INS_ACCEL_FILTER", "INS_GYRO_FILTER", "ATC_ACC_P_MAX", "ATC_ACC_R_MAX", "ATC_ACC_Y_MAX", "ATC_RAT_RLL_FLTD",
+    "ATC_RAT_RLL_FLTT", "ATC_RAT_PIT_FLTD", "ATC_RAT_PIT_FLTT", "ATC_RAT_YAW_FLTT", "MOT_THST_EXPO", "MOT_BAT_VOLT_MAX", "MOT_BAT_VOLT_MIN"]
+  const initialValues = [20.0, 20.0, 900.0, 900.0, 180.0, 10.0, 10.0, 10.0, 10.0, 10.0, 0.5, 0.0, 0.0]
+  for (let i = 0; i < initialIds.length; i++) {
+    out.push(SimParam { id: initialIds[i], value: TypedParamValue.Real(initialValues[i], MavParamType.REAL32) })
+  }
   // The Tune screen's rate loop and attitude (a quad's usual values).
   const tuneNames = ["ATC_RAT_RLL_P", "ATC_RAT_RLL_I", "ATC_RAT_RLL_D", "ATC_RAT_RLL_FF", "ATC_RAT_PIT_P", "ATC_RAT_PIT_I", "ATC_RAT_PIT_D",
     "ATC_RAT_PIT_FF", "ATC_RAT_YAW_P", "ATC_RAT_YAW_I", "ATC_RAT_YAW_D", "ATC_RAT_YAW_FF", "ATC_ANG_RLL_P", "ATC_ANG_PIT_P", "ATC_ANG_YAW_P",
