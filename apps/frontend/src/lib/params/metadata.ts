@@ -225,6 +225,21 @@ function fromArduPilot(file: Raw): Metadata {
   return out
 }
 
+/** The most characters of a value a file gave that are put in a message. */
+const SHOWN_CHARS = 40
+
+/**
+ * A value a file gave, as it may be put in a message: control characters are left out and it is cut at 40 characters.
+ *
+ * @param value what the file holds
+ * @returns text that is safe to show
+ */
+function shown(value: unknown): string {
+  const text = String(value).replace(/\p{Cc}/gu, ' ')
+
+  return text.length > SHOWN_CHARS ? `${text.slice(0, SHOWN_CHARS)}…` : text
+}
+
 /**
  * Metadata that has something in it.
  *
@@ -257,7 +272,7 @@ export function parseMetadata(text: string): Metadata | string {
     return say('reason.notMetadata')
   }
   if (d.version !== 1) {
-    return say('reason.metadataVersion', { version: String(d.version) })
+    return say('reason.metadataVersion', { version: shown(d.version) })
   }
   const params = objectOf(d.params)
 

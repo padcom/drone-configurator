@@ -18,7 +18,6 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useMetadataToasts } from '@/lib/params/metadataToasts'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamShortcuts } from '@/lib/params/paramShortcuts'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -39,6 +38,4 @@ const { staged } = useConfigurator()
 // The group list is there unless the setting "Show parameter groups" is off (in the Settings screen alone).
 const { shown: groups } = useGroupsSetting()
 useParamShortcuts({ sync: () => staged.sync() })
-// How a metadata file went is told by a toast.
-useMetadataToasts()
 </script>

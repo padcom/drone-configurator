@@ -792,6 +792,24 @@ function validateFileOpenedInto(value: any, path: string): boolean {
 /** The first problem with `value` as a file-opened, or null. */
 export const validateFileOpened = (value: unknown) => run(validateFileOpenedInto, value)
 
+export type FileRead = { "path": string }
+
+function validateFileReadInto(value: any, path: string): boolean {
+  return map(value, path, ["path"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a file-read, or null. */
+export const validateFileRead = (value: unknown) => run(validateFileReadInto, value)
+
+export type FileContents = { "text": string }
+
+function validateFileContentsInto(value: any, path: string): boolean {
+  return map(value, path, ["text"]) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a file-contents, or null. */
+export const validateFileContents = (value: unknown) => run(validateFileContentsInto, value)
+
 export type SerialPorts = { "ports": (SerialPort)[] }
 
 function validateSerialPortsInto(value: any, path: string): boolean {
@@ -963,6 +981,7 @@ export interface Services {
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
+  "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
   "settings.get": { kind: 'method', request: null, response: SettingsState }
   "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
@@ -1137,6 +1156,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "files.open": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateFileOpenedInto(value, path),
+  },
+  "files.read": {
+    request: (value: any, path: string) => validateFileReadInto(value, path),
+    response: (value: any, path: string) => validateFileContentsInto(value, path),
   },
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
