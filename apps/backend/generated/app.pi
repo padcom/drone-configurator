@@ -4688,3 +4688,130 @@ export function encodeCalibrationResult(v: CalibrationResult): Cbor {
   }
   Cbor.Dict(m)
 }
+
+export struct TuningParams {
+  rateHz?: u8
+}
+
+export function decodeTuningParams(v: Cbor, path: string): TuningParams throws InvalidPayload {
+  const m = members(v, path, ["rateHz"])
+  const cbor0 = m.get("rateHz")
+  let opt0: u8? = null
+  if (cbor0 != null) {
+    opt0 = (uint(cbor0, `${path}.rateHz`, 255) as u8)
+  }
+  TuningParams {
+    rateHz: opt0,
+  }
+}
+
+export function encodeTuningParams(v: TuningParams): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.rateHz
+  if (opt0 != null) {
+    m.set("rateHz", Cbor.Uint(opt0 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export struct TuningPoint {
+  t: u32
+  v: f64
+}
+
+export function decodeTuningPoint(v: Cbor, path: string): TuningPoint throws InvalidPayload {
+  const m = members(v, path, ["t", "v"])
+  TuningPoint {
+    t: (uint(required(m, "t", path), `${path}.t`, 4294967295) as u32),
+    v: float(required(m, "v", path), `${path}.v`),
+  }
+}
+
+export function encodeTuningPoint(v: TuningPoint): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("t", Cbor.Uint(v.t as u64))
+  m.set("v", Cbor.Float(v.v))
+  Cbor.Dict(m)
+}
+
+function decodeTuningBatchActualList(v: Cbor, path: string): TuningPoint[] throws InvalidPayload {
+  const out: TuningPoint[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTuningPoint(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeTuningBatchDesiredList(v: Cbor, path: string): TuningPoint[] throws InvalidPayload {
+  const out: TuningPoint[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTuningPoint(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeTuningBatchActualList(v: TuningPoint[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTuningPoint(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeTuningBatchDesiredList(v: TuningPoint[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTuningPoint(e))
+  }
+  Cbor.List(out)
+}
+
+export struct TuningBatch {
+  actual: TuningPoint[]
+  desired: TuningPoint[]
+  dropped: u32
+  asked: TuningAsked
+}
+
+export function decodeTuningBatch(v: Cbor, path: string): TuningBatch throws InvalidPayload {
+  const m = members(v, path, ["actual", "desired", "dropped", "asked"])
+  TuningBatch {
+    actual: decodeTuningBatchActualList(required(m, "actual", path), `${path}.actual`),
+    desired: decodeTuningBatchDesiredList(required(m, "desired", path), `${path}.desired`),
+    dropped: (uint(required(m, "dropped", path), `${path}.dropped`, 4294967295) as u32),
+    asked: decodeTuningAsked(required(m, "asked", path), `${path}.asked`),
+  }
+}
+
+export function encodeTuningBatch(v: TuningBatch): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("actual", encodeTuningBatchActualList(v.actual))
+  m.set("desired", encodeTuningBatchDesiredList(v.desired))
+  m.set("dropped", Cbor.Uint(v.dropped as u64))
+  m.set("asked", encodeTuningAsked(v.asked))
+  Cbor.Dict(m)
+}
+
+export struct TuningAsked {
+  actual: bool
+  desired: bool
+}
+
+export function decodeTuningAsked(v: Cbor, path: string): TuningAsked throws InvalidPayload {
+  const m = members(v, path, ["actual", "desired"])
+  TuningAsked {
+    actual: boolean(required(m, "actual", path), `${path}.actual`),
+    desired: boolean(required(m, "desired", path), `${path}.desired`),
+  }
+}
+
+export function encodeTuningAsked(v: TuningAsked): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("actual", Cbor.Bool(v.actual))
+  m.set("desired", Cbor.Bool(v.desired))
+  Cbor.Dict(m)
+}

@@ -126,6 +126,16 @@ services = {
   "calibration.status": ["method", null, calibration-state],
   "calibration.progress": ["event", calibration-state],
   "calibration.result": ["event", calibration-result],
+  ; THE LIVE RESPONSE of the roll rate, for the Tune screen: the ACTUAL rate (ATTITUDE's `rollspeed`) and the DESIRED one (ATTITUDE_TARGET's
+  ; `body_roll_rate`), as they come from the vehicle, in degrees a second against the vehicle's own clock (`time_boot_ms`). Nothing here is
+  ; computed: no model, no filter, no resampling. The stream is for as long as the subscription: it asks the vehicle for the two messages at
+  ; `rateHz` (default 25, 1 to 50) when it starts and PUTS BACK the rates they had when it ends, by whichever way (the screen left, the link
+  ; lost, the session ended). It is bounded: the backend sends a batch of what came every 100 ms, keeps at most `MAX_PENDING` points of each
+  ; line waiting (the oldest are dropped and COUNTED in `dropped`, which the page shows), and it is a subscription of its own, so it can never
+  ; hold up `telemetry.stream`. A second subscription is refused (`BUSY`), as is one with no vehicle (`NOT_CONNECTED`) or a rate outside 1 to
+  ; 50 (`INVALID_VALUE`). `asked` says whether the vehicle took the request for each message (a vehicle that refuses ATTITUDE_TARGET has no
+  ; desired rate to show: the page says so, and invents nothing).
+  "tuning.stream": ["subscription", tuning-params, tuning-batch],
   "telemetry.stream": ["subscription", telemetry-params, telemetry],
   "vehicle.messages": ["subscription", messages-params, vehicle-message],
   "files.save": ["method", file-save, file-saved],
@@ -947,4 +957,29 @@ calibration-result = {
   ? code: tstr,
   ? detail: tstr,
   ? unsure: bool,
+}
+
+; The Tune screen's live stream (`tuning.stream`): `rateHz` is how often the vehicle is asked for ATTITUDE and ATTITUDE_TARGET (default 25).
+tuning-params = {
+  ? rateHz: uint .size 1,
+}
+
+; One point of a line: the vehicle's `time_boot_ms` and the rate in degrees a second.
+tuning-point = {
+  t: uint .size 4,
+  v: float,
+}
+
+; What came since the last batch. `dropped` counts the points that were dropped because the backend's buffer was full (since the stream
+; began), and `asked` says whether the vehicle accepted the request for each message.
+tuning-batch = {
+  actual: [* tuning-point],
+  desired: [* tuning-point],
+  dropped: uint .size 4,
+  asked: tuning-asked,
+}
+
+tuning-asked = {
+  actual: bool,
+  desired: bool,
 }

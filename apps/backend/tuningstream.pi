@@ -1,0 +1,229 @@
+// The Tune screen's live stream (`tuning.stream`): the ACTUAL roll rate (ATTITUDE's `rollspeed`) and the DESIRED one (ATTITUDE_TARGET's
+// `body_roll_rate`), as the vehicle sends them, in degrees a second against its own clock. Nothing is computed: no model, no filter, no
+// resampling, and nothing is made up for a message that does not come.
+//
+// What it asks of the vehicle, and what it gives back: while a subscription lives, ATTITUDE and ATTITUDE_TARGET are borrowed from the rate
+// manager at `rateHz` (pico-mavlink's `TelemetryRates.borrow`), and when it ends, by whichever way (the page unsubscribes, the link is lost,
+// the session ends), each goes back to what was held for it before (ATTITUDE at the telemetry's own 4 Hz; ATTITUDE_TARGET to the vehicle's
+// own rate), so the vehicle's message rates are what they were when the screen is left.
+//
+// The stream is bounded, and never holds up the telemetry: it is a subscription of its own, a batch goes out every `flushMs` with what came,
+// at most `maxPending` points of each line wait for it (the oldest are dropped, and COUNTED: the page shows the count), and a page that does
+// not take the batches (the communicator's own limit on what is unsent) loses batches, not memory. One stream at a time.
+import { Cbor, Communicator, CommunicatorError, Sink } from "pico-desktop/communicator"
+import { Attitude, AttitudeTarget, MavLinkConnection, RateLease, Received, TelemetryRates } from "padcom/pico-mavlink"
+import {
+  TuningAsked,
+  TuningBatch,
+  TuningPoint,
+  decodeTuningParams,
+  encodeTuningBatch,
+} from "./generated/app"
+import { SessionPart, connectedLink, link } from "./session"
+import { ratesNow } from "./telemetry"
+
+/// How the stream is bounded (a test may change it).
+class Limits {
+  /// At most this many points of each line wait for the next batch.
+  public maxPending: int = 300
+  /// How often a batch goes out (ms).
+  public flushMs: int = 100
+}
+
+export const limits = new Limits()
+
+/// The rate asked for when the page gives none, and the most (Hz).
+const DEFAULT_HZ: int = 25
+const MAX_HZ: int = 50
+
+/// Registers the subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("tuningstream", current)
+  c.publish("tuning.stream", startStream)
+}
+
+/// The stream that runs, or the one that ran last.
+class Stream implements SessionPart {
+  public conn: MavLinkConnection? = null
+  public active: bool = false
+  /// Counts the streams: what a stream's late news (its leases, its sink closing) says of an older one is ignored.
+  public serial: int = 0
+  public sink: Sink? = null
+  public listener: int = 0
+  public timer: int = 0
+  public actual: TuningPoint[] = []
+  public desired: TuningPoint[] = []
+  /// How many points were dropped since this stream began.
+  public dropped: int = 0
+  public asked: TuningAsked = TuningAsked { actual: false, desired: false }
+  public leases: RateLease[] = []
+
+  public attach(c: MavLinkConnection): void {
+    conn = c
+  }
+
+  /// The session ends (or another vehicle is there): the stream ends with it.
+  public detach(): void {
+    finish("LINK_LOST", "the session ended")
+    conn = null
+  }
+
+  /// A stream begins on the connection `c` (claimed at once: a second subscription finds it busy).
+  public begin(c: MavLinkConnection, s: Sink): int {
+    serial += 1
+    active = true
+    sink = s
+    actual = []
+    desired = []
+    dropped = 0
+    asked = TuningAsked { actual: false, desired: false }
+    leases = []
+    const mine = serial
+    listener = c.on((r: Received) => seen(r))
+    timer = setInterval(() => this.flush(mine), limits.flushMs)
+    mine
+  }
+
+  /// What the vehicle sends.
+  public seen(r: Received): void {
+    if (!active || link.sysid == 0 || r.packet.header.sysid != link.sysid || r.packet.header.compid != link.compid) {
+      return
+    }
+    const m = r.message
+    if (m instanceof Attitude) {
+      keep(actual, m.timeBootMs, (m.rollspeed as f64) * 180.0 / Math.PI)
+    } else if (m instanceof AttitudeTarget) {
+      keep(desired, m.timeBootMs, (m.bodyRollRate as f64) * 180.0 / Math.PI)
+    }
+  }
+
+  /// Waits for a point to go out: the oldest is dropped, and counted, when `maxPending` are waiting already.
+  public keep(line: TuningPoint[], t: u32, degrees: f64): void {
+    if (line.length >= limits.maxPending) {
+      line.splice(0, 1)
+      dropped += 1
+    }
+    line.push(TuningPoint { t: t, v: Math.round(degrees * 1000.0) / 1000.0 })
+  }
+
+  /// Sends what came since the last batch (nothing is sent when nothing came and the vehicle's answers are known).
+  public flush(mine: int): void {
+    if (!active || mine != serial) {
+      return
+    }
+    const s = sink
+    if (s == null || !s!.active) {
+      return
+    }
+    if (actual.length == 0 && desired.length == 0) {
+      return
+    }
+    const batch = TuningBatch { actual: actual, desired: desired, dropped: dropped as u32, asked: asked }
+    actual = []
+    desired = []
+    s!.next(encodeTuningBatch(batch))
+  }
+
+  /// The subscriber left (a late call about an older stream does nothing).
+  public leave(mine: int): void {
+    if (mine == serial) {
+      finish("ENDED", "the subscriber left")
+    }
+  }
+
+  /// The stream is over: nothing is sent any more, and the rates are given back.
+  public finish(code: string, why: string): void {
+    if (!active) {
+      return
+    }
+    active = false
+    clearInterval(timer)
+    const c = conn
+    if (c != null) {
+      c!.off(listener)
+    }
+    const s = sink
+    sink = null
+    if (s != null) {
+      s!.end(code, why)
+    }
+    giveBack(leases)
+    leases = []
+  }
+}
+
+const current = new Stream()
+
+/// Puts the rates back (each lease once; a lease never throws). Not awaited: the stream is over whether or not the vehicle answers.
+function giveBack(leases: RateLease[]): void {
+  for (const lease of leases) {
+    releaseQuietly(lease)
+  }
+}
+
+async function releaseQuietly(lease: RateLease): Promise<void> {
+  const _put = await lease.release()
+}
+
+/// Asks the vehicle for the two messages, and tells the page how that went (the first batch carries `asked`).
+async function ask(mine: int, rates: TelemetryRates, hz: f64): Promise<void> {
+  let actual: RateLease? = null
+  let desired: RateLease? = null
+  try {
+    actual = await rates.borrow(Attitude.MSG_ID, hz)
+  } catch (e: Error) {
+    actual = null
+  }
+  try {
+    desired = await rates.borrow(AttitudeTarget.MSG_ID, hz)
+  } catch (e: Error) {
+    desired = null
+  }
+  const leases: RateLease[] = []
+  if (actual != null) {
+    leases.push(actual!)
+  }
+  if (desired != null) {
+    leases.push(desired!)
+  }
+  if (!current.active || current.serial != mine) {
+    // The stream ended while the vehicle was being asked: what was asked is given back at once.
+    giveBack(leases)
+    return
+  }
+  current.leases = leases
+  current.asked = TuningAsked { actual: actual != null && actual!.result.ok, desired: desired != null && desired!.result.ok }
+  // The first batch, even with no points: it says what the vehicle took.
+  const s = current.sink
+  if (s != null && s!.active) {
+    s!.next(encodeTuningBatch(TuningBatch { actual: [], desired: [], dropped: 0, asked: current.asked }))
+  }
+}
+
+/// The subscription: the stream begins with it and ends with it. One that may not begin is ended at once, with the reason as the code.
+function startStream(params: Cbor?, sink: Sink): void throws Error {
+  const hz = if (params == null) DEFAULT_HZ else (decodeTuningParams(params!, "$").rateHz ?? (DEFAULT_HZ as u8)) as int
+  let conn: MavLinkConnection? = null
+  try {
+    conn = connectedLink()
+  } catch (e: CommunicatorError) {
+    sink.end(e.code, e.message)
+    return
+  }
+  const rates = ratesNow()
+  if (rates == null) {
+    sink.end("NOT_CONNECTED", "the vehicle's rates are not managed yet")
+    return
+  }
+  if (hz < 1 || hz > MAX_HZ) {
+    sink.end("INVALID_VALUE", `rateHz is 1 to ${MAX_HZ}, not ${hz}`)
+    return
+  }
+  if (current.active) {
+    sink.end("BUSY", "a tuning stream is already running")
+    return
+  }
+  const mine = current.begin(conn!, sink)
+  sink.onClose = () => current.leave(mine)
+  ask(mine, rates!, hz as f64)
+}
