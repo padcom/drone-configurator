@@ -50,6 +50,9 @@ const AFTER_US = 4_000_000
 export const MAX_CANDIDATES = 6
 const APART_US = 2_000_000
 
+/** The longest time between two parts with samples that is still one signal and not a gap in the log (microseconds). */
+const NEAR_US = 500_000
+
 /** The steps that are kept, at the most. */
 export const MAX_STEPS = 8
 
@@ -64,15 +67,18 @@ function partOf(cut: Cut): number {
 }
 
 /**
- * The size of the largest jump a part of the time has in itself or leaves to the next part with a value.
+ * The size of the largest jump a part of the time has in itself or leaves to the next part with a value. A part is shorter than
+ * the time between two samples when the log is short or logged slowly, so the next part that has a value is not always the one
+ * right after: it is the next one when it is no more than NEAR_US away (a longer silence is a gap in the log, not a jump).
  *
  * @param point a part with samples
- * @param next the next part with samples, if it is the one right after
+ * @param next the next part with samples
+ * @param part how long a part is (microseconds)
  * @returns the jump (deg/s), 0 for none
  */
-function jumpAt(point: SeriesPoint, next: SeriesPoint | undefined): number {
+function jumpAt(point: SeriesPoint, next: SeriesPoint | undefined, part: number): number {
   const inside = point.max - point.min
-  const gap = next === undefined || next.index !== point.index + 1
+  const gap = next === undefined || (next.index - point.index) * part > NEAR_US
     ? 0
     : Math.max(next.min - point.max, point.min - next.max)
 
@@ -110,7 +116,7 @@ export function candidatesOf(points: SeriesPoint[], cut: Cut, minStep = STEP_DEF
   const found: Candidate[] = []
 
   points.forEach((point, i) => {
-    const jump = jumpAt(point, points[i + 1])
+    const jump = jumpAt(point, points[i + 1], part)
     if (jump >= minStep) {
       const atUs = cut.fromUs + (point.index + 0.5) * part
       const fromUs = Math.max(cut.fromUs, Math.round(atUs - BEFORE_US))

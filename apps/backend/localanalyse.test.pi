@@ -1,0 +1,204 @@
+// "Analyse the last flight" over the real read of a DataFlash log: a log with RATE messages of a KNOWN step (the desired roll rate
+// goes from 0 to 57 deg/s at 10 s, and the actual rate is a first-order lag of 100 ms behind it: a rise of 2.2 time constants,
+// no overshoot) is asked for the way the page asks (a coarse pass over the whole log, then a window of the time around the
+// jump), and what the backend answers is looked at the way the page looks at it: the jump is where it was put, and the rise
+// of the window is what the lag gives. A log with a rate that never jumps, and a log with no RATE at all, give no step.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, crc32Of } from "padcom/pico-mavlink"
+import {
+  LogsLocalRead,
+  LogsLocalSeries,
+  LogsLocalSeriesAsk,
+  SeriesAsk,
+  decodeLogsLocalSeries,
+  encodeLogsLocalRead,
+  encodeLogsLocalSeriesAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+
+  constructor(f: Frontend, root: string) {
+    this.f = f
+    this.root = root
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-analyse-${pid}-${Date.now()}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await remove(r.root, true)
+}
+
+/// The log, 30 s of RATE at 25 Hz. The desired roll rate is `level` for the whole log when `stepAt` is not positive, else 0 until
+/// `stepAt` seconds and 57 after; the actual one follows it with a lag of 100 ms (a step of 40 ms: 1 - e^-0.4 of the way).
+function flight(withRate: bool, stepped: bool): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(72, "ATT", "Qff", "TimeUS,Roll,Pitch")
+  e.define(73, "RATE", "Qffffff", "TimeUS,RDes,R,PDes,P,YDes,Y")
+  e.add(59, [1000.0, 0.0], ["", "ArduCopter V4.7.2"])
+  let actual = if (stepped) 0.0 else 10.0
+  for (let i = 1; i <= 750; i++) {
+    const us = (i * 40000) as f64
+    const wanted = if (stepped && i >= 250) 57.0 else if (stepped) 0.0 else 10.0
+    actual = actual + (wanted - actual) * 0.32968
+    e.add(72, [us, 1.0, 0.5], ["", "", ""])
+    if (withRate) {
+      e.add(73, [us, wanted, actual, 0.0, 0.0, 0.0, 0.0], ["", "", "", "", "", "", ""])
+    }
+  }
+  e.bytes()
+}
+
+async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  `uid-a/${name}`
+}
+
+async function readIt(r: Rig, key: string): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: key }))
+}
+
+async function series(r: Rig, a: LogsLocalSeriesAsk): Promise<LogsLocalSeries> throws Error {
+  const reply: Envelope = await r.f.call("logs.local.series", encodeLogsLocalSeriesAsk(a))
+  decodeLogsLocalSeries(reply.p ?? Cbor.Null, "$")
+}
+
+function ask(field: string): SeriesAsk {
+  SeriesAsk { message: "RATE", field: field }
+}
+
+/// The coarse pass of the page: the whole log, 2000 parts, the desired roll rate.
+async function coarse(r: Rig, key: string): Promise<LogsLocalSeries> throws Error {
+  await series(r, LogsLocalSeriesAsk { key: key, series: [ask("RDes")], buckets: 2000 as u16 })
+}
+
+/// The window of the page around a place: 0.8 s before and 4 s after, 2000 parts, the desired and the actual roll rate.
+async function window(r: Rig, key: string, atUs: f64): Promise<LogsLocalSeries> throws Error {
+  const a = LogsLocalSeriesAsk { key: key, series: [ask("RDes"), ask("R")], buckets: 2000 as u16 }
+  a.fromUs = (atUs - 800000.0) as u64
+  a.toUs = (atUs + 4000000.0) as u64
+  await series(r, a)
+}
+
+/// How long a part of an answer is, in microseconds.
+function partOf(s: LogsLocalSeries): f64 {
+  ((s.toUs as int) - (s.fromUs as int) + 1) as f64 / (s.buckets as int) as f64
+}
+
+/// The largest jump of the first series of an answer, as [size, time in microseconds of the log]: inside a part, or to the next
+/// part with samples when that is no more than half a second away (the page's rule: the parts are shorter than a sample here).
+function largestJump(s: LogsLocalSeries): f64[] {
+  const points = s.series[0].points
+  const part = partOf(s)
+  let best = 0.0
+  let at = 0.0
+  for (let i = 0; i < points.length; i++) {
+    let jump = points[i].max - points[i].min
+    if (i + 1 < points.length) {
+      const next = points[i + 1]
+      if ((((next.index as int) - (points[i].index as int)) as f64) * part <= 500000.0) {
+        const up = next.min - points[i].max
+        const down = points[i].min - next.max
+        if (up > jump) jump = up
+        if (down > jump) jump = down
+      }
+    }
+    if (jump > best) {
+      best = jump
+      at = (s.fromUs as int) as f64 + ((points[i].index as int) as f64 + 0.5) * part
+    }
+  }
+  [best, at]
+}
+
+/// The time (microseconds of the log) at which the series of an answer first reaches a level (going up), or -1.
+function firstAbove(s: LogsLocalSeries, which: int, level: f64): f64 {
+  const part = partOf(s)
+  const points = s.series[which].points
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].max >= level) {
+      return (s.fromUs as int) as f64 + ((points[i].index as int) as f64 + 0.5) * part
+    }
+  }
+  -1.0
+}
+
+async function findsTheStepWhereItIsAndMeasuresItsRise(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(true, true))
+  await readIt(r, key)
+  const whole = await coarse(r, key)
+  expect(whole.series[0].found).toBe(true)
+  expect(whole.series[0].unit == null).toBe(true)
+  // 0.4 s... 30 s in 2000 parts is 15 ms a part, and the samples are 40 ms apart: no two samples share a part.
+  expect(partOf(whole) < 16000.0).toBe(true)
+  const jump = largestJump(whole)
+  expect(jump[0]).toBe(57.0)
+  // The desired rate goes to 57 at the sample at 10.0 s; the jump is found within one sample of it.
+  expect(jump[1] > 9950000.0).toBe(true)
+  expect(jump[1] < 10050000.0).toBe(true)
+  // The window: a fine pass of five seconds around the jump holds both lines.
+  const w = await window(r, key, jump[1])
+  expect(w.series[0].found).toBe(true)
+  expect(w.series[1].found).toBe(true)
+  expect(w.series[0].points[0].min).toBe(0.0)
+  expect(w.series[0].points[w.series[0].points.length - 1].max).toBe(57.0)
+  // The actual rate: 10 % of 57 and 90 % of it are reached 0.105 s and 0.230 s after the step (to a sample of 40 ms), a rise of
+  // about 0.22 s, and it never goes beyond the 57 that was asked for.
+  const low = firstAbove(w, 1, 5.7)
+  const high = firstAbove(w, 1, 51.3)
+  expect(low > 0.0).toBe(true)
+  expect(high > low).toBe(true)
+  const riseMs = (high - low) / 1000.0
+  expect(riseMs >= 150.0).toBe(true)
+  expect(riseMs <= 300.0).toBe(true)
+  expect(w.series[1].points[w.series[1].points.length - 1].max <= 57.0).toBe(true)
+  await done(r)
+}
+
+async function findsNoStepInARateThatDoesNotJump(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(true, false))
+  await readIt(r, key)
+  const whole = await coarse(r, key)
+  expect(whole.series[0].found).toBe(true)
+  expect(whole.series[0].points.length).toBe(750)
+  expect(largestJump(whole)[0]).toBe(0.0)
+  await done(r)
+}
+
+async function findsNothingInALogWithNoRate(): Promise<void> throws Error {
+  const r = await rig()
+  const key = await put(r, flight(false, true))
+  await readIt(r, key)
+  const whole = await coarse(r, key)
+  expect(whole.series[0].found).toBe(false)
+  expect(whole.series[0].points.length).toBe(0)
+  await done(r)
+}
+
+describe("the analysis of a flight log, over the series of the logs on this computer", () => {
+  it("finds the step where it is in the coarse pass, and measures its rise in the window", findsTheStepWhereItIsAndMeasuresItsRise)
+  it("finds no step in a desired rate that does not jump", findsNoStepInARateThatDoesNotJump)
+  it("finds nothing in a log with no RATE messages", findsNothingInALogWithNoRate)
+})

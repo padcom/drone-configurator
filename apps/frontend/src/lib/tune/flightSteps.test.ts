@@ -66,6 +66,17 @@ describe('where the desired rate jumps', () => {
   })
 })
 
+describe('a log logged more slowly than a part is long', () => {
+  it('finds a jump between parts that have a few empty parts between them, and not one across a long silence', () => {
+    // 100 ms a part: samples every 3rd part (300 ms), and a silence of 3 s
+    const near: SeriesPoint[] = [{ index: 10, min: 0, max: 0, count: 1 }, { index: 13, min: 57, max: 57, count: 1 }]
+    const far: SeriesPoint[] = [{ index: 10, min: 0, max: 0, count: 1 }, { index: 40, min: 57, max: 57, count: 1 }]
+
+    expect(candidatesOf(near, CUT).map(place => place.jump)).toEqual([57])
+    expect(candidatesOf(far, CUT)).toEqual([])
+  })
+})
+
 describe('which of the places are kept', () => {
   it('does not take a gap in the points (a part with no samples) for a jump', () => {
     const points: SeriesPoint[] = [{ index: 10, min: 0, max: 0, count: 5 }, { index: 40, min: 40, max: 40, count: 5 }]
