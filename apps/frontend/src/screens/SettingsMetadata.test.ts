@@ -112,3 +112,35 @@ it('does not keep the path of a file that loaded but is not a .json, and says so
   const said = useToasts().visible.value.map(toast => toast.text)
   expect(said).toEqual(['The path of /data/m.txt was not kept: only a .json file is loaded when the application starts.'])
 })
+
+/**
+ * How many times a text is in some other.
+ *
+ * @param text what is searched
+ * @param part what is looked for
+ * @returns the count
+ */
+function timesIn(text: string, part: string): number {
+  return text.split(part).length - 1
+}
+
+it('shows the stored path ONCE, in its field and not again in Settings\' own text, with or without a failure toast', async () => {
+  const path = '/data/apm.pdef.json'
+  const { wrapper, handle } = await screen([{ key: METADATA_PATH_KEY, value: path }])
+  const field = (wrapper.get('input[type="text"]').element as HTMLInputElement).value
+
+  expect(field).toBe(path)
+  expect(timesIn(wrapper.text(), path)).toBe(0)
+
+  // the file is not there: the start-up load says so in a toast, which carries the path by design (it is not Settings' text)
+  const toasts = useToasts()
+  const failed = await handle.metadata.loadFrom(path)
+  toasts.push({ severity: 'error', text: failed ?? '', sticky: true })
+  await flushPromises()
+
+  expect(toasts.visible.value.map(toast => timesIn(toast.text, path))).toEqual([1])
+  expect((wrapper.get('input[type="text"]').element as HTMLInputElement).value).toBe(path)
+  // Settings' own text and markup, with the field's value as the one place: nothing else in the page has it
+  expect(timesIn(wrapper.text(), path)).toBe(0)
+  expect(timesIn(wrapper.html(), path)).toBe(0)
+})
