@@ -25,16 +25,16 @@
           :id="`${uid}-${spin.id}`"
           :model-value="spin.text"
           :invalid="spin.invalid"
-          :aria-describedby="spin.invalid ? `${uid}-${spin.id}-range` : undefined"
+          :aria-describedby="`${uid}-${spin.id}-range`"
           :disabled="locked(spin.id)"
           @update:model-value="setSpin(spin.id, $event)"
           @blur="settleSpin(spin.id)"
         />
         <span class="muted">
           {{ t(`setup.motors.${spin.id}Help`) }}
-          <span v-if="spin.invalid" :id="`${uid}-${spin.id}-range`" class="setup-esc-error" role="status" aria-live="polite">
-            {{ t('setup.motors.range') }}
-          </span>
+          <span :id="`${uid}-${spin.id}-range`" class="setup-esc-error" role="status" aria-live="polite">{{
+            spin.invalid ? t('setup.motors.range') : undefined
+          }}</span>
         </span>
       </div>
       <Banner v-if="problem !== null" id="setup-spin-order" tone="warn">{{ t('setup.motors.order') }}</Banner>
