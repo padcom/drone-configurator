@@ -39,6 +39,13 @@
     },
     {
       "when": [
+        "apps/frontend/src/components/settings/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/useMapSettings.ts",
+        "apps/frontend/src/screens/Settings.vue", "apps/backend/{map*,settings}.pi", "packages/contracts/app.cddl"
+      ],
+      "specs": ["map-settings.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/frontend/src/components/charts/**", "apps/frontend/src/lib/{charts,logs}/**", "apps/frontend/src/screens/{Logs.vue,logs/**}",
         "apps/frontend/src/composables/{useLogBrowser,useVehicleLogs,useLoggingSetup,useLogsSettings,useHousekeeping,useHousekeepingGuard,useSpectrum,useFlights,useSnapshots}.ts",
         "apps/backend/{log*,local*,tlog*,fft,files,importednames,settings}.pi"
