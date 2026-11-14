@@ -1711,6 +1711,7 @@
       "size": "Sprung",
       "slow": "RATE wurde hier etwa {rate}-mal pro Sekunde geschrieben (unter {minimum}): ein schneller Sprung hat wenige Punkte, Anstieg und Einschwingen sind grob.",
       "chartTitle": "Drehrate {axis} im Protokoll, Grad pro Sekunde",
+      "gap": "Das Protokoll hat in der Ist-Rate innerhalb dieses Sprungs eine Lücke von {ms} ms (ein verlorener Block oder eine hängende Karte): Überschwingen, Anstieg und Einschwingen werden nicht gemessen, denn eine Linie über die Lücke wäre eine Zahl, die niemand gemessen hat.",
       "noStep": "Es wird kein Sprung gezeigt.",
       "second": "{seconds} s",
       "rate": "{value} °/s",

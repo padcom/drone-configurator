@@ -1711,6 +1711,7 @@
       "size": "Gradino",
       "slow": "RATE è stato registrato circa {rate} volte al secondo qui (meno di {minimum}): un gradino rapido ha pochi punti e salita e assestamento sono approssimativi.",
       "chartTitle": "Velocità di {axis} nel registro, gradi al secondo",
+      "gap": "Il registro ha un buco di {ms} ms nella velocità reale dentro questo gradino (un blocco perso o una scheda bloccata): sovraelongazione, salita e assestamento non sono misurati, perché una linea sul buco sarebbe un numero che nessuno ha misurato.",
       "noStep": "Nessun gradino mostrato.",
       "second": "{seconds} s",
       "rate": "{value} °/s",

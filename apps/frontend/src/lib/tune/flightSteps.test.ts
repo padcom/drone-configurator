@@ -77,6 +77,17 @@ describe('a log logged more slowly than a part is long', () => {
   })
 })
 
+describe('a log of twenty minutes', () => {
+  it('finds a jump across the edge of two parts, whatever the length of a part (0.6 s here)', () => {
+    const long: Cut = { fromUs: 0, toUs: 1_199_999_999, buckets: 2000 }
+    const points: SeriesPoint[] = [{ index: 700, min: 0, max: 0, count: 15 }, { index: 701, min: 57, max: 57, count: 15 }]
+    const apart: SeriesPoint[] = [{ index: 700, min: 0, max: 0, count: 15 }, { index: 703, min: 57, max: 57, count: 15 }]
+
+    expect(candidatesOf(points, long).map(place => place.jump)).toEqual([57])
+    expect(candidatesOf(apart, long)).toEqual([])
+  })
+})
+
 describe('which of the places are kept', () => {
   it('does not take a gap in the points (a part with no samples) for a jump', () => {
     const points: SeriesPoint[] = [{ index: 10, min: 0, max: 0, count: 5 }, { index: 40, min: 40, max: 40, count: 5 }]
@@ -153,6 +164,29 @@ function measured(dt: number, size: number): LogStep {
 
   return step
 }
+
+describe('the holes in the points of a step', () => {
+  it('has no hole when the points are evenly spaced, and says how long a hole inside the step is', () => {
+    const { desired, actual } = stepWindow(10, 57)
+    const holed = actual.filter(point => point.t <= 50_900 || point.t >= 51_300)
+
+    expect(stepOfWindow(desired, actual)?.gapMs).toBeNull()
+    expect(stepOfWindow(desired, holed)?.gapMs).toBeGreaterThan(300)
+  })
+
+  it('does not call a log logged at 10 Hz holed: the spacing is the typical one', () => {
+    const { desired, actual } = stepWindow(100, 57)
+
+    expect(stepOfWindow(desired, actual)?.gapMs).toBeNull()
+  })
+
+  it('does not mind a hole well before the step (outside what is measured)', () => {
+    const { desired, actual } = stepWindow(10, 57)
+    const early = actual.filter(point => point.t <= 50_100 || point.t >= 50_500)
+
+    expect(stepOfWindow(desired, early)?.gapMs).toBeNull()
+  })
+})
 
 describe('the step of a window', () => {
   it('is measured as the live one is: its size, when it is, and the rise of a lag of 100 ms', () => {

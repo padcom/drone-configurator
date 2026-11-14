@@ -1711,6 +1711,7 @@
       "size": "Skok",
       "slow": "RATE zapisywano tu około {rate} razy na sekundę (poniżej {minimum}): szybki skok ma mało punktów, a jego narastanie i ustalanie są przybliżone.",
       "chartTitle": "Prędkość {axis} w dzienniku, stopnie na sekundę",
+      "gap": "Dziennik ma dziurę {ms} ms w prędkości rzeczywistej wewnątrz tego skoku (utracony blok lub zawieszona karta): przeregulowanie, narastanie i ustalanie nie są mierzone, bo linia przez dziurę byłaby liczbą, której nikt nie zmierzył.",
       "noStep": "Nie pokazano żadnego skoku.",
       "second": "{seconds} s",
       "rate": "{value} °/s",

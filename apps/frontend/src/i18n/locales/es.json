@@ -1711,6 +1711,7 @@
       "size": "Escalón",
       "slow": "RATE se registró unas {rate} veces por segundo aquí (menos de {minimum}): un escalón rápido tiene pocos puntos y su subida y estabilización son aproximadas.",
       "chartTitle": "Velocidad de {axis} en el registro, grados por segundo",
+      "gap": "El registro tiene un hueco de {ms} ms en la velocidad real dentro de este escalón (un bloque perdido o una tarjeta bloqueada): no se miden el sobreimpulso, la subida ni la estabilización, porque una línea sobre el hueco sería un número que nadie midió.",
       "noStep": "No se muestra ningún escalón.",
       "second": "{seconds} s",
       "rate": "{value} °/s",

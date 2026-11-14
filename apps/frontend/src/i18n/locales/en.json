@@ -1711,6 +1711,7 @@
       "size": "Step",
       "slow": "RATE was logged at about {rate} times a second here (below {minimum}): a fast step is seen with few points, and its rise and settling are rough.",
       "chartTitle": "{axis} rate in the log, degrees a second",
+      "gap": "The log has a hole of {ms} ms in the actual rate inside this step (a dropped block or a card that stalled): the overshoot, rise and settling are not measured, because a line across the hole would be a number nobody measured.",
       "noStep": "No step is shown.",
       "second": "{seconds} s",
       "rate": "{value} °/s",

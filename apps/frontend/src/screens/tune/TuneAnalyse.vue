@@ -81,13 +81,13 @@
         <StepChart
           :actual="current.actual"
           :desired="current.desired"
-          :metrics="current.metrics"
+          :metrics="shownMetrics"
           :stale="false"
           :ids="IDS"
           :chart-title="t('tune.analyse.chartTitle', { axis: t(`tune.axis.${analysis.axis.value}`) })"
           :empty-text="t('tune.chart.noData')"
           :stale-text="t('tune.chart.stale')"
-          :no-step-text="t('tune.analyse.noStep')"
+          :no-step-text="noStepText"
           :origin="current.atUs / 1000"
         />
       </template>
@@ -154,6 +154,13 @@ const logKey = computed({
 
 const busy = computed(() => ['reading', 'finding', 'measuring'].includes(analysis.phase.value))
 const current = computed(() => (analysis.phase.value === 'ready' ? analysis.steps.value[analysis.chosen.value] : undefined))
+/** What is measured of the step that is shown: nothing when the log has a hole inside the step (a line across it is no rise). */
+const shownMetrics = computed(() => (current.value?.gapMs === null ? current.value.metrics : null))
+const noStepText = computed(() => {
+  const gap = current.value?.gapMs
+
+  return typeof gap === 'number' ? t('tune.analyse.gap', { ms: number(gap, 0) }) : t('tune.analyse.noStep')
+})
 const slow = computed(() => analysis.rateHz.value !== null && analysis.rateHz.value < MIN_RATE_HZ)
 /** How far the pass is: the places measured, or else the bytes of the log read. */
 const counts = computed(() => {
@@ -173,7 +180,7 @@ const rows = computed(() => analysis.steps.value.map(step => ({
   atUs: step.atUs,
   at: t('tune.analyse.second', { seconds: number(step.atUs / 1e6, 1) }),
   size: t('tune.analyse.rate', { value: number(step.size, 0) }),
-  texts: metricTexts(step.metrics),
+  texts: metricTexts(step.gapMs === null ? step.metrics : null),
 })))
 
 const statusText = computed(() => {

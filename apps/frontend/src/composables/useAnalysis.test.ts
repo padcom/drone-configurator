@@ -114,6 +114,8 @@ interface Log {
   kinds?: { name: string, count: number }[]
   fields?: string[]
   steps?: boolean
+  /** Is told of each series that is asked for (its number, from 1), as the backend gets it. */
+  onSeries?: (number: number) => void
 }
 
 /** What a test has: the model and what the fake backend was asked. */
@@ -132,10 +134,16 @@ function rig(log: Log = {}): Rig {
   const asked: Rig['asked'] = []
   const kinds = log.kinds ?? [{ name: 'RATE', count: LOG_S * 25 + 1 }]
   const fields = log.fields ?? ['RDes', 'R', 'PDes', 'P', 'YDes', 'Y']
+  let series = 0
   const answers: Record<string, (payload: unknown) => unknown> = {
     'logs.local.read': () => ({ firstUs: 0, lastUs: LOG_S * 1e6, firmware: 'ArduCopter V4.7.2' }),
     'logs.local.messages': () => ({ types: kinds.map(kind => ({ ...kind, fields: [] })) }),
-    'logs.local.series': payload => answerOf(payload as LogsLocalSeriesAsk, fields, log.steps === false),
+    'logs.local.series': payload => {
+      series += 1
+      log.onSeries?.(series)
+
+      return answerOf(payload as LogsLocalSeriesAsk, fields, log.steps === false)
+    },
   }
   const client = {
     onEvent: () => () => undefined,
@@ -248,6 +256,31 @@ describe('a log with nothing to show', () => {
 
     expect([analysis.phase.value, analysis.reason.value]).toEqual(['none', 'noStep'])
     expect(analysis.steps.value).toEqual([])
+  })
+})
+
+describe('stopping a pass', () => {
+  it('ends the pass before its next request when Stop lands between two requests, which leaves nothing to cancel', async () => {
+    let stop: () => Promise<void> = () => Promise.resolve()
+    const { analysis, asked } = rig({ onSeries: number => { if (number === 2) void stop() } })
+    stop = () => analysis.cancel()
+    await analysis.choose('car/1.BIN')
+
+    // the coarse pass and the first window were asked; the other windows were not
+    expect(asked.filter(call => call.name === 'logs.local.series')).toHaveLength(2)
+    expect(analysis.stopped.value).toBe(true)
+    expect(analysis.phase.value).toBe('idle')
+    expect(analysis.steps.value).toEqual([])
+    expect(analysis.error.value).toBeNull()
+  })
+
+  it('does nothing when no pass is under way', async () => {
+    const { analysis, asked } = rig()
+    await analysis.choose('car/1.BIN')
+    await analysis.cancel()
+
+    expect(analysis.phase.value).toBe('ready')
+    expect(asked.filter(call => call.name === 'logs.local.cancel')).toHaveLength(0)
   })
 })
 

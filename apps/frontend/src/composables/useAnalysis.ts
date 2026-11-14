@@ -150,6 +150,8 @@ class Analysis implements AnalysisModel {
   readonly measured = ref<{ done: number, of: number } | null>(null)
   readonly stopped = ref(false)
   readonly error = shallowRef<string | null>(null)
+  /** Stop was pressed: the pass ends before its next request, whether or not the backend had one to cancel. */
+  private stopping = false
 
   /**
    * Makes the model, and listens to the progress of passes.
@@ -244,7 +246,7 @@ class Analysis implements AnalysisModel {
     const found: LogStep[] = []
 
     for (const [index, place] of places.entries()) {
-      if (this.open.value !== key) {
+      if (this.over(key)) {
         return
       }
       // (one pass over the file at a time: the backend answers one request, then the next)
@@ -254,6 +256,21 @@ class Analysis implements AnalysisModel {
       this.measured.value = { done: index + 1, of: places.length }
     }
     this.finish(key, rankedSteps(found))
+  }
+
+  /**
+   * Whether the pass for a log has to end now: the log is not the open one any more, or Stop was pressed (it ends as stopped).
+   *
+   * @param key the log
+   * @returns true to end the pass
+   */
+  private over(key: string): boolean {
+    if (this.stopping && this.open.value === key) {
+      this.close()
+      this.stopped.value = true
+    }
+
+    return this.open.value !== key
   }
 
   /**
@@ -308,6 +325,7 @@ class Analysis implements AnalysisModel {
     this.axis.value = axis
     this.steps.value = []
     this.reason.value = null
+    this.stopping = false
 
     try {
       await this.analyse(key)
@@ -346,10 +364,17 @@ class Analysis implements AnalysisModel {
   }
 
   async cancel(): Promise<void> {
+    if (!this.busy()) {
+      return
+    }
+    // The flag ends the pass before its next request; the call ends the request that is under way. Between two requests there is
+    // nothing for the backend to cancel, and that is not an error.
+    this.stopping = true
+
     try {
       await this.deps.client.call('logs.local.cancel', null)
-    } catch (error) {
-      this.error.value = describeError(error)
+    } catch {
+      // (the pass ends by the flag)
     }
   }
 
@@ -364,6 +389,7 @@ class Analysis implements AnalysisModel {
     this.progress.value = null
     this.measured.value = null
     this.stopped.value = false
+    this.stopping = false
     this.error.value = null
   }
 }

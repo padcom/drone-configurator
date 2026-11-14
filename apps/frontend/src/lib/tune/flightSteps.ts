@@ -6,7 +6,7 @@
 // less), and the step response of that window is measured by lib/tune/stepResponse.ts, as it is of the live stream. Nothing is
 // made up: a window with no step that holds is no step, and a log that is logged too slowly to see a rise is told so by its rate.
 import type { SeriesPoint, SeriesResult } from '@/generated/app'
-import { type RatePoint, type StepMetrics, STEP_DEFAULTS, measureStep } from './stepResponse'
+import { type RatePoint, type Step, type StepMetrics, STEP_DEFAULTS, measureStep } from './stepResponse'
 
 /** The part of the time a series was asked for: where it begins and ends (microseconds of the log) and into how many parts. */
 export interface Cut {
@@ -36,6 +36,8 @@ export interface LogStep {
   size: number
   /** What was measured of it. */
   metrics: StepMetrics
+  /** The longest time (ms) between two points of the actual rate in the step, when that is too long to measure it, else null. */
+  gapMs: number | null
   /** The desired rate in the window, for the chart. */
   desired: RatePoint[]
   /** The actual rate in the window, for the chart. */
@@ -53,6 +55,9 @@ const APART_US = 2_000_000
 /** The longest time between two parts with samples that is still one signal and not a gap in the log (microseconds). */
 const NEAR_US = 500_000
 
+/** The shortest hole in the points of a step that stops it being measured (ms). */
+const MIN_HOLE_MS = 100
+
 /** The steps that are kept, at the most. */
 export const MAX_STEPS = 8
 
@@ -69,7 +74,8 @@ function partOf(cut: Cut): number {
 /**
  * The size of the largest jump a part of the time has in itself or leaves to the next part with a value. A part is shorter than
  * the time between two samples when the log is short or logged slowly, so the next part that has a value is not always the one
- * right after: it is the next one when it is no more than NEAR_US away (a longer silence is a gap in the log, not a jump).
+ * right after: it is the next one when it is no more than NEAR_US away (a longer silence is a gap in the log, not a jump). The
+ * part right after is always the next one, however long a part is (a flight of 20 minutes has parts of 0.6 s).
  *
  * @param point a part with samples
  * @param next the next part with samples
@@ -78,7 +84,8 @@ function partOf(cut: Cut): number {
  */
 function jumpAt(point: SeriesPoint, next: SeriesPoint | undefined, part: number): number {
   const inside = point.max - point.min
-  const gap = next === undefined || (next.index - point.index) * part > NEAR_US
+  // (the part right after is always near: a part may be longer than NEAR_US)
+  const gap = next === undefined || next.index - point.index > Math.max(1, NEAR_US / part)
     ? 0
     : Math.max(next.min - point.max, point.min - next.max)
 
@@ -146,6 +153,26 @@ export function ratePointsOf(result: SeriesResult | undefined, cut: Cut): RatePo
 }
 
 /**
+ * The longest time between two points of the actual rate from just before a step to the end of its hold, when it is too long to
+ * measure the step of it: more than the larger of 5 times the typical spacing of the points and 100 ms. A part of the log with no
+ * points (a dropped block, a card that stalled) has no rate in it, and measureStep draws a straight line across it: a rise or a
+ * settling time that is that line was not measured.
+ *
+ * @param actual the actual rate of the window
+ * @param step the step that was found
+ * @returns the longest spacing (ms), or null when there is no hole
+ */
+function holeIn(actual: RatePoint[], step: Step): number | null {
+  const first = Math.max(0, actual.findIndex(point => point.t >= step.at - STEP_DEFAULTS.edgeMs) - 1)
+  const last = actual.findLastIndex(point => point.t <= step.until) + 1
+  const spacing = (list: RatePoint[]) => list.slice(1).map((point, i) => point.t - (list[i]?.t ?? point.t))
+  const typical = [...spacing(actual)].sort((a, b) => a - b)[Math.floor(actual.length / 2)] ?? 0
+  const longest = Math.max(0, ...spacing(actual.slice(first, last + 1)))
+
+  return longest > Math.max(5 * typical, MIN_HOLE_MS) ? longest : null
+}
+
+/**
  * The step of a window, measured.
  *
  * @param desired the desired rate in the window
@@ -155,7 +182,9 @@ export function ratePointsOf(result: SeriesResult | undefined, cut: Cut): RatePo
 export function stepOfWindow(desired: RatePoint[], actual: RatePoint[]): LogStep | null {
   const metrics = measureStep(desired, actual)
 
-  return metrics === null ? null : { atUs: metrics.at * 1000, size: metrics.to - metrics.from, metrics, desired, actual }
+  return metrics === null
+    ? null
+    : { atUs: metrics.at * 1000, size: metrics.to - metrics.from, metrics, gapMs: holeIn(actual, metrics), desired, actual }
 }
 
 /**
