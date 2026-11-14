@@ -2,6 +2,7 @@
 // and a
 // spectrogram; the notch as entered is drawn over it; the values the peak suggests are queued, never written, and flagged for a
 // vehicle of another kind; a log with no batch says how to capture one, and a spectrum of nothing is not drawn.
+import type { BatchSource } from '@/generated/app'
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import type { Param } from '@/generated/app'
@@ -126,12 +127,73 @@ it('draws the spectrum of the first gyro, with its peak and harmonic in a table,
   const { wrapper } = await screen()
   await open(wrapper, WITH_BATCHES)
 
-  expect(wrapper.findAll('.spectrum-chart .chart-series').length).toBe(3)
-  expect(wrapper.get('.spectrum-chart svg').attributes('aria-label')).toBe('Peak at 150 Hz, amplitude 2.00 rad/s')
+  const [chart] = wrapper.findAll('.spectrum-chart')
+  expect(chart?.findAll('.chart-series').length).toBe(3)
+  expect(chart?.get('svg').attributes('aria-label')).toBe('Peak at 150 Hz, amplitude 2.00 rad/s')
   expect(peakRows(wrapper)).toEqual(['Peak on X 150.0 2.000', 'Harmonic 2× 300.0 0.500'])
   expect(wrapper.get('.spectrogram canvas').attributes('aria-label')).toContain('60 rows')
   expect(wrapper.get('.spectrum-facts').text()).toContain('120 batches used, 0 skipped')
   expect(wrapper.get('.spectrum-facts').text()).toContain('1,024 samples')
+})
+
+// The mock's log has a gyro before the filters (0), the same IMU after them (3), and an accelerometer before them (0).
+it('tells each source as before or after the filters, as the log says', async () => {
+  const { wrapper } = await screen()
+  await open(wrapper, WITH_BATCHES)
+
+  const labels = wrapper.findAll('#spectrum-source option').map(option => option.text())
+  expect(labels).toEqual([
+    'Gyro 0: 120 batches at 1,000 Hz · before the filters',
+    'Accelerometer 0: 60 batches at 1,000 Hz · before the filters',
+    'Gyro 3: 120 batches at 1,000 Hz · after the filters',
+  ])
+})
+
+it('draws the same IMU after the filters beside the one before them, from the source the log holds', async () => {
+  const { wrapper, handle } = await screen()
+  await open(wrapper, WITH_BATCHES)
+
+  expect(wrapper.get('#spectrum-after-text').text()).toContain('after the vehicle\'s filters')
+  expect(wrapper.get('#spectrum-after-chart .chart-title').text()).toContain('after the filters')
+  expect(handle.spectrum.after.value?.instance).toBe(3)
+  // what the filters leave is a tenth of the mock's vibration
+  expect(handle.spectrum.after.value?.peak?.amplitude).toBeCloseTo(0.2, 5)
+  expect(wrapper.findAll('.spectrum-chart')).toHaveLength(2)
+})
+
+it('says why there is no spectrum after the filters (an accelerometer, a source after them), and draws none', async () => {
+  const { wrapper, handle } = await screen()
+  await open(wrapper, WITH_BATCHES)
+  await wrapper.get('#spectrum-source').setValue('accel:0')
+  await vi.waitFor(() => expect(wrapper.find('#spectrum-busy').exists()).toBe(false))
+  await flushPromises()
+
+  expect(wrapper.get('#spectrum-after-text').text()).toContain('only data before the filters')
+  expect(wrapper.get('#spectrum-after-text').text()).toContain('INS_LOG_BAT_OPT')
+  expect(wrapper.find('#spectrum-after-chart').exists()).toBe(false)
+  expect(handle.spectrum.after.value).toBeNull()
+
+  await wrapper.get('#spectrum-source').setValue('gyro:3')
+  await vi.waitFor(() => expect(wrapper.find('#spectrum-busy').exists()).toBe(false))
+  await flushPromises()
+
+  expect(wrapper.get('#spectrum-after-text').text()).toContain('This is the data after')
+  expect(wrapper.find('#spectrum-after-chart').exists()).toBe(false)
+})
+
+it('does not show a spectrum after the filters when the log does not say which batches they are', async () => {
+  const { wrapper, handle } = await screen()
+  await open(wrapper, WITH_BATCHES)
+  handle.spectrum.sources.value = handle.spectrum.sources.value.map(source => Object.fromEntries(
+    Object.entries(source).filter(([key]) => key !== 'postFilter'),
+  ) as BatchSource)
+  handle.spectrum.after.value = null
+  await flushPromises()
+
+  expect(wrapper.get('#spectrum-after-text').text()).toContain('does not say whether')
+  expect(wrapper.find('#spectrum-after-chart').exists()).toBe(false)
+  // no word of before or after on the sources either
+  expect(wrapper.findAll('#spectrum-source option').map(option => option.text())[0]).toBe('Gyro 0: 120 batches at 1,000 Hz')
 })
 
 it('shows the other sensor in its unit, with no values suggested from an accelerometer', async () => {
@@ -175,7 +237,7 @@ it('does not draw a spectrum of nothing but zeros, and suggests nothing from it'
 it('draws the bands of the notch as entered over the spectrum, and none for what is not a notch', async () => {
   const { wrapper } = await screen()
   await open(wrapper, WITH_BATCHES)
-  const bands = () => wrapper.findAll('.spectrum-band').length
+  const bands = () => wrapper.findAll('.spectrum-chart')[0]?.findAll('.spectrum-band').length
 
   // ArduPilot's defaults: 80 Hz, harmonics 3 (the base and the second).
   expect(wrapper.get('#spectrum-notch').text()).toContain('ArduPilot')

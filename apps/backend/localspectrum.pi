@@ -143,6 +143,9 @@ class BatchTaker implements Taker {
   /// Batches that were not whole, or that cannot be used.
   public skipped: int = 0
   public readonly collector: Collector?
+  /// The log's own INS_LOG_BAT_OPT (its first PARM of it), or -1 when it has none; `optChanged` when a later PARM said another value.
+  public opt: int = -1
+  public optChanged: bool = false
 
   constructor(wantSensor: int, wantInstance: int, collector: Collector?) {
     this.wantSensor = wantSensor
@@ -156,6 +159,25 @@ class BatchTaker implements Taker {
       header(m)
     } else if (name == "ISBD" && wantSensor >= 0) {
       data(m)
+    } else if (name == "PARM") {
+      parm(m)
+    }
+  }
+
+  /// A PARM: the log's own INS_LOG_BAT_OPT is what says whether a source is before or after the filter. The first value is kept; a
+  /// different one later (it was changed in flight) leaves the answer not known.
+  parm(m: DfMessage): void {
+    const name = m.text("Name")
+    if (name == null || name! != "INS_LOG_BAT_OPT") {
+      return
+    }
+    const v = numberOf(m, "Value")
+    if (!finite(v) || v < 0.0 || v > 255.0) {
+      optChanged = true
+    } else if (opt < 0) {
+      opt = v as int
+    } else if (opt != v as int) {
+      optChanged = true
     }
   }
 
@@ -408,15 +430,81 @@ async function batchesOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
     if (!done.unchanged) {
       throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
     }
-    return encodeLocalLogBatches(LocalLogBatches { sources: sourcesOf(taker.sources) })
+    return encodeLocalLogBatches(LocalLogBatches { sources: sourcesOf(taker) })
   } finally {
     releaseRead()
   }
 }
 
-function sourcesOf(found: Source[]): BatchSource[] {
-  const out: BatchSource[] = []
+/// The instances the log has of a sensor, lowest first.
+function instancesOf(found: Source[], sensor: int): int[] {
+  const out: int[] = []
   for (const s of found) {
+    if (s.sensor == sensor) {
+      out.push(s.instance)
+    }
+  }
+  for (let i = 1; i < out.length; i++) {
+    let j = i
+    while (j > 0 && out[j - 1] > out[j]) {
+      const t = out[j]
+      out[j] = out[j - 1]
+      out[j - 1] = t
+      j -= 1
+    }
+  }
+  out
+}
+
+/// With the option for before and after, ArduPilot logs the batches after the filter with the IMU's instance plus the number of IMUs
+/// (AP_InertialSensor_Logging.cpp, Write_ISBH): the instances of a sensor come in pairs, the lower half before and the upper half
+/// after, the same distance apart, and the distance is more than the highest instance before. 1: after, 0: before, -1: the instances
+/// do not pair up (only one side of them was logged): not known.
+function pairRule(instances: int[], instance: int): int {
+  if (instances.length < 2 || instances.length % 2 == 1) {
+    return -1
+  }
+  const half = instances.length / 2
+  const distance = instances[half] - instances[0]
+  for (let i = 0; i < half; i++) {
+    if (instances[i + half] - instances[i] != distance) {
+      return -1
+    }
+  }
+  if (distance <= instances[half - 1]) {
+    return -1
+  }
+  if (instance >= instances[half]) 1 else 0
+}
+
+/// Whether a source is data after the filters (1), before them (0), or not known (-1), by the log's own INS_LOG_BAT_OPT (bit 0 sensor
+/// rate, bit 1 after the filter, bit 2 before and after; BatchSampler.cpp, AP_InertialSensor.h `doing_post_filter_logging`): with
+/// neither bit 1 nor bit 2 every batch is before the filter; with bit 1 alone every batch is after it; with bit 2 (and not bit 1) the
+/// instances pair up (see `pairRule`). Every other combination, and a log with no PARM of the option or with two values of it, is not
+/// known: nothing is guessed.
+function postFilterOf(taker: BatchTaker, source: Source): int {
+  if (taker.opt < 0 || taker.optChanged) {
+    return -1
+  }
+  const rate = taker.opt & 1
+  const post = (taker.opt >> 1) & 1
+  const prePost = (taker.opt >> 2) & 1
+  if (post == 0 && prePost == 0) {
+    return 0
+  }
+  if (post == 1 && prePost == 0 && rate == 0) {
+    return 1
+  }
+  if (post == 0 && prePost == 1) {
+    return pairRule(instancesOf(taker.sources, source.sensor), source.instance)
+  }
+  -1
+}
+
+function sourcesOf(taker: BatchTaker): BatchSource[] {
+  const out: BatchSource[] = []
+  for (const s of taker.sources) {
+    const after = postFilterOf(taker, s)
     out.push(BatchSource {
       sensor: if (s.sensor == 0) BatchSensor.Accel else BatchSensor.Gyro,
       instance: s.instance as u8,
@@ -424,6 +512,7 @@ function sourcesOf(found: Source[]): BatchSource[] {
       rateHz: s.rateHz,
       samples: s.samples as u16,
       mixedRates: s.mixed,
+      postFilter: if (after < 0) null else after == 1,
     })
   }
   out

@@ -158,6 +158,89 @@ async function listsTheSourcesAlogHas(): Promise<void> throws Error {
   await done(r)
 }
 
+/// A log with the batches of the gyros `gyros` and the accelerometers `accels` (32 samples each), and, when `opt` is not negative, a PARM
+/// of INS_LOG_BAT_OPT of that value (and, when `later` is not negative, a second one of that value).
+function logWithOption(opt: int, later: int, gyros: int[], accels: int[]): Uint8Array {
+  const e = new DfEncoder()
+  defineBatchMessages(e)
+  e.define(160, "PARM", "QNff", "TimeUS,Name,Value,Default")
+  if (opt >= 0) {
+    e.add(160, [1000.0, 0.0, opt as f64, 0.0], ["", "INS_LOG_BAT_OPT", "", ""])
+  }
+  e.add(160, [1100.0, 0.0, 5.0, 0.0], ["", "INS_LOG_BAT_MASK", "", ""])
+  let n = 1
+  for (const i of gyros) {
+    batch(e, n, 1, i, 32, 1000.0, silentTones())
+    n += 1
+  }
+  for (const i of accels) {
+    batch(e, n, 0, i, 32, 1000.0, silentTones())
+    n += 1
+  }
+  if (later >= 0) {
+    e.add(160, [900000.0, 0.0, later as f64, 0.0], ["", "INS_LOG_BAT_OPT", "", ""])
+  }
+  e.bytes()
+}
+
+/// "gyro0:false accel0:true ..." for the sources of a log, with `null` for a source that is not known to be either.
+async function stagesOf(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
+  const key = await put(r, bytes)
+  await readIt(r, key)
+  const b = await batchesOf(r, key)
+  const out: string[] = []
+  for (const s of b.sources) {
+    const name = if (s.sensor == BatchSensor.Gyro) "gyro" else "accel"
+    const stage = s.postFilter
+    out.push(`${name}${s.instance as int}:${if (stage == null) "null" else if (stage!) "after" else "before"}`)
+  }
+  out.join(" ")
+}
+
+async function saysWhetherASourceIsBeforeOrAfterTheFilterByTheLogsOwnOption(): Promise<void> throws Error {
+  const r = await rig()
+  // No filtered data asked for (the default 0, or only the sensor rate, bit 0): every batch is before the filter.
+  expect(await stagesOf(r, logWithOption(0, -1, [0, 1], [0]))).toBe("gyro0:before gyro1:before accel0:before")
+  const r1 = await rig()
+  expect(await stagesOf(r1, logWithOption(1, -1, [0], []))).toBe("gyro0:before")
+  // Only bit 1, after the filter: every batch is after it, at its own instance.
+  const r2 = await rig()
+  expect(await stagesOf(r2, logWithOption(2, -1, [0, 1], [0]))).toBe("gyro0:after gyro1:after accel0:after")
+  // Bit 2, before and after: the instances pair up, the upper half after (3 IMUs here, IMU 0 and 1 logged).
+  const r3 = await rig()
+  expect(await stagesOf(r3, logWithOption(4, -1, [0, 1, 3, 4], [0, 3]))).toBe("gyro0:before gyro1:before gyro3:after gyro4:after accel0:before accel3:after")
+  await done(r)
+  await done(r1)
+  await done(r2)
+  await done(r3)
+}
+
+async function doesNotGuessWhenTheLogCannotSay(): Promise<void> throws Error {
+  const r = await rig()
+  // No PARM of the option at all.
+  expect(await stagesOf(r, logWithOption(-1, -1, [0, 1], [0]))).toBe("gyro0:null gyro1:null accel0:null")
+  // The option changed in flight.
+  const r1 = await rig()
+  expect(await stagesOf(r1, logWithOption(4, 0, [0, 3], []))).toBe("gyro0:null gyro3:null")
+  // Before and after, but only one side of the pair was logged (an odd number of instances), or the pairs are not the same distance apart.
+  const r2 = await rig()
+  expect(await stagesOf(r2, logWithOption(4, -1, [0], []))).toBe("gyro0:null")
+  const r3 = await rig()
+  expect(await stagesOf(r3, logWithOption(4, -1, [0, 1, 3, 5], []))).toBe("gyro0:null gyro1:null gyro3:null gyro5:null")
+  // Combinations whose batches are before and after in a way the log does not say: after the filter with the sensor rate (bits 1 and 0),
+  // and bits 1 and 2 together.
+  const r4 = await rig()
+  expect(await stagesOf(r4, logWithOption(3, -1, [0], []))).toBe("gyro0:null")
+  const r5 = await rig()
+  expect(await stagesOf(r5, logWithOption(6, -1, [0, 3], []))).toBe("gyro0:null gyro3:null")
+  await done(r)
+  await done(r1)
+  await done(r2)
+  await done(r3)
+  await done(r4)
+  await done(r5)
+}
+
 async function saysNothingForALogWithNoBatch(): Promise<void> throws Error {
   const r = await rig()
   const e = new DfEncoder()
@@ -364,6 +447,8 @@ async function refusesWhatItCannotDo(): Promise<void> throws Error {
 
 describe("the spectrum of the raw IMU batches of the logs on this computer", () => {
   it("lists the sources a log has, with how many batches, their size and rate", listsTheSourcesAlogHas)
+  it("says whether a source is before or after the filter, by the option the log itself has", saysWhetherASourceIsBeforeOrAfterTheFilterByTheLogsOwnOption)
+  it("does not guess when the log cannot say (no option, a changed one, instances that do not pair up, other combinations)", doesNotGuessWhenTheLogCannotSay)
   it("has no source and no spectrum for a log with no batch", saysNothingForALogWithNoBatch)
   it("finds the peak and the harmonic of tones that were put in", findsThePeakAndItsHarmonic)
   it("gives the spectrogram in time order within its bounds", givesTheSpectrogramInTimeOrderWithinItsBounds)

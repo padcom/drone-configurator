@@ -581,7 +581,12 @@ local-log-exported = { ? path: tstr, ? exists: bool, rows: uint .size 4, bytes: 
 
 ; The sensors a log has batches of. `instance` is ISBH's: an instance from the number of IMUs up is the post-filter data of the IMU
 ; that many below. `rateHz` is the first batch's; `mixedRates` is true when batches of the sensor differ in rate (only those at the
-; first rate are used). `samples` is the samples in a batch (the first batch's).
+; first rate are used). `samples` is the samples in a batch (the first batch's). `postFilter` says whether the source is data AFTER the
+; vehicle's filters (true), BEFORE them (false), or not known (absent): by the log's own `INS_LOG_BAT_OPT` (its PARM message) and ArduPilot's
+; rule for it (BatchSampler.cpp, AP_InertialSensor_Logging.cpp Write_ISBH): with no option for filtered data (bits 1 and 2 clear) every batch
+; is before the filter; with only bit 1 (no bit 0) every batch is after it; with bit 2 (before and after) the batches of the instances from
+; the number of IMUs up are after it, and the others before it. Any other combination, a log with no PARM of the option (or with
+; two values of it), and a log whose instances do not pair up, leave it absent: nothing is guessed.
 batch-sensor = "accel" / "gyro"
 local-log-batches = { sources: [* batch-source] }
 batch-source = {
@@ -591,6 +596,7 @@ batch-source = {
   rateHz: float,
   samples: uint .size 2,
   mixedRates: bool,
+  ? postFilter: bool,
 }
 
 logs-local-spectrum-ask = { key: tstr, sensor: batch-sensor, instance: uint .size 1 }

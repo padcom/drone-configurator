@@ -64,6 +64,19 @@
           :peak="result.peak"
           :bands="bands"
         />
+        <section v-if="afterText !== ''" id="spectrum-after" class="spectrum-after" :aria-label="t('logs.spectrum.after.title')">
+          <p id="spectrum-after-text" class="muted">{{ afterText }}</p>
+          <SpectrumChart
+            v-if="after"
+            id="spectrum-after-chart"
+            :title="t('logs.spectrum.after.chart', { sensor: sensorName, unit: after.unit })"
+            :axes="after.axes"
+            :resolution="after.resolutionHz"
+            :unit="after.unit"
+            :peak="after.peak"
+            :bands="bands"
+          />
+        </section>
         <p id="spectrum-caveats" class="muted">{{ t('logs.spectrum.caveats') }}</p>
         <p v-if="result.samples > result.size" id="spectrum-cut" class="muted">
           {{ t('logs.spectrum.batchCut', { samples: number(result.samples, 0), size: number(result.size, 0) }) }}
@@ -131,7 +144,9 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { firstOf, idOf } from '@/composables/useSpectrum'
 import { useFormat } from '@/i18n/useFormat'
 import { asNumber } from '@/lib/logs/localLogs'
+import type { BatchSource } from '@/generated/app'
 import { notchBands, notchOf } from '@/lib/logs/spectrum'
+import { afterOf, stageOf } from '@/lib/logs/stage'
 import NotchPreview from './NotchPreview.vue'
 import SpectrumSuggest from './SpectrumSuggest.vue'
 
@@ -189,7 +204,31 @@ const logOptions = computed(() => [
     .map(log => ({ value: log.key, label: t('logs.flights.heading', { id: log.id }) })),
 ])
 
+const after = computed(() => spectrum.after.value)
+/** What the log holds of the data after the filters for the sensor that is shown, in words. */
+const afterText = computed(() => {
+  const shown = chosenSource.value
+  const found = shown === undefined ? null : afterOf(spectrum.sources.value, shown)
+  if (found === null) {
+    return ''
+  }
+
+  return t(`logs.spectrum.after.${found.state === 'none' ? found.why : found.state}`)
+})
+
 const hasRecordings = computed(() => flights.logs.value.some(log => log.source === 'tlog'))
+
+/**
+ * Where a source is in the vehicle's filters, when the log says (nothing is said of a source the log does not tell).
+ *
+ * @param source the sensor
+ * @returns " · before the filters", " · after the filters", or nothing
+ */
+function stageText(source: BatchSource): string {
+  const stage = stageOf(source)
+
+  return stage === 'unknown' ? '' : ` · ${t(`logs.spectrum.stage.${stage}`)}`
+}
 
 const sourceOptions = computed(() => spectrum.sources.value.map(source => ({
   value: idOf(source),
@@ -197,7 +236,7 @@ const sourceOptions = computed(() => spectrum.sources.value.map(source => ({
     sensor: sensorLabel(source),
     count: number(source.batches, 0),
     rate: number(source.rateHz, 0),
-  }),
+  }) + stageText(source),
 })))
 
 const busyText = computed(() => t(`logs.spectrum.${spectrum.phase.value}`, { id: openId.value }))

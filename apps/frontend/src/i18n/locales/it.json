@@ -318,6 +318,19 @@
       "gyro": "Giroscopio {instance}",
       "accel": "Accelerometro {instance}",
       "source": "{sensor}: {count} blocchi a {rate} Hz",
+      "stage": {
+        "before": "prima dei filtri",
+        "after": "dopo i filtri"
+      },
+      "after": {
+        "title": "Dopo i filtri",
+        "chart": "{sensor} dopo i filtri: ampiezza, {unit}",
+        "self": "Questi sono i dati dopo i filtri del veicolo, come li contiene il registro.",
+        "pair": "La stessa IMU dopo i filtri del veicolo, come la contiene il registro, nella stessa scala di sopra.",
+        "unknown": "Questo registro non dice se i suoi lotti sono prima o dopo i filtri (non ha INS_LOG_BAT_OPT), quindi non è mostrato uno spettro dopo i filtri.",
+        "onlyBefore": "Questo registro contiene solo dati prima dei filtri. Per averli dopo, imposta il bit 2 di INS_LOG_BAT_OPT (prima e dopo), vola e scarica il nuovo registro. Non si disegna nulla da un modello dei filtri.",
+        "noMatch": "Questo registro ha dati dopo i filtri, ma non per questa IMU: non si disegna nulla."
+      },
       "facts": "{batches} blocchi usati, {skipped} saltati. FFT di {size} campioni, un intervallo ogni {resolution} Hz; campionato a {rate} Hz.",
       "accelNote": "Un filtro notch armonico si imposta dal giroscopio: scegli un giroscopio per avere i valori suggeriti.",
       "idle": {

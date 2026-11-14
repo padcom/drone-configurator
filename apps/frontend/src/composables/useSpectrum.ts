@@ -7,6 +7,7 @@ import { type Ref, type ShallowRef, ref, shallowRef } from 'vue'
 import { type BackendClient, describeError, toBackendError } from '@/backend/client'
 import type { BatchSource, LocalLogSpectrum, LocalLogSummary } from '@/generated/app'
 import { asNumber } from '@/lib/logs/localLogs'
+import { afterOf } from '@/lib/logs/stage'
 
 /** What the model needs. */
 export interface SpectrumDeps {
@@ -33,6 +34,11 @@ export interface SpectrumModel {
   readonly chosen: Readonly<Ref<string | null>>
   /** The spectrum of the chosen sensor. */
   readonly spectrum: ShallowRef<LocalLogSpectrum | null>
+  /**
+   * The spectrum of the same IMU AFTER the vehicle's filters, when the chosen sensor is before them and the log holds data
+   * after them (a source the backend marked as after the filter), else null: it is never made from a model of the filters.
+   */
+  readonly after: ShallowRef<LocalLogSpectrum | null>
   /** Whether the last log that was being opened was stopped. */
   readonly stopped: Readonly<Ref<boolean>>
   /** What the last call that failed said. */
@@ -78,6 +84,7 @@ class Spectrum implements SpectrumModel {
   readonly sources = shallowRef<BatchSource[]>([])
   readonly chosen = ref<string | null>(null)
   readonly spectrum = shallowRef<LocalLogSpectrum | null>(null)
+  readonly after = shallowRef<LocalLogSpectrum | null>(null)
   readonly stopped = ref(false)
   readonly error = shallowRef<string | null>(null)
 
@@ -143,12 +150,30 @@ class Spectrum implements SpectrumModel {
     this.phase.value = 'computing'
     this.chosen.value = idOf(source)
     this.spectrum.value = null
+    this.after.value = null
     const spectrum = await this.deps.client.call('logs.local.spectrum', { key, sensor: source.sensor, instance: source.instance })
+    const after = await this.afterOf(key, source)
     if (this.open.value === key && this.chosen.value === idOf(source)) {
       this.spectrum.value = spectrum
+      this.after.value = after
       this.phase.value = 'ready'
       this.progress.value = null
     }
+  }
+
+  /**
+   * The spectrum after the filters that goes with a source, when the log holds it.
+   *
+   * @param key the log
+   * @param source the sensor that is shown
+   * @returns the spectrum of the same IMU after the filters, or null when the log has none
+   */
+  private afterOf(key: string, source: BatchSource): Promise<LocalLogSpectrum | null> {
+    const found = afterOf(this.sources.value, source)
+
+    return found.state === 'pair'
+      ? this.deps.client.call('logs.local.spectrum', { key, sensor: found.source.sensor, instance: found.source.instance })
+      : Promise.resolve(null)
   }
 
   async pick(source: BatchSource): Promise<void> {
@@ -183,6 +208,7 @@ class Spectrum implements SpectrumModel {
     }
     this.phase.value = 'failed'
     this.spectrum.value = null
+    this.after.value = null
     this.error.value = describeError(error)
   }
 
@@ -202,6 +228,7 @@ class Spectrum implements SpectrumModel {
     this.sources.value = []
     this.chosen.value = null
     this.spectrum.value = null
+    this.after.value = null
     this.error.value = null
   }
 }

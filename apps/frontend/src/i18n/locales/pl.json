@@ -318,6 +318,19 @@
       "gyro": "Żyroskop {instance}",
       "accel": "Akcelerometr {instance}",
       "source": "{sensor}: {count} paczek, {rate} Hz",
+      "stage": {
+        "before": "przed filtrami",
+        "after": "po filtrach"
+      },
+      "after": {
+        "title": "Po filtrach",
+        "chart": "{sensor} po filtrach: amplituda, {unit}",
+        "self": "To są dane po filtrach pojazdu, takie jak zapisano w dzienniku.",
+        "pair": "Ta sama IMU po filtrach pojazdu, tak jak zapisano w dzienniku, w tej samej skali co wyżej.",
+        "unknown": "Ten dziennik nie mówi, czy jego paczki są przed filtrami czy po nich (nie ma INS_LOG_BAT_OPT), więc nie pokazano widma po filtrach.",
+        "onlyBefore": "Ten dziennik ma tylko dane przed filtrami. Aby mieć dane po nich, ustaw bit 2 INS_LOG_BAT_OPT (przed i po), polataj i pobierz nowy dziennik. Nic nie jest rysowane z modelu filtrów.",
+        "noMatch": "Ten dziennik ma dane po filtrach, ale nie dla tej IMU: nic nie jest rysowane."
+      },
       "facts": "Użyto {batches} paczek, pominięto {skipped}. FFT z {size} próbek, jeden przedział co {resolution} Hz; próbkowanie {rate} Hz.",
       "accelNote": "Filtr harmoniczny ustawia się według żyroskopu: wybierz żyroskop, aby dostać proponowane wartości.",
       "idle": {
