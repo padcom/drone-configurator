@@ -3024,6 +3024,23 @@ export function encodeSetModeAsk(v: SetModeAsk): Cbor {
   Cbor.Dict(m)
 }
 
+export struct TakeoffAsk {
+  altitude: f64
+}
+
+export function decodeTakeoffAsk(v: Cbor, path: string): TakeoffAsk throws InvalidPayload {
+  const m = members(v, path, ["altitude"])
+  TakeoffAsk {
+    altitude: float(required(m, "altitude", path), `${path}.altitude`),
+  }
+}
+
+export function encodeTakeoffAsk(v: TakeoffAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("altitude", Cbor.Float(v.altitude))
+  Cbor.Dict(m)
+}
+
 export struct MessagesParams {
   replay?: u16
 }

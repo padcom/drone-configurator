@@ -116,6 +116,13 @@ services = {
   "vehicle.disarm": ["method", null, arming-result],
   "vehicle.emergencyStop": ["method", null, arming-result],
   "vehicle.setMode": ["method", set-mode-ask, arming-result],
+  ; Takes off to `altitude` metres above home (NAV_TAKEOFF; a Copter that is ARMED, on the ground and in GUIDED, else it answers
+  ; `refused`). Sent ONCE like the others. The backend refuses before it sends anything: `NOT_CONNECTED`, `STATE_UNKNOWN`, `NOT_ARMED`
+  ; (a vehicle that is disarmed: the page arms it first, with its own checks and hold), `BUSY` (another command, a parameter, log,
+  ; calibration, motor test or reboot is under way), `INVALID_VALUE` (an altitude outside 2 to 120 m, the HARD limits: the user's
+  ; setting and the vehicle's fence, which are lower, are the page's, the backend does not read the parameters) and
+  ; `UNSUPPORTED_VEHICLE` (not an ArduPilot). Whether the vehicle then CLIMBS is what its position says, not this answer.
+  "vehicle.takeoff": ["method", takeoff-ask, arming-result],
   "vehicle.prearm": ["method", null, arming-result],
   ; What the board says of itself (AUTOPILOT_VERSION: the firmware version and git hash, the board and vendor ids, the unique id) and
   ; which sensors the autopilot has, uses and finds healthy (SYS_STATUS), read when asked (not a stream). A field the vehicle did
@@ -714,6 +721,9 @@ arming-result = {
 
 ; The flight mode to change to, by its number in `custom_mode` (one of `vehicle.modes`).
 set-mode-ask = { mode: uint .size 1 }
+
+; The altitude to take off to, in metres above home.
+takeoff-ask = { altitude: float }
 
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
 ; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256
