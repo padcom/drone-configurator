@@ -754,6 +754,7 @@
       "cache": "Miejsce na zachowane kafelki",
       "used": "Pamięć podręczna zawiera {size}.",
       "counting": "Pamięć podręczna zawiera co najmniej {size} (reszta jest liczona…).",
+      "folder": "Kafelki są przechowywane w tym folderze (możesz go usunąć): {path}",
       "clear": "Wyczyść pamięć podręczną",
       "cleared": "Usunięto {count} kafelek ({size}). | Usunięto {count} kafelki ({size}). | Usunięto {count} kafelków ({size}).",
       "state": {
@@ -1286,23 +1287,25 @@
   },
   "setup": {
     "initial": {
-      "summary": "Wartości początkowe, które ArduPilot publikuje dla multikoptera, według wielkości śmigieł i ogniw akumulatora. To propozycje: wybierz je, obejrzyj listę z boku i zapisz.",
-      "size": "Wielkość śmigieł",
-      "inches": "{n} cali",
+      "summary": "Wartości początkowe obliczone przez Initial Parameter Setup w Mission Planner dla multikoptera, według wielkości śmigieł oraz rodzaju i liczby ogniw akumulatora. To propozycje: wybierz je, obejrzyj listę z boku i zapisz.",
+      "size": "Wielkość śmigieł (cale)",
       "cells": "Ogniwa akumulatora",
-      "cellsHelp": "Liczba całkowita od 1 do {max}. Napięcia są dla zwykłych ogniw LiPo (4,2 V i 3,3 V na ogniwo): dla innego rodzaju akumulatora ustaw je ręcznie.",
-      "pick": "Wybierz wielkość śmigieł, aby zobaczyć wartości.",
+      "cellsHelp": "Liczba całkowita od 1 do {max}. Napięcia dotyczą jednego ogniwa: {full} V pełne, {empty} V puste.",
       "parameter": "Parametr",
       "now": "Teraz",
       "suggested": "Proponowane",
-      "why": {
-        "notGiven": "strona ArduPilota nie podaje dla tej wielkości",
-        "aboveRange": "wartość pojazdu jest powyżej zakresu tego parametru (inna jednostka?): nie jest proponowana",
-        "cells": "podaj ogniwa"
-      },
       "notOnVehicle": "brak w tym pojeździe",
       "use": "Użyj tych wartości",
-      "source": "Wartości publikowane przez ArduPilot jako punkt wyjścia, z „Setting the Aircraft Up for Tuning” (ardupilot.org/copter/docs/setting-up-for-tuning.html). Strona każe sprawdzić MOT_THST_EXPO na stanowisku do pomiaru ciągu."
+      "source": "Wzory z Config > Initial Parameter Setup w Mission Planner (ConfigInitialParams.cs). Nie wzięto z niego pól T-Motor i „Suggested”. Limity przyspieszeń są zapisywane w jednostce, której używa pojazd. MOT_THST_HOVER 0.2 zastępuje wartość zawisu, której pojazd się nauczył: po locie pomiń ją. MOT_THST_EXPO najlepiej zmierzyć na stanowisku do pomiaru ciągu.",
+      "why": {
+        "size": "podaj wielkość śmigieł",
+        "aboveRange": "wartość pojazdu jest powyżej zakresu tego parametru (inna jednostka?): nie jest proponowana",
+        "range": "obliczona wartość jest poza zakresem tego parametru: nie jest proponowana",
+        "cells": "podaj ogniwa"
+      },
+      "sizeHelp": "Liczba od {min} do {max}, co najwyżej z jednym miejscem po przecinku, np. 9 lub 10.5.",
+      "chemistry": "Rodzaj akumulatora",
+      "after": "Po locie próbnym (po lądowaniu i rozbrojeniu) Mission Planner radzi: ustaw ATC_THR_MIX_MAN na 0.5, PSC_D_ACC_P na 0.1 × MOT_THST_HOVER i PSC_D_ACC_I na 0.2 × MOT_THST_HOVER (starsze oprogramowanie: PSC_ACCZ_P na MOT_THST_HOVER i PSC_ACCZ_I na 2 × MOT_THST_HOVER)."
     },
     "refusedValue": "odrzucona: nie jest zapisywana",
     "outcome": {

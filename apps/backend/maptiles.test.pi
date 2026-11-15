@@ -642,6 +642,17 @@ async function refusesACustomAddressThatIsNotAllowedAndNeverShowsItsKey(): Promi
   await done(r)
 }
 
+async function saysTheFolderTheTilesAreKeptIn(): Promise<void> throws Error {
+  const r = await rig()
+  const s = await sourcesOf(r)
+  const cache = cacheForTests()
+  expect(cache != null).toBe(true)
+  expect(s.cacheDir).toBe(cache!.root)
+  expect(s.cacheDir.startsWith("/")).toBe(true)
+  expect(s.cacheDir.endsWith("/tiles")).toBe(true)
+  await done(r)
+}
+
 async function keepsTheCacheWithinItsCapByDroppingTheTilesUsedLongestAgo(): Promise<void> throws Error {
   const r = await rig()
   capForTests(3000)
@@ -779,6 +790,7 @@ describe("the map's tile service, against a fake tile server", () => {
   it("asks nothing when the switch is off", asksNothingWhenTheSwitchIsOff)
   it("refuses what is not a tile or a source, and makes nothing on the disk for it", refusesWhatIsNotATileOrASource)
   it("refuses a custom address that is not allowed, and never shows its key", refusesACustomAddressThatIsNotAllowedAndNeverShowsItsKey)
+  it("says the folder the tiles are kept in", saysTheFolderTheTilesAreKeptIn)
   it("keeps the cache within its cap by dropping the tiles used longest ago", keepsTheCacheWithinItsCapByDroppingTheTilesUsedLongestAgo)
   it("counts what the cache holds at the start, in the background", countsWhatTheCacheHoldsAtTheStartInTheBackground)
   it("clears the tiles and nothing outside the folder, not even through a link", clearsTheTilesAndNothingOutsideTheFolderNotEvenThroughALink)

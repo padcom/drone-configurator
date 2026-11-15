@@ -5209,21 +5209,22 @@ export struct MapSources {
   cacheMb: u16
   cacheBytes: u64
   counted: bool
+  cacheDir: string
   customError?: string
   notice?: string
 }
 
 export function decodeMapSources(v: Cbor, path: string): MapSources throws InvalidPayload {
-  const m = members(v, path, ["sources", "source", "enabled", "offline", "cacheMb", "cacheBytes", "counted", "customError", "notice"])
-  const cbor7 = m.get("customError")
-  let opt7: string? = null
-  if (cbor7 != null) {
-    opt7 = text(cbor7, `${path}.customError`)
-  }
-  const cbor8 = m.get("notice")
+  const m = members(v, path, ["sources", "source", "enabled", "offline", "cacheMb", "cacheBytes", "counted", "cacheDir", "customError", "notice"])
+  const cbor8 = m.get("customError")
   let opt8: string? = null
   if (cbor8 != null) {
-    opt8 = text(cbor8, `${path}.notice`)
+    opt8 = text(cbor8, `${path}.customError`)
+  }
+  const cbor9 = m.get("notice")
+  let opt9: string? = null
+  if (cbor9 != null) {
+    opt9 = text(cbor9, `${path}.notice`)
   }
   MapSources {
     sources: decodeMapSourcesSourcesList(required(m, "sources", path), `${path}.sources`),
@@ -5233,8 +5234,9 @@ export function decodeMapSources(v: Cbor, path: string): MapSources throws Inval
     cacheMb: (uint(required(m, "cacheMb", path), `${path}.cacheMb`, 65535) as u16),
     cacheBytes: (uint(required(m, "cacheBytes", path), `${path}.cacheBytes`, 18446744073709551615) as u64),
     counted: boolean(required(m, "counted", path), `${path}.counted`),
-    customError: opt7,
-    notice: opt8,
+    cacheDir: text(required(m, "cacheDir", path), `${path}.cacheDir`),
+    customError: opt8,
+    notice: opt9,
   }
 }
 
@@ -5247,13 +5249,14 @@ export function encodeMapSources(v: MapSources): Cbor {
   m.set("cacheMb", Cbor.Uint(v.cacheMb as u64))
   m.set("cacheBytes", Cbor.Uint(v.cacheBytes as u64))
   m.set("counted", Cbor.Bool(v.counted))
-  const opt7 = v.customError
-  if (opt7 != null) {
-    m.set("customError", Cbor.Text(opt7))
-  }
-  const opt8 = v.notice
+  m.set("cacheDir", Cbor.Text(v.cacheDir))
+  const opt8 = v.customError
   if (opt8 != null) {
-    m.set("notice", Cbor.Text(opt8))
+    m.set("customError", Cbor.Text(opt8))
+  }
+  const opt9 = v.notice
+  if (opt9 != null) {
+    m.set("notice", Cbor.Text(opt9))
   }
   Cbor.Dict(m)
 }

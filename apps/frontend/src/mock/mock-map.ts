@@ -92,6 +92,7 @@ export class MockMap {
       cacheMb: Number(pickOf(entry(settings, 'map.cacheMb'), MAP_CACHE_SIZES_MB, '500')),
       cacheBytes: this.tiles * TILE_BYTES,
       counted: true,
+      cacheDir: '/home/user/.cache/pico-desktop/apps/dev.pico-desktop.drone-configurator/backend/tiles',
     }
     if (source === 'custom' && problem !== null) {
       answer.customError = problem

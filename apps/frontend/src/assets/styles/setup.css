@@ -800,6 +800,47 @@
   }
 }
 
+/* The initial tune's table (a parameter, what the vehicle has, what is suggested): in a narrow column each row is a block, the
+   parameter over its two values, each with its own label; the long reasons wrap, and nothing needs a sideways scroll. */
+.setup-initial-table {
+  width: 100%;
+}
+
+.setup-initial-table th,
+.setup-initial-table td {
+  overflow-wrap: anywhere;
+}
+
+@container (width < 640px) {
+  .setup-initial-table,
+  .setup-initial-table tbody,
+  .setup-initial-table tr,
+  .setup-initial-table th,
+  .setup-initial-table td {
+    display: block;
+  }
+
+  .setup-initial-table thead {
+    display: none;
+  }
+
+  .setup-initial-table tr {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .setup-initial-table th,
+  .setup-initial-table td {
+    padding: var(--space-1) var(--space-3);
+    border-bottom: none;
+  }
+
+  .setup-initial-table td::before {
+    color: var(--color-text-muted);
+    content: attr(data-label) ": ";
+  }
+}
+
 @container (width >= 560px) {
   .setup-motors-pair {
     grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);

@@ -754,6 +754,7 @@
       "cache": "Platz für gespeicherte Kacheln",
       "used": "Der Cache enthält {size}.",
       "counting": "Der Cache enthält mindestens {size} (der Rest wird gezählt…).",
+      "folder": "Die Kacheln liegen in diesem Ordner (Sie können ihn löschen): {path}",
       "clear": "Cache leeren",
       "cleared": "{count} Kachel entfernt ({size}). | {count} Kacheln entfernt ({size}).",
       "state": {
@@ -1286,23 +1287,25 @@
   },
   "setup": {
     "initial": {
-      "summary": "Startwerte, die ArduPilot für einen Multicopter veröffentlicht, nach der Größe der Propeller und den Zellen des Akkus. Sie sind Vorschläge: übernehmen, die Liste an der Seite ansehen und schreiben.",
-      "size": "Propellergröße",
-      "inches": "{n} Zoll",
+      "summary": "Startwerte, die Mission Planners Initial Parameter Setup für einen Multikopter aus der Größe der Propeller sowie der Art und den Zellen des Akkus berechnet. Es sind Vorschläge: Wählen Sie sie aus, sehen Sie sich die Liste an der Seite an und schreiben Sie sie.",
+      "size": "Propellergröße (Zoll)",
       "cells": "Zellen des Akkus",
-      "cellsHelp": "Eine ganze Zahl von 1 bis {max}. Die Spannungen gelten für übliche LiPo-Zellen (4,2 V und 3,3 V je Zelle): bei einer anderen Akkuart von Hand einstellen.",
-      "pick": "Wählen Sie die Größe der Propeller, um die Werte zu sehen.",
+      "cellsHelp": "Eine ganze Zahl von 1 bis {max}. Die Spannungen gelten je Zelle: {full} V voll, {empty} V leer.",
       "parameter": "Parameter",
       "now": "Jetzt",
       "suggested": "Vorgeschlagen",
-      "why": {
-        "notGiven": "von der ArduPilot-Seite für diese Größe nicht angegeben",
-        "aboveRange": "der Wert des Fahrzeugs liegt über dem Bereich dieses Parameters (andere Einheit?): nicht angeboten",
-        "cells": "Zellen angeben"
-      },
       "notOnVehicle": "nicht an diesem Fahrzeug",
       "use": "Diese Werte übernehmen",
-      "source": "Von ArduPilot als Ausgangspunkt veröffentlichte Werte, aus „Setting the Aircraft Up for Tuning“ (ardupilot.org/copter/docs/setting-up-for-tuning.html). Die Seite sagt, MOT_THST_EXPO auf einem Schubprüfstand zu überprüfen."
+      "source": "Formeln aus Config > Initial Parameter Setup von Mission Planner (ConfigInitialParams.cs). Nicht übernommen: die Felder T-Motor und „Suggested“. Die Beschleunigungsgrenzen werden in der Einheit geschrieben, die das Fahrzeug verwendet. MOT_THST_HOVER 0.2 ersetzt einen vom Fahrzeug gelernten Schwebewert: Lassen Sie es nach einem Flug weg. MOT_THST_EXPO misst man am besten auf einem Schubprüfstand.",
+      "why": {
+        "size": "Propellergröße angeben",
+        "aboveRange": "der Wert des Fahrzeugs liegt über dem Bereich dieses Parameters (andere Einheit?): nicht angeboten",
+        "range": "der berechnete Wert liegt außerhalb des Bereichs dieses Parameters: wird nicht vorgeschlagen",
+        "cells": "Zellen angeben"
+      },
+      "sizeHelp": "Eine Zahl von {min} bis {max}, höchstens mit einer Nachkommastelle, z. B. 9 oder 10.5.",
+      "chemistry": "Akkuart",
+      "after": "Nach einem Testflug (gelandet und entsichert) rät Mission Planner: ATC_THR_MIX_MAN auf 0.5 setzen, PSC_D_ACC_P auf 0.1 × MOT_THST_HOVER und PSC_D_ACC_I auf 0.2 × MOT_THST_HOVER (ältere Firmware: PSC_ACCZ_P auf MOT_THST_HOVER und PSC_ACCZ_I auf 2 × MOT_THST_HOVER)."
     },
     "refusedValue": "abgelehnt: nicht geschrieben",
     "outcome": {
