@@ -139,3 +139,16 @@ it('runs the pre-arm checks: the answer is accepted, the reasons are the vehicle
   expect(await client.call('vehicle.prearm', null)).toEqual({ result: 'accepted', messages: ['PreArm: RC not found'] })
   expect(arming.sent()).toEqual(['prearm'])
 })
+
+it('stops a vehicle that looks armed or not, sending it once, and refuses only without a connection', async () => {
+  const { client, arming, heard } = await disarmed()
+  arming.armed(true)
+
+  expect(await client.call('vehicle.emergencyStop', null)).toMatchObject({ result: 'accepted' })
+  expect(arming.sent()).toEqual(['stop'])
+  await vi.waitFor(() => expect(heard.at(-1)?.armed).toBe(false))
+  arming.armed(null)
+
+  expect(await client.call('vehicle.emergencyStop', null)).toMatchObject({ result: 'accepted' })
+  expect(arming.sent()).toEqual(['stop', 'stop'])
+})

@@ -11,8 +11,8 @@
       </select>
     </div>
     <div class="strip-actions">
-      <CommandButton v-if="state !== 'armed'" command="vehicle.review" look="primary" icon-position="none" />
-      <CommandButton v-if="state === 'armed'" command="vehicle.disarm" look="flight" icon-position="none" />
+      <CommandButton v-if="state === 'disarmed'" command="vehicle.review" look="primary" icon-position="none" />
+      <CommandButton v-else command="vehicle.disarm" look="flight" icon-position="none" />
       <Menu v-if="state !== 'disarmed'" :label="t('strip.more')" :items="items" @select="more" />
     </div>
   </section>

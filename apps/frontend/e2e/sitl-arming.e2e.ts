@@ -8,7 +8,8 @@
 //     answer is never the state); a disarm on the ground is accepted and the heartbeat says disarmed.
 //  3. RTL and Land are accepted and the heartbeat names the mode.
 //  4. The emergency stop of a vehicle on the ground is accepted (ArduPilot accepts a forced disarm of a disarmed vehicle) and the
-//     heartbeat says disarmed; a stop and an arm that follows it are not mixed up.
+//     heartbeat says disarmed; then an arm (after the stop has finished) is accepted again. A stop's resends and the hold that
+//     keeps an arm off while they run are tested with the simulated vehicle only, not here.
 //  5. Nothing is sent when no vehicle is connected: every command is refused with NOT_CONNECTED.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'

@@ -17,7 +17,7 @@
     <template #actions>
       <Button id="review-close" data-initial-focus @click="review.hide()">{{ t('review.notNow') }}</Button>
       <Button id="review-again" :disabled="review.running.value" @click="review.run()">{{ t('review.again') }}</Button>
-      <Button id="review-arm" variant="primary" :disabled="!armable" @click="arm">{{ t('review.arm') }}</Button>
+      <Button id="review-arm" variant="primary" :disabled="!ready" @click="arm">{{ t('review.arm') }}</Button>
     </template>
   </Dialog>
 </template>
@@ -64,6 +64,9 @@ const checks = computed(() => checksOf(fields.telemetry.value))
 const reasons = computed(() => reasonsOf(messages.list.value, now.value))
 /** Whether the arm may be asked for now (it is the command's say, read again as the vehicle changes). */
 const armable = computed(() => registry.availability('vehicle.arm', ctx)?.enabled === true)
+
+/** Whether the arm may be asked for: it may, and the vehicle is not just now running its checks (which the review waits for). */
+const ready = computed(() => armable.value && !review.running.value)
 
 /** Closes the review and asks for the arm, which asks for the hold. */
 function arm(): void {

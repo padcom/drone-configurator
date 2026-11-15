@@ -5,7 +5,9 @@ import { BackendError } from '@/backend/client'
 import { setLanguage } from '@/i18n/i18n'
 import { fakeContext } from '@/testing/commandContext'
 import { CommandRegistry } from './registry'
-import { ArmVehicle, ChangeFlightMode, DisarmVehicle, PALETTE_MODES, QUICK_MODES, flightModeCommands } from './arming'
+import {
+  ArmVehicle, ChangeFlightMode, DisarmVehicle, EmergencyStop, PALETTE_MODES, QUICK_MODES, ReviewBeforeArming, flightModeCommands,
+} from './arming'
 
 afterEach(() => {
   setLanguage('en')
@@ -248,5 +250,87 @@ describe('what a change of the mode sends, and does not', () => {
     expect(await registry.invoke('vehicle.mode.rtl', fake.ctx)).toMatchObject({ status: 'done' })
     expect(fake.calls.confirm).toHaveLength(1)
     expect(fake.calls.sent).toEqual(['mode 6'])
+  })
+})
+
+describe('the emergency stop', () => {
+  const stop = new EmergencyStop()
+
+  it('is never in the palette and never ranked by use: it is not listed, and it is dangerous', () => {
+    expect([stop.listed, stop.dangerous]).toEqual([false, true])
+    const fake = fakeContext({ armed: true })
+    const registry = new CommandRegistry()
+    registry.register(stop)
+
+    expect(registry.search('', fake.ctx)).toEqual([])
+    expect(registry.search('emergency stop', fake.ctx)).toEqual([])
+  })
+
+  it('may run for a connected vehicle that is armed or may be (unknown counts as armed), parameter work or not', () => {
+    expect(stop.isEnabled(fakeContext({ armed: true, busy: 'writing' }).ctx)).toEqual({ enabled: true })
+    expect(stop.isEnabled(fakeContext({ armed: undefined }).ctx)).toEqual({ enabled: true })
+    expect(stop.isEnabled(fakeContext({ armed: false }).ctx)).toEqual({ enabled: false, reasonKey: 'palette.reason.notArmed' })
+    expect(stop.isEnabled(fakeContext({ connection: { state: 'lost' } }).ctx)).toEqual(NOT_CONNECTED)
+  })
+
+  it('asks for a hold in the error tone, and says the vehicle will fall', () => {
+    const question = stop.confirmation(fakeContext({ armed: true }).ctx)
+
+    expect(question).toMatchObject({ level: 'hold', tone: 'error', title: 'Emergency stop' })
+    expect(question.confirmLabel).toBe('Hold to stop the motors')
+    expect(question.what).toContain('will crash')
+  })
+})
+
+describe('what the emergency stop tells', () => {
+  const stop = new EmergencyStop()
+
+  it('sends the stop once, and tells that the vehicle accepted, not that it stopped', async () => {
+    const fake = fakeContext({ armed: true })
+    await stop.execute(fake.ctx)
+
+    expect(fake.calls.sent).toEqual(['stop'])
+    expect(fake.calls.toast[0]?.text).toBe('QUADROTOR accepted the stop. It shows disarmed when it reports it.')
+  })
+
+  it('tells that nothing answered (it was sent more than once), and that the state is what it reports', async () => {
+    const fake = fakeContext({ armed: true })
+    fake.facts.armingResult = { result: 'no-answer', messages: [] }
+    await stop.execute(fake.ctx)
+
+    expect(fake.calls.toast[0]).toMatchObject({ severity: 'warning', long: true })
+    expect(fake.calls.toast[0]?.text).toContain('up to 3 times')
+  })
+
+  it('goes through the registry: a "no" to the hold sends nothing', async () => {
+    const fake = fakeContext({ armed: true })
+    fake.answer.confirm = false
+    const registry = new CommandRegistry()
+    registry.register(stop)
+
+    expect(await registry.invoke('vehicle.emergencyStop', fake.ctx)).toEqual({ status: 'cancelled' })
+    expect(fake.calls.sent).toEqual([])
+  })
+})
+
+describe('the review before arming', () => {
+  const review = new ReviewBeforeArming()
+
+  it('may run for a connected vehicle that is known to be disarmed, and opens the review without sending anything', async () => {
+    const fake = fakeContext({ armed: false })
+
+    expect(review.isEnabled(fake.ctx)).toEqual({ enabled: true })
+    await review.execute(fake.ctx)
+
+    expect(fake.calls.dialogs).toEqual(['review'])
+    expect(fake.calls.sent).toEqual([])
+  })
+
+  it.each([
+    [{ armed: true }, 'palette.reason.alreadyArmed'],
+    [{ armed: undefined }, 'palette.reason.stateUnknown'],
+    [{ connection: { state: 'lost' } }, 'palette.reason.notConnected'],
+  ] as const)('may not run for %j: %s', (facts, reasonKey) => {
+    expect(review.isEnabled(fakeContext(facts).ctx)).toEqual({ enabled: false, reasonKey })
   })
 })

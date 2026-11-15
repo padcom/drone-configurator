@@ -64,6 +64,21 @@ afterEach(() => {
  * @param wrapper the shell
  * @returns the labels in order
  */
+/** The commands that go to a screen or a part of one that are not Setup's or Tune's parts, in the alphabetical order. */
+const SWITCH_LABELS = [
+  'Switch to Flight data',
+  'Switch to Logs',
+  'Switch to Logs: Flights',
+  'Switch to Logs: On the vehicle',
+  'Switch to Logs: Replay',
+  'Switch to Logs: Spectrum',
+  'Switch to Logs: Tools',
+  'Switch to Parameters',
+  'Switch to Plan',
+  'Switch to Settings',
+  'Switch to Setup',
+]
+
 /** The labels of the commands that change the flight mode, in the alphabetical order the palette lists them. */
 const FLIGHT_MODE_LABELS = ['ALT_HOLD', 'AUTO', 'BRAKE', 'GUIDED', 'LAND', 'LOITER', 'POSHOLD', 'RTL', 'STABILIZE']
   .map(mode => `Flight mode: ${mode}`)
@@ -202,18 +217,9 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Load parameter snapshot…',
     'Open log file…',
     'Reboot flight controller',
+    'Review before arming',
     'Save parameter snapshot…',
-    'Switch to Flight data',
-    'Switch to Logs',
-    'Switch to Logs: Flights',
-    'Switch to Logs: On the vehicle',
-    'Switch to Logs: Replay',
-    'Switch to Logs: Spectrum',
-    'Switch to Logs: Tools',
-    'Switch to Parameters',
-    'Switch to Plan',
-    'Switch to Settings',
-    'Switch to Setup',
+    ...SWITCH_LABELS,
     ...SETUP_LABELS,
     ...TUNE_LABELS,
   ])
@@ -226,9 +232,9 @@ it('names the group of each command in its row', async () => {
 
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
-  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, nine flight modes, the connection
-  // and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
-  expect(groups.slice(0, 19)).toEqual([
+  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, nine flight modes, the
+  // connection and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
+  expect(groups.slice(0, 20)).toEqual([
     'Vehicle',
     'Vehicle',
     'Vehicle',
@@ -239,10 +245,11 @@ it('names the group of each command in its row', async () => {
     'Parameters',
     'Logs',
     'Vehicle',
+    'Vehicle',
     'Parameters',
   ])
   expect(groups.length).toBeGreaterThan(30)
-  expect(groups.slice(19).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(20).every(group => group === 'Navigate')).toBe(true)
 })
 
 it('lists the command that was run last first, and remembers it for the next opening', async () => {
