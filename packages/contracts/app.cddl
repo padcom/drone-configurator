@@ -97,15 +97,21 @@ services = {
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
-  ; Arming, disarming, the emergency stop, a change of flight mode and a run of the pre-arm checks. Each is sent ONCE (a command that
-  ; nothing acknowledged may have been carried out: it is never sent again, and the state shown is the next heartbeat's, never the
-  ; command's intent). The backend refuses before it sends anything, with a CommunicatorError: `NOT_CONNECTED`, `STATE_UNKNOWN` (no
-  ; heartbeat for 3 s: these commands are for a vehicle whose state is known), `ARMED` / `NOT_ARMED` (arm and the pre-arm run need a
-  ; disarmed vehicle, disarm and the emergency stop an armed one), `BUSY` (a parameter, log, calibration, motor test, reboot or an
-  ; earlier command of these is under way; the emergency stop is never held off by it), `INVALID_VALUE` (a mode that is not one of
-  ; the vehicle kind's `vehicle.modes`) and `UNSUPPORTED_VEHICLE` (not an ArduPilot). There is NO forced arm. `vehicle.emergencyStop`
-  ; is the only command that can stop the motors of a vehicle that is flying (a disarm with ArduPilot's force value), and the only
-  ; place the app sends it.
+  ; Arming, disarming, the emergency stop, a change of flight mode and a run of the pre-arm checks. Arm, disarm, mode change and the
+  ; pre-arm run are sent ONCE (a command that nothing acknowledged may have been carried out: it is never sent again, and the state
+  ; shown is the next heartbeat's, never the command's intent). The backend refuses before it sends anything, with a CommunicatorError:
+  ; `NOT_CONNECTED`, `STATE_UNKNOWN` (no heartbeat for 3 s, or an arm is in flight: these commands are for a vehicle whose state is
+  ; known), `ARMED` / `NOT_ARMED` (arm and the pre-arm run need a disarmed vehicle, disarm an armed one), `BUSY` (a parameter, log,
+  ; calibration, motor test, reboot or an earlier command of these is under way), `INVALID_VALUE` (a mode that is not one of the
+  ; vehicle kind's `vehicle.modes`) and `UNSUPPORTED_VEHICLE` (not an ArduPilot). There is NO forced arm.
+  ; `vehicle.emergencyStop` is the exception to all of it, and the only place the app sends ArduPilot's force value (a disarm that
+  ; works in flight: the motors stop and the vehicle falls). Its ONLY refusal is `NOT_CONNECTED`: an unknown state counts as armed,
+  ; the armed flag lags the vehicle by up to a heartbeat, and a forced disarm of a disarmed vehicle is accepted by ArduPilot and
+  ; changes nothing. So it is IDEMPOTENT, and the only command that is sent again: up to 3 times, 500 ms apart, until the first ack.
+  ; An ack is matched by its command number and sender only, so a normal disarm in flight and a stop answer each other, and an ack of
+  ; the stop can be an earlier send's: that the vehicle HAS STOPPED is decided from the heartbeat (`telemetry.armed`), never from the
+  ; ack. A mode change refuses an unknown state (`STATE_UNKNOWN`) except RTL and LAND, which are idempotent safety actions that
+  ; work in flight: they are allowed whenever the link is open (and are not held off by `BUSY`).
   "vehicle.arm": ["method", null, arming-result],
   "vehicle.disarm": ["method", null, arming-result],
   "vehicle.emergencyStop": ["method", null, arming-result],
@@ -695,8 +701,10 @@ reboot-result = {
 ; then counts as no answer); for an arm or a mode change that is NOT the new state: read it from the next heartbeat. `refused`: it
 ; answered with a failure (`detail` says which, `code` is its MAV_RESULT). `unsupported`: it does not know the command or the
 ; value. `no-answer`: nothing acknowledged within 3 s, or the link was lost meanwhile: the command may have been carried out; it is
-; not sent again. `messages` are the vehicle's own texts (STATUSTEXT, "PreArm: ...", "Arm: ...") heard from just before the
-; command was sent until 600 ms after its answer: the reasons of a refusal, in its words; at most 20, without repeats.
+; not sent again. `messages` are ALL the texts the vehicle sent (STATUSTEXT: "PreArm: ...", "Arm: ...", and whatever else it said,
+; about anything) from the moment the command was sent until 600 ms after its answer (not for the emergency stop, which does not
+; wait): they are the reasons of a refusal in its own words, but an unrelated line in that time comes back too; at most 20, without
+; repeats.
 arming-result = {
   result: "accepted" / "refused" / "unsupported" / "no-answer",
   ? detail: tstr,
