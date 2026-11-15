@@ -559,10 +559,19 @@
     "help": "Arrastra para mover el mapa. Las flechas lo mueven; las teclas más y menos o la rueda hacen zoom.",
     "chip": {
       "disabled": "Las teselas del mapa están desactivadas en Ajustes.",
-      "backingOff": "El servidor de teselas pidió ir más despacio: las teselas volverán en un momento.",
+      "backingOff": "Las teselas del mapa están en pausa por problemas con el servidor: {reason}",
       "offline": "Sin conexión: solo se muestran las teselas guardadas.",
       "offlineMiss": "Sin conexión: no hay teselas guardadas para esta zona.",
-      "unavailable": "Las teselas del mapa no están disponibles: {reason}"
+      "unavailable": "Las teselas del mapa no están disponibles: {reason}",
+      "backingOffPlain": "Las teselas del mapa están en pausa un tiempo por problemas con el servidor.",
+      "generic": "Las teselas del mapa no están disponibles.",
+      "code": {
+        "BAD_REQUEST": "La dirección de la fuente de teselas no se puede usar.",
+        "TOO_BIG": "El servidor envió una tesela demasiado grande.",
+        "BAD_TYPE": "El servidor envió algo que no es una imagen.",
+        "RATE_LIMITED": "El servidor pidió menos peticiones.",
+        "UNAVAILABLE": "No se puede llegar al servidor de teselas."
+      }
     }
   },
   "hud": {

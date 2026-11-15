@@ -559,10 +559,19 @@
     "help": "Ziehen verschiebt die Karte. Die Pfeiltasten verschieben sie, die Tasten Plus und Minus oder das Mausrad zoomen.",
     "chip": {
       "disabled": "Die Kartenkacheln sind in den Einstellungen ausgeschaltet.",
-      "backingOff": "Der Kachelserver bat um Verlangsamung: die Kacheln kommen gleich wieder.",
+      "backingOff": "Die Kartenkacheln pausieren nach Problemen mit dem Kachelserver: {reason}",
       "offline": "Offline: nur gespeicherte Kacheln werden gezeigt.",
       "offlineMiss": "Offline: keine gespeicherten Kacheln für diesen Bereich.",
-      "unavailable": "Die Kartenkacheln sind nicht verfügbar: {reason}"
+      "unavailable": "Die Kartenkacheln sind nicht verfügbar: {reason}",
+      "backingOffPlain": "Die Kartenkacheln pausieren eine Weile nach Problemen mit dem Kachelserver.",
+      "generic": "Die Kartenkacheln sind nicht verfügbar.",
+      "code": {
+        "BAD_REQUEST": "Die Adresse der Kachelquelle ist nicht verwendbar.",
+        "TOO_BIG": "Der Kachelserver schickte eine zu große Kachel.",
+        "BAD_TYPE": "Der Kachelserver schickte etwas, das kein Bild ist.",
+        "RATE_LIMITED": "Der Kachelserver bat um weniger Anfragen.",
+        "UNAVAILABLE": "Der Kachelserver ist nicht erreichbar."
+      }
     }
   },
   "hud": {

@@ -130,6 +130,12 @@
   border-radius: var(--radius-sm);
 }
 
+/* (the line is in the page when it has nothing to say, so that a screen reader hears it when it has; it shows nothing then) */
+.map-chip:empty {
+  padding: 0;
+  background: none;
+}
+
 .map-chip {
   bottom: var(--space-4);
   left: var(--space-4);

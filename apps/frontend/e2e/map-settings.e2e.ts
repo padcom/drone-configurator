@@ -3,7 +3,8 @@
 // `map.sources`
 // (the host of a custom address, why one cannot be used, the cache). No tile is asked for, and no tile server is contacted: this
 // test only changes settings and clears an empty cache. Not covered: a tile fetched through the window (the backend tests have a
-// local fake tile server for that; flight-map.e2e.ts brings one to a window). The e2e app starts with the tiles OFF (launch.ts), so
+// local fake tile server for that; flight-map.e2e.ts brings one to a window). The e2e app starts with the tiles OFF (launch.ts),
+// so
 // that the map of the Flight data screen that the app starts on asks no real tile server; this test turns them on while the
 // Settings screen is shown (the map of a screen that is not shown asks for nothing).
 import { afterAll, beforeAll, expect, it } from 'vitest'

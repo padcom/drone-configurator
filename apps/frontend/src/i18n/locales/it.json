@@ -559,10 +559,19 @@
     "help": "Trascina per spostare la mappa. Le frecce la spostano, i tasti più e meno o la rotellina cambiano lo zoom.",
     "chip": {
       "disabled": "Le tessere della mappa sono disattivate nelle Impostazioni.",
-      "backingOff": "Il server delle tessere ha chiesto di rallentare: le tessere torneranno tra poco.",
+      "backingOff": "Le tessere della mappa sono in pausa per problemi con il server: {reason}",
       "offline": "Offline: sono mostrate solo le tessere conservate.",
       "offlineMiss": "Offline: nessuna tessera conservata per quest’area.",
-      "unavailable": "Le tessere della mappa non sono disponibili: {reason}"
+      "unavailable": "Le tessere della mappa non sono disponibili: {reason}",
+      "backingOffPlain": "Le tessere della mappa sono in pausa per un po’ a causa di problemi con il server.",
+      "generic": "Le tessere della mappa non sono disponibili.",
+      "code": {
+        "BAD_REQUEST": "L’indirizzo della fonte delle tessere non è utilizzabile.",
+        "TOO_BIG": "Il server ha inviato una tessera troppo grande.",
+        "BAD_TYPE": "Il server ha inviato qualcosa che non è un’immagine.",
+        "RATE_LIMITED": "Il server ha chiesto meno richieste.",
+        "UNAVAILABLE": "Il server delle tessere non è raggiungibile."
+      }
     }
   },
   "hud": {

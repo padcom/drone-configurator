@@ -38,19 +38,32 @@ export function creditOf(info: MapSources | null, source: string): { text: strin
   return source === 'osm' ? OSM_CREDIT : { text: '', url: '' }
 }
 
-/**
- * Why tiles are not coming, as the server or the backend said it (or the code, when it did not).
- *
- * @param state what the map knows
- * @param code the code of the failure
- * @returns the reason
- */
-function reasonOf(state: ChipState, code: string): string {
-  return state.status?.reason ?? code
+/** The failures that have a sentence of their own (the others are "not available"). */
+const SENTENCES: Readonly<Record<string, string>> = {
+  OFFLINE_MISS: 'map.chip.offlineMiss',
+  BAD_REQUEST: 'map.chip.code.BAD_REQUEST',
+  TOO_BIG: 'map.chip.code.TOO_BIG',
+  BAD_TYPE: 'map.chip.code.BAD_TYPE',
+  RATE_LIMITED: 'map.chip.code.RATE_LIMITED',
+  UNAVAILABLE: 'map.chip.code.UNAVAILABLE',
 }
 
 /**
- * The line about a switch: the tiles are off, or the server asked to slow down.
+ * The line about the server's trouble: what the backend said of it (no time is promised: the backend decides when it asks
+ * again, and that is anything from a moment to minutes).
+ *
+ * @param state what the map knows
+ * @param say looks up a message
+ * @returns the line
+ */
+function pausedLine(state: ChipState, say: Say): string {
+  const reason = state.status?.reason
+
+  return reason ? say('map.chip.backingOff', { reason }) : say('map.chip.backingOffPlain')
+}
+
+/**
+ * The line about a switch: the tiles are off, or the backend is holding back after trouble.
  *
  * @param state what the map knows
  * @param say looks up a message
@@ -61,7 +74,36 @@ function switchLine(state: ChipState, say: Say): string {
     return say('map.chip.disabled')
   }
 
-  return state.status?.state === 'backing-off' ? say('map.chip.backingOff') : ''
+  return state.status?.state === 'backing-off' ? pausedLine(state, say) : ''
+}
+
+/**
+ * What the backend said of why the server could not be reached (only for that failure).
+ *
+ * @param state what the map knows
+ * @param code the code of the failure
+ * @returns the reason, or nothing
+ */
+function unreachableReason(state: ChipState, code: string): string | undefined {
+  return code === 'UNAVAILABLE' ? state.status?.reason : undefined
+}
+
+/**
+ * The sentence for the code of a tile that failed: the reason the backend gave when the server could not be reached, else one
+ * short sentence for the codes the map keeps (never a bare code).
+ *
+ * @param state what the map knows
+ * @param code the code
+ * @param say looks up a message
+ * @returns the sentence
+ */
+function codeLine(state: ChipState, code: string, say: Say): string {
+  const reason = unreachableReason(state, code)
+  if (reason) {
+    return say('map.chip.unavailable', { reason })
+  }
+
+  return say(SENTENCES[code] ?? 'map.chip.generic')
 }
 
 /**
@@ -74,11 +116,8 @@ function switchLine(state: ChipState, say: Say): string {
  */
 function failureLine(state: ChipState, say: Say): string {
   const code = state.problems.find(problem => problem !== 'NOT_FOUND')
-  if (code === undefined) {
-    return ''
-  }
 
-  return say(code === 'OFFLINE_MISS' ? 'map.chip.offlineMiss' : 'map.chip.unavailable', { reason: reasonOf(state, code) })
+  return code === undefined ? '' : codeLine(state, code, say)
 }
 
 /**

@@ -81,6 +81,14 @@ it('credits OpenStreetMap on the map, as a link the system browser opens, and ke
   expect(wrapper.get('.map').element.contains(link.element)).toBe(true)
 })
 
+it('has the line about the tiles in the page all the time, a live region that is empty while the tiles are fine', async () => {
+  const { wrapper } = await map()
+  const chip = wrapper.get('#map-chip')
+
+  expect(chip.attributes('role')).toBe('status')
+  expect(chip.text()).toBe('')
+})
+
 it('is a labelled region that the keyboard can reach, with its help said to a screen reader', async () => {
   const { wrapper } = await map()
   const box = wrapper.get('.map')
@@ -168,7 +176,7 @@ it('says why there are no tiles when the backend refuses them, once, in the one 
   tile.mockRejectedValue(Object.assign(new Error('offline'), { code: 'OFFLINE_MISS' }))
   await handle.map.choose('map.offline', 'true')
   await flushPromises()
-  await vi.waitFor(() => expect(wrapper.find('#map-chip').exists()).toBe(true))
+  await vi.waitFor(() => expect(wrapper.get('#map-chip').text()).not.toBe(''))
 
   expect(wrapper.findAll('#map-chip')).toHaveLength(1)
   expect(wrapper.get('#map-chip').text()).toContain('Offline')

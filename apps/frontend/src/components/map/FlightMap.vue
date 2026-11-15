@@ -43,7 +43,8 @@
         −
       </button>
     </div>
-    <p v-if="chip" id="map-chip" class="map-chip" role="status">{{ chip }}</p>
+    <!-- Always there, empty when the tiles are fine: a live region is announced when its text changes, not when inserted. -->
+    <p id="map-chip" class="map-chip" role="status">{{ chip }}</p>
     <!-- The credit is part of the map, always there: a link that the system browser opens when it is clicked. -->
     <p v-if="credit.text" class="map-attribution">
       <a id="map-attribution" :href="credit.url" target="_blank" rel="noopener noreferrer">{{ credit.text }}</a>

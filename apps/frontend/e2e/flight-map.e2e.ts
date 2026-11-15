@@ -188,6 +188,46 @@ it('zooms with the button and the keys, moves with the arrows, and asks for the 
   expect(await app.evaluate<boolean>(`document.activeElement === document.querySelector('.map')`)).toBe(true)
 })
 
+/**
+ * A drag with the mouse, as the host sends it (real pointer events): press, move in steps, release.
+ *
+ * @param from where the pointer goes down
+ * @param from.x the column
+ * @param from.y the row
+ * @param dx how far it moves to the right (px)
+ */
+async function drag(from: { x: number, y: number }, dx: number): Promise<void> {
+  const mouse = (type: string, x: number, buttons: number) => app.devtools('Input.dispatchMouseEvent', {
+    type, x, y: from.y, button: 'left', buttons, clickCount: 1,
+  })
+  await mouse('mousePressed', from.x, 1)
+
+  for (const step of [0.25, 0.5, 0.75, 1]) {
+    // eslint-disable-next-line no-await-in-loop -- the pointer moves a step at a time
+    await mouse('mouseMoved', from.x + dx * step, 1)
+  }
+  await mouse('mouseReleased', from.x + dx, 0)
+}
+
+it('moves the view with a drag of the mouse, and asks for the tiles that came on screen', async () => {
+  await app.click('#map-zoom-in')
+  await app.click('#map-zoom-in')
+  const before = await viewOf()
+  const box = await app.evaluate<{ x: number, y: number }>(`(() => {
+    const rect = document.querySelector('.map').getBoundingClientRect()
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+  })()`)
+  const count = asked.length
+  await drag(box, -400)
+  await app.waitFor(`Number(document.querySelector('.map').dataset.lon) > ${before.lon}`, 10_000)
+  const after = await viewOf()
+
+  expect(after.zoom).toBe(before.zoom)
+  expect(after.lon).toBeGreaterThan(before.lon)
+  // 400 px is more than a tile and a half: columns that were off screen are asked for
+  await vi.waitFor(() => expect(asked.length).toBeGreaterThan(count), { timeout: 30_000 })
+})
+
 it('says why a tile is missing when it is offline, and asks the server for nothing', async () => {
   await turn('map-offline', true)
   await showScreen(app, 'flight')

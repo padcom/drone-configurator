@@ -28,18 +28,26 @@ it('says nothing when the tiles are fine', () => {
   expect(chipOf(FINE, say)).toBe('')
 })
 
-it('says the switch is off before anything else, then that the server asked to slow down', () => {
+it('says the switch is off before anything else, then that the tiles are paused, with the backend\'s reason and no time', () => {
   const failing = { ...FINE, problems: ['UNAVAILABLE'], offline: true }
+  const paused = { state: 'backing-off', reason: 'the server answered 403', retryAfterMs: 300_000 } as const
 
   expect(chipOf({ ...failing, enabled: false }, say)).toBe('map.chip.disabled')
-  expect(chipOf({ ...failing, status: { state: 'backing-off' } }, say)).toBe('map.chip.backingOff')
+  expect(chipOf({ ...failing, status: paused }, say)).toBe('map.chip.backingOff {"reason":"the server answered 403"}')
+  expect(chipOf({ ...failing, status: { state: 'backing-off' } }, say)).toBe('map.chip.backingOffPlain')
 })
 
 it('says why tiles are missing: none kept offline, the backend\'s reason, and nothing of a tile that is not there', () => {
   expect(chipOf({ ...FINE, offline: true, problems: ['OFFLINE_MISS'] }, say)).toContain('map.chip.offlineMiss')
   expect(chipOf({ ...FINE, problems: ['UNAVAILABLE'], status: { state: 'online', reason: 'no route' } }, say))
     .toBe('map.chip.unavailable {"reason":"no route"}')
-  expect(chipOf({ ...FINE, problems: ['UNAVAILABLE'] }, say)).toBe('map.chip.unavailable {"reason":"UNAVAILABLE"}')
+  expect(chipOf({ ...FINE, problems: ['UNAVAILABLE'] }, say)).toBe('map.chip.code.UNAVAILABLE')
   expect(chipOf({ ...FINE, problems: ['NOT_FOUND'] }, say)).toBe('')
+
+  // one short sentence for each code the map keeps, never a bare code
+  for (const code of ['BAD_REQUEST', 'TOO_BIG', 'BAD_TYPE', 'RATE_LIMITED']) {
+    expect(chipOf({ ...FINE, problems: [code] }, say)).toBe(`map.chip.code.${code}`)
+  }
+  expect(chipOf({ ...FINE, problems: ['SOMETHING_NEW'] }, say)).toBe('map.chip.generic')
   expect(chipOf({ ...FINE, offline: true }, say)).toBe('map.chip.offline')
 })
