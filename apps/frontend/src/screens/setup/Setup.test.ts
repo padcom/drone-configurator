@@ -156,6 +156,14 @@ it('shows how many steps look set up, a card for each with what was checked, and
   expect(wrapper.get('.setup-facts').text()).toContain('QUADROTOR')
 })
 
+it('links, beside the facts, to the pages that are not steps: ESCs, serial ports, devices, vehicle information', async () => {
+  const { wrapper } = await page(SetupHome)
+
+  const links = wrapper.findAll('.setup-facts .setup-also')
+  expect(links.map(link => link.text())).toEqual(['ESCs', 'Serial ports', 'Devices', 'Vehicle information'])
+  expect(links[0]?.attributes('href')).toContain('/setup/escs')
+})
+
 it('points to the first step that is open, with its page, when the parameters are at the defaults', async () => {
   const fresh = SETUP_PARAMS.map(param => param.id === 'COMPASS_OFS_X' ? { ...param, value: 0 } : param)
     .map(param => ['COMPASS_OFS_Y', 'COMPASS_OFS_Z'].includes(param.id) ? { ...param, value: 0 } : param)

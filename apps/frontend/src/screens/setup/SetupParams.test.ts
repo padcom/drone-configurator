@@ -313,6 +313,40 @@ it('marks an options number the parameter cannot hold, and does not take it', as
   expect(wrapper.get('#setup-serial-write').attributes('disabled')).toBeDefined()
 })
 
+it('says a change of only the options of a port that carries MAVLink may cut the connection, before it is written', async () => {
+  const { wrapper } = await page(SetupSerial)
+
+  expect(wrapper.find('#setup-serial-cut').exists()).toBe(false)
+  const field = wrapper.get<HTMLInputElement>('[data-port="1"] .bit-field input')
+  await field.setValue('1')
+  await field.trigger('blur')
+  await flushPromises()
+
+  expect(wrapper.get('#setup-serial-cut').text()).toContain('Serial 1 may cut the connection')
+})
+
+it('does the same after the write of the options of a MAVLink port, and for SERIAL0 (given options here)', async () => {
+  const withZero = SETUP_PARAMS.concat([{ id: 'SERIAL0_OPTIONS', kind: 'int', type: 'INT16', value: 0, index: 950 }])
+  const { wrapper } = await page(SetupSerial, { params: withZero })
+  const zero = wrapper.get<HTMLInputElement>('[data-port="0"] .bit-field input')
+  await zero.setValue('1')
+  await zero.trigger('blur')
+  await flushPromises()
+  expect(wrapper.get('#setup-serial-cut').text()).toContain('Serial 0 may cut the connection')
+  await wrapper.get('#setup-serial-write').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.find('#setup-serial-cut').exists()).toBe(false)
+  expect(wrapper.get('#setup-serial-cut-after').text()).toContain('Serial 0 will be lost')
+  const one = wrapper.get<HTMLInputElement>('[data-port="1"] .bit-field input')
+  await one.setValue('2')
+  await one.trigger('blur')
+  await wrapper.get('#setup-serial-write').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.get('#setup-serial-cut-after').text()).toContain('Serial 0, 1 will be lost')
+})
+
 it('has a column of options, and a dash for a port the vehicle has no options for', async () => {
   const params = SETUP_PARAMS.filter(param => param.id !== 'SERIAL1_OPTIONS')
   const { wrapper } = await page(SetupSerial, { params })

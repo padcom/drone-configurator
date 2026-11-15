@@ -108,7 +108,6 @@ export const SETUP_PARAMS: Param[] = [
   p('AHRS_ORIENTATION', 'int', 'INT8', 0),
   p('SERIAL0_PROTOCOL', 'int', 'INT8', 2),
   p('SERIAL0_BAUD', 'int', 'INT32', 115),
-  p('SERIAL0_OPTIONS', 'int', 'INT16', 0),
   p('SERIAL1_PROTOCOL', 'int', 'INT8', 2),
   p('SERIAL1_BAUD', 'int', 'INT32', 57),
   p('SERIAL1_OPTIONS', 'int', 'INT16', 0),
