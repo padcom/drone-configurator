@@ -168,6 +168,7 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  container-type: inline-size;
 }
 
 .setup-aside {
@@ -311,6 +312,12 @@
   align-items: center;
 }
 
+/* A line of help under the fields takes the width of both columns (and gives the first none: it would be as wide as the text). */
+.setup-fields > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .setup-calibrate {
   display: flex;
   flex-direction: column;
@@ -424,8 +431,19 @@
   }
 
   .setup-nav {
+    gap: var(--space-1);
     min-height: 0;
     overflow-y: auto;
+  }
+
+  /* The list is tighter, so that it needs no scrolling of its own down to a window 600 px high. */
+  .setup-nav-home,
+  .setup-nav-link {
+    min-height: 32px;
+  }
+
+  .setup-nav .setup-label {
+    margin-bottom: var(--space-1);
   }
 
   .setup-page {
@@ -754,4 +772,22 @@
 .setup-outcome {
   margin: 0;
   padding-left: var(--space-4);
+}
+
+/* The middle column is narrow beside the list and the side panel (about 330 px at 1000 px wide): what is laid out in columns
+   wider than that is stacked, and nothing is cut off at its right edge. (Last, to win over the rules of the columns above.) */
+@container (width < 640px) {
+  .setup-channel-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .setup-channel-row > :nth-child(2),
+  .setup-channel-row > :nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .setup-esc,
+  .setup-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

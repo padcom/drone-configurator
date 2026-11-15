@@ -71,6 +71,8 @@ interface Probe {
   reachable: boolean
   room: number
   below: string[]
+  sideways: string[]
+  listScrolls: boolean
 }
 
 /** The helpers of the probe, in the page: where a box scrolls to its end, and how much room it has for a focus outline. */
@@ -94,6 +96,12 @@ const HELPERS = `
   const below = () => [...document.querySelectorAll('body *')]
     .filter(element => !element.closest('.rail') && element.getBoundingClientRect().bottom > window.innerHeight + 1)
     .slice(0, 4).map(element => element.tagName + '.' + element.className + ' ' + document.scrollingElement.scrollHeight)
+  // what lies beyond the right edge of a column that never scrolls sideways
+  const sideways = box => {
+    const edge = box.getBoundingClientRect().right
+    const over = [...box.querySelectorAll('*')].filter(element => element.getBoundingClientRect().right > edge + 1)
+    return box.scrollWidth > box.clientWidth + 1 ? over.slice(0, 4).map(element => element.tagName + '.' + element.className) : []
+  }
 `
 
 /**
@@ -124,6 +132,8 @@ function probe(): string {
       areaTop: area.scrollTop,
       rootTop: root.scrollTop,
       below: below(),
+      sideways: sideways(main),
+      listScrolls: Boolean(nav) && nav.scrollHeight > nav.clientHeight + 1,
     }
     result.reachable = reach(side) && reach(nav) && reach(main)
     result.room = Math.min(room(main), room(nav))
@@ -168,9 +178,11 @@ async function visit(page: string): Promise<Probe> {
  *
  * @param page the page
  * @param seen what it showed
+ * @param size the window
+ * @param size.height its height
  * @returns the facts
  */
-function facts(page: string, seen: Probe): Record<string, unknown> {
+function facts(page: string, seen: Probe, size: { height: number }): Record<string, unknown> {
   return {
     page,
     sideMoved: Math.round(seen.after - seen.before),
@@ -182,6 +194,9 @@ function facts(page: string, seen: Probe): Record<string, unknown> {
     rootTop: seen.rootTop,
     reachable: seen.reachable,
     roomForOutline: seen.room >= 4,
+    sideways: seen.sideways,
+    // (the list of the pages scrolls by itself only in a window too short for it: below 600 px)
+    listScrolls: size.height >= 600 && seen.listScrolls,
   }
 }
 
@@ -193,7 +208,7 @@ for (const size of SIZES) {
     for (const page of PAGES) {
       // eslint-disable-next-line no-await-in-loop -- one page after the other, in the one window
       const seen = await visit(page)
-      expect(facts(page, seen)).toEqual({
+      expect(facts(page, seen, size)).toEqual({
         page,
         sideMoved: 0,
         navMoved: 0,
@@ -204,6 +219,8 @@ for (const size of SIZES) {
         rootTop: 0,
         reachable: true,
         roomForOutline: true,
+        sideways: [],
+        listScrolls: false,
       })
       scrolled += seen.scrollWant > 0 ? 1 : 0
     }

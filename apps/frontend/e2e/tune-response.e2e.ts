@@ -118,7 +118,9 @@ it('asks again when the screen is shown again', async () => {
   await showScreen(window(), 'tune')
 
   await window().waitFor(`document.querySelectorAll('#tune-response-chart .chart-series .line').length === 2`, 30_000)
-  expect(simulated().intervals.get(ATTITUDE_TARGET)).toBe(40_000)
+  // (the old lines are still in the chart when the screen is shown again: the question to the vehicle is a message on its way, so
+  // it is waited for, not read at once)
+  await vi.waitFor(() => expect(simulated().intervals.get(ATTITUDE_TARGET)).toBe(40_000), { timeout: 15_000 })
   await window().waitFor(`document.querySelector('#tune-overshoot').textContent.includes('%')`, 30_000)
 })
 
