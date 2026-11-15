@@ -5,34 +5,37 @@
       <p class="muted">{{ t('setup.frame.summary') }}</p>
       <Banner id="setup-frame-warning" tone="warn">{{ t('setup.frame.warning') }}</Banner>
       <RebootBanner :show="rebootNeeded" />
-      <div class="setup-fields">
-        <label>{{ t('setup.frame.class') }}</label>
-        <EnumField
-          :model-value="panel.value('FRAME_CLASS') ?? 0"
-          :options="classes"
-          :label="t('setup.frame.class')"
-          :disabled="locked('FRAME_CLASS')"
-          @update:model-value="panel.set('FRAME_CLASS', $event)"
-        />
-        <label>{{ t('setup.frame.type') }}</label>
-        <EnumField
-          :model-value="panel.value('FRAME_TYPE') ?? 0"
-          :options="types"
-          :label="t('setup.frame.type')"
-          :disabled="locked('FRAME_TYPE')"
-          @update:model-value="panel.set('FRAME_TYPE', $event)"
-        />
-        <label>{{ t('setup.frame.orientation') }}</label>
-        <EnumField
-          :model-value="panel.value('AHRS_ORIENTATION') ?? 0"
-          :options="orientations"
-          :label="t('setup.frame.orientation')"
-          :disabled="locked('AHRS_ORIENTATION')"
-          @update:model-value="panel.set('AHRS_ORIENTATION', $event)"
-        />
-        <p class="muted">{{ t('setup.frame.orientationHelp') }}</p>
+      <!-- The dropdowns and, beside them, the drawing; the one note under both. -->
+      <div class="setup-frame-row">
+        <div class="setup-fields">
+          <label>{{ t('setup.frame.class') }}</label>
+          <EnumField
+            :model-value="panel.value('FRAME_CLASS') ?? 0"
+            :options="classes"
+            :label="t('setup.frame.class')"
+            :disabled="locked('FRAME_CLASS')"
+            @update:model-value="panel.set('FRAME_CLASS', $event)"
+          />
+          <label>{{ t('setup.frame.type') }}</label>
+          <EnumField
+            :model-value="panel.value('FRAME_TYPE') ?? 0"
+            :options="types"
+            :label="t('setup.frame.type')"
+            :disabled="locked('FRAME_TYPE')"
+            @update:model-value="panel.set('FRAME_TYPE', $event)"
+          />
+          <label>{{ t('setup.frame.orientation') }}</label>
+          <EnumField
+            :model-value="panel.value('AHRS_ORIENTATION') ?? 0"
+            :options="orientations"
+            :label="t('setup.frame.orientation')"
+            :disabled="locked('AHRS_ORIENTATION')"
+            @update:model-value="panel.set('AHRS_ORIENTATION', $event)"
+          />
+        </div>
+        <FrameDiagram :frame-class="panel.value('FRAME_CLASS') ?? 0" :frame-type="panel.value('FRAME_TYPE') ?? 0" />
       </div>
-      <FrameDiagram :frame-class="panel.value('FRAME_CLASS') ?? 0" :frame-type="panel.value('FRAME_TYPE') ?? 0" />
+      <p class="muted">{{ note }}</p>
     </div>
     <PanelAside :panel="panel" id-prefix="setup-frame" />
   </section>
@@ -53,7 +56,7 @@ import Banner from '@/components/ui/Banner.vue'
 import EnumField from '@/components/fields/EnumField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { FRAME_CLASSES, FRAME_PARAMS, FRAME_TYPES, ORIENTATIONS, optionsOf } from '@/lib/setup/frame'
+import { FRAME_CLASSES, FRAME_PARAMS, FRAME_TYPES, ORIENTATIONS, layoutOf, optionsOf } from '@/lib/setup/frame'
 
 const { t } = useI18n()
 const uid = useId()
@@ -62,6 +65,12 @@ const classes = computed(() => optionsOf(FRAME_CLASSES, { value: 0, label: t('se
 const types = optionsOf(FRAME_TYPES)
 const orientations = computed(() => optionsOf(ORIENTATIONS, { value: 0, label: t('setup.frame.noRotation') }))
 const rebootNeeded = computed(() => panel.written.value.length > 0)
+/** The one note under the dropdowns and the drawing: when a change takes effect, and (if there is a drawing) how to read it. */
+const note = computed(() => {
+  const drawn = layoutOf(panel.value('FRAME_CLASS') ?? 0, panel.value('FRAME_TYPE') ?? 0) !== null
+
+  return [t('setup.frame.takesEffect'), drawn ? t('setup.frame.drawingKey') : ''].filter(Boolean).join(' ')
+})
 
 /**
  * Whether a field cannot be used now: nothing can be written, or the vehicle does not have the parameter.

@@ -66,7 +66,7 @@ afterAll(async () => {
   }
 })
 
-it('shows the four motor outputs at rest, and only the parameters\' buttons and the locked ones of the motor test', async () => {
+it('shows the four motor outputs at rest, and only the locked buttons of the motor test (the page writes nothing)', async () => {
   await openPage('motors')
   await window().waitFor(`document.querySelectorAll('#setup-outputs tr').length === 4`, 30_000)
 
@@ -74,28 +74,30 @@ it('shows the four motor outputs at rest, and only the parameters\' buttons and 
   expect(await window().text('[data-output="1"]')).toContain('1000 µs')
   const others = `.setup-page-body button:not(.motor-test-motor)`
   const buttons = await window().evaluate<string[]>(`[...document.querySelectorAll('${others}')].map(b => b.id)`)
-  expect(buttons).toEqual(['setup-motors-revert', 'setup-motors-write'])
+  expect(buttons).toEqual([])
   const locked = await window().evaluate<boolean[]>(`[...document.querySelectorAll('.motor-test-motor')].map(b => b.disabled)`)
   expect(locked).toEqual([true, true, true, true])
   expect(vehicle?.motorStarts).toBe(0)
 })
 
 it('names the ESC protocol the vehicle has', async () => {
+  await openPage('escs')
+  await window().waitFor(`document.querySelector('.setup-esc input') !== null`, 30_000)
   expect(await window().evaluate<string>(`document.querySelector('.setup-esc input').value`)).toBe('Normal')
 })
 
 it('chooses a spin threshold, and holds the write when they are out of order', async () => {
   await window().fill('[data-spin="MOT_SPIN_MAX"] input', '0.9')
   await window().waitFor(`document.querySelector('.setup-writes')?.textContent === 'MOT_SPIN_MAX'`, 10_000)
-  expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(false)
+  expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(false)
 
   // arm at 0.2 (the top of its range) is above min (0.15): out of order, nothing can be written until it is put right
   await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.2')
   await window().waitFor(`document.querySelector('#setup-spin-order') !== null`, 10_000)
-  expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(true)
+  expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(true)
   await window().fill('[data-spin="MOT_SPIN_ARM"] input', '0.1')
   await window().waitFor(`document.querySelector('#setup-spin-order') === null`, 10_000)
-  expect(await window().evaluate<boolean>(`document.querySelector('#setup-motors-write').disabled`)).toBe(false)
+  expect(await window().evaluate<boolean>(`document.querySelector('#setup-escs-write').disabled`)).toBe(false)
   expect(vehicle?.writes).toBe(0)
 })
 
@@ -130,6 +132,7 @@ function stopped(): number {
 }
 
 it('spins a motor only while its button is held, with the propellers off, and stops it when it is let go', async () => {
+  await openPage('motors')
   // the buttons are locked: a press on one does nothing
   await pointer('A', 'pointerdown')
   await pointer('A', 'pointerup')

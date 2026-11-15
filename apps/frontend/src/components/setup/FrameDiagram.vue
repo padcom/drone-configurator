@@ -17,7 +17,6 @@
       </g>
     </svg>
     <p v-else class="muted" id="setup-frame-nodrawing">{{ t('setup.frame.noDrawing') }}</p>
-    <figcaption v-if="motors" class="muted">{{ t('setup.frame.caption') }}</figcaption>
   </figure>
 </template>
 

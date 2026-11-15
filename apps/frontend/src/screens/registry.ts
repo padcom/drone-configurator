@@ -68,6 +68,7 @@ const SETUP_SECTIONS: readonly Section[] = [
   { id: 'accel', path: 'accel', titleKey: 'setup.section.accel', load: () => import('./setup/SetupAccel.vue') },
   { id: 'compass', path: 'compass', titleKey: 'setup.section.compass', load: () => import('./setup/SetupCompass.vue') },
   { id: 'radio', path: 'radio', titleKey: 'setup.section.radio', load: () => import('./setup/SetupRadio.vue') },
+  { id: 'escs', path: 'escs', titleKey: 'setup.section.escs', load: () => import('./setup/SetupEscs.vue') },
   { id: 'motors', path: 'motors', titleKey: 'setup.section.motors', load: () => import('./setup/SetupMotors.vue') },
   { id: 'modes', path: 'modes', titleKey: 'setup.section.modes', load: () => import('./setup/SetupModes.vue') },
   { id: 'failsafes', path: 'failsafes', titleKey: 'setup.section.failsafes', load: () => import('./setup/SetupFailsafes.vue') },

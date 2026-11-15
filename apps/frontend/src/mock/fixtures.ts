@@ -110,10 +110,13 @@ export const SETUP_PARAMS: Param[] = [
   p('SERIAL0_BAUD', 'int', 'INT32', 115),
   p('SERIAL1_PROTOCOL', 'int', 'INT8', 2),
   p('SERIAL1_BAUD', 'int', 'INT32', 57),
+  p('SERIAL1_OPTIONS', 'int', 'INT16', 0),
   p('SERIAL2_PROTOCOL', 'int', 'INT8', 5),
   p('SERIAL2_BAUD', 'int', 'INT32', 115),
+  p('SERIAL2_OPTIONS', 'int', 'INT16', 0),
   p('SERIAL3_PROTOCOL', 'int', 'INT8', -1),
   p('SERIAL3_BAUD', 'int', 'INT32', 38),
+  p('SERIAL3_OPTIONS', 'int', 'INT16', 0),
   // Device ids: an I2C compass (bus 1, address 0x1e, type 7), an SPI accelerometer and gyro (bus 0, addresses 1 and 2, type 9),
   // an SPI barometer (address 3, type 11); the second accelerometer was never seen.
   p('COMPASS_DEV_ID', 'int', 'INT32', 466_441),

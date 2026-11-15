@@ -1058,7 +1058,8 @@
         "accel": "Przejdź do ekranu Konfiguracja: Akcelerometr",
         "compass": "Przejdź do ekranu Konfiguracja: Kompas",
         "radio": "Przejdź do ekranu Konfiguracja: Radio",
-        "motors": "Przejdź do ekranu Konfiguracja: Silniki i regulatory",
+        "escs": "Przejdź do ekranu Konfiguracja: Regulatory ESC",
+        "motors": "Przejdź do ekranu Konfiguracja: Silniki",
         "modes": "Przejdź do ekranu Konfiguracja: Tryby lotu",
         "failsafes": "Przejdź do ekranu Konfiguracja: Zabezpieczenia",
         "battery": "Przejdź do ekranu Konfiguracja: Bateria",
@@ -1164,7 +1165,8 @@
       "accel": "Akcelerometr",
       "compass": "Kompas",
       "radio": "Radio",
-      "motors": "Silniki i regulatory",
+      "escs": "Regulatory ESC",
+      "motors": "Silniki",
       "modes": "Tryby lotu",
       "failsafes": "Zabezpieczenia",
       "battery": "Bateria",
@@ -1498,11 +1500,11 @@
       "class": "Klasa ramy",
       "type": "Typ ramy",
       "orientation": "Orientacja płytki",
-      "orientationHelp": "Działa po następnym uruchomieniu. Po zmianie wypoziomuj pojazd ponownie.",
+      "takesEffect": "Zmiany działają po następnym uruchomieniu. Po zmianie orientacji płytki wypoziomuj pojazd ponownie.",
       "undefined": "Niezdefiniowana",
       "noRotation": "Brak",
       "noDrawing": "Dla tej ramy nie ma rysunku.",
-      "caption": "Przód jest u góry. Numer to numer silnika w teście silników, a nie wyjście, do którego jest podłączony; strzałka to kierunek obrotów.",
+      "drawingKey": "Przód jest u góry. Numer to numer silnika w teście silników, a nie wyjście, do którego jest podłączony; strzałka to kierunek obrotów.",
       "motor": "Silnik {number} pod kątem {angle} stopni, obraca się {spin}",
       "cw": "zgodnie z ruchem wskazówek zegara",
       "ccw": "przeciwnie do ruchu wskazówek zegara"
@@ -1514,6 +1516,13 @@
       "port": "Serial {n}",
       "protocol": "Protokół portu serial {n}",
       "baud": "Prędkość portu serial {n}",
+      "options": "Opcje portu szeregowego {n}",
+      "head": {
+        "port": "Port",
+        "protocol": "Protokół",
+        "baud": "Prędkość",
+        "options": "Opcje"
+      },
       "none": "Ten pojazd nie ma parametrów portów szeregowych.",
       "noProtocol": "Brak",
       "willCut": "Po restarcie połączenie przez Serial {ports} zostanie utracone, jeśli ta aplikacja rozmawia przez ten port: niósł MAVLink lub może być portem stacji naziemnej."
@@ -1545,9 +1554,11 @@
         "wspi": "Szeroki SPI"
       }
     },
+    "escs": {
+      "summary": "Jak sterowane są regulatory ESC i progi, przy których kręcą się silniki."
+    },
     "motors": {
-      "summary": "Jak sterowane są regulatory ESC, progi, przy których kręcą się silniki, co teraz robią wyjścia pojazdu oraz test każdego silnika.",
-      "escTitle": "Ustawienia ESC",
+      "summary": "Co teraz robią wyjścia pojazdu oraz test każdego silnika.",
       "protocol": "Protokół ESC",
       "protocolHelp": "Protokół wyjść silników (MOT_PWM_TYPE). Działa po ponownym uruchomieniu, a regulatory ESC muszą go rozumieć.",
       "MOT_SPIN_ARM": "Obroty po uzbrojeniu",
