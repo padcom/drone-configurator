@@ -1,34 +1,36 @@
 <template>
-  <section class="setup-home" :aria-labelledby="`${uid}-title`">
-    <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.home.heading') }}</h3>
-    <p class="muted">{{ t('setup.home.summary') }}</p>
-    <p v-if="listing" class="muted" id="setup-loading">{{ t('setup.home.loading') }}</p>
-    <template v-else>
-      <ProgressBar :value="progress" :label="progressText" />
-      <p id="setup-progress" class="setup-progress">{{ progressText }}</p>
-      <p v-if="!status.next && status.required > 0" id="setup-next" class="muted">{{ t('setup.home.allSet') }}</p>
-      <div class="setup-cards">
-        <RouterLink
-          v-for="step in status.steps"
-          :id="step.id === status.next?.id ? 'setup-next' : undefined"
-          :key="step.id"
-          class="setup-card"
-          :class="[step.state, { next: step.id === status.next?.id }]"
-          :to="{ name: sectionRouteName('setup', step.id) }"
-        >
-          <!-- The step to do next is pointed at, on its own card: its name and value are said once. -->
-          <span v-if="step.id === status.next?.id" class="setup-next-mark">{{ t('setup.home.next') }}</span>
-          <span class="setup-card-head">
-            <span>{{ t(`setup.section.${step.id}`) }}</span>
-            <span class="setup-mark" :class="step.state" aria-hidden="true">{{ GLYPH[step.state] }}</span>
-            <span class="visually-hidden">{{ t(`setup.state.${step.state}`) }}</span>
-          </span>
-          <span class="setup-card-value">{{ fact(step.value) }}</span>
-          <!-- What was looked at: the card says how it knows, and never that the work is verified. -->
-          <span class="muted setup-card-checked">{{ fact(step.checked) }}</span>
-        </RouterLink>
-      </div>
-    </template>
+  <section class="setup-page-body setup-home" :aria-labelledby="`${uid}-title`">
+    <div class="setup-main">
+      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.home.heading') }}</h3>
+      <p class="muted">{{ t('setup.home.summary') }}</p>
+      <p v-if="listing" class="muted" id="setup-loading">{{ t('setup.home.loading') }}</p>
+      <template v-else>
+        <ProgressBar :value="progress" :label="progressText" />
+        <p id="setup-progress" class="setup-progress">{{ progressText }}</p>
+        <p v-if="!status.next && status.required > 0" id="setup-next" class="muted">{{ t('setup.home.allSet') }}</p>
+        <div class="setup-cards">
+          <RouterLink
+            v-for="step in status.steps"
+            :id="step.id === status.next?.id ? 'setup-next' : undefined"
+            :key="step.id"
+            class="setup-card"
+            :class="[step.state, { next: step.id === status.next?.id }]"
+            :to="{ name: sectionRouteName('setup', step.id) }"
+          >
+            <!-- The step to do next is pointed at, on its own card: its name and value are said once. -->
+            <span v-if="step.id === status.next?.id" class="setup-next-mark">{{ t('setup.home.next') }}</span>
+            <span class="setup-card-head">
+              <span>{{ t(`setup.section.${step.id}`) }}</span>
+              <span class="setup-mark" :class="step.state" aria-hidden="true">{{ GLYPH[step.state] }}</span>
+              <span class="visually-hidden">{{ t(`setup.state.${step.state}`) }}</span>
+            </span>
+            <span class="setup-card-value">{{ fact(step.value) }}</span>
+            <!-- What was looked at: the card says how it knows, and never that the work is verified. -->
+            <span class="muted setup-card-checked">{{ fact(step.checked) }}</span>
+          </RouterLink>
+        </div>
+      </template>
+    </div>
     <aside class="setup-facts" :aria-label="t('setup.home.facts')">
       <h3 class="setup-label">{{ t('setup.home.thisVehicle') }}</h3>
       <dl>

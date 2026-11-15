@@ -112,6 +112,7 @@ The harness only ever launches or connects to a simulator.
   - `src/` is laid out as in `apps/frontend/src/README.md`: `components/` (`ui/` the kit, `fields/`, `params/`, `fly/`, `shell/`), `screens/`, `composables/` (the state and the backend calls: `useVehicle.ts`, `useParams.ts`, `useMetadata.ts`, `useSnapshots.ts`, `useTelemetry.ts`; `useConfigurator.ts` puts them together, see `docs/frontend-state.md`), `lib/` (the plain logic of the components), `state/`, `backend/` (`client.ts`), `i18n/` (the text is in `i18n/locales/en.json`), `assets/styles/`, `mock/` and `testing/`;
   - `main.ts`: starts the composables and mounts the application (`components/shell/Shell.vue`);
   - `mock/mock-backend.ts` and `mock/fixtures.ts`: a deterministic simulated vehicle for Vitest and `pnpm ui`.
+  - The scrolling rule (`assets/styles/frame.css`, `setup.css`, `params.css`; checked by `e2e/layout.e2e.ts`): from 1000 px wide only the middle column of a screen scrolls (Parameters, Setup pages, Tune parts); the rail, the top bar, the list of pages or the tabs, the page header and the side panel stay where they are, and the middle column never scrolls sideways (what does not fit beside the list and the side panel is stacked, by a container query). The list and the side panel scroll by themselves only in a window too short for them. Below 1000 px wide everything is stacked, the rail lies on top and the page scrolls as a page does (a page-level scrollbar there is the design).
 
 ## Safety
 

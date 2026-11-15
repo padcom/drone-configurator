@@ -20,7 +20,7 @@
         "apps/frontend/src/components/tune/**", "apps/frontend/src/lib/tune/**", "apps/frontend/src/screens/{Tune.vue,tune/**}",
         "apps/frontend/src/composables/{useAnalysis,useTunePanel,useTuningStream}.ts", "apps/backend/{tuning,tuningstream}.pi"
       ],
-      "specs": ["tune.e2e.ts", "tune-response.e2e.ts", "analyse.e2e.ts", "shell.e2e.ts"]
+      "specs": ["tune.e2e.ts", "tune-response.e2e.ts", "analyse.e2e.ts", "shell.e2e.ts", "layout.e2e.ts"]
     },
     {
       "when": [
@@ -35,7 +35,7 @@
         "apps/frontend/src/composables/{useSetup,useSetupStatus,useCalibration}.ts", "apps/frontend/src/state/frame.ts",
         "apps/backend/{vehicleinfo,calibration}.pi"
       ],
-      "specs": ["setup.e2e.ts", "setup-initial.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"]
+      "specs": ["setup.e2e.ts", "setup-initial.e2e.ts", "frame.e2e.ts", "calibration.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts", "layout.e2e.ts"]
     },
     {
       "when": [

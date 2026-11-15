@@ -1,5 +1,5 @@
 <template>
-  <section class="setup-page-body single" :aria-labelledby="`${uid}-title`">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
       <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.accel') }}</h3>
       <p class="muted">{{ t('setup.accel.summary') }}</p>
@@ -19,7 +19,6 @@
           <span class="visually-hidden">{{ t(`setup.accel.state.${mark(p.position).state}`) }}</span>
         </li>
       </ol>
-      <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
       <div class="setup-actions">
         <Button id="setup-accel-start" variant="primary" :disabled="!canStart" @click="calibration.start('accel')">
           {{ t('setup.accel.start') }}
@@ -35,16 +34,32 @@
         </Button>
       </div>
       <p class="muted">{{ t('setup.accel.cancelNote') }}</p>
-      <template v-if="trusted">
-        <h4 class="setup-label">{{ t('setup.accel.values') }}</h4>
-        <dl id="setup-accel-values" class="setup-facts-list">
-          <template v-for="id in ACCEL_PARAMS" :key="id">
-            <dt>{{ id }}</dt>
-            <dd>{{ valueOf(id) }}</dd>
-          </template>
-        </dl>
-      </template>
     </div>
+    <!-- Read only: the vehicle writes these when it accepts the calibration, and this page writes none. Each name is said once:
+         after a success the same list has the values the vehicle holds now. -->
+    <aside class="setup-aside" :aria-label="t('setup.aside')">
+      <div :id="trusted ? 'setup-accel-values' : 'setup-accel-writes'">
+        <h2 class="setup-label">{{ t('setup.accel.changes') }}</h2>
+        <p class="muted">{{ t('setup.accel.changesNote') }}</p>
+        <div v-for="imu in imus" :key="imu.n">
+          <h3 class="setup-label">{{ t('setup.accel.imu', { n: imu.n }) }}</h3>
+          <dl v-if="trusted" class="setup-facts-list">
+            <template v-for="id in imu.ids" :key="id">
+              <dt>{{ id }}</dt>
+              <dd>{{ valueOf(id) }}</dd>
+            </template>
+          </dl>
+          <ul v-else class="setup-writes">
+            <li v-for="id in imu.ids" :key="id">{{ id }}</li>
+          </ul>
+        </div>
+        <p class="muted">{{ t('setup.accel.trimNote') }}</p>
+        <ul class="setup-writes">
+          <li v-for="id in TRIM_PARAMS" :key="id">{{ id }}</li>
+        </ul>
+      </div>
+      <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
+    </aside>
   </section>
 </template>
 
@@ -61,7 +76,25 @@ import { useI18n } from 'vue-i18n'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
-import { ACCEL_PARAMS, ACCEL_POSITIONS, accelPhase, positionKey, positionMark, shown } from '@/lib/setup/calibration'
+import { showNumber } from '@/lib/params/paramValue'
+import { ACCEL_POSITIONS, accelPhase, positionKey, positionMark } from '@/lib/setup/calibration'
+
+/** The trim of the board: set by "Level only", and by the full calibration when INS_TRIM_OPTION is 1 (the default). */
+const TRIM_PARAMS = ['AHRS_TRIM_X', 'AHRS_TRIM_Y']
+/** The IMUs a vehicle can have (the first one's parameters have no number in their names). */
+const IMU_NUMBERS = [1, 2, 3]
+
+/**
+ * The accelerometer parameters of an IMU.
+ *
+ * @param n the IMU, from 1
+ * @returns their names
+ */
+function imuIds(n: number): string[] {
+  const prefix = n === 1 ? 'INS_ACC' : `INS_ACC${n}`
+
+  return ['OFFS', 'SCAL'].flatMap(kind => ['X', 'Y', 'Z'].map(axis => `${prefix}${kind}_${axis}`))
+}
 
 const { t } = useI18n()
 const uid = useId()
@@ -80,6 +113,10 @@ const canConfirm = computed(() => phase.value === 'place' && !calibration.callin
 /** The offsets are trusted only when the vehicle said the accelerometer calibration succeeded. */
 const trusted = computed(() => state.value.kind === 'accel' && calibration.result.value?.outcome === 'success')
 const params = computed(() => new Map(handle.parameters.params.value.map(param => [param.id, param.value])))
+/** The IMUs of this vehicle (the first is always listed), each with the parameters its calibration writes. */
+const imus = computed(() => IMU_NUMBERS
+  .map(n => ({ n, ids: imuIds(n) }))
+  .filter(imu => imu.n === 1 || params.value.has(imu.ids[0] ?? '')))
 /** What the page says of where the calibration is, in words. */
 const status = computed(() => {
   const where = t(`setup.accel.position.${positionKey(asked.value)}`)
@@ -106,7 +143,7 @@ function mark(position: number): ReturnType<typeof positionMark> {
 function valueOf(id: string): string {
   const value = params.value.get(id)
 
-  return value === undefined ? '—' : shown(value)
+  return value === undefined ? '—' : showNumber(value)
 }
 
 /** Leaving the page cancels what runs: a calibration that nobody watches is not left going. */

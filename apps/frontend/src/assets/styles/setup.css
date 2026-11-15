@@ -80,19 +80,8 @@
   color: var(--color-text-muted);
 }
 
-.setup-home {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-3) var(--space-5);
-}
-
-.setup-home > :not(.setup-facts) {
-  grid-column: 1;
-}
-
 .setup-facts {
-  grid-column: 2;
-  grid-row: 1 / span 8;
+  align-self: start;
   padding: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -179,6 +168,7 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  container-type: inline-size;
 }
 
 .setup-aside {
@@ -322,6 +312,12 @@
   align-items: center;
 }
 
+/* A line of help under the fields takes the width of both columns (and gives the first none: it would be as wide as the text). */
+.setup-fields > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .setup-calibrate {
   display: flex;
   flex-direction: column;
@@ -390,15 +386,90 @@
   fill: var(--color-text-muted);
 }
 
-@media (max-width: 999px) {
-  .setup-home,
+@media (width < 1000px) {
   .setup-page-body {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
+/* From 1000 px wide the page is as high as the area and only its middle column scrolls, as on Parameters: the list of pages
+   (or the tabs and the banner of Tune), the page's header and the aside at the right stay where they are. The aside scrolls by
+   itself only if it is taller than the area. Below that everything stacks and the page scrolls as a page does. */
+@media (width >= 1000px) {
+  .app-main:has(> .setup, > .tune) {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+  }
+
+  .setup,
+  .tune {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .tune {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .setup-body {
+    flex: 1;
+    flex-wrap: nowrap;
+  }
+
+  /* A column that scrolls cuts what is outside its box: the room a focus outline needs (2 px + 2 px offset) is its padding, and the
+     margin takes it back, so the columns keep their places. */
+  /* They are also the box of what is placed in them (the visually hidden texts are absolute: without it they would lie in the page,
+     below the window, where this column has cut them off). */
+  .setup-nav,
+  .setup-main {
+    position: relative;
+    padding: var(--space-1);
+    margin: calc(-1 * var(--space-1));
+  }
+
+  .setup-nav {
+    gap: var(--space-1);
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* The list is tighter, so that it needs no scrolling of its own down to a window 600 px high. */
+  .setup-nav-home,
+  .setup-nav-link {
+    min-height: 32px;
+  }
+
+  .setup-nav .setup-label {
+    margin-bottom: var(--space-1);
+  }
+
+  .setup-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 520px;
+    min-height: 0;
+  }
+
+  .setup-page-body {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .setup-main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .setup-aside,
   .setup-facts {
-    grid-column: 1;
-    grid-row: auto;
+    position: relative;
+    min-height: 0;
+    overflow-y: auto;
+    align-self: stretch;
   }
 }
 
@@ -701,4 +772,22 @@
 .setup-outcome {
   margin: 0;
   padding-left: var(--space-4);
+}
+
+/* The middle column is narrow beside the list and the side panel (about 330 px at 1000 px wide): what is laid out in columns
+   wider than that is stacked, and nothing is cut off at its right edge. (Last, to win over the rules of the columns above.) */
+@container (width < 640px) {
+  .setup-channel-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .setup-channel-row > :nth-child(2),
+  .setup-channel-row > :nth-child(5) {
+    grid-column: 1 / -1;
+  }
+
+  .setup-esc,
+  .setup-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

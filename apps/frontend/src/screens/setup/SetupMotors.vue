@@ -81,6 +81,7 @@ import TextInput from '@/components/ui/TextInput.vue'
 import SetupMotorTest from './SetupMotorTest.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
+import { fieldText } from '@/lib/params/paramValue'
 import {
   MOTOR_PARAMS,
   PWM_TYPE,
@@ -152,7 +153,7 @@ function accepted(id: string, text: string): boolean {
 function spinField(id: string): SpinField {
   const [low, high] = rangeOf(id)
   const edited = typed.value[id]
-  const text = edited ?? String(panel.value(id) ?? '')
+  const text = edited ?? fieldText(panel.value(id))
 
   return { id, text, low, high, invalid: edited !== undefined && !accepted(id, edited) }
 }
