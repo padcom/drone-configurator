@@ -28,6 +28,7 @@
 import { usePaneKeys } from '@/lib/app/paneFocus'
 import { useCommandKeys } from '@/composables/useCommandKeys'
 import { useMetadataAtStart } from '@/composables/useMetadataAtStart'
+import { useCalibrationToasts } from '@/composables/useCalibrationToasts'
 import { useMetadataToasts } from '@/lib/params/metadataToasts'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -49,5 +50,7 @@ usePaneKeys(REGIONS)
 useCommandKeys()
 // How a metadata file went is told by a toast, once, whichever screen loaded it (Parameters, the palette, Settings).
 useMetadataToasts()
+// The end of a calibration is told the same way, whichever Setup page started it.
+useCalibrationToasts()
 useMetadataAtStart()
 </script>

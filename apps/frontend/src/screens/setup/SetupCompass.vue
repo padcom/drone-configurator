@@ -73,7 +73,9 @@
         </li>
       </ol>
     </div>
-    <PanelAside :panel="panel" id-prefix="setup-compass" only-present />
+    <PanelAside :panel="panel" id-prefix="setup-compass" only-present>
+      <CalibrationSays />
+    </PanelAside>
   </section>
 </template>
 
@@ -89,6 +91,7 @@
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
+import CalibrationSays from '@/components/setup/CalibrationSays.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
 import Button from '@/components/ui/Button.vue'

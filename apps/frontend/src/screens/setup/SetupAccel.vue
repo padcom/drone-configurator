@@ -59,6 +59,7 @@
         </ul>
       </div>
       <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
+      <CalibrationSays />
     </aside>
   </section>
 </template>
@@ -74,6 +75,7 @@
 import { computed, onBeforeUnmount, onDeactivated, onMounted, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
+import CalibrationSays from '@/components/setup/CalibrationSays.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { showNumber } from '@/lib/params/paramValue'

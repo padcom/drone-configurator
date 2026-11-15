@@ -47,7 +47,9 @@
       <p v-if="hasSwitches" class="muted">{{ t('setup.radio.auxHelp') }}</p>
       <p v-if="rssi !== null" class="muted">{{ t('setup.radio.rssi', { percent: rssi }) }}</p>
     </div>
-    <PanelAside :panel="panel" id-prefix="setup-radio" :hold="calibration.running.value" only-changed />
+    <PanelAside :panel="panel" id-prefix="setup-radio" :hold="calibration.running.value" only-changed>
+      <CalibrationSays />
+    </PanelAside>
   </section>
 </template>
 
@@ -64,6 +66,7 @@ import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch 
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
+import CalibrationSays from '@/components/setup/CalibrationSays.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'

@@ -10,12 +10,14 @@ import { i18n, setLanguage } from '@/i18n/i18n'
 import { SETUP_PARAMS, telemetryAt } from '@/mock/fixtures'
 import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import { createAppRouter } from '@/router'
+import { clearToasts, endToast, withCalibrationToasts } from '@/testing/calibrationToasts'
 import { feed } from '@/testing/testing'
 import SetupRadio from './SetupRadio.vue'
 
 let mounted: VueWrapper | undefined
 
 afterEach(() => {
+  clearToasts()
   setLanguage('en')
   mounted?.unmount()
   mounted = undefined
@@ -66,7 +68,7 @@ async function page(more: MockOptions = {}): Promise<Rig> {
   const router = createAppRouter(createMemoryHistory(), () => 0)
   await router.push('/setup/home')
   await router.isReady()
-  mounted = mount(SetupRadio, { global: { plugins: [i18n, router] } })
+  mounted = mount(withCalibrationToasts(SetupRadio), { global: { plugins: [i18n, router] } })
   await flushPromises()
 
   return { wrapper: mounted, handle, control }
@@ -159,7 +161,7 @@ it('captures while the user moves the sticks, ends only when the user says so, a
   await flushPromises()
   await vi.waitFor(() => expect(wrapper.find('#setup-radio-staged').exists()).toBe(true))
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('success')
+  expect(endToast()?.severity).toBe('success')
   // the range of roll, pitch and yaw and the throttle, and the trim of roll, pitch and yaw but not the throttle
   expect(writes(wrapper)).toEqual(expect.arrayContaining(['RC1_MIN', 'RC1_MAX', 'RC1_TRIM', 'RC3_MIN', 'RC3_MAX']))
   expect(writes(wrapper)).not.toContain('RC3_TRIM')
@@ -174,7 +176,7 @@ it('chooses nothing from a calibration that is cancelled, and says it was cancel
   await readyToFinish(wrapper)
   await press(wrapper, 'setup-radio-cancel')
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('cancelled')
+  expect(endToast()?.text).toContain('Calibration cancelled')
   expect(writes(wrapper)).toEqual([])
   expect(wrapper.find('#setup-radio-staged').exists()).toBe(false)
   expect(wrapper.get('#setup-radio-start').attributes('disabled')).toBeUndefined()
