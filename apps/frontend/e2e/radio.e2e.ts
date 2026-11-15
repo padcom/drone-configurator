@@ -5,6 +5,7 @@
 // chooses the ranges (not written) for the page's one write. The checks go on from one another: one app, one connection.
 import { setTimeout as sleep } from 'node:timers/promises'
 import { afterAll, beforeAll, expect, it } from 'vitest'
+import { endOf, waitForEnd } from './calibration-end'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
 import { TcpVehicle } from './tcp-vehicle'
@@ -64,10 +65,8 @@ async function pressWhenEnabled(id: string): Promise<void> {
  *
  * @returns `success`, `failed`, `cancelled` or `refused`
  */
-async function outcome(): Promise<string> {
-  await window().waitFor(`document.querySelector('#calibration-result') !== null`, 60_000)
-
-  return window().evaluate<string>(`document.querySelector('#calibration-result').getAttribute('data-outcome')`)
+function outcome(): Promise<string> {
+  return endOf(window())
 }
 
 /**
@@ -163,7 +162,7 @@ it('cancels a calibration when its page is left', async () => {
   await window().waitFor(`document.querySelector('#setup-radio-finish')?.disabled === false`, 60_000)
   await openPage('modes')
   await openPage('radio')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'cancelled'`, 30_000)
+  await waitForEnd(window(), 'cancelled', 30_000)
 
   await window().waitFor(`document.querySelector('#setup-radio-start')?.disabled === false`, 10_000)
   expect(await window().evaluate<number>(`document.querySelectorAll('.setup-writes li').length`)).toBe(0)
@@ -184,7 +183,7 @@ it('ends only when the user says so, and then chooses the ranges of the sticks t
   expect(await window().evaluate<number>(`document.querySelectorAll('.setup-writes li').length`)).toBe(0)
   await window().click('#setup-radio-finish')
 
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'success'`, 60_000)
+  await waitForEnd(window(), 'success', 60_000)
   await window().waitFor(`document.querySelectorAll('.setup-writes li').length > 0`, 10_000)
   const writes = await window().text('.setup-writes')
   expect(writes).toContain('RC1_MIN')

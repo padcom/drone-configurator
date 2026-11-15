@@ -4,6 +4,7 @@
 // its own success, the level is one press, the compass reports and waits for an explicit accept (nothing is kept before), and
 // a calibration that is left is cancelled. The checks go on from one another: one app, one connection.
 import { afterAll, beforeAll, expect, it } from 'vitest'
+import { endOf, waitForEnd } from './calibration-end'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
 import { TcpVehicle } from './tcp-vehicle'
@@ -65,10 +66,8 @@ async function pressWhenEnabled(id: string): Promise<void> {
  *
  * @returns `success`, `failed`, `cancelled` or `refused`
  */
-async function outcome(): Promise<string> {
-  await window().waitFor(`document.querySelector('#calibration-result') !== null`, 60_000)
-
-  return window().evaluate<string>(`document.querySelector('#calibration-result').getAttribute('data-outcome')`)
+function outcome(): Promise<string> {
+  return endOf(window())
 }
 
 beforeAll(async () => {
@@ -120,7 +119,7 @@ it('walks through the six positions the vehicle asks for, and ends with the vehi
 
 it('sets the level with one press', async () => {
   await pressWhenEnabled('setup-accel-level')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'success'`, 30_000)
+  await waitForEnd(window(), 'success', 30_000)
   await window().waitFor(`document.querySelector('#setup-accel-values') === null`, 10_000)
 
   expect(await window().text('#calibration-texts')).not.toContain('Calibration successful')
@@ -130,7 +129,7 @@ it('cancels, and says it was cancelled', async () => {
   await pressWhenEnabled('setup-accel-start')
   await window().waitFor(`document.querySelector('.setup-position[data-position="1"].current') !== null`, 30_000)
   await window().click('#setup-accel-cancel')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'cancelled'`, 30_000)
+  await waitForEnd(window(), 'cancelled', 30_000)
 
   // The page can start again once the cancel is answered.
   await window().waitFor(`document.querySelector('#setup-accel-start')?.disabled === false`, 10_000)
@@ -162,7 +161,7 @@ it('cancels a compass calibration when its page is left', async () => {
   await window().waitFor(`document.querySelector('[data-compass="0"]') !== null`, 30_000)
   await openPage('modes')
   await openPage('compass')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'cancelled'`, 30_000)
+  await waitForEnd(window(), 'cancelled', 30_000)
 
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-compass-accept') === null`)).toBe(true)
   await window().waitFor(`document.querySelector('#setup-compass-start')?.disabled === false`, 10_000)
