@@ -253,3 +253,18 @@ it('turns following on and off with the follow button, and centres when it turns
   await wrapper.get('#map-follow').trigger('click')
   expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
 })
+
+it('stops following when the map is moved with an arrow key or zoomed with the wheel, but not with + or -', async () => {
+  const { wrapper } = await map(vehicleSource(HERE).source)
+  await wrapper.get('.map').trigger('keydown', { key: '+' })
+  await wrapper.get('.map').trigger('keydown', { key: '-' })
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
+  await wrapper.get('.map').trigger('keydown', { key: 'ArrowLeft' })
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+  await wrapper.get('#map-centre').trigger('click')
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
+  await wrapper.get('.map').trigger('wheel', { deltaY: -100 })
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+})

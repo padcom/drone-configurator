@@ -244,7 +244,19 @@ function up(event: PointerEvent): void {
  * @param event the wheel event
  */
 function wheel(event: WheelEvent): void {
+  // (a zoom about the pointer moves the middle of the map: the map is the user's now, as after a drag)
+  following.value = false
   flight.wheel(event.deltaY < 0 ? 1 : -1, at(event))
+}
+
+/**
+ * Whether a key is pressed with a modifier (the browser's and the system's shortcuts are not the map's).
+ *
+ * @param event the key event
+ * @returns true when it is
+ */
+function modified(event: KeyboardEvent): boolean {
+  return event.ctrlKey || event.metaKey || event.altKey
 }
 
 /**
@@ -253,7 +265,9 @@ function wheel(event: WheelEvent): void {
  * @param event the key event
  */
 function key(event: KeyboardEvent): void {
-  if (flight.key(event.key, event.ctrlKey || event.metaKey || event.altKey)) {
+  if (flight.key(event.key, modified(event))) {
+    // (the arrows move the map off the vehicle: the user has taken it; + and - zoom about the middle, where the vehicle is)
+    following.value = following.value && !event.key.startsWith('Arrow')
     event.preventDefault()
   }
 }

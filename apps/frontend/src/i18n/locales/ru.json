@@ -561,8 +561,9 @@
       "group": "Аппарат на карте",
       "follow": "Следовать за аппаратом",
       "centre": "Центрировать на аппарате",
-      "label": "Аппарат в {lat}, {lon}, {height} м над домом",
-      "labelHeading": "Аппарат в {lat}, {lon}, курс {heading} градусов, {height} м над домом",
+      "at": "Аппарат в {lat}, {lon}",
+      "heading": "курс {heading} градусов",
+      "above": "{height} м над домом",
       "lastHeard": "последний раз слышали {seconds} с назад"
     },
     "home": {

@@ -3,10 +3,11 @@
 // connects, and home.
 import { flushPromises } from '@vue/test-utils'
 import { type EffectScope, effectScope } from 'vue'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { useLiveMapSource } from '@/composables/useLiveMapSource'
 import type { Telemetry } from '@/generated/app'
+import type { MapSource } from '@/lib/map/mapSource'
 import { VEHICLE, telemetryAt } from '@/mock/fixtures'
 import { mockBackend } from '@/mock/mock-backend'
 import { feed } from '@/testing/testing'
@@ -14,8 +15,19 @@ import { feed } from '@/testing/testing'
 const scopes: EffectScope[] = []
 
 afterEach(() => {
+  vi.useRealTimers()
   scopes.splice(0).forEach(scope => scope.stop())
 })
+
+/**
+ * How long ago the marker says the vehicle was heard.
+ *
+ * @param source the map source
+ * @returns milliseconds
+ */
+function ageOf(source: MapSource): number {
+  return source.vehicle.value?.ageMs ?? 0
+}
 
 /**
  * A source over a Configurator whose vehicle is connected.
@@ -24,6 +36,8 @@ afterEach(() => {
  */
 async function rig() {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
+  // (the mock backend's first events, "disconnected", arrive before the state is changed here)
+  await flushPromises()
   feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
   // (a connection that comes up clears the telemetry of the one before, a moment later)
   await flushPromises()
@@ -111,7 +125,7 @@ it('draws the path: a place for each step the vehicle moves, none while it stand
   expect(source.trail.value[2]?.lat).toBeCloseTo(47.397942, 6)
 })
 
-it('starts the path again when the vehicle is armed, and when another vehicle connects, and when the link ends', async () => {
+it('starts the path again when the vehicle is armed, and when ANOTHER vehicle connects', async () => {
   const { handle, source, report } = await rig()
   await report(at(0))
   await report(at(1))
@@ -122,10 +136,54 @@ it('starts the path again when the vehicle is armed, and when another vehicle co
   expect(source.trail.value).toHaveLength(2)
   feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE, sysid: VEHICLE.sysid + 1 } } })
   await flushPromises()
-  expect(source.trail.value).toHaveLength(0)
-  await report(at(4))
-  feed(handle, { connection: { state: 'disconnected' } })
-  await flushPromises()
 
   expect(source.trail.value).toHaveLength(0)
+  // (what the other vehicle held is gone: a marker the other vehicle left is not drawn once its telemetry is)
+  feed(handle, { telemetry: null })
+  await flushPromises()
+
+  expect(source.vehicle.value).toBeNull()
+})
+
+/**
+ * The link goes: the vehicle's telemetry is gone with it.
+ *
+ * @param handle the Configurator
+ */
+async function loseTheLink(handle: Awaited<ReturnType<typeof rig>>['handle']): Promise<void> {
+  feed(handle, { connection: { state: 'disconnected' } })
+  feed(handle, { telemetry: null })
+  await flushPromises()
+}
+
+it('keeps the path while the link is down, and the marker where it was last heard, old and getting older', async () => {
+  vi.useFakeTimers()
+  const { handle, source, report } = await rig()
+  await report(at(0))
+  await report(at(1))
+  await loseTheLink(handle)
+
+  expect(source.trail.value).toHaveLength(2)
+  expect(source.vehicle.value).toMatchObject({ stale: true })
+  expect(source.vehicle.value?.lat).toBeCloseTo(47.397842, 6)
+  const first = ageOf(source)
+  vi.advanceTimersByTime(5000)
+
+  expect(ageOf(source)).toBeGreaterThanOrEqual(first + 4000)
+})
+
+it('goes on with the same path when the same vehicle comes back, and fresh again with its next position', async () => {
+  const { handle, source, report } = await rig()
+  await report(at(0))
+  await report(at(1))
+  await loseTheLink(handle)
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await flushPromises()
+
+  expect(source.trail.value).toHaveLength(2)
+  expect(source.vehicle.value?.stale).toBe(true)
+  await report(at(2))
+
+  expect(source.trail.value).toHaveLength(3)
+  expect(source.vehicle.value?.stale).toBe(false)
 })

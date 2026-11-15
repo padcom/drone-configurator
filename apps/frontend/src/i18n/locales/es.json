@@ -561,8 +561,9 @@
       "group": "Vehículo en el mapa",
       "follow": "Seguir el vehículo",
       "centre": "Centrar en el vehículo",
-      "label": "Vehículo en {lat}, {lon}, {height} m sobre el origen",
-      "labelHeading": "Vehículo en {lat}, {lon}, rumbo {heading} grados, {height} m sobre el origen",
+      "at": "Vehículo en {lat}, {lon}",
+      "heading": "rumbo {heading} grados",
+      "above": "{height} m sobre el origen",
       "lastHeard": "oído por última vez hace {seconds} s"
     },
     "home": {

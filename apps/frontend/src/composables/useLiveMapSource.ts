@@ -1,7 +1,9 @@
 // What the live map draws: the connected vehicle's position (a marker with its heading, old when it has not been heard for
 // three seconds, none without a position), the path it has flown, and home. The trail starts again when the vehicle is armed (a
-// new flight), when another vehicle connects, and when the link ends; it is capped and thinned (lib/map/track.ts).
-import { type Ref, computed, shallowRef, watch } from 'vue'
+// new flight) and when ANOTHER vehicle connects (another system id); it is capped and thinned (lib/map/track.ts). While the link
+// is down, or the vehicle reconnects, the path stays and the marker stays where the vehicle was last heard, marked as old with
+// the time since: nothing is made up and nothing the user was looking at is wiped.
+import { type Ref, computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { type ConfiguratorHandle, useConfigurator } from '@/composables/useConfigurator'
 import type { Telemetry } from '@/generated/app'
 import type { MapSource } from '@/lib/map/mapSource'
@@ -20,20 +22,84 @@ function homeOf(telemetry: Telemetry | null | undefined): LatLon | null {
 }
 
 /**
- * Starts the path again when the vehicle is armed (a new flight), and when another vehicle connects or the link ends (it was
- * another's).
+ * Whether a vehicle that connected is another than the one before it (the link going away is none).
+ *
+ * @param sysid the system id that connected, if one did
+ * @param known the system id of the vehicle before
+ * @returns true when both are known and differ
+ */
+function anotherVehicle(sysid: number | undefined, known: number | undefined): boolean {
+  return sysid !== undefined && known !== undefined && sysid !== known
+}
+
+/**
+ * Starts the path again when the vehicle is armed (a new flight), and when another vehicle connects (a different system id: the
+ * path was another's). The same vehicle coming back, and the link going away, leave it as it is.
  *
  * @param handle the Configurator
  * @param restart what starts the path again (with whether the vehicle's place starts the new one)
  */
 function restartWhen(handle: ConfiguratorHandle, restart: (here: boolean) => void): void {
   const { connection } = handle.fields
+  const sysidNow = () => (connection.value.state === 'connected' ? connection.value.vehicle?.sysid : undefined)
+  let known = sysidNow()
   watch(() => handle.vehicle.telemetry.value?.armed === true, (armed, was) => {
     if (armed && !was) {
       restart(true)
     }
   })
-  watch(() => (connection.value.state === 'connected' ? connection.value.vehicle?.sysid : undefined), () => restart(false))
+  watch(sysidNow, sysid => {
+    if (anotherVehicle(sysid, known)) {
+      restart(false)
+    }
+    known = sysid ?? known
+  })
+}
+
+/** The vehicle as the map shows it: as it was last heard when it is not heard now. */
+interface Held {
+  /** The marker: the live one, else the last one, old and getting older. */
+  mark: Readonly<Ref<VehicleMark | null>>
+  /** Lets go of the last marker (another vehicle). */
+  forget: () => void
+}
+
+/** How often the age of a marker that is not heard now is counted again (ms). */
+const AGE_TICK_MS = 1000
+
+/**
+ * Keeps the last place the vehicle was heard at: shown as old, with the time since, while there is nothing newer (the link went,
+ * or the vehicle is reconnecting). The time is counted by a timer that runs only while the marker is held.
+ *
+ * @param heard the marker of what the vehicle says now (none when it says nothing)
+ * @returns the marker to show
+ */
+function holdLast(heard: Readonly<Ref<VehicleMark | null>>): Held {
+  const last = shallowRef<{ mark: VehicleMark, at: number } | null>(null)
+  const now = ref(Date.now())
+  let timer: ReturnType<typeof setInterval> | undefined
+  watch(heard, mark => {
+    if (mark) {
+      last.value = { mark, at: Date.now() }
+    }
+  }, { immediate: true })
+  watch(() => heard.value === null && last.value !== null, running => {
+    clearInterval(timer)
+    timer = running ? setInterval(() => void (now.value = Date.now()), AGE_TICK_MS) : undefined
+    now.value = Date.now()
+  }, { immediate: true })
+  onScopeDispose(() => clearInterval(timer))
+
+  const mark = computed<VehicleMark | null>(() => {
+    const kept = last.value
+    if (heard.value || !kept) {
+      return heard.value
+    }
+
+    return { ...kept.mark, ageMs: kept.mark.ageMs + Math.max(0, now.value - kept.at), stale: true }
+  })
+
+  return { mark, forget: () => void (last.value = null) }
 }
 
 /** The path flown, and what starts it again. */
@@ -80,10 +146,17 @@ function keepPath(vehicle: Readonly<Ref<VehicleMark | null>>): Path {
  */
 export function useLiveMapSource(handle: ConfiguratorHandle = useConfigurator()): MapSource {
   const { telemetry } = handle.vehicle
-  const vehicle = computed(() => markOf(telemetry.value?.position))
+  const heard = computed(() => markOf(telemetry.value?.position))
   const home = computed(() => homeOf(telemetry.value))
-  const { points, restart } = keepPath(vehicle)
-  restartWhen(handle, restart)
+  const held = holdLast(heard)
+  const { points, restart } = keepPath(heard)
+  restartWhen(handle, here => {
+    restart(here)
 
-  return { kind: 'live', vehicle, trail: points, home }
+    if (!here) {
+      held.forget()
+    }
+  })
+
+  return { kind: 'live', vehicle: held.mark, trail: points, home }
 }

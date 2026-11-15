@@ -561,8 +561,9 @@
       "group": "Fahrzeug auf der Karte",
       "follow": "Dem Fahrzeug folgen",
       "centre": "Auf das Fahrzeug zentrieren",
-      "label": "Fahrzeug bei {lat}, {lon}, {height} m über dem Startpunkt",
-      "labelHeading": "Fahrzeug bei {lat}, {lon}, Kurs {heading} Grad, {height} m über dem Startpunkt",
+      "at": "Fahrzeug bei {lat}, {lon}",
+      "heading": "Kurs {heading} Grad",
+      "above": "{height} m über dem Startpunkt",
       "lastHeard": "zuletzt vor {seconds} s gehört"
     },
     "home": {

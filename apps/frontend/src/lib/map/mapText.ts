@@ -144,30 +144,20 @@ export function lastHeardText(mark: VehicleMark, say: Say): string {
 }
 
 /**
- * The values the words of a marker have: the place to five decimals (about a metre), the heading and the height in whole units.
- *
- * @param mark the vehicle on the map
- * @returns the named values
- */
-function namedOf(mark: VehicleMark): Record<string, unknown> {
-  return {
-    lat: mark.lat.toFixed(5),
-    lon: mark.lon.toFixed(5),
-    heading: Math.round(mark.heading ?? 0),
-    height: Math.round(mark.height ?? 0),
-  }
-}
-
-/**
- * What a marker of the vehicle says to a screen reader: where it is, the way it heads and how high it is above home, and (when
- * its position is old) how long ago it was heard.
+ * What a marker of the vehicle says to a screen reader: where it is, the way it heads and how high it is above home (each only
+ * when the vehicle said it), and (when its position is old) how long ago it was heard.
  *
  * @param mark the vehicle on the map
  * @param say looks up a message
  * @returns the words
  */
 export function vehicleLabel(mark: VehicleMark, say: Say): string {
-  const where = say(mark.heading === undefined ? 'map.vehicle.label' : 'map.vehicle.labelHeading', namedOf(mark))
+  const parts = [
+    say('map.vehicle.at', { lat: mark.lat.toFixed(5), lon: mark.lon.toFixed(5) }),
+    mark.heading === undefined ? '' : say('map.vehicle.heading', { heading: Math.round(mark.heading) }),
+    mark.height === undefined ? '' : say('map.vehicle.above', { height: Math.round(mark.height) }),
+  ]
+  const where = parts.filter(Boolean).join(', ')
 
   return mark.stale ? `${where} ${lastHeardText(mark, say)}` : where
 }

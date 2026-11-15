@@ -42,7 +42,7 @@
         "apps/frontend/src/components/{settings,map}/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/{useMapSettings,useFlightMap,useLiveMapSource}.ts",
         "apps/frontend/src/screens/{Settings,FlightData}.vue", "apps/backend/{map*,settings,groups,telemetry}.pi", "packages/contracts/app.cddl"
       ],
-      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts", "sitl-flight-map.e2e.ts"]
+      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts", "flight-map-vehicle.e2e.ts", "sitl-flight-map.e2e.ts"]
     },
     {
       "when": [

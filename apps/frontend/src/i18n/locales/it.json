@@ -561,8 +561,9 @@
       "group": "Veicolo sulla mappa",
       "follow": "Segui il veicolo",
       "centre": "Centra sul veicolo",
-      "label": "Veicolo a {lat}, {lon}, {height} m sopra casa",
-      "labelHeading": "Veicolo a {lat}, {lon}, prua {heading} gradi, {height} m sopra casa",
+      "at": "Veicolo a {lat}, {lon}",
+      "heading": "prua {heading} gradi",
+      "above": "{height} m sopra casa",
       "lastHeard": "sentito {seconds} s fa"
     },
     "home": {

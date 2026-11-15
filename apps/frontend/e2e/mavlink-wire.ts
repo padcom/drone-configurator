@@ -19,6 +19,8 @@ const CRC_EXTRA: Record<number, number> = {
   [MSG_PARAM_VALUE]: 220,
   [MSG_PARAM_SET]: 168,
   [MSG_GLOBAL_POSITION_INT]: 104,
+  // HOME_POSITION
+  242: 104,
   [MSG_COMMAND_LONG]: 152,
   [MSG_COMMAND_ACK]: 143,
 }

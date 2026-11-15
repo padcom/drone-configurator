@@ -70,6 +70,13 @@ it('draws a dot when the vehicle does not say where it heads', () => {
   expect(marker.attributes('aria-label')).toBe('Vehicle at 47.39774, 8.54559, 12 m above home')
 })
 
+it('says nothing of a height the vehicle did not give (never "0 m above home")', () => {
+  const marker = overlay({ vehicle: { ...HERE, height: undefined } }).get('.map-vehicle')
+
+  expect(marker.attributes('aria-label')).toBe('Vehicle at 47.39774, 8.54559, heading 90 degrees')
+  expect(marker.attributes('data-height')).toBeUndefined()
+})
+
 it('hatches the vehicle and says when it was heard last when its position is old', () => {
   const marker = overlay({ vehicle: { ...HERE, ageMs: 5400, stale: true } }).get('.map-vehicle')
 

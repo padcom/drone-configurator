@@ -561,8 +561,9 @@
       "group": "Pojazd na mapie",
       "follow": "Podążaj za pojazdem",
       "centre": "Wyśrodkuj na pojeździe",
-      "label": "Pojazd w {lat}, {lon}, {height} m nad punktem startu",
-      "labelHeading": "Pojazd w {lat}, {lon}, kurs {heading} stopni, {height} m nad punktem startu",
+      "at": "Pojazd w {lat}, {lon}",
+      "heading": "kurs {heading} stopni",
+      "above": "{height} m nad punktem startu",
       "lastHeard": "ostatnio słyszany {seconds} s temu"
     },
     "home": {
