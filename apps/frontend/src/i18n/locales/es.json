@@ -686,6 +686,7 @@
       "cache": "Espacio para teselas guardadas",
       "used": "La caché contiene {size}.",
       "counting": "La caché contiene al menos {size} (contando el resto…).",
+      "folder": "Las teselas se guardan en esta carpeta (puede borrarla): {path}",
       "clear": "Vaciar la caché",
       "cleared": "{count} tesela eliminada ({size}). | {count} teselas eliminadas ({size}).",
       "state": {

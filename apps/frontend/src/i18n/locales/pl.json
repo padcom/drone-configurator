@@ -686,6 +686,7 @@
       "cache": "Miejsce na zachowane kafelki",
       "used": "Pamięć podręczna zawiera {size}.",
       "counting": "Pamięć podręczna zawiera co najmniej {size} (reszta jest liczona…).",
+      "folder": "Kafelki są przechowywane w tym folderze (możesz go usunąć): {path}",
       "clear": "Wyczyść pamięć podręczną",
       "cleared": "Usunięto {count} kafelek ({size}). | Usunięto {count} kafelki ({size}). | Usunięto {count} kafelków ({size}).",
       "state": {

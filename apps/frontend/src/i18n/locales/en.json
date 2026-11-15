@@ -686,6 +686,7 @@
       "cache": "Room for kept tiles",
       "used": "The cache holds {size}.",
       "counting": "The cache holds at least {size} (counting the rest…).",
+      "folder": "The tiles are kept in this folder (you can delete it): {path}",
       "clear": "Clear the cache",
       "cleared": "{count} tile removed ({size}). | {count} tiles removed ({size}).",
       "state": {

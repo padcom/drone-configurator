@@ -686,6 +686,7 @@
       "cache": "Platz für gespeicherte Kacheln",
       "used": "Der Cache enthält {size}.",
       "counting": "Der Cache enthält mindestens {size} (der Rest wird gezählt…).",
+      "folder": "Die Kacheln liegen in diesem Ordner (Sie können ihn löschen): {path}",
       "clear": "Cache leeren",
       "cleared": "{count} Kachel entfernt ({size}). | {count} Kacheln entfernt ({size}).",
       "state": {

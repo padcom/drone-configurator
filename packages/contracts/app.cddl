@@ -1078,8 +1078,9 @@ map-tile = { contentType: tstr, bytes: bstr, fromCache: bool, stale: bool, fetch
 ; is whether the source's terms allow keeping tiles for offline use beyond browsing (the built-in one does not). `host` is only the
 ; host of a custom address: the rest of it may hold a key and is never shown or logged. `source` is the one in use, `enabled` and
 ; `offline` the settings as the backend reads them, `cacheMb` the cap, `cacheBytes` what the cache holds now (`counted` is false
-; while the first count of an old cache is still going), `customError` why the custom address cannot be used, and `notice` something
-; to tell once (the settings could not be read: the defaults are used).
+; while the first count of an old cache is still going), `cacheDir` the folder the tiles are kept in (the full path, for people to
+; find and delete), `customError` why the custom address cannot be used, and `notice` something to tell once (the settings could not
+; be read: the defaults are used).
 map-sources = {
   sources: [* map-source],
   source: tstr,
@@ -1088,6 +1089,7 @@ map-sources = {
   cacheMb: uint .size 2,
   cacheBytes: uint .size 8,
   counted: bool,
+  cacheDir: tstr,
   ? customError: tstr,
   ? notice: tstr,
 }

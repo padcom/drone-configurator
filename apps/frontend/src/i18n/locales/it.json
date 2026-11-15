@@ -686,6 +686,7 @@
       "cache": "Spazio per le tessere conservate",
       "used": "La cache contiene {size}.",
       "counting": "La cache contiene almeno {size} (conteggio del resto in corso…).",
+      "folder": "Le tessere sono conservate in questa cartella (puoi eliminarla): {path}",
       "clear": "Svuota la cache",
       "cleared": "{count} tessera rimossa ({size}). | {count} tessere rimosse ({size}).",
       "state": {
