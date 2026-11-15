@@ -286,6 +286,57 @@
       "queue": "{count} Änderung zur Warteschlange hinzufügen | {count} Änderungen zur Warteschlange hinzufügen",
       "revert": "Haken zurücksetzen"
     },
+    "replay": {
+      "title": "Wiedergabe auf der Karte",
+      "aside": "Steuerung der Wiedergabe",
+      "log": "Flug: {name}",
+      "pick": "Flug wählen",
+      "readingBar": "Log {id} wird gelesen",
+      "idle": {
+        "title": "Kein Flug gewählt",
+        "help": "Wählen Sie einen Flug aus den Logs auf diesem Computer, um ihn auf der Karte zu sehen."
+      },
+      "none": {
+        "title": "Dieser Flug lässt sich nicht auf einer Karte zeigen",
+        "noTimes": "Das Log hat keine Zeiten, also gibt es keinen Flug, den man auf einer Karte zeigen könnte."
+      },
+      "skipped": "Positionen, die kein Ort waren (kein Fix, 0 und 0 oder außerhalb der Erde) und nicht gezeichnet werden: {count}.",
+      "noHome": "Das Log sagt nicht, wo Home war, daher wird keines gezeichnet.",
+      "source": {
+        "pos": "Positionen aus der eigenen Schätzung des Fahrzeugs (EKF): {count}. Der Flug dauert {length}. Für die Karte ausgedünnt.",
+        "gps": "GPS-Positionen mit 3D-Fix: {count}. Das Log hat keine geschätzte Position. Der Flug dauert {length}. Für die Karte ausgedünnt."
+      },
+      "status": {
+        "ready": "Log {id} ist bereit zur Wiedergabe",
+        "stopped": "Das Lesen wurde gestoppt"
+      },
+      "transport": {
+        "title": "Wiedergabe",
+        "play": "Abspielen",
+        "pause": "Pause",
+        "scrub": "Stelle im Flug",
+        "speed": "Geschwindigkeit",
+        "speedOption": "{speed}×",
+        "clock": "{at} von {total}"
+      },
+      "tiles": {
+        "title": "Am Cursor",
+        "position": "Position",
+        "height": "Höhe über Home",
+        "altitude": "Höhe über dem Meer",
+        "speed": "Geschwindigkeit über Grund",
+        "battery": "Akku",
+        "mode": "Modus"
+      },
+      "jump": {
+        "title": "Springen zu",
+        "none": "Das Log hat keine Ereignisse zum Anspringen.",
+        "armed": "Scharf",
+        "disarmed": "Entschärft",
+        "mode": "Modus: {mode}",
+        "go": "Gehe zu {at}: {what}"
+      }
+    },
     "spectrum": {
       "tlog": "Für eine Logdatei (.tlog) nicht verfügbar: sie enthält keine rohen IMU-Pakete. Öffne ein vom Fahrzeug heruntergeladenes Log.",
       "title": "Spektrum",
@@ -392,10 +443,6 @@
       "flights": {
         "title": "Noch keine Flüge",
         "help": "Flüge aus heruntergeladenen Logs werden hier aufgelistet. Logs lesen ist noch nicht verfügbar."
-      },
-      "replay": {
-        "title": "Die Wiedergabe ist noch nicht verfügbar",
-        "help": "Sie kommt mit der Karte: Ein Flug wird als Pfad gezeichnet, der abgespielt werden kann."
       },
       "spectrum": {
         "title": "Das Spektrum ist noch nicht verfügbar",

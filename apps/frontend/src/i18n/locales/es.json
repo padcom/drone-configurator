@@ -286,6 +286,57 @@
       "queue": "Añadir {count} cambio a la cola | Añadir {count} cambios a la cola",
       "revert": "Deshacer las marcas"
     },
+    "replay": {
+      "title": "Reproducción en el mapa",
+      "aside": "Controles de la reproducción",
+      "log": "Vuelo: {name}",
+      "pick": "Elegir un vuelo",
+      "readingBar": "Leyendo el registro {id}",
+      "idle": {
+        "title": "Ningún vuelo elegido",
+        "help": "Elija un vuelo de los registros de este equipo para verlo en el mapa."
+      },
+      "none": {
+        "title": "Este vuelo no se puede mostrar en un mapa",
+        "noTimes": "El registro no tiene tiempos, así que no hay un vuelo que mostrar en un mapa."
+      },
+      "skipped": "Posiciones que no eran un lugar (sin fix, 0 y 0, o fuera del globo) y no se dibujan: {count}.",
+      "noHome": "El registro no dice dónde estaba el punto de origen, así que no se dibuja ninguno.",
+      "source": {
+        "pos": "Posiciones de la estimación propia del vehículo (EKF): {count}. El vuelo dura {length}. Reducidas para el mapa.",
+        "gps": "Posiciones GPS con fix 3D: {count}. El registro no tiene posición estimada. El vuelo dura {length}. Reducidas para el mapa."
+      },
+      "status": {
+        "ready": "El registro {id} está listo para reproducir",
+        "stopped": "Se detuvo la lectura"
+      },
+      "transport": {
+        "title": "Reproducción",
+        "play": "Reproducir",
+        "pause": "Pausa",
+        "scrub": "Punto del vuelo",
+        "speed": "Velocidad",
+        "speedOption": "{speed}×",
+        "clock": "{at} de {total}"
+      },
+      "tiles": {
+        "title": "En el cursor",
+        "position": "Posición",
+        "height": "Altura sobre el origen",
+        "altitude": "Altitud sobre el nivel del mar",
+        "speed": "Velocidad sobre el suelo",
+        "battery": "Batería",
+        "mode": "Modo"
+      },
+      "jump": {
+        "title": "Ir a",
+        "none": "El registro no tiene eventos a los que ir.",
+        "armed": "Armado",
+        "disarmed": "Desarmado",
+        "mode": "Modo: {mode}",
+        "go": "Ir a {at}: {what}"
+      }
+    },
     "spectrum": {
       "tlog": "No disponible para un archivo de registro (.tlog): no contiene lotes de IMU sin procesar. Abre un registro descargado del vehículo.",
       "title": "Espectro",
@@ -392,10 +443,6 @@
       "flights": {
         "title": "Aún no hay vuelos",
         "help": "Aquí se listarán los vuelos de los registros descargados. Leer registros todavía no está disponible."
-      },
-      "replay": {
-        "title": "La reproducción todavía no está disponible",
-        "help": "Llega con el mapa: un vuelo se dibuja como una trayectoria que se puede reproducir."
       },
       "spectrum": {
         "title": "El espectro todavía no está disponible",

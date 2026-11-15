@@ -18,24 +18,35 @@ afterEach(() => {
 const SIZE = { width: 800, height: 600 }
 const HERE: VehicleMark = { lat: 47.397742, lon: 8.545594, heading: 90, height: 12.4, ageMs: 200, stale: false }
 
+/** What the test sets of a source: the vehicle, home, the path flown and the path ahead. */
+interface Parts {
+  vehicle?: VehicleMark | null
+  home?: LatLon | null
+  trail?: LatLon[]
+  ahead?: LatLon[]
+}
+
+/**
+ * A source of the parts.
+ *
+ * @param parts what the test sets
+ * @returns the source
+ */
+function sourceOf(parts: Parts): MapSource {
+  const all = { vehicle: null, home: null, trail: [], ahead: [], ...parts }
+
+  return { kind: 'live', vehicle: ref(all.vehicle), home: ref(all.home), trail: ref(all.trail), ahead: ref(all.ahead) }
+}
+
 /**
  * The overlay over a source whose parts the test sets.
  *
- * @param parts the vehicle, home and the path
- * @param parts.vehicle the vehicle
- * @param parts.home home
- * @param parts.trail the path
+ * @param parts the vehicle, home, the path flown and the path ahead
  * @returns the overlay
  */
-function overlay(parts: { vehicle?: VehicleMark | null, home?: LatLon | null, trail?: LatLon[] }): VueWrapper {
-  const source: MapSource = {
-    kind: 'live',
-    vehicle: ref(parts.vehicle ?? null),
-    home: ref(parts.home ?? null),
-    trail: ref(parts.trail ?? []),
-  }
+function overlay(parts: Parts): VueWrapper {
   const place = (lat: number, lon: number) => ({ x: 400 + (lon - 8.545594) * 100_000, y: 300 - (lat - 47.397742) * 100_000 })
-  mounted = mount(MapOverlay, { ...withI18n, props: { source, place, size: SIZE } })
+  mounted = mount(MapOverlay, { ...withI18n, props: { source: sourceOf(parts), place, size: SIZE } })
 
   return mounted
 }
@@ -102,4 +113,14 @@ it('draws home with its place, and the path as a line through its points', () =>
 
 it('draws no line for a path of one point', () => {
   expect(overlay({ trail: [{ lat: 47.397742, lon: 8.545594 }] }).find('.map-trail').exists()).toBe(false)
+})
+
+it('draws the path still to fly (a recorded flight) as its own line, and none when the source has none', () => {
+  const a = { lat: 47.397742, lon: 8.545594 }
+  const b = { lat: 47.398742, lon: 8.545594 }
+  const wrapper = overlay({ trail: [a, b], ahead: [b, { lat: 47.399742, lon: 8.545594 }] })
+
+  expect(wrapper.get('.map-ahead').attributes('points')).toBe('400.0,200.0 400.0,100.0')
+  expect(wrapper.get('.map-trail').attributes('points')).toBe('400.0,300.0 400.0,200.0')
+  expect(overlay({ trail: [a, b] }).find('.map-ahead').exists()).toBe(false)
 })

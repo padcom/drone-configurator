@@ -369,6 +369,51 @@ function validateLogsLocalSeriesInto(value: any, path: string): boolean {
 /** The first problem with `value` as a logs-local-series, or null. */
 export const validateLogsLocalSeries = (value: unknown) => run(validateLogsLocalSeriesInto, value)
 
+export type LogsLocalTrackAsk = { "key": string, "maxPoints"?: number }
+
+function validateLogsLocalTrackAskInto(value: any, path: string): boolean {
+  return map(value, path, ["key","maxPoints"]) && (value["key"] === undefined ? fail(`${path}.key`, 'present') : nested(value["key"], `${path}.key`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["maxPoints"] === undefined || nested(value["maxPoints"], `${path}.maxPoints`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a logs-local-track-ask, or null. */
+export const validateLogsLocalTrackAsk = (value: unknown) => run(validateLogsLocalTrackAskInto, value)
+
+export type TrackPoint = { "timeUs": number | bigint, "lat": number, "lon": number, "alt"?: number }
+
+function validateTrackPointInto(value: any, path: string): boolean {
+  return map(value, path, ["timeUs","lat","lon","alt"]) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["lat"] === undefined ? fail(`${path}.lat`, 'present') : nested(value["lat"], `${path}.lat`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["lon"] === undefined ? fail(`${path}.lon`, 'present') : nested(value["lon"], `${path}.lon`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["alt"] === undefined || nested(value["alt"], `${path}.alt`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a track-point, or null. */
+export const validateTrackPoint = (value: unknown) => run(validateTrackPointInto, value)
+
+export type TrackPlace = { "lat": number, "lon": number }
+
+function validateTrackPlaceInto(value: any, path: string): boolean {
+  return map(value, path, ["lat","lon"]) && (value["lat"] === undefined ? fail(`${path}.lat`, 'present') : nested(value["lat"], `${path}.lat`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["lon"] === undefined ? fail(`${path}.lon`, 'present') : nested(value["lon"], `${path}.lon`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a track-place, or null. */
+export const validateTrackPlace = (value: unknown) => run(validateTrackPlaceInto, value)
+
+export type TrackEvent = { "timeUs": number | bigint, "kind": "armed" | "disarmed" | "text", "text"?: string }
+
+function validateTrackEventInto(value: any, path: string): boolean {
+  return map(value, path, ["timeUs","kind","text"]) && (value["timeUs"] === undefined ? fail(`${path}.timeUs`, 'present') : nested(value["timeUs"], `${path}.timeUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => oneOf(value, path, ["armed","disarmed","text"]))) && (value["text"] === undefined || nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a track-event, or null. */
+export const validateTrackEvent = (value: unknown) => run(validateTrackEventInto, value)
+
+export type LocalLogTrack = { "source": "pos" | "gps", "fixes": number, "skipped": number, "points": (TrackPoint)[], "home"?: TrackPlace, "events": (TrackEvent)[] }
+
+function validateLocalLogTrackInto(value: any, path: string): boolean {
+  return map(value, path, ["source","fixes","skipped","points","home","events"]) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["pos","gps"]))) && (value["fixes"] === undefined ? fail(`${path}.fixes`, 'present') : nested(value["fixes"], `${path}.fixes`, (value, path) => uint(value, path, 0xffffffff))) && (value["skipped"] === undefined ? fail(`${path}.skipped`, 'present') : nested(value["skipped"], `${path}.skipped`, (value, path) => uint(value, path, 0xffffffff))) && (value["points"] === undefined ? fail(`${path}.points`, 'present') : nested(value["points"], `${path}.points`, (value, path) => list(value, path, (value, path) => validateTrackPointInto(value, path)))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validateTrackPlaceInto(value, path))) && (value["events"] === undefined ? fail(`${path}.events`, 'present') : nested(value["events"], `${path}.events`, (value, path) => list(value, path, (value, path) => validateTrackEventInto(value, path))))
+}
+
+/** The first problem with `value` as a local-log-track, or null. */
+export const validateLocalLogTrack = (value: unknown) => run(validateLocalLogTrackInto, value)
+
 export type ReviewFinding = { "id": string, "level": "ok" | "warn" | "bad" | "info" | "no-data", "value"?: number, "limit"?: number, "atUs"?: number | bigint, "samples"?: number, "rateHz"?: number }
 
 function validateReviewFindingInto(value: any, path: string): boolean {
@@ -1090,6 +1135,7 @@ export interface Services {
   "logs.local.read": { kind: 'method', request: LogsLocalRead, response: LocalLogSummary }
   "logs.local.modes": { kind: 'method', request: LogsLocalRead, response: LocalLogModes }
   "logs.local.series": { kind: 'method', request: LogsLocalSeriesAsk, response: LogsLocalSeries }
+  "logs.local.track": { kind: 'method', request: LogsLocalTrackAsk, response: LocalLogTrack }
   "logs.local.review": { kind: 'method', request: LogsLocalRead, response: LogsReview }
   "logs.local.messages": { kind: 'method', request: LogsLocalRead, response: LocalLogMessages }
   "logs.local.at": { kind: 'method', request: LogsLocalAtAsk, response: LocalLogAt }
@@ -1201,6 +1247,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "logs.local.series": {
     request: (value: any, path: string) => validateLogsLocalSeriesAskInto(value, path),
     response: (value: any, path: string) => validateLogsLocalSeriesInto(value, path),
+  },
+  "logs.local.track": {
+    request: (value: any, path: string) => validateLogsLocalTrackAskInto(value, path),
+    response: (value: any, path: string) => validateLocalLogTrackInto(value, path),
   },
   "logs.local.review": {
     request: (value: any, path: string) => validateLogsLocalReadInto(value, path),

@@ -58,6 +58,15 @@ services = {
   ; value and how many there are, so that a spike of one sample is never lost. A part with no sample is not in the answer (a gap,
   ; never a zero). One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), with `logs.local.progress`.
   "logs.local.series": ["method", logs-local-series-ask, logs-local-series],
+  ; Where a log that was read flew (the replay on the map): the position fixes, thinned to at most `maxPoints` (default 2000, at most
+  ; 5000) by time, each part of the time keeping its first and last fix and the one farthest from its first, so that a turn is never
+  ; cut short; home, where the log says it was; and the events the page jumps to (the vehicle armed or disarmed, and the vehicle's
+  ; own warnings). The positions are the EKF's (`POS`; a recording's GLOBAL_POSITION_INT) when the log has any, else the GPS's 3D
+  ; fixes of its first receiver (`source`). A fix at 0, 0, outside the globe, or without a number is NEVER a point. A log with
+  ; no position at all is `UNAVAILABLE`, with the reason: nothing is drawn. One read at a time (`BUSY`), cancelable with
+  ; `logs.local.cancel` (`ABORTED`), `NOT_READ` for a log that was not read (or changed since), `NOT_VERIFIED` for one that is not
+  ; verified (nothing is taken from it), `CHANGED` if the file changed meanwhile.
+  "logs.local.track": ["method", logs-local-track-ask, local-log-track],
   ; The automatic review of a log that was read (`NOT_READ` otherwise): findings from the messages every log has, each with what it
   ; rests on. ONLY a verified log is reviewed (`NOT_VERIFIED` otherwise): nothing is concluded from bytes that are not known to be the
   ; vehicle's. One read at a time (`BUSY`), cancelable with `logs.local.cancel` (`ABORTED`), `CHANGED` if the file changed meanwhile.
@@ -550,6 +559,29 @@ logs-local-series = {
   toUs: uint .size 8,
   buckets: uint .size 2,
   series: [* series-result],
+}
+
+logs-local-track-ask = { key: tstr, ? maxPoints: uint .size 2 }
+
+; A fix of the track: the time (microseconds since the vehicle's boot, as `firstUs` of the summary), the place in degrees, and the
+; height above sea level in metres when the log says it (a number, else absent).
+track-point = { timeUs: uint .size 8, lat: float, lon: float, ? alt: float }
+
+track-place = { lat: float, lon: float }
+
+; Something that happened, for the page to jump to: `armed` or `disarmed` (the log's own events), or a `text` the vehicle printed
+; that is a warning (it names a failsafe, an error, a crash or a lost link or sensor).
+track-event = { timeUs: uint .size 8, kind: "armed" / "disarmed" / "text", ? text: tstr }
+
+; `fixes` is how many positions the log has (before the thinning), `skipped` how many positions were no place (no 3D fix, 0 and 0,
+; outside the globe, not a number). `points` are in time order.
+local-log-track = {
+  source: "pos" / "gps",
+  fixes: uint .size 4,
+  skipped: uint .size 4,
+  points: [+ track-point],
+  ? home: track-place,
+  events: [* track-event],
 }
 
 ; One finding. `id` says what it is (`vibration.x`, `vibration.y`, `vibration.z`, `vibration.clipping`, `gps.satellites`, `gps.hdop`,

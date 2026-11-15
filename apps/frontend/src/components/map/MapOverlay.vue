@@ -7,6 +7,7 @@
         <line x1="0" y1="0" x2="0" y2="6" class="map-hatch-line" />
       </pattern>
     </defs>
+    <polyline v-if="aheadPath" class="map-ahead" :points="aheadPath" fill="none" aria-hidden="true" />
     <polyline v-if="path" class="map-trail" :points="path" fill="none" aria-hidden="true" />
     <g
       v-if="homeAt"
@@ -46,11 +47,12 @@
 // What goes over the map: the path flown, home (a green H) and the vehicle (an arrow that points the way it heads, a dot when it
 // does not say). The vehicle is hatched and says how long ago it was heard when its position is old, and is not there without a
 // position. The markers say where they are in words for a screen reader (`aria-label`) and in `data-lat` and `data-lon` (what the
-// window tests read). It draws from a map source, so a recorded flight draws the same way.
+// window tests read). It draws from a map source, so a recorded flight draws the same way (with its path ahead dashed).
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Point, Size } from '@/lib/map/geo'
 import type { MapSource } from '@/lib/map/mapSource'
+import type { LatLon } from '@/lib/map/track'
 import { lastHeardText, vehicleLabel } from '@/lib/map/mapText'
 
 const props = defineProps<{
@@ -74,11 +76,22 @@ const homeAt = computed(() => {
 
   return home ? props.place(home.lat, home.lon) : null
 })
-const path = computed(() => {
-  const points = props.source.trail.value.map(point => props.place(point.lat, point.lon))
+
+/**
+ * A path as the points of an SVG polyline.
+ *
+ * @param places the places on the path
+ * @returns the points, or nothing for a path of fewer than two
+ */
+function polylineOf(places: readonly LatLon[]): string {
+  const points = places.map(point => props.place(point.lat, point.lon))
 
   return points.length < 2 ? '' : points.map(at => `${at.x.toFixed(1)},${at.y.toFixed(1)}`).join(' ')
-})
+}
+
+const path = computed(() => polylineOf(props.source.trail.value))
+/** The path still to fly (a recorded flight): dashed, under the path flown. */
+const aheadPath = computed(() => polylineOf(props.source.ahead?.value ?? []))
 /** The fill of the marker: the hatching when its position is old. */
 const fill = computed(() => (mark.value?.stale ? `url(#${uid}-old)` : undefined))
 const lastHeard = computed(() => (mark.value ? lastHeardText(mark.value, t) : ''))

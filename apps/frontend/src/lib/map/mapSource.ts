@@ -12,6 +12,8 @@ export interface MapSource {
   readonly vehicle: Readonly<Ref<VehicleMark | null>>
   /** The path flown, oldest first. */
   readonly trail: Readonly<Ref<readonly LatLon[]>>
+  /** The path still to fly, from the vehicle on (a recorded flight has one; the live map does not). */
+  readonly ahead?: Readonly<Ref<readonly LatLon[]>>
   /** Home, or null when the vehicle has not said where it is. */
   readonly home: Readonly<Ref<LatLon | null>>
 }

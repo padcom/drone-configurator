@@ -33,13 +33,15 @@ afterEach(() => {
  * The map on a Configurator whose backend gives a tile for every ask (and whose asks are counted).
  *
  * @param source what goes over the map, if anything
+ * @param more the other props (a replay does not follow the vehicle)
+ * @param more.followVehicle whether the map follows the vehicle at first
  * @returns the map, the Configurator and the asks
  */
-async function map(source?: MapSource) {
+async function map(source?: MapSource, more: { followVehicle?: boolean } = {}) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   const tile = vi.spyOn(handle.map, 'tile').mockResolvedValue({ bytes: new Uint8Array([1]), contentType: 'image/png' })
   const cancel = vi.spyOn(handle.map, 'cancelTile').mockImplementation(() => undefined)
-  mounted = mount(FlightMap, { ...withI18n, props: { source } })
+  mounted = mount(FlightMap, { ...withI18n, props: { source, ...more } })
   await flushPromises()
 
   return { wrapper: mounted, handle, tile, cancel }
@@ -267,4 +269,17 @@ it('stops following when the map is moved with an arrow key or zoomed with the w
   await wrapper.get('.map').trigger('wheel', { deltaY: -100 })
 
   expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+})
+
+it('does not take the map to the vehicle when told not to follow it (a replay), but does when asked', async () => {
+  const { source } = vehicleSource(HERE)
+  const { wrapper } = await map(source, { followVehicle: false })
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+  expect(viewOf(wrapper).zoom).toBe(2)
+  await wrapper.get('#map-follow').trigger('click')
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
+  expect(viewOf(wrapper).lat).toBeCloseTo(47.397742, 5)
+  expect(viewOf(wrapper).zoom).toBe(16)
 })
