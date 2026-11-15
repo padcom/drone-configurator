@@ -548,8 +548,21 @@
   "flight": {
     "aside": "Detalles",
     "map": {
-      "title": "Mapa",
-      "placeholder": "El mapa todavía no está disponible."
+      "title": "Mapa"
+    }
+  },
+  "map": {
+    "label": "Mapa",
+    "zoom": "Zoom",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "help": "Arrastra para mover el mapa. Las flechas lo mueven; las teclas más y menos o la rueda hacen zoom.",
+    "chip": {
+      "disabled": "Las teselas del mapa están desactivadas en Ajustes.",
+      "backingOff": "El servidor de teselas pidió ir más despacio: las teselas volverán en un momento.",
+      "offline": "Sin conexión: solo se muestran las teselas guardadas.",
+      "offlineMiss": "Sin conexión: no hay teselas guardadas para esta zona.",
+      "unavailable": "Las teselas del mapa no están disponibles: {reason}"
     }
   },
   "hud": {

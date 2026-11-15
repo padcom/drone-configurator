@@ -314,6 +314,8 @@ class MockVehicle {
       case 'logs.local.cancel': return this.localLogs.cancel(ok)
       case 'map.sources': return this.map.sources(this.settings, ok)
       case 'map.clear': return this.map.clear(ok)
+      case 'map.tile': return this.map.tile(this.settings, ok, fail)
+      case 'map.cancel': return ok(null)
       case 'motors.test': return this.motors.subscribe(e)
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'tuning.stream': return this.tuning.subscribe(e)

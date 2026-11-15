@@ -548,8 +548,21 @@
   "flight": {
     "aside": "Details",
     "map": {
-      "title": "Karte",
-      "placeholder": "Die Karte ist noch nicht verfügbar."
+      "title": "Karte"
+    }
+  },
+  "map": {
+    "label": "Karte",
+    "zoom": "Zoom",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "help": "Ziehen verschiebt die Karte. Die Pfeiltasten verschieben sie, die Tasten Plus und Minus oder das Mausrad zoomen.",
+    "chip": {
+      "disabled": "Die Kartenkacheln sind in den Einstellungen ausgeschaltet.",
+      "backingOff": "Der Kachelserver bat um Verlangsamung: die Kacheln kommen gleich wieder.",
+      "offline": "Offline: nur gespeicherte Kacheln werden gezeigt.",
+      "offlineMiss": "Offline: keine gespeicherten Kacheln für diesen Bereich.",
+      "unavailable": "Die Kartenkacheln sind nicht verfügbar: {reason}"
     }
   },
   "hud": {

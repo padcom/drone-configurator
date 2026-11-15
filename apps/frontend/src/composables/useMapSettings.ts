@@ -57,6 +57,10 @@ export interface MapSettingsModel {
   refresh: () => Promise<void>
   /** Removes every kept tile. */
   clear: () => Promise<void>
+  /** Asks the backend for a tile of the source in use (it answers from its cache, or from the server, under the settings). */
+  tile: (z: number, x: number, y: number) => Promise<{ bytes: Uint8Array, contentType: string }>
+  /** Stops waiting for a tile that was asked for (it left the screen). Nothing is said when it fails. */
+  cancelTile: (z: number, x: number, y: number) => void
 }
 
 /** What was chosen and the settings have not answered for yet: shown at once. */
@@ -115,6 +119,31 @@ class MapSettings implements MapSettingsModel {
       this.error.value = null
     } catch (error) {
       this.error.value = describeError(error)
+    }
+  }
+
+  async tile(z: number, x: number, y: number): Promise<{ bytes: Uint8Array, contentType: string }> {
+    const { bytes, contentType } = await this.deps.client.call('map.tile', { z, x, y })
+
+    return { bytes, contentType }
+  }
+
+  cancelTile(z: number, x: number, y: number): void {
+    void this.stopWaiting(z, x, y)
+  }
+
+  /**
+   * Tells the backend a tile is not waited for any more; what comes of it does not matter.
+   *
+   * @param z the zoom
+   * @param x the column
+   * @param y the row
+   */
+  private async stopWaiting(z: number, x: number, y: number): Promise<void> {
+    try {
+      await this.deps.client.call('map.cancel', { z, x, y })
+    } catch {
+      // (the tile had come already, or the link is gone: there is nothing to cancel)
     }
   }
 

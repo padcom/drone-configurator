@@ -548,8 +548,21 @@
   "flight": {
     "aside": "Szczegóły",
     "map": {
-      "title": "Mapa",
-      "placeholder": "Mapa nie jest jeszcze dostępna."
+      "title": "Mapa"
+    }
+  },
+  "map": {
+    "label": "Mapa",
+    "zoom": "Powiększenie",
+    "zoomIn": "Przybliż",
+    "zoomOut": "Oddal",
+    "help": "Przeciągnij, aby przesunąć mapę. Strzałki ją przesuwają, klawisze plus i minus lub kółko zmieniają powiększenie.",
+    "chip": {
+      "disabled": "Kafelki mapy są wyłączone w Ustawieniach.",
+      "backingOff": "Serwer kafelków poprosił o zwolnienie: kafelki wrócą za chwilę.",
+      "offline": "Tryb offline: widać tylko zachowane kafelki.",
+      "offlineMiss": "Tryb offline: brak zachowanych kafelków dla tego obszaru.",
+      "unavailable": "Kafelki mapy są niedostępne: {reason}"
     }
   },
   "hud": {

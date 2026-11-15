@@ -548,8 +548,21 @@
   "flight": {
     "aside": "Dettagli",
     "map": {
-      "title": "Mappa",
-      "placeholder": "La mappa non è ancora disponibile."
+      "title": "Mappa"
+    }
+  },
+  "map": {
+    "label": "Mappa",
+    "zoom": "Zoom",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "help": "Trascina per spostare la mappa. Le frecce la spostano, i tasti più e meno o la rotellina cambiano lo zoom.",
+    "chip": {
+      "disabled": "Le tessere della mappa sono disattivate nelle Impostazioni.",
+      "backingOff": "Il server delle tessere ha chiesto di rallentare: le tessere torneranno tra poco.",
+      "offline": "Offline: sono mostrate solo le tessere conservate.",
+      "offlineMiss": "Offline: nessuna tessera conservata per quest’area.",
+      "unavailable": "Le tessere della mappa non sono disponibili: {reason}"
     }
   },
   "hud": {

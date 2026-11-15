@@ -31,7 +31,8 @@ it('has the map at the left and the aside at the right, in fixed regions', async
   expect(wrapper.findAll('.fly > *').map(region => region.classes()[0])).toEqual(['fly-main', 'fly-aside'])
   expect(wrapper.get('.fly-main').attributes('aria-label')).toBe('Map')
   expect(wrapper.get('aside').attributes('aria-label')).toBe('Details')
-  expect(wrapper.text()).toContain('The map is not available yet.')
+  expect(wrapper.find('.fly-map .map[role="application"]').exists()).toBe(true)
+  expect(wrapper.get('.map-attribution').text()).toContain('OpenStreetMap contributors')
   expect(wrapper.find('.fly-aside svg.hud').exists()).toBe(true)
 })
 
@@ -56,7 +57,8 @@ it('has nothing to resize, collapse or drag: no split bars, no pane buttons, no 
 
   expect(wrapper.find('[role="separator"]').exists()).toBe(false)
   expect(wrapper.find('.kit-split').exists()).toBe(false)
-  expect(wrapper.find('button').exists()).toBe(false)
+  // (the buttons that there are belong to the map: its zoom)
+  expect(wrapper.findAll('button').every(button => button.classes().includes('map-button'))).toBe(true)
   expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
 })
 
