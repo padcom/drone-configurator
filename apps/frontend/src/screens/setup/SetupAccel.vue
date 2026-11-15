@@ -1,5 +1,5 @@
 <template>
-  <section class="setup-page-body single" :aria-labelledby="`${uid}-title`">
+  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
     <div class="setup-main">
       <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('setup.section.accel') }}</h3>
       <p class="muted">{{ t('setup.accel.summary') }}</p>
@@ -19,7 +19,6 @@
           <span class="visually-hidden">{{ t(`setup.accel.state.${mark(p.position).state}`) }}</span>
         </li>
       </ol>
-      <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
       <div class="setup-actions">
         <Button id="setup-accel-start" variant="primary" :disabled="!canStart" @click="calibration.start('accel')">
           {{ t('setup.accel.start') }}
@@ -45,6 +44,20 @@
         </dl>
       </template>
     </div>
+    <!-- Read only: the vehicle writes these when it accepts the calibration, and this page writes none. -->
+    <aside class="setup-aside" :aria-label="t('setup.aside')">
+      <div>
+        <h2 class="setup-label">{{ t('setup.accel.changes') }}</h2>
+        <ul class="setup-writes">
+          <li v-for="id in ACCEL_PARAMS" :key="id">{{ id }}</li>
+        </ul>
+        <p class="muted">{{ t('setup.accel.changesNote') }}</p>
+        <ul class="setup-writes">
+          <li v-for="id in LEVEL_PARAMS" :key="id">{{ id }}</li>
+        </ul>
+      </div>
+      <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
+    </aside>
   </section>
 </template>
 
@@ -61,8 +74,11 @@ import { useI18n } from 'vue-i18n'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
-import { ACCEL_PARAMS, ACCEL_POSITIONS, accelPhase, positionKey, positionMark, shown } from '@/lib/setup/calibration'
+import { showNumber } from '@/lib/params/paramValue'
+import { ACCEL_PARAMS, ACCEL_POSITIONS, accelPhase, positionKey, positionMark } from '@/lib/setup/calibration'
 
+/** What "Level only" writes besides: the trim of the board. */
+const LEVEL_PARAMS = ['AHRS_TRIM_X', 'AHRS_TRIM_Y']
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
@@ -106,7 +122,7 @@ function mark(position: number): ReturnType<typeof positionMark> {
 function valueOf(id: string): string {
   const value = params.value.get(id)
 
-  return value === undefined ? '—' : shown(value)
+  return value === undefined ? '—' : showNumber(value)
 }
 
 /** Leaving the page cancels what runs: a calibration that nobody watches is not left going. */

@@ -1679,6 +1679,8 @@
       "placed": "Posizionato",
       "cancel": "Annulla",
       "cancelNote": "Annullare ferma l'attesa della pagina; il veicolo tiene aperta la calibrazione finché non finisce o si riavvia, e il prossimo avvio riparte da lì.",
+      "changes": "Cosa cambia la calibrazione",
+      "changesNote": "Li scrive il veicolo quando accetta la calibrazione, mai questa pagina. Solo livello imposta anche il trim:",
       "idle": "Nessuna calibrazione in corso.",
       "starting": "Attendo il veicolo, poi calibro i giroscopi: tieni il veicolo fermo.",
       "waiting": "Attendo che il veicolo chieda una posizione.",

@@ -1679,6 +1679,8 @@
       "placed": "Platziert",
       "cancel": "Abbrechen",
       "cancelNote": "Abbrechen beendet das Warten der Seite; das Fahrzeug hält die Kalibrierung offen, bis sie endet oder es neu startet, und der nächste Start setzt dort fort.",
+      "changes": "Was die Kalibrierung ändert",
+      "changesNote": "Vom Fahrzeug geschrieben, wenn es die Kalibrierung annimmt, nie von dieser Seite. Nur Ebene setzt auch den Trim:",
       "idle": "Es läuft keine Kalibrierung.",
       "starting": "Warte auf das Fahrzeug, dann werden die Gyros kalibriert: halten Sie es ruhig.",
       "waiting": "Warte, bis das Fahrzeug eine Lage anfragt.",

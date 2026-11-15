@@ -80,19 +80,8 @@
   color: var(--color-text-muted);
 }
 
-.setup-home {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: var(--space-3) var(--space-5);
-}
-
-.setup-home > :not(.setup-facts) {
-  grid-column: 1;
-}
-
 .setup-facts {
-  grid-column: 2;
-  grid-row: 1 / span 8;
+  align-self: start;
   padding: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -391,14 +380,66 @@
 }
 
 @media (max-width: 999px) {
-  .setup-home,
   .setup-page-body {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
+/* From 1000 px wide the page is as high as the area and only its middle column scrolls, as on Parameters: the list of pages
+   (or the tabs and the banner of Tune), the page's header and the aside at the right stay where they are. The aside scrolls by
+   itself only if it is taller than the area. Below that everything stacks and the page scrolls as a page does. */
+@media (width >= 1000px) {
+  .app-main:has(> .setup, > .tune) {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+  }
+
+  .setup,
+  .tune {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .tune {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .setup-body {
+    flex: 1;
+    flex-wrap: nowrap;
+  }
+
+  .setup-nav {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .setup-page {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 520px;
+    min-height: 0;
+  }
+
+  .setup-page-body {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .setup-main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .setup-aside,
   .setup-facts {
-    grid-column: 1;
-    grid-row: auto;
+    max-height: 100%;
+    overflow-y: auto;
+    align-self: start;
   }
 }
 

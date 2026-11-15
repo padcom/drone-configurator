@@ -1679,6 +1679,8 @@
       "placed": "Colocado",
       "cancel": "Cancelar",
       "cancelNote": "Cancelar detiene la espera de la página; el vehículo mantiene su calibración abierta hasta que termine o se reinicie, y el siguiente inicio continúa desde ahí.",
+      "changes": "Lo que cambia la calibración",
+      "changesNote": "Lo escribe el vehículo cuando acepta la calibración, nunca esta página. Solo nivel también fija el trim:",
       "idle": "No hay ninguna calibración en curso.",
       "starting": "Esperando al vehículo y luego calibrando los giroscopios: mantén el vehículo quieto.",
       "waiting": "Esperando a que el vehículo pida una posición.",
