@@ -1168,23 +1168,24 @@
   },
   "setup": {
     "initial": {
-      "summary": "Valores de partida que ArduPilot publica para un multirrotor, según el tamaño de las hélices y las celdas de la batería. Son sugerencias: elíjalos, mire la lista del lado y escríbalos.",
-      "size": "Tamaño de las hélices",
-      "inches": "{n} pulgadas",
+      "summary": "Valores iniciales que calcula el Initial Parameter Setup de Mission Planner para un multicóptero, a partir del tamaño de las hélices y del tipo y las celdas de la batería. Son sugerencias: elíjalas, mire la lista del lateral y escríbalas.",
+      "size": "Tamaño de las hélices (pulgadas)",
       "cells": "Celdas de la batería",
-      "cellsHelp": "Un número entero de 1 a {max}. Los voltajes son para celdas LiPo normales (4,2 V y 3,3 V por celda): para otro tipo de batería póngalos a mano.",
-      "pick": "Elija el tamaño de las hélices para ver los valores.",
+      "cellsHelp": "Un número entero de 1 a {max}. Las tensiones son de una celda: {full} V llena, {empty} V vacía.",
       "parameter": "Parámetro",
       "now": "Ahora",
       "suggested": "Sugerido",
+      "notOnVehicle": "no está en este vehículo",
+      "use": "Usar estos valores",
+      "source": "Fórmulas de Config > Initial Parameter Setup de Mission Planner (ConfigInitialParams.cs). No se toman de él sus casillas T-Motor y «Suggested». Los límites de aceleración se escriben en la unidad que usa el vehículo. MOT_THST_HOVER 0.2 sustituye un valor de vuelo estacionario que el vehículo ha aprendido: omítalo tras un vuelo. MOT_THST_EXPO se mide mejor en un banco de empuje.",
       "why": {
-        "notGiven": "la página de ArduPilot no lo da para este tamaño",
+        "size": "indique el tamaño de las hélices",
         "aboveRange": "el valor del vehículo está por encima del rango de este parámetro (¿otra unidad?): no se ofrece",
         "cells": "indique las celdas"
       },
-      "notOnVehicle": "no está en este vehículo",
-      "use": "Usar estos valores",
-      "source": "Valores que ArduPilot publica como punto de partida, de «Setting the Aircraft Up for Tuning» (ardupilot.org/copter/docs/setting-up-for-tuning.html). La página dice que se verifique MOT_THST_EXPO en un banco de empuje."
+      "sizeHelp": "Un número de {min} a {max}, con un decimal como máximo, p. ej. 9 o 10.5.",
+      "chemistry": "Tipo de batería",
+      "after": "Tras un vuelo de prueba (aterrizado y desarmado), Mission Planner aconseja: poner ATC_THR_MIX_MAN en 0.5, PSC_D_ACC_P en 0.1 × MOT_THST_HOVER y PSC_D_ACC_I en 0.2 × MOT_THST_HOVER (firmware antiguo: PSC_ACCZ_P en MOT_THST_HOVER y PSC_ACCZ_I en 2 × MOT_THST_HOVER)."
     },
     "refusedValue": "rechazado: no se escribe",
     "outcome": {
