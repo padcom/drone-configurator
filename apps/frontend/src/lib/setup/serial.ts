@@ -87,10 +87,10 @@ const MAVLINK = [1, 2, 43]
  * The parameters of a port.
  *
  * @param port the port, 0 for SERIAL0
- * @returns its protocol and its baud
+ * @returns its protocol, its baud and its options (a bitmask, the names of its bits are the metadata's)
  */
-export function portParams(port: number): { protocol: string, baud: string } {
-  return { protocol: `SERIAL${port}_PROTOCOL`, baud: `SERIAL${port}_BAUD` }
+export function portParams(port: number): { protocol: string, baud: string, options: string } {
+  return { protocol: `SERIAL${port}_PROTOCOL`, baud: `SERIAL${port}_BAUD`, options: `SERIAL${port}_OPTIONS` }
 }
 
 /**
@@ -132,12 +132,10 @@ export function mayCutLink(port: number, protocolNow: number): boolean {
  *
  * @param written the parameters written
  * @param port the port
- * @returns true when its protocol or its speed is among them
+ * @returns true when its protocol, its speed or its options are among them
  */
 function wasWritten(written: readonly string[], port: number): boolean {
-  const { protocol, baud } = portParams(port)
-
-  return written.includes(protocol) || written.includes(baud)
+  return Object.values(portParams(port)).some(id => written.includes(id))
 }
 
 /**
@@ -164,8 +162,8 @@ export function cutByReboot(
  * Every parameter of some ports.
  *
  * @param ports the ports
- * @returns their protocol and baud parameters, in order
+ * @returns their protocol, baud and options parameters, in order
  */
 export function idsOf(ports: readonly number[]): string[] {
-  return ports.flatMap(port => [portParams(port).protocol, portParams(port).baud])
+  return ports.flatMap(port => Object.values(portParams(port)))
 }

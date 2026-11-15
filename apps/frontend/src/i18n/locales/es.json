@@ -1058,7 +1058,8 @@
         "accel": "Ir a Configuración: Acelerómetro",
         "compass": "Ir a Configuración: Brújula",
         "radio": "Ir a Configuración: Radio",
-        "motors": "Ir a Configuración: Motores y ESC",
+        "escs": "Ir a Configuración: ESC",
+        "motors": "Ir a Configuración: Motores",
         "modes": "Ir a Configuración: Modos de vuelo",
         "failsafes": "Ir a Configuración: Failsafes",
         "battery": "Ir a Configuración: Batería",
@@ -1164,7 +1165,8 @@
       "accel": "Acelerómetro",
       "compass": "Brújula",
       "radio": "Radio",
-      "motors": "Motores y ESC",
+      "escs": "ESC",
+      "motors": "Motores",
       "modes": "Modos de vuelo",
       "failsafes": "Failsafes",
       "battery": "Batería",
@@ -1498,11 +1500,11 @@
       "class": "Clase de bastidor",
       "type": "Tipo de bastidor",
       "orientation": "Orientación de la placa",
-      "orientationHelp": "Surte efecto en el próximo arranque. Tras cambiarla, vuelve a nivelar el vehículo.",
+      "takesEffect": "Los cambios surten efecto en el próximo arranque. Tras cambiar la orientación de la placa, vuelve a nivelar el vehículo.",
       "undefined": "Sin definir",
       "noRotation": "Ninguna",
       "noDrawing": "No hay dibujo para este bastidor.",
-      "caption": "El frente está arriba. El número es el del motor en la prueba de motores, no la salida a la que está conectado; la flecha, su sentido de giro.",
+      "drawingKey": "El frente está arriba. El número es el del motor en la prueba de motores, no la salida a la que está conectado; la flecha, su sentido de giro.",
       "motor": "Motor {number} a {angle} grados, gira {spin}",
       "cw": "en sentido horario",
       "ccw": "en sentido antihorario"
@@ -1514,6 +1516,13 @@
       "port": "Serial {n}",
       "protocol": "Protocolo de serial {n}",
       "baud": "Velocidad de serial {n}",
+      "options": "Opciones del serie {n}",
+      "head": {
+        "port": "Puerto",
+        "protocol": "Protocolo",
+        "baud": "Velocidad",
+        "options": "Opciones"
+      },
       "none": "Este vehículo no tiene parámetros de puertos serie.",
       "noProtocol": "Ninguno",
       "willCut": "Tras el reinicio se perderá la conexión por Serial {ports} si esta aplicación la usa: llevaba MAVLink o puede ser el puerto de una estación en tierra."
@@ -1545,9 +1554,11 @@
         "wspi": "Wide SPI"
       }
     },
+    "escs": {
+      "summary": "Cómo se manejan los ESC y los umbrales a los que giran los motores."
+    },
     "motors": {
-      "summary": "Cómo se manejan los ESC, los umbrales a los que giran los motores, qué hacen ahora las salidas del vehículo y una prueba de cada motor.",
-      "escTitle": "Ajustes de los ESC",
+      "summary": "Qué hacen ahora las salidas del vehículo y una prueba de cada motor.",
       "protocol": "Protocolo de los ESC",
       "protocolHelp": "El protocolo de las salidas de los motores (MOT_PWM_TYPE). Se aplica tras reiniciar, y los ESC deben entenderlo.",
       "MOT_SPIN_ARM": "Giro al armar",

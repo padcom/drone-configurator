@@ -282,6 +282,57 @@ it('does not say the connection will be lost after a write to a port that carrie
   expect(wrapper.find('#setup-serial-cut-after').exists()).toBe(false)
 })
 
+it('shows the options of a port as its named bits, and writes a changed one after one question', async () => {
+  const rig = await page(SetupSerial)
+  const { wrapper, asked } = rig
+  feed(rig.handle, { metadata: new Map([['SERIAL2_OPTIONS', { bits: { 0: 'InvertRX', 1: 'InvertTX' } }]]) })
+  await flushPromises()
+  const field = wrapper.get<HTMLInputElement>('[data-port="2"] .bit-field input')
+  await field.setValue('2')
+  await field.trigger('blur')
+  await flushPromises()
+
+  expect(wrapper.get('[data-port="2"] .bit-summary').text()).toContain('InvertTX')
+  expect(wrapper.get('#setup-serial-write').attributes('disabled')).toBeUndefined()
+  await wrapper.get('#setup-serial-write').trigger('click')
+  await flushPromises()
+
+  expect(asked).toHaveLength(1)
+  expect(asked[0]).toContain('SERIAL2_OPTIONS 0 → 2')
+  expect(valueOf(rig, 'SERIAL2_OPTIONS')).toBe(2)
+  expect(wrapper.get('#setup-reboot').text()).toContain('Reboot needed')
+})
+
+it('marks an options number the parameter cannot hold, and does not take it', async () => {
+  const { wrapper } = await page(SetupSerial)
+  const field = wrapper.get<HTMLInputElement>('[data-port="2"] .bit-field input')
+  await field.setValue('70000')
+  await field.trigger('blur')
+
+  expect(field.attributes('aria-invalid')).toBe('true')
+  expect(wrapper.get('#setup-serial-write').attributes('disabled')).toBeDefined()
+})
+
+it('has a column of options, and a dash for a port the vehicle has no options for', async () => {
+  const params = SETUP_PARAMS.filter(param => param.id !== 'SERIAL1_OPTIONS')
+  const { wrapper } = await page(SetupSerial, { params })
+
+  expect(wrapper.get('.setup-ports-head').text()).toContain('Options')
+  expect(wrapper.get('[data-port="1"]').text()).toContain('—')
+  expect(wrapper.find('[data-port="1"] .bit-field').exists()).toBe(false)
+  expect(wrapper.find('[data-port="2"] .bit-field').exists()).toBe(true)
+})
+
+it('says once, under the dropdowns and the drawing, when a change takes effect and how to read the drawing', async () => {
+  const { wrapper } = await page(SetupFrame)
+
+  const notes = wrapper.findAll('p.muted').filter(note => note.text().includes('next boot'))
+  expect(notes).toHaveLength(1)
+  expect(notes[0]?.text()).toContain('Front is up')
+  expect(wrapper.find('figcaption').exists()).toBe(false)
+  expect(wrapper.get('.setup-frame-row').findAll('.setup-fields, .setup-frame-drawing')).toHaveLength(2)
+})
+
 it('says a vehicle with no serial parameters has no ports to set', async () => {
   const { wrapper } = await page(SetupSerial, { params: PARAMS })
 

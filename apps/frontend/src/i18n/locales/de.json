@@ -1058,7 +1058,8 @@
         "accel": "Zu Einrichtung wechseln: Beschleunigungssensor",
         "compass": "Zu Einrichtung wechseln: Kompass",
         "radio": "Zu Einrichtung wechseln: Funk",
-        "motors": "Zu Einrichtung wechseln: Motoren und Regler",
+        "escs": "Zu Einrichtung wechseln: ESCs",
+        "motors": "Zu Einrichtung wechseln: Motoren",
         "modes": "Zu Einrichtung wechseln: Flugmodi",
         "failsafes": "Zu Einrichtung wechseln: Failsafes",
         "battery": "Zu Einrichtung wechseln: Akku",
@@ -1164,7 +1165,8 @@
       "accel": "Beschleunigungssensor",
       "compass": "Kompass",
       "radio": "Funk",
-      "motors": "Motoren und Regler",
+      "escs": "ESCs",
+      "motors": "Motoren",
       "modes": "Flugmodi",
       "failsafes": "Failsafes",
       "battery": "Akku",
@@ -1498,11 +1500,11 @@
       "class": "Rahmenklasse",
       "type": "Rahmentyp",
       "orientation": "Board-Ausrichtung",
-      "orientationHelp": "Gilt ab dem nächsten Start. Nach der Änderung das Fahrzeug neu nivellieren.",
+      "takesEffect": "Änderungen gelten ab dem nächsten Start. Nach einer Änderung der Board-Ausrichtung das Fahrzeug neu nivellieren.",
       "undefined": "Nicht definiert",
       "noRotation": "Keine",
       "noDrawing": "Für diesen Rahmen gibt es keine Zeichnung.",
-      "caption": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest, nicht der Ausgang, an dem er angeschlossen ist; der Pfeil ist die Drehrichtung.",
+      "drawingKey": "Vorne ist oben. Die Zahl ist die Motornummer im Motortest, nicht der Ausgang, an dem er angeschlossen ist; der Pfeil ist die Drehrichtung.",
       "motor": "Motor {number} bei {angle} Grad, dreht {spin}",
       "cw": "im Uhrzeigersinn",
       "ccw": "gegen den Uhrzeigersinn"
@@ -1514,6 +1516,13 @@
       "port": "Serial {n}",
       "protocol": "Protokoll von Serial {n}",
       "baud": "Geschwindigkeit von Serial {n}",
+      "options": "Optionen von Seriell {n}",
+      "head": {
+        "port": "Anschluss",
+        "protocol": "Protokoll",
+        "baud": "Geschwindigkeit",
+        "options": "Optionen"
+      },
       "none": "Dieses Fahrzeug hat keine Parameter für serielle Ports.",
       "noProtocol": "Keiner",
       "willCut": "Nach dem Neustart geht die Verbindung über Serial {ports} verloren, wenn diese App darüber spricht: Er trug MAVLink oder ist vielleicht der Port einer Bodenstation."
@@ -1545,9 +1554,11 @@
         "wspi": "Wide SPI"
       }
     },
+    "escs": {
+      "summary": "Wie die ESCs angesteuert werden und die Schwellen, bei denen sich die Motoren drehen."
+    },
     "motors": {
-      "summary": "Wie die ESCs angesteuert werden, die Schwellen, bei denen sich die Motoren drehen, was die Ausgänge des Fahrzeugs gerade tun, und ein Test jedes Motors.",
-      "escTitle": "ESC-Einstellungen",
+      "summary": "Was die Ausgänge des Fahrzeugs gerade tun, und ein Test jedes Motors.",
       "protocol": "ESC-Protokoll",
       "protocolHelp": "Das Protokoll der Motorausgänge (MOT_PWM_TYPE). Es gilt nach einem Neustart, und die ESCs müssen es verstehen.",
       "MOT_SPIN_ARM": "Drehung bei scharfem Fahrzeug",

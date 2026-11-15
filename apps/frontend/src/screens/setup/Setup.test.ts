@@ -140,7 +140,7 @@ it('lists the pages in the groups of the design, and marks the steps by what the
 
   expect(links[0]).toBe('Overview')
   expect(links).toContain('Flight modes✓Looks set up')
-  expect(links).toContain('Motors and ESCs–Cannot be told from the parameters')
+  expect(links).toContain('Motors–Cannot be told from the parameters')
   expect(links).toContain('Vehicle information')
 })
 

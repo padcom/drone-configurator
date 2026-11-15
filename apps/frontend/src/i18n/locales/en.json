@@ -1058,7 +1058,8 @@
         "accel": "Switch to Setup: Accelerometer",
         "compass": "Switch to Setup: Compass",
         "radio": "Switch to Setup: Radio",
-        "motors": "Switch to Setup: Motors and ESCs",
+        "escs": "Switch to Setup: ESCs",
+        "motors": "Switch to Setup: Motors",
         "modes": "Switch to Setup: Flight modes",
         "failsafes": "Switch to Setup: Failsafes",
         "battery": "Switch to Setup: Battery",
@@ -1164,7 +1165,8 @@
       "accel": "Accelerometer",
       "compass": "Compass",
       "radio": "Radio",
-      "motors": "Motors and ESCs",
+      "escs": "ESCs",
+      "motors": "Motors",
       "modes": "Flight modes",
       "failsafes": "Failsafes",
       "battery": "Battery",
@@ -1498,11 +1500,11 @@
       "class": "Frame class",
       "type": "Frame type",
       "orientation": "Board orientation",
-      "orientationHelp": "It takes effect at the next boot. After changing it, level the vehicle again.",
+      "takesEffect": "Changes take effect at the next boot. After changing the board orientation, level the vehicle again.",
       "undefined": "Undefined",
       "noRotation": "None",
       "noDrawing": "There is no drawing for this frame.",
-      "caption": "Front is up. The number is the motor's number in the motor test, not the output it is wired to; the arrow is the way it spins.",
+      "drawingKey": "Front is up. The number is the motor's number in the motor test, not the output it is wired to; the arrow is the way it spins.",
       "motor": "Motor {number} at {angle} degrees, spins {spin}",
       "cw": "clockwise",
       "ccw": "counter-clockwise"
@@ -1514,6 +1516,13 @@
       "port": "Serial {n}",
       "protocol": "Protocol of serial {n}",
       "baud": "Speed of serial {n}",
+      "options": "Options of serial {n}",
+      "head": {
+        "port": "Port",
+        "protocol": "Protocol",
+        "baud": "Speed",
+        "options": "Options"
+      },
       "none": "This vehicle has no serial port parameters.",
       "noProtocol": "None",
       "willCut": "After the reboot the connection over Serial {ports} will be lost if this app talks over it: it carried MAVLink, or may be the port a ground station uses."
@@ -1545,9 +1554,11 @@
         "wspi": "Wide SPI"
       }
     },
+    "escs": {
+      "summary": "How the ESCs are driven and the thresholds the motors spin at."
+    },
     "motors": {
-      "summary": "How the ESCs are driven, the thresholds the motors spin at, what the vehicle’s outputs are doing now, and a test of each motor.",
-      "escTitle": "ESC settings",
+      "summary": "What the vehicle’s outputs are doing now, and a test of each motor.",
       "protocol": "ESC protocol",
       "protocolHelp": "The protocol of the motor outputs (MOT_PWM_TYPE). It takes effect after a reboot, and the ESCs must understand it.",
       "MOT_SPIN_ARM": "Spin when armed",

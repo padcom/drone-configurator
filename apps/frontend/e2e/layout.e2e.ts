@@ -12,13 +12,14 @@ import { TcpVehicle } from './tcp-vehicle'
 let vehicle: TcpVehicle | undefined
 let app: E2eApp | undefined
 
-/** The pages that have a side panel, as the address names them. */
+/** The pages to look at, as the address names them (all have a side panel but the motors). */
 const PAGES = [
   'setup/home',
   'setup/frame',
   'setup/accel',
   'setup/compass',
   'setup/radio',
+  'setup/escs',
   'setup/motors',
   'setup/modes',
   'setup/failsafes',
@@ -73,6 +74,9 @@ interface Probe {
   below: string[]
   sideways: string[]
   listScrolls: boolean
+  portRows: number
+  drawingBeside: boolean
+  outputsBeside: boolean
 }
 
 /** The helpers of the probe, in the page: where a box scrolls to its end, and how much room it has for a focus outline. */
@@ -96,6 +100,18 @@ const HELPERS = `
   const below = () => [...document.querySelectorAll('body *')]
     .filter(element => !element.closest('.rail') && element.getBoundingClientRect().bottom > window.innerHeight + 1)
     .slice(0, 4).map(element => element.tagName + '.' + element.className + ' ' + document.scrollingElement.scrollHeight)
+  // the fields of a serial port are in one row; the drawing of a frame is beside its dropdowns (when the page has them)
+  const rows = () => {
+    const port = document.querySelector('.setup-port')
+    const tops = port ? [...port.querySelectorAll('input')].map(input => Math.round(input.getBoundingClientRect().top)) : []
+    const fields = document.querySelector('.setup-frame-row .setup-fields')
+    const drawing = document.querySelector('.setup-frame-row .setup-frame-drawing svg')
+    const test = document.querySelector('.setup-motors-pair > .motor-test')
+    const outputs = document.querySelector('.setup-motors-outputs')
+    const beside = (left, right) =>
+      !left || !right || right.getBoundingClientRect().left >= left.getBoundingClientRect().right - 1
+    return { portRows: new Set(tops).size || 1, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs) }
+  }
   // what lies beyond the right edge of a column that never scrolls sideways
   const sideways = box => {
     const edge = box.getBoundingClientRect().right
@@ -134,6 +150,7 @@ function probe(): string {
       below: below(),
       sideways: sideways(main),
       listScrolls: Boolean(nav) && nav.scrollHeight > nav.clientHeight + 1,
+      ...rows(),
     }
     result.reachable = reach(side) && reach(nav) && reach(main)
     result.room = Math.min(room(main), room(nav))
@@ -167,10 +184,29 @@ afterAll(async () => {
  */
 async function visit(page: string): Promise<Probe> {
   await window().evaluate(`location.hash = '#/${page}'`)
-  const ready = `document.querySelector('.setup-main')?.clientHeight > 0 && document.querySelector('.setup-aside, .setup-facts')`
+  const ready = `document.querySelector('.setup-main')?.clientHeight > 0`
   await window().waitFor(`location.hash === '#/${page}' && ${ready}`, 30_000)
 
   return window().evaluate<Probe>(probe())
+}
+
+/**
+ * What a wide window shows: the middle column is about 310 px wide at 1000 px, beside the list and the side panel, and the rows
+ * of a serial port are in one line, the drawing of the frame beside its dropdowns and the outputs beside the motor test only
+ * when the window is wide enough for them.
+ *
+ * @param seen what the page showed
+ * @param width the window's width
+ * @returns the facts that are looked at in a window that wide
+ */
+function wide(seen: Probe, width: number): Record<string, unknown> {
+  const wideEnough = width >= 1300
+
+  return {
+    portRows: wideEnough ? seen.portRows : 1,
+    drawingBeside: !wideEnough || seen.drawingBeside,
+    outputsBeside: !wideEnough || seen.outputsBeside,
+  }
 }
 
 /**
@@ -179,10 +215,11 @@ async function visit(page: string): Promise<Probe> {
  * @param page the page
  * @param seen what it showed
  * @param size the window
+ * @param size.width its width
  * @param size.height its height
  * @returns the facts
  */
-function facts(page: string, seen: Probe, size: { height: number }): Record<string, unknown> {
+function facts(page: string, seen: Probe, size: { width: number, height: number }): Record<string, unknown> {
   return {
     page,
     sideMoved: Math.round(seen.after - seen.before),
@@ -197,6 +234,7 @@ function facts(page: string, seen: Probe, size: { height: number }): Record<stri
     sideways: seen.sideways,
     // (the list of the pages scrolls by itself only in a window too short for it: below 600 px)
     listScrolls: size.height >= 600 && seen.listScrolls,
+    ...wide(seen, size.width),
   }
 }
 
@@ -220,6 +258,9 @@ for (const size of SIZES) {
         reachable: true,
         roomForOutline: true,
         sideways: [],
+        portRows: 1,
+        drawingBeside: true,
+        outputsBeside: true,
         listScrolls: false,
       })
       scrolled += seen.scrollWant > 0 ? 1 : 0
