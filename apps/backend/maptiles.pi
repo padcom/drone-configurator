@@ -637,6 +637,7 @@ async function sourcesOf(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     cacheMb: config.capMb as u16,
     cacheBytes: cache.total as u64,
     counted: cache.counted,
+    cacheDir: cache.root,
   }
   if (config.sourceId == CUSTOM_ID && problem != null) {
     out.customError = problem!

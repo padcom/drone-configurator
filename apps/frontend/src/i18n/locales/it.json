@@ -686,6 +686,7 @@
       "cache": "Spazio per le tessere conservate",
       "used": "La cache contiene {size}.",
       "counting": "La cache contiene almeno {size} (conteggio del resto in corso…).",
+      "folder": "Le tessere sono conservate in questa cartella (puoi eliminarla): {path}",
       "clear": "Svuota la cache",
       "cleared": "{count} tessera rimossa ({size}). | {count} tessere rimosse ({size}).",
       "state": {
@@ -1168,23 +1169,25 @@
   },
   "setup": {
     "initial": {
-      "summary": "Valori di partenza che ArduPilot pubblica per un multirotore, dalla dimensione delle eliche e dalle celle della batteria. Sono suggerimenti: sceglili, guarda l'elenco a lato e scrivili.",
-      "size": "Dimensione delle eliche",
-      "inches": "{n} pollici",
+      "summary": "Valori iniziali calcolati dall'Initial Parameter Setup di Mission Planner per un multicottero, dalla dimensione delle eliche e dal tipo e dalle celle della batteria. Sono suggerimenti: sceglili, guarda l'elenco a lato e scrivili.",
+      "size": "Dimensione delle eliche (pollici)",
       "cells": "Celle della batteria",
-      "cellsHelp": "Un numero intero da 1 a {max}. Le tensioni sono per celle LiPo normali (4,2 V e 3,3 V a cella): per un altro tipo di batteria impostale a mano.",
-      "pick": "Scegli la dimensione delle eliche per vedere i valori.",
+      "cellsHelp": "Un numero intero da 1 a {max}. Le tensioni sono di una cella: {full} V piena, {empty} V scarica.",
       "parameter": "Parametro",
       "now": "Ora",
       "suggested": "Suggerito",
-      "why": {
-        "notGiven": "la pagina di ArduPilot non lo dà per questa dimensione",
-        "aboveRange": "il valore del veicolo è sopra l'intervallo di questo parametro (altra unità?): non offerto",
-        "cells": "indica le celle"
-      },
       "notOnVehicle": "non presente su questo veicolo",
       "use": "Usa questi valori",
-      "source": "Valori pubblicati da ArduPilot come punto di partenza, da \"Setting the Aircraft Up for Tuning\" (ardupilot.org/copter/docs/setting-up-for-tuning.html). La pagina dice di verificare MOT_THST_EXPO su un banco di spinta."
+      "source": "Formule di Config > Initial Parameter Setup di Mission Planner (ConfigInitialParams.cs). Non sono prese da esso le caselle T-Motor e «Suggested». I limiti di accelerazione sono scritti nell'unità che usa il veicolo. MOT_THST_HOVER 0.2 sostituisce un valore di hover che il veicolo ha appreso: omettilo dopo un volo. MOT_THST_EXPO è meglio misurarlo su un banco di spinta.",
+      "why": {
+        "size": "indica la dimensione delle eliche",
+        "aboveRange": "il valore del veicolo è sopra l'intervallo di questo parametro (altra unità?): non offerto",
+        "range": "il valore calcolato è fuori dall'intervallo di questo parametro: non viene proposto",
+        "cells": "indica le celle"
+      },
+      "sizeHelp": "Un numero da {min} a {max}, con al massimo un decimale, ad es. 9 o 10.5.",
+      "chemistry": "Tipo di batteria",
+      "after": "Dopo un volo di prova (atterrato e disarmato) Mission Planner consiglia: imposta ATC_THR_MIX_MAN a 0.5, PSC_D_ACC_P a 0.1 × MOT_THST_HOVER e PSC_D_ACC_I a 0.2 × MOT_THST_HOVER (firmware più vecchio: PSC_ACCZ_P a MOT_THST_HOVER e PSC_ACCZ_I a 2 × MOT_THST_HOVER)."
     },
     "refusedValue": "rifiutato: non viene scritto",
     "outcome": {

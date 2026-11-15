@@ -54,6 +54,8 @@
 
 .settings-row p {
   margin: 0;
+  /* a long path or address breaks anywhere instead of making the page wider */
+  overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
 }
 

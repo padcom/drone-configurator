@@ -1,37 +1,42 @@
-// The "Initial tune" values: what ArduPilot publishes as a starting point for a multicopter of a given propeller size and
-// battery.
+// The "Initial tune" values: what Mission Planner's Config > Initial Parameter Setup calculates for a multicopter of a given
+// propeller size and battery. The formulas are Mission Planner's own: GCSViews/ConfigurationView/ConfigInitialParams.cs
+// (`calc_values`, lines 89-121; the battery types 251-275; the parameters written 153-209), as read from its source on
+// 2026-11-15. Each constant below names the line it is from. There is a note of them all, with the differences from ArduPilot's
+// web page, in docs/mission-planner-initial-tune.md.
 //
-// SOURCE (read on 2026-11-14): https://ardupilot.org/copter/docs/setting-up-for-tuning.html, "Setting the Aircraft Up for
-// Tuning". Under "PID Controller Initial Setup" it says:
-//   "INS_ACCEL_FILTER: 10Hz"
-//   "INS_GYRO_FILTER: 80Hz for 5 inch props, 40Hz for 10 inch props, 20Hz for 20 inch props (or larger)"
-//   "ATC_ACC_P_MAX: 1100 for 10 inch props, 500 for 20 inch props, 200 for 30 inch props" (ATC_ACC_R_MAX the same)
-//   "ATC_ACC_Y_MAX: 200 for 10 inch props, 100 for 20 inch props, 90 for 30 inch props"
-//   "ATC_RAT_PIT_FLTD: INS_GYRO_FILTER / 2" (and ATC_RAT_PIT_FLTT, ATC_RAT_RLL_FLTD, ATC_RAT_RLL_FLTT, ATC_RAT_YAW_FLTT)
-//   "ATC_RAT_YAW_FLTE: 2"
-// and under "Battery setting":
-//   "MOT_BAT_VOLT_MAX should be set to the maximum voltage of your batteries, e.g. 4.2v x No. Cells for standard LiPos"
-//   "MOT_BAT_VOLT_MIN should be set to the minimum voltage of your batteries, e.g. 3.3v x No. Cells for standard LiPos"
-//   "MOT_THST_EXPO: 0.55 for 5 inch props, 0.65 for 10 inch props, 0.75 for 20 inch props (or larger)."
-// (the page adds that MOT_THST_EXPO "should be derived by thrust stand measurements for best results").
-//
-// Only the sizes the page gives are offered (5, 10, 20, 30 inch), and nothing is interpolated: where the page gives no value
-// for a size (the three ATC_ACC_*_MAX of a 5 inch propeller) there is none here (`notGiven`). 30 inch takes the page's "20 inch
-// props (or larger)" for INS_GYRO_FILTER and MOT_THST_EXPO. The voltages are those the page gives for standard LiPo cells, from
-// the number of cells the user says. BATT_ARM_VOLT, BATT_CRT_VOLT and BATT_LOW_VOLT are not on the page and are not here. The
-// filter values are worked out of the size chosen (the page's INS_GYRO_FILTER / 2), never of what the vehicle has now.
+// What is NOT taken from Mission Planner: its optional "T-Motor" box (MOT_THST_EXPO 0.2, MOT_PWM_MIN/MAX), its "Suggested"
+// box (battery failsafe actions and a fence), the ArduPlane (Q_) names and the 3.x names (*_FILT). The values are suggestions:
+// they go to the staged review of the Setup page, and only for a parameter the vehicle has; a value outside the range
+// ArduPilot documents for the parameter is not offered.
 
-/** The propeller sizes (inches) the page gives values for. */
-export const PROP_SIZES = [5, 10, 20, 30] as const
-
-/** A propeller size. */
-export type PropSize = typeof PROP_SIZES[number]
-
-/** The most cells the page accepts (a 12S pack): the page names none, this is the interface's own bound. */
+/** The most cells accepted (a 12S pack): Mission Planner names none, this is the interface's own bound. */
 export const MAX_CELLS = 12
 
-/** Why a parameter has no value to offer: the page gives none for this size, or the cells are not known yet. */
-export type NoValue = 'notGiven' | 'cells'
+/** The greatest propeller size accepted, in inches: Mission Planner takes any size above 0, this is the interface's own bound. */
+export const MAX_SIZE = 60
+
+/** The least propeller size accepted, in inches (the interface's own bound). */
+export const MIN_SIZE = 1
+
+/** A kind of battery: the voltage of one cell full and empty (ConfigInitialParams.cs:257-269). */
+export interface Chemistry {
+  /** Its name, as Mission Planner shows it. */
+  id: 'LiPo' | 'LiPoHV' | 'LiIon'
+  /** Volts of a full cell. */
+  cellMax: number
+  /** Volts of an empty cell. */
+  cellMin: number
+}
+
+/** The kinds of battery, the first being the default (ConfigInitialParams.cs:66, 258-269). */
+export const CHEMISTRIES: readonly Chemistry[] = [
+  { id: 'LiPo', cellMax: 4.2, cellMin: 3.3 },
+  { id: 'LiPoHV', cellMax: 4.35, cellMin: 3.3 },
+  { id: 'LiIon', cellMax: 4.1, cellMin: 2.8 },
+]
+
+/** Why a parameter has no value to offer: the size or the cells are not known, or the value is outside the parameter's range. */
+export type NoValue = 'size' | 'cells' | 'range'
 
 /** One parameter of the initial tune. */
 export interface Suggestion {
@@ -43,26 +48,14 @@ export interface Suggestion {
   why: NoValue | null
 }
 
-/** What the page gives by size; null where it gives nothing. */
-type BySize = Record<PropSize, number | null>
-
-const GYRO_FILTER: BySize = { 5: 80, 10: 40, 20: 20, 30: 20 }
-const THRUST_EXPO: BySize = { 5: 0.55, 10: 0.65, 20: 0.75, 30: 0.75 }
-const ACCEL_PITCH_ROLL_MAX: BySize = { 5: null, 10: 1100, 20: 500, 30: 200 }
-const ACCEL_YAW_MAX: BySize = { 5: null, 10: 200, 20: 100, 30: 90 }
-const ACCEL_FILTER_HZ = 10
-const YAW_ERROR_FILTER_HZ = 2
-const CELL_MAX_V = 4.2
-const CELL_MIN_V = 3.3
-
-/**
- * Whether a number is a size the page gives values for.
- *
- * @param size the number
- * @returns true for 5, 10, 20 and 30
- */
-export function isPropSize(size: number): size is PropSize {
-  return (PROP_SIZES as readonly number[]).includes(size)
+/** What the user says. */
+export interface TuneInput {
+  /** The propeller size in inches, or null when it is not known. */
+  size: number | null
+  /** The cells, or null when they are not known. */
+  cells: number | null
+  /** The kind of battery. */
+  chemistry: Chemistry
 }
 
 /**
@@ -80,76 +73,213 @@ export function parseCells(text: string): number | null {
 }
 
 /**
- * A voltage for some cells, as a number of two decimals (4.2 x 3 is not 12.600000000000001).
+ * The propeller size in a text.
  *
- * @param perCell the voltage of one cell
- * @param cells the cells, or null when they are not known
- * @returns the voltage, or null
+ * @param text what the user typed
+ * @returns inches from MIN_SIZE to MAX_SIZE (one decimal at most), or null
  */
-function pack(perCell: number, cells: number | null): number | null {
-  return cells === null ? null : Math.round(perCell * cells * 100) / 100
+export function parseSize(text: string): number | null {
+  const digits = text.trim()
+  const size = Number(digits)
+
+  // (plain digits, a point and one decimal: not "1e1", not "0x9", not a comma)
+  return /^\d{1,2}(?:\.\d)?$/u.test(digits) && size >= MIN_SIZE && size <= MAX_SIZE ? size : null
 }
 
 /**
- * A suggestion.
+ * A number to some decimals (4.2 x 3 is not 12.600000000000001).
+ *
+ * @param value the number
+ * @param decimals how many decimals
+ * @returns the number, rounded
+ */
+function rounded(value: number, decimals: number): number {
+  const scale = 10 ** decimals
+
+  return Math.round(value * scale) / scale
+}
+
+/**
+ * Rounds to the nearest hundred, half up (ConfigInitialParams.cs `RoundTo(value, -2)`, lines 74-86).
+ *
+ * @param value the number
+ * @returns the number, to hundreds
+ */
+function toHundreds(value: number): number {
+  return Math.floor((value + 50) / 100) * 100
+}
+
+/**
+ * The range ArduPilot documents (`@Range`, in the 4.7.2 tree and in master) for the parameters whose suggestion may fall outside:
+ * the acceleration limits in deg/s/s (a formula of the size that gives 1808 at 4 inch and 2210 at 1 inch for ATC_ACC_P_MAX), and
+ * the voltages of the motors' battery (a single cell gives 4.2 and 3.3 V), and the gyro filter of the smallest sizes.
+ */
+const RANGES: Record<string, readonly [number, number]> = {
+  ATC_ACC_P_MAX: [0, 1800],
+  ATC_ACC_R_MAX: [0, 1800],
+  ATC_ACC_Y_MAX: [0, 720],
+  // The older names, in centi-degrees/s/s: their range is INFERRED (the source has none for them): ArduPilot converts them to
+  // ATC_ACC_*_MAX by a scale of 0.01 (AC_AttitudeControl.cpp `convert_old_parameters_scaled`), so it is the new one x100.
+  ATC_ACCEL_P_MAX: [0, 180_000],
+  ATC_ACCEL_R_MAX: [0, 180_000],
+  ATC_ACCEL_Y_MAX: [0, 72_000],
+  // libraries/AP_InertialSensor/AP_InertialSensor.cpp: `@Range: 0 256` (the formula gives 289 at 1 inch).
+  INS_GYRO_FILTER: [0, 256],
+  MOT_BAT_VOLT_MAX: [6, 53],
+  MOT_BAT_VOLT_MIN: [6, 42],
+}
+
+const ACCEL_IDS: readonly string[] = ['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX', 'ATC_ACC_Y_MAX']
+
+/**
+ * Whether a value is outside the range ArduPilot documents for a parameter.
+ *
+ * @param id the parameter
+ * @param value the value
+ * @returns true when the parameter has a documented range and the value is not in it
+ */
+function outsideRange(id: string, value: number): boolean {
+  const range = RANGES[id]
+
+  return range !== undefined && (value < range[0] || value > range[1])
+}
+
+/**
+ * A suggestion. A value outside the range the parameter documents is not offered, and says so.
  *
  * @param id the parameter
  * @param value the value, or null for none
  * @param why why there is none (when `value` is null)
  * @returns the suggestion
  */
-function suggestion(id: string, value: number | null, why: NoValue = 'notGiven'): Suggestion {
+function suggestion(id: string, value: number | null, why: NoValue): Suggestion {
+  if (value !== null && outsideRange(id, value)) {
+    return { id, value: null, why: 'range' }
+  }
+
   return { id, value, why: value === null ? why : null }
 }
 
 /**
- * The initial tune of a size and a number of cells.
+ * What depends on the size of the propellers only (ConfigInitialParams.cs:91-113).
  *
- * @param size the propeller size
- * @param cells the number of cells, or null when they are not known (the two voltages then have none)
- * @returns the parameters in the order of the page, each with its value or why it has none
+ * @param size the propeller size, in inches
+ * @returns the values, `accelYaw` and `accelPitchRoll` in centi-degrees/s/s as Mission Planner computes them
  */
-export function initialTune(size: PropSize, cells: number | null): Suggestion[] {
-  const filter = GYRO_FILTER[size] ?? 0
-  const half = filter / 2
+function bySize(size: number): Record<string, number> {
+  // :91 and :93
+  const accelYaw = Math.max(8000, toHundreds(-900 * size + 36000))
+  // :95
+  const polynomial = -2.613267 * size ** 3 + 343.39216 * size ** 2 - 15_083.7121 * size + 235_771
+  const accelPitchRoll = Math.max(10_000, toHundreds(polynomial))
+  // :98
+  const gyroFilter = Math.max(20, Math.round(289.22 * size ** -0.838))
+  // :100-108: one half of the gyro filter, at least 10
+  const half = Math.max(10, gyroFilter / 2)
+
+  return {
+    accelYaw,
+    accelPitchRoll,
+    gyroFilter,
+    half,
+    // :93
+    acroYaw: rounded(0.5 * accelYaw / 4500, 4),
+    // :112
+    expo: Math.min(rounded(0.15686 * Math.log(size) + 0.23693, 2), 0.8),
+  }
+}
+
+/**
+ * The parameters that depend on the size.
+ *
+ * @param size the propeller size, or null
+ * @returns the suggestions
+ */
+function sizeRows(size: number | null): Suggestion[] {
+  const v = size === null ? null : bySize(size)
+  const of = (key: string, scale = 1): number | null => v === null ? null : rounded((v[key] ?? 0) / scale, 4)
+  const row = (id: string, value: number | null): Suggestion => suggestion(id, value, 'size')
 
   return [
-    suggestion('INS_ACCEL_FILTER', ACCEL_FILTER_HZ),
-    suggestion('INS_GYRO_FILTER', filter),
-    suggestion('ATC_ACC_P_MAX', ACCEL_PITCH_ROLL_MAX[size]),
-    suggestion('ATC_ACC_R_MAX', ACCEL_PITCH_ROLL_MAX[size]),
-    suggestion('ATC_ACC_Y_MAX', ACCEL_YAW_MAX[size]),
-    suggestion('ATC_RAT_RLL_FLTD', half),
-    suggestion('ATC_RAT_RLL_FLTT', half),
-    suggestion('ATC_RAT_PIT_FLTD', half),
-    suggestion('ATC_RAT_PIT_FLTT', half),
-    suggestion('ATC_RAT_YAW_FLTT', half),
-    suggestion('ATC_RAT_YAW_FLTE', YAW_ERROR_FILTER_HZ),
-    suggestion('MOT_THST_EXPO', THRUST_EXPO[size]),
-    suggestion('MOT_BAT_VOLT_MAX', pack(CELL_MAX_V, cells), 'cells'),
-    suggestion('MOT_BAT_VOLT_MIN', pack(CELL_MIN_V, cells), 'cells'),
+    row('INS_ACCEL_FILTER', 10), // :111
+    row('INS_GYRO_FILTER', of('gyroFilter')),
+    row('ACRO_YAW_P', of('acroYaw')),
+    // :167-169 and :173-175: the centi-degree ATC_ACCEL_*_MAX when the vehicle has it, else ATC_ACC_*_MAX / 100
+    row('ATC_ACC_P_MAX', of('accelPitchRoll', 100)),
+    row('ATC_ACC_R_MAX', of('accelPitchRoll', 100)),
+    row('ATC_ACC_Y_MAX', of('accelYaw', 100)),
+    row('ATC_ACCEL_P_MAX', of('accelPitchRoll')),
+    row('ATC_ACCEL_R_MAX', of('accelPitchRoll')),
+    row('ATC_ACCEL_Y_MAX', of('accelYaw')),
+    // :100-108
+    row('ATC_RAT_RLL_FLTD', of('half')),
+    row('ATC_RAT_RLL_FLTE', 0),
+    row('ATC_RAT_RLL_FLTT', of('half')),
+    row('ATC_RAT_PIT_FLTD', of('half')),
+    row('ATC_RAT_PIT_FLTE', 0),
+    row('ATC_RAT_PIT_FLTT', of('half')),
+    row('ATC_RAT_YAW_FLTD', 0),
+    row('ATC_RAT_YAW_FLTE', 2),
+    row('ATC_RAT_YAW_FLTT', of('half')),
+    row('ATC_THR_MIX_MAN', 0.1), // :110 (and MOT_THST_HOVER :113)
+    row('MOT_THST_EXPO', of('expo')),
+    row('MOT_THST_HOVER', 0.2),
   ]
 }
 
 /**
- * The greatest value an acceleration limit may have in ArduPilot's own range (deg/s/s, `@Range` of ATC_ACC_*_MAX in the 4.7.2
- * tree and in master). The older parameter of the same thing, in centi-degrees, is named ATC_ACCEL_*_MAX: a vehicle that has the
- * name used here and a value above this has a value in another unit, and a suggestion in deg/s/s must not be written over it.
+ * The battery parameters (ConfigInitialParams.cs:115-119).
+ *
+ * @param cells the cells, or null
+ * @param chemistry the kind of battery
+ * @returns the suggestions
  */
-const ACCEL_RANGE_MAX: Record<string, number> = { ATC_ACC_P_MAX: 1800, ATC_ACC_R_MAX: 1800, ATC_ACC_Y_MAX: 720 }
+function batteryRows(cells: number | null, chemistry: Chemistry): Suggestion[] {
+  const volts = (value: (n: number) => number): number | null => cells === null ? null : rounded(value(cells), 2)
+  const row = (id: string, value: number | null): Suggestion => suggestion(id, value, 'cells')
+
+  return [
+    // :115, :116, :117
+    row('BATT_ARM_VOLT', volts(n => (n - 1) * 0.1 + (chemistry.cellMin + 0.3) * n)),
+    row('BATT_CRT_VOLT', volts(n => (chemistry.cellMin + 0.2) * n)),
+    row('BATT_LOW_VOLT', volts(n => (chemistry.cellMin + 0.3) * n)),
+    // :118, :119
+    row('MOT_BAT_VOLT_MAX', volts(n => chemistry.cellMax * n)),
+    row('MOT_BAT_VOLT_MIN', volts(n => chemistry.cellMin * n)),
+  ]
+}
 
 /**
- * Whether the vehicle's value of a parameter is beyond the range the page's value is in.
+ * The initial tune of a size and a battery.
+ *
+ * @param input the size, the cells and the kind of battery
+ * @returns the parameters, each with its value or why it has none
+ */
+export function initialTune(input: TuneInput): Suggestion[] {
+  return [...sizeRows(input.size), ...batteryRows(input.cells, input.chemistry)]
+}
+
+/**
+ * Whether the vehicle's value of an acceleration limit is beyond its range (see `RANGES`). The older parameter of the same thing,
+ * in centi-degrees, is named ATC_ACCEL_*_MAX: a vehicle that has the name used here and a value above the range has a value in
+ * another unit, and a suggestion in deg/s/s must not be written over it.
  *
  * @param id the parameter
  * @param now the vehicle's value, or null when it has none
  * @returns true for an acceleration limit above its range
  */
 export function beyondRange(id: string, now: number | null): boolean {
-  const max = ACCEL_RANGE_MAX[id]
+  const range = ACCEL_IDS.includes(id) ? RANGES[id] : undefined
 
-  return max !== undefined && now !== null && now > max
+  return range !== undefined && now !== null && now > range[1]
 }
 
+/** The acceleration limits in centi-degrees/s/s (the older parameters): only a vehicle that has ATC_ACCEL_P_MAX is given them. */
+export const CENTI_DEGREE_IDS: readonly string[] = ['ATC_ACCEL_P_MAX', 'ATC_ACCEL_R_MAX', 'ATC_ACCEL_Y_MAX']
+
+/** The acceleration limits in degrees/s/s (the current parameters). */
+export const DEGREE_IDS: readonly string[] = ['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX', 'ATC_ACC_Y_MAX']
+
 /** The names of every parameter of the initial tune (the page writes no others). */
-export const INITIAL_TUNE_IDS: readonly string[] = initialTune(10, 1).map(item => item.id)
+export const INITIAL_TUNE_IDS: readonly string[] = initialTune({ size: 10, cells: 1, chemistry: CHEMISTRIES[0] as Chemistry })
+  .map(item => item.id)

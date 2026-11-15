@@ -33,6 +33,9 @@
       <label :for="`${uid}-cache`">{{ t('settings.map.cache') }}</label>
       <Select :id="`${uid}-cache`" v-model="cacheMb" :options="cacheOptions" />
       <p id="map-cache-used" class="muted">{{ usedText }}</p>
+      <p v-if="map.info.value" id="map-cache-folder" class="muted">
+        {{ t('settings.map.folder', { path: map.info.value.cacheDir }) }}
+      </p>
       <Button id="map-clear" :disabled="map.busy.value" @click="map.clear()">{{ t('settings.map.clear') }}</Button>
       <p v-if="map.cleared.value" id="map-cleared" class="muted" role="status">{{ clearedText }}</p>
     </div>

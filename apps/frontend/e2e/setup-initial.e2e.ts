@@ -1,7 +1,7 @@
 // End to end, in the real window with the real backend and the simulated vehicle behind a TCP port (no SITL): the Setup page
-// "Initial tune". The user chooses a propeller size and says the cells; the table shows what each parameter is now and the value
-// ArduPilot's page suggests (or why there is none); "Use these values" only chooses them, and the one question writes them, each
-// read back by the vehicle. The vehicle has no ATC_RAT_YAW_FLTE and the page says so; for 5 inch the page gives no acceleration.
+// "Initial tune". The user says the propeller size and the cells; the table shows what each parameter is now and the value
+// Mission Planner's calculation suggests (or why there is none); "Use these values" only chooses them, and the one question
+// writes them, each read back by the vehicle. The vehicle has no ATC_RAT_YAW_FLTE and the page says so.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, confirmWrite, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
@@ -73,32 +73,35 @@ it('shows no values before a size is chosen', async () => {
   await window().click('a[href="#/setup/battery"]')
   await window().waitFor(`document.querySelector('.setup-nav a[href="#/setup/initial"]') !== null`, 30_000)
   await window().click('.setup-nav a[href="#/setup/initial"]')
-  await window().waitFor(`document.querySelector('#setup-initial-pick') !== null`, 30_000)
+  await window().waitFor(`document.querySelector('#setup-initial-table') !== null`, 30_000)
 
-  expect(await window().evaluate<boolean>(`document.querySelector('#setup-initial-table') === null`)).toBe(true)
-  expect(await window().evaluate<boolean>(`document.querySelector('#setup-initial-use').disabled`)).toBe(true)
+  expect(await cell('INS_GYRO_FILTER', 3)).toBe('say the propeller size')
+  expect(await cell('MOT_BAT_VOLT_MAX', 3)).toBe('say the cells')
+  expect(await cell('INS_ACCEL_FILTER', 3)).toBe('10')
 })
 
-it('says for 5 inch that the page gives no acceleration, and that a parameter is not on this vehicle', async () => {
-  await window().click('#setup-initial-size-5')
-  await window().waitFor(`document.querySelector('#setup-initial-table') !== null`, 10_000)
+it('says that a parameter is not on this vehicle, and suggests the values of 5 inch propellers and 3 cells', async () => {
+  await window().fill('#setup-initial-size', '5')
+  await window().fill('#setup-initial-cells', '3')
+  await window().waitFor(`document.querySelector('[data-param="MOT_BAT_VOLT_MAX"] td:last-child').textContent === '12.6'`, 10_000)
 
-  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('not given by ArduPilot\'s page for this size')
   expect(await cell('ATC_RAT_YAW_FLTE', 3)).toBe('not on this vehicle')
-  expect(await cell('INS_GYRO_FILTER', 3)).toBe('80')
+  expect(await cell('INS_GYRO_FILTER', 3)).toBe('75')
+  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('1686')
 })
 
 it('suggests the values of 10 inch propellers and 4 cells, beside what the vehicle has now', async () => {
-  await window().click('#setup-initial-size-10')
-  await window().fill('input[type="text"]', '4')
+  await window().fill('#setup-initial-size', '10')
+  await window().fill('#setup-initial-cells', '4')
   await window().waitFor(`document.querySelector('[data-param="MOT_BAT_VOLT_MAX"] td:last-child').textContent === '16.8'`, 10_000)
 
   expect(await cell('INS_GYRO_FILTER', 2)).toBe('20')
-  expect(await cell('INS_GYRO_FILTER', 3)).toBe('40')
-  expect(await cell('ATC_RAT_RLL_FLTD', 3)).toBe('20')
-  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('1100')
-  expect(await cell('MOT_THST_EXPO', 3)).toBe('0.65')
+  expect(await cell('INS_GYRO_FILTER', 3)).toBe('42')
+  expect(await cell('ATC_RAT_RLL_FLTD', 3)).toBe('21')
+  expect(await cell('ATC_ACC_P_MAX', 3)).toBe('1167')
+  expect(await cell('MOT_THST_EXPO', 3)).toBe('0.6')
   expect(await cell('MOT_BAT_VOLT_MIN', 3)).toBe('13.2')
+  expect(await cell('BATT_LOW_VOLT', 3)).toBe('14.4')
 })
 
 it('only chooses the values when asked, then writes them after one question, each read back', async () => {
@@ -113,8 +116,9 @@ it('only chooses the values when asked, then writes them after one question, eac
   await confirmWrite(window())
   await window().waitFor(`document.querySelector('#setup-initial-status')?.textContent === 'Written and read back'`, 60_000)
 
-  // thirteen suggestions, one for each parameter the vehicle has; every one was sent and read back
-  expect(simulated().writes).toBe(before + 13)
-  expect(await cell('INS_GYRO_FILTER', 2)).toBe('40')
+  // fifteen suggestions, one for each parameter the vehicle has (the thirteen it was given for this page, and BATT_CRT_VOLT and
+  // BATT_LOW_VOLT, which the simulated vehicle has already); every one was sent and read back
+  expect(simulated().writes).toBe(before + 15)
+  expect(await cell('INS_GYRO_FILTER', 2)).toBe('42')
   expect(await cell('MOT_BAT_VOLT_MAX', 2)).toBe('16.8')
 })

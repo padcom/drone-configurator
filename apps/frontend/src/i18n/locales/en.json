@@ -686,6 +686,7 @@
       "cache": "Room for kept tiles",
       "used": "The cache holds {size}.",
       "counting": "The cache holds at least {size} (counting the rest…).",
+      "folder": "The tiles are kept in this folder (you can delete it): {path}",
       "clear": "Clear the cache",
       "cleared": "{count} tile removed ({size}). | {count} tiles removed ({size}).",
       "state": {
@@ -1168,23 +1169,25 @@
   },
   "setup": {
     "initial": {
-      "summary": "Starting values ArduPilot publishes for a multicopter, from the size of its propellers and the cells of its battery. They are suggestions: choose them, look at the list on the side, and write them.",
-      "size": "Propeller size",
-      "inches": "{n} inch",
+      "summary": "Starting values calculated by Mission Planner's Initial Parameter Setup for a multicopter, from the size of its propellers and the kind and cells of its battery. They are suggestions: choose them, look at the list on the side, and write them.",
+      "size": "Propeller size (inches)",
       "cells": "Cells of the battery",
-      "cellsHelp": "A whole number from 1 to {max}. The voltages are for standard LiPo cells (4.2 V and 3.3 V a cell): for another kind of battery set them by hand.",
-      "pick": "Choose the size of the propellers to see the values.",
+      "cellsHelp": "A whole number from 1 to {max}. The voltages are of one cell: {full} V full, {empty} V empty.",
       "parameter": "Parameter",
       "now": "Now",
       "suggested": "Suggested",
-      "why": {
-        "notGiven": "not given by ArduPilot's page for this size",
-        "aboveRange": "the vehicle's value is above this parameter's range (another unit?): not offered",
-        "cells": "say the cells"
-      },
       "notOnVehicle": "not on this vehicle",
       "use": "Use these values",
-      "source": "Values published by ArduPilot as a starting point, from \"Setting the Aircraft Up for Tuning\" (ardupilot.org/copter/docs/setting-up-for-tuning.html). The page says to verify MOT_THST_EXPO on a thrust stand."
+      "source": "Formulas of Mission Planner's Config > Initial Parameter Setup (ConfigInitialParams.cs). Not taken from it: its T-Motor and \"Suggested\" boxes. The acceleration limits are written in the unit the vehicle uses. MOT_THST_HOVER 0.2 replaces a hover value the vehicle has learned: leave it out after a flight. MOT_THST_EXPO is best measured on a thrust stand.",
+      "why": {
+        "size": "say the propeller size",
+        "aboveRange": "the vehicle's value is above this parameter's range (another unit?): not offered",
+        "range": "the calculated value is outside this parameter's range: not offered",
+        "cells": "say the cells"
+      },
+      "sizeHelp": "A number from {min} to {max}, with one decimal at most, e.g. 9 or 10.5.",
+      "chemistry": "Kind of battery",
+      "after": "After a test flight (landed and disarmed), Mission Planner advises: set ATC_THR_MIX_MAN to 0.5, and set PSC_D_ACC_P to 0.1 × MOT_THST_HOVER and PSC_D_ACC_I to 0.2 × MOT_THST_HOVER (older firmware: PSC_ACCZ_P to MOT_THST_HOVER and PSC_ACCZ_I to 2 × MOT_THST_HOVER)."
     },
     "refusedValue": "refused: not written",
     "outcome": {

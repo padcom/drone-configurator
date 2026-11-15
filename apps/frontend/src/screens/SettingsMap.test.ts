@@ -109,6 +109,15 @@ it('says how much the cache holds and clears it, saying what went', async () => 
   expect(wrapper.get('#map-cache-used').text()).toContain('0 B')
 })
 
+it('says which folder the tiles are kept in, in full, so that it can be found and deleted', async () => {
+  const { wrapper } = await screen()
+
+  expect(wrapper.get('#map-cache-folder').text()).toBe(
+    'The tiles are kept in this folder (you can delete it): '
+    + '/home/user/.cache/pico-desktop/apps/dev.pico-desktop.drone-configurator/backend/tiles',
+  )
+})
+
 it('keeps the size of the cache that is chosen', async () => {
   const { wrapper, handle } = await screen()
   const select = wrapper.get('.settings-map select[id$="-cache"]')
