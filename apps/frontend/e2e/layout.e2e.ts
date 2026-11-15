@@ -280,6 +280,63 @@ for (const size of SIZES) {
   }, 180_000)
 }
 
+/** What the first serial port's row is laid out as: its tracks in px, the gap, whether the heads or the labels are seen. */
+interface PortRow {
+  tracks: number[]
+  gap: number
+  width: number
+  heads: boolean
+  labels: boolean
+}
+
+/**
+ * Opens the Serial ports page and says how the first port's row is laid out.
+ *
+ * @returns the row
+ */
+async function portRow(): Promise<PortRow> {
+  await window().evaluate(`location.hash = '#/setup/serial'`)
+  await window().waitFor(`document.querySelector('.setup-port') !== null`, 30_000)
+  await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 400))`)
+
+  return window().evaluate<PortRow>(`(() => {
+    const row = document.querySelector('.setup-port')
+    const style = getComputedStyle(row)
+    const shown = element => element !== null && getComputedStyle(element).display !== 'none'
+    return {
+      tracks: style.gridTemplateColumns.split(' ').map(Number.parseFloat),
+      gap: Number.parseFloat(style.columnGap),
+      width: row.clientWidth,
+      heads: shown(document.querySelector('.setup-ports-head')),
+      labels: shown(document.querySelector('.setup-port-label')),
+    }
+  })()`)
+}
+
+it('lays the serial ports out with Speed 30% wider and Protocol narrower, in a window wide enough for one row', async () => {
+  await resize({ width: 1440, height: 900 })
+  const row = await portRow()
+  const [name, protocol, speed, options] = row.tracks
+  // (what it was: Speed 7 rem, and Protocol and Options sharing what was left equally)
+  const oldProtocol = (row.width - (name ?? 0) - 112 - 3 * row.gap) / 2
+
+  expect(row.tracks).toHaveLength(4)
+  expect(speed).toBeCloseTo(112 * 1.3, 0)
+  expect(protocol).toBeLessThan(oldProtocol - 10)
+  expect(protocol).toBeLessThan(options ?? 0)
+  expect(row.heads).toBe(true)
+  expect(row.labels).toBe(false)
+})
+
+it('stacks the serial ports in a narrow column, with the labels in the place of the heads', async () => {
+  await resize({ width: 1000, height: 700 })
+  const row = await portRow()
+
+  expect(row.tracks).toHaveLength(1)
+  expect(row.heads).toBe(false)
+  expect(row.labels).toBe(true)
+})
+
 /** The Logs replay page is a map and an aside that fills the area under the tabs: the shell's main column must not scroll. */
 const REPLAY_SIZES = [{ width: 1280, height: 900 }, { width: 1000, height: 700 }]
 

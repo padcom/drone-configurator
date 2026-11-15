@@ -866,11 +866,12 @@
 }
 
 /* The serial ports: a row of name, protocol, speed and options (the heads above them are for the eye); one under the other when
-   the column is too narrow for the row. */
+   the column is too narrow for the row. Speed is 30% wider than it was (7 rem, now 9.1 rem), and Protocol pays for it: it is
+   0.8 of what Options is (it was equal), which is about the width Speed took at the narrowest row. */
 .setup-ports-head,
 .setup-ports .setup-port {
   display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 7rem) minmax(0, 1fr);
+  grid-template-columns: 4rem minmax(0, 0.8fr) minmax(0, 9.1rem) minmax(0, 1fr);
   gap: var(--space-2) var(--space-3);
   align-items: center;
 }

@@ -40,7 +40,38 @@
       <div v-for="cell in cells" :key="cell.id" class="cell" :class="[cell.id, { armed: cell.armed }]">
         <dt>{{ cell.label }}</dt>
         <dd>
-          <template v-if="cell.missing">
+          <!-- STATE is the arm control of a disarmed vehicle: the review if there is something to review, else the hold. -->
+          <button
+            v-if="cell.id === 'state' && canArm"
+            id="state-arm"
+            type="button"
+            class="cell-action"
+            :title="t('topBar.state.arm')"
+            :aria-label="t('topBar.state.arm')"
+            @click="beginArm"
+          >
+            {{ cell.value }}
+          </button>
+          <!-- STATE of a vehicle that is armed or whose state is not known (it counts as armed) is the way to Disarm and to the
+               EMERGENCY STOP, on every screen: arming is one click from anywhere, so stopping must be. Both are holds. -->
+          <Menu
+            v-else-if="cell.id === 'state' && canStop && !cell.missing"
+            id="state-menu"
+            :label="cell.value"
+            :trigger-label="stateLabel"
+            :items="stateItems"
+            @select="stateAct"
+          />
+          <!-- MODE is the list of modes: a menu that is opened (never a field that changes as keys move over it). -->
+          <Menu
+            v-else-if="cell.id === 'mode' && !cell.missing && modes.items.value.length > 0"
+            id="mode-menu"
+            :label="cell.value"
+            :trigger-label="t('strip.mode', { mode: cell.value })"
+            :items="modes.items.value"
+            @select="modes.pick"
+          />
+          <template v-else-if="cell.missing">
             <span aria-hidden="true">{{ cell.value }}</span>
             <span class="visually-hidden">{{ t('truth.notReported') }}</span>
           </template>
@@ -61,6 +92,11 @@ import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
+import Menu from '@/components/ui/Menu.vue'
+import type { MenuItem } from '@/lib/ui/menuKeys'
+import { useArmGrace } from '@/composables/useArmGrace'
+import { useModeMenu } from '@/composables/useModeMenu'
+import { checksOf, needsReview } from '@/lib/fly/prearm'
 import { HOME } from '@/screens/registry'
 import { cellsFor, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -70,7 +106,8 @@ import { useTelemetry } from '@/composables/useTelemetry'
 
 // The top bar: the logo (home), the vehicle and the link, the five live cells MODE / STATE / BATTERY / GPS / LINK, and
 // Disconnect. The cells show a vehicle only while the link is up (the last telemetry of a link that is gone is not what the
-// vehicle is doing), and an armed vehicle fills its STATE cell amber, with the word ARMED too.
+// vehicle is doing), and an armed vehicle fills its STATE cell amber, with the word ARMED too. Two cells are controls: MODE opens
+// the list of modes (a scrolling menu), and STATE of a disarmed vehicle starts arming.
 const { t } = useI18n()
 const configurator = useConfigurator()
 // The vehicle chip opens the connect dialog by running the `connect.open` command, as the buttons next to it run theirs.
@@ -80,4 +117,29 @@ const telemetry = useTelemetry()
 const state = computed(() => configurator.fields.connection.value.state)
 const vehicle = computed(() => vehicleCellFor(configurator.fields.connection.value, t))
 const cells = computed(() => cellsFor(state.value === 'connected' ? telemetry.value : null, t, format))
+const modes = useModeMenu()
+const { armed } = useArmGrace()
+/** Whether STATE is the arm control: connected, and the heartbeat says disarmed (not armed, not just asked to arm). */
+const canArm = computed(() => state.value === 'connected' && armed.value === false)
+/** Whether STATE is the way to Disarm and the stop: connected, and the vehicle is armed or its state is not known. */
+const canStop = computed(() => state.value === 'connected' && armed.value !== false)
+const stateItems = computed<MenuItem[]>(() => [
+  { id: 'disarm', label: t('palette.vehicle.disarm.short') },
+  { id: 'stop', label: t('strip.stop'), danger: true },
+])
+const stateLabel = computed(() => t(armed.value === undefined ? 'topBar.state.unknown' : 'topBar.state.armed'))
+
+/**
+ * An item of the state menu was chosen: the command asks for its hold.
+ *
+ * @param id which
+ */
+function stateAct(id: string): void {
+  void run(id === 'stop' ? 'vehicle.emergencyStop' : 'vehicle.disarm')
+}
+
+/** STATE was pressed: the review when there is something to review, else straight to the hold. The command asks the rest. */
+function beginArm(): void {
+  void run(needsReview(checksOf(configurator.fields.telemetry.value)) ? 'vehicle.review' : 'vehicle.arm')
+}
 </script>

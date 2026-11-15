@@ -1,5 +1,5 @@
 <template>
-  <Dialog id="confirm" :title="options.title" @close="answer(false)">
+  <Dialog id="confirm" :title="options.title" :close-label="cross ? t('confirm.cancel') : undefined" @close="answer(false)">
     <p id="vehicle" class="safety-vehicle">{{ options.vehicle || t('safety.noVehicle') }}</p>
     <p id="question" class="safety-what" tabindex="0">{{ options.what }}</p>
     <p v-if="options.level === 'hold'" id="safety-hint" class="safety-hint">
@@ -7,10 +7,11 @@
     </p>
     <p role="status" class="safety-tapped"><template v-if="tapped">{{ t('safety.tapped') }}</template></p>
     <template #actions>
-      <Button id="confirm-cancel" data-initial-focus @click="cancel">{{ t('confirm.cancel') }}</Button>
+      <Button v-if="!cross" id="confirm-cancel" data-initial-focus @click="cancel">{{ t('confirm.cancel') }}</Button>
       <HoldButton
         v-if="options.level === 'hold'"
         id="confirm-hold"
+        :data-initial-focus="cross ? '' : undefined"
         aria-describedby="safety-hint"
         :hold-ms="HOLD_MS"
         :arm-ms="IGNORE_MS"
@@ -27,15 +28,17 @@
 // The one way to ask the user before something that changes the vehicle: what will happen, to which vehicle, and either a
 // button that must be held (`hold`: arming, an emergency stop) or a plain one (`plain`: a parameter write, which the
 // vehicle's read-back makes safe). The safe answer is the default focus, and nothing can confirm (or cancel, in case a key
-// from the button that opened it is still held) in the first moments after it appears. There is no typed word, ever.
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+// from the button that opened it is still held) in the first moments after it appears. There is no typed word, ever. Arming
+// has no Cancel button: a cross in the corner and Escape turn it down, and the hold button has the focus (the first moments are
+// ignored, a repeating key does nothing, and letting go early cancels the hold, as for every hold).
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import HoldButton from '@/components/ui/HoldButton.vue'
 import { HOLD_MS, IGNORE_MS, type SafetyOptions } from '@/lib/app/safety'
 
-defineProps<{
+const props = defineProps<{
   /** What to ask. */
   options: SafetyOptions
 }>()
@@ -46,6 +49,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+/** Whether it is turned down with a cross and Escape (no Cancel button): then the hold button is the one that has the focus. */
+const cross = computed(() => props.options.dismissal === 'cross')
 const tapped = ref(false)
 let armed = false
 let answered = false

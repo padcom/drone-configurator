@@ -33,4 +33,9 @@ export interface SafetyOptions {
   confirmLabel: string
   /** The colour of a hold: amber for what changes how the vehicle flies, red for what cannot be undone. */
   tone?: 'warn' | 'error'
+  /**
+   * How it is turned down: with a Cancel button (the default, which has the focus), or with a cross in the corner and the hold
+   * button as the one that has the focus (arming: Escape and the cross cancel; the hold rules are the same).
+   */
+  dismissal?: 'cancel' | 'cross'
 }

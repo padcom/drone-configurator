@@ -143,6 +143,7 @@ export class ArmVehicle implements Command {
       vehicle: namedVehicle(ctx),
       level: 'hold',
       tone: 'warn',
+      dismissal: 'cross',
       confirmLabel: ctx.say('palette.vehicle.arm.button'),
     }
   }
@@ -154,7 +155,15 @@ export class ArmVehicle implements Command {
    * @returns what a command leaves behind
    */
   execute(ctx: CommandContext): Promise<CommandOutcome> {
-    return sendAndTell(ctx, 'arm', () => ctx.vehicle.arm())
+    return sendAndTell(ctx, 'arm', async () => {
+      const result = await ctx.vehicle.arm()
+      // Refused: the review shows what the vehicle said (its recent texts) and runs its checks again; the toast only says it.
+      if (result.result === 'refused') {
+        ctx.dialogs.showArmReview()
+      }
+
+      return result
+    })
   }
 }
 

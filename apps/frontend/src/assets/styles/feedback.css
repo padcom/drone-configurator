@@ -155,7 +155,10 @@
   flex-direction: column;
   min-width: 14rem;
   max-width: 260px;
+  max-height: calc(100vh - 120px);
   padding: var(--space-1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   margin-top: var(--space-1);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-strong);

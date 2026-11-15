@@ -3,6 +3,7 @@
     <Button
       :id="triggerId"
       aria-haspopup="menu"
+      :aria-label="triggerLabel"
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="open ? listId : undefined"
       @click="toggle"
@@ -12,7 +13,16 @@
       {{ label }}
       <Icon name="chevron-down" />
     </Button>
-    <div v-if="open" :id="listId" class="list" role="menu" :aria-labelledby="triggerId" @keydown="onKey" @keyup="releaseKey">
+    <div
+      v-if="open"
+      :id="listId"
+      class="list"
+      role="menu"
+      :style="room === undefined ? undefined : { maxHeight: `${room}px` }"
+      :aria-labelledby="triggerId"
+      @keydown="onKey"
+      @keyup="releaseKey"
+    >
       <button
         v-for="(item, i) in items"
         :key="item.id"
@@ -53,6 +63,8 @@ const props = defineProps<{
   label: string
   /** The items, in order. */
   items: MenuItem[]
+  /** The name of the button when its text alone is not it (a mode's name says nothing of what it is the mode of). */
+  triggerLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -65,6 +77,8 @@ const listId = useId()
 const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 const active = ref(-1)
+/** How high the list may be (px): what the window leaves under the button; it scrolls in that. Unset until it is opened. */
+const room = ref<number | undefined>(undefined)
 let typed = ''
 // True while an Enter or Space is held down and repeating (until it is released).
 let held = false
@@ -97,12 +111,27 @@ function close(back: boolean): void {
   }
 }
 
+/** Never less than this (px): a button at the very bottom of a window has a list that scrolls in a few rows, not in none. */
+const LEAST_ROOM = 120
+
+/**
+ * What is left of the window between the button and its lower edge, with a margin (the top bar wraps in a narrow window).
+ *
+ * @returns px, or undefined when the menu cannot be measured
+ */
+function roomBelow(): number | undefined {
+  const rect = root.value?.getBoundingClientRect()
+
+  return rect ? Math.max(LEAST_ROOM, window.innerHeight - rect.bottom - 16) : undefined
+}
+
 /**
  * Opens the menu on an item.
  *
  * @param at which item: the first or the last that can be chosen
  */
 function openAt(at: 'first' | 'last'): void {
+  room.value = roomBelow()
   open.value = true
   active.value = edge(props.items, at)
   void focusActive()

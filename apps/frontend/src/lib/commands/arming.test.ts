@@ -91,6 +91,19 @@ describe('what an arm tells', () => {
   })
 })
 
+describe('what a refused arm shows', () => {
+  it('shows the review when the vehicle refuses, and only then', async () => {
+    const refused = fakeContext()
+    refused.facts.armingResult = { result: 'refused', code: 4, messages: [] }
+    await arm.execute(refused.ctx)
+    const accepted = fakeContext()
+    await arm.execute(accepted.ctx)
+
+    expect(refused.calls.dialogs).toEqual(['review'])
+    expect(accepted.calls.dialogs).toEqual([])
+  })
+})
+
 describe('what a refused arm tells', () => {
   it('tells, for a refusal with no words of its own, the reasons the vehicle gave lately', async () => {
     const fake = fakeContext()

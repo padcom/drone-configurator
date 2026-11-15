@@ -198,3 +198,56 @@ describe('leaving a confirmation', () => {
     expect(answers(wrapper)).toEqual([false])
   })
 })
+
+describe('a confirmation with a cross instead of Cancel (arming)', () => {
+  const CROSS: SafetyOptions = { ...HOLD, dismissal: 'cross' }
+
+  it('has no Cancel button, a cross in the corner named Cancel, and the hold button has the focus', () => {
+    const wrapper = asked(CROSS)
+
+    expect(wrapper.find('#confirm-cancel').exists()).toBe(false)
+    expect(wrapper.get('.kit-dialog-close').attributes('aria-label')).toBe('Cancel')
+    expect(document.activeElement?.id).toBe('confirm-hold')
+  })
+
+  it('is turned down at once by the cross, even in the first moments', () => {
+    const wrapper = asked(CROSS, 0)
+    wrapper.get('.kit-dialog-close').trigger('click')
+
+    expect(answers(wrapper)).toEqual([false])
+  })
+
+  it('is turned down by Escape', () => {
+    const wrapper = asked(CROSS)
+    wrapper.get('dialog').trigger('cancel')
+
+    expect(answers(wrapper)).toEqual([false])
+  })
+})
+
+describe('a confirmation with a cross: the hold button', () => {
+  const CROSS: SafetyOptions = { ...HOLD, dismissal: 'cross' }
+
+  it('keeps the rules of every hold: nothing in the first moments, and a hold that is let go early answers nothing', () => {
+    const wrapper = asked(CROSS, 0)
+    const hold = wrapper.get('#confirm-hold')
+    hold.trigger('pointerdown')
+    vi.advanceTimersByTime(HOLD_MS + 100)
+
+    expect(answers(wrapper)).toEqual([])
+    vi.advanceTimersByTime(IGNORE_MS)
+    hold.trigger('pointerdown')
+    vi.advanceTimersByTime(HOLD_MS / 2)
+    hold.trigger('pointerup')
+    vi.advanceTimersByTime(HOLD_MS)
+
+    expect(answers(wrapper)).toEqual([])
+  })
+
+  it('is as it was for a question that does not say: Cancel, no cross', () => {
+    const wrapper = asked(HOLD)
+
+    expect(wrapper.find('.kit-dialog-close').exists()).toBe(false)
+    expect(wrapper.find('#confirm-cancel').exists()).toBe(true)
+  })
+})

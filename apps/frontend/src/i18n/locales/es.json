@@ -23,6 +23,11 @@
   },
   "topBar": {
     "rebooting": "Reiniciando…",
+    "state": {
+      "arm": "Armar el vehículo (el vehículo está desarmado)",
+      "armed": "Desarmar o parar el vehículo (el vehículo está armado)",
+      "unknown": "Desarmar o parar el vehículo (su estado no se conoce)"
+    },
     "home": "Inicio",
     "noVehicle": "Sin vehículo",
     "vehicleSub": "{autopilot} · sistema {sysid}/{compid}",

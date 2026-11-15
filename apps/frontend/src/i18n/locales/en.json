@@ -23,6 +23,11 @@
   },
   "topBar": {
     "rebooting": "Rebooting…",
+    "state": {
+      "arm": "Arm the vehicle (the vehicle is disarmed)",
+      "armed": "Disarm or stop the vehicle (the vehicle is armed)",
+      "unknown": "Disarm or stop the vehicle (its state is not known)"
+    },
     "home": "Home",
     "noVehicle": "No vehicle",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",

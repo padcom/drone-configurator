@@ -23,6 +23,11 @@
   },
   "topBar": {
     "rebooting": "Neustart…",
+    "state": {
+      "arm": "Fahrzeug scharf schalten (das Fahrzeug ist entschärft)",
+      "armed": "Fahrzeug entschärfen oder stoppen (das Fahrzeug ist scharf)",
+      "unknown": "Fahrzeug entschärfen oder stoppen (sein Zustand ist nicht bekannt)"
+    },
     "home": "Start",
     "noVehicle": "Kein Fahrzeug",
     "vehicleSub": "{autopilot} · System {sysid}/{compid}",
