@@ -259,6 +259,31 @@ export class MockArming {
   }
 
   /**
+   * The backend's `vehicle.emergencyStop`: refused only without a connection; whatever the state, it is sent, and a vehicle that
+   * answers (or may have) is disarmed.
+   *
+   * @param ok answers
+   * @param fail answers an error
+   */
+  emergencyStop(ok: Ok, fail: Fail): void {
+    if (this.host.connected()) {
+      this.send('stop', ok, () => this.host.setArmed(false))
+    } else {
+      fail('NOT_CONNECTED', 'no vehicle is connected')
+    }
+  }
+
+  /**
+   * The pre-arm checks as the vehicle's telemetry says them: they pass when no text is set, or the vehicle is armed (it says so).
+   *
+   * @param armed whether the vehicle is armed
+   * @returns the group
+   */
+  prearmGroup(armed: boolean): { enabled: boolean, passing: boolean, ageMs: number } {
+    return { enabled: true, passing: armed || this.texts.length === 0, ageMs: 200 }
+  }
+
+  /**
    * The backend's `vehicle.prearm`: the vehicle runs its checks and says what fails.
    *
    * @param ok answers

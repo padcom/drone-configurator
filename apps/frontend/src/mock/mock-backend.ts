@@ -303,6 +303,7 @@ class MockVehicle {
       case 'vehicle.reboot': return this.reboot(ok, fail)
       case 'vehicle.arm': return this.arming.arm(ok, fail)
       case 'vehicle.disarm': return this.arming.disarm(ok, fail)
+      case 'vehicle.emergencyStop': return this.arming.emergencyStop(ok, fail)
       case 'vehicle.setMode': return this.arming.setMode(e.p as SetModeAsk, ok, fail)
       case 'vehicle.prearm': return this.arming.prearm(ok, fail)
       case 'vehicle.info': return this.connected(fail) && ok({ ...VEHICLE_DETAILS, sensors: [...VEHICLE_DETAILS.sensors] })
@@ -585,6 +586,7 @@ class MockVehicle {
         }
         this.telemetryArmed = sample.armed
         sample.mode = this.arming.mode() ?? sample.mode
+        sample.prearm = this.arming.prearmGroup(sample.armed)
         this.send({ k: 'event', n: 'telemetry.stream', s, p: sample })
       }
     }, this.options.telemetryMs ?? 1000))

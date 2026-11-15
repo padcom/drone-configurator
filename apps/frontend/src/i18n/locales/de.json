@@ -652,6 +652,12 @@
     "label": "Sprache"
   },
   "arming": {
+    "stop": {
+      "accepted": "{vehicle} hat den Stopp angenommen. Es zeigt entschärft, wenn es das meldet.",
+      "refused": "{vehicle} hat den Not-Aus abgelehnt.",
+      "unsupported": "{vehicle} unterstützt den Not-Aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle} auf den Not-Aus (er wurde bis zu 3 Mal gesendet). Beobachten Sie den gemeldeten Zustand."
+    },
     "arm": {
       "accepted": "{vehicle} hat das Scharfschalten angenommen. Es zeigt scharf, wenn es das meldet.",
       "refused": "{vehicle} hat das Scharfschalten abgelehnt.",
@@ -670,6 +676,41 @@
       "unsupported": "{vehicle} kennt diesen Modus nicht.",
       "noAnswer": "Keine Antwort von {vehicle}. Der gemeldete Modus ist der, in dem es ist. Der Befehl wird nicht noch einmal gesendet."
     }
+  },
+  "review": {
+    "title": "Prüfung vor dem Scharfschalten",
+    "checks": {
+      "passing": "Das Fahrzeug meldet, dass seine Prüfungen vor dem Scharfschalten bestehen.",
+      "failing": "Das Fahrzeug meldet, dass seine Prüfungen vor dem Scharfschalten nicht bestehen.",
+      "off": "Das Fahrzeug hat seine Prüfungen ausgeschaltet: es schaltet scharf, ohne hinzusehen.",
+      "unknown": "Das Fahrzeug meldet nicht, ob seine Prüfungen bestehen."
+    },
+    "running": "Das Fahrzeug wird gebeten, seine Prüfungen auszuführen…",
+    "error": "Die Prüfungen konnten nicht ausgeführt werden: {error}",
+    "heard": "Was das Fahrzeug zuletzt gesagt hat",
+    "ago": "vor {seconds} s",
+    "none": "Das Fahrzeug hat in den letzten zwei Minuten nichts über ein Problem gesagt.",
+    "note": "Das sind die eigenen Worte des Fahrzeugs. Es führt seine Prüfungen beim Scharfschalten erneut aus und lehnt ab, wenn eine fehlschlägt. Die App überspringt sie nie.",
+    "notNow": "Jetzt nicht",
+    "again": "Erneut prüfen",
+    "arm": "Scharf schalten…"
+  },
+  "strip": {
+    "title": "Flugsteuerung",
+    "state": {
+      "armed": "Scharf",
+      "disarmed": "Entschärft",
+      "unknown": "Zustand unbekannt"
+    },
+    "checks": {
+      "passing": "Prüfungen bestehen",
+      "failing": "Prüfungen bestehen nicht",
+      "off": "Prüfungen aus",
+      "unknown": "Prüfungen nicht gemeldet"
+    },
+    "mode": "Flugmodus",
+    "more": "Mehr",
+    "stop": "Not-Aus"
   },
   "settings": {
     "metadata": {
@@ -1187,6 +1228,17 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Not-Aus",
+        "title": "Not-Aus",
+        "what": "Die Motoren stoppen SOFORT, wo immer das Fahrzeug ist. Ein fliegendes Fahrzeug stürzt ab. Nur verwenden, wenn etwas nicht stimmt und das Fahrzeug eine Gefahr ist.",
+        "button": "Halten, um die Motoren zu stoppen"
+      },
+      "review": {
+        "label": "Prüfung vor dem Scharfschalten",
+        "keywords": "scharf prüfungen bereit",
+        "button": "Prüfen und scharf schalten"
+      },
       "arm": {
         "label": "Fahrzeug scharf schalten",
         "keywords": "start motoren propeller scharf",
@@ -1195,6 +1247,7 @@
         "button": "Halten zum Scharfschalten"
       },
       "disarm": {
+        "short": "Entschärfen",
         "label": "Fahrzeug entschärfen",
         "keywords": "stopp motoren entschärfen",
         "title": "Fahrzeug entschärfen",

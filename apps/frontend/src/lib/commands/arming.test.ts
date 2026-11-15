@@ -86,7 +86,9 @@ describe('what an arm tells', () => {
       'QUADROTOR refused to arm. PreArm: Compasses inconsistent PreArm: GPS 1: Bad fix EKF3 IMU0 is using GPS',
     )
   })
+})
 
+describe('what an arm tells when nothing answers or the backend refuses', () => {
   it('tells that nothing answered, that it may have armed, and that it is not sent again', async () => {
     const fake = fakeContext()
     fake.facts.armingResult = { result: 'no-answer', messages: [] }
@@ -153,7 +155,9 @@ describe('when a change of the flight mode may run', () => {
   ] as const)('may not run for %j: %s', (facts, reasonKey) => {
     expect(mode('AUTO').isEnabled(fakeContext(facts).ctx)).toEqual({ enabled: false, reasonKey })
   })
+})
 
+describe('when a change of the flight mode may not run', () => {
   it('may not run for a mode the kind does not have, or the one the vehicle is in, and says which', () => {
     const { ctx } = fakeContext({ modes: { kind: 'copter', modes: [{ number: 5, name: 'LOITER' }] }, mode: 'LOITER' })
     const reasonParams = (name: string) => ({ mode: name })
@@ -184,7 +188,7 @@ describe('what a change of the mode asks first', () => {
     expect(mode(name).confirmation(fakeContext({ armed: undefined }).ctx)).toBeNull()
   })
 
-  it('is a plain confirmation naming the mode, for an armed vehicle and one whose state is not known (it counts as armed)', () => {
+  it('is a plain confirmation naming the mode, for an armed vehicle and one whose state is not known', () => {
     for (const armed of [true, undefined]) {
       const question = mode('GUIDED').confirmation(fakeContext({ armed }).ctx)
       const words = { title: 'Change the flight mode to GUIDED', confirmLabel: 'Change to GUIDED' }
@@ -220,7 +224,9 @@ describe('what a change of the mode does', () => {
     expect(fake.calls.toast[1]?.text).toContain('not sent again')
     expect(fake.calls.sent).toEqual(['mode 5', 'mode 5'])
   })
+})
 
+describe('what a change of the mode sends, and does not', () => {
   it('sends nothing when the kind has no such mode', async () => {
     const fake = fakeContext({ modes: { kind: 'copter', modes: [] } })
     await mode('AUTO').execute(fake.ctx)

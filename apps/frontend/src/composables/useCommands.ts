@@ -15,12 +15,13 @@ import { ParameterProvider } from '@/lib/commands/parameters'
 import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/snapshots'
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
-import { ArmVehicle, DisarmVehicle, flightModeCommands } from '@/lib/commands/arming'
+import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS, armedOf } from '@/lib/app/armed'
 import { pageLanguage, say, sayEnglish } from '@/i18n/say'
 import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
+import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
@@ -43,7 +44,9 @@ function makeRegistry(): CommandRegistry {
   goToSections().forEach(command => registry.register(command))
   registry.register(new RebootFlightController())
   registry.register(new ArmVehicle())
+  registry.register(new ReviewBeforeArming())
   registry.register(new DisarmVehicle())
+  registry.register(new EmergencyStop())
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
@@ -90,6 +93,7 @@ function vehicleFacts(): VehicleFacts {
     reboot: () => vehicle.reboot(),
     arm: () => vehicle.arm(),
     disarm: () => vehicle.disarm(),
+    emergencyStop: () => vehicle.emergencyStop(),
     setMode: mode => vehicle.setMode(mode),
     prearm: () => vehicle.prearm(),
     modes: () => setup.modes.value,
@@ -205,8 +209,9 @@ function fileFacts(): FileFacts {
  */
 function dialogFacts(): DialogFacts {
   const connect = useConnectDialog()
+  const review = useArmReview()
 
-  return { showConnect: () => connect.show(), togglePalette: toggleUnlessCovered }
+  return { showConnect: () => connect.show(), togglePalette: toggleUnlessCovered, showArmReview: () => review.show() }
 }
 
 /**

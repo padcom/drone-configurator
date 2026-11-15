@@ -21,6 +21,7 @@
   <ToastHost />
   <ConnectDialog />
   <ConfirmDialog />
+  <ArmReview />
   <CommandPalette />
 </template>
 
@@ -30,6 +31,7 @@ import { useCommandKeys } from '@/composables/useCommandKeys'
 import { useMetadataAtStart } from '@/composables/useMetadataAtStart'
 import { useCalibrationToasts } from '@/composables/useCalibrationToasts'
 import { useMetadataToasts } from '@/lib/params/metadataToasts'
+import ArmReview from '@/components/fly/ArmReview.vue'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'

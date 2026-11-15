@@ -652,6 +652,12 @@
     "label": "Idioma"
   },
   "arming": {
+    "stop": {
+      "accepted": "{vehicle} aceptó la parada. Se mostrará desarmado cuando lo informe.",
+      "refused": "{vehicle} rechazó la parada de emergencia.",
+      "unsupported": "{vehicle} no admite la parada de emergencia.",
+      "noAnswer": "Sin respuesta de {vehicle} a la parada de emergencia (se envió hasta 3 veces). Vigile el estado que informa."
+    },
     "arm": {
       "accepted": "{vehicle} aceptó armarse. Se mostrará armado cuando lo informe.",
       "refused": "{vehicle} se negó a armarse.",
@@ -670,6 +676,41 @@
       "unsupported": "{vehicle} no conoce ese modo.",
       "noAnswer": "Sin respuesta de {vehicle}. El modo que informa es en el que está. La orden no se envía de nuevo."
     }
+  },
+  "review": {
+    "title": "Revisar antes de armar",
+    "checks": {
+      "passing": "El vehículo dice que sus comprobaciones previas pasan.",
+      "failing": "El vehículo dice que sus comprobaciones previas no pasan.",
+      "off": "El vehículo tiene desactivadas sus comprobaciones: se arma sin mirar.",
+      "unknown": "El vehículo no dice si sus comprobaciones pasan."
+    },
+    "running": "Pidiendo al vehículo que haga sus comprobaciones…",
+    "error": "No se pudieron hacer las comprobaciones: {error}",
+    "heard": "Lo que el vehículo dijo hace poco",
+    "ago": "hace {seconds} s",
+    "none": "El vehículo no ha dicho nada de un problema en los últimos dos minutos.",
+    "note": "Son las palabras del propio vehículo. Hace sus comprobaciones de nuevo cuando se le pide armar, y se niega si una falla. La aplicación nunca las omite.",
+    "notNow": "Ahora no",
+    "again": "Comprobar de nuevo",
+    "arm": "Armar…"
+  },
+  "strip": {
+    "title": "Controles de vuelo",
+    "state": {
+      "armed": "Armado",
+      "disarmed": "Desarmado",
+      "unknown": "Estado desconocido"
+    },
+    "checks": {
+      "passing": "Comprobaciones correctas",
+      "failing": "Comprobaciones fallan",
+      "off": "Comprobaciones desactivadas",
+      "unknown": "Comprobaciones sin informar"
+    },
+    "mode": "Modo de vuelo",
+    "more": "Más",
+    "stop": "Parada de emergencia"
   },
   "settings": {
     "metadata": {
@@ -1187,6 +1228,17 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Parada de emergencia",
+        "title": "Parada de emergencia",
+        "what": "Los motores se detienen AHORA, esté donde esté el vehículo. Un vehículo que vuela se estrellará. Úsela solo cuando algo va mal y el vehículo es un peligro.",
+        "button": "Mantenga para detener los motores"
+      },
+      "review": {
+        "label": "Revisar antes de armar",
+        "keywords": "armar comprobaciones listo",
+        "button": "Revisar y armar"
+      },
       "arm": {
         "label": "Armar el vehículo",
         "keywords": "arrancar motores hélices armar",
@@ -1195,6 +1247,7 @@
         "button": "Mantenga para armar"
       },
       "disarm": {
+        "short": "Desarmar",
         "label": "Desarmar el vehículo",
         "keywords": "parar motores desarmar",
         "title": "Desarmar el vehículo",

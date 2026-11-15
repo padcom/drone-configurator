@@ -652,6 +652,12 @@
     "label": "Language"
   },
   "arming": {
+    "stop": {
+      "accepted": "{vehicle} accepted the stop. It shows disarmed when it reports it.",
+      "refused": "{vehicle} refused the emergency stop.",
+      "unsupported": "{vehicle} does not support the emergency stop.",
+      "noAnswer": "No answer from {vehicle} to the emergency stop (it was sent up to 3 times). Watch the state it reports."
+    },
     "arm": {
       "accepted": "{vehicle} accepted the arm. It shows armed when it reports it.",
       "refused": "{vehicle} refused to arm.",
@@ -670,6 +676,41 @@
       "unsupported": "{vehicle} does not know that mode.",
       "noAnswer": "No answer from {vehicle}. The mode it reports is the one it is in. The command is not sent again."
     }
+  },
+  "review": {
+    "title": "Review before arming",
+    "checks": {
+      "passing": "The vehicle says its pre-arm checks pass.",
+      "failing": "The vehicle says its pre-arm checks do not pass.",
+      "off": "The vehicle has its arming checks switched off: it arms without looking.",
+      "unknown": "The vehicle does not say whether its checks pass."
+    },
+    "running": "Asking the vehicle to run its checks…",
+    "error": "The checks could not be run: {error}",
+    "heard": "What the vehicle said lately",
+    "ago": "{seconds} s ago",
+    "none": "The vehicle has not said anything about a problem in the last two minutes.",
+    "note": "These are the vehicle's own words. It runs its checks again when it is asked to arm, and refuses if one fails. The app never skips them.",
+    "notNow": "Not now",
+    "again": "Check again",
+    "arm": "Arm…"
+  },
+  "strip": {
+    "title": "Flight controls",
+    "state": {
+      "armed": "Armed",
+      "disarmed": "Disarmed",
+      "unknown": "State not known"
+    },
+    "checks": {
+      "passing": "Checks pass",
+      "failing": "Checks do not pass",
+      "off": "Checks off",
+      "unknown": "Checks not reported"
+    },
+    "mode": "Flight mode",
+    "more": "More",
+    "stop": "Emergency stop"
   },
   "settings": {
     "metadata": {
@@ -1187,6 +1228,17 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Emergency stop",
+        "title": "Emergency stop",
+        "what": "The motors stop NOW, wherever the vehicle is. A flying vehicle will crash. Use it only when something is wrong and the vehicle is a danger.",
+        "button": "Hold to stop the motors"
+      },
+      "review": {
+        "label": "Review before arming",
+        "keywords": "arm checks pre-arm ready",
+        "button": "Review and arm"
+      },
       "arm": {
         "label": "Arm the vehicle",
         "keywords": "start motors spin propellers",
@@ -1195,6 +1247,7 @@
         "button": "Hold to arm"
       },
       "disarm": {
+        "short": "Disarm",
         "label": "Disarm the vehicle",
         "keywords": "stop motors",
         "title": "Disarm the vehicle",

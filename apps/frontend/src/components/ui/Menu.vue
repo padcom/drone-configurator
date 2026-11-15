@@ -18,6 +18,7 @@
         type="button"
         role="menuitem"
         class="item"
+        :class="{ danger: item.danger }"
         :disabled="item.disabled"
         :tabindex="i === active ? 0 : -1"
         @click="choose(item)"

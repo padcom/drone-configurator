@@ -14,11 +14,11 @@ import { createBackendClient } from './client'
  */
 function armingOf(control: MockControl) {
   return {
-    prearm: (texts: string[]) => arming.prearm(texts),
-    answer: (result: ArmingResult['result']) => arming.answer(result),
-    sent: () => arming.sent() ?? [],
-    armed: (state: boolean | null) => arming.armed(state),
-    busy: (busy: boolean) => arming.busy(busy),
+    prearm: (texts: string[]) => control.arming?.prearm?.(texts),
+    answer: (result: ArmingResult['result']) => control.arming?.answer?.(result),
+    sent: () => control.arming?.sent?.() ?? [],
+    armed: (state: boolean | null) => control.armed?.(state),
+    busy: (busy: boolean) => control.busy?.(busy),
   }
 }
 

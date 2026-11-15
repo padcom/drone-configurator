@@ -164,6 +164,8 @@ export class DisarmVehicle implements Command {
 
   readonly labelKey = 'palette.vehicle.disarm.label'
 
+  readonly buttonLabelKey = 'palette.vehicle.disarm.short'
+
   readonly groupKey = VEHICLE_GROUP
 
   readonly icon = 'warning'
@@ -210,6 +212,107 @@ export class DisarmVehicle implements Command {
    */
   execute(ctx: CommandContext): Promise<CommandOutcome> {
     return sendAndTell(ctx, 'disarm', () => ctx.vehicle.disarm())
+  }
+}
+
+/**
+ * The emergency stop: a forced disarm that works in flight: the motors stop WHERE THE VEHICLE IS, and it falls. A hold in the
+ * error tone, offered to a connected vehicle that is armed or may be (a state that is not known counts as armed: the armed flag
+ * lags the vehicle), and it is NOT in the palette and has no key: the only way to it is the "More" menu of the flight controls,
+ * which shows it while the vehicle is armed. The backend refuses it only without a connection, and sends it again until the
+ * vehicle answers; that the vehicle stopped is what its heartbeat says, never the answer.
+ */
+export class EmergencyStop implements Command {
+  readonly id = 'vehicle.emergencyStop'
+
+  readonly labelKey = 'palette.vehicle.stop.label'
+
+  readonly groupKey = VEHICLE_GROUP
+
+  readonly icon = 'warning'
+
+  readonly dangerous = true
+
+  // Never from the palette: the way to it is a deliberate one, from the controls of a flight.
+  readonly listed = false
+
+  /**
+   * May it run now? For a connected vehicle that is not known to be disarmed.
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    const key = connectionBlocker(ctx.vehicle) ?? (ctx.vehicle.armed() === false ? 'palette.reason.notArmed' : null)
+
+    return key === null ? { enabled: true } : no(key)
+  }
+
+  /**
+   * The question before it runs: a hold in the error tone, with what it does in plain words.
+   *
+   * @param ctx the context
+   * @returns what to ask
+   */
+  confirmation(ctx: CommandContext): SafetyOptions {
+    return {
+      title: ctx.say('palette.vehicle.stop.title'),
+      what: ctx.say('palette.vehicle.stop.what'),
+      vehicle: namedVehicle(ctx),
+      level: 'hold',
+      tone: 'error',
+      confirmLabel: ctx.say('palette.vehicle.stop.button'),
+    }
+  }
+
+  /**
+   * Sends the stop.
+   *
+   * @param ctx the context
+   * @returns what a command leaves behind
+   */
+  execute(ctx: CommandContext): Promise<CommandOutcome> {
+    return sendAndTell(ctx, 'stop', () => ctx.vehicle.emergencyStop())
+  }
+}
+
+/** Opens the review before arming: what the vehicle says of its checks, and the way to the hold. It sends nothing itself. */
+export class ReviewBeforeArming implements Command {
+  readonly id = 'vehicle.review'
+
+  readonly labelKey = 'palette.vehicle.review.label'
+
+  readonly buttonLabelKey = 'palette.vehicle.review.button'
+
+  readonly groupKey = VEHICLE_GROUP
+
+  readonly icon = 'info'
+
+  readonly keywordKeys = ['palette.vehicle.review.keywords']
+
+  /**
+   * May it run now? For a connected vehicle that is known to be disarmed (the review is for an arm).
+   *
+   * @param ctx the context
+   * @returns whether it may, and if not why
+   */
+  isEnabled(ctx: CommandContext): Availability {
+    const { vehicle } = ctx
+    const key = connectionBlocker(vehicle) ?? armedBlocker(vehicle.armed(), false)
+
+    return key === null ? { enabled: true } : no(key)
+  }
+
+  /**
+   * Opens the review.
+   *
+   * @param ctx the context
+   * @returns what a command leaves behind
+   */
+  execute(ctx: CommandContext): CommandOutcome {
+    ctx.dialogs.showArmReview()
+
+    return { focus: 'restore' }
   }
 }
 

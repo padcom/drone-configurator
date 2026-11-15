@@ -5,7 +5,7 @@ import type { ArmingResult } from '@/generated/app'
 import type { CommandContext } from './command'
 
 /** What was asked. */
-export type ArmingKind = 'arm' | 'disarm' | 'mode'
+export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode'
 
 /** The messages for the codes with which the backend refuses before it sends anything, for what was asked. */
 const REFUSALS: Record<ArmingKind, Record<string, string>> = {
@@ -20,6 +20,9 @@ const REFUSALS: Record<ArmingKind, Record<string, string>> = {
     NOT_ARMED: 'palette.reason.notArmed',
     STATE_UNKNOWN: 'palette.reason.stateUnknown',
     BUSY: 'palette.reason.busyVehicle',
+  },
+  stop: {
+    NOT_CONNECTED: 'palette.reason.notConnected',
   },
   mode: {
     NOT_CONNECTED: 'palette.reason.notConnected',

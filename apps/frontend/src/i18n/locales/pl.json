@@ -652,6 +652,12 @@
     "label": "Język"
   },
   "arming": {
+    "stop": {
+      "accepted": "{vehicle} przyjął zatrzymanie. Pokaże rozbrojenie, gdy to zgłosi.",
+      "refused": "{vehicle} odmówił awaryjnego zatrzymania.",
+      "unsupported": "{vehicle} nie obsługuje awaryjnego zatrzymania.",
+      "noAnswer": "Brak odpowiedzi od {vehicle} na awaryjne zatrzymanie (wysłano je do 3 razy). Obserwuj stan, który zgłasza."
+    },
     "arm": {
       "accepted": "{vehicle} przyjął uzbrojenie. Pokaże, że jest uzbrojony, gdy to zgłosi.",
       "refused": "{vehicle} odmówił uzbrojenia.",
@@ -670,6 +676,41 @@
       "unsupported": "{vehicle} nie zna tego trybu.",
       "noAnswer": "Brak odpowiedzi od {vehicle}. Tryb, który zgłasza, jest tym, w którym jest. Polecenie nie jest wysyłane ponownie."
     }
+  },
+  "review": {
+    "title": "Przegląd przed uzbrojeniem",
+    "checks": {
+      "passing": "Pojazd mówi, że jego sprawdzenia przed uzbrojeniem przechodzą.",
+      "failing": "Pojazd mówi, że jego sprawdzenia przed uzbrojeniem nie przechodzą.",
+      "off": "Pojazd ma wyłączone sprawdzenia uzbrojenia: uzbraja się bez patrzenia.",
+      "unknown": "Pojazd nie mówi, czy jego sprawdzenia przechodzą."
+    },
+    "running": "Proszę pojazd o wykonanie sprawdzeń…",
+    "error": "Nie udało się wykonać sprawdzeń: {error}",
+    "heard": "Co pojazd powiedział niedawno",
+    "ago": "{seconds} s temu",
+    "none": "Pojazd nie powiedział nic o problemie w ciągu ostatnich dwóch minut.",
+    "note": "To własne słowa pojazdu. Wykonuje on sprawdzenia ponownie, gdy ma się uzbroić, i odmawia, gdy któreś nie przechodzi. Aplikacja nigdy ich nie pomija.",
+    "notNow": "Nie teraz",
+    "again": "Sprawdź ponownie",
+    "arm": "Uzbrój…"
+  },
+  "strip": {
+    "title": "Sterowanie lotem",
+    "state": {
+      "armed": "Uzbrojony",
+      "disarmed": "Rozbrojony",
+      "unknown": "Stan nieznany"
+    },
+    "checks": {
+      "passing": "Sprawdzenia przechodzą",
+      "failing": "Sprawdzenia nie przechodzą",
+      "off": "Sprawdzenia wyłączone",
+      "unknown": "Brak informacji o sprawdzeniach"
+    },
+    "mode": "Tryb lotu",
+    "more": "Więcej",
+    "stop": "Awaryjne zatrzymanie"
   },
   "settings": {
     "metadata": {
@@ -1187,6 +1228,17 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Awaryjne zatrzymanie",
+        "title": "Awaryjne zatrzymanie",
+        "what": "Silniki zatrzymują się TERAZ, gdziekolwiek jest pojazd. Pojazd w locie spadnie. Użyj tylko wtedy, gdy coś jest nie tak i pojazd stanowi zagrożenie.",
+        "button": "Przytrzymaj, aby zatrzymać silniki"
+      },
+      "review": {
+        "label": "Przegląd przed uzbrojeniem",
+        "keywords": "uzbrojenie sprawdzenia gotowy",
+        "button": "Przegląd i uzbrojenie"
+      },
       "arm": {
         "label": "Uzbrój pojazd",
         "keywords": "start silniki śmigła uzbrojenie",
@@ -1195,6 +1247,7 @@
         "button": "Przytrzymaj, aby uzbroić"
       },
       "disarm": {
+        "short": "Rozbrój",
         "label": "Rozbrój pojazd",
         "keywords": "stop silniki rozbrojenie",
         "title": "Rozbrój pojazd",

@@ -42,17 +42,13 @@ export interface Vehicle {
    * What the vehicle is now is what its next heartbeat says (`telemetry`), never the answer.
    */
   arm: () => Promise<ArmingResult>
-  /**
-   *
-   */
+  /** Disarms. */
   disarm: () => Promise<ArmingResult>
-  /**
-   *
-   */
+  /** The emergency stop: refused only without a connection, sent again until the first ack; the heartbeat says what it did. */
+  emergencyStop: () => Promise<ArmingResult>
+  /** Changes the flight mode to the one with this number. */
   setMode: (mode: number) => Promise<ArmingResult>
-  /**
-   *
-   */
+  /** Runs the vehicle's pre-arm checks. */
   prearm: () => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
@@ -185,6 +181,10 @@ class VehicleLink implements Vehicle {
 
   disarm(): Promise<ArmingResult> {
     return this.deps.client.call('vehicle.disarm', null)
+  }
+
+  emergencyStop(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.emergencyStop', null)
   }
 
   setMode(mode: number): Promise<ArmingResult> {

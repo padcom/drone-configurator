@@ -652,6 +652,12 @@
     "label": "Lingua"
   },
   "arming": {
+    "stop": {
+      "accepted": "{vehicle} ha accettato l'arresto. Si mostrerà disarmato quando lo comunica.",
+      "refused": "{vehicle} ha rifiutato l'arresto di emergenza.",
+      "unsupported": "{vehicle} non supporta l'arresto di emergenza.",
+      "noAnswer": "Nessuna risposta da {vehicle} all'arresto di emergenza (inviato fino a 3 volte). Osserva lo stato che comunica."
+    },
     "arm": {
       "accepted": "{vehicle} ha accettato l'armamento. Si mostrerà armato quando lo comunica.",
       "refused": "{vehicle} ha rifiutato di armarsi.",
@@ -670,6 +676,41 @@
       "unsupported": "{vehicle} non conosce quella modalità.",
       "noAnswer": "Nessuna risposta da {vehicle}. La modalità che comunica è quella in cui si trova. Il comando non viene inviato di nuovo."
     }
+  },
+  "review": {
+    "title": "Verifica prima di armare",
+    "checks": {
+      "passing": "Il veicolo dice che i suoi controlli prima dell'armamento passano.",
+      "failing": "Il veicolo dice che i suoi controlli prima dell'armamento non passano.",
+      "off": "Il veicolo ha disattivato i controlli: si arma senza guardare.",
+      "unknown": "Il veicolo non dice se i suoi controlli passano."
+    },
+    "running": "Chiedo al veicolo di eseguire i suoi controlli…",
+    "error": "Non è stato possibile eseguire i controlli: {error}",
+    "heard": "Cosa ha detto il veicolo di recente",
+    "ago": "{seconds} s fa",
+    "none": "Il veicolo non ha detto nulla su un problema negli ultimi due minuti.",
+    "note": "Sono le parole del veicolo stesso. Esegue di nuovo i controlli quando gli si chiede di armarsi, e rifiuta se uno fallisce. L'app non li salta mai.",
+    "notNow": "Non ora",
+    "again": "Controlla di nuovo",
+    "arm": "Arma…"
+  },
+  "strip": {
+    "title": "Controlli di volo",
+    "state": {
+      "armed": "Armato",
+      "disarmed": "Disarmato",
+      "unknown": "Stato non noto"
+    },
+    "checks": {
+      "passing": "Controlli superati",
+      "failing": "Controlli non superati",
+      "off": "Controlli disattivati",
+      "unknown": "Controlli non comunicati"
+    },
+    "mode": "Modalità di volo",
+    "more": "Altro",
+    "stop": "Arresto di emergenza"
   },
   "settings": {
     "metadata": {
@@ -1187,6 +1228,17 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Arresto di emergenza",
+        "title": "Arresto di emergenza",
+        "what": "I motori si fermano ORA, ovunque sia il veicolo. Un veicolo in volo cadrà. Usalo solo quando qualcosa non va e il veicolo è un pericolo.",
+        "button": "Tieni premuto per fermare i motori"
+      },
+      "review": {
+        "label": "Verifica prima di armare",
+        "keywords": "armare controlli pronto",
+        "button": "Verifica e arma"
+      },
       "arm": {
         "label": "Arma il veicolo",
         "keywords": "avvia motori eliche armare",
@@ -1195,6 +1247,7 @@
         "button": "Tieni premuto per armare"
       },
       "disarm": {
+        "short": "Disarma",
         "label": "Disarma il veicolo",
         "keywords": "ferma motori disarmare",
         "title": "Disarma il veicolo",

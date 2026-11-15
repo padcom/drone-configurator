@@ -58,7 +58,7 @@ export interface Fake {
     toast: ToastInput[]
     /** One entry per call to `vehicle.reboot`: the arguments it got (always none). */
     reboot: unknown[][]
-    /** One entry per command sent to the vehicle: `arm`, `disarm`, `prearm`, `mode N`. */
+    /** One entry per command sent to the vehicle: `arm`, `disarm`, `stop`, `prearm`, `mode N`. */
     sent: string[]
     /** One entry per call to `vehicle.disconnect`. */
     disconnect: string[]
@@ -66,7 +66,7 @@ export interface Fake {
     download: string[]
     /** One entry per snapshot file that was asked to be saved (`save`) or opened (`load`). */
     snapshot: string[]
-    /** The dialogs that were opened: `connect`, `palette`. */
+    /** The dialogs that were opened: `connect`, `palette`, `review`. */
     dialogs: string[]
     /** The parameters shown with `parameters.reveal`. */
     reveal: string[]
@@ -123,6 +123,7 @@ function vehicleOf(fake: Fake): VehicleFacts {
     },
     arm: () => sentOf(fake, 'arm'),
     disarm: () => sentOf(fake, 'disarm'),
+    emergencyStop: () => sentOf(fake, 'stop'),
     setMode: mode => sentOf(fake, `mode ${mode}`),
     prearm: () => sentOf(fake, 'prearm'),
     modes: () => fake.facts.modes,
@@ -156,6 +157,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
     dialogs: {
       showConnect: () => void fake.calls.dialogs.push('connect'),
       togglePalette: () => void fake.calls.dialogs.push('palette'),
+      showArmReview: () => void fake.calls.dialogs.push('review'),
     },
   }
 }

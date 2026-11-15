@@ -57,17 +57,13 @@ export interface VehicleFacts {
    * heartbeat says, never this answer.
    */
   arm(): Promise<ArmingResult>
-  /**
-   *
-   */
+  /** Disarms (the vehicle refuses a disarm in flight). */
   disarm(): Promise<ArmingResult>
-  /**
-   *
-   */
+  /** The emergency stop: a forced disarm that works in flight (the motors stop and the vehicle falls). Only the stop sends it. */
+  emergencyStop(): Promise<ArmingResult>
+  /** Changes the flight mode to the one with this number (of `modes()`). */
   setMode(mode: number): Promise<ArmingResult>
-  /**
-   *
-   */
+  /** Runs the vehicle's pre-arm checks: it says what fails in its own words. */
   prearm(): Promise<ArmingResult>
   /** The modes of the vehicle's kind, or null when they have not been read (they are read when the vehicle connects). */
   modes(): VehicleModes | null
@@ -93,6 +89,8 @@ export interface DialogFacts {
   showConnect(): void
   /** Opens the command palette, or closes it when it is open; it does not open over another dialog. */
   togglePalette(): void
+  /** Opens the review before arming (the vehicle's checks and what it says of them). */
+  showArmReview(): void
 }
 
 /** The vehicle's parameters, as the commands that go to one see them. */
