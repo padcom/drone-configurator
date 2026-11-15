@@ -22,6 +22,7 @@
   <ConnectDialog />
   <ConfirmDialog />
   <ArmReview />
+  <TakeoffDialog />
   <CommandPalette />
 </template>
 
@@ -32,6 +33,7 @@ import { useMetadataAtStart } from '@/composables/useMetadataAtStart'
 import { useCalibrationToasts } from '@/composables/useCalibrationToasts'
 import { useMetadataToasts } from '@/lib/params/metadataToasts'
 import ArmReview from '@/components/fly/ArmReview.vue'
+import TakeoffDialog from '@/components/fly/TakeoffDialog.vue'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'

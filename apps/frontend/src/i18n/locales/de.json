@@ -704,6 +704,12 @@
     "label": "Sprache"
   },
   "arming": {
+    "takeoff": {
+      "accepted": "{vehicle} hat das Abheben auf {altitude} m angenommen. Es steigt, wenn seine Position es sagt.",
+      "refused": "{vehicle} hat das Abheben verweigert.",
+      "unsupported": "{vehicle} unterstützt das Abheben von hier aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Es kann abgehoben haben: beobachten Sie seine Position. Der Befehl wird nicht noch einmal gesendet."
+    },
     "stop": {
       "accepted": "{vehicle} hat den Stopp angenommen. Es zeigt entschärft, wenn es das meldet.",
       "refused": "{vehicle} hat den Not-Aus abgelehnt.",
@@ -727,6 +733,32 @@
       "refused": "{vehicle} hat den Moduswechsel abgelehnt.",
       "unsupported": "{vehicle} kennt diesen Modus nicht.",
       "noAnswer": "Keine Antwort von {vehicle}. Der gemeldete Modus ist der, in dem es ist. Der Befehl wird nicht noch einmal gesendet."
+    }
+  },
+  "takeoff": {
+    "title": "Abheben",
+    "whatDisarmed": "Das Fahrzeug wechselt in GUIDED, wird scharf geschaltet (seine eigenen Prüfungen laufen, und Sie halten zum Schärfen) und steigt auf die Höhe. Prüfen Sie, dass die Propeller frei sind und der Raum darüber frei ist.",
+    "whatArmed": "Das Fahrzeug wechselt in GUIDED und steigt auf die Höhe. Prüfen Sie, dass der Raum darüber frei ist.",
+    "altitude": "Höhe über Home (m)",
+    "go": "Abheben",
+    "limits": {
+      "setting": "{min} bis {max} m (das höchste Abheben stellen Sie in den Einstellungen ein).",
+      "fence": "{min} bis {max} m (der eigene Zaun des Fahrzeugs erlaubt nicht mehr)."
+    },
+    "problem": {
+      "invalid": "Geben Sie eine Zahl in Metern ein, zum Beispiel 10.",
+      "low": "Mindestens {min} m.",
+      "high": "Höchstens {max} m.",
+      "fenceUnknown": "Der Zaun des Fahrzeugs ist nicht bekannt (seine Parameter sind noch nicht da): auf die Parameter warten und dann erneut versuchen."
+    },
+    "step": {
+      "noGuided": "Dieses Fahrzeug hat keinen Modus GUIDED: kein Abheben.",
+      "notGuided": "Das Fahrzeug hat nicht gemeldet, dass es in GUIDED ist. Es wurde kein Abheben verlangt.",
+      "stateUnknown": "Der Zustand des Fahrzeugs ist nicht bekannt. Es wurde kein Abheben verlangt.",
+      "review": "Die Prüfungen des Fahrzeugs bestehen nicht: sehen Sie sie durch, schalten Sie scharf und heben Sie erneut ab.",
+      "notArmed": "Das Fahrzeug hat nicht gemeldet, dass es scharf ist. Es wurde kein Abheben verlangt.",
+      "noArm": "Start abgebrochen: das Scharfschalten wurde nicht bestätigt oder vom Fahrzeug nicht angenommen. Es wurde kein Start angefordert.",
+      "stillArmed": "Das Fahrzeug ist scharf, im Modus GUIDED, am Boden und ist nicht gestartet. Entschärfen Sie es über STATE in der oberen Leiste, wenn Sie nicht fliegen wollen."
     }
   },
   "review": {
@@ -781,6 +813,9 @@
       "title": "Flugsteuerung",
       "modeConfirm": "Vor dem Wechsel des Flugmodus eines scharfen Fahrzeugs",
       "modeConfirmHelp": "RTL, Land, Loiter und Brake fragen nie: dort ist Verzögerung die Gefahr. Ein entschärftes Fahrzeug wird nie gefragt.",
+      "takeoffCeiling": "Höchstes Abheben",
+      "takeoffCeilingHelp": "Wie hoch Abheben gehen darf, in Metern über Home. Der eigene Zaun des Fahrzeugs ist noch niedriger, wenn er die Höhe begrenzt.",
+      "metres": "{n} m",
       "plain": "Bestätigung verlangen (empfohlen)",
       "none": "Nicht fragen"
     },
@@ -1254,6 +1289,14 @@
       }
     },
     "reason": {
+      "takeoff": {
+        "gps": "Das Abheben braucht einen 3D-GPS-Fix, und das Fahrzeug meldet keinen.",
+        "ekf": "Das Abheben braucht eine Position im EKF, und das Fahrzeug meldet sie nicht.",
+        "position": "Das Fahrzeug meldet seine Position nicht.",
+        "air": "Das Fahrzeug ist schon in der Luft."
+      },
+      "takeoffAltitude": "Diese Höhe ist für ein Abheben nicht erlaubt.",
+      "takeoffUnsupported": "Abheben wird nur von einem ArduPilot verlangt.",
       "alreadyArmed": "Das Fahrzeug ist schon scharf.",
       "notArmed": "Das Fahrzeug ist nicht scharf.",
       "busyVehicle": "Etwas anderes läuft: ein früherer Befehl, ein Parameter- oder Logvorgang, eine Kalibrierung, ein Motortest oder ein Neustart. Versuchen Sie es nach dessen Ende.",
@@ -1295,6 +1338,10 @@
         "title": "Fahrzeug scharf schalten",
         "what": "Die Motoren können dann drehen. Das Fahrzeug führt seine eigenen Prüfungen vor dem Scharfschalten aus und lehnt ab, wenn eine fehlschlägt: die Gründe werden gezeigt. Prüfen Sie, dass die Propeller frei sind und der Bereich sicher ist.",
         "button": "Halten zum Scharfschalten"
+      },
+      "takeoff": {
+        "label": "Abheben",
+        "keywords": "starten steigen hochfliegen abheben"
       },
       "disarm": {
         "short": "Entschärfen",

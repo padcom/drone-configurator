@@ -47,7 +47,7 @@
             type="button"
             class="cell-action"
             :title="t('topBar.state.arm')"
-            :aria-label="t('topBar.state.arm')"
+            :aria-label="nameWithAge(t('topBar.state.arm'), cell.value)"
             @click="beginArm"
           >
             {{ cell.value }}
@@ -58,7 +58,7 @@
             v-else-if="cell.id === 'state' && canStop && !cell.missing"
             id="state-menu"
             :label="cell.value"
-            :trigger-label="stateLabel"
+            :trigger-label="nameWithAge(stateLabel, cell.value)"
             :items="stateItems"
             @select="stateAct"
           />
@@ -98,7 +98,7 @@ import { useArmGrace } from '@/composables/useArmGrace'
 import { useModeMenu } from '@/composables/useModeMenu'
 import { checksOf, needsReview } from '@/lib/fly/prearm'
 import { HOME } from '@/screens/registry'
-import { cellsFor, vehicleCellFor } from '@/lib/fly/topBar'
+import { cellsFor, nameWithAge, vehicleCellFor } from '@/lib/fly/topBar'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useCommandRunner } from '@/composables/useCommandRunner'
 import { useFormat } from '@/i18n/useFormat'

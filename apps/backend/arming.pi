@@ -1,4 +1,5 @@
-// The arming service: `vehicle.arm`, `vehicle.disarm`, `vehicle.emergencyStop`, `vehicle.setMode` and `vehicle.prearm` (RUN_PREARM_CHECKS),
+// The arming service: `vehicle.arm`, `vehicle.disarm`, `vehicle.emergencyStop`, `vehicle.setMode`, `vehicle.prearm` (RUN_PREARM_CHECKS)
+// and `vehicle.takeoff` (NAV_TAKEOFF),
 // over pico-mavlink's `VehicleControl`.
 //  - Each command is sent ONCE. A command that nothing acknowledged may have been carried out (an arm whose ack was lost may have
 //    armed the vehicle): it is reported `no-answer`, never sent again, and the state is whatever the next heartbeat says.
@@ -16,6 +17,9 @@
 //  - An arm waits (`BUSY`) while an emergency stop is still being sent (up to 1.5 s): a late resend could disarm the vehicle it armed.
 //  - RTL and LAND (idempotent, and what a person does when something goes wrong) are allowed in an unknown state and while another
 //    command is out, whenever the link is open; every other mode change needs a known state.
+//  - A TAKEOFF is sent once, to an armed vehicle whose state is known (`NOT_ARMED` otherwise: the page arms first), to an altitude of 2 to
+//    120 m above home (the hard limits; the user's setting and the vehicle's fence are the page's). The vehicle itself refuses unless it is
+//    on the ground and in GUIDED. It does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
 //    1.5 s after an accepted answer (the heartbeat lags the vehicle) or 5 s after a missing one; a refusal releases it at once. So no
 //    parameter write, calibration, motor test, log operation or reboot can start in the time the vehicle may be arming.
@@ -24,7 +28,7 @@
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import { delay } from "std/timers"
 import { ControlResult, MavAutopilot, MavLinkError, MavResult, VehicleControl } from "padcom/pico-mavlink"
-import { ArmingResult, ArmingResultResult, decodeSetModeAsk, encodeArmingResult } from "./generated/app"
+import { ArmingResult, ArmingResultResult, decodeSetModeAsk, decodeTakeoffAsk, encodeArmingResult } from "./generated/app"
 import { nextMessageId, textsSince } from "./messages"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
 import { modesOfVehicle } from "./vehicleinfo"
@@ -53,6 +57,11 @@ const DISARM: int = 2
 const STOP: int = 3
 const MODE: int = 4
 const PREARM: int = 5
+const TAKEOFF: int = 6
+
+/// The takeoff altitudes the backend sends (m above home): its own hard limits.
+export const TAKEOFF_MIN_M: f64 = 2.0
+export const TAKEOFF_MAX_M: f64 = 120.0
 
 /// Registers the service's methods on `c`.
 export function register(c: Communicator): void {
@@ -61,6 +70,7 @@ export function register(c: Communicator): void {
   c.handle("vehicle.emergencyStop", emergencyStop)
   c.handle("vehicle.setMode", setMode)
   c.handle("vehicle.prearm", prearm)
+  c.handle("vehicle.takeoff", takeoff)
 }
 
 /// Whether one of these commands waits for its answer: a second one is refused (the emergency stop is not held off).
@@ -107,7 +117,7 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   if ((what == ARM || what == PREARM) && armed) {
     throw new CommunicatorError("ARMED", "the vehicle is armed")
   }
-  if (what == DISARM && !armed) {
+  if ((what == DISARM || what == TAKEOFF) && !armed) {
     throw new CommunicatorError("NOT_ARMED", "the vehicle is not armed")
   }
   if (asking.busy) {
@@ -116,8 +126,21 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   if ((what == ARM || what == PREARM) && operationUnderWay()) {
     throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
   }
-  if (what == MODE && rebootExpected()) {
+  if ((what == MODE || what == TAKEOFF) && rebootExpected()) {
     throw new CommunicatorError("BUSY", "a reboot is under way")
+  }
+  if (what == TAKEOFF && operationUnderWay()) {
+    throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
+  }
+}
+
+/// The refusal of a takeoff to `altitude`, or nothing: an ArduPilot, and an altitude of 2 to 120 m (a number).
+function checkTakeoff(altitude: f64): void throws CommunicatorError {
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED_VEHICLE", "a takeoff is asked of an ArduPilot only")
+  }
+  if (!(altitude >= TAKEOFF_MIN_M) || altitude > TAKEOFF_MAX_M) {
+    throw new CommunicatorError("INVALID_VALUE", `a takeoff altitude is ${TAKEOFF_MIN_M} to ${TAKEOFF_MAX_M} m above home, not ${altitude}`)
   }
 }
 
@@ -183,10 +206,13 @@ function resultName(result: int): string {
 }
 
 /// Sends the command `what` once, and waits for its answer and the texts around it.
-async function execute(what: int, mode: int): Promise<Cbor?> throws Error {
+async function execute(what: int, mode: int, altitude: f64 = 0.0): Promise<Cbor?> throws Error {
   connectedLink()
   if (what == MODE) {
     checkMode(mode)
+  }
+  if (what == TAKEOFF) {
+    checkTakeoff(altitude)
   }
   checkAllowed(what, what == MODE && isSafetyMode(mode))
   const conn = connectedLink()
@@ -206,7 +232,7 @@ async function execute(what: int, mode: int): Promise<Cbor?> throws Error {
   }
   let got: ControlResult? = null
   try {
-    got = await send(control, what, mode)
+    got = await send(control, what, mode, altitude)
   } catch (e: MavLinkError) {
     // The session ended while the command was out (a lost link, a disconnect): it may have been carried out.
     if (e.code != "ABORTED") {
@@ -255,7 +281,7 @@ function lost(texts: string[]): ArmingResult {
   }
 }
 
-async function send(control: VehicleControl, what: int, mode: int): Promise<ControlResult> throws Error {
+async function send(control: VehicleControl, what: int, mode: int, altitude: f64): Promise<ControlResult> throws Error {
   if (what == ARM) {
     return await control.arm()
   }
@@ -267,6 +293,9 @@ async function send(control: VehicleControl, what: int, mode: int): Promise<Cont
   }
   if (what == MODE) {
     return await control.setMode(mode)
+  }
+  if (what == TAKEOFF) {
+    return await control.takeoff(altitude)
   }
   await control.runPrearmChecks()
 }
@@ -292,4 +321,11 @@ async function setMode(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> thr
 
 async function prearm(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   await execute(PREARM, 0)
+}
+
+async function takeoff(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (payload == null) {
+    throw new CommunicatorError("INVALID_VALUE", "an altitude is needed")
+  }
+  await execute(TAKEOFF, 0, decodeTakeoffAsk(payload!, "$").altitude)
 }

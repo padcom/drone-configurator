@@ -704,6 +704,12 @@
     "label": "Idioma"
   },
   "arming": {
+    "takeoff": {
+      "accepted": "{vehicle} aceptó el despegue a {altitude} m. Sube cuando su posición lo diga.",
+      "refused": "{vehicle} se negó a despegar.",
+      "unsupported": "{vehicle} no admite despegar desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. Puede haber despegado: vigile su posición. El comando no se envía otra vez."
+    },
     "stop": {
       "accepted": "{vehicle} aceptó la parada. Se mostrará desarmado cuando lo informe.",
       "refused": "{vehicle} rechazó la parada de emergencia.",
@@ -727,6 +733,32 @@
       "refused": "{vehicle} se negó a cambiar de modo.",
       "unsupported": "{vehicle} no conoce ese modo.",
       "noAnswer": "Sin respuesta de {vehicle}. El modo que informa es en el que está. La orden no se envía de nuevo."
+    }
+  },
+  "takeoff": {
+    "title": "Despegar",
+    "whatDisarmed": "El vehículo pasa a GUIDED, se arma (corren sus propias comprobaciones y se mantiene pulsado para armar) y sube a la altitud. Compruebe que las hélices están libres y que el espacio de arriba está despejado.",
+    "whatArmed": "El vehículo pasa a GUIDED y sube a la altitud. Compruebe que el espacio de arriba está despejado.",
+    "altitude": "Altitud sobre el origen (m)",
+    "go": "Despegar",
+    "limits": {
+      "setting": "De {min} a {max} m (el despegue más alto se fija en Ajustes).",
+      "fence": "De {min} a {max} m (la propia valla del vehículo no permite más)."
+    },
+    "problem": {
+      "invalid": "Escriba un número de metros, por ejemplo 10.",
+      "low": "Al menos {min} m.",
+      "high": "Como máximo {max} m.",
+      "fenceUnknown": "No se conoce la valla del vehículo (sus parámetros aún no están): espere a los parámetros y vuelva a intentarlo."
+    },
+    "step": {
+      "noGuided": "Este vehículo no tiene modo GUIDED: no hay despegue.",
+      "notGuided": "El vehículo no dijo que está en GUIDED. No se pidió el despegue.",
+      "stateUnknown": "No se conoce el estado del vehículo. No se pidió el despegue.",
+      "review": "Las comprobaciones del vehículo no pasan: revíselas, arme y despegue otra vez.",
+      "notArmed": "El vehículo no dijo que está armado. No se pidió el despegue.",
+      "noArm": "Despegue detenido: el armado no se confirmó o el vehículo no lo aceptó. No se pidió el despegue.",
+      "stillArmed": "El vehículo está armado, en GUIDED, en tierra, y no despegó. Desármelo desde STATE en la barra superior si no piensa volar."
     }
   },
   "review": {
@@ -781,6 +813,9 @@
       "title": "Controles de vuelo",
       "modeConfirm": "Antes de cambiar el modo de vuelo de un vehículo armado",
       "modeConfirmHelp": "RTL, Land, Loiter y Brake nunca preguntan: ahí el retraso es el peligro. A un vehículo desarmado nunca se le pregunta.",
+      "takeoffCeiling": "Despegue más alto",
+      "takeoffCeilingHelp": "Hasta dónde puede subir Despegar, en metros sobre el origen. La propia valla del vehículo es aún más baja cuando limita la altitud.",
+      "metres": "{n} m",
       "plain": "Pedir confirmación (recomendado)",
       "none": "No preguntar"
     },
@@ -1254,6 +1289,14 @@
       }
     },
     "reason": {
+      "takeoff": {
+        "gps": "El despegue necesita un fix GPS 3D, y el vehículo no lo informa.",
+        "ekf": "El despegue necesita que el EKF tenga su posición, y el vehículo no lo informa.",
+        "position": "El vehículo no informa de su posición.",
+        "air": "El vehículo ya está en el aire."
+      },
+      "takeoffAltitude": "Esa altitud no está permitida para un despegue.",
+      "takeoffUnsupported": "El despegue solo se pide a un ArduPilot.",
       "alreadyArmed": "El vehículo ya está armado.",
       "notArmed": "El vehículo no está armado.",
       "busyVehicle": "Hay algo más en curso: una orden anterior, una operación de parámetros o registros, una calibración, una prueba de motor o un reinicio. Inténtelo cuando termine.",
@@ -1295,6 +1338,10 @@
         "title": "Armar el vehículo",
         "what": "Los motores podrán girar. El vehículo hace sus propias comprobaciones previas y se niega si alguna falla: se muestran sus motivos. Compruebe que las hélices están libres y la zona es segura.",
         "button": "Mantenga para armar"
+      },
+      "takeoff": {
+        "label": "Despegar",
+        "keywords": "despegue subir elevar volar arriba"
       },
       "disarm": {
         "short": "Desarmar",

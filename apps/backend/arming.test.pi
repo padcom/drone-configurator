@@ -13,9 +13,11 @@ import {
   ConnectRequest,
   ConnectRequestTransport,
   SetModeAsk,
+  TakeoffAsk,
   decodeArmingResult,
   encodeConnectRequest,
   encodeSetModeAsk,
+  encodeTakeoffAsk,
 } from "./generated/app"
 import { armedState, link } from "./session"
 import { Frontend, start } from "./testing"
@@ -26,17 +28,23 @@ class Heard {
   /// How many parameters of any of them were 2989 (skip the checks) or 21196 (force a disarm).
   public skips: int = 0
   public forces: int = 0
+  /// The altitude (param7) of every NAV_TAKEOFF that reached the vehicle.
+  public takeoffs: f64[] = []
 }
 
 const ARM_DISARM: int = MavCmd.COMPONENT_ARM_DISARM
 const SET_MODE: int = MavCmd.DO_SET_MODE
 const PREARM: int = MavCmd.RUN_PREARM_CHECKS
+const TAKEOFF: int = MavCmd.NAV_TAKEOFF
 
 /// Listens on the vehicle's end for the commands of the arming service.
 function listen(sim: SimulatedAutopilot): Heard {
   const heard = new Heard()
   sim.conn.on((r: Received) => {
     const m = r.message
+    if (m instanceof CommandLong && m.command as int == TAKEOFF) {
+      heard.takeoffs.push(m._param7 as f64)
+    }
     if (m instanceof CommandLong && (m.command as int == ARM_DISARM || m.command as int == SET_MODE || m.command as int == PREARM)) {
       heard.commands.push(`${m.command} ${m._param1} ${m._param2}`)
       for (const p of [m._param1, m._param2, m._param3, m._param4, m._param5, m._param6, m._param7]) {
@@ -392,6 +400,103 @@ async function refuseAnArmWhileAnOperationIsUnderWay(): Promise<void> throws Err
   await end(f)
 }
 
+async function takeoffAsk(f: Frontend, altitude: f64): Promise<Envelope> throws Error {
+  await f.call("vehicle.takeoff", encodeTakeoffAsk(TakeoffAsk { altitude: altitude }))
+}
+
+/// An armed simulator in GUIDED, on the ground, with a fresh heartbeat.
+async function armedInGuided(): Promise<Frontend> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  sim.control.armedSet = 1
+  sim.control.modeSet = 4
+  await afterBeat()
+  await afterBeat()
+  f
+}
+
+async function takeoffRefusesWhatItShouldAndSendsNothing(): Promise<void> throws Error {
+  // no vehicle
+  const none = await start()
+  await none.call("vehicle.disconnect")
+  expect(described(await takeoffAsk(none, 10.0))).toBe("NOT_CONNECTED")
+  // a disarmed vehicle: the page arms first
+  const f = await connected()
+  const heard = listen(simulatorForTests()!)
+  expect(described(await takeoffAsk(f, 10.0))).toBe("NOT_ARMED")
+  // a state that is not known counts as not armed here (nothing is asked of a vehicle that may be anything)
+  link.heartbeatAt = (Date.now() as int) - 10000
+  expect(described(await takeoffAsk(f, 10.0))).toBe("STATE_UNKNOWN")
+  expect(described(await f.call("vehicle.takeoff"))).toBe("INVALID_VALUE")
+  expect(heard.takeoffs.length).toBe(0)
+  await end(f)
+}
+
+async function takeoffRefusesAnAltitudeOutsideTheHardLimits(): Promise<void> throws Error {
+  const f = await armedInGuided()
+  const heard = listen(simulatorForTests()!)
+  const nan = 0.0 / 0.0
+  for (const altitude of [0.0, 1.9, -5.0, 120.1, 1000.0, nan]) {
+    expect(described(await takeoffAsk(f, altitude))).toBe("INVALID_VALUE")
+  }
+  expect(heard.takeoffs.length).toBe(0)
+  await end(f)
+}
+
+async function takeoffIsSentOnceAndTheVehicleDecides(): Promise<void> throws Error {
+  const f = await armedInGuided()
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  expect(described(await takeoffAsk(f, 12.0))).toBe("accepted")
+  expect(heard.takeoffs.join(",")).toBe("12")
+  expect(sim.control.takeoffs).toBe(1)
+  // the vehicle is flying: it refuses another, and the backend sends it (it cannot tell), once
+  expect(described(await takeoffAsk(f, 20.0))).toBe("refused")
+  expect(heard.takeoffs.join(",")).toBe("12,20")
+  // never a magic number
+  expect(heard.skips).toBe(0)
+  expect(heard.forces).toBe(0)
+  await end(f)
+}
+
+async function takeoffInTheWrongModeIsRefusedByTheVehicle(): Promise<void> throws Error {
+  const f = await armedInGuided()
+  const sim = simulatorForTests()!
+  // (AUTO: a mode that does not take off by itself; LOITER would, as it does on a real Copter)
+  sim.control.modeSet = 3
+  const heard = listen(sim)
+  const got = resultOf(await takeoffAsk(f, 10.0))
+  expect(got.result).toBe(ArmingResultResult.Refused)
+  expect(heard.takeoffs.length).toBe(1)
+  expect(sim.control.takeoffs).toBe(0)
+  await end(f)
+}
+
+async function takeoffNothingAnsweredIsNeverSentAgain(): Promise<void> throws Error {
+  const f = await armedInGuided()
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.control.swallowAcks = 1
+  expect(described(await takeoffAsk(f, 10.0))).toBe("no-answer")
+  await delay(waits.ackMs as int + 200)
+  expect(heard.takeoffs.length).toBe(1)
+  expect(sim.control.takeoffs).toBe(1)
+  await end(f)
+}
+
+async function takeoffIsHeldOffByAnOperationAndByAnEarlierCommand(): Promise<void> throws Error {
+  const f = await armedInGuided()
+  const heard = listen(simulatorForTests()!)
+  link.motorTest = true
+  expect(described(await takeoffAsk(f, 10.0))).toBe("BUSY")
+  link.motorTest = false
+  link.calibrating = true
+  expect(described(await takeoffAsk(f, 10.0))).toBe("BUSY")
+  link.calibrating = false
+  expect(heard.takeoffs.length).toBe(0)
+  await end(f)
+}
+
 describe("the arming service", () => {
   it("refuses everything without a vehicle", refuseWithoutAVehicle)
   it("refuses everything when the vehicle's state is not known, and sends nothing", refuseWhenTheStateIsUnknown)
@@ -412,4 +517,10 @@ describe("the arming service", () => {
   it("holds an accepted arm for the heartbeat's lag only, not for what was left of the wait", anAcceptedArmHoldsTheStateForTheHeartbeatsLagAndNoLonger)
   it("lets an arm that was refused release the hold at once", aRefusedArmReleasesTheHoldAtOnce)
   it("refuses an arm while a calibration or a motor test runs", refuseAnArmWhileAnOperationIsUnderWay)
+  it("refuses a takeoff without a vehicle, of a disarmed one or one whose state is unknown, and sends nothing", takeoffRefusesWhatItShouldAndSendsNothing)
+  it("refuses a takeoff altitude outside 2 to 120 m, and one that is not a number", takeoffRefusesAnAltitudeOutsideTheHardLimits)
+  it("sends a takeoff once, with its altitude and no magic number, and the vehicle decides", takeoffIsSentOnceAndTheVehicleDecides)
+  it("reports the refusal of a vehicle in a mode that cannot take off (AUTO)", takeoffInTheWrongModeIsRefusedByTheVehicle)
+  it("reports a takeoff nothing answered, and never sends it again", takeoffNothingAnsweredIsNeverSentAgain)
+  it("refuses a takeoff while a motor test or a calibration runs", takeoffIsHeldOffByAnOperationAndByAnEarlierCommand)
 })

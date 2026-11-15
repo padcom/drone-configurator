@@ -160,3 +160,13 @@ describe('a hold button, with a key that is let go', () => {
     expect(held(wrapper)).toBe(0)
   })
 })
+
+it('says with data-armed when its first moments are over (a test waits for it, and presses once)', async () => {
+  const wrapper = holdButton(400)
+
+  expect(wrapper.attributes('data-armed')).toBe('false')
+  await vi.advanceTimersByTimeAsync(400)
+
+  expect(wrapper.attributes('data-armed')).toBe('true')
+  expect(holdButton().attributes('data-armed')).toBe('true')
+})

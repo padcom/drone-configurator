@@ -50,6 +50,8 @@ export interface Vehicle {
   setMode: (mode: number) => Promise<ArmingResult>
   /** Runs the vehicle's pre-arm checks. */
   prearm: () => Promise<ArmingResult>
+  /** Takes off to this many metres above home: sent once, to an armed vehicle (the backend refuses before sending otherwise). */
+  takeoff: (altitude: number) => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
   /** Starts listening to the backend: the connection and the telemetry. */
@@ -193,6 +195,10 @@ class VehicleLink implements Vehicle {
 
   prearm(): Promise<ArmingResult> {
     return this.deps.client.call('vehicle.prearm', null)
+  }
+
+  takeoff(altitude: number): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.takeoff', { altitude })
   }
 
   async listPorts(): Promise<void> {

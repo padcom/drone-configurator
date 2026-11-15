@@ -62,6 +62,16 @@
       />
       <p :id="`${uid}-mode-confirm-help`" class="muted">{{ t('settings.flight.modeConfirmHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <label :for="`${uid}-takeoff`">{{ t('settings.flight.takeoffCeiling') }}</label>
+      <Select
+        :id="`${uid}-takeoff`"
+        v-model="takeoffMax"
+        :options="takeoffOptions"
+        :aria-describedby="`${uid}-takeoff-help`"
+      />
+      <p :id="`${uid}-takeoff-help`" class="muted">{{ t('settings.flight.takeoffCeilingHelp') }}</p>
+    </div>
     <MapSettings />
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
@@ -77,6 +87,8 @@ import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { parseCeiling, useTakeoffCeiling } from '@/composables/useTakeoffCeiling'
+import { TAKEOFF_CEILINGS } from '@/lib/fly/takeoff'
 import { useCommandNotice } from '@/composables/useCommandNotice'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useMetadataSetting } from '@/composables/useMetadataSetting'
@@ -123,6 +135,15 @@ const modeConfirm = computed({
 })
 const modeConfirmOptions = computed(() => MODE_CONFIRMATION_LEVELS.map(value => (
   { value, label: t(`settings.flight.${value}`) }
+)))
+// How high Take off may go (the vehicle's fence may be lower still).
+const takeoffCeiling = useTakeoffCeiling()
+const takeoffMax = computed({
+  get: () => String(takeoffCeiling.ceiling.value),
+  set: (next: string) => void takeoffCeiling.choose(parseCeiling(next)),
+})
+const takeoffOptions = computed(() => TAKEOFF_CEILINGS.map(metres => (
+  { value: String(metres), label: t('settings.flight.metres', { n: metres }) }
 )))
 // The preferences about logs (kept; nothing acts on them until the backend downloads and removes logs).
 const { number } = useFormat()

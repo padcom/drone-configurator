@@ -8,7 +8,7 @@
 //  - Every answer is TOLD, never assumed: what the vehicle is now is what its next heartbeat says. A command that nothing
 //    answered is not sent again.
 // The backend checks everything again before it sends: this page's view of the vehicle may be late.
-import type { Availability, Command, CommandContext, CommandOutcome, VehicleFacts } from './command'
+import type { ArmAnswer, Availability, Command, CommandContext, CommandOutcome, VehicleFacts } from './command'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type ArmingKind, armingRefusalKeyOf, tellArming, tellArmingRefusal } from './armingReport'
 import { VEHICLE_GROUP } from './vehicle'
@@ -20,7 +20,7 @@ import { VEHICLE_GROUP } from './vehicle'
  * @param reasonParams what the message names
  * @returns the availability
  */
-const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availability => (
+export const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availability => (
   { enabled: false, reasonKey, reasonParams }
 )
 
@@ -30,7 +30,7 @@ const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availabi
  * @param vehicle the vehicle's facts
  * @returns the reason it may not be commanded, or null
  */
-function connectionBlocker(vehicle: VehicleFacts): string | null {
+export function connectionBlocker(vehicle: VehicleFacts): string | null {
   return vehicle.connection().state === 'connected' ? null : 'palette.reason.notConnected'
 }
 
@@ -58,7 +58,7 @@ function armedBlocker(armed: boolean | undefined, needsArmed: boolean): string |
  * @param vehicle the vehicle's facts
  * @returns the reason, or null
  */
-function workBlocker(vehicle: VehicleFacts): string | null {
+export function workBlocker(vehicle: VehicleFacts): string | null {
   const busy = vehicle.busy()
 
   return busy === null ? null : `palette.reason.${busy}`
@@ -70,7 +70,7 @@ function workBlocker(vehicle: VehicleFacts): string | null {
  * @param ctx the context
  * @returns its name, or an empty string when none is connected
  */
-function namedVehicle(ctx: CommandContext): string {
+export function namedVehicle(ctx: CommandContext): string {
   const info = ctx.vehicle.connection().vehicle
 
   return info === undefined ? '' : ctx.say('topBar.vehicleValue', { ...info })
@@ -88,8 +88,11 @@ type Sender = () => ReturnType<VehicleFacts['arm']>
  * @returns what a command leaves behind
  */
 async function sendAndTell(ctx: CommandContext, kind: ArmingKind, send: Sender): Promise<CommandOutcome> {
+  let answer: ArmAnswer = 'not-sent'
   try {
-    tellArming(ctx, kind, await send())
+    const result = await send()
+    answer = result.result
+    tellArming(ctx, kind, result)
   } catch (error) {
     const refusedBy = armingRefusalKeyOf(kind, error)
     if (refusedBy === undefined) {
@@ -99,7 +102,7 @@ async function sendAndTell(ctx: CommandContext, kind: ArmingKind, send: Sender):
     tellArmingRefusal(ctx, kind, refusedBy)
   }
 
-  return { focus: 'restore' }
+  return { focus: 'restore', answer }
 }
 
 /** Arms the vehicle: a hold; the vehicle runs its own pre-arm checks. */

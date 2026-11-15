@@ -2,8 +2,7 @@
 // bar's STATE cell: the strip does not repeat it), review, and hold a confirmation as a person does with the pointer.
 import type { E2eApp } from './launch'
 
-/** How long a confirmation ignores presses (400 ms) with a margin, and how long a hold takes (1200 ms) with one. */
-const ARMS_MS = 600
+/** How long a hold takes (1200 ms), with a margin. */
 const HOLD_MS = 1500
 
 /** Selectors of what the specs look at. */
@@ -120,17 +119,10 @@ export class Strip {
     } catch (error) {
       throw new Error(`no hold was asked for; the page says: ${await this.notices()}`, { cause: error })
     }
-    // (the question ignores presses for its first moments)
-    await sleep(ARMS_MS)
+    // (the question ignores presses for its first moments: the button says when they are over, and it is pressed once)
+    await this.app.waitFor(`document.querySelector('#confirm-hold')?.getAttribute('data-armed') === 'true'`)
     await this.press()
 
-    // A press that did not hold (a slow machine: the first moments were not over) sent nothing: it is let go and tried once more.
-    if (await this.exists('#confirm')) {
-      const up = `new PointerEvent('pointerup', { bubbles: true, pointerId: 1 })`
-      await this.app.evaluate(`document.querySelector('#confirm-hold')?.dispatchEvent(${up})`)
-      await sleep(ARMS_MS)
-      await this.press()
-    }
     try {
       await this.goes('#confirm')
     } catch (error) {
@@ -138,11 +130,40 @@ export class Strip {
     }
   }
 
-  /** Presses the hold button as a person does with the pointer, and keeps it down for the time of a hold. */
+  /** Presses the hold button with a real mouse press at its centre, keeps it down for a hold, and lets go. */
   private async press(): Promise<void> {
-    await this.app.evaluate(`document.querySelector('#confirm-hold')
-      ?.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, pointerId: 1 }))`)
+    const at = await this.settledCentre('#confirm-hold')
+    const mouse = { x: at.x, y: at.y, button: 'left', buttons: 1, clickCount: 1 }
+    await this.app.devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y })
+    await this.app.devtools('Input.dispatchMouseEvent', { type: 'mousePressed', ...mouse })
     await sleep(HOLD_MS)
+    await this.app.devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse, buttons: 0 })
+  }
+
+  /**
+   * Waits until a button has stopped moving (a dialog that opens is drawn into place, and the one before it is gone) and is what
+   * the pointer would hit at its centre, and says where that is.
+   *
+   * @param selector the button
+   * @returns the centre of the button, in the window
+   */
+  private async settledCentre(selector: string): Promise<{ x: number, y: number }> {
+    const button = JSON.stringify(selector)
+    // (true when the centre is the same as the last time this was asked, and a pointer there would hit the button)
+    await this.app.waitFor(`(() => {
+      const box = document.querySelector(${button})?.getBoundingClientRect()
+      const at = box ? Math.round(box.x + box.width / 2) + ',' + Math.round(box.y + box.height / 2) : ''
+      const [x, y] = at.split(',').map(Number)
+      const same = at !== '' && window.__lastCentre === at
+      window.__lastCentre = at
+
+      return same && document.elementFromPoint(x, y)?.closest(${button}) !== null
+    })()`)
+
+    return this.app.evaluate<{ x: number, y: number }>(`(() => {
+      const box = document.querySelector(${button}).getBoundingClientRect()
+      return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
+    })()`)
   }
 
   /** Presses STATE of the top bar. A vehicle that does not say its checks fail goes straight to the hold of "Arm the vehicle". */

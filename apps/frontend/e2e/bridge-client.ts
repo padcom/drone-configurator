@@ -37,6 +37,8 @@ export interface Seen {
   mode: string
   /** The pre-arm checks as SYS_STATUS says them, when it does. */
   prearm?: { enabled: boolean, passing: boolean, ageMs: number }
+  /** Where the vehicle says it is: the height above home, in metres. */
+  position?: { relativeAltitude: number }
 }
 
 /**

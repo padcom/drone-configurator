@@ -4,7 +4,7 @@
 // sent are set and read by a test (`MockArmingControl`). What the vehicle IS afterwards is what the telemetry says: an arm that
 // was accepted makes the vehicle armed (its next sample says so), and so does one nothing answered (it may have been done).
 import type { Envelope } from '@pico-desktop/protocol'
-import type { ArmingResult, SetModeAsk } from '@/generated/app'
+import type { ArmingResult, SetModeAsk, TakeoffAsk } from '@/generated/app'
 import { COPTER_MODES } from './fixtures'
 
 type Ok = (p: Envelope['p']) => void
@@ -271,6 +271,37 @@ export class MockArming {
     } else {
       fail('NOT_CONNECTED', 'no vehicle is connected')
     }
+  }
+
+  /**
+   * The backend's `vehicle.takeoff`: an armed vehicle whose state is known, an altitude of 2 to 120 m; the vehicle takes it (the
+   * mock does not climb).
+   *
+   * @param ask the altitude
+   * @param ok answers
+   * @param fail answers an error
+   */
+  takeoff(ask: TakeoffAsk, ok: Ok, fail: Fail): void {
+    const refusal = this.refusal(true) ?? this.takeoffRefusal(ask.altitude)
+    if (refusal === null) {
+      this.send(`takeoff ${ask.altitude}`, ok, () => undefined)
+    } else {
+      fail(...refusal)
+    }
+  }
+
+  /**
+   * What stops a takeoff to an altitude, besides the state of the vehicle.
+   *
+   * @param altitude metres above home
+   * @returns the refusal, or null
+   */
+  private takeoffRefusal(altitude: number): Refusal | null {
+    if (!(altitude >= 2) || altitude > 120) {
+      return ['INVALID_VALUE', 'a takeoff altitude is 2 to 120 m above home']
+    }
+
+    return this.host.busy() ? ['BUSY', 'an earlier command, a parameter or log operation or a reboot is under way'] : null
   }
 
   /**

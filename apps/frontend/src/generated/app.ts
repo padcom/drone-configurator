@@ -648,6 +648,15 @@ function validateSetModeAskInto(value: any, path: string): boolean {
 /** The first problem with `value` as a set-mode-ask, or null. */
 export const validateSetModeAsk = (value: unknown) => run(validateSetModeAskInto, value)
 
+export type TakeoffAsk = { "altitude": number }
+
+function validateTakeoffAskInto(value: any, path: string): boolean {
+  return map(value, path, ["altitude"]) && (value["altitude"] === undefined ? fail(`${path}.altitude`, 'present') : nested(value["altitude"], `${path}.altitude`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a takeoff-ask, or null. */
+export const validateTakeoffAsk = (value: unknown) => run(validateTakeoffAskInto, value)
+
 export type MessagesParams = { "replay"?: number }
 
 function validateMessagesParamsInto(value: any, path: string): boolean {
@@ -1159,6 +1168,7 @@ export interface Services {
   "vehicle.disarm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.emergencyStop": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.setMode": { kind: 'method', request: SetModeAsk, response: ArmingResult }
+  "vehicle.takeoff": { kind: 'method', request: TakeoffAsk, response: ArmingResult }
   "vehicle.prearm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.info": { kind: 'method', request: null, response: VehicleDetails }
   "vehicle.modes": { kind: 'method', request: null, response: VehicleModes }
@@ -1314,6 +1324,10 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "vehicle.setMode": {
     request: (value: any, path: string) => validateSetModeAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.takeoff": {
+    request: (value: any, path: string) => validateTakeoffAskInto(value, path),
     response: (value: any, path: string) => validateArmingResultInto(value, path),
   },
   "vehicle.prearm": {
