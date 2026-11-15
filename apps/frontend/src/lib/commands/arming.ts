@@ -143,6 +143,7 @@ export class ArmVehicle implements Command {
       vehicle: namedVehicle(ctx),
       level: 'hold',
       tone: 'warn',
+      dismissal: 'cross',
       confirmLabel: ctx.say('palette.vehicle.arm.button'),
     }
   }

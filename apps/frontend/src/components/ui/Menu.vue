@@ -3,6 +3,7 @@
     <Button
       :id="triggerId"
       aria-haspopup="menu"
+      :aria-label="triggerLabel"
       :aria-expanded="open ? 'true' : 'false'"
       :aria-controls="open ? listId : undefined"
       @click="toggle"
@@ -53,6 +54,8 @@ const props = defineProps<{
   label: string
   /** The items, in order. */
   items: MenuItem[]
+  /** The name of the button when its text alone is not it (a mode's name says nothing of what it is the mode of). */
+  triggerLabel?: string
 }>()
 
 const emit = defineEmits<{

@@ -23,6 +23,7 @@
   },
   "topBar": {
     "rebooting": "Перезавантаження…",
+    "armTip": "Озброїти апарат",
     "home": "Головна",
     "noVehicle": "Немає апарата",
     "vehicleSub": "{autopilot} · система {sysid}/{compid}",

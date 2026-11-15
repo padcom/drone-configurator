@@ -8,7 +8,7 @@ const HOLD_MS = 1500
 
 /** Selectors of what the specs look at. */
 
-export const REVIEW = '[data-command-button="vehicle.review"]'
+export const REVIEW = '#state-arm'
 
 export const DISARM = '[data-command-button="vehicle.disarm"]'
 
@@ -16,9 +16,9 @@ export const MORE = '#flight-strip .strip-actions .kit-menu'
 
 export const STOP = '#flight-strip .strip-actions [role="menuitem"]'
 
-export const MODE_BUTTON = '#strip-mode .kit-menu button'
+export const MODE_BUTTON = '.cell.mode .kit-menu button'
 
-export const MODE_ITEMS = '#strip-mode [role="menuitem"]'
+export const MODE_ITEMS = '.cell.mode [role="menuitem"]'
 
 export const ARM_BUTTON = '#review-arm'
 
@@ -92,7 +92,7 @@ export class Strip {
    * @returns once it does
    */
   modeIs(mode: string): Promise<void> {
-    return this.app.waitFor(`document.querySelector('${MODE_BUTTON}')?.innerText.trim() === 'Mode: ${mode}'`, 15_000)
+    return this.app.waitFor(`document.querySelector('${MODE_BUTTON}')?.innerText.trim() === '${mode}'`, 15_000)
   }
 
   /** Waits until the review can be used to arm: the vehicle has run its checks and the arm may be asked for. */

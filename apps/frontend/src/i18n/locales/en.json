@@ -23,6 +23,7 @@
   },
   "topBar": {
     "rebooting": "Rebooting…",
+    "armTip": "Arm the vehicle",
     "home": "Home",
     "noVehicle": "No vehicle",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",

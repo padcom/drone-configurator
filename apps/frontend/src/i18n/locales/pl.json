@@ -23,6 +23,7 @@
   },
   "topBar": {
     "rebooting": "Restart…",
+    "armTip": "Uzbrój pojazd",
     "home": "Start",
     "noVehicle": "Brak pojazdu",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",

@@ -125,6 +125,36 @@
   text-transform: uppercase;
 }
 
+/* STATE of a disarmed vehicle is the arm control, MODE the list of modes: both look pressable, in the cell's own type. */
+.top-bar .cell-action {
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.top-bar .cell-action:hover {
+  background: var(--color-accent-soft);
+}
+
+.top-bar .cell-action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.top-bar .cell .kit-menu button {
+  min-height: 0;
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
+  font: inherit;
+}
+
 .top-bar .cell.armed {
   color: var(--color-on-warn);
   background: var(--color-warn);

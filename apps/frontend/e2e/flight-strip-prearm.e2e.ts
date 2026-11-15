@@ -104,7 +104,7 @@ async function coveredAt(width: number, height: number): Promise<string> {
 
   return window().evaluate<string>(`(() => {
     const toasts = [...document.querySelectorAll('.kit-toast')].map(e => e.getBoundingClientRect())
-    const controls = [...document.querySelectorAll('#flight-strip button, #flight-strip [role="button"]')]
+    const controls = [...document.querySelectorAll('#top-bar button, #flight-strip button, #flight-strip [role="button"]')]
     const covered = []
     for (const control of controls) {
       const r = control.getBoundingClientRect()
@@ -143,7 +143,7 @@ async function arrowDown(): Promise<void> {
 }
 
 it('sends nothing when keys move over the mode menu, and sends the mode of the item that is chosen', async () => {
-  await window().waitFor(`document.querySelector('${MODE_BUTTON}')?.innerText.startsWith('Mode: ')`, 30_000)
+  await window().waitFor(`document.querySelector('${MODE_BUTTON}')?.getAttribute('aria-label')?.startsWith('Mode: ')`, 30_000)
   const before = await window().text(MODE_BUTTON)
 
   await window().evaluate(`document.querySelector('${MODE_BUTTON}').focus()`)

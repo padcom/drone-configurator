@@ -23,6 +23,7 @@
   },
   "topBar": {
     "rebooting": "Neustart…",
+    "armTip": "Fahrzeug scharf schalten",
     "home": "Start",
     "noVehicle": "Kein Fahrzeug",
     "vehicleSub": "{autopilot} · System {sysid}/{compid}",

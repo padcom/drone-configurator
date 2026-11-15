@@ -9,6 +9,7 @@
     @close="closed"
     @keydown.tab="trap"
   >
+    <button v-if="closeLabel" type="button" class="kit-dialog-close" :aria-label="closeLabel" @click="emit('close')">×</button>
     <h2 :id="`${uid}-title`" class="kit-dialog-title" :class="{ 'visually-hidden': bare }">{{ title }}</h2>
     <div :id="`${uid}-body`" class="kit-dialog-body"><slot /></div>
     <div v-if="!bare" class="kit-dialog-actions"><slot name="actions" /></div>
@@ -19,7 +20,8 @@
 // A modal dialog over the native `<dialog>`: the page behind it is inert, Escape asks to close (the `close` event: the
 // owner decides, usually by removing the dialog), and when it goes the focus returns to what had it before. The browser
 // keeps Tab inside the dialog but lets it reach the browser's own UI; the explicit trap wraps it round instead.
-// The element with `data-initial-focus` gets the focus first (else the first control); give it to the safe choice.
+// The element with `data-initial-focus` gets the focus first (else the first control); give it to the safe choice. A dialog may
+// have a cross in its corner (`close-label`) instead of a button that cancels.
 import { onBeforeUnmount, onMounted, ref, useId } from 'vue'
 
 defineProps<{
@@ -27,6 +29,8 @@ defineProps<{
   title: string
   /** No visible heading (it is still the accessible name) and no row of actions: for a dialog that is all body (the palette). */
   bare?: boolean
+  /** The name of a cross in the top right corner that closes the dialog (as Escape does); none draws no cross. */
+  closeLabel?: string
 }>()
 
 const emit = defineEmits<{

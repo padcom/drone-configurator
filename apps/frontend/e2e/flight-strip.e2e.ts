@@ -1,7 +1,8 @@
 // End to end, in the real window with the real backend and the simulated vehicle behind a TCP port (no SITL): the controls of a
 // flight, above the map (a notice comes up at the bottom left and must never cover them). The vehicle starts disarmed (it never
-// arms by itself here). "Review and arm" opens the review (what the vehicle says of its checks, in its words), "Arm…" asks for a
-// HOLD, and the state is the vehicle's heartbeat's (the top bar's STATE cell). A hold of "Disarm" disarms; the emergency stop is
+// arms by itself here). STATE of the top bar is the arm control: it opens the review (what the vehicle says of its checks, in its
+// words), "Arm…" asks for a HOLD, and the state is the vehicle's heartbeat's (the top bar's STATE cell). A hold of "Disarm"
+// disarms; the emergency stop is
 // under "More", only while armed, and is a red hold. The strip fits the column. What the real autopilot does with these commands
 // is sitl-arming.e2e.ts.
 import { afterAll, beforeAll, expect, it } from 'vitest'
@@ -61,10 +62,11 @@ afterAll(async () => {
 it('says disarmed, offers the review and no disarm or stop, and lists the modes of the vehicle', async () => {
   await strip().heartbeatSays(false)
 
-  expect(await window().text(REVIEW)).toBe('Review and arm')
+  // (the cell's CSS upper-cases it: the words are the state's)
+  expect((await window().text(REVIEW)).toLowerCase()).toBe('disarmed')
   expect(await strip().exists(DISARM)).toBe(false)
   expect(await strip().exists(MORE)).toBe(false)
-  await window().waitFor(`document.querySelector('${MODE_BUTTON}')?.innerText.startsWith('Mode: ')`, 30_000)
+  await window().waitFor(`document.querySelector('${MODE_BUTTON}')?.getAttribute('aria-label')?.startsWith('Mode: ')`, 30_000)
   await window().click(MODE_BUTTON)
   await window().waitFor(`document.querySelectorAll('${MODE_ITEMS}').length > 5`, 10_000)
   const modes = await window().evaluate<string[]>(`[...document.querySelectorAll('${MODE_ITEMS}')].map(o => o.innerText)`)
@@ -82,6 +84,43 @@ it('fits its column: nothing in the strip is wider than the strip, and the page 
   })()`)
 
   expect(fits).toBe(true)
+})
+
+it('turns the arm hold down with Escape and the cross: no Cancel button, the hold button has the focus', async () => {
+  await strip().openReview()
+  await window().click(ARM_BUTTON)
+  await strip().appears('#confirm-hold')
+
+  expect(await strip().exists('#confirm-cancel')).toBe(false)
+  expect(await window().evaluate<string>(`document.activeElement?.id`)).toBe('confirm-hold')
+  expect(await strip().exists('#confirm .kit-dialog-close')).toBe(true)
+  await sleep(600)
+  await window().press('Escape')
+  await strip().goes('#confirm')
+  // the cross does the same
+  await strip().openReview()
+  await window().click(ARM_BUTTON)
+  await strip().appears('#confirm-hold')
+  await window().click('#confirm .kit-dialog-close')
+  await strip().goes('#confirm')
+  await sleep(1500)
+
+  expect(await strip().exists(DISARM)).toBe(false)
+})
+
+it('shows the list of modes inside the window, and scrolls it when the window is shorter than the list', async () => {
+  await window().devtools('Emulation.setDeviceMetricsOverride', { width: 1200, height: 360, deviceScaleFactor: 1, mobile: false })
+  await sleep(300)
+  await window().click(MODE_BUTTON)
+  await window().waitFor(`document.querySelectorAll('${MODE_ITEMS}').length > 5`, 10_000)
+  const facts = await window().evaluate<{ inside: boolean, scrolls: boolean }>(`(() => {
+    const list = document.querySelector('.cell.mode [role="menu"]')
+    return { inside: list.getBoundingClientRect().bottom <= window.innerHeight, scrolls: list.scrollHeight > list.clientHeight }
+  })()`)
+  await window().press('Escape')
+  await window().devtools('Emulation.clearDeviceMetricsOverride')
+
+  expect(facts).toEqual({ inside: true, scrolls: true })
 })
 
 it('reviews, asks for a hold to arm, and says armed only when the vehicle does', async () => {
@@ -110,7 +149,7 @@ it('asks plainly before a mode is changed while armed, and a cancel changes noth
   await strip().goes('#confirm')
   await sleep(1500)
 
-  expect(await window().text(MODE_BUTTON)).not.toContain('GUIDED')
+  expect(await window().text(MODE_BUTTON)).not.toBe('GUIDED')
 })
 
 it('disarms with a hold', async () => {
