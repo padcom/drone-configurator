@@ -8,8 +8,13 @@ import { feed as feedState, withI18n } from '@/testing/testing'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { useConnectDialog } from '@/composables/useConnectDialog'
 
-afterEach(() => {
+afterEach(async () => {
   useConnectDialog().hide()
+  await flushPromises()
+  // The dialog gives the focus back a task after it has closed: that task is let run here, while the page is still there.
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, 0)
+  })
   document.body.innerHTML = ''
 })
 

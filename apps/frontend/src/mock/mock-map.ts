@@ -1,12 +1,20 @@
 // The map's tile service of the mock backend: the sources, what a cache of a few tiles holds, and clearing it. The mock reads the
 // same settings entries the real backend does (`map.enabled`, `map.offline`, `map.source`, `map.customUrl`, `map.cacheMb`), and
-// says what it makes of them (an address that cannot be used, the host of one that can). It serves no tile: the map engine's
-// tests bring their own.
+// says what it makes of them (an address that cannot be used, the host of one that can). Its one tile is a grey square, the same
+// for every place (what the map shows when the interface runs on the mock); it answers `DISABLED` and `OFFLINE_MISS` as the real
+// backend does for the same settings (the mock keeps no tiles, so offline mode has none to serve).
 import type { Envelope } from '@pico-desktop/protocol'
 import type { MapSource, MapSources, Settings } from '@/generated/app'
 import { MAP_CACHE_SIZES_MB, MAP_SOURCES, flagOf, pickOf } from '@/lib/map/mapPrefs'
 
 type Reply = (p: Envelope['p']) => void
+type Fail = (code: string, message: string) => void
+
+/** A 1x1 grey PNG: the mock's tile (it is stretched over the 256 px of the tile). */
+const GREY_PNG = Uint8Array.from(
+  atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='),
+  char => char.charCodeAt(0),
+)
 
 /** What the mock's cache holds at the start: 40 tiles of 12 KB. */
 const TILES = 40
@@ -89,6 +97,23 @@ export class MockMap {
       answer.customError = problem
     }
     ok(answer)
+  }
+
+  /**
+   * A tile: the grey one, unless the settings say the tiles are off or offline.
+   *
+   * @param settings the settings the mock holds
+   * @param ok sends the answer
+   * @param fail sends a failure
+   */
+  tile(settings: Settings, ok: Reply, fail: Fail): void {
+    if (!flagOf(entry(settings, 'map.enabled'), true)) {
+      fail('DISABLED', 'map tiles are switched off in the settings')
+    } else if (flagOf(entry(settings, 'map.offline'), false)) {
+      fail('OFFLINE_MISS', 'offline: the tile is not kept')
+    } else {
+      ok({ contentType: 'image/png', bytes: GREY_PNG, fromCache: false, stale: false, fetchedAt: Date.now() })
+    }
   }
 
   /**

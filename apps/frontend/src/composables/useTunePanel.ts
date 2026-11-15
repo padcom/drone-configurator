@@ -3,6 +3,7 @@
 // the session can be put back (they are queued as choices: nothing is sent until the user writes, through the one question or the
 // hold).
 import { type ComputedRef, computed } from 'vue'
+import { canonical } from '@/lib/params/paramValue'
 import { refusalOf } from '@/lib/tune/table'
 import type { ConfiguratorHandle } from './useConfigurator'
 import { type ParamPanel, useParamPanel } from './useParamPanel'
@@ -37,17 +38,23 @@ export function useTunePanel(ids: readonly string[], handle: ConfiguratorHandle)
     panel.dirty.value.filter(id => refusalOf(id, panel.value(id) ?? 0, panel.armed.value) !== null)
   ))
   const refused = computed(() => refusedIds.value.length > 0)
+  // Whether two numbers are the same value of a parameter as the vehicle holds it (a float is compared as the float it is).
+  const same = (id: string, a: number | null, b: number): boolean => {
+    const param = handle.parameters.params.value.find(candidate => candidate.id === id)
+
+    return a !== null && (param ? canonical(param, a) === canonical(param, b) : a === b)
+  }
   const movable = computed(() => ids.some(id => {
     const was = initialOf(id)
 
-    return was !== undefined && panel.vehicleValue(id) !== null && panel.value(id) !== was
+    return was !== undefined && panel.vehicleValue(id) !== null && !same(id, panel.value(id), was)
   }))
   const backToInitial = () => {
     // What was chosen and not written is forgotten first (the one way back), then what the vehicle is not at is chosen again.
     panel.revert()
     ids.forEach(id => {
       const was = initialOf(id)
-      if (was !== undefined && panel.vehicleValue(id) !== null && panel.vehicleValue(id) !== was) {
+      if (was !== undefined && panel.vehicleValue(id) !== null && !same(id, panel.vehicleValue(id), was)) {
         panel.set(id, was)
       }
     })

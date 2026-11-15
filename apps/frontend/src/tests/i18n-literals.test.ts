@@ -20,6 +20,8 @@ const ALLOWED: [string, string][] = [
   ['lib/commands/registry.ts', 'is already registered'],
   ['composables/useCommands.ts', 'not wired to the backend'],
   ['lib/app/keymap.ts', 'Ctrl Enter'], // the name of a key, as it is printed on it: not translated
+  // The credit that the tile usage policy of OpenStreetMap asks for, in its words (a legal notice, not translated).
+  ['lib/map/mapText.ts', '© OpenStreetMap contributors'],
   // The names ArduPilot gives the values of its own parameters (its frames and serial protocols): the vehicle's vocabulary,
   // shown as it says them, like a flight mode's name or a parameter's.
   ...[

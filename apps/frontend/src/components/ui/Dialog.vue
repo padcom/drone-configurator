@@ -97,6 +97,17 @@ function focusAround(element: HTMLElement): void {
 }
 
 /**
+ * Whether an element is still on a page that can give it the focus (a task later the window may be gone altogether: a window
+ * that was closed has no elements).
+ *
+ * @param element the element that had the focus
+ * @returns true when it is an element that is on the page
+ */
+function stillThere(element: Element | null): element is HTMLElement {
+  return typeof HTMLElement !== 'undefined' && element instanceof HTMLElement && element.isConnected
+}
+
+/**
  * Gives the focus back to what had it before the dialog opened, if that is still on the page. If that cannot take it
  * (the write that the dialog confirmed has disabled the button that opened it), the section around it does, so the
  * focus is not lost to the page.
@@ -104,7 +115,7 @@ function focusAround(element: HTMLElement): void {
  * @param element the element that had the focus
  */
 function giveBack(element: Element | null): void {
-  if (element instanceof HTMLElement && element.isConnected && !focused(element)) {
+  if (stillThere(element) && !focused(element)) {
     focusAround(element)
   }
 }

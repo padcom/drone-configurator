@@ -39,10 +39,10 @@
     },
     {
       "when": [
-        "apps/frontend/src/components/settings/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/useMapSettings.ts",
-        "apps/frontend/src/screens/Settings.vue", "apps/backend/{map*,settings}.pi", "packages/contracts/app.cddl"
+        "apps/frontend/src/components/{settings,map}/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/{useMapSettings,useFlightMap}.ts",
+        "apps/frontend/src/screens/{Settings,FlightData}.vue", "apps/backend/{map*,settings}.pi", "packages/contracts/app.cddl"
       ],
-      "specs": ["map-settings.e2e.ts"]
+      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts"]
     },
     {
       "when": [

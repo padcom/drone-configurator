@@ -548,8 +548,30 @@
   "flight": {
     "aside": "Details",
     "map": {
-      "title": "Map",
-      "placeholder": "The map is not available yet."
+      "title": "Map"
+    }
+  },
+  "map": {
+    "label": "Map",
+    "zoom": "Zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "help": "Drag to move the map. The arrow keys move it, the plus and minus keys or the wheel zoom it.",
+    "chip": {
+      "disabled": "Map tiles are switched off in Settings.",
+      "backingOff": "Map tiles are paused after trouble with the tile server: {reason}",
+      "offline": "Offline: only the tiles that were kept are shown.",
+      "offlineMiss": "Offline: no kept tiles for this area.",
+      "unavailable": "Map tiles are not available: {reason}",
+      "backingOffPlain": "Map tiles are paused for a while after trouble with the tile server.",
+      "generic": "Map tiles are not available.",
+      "code": {
+        "BAD_REQUEST": "The address of the tile source cannot be used.",
+        "TOO_BIG": "The tile server sent a tile that is too big.",
+        "BAD_TYPE": "The tile server sent something that is not an image.",
+        "RATE_LIMITED": "The tile server asked for fewer requests.",
+        "UNAVAILABLE": "The tile server cannot be reached."
+      }
     }
   },
   "hud": {

@@ -548,8 +548,30 @@
   "flight": {
     "aside": "Szczegóły",
     "map": {
-      "title": "Mapa",
-      "placeholder": "Mapa nie jest jeszcze dostępna."
+      "title": "Mapa"
+    }
+  },
+  "map": {
+    "label": "Mapa",
+    "zoom": "Powiększenie",
+    "zoomIn": "Przybliż",
+    "zoomOut": "Oddal",
+    "help": "Przeciągnij, aby przesunąć mapę. Strzałki ją przesuwają, klawisze plus i minus lub kółko zmieniają powiększenie.",
+    "chip": {
+      "disabled": "Kafelki mapy są wyłączone w Ustawieniach.",
+      "backingOff": "Kafelki mapy są wstrzymane po kłopotach z serwerem kafelków: {reason}",
+      "offline": "Tryb offline: widać tylko zachowane kafelki.",
+      "offlineMiss": "Tryb offline: brak zachowanych kafelków dla tego obszaru.",
+      "unavailable": "Kafelki mapy są niedostępne: {reason}",
+      "backingOffPlain": "Kafelki mapy są wstrzymane na jakiś czas po kłopotach z serwerem kafelków.",
+      "generic": "Kafelki mapy są niedostępne.",
+      "code": {
+        "BAD_REQUEST": "Adres źródła kafelków jest nieużyteczny.",
+        "TOO_BIG": "Serwer kafelków przysłał zbyt duży kafelek.",
+        "BAD_TYPE": "Serwer kafelków przysłał coś, co nie jest obrazem.",
+        "RATE_LIMITED": "Serwer kafelków poprosił o mniej zapytań.",
+        "UNAVAILABLE": "Nie można połączyć się z serwerem kafelków."
+      }
     }
   },
   "hud": {
