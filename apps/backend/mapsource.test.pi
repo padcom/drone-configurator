@@ -1,0 +1,115 @@
+// What may be asked of a tile source: the numbers of a tile (whole, inside the zoom), the template of a custom source (https anywhere,
+// http only to this computer, no credentials, {z} {x} {y} once each), and the folder a source's tiles are kept in (a fixed id or a hash,
+// never the address). Hostile values are refused here, before anything is built from them.
+import { describe, it, expect } from "std/test"
+import { customSource, hostOf, isLoopback, openStreetMap, templateProblem, tileProblem, urlOf } from "./mapsource"
+
+function takesTile(z: f64, x: f64, y: f64): bool {
+  tileProblem(z, x, y) == null
+}
+
+function takesTemplate(t: string): bool {
+  templateProblem(t) == null
+}
+
+async function takesTheTilesInsideTheZoom(): Promise<void> throws Error {
+  expect(takesTile(0.0, 0.0, 0.0)).toBe(true)
+  expect(takesTile(1.0, 1.0, 1.0)).toBe(true)
+  expect(takesTile(19.0, 524287.0, 524287.0)).toBe(true)
+  expect(takesTile(10.0, 1023.0, 0.0)).toBe(true)
+}
+
+async function refusesATileThatIsNotWholeOrNotInsideTheZoom(): Promise<void> throws Error {
+  expect(takesTile(20.0, 0.0, 0.0)).toBe(false)
+  expect(takesTile(-1.0, 0.0, 0.0)).toBe(false)
+  expect(takesTile(0.5, 0.0, 0.0)).toBe(false)
+  expect(takesTile(1.0, 2.0, 0.0)).toBe(false)
+  expect(takesTile(1.0, 0.0, 2.0)).toBe(false)
+  expect(takesTile(0.0, 1.0, 0.0)).toBe(false)
+  expect(takesTile(3.0, -1.0, 0.0)).toBe(false)
+  expect(takesTile(3.0, 0.0, -1.0)).toBe(false)
+  expect(takesTile(3.0, 1.5, 0.0)).toBe(false)
+  expect(takesTile(19.0, 524288.0, 0.0)).toBe(false)
+  expect(takesTile(3.0, 1.0e300, 0.0)).toBe(false)
+  expect(takesTile(1.0e300, 0.0, 0.0)).toBe(false)
+  const nan = 0.0 / 0.0
+  const inf = 1.0e300 * 1.0e300
+  expect(takesTile(nan, 0.0, 0.0)).toBe(false)
+  expect(takesTile(3.0, nan, 0.0)).toBe(false)
+  expect(takesTile(3.0, 0.0, nan)).toBe(false)
+  expect(takesTile(inf, 0.0, 0.0)).toBe(false)
+  expect(takesTile(3.0, inf, 0.0)).toBe(false)
+  expect(takesTile(3.0, 0.0, -inf)).toBe(false)
+}
+
+async function takesATemplateThatIsHttpsOrIsThisComputer(): Promise<void> throws Error {
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}/{y}.png")).toBe(true)
+  expect(takesTemplate("https://tiles.example.com:8443/maps/{z}/{x}/{y}.png?key=abc")).toBe(true)
+  expect(takesTemplate("http://127.0.0.1:8080/{z}/{x}/{y}.png")).toBe(true)
+  expect(takesTemplate("http://localhost/{z}/{x}/{y}.png")).toBe(true)
+  expect(takesTemplate("http://[::1]:9000/{z}/{x}/{y}.png")).toBe(true)
+  expect(takesTemplate("https://tiles.example.com/{z}/{y}/{x}.png")).toBe(true)
+}
+
+async function refusesATemplateThatIsNotSafe(): Promise<void> throws Error {
+  // plain http to anywhere else, other schemes, no scheme
+  expect(takesTemplate("http://tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("http://127.0.0.1.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("ftp://tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("file:///etc/{z}/{x}/{y}")).toBe(false)
+  expect(takesTemplate("//tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  // credentials, in the authority only
+  expect(takesTemplate("https://user:secret@tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://user@tiles.example.com/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}/{y}.png?mail=a@b.c")).toBe(true)
+  // the three placeholders, each once
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{s}/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}/{y}.png?{k}")).toBe(false)
+  // a host, a fragment, spaces, control characters, a backslash, the length, an address that is no URL
+  expect(takesTemplate("https:///{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/{z}/{x}/{y}.png#top")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/a b/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com/\n/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("https://tiles.example.com\\x/{z}/{x}/{y}.png")).toBe(false)
+  expect(takesTemplate("")).toBe(false)
+  const long = "https://tiles.example.com/" + "a".repeat(600) + "/{z}/{x}/{y}.png"
+  expect(takesTemplate(long)).toBe(false)
+}
+
+async function buildsTheUrlOnlyFromTheNumbers(): Promise<void> throws Error {
+  expect(urlOf("https://tiles.example.com/{z}/{x}/{y}.png", 3, 4, 5)).toBe("https://tiles.example.com/3/4/5.png")
+  expect(urlOf("https://tiles.example.com/{z}/{y}/{x}.png?k=1", 3, 4, 5)).toBe("https://tiles.example.com/3/5/4.png?k=1")
+  expect(urlOf(openStreetMap().template, 0, 0, 0)).toBe("https://tile.openstreetmap.org/0/0/0.png")
+}
+
+async function showsOnlyTheHostAndKeepsTheTilesInAFolderThatIsNotTheAddress(): Promise<void> throws Error {
+  expect(hostOf("https://tiles.example.com:8443/maps/{z}/{x}/{y}.png?key=SECRET")).toBe("tiles.example.com")
+  expect(hostOf("http://[::1]:9000/{z}/{x}/{y}.png")).toBe("[::1]")
+  expect(isLoopback("LOCALHOST")).toBe(true)
+  expect(isLoopback("example.com")).toBe(false)
+  const a = customSource("https://tiles.example.com/maps/{z}/{x}/{y}.png?key=SECRET")
+  const b = customSource("https://tiles.example.com/maps/{z}/{x}/{y}.png?key=OTHER")
+  expect(a.dir.includes("SECRET")).toBe(false)
+  expect(a.dir.includes("example")).toBe(false)
+  expect(a.dir.includes("/")).toBe(false)
+  expect(a.dir.includes(".")).toBe(false)
+  expect(a.dir == b.dir).toBe(false)
+  expect(a.dir == customSource("https://tiles.example.com/maps/{z}/{x}/{y}.png?key=SECRET").dir).toBe(true)
+  expect(a.name.includes("SECRET")).toBe(false)
+  expect(a.name.includes("tiles.example.com")).toBe(true)
+  expect(openStreetMap().dir).toBe("osm")
+  expect(openStreetMap().allowOffline).toBe(false)
+}
+
+describe("what may be asked of a tile source", () => {
+  it("takes the tiles that are inside the zoom", takesTheTilesInsideTheZoom)
+  it("refuses a tile that is not whole, is outside its zoom, or is not a number", refusesATileThatIsNotWholeOrNotInsideTheZoom)
+  it("takes a template that is https, or http to this computer", takesATemplateThatIsHttpsOrIsThisComputer)
+  it("refuses a template with credentials, a fragment, another scheme, plain http elsewhere, or the wrong placeholders", refusesATemplateThatIsNotSafe)
+  it("builds the URL only from the template and the numbers", buildsTheUrlOnlyFromTheNumbers)
+  it("shows only the host of a custom address, and keeps its tiles in a folder that is a hash", showsOnlyTheHostAndKeepsTheTilesInAFolderThatIsNotTheAddress)
+})

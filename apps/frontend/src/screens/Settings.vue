@@ -51,6 +51,7 @@
       <label :for="`${uid}-cap`">{{ t('settings.logs.sizeCap') }}</label>
       <Select :id="`${uid}-cap`" v-model="sizeCap" :options="capOptions" />
     </div>
+    <MapSettings />
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
 </template>
@@ -59,6 +60,7 @@
 import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
+import MapSettings from '@/components/settings/MapSettings.vue'
 import Button from '@/components/ui/Button.vue'
 import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'

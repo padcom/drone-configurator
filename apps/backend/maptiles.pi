@@ -1,0 +1,655 @@
+// The map's tiles (`map.tile`, `map.cancel`, `map.sources`, `map.clear`, and the event `map.status`): the backend fetches a raster tile
+// from the tile server, keeps it in the disk cache (mapcache.pi), and gives its bytes to the page, which cannot fetch them itself
+// under the app's content policy and must not tell a third party where the vehicle is.
+//
+// What it does is set by the settings document, which it reads itself at each request (so the page cannot bypass the switch):
+// `map.enabled` ("false" turns every request into `DISABLED`; the default is on), `map.offline` ("true": only the cache is used),
+// `map.source` ("osm", or "custom" with `map.customUrl`), `map.cacheMb` (the cap of the cache, 50 to 5000, default 500). A settings
+// file that cannot be read gives the defaults, and the first answer after that says so.
+//
+// Politeness to the server (the policy of OpenStreetMap's tile servers, which is also what any server deserves): a User-Agent that
+// names the project and its repository, at most 2 requests at a time, at least 150 ms between the start of two, an answer is kept for
+// at least 7 days (and at most 30; a stale tile is asked for again with its etag), 429 and server errors and silence make the
+// backend ask nothing of the server for 30 s, then 60 s, up to 5 minutes, and say so once. The pico `fetch` has no timeout and no
+// abort (pico-lang #136) and reads a whole body before it answers (so a body that is too big is dropped only after it was read), so
+// each request has its own timer and its own way to stop waiting, and a request that is given up keeps its place until the server
+// ends it (and is cached then).
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { delay } from "std/timers"
+import { join } from "std/path"
+import {
+  MapCleared,
+  MapSource,
+  MapSources,
+  MapState,
+  MapStatus,
+  MapTile,
+  decodeMapTileAsk,
+  encodeMapCleared,
+  encodeMapSources,
+  encodeMapStatus,
+  encodeMapTile,
+} from "./generated/app"
+import { CachedTile, TileCache, TileMeta } from "./mapcache"
+import { CUSTOM_ID, OSM_ID, Source, customSource, hostOf, openStreetMap, templateProblem, tileProblem, urlOf } from "./mapsource"
+import { cacheDirectory, settingsAreDefaults, uiValue } from "./settings"
+
+/// The version of the app in the User-Agent (the version of the project).
+const APP_VERSION: string = "0.1.0"
+const USER_AGENT: string = `DroneConfigurator/${APP_VERSION} (+https://github.com/padcom/drone-configurator)`
+
+/// A day, in milliseconds, and how long an answer is kept at least and at most.
+const DAY_MS: int = 86400000
+const KEEP_MIN_MS: int = 7 * DAY_MS
+const KEEP_MAX_MS: int = 30 * DAY_MS
+
+/// The most requests to a server at a time, and the least time between the start of two (milliseconds).
+const MAX_ACTIVE: int = 2
+const SPACING_MS: int = 150
+
+/// How long a request may take from the moment it starts (queueing is not counted), how long it may wait for its turn, the first time
+/// to stay away from the server after trouble and the longest (milliseconds). A request that waits too long is a busy backend, not a
+/// server in trouble: it is no reason to stay away from the server.
+const TIMEOUT_MS: int = 10000
+const WAIT_MAX_MS: int = 30000
+const BACKOFF_FIRST_MS: int = 30000
+const BACKOFF_MAX_MS: int = 300000
+
+/// The most a tile may be (bytes): a map tile is a few tens of kilobytes.
+const MAX_TILE: int = 524288
+
+/// The cap of the cache in megabytes: the range of the setting and the default.
+const CAP_MIN_MB: int = 50
+const CAP_MAX_MB: int = 5000
+const CAP_DEFAULT_MB: int = 500
+
+/// What a request comes to: a tile, or why there is none.
+class Result {
+  public tile: MapTile? = null
+  public code: string = ""
+  public message: string = ""
+}
+
+/// What the settings say now.
+class Config {
+  public enabled: bool = true
+  public offline: bool = false
+  public sourceId: string = OSM_ID
+  public customUrl: string = ""
+  public capMb: int = CAP_DEFAULT_MB
+  /// The settings file could not be used: these are the defaults.
+  public defaults: bool = false
+}
+
+/// What the server answered.
+class Reply {
+  public status: int = 0
+  public contentType: string = ""
+  public etag: string = ""
+  public cacheControl: string = ""
+  public bytes: Uint8Array = new Uint8Array(0)
+}
+
+class State {
+  public communicator: Communicator? = null
+  public cache: TileCache? = null
+  /// The turns of the requests to the server: a ticket for each, served in order.
+  public ticket: int = 0
+  public serving: int = 0
+  public active: int = 0
+  public lastStart: int = 0
+  /// Nothing is asked of the server until this time (milliseconds since 1970), and for how long the next trouble keeps it away.
+  public backoffUntil: int = 0
+  public backoffMs: int = 0
+  /// Why the backend is staying away from the server.
+  public backoffReason: string = ""
+  /// For tests: this time (milliseconds since 1970) in place of the clock, or -1.
+  public clock: int = -1
+  /// Goes up when the state is forgotten, so that a timer that was set before it does nothing.
+  public epoch: int = 0
+  /// The last state sent in `map.status` (the map starts online: that is not news).
+  public said: string = "online"
+  /// Whether the settings' trouble was told.
+  public toldDefaults: bool = false
+  /// The requests that wait, by the tile, so that `map.cancel` can stop the wait.
+  public readonly waiting: Map<string, AbortController> = new Map<string, AbortController>()
+  /// For tests: shorter times.
+  public timeoutMs: int = TIMEOUT_MS
+  public waitMs: int = WAIT_MAX_MS
+  public spacingMs: int = SPACING_MS
+  public backoffFirstMs: int = BACKOFF_FIRST_MS
+  /// For tests: the cap of the cache in bytes, when it is not the setting's (the setting's least is 50 MB).
+  public capBytes: int = -1
+}
+
+const state = new State()
+
+export function register(c: Communicator): void {
+  state.communicator = c
+  c.handle("map.tile", tileOf)
+  c.handle("map.cancel", cancelTile)
+  c.handle("map.sources", sourcesOf)
+  c.handle("map.clear", clearTiles)
+}
+
+/// For tests: forget what is held in memory (the cache's index, the back-off, the turns), as a restarted backend does, and set the times.
+export function restartForTests(timeoutMs: int, spacingMs: int, backoffFirstMs: int, waitMs: int = WAIT_MAX_MS): void {
+  state.cache = null
+  state.ticket = 0
+  state.serving = 0
+  state.active = 0
+  state.lastStart = 0
+  state.backoffUntil = 0
+  state.backoffMs = 0
+  state.backoffReason = ""
+  state.clock = -1
+  state.epoch += 1
+  state.waitMs = waitMs
+  state.said = "online"
+  state.toldDefaults = false
+  state.waiting.clear()
+  state.timeoutMs = timeoutMs
+  state.spacingMs = spacingMs
+  state.backoffFirstMs = backoffFirstMs
+  state.capBytes = -1
+}
+
+/// For tests: the time in milliseconds since 1970 that the backend sees, in place of the clock; -1 gives the clock back.
+export function clockForTests(ms: int): void {
+  state.clock = ms
+}
+
+/// For tests: a cap of the cache in bytes, in place of the setting's.
+export function capForTests(bytes: int): void {
+  state.capBytes = bytes
+}
+
+/// For tests: how many requests to a server are running now.
+export function activeRequests(): int {
+  state.active
+}
+
+/// For tests: the cache, once something made it.
+export function cacheForTests(): TileCache? {
+  state.cache
+}
+
+function now(): int {
+  if (state.clock >= 0) state.clock else Date.now() as int
+}
+
+/// Sends the state of the map's tiles, when it is not the one that was sent last.
+function say(next: string, reason: string, retryMs: int): void {
+  if (state.said == next) {
+    return
+  }
+  state.said = next
+  const c = state.communicator
+  if (c == null) {
+    return
+  }
+  const status = MapStatus { state: stateOf(next) }
+  if (reason != "") {
+    status.reason = reason
+  }
+  if (retryMs > 0) {
+    status.retryAfterMs = retryMs as u32
+  }
+  c!.emit("map.status", encodeMapStatus(status))
+}
+
+/// Says the state the settings and the back-off come to now, when it is not the one that was said last: tiles off, offline, staying
+/// away from the server, or online. Called when a request comes, when the sources are asked for (the page does that after each change
+/// of a setting), and when a back-off ends.
+function settle(config: Config): void {
+  if (!config.enabled) {
+    say("disabled", "the map's tiles are turned off in the settings", 0)
+  } else if (config.offline) {
+    say("offline", "offline: only the tiles that were kept are used", 0)
+  } else if (now() < state.backoffUntil) {
+    say("backing-off", state.backoffReason, state.backoffUntil - now())
+  } else {
+    say("online", "", 0)
+  }
+}
+
+function stateOf(text: string): MapState {
+  if (text == "disabled") MapState.Disabled else if (text == "offline") MapState.Offline else if (text == "backing-off") MapState.BackingOff else MapState.Online
+}
+
+/// A setting as a bool: the text "true" or "false", else the default.
+function flagOf(text: string?, otherwise: bool): bool {
+  if (text == "true") true else if (text == "false") false else otherwise
+}
+
+/// What the settings say. A file that cannot be used gives the defaults (and `defaults` says so).
+async function configOf(): Promise<Config> {
+  const c = new Config()
+  try {
+    c.defaults = await settingsAreDefaults()
+    if (c.defaults) {
+      return c
+    }
+    c.enabled = flagOf(await uiValue("map.enabled"), true)
+    c.offline = flagOf(await uiValue("map.offline"), false)
+    const source = await uiValue("map.source")
+    c.sourceId = if (source == CUSTOM_ID) CUSTOM_ID else OSM_ID
+    const url = await uiValue("map.customUrl")
+    c.customUrl = if (url == null) "" else url!
+    const cap = await uiValue("map.cacheMb")
+    const mb = if (cap == null) CAP_DEFAULT_MB else parseInt(cap!)
+    c.capMb = if (mb >= CAP_MIN_MB && mb <= CAP_MAX_MB) mb else CAP_DEFAULT_MB
+  } catch (e: Error) {
+    c.defaults = true
+  }
+  c
+}
+
+/// The cache, made at the first need (and its first count of the folder started in the background).
+async function cacheOf(): Promise<TileCache> throws CommunicatorError {
+  const had = state.cache
+  if (had != null) {
+    return had!
+  }
+  try {
+    const made = new TileCache(join(await cacheDirectory(), "tiles"))
+    state.cache = made
+    made.startScan()
+    return made
+  } catch (e: Error) {
+    throw new CommunicatorError("UNAVAILABLE", `can't use the cache folder: ${e.message}`)
+  }
+}
+
+/// The source a request is for: the one it names, else the one the settings choose. A custom one must have an address that is allowed.
+function sourceFor(named: string?, config: Config): Source throws CommunicatorError {
+  const id = if (named == null) config.sourceId else named!
+  if (id == OSM_ID) {
+    return openStreetMap()
+  }
+  if (id != CUSTOM_ID) {
+    throw new CommunicatorError("BAD_REQUEST", "the source is not one of osm and custom")
+  }
+  const problem = templateProblem(config.customUrl)
+  if (problem != null) {
+    throw new CommunicatorError("BAD_REQUEST", `the custom address cannot be used: ${problem!}`)
+  }
+  customSource(config.customUrl)
+}
+
+/// The number after `max-age=` in a Cache-Control, or -1.
+function maxAgeOf(cacheControl: string): int {
+  const at = cacheControl.indexOf("max-age=")
+  if (at < 0) {
+    return -1
+  }
+  const rest = cacheControl.slice(at + 8)
+  let digits = ""
+  for (let i = 0; i < rest.length; i++) {
+    const c = rest.slice(i, i + 1)
+    if (c < "0" || c > "9") {
+      break
+    }
+    digits += c
+  }
+  if (digits.length == 0 || digits.length > 9) -1 else parseInt(digits)
+}
+
+/// How long a tile that came with this Cache-Control is kept: what the server says, but at least 7 days and at most 30.
+export function keepMsOf(cacheControl: string): int {
+  const age = maxAgeOf(cacheControl)
+  const wanted = if (age < 0) KEEP_MIN_MS else age * 1000
+  if (wanted < KEEP_MIN_MS) KEEP_MIN_MS else if (wanted > KEEP_MAX_MS) KEEP_MAX_MS else wanted
+}
+
+/// Whether the bytes are an image of the type the server said (a PNG, a JPEG or a WebP): the first bytes are looked at.
+function isImage(contentType: string, b: Uint8Array): bool {
+  const type = contentType.split(";")[0].trim().toLowerCase()
+  if (type == "image/png") {
+    return b.length > 8 && b[0] == 137 && b[1] == 80 && b[2] == 78 && b[3] == 71
+  }
+  if (type == "image/jpeg") {
+    return b.length > 3 && b[0] == 255 && b[1] == 216 && b[2] == 255
+  }
+  if (type == "image/webp") {
+    return b.length > 12 && b[0] == 82 && b[1] == 73 && b[2] == 70 && b[3] == 70 && b[8] == 87 && b[9] == 69 && b[10] == 66 && b[11] == 80
+  }
+  false
+}
+
+function tileOfCache(tile: CachedTile, fromCache: bool, stale: bool): MapTile {
+  MapTile { contentType: tile.meta.contentType, bytes: tile.bytes, fromCache: fromCache, stale: stale, fetchedAt: tile.meta.fetchedAt as u64 }
+}
+
+function failure(code: string, message: string): Result {
+  const r = new Result()
+  r.code = code
+  r.message = message
+  r
+}
+
+function success(tile: MapTile): Result {
+  const r = new Result()
+  r.tile = tile
+  r
+}
+
+/// The key of a request that waits.
+function keyOf(source: Source, z: int, x: int, y: int): string {
+  `${source.dir}/${z}/${x}/${y}`
+}
+
+async function tileOf(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeMapTileAsk(payload ?? Cbor.Null, "$")
+  const z = ask.z as int
+  const x = ask.x as int
+  const y = ask.y as int
+  const problem = tileProblem(z as f64, x as f64, y as f64)
+  if (problem != null) {
+    throw new CommunicatorError("BAD_REQUEST", problem!)
+  }
+  const config = await configOf()
+  const source = sourceFor(ask.source, config)
+  const result = await resolve(config, source, z, x, y)
+  const tile = result.tile
+  if (tile == null) {
+    throw new CommunicatorError(result.code, result.message)
+  }
+  encodeMapTile(tile!)
+}
+
+/// The tile, from the cache or the server, or why not.
+async function resolve(config: Config, source: Source, z: int, x: int, y: int): Promise<Result> throws Error {
+  settle(config)
+  if (!config.enabled) {
+    return failure("DISABLED", "the map's tiles are turned off in the settings")
+  }
+  const cache = await cacheOf()
+  const kept = await cache.read(source.dir, z, x, y)
+  if (kept != null && now() < kept!.meta.expiresAt) {
+    return success(tileOfCache(kept!, true, false))
+  }
+  if (config.offline) {
+    return if (kept != null) success(tileOfCache(kept!, true, true)) else failure("OFFLINE_MISS", "offline, and this tile was not kept")
+  }
+  if (now() < state.backoffUntil) {
+    const wait = state.backoffUntil - now()
+    return if (kept != null) success(tileOfCache(kept!, true, true)) else failure("RATE_LIMITED", `the tile server is being left alone for ${wait / 1000} s after trouble`)
+  }
+  await fetchTile(config, cache, source, z, x, y, kept)
+}
+
+/// A request's place in the line for the server, and whether it was given up.
+class Lease {
+  public abandoned: bool = false
+  /// The turn was granted (a slot is held until the request ends).
+  public granted: bool = false
+}
+
+/// Asks the server. A request waits for its turn (at most `waitMs`: a backend that is busy is not a server in trouble, so that is no
+/// reason to stay away from it), then has `timeoutMs` from the moment it STARTS, and `map.cancel` stops the wait at any time. A
+/// request that is given up keeps its slot until the server ends it (and what comes is kept).
+async function fetchTile(config: Config, cache: TileCache, source: Source, z: int, x: int, y: int, kept: CachedTile?): Promise<Result> throws Error {
+  const key = keyOf(source, z, x, y)
+  const own = new AbortController()
+  state.waiting.set(key, own)
+  try {
+    const lease = new Lease()
+    const turn = await Promise.race([taking(lease), waitFor(own.signal, state.waitMs, "WAIT")])
+    if (turn.code != "TURN") {
+      lease.abandoned = true
+      if (lease.granted) {
+        state.active -= 1
+      }
+      return if (turn.code == "WAIT") failure("UNAVAILABLE", `the tile was not started within ${state.waitMs / 1000} s: too many are waiting`) else turn
+    }
+    return await requestTile(config, cache, source, z, x, y, kept, own.signal)
+  } finally {
+    own.abort(null)
+    if (state.waiting.get(key) == own) {
+      state.waiting.delete(key)
+    }
+  }
+}
+
+/// The request, once it has its turn: `timeoutMs` to answer from now, and the wait ends at once when `map.cancel` says so.
+async function requestTile(config: Config, cache: TileCache, source: Source, z: int, x: int, y: int, kept: CachedTile?, cancel: AbortSignal): Promise<Result> {
+  const request = new AbortController()
+  cancel.addEventListener("abort", () => request.abort(null))
+  const done = attempt(config, cache, source, z, x, y, kept)
+  const first = await Promise.race([done, waitFor(request.signal, state.timeoutMs, "TIMEOUT")])
+  request.abort(null)
+  if (first.code != "TIMEOUT") {
+    return first
+  }
+  noteTrouble("the tile server did not answer in time")
+  if (kept != null) success(tileOfCache(kept!, true, true)) else failure("UNAVAILABLE", `${hostOf(source.template)} did not answer in ${state.timeoutMs / 1000} s`)
+}
+
+/// Ends with `onTime` when `ms` have passed, and with `ABORTED` when the signal stopped it.
+async function waitFor(signal: AbortSignal, ms: int, onTime: string): Promise<Result> {
+  try {
+    await delay(ms, signal)
+  } catch (e: Error) {
+    return failure("ABORTED", "the tile was not wanted any more")
+  }
+  failure(onTime, "")
+}
+
+/// Waits some milliseconds (a delay with no signal is not stopped by anything).
+async function pause(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    // Not stopped.
+  }
+}
+
+/// Waits for the request's turn: in order, at most MAX_ACTIVE at a time, at least `spacingMs` after the last start. Ends with `TURN`
+/// when the turn is granted (a slot is then held), and with `GAVE_UP` when the request was abandoned: its turn then passes by.
+async function taking(lease: Lease): Promise<Result> {
+  const mine = state.ticket
+  state.ticket += 1
+  while (true) {
+    if (state.serving == mine) {
+      if (lease.abandoned) {
+        state.serving += 1
+        return failure("GAVE_UP", "")
+      }
+      if (state.active < MAX_ACTIVE && now() - state.lastStart >= state.spacingMs) {
+        state.serving += 1
+        state.active += 1
+        state.lastStart = now()
+        lease.granted = true
+        return failure("TURN", "")
+      }
+    }
+    await pause(5)
+  }
+  failure("GAVE_UP", "")
+}
+
+/// The request itself. It never throws: whatever happens is a `Result`. It holds its slot until the server has answered or failed (a
+/// request the caller gave up still counts against the server's limit), and keeps what comes if it is a good tile.
+async function attempt(config: Config, cache: TileCache, source: Source, z: int, x: int, y: int, kept: CachedTile?): Promise<Result> {
+  const url = urlOf(source.template, z, x, y)
+  const host = hostOf(source.template)
+  try {
+    const headers = new Map<string, string>()
+    headers.set("User-Agent", USER_AGENT)
+    headers.set("Accept", "image/png,image/jpeg,image/webp")
+    if (kept != null && kept!.meta.etag != "") {
+      headers.set("If-None-Match", kept!.meta.etag)
+    }
+    const reply = await ask(url, headers)
+    return await judge(reply, config, cache, source, z, x, y, kept)
+  } catch (e: Error) {
+    const text = reachText(host, e.message)
+    noteTrouble(text)
+    return if (kept != null) success(tileOfCache(kept!, true, true)) else failure("UNAVAILABLE", text)
+  } finally {
+    state.active -= 1
+  }
+}
+
+/// What to say of a failure to reach a server: the host and the KIND of failure, never the runtime's own text (it can hold the address,
+/// in a form that no replacement would find, and an address can hold a key).
+export function reachText(host: string, message: string): string {
+  const m = message.toLowerCase()
+  let kind = "a network error"
+  if (m.includes("certificate") || m.includes("tls") || m.includes("handshake")) {
+    kind = "its certificate or the secure connection could not be checked"
+  } else if (m.includes("refused")) {
+    kind = "the connection was refused"
+  } else if (m.includes("resolve") || m.includes("lookup") || m.includes("dns") || m.includes("name or service")) {
+    kind = "the name could not be found"
+  } else if (m.includes("timed out") || m.includes("timeout")) {
+    kind = "it did not answer"
+  }
+  `couldn't reach ${host}: ${kind}`
+}
+
+/// One GET: the answer, whole.
+async function ask(url: string, headers: Map<string, string>): Promise<Reply> throws Error {
+  const res = await fetch(url, { headers: headers, redirect: "manual" })
+  const r = new Reply()
+  r.status = res.status
+  r.contentType = res.headers.get("content-type") ?? ""
+  r.etag = res.headers.get("etag") ?? ""
+  r.cacheControl = res.headers.get("cache-control") ?? ""
+  r.bytes = await res.bytes()
+  r
+}
+
+/// What a status says of the server's state: why to stay away from it, or "" when it is no trouble (404 and the like are the tile's).
+function troubleOf(status: int, host: string): string {
+  if (status >= 300 && status < 400 && status != 304) {
+    return `${host} sent a redirect: a redirect is not followed`
+  }
+  if (status == 403) {
+    return "the server refused this client (403)"
+  }
+  if (status == 429 || status >= 500 || status < 200) `${host} answered ${status}` else ""
+}
+
+/// What a reply comes to: a tile (kept), the tile that was kept (304), or an error, and what the server's answer says about how soon to
+/// ask again.
+async function judge(reply: Reply, config: Config, cache: TileCache, source: Source, z: int, x: int, y: int, kept: CachedTile?): Promise<Result> throws Error {
+  const host = hostOf(source.template)
+  const capBytes = if (state.capBytes >= 0) state.capBytes else config.capMb * 1048576
+  if (reply.status == 304 && kept != null) {
+    const meta = new TileMeta(kept!.meta.contentType, kept!.meta.etag, now(), now() + keepMsOf(reply.cacheControl))
+    await cache.write(source.dir, z, x, y, kept!.bytes, meta, capBytes)
+    noteWell()
+    return success(tileOfCache(new CachedTile(kept!.bytes, meta), false, false))
+  }
+  if (reply.status == 404) {
+    return failure("NOT_FOUND", `${host} has no such tile`)
+  }
+  // A redirect is not followed (the rules for an address would not hold for where it goes), a 403 is what a server that blocked this
+  // client says (do not go on asking), and 429 and the server's errors are what they are: stay away from the server for a while.
+  const trouble = troubleOf(reply.status, host)
+  if (trouble != "") {
+    noteTrouble(trouble)
+    if (kept != null) {
+      return success(tileOfCache(kept!, true, true))
+    }
+    return failure(if (reply.status == 429) "RATE_LIMITED" else "UNAVAILABLE", trouble)
+  }
+  if (reply.status != 200) {
+    return failure("UNAVAILABLE", `${host} answered ${reply.status}`)
+  }
+  if (reply.bytes.length > MAX_TILE) {
+    return failure("TOO_BIG", `the tile from ${host} is ${reply.bytes.length} bytes: over ${MAX_TILE}, dropped`)
+  }
+  if (!isImage(reply.contentType, reply.bytes)) {
+    return failure("BAD_TYPE", `the answer of ${host} is not a PNG, JPEG or WebP image: dropped`)
+  }
+  const type = reply.contentType.split(";")[0].trim().toLowerCase()
+  const meta = new TileMeta(type, reply.etag, now(), now() + keepMsOf(reply.cacheControl))
+  try {
+    await cache.write(source.dir, z, x, y, reply.bytes, meta, capBytes)
+  } catch (e: Error) {
+    // The disk is not writable: the tile is still good for the page.
+  }
+  noteWell()
+  success(tileOfCache(new CachedTile(reply.bytes, meta), false, false))
+}
+
+/// The server could not be used: nothing is asked of it for a while (30 s, then twice as long, up to 5 minutes), and it is said once. When
+/// the time is over the state is left, which is said once too (at the next check, or when the timer of the back-off runs out).
+function noteTrouble(reason: string): void {
+  if (now() < state.backoffUntil) {
+    return
+  }
+  state.backoffMs = if (state.backoffMs == 0) state.backoffFirstMs else if (state.backoffMs * 2 > BACKOFF_MAX_MS) BACKOFF_MAX_MS else state.backoffMs * 2
+  state.backoffUntil = now() + state.backoffMs
+  state.backoffReason = reason
+  say("backing-off", reason, state.backoffMs)
+  leaveBackoff(state.epoch, state.backoffMs)
+}
+
+/// Says the state when a back-off is over, without waiting for a request to find it out (the page would say "left alone" until then).
+async function leaveBackoff(epoch: int, ms: int): Promise<void> {
+  await pause(ms + 10)
+  if (epoch == state.epoch) {
+    settle(await configOf())
+  }
+}
+
+/// The server answered well: the back-off is over, and that is said (once).
+function noteWell(): void {
+  state.backoffMs = 0
+  state.backoffUntil = 0
+  say("online", "", 0)
+}
+
+async function cancelTile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeMapTileAsk(payload ?? Cbor.Null, "$")
+  const config = await configOf()
+  const source = sourceFor(ask.source, config)
+  const key = keyOf(source, ask.z as int, ask.x as int, ask.y as int)
+  const own = state.waiting.get(key)
+  if (own != null) {
+    own!.abort(null)
+  }
+  null
+}
+
+async function sourcesOf(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const config = await configOf()
+  settle(config)
+  const cache = await cacheOf()
+  const listed: MapSource[] = []
+  const osm = openStreetMap()
+  listed.push(MapSource { id: osm.id, name: osm.name, attribution: osm.attribution, attributionUrl: osm.attributionUrl, allowOffline: osm.allowOffline, custom: false })
+  const problem = if (config.customUrl == "") "no address is set" else templateProblem(config.customUrl)
+  const entry = MapSource { id: CUSTOM_ID, name: "Custom", attribution: "", attributionUrl: "", allowOffline: true, custom: true }
+  if (problem == null) {
+    entry.host = hostOf(config.customUrl)
+  }
+  listed.push(entry)
+  const out = MapSources {
+    sources: listed,
+    source: config.sourceId,
+    enabled: config.enabled,
+    offline: config.offline,
+    cacheMb: config.capMb as u16,
+    cacheBytes: cache.total as u64,
+    counted: cache.counted,
+  }
+  if (config.sourceId == CUSTOM_ID && problem != null) {
+    out.customError = problem!
+  }
+  if (config.defaults && !state.toldDefaults) {
+    state.toldDefaults = true
+    out.notice = "the settings could not be read: the map uses its defaults (tiles on, online, the built-in source)"
+  }
+  encodeMapSources(out)
+}
+
+async function clearTiles(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const cache = await cacheOf()
+  const cleared = await cache.clear()
+  encodeMapCleared(MapCleared { files: cleared.files as u32, bytes: cleared.bytes as u64 })
+}

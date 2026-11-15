@@ -972,6 +972,69 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
+export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
+
+function validateMapTileAskInto(value: any, path: string): boolean {
+  return map(value, path, ["source","z","x","y"]) && (value["source"] === undefined || nested(value["source"], `${path}.source`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["z"] === undefined ? fail(`${path}.z`, 'present') : nested(value["z"], `${path}.z`, (value, path) => uint(value, path, 0xff))) && (value["x"] === undefined ? fail(`${path}.x`, 'present') : nested(value["x"], `${path}.x`, (value, path) => uint(value, path, 0xffffffff))) && (value["y"] === undefined ? fail(`${path}.y`, 'present') : nested(value["y"], `${path}.y`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a map-tile-ask, or null. */
+export const validateMapTileAsk = (value: unknown) => run(validateMapTileAskInto, value)
+
+export type MapTile = { "contentType": string, "bytes": Uint8Array, "fromCache": boolean, "stale": boolean, "fetchedAt": number | bigint }
+
+function validateMapTileInto(value: any, path: string): boolean {
+  return map(value, path, ["contentType","bytes","fromCache","stale","fetchedAt"]) && (value["contentType"] === undefined ? fail(`${path}.contentType`, 'present') : nested(value["contentType"], `${path}.contentType`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => value instanceof Uint8Array || fail(path, 'bytes'))) && (value["fromCache"] === undefined ? fail(`${path}.fromCache`, 'present') : nested(value["fromCache"], `${path}.fromCache`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["stale"] === undefined ? fail(`${path}.stale`, 'present') : nested(value["stale"], `${path}.stale`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fetchedAt"] === undefined ? fail(`${path}.fetchedAt`, 'present') : nested(value["fetchedAt"], `${path}.fetchedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a map-tile, or null. */
+export const validateMapTile = (value: unknown) => run(validateMapTileInto, value)
+
+export type MapSources = { "sources": (MapSource)[], "source": string, "enabled": boolean, "offline": boolean, "cacheMb": number, "cacheBytes": number | bigint, "counted": boolean, "customError"?: string, "notice"?: string }
+
+function validateMapSourcesInto(value: any, path: string): boolean {
+  return map(value, path, ["sources","source","enabled","offline","cacheMb","cacheBytes","counted","customError","notice"]) && (value["sources"] === undefined ? fail(`${path}.sources`, 'present') : nested(value["sources"], `${path}.sources`, (value, path) => list(value, path, (value, path) => validateMapSourceInto(value, path)))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["enabled"] === undefined ? fail(`${path}.enabled`, 'present') : nested(value["enabled"], `${path}.enabled`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["offline"] === undefined ? fail(`${path}.offline`, 'present') : nested(value["offline"], `${path}.offline`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["cacheMb"] === undefined ? fail(`${path}.cacheMb`, 'present') : nested(value["cacheMb"], `${path}.cacheMb`, (value, path) => uint(value, path, 0xffff))) && (value["cacheBytes"] === undefined ? fail(`${path}.cacheBytes`, 'present') : nested(value["cacheBytes"], `${path}.cacheBytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["counted"] === undefined ? fail(`${path}.counted`, 'present') : nested(value["counted"], `${path}.counted`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["customError"] === undefined || nested(value["customError"], `${path}.customError`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["notice"] === undefined || nested(value["notice"], `${path}.notice`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a map-sources, or null. */
+export const validateMapSources = (value: unknown) => run(validateMapSourcesInto, value)
+
+export type MapSource = { "id": string, "name": string, "attribution": string, "attributionUrl": string, "allowOffline": boolean, "custom": boolean, "host"?: string }
+
+function validateMapSourceInto(value: any, path: string): boolean {
+  return map(value, path, ["id","name","attribution","attributionUrl","allowOffline","custom","host"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["attribution"] === undefined ? fail(`${path}.attribution`, 'present') : nested(value["attribution"], `${path}.attribution`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["attributionUrl"] === undefined ? fail(`${path}.attributionUrl`, 'present') : nested(value["attributionUrl"], `${path}.attributionUrl`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["allowOffline"] === undefined ? fail(`${path}.allowOffline`, 'present') : nested(value["allowOffline"], `${path}.allowOffline`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["custom"] === undefined ? fail(`${path}.custom`, 'present') : nested(value["custom"], `${path}.custom`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["host"] === undefined || nested(value["host"], `${path}.host`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a map-source, or null. */
+export const validateMapSource = (value: unknown) => run(validateMapSourceInto, value)
+
+export type MapState = "online" | "offline" | "disabled" | "backing-off"
+
+function validateMapStateInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["online","offline","disabled","backing-off"])
+}
+
+/** The first problem with `value` as a map-state, or null. */
+export const validateMapState = (value: unknown) => run(validateMapStateInto, value)
+
+export type MapStatus = { "state": MapState, "reason"?: string, "retryAfterMs"?: number }
+
+function validateMapStatusInto(value: any, path: string): boolean {
+  return map(value, path, ["state","reason","retryAfterMs"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => validateMapStateInto(value, path))) && (value["reason"] === undefined || nested(value["reason"], `${path}.reason`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["retryAfterMs"] === undefined || nested(value["retryAfterMs"], `${path}.retryAfterMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a map-status, or null. */
+export const validateMapStatus = (value: unknown) => run(validateMapStatusInto, value)
+
+export type MapCleared = { "files": number, "bytes": number | bigint }
+
+function validateMapClearedInto(value: any, path: string): boolean {
+  return map(value, path, ["files","bytes"]) && (value["files"] === undefined ? fail(`${path}.files`, 'present') : nested(value["files"], `${path}.files`, (value, path) => uint(value, path, 0xffffffff))) && (value["bytes"] === undefined ? fail(`${path}.bytes`, 'present') : nested(value["bytes"], `${path}.bytes`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a map-cleared, or null. */
+export const validateMapCleared = (value: unknown) => run(validateMapClearedInto, value)
+
 /** The services, for a typed Communicator. */
 export interface Services {
   "vehicle.connect": { kind: 'method', request: ConnectRequest, response: Connection }
@@ -1024,6 +1087,11 @@ export interface Services {
   "settings.set": { kind: 'method', request: SettingsPatch, response: SettingsState }
   "settings.changed": { kind: 'event', payload: SettingsState }
   "params.changed": { kind: 'event', payload: Param }
+  "map.tile": { kind: 'method', request: MapTileAsk, response: MapTile }
+  "map.cancel": { kind: 'method', request: MapTileAsk, response: null }
+  "map.sources": { kind: 'method', request: null, response: MapSources }
+  "map.clear": { kind: 'method', request: null, response: MapCleared }
+  "map.status": { kind: 'event', payload: MapStatus }
 }
 
 const services: Record<string, Partial<Record<string, Check>>> = {
@@ -1219,6 +1287,25 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "params.changed": {
     payload: (value: any, path: string) => validateParamInto(value, path),
+  },
+  "map.tile": {
+    request: (value: any, path: string) => validateMapTileAskInto(value, path),
+    response: (value: any, path: string) => validateMapTileInto(value, path),
+  },
+  "map.cancel": {
+    request: (value: any, path: string) => validateMapTileAskInto(value, path),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "map.sources": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateMapSourcesInto(value, path),
+  },
+  "map.clear": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateMapClearedInto(value, path),
+  },
+  "map.status": {
+    payload: (value: any, path: string) => validateMapStatusInto(value, path),
   },
 }
 

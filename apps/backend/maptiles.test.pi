@@ -1,0 +1,787 @@
+// The map's tile service against a LOCAL fake tile server (never a real one): the first tile comes from the server with a User-Agent that
+// names the project, the next from the disk; a stale tile is asked for again with its etag; what the server gets wrong (404, 429, 500,
+// silence, a wrong type, a tile that is too big) is an error with a code, never a tile, and trouble makes the backend leave the server
+// alone and say so once; at most 2 requests at a time, 150 ms apart; the switch and offline mode; a request given up; hostile values;
+// the cap of the cache; and clearing it without following a link out of it.
+import { describe, it, expect } from "std/test"
+import { mkdir, readText, remove, symlink, writeText, exists, readDir } from "std/fs"
+import { join } from "std/path"
+import { pid } from "std/process"
+import { delay } from "std/timers"
+import { serve, HttpServer } from "std/http"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import {
+  MapCleared,
+  MapSources,
+  MapState,
+  MapTile,
+  MapTileAsk,
+  SettingsPatch,
+  UiEntry,
+  decodeMapCleared,
+  decodeMapSources,
+  decodeMapStatus,
+  decodeMapTile,
+  encodeMapTileAsk,
+  encodeSettingsPatch,
+} from "./generated/app"
+import { TileMeta, textOfMeta } from "./mapcache"
+import { activeRequests, cacheForTests, capForTests, clockForTests, keepMsOf, reachText, restartForTests } from "./maptiles"
+import { restartForTests as restartSettings, useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+/// What the fake tile server does, and what it saw.
+class Fake {
+  public hits: int = 0
+  public mode: string = "ok"
+  public status: int = 200
+  public delayMs: int = 0
+  public etag: string = "\"v1\""
+  public cacheControl: string = "max-age=86400"
+  public contentType: string = "image/png"
+  public bodySize: int = 64
+  public userAgent: string = ""
+  public accept: string = ""
+  public ifNoneMatch: string = ""
+  public active: int = 0
+  public maxActive: int = 0
+  public starts: int[] = []
+}
+
+const fake = new Fake()
+
+function resetFake(): void {
+  fake.hits = 0
+  fake.mode = "ok"
+  fake.status = 200
+  fake.delayMs = 0
+  fake.etag = "\"v1\""
+  fake.cacheControl = "max-age=86400"
+  fake.contentType = "image/png"
+  fake.bodySize = 64
+  fake.userAgent = ""
+  fake.accept = ""
+  fake.ifNoneMatch = ""
+  fake.active = 0
+  fake.maxActive = 0
+  fake.starts = []
+}
+
+/// A PNG's first bytes and then `size` - 8 bytes of nothing.
+function pngOf(size: int): Uint8Array {
+  const b = new Uint8Array(size)
+  const head = [137, 80, 78, 71, 13, 10, 26, 10]
+  for (let i = 0; i < head.length && i < size; i++) {
+    b.set(i, head[i])
+  }
+  b
+}
+
+/// Waits (a delay that is not stopped by anything throws only when it is given a signal).
+async function pause(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    // Not stopped.
+  }
+}
+
+async function handle(req: Request): Promise<Response> {
+  fake.hits += 1
+  fake.userAgent = req.headers.get("user-agent") ?? ""
+  fake.accept = req.headers.get("accept") ?? ""
+  fake.ifNoneMatch = req.headers.get("if-none-match") ?? ""
+  fake.starts.push(Date.now() as int)
+  fake.active += 1
+  if (fake.active > fake.maxActive) {
+    fake.maxActive = fake.active
+  }
+  try {
+    if (fake.delayMs > 0) {
+      await pause(fake.delayMs)
+    }
+    const headers = new Map<string, string>()
+    headers.set("content-type", fake.contentType)
+    headers.set("cache-control", fake.cacheControl)
+    headers.set("etag", fake.etag)
+    if (fake.status == 304) {
+      return new Response("", { status: 304, headers: headers })
+    }
+    if (fake.status >= 300 && fake.status < 400) {
+      const moved = new Map<string, string>()
+      moved.set("location", "http://example.invalid/elsewhere/1/1/1.png")
+      return new Response("", { status: fake.status, headers: moved })
+    }
+    if (fake.status != 200) {
+      return new Response("no", { status: fake.status, headers: new Map<string, string>() })
+    }
+    return new Response(pngOf(fake.bodySize), { status: 200, headers: headers })
+  } finally {
+    fake.active -= 1
+  }
+}
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly server: HttpServer
+  public readonly port: int
+
+  constructor(f: Frontend, root: string, server: HttpServer, port: int) {
+    this.f = f
+    this.root = root
+    this.server = server
+    this.port = port
+  }
+}
+
+/// A backend over a fresh directory, a fake tile server, and the settings that point the map at it (a custom source on this computer).
+async function rig(timeoutMs: int = 10000, spacingMs: int = 0, backoffMs: int = 400, waitMs: int = 30000): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-maps-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  restartSettings()
+  restartForTests(timeoutMs, spacingMs, backoffMs, waitMs)
+  resetFake()
+  const server = await serve({ port: 0 }, handle)
+  const port = server.addr.port
+  const f = await start()
+  const r = new Rig(f, root, server, port)
+  await setting(r, "map.source", "custom")
+  await setting(r, "map.customUrl", `http://127.0.0.1:${port}/{z}/{x}/{y}.png`)
+  r
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  await r.server.shutdown()
+  await remove(r.root, true)
+}
+
+async function setting(r: Rig, key: string, value: string): Promise<void> throws Error {
+  await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: key, value: value }] }))
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+function messageOf(e: Envelope): string {
+  if (e.err != null) e.err!.message else ""
+}
+
+async function tileEnvelope(r: Rig, z: int, x: int, y: int): Promise<Envelope> throws Error {
+  await r.f.call("map.tile", encodeMapTileAsk(MapTileAsk { z: z as u8, x: x as u32, y: y as u32 }))
+}
+
+async function tile(r: Rig, z: int, x: int, y: int): Promise<MapTile> throws Error {
+  const e = await tileEnvelope(r, z, x, y)
+  if (e.err != null) {
+    panic(`the tile failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  decodeMapTile(e.p ?? Cbor.Null, "$")
+}
+
+async function sourcesOf(r: Rig): Promise<MapSources> throws Error {
+  decodeMapSources((await r.f.call("map.sources")).p ?? Cbor.Null, "$")
+}
+
+function nameOf(s: MapState): string {
+  if (s == MapState.Online) "online" else if (s == MapState.Offline) "offline" else if (s == MapState.Disabled) "disabled" else "backing-off"
+}
+
+/// The `state` of each `map.status` the frontend has heard, in order.
+function heardStates(r: Rig): string[] {
+  const out: string[] = []
+  for (const e of r.f.heard) {
+    if (e.n == "map.status") {
+      out.push(nameOf(decodeMapStatus(e.p ?? Cbor.Null, "$").state))
+    }
+  }
+  out
+}
+
+async function takesTheFirstTileFromTheServerAndTheNextFromTheDisk(): Promise<void> throws Error {
+  const r = await rig()
+  const first = await tile(r, 3, 4, 5)
+  expect(first.fromCache).toBe(false)
+  expect(first.stale).toBe(false)
+  expect(first.contentType).toBe("image/png")
+  expect(first.bytes.length).toBe(64)
+  expect(first.bytes[1]).toBe(80)
+  expect(fake.hits).toBe(1)
+  // The server was told who is asking, and what for.
+  expect(fake.userAgent).toBe("DroneConfigurator/0.1.0 (+https://github.com/padcom/drone-configurator)")
+  expect(fake.accept.includes("image/png")).toBe(true)
+  const again = await tile(r, 3, 4, 5)
+  expect(again.fromCache).toBe(true)
+  expect(again.stale).toBe(false)
+  expect(fake.hits).toBe(1)
+  // And it is on the disk, under a folder that is a hash.
+  const folders: string[] = []
+  for await (const e of readDir(join(r.root, "cache", "tiles"))) {
+    folders.push(e.name)
+  }
+  expect(folders.length).toBe(1)
+  expect(folders[0].startsWith("c")).toBe(true)
+  expect(await exists(join(r.root, "cache", "tiles", folders[0], "3", "4", "5.tile"))).toBe(true)
+  await done(r)
+}
+
+async function keepsATileAtLeastSevenDaysWhateverTheServerSays(): Promise<void> throws Error {
+  expect(keepMsOf("max-age=60")).toBe(7 * 86400000)
+  expect(keepMsOf("")).toBe(7 * 86400000)
+  expect(keepMsOf("public, max-age=1209600, immutable")).toBe(14 * 86400000)
+  expect(keepMsOf("max-age=99999999")).toBe(30 * 86400000)
+  expect(keepMsOf("no-cache")).toBe(7 * 86400000)
+}
+
+/// Rewrites the kept tile's `.meta` so that it went stale an hour ago (a day count the server cannot set below 7).
+async function makeStale(r: Rig, z: int, x: int, y: int): Promise<void> throws Error {
+  for await (const folder of readDir(join(r.root, "cache", "tiles"))) {
+    const meta = join(r.root, "cache", "tiles", folder.name, `${z}`, `${x}`, `${y}.meta`)
+    if (await exists(meta)) {
+      const old = (await readText(meta)).split("\n")
+      await writeText(meta, textOfMeta(new TileMeta(old[1], old[2], parseInt(old[3]), (Date.now() as int) - 3600000)))
+    }
+  }
+}
+
+async function asksAgainWithTheEtagForAStaleTileAndKeepsItOn304(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 2, 1, 1)
+  await makeStale(r, 2, 1, 1)
+  fake.status = 304
+  const again = await tile(r, 2, 1, 1)
+  expect(fake.hits).toBe(2)
+  expect(fake.ifNoneMatch).toBe("\"v1\"")
+  expect(again.stale).toBe(false)
+  expect(again.fromCache).toBe(false)
+  expect(again.bytes.length).toBe(64)
+  // It is fresh again: the next one is not asked for.
+  const third = await tile(r, 2, 1, 1)
+  expect(third.fromCache).toBe(true)
+  expect(fake.hits).toBe(2)
+  await done(r)
+}
+
+async function replacesAStaleTileThatTheServerHasChanged(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 2, 1, 1)
+  await makeStale(r, 2, 1, 1)
+  fake.bodySize = 80
+  fake.etag = "\"v2\""
+  const again = await tile(r, 2, 1, 1)
+  expect(again.bytes.length).toBe(80)
+  expect(again.stale).toBe(false)
+  await done(r)
+}
+
+async function saysWhatTheServerGotWrong(): Promise<void> throws Error {
+  const r = await rig()
+  fake.status = 404
+  expect(codeOf(await tileEnvelope(r, 3, 0, 0))).toBe("NOT_FOUND")
+  fake.status = 200
+  fake.contentType = "text/html"
+  expect(codeOf(await tileEnvelope(r, 3, 0, 1))).toBe("BAD_TYPE")
+  fake.contentType = "image/png"
+  fake.bodySize = 600000
+  expect(codeOf(await tileEnvelope(r, 3, 0, 2))).toBe("TOO_BIG")
+  // An image that is not the one it says it is (a captive portal's page called image/png).
+  fake.bodySize = 4
+  expect(codeOf(await tileEnvelope(r, 3, 0, 3))).toBe("BAD_TYPE")
+  // None of it was kept.
+  fake.bodySize = 64
+  const ok = await tile(r, 3, 0, 4)
+  expect(ok.fromCache).toBe(false)
+  const hits = fake.hits
+  fake.status = 404
+  expect(codeOf(await tileEnvelope(r, 3, 0, 0))).toBe("NOT_FOUND")
+  expect(fake.hits).toBe(hits + 1)
+  await done(r)
+}
+
+/// A body just over the cap (600 KiB for 512 KiB): the pico `fetch` reads a whole body before it answers, so it is dropped after it was
+/// read. What a body far over the cap costs is not asserted here (it depends on the runner): it is measured by hand, in the README.
+async function dropsABodyOverTheCapAndKeepsNothingOfIt(): Promise<void> throws Error {
+  const r = await rig()
+  fake.bodySize = 600 * 1024
+  const e = await tileEnvelope(r, 2, 0, 1)
+  expect(codeOf(e)).toBe("TOO_BIG")
+  expect(messageOf(e).includes("dropped")).toBe(true)
+  // Nothing of it was kept: not a file, not a place in the cache, and the next ask goes to the server again.
+  const cache = cacheForTests()!
+  expect(cache.total).toBe(0)
+  expect(await exists(join(r.root, "cache", "tiles"))).toBe(false)
+  fake.bodySize = 64
+  const hits = fake.hits
+  expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("")
+  expect(fake.hits).toBe(hits + 1)
+  await done(r)
+}
+
+async function doesNotCountTheTimeInTheQueueAgainstTheServer(): Promise<void> throws Error {
+  // A server that answers in 800 ms is healthy (a request has 1500 ms once it STARTS), though a request that is sixth in the line has
+  // waited far over that (about 2400 ms) by the time it is answered.
+  const r = await rig(1500, 0, 400)
+  fake.delayMs = 800
+  const sent: u64[] = []
+  for (let i = 0; i < 6; i++) {
+    sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 1 as u32 })))
+  }
+  for (const id of sent) {
+    expect(codeOf(await r.f.reply(id))).toBe("")
+  }
+  expect(fake.hits).toBe(6)
+  expect(fake.maxActive <= 2).toBe(true)
+  expect(heardStates(r).length).toBe(0)
+  await done(r)
+}
+
+async function givesUpOnARequestThatWaitsTooLongForItsTurnWithoutBlamingTheServer(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400, 200)
+  fake.delayMs = 600
+  const sent: u64[] = []
+  for (let i = 0; i < 3; i++) {
+    sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 2 as u32 })))
+  }
+  const codes: string[] = []
+  for (const id of sent) {
+    codes.push(codeOf(await r.f.reply(id)))
+  }
+  // (which of the three waits is the last in line is not fixed)
+  expect(codes.filter(code => code == "").length).toBe(2)
+  expect(codes.filter(code => code == "UNAVAILABLE").length).toBe(1)
+  expect(fake.hits).toBe(2)
+  // Not a server in trouble: nothing was said, and the next request goes to the server at once.
+  expect(heardStates(r).length).toBe(0)
+  fake.delayMs = 0
+  expect(codeOf(await tileEnvelope(r, 4, 5, 2))).toBe("")
+  await done(r)
+}
+
+async function doesNotFollowARedirect(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 302
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e).includes("redirect is not followed")).toBe(true)
+  // It was asked once, where it went (example.invalid, which would not even resolve) was not asked at all, and it is left alone.
+  expect(fake.hits).toBe(1)
+  expect(codeOf(await tileEnvelope(r, 3, 1, 2))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(1)
+  expect(heardStates(r)).toEqual(["backing-off"])
+  await done(r)
+}
+
+async function staysAwayFromAServerThatSaysForbidden(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 403
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e)).toBe("the server refused this client (403)")
+  const hits = fake.hits
+  expect(codeOf(await tileEnvelope(r, 3, 1, 2))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(hits)
+  expect(heardStates(r)).toEqual(["backing-off"])
+  for (const e of r.f.heard) {
+    if (e.n == "map.status") {
+      expect(decodeMapStatus(e.p ?? Cbor.Null, "$").reason!).toBe("the server refused this client (403)")
+    }
+  }
+  await done(r)
+}
+
+async function neverPutsTheRuntimesTextInAnErrorWhateverItHolds(): Promise<void> throws Error {
+  const url = "https://tiles.example.com/maps/3/4/5.png?key=SECRET"
+  const forms = [
+    url,
+    url.toUpperCase(),
+    "https%3A%2F%2Ftiles.example.com%2Fmaps%2F3%2F4%2F5.png%3Fkey%3DSECRET",
+    "fetch failed: connection refused: tiles.example.com:443 (key=SECRET)",
+    "TLS: certificate verification failed: https://tiles.example.com/maps?key=SECRET",
+    "could not resolve host tiles.example.com?key=SECRET",
+  ]
+  for (const message of forms) {
+    const text = reachText("tiles.example.com", message)
+    expect(text.includes("SECRET")).toBe(false)
+    expect(text.toLowerCase().includes("secret")).toBe(false)
+    expect(text.includes("https")).toBe(false)
+    expect(text.startsWith("couldn't reach tiles.example.com: ")).toBe(true)
+  }
+  expect(reachText("h", "connection refused: h:1")).toBe("couldn't reach h: the connection was refused")
+  expect(reachText("h", "TLS: certificate verification failed")).toBe("couldn't reach h: its certificate or the secure connection could not be checked")
+  expect(reachText("h", "could not resolve")).toBe("couldn't reach h: the name could not be found")
+  expect(reachText("h", "something else with ?key=SECRET")).toBe("couldn't reach h: a network error")
+}
+
+async function saysItWhenTheServerCannotBeReachedWithoutTheAddress(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  await setting(r, "map.customUrl", `http://127.0.0.1:${r.port}/{z}/{x}/{y}.png?key=SECRET`)
+  await r.server.shutdown()
+  const e = await tileEnvelope(r, 3, 1, 1)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect(messageOf(e).startsWith("couldn't reach 127.0.0.1: ")).toBe(true)
+  expect(messageOf(e).includes("SECRET")).toBe(false)
+  expect(messageOf(e).includes(`${r.port}`)).toBe(false)
+  await remove(r.root, true)
+}
+
+async function leavesTheBackoffWhenItsTimeIsOverByTheTimer(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.status = 429
+  expect(codeOf(await tileEnvelope(r, 1, 0, 0))).toBe("RATE_LIMITED")
+  expect(heardStates(r)).toEqual(["backing-off"])
+  // Nobody asks anything: the state is left by itself when the time is over, and said once. (The frontend hears it when it next reads.)
+  await delay(700)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online"])
+  await done(r)
+}
+
+async function leavesTheBackoffAtTheNextCheckByTheClockAndOnAChangeOfSettings(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 60000)
+  const start = Date.now() as int
+  clockForTests(start)
+  fake.status = 500
+  expect(codeOf(await tileEnvelope(r, 1, 0, 0))).toBe("UNAVAILABLE")
+  expect(heardStates(r)).toEqual(["backing-off"])
+  // A minute and a half later (the clock, not the timer): the next check leaves it, once.
+  clockForTests(start + 90000)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online"])
+  // The next trouble backs off for longer; a change of settings leaves it: offline says offline, and on again it is backing off again.
+  fake.status = 500
+  expect(codeOf(await tileEnvelope(r, 1, 0, 1))).toBe("UNAVAILABLE")
+  await setting(r, "map.offline", "true")
+  await sourcesOf(r)
+  await setting(r, "map.offline", "false")
+  await sourcesOf(r)
+  await setting(r, "map.enabled", "false")
+  await sourcesOf(r)
+  await setting(r, "map.enabled", "true")
+  clockForTests(start + 90000 + 130000)
+  await sourcesOf(r)
+  expect(heardStates(r)).toEqual(["backing-off", "online", "backing-off", "offline", "backing-off", "disabled", "online"])
+  clockForTests(-1)
+  await done(r)
+}
+
+async function leavesTheServerAloneAfterTroubleAndSaysSoOnce(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  const cached = await tile(r, 1, 0, 0)
+  expect(cached.fromCache).toBe(false)
+  fake.status = 429
+  expect(codeOf(await tileEnvelope(r, 1, 0, 1))).toBe("RATE_LIMITED")
+  const hits = fake.hits
+  // While it backs off, nothing goes to the server: a tile that is not kept is RATE_LIMITED, a kept one is served.
+  expect(codeOf(await tileEnvelope(r, 1, 1, 0))).toBe("RATE_LIMITED")
+  expect(codeOf(await tileEnvelope(r, 1, 1, 1))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(hits)
+  expect((await tile(r, 1, 0, 0)).fromCache).toBe(true)
+  // Said once, not for each tile.
+  expect(heardStates(r)).toEqual(["backing-off"])
+  // After the time, the server is asked again, and when it is well again that is said (once).
+  await delay(500)
+  fake.status = 200
+  const back = await tile(r, 1, 1, 0)
+  expect(back.fromCache).toBe(false)
+  expect(fake.hits).toBe(hits + 1)
+  expect(heardStates(r)).toEqual(["backing-off", "online"])
+  await done(r)
+}
+
+async function backsOffOnAServerErrorAndKeepsServingWhatItHas(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  await tile(r, 1, 0, 0)
+  await makeStale(r, 1, 0, 0)
+  fake.status = 500
+  // A stale tile is better than none when the server is in trouble: served, marked.
+  const stale = await tile(r, 1, 0, 0)
+  expect(stale.stale).toBe(true)
+  expect(stale.fromCache).toBe(true)
+  expect(codeOf(await tileEnvelope(r, 1, 1, 1))).toBe("RATE_LIMITED")
+  expect(heardStates(r)).toEqual(["backing-off"])
+  await done(r)
+}
+
+async function givesUpOnAServerThatDoesNotAnswerInTime(): Promise<void> throws Error {
+  const r = await rig(300, 0, 400)
+  fake.delayMs = 3000
+  const started = Date.now() as int
+  const e = await tileEnvelope(r, 2, 0, 0)
+  const took = (Date.now() as int) - started
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  // It answered when its own time was up, long before the server did (generous bounds: a slow runner).
+  expect(took < 2900).toBe(true)
+  expect(took >= 290).toBe(true)
+  expect(messageOf(e).includes("did not answer")).toBe(true)
+  // The server is left alone for a while after that.
+  const hits = fake.hits
+  expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("RATE_LIMITED")
+  expect(fake.hits).toBe(hits)
+  // The slow request still holds its place with the server until the server ends it.
+  expect(activeRequests()).toBe(1)
+  await delay(3300)
+  expect(activeRequests()).toBe(0)
+  await done(r)
+}
+
+async function stopsWaitingForATileThatWasCancelled(): Promise<void> throws Error {
+  const r = await rig(10000, 0, 400)
+  fake.delayMs = 600
+  const ask = encodeMapTileAsk(MapTileAsk { z: 3, x: 1 as u32, y: 1 as u32 })
+  const sent = await r.f.send("map.tile", ask)
+  await delay(100)
+  const stopped = await r.f.call("map.cancel", ask)
+  expect(codeOf(stopped)).toBe("")
+  const e = await r.f.reply(sent)
+  expect(codeOf(e)).toBe("ABORTED")
+  // The request that already went finishes, and the tile is kept.
+  await delay(700)
+  fake.delayMs = 0
+  const hits = fake.hits
+  const later = await tile(r, 3, 1, 1)
+  expect(later.fromCache).toBe(true)
+  expect(fake.hits).toBe(hits)
+  await done(r)
+}
+
+async function asksTheServerForAtMostTwoTilesAtATimeWithGapsBetweenThem(): Promise<void> throws Error {
+  const r = await rig(10000, 150, 400)
+  fake.delayMs = 120
+  const sent: u64[] = []
+  for (let i = 0; i < 6; i++) {
+    sent.push(await r.f.send("map.tile", encodeMapTileAsk(MapTileAsk { z: 4, x: i as u32, y: 0 as u32 })))
+  }
+  for (const id of sent) {
+    expect(codeOf(await r.f.reply(id))).toBe("")
+  }
+  expect(fake.hits).toBe(6)
+  expect(fake.maxActive <= 2).toBe(true)
+  for (let i = 1; i < fake.starts.length; i++) {
+    expect(fake.starts[i] - fake.starts[i - 1] >= 140).toBe(true)
+  }
+  await done(r)
+}
+
+async function doesNotAskForATileThatIsAlreadyKeptNorForTheSameTwice(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 5, 5, 5)
+  await tile(r, 5, 5, 5)
+  await tile(r, 5, 5, 5)
+  expect(fake.hits).toBe(1)
+  await done(r)
+}
+
+async function usesOnlyTheDiskWhenOffline(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 2, 0, 0)
+  await setting(r, "map.offline", "true")
+  const hits = fake.hits
+  expect((await tile(r, 2, 0, 0)).fromCache).toBe(true)
+  expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("OFFLINE_MISS")
+  // A stale tile is served, marked, when offline.
+  await makeStale(r, 2, 0, 0)
+  const stale = await tile(r, 2, 0, 0)
+  expect(stale.stale).toBe(true)
+  expect(fake.hits).toBe(hits)
+  expect(heardStates(r)).toEqual(["offline"])
+  await done(r)
+}
+
+async function asksNothingWhenTheSwitchIsOff(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 2, 0, 0)
+  await setting(r, "map.enabled", "false")
+  const hits = fake.hits
+  expect(codeOf(await tileEnvelope(r, 2, 0, 0))).toBe("DISABLED")
+  expect(codeOf(await tileEnvelope(r, 2, 0, 1))).toBe("DISABLED")
+  expect(fake.hits).toBe(hits)
+  expect(heardStates(r)).toEqual(["disabled"])
+  // On again: the kept tile is there.
+  await setting(r, "map.enabled", "true")
+  expect((await tile(r, 2, 0, 0)).fromCache).toBe(true)
+  await done(r)
+}
+
+async function refusesWhatIsNotATileOrASource(): Promise<void> throws Error {
+  const r = await rig()
+  expect(codeOf(await tileEnvelope(r, 20, 0, 0))).toBe("BAD_REQUEST")
+  expect(codeOf(await tileEnvelope(r, 3, 8, 0))).toBe("BAD_REQUEST")
+  expect(codeOf(await tileEnvelope(r, 3, 0, 8))).toBe("BAD_REQUEST")
+  expect(codeOf(await tileEnvelope(r, 0, 1, 0))).toBe("BAD_REQUEST")
+  const big = await r.f.call("map.tile", encodeMapTileAsk(MapTileAsk { z: 3, x: 4294967295 as u32, y: 0 as u32 }))
+  expect(codeOf(big)).toBe("BAD_REQUEST")
+  for (const bad of ["../../etc", "osm/../x", "http://evil/", "", "OSM", "custom\n"]) {
+    const e = await r.f.call("map.tile", encodeMapTileAsk(MapTileAsk { source: bad, z: 3, x: 0 as u32, y: 0 as u32 }))
+    expect(codeOf(e)).toBe("BAD_REQUEST")
+  }
+  expect(fake.hits).toBe(0)
+  // Nothing was made on the disk for any of it.
+  expect(await exists(join(r.root, "cache", "tiles"))).toBe(false)
+  await done(r)
+}
+
+async function refusesACustomAddressThatIsNotAllowedAndNeverShowsItsKey(): Promise<void> throws Error {
+  const r = await rig()
+  for (const bad of [
+    "http://tiles.example.com/{z}/{x}/{y}.png?key=SECRET1",
+    "https://user:SECRET2@tiles.example.com/{z}/{x}/{y}.png",
+    "https://tiles.example.com/{z}/{x}.png?key=SECRET3",
+    "file:///etc/passwd/{z}/{x}/{y}",
+  ]) {
+    await setting(r, "map.customUrl", bad)
+    const e = await tileEnvelope(r, 3, 0, 0)
+    expect(codeOf(e)).toBe("BAD_REQUEST")
+    expect(messageOf(e).includes("SECRET")).toBe(false)
+    const s = await sourcesOf(r)
+    expect(s.customError != null).toBe(true)
+    expect(s.customError!.includes("SECRET")).toBe(false)
+  }
+  expect(fake.hits).toBe(0)
+  await done(r)
+}
+
+async function keepsTheCacheWithinItsCapByDroppingTheTilesUsedLongestAgo(): Promise<void> throws Error {
+  const r = await rig()
+  capForTests(3000)
+  fake.bodySize = 1000
+  for (let i = 0; i < 3; i++) {
+    await tile(r, 4, i, 0)
+    await delay(5)
+  }
+  // A tile that is read is used again, so it stays; the one used longest ago goes first.
+  await tile(r, 4, 0, 0)
+  await delay(5)
+  await tile(r, 4, 3, 0)
+  const cache = cacheForTests()!
+  expect(cache.total <= 3000).toBe(true)
+  const hits = fake.hits
+  expect((await tile(r, 4, 0, 0)).fromCache).toBe(true)
+  expect((await tile(r, 4, 3, 0)).fromCache).toBe(true)
+  expect((await tile(r, 4, 1, 0)).fromCache).toBe(false)
+  expect(fake.hits).toBe(hits + 1)
+  await done(r)
+}
+
+async function countsWhatTheCacheHoldsAtTheStartInTheBackground(): Promise<void> throws Error {
+  const r = await rig()
+  fake.bodySize = 1000
+  await tile(r, 4, 0, 0)
+  await tile(r, 4, 1, 0)
+  const before = (await sourcesOf(r)).cacheBytes as int
+  expect(before > 2000).toBe(true)
+  // A restarted backend counts the folder again.
+  restartForTests(10000, 0, 400)
+  await sourcesOf(r)
+  let waited = 0
+  while (!(await sourcesOf(r)).counted && waited < 3000) {
+    await delay(20)
+    waited += 20
+  }
+  const after = await sourcesOf(r)
+  expect(after.counted).toBe(true)
+  expect(after.cacheBytes as int).toBe(before)
+  await done(r)
+}
+
+async function clearsTheTilesAndNothingOutsideTheFolderNotEvenThroughALink(): Promise<void> throws Error {
+  const r = await rig()
+  await tile(r, 3, 1, 1)
+  await tile(r, 3, 1, 2)
+  // Something of the user's, outside the cache, that links inside it point to.
+  const outside = join(r.root, "precious")
+  await mkdir(outside, true)
+  await writeText(join(outside, "keep.txt"), "mine")
+  await writeText(join(r.root, "precious.txt"), "mine too")
+  const folder = join(r.root, "cache", "tiles", "osm")
+  await mkdir(folder, true)
+  await symlink(outside, join(folder, "link-to-folder"))
+  await symlink(join(r.root, "precious.txt"), join(folder, "link-to-file"))
+  const cleared: MapCleared = decodeMapCleared((await r.f.call("map.clear")).p ?? Cbor.Null, "$")
+  expect(cleared.files as int).toBe(2)
+  expect(cleared.bytes as int).toBe(128)
+  expect(await readText(join(outside, "keep.txt"))).toBe("mine")
+  expect(await readText(join(r.root, "precious.txt"))).toBe("mine too")
+  expect(await exists(join(folder, "link-to-folder"))).toBe(false)
+  // The cache is empty and works again.
+  const names: string[] = []
+  for await (const e of readDir(join(r.root, "cache", "tiles"))) {
+    names.push(e.name)
+  }
+  expect(names.length).toBe(0)
+  const hits = fake.hits
+  expect((await tile(r, 3, 1, 1)).fromCache).toBe(false)
+  expect(fake.hits).toBe(hits + 1)
+  await done(r)
+}
+
+async function listsTheSourcesWithTheirAttributionAndOnlyTheHostOfACustomOne(): Promise<void> throws Error {
+  const r = await rig()
+  await setting(r, "map.customUrl", `http://127.0.0.1:${r.port}/{z}/{x}/{y}.png?key=SECRET`)
+  const s = await sourcesOf(r)
+  expect(s.sources.length).toBe(2)
+  expect(s.sources[0].id).toBe("osm")
+  expect(s.sources[0].attribution).toBe("© OpenStreetMap contributors")
+  expect(s.sources[0].attributionUrl).toBe("https://www.openstreetmap.org/copyright")
+  expect(s.sources[0].allowOffline).toBe(false)
+  expect(s.sources[1].id).toBe("custom")
+  expect(s.sources[1].host!).toBe("127.0.0.1")
+  expect(s.source).toBe("custom")
+  expect(s.enabled).toBe(true)
+  expect(s.offline).toBe(false)
+  expect(s.cacheMb as int).toBe(500)
+  expect(s.customError == null).toBe(true)
+  await done(r)
+}
+
+async function usesTheDefaultsAndSaysSoOnceWhenTheSettingsCannotBeRead(): Promise<void> throws Error {
+  const root = `/tmp/drone-configurator-maps-bad-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  await writeText(join(root, "settings.json"), "this is not settings")
+  useDirectoryForTests(root)
+  restartSettings()
+  restartForTests(10000, 0, 400)
+  const f = await start()
+  const first = decodeMapSources((await f.call("map.sources")).p ?? Cbor.Null, "$")
+  expect(first.enabled).toBe(true)
+  expect(first.offline).toBe(false)
+  expect(first.source).toBe("osm")
+  expect(first.notice != null).toBe(true)
+  expect(first.notice!.includes("defaults")).toBe(true)
+  const second = decodeMapSources((await f.call("map.sources")).p ?? Cbor.Null, "$")
+  expect(second.notice == null).toBe(true)
+  await remove(root, true)
+}
+
+describe("the map's tile service, against a fake tile server", () => {
+  it("takes the first tile from the server and the next from the disk, as a project that names itself", takesTheFirstTileFromTheServerAndTheNextFromTheDisk)
+  it("keeps a tile at least 7 days and at most 30, whatever the server says", keepsATileAtLeastSevenDaysWhateverTheServerSays)
+  it("asks again with the etag for a stale tile, and keeps it when the server says 304", asksAgainWithTheEtagForAStaleTileAndKeepsItOn304)
+  it("replaces a stale tile that the server has changed", replacesAStaleTileThatTheServerHasChanged)
+  it("says what the server got wrong with a code, and keeps none of it", saysWhatTheServerGotWrong)
+  it("drops a body over the cap after it was read, and keeps nothing of it", dropsABodyOverTheCapAndKeepsNothingOfIt)
+  it("does not count the time in the queue against the server", doesNotCountTheTimeInTheQueueAgainstTheServer)
+  it("gives up on a request that waits too long for its turn, without blaming the server", givesUpOnARequestThatWaitsTooLongForItsTurnWithoutBlamingTheServer)
+  it("does not follow a redirect, and leaves the server alone after one", doesNotFollowARedirect)
+  it("stays away from a server that says 403 and says why, once", staysAwayFromAServerThatSaysForbidden)
+  it("never puts the runtime's text in an error, whatever form of the address it holds", neverPutsTheRuntimesTextInAnErrorWhateverItHolds)
+  it("says it when the server cannot be reached, with the host and the kind of failure only", saysItWhenTheServerCannotBeReachedWithoutTheAddress)
+  it("leaves the back-off when its time is over, by the timer", leavesTheBackoffWhenItsTimeIsOverByTheTimer)
+  it("leaves the back-off at the next check by the clock and on a change of the settings", leavesTheBackoffAtTheNextCheckByTheClockAndOnAChangeOfSettings)
+  it("leaves the server alone after a 429 and says so once, and again when it is well", leavesTheServerAloneAfterTroubleAndSaysSoOnce)
+  it("backs off on a server error and serves what it has, marked stale", backsOffOnAServerErrorAndKeepsServingWhatItHas)
+  it("gives up on a server that does not answer in time", givesUpOnAServerThatDoesNotAnswerInTime)
+  it("stops waiting for a tile that was cancelled, and keeps the one that comes", stopsWaitingForATileThatWasCancelled)
+  it("asks the server for at most two tiles at a time, 150 ms apart", asksTheServerForAtMostTwoTilesAtATimeWithGapsBetweenThem)
+  it("does not ask for a tile that is kept", doesNotAskForATileThatIsAlreadyKeptNorForTheSameTwice)
+  it("uses only the disk when offline", usesOnlyTheDiskWhenOffline)
+  it("asks nothing when the switch is off", asksNothingWhenTheSwitchIsOff)
+  it("refuses what is not a tile or a source, and makes nothing on the disk for it", refusesWhatIsNotATileOrASource)
+  it("refuses a custom address that is not allowed, and never shows its key", refusesACustomAddressThatIsNotAllowedAndNeverShowsItsKey)
+  it("keeps the cache within its cap by dropping the tiles used longest ago", keepsTheCacheWithinItsCapByDroppingTheTilesUsedLongestAgo)
+  it("counts what the cache holds at the start, in the background", countsWhatTheCacheHoldsAtTheStartInTheBackground)
+  it("clears the tiles and nothing outside the folder, not even through a link", clearsTheTilesAndNothingOutsideTheFolderNotEvenThroughALink)
+  it("lists the sources with their attribution and only the host of a custom address", listsTheSourcesWithTheirAttributionAndOnlyTheHostOfACustomOne)
+  it("uses the defaults, and says so once, when the settings cannot be read", usesTheDefaultsAndSaysSoOnceWhenTheSettingsCannotBeRead)
+})

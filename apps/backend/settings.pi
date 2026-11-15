@@ -330,6 +330,36 @@ export async function dataDirectory(): Promise<string> throws Error {
   dirs.data
 }
 
+/// The app's cache directory, for what can be rebuilt (the map's tiles): `cache` inside the directory under test, when there is one.
+/// Made if it is not there. Fails with the reason.
+export async function cacheDirectory(): Promise<string> throws Error {
+  const wanted = store.override
+  if (wanted != null) {
+    const dir = join(wanted!, "cache")
+    await mkdir(dir, true)
+    return dir
+  }
+  const dirs = await appDirs(APP_ID)
+  dirs.cache
+}
+
+/// The value of a `ui` entry now (the file is read first, once), or null when the settings have none.
+export async function uiValue(key: string): Promise<string?> throws Error {
+  await ready()
+  for (const e of store.doc.ui) {
+    if (e.key == key) {
+      return e.value
+    }
+  }
+  null
+}
+
+/// Whether the settings file could not be used (`CORRUPT`, `UNREADABLE`, `NEWER`): what is read from it is then the defaults.
+export async function settingsAreDefaults(): Promise<bool> throws Error {
+  await ready()
+  store.noticeCode == "CORRUPT" || store.noticeCode == "UNREADABLE" || store.noticeCode == "NEWER"
+}
+
 /// Where the file goes: the directory under test, or the app's data directory. Null (and a notice) when there is none.
 async function locate(): Promise<string?> {
   const wanted = store.override

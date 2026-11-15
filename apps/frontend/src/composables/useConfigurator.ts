@@ -19,6 +19,7 @@ import { type SettingsModel, useSettings } from './useSettings'
 import { type CalibrationModel, useCalibration } from './useCalibration'
 import { type MotorTestModel, useMotorTest } from './useMotorTest'
 import { type AnalysisModel, useAnalysis } from './useAnalysis'
+import { type MapSettingsModel, useMapSettings } from './useMapSettings'
 import { type TuningStreamModel, useTuningStream } from './useTuningStream'
 import { type SetupModel, useSetup } from './useSetup'
 import { type SnapshotsDeps, type SnapshotsModel, useSnapshots } from './useSnapshots'
@@ -82,6 +83,8 @@ export interface ConfiguratorHandle {
   tuning: TuningStreamModel
   /** The step response measured from a log on this computer ("Analyse the last flight"). */
   analysis: AnalysisModel
+  /** The map's tile settings, and what the backend says of its tiles and cache. */
+  map: MapSettingsModel
   /** The parameter changes collected to be written together. */
   staged: StagedModel
   /** The state, field by field. */
@@ -543,7 +546,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle),
     calibration: startCalibration(client, vehicle),
-    motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }),
+    motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
