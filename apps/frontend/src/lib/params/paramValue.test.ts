@@ -140,4 +140,17 @@ describe('the text of a field', () => {
     expect(fieldText(null)).toBe('')
     expect(fieldText(undefined)).toBe('')
   })
+
+  it('keeps the sign, integers, large and small values, and says a number that is not one as it is', () => {
+    expect(fieldText(Math.fround(-14.8))).toBe('-14.8')
+    expect(fieldText(-3)).toBe('-3')
+    expect(fieldText(0)).toBe('0')
+    expect(fieldText(16777216)).toBe('16777216')
+    expect(fieldText(Math.fround(123456.7))).toBe(showNumber(Math.fround(123456.7)))
+    expect(fieldText(Math.fround(0.00001))).toBe(showNumber(Math.fround(0.00001)))
+    expect(fieldText(Math.fround(1e-7))).toBe(showNumber(Math.fround(1e-7)))
+    expect(fieldText(Math.fround(3e10))).toBe(showNumber(Math.fround(3e10)))
+    expect(fieldText(Number.NaN)).toBe(showNumber(Number.NaN))
+    expect(fieldText(Number.POSITIVE_INFINITY)).toBe(showNumber(Number.POSITIVE_INFINITY))
+  })
 })

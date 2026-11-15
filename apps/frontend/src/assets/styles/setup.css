@@ -379,7 +379,7 @@
   fill: var(--color-text-muted);
 }
 
-@media (max-width: 999px) {
+@media (width < 1000px) {
   .setup-page-body {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -412,6 +412,17 @@
     flex-wrap: nowrap;
   }
 
+  /* A column that scrolls cuts what is outside its box: the room a focus outline needs (2 px + 2 px offset) is its padding, and the
+     margin takes it back, so the columns keep their places. */
+  /* They are also the box of what is placed in them (the visually hidden texts are absolute: without it they would lie in the page,
+     below the window, where this column has cut them off). */
+  .setup-nav,
+  .setup-main {
+    position: relative;
+    padding: var(--space-1);
+    margin: calc(-1 * var(--space-1));
+  }
+
   .setup-nav {
     min-height: 0;
     overflow-y: auto;
@@ -437,9 +448,10 @@
 
   .setup-aside,
   .setup-facts {
-    max-height: 100%;
+    position: relative;
+    min-height: 0;
     overflow-y: auto;
-    align-self: start;
+    align-self: stretch;
   }
 }
 

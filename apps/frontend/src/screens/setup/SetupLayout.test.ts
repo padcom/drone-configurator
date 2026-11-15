@@ -65,6 +65,10 @@ it('lists, beside the accelerometer, what its calibration changes and the trim t
     expect(side).toContain(id)
   }
   expect(side).toContain('Written by the vehicle')
+  expect(side).toContain('IMU 1')
+  expect(side).toContain('INS_TRIM_OPTION')
+  // each name is said once on the page (the values, after a success, are in the same list)
+  expect(wrapper.text().split('INS_ACCOFFS_X')).toHaveLength(2)
   expect(wrapper.find('.setup-page-body > aside #setup-accel-status').exists()).toBe(true)
   expect(wrapper.find('.setup-page-body > aside button').exists()).toBe(false)
 })
