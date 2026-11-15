@@ -32,9 +32,11 @@ interface Setup {
   ui: { key: string, value: string }[]
   /** Whether the vehicle's fence parameters are there (they are, switched off, unless a test says not). */
   withFence: boolean
+  /** What the list of parameters says it is: whole, or still coming. */
+  list: 'complete' | 'loading'
 }
 
-const PLAIN: Setup = { params: {}, ui: [], withFence: true }
+const PLAIN: Setup = { params: {}, ui: [], withFence: true, list: 'complete' }
 
 /**
  * The dialog over a connected vehicle that is armed in GUIDED (or not).
@@ -55,7 +57,7 @@ async function open(armed: boolean, setup: Setup) {
   feed(handle, {
     params: Object.entries({ ...fence, ...params })
       .map(([id, value], index) => ({ id, kind: 'int', type: 'INT32', value, index })),
-    list: 'complete',
+    list: setup.list,
     telemetry: ready({ armed, mode: 'GUIDED' }),
   })
   await vi.waitFor(() => expect(handle.setup.modes.value).not.toBeNull())
@@ -126,8 +128,8 @@ it('ignores a press in its first moments (a click meant for what was under it), 
   await vi.waitFor(() => expect(sentOf(control)).toEqual(['takeoff 10']))
 })
 
-it('does not go ahead while the vehicle\'s fence is not known (no parameters), and says so', async () => {
-  const { wrapper, control } = await open(true, { ...PLAIN, withFence: false })
+it('does not go ahead while the vehicle\'s fence is not known (the parameters are still coming), and says so', async () => {
+  const { wrapper, control } = await open(true, { ...PLAIN, withFence: false, list: 'loading' })
   await takesPresses(wrapper)
 
   expect(wrapper.get('#takeoff-fence').text()).toContain('fence is not known')
@@ -217,4 +219,12 @@ it('takes off an armed vehicle in GUIDED when the button is pressed: it closes, 
 
   expect(wrapper.find('dialog').exists()).toBe(false)
   expect(useTakeoff().typed.value).toBe('15')
+})
+
+it('goes ahead for a firmware without a fence: the whole list is there and has no FENCE_ENABLE', async () => {
+  const { wrapper } = await open(true, { ...PLAIN, withFence: false })
+  await takesPresses(wrapper)
+
+  expect(wrapper.get('#takeoff-fence').text()).toBe('')
+  expect(wrapper.get('#takeoff-go').attributes('disabled')).toBeUndefined()
 })

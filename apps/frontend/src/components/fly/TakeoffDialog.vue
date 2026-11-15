@@ -66,7 +66,7 @@ function parameter(id: string): number | undefined {
   return fields.params.value.find(param => param.id === id)?.value
 }
 
-const fence = computed(() => fenceCeilingOf(parameter))
+const fence = computed(() => fenceCeilingOf(parameter, fields.list.value === 'complete'))
 // A fence that cannot be read is not "no fence": the button stays off, and the dialog says why.
 const fenceUnknown = computed(() => fence.value === 'unknown')
 const limits = computed(() => limitsOf(ceiling.value, fence.value === 'unknown' ? null : fence.value))

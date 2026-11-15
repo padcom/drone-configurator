@@ -55,18 +55,30 @@ function fresh(group: { ageMs: number } | undefined): group is { ageMs: number }
 }
 
 /**
- * Whether the parameters that say what the fence is are there.
+ * Whether a fence that is on has the parameters that say what it limits.
  *
  * @param value reads a parameter of the vehicle
+ * @returns true when it has
+ */
+function fenceSettingsKnown(value: (id: string) => number | undefined): boolean {
+  return value('FENCE_TYPE') !== undefined && (!fenceLimitsAltitude(value) || value('FENCE_ALT_MAX') !== undefined)
+}
+
+/**
+ * Whether the parameters that say what the fence is are there. With the whole list of parameters there, a vehicle that has no
+ * FENCE_ENABLE is a firmware without a fence (nothing limits the altitude); without the whole list that is not known yet.
+ *
+ * @param value reads a parameter of the vehicle
+ * @param complete whether the whole list of the vehicle's parameters is there
  * @returns true when they are
  */
-function fenceIsKnown(value: (id: string) => number | undefined): boolean {
+function fenceIsKnown(value: (id: string) => number | undefined, complete: boolean): boolean {
   const enabled = value('FENCE_ENABLE')
   if (enabled !== 1) {
-    return enabled !== undefined
+    return enabled !== undefined || complete
   }
 
-  return value('FENCE_TYPE') !== undefined && (!fenceLimitsAltitude(value) || value('FENCE_ALT_MAX') !== undefined)
+  return fenceSettingsKnown(value)
 }
 
 /**
@@ -86,10 +98,11 @@ function knownCeilingOf(value: (id: string) => number | undefined): number | nul
  * there, or the ones that say what it is are missing) is NOT "no fence": "never above the fence" cannot be kept without it.
  *
  * @param value reads a parameter of the vehicle (undefined when it has none, or is not known)
+ * @param complete whether the whole list of the vehicle's parameters is there
  * @returns metres above home, null when no fence limits the altitude, or 'unknown' when that cannot be told
  */
-export function fenceCeilingOf(value: (id: string) => number | undefined): number | null | 'unknown' {
-  return fenceIsKnown(value) ? knownCeilingOf(value) : 'unknown'
+export function fenceCeilingOf(value: (id: string) => number | undefined, complete: boolean): number | null | 'unknown' {
+  return fenceIsKnown(value, complete) ? knownCeilingOf(value) : 'unknown'
 }
 
 /**

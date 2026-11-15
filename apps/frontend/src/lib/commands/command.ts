@@ -16,13 +16,10 @@ export type Availability
 /** Where the focus can be sent after a command: a place of the application, by name (the command does not touch the page). */
 export type FocusTarget = 'restore' | 'main' | 'params.search' | 'params.value'
 
-/** What a command leaves behind for the caller: where the focus goes. */
 /** What became of an arm: what the vehicle answered, or that the backend would not send it. */
 export type ArmAnswer = ArmingResult['result'] | 'not-sent'
 
-/**
- *
- */
+/** What a command leaves behind for the caller: where the focus goes (and, for the arm, what it came to). */
 export interface CommandOutcome {
   /** For the arm: what the vehicle answered to it (only the arm says). */
   answer?: ArmAnswer

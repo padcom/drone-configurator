@@ -8,22 +8,26 @@ describe('the fence that limits a takeoff', () => {
   const values = (map: Record<string, number>) => (id: string) => map[id]
 
   it('is the maximum altitude of the fence when the fence is on and has that limit', () => {
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }))).toBe(30)
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }), true)).toBe(30)
     // the other bits (circle 2, polygon 4) say nothing of the altitude
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 7, FENCE_ALT_MAX: 80 }))).toBe(80)
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 7, FENCE_ALT_MAX: 80 }), true)).toBe(80)
   })
 
-  it('is UNKNOWN, never "no fence", when the parameters that say what it is are not there', () => {
-    expect(fenceCeilingOf(values({}))).toBe('unknown')
-    expect(fenceCeilingOf(values({ FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }))).toBe('unknown')
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1 }))).toBe('unknown')
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1 }))).toBe('unknown')
+  it('is UNKNOWN, never "no fence", when the parameters that say what it is are not there (and the list is not whole)', () => {
+    expect(fenceCeilingOf(values({}), false)).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }), false)).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1 }), true)).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1 }), true)).toBe('unknown')
+  })
+
+  it('is none for a firmware without a fence: the whole list of parameters is there, and has no FENCE_ENABLE', () => {
+    expect(fenceCeilingOf(values({}), true)).toBeNull()
   })
 
   it('is none when the fence is off, or has no altitude limit', () => {
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 0, FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }))).toBeNull()
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6, FENCE_ALT_MAX: 30 }))).toBeNull()
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6 }))).toBeNull()
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 0, FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }), true)).toBeNull()
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6, FENCE_ALT_MAX: 30 }), true)).toBeNull()
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6 }), true)).toBeNull()
   })
 })
 

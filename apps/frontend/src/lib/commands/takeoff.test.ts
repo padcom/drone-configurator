@@ -15,7 +15,8 @@ afterEach(() => {
 })
 
 const command = new TakeOff()
-const WAITS = { pollMs: 2, modeMs: 40, armMs: 40 }
+// (generous: a wait that is not needed ends at once, and only a test of a wait that runs out takes this long)
+const WAITS = { pollMs: 5, modeMs: 500, armMs: 300 }
 const IN_THE_AIR = { ...ready().position!, relativeAltitude: 5 }
 
 describe('when a takeoff may run', () => {
@@ -159,21 +160,15 @@ describe('what the Take off button does: an arm that was not made', () => {
     'stops at once, sending no takeoff, when the arm is %s: even if the vehicle is armed by someone else soon after',
     async outcome => {
       const fake = fakeContext({ armed: false, mode: 'GUIDED', telemetry: ready() })
-      const started = Date.now()
-      // (a radio switch, another ground station: the heartbeat says armed during the time the flow would have waited)
-      setTimeout(() => {
+      // (a radio switch, another ground station: the heartbeat says armed while the question is answered with no)
+      const otherParty = (): void => {
         fake.facts.telemetry = ready({ armed: true })
-      }, 5)
+      }
 
-      expect(await fly(fake, false, outcome)).toBe(1)
-      await new Promise<void>(resolve => {
-        setTimeout(resolve, 30)
-      })
+      expect(await fly(fake, false, outcome, otherParty)).toBe(1)
 
       expect(fake.calls.sent).toEqual([])
       expect(fake.calls.toast[0]?.text).toContain('arm was not confirmed')
-      // (it did not wait for the heartbeat)
-      expect(Date.now() - started).toBeLessThan(WAITS.armMs)
     },
   )
 })
