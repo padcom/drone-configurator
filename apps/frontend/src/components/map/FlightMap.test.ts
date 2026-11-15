@@ -3,8 +3,11 @@
 // that says why there are none. The canvas is not drawn on (jsdom has none): what is drawn is the loader's and the geometry's.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { forgetMapView } from '@/composables/useFlightMap'
+import type { MapSource } from '@/lib/map/mapSource'
+import type { VehicleMark } from '@/lib/map/track'
 import { mockBackend } from '@/mock/mock-backend'
 import { withI18n } from '@/testing/testing'
 import FlightMap from './FlightMap.vue'
@@ -29,13 +32,14 @@ afterEach(() => {
 /**
  * The map on a Configurator whose backend gives a tile for every ask (and whose asks are counted).
  *
+ * @param source what goes over the map, if anything
  * @returns the map, the Configurator and the asks
  */
-async function map() {
+async function map(source?: MapSource) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   const tile = vi.spyOn(handle.map, 'tile').mockResolvedValue({ bytes: new Uint8Array([1]), contentType: 'image/png' })
   const cancel = vi.spyOn(handle.map, 'cancelTile').mockImplementation(() => undefined)
-  mounted = mount(FlightMap, withI18n)
+  mounted = mount(FlightMap, { ...withI18n, props: { source } })
   await flushPromises()
 
   return { wrapper: mounted, handle, tile, cancel }
@@ -181,4 +185,71 @@ it('says why there are no tiles when the backend refuses them, once, in the one 
   expect(wrapper.findAll('#map-chip')).toHaveLength(1)
   expect(wrapper.get('#map-chip').text()).toContain('Offline')
   expect(wrapper.find('a#map-attribution').exists()).toBe(true)
+})
+
+/**
+ * A source whose vehicle the test moves.
+ *
+ * @param first where the vehicle is to begin with
+ * @returns the source and its vehicle
+ */
+function vehicleSource(first: VehicleMark | null) {
+  const vehicle = ref<VehicleMark | null>(first)
+  const source: MapSource = { kind: 'live', vehicle, home: ref(null), trail: ref([]) }
+
+  return { source, vehicle }
+}
+
+const HERE: VehicleMark = { lat: 47.397742, lon: 8.545594, ageMs: 100, stale: false }
+
+it('has no buttons that follow the vehicle when it draws no vehicle, and has them off while there is no position', async () => {
+  expect((await map()).wrapper.find('#map-follow').exists()).toBe(false)
+  mounted?.unmount()
+  const { wrapper } = await map(vehicleSource(null).source)
+
+  expect(wrapper.get('#map-follow').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#map-centre').attributes('disabled')).toBeDefined()
+})
+
+it('takes the map to the vehicle close enough to see it, and follows it as it moves', async () => {
+  const { source, vehicle } = vehicleSource(HERE)
+  const { wrapper } = await map(source)
+
+  expect(viewOf(wrapper).zoom).toBe(16)
+  expect(viewOf(wrapper).lat).toBeCloseTo(47.397742, 5)
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
+  vehicle.value = { ...HERE, lat: 47.398742, lon: 8.546594 }
+  await flushPromises()
+
+  expect(viewOf(wrapper).lat).toBeCloseTo(47.398742, 5)
+  expect(viewOf(wrapper).lon).toBeCloseTo(8.546594, 5)
+  expect(viewOf(wrapper).zoom).toBe(16)
+})
+
+it('stops following when the map is dragged, and goes to the vehicle again with the centre button', async () => {
+  const { source, vehicle } = vehicleSource(HERE)
+  const { wrapper } = await map(source)
+  pointer(wrapper.get('.map').element, 'pointerdown', { x: 100, y: 100 })
+  pointer(wrapper.get('.map').element, 'pointermove', { x: 220, y: 100 })
+  pointer(wrapper.get('.map').element, 'pointerup', { x: 220, y: 100 })
+  await flushPromises()
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+  const dragged = viewOf(wrapper)
+  vehicle.value = { ...HERE, lat: 47.4 }
+  await flushPromises()
+  expect(viewOf(wrapper)).toEqual(dragged)
+  await wrapper.get('#map-centre').trigger('click')
+
+  expect(viewOf(wrapper).lat).toBeCloseTo(47.4, 5)
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
+})
+
+it('turns following on and off with the follow button, and centres when it turns it on', async () => {
+  const { wrapper } = await map(vehicleSource(HERE).source)
+  await wrapper.get('#map-follow').trigger('click')
+
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('false')
+  await wrapper.get('#map-follow').trigger('click')
+  expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
 })

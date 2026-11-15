@@ -120,6 +120,76 @@
   outline-offset: 2px;
 }
 
+.map-follow {
+  position: absolute;
+  top: var(--space-4);
+  left: calc(var(--space-4) + var(--control-height) + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.map-button[aria-pressed='true'] {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.map-svg {
+  position: absolute;
+  inset: 0;
+}
+
+.map-trail {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.map-vehicle path,
+.map-vehicle circle {
+  fill: var(--color-accent);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+
+.map-vehicle.stale path,
+.map-vehicle.stale circle {
+  stroke: var(--color-warn);
+  stroke-width: 2;
+}
+
+.map-hatch-ground {
+  fill: var(--color-surface);
+}
+
+.map-hatch-line {
+  stroke: var(--color-warn);
+  stroke-width: 3;
+}
+
+.map-stale-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  fill: var(--color-warn);
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3;
+}
+
+.map-home circle {
+  fill: var(--color-ok);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+}
+
+.map-home text {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--color-surface);
+}
+
 .map-chip,
 .map-attribution {
   position: absolute;

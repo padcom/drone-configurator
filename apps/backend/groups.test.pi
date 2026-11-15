@@ -7,6 +7,7 @@ import {
   EkfStatusReport,
   GlobalPositionInt,
   GpsRawInt,
+  HomePosition,
   NavControllerOutput,
   RcChannels,
   ServoOutputRaw,
@@ -30,7 +31,7 @@ function scaled(x: f64, places: int): int {
 
 function absentUntilHeard(): void {
   const t = filled(new Groups(), 0)
-  expect(t.position == null && t.gps == null && t.speed == null && t.nav == null && t.wind == null).toBe(true)
+  expect(t.position == null && t.home == null && t.gps == null && t.speed == null && t.nav == null && t.wind == null).toBe(true)
   expect(t.ekf == null && t.vibration == null && t.battery == null && t.attitude == null).toBe(true)
 }
 
@@ -82,6 +83,26 @@ function noPositionYetIsNoGroup(): void {
   m.lon = 85455939
   groups.take(m, 4000)
   expect(filled(groups, 0).position != null).toBe(true)
+}
+
+/// HOME_POSITION in degrees and metres above sea level, with its age; one with latitude and longitude 0 is "no home yet" (no group,
+/// and a group that was there goes), as for the position.
+function homeInSiUnits(): void {
+  const groups = new Groups()
+  const m = new HomePosition()
+  m.latitude = 473977420
+  m.longitude = 85455939
+  m.altitude = 488000
+  groups.take(m, 1000)
+  const h = filled(groups, 400).home!
+  expect(scaled(h.lat, 6)).toBe(47397742)
+  expect(scaled(h.lon, 6)).toBe(8545594)
+  expect(scaled(h.altitude, 1)).toBe(4880)
+  expect(h.ageMs as int).toBe(400)
+  m.latitude = 0
+  m.longitude = 0
+  groups.take(m, 2000)
+  expect(filled(groups, 0).home == null).toBe(true)
 }
 
 function gpsLeavesOutWhatIsUnknown(): void {
@@ -322,6 +343,7 @@ describe("the telemetry groups", () => {
   it("are absent until their message arrives", absentUntilHeard)
   it("convert a position to metres, metres a second and degrees, and leave out an unknown heading", positionInSiUnits)
   it("make no position group while the vehicle has no position (latitude and longitude 0)", noPositionYetIsNoGroup)
+  it("convert the home position, and make no group for one at latitude and longitude 0", homeInSiUnits)
   it("leave out what GPS marks unknown", gpsLeavesOutWhatIsUnknown)
   it("take speed, navigation, wind, EKF and vibration messages", flightAndEnvironmentMessages)
   it("convert attitude to degrees", attitudeInDegrees)

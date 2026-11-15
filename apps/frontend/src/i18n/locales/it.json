@@ -557,6 +557,17 @@
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "help": "Trascina per spostare la mappa. Le frecce la spostano, i tasti più e meno o la rotellina cambiano lo zoom.",
+    "vehicle": {
+      "group": "Veicolo sulla mappa",
+      "follow": "Segui il veicolo",
+      "centre": "Centra sul veicolo",
+      "label": "Veicolo a {lat}, {lon}, {height} m sopra casa",
+      "labelHeading": "Veicolo a {lat}, {lon}, prua {heading} gradi, {height} m sopra casa",
+      "lastHeard": "sentito {seconds} s fa"
+    },
+    "home": {
+      "label": "Casa a {lat}, {lon}"
+    },
     "chip": {
       "disabled": "Le tessere della mappa sono disattivate nelle Impostazioni.",
       "backingOff": "Le tessere della mappa sono in pausa per problemi con il server: {reason}",

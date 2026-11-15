@@ -7,6 +7,7 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   type Point,
+  clamp,
   type Size,
   TILE,
   type TilePlace,
@@ -77,6 +78,8 @@ export interface FlightMap {
   dragTo: (id: number, at: Point) => void
   /** The pointer went up: the drag ends. Says whether it was the one that dragged. */
   release: (id: number) => boolean
+  /** Puts a place in the middle of the map, at a zoom (the one it has when none is given). */
+  centerOn: (place: { lat: number, lon: number }, zoom?: number) => void
   /** Zooms by whole steps about a point of the screen (the middle when none). */
   zoom: (steps: number, at?: Point) => void
   /** A zoom by one notch of the wheel at a point (not more often than every WHEEL_MS). */
@@ -103,6 +106,25 @@ function decode(bytes: Uint8Array, type: string): Promise<ImageBitmap> {
  */
 function pixelRatio(): number {
   return window.devicePixelRatio || 1
+}
+
+/**
+ * Makes a canvas the size of the map, in device pixels. It is resized only when the map is: setting the size of a canvas throws
+ * its memory away and makes it anew, and a drag draws many times a second.
+ *
+ * @param canvas the canvas
+ * @param size the size of the map on screen
+ * @param ratio the device pixels in a pixel of the screen
+ * @returns the size of the canvas
+ */
+function fitted(canvas: HTMLCanvasElement, size: Size, ratio: number): Size {
+  const [width, height] = [Math.round(size.width * ratio), Math.round(size.height * ratio)]
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+
+  return { width, height }
 }
 
 /** The map's state and actions, over a canvas. */
@@ -173,6 +195,10 @@ class FlightMapModel implements FlightMap {
     }
 
     return was
+  }
+
+  centerOn(place: { lat: number, lon: number }, zoom?: number): void {
+    this.view.value = { lat: place.lat, lon: place.lon, zoom: clamp(zoom ?? this.view.value.zoom, MIN_ZOOM, MAX_ZOOM) }
   }
 
   zoom(steps: number, at?: Point): void {
@@ -264,8 +290,9 @@ class FlightMapModel implements FlightMap {
       return null
     }
     const ratio = pixelRatio()
-    canvas.width = Math.round(this.size.value.width * ratio)
-    canvas.height = Math.round(this.size.value.height * ratio)
+    const { width, height } = fitted(canvas, this.size.value, ratio)
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, width, height)
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
 
     return context

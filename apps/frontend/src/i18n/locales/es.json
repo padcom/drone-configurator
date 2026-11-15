@@ -557,6 +557,17 @@
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
     "help": "Arrastra para mover el mapa. Las flechas lo mueven; las teclas más y menos o la rueda hacen zoom.",
+    "vehicle": {
+      "group": "Vehículo en el mapa",
+      "follow": "Seguir el vehículo",
+      "centre": "Centrar en el vehículo",
+      "label": "Vehículo en {lat}, {lon}, {height} m sobre el origen",
+      "labelHeading": "Vehículo en {lat}, {lon}, rumbo {heading} grados, {height} m sobre el origen",
+      "lastHeard": "oído por última vez hace {seconds} s"
+    },
+    "home": {
+      "label": "Origen en {lat}, {lon}"
+    },
     "chip": {
       "disabled": "Las teselas del mapa están desactivadas en Ajustes.",
       "backingOff": "Las teselas del mapa están en pausa por problemas con el servidor: {reason}",

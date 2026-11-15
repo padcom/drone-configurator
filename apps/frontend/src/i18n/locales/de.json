@@ -557,6 +557,17 @@
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "help": "Ziehen verschiebt die Karte. Die Pfeiltasten verschieben sie, die Tasten Plus und Minus oder das Mausrad zoomen.",
+    "vehicle": {
+      "group": "Fahrzeug auf der Karte",
+      "follow": "Dem Fahrzeug folgen",
+      "centre": "Auf das Fahrzeug zentrieren",
+      "label": "Fahrzeug bei {lat}, {lon}, {height} m über dem Startpunkt",
+      "labelHeading": "Fahrzeug bei {lat}, {lon}, Kurs {heading} Grad, {height} m über dem Startpunkt",
+      "lastHeard": "zuletzt vor {seconds} s gehört"
+    },
+    "home": {
+      "label": "Startpunkt bei {lat}, {lon}"
+    },
     "chip": {
       "disabled": "Die Kartenkacheln sind in den Einstellungen ausgeschaltet.",
       "backingOff": "Die Kartenkacheln pausieren nach Problemen mit dem Kachelserver: {reason}",

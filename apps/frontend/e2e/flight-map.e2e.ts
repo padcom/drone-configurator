@@ -189,25 +189,69 @@ it('zooms with the button and the keys, moves with the arrows, and asks for the 
 })
 
 /**
- * A drag with the mouse, as the host sends it (real pointer events): press, move in steps, release.
+ * A drag with the mouse, as the host sends it (real pointer events): press, move in steps, release. (A long run of events, a
+ * hundred or more, makes this host take a second for each of them wherever they land, the map or not: a drag is a few steps.)
  *
  * @param from where the pointer goes down
  * @param from.x the column
  * @param from.y the row
  * @param dx how far it moves to the right (px)
+ * @param steps how many moves it is made of
  */
-async function drag(from: { x: number, y: number }, dx: number): Promise<void> {
+async function drag(from: { x: number, y: number }, dx: number, steps = 4): Promise<void> {
   const mouse = (type: string, x: number, buttons: number) => app.devtools('Input.dispatchMouseEvent', {
     type, x, y: from.y, button: 'left', buttons, clickCount: 1,
   })
   await mouse('mousePressed', from.x, 1)
 
-  for (const step of [0.25, 0.5, 0.75, 1]) {
+  for (let step = 1; step <= steps; step += 1) {
     // eslint-disable-next-line no-await-in-loop -- the pointer moves a step at a time
-    await mouse('mouseMoved', from.x + dx * step, 1)
+    await mouse('mouseMoved', from.x + dx * step / steps, 1)
+    // eslint-disable-next-line no-await-in-loop -- (about a frame between two moves, as a hand does)
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 16)
+    })
   }
   await mouse('mouseReleased', from.x + dx, 0)
 }
+
+/**
+ * Frames of the page while the pointer drags: the time between two frames (ms), sampled by the page itself.
+ *
+ * @returns the 95th percentile and the longest of them, and how many there were
+ */
+async function dragFrames(): Promise<{ p95: number, longest: number, count: number }> {
+  await app.evaluate(`(() => {
+    window.__gaps = []
+    window.__sampling = true
+    let last = performance.now()
+    const tick = now => {
+      window.__gaps.push(now - last)
+      last = now
+      if (window.__sampling) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })()`)
+  const box = await app.evaluate<{ x: number, y: number }>(`(() => {
+    const rect = document.querySelector('.map').getBoundingClientRect()
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+  })()`)
+  await drag(box, -300, 12)
+  await drag({ x: box.x - 300, y: box.y }, 300, 12)
+  const gaps = await app.evaluate<number[]>(`(() => { window.__sampling = false; return window.__gaps })()`)
+  const sorted = [...gaps].sort((a, b) => a - b)
+
+  return { p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0, longest: sorted.at(-1) ?? 0, count: sorted.length }
+}
+
+it('pans smoothly: the frames of the page do not stall while the pointer drags the map', async () => {
+  const frames = await dragFrames()
+
+  // (a window of this host drew about one frame in 30 ms here: the bounds only catch a map that stalls the page)
+  expect(frames.count).toBeGreaterThan(10)
+  expect(frames.longest).toBeLessThan(250)
+  expect(frames.p95).toBeLessThan(100)
+})
 
 it('moves the view with a drag of the mouse, and asks for the tiles that came on screen', async () => {
   await app.click('#map-zoom-in')

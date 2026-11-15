@@ -21,6 +21,31 @@
     <div class="map-overlay">
       <slot :place="place" :view="view" :size="size" />
     </div>
+    <div v-if="source" class="map-follow" role="group" :aria-label="t('map.vehicle.group')">
+      <button
+        id="map-follow"
+        type="button"
+        class="map-button"
+        :aria-pressed="following"
+        :disabled="!mark"
+        :title="t('map.vehicle.follow')"
+        :aria-label="t('map.vehicle.follow')"
+        @click="follow"
+      >
+        ◎
+      </button>
+      <button
+        id="map-centre"
+        type="button"
+        class="map-button"
+        :disabled="!mark"
+        :title="t('map.vehicle.centre')"
+        :aria-label="t('map.vehicle.centre')"
+        @click="centre"
+      >
+        ⌖
+      </button>
+    </div>
     <div class="map-zoom" role="group" :aria-label="t('map.zoom')">
       <button
         id="map-zoom-in"
@@ -59,12 +84,21 @@
 // switched off, offline, the server is not answering). The tiles come from the backend (the page cannot reach a tile server,
 // and must not tell one where the vehicle is), which also keeps the switches of the settings; the map only asks for what is on
 // screen. What goes over the map (the vehicle, its trail) is the slot's, placed from a latitude and a longitude.
-import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { MAX_ZOOM, MIN_ZOOM, useFlightMap } from '@/composables/useFlightMap'
 import { type Point, screenOf } from '@/lib/map/geo'
+import type { MapSource } from '@/lib/map/mapSource'
 import { chipOf, creditOf } from '@/lib/map/mapText'
+
+const props = defineProps<{
+  /** What goes over the map (the vehicle, its path, home); the buttons that follow the vehicle are there when there is one. */
+  source?: MapSource
+}>()
+
+/** The zoom the map goes to when it first shows the vehicle, and when it is centred on it from further out. */
+const VEHICLE_ZOOM = 16
 
 const { t } = useI18n()
 const uid = useId()
@@ -86,6 +120,38 @@ const chip = computed(() => {
 
   return chipOf({ enabled: enabled.value, offline: offline.value, status: status.value, problems: flight.problems() }, t)
 })
+
+const mark = computed(() => props.source?.vehicle.value ?? null)
+/** Whether the map keeps the vehicle in the middle (on until the map is dragged). */
+const following = ref(true)
+/** Whether the map has been taken to the vehicle once (then it only follows: it does not zoom again). */
+let shown = false
+
+watch(mark, here => {
+  if (here && following.value) {
+    flight.centerOn(here, shown ? undefined : Math.max(view.value.zoom, VEHICLE_ZOOM))
+    shown = true
+  }
+}, { immediate: true })
+
+/** Puts the vehicle in the middle, close enough to see it. */
+function centreNow(): void {
+  if (mark.value && following.value) {
+    flight.centerOn(mark.value, Math.max(view.value.zoom, VEHICLE_ZOOM))
+  }
+}
+
+/** The follow button: the map keeps the vehicle in the middle again. */
+function follow(): void {
+  following.value = !following.value
+  centreNow()
+}
+
+/** The centre button: the vehicle in the middle now (and the map follows it again). */
+function centre(): void {
+  following.value = true
+  centreNow()
+}
 
 /**
  * Zooms by whole steps about the middle of the map.
@@ -146,6 +212,7 @@ function startsDrag(event: PointerEvent): boolean {
  */
 function down(event: PointerEvent): void {
   if (startsDrag(event)) {
+    following.value = false
     flight.press(event.pointerId, at(event))
     root.value?.setPointerCapture?.(event.pointerId)
   }

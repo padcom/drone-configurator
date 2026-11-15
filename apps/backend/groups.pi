@@ -7,6 +7,7 @@ import {
   EkfStatusReport,
   GlobalPositionInt,
   GpsRawInt,
+  HomePosition,
   MAX_PULSE,
   MIN_PULSE,
   MavLinkData,
@@ -25,6 +26,7 @@ import {
   BatteryGroup,
   EkfGroup,
   GpsGroup,
+  HomeGroup,
   NavGroup,
   PositionGroup,
   RcGroup,
@@ -58,6 +60,7 @@ export function wishes(): Wish[] {
     new Wish(VfrHud.MSG_ID, 4.0),
     new Wish(Attitude.MSG_ID, 4.0),
     new Wish(GpsRawInt.MSG_ID, 2.0),
+    new Wish(HomePosition.MSG_ID, 0.2),
     new Wish(NavControllerOutput.MSG_ID, 2.0),
     new Wish(EkfStatusReport.MSG_ID, 2.0),
     new Wish(SysStatus.MSG_ID, 1.0),
@@ -88,6 +91,15 @@ function positionOf(m: GlobalPositionInt): PositionGroup {
     g.heading = (m.hdg as f64) / 100.0
   }
   g
+}
+
+function homeOf(m: HomePosition): HomeGroup {
+  HomeGroup {
+    lat: (m.latitude as f64) / 10000000.0,
+    lon: (m.longitude as f64) / 10000000.0,
+    altitude: (m.altitude as f64) / 1000.0,
+    ageMs: 0,
+  }
 }
 
 function gpsOf(m: GpsRawInt): GpsGroup {
@@ -275,6 +287,7 @@ function batteryAfterCells(before: BatteryGroup?, m: BatteryStatus): BatteryGrou
 /// What the vehicle has reported, by group, and when each arrived (milliseconds since the epoch).
 export class Groups {
   public position: PositionGroup? = null
+  public home: HomeGroup? = null
   public gps: GpsGroup? = null
   public speed: SpeedGroup? = null
   public nav: NavGroup? = null
@@ -290,6 +303,7 @@ export class Groups {
   /// Forgets everything (the link ended).
   public clear(): void {
     position = null
+    home = null
     gps = null
     speed = null
     nav = null
@@ -323,6 +337,17 @@ export class Groups {
     }
   }
 
+  /// A HOME_POSITION with latitude and longitude both 0 is "no home yet" (like the position): no group, and one that was there goes.
+  takeHome(m: HomePosition, now: int): void {
+    if (m.latitude == 0 && m.longitude == 0) {
+      home = null
+      forget("home")
+    } else {
+      home = homeOf(m)
+      stamp("home", now)
+    }
+  }
+
   stamp(name: string, now: int): void {
     heardAt.set(name, now)
     return
@@ -336,6 +361,8 @@ export class Groups {
   takeFlight(m: MavLinkData, now: int): bool {
     if (m instanceof GlobalPositionInt) {
       takePosition(m, now)
+    } else if (m instanceof HomePosition) {
+      takeHome(m, now)
     } else if (m instanceof GpsRawInt) {
       gps = gpsOf(m)
       stamp("gps", now)
@@ -401,6 +428,11 @@ export class Groups {
     if (p != null) {
       p!.ageMs = age("position", now)
       t.position = p
+    }
+    const h = home
+    if (h != null) {
+      h!.ageMs = age("home", now)
+      t.home = h
     }
     const g = gps
     if (g != null) {
