@@ -97,6 +97,26 @@ services = {
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
+  ; Arming, disarming, the emergency stop, a change of flight mode and a run of the pre-arm checks. Arm, disarm, mode change and the
+  ; pre-arm run are sent ONCE (a command that nothing acknowledged may have been carried out: it is never sent again, and the state
+  ; shown is the next heartbeat's, never the command's intent). The backend refuses before it sends anything, with a CommunicatorError:
+  ; `NOT_CONNECTED`, `STATE_UNKNOWN` (no heartbeat for 3 s, or an arm is in flight: these commands are for a vehicle whose state is
+  ; known), `ARMED` / `NOT_ARMED` (arm and the pre-arm run need a disarmed vehicle, disarm an armed one), `BUSY` (a parameter, log,
+  ; calibration, motor test, reboot or an earlier command of these is under way), `INVALID_VALUE` (a mode that is not one of the
+  ; vehicle kind's `vehicle.modes`) and `UNSUPPORTED_VEHICLE` (not an ArduPilot). There is NO forced arm.
+  ; `vehicle.emergencyStop` is the exception to all of it, and the only place the app sends ArduPilot's force value (a disarm that
+  ; works in flight: the motors stop and the vehicle falls). Its ONLY refusal is `NOT_CONNECTED`: an unknown state counts as armed,
+  ; the armed flag lags the vehicle by up to a heartbeat, and a forced disarm of a disarmed vehicle is accepted by ArduPilot and
+  ; changes nothing. So it is IDEMPOTENT, and the only command that is sent again: up to 3 times, 500 ms apart, until the first ack.
+  ; An ack is matched by its command number and sender only, so a normal disarm in flight and a stop answer each other, and an ack of
+  ; the stop can be an earlier send's: that the vehicle HAS STOPPED is decided from the heartbeat (`telemetry.armed`), never from the
+  ; ack. A mode change refuses an unknown state (`STATE_UNKNOWN`) except RTL and LAND, which are idempotent safety actions that
+  ; work in flight: they are allowed whenever the link is open (and are not held off by `BUSY`).
+  "vehicle.arm": ["method", null, arming-result],
+  "vehicle.disarm": ["method", null, arming-result],
+  "vehicle.emergencyStop": ["method", null, arming-result],
+  "vehicle.setMode": ["method", set-mode-ask, arming-result],
+  "vehicle.prearm": ["method", null, arming-result],
   ; What the board says of itself (AUTOPILOT_VERSION: the firmware version and git hash, the board and vendor ids, the unique id) and
   ; which sensors the autopilot has, uses and finds healthy (SYS_STATUS), read when asked (not a stream). A field the vehicle did
   ; not give is absent, never a zero; a vehicle that does not answer AUTOPILOT_VERSION has no `version` at all.
@@ -677,6 +697,24 @@ reboot-result = {
   ? detail: tstr,
 }
 
+; What the vehicle said to one of the commands above. `accepted`: it acknowledged (IN_PROGRESS is waited for, up to 3 s, and
+; then counts as no answer); for an arm or a mode change that is NOT the new state: read it from the next heartbeat. `refused`: it
+; answered with a failure (`detail` says which, `code` is its MAV_RESULT). `unsupported`: it does not know the command or the
+; value. `no-answer`: nothing acknowledged within 3 s, or the link was lost meanwhile: the command may have been carried out; it is
+; not sent again. `messages` are ALL the texts the vehicle sent (STATUSTEXT: "PreArm: ...", "Arm: ...", and whatever else it said,
+; about anything) from the moment the command was sent until 600 ms after its answer (not for the emergency stop, which does not
+; wait): they are the reasons of a refusal in its own words, but an unrelated line in that time comes back too; at most 20, without
+; repeats.
+arming-result = {
+  result: "accepted" / "refused" / "unsupported" / "no-answer",
+  ? detail: tstr,
+  ? code: uint .size 1,
+  messages: [* tstr],
+}
+
+; The flight mode to change to, by its number in `custom_mode` (one of `vehicle.modes`).
+set-mode-ask = { mode: uint .size 1 }
+
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
 ; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256
 ; events that are not yet delivered, so a longer replay could lose some), oldest first, then each new one as it arrives.
@@ -723,6 +761,7 @@ telemetry = {
   heartbeatAgeMs: uint .size 4,
   ? position: position-group,
   ? home: home-group,
+  ? prearm: prearm-group,
   ? gps: gps-group,
   ? speed: speed-group,
   ? nav: nav-group,
@@ -757,6 +796,16 @@ home-group = {
   lat: float,
   lon: float,
   altitude: float,
+  ageMs: uint .size 4,
+}
+
+; The pre-arm checks as SYS_STATUS says them (its PREARM_CHECK bit): `enabled` is false when the vehicle has every arming check off
+; (ARMING_CHECK 0: it will arm without looking), `passing` whether the checks pass now (also true while armed: the vehicle says
+; so). The reasons are the vehicle's own "PreArm: ..." texts, which it prints when an arm is tried or `vehicle.prearm` asks. Absent
+; until SYS_STATUS has been heard with the bit; `passing` is a statement of the vehicle's, not a promise that an arm succeeds.
+prearm-group = {
+  enabled: bool,
+  passing: bool,
   ageMs: uint .size 4,
 }
 

@@ -54,6 +54,10 @@ class Link {
   /// Set by telemetry.pi; `armedState()` says whether it can be trusted.
   public armed: bool = false
   public heartbeatAt: int = 0
+  /// Until when (ms since 1970) the armed state is NOT known because an arm is in flight (arming.pi): `armedState()` says unknown, which
+  /// every service takes for armed, so that no parameter write, calibration, motor test, log or reboot starts while the vehicle
+  /// may be arming (its heartbeat lags the command by up to a second).
+  public armHoldUntil: int = 0
   /// Parameter work that a reboot must not cut: writes in flight, and whether a download runs (params.pi).
   public writes: int = 0
   public listing: bool = false
@@ -162,6 +166,7 @@ class Link {
     typeMayChange = false
     armed = false
     heartbeatAt = 0
+    armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
     capabilities = -1
@@ -224,13 +229,34 @@ export function rebootExpected(): bool {
 /// How old the last heartbeat may be for the armed state to count as known (ms).
 export const ARMED_FRESH_MS: int = 3000
 
-/// Whether the autopilot is armed: true or false when its heartbeat is recent, null when there has been none or it is older
-/// than `ARMED_FRESH_MS` (not known: the callers treat it as armed).
+/// Whether the autopilot is armed: true or false when its heartbeat is recent, null when there has been none, it is older than
+/// `ARMED_FRESH_MS`, or an arm is in flight (`holdArmed`): not known, which the callers treat as armed.
 export function armedState(): bool? {
+  if ((Date.now() as int) < link.armHoldUntil) {
+    return null
+  }
+  heartbeatArmedState()
+}
+
+/// The same from the heartbeat alone (what the arming service itself looks at: it must not be held off by its own arm).
+export function heartbeatArmedState(): bool? {
   if (link.heartbeatAt == 0 || (Date.now() as int) - link.heartbeatAt > ARMED_FRESH_MS) {
     return null
   }
   link.armed
+}
+
+/// An arm is in flight, or its answer is not known: for `ms` the armed state is not known (see `armHoldUntil`). It only ever grows.
+export function holdArmed(ms: int): void {
+  const until = (Date.now() as int) + ms
+  if (until > link.armHoldUntil) {
+    link.armHoldUntil = until
+  }
+}
+
+/// The arm was refused: the vehicle did not arm, nothing is held any more.
+export function releaseArmed(): void {
+  link.armHoldUntil = 0
 }
 
 /// How integers travel in parameter floats: as the autopilot says (AUTOPILOT_VERSION), or as its kind

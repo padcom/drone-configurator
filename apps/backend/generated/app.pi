@@ -2926,6 +2926,104 @@ export function encodeRebootResult(v: RebootResult): Cbor {
   Cbor.Dict(m)
 }
 
+export enum ArmingResultResult { Accepted, Refused, Unsupported, NoAnswer }
+
+export function decodeArmingResultResult(v: Cbor, path: string): ArmingResultResult throws InvalidPayload {
+  match (text(v, path)) {
+    "accepted" => ArmingResultResult.Accepted,
+    "refused" => ArmingResultResult.Refused,
+    "unsupported" => ArmingResultResult.Unsupported,
+    "no-answer" => ArmingResultResult.NoAnswer,
+    _ => throw new InvalidPayload(path, "accepted or refused or unsupported or no-answer"),
+  }
+}
+
+export function encodeArmingResultResult(v: ArmingResultResult): Cbor {
+  match (v) {
+    Accepted => Cbor.Text("accepted"),
+    Refused => Cbor.Text("refused"),
+    Unsupported => Cbor.Text("unsupported"),
+    NoAnswer => Cbor.Text("no-answer"),
+  }
+}
+
+function decodeArmingResultMessagesList(v: Cbor, path: string): string[] throws InvalidPayload {
+  const out: string[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(text(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeArmingResultMessagesList(v: string[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Text(e))
+  }
+  Cbor.List(out)
+}
+
+export struct ArmingResult {
+  result: ArmingResultResult
+  detail?: string
+  code?: u8
+  messages: string[]
+}
+
+export function decodeArmingResult(v: Cbor, path: string): ArmingResult throws InvalidPayload {
+  const m = members(v, path, ["result", "detail", "code", "messages"])
+  const cbor1 = m.get("detail")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.detail`)
+  }
+  const cbor2 = m.get("code")
+  let opt2: u8? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.code`, 255) as u8)
+  }
+  ArmingResult {
+    result: decodeArmingResultResult(required(m, "result", path), `${path}.result`),
+    detail: opt1,
+    code: opt2,
+    messages: decodeArmingResultMessagesList(required(m, "messages", path), `${path}.messages`),
+  }
+}
+
+export function encodeArmingResult(v: ArmingResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("result", encodeArmingResultResult(v.result))
+  const opt1 = v.detail
+  if (opt1 != null) {
+    m.set("detail", Cbor.Text(opt1))
+  }
+  const opt2 = v.code
+  if (opt2 != null) {
+    m.set("code", Cbor.Uint(opt2 as u64))
+  }
+  m.set("messages", encodeArmingResultMessagesList(v.messages))
+  Cbor.Dict(m)
+}
+
+export struct SetModeAsk {
+  mode: u8
+}
+
+export function decodeSetModeAsk(v: Cbor, path: string): SetModeAsk throws InvalidPayload {
+  const m = members(v, path, ["mode"])
+  SetModeAsk {
+    mode: (uint(required(m, "mode", path), `${path}.mode`, 255) as u8),
+  }
+}
+
+export function encodeSetModeAsk(v: SetModeAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("mode", Cbor.Uint(v.mode as u64))
+  Cbor.Dict(m)
+}
+
 export struct MessagesParams {
   replay?: u16
 }
@@ -3022,6 +3120,7 @@ export struct Telemetry {
   heartbeatAgeMs: u32
   position?: PositionGroup
   home?: HomeGroup
+  prearm?: PrearmGroup
   gps?: GpsGroup
   speed?: SpeedGroup
   nav?: NavGroup
@@ -3035,7 +3134,7 @@ export struct Telemetry {
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "home", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
+  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "home", "prearm", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
   const cbor2 = m.get("batteryVoltage")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -3071,55 +3170,60 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor9 != null) {
     opt9 = decodeHomeGroup(cbor9, `${path}.home`)
   }
-  const cbor10 = m.get("gps")
-  let opt10: GpsGroup? = null
+  const cbor10 = m.get("prearm")
+  let opt10: PrearmGroup? = null
   if (cbor10 != null) {
-    opt10 = decodeGpsGroup(cbor10, `${path}.gps`)
+    opt10 = decodePrearmGroup(cbor10, `${path}.prearm`)
   }
-  const cbor11 = m.get("speed")
-  let opt11: SpeedGroup? = null
+  const cbor11 = m.get("gps")
+  let opt11: GpsGroup? = null
   if (cbor11 != null) {
-    opt11 = decodeSpeedGroup(cbor11, `${path}.speed`)
+    opt11 = decodeGpsGroup(cbor11, `${path}.gps`)
   }
-  const cbor12 = m.get("nav")
-  let opt12: NavGroup? = null
+  const cbor12 = m.get("speed")
+  let opt12: SpeedGroup? = null
   if (cbor12 != null) {
-    opt12 = decodeNavGroup(cbor12, `${path}.nav`)
+    opt12 = decodeSpeedGroup(cbor12, `${path}.speed`)
   }
-  const cbor13 = m.get("wind")
-  let opt13: WindGroup? = null
+  const cbor13 = m.get("nav")
+  let opt13: NavGroup? = null
   if (cbor13 != null) {
-    opt13 = decodeWindGroup(cbor13, `${path}.wind`)
+    opt13 = decodeNavGroup(cbor13, `${path}.nav`)
   }
-  const cbor14 = m.get("ekf")
-  let opt14: EkfGroup? = null
+  const cbor14 = m.get("wind")
+  let opt14: WindGroup? = null
   if (cbor14 != null) {
-    opt14 = decodeEkfGroup(cbor14, `${path}.ekf`)
+    opt14 = decodeWindGroup(cbor14, `${path}.wind`)
   }
-  const cbor15 = m.get("vibration")
-  let opt15: VibrationGroup? = null
+  const cbor15 = m.get("ekf")
+  let opt15: EkfGroup? = null
   if (cbor15 != null) {
-    opt15 = decodeVibrationGroup(cbor15, `${path}.vibration`)
+    opt15 = decodeEkfGroup(cbor15, `${path}.ekf`)
   }
-  const cbor16 = m.get("battery")
-  let opt16: BatteryGroup? = null
+  const cbor16 = m.get("vibration")
+  let opt16: VibrationGroup? = null
   if (cbor16 != null) {
-    opt16 = decodeBatteryGroup(cbor16, `${path}.battery`)
+    opt16 = decodeVibrationGroup(cbor16, `${path}.vibration`)
   }
-  const cbor17 = m.get("attitude")
-  let opt17: AttitudeGroup? = null
+  const cbor17 = m.get("battery")
+  let opt17: BatteryGroup? = null
   if (cbor17 != null) {
-    opt17 = decodeAttitudeGroup(cbor17, `${path}.attitude`)
+    opt17 = decodeBatteryGroup(cbor17, `${path}.battery`)
   }
-  const cbor18 = m.get("servo")
-  let opt18: ServoGroup? = null
+  const cbor18 = m.get("attitude")
+  let opt18: AttitudeGroup? = null
   if (cbor18 != null) {
-    opt18 = decodeServoGroup(cbor18, `${path}.servo`)
+    opt18 = decodeAttitudeGroup(cbor18, `${path}.attitude`)
   }
-  const cbor19 = m.get("rc")
-  let opt19: RcGroup? = null
+  const cbor19 = m.get("servo")
+  let opt19: ServoGroup? = null
   if (cbor19 != null) {
-    opt19 = decodeRcGroup(cbor19, `${path}.rc`)
+    opt19 = decodeServoGroup(cbor19, `${path}.servo`)
+  }
+  const cbor20 = m.get("rc")
+  let opt20: RcGroup? = null
+  if (cbor20 != null) {
+    opt20 = decodeRcGroup(cbor20, `${path}.rc`)
   }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
@@ -3132,16 +3236,17 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
     heartbeatAgeMs: (uint(required(m, "heartbeatAgeMs", path), `${path}.heartbeatAgeMs`, 4294967295) as u32),
     position: opt8,
     home: opt9,
-    gps: opt10,
-    speed: opt11,
-    nav: opt12,
-    wind: opt13,
-    ekf: opt14,
-    vibration: opt15,
-    battery: opt16,
-    attitude: opt17,
-    servo: opt18,
-    rc: opt19,
+    prearm: opt10,
+    gps: opt11,
+    speed: opt12,
+    nav: opt13,
+    wind: opt14,
+    ekf: opt15,
+    vibration: opt16,
+    battery: opt17,
+    attitude: opt18,
+    servo: opt19,
+    rc: opt20,
   }
 }
 
@@ -3178,45 +3283,49 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   if (opt9 != null) {
     m.set("home", encodeHomeGroup(opt9))
   }
-  const opt10 = v.gps
+  const opt10 = v.prearm
   if (opt10 != null) {
-    m.set("gps", encodeGpsGroup(opt10))
+    m.set("prearm", encodePrearmGroup(opt10))
   }
-  const opt11 = v.speed
+  const opt11 = v.gps
   if (opt11 != null) {
-    m.set("speed", encodeSpeedGroup(opt11))
+    m.set("gps", encodeGpsGroup(opt11))
   }
-  const opt12 = v.nav
+  const opt12 = v.speed
   if (opt12 != null) {
-    m.set("nav", encodeNavGroup(opt12))
+    m.set("speed", encodeSpeedGroup(opt12))
   }
-  const opt13 = v.wind
+  const opt13 = v.nav
   if (opt13 != null) {
-    m.set("wind", encodeWindGroup(opt13))
+    m.set("nav", encodeNavGroup(opt13))
   }
-  const opt14 = v.ekf
+  const opt14 = v.wind
   if (opt14 != null) {
-    m.set("ekf", encodeEkfGroup(opt14))
+    m.set("wind", encodeWindGroup(opt14))
   }
-  const opt15 = v.vibration
+  const opt15 = v.ekf
   if (opt15 != null) {
-    m.set("vibration", encodeVibrationGroup(opt15))
+    m.set("ekf", encodeEkfGroup(opt15))
   }
-  const opt16 = v.battery
+  const opt16 = v.vibration
   if (opt16 != null) {
-    m.set("battery", encodeBatteryGroup(opt16))
+    m.set("vibration", encodeVibrationGroup(opt16))
   }
-  const opt17 = v.attitude
+  const opt17 = v.battery
   if (opt17 != null) {
-    m.set("attitude", encodeAttitudeGroup(opt17))
+    m.set("battery", encodeBatteryGroup(opt17))
   }
-  const opt18 = v.servo
+  const opt18 = v.attitude
   if (opt18 != null) {
-    m.set("servo", encodeServoGroup(opt18))
+    m.set("attitude", encodeAttitudeGroup(opt18))
   }
-  const opt19 = v.rc
+  const opt19 = v.servo
   if (opt19 != null) {
-    m.set("rc", encodeRcGroup(opt19))
+    m.set("servo", encodeServoGroup(opt19))
+  }
+  const opt20 = v.rc
+  if (opt20 != null) {
+    m.set("rc", encodeRcGroup(opt20))
   }
   Cbor.Dict(m)
 }
@@ -3292,6 +3401,29 @@ export function encodeHomeGroup(v: HomeGroup): Cbor {
   m.set("lat", Cbor.Float(v.lat))
   m.set("lon", Cbor.Float(v.lon))
   m.set("altitude", Cbor.Float(v.altitude))
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct PrearmGroup {
+  enabled: bool
+  passing: bool
+  ageMs: u32
+}
+
+export function decodePrearmGroup(v: Cbor, path: string): PrearmGroup throws InvalidPayload {
+  const m = members(v, path, ["enabled", "passing", "ageMs"])
+  PrearmGroup {
+    enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
+    passing: boolean(required(m, "passing", path), `${path}.passing`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodePrearmGroup(v: PrearmGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("enabled", Cbor.Bool(v.enabled))
+  m.set("passing", Cbor.Bool(v.passing))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
   Cbor.Dict(m)
 }

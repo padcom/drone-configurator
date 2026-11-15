@@ -101,6 +101,22 @@ class Kept implements SessionPart {
 
 const kept = new Kept()
 
+/// The id the next message will have: what a command that wants "the texts heard from now on" takes before it is sent.
+export function nextMessageId(): int {
+  kept.nextId
+}
+
+/// The texts of the messages from id `from` on (the vehicle's own words), without repeats, oldest first, at most `limit`.
+export function textsSince(from: int, limit: int): string[] {
+  const out: string[] = []
+  for (const m of kept.ring) {
+    if (m.id as int >= from && m.text != "" && !out.includes(m.text) && out.length < limit) {
+      out.push(m.text)
+    }
+  }
+  out
+}
+
 /// For the tests: a message as if the vehicle had sent it.
 export function takeForTests(m: StatusMessage): void {
   kept.take(m)

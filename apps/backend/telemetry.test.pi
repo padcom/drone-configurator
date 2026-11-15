@@ -2,7 +2,7 @@
 import { describe, it, expect } from "std/test"
 import { delay } from "std/timers"
 import { Cbor } from "pico-desktop/communicator"
-import { Attitude, SysStatus } from "padcom/pico-mavlink"
+import { Attitude, MavSysStatusSensor, SysStatus } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import {
   ConnectRequest,
@@ -13,7 +13,7 @@ import {
   encodeTelemetryParams,
 } from "./generated/app"
 import { wishes } from "./groups"
-import { ratesHeldForTests } from "./telemetry"
+import { prearmOf, ratesHeldForTests } from "./telemetry"
 import { Frontend, start } from "./testing"
 
 /// What the vehicle reports reaches the dashboard: the first heartbeat after connecting is on the
@@ -147,7 +147,51 @@ async function refusesARateOutsideTheRange(): Promise<void> throws Error {
   }
 }
 
+/// A SYS_STATUS that says the pre-arm checks' bit is `present`, `enabled` and `healthy`.
+function statusWith(present: bool, enabled: bool, healthy: bool): SysStatus {
+  const bit = MavSysStatusSensor.PREARM_CHECK
+  const m = new SysStatus()
+  m.onboardControlSensorsPresent = (if (present) bit else 0) as u32
+  m.onboardControlSensorsEnabled = (if (enabled) bit else 0) as u32
+  m.onboardControlSensorsHealth = (if (healthy) bit else 0) as u32
+  m
+}
+
+/// The pre-arm checks as SYS_STATUS says them: nothing when the vehicle has no such bit, else whether they are on and pass.
+function readsThePrearmBit(): void {
+  expect(prearmOf(statusWith(false, false, false)) == null).toBe(true)
+  const passing = prearmOf(statusWith(true, true, true))!
+  expect([passing.enabled, passing.passing]).toEqual([true, true])
+  const failing = prearmOf(statusWith(true, true, false))!
+  expect([failing.enabled, failing.passing]).toEqual([true, false])
+  // ARMING_CHECK 0: no check is enabled, and the vehicle does not claim they pass
+  const off = prearmOf(statusWith(true, false, false))!
+  expect([off.enabled, off.passing]).toEqual([false, false])
+}
+
+/// The telemetry carries the pre-arm group once a SYS_STATUS with the bit has been heard, and not before.
+async function streamsThePrearmGroup(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const subscription = await f.subscribe("telemetry.stream", encodeTelemetryParams(TelemetryParams { rateHz: 20 }))
+  const before = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+  expect(before.prearm == null).toBe(true)
+  let seen = false
+  // The status is sent again with every event read: events queued before it was sent are read first (the stream sends 20 a second),
+  // and the vehicle's own SYS_STATUS (which has no such bit) takes it back each second.
+  for (let i = 0; i < 200 && !seen; i++) {
+    await simulatorForTests()!.conn.send(statusWith(true, true, false))
+    const t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+    seen = t.prearm != null && t.prearm!.enabled && !t.prearm!.passing
+  }
+  await f.unsubscribe(subscription)
+  await f.call("vehicle.disconnect")
+  expect(seen).toBe(true)
+}
+
 describe("the telemetry service", () => {
+  it("reads the pre-arm checks' bit of SYS_STATUS", readsThePrearmBit)
+  it("streams the pre-arm group once the vehicle has said it", streamsThePrearmGroup)
   it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
   it("streams the groups of the messages the vehicle sends, with their age", streamsGroups)
   it("sends the events at the rate asked for, 5 a second by default, and no faster than 20", streamsAtTheRateAskedFor)
