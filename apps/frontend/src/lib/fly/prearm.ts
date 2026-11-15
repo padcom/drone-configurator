@@ -11,14 +11,15 @@ export type ChecksState = 'passing' | 'failing' | 'off' | 'unknown'
 export const REASON_WINDOW_MS = 120_000
 
 /**
- * Whether there is something to review before arming: the vehicle says its checks do not pass, or does not say. Checks that pass
- * (and checks that are off: the vehicle will not ask) leave nothing to review.
+ * Whether there is something to review before arming: the vehicle SAYS its checks do not pass. Checks that pass, checks that are
+ * off (the vehicle will not ask) and checks the vehicle does not report (the simulator) leave nothing to review: the arm is asked
+ * for, and when the vehicle refuses it the review is shown, with the reasons it gave.
  *
  * @param checks what the vehicle says of its checks
  * @returns true when the review comes first
  */
 export function needsReview(checks: ChecksState): boolean {
-  return checks === 'failing' || checks === 'unknown'
+  return checks === 'failing'
 }
 
 /** The beginnings of the texts that are a reason an arm is refused ("PreArm: ..." and "Arm: ..."). */

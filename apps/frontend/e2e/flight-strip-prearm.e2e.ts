@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
-import { ARM_BUTTON, MODE_BUTTON, MODE_ITEMS, REVIEW, sleep, Strip } from './strip'
+import { MODE_BUTTON, MODE_ITEMS, REVIEW, sleep, Strip } from './strip'
 import { TcpVehicle } from './tcp-vehicle'
 
 const TEXT = 'Compasses inconsistent'
@@ -56,11 +56,23 @@ afterAll(async () => {
   }
 })
 
-it('lists the vehicle\'s own words in the review', async () => {
+/**
+ * Presses STATE and holds: the vehicle refuses, and the review opens with what it said (the toast stays). The review is then
+ * closed, so that it is not over the page.
+ */
+async function askToArm(): Promise<void> {
+  await strip().startArming()
+  await strip().hold()
+  await strip().reviewIsOpen()
+  await window().click('#review-close')
+  await strip().goes('#review-state')
+}
+
+it('shows the review with the vehicle\'s own words when it refuses the arm', async () => {
   await strip().heartbeatSays(false)
-  await window().click(REVIEW)
-  await strip().appears('#review-state')
-  await strip().reviewIsReady()
+  await strip().startArming()
+  await strip().hold()
+  await strip().reviewIsOpen()
   const first = `document.querySelector('#review-reasons .review-text')`
   await window().waitFor(`${first}?.innerText.includes('${TEXT}') === true`, 15_000)
 
@@ -68,15 +80,9 @@ it('lists the vehicle\'s own words in the review', async () => {
   const texts = await window().evaluate<string[]>(`${all}.map(e => e.innerText)`)
 
   expect(texts.some(text => text.includes(`PreArm: ${TEXT}`))).toBe(true)
+  await window().click('#review-close')
+  await strip().goes('#review-state')
 })
-
-/**
- * Holds the arm: the vehicle refuses it.
- */
-async function askToArm(): Promise<void> {
-  await window().click(ARM_BUTTON)
-  await strip().hold()
-}
 
 it('says why an arm was refused, and stays disarmed', async () => {
   await askToArm()

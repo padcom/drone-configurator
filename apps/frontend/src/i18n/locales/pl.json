@@ -23,7 +23,11 @@
   },
   "topBar": {
     "rebooting": "Restart…",
-    "armTip": "Uzbrój pojazd",
+    "state": {
+      "arm": "Uzbrój pojazd (pojazd jest rozbrojony)",
+      "armed": "Rozbrój lub zatrzymaj pojazd (pojazd jest uzbrojony)",
+      "unknown": "Rozbrój lub zatrzymaj pojazd (jego stan nie jest znany)"
+    },
     "home": "Start",
     "noVehicle": "Brak pojazdu",
     "vehicleSub": "{autopilot} · system {sysid}/{compid}",

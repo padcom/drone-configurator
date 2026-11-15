@@ -20,7 +20,8 @@ const connected: Connection = { state: 'connected', vehicle: { ...VEHICLE } }
  * @returns the text of its dash when it has one, else its text
  */
 function shown(value: Pick<DOMWrapper<Element>, 'find' | 'text'>): string {
-  const dash = value.find('[aria-hidden="true"]')
+  // (a dash is a span; the chevron of a menu in the cell is an icon, also hidden from a screen reader)
+  const dash = value.find('span[aria-hidden="true"]')
 
   return dash.exists() ? dash.text() : value.text()
 }

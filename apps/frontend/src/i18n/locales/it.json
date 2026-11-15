@@ -23,7 +23,11 @@
   },
   "topBar": {
     "rebooting": "Riavvio…",
-    "armTip": "Arma il veicolo",
+    "state": {
+      "arm": "Arma il veicolo (il veicolo è disarmato)",
+      "armed": "Disarma o ferma il veicolo (il veicolo è armato)",
+      "unknown": "Disarma o ferma il veicolo (il suo stato non è noto)"
+    },
     "home": "Home",
     "noVehicle": "Nessun veicolo",
     "vehicleSub": "{autopilot} · sistema {sysid}/{compid}",

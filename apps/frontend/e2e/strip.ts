@@ -122,25 +122,45 @@ export class Strip {
     }
     // (the question ignores presses for its first moments)
     await sleep(ARMS_MS)
-    await this.app.evaluate(`document.querySelector('#confirm-hold')
-      .dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, pointerId: 1 }))`)
-    await sleep(HOLD_MS)
-    await this.goes('#confirm')
+    await this.press()
+
+    // A press that did not hold (a slow machine: the first moments were not over) sent nothing: it is let go and tried once more.
+    if (await this.exists('#confirm')) {
+      const up = `new PointerEvent('pointerup', { bubbles: true, pointerId: 1 })`
+      await this.app.evaluate(`document.querySelector('#confirm-hold')?.dispatchEvent(${up})`)
+      await sleep(ARMS_MS)
+      await this.press()
+    }
+    try {
+      await this.goes('#confirm')
+    } catch (error) {
+      throw new Error(`the hold did not end the question; the page says: ${await this.notices()}`, { cause: error })
+    }
   }
 
-  /** Opens the review, and waits until it can be used. */
-  async openReview(): Promise<void> {
-    // (for a moment after a vehicle was asked to arm its state is not known, and there is no review)
+  /** Presses the hold button as a person does with the pointer, and keeps it down for the time of a hold. */
+  private async press(): Promise<void> {
+    await this.app.evaluate(`document.querySelector('#confirm-hold')
+      ?.dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, pointerId: 1 }))`)
+    await sleep(HOLD_MS)
+  }
+
+  /** Presses STATE of the top bar. A vehicle that does not say its checks fail goes straight to the hold of "Arm the vehicle". */
+  async startArming(): Promise<void> {
+    // (for a moment after a vehicle was asked to arm its state is not known, and STATE is not the arm control)
     await this.appears(REVIEW, 30_000)
     await this.app.click(REVIEW)
+  }
+
+  /** Waits until the review is open and can be used (a refused arm opens it), and says what it lists. */
+  async reviewIsOpen(): Promise<void> {
     await this.appears('#review-state')
     await this.reviewIsReady()
   }
 
-  /** Reviews, asks for the hold to arm, and holds. */
+  /** Presses STATE, and holds the hold of "Arm the vehicle". */
   async armWithTheHold(): Promise<void> {
-    await this.openReview()
-    await this.app.click(ARM_BUTTON)
+    await this.startArming()
     await this.hold()
     await this.heartbeatSays(true)
   }

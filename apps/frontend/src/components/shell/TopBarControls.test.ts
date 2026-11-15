@@ -6,7 +6,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
-import { forgetArmGrace } from '@/composables/useArmGrace'
+import { armMayBeOn, forgetArmGrace } from '@/composables/useArmGrace'
 import { useArmReview } from '@/composables/useArmReview'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { forgetModeConfirmationChoice } from '@/composables/useModeConfirmation'
@@ -46,22 +46,32 @@ interface Rig {
 }
 
 /**
+ * The pre-arm group the vehicle sends, or nothing when it does not say.
+ *
+ * @param checks what its checks say
+ * @returns the part of the telemetry
+ */
+function prearmOf(checks: Said['checks']): { prearm?: { enabled: boolean, passing: boolean, ageMs: number } } {
+  return checks === undefined ? {} : { prearm: { enabled: true, passing: checks === 'passing', ageMs: 100 } }
+}
+
+/**
  * The top bar over a connected vehicle that says what the test says.
  *
  * @param said what the vehicle says
  * @param ui the settings' entries
+ * @param screen the screen the bar is over (the controls are on every screen)
  * @returns the bar and what drives it
  */
-async function bar(said: Said, ui: { key: string, value: string }[] = []): Promise<Rig> {
+async function bar(said: Said, ui: { key: string, value: string }[] = [], screen = '/flight'): Promise<Rig> {
   const control: MockControl = {}
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000, control, settings: { version: 1, ui } }))
   await handle.vehicle.connect({ transport: 'simulator' })
   control.armed?.(said.armed)
-  const prearm = said.checks === undefined ? {} : { prearm: { enabled: true, passing: said.checks === 'passing', ageMs: 100 } }
-  feed(handle, { telemetry: { ...telemetryAt(0), armed: said.armed, mode: said.mode, ...prearm } })
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: said.armed, mode: said.mode, ...prearmOf(said.checks) } })
   await vi.waitFor(() => expect(handle.setup.modes.value).not.toBeNull())
   const router = createAppRouter(createMemoryHistory())
-  await router.push('/flight')
+  await router.push(screen)
   mounted = mount(TopBar, { global: { plugins: [i18n, router] }, attachTo: document.body })
   await flushPromises()
 
@@ -92,34 +102,86 @@ async function chooseMode(rig: Rig, name: string): Promise<void> {
   await flushPromises()
 }
 
-it('makes STATE of a disarmed vehicle the arm control, in the words of the state', async () => {
+it('makes STATE of a disarmed vehicle the arm control, in the words of the state, named for a screen reader', async () => {
   const { wrapper } = await bar({ armed: false, mode: 'STABILIZE', checks: 'passing' })
 
   expect(wrapper.get('#state-arm').text()).toBe('disarmed')
+  expect(wrapper.get('#state-arm').attributes('aria-label')).toBe('Arm the vehicle (the vehicle is disarmed)')
   expect(wrapper.get('.cell.state dt').text()).toBe('STATE')
 })
 
-it('has no arm control in STATE of an armed vehicle: it is only words', async () => {
+it('makes STATE of an armed vehicle the menu of Disarm and the emergency stop, and not an arm control', async () => {
   const { wrapper } = await bar({ armed: true, mode: 'LOITER' })
+  const button = wrapper.get('#state-menu button')
 
   expect(wrapper.find('#state-arm').exists()).toBe(false)
-  expect(wrapper.get('.cell.state dd').text()).toBe('ARMED')
+  expect(button.text()).toBe('ARMED')
+  expect(button.attributes('aria-label')).toBe('Disarm or stop the vehicle (the vehicle is armed)')
+  await button.trigger('click')
+
+  const items = wrapper.findAll('#state-menu [role="menuitem"]')
+  expect(items.map(item => item.text())).toEqual(['Disarm', 'Emergency stop'])
+  expect(items[1]?.classes()).toContain('danger')
 })
 
-it('goes to the review when the vehicle says its checks do not pass, or does not say', async () => {
-  for (const checks of ['failing', undefined] as const) {
-    // eslint-disable-next-line no-await-in-loop -- one vehicle after the other
-    const rig = await bar({ armed: false, mode: 'STABILIZE', checks })
-    // eslint-disable-next-line no-await-in-loop
-    await rig.wrapper.get('#state-arm').trigger('click')
-    // eslint-disable-next-line no-await-in-loop
-    await flushPromises()
+it('counts a vehicle whose state is not known as armed: the same menu, named for what it is', async () => {
+  const { wrapper } = await bar({ armed: false, mode: 'STABILIZE', checks: 'passing' })
+  armMayBeOn()
+  await flushPromises()
 
-    expect(useArmReview().open.value, String(checks)).toBe(true)
-    expect(askedOf(rig.handle)).toBeUndefined()
-    useArmReview().hide()
-    mounted?.unmount()
+  expect(wrapper.find('#state-arm').exists()).toBe(false)
+  expect(wrapper.get('#state-menu button').attributes('aria-label')).toBe('Disarm or stop the vehicle (its state is not known)')
+})
+
+it('asks for a hold before Disarm, and for a RED hold before the stop, and sends nothing until they are held', async () => {
+  const rig = await bar({ armed: true, mode: 'LOITER' })
+  const choose = async (label: string) => {
+    await rig.wrapper.get('#state-menu button').trigger('click')
+    await rig.wrapper.findAll('#state-menu [role="menuitem"]').find(item => item.text() === label)?.trigger('click')
+    await flushPromises()
   }
+  await choose('Disarm')
+
+  expect(askedOf(rig.handle)).toMatchObject({ level: 'hold', confirmLabel: 'Hold to disarm' })
+  expect(sentOf(rig.control)).toEqual([])
+  await answer(rig, false)
+  await choose('Emergency stop')
+
+  expect(askedOf(rig.handle)).toMatchObject({ level: 'hold', tone: 'error', confirmLabel: 'Hold to stop the motors' })
+  expect(sentOf(rig.control)).toEqual([])
+  await answer(rig, true)
+
+  expect(sentOf(rig.control)).toEqual(['stop'])
+})
+
+it('is there on every screen: a vehicle armed from Setup can be disarmed from Setup', async () => {
+  const rig = await bar({ armed: true, mode: 'LOITER' }, [], '/setup/home')
+  await rig.wrapper.get('#state-menu button').trigger('click')
+  await rig.wrapper.findAll('#state-menu [role="menuitem"]')[0]?.trigger('click')
+  await flushPromises()
+
+  expect(askedOf(rig.handle)).toMatchObject({ level: 'hold', confirmLabel: 'Hold to disarm' })
+  await answer(rig, true)
+
+  expect(sentOf(rig.control)).toEqual(['disarm'])
+})
+
+it('goes to the review when the vehicle says its checks do not pass', async () => {
+  const rig = await bar({ armed: false, mode: 'STABILIZE', checks: 'failing' })
+  await rig.wrapper.get('#state-arm').trigger('click')
+  await flushPromises()
+
+  expect(useArmReview().open.value).toBe(true)
+  expect(askedOf(rig.handle)).toBeUndefined()
+})
+
+it('goes straight to the hold when the vehicle says nothing of its checks (the review is for a refusal)', async () => {
+  const rig = await bar({ armed: false, mode: 'STABILIZE' })
+  await rig.wrapper.get('#state-arm').trigger('click')
+  await flushPromises()
+
+  expect(useArmReview().open.value).toBe(false)
+  expect(askedOf(rig.handle)).toMatchObject({ title: 'Arm the vehicle', level: 'hold' })
 })
 
 it('goes straight to the hold when the checks pass: "Arm the vehicle", Hold to arm, a cross, no Cancel', async () => {

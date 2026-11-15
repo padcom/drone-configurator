@@ -46,11 +46,22 @@
             id="state-arm"
             type="button"
             class="cell-action"
-            :title="t('topBar.armTip')"
+            :title="t('topBar.state.arm')"
+            :aria-label="t('topBar.state.arm')"
             @click="beginArm"
           >
             {{ cell.value }}
           </button>
+          <!-- STATE of a vehicle that is armed or whose state is not known (it counts as armed) is the way to Disarm and to the
+               EMERGENCY STOP, on every screen: arming is one click from anywhere, so stopping must be. Both are holds. -->
+          <Menu
+            v-else-if="cell.id === 'state' && canStop && !cell.missing"
+            id="state-menu"
+            :label="cell.value"
+            :trigger-label="stateLabel"
+            :items="stateItems"
+            @select="stateAct"
+          />
           <!-- MODE is the list of modes: a menu that is opened (never a field that changes as keys move over it). -->
           <Menu
             v-else-if="cell.id === 'mode' && !cell.missing && modes.items.value.length > 0"
@@ -82,6 +93,7 @@ import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'
+import type { MenuItem } from '@/lib/ui/menuKeys'
 import { useArmGrace } from '@/composables/useArmGrace'
 import { useModeMenu } from '@/composables/useModeMenu'
 import { checksOf, needsReview } from '@/lib/fly/prearm'
@@ -109,6 +121,22 @@ const modes = useModeMenu()
 const { armed } = useArmGrace()
 /** Whether STATE is the arm control: connected, and the heartbeat says disarmed (not armed, not just asked to arm). */
 const canArm = computed(() => state.value === 'connected' && armed.value === false)
+/** Whether STATE is the way to Disarm and the stop: connected, and the vehicle is armed or its state is not known. */
+const canStop = computed(() => state.value === 'connected' && armed.value !== false)
+const stateItems = computed<MenuItem[]>(() => [
+  { id: 'disarm', label: t('palette.vehicle.disarm.short') },
+  { id: 'stop', label: t('strip.stop'), danger: true },
+])
+const stateLabel = computed(() => t(armed.value === undefined ? 'topBar.state.unknown' : 'topBar.state.armed'))
+
+/**
+ * An item of the state menu was chosen: the command asks for its hold.
+ *
+ * @param id which
+ */
+function stateAct(id: string): void {
+  void run(id === 'stop' ? 'vehicle.emergencyStop' : 'vehicle.disarm')
+}
 
 /** STATE was pressed: the review when there is something to review, else straight to the hold. The command asks the rest. */
 function beginArm(): void {

@@ -300,3 +300,29 @@ describe('a key that is held down and released elsewhere', () => {
     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
   })
 })
+
+describe('the room of the list', () => {
+  /**
+   * Opens the menu with its button at a place, in a window of a height.
+   *
+   * @param bottom where the bottom of the menu's button is (px)
+   * @param height the height of the window (px)
+   * @returns the style of the list
+   */
+  async function opened(bottom: number, height: number): Promise<string | undefined> {
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(height)
+    const wrapper = menu()
+    vi.spyOn(wrapper.get('.kit-menu').element, 'getBoundingClientRect').mockReturnValue({ bottom } as DOMRect)
+    await open(wrapper)
+
+    return wrapper.get('[role="menu"]').attributes('style')
+  }
+
+  it('is what the window leaves under the button, less a margin: the list scrolls in it', async () => {
+    expect(await opened(80, 700)).toContain('max-height: 604px')
+  })
+
+  it('is never less than a few rows, in a window that is nearly all button', async () => {
+    expect(await opened(480, 500)).toContain('max-height: 120px')
+  })
+})
