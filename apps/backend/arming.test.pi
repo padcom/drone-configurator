@@ -1,0 +1,296 @@
+// The arming service (`vehicle.arm`, `disarm`, `emergencyStop`, `setMode`, `prearm`), over an in-memory link against the simulated
+// vehicle, which answers the commands (pico-mavlink's `SimControl`). A refusal sends nothing; each command is sent once; nothing but
+// the emergency stop ever carries ArduPilot's force value, and nothing carries the skip-the-checks one.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { CommandLong, MavCmd, Received, SimulatedAutopilot } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { resetForTests, waits } from "./arming"
+import {
+  ArmingResult,
+  ArmingResultResult,
+  ConnectRequest,
+  ConnectRequestTransport,
+  SetModeAsk,
+  decodeArmingResult,
+  encodeConnectRequest,
+  encodeSetModeAsk,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// What reached the vehicle: the commands of these services, as "command p1 p2".
+class Heard {
+  public commands: string[] = []
+  /// How many parameters of any of them were 2989 (skip the checks) or 21196 (force a disarm).
+  public skips: int = 0
+  public forces: int = 0
+}
+
+const ARM_DISARM: int = MavCmd.COMPONENT_ARM_DISARM
+const SET_MODE: int = MavCmd.DO_SET_MODE
+const PREARM: int = MavCmd.RUN_PREARM_CHECKS
+
+/// Listens on the vehicle's end for the commands of the arming service.
+function listen(sim: SimulatedAutopilot): Heard {
+  const heard = new Heard()
+  sim.conn.on((r: Received) => {
+    const m = r.message
+    if (m instanceof CommandLong && (m.command as int == ARM_DISARM || m.command as int == SET_MODE || m.command as int == PREARM)) {
+      heard.commands.push(`${m.command} ${m._param1} ${m._param2}`)
+      for (const p of [m._param1, m._param2, m._param3, m._param4, m._param5, m._param6, m._param7]) {
+        if (p as int == 2989) {
+          heard.skips += 1
+        }
+        if (p as int == 21196) {
+          heard.forces += 1
+        }
+      }
+    }
+  })
+  heard
+}
+
+/// Waits for the next heartbeat of the vehicle.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// A connected, DISARMED simulator with a fresh heartbeat, and what reaches it.
+async function connected(): Promise<Frontend> throws Error {
+  waits.ackMs = 400
+  waits.settleMs = 100
+  resetForTests()
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  simulatorForTests()!.control.armedSet = 0
+  await afterBeat()
+  await afterBeat()
+  f
+}
+
+/// What a call came to: the error code, or the result's name.
+function described(e: Envelope): string {
+  if (e.err != null) {
+    return e.err!.code
+  }
+  nameOf(decodeArmingResult(e.p ?? Cbor.Null, "$").result)
+}
+
+function nameOf(result: ArmingResultResult): string {
+  match (result) {
+    Accepted => "accepted",
+    Refused => "refused",
+    Unsupported => "unsupported",
+    NoAnswer => "no-answer",
+  }
+}
+
+function resultOf(e: Envelope): ArmingResult {
+  decodeArmingResult(e.p ?? Cbor.Null, "$")
+}
+
+async function end(f: Frontend): Promise<void> throws Error {
+  await f.call("vehicle.disconnect")
+}
+
+async function refuseWithoutAVehicle(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.disconnect")
+  for (const name of ["vehicle.arm", "vehicle.disarm", "vehicle.emergencyStop", "vehicle.prearm"]) {
+    expect(described(await f.call(name))).toBe("NOT_CONNECTED")
+  }
+  expect(described(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 4 })))).toBe("NOT_CONNECTED")
+}
+
+async function refuseWhenTheStateIsUnknown(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!)
+  link.heartbeatAt = (Date.now() as int) - 10000
+  for (const name of ["vehicle.arm", "vehicle.disarm", "vehicle.emergencyStop", "vehicle.prearm"]) {
+    expect(described(await f.call(name))).toBe("STATE_UNKNOWN")
+  }
+  expect(described(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 4 })))).toBe("STATE_UNKNOWN")
+  expect(heard.commands.length).toBe(0)
+  await end(f)
+}
+
+async function armsOnceWithTheChecksOn(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!)
+  const e = await f.call("vehicle.arm")
+  expect(described(e)).toBe("accepted")
+  expect(heard.commands).toEqual(["400 1 0"])
+  expect(heard.skips + heard.forces).toBe(0)
+  const sim = simulatorForTests()!
+  expect([sim.control.arms, sim.control.forcedArms]).toEqual([1, 0])
+  // the state is what the heartbeat says, not what the command was: it follows
+  await afterBeat()
+  expect(link.armed).toBe(true)
+  await end(f)
+}
+
+async function sayWhyAnArmIsRefused(): Promise<void> throws Error {
+  const f = await connected()
+  simulatorForTests()!.control.prearm = "Compasses inconsistent"
+  const heard = listen(simulatorForTests()!)
+  const r = resultOf(await f.call("vehicle.arm"))
+  expect(nameOf(r.result)).toBe("refused")
+  expect(r.messages).toEqual(["PreArm: Compasses inconsistent"])
+  expect(r.code).toBe(4)
+  expect(heard.commands).toEqual(["400 1 0"])
+  expect(simulatorForTests()!.control.isArmed()).toBe(false)
+  await end(f)
+}
+
+async function refuseAnArmOfAnArmedVehicleAndADisarmOfADisarmedOne(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!)
+  expect(described(await f.call("vehicle.disarm"))).toBe("NOT_ARMED")
+  expect(described(await f.call("vehicle.emergencyStop"))).toBe("NOT_ARMED")
+  link.armed = true
+  expect(described(await f.call("vehicle.arm"))).toBe("ARMED")
+  expect(described(await f.call("vehicle.prearm"))).toBe("ARMED")
+  expect(heard.commands.length).toBe(0)
+  await end(f)
+}
+
+async function disarmsAndRefusesInFlight(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  sim.control.armedSet = 1
+  await afterBeat()
+  await afterBeat()
+  const heard = listen(sim)
+  sim.control.flying = true
+  const refused = resultOf(await f.call("vehicle.disarm"))
+  expect(nameOf(refused.result)).toBe("refused")
+  expect(refused.messages).toEqual(["Disarm: vehicle is flying"])
+  expect(sim.control.isArmed()).toBe(true)
+  sim.control.flying = false
+  expect(described(await f.call("vehicle.disarm"))).toBe("accepted")
+  expect(heard.commands).toEqual(["400 0 0", "400 0 0"])
+  expect(heard.forces + heard.skips).toBe(0)
+  expect(sim.control.isArmed()).toBe(false)
+  await end(f)
+}
+
+async function theEmergencyStopForcesTheDisarmInFlight(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  sim.control.armedSet = 1
+  await afterBeat()
+  await afterBeat()
+  const heard = listen(sim)
+  sim.control.flying = true
+  expect(described(await f.call("vehicle.emergencyStop"))).toBe("accepted")
+  expect(heard.commands).toEqual(["400 0 21196"])
+  expect([heard.forces, heard.skips]).toEqual([1, 0])
+  expect(sim.control.forcedDisarms).toBe(1)
+  expect(sim.control.isArmed()).toBe(false)
+  await end(f)
+}
+
+async function reportsACommandNothingAnsweredAndNeverSendsItAgain(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.control.swallowAcks = 1
+  const r = resultOf(await f.call("vehicle.arm"))
+  expect(nameOf(r.result)).toBe("no-answer")
+  expect(r.detail ?? "").toContain("not sent again")
+  // well past the time of several tries
+  await delay(1200)
+  expect(heard.commands.length).toBe(1)
+  // it did arm, and the heartbeat says so: that is the state
+  expect(sim.control.isArmed()).toBe(true)
+  await afterBeat()
+  expect(link.armed).toBe(true)
+  await end(f)
+}
+
+async function changesTheModeAndRefusesWhatIsNotOneOfTheVehiclesModes(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  expect(described(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 4 })))).toBe("accepted")
+  expect(heard.commands).toEqual(["176 1 4"])
+  expect(sim.control.mode()).toBe(4)
+  expect(described(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 200 })))).toBe("INVALID_VALUE")
+  expect(described(await f.call("vehicle.setMode"))).toBe("INVALID_VALUE")
+  expect(heard.commands.length).toBe(1)
+  sim.control.refusedModes.push(6)
+  const refused = resultOf(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 6 })))
+  expect(nameOf(refused.result)).toBe("refused")
+  expect(refused.messages).toEqual(["Mode change failed"])
+  expect(sim.control.mode()).toBe(4)
+  await end(f)
+}
+
+async function runsThePrearmChecksAndReturnsTheTexts(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  sim.control.prearm = "GPS 1: Bad fix"
+  const heard = listen(sim)
+  const r = resultOf(await f.call("vehicle.prearm"))
+  expect(heard.commands.length).toBe(1)
+  expect(heard.commands[0].startsWith("401 ")).toBe(true)
+  expect(r.messages).toEqual(["PreArm: GPS 1: Bad fix"])
+  expect(sim.control.isArmed()).toBe(false)
+  await end(f)
+}
+
+async function holdsOffASecondCommandButNotTheEmergencyStop(): Promise<void> throws Error {
+  const f = await connected()
+  const sim = simulatorForTests()!
+  sim.control.armedSet = 1
+  await afterBeat()
+  await afterBeat()
+  const heard = listen(sim)
+  waits.ackMs = 600
+  sim.control.swallowAcks = 1
+  // the first goes unanswered for 600 ms
+  const pending = await f.send("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 4 }))
+  await delay(100)
+  expect(described(await f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 5 })))).toBe("BUSY")
+  expect(described(await f.call("vehicle.disarm"))).toBe("BUSY")
+  // the emergency stop is not held off
+  expect(described(await f.call("vehicle.emergencyStop"))).toBe("accepted")
+  expect(nameOf(resultOf(await f.reply(pending)).result)).toBe("no-answer")
+  expect(heard.commands).toEqual(["176 1 4", "400 0 21196"])
+  await end(f)
+}
+
+async function refuseAnArmWhileAnOperationIsUnderWay(): Promise<void> throws Error {
+  const f = await connected()
+  const heard = listen(simulatorForTests()!)
+  link.calibrating = true
+  expect(described(await f.call("vehicle.arm"))).toBe("BUSY")
+  link.calibrating = false
+  link.motorTest = true
+  expect(described(await f.call("vehicle.arm"))).toBe("BUSY")
+  link.motorTest = false
+  expect(heard.commands.length).toBe(0)
+  await end(f)
+}
+
+describe("the arming service", () => {
+  it("refuses everything without a vehicle", refuseWithoutAVehicle)
+  it("refuses everything when the vehicle's state is not known, and sends nothing", refuseWhenTheStateIsUnknown)
+  it("arms once, with the pre-arm checks on, and the state is what the heartbeat says", armsOnceWithTheChecksOn)
+  it("says why an arm is refused, in the vehicle's words", sayWhyAnArmIsRefused)
+  it("refuses an arm of an armed vehicle and a disarm of a disarmed one, sending nothing", refuseAnArmOfAnArmedVehicleAndADisarmOfADisarmedOne)
+  it("disarms, and the vehicle refuses a disarm in flight", disarmsAndRefusesInFlight)
+  it("stops a vehicle in flight with the emergency stop, the only command with the force value", theEmergencyStopForcesTheDisarmInFlight)
+  it("reports a command nothing answered, and never sends it again", reportsACommandNothingAnsweredAndNeverSendsItAgain)
+  it("changes the mode, and refuses what is not one of the vehicle's modes", changesTheModeAndRefusesWhatIsNotOneOfTheVehiclesModes)
+  it("runs the pre-arm checks and returns the vehicle's texts", runsThePrearmChecksAndReturnsTheTexts)
+  it("holds off a second command, but not the emergency stop", holdsOffASecondCommandButNotTheEmergencyStop)
+  it("refuses an arm while a calibration or a motor test runs", refuseAnArmWhileAnOperationIsUnderWay)
+})

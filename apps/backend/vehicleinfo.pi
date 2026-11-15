@@ -180,6 +180,11 @@ function nameOfMode(kind: VehicleModesKind, n: int): string? {
 
 async function vehicleModes(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   connectedLink()
+  encodeVehicleModes(modesOfVehicle())
+}
+
+/// The modes of the connected vehicle's kind (arming.pi checks a mode against them before it asks for it).
+export function modesOfVehicle(): VehicleModes {
   const shown = link.state.vehicle
   const kind = if (shown == null || link.autopilot != MavAutopilot.ARDUPILOTMEGA) VehicleModesKind.Other else kindOfType(shown!.type)
   const modes: VehicleMode[] = []
@@ -189,5 +194,5 @@ async function vehicleModes(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor
       modes.push(VehicleMode { number: n as u8, name: name! })
     }
   }
-  encodeVehicleModes(VehicleModes { kind: kind, modes: modes })
+  VehicleModes { kind: kind, modes: modes }
 }

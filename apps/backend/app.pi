@@ -3,6 +3,7 @@
 // closures yet, so handlers are named async functions.
 import { Communicator, Transport } from "pico-desktop/communicator"
 import { SimulatedAutopilot } from "padcom/pico-mavlink"
+import { register as registerArming } from "./arming"
 import { register as registerCalibration } from "./calibration"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
@@ -56,6 +57,7 @@ export function createBackend(transport: Transport): Communicator {
   registerConnection(c)
   registerParams(c)
   registerReboot(c)
+  registerArming(c)
   registerCalibration(c)
   registerMotors(c)
   registerLogs(c)

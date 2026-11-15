@@ -9,6 +9,7 @@ import {
   MavAutopilot,
   MavLinkConnection,
   MavModeFlag,
+  MavSysStatusSensor,
   MavType,
   PlaneMode,
   Received,
@@ -17,7 +18,7 @@ import {
   SysStatus,
   TelemetryRates,
 } from "padcom/pico-mavlink"
-import { ConnectionState, Telemetry, decodeTelemetryParams, encodeTelemetry } from "./generated/app"
+import { ConnectionState, PrearmGroup, Telemetry, decodeTelemetryParams, encodeTelemetry } from "./generated/app"
 import { Groups, Wish, wishes } from "./groups"
 import { SessionPart, link } from "./session"
 
@@ -67,6 +68,20 @@ export function ratesNow(): TelemetryRates? {
   heard.rates
 }
 
+/// The pre-arm checks as a SYS_STATUS says them, by its PREARM_CHECK bit (ArduPilot, GCS.cpp: present always, enabled when any arming
+/// check is, healthy when the checks pass or the vehicle is armed): `ageMs` is 0. Null when the vehicle does not have the bit.
+export function prearmOf(m: SysStatus): PrearmGroup? {
+  const bit = MavSysStatusSensor.PREARM_CHECK
+  if (((m.onboardControlSensorsPresent as int) & bit) == 0) {
+    return null
+  }
+  PrearmGroup {
+    enabled: ((m.onboardControlSensorsEnabled as int) & bit) != 0,
+    passing: ((m.onboardControlSensorsHealth as int) & bit) != 0,
+    ageMs: 0,
+  }
+}
+
 /// What the vehicle has reported since connecting (telemetry shows only that).
 class Heard implements SessionPart {
   public conn: MavLinkConnection? = null
@@ -85,6 +100,11 @@ class Heard implements SessionPart {
   public pitch: f64 = 0.0
   public yaw: f64 = 0.0
   public lastHeartbeat: int = 0
+  /// The pre-arm checks as SYS_STATUS last said them: when (ms since 1970; 0 = never, or the vehicle has no such bit), whether the
+  /// checks are enabled and whether they pass.
+  public prearmAt: int = 0
+  public prearmEnabled: bool = false
+  public prearmPassing: bool = false
 
   public attach(c: MavLinkConnection): void {
     if (conn != null) {
@@ -101,6 +121,7 @@ class Heard implements SessionPart {
     heardHeartbeat = false
     heardStatus = false
     heardAttitude = false
+    prearmAt = 0
     groups.clear()
     const manager = rates
     if (manager != null) {
@@ -138,12 +159,25 @@ class Heard implements SessionPart {
         heardStatus = true
       }
       remaining = m.batteryRemaining as int
+      takePrearm(m)
     } else if (m instanceof Attitude) {
       roll = (m.roll as f64) * 180.0 / Math.PI
       pitch = (m.pitch as f64) * 180.0 / Math.PI
       yaw = (m.yaw as f64) * 180.0 / Math.PI
       heardAttitude = true
     }
+  }
+
+  /// The pre-arm checks as this SYS_STATUS says them (see `prearmOf`); nothing is shown for a vehicle that does not say.
+  public takePrearm(m: SysStatus): void {
+    const state = prearmOf(m)
+    if (state == null) {
+      prearmAt = 0
+      return
+    }
+    prearmEnabled = state!.enabled
+    prearmPassing = state!.passing
+    prearmAt = Date.now() as int
   }
 
   public telemetry(): Telemetry {
@@ -158,6 +192,9 @@ class Heard implements SessionPart {
       t.roll = Math.round(roll * 10.0) / 10.0
       t.pitch = Math.round(pitch * 10.0) / 10.0
       t.yaw = Math.round(yaw)
+    }
+    if (prearmAt > 0) {
+      t.prearm = PrearmGroup { enabled: prearmEnabled, passing: prearmPassing, ageMs: ((Date.now() as int) - prearmAt) as u32 }
     }
     groups.fill(t, Date.now() as int)
   }

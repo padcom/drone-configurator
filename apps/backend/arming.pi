@@ -1,0 +1,235 @@
+// The arming service: `vehicle.arm`, `vehicle.disarm`, `vehicle.emergencyStop`, `vehicle.setMode` and `vehicle.prearm` (RUN_PREARM_CHECKS),
+// over pico-mavlink's `VehicleControl`.
+//  - Each command is sent ONCE. A command that nothing acknowledged may have been carried out (an arm whose ack was lost may have
+//    armed the vehicle): it is reported `no-answer`, never sent again, and the state is whatever the next heartbeat says.
+//  - NO forced arm: the arm is sent with ArduPilot's pre-arm checks on (param2 0). The emergency stop is a disarm with ArduPilot's
+//    force value (21196) and is the only command here that can stop the motors of a vehicle in flight; nothing else sends it.
+//  - The backend refuses before it sends anything, whatever the page believes (its view may be late): no connected vehicle
+//    (`NOT_CONNECTED`), a vehicle whose state is not known because its heartbeat is older than 3 s (`STATE_UNKNOWN`: these commands
+//    are for a vehicle whose state is known), an arm or a pre-arm run of a vehicle that is armed (`ARMED`), a disarm or an emergency stop
+//    of one that is not (`NOT_ARMED`), another command, a parameter or log operation, a calibration, a motor test or a reboot under
+//    way (`BUSY`: the emergency stop and the disarm are not held off by anything but a command of their own kind), a mode that the
+//    vehicle's kind does not have (`INVALID_VALUE`) and a vehicle that is not an ArduPilot (`UNSUPPORTED_VEHICLE`).
+//  - The vehicle's own words (STATUSTEXT, "PreArm: ...") heard from just before the command until a moment after its answer come back
+//    with it: they are why an arm was refused.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { delay } from "std/timers"
+import { ControlResult, MavAutopilot, MavLinkError, MavResult, VehicleControl } from "padcom/pico-mavlink"
+import { ArmingResult, ArmingResultResult, decodeSetModeAsk, encodeArmingResult } from "./generated/app"
+import { nextMessageId, textsSince } from "./messages"
+import { armedState, connectedLink, link, rebootExpected } from "./session"
+import { modesOfVehicle } from "./vehicleinfo"
+
+/// How long the waits are (ms); the tests shorten them.
+class Waits {
+  /// For the vehicle's answer (an IN_PROGRESS is waited past inside it).
+  public ackMs: int = 3000
+  /// How long its texts are listened to after the answer.
+  public settleMs: int = 600
+}
+
+export const waits = new Waits()
+
+/// The most texts a result carries.
+const MAX_TEXTS: int = 20
+
+/// What is asked.
+const ARM: int = 1
+const DISARM: int = 2
+const STOP: int = 3
+const MODE: int = 4
+const PREARM: int = 5
+
+/// Registers the service's methods on `c`.
+export function register(c: Communicator): void {
+  c.handle("vehicle.arm", arm)
+  c.handle("vehicle.disarm", disarm)
+  c.handle("vehicle.emergencyStop", emergencyStop)
+  c.handle("vehicle.setMode", setMode)
+  c.handle("vehicle.prearm", prearm)
+}
+
+/// Whether one of these commands waits for its answer: a second one is refused (the emergency stop is not held off).
+class Asking {
+  public busy: bool = false
+}
+
+const asking = new Asking()
+
+/// For the tests: forget that a command is under way.
+export function resetForTests(): void {
+  asking.busy = false
+}
+
+/// Whether something that an arm must not meet is under way: a parameter write or download, a log operation, a calibration, a motor test
+/// or a reboot (also asked for and not yet answered).
+function operationUnderWay(): bool {
+  link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || rebootExpected()
+}
+
+/// The armed state of the vehicle, which must be known.
+function knownArmedState(): bool throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  armed!
+}
+
+/// Refuses (nothing is sent) what may not be asked now: `what` is ARM, DISARM, STOP, MODE or PREARM.
+function checkAllowed(what: int): void throws CommunicatorError {
+  connectedLink()
+  const armed = knownArmedState()
+  if ((what == ARM || what == PREARM) && armed) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed")
+  }
+  if ((what == DISARM || what == STOP) && !armed) {
+    throw new CommunicatorError("NOT_ARMED", "the vehicle is not armed")
+  }
+  if (what != STOP && asking.busy) {
+    throw new CommunicatorError("BUSY", "an earlier command to the vehicle has not been answered yet")
+  }
+  if ((what == ARM || what == PREARM) && operationUnderWay()) {
+    throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
+  }
+  if (what == MODE && rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a reboot is under way")
+  }
+}
+
+/// The refusal of a mode change, or nothing: the vehicle must be an ArduPilot and `mode` one of its kind's modes.
+function checkMode(mode: int): void throws CommunicatorError {
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED_VEHICLE", "flight modes are changed only on an ArduPilot")
+  }
+  for (const m of modesOfVehicle().modes) {
+    if (m.number as int == mode) {
+      return
+    }
+  }
+  throw new CommunicatorError("INVALID_VALUE", `mode ${mode} is not one of this vehicle's modes`)
+}
+
+/// What the vehicle's answer means for the page.
+export function resultOf(r: ControlResult, texts: string[]): ArmingResult {
+  const out = ArmingResult { result: ArmingResultResult.NoAnswer, messages: texts }
+  if (!r.acknowledged) {
+    out.detail = "no answer: the command may have been carried out; it is not sent again. The state is the next heartbeat's"
+    return out
+  }
+  out.code = r.result as u8
+  if (r.accepted) {
+    out.result = ArmingResultResult.Accepted
+  } else if (r.result == MavResult.UNSUPPORTED) {
+    out.result = ArmingResultResult.Unsupported
+    out.detail = "the vehicle does not support it"
+  } else {
+    out.result = ArmingResultResult.Refused
+    out.detail = refusal(r.result)
+  }
+  out
+}
+
+/// The words for a MAV_RESULT that is a refusal.
+function refusal(result: int): string {
+  if (result == MavResult.FAILED) {
+    return "the vehicle refused"
+  }
+  if (result == MavResult.DENIED) {
+    return "the vehicle denied the command"
+  }
+  if (result == MavResult.TEMPORARILY_REJECTED) {
+    return "the vehicle can't do it at this time"
+  }
+  `the vehicle answered ${resultName(result)}`
+}
+
+function resultName(result: int): string {
+  MavResult.nameOf(result) ?? `${result}`
+}
+
+/// Sends the command `what` once, and waits for its answer and the texts around it.
+async function execute(what: int, mode: int): Promise<Cbor?> throws Error {
+  checkAllowed(what)
+  if (what == MODE) {
+    checkMode(mode)
+  }
+  const conn = connectedLink()
+  const signal = link.session.signal
+  const control = new VehicleControl(conn, { system: link.sysid, component: link.compid }, { timeoutMs: waits.ackMs, signal: signal })
+  const from = nextMessageId()
+  const owns = what != STOP
+  if (owns) {
+    asking.busy = true
+  }
+  let got: ControlResult? = null
+  try {
+    got = await send(control, what, mode)
+  } catch (e: MavLinkError) {
+    // The session ended while the command was out (a lost link, a disconnect): it may have been carried out.
+    if (e.code != "ABORTED") {
+      throw new CommunicatorError(e.code, e.message)
+    }
+  } finally {
+    if (owns) {
+      asking.busy = false
+    }
+  }
+  // (the emergency stop does not wait for the vehicle's words: it is answered as soon as it is)
+  if (owns) {
+    await delay(waits.settleMs)
+  }
+  const texts = textsSince(from, MAX_TEXTS)
+  if (got == null) {
+    return encodeArmingResult(lost(texts))
+  }
+  encodeArmingResult(resultOf(got!, texts))
+}
+
+/// The command was cut by the end of the session: not acknowledged.
+function lost(texts: string[]): ArmingResult {
+  ArmingResult {
+    result: ArmingResultResult.NoAnswer,
+    detail: "the link was lost or the session ended: the command may have been carried out; it is not sent again",
+    messages: texts,
+  }
+}
+
+async function send(control: VehicleControl, what: int, mode: int): Promise<ControlResult> throws Error {
+  if (what == ARM) {
+    return await control.arm()
+  }
+  if (what == DISARM) {
+    return await control.disarm()
+  }
+  if (what == STOP) {
+    return await control.emergencyStop()
+  }
+  if (what == MODE) {
+    return await control.setMode(mode)
+  }
+  await control.runPrearmChecks()
+}
+
+async function arm(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  await execute(ARM, 0)
+}
+
+async function disarm(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  await execute(DISARM, 0)
+}
+
+async function emergencyStop(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  await execute(STOP, 0)
+}
+
+async function setMode(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (payload == null) {
+    throw new CommunicatorError("INVALID_VALUE", "a mode is needed")
+  }
+  await execute(MODE, decodeSetModeAsk(payload!, "$").mode as int)
+}
+
+async function prearm(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  await execute(PREARM, 0)
+}

@@ -576,6 +576,24 @@ function validateRebootResultInto(value: any, path: string): boolean {
 /** The first problem with `value` as a reboot-result, or null. */
 export const validateRebootResult = (value: unknown) => run(validateRebootResultInto, value)
 
+export type ArmingResult = { "result": "accepted" | "refused" | "unsupported" | "no-answer", "detail"?: string, "code"?: number, "messages": (string)[] }
+
+function validateArmingResultInto(value: any, path: string): boolean {
+  return map(value, path, ["result","detail","code","messages"]) && (value["result"] === undefined ? fail(`${path}.result`, 'present') : nested(value["result"], `${path}.result`, (value, path) => oneOf(value, path, ["accepted","refused","unsupported","no-answer"]))) && (value["detail"] === undefined || nested(value["detail"], `${path}.detail`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["code"] === undefined || nested(value["code"], `${path}.code`, (value, path) => uint(value, path, 0xff))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+}
+
+/** The first problem with `value` as a arming-result, or null. */
+export const validateArmingResult = (value: unknown) => run(validateArmingResultInto, value)
+
+export type SetModeAsk = { "mode": number }
+
+function validateSetModeAskInto(value: any, path: string): boolean {
+  return map(value, path, ["mode"]) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => uint(value, path, 0xff)))
+}
+
+/** The first problem with `value` as a set-mode-ask, or null. */
+export const validateSetModeAsk = (value: unknown) => run(validateSetModeAskInto, value)
+
 export type MessagesParams = { "replay"?: number }
 
 function validateMessagesParamsInto(value: any, path: string): boolean {
@@ -603,10 +621,10 @@ function validateTelemetryParamsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a telemetry-params, or null. */
 export const validateTelemetryParams = (value: unknown) => run(validateTelemetryParamsInto, value)
 
-export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "home"?: HomeGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup, "servo"?: ServoGroup, "rc"?: RcGroup }
+export type Telemetry = { "armed": boolean, "mode": string, "batteryVoltage"?: number, "batteryRemaining"?: number, "roll"?: number, "pitch"?: number, "yaw"?: number, "heartbeatAgeMs": number, "position"?: PositionGroup, "home"?: HomeGroup, "prearm"?: PrearmGroup, "gps"?: GpsGroup, "speed"?: SpeedGroup, "nav"?: NavGroup, "wind"?: WindGroup, "ekf"?: EkfGroup, "vibration"?: VibrationGroup, "battery"?: BatteryGroup, "attitude"?: AttitudeGroup, "servo"?: ServoGroup, "rc"?: RcGroup }
 
 function validateTelemetryInto(value: any, path: string): boolean {
-  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs","position","home","gps","speed","nav","wind","ekf","vibration","battery","attitude","servo","rc"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["position"] === undefined || nested(value["position"], `${path}.position`, (value, path) => validatePositionGroupInto(value, path))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validateHomeGroupInto(value, path))) && (value["gps"] === undefined || nested(value["gps"], `${path}.gps`, (value, path) => validateGpsGroupInto(value, path))) && (value["speed"] === undefined || nested(value["speed"], `${path}.speed`, (value, path) => validateSpeedGroupInto(value, path))) && (value["nav"] === undefined || nested(value["nav"], `${path}.nav`, (value, path) => validateNavGroupInto(value, path))) && (value["wind"] === undefined || nested(value["wind"], `${path}.wind`, (value, path) => validateWindGroupInto(value, path))) && (value["ekf"] === undefined || nested(value["ekf"], `${path}.ekf`, (value, path) => validateEkfGroupInto(value, path))) && (value["vibration"] === undefined || nested(value["vibration"], `${path}.vibration`, (value, path) => validateVibrationGroupInto(value, path))) && (value["battery"] === undefined || nested(value["battery"], `${path}.battery`, (value, path) => validateBatteryGroupInto(value, path))) && (value["attitude"] === undefined || nested(value["attitude"], `${path}.attitude`, (value, path) => validateAttitudeGroupInto(value, path))) && (value["servo"] === undefined || nested(value["servo"], `${path}.servo`, (value, path) => validateServoGroupInto(value, path))) && (value["rc"] === undefined || nested(value["rc"], `${path}.rc`, (value, path) => validateRcGroupInto(value, path)))
+  return map(value, path, ["armed","mode","batteryVoltage","batteryRemaining","roll","pitch","yaw","heartbeatAgeMs","position","home","prearm","gps","speed","nav","wind","ekf","vibration","battery","attitude","servo","rc"]) && (value["armed"] === undefined ? fail(`${path}.armed`, 'present') : nested(value["armed"], `${path}.armed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["mode"] === undefined ? fail(`${path}.mode`, 'present') : nested(value["mode"], `${path}.mode`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["batteryVoltage"] === undefined || nested(value["batteryVoltage"], `${path}.batteryVoltage`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["batteryRemaining"] === undefined || nested(value["batteryRemaining"], `${path}.batteryRemaining`, (value, path) => uint(value, path, 0xff))) && (value["roll"] === undefined || nested(value["roll"], `${path}.roll`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["pitch"] === undefined || nested(value["pitch"], `${path}.pitch`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["yaw"] === undefined || nested(value["yaw"], `${path}.yaw`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["heartbeatAgeMs"] === undefined ? fail(`${path}.heartbeatAgeMs`, 'present') : nested(value["heartbeatAgeMs"], `${path}.heartbeatAgeMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["position"] === undefined || nested(value["position"], `${path}.position`, (value, path) => validatePositionGroupInto(value, path))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validateHomeGroupInto(value, path))) && (value["prearm"] === undefined || nested(value["prearm"], `${path}.prearm`, (value, path) => validatePrearmGroupInto(value, path))) && (value["gps"] === undefined || nested(value["gps"], `${path}.gps`, (value, path) => validateGpsGroupInto(value, path))) && (value["speed"] === undefined || nested(value["speed"], `${path}.speed`, (value, path) => validateSpeedGroupInto(value, path))) && (value["nav"] === undefined || nested(value["nav"], `${path}.nav`, (value, path) => validateNavGroupInto(value, path))) && (value["wind"] === undefined || nested(value["wind"], `${path}.wind`, (value, path) => validateWindGroupInto(value, path))) && (value["ekf"] === undefined || nested(value["ekf"], `${path}.ekf`, (value, path) => validateEkfGroupInto(value, path))) && (value["vibration"] === undefined || nested(value["vibration"], `${path}.vibration`, (value, path) => validateVibrationGroupInto(value, path))) && (value["battery"] === undefined || nested(value["battery"], `${path}.battery`, (value, path) => validateBatteryGroupInto(value, path))) && (value["attitude"] === undefined || nested(value["attitude"], `${path}.attitude`, (value, path) => validateAttitudeGroupInto(value, path))) && (value["servo"] === undefined || nested(value["servo"], `${path}.servo`, (value, path) => validateServoGroupInto(value, path))) && (value["rc"] === undefined || nested(value["rc"], `${path}.rc`, (value, path) => validateRcGroupInto(value, path)))
 }
 
 /** The first problem with `value` as a telemetry, or null. */
@@ -629,6 +647,15 @@ function validateHomeGroupInto(value: any, path: string): boolean {
 
 /** The first problem with `value` as a home-group, or null. */
 export const validateHomeGroup = (value: unknown) => run(validateHomeGroupInto, value)
+
+export type PrearmGroup = { "enabled": boolean, "passing": boolean, "ageMs": number }
+
+function validatePrearmGroupInto(value: any, path: string): boolean {
+  return map(value, path, ["enabled","passing","ageMs"]) && (value["enabled"] === undefined ? fail(`${path}.enabled`, 'present') : nested(value["enabled"], `${path}.enabled`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["passing"] === undefined ? fail(`${path}.passing`, 'present') : nested(value["passing"], `${path}.passing`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["ageMs"] === undefined ? fail(`${path}.ageMs`, 'present') : nested(value["ageMs"], `${path}.ageMs`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a prearm-group, or null. */
+export const validatePrearmGroup = (value: unknown) => run(validatePrearmGroupInto, value)
 
 export type GpsGroup = { "fixType": number, "satellites"?: number, "hdop"?: number, "vdop"?: number, "ageMs": number }
 
@@ -1073,6 +1100,11 @@ export interface Services {
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
+  "vehicle.arm": { kind: 'method', request: null, response: ArmingResult }
+  "vehicle.disarm": { kind: 'method', request: null, response: ArmingResult }
+  "vehicle.emergencyStop": { kind: 'method', request: null, response: ArmingResult }
+  "vehicle.setMode": { kind: 'method', request: SetModeAsk, response: ArmingResult }
+  "vehicle.prearm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.info": { kind: 'method', request: null, response: VehicleDetails }
   "vehicle.modes": { kind: 'method', request: null, response: VehicleModes }
   "calibration.start": { kind: 'method', request: CalibrationStart, response: CalibrationState }
@@ -1208,6 +1240,26 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "vehicle.reboot": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateRebootResultInto(value, path),
+  },
+  "vehicle.arm": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.disarm": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.emergencyStop": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.setMode": {
+    request: (value: any, path: string) => validateSetModeAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.prearm": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
   },
   "vehicle.info": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
