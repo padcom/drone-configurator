@@ -112,12 +112,19 @@ function toHundreds(value: number): number {
 /**
  * The range ArduPilot documents (`@Range`, in the 4.7.2 tree and in master) for the parameters whose suggestion may fall outside:
  * the acceleration limits in deg/s/s (a formula of the size that gives 1808 at 4 inch and 2210 at 1 inch for ATC_ACC_P_MAX), and
- * the voltages of the motors' battery (a single cell gives 4.2 and 3.3 V).
+ * the voltages of the motors' battery (a single cell gives 4.2 and 3.3 V), and the gyro filter of the smallest sizes.
  */
 const RANGES: Record<string, readonly [number, number]> = {
   ATC_ACC_P_MAX: [0, 1800],
   ATC_ACC_R_MAX: [0, 1800],
   ATC_ACC_Y_MAX: [0, 720],
+  // The older names, in centi-degrees/s/s: their range is INFERRED (the source has none for them): ArduPilot converts them to
+  // ATC_ACC_*_MAX by a scale of 0.01 (AC_AttitudeControl.cpp `convert_old_parameters_scaled`), so it is the new one x100.
+  ATC_ACCEL_P_MAX: [0, 180_000],
+  ATC_ACCEL_R_MAX: [0, 180_000],
+  ATC_ACCEL_Y_MAX: [0, 72_000],
+  // libraries/AP_InertialSensor/AP_InertialSensor.cpp: `@Range: 0 256` (the formula gives 289 at 1 inch).
+  INS_GYRO_FILTER: [0, 256],
   MOT_BAT_VOLT_MAX: [6, 53],
   MOT_BAT_VOLT_MIN: [6, 42],
 }

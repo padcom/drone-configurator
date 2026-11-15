@@ -128,13 +128,36 @@ describe('a value outside the range ArduPilot documents', () => {
   }
 
   it('is not offered: the accelerations of a 4 inch propeller (1808 deg/s/s, range 0 to 1800) and smaller', () => {
-    expect(outside(4, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
-    expect(outside(3, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
-    expect(outside(1, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
-    // (the same values in centi-degrees are not judged: that parameter's range is not in the source this follows)
-    expect(valuesOf(4, 4).ATC_ACCEL_P_MAX).toBe(180_800)
+    const acc = ['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX', 'ATC_ACCEL_P_MAX', 'ATC_ACCEL_R_MAX']
+
+    expect(outside(4, 4)).toEqual(acc)
+    expect(outside(3, 4)).toEqual(acc)
+    expect(outside(1, 4).filter(id => id.includes('ACC'))).toEqual(acc)
+    // (the same values in centi-degrees, by the range of the old names: the new one x100)
+    expect(valuesOf(4, 4).ATC_ACCEL_P_MAX).toBeNull()
     expect(valuesOf(4, 4).ATC_ACC_P_MAX).toBeNull()
+    expect(valuesOf(5, 4).ATC_ACCEL_P_MAX).toBe(168_600)
+    expect(valuesOf(1, 4).ATC_ACCEL_P_MAX).toBeNull()
   })
+
+  it('is not offered: the gyro filter of a propeller of about 1 inch (289 Hz, range 0 to 256)', () => {
+    expect(outside(1, 4)).toContain('INS_GYRO_FILTER')
+    expect(outside(2, 4)).not.toContain('INS_GYRO_FILTER')
+    expect(valuesOf(2, 4).INS_GYRO_FILTER).toBe(162)
+  })
+})
+
+describe('a value outside the range of a battery, and the ones inside', () => {
+  /**
+   * The suggestions that have no value because of the range.
+   *
+   * @param size the size
+   * @param cells the cells
+   * @returns their names
+   */
+  function outside(size: number, cells: number): string[] {
+    return initialTune({ size, cells, chemistry: LIPO }).filter(item => item.why === 'range').map(item => item.id)
+  }
 
   it('is not offered: the voltages of a single cell (4.2 and 3.3 V, ranges from 6 V)', () => {
     expect(outside(10, 1)).toEqual(['MOT_BAT_VOLT_MAX', 'MOT_BAT_VOLT_MIN'])

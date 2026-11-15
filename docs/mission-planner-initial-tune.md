@@ -83,7 +83,9 @@ Not read from the source: computed by hand from it; the PR's tests assert these.
 - A value outside the range ArduPilot documents (`@Range`, libraries/AC_AttitudeControl/AC_AttitudeControl.cpp and
   libraries/AP_Motors/AP_MotorsMulticopter.cpp, 4.7.2 and master) is **not offered**, and the page says so: `ATC_ACC_P_MAX` and
   `ATC_ACC_R_MAX` above 1800 (the polynomial gives 1808 at 4 inch, 1935 at 3 inch, 2210 at 1 inch), `ATC_ACC_Y_MAX` above 720,
-  `MOT_BAT_VOLT_MAX` outside 6 to 53 V and `MOT_BAT_VOLT_MIN` outside 6 to 42 V (one cell gives 4.2 V and 3.3 V). The older
-  `ATC_ACCEL_*_MAX` (centi-degrees) are not judged: their range is not in that source.
+  `MOT_BAT_VOLT_MAX` outside 6 to 53 V and `MOT_BAT_VOLT_MIN` outside 6 to 42 V (one cell gives 4.2 V and 3.3 V), and
+  `INS_GYRO_FILTER` above 256 (libraries/AP_InertialSensor/AP_InertialSensor.cpp: 289 Hz at 1 inch). The older `ATC_ACCEL_*_MAX`
+  (centi-degrees) have no range in that source: theirs is INFERRED as the new one x100 (0 to 180000, yaw 72000), because ArduPilot
+  converts them to `ATC_ACC_*_MAX` with a scale of 0.01 (AC_AttitudeControl.cpp, `convert_old_parameters_scaled`).
 - Suggestions only for parameters the vehicle has; nothing is written without the staged review.
 - Not taken: the T-Motor box (`MOT_THST_EXPO` 0.2, `MOT_PWM_MIN/MAX`, CIP:150, 211-216), the "Suggested" box (CIP:218-228), the ArduPlane `Q_` names and the 3.x `*_FILT` names.
