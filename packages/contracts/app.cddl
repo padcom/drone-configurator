@@ -722,6 +722,7 @@ telemetry = {
   ? yaw: float,
   heartbeatAgeMs: uint .size 4,
   ? position: position-group,
+  ? home: home-group,
   ? gps: gps-group,
   ? speed: speed-group,
   ? nav: nav-group,
@@ -746,6 +747,16 @@ position-group = {
   vy: float,
   vz: float,
   ? heading: float,
+  ageMs: uint .size 4,
+}
+
+; HOME_POSITION: where the vehicle returns to (RTL) and where its relative altitude is zero: latitude and longitude in degrees,
+; `altitude` above mean sea level in metres. A HOME_POSITION with latitude and longitude both 0 makes no group (no home is set yet).
+; The vehicle sends it only when asked: the backend asks for it on connect, and it is sent again when the home changes.
+home-group = {
+  lat: float,
+  lon: float,
+  altitude: float,
   ageMs: uint .size 4,
 }
 

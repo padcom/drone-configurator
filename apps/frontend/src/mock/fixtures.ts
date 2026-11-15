@@ -183,7 +183,7 @@ export const COPTER_MODES = [
 function groupsAt(
   n: number,
   flat: { batteryVoltage: number, batteryRemaining: number, roll: number, pitch: number, yaw: number },
-): Pick<Telemetry, 'position' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc' | 'servo'> {
+): Pick<Telemetry, 'position' | 'home' | 'gps' | 'speed' | 'battery' | 'attitude' | 'rc' | 'servo'> {
   const ageMs = 200
 
   return {
@@ -201,8 +201,10 @@ function groupsAt(
       vx: 1,
       vy: 0,
       vz: 0,
+      heading: flat.yaw,
       ageMs,
     },
+    home: { lat: 47.397742, lon: 8.545594, altitude: 488, ageMs },
     gps: { fixType: 3, satellites: 12, hdop: 0.9, ageMs },
     speed: { airspeed: 1.2, groundspeed: 1, climb: 0, throttle: 40, heading: flat.yaw, ageMs },
   }

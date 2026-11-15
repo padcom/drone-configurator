@@ -2,6 +2,7 @@
 // words are the interface's (a message of the dictionary); the reasons the backend gives are English, for people, and are shown
 // as they are only where a message has a place for them.
 import type { MapSources, MapStatus } from '@/generated/app'
+import type { VehicleMark } from './track'
 
 /** The credit the built-in source must carry (the tile usage policy of OpenStreetMap), until the backend has said its own. */
 export const OSM_CREDIT = { text: '© OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' }
@@ -129,4 +130,34 @@ function failureLine(state: ChipState, say: Say): string {
  */
 export function chipOf(state: ChipState, say: Say): string {
   return switchLine(state, say) || failureLine(state, say) || (state.offline ? say('map.chip.offline') : '')
+}
+
+/**
+ * How long ago the vehicle was heard, in words.
+ *
+ * @param mark the vehicle on the map
+ * @param say looks up a message
+ * @returns for example "last heard 5 s ago"
+ */
+export function lastHeardText(mark: VehicleMark, say: Say): string {
+  return say('map.vehicle.lastHeard', { seconds: Math.round(mark.ageMs / 1000) })
+}
+
+/**
+ * What a marker of the vehicle says to a screen reader: where it is, the way it heads and how high it is above home (each only
+ * when the vehicle said it), and (when its position is old) how long ago it was heard.
+ *
+ * @param mark the vehicle on the map
+ * @param say looks up a message
+ * @returns the words
+ */
+export function vehicleLabel(mark: VehicleMark, say: Say): string {
+  const parts = [
+    say('map.vehicle.at', { lat: mark.lat.toFixed(5), lon: mark.lon.toFixed(5) }),
+    mark.heading === undefined ? '' : say('map.vehicle.heading', { heading: Math.round(mark.heading) }),
+    mark.height === undefined ? '' : say('map.vehicle.above', { height: Math.round(mark.height) }),
+  ]
+  const where = parts.filter(Boolean).join(', ')
+
+  return mark.stale ? `${where} ${lastHeardText(mark, say)}` : where
 }

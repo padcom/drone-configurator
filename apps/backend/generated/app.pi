@@ -3021,6 +3021,7 @@ export struct Telemetry {
   yaw?: f64
   heartbeatAgeMs: u32
   position?: PositionGroup
+  home?: HomeGroup
   gps?: GpsGroup
   speed?: SpeedGroup
   nav?: NavGroup
@@ -3034,7 +3035,7 @@ export struct Telemetry {
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
+  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "home", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
   const cbor2 = m.get("batteryVoltage")
   let opt2: f64? = null
   if (cbor2 != null) {
@@ -3065,55 +3066,60 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor8 != null) {
     opt8 = decodePositionGroup(cbor8, `${path}.position`)
   }
-  const cbor9 = m.get("gps")
-  let opt9: GpsGroup? = null
+  const cbor9 = m.get("home")
+  let opt9: HomeGroup? = null
   if (cbor9 != null) {
-    opt9 = decodeGpsGroup(cbor9, `${path}.gps`)
+    opt9 = decodeHomeGroup(cbor9, `${path}.home`)
   }
-  const cbor10 = m.get("speed")
-  let opt10: SpeedGroup? = null
+  const cbor10 = m.get("gps")
+  let opt10: GpsGroup? = null
   if (cbor10 != null) {
-    opt10 = decodeSpeedGroup(cbor10, `${path}.speed`)
+    opt10 = decodeGpsGroup(cbor10, `${path}.gps`)
   }
-  const cbor11 = m.get("nav")
-  let opt11: NavGroup? = null
+  const cbor11 = m.get("speed")
+  let opt11: SpeedGroup? = null
   if (cbor11 != null) {
-    opt11 = decodeNavGroup(cbor11, `${path}.nav`)
+    opt11 = decodeSpeedGroup(cbor11, `${path}.speed`)
   }
-  const cbor12 = m.get("wind")
-  let opt12: WindGroup? = null
+  const cbor12 = m.get("nav")
+  let opt12: NavGroup? = null
   if (cbor12 != null) {
-    opt12 = decodeWindGroup(cbor12, `${path}.wind`)
+    opt12 = decodeNavGroup(cbor12, `${path}.nav`)
   }
-  const cbor13 = m.get("ekf")
-  let opt13: EkfGroup? = null
+  const cbor13 = m.get("wind")
+  let opt13: WindGroup? = null
   if (cbor13 != null) {
-    opt13 = decodeEkfGroup(cbor13, `${path}.ekf`)
+    opt13 = decodeWindGroup(cbor13, `${path}.wind`)
   }
-  const cbor14 = m.get("vibration")
-  let opt14: VibrationGroup? = null
+  const cbor14 = m.get("ekf")
+  let opt14: EkfGroup? = null
   if (cbor14 != null) {
-    opt14 = decodeVibrationGroup(cbor14, `${path}.vibration`)
+    opt14 = decodeEkfGroup(cbor14, `${path}.ekf`)
   }
-  const cbor15 = m.get("battery")
-  let opt15: BatteryGroup? = null
+  const cbor15 = m.get("vibration")
+  let opt15: VibrationGroup? = null
   if (cbor15 != null) {
-    opt15 = decodeBatteryGroup(cbor15, `${path}.battery`)
+    opt15 = decodeVibrationGroup(cbor15, `${path}.vibration`)
   }
-  const cbor16 = m.get("attitude")
-  let opt16: AttitudeGroup? = null
+  const cbor16 = m.get("battery")
+  let opt16: BatteryGroup? = null
   if (cbor16 != null) {
-    opt16 = decodeAttitudeGroup(cbor16, `${path}.attitude`)
+    opt16 = decodeBatteryGroup(cbor16, `${path}.battery`)
   }
-  const cbor17 = m.get("servo")
-  let opt17: ServoGroup? = null
+  const cbor17 = m.get("attitude")
+  let opt17: AttitudeGroup? = null
   if (cbor17 != null) {
-    opt17 = decodeServoGroup(cbor17, `${path}.servo`)
+    opt17 = decodeAttitudeGroup(cbor17, `${path}.attitude`)
   }
-  const cbor18 = m.get("rc")
-  let opt18: RcGroup? = null
+  const cbor18 = m.get("servo")
+  let opt18: ServoGroup? = null
   if (cbor18 != null) {
-    opt18 = decodeRcGroup(cbor18, `${path}.rc`)
+    opt18 = decodeServoGroup(cbor18, `${path}.servo`)
+  }
+  const cbor19 = m.get("rc")
+  let opt19: RcGroup? = null
+  if (cbor19 != null) {
+    opt19 = decodeRcGroup(cbor19, `${path}.rc`)
   }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
@@ -3125,16 +3131,17 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
     yaw: opt6,
     heartbeatAgeMs: (uint(required(m, "heartbeatAgeMs", path), `${path}.heartbeatAgeMs`, 4294967295) as u32),
     position: opt8,
-    gps: opt9,
-    speed: opt10,
-    nav: opt11,
-    wind: opt12,
-    ekf: opt13,
-    vibration: opt14,
-    battery: opt15,
-    attitude: opt16,
-    servo: opt17,
-    rc: opt18,
+    home: opt9,
+    gps: opt10,
+    speed: opt11,
+    nav: opt12,
+    wind: opt13,
+    ekf: opt14,
+    vibration: opt15,
+    battery: opt16,
+    attitude: opt17,
+    servo: opt18,
+    rc: opt19,
   }
 }
 
@@ -3167,45 +3174,49 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   if (opt8 != null) {
     m.set("position", encodePositionGroup(opt8))
   }
-  const opt9 = v.gps
+  const opt9 = v.home
   if (opt9 != null) {
-    m.set("gps", encodeGpsGroup(opt9))
+    m.set("home", encodeHomeGroup(opt9))
   }
-  const opt10 = v.speed
+  const opt10 = v.gps
   if (opt10 != null) {
-    m.set("speed", encodeSpeedGroup(opt10))
+    m.set("gps", encodeGpsGroup(opt10))
   }
-  const opt11 = v.nav
+  const opt11 = v.speed
   if (opt11 != null) {
-    m.set("nav", encodeNavGroup(opt11))
+    m.set("speed", encodeSpeedGroup(opt11))
   }
-  const opt12 = v.wind
+  const opt12 = v.nav
   if (opt12 != null) {
-    m.set("wind", encodeWindGroup(opt12))
+    m.set("nav", encodeNavGroup(opt12))
   }
-  const opt13 = v.ekf
+  const opt13 = v.wind
   if (opt13 != null) {
-    m.set("ekf", encodeEkfGroup(opt13))
+    m.set("wind", encodeWindGroup(opt13))
   }
-  const opt14 = v.vibration
+  const opt14 = v.ekf
   if (opt14 != null) {
-    m.set("vibration", encodeVibrationGroup(opt14))
+    m.set("ekf", encodeEkfGroup(opt14))
   }
-  const opt15 = v.battery
+  const opt15 = v.vibration
   if (opt15 != null) {
-    m.set("battery", encodeBatteryGroup(opt15))
+    m.set("vibration", encodeVibrationGroup(opt15))
   }
-  const opt16 = v.attitude
+  const opt16 = v.battery
   if (opt16 != null) {
-    m.set("attitude", encodeAttitudeGroup(opt16))
+    m.set("battery", encodeBatteryGroup(opt16))
   }
-  const opt17 = v.servo
+  const opt17 = v.attitude
   if (opt17 != null) {
-    m.set("servo", encodeServoGroup(opt17))
+    m.set("attitude", encodeAttitudeGroup(opt17))
   }
-  const opt18 = v.rc
+  const opt18 = v.servo
   if (opt18 != null) {
-    m.set("rc", encodeRcGroup(opt18))
+    m.set("servo", encodeServoGroup(opt18))
+  }
+  const opt19 = v.rc
+  if (opt19 != null) {
+    m.set("rc", encodeRcGroup(opt19))
   }
   Cbor.Dict(m)
 }
@@ -3255,6 +3266,32 @@ export function encodePositionGroup(v: PositionGroup): Cbor {
   if (opt7 != null) {
     m.set("heading", Cbor.Float(opt7))
   }
+  m.set("ageMs", Cbor.Uint(v.ageMs as u64))
+  Cbor.Dict(m)
+}
+
+export struct HomeGroup {
+  lat: f64
+  lon: f64
+  altitude: f64
+  ageMs: u32
+}
+
+export function decodeHomeGroup(v: Cbor, path: string): HomeGroup throws InvalidPayload {
+  const m = members(v, path, ["lat", "lon", "altitude", "ageMs"])
+  HomeGroup {
+    lat: float(required(m, "lat", path), `${path}.lat`),
+    lon: float(required(m, "lon", path), `${path}.lon`),
+    altitude: float(required(m, "altitude", path), `${path}.altitude`),
+    ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
+  }
+}
+
+export function encodeHomeGroup(v: HomeGroup): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("lat", Cbor.Float(v.lat))
+  m.set("lon", Cbor.Float(v.lon))
+  m.set("altitude", Cbor.Float(v.altitude))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
   Cbor.Dict(m)
 }

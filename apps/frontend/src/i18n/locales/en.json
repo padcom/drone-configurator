@@ -557,6 +557,18 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "help": "Drag to move the map. The arrow keys move it, the plus and minus keys or the wheel zoom it.",
+    "vehicle": {
+      "group": "Vehicle on the map",
+      "follow": "Follow the vehicle",
+      "centre": "Centre on the vehicle",
+      "at": "Vehicle at {lat}, {lon}",
+      "heading": "heading {heading} degrees",
+      "above": "{height} m above home",
+      "lastHeard": "last heard {seconds} s ago"
+    },
+    "home": {
+      "label": "Home at {lat}, {lon}"
+    },
     "chip": {
       "disabled": "Map tiles are switched off in Settings.",
       "backingOff": "Map tiles are paused after trouble with the tile server: {reason}",

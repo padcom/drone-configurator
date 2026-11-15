@@ -2,7 +2,11 @@
   <div class="fly" data-l="fly">
     <section class="fly-main" :aria-label="t('flight.map.title')">
       <div class="fly-map">
-        <FlightMap />
+        <FlightMap :source="source">
+          <template #default="{ place, size }">
+            <MapOverlay :source="source" :place="place" :size="size" />
+          </template>
+        </FlightMap>
         <FailsafeBanner />
       </div>
     </section>
@@ -17,11 +21,16 @@ import { useI18n } from 'vue-i18n'
 import FailsafeBanner from '@/components/fly/FailsafeBanner.vue'
 import FlyAside from '@/components/fly/FlyAside.vue'
 import FlightMap from '@/components/map/FlightMap.vue'
+import MapOverlay from '@/components/map/MapOverlay.vue'
+import { useLiveMapSource } from '@/composables/useLiveMapSource'
 
 // The screen the user lives in, in fixed regions (the design's Fly): at the left the map (tiles, pan and zoom, the credit of the
-// source; the vehicle, its trail and home come with the next part; the view tabs above it and the control strip below it are
-// drawn when there is more than one view and the commands exist), and the aside at the right, which scrolls on its own, with
+// source, the vehicle with its path and home over it; the view tabs above it and the control strip below it are drawn
+// when there is more than one view and the commands exist), and the aside at the right, which scrolls on its own, with
 // the heads-up display and the telemetry cards. F6 moves the focus between the rail, the screen and the aside (paneFocus.ts,
 // started by the shell). Nothing here scrolls but the aside: the map is a fixed area that is panned.
 const { t } = useI18n()
+// What the map draws over its tiles: the connected vehicle, its path and home (the screen is kept alive, so the path goes
+// on while another screen is shown).
+const source = useLiveMapSource()
 </script>

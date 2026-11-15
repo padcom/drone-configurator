@@ -557,6 +557,18 @@
     "zoomIn": "Przybliż",
     "zoomOut": "Oddal",
     "help": "Przeciągnij, aby przesunąć mapę. Strzałki ją przesuwają, klawisze plus i minus lub kółko zmieniają powiększenie.",
+    "vehicle": {
+      "group": "Pojazd na mapie",
+      "follow": "Podążaj za pojazdem",
+      "centre": "Wyśrodkuj na pojeździe",
+      "at": "Pojazd w {lat}, {lon}",
+      "heading": "kurs {heading} stopni",
+      "above": "{height} m nad punktem startu",
+      "lastHeard": "ostatnio słyszany {seconds} s temu"
+    },
+    "home": {
+      "label": "Punkt startu w {lat}, {lon}"
+    },
     "chip": {
       "disabled": "Kafelki mapy są wyłączone w Ustawieniach.",
       "backingOff": "Kafelki mapy są wstrzymane po kłopotach z serwerem kafelków: {reason}",
