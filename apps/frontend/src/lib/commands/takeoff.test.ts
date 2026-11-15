@@ -8,7 +8,7 @@ import { setLanguage } from '@/i18n/i18n'
 import { fakeContext } from '@/testing/commandContext'
 import { ready } from '@/testing/takeoff'
 import { TakeOff } from './takeoff'
-import { takeOff } from './takeoffFlow'
+import { type ArmOutcome, takeOff } from './takeoffFlow'
 
 afterEach(() => {
   setLanguage('en')
@@ -53,18 +53,26 @@ describe('when a takeoff may run', () => {
  *
  * @param fake the context
  * @param armed what the vehicle says after the arm: true arms it, false does nothing
+ * @param outcome what the arm command came to (it was accepted, unless a test says another)
+ * @param meanwhile something that happens while the arm is asked for (another party arms the vehicle)
  * @returns how many times the arm was asked for
  */
-async function fly(fake: ReturnType<typeof fakeContext>, armed: boolean): Promise<number> {
+async function fly(
+  fake: ReturnType<typeof fakeContext>,
+  armed: boolean,
+  outcome: ArmOutcome = 'accepted',
+  meanwhile?: () => void,
+): Promise<number> {
   let asked = 0
   await takeOff(fake.ctx, 12, () => {
     asked += 1
+    meanwhile?.()
 
     if (armed) {
       fake.facts.telemetry = ready({ armed: true })
     }
 
-    return Promise.resolve()
+    return Promise.resolve(outcome)
   }, WAITS)
 
   return asked
@@ -146,6 +154,42 @@ describe('what the Take off button does: it stops when the arm does not come', (
   })
 })
 
+describe('what the Take off button does: an arm that was not made', () => {
+  it.each(['cancelled', 'refused', 'unsupported', 'not-sent'] as const)(
+    'stops at once, sending no takeoff, when the arm is %s: even if the vehicle is armed by someone else soon after',
+    async outcome => {
+      const fake = fakeContext({ armed: false, mode: 'GUIDED', telemetry: ready() })
+      const started = Date.now()
+      // (a radio switch, another ground station: the heartbeat says armed during the time the flow would have waited)
+      setTimeout(() => {
+        fake.facts.telemetry = ready({ armed: true })
+      }, 5)
+
+      expect(await fly(fake, false, outcome)).toBe(1)
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, 30)
+      })
+
+      expect(fake.calls.sent).toEqual([])
+      expect(fake.calls.toast[0]?.text).toContain('arm was not confirmed')
+      // (it did not wait for the heartbeat)
+      expect(Date.now() - started).toBeLessThan(WAITS.armMs)
+    },
+  )
+})
+
+describe('what the Take off button does: an arm that was made', () => {
+  it('goes on to wait for the heartbeat after an arm that was accepted, and after one that nothing answered', async () => {
+    const accepted = fakeContext({ armed: false, mode: 'GUIDED', telemetry: ready() })
+    const silent = fakeContext({ armed: false, mode: 'GUIDED', telemetry: ready() })
+    await fly(accepted, true, 'accepted')
+    await fly(silent, true, 'no-answer')
+
+    expect(accepted.calls.sent).toEqual(['takeoff 12'])
+    expect(silent.calls.sent).toEqual(['takeoff 12'])
+  })
+})
+
 describe('what the Take off button does: it stops when GUIDED does not come', () => {
   it('stops, sending no takeoff, when the mode change is refused or the heartbeat never says GUIDED', async () => {
     const refused = flying({ mode: 'LOITER', armingResult: { result: 'refused', messages: [] } })
@@ -188,5 +232,20 @@ describe('what the Take off button tells of the takeoff', () => {
 
     expect(fake.calls.sent).toEqual(['takeoff 12'])
     expect(fake.calls.toast[0]?.text).toContain('The command is not sent again')
+  })
+})
+
+describe('what the Take off button says of a vehicle that stays armed', () => {
+  it('says the vehicle is still armed, and where to disarm it, when the takeoff was refused or unanswered', async () => {
+    const refused = flying({ armingResult: { result: 'refused', messages: [] } })
+    await fly(refused, false)
+    const backend = flying({ armingError: new BackendError('BUSY', 'x') })
+    await fly(backend, false)
+    const taken = flying()
+    await fly(taken, false)
+
+    expect(refused.calls.toast.some(toast => toast.text.includes('STATE in the top bar'))).toBe(true)
+    expect(backend.calls.toast.some(toast => toast.text.includes('STATE in the top bar'))).toBe(true)
+    expect(taken.calls.toast.some(toast => toast.text.includes('STATE in the top bar'))).toBe(false)
   })
 })

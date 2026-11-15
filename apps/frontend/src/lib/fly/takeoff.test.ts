@@ -13,11 +13,17 @@ describe('the fence that limits a takeoff', () => {
     expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 7, FENCE_ALT_MAX: 80 }))).toBe(80)
   })
 
-  it('is none when the fence is off, has no altitude limit, or the vehicle does not say', () => {
+  it('is UNKNOWN, never "no fence", when the parameters that say what it is are not there', () => {
+    expect(fenceCeilingOf(values({}))).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }))).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1 }))).toBe('unknown')
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1 }))).toBe('unknown')
+  })
+
+  it('is none when the fence is off, or has no altitude limit', () => {
     expect(fenceCeilingOf(values({ FENCE_ENABLE: 0, FENCE_TYPE: 1, FENCE_ALT_MAX: 30 }))).toBeNull()
     expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6, FENCE_ALT_MAX: 30 }))).toBeNull()
-    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 1 }))).toBeNull()
-    expect(fenceCeilingOf(values({}))).toBeNull()
+    expect(fenceCeilingOf(values({ FENCE_ENABLE: 1, FENCE_TYPE: 6 }))).toBeNull()
   })
 })
 
@@ -83,5 +89,16 @@ describe('whether the vehicle is ready to take off', () => {
   it('is not ready without a position, or in the air', () => {
     expect(notReady(ready({ position: undefined }))).toBe('position')
     expect(notReady(ready({ position: { ...ready().position!, relativeAltitude: 3 } }))).toBe('air')
+  })
+})
+
+describe('a group of the telemetry that has gone quiet', () => {
+  it('is not reported: an old fix, EKF or position is not ready', () => {
+    const old = { ageMs: 10_000 }
+
+    expect(notReady(ready())).toBeNull()
+    expect(notReady(ready({ gps: { fixType: 3, satellites: 12, ...old } }))).toBe('gps')
+    expect(notReady(ready({ ekf: { ...ekfWith(EKF_GOOD), ...old } }))).toBe('ekf')
+    expect(notReady(ready({ position: { ...ready().position!, ...old } }))).toBe('position')
   })
 })

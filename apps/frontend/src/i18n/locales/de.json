@@ -748,14 +748,17 @@
     "problem": {
       "invalid": "Geben Sie eine Zahl in Metern ein, zum Beispiel 10.",
       "low": "Mindestens {min} m.",
-      "high": "Höchstens {max} m."
+      "high": "Höchstens {max} m.",
+      "fenceUnknown": "Der Zaun des Fahrzeugs ist nicht bekannt (seine Parameter sind noch nicht da): auf die Parameter warten und dann erneut versuchen."
     },
     "step": {
       "noGuided": "Dieses Fahrzeug hat keinen Modus GUIDED: kein Abheben.",
       "notGuided": "Das Fahrzeug hat nicht gemeldet, dass es in GUIDED ist. Es wurde kein Abheben verlangt.",
       "stateUnknown": "Der Zustand des Fahrzeugs ist nicht bekannt. Es wurde kein Abheben verlangt.",
       "review": "Die Prüfungen des Fahrzeugs bestehen nicht: sehen Sie sie durch, schalten Sie scharf und heben Sie erneut ab.",
-      "notArmed": "Das Fahrzeug hat nicht gemeldet, dass es scharf ist. Es wurde kein Abheben verlangt."
+      "notArmed": "Das Fahrzeug hat nicht gemeldet, dass es scharf ist. Es wurde kein Abheben verlangt.",
+      "noArm": "Start abgebrochen: das Scharfschalten wurde nicht bestätigt oder vom Fahrzeug nicht angenommen. Es wurde kein Start angefordert.",
+      "stillArmed": "Das Fahrzeug ist scharf, im Modus GUIDED, am Boden und ist nicht gestartet. Entschärfen Sie es über STATE in der oberen Leiste, wenn Sie nicht fliegen wollen."
     }
   },
   "review": {

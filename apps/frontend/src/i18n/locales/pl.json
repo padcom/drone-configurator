@@ -748,14 +748,17 @@
     "problem": {
       "invalid": "Wpisz liczbę metrów, na przykład 10.",
       "low": "Co najmniej {min} m.",
-      "high": "Co najwyżej {max} m."
+      "high": "Co najwyżej {max} m.",
+      "fenceUnknown": "Ogrodzenie pojazdu nie jest znane (jego parametrów jeszcze nie ma): poczekaj na parametry i spróbuj ponownie."
     },
     "step": {
       "noGuided": "Ten pojazd nie ma trybu GUIDED: bez startu.",
       "notGuided": "Pojazd nie zgłosił trybu GUIDED. Nie zlecono startu.",
       "stateUnknown": "Stan pojazdu nie jest znany. Nie zlecono startu.",
       "review": "Kontrole pojazdu nie przechodzą: przejrzyj je, uzbrój i wystartuj ponownie.",
-      "notArmed": "Pojazd nie zgłosił, że jest uzbrojony. Nie zlecono startu."
+      "notArmed": "Pojazd nie zgłosił, że jest uzbrojony. Nie zlecono startu.",
+      "noArm": "Start przerwany: uzbrojenie nie zostało potwierdzone albo pojazd go nie przyjął. Nie zlecono startu.",
+      "stillArmed": "Pojazd jest uzbrojony, w trybie GUIDED, na ziemi i nie wystartował. Rozbrój go przez STATE na górnym pasku, jeśli nie zamierzasz latać."
     }
   },
   "review": {

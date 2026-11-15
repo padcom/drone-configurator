@@ -7,7 +7,7 @@
 //  3. NAV_TAKEOFF is sent, once. A takeoff that was refused, or that nothing answered, is told and not sent again.
 // Nothing is retried and nothing waits for ever: ArduPilot disarms a vehicle that does not take off soon after it armed, so the
 // takeoff follows the arm at once. What the vehicle then does is what its position says.
-import type { CommandContext } from './command'
+import type { ArmAnswer, CommandContext } from './command'
 import { armingRefusalKeyOf, tellArming, tellArmingRefusal, tellArmingWith } from './armingReport'
 import { checksOf, needsReview } from '@/lib/fly/prearm'
 
@@ -23,6 +23,9 @@ export interface Waits {
 
 /** What the page uses. */
 export const WAITS: Waits = { pollMs: 100, modeMs: 5000, armMs: 6000 }
+
+/** What the arm came to: the user turned it down (the hold was cancelled), or what it answered. */
+export type ArmOutcome = ArmAnswer | 'cancelled'
 
 /** The name the vehicle kind gives the mode a takeoff is asked in. */
 const GUIDED = 'GUIDED'
@@ -160,15 +163,22 @@ function mayArm(ctx: CommandContext): boolean {
 }
 
 /**
- * Asks for the arm and waits for the heartbeat to say armed.
+ * Asks for the arm and, only when it was sent and not refused, waits for the heartbeat to say armed. An arm that the user turned
+ * down (the hold was cancelled), that the vehicle refused or that the backend would not send ends the flow AT ONCE: whatever arms
+ * the vehicle afterwards (a radio switch, another ground station) is not the answer to this question.
  *
  * @param ctx the context
- * @param armIt runs the arm command (its hold, and the answer it tells)
+ * @param armIt runs the arm command (its hold, and the answer it tells) and says what came of it
  * @param waits the waits
  * @returns whether the vehicle is armed now
  */
-async function armAndWait(ctx: CommandContext, armIt: () => Promise<void>, waits: Waits): Promise<boolean> {
-  await armIt()
+async function armAndWait(ctx: CommandContext, armIt: () => Promise<ArmOutcome>, waits: Waits): Promise<boolean> {
+  const outcome = await armIt()
+  if (outcome !== 'accepted' && outcome !== 'no-answer') {
+    stopped(ctx, 'takeoff.step.noArm')
+
+    return false
+  }
   const there = await until(() => ctx.vehicle.telemetry()?.armed === true, waits.armMs, waits.pollMs)
   if (!there) {
     stopped(ctx, 'takeoff.step.notArmed')
@@ -185,7 +195,7 @@ async function armAndWait(ctx: CommandContext, armIt: () => Promise<void>, waits
  * @param waits the waits
  * @returns whether the vehicle is armed now
  */
-function armed(ctx: CommandContext, armIt: () => Promise<void>, waits: Waits): Promise<boolean> {
+function armed(ctx: CommandContext, armIt: () => Promise<ArmOutcome>, waits: Waits): Promise<boolean> {
   if (ctx.vehicle.telemetry()?.armed === true) {
     return Promise.resolve(true)
   }
@@ -194,16 +204,34 @@ function armed(ctx: CommandContext, armIt: () => Promise<void>, waits: Waits): P
 }
 
 /**
- * Sends the takeoff, once, and tells what came of it.
+ * Tells that the vehicle is still armed, on the ground, when the takeoff did not go: it is for the person to disarm it.
+ *
+ * @param ctx the context
+ */
+function tellStillArmed(ctx: CommandContext): void {
+  if (ctx.vehicle.armed() !== false) {
+    ctx.toast({ id: 'takeoff-armed', severity: 'warning', long: true, text: ctx.say('takeoff.step.stillArmed') })
+  }
+}
+
+/**
+ * Sends the takeoff, once, and tells what came of it. A takeoff that was refused, or that nothing answered, leaves a vehicle that
+ * is armed (in GUIDED, on the ground): that is told too, with the way to disarm it.
  *
  * @param ctx the context
  * @param altitude metres above home
  */
 async function sendTakeoff(ctx: CommandContext, altitude: number): Promise<void> {
   try {
-    tellArmingWith(ctx, 'takeoff', await ctx.vehicle.takeoff(altitude), { altitude })
+    const result = await ctx.vehicle.takeoff(altitude)
+    tellArmingWith(ctx, 'takeoff', result, { altitude })
+
+    if (result.result !== 'accepted') {
+      tellStillArmed(ctx)
+    }
   } catch (error) {
     refused(ctx, 'takeoff', error)
+    tellStillArmed(ctx)
   }
 }
 
@@ -218,7 +246,7 @@ async function sendTakeoff(ctx: CommandContext, altitude: number): Promise<void>
 export async function takeOff(
   ctx: CommandContext,
   altitude: number,
-  armIt: () => Promise<void>,
+  armIt: () => Promise<ArmOutcome>,
   waits: Waits = WAITS,
 ): Promise<void> {
   if (!await guided(ctx, waits)) {

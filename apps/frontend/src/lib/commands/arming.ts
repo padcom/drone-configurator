@@ -8,7 +8,7 @@
 //  - Every answer is TOLD, never assumed: what the vehicle is now is what its next heartbeat says. A command that nothing
 //    answered is not sent again.
 // The backend checks everything again before it sends: this page's view of the vehicle may be late.
-import type { Availability, Command, CommandContext, CommandOutcome, VehicleFacts } from './command'
+import type { ArmAnswer, Availability, Command, CommandContext, CommandOutcome, VehicleFacts } from './command'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type ArmingKind, armingRefusalKeyOf, tellArming, tellArmingRefusal } from './armingReport'
 import { VEHICLE_GROUP } from './vehicle'
@@ -88,8 +88,11 @@ type Sender = () => ReturnType<VehicleFacts['arm']>
  * @returns what a command leaves behind
  */
 async function sendAndTell(ctx: CommandContext, kind: ArmingKind, send: Sender): Promise<CommandOutcome> {
+  let answer: ArmAnswer = 'not-sent'
   try {
-    tellArming(ctx, kind, await send())
+    const result = await send()
+    answer = result.result
+    tellArming(ctx, kind, result)
   } catch (error) {
     const refusedBy = armingRefusalKeyOf(kind, error)
     if (refusedBy === undefined) {
@@ -99,7 +102,7 @@ async function sendAndTell(ctx: CommandContext, kind: ArmingKind, send: Sender):
     tellArmingRefusal(ctx, kind, refusedBy)
   }
 
-  return { focus: 'restore' }
+  return { focus: 'restore', answer }
 }
 
 /** Arms the vehicle: a hold; the vehicle runs its own pre-arm checks. */

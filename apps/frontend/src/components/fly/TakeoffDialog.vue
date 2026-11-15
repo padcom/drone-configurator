@@ -1,6 +1,7 @@
 
 <template>
   <Dialog v-if="takeoff.open.value" :title="t('takeoff.title')" @close="takeoff.hide()">
+    <p id="takeoff-vehicle" class="takeoff-vehicle">{{ vehicleName || t('safety.noVehicle') }}</p>
     <p id="takeoff-what">{{ whatText }}</p>
     <label class="takeoff-field" for="takeoff-altitude">
       <span>{{ t('takeoff.altitude') }}</span>
@@ -15,11 +16,14 @@
       />
     </label>
     <p id="takeoff-limits" class="muted">{{ limitsText }}</p>
+    <p id="takeoff-fence" class="takeoff-problem" role="alert">{{ fenceText }}</p>
     <p id="takeoff-problem" class="takeoff-problem" role="alert">{{ problemText }}</p>
     <template #actions>
       <!-- Cancel has the focus: the safe answer is the one that is given by a key pressed by mistake. -->
       <Button id="takeoff-cancel" data-initial-focus @click="takeoff.hide()">{{ t('confirm.cancel') }}</Button>
-      <Button id="takeoff-go" variant="primary" :disabled="problem !== null" @click="go">{{ t('takeoff.go') }}</Button>
+      <Button id="takeoff-go" variant="primary" :disabled="!mayGo" :data-armed="ready" @click="go">
+        {{ t('takeoff.go') }}
+      </Button>
     </template>
   </Dialog>
 </template>
@@ -29,7 +33,7 @@
 // vehicle's fence when it limits the altitude) and a button that goes ahead. It is a PLAIN button, not a hold (the leader's
 // decision): the hold is asked for by what it starts when the vehicle is disarmed (the arm). What the button does is in
 // lib/commands/takeoffFlow.ts: GUIDED, arm if disarmed, take off; it stops at the first step that does not go.
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
@@ -39,7 +43,10 @@ import { useCommandRunner } from '@/composables/useCommandRunner'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useTakeoff } from '@/composables/useTakeoff'
 import { useTakeoffCeiling } from '@/composables/useTakeoffCeiling'
-import { takeOff } from '@/lib/commands/takeoffFlow'
+import { namedVehicle } from '@/lib/commands/arming'
+import { TakeOff } from '@/lib/commands/takeoff'
+import { type ArmOutcome, takeOff } from '@/lib/commands/takeoffFlow'
+import { IGNORE_MS } from '@/lib/app/safety'
 import { altitudeOf, fenceCeilingOf, limitsOf, problemOf } from '@/lib/fly/takeoff'
 
 const { t } = useI18n()
@@ -60,7 +67,28 @@ function parameter(id: string): number | undefined {
 }
 
 const fence = computed(() => fenceCeilingOf(parameter))
-const limits = computed(() => limitsOf(ceiling.value, fence.value))
+// A fence that cannot be read is not "no fence": the button stays off, and the dialog says why.
+const fenceUnknown = computed(() => fence.value === 'unknown')
+const limits = computed(() => limitsOf(ceiling.value, fence.value === 'unknown' ? null : fence.value))
+const vehicleName = computed(() => namedVehicle(ctx))
+const fenceText = computed(() => (fenceUnknown.value ? t('takeoff.problem.fenceUnknown') : ''))
+// Nothing is confirmed in the first moments after the dialog appears: a click or key meant for what was under it (an ARMED
+// vehicle takes off at the press), as for every question of the app (SafetyConfirm).
+const ready = ref(false)
+let readyTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(() => takeoff.open.value, open => {
+  clearTimeout(readyTimer)
+  ready.value = false
+
+  if (open) {
+    readyTimer = setTimeout(() => {
+      ready.value = true
+    }, IGNORE_MS)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => clearTimeout(readyTimer))
 const altitude = computed(() => altitudeOf(takeoff.typed.value))
 const problem = computed(() => problemOf(altitude.value, limits.value))
 const disarmed = computed(() => fields.telemetry.value?.armed !== true)
@@ -68,19 +96,38 @@ const disarmed = computed(() => fields.telemetry.value?.armed !== true)
 const whatText = computed(() => t(disarmed.value ? 'takeoff.whatDisarmed' : 'takeoff.whatArmed'))
 const limitsText = computed(() => t(`takeoff.limits.${limits.value.by}`, { min: limits.value.min, max: limits.value.max }))
 const named = computed(() => ({ min: limits.value.min, max: limits.value.max }))
+/** Whether the altitude and the fence let the button go ahead (not whether its first moments are over). */
+const mayGo = computed(() => problem.value === null && !fenceUnknown.value)
 const problemText = computed(() => (problem.value === null ? '' : t(`takeoff.problem.${problem.value}`, named.value)))
 
-/** Runs the arm command: its hold, and the answer it tells. */
-async function armIt(): Promise<void> {
-  await run('vehicle.arm')
+/**
+ * Runs the arm command: its hold, and what came of it. A hold that was not held to the end (the cross, Escape), a command that
+ * could not run and one that failed are all "cancelled": nothing is assumed of an arm that was not asked for.
+ *
+ * @returns what the arm came to
+ */
+async function armIt(): Promise<ArmOutcome> {
+  const result = await run('vehicle.arm')
+
+  return result.status === 'done' ? result.outcome.answer ?? 'not-sent' : 'cancelled'
 }
 
-/** The button: the takeoff goes ahead (the dialog is closed, and what happens is told in notices). */
+/**
+ * The button: the takeoff goes ahead (the dialog is closed, and what happens is told in notices). The vehicle is looked at again
+ * first: the fix or the EKF may have gone while the dialog was open.
+ */
 function go(): void {
-  if (problem.value === null) {
-    const metres = altitude.value
-    takeoff.hide()
+  if (!ready.value || !mayGo.value) {
+    return
+  }
+  const available = new TakeOff().isEnabled(ctx)
+  const metres = altitude.value
+  takeoff.hide()
+
+  if (available.enabled) {
     void takeOff(ctx, metres, armIt)
+  } else {
+    ctx.toast({ id: 'takeoff', severity: 'warning', long: true, text: ctx.say(available.reasonKey, available.reasonParams) })
   }
 }
 </script>

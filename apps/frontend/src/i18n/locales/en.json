@@ -748,14 +748,17 @@
     "problem": {
       "invalid": "Type a number of metres, for example 10.",
       "low": "At least {min} m.",
-      "high": "At most {max} m."
+      "high": "At most {max} m.",
+      "fenceUnknown": "The vehicle's fence is not known (its parameters are not here yet): wait for the parameters, then try again."
     },
     "step": {
       "noGuided": "This vehicle has no GUIDED mode: no takeoff.",
       "notGuided": "The vehicle did not say it is in GUIDED. No takeoff was asked for.",
       "stateUnknown": "The vehicle's state is not known. No takeoff was asked for.",
       "review": "The vehicle's checks do not pass: review them, arm, and take off again.",
-      "notArmed": "The vehicle did not say it is armed. No takeoff was asked for."
+      "notArmed": "The vehicle did not say it is armed. No takeoff was asked for.",
+      "noArm": "Take off stopped: the arm was not confirmed or the vehicle did not accept it. No takeoff was asked for.",
+      "stillArmed": "The vehicle is armed, in GUIDED, on the ground, and did not take off. Disarm it from STATE in the top bar if you do not mean to fly."
     }
   },
   "review": {

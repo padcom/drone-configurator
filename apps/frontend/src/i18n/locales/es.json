@@ -748,14 +748,17 @@
     "problem": {
       "invalid": "Escriba un número de metros, por ejemplo 10.",
       "low": "Al menos {min} m.",
-      "high": "Como máximo {max} m."
+      "high": "Como máximo {max} m.",
+      "fenceUnknown": "No se conoce la valla del vehículo (sus parámetros aún no están): espere a los parámetros y vuelva a intentarlo."
     },
     "step": {
       "noGuided": "Este vehículo no tiene modo GUIDED: no hay despegue.",
       "notGuided": "El vehículo no dijo que está en GUIDED. No se pidió el despegue.",
       "stateUnknown": "No se conoce el estado del vehículo. No se pidió el despegue.",
       "review": "Las comprobaciones del vehículo no pasan: revíselas, arme y despegue otra vez.",
-      "notArmed": "El vehículo no dijo que está armado. No se pidió el despegue."
+      "notArmed": "El vehículo no dijo que está armado. No se pidió el despegue.",
+      "noArm": "Despegue detenido: el armado no se confirmó o el vehículo no lo aceptó. No se pidió el despegue.",
+      "stillArmed": "El vehículo está armado, en GUIDED, en tierra, y no despegó. Desármelo desde STATE en la barra superior si no piensa volar."
     }
   },
   "review": {

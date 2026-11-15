@@ -17,7 +17,15 @@ export type Availability
 export type FocusTarget = 'restore' | 'main' | 'params.search' | 'params.value'
 
 /** What a command leaves behind for the caller: where the focus goes. */
+/** What became of an arm: what the vehicle answered, or that the backend would not send it. */
+export type ArmAnswer = ArmingResult['result'] | 'not-sent'
+
+/**
+ *
+ */
 export interface CommandOutcome {
+  /** For the arm: what the vehicle answered to it (only the arm says). */
+  answer?: ArmAnswer
   /**
    * `restore`: back to what had it before the palette opened. `main`: into the screen (the old element may be hidden now; a click
    * on the rail keeps the focus on the rail). `params.search`: the Parameters screen's search box, wherever the command was run

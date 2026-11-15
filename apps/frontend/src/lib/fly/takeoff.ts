@@ -4,6 +4,7 @@
 // backend's own hard limit is 120 m. The vehicle is ready only when it reports a 3D fix and an EKF that has its position, and it
 // is on the ground. A thing the vehicle does not report is not ready: nothing is assumed good.
 import type { Telemetry } from '@/generated/app'
+import { isStale } from './telemetryCards'
 
 /** The lowest altitude (m above home). */
 export const TAKEOFF_MIN_M = 2
@@ -44,15 +45,51 @@ function fenceLimitsAltitude(value: (id: string) => number | undefined): boolean
 }
 
 /**
- * The ceiling the vehicle's own fence sets, when it limits the altitude.
+ * Whether a group of the telemetry is there and not old: a group that has gone quiet is not reported.
  *
- * @param value reads a parameter of the vehicle (undefined when it has none, or is not known)
+ * @param group the group, when the vehicle sent one
+ * @returns true when it is fresh
+ */
+function fresh(group: { ageMs: number } | undefined): group is { ageMs: number } {
+  return group !== undefined && !isStale(group.ageMs)
+}
+
+/**
+ * Whether the parameters that say what the fence is are there.
+ *
+ * @param value reads a parameter of the vehicle
+ * @returns true when they are
+ */
+function fenceIsKnown(value: (id: string) => number | undefined): boolean {
+  const enabled = value('FENCE_ENABLE')
+  if (enabled !== 1) {
+    return enabled !== undefined
+  }
+
+  return value('FENCE_TYPE') !== undefined && (!fenceLimitsAltitude(value) || value('FENCE_ALT_MAX') !== undefined)
+}
+
+/**
+ * The ceiling of a fence that is known.
+ *
+ * @param value reads a parameter of the vehicle
  * @returns metres above home, or null when no fence limits the altitude
  */
-export function fenceCeilingOf(value: (id: string) => number | undefined): number | null {
+function knownCeilingOf(value: (id: string) => number | undefined): number | null {
   const ceiling = value('FENCE_ALT_MAX') ?? 0
 
   return fenceLimitsAltitude(value) && ceiling > 0 ? ceiling : null
+}
+
+/**
+ * The ceiling the vehicle's own fence sets, when it limits the altitude. A fence that is not known (the parameters are not
+ * there, or the ones that say what it is are missing) is NOT "no fence": "never above the fence" cannot be kept without it.
+ *
+ * @param value reads a parameter of the vehicle (undefined when it has none, or is not known)
+ * @returns metres above home, null when no fence limits the altitude, or 'unknown' when that cannot be told
+ */
+export function fenceCeilingOf(value: (id: string) => number | undefined): number | null | 'unknown' {
+  return fenceIsKnown(value) ? knownCeilingOf(value) : 'unknown'
 }
 
 /**
@@ -131,7 +168,9 @@ function ekfReady(flags: number | undefined): boolean {
  * @returns true when it does
  */
 function hasFix(telemetry: Telemetry | null | undefined): boolean {
-  return (telemetry?.gps?.fixType ?? 0) >= 3
+  const gps = telemetry?.gps
+
+  return fresh(gps) && gps.fixType >= 3
 }
 
 /**
@@ -141,7 +180,9 @@ function hasFix(telemetry: Telemetry | null | undefined): boolean {
  * @returns true when it has
  */
 function hasEkf(telemetry: Telemetry | null | undefined): boolean {
-  return ekfReady(telemetry?.ekf?.flags)
+  const ekf = telemetry?.ekf
+
+  return fresh(ekf) && ekfReady(ekf.flags)
 }
 
 /**
@@ -151,7 +192,7 @@ function hasEkf(telemetry: Telemetry | null | undefined): boolean {
  * @returns true when it does
  */
 function hasPosition(telemetry: Telemetry | null | undefined): boolean {
-  return telemetry?.position !== undefined
+  return fresh(telemetry?.position)
 }
 
 /**

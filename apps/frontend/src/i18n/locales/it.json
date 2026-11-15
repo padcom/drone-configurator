@@ -748,14 +748,17 @@
     "problem": {
       "invalid": "Scrivi un numero di metri, per esempio 10.",
       "low": "Almeno {min} m.",
-      "high": "Al massimo {max} m."
+      "high": "Al massimo {max} m.",
+      "fenceUnknown": "Il recinto del veicolo non è noto (i suoi parametri non ci sono ancora): attendi i parametri e riprova."
     },
     "step": {
       "noGuided": "Questo veicolo non ha la modalità GUIDED: nessun decollo.",
       "notGuided": "Il veicolo non ha detto di essere in GUIDED. Non è stato chiesto il decollo.",
       "stateUnknown": "Lo stato del veicolo non è noto. Non è stato chiesto il decollo.",
       "review": "I controlli del veicolo non passano: rivedili, arma e decolla di nuovo.",
-      "notArmed": "Il veicolo non ha detto di essere armato. Non è stato chiesto il decollo."
+      "notArmed": "Il veicolo non ha detto di essere armato. Non è stato chiesto il decollo.",
+      "noArm": "Decollo interrotto: l'armo non è stato confermato o il veicolo non l'ha accettato. Non è stato richiesto il decollo.",
+      "stillArmed": "Il veicolo è armato, in GUIDED, a terra, e non è decollato. Disarmalo da STATE nella barra superiore se non intendi volare."
     }
   },
   "review": {
