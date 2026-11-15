@@ -254,6 +254,12 @@ export function holdArmed(ms: int): void {
   }
 }
 
+/// The answer to the arm is known (or is not coming): the hold ends `ms` from now, whatever it was (it only grew until now: an arm
+/// that was accepted at once must not keep the state unknown for the time it would have waited for an answer).
+export function holdArmedFor(ms: int): void {
+  link.armHoldUntil = (Date.now() as int) + ms
+}
+
 /// The arm was refused: the vehicle did not arm, nothing is held any more.
 export function releaseArmed(): void {
   link.armHoldUntil = 0

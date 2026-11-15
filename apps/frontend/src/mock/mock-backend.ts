@@ -6,7 +6,7 @@ import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
-  SettingsState, VehicleMessage,
+  SettingsState, SetModeAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -14,6 +14,7 @@ import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
+import { MockArming, type MockArmingControl } from './mock-arming'
 import { MockMap } from './mock-map'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
@@ -116,6 +117,8 @@ export interface MockControl {
   rebootAnswer?: (answer: RebootResult['result']) => void
   /** How many reboot commands the vehicle has been sent (a refused call sends none). */
   rebootsSent?: () => number
+  /** What the arming service has been asked and answers (see `MockArmingControl`). */
+  arming?: MockArmingControl
   /** What the motor test has done (see `MockMotorsControl`). */
   motors?: MockMotorsControl
   /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
@@ -185,6 +188,8 @@ class MockVehicle {
   /** The motor test. */
   readonly motors: MockMotors
   readonly tuning: MockTuning
+  /** Arming, disarming, the flight mode and the pre-arm checks. */
+  readonly arming: MockArming
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -201,9 +206,18 @@ class MockVehicle {
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
+    this.arming = new MockArming({
+      connected: () => this.connection.state === 'connected',
+      armed: () => this.armedState(),
+      busy: () => this.busy,
+      setArmed: armed => { this.armedOverride = armed },
+      say: (severity, text) => this.say(severity, text),
+      heard: () => this.messages,
+    })
     if (options.control) {
       options.control.motors = this.motors.control()
       options.control.tuning = this.tuning.control()
+      options.control.arming = this.arming.control()
       options.control.restart = () => this.restart()
       options.control.announce = (id, value) => this.announceParam(id, value)
       options.control.connection = connection => this.push(connection)
@@ -287,6 +301,11 @@ class MockVehicle {
       case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
+      case 'vehicle.arm': return this.arming.arm(ok, fail)
+      case 'vehicle.disarm': return this.arming.disarm(ok, fail)
+      case 'vehicle.emergencyStop': return this.arming.emergencyStop(ok, fail)
+      case 'vehicle.setMode': return this.arming.setMode(e.p as SetModeAsk, ok, fail)
+      case 'vehicle.prearm': return this.arming.prearm(ok, fail)
       case 'vehicle.info': return this.connected(fail) && ok({ ...VEHICLE_DETAILS, sensors: [...VEHICLE_DETAILS.sensors] })
       case 'vehicle.modes': return this.connected(fail) && ok({ kind: 'copter', modes: COPTER_MODES })
       case 'calibration.start': return this.connected(fail) && this.calibration.start(e.p as CalibrationStart, ok, fail)
@@ -431,6 +450,7 @@ class MockVehicle {
     if (request.transport === 'simulator' || (request.transport === 'serial' && request.device === '/dev/ttyACM0')) {
       this.params = (this.options.params ?? PARAMS).map(p => ({ ...p }))
       this.telemetryArmed = undefined
+      this.arming.reset()
       this.logs.reset()
       this.update({ state: 'connected', vehicle: { ...VEHICLE } }, ok)
       this.messages = []
@@ -565,6 +585,8 @@ class MockVehicle {
           sample.armed = this.armedOverride
         }
         this.telemetryArmed = sample.armed
+        sample.mode = this.arming.mode() ?? sample.mode
+        sample.prearm = this.arming.prearmGroup(sample.armed)
         this.send({ k: 'event', n: 'telemetry.stream', s, p: sample })
       }
     }, this.options.telemetryMs ?? 1000))

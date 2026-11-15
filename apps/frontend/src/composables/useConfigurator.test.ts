@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { mockBackend } from '@/mock/mock-backend'
 import { createConfigurator, useConfigurator } from './useConfigurator'
 
@@ -117,4 +117,14 @@ it('resolves a confirmation with the answer and clears the question', async () =
 
   expect(confirmation.value).toBeNull()
   expect(staged.results.value).toEqual([])
+})
+
+it('reads the flight modes of the vehicle\'s kind when it is connected (the controls name them), and forgets them', async () => {
+  const { setup, vehicle } = createConfigurator(mockBackend())
+  expect(setup.modes.value).toBeNull()
+  await vehicle.connect({ transport: 'simulator' })
+
+  await vi.waitFor(() => expect(setup.modes.value?.modes.some(mode => mode.name === 'RTL')).toBe(true))
+  await vehicle.disconnect()
+  await vi.waitFor(() => expect(setup.modes.value).toBeNull())
 })

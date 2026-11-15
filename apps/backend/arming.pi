@@ -26,7 +26,7 @@ import { delay } from "std/timers"
 import { ControlResult, MavAutopilot, MavLinkError, MavResult, VehicleControl } from "padcom/pico-mavlink"
 import { ArmingResult, ArmingResultResult, decodeSetModeAsk, encodeArmingResult } from "./generated/app"
 import { nextMessageId, textsSince } from "./messages"
-import { connectedLink, heartbeatArmedState, holdArmed, link, rebootExpected, releaseArmed } from "./session"
+import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
 import { modesOfVehicle } from "./vehicleinfo"
 
 /// How long the waits are (ms); the tests shorten them.
@@ -238,9 +238,9 @@ async function execute(what: int, mode: int): Promise<Cbor?> throws Error {
 /// arms and the heartbeat is about to say so; no answer or a lost link, it may have armed and nothing says (held longer).
 function settleArm(got: ControlResult?): void {
   if (got == null || !got!.acknowledged) {
-    holdArmed(waits.armSilentMs)
+    holdArmedFor(waits.armSilentMs)
   } else if (got!.accepted) {
-    holdArmed(waits.armLagMs)
+    holdArmedFor(waits.armLagMs)
   } else {
     releaseArmed()
   }

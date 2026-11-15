@@ -7,6 +7,8 @@ export interface MenuItem {
   id: string
   /** Its words. */
   label: string
+  /** Drawn in the colour of an error: for the action that cannot be taken back. */
+  danger?: boolean
   /** A key that does the same elsewhere ("Ctrl C"), shown at the right. */
   hint?: string
   /**

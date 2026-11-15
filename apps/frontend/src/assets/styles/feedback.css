@@ -179,6 +179,10 @@
   border-radius: var(--radius-sm);
 }
 
+.kit-menu .item.danger {
+  color: var(--color-error);
+}
+
 .kit-menu .item:hover:not(:disabled),
 .kit-menu .item:focus-visible {
   background: var(--color-accent-soft);

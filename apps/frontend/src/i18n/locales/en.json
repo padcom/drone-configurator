@@ -651,6 +651,64 @@
   "language": {
     "label": "Language"
   },
+  "arming": {
+    "stop": {
+      "accepted": "{vehicle} accepted the stop. It shows disarmed when it reports it.",
+      "refused": "{vehicle} refused the emergency stop.",
+      "unsupported": "{vehicle} does not support the emergency stop.",
+      "noAnswer": "No answer from {vehicle} to the emergency stop (it was sent up to 3 times). Watch the state it reports."
+    },
+    "arm": {
+      "accepted": "{vehicle} accepted the arm. It shows armed when it reports it.",
+      "refused": "{vehicle} refused to arm.",
+      "unsupported": "{vehicle} does not support arming from here.",
+      "noAnswer": "No answer from {vehicle}. It may have armed: watch the state it reports. The command is not sent again."
+    },
+    "disarm": {
+      "accepted": "{vehicle} accepted the disarm. It shows disarmed when it reports it.",
+      "refused": "{vehicle} refused to disarm.",
+      "unsupported": "{vehicle} does not support disarming from here.",
+      "noAnswer": "No answer from {vehicle}. It may have disarmed: watch the state it reports. The command is not sent again."
+    },
+    "mode": {
+      "accepted": "{vehicle} accepted the change. It shows the mode it reports.",
+      "refused": "{vehicle} refused the change of mode.",
+      "unsupported": "{vehicle} does not know that mode.",
+      "noAnswer": "No answer from {vehicle}. The mode it reports is the one it is in. The command is not sent again."
+    }
+  },
+  "review": {
+    "title": "Review before arming",
+    "checks": {
+      "passing": "The vehicle says its pre-arm checks pass.",
+      "failing": "The vehicle says its pre-arm checks do not pass.",
+      "off": "The vehicle has its arming checks switched off: it arms without looking.",
+      "unknown": "The vehicle does not say whether its checks pass."
+    },
+    "running": "Asking the vehicle to run its checks…",
+    "error": "The checks could not be run: {error}",
+    "heard": "What the vehicle said lately",
+    "ago": "{seconds} s ago",
+    "none": "The vehicle has not said anything about a problem in the last two minutes.",
+    "clear": "Nothing to list: the vehicle's checks pass, or it has them off.",
+    "note": "These are the vehicle's own words. It runs its checks again when it is asked to arm, and refuses if one fails. The app never skips them.",
+    "notNow": "Not now",
+    "again": "Check again",
+    "arm": "Arm…"
+  },
+  "strip": {
+    "title": "Flight controls",
+    "checks": {
+      "passing": "Checks pass",
+      "failing": "Checks do not pass",
+      "off": "Checks off",
+      "unknown": "Checks not reported"
+    },
+    "mode": "Mode: {mode}",
+    "more": "More",
+    "stop": "Emergency stop",
+    "current": "now"
+  },
   "settings": {
     "metadata": {
       "title": "Parameter metadata",
@@ -667,6 +725,13 @@
     "groupsHelp": "Shows the group list and the favourites stars. Your favourites are kept while it is off.",
     "notify": "Show a notification when a command runs",
     "notifyHelp": "Every command that is run, from the palette, a key or a button, says its name in a short notice. For debugging.",
+    "flight": {
+      "title": "Flight controls",
+      "modeConfirm": "Before changing the flight mode of an armed vehicle",
+      "modeConfirmHelp": "RTL, Land, Loiter and Brake never ask: delay is the hazard there. A disarmed vehicle is never asked.",
+      "plain": "Ask for a confirmation (recommended)",
+      "none": "Do not ask"
+    },
     "map": {
       "title": "Map",
       "privacy": "While the map is shown, the app asks a tile server for the tiles of the area on the screen. The server learns that area, your IP address and this User-Agent: {agent}. Nothing else is sent: no position of the vehicle, no name.",
@@ -1137,6 +1202,14 @@
       }
     },
     "reason": {
+      "alreadyArmed": "The vehicle is already armed.",
+      "notArmed": "The vehicle is not armed.",
+      "busyVehicle": "Something else is under way: an earlier command, a parameter or log operation, a calibration, a motor test or a reboot. Try again when it is over.",
+      "noModes": "The vehicle's flight modes are not known yet.",
+      "noSuchMode": "This vehicle has no {mode} mode.",
+      "modeRefused": "The vehicle does not have that mode.",
+      "alreadyInMode": "The vehicle is already in {mode}.",
+      "modesUnsupported": "Flight modes are changed only on an ArduPilot.",
       "logBusy": "A log is being read or imported",
       "noParameters": "There are no parameters yet.",
       "busy": "Parameters are being written or downloaded, or a reboot is already under way.",
@@ -1153,6 +1226,48 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Emergency stop",
+        "title": "Emergency stop",
+        "what": "The motors stop NOW, wherever the vehicle is. A flying vehicle will crash. Use it only when something is wrong and the vehicle is a danger.",
+        "button": "Hold to stop the motors"
+      },
+      "review": {
+        "label": "Review before arming",
+        "keywords": "arm checks pre-arm ready",
+        "button": "Review and arm"
+      },
+      "arm": {
+        "label": "Arm the vehicle",
+        "keywords": "start motors spin propellers",
+        "title": "Arm the vehicle",
+        "what": "The motors will be able to spin. The vehicle runs its own pre-arm checks and refuses if one fails: its reasons are shown. Check that the propellers are clear and the area is safe.",
+        "button": "Hold to arm"
+      },
+      "disarm": {
+        "short": "Disarm",
+        "label": "Disarm the vehicle",
+        "keywords": "stop motors",
+        "title": "Disarm the vehicle",
+        "what": "The motors stop and cannot spin. A vehicle that is flying refuses a disarm.",
+        "button": "Hold to disarm"
+      },
+      "mode": {
+        "stabilize": "Flight mode: STABILIZE",
+        "alt_hold": "Flight mode: ALT_HOLD",
+        "loiter": "Flight mode: LOITER",
+        "poshold": "Flight mode: POSHOLD",
+        "auto": "Flight mode: AUTO",
+        "guided": "Flight mode: GUIDED",
+        "rtl": "Flight mode: RTL",
+        "land": "Flight mode: LAND",
+        "brake": "Flight mode: BRAKE",
+        "keywords": "flight mode change fly",
+        "title": "Change the flight mode to {mode}",
+        "what": "Changes the flight mode of the armed vehicle to {mode}. Its behaviour changes at once.",
+        "whatAuto": "AUTO starts the mission on the armed vehicle. Its behaviour changes at once.",
+        "button": "Change to {mode}"
+      },
       "reboot": {
         "accepted": "Rebooting {vehicle}…",
         "refused": "{vehicle} refused to reboot.",

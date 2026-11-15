@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type VueWrapper, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import Menu from './Menu.vue'
 import type { MenuItem } from '@/lib/ui/menuKeys'
 
@@ -195,5 +196,107 @@ describe('closing a menu, elsewhere', () => {
     await wrapper.vm.$nextTick()
 
     expect(focused()).toBe('Copy coordinatesCtrl C')
+  })
+})
+
+/**
+ * A key event.
+ *
+ * @param key the key
+ * @param repeat whether it is the repeat of a held key
+ * @returns the event
+ */
+const press = (key: string, repeat: boolean) => new KeyboardEvent('keydown', { key, repeat, bubbles: true, cancelable: true })
+
+describe('a key that is held down, on the button', () => {
+  it('does not open the menu: the repeat of Enter or Space is cancelled, and a click it would make is ignored', async () => {
+    const wrapper = menu()
+    const button = wrapper.get('button')
+    const events = ['Enter', ' '].map(key => press(key, true))
+
+    events.forEach(event => button.element.dispatchEvent(event))
+    await button.trigger('click')
+
+    expect(events.map(event => event.defaultPrevented)).toEqual([true, true])
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+  })
+
+  it('does not cancel a first press', () => {
+    const wrapper = menu()
+    const event = press('Enter', false)
+    wrapper.get('button').element.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+  })
+})
+
+describe('a key that is held down, on an item', () => {
+  it('does not choose it: the repeat is cancelled and a click it would make chooses nothing', async () => {
+    const wrapper = menu()
+    await open(wrapper)
+    const [first] = wrapper.findAll('[role="menuitem"]')
+    const repeat = press('Enter', true)
+    first?.element.dispatchEvent(repeat)
+    await first?.trigger('click')
+
+    expect(repeat.defaultPrevented).toBe(true)
+    expect(wrapper.emitted('select')).toBeUndefined()
+    expect(wrapper.find('[role="menu"]').exists()).toBe(true)
+  })
+
+  it('chooses it again once the key was released', async () => {
+    const wrapper = menu()
+    await open(wrapper)
+    const [first] = wrapper.findAll('[role="menuitem"]')
+    first?.element.dispatchEvent(press('Enter', true))
+
+    await first?.trigger('keyup', { key: 'Enter' })
+    await first?.trigger('click')
+
+    expect(wrapper.emitted('select')).toEqual([['fly']])
+  })
+})
+
+/**
+ * A click as a mouse makes it (a click that a key makes has a detail of 0).
+ *
+ * @param wrapper what is clicked
+ * @param wrapper.element its element
+ */
+async function mouseClick(wrapper: { element: Element }): Promise<void> {
+  wrapper.element.dispatchEvent(new MouseEvent('click', { detail: 1, bubbles: true, cancelable: true }))
+  await nextTick()
+}
+
+describe('a key that is held down and released elsewhere', () => {
+  it('never keeps a pointer click from opening the menu and choosing an item', async () => {
+    const wrapper = menu()
+    await open(wrapper)
+    const [first] = wrapper.findAll('[role="menuitem"]')
+    first?.element.dispatchEvent(press('Enter', true))
+    await mouseClick(wrapper.get('button'))
+    await mouseClick(wrapper.get('button'))
+    const shown = wrapper.find('[role="menu"]').exists()
+    await mouseClick(wrapper.findAll('[role="menuitem"]')[0]!)
+
+    expect(shown).toBe(true)
+
+    expect(wrapper.emitted('select')).toEqual([['fly']])
+  })
+
+  it('forgets the held key when the focus leaves, and when a pointer goes down', async () => {
+    const wrapper = menu()
+    const button = wrapper.get('button')
+    button.element.dispatchEvent(press('Enter', true))
+    await wrapper.trigger('focusout')
+    await button.trigger('click')
+
+    expect(wrapper.find('[role="menu"]').exists()).toBe(true)
+
+    wrapper.get('button').element.dispatchEvent(press('Enter', true))
+    await wrapper.trigger('pointerdown')
+    await open(wrapper)
+
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
   })
 })

@@ -1,5 +1,5 @@
 <template>
-  <div ref="root" class="kit-menu">
+  <div ref="root" class="kit-menu" @focusout="releaseKey" @pointerdown="releaseKey">
     <Button
       :id="triggerId"
       aria-haspopup="menu"
@@ -7,20 +7,22 @@
       :aria-controls="open ? listId : undefined"
       @click="toggle"
       @keydown="onTriggerKey"
+      @keyup="releaseKey"
     >
       {{ label }}
       <Icon name="chevron-down" />
     </Button>
-    <div v-if="open" :id="listId" class="list" role="menu" :aria-labelledby="triggerId" @keydown="onKey">
+    <div v-if="open" :id="listId" class="list" role="menu" :aria-labelledby="triggerId" @keydown="onKey" @keyup="releaseKey">
       <button
         v-for="(item, i) in items"
         :key="item.id"
         type="button"
         role="menuitem"
         class="item"
+        :class="{ danger: item.danger }"
         :disabled="item.disabled"
         :tabindex="i === active ? 0 : -1"
-        @click="choose(item)"
+        @click="choose(item, $event)"
       >
         <span>{{ item.label }}</span>
         <span v-if="item.hint" class="hint">{{ item.hint }}</span>
@@ -32,7 +34,9 @@
 <script setup lang="ts">
 // A button that opens a list of actions (role=menu): the arrows, Home and End move between the items, a letter goes to the
 // next item that starts with it, Enter or Space chooses, Escape closes and puts the focus back on the button, Tab and a click
-// elsewhere close. An item that cannot be chosen is skipped. `select` says which item was chosen, by its id.
+// elsewhere close. An item that cannot be chosen is skipped. `select` says which item was chosen, by its id. A key that is HELD
+// (Enter or Space repeating) never opens the menu or chooses an item: the menu opens and the focus moves to its first item at
+// the first press, so the repeats would land on it; only a fresh press counts.
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import Button from './Button.vue'
 import Icon from './Icon.vue'
@@ -62,6 +66,8 @@ const root = ref<HTMLElement | null>(null)
 const open = ref(false)
 const active = ref(-1)
 let typed = ''
+// True while an Enter or Space is held down and repeating (until it is released).
+let held = false
 let typedTimer: ReturnType<typeof setTimeout> | undefined
 
 /** Puts the focus on the item that is active, once it is there. */
@@ -82,6 +88,7 @@ function focusTrigger(): void {
  * @param back whether the focus goes back to the button (not when it went elsewhere: Tab, a click)
  */
 function close(back: boolean): void {
+  held = false
   open.value = false
   active.value = -1
 
@@ -101,8 +108,47 @@ function openAt(at: 'first' | 'last'): void {
   void focusActive()
 }
 
-/** The button was pressed: opens at the first item, or closes. */
-function toggle(): void {
+/**
+ * Whether a key event is the repeat of a held Enter or Space; such a repeat does nothing (its click is cancelled).
+ *
+ * @param event the key event
+ * @returns true for a repeat
+ */
+function repeated(event: KeyboardEvent): boolean {
+  const repeats = event.repeat && (event.key === 'Enter' || event.key === ' ')
+  if (repeats) {
+    held = true
+    event.preventDefault()
+  }
+
+  return repeats
+}
+
+/** A key was released: a press that comes next is a fresh one. */
+function releaseKey(): void {
+  held = false
+}
+
+/**
+ * Whether a click is made by the keyboard (a pointer click has a detail of 1 or more) while an Enter or Space is held: it is the
+ * repeat's, and does nothing. A pointer click always counts, whatever `held` says (a key may have been released elsewhere).
+ *
+ * @param event the click
+ * @returns true when it is to be ignored
+ */
+function ignored(event: MouseEvent): boolean {
+  return held && event.detail === 0
+}
+
+/**
+ * The button was pressed: opens at the first item, or closes. A repeat of a held key does not count.
+ *
+ * @param event the click
+ */
+function toggle(event: MouseEvent): void {
+  if (ignored(event)) {
+    return
+  }
   if (open.value) {
     close(false)
   } else {
@@ -111,11 +157,11 @@ function toggle(): void {
 }
 
 /**
- * Keys on the button: the arrows open the menu on its first or last item.
+ * An arrow on the button opens the menu on its first or last item.
  *
  * @param event the key event
  */
-function onTriggerKey(event: KeyboardEvent): void {
+function openByArrow(event: KeyboardEvent): void {
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault()
     openAt(event.key === 'ArrowDown' ? 'first' : 'last')
@@ -123,11 +169,26 @@ function onTriggerKey(event: KeyboardEvent): void {
 }
 
 /**
+ * Keys on the button: the arrows open the menu (the repeat of a held Enter or Space does nothing).
+ *
+ * @param event the key event
+ */
+function onTriggerKey(event: KeyboardEvent): void {
+  if (!repeated(event)) {
+    openByArrow(event)
+  }
+}
+
+/**
  * An item was chosen.
  *
  * @param item the item
+ * @param event the click
  */
-function choose(item: MenuItem): void {
+function choose(item: MenuItem, event: MouseEvent): void {
+  if (ignored(event)) {
+    return
+  }
   emit('select', item.id)
   close(true)
 }
@@ -231,6 +292,9 @@ function isLetter(event: KeyboardEvent): boolean {
  * @param event the key event
  */
 function onKey(event: KeyboardEvent): void {
+  if (repeated(event)) {
+    return
+  }
   const action = KEYS[event.key]
   if (action) {
     action(event)

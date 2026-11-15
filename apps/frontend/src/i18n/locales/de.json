@@ -651,6 +651,64 @@
   "language": {
     "label": "Sprache"
   },
+  "arming": {
+    "stop": {
+      "accepted": "{vehicle} hat den Stopp angenommen. Es zeigt entschärft, wenn es das meldet.",
+      "refused": "{vehicle} hat den Not-Aus abgelehnt.",
+      "unsupported": "{vehicle} unterstützt den Not-Aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle} auf den Not-Aus (er wurde bis zu 3 Mal gesendet). Beobachten Sie den gemeldeten Zustand."
+    },
+    "arm": {
+      "accepted": "{vehicle} hat das Scharfschalten angenommen. Es zeigt scharf, wenn es das meldet.",
+      "refused": "{vehicle} hat das Scharfschalten abgelehnt.",
+      "unsupported": "{vehicle} unterstützt das Scharfschalten von hier nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Es kann scharf geworden sein: beobachten Sie den gemeldeten Zustand. Der Befehl wird nicht noch einmal gesendet."
+    },
+    "disarm": {
+      "accepted": "{vehicle} hat das Entschärfen angenommen. Es zeigt entschärft, wenn es das meldet.",
+      "refused": "{vehicle} hat das Entschärfen abgelehnt.",
+      "unsupported": "{vehicle} unterstützt das Entschärfen von hier nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Es kann entschärft sein: beobachten Sie den gemeldeten Zustand. Der Befehl wird nicht noch einmal gesendet."
+    },
+    "mode": {
+      "accepted": "{vehicle} hat den Wechsel angenommen. Es zeigt den Modus, den es meldet.",
+      "refused": "{vehicle} hat den Moduswechsel abgelehnt.",
+      "unsupported": "{vehicle} kennt diesen Modus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Der gemeldete Modus ist der, in dem es ist. Der Befehl wird nicht noch einmal gesendet."
+    }
+  },
+  "review": {
+    "title": "Prüfung vor dem Scharfschalten",
+    "checks": {
+      "passing": "Das Fahrzeug meldet, dass seine Prüfungen vor dem Scharfschalten bestehen.",
+      "failing": "Das Fahrzeug meldet, dass seine Prüfungen vor dem Scharfschalten nicht bestehen.",
+      "off": "Das Fahrzeug hat seine Prüfungen ausgeschaltet: es schaltet scharf, ohne hinzusehen.",
+      "unknown": "Das Fahrzeug meldet nicht, ob seine Prüfungen bestehen."
+    },
+    "running": "Das Fahrzeug wird gebeten, seine Prüfungen auszuführen…",
+    "error": "Die Prüfungen konnten nicht ausgeführt werden: {error}",
+    "heard": "Was das Fahrzeug zuletzt gesagt hat",
+    "ago": "vor {seconds} s",
+    "none": "Das Fahrzeug hat in den letzten zwei Minuten nichts über ein Problem gesagt.",
+    "clear": "Nichts aufzulisten: die Prüfungen des Fahrzeugs bestehen, oder es hat sie ausgeschaltet.",
+    "note": "Das sind die eigenen Worte des Fahrzeugs. Es führt seine Prüfungen beim Scharfschalten erneut aus und lehnt ab, wenn eine fehlschlägt. Die App überspringt sie nie.",
+    "notNow": "Jetzt nicht",
+    "again": "Erneut prüfen",
+    "arm": "Scharf schalten…"
+  },
+  "strip": {
+    "title": "Flugsteuerung",
+    "checks": {
+      "passing": "Prüfungen bestehen",
+      "failing": "Prüfungen bestehen nicht",
+      "off": "Prüfungen aus",
+      "unknown": "Prüfungen nicht gemeldet"
+    },
+    "mode": "Modus: {mode}",
+    "more": "Mehr",
+    "stop": "Not-Aus",
+    "current": "jetzt"
+  },
   "settings": {
     "metadata": {
       "title": "Parameter-Metadaten",
@@ -667,6 +725,13 @@
     "groupsHelp": "Zeigt die Gruppenliste und die Favoritensterne. Deine Favoriten bleiben erhalten, solange es aus ist.",
     "notify": "Eine Benachrichtigung zeigen, wenn ein Befehl ausgeführt wird",
     "notifyHelp": "Jeder ausgeführte Befehl, aus der Palette, per Taste oder Schaltfläche, nennt seinen Namen in einer kurzen Meldung. Zum Debuggen.",
+    "flight": {
+      "title": "Flugsteuerung",
+      "modeConfirm": "Vor dem Wechsel des Flugmodus eines scharfen Fahrzeugs",
+      "modeConfirmHelp": "RTL, Land, Loiter und Brake fragen nie: dort ist Verzögerung die Gefahr. Ein entschärftes Fahrzeug wird nie gefragt.",
+      "plain": "Bestätigung verlangen (empfohlen)",
+      "none": "Nicht fragen"
+    },
     "map": {
       "title": "Karte",
       "privacy": "Solange die Karte gezeigt wird, fragt die App einen Kachelserver nach den Kacheln des Bildschirmausschnitts. Der Server erfährt diesen Ausschnitt, Ihre IP-Adresse und diesen User-Agent: {agent}. Sonst wird nichts gesendet: keine Position des Fahrzeugs, kein Name.",
@@ -1137,6 +1202,14 @@
       }
     },
     "reason": {
+      "alreadyArmed": "Das Fahrzeug ist schon scharf.",
+      "notArmed": "Das Fahrzeug ist nicht scharf.",
+      "busyVehicle": "Etwas anderes läuft: ein früherer Befehl, ein Parameter- oder Logvorgang, eine Kalibrierung, ein Motortest oder ein Neustart. Versuchen Sie es nach dessen Ende.",
+      "noModes": "Die Flugmodi des Fahrzeugs sind noch nicht bekannt.",
+      "noSuchMode": "Dieses Fahrzeug hat keinen Modus {mode}.",
+      "modeRefused": "Das Fahrzeug hat diesen Modus nicht.",
+      "alreadyInMode": "Das Fahrzeug ist schon im Modus {mode}.",
+      "modesUnsupported": "Flugmodi werden nur bei einem ArduPilot gewechselt.",
       "logBusy": "Ein Log wird gerade gelesen oder importiert",
       "noParameters": "Es gibt noch keine Parameter.",
       "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
@@ -1153,6 +1226,48 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Not-Aus",
+        "title": "Not-Aus",
+        "what": "Die Motoren stoppen SOFORT, wo immer das Fahrzeug ist. Ein fliegendes Fahrzeug stürzt ab. Nur verwenden, wenn etwas nicht stimmt und das Fahrzeug eine Gefahr ist.",
+        "button": "Halten, um die Motoren zu stoppen"
+      },
+      "review": {
+        "label": "Prüfung vor dem Scharfschalten",
+        "keywords": "scharf prüfungen bereit",
+        "button": "Prüfen und scharf schalten"
+      },
+      "arm": {
+        "label": "Fahrzeug scharf schalten",
+        "keywords": "start motoren propeller scharf",
+        "title": "Fahrzeug scharf schalten",
+        "what": "Die Motoren können dann drehen. Das Fahrzeug führt seine eigenen Prüfungen vor dem Scharfschalten aus und lehnt ab, wenn eine fehlschlägt: die Gründe werden gezeigt. Prüfen Sie, dass die Propeller frei sind und der Bereich sicher ist.",
+        "button": "Halten zum Scharfschalten"
+      },
+      "disarm": {
+        "short": "Entschärfen",
+        "label": "Fahrzeug entschärfen",
+        "keywords": "stopp motoren entschärfen",
+        "title": "Fahrzeug entschärfen",
+        "what": "Die Motoren stoppen und können nicht drehen. Ein fliegendes Fahrzeug lehnt das Entschärfen ab.",
+        "button": "Halten zum Entschärfen"
+      },
+      "mode": {
+        "stabilize": "Flugmodus: STABILIZE",
+        "alt_hold": "Flugmodus: ALT_HOLD",
+        "loiter": "Flugmodus: LOITER",
+        "poshold": "Flugmodus: POSHOLD",
+        "auto": "Flugmodus: AUTO",
+        "guided": "Flugmodus: GUIDED",
+        "rtl": "Flugmodus: RTL",
+        "land": "Flugmodus: LAND",
+        "brake": "Flugmodus: BRAKE",
+        "keywords": "flugmodus wechsel fliegen",
+        "title": "Flugmodus auf {mode} wechseln",
+        "what": "Wechselt den Flugmodus des scharfen Fahrzeugs auf {mode}. Sein Verhalten ändert sich sofort.",
+        "whatAuto": "AUTO startet die Mission des scharfen Fahrzeugs. Sein Verhalten ändert sich sofort.",
+        "button": "Auf {mode} wechseln"
+      },
       "reboot": {
         "accepted": "{vehicle} startet neu…",
         "refused": "{vehicle} hat den Neustart abgelehnt.",

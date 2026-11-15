@@ -51,6 +51,17 @@
       <label :for="`${uid}-cap`">{{ t('settings.logs.sizeCap') }}</label>
       <Select :id="`${uid}-cap`" v-model="sizeCap" :options="capOptions" />
     </div>
+    <h3 class="settings-group">{{ t('settings.flight.title') }}</h3>
+    <div class="settings-row">
+      <label :for="`${uid}-mode-confirm`">{{ t('settings.flight.modeConfirm') }}</label>
+      <Select
+        :id="`${uid}-mode-confirm`"
+        v-model="modeConfirm"
+        :options="modeConfirmOptions"
+        :aria-describedby="`${uid}-mode-confirm-help`"
+      />
+      <p :id="`${uid}-mode-confirm-help`" class="muted">{{ t('settings.flight.modeConfirmHelp') }}</p>
+    </div>
     <MapSettings />
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
@@ -69,13 +80,15 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { useCommandNotice } from '@/composables/useCommandNotice'
 import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useMetadataSetting } from '@/composables/useMetadataSetting'
+import { MODE_CONFIRMATION_LEVELS, parseModeConfirmation, useModeConfirmation } from '@/composables/useModeConfirmation'
 import { RETENTION_DAYS, SIZE_CAPS_MB, useLogsSettings } from '@/composables/useLogsSettings'
 import { sizeText } from '@/lib/logs/vehicleLogs'
 import { useFormat } from '@/i18n/useFormat'
 
 // What the user chooses about the application: the language of the interface, what the Parameters screen shows, the parameter
-// metadata file and the logs. The choices are kept in the settings (the backend's file), so they are still there at the next
-// start. The settings notice (a file that was set aside, one that cannot be written) stays where it is, under the top bar,
+// metadata file, the logs, how much a mode change asks, and the map. The choices are kept in the settings (the backend's file),
+// so they are still there at the next start. The settings notice (a file that was set aside, one that cannot be written) stays
+// where it is, under the top bar,
 // since it matters on every screen.
 const { t, locale } = useI18n()
 const { settings } = useConfigurator()
@@ -102,6 +115,15 @@ const metadataAutoload = computed({
   get: () => metadataSetting.autoload.value,
   set: (next: boolean) => void metadataSetting.chooseAutoload(next),
 })
+// How much a change of the flight mode of an armed vehicle asks (RTL, Land, Loiter and Brake never ask).
+const modeConfirmation = useModeConfirmation()
+const modeConfirm = computed({
+  get: () => modeConfirmation.level.value,
+  set: (next: string) => void modeConfirmation.choose(parseModeConfirmation(next)),
+})
+const modeConfirmOptions = computed(() => MODE_CONFIRMATION_LEVELS.map(value => (
+  { value, label: t(`settings.flight.${value}`) }
+)))
 // The preferences about logs (kept; nothing acts on them until the backend downloads and removes logs).
 const { number } = useFormat()
 const logsSettings = useLogsSettings()

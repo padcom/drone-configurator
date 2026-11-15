@@ -91,6 +91,11 @@ function serve(conn: Conn): void {
     }
   })
   sim!.start(250)
+  // A check that fails: an arm is refused with "PreArm: <text>" (a test of the review before arming, and of a refused arm).
+  const prearm = env.get("VEHICLE_PREARM")
+  if (prearm != null && prearm! != "") {
+    sim!.control.prearm = prearm!
+  }
   if (env.get("VEHICLE_LOGS") == "1") {
     withLogs(sim!)
   }

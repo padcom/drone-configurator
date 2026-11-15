@@ -651,6 +651,64 @@
   "language": {
     "label": "Język"
   },
+  "arming": {
+    "stop": {
+      "accepted": "{vehicle} przyjął zatrzymanie. Pokaże rozbrojenie, gdy to zgłosi.",
+      "refused": "{vehicle} odmówił awaryjnego zatrzymania.",
+      "unsupported": "{vehicle} nie obsługuje awaryjnego zatrzymania.",
+      "noAnswer": "Brak odpowiedzi od {vehicle} na awaryjne zatrzymanie (wysłano je do 3 razy). Obserwuj stan, który zgłasza."
+    },
+    "arm": {
+      "accepted": "{vehicle} przyjął uzbrojenie. Pokaże, że jest uzbrojony, gdy to zgłosi.",
+      "refused": "{vehicle} odmówił uzbrojenia.",
+      "unsupported": "{vehicle} nie obsługuje uzbrajania stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Mógł się uzbroić: obserwuj stan, który zgłasza. Polecenie nie jest wysyłane ponownie."
+    },
+    "disarm": {
+      "accepted": "{vehicle} przyjął rozbrojenie. Pokaże, że jest rozbrojony, gdy to zgłosi.",
+      "refused": "{vehicle} odmówił rozbrojenia.",
+      "unsupported": "{vehicle} nie obsługuje rozbrajania stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Mógł się rozbroić: obserwuj stan, który zgłasza. Polecenie nie jest wysyłane ponownie."
+    },
+    "mode": {
+      "accepted": "{vehicle} przyjął zmianę. Pokaże tryb, który zgłasza.",
+      "refused": "{vehicle} odmówił zmiany trybu.",
+      "unsupported": "{vehicle} nie zna tego trybu.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Tryb, który zgłasza, jest tym, w którym jest. Polecenie nie jest wysyłane ponownie."
+    }
+  },
+  "review": {
+    "title": "Przegląd przed uzbrojeniem",
+    "checks": {
+      "passing": "Pojazd mówi, że jego sprawdzenia przed uzbrojeniem przechodzą.",
+      "failing": "Pojazd mówi, że jego sprawdzenia przed uzbrojeniem nie przechodzą.",
+      "off": "Pojazd ma wyłączone sprawdzenia uzbrojenia: uzbraja się bez patrzenia.",
+      "unknown": "Pojazd nie mówi, czy jego sprawdzenia przechodzą."
+    },
+    "running": "Proszę pojazd o wykonanie sprawdzeń…",
+    "error": "Nie udało się wykonać sprawdzeń: {error}",
+    "heard": "Co pojazd powiedział niedawno",
+    "ago": "{seconds} s temu",
+    "none": "Pojazd nie powiedział nic o problemie w ciągu ostatnich dwóch minut.",
+    "clear": "Nic do wyświetlenia: sprawdzenia pojazdu przechodzą albo ma je wyłączone.",
+    "note": "To własne słowa pojazdu. Wykonuje on sprawdzenia ponownie, gdy ma się uzbroić, i odmawia, gdy któreś nie przechodzi. Aplikacja nigdy ich nie pomija.",
+    "notNow": "Nie teraz",
+    "again": "Sprawdź ponownie",
+    "arm": "Uzbrój…"
+  },
+  "strip": {
+    "title": "Sterowanie lotem",
+    "checks": {
+      "passing": "Sprawdzenia przechodzą",
+      "failing": "Sprawdzenia nie przechodzą",
+      "off": "Sprawdzenia wyłączone",
+      "unknown": "Brak informacji o sprawdzeniach"
+    },
+    "mode": "Tryb: {mode}",
+    "more": "Więcej",
+    "stop": "Awaryjne zatrzymanie",
+    "current": "teraz"
+  },
   "settings": {
     "metadata": {
       "title": "Metadane parametrów",
@@ -667,6 +725,13 @@
     "groupsHelp": "Pokazuje listę grup i gwiazdki ulubionych. Twoje ulubione zostają zachowane, gdy jest wyłączone.",
     "notify": "Pokazuj powiadomienie, gdy polecenie jest wykonywane",
     "notifyHelp": "Każde wykonane polecenie, z palety, klawiszem lub przyciskiem, podaje swoją nazwę w krótkim powiadomieniu. Do debugowania.",
+    "flight": {
+      "title": "Sterowanie lotem",
+      "modeConfirm": "Przed zmianą trybu lotu uzbrojonego pojazdu",
+      "modeConfirmHelp": "RTL, Land, Loiter i Brake nigdy nie pytają: tu zwłoka jest zagrożeniem. Pojazdu rozbrojonego nigdy się nie pyta.",
+      "plain": "Pytaj o potwierdzenie (zalecane)",
+      "none": "Nie pytaj"
+    },
     "map": {
       "title": "Mapa",
       "privacy": "Gdy mapa jest pokazana, aplikacja prosi serwer kafelków o kafelki obszaru na ekranie. Serwer poznaje ten obszar, Twój adres IP i ten User-Agent: {agent}. Nic więcej nie jest wysyłane: ani pozycja pojazdu, ani nazwa.",
@@ -1137,6 +1202,14 @@
       }
     },
     "reason": {
+      "alreadyArmed": "Pojazd jest już uzbrojony.",
+      "notArmed": "Pojazd nie jest uzbrojony.",
+      "busyVehicle": "Trwa coś innego: wcześniejsze polecenie, operacja na parametrach lub logach, kalibracja, test silnika albo restart. Spróbuj, gdy się skończy.",
+      "noModes": "Tryby lotu pojazdu nie są jeszcze znane.",
+      "noSuchMode": "Ten pojazd nie ma trybu {mode}.",
+      "modeRefused": "Pojazd nie ma takiego trybu.",
+      "alreadyInMode": "Pojazd jest już w trybie {mode}.",
+      "modesUnsupported": "Tryby lotu zmienia się tylko w ArduPilocie.",
       "logBusy": "Trwa czytanie lub import logu",
       "noParameters": "Nie ma jeszcze parametrów.",
       "busy": "Parametry są zapisywane lub pobierane albo restart już trwa.",
@@ -1153,6 +1226,48 @@
       }
     },
     "vehicle": {
+      "stop": {
+        "label": "Awaryjne zatrzymanie",
+        "title": "Awaryjne zatrzymanie",
+        "what": "Silniki zatrzymują się TERAZ, gdziekolwiek jest pojazd. Pojazd w locie spadnie. Użyj tylko wtedy, gdy coś jest nie tak i pojazd stanowi zagrożenie.",
+        "button": "Przytrzymaj, aby zatrzymać silniki"
+      },
+      "review": {
+        "label": "Przegląd przed uzbrojeniem",
+        "keywords": "uzbrojenie sprawdzenia gotowy",
+        "button": "Przegląd i uzbrojenie"
+      },
+      "arm": {
+        "label": "Uzbrój pojazd",
+        "keywords": "start silniki śmigła uzbrojenie",
+        "title": "Uzbrój pojazd",
+        "what": "Silniki będą mogły się kręcić. Pojazd sam sprawdza warunki przed uzbrojeniem i odmawia, gdy któryś nie jest spełniony: powody są pokazane. Sprawdź, czy śmigła są wolne i miejsce jest bezpieczne.",
+        "button": "Przytrzymaj, aby uzbroić"
+      },
+      "disarm": {
+        "short": "Rozbrój",
+        "label": "Rozbrój pojazd",
+        "keywords": "stop silniki rozbrojenie",
+        "title": "Rozbrój pojazd",
+        "what": "Silniki zatrzymują się i nie mogą się kręcić. Pojazd w locie odmawia rozbrojenia.",
+        "button": "Przytrzymaj, aby rozbroić"
+      },
+      "mode": {
+        "stabilize": "Tryb lotu: STABILIZE",
+        "alt_hold": "Tryb lotu: ALT_HOLD",
+        "loiter": "Tryb lotu: LOITER",
+        "poshold": "Tryb lotu: POSHOLD",
+        "auto": "Tryb lotu: AUTO",
+        "guided": "Tryb lotu: GUIDED",
+        "rtl": "Tryb lotu: RTL",
+        "land": "Tryb lotu: LAND",
+        "brake": "Tryb lotu: BRAKE",
+        "keywords": "tryb lotu zmiana latać",
+        "title": "Zmień tryb lotu na {mode}",
+        "what": "Zmienia tryb lotu uzbrojonego pojazdu na {mode}. Jego zachowanie zmienia się od razu.",
+        "whatAuto": "AUTO uruchamia misję uzbrojonego pojazdu. Jego zachowanie zmienia się od razu.",
+        "button": "Zmień na {mode}"
+      },
       "reboot": {
         "accepted": "Pojazd {vehicle} uruchamia się ponownie…",
         "refused": "Pojazd {vehicle} odrzucił restart.",

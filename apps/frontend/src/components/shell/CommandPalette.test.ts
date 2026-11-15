@@ -64,6 +64,25 @@ afterEach(() => {
  * @param wrapper the shell
  * @returns the labels in order
  */
+/** The commands that go to a screen or a part of one that are not Setup's or Tune's parts, in the alphabetical order. */
+const SWITCH_LABELS = [
+  'Switch to Flight data',
+  'Switch to Logs',
+  'Switch to Logs: Flights',
+  'Switch to Logs: On the vehicle',
+  'Switch to Logs: Replay',
+  'Switch to Logs: Spectrum',
+  'Switch to Logs: Tools',
+  'Switch to Parameters',
+  'Switch to Plan',
+  'Switch to Settings',
+  'Switch to Setup',
+]
+
+/** The labels of the commands that change the flight mode, in the alphabetical order the palette lists them. */
+const FLIGHT_MODE_LABELS = ['ALT_HOLD', 'AUTO', 'BRAKE', 'GUIDED', 'LAND', 'LOITER', 'POSHOLD', 'RTL', 'STABILIZE']
+  .map(mode => `Flight mode: ${mode}`)
+
 const labels = (wrapper: VueWrapper) => wrapper.findAll('.palette-row .palette-label').map(label => label.text())
 
 /**
@@ -188,25 +207,19 @@ it('lists every command alphabetically by its label when none was run lately', a
   await flushPromises()
 
   expect(labels(wrapper)).toEqual([
+    'Arm the vehicle',
     'Connect to a vehicle…',
+    'Disarm the vehicle',
     'Disconnect',
     'Download parameters',
+    ...FLIGHT_MODE_LABELS,
     'Load parameter metadata…',
     'Load parameter snapshot…',
     'Open log file…',
     'Reboot flight controller',
+    'Review before arming',
     'Save parameter snapshot…',
-    'Switch to Flight data',
-    'Switch to Logs',
-    'Switch to Logs: Flights',
-    'Switch to Logs: On the vehicle',
-    'Switch to Logs: Replay',
-    'Switch to Logs: Spectrum',
-    'Switch to Logs: Tools',
-    'Switch to Parameters',
-    'Switch to Plan',
-    'Switch to Settings',
-    'Switch to Setup',
+    ...SWITCH_LABELS,
     ...SETUP_LABELS,
     ...TUNE_LABELS,
   ])
@@ -219,12 +232,24 @@ it('names the group of each command in its row', async () => {
 
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
-  // The eight commands that are not a way to a screen or a part of one, then the ways (as many as the screens have parts).
-  expect(groups.slice(0, 8)).toEqual([
-    'Vehicle', 'Vehicle', 'Parameters', 'Parameters', 'Parameters', 'Logs', 'Vehicle', 'Parameters',
+  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, nine flight modes, the
+  // connection and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
+  expect(groups.slice(0, 20)).toEqual([
+    'Vehicle',
+    'Vehicle',
+    'Vehicle',
+    'Vehicle',
+    'Parameters',
+    ...FLIGHT_MODE_LABELS.map(() => 'Vehicle'),
+    'Parameters',
+    'Parameters',
+    'Logs',
+    'Vehicle',
+    'Vehicle',
+    'Parameters',
   ])
   expect(groups.length).toBeGreaterThan(30)
-  expect(groups.slice(8).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(20).every(group => group === 'Navigate')).toBe(true)
 })
 
 it('lists the command that was run last first, and remembers it for the next opening', async () => {
@@ -237,7 +262,7 @@ it('lists the command that was run last first, and remembers it for the next ope
   ctrlP()
   await flushPromises()
 
-  expect(labels(wrapper).slice(0, 2)).toEqual(['Switch to Tune', 'Connect to a vehicle…'])
+  expect(labels(wrapper).slice(0, 2)).toEqual(['Switch to Tune', 'Arm the vehicle'])
 })
 
 it('does not list the command that opens the palette: choosing it would close and reopen it, and lose the query', async () => {
@@ -331,19 +356,22 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   const active = () => wrapper.get('.palette-row.active').attributes('data-command')
   expect(active()).toBe('connect.open')
 
+  // (the first row, Arm, may not run for a vehicle that is armed: the selection starts at the first that may, and moves onto it)
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('go.tune.rate')
   await input.trigger('keydown', { key: 'ArrowDown' })
-  expect(active()).toBe('connect.open')
+  expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'End' })
   expect(active()).toBe('go.tune.rate')
   await input.trigger('keydown', { key: 'Home' })
-  expect(active()).toBe('connect.open')
+  expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('go.flight')
+  expect(active()).toBe('vehicle.mode.guided')
   await input.trigger('keydown', { key: 'PageUp' })
-  expect(active()).toBe('connect.open')
-  expect(input.attributes('aria-activedescendant')).toBe('palette-option-connect.open')
+  expect(active()).toBe('vehicle.arm')
+  expect(input.attributes('aria-activedescendant')).toBe('palette-option-vehicle.arm')
 })
 
 it('leaves Home and End to the caret once there is text, and puts the selection on the first row of a new query', async () => {
@@ -388,8 +416,9 @@ it('is a combobox over a listbox, in a modal dialog named "Command palette"', as
   const selected = wrapper.findAll('[role="option"]').map(row => row.attributes('aria-selected'))
 
   expect(selected.length).toBeGreaterThan(30)
-  expect(selected[0]).toBe('true')
-  expect(selected.slice(1).every(state => state === 'false')).toBe(true)
+  // (one row is selected: the first that may run; a command that may not, Arm of an armed vehicle for one, comes before it)
+  expect(selected.filter(state => state === 'true')).toHaveLength(1)
+  expect(selected.filter(state => state === 'false')).toHaveLength(selected.length - 1)
 })
 
 it('says how many commands there are, a moment after the query changes (not on every key), and when none match', async () => {

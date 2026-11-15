@@ -3,7 +3,7 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import type { Connection, ConnectRequest, RebootResult, SerialPort, Telemetry } from '@/generated/app'
+import type { ArmingResult, Connection, ConnectRequest, RebootResult, SerialPort, Telemetry } from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
 export interface VehicleDeps {
@@ -35,6 +35,21 @@ export interface Vehicle {
    * whose code says why the backend refused before sending anything (NOT_CONNECTED, ARMED, STATE_UNKNOWN, BUSY).
    */
   reboot: () => Promise<RebootResult>
+  /**
+   * Asks the backend to arm, to disarm, to change the flight mode to the one with this number, or to run the pre-arm checks. Each
+   * is sent once: it resolves with what the vehicle said (`no-answer` when nothing did: the command may have been carried out,
+   * and it is not sent again), and rejects with a BackendError whose code says why the backend refused before sending anything.
+   * What the vehicle is now is what its next heartbeat says (`telemetry`), never the answer.
+   */
+  arm: () => Promise<ArmingResult>
+  /** Disarms. */
+  disarm: () => Promise<ArmingResult>
+  /** The emergency stop: refused only without a connection, sent again until the first ack; the heartbeat says what it did. */
+  emergencyStop: () => Promise<ArmingResult>
+  /** Changes the flight mode to the one with this number. */
+  setMode: (mode: number) => Promise<ArmingResult>
+  /** Runs the vehicle's pre-arm checks. */
+  prearm: () => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
   /** Starts listening to the backend: the connection and the telemetry. */
@@ -158,6 +173,26 @@ class VehicleLink implements Vehicle {
 
   reboot(): Promise<RebootResult> {
     return this.deps.client.call('vehicle.reboot', null)
+  }
+
+  arm(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.arm', null)
+  }
+
+  disarm(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.disarm', null)
+  }
+
+  emergencyStop(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.emergencyStop', null)
+  }
+
+  setMode(mode: number): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.setMode', { mode })
+  }
+
+  prearm(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.prearm', null)
   }
 
   async listPorts(): Promise<void> {

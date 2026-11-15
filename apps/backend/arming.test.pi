@@ -356,6 +356,19 @@ async function anArmInFlightHoldsTheArmedStateOfTheOtherServices(): Promise<void
   await end(f)
 }
 
+async function anAcceptedArmHoldsTheStateForTheHeartbeatsLagAndNoLonger(): Promise<void> throws Error {
+  const f = await connected()
+  waits.ackMs = 600
+  waits.armLagMs = 300
+  expect(described(await f.call("vehicle.arm"))).toBe("accepted")
+  // the hold was ackMs + armLagMs while the arm was out; now that it is answered it is armLagMs from the answer, not what was left
+  const left = link.armHoldUntil - (Date.now() as int)
+  expect(left <= 300 + waits.settleMs).toBe(true)
+  await delay(300 + waits.settleMs + 50)
+  expect(link.armHoldUntil < (Date.now() as int)).toBe(true)
+  await end(f)
+}
+
 async function aRefusedArmReleasesTheHoldAtOnce(): Promise<void> throws Error {
   const f = await connected()
   const sim = simulatorForTests()!
@@ -396,6 +409,7 @@ describe("the arming service", () => {
   it("answers a disarm with the ack of a stop, and reads that the vehicle stopped from the heartbeat", aDisarmAndAStopAnswerEachOther)
   it("holds an arm off while a stop is being sent", holdsAnArmOffWhileAStopIsBeingSent)
   it("holds the armed state of the other services unknown while an arm is in flight", anArmInFlightHoldsTheArmedStateOfTheOtherServices)
+  it("holds an accepted arm for the heartbeat's lag only, not for what was left of the wait", anAcceptedArmHoldsTheStateForTheHeartbeatsLagAndNoLonger)
   it("lets an arm that was refused release the hold at once", aRefusedArmReleasesTheHoldAtOnce)
   it("refuses an arm while a calibration or a motor test runs", refuseAnArmWhileAnOperationIsUnderWay)
 })
