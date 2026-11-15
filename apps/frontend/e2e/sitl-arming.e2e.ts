@@ -10,7 +10,10 @@
 //  4. The emergency stop of a vehicle on the ground is accepted (ArduPilot accepts a forced disarm of a disarmed vehicle) and the
 //     heartbeat says disarmed; then an arm (after the stop has finished) is accepted again. A stop's resends and the hold that
 //     keeps an arm off while they run are tested with the simulated vehicle only, not here.
-//  5. Nothing is sent when no vehicle is connected: every command is refused with NOT_CONNECTED.
+//  5. Take off: refused by the backend when the vehicle is disarmed (NOT_ARMED) and for an altitude outside 2 to 120 m
+//     (INVALID_VALUE); in GUIDED and armed the vehicle accepts a takeoff to 5 m, and its own altitude reaches about 5 m; it lands
+//     and disarms; a takeoff of a vehicle armed in STABILIZE is refused by the vehicle itself.
+//  6. Nothing is sent when no vehicle is connected: every command is refused with NOT_CONNECTED.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { BridgeClient } from './bridge-client'
@@ -26,6 +29,9 @@ const CHECKS_MS = 60_000
 const READY_MS = 300_000
 /** A heartbeat after a command says what it did. */
 const HEARTBEAT_MS = 15_000
+/** How long a climb to 5 m, and then a landing with its automatic disarm, may take. */
+const CLIMB_MS = 90_000
+const LAND_MS = 180_000
 /** ArduCopter's STABILIZE: a mode the vehicle arms in. */
 const STABILIZE = 0
 /** The arm voltage no battery meets. */
@@ -209,14 +215,72 @@ async function stopsAVehicleOnTheGround(): Promise<void> {
   await client().until('the heartbeat says disarmed after the stop', s => !s.armed, HEARTBEAT_MS)
 }
 
+/**
+ * Changes the mode by name and waits for the heartbeat to name it.
+ *
+ * @param name the mode
+ */
+async function goesTo(name: string): Promise<void> {
+  const modes = await client().call('vehicle.modes')
+  const number = (modes.result as { modes: { number: number, name: string }[] }).modes.find(mode => mode.name === name)?.number
+
+  expect((await command('vehicle.setMode', { mode: number })).result).toBe('accepted')
+  await client().until(`the heartbeat says ${name}`, s => s.mode === name, HEARTBEAT_MS)
+}
+
+async function refusesATakeoffThatIsNotAllowed(): Promise<void> {
+  // disarmed: the backend sends nothing
+  expect((await client().call('vehicle.takeoff', { altitude: 5 })).error?.code).toBe('NOT_ARMED')
+
+  // out of its limits (2 to 120 m): the backend sends nothing, armed or not
+  for (const altitude of [1, 121, Number.NaN]) {
+    // eslint-disable-next-line no-await-in-loop -- one after the other
+    expect((await client().call('vehicle.takeoff', { altitude })).error?.code, String(altitude)).toBe('INVALID_VALUE')
+  }
+}
+
+async function takesOffInGuidedAndLands(): Promise<void> {
+  await goesTo('GUIDED')
+  await armWhenReady()
+  await client().until('the heartbeat says armed', s => s.armed, HEARTBEAT_MS)
+  const up = await command('vehicle.takeoff', { altitude: 5 })
+
+  expect(up.result).toBe('accepted')
+  // the vehicle's own altitude says it: the answer is not the flight
+  const seen = await client().until('the vehicle is about 5 m above home', s => (s.position?.relativeAltitude ?? 0) > 4, CLIMB_MS)
+
+  expect(seen.position?.relativeAltitude).toBeLessThan(8)
+  await goesTo('LAND')
+  await client().until('the vehicle has landed and disarmed', s => !s.armed, LAND_MS)
+}
+
+async function refusesATakeoffOfAVehicleNotInGuided(): Promise<void> {
+  await goesTo('STABILIZE')
+  await armWhenReady()
+  await client().until('the heartbeat says armed', s => s.armed, HEARTBEAT_MS)
+
+  // ArduPilot does not take off by command in STABILIZE: its own refusal (FAILED), with the vehicle still on the ground
+  expect((await command('vehicle.takeoff', { altitude: 5 })).result).toBe('refused')
+  expect((await command('vehicle.disarm')).result).toBe('accepted')
+  await client().until('the heartbeat says disarmed', s => !s.armed, HEARTBEAT_MS)
+}
+
 async function sendsNothingWithoutAVehicle(): Promise<void> {
   await client().call('vehicle.disconnect')
 
-  for (const name of ['vehicle.arm', 'vehicle.disarm', 'vehicle.emergencyStop', 'vehicle.prearm']) {
-    // eslint-disable-next-line no-await-in-loop -- one after the other
-    const answer = await client().call(name)
+  const asks: [string, unknown][] = [
+    ['vehicle.arm', null],
+    ['vehicle.disarm', null],
+    ['vehicle.emergencyStop', null],
+    ['vehicle.prearm', null],
+    ['vehicle.takeoff', { altitude: 5 }],
+  ]
 
-    expect(answer.error?.code).toBe('NOT_CONNECTED')
+  for (const [name, payload] of asks) {
+    // eslint-disable-next-line no-await-in-loop -- one after the other
+    const answer = await client().call(name, payload)
+
+    expect(answer.error?.code, name).toBe('NOT_CONNECTED')
   }
   expect((await client().call('vehicle.setMode', { mode: 6 })).error?.code).toBe('NOT_CONNECTED')
   await window().waitForText('#connection', 'disconnected', 10_000)
@@ -232,6 +296,9 @@ describeSitl(
     it('arms once the checks pass, and the heartbeat says armed and then disarmed', armsAndDisarms, READY_MS + 60_000)
     it('changes the mode to LAND and RTL, and the heartbeat names them', changesTheMode, 60_000)
     it('stops a vehicle with the emergency stop, and the heartbeat says disarmed', stopsAVehicleOnTheGround, READY_MS + 60_000)
+    it('refuses a takeoff when disarmed and an altitude out of limits, sending nothing', refusesATakeoffThatIsNotAllowed, 60_000)
+    it('takes off in GUIDED to 5 m (its altitude says so), and lands', takesOffInGuidedAndLands, READY_MS + CLIMB_MS + LAND_MS)
+    it('has a vehicle that is not in GUIDED refuse the takeoff', refusesATakeoffOfAVehicleNotInGuided, READY_MS + 60_000)
     it('refuses every command when no vehicle is connected', sendsNothingWithoutAVehicle, 60_000)
   },
   { launchOnly: true },

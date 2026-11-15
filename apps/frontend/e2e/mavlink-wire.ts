@@ -9,15 +9,23 @@ const INCOMPAT_SIGNED = 0x01
 export const MSG_HEARTBEAT = 0
 export const MSG_PARAM_VALUE = 22
 export const MSG_PARAM_SET = 23
+export const MSG_PARAM_REQUEST_READ = 20
+export const MSG_PARAM_REQUEST_LIST = 21
+export const MSG_GPS_RAW_INT = 24
 export const MSG_GLOBAL_POSITION_INT = 33
 export const MSG_COMMAND_LONG = 76
 export const MSG_COMMAND_ACK = 77
+export const MSG_EKF_STATUS_REPORT = 193
 
 /** The CRC_EXTRA byte of each message, from the common dialect's XML. */
 const CRC_EXTRA: Record<number, number> = {
   [MSG_HEARTBEAT]: 50,
   [MSG_PARAM_VALUE]: 220,
   [MSG_PARAM_SET]: 168,
+  [MSG_PARAM_REQUEST_READ]: 214,
+  [MSG_PARAM_REQUEST_LIST]: 159,
+  [MSG_GPS_RAW_INT]: 24,
+  [MSG_EKF_STATUS_REPORT]: 71,
   [MSG_GLOBAL_POSITION_INT]: 104,
   // HOME_POSITION
   242: 104,
