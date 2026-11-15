@@ -6,11 +6,14 @@ import { calibrationToast } from './calibrationToast'
 
 const say = (key: string, fallback = ''): string => i18n.global.t(key, fallback)
 
-it('tells a success as a success, short, and a failure as an error that stays long', () => {
-  const done = calibrationToast({ kind: 'accel', outcome: 'success', detail: 'Calibration successful' }, say)
+it('tells a success as a success, short, and a failure as an error that stays until it is dismissed', () => {
+  const done = calibrationToast({ kind: 'accel', outcome: 'success' }, say)
 
-  expect(done).toMatchObject({ id: 'calibration-result', severity: 'success', text: 'Calibration done', long: false })
-  expect(calibrationToast({ kind: 'accel', outcome: 'failed' }, say)).toMatchObject({ severity: 'error', long: true })
+  const failed = calibrationToast({ kind: 'accel', outcome: 'failed' }, say)
+
+  expect(done).toMatchObject({ id: 'calibration-result', severity: 'success', text: 'Calibration done' })
+  expect([done.long, done.sticky]).toEqual([false, false])
+  expect(failed).toMatchObject({ severity: 'error', long: true, sticky: true })
   expect(calibrationToast({ kind: 'compass', outcome: 'cancelled' }, say)).toMatchObject({ severity: 'info' })
   expect(calibrationToast({ kind: 'compass', outcome: 'refused' }, say)).toMatchObject({ severity: 'warning' })
 })
@@ -23,11 +26,14 @@ it('adds the reason of the code (as it is when it has no words) and the warning 
   expect(lost.text).toBe('Calibration cancelled · the link to the vehicle was lost')
   expect(unknown.text).toBe('Calibration failed · NOT_A_CODE')
   expect(unsure.text).toContain('check the values before you trust them')
-  expect(unsure.long).toBe(true)
+  expect(unsure.sticky).toBe(true)
 })
 
-it('does not repeat the vehicle\'s own words', () => {
-  const { text } = calibrationToast({ kind: 'accel', outcome: 'failed', detail: 'Calibration FAILED' }, say)
+it('adds the detail the backend gave, unless it is one of the vehicle\'s own texts (those are in the side panel)', () => {
+  const refused = { kind: 'accel', outcome: 'refused', detail: 'not ready yet' } as const
+  const failed = { kind: 'accel', outcome: 'failed', detail: 'Calibration FAILED' } as const
 
-  expect(text).not.toContain('FAILED')
+  expect(calibrationToast(refused, say, ['Gyros']).text).toBe('Calibration not started · not ready yet')
+  expect(calibrationToast(failed, say, ['Calibration FAILED']).text).toBe('Calibration failed')
+  expect(calibrationToast(failed, say, []).text).toBe('Calibration failed · Calibration FAILED')
 })

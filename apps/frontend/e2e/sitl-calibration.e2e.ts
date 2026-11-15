@@ -301,12 +301,6 @@ async function placeFrom(position: number): Promise<void> {
   await placeFrom(position + 1)
 }
 
-/**
- * How the last calibration ended, as the page says it.
- *
- * @returns `success`, `failed`, `cancelled` or `refused`
- */
-
 async function calibratesTheAccelerometerInSixPositions(): Promise<void> {
   await openPage('accel')
   await pressWhenEnabled('setup-accel-start')
@@ -344,9 +338,11 @@ async function calibratesTheCompassAndKeepsItOnlyWhenAccepted(): Promise<void> {
   expect(await window().evaluate<string>(`document.querySelector('[data-compass="0"]').getAttribute('data-compass')`)).toBe('0')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-compass-kept') === null`)).toBe(true)
   await window().click('#setup-compass-accept')
+  // (the toast first: a success is told for 6 s only)
+  const ended = await endOf(window(), 60_000)
   await window().waitFor(`document.querySelector('#setup-compass-kept') !== null`, 60_000)
 
-  expect(await endOf(window())).toBe('success')
+  expect(ended).toBe('success')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-reboot') !== null`)).toBe(true)
 }
 

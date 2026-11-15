@@ -21,7 +21,8 @@ export function useCalibrationToasts(): void {
       previous = null
     }
     if (result) {
-      previous = toasts.push(calibrationToast(result, (key, fallback) => fallback === undefined ? t(key) : t(key, fallback)))
+      const say = (key: string, fallback?: string): string => fallback === undefined ? t(key) : t(key, fallback)
+      previous = toasts.push(calibrationToast(result, say, calibration.state.value.texts))
     }
   })
 }

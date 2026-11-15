@@ -28,14 +28,16 @@ export async function waitForEnd(app: E2eApp, outcome: string, timeoutMs = 60_00
 }
 
 /**
- * Waits for the toast of the end of a calibration and says how it ended.
+ * Waits for the toast of the end of a calibration and says how it ended. Only the words of an outcome count: the vehicle's own
+ * messages (also toasts, such as "Calibration successful") are not the end of the calibration as the interface tells it.
  *
  * @param app the app
  * @param timeoutMs how long to wait
  * @returns `success`, `failed`, `cancelled` or `refused`
  */
 export async function endOf(app: E2eApp, timeoutMs = 60_000): Promise<string> {
-  await app.waitFor(`${texts()}.some(text => text.startsWith('Calibration '))`, timeoutMs)
+  const starts = Object.values(WORDS).map(words => `text.startsWith(${JSON.stringify(words)})`).join(' || ')
+  await app.waitFor(`${texts()}.some(text => ${starts})`, timeoutMs)
   const shown = await app.evaluate<string[]>(texts())
 
   return Object.entries(WORDS).find(([, words]) => shown.some(text => text.startsWith(words)))?.[0] ?? ''
