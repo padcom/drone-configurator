@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canonParam, canonical, notConfirmedText, plainNumber, showNumber, typedValue } from './paramValue'
+import { canonParam, canonical, fieldText, notConfirmedText, plainNumber, showNumber, typedValue } from './paramValue'
 
 const INT16 = { kind: 'int', type: 'INT16' }
 const UINT32 = { kind: 'int', type: 'UINT32' }
@@ -129,5 +129,15 @@ describe('a whole number, a double and a round trip as text', () => {
 
   it('says what a write that was not confirmed read back, in the same words for both numbers', () => {
     expect(notConfirmedText(Math.fround(0.1), Math.fround(0.3))).toBe('the vehicle reports 0.1, not 0.3')
+  })
+})
+
+describe('the text of a field', () => {
+  it('is the shortest text that is the same float, and nothing for a value there is not', () => {
+    expect(fieldText(Math.fround(14.8))).toBe('14.8')
+    expect(fieldText(Math.fround(0.1))).toBe('0.1')
+    expect(fieldText(5200)).toBe('5200')
+    expect(fieldText(null)).toBe('')
+    expect(fieldText(undefined)).toBe('')
   })
 })

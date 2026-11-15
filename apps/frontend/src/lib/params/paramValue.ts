@@ -111,6 +111,16 @@ export function showNumber(n: number): string {
 }
 
 /**
+ * A value for a text field: as ArduPilot would print it (see `showNumber`), and nothing for a value there is not.
+ *
+ * @param n the value, if there is one
+ * @returns the text, or "" for no value
+ */
+export function fieldText(n: number | null | undefined): string {
+  return n === null || n === undefined ? '' : showNumber(n)
+}
+
+/**
  * What a write that the vehicle did not confirm says: the value it reports, and the one that was written.
  *
  * @param reported the value the vehicle read back

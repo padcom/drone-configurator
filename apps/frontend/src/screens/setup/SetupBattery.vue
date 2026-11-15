@@ -34,7 +34,7 @@
         <label :for="`${uid}-capacity`">{{ t('setup.battery.capacity') }}</label>
         <TextInput
           :id="`${uid}-capacity`"
-          :model-value="String(panel.value(ids[1] ?? '') ?? '')"
+          :model-value="fieldText(panel.value(ids[1] ?? ''))"
           :disabled="locked(ids[1] ?? '')"
           @update:model-value="setCapacity"
         />
@@ -84,6 +84,7 @@ import EnumField from '@/components/fields/EnumField.vue'
 import type { BatteryGroup } from '@/generated/app'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
+import { fieldText } from '@/lib/params/paramValue'
 import { BATTERY_PREFIXES, CURRENT_MONITORS, MONITORS, VOLTAGE_MONITORS, batteryParams, parseAmount } from '@/lib/setup/battery'
 
 const { t } = useI18n()

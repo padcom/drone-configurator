@@ -20,7 +20,7 @@
           <label :for="`${uid}-${row.kind}`">{{ t(`setup.failsafes.${row.kind}.below`) }}</label>
           <TextInput
             :id="`${uid}-${row.kind}`"
-            :model-value="String(row.thresholdValue ?? '')"
+            :model-value="fieldText(row.thresholdValue)"
             :disabled="locked(row.threshold)"
             @update:model-value="setVoltage(row.threshold, $event)"
           />
@@ -54,6 +54,7 @@ import TextInput from '@/components/ui/TextInput.vue'
 import EnumField from '@/components/fields/EnumField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
+import { fieldText } from '@/lib/params/paramValue'
 import {
   FAILSAFES,
   FAILSAFE_ORDER,
