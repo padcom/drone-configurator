@@ -14,7 +14,7 @@ import { createAppRouter } from '@/router'
 import { feed } from '@/testing/testing'
 import SetupBattery from './SetupBattery.vue'
 import SetupFailsafes from './SetupFailsafes.vue'
-import SetupMotors from './SetupMotors.vue'
+import SetupEscs from './SetupEscs.vue'
 
 let mounted: VueWrapper | undefined
 
@@ -78,8 +78,8 @@ function fields(wrapper: VueWrapper): string[] {
   return wrapper.findAll<HTMLInputElement>('input').map(field => field.element.value)
 }
 
-it('shows the spin thresholds of the Motors page as the floats they are: 0.1, 0.15, 0.95', async () => {
-  const wrapper = await shown(SetupMotors)
+it('shows the spin thresholds of the ESCs page as the floats they are: 0.1, 0.15, 0.95', async () => {
+  const wrapper = await shown(SetupEscs)
 
   const texts = fields(wrapper)
   expect(texts).toContain('0.1')

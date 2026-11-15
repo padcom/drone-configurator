@@ -64,8 +64,10 @@ it('finds the ports a vehicle has, counts the ones in use, and lists their param
 
   expect(portsOn(id => have.has(id))).toEqual([0, 2])
   expect(inUse([2, -1, 5, -1])).toBe(2)
-  expect(portParams(3)).toEqual({ protocol: 'SERIAL3_PROTOCOL', baud: 'SERIAL3_BAUD' })
-  expect(idsOf([0, 2])).toEqual(['SERIAL0_PROTOCOL', 'SERIAL0_BAUD', 'SERIAL2_PROTOCOL', 'SERIAL2_BAUD'])
+  expect(portParams(3)).toEqual({ protocol: 'SERIAL3_PROTOCOL', baud: 'SERIAL3_BAUD', options: 'SERIAL3_OPTIONS' })
+  expect(idsOf([0, 2])).toEqual([
+    'SERIAL0_PROTOCOL', 'SERIAL0_BAUD', 'SERIAL0_OPTIONS', 'SERIAL2_PROTOCOL', 'SERIAL2_BAUD', 'SERIAL2_OPTIONS',
+  ])
 })
 
 it('says a change to SERIAL0, or to a port that carries MAVLink, may cut the link', () => {

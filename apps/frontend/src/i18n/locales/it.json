@@ -1058,7 +1058,8 @@
         "accel": "Vai a Configurazione: Accelerometro",
         "compass": "Vai a Configurazione: Bussola",
         "radio": "Vai a Configurazione: Radio",
-        "motors": "Vai a Configurazione: Motori ed ESC",
+        "escs": "Vai a Configurazione: ESC",
+        "motors": "Vai a Configurazione: Motori",
         "modes": "Vai a Configurazione: Modalità di volo",
         "failsafes": "Vai a Configurazione: Failsafe",
         "battery": "Vai a Configurazione: Batteria",
@@ -1164,7 +1165,8 @@
       "accel": "Accelerometro",
       "compass": "Bussola",
       "radio": "Radio",
-      "motors": "Motori ed ESC",
+      "escs": "ESC",
+      "motors": "Motori",
       "modes": "Modalità di volo",
       "failsafes": "Failsafe",
       "battery": "Batteria",
@@ -1498,11 +1500,11 @@
       "class": "Classe del telaio",
       "type": "Tipo di telaio",
       "orientation": "Orientamento della scheda",
-      "orientationHelp": "Ha effetto al prossimo avvio. Dopo la modifica livella di nuovo il veicolo.",
+      "takesEffect": "Le modifiche hanno effetto al prossimo avvio. Dopo aver cambiato l’orientamento della scheda livella di nuovo il veicolo.",
       "undefined": "Non definita",
       "noRotation": "Nessuno",
       "noDrawing": "Per questo telaio non c'è un disegno.",
-      "caption": "Il davanti è in alto. Il numero è quello del motore nel test dei motori, non l'uscita a cui è collegato; la freccia è il verso di rotazione.",
+      "drawingKey": "Il davanti è in alto. Il numero è quello del motore nel test dei motori, non l'uscita a cui è collegato; la freccia è il verso di rotazione.",
       "motor": "Motore {number} a {angle} gradi, gira {spin}",
       "cw": "in senso orario",
       "ccw": "in senso antiorario"
@@ -1514,6 +1516,13 @@
       "port": "Serial {n}",
       "protocol": "Protocollo di serial {n}",
       "baud": "Velocità di serial {n}",
+      "options": "Opzioni della seriale {n}",
+      "head": {
+        "port": "Porta",
+        "protocol": "Protocollo",
+        "baud": "Velocità",
+        "options": "Opzioni"
+      },
       "none": "Questo veicolo non ha parametri per le porte seriali.",
       "noProtocol": "Nessuno",
       "willCut": "Dopo il riavvio la connessione su Serial {ports} andrà persa se questa app la usa: portava MAVLink o può essere la porta di una stazione a terra."
@@ -1545,9 +1554,11 @@
         "wspi": "Wide SPI"
       }
     },
+    "escs": {
+      "summary": "Come vengono pilotati gli ESC e le soglie a cui girano i motori."
+    },
     "motors": {
-      "summary": "Come vengono pilotati gli ESC, le soglie a cui girano i motori, cosa fanno ora le uscite del veicolo e un test di ogni motore.",
-      "escTitle": "Impostazioni degli ESC",
+      "summary": "Cosa fanno ora le uscite del veicolo e un test di ogni motore.",
       "protocol": "Protocollo degli ESC",
       "protocolHelp": "Il protocollo delle uscite dei motori (MOT_PWM_TYPE). Ha effetto dopo un riavvio e gli ESC devono capirlo.",
       "MOT_SPIN_ARM": "Giro da armato",

@@ -774,6 +774,14 @@
   padding-left: var(--space-4);
 }
 
+/* The motors: the test and the outputs, one under the other, and side by side when the column has room for both. */
+.setup-motors-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
 /* The middle column is narrow beside the list and the side panel (about 330 px at 1000 px wide): what is laid out in columns
    wider than that is stacked, and nothing is cut off at its right edge. (Last, to win over the rules of the columns above.) */
 @container (width < 640px) {
@@ -788,6 +796,68 @@
 
   .setup-esc,
   .setup-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (width >= 560px) {
+  .setup-motors-pair {
+    grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+  }
+}
+
+/* The frame: the dropdowns (each label over its field) and the drawing beside them when the column is wide enough for both. */
+.setup-frame-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.setup-frame-row .setup-fields {
+  grid-template-columns: minmax(0, 24rem);
+}
+
+@container (width >= 520px) {
+  .setup-frame-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* The serial ports: a row of name, protocol, speed and options (the heads above them are for the eye); one under the other when
+   the column is too narrow for the row. */
+.setup-ports-head,
+.setup-ports .setup-port {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 7rem) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+.setup-ports-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.setup-port-label {
+  display: none;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+@container (width < 560px) {
+  .setup-ports-head {
+    display: none;
+  }
+
+  .setup-port-label {
+    display: block;
+  }
+
+  .setup-ports .setup-port {
     grid-template-columns: minmax(0, 1fr);
   }
 }

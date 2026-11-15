@@ -140,7 +140,7 @@ it('lists the pages in the groups of the design, and marks the steps by what the
 
   expect(links[0]).toBe('Overview')
   expect(links).toContain('Flight modes✓Looks set up')
-  expect(links).toContain('Motors and ESCs–Cannot be told from the parameters')
+  expect(links).toContain('Motors–Cannot be told from the parameters')
   expect(links).toContain('Vehicle information')
 })
 
@@ -154,6 +154,14 @@ it('shows how many steps look set up, a card for each with what was checked, and
   expect(wrapper.text()).not.toMatch(/verified|calibrated/iu)
   expect(wrapper.get('#setup-next').text()).toContain('Every step that can be read')
   expect(wrapper.get('.setup-facts').text()).toContain('QUADROTOR')
+})
+
+it('links, beside the facts, to the pages that are not steps: ESCs, serial ports, devices, vehicle information', async () => {
+  const { wrapper } = await page(SetupHome)
+
+  const links = wrapper.findAll('.setup-facts .setup-also')
+  expect(links.map(link => link.text())).toEqual(['ESCs', 'Serial ports', 'Devices', 'Vehicle information'])
+  expect(links[0]?.attributes('href')).toContain('/setup/escs')
 })
 
 it('points to the first step that is open, with its page, when the parameters are at the defaults', async () => {

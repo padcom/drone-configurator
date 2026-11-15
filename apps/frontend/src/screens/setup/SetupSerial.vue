@@ -11,9 +11,19 @@
       <Banner v-if="cutting.length > 0" id="setup-serial-cut" tone="warn">
         {{ t('setup.serial.mayCut', { ports: cutting.join(', ') }) }}
       </Banner>
+      <!-- A row for each port: its protocol, its speed and its options (the names of the bits are the metadata's), side by side
+           when the column has room for the three, with the heads above them; when it has not, the heads are gone and each
+           field has its own short label before it (one or the other is seen, never both). -->
+      <div v-if="ports.length > 0" class="setup-ports-head" aria-hidden="true">
+        <span>{{ t('setup.serial.head.port') }}</span>
+        <span>{{ t('setup.serial.head.protocol') }}</span>
+        <span>{{ t('setup.serial.head.baud') }}</span>
+        <span>{{ t('setup.serial.head.options') }}</span>
+      </div>
       <ul class="setup-ports">
         <li v-for="port in ports" :key="port" class="setup-port" :data-port="port">
           <span class="setup-port-name">{{ t('setup.serial.port', { n: port }) }}</span>
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.protocol') }}</span>
           <EnumField
             :model-value="panel.value(portParams(port).protocol) ?? -1"
             :options="protocols"
@@ -21,12 +31,20 @@
             :disabled="panel.blocked.value !== null"
             @update:model-value="panel.set(portParams(port).protocol, $event)"
           />
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.baud') }}</span>
           <EnumField
             :model-value="panel.value(portParams(port).baud) ?? 0"
             :options="bauds"
             :label="t('setup.serial.baud', { n: port })"
             :disabled="panel.blocked.value !== null"
             @update:model-value="panel.set(portParams(port).baud, $event)"
+          />
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.options') }}</span>
+          <BitsCell
+            :panel="panel"
+            :id="portParams(port).options"
+            :label="t('setup.serial.options', { n: port })"
+            :disabled="panel.blocked.value !== null"
           />
         </li>
       </ul>
@@ -38,12 +56,14 @@
 
 <script setup lang="ts">
 // Serial ports: the protocol and the speed of each port the vehicle has, as named choices (ArduPilot's own lists: a value with no
-// name is shown as its number). A change takes effect at the next boot: the page says "reboot needed" after the write and
+// name is shown as its number), and its options (SERIALn_OPTIONS, a bitmask whose bits are named by the metadata). A change
+// takes effect at the next boot: the page says "reboot needed" after the write and
 // offers the reboot (held, refused while armed); it never reboots by itself. A change to a port that carries MAVLink, or to
 // SERIAL0, may cut the connection this app talks over: the page says "may" (it does not know which port the link is on)
 // before it is written.
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import BitsCell from '@/components/setup/BitsCell.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
 import Banner from '@/components/ui/Banner.vue'
@@ -68,12 +88,10 @@ const cutAfter = computed(() => cutByReboot(panel.written.value, panel.writtenWa
  * Whether the user has changed a port.
  *
  * @param port the port
- * @returns true if its protocol or its speed differs from the vehicle's
+ * @returns true if its protocol, its speed or its options differ from the vehicle's
  */
 function changed(port: number): boolean {
-  const { protocol, baud } = portParams(port)
-
-  return panel.dirty.value.includes(protocol) || panel.dirty.value.includes(baud)
+  return Object.values(portParams(port)).some(id => panel.dirty.value.includes(id))
 }
 
 /**
