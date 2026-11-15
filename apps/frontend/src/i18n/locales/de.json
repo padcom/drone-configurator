@@ -300,6 +300,7 @@
         "title": "Dieser Flug lässt sich nicht auf einer Karte zeigen",
         "noTimes": "Das Log hat keine Zeiten, also gibt es keinen Flug, den man auf einer Karte zeigen könnte."
       },
+"gapsMore": "Nicht genannte Lücken in den Positionen: {count}. Das Fahrzeug kann sich dort bewegen, wo das Log keine Position hat.",
       "skipped": "Positionen, die kein Ort waren (kein Fix, 0 und 0 oder außerhalb der Erde) und nicht gezeichnet werden: {count}.",
       "noHome": "Das Log sagt nicht, wo Home war, daher wird keines gezeichnet.",
       "source": {
@@ -325,8 +326,7 @@
         "height": "Höhe über Home",
         "altitude": "Höhe über dem Meer",
         "speed": "Geschwindigkeit über Grund",
-        "battery": "Akku",
-        "mode": "Modus"
+        "battery": "Akku"
       },
       "jump": {
         "title": "Springen zu",

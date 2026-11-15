@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LocalLogTrack } from '@/generated/app'
 import {
-  GAP_S, ReplayClock, altitudeAt, bearing, groundSpeedAt, indexAt, jumpsOf, markAt, splitPath, trackOf,
+  ReplayClock, altitudeAt, bearing, groundSpeedAt, indexAt, jumpsOf, markAt, splitPath, trackOf,
 } from './replay'
 
 /** A track that goes north a step a second for three seconds, is not heard for ten, and then goes on. */
@@ -17,6 +17,9 @@ const ANSWER: LocalLogTrack = {
     { timeUs: 14_000_000, lat: 47.0011, lon: 8.001, alt: 511 },
   ],
   home: { lat: 47, lon: 8 },
+  // (no fix from 3 s to 13 s of the log: the log says so)
+  gaps: [{ fromUs: 3_000_000, toUs: 13_000_000 }],
+  gapsMore: 0,
   events: [
     { timeUs: 1_500_000, kind: 'armed' },
     { timeUs: 6_000_000, kind: 'text', text: 'Failsafe: radio' },
@@ -60,6 +63,10 @@ describe('the vehicle at a time of the log', () => {
     expect(markAt(startingAt(5), 1)).toBeNull()
   })
 
+  it('is heard until the end of the track, and then held at the last fix', () => {
+    expect(markAt(track(), 12.5)).toMatchObject({ stale: false })
+  })
+
   it('is between two fixes where a straight line puts it, heading the way the line goes', () => {
     const mark = markAt(track(), 0.5)
 
@@ -71,7 +78,6 @@ describe('the vehicle at a time of the log', () => {
   it('holds the last fix in a gap, as one that is not heard now, with how long since', () => {
     const mark = markAt(track(), 7)
 
-    expect(GAP_S).toBeLessThan(10)
     expect(mark).toMatchObject({ lat: 47.0002, lon: 8, stale: true })
     expect(mark?.ageMs).toBeCloseTo(5000, 6)
     expect(mark?.heading).toBeUndefined()
@@ -79,6 +85,25 @@ describe('the vehicle at a time of the log', () => {
 
   it('holds the last fix after the end of the track, old by the time that passed', () => {
     expect(markAt(track(), 20)).toMatchObject({ lat: 47.0011, stale: true })
+  })
+})
+
+describe('the vehicle between thinned points', () => {
+  const points = [{ timeUs: 1_000_000, lat: 47, lon: 8 }, { timeUs: 9_000_000, lat: 47.001, lon: 8 }]
+
+  it('is heard where the points are 8 s apart and the log has no gap: a distance between points is not a gap', () => {
+    const thin = trackOf({ ...ANSWER, points, gaps: [] }, 1_000_000)
+
+    expect(markAt(thin, 4)).toMatchObject({ stale: false, ageMs: 0 })
+    expect(markAt(thin, 4)?.lat).toBeCloseTo(47.0005, 6)
+    expect(groundSpeedAt(thin, 4)).toBeCloseTo(13.9, 0)
+  })
+
+  it('is not heard there when the log says it has no position between them', () => {
+    const thin = trackOf({ ...ANSWER, points, gaps: [{ fromUs: 1_000_000, toUs: 9_000_000 }] }, 1_000_000)
+
+    expect(markAt(thin, 4)).toMatchObject({ stale: true, lat: 47 })
+    expect(groundSpeedAt(thin, 4)).toBeUndefined()
   })
 })
 

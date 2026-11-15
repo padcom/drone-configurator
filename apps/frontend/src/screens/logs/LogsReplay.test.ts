@@ -131,13 +131,15 @@ it('holds the last fix in a gap of the positions, as one that is old, and says t
   expect(wrapper.get('#replay-tile-speed dd').text()).toBe('–')
 })
 
-it('has a dash, not a value, where the log has nothing: before the first fix of the log, in the tiles', async () => {
+it('names the mode once, in the strip under the cursor (not again in a tile), and has the height and the battery', async () => {
   const { wrapper, handle } = await screen()
   await open(handle, WITH_TRACK)
 
   await scrubTo(wrapper, 30)
-  expect(wrapper.get('#replay-tile-mode dd').text()).toBe('Guided')
+  expect(wrapper.get('.flight-mode.cursor .flight-mode-name').text()).toBe('Guided')
+  expect(wrapper.find('#replay-tile-mode').exists()).toBe(false)
   expect(wrapper.get('#replay-tile-height dd').text()).not.toBe('–')
+  expect(wrapper.get('#replay-tile-battery dd').text()).toMatch(/V$/u)
 })
 
 it('plays and pauses, and marks the speed that is in use', async () => {

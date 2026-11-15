@@ -119,7 +119,7 @@ it('moves the vehicle with the scrubber and draws the path flown', async () => {
 
   expect(await vehicleLat()).not.toBeCloseTo(before, 4)
   expect(await app.text('#replay-clock')).toBe('0:15 of 0:59')
-  expect(await app.text('#replay-tile-mode dd')).toBe('Stabilize')
+  expect(await app.text('.flight-mode.cursor .flight-mode-name')).toBe('Stabilize')
 })
 
 it('holds the vehicle in the gap of the fixes as one that is old, with the speed not known there', async () => {

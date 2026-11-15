@@ -405,10 +405,19 @@ function validateTrackEventInto(value: any, path: string): boolean {
 /** The first problem with `value` as a track-event, or null. */
 export const validateTrackEvent = (value: unknown) => run(validateTrackEventInto, value)
 
-export type LocalLogTrack = { "source": "pos" | "gps", "fixes": number, "skipped": number, "points": (TrackPoint)[], "home"?: TrackPlace, "events": (TrackEvent)[] }
+export type TrackGap = { "fromUs": number | bigint, "toUs": number | bigint }
+
+function validateTrackGapInto(value: any, path: string): boolean {
+  return map(value, path, ["fromUs","toUs"]) && (value["fromUs"] === undefined ? fail(`${path}.fromUs`, 'present') : nested(value["fromUs"], `${path}.fromUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["toUs"] === undefined ? fail(`${path}.toUs`, 'present') : nested(value["toUs"], `${path}.toUs`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a track-gap, or null. */
+export const validateTrackGap = (value: unknown) => run(validateTrackGapInto, value)
+
+export type LocalLogTrack = { "source": "pos" | "gps", "fixes": number, "skipped": number, "points": (TrackPoint)[], "gaps": (TrackGap)[], "gapsMore": number, "home"?: TrackPlace, "events": (TrackEvent)[] }
 
 function validateLocalLogTrackInto(value: any, path: string): boolean {
-  return map(value, path, ["source","fixes","skipped","points","home","events"]) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["pos","gps"]))) && (value["fixes"] === undefined ? fail(`${path}.fixes`, 'present') : nested(value["fixes"], `${path}.fixes`, (value, path) => uint(value, path, 0xffffffff))) && (value["skipped"] === undefined ? fail(`${path}.skipped`, 'present') : nested(value["skipped"], `${path}.skipped`, (value, path) => uint(value, path, 0xffffffff))) && (value["points"] === undefined ? fail(`${path}.points`, 'present') : nested(value["points"], `${path}.points`, (value, path) => list(value, path, (value, path) => validateTrackPointInto(value, path)))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validateTrackPlaceInto(value, path))) && (value["events"] === undefined ? fail(`${path}.events`, 'present') : nested(value["events"], `${path}.events`, (value, path) => list(value, path, (value, path) => validateTrackEventInto(value, path))))
+  return map(value, path, ["source","fixes","skipped","points","gaps","gapsMore","home","events"]) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["pos","gps"]))) && (value["fixes"] === undefined ? fail(`${path}.fixes`, 'present') : nested(value["fixes"], `${path}.fixes`, (value, path) => uint(value, path, 0xffffffff))) && (value["skipped"] === undefined ? fail(`${path}.skipped`, 'present') : nested(value["skipped"], `${path}.skipped`, (value, path) => uint(value, path, 0xffffffff))) && (value["points"] === undefined ? fail(`${path}.points`, 'present') : nested(value["points"], `${path}.points`, (value, path) => list(value, path, (value, path) => validateTrackPointInto(value, path)))) && (value["gaps"] === undefined ? fail(`${path}.gaps`, 'present') : nested(value["gaps"], `${path}.gaps`, (value, path) => list(value, path, (value, path) => validateTrackGapInto(value, path)))) && (value["gapsMore"] === undefined ? fail(`${path}.gapsMore`, 'present') : nested(value["gapsMore"], `${path}.gapsMore`, (value, path) => uint(value, path, 0xffffffff))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validateTrackPlaceInto(value, path))) && (value["events"] === undefined ? fail(`${path}.events`, 'present') : nested(value["events"], `${path}.events`, (value, path) => list(value, path, (value, path) => validateTrackEventInto(value, path))))
 }
 
 /** The first problem with `value` as a local-log-track, or null. */

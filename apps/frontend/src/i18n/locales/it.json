@@ -300,6 +300,7 @@
         "title": "Questo volo non si può mostrare su una mappa",
         "noTimes": "Il log non ha tempi, quindi non c’è un volo da mostrare su una mappa."
       },
+"gapsMore": "Lacune nelle posizioni non indicate: {count}. Il veicolo può essere disegnato in movimento dove il log non ha posizione.",
       "skipped": "Posizioni che non erano un luogo (nessun fix, 0 e 0, o fuori dal globo) e non vengono disegnate: {count}.",
       "noHome": "Il log non dice dove fosse la base, quindi non ne viene disegnata nessuna.",
       "source": {
@@ -325,8 +326,7 @@
         "height": "Altezza sulla base",
         "altitude": "Altitudine sul livello del mare",
         "speed": "Velocità al suolo",
-        "battery": "Batteria",
-        "mode": "Modalità"
+        "battery": "Batteria"
       },
       "jump": {
         "title": "Vai a",

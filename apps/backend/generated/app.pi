@@ -1999,6 +1999,26 @@ export function encodeTrackEvent(v: TrackEvent): Cbor {
   Cbor.Dict(m)
 }
 
+export struct TrackGap {
+  fromUs: u64
+  toUs: u64
+}
+
+export function decodeTrackGap(v: Cbor, path: string): TrackGap throws InvalidPayload {
+  const m = members(v, path, ["fromUs", "toUs"])
+  TrackGap {
+    fromUs: (uint(required(m, "fromUs", path), `${path}.fromUs`, 18446744073709551615) as u64),
+    toUs: (uint(required(m, "toUs", path), `${path}.toUs`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeTrackGap(v: TrackGap): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("fromUs", Cbor.Uint(v.fromUs as u64))
+  m.set("toUs", Cbor.Uint(v.toUs as u64))
+  Cbor.Dict(m)
+}
+
 export enum LocalLogTrackSource { Pos, Gps }
 
 export function decodeLocalLogTrackSource(v: Cbor, path: string): LocalLogTrackSource throws InvalidPayload {
@@ -2026,6 +2046,16 @@ function decodeLocalLogTrackPointsList(v: Cbor, path: string): TrackPoint[] thro
   out
 }
 
+function decodeLocalLogTrackGapsList(v: Cbor, path: string): TrackGap[] throws InvalidPayload {
+  const out: TrackGap[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTrackGap(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
 function decodeLocalLogTrackEventsList(v: Cbor, path: string): TrackEvent[] throws InvalidPayload {
   const out: TrackEvent[] = []
   let i = 0
@@ -2044,6 +2074,14 @@ function encodeLocalLogTrackPointsList(v: TrackPoint[]): Cbor {
   Cbor.List(out)
 }
 
+function encodeLocalLogTrackGapsList(v: TrackGap[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTrackGap(e))
+  }
+  Cbor.List(out)
+}
+
 function encodeLocalLogTrackEventsList(v: TrackEvent[]): Cbor {
   const out: Cbor[] = []
   for (const e of v) {
@@ -2057,23 +2095,27 @@ export struct LocalLogTrack {
   fixes: u32
   skipped: u32
   points: TrackPoint[]
+  gaps: TrackGap[]
+  gapsMore: u32
   home?: TrackPlace
   events: TrackEvent[]
 }
 
 export function decodeLocalLogTrack(v: Cbor, path: string): LocalLogTrack throws InvalidPayload {
-  const m = members(v, path, ["source", "fixes", "skipped", "points", "home", "events"])
-  const cbor4 = m.get("home")
-  let opt4: TrackPlace? = null
-  if (cbor4 != null) {
-    opt4 = decodeTrackPlace(cbor4, `${path}.home`)
+  const m = members(v, path, ["source", "fixes", "skipped", "points", "gaps", "gapsMore", "home", "events"])
+  const cbor6 = m.get("home")
+  let opt6: TrackPlace? = null
+  if (cbor6 != null) {
+    opt6 = decodeTrackPlace(cbor6, `${path}.home`)
   }
   LocalLogTrack {
     source: decodeLocalLogTrackSource(required(m, "source", path), `${path}.source`),
     fixes: (uint(required(m, "fixes", path), `${path}.fixes`, 4294967295) as u32),
     skipped: (uint(required(m, "skipped", path), `${path}.skipped`, 4294967295) as u32),
     points: decodeLocalLogTrackPointsList(required(m, "points", path), `${path}.points`),
-    home: opt4,
+    gaps: decodeLocalLogTrackGapsList(required(m, "gaps", path), `${path}.gaps`),
+    gapsMore: (uint(required(m, "gapsMore", path), `${path}.gapsMore`, 4294967295) as u32),
+    home: opt6,
     events: decodeLocalLogTrackEventsList(required(m, "events", path), `${path}.events`),
   }
 }
@@ -2084,9 +2126,11 @@ export function encodeLocalLogTrack(v: LocalLogTrack): Cbor {
   m.set("fixes", Cbor.Uint(v.fixes as u64))
   m.set("skipped", Cbor.Uint(v.skipped as u64))
   m.set("points", encodeLocalLogTrackPointsList(v.points))
-  const opt4 = v.home
-  if (opt4 != null) {
-    m.set("home", encodeTrackPlace(opt4))
+  m.set("gaps", encodeLocalLogTrackGapsList(v.gaps))
+  m.set("gapsMore", Cbor.Uint(v.gapsMore as u64))
+  const opt6 = v.home
+  if (opt6 != null) {
+    m.set("home", encodeTrackPlace(opt6))
   }
   m.set("events", encodeLocalLogTrackEventsList(v.events))
   Cbor.Dict(m)

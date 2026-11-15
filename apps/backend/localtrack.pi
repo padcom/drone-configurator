@@ -17,6 +17,7 @@ import {
   LogsLocalTrackAsk,
   TrackEvent,
   TrackEventKind,
+  TrackGap,
   TrackPlace,
   TrackPoint,
   decodeLogsLocalTrackAsk,
@@ -32,8 +33,14 @@ import { LogReader } from "./logreader"
 const DEFAULT_POINTS: int = 2000
 const MAX_POINTS: int = 5000
 const MIN_POINTS: int = 6
-/// The most events that are kept (a log of a bad flight can print thousands of lines).
-const MAX_EVENTS: int = 300
+/// The most events of each class that are kept (a log of a bad flight can print thousands of lines): the vehicle armed or
+/// disarmed, and its warnings, have a cap each, so that an early run of warnings cannot crowd out an arm.
+const MAX_ARM_EVENTS: int = 300
+const MAX_WARNINGS: int = 300
+/// A stretch of the log with no position for longer than this (microseconds) is a gap: the vehicle was not heard there. The most gaps
+/// that are told.
+const GAP_US: int = 3000000
+const MAX_GAPS: int = 2000
 /// The events of the log: ArduPilot's `EV` ids for the vehicle armed and disarmed.
 const EV_ARMED: f64 = 10.0
 const EV_DISARMED: f64 = 11.0
@@ -98,6 +105,11 @@ class Positions implements Taker {
   readonly cells: Cell[] = []
   public fixes: int = 0
   public skipped: int = 0
+  /// The fix before this one, where the log has no position for a while (a gap), and what is kept of the ends of the gaps.
+  prev: Fix? = null
+  readonly pinned: Fix[] = []
+  public readonly gaps: TrackGap[] = []
+  public gapsMore: int = 0
   /// Where the fields are in the format of the message, once the first message is seen (-1: it has not got them).
   type: int = -1
   latAt: int = -1
@@ -155,7 +167,26 @@ class Positions implements Taker {
       return
     }
     fixes += 1
-    keep(new Fix(t, lat, lng, altitudeOf(m)))
+    const fix = new Fix(t, lat, lng, altitudeOf(m))
+    markGap(fix)
+    keep(fix)
+  }
+
+  /// Where there is no position for longer than a gap, the last fix before it and the first after it are kept whatever the thinning
+  /// does (a point that is far from the one before it is not a gap: only the log says there was none), and the gap is told.
+  markGap(fix: Fix): void {
+    const before = prev
+    prev = fix
+    if (before == null || fix.t - before!.t <= GAP_US) {
+      return
+    }
+    if (gaps.length >= MAX_GAPS) {
+      gapsMore += 1
+      return
+    }
+    pinned.push(before!)
+    pinned.push(fix)
+    gaps.push(TrackGap { fromUs: before!.t as u64, toUs: fix.t as u64 })
   }
 
   /// Whether the message is a 3D fix of the receiver the track is of.
@@ -191,23 +222,41 @@ class Positions implements Taker {
     cells[i].add(fix)
   }
 
-  /// The points of the parts in time order: the first, the farthest and the last of each, once each.
-  public points(): TrackPoint[] {
-    const out: TrackPoint[] = []
+  /// The fixes of the parts in time order: the first, the farthest and the last of each, once each.
+  fixesOfParts(): Fix[] {
+    const out: Fix[] = []
     for (const cell of cells) {
       const first = cell.first
       if (first == null) {
         continue
       }
-      out.push(pointOf(first!))
+      out.push(first!)
       const far = cell.far
       const last = cell.last
       if (far != null && far!.t != first!.t && (last == null || far!.t != last!.t)) {
-        out.push(pointOf(far!))
+        out.push(far!)
       }
       if (last != null && last!.t != first!.t) {
-        out.push(pointOf(last!))
+        out.push(last!)
       }
+    }
+    out
+  }
+
+  /// The points to give: those of the parts and the ends of the gaps, in time order, once each.
+  public points(): TrackPoint[] {
+    const parts = fixesOfParts()
+    const out: TrackPoint[] = []
+    let i = 0
+    let j = 0
+    while (i < parts.length || j < pinned.length) {
+      const fromParts = j >= pinned.length || (i < parts.length && parts[i].t <= pinned[j].t)
+      const fix = if (fromParts) parts[i] else pinned[j]
+      const same = out.length > 0 && out[out.length - 1].timeUs == (fix.t as u64)
+      if (!same) {
+        out.push(pointOf(fix))
+      }
+      if (fromParts) i += 1 else j += 1
     }
     out
   }
@@ -241,6 +290,8 @@ class Marks implements Taker {
   seenOrigin: bool = false
   seenEvent: bool = false
   seenText: bool = false
+  armEvents: int = 0
+  warnings: int = 0
 
   constructor(decoder: LogReader) {
     this.decoder = decoder
@@ -286,14 +337,16 @@ class Marks implements Taker {
       eventId = m.format.indexOf("Id")
     }
     const t = m.timeUs()
-    if (eventId < 0 || t < 0 || events.length >= MAX_EVENTS) {
+    if (eventId < 0 || t < 0 || armEvents >= MAX_ARM_EVENTS) {
       return
     }
     const id = m.nums[eventId]
     if (id == EV_ARMED) {
       events.push(TrackEvent { timeUs: t as u64, kind: TrackEventKind.Armed })
+      armEvents += 1
     } else if (id == EV_DISARMED) {
       events.push(TrackEvent { timeUs: t as u64, kind: TrackEventKind.Disarmed })
+      armEvents += 1
     }
   }
 
@@ -303,7 +356,7 @@ class Marks implements Taker {
       textAt = m.format.indexOf("Message")
     }
     const t = m.timeUs()
-    if (textAt < 0 || t < 0 || events.length >= MAX_EVENTS) {
+    if (textAt < 0 || t < 0 || warnings >= MAX_WARNINGS) {
       return
     }
     const words = m.texts[textAt]
@@ -313,6 +366,7 @@ class Marks implements Taker {
         const e = TrackEvent { timeUs: t as u64, kind: TrackEventKind.Text }
         e.text = words
         events.push(e)
+        warnings += 1
         return
       }
     }
@@ -388,6 +442,8 @@ async function gather(ask: LogsLocalTrackAsk, wanted: int, own: AbortController)
     fixes: chosen.fixes as u32,
     skipped: chosen.skipped as u32,
     points: chosen.points(),
+    gaps: chosen.gaps,
+    gapsMore: chosen.gapsMore as u32,
     events: marks.events,
   }
   if (marks.home != null) {

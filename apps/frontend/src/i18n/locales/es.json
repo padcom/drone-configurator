@@ -300,6 +300,7 @@
         "title": "Este vuelo no se puede mostrar en un mapa",
         "noTimes": "El registro no tiene tiempos, así que no hay un vuelo que mostrar en un mapa."
       },
+"gapsMore": "Huecos en las posiciones que no se indican: {count}. El vehículo puede dibujarse en movimiento donde el registro no tiene posición.",
       "skipped": "Posiciones que no eran un lugar (sin fix, 0 y 0, o fuera del globo) y no se dibujan: {count}.",
       "noHome": "El registro no dice dónde estaba el punto de origen, así que no se dibuja ninguno.",
       "source": {
@@ -325,8 +326,7 @@
         "height": "Altura sobre el origen",
         "altitude": "Altitud sobre el nivel del mar",
         "speed": "Velocidad sobre el suelo",
-        "battery": "Batería",
-        "mode": "Modo"
+        "battery": "Batería"
       },
       "jump": {
         "title": "Ir a",

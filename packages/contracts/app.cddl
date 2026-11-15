@@ -573,13 +573,22 @@ track-place = { lat: float, lon: float }
 ; that is a warning (it names a failsafe, an error, a crash or a lost link or sensor).
 track-event = { timeUs: uint .size 8, kind: "armed" / "disarmed" / "text", ? text: tstr }
 
+; Where the log really has no position for more than 3 seconds, from the last fix before (`fromUs`) to the first after (`toUs`), both of
+; which are always among the `points`. The thinning keeps a few points for a part of the time, so the distance of two points says
+; nothing of whether the vehicle was heard between them: only a gap says that. At most 2000 gaps are told (`gapsMore`: how many
+; more there were: the page then draws what it knows and says so).
+track-gap = { fromUs: uint .size 8, toUs: uint .size 8 }
+
 ; `fixes` is how many positions the log has (before the thinning), `skipped` how many positions were no place (no 3D fix, 0 and 0,
-; outside the globe, not a number). `points` are in time order.
+; outside the globe, not a number). `points` are in time order. The events are at most 300 of the vehicle armed or disarmed and,
+; apart, at most 300 of its warnings (an early run of warnings cannot crowd out an arm).
 local-log-track = {
   source: "pos" / "gps",
   fixes: uint .size 4,
   skipped: uint .size 4,
   points: [+ track-point],
+  gaps: [* track-gap],
+  gapsMore: uint .size 4,
   ? home: track-place,
   events: [* track-event],
 }

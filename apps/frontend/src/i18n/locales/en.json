@@ -300,6 +300,7 @@
         "title": "This flight cannot be shown on a map",
         "noTimes": "The log has no times, so there is no flight to place on a map."
       },
+"gapsMore": "Gaps in the positions that are not told: {count}. The vehicle may be drawn moving where the log has no position.",
       "skipped": "Positions that were not a place (no fix, 0 and 0, or outside the globe) and are not drawn: {count}.",
       "noHome": "The log does not say where home was, so none is drawn.",
       "source": {
@@ -325,8 +326,7 @@
         "height": "Height above home",
         "altitude": "Altitude above sea level",
         "speed": "Ground speed",
-        "battery": "Battery",
-        "mode": "Mode"
+        "battery": "Battery"
       },
       "jump": {
         "title": "Jump to",

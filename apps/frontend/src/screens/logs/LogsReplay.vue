@@ -48,6 +48,9 @@
         <p id="replay-facts" class="muted">{{ factsText }}</p>
         <p v-if="track.skipped > 0" id="replay-skipped" class="muted">{{ t('logs.replay.skipped', { count: track.skipped }) }}</p>
         <p v-if="track.home === null" id="replay-no-home" class="muted">{{ t('logs.replay.noHome') }}</p>
+        <p v-if="track.gapsMore > 0" id="replay-gaps-more" class="muted">
+          {{ t('logs.replay.gapsMore', { count: track.gapsMore }) }}
+        </p>
         <ReplayTransport
           :time="clock.time"
           :length="clock.length"
@@ -63,8 +66,6 @@
           :time="clock.time"
           :length="clock.length"
           :series="replay.series.value"
-          :spans="spans"
-          :firmware="summary.firmware"
         />
         <ReplayJumps :jumps="replay.jumps.value" :firmware="summary.firmware" @go="seek" />
       </template>

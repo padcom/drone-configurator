@@ -300,6 +300,7 @@
         "title": "Tego lotu nie można pokazać na mapie",
         "noTimes": "Log nie ma czasów, więc nie ma lotu do pokazania na mapie."
       },
+"gapsMore": "Luki w pozycjach, których nie podano: {count}. Pojazd może być rysowany w ruchu tam, gdzie log nie ma pozycji.",
       "skipped": "Pozycje, które nie były miejscem (brak fixa, 0 i 0 albo poza globem) i nie są rysowane: {count}.",
       "noHome": "Log nie mówi, gdzie był dom, więc żaden nie jest rysowany.",
       "source": {
@@ -325,8 +326,7 @@
         "height": "Wysokość nad domem",
         "altitude": "Wysokość nad poziomem morza",
         "speed": "Prędkość względem ziemi",
-        "battery": "Bateria",
-        "mode": "Tryb"
+        "battery": "Bateria"
       },
       "jump": {
         "title": "Przejdź do",

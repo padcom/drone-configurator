@@ -300,11 +300,93 @@ async function givesTheTrackOfARecording(): Promise<void> throws Error {
   await done(r)
 }
 
+/// A flight of 3000 s with a fix every second, and one real gap: no fix from 1000 s to 1020 s.
+function denseWithAGap(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  for (let i = 1; i <= 3000; i++) {
+    if (i <= 1000 || i >= 1020) {
+      e.add(62, [(i as f64) * 1000000.0, 47.0 + (i as f64) * 0.00001, 8.5, 500.0, 0.0], NONE)
+    }
+  }
+  e.bytes()
+}
+
+async function tellsWhereTheLogReallyHasAGapAndOnlyThere(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, denseWithAGap())
+  // 30 points for 3000 s: the points are a hundred seconds apart, and that says nothing of the vehicle not being heard.
+  const t = await trackOf(r, 30)
+  expect(t.points.length <= 40).toBe(true)
+  expect(t.gaps.length).toBe(1)
+  expect(t.gaps[0].fromUs).toBe(1000000000 as u64)
+  expect(t.gaps[0].toUs).toBe(1020000000 as u64)
+  expect(t.gapsMore).toBe(0 as u32)
+  // The two ends of the gap are in the line, whatever the thinning kept.
+  let before = false
+  let after = false
+  for (const p of t.points) {
+    before = before || p.timeUs == (1000000000 as u64)
+    after = after || p.timeUs == (1020000000 as u64)
+  }
+  expect(before).toBe(true)
+  expect(after).toBe(true)
+  // With the default number of points it is the same gap.
+  expect((await trackOf(r, 0)).gaps.length).toBe(1)
+  await done(r)
+}
+
+async function tellsNoGapForAContinuousFlight(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, outAndBack())
+  const t = await trackOf(r, 6)
+  expect(t.gaps.length).toBe(0)
+  expect(t.points.length <= 6).toBe(true)
+  await done(r)
+}
+
+/// 400 warnings first, and then the vehicle armed and disarmed.
+function warningsBeforeTheArm(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(60, "EV", "QB", "TimeUS,Id")
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  for (let i = 1; i <= 400; i++) {
+    e.add(59, [(i as f64) * 1000.0, 0.0], ["", `Failsafe: line ${i}`])
+  }
+  e.add(60, [500000.0, 10.0], ["", ""])
+  e.add(62, [600000.0, 47.5, 8.5, 500.0, 0.0], NONE)
+  e.add(60, [700000.0, 11.0], ["", ""])
+  e.bytes()
+}
+
+async function keepsTheArmWhenWarningsCameFirst(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, warningsBeforeTheArm())
+  const t = await trackOf(r, 0)
+  let armed = 0
+  let disarmed = 0
+  let texts = 0
+  for (const e of t.events) {
+    if (e.kind == TrackEventKind.Armed) armed += 1
+    if (e.kind == TrackEventKind.Disarmed) disarmed += 1
+    if (e.kind == TrackEventKind.Text) texts += 1
+  }
+  expect(armed).toBe(1)
+  expect(disarmed).toBe(1)
+  // The warnings have a cap of their own.
+  expect(texts).toBe(300)
+  await done(r)
+}
+
 describe("the track of a log on this computer", () => {
   it("gives the positions of the EKF, home as the log says it was, and the events", givesThePositionsOfTheEkfWithHomeAndEvents)
   it("gives the 3D fixes of one GPS receiver when there is no POS, and no home that the log does not have", givesTheGpsFixesOfOneReceiverWhenThereIsNoPos)
   it("says why there is no track when the log has no position", saysWhyThereIsNoTrack)
   it("keeps the turn of an out and back when it thins, and the ends", keepsTheTurnWhenItThins)
+  it("tells where the log really has a gap, and keeps both ends of it, whatever the thinning does", tellsWhereTheLogReallyHasAGapAndOnlyThere)
+  it("tells no gap for a flight that is continuous, however far apart the thinned points are", tellsNoGapForAContinuousFlight)
+  it("keeps the arm and the disarm when more than 300 warnings came first, each class with a cap of its own", keepsTheArmWhenWarningsCameFirst)
   it("refuses a log that was not read, a number of points that is out of range and a key that is no log", refusesWhatItShould)
   it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
   it("gives the track of an imported recording from its GLOBAL_POSITION_INT and its HOME_POSITION", givesTheTrackOfARecording)

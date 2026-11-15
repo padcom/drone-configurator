@@ -27,6 +27,14 @@ export interface Jump {
   mode?: number
 }
 
+/** A stretch of the log with no position, in seconds from the start of the log: the vehicle was not heard between the two. */
+export interface ReplayGap {
+  /** The time of the last fix before the gap. */
+  from: number
+  /** The time of the first fix after it. */
+  to: number
+}
+
 /** The track of a log as the page keeps it. */
 export interface ReplayTrack {
   /** Where the positions come from: the EKF (`pos`) or the GPS (`gps`). */
@@ -41,14 +49,15 @@ export interface ReplayTrack {
   total: number
   /** How many positions were no place. */
   skipped: number
+  /** Where the log really has no position (the distance of two thinned points says nothing of that). */
+  gaps: ReplayGap[]
+  /** How many more gaps there were than were told: the vehicle may be drawn moving where the log has no position. */
+  gapsMore: number
   /** The time of the first fix (seconds). */
   from: number
   /** The time of the last fix (seconds). */
   to: number
 }
-
-/** A gap in the fixes longer than this (seconds) holds the last fix, and the vehicle is drawn as not heard since. */
-export const GAP_S = 3
 
 /**
  * A fix of the track as the page keeps it.
@@ -93,6 +102,8 @@ export function trackOf(answer: LocalLogTrack, firstUs: number): ReplayTrack {
     fixes,
     places: fixes.map(({ lat, lon }) => ({ lat, lon })),
     home: answer.home ? { ...answer.home } : null,
+    gaps: answer.gaps.map(gap => ({ from: (asNumber(gap.fromUs) - firstUs) / 1e6, to: (asNumber(gap.toUs) - firstUs) / 1e6 })),
+    gapsMore: answer.gapsMore,
     total: answer.fixes,
     skipped: answer.skipped,
     ...endsOf(fixes),
@@ -166,7 +177,18 @@ function between(here: ReplayFix, next: ReplayFix, t: number): VehicleMark {
 }
 
 /**
- * The fixes either side of a time, when they are close enough to say where the vehicle was between them (no gap, not an end).
+ * Whether the log has no position at a time: a gap that the log has (not a distance between two thinned points).
+ *
+ * @param track the track
+ * @param t seconds from the start of the log
+ * @returns true when the vehicle was not heard then
+ */
+function inGap(track: ReplayTrack, t: number): boolean {
+  return track.gaps.some(gap => t > gap.from && t < gap.to)
+}
+
+/**
+ * The fixes either side of a time, when the log has a position all the way between them (no gap, not an end).
  *
  * @param track the track
  * @param t seconds from the start of the log
@@ -176,13 +198,13 @@ function neighbours(track: ReplayTrack, t: number): [ReplayFix, ReplayFix] | nul
   const i = indexAt(track.fixes, t)
   const [here, next] = [track.fixes[i], track.fixes[i + 1]]
 
-  return here !== undefined && next !== undefined && next.t - here.t <= GAP_S ? [here, next] : null
+  return here !== undefined && next !== undefined && !inGap(track, t) ? [here, next] : null
 }
 
 /**
  * The vehicle at a time of the log. Before the first fix there is none. Between two fixes it is where a straight line puts it,
- * heading the way the line goes; in a gap of more than GAP_S seconds, and after the last fix, it stays at the last fix and is
- * marked as old, with how old (the same as a live vehicle that is not heard).
+ * heading the way the line goes; in a gap that the log has, and after the last fix, it stays at the last fix and is marked as
+ * old, with how old (the same as a live vehicle that is not heard).
  *
  * @param track the track
  * @param t seconds from the start of the log
@@ -229,7 +251,8 @@ export function splitPath(track: ReplayTrack, t: number, mark: LatLon | null): P
 }
 
 /**
- * The speed over the ground at a time, from the fixes either side of it (m/s); nothing in a gap of fixes or at the ends.
+ * The speed over the ground at a time, from the fixes either side of it (m/s): the average between two kept fixes (on a long log
+ * they are a few seconds apart); nothing in a gap of the log or at the ends.
  *
  * @param track the track
  * @param t seconds from the start of the log

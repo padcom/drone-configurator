@@ -101,6 +101,9 @@ export function trackOf(firstUs: number): LocalLogTrack {
     fixes: points.length + 3,
     skipped: 3,
     points,
+    // (the last fix before the gap and the first after it: the points at 39.5 s and 55.5 s)
+    gaps: [{ fromUs: firstUs + 39.5e6, toUs: firstUs + 55.5e6 }],
+    gapsMore: 0,
     home: { lat: CENTRE.lat + RADIUS_M / METRES_PER_DEGREE, lon: CENTRE.lon },
     events: [
       { timeUs: armed ?? 0, kind: 'armed' },
