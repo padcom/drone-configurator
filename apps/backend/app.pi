@@ -31,7 +31,7 @@ import { register as registerVehicleInfo } from "./vehicleinfo"
 
 /// For tests: the simulated vehicle of a "simulator" connection.
 export function simulatorForTests(): SimulatedAutopilot? {
-  link.sim
+  return link.sim
 }
 
 /// For tests: the simulated vehicles of the connections that follow have file transfer or have not.
@@ -79,5 +79,5 @@ export function createBackend(transport: Transport): Communicator {
   registerFiles(c)
   registerSerial(c)
   registerSettings(c)
-  c
+  return c
 }

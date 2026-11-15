@@ -166,12 +166,12 @@ export function capForTests(bytes: int): void {
 
 /// For tests: how many requests to a server are running now.
 export function activeRequests(): int {
-  state.active
+  return state.active
 }
 
 /// For tests: the cache, once something made it.
 export function cacheForTests(): TileCache? {
-  state.cache
+  return state.cache
 }
 
 function now(): int {
@@ -242,7 +242,7 @@ async function configOf(): Promise<Config> {
   } catch (e: Error) {
     c.defaults = true
   }
-  c
+  return c
 }
 
 /// The cache, made at the first need (and its first count of the folder started in the background).
@@ -314,29 +314,29 @@ function isImage(contentType: string, b: Uint8Array): bool {
   if (type == "image/webp") {
     return b.length > 12 && b[0] == 82 && b[1] == 73 && b[2] == 70 && b[3] == 70 && b[8] == 87 && b[9] == 69 && b[10] == 66 && b[11] == 80
   }
-  false
+  return false
 }
 
 function tileOfCache(tile: CachedTile, fromCache: bool, stale: bool): MapTile {
-  MapTile { contentType: tile.meta.contentType, bytes: tile.bytes, fromCache: fromCache, stale: stale, fetchedAt: tile.meta.fetchedAt as u64 }
+  return MapTile { contentType: tile.meta.contentType, bytes: tile.bytes, fromCache: fromCache, stale: stale, fetchedAt: tile.meta.fetchedAt as u64 }
 }
 
 function failure(code: string, message: string): Result {
   const r = new Result()
   r.code = code
   r.message = message
-  r
+  return r
 }
 
 function success(tile: MapTile): Result {
   const r = new Result()
   r.tile = tile
-  r
+  return r
 }
 
 /// The key of a request that waits.
 function keyOf(source: Source, z: int, x: int, y: int): string {
-  `${source.dir}/${z}/${x}/${y}`
+  return `${source.dir}/${z}/${x}/${y}`
 }
 
 async function tileOf(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -506,7 +506,7 @@ export function reachText(host: string, message: string): string {
   } else if (m.includes("timed out") || m.includes("timeout")) {
     kind = "it did not answer"
   }
-  `couldn't reach ${host}: ${kind}`
+  return `couldn't reach ${host}: ${kind}`
 }
 
 /// One GET: the answer, whole.
@@ -518,7 +518,7 @@ async function ask(url: string, headers: Map<string, string>): Promise<Reply> th
   r.etag = res.headers.get("etag") ?? ""
   r.cacheControl = res.headers.get("cache-control") ?? ""
   r.bytes = await res.bytes()
-  r
+  return r
 }
 
 /// What a status says of the server's state: why to stay away from it, or "" when it is no trouble (404 and the like are the tile's).
@@ -613,7 +613,7 @@ async function cancelTile(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   if (own != null) {
     own!.abort(null)
   }
-  null
+  return null
 }
 
 async function sourcesOf(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {

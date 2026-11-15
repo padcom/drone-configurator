@@ -73,7 +73,7 @@ export class Stream implements SessionPart {
   public begin(c: MavLinkConnection, s: Sink): int {
     const mine = start(s)
     listener = c.on((r: Received) => seen(r))
-    mine
+    return mine
   }
 
   /// A stream begins with the sink `s`, listening to nothing yet (a test feeds `keep` and calls `flush` by itself).
@@ -88,7 +88,7 @@ export class Stream implements SessionPart {
     leases = []
     const mine = serial
     timer = setInterval(() => this.flush(mine), limits.flushMs)
-    mine
+    return mine
   }
 
   /// What the vehicle sends.

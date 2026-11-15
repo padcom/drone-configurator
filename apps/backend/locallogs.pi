@@ -51,7 +51,7 @@ const HEARTBEAT_COPTER: string = "ArduCopter (from the vehicle type in its heart
 function isBanner(text: string): bool {
   const parts = text.split(" ")
 
-  parts.length >= 2 && parts[0].startsWith("Ardu") && parts[1].startsWith("V") && parts[1].length >= 2
+  return parts.length >= 2 && parts[0].startsWith("Ardu") && parts[1].startsWith("V") && parts[1].length >= 2
 }
 
 /// Whether a heartbeat's vehicle type and autopilot are those of an ArduPilot copter.
@@ -64,7 +64,7 @@ function isCopter(type: f64?, autopilot: f64?): bool {
       return true
     }
   }
-  false
+  return false
 }
 
 /// The changes of flight mode that are kept of a log; more are counted away (`modesCut`).
@@ -161,7 +161,7 @@ async function root(): Promise<string> throws CommunicatorError {
 
 /// The key of a log: its vehicle's folder and its file.
 export function keyOf(vehicle: string, file: string): string {
-  `${vehicle}/${file}`
+  return `${vehicle}/${file}`
 }
 
 /// The vehicle's folder and the file named by a key, or an empty list when it is not the key of a copy: exactly two names, neither
@@ -175,7 +175,7 @@ export function partsOfKey(key: string): string[] {
   if (!named) {
     return []
   }
-  parts
+  return parts
 }
 
 /// Whether the key names an imported recording (a `.tlog`) and not a log a vehicle wrote.
@@ -203,7 +203,7 @@ export function describeImported(file: string, size: int, mtime: int): LocalLog 
   if (known != null && known!.size == size && known!.mtime == mtime) {
     log.summary = known!.summary
   }
-  log
+  return log
 }
 
 /// A copy found in a folder: its facts, and the cached summary when the file is still the one that was read.
@@ -217,7 +217,7 @@ export function describeCopy(vehicle: string, file: string, size: int, mtime: in
   if (known != null && known!.size == size && known!.mtime == mtime) {
     log.summary = known!.summary
   }
-  log
+  return log
 }
 
 /// Puts `log` into `list`, which is kept in order of the most recently changed first and at most `MAX_LISTED` long.
@@ -345,7 +345,7 @@ export function claimRead(): AbortController throws CommunicatorError {
   }
   const own = new AbortController()
   state.reading = own
-  own
+  return own
 }
 
 /// How long an import waits for a read that is running (ms) before it says the library is busy: the page's own reads (the message
@@ -499,7 +499,7 @@ export function verifiedSummary(key: string, facts: FileFacts): LocalLogSummary 
   if (!known!.verified) {
     throw new CommunicatorError("NOT_VERIFIED", "the log is not verified (its CRC is not the one the vehicle gave): nothing is taken from it")
   }
-  known!
+  return known!
 }
 
 /// Reads the log named by `key` through, and keeps and gives what is in it.
@@ -584,7 +584,7 @@ function summaryOf(scan: Scan, done: Streamed, verified: bool): LocalLogSummary 
   } else if (scan.heartbeatFirmware != "") {
     s.firmware = scan.heartbeatFirmware
   }
-  s
+  return s
 }
 
 /// The size and time of the last change of a file, or null when it is not there.
@@ -637,5 +637,5 @@ async function cancelRead(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   if (r != null) {
     r!.abort()
   }
-  null
+  return null
 }

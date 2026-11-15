@@ -34,7 +34,7 @@ function autopilotSeen(d: VehicleDiscovery): Vehicle? {
       return v
     }
   }
-  null
+  return null
 }
 
 /// Receives until the connection ends. The router stays open when a link drops (reconnect.pi brings it back), so this

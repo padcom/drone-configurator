@@ -43,26 +43,26 @@ export class DataflashReader implements LogReader {
   }
 
   public tables(): DfTables {
-    decoder.tables
+    return decoder.tables
   }
 
   public skippedBytes(): int {
-    decoder.problems.skipped
+    return decoder.problems.skipped
   }
 
   public problemCount(): int {
-    decoder.problems.count
+    return decoder.problems.count
   }
 
   public isTlog(): bool {
-    false
+    return false
   }
 
   public tlogReport(): TlogReport? {
-    null
+    return null
   }
 
   public hides(_name: string): bool {
-    false
+    return false
   }
 }

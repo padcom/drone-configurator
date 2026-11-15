@@ -30,7 +30,7 @@ export const waits = new Waits()
 /// The command's parameters: only the first (1 = reboot the autopilot) is set. Parameter 2 (companion computer) stays 0 for
 /// "do nothing", and parameter 6 stays 0: it is ArduPilot's force value, which is never sent.
 export function rebootParams(): f64[] {
-  [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 }
 
 /// What the vehicle's MAV_RESULT means for the page. IN_PROGRESS is the vehicle at it: accepted.
@@ -48,12 +48,12 @@ export function answerOf(result: int): RebootResult {
     else if (result == MavResult.DENIED) "the vehicle denied the command"
     else if (result == MavResult.TEMPORARILY_REJECTED) "the vehicle can't do it at this time"
     else `the vehicle answered ${result}`
-  RebootResult { result: RebootResultResult.Refused, detail: detail }
+  return RebootResult { result: RebootResultResult.Refused, detail: detail }
 }
 
 /// No acknowledgement: the command may still have arrived, so the vehicle may still reboot.
 export function silence(): RebootResult {
-  RebootResult { result: RebootResultResult.NoAnswer, detail: "no answer; the vehicle may still reboot" }
+  return RebootResult { result: RebootResultResult.NoAnswer, detail: "no answer; the vehicle may still reboot" }
 }
 
 /// Registers the service's method on `c`.
@@ -80,7 +80,7 @@ export function refusal(): string? {
   if (link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || asking.busy || rebootExpected()) {
     return "BUSY"
   }
-  null
+  return null
 }
 
 /// The words for a refusal's code.
@@ -91,7 +91,7 @@ function reasonOf(code: string): string {
   if (code == "ARMED") {
     return "the vehicle is armed"
   }
-  "parameters are being written or downloaded, a log is being downloaded, a calibration is running, or a reboot is already under way"
+  return "parameters are being written or downloaded, a log is being downloaded, a calibration is running, or a reboot is already under way"
 }
 
 /// The MAV_RESULT of an acknowledgement of the reboot command from the connected autopilot, or null for any other message.
@@ -105,7 +105,7 @@ function ackOf(r: Received): int? {
       return m.result as int
     }
   }
-  null
+  return null
 }
 
 /// The command, as it is sent: parameter 1 is 1, the others 0.
@@ -123,7 +123,7 @@ function rebootCommand(): CommandLong {
   c._param5 = params[4] as f32
   c._param6 = params[5] as f32
   c._param7 = params[6] as f32
-  c
+  return c
 }
 
 /// Sends the command once and waits for its acknowledgement: the vehicle's MAV_RESULT, IN_PROGRESS if that was all it said

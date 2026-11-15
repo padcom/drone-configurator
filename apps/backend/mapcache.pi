@@ -74,7 +74,7 @@ export function safeFolder(name: string): bool {
       return false
     }
   }
-  true
+  return true
 }
 
 export class TileCache {
@@ -94,7 +94,7 @@ export class TileCache {
 
   /// The key of a tile in the index, and its paths (`.tile` and `.meta`) without the extension.
   keyOf(folder: string, z: int, x: int, y: int): string {
-    `${folder}/${z}/${x}/${y}`
+    return `${folder}/${z}/${x}/${y}`
   }
 
   basePath(folder: string, z: int, x: int, y: int): string {
@@ -233,7 +233,7 @@ export class TileCache {
     }
     entries.clear()
     total = 0
-    out
+    return out
   }
 
   async empty(path: string, out: Cleared): Promise<void> throws Error {
@@ -270,12 +270,12 @@ function isNumber(name: string): bool {
       return false
     }
   }
-  true
+  return true
 }
 
 /// A `.meta` as text: a version, the type, the etag, when it came, when it goes stale.
 export function textOfMeta(m: TileMeta): string {
-  `v1\n${clean(m.contentType)}\n${clean(m.etag)}\n${m.fetchedAt}\n${m.expiresAt}\n`
+  return `v1\n${clean(m.contentType)}\n${clean(m.etag)}\n${m.fetchedAt}\n${m.expiresAt}\n`
 }
 
 /// A header value as one line (a newline in it would shift the rest).

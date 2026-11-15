@@ -26,7 +26,7 @@ async function waitForState(want: ConnectionState, ms: int): Promise<bool> throw
     await delay(50)
     waited += 50
   }
-  link.state.state == want
+  return link.state.state == want
 }
 
 /// Short settings: a vehicle silent for 2.5 s is gone (it sends a heartbeat each second), and the first try comes at
@@ -50,7 +50,7 @@ function lastBeat(): int {
       seen = v.lastSeen
     }
   }
-  seen
+  return seen
 }
 
 async function connectSimulator(): Promise<void> throws Error {
@@ -257,7 +257,7 @@ function linksUp(): int {
       up += 1
     }
   }
-  up
+  return up
 }
 
 /// Opens the harbour and connects to it.
@@ -271,7 +271,7 @@ async function connectToHarbour(): Promise<Frontend> throws Error {
   const f = await start()
   const request = ConnectRequest { transport: ConnectRequestTransport.Tcp, host: "127.0.0.1", port: harbour.port as u16 }
   await f.call("vehicle.connect", encodeConnectRequest(request))
-  f
+  return f
 }
 
 /// The cable is there and the board is not: every try opens a link that hears nothing. Each is closed, not kept: at no

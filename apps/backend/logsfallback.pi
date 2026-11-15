@@ -70,7 +70,7 @@ export async function fetchByProtocol(
       outcome.why = `log ${id}: ${e.message}; what came is kept as a part`
     }
   }
-  outcome
+  return outcome
 }
 
 /// Whether the logs the vehicle lists now are NOT the ones that were checked: there are not as many, or one is larger than it was
@@ -85,7 +85,7 @@ export function changedSince(checked: int[], now: LogInfo[]): bool {
       return true
     }
   }
-  false
+  return false
 }
 
 /// Erases ALL the logs on the vehicle, unless the list it gives right before is not the one that was checked (`changedSince`), or

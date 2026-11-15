@@ -62,7 +62,7 @@ export function progressCounts(received: int, total: int, fromFile: bool): int[]
   }
   const top = if (all > MAX_COUNT) MAX_COUNT else all
   const shown = if (done < 0) 0 else if (done > top) top else done
-  [shown, top]
+  return [shown, top]
 }
 
 /// At most this often (ms) a `params.progress` is sent while a download runs.
@@ -183,7 +183,7 @@ class Announced implements SessionPart {
 const announced = new Announced()
 
 function typeName(type: int): string {
-  MavParamType.nameOf(type) ?? `${type}`
+  return MavParamType.nameOf(type) ?? `${type}`
 }
 
 function typeValue(name: string): int? {
@@ -192,7 +192,7 @@ function typeValue(name: string): int? {
       return t
     }
   }
-  null
+  return null
 }
 
 /// A parameter as the contract has it.
@@ -206,7 +206,7 @@ function toParam(id: string, index: int, v: TypedParamValue): Param {
 /// Stops the download that is running, if any: it fails with `ABORTED`, and the link and the session stay.
 async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   announced.stopDownload()
-  null
+  return null
 }
 
 /// How a download is made, given what was asked for and what is known of the vehicle: the way for `ParamDownload` (`auto`, `list`
@@ -231,19 +231,19 @@ function planFor(asked: ParamListRequestMethod?): Plan {
       link.ftpMemo = ""
     }
   }
-  plan
+  return plan
 }
 
 /// Whether the file transfer may be tried: the vehicle's capabilities say it has it, or were never read (then the download asks
 /// for them itself, and a missed packet at connect is not "no file transfer").
 function vehicleHasFtp(): bool {
-  link.capabilities < 0 || (link.capabilities & MavProtocolCapability.FTP) != 0
+  return link.capabilities < 0 || (link.capabilities & MavProtocolCapability.FTP) != 0
 }
 
 /// What is remembered about a failure of the file transfer: "unsupported" only when it comes from capabilities that were read
 /// (a download that had to ask for them, and got no answer, knows nothing), "timeout" always, nothing else.
 function worthRemembering(fallback: string): bool {
-  fallback == "timeout" || (fallback == "unsupported" && link.capabilities >= 0)
+  return fallback == "timeout" || (fallback == "unsupported" && link.capabilities >= 0)
 }
 
 /// A download that is not forced remembers why the file transfer failed, if it was for a reason worth remembering.
@@ -260,7 +260,7 @@ function optionsFor(plan: Plan, signal: AbortSignal): ParamDownloadOptions {
     return asking
   }
   const known: ParamDownloadOptions = { method: plan.method, capabilities: link.capabilities, signal: signal }
-  known
+  return known
 }
 
 /// The parameters as the contract has them: the way they came, why not the other way, how long it took.
@@ -268,7 +268,7 @@ function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
   const source = if (r.source == "ftp") ParamListSource.Ftp else ParamListSource.List
   // A download that skipped the file transfer says why (what it remembered), not that the list was asked for.
   const why = if (plan.skipped != "") plan.skipped else r.fallback ?? ""
-  ParamList {
+  return ParamList {
     params: r.params.map((p) => toParam(p.id, p.index, p.value)),
     count: r.count as u16,
     complete: r.complete,

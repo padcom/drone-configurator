@@ -54,7 +54,7 @@ async function statusKb(name: string): Promise<int> {
   } catch (e: Error) {
     return -1
   }
-  -1
+  return -1
 }
 
 /// Makes the peak start from what the process holds now (Linux 4.0+): writing 5 to clear_refs.

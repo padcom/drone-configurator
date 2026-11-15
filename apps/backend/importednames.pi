@@ -51,17 +51,17 @@ export function hexValue(text: string): int {
     }
     v = v * 16 + d
   }
-  v
+  return v
 }
 
 /// The name of an imported copy.
 export function importedName(counter: int, crc: int): string {
-  `${pad8(counter)}-${hex8(crc)}.tlog`
+  return `${pad8(counter)}-${hex8(crc)}.tlog`
 }
 
 function pad8(n: int): string {
   const text = `${n}`
-  `${"00000000".slice(0, 8 - text.length)}${text}`
+  return `${"00000000".slice(0, 8 - text.length)}${text}`
 }
 
 /// The name of a file without its folder (either kind of separator).
@@ -78,5 +78,5 @@ export function baseName(path: string): string {
 
 /// The key of an imported copy, as the library names it: the folder of imports and the file.
 export function importedKey(name: string): string {
-  `${IMPORTED}/${name}`
+  return `${IMPORTED}/${name}`
 }

@@ -93,7 +93,7 @@ class Batch {
 
   /// Whether every ISBD message of the batch has come.
   public whole(): bool {
-    got == have.length
+    return got == have.length
   }
 }
 
@@ -126,12 +126,12 @@ class Row {
 
 /// Whether a number can be a measurement: not NaN, not infinite.
 function finite(v: f64): bool {
-  v == v && v < 1.0e300 && v > -1.0e300
+  return v == v && v < 1.0e300 && v > -1.0e300
 }
 
 /// The numbers of an ISBH or an ISBD, by name (a field the format lacks is -1: the message is no batch).
 function numberOf(m: DfMessage, name: string): f64 {
-  m.num(name) ?? -1.0
+  return m.num(name) ?? -1.0
 }
 
 /// Gives each message of a batch to the right place. In the listing mode (`wanted` < 0) only the headers are looked at.
@@ -218,7 +218,7 @@ class BatchTaker implements Taker {
     }
     const made = new Source(sensor, instance)
     sources.push(made)
-    made
+    return made
   }
 
   /// Counts a batch of a source: its rate is the first one's, and a different one makes the source mixed.
@@ -388,7 +388,7 @@ class Collector {
         out[c] = v
       }
     }
-    out
+    return out
   }
 
   /// The column a bin falls in: the bins 0 to size / 2 are spread evenly over the columns.
@@ -453,7 +453,7 @@ function instancesOf(found: Source[], sensor: int): int[] {
       j -= 1
     }
   }
-  out
+  return out
 }
 
 /// With the option for before and after, ArduPilot logs the batches after the filter with the IMU's instance plus the number of IMUs
@@ -498,7 +498,7 @@ function postFilterOf(taker: BatchTaker, source: Source): int {
   if (post == 0 && prePost == 1) {
     return pairRule(instancesOf(taker.sources, source.sensor), source.instance)
   }
-  -1
+  return -1
 }
 
 function sourcesOf(taker: BatchTaker): BatchSource[] {
@@ -515,7 +515,7 @@ function sourcesOf(taker: BatchTaker): BatchSource[] {
       postFilter: if (after < 0) null else after == 1,
     })
   }
-  out
+  return out
 }
 
 async function spectrumOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -548,7 +548,7 @@ function sizeOfSource(sources: Source[], sensor: int, instance: int): int {
       return if (s.samples >= 32) sizeFor(s.samples) else 0
     }
   }
-  0
+  return 0
 }
 
 async function spectrumPass(key: string, file: LogFile, own: AbortController, sensor: int, instance: int, size: int): Promise<Cbor?> throws Error {
@@ -575,7 +575,7 @@ function averages(c: Collector): f64[][] {
     }
     out.push(axis)
   }
-  out
+  return out
 }
 
 /// How many batches the last row has too few of: it is not drawn (a row of fewer batches would be drawn as long as the others), and
@@ -584,7 +584,7 @@ function unrowedOf(c: Collector): int {
   if (c.rows.length > 1 && c.rows[c.rows.length - 1].weight < c.group) {
     return c.rows[c.rows.length - 1].weight
   }
-  0
+  return 0
 }
 
 /// The rows of the spectrogram, at most `MAX_ROWS`, each of the same number of batches (`group`), each value the mean of its batches.
@@ -599,7 +599,7 @@ function rowsOf(c: Collector): SpectrumRow[] {
     }
     out.push(SpectrumRow { timeUs: r.timeUs as u64, values: values })
   }
-  out
+  return out
 }
 
 function resultOf(c: Collector, skipped: int, sensor: int, instance: int): LocalLogSpectrum {
@@ -643,7 +643,7 @@ function resultOf(c: Collector, skipped: int, sensor: int, instance: int): Local
       r.peak = peak!
     }
   }
-  r
+  return r
 }
 
 /// The root of the sum of squares of the three axes at a bin.
@@ -659,7 +659,7 @@ function strongest(avg: f64[][], k: int): int {
       at = a
     }
   }
-  at
+  return at
 }
 
 /// The peak: the largest local maximum from `PEAK_FROM_HZ` up, if it stands `PROMINENCE` times above the mean of the bins there,
@@ -688,7 +688,7 @@ function peakOf(avg: f64[][], resolution: f64, floor: f64): SpectrumPeak? {
   const hz = (best as f64 + offsetOf(avg, best)) * resolution
   const axis = strongest(avg, best)
   const axisNames = [SpectrumPeakAxis.X, SpectrumPeakAxis.Y, SpectrumPeakAxis.Z]
-  SpectrumPeak { hz: hz, amplitude: avg[axis][best], axis: axisNames[axis], harmonics: harmonicsOf(avg, hz, resolution, PROMINENCE * mean) }
+  return SpectrumPeak { hz: hz, amplitude: avg[axis][best], axis: axisNames[axis], harmonics: harmonicsOf(avg, hz, resolution, PROMINENCE * mean) }
 }
 
 /// How far from the bin the top of the peak is, in bins (-0.5 to 0.5): the vertex of the parabola through the bin and its neighbours.
@@ -723,5 +723,5 @@ function harmonicsOf(avg: f64[][], hz: f64, resolution: f64, bar: f64): Spectrum
       out.push(SpectrumHarmonic { n: n as u8, hz: (at as f64) * resolution, amplitude: avg[strongest(avg, at)][at] })
     }
   }
-  out
+  return out
 }

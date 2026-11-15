@@ -55,12 +55,12 @@ export function instanceIndexOf(format: DfFormat): int {
       return i
     }
   }
-  -1
+  return -1
 }
 
 /// Whether `v` is a number that can be shown.
 export function usable(v: f64): bool {
-  v == v && v <= 1.0e300 && v >= -1.0e300
+  return v == v && v <= 1.0e300 && v >= -1.0e300
 }
 
 /// The most kinds of message the browser lists (the contract's 255); more kinds are counted, not listed.
@@ -88,7 +88,7 @@ export class Counter implements Taker {
 
   /// How many kinds are not listed.
   public get more(): int {
-    omitted.size
+    return omitted.size
   }
 
   public take(m: DfMessage): void {
@@ -159,7 +159,7 @@ function typesOf(counter: Counter, tables: DfTables, reader: LogReader): Message
     }
     types.push(t)
   }
-  types
+  return types
 }
 
 /// The last message of each instance of one kind at or before a time.
@@ -245,7 +245,7 @@ function orderOf(instances: f64[]): int[] {
       j -= 1
     }
   }
-  order
+  return order
 }
 
 function rowOf(latest: Latest, i: int, tables: DfTables): AtRow {
@@ -254,7 +254,7 @@ function rowOf(latest: Latest, i: int, tables: DfTables): AtRow {
   if (latest.instanceAt >= 0) {
     row.instance = latest.instances[i]
   }
-  row
+  return row
 }
 
 /// The fields of a message with the log's multiplier applied: a text as it is, an array left out, a number that cannot be shown
@@ -275,5 +275,5 @@ function fieldsOf(m: DfMessage, tables: DfTables): AtField[] {
       fields.push(field)
     }
   }
-  fields
+  return fields
 }

@@ -76,7 +76,7 @@ async function put(r: Rig, vehicle: string, id: int, bytes: Uint8Array, crc: int
   await mkdir(dir, true)
   const name = copyName(id, if (crc < 0) crc32Of(bytes) else crc)
   await writeBytes(join(dir, name), bytes)
-  `${vehicle}/${name}`
+  return `${vehicle}/${name}`
 }
 
 async function list(r: Rig): Promise<LocalLogs> throws Error {
@@ -318,7 +318,7 @@ function content(n: int): Uint8Array {
   for (let i = 0; i < n; i++) {
     out.set(i, (i * 31 + 7) & 0xFF)
   }
-  out
+  return out
 }
 
 /// A log of about 3.5 MB: three chunks are read.

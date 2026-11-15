@@ -86,7 +86,7 @@ async function imported(r: Rig): Promise<string[]> throws Error {
     }
   }
   names.sort()
-  names
+  return names
 }
 
 async function copiesAreCountedAndNamedByTheirCrc(): Promise<void> throws Error {
@@ -197,7 +197,7 @@ function noise(length: int): Uint8Array {
     x = (x * 1103515245 + 12345) % 2147483648
     out.set(i, (x / 65536) % 256)
   }
-  out
+  return out
 }
 
 async function hostileFilesNeitherHangNorLeaveAnything(): Promise<void> throws Error {

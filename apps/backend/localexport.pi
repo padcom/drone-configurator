@@ -65,7 +65,7 @@ export function xmlEscape(text: string): string {
   for (const ch of text) {
     out += if (ch == "&") "&amp;" else if (ch == "<") "&lt;" else if (ch == ">") "&gt;" else if (ch == "\"") "&quot;" else if (ch == "'") "&apos;" else `${ch}`
   }
-  out
+  return out
 }
 
 /// One cell of a CSV (RFC 4180). A text that starts like a formula gets a quote in front (a spreadsheet would run it otherwise).
@@ -84,7 +84,7 @@ export function csvCell(text: string, isText: bool): string {
     }
     return out + "\""
   }
-  value
+  return value
 }
 
 /// The rows of one kind of message: a column for each field that is a number or a text, the numbers in the unit the log names.
@@ -135,7 +135,7 @@ class CsvWriter implements Taker {
         names.push(csvCell(if (unit == "") f.name else `${f.name} (${unit})`, true))
       }
     }
-    names.join(",") + "\r\n"
+    return names.join(",") + "\r\n"
   }
 }
 
@@ -195,7 +195,7 @@ class TrackWriter implements Taker {
       chosen = true
       instance = i
     }
-    i == instance
+    return i == instance
   }
 
   /// The elevation element of a fix, or nothing when the log's altitude is not a number.
@@ -228,7 +228,7 @@ function headOf(kml: bool, name: string): string {
   if (kml) {
     return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${title}</name><Placemark><name>${title}</name><LineString><coordinates>`
   }
-  `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Drone Configurator" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${title}</name><trkseg>\n`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Drone Configurator" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${title}</name><trkseg>\n`
 }
 
 function footOf(kml: bool): string {
@@ -242,7 +242,7 @@ function safe(text: string): string {
     const c = `${ch}`
     out += if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".includes(c)) c else "_"
   }
-  out
+  return out
 }
 
 /// The name to propose: the log's file, without its extension, then the message and the extension of the format.
@@ -404,5 +404,5 @@ function unavailableWhy(ask: LogsLocalExportAsk): string {
   if (ask.format == LogsLocalExportAskFormat.Csv) {
     return `the log has no ${ask.message ?? ""} messages`
   }
-  "the log has no GPS position with a 3D fix, so there is no track to write"
+  return "the log has no GPS position with a 3D fix, so there is no track to write"
 }

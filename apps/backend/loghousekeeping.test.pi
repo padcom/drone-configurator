@@ -34,7 +34,7 @@ function content(n: int, seed: int): Uint8Array {
     x = (x * 1103515245 + 12345) & 0x7FFFFFFF
     out.set(i, (x >> 16) & 0xFF)
   }
-  out
+  return out
 }
 
 function codeOf(e: Envelope): string {
@@ -124,7 +124,7 @@ async function put(r: Rig, vehicle: string, n: int, seed: int, size: int, honest
   const bytes = content(size, seed)
   const name = copyName(n, if (honest) crc32Of(bytes) else crc32Of(bytes) ^ 1)
   await writeBytes(join(dir, name), bytes)
-  name
+  return name
 }
 
 async function names(r: Rig, vehicle: string): Promise<string[]> throws Error {
@@ -133,7 +133,7 @@ async function names(r: Rig, vehicle: string): Promise<string[]> throws Error {
     out.push(e.name)
   }
   out.sort()
-  out
+  return out
 }
 
 async function housekeep(r: Rig, days: int, mb: int, dry: bool = false): Promise<Envelope> throws Error {

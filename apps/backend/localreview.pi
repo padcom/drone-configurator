@@ -238,7 +238,7 @@ function sayRate(findings: ReviewFinding[], g: Gathered): void {
 
 /// A finding with no data behind it.
 function noData(id: string): ReviewFinding {
-  ReviewFinding { id: id, level: ReviewFindingLevel.NoData }
+  return ReviewFinding { id: id, level: ReviewFindingLevel.NoData }
 }
 
 /// A finding: what was found, the limit it was held to, when it was found, and how it fared.
@@ -247,13 +247,13 @@ function finding(id: string, level: ReviewFindingLevel, value: f64, limit: f64, 
   if (at >= 0) {
     f.atUs = at as u64
   }
-  f
+  return f
 }
 
 /// Says how many samples a finding rests on.
 function counted(f: ReviewFinding, samples: int): ReviewFinding {
   f.samples = (if (samples > 4294967295) 4294967295 else samples) as u32
-  f
+  return f
 }
 
 /// How a value fares against a warning limit and a bad one, for things that are worse the larger they are.

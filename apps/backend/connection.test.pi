@@ -78,7 +78,7 @@ extern "C" {
 }
 
 function addr(b: Uint8Array): usize {
-  (b.buffer.__handle + b.byteOffset) as usize
+  return (b.buffer.__handle + b.byteOffset) as usize
 }
 
 /// A pseudo-terminal's master end as a byte stream: the far end of a "serial cable" whose other

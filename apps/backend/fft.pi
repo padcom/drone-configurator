@@ -17,7 +17,7 @@ export function isSize(n: int): bool {
   while (m > 1 && m % 2 == 0) {
     m = m / 2
   }
-  m == 1
+  return m == 1
 }
 
 /// The largest size the FFT takes that is not more than `n` samples, or 0 when there are fewer than `MIN_SIZE`.
@@ -29,7 +29,7 @@ export function sizeFor(n: int): int {
   while (size * 2 <= n && size * 2 <= MAX_SIZE) {
     size = size * 2
   }
-  size
+  return size
 }
 
 /// The tables for blocks of one size.
@@ -76,7 +76,7 @@ export class Spectrum {
       value = value / 2
       places = places / 2
     }
-    out
+    return out
   }
 
   /// The amplitudes of the bins 0 to size / 2 of `samples` (at least `size` of them, else an empty list; the first `size` are used): the mean is taken out,
@@ -103,7 +103,7 @@ export class Spectrum {
       // Every bin but the first and the last stands for a positive and a negative frequency.
       out.push(if (k == 0 || k == half) magnitude / gain else 2.0 * magnitude / gain)
     }
-    out
+    return out
   }
 
   /// The stages of the transform, over `re` and `im` already in bit-reversed order.

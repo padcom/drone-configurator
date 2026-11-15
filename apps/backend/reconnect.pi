@@ -32,7 +32,7 @@ export function delayBefore(attempt: int): int {
   if (delays.length == 0) {
     return 1000
   }
-  delays[if (attempt <= delays.length) attempt - 1 else delays.length - 1]
+  return delays[if (attempt <= delays.length) attempt - 1 else delays.length - 1]
 }
 
 /// Whether any link of the router is up. The router keeps the links of failed tries (it cannot remove one), so they
@@ -46,7 +46,7 @@ function anyLinkUp(router: MavLinkRouter): bool {
       return true
     }
   }
-  false
+  return false
 }
 
 /// Why the link counts as lost, or null while it is not.
@@ -65,7 +65,7 @@ function lostBecause(): string? {
       return `no heartbeat for ${silent / 1000} s`
     }
   }
-  null
+  return null
 }
 
 /// Waits `ms`, in slices; false if the session was replaced or closed meanwhile.
@@ -76,12 +76,12 @@ async function pause(ms: int, generation: int): Promise<bool> throws Error {
     await delay(slice)
     waited += slice
   }
-  link.generation == generation
+  return link.generation == generation
 }
 
 /// Whether a link of this kind ends and has to be opened again (TCP, serial); a UDP socket and the simulator stay.
 export function reopenable(request: ConnectRequest): bool {
-  request.transport == ConnectRequestTransport.Tcp || request.transport == ConnectRequestTransport.Serial
+  return request.transport == ConnectRequestTransport.Tcp || request.transport == ConnectRequestTransport.Serial
 }
 
 /// Closes the stream the router was last given, if there is one (a link that is down or heard nothing).
@@ -136,7 +136,7 @@ async function heardSince(since: int, generation: int): Promise<Vehicle?> throws
     await delay(50)
     waited += 50
   }
-  null
+  return null
 }
 
 /// A vehicle answered: the same one, and the session goes on, or another one, and it is a new connection.

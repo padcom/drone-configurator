@@ -71,7 +71,7 @@ async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
   await mkdir(dir, true)
   const name = copyName(1, crc32Of(bytes))
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {
@@ -84,7 +84,7 @@ async function series(r: Rig, a: LogsLocalSeriesAsk): Promise<LogsLocalSeries> t
 }
 
 function ask(field: string): SeriesAsk {
-  SeriesAsk { message: "RATE", field: field }
+  return SeriesAsk { message: "RATE", field: field }
 }
 
 /// The coarse pass of the page: the whole log, 2000 parts, the desired roll rate.
@@ -102,7 +102,7 @@ async function window(r: Rig, key: string, atUs: f64): Promise<LogsLocalSeries> 
 
 /// How long a part of an answer is, in microseconds.
 function partOf(s: LogsLocalSeries): f64 {
-  ((s.toUs as int) - (s.fromUs as int) + 1) as f64 / (s.buckets as int) as f64
+  return ((s.toUs as int) - (s.fromUs as int) + 1) as f64 / (s.buckets as int) as f64
 }
 
 /// The largest jump of the first series of an answer, as [size, time in microseconds of the log]: inside a part, or to the next
@@ -128,7 +128,7 @@ function largestJump(s: LogsLocalSeries): f64[] {
       at = (s.fromUs as int) as f64 + ((points[i].index as int) as f64 + 0.5) * part
     }
   }
-  [best, at]
+  return [best, at]
 }
 
 /// The time (microseconds of the log) at which the series of an answer first reaches a level (going up), or -1.
@@ -140,7 +140,7 @@ function firstAbove(s: LogsLocalSeries, which: int, level: f64): f64 {
       return (s.fromUs as int) as f64 + ((points[i].index as int) as f64 + 0.5) * part
     }
   }
-  -1.0
+  return -1.0
 }
 
 async function findsTheStepWhereItIsAndMeasuresItsRise(): Promise<void> throws Error {

@@ -51,7 +51,7 @@ async function ended<T>(p: Promise<T, Error>): Promise<bool> throws Error {
   } catch (e: Error) {
     return false
   }
-  false
+  return false
 }
 
 /// The frontend's end: requests by id. Replies to other requests are kept for them; events are
@@ -93,7 +93,7 @@ export class Frontend {
     e.n = name
     e.p = payload
     await t.send(encodeEnvelope(e))
-    id
+    return id
   }
 
   /// The reply to request `want` (or a failure after DEADLINE_MS).
@@ -146,7 +146,7 @@ export class Frontend {
 
   /// Subscribes to `name` (with `params`); the subscription's id.
   public async subscribe(name: string, params: Cbor? = null): Promise<u64> throws Error {
-    (await trySubscribe(name, params)).s ?? 0
+    return (await trySubscribe(name, params)).s ?? 0
   }
 
   /// Subscribes to `name` (with `params`); the reply, which is an error when the subscription was refused.

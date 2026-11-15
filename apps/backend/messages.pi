@@ -88,7 +88,7 @@ class Kept implements SessionPart {
     for (let i = if (ring.length > n) ring.length - n else 0; i < ring.length; i++) {
       out.push(ring[i])
     }
-    out
+    return out
   }
 
   public remove(s: Sink): void {
@@ -103,7 +103,7 @@ const kept = new Kept()
 
 /// The id the next message will have: what a command that wants "the texts heard from now on" takes before it is sent.
 export function nextMessageId(): int {
-  kept.nextId
+  return kept.nextId
 }
 
 /// The texts of the messages from id `from` on (the vehicle's own words), without repeats, oldest first, at most `limit`.
@@ -114,7 +114,7 @@ export function textsSince(from: int, limit: int): string[] {
       out.push(m.text)
     }
   }
-  out
+  return out
 }
 
 /// For the tests: a message as if the vehicle had sent it.
@@ -124,12 +124,12 @@ export function takeForTests(m: StatusMessage): void {
 
 /// For the tests: the reader of the connected vehicle, null when none is listening.
 export function readerForTests(): StatusTextReader? {
-  kept.reader
+  return kept.reader
 }
 
 /// For the tests: how many messages are kept.
 export function keptForTests(): int {
-  kept.ring.length
+  return kept.ring.length
 }
 
 /// For the tests: how long a long message waits for a missing chunk (ms), from the next connection on.

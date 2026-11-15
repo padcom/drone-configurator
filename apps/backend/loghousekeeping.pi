@@ -41,7 +41,7 @@ export const STALE_PART_MS: int = 7 * 86400000
 
 /// Whether a file is the part of a download (`NNNNNNNN.BIN.part`, as logs.pi names it) that nobody has gone on from for `STALE_PART_MS`.
 export function isStalePart(name: string, mtime: int, now: int): bool {
-  name.length == 17 && name.slice(8, 17) == ".BIN.part" && copyNumbers(`${name.slice(0, 8)}-00000000.BIN`)[0] >= 0 && now - mtime > STALE_PART_MS
+  return name.length == 17 && name.slice(8, 17) == ".BIN.part" && copyNumbers(`${name.slice(0, 8)}-00000000.BIN`)[0] >= 0 && now - mtime > STALE_PART_MS
 }
 
 /// A downloaded copy found in a vehicle's folder.
@@ -93,7 +93,7 @@ async function copiesOf(top: string): Promise<Copy[]> throws Error {
       out.push(new Copy(dir.name, entry.name, path, info.size, info.mtime, numbers[1]))
     }
   }
-  out
+  return out
 }
 
 /// Marks the newest `KEEP_NEWEST` copies of each vehicle as protected (the list is newest first).
@@ -108,7 +108,7 @@ function protect(copies: Copy[]): int {
       kept += 1
     }
   }
-  kept
+  return kept
 }
 
 /// The copies, newest first by the time of the file (the name breaks a tie, so the order is always the same).
@@ -203,7 +203,7 @@ async function removeStaleParts(top: string): Promise<int> throws Error {
       }
     }
   }
-  removedCount
+  return removedCount
 }
 
 async function removedPath(path: string): Promise<bool> {
@@ -222,7 +222,7 @@ function protectedCount(copies: Copy[]): int {
       n += 1
     }
   }
-  n
+  return n
 }
 
 /// What removing did.
@@ -235,7 +235,7 @@ class Removal {
 
 /// Whether the stale parts of downloads may be removed now: a rule is on, and it is not a dry run.
 export function partsMayGo(rulesOn: bool, dry: bool): bool {
-  rulesOn && !dry
+  return rulesOn && !dry
 }
 
 /// Removes the marked copies that verify, one at a time (in a dry run: only counts them); one that can't be read, removed or verified
@@ -259,7 +259,7 @@ async function removeMarked(copies: Copy[], dry: bool): Promise<Removal> throws 
       out.listed.push(RemovedLog { vehicle: c.vehicle, name: c.name, size: c.size as u64, why: if (c.why == "age") RemovedLogWhy.Age else RemovedLogWhy.Size })
     }
   }
-  out
+  return out
 }
 
 /// Whether the bytes of the copy, read now, have the CRC-32 in its name.

@@ -81,7 +81,7 @@ export function resetForTests(): void {
 /// Whether something that an arm must not meet is under way: a parameter write or download, a log operation, a calibration, a motor test
 /// or a reboot (also asked for and not yet answered).
 function operationUnderWay(): bool {
-  link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || rebootExpected()
+  return link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || rebootExpected()
 }
 
 /// The armed state of the vehicle by its heartbeat, which must be known.
@@ -90,7 +90,7 @@ function knownArmedState(): bool throws CommunicatorError {
   if (armed == null) {
     throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
   }
-  armed!
+  return armed!
 }
 
 /// Refuses (nothing is sent) what may not be asked now: `what` is ARM, DISARM, STOP, MODE or PREARM. The emergency stop, and a change
@@ -128,7 +128,7 @@ function isSafetyMode(mode: int): bool {
       return m.name == "RTL" || m.name == "LAND"
     }
   }
-  false
+  return false
 }
 
 /// The refusal of a mode change, or nothing: the vehicle must be an ArduPilot and `mode` one of its kind's modes.
@@ -161,7 +161,7 @@ export function resultOf(r: ControlResult, texts: string[]): ArmingResult {
     out.result = ArmingResultResult.Refused
     out.detail = refusal(r.result)
   }
-  out
+  return out
 }
 
 /// The words for a MAV_RESULT that is a refusal.
@@ -175,11 +175,11 @@ function refusal(result: int): string {
   if (result == MavResult.TEMPORARILY_REJECTED) {
     return "the vehicle can't do it at this time"
   }
-  `the vehicle answered ${resultName(result)}`
+  return `the vehicle answered ${resultName(result)}`
 }
 
 function resultName(result: int): string {
-  MavResult.nameOf(result) ?? `${result}`
+  return MavResult.nameOf(result) ?? `${result}`
 }
 
 /// Sends the command `what` once, and waits for its answer and the texts around it.
@@ -248,7 +248,7 @@ function settleArm(got: ControlResult?): void {
 
 /// The command was cut by the end of the session: not acknowledged.
 function lost(texts: string[]): ArmingResult {
-  ArmingResult {
+  return ArmingResult {
     result: ArmingResultResult.NoAnswer,
     detail: "the link was lost or the session ended: the command may have been carried out; it is not sent again",
     messages: texts,

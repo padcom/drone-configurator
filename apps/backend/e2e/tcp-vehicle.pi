@@ -52,7 +52,7 @@ class EndWatchingStream implements ByteStream {
     if (chunk == null) {
       ended()
     }
-    chunk
+    return chunk
   }
 
   ended(): void {
@@ -182,7 +182,7 @@ function setupParams(): SimParam[] {
   for (let i = 0; i < tuneNames.length; i++) {
     out.push(SimParam { id: tuneNames[i], value: TypedParamValue.Real(tuneValues[i], MavParamType.REAL32) })
   }
-  out
+  return out
 }
 
 /// The outputs of a quad at rest: SERVO_OUTPUT_RAW of the four motors, two times a second.
