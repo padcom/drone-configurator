@@ -259,11 +259,14 @@ it('follows the vehicle until the map is dragged, moved with an arrow key or zoo
 })
 
 it('has the vehicle in the middle of the map again when the centre button is pressed', async () => {
-  await window().click('#map-centre')
+  // The button is pressed again on each try: it is disabled while the map has no vehicle to take to (the vehicle that came back
+  // under another system id may not have sent its first position yet on a slow machine), and a press on it is lost. Centring is
+  // the same however often it is pressed.
   await vi.waitFor(async () => {
+    await window().click('#map-centre')
     const view = await window().evaluate<number>(`Number(document.querySelector('.map').dataset.lat)`)
     const mark = (await marker())?.lat ?? 0
 
     expect(Math.abs(view - mark)).toBeLessThan(0.0005)
-  }, { timeout: 10_000 })
+  }, { timeout: 20_000, interval: 500 })
 })

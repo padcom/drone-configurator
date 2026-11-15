@@ -1,6 +1,7 @@
 // A DataFlash (.BIN) log written by the tests, as ArduPilot writes one: every message is the two bytes 0xA3 0x95, its type, and
 // its fields; a message is described by a FMT message (type 128) with its type, length, name, format and labels. Only the field
-// kinds the tests need are written: Q (u64), H and B (u16, u8), f (float32), Z (64 characters), N (16) and a (32 int16).
+// kinds the tests need are written: Q (u64), H and B (u16, u8), f (float32), L (a latitude or longitude: degrees, written as an
+// int32 of 1e-7 degrees), Z (64 characters), N (16) and a (32 int16).
 
 /** A message of a log: its type, name, field format and labels. */
 export interface Format {
@@ -17,7 +18,7 @@ export interface Format {
 const HEADER = [0xA3, 0x95]
 const FMT_TYPE = 128
 /** The bytes of a field of each kind. */
-const SIZES: Readonly<Record<string, number>> = { Q: 8, H: 2, B: 1, f: 4, Z: 64, N: 16, a: 64 }
+const SIZES: Readonly<Record<string, number>> = { Q: 8, H: 2, B: 1, f: 4, L: 4, Z: 64, N: 16, a: 64 }
 
 /**
  * A text in a field of a fixed size, padded with zeros.
@@ -40,6 +41,7 @@ const WRITERS: Readonly<Record<string, (out: Buffer, value: FieldValue) => void>
   H: (out, value) => out.writeUInt16LE(Number(value)),
   B: (out, value) => out.writeUInt8(Number(value)),
   f: (out, value) => out.writeFloatLE(Number(value)),
+  L: (out, value) => out.writeInt32LE(Math.round(Number(value) * 1e7)),
 }
 
 /**
@@ -181,6 +183,48 @@ export function flightLog(flight: Flight): Buffer {
       log.add(73, [i * 40_000, wanted, actual, 0, 0, 0, 0])
     }
   }
+
+  return log.bytes()
+}
+
+/** Where the flight of `trackLog` is: a lap of 150 m round this place, 60 s long, with a gap of 10 s in its fixes. */
+export const TRACK = { lat: 47.5, lon: 8.5, radius: 150, seconds: 60, gap: [25, 35] as const }
+
+/**
+ * A log of 60 s with a position (POS at 5 Hz, a lap round a point, none from 25 s to 35 s), home (ORGN type 1, and the EKF's
+ * origin as type 0 elsewhere), the vehicle armed at 5 s and disarmed at 55 s (EV), a change of flight mode at 20 s, and one line
+ * that is a warning ("Failsafe: radio" at 40 s) and one that is not.
+ *
+ * @returns the log
+ */
+export function trackLog(): Buffer {
+  const log = new DataFlash()
+  log.define({ type: 59, name: 'MSG', format: 'QZ', labels: 'TimeUS,Message' })
+  log.define({ type: 60, name: 'EV', format: 'QB', labels: 'TimeUS,Id' })
+  log.define({ type: 61, name: 'ORGN', format: 'QBLLf', labels: 'TimeUS,Type,Lat,Lng,Alt' })
+  log.define({ type: 62, name: 'POS', format: 'QLLff', labels: 'TimeUS,Lat,Lng,Alt,RelHomeAlt' })
+  log.define({ type: 63, name: 'MODE', format: 'QBB', labels: 'TimeUS,Mode,ModeNum' })
+  const us = (seconds: number) => Math.round(seconds * 1e6)
+  const metres = 111_195
+  log.add(59, [us(0.5), 'ArduCopter V4.7.2'])
+  log.add(63, [us(0.6), 0, 0])
+  log.add(61, [us(0.7), 0, 47, 8, 400])
+  log.add(61, [us(0.8), 1, TRACK.lat + TRACK.radius / metres, TRACK.lon, 500])
+
+  for (let second = 1; second <= TRACK.seconds; second += 0.2) {
+    const angle = (second / TRACK.seconds) * 2 * Math.PI
+    const east = (TRACK.radius * Math.sin(angle)) / (metres * Math.cos((TRACK.lat * Math.PI) / 180))
+    const inGap = second > TRACK.gap[0] && second < TRACK.gap[1]
+    if (!inGap) {
+      const north = TRACK.lat + (TRACK.radius * Math.cos(angle)) / metres
+      log.add(62, [us(second), north, TRACK.lon + east, 500 + Math.min(second, 20), Math.min(second, 20)])
+    }
+  }
+  log.add(60, [us(5), 10])
+  log.add(63, [us(20), 5, 5])
+  log.add(59, [us(30), 'Frame: QUAD'])
+  log.add(59, [us(40), 'Failsafe: radio'])
+  log.add(60, [us(55), 11])
 
   return log.bytes()
 }

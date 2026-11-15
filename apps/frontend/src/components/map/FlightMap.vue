@@ -88,14 +88,19 @@ import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { MAX_ZOOM, MIN_ZOOM, useFlightMap } from '@/composables/useFlightMap'
-import { type Point, screenOf } from '@/lib/map/geo'
+import { type Point, fitView, screenOf } from '@/lib/map/geo'
 import type { MapSource } from '@/lib/map/mapSource'
 import { chipOf, creditOf } from '@/lib/map/mapText'
+import type { LatLon } from '@/lib/map/track'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** What goes over the map (the vehicle, its path, home); the buttons that follow the vehicle are there when there is one. */
   source?: MapSource
-}>()
+  /** Whether the map keeps the vehicle in the middle at first (a replay shows the whole path; the user may follow). */
+  followVehicle?: boolean
+  /** Places the map shows all of (a recorded flight's path) when they are given or change, once the map has a size. */
+  fit?: readonly LatLon[]
+}>(), { source: undefined, followVehicle: true, fit: undefined })
 
 /** The zoom the map goes to when it first shows the vehicle, and when it is centred on it from further out. */
 const VEHICLE_ZOOM = 16
@@ -122,8 +127,17 @@ const chip = computed(() => {
 })
 
 const mark = computed(() => props.source?.vehicle.value ?? null)
+/**
+ * Whether the map keeps the vehicle in the middle when it begins.
+ *
+ * @returns what the map was told
+ */
+function followsAtFirst(): boolean {
+  return props.followVehicle
+}
+
 /** Whether the map keeps the vehicle in the middle (on until the map is dragged). */
-const following = ref(true)
+const following = ref(followsAtFirst())
 /** Whether the map has been taken to the vehicle once (then it only follows: it does not zoom again). */
 let shown = false
 
@@ -133,6 +147,34 @@ watch(mark, here => {
     shown = true
   }
 }, { immediate: true })
+
+/** The places the map was last fitted to (a new list is a new flight, and the map shows all of it). */
+let fittedTo: readonly LatLon[] | undefined
+
+/**
+ * Shows all of some places.
+ *
+ * @param places the places
+ */
+function fitTo(places: readonly LatLon[]): void {
+  const next = fitView(places, size.value)
+  if (next) {
+    fittedTo = places
+    flight.view.value = next
+    shown = true
+  }
+}
+
+/** Shows all of the places that were given, once the map is laid out (before that it has no size to fit them to). */
+function fitNow(): void {
+  const places = props.fit
+  if (places && size.value.width > 0 && fittedTo !== places) {
+    fitTo(places)
+  }
+}
+
+// The whole of a recorded flight is in view when it is given.
+watch([() => props.fit, () => size.value.width], fitNow, { immediate: true })
 
 /** Puts the vehicle in the middle, close enough to see it. */
 function centreNow(): void {

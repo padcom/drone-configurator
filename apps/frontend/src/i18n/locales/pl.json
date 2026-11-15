@@ -291,6 +291,57 @@
       "queue": "Dodaj {count} zmianę do kolejki | Dodaj {count} zmiany do kolejki | Dodaj {count} zmian do kolejki",
       "revert": "Cofnij zaznaczenia"
     },
+    "replay": {
+      "title": "Odtwarzanie na mapie",
+      "aside": "Sterowanie odtwarzaniem",
+      "log": "Lot: {name}",
+      "pick": "Wybierz lot",
+      "readingBar": "Wczytywanie logu {id}",
+      "idle": {
+        "title": "Nie wybrano lotu",
+        "help": "Wybierz lot z logów na tym komputerze, aby zobaczyć go na mapie."
+      },
+      "none": {
+        "title": "Tego lotu nie można pokazać na mapie",
+        "noTimes": "Log nie ma czasów, więc nie ma lotu do pokazania na mapie."
+      },
+"gapsMore": "Luki w pozycjach, których nie podano: {count}. Pojazd może być rysowany w ruchu tam, gdzie log nie ma pozycji.",
+      "skipped": "Pozycje, które nie były miejscem (brak fixa, 0 i 0 albo poza globem) i nie są rysowane: {count}.",
+      "noHome": "Log nie mówi, gdzie był dom, więc żaden nie jest rysowany.",
+      "source": {
+        "pos": "Pozycje z własnej estymacji pojazdu (EKF): {count}. Lot trwa {length}. Przerzedzone na potrzeby mapy.",
+        "gps": "Pozycje GPS z fixem 3D: {count}. Log nie ma estymowanej pozycji. Lot trwa {length}. Przerzedzone na potrzeby mapy."
+      },
+      "status": {
+        "ready": "Log {id} jest gotowy do odtworzenia",
+        "stopped": "Wczytywanie zatrzymano"
+      },
+      "transport": {
+        "title": "Odtwarzanie",
+        "play": "Odtwórz",
+        "pause": "Pauza",
+        "scrub": "Miejsce w locie",
+        "speed": "Prędkość",
+        "speedOption": "{speed}×",
+        "clock": "{at} z {total}"
+      },
+      "tiles": {
+        "title": "W miejscu kursora",
+        "position": "Pozycja",
+        "height": "Wysokość nad domem",
+        "altitude": "Wysokość nad poziomem morza",
+        "speed": "Prędkość względem ziemi",
+        "battery": "Bateria"
+      },
+      "jump": {
+        "title": "Przejdź do",
+        "none": "W logu nie ma zdarzeń, do których można przejść.",
+        "armed": "Uzbrojono",
+        "disarmed": "Rozbrojono",
+        "mode": "Tryb: {mode}",
+        "go": "Przejdź do {at}: {what}"
+      }
+    },
     "spectrum": {
       "tlog": "Niedostępne dla pliku logu (.tlog): nie zawiera surowych paczek IMU. Otwórz log pobrany z pojazdu.",
       "title": "Widmo",
@@ -397,10 +448,6 @@
       "flights": {
         "title": "Brak lotów",
         "help": "Tu pojawią się loty z pobranych logów. Czytanie logów nie jest jeszcze dostępne."
-      },
-      "replay": {
-        "title": "Odtwarzanie nie jest jeszcze dostępne",
-        "help": "Pojawi się razem z mapą: lot będzie narysowany jako trasa, którą można odtworzyć."
       },
       "spectrum": {
         "title": "Widmo nie jest jeszcze dostępne",

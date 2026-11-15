@@ -219,7 +219,7 @@ class TrackWriter implements Taker {
 
 /// A position in degrees at the resolution of the GPS (1e-7): the scaling of the log's integers leaves noise in the last digits
 /// (47.599999999999994) that is not in the data.
-function degrees(v: f64): f64 {
+export function degrees(v: f64): f64 {
   if (usable(v) && v < 1.0e9 && v > -1.0e9) Math.round(v * 1.0e7) / 1.0e7 else v
 }
 

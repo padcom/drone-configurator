@@ -185,6 +185,71 @@ export function screenOf(view: View, size: Size, lat: number, lon: number): Poin
   return { x: size.width / 2 + dx - Math.round(dx / world) * world, y: size.height / 2 + (here.y - center.y) }
 }
 
+/** The room `fitView` leaves round the places (px). */
+const FIT_MARGIN = 48
+
+/** The box round some places (degrees). */
+interface Extent {
+  /** The southern edge. */
+  south: number
+  /** The northern edge. */
+  north: number
+  /** The western edge. */
+  west: number
+  /** The eastern edge. */
+  east: number
+}
+
+/**
+ * The box round some places.
+ *
+ * @param places the places (at least one)
+ * @returns the box
+ */
+function extentOf(places: readonly { lat: number, lon: number }[]): Extent {
+  const lats = places.map(place => place.lat)
+  const lons = places.map(place => place.lon)
+
+  return { south: Math.min(...lats), north: Math.max(...lats), west: Math.min(...lons), east: Math.max(...lons) }
+}
+
+/**
+ * The view at a zoom that has a box in its middle, when the box fits the map with a margin there.
+ *
+ * @param box the box
+ * @param zoom the zoom
+ * @param room how many px the box may take, across and down
+ * @returns the view, or null when the box does not fit
+ */
+function fittedAt(box: Extent, zoom: number, room: Size): View | null {
+  const [top, bottom] = [project(box.north, box.west, zoom), project(box.south, box.east, zoom)]
+  const fits = bottom.x - top.x <= room.width && bottom.y - top.y <= room.height
+
+  return fits ? viewAt({ x: (top.x + bottom.x) / 2, y: (top.y + bottom.y) / 2 }, zoom) : null
+}
+
+/**
+ * The view that shows all of some places: the whole zoom at which they fit the map with a margin, centred on them (no zoom
+ * closer than `maxZoom`: one place, or places a few metres apart, are shown at the zoom of a vehicle). The antimeridian is not
+ * crossed: a flight is a local thing.
+ *
+ * @param places the places (degrees)
+ * @param size the size of the map on screen
+ * @param maxZoom the closest zoom to use
+ * @returns the view, or null for no place
+ */
+export function fitView(places: readonly { lat: number, lon: number }[], size: Size, maxZoom = 17): View | null {
+  if (places.length === 0) {
+    return null
+  }
+  const box = extentOf(places)
+  const room = { width: size.width - 2 * FIT_MARGIN, height: size.height - 2 * FIT_MARGIN }
+  const zooms = Array.from({ length: maxZoom - MIN_ZOOM }, (_, i) => maxZoom - i)
+
+  return zooms.reduce<View | null>((found, zoom) => found ?? fittedAt(box, zoom, room), null)
+    ?? { lat: (box.south + box.north) / 2, lon: (box.west + box.east) / 2, zoom: MIN_ZOOM }
+}
+
 /**
  * The key of a tile.
  *

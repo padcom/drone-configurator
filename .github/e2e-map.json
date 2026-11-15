@@ -39,19 +39,19 @@
     },
     {
       "when": [
-        "apps/frontend/src/components/{settings,map}/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/{useMapSettings,useFlightMap,useLiveMapSource}.ts",
+        "apps/frontend/src/components/{settings,map}/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/{useMapSettings,useFlightMap,useLiveMapSource,useReplayMapSource}.ts",
         "apps/frontend/src/screens/{Settings,FlightData}.vue", "apps/backend/{map*,settings,groups,telemetry}.pi", "packages/contracts/app.cddl"
       ],
-      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts", "flight-map-vehicle.e2e.ts", "sitl-flight-map.e2e.ts"]
+      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts", "flight-map-vehicle.e2e.ts", "sitl-flight-map.e2e.ts", "logs-replay.e2e.ts"]
     },
     {
       "when": [
         "apps/frontend/src/components/charts/**", "apps/frontend/src/lib/{charts,logs}/**", "apps/frontend/src/screens/{Logs.vue,logs/**}",
-        "apps/frontend/src/composables/{useLogBrowser,useVehicleLogs,useLoggingSetup,useLogsSettings,useHousekeeping,useHousekeepingGuard,useSpectrum,useFlights,useSnapshots}.ts",
+        "apps/frontend/src/composables/{useLogBrowser,useVehicleLogs,useLoggingSetup,useLogsSettings,useHousekeeping,useHousekeepingGuard,useSpectrum,useReplay,useFlights,useSnapshots}.ts",
         "apps/backend/{log*,local*,tlog*,fft,files,importednames,settings}.pi"
       ],
       "specs": [
-        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "spectrum-after.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
+        "vehicle-logs.e2e.ts", "housekeeping*.e2e.ts", "tlog-import.e2e.ts", "logs-replay.e2e.ts", "spectrum-after.e2e.ts", "sitl-logs.e2e.ts", "sitl-ftp.e2e.ts", "sitl-calibration.e2e.ts"
       ]
     },
     {

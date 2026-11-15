@@ -325,6 +325,7 @@ class MockVehicle {
       case 'logs.local.modes': return this.localLogs.modes((e.p as { key: string }).key, ok, fail)
       case 'logs.local.review': return this.localLogs.review((e.p as { key: string }).key, ok, fail)
       case 'logs.local.series': return this.localLogs.series(e.p as { key: string, series: SeriesAsk[], buckets: number }, ok, fail)
+      case 'logs.local.track': return this.localLogs.track((e.p as { key: string }).key, ok, fail)
       case 'logs.local.messages': return this.localLogs.messages((e.p as { key: string }).key, ok, fail)
       case 'logs.local.at': return this.localLogs.at(e.p as { key: string, message: string, timeUs: number }, ok, fail)
       case 'logs.local.export': return this.localLogs.export(e.p as ExportAsk, ok, fail)

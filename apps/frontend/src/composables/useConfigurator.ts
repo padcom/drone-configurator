@@ -28,6 +28,7 @@ import { type Vehicle, useVehicle } from './useVehicle'
 import { armedOf } from '@/lib/app/armed'
 import { type FlightsModel, useFlights } from './useFlights'
 import { type BrowserModel, useLogBrowser } from './useLogBrowser'
+import { type ReplayModel, useReplay } from './useReplay'
 import { type SpectrumModel, useSpectrum } from './useSpectrum'
 import { type LogsModel, useVehicleLogs } from './useVehicleLogs'
 import { type HousekeepingModel, useHousekeeping } from './useHousekeeping'
@@ -73,6 +74,8 @@ export interface ConfiguratorHandle {
   browser: BrowserModel
   /** The raw IMU batches of a flight log and their spectrum. */
   spectrum: SpectrumModel
+  /** A flight log on the map: its track, its events and the tiles' values. */
+  replay: ReplayModel
   /** What the Setup pages ask of the vehicle besides parameters: its details and its flight modes. */
   setup: SetupModel
   /** The calibration of the vehicle's sensors (the accelerometer and the compass): its state, and the actions. */
@@ -120,7 +123,7 @@ function ask(confirmation: ShallowRef<Confirmation | null>, question: string, op
 type Models = Pick<
   ConfiguratorHandle,
   'vehicle' | 'parameters' | 'metadata' | 'snapshots' | 'settings' | 'messages' | 'logs' | 'housekeeping' | 'flights' | 'browser'
-  | 'spectrum' | 'staged'
+  | 'spectrum' | 'replay' | 'staged'
 >
 
 /**
@@ -482,8 +485,13 @@ function mayBeArmed(vehicle: Vehicle): boolean {
 function logModels(
   client: BackendClient,
   confirm: (question: string) => Promise<boolean>,
-): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum'> {
-  return { flights: useFlights({ client, confirm }), browser: useLogBrowser({ client }), spectrum: useSpectrum({ client }) }
+): Pick<ConfiguratorHandle, 'flights' | 'browser' | 'spectrum' | 'replay'> {
+  return {
+    flights: useFlights({ client, confirm }),
+    browser: useLogBrowser({ client }),
+    spectrum: useSpectrum({ client }),
+    replay: useReplay({ client }),
+  }
 }
 
 /**

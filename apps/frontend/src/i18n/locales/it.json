@@ -291,6 +291,57 @@
       "queue": "Aggiungi {count} modifica alla coda | Aggiungi {count} modifiche alla coda",
       "revert": "Annulla le selezioni"
     },
+    "replay": {
+      "title": "Riproduzione sulla mappa",
+      "aside": "Comandi della riproduzione",
+      "log": "Volo: {name}",
+      "pick": "Scegli un volo",
+      "readingBar": "Lettura del log {id}",
+      "idle": {
+        "title": "Nessun volo scelto",
+        "help": "Scegli un volo tra i log di questo computer per vederlo sulla mappa."
+      },
+      "none": {
+        "title": "Questo volo non si può mostrare su una mappa",
+        "noTimes": "Il log non ha tempi, quindi non c’è un volo da mostrare su una mappa."
+      },
+"gapsMore": "Lacune nelle posizioni non indicate: {count}. Il veicolo può essere disegnato in movimento dove il log non ha posizione.",
+      "skipped": "Posizioni che non erano un luogo (nessun fix, 0 e 0, o fuori dal globo) e non vengono disegnate: {count}.",
+      "noHome": "Il log non dice dove fosse la base, quindi non ne viene disegnata nessuna.",
+      "source": {
+        "pos": "Posizioni della stima propria del veicolo (EKF): {count}. Il volo dura {length}. Ridotte per la mappa.",
+        "gps": "Posizioni GPS con fix 3D: {count}. Il log non ha una posizione stimata. Il volo dura {length}. Ridotte per la mappa."
+      },
+      "status": {
+        "ready": "Il log {id} è pronto per la riproduzione",
+        "stopped": "La lettura è stata fermata"
+      },
+      "transport": {
+        "title": "Riproduzione",
+        "play": "Riproduci",
+        "pause": "Pausa",
+        "scrub": "Punto del volo",
+        "speed": "Velocità",
+        "speedOption": "{speed}×",
+        "clock": "{at} di {total}"
+      },
+      "tiles": {
+        "title": "Al cursore",
+        "position": "Posizione",
+        "height": "Altezza sulla base",
+        "altitude": "Altitudine sul livello del mare",
+        "speed": "Velocità al suolo",
+        "battery": "Batteria"
+      },
+      "jump": {
+        "title": "Vai a",
+        "none": "Il log non ha eventi a cui andare.",
+        "armed": "Armato",
+        "disarmed": "Disarmato",
+        "mode": "Modalità: {mode}",
+        "go": "Vai a {at}: {what}"
+      }
+    },
     "spectrum": {
       "tlog": "Non disponibile per un file di log (.tlog): non contiene pacchetti IMU grezzi. Apri un log scaricato dal veicolo.",
       "title": "Spettro",
@@ -397,10 +448,6 @@
       "flights": {
         "title": "Ancora nessun volo",
         "help": "Qui saranno elencati i voli dei log scaricati. La lettura dei log non è ancora disponibile."
-      },
-      "replay": {
-        "title": "La riproduzione non è ancora disponibile",
-        "help": "Arriva con la mappa: un volo è disegnato come un percorso che si può riprodurre."
       },
       "spectrum": {
         "title": "Lo spettro non è ancora disponibile",

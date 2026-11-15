@@ -1867,6 +1867,275 @@ export function encodeLogsLocalSeries(v: LogsLocalSeries): Cbor {
   Cbor.Dict(m)
 }
 
+export struct LogsLocalTrackAsk {
+  key: string
+  maxPoints?: u16
+}
+
+export function decodeLogsLocalTrackAsk(v: Cbor, path: string): LogsLocalTrackAsk throws InvalidPayload {
+  const m = members(v, path, ["key", "maxPoints"])
+  const cbor1 = m.get("maxPoints")
+  let opt1: u16? = null
+  if (cbor1 != null) {
+    opt1 = (uint(cbor1, `${path}.maxPoints`, 65535) as u16)
+  }
+  LogsLocalTrackAsk {
+    key: text(required(m, "key", path), `${path}.key`),
+    maxPoints: opt1,
+  }
+}
+
+export function encodeLogsLocalTrackAsk(v: LogsLocalTrackAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("key", Cbor.Text(v.key))
+  const opt1 = v.maxPoints
+  if (opt1 != null) {
+    m.set("maxPoints", Cbor.Uint(opt1 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+export struct TrackPoint {
+  timeUs: u64
+  lat: f64
+  lon: f64
+  alt?: f64
+}
+
+export function decodeTrackPoint(v: Cbor, path: string): TrackPoint throws InvalidPayload {
+  const m = members(v, path, ["timeUs", "lat", "lon", "alt"])
+  const cbor3 = m.get("alt")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.alt`)
+  }
+  TrackPoint {
+    timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
+    lat: float(required(m, "lat", path), `${path}.lat`),
+    lon: float(required(m, "lon", path), `${path}.lon`),
+    alt: opt3,
+  }
+}
+
+export function encodeTrackPoint(v: TrackPoint): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("timeUs", Cbor.Uint(v.timeUs as u64))
+  m.set("lat", Cbor.Float(v.lat))
+  m.set("lon", Cbor.Float(v.lon))
+  const opt3 = v.alt
+  if (opt3 != null) {
+    m.set("alt", Cbor.Float(opt3))
+  }
+  Cbor.Dict(m)
+}
+
+export struct TrackPlace {
+  lat: f64
+  lon: f64
+}
+
+export function decodeTrackPlace(v: Cbor, path: string): TrackPlace throws InvalidPayload {
+  const m = members(v, path, ["lat", "lon"])
+  TrackPlace {
+    lat: float(required(m, "lat", path), `${path}.lat`),
+    lon: float(required(m, "lon", path), `${path}.lon`),
+  }
+}
+
+export function encodeTrackPlace(v: TrackPlace): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("lat", Cbor.Float(v.lat))
+  m.set("lon", Cbor.Float(v.lon))
+  Cbor.Dict(m)
+}
+
+export enum TrackEventKind { Armed, Disarmed, Text }
+
+export function decodeTrackEventKind(v: Cbor, path: string): TrackEventKind throws InvalidPayload {
+  match (text(v, path)) {
+    "armed" => TrackEventKind.Armed,
+    "disarmed" => TrackEventKind.Disarmed,
+    "text" => TrackEventKind.Text,
+    _ => throw new InvalidPayload(path, "armed or disarmed or text"),
+  }
+}
+
+export function encodeTrackEventKind(v: TrackEventKind): Cbor {
+  match (v) {
+    Armed => Cbor.Text("armed"),
+    Disarmed => Cbor.Text("disarmed"),
+    Text => Cbor.Text("text"),
+  }
+}
+
+export struct TrackEvent {
+  timeUs: u64
+  kind: TrackEventKind
+  text?: string
+}
+
+export function decodeTrackEvent(v: Cbor, path: string): TrackEvent throws InvalidPayload {
+  const m = members(v, path, ["timeUs", "kind", "text"])
+  const cbor2 = m.get("text")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.text`)
+  }
+  TrackEvent {
+    timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
+    kind: decodeTrackEventKind(required(m, "kind", path), `${path}.kind`),
+    text: opt2,
+  }
+}
+
+export function encodeTrackEvent(v: TrackEvent): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("timeUs", Cbor.Uint(v.timeUs as u64))
+  m.set("kind", encodeTrackEventKind(v.kind))
+  const opt2 = v.text
+  if (opt2 != null) {
+    m.set("text", Cbor.Text(opt2))
+  }
+  Cbor.Dict(m)
+}
+
+export struct TrackGap {
+  fromUs: u64
+  toUs: u64
+}
+
+export function decodeTrackGap(v: Cbor, path: string): TrackGap throws InvalidPayload {
+  const m = members(v, path, ["fromUs", "toUs"])
+  TrackGap {
+    fromUs: (uint(required(m, "fromUs", path), `${path}.fromUs`, 18446744073709551615) as u64),
+    toUs: (uint(required(m, "toUs", path), `${path}.toUs`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodeTrackGap(v: TrackGap): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("fromUs", Cbor.Uint(v.fromUs as u64))
+  m.set("toUs", Cbor.Uint(v.toUs as u64))
+  Cbor.Dict(m)
+}
+
+export enum LocalLogTrackSource { Pos, Gps }
+
+export function decodeLocalLogTrackSource(v: Cbor, path: string): LocalLogTrackSource throws InvalidPayload {
+  match (text(v, path)) {
+    "pos" => LocalLogTrackSource.Pos,
+    "gps" => LocalLogTrackSource.Gps,
+    _ => throw new InvalidPayload(path, "pos or gps"),
+  }
+}
+
+export function encodeLocalLogTrackSource(v: LocalLogTrackSource): Cbor {
+  match (v) {
+    Pos => Cbor.Text("pos"),
+    Gps => Cbor.Text("gps"),
+  }
+}
+
+function decodeLocalLogTrackPointsList(v: Cbor, path: string): TrackPoint[] throws InvalidPayload {
+  const out: TrackPoint[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTrackPoint(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeLocalLogTrackGapsList(v: Cbor, path: string): TrackGap[] throws InvalidPayload {
+  const out: TrackGap[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTrackGap(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function decodeLocalLogTrackEventsList(v: Cbor, path: string): TrackEvent[] throws InvalidPayload {
+  const out: TrackEvent[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodeTrackEvent(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodeLocalLogTrackPointsList(v: TrackPoint[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTrackPoint(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeLocalLogTrackGapsList(v: TrackGap[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTrackGap(e))
+  }
+  Cbor.List(out)
+}
+
+function encodeLocalLogTrackEventsList(v: TrackEvent[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodeTrackEvent(e))
+  }
+  Cbor.List(out)
+}
+
+export struct LocalLogTrack {
+  source: LocalLogTrackSource
+  fixes: u32
+  skipped: u32
+  points: TrackPoint[]
+  gaps: TrackGap[]
+  gapsMore: u32
+  home?: TrackPlace
+  events: TrackEvent[]
+}
+
+export function decodeLocalLogTrack(v: Cbor, path: string): LocalLogTrack throws InvalidPayload {
+  const m = members(v, path, ["source", "fixes", "skipped", "points", "gaps", "gapsMore", "home", "events"])
+  const cbor6 = m.get("home")
+  let opt6: TrackPlace? = null
+  if (cbor6 != null) {
+    opt6 = decodeTrackPlace(cbor6, `${path}.home`)
+  }
+  LocalLogTrack {
+    source: decodeLocalLogTrackSource(required(m, "source", path), `${path}.source`),
+    fixes: (uint(required(m, "fixes", path), `${path}.fixes`, 4294967295) as u32),
+    skipped: (uint(required(m, "skipped", path), `${path}.skipped`, 4294967295) as u32),
+    points: decodeLocalLogTrackPointsList(required(m, "points", path), `${path}.points`),
+    gaps: decodeLocalLogTrackGapsList(required(m, "gaps", path), `${path}.gaps`),
+    gapsMore: (uint(required(m, "gapsMore", path), `${path}.gapsMore`, 4294967295) as u32),
+    home: opt6,
+    events: decodeLocalLogTrackEventsList(required(m, "events", path), `${path}.events`),
+  }
+}
+
+export function encodeLocalLogTrack(v: LocalLogTrack): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("source", encodeLocalLogTrackSource(v.source))
+  m.set("fixes", Cbor.Uint(v.fixes as u64))
+  m.set("skipped", Cbor.Uint(v.skipped as u64))
+  m.set("points", encodeLocalLogTrackPointsList(v.points))
+  m.set("gaps", encodeLocalLogTrackGapsList(v.gaps))
+  m.set("gapsMore", Cbor.Uint(v.gapsMore as u64))
+  const opt6 = v.home
+  if (opt6 != null) {
+    m.set("home", encodeTrackPlace(opt6))
+  }
+  m.set("events", encodeLocalLogTrackEventsList(v.events))
+  Cbor.Dict(m)
+}
+
 export enum ReviewFindingLevel { Ok, Warn, Bad, Info, NoData }
 
 export function decodeReviewFindingLevel(v: Cbor, path: string): ReviewFindingLevel throws InvalidPayload {
