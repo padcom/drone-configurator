@@ -1,5 +1,5 @@
 <template>
-  <div ref="root" class="kit-menu">
+  <div ref="root" class="kit-menu" @focusout="releaseKey" @pointerdown="releaseKey">
     <Button
       :id="triggerId"
       aria-haspopup="menu"
@@ -22,7 +22,7 @@
         :class="{ danger: item.danger }"
         :disabled="item.disabled"
         :tabindex="i === active ? 0 : -1"
-        @click="choose(item)"
+        @click="choose(item, $event)"
       >
         <span>{{ item.label }}</span>
         <span v-if="item.hint" class="hint">{{ item.hint }}</span>
@@ -88,6 +88,7 @@ function focusTrigger(): void {
  * @param back whether the focus goes back to the button (not when it went elsewhere: Tab, a click)
  */
 function close(back: boolean): void {
+  held = false
   open.value = false
   active.value = -1
 
@@ -128,9 +129,24 @@ function releaseKey(): void {
   held = false
 }
 
-/** The button was pressed: opens at the first item, or closes. A repeat of a held key does not count. */
-function toggle(): void {
-  if (held) {
+/**
+ * Whether a click is made by the keyboard (a pointer click has a detail of 1 or more) while an Enter or Space is held: it is the
+ * repeat's, and does nothing. A pointer click always counts, whatever `held` says (a key may have been released elsewhere).
+ *
+ * @param event the click
+ * @returns true when it is to be ignored
+ */
+function ignored(event: MouseEvent): boolean {
+  return held && event.detail === 0
+}
+
+/**
+ * The button was pressed: opens at the first item, or closes. A repeat of a held key does not count.
+ *
+ * @param event the click
+ */
+function toggle(event: MouseEvent): void {
+  if (ignored(event)) {
     return
   }
   if (open.value) {
@@ -167,9 +183,10 @@ function onTriggerKey(event: KeyboardEvent): void {
  * An item was chosen.
  *
  * @param item the item
+ * @param event the click
  */
-function choose(item: MenuItem): void {
-  if (held) {
+function choose(item: MenuItem, event: MouseEvent): void {
+  if (ignored(event)) {
     return
   }
   emit('select', item.id)
