@@ -2,11 +2,12 @@
 // propeller size and battery. The formulas are Mission Planner's own: GCSViews/ConfigurationView/ConfigInitialParams.cs
 // (`calc_values`, lines 89-121; the battery types 251-275; the parameters written 153-209), as read from its source on
 // 2026-11-15. Each constant below names the line it is from. There is a note of them all, with the differences from ArduPilot's
-// web page, in workspaces/developer/mission-planner-initial-tune.md (not in this repository: it is quoted in the pull request).
+// web page, in docs/mission-planner-initial-tune.md.
 //
 // What is NOT taken from Mission Planner: its optional "T-Motor" box (MOT_THST_EXPO 0.2, MOT_PWM_MIN/MAX), its "Suggested"
 // box (battery failsafe actions and a fence), the ArduPlane (Q_) names and the 3.x names (*_FILT). The values are suggestions:
-// they go to the staged review of the Setup page, and only for a parameter the vehicle has.
+// they go to the staged review of the Setup page, and only for a parameter the vehicle has; a value outside the range
+// ArduPilot documents for the parameter is not offered.
 
 /** The most cells accepted (a 12S pack): Mission Planner names none, this is the interface's own bound. */
 export const MAX_CELLS = 12
@@ -34,8 +35,8 @@ export const CHEMISTRIES: readonly Chemistry[] = [
   { id: 'LiIon', cellMax: 4.1, cellMin: 2.8 },
 ]
 
-/** Why a parameter has no value to offer: the size or the cells are not known yet. */
-export type NoValue = 'size' | 'cells'
+/** Why a parameter has no value to offer: the size or the cells are not known, or the value is outside the parameter's range. */
+export type NoValue = 'size' | 'cells' | 'range'
 
 /** One parameter of the initial tune. */
 export interface Suggestion {
@@ -109,7 +110,35 @@ function toHundreds(value: number): number {
 }
 
 /**
- * A suggestion.
+ * The range ArduPilot documents (`@Range`, in the 4.7.2 tree and in master) for the parameters whose suggestion may fall outside:
+ * the acceleration limits in deg/s/s (a formula of the size that gives 1808 at 4 inch and 2210 at 1 inch for ATC_ACC_P_MAX), and
+ * the voltages of the motors' battery (a single cell gives 4.2 and 3.3 V).
+ */
+const RANGES: Record<string, readonly [number, number]> = {
+  ATC_ACC_P_MAX: [0, 1800],
+  ATC_ACC_R_MAX: [0, 1800],
+  ATC_ACC_Y_MAX: [0, 720],
+  MOT_BAT_VOLT_MAX: [6, 53],
+  MOT_BAT_VOLT_MIN: [6, 42],
+}
+
+const ACCEL_IDS: readonly string[] = ['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX', 'ATC_ACC_Y_MAX']
+
+/**
+ * Whether a value is outside the range ArduPilot documents for a parameter.
+ *
+ * @param id the parameter
+ * @param value the value
+ * @returns true when the parameter has a documented range and the value is not in it
+ */
+function outsideRange(id: string, value: number): boolean {
+  const range = RANGES[id]
+
+  return range !== undefined && (value < range[0] || value > range[1])
+}
+
+/**
+ * A suggestion. A value outside the range the parameter documents is not offered, and says so.
  *
  * @param id the parameter
  * @param value the value, or null for none
@@ -117,6 +146,10 @@ function toHundreds(value: number): number {
  * @returns the suggestion
  */
 function suggestion(id: string, value: number | null, why: NoValue): Suggestion {
+  if (value !== null && outsideRange(id, value)) {
+    return { id, value: null, why: 'range' }
+  }
+
   return { id, value, why: value === null ? why : null }
 }
 
@@ -220,23 +253,18 @@ export function initialTune(input: TuneInput): Suggestion[] {
 }
 
 /**
- * The greatest value an acceleration limit may have in ArduPilot's own range (deg/s/s, `@Range` of ATC_ACC_*_MAX in the 4.7.2
- * tree and in master). The older parameter of the same thing, in centi-degrees, is named ATC_ACCEL_*_MAX: a vehicle that has the
- * name used here and a value above this has a value in another unit, and a suggestion in deg/s/s must not be written over it.
- */
-const ACCEL_RANGE_MAX: Record<string, number> = { ATC_ACC_P_MAX: 1800, ATC_ACC_R_MAX: 1800, ATC_ACC_Y_MAX: 720 }
-
-/**
- * Whether the vehicle's value of a parameter is beyond the range the suggested value is in.
+ * Whether the vehicle's value of an acceleration limit is beyond its range (see `RANGES`). The older parameter of the same thing,
+ * in centi-degrees, is named ATC_ACCEL_*_MAX: a vehicle that has the name used here and a value above the range has a value in
+ * another unit, and a suggestion in deg/s/s must not be written over it.
  *
  * @param id the parameter
  * @param now the vehicle's value, or null when it has none
  * @returns true for an acceleration limit above its range
  */
 export function beyondRange(id: string, now: number | null): boolean {
-  const max = ACCEL_RANGE_MAX[id]
+  const range = ACCEL_IDS.includes(id) ? RANGES[id] : undefined
 
-  return max !== undefined && now !== null && now > max
+  return range !== undefined && now !== null && now > range[1]
 }
 
 /** The acceleration limits in centi-degrees/s/s (the older parameters): only a vehicle that has ATC_ACCEL_P_MAX is given them. */

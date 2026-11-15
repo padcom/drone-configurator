@@ -115,6 +115,39 @@ describe('the battery', () => {
   })
 })
 
+describe('a value outside the range ArduPilot documents', () => {
+  /**
+   * The suggestions that have no value because of the range.
+   *
+   * @param size the size
+   * @param cells the cells
+   * @returns their names
+   */
+  function outside(size: number, cells: number): string[] {
+    return initialTune({ size, cells, chemistry: LIPO }).filter(item => item.why === 'range').map(item => item.id)
+  }
+
+  it('is not offered: the accelerations of a 4 inch propeller (1808 deg/s/s, range 0 to 1800) and smaller', () => {
+    expect(outside(4, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
+    expect(outside(3, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
+    expect(outside(1, 4)).toEqual(['ATC_ACC_P_MAX', 'ATC_ACC_R_MAX'])
+    // (the same values in centi-degrees are not judged: that parameter's range is not in the source this follows)
+    expect(valuesOf(4, 4).ATC_ACCEL_P_MAX).toBe(180_800)
+    expect(valuesOf(4, 4).ATC_ACC_P_MAX).toBeNull()
+  })
+
+  it('is not offered: the voltages of a single cell (4.2 and 3.3 V, ranges from 6 V)', () => {
+    expect(outside(10, 1)).toEqual(['MOT_BAT_VOLT_MAX', 'MOT_BAT_VOLT_MIN'])
+    expect(outside(10, 2)).toEqual([])
+    expect(valuesOf(10, 2).MOT_BAT_VOLT_MIN).toBe(6.6)
+  })
+
+  it('is offered when it is inside: the sizes and the packs of the usual', () => {
+    expect([5, 9, 10, 20, 30, 60].flatMap(size => outside(size, 4))).toEqual([])
+    expect(outside(10, 12)).toEqual([])
+  })
+})
+
 describe('what is not known', () => {
   it('has no value for the size parameters until the size is known, and says that is why', () => {
     const items = initialTune({ size: null, cells: 4, chemistry: LIPO })

@@ -1182,6 +1182,7 @@
       "why": {
         "size": "indique el tamaño de las hélices",
         "aboveRange": "el valor del vehículo está por encima del rango de este parámetro (¿otra unidad?): no se ofrece",
+        "range": "el valor calculado está fuera del rango de este parámetro: no se ofrece",
         "cells": "indique las celdas"
       },
       "sizeHelp": "Un número de {min} a {max}, con un decimal como máximo, p. ej. 9 o 10.5.",

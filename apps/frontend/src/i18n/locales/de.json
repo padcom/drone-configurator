@@ -1182,6 +1182,7 @@
       "why": {
         "size": "Propellergröße angeben",
         "aboveRange": "der Wert des Fahrzeugs liegt über dem Bereich dieses Parameters (andere Einheit?): nicht angeboten",
+        "range": "der berechnete Wert liegt außerhalb des Bereichs dieses Parameters: wird nicht vorgeschlagen",
         "cells": "Zellen angeben"
       },
       "sizeHelp": "Eine Zahl von {min} bis {max}, höchstens mit einer Nachkommastelle, z. B. 9 oder 10.5.",

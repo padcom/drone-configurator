@@ -1182,6 +1182,7 @@
       "why": {
         "size": "indica la dimensione delle eliche",
         "aboveRange": "il valore del veicolo è sopra l'intervallo di questo parametro (altra unità?): non offerto",
+        "range": "il valore calcolato è fuori dall'intervallo di questo parametro: non viene proposto",
         "cells": "indica le celle"
       },
       "sizeHelp": "Un numero da {min} a {max}, con al massimo un decimale, ad es. 9 o 10.5.",

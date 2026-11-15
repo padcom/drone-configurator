@@ -36,7 +36,7 @@
       <p :id="`${uid}-cells-help`" class="muted">
         {{ t('setup.initial.cellsHelp', { max: MAX_CELLS, full: chemistry.cellMax, empty: chemistry.cellMin }) }}
       </p>
-      <table id="setup-initial-table" class="setup-sensors">
+      <table id="setup-initial-table" class="setup-sensors setup-initial-table">
         <thead>
           <tr>
             <th scope="col">{{ t('setup.initial.parameter') }}</th>
@@ -47,8 +47,8 @@
         <tbody>
           <tr v-for="row in rows" :key="row.id" :data-param="row.id">
             <th scope="row">{{ row.id }}</th>
-            <td>{{ row.now }}</td>
-            <td :class="{ muted: row.value === null }">{{ row.suggested }}</td>
+            <td :data-label="t('setup.initial.now')">{{ row.now }}</td>
+            <td :class="{ muted: row.value === null }" :data-label="t('setup.initial.suggested')">{{ row.suggested }}</td>
           </tr>
         </tbody>
       </table>

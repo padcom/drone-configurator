@@ -284,6 +284,22 @@ it('puts the choices back when the cells or the battery change: the voltages of 
   expect(rig.asked[0]).not.toContain('16.8')
 })
 
+it('does not offer a value outside its documented range, says why, and chooses nothing for it', async () => {
+  const rig = await page()
+  await choose(rig, '4', '1')
+
+  expect(suggestedOf(rig, 'ATC_ACC_P_MAX')).toBe('the calculated value is outside this parameter\'s range: not offered')
+  expect(suggestedOf(rig, 'MOT_BAT_VOLT_MAX')).toBe('the calculated value is outside this parameter\'s range: not offered')
+  expect(suggestedOf(rig, 'ATC_ACC_Y_MAX')).toBe('324')
+  await rig.wrapper.get('#setup-initial-use').trigger('click')
+  await flushPromises()
+
+  const listed = rig.wrapper.findAll('.setup-writes li').map(item => item.text())
+  expect(listed).not.toContain('ATC_ACC_P_MAX')
+  expect(listed).not.toContain('MOT_BAT_VOLT_MAX')
+  expect(listed).toContain('ATC_ACC_Y_MAX')
+})
+
 it('does not offer an acceleration limit beyond its range on the vehicle (another unit), and says why', async () => {
   const rig = await page({ ATC_ACC_P_MAX: 110_000, ATC_ACC_Y_MAX: 720 })
   await choose(rig, '10', '4')

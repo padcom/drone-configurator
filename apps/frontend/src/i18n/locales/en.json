@@ -1182,6 +1182,7 @@
       "why": {
         "size": "say the propeller size",
         "aboveRange": "the vehicle's value is above this parameter's range (another unit?): not offered",
+        "range": "the calculated value is outside this parameter's range: not offered",
         "cells": "say the cells"
       },
       "sizeHelp": "A number from {min} to {max}, with one decimal at most, e.g. 9 or 10.5.",

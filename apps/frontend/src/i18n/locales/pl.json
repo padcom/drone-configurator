@@ -1182,6 +1182,7 @@
       "why": {
         "size": "podaj wielkość śmigieł",
         "aboveRange": "wartość pojazdu jest powyżej zakresu tego parametru (inna jednostka?): nie jest proponowana",
+        "range": "obliczona wartość jest poza zakresem tego parametru: nie jest proponowana",
         "cells": "podaj ogniwa"
       },
       "sizeHelp": "Liczba od {min} do {max}, co najwyżej z jednym miejscem po przecinku, np. 9 lub 10.5.",
