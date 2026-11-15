@@ -10,6 +10,7 @@ import type {
 } from '@/generated/app'
 import { type ExportAsk, MOCK_MESSAGES, MockSaved, atAnswer } from './mock-local-browser'
 import { batchesOf, spectrumOf } from './mock-local-spectrum'
+import { refusalOfTrack, trackOf } from './mock-local-track'
 
 type Reply = (p: Envelope['p']) => void
 type Fail = (code: string, message: string) => void
@@ -621,6 +622,26 @@ export class MockLocalLogs {
       fail('UNAVAILABLE', 'the log has no batch of that sensor to make a spectrum of')
     } else {
       setTimeout(() => ok(answer), this.stepMs * 2)
+    }
+  }
+
+  /**
+   * Where a log that was read flew (the replay): the positions, home and the events; a log with no position is unavailable, with
+   * the reason (nothing is made up), and a log that is not verified gives nothing.
+   *
+   * @param key the log
+   * @param ok sends the answer
+   * @param fail sends an error
+   */
+  track(key: string, ok: Reply, fail: Fail): void {
+    const copy = this.findRead(key, fail)
+    if (copy) {
+      const refused = refusalOfTrack(copy)
+      if (refused) {
+        fail(refused[0], refused[1])
+      } else {
+        setTimeout(() => ok(trackOf(Number(copy.summary.firstUs ?? 0))), this.stepMs * 2)
+      }
     }
   }
 

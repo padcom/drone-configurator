@@ -1,0 +1,393 @@
+// The track of a log (`logs.local.track`), for the replay on the map: the positions of a DataFlash log (the EKF's POS, else the GPS's
+// 3D fixes of one receiver) and of an imported recording (GLOBAL_POSITION_INT), thinned so that a turn is never cut off; home as the
+// log says it was; the events (armed, disarmed, the vehicle's warnings). Honesty: a fix at 0, 0, outside the globe or without a 3D
+// fix is never a point; a log with no position is UNAVAILABLE with the reason; a log that is not verified gives nothing.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove, writeBytes } from "std/fs"
+import { join } from "std/path"
+import { env, pid } from "std/process"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { DfEncoder, GlobalPositionInt, HomePosition, Heartbeat, MavType, TlogWriter, crc32Of } from "padcom/pico-mavlink"
+import {
+  LocalLogTrack,
+  LocalLogTrackSource,
+  LogsImported,
+  LogsLocalRead,
+  LogsLocalTrackAsk,
+  TrackEventKind,
+  decodeLocalLogTrack,
+  decodeLogsImported,
+  encodeLogsLocalRead,
+  encodeLogsLocalTrackAsk,
+} from "./generated/app"
+import { copyName } from "./logs"
+import { forgetLocalReads } from "./locallogs"
+import { useDirectoryForTests } from "./settings"
+import { Frontend, start } from "./testing"
+
+const VARIABLE = "DRONE_CONFIGURATOR_TEST_FILES"
+const T0: int = 1794500000000000
+
+class Rig {
+  public readonly f: Frontend
+  public readonly root: string
+  public readonly was: string?
+  public key: string = ""
+
+  constructor(f: Frontend, root: string, was: string?) {
+    this.f = f
+    this.root = root
+    this.was = was
+  }
+}
+
+async function rig(): Promise<Rig> throws Error {
+  const root = `/tmp/drone-configurator-track-${pid}-${Date.now()}`
+  await mkdir(join(root, "chosen"), true)
+  const was = env.get(VARIABLE)
+  env.set(VARIABLE, join(root, "chosen"))
+  useDirectoryForTests(root)
+  forgetLocalReads()
+  new Rig(await start(), root, was)
+}
+
+async function done(r: Rig): Promise<void> throws Error {
+  if (r.was == null) env.delete(VARIABLE) else env.set(VARIABLE, r.was!)
+  await remove(r.root, true)
+}
+
+function codeOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else ""
+}
+
+/// Puts a DataFlash log in the library as a vehicle's checked copy, and reads it.
+async function put(r: Rig, bytes: Uint8Array): Promise<void> throws Error {
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  r.key = `uid-a/${name}`
+  await readIt(r)
+}
+
+async function readIt(r: Rig): Promise<void> throws Error {
+  await r.f.call("logs.local.read", encodeLogsLocalRead(LogsLocalRead { key: r.key }))
+}
+
+async function trackEnvelope(r: Rig, max: int): Promise<Envelope> throws Error {
+  const ask = LogsLocalTrackAsk { key: r.key }
+  if (max > 0) {
+    ask.maxPoints = max as u16
+  }
+  await r.f.call("logs.local.track", encodeLogsLocalTrackAsk(ask))
+}
+
+async function trackOf(r: Rig, max: int): Promise<LocalLogTrack> throws Error {
+  const e = await trackEnvelope(r, max)
+  if (e.err != null) {
+    panic(`track failed: ${e.err!.code} ${e.err!.message}`)
+  }
+  decodeLocalLogTrack(e.p ?? Cbor.Null, "$")
+}
+
+const NONE: string[] = ["", "", "", "", "", ""]
+
+/// A log with the EKF's POS (one fix at 0, 0 and one outside the globe among them), home (ORGN type 1; type 0 is the EKF's origin), the
+/// vehicle's events and two lines it printed, one of them a warning.
+function posFlight(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(60, "EV", "QB", "TimeUS,Id")
+  e.define(61, "ORGN", "QBLLf", "TimeUS,Type,Lat,Lng,Alt")
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  e.add(59, [500.0, 0.0], ["", "ArduCopter V4.7.2"])
+  e.add(61, [600.0, 0.0, 47.0, 8.0, 400.0], NONE)
+  e.add(61, [700.0, 1.0, 47.5, 8.5, 500.0], NONE)
+  e.add(62, [1000.0, 47.5, 8.5, 500.0, 0.0], NONE)
+  e.add(60, [1500.0, 10.0], ["", ""])
+  e.add(62, [2000.0, 47.5001, 8.5, 501.0, 1.0], NONE)
+  e.add(59, [2500.0, 0.0], ["", "Failsafe: radio"])
+  e.add(59, [2600.0, 0.0], ["", "Frame: QUAD"])
+  e.add(62, [3000.0, 0.0, 0.0, 502.0, 2.0], NONE)
+  e.add(62, [4000.0, 91.0, 8.5, 502.0, 2.0], NONE)
+  e.add(62, [5000.0, 47.5002, 8.5001, 503.0, 3.0], NONE)
+  e.add(60, [5500.0, 11.0], ["", ""])
+  e.add(60, [5600.0, 99.0], ["", ""])
+  e.bytes()
+}
+
+/// A log with only the GPS (two receivers; a fix that is not 3D, one at 0, 0, and one outside the globe among them) and no home.
+function gpsFlight(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(140, "GPS", "QBBLLf", "TimeUS,I,Status,Lat,Lng,Alt")
+  e.add(59, [500.0, 0.0], ["", "ArduCopter V4.7.2"])
+  e.add(140, [1000.0, 0.0, 3.0, 47.5, 8.5, 100.0], NONE)
+  e.add(140, [2000.0, 0.0, 2.0, 10.0, 10.0, 5.0], NONE)
+  e.add(140, [3000.0, 0.0, 3.0, 0.0, 0.0, 5.0], NONE)
+  e.add(140, [4000.0, 1.0, 3.0, 50.0, 9.0, 5.0], NONE)
+  e.add(140, [5000.0, 0.0, 3.0, 47.6, 8.6, 101.5], NONE)
+  e.add(140, [6000.0, 0.0, 4.0, 91.0, 8.0, 5.0], NONE)
+  e.bytes()
+}
+
+/// A log that has messages and times but no position.
+function noPosition(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.add(59, [500.0, 0.0], ["", "ArduCopter V4.7.2"])
+  e.add(59, [900.0, 0.0], ["", "Frame: QUAD"])
+  e.bytes()
+}
+
+/// An out and back: 2001 fixes a millisecond apart that go north for 1000 steps and south again, so that the turn is the middle one.
+function outAndBack(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  for (let i = 0; i <= 2000; i++) {
+    const out = if (i <= 1000) i else 2000 - i
+    e.add(62, [1000.0 + (i as f64) * 1000.0, 47.0 + (out as f64) * 0.00001, 8.5, 500.0, 0.0], NONE)
+  }
+  e.bytes()
+}
+
+async function givesThePositionsOfTheEkfWithHomeAndEvents(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, posFlight())
+  const t = await trackOf(r, 0)
+  expect(t.source).toBe(LocalLogTrackSource.Pos)
+  // Three places; the one at 0, 0 and the one outside the globe are skipped and counted, never drawn.
+  expect(t.fixes).toBe(3 as u32)
+  expect(t.skipped).toBe(2 as u32)
+  expect(t.points.map((p) => `${p.timeUs}:${p.lat}:${p.lon}`).join(" ")).toBe("1000:47.5:8.5 2000:47.5001:8.5 5000:47.5002:8.5001")
+  expect(t.points[0].alt).toBe(500.0)
+  // Home is the vehicle's (type 1), not the EKF's origin (type 0) and not the first fix.
+  expect(t.home!.lat).toBe(47.5)
+  expect(t.home!.lon).toBe(8.5)
+  // Armed, a warning (and not the other line), disarmed (and not an event the log has that is neither).
+  expect(t.events.length).toBe(3)
+  expect(t.events[0].kind).toBe(TrackEventKind.Armed)
+  expect(t.events[0].timeUs).toBe(1500 as u64)
+  expect(t.events[1].kind).toBe(TrackEventKind.Text)
+  expect(t.events[1].text).toBe("Failsafe: radio")
+  expect(t.events[2].kind).toBe(TrackEventKind.Disarmed)
+  await done(r)
+}
+
+async function givesTheGpsFixesOfOneReceiverWhenThereIsNoPos(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, gpsFlight())
+  const t = await trackOf(r, 0)
+  expect(t.source).toBe(LocalLogTrackSource.Gps)
+  expect(t.points.map((p) => `${p.lat}:${p.lon}`).join(" ")).toBe("47.5:8.5 47.6:8.6")
+  expect(t.fixes).toBe(2 as u32)
+  // No fix, 0 and 0, the other receiver, and a place outside the globe.
+  expect(t.skipped).toBe(4 as u32)
+  // The log does not say where home is: none is made up from the first fix.
+  expect(t.home == null).toBe(true)
+  expect(t.events.length).toBe(0)
+  await done(r)
+}
+
+async function saysWhyThereIsNoTrack(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, noPosition())
+  const e = await trackEnvelope(r, 0)
+  expect(codeOf(e)).toBe("UNAVAILABLE")
+  expect((e.err?.message ?? "").includes("position")).toBe(true)
+  await done(r)
+}
+
+async function keepsTheTurnWhenItThins(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, outAndBack())
+  const all = await trackOf(r, 0)
+  expect(all.fixes).toBe(2001 as u32)
+  // 2000 points is the default: three to a part of the time, so well under the fixes there are, and in time order.
+  expect(all.points.length < 2001).toBe(true)
+  for (let i = 1; i < all.points.length; i++) {
+    expect(all.points[i].timeUs > all.points[i - 1].timeUs).toBe(true)
+  }
+  // Six points: two parts of the time, and the farthest north (the turn) is still in the line, within a step of it.
+  const few = await trackOf(r, 6)
+  expect(few.points.length <= 6).toBe(true)
+  let north = 0.0
+  for (const p of few.points) {
+    if (p.lat > north) {
+      north = p.lat
+    }
+  }
+  expect(north >= 47.0 + 999.0 * 0.00001).toBe(true)
+  // The first and the last fix of the log are in it.
+  expect(few.points[0].timeUs).toBe(1000 as u64)
+  expect(few.points[few.points.length - 1].timeUs).toBe(2001000 as u64)
+  await done(r)
+}
+
+async function refusesWhatItShould(): Promise<void> throws Error {
+  const r = await rig()
+  const bytes = posFlight()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, crc32Of(bytes))
+  await writeBytes(join(dir, name), bytes)
+  r.key = `uid-a/${name}`
+  expect(codeOf(await trackEnvelope(r, 0))).toBe("NOT_READ")
+  await readIt(r)
+  expect(codeOf(await trackEnvelope(r, 5))).toBe("BAD_REQUEST")
+  expect(codeOf(await trackEnvelope(r, 5001))).toBe("BAD_REQUEST")
+  r.key = "uid-a/../x"
+  expect(codeOf(await trackEnvelope(r, 0))).toBe("NOT_FOUND")
+  await done(r)
+}
+
+async function takesNothingFromALogThatIsNotVerified(): Promise<void> throws Error {
+  const r = await rig()
+  const dir = join(r.root, "logs", "uid-a")
+  await mkdir(dir, true)
+  const name = copyName(1, 305419896)
+  await writeBytes(join(dir, name), posFlight())
+  r.key = `uid-a/${name}`
+  await readIt(r)
+  expect(codeOf(await trackEnvelope(r, 0))).toBe("NOT_VERIFIED")
+  await done(r)
+}
+
+function heartbeat(): Heartbeat {
+  const h = new Heartbeat()
+  h.type = MavType.QUADROTOR as u8
+  h.autopilot = 3
+  h.mavlinkVersion = 3
+  h
+}
+
+/// A recording of a ground station: a heartbeat, the position every second (one record with no position: 0 and 0), and home.
+function recording(): Uint8Array {
+  const w = new TlogWriter()
+  const home = new HomePosition()
+  home.latitude = 525000000
+  home.longitude = 169000000
+  home.altitude = 80000
+  w.addMessage(T0, heartbeat(), 0, true, 1, 1)
+  w.addMessage(T0 + 50000, home, 1)
+  for (let i = 0; i < 10; i++) {
+    const pos = new GlobalPositionInt()
+    pos.relativeAlt = (i * 1000) as i32
+    pos.alt = (80000 + i * 1000) as i32
+    pos.lat = (if (i == 4) 0 else 525000000 + i * 1000) as i32
+    pos.lon = (if (i == 4) 0 else 169000000 + i * 1000) as i32
+    w.addMessage(T0 + 100000 + i * 1000000, pos, (i + 2) % 256)
+  }
+  w.bytes()
+}
+
+async function givesTheTrackOfARecording(): Promise<void> throws Error {
+  const r = await rig()
+  await writeBytes(join(r.root, "chosen", "import.tlog"), recording())
+  const imported: LogsImported = decodeLogsImported((await r.f.call("logs.import", null)).p ?? Cbor.Null, "$")
+  r.key = imported.key ?? ""
+  await readIt(r)
+  const t = await trackOf(r, 0)
+  expect(t.source).toBe(LocalLogTrackSource.Pos)
+  // Nine places: the record at 0 and 0 is no place.
+  expect(t.fixes).toBe(9 as u32)
+  expect(t.skipped).toBe(1 as u32)
+  expect(t.points[0].lat).toBe(52.5)
+  expect(t.points[0].lon).toBe(16.9)
+  expect(t.points[0].alt).toBe(80.0)
+  expect(t.home!.lat).toBe(52.5)
+  expect(t.home!.lon).toBe(16.9)
+  await done(r)
+}
+
+/// A flight of 3000 s with a fix every second, and one real gap: no fix from 1000 s to 1020 s.
+function denseWithAGap(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  for (let i = 1; i <= 3000; i++) {
+    if (i <= 1000 || i >= 1020) {
+      e.add(62, [(i as f64) * 1000000.0, 47.0 + (i as f64) * 0.00001, 8.5, 500.0, 0.0], NONE)
+    }
+  }
+  e.bytes()
+}
+
+async function tellsWhereTheLogReallyHasAGapAndOnlyThere(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, denseWithAGap())
+  // 30 points for 3000 s: the points are a hundred seconds apart, and that says nothing of the vehicle not being heard.
+  const t = await trackOf(r, 30)
+  expect(t.points.length <= 40).toBe(true)
+  expect(t.gaps.length).toBe(1)
+  expect(t.gaps[0].fromUs).toBe(1000000000 as u64)
+  expect(t.gaps[0].toUs).toBe(1020000000 as u64)
+  expect(t.gapsMore).toBe(0 as u32)
+  // The two ends of the gap are in the line, whatever the thinning kept.
+  let before = false
+  let after = false
+  for (const p of t.points) {
+    before = before || p.timeUs == (1000000000 as u64)
+    after = after || p.timeUs == (1020000000 as u64)
+  }
+  expect(before).toBe(true)
+  expect(after).toBe(true)
+  // With the default number of points it is the same gap.
+  expect((await trackOf(r, 0)).gaps.length).toBe(1)
+  await done(r)
+}
+
+async function tellsNoGapForAContinuousFlight(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, outAndBack())
+  const t = await trackOf(r, 6)
+  expect(t.gaps.length).toBe(0)
+  expect(t.points.length <= 6).toBe(true)
+  await done(r)
+}
+
+/// 400 warnings first, and then the vehicle armed and disarmed.
+function warningsBeforeTheArm(): Uint8Array {
+  const e = new DfEncoder()
+  e.define(59, "MSG", "QZ", "TimeUS,Message")
+  e.define(60, "EV", "QB", "TimeUS,Id")
+  e.define(62, "POS", "QLLff", "TimeUS,Lat,Lng,Alt,RelHomeAlt")
+  for (let i = 1; i <= 400; i++) {
+    e.add(59, [(i as f64) * 1000.0, 0.0], ["", `Failsafe: line ${i}`])
+  }
+  e.add(60, [500000.0, 10.0], ["", ""])
+  e.add(62, [600000.0, 47.5, 8.5, 500.0, 0.0], NONE)
+  e.add(60, [700000.0, 11.0], ["", ""])
+  e.bytes()
+}
+
+async function keepsTheArmWhenWarningsCameFirst(): Promise<void> throws Error {
+  const r = await rig()
+  await put(r, warningsBeforeTheArm())
+  const t = await trackOf(r, 0)
+  let armed = 0
+  let disarmed = 0
+  let texts = 0
+  for (const e of t.events) {
+    if (e.kind == TrackEventKind.Armed) armed += 1
+    if (e.kind == TrackEventKind.Disarmed) disarmed += 1
+    if (e.kind == TrackEventKind.Text) texts += 1
+  }
+  expect(armed).toBe(1)
+  expect(disarmed).toBe(1)
+  // The warnings have a cap of their own.
+  expect(texts).toBe(300)
+  await done(r)
+}
+
+describe("the track of a log on this computer", () => {
+  it("gives the positions of the EKF, home as the log says it was, and the events", givesThePositionsOfTheEkfWithHomeAndEvents)
+  it("gives the 3D fixes of one GPS receiver when there is no POS, and no home that the log does not have", givesTheGpsFixesOfOneReceiverWhenThereIsNoPos)
+  it("says why there is no track when the log has no position", saysWhyThereIsNoTrack)
+  it("keeps the turn of an out and back when it thins, and the ends", keepsTheTurnWhenItThins)
+  it("tells where the log really has a gap, and keeps both ends of it, whatever the thinning does", tellsWhereTheLogReallyHasAGapAndOnlyThere)
+  it("tells no gap for a flight that is continuous, however far apart the thinned points are", tellsNoGapForAContinuousFlight)
+  it("keeps the arm and the disarm when more than 300 warnings came first, each class with a cap of its own", keepsTheArmWhenWarningsCameFirst)
+  it("refuses a log that was not read, a number of points that is out of range and a key that is no log", refusesWhatItShould)
+  it("takes nothing from a log that is not verified", takesNothingFromALogThatIsNotVerified)
+  it("gives the track of an imported recording from its GLOBAL_POSITION_INT and its HOME_POSITION", givesTheTrackOfARecording)
+})

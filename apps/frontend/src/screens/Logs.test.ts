@@ -60,26 +60,18 @@ it('names the navigation, marks the tab that is shown by aria-current, and the t
     .toEqual(['/logs/flights', '/logs/replay', '/logs/spectrum', '/logs/vehicle', '/logs/tools'])
 })
 
-it('says in each part what is missing and what it will take, never a blank panel', async () => {
+it('shows in Replay the map and that no flight is chosen, not a placeholder', async () => {
   const { wrapper, router } = await shellAt('/logs/flights')
-  const said: string[] = []
 
-  // "Flights", "On the vehicle" and "Tools" are built (LogsFlights.test.ts, LogsVehicle.test.ts, LogsTools.test.ts); the others
-  // are still placeholders.
-  for (const part of ['replay']) {
-    // One part after the other: each is looked at while it is the one shown.
-    // eslint-disable-next-line no-await-in-loop
-    await router.push(`/logs/${part}`)
-    // eslint-disable-next-line no-await-in-loop
-    await flushPromises()
-    const visible = wrapper.findAll('.logs-section').filter(section => section.isVisible())
-    expect(visible, part).toHaveLength(1)
-    said.push(`${visible[0]?.get('.title').text()} / ${visible[0]?.get('.help').text()}`)
-  }
+  await router.push('/logs/replay')
+  await flushPromises()
+  const replay = wrapper.get('.logs-replay')
 
-  expect(said.map(line => line.length > 20).every(Boolean)).toBe(true)
-  expect(new Set(said).size).toBe(1)
-  expect(said[0]).toContain('Replay is not available yet')
+  expect(replay.find('.replay-map .map').exists()).toBe(true)
+  expect(replay.get('#replay-idle .title').text()).toBe('No flight chosen')
+  expect(wrapper.find('.logs-section').exists()).toBe(false)
+  // The part fills the area under the tabs (the rest flow).
+  expect(wrapper.get('main .logs').classes()).toContain('logs-fill')
 })
 
 it('shows in "On the vehicle" that a vehicle must be connected, not a placeholder', async () => {

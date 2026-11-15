@@ -7,6 +7,8 @@ import {
   MAX_ZOOM,
   MIN_ZOOM,
   TILE,
+  type View,
+  fitView,
   panView,
   project,
   screenOf,
@@ -148,5 +150,42 @@ describe('where a position is on the screen', () => {
     const view = { lat: 0, lon: 179.99, zoom: 6 }
 
     expect(Math.abs(screenOf(view, SIZE, 0, -179.99).x - 400)).toBeLessThan(10)
+  })
+})
+
+/**
+ * How far two places overflow the map with its margin at a zoom (px; negative when they fit).
+ *
+ * @param zoom the zoom
+ * @returns the larger of the two overflows
+ */
+function overflowAt(zoom: number): number {
+  const [a, b] = [project(47.502, 8.5, zoom), project(47.5, 8.504, zoom)]
+
+  return Math.max(b.x - a.x - (SIZE.width - 96), b.y - a.y - (SIZE.height - 96))
+}
+
+describe('the view that shows all of some places', () => {
+  it('has none for no place', () => {
+    expect(fitView([], SIZE)).toBeNull()
+  })
+
+  it('is centred between the places, at the zoom where they fit with a margin', () => {
+    const view = fitView([{ lat: 47.5, lon: 8.5 }, { lat: 47.502, lon: 8.504 }], SIZE) as View
+
+    expect(view.lat).toBeCloseTo(47.501, 3)
+    expect(view.lon).toBeCloseTo(8.502, 3)
+    expect(overflowAt(view.zoom)).toBeLessThanOrEqual(0)
+    // one zoom closer would not fit
+    expect(overflowAt(view.zoom + 1)).toBeGreaterThan(0)
+  })
+
+  it('does not go closer than the zoom it is given for one place, or places that are the same', () => {
+    expect(fitView([{ lat: 47.5, lon: 8.5 }], SIZE)?.zoom).toBe(17)
+    expect(fitView([{ lat: 47.5, lon: 8.5 }, { lat: 47.5, lon: 8.5 }], SIZE, 15)?.zoom).toBe(15)
+  })
+
+  it('shows the whole world for places that no zoom fits', () => {
+    expect(fitView([{ lat: -60, lon: -170 }, { lat: 60, lon: 170 }], { width: 100, height: 100 })?.zoom).toBe(MIN_ZOOM)
   })
 })

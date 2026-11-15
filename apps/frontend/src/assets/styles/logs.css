@@ -305,3 +305,146 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* "Replay" in Logs (screens/logs/LogsReplay.vue): the map at the left and an aside at the right. From 1000 px wide they fill the
+   area under the tabs and only the aside scrolls (by itself); below that they stack and the page scrolls. */
+.logs-replay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.replay-map {
+  position: relative;
+  display: flex;
+  flex: 999 1 520px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 360px;
+  overflow: hidden;
+  background: var(--color-map);
+}
+
+.replay-aside {
+  display: flex;
+  flex: 1 1 360px;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+}
+
+.replay-transport {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.replay-buttons,
+.replay-speeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.replay-clock {
+  font-variant-numeric: tabular-nums;
+}
+
+.replay-scrub {
+  width: 100%;
+  accent-color: var(--color-accent);
+}
+
+.replay-speed[aria-pressed='true'] {
+  font-weight: 700;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.replay-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+}
+
+.replay-tile {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+}
+
+.replay-tile dt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.replay-tile dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.replay-jumps-title {
+  margin: 0;
+}
+
+.replay-jump-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.replay-jump {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+}
+
+.replay-jump-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.replay-jump-what {
+  overflow-wrap: anywhere;
+}
+
+/* A screen has a margin round it (frame.css), which a height of 100% would add to the area's: the area is a column and the screen
+   takes what is left of it, as the Setup and Tune pages do, so the area itself never scrolls. */
+@media (width >= 1000px) {
+  .app-main:has(> .logs-fill) {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+  }
+
+  .logs.logs-fill {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .logs-fill .logs-replay {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+  }
+
+  .logs-fill .replay-aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
