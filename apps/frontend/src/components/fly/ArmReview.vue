@@ -6,13 +6,14 @@
       {{ t('review.error', { error: review.error.value }) }}
     </Banner>
     <h3 class="review-heading">{{ t('review.heard') }}</h3>
-    <ul v-if="reasons.length > 0" id="review-reasons" class="review-reasons">
+    <ul v-if="listed && reasons.length > 0" id="review-reasons" class="review-reasons">
       <li v-for="reason in reasons" :key="reason.text">
         <span class="review-text">{{ reason.text }}</span>
         <span class="muted">{{ t('review.ago', { seconds: Math.round(reason.ageMs / 1000) }) }}</span>
       </li>
     </ul>
-    <p v-else id="review-none" class="muted">{{ t('review.none') }}</p>
+    <p v-else-if="listed" id="review-none" class="muted">{{ t('review.none') }}</p>
+    <p v-else id="review-clear" class="muted">{{ t('review.clear') }}</p>
     <p class="muted">{{ t('review.note') }}</p>
     <template #actions>
       <Button id="review-close" data-initial-focus @click="review.hide()">{{ t('review.notNow') }}</Button>
@@ -62,6 +63,9 @@ onBeforeUnmount(() => clearInterval(timer))
 
 const checks = computed(() => checksOf(fields.telemetry.value))
 const reasons = computed(() => reasonsOf(messages.list.value, now.value))
+// The vehicle's texts are shown only while its checks do not pass (or it does not say): a text of two minutes ago that its checks
+// have since got past is not a reason any more.
+const listed = computed(() => checks.value === 'failing' || checks.value === 'unknown')
 /** Whether the arm may be asked for now (it is the command's say, read again as the vehicle changes). */
 const armable = computed(() => registry.availability('vehicle.arm', ctx)?.enabled === true)
 

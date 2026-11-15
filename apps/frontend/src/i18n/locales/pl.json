@@ -690,6 +690,7 @@
     "heard": "Co pojazd powiedział niedawno",
     "ago": "{seconds} s temu",
     "none": "Pojazd nie powiedział nic o problemie w ciągu ostatnich dwóch minut.",
+    "clear": "Nic do wyświetlenia: sprawdzenia pojazdu przechodzą albo ma je wyłączone.",
     "note": "To własne słowa pojazdu. Wykonuje on sprawdzenia ponownie, gdy ma się uzbroić, i odmawia, gdy któreś nie przechodzi. Aplikacja nigdy ich nie pomija.",
     "notNow": "Nie teraz",
     "again": "Sprawdź ponownie",
@@ -697,20 +698,16 @@
   },
   "strip": {
     "title": "Sterowanie lotem",
-    "state": {
-      "armed": "Uzbrojony",
-      "disarmed": "Rozbrojony",
-      "unknown": "Stan nieznany"
-    },
     "checks": {
       "passing": "Sprawdzenia przechodzą",
       "failing": "Sprawdzenia nie przechodzą",
       "off": "Sprawdzenia wyłączone",
       "unknown": "Brak informacji o sprawdzeniach"
     },
-    "mode": "Tryb lotu",
+    "mode": "Tryb: {mode}",
     "more": "Więcej",
-    "stop": "Awaryjne zatrzymanie"
+    "stop": "Awaryjne zatrzymanie",
+    "current": "teraz"
   },
   "settings": {
     "metadata": {

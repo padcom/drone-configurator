@@ -690,6 +690,7 @@
     "heard": "What the vehicle said lately",
     "ago": "{seconds} s ago",
     "none": "The vehicle has not said anything about a problem in the last two minutes.",
+    "clear": "Nothing to list: the vehicle's checks pass, or it has them off.",
     "note": "These are the vehicle's own words. It runs its checks again when it is asked to arm, and refuses if one fails. The app never skips them.",
     "notNow": "Not now",
     "again": "Check again",
@@ -697,20 +698,16 @@
   },
   "strip": {
     "title": "Flight controls",
-    "state": {
-      "armed": "Armed",
-      "disarmed": "Disarmed",
-      "unknown": "State not known"
-    },
     "checks": {
       "passing": "Checks pass",
       "failing": "Checks do not pass",
       "off": "Checks off",
       "unknown": "Checks not reported"
     },
-    "mode": "Flight mode",
+    "mode": "Mode: {mode}",
     "more": "More",
-    "stop": "Emergency stop"
+    "stop": "Emergency stop",
+    "current": "now"
   },
   "settings": {
     "metadata": {

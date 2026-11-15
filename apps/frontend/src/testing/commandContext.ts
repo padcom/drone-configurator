@@ -27,6 +27,8 @@ export interface Fake {
     armingResult: ArmingResult
     /** When set, those reject with it (the backend's refusal, or a failure). */
     armingError?: unknown
+    /** The reasons the vehicle gave lately why it will not arm. */
+    recentReasons?: string[]
     /** The modes of the vehicle's kind (null: not read yet), and the one it is in. */
     modes: VehicleModes | null
     mode?: string
@@ -126,6 +128,7 @@ function vehicleOf(fake: Fake): VehicleFacts {
     emergencyStop: () => sentOf(fake, 'stop'),
     setMode: mode => sentOf(fake, `mode ${mode}`),
     prearm: () => sentOf(fake, 'prearm'),
+    recentReasons: () => fake.facts.recentReasons ?? [],
     modes: () => fake.facts.modes,
     mode: () => fake.facts.mode,
     disconnect: () => void fake.calls.disconnect.push('disconnect'),

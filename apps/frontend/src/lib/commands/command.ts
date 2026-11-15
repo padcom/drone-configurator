@@ -65,6 +65,8 @@ export interface VehicleFacts {
   setMode(mode: number): Promise<ArmingResult>
   /** Runs the vehicle's pre-arm checks: it says what fails in its own words. */
   prearm(): Promise<ArmingResult>
+  /** The reasons the vehicle gave lately why it will not arm (its own words, the last two minutes), the oldest first. */
+  recentReasons(): string[]
   /** The modes of the vehicle's kind, or null when they have not been read (they are read when the vehicle connects). */
   modes(): VehicleModes | null
   /** The mode the vehicle is in now, by name, when the telemetry says one. */

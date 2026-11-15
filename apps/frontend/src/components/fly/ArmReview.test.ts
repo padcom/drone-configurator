@@ -66,6 +66,27 @@ it('asks the vehicle to run its checks when it opens, and says what the vehicle 
 
   expect(sentOf(control)).toEqual(['prearm'])
   expect(wrapper.get('#review-state').text()).toBe('The vehicle says its pre-arm checks pass.')
+  expect(wrapper.get('#review-clear').text()).toContain('Nothing to list')
+})
+
+it('does not list a text the vehicle said lately when its checks pass now: it is no reason any more', async () => {
+  const { wrapper, handle } = await review({ enabled: true, passing: true })
+
+  // (the vehicle said "PreArm: Compass not calibrated" when it connected: it is still in the list of its messages)
+  expect(handle.messages.list.value.some(message => message.text.startsWith('PreArm'))).toBe(true)
+  useArmReview().show()
+  await flushPromises()
+
+  expect(wrapper.find('#review-reasons').exists()).toBe(false)
+  expect(wrapper.find('#review-clear').exists()).toBe(true)
+})
+
+it('says the vehicle has said nothing of a problem when its checks do not pass and it has said none', async () => {
+  const { wrapper, handle } = await review({ enabled: true, passing: false })
+  handle.messages.list.value = []
+  useArmReview().show()
+  await flushPromises()
+
   expect(wrapper.get('#review-none').text()).toContain('has not said anything about a problem')
 })
 

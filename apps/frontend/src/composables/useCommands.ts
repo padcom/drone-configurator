@@ -17,10 +17,12 @@ import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
-import { HEARTBEAT_FRESH_MS, armedOf } from '@/lib/app/armed'
+import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
+import { reasonsOf } from '@/lib/fly/prearm'
 import { pageLanguage, say, sayEnglish } from '@/i18n/say'
 import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
+import { armMayBeOn, useArmGrace } from './useArmGrace'
 import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
@@ -81,8 +83,9 @@ export function useCommands(): CommandRegistry {
  * @returns the facts
  */
 function vehicleFacts(): VehicleFacts {
-  const { fields, setup, staged, vehicle } = useConfigurator()
-  const armed = () => armedOf(fields.telemetry.value)
+  const { fields, messages, setup, staged, vehicle } = useConfigurator()
+  const { armed: known } = useArmGrace()
+  const armed = () => known.value
   const downloading = () => (fields.list.value === 'loading' ? 'downloading' : null)
   const busy = () => (staged.writing.value ? 'writing' : downloading())
 
@@ -91,11 +94,20 @@ function vehicleFacts(): VehicleFacts {
     armed,
     busy,
     reboot: () => vehicle.reboot(),
-    arm: () => vehicle.arm(),
+    arm: async () => {
+      const result = await vehicle.arm()
+      // The vehicle may be armed already, and its heartbeat is a moment late: until it says, the state is not known.
+      if (result.result === 'accepted' || result.result === 'no-answer') {
+        armMayBeOn()
+      }
+
+      return result
+    },
     disarm: () => vehicle.disarm(),
     emergencyStop: () => vehicle.emergencyStop(),
     setMode: mode => vehicle.setMode(mode),
     prearm: () => vehicle.prearm(),
+    recentReasons: () => reasonsOf(messages.list.value, Date.now()).map(reason => reason.text),
     modes: () => setup.modes.value,
     mode: () => fields.telemetry.value?.mode,
     disconnect: () => void vehicle.disconnect(),

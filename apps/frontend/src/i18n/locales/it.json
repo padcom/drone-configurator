@@ -690,6 +690,7 @@
     "heard": "Cosa ha detto il veicolo di recente",
     "ago": "{seconds} s fa",
     "none": "Il veicolo non ha detto nulla su un problema negli ultimi due minuti.",
+    "clear": "Niente da elencare: i controlli del veicolo passano, o li ha disattivati.",
     "note": "Sono le parole del veicolo stesso. Esegue di nuovo i controlli quando gli si chiede di armarsi, e rifiuta se uno fallisce. L'app non li salta mai.",
     "notNow": "Non ora",
     "again": "Controlla di nuovo",
@@ -697,20 +698,16 @@
   },
   "strip": {
     "title": "Controlli di volo",
-    "state": {
-      "armed": "Armato",
-      "disarmed": "Disarmato",
-      "unknown": "Stato non noto"
-    },
     "checks": {
       "passing": "Controlli superati",
       "failing": "Controlli non superati",
       "off": "Controlli disattivati",
       "unknown": "Controlli non comunicati"
     },
-    "mode": "Modalità di volo",
+    "mode": "Modalità: {mode}",
     "more": "Altro",
-    "stop": "Arresto di emergenza"
+    "stop": "Arresto di emergenza",
+    "current": "ora"
   },
   "settings": {
     "metadata": {

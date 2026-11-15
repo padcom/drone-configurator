@@ -6,7 +6,8 @@ import { setLanguage } from '@/i18n/i18n'
 import { fakeContext } from '@/testing/commandContext'
 import { CommandRegistry } from './registry'
 import {
-  ArmVehicle, ChangeFlightMode, DisarmVehicle, EmergencyStop, PALETTE_MODES, QUICK_MODES, ReviewBeforeArming, flightModeCommands,
+  ANY_STATE_MODES, ArmVehicle, ChangeFlightMode, DisarmVehicle, EmergencyStop, PALETTE_MODES, ReviewBeforeArming,
+  flightModeCommands,
 } from './arming'
 
 afterEach(() => {
@@ -90,6 +91,29 @@ describe('what an arm tells', () => {
   })
 })
 
+describe('what a refused arm tells', () => {
+  it('tells, for a refusal with no words of its own, the reasons the vehicle gave lately', async () => {
+    const fake = fakeContext()
+    fake.facts.recentReasons = ['PreArm: old', 'PreArm: RC not found', 'PreArm: Compasses inconsistent']
+    fake.facts.recentReasons.push('Arm: RTL mode not armable')
+    fake.facts.armingResult = { result: 'refused', code: 4, messages: [] }
+    await arm.execute(fake.ctx)
+
+    expect(fake.calls.toast[0]?.text).toBe(
+      'QUADROTOR refused to arm. PreArm: RC not found PreArm: Compasses inconsistent Arm: RTL mode not armable',
+    )
+  })
+
+  it('does not borrow those reasons for anything but an arm', async () => {
+    const fake = fakeContext({ armed: true })
+    fake.facts.recentReasons = ['PreArm: RC not found']
+    fake.facts.armingResult = { result: 'refused', code: 4, messages: [] }
+    await disarm.execute(fake.ctx)
+
+    expect(fake.calls.toast[0]?.text).toBe('QUADROTOR refused to disarm.')
+  })
+})
+
 describe('what an arm tells when nothing answers or the backend refuses', () => {
   it('tells that nothing answered, that it may have armed, and that it is not sent again', async () => {
     const fake = fakeContext()
@@ -170,10 +194,18 @@ describe('when a change of the flight mode may not run', () => {
       .toEqual({ enabled: false, reasonKey: 'palette.reason.alreadyInMode', reasonParams: reasonParams('LOITER') })
   })
 
-  it('may run for RTL, Land, Loiter and Brake when the state is not known: what a person does when things go wrong', () => {
-    for (const name of QUICK_MODES) {
+  it('may run for RTL and Land when the state is not known (the backend allows no others then), and not for the rest', () => {
+    for (const name of ANY_STATE_MODES) {
       expect(mode(name).isEnabled(fakeContext({ armed: undefined, mode: 'AUTO' }).ctx)).toEqual({ enabled: true })
     }
+
+    for (const name of ['LOITER', 'BRAKE', 'AUTO', 'GUIDED']) {
+      expect(mode(name).isEnabled(fakeContext({ armed: undefined, mode: 'ALT_HOLD' }).ctx)).toEqual(UNKNOWN)
+    }
+  })
+
+  it('are dangerous commands: never ranked by use, never the row that is ready because it was run lately', () => {
+    expect(flightModeCommands().every(command => command.dangerous === true)).toBe(true)
   })
 })
 

@@ -13,10 +13,15 @@ const binary = fileURLToPath(new URL('../../../.pico-desktop/e2e/tcp-vehicle', i
  *
  * @param withLogs whether it holds three flight logs and never arms
  * @param withSetup whether it has the Setup pages' parameters and never arms
+ * @param prearm a pre-arm check that fails: an arm is refused with "PreArm: " and this text ('' for none)
  * @returns the environment
  */
-function environment(withLogs: boolean, withSetup: boolean): NodeJS.ProcessEnv {
-  return { ...process.env, ...withLogs ? { VEHICLE_LOGS: '1' } : {}, ...withSetup ? { VEHICLE_SETUP: '1' } : {} }
+function environment(withLogs: boolean, withSetup: boolean, prearm: string): NodeJS.ProcessEnv {
+  const logs = withLogs ? { VEHICLE_LOGS: '1' } : {}
+  const setup = withSetup ? { VEHICLE_SETUP: '1' } : {}
+  const failing = prearm === '' ? {} : { VEHICLE_PREARM: prearm }
+
+  return { ...process.env, ...logs, ...setup, ...failing }
 }
 
 /** The simulated vehicle, as a child process listening on a TCP port. */
@@ -42,11 +47,12 @@ export class TcpVehicle {
    *
    * @param withLogs whether it holds three flight logs and never arms (for the checks of the logs page)
    * @param withSetup whether it has the parameters of a Copter that was set up, and never arms (for the Setup pages)
+   * @param prearm a pre-arm check that fails: an arm is refused with "PreArm: " and this text ('' for none)
    * @returns the running vehicle, with its port known
    */
-  static async start(withLogs = false, withSetup = false): Promise<TcpVehicle> {
+  static async start(withLogs = false, withSetup = false, prearm = ''): Promise<TcpVehicle> {
     await promisify(execFile)('pico', ['build', source, '-o', binary])
-    const env = environment(withLogs, withSetup)
+    const env = environment(withLogs, withSetup, prearm)
     const vehicle = new TcpVehicle(spawn(binary, [], { stdio: ['pipe', 'pipe', 'inherit'], env }))
     await vehicle.#listen()
 

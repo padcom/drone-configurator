@@ -690,6 +690,7 @@
     "heard": "Lo que el vehículo dijo hace poco",
     "ago": "hace {seconds} s",
     "none": "El vehículo no ha dicho nada de un problema en los últimos dos minutos.",
+    "clear": "Nada que listar: las comprobaciones del vehículo pasan, o las tiene desactivadas.",
     "note": "Son las palabras del propio vehículo. Hace sus comprobaciones de nuevo cuando se le pide armar, y se niega si una falla. La aplicación nunca las omite.",
     "notNow": "Ahora no",
     "again": "Comprobar de nuevo",
@@ -697,20 +698,16 @@
   },
   "strip": {
     "title": "Controles de vuelo",
-    "state": {
-      "armed": "Armado",
-      "disarmed": "Desarmado",
-      "unknown": "Estado desconocido"
-    },
     "checks": {
       "passing": "Comprobaciones correctas",
       "failing": "Comprobaciones fallan",
       "off": "Comprobaciones desactivadas",
       "unknown": "Comprobaciones sin informar"
     },
-    "mode": "Modo de vuelo",
+    "mode": "Modo: {mode}",
     "more": "Más",
-    "stop": "Parada de emergencia"
+    "stop": "Parada de emergencia",
+    "current": "ahora"
   },
   "settings": {
     "metadata": {

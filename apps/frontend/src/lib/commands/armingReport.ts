@@ -62,6 +62,21 @@ export function linesOf(result: ArmingResult): string[] {
   return [...reasons, ...others].slice(0, MAX_LINES)
 }
 
+/**
+ * The vehicle's words to tell with a refusal: those that came with the answer; for an arm that came with none (ArduPilot does not
+ * repeat a pre-arm text it has just printed), the reasons it gave lately.
+ *
+ * @param ctx the context
+ * @param kind what was asked
+ * @param result what the vehicle said
+ * @returns at most three lines
+ */
+function reasonsToTell(ctx: CommandContext, kind: ArmingKind, result: ArmingResult): string[] {
+  const own = linesOf(result)
+
+  return own.length > 0 || kind !== 'arm' ? own : ctx.vehicle.recentReasons().slice(-MAX_LINES)
+}
+
 /** How each answer of the vehicle is told: the message that says it, the toast's severity, and whether it stays long. */
 const TELLING: Record<ArmingResult['result'], { word: string, severity: 'info' | 'warning' | 'error', long: boolean }> = {
   'accepted': { word: 'accepted', severity: 'info', long: false },
@@ -80,7 +95,7 @@ const TELLING: Record<ArmingResult['result'], { word: string, severity: 'info' |
 export function tellArming(ctx: CommandContext, kind: ArmingKind, result: ArmingResult): void {
   const vehicle = ctx.vehicle.connection().vehicle?.type ?? ''
   const { word, severity, long } = TELLING[result.result]
-  const lines = result.result === 'refused' ? linesOf(result) : []
+  const lines = result.result === 'refused' ? reasonsToTell(ctx, kind, result) : []
   const text = [ctx.say(`arming.${kind}.${word}`, { vehicle }), ...lines].join(' ')
   ctx.toast({ id: `arming-${kind}`, severity, long, text })
 }

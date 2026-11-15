@@ -690,6 +690,7 @@
     "heard": "Was das Fahrzeug zuletzt gesagt hat",
     "ago": "vor {seconds} s",
     "none": "Das Fahrzeug hat in den letzten zwei Minuten nichts über ein Problem gesagt.",
+    "clear": "Nichts aufzulisten: die Prüfungen des Fahrzeugs bestehen, oder es hat sie ausgeschaltet.",
     "note": "Das sind die eigenen Worte des Fahrzeugs. Es führt seine Prüfungen beim Scharfschalten erneut aus und lehnt ab, wenn eine fehlschlägt. Die App überspringt sie nie.",
     "notNow": "Jetzt nicht",
     "again": "Erneut prüfen",
@@ -697,20 +698,16 @@
   },
   "strip": {
     "title": "Flugsteuerung",
-    "state": {
-      "armed": "Scharf",
-      "disarmed": "Entschärft",
-      "unknown": "Zustand unbekannt"
-    },
     "checks": {
       "passing": "Prüfungen bestehen",
       "failing": "Prüfungen bestehen nicht",
       "off": "Prüfungen aus",
       "unknown": "Prüfungen nicht gemeldet"
     },
-    "mode": "Flugmodus",
+    "mode": "Modus: {mode}",
     "more": "Mehr",
-    "stop": "Not-Aus"
+    "stop": "Not-Aus",
+    "current": "jetzt"
   },
   "settings": {
     "metadata": {

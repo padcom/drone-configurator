@@ -1,26 +1,17 @@
 // End to end, in the real window with the real backend and the simulated vehicle behind a TCP port (no SITL): the controls of a
-// flight under the map. The vehicle starts disarmed (it never arms by itself here). "Review and arm" opens the review (what the
-// vehicle says of its checks, in its words), "Arm…" asks for a HOLD, and the strip says armed only when the vehicle's heartbeat
-// does. A hold of "Disarm" disarms; the emergency stop is under "More", only while armed, and is a red hold. The strip fits the
-// column. What the real autopilot does with these commands is sitl-arming.e2e.ts.
+// flight, above the map (a notice comes up at the bottom left and must never cover them). The vehicle starts disarmed (it never
+// arms by itself here). "Review and arm" opens the review (what the vehicle says of its checks, in its words), "Arm…" asks for a
+// HOLD, and the state is the vehicle's heartbeat's (the top bar's STATE cell). A hold of "Disarm" disarms; the emergency stop is
+// under "More", only while armed, and is a red hold. The strip fits the column. What the real autopilot does with these commands
+// is sitl-arming.e2e.ts.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
+import { ARM_BUTTON, DISARM, MODE_BUTTON, MODE_ITEMS, MORE, REVIEW, sleep, STOP, Strip } from './strip'
 import { TcpVehicle } from './tcp-vehicle'
 
 let vehicle: TcpVehicle | undefined
 let app: E2eApp | undefined
-
-/** How long a confirmation ignores presses (400 ms) with a margin, and how long a hold takes (1200 ms) with one. */
-const ARMS_MS = 600
-const HOLD_MS = 1500
-
-/** Selectors of what the tests look at. */
-const REVIEW = '[data-command-button="vehicle.review"]'
-const DISARM = '[data-command-button="vehicle.disarm"]'
-const MORE = '#flight-strip .kit-menu'
-const STOP = '#flight-strip [role="menuitem"]'
-const ARM_BUTTON = '#review-arm'
 
 /**
  * The app under test.
@@ -37,85 +28,12 @@ function window(): E2eApp {
 }
 
 /**
- * Waits.
+ * What the tests do in the window.
  *
- * @param ms for how long
+ * @returns the helpers
  */
-const sleep = (ms: number) => new Promise<void>(resolve => {
-  setTimeout(resolve, ms)
-})
-
-/**
- * Whether something is on the page.
- *
- * @param selector what to look for
- * @returns true when it is
- */
-function exists(selector: string): Promise<boolean> {
-  return window().evaluate<boolean>(`document.querySelector(${JSON.stringify(selector)}) !== null`)
-}
-
-/**
- * Waits until something is on the page.
- *
- * @param selector what to wait for
- * @param ms for how long at most
- * @returns once it is there
- */
-function appears(selector: string, ms = 10_000): Promise<void> {
-  return window().waitFor(`document.querySelector(${JSON.stringify(selector)}) !== null`, ms)
-}
-
-/**
- * Waits until the strip says a state (what the vehicle's heartbeat says).
- *
- * @param word `Armed` or `Disarmed`
- * @returns once it does
- */
-function stripSays(word: string): Promise<void> {
-  return window().waitFor(`document.querySelector('#strip-state')?.innerText.includes('${word}')`, 30_000)
-}
-
-/** Waits until the review can be used to arm: the vehicle has run its checks and the arm may be asked for. */
-async function reviewIsReady(): Promise<void> {
-  await window().waitFor(`document.querySelector('#review-running') === null`)
-  await window().waitFor(`document.querySelector('${ARM_BUTTON}') !== null && !document.querySelector('${ARM_BUTTON}').disabled`)
-}
-
-/**
- * What the page says of a hold that did not come: the dialogs and the notices (a toast says why a command did not run).
- *
- * @returns their words
- */
-function notices(): Promise<string> {
-  return window().evaluate<string>(
-    `[...document.querySelectorAll('[role="status"], [role="alert"], dialog')].map(e => e.id + ': ' + e.innerText).join(' | ')`,
-  )
-}
-
-/** Holds the confirm button of the question that is open, long enough, as a person does with the pointer. */
-async function hold(): Promise<void> {
-  try {
-    await appears('#confirm-hold')
-  } catch (error) {
-    throw new Error(`no hold was asked for; the page says: ${await notices()}`, { cause: error })
-  }
-  // (the question ignores presses for its first moments)
-  await sleep(ARMS_MS)
-  await window().evaluate(`document.querySelector('#confirm-hold')
-    .dispatchEvent(new PointerEvent('pointerdown', { button: 0, bubbles: true, pointerId: 1 }))`)
-  await sleep(HOLD_MS)
-  await window().waitFor(`document.querySelector('#confirm') === null`)
-}
-
-/** Reviews, and asks for the hold to arm, and holds. */
-async function armWithTheHold(): Promise<void> {
-  await window().click(REVIEW)
-  await appears('#review-state')
-  await reviewIsReady()
-  await window().click(ARM_BUTTON)
-  await hold()
-  await stripSays('Armed')
+function strip(): Strip {
+  return new Strip(window())
 }
 
 beforeAll(async () => {
@@ -141,15 +59,19 @@ afterAll(async () => {
 })
 
 it('says disarmed, offers the review and no disarm or stop, and lists the modes of the vehicle', async () => {
-  await stripSays('Disarmed')
+  await strip().heartbeatSays(false)
 
   expect(await window().text(REVIEW)).toBe('Review and arm')
-  expect(await exists(DISARM)).toBe(false)
-  expect(await exists(MORE)).toBe(false)
-  await window().waitFor(`document.querySelectorAll('#strip-mode option').length > 5`, 30_000)
-  const modes = await window().evaluate<string[]>(`[...document.querySelectorAll('#strip-mode option')].map(o => o.textContent)`)
+  expect(await strip().exists(DISARM)).toBe(false)
+  expect(await strip().exists(MORE)).toBe(false)
+  await window().waitFor(`document.querySelector('${MODE_BUTTON}')?.innerText.startsWith('Mode: ')`, 30_000)
+  await window().click(MODE_BUTTON)
+  await window().waitFor(`document.querySelectorAll('${MODE_ITEMS}').length > 5`, 10_000)
+  const modes = await window().evaluate<string[]>(`[...document.querySelectorAll('${MODE_ITEMS}')].map(o => o.innerText)`)
 
-  expect(modes).toContain('RTL')
+  expect(modes.some(mode => mode.startsWith('RTL'))).toBe(true)
+  // (closing it sends nothing)
+  await window().click(MODE_BUTTON)
 })
 
 it('fits its column: nothing in the strip is wider than the strip, and the page does not scroll sideways', async () => {
@@ -164,38 +86,51 @@ it('fits its column: nothing in the strip is wider than the strip, and the page 
 
 it('reviews, asks for a hold to arm, and says armed only when the vehicle does', async () => {
   await window().click(REVIEW)
-  await appears('#review-state')
+  await strip().appears('#review-state')
 
   // (the simulated vehicle says nothing of its checks: the review says so, and does not guess)
   expect(await window().text('#review-state')).toBe('The vehicle does not say whether its checks pass.')
-  await reviewIsReady()
+  await strip().reviewIsReady()
   await window().click(ARM_BUTTON)
-  await hold()
-  await stripSays('Armed')
+  await strip().hold()
+  await strip().heartbeatSays(true)
 
-  expect(await exists(REVIEW)).toBe(false)
+  expect(await strip().exists(REVIEW)).toBe(false)
   expect(await window().text(DISARM)).toBe('Disarm')
+})
+
+it('asks plainly before a mode is changed while armed, and a cancel changes nothing', async () => {
+  await window().click(MODE_BUTTON)
+  await window().waitFor(`document.querySelectorAll('${MODE_ITEMS}').length > 5`, 10_000)
+  await window().evaluate(`[...document.querySelectorAll('${MODE_ITEMS}')].find(o => o.innerText.startsWith('GUIDED')).click()`)
+  await strip().appears('#confirm-yes', 5000)
+  // (a question ignores presses for its first moments)
+  await sleep(700)
+  await window().click('#confirm-cancel')
+  await strip().goes('#confirm')
+  await sleep(1500)
+
+  expect(await window().text(MODE_BUTTON)).not.toContain('GUIDED')
 })
 
 it('disarms with a hold', async () => {
   await window().click(DISARM)
-  await hold()
-  await stripSays('Disarmed')
+  await strip().hold()
+  await strip().heartbeatSays(false)
 })
 
 it('has the emergency stop under More only while armed, as a red hold, and the vehicle is disarmed after it', async () => {
-  await armWithTheHold()
+  await strip().armWithTheHold()
   await window().click(`${MORE} button`)
-  await appears(STOP, 5000)
+  await strip().appears(STOP, 5000)
 
   expect(await window().evaluate<boolean>(`document.querySelector('${STOP}').classList.contains('danger')`)).toBe(true)
   expect(await window().text(STOP)).toBe('Emergency stop')
   await window().click(STOP)
-  await appears('#confirm-hold')
+  await strip().appears('#confirm-hold')
 
   expect(await window().text('#confirm-hold')).toBe('Hold to stop the motors')
-  await hold()
-  await stripSays('Disarmed')
-
-  expect(await exists(MORE)).toBe(false)
+  await strip().hold()
+  await strip().heartbeatSays(false)
+  await strip().goes(MORE)
 })

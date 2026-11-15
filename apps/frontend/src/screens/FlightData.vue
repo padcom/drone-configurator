@@ -1,6 +1,7 @@
 <template>
   <div class="fly" data-l="fly">
     <section class="fly-main" :aria-label="t('flight.map.title')">
+      <FlightStrip v-if="connected" />
       <div class="fly-map">
         <FlightMap :source="source">
           <template #default="{ place, size }">
@@ -9,7 +10,6 @@
         </FlightMap>
         <FailsafeBanner />
       </div>
-      <FlightStrip v-if="connected" />
     </section>
     <aside class="fly-aside" tabindex="-1" :aria-label="t('flight.aside')">
       <FlyAside />
@@ -29,7 +29,7 @@ import { useConfigurator } from '@/composables/useConfigurator'
 import { useLiveMapSource } from '@/composables/useLiveMapSource'
 
 // The screen the user lives in, in fixed regions (the design's Fly): at the left the map (tiles, pan and zoom, the credit of the
-// source, the vehicle with its path and home over it; the view tabs above it and the control strip below it are drawn
+// source, the vehicle with its path and home over it; the view tabs and the control strip of the flight above it are drawn
 // when there is more than one view and the commands exist), and the aside at the right, which scrolls on its own, with
 // the heads-up display and the telemetry cards. F6 moves the focus between the rail, the screen and the aside (paneFocus.ts,
 // started by the shell). Nothing here scrolls but the aside: the map is a fixed area that is panned.

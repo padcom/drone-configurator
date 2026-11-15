@@ -316,6 +316,9 @@ export class ReviewBeforeArming implements Command {
   }
 }
 
+/** The modes the backend allows when the state of the vehicle is not known: idempotent safety actions, and no others. */
+export const ANY_STATE_MODES: readonly string[] = ['RTL', 'LAND']
+
 /** The modes that are one deliberate press: what a person does when something goes wrong, where asking costs time. */
 export const QUICK_MODES: readonly string[] = ['RTL', 'LAND', 'LOITER', 'BRAKE']
 
@@ -332,6 +335,9 @@ export class ChangeFlightMode implements Command {
   readonly groupKey = VEHICLE_GROUP
 
   readonly icon = 'navigation'
+
+  // A change of how the vehicle flies: never the row that an empty palette has ready because it was run lately.
+  readonly dangerous = true
 
   readonly keywordKeys = ['palette.vehicle.mode.keywords']
 
@@ -397,13 +403,13 @@ export class ChangeFlightMode implements Command {
   }
 
   /**
-   * Whether the vehicle's state, not known, stands in the way: every mode but the quick ones needs it known.
+   * Whether the vehicle's state, not known, stands in the way: every mode but RTL and Land needs it known (the backend's rule).
    *
    * @param vehicle the vehicle's facts
    * @returns the reason, or null
    */
   private stateBlocker(vehicle: VehicleFacts): string | null {
-    return QUICK_MODES.includes(this.mode) || vehicle.armed() !== undefined ? null : 'palette.reason.stateUnknown'
+    return ANY_STATE_MODES.includes(this.mode) || vehicle.armed() !== undefined ? null : 'palette.reason.stateUnknown'
   }
 
   /**
