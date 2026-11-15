@@ -2,6 +2,7 @@
   <button
     class="kit-hold"
     :class="[tone, { holding }]"
+    :data-armed="ready"
     type="button"
     :style="{ '--hold-ms': `${holdMs}ms` }"
     @pointerdown.left="begin"
@@ -46,7 +47,9 @@ const emit = defineEmits<{
 }>()
 
 const holding = ref(false)
+// (shown as data-armed: a test waits for it instead of guessing how long the first moments take)
 let armed = props.armMs <= 0
+const ready = ref(armed)
 let timer: ReturnType<typeof setTimeout> | undefined
 let source = ''
 let armTimer: ReturnType<typeof setTimeout> | undefined
@@ -115,6 +118,7 @@ onMounted(() => {
   if (!armed) {
     armTimer = setTimeout(() => {
       armed = true
+      ready.value = true
     }, props.armMs)
   }
 })

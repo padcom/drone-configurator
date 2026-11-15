@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { forgetModeConfirmationChoice, parseModeConfirmation } from '@/composables/useModeConfirmation'
+import { forgetTakeoffCeilingChoice, parseCeiling } from '@/composables/useTakeoffCeiling'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { mockBackend } from '@/mock/mock-backend'
 import Settings from './Settings.vue'
@@ -13,6 +14,7 @@ let mounted: VueWrapper | undefined
 afterEach(() => {
   setLanguage('en')
   forgetModeConfirmationChoice()
+  forgetTakeoffCeilingChoice()
   mounted?.unmount()
   mounted = undefined
 })
@@ -60,4 +62,22 @@ it('takes anything that is not understood for the safe level', () => {
   const texts = ['none', 'plain', 'hold', '', 'NONE', undefined]
 
   expect(texts.map(parseModeConfirmation)).toEqual(['none', 'plain', 'plain', 'plain', 'plain', 'plain'])
+})
+
+it('has the highest takeoff, 50 m unless the settings hold another, and keeps a choice', async () => {
+  const { wrapper, handle } = await screen()
+  const select = wrapper.get<HTMLSelectElement>('select[id$="-takeoff"]')
+
+  expect(select.element.value).toBe('50')
+  expect(select.findAll('option').map(option => option.text())).toEqual(['20 m', '30 m', '50 m', '80 m', '120 m'])
+  await select.setValue('30')
+  await flushPromises()
+
+  expect(handle.settings.uiValue('takeoff.ceiling')).toBe('30')
+  expect(wrapper.get<HTMLSelectElement>('select[id$="-takeoff"]').element.value).toBe('30')
+})
+
+it('takes any highest takeoff that is not one of the choices for the default', () => {
+  expect(['20', '120', '50'].map(parseCeiling)).toEqual([20, 120, 50])
+  expect(['25', '0', '-3', '500', 'abc', '', undefined].map(text => parseCeiling(text))).toEqual([50, 50, 50, 50, 50, 50, 50])
 })

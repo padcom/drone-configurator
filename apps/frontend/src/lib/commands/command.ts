@@ -2,7 +2,7 @@
 // is a small object that knows its own label, whether it may run now (and if not, why), what to ask before it runs, and what it
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
-import type { ArmingResult, Connection, VehicleModes } from '@/generated/app'
+import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
 import type { IconName } from '@/lib/ui/icons'
 import type { SearchIndex } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
@@ -65,6 +65,10 @@ export interface VehicleFacts {
   setMode(mode: number): Promise<ArmingResult>
   /** Runs the vehicle's pre-arm checks: it says what fails in its own words. */
   prearm(): Promise<ArmingResult>
+  /** Takes off to this many metres above home (an armed vehicle on the ground in GUIDED: else the vehicle refuses). Sent once. */
+  takeoff(altitude: number): Promise<ArmingResult>
+  /** What the vehicle reports now (the heartbeat's armed state, its GPS, its EKF, its position), or null without a vehicle. */
+  telemetry(): Telemetry | null
   /** The reasons the vehicle gave lately why it will not arm (its own words, the last two minutes), the oldest first. */
   recentReasons(): string[]
   /** The modes of the vehicle's kind, or null when they have not been read (they are read when the vehicle connects). */
@@ -83,6 +87,8 @@ export interface ParamsFacts {
   busy(): boolean
   /** Downloads the list again. */
   download(): void
+  /** The value of one of the vehicle's parameters, or undefined when the list has none by that name. */
+  value(id: string): number | undefined
 }
 
 /** The parts of the page that open on a command: the dialogs that are not a screen. */
@@ -93,6 +99,8 @@ export interface DialogFacts {
   togglePalette(): void
   /** Opens the review before arming (the vehicle's checks and what it says of them). */
   showArmReview(): void
+  /** Opens the dialog of a takeoff: the altitude, and the button that goes ahead. */
+  showTakeoff(): void
 }
 
 /** The vehicle's parameters, as the commands that go to one see them. */
@@ -134,6 +142,8 @@ export interface UsageFacts {
 export interface PreferenceFacts {
   /** What a mode change of an armed vehicle asks: nothing, or a plain confirmation (RTL, Land, Loiter and Brake never ask). */
   modeConfirmation(): 'none' | 'plain'
+  /** The highest altitude a takeoff may be asked for, as the user set it (m above home; the vehicle's fence may be lower). */
+  takeoffCeiling(): number
 }
 
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */

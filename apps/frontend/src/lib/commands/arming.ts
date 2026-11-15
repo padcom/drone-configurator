@@ -20,7 +20,7 @@ import { VEHICLE_GROUP } from './vehicle'
  * @param reasonParams what the message names
  * @returns the availability
  */
-const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availability => (
+export const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availability => (
   { enabled: false, reasonKey, reasonParams }
 )
 
@@ -30,7 +30,7 @@ const no = (reasonKey: string, reasonParams?: Record<string, unknown>): Availabi
  * @param vehicle the vehicle's facts
  * @returns the reason it may not be commanded, or null
  */
-function connectionBlocker(vehicle: VehicleFacts): string | null {
+export function connectionBlocker(vehicle: VehicleFacts): string | null {
   return vehicle.connection().state === 'connected' ? null : 'palette.reason.notConnected'
 }
 
@@ -58,7 +58,7 @@ function armedBlocker(armed: boolean | undefined, needsArmed: boolean): string |
  * @param vehicle the vehicle's facts
  * @returns the reason, or null
  */
-function workBlocker(vehicle: VehicleFacts): string | null {
+export function workBlocker(vehicle: VehicleFacts): string | null {
   const busy = vehicle.busy()
 
   return busy === null ? null : `palette.reason.${busy}`
@@ -70,7 +70,7 @@ function workBlocker(vehicle: VehicleFacts): string | null {
  * @param ctx the context
  * @returns its name, or an empty string when none is connected
  */
-function namedVehicle(ctx: CommandContext): string {
+export function namedVehicle(ctx: CommandContext): string {
   const info = ctx.vehicle.connection().vehicle
 
   return info === undefined ? '' : ctx.say('topBar.vehicleValue', { ...info })

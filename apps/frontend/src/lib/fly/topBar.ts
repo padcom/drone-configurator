@@ -183,3 +183,16 @@ export function vehicleCellFor(connection: Connection, translate: Translate): Ve
   return { title: titleOf(connection, translate), sub: subOf(connection, translate), tone: TONES[connection.state] }
 }
 
+/**
+ * The accessible name of a cell that is a control: what the control does, and the age of a stale heartbeat when the visible text
+ * says it ("disarmed · 7 s ..."), so the name holds the words that are seen (WCAG 2.5.3, label in name).
+ *
+ * @param label what the control does
+ * @param shown the visible text of the cell
+ * @returns the name
+ */
+export function nameWithAge(label: string, shown: string): string {
+  const age = shown.split(' · ').slice(1).join(' · ')
+
+  return age === '' ? label : `${label} · ${age}`
+}

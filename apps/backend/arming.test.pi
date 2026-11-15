@@ -462,7 +462,8 @@ async function takeoffIsSentOnceAndTheVehicleDecides(): Promise<void> throws Err
 async function takeoffInTheWrongModeIsRefusedByTheVehicle(): Promise<void> throws Error {
   const f = await armedInGuided()
   const sim = simulatorForTests()!
-  sim.control.modeSet = 5
+  // (AUTO: a mode that does not take off by itself; LOITER would, as it does on a real Copter)
+  sim.control.modeSet = 3
   const heard = listen(sim)
   const got = resultOf(await takeoffAsk(f, 10.0))
   expect(got.result).toBe(ArmingResultResult.Refused)
@@ -519,7 +520,7 @@ describe("the arming service", () => {
   it("refuses a takeoff without a vehicle, of a disarmed one or one whose state is unknown, and sends nothing", takeoffRefusesWhatItShouldAndSendsNothing)
   it("refuses a takeoff altitude outside 2 to 120 m, and one that is not a number", takeoffRefusesAnAltitudeOutsideTheHardLimits)
   it("sends a takeoff once, with its altitude and no magic number, and the vehicle decides", takeoffIsSentOnceAndTheVehicleDecides)
-  it("reports the refusal of a vehicle that is not in GUIDED", takeoffInTheWrongModeIsRefusedByTheVehicle)
+  it("reports the refusal of a vehicle in a mode that cannot take off (AUTO)", takeoffInTheWrongModeIsRefusedByTheVehicle)
   it("reports a takeoff nothing answered, and never sends it again", takeoffNothingAnsweredIsNeverSentAgain)
   it("refuses a takeoff while a motor test or a calibration runs", takeoffIsHeldOffByAnOperationAndByAnEarlierCommand)
 })

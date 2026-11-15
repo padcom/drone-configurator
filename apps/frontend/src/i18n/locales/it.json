@@ -704,6 +704,12 @@
     "label": "Lingua"
   },
   "arming": {
+    "takeoff": {
+      "accepted": "{vehicle} ha accettato il decollo a {altitude} m. Sale quando lo dice la sua posizione.",
+      "refused": "{vehicle} ha rifiutato di decollare.",
+      "unsupported": "{vehicle} non supporta il decollo da qui.",
+      "noAnswer": "Nessuna risposta da {vehicle}. Potrebbe essere decollato: osserva la sua posizione. Il comando non viene inviato di nuovo."
+    },
     "stop": {
       "accepted": "{vehicle} ha accettato l'arresto. Si mostrerà disarmato quando lo comunica.",
       "refused": "{vehicle} ha rifiutato l'arresto di emergenza.",
@@ -727,6 +733,29 @@
       "refused": "{vehicle} ha rifiutato il cambio di modalità.",
       "unsupported": "{vehicle} non conosce quella modalità.",
       "noAnswer": "Nessuna risposta da {vehicle}. La modalità che comunica è quella in cui si trova. Il comando non viene inviato di nuovo."
+    }
+  },
+  "takeoff": {
+    "title": "Decolla",
+    "whatDisarmed": "Il veicolo passa in GUIDED, viene armato (girano i suoi controlli e si tiene premuto per armare) e sale all'altitudine. Controlla che le eliche siano libere e che lo spazio sopra sia libero.",
+    "whatArmed": "Il veicolo passa in GUIDED e sale all'altitudine. Controlla che lo spazio sopra sia libero.",
+    "altitude": "Altitudine sulla base (m)",
+    "go": "Decolla",
+    "limits": {
+      "setting": "Da {min} a {max} m (il decollo più alto si imposta nelle Impostazioni).",
+      "fence": "Da {min} a {max} m (la recinzione del veicolo non permette di più)."
+    },
+    "problem": {
+      "invalid": "Scrivi un numero di metri, per esempio 10.",
+      "low": "Almeno {min} m.",
+      "high": "Al massimo {max} m."
+    },
+    "step": {
+      "noGuided": "Questo veicolo non ha la modalità GUIDED: nessun decollo.",
+      "notGuided": "Il veicolo non ha detto di essere in GUIDED. Non è stato chiesto il decollo.",
+      "stateUnknown": "Lo stato del veicolo non è noto. Non è stato chiesto il decollo.",
+      "review": "I controlli del veicolo non passano: rivedili, arma e decolla di nuovo.",
+      "notArmed": "Il veicolo non ha detto di essere armato. Non è stato chiesto il decollo."
     }
   },
   "review": {
@@ -781,6 +810,9 @@
       "title": "Controlli di volo",
       "modeConfirm": "Prima di cambiare la modalità di volo di un veicolo armato",
       "modeConfirmHelp": "RTL, Land, Loiter e Brake non chiedono mai: lì il ritardo è il pericolo. A un veicolo disarmato non si chiede mai.",
+      "takeoffCeiling": "Decollo più alto",
+      "takeoffCeilingHelp": "Fin dove può salire Decolla, in metri sulla base. La recinzione del veicolo è ancora più bassa quando limita la quota.",
+      "metres": "{n} m",
       "plain": "Chiedi conferma (consigliato)",
       "none": "Non chiedere"
     },
@@ -1254,6 +1286,14 @@
       }
     },
     "reason": {
+      "takeoff": {
+        "gps": "Il decollo richiede un fix GPS 3D, e il veicolo non lo segnala.",
+        "ekf": "Il decollo richiede che l'EKF abbia la sua posizione, e il veicolo non lo segnala.",
+        "position": "Il veicolo non segnala la sua posizione.",
+        "air": "Il veicolo è già in aria."
+      },
+      "takeoffAltitude": "Questa altitudine non è consentita per un decollo.",
+      "takeoffUnsupported": "Il decollo si chiede solo a un ArduPilot.",
       "alreadyArmed": "Il veicolo è già armato.",
       "notArmed": "Il veicolo non è armato.",
       "busyVehicle": "È in corso altro: un comando precedente, un'operazione su parametri o log, una calibrazione, un test dei motori o un riavvio. Riprova quando è finito.",
@@ -1295,6 +1335,10 @@
         "title": "Arma il veicolo",
         "what": "I motori potranno girare. Il veicolo esegue i propri controlli prima dell'armamento e rifiuta se uno fallisce: i motivi sono mostrati. Controlla che le eliche siano libere e la zona sia sicura.",
         "button": "Tieni premuto per armare"
+      },
+      "takeoff": {
+        "label": "Decolla",
+        "keywords": "decollo salire alzarsi volare su"
       },
       "disarm": {
         "short": "Disarma",

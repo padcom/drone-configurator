@@ -16,6 +16,7 @@ import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/s
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
+import { TakeOff } from '@/lib/commands/takeoff'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
 import { reasonsOf } from '@/lib/fly/prearm'
@@ -27,6 +28,8 @@ import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
+import { useTakeoff } from './useTakeoff'
+import { useTakeoffCeiling } from './useTakeoffCeiling'
 import { useFavourites } from './favourites'
 import { useParamGroup } from './useParamGroup'
 import { useParamSearchIndex } from './useParamSearchIndex'
@@ -49,6 +52,7 @@ function makeRegistry(): CommandRegistry {
   registry.register(new ReviewBeforeArming())
   registry.register(new DisarmVehicle())
   registry.register(new EmergencyStop())
+  registry.register(new TakeOff())
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
@@ -78,6 +82,22 @@ export function useCommands(): CommandRegistry {
 }
 
 /**
+ * Asks the backend to arm; an arm the vehicle accepted, or did not answer, may have armed it.
+ *
+ * @param vehicle the vehicle
+ * @returns what the vehicle said
+ */
+async function armedMaybe(vehicle: ReturnType<typeof useConfigurator>['vehicle']): ReturnType<VehicleFacts['arm']> {
+  const result = await vehicle.arm()
+  // The vehicle may be armed already, and its heartbeat is a moment late: until it says, the state is not known.
+  if (result.result === 'accepted' || result.result === 'no-answer') {
+    armMayBeOn()
+  }
+
+  return result
+}
+
+/**
  * What the commands may know of the vehicle, read from the state when asked.
  *
  * @returns the facts
@@ -94,19 +114,13 @@ function vehicleFacts(): VehicleFacts {
     armed,
     busy,
     reboot: () => vehicle.reboot(),
-    arm: async () => {
-      const result = await vehicle.arm()
-      // The vehicle may be armed already, and its heartbeat is a moment late: until it says, the state is not known.
-      if (result.result === 'accepted' || result.result === 'no-answer') {
-        armMayBeOn()
-      }
-
-      return result
-    },
+    arm: () => armedMaybe(vehicle),
     disarm: () => vehicle.disarm(),
     emergencyStop: () => vehicle.emergencyStop(),
     setMode: mode => vehicle.setMode(mode),
     prearm: () => vehicle.prearm(),
+    takeoff: altitude => vehicle.takeoff(altitude),
+    telemetry: () => fields.telemetry.value,
     recentReasons: () => reasonsOf(messages.list.value, Date.now()).map(reason => reason.text),
     modes: () => setup.modes.value,
     mode: () => fields.telemetry.value?.mode,
@@ -127,6 +141,7 @@ function paramsFacts(): ParamsFacts {
     count: () => fields.params.value.length,
     busy: () => parameters.lock.busy.value,
     download: () => void parameters.refresh(),
+    value: id => fields.params.value.find(param => param.id === id)?.value,
   }
 }
 
@@ -222,8 +237,14 @@ function fileFacts(): FileFacts {
 function dialogFacts(): DialogFacts {
   const connect = useConnectDialog()
   const review = useArmReview()
+  const takeoff = useTakeoff()
 
-  return { showConnect: () => connect.show(), togglePalette: toggleUnlessCovered, showArmReview: () => review.show() }
+  return {
+    showConnect: () => connect.show(),
+    togglePalette: toggleUnlessCovered,
+    showArmReview: () => review.show(),
+    showTakeoff: () => takeoff.show(),
+  }
 }
 
 /**
@@ -240,6 +261,7 @@ export function useCommandContext(): CommandContext {
   const { confirmWith } = useConfigurator()
   const { recent } = useCommandUsage()
   const { level: modeConfirmation } = useModeConfirmation()
+  const { ceiling: takeoffCeiling } = useTakeoffCeiling()
 
   return {
     navigate: async path => {
@@ -252,7 +274,7 @@ export function useCommandContext(): CommandContext {
     params: paramsFacts(),
     dialogs: dialogFacts(),
     usage: { recent: () => recent.value },
-    preferences: { modeConfirmation: () => modeConfirmation.value },
+    preferences: { modeConfirmation: () => modeConfirmation.value, takeoffCeiling: () => takeoffCeiling.value },
     files: fileFacts(),
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),

@@ -5,7 +5,7 @@ import type { ArmingResult } from '@/generated/app'
 import type { CommandContext } from './command'
 
 /** What was asked. */
-export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode'
+export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode' | 'takeoff'
 
 /** The messages for the codes with which the backend refuses before it sends anything, for what was asked. */
 const REFUSALS: Record<ArmingKind, Record<string, string>> = {
@@ -30,6 +30,14 @@ const REFUSALS: Record<ArmingKind, Record<string, string>> = {
     BUSY: 'palette.reason.busyVehicle',
     INVALID_VALUE: 'palette.reason.modeRefused',
     UNSUPPORTED_VEHICLE: 'palette.reason.modesUnsupported',
+  },
+  takeoff: {
+    NOT_CONNECTED: 'palette.reason.notConnected',
+    NOT_ARMED: 'palette.reason.notArmed',
+    STATE_UNKNOWN: 'palette.reason.stateUnknown',
+    BUSY: 'palette.reason.busyVehicle',
+    INVALID_VALUE: 'palette.reason.takeoffAltitude',
+    UNSUPPORTED_VEHICLE: 'palette.reason.takeoffUnsupported',
   },
 }
 
@@ -86,6 +94,27 @@ const TELLING: Record<ArmingResult['result'], { word: string, severity: 'info' |
 }
 
 /**
+ * Tells the user what the vehicle said to a command, naming more than the vehicle (the altitude of a takeoff).
+ *
+ * @param ctx the context
+ * @param kind what was asked
+ * @param result what the vehicle said
+ * @param named what the message names besides the vehicle
+ */
+export function tellArmingWith(
+  ctx: CommandContext,
+  kind: ArmingKind,
+  result: ArmingResult,
+  named: Record<string, unknown>,
+): void {
+  const vehicle = ctx.vehicle.connection().vehicle?.type ?? ''
+  const { word, severity, long } = TELLING[result.result]
+  const lines = result.result === 'refused' ? reasonsToTell(ctx, kind, result) : []
+  const text = [ctx.say(`arming.${kind}.${word}`, { vehicle, ...named }), ...lines].join(' ')
+  ctx.toast({ id: `arming-${kind}`, severity, long, text })
+}
+
+/**
  * Tells the user what the vehicle said to a command, with its own words when it refused.
  *
  * @param ctx the context
@@ -93,11 +122,7 @@ const TELLING: Record<ArmingResult['result'], { word: string, severity: 'info' |
  * @param result what the vehicle said
  */
 export function tellArming(ctx: CommandContext, kind: ArmingKind, result: ArmingResult): void {
-  const vehicle = ctx.vehicle.connection().vehicle?.type ?? ''
-  const { word, severity, long } = TELLING[result.result]
-  const lines = result.result === 'refused' ? reasonsToTell(ctx, kind, result) : []
-  const text = [ctx.say(`arming.${kind}.${word}`, { vehicle }), ...lines].join(' ')
-  ctx.toast({ id: `arming-${kind}`, severity, long, text })
+  tellArmingWith(ctx, kind, result, {})
 }
 
 /**

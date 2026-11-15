@@ -704,6 +704,12 @@
     "label": "Language"
   },
   "arming": {
+    "takeoff": {
+      "accepted": "{vehicle} accepted the takeoff to {altitude} m. It climbs when its position says so.",
+      "refused": "{vehicle} refused to take off.",
+      "unsupported": "{vehicle} does not support taking off from here.",
+      "noAnswer": "No answer from {vehicle}. It may have taken off: watch its position. The command is not sent again."
+    },
     "stop": {
       "accepted": "{vehicle} accepted the stop. It shows disarmed when it reports it.",
       "refused": "{vehicle} refused the emergency stop.",
@@ -727,6 +733,29 @@
       "refused": "{vehicle} refused the change of mode.",
       "unsupported": "{vehicle} does not know that mode.",
       "noAnswer": "No answer from {vehicle}. The mode it reports is the one it is in. The command is not sent again."
+    }
+  },
+  "takeoff": {
+    "title": "Take off",
+    "whatDisarmed": "The vehicle changes to GUIDED, is armed (its own checks run, and you hold to arm) and climbs to the altitude. Check that the propellers are clear and the space above is free.",
+    "whatArmed": "The vehicle changes to GUIDED and climbs to the altitude. Check that the space above is free.",
+    "altitude": "Altitude above home (m)",
+    "go": "Take off",
+    "limits": {
+      "setting": "{min} to {max} m (the highest takeoff is set in Settings).",
+      "fence": "{min} to {max} m (the vehicle's own fence allows no higher)."
+    },
+    "problem": {
+      "invalid": "Type a number of metres, for example 10.",
+      "low": "At least {min} m.",
+      "high": "At most {max} m."
+    },
+    "step": {
+      "noGuided": "This vehicle has no GUIDED mode: no takeoff.",
+      "notGuided": "The vehicle did not say it is in GUIDED. No takeoff was asked for.",
+      "stateUnknown": "The vehicle's state is not known. No takeoff was asked for.",
+      "review": "The vehicle's checks do not pass: review them, arm, and take off again.",
+      "notArmed": "The vehicle did not say it is armed. No takeoff was asked for."
     }
   },
   "review": {
@@ -781,6 +810,9 @@
       "title": "Flight controls",
       "modeConfirm": "Before changing the flight mode of an armed vehicle",
       "modeConfirmHelp": "RTL, Land, Loiter and Brake never ask: delay is the hazard there. A disarmed vehicle is never asked.",
+      "takeoffCeiling": "Highest takeoff",
+      "takeoffCeilingHelp": "How high Take off may go, in metres above home. The vehicle's own fence is lower still when it limits the altitude.",
+      "metres": "{n} m",
       "plain": "Ask for a confirmation (recommended)",
       "none": "Do not ask"
     },
@@ -1254,6 +1286,14 @@
       }
     },
     "reason": {
+      "takeoff": {
+        "gps": "Take off needs a 3D GPS fix, and the vehicle does not report one.",
+        "ekf": "Take off needs the EKF to have its position, and the vehicle does not report that.",
+        "position": "The vehicle does not report its position.",
+        "air": "The vehicle is already in the air."
+      },
+      "takeoffAltitude": "That altitude is not allowed for a takeoff.",
+      "takeoffUnsupported": "Take off is asked of an ArduPilot only.",
       "alreadyArmed": "The vehicle is already armed.",
       "notArmed": "The vehicle is not armed.",
       "busyVehicle": "Something else is under way: an earlier command, a parameter or log operation, a calibration, a motor test or a reboot. Try again when it is over.",
@@ -1295,6 +1335,10 @@
         "title": "Arm the vehicle",
         "what": "The motors will be able to spin. The vehicle runs its own pre-arm checks and refuses if one fails: its reasons are shown. Check that the propellers are clear and the area is safe.",
         "button": "Hold to arm"
+      },
+      "takeoff": {
+        "label": "Take off",
+        "keywords": "launch climb lift off fly up"
       },
       "disarm": {
         "short": "Disarm",

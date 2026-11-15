@@ -704,6 +704,12 @@
     "label": "Język"
   },
   "arming": {
+    "takeoff": {
+      "accepted": "{vehicle} przyjął start na {altitude} m. Wznosi się, gdy mówi o tym jego pozycja.",
+      "refused": "{vehicle} odmówił startu.",
+      "unsupported": "{vehicle} nie obsługuje startu stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Mógł wystartować: obserwuj jego pozycję. Polecenie nie jest wysyłane ponownie."
+    },
     "stop": {
       "accepted": "{vehicle} przyjął zatrzymanie. Pokaże rozbrojenie, gdy to zgłosi.",
       "refused": "{vehicle} odmówił awaryjnego zatrzymania.",
@@ -727,6 +733,29 @@
       "refused": "{vehicle} odmówił zmiany trybu.",
       "unsupported": "{vehicle} nie zna tego trybu.",
       "noAnswer": "Brak odpowiedzi od {vehicle}. Tryb, który zgłasza, jest tym, w którym jest. Polecenie nie jest wysyłane ponownie."
+    }
+  },
+  "takeoff": {
+    "title": "Start",
+    "whatDisarmed": "Pojazd przechodzi w tryb GUIDED, jest uzbrajany (działają jego własne kontrole, a uzbrojenie wymaga przytrzymania) i wznosi się na wysokość. Sprawdź, czy śmigła są wolne, a nad pojazdem jest miejsce.",
+    "whatArmed": "Pojazd przechodzi w tryb GUIDED i wznosi się na wysokość. Sprawdź, czy nad pojazdem jest miejsce.",
+    "altitude": "Wysokość nad domem (m)",
+    "go": "Wystartuj",
+    "limits": {
+      "setting": "Od {min} do {max} m (najwyższy start ustawia się w Ustawieniach).",
+      "fence": "Od {min} do {max} m (własny płot pojazdu nie pozwala wyżej)."
+    },
+    "problem": {
+      "invalid": "Wpisz liczbę metrów, na przykład 10.",
+      "low": "Co najmniej {min} m.",
+      "high": "Co najwyżej {max} m."
+    },
+    "step": {
+      "noGuided": "Ten pojazd nie ma trybu GUIDED: bez startu.",
+      "notGuided": "Pojazd nie zgłosił trybu GUIDED. Nie zlecono startu.",
+      "stateUnknown": "Stan pojazdu nie jest znany. Nie zlecono startu.",
+      "review": "Kontrole pojazdu nie przechodzą: przejrzyj je, uzbrój i wystartuj ponownie.",
+      "notArmed": "Pojazd nie zgłosił, że jest uzbrojony. Nie zlecono startu."
     }
   },
   "review": {
@@ -781,6 +810,9 @@
       "title": "Sterowanie lotem",
       "modeConfirm": "Przed zmianą trybu lotu uzbrojonego pojazdu",
       "modeConfirmHelp": "RTL, Land, Loiter i Brake nigdy nie pytają: tu zwłoka jest zagrożeniem. Pojazdu rozbrojonego nigdy się nie pyta.",
+      "takeoffCeiling": "Najwyższy start",
+      "takeoffCeilingHelp": "Jak wysoko może wznieść się Start, w metrach nad domem. Własny płot pojazdu jest jeszcze niżej, gdy ogranicza wysokość.",
+      "metres": "{n} m",
       "plain": "Pytaj o potwierdzenie (zalecane)",
       "none": "Nie pytaj"
     },
@@ -1254,6 +1286,14 @@
       }
     },
     "reason": {
+      "takeoff": {
+        "gps": "Start wymaga fixa 3D z GPS, a pojazd go nie podaje.",
+        "ekf": "Start wymaga, aby EKF miał pozycję, a pojazd tego nie podaje.",
+        "position": "Pojazd nie podaje swojej pozycji.",
+        "air": "Pojazd jest już w powietrzu."
+      },
+      "takeoffAltitude": "Ta wysokość nie jest dozwolona przy starcie.",
+      "takeoffUnsupported": "Start zleca się tylko ArduPilotowi.",
       "alreadyArmed": "Pojazd jest już uzbrojony.",
       "notArmed": "Pojazd nie jest uzbrojony.",
       "busyVehicle": "Trwa coś innego: wcześniejsze polecenie, operacja na parametrach lub logach, kalibracja, test silnika albo restart. Spróbuj, gdy się skończy.",
@@ -1295,6 +1335,10 @@
         "title": "Uzbrój pojazd",
         "what": "Silniki będą mogły się kręcić. Pojazd sam sprawdza warunki przed uzbrojeniem i odmawia, gdy któryś nie jest spełniony: powody są pokazane. Sprawdź, czy śmigła są wolne i miejsce jest bezpieczne.",
         "button": "Przytrzymaj, aby uzbroić"
+      },
+      "takeoff": {
+        "label": "Start",
+        "keywords": "wystartuj wznieś się wzlot lot w górę"
       },
       "disarm": {
         "short": "Rozbrój",

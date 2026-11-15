@@ -1,7 +1,7 @@
 // A command context for tests: the vehicle's facts are plain values to set, and everything a command does to the outside (a
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
 import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
-import type { ArmingResult, Connection, VehicleModes } from '@/generated/app'
+import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
 import { COPTER_MODES } from '@/mock/fixtures'
 import type { Metadata } from '@/lib/params/metadata'
 import { indexFor } from '@/lib/params/paramSearch'
@@ -29,6 +29,12 @@ export interface Fake {
     armingError?: unknown
     /** The reasons the vehicle gave lately why it will not arm. */
     recentReasons?: string[]
+    /** What the vehicle reports now (null: nothing). */
+    telemetry?: Telemetry | null
+    /** The vehicle's parameters by name, for the commands that read one. */
+    parameterValues?: Record<string, number>
+    /** The user's highest takeoff (m). */
+    takeoffCeiling?: number
     /** The modes of the vehicle's kind (null: not read yet), and the one it is in. */
     modes: VehicleModes | null
     mode?: string
@@ -128,6 +134,8 @@ function vehicleOf(fake: Fake): VehicleFacts {
     emergencyStop: () => sentOf(fake, 'stop'),
     setMode: mode => sentOf(fake, `mode ${mode}`),
     prearm: () => sentOf(fake, 'prearm'),
+    takeoff: altitude => sentOf(fake, `takeoff ${altitude}`),
+    telemetry: () => fake.facts.telemetry ?? null,
     recentReasons: () => fake.facts.recentReasons ?? [],
     modes: () => fake.facts.modes,
     mode: () => fake.facts.mode,
@@ -144,7 +152,7 @@ function vehicleOf(fake: Fake): VehicleFacts {
 function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage' | 'preferences'> {
   return {
     usage: { recent: () => fake.facts.recent },
-    preferences: { modeConfirmation: () => fake.facts.modeConfirmation },
+    preferences: { modeConfirmation: () => fake.facts.modeConfirmation, takeoffCeiling: () => fake.facts.takeoffCeiling ?? 50 },
     files: {
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
@@ -156,11 +164,13 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       count: () => fake.facts.paramCount,
       busy: () => fake.facts.paramsBusy,
       download: () => void fake.calls.download.push('download'),
+      value: id => fake.facts.parameterValues?.[id],
     },
     dialogs: {
       showConnect: () => void fake.calls.dialogs.push('connect'),
       togglePalette: () => void fake.calls.dialogs.push('palette'),
       showArmReview: () => void fake.calls.dialogs.push('review'),
+      showTakeoff: () => void fake.calls.dialogs.push('takeoff'),
     },
   }
 }

@@ -222,6 +222,7 @@ it('lists every command alphabetically by its label when none was run lately', a
     ...SWITCH_LABELS,
     ...SETUP_LABELS,
     ...TUNE_LABELS,
+    'Take off',
   ])
 })
 
@@ -249,7 +250,9 @@ it('names the group of each command in its row', async () => {
     'Parameters',
   ])
   expect(groups.length).toBeGreaterThan(30)
-  expect(groups.slice(20).every(group => group === 'Navigate')).toBe(true)
+  // (Take off is the last of the list by its name, and a vehicle's command)
+  expect(groups.slice(20, -1).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.at(-1)).toBe('Vehicle')
 })
 
 it('lists the command that was run last first, and remembers it for the next opening', async () => {
@@ -360,11 +363,11 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('go.tune.rate')
+  expect(active()).toBe('vehicle.takeoff')
   await input.trigger('keydown', { key: 'ArrowDown' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('go.tune.rate')
+  expect(active()).toBe('vehicle.takeoff')
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'PageDown' })
