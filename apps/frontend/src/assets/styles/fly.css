@@ -147,6 +147,15 @@
   opacity: 0.85;
 }
 
+/* The path still to fly in a replay: dashed (the dash, not the colour, tells it from the path flown). */
+.map-ahead {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  stroke-linejoin: round;
+  opacity: 0.55;
+}
+
 .map-vehicle path,
 .map-vehicle circle {
   fill: var(--color-accent);

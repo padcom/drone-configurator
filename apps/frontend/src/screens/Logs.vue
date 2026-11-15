@@ -1,5 +1,5 @@
 <template>
-  <section class="logs" :aria-labelledby="`${uid}-title`">
+  <section class="logs" :class="{ 'logs-fill': fills }" :aria-labelledby="`${uid}-title`">
     <h2 :id="`${uid}-title`" class="visually-hidden">{{ t('screen.logs') }}</h2>
     <SectionNav :label="t('logs.sections')" :sections="tabs" />
     <!-- Which part was chosen, said politely (a screen reader hears no change when only the part under the tabs is another). -->
@@ -41,5 +41,7 @@ watch(() => route.meta, meta => {
     titleKey.value = meta.titleKey
   }
 }, { immediate: true })
+/** The Replay part has a map and an aside, and fills the area under the tabs (from 1000 px wide); the others flow. */
+const fills = computed(() => route.name === sectionRouteName(SCREEN, 'replay'))
 const shown = computed(() => titleKey.value === '' ? '' : t('logs.shown', { section: t(titleKey.value) }))
 </script>

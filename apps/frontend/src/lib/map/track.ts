@@ -16,6 +16,13 @@ export const TRAIL_CAP = 5000
 /** The least distance (metres) between two points of the trail: a vehicle that stands still adds none. */
 export const TRAIL_STEP_M = 1
 
+/**
+ * A place this far (metres) from the last point of the trail is not the next step of the same flight: a vehicle does not fly a
+ * kilometre between two positions a fraction of a second apart. It is the vehicle coming back somewhere else (a reconnect
+ * after a long time, or another vehicle with the same system id): the path starts again from there, not a line across the map.
+ */
+export const TRAIL_JUMP_M = 1000
+
 /** After this long (ms) without a position the vehicle is drawn as old (hatched, amber, with "last heard"). */
 export const STALE_MS = 3000
 
@@ -124,8 +131,9 @@ export class Trail {
   }
 
   /**
-   * Adds the place the vehicle is at, unless it has not moved (less than a step from the last point). When the trail is longer
-   * than its cap every second point goes, except the first and the last: the whole path stays, at half the detail.
+   * Adds the place the vehicle is at, unless it has not moved (less than a step from the last point); when it is a kilometre or
+   * more from the last point (TRAIL_JUMP_M) the path starts again from it. When the trail is longer than its cap every second
+   * point goes, except the first and the last: the whole path stays, at half the detail.
    *
    * @param place the place
    * @returns true when the trail changed
@@ -134,13 +142,29 @@ export class Trail {
     if (!drawable(place) || !this.moved(place)) {
       return false
     }
-    this.points = [...this.points, { lat: place.lat, lon: place.lon }]
+    this.points = [...this.jumped(place) ? [] : this.points, { lat: place.lat, lon: place.lon }]
+    this.thinWhenLong()
 
+    return true
+  }
+
+  /** Thins the trail when it is longer than its cap. */
+  private thinWhenLong(): void {
     if (this.points.length > TRAIL_CAP) {
       this.thin()
     }
+  }
 
-    return true
+  /**
+   * Whether a place is a kilometre or more from the last point: the vehicle is somewhere else, not a step further.
+   *
+   * @param place the place
+   * @returns true when it is
+   */
+  private jumped(place: LatLon): boolean {
+    const last = this.points.at(-1)
+
+    return last !== undefined && metresBetween(last, place) >= TRAIL_JUMP_M
   }
 
   /**

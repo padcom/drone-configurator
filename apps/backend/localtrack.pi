@@ -1,0 +1,453 @@
+// Where a log on this computer flew (`logs.local.track`), for the replay on the map. The log is read through once, in order, a chunk at
+// a time (locallogs.pi); the positions are gathered as they come and thinned at once, so that what is in memory is a few cells of the
+// time whatever the size of the log, and what goes to the page is a few thousand points, never the raw log.
+//
+// Honesty: a position is a fix only when it is a number inside the globe and not (0, 0) (how a vehicle without a position says so);
+// a GPS fix needs a 3D fix, and only the first receiver that has one is the track (a log with two receivers is not mixed up). A log
+// with no position at all is `UNAVAILABLE` with the reason, never an empty line at (0, 0). Nothing is made up: home is where the log
+// says it was (ORGN of type 1), not the first fix; an event is one the vehicle logged.
+//
+// Thinning: the time of the log is cut in equal parts and each part keeps its first fix, the last, and the one farthest from the first,
+// so that a turn or an out-and-back is never cut off by the thinning.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { DfMessage } from "padcom/pico-mavlink"
+import {
+  LocalLogTrack,
+  LocalLogTrackSource,
+  LogsLocalTrackAsk,
+  TrackEvent,
+  TrackEventKind,
+  TrackGap,
+  TrackPlace,
+  TrackPoint,
+  decodeLogsLocalTrackAsk,
+  encodeLocalLogTrack,
+} from "./generated/app"
+import { degrees } from "./localexport"
+import { Taker, claimRead, locate, releaseRead, streamLog, verifiedSummary } from "./locallogs"
+import { usable } from "./localmessages"
+import { factorOf } from "./localseries"
+import { LogReader } from "./logreader"
+
+/// How many points a track has unless asked for fewer or more, and the most; each part of the time keeps up to 3.
+const DEFAULT_POINTS: int = 2000
+const MAX_POINTS: int = 5000
+const MIN_POINTS: int = 6
+/// The most events of each class that are kept (a log of a bad flight can print thousands of lines): the vehicle armed or
+/// disarmed, and its warnings, have a cap each, so that an early run of warnings cannot crowd out an arm.
+const MAX_ARM_EVENTS: int = 300
+const MAX_WARNINGS: int = 300
+/// A stretch of the log with no position for longer than this (microseconds) is a gap: the vehicle was not heard there. The most gaps
+/// that are told.
+const GAP_US: int = 3000000
+const MAX_GAPS: int = 2000
+/// The events of the log: ArduPilot's `EV` ids for the vehicle armed and disarmed.
+const EV_ARMED: f64 = 10.0
+const EV_DISARMED: f64 = 11.0
+/// Words that make a text of the vehicle a warning worth a jump (lower case).
+const WARNING_WORDS: string[] = ["failsafe", "error", "crash", "lost"]
+const RADIANS: f64 = 0.017453292519943295
+
+export function register(c: Communicator): void {
+  c.handle("logs.local.track", trackOfLocal)
+}
+
+/// One position of the vehicle: the time (microseconds of the log), the place in degrees, and the height above sea level (NaN when the
+/// log has none).
+class Fix {
+  public readonly t: int
+  public readonly lat: f64
+  public readonly lng: f64
+  public readonly alt: f64
+
+  constructor(t: int, lat: f64, lng: f64, alt: f64) {
+    this.t = t
+    this.lat = lat
+    this.lng = lng
+    this.alt = alt
+  }
+}
+
+/// A part of the time: the first fix in it, the one that is farthest from the first, and the last.
+class Cell {
+  public first: Fix? = null
+  public far: Fix? = null
+  public last: Fix? = null
+  farthest: f64 = -1.0
+
+  /// Takes a fix of this part of the time.
+  public add(fix: Fix): void {
+    const head = first
+    if (head == null) {
+      first = fix
+      last = fix
+      return
+    }
+    // The distance is worked out flat (the part is a few seconds of a flight), with the longitude shortened by the latitude.
+    const north = fix.lat - head!.lat
+    const east = (fix.lng - head!.lng) * Math.cos(head!.lat * RADIANS)
+    const d = north * north + east * east
+    if (d > farthest) {
+      farthest = d
+      far = fix
+    }
+    last = fix
+  }
+}
+
+/// The positions of one kind of message (`POS`, or `GPS` with a 3D fix), thinned as they come.
+class Positions implements Taker {
+  readonly name: string
+  readonly needsFix: bool
+  readonly decoder: LogReader
+  readonly from: int
+  readonly span: int
+  readonly cells: Cell[] = []
+  public fixes: int = 0
+  public skipped: int = 0
+  /// The fix before this one, where the log has no position for a while (a gap), and what is kept of the ends of the gaps.
+  prev: Fix? = null
+  readonly pinned: Fix[] = []
+  public readonly gaps: TrackGap[] = []
+  public gapsMore: int = 0
+  /// Where the fields are in the format of the message, once the first message is seen (-1: it has not got them).
+  type: int = -1
+  latAt: int = -1
+  lngAt: int = -1
+  altAt: int = -1
+  statusAt: int = -1
+  instanceAt: int = -1
+  /// The receiver the track is of (the first with a 3D fix), for GPS.
+  chosen: bool = false
+  instance: f64 = -1.0
+  dead: bool = false
+
+  constructor(name: string, needsFix: bool, decoder: LogReader, from: int, span: int, parts: int) {
+    this.name = name
+    this.needsFix = needsFix
+    this.decoder = decoder
+    this.from = from
+    this.span = span
+    for (let i = 0; i < parts; i++) {
+      cells.push(new Cell())
+    }
+  }
+
+  public take(m: DfMessage): void {
+    if (dead || m.format.name != name) {
+      return
+    }
+    if (type < 0) {
+      type = m.format.type
+      latAt = m.format.indexOf("Lat")
+      lngAt = m.format.indexOf("Lng")
+      altAt = m.format.indexOf("Alt")
+      statusAt = m.format.indexOf("Status")
+      instanceAt = m.format.indexOf("I")
+      // A message without a place in it has nothing to give; a GPS without its fix status cannot say what is a fix.
+      dead = latAt < 0 || lngAt < 0 || (needsFix && statusAt < 0)
+      if (dead) {
+        return
+      }
+    } else if (m.format.type != type) {
+      return
+    }
+    const t = m.timeUs()
+    if (t < 0) {
+      return
+    }
+    if (needsFix && !fixOf(m)) {
+      skipped += 1
+      return
+    }
+    const lat = degrees(m.nums[latAt] * factorOf(m.format.fields[latAt], decoder.tables()))
+    const lng = degrees(m.nums[lngAt] * factorOf(m.format.fields[lngAt], decoder.tables()))
+    if (!usable(lat) || !usable(lng) || lat > 90.0 || lat < -90.0 || lng > 180.0 || lng < -180.0 || (lat == 0.0 && lng == 0.0)) {
+      skipped += 1
+      return
+    }
+    fixes += 1
+    const fix = new Fix(t, lat, lng, altitudeOf(m))
+    markGap(fix)
+    keep(fix)
+  }
+
+  /// Where there is no position for longer than a gap, the last fix before it and the first after it are kept whatever the thinning
+  /// does (a point that is far from the one before it is not a gap: only the log says there was none), and the gap is told.
+  markGap(fix: Fix): void {
+    const before = prev
+    prev = fix
+    if (before == null || fix.t - before!.t <= GAP_US) {
+      return
+    }
+    if (gaps.length >= MAX_GAPS) {
+      gapsMore += 1
+      return
+    }
+    pinned.push(before!)
+    pinned.push(fix)
+    gaps.push(TrackGap { fromUs: before!.t as u64, toUs: fix.t as u64 })
+  }
+
+  /// Whether the message is a 3D fix of the receiver the track is of.
+  fixOf(m: DfMessage): bool {
+    if (!(m.nums[statusAt] >= 3.0)) {
+      return false
+    }
+    const i = if (instanceAt >= 0) m.nums[instanceAt] else 0.0
+    if (!chosen) {
+      chosen = true
+      instance = i
+    }
+    i == instance
+  }
+
+  /// The height above sea level the message says, or NaN.
+  altitudeOf(m: DfMessage): f64 {
+    if (altAt < 0) {
+      return nan()
+    }
+    const alt = m.nums[altAt] * factorOf(m.format.fields[altAt], decoder.tables())
+    if (usable(alt)) alt else nan()
+  }
+
+  /// Puts a fix in its part of the time.
+  keep(fix: Fix): void {
+    // The part is worked out in floating point (a long log times the parts would overflow an int) and kept inside the parts.
+    const pos = (((fix.t - from) as f64) / (span as f64)) * (cells.length as f64)
+    let i = if (pos < 0.0) 0 else pos as int
+    if (i >= cells.length) {
+      i = cells.length - 1
+    }
+    cells[i].add(fix)
+  }
+
+  /// The fixes of the parts in time order: the first, the farthest and the last of each, once each.
+  fixesOfParts(): Fix[] {
+    const out: Fix[] = []
+    for (const cell of cells) {
+      const first = cell.first
+      if (first == null) {
+        continue
+      }
+      out.push(first!)
+      const far = cell.far
+      const last = cell.last
+      if (far != null && far!.t != first!.t && (last == null || far!.t != last!.t)) {
+        out.push(far!)
+      }
+      if (last != null && last!.t != first!.t) {
+        out.push(last!)
+      }
+    }
+    out
+  }
+
+  /// The points to give: those of the parts and the ends of the gaps, in time order, once each.
+  public points(): TrackPoint[] {
+    const parts = fixesOfParts()
+    const out: TrackPoint[] = []
+    let i = 0
+    let j = 0
+    while (i < parts.length || j < pinned.length) {
+      const fromParts = j >= pinned.length || (i < parts.length && parts[i].t <= pinned[j].t)
+      const fix = if (fromParts) parts[i] else pinned[j]
+      const same = out.length > 0 && out[out.length - 1].timeUs == (fix.t as u64)
+      if (!same) {
+        out.push(pointOf(fix))
+      }
+      if (fromParts) i += 1 else j += 1
+    }
+    out
+  }
+}
+
+/// Not a number: the height of a fix of a log that has none.
+function nan(): f64 {
+  0.0 / 0.0
+}
+
+function pointOf(fix: Fix): TrackPoint {
+  const p = TrackPoint { timeUs: fix.t as u64, lat: fix.lat, lon: fix.lng }
+  if (fix.alt == fix.alt) {
+    p.alt = fix.alt
+  }
+  p
+}
+
+/// Home (ORGN of type 1, the vehicle's home: type 0 is the EKF's origin, which is not where RTL goes) and the events: the vehicle armed
+/// and disarmed (EV), and the vehicle's own warnings (MSG).
+class Marks implements Taker {
+  readonly decoder: LogReader
+  public home: TrackPlace? = null
+  public readonly events: TrackEvent[] = []
+  originType: int = -1
+  originAt: int = -1
+  originLat: int = -1
+  originLng: int = -1
+  eventId: int = -1
+  textAt: int = -1
+  seenOrigin: bool = false
+  seenEvent: bool = false
+  seenText: bool = false
+  armEvents: int = 0
+  warnings: int = 0
+
+  constructor(decoder: LogReader) {
+    this.decoder = decoder
+  }
+
+  public take(m: DfMessage): void {
+    const name = m.format.name
+    if (name == "ORGN") {
+      origin(m)
+    } else if (name == "EV") {
+      event(m)
+    } else if (name == "MSG") {
+      text(m)
+    }
+  }
+
+  origin(m: DfMessage): void {
+    if (home != null) {
+      return
+    }
+    if (!seenOrigin) {
+      seenOrigin = true
+      originType = m.format.type
+      originAt = m.format.indexOf("Type")
+      originLat = m.format.indexOf("Lat")
+      originLng = m.format.indexOf("Lng")
+    } else if (m.format.type != originType) {
+      return
+    }
+    if (originAt < 0 || originLat < 0 || originLng < 0 || !(m.nums[originAt] == 1.0)) {
+      return
+    }
+    const lat = degrees(m.nums[originLat] * factorOf(m.format.fields[originLat], decoder.tables()))
+    const lng = degrees(m.nums[originLng] * factorOf(m.format.fields[originLng], decoder.tables()))
+    if (usable(lat) && usable(lng) && lat <= 90.0 && lat >= -90.0 && lng <= 180.0 && lng >= -180.0 && !(lat == 0.0 && lng == 0.0)) {
+      home = TrackPlace { lat: lat, lon: lng }
+    }
+  }
+
+  event(m: DfMessage): void {
+    if (!seenEvent) {
+      seenEvent = true
+      eventId = m.format.indexOf("Id")
+    }
+    const t = m.timeUs()
+    if (eventId < 0 || t < 0 || armEvents >= MAX_ARM_EVENTS) {
+      return
+    }
+    const id = m.nums[eventId]
+    if (id == EV_ARMED) {
+      events.push(TrackEvent { timeUs: t as u64, kind: TrackEventKind.Armed })
+      armEvents += 1
+    } else if (id == EV_DISARMED) {
+      events.push(TrackEvent { timeUs: t as u64, kind: TrackEventKind.Disarmed })
+      armEvents += 1
+    }
+  }
+
+  text(m: DfMessage): void {
+    if (!seenText) {
+      seenText = true
+      textAt = m.format.indexOf("Message")
+    }
+    const t = m.timeUs()
+    if (textAt < 0 || t < 0 || warnings >= MAX_WARNINGS) {
+      return
+    }
+    const words = m.texts[textAt]
+    const lower = words.toLowerCase()
+    for (const word of WARNING_WORDS) {
+      if (lower.includes(word)) {
+        const e = TrackEvent { timeUs: t as u64, kind: TrackEventKind.Text }
+        e.text = words
+        events.push(e)
+        warnings += 1
+        return
+      }
+    }
+  }
+}
+
+/// Gives every message to what gathers them.
+class Collector implements Taker {
+  readonly pos: Positions
+  readonly gps: Positions
+  readonly marks: Marks
+
+  constructor(pos: Positions, gps: Positions, marks: Marks) {
+    this.pos = pos
+    this.gps = gps
+    this.marks = marks
+  }
+
+  public take(m: DfMessage): void {
+    pos.take(m)
+    gps.take(m)
+    marks.take(m)
+  }
+}
+
+/// A u64 as an int, held to what an int can be.
+function clampInt(v: u64): int {
+  if (v > (9000000000000000000 as u64)) 9000000000000000000 else v as int
+}
+
+async function trackOfLocal(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodeLogsLocalTrackAsk(payload ?? Cbor.Null, "$")
+  const wanted = (ask.maxPoints ?? (DEFAULT_POINTS as u16)) as int
+  if (wanted < MIN_POINTS || wanted > MAX_POINTS) {
+    throw new CommunicatorError("BAD_REQUEST", `from ${MIN_POINTS} to ${MAX_POINTS} points`)
+  }
+  const own = claimRead()
+  try {
+    return await gather(ask, wanted, own)
+  } finally {
+    releaseRead()
+  }
+}
+
+async function gather(ask: LogsLocalTrackAsk, wanted: int, own: AbortController): Promise<Cbor?> throws Error {
+  const file = await locate(ask.key)
+  // Nothing is drawn of a log whose bytes are not known to be the vehicle's (as for the review and the export).
+  const known = verifiedSummary(ask.key, file.facts)
+  if (known.firstUs == null) {
+    throw new CommunicatorError("UNAVAILABLE", "the log has no times, so there is no flight to place on a map")
+  }
+  const first = clampInt(known.firstUs!)
+  const last = clampInt(known.lastUs ?? known.firstUs!)
+  const span = if (last >= first) last - first + 1 else 1
+  // Each part of the time keeps up to three fixes.
+  const parts = Math.max(1, Math.floor((wanted as f64) / 3.0)) as int
+  const decoder = file.newReader()
+  const pos = new Positions("POS", false, decoder, first, span, parts)
+  const gps = new Positions("GPS", true, decoder, first, span, parts)
+  const marks = new Marks(decoder)
+  const done = await streamLog(ask.key, file, own, new Collector(pos, gps, marks), null, decoder)
+  if (!done.unchanged) {
+    throw new CommunicatorError("CHANGED", "the log changed while it was read: read it again")
+  }
+  // The EKF's position when the log has one, else the GPS's.
+  const useGps = pos.fixes == 0
+  const chosen = if (useGps) gps else pos
+  if (chosen.fixes == 0) {
+    throw new CommunicatorError("UNAVAILABLE", "the log has no position (no POS with a place, and no GPS with a 3D fix), so there is nothing to draw on a map")
+  }
+  const track = LocalLogTrack {
+    source: if (useGps) LocalLogTrackSource.Gps else LocalLogTrackSource.Pos,
+    fixes: chosen.fixes as u32,
+    skipped: chosen.skipped as u32,
+    points: chosen.points(),
+    gaps: chosen.gaps,
+    gapsMore: chosen.gapsMore as u32,
+    events: marks.events,
+  }
+  if (marks.home != null) {
+    track.home = marks.home!
+  }
+  encodeLocalLogTrack(track)
+}

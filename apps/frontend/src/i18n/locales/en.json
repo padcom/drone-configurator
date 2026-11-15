@@ -291,6 +291,57 @@
       "queue": "Add {count} change to the queue | Add {count} changes to the queue",
       "revert": "Put the ticks back"
     },
+    "replay": {
+      "title": "Replay on the map",
+      "aside": "Replay controls",
+      "log": "Flight: {name}",
+      "pick": "Choose a flight",
+      "readingBar": "Reading log {id}",
+      "idle": {
+        "title": "No flight chosen",
+        "help": "Choose a flight from the logs on this computer to see it on the map."
+      },
+      "none": {
+        "title": "This flight cannot be shown on a map",
+        "noTimes": "The log has no times, so there is no flight to place on a map."
+      },
+"gapsMore": "Gaps in the positions that are not told: {count}. The vehicle may be drawn moving where the log has no position.",
+      "skipped": "Positions that were not a place (no fix, 0 and 0, or outside the globe) and are not drawn: {count}.",
+      "noHome": "The log does not say where home was, so none is drawn.",
+      "source": {
+        "pos": "Positions from the vehicle's own estimate (EKF): {count}. The flight is {length} long. Thinned for the map.",
+        "gps": "GPS positions with a 3D fix: {count}. The log has no estimated position. The flight is {length} long. Thinned for the map."
+      },
+      "status": {
+        "ready": "Log {id} is ready to replay",
+        "stopped": "Reading was stopped"
+      },
+      "transport": {
+        "title": "Playback",
+        "play": "Play",
+        "pause": "Pause",
+        "scrub": "Position in the flight",
+        "speed": "Speed",
+        "speedOption": "{speed}×",
+        "clock": "{at} of {total}"
+      },
+      "tiles": {
+        "title": "At the cursor",
+        "position": "Position",
+        "height": "Height above home",
+        "altitude": "Altitude above sea level",
+        "speed": "Ground speed",
+        "battery": "Battery"
+      },
+      "jump": {
+        "title": "Jump to",
+        "none": "The log has no events to jump to.",
+        "armed": "Armed",
+        "disarmed": "Disarmed",
+        "mode": "Mode: {mode}",
+        "go": "Go to {at}: {what}"
+      }
+    },
     "spectrum": {
       "tlog": "Not available for a log file (.tlog): it holds no raw IMU batches. Open a log downloaded from the vehicle.",
       "title": "Spectrum",
@@ -397,10 +448,6 @@
       "flights": {
         "title": "No flights yet",
         "help": "Flights from downloaded logs will be listed here. Reading logs is not available yet."
-      },
-      "replay": {
-        "title": "Replay is not available yet",
-        "help": "It comes with the map: a flight is drawn as a path that can be played back."
       },
       "spectrum": {
         "title": "Spectrum is not available yet",

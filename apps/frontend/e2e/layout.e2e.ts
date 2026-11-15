@@ -336,3 +336,26 @@ it('stacks the serial ports in a narrow column, with the labels in the place of 
   expect(row.heads).toBe(false)
   expect(row.labels).toBe(true)
 })
+
+/** The Logs replay page is a map and an aside that fills the area under the tabs: the shell's main column must not scroll. */
+const REPLAY_SIZES = [{ width: 1280, height: 900 }, { width: 1000, height: 700 }]
+
+for (const size of REPLAY_SIZES) {
+  it(`keeps the Logs replay page inside the main column, at ${size.width}x${size.height}`, async () => {
+    await resize(size)
+    await window().evaluate(`location.hash = '#/logs/replay'`)
+    await window().waitFor(`document.querySelector('.logs-replay')?.clientHeight > 0`, 30_000)
+    await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 400))`)
+    const seen = await window().evaluate<{ content: number, box: number, page: boolean, children: string[] }>(`(() => {
+      const area = document.querySelector('.app-main')
+      const root = document.scrollingElement
+      const logs = document.querySelector('.logs')
+      const high = child => Math.round(child.getBoundingClientRect().height)
+      const children = [...logs.children].map(child => child.tagName + '.' + child.className + ' ' + high(child))
+      return { content: area.scrollHeight, box: area.clientHeight, page: root.scrollHeight > window.innerHeight + 1, children }
+    })()`)
+
+    expect(seen.content, seen.children.join(' | ')).toBeLessThanOrEqual(seen.box)
+    expect(seen.page).toBe(false)
+  }, 60_000)
+}

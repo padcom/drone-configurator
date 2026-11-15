@@ -187,3 +187,30 @@ it('goes on with the same path when the same vehicle comes back, and fresh again
   expect(source.trail.value).toHaveLength(3)
   expect(source.vehicle.value?.stale).toBe(false)
 })
+
+it('starts the path again when the same vehicle comes back a kilometre or more from where it was last heard', async () => {
+  const { handle, source, report } = await rig()
+  await report(at(0))
+  await report(at(1))
+  await loseTheLink(handle)
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await flushPromises()
+  // (a hundred steps of 11 m: 1.1 km north of where it was heard last)
+  await report(at(101))
+
+  expect(source.trail.value).toHaveLength(1)
+  expect(source.trail.value[0]?.lat).toBeCloseTo(47.397742 + 101 * 0.0001, 6)
+  expect(source.vehicle.value?.stale).toBe(false)
+})
+
+it('goes on with the path when the vehicle comes back a few hundred metres away', async () => {
+  const { handle, source, report } = await rig()
+  await report(at(0))
+  await report(at(1))
+  await loseTheLink(handle)
+  feed(handle, { connection: { state: 'connected', vehicle: { ...VEHICLE } } })
+  await flushPromises()
+  await report(at(30))
+
+  expect(source.trail.value).toHaveLength(3)
+})

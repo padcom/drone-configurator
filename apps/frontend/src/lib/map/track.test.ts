@@ -1,7 +1,7 @@
 // What the map draws of the vehicle: no marker without a position or at (0, 0), an old position marked as old, a trail that
 // ignores a vehicle standing still, is capped and thinned with its ends kept, and forgets when it is reset.
 import { describe, expect, it } from 'vitest'
-import { STALE_MS, TRAIL_CAP, Trail, drawable, markOf, metresBetween } from './track'
+import { STALE_MS, TRAIL_CAP, TRAIL_JUMP_M, Trail, drawable, markOf, metresBetween } from './track'
 
 const HERE = { lat: 47.397742, lon: 8.545594 }
 
@@ -92,5 +92,25 @@ describe('the trail: its cap', () => {
 
     expect(trail.all).toHaveLength(0)
     expect(trail.add(HERE)).toBe(true)
+  })
+})
+
+describe('the trail: a place far from the last', () => {
+  it('starts the path again from there (the vehicle came back somewhere else: no line across the map)', () => {
+    const trail = new Trail()
+    trail.add(HERE)
+    trail.add({ lat: HERE.lat + 0.0001, lon: HERE.lon })
+    const far = { lat: HERE.lat + (TRAIL_JUMP_M + 100) / 111_195, lon: HERE.lon }
+
+    expect(trail.add(far)).toBe(true)
+    expect(trail.all).toEqual([far])
+  })
+
+  it('goes on from a step that is not that far, a few hundred metres included', () => {
+    const trail = new Trail()
+    trail.add(HERE)
+    trail.add({ lat: HERE.lat + 0.004, lon: HERE.lon })
+
+    expect(trail.all).toHaveLength(2)
   })
 })

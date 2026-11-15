@@ -21,6 +21,8 @@ import { LogReader } from "./logreader"
 export const DERIVED: string[][] = [
   ["ATTITUDE", "ATT"],
   ["GLOBAL_POSITION_INT", "CTUN"],
+  ["GLOBAL_POSITION_INT", "POS"],
+  ["HOME_POSITION", "ORGN"],
   ["VIBRATION", "VIBE"],
   ["SYS_STATUS", "BAT"],
   ["GPS_RAW_INT", "GPS"],
@@ -417,6 +419,9 @@ export class TlogDecoder implements LogReader {
       deriveAttitude(info, payload, t)
     } else if (name == "GLOBAL_POSITION_INT") {
       give("CTUN", ["Alt"], ["m"], t, [known(field(info, payload, "relative_alt"), 2147483647.0) / 1000.0])
+      derivePosition(info, payload, t)
+    } else if (name == "HOME_POSITION") {
+      deriveHome(info, payload, t)
     } else if (name == "VIBRATION") {
       deriveVibration(info, payload, t)
     } else if (name == "SYS_STATUS") {
@@ -445,6 +450,32 @@ export class TlogDecoder implements LogReader {
       }
     }
     nan()
+  }
+
+  /// GLOBAL_POSITION_INT: the vehicle's position as the DataFlash POS message has it (degrees, metres above sea level and above home).
+  /// A latitude and longitude of 0 and 0, or INT32_MAX, mean the vehicle has no position: they are NaN here, never a place.
+  derivePosition(info: MessageInfo, payload: Uint8Array, t: f64): void {
+    const lat = known(field(info, payload, "lat"), 2147483647.0)
+    const lng = known(field(info, payload, "lon"), 2147483647.0)
+    const none = lat == 0.0 && lng == 0.0
+    give("POS", ["Lat", "Lng", "Alt", "RelHomeAlt"], ["deg", "deg", "m", "m"], t, [
+      if (none) nan() else lat / 10000000.0,
+      if (none) nan() else lng / 10000000.0,
+      known(field(info, payload, "alt"), 2147483647.0) / 1000.0,
+      known(field(info, payload, "relative_alt"), 2147483647.0) / 1000.0,
+    ])
+  }
+
+  /// HOME_POSITION: where the vehicle says home is, as the DataFlash ORGN message of type 1 (the home) has it.
+  deriveHome(info: MessageInfo, payload: Uint8Array, t: f64): void {
+    const lat = known(field(info, payload, "latitude"), 2147483647.0)
+    const lng = known(field(info, payload, "longitude"), 2147483647.0)
+    give("ORGN", ["Type", "Lat", "Lng", "Alt"], ["", "deg", "deg", "m"], t, [
+      1.0,
+      lat / 10000000.0,
+      lng / 10000000.0,
+      known(field(info, payload, "altitude"), 2147483647.0) / 1000.0,
+    ])
   }
 
   deriveAttitude(info: MessageInfo, payload: Uint8Array, t: f64): void {
