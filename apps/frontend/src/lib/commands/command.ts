@@ -2,7 +2,7 @@
 // is a small object that knows its own label, whether it may run now (and if not, why), what to ask before it runs, and what it
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
-import type { Connection } from '@/generated/app'
+import type { ArmingResult, Connection, VehicleModes } from '@/generated/app'
 import type { IconName } from '@/lib/ui/icons'
 import type { SearchIndex } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
@@ -50,6 +50,29 @@ export interface VehicleFacts {
   busy(): ParameterWork | null
   /** Asks the backend to reboot the flight controller. */
   reboot(): Promise<RebootResult>
+  /**
+   * Arm, disarm, change the flight mode and run the pre-arm checks: each is sent ONCE by the backend, which refuses before
+   * sending (the rejection is a BackendError whose code says why: NOT_CONNECTED, STATE_UNKNOWN, ARMED, NOT_ARMED, BUSY,
+   * INVALID_VALUE ...) and answers with what the vehicle said. What the vehicle then IS, armed or in a mode, is what its next
+   * heartbeat says, never this answer.
+   */
+  arm(): Promise<ArmingResult>
+  /**
+   *
+   */
+  disarm(): Promise<ArmingResult>
+  /**
+   *
+   */
+  setMode(mode: number): Promise<ArmingResult>
+  /**
+   *
+   */
+  prearm(): Promise<ArmingResult>
+  /** The modes of the vehicle's kind, or null when they have not been read (they are read when the vehicle connects). */
+  modes(): VehicleModes | null
+  /** The mode the vehicle is in now, by name, when the telemetry says one. */
+  mode(): string | undefined
   /** Ends the session with the vehicle (and the tries to bring a lost link back). */
   disconnect(): void
 }
@@ -107,6 +130,12 @@ export interface UsageFacts {
   recent(): readonly string[]
 }
 
+/** What the user chose about how much to ask before something that changes how the vehicle flies (Settings). */
+export interface PreferenceFacts {
+  /** What a mode change of an armed vehicle asks: nothing, or a plain confirmation (RTL, Land, Loiter and Brake never ask). */
+  modeConfirmation(): 'none' | 'plain'
+}
+
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
 export interface CommandContext {
   /** Goes to a route. */
@@ -123,6 +152,8 @@ export interface CommandContext {
   dialogs: DialogFacts
   /** How the commands have been used. */
   usage: UsageFacts
+  /** What the user chose about confirmations. */
+  preferences: PreferenceFacts
   /** Files: what a command may ask to be opened. */
   files: FileFacts
   /** Asks the user to confirm (the one route for dangerous actions); false for "no" and for Escape. */

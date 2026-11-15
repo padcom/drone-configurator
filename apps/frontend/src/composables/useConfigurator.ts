@@ -363,6 +363,10 @@ function startSetup(client: BackendClient, vehicle: Vehicle): SetupModel {
     if (next.state !== 'connected' || next.resumed !== true) {
       setup.reset()
     }
+    // The flight controls name the modes of the vehicle's kind: they are read as soon as there is a vehicle.
+    if (next.state === 'connected') {
+      void setup.loadModes()
+    }
   })
 
   return setup

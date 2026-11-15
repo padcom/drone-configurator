@@ -651,6 +651,26 @@
   "language": {
     "label": "Lingua"
   },
+  "arming": {
+    "arm": {
+      "accepted": "{vehicle} ha accettato l'armamento. Si mostrerà armato quando lo comunica.",
+      "refused": "{vehicle} ha rifiutato di armarsi.",
+      "unsupported": "{vehicle} non supporta l'armamento da qui.",
+      "noAnswer": "Nessuna risposta da {vehicle}. Potrebbe essersi armato: osserva lo stato che comunica. Il comando non viene inviato di nuovo."
+    },
+    "disarm": {
+      "accepted": "{vehicle} ha accettato il disarmo. Si mostrerà disarmato quando lo comunica.",
+      "refused": "{vehicle} ha rifiutato di disarmarsi.",
+      "unsupported": "{vehicle} non supporta il disarmo da qui.",
+      "noAnswer": "Nessuna risposta da {vehicle}. Potrebbe essersi disarmato: osserva lo stato che comunica. Il comando non viene inviato di nuovo."
+    },
+    "mode": {
+      "accepted": "{vehicle} ha accettato il cambio. Mostrerà la modalità che comunica.",
+      "refused": "{vehicle} ha rifiutato il cambio di modalità.",
+      "unsupported": "{vehicle} non conosce quella modalità.",
+      "noAnswer": "Nessuna risposta da {vehicle}. La modalità che comunica è quella in cui si trova. Il comando non viene inviato di nuovo."
+    }
+  },
   "settings": {
     "metadata": {
       "title": "Metadati dei parametri",
@@ -667,6 +687,13 @@
     "groupsHelp": "Mostra l'elenco dei gruppi e le stelle dei preferiti. I tuoi preferiti vengono conservati mentre è disattivato.",
     "notify": "Mostra una notifica quando un comando viene eseguito",
     "notifyHelp": "Ogni comando eseguito, dalla tavolozza, da un tasto o da un pulsante, dice il suo nome in una breve notifica. Per il debug.",
+    "flight": {
+      "title": "Controlli di volo",
+      "modeConfirm": "Prima di cambiare la modalità di volo di un veicolo armato",
+      "modeConfirmHelp": "RTL, Land, Loiter e Brake non chiedono mai: lì il ritardo è il pericolo. A un veicolo disarmato non si chiede mai.",
+      "plain": "Chiedi conferma (consigliato)",
+      "none": "Non chiedere"
+    },
     "map": {
       "title": "Mappa",
       "privacy": "Mentre la mappa è mostrata, l'app chiede a un server di tessere quelle dell'area sullo schermo. Il server conosce quell'area, il tuo indirizzo IP e questo User-Agent: {agent}. Non è inviato altro: né la posizione del veicolo né un nome.",
@@ -1136,6 +1163,14 @@
       }
     },
     "reason": {
+      "alreadyArmed": "Il veicolo è già armato.",
+      "notArmed": "Il veicolo non è armato.",
+      "busyVehicle": "È in corso altro: un comando precedente, un'operazione su parametri o log, una calibrazione, un test dei motori o un riavvio. Riprova quando è finito.",
+      "noModes": "Le modalità di volo del veicolo non sono ancora note.",
+      "noSuchMode": "Questo veicolo non ha la modalità {mode}.",
+      "modeRefused": "Il veicolo non ha quella modalità.",
+      "alreadyInMode": "Il veicolo è già in {mode}.",
+      "modesUnsupported": "Le modalità di volo si cambiano solo su un ArduPilot.",
       "logBusy": "Un log è in lettura o in importazione",
       "noParameters": "Non ci sono ancora parametri.",
       "busy": "Si stanno scrivendo o scaricando dei parametri, oppure un riavvio è già in corso.",
@@ -1152,6 +1187,36 @@
       }
     },
     "vehicle": {
+      "arm": {
+        "label": "Arma il veicolo",
+        "keywords": "avvia motori eliche armare",
+        "title": "Arma il veicolo",
+        "what": "I motori potranno girare. Il veicolo esegue i propri controlli prima dell'armamento e rifiuta se uno fallisce: i motivi sono mostrati. Controlla che le eliche siano libere e la zona sia sicura.",
+        "button": "Tieni premuto per armare"
+      },
+      "disarm": {
+        "label": "Disarma il veicolo",
+        "keywords": "ferma motori disarmare",
+        "title": "Disarma il veicolo",
+        "what": "I motori si fermano e non possono girare. Un veicolo in volo rifiuta il disarmo.",
+        "button": "Tieni premuto per disarmare"
+      },
+      "mode": {
+        "stabilize": "Modalità di volo: STABILIZE",
+        "alt_hold": "Modalità di volo: ALT_HOLD",
+        "loiter": "Modalità di volo: LOITER",
+        "poshold": "Modalità di volo: POSHOLD",
+        "auto": "Modalità di volo: AUTO",
+        "guided": "Modalità di volo: GUIDED",
+        "rtl": "Modalità di volo: RTL",
+        "land": "Modalità di volo: LAND",
+        "brake": "Modalità di volo: BRAKE",
+        "keywords": "modalità di volo cambio volare",
+        "title": "Cambia la modalità di volo in {mode}",
+        "what": "Cambia la modalità di volo del veicolo armato in {mode}. Il suo comportamento cambia subito.",
+        "whatAuto": "AUTO avvia la missione del veicolo armato. Il suo comportamento cambia subito.",
+        "button": "Passa a {mode}"
+      },
       "reboot": {
         "accepted": "Il veicolo {vehicle} si sta riavviando…",
         "refused": "Il veicolo {vehicle} ha rifiutato il riavvio.",

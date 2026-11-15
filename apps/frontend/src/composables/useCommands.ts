@@ -15,6 +15,7 @@ import { ParameterProvider } from '@/lib/commands/parameters'
 import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/snapshots'
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
+import { ArmVehicle, DisarmVehicle, flightModeCommands } from '@/lib/commands/arming'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS, armedOf } from '@/lib/app/armed'
 import { pageLanguage, say, sayEnglish } from '@/i18n/say'
@@ -22,6 +23,7 @@ import { toggleUnlessCovered } from './useCommandPalette'
 import { useConfigurator } from './useConfigurator'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
+import { useModeConfirmation } from './useModeConfirmation'
 import { useFavourites } from './favourites'
 import { useParamGroup } from './useParamGroup'
 import { useParamSearchIndex } from './useParamSearchIndex'
@@ -40,6 +42,9 @@ function makeRegistry(): CommandRegistry {
   goToScreens().forEach(command => registry.register(command))
   goToSections().forEach(command => registry.register(command))
   registry.register(new RebootFlightController())
+  registry.register(new ArmVehicle())
+  registry.register(new DisarmVehicle())
+  flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
     new ShowPalette(),
@@ -73,7 +78,7 @@ export function useCommands(): CommandRegistry {
  * @returns the facts
  */
 function vehicleFacts(): VehicleFacts {
-  const { fields, staged, vehicle } = useConfigurator()
+  const { fields, setup, staged, vehicle } = useConfigurator()
   const armed = () => armedOf(fields.telemetry.value)
   const downloading = () => (fields.list.value === 'loading' ? 'downloading' : null)
   const busy = () => (staged.writing.value ? 'writing' : downloading())
@@ -83,6 +88,12 @@ function vehicleFacts(): VehicleFacts {
     armed,
     busy,
     reboot: () => vehicle.reboot(),
+    arm: () => vehicle.arm(),
+    disarm: () => vehicle.disarm(),
+    setMode: mode => vehicle.setMode(mode),
+    prearm: () => vehicle.prearm(),
+    modes: () => setup.modes.value,
+    mode: () => fields.telemetry.value?.mode,
     disconnect: () => void vehicle.disconnect(),
   }
 }
@@ -211,6 +222,7 @@ export function useCommandContext(): CommandContext {
   const toasts = useToasts()
   const { confirmWith } = useConfigurator()
   const { recent } = useCommandUsage()
+  const { level: modeConfirmation } = useModeConfirmation()
 
   return {
     navigate: async path => {
@@ -223,6 +235,7 @@ export function useCommandContext(): CommandContext {
     params: paramsFacts(),
     dialogs: dialogFacts(),
     usage: { recent: () => recent.value },
+    preferences: { modeConfirmation: () => modeConfirmation.value },
     files: fileFacts(),
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),

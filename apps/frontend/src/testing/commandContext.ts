@@ -1,7 +1,8 @@
 // A command context for tests: the vehicle's facts are plain values to set, and everything a command does to the outside (a
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
 import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
-import type { Connection } from '@/generated/app'
+import type { ArmingResult, Connection, VehicleModes } from '@/generated/app'
+import { COPTER_MODES } from '@/mock/fixtures'
 import type { Metadata } from '@/lib/params/metadata'
 import { indexFor } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
@@ -22,6 +23,15 @@ export interface Fake {
     path: string
     /** When set, `vehicle.reboot` rejects with it (the backend's refusal, or a failure). */
     rebootError?: unknown
+    /** What the vehicle answers to an arm, a disarm, a mode change and a run of the pre-arm checks. */
+    armingResult: ArmingResult
+    /** When set, those reject with it (the backend's refusal, or a failure). */
+    armingError?: unknown
+    /** The modes of the vehicle's kind (null: not read yet), and the one it is in. */
+    modes: VehicleModes | null
+    mode?: string
+    /** What the user chose about asking before a mode change of an armed vehicle. */
+    modeConfirmation: 'none' | 'plain'
     /** How many parameters the list has. */
     paramCount: number
     /** Whether the parameters are held by a write or another job. */
@@ -48,6 +58,8 @@ export interface Fake {
     toast: ToastInput[]
     /** One entry per call to `vehicle.reboot`: the arguments it got (always none). */
     reboot: unknown[][]
+    /** One entry per command sent to the vehicle: `arm`, `disarm`, `prearm`, `mode N`. */
+    sent: string[]
     /** One entry per call to `vehicle.disconnect`. */
     disconnect: string[]
     /** One entry per download of the parameters that was asked for. */
@@ -70,9 +82,25 @@ const DEFAULT_FACTS: Fake['facts'] = {
   busy: null,
   path: '/flight',
   rebootResult: { result: 'accepted' },
+  armingResult: { result: 'accepted', messages: [] },
+  modes: { kind: 'copter', modes: COPTER_MODES },
+  modeConfirmation: 'plain',
   paramCount: 12,
   paramsBusy: false,
   recent: [],
+}
+
+/**
+ * A command sent to the vehicle of a fake: recorded, and answered as the fake says.
+ *
+ * @param fake the fake
+ * @param what what was sent
+ * @returns what the vehicle said, or a rejection
+ */
+function sentOf(fake: Fake, what: string): Promise<ArmingResult> {
+  fake.calls.sent.push(what)
+
+  return fake.facts.armingError === undefined ? Promise.resolve(fake.facts.armingResult) : Promise.reject(fake.facts.armingError)
 }
 
 /**
@@ -93,6 +121,12 @@ function vehicleOf(fake: Fake): VehicleFacts {
 
       return rebootError === undefined ? Promise.resolve(rebootResult) : Promise.reject(rebootError)
     },
+    arm: () => sentOf(fake, 'arm'),
+    disarm: () => sentOf(fake, 'disarm'),
+    setMode: mode => sentOf(fake, `mode ${mode}`),
+    prearm: () => sentOf(fake, 'prearm'),
+    modes: () => fake.facts.modes,
+    mode: () => fake.facts.mode,
     disconnect: () => void fake.calls.disconnect.push('disconnect'),
   }
 }
@@ -103,9 +137,10 @@ function vehicleOf(fake: Fake): VehicleFacts {
  * @param fake the fake
  * @returns the three parts
  */
-function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage'> {
+function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage' | 'preferences'> {
   return {
     usage: { recent: () => fake.facts.recent },
+    preferences: { modeConfirmation: () => fake.facts.modeConfirmation },
     files: {
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
@@ -137,6 +172,7 @@ function noCalls(): Fake['calls'] {
     confirm: [],
     toast: [],
     reboot: [],
+    sent: [],
     disconnect: [],
     download: [],
     snapshot: [],
