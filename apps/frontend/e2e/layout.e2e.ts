@@ -77,6 +77,7 @@ interface Probe {
   portRows: number
   drawingBeside: boolean
   outputsBeside: boolean
+  labelled: boolean
 }
 
 /** The helpers of the probe, in the page: where a box scrolls to its end, and how much room it has for a focus outline. */
@@ -110,7 +111,13 @@ const HELPERS = `
     const outputs = document.querySelector('.setup-motors-outputs')
     const beside = (left, right) =>
       !left || !right || right.getBoundingClientRect().left >= left.getBoundingClientRect().right - 1
-    return { portRows: new Set(tops).size || 1, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs) }
+    const shown = element => element && getComputedStyle(element).display !== 'none'
+    const label = document.querySelector('.setup-port-label')
+    const head = document.querySelector('.setup-ports-head')
+    // the heads or the labels of the fields are seen, one or the other
+    const labelled = !label || Boolean(shown(label)) !== Boolean(shown(head))
+    const portRows = new Set(tops).size || 1
+    return { portRows, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs), labelled }
   }
   // what lies beyond the right edge of a column that never scrolls sideways
   const sideways = box => {
@@ -234,6 +241,7 @@ function facts(page: string, seen: Probe, size: { width: number, height: number 
     sideways: seen.sideways,
     // (the list of the pages scrolls by itself only in a window too short for it: below 600 px)
     listScrolls: size.height >= 600 && seen.listScrolls,
+    labelled: seen.labelled,
     ...wide(seen, size.width),
   }
 }
@@ -261,6 +269,7 @@ for (const size of SIZES) {
         portRows: 1,
         drawingBeside: true,
         outputsBeside: true,
+        labelled: true,
         listScrolls: false,
       })
       scrolled += seen.scrollWant > 0 ? 1 : 0

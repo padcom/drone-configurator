@@ -12,7 +12,8 @@
         {{ t('setup.serial.mayCut', { ports: cutting.join(', ') }) }}
       </Banner>
       <!-- A row for each port: its protocol, its speed and its options (the names of the bits are the metadata's), side by side
-           when the column has room for the three; the heads are for the eye (each field has its own label). -->
+           when the column has room for the three, with the heads above them; when it has not, the heads are gone and each
+           field has its own short label before it (one or the other is seen, never both). -->
       <div v-if="ports.length > 0" class="setup-ports-head" aria-hidden="true">
         <span>{{ t('setup.serial.head.port') }}</span>
         <span>{{ t('setup.serial.head.protocol') }}</span>
@@ -22,6 +23,7 @@
       <ul class="setup-ports">
         <li v-for="port in ports" :key="port" class="setup-port" :data-port="port">
           <span class="setup-port-name">{{ t('setup.serial.port', { n: port }) }}</span>
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.protocol') }}</span>
           <EnumField
             :model-value="panel.value(portParams(port).protocol) ?? -1"
             :options="protocols"
@@ -29,6 +31,7 @@
             :disabled="panel.blocked.value !== null"
             @update:model-value="panel.set(portParams(port).protocol, $event)"
           />
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.baud') }}</span>
           <EnumField
             :model-value="panel.value(portParams(port).baud) ?? 0"
             :options="bauds"
@@ -36,6 +39,7 @@
             :disabled="panel.blocked.value !== null"
             @update:model-value="panel.set(portParams(port).baud, $event)"
           />
+          <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.options') }}</span>
           <BitsCell
             :panel="panel"
             :id="portParams(port).options"

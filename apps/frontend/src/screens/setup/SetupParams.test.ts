@@ -347,6 +347,14 @@ it('does the same after the write of the options of a MAVLink port, and for SERI
   expect(wrapper.get('#setup-serial-cut-after').text()).toContain('Serial 0, 1 will be lost')
 })
 
+it('has a short label before each field of a port, for when the heads above the columns are not shown', async () => {
+  const { wrapper } = await page(SetupSerial)
+
+  const labels = wrapper.findAll('[data-port="2"] .setup-port-label').map(label => label.text())
+  expect(labels).toEqual(['Protocol', 'Speed', 'Options'])
+  expect(wrapper.get('.setup-ports-head').text()).toContain('Speed')
+})
+
 it('has a column of options, and a dash for a port the vehicle has no options for', async () => {
   const params = SETUP_PARAMS.filter(param => param.id !== 'SERIAL1_OPTIONS')
   const { wrapper } = await page(SetupSerial, { params })

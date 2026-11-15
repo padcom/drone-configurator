@@ -842,9 +842,19 @@
   letter-spacing: 0.09em;
 }
 
+.setup-port-label {
+  display: none;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 @container (width < 560px) {
   .setup-ports-head {
     display: none;
+  }
+
+  .setup-port-label {
+    display: block;
   }
 
   .setup-ports .setup-port {
