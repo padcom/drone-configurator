@@ -422,9 +422,18 @@
   overflow-wrap: anywhere;
 }
 
+/* A screen has a margin round it (frame.css), which a height of 100% would add to the area's: the area is a column and the screen
+   takes what is left of it, as the Setup and Tune pages do, so the area itself never scrolls. */
 @media (width >= 1000px) {
+  .app-main:has(> .logs-fill) {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+  }
+
   .logs.logs-fill {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
   }
 
   .logs-fill .logs-replay {
