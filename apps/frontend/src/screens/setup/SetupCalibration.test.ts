@@ -11,6 +11,7 @@ import { i18n, setLanguage } from '@/i18n/i18n'
 import { SETUP_PARAMS, telemetryAt } from '@/mock/fixtures'
 import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import { createAppRouter } from '@/router'
+import { clearToasts, endToast, withCalibrationToasts } from '@/testing/calibrationToasts'
 import { feed } from '@/testing/testing'
 import SetupAccel from './SetupAccel.vue'
 import SetupCompass from './SetupCompass.vue'
@@ -18,6 +19,7 @@ import SetupCompass from './SetupCompass.vue'
 let mounted: VueWrapper | undefined
 
 afterEach(() => {
+  clearToasts()
   setLanguage('en')
   mounted?.unmount()
   mounted = undefined
@@ -58,7 +60,7 @@ async function page(component: Component, more: MockOptions = {}): Promise<Rig> 
   const router = createAppRouter(createMemoryHistory(), () => 0)
   await router.push('/setup/home')
   await router.isReady()
-  mounted = mount(component, { global: { plugins: [i18n, router] } })
+  mounted = mount(withCalibrationToasts(component), { global: { plugins: [i18n, router] } })
   await flushPromises()
 
   return { wrapper: mounted, handle, control }
@@ -72,6 +74,11 @@ async function page(component: Component, more: MockOptions = {}): Promise<Rig> 
  */
 function offsetX(handle: Rig['handle']): number | undefined {
   return handle.parameters.params.value.find(param => param.id === 'COMPASS_OFS_X')?.value
+}
+
+/** Waits until the toast of the end of a calibration is shown. */
+async function toldEnd(): Promise<void> {
+  await vi.waitFor(() => expect(endToast()).toBeDefined())
 }
 
 /**
@@ -131,10 +138,11 @@ it('walks through the six positions the vehicle asks for, and shows the values o
   const { wrapper } = await page(SetupAccel)
   await press(wrapper, 'setup-accel-start')
   await placeFrom(wrapper, 1, 6)
-  await seen(wrapper, '#calibration-result')
+  await toldEnd()
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('success')
-  expect(wrapper.get('#calibration-result').text()).toContain('Calibration done')
+  expect(endToast()?.severity).toBe('success')
+  expect(endToast()?.text).toContain('Calibration done')
+  expect(wrapper.find('#calibration-result').exists()).toBe(false)
   expect(wrapper.findAll('.setup-position.placed')).toHaveLength(6)
   expect(wrapper.get('#setup-accel-values').text()).toContain('INS_ACCOFFS_X0.12')
   expect(wrapper.get('#calibration-texts').text()).toContain('Calibration successful')
@@ -144,21 +152,22 @@ it('shows a failure as a failure, with the vehicle\'s words, and no values', asy
   const { wrapper } = await page(SetupAccel, { calibration: { intervalMs: 5, failAt: 2 } })
   await press(wrapper, 'setup-accel-start')
   await placeFrom(wrapper, 1, 2)
-  await seen(wrapper, '#calibration-result')
+  await toldEnd()
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('failed')
-  expect(wrapper.get('#calibration-result').text()).toContain('Calibration failed')
-  expect(wrapper.get('#calibration-texts').text()).toContain('Calibration FAILED')
+  expect(endToast()?.severity).toBe('error')
+  expect(endToast()?.text).toContain('Calibration failed')
+  // the vehicle's words are in the side panel, not in the toast
+  expect(wrapper.get('.setup-aside #calibration-texts').text()).toContain('Calibration FAILED')
+  expect(endToast()?.text).not.toContain('Calibration FAILED')
   expect(wrapper.find('#setup-accel-values').exists()).toBe(false)
-  expect(wrapper.find('#calibration-result').classes()).not.toContain('info')
 })
 
 it('sets the level with one press', async () => {
   const { wrapper } = await page(SetupAccel)
   await press(wrapper, 'setup-accel-level')
-  await seen(wrapper, '#calibration-result')
+  await toldEnd()
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('success')
+  expect(endToast()?.severity).toBe('success')
   expect(wrapper.get('#calibration-texts').text()).toContain('Trim OK')
   expect(wrapper.find('#setup-accel-values').exists()).toBe(false)
 })
@@ -169,7 +178,7 @@ it('cancels, and says it was cancelled', async () => {
   await seen(wrapper, '[data-position="1"].current')
   await press(wrapper, 'setup-accel-cancel')
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('cancelled')
+  expect(endToast()?.text).toContain('Calibration cancelled')
   expect(wrapper.get('#setup-accel-start').attributes('disabled')).toBeUndefined()
 })
 
@@ -227,7 +236,7 @@ it('shows no calibration as running when the link is lost', async () => {
   await flushPromises()
 
   expect(handle.calibration.running.value).toBe(false)
-  expect(wrapper.get('#calibration-result').text()).toContain('the link to the vehicle was lost')
+  expect(endToast()?.text).toContain('the link to the vehicle was lost')
 })
 
 it('runs the compass to its reports and keeps nothing until the user accepts', async () => {
@@ -256,7 +265,7 @@ it('keeps the results when they are accepted, replaces the old offsets, and offe
   await press(wrapper, 'setup-compass-accept')
   await seen(wrapper, '#setup-compass-kept')
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('success')
+  expect(endToast()?.severity).toBe('success')
   expect(wrapper.get('#setup-reboot').text()).toContain('Reboot')
   expect(offsetX(handle)).toBe(12.5)
 })
@@ -268,7 +277,7 @@ it('drops the results when they are discarded', async () => {
   await seen(wrapper, '#setup-compass-discard')
   await press(wrapper, 'setup-compass-discard')
 
-  expect(wrapper.get('#calibration-result').attributes('data-outcome')).toBe('cancelled')
+  expect(endToast()?.text).toContain('Calibration cancelled')
   expect(offsetX(handle)).toBe(old)
   expect(wrapper.find('.setup-compass').exists()).toBe(false)
   expect(wrapper.find('#setup-compass-kept').exists()).toBe(false)

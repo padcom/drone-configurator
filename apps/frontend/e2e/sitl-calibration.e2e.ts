@@ -6,6 +6,7 @@
 //
 // The checks go on from one another (one app, one connection): if the first fails, the rest fail for that reason.
 import { afterAll, beforeAll, expect, it } from 'vitest'
+import { endOf, waitForEnd } from './calibration-end'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
 import { type Sitl, startSitl } from './sitl'
@@ -300,21 +301,14 @@ async function placeFrom(position: number): Promise<void> {
   await placeFrom(position + 1)
 }
 
-/**
- * How the last calibration ended, as the page says it.
- *
- * @returns `success`, `failed`, `cancelled` or `refused`
- */
-const outcome = () => window().evaluate<string>(`document.querySelector('#calibration-result').getAttribute('data-outcome')`)
-
 async function calibratesTheAccelerometerInSixPositions(): Promise<void> {
   await openPage('accel')
   await pressWhenEnabled('setup-accel-start')
   await placeFrom(1)
-  await window().waitFor(`document.querySelector('#calibration-result') !== null`, 90_000)
+  const ended = await endOf(window(), 90_000)
   await vehicle().setServos([[5, 1000]])
 
-  expect(await outcome()).toBe('success')
+  expect(ended).toBe('success')
   expect(await window().text('#calibration-texts')).toContain('Calibration successful')
   expect(await window().evaluate<number>(`document.querySelectorAll('.setup-position.placed').length`)).toBe(6)
   // The vehicle's offsets changed (they were zero): the page shows what the vehicle has now, after its own success.
@@ -328,7 +322,7 @@ async function setsTheLevel(): Promise<void> {
   await pause(4000)
   await vehicle().setServos([[5, 1000]])
   await pressWhenEnabled('setup-accel-level')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'success'`, 60_000)
+  await waitForEnd(window(), 'success', 60_000)
 
   expect(await window().text('#calibration-texts')).toContain('Trim OK')
 }
@@ -344,9 +338,11 @@ async function calibratesTheCompassAndKeepsItOnlyWhenAccepted(): Promise<void> {
   expect(await window().evaluate<string>(`document.querySelector('[data-compass="0"]').getAttribute('data-compass')`)).toBe('0')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-compass-kept') === null`)).toBe(true)
   await window().click('#setup-compass-accept')
+  // (the toast first: a success is told for 6 s only)
+  const ended = await endOf(window(), 60_000)
   await window().waitFor(`document.querySelector('#setup-compass-kept') !== null`, 60_000)
 
-  expect(await outcome()).toBe('success')
+  expect(ended).toBe('success')
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-reboot') !== null`)).toBe(true)
 }
 
@@ -356,7 +352,7 @@ async function cancelsTheCompassWhenThePageIsLeft(): Promise<void> {
   await window().waitFor(`document.querySelector('[data-compass="0"]') !== null`, 90_000)
   await openPage('accel')
   await openPage('compass')
-  await window().waitFor(`document.querySelector('#calibration-result')?.getAttribute('data-outcome') === 'cancelled'`, 60_000)
+  await waitForEnd(window(), 'cancelled', 60_000)
 
   expect(await window().evaluate<boolean>(`document.querySelector('#setup-compass-accept') === null`)).toBe(true)
 }
