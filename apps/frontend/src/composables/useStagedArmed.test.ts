@@ -79,6 +79,14 @@ describe('the question of a write, and what the vehicle\'s armed state adds to i
     expect(questionFor(change)).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1 → 2')
   })
 
+  it('says that the feed-forward changes at once when the hover throttle moves by more than a quarter', () => {
+    const big = questionFor([{ id: 'MOT_THST_HOVER', from: 0.3, to: 0.4, tuning: true }])
+    const small = questionFor([{ id: 'MOT_THST_HOVER', from: 0.3, to: 0.35, tuning: true }])
+
+    expect(big).toContain('changes by more than a quarter')
+    expect(small).not.toContain('more than a quarter')
+  })
+
   it('does not say it for a tuning change, which has the hold', () => {
     expect(questionFor([{ id: 'ATC_RAT_RLL_P', from: 1, to: 2, tuning: true }], 'armed')).not.toContain('take effect now')
   })

@@ -148,6 +148,19 @@ function armedLine(changes: StagedChange[], state: ArmedWord): string[] {
 }
 
 /**
+ * The line for a hover throttle that is changed by more than a quarter of what it is: the throttle feed-forward changes at once.
+ *
+ * @param changes the changes to write
+ * @returns the line, or none
+ */
+function hoverStepLine(changes: StagedChange[]): string[] {
+  const steps = changes.filter(change => change.id === 'MOT_THST_HOVER' && change.from > 0)
+  const big = steps.some(change => Math.abs(change.to - change.from) > change.from / 4)
+
+  return big ? [say('question.hoverStep')] : []
+}
+
+/**
  * What the user is asked before the changes are written: how many, then a line for each change with the value it has and the
  * value it is given (this question is the gate: what is queued, "1500 → 1" included, is said here), and what the metadata finds
  * unusual about it.
@@ -163,7 +176,7 @@ export function questionFor(changes: StagedChange[], state: ArmedWord = 'disarme
   const note = changes.some(change => isCalibration(change.id)) ? [say('params.initial.includesCalibration')] : []
   const sentence = say('question.write', { count: changes.length }, changes.length)
 
-  return [sentence, ...armedLine(changes, state), ...note, ...lines].join('\n')
+  return [sentence, ...armedLine(changes, state), ...hoverStepLine(changes), ...note, ...lines].join('\n')
 }
 
 /**

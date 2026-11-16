@@ -19,6 +19,7 @@
             :param="param"
             :bits="AUTOTUNE_AXES"
             :panel="panel"
+            :help="t('tune.axesNote')"
           />
           <div v-else-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
             <div class="tune-head">
@@ -35,7 +36,15 @@
             />
             <p class="muted tune-was">{{ wasOf(param.id) }}</p>
           </div>
-          <TuneSlider v-else :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
+          <template v-else>
+            <TuneSlider :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
+            <div v-if="param.id === 'MOT_THST_HOVER' && learning" class="tune-hover-learning" data-testid="hover-learning">
+              <p class="muted">{{ t('tune.hoverLearning') }}</p>
+              <Button :disabled="panel.blocked.value !== null || !hasLearn" @click="panel.set('MOT_HOVER_LEARN', 0)">
+                {{ t('tune.hoverDisable') }}
+              </Button>
+            </div>
+          </template>
         </template>
       </section>
       <p v-if="missing.length > 0" id="tune-more-missing" class="muted">{{ t('tune.missing', { names: missing.join(', ') }) }}</p>
@@ -53,7 +62,7 @@
 // needs them there) and what the radio knob tunes (Radio knob). Same rules as the rate loop: the parameter's name
 // and "was X" on each, only a parameter the vehicle has is a row, a value beyond the hard limit stops the write, and the one
 // question (or the hold, when the vehicle is armed) names every parameter.
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
@@ -73,6 +82,10 @@ const handle = useConfigurator()
 const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'hover', 'autotune', 'knob']
 const ids = TUNE_PARAMS.filter(param => groups.includes(param.group)).map(param => param.id)
 const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
+// While the hover learning is on (or not known), the vehicle pulls the hover throttle towards what it needs: a number written
+// there is not kept (AP_MotorsMulticopter::update_throttle_hover).
+const hasLearn = computed(() => !missing.value.includes('MOT_HOVER_LEARN'))
+const learning = computed(() => panel.value('MOT_HOVER_LEARN') !== 0)
 
 /**
  * The parameters of a group that the vehicle has.

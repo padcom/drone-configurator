@@ -1179,6 +1179,7 @@
   },
   "question": {
     "armed": "The vehicle is armed: changes take effect now.",
+    "hoverStep": "The hover throttle changes by more than a quarter: the throttle feed-forward changes at once.",
     "unknown": "The vehicle's state is not known (it may be armed): changes take effect now.",
     "importLarge": "This file is large ({size}): {name}. Copy it into the library? It takes a while and as much disk space as the file has.",
     "write": "Write {count} parameter to the vehicle? | Write {count} parameters to the vehicle?",
@@ -2170,6 +2171,9 @@
     },
     "missing": "Not on this vehicle: {names}.",
     "backToInitial": "Put back the initial values",
+    "hoverLearning": "While learning is on, the vehicle changes this value itself: a number written here is not kept. Set learning to Disabled first if you mean it to stay.",
+    "hoverDisable": "Disable learning",
+    "axesNote": "Set before AutoTune is engaged: changing it while AutoTune runs changes which axes it goes on to.",
     "filters": {
       "summary": "The gyro filter and the first harmonic notch. The gyro cutoff and the notch's centre, bandwidth and attenuation take effect in flight. The notch's switch, tracking mode, reference, harmonics and options are read only when the vehicle starts: they are written while the vehicle is disarmed, and take effect after a restart.",
       "armed": "Armed: only the gyro cutoff and the notch's centre, bandwidth and attenuation can be changed, and they apply in flight. The rest take effect only after a restart and are written while disarmed.",

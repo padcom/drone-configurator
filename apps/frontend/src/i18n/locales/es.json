@@ -1179,6 +1179,7 @@
   },
   "question": {
     "armed": "El vehículo está armado: los cambios surten efecto ahora.",
+    "hoverStep": "El acelerador de estacionario cambia en más de una cuarta parte: la acción anticipada del acelerador cambia de golpe.",
     "unknown": "No se conoce el estado del vehículo (puede estar armado): los cambios surten efecto ahora.",
     "importLarge": "Este archivo es grande ({size}): {name}. ¿Copiarlo en la biblioteca? Tarda un rato y ocupa tanto espacio en disco como el archivo.",
     "write": "¿Escribir {count} parámetro en el vehículo? | ¿Escribir {count} parámetros en el vehículo?",
@@ -2170,6 +2171,9 @@
     },
     "missing": "No está en este vehículo: {names}.",
     "backToInitial": "Volver a los valores iniciales",
+    "hoverLearning": "Mientras el aprendizaje está activo, el vehículo cambia este valor por sí mismo: un número escrito aquí no se conserva. Pon el aprendizaje en Disabled antes si quieres que se quede.",
+    "hoverDisable": "Desactivar el aprendizaje",
+    "axesNote": "Se fija antes de activar AutoTune: cambiarlo mientras AutoTune funciona cambia los ejes con los que sigue.",
     "filters": {
       "summary": "El filtro del giroscopio y el primer notch armónico. La frecuencia de corte del giroscopio y el centro, el ancho de banda y la atenuación del notch actúan en vuelo. El interruptor, el modo de seguimiento, la referencia, los armónicos y las opciones del notch se leen solo al arrancar el vehículo: se escriben con el vehículo desarmado y actúan tras un reinicio.",
       "armed": "Armado: solo se pueden cambiar la frecuencia de corte del giroscopio y el centro, el ancho de banda y la atenuación del notch, y actúan en vuelo. Lo demás actúa solo tras un reinicio y se escribe con el vehículo desarmado.",

@@ -1179,6 +1179,7 @@
   },
   "question": {
     "armed": "Pojazd jest uzbrojony: zmiany działają od razu.",
+    "hoverStep": "Gaz zawisu zmienia się o więcej niż jedną czwartą: wyprzedzenie gazu zmienia się od razu.",
     "unknown": "Stan pojazdu nie jest znany (może być uzbrojony): zmiany działają od razu.",
     "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",
     "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
@@ -2170,6 +2171,9 @@
     },
     "missing": "Brak w tym pojeździe: {names}.",
     "backToInitial": "Przywróć wartości początkowe",
+    "hoverLearning": "Dopóki uczenie jest włączone, pojazd sam zmienia tę wartość: liczba wpisana tutaj nie zostaje. Jeśli ma zostać, najpierw ustaw uczenie na Disabled.",
+    "hoverDisable": "Wyłącz uczenie",
+    "axesNote": "Ustaw przed włączeniem AutoTune: zmiana w trakcie jego pracy zmienia osie, na których będzie dalej pracował.",
     "filters": {
       "summary": "Filtr żyroskopu i pierwszy notch harmoniczny. Częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha działają w locie. Włącznik, tryb śledzenia, odniesienie, harmoniczne i opcje notcha są czytane tylko przy starcie pojazdu: zapisuje się je przy rozbrojonym pojeździe, a działają po restarcie.",
       "armed": "Uzbrojony: zmienić można tylko częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha, i działają w locie. Reszta działa dopiero po restarcie i jest zapisywana przy rozbrojonym pojeździe.",
