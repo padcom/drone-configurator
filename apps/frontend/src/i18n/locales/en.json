@@ -2266,5 +2266,179 @@
     "actions": {
       "title": "Guided control"
     }
+  },
+  "plan": {
+    "group": "Plan",
+    "main": "The route",
+    "aside": "The items of the plan",
+    "name": {
+      "label": "Plan name",
+      "placeholder": "Untitled plan"
+    },
+    "status": "Offline plan: it is not on a vehicle.",
+    "command": {
+      "addWaypoint": {
+        "label": "Add a waypoint",
+        "keywords": "plan mission add new waypoint point item"
+      },
+      "duplicate": {
+        "label": "Duplicate the item",
+        "keywords": "plan mission copy duplicate clone item"
+      },
+      "delete": {
+        "label": "Delete the item",
+        "keywords": "plan mission delete remove item"
+      },
+      "moveUp": {
+        "label": "Move the item up",
+        "keywords": "plan mission move up earlier item"
+      },
+      "moveDown": {
+        "label": "Move the item down",
+        "keywords": "plan mission move down later item"
+      },
+      "undo": {
+        "label": "Undo",
+        "keywords": "plan mission undo back revert"
+      },
+      "redo": {
+        "label": "Redo",
+        "keywords": "plan mission redo again forward"
+      }
+    },
+    "reason": {
+      "notOnPlan": "Open the Plan page first: this works on the plan that is shown there.",
+      "noItemSelected": "Select an item of the plan first.",
+      "planFull": "The plan has 1000 items, the most the page takes.",
+      "cannotMove": "The item is already at that end of the list.",
+      "nothingToUndo": "There is nothing to undo.",
+      "nothingToRedo": "There is nothing to redo."
+    },
+    "sketch": {
+      "label": "The route of the plan",
+      "empty": "Add a waypoint and give it a place: the route is drawn here.",
+      "scale": "{metres} m"
+    },
+    "stats": {
+      "label": "The plan in numbers",
+      "items": "Items",
+      "distance": "Distance",
+      "highest": "Highest",
+      "note": "Distance is the length of the route as drawn through the places that are set, not a flight length. Highest is shown when all altitudes are measured from the same thing."
+    },
+    "list": {
+      "label": "Items of the plan",
+      "other": "Add another command…",
+      "emptyTitle": "No items yet",
+      "emptyHelp": "Add a waypoint or another command, then give it a place."
+    },
+    "detail": {
+      "none": "The selected item",
+      "empty": "Select an item to edit it.",
+      "title": "Item {number}: {name}",
+      "lat": "Latitude (degrees)",
+      "lon": "Longitude (degrees)",
+      "alt": "Altitude (m)",
+      "frame": "The altitude is above",
+      "hereHint": "Leave the place empty to use where the vehicle is when it gets here.",
+      "keeps": "The vehicle keeps {value}.",
+      "keepsAlt": "The vehicle keeps {value} m.",
+      "placeNeeded": "A place is needed: without one the vehicle uses where it is."
+    },
+    "frame": {
+      "home": "home",
+      "sea": "sea level",
+      "terrain": "the terrain"
+    },
+    "cmd": {
+      "takeoff": "Take off",
+      "waypoint": "Waypoint",
+      "loiterUnlimited": "Loiter, no end",
+      "loiterTurns": "Loiter, turns",
+      "loiterTime": "Loiter, time",
+      "returnHome": "Return home (RTL)",
+      "land": "Land",
+      "delay": "Wait",
+      "jump": "Jump to an item",
+      "speed": "Change speed",
+      "setHome": "Set home",
+      "relay": "Relay",
+      "servo": "Servo",
+      "roi": "Point of interest (ROI)",
+      "camera": "Camera control",
+      "cameraDistance": "Camera by distance"
+    },
+    "field": {
+      "yaw": "Yaw",
+      "holdTime": "Hold",
+      "radius": "Radius",
+      "direction": "Direction",
+      "turns": "Turns",
+      "exit": "Leaves from",
+      "loiterTime": "Time",
+      "delay": "Wait",
+      "jumpTo": "Item to go on from",
+      "jumpTimes": "Times (0 is for ever)",
+      "speedType": "Speed of",
+      "speed": "Speed",
+      "throttle": "Throttle",
+      "homeFrom": "Home is",
+      "relay": "Relay number",
+      "relayState": "On",
+      "channel": "Servo output",
+      "pwm": "Pulse",
+      "roiMode": "Looks at",
+      "cameraSession": "Session",
+      "cameraZoom": "Zoom",
+      "cameraStep": "Zoom step",
+      "cameraFocus": "Focus lock",
+      "cameraEvery": "A photo every",
+      "cameraNow": "One at once"
+    },
+    "choice": {
+      "clockwise": "Clockwise",
+      "counterClockwise": "Counter-clockwise",
+      "yes": "Yes",
+      "no": "No",
+      "exitCentre": "The centre",
+      "exitTangent": "The tangent",
+      "groundSpeed": "The ground",
+      "airSpeed": "The air",
+      "givenPlace": "The place given here",
+      "whereItIs": "Where the vehicle is",
+      "roiNone": "Nothing (ends it)",
+      "roiNext": "The next item",
+      "roiPlace": "The place given here"
+    },
+    "problem": {
+      "label": "What is wrong with the plan",
+      "none": "No problems",
+      "errors": "Errors: {count}",
+      "warnings": "Warnings: {count}",
+      "item": "Item {number}: {words}",
+      "tooMany": "The plan has more than {max} items.",
+      "overVehicle": "The vehicle takes {max} items at the most: the plan has more.",
+      "noTakeoff": "The first item that flies is not a takeoff: the vehicle must already be flying when the mission starts.",
+      "empty": "The plan is empty",
+      "noPlace": "The place is not set.",
+      "atZero": "The place is 0, 0: the vehicle takes it for where the item before it is.",
+      "zeroAltitude": "An altitude of 0 above home: the vehicle takes it for the altitude of the item before it.",
+      "altHigh": "The altitude is more than {max} m.",
+      "altNegative": "The altitude is below home.",
+      "takeoffAltitude": "A takeoff needs an altitude above 0.",
+      "offGlobe": "The place is off the globe.",
+      "noAltitude": "The altitude is not set.",
+      "number": "{name}: type a number.",
+      "low": "{name}: at least {min}.",
+      "high": "{name}: at most {max}.",
+      "jumpTarget": "The jump needs the number of an item of the plan."
+    },
+    "edit": {
+      "add": "Add an item",
+      "remove": "Delete an item",
+      "move": "Move an item",
+      "change": "Change an item",
+      "rename": "Rename the plan"
+    }
   }
 }

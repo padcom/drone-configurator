@@ -31,6 +31,13 @@
     },
     {
       "when": [
+        "apps/frontend/src/components/plan/**", "apps/frontend/src/lib/plan/**", "apps/frontend/src/screens/Plan.vue",
+        "apps/frontend/src/composables/usePlan.ts", "apps/frontend/src/assets/styles/plan.css"
+      ],
+      "specs": ["plan.e2e.ts", "plan-keys.e2e.ts", "palette.e2e.ts"]
+    },
+    {
+      "when": [
         "apps/frontend/src/components/setup/**", "apps/frontend/src/lib/setup/**", "apps/frontend/src/screens/{Setup.vue,setup/**}",
         "apps/frontend/src/composables/{useSetup,useSetupStatus,useCalibration}.ts", "apps/frontend/src/state/frame.ts",
         "apps/backend/{vehicleinfo,calibration}.pi"

@@ -139,13 +139,16 @@ it('gives each screen that is not built its own component, so that what it says 
   expect(wrapper.get('main .setup > h2').text()).toBe('Setup')
 })
 
-it('says that a screen that is not built yet is not available, under its own name', async () => {
+it('shows the Plan page, with its own name field and no "not available" about it', async () => {
   const { wrapper } = await shellAt('/flight')
 
   await follow(wrapper, 'Plan')
-  expect(wrapper.text()).toContain('Plan is not available yet.')
+  await flushPromises()
+
+  expect(wrapper.find('#plan-name').exists()).toBe(true)
+  expect(wrapper.text()).not.toContain('is not available yet')
   await follow(wrapper, 'Flight data')
-  expect(wrapper.text()).not.toContain('Plan is not available yet.')
+  expect(wrapper.find('#plan-name').exists()).toBe(false)
 })
 
 it('keeps a screen that was shown, as it was, while another is', async () => {

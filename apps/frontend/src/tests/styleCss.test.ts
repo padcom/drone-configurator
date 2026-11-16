@@ -104,8 +104,21 @@ it('keeps the header of the table in view while the rows scroll', () => {
   expect(params).toMatch(/\.param-scroll thead th\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u)
 })
 
-it('lets the Parameters screen fill the area of the frame, like Fly', () => {
-  expect(frame).toMatch(/\.app-main > :not\(\.fly, \.params-layout\)\s*\{\s*margin:/u)
+it('lets the Parameters screen fill the area of the frame, like Fly and Plan', () => {
+  expect(frame).toMatch(/\.app-main > :not\(\.fly, \.plan, \.params-layout\)\s*\{\s*margin:/u)
+})
+
+it('lays the Plan page out as a bar and two panes, and from 1000 px only the aside scrolls', () => {
+  const plan = sheet('plan.css')
+  const wide = plan.slice(plan.indexOf('@media (width >= 1000px)'))
+
+  expect(plan).toMatch(/\.plan\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;/u)
+  expect(plan).toMatch(/\.plan-body\s*\{[^}]*flex-wrap:\s*wrap;/u)
+  expect(wide).toMatch(/\.plan\s*\{\s*height:\s*100%;/u)
+  expect(wide).toMatch(/\.plan-body\s*\{\s*flex-wrap:\s*nowrap;/u)
+  expect(wide).toMatch(/\.plan-aside\s*\{[^}]*overflow-y:\s*auto;/u)
+  // (the route is a picture: nothing of the main pane scrolls)
+  expect(wide).not.toMatch(/\.plan-main\s*\{[^}]*overflow-y:\s*auto/u)
 })
 
 it('keeps the display and the cards of the Fly aside in place and scrolls only the messages list, from 1000 px', () => {

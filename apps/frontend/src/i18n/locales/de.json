@@ -2266,5 +2266,179 @@
     "actions": {
       "title": "Geführte Steuerung"
     }
+  },
+  "plan": {
+    "group": "Plan",
+    "main": "Die Route",
+    "aside": "Die Punkte des Plans",
+    "name": {
+      "label": "Name des Plans",
+      "placeholder": "Plan ohne Namen"
+    },
+    "status": "Offline-Plan: er ist nicht auf einem Fahrzeug.",
+    "command": {
+      "addWaypoint": {
+        "label": "Wegpunkt hinzufügen",
+        "keywords": "Plan Mission hinzufügen neu Wegpunkt Punkt Eintrag"
+      },
+      "duplicate": {
+        "label": "Eintrag duplizieren",
+        "keywords": "Plan Mission kopieren duplizieren Eintrag"
+      },
+      "delete": {
+        "label": "Eintrag löschen",
+        "keywords": "Plan Mission löschen entfernen Eintrag"
+      },
+      "moveUp": {
+        "label": "Eintrag nach oben",
+        "keywords": "Plan Mission verschieben nach oben früher Eintrag"
+      },
+      "moveDown": {
+        "label": "Eintrag nach unten",
+        "keywords": "Plan Mission verschieben nach unten später Eintrag"
+      },
+      "undo": {
+        "label": "Rückgängig",
+        "keywords": "Plan Mission rückgängig zurück"
+      },
+      "redo": {
+        "label": "Wiederholen",
+        "keywords": "Plan Mission wiederholen wiederherstellen vor"
+      }
+    },
+    "reason": {
+      "notOnPlan": "Öffnen Sie zuerst die Plan-Seite: das wirkt auf den Plan, der dort gezeigt wird.",
+      "noItemSelected": "Wählen Sie zuerst einen Eintrag des Plans.",
+      "planFull": "Der Plan hat 1000 Einträge, mehr nimmt die Seite nicht.",
+      "cannotMove": "Der Eintrag ist schon an diesem Ende der Liste.",
+      "nothingToUndo": "Es gibt nichts rückgängig zu machen.",
+      "nothingToRedo": "Es gibt nichts zu wiederholen."
+    },
+    "sketch": {
+      "label": "Die Route des Plans",
+      "empty": "Fügen Sie einen Wegpunkt hinzu und geben Sie ihm einen Ort: hier wird die Route gezeichnet.",
+      "scale": "{metres} m"
+    },
+    "stats": {
+      "label": "Der Plan in Zahlen",
+      "items": "Einträge",
+      "distance": "Strecke",
+      "highest": "Höchste",
+      "note": "Die Strecke ist die Länge der gezeichneten Route durch die gesetzten Orte, keine Flugstrecke. Die Höchste wird gezeigt, wenn alle Höhen vom selben Bezug gemessen sind."
+    },
+    "list": {
+      "label": "Einträge des Plans",
+      "other": "Anderen Befehl hinzufügen…",
+      "emptyTitle": "Noch keine Einträge",
+      "emptyHelp": "Fügen Sie einen Wegpunkt oder einen anderen Befehl hinzu und geben Sie ihm einen Ort."
+    },
+    "detail": {
+      "none": "Der gewählte Eintrag",
+      "empty": "Wählen Sie einen Eintrag, um ihn zu bearbeiten.",
+      "title": "Eintrag {number}: {name}",
+      "lat": "Breite (Grad)",
+      "lon": "Länge (Grad)",
+      "alt": "Höhe (m)",
+      "frame": "Die Höhe ist über",
+      "hereHint": "Lassen Sie den Ort leer, um den Ort zu nehmen, an dem das Fahrzeug dann ist.",
+      "keeps": "Das Fahrzeug behält {value}.",
+      "keepsAlt": "Das Fahrzeug behält {value} m.",
+      "placeNeeded": "Ein Ort ist nötig: ohne ihn nimmt das Fahrzeug, wo es gerade ist."
+    },
+    "frame": {
+      "home": "Home",
+      "sea": "dem Meeresspiegel",
+      "terrain": "dem Gelände"
+    },
+    "cmd": {
+      "takeoff": "Start",
+      "waypoint": "Wegpunkt",
+      "loiterUnlimited": "Kreisen, ohne Ende",
+      "loiterTurns": "Kreisen, Runden",
+      "loiterTime": "Kreisen, Zeit",
+      "returnHome": "Rückkehr (RTL)",
+      "land": "Landen",
+      "delay": "Warten",
+      "jump": "Zu einem Eintrag springen",
+      "speed": "Geschwindigkeit ändern",
+      "setHome": "Home setzen",
+      "relay": "Relais",
+      "servo": "Servo",
+      "roi": "Blickpunkt (ROI)",
+      "camera": "Kamerasteuerung",
+      "cameraDistance": "Kamera nach Strecke"
+    },
+    "field": {
+      "yaw": "Gieren",
+      "holdTime": "Halten",
+      "radius": "Radius",
+      "direction": "Richtung",
+      "turns": "Runden",
+      "exit": "Verlässt von",
+      "loiterTime": "Zeit",
+      "delay": "Warten",
+      "jumpTo": "Eintrag, ab dem es weitergeht",
+      "jumpTimes": "Mal (0 ist ewig)",
+      "speedType": "Geschwindigkeit über",
+      "speed": "Geschwindigkeit",
+      "throttle": "Gas",
+      "homeFrom": "Home ist",
+      "relay": "Relaisnummer",
+      "relayState": "Ein",
+      "channel": "Servo-Ausgang",
+      "pwm": "Impuls",
+      "roiMode": "Schaut auf",
+      "cameraSession": "Sitzung",
+      "cameraZoom": "Zoom",
+      "cameraStep": "Zoomschritt",
+      "cameraFocus": "Fokussperre",
+      "cameraEvery": "Ein Foto alle",
+      "cameraNow": "Eines sofort"
+    },
+    "choice": {
+      "clockwise": "Im Uhrzeigersinn",
+      "counterClockwise": "Gegen den Uhrzeigersinn",
+      "yes": "Ja",
+      "no": "Nein",
+      "exitCentre": "Der Mitte",
+      "exitTangent": "Der Tangente",
+      "groundSpeed": "Grund",
+      "airSpeed": "Luft",
+      "givenPlace": "Der hier angegebene Ort",
+      "whereItIs": "Wo das Fahrzeug ist",
+      "roiNone": "Nichts (beendet es)",
+      "roiNext": "Den nächsten Eintrag",
+      "roiPlace": "Den hier angegebenen Ort"
+    },
+    "problem": {
+      "label": "Was am Plan nicht stimmt",
+      "none": "Keine Probleme",
+      "errors": "Fehler: {count}",
+      "warnings": "Warnungen: {count}",
+      "item": "Eintrag {number}: {words}",
+      "tooMany": "Der Plan hat mehr als {max} Einträge.",
+      "overVehicle": "Das Fahrzeug nimmt höchstens {max} Einträge: der Plan hat mehr.",
+      "noTakeoff": "Der erste Eintrag, der fliegt, ist kein Start: das Fahrzeug muss beim Beginn der Mission schon fliegen.",
+      "empty": "Der Plan ist leer",
+      "noPlace": "Der Ort ist nicht gesetzt.",
+      "atZero": "Der Ort ist 0, 0: das Fahrzeug nimmt dafür den Ort des Eintrags davor.",
+      "zeroAltitude": "Eine Höhe von 0 über Home: das Fahrzeug nimmt dafür die Höhe des Eintrags davor.",
+      "altHigh": "Die Höhe ist größer als {max} m.",
+      "altNegative": "Die Höhe liegt unter Home.",
+      "takeoffAltitude": "Ein Start braucht eine Höhe über 0.",
+      "offGlobe": "Der Ort liegt nicht auf der Erde.",
+      "noAltitude": "Die Höhe ist nicht gesetzt.",
+      "number": "{name}: Geben Sie eine Zahl ein.",
+      "low": "{name}: mindestens {min}.",
+      "high": "{name}: höchstens {max}.",
+      "jumpTarget": "Der Sprung braucht die Nummer eines Eintrags des Plans."
+    },
+    "edit": {
+      "add": "Einen Eintrag hinzufügen",
+      "remove": "Einen Eintrag löschen",
+      "move": "Einen Eintrag verschieben",
+      "change": "Einen Eintrag ändern",
+      "rename": "Den Plan umbenennen"
+    }
   }
 }

@@ -201,32 +201,67 @@ it('has no button in the top bar: the palette is the command "Show command palet
   expect(wrapper.find('#palette-input').exists()).toBe(true)
 })
 
+const ALPHABETICAL = [
+  'Add a waypoint',
+  'Arm the vehicle',
+  'Change altitude',
+  'Connect to a vehicle…',
+  'Delete the item',
+  'Disarm the vehicle',
+  'Disconnect',
+  'Download parameters',
+  'Duplicate the item',
+  ...FLIGHT_MODE_LABELS,
+  'Go here',
+  'Load parameter metadata…',
+  'Load parameter snapshot…',
+  'Move the item down',
+  'Move the item up',
+  'Open log file…',
+  'Reboot flight controller',
+  'Redo',
+  'Review before arming',
+  'Save parameter snapshot…',
+  'Set home here',
+  ...SWITCH_LABELS,
+  ...SETUP_LABELS,
+  ...TUNE_LABELS,
+  'Take off',
+  'Undo',
+]
+
+// The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, Go here, nine modes, the
+// connection and the reboot, the parameters' and the logs'), by the group each is in, in the order of the list above.
+const GROUPS_OF_THE_FIRST = [
+  'Plan',
+  'Vehicle',
+  'Vehicle',
+  'Vehicle',
+  'Plan',
+  'Vehicle',
+  'Vehicle',
+  'Parameters',
+  'Plan',
+  ...FLIGHT_MODE_LABELS.map(() => 'Vehicle'),
+  'Vehicle',
+  'Parameters',
+  'Parameters',
+  'Plan',
+  'Plan',
+  'Logs',
+  'Vehicle',
+  'Plan',
+  'Vehicle',
+  'Parameters',
+  'Vehicle',
+]
+
 it('lists every command alphabetically by its label when none was run lately', async () => {
   const { wrapper } = await shellAt()
   ctrlP()
   await flushPromises()
 
-  expect(labels(wrapper)).toEqual([
-    'Arm the vehicle',
-    'Change altitude',
-    'Connect to a vehicle…',
-    'Disarm the vehicle',
-    'Disconnect',
-    'Download parameters',
-    ...FLIGHT_MODE_LABELS,
-    'Go here',
-    'Load parameter metadata…',
-    'Load parameter snapshot…',
-    'Open log file…',
-    'Reboot flight controller',
-    'Review before arming',
-    'Save parameter snapshot…',
-    'Set home here',
-    ...SWITCH_LABELS,
-    ...SETUP_LABELS,
-    ...TUNE_LABELS,
-    'Take off',
-  ])
+  expect(labels(wrapper)).toEqual(ALPHABETICAL)
 })
 
 it('names the group of each command in its row', async () => {
@@ -236,29 +271,13 @@ it('names the group of each command in its row', async () => {
 
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
-  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, Go here, nine modes, the
-  // connection and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
-  expect(groups.slice(0, 23)).toEqual([
-    'Vehicle',
-    'Vehicle',
-    'Vehicle',
-    'Vehicle',
-    'Vehicle',
-    'Parameters',
-    ...FLIGHT_MODE_LABELS.map(() => 'Vehicle'),
-    'Vehicle',
-    'Parameters',
-    'Parameters',
-    'Logs',
-    'Vehicle',
-    'Vehicle',
-    'Parameters',
-    'Vehicle',
-  ])
+  // (then the ways: as many as the screens have parts)
+  expect(groups.slice(0, 29)).toEqual(GROUPS_OF_THE_FIRST)
   expect(groups.length).toBeGreaterThan(30)
-  // (Take off is the last of the list by its name, and a vehicle's command)
-  expect(groups.slice(23, -1).every(group => group === 'Navigate')).toBe(true)
-  expect(groups.at(-1)).toBe('Vehicle')
+  // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
+  expect(groups.slice(29, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.at(-2)).toBe('Vehicle')
+  expect(groups.at(-1)).toBe('Plan')
 })
 
 it('lists the command that was run last first, and remembers it for the next opening', async () => {
@@ -271,7 +290,7 @@ it('lists the command that was run last first, and remembers it for the next ope
   ctrlP()
   await flushPromises()
 
-  expect(labels(wrapper).slice(0, 2)).toEqual(['Switch to Tune', 'Arm the vehicle'])
+  expect(labels(wrapper).slice(0, 2)).toEqual(['Switch to Tune', 'Add a waypoint'])
 })
 
 it('does not list the command that opens the palette: choosing it would close and reopen it, and lose the query', async () => {
@@ -365,25 +384,27 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   const active = () => wrapper.get('.palette-row.active').attributes('data-command')
   expect(active()).toBe('connect.open')
 
-  // (the first row, Arm, may not run for a vehicle that is armed: the selection starts at the first that may, and moves onto it;
-  // Change altitude is the row between Arm and Connect)
+  // (the first rows, Add a waypoint, Arm and Change altitude, may not run here: the selection starts at the first that may, and
+  // moves onto them; the last row is Undo, the plan's)
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.changeAltitude')
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
-  expect(active()).toBe('vehicle.takeoff')
+  expect(active()).toBe('plan.addWaypoint')
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(active()).toBe('plan.undo')
   await input.trigger('keydown', { key: 'ArrowDown' })
-  expect(active()).toBe('vehicle.arm')
+  expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'End' })
-  expect(active()).toBe('vehicle.takeoff')
+  expect(active()).toBe('plan.undo')
   await input.trigger('keydown', { key: 'Home' })
-  expect(active()).toBe('vehicle.arm')
+  expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('vehicle.mode.brake')
+  expect(active()).toBe('plan.duplicate')
   await input.trigger('keydown', { key: 'PageUp' })
-  expect(active()).toBe('vehicle.arm')
-  expect(input.attributes('aria-activedescendant')).toBe('palette-option-vehicle.arm')
+  expect(active()).toBe('plan.addWaypoint')
+  expect(input.attributes('aria-activedescendant')).toBe('palette-option-plan.addWaypoint')
 })
 
 it('leaves Home and End to the caret once there is text, and puts the selection on the first row of a new query', async () => {

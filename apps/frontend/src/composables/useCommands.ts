@@ -4,8 +4,19 @@
 import { inject, nextTick } from 'vue'
 import { routeLocationKey, routerKey } from 'vue-router'
 import type {
-  CommandContext, DialogFacts, FileFacts, GuidedFacts, ParameterFacts, ParamsFacts, PreferenceFacts, VehicleFacts,
+  Command,
+  CommandContext,
+  DialogFacts,
+  FileFacts,
+  GuidedFacts,
+  ParameterFacts,
+  ParamsFacts,
+  PlanFacts,
+  PreferenceFacts,
+  VehicleFacts,
 } from '@/lib/commands/command'
+import { AddWaypoint, DeleteItem, DuplicateItem, MoveItemDown, MoveItemUp, RedoPlan, UndoPlan } from '@/lib/commands/plan'
+import { MAX_ITEMS } from '@/lib/plan/model'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
 import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from '@/lib/commands/app'
@@ -40,9 +51,27 @@ import { useFavourites } from './favourites'
 import { useParamGroup } from './useParamGroup'
 import { useParamSearchIndex } from './useParamSearchIndex'
 import { useParamView } from './useParamView'
+import { usePlan } from './usePlan'
 import { useToasts } from './toasts'
 
 export { HEARTBEAT_FRESH_MS }
+
+/**
+ * The commands that edit the plan on the Plan page.
+ *
+ * @returns them
+ */
+function planCommands(): Command[] {
+  return [
+    new AddWaypoint(),
+    new DuplicateItem(),
+    new DeleteItem(),
+    new MoveItemUp(),
+    new MoveItemDown(),
+    new UndoPlan(),
+    new RedoPlan(),
+  ]
+}
 
 /**
  * The registry, with the commands every session has.
@@ -62,6 +91,7 @@ function makeRegistry(): CommandRegistry {
   registry.register(new GoHere())
   registry.register(new ChangeAltitude())
   registry.register(new SetHomeHere())
+  planCommands().forEach(command => registry.register(command))
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
@@ -292,6 +322,35 @@ function guidedFacts(): GuidedFacts {
 }
 
 /**
+ * The plan on the Plan page, as the commands see it.
+ *
+ * @returns the facts
+ */
+function planFacts(): PlanFacts {
+  const plan = usePlan()
+  const canMove = (by: -1 | 1): boolean => {
+    const at = plan.plan.value.items.findIndex(item => item.id === plan.selected.value)
+    const to = at + by
+
+    return at >= 0 && to >= 0 && to < plan.plan.value.items.length
+  }
+
+  return {
+    selected: () => plan.selected.value,
+    full: () => plan.plan.value.items.length >= MAX_ITEMS,
+    canMove,
+    canUndo: () => plan.canUndo.value,
+    canRedo: () => plan.canRedo.value,
+    add: command => plan.add(command),
+    duplicate: () => plan.duplicate(),
+    remove: () => plan.remove(),
+    move: by => plan.move(by),
+    undo: () => plan.undo(),
+    redo: () => plan.redo(),
+  }
+}
+
+/**
  * The context commands run in. Made in a component's `setup`, where the router and the configurator are.
  *
  * @returns the context
@@ -318,6 +377,7 @@ export function useCommandContext(): CommandContext {
     usage: { recent: () => recent.value },
     preferences: preferenceFacts(),
     guided: guidedFacts(),
+    plan: planFacts(),
     files: fileFacts(),
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),
