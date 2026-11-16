@@ -123,6 +123,25 @@ describe('a read of a still stick', () => {
   })
 })
 
+describe('a read of a browser that throws', () => {
+  it('is no pad when the gamepad call, the clock or the visibility throws, and the next read is a read again', () => {
+    const pads = new FakePads()
+    const ok = pads.env()
+    const throwing = (name: 'pads' | 'now' | 'visible') => new PadReader({
+      ...ok,
+      [name]: () => {
+        throw new Error(`${name} is broken`)
+      },
+    })
+    pads.connect()
+
+    expect(throwing('pads').read().kind).toBe('none')
+    expect(throwing('now').read().kind).toBe('none')
+    expect(throwing('visible').read().kind).toBe('none')
+    expect(new PadReader(ok).read().kind).toBe('live')
+  })
+})
+
 describe('a read in a window that is hidden', () => {
   it('is hidden, and the first read after it is not late for the time it was hidden', () => {
     const { pads, reader: r } = reader()

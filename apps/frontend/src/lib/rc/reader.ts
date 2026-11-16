@@ -93,11 +93,26 @@ export class PadReader {
   }
 
   /**
-   * One read. It is a gap when the window is hidden, when the read is late, or when there is no pad: never a sample then.
+   * One read. It is a gap when the window is hidden, when the read is late, or when there is no pad: never a sample then. What
+   * throws while it looks (the browser's gamepad call, its clock, its visibility) is no pad: a gap, never a sample and never an
+   * error that ends the poll.
    *
    * @returns what the read said
    */
   read(): Reading {
+    try {
+      return this.look()
+    } catch {
+      return { kind: 'none', at: this.last ?? 0 }
+    }
+  }
+
+  /**
+   * Looks at the clock, the window and the pad.
+   *
+   * @returns what the read said
+   */
+  private look(): Reading {
     const at = this.env.now()
     const gap = this.gapAt(at)
 

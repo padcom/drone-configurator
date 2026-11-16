@@ -71,6 +71,35 @@ describe('the gamepad that is stopped', () => {
   })
 })
 
+describe('the gamepad after stop', () => {
+  it('has no listener left: an unplugged pad or a hidden window changes nothing, and tells nothing', () => {
+    const { pads, pad, gaps } = setup()
+    pads.connect()
+    pad.start()
+    pads.advance(POLL_MS)
+    pad.stop()
+    pads.disconnect()
+    pads.show(false)
+    pads.show(true)
+    pads.connect()
+    pads.advance(200)
+
+    expect(pad.reading.value.kind).toBe('none')
+    expect(gaps).toEqual([])
+  })
+
+  it('can be started again, and then reads as before', () => {
+    const { pads, pad } = setup()
+    pads.connect()
+    pad.start()
+    pad.stop()
+    pad.start()
+    pads.advance(POLL_MS)
+
+    expect(pad.live.value).toBe(true)
+  })
+})
+
 describe('the gamepad in a scope', () => {
   it('stops with the scope it was made in', () => {
     const pads = new FakePads()
