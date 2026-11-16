@@ -33,6 +33,18 @@ it('connects to the simulator, shows the vehicle, and says the vehicle is connec
   expect(failures.at(-1)).toBeNull()
 })
 
+it('keeps what the connection was asked for while it lasts, and forgets it when it ends or fails', async () => {
+  const { vehicle } = rig()
+  expect(vehicle.request.value).toBeNull()
+
+  await vehicle.connect({ transport: 'simulator' })
+  expect(vehicle.request.value).toEqual({ transport: 'simulator' })
+  await vehicle.disconnect()
+  expect(vehicle.request.value).toBeNull()
+  await vehicle.connect({ transport: 'udp', port: 14550 })
+  expect(vehicle.request.value).toBeNull()
+})
+
 it('reports why a connection failed, and stays disconnected', async () => {
   const { vehicle, sessions, failures } = rig()
 

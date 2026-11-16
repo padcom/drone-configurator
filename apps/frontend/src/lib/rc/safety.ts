@@ -18,10 +18,26 @@ export const LOW_READS = 5
  *
  * @param pulse the pulse (`NOT_MINE` is the radio's own, which a vehicle with no receiver reads as the minimum: low)
  * @param range the throttle channel's range
+ * @param zone the throttle channel's dead zone (`RCn_DZ`, µs): "low" is at least twice as wide as it, so that a stick the vehicle
+ * still reads as the minimum is low
  * @returns true when it is low
  */
-export function isLow(pulse: number, range: PulseRange): boolean {
-  return pulse === NOT_MINE || pulse <= range.min + LOW_FRACTION * (range.max - range.min)
+export function isLow(pulse: number, range: PulseRange, zone = 0): boolean {
+  const reach = Math.max(LOW_FRACTION * (range.max - range.min), 2 * zone)
+
+  return pulse === NOT_MINE || pulse <= range.min + reach
+}
+
+/**
+ * Whether a read counts as the stick being low: the pad has the stick (`NOT_MINE` is not a read of it), and it is low.
+ *
+ * @param pulse the throttle pulse the stick makes
+ * @param range the throttle channel's range
+ * @param zone the throttle channel's dead zone (µs)
+ * @returns true when it counts
+ */
+function lowRead(pulse: number, range: PulseRange, zone: number): boolean {
+  return pulse !== NOT_MINE && isLow(pulse, range, zone)
 }
 
 /** Whether the throttle may be sent: it waits until the stick has been low for `LOW_READS` reads in a row, then stays open. */
@@ -42,13 +58,14 @@ export const START_GATE: Readonly<Gate> = Object.freeze({ open: false, lows: 0 }
  * @param gate the gate before
  * @param pulse the throttle pulse the stick makes (`NOT_MINE`, a stick the pad does not have, does not count: nothing is low)
  * @param range the throttle channel's range
+ * @param zone the throttle channel's dead zone (µs)
  * @returns the gate
  */
-export function nextGate(gate: Readonly<Gate>, pulse: number, range: PulseRange): Gate {
+export function nextGate(gate: Readonly<Gate>, pulse: number, range: PulseRange, zone = 0): Gate {
   if (gate.open) {
     return { open: true, lows: 0 }
   }
-  const lows = pulse !== NOT_MINE && isLow(pulse, range) ? gate.lows + 1 : 0
+  const lows = lowRead(pulse, range, zone) ? gate.lows + 1 : 0
 
   return { open: lows >= LOW_READS, lows }
 }
@@ -97,7 +114,7 @@ export function holdYaw(yaw: number, range: PulseRange): Held {
  */
 function holdTheRudder(out: number[], vehicle: VehicleChannels): boolean {
   const yaw = vehicle.yaw - 1
-  if (!isLow(out[vehicle.throttle - 1] ?? NOT_MINE, vehicle.range(vehicle.throttle))) {
+  if (!isLow(out[vehicle.throttle - 1] ?? NOT_MINE, vehicle.range(vehicle.throttle), vehicle.throttleDeadZone)) {
     return false
   }
   const held = holdYaw(out[yaw] ?? NOT_MINE, vehicle.range(vehicle.yaw))
@@ -133,7 +150,7 @@ function usable(vehicle: VehicleChannels): Usable {
  * @returns the gate
  */
 function gateOf(gate: Readonly<Gate>, channels: readonly number[], vehicle: VehicleChannels): Gate {
-  return nextGate(gate, channels[vehicle.throttle - 1] ?? NOT_MINE, vehicle.range(vehicle.throttle))
+  return nextGate(gate, channels[vehicle.throttle - 1] ?? NOT_MINE, vehicle.range(vehicle.throttle), vehicle.throttleDeadZone)
 }
 
 /**

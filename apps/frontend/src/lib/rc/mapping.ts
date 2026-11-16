@@ -234,6 +234,18 @@ export function validChannel(channel: number): boolean {
 }
 
 /**
+ * The pulse a row gives, or the radio's own when the range of its channel cannot be used or the pulse is not one to send.
+ *
+ * @param row the row
+ * @param sample what the pad said
+ * @param range the range of the row's channel
+ * @returns the pulse
+ */
+function checkedPulse(row: Row, sample: PadSample, range: PulseRange): number {
+  return sendableOr(rangeOk(range) ? rowPulse(row, sample, range) : NOT_MINE)
+}
+
+/**
  * The 16 pulses of an override that a profile makes of a sample: the channel of a row has its pulse, every other is the radio's.
  * What is not a pulse an override carries (a number that is not a number, a switch that is set to 3000 µs, a range that is upside
  * down) is the radio's own, never sent. A row whose channel is not a whole number from 1 to 16 is skipped (it never makes the
@@ -246,11 +258,10 @@ export function validChannel(channel: number): boolean {
  */
 export function channelsOf(profile: Profile, sample: PadSample, range: (channel: number) => PulseRange): number[] {
   const pulses = Array.from({ length: CHANNELS }, () => NOT_MINE)
-  for (const row of profile.rows) {
+  // (a mapping the wizard has not been through drives nothing, whatever the caller checked: the last net)
+  for (const row of profile.calibrated ? profile.rows : []) {
     if (validChannel(row.channel)) {
-      const channel = range(row.channel)
-
-      pulses[row.channel - 1] = sendableOr(rangeOk(channel) ? rowPulse(row, sample, channel) : NOT_MINE)
+      pulses[row.channel - 1] = checkedPulse(row, sample, range(row.channel))
     }
   }
 

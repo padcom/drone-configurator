@@ -195,7 +195,9 @@ describe('a mapping that is wrong', () => {
     expect(atTheEnds([STICK], () => ({ min: 2000, trim: 1500, max: 1000 }))[0]).toBe(NOT_MINE)
     expect(atTheEnds([STICK], () => ({ min: 1000, trim: Number.NaN, max: 2000 }))[0]).toBe(NOT_MINE)
   })
+})
 
+describe('a mapping with a row that is not on a channel', () => {
   it('skips a row on a channel that is not one of the 16, and never makes the list longer than 16', () => {
     const wrong = [17, 0, 2.5, -1].map(channel => ({ ...STICK, channel }))
     const rows = [...wrong, SWITCH]
@@ -206,6 +208,13 @@ describe('a mapping that is wrong', () => {
     expect(out[4]).toBe(2000)
     expect(out.filter(pulse => pulse !== NOT_MINE)).toEqual([2000])
     expect(problems).toEqual(['channel', 'channel', 'channel', 'channel'])
+  })
+
+  it('drives nothing for a mapping the wizard has not been through, whatever it says', () => {
+    const profile: Profile = { device: 'pad', rows: [STICK, SWITCH], calibrated: false }
+    const out = channelsOf(profile, pad([1, 1, 1, 1, 1, 1]), () => DEFAULT_RANGE)
+
+    expect(out).toEqual(Array.from({ length: 16 }, () => NOT_MINE))
   })
 
   it('leaves a good row beside a wrong one alone', () => {

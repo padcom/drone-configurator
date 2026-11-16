@@ -116,6 +116,8 @@ export interface VehicleChannels {
   throttle: number
   /** The yaw's channel, 1 to 16. */
   yaw: number
+  /** The throttle channel's dead zone (`RCn_DZ`, µs; 0 when it is not known): "low" is at least twice as wide. */
+  throttleDeadZone?: number
   /** The range of a channel (1 to 16): the vehicle's RCn_MIN/TRIM/MAX for the control channels, the default for the others. */
   range: (channel: number) => PulseRange
 }
