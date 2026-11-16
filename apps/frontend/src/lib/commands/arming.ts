@@ -65,6 +65,16 @@ export function workBlocker(vehicle: VehicleFacts): string | null {
 }
 
 /**
+ * Whether the RC control stands in the way of a guided command: the sticks fly the vehicle (the backend refuses them too).
+ *
+ * @param ctx the context
+ * @returns the reason, or null
+ */
+export function rcBlocker(ctx: CommandContext): string | null {
+  return ctx.rc.state() === 'off' ? null : 'guided.reason.rcControl'
+}
+
+/**
  * The vehicle as a question names it.
  *
  * @param ctx the context

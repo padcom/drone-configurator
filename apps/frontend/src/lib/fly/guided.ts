@@ -136,7 +136,7 @@ export function distanceM(from: Place, to: Place): number {
 const AIRBORNE_M = 1
 
 /** Why guided control is not offered now. */
-export type GuidedBlock = 'params' | 'air' | 'landing' | 'high' | 'position' | 'home' | 'target' | 'far'
+export type GuidedBlock = 'rcControl' | 'params' | 'air' | 'landing' | 'high' | 'position' | 'home' | 'target' | 'far'
 
 /** What the rules need to know. */
 export interface GuidedState {
@@ -148,6 +148,8 @@ export interface GuidedState {
   target: Place | null
   /** What the user chose. */
   prefs: GuidedPreferences
+  /** Whether the RC control is on or starting: the sticks fly the vehicle, and no guided command is sent meanwhile. */
+  rcControl?: boolean
 }
 
 /**
@@ -226,6 +228,7 @@ function isTooFar(state: GuidedState): boolean {
  */
 export function goHereBlock(state: GuidedState): GuidedBlock | null {
   const checks: [GuidedBlock, boolean][] = [
+    ['rcControl', state.rcControl !== true],
     ['params', state.listComplete],
     ['position', hasFresh(state.telemetry, 'position')],
     ['air', isInTheAir(state.telemetry)],

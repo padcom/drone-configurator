@@ -102,6 +102,7 @@ function stillReady(ctx: CommandContext, plan: GoPlan, switched: boolean): boole
     listComplete: ctx.params.listComplete(),
     target: plan.target,
     prefs: ctx.preferences.guided(),
+    rcControl: ctx.rc.state() !== 'off',
   })
   if (why !== null) {
     const kept = switched ? ` ${ctx.say('guided.reason.keptGuided')}` : ''

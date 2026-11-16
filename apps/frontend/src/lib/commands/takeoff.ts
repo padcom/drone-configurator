@@ -3,7 +3,7 @@
 // then the takeoff. It is offered only to a vehicle that is connected, whose state is known, that reports a 3D fix and an EKF
 // with its position, and that is on the ground. The backend checks again before it sends.
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
-import { connectionBlocker, no, workBlocker } from './arming'
+import { connectionBlocker, no, rcBlocker, workBlocker } from './arming'
 import { notReady } from '@/lib/fly/takeoff'
 import { VEHICLE_GROUP } from './vehicle'
 
@@ -34,6 +34,7 @@ const BLOCKERS: readonly ((ctx: CommandContext) => string | null)[] = [
   ctx => connectionBlocker(ctx.vehicle),
   stateBlocker,
   ctx => workBlocker(ctx.vehicle),
+  rcBlocker,
   readinessBlocker,
 ]
 

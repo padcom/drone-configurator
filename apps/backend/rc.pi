@@ -42,6 +42,7 @@ import {
 import { ConnectRequest, RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 import { uiValue } from "./settings"
+import { flightNow } from "./telemetry"
 
 /// The times of the control (ms). A test may shorten them.
 class Waits {
@@ -377,6 +378,12 @@ function refuse(): void throws CommunicatorError {
   }
   if (current.active) {
     throw new CommunicatorError("BUSY", "RC control is already on")
+  }
+  if (link.commanding) {
+    throw new CommunicatorError("BUSY", "a command to the vehicle (an arm, a mode change, a guided command) has not been answered yet")
+  }
+  if (flightNow().mode == "GUIDED") {
+    throw new CommunicatorError("GUIDED", "the vehicle is in GUIDED (a guided flow: Go here, a takeoff, a change of altitude): RC control does not begin")
   }
   if (link.calibrating || link.motorTest || link.listing || link.writes > 0 || link.logging || link.planning || rebootExpected()) {
     throw new CommunicatorError("BUSY", "a calibration, a motor test, a parameter, log or plan operation or a reboot is under way")
