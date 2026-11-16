@@ -211,10 +211,24 @@ function tooDeep(text: string): bool {
         return true
       }
     } else if (c == 0x5D || c == 0x7D) {
+      // (a closer with nothing open is no JSON: it is refused here, so that a run of them cannot take the depth below 0 and let as many
+      // openers after it through as it has closers)
+      if (depth == 0) {
+        return true
+      }
       depth -= 1
     }
   }
   return false
+}
+
+/// The text without a leading byte order mark (Windows editors put one at the start of a text file they save, as the settings file's reader
+/// takes it too). One mark only: anything else before the first character is the file's.
+function withoutBom(text: string): string {
+  if (text.length > 0 && (text[0] as int) == 0xFEFF) {
+    return text.slice(1)
+  }
+  return text
 }
 
 /// MAV_CMD_DO_JUMP: param1 is the item to go on from (its seq in a mission; in a `.plan` its `doJumpId`).
@@ -292,7 +306,8 @@ class QgcPlan {
 }
 
 /// A `.plan`'s text as a plan. A complex item makes it `COMPLEX_ITEMS` unless `skipComplex` (then they are counted in `skipped`).
-export function parseQgcPlan(text: string, skipComplex: bool): Plan throws PlanFileError {
+export function parseQgcPlan(fileText: string, skipComplex: bool): Plan throws PlanFileError {
+  const text = withoutBom(fileText)
   if (tooBig(text)) {
     throw new PlanFileError("TOO_BIG", `the file is longer than ${MAX_FILE_BYTES} bytes`)
   }
@@ -648,7 +663,8 @@ function lineInt(token: string, line: int, what: string, low: int, high: int): i
 
 /// A `.waypoints` text as a plan: line 1 `QGC WPL 110`, line 2 home, then the items, in order from seq 1. Fields are separated by tabs or
 /// spaces. The plan has no fence and no rally points (the format has none).
-export function parseWaypoints(text: string): Plan throws PlanFileError {
+export function parseWaypoints(fileText: string): Plan throws PlanFileError {
+  const text = withoutBom(fileText)
   if (tooBig(text)) {
     throw new PlanFileError("TOO_BIG", `the file is longer than ${MAX_FILE_BYTES} bytes`)
   }

@@ -702,6 +702,96 @@ function validateSetSpeedAskInto(value: any, path: string): boolean {
 /** The first problem with `value` as a set-speed-ask, or null. */
 export const validateSetSpeedAsk = (value: unknown) => run(validateSetSpeedAskInto, value)
 
+export type PlanKind = "mission" | "fence" | "rally"
+
+function validatePlanKindInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["mission","fence","rally"])
+}
+
+/** The first problem with `value` as a plan-kind, or null. */
+export const validatePlanKind = (value: unknown) => run(validatePlanKindInto, value)
+
+export type PlanItem = { "command": number, "frame": number, "param1"?: number, "param2"?: number, "param3"?: number, "param4"?: number, "x": number, "y": number, "z": number, "autocontinue": boolean }
+
+function validatePlanItemInto(value: any, path: string): boolean {
+  return map(value, path, ["command","frame","param1","param2","param3","param4","x","y","z","autocontinue"]) && (value["command"] === undefined ? fail(`${path}.command`, 'present') : nested(value["command"], `${path}.command`, (value, path) => uint(value, path, 0xffff))) && (value["frame"] === undefined ? fail(`${path}.frame`, 'present') : nested(value["frame"], `${path}.frame`, (value, path) => uint(value, path, 0xff))) && (value["param1"] === undefined || nested(value["param1"], `${path}.param1`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["param2"] === undefined || nested(value["param2"], `${path}.param2`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["param3"] === undefined || nested(value["param3"], `${path}.param3`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["param4"] === undefined || nested(value["param4"], `${path}.param4`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["x"] === undefined ? fail(`${path}.x`, 'present') : nested(value["x"], `${path}.x`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["y"] === undefined ? fail(`${path}.y`, 'present') : nested(value["y"], `${path}.y`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["z"] === undefined ? fail(`${path}.z`, 'present') : nested(value["z"], `${path}.z`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["autocontinue"] === undefined ? fail(`${path}.autocontinue`, 'present') : nested(value["autocontinue"], `${path}.autocontinue`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a plan-item, or null. */
+export const validatePlanItem = (value: unknown) => run(validatePlanItemInto, value)
+
+export type PlanReadAsk = { "kind": PlanKind }
+
+function validatePlanReadAskInto(value: any, path: string): boolean {
+  return map(value, path, ["kind"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validatePlanKindInto(value, path)))
+}
+
+/** The first problem with `value` as a plan-read-ask, or null. */
+export const validatePlanReadAsk = (value: unknown) => run(validatePlanReadAskInto, value)
+
+export type PlanReadResult = { "kind": PlanKind, "items": (PlanItem)[], "home"?: PlanItem, "current"?: number }
+
+function validatePlanReadResultInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","items","home","current"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validatePlanKindInto(value, path))) && (value["items"] === undefined ? fail(`${path}.items`, 'present') : nested(value["items"], `${path}.items`, (value, path) => list(value, path, (value, path) => validatePlanItemInto(value, path)))) && (value["home"] === undefined || nested(value["home"], `${path}.home`, (value, path) => validatePlanItemInto(value, path))) && (value["current"] === undefined || nested(value["current"], `${path}.current`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a plan-read-result, or null. */
+export const validatePlanReadResult = (value: unknown) => run(validatePlanReadResultInto, value)
+
+export type PlanWriteAsk = { "kind": PlanKind, "items": (PlanItem)[] }
+
+function validatePlanWriteAskInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","items"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validatePlanKindInto(value, path))) && (value["items"] === undefined ? fail(`${path}.items`, 'present') : nested(value["items"], `${path}.items`, (value, path) => list(value, path, (value, path) => validatePlanItemInto(value, path))))
+}
+
+/** The first problem with `value` as a plan-write-ask, or null. */
+export const validatePlanWriteAsk = (value: unknown) => run(validatePlanWriteAskInto, value)
+
+export type PlanWriteResult = { "result": "verified" | "mismatch" | "upload-failed" | "read-failed" | "refused", "count": number, "unchecked": number, "code"?: string, "detail"?: string, "at"?: number, "found"?: PlanItem, "messages": (string)[] }
+
+function validatePlanWriteResultInto(value: any, path: string): boolean {
+  return map(value, path, ["result","count","unchecked","code","detail","at","found","messages"]) && (value["result"] === undefined ? fail(`${path}.result`, 'present') : nested(value["result"], `${path}.result`, (value, path) => oneOf(value, path, ["verified","mismatch","upload-failed","read-failed","refused"]))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["unchecked"] === undefined ? fail(`${path}.unchecked`, 'present') : nested(value["unchecked"], `${path}.unchecked`, (value, path) => uint(value, path, 0xffff))) && (value["code"] === undefined || nested(value["code"], `${path}.code`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["detail"] === undefined || nested(value["detail"], `${path}.detail`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["at"] === undefined || nested(value["at"], `${path}.at`, (value, path) => uint(value, path, 0xffff))) && (value["found"] === undefined || nested(value["found"], `${path}.found`, (value, path) => validatePlanItemInto(value, path))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+}
+
+/** The first problem with `value` as a plan-write-result, or null. */
+export const validatePlanWriteResult = (value: unknown) => run(validatePlanWriteResultInto, value)
+
+export type PlanClearAsk = { "kind": PlanKind }
+
+function validatePlanClearAskInto(value: any, path: string): boolean {
+  return map(value, path, ["kind"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validatePlanKindInto(value, path)))
+}
+
+/** The first problem with `value` as a plan-clear-ask, or null. */
+export const validatePlanClearAsk = (value: unknown) => run(validatePlanClearAskInto, value)
+
+export type PlanClearResult = { "result": "cleared" | "refused" | "unconfirmed", "code"?: string, "detail"?: string, "messages": (string)[] }
+
+function validatePlanClearResultInto(value: any, path: string): boolean {
+  return map(value, path, ["result","code","detail","messages"]) && (value["result"] === undefined ? fail(`${path}.result`, 'present') : nested(value["result"], `${path}.result`, (value, path) => oneOf(value, path, ["cleared","refused","unconfirmed"]))) && (value["code"] === undefined || nested(value["code"], `${path}.code`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["detail"] === undefined || nested(value["detail"], `${path}.detail`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["messages"] === undefined ? fail(`${path}.messages`, 'present') : nested(value["messages"], `${path}.messages`, (value, path) => list(value, path, (value, path) => typeof value === 'string' || fail(path, 'text'))))
+}
+
+/** The first problem with `value` as a plan-clear-result, or null. */
+export const validatePlanClearResult = (value: unknown) => run(validatePlanClearResultInto, value)
+
+export type PlanCurrentAsk = { "seq": number }
+
+function validatePlanCurrentAskInto(value: any, path: string): boolean {
+  return map(value, path, ["seq"]) && (value["seq"] === undefined ? fail(`${path}.seq`, 'present') : nested(value["seq"], `${path}.seq`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a plan-current-ask, or null. */
+export const validatePlanCurrentAsk = (value: unknown) => run(validatePlanCurrentAskInto, value)
+
+export type PlanProgress = { "kind": PlanKind, "phase": "uploading" | "verifying" | "reading" | "clearing", "done": number, "total": number }
+
+function validatePlanProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["kind","phase","done","total"]) && (value["kind"] === undefined ? fail(`${path}.kind`, 'present') : nested(value["kind"], `${path}.kind`, (value, path) => validatePlanKindInto(value, path))) && (value["phase"] === undefined ? fail(`${path}.phase`, 'present') : nested(value["phase"], `${path}.phase`, (value, path) => oneOf(value, path, ["uploading","verifying","reading","clearing"]))) && (value["done"] === undefined ? fail(`${path}.done`, 'present') : nested(value["done"], `${path}.done`, (value, path) => uint(value, path, 0xffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffff)))
+}
+
+/** The first problem with `value` as a plan-progress, or null. */
+export const validatePlanProgress = (value: unknown) => run(validatePlanProgressInto, value)
+
 export type MessagesParams = { "replay"?: number }
 
 function validateMessagesParamsInto(value: any, path: string): boolean {
@@ -1209,6 +1299,12 @@ export interface Services {
   "logs.local.cancel": { kind: 'method', request: null, response: null }
   "logs.local.progress": { kind: 'event', payload: LogsLocalProgress }
   "vehicle.reboot": { kind: 'method', request: null, response: RebootResult }
+  "plan.read": { kind: 'method', request: PlanReadAsk, response: PlanReadResult }
+  "plan.write": { kind: 'method', request: PlanWriteAsk, response: PlanWriteResult }
+  "plan.clear": { kind: 'method', request: PlanClearAsk, response: PlanClearResult }
+  "plan.setCurrent": { kind: 'method', request: PlanCurrentAsk, response: ArmingResult }
+  "plan.cancel": { kind: 'method', request: null, response: null }
+  "plan.progress": { kind: 'event', payload: PlanProgress }
   "vehicle.arm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.disarm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.emergencyStop": { kind: 'method', request: null, response: ArmingResult }
@@ -1358,6 +1454,29 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "vehicle.reboot": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateRebootResultInto(value, path),
+  },
+  "plan.read": {
+    request: (value: any, path: string) => validatePlanReadAskInto(value, path),
+    response: (value: any, path: string) => validatePlanReadResultInto(value, path),
+  },
+  "plan.write": {
+    request: (value: any, path: string) => validatePlanWriteAskInto(value, path),
+    response: (value: any, path: string) => validatePlanWriteResultInto(value, path),
+  },
+  "plan.clear": {
+    request: (value: any, path: string) => validatePlanClearAskInto(value, path),
+    response: (value: any, path: string) => validatePlanClearResultInto(value, path),
+  },
+  "plan.setCurrent": {
+    request: (value: any, path: string) => validatePlanCurrentAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "plan.cancel": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "plan.progress": {
+    payload: (value: any, path: string) => validatePlanProgressInto(value, path),
   },
   "vehicle.arm": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

@@ -19,6 +19,7 @@ import { register as registerLocalSeries } from "./localseries"
 import { register as registerLocalTrack } from "./localtrack"
 import { register as registerMapTiles } from "./maptiles"
 import { register as registerMessages } from "./messages"
+import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
 import { register as registerParams } from "./params"
 import { register as registerReboot } from "./reboot"
@@ -59,6 +60,7 @@ export function createBackend(transport: Transport): Communicator {
   registerParams(c)
   registerReboot(c)
   registerArming(c)
+  registerMissions(c)
   registerCalibration(c)
   registerMotors(c)
   registerLogs(c)

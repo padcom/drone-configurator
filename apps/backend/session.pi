@@ -71,6 +71,10 @@ class Link {
   /// Whether a calibration of the vehicle's sensors runs (calibration.pi): a reboot is refused (reboot.pi), and so are a parameter
   /// download or write (params.pi) and a log listing, download or erase (logs.pi): they would meet what the calibration keeps.
   public calibrating: bool = false
+  /// Whether a plan operation runs (missions.pi: a read, a write with its read-back, a clear of the vehicle's mission, fence or rally
+  /// points): an arm is refused (`BUSY`: a vehicle that arms in the middle of a write holds a mixture it would fly), and so are a reboot,
+  /// a calibration, a motor test, a parameter download or write and the log operations.
+  public planning: bool = false
   /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
   /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
   public motorTest: bool = false
@@ -181,6 +185,7 @@ class Link {
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
+    planning = false
     capabilities = -1
     ftpMemo = ""
     rebootAt = 0

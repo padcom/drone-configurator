@@ -1,0 +1,256 @@
+// What the vehicle keeps of an item, and so what a READ-BACK may be compared with. ArduPilot does not store an item as it was sent: a command
+// keeps the few fields it needs, in the form it needs (AP_Mission.cpp `mavlink_int_to_mission_cmd` stores, `mission_cmd_to_mavlink_int` reads
+// back), and the rest comes back as 0. A waypoint keeps its first parameter as a whole number (a delay of 1.5 s is 1) and its place; a change
+// of speed keeps three parameters and no place; a jump two parameters; a loiter's radius is a whole number, signed by its direction, and so on.
+// So "any difference is a failure" would call nearly every item wrong. The page's plan is checked against what the vehicle WOULD give back for
+// it, per command; what the vehicle gives back is what it will fly.
+//
+// The rules below are AP_Mission.cpp's for Copter (ArduPilot 4.7.2: read in the source, and checked against a real vehicle: every command is a
+// row of planverify.test.pi with what ArduCopter SITL gave back for it). A command that has no rule here is compared by its number and
+// place only (`unchecked`): the page is told how many items were not compared in full.
+//  - the PLACE: a navigation command keeps its frame (as absolute, above home or above terrain, the integer and float frames being one), x and
+//    y as sent, and the altitude to the centimetre; a command that is not one (a speed, a jump, a servo) keeps none and reads back 0 in all of
+//    them (its frame comes back 0 too); a command whose place is a location but not a frame (set home, ROI) keeps x, y and z;
+//  - the PARAMETERS: each of the four is kept as a whole number (`WHOLE`), as sent (`AS_SENT`), as a direction (`DIRECTION`: -1 for a negative
+//    value, else 1), as a flag (`FLAG`: 1 for above 0, else 0), or not at all (`NONE`: 0), and a loiter's turns and radius in their own ways.
+//  - `current` and `seq` are not compared; for a fence and rally points `autocontinue` is not either (the vehicle keeps none); the home item
+//    (item 0 of a mission) is the vehicle's own and is not compared at all.
+import { MissionEntry } from "padcom/pico-mavlink"
+
+/// How a parameter is kept.
+const NONE: int = 0
+const AS_SENT: int = 1
+const WHOLE: int = 2
+const DIRECTION: int = 3
+const FLAG: int = 4
+const TURNS: int = 5
+const RADIUS: int = 6
+const RADIUS_UNLIMITED: int = 7
+
+/// What of the place a command keeps: nothing, all of it (frame, x, y, z), x, y and z (not the frame), not compared at all.
+const PLACE_NONE: int = 0
+const PLACE_ALL: int = 1
+const PLACE_NO_FRAME: int = 2
+const PLACE_SKIP: int = 3
+
+/// The rule of a command: how each of its four parameters is kept and what of its place, or null for a command with no rule.
+class Rule {
+  public params: int[]
+  public place: int
+
+  constructor(params: int[], place: int) {
+    this.params = params
+    this.place = place
+  }
+}
+
+/// Whether there is a rule for `command` (else it is compared by number and place only).
+export function hasRule(command: int): bool {
+  return ruleOf(command) != null
+}
+
+function ruleOf(command: int): Rule? {
+  match (command) {
+    16 => new Rule([WHOLE, NONE, NONE, NONE], PLACE_ALL),
+    17 => new Rule([NONE, NONE, RADIUS_UNLIMITED, NONE], PLACE_ALL),
+    18 => new Rule([TURNS, NONE, RADIUS, FLAG], PLACE_ALL),
+    19 => new Rule([WHOLE, NONE, DIRECTION, FLAG], PLACE_ALL),
+    20 => new Rule([NONE, NONE, NONE, NONE], PLACE_NONE),
+    21 => new Rule([WHOLE, NONE, NONE, DIRECTION], PLACE_ALL),
+    22 => new Rule([WHOLE, NONE, NONE, NONE], PLACE_ALL),
+    112 => new Rule([AS_SENT, NONE, NONE, NONE], PLACE_NONE),
+    177 => new Rule([WHOLE, WHOLE, NONE, NONE], PLACE_NONE),
+    178 => new Rule([WHOLE, AS_SENT, AS_SENT, NONE], PLACE_NONE),
+    179 => new Rule([WHOLE, NONE, NONE, NONE], PLACE_NO_FRAME),
+    181 => new Rule([WHOLE, WHOLE, NONE, NONE], PLACE_NONE),
+    183 => new Rule([WHOLE, WHOLE, NONE, NONE], PLACE_NONE),
+    201 => new Rule([WHOLE, NONE, NONE, NONE], PLACE_NO_FRAME),
+    203 => new Rule([WHOLE, WHOLE, WHOLE, WHOLE], PLACE_SKIP),
+    // (the camera id, param4, is in the source but comes back 0 from ArduCopter SITL 4.7.2: what the vehicle gives back is what counts)
+    206 => new Rule([AS_SENT, NONE, WHOLE, NONE], PLACE_NONE),
+    _ => null,
+  }
+}
+
+/// Whether `v` is a number (not NaN, not infinite).
+function finite(v: f64): bool {
+  return (v - v) == 0.0
+}
+
+/// `v` with its fraction cut off (towards 0); a number that is not one is itself.
+function whole(v: f64): f64 {
+  if (!finite(v) || v > 2000000000.0 || v < -2000000000.0) {
+    return v
+  }
+  return (v as int) as f64
+}
+
+/// What a vehicle reads back for the parameter `sent` kept the way `how` says.
+function kept(how: int, sent: f64): f64 {
+  // (if-chains: a constant in a match arm would be a name that matches everything)
+  if (how == NONE) {
+    return 0.0
+  }
+  if (how == WHOLE) {
+    return whole(sent)
+  }
+  // (a NaN is no direction: it is not stored, and the vehicle reads the default, clockwise)
+  if (how == DIRECTION) {
+    return if (sent < 0.0) -1.0 else 1.0
+  }
+  if (how == FLAG) {
+    return if (sent > 0.0) 1.0 else 0.0
+  }
+  // number of turns: below 1 it is kept as a multiple of 1/256, else as a whole number of at most 255
+  if (how == TURNS) {
+    return keptTurns(sent)
+  }
+  // a loiter's radius: a whole number of metres up to 255, above that in tens (at most 2550); signed by its direction
+  if (how == RADIUS) {
+    return keptRadius(sent)
+  }
+  if (how == RADIUS_UNLIMITED) {
+    return if (sent < 0.0) -whole(-sent) else whole(sent)
+  }
+  return sent
+}
+
+function keptTurns(sent: f64): f64 {
+  if (!(sent > 0.0)) {
+    return 0.0
+  }
+  if (sent < 1.0) {
+    return whole(sent * 256.0) / 256.0
+  }
+  return if (sent > 255.0) 255.0 else whole(sent)
+}
+
+function keptRadius(sent: f64): f64 {
+  const size = if (sent < 0.0) -sent else sent
+  const metres = if (size <= 255.0) whole(size) else (if (whole(size * 0.1) > 255.0) 255.0 else whole(size * 0.1)) * 10.0
+  return if (sent < 0.0) -metres else metres
+}
+
+/// The class of a frame: 0 absolute (GLOBAL, GLOBAL_INT), 1 above home (GLOBAL_RELATIVE_ALT and its INT form), 2 above terrain, 3 the command's own.
+function frameClass(frame: int): int {
+  if (frame == 0 || frame == 5) {
+    return 0
+  }
+  if (frame == 3 || frame == 6) {
+    return 1
+  }
+  if (frame == 10 || frame == 11) {
+    return 2
+  }
+  return 3
+}
+
+/// Whether two altitudes are the same to the centimetre the vehicle keeps (and the float they travel in).
+function sameAltitude(a: f32, b: f32): bool {
+  const d = (a as f64) - (b as f64)
+  return (if (d < 0.0) -d else d) <= 0.0101
+}
+
+/// Whether two floats are the same (a NaN is the same as a NaN).
+function sameFloat(a: f32, b: f32): bool {
+  return a == b || (a != a && b != b)
+}
+
+/// "" when `got` (what the vehicle holds) is what it keeps of `sent`, else what differs. `mission`: whether it is the mission (its items keep
+/// `autocontinue`; the fence's and the rally points' do not). The home item and `current` are not compared.
+export function differs(sent: MissionEntry, got: MissionEntry, mission: bool): string {
+  if (sent.command != got.command) {
+    return `the command is ${got.command}, not ${sent.command}`
+  }
+  if (mission && sent.autocontinue != got.autocontinue) {
+    return `autocontinue is ${got.autocontinue}, not ${sent.autocontinue}`
+  }
+  const rule = ruleOf(sent.command)
+  if (!mission) {
+    return differsInAList(sent, got)
+  }
+  if (rule == null) {
+    // no rule: the number and the place, as far as a place is one (a navigation command's, in a frame that is global)
+    return if (frameClass(sent.frame) < 3) differsInPlace(sent, got, true) else ""
+  }
+  const r = rule!
+  const values: f64[] = [sent.param1 as f64, sent.param2 as f64, sent.param3 as f64, sent.param4 as f64]
+  const back: f64[] = [got.param1 as f64, got.param2 as f64, got.param3 as f64, got.param4 as f64]
+  for (let k = 0; k < 4; k++) {
+    // Both sides go through the vehicle's own keep rule: what the vehicle gives back is what it holds (its rule is a fixed point: kept of what
+    // it gave is what it gave), and a field it does not keep is not looked at (the simulated vehicle gives back what it was sent, a real one 0).
+    const expected = kept(r.params[k], values[k]) as f32
+    const holds = kept(r.params[k], back[k]) as f32
+    if (!sameFloat(expected, holds)) {
+      return `param${k + 1} is ${back[k] as f32}, not ${expected}`
+    }
+  }
+  if (r.place == PLACE_ALL) {
+    return differsInPlace(sent, got, true)
+  }
+  if (r.place == PLACE_NO_FRAME) {
+    return differsInPlace(sent, got, false)
+  }
+  // (a command with no place keeps none: whatever comes back in it is not looked at)
+  return ""
+}
+
+function differsInPlace(sent: MissionEntry, got: MissionEntry, withFrame: bool): string {
+  if (withFrame && frameClass(sent.frame) != frameClass(got.frame)) {
+    return `the frame is ${got.frame}, not ${sent.frame}`
+  }
+  if (sent.x != got.x || sent.y != got.y) {
+    return `the place is ${got.x}, ${got.y}, not ${sent.x}, ${sent.y}`
+  }
+  if (!sameAltitude(sent.z, got.z)) {
+    return `the altitude is ${got.z}, not ${sent.z}`
+  }
+  return ""
+}
+
+/// A fence's or rally point's item: its number, place and its first parameter where it has one that means something: a polygon vertex's
+/// (5001, 5002) is the count of vertices, a whole number; a circle's (5003, 5004) is its RADIUS, a float (AC_PolyFence_loader.cpp), compared as
+/// sent. The return point (5000) and a rally point (5100) have none that is compared.
+function differsInAList(sent: MissionEntry, got: MissionEntry): string {
+  const why = differsInPlace(sent, got, true)
+  if (why != "") {
+    return why
+  }
+  if (sent.command == 5001 || sent.command == 5002) {
+    if (!sameFloat(whole(sent.param1 as f64) as f32, got.param1)) {
+      return `param1 is ${got.param1}, not ${sent.param1}`
+    }
+  }
+  if (sent.command == 5003 || sent.command == 5004) {
+    if (!sameFloat(sent.param1, got.param1)) {
+      return `the radius is ${got.param1}, not ${sent.param1}`
+    }
+  }
+  return ""
+}
+
+/// The index of the first item of `got` that is not what the vehicle keeps of the item of `sent` at the same place, -1 when all are (a count that
+/// is not the same is the first place that has no item on one side).
+export function firstMismatch(sent: MissionEntry[], got: MissionEntry[], mission: bool): int {
+  const n = if (sent.length < got.length) sent.length else got.length
+  for (let i = 0; i < n; i++) {
+    if (differs(sent[i], got[i], mission) != "") {
+      return i
+    }
+  }
+  return if (sent.length == got.length) -1 else n
+}
+
+/// How many of `sent` have no rule (compared by command and place only): a fence's and rally points' items always have one.
+export function unchecked(sent: MissionEntry[], mission: bool): int {
+  if (!mission) {
+    return 0
+  }
+  let n = 0
+  for (const item of sent) {
+    if (!hasRule(item.command)) {
+      n += 1
+    }
+  }
+  return n
+}

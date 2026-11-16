@@ -138,7 +138,7 @@ export function resetForTests(): void {
 /// Whether something that an arm must not meet is under way: a parameter write or download, a log operation, a calibration, a motor test
 /// or a reboot (also asked for and not yet answered).
 function operationUnderWay(): bool {
-  return link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || rebootExpected()
+  return link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || link.planning || rebootExpected()
 }
 
 /// The armed state of the vehicle by its heartbeat, which must be known.

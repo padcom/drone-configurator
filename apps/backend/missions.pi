@@ -1,0 +1,520 @@
+// The plan service (`plan.read`, `plan.write`, `plan.clear`, `plan.setCurrent`, `plan.cancel`, `plan.progress`): the vehicle's MISSION, GEOFENCE and
+// RALLY POINTS, over pico-mavlink's `MissionClient`. The plan being edited is the page's; what is ON THE VEHICLE is only what a read of the
+// vehicle says. Every rule is here as well as in the page (the page's view may be late).
+//  - A READ is always allowed while connected (an ArduPilot; no operation that would meet it under way).
+//  - A WRITE and a CLEAR are refused, before anything is sent, for a vehicle that is armed or whose state is not known (`ARMED`, `STATE_UNKNOWN`:
+//    an unknown state counts as armed, and an arm in flight holds it unknown). That is OUR rule: ArduPilot takes an upload while armed and
+//    flying the mission, and truncates its mission to the new count at once, so an upload would rewrite the mission it flies.
+//  - ONE OPERATION AT A TIME, and none while a parameter, log, calibration, motor test or reboot is under way (`BUSY`), and an ARM is refused
+//    while one runs (arming.pi): a vehicle that arms in the middle of a write holds a mixture it would fly.
+//  - A WRITE is read back, ALWAYS: it uploads the whole list, downloads it again and compares it with what the vehicle keeps of each item
+//    (planverify.pi: it does not keep everything it is sent). Only a read-back that agrees is `verified`. A write that fails after its first
+//    message leaves a MIXTURE (ArduPilot truncates at the count and writes the items as they come, with no rollback): `upload-failed`, and
+//    the page treats the vehicle's plan as unknown until it is read, cleared or written again. Nothing is sent again after a failure: an
+//    upload that goes quiet is waited for (the library asks again only with the count, before the first request), a clear is sent ONCE.
+//  - The HOME of the mission (item 0 on the wire) is the vehicle's own: a read says it apart (`home`), a write sends a place holder for it
+//    (ArduPilot replaces it) and never compares it.
+//  - Items that no vehicle should be given are `INVALID_VALUE` before the count goes out (the client's own checks: a NaN where ArduPilot takes
+//    none, a place off the globe, `current` above 1) and an empty write is refused too (a count of 0 truncates with no guard: that is a clear).
+//  - `plan.setCurrent` is allowed in flight (the one thing of the plan that is): sent ONCE, `no-answer` is not known.
+import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { MavAutopilot, MavLinkConnection, MavLinkError, MavMissionType, MavResult, MissionClient, MissionEntry, MissionError } from "padcom/pico-mavlink"
+import {
+  ArmingResult,
+  ArmingResultResult,
+  PlanClearResult,
+  PlanClearResultResult,
+  PlanItem,
+  PlanKind,
+  PlanProgress,
+  PlanProgressPhase,
+  PlanReadResult,
+  PlanWriteResult,
+  PlanWriteResultResult,
+  decodePlanClearAsk,
+  decodePlanCurrentAsk,
+  decodePlanReadAsk,
+  decodePlanWriteAsk,
+  encodeArmingResult,
+  encodePlanClearResult,
+  encodePlanProgress,
+  encodePlanReadResult,
+  encodePlanWriteResult,
+} from "./generated/app"
+import { nextMessageId, textsSince } from "./messages"
+import { firstMismatch, unchecked } from "./planverify"
+import { armedState, connectedLink, link, rebootExpected } from "./session"
+
+/// The times of the operations (ms); a test may shorten them.
+class Waits {
+  /// How long the vehicle is waited for between two of its messages, and how many more times (see MissionClient).
+  public messageMs: int = 2000
+  public retries: int = 3
+  /// How long a whole transfer may take.
+  public overallMs: int = 120000
+  /// Progress is sent at most this often (the last always).
+  public progressMs: int = 100
+}
+
+export const waits = new Waits()
+
+/// The most items a write takes (the vehicle's own limit is read from it: ArduCopter 4.7.2 SITL takes 650 of a mission, 70 of a fence, 46 of
+/// rally points).
+export const MAX_ITEMS: int = 2000
+
+/// The most texts a result carries.
+const MAX_TEXTS: int = 20
+
+/// The operation that runs, so that `plan.cancel` can stop it, and where progress goes.
+class Running {
+  public communicator: Communicator? = null
+  public abort: AbortController? = null
+  public followed: AbortSignal? = null
+  public progressAt: int = 0
+  /// Whether an item of the upload that runs has gone over (the vehicle asked for one and was answered): from then on the vehicle's plan is
+  /// being rewritten, and a failure leaves a mixture.
+  public sent: bool = false
+}
+
+const running = new Running()
+
+/// Registers the service's methods on `c`.
+export function register(c: Communicator): void {
+  running.communicator = c
+  c.handle("plan.read", read)
+  c.handle("plan.write", write)
+  c.handle("plan.clear", clear)
+  c.handle("plan.setCurrent", setCurrent)
+  c.handle("plan.cancel", cancel)
+}
+
+/// The MAV_MISSION_TYPE of a kind.
+function typeOf(kind: PlanKind): int {
+  match (kind) {
+    Mission => MavMissionType.MISSION,
+    Fence => MavMissionType.FENCE,
+    Rally => MavMissionType.RALLY,
+  }
+}
+
+function nameOf(kind: PlanKind): string {
+  match (kind) {
+    Mission => "mission",
+    Fence => "geofence",
+    Rally => "rally points",
+  }
+}
+
+// --- what may not be done now ----------------------------------------------------------------------------------------------------------
+
+/// The connection, for an ArduPilot (the rules and the read-back here are ArduPilot's).
+function checkVehicle(): MavLinkConnection throws CommunicatorError {
+  const conn = connectedLink()
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED_VEHICLE", "the plan is read and written on an ArduPilot only")
+  }
+  return conn
+}
+
+/// Refuses while another operation that meets the vehicle's link under way.
+function checkBusy(): void throws CommunicatorError {
+  if (link.planning) {
+    throw new CommunicatorError("BUSY", "the mission, fence or rally points are already being read or written")
+  }
+  if (link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
+  }
+}
+
+/// Refuses a write or a clear for a vehicle that is armed or whose state is not known: OUR rule (ArduPilot would take it).
+function checkMayChange(): void throws CommunicatorError {
+  const armed = armedState()
+  if (armed == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s, or an arm is in flight)")
+  }
+  if (armed!) {
+    throw new CommunicatorError("ARMED", "the vehicle is armed: the mission, fence and rally points are changed only on the ground")
+  }
+}
+
+// --- the operation that runs -----------------------------------------------------------------------------------------------------------
+
+/// Claims the one operation there can be (before anything is awaited) and its means of being stopped.
+function begin(): AbortController {
+  link.planning = true
+  const own = new AbortController()
+  running.abort = own
+  running.progressAt = 0
+  running.sent = false
+  // The session ending stops it: one listener on a session's signal, however many operations it has.
+  const signal = link.session.signal
+  if (running.followed != signal) {
+    running.followed = signal
+    signal.addEventListener("abort", () => stopRunning())
+  }
+  return own
+}
+
+function end(): void {
+  link.planning = false
+  running.abort = null
+}
+
+function stopRunning(): void {
+  const a = running.abort
+  if (a != null) {
+    a!.abort()
+  }
+}
+
+async function cancel(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  stopRunning()
+  return null
+}
+
+/// A client with the operation's signal.
+function clientOf(conn: MavLinkConnection, own: AbortController): MissionClient {
+  return new MissionClient(conn, { system: link.sysid, component: link.compid }, {
+    timeoutMs: waits.messageMs,
+    retries: waits.retries,
+    overallMs: waits.overallMs,
+    maxItems: MAX_ITEMS,
+    signal: own.signal,
+  })
+}
+
+/// Sends the progress of `kind` in `phase` (at most every `waits.progressMs`; the last one, `done` of `total`, always).
+function progress(kind: PlanKind, phase: PlanProgressPhase, done: int, total: int): void {
+  const c = running.communicator
+  const now = Date.now() as int
+  if (c == null || (running.progressAt != 0 && done < total && now - running.progressAt < waits.progressMs)) {
+    return
+  }
+  running.progressAt = now
+  const shown = if (total > 65535) 65535 else total
+  const part = if (done > shown) shown else done
+  c!.emit("plan.progress", encodePlanProgress(PlanProgress { kind: kind, phase: phase, done: part as u16, total: shown as u16 }))
+}
+
+// --- items -------------------------------------------------------------------------------------------------------------------------
+
+/// A parameter of the contract as the wire's float: an absent one is a NaN.
+function paramOf(v: f64?): f32 {
+  if (v == null) {
+    return (0.0 / 0.0) as f32
+  }
+  return v! as f32
+}
+
+/// A coordinate (degrees times 1e7) as the whole number the wire has, or `INVALID_VALUE`.
+function coordinateOf(v: f64, what: string): int throws CommunicatorError {
+  if (!((v - v) == 0.0) || v < -2147483648.0 || v > 2147483647.0) {
+    throw new CommunicatorError("INVALID_VALUE", `${what} ${v} is not a coordinate`)
+  }
+  return Math.round(v) as int
+}
+
+/// The wire's item for one of the contract.
+function entryOf(item: PlanItem): MissionEntry throws CommunicatorError {
+  const e = new MissionEntry(item.command as int, item.frame as int, coordinateOf(item.x, "x"), coordinateOf(item.y, "y"), item.z as f32)
+  e.param1 = paramOf(item.param1)
+  e.param2 = paramOf(item.param2)
+  e.param3 = paramOf(item.param3)
+  e.param4 = paramOf(item.param4)
+  e.autocontinue = if (item.autocontinue) 1 else 0
+  return e
+}
+
+/// The contract's item for one the vehicle holds (a NaN parameter is absent).
+function itemOf(e: MissionEntry): PlanItem {
+  const item = PlanItem {
+    command: e.command as u16,
+    frame: e.frame as u8,
+    x: e.x as f64,
+    y: e.y as f64,
+    z: e.z as f64,
+    autocontinue: e.autocontinue != 0,
+  }
+  if (e.param1 == e.param1) {
+    item.param1 = e.param1 as f64
+  }
+  if (e.param2 == e.param2) {
+    item.param2 = e.param2 as f64
+  }
+  if (e.param3 == e.param3) {
+    item.param3 = e.param3 as f64
+  }
+  if (e.param4 == e.param4) {
+    item.param4 = e.param4 as f64
+  }
+  return item
+}
+
+/// The items of a list from index `from` (the mission's first, home, is item 0 on the wire).
+function itemsFrom(entries: MissionEntry[], from: int): PlanItem[] {
+  const out: PlanItem[] = []
+  for (let i = from; i < entries.length; i++) {
+    out.push(itemOf(entries[i]))
+  }
+  return out
+}
+
+/// The page's items as the wire's, with a place holder for home in front for the mission (ArduPilot replaces item 0 with its own home).
+function wireOf(items: PlanItem[], mission: bool): MissionEntry[] throws CommunicatorError {
+  const out: MissionEntry[] = []
+  if (mission) {
+    // (the place holder is a waypoint at 0, 0: a vehicle takes item 0 for its home and never reads what it is sent for it)
+    out.push(new MissionEntry(16, 0, 0, 0, 0.0))
+  }
+  for (const item of items) {
+    out.push(entryOf(item))
+  }
+  return out
+}
+
+/// A MissionError as the refusal of a request that failed before anything was sent (INVALID_VALUE and the like).
+function refusalOf(e: MissionError): CommunicatorError {
+  return new CommunicatorError(if (e.code == "INVALID_VALUE") "INVALID_VALUE" else e.code, e.message)
+}
+
+// --- read --------------------------------------------------------------------------------------------------------------------------
+
+async function read(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePlanReadAsk(payload ?? Cbor.Null, "$")
+  const conn = checkVehicle()
+  checkBusy()
+  const own = begin()
+  let entries: MissionEntry[] = []
+  // (`end()` whatever happens: a cancel, a send that failed, an error of any kind. A plan operation left claimed would keep every other
+  // service and the arm BUSY until the session closed.)
+  try {
+    const client = clientOf(conn, own)
+    client.progress = (done: int, total: int) => progress(ask.kind, PlanProgressPhase.Reading, done, total)
+    entries = await client.download(typeOf(ask.kind))
+  } catch (e: MissionError) {
+    throw new CommunicatorError(e.code, e.message)
+  } finally {
+    end()
+  }
+  const mission = ask.kind == PlanKind.Mission
+  const result = PlanReadResult { kind: ask.kind, items: itemsFrom(entries, if (mission) 1 else 0) }
+  if (mission && entries.length > 0) {
+    result.home = itemOf(entries[0])
+    // the item the vehicle is on is the one it flags `current` (its seq, home being 0); none when it flags none
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].current == 1 && result.current == null) {
+        result.current = i as u16
+      }
+    }
+  }
+  return encodePlanReadResult(result)
+}
+
+// --- write -------------------------------------------------------------------------------------------------------------------------
+
+async function write(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePlanWriteAsk(payload ?? Cbor.Null, "$")
+  const conn = checkVehicle()
+  checkBusy()
+  checkMayChange()
+  const mission = ask.kind == PlanKind.Mission
+  if (ask.items.length == 0) {
+    throw new CommunicatorError("INVALID_VALUE", `there is nothing to write: an empty ${nameOf(ask.kind)} is cleared, not written`)
+  }
+  if (ask.items.length > MAX_ITEMS) {
+    throw new CommunicatorError("TOO_MANY", `${ask.items.length} items are more than ${MAX_ITEMS}`)
+  }
+  checkNoPlaceMeansNoPlace(ask.items, mission)
+  const wire = wireOf(ask.items, mission)
+  const own = begin()
+  const from = nextMessageId()
+  let result = PlanWriteResult { result: PlanWriteResultResult.UploadFailed, count: ask.items.length as u16, unchecked: 0, messages: [] }
+  try {
+    result = await upload(conn, own, ask.kind, wire, mission)
+  } catch (e: MissionError) {
+    // (refused by the client before anything was sent: an item no vehicle should be given)
+    throw refusalOf(e)
+  } finally {
+    end()
+  }
+  result.messages = textsSince(from, MAX_TEXTS)
+  // An upload that has started goes on when the vehicle arms meanwhile (the RC, another ground station): it was not armed when it began, and
+  // what it holds now is what was written, but it must be read and looked at before it flies.
+  if (armedState() != false) {
+    const note = "the vehicle was armed, or its state was not known, when this ended: it may have armed while the plan was written"
+    result.detail = if (result.detail == null) note else `${result.detail!}; ${note}`
+  }
+  return encodePlanWriteResult(result)
+}
+
+/// A waypoint, loiter unlimited, loiter turns and loiter time at 0, 0 in a global frame are refused: ArduPilot reads a place of 0, 0 as "no
+/// place" and goes to where the item before is (commands 16 to 19 only: a takeoff or a land at 0, 0 is one here). The mission's home place
+/// holder is not among them.
+function checkNoPlaceMeansNoPlace(items: PlanItem[], mission: bool): void throws CommunicatorError {
+  if (!mission) {
+    return
+  }
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i]
+    const global = it.frame == 0 || it.frame == 3 || it.frame == 5 || it.frame == 6 || it.frame == 10 || it.frame == 11
+    if (global && it.command >= 16 && it.command <= 19 && it.x == 0.0 && it.y == 0.0) {
+      throw new CommunicatorError("INVALID_VALUE", `item ${i + 1}: 0, 0 is no place (ArduPilot takes it for where the item before it is)`)
+    }
+  }
+}
+
+/// Uploads `wire`, reads it back and compares. A failure of the vehicle's side is in the result; a refusal of the client's own, before anything
+/// is sent, is thrown (a `MissionError`).
+async function upload(conn: MavLinkConnection, own: AbortController, kind: PlanKind, wire: MissionEntry[], mission: bool): Promise<PlanWriteResult> throws Error {
+  const type = typeOf(kind)
+  const first = if (mission) 1 else 0
+  const out = PlanWriteResult { result: PlanWriteResultResult.UploadFailed, count: (wire.length - first) as u16, unchecked: 0, messages: [] }
+  const client = clientOf(conn, own)
+  client.progress = (done: int, total: int) => {
+    running.sent = true
+    progress(kind, PlanProgressPhase.Uploading, done, total)
+  }
+  try {
+    await client.upload(wire, type)
+  } catch (e: MissionError) {
+    if (e.code == "INVALID_VALUE") {
+      throw e
+    }
+    out.code = e.code
+    out.detail = e.message
+    // ArduPilot answers a count it cannot take (NO_SPACE, UNSUPPORTED, DENIED) BEFORE it truncates anything, and such a refusal that comes
+    // before the vehicle has asked for a single item is that: nothing was touched, and the plan it holds is as it was. (A refusal after an
+    // item went over, or no answer at all, leaves it not known: a mixture.)
+    if (!running.sent && (e.code == "NO_SPACE" || e.code == "UNSUPPORTED" || e.code == "DENIED")) {
+      out.result = PlanWriteResultResult.Refused
+      out.detail = `the vehicle refused the count (${e.code}): nothing was changed, it holds what it held`
+    }
+    return out
+  }
+  running.progressAt = 0
+  const check = clientOf(conn, own)
+  check.progress = (done: int, total: int) => progress(kind, PlanProgressPhase.Verifying, done, total)
+  let back: MissionEntry[] = []
+  try {
+    back = await check.download(type)
+  } catch (e: MissionError) {
+    out.result = PlanWriteResultResult.ReadFailed
+    out.code = e.code
+    out.detail = `it was accepted, but reading it back failed: ${e.message}`
+    return out
+  }
+  // (the mission's home, item 0, is the vehicle's own: neither side's is compared)
+  const sent: MissionEntry[] = []
+  const got: MissionEntry[] = []
+  for (let i = first; i < wire.length; i++) {
+    sent.push(wire[i])
+  }
+  for (let i = first; i < back.length; i++) {
+    got.push(back[i])
+  }
+  out.unchecked = unchecked(sent, mission) as u16
+  const at = firstMismatch(sent, got, mission)
+  if (at < 0) {
+    out.result = PlanWriteResultResult.Verified
+    return out
+  }
+  out.result = PlanWriteResultResult.Mismatch
+  out.at = at as u16
+  out.detail = if (got.length != sent.length) `the vehicle holds ${got.length} items, not ${sent.length}` else "the vehicle holds something else than was sent here"
+  if (at < got.length) {
+    out.found = itemOf(got[at])
+  }
+  return out
+}
+
+// --- clear -------------------------------------------------------------------------------------------------------------------------
+
+async function clear(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePlanClearAsk(payload ?? Cbor.Null, "$")
+  const conn = checkVehicle()
+  checkBusy()
+  checkMayChange()
+  const own = begin()
+  const from = nextMessageId()
+  let result = PlanClearResult { result: PlanClearResultResult.Unconfirmed, messages: [] }
+  try {
+    result = await clearAndCheck(conn, own, ask.kind)
+  } finally {
+    end()
+  }
+  result.messages = textsSince(from, MAX_TEXTS)
+  return encodePlanClearResult(result)
+}
+
+/// Clears (once), then reads back: `cleared` only when the vehicle says so and holds nothing (a mission holds its home).
+async function clearAndCheck(conn: MavLinkConnection, own: AbortController, kind: PlanKind): Promise<PlanClearResult> throws Error {
+  const type = typeOf(kind)
+  const out = PlanClearResult { result: PlanClearResultResult.Unconfirmed, messages: [] }
+  const client = clientOf(conn, own)
+  progress(kind, PlanProgressPhase.Clearing, 0, 1)
+  try {
+    await client.clear(type)
+  } catch (e: MissionError) {
+    out.code = e.code
+    out.detail = e.message
+    // (a result the vehicle gave is a refusal; no answer, or a cancel, leaves it not known what it holds)
+    if (e.result >= 0) {
+      out.result = PlanClearResultResult.Refused
+    }
+    return out
+  }
+  running.progressAt = 0
+  let back: MissionEntry[] = []
+  try {
+    back = await clientOf(conn, own).download(type)
+  } catch (e: MissionError) {
+    out.detail = `the vehicle said it cleared, but reading it back failed: ${e.message}`
+    out.code = e.code
+    return out
+  }
+  const left = if (kind == PlanKind.Mission) back.length - 1 else back.length
+  if (left > 0) {
+    out.detail = `the vehicle said it cleared, but still holds ${left} items`
+    return out
+  }
+  progress(kind, PlanProgressPhase.Clearing, 1, 1)
+  out.result = PlanClearResultResult.Cleared
+  return out
+}
+
+// --- set current -------------------------------------------------------------------------------------------------------------------
+
+async function setCurrent(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const ask = decodePlanCurrentAsk(payload ?? Cbor.Null, "$")
+  const conn = checkVehicle()
+  checkBusy()
+  if (armedState() == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s, or an arm is in flight)")
+  }
+  const own = begin()
+  const from = nextMessageId()
+  const out = ArmingResult { result: ArmingResultResult.NoAnswer, messages: [] }
+  try {
+    const answer = await clientOf(conn, own).setCurrent(ask.seq as int)
+    out.code = answer as u8
+    if (answer == MavResult.ACCEPTED) {
+      out.result = ArmingResultResult.Accepted
+    } else if (answer == MavResult.UNSUPPORTED) {
+      out.result = ArmingResultResult.Unsupported
+      out.detail = "the vehicle does not support it"
+    } else {
+      out.result = ArmingResultResult.Refused
+      out.detail = "the vehicle refused (an item that is not there, or not a mission it can go on with)"
+    }
+  } catch (e: MavLinkError) {
+    // no answer, or a cancel: it may have been carried out, it is not sent again. Anything else (an item no vehicle takes) is a refusal.
+    if (e.code != "TIMEOUT" && e.code != "ABORTED") {
+      throw new CommunicatorError(e.code, e.message)
+    }
+    out.detail = "no answer: it may have been carried out; it is not sent again. What the vehicle flies to is its next MISSION_CURRENT"
+  } finally {
+    end()
+  }
+  out.messages = textsSince(from, MAX_TEXTS)
+  return encodeArmingResult(out)
+}

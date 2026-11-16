@@ -310,6 +310,10 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // The vehicle's link is the motor test's: its stop must not wait behind a download.
     throw new CommunicatorError("BUSY", "a motor test is running")
   }
+  if (link.planning) {
+    // A plan operation is a transfer of its own with the vehicle: two would meet.
+    throw new CommunicatorError("BUSY", "the mission, fence or rally points are being read or written")
+  }
   const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
@@ -380,6 +384,9 @@ async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
   }
   if (link.motorTest) {
     throw new CommunicatorError("BUSY", "a motor test is running")
+  }
+  if (link.planning) {
+    throw new CommunicatorError("BUSY", "the mission, fence or rally points are being read or written")
   }
   // A write from a Setup page is refused while the vehicle is armed or not known to be disarmed: the page says so, and so does this.
   if (w.guarded != null && w.guarded!) {

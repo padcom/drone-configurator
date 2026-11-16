@@ -1,0 +1,483 @@
+// The plan service (missions.pi): `plan.read`, `plan.write`, `plan.clear`, `plan.setCurrent`, `plan.cancel` and `plan.progress` over an in-memory link
+// against the simulated vehicle, which does the mission protocol as ArduCopter does (pico-mavlink's simmission.pi). What is refused sends the
+// vehicle nothing, a write is read back and compared, a failed write is said to leave a mixture, and nothing that moves the vehicle is sent twice.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { MavMissionType, MissionRequestList, Received } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { resetForTests } from "./arming"
+import {
+  ArmingResultResult,
+  ConnectRequest,
+  ConnectRequestTransport,
+  PlanClearAsk,
+  PlanClearResultResult,
+  PlanCurrentAsk,
+  PlanItem,
+  PlanKind,
+  PlanProgressPhase,
+  PlanReadAsk,
+  PlanWriteAsk,
+  decodeArmingResult,
+  decodePlanClearResult,
+  decodePlanProgress,
+  decodePlanReadResult,
+  decodePlanWriteResult,
+  encodeConnectRequest,
+  encodePlanClearAsk,
+  encodePlanCurrentAsk,
+  encodePlanReadAsk,
+  encodePlanWriteAsk,
+} from "./generated/app"
+import { waits } from "./missions"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// A connected simulated vehicle that is DISARMED (it would arm itself after three ticks: it is told not to) and whose heartbeat is heard.
+async function onTheGround(): Promise<Frontend> throws Error {
+  resetForTests()
+  waits.messageMs = 400
+  waits.retries = 1
+  waits.overallMs = 20000
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.control.armedSet = 0
+  await afterBeat()
+  await afterBeat()
+  return f
+}
+
+/// A waypoint at (lat, lon) degrees, `alt` m above home, as the contract has it.
+function waypoint(lat: f64, lon: f64, alt: f64): PlanItem {
+  return PlanItem { command: 16, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, x: Math.round(lat * 10000000.0), y: Math.round(lon * 10000000.0), z: alt, autocontinue: true }
+}
+
+/// A takeoff, and two waypoints.
+function route(): PlanItem[] {
+  return [
+    PlanItem { command: 22, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, x: 0.0, y: 0.0, z: 10.0, autocontinue: true },
+    waypoint(52.23, 21.01, 20.0),
+    waypoint(52.24, 21.02, 25.0),
+  ]
+}
+
+async function written(f: Frontend, kind: PlanKind, items: PlanItem[]): Promise<Envelope> throws Error {
+  return await f.call("plan.write", encodePlanWriteAsk(PlanWriteAsk { kind: kind, items: items }))
+}
+
+async function readOf(f: Frontend, kind: PlanKind): Promise<Envelope> throws Error {
+  return await f.call("plan.read", encodePlanReadAsk(PlanReadAsk { kind: kind }))
+}
+
+/// The error code of a reply, or "ok".
+function codeOf(e: Envelope): string {
+  return if (e.err == null) "ok" else e.err!.code
+}
+
+function resultOf(e: Envelope): string {
+  if (e.err != null) {
+    return `error ${e.err!.code}: ${e.err!.message}`
+  }
+  match (decodePlanWriteResult(e.p ?? Cbor.Null, "$").result) {
+    Verified => "verified",
+    Mismatch => "mismatch",
+    UploadFailed => "upload-failed",
+    ReadFailed => "read-failed",
+    Refused => "refused",
+  }
+}
+
+async function readsAFreshVehicleAsOnlyItsHome(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const mission = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  const fence = decodePlanReadResult((await readOf(f, PlanKind.Fence)).p ?? Cbor.Null, "$")
+  const rally = decodePlanReadResult((await readOf(f, PlanKind.Rally)).p ?? Cbor.Null, "$")
+  const sim = simulatorForTests()!
+  await f.call("vehicle.disconnect")
+  // (the vehicle's own home is item 0, said apart: the page's items start after it)
+  expect(mission.items.length).toBe(0)
+  expect(mission.home != null).toBe(true)
+  expect(mission.home!.x).toBe(sim.control.homeLat as f64)
+  expect(fence.items.length).toBe(0)
+  expect(fence.home == null).toBe(true)
+  expect(rally.items.length).toBe(0)
+}
+
+async function aWriteIsReadBackAndVerified(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const reply = await written(f, PlanKind.Mission, route())
+  const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  const held = sim.missions.held(MavMissionType.MISSION)
+  const read = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  expect(resultOf(reply)).toBe("verified")
+  expect(out.count).toBe(3)
+  expect(out.unchecked).toBe(0)
+  // the vehicle holds home and the three items; a read gives the three, with the place and the altitude as sent
+  expect(held.length).toBe(4)
+  expect(read.items.length).toBe(3)
+  expect(read.items[1].x).toBe(522300000.0)
+  expect(read.items[2].z).toBe(25.0)
+  expect(read.items[0].command).toBe(22)
+}
+
+async function whatTheVehicleRoundsIsNotAMismatch(): Promise<void> throws Error {
+  const f = await onTheGround()
+  // a delay of 1.5 s is kept as 1, the altitude to the centimetre, a yaw that is not given (NaN) as 0: the same as what was sent
+  const items = [PlanItem { command: 16, frame: 3, param1: 1.5, param2: 0.0, param3: 0.0, x: 522300000.0, y: 210100000.0, z: 20.004, autocontinue: true }]
+  const reply = await written(f, PlanKind.Mission, items)
+  await f.call("vehicle.disconnect")
+  expect(resultOf(reply)).toBe("verified")
+}
+
+async function aDifferenceInTheReadBackIsAMismatchAtTheItem(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  // the vehicle gives back another altitude for the second item: damaged as the read-back begins (its list is asked for)
+  sim.conn.on((r: Received) => {
+    if (r.message instanceof MissionRequestList) {
+      // (`held` is home first, then the items the vehicle stores, the same objects: the second item of the page is index 2)
+      const held = sim.missions.held(MavMissionType.MISSION)
+      if (held.length > 2) {
+        held[2].z = 99.0
+      }
+    }
+  })
+  const reply = await written(f, PlanKind.Mission, route())
+  const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  expect(resultOf(reply)).toBe("mismatch")
+  expect(out.at ?? 99).toBe(1)
+  expect(out.found != null).toBe(true)
+  expect(out.found!.z).toBe(99.0)
+}
+
+async function aFenceAndRallyPointsAreWrittenAndVerifiedApartFromTheMission(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const polygon: PlanItem[] = []
+  for (const lat of [52.229, 52.231, 52.231]) {
+    polygon.push(PlanItem { command: 5001, frame: 0, param1: 3.0, param2: 0.0, param3: 0.0, param4: 0.0, x: Math.round(lat * 10000000.0), y: 210100000.0, z: 0.0, autocontinue: true })
+  }
+  const rally = [PlanItem { command: 5100, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, param4: 0.0, x: 522300000.0, y: 210100000.0, z: 30.0, autocontinue: true }]
+  const fence = await written(f, PlanKind.Fence, polygon)
+  const point = await written(f, PlanKind.Rally, rally)
+  const read = decodePlanReadResult((await readOf(f, PlanKind.Fence)).p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  // (the vehicle keeps no autocontinue for either, and the comparison does not look for it)
+  expect(resultOf(fence)).toBe("verified")
+  expect(resultOf(point)).toBe("verified")
+  expect(read.items.length).toBe(3)
+  expect(sim.missions.held(MavMissionType.MISSION).length).toBe(1)
+}
+
+async function aWriteIsRefusedForAnArmedVehicleOrOneWhoseStateIsNotKnown(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const heard = sim.missions.counts
+  sim.control.armedSet = 1
+  await afterBeat()
+  await afterBeat()
+  const armed = codeOf(await written(f, PlanKind.Mission, route()))
+  const armedClear = codeOf(await f.call("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission })))
+  // reading is still allowed
+  const read = codeOf(await readOf(f, PlanKind.Mission))
+  sim.control.armedSet = 0
+  await afterBeat()
+  await afterBeat()
+  // no heartbeat for more than 3 s: not known, which counts as armed
+  link.heartbeatAt = (Date.now() as int) - 10000
+  const unknown = codeOf(await written(f, PlanKind.Mission, route()))
+  const unknownClear = codeOf(await f.call("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission })))
+  const counts = sim.missions.counts
+  await f.call("vehicle.disconnect")
+  expect(armed).toBe("ARMED")
+  expect(armedClear).toBe("ARMED")
+  expect(read).toBe("ok")
+  expect(unknown).toBe("STATE_UNKNOWN")
+  expect(unknownClear).toBe("STATE_UNKNOWN")
+  // nothing was sent for the refused ones (the one count is the read's: a read sends a request list, not a count)
+  expect(counts).toBe(heard)
+}
+
+async function nothingGoesBeforeAVehicleIsConnected(): Promise<void> throws Error {
+  resetForTests()
+  const f = await start()
+  expect(codeOf(await readOf(f, PlanKind.Mission))).toBe("NOT_CONNECTED")
+  expect(codeOf(await written(f, PlanKind.Mission, route()))).toBe("NOT_CONNECTED")
+  expect(codeOf(await f.call("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 1 })))).toBe("NOT_CONNECTED")
+}
+
+async function itemsNoVehicleShouldGetAreRefusedBeforeAnythingIsSent(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const before = sim.missions.counts
+  // a NaN where the vehicle takes none (a jump's second parameter), a coordinate that is not one, a place off the globe, an empty write, too many
+  const jump = PlanItem { command: 177, frame: 2, param1: 1.0, x: 0.0, y: 0.0, z: 0.0, autocontinue: true }
+  const nan = codeOf(await written(f, PlanKind.Mission, [waypoint(52.0, 21.0, 10.0), jump]))
+  const bad = PlanItem { command: 16, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, x: 0.0 / 0.0, y: 0.0, z: 5.0, autocontinue: true }
+  const coordinate = codeOf(await written(f, PlanKind.Mission, [bad]))
+  const off = PlanItem { command: 16, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, x: 950000000.0, y: 0.0, z: 5.0, autocontinue: true }
+  const globe = codeOf(await written(f, PlanKind.Mission, [off]))
+  const empty = codeOf(await written(f, PlanKind.Mission, []))
+  const many: PlanItem[] = []
+  for (let i = 0; i < 2001; i++) {
+    many.push(waypoint(52.0, 21.0, 10.0))
+  }
+  const tooMany = codeOf(await written(f, PlanKind.Mission, many))
+  const after = sim.missions.counts
+  await f.call("vehicle.disconnect")
+  expect(nan).toBe("INVALID_VALUE")
+  expect(coordinate).toBe("INVALID_VALUE")
+  expect(globe).toBe("INVALID_VALUE")
+  expect(empty).toBe("INVALID_VALUE")
+  expect(tooMany).toBe("TOO_MANY")
+  expect(after).toBe(before)
+}
+
+async function aCountTheVehicleRefusesTouchesNothingAndIsNotAMixture(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  // a good plan is on the vehicle; then a vehicle with no room (as a fresh one says for 15 s) is sent a longer one: refused at the count,
+  // before it truncates anything, so what it holds is as it was
+  expect(resultOf(await written(f, PlanKind.Mission, [route()[0], route()[1]]))).toBe("verified")
+  sim.missions.maxMission = 3
+  const reply = await written(f, PlanKind.Mission, route())
+  const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  const held = sim.missions.held(MavMissionType.MISSION).length
+  const free = link.planning
+  await f.call("vehicle.disconnect")
+  expect(resultOf(reply)).toBe("refused")
+  expect(out.code ?? "").toBe("NO_SPACE")
+  expect((out.detail ?? "").includes("nothing was changed")).toBe(true)
+  // (home and the two items of the first write)
+  expect(held).toBe(3)
+  expect(free).toBe(false)
+}
+
+async function aCancelFreesTheLinkWhicheverOperationItEnds(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  waits.messageMs = 3000
+  // the vehicle says nothing: each operation waits for it, and is cancelled
+  sim.missions.deaf = true
+  const read = await f.send("plan.read", encodePlanReadAsk(PlanReadAsk { kind: PlanKind.Mission }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const readCode = codeOf(await f.reply(read))
+  const free1 = link.planning
+  const clear = await f.send("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const cleared = decodePlanClearResult((await f.reply(clear)).p ?? Cbor.Null, "$")
+  const free2 = link.planning
+  const current = await f.send("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 1 }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const moved = decodeArmingResult((await f.reply(current)).p ?? Cbor.Null, "$")
+  const free3 = link.planning
+  const write = await f.send("plan.write", encodePlanWriteAsk(PlanWriteAsk { kind: PlanKind.Mission, items: route() }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const wrote = resultOf(await f.reply(write))
+  const free4 = link.planning
+  // and everything that was BUSY while they ran is free: an arm, a parameter download, the next read
+  sim.missions.deaf = false
+  waits.messageMs = 400
+  const arm = codeOf(await f.call("vehicle.arm"))
+  const again = codeOf(await readOf(f, PlanKind.Mission))
+  await f.call("vehicle.disconnect")
+  expect(readCode).toBe("ABORTED")
+  expect(cleared.result).toBe(PlanClearResultResult.Unconfirmed)
+  expect(cleared.code ?? "").toBe("ABORTED")
+  expect(moved.result).toBe(ArmingResultResult.NoAnswer)
+  expect(wrote).toBe("upload-failed")
+  expect(free1 && free2 && free3 && free4).toBe(false)
+  expect(arm != "BUSY").toBe(true)
+  expect(again).toBe("ok")
+}
+
+async function noPlaceIsNoPlaceForTheWaypointsOfTheMission(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const before = sim.missions.counts
+  // a waypoint, loiter unlimited, turns and time at 0, 0 in a global frame: ArduPilot takes it for "where the item before is"
+  let refused = 0
+  for (const command of [16, 17, 18, 19]) {
+    const item = PlanItem { command: command as u16, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, param4: 0.0, x: 0.0, y: 0.0, z: 20.0, autocontinue: true }
+    if (codeOf(await written(f, PlanKind.Mission, [item])) == "INVALID_VALUE") {
+      refused += 1
+    }
+  }
+  const after = sim.missions.counts
+  // a takeoff at 0, 0 is a takeoff here (and a waypoint in the mission's own frame has no place to look at): both go
+  const takeoff = resultOf(await written(f, PlanKind.Mission, [route()[0]]))
+  await f.call("vehicle.disconnect")
+  expect(refused).toBe(4)
+  expect(after).toBe(before)
+  expect(takeoff).toBe("verified")
+}
+
+async function theReadSaysWhichItemTheVehicleIsOn(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  await written(f, PlanKind.Mission, route())
+  const none = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  sim.missions.start()
+  const on = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  expect(none.current == null).toBe(true)
+  // (the first item of the page is item 1, home being 0)
+  expect(on.current ?? 99).toBe(1)
+}
+
+async function aStoppedUploadIsUploadFailedAndNeverSentAgain(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  // the vehicle goes quiet after its count: nothing is asked for
+  sim.missions.deaf = true
+  const reply = await written(f, PlanKind.Mission, route())
+  const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  const counts = sim.missions.counts
+  await f.call("vehicle.disconnect")
+  expect(resultOf(reply)).toBe("upload-failed")
+  expect(out.code ?? "").toBe("TIMEOUT")
+  // (the vehicle was deaf: it heard nothing, so it counted nothing; the link is free again for the next operation)
+  expect(counts).toBe(0)
+  expect(link.planning).toBe(false)
+}
+
+async function aWriteThatIsCancelledSaysAbortedAndFreesTheVehicle(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  waits.messageMs = 3000
+  sim.missions.deaf = true
+  const id = await f.send("plan.write", encodePlanWriteAsk(PlanWriteAsk { kind: PlanKind.Mission, items: route() }))
+  await delay(150)
+  const busy = codeOf(await written(f, PlanKind.Mission, route()))
+  await f.call("plan.cancel")
+  const reply = await f.reply(id)
+  const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  sim.missions.deaf = false
+  waits.messageMs = 400
+  const again = resultOf(await written(f, PlanKind.Mission, route()))
+  await f.call("vehicle.disconnect")
+  expect(busy).toBe("BUSY")
+  expect(resultOf(reply)).toBe("upload-failed")
+  expect(out.code ?? "").toBe("ABORTED")
+  expect(again).toBe("verified")
+}
+
+async function noArmWhileAPlanOperationRunsAndNoOtherServiceEither(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  waits.messageMs = 3000
+  sim.missions.deaf = true
+  const id = await f.send("plan.write", encodePlanWriteAsk(PlanWriteAsk { kind: PlanKind.Mission, items: route() }))
+  await delay(150)
+  const arm = codeOf(await f.call("vehicle.arm"))
+  const reboot = (await f.call("vehicle.reboot")).err
+  const list = codeOf(await f.call("params.list"))
+  await f.call("plan.cancel")
+  await f.reply(id)
+  await f.call("vehicle.disconnect")
+  expect(arm).toBe("BUSY")
+  expect(reboot != null && reboot!.code == "BUSY").toBe(true)
+  expect(list).toBe("BUSY")
+}
+
+async function aClearIsReadBackAndSentOnce(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  await written(f, PlanKind.Mission, route())
+  const reply = await f.call("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission }))
+  const out = decodePlanClearResult(reply.p ?? Cbor.Null, "$")
+  const held = sim.missions.held(MavMissionType.MISSION).length
+  // a clear whose answer is lost is not known to have worked, and is not sent again
+  await written(f, PlanKind.Mission, route())
+  sim.missions.swallowAcks = 1
+  const lost = decodePlanClearResult((await f.call("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission }))).p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  expect(out.result).toBe(PlanClearResultResult.Cleared)
+  expect(held).toBe(1)
+  expect(lost.result).toBe(PlanClearResultResult.Unconfirmed)
+  expect(lost.code ?? "").toBe("TIMEOUT")
+}
+
+async function theCurrentItemIsSetOnceAndAMissingOneIsRefused(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  await written(f, PlanKind.Mission, route())
+  sim.missions.start()
+  const moved = decodeArmingResult((await f.call("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 2 }))).p ?? Cbor.Null, "$")
+  const current = sim.missions.current
+  const refused = decodeArmingResult((await f.call("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 99 }))).p ?? Cbor.Null, "$")
+  // the answer is lost: no-answer, and the command is not sent again
+  const before = sim.missions.setCurrents
+  sim.missions.swallowAcks = 1
+  const lost = decodeArmingResult((await f.call("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 1 }))).p ?? Cbor.Null, "$")
+  await delay(300)
+  const sent = sim.missions.setCurrents - before
+  await f.call("vehicle.disconnect")
+  expect(moved.result).toBe(ArmingResultResult.Accepted)
+  expect(current).toBe(2)
+  expect(refused.result).toBe(ArmingResultResult.Refused)
+  expect(lost.result).toBe(ArmingResultResult.NoAnswer)
+  expect(sent).toBe(1)
+}
+
+async function progressIsToldWhileAnOperationRuns(): Promise<void> throws Error {
+  const f = await onTheGround()
+  waits.progressMs = 0
+  await written(f, PlanKind.Mission, route())
+  await f.call("vehicle.disconnect")
+  waits.progressMs = 100
+  let uploaded = 0
+  let verified = 0
+  for (const e of f.heard) {
+    if (e.n == "plan.progress") {
+      const p = decodePlanProgress(e.p ?? Cbor.Null, "$")
+      if (p.phase == PlanProgressPhase.Uploading && p.done == p.total) {
+        uploaded += 1
+      }
+      if (p.phase == PlanProgressPhase.Verifying && p.done == p.total) {
+        verified += 1
+      }
+    }
+  }
+  expect(uploaded).toBe(1)
+  expect(verified).toBe(1)
+}
+
+describe("the plan service", () => {
+  it("reads a fresh vehicle as only its own home, said apart", readsAFreshVehicleAsOnlyItsHome)
+  it("reads a write back and verifies it", aWriteIsReadBackAndVerified)
+  it("does not take what the vehicle rounds for a mismatch", whatTheVehicleRoundsIsNotAMismatch)
+  it("says a mismatch at the item where the read-back differs", aDifferenceInTheReadBackIsAMismatchAtTheItem)
+  it("writes a fence and rally points apart from the mission", aFenceAndRallyPointsAreWrittenAndVerifiedApartFromTheMission)
+  it("refuses a write and a clear for a vehicle that is armed or whose state is not known, and sends nothing", aWriteIsRefusedForAnArmedVehicleOrOneWhoseStateIsNotKnown)
+  it("refuses everything before a vehicle is connected", nothingGoesBeforeAVehicleIsConnected)
+  it("refuses items no vehicle should get before it sends anything", itemsNoVehicleShouldGetAreRefusedBeforeAnythingIsSent)
+  it("says a count the vehicle refuses is a plain refusal that touched nothing", aCountTheVehicleRefusesTouchesNothingAndIsNotAMixture)
+  it("frees the link when a read, a clear, a set of the current item or a write is cancelled", aCancelFreesTheLinkWhicheverOperationItEnds)
+  it("refuses 0, 0 for the waypoints of the mission and takes it for a takeoff", noPlaceIsNoPlaceForTheWaypointsOfTheMission)
+  it("says which item the vehicle is on", theReadSaysWhichItemTheVehicleIsOn)
+  it("says a stopped upload failed and frees the link", aStoppedUploadIsUploadFailedAndNeverSentAgain)
+  it("ends a write that is cancelled with ABORTED, is busy meanwhile, and the next one goes", aWriteThatIsCancelledSaysAbortedAndFreesTheVehicle)
+  it("is BUSY for an arm, a reboot and a parameter download while it runs", noArmWhileAPlanOperationRunsAndNoOtherServiceEither)
+  it("reads a clear back and never sends it twice", aClearIsReadBackAndSentOnce)
+  it("sets the current item once and refuses one that is not there", theCurrentItemIsSetOnceAndAMissingOneIsRefused)
+  it("tells the progress of an upload and of its read-back", progressIsToldWhileAnOperationRuns)
+})
