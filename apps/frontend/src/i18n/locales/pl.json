@@ -1178,6 +1178,8 @@
     "notSettled": "Najnowszy log po minucie wciąż rósł, więc nic nie pobrano po lądowaniu."
   },
   "question": {
+    "armed": "Pojazd jest uzbrojony: zmiany działają od razu.",
+    "unknown": "Stan pojazdu nie jest znany (może być uzbrojony): zmiany działają od razu.",
     "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",
     "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
     "snapshot": "Zapisać {count} parametr w pojeździe ({names})? | Zapisać {count} parametry w pojeździe ({names})? | Zapisać {count} parametrów w pojeździe ({names})?"
@@ -2113,6 +2115,8 @@
       "attitude": "Orientacja",
       "feel": "Odczucie pilota",
       "position": "Pozycja",
+      "hover": "Gaz zawisu",
+      "autotune": "AutoTune",
       "knob": "Pokrętło radia",
       "gyro": "Filtr żyroskopu",
       "notch": "Notch harmoniczny"
@@ -2136,6 +2140,12 @@
       "PSC_D_VEL_P": "Prędkość pionowa P",
       "PSC_D_ACC_P": "Przyspieszenie pionowe P",
       "PSC_D_ACC_I": "Przyspieszenie pionowe I",
+      "MOT_THST_HOVER": "Gaz zawisu",
+      "MOT_HOVER_LEARN": "Uczenie gazu zawisu",
+      "AUTOTUNE_AXES": "Osie AutoTune",
+      "AUTOTUNE_AGGR": "Agresywność AutoTune",
+      "AUTOTUNE_MIN_D": "Minimalne D w AutoTune",
+      "AUTOTUNE_GMBK": "Cofnięcie wzmocnienia AutoTune",
       "TUNE": "Co stroi pokrętło radia",
       "INS_GYRO_FILTER": "Częstotliwość odcięcia żyroskopu",
       "INS_HNTCH_ENABLE": "Filtr notch",

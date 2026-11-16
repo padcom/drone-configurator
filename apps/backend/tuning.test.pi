@@ -17,7 +17,7 @@ import {
   encodeParamWrite,
 } from "./generated/app"
 import { link } from "./session"
-import { TUNABLE } from "./tuning"
+import { TUNABLE, refuseUntunable } from "./tuning"
 import { Frontend, start } from "./testing"
 
 /// A connected simulator that has some tuning parameters, disarmed (until a test arms it), and a count of the PARAM_SET it was sent.
@@ -317,7 +317,7 @@ async function theListHasNoNameTwiceAndNoWildcard(): Promise<void> throws Error 
     expect(t.max > 0.0).toBe(true)
     seen.push(t.id)
   }
-  expect(seen.length).toBe(40)
+  expect(seen.length).toBe(46)
 }
 
 /// The names the firmware reads only at start-up (see tuning.pi), and the ones it takes live.
@@ -333,6 +333,31 @@ async function writesTheFiltersThatTakeEffectLiveWhileArmed(): Promise<void> thr
   expect(errorOf(await write(r, tuning("INS_HNTCH_ATT", 35.0)))).toBe("ok")
   expect(errorOf(await write(r, tuning("INS_GYRO_FILTER", 30.0)))).toBe("ok")
   expect(r.sets).toBe(4)
+  await r.close()
+}
+
+/// The simulated vehicle has none of these parameters (a write would time out), so the gate is looked at on its own: armed, a
+/// value inside the range goes through, which none of them would if it needed a reboot.
+function theHoverThrottleAndAutoTuneAreLiveWhileArmed(): void throws Error {
+  refuseUntunable("MOT_THST_HOVER", 0.375, true)
+  refuseUntunable("MOT_HOVER_LEARN", 1.0, true)
+  refuseUntunable("AUTOTUNE_AXES", 3.0, true)
+  refuseUntunable("AUTOTUNE_AGGR", 0.075, true)
+  refuseUntunable("AUTOTUNE_MIN_D", 0.0005, true)
+  refuseUntunable("AUTOTUNE_GMBK", 0.25, true)
+}
+
+async function holdsTheHoverThrottleAndAutoTuneToTheirRanges(): Promise<void> throws Error {
+  const r = await connected()
+  await armed(r)
+  expect(errorOf(await write(r, tuning("MOT_THST_HOVER", 0.7)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("MOT_THST_HOVER", 0.1)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("MOT_HOVER_LEARN", 3.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("AUTOTUNE_AXES", 16.0)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("AUTOTUNE_AGGR", 0.2)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("AUTOTUNE_MIN_D", 0.01)))).toBe("OUT_OF_LIMITS")
+  expect(errorOf(await write(r, tuning("PILOT_THR_BHV", 1.0)))).toBe("NOT_TUNING")
+  expect(r.sets).toBe(0)
   await r.close()
 }
 
@@ -406,6 +431,8 @@ describe("the tuning writes the backend allows", () => {
   it("does not refuse a value below the least of the table while disarmed (the page warns)", onlyWarnsOfTheLeastOfTheTableWhileDisarmed)
   it("has a list with no name twice and no wildcard", theListHasNoNameTwiceAndNoWildcard)
   it("writes the filters that take effect live while armed, read back", writesTheFiltersThatTakeEffectLiveWhileArmed)
+  it("lets the hover throttle and AutoTune's settings through while armed (none needs a reboot)", theHoverThrottleAndAutoTuneAreLiveWhileArmed)
+  it("holds the hover throttle and AutoTune's settings to their ranges, and PILOT_THR_BHV is not on the list", holdsTheHoverThrottleAndAutoTuneToTheirRanges)
   it("writes the filters that are read at start-up while disarmed", writesTheStartUpFiltersWhileDisarmed)
 })
 

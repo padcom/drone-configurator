@@ -6,7 +6,21 @@
       <section v-for="group in groups" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
         <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
         <template v-for="param in present(group)" :key="param.id">
-          <div v-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
+          <TuneChoice
+            v-if="param.kind === 'choice' && param.id === 'MOT_HOVER_LEARN'"
+            :label="t(`tune.name.${param.id}`)"
+            :param="param"
+            :options="HOVER_LEARN"
+            :panel="panel"
+          />
+          <TuneBits
+            v-else-if="param.kind === 'bits'"
+            :label="t(`tune.name.${param.id}`)"
+            :param="param"
+            :bits="AUTOTUNE_AXES"
+            :panel="panel"
+          />
+          <div v-else-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
             <div class="tune-head">
               <label :for="`${uid}-${param.id}`" class="tune-label">{{ t(`tune.name.${param.id}`) }}</label>
               <code class="tune-names">{{ param.id }}</code>
@@ -35,24 +49,28 @@
 
 <script setup lang="ts">
 // The other groups: how the attitude controller turns a lean angle into a rate (Attitude), how the sticks feel (Pilot feel), the
-// position controller (Position) and what the radio knob tunes (Radio knob). Same rules as the rate loop: the parameter's name
+// position controller (Position), the hover throttle and its learning, AutoTune's settings (both are changed in flight: AutoTune
+// needs them there) and what the radio knob tunes (Radio knob). Same rules as the rate loop: the parameter's name
 // and "was X" on each, only a parameter the vehicle has is a row, a value beyond the hard limit stops the write, and the one
 // question (or the hold, when the vehicle is armed) names every parameter.
 import { useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
+import TuneBits from '@/components/tune/TuneBits.vue'
+import TuneChoice from '@/components/tune/TuneChoice.vue'
 import TuneSlider from '@/components/tune/TuneSlider.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useTunePanel } from '@/composables/useTunePanel'
 import { showNumber } from '@/lib/params/paramValue'
+import { AUTOTUNE_AXES, HOVER_LEARN } from '@/lib/tune/autotune'
 import { TUNE_FUNCTIONS, TUNE_PARAMS, type TuneGroup, type TuneParam, tuneGroup } from '@/lib/tune/table'
 
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
-const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'knob']
+const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'hover', 'autotune', 'knob']
 const ids = TUNE_PARAMS.filter(param => groups.includes(param.group)).map(param => param.id)
 const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
 

@@ -1178,6 +1178,8 @@
     "notSettled": "Il log più recente cresceva ancora dopo un minuto, quindi dopo l\u2019atterraggio non è stato scaricato nulla."
   },
   "question": {
+    "armed": "Il veicolo è armato: le modifiche hanno effetto subito.",
+    "unknown": "Lo stato del veicolo non è noto (potrebbe essere armato): le modifiche hanno effetto subito.",
     "importLarge": "Questo file è grande ({size}): {name}. Copiarlo nella libreria? Richiede un po\u2019 di tempo e tanto spazio su disco quanto il file.",
     "write": "Scrivere {count} parametro sul veicolo? | Scrivere {count} parametri sul veicolo?",
     "snapshot": "Scrivere {count} parametro sul veicolo ({names})? | Scrivere {count} parametri sul veicolo ({names})?"
@@ -2113,6 +2115,8 @@
       "attitude": "Assetto",
       "feel": "Sensazione di pilotaggio",
       "position": "Posizione",
+      "hover": "Gas di hovering",
+      "autotune": "AutoTune",
       "knob": "Manopola della radio",
       "gyro": "Filtro del giroscopio",
       "notch": "Notch armonico"
@@ -2136,6 +2140,12 @@
       "PSC_D_VEL_P": "Velocità verticale P",
       "PSC_D_ACC_P": "Accelerazione verticale P",
       "PSC_D_ACC_I": "Accelerazione verticale I",
+      "MOT_THST_HOVER": "Gas di hovering",
+      "MOT_HOVER_LEARN": "Apprendimento del gas di hovering",
+      "AUTOTUNE_AXES": "Assi di AutoTune",
+      "AUTOTUNE_AGGR": "Aggressività di AutoTune",
+      "AUTOTUNE_MIN_D": "D minima di AutoTune",
+      "AUTOTUNE_GMBK": "Riduzione del guadagno di AutoTune",
       "TUNE": "Ciò che regola la manopola della radio",
       "INS_GYRO_FILTER": "Frequenza di taglio del giroscopio",
       "INS_HNTCH_ENABLE": "Filtro notch",

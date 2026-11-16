@@ -8,6 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { HOVER_LEARN } from '@/lib/tune/autotune'
 import { NOTCH_ENABLE, NOTCH_MODES, NOTCH_OPTIONS } from '@/lib/tune/filters'
 import { TUNE_FUNCTIONS } from '@/lib/tune/table'
 
@@ -32,6 +33,8 @@ const ALLOWED: [string, string][] = [
   // The names ArduPilot gives the values and the bits of the harmonic notch's parameters (`@Values` and `@Bitmask`).
   ...[...NOTCH_ENABLE, ...NOTCH_MODES].map((one): [string, string] => ['lib/tune/filters.ts', one.label]),
   ...NOTCH_OPTIONS.map((one): [string, string] => ['lib/tune/filters.ts', one.name]),
+  // The names ArduPilot gives the values of the hover learning and the bits of AutoTune's axes (`@Values` and `@Bitmask`).
+  ...HOVER_LEARN.map((one): [string, string] => ['lib/tune/autotune.ts', one.label]),
   ...[
     'Frsky SPort',
     'Alexmos Gimbal Serial',

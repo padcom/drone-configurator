@@ -267,11 +267,11 @@ it('shows only the parameters the vehicle has, and names the others', async () =
   expect(wrapper.get('#tune-more-missing').text()).toContain('PSC_NE_POS_P')
 })
 
-it('has the groups Attitude, Pilot feel, Position and Radio knob, each with names, the knob a named choice', async () => {
+it('has the groups of the other tuning, each with names, the knob a named choice', async () => {
   const { wrapper } = await screen('/tune/more')
 
   const groups = wrapper.findAll('.tune-block h4').map(heading => heading.text())
-  expect(groups).toEqual(['Attitude', 'Pilot feel', 'Position', 'Radio knob'])
+  expect(groups).toEqual(['Attitude', 'Pilot feel', 'Position', 'Hover throttle', 'AutoTune', 'Radio knob'])
   expect(wrapper.get('[data-tune="ATC_INPUT_TC"] .tune-names').text()).toBe('ATC_INPUT_TC')
   expect(wrapper.get('[data-tune="PSC_NE_VEL_P"] .tune-was').text()).toBe('was 2')
   expect(wrapper.get('[data-tune="TUNE"] .tune-names').text()).toBe('TUNE')

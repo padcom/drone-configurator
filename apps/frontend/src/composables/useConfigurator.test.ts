@@ -2,6 +2,10 @@ import { expect, it, vi } from 'vitest'
 import { mockBackend } from '@/mock/mock-backend'
 import { createConfigurator, useConfigurator } from './useConfigurator'
 
+/** What the question of a write says when the armed state is not known (the simulated vehicle has sent no telemetry). */
+const UNKNOWN_STATE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+const ASKED = `Write 1 parameter to the vehicle?\n${UNKNOWN_STATE}\nRTL_ALT 1500 → 1600`
+
 it('gives the components each field as the very ref that the composable holding it changes', () => {
   const { fields, vehicle, parameters, metadata, snapshots } = createConfigurator(mockBackend())
 
@@ -86,7 +90,7 @@ it('answers a question no when a second one replaces it (a double click on Write
   parameters.select('RTL_ALT')
   parameters.editDraft('1600')
   staged.sync()
-  const question = 'Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600'
+  const question = ASKED
 
   const first = staged.writeAll()
   await expect.poll(() => confirmation.value?.question).toBe(question)
@@ -111,7 +115,7 @@ it('resolves a confirmation with the answer and clears the question', async () =
   staged.sync()
 
   const writing = staged.writeAll()
-  await expect.poll(() => confirmation.value?.question).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600')
+  await expect.poll(() => confirmation.value?.question).toBe(ASKED)
   confirmation.value?.answer(false)
   await writing
 

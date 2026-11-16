@@ -56,6 +56,17 @@ export const TUNABLE: Tunable[] = [
   Tunable { id: "PSC_D_ACC_P", min: 0.01, max: 0.25, armedOk: true },
   Tunable { id: "PSC_D_ACC_I", min: 0.0, max: 0.5, armedOk: true },
   Tunable { id: "TUNE", min: 0.0, max: 61.0, armedOk: true },
+  // The hover throttle and AutoTune (ArduCopter's names: the motors' `MOT_` group, AP_MotorsMulticopter.cpp, and the `AUTOTUNE_`
+  // group, AC_AutoTune_Multi.cpp), written in flight because AutoTune needs them there: THST_HOVER (@Range 0.125 0.6875) is
+  // what a hover takes and is learned in flight, HOVER_LEARN (@Values 0 disabled, 1 learn, 2 learn and save), and AutoTune's
+  // axes (@Bitmask: roll, pitch, yaw, yaw D: 0 to 15, set before AutoTune is engaged), aggressiveness (@Range 0.05 0.10), minimum
+  // D (0.0001 0.005) and gain back-off (0 0.5). None is `@RebootRequired`: each is read when it is used.
+  Tunable { id: "MOT_THST_HOVER", min: 0.125, max: 0.6875, armedOk: true },
+  Tunable { id: "MOT_HOVER_LEARN", min: 0.0, max: 2.0, armedOk: true },
+  Tunable { id: "AUTOTUNE_AXES", min: 0.0, max: 15.0, armedOk: true },
+  Tunable { id: "AUTOTUNE_AGGR", min: 0.05, max: 0.1, armedOk: true },
+  Tunable { id: "AUTOTUNE_MIN_D", min: 0.0001, max: 0.005, armedOk: true },
+  Tunable { id: "AUTOTUNE_GMBK", min: 0.0, max: 0.5, armedOk: true },
   // The filters (the Tune screen's Filters part), from AP_InertialSensor.cpp (INS_GYRO_FILTER, @Range 0 256 Hz) and
   // libraries/Filter/HarmonicNotchFilter.cpp (the first harmonic notch, INS_HNTCH_*, of ArduPilot master, 4.8.0-dev). Taken effect live
   // (`armedOk`): the gyro filter, and the notch's centre, bandwidth and attenuation (the notch is rebuilt in flight when they change). Read

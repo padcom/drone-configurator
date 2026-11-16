@@ -127,14 +127,36 @@ function offGlobe(item: PlanItem): Found | null {
 }
 
 /**
- * The problem of a waypoint or a loiter at 0, 0: ArduPilot takes it for "where the item before it is", and it would be drawn
- * on the equator.
+ * Whether an item is at 0, 0.
  *
  * @param item the item
+ * @returns whether it is
+ */
+function isZero(item: PlanItem): boolean {
+  return item.lat === 0 && item.lon === 0
+}
+
+/**
+ * Whether an item must be at a real place: it flies to one, or it names one (set home "given here", a ROI "at a place").
+ *
+ * @param item the item
+ * @param def its command
+ * @returns whether it must
+ */
+function needsRealPlace(item: PlanItem, def: CommandDef): boolean {
+  return isFlyTo(item) || placeNeeded(item, def)
+}
+
+/**
+ * The problem of a waypoint or a loiter at 0, 0: ArduPilot takes it for "where the item before it is", and it would be drawn
+ * on the equator. A set home "given here" or a ROI "at a place" at 0, 0 is the same: the vehicle takes 0, 0 for where it is.
+ *
+ * @param item the item
+ * @param def its command
  * @returns the problem, or null
  */
-function atZero(item: PlanItem): Found | null {
-  return isFlyTo(item) && item.lat === 0 && item.lon === 0 ? error('atZero') : null
+function atZero(item: PlanItem, def: CommandDef): Found | null {
+  return isZero(item) && needsRealPlace(item, def) ? error('atZero') : null
 }
 
 /**
@@ -220,7 +242,7 @@ function placeProblems(item: PlanItem): Found[] {
   const def = definitionOf(item.command)
   const found = def === undefined
     ? []
-    : [noPlace(item, def), offGlobe(item), atZero(item), noAltitude(item, def), altitudeRange(item), suspectAltitude(item)]
+    : [noPlace(item, def), offGlobe(item), atZero(item, def), noAltitude(item, def), altitudeRange(item), suspectAltitude(item)]
 
   return found.filter((problem): problem is Found => problem !== null)
 }

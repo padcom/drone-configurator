@@ -1178,6 +1178,8 @@
     "notSettled": "El registro más reciente seguía creciendo tras un minuto, así que tras el aterrizaje no se descargó nada."
   },
   "question": {
+    "armed": "El vehículo está armado: los cambios surten efecto ahora.",
+    "unknown": "No se conoce el estado del vehículo (puede estar armado): los cambios surten efecto ahora.",
     "importLarge": "Este archivo es grande ({size}): {name}. ¿Copiarlo en la biblioteca? Tarda un rato y ocupa tanto espacio en disco como el archivo.",
     "write": "¿Escribir {count} parámetro en el vehículo? | ¿Escribir {count} parámetros en el vehículo?",
     "snapshot": "¿Escribir {count} parámetro en el vehículo ({names})? | ¿Escribir {count} parámetros en el vehículo ({names})?"
@@ -2113,6 +2115,8 @@
       "attitude": "Actitud",
       "feel": "Tacto del piloto",
       "position": "Posición",
+      "hover": "Acelerador de estacionario",
+      "autotune": "AutoTune",
       "knob": "Rueda del mando",
       "gyro": "Filtro del giroscopio",
       "notch": "Notch armónico"
@@ -2136,6 +2140,12 @@
       "PSC_D_VEL_P": "Velocidad vertical P",
       "PSC_D_ACC_P": "Aceleración vertical P",
       "PSC_D_ACC_I": "Aceleración vertical I",
+      "MOT_THST_HOVER": "Acelerador de estacionario",
+      "MOT_HOVER_LEARN": "Aprendizaje del acelerador de estacionario",
+      "AUTOTUNE_AXES": "Ejes de AutoTune",
+      "AUTOTUNE_AGGR": "Agresividad de AutoTune",
+      "AUTOTUNE_MIN_D": "D mínima de AutoTune",
+      "AUTOTUNE_GMBK": "Reducción de ganancia de AutoTune",
       "TUNE": "Lo que ajusta la rueda del mando",
       "INS_GYRO_FILTER": "Frecuencia de corte del giroscopio",
       "INS_HNTCH_ENABLE": "Filtro notch",
