@@ -28,6 +28,10 @@ export interface MockRcControl {
   end: (why: string) => void
   /** What `RC_OVERRIDE_TIME` is on the mock's vehicle (default 3): 0 or less is refused with `OVERRIDE_DISABLED`. */
   overrideTime: (seconds: number) => void
+  /** Whether the mock's link is a simulator (default true): when it is not, a control is refused with `NOT_SIMULATOR`. */
+  simulator: (is: boolean) => void
+  /** Whether `rc.allow` is on in the mock backend's own settings (default true): when it is not, `NOT_ALLOWED`. */
+  allowed: (is: boolean) => void
   /** The pulse the throttle channel is never sent under (default 1000), and which channel it is (default 3). */
   throttle: (channel: number, least: number) => void
 }
@@ -41,6 +45,8 @@ export class MockRc {
   private began = 0
   private released = 0
   private overrideTime = 3
+  private simulator = true
+  private allowed = true
   private throttleChannel = 3
   private throttleMin = 1000
 
@@ -70,6 +76,8 @@ export class MockRc {
       released: () => this.released,
       end: why => this.finish(why),
       overrideTime: seconds => { this.overrideTime = seconds },
+      simulator: is => { this.simulator = is },
+      allowed: is => { this.allowed = is },
       throttle: (channel, least) => {
         this.throttleChannel = channel
         this.throttleMin = least
@@ -107,6 +115,8 @@ export class MockRc {
   private refusal(): string | null {
     const checks: [boolean, string][] = [
       [!this.connected(), 'NOT_CONNECTED'],
+      [!this.simulator, 'NOT_SIMULATOR'],
+      [!this.allowed, 'NOT_ALLOWED'],
       [this.armedState() === null, 'STATE_UNKNOWN'],
       [this.subscription !== null, 'BUSY'],
       [this.overrideTime <= 0, 'OVERRIDE_DISABLED'],

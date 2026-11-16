@@ -240,7 +240,10 @@ services = {
   ; backend sends what it is given, at its own rate (25 Hz, never above 50: frames that come faster replace each other, none is queued
   ; or sent again); when no `rc.input` that is new (its `seq` above the last) has come for 300 ms the backend releases and tells
   ; `released` with `SILENT`. The vehicle's own `RC_OVERRIDE_TIME` (3 s) is only the second line. A control that may not begin ENDS
-  ; the subscription at once, with the reason as the end's error code (nothing is sent to the vehicle): `NOT_CONNECTED`, `UNSUPPORTED`
+  ; the subscription at once, with the reason as the end's error code (nothing is sent to the vehicle): `NOT_CONNECTED`, `NOT_SIMULATOR`
+  ; (the link `vehicle.connect` was given is not the built-in simulator or TCP or UDP to this computer: a serial port, any other address,
+  ; or a network link with no host), `NOT_ALLOWED` (`rc.allow` is not `on` in the backend's own settings: the page's copy is not trusted),
+  ; `UNSUPPORTED`
   ; (not an ArduPilot), `STATE_UNKNOWN` (no heartbeat for 3 s: armed or not is not known), `BUSY` (a control, a calibration, a motor test, a
   ; parameter or log operation, a plan operation or a reboot is under way), `PARAMS_INCOMPLETE` (the parameter list was not downloaded
   ; whole: the throttle cannot be held to its range), `PARAMS_MISSING` (`RC_OVERRIDE_TIME`, `RCMAP_THROTTLE` or the throttle channel's

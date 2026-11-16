@@ -89,6 +89,20 @@ it('refuses a control with no vehicle, an unknown armed state, a second one, and
   expect(endedWith(negative.sent)).toBe('OVERRIDE_DISABLED')
 })
 
+it('refuses a control on a link that is not a simulator, and when the setting is not on in the backend', () => {
+  const real = rcOf()
+  real.rc.control().simulator(false)
+  real.subscribe()
+  const off = rcOf()
+  off.rc.control().allowed(false)
+  off.subscribe()
+
+  expect(endedWith(real.sent)).toBe('NOT_SIMULATOR')
+  expect(real.rc.control().on()).toBe(false)
+  expect(endedWith(off.sent)).toBe('NOT_ALLOWED')
+  expect(off.rc.control().on()).toBe(false)
+})
+
 it('ends when the page lets go, or when the backend ends it, telling why', () => {
   const run = rcOf()
   run.subscribe(7)

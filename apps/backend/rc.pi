@@ -3,6 +3,11 @@
 // under the failsafe value is a radio failsafe, "RC not found" passes), and what is sent is held by the vehicle until it is released or its
 // RC_OVERRIDE_TIME lapses.
 //
+// WHERE it may begin (the backend's own rule: the page's check is a courtesy, this is the gate): only on a link the connection recorded
+// as a simulator (the built-in one, or TCP or UDP to this computer: `NOT_SIMULATOR` otherwise, and for a link with no host or a serial
+// port), and only when `rc.allow` is `on` in the settings the backend keeps (`NOT_ALLOWED`). Known limit: nothing in the vehicle says it
+// is a simulator, so a tunnel to a loopback port passes.
+//
 // What ends a control, by every way it can end (a test of its own for each, in rc.test.pi); each RELEASES the channels (one frame) first:
 //  - the page lets go, or unsubscribes (the page leaving, a window closing: the subscription ends): `RELEASED`;
 //  - the page goes silent (`rc.input` is its sticks, every 40 ms; no NEW one (its `seq` above the last) for `waits.silenceMs`, 300 ms, is a
@@ -34,8 +39,9 @@ import {
   TypedParamValue,
   defaultRegistry,
 } from "padcom/pico-mavlink"
-import { RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
+import { ConnectRequest, RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
+import { uiValue } from "./settings"
 
 /// The times of the control (ms). A test may shorten them.
 class Waits {
@@ -328,8 +334,41 @@ async function readParam(id: string): Promise<f64?> throws Error {
   }
 }
 
-/// Why a control may not begin now, as an error, or nothing.
+/// The addresses that are this computer: a vehicle on one of them is a simulator the person runs. (The page has the same list.)
+const LOOPBACK_HOSTS: string[] = ["127.0.0.1", "localhost", "::1", "[::1]"]
+
+/// Whether a connection was asked to go to a simulator: the built-in one, or TCP or UDP to this computer. A serial port, any other
+/// address and a network connection with no host are a real vehicle as far as this goes (never assumed). Its answer is the link kind
+/// the connection recorded at `vehicle.connect` (`link.request`, which ends with the session).
+export function isSimulatorLink(request: ConnectRequest?): bool {
+  if (request == null) {
+    return false
+  }
+  const r = request!
+  match (r.transport) {
+    Simulator => true,
+    Udp => LOOPBACK_HOSTS.includes((r.host ?? "").toLowerCase()),
+    Tcp => LOOPBACK_HOSTS.includes((r.host ?? "").toLowerCase()),
+    Serial => false,
+  }
+}
+
+/// Whether the person turned RC control on, in the settings the backend itself keeps (`rc.allow` is `on`): the page's own copy is not
+/// trusted (a page that is wrong, or another one, must not turn a control on for a vehicle). Settings that cannot be read are "off".
+async function allowed(): Promise<bool> {
+  try {
+    return (await uiValue("rc.allow")) == "on"
+  } catch (e: Error) {
+    return false
+  }
+}
+
+/// Why a control may not begin now, as an error, or nothing. (That `rc.allow` is on is asked next, in `prepare`: it is read from a
+/// file, and a control is claimed before anything is awaited.)
 function refuse(): void throws CommunicatorError {
+  if (!isSimulatorLink(link.request)) {
+    throw new CommunicatorError("NOT_SIMULATOR", "RC control is only for a simulator: the built-in one, or TCP or UDP to this computer")
+  }
   if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
     throw new CommunicatorError("UNSUPPORTED", "RC control is made for an ArduPilot vehicle")
   }
@@ -365,6 +404,9 @@ function startControl(_params: Cbor?, sink: Sink): void throws Error {
 /// Reads what the control needs of the vehicle, then starts the sender. Anything that ends the control meanwhile ends this too.
 async function prepare(mine: int, sink: Sink): Promise<void> {
   try {
+    if (!(await allowed())) {
+      throw new CommunicatorError("NOT_ALLOWED", "RC control is not turned on in the settings (rc.allow)")
+    }
     const reading = await readSettings()
     if (!current.active || mine != current.serial) {
       return

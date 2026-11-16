@@ -4,11 +4,14 @@
 // says the channels were RELEASED (the vehicle's pulses are its radio's again, by a release frame and not by its own 3 s timeout); and each
 // refusal has one that says NOTHING WAS SENT to the vehicle.
 import { describe, it, expect } from "std/test"
+import { mkdir, remove } from "std/fs"
+import { pid } from "std/process"
 import { delay } from "std/timers"
 import { Cbor, Envelope } from "pico-desktop/communicator"
 import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { seams } from "./rc"
+import { isSimulatorLink, seams } from "./rc"
+import { useDirectoryForTests } from "./settings"
 import { ByteStream } from "padcom/pico-mavlink"
 import {
   CalibrationKind,
@@ -21,12 +24,15 @@ import {
   RcInput,
   RcState,
   RcStateState,
+  SettingsPatch,
+  UiEntry,
   decodeRcState,
   encodeCalibrationStart,
   encodeConnectRequest,
   encodeMotorTestParams,
   encodeParamWrite,
   encodeRcInput,
+  encodeSettingsPatch,
 } from "./generated/app"
 import { link } from "./session"
 import { Frontend, start } from "./testing"
@@ -73,19 +79,23 @@ class Rig {
   public readonly f: Frontend
   public readonly sim: SimulatedAutopilot
   public readonly hold: int
+  /// The directory of the settings of the test.
+  public readonly root: string
   /// The next `seq` of the page's sticks.
   public seq: int = 1
 
-  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int, root: string) {
     this.f = f
     this.sim = sim
     this.hold = hold
+    this.root = root
   }
 
   /// Ends the connection (its timers would keep the test process alive).
   public async close(): Promise<void> throws Error {
     clearInterval(hold)
     await f.call("vehicle.disconnect")
+    await remove(root, true)
   }
 }
 
@@ -110,11 +120,18 @@ function changeParam(sim: SimulatedAutopilot, id: string, value: f64): void {
 }
 
 /// A connected vehicle whose radio has the first channels at rest, with RC_OVERRIDE_TIME 3 s, the throttle on channel 3 and its minimum 1000.
-async function connected(): Promise<Rig> throws Error {
+async function connected(allow: bool = true): Promise<Rig> throws Error {
   seams.wrap = (inner: ByteStream) => new FlakyEnd(inner)
   flaky.slowMs = 0
   flaky.failWrites = 0
+  // The settings of the backend, in a directory of the test: `rc.allow` is on there unless the test says otherwise.
+  const root = `/tmp/drone-configurator-rc-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
   const f = await start()
+  if (allow) {
+    await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.allow", value: "on" }] }))
+  }
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
   const sim = simulatorForTests()!
   sim.rc = [1500, 1500, 1000, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
@@ -127,7 +144,7 @@ async function connected(): Promise<Rig> throws Error {
   }, 50)
   link.paramsComplete = true
   await afterBeat()
-  new Rig(f, sim, hold)
+  new Rig(f, sim, hold, root)
 }
 
 /// The error code of a reply, or "ok".
@@ -634,6 +651,79 @@ async function refusesWhatItCannotScaleTheThrottleTo(): Promise<void> throws Err
   await r.close()
 }
 
+function requestOf(transport: ConnectRequestTransport, host: string? = null): ConnectRequest {
+  ConnectRequest { transport: transport, host: host, port: 5760 as u16 }
+}
+
+async function knowsWhichLinksAreASimulator(): Promise<void> throws Error {
+  expect(isSimulatorLink(null)).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Simulator))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "127.0.0.1"))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "LocalHost"))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp, "::1"))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp, "[::1]"))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "192.168.1.20"))).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "127.0.0.1.example.com"))).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp))).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp))).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Serial, "127.0.0.1"))).toBe(false)
+}
+
+/// Refuses the control for the link kind the connection recorded, and sends nothing.
+async function refusesLinkOf(request: ConnectRequest, code: string): Promise<void> throws Error {
+  const r = await connected()
+  // (what `vehicle.connect` recorded is what the control goes by)
+  expect(link.request != null).toBe(true)
+  link.request = request
+  expect(await refusedWith(r.f)).toBe(code)
+  nothingWasSent(r)
+  await r.close()
+}
+
+async function recordsTheLinkKindAtConnectAndForgetsItAtDisconnect(): Promise<void> throws Error {
+  const r = await connected()
+  expect(link.request!.transport == ConnectRequestTransport.Simulator).toBe(true)
+  await r.f.call("vehicle.disconnect")
+  expect(link.request == null).toBe(true)
+  await r.close()
+}
+
+async function refusesAVehicleThatIsNotASimulator(): Promise<void> throws Error {
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Tcp, "192.168.1.20"), "NOT_SIMULATOR")
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Udp, "10.0.0.5"), "NOT_SIMULATOR")
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Udp), "NOT_SIMULATOR")
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Tcp), "NOT_SIMULATOR")
+  await refusesLinkOf(ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/ttyUSB0" }, "NOT_SIMULATOR")
+}
+
+async function takesATcpOrUdpLinkToThisComputer(): Promise<void> throws Error {
+  const r = await connected()
+  link.request = requestOf(ConnectRequestTransport.Tcp, "127.0.0.1")
+  const s = await flying(r)
+  await r.f.unsubscribe(s)
+  await r.close()
+}
+
+async function refusesUnlessTheBackendsOwnSettingsAllowIt(): Promise<void> throws Error {
+  const r = await connected(false)
+  // never set: off
+  expect(await refusedWith(r.f)).toBe("NOT_ALLOWED")
+  nothingWasSent(r)
+  // anything but "on" is off
+  for (const value of ["off", "ON", "true", "1", ""]) {
+    await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.allow", value: value }] }))
+    expect(await refusedWith(r.f)).toBe("NOT_ALLOWED")
+  }
+  nothingWasSent(r)
+  // on: the control begins; and off again, it is refused again
+  await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.allow", value: "on" }] }))
+  const s = await flying(r)
+  await r.f.unsubscribe(s)
+  await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.allow", value: "off" }] }))
+  expect(await refusedWith(r.f)).toBe("NOT_ALLOWED")
+  await r.close()
+}
+
 async function takesOneControlAtATime(): Promise<void> throws Error {
   const r = await connected()
   const s = await flying(r)
@@ -703,6 +793,11 @@ describe("the exits of an RC control", () => {
 })
 
 describe("what the RC control refuses", () => {
+  it("knows which links go to a simulator", knowsWhichLinksAreASimulator)
+  it("records the link kind at connect and forgets it at disconnect", recordsTheLinkKindAtConnectAndForgetsItAtDisconnect)
+  it("sends nothing to a vehicle that is not a simulator (NOT_SIMULATOR)", refusesAVehicleThatIsNotASimulator)
+  it("takes TCP to this computer for a simulator", takesATcpOrUdpLinkToThisComputer)
+  it("sends nothing unless the backend's own settings turn it on (NOT_ALLOWED)", refusesUnlessTheBackendsOwnSettingsAllowIt)
   it("refuses a pulse out of range and too many channels, and changes nothing", refusesAPulseOutOfRangeAndTooManyChannels)
   it("sends nothing when no vehicle is connected", refusesWhenNoVehicleIsConnected)
   it("sends nothing when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
