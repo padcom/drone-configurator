@@ -832,7 +832,7 @@
     },
     "indicator": {
       "on": "Control remoto activo",
-      "off": "Apagar el control remoto"
+      "off": "Control remoto activo. Pulsa para apagarlo."
     },
     "summary": {
       "title": "¿Pilotar con el mando?",
@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "Control remoto terminado: se ocultó la ventana.",
       "VEHICLE_CHANGED": "Control remoto terminado: es otro vehículo.",
       "PARAMS_UNKNOWN": "Control remoto terminado: no se conocen los parámetros del vehículo.",
+      "PARAMS_CHANGED": "Control remoto terminado: cambiaron los ajustes del vehículo.",
       "EDITED": "Control remoto terminado: se cambió la asignación.",
       "NOT_CONNECTED": "No hay ningún vehículo conectado.",
       "UNSUPPORTED": "El control remoto está hecho para un vehículo ArduPilot.",

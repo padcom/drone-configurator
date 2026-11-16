@@ -832,7 +832,7 @@
     },
     "indicator": {
       "on": "Controllo remoto attivo",
-      "off": "Spegni il controllo remoto"
+      "off": "Controllo remoto attivo. Premi per spegnerlo."
     },
     "summary": {
       "title": "Pilotare con il gamepad?",
@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "Controllo remoto terminato: la finestra è stata nascosta.",
       "VEHICLE_CHANGED": "Controllo remoto terminato: è un altro veicolo.",
       "PARAMS_UNKNOWN": "Controllo remoto terminato: i parametri del veicolo non sono noti.",
+      "PARAMS_CHANGED": "Controllo remoto terminato: le impostazioni del veicolo sono cambiate.",
       "EDITED": "Controllo remoto terminato: l'assegnazione è stata cambiata.",
       "NOT_CONNECTED": "Nessun veicolo è collegato.",
       "UNSUPPORTED": "Il controllo remoto è fatto per un veicolo ArduPilot.",

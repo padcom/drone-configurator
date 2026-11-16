@@ -832,7 +832,7 @@
     },
     "indicator": {
       "on": "Fernsteuerung an",
-      "off": "Fernsteuerung ausschalten"
+      "off": "Fernsteuerung an. Drücken zum Ausschalten."
     },
     "summary": {
       "title": "Mit dem Gamepad fliegen?",
@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "Fernsteuerung beendet: Das Fenster wurde verborgen.",
       "VEHICLE_CHANGED": "Fernsteuerung beendet: Es ist ein anderes Fahrzeug.",
       "PARAMS_UNKNOWN": "Fernsteuerung beendet: Die Parameter des Fahrzeugs sind nicht bekannt.",
+      "PARAMS_CHANGED": "Fernsteuerung beendet: Die Einstellungen des Fahrzeugs haben sich geändert.",
       "EDITED": "Fernsteuerung beendet: Die Zuordnung wurde geändert.",
       "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",
       "UNSUPPORTED": "Die Fernsteuerung ist für ein ArduPilot-Fahrzeug gemacht.",

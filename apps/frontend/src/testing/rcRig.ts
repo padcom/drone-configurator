@@ -2,7 +2,7 @@
 // and the vehicle's facts are refs to change, and what the control said to the person is collected.
 import { vi } from 'vitest'
 import { computed, effectScope, shallowRef } from 'vue'
-import { createBackendClient } from '@/backend/client'
+import { type BackendClient, createBackendClient } from '@/backend/client'
 import { type RcControlModel, useRcControl } from '@/composables/useRcControl'
 import type { RcSettings } from '@/composables/useRcSettings'
 import type { ConnectRequest, Connection } from '@/generated/app'
@@ -91,18 +91,26 @@ function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profil
  * @param options what is different from the usual
  * @param options.allowed whether RC control is allowed (it is)
  * @param options.profile the mapping kept for the pad: the calibrated suggestion, or null for none
+ * @param options.wrap what the control's client is made of the real one (to hold an answer back)
  * @returns what a test works with
  */
-export async function rcRig(options: { allowed?: boolean, profile?: Profile | null } = {}): Promise<RcRig> {
+export async function rcRig(options: {
+  allowed?: boolean
+  profile?: Profile | null
+  wrap?: (client: BackendClient) => BackendClient
+} = {}): Promise<RcRig> {
   const control: MockControl = {}
-  const client = createBackendClient(mockBackend({ settings: { version: 1, ui: [] }, control }))
+  const real = createBackendClient(mockBackend({ settings: { version: 1, ui: [] }, control }))
+  const client = options.wrap?.(real) ?? real
 
-  await client.call('vehicle.connect', SIMULATOR)
+  await real.call('vehicle.connect', SIMULATOR)
   // (the vehicle is disarmed, and says so: a control is not begun on a state that is not known)
-  control.armed?.(false)
+  control.armed!(false)
+  // (the backend reads the throttle channel and its minimum from the vehicle: the facts below say channel 3 and 1100)
+  control.rc!.throttle(3, 1100)
   const told: string[] = []
   const holder = { busy: null as string | null }
-  const allowed = shallowRef(options.allowed ?? true)
+  const allowed = shallowRef(options.allowed !== false)
   const profiles = shallowRef(kept(options.profile))
   const connection = shallowRef<Connection>(CONNECTED)
   const request = shallowRef<ConnectRequest | null>(SIMULATOR)
@@ -122,6 +130,21 @@ export async function rcRig(options: { allowed?: boolean, profile?: Profile | nu
 /** Lets what was sent reach the backend, and what it answers reach the page. */
 export async function settle(): Promise<void> {
   await vi.advanceTimersByTimeAsync(0)
+}
+
+/**
+ * Lets time pass as it does for a page that runs: one read at a time, with what is sent reaching the backend (and answered)
+ * between the reads.
+ *
+ * @param rig the rig
+ * @param ms how long
+ */
+export async function run(rig: RcRig, ms: number): Promise<void> {
+  for (let spent = 0; spent < ms; spent += 20) {
+    rig.pads.advance(20)
+    // eslint-disable-next-line no-await-in-loop
+    await settle()
+  }
 }
 
 /**

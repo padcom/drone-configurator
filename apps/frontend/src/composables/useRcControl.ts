@@ -74,6 +74,32 @@ export interface RcControlModel {
   toggle: () => void
 }
 
+/**
+ * What the control depends on in the vehicle's facts, as text (to see that it changed): the sticks' channels, the ranges, the
+ * dead zones and the functions of the channels.
+ *
+ * @param facts what the vehicle says, or null
+ * @returns the text ('' for none)
+ */
+function factsKey(facts: Facts | null): string {
+  return facts === null ? '' : JSON.stringify([facts.map, facts.ranges, facts.zones, facts.options, facts.complete])
+}
+
+/**
+ * The throttle channel the vehicle says, and the least pulse its range says.
+ *
+ * @param facts what the vehicle says, or null
+ * @returns them, or null when it did not say
+ */
+function throttleOf(facts: Facts | null): { channel: number, least: number | undefined } | null {
+  if (facts === null) {
+    return null
+  }
+  const channel = facts.map.throttle
+
+  return { channel, least: facts.ranges[channel - 1]?.min }
+}
+
 /** The RC control. */
 class RcControl implements RcControlModel {
   readonly state = shallowRef<RcControlState>('off')
@@ -90,6 +116,12 @@ class RcControl implements RcControlModel {
   private gate: Gate = START_GATE
   private seq = 0
   private sentAt = Number.NEGATIVE_INFINITY
+  /** The number of the control that runs or ran last: what an older one says is ignored. */
+  private run = 0
+  /** Whether a frame is on its way to the backend (one at a time). */
+  private pushing = false
+  /** What the vehicle's facts were when the control began. */
+  private facts = ''
 
   /**
    * Makes it.
@@ -117,6 +149,8 @@ class RcControl implements RcControlModel {
     watch(vehicle, () => this.over('VEHICLE_CHANGED'))
     watch(() => isSimulatorLink(deps.request.value), simulator => !simulator && this.over('NOT_SIMULATOR'))
     watch(() => deps.facts.value, facts => (facts === null || !facts.complete) && this.over('PARAMS_UNKNOWN'))
+    // (what the vehicle says of its channels is what the throttle is held to: a change under the control ends it)
+    watch(() => factsKey(deps.facts.value), key => this.facts !== '' && key !== this.facts && this.over('PARAMS_CHANGED'))
     watch(() => this.keptMapping(), kept => kept !== this.snapshot && this.over('EDITED'))
   }
 
@@ -240,11 +274,15 @@ class RcControl implements RcControlModel {
     this.sentAt = Number.NEGATIVE_INFINITY
     this.why.value = null
     this.state.value = 'starting'
+    this.facts = factsKey(this.deps.facts.value)
+    this.pushing = false
+    this.run += 1
+    const mine = this.run
     const subscription = this.deps.client.subscribe(
       'rc.control',
       null,
-      state => this.told(state),
-      ending => this.over(ending?.code ?? 'ENDED', true),
+      state => this.told(mine, state),
+      ending => this.ended(mine, ending?.code ?? 'ENDED'),
     )
 
     this.subscription = subscription
@@ -252,20 +290,60 @@ class RcControl implements RcControlModel {
     try {
       await subscription.ready
     } catch (failure) {
-      this.over(failure instanceof BackendError ? failure.code : 'ERROR', true)
+      this.ended(mine, failure instanceof BackendError ? failure.code : 'ERROR')
     }
   }
 
   /**
-   * The backend says where the control is.
+   * The backend ended control number `mine` (or refused it). What an older control says is nothing to the one that runs now.
+   *
+   * @param mine the number of the control it is about
+   * @param why the reason (a code)
+   */
+  private ended(mine: number, why: string): void {
+    if (mine === this.run) {
+      this.over(why, true)
+    }
+  }
+
+  /**
+   * The backend says where control number `mine` is.
+   *
+   * @param mine the number of the control it is about
+   * @param state what it said
+   */
+  private told(mine: number, state: RcState): void {
+    if (mine === this.run) {
+      this.heard(state)
+    }
+  }
+
+  /**
+   * What the backend said of the control that runs.
    *
    * @param state what it said
    */
-  private told(state: RcState): void {
+  private heard(state: RcState): void {
     if (state.state === 'released') {
       this.over(state.why ?? 'ENDED', true)
     } else if (this.state.value === 'starting') {
+      this.on(state)
+    }
+  }
+
+  /**
+   * The backend has begun: what it says of the throttle must be what the page knows of the vehicle, else the page and the backend
+   * would hold the throttle to different channels or minimums, and the control ends.
+   *
+   * @param state what the backend said (`on`)
+   */
+  private on(state: RcState): void {
+    const throttle = throttleOf(this.deps.facts.value)
+
+    if (throttle !== null && state.throttleChannel === throttle.channel && state.throttleMin === throttle.least) {
       this.state.value = 'on'
+    } else {
+      this.over('PARAMS_CHANGED')
     }
   }
 
@@ -291,7 +369,8 @@ class RcControl implements RcControlModel {
   private send(sample: PadSample, at: number): void {
     const flying = this.flying()
 
-    if (flying === null || at - this.sentAt < SEND_MS) {
+    // (one frame is in flight at a time: a read that comes while the last is not answered is left, not queued)
+    if (flying === null || this.pushing || at - this.sentAt < SEND_MS) {
       return
     }
     const vehicle = vehicleChannels(flying.facts)
@@ -312,10 +391,17 @@ class RcControl implements RcControlModel {
    * @param channels the 16 pulses
    */
   private async push(seq: number, channels: number[]): Promise<void> {
+    const mine = this.run
+
+    this.pushing = true
+
     try {
       await this.deps.client.call('rc.input', { seq, channels })
     } catch {
       // (said by the end of the subscription)
+    } finally {
+      // (of this control only: a frame of an older one that is answered late is not the one in flight now)
+      this.pushing = mine === this.run ? false : this.pushing
     }
   }
 
@@ -335,6 +421,7 @@ class RcControl implements RcControlModel {
     this.state.value = 'off'
     this.profile = null
     this.snapshot = ''
+    this.facts = ''
     this.device.value = null
     this.gate = START_GATE
     this.gateOpen.value = false

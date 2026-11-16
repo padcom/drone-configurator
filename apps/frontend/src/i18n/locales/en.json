@@ -832,7 +832,7 @@
     },
     "indicator": {
       "on": "RC control on",
-      "off": "Turn RC control off"
+      "off": "RC control on. Press to turn it off."
     },
     "summary": {
       "title": "Fly with the gamepad?",
@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "RC control ended: the window was hidden.",
       "VEHICLE_CHANGED": "RC control ended: it is another vehicle.",
       "PARAMS_UNKNOWN": "RC control ended: the vehicle's parameters are not known.",
+      "PARAMS_CHANGED": "RC control ended: the vehicle's settings changed.",
       "EDITED": "RC control ended: the mapping was changed.",
       "NOT_CONNECTED": "No vehicle is connected.",
       "UNSUPPORTED": "RC control is made for an ArduPilot vehicle.",

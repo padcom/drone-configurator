@@ -1,0 +1,171 @@
+// The RC control when things overlap: an older control that is answered late, a backend that says something other than the page
+// knows, the vehicle's facts that change under it, and a frame that is not answered yet.
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { type BackendClient, BackendError, type Subscription } from '@/backend/client'
+import { TX16S } from '@/testing/fakeGamepads'
+import { vehicleFacts } from '@/testing/rcProfiles'
+import { type RcRig, flying, rcRig, settle } from '@/testing/rcRig'
+
+beforeEach(() => {
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+/** The `ready` of a subscription that the test settles itself. */
+interface Held {
+  resolve: () => void
+  reject: (error: unknown) => void
+}
+
+/**
+ * A client whose subscriptions are ready (or refused) only when the test says.
+ *
+ * @param held where each subscription's `ready` is kept, in order
+ * @returns what wraps the real client
+ */
+function holding(held: Held[]): (client: BackendClient) => BackendClient {
+  return client => ({
+    ...client,
+    subscribe: ((topic, params, onValue, onEnd) => {
+      const real = client.subscribe(topic, params, onValue, onEnd)
+      const later = new Promise<void>((resolve, reject) => {
+        held.push({ resolve, reject })
+      })
+
+      return { ready: later, stop: real.stop } satisfies Subscription
+    }) as BackendClient['subscribe'],
+  })
+}
+
+/**
+ * A client that does not answer `rc.input` until the test says.
+ *
+ * @param answers where each frame's answer is kept (its length is how many frames were given)
+ * @returns what wraps the real client
+ */
+function silent(answers: (() => void)[]): (client: BackendClient) => BackendClient {
+  return client => ({
+    ...client,
+    call: ((method, payload) => {
+      if (method !== 'rc.input') {
+        return client.call(method, payload)
+      }
+
+      return new Promise<null>(resolve => {
+        answers.push(() => resolve(null))
+      })
+    }) as BackendClient['call'],
+  })
+}
+
+/**
+ * A rig whose pad is up and whose control is not begun.
+ *
+ * @param wrap what wraps the client
+ * @returns the rig
+ */
+async function padUp(wrap?: (client: BackendClient) => BackendClient): Promise<RcRig> {
+  const r = await rcRig({ wrap })
+
+  r.pads.connect(TX16S)
+  r.pads.set([0, 0, -1, 0])
+  r.pads.advance(20)
+
+  return r
+}
+
+describe('an older control', () => {
+  it('says nothing to the one that runs now: its refusal, after it was turned off and on again, ends nothing', async () => {
+    const held: Held[] = []
+    const r = await padUp(holding(held))
+
+    const first = r.rc.enable()
+    await settle()
+    r.rc.disable()
+    const second = r.rc.enable()
+    await settle()
+    held[1]!.resolve()
+    held[0]!.reject(new BackendError('BUSY', 'busy'))
+    await Promise.all([first, second])
+    await settle()
+
+    expect([r.rc.state.value, r.rc.why.value, r.told]).toEqual(['on', null, []])
+    expect(r.control.rc!.on()).toBe(true)
+    r.stop()
+  })
+})
+
+describe('a control the page ends', () => {
+  it('is stopped by the page that ended it, whoever asked', async () => {
+    const held: Held[] = []
+    const r = await padUp(holding(held))
+
+    void r.rc.enable()
+    await settle()
+    held[0]!.resolve()
+    await settle()
+    r.rc.disable()
+    await settle()
+
+    expect([r.rc.state.value, r.control.rc!.released()]).toEqual(['off', 1])
+  })
+})
+
+describe('what the backend says of the throttle', () => {
+  it('is compared with what the page knows: another channel or minimum ends the control', async () => {
+    const r = await rcRig()
+
+    r.control.rc!.throttle(3, 1000)
+    const after = await flying(r)
+
+    expect([after.rc.state.value, after.rc.why.value]).toEqual(['off', 'PARAMS_CHANGED'])
+    expect(after.control.rc!.released()).toBe(1)
+  })
+})
+
+describe('the vehicle\'s facts that change after the start', () => {
+  const CHANGED: [string, (r: RcRig) => void][] = [
+    ['a function of a channel', r => void (r.facts.value = vehicleFacts({ 9: 153 }))],
+    ['the other way round', r => void (r.facts.value = vehicleFacts({ 3: 7 }))],
+  ]
+
+  it.each(CHANGED)('ends it: %s', async (_name, change) => {
+    const r = await flying(await rcRig())
+
+    change(r)
+    await settle()
+
+    expect([r.rc.state.value, r.rc.why.value, r.control.rc!.released()]).toEqual(['off', 'PARAMS_CHANGED', 1])
+  })
+
+  it('does not end it when the facts come again as they were', async () => {
+    const r = await flying(await rcRig())
+
+    r.facts.value = vehicleFacts()
+    await settle()
+
+    expect(r.rc.state.value).toBe('on')
+    r.stop()
+  })
+})
+
+describe('the frames', () => {
+  it('are sent one at a time: a read that comes while the last is not answered is left, not queued', async () => {
+    const answers: (() => void)[] = []
+    const r = await flying(await padUp(silent(answers)))
+
+    r.pads.advance(400)
+    await settle()
+    expect(answers).toHaveLength(1)
+    answers[0]!()
+    await settle()
+    r.pads.advance(100)
+    await settle()
+    expect(answers.length).toBeGreaterThanOrEqual(2)
+    expect(answers.length).toBeLessThanOrEqual(3)
+    r.stop()
+  })
+})

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { serialiseProfile } from '@/lib/rc/store'
 import { TX16S } from '@/testing/fakeGamepads'
 import { calibratedSuggestion } from '@/testing/rcProfiles'
-import { CONNECTED, type RcRig, flying, rcRig, settle, throttles } from '@/testing/rcRig'
+import { CONNECTED, type RcRig, flying, rcRig, run, settle, throttles } from '@/testing/rcRig'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -31,8 +31,7 @@ describe('turning it on', () => {
     await settle()
     expect(throttles(r.control).every(pulse => pulse === 0)).toBe(true)
     expect(r.rc.gateOpen.value).toBe(false)
-    r.pads.advance(400)
-    await settle()
+    await run(r, 400)
     expect(r.rc.gateOpen.value).toBe(true)
     expect(throttles(r.control).at(-1)).toBe(1100)
     r.stop()
@@ -43,8 +42,7 @@ describe('what is sent', () => {
   it('is only what each read made, every 40 ms at the most, each with a new number', async () => {
     const r = await on()
 
-    r.pads.advance(400)
-    await settle()
+    await run(r, 400)
     const frames = r.control.rc!.frames()
 
     expect(frames.length).toBeGreaterThanOrEqual(8)
@@ -211,8 +209,7 @@ describe('turning it on again', () => {
   it('starts with the gate shut again, whatever it was before', async () => {
     const r = await on()
 
-    r.pads.advance(400)
-    await settle()
+    await run(r, 400)
     expect(r.rc.gateOpen.value).toBe(true)
     r.rc.disable()
     await settle()
