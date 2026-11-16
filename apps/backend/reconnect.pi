@@ -157,6 +157,8 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   // The exception for a changed type is for one change, the one this session made: it ends with this taking up.
   const mayChange = link.typeMayChange
   link.typeMayChange = false
+  // What the vehicle has may have changed (another one, or a new firmware after a reboot): the names of the last list are not known to hold.
+  link.forgetParameterNames()
   // The same vehicle: the very identity, or (only after this session changed the frame of the board) the same board, whatever
   // type it reports now. A unique id alone is not enough: two vehicles on one host may report the same one.
   if (identity == link.identity || (mayChange && board != "" && board == link.board)) {

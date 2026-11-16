@@ -132,6 +132,36 @@ services = {
   ; setting and the vehicle's fence, which are lower, are the page's, the backend does not read the parameters) and
   ; `UNSUPPORTED_VEHICLE` (not an ArduPilot). Whether the vehicle then CLIMBS is what its position says, not this answer.
   "vehicle.takeoff": ["method", takeoff-ask, arming-result],
+  ; GUIDED CONTROL (ArduCopter; pico-mavlink's `VehicleControl`; the PR text quotes the ArduPilot source of each rule). Each is sent ONCE (a
+  ; missing answer is `no-answer`, never sent again), with no force value, to an ARMED vehicle that is in GUIDED and whose state is known.
+  ; The backend refuses before it sends anything: `NOT_CONNECTED`, `STATE_UNKNOWN`, `NOT_ARMED`, `NOT_GUIDED` (the page sets GUIDED first: a
+  ; reposition never changes the mode), `BUSY`, `UNSUPPORTED_VEHICLE`, `INVALID_VALUE` (a number that is not one: NaN, infinity, a place
+  ; off the globe or at 0, 0, which a vehicle takes for "here", limits above the hard ones), `OUT_OF_LIMITS` (beyond the `limits` of the
+  ; request: the page's own, from Settings, which the backend holds to the HARD ones: 120 m, 5000 m, 30 m/s, and beyond the vehicle's own
+  ; FENCE, which the BACKEND reads: see below), `STALE_POSITION` (the backend's own position of the vehicle is older than 2 s, or 1 s for a
+  ; change of altitude: it is the backend's, never the page's, that a command flies to), `NOT_AIRBORNE` (a vehicle that is on the ground,
+  ; below 1 m), `HOME_UNKNOWN` (home was not said in the last 15 s, which is three periods of HOME_POSITION at 0.2 Hz, or was moved by a set
+  ; of home here and has not been said since), `GCS_FAILSAFE_OFF` (FS_GCS_ENABLE is 0, or could not be read, and the request's `failsafe` is
+  ; `block`; with `warn` the command goes and the result carries a message that says so), `VEHICLE_MOVING` (see change altitude) and
+  ; `FENCE_UNKNOWN` (the vehicle's fence could not be read: nothing is taken for "no fence"). The backend reads FS_GCS_ENABLE and the fence
+  ; (FENCE_ENABLE and, when it is on, FENCE_TYPE and the FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS its bits ask for, and the reference
+  ; frames of the altitudes, FENCE_ALT_MAX_TP and FENCE_ALT_MIN_TP) itself, at each reposition and change of altitude. Only altitudes ABOVE HOME
+  ; are understood: a frame that is anything else (sea level, the EKF origin, terrain) is `FENCE_UNKNOWN`, and so is a frame that cannot be
+  ; read; the one exception is a parameter that the connection's COMPLETE parameter list (`params.list`) shows the vehicle does not have, as
+  ; Copter 4.7.2 has none of the frame parameters: that firmware has only above home. FENCE_ALT_MIN is negative as a rule (-10 by default). A polygon fence is not read.
+  ; Flies to a place, `altitude` metres above home. Whether the vehicle then ARRIVES is what its position says, not this answer.
+  "vehicle.reposition": ["method", reposition-ask, arming-result],
+  ; Goes to another altitude where the vehicle is: a reposition to the backend's own position (a Copter has no change-altitude command), so
+  ; it CANCELS a reposition under way and holds the vehicle at that place. It needs a position at most 1 s old and a vehicle that moves at
+  ; most 3 m/s over the ground: otherwise `VEHICLE_MOVING` ("wait until it has stopped, or send Go here again").
+  "vehicle.changeAltitude": ["method", change-altitude-ask, arming-result],
+  ; Changes the ground speed of the guided mode (m/s).
+  "vehicle.setSpeed": ["method", set-speed-ask, arming-result],
+  ; Sets HOME to where the vehicle is (DO_SET_HOME, here): RTL returns there from now on, and the home altitude moves with it (every height
+  ; above home changes its reference). Needs a fresh position (`STALE_POSITION`), a known state (`STATE_UNKNOWN`) and a vehicle that stands
+  ; still (`NOT_HOVERING`: more than 1 m/s over the ground, or more than 0.5 m/s up or down); armed or not. The backend then forgets the home
+  ; it heard until the vehicle says the new one. The page asks the user first, with a hold, and says that RTL now goes there.
+  "vehicle.setHomeHere": ["method", null, arming-result],
   "vehicle.prearm": ["method", null, arming-result],
   ; What the board says of itself (AUTOPILOT_VERSION: the firmware version and git hash, the board and vendor ids, the unique id) and
   ; which sensors the autopilot has, uses and finds healthy (SYS_STATUS), read when asked (not a stream). A field the vehicle did
@@ -765,6 +795,19 @@ set-mode-ask = { mode: uint .size 1 }
 
 ; The altitude to take off to, in metres above home.
 takeoff-ask = { altitude: float }
+
+; What the page allows a guided command, from Settings (50 m, 500 m, 10 m/s unless changed) and the vehicle's fence: the highest altitude
+; (m above home), the farthest from home (m) and the greatest speed (m/s). The backend holds them to its hard limits (120 m, 5000 m, 30 m/s).
+guided-limits = { maxAltitude: float, maxDistance: float, maxSpeed: float }
+
+; What to do when the vehicle's GCS failsafe (FS_GCS_ENABLE) is off: `block` refuses the command, `warn` sends it and says so.
+failsafe-policy = "block" / "warn"
+
+reposition-ask = { latitude: float, longitude: float, altitude: float, limits: guided-limits, failsafe: failsafe-policy }
+
+change-altitude-ask = { altitude: float, limits: guided-limits, failsafe: failsafe-policy }
+
+set-speed-ask = { speed: float, limits: guided-limits }
 
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
 ; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256

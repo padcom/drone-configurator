@@ -67,8 +67,8 @@
       ]
     },
     {
-      "when": ["apps/backend/{arming,session,telemetry,messages,vehicleinfo}.pi", "apps/frontend/e2e/bridge-client.ts"],
-      "specs": ["sitl-arming.e2e.ts"]
+      "when": ["apps/backend/{arming,guided,groups,session,telemetry,messages,vehicleinfo}.pi", "apps/frontend/e2e/bridge-client.ts"],
+      "specs": ["sitl-arming.e2e.ts", "sitl-guided.e2e.ts", "guided.e2e.ts"]
     },
     {
       "when": ["apps/frontend/src/screens/Settings.vue", "apps/frontend/src/composables/useSettings.ts", "apps/backend/{settings,messages}.pi"],

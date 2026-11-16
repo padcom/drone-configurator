@@ -263,6 +263,18 @@ function optionsFor(plan: Plan, signal: AbortSignal): ParamDownloadOptions {
   return known
 }
 
+/// Keeps the names of a COMPLETE list in the session: what is not in one is known not to be on the vehicle.
+function keepNames(list: ParamList): void {
+  if (!list.complete) {
+    return
+  }
+  link.paramNames.clear()
+  for (const p of list.params) {
+    link.paramNames.set(p.id, true)
+  }
+  link.paramsComplete = true
+}
+
 /// The parameters as the contract has them: the way they came, why not the other way, how long it took.
 function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
   const source = if (r.source == "ftp") ParamListSource.Ftp else ParamListSource.List
@@ -313,6 +325,7 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     const target: Target = { system: link.sysid, component: link.compid }
     const r = await new ParamDownload(conn, target, link.encoding, options).run((received: int, total: int, unit: string) => announced.progressed(received, total, unit))
     out = listOf(r, plan)
+    keepNames(out)
     announced.applyPending(out.params)
     remember(plan, r.source, r.fallback)
   } catch (e: MavLinkError) {

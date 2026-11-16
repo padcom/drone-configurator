@@ -1,6 +1,6 @@
 // The arming service: `vehicle.arm`, `vehicle.disarm`, `vehicle.emergencyStop`, `vehicle.setMode`, `vehicle.prearm` (RUN_PREARM_CHECKS)
-// and `vehicle.takeoff` (NAV_TAKEOFF),
-// over pico-mavlink's `VehicleControl`.
+// `vehicle.takeoff` (NAV_TAKEOFF) and the guided commands `vehicle.reposition`, `vehicle.changeAltitude`, `vehicle.setSpeed` and
+// `vehicle.setHomeHere` (the rules of those are guided.pi's), over pico-mavlink's `VehicleControl`.
 //  - Each command is sent ONCE. A command that nothing acknowledged may have been carried out (an arm whose ack was lost may have
 //    armed the vehicle): it is reported `no-answer`, never sent again, and the state is whatever the next heartbeat says.
 //  - NO forced arm: the arm is sent with ArduPilot's pre-arm checks on (param2 0). The emergency stop is a disarm with ArduPilot's
@@ -20,6 +20,19 @@
 //  - A TAKEOFF is sent once, to an armed vehicle whose state is known (`NOT_ARMED` otherwise: the page arms first), to an altitude of 2 to
 //    120 m above home (the hard limits; the user's setting and the vehicle's fence are the page's). The vehicle itself refuses unless it is
 //    on the ground and in GUIDED. It does not hold the armed state.
+//  - The GUIDED commands are sent once like the rest, to an ARMED vehicle (except setHomeHere) that is in GUIDED, within the limits of the request
+//    (which the backend holds to its hard ones). The position they use is the backend's own, which must be at most 2 s old for a reposition and
+//    a set of home, and at most 1 s old, with the vehicle moving at most 3 m/s over the ground, for a change of altitude (`VEHICLE_MOVING`: it
+//    cancels a reposition under way and holds the vehicle where it is); home must have been said less than 15 s ago (`HOME_UNKNOWN`). A
+//    reposition and a change of altitude also read the vehicle's FS_GCS_ENABLE (it is asked, not assumed): when it is 0, or cannot be read, the
+//    request's policy says: `block` refuses (`GCS_FAILSAFE_OFF`), `warn` sends and adds a message to the answer. A set of home here is for a
+//    vehicle that stands still: at most 1 m/s over the ground and 0.5 m/s up or down (`NOT_HOVERING`).
+//    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, then FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS for
+//    the bits that are set, and the frame of each altitude, FENCE_ALT_MAX_TP and FENCE_ALT_MIN_TP: anything but above home is `FENCE_UNKNOWN`;
+//    a frame that cannot be read is too, unless the connection's COMPLETE parameter list says the vehicle has no such parameter, as 4.7.2 has none:
+//    then it is above home): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
+//    fence that cannot be read is `FENCE_UNKNOWN`. A polygon fence is not read. After a set of home here the home that was heard is forgotten
+//    until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
 //    1.5 s after an accepted answer (the heartbeat lags the vehicle) or 5 s after a missing one; a refusal releases it at once. So no
 //    parameter write, calibration, motor test, log operation or reboot can start in the time the vehicle may be arming.
@@ -27,10 +40,23 @@
 //    with it: they are why an arm was refused.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import { delay } from "std/timers"
-import { ControlResult, MavAutopilot, MavLinkError, MavResult, VehicleControl } from "padcom/pico-mavlink"
-import { ArmingResult, ArmingResultResult, decodeSetModeAsk, decodeTakeoffAsk, encodeArmingResult } from "./generated/app"
+import { ControlResult, MavAutopilot, MavLinkError, MavResult, ParamRead, TypedParamValue, VehicleControl } from "padcom/pico-mavlink"
+import {
+  ArmingResult,
+  ArmingResultResult,
+  FailsafePolicy,
+  decodeChangeAltitudeAsk,
+  decodeRepositionAsk,
+  decodeSetModeAsk,
+  decodeSetSpeedAsk,
+  decodeTakeoffAsk,
+  encodeArmingResult,
+  GuidedLimits,
+} from "./generated/app"
+import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkReposition, checkSetSpeed, distanceM } from "./guided"
 import { nextMessageId, textsSince } from "./messages"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
+import { flightNow, forgetHome } from "./telemetry"
 import { modesOfVehicle } from "./vehicleinfo"
 
 /// How long the waits are (ms); the tests shorten them.
@@ -58,6 +84,23 @@ const STOP: int = 3
 const MODE: int = 4
 const PREARM: int = 5
 const TAKEOFF: int = 6
+const REPOSITION: int = 7
+const ALTITUDE: int = 8
+const SPEED: int = 9
+const HOME_HERE: int = 10
+
+/// What a guided command is to send: the place (degrees), the altitude (m above home), the speed (m/s), and the warning that goes with the
+/// answer ("" when there is none).
+class Plan {
+  public lat: f64 = 0.0
+  public lon: f64 = 0.0
+  public altitude: f64 = 0.0
+  public speed: f64 = 0.0
+  public warning: string = ""
+}
+
+/// How long the vehicle is given to say FS_GCS_ENABLE (ms).
+const FAILSAFE_READ_MS: int = 1500
 
 /// The takeoff altitudes the backend sends (m above home): its own hard limits.
 export const TAKEOFF_MIN_M: f64 = 2.0
@@ -71,6 +114,10 @@ export function register(c: Communicator): void {
   c.handle("vehicle.setMode", setMode)
   c.handle("vehicle.prearm", prearm)
   c.handle("vehicle.takeoff", takeoff)
+  c.handle("vehicle.reposition", reposition)
+  c.handle("vehicle.changeAltitude", changeAltitude)
+  c.handle("vehicle.setSpeed", setSpeed)
+  c.handle("vehicle.setHomeHere", setHomeHere)
 }
 
 /// Whether one of these commands waits for its answer: a second one is refused (the emergency stop is not held off).
@@ -117,7 +164,7 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   if ((what == ARM || what == PREARM) && armed) {
     throw new CommunicatorError("ARMED", "the vehicle is armed")
   }
-  if ((what == DISARM || what == TAKEOFF) && !armed) {
+  if ((what == DISARM || what == TAKEOFF || what == REPOSITION || what == ALTITUDE || what == SPEED) && !armed) {
     throw new CommunicatorError("NOT_ARMED", "the vehicle is not armed")
   }
   if (asking.busy) {
@@ -126,10 +173,10 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   if ((what == ARM || what == PREARM) && operationUnderWay()) {
     throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
   }
-  if ((what == MODE || what == TAKEOFF) && rebootExpected()) {
+  if ((what == MODE || what == TAKEOFF || what >= REPOSITION) && rebootExpected()) {
     throw new CommunicatorError("BUSY", "a reboot is under way")
   }
-  if (what == TAKEOFF && operationUnderWay()) {
+  if ((what == TAKEOFF || what >= REPOSITION) && operationUnderWay()) {
     throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
   }
 }
@@ -142,6 +189,101 @@ function checkTakeoff(altitude: f64): void throws CommunicatorError {
   if (!(altitude >= TAKEOFF_MIN_M) || altitude > TAKEOFF_MAX_M) {
     throw new CommunicatorError("INVALID_VALUE", `a takeoff altitude is ${TAKEOFF_MIN_M} to ${TAKEOFF_MAX_M} m above home, not ${altitude}`)
   }
+}
+
+/// The number a parameter's value is.
+function numberOf(v: TypedParamValue): f64 {
+  match (v) {
+    Int { value } => value as f64,
+    Real { value } => value as f64,
+  }
+}
+
+/// A parameter of the vehicle, asked now: its value, or null when it could not be read (no answer, or no such parameter: a vehicle is silent for
+/// what it lacks, which takes `timeoutMs` and `retries`). A value of -1 is a value.
+async function readParam(id: string, timeoutMs: int = FAILSAFE_READ_MS, retries: int = 1): Promise<f64?> throws Error {
+  try {
+    const read = new ParamRead(connectedLink(), { system: link.sysid, component: link.compid }, link.encoding, {
+      timeoutMs: timeoutMs,
+      retries: retries,
+      signal: link.session.signal,
+    })
+    return numberOf((await read.run(id)).value)
+  } catch (e: MavLinkError) {
+    if (e.code == "ABORTED") {
+      throw new CommunicatorError("ABORTED", e.message)
+    }
+    return null
+  }
+}
+
+/// A parameter whose absence is not an error, as a number, with `missing` for one that was not read.
+async function readOr(id: string, missing: f64): Promise<f64> throws Error {
+  const v = await readParam(id)
+  return v ?? missing
+}
+
+/// What the vehicle says of its GCS failsafe (FS_GCS_ENABLE), asked now: "" when it is on; else the words that say it is off or not known.
+/// With `block` that is a refusal (`GCS_FAILSAFE_OFF`: the vehicle would keep flying its last command if the link dropped), with `warn` it
+/// is the warning that goes with the answer.
+async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws Error {
+  const value = await readOr("FS_GCS_ENABLE", -1.0)
+  if (value > 0.0) {
+    return ""
+  }
+  const why = if (value == 0.0) "FS_GCS_ENABLE is 0: if the link drops, the vehicle keeps flying its last command"
+    else "FS_GCS_ENABLE could not be read: whether the vehicle acts when the link drops is not known"
+  if (policy == FailsafePolicy.Block) {
+    throw new CommunicatorError("GCS_FAILSAFE_OFF", why)
+  }
+  return why
+}
+
+/// What the vehicle's fence says (asked now, as the failsafe is): FENCE_ENABLE first, and only when it is on the rest of what it needs.
+async function readFence(): Promise<FenceFacts> throws Error {
+  const fence = new FenceFacts()
+  fence.enabled = await readOr("FENCE_ENABLE", -1.0)
+  if (fence.enabled <= 0.0) {
+    return fence
+  }
+  fence.kind = await readOr("FENCE_TYPE", -1.0)
+  if (fence.kind < 0.0) {
+    return fence
+  }
+  const kind = fence.kind as int
+  if ((kind & 1) != 0) {
+    fence.altMax = await readOr("FENCE_ALT_MAX", -1.0)
+    fence.altMaxFrame = await frameOf("FENCE_ALT_MAX_TP")
+  }
+  if ((kind & 8) != 0) {
+    const min = await readParam("FENCE_ALT_MIN")
+    fence.altMinRead = min != null
+    fence.altMin = min ?? 0.0
+    fence.altMinFrame = await frameOf("FENCE_ALT_MIN_TP")
+  }
+  if ((kind & 2) != 0) {
+    fence.radius = await readOr("FENCE_RADIUS", -1.0)
+  }
+  return fence
+}
+
+/// The reference frame of a fence altitude. A firmware older than FENCE_ALT_MAX_TP does not have the parameter (4.7.2), and then the altitude is
+/// above home: but that is taken for granted ONLY when the connection's COMPLETE parameter list says the parameter is not there. Any other
+/// absence is a read that failed (a request or its answer lost), which says nothing: it is read like the other fence parameters, and one that
+/// cannot be read is -1, which is not above home (`FENCE_UNKNOWN`).
+async function frameOf(id: string): Promise<f64> throws Error {
+  if (link.paramsComplete && !link.paramNames.has(id)) {
+    return 1.0
+  }
+  return await readOr(id, -1.0)
+}
+
+/// Holds a reposition or a change of altitude to the vehicle's own fence: the altitude, and the distance from home of a place.
+async function checkTheFence(what: int, plan: Plan): Promise<void> throws Error {
+  const fence = await readFence()
+  const f = flightNow()
+  const away = if (what == REPOSITION) distanceM(f.homeLat, f.homeLon, plan.lat, plan.lon) else -1.0
+  checkFence(fence, plan.altitude, away)
 }
 
 /// Whether `mode` is RTL or LAND by the name the vehicle's kind gives it: the changes that are allowed when the state is not known.
@@ -205,9 +347,41 @@ function resultName(result: int): string {
   return MavResult.nameOf(result) ?? `${result}`
 }
 
+/// Refuses a guided command (nothing is sent) that its rules (guided.pi) or the vehicle's state do not allow, and says where it goes: a change
+/// of altitude keeps the place the backend itself heard (fresh). `plan` holds what is to be sent.
+function checkGuidedCommand(what: int, plan: Plan, ask: GuidedAsk): void throws CommunicatorError {
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED_VEHICLE", "guided control is for an ArduPilot only")
+  }
+  if (!knownArmedState() && what != HOME_HERE) {
+    throw new CommunicatorError("NOT_ARMED", "the vehicle is not armed")
+  }
+  const flight = flightNow()
+  if (what == REPOSITION) {
+    checkReposition(plan.lat, plan.lon, plan.altitude, ask.limits, flight)
+  } else if (what == ALTITUDE) {
+    checkChangeAltitude(plan.altitude, ask.limits, flight)
+    plan.lat = flight.lat
+    plan.lon = flight.lon
+  } else if (what == SPEED) {
+    checkSetSpeed(plan.speed, ask.limits, flight)
+  } else {
+    checkHomeHere(flight)
+  }
+}
+
+/// What the guided commands take from a request, whichever it is.
+class GuidedAsk {
+  public limits: GuidedLimits = GuidedLimits { maxAltitude: 0.0, maxDistance: 0.0, maxSpeed: 0.0 }
+  public policy: FailsafePolicy = FailsafePolicy.Block
+}
+
 /// Sends the command `what` once, and waits for its answer and the texts around it.
-async function execute(what: int, mode: int, altitude: f64 = 0.0): Promise<Cbor?> throws Error {
+async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = new Plan(), ask: GuidedAsk = new GuidedAsk()): Promise<Cbor?> throws Error {
   connectedLink()
+  if (what >= REPOSITION) {
+    checkGuidedCommand(what, plan, ask)
+  }
   if (what == MODE) {
     checkMode(mode)
   }
@@ -215,6 +389,13 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0): Promise<Cbor?
     checkTakeoff(altitude)
   }
   checkAllowed(what, what == MODE && isSafetyMode(mode))
+  if (what == REPOSITION || what == ALTITUDE) {
+    plan.warning = await failsafeWarning(ask.policy)
+    await checkTheFence(what, plan)
+    // (the vehicle's state may have moved while it was asked)
+    checkAllowed(what, false)
+    checkGuidedCommand(what, plan, ask)
+  }
   const conn = connectedLink()
   const signal = link.session.signal
   const control = new VehicleControl(conn, { system: link.sysid, component: link.compid }, { timeoutMs: waits.ackMs, signal: signal })
@@ -232,7 +413,7 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0): Promise<Cbor?
   }
   let got: ControlResult? = null
   try {
-    got = await send(control, what, mode, altitude)
+    got = await send(control, what, mode, altitude, plan)
   } catch (e: MavLinkError) {
     // The session ended while the command was out (a lost link, a disconnect): it may have been carried out.
     if (e.code != "ABORTED") {
@@ -249,11 +430,18 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0): Promise<Cbor?
   if (what == ARM) {
     settleArm(got)
   }
+  if (what == HOME_HERE) {
+    // (home moved, or may have: what was heard of it is old, and the next HOME_POSITION is the new one)
+    forgetHome()
+  }
   // (the emergency stop does not wait for the vehicle's words: it is answered as soon as it is)
   if (what != STOP) {
     await delay(waits.settleMs)
   }
   const texts = textsSince(from, MAX_TEXTS)
+  if (plan.warning != "") {
+    texts.push(plan.warning)
+  }
   if (got == null) {
     return encodeArmingResult(lost(texts))
   }
@@ -281,7 +469,19 @@ function lost(texts: string[]): ArmingResult {
   }
 }
 
-async function send(control: VehicleControl, what: int, mode: int, altitude: f64): Promise<ControlResult> throws Error {
+async function send(control: VehicleControl, what: int, mode: int, altitude: f64, plan: Plan): Promise<ControlResult> throws Error {
+  if (what == REPOSITION) {
+    return await control.reposition(plan.lat, plan.lon, plan.altitude)
+  }
+  if (what == ALTITUDE) {
+    return await control.changeAltitude(plan.lat, plan.lon, plan.altitude)
+  }
+  if (what == SPEED) {
+    return await control.setSpeed(plan.speed)
+  }
+  if (what == HOME_HERE) {
+    return await control.setHomeHere()
+  }
   if (what == ARM) {
     return await control.arm()
   }
@@ -328,4 +528,48 @@ async function takeoff(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> thr
     throw new CommunicatorError("INVALID_VALUE", "an altitude is needed")
   }
   await execute(TAKEOFF, 0, decodeTakeoffAsk(payload!, "$").altitude)
+}
+
+async function reposition(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (payload == null) {
+    throw new CommunicatorError("INVALID_VALUE", "a place and an altitude are needed")
+  }
+  const asked = decodeRepositionAsk(payload!, "$")
+  const plan = new Plan()
+  plan.lat = asked.latitude
+  plan.lon = asked.longitude
+  plan.altitude = asked.altitude
+  const ask = new GuidedAsk()
+  ask.limits = asked.limits
+  ask.policy = asked.failsafe
+  return await execute(REPOSITION, 0, 0.0, plan, ask)
+}
+
+async function changeAltitude(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (payload == null) {
+    throw new CommunicatorError("INVALID_VALUE", "an altitude is needed")
+  }
+  const asked = decodeChangeAltitudeAsk(payload!, "$")
+  const plan = new Plan()
+  plan.altitude = asked.altitude
+  const ask = new GuidedAsk()
+  ask.limits = asked.limits
+  ask.policy = asked.failsafe
+  return await execute(ALTITUDE, 0, 0.0, plan, ask)
+}
+
+async function setSpeed(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (payload == null) {
+    throw new CommunicatorError("INVALID_VALUE", "a speed is needed")
+  }
+  const asked = decodeSetSpeedAsk(payload!, "$")
+  const plan = new Plan()
+  plan.speed = asked.speed
+  const ask = new GuidedAsk()
+  ask.limits = asked.limits
+  return await execute(SPEED, 0, 0.0, plan, ask)
+}
+
+async function setHomeHere(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  return await execute(HOME_HERE, 0)
 }

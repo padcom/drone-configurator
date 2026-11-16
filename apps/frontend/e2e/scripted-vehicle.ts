@@ -6,8 +6,9 @@
 // flight: a change of mode and an arm take effect in its next heartbeat, a takeoff is taken note of, each is accepted.
 import { type Server, type Socket, createServer } from 'node:net'
 import {
-  type Frame, FrameReader, type Heartbeat, MAV_AUTOPILOT_ARDUPILOTMEGA, MSG_COMMAND_ACK, MSG_COMMAND_LONG, MSG_EKF_STATUS_REPORT,
-  MSG_GLOBAL_POSITION_INT, MSG_GPS_RAW_INT, MSG_HEARTBEAT, MSG_PARAM_REQUEST_LIST, MSG_PARAM_VALUE, encodeFrame,
+  type Frame, FrameReader, type Heartbeat, MAV_AUTOPILOT_ARDUPILOTMEGA, MSG_COMMAND_ACK, MSG_COMMAND_INT, MSG_COMMAND_LONG,
+  MSG_EKF_STATUS_REPORT, MSG_GLOBAL_POSITION_INT, MSG_GPS_RAW_INT, MSG_HEARTBEAT, MSG_PARAM_REQUEST_LIST, MSG_PARAM_REQUEST_READ,
+  MSG_PARAM_VALUE, encodeFrame,
 } from './mavlink-wire'
 
 /** HOME_POSITION: its number and its CRC_EXTRA (the common dialect's). */
@@ -33,13 +34,17 @@ export interface Position extends Place {
 const CMD_NAV_TAKEOFF = 22
 const CMD_DO_SET_MODE = 176
 const CMD_ARM_DISARM = 400
+const CMD_DO_SET_HOME = 179
+const CMD_DO_CHANGE_SPEED = 178
 
 /** What a command it was sent said. */
 export interface Received {
   /** The MAV_CMD. */
   command: number
-  /** Its seven parameters. */
+  /** Its seven parameters (for a COMMAND_INT the fifth and sixth are the place, degrees times 1e7). */
   params: number[]
+  /** The frame of a COMMAND_INT. */
+  frame?: number
 }
 
 /** The EKF flags of a vehicle that has its position (attitude, velocity, position), and a 3D fix. */
@@ -202,11 +207,32 @@ export class ScriptedVehicle {
    * @param socket where it came from
    */
   #hear(frame: Frame, socket: Socket): void {
-    if (frame.messageId === MSG_PARAM_REQUEST_LIST) {
-      this.#sendParams(socket)
-    } else if (frame.messageId === MSG_COMMAND_LONG) {
-      this.#obey(frame, socket)
+    const listens: Record<number, (frame: Frame, socket: Socket) => void> = {
+      [MSG_PARAM_REQUEST_LIST]: (_frame, to) => this.#sendParams(to),
+      [MSG_PARAM_REQUEST_READ]: (asked, to) => this.#sendParam(asked, to),
+      [MSG_COMMAND_LONG]: (command, to) => this.#obey(command, to),
+      [MSG_COMMAND_INT]: (command, to) => this.#obeyInt(command, to),
     }
+    listens[frame.messageId]?.(frame, socket)
+  }
+
+  /**
+   * Notes a COMMAND_INT (a reposition, a set of home) and says that it was accepted.
+   *
+   * @param frame the COMMAND_INT
+   * @param socket where it came from
+   */
+  #obeyInt(frame: Frame, socket: Socket): void {
+    const payload = new Uint8Array(35)
+    payload.set(frame.payload)
+    const view = new DataView(payload.buffer)
+    const params = [0, 4, 8, 12].map(at => view.getFloat32(at, true))
+    params.push(view.getInt32(16, true), view.getInt32(20, true), view.getFloat32(24, true))
+    const command = view.getUint16(28, true)
+    this.#received.push({ command, params, frame: payload[32] })
+    const ack = new Uint8Array(10)
+    new DataView(ack.buffer).setUint16(0, command, true)
+    socket.write(this.#frame(MSG_COMMAND_ACK, ack))
   }
 
   /**
@@ -245,7 +271,29 @@ export class ScriptedVehicle {
       this.#armed = params[0] === 1
     }
 
-    return [CMD_DO_SET_MODE, CMD_ARM_DISARM, CMD_NAV_TAKEOFF].includes(command)
+    return [CMD_DO_SET_MODE, CMD_ARM_DISARM, CMD_NAV_TAKEOFF, CMD_DO_CHANGE_SPEED, CMD_DO_SET_HOME].includes(command)
+  }
+
+  /**
+   * Sends one parameter, by the name that was asked for (nothing when it has none: a vehicle is silent for what it lacks).
+   *
+   * @param frame the PARAM_REQUEST_READ
+   * @param socket who asked
+   */
+  #sendParam(frame: Frame, socket: Socket): void {
+    const name = new TextDecoder().decode(frame.payload.subarray(4, 20)).replace(/\0.*$/u, '')
+    const value = this.#params.get(name)
+    if (value === undefined) {
+      return
+    }
+    const payload = new Uint8Array(25)
+    const view = new DataView(payload.buffer)
+    view.setFloat32(0, value, true)
+    view.setUint16(4, this.#params.size, true)
+    view.setUint16(6, [...this.#params.keys()].indexOf(name), true)
+    payload.set(new TextEncoder().encode(name).subarray(0, 16), 8)
+    payload[24] = 9
+    socket.write(this.#frame(MSG_PARAM_VALUE, payload))
   }
 
   /**

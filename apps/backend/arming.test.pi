@@ -412,7 +412,7 @@ async function armedInGuided(): Promise<Frontend> throws Error {
   sim.control.modeSet = 4
   await afterBeat()
   await afterBeat()
-  f
+  return f
 }
 
 async function takeoffRefusesWhatItShouldAndSendsNothing(): Promise<void> throws Error {

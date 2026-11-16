@@ -1,0 +1,517 @@
+// The guided commands: the rules (guided.pi) as pure checks, and `vehicle.reposition`, `changeAltitude`, `setSpeed` and `setHomeHere` over an
+// in-memory link against the simulated vehicle (which answers them and notes what it was sent). A refusal sends nothing; each command is sent
+// once; the position a change of altitude keeps is the backend's own.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { CommunicatorError, Cbor, Envelope } from "pico-desktop/communicator"
+import { CommandInt, CommandLong, MavCmd, MavParamType, Received, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { resetForTests, waits } from "./arming"
+import {
+  ChangeAltitudeAsk,
+  ConnectRequest,
+  ConnectRequestTransport,
+  FailsafePolicy,
+  GuidedLimits,
+  RepositionAsk,
+  SetSpeedAsk,
+  decodeArmingResult,
+  encodeChangeAltitudeAsk,
+  encodeConnectRequest,
+  encodeRepositionAsk,
+  encodeSetSpeedAsk,
+} from "./generated/app"
+import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkLimits, checkPlace, checkReposition, checkSetSpeed, distanceM } from "./guided"
+import { link } from "./session"
+import { Flight, sayFlightForTests } from "./telemetry"
+import { Frontend, start } from "./testing"
+
+/// Home of the tests, and a place about 55 m north of it (degrees).
+const HOME_LAT: f64 = 52.2297
+const HOME_LON: f64 = 21.0122
+const NORTH_LAT: f64 = 52.2302
+
+/// The limits a page sends by default: 50 m, 500 m, 10 m/s.
+function limits(): GuidedLimits {
+  return GuidedLimits { maxAltitude: 50.0, maxDistance: 500.0, maxSpeed: 10.0 }
+}
+
+/// A vehicle in GUIDED, 20 m up, whose position is fresh and whose home is known.
+function flight(): Flight {
+  const f = new Flight()
+  f.mode = "GUIDED"
+  f.hasPosition = true
+  f.positionAgeMs = 100
+  f.lat = HOME_LAT
+  f.lon = HOME_LON
+  f.relativeAltitude = 20.0
+  f.hasHome = true
+  f.homeAgeMs = 1000
+  f.homeLat = HOME_LAT
+  f.homeLon = HOME_LON
+  return f
+}
+
+/// The code a check refuses with, or "ok".
+function codeOf(check: () => void throws CommunicatorError): string {
+  try {
+    check()
+  } catch (e: CommunicatorError) {
+    return e.code
+  }
+  return "ok"
+}
+
+function placesAreNumbersOnTheGlobeAndNotZeroZero(): void {
+  const nan = 0.0 / 0.0
+  const inf = 1.0 / 0.0
+  expect(codeOf(() => checkPlace(52.0, 21.0))).toBe("ok")
+  expect(codeOf(() => checkPlace(nan, 21.0))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(52.0, nan))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(inf, 21.0))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(52.0, -inf))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(91.0, 21.0))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(52.0, 181.0))).toBe("INVALID_VALUE")
+  // a vehicle takes 0, 0 for "where I am"
+  expect(codeOf(() => checkPlace(0.0, 0.0))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkPlace(0.0, 21.0))).toBe("ok")
+}
+
+function theLimitsOfARequestAreHeldToTheHardOnes(): void {
+  const nan = 0.0 / 0.0
+  expect(codeOf(() => checkLimits(limits()))).toBe("ok")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 121.0, maxDistance: 500.0, maxSpeed: 10.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 1.0, maxDistance: 500.0, maxSpeed: 10.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 50.0, maxDistance: 5001.0, maxSpeed: 10.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 50.0, maxDistance: 0.0, maxSpeed: 10.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 50.0, maxDistance: 500.0, maxSpeed: 31.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: nan, maxDistance: 500.0, maxSpeed: 10.0 }))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkLimits(GuidedLimits { maxAltitude: 120.0, maxDistance: 5000.0, maxSpeed: 30.0 }))).toBe("ok")
+}
+
+function aRepositionNeedsAVehicleThatIsReadyAndATargetWithinTheLimits(): void {
+  const f = flight()
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("ok")
+  // the altitude
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 1.9, limits(), f))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 50.1, limits(), f))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 0.0 / 0.0, limits(), f))).toBe("INVALID_VALUE")
+  // the distance from HOME, not from the vehicle: 0.01 degrees is 1.1 km
+  expect(codeOf(() => checkReposition(HOME_LAT + 0.01, HOME_LON, 30.0, limits(), f))).toBe("OUT_OF_LIMITS")
+  // the vehicle
+  f.mode = "LOITER"
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("NOT_GUIDED")
+  f.mode = "GUIDED"
+  f.positionAgeMs = 2001
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("STALE_POSITION")
+  f.positionAgeMs = 100
+  f.relativeAltitude = 0.5
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("NOT_AIRBORNE")
+  f.relativeAltitude = 20.0
+  f.hasHome = false
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("HOME_UNKNOWN")
+  // home is said at 0.2 Hz: one that is older than 15 s is unknown
+  f.hasHome = true
+  f.homeAgeMs = 15001
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("HOME_UNKNOWN")
+  f.homeAgeMs = 14000
+  expect(codeOf(() => checkReposition(NORTH_LAT, HOME_LON, 30.0, limits(), f))).toBe("ok")
+  expect(distanceM(HOME_LAT, HOME_LON, NORTH_LAT, HOME_LON) > 50.0).toBe(true)
+  expect(distanceM(HOME_LAT, HOME_LON, NORTH_LAT, HOME_LON) < 60.0).toBe(true)
+}
+
+function aChangeOfAltitudeNeedsAFreshPosition(): void {
+  const f = flight()
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("ok")
+  expect(codeOf(() => checkChangeAltitude(51.0, limits(), f))).toBe("OUT_OF_LIMITS")
+  f.hasPosition = false
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("STALE_POSITION")
+  f.hasPosition = true
+  f.positionAgeMs = 5000
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("STALE_POSITION")
+  // it is a reposition to where the vehicle is, so the position must be at most 1 s old (a reposition takes 2 s)
+  f.positionAgeMs = 1001
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("STALE_POSITION")
+  f.positionAgeMs = 900
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("ok")
+}
+
+function aChangeOfAltitudeIsRefusedWhileTheVehicleMoves(): void {
+  const f = flight()
+  f.groundSpeed = 3.0
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("ok")
+  // it would cancel what the vehicle is flying to, and hold it where the position says it is: that is a place it has left
+  f.groundSpeed = 3.1
+  expect(codeOf(() => checkChangeAltitude(30.0, limits(), f))).toBe("VEHICLE_MOVING")
+}
+
+function theFenceOfTheVehicleLimitsTheAltitudeAndTheDistance(): void {
+  const unread = new FenceFacts()
+  // not read: not taken for no fence
+  expect(codeOf(() => checkFence(unread, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+  const off = new FenceFacts()
+  off.enabled = 0.0
+  expect(codeOf(() => checkFence(off, 120.0, 5000.0))).toBe("ok")
+  const on = new FenceFacts()
+  on.enabled = 1.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+  on.kind = 1.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+  on.altMax = 25.0
+  expect(codeOf(() => checkFence(on, 25.0, -1.0))).toBe("ok")
+  expect(codeOf(() => checkFence(on, 25.1, -1.0))).toBe("OUT_OF_LIMITS")
+  // a circle fence: the distance from home, and a change of altitude (-1) does not move
+  on.kind = 2.0
+  expect(codeOf(() => checkFence(on, 30.0, 100.0))).toBe("FENCE_UNKNOWN")
+  on.radius = 150.0
+  expect(codeOf(() => checkFence(on, 30.0, 150.0))).toBe("ok")
+  expect(codeOf(() => checkFence(on, 30.0, 151.0))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkFence(on, 30.0, -1.0))).toBe("ok")
+  // both
+  on.kind = 3.0
+  expect(codeOf(() => checkFence(on, 26.0, 100.0))).toBe("OUT_OF_LIMITS")
+  // a minimum altitude (bit 8): one that was not read is unknown
+  on.kind = 8.0
+  expect(codeOf(() => checkFence(on, 5.0, -1.0))).toBe("FENCE_UNKNOWN")
+  // it is NEGATIVE as a rule (the default is -10): -10, -1 and 0 are values, not a failed read
+  on.altMinRead = true
+  on.altMin = -10.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
+  on.altMin = -1.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
+  on.altMin = 0.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
+  on.altMin = 10.0
+  expect(codeOf(() => checkFence(on, 9.9, -1.0))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkFence(on, 10.0, -1.0))).toBe("ok")
+  // a fence altitude that is not above home (the frame: 0 sea level, 2 origin, 3 terrain) is not understood: it blocks
+  on.altMinFrame = 0.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+  on.altMinFrame = 1.0
+  on.kind = 1.0
+  on.altMax = 50.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("ok")
+  on.altMaxFrame = 3.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+}
+
+function aSpeedIsWithinTheLimitAndTheVehicleIsInGuided(): void {
+  const f = flight()
+  expect(codeOf(() => checkSetSpeed(5.0, limits(), f))).toBe("ok")
+  expect(codeOf(() => checkSetSpeed(10.1, limits(), f))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkSetSpeed(0.0, limits(), f))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkSetSpeed(-1.0, limits(), f))).toBe("INVALID_VALUE")
+  expect(codeOf(() => checkSetSpeed(0.0 / 0.0, limits(), f))).toBe("INVALID_VALUE")
+  f.mode = "AUTO"
+  expect(codeOf(() => checkSetSpeed(5.0, limits(), f))).toBe("NOT_GUIDED")
+}
+
+function homeIsSetWhereAVehicleStandsStill(): void {
+  const f = flight()
+  expect(codeOf(() => checkHomeHere(f))).toBe("ok")
+  f.groundSpeed = 1.5
+  expect(codeOf(() => checkHomeHere(f))).toBe("NOT_HOVERING")
+  // not in the middle of a climb: home's altitude moves with it
+  f.groundSpeed = 0.0
+  f.verticalSpeed = 0.6
+  expect(codeOf(() => checkHomeHere(f))).toBe("NOT_HOVERING")
+  f.verticalSpeed = 0.4
+  expect(codeOf(() => checkHomeHere(f))).toBe("ok")
+  f.positionAgeMs = 3000
+  expect(codeOf(() => checkHomeHere(f))).toBe("STALE_POSITION")
+}
+
+/// What reached the simulated vehicle: the guided commands, as "command frame p1 p2 p3 p4 x y z" (COMMAND_INT) or "command p1 p2" (COMMAND_LONG).
+class Heard {
+  public ints: string[] = []
+  public longs: string[] = []
+}
+
+function listen(sim: SimulatedAutopilot): Heard {
+  const heard = new Heard()
+  sim.conn.on((r: Received) => {
+    const m = r.message
+    if (m instanceof CommandInt) {
+      heard.ints.push(`${m.command} ${m.frame} ${m._param1} ${m._param2} ${m._param3} ${m._param4} ${m._param5} ${m._param6} ${m._param7}`)
+    } else if (m instanceof CommandLong && (m.command as int == MavCmd.DO_CHANGE_SPEED || m.command as int == MavCmd.DO_SET_HOME)) {
+      heard.longs.push(`${m.command} ${m._param1} ${m._param2}`)
+    }
+  })
+  return heard
+}
+
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// A connected simulator, armed and in GUIDED, 20 m up (as far as the backend has heard), its home known; FS_GCS_ENABLE is `failsafe` (-1: the
+/// vehicle has no such parameter).
+async function flying(failsafe: int): Promise<Frontend> throws Error {
+  waits.ackMs = 400
+  waits.settleMs = 100
+  resetForTests()
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  if (failsafe >= 0) {
+    sim.params.push({ id: "FS_GCS_ENABLE", value: TypedParamValue.Int(failsafe, MavParamType.INT8) })
+  }
+  sim.control.armedSet = 1
+  sim.control.modeSet = 4
+  await afterBeat()
+  await afterBeat()
+  sayFlightForTests("GUIDED", HOME_LAT, HOME_LON, 20.0, HOME_LAT, HOME_LON)
+  return f
+}
+
+function described(e: Envelope): string {
+  if (e.err != null) {
+    return e.err!.code
+  }
+  match (decodeArmingResult(e.p ?? Cbor.Null, "$").result) {
+    Accepted => "accepted",
+    Refused => "refused",
+    Unsupported => "unsupported",
+    NoAnswer => "no-answer",
+  }
+}
+
+async function reposition(f: Frontend, lat: f64, lon: f64, altitude: f64, policy: FailsafePolicy): Promise<Envelope> throws Error {
+  return await f.call("vehicle.reposition", encodeRepositionAsk(RepositionAsk { latitude: lat, longitude: lon, altitude: altitude, limits: limits(), failsafe: policy }))
+}
+
+async function refusesBeforeSendingAnything(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  const nan = 0.0 / 0.0
+  expect(described(await reposition(f, nan, 21.0, 30.0, FailsafePolicy.Block))).toBe("INVALID_VALUE")
+  expect(described(await reposition(f, 0.0, 0.0, 30.0, FailsafePolicy.Block))).toBe("INVALID_VALUE")
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 60.0, FailsafePolicy.Block))).toBe("OUT_OF_LIMITS")
+  expect(described(await reposition(f, HOME_LAT + 0.01, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("OUT_OF_LIMITS")
+  expect(described(await f.call("vehicle.reposition"))).toBe("INVALID_VALUE")
+  // in LOITER the backend says so, and the vehicle is never asked
+  sim.control.modeSet = 5
+  await afterBeat()
+  await afterBeat()
+  sayFlightForTests("LOITER", HOME_LAT, HOME_LON, 20.0, HOME_LAT, HOME_LON)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("NOT_GUIDED")
+  // disarmed
+  sim.control.modeSet = 4
+  sim.control.armedSet = 0
+  await afterBeat()
+  await afterBeat()
+  sayFlightForTests("GUIDED", HOME_LAT, HOME_LON, 20.0, HOME_LAT, HOME_LON)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("NOT_ARMED")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function aRepositionIsSentOnceInTheFrameAboveHome(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("accepted")
+  expect(sim.control.repositions).toBe(1)
+  // a COMMAND_INT, frame 6, no change-mode bit, the place as degrees times 1e7
+  expect(heard.ints.join("|")).toBe("192 6 -1 0 0 0 522302000 210122000 30")
+  await f.call("vehicle.disconnect")
+}
+
+async function theGcsFailsafeBlocksByDefaultAndWarnsWhenAsked(): Promise<void> throws Error {
+  // FS_GCS_ENABLE is 0
+  const off = await flying(0)
+  const heardOff = listen(simulatorForTests()!)
+  expect(described(await reposition(off, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("GCS_FAILSAFE_OFF")
+  expect(heardOff.ints.length).toBe(0)
+  const warned = await reposition(off, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Warn)
+  expect(described(warned)).toBe("accepted")
+  expect(heardOff.ints.length).toBe(1)
+  expect(decodeArmingResult(warned.p ?? Cbor.Null, "$").messages.join("|").includes("FS_GCS_ENABLE is 0")).toBe(true)
+  await off.call("vehicle.disconnect")
+  // it is on: no warning
+  const on = await flying(1)
+  const answer = await reposition(on, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block)
+  expect(described(answer)).toBe("accepted")
+  expect(decodeArmingResult(answer.p ?? Cbor.Null, "$").messages.join("|").includes("FS_GCS_ENABLE")).toBe(false)
+  await on.call("vehicle.disconnect")
+}
+
+async function aFailsafeThatCannotBeReadIsNotAssumedToBeOn(): Promise<void> throws Error {
+  waits.ackMs = 400
+  const f = await flying(-1)
+  const heard = listen(simulatorForTests()!)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("GCS_FAILSAFE_OFF")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+/// The vehicle's fence as these tests set it: FENCE_ENABLE, and, when `kind` is not -1, FENCE_TYPE and FENCE_ALT_MAX.
+function setFence(sim: SimulatedAutopilot, enable: int, kind: int, altMax: int): void {
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(enable, MavParamType.INT8))
+  if (kind >= 0) {
+    sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(kind, MavParamType.INT8) })
+    sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(altMax, MavParamType.INT16) })
+  }
+}
+
+async function theVehiclesFenceLimitsAReposition(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  setFence(sim, 1, 1, 25)
+  // (the list says that this vehicle has no frame parameter: above home; the download took a while, so the position is said again)
+  await knowsTheParameters(f)
+  sayFlightForTests("GUIDED", HOME_LAT, HOME_LON, 20.0, HOME_LAT, HOME_LON)
+  // the request allows 50 m; the fence 25 m
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("OUT_OF_LIMITS")
+  expect(heard.ints.length).toBe(0)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 25.0, FailsafePolicy.Block))).toBe("accepted")
+  // a change of altitude is held to it too
+  expect(described(await f.call("vehicle.changeAltitude", encodeChangeAltitudeAsk(ChangeAltitudeAsk { altitude: 40.0, limits: limits(), failsafe: FailsafePolicy.Block })))).toBe("OUT_OF_LIMITS")
+  expect(heard.ints.length).toBe(1)
+  await f.call("vehicle.disconnect")
+}
+
+/// Downloads the vehicle's parameters, so that the session knows which it has.
+async function knowsTheParameters(f: Frontend): Promise<void> throws Error {
+  const answer = await f.call("params.list")
+  expect(answer.err == null).toBe(true)
+  expect(link.paramsComplete).toBe(true)
+}
+
+async function aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  // maximum altitude and minimum altitude (bits 1 and 8): the minimum is -10, as ArduPilot's default is; this firmware has no _TP parameters
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(9, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  sim.params.push({ id: "FENCE_ALT_MIN", value: TypedParamValue.Int(-10, MavParamType.INT16) })
+  // the complete list shows that the vehicle has no FENCE_ALT_MAX_TP or FENCE_ALT_MIN_TP: above home
+  await knowsTheParameters(f)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("accepted")
+  expect(heard.ints.length).toBe(1)
+  await f.call("vehicle.disconnect")
+}
+
+async function aFenceAltitudeThatIsNotAboveHomeBlocks(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  // the frame of the maximum is above sea level (0)
+  sim.params.push({ id: "FENCE_ALT_MAX_TP", value: TypedParamValue.Int(0, MavParamType.INT8) })
+  await knowsTheParameters(f)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function aFrameThatIsNotAnsweredIsNotTakenForAboveHome(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  // the vehicle HAS the frame parameter (the list says so) and it is not answered (a request or its answer was lost): nothing is assumed
+  sim.params.push({ id: "FENCE_ALT_MAX_TP", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  await knowsTheParameters(f)
+  sim.params.pop()
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function aFenceThatCannotBeReadIsNotTakenForNone(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  // on, and without its type: nothing says what it limits
+  setFence(sim, 1, -1, 0)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function aChangeOfAltitudeKeepsThePlaceTheBackendHeard(): Promise<void> throws Error {
+  const f = await flying(1)
+  const heard = listen(simulatorForTests()!)
+  // the page's own idea of where the vehicle is does not come into it: the request has no place
+  const answer = await f.call("vehicle.changeAltitude", encodeChangeAltitudeAsk(ChangeAltitudeAsk { altitude: 35.0, limits: limits(), failsafe: FailsafePolicy.Block }))
+  expect(described(answer)).toBe("accepted")
+  expect(heard.ints.join("|")).toBe("192 6 -1 0 0 0 522297000 210122000 35")
+  await f.call("vehicle.disconnect")
+}
+
+async function aSpeedIsSentOnce(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  expect(described(await f.call("vehicle.setSpeed", encodeSetSpeedAsk(SetSpeedAsk { speed: 6.0, limits: limits() })))).toBe("accepted")
+  expect(sim.control.groundSpeed).toBe(6.0)
+  expect(heard.longs.join("|")).toBe("178 1 6")
+  expect(described(await f.call("vehicle.setSpeed", encodeSetSpeedAsk(SetSpeedAsk { speed: 11.0, limits: limits() })))).toBe("OUT_OF_LIMITS")
+  expect(heard.longs.length).toBe(1)
+  await f.call("vehicle.disconnect")
+}
+
+async function homeIsSetHereOnce(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  expect(described(await f.call("vehicle.setHomeHere"))).toBe("accepted")
+  expect(sim.control.homeSets).toBe(1)
+  expect(heard.longs.join("|")).toBe("179 1 0")
+  // home is moved: what was heard of it is forgotten until the vehicle says the new one, and nothing is measured from the old
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Warn))).toBe("HOME_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function nothingAnsweredIsNeverSentAgain(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.control.swallowAcks = 1
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("no-answer")
+  expect(heard.ints.length).toBe(1)
+  expect(sim.control.repositions).toBe(1)
+  await f.call("vehicle.disconnect")
+}
+
+describe("guided control rules", () => {
+  it("takes a place that is numbers on the globe and not 0, 0", placesAreNumbersOnTheGlobeAndNotZeroZero)
+  it("holds the limits of a request to the hard ones", theLimitsOfARequestAreHeldToTheHardOnes)
+  it("lets a reposition go to a target within the limits of a vehicle that is ready, and says what is wrong when not", aRepositionNeedsAVehicleThatIsReadyAndATargetWithinTheLimits)
+  it("needs a fresh position for a change of altitude", aChangeOfAltitudeNeedsAFreshPosition)
+  it("refuses a change of altitude while the vehicle moves, as it would cancel what it flies to", aChangeOfAltitudeIsRefusedWhileTheVehicleMoves)
+  it("holds a target to the vehicle's fence, and takes a fence that cannot be read for unknown", theFenceOfTheVehicleLimitsTheAltitudeAndTheDistance)
+  it("takes a speed within the limit, in GUIDED", aSpeedIsWithinTheLimitAndTheVehicleIsInGuided)
+  it("sets home where the vehicle stands still, from a fresh position", homeIsSetWhereAVehicleStandsStill)
+})
+
+describe("guided control commands", () => {
+  it("refuses before it sends anything", refusesBeforeSendingAnything)
+  it("sends a reposition once, as a COMMAND_INT in the frame above home", aRepositionIsSentOnceInTheFrameAboveHome)
+  it("blocks while the GCS failsafe is off, and warns when asked to", theGcsFailsafeBlocksByDefaultAndWarnsWhenAsked)
+  it("does not take an unreadable failsafe for a good one", aFailsafeThatCannotBeReadIsNotAssumedToBeOn)
+  it("holds a reposition and a change of altitude to the vehicle's fence", theVehiclesFenceLimitsAReposition)
+  it("does not take a fence that cannot be read for none", aFenceThatCannotBeReadIsNotTakenForNone)
+  it("lets a reposition go under a fence with a minimum of -10 and a firmware without frame parameters", aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo)
+  it("blocks when a fence altitude is not above home", aFenceAltitudeThatIsNotAboveHomeBlocks)
+  it("does not take a frame parameter that is not answered for above home when the vehicle has it", aFrameThatIsNotAnsweredIsNotTakenForAboveHome)
+  it("keeps the place the backend itself heard for a change of altitude", aChangeOfAltitudeKeepsThePlaceTheBackendHeard)
+  it("sends a speed once, within the limit", aSpeedIsSentOnce)
+  it("sets home here, once", homeIsSetHereOnce)
+  it("never sends a command again that nothing answered", nothingAnsweredIsNeverSentAgain)
+})

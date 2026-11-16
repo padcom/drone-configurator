@@ -13,6 +13,7 @@ export const MSG_PARAM_REQUEST_READ = 20
 export const MSG_PARAM_REQUEST_LIST = 21
 export const MSG_GPS_RAW_INT = 24
 export const MSG_GLOBAL_POSITION_INT = 33
+export const MSG_COMMAND_INT = 75
 export const MSG_COMMAND_LONG = 76
 export const MSG_COMMAND_ACK = 77
 export const MSG_EKF_STATUS_REPORT = 193
@@ -29,6 +30,7 @@ const CRC_EXTRA: Record<number, number> = {
   [MSG_GLOBAL_POSITION_INT]: 104,
   // HOME_POSITION
   242: 104,
+  [MSG_COMMAND_INT]: 158,
   [MSG_COMMAND_LONG]: 152,
   [MSG_COMMAND_ACK]: 143,
 }
