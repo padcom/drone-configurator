@@ -347,7 +347,7 @@ const WRITE_BUTTON_UNCOVERED = `(() => {
  * @param question the question that is expected
  * @param left how many presses remain
  */
-async function pressUntilAsked(app: E2eApp, question: string, left: number): Promise<void> {
+async function pressUntilAsked(app: E2eApp, question: string | RegExp, left: number): Promise<void> {
   await app.waitFor(WRITE_BUTTON_UNCOVERED, 30_000)
   await app.click('#write-staged')
 
@@ -372,7 +372,12 @@ async function pressUntilAsked(app: E2eApp, question: string, left: number): Pro
 export async function askToWriteQueued(app: E2eApp, changes: { id: string, from: number, to: number }[]): Promise<void> {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
   const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}`)
-  await pressUntilAsked(app, [`Write ${changes.length} ${noun} to the vehicle?`, ...lines].join('\n'), 2)
+  // (A vehicle that is armed, or whose state is not known (the simulated one in the window has sent no telemetry), has a line
+  // after the sentence that says changes take effect now: it may be there.)
+  const escape = (text: string): string => text.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  const sentence = escape(`Write ${changes.length} ${noun} to the vehicle?`)
+  const armedLine = '(?:The vehicle is armed: changes take effect now\\.\\n|The vehicle\'s state is not known[^\\n]*\\n)?'
+  await pressUntilAsked(app, new RegExp(`^${sentence}\\n${armedLine}${lines.map(escape).join('\\n')}$`, 'u'), 2)
 }
 
 /**

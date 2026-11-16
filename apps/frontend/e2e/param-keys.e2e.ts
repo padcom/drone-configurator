@@ -280,7 +280,7 @@ describe('the Write button\'s key', () => {
   it('asks the question of the Write button on Ctrl+Enter in the field, and writes nothing without the answer', async () => {
     await ctrl('Enter')
 
-    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\nARMING_CHECK \d+ → 9/u)
+    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\n(?:The vehicle[^\n]*now\.\n)?ARMING_CHECK \d+ → 9/u)
     await cancelConfirm(app)
     expect(await app.evaluate<number>(`document.querySelectorAll('#staged .staged-row').length`)).toBe(1)
   })

@@ -131,7 +131,7 @@ describe('the keys of the field of bits', () => {
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('draft')
 
     await chord('Enter', CTRL)
-    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\nARMING_CHECK \d+ → \d+/u)
+    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\n(?:The vehicle[^\n]*now\.\n)?ARMING_CHECK \d+ → \d+/u)
     await cancelConfirm(app)
   })
 })
