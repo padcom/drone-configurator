@@ -2198,7 +2198,7 @@
       "fenceUnknown": "No se pudo leer la valla del vehículo, así que no se supone nada: descargue primero los parámetros de nuevo.",
       "landing": "El vehículo vuelve al origen o aterriza: cambie usted mismo su modo primero.",
       "high": "El vehículo está por encima de su altitud máxima de Ajustes.",
-      "moving": "El vehículo se mueve: espere a que se detenga, o envíe Ir aquí de nuevo.",
+      "moving": "El vehículo se mueve: espere a que se detenga, o inténtelo de nuevo.",
       "still": "El vehículo debe estar quieto para fijar el origen: se mueve, sube o baja.",
       "keptGuided": "El vehículo se puso en GUIDED y se queda allí.",
       "changed": "El lugar elegido cambió: compruébelo y vaya de nuevo."

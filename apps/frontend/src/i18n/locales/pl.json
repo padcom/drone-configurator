@@ -2198,7 +2198,7 @@
       "fenceUnknown": "Nie udało się odczytać ogrodzenia pojazdu, więc niczego nie zakładamy: najpierw pobierz parametry ponownie.",
       "landing": "Pojazd wraca do punktu startu lub ląduje: najpierw sam zmień jego tryb.",
       "high": "Pojazd jest powyżej twojej największej wysokości z Ustawień.",
-      "moving": "Pojazd się porusza: poczekaj, aż się zatrzyma, albo wyślij Leć tutaj jeszcze raz.",
+      "moving": "Pojazd się porusza: poczekaj, aż się zatrzyma, albo spróbuj jeszcze raz.",
       "still": "Pojazd musi stać w miejscu, by ustawić dom: porusza się, wznosi lub opada.",
       "keptGuided": "Pojazd został przełączony w GUIDED i tam zostaje.",
       "changed": "Wybrane miejsce się zmieniło: sprawdź je i leć jeszcze raz."

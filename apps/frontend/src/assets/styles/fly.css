@@ -431,6 +431,14 @@
   border-radius: var(--radius-sm);
 }
 
+/* Below 1000 px the rail lies on top and the map is shorter than the window by more: the card goes one rem higher, so that its
+   buttons stay inside a window of 999 x 700 without scrolling the page. */
+@media (width < 1000px) {
+  .fly-map .go-here {
+    bottom: 8rem;
+  }
+}
+
 .go-here-place,
 .go-here-why {
   display: flex;

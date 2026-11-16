@@ -2198,7 +2198,7 @@
       "fenceUnknown": "The vehicle's fence could not be read, so nothing is assumed: download the parameters again first.",
       "landing": "The vehicle is returning home or landing: change its mode yourself first.",
       "high": "The vehicle is above your highest altitude in Settings.",
-      "moving": "The vehicle is moving: wait until it has stopped, or send Go here again.",
+      "moving": "The vehicle is moving: wait until it has stopped, or try again.",
       "still": "The vehicle must stand still to set home: it is moving, climbing or sinking.",
       "keptGuided": "The vehicle was put in GUIDED and stays there.",
       "changed": "The picked place changed: check it and go again."
