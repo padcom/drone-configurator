@@ -93,9 +93,10 @@ function refused(ctx: CommandContext, kind: 'reposition' | 'speed', error: unkno
  *
  * @param ctx the context
  * @param plan what was confirmed
+ * @param switched whether the vehicle was put in GUIDED by this flow
  * @returns whether the vehicle is still ready
  */
-function stillReady(ctx: CommandContext, plan: GoPlan): boolean {
+function stillReady(ctx: CommandContext, plan: GoPlan, switched: boolean): boolean {
   const why = goHereBlock({
     telemetry: ctx.vehicle.telemetry(),
     listComplete: ctx.params.listComplete(),
@@ -103,7 +104,8 @@ function stillReady(ctx: CommandContext, plan: GoPlan): boolean {
     prefs: ctx.preferences.guided(),
   })
   if (why !== null) {
-    ctx.toast({ id: 'goHere-stopped', severity: 'warning', long: true, text: ctx.say(`guided.reason.${why}`) })
+    const kept = switched ? ` ${ctx.say('guided.reason.keptGuided')}` : ''
+    ctx.toast({ id: 'goHere-stopped', severity: 'warning', long: true, text: `${ctx.say(`guided.reason.${why}`)}${kept}` })
   }
 
   return why === null
@@ -177,7 +179,8 @@ async function reposition(ctx: CommandContext, plan: GoPlan): Promise<boolean> {
  * @returns whether the reposition may be sent
  */
 async function prepared(ctx: CommandContext, plan: GoPlan, waits: Waits): Promise<boolean> {
-  if (!await guided(ctx, waits) || !stillReady(ctx, plan)) {
+  const switched = ctx.vehicle.mode() !== 'GUIDED'
+  if (!await guided(ctx, waits) || !stillReady(ctx, plan, switched)) {
     return false
   }
 

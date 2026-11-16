@@ -2,7 +2,9 @@
 // is a small object that knows its own label, whether it may run now (and if not, why), what to ask before it runs, and what it
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
-import type { ArmingResult, Connection, RepositionAsk, SetSpeedAsk, Telemetry, VehicleModes } from '@/generated/app'
+import type {
+  ArmingResult, ChangeAltitudeAsk, Connection, RepositionAsk, SetSpeedAsk, Telemetry, VehicleModes,
+} from '@/generated/app'
 import type { GuidedPreferences, Place } from '@/lib/fly/guided'
 import type { IconName } from '@/lib/ui/icons'
 import type { SearchIndex } from '@/lib/params/paramSearch'
@@ -80,6 +82,10 @@ export interface VehicleFacts {
   reposition(ask: RepositionAsk): Promise<ArmingResult>
   /** Changes the ground speed of the guided mode: sent once. */
   setSpeed(ask: SetSpeedAsk): Promise<ArmingResult>
+  /** Goes to another altitude where the vehicle is (it holds there, and cancels what it flew to): sent once. */
+  changeAltitude(ask: ChangeAltitudeAsk): Promise<ArmingResult>
+  /** Sets home to where the vehicle is (RTL goes there from now on): sent once. */
+  setHomeHere(): Promise<ArmingResult>
   /** What the vehicle reports now (the heartbeat's armed state, its GPS, its EKF, its position), or null without a vehicle. */
   telemetry(): Telemetry | null
   /** The reasons the vehicle gave lately why it will not arm (its own words, the last two minutes), the oldest first. */
@@ -116,6 +122,8 @@ export interface DialogFacts {
   showArmReview(): void
   /** Opens the dialog of a takeoff: the altitude, and the button that goes ahead. */
   showTakeoff(): void
+  /** Opens the dialog of a change of altitude: the altitude, and the button that goes ahead. */
+  showChangeAltitude(): void
 }
 
 /** The vehicle's parameters, as the commands that go to one see them. */

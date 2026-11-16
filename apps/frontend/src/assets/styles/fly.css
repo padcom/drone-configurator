@@ -421,7 +421,7 @@
 .fly-map .go-here {
   position: absolute;
   right: var(--space-4);
-  bottom: 3.5rem;
+  bottom: 7rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -442,4 +442,13 @@
   display: flex;
   gap: var(--space-2);
   justify-content: flex-end;
+}
+
+/* Change altitude and Set home here: at the bottom right of the map, above its credit, under the card of a Go here. */
+.fly-map .guided-actions {
+  position: absolute;
+  right: var(--space-4);
+  bottom: 3.5rem;
+  display: flex;
+  gap: var(--space-2);
 }

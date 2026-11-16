@@ -704,6 +704,18 @@
     "label": "Sprache"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} hat angenommen: es hält hier und fliegt auf {altitude} m über Home.",
+      "refused": "{vehicle} hat die Höhenänderung abgelehnt.",
+      "unsupported": "{vehicle} unterstützt das Ändern der Höhe von hier aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Es ändert vielleicht schon seine Höhe: beobachten Sie seine Position. Der Befehl wird nicht noch einmal gesendet."
+    },
+    "home": {
+      "accepted": "{vehicle} hat angenommen: Home ist dort, wo es ist.",
+      "refused": "{vehicle} hat abgelehnt, Home hier zu setzen.",
+      "unsupported": "{vehicle} unterstützt das Setzen von Home von hier aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Home hat sich vielleicht verschoben: beobachten Sie, wo es Home meldet. Der Befehl wird nicht noch einmal gesendet."
+    },
     "reposition": {
       "accepted": "{vehicle} hat angenommen: es fliegt zum Ort, {altitude} m über Home.",
       "refused": "{vehicle} hat es abgelehnt, dorthin zu fliegen.",
@@ -2164,7 +2176,11 @@
       "title": "Hierher fliegen",
       "what": "Das Fahrzeug fliegt zu dem Ort, den Sie auf der Karte gewählt haben, {distance} m von ihm und {fromHome} m von Home entfernt, in {altitude} m über Home und mit {speed} m/s, und bleibt dort. Prüfen Sie, dass der Weg frei ist.",
       "mode": "Es wechselt zuerst in GUIDED.",
-      "button": "Hierher fliegen"
+      "button": "Hierher fliegen",
+      "altitudeLabel": "Höhe ändern",
+      "altitudeKeywords": "Höhe höher tiefer steigen sinken guided",
+      "homeLabel": "Home hier setzen",
+      "homeKeywords": "Home setzen Rückkehr RTL hier Punkt"
     },
     "reason": {
       "params": "Die geführte Steuerung braucht die vollständige Parameterliste des Fahrzeugs: laden Sie sie zuerst.",
@@ -2181,7 +2197,11 @@
       "failsafeOff": "Der GCS-Failsafe des Fahrzeugs (FS_GCS_ENABLE) ist aus oder nicht lesbar: stellen Sie ihn ein, oder wählen Sie in den Einstellungen eine Warnung.",
       "fenceUnknown": "Der Zaun des Fahrzeugs ließ sich nicht lesen, daher wird nichts angenommen: laden Sie zuerst die Parameter erneut.",
       "landing": "Das Fahrzeug kehrt heim oder landet: ändern Sie den Modus zuerst selbst.",
-      "high": "Das Fahrzeug ist höher als Ihre größte Höhe in den Einstellungen."
+      "high": "Das Fahrzeug ist höher als Ihre größte Höhe in den Einstellungen.",
+      "moving": "Das Fahrzeug bewegt sich: warten Sie, bis es steht, oder senden Sie „Hierher fliegen“ erneut.",
+      "still": "Das Fahrzeug muss stillstehen, um Home zu setzen: es bewegt sich, steigt oder sinkt.",
+      "keptGuided": "Das Fahrzeug wurde auf GUIDED gestellt und bleibt dort.",
+      "changed": "Der gewählte Ort hat sich geändert: prüfen Sie ihn und fliegen Sie erneut."
     },
     "settings": {
       "title": "Geführte Steuerung",
@@ -2223,6 +2243,28 @@
       "clear": "Löschen",
       "mode": "Hierher fliegen schaltet das Fahrzeug auf GUIDED.",
       "speed": "Hierher fliegen setzt die Geschwindigkeit von GUIDED auf {speed} m/s; sie bleibt so, wenn die Bewegung dann abgelehnt wird."
+    },
+    "altitude": {
+      "title": "Höhe ändern",
+      "what": "Das Fahrzeug hält an, wo es ist, fliegt auf diese Höhe über Home und bleibt dort. Wohin es flog, wird abgebrochen.",
+      "mode": "Es wechselt zuerst in GUIDED.",
+      "field": "Höhe über Home (m)",
+      "limits": "{min} bis {max} m (die größte Höhe stellen Sie in den Einstellungen ein).",
+      "go": "Höhe ändern",
+      "problem": {
+        "invalid": "Geben Sie eine Zahl in Metern ein, zum Beispiel 20.",
+        "low": "Mindestens {min} m.",
+        "high": "Höchstens {max} m."
+      }
+    },
+    "home": {
+      "title": "Home hier setzen",
+      "what": "Home wandert dorthin, wo das Fahrzeug jetzt ist ({lat}, {lon}). Die Rückkehr (RTL) fliegt von nun an zu diesem Punkt, und die Höhe von Home wandert mit: jede Höhe über Home bekommt einen anderen Bezug. Prüfen Sie, dass das Fahrzeug dort landen kann.",
+      "button": "Home setzen",
+      "done": "Home ist hier gesetzt: die Rückkehr fliegt jetzt zu diesem Punkt."
+    },
+    "actions": {
+      "title": "Geführte Steuerung"
     }
   }
 }

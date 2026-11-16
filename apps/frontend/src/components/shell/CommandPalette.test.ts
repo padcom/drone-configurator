@@ -208,6 +208,7 @@ it('lists every command alphabetically by its label when none was run lately', a
 
   expect(labels(wrapper)).toEqual([
     'Arm the vehicle',
+    'Change altitude',
     'Connect to a vehicle…',
     'Disarm the vehicle',
     'Disconnect',
@@ -220,6 +221,7 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Reboot flight controller',
     'Review before arming',
     'Save parameter snapshot…',
+    'Set home here',
     ...SWITCH_LABELS,
     ...SETUP_LABELS,
     ...TUNE_LABELS,
@@ -236,7 +238,8 @@ it('names the group of each command in its row', async () => {
 
   // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, Go here, nine modes, the
   // connection and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
-  expect(groups.slice(0, 21)).toEqual([
+  expect(groups.slice(0, 23)).toEqual([
+    'Vehicle',
     'Vehicle',
     'Vehicle',
     'Vehicle',
@@ -250,10 +253,11 @@ it('names the group of each command in its row', async () => {
     'Vehicle',
     'Vehicle',
     'Parameters',
+    'Vehicle',
   ])
   expect(groups.length).toBeGreaterThan(30)
   // (Take off is the last of the list by its name, and a vehicle's command)
-  expect(groups.slice(21, -1).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(23, -1).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-1)).toBe('Vehicle')
 })
 
@@ -361,7 +365,10 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   const active = () => wrapper.get('.palette-row.active').attributes('data-command')
   expect(active()).toBe('connect.open')
 
-  // (the first row, Arm, may not run for a vehicle that is armed: the selection starts at the first that may, and moves onto it)
+  // (the first row, Arm, may not run for a vehicle that is armed: the selection starts at the first that may, and moves onto it;
+  // Change altitude is the row between Arm and Connect)
+  await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(active()).toBe('vehicle.changeAltitude')
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
@@ -373,7 +380,7 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('vehicle.mode.guided')
+  expect(active()).toBe('vehicle.mode.brake')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('vehicle.arm')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-vehicle.arm')

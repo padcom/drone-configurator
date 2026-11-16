@@ -704,6 +704,18 @@
     "label": "Idioma"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} aceptó: se mantiene aquí y va a {altitude} m sobre el origen.",
+      "refused": "{vehicle} rechazó cambiar su altitud.",
+      "unsupported": "{vehicle} no admite cambiar la altitud desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. Puede estar cambiando de altitud: vigile su posición. El comando no se envía de nuevo."
+    },
+    "home": {
+      "accepted": "{vehicle} aceptó: el origen está donde está.",
+      "refused": "{vehicle} rechazó fijar el origen aquí.",
+      "unsupported": "{vehicle} no admite fijar el origen desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. El origen puede haberse movido: vigile dónde dice que está. El comando no se envía de nuevo."
+    },
     "reposition": {
       "accepted": "{vehicle} aceptó: vuela al lugar, a {altitude} m sobre el punto de origen.",
       "refused": "{vehicle} se negó a ir allí.",
@@ -2164,7 +2176,11 @@
       "title": "Ir aquí",
       "what": "El vehículo vuela al lugar que eligió en el mapa, a {distance} m de él y a {fromHome} m del punto de origen, a {altitude} m sobre el origen y a {speed} m/s, y se queda allí. Compruebe que el camino está libre.",
       "mode": "Antes cambia a GUIDED.",
-      "button": "Ir aquí"
+      "button": "Ir aquí",
+      "altitudeLabel": "Cambiar altitud",
+      "altitudeKeywords": "altitud altura subir bajar guiado",
+      "homeLabel": "Fijar origen aquí",
+      "homeKeywords": "origen home fijar retorno rtl aquí punto"
     },
     "reason": {
       "params": "El control guiado necesita la lista completa de parámetros del vehículo: descárguela primero.",
@@ -2181,7 +2197,11 @@
       "failsafeOff": "El failsafe de GCS del vehículo (FS_GCS_ENABLE) está apagado o no se puede leer: actívelo, o elija ser avisado en Ajustes.",
       "fenceUnknown": "No se pudo leer la valla del vehículo, así que no se supone nada: descargue primero los parámetros de nuevo.",
       "landing": "El vehículo vuelve al origen o aterriza: cambie usted mismo su modo primero.",
-      "high": "El vehículo está por encima de su altitud máxima de Ajustes."
+      "high": "El vehículo está por encima de su altitud máxima de Ajustes.",
+      "moving": "El vehículo se mueve: espere a que se detenga, o envíe Ir aquí de nuevo.",
+      "still": "El vehículo debe estar quieto para fijar el origen: se mueve, sube o baja.",
+      "keptGuided": "El vehículo se puso en GUIDED y se queda allí.",
+      "changed": "El lugar elegido cambió: compruébelo y vaya de nuevo."
     },
     "settings": {
       "title": "Control guiado",
@@ -2223,6 +2243,28 @@
       "clear": "Quitar",
       "mode": "Ir aquí cambiará el vehículo a GUIDED.",
       "speed": "Ir aquí fija la velocidad de GUIDED en {speed} m/s; se queda así si el movimiento se rechaza después."
+    },
+    "altitude": {
+      "title": "Cambiar altitud",
+      "what": "El vehículo se detiene donde está y va a esta altitud sobre el origen, y se mantiene allí. Lo que volaba se cancela.",
+      "mode": "Antes cambia a GUIDED.",
+      "field": "Altitud sobre el origen (m)",
+      "limits": "De {min} a {max} m (la máxima se fija en Ajustes).",
+      "go": "Cambiar altitud",
+      "problem": {
+        "invalid": "Escriba un número de metros, por ejemplo 20.",
+        "low": "Al menos {min} m.",
+        "high": "Como máximo {max} m."
+      }
+    },
+    "home": {
+      "title": "Fijar origen aquí",
+      "what": "El origen pasa a donde está ahora el vehículo ({lat}, {lon}). El retorno (RTL) vuela a este punto desde ahora, y la altitud del origen se mueve con él: toda altitud sobre el origen cambia de referencia. Compruebe que es un lugar donde el vehículo puede aterrizar.",
+      "button": "Fijar origen",
+      "done": "El origen está aquí: el retorno vuela ahora a este punto."
+    },
+    "actions": {
+      "title": "Control guiado"
     }
   }
 }

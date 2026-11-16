@@ -154,6 +154,18 @@ describe('when nothing is picked', () => {
     expect(fake.calls.sent).toEqual([])
     expect(fake.calls.toast.at(-1)?.text).toBe('Pick a place on the map first.')
   })
+
+  it('forgets the place of a question that was turned down: the next one starts from nothing', async () => {
+    const fake = ready()
+    command.confirmation(fake.ctx)
+    // (turned down: no execute) and then a question with no confirmation at all, for another place
+    fake.facts.target = ELSEWHERE
+    fake.facts.guidedPrefs = { ...GUIDED_DEFAULTS, confirmation: 'none' }
+    expect(command.confirmation(fake.ctx)).toBeNull()
+    await command.execute(fake.ctx)
+
+    expect(fake.calls.sent).toEqual(['speed 5', 'reposition 52.2305,21.0131 20 block'])
+  })
 })
 
 describe('when the speed does not go', () => {
@@ -270,7 +282,7 @@ describe('what is looked at again', () => {
 
     expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['mode 4'])
-    expect(fake.calls.toast.at(-1)?.text).toBe('The vehicle is not in the air.')
+    expect(fake.calls.toast.at(-1)?.text).toBe('The vehicle is not in the air. The vehicle was put in GUIDED and stays there.')
   })
 })
 
@@ -282,6 +294,6 @@ describe('what the user was asked about', () => {
     await command.execute(fake.ctx)
 
     expect(fake.calls.sent).toEqual([])
-    expect(fake.calls.toast.at(-1)?.text).toBe('Pick a place on the map first.')
+    expect(fake.calls.toast.at(-1)?.text).toBe('The picked place changed: check it and go again.')
   })
 })

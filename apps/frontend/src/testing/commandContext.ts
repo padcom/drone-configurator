@@ -145,6 +145,8 @@ function vehicleOf(fake: Fake): VehicleFacts {
     takeoff: altitude => sentOf(fake, `takeoff ${altitude}`),
     reposition: ask => sentOf(fake, `reposition ${ask.latitude},${ask.longitude} ${ask.altitude} ${ask.failsafe}`),
     setSpeed: ask => sentOf(fake, `speed ${ask.speed}`),
+    changeAltitude: ask => sentOf(fake, `altitude ${ask.altitude} ${ask.failsafe}`),
+    setHomeHere: () => sentOf(fake, 'home here'),
     telemetry: () => fake.facts.telemetry ?? null,
     recentReasons: () => fake.facts.recentReasons ?? [],
     modes: () => fake.facts.modes,
@@ -187,6 +189,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       togglePalette: () => void fake.calls.dialogs.push('palette'),
       showArmReview: () => void fake.calls.dialogs.push('review'),
       showTakeoff: () => void fake.calls.dialogs.push('takeoff'),
+      showChangeAltitude: () => void fake.calls.dialogs.push('altitude'),
     },
   }
 }

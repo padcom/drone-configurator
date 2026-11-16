@@ -16,7 +16,9 @@ import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/s
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
+import { ChangeAltitude } from '@/lib/commands/changeAltitude'
 import { GoHere } from '@/lib/commands/goHere'
+import { SetHomeHere } from '@/lib/commands/setHomeHere'
 import { TakeOff } from '@/lib/commands/takeoff'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
@@ -29,6 +31,7 @@ import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
+import { useChangeAltitude } from './useChangeAltitude'
 import { useGoHere } from './useGoHere'
 import { useGuidedPreferences } from './useGuidedPreferences'
 import { useTakeoff } from './useTakeoff'
@@ -57,6 +60,8 @@ function makeRegistry(): CommandRegistry {
   registry.register(new EmergencyStop())
   registry.register(new TakeOff())
   registry.register(new GoHere())
+  registry.register(new ChangeAltitude())
+  registry.register(new SetHomeHere())
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
@@ -126,6 +131,8 @@ function vehicleFacts(): VehicleFacts {
     takeoff: altitude => vehicle.takeoff(altitude),
     reposition: ask => vehicle.reposition(ask),
     setSpeed: ask => vehicle.setSpeed(ask),
+    changeAltitude: ask => vehicle.changeAltitude(ask),
+    setHomeHere: () => vehicle.setHomeHere(),
     telemetry: () => fields.telemetry.value,
     recentReasons: () => reasonsOf(messages.list.value, Date.now()).map(reason => reason.text),
     modes: () => setup.modes.value,
@@ -245,12 +252,14 @@ function dialogFacts(): DialogFacts {
   const connect = useConnectDialog()
   const review = useArmReview()
   const takeoff = useTakeoff()
+  const altitude = useChangeAltitude()
 
   return {
     showConnect: () => connect.show(),
     togglePalette: toggleUnlessCovered,
     showArmReview: () => review.show(),
     showTakeoff: () => takeoff.show(),
+    showChangeAltitude: () => altitude.show(),
   }
 }
 

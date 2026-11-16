@@ -704,6 +704,18 @@
     "label": "Język"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} przyjął: zatrzymuje się tutaj i leci na {altitude} m nad domem.",
+      "refused": "{vehicle} odmówił zmiany wysokości.",
+      "unsupported": "{vehicle} nie obsługuje zmiany wysokości stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Może już zmieniać wysokość: obserwuj jego pozycję. Polecenie nie jest wysyłane ponownie."
+    },
+    "home": {
+      "accepted": "{vehicle} przyjął: dom jest tam, gdzie on.",
+      "refused": "{vehicle} odmówił ustawienia domu tutaj.",
+      "unsupported": "{vehicle} nie obsługuje ustawiania domu stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Dom mógł się przesunąć: obserwuj, gdzie go podaje. Polecenie nie jest wysyłane ponownie."
+    },
     "reposition": {
       "accepted": "{vehicle} przyjął: leci w to miejsce, {altitude} m nad punktem startu.",
       "refused": "{vehicle} odmówił lotu tam.",
@@ -2164,7 +2176,11 @@
       "title": "Leć tutaj",
       "what": "Pojazd leci w miejsce wybrane na mapie, {distance} m od siebie i {fromHome} m od punktu startu, na wysokości {altitude} m nad punktem startu, z prędkością {speed} m/s, i tam zostaje. Sprawdź, czy droga jest wolna.",
       "mode": "Najpierw przechodzi w GUIDED.",
-      "button": "Leć tutaj"
+      "button": "Leć tutaj",
+      "altitudeLabel": "Zmień wysokość",
+      "altitudeKeywords": "wysokość wyżej niżej wznoszenie opadanie guided",
+      "homeLabel": "Ustaw dom tutaj",
+      "homeKeywords": "dom punkt startu powrót rtl tutaj ustaw"
     },
     "reason": {
       "params": "Sterowanie prowadzone wymaga pełnej listy parametrów pojazdu: pobierz ją najpierw.",
@@ -2181,7 +2197,11 @@
       "failsafeOff": "Failsafe GCS pojazdu (FS_GCS_ENABLE) jest wyłączony lub nie da się go odczytać: ustaw go albo wybierz w Ustawieniach ostrzeżenie.",
       "fenceUnknown": "Nie udało się odczytać ogrodzenia pojazdu, więc niczego nie zakładamy: najpierw pobierz parametry ponownie.",
       "landing": "Pojazd wraca do punktu startu lub ląduje: najpierw sam zmień jego tryb.",
-      "high": "Pojazd jest powyżej twojej największej wysokości z Ustawień."
+      "high": "Pojazd jest powyżej twojej największej wysokości z Ustawień.",
+      "moving": "Pojazd się porusza: poczekaj, aż się zatrzyma, albo wyślij Leć tutaj jeszcze raz.",
+      "still": "Pojazd musi stać w miejscu, by ustawić dom: porusza się, wznosi lub opada.",
+      "keptGuided": "Pojazd został przełączony w GUIDED i tam zostaje.",
+      "changed": "Wybrane miejsce się zmieniło: sprawdź je i leć jeszcze raz."
     },
     "settings": {
       "title": "Sterowanie prowadzone",
@@ -2223,6 +2243,28 @@
       "clear": "Wyczyść",
       "mode": "Leć tutaj przełączy pojazd w tryb GUIDED.",
       "speed": "Leć tutaj ustawia prędkość GUIDED na {speed} m/s; zostaje tak, jeśli ruch zostanie potem odrzucony."
+    },
+    "altitude": {
+      "title": "Zmień wysokość",
+      "what": "Pojazd zatrzymuje się, gdzie jest, leci na tę wysokość nad domem i tam zostaje. To, dokąd leciał, zostaje anulowane.",
+      "mode": "Najpierw przechodzi w GUIDED.",
+      "field": "Wysokość nad domem (m)",
+      "limits": "Od {min} do {max} m (największą ustawia się w Ustawieniach).",
+      "go": "Zmień wysokość",
+      "problem": {
+        "invalid": "Wpisz liczbę metrów, na przykład 20.",
+        "low": "Co najmniej {min} m.",
+        "high": "Najwyżej {max} m."
+      }
+    },
+    "home": {
+      "title": "Ustaw dom tutaj",
+      "what": "Dom przenosi się tam, gdzie pojazd jest teraz ({lat}, {lon}). Powrót (RTL) leci odtąd do tego punktu, a wysokość domu przesuwa się razem z nim: każda wysokość nad domem zmienia punkt odniesienia. Sprawdź, czy pojazd może tam wylądować.",
+      "button": "Ustaw dom",
+      "done": "Dom jest tutaj: powrót leci teraz do tego punktu."
+    },
+    "actions": {
+      "title": "Sterowanie prowadzone"
     }
   }
 }

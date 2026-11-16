@@ -5,7 +5,7 @@ import type { ArmingResult } from '@/generated/app'
 import type { CommandContext } from './command'
 
 /** What was asked. */
-export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode' | 'takeoff' | 'reposition' | 'speed'
+export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode' | 'takeoff' | 'reposition' | 'speed' | 'altitude' | 'home'
 
 /** What the backend refuses a guided command with, in the page's words. */
 const GUIDED_REFUSALS: Record<string, string> = {
@@ -22,6 +22,8 @@ const GUIDED_REFUSALS: Record<string, string> = {
   HOME_UNKNOWN: 'guided.reason.home',
   GCS_FAILSAFE_OFF: 'guided.reason.failsafeOff',
   FENCE_UNKNOWN: 'guided.reason.fenceUnknown',
+  VEHICLE_MOVING: 'guided.reason.moving',
+  NOT_HOVERING: 'guided.reason.still',
 }
 
 /** The messages for the codes with which the backend refuses before it sends anything, for what was asked. */
@@ -50,6 +52,8 @@ const REFUSALS: Record<ArmingKind, Record<string, string>> = {
   },
   reposition: GUIDED_REFUSALS,
   speed: GUIDED_REFUSALS,
+  altitude: GUIDED_REFUSALS,
+  home: GUIDED_REFUSALS,
   takeoff: {
     NOT_CONNECTED: 'palette.reason.notConnected',
     NOT_ARMED: 'palette.reason.notArmed',

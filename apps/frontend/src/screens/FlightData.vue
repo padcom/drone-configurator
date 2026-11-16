@@ -11,6 +11,7 @@
         </FlightMap>
         <FailsafeBanner />
         <GoHerePanel />
+        <GuidedActions />
       </div>
     </section>
     <aside class="fly-aside" tabindex="-1" :aria-label="t('flight.aside')">
@@ -26,6 +27,7 @@ import FailsafeBanner from '@/components/fly/FailsafeBanner.vue'
 import FlightStrip from '@/components/fly/FlightStrip.vue'
 import GoHereMarker from '@/components/fly/GoHereMarker.vue'
 import GoHerePanel from '@/components/fly/GoHerePanel.vue'
+import GuidedActions from '@/components/fly/GuidedActions.vue'
 import FlyAside from '@/components/fly/FlyAside.vue'
 import FlightMap from '@/components/map/FlightMap.vue'
 import MapOverlay from '@/components/map/MapOverlay.vue'

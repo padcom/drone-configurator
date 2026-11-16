@@ -18,7 +18,7 @@ import type { SafetyOptions } from '@/lib/app/safety'
  * @param ctx the context
  * @returns the reason, or null
  */
-function armedBlocker(ctx: CommandContext): string | null {
+export function armedBlocker(ctx: CommandContext): string | null {
   const armed = ctx.vehicle.armed()
   if (armed === undefined) {
     return 'palette.reason.stateUnknown'
@@ -121,6 +121,9 @@ export class GoHere implements Command {
   confirmation(ctx: CommandContext): SafetyOptions | null {
     const prefs = ctx.preferences.guided()
     const target = ctx.guided.target()
+    // (a question that was turned down left its place behind: this one starts from nothing)
+    this.shown = null
+
     if (prefs.confirmation === 'none' || target === null) {
       return null
     }
@@ -150,8 +153,13 @@ export class GoHere implements Command {
     this.shown = null
 
     // (the question was about another place than the one that is picked now: nothing is sent, and the user is told to pick again)
-    if (plan === null || (asked !== null && !samePlace(asked, plan.target))) {
+    if (plan === null) {
       ctx.toast({ id: 'goHere-stopped', severity: 'warning', text: ctx.say('guided.reason.target') })
+
+      return { focus: 'restore' }
+    }
+    if (asked !== null && !samePlace(asked, plan.target)) {
+      ctx.toast({ id: 'goHere-stopped', severity: 'warning', text: ctx.say('guided.reason.changed') })
 
       return { focus: 'restore' }
     }

@@ -4,7 +4,7 @@ import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
 import type {
-  ArmingResult, Connection, ConnectRequest, RebootResult, RepositionAsk, SerialPort, SetSpeedAsk, Telemetry,
+  ArmingResult, ChangeAltitudeAsk, Connection, ConnectRequest, RebootResult, RepositionAsk, SerialPort, SetSpeedAsk, Telemetry,
 } from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
@@ -58,6 +58,10 @@ export interface Vehicle {
   reposition: (ask: RepositionAsk) => Promise<ArmingResult>
   /** Changes the ground speed of the guided mode: sent once. */
   setSpeed: (ask: SetSpeedAsk) => Promise<ArmingResult>
+  /** Goes to another altitude where the vehicle is: sent once. */
+  changeAltitude: (ask: ChangeAltitudeAsk) => Promise<ArmingResult>
+  /** Sets home to where the vehicle is: sent once. */
+  setHomeHere: () => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
   /** Starts listening to the backend: the connection and the telemetry. */
@@ -213,6 +217,14 @@ class VehicleLink implements Vehicle {
 
   setSpeed(ask: SetSpeedAsk): Promise<ArmingResult> {
     return this.deps.client.call('vehicle.setSpeed', ask)
+  }
+
+  changeAltitude(ask: ChangeAltitudeAsk): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.changeAltitude', ask)
+  }
+
+  setHomeHere(): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.setHomeHere', null)
   }
 
   async listPorts(): Promise<void> {

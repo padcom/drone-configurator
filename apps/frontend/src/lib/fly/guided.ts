@@ -250,3 +250,117 @@ export function goHereBlock(state: GuidedState): GuidedBlock | null {
 export function altitudeToKeep(telemetry: Telemetry | null | undefined): number {
   return Math.max(Math.round(telemetry?.position?.relativeAltitude ?? MIN_ALTITUDE_M), MIN_ALTITUDE_M)
 }
+
+/**
+ How fast a vehicle may move over the ground for a change of altitude (m/s): it holds the vehicle where it is, so it must be
+/** near a stop.
+ */
+export const ALTITUDE_MOVING_MS = 3
+
+/** How fast it may move for a set of home here: over the ground, and up or down (m/s). Home's altitude moves with home. */
+export const HOME_STILL_MS = 1
+
+export const HOME_STILL_VERTICAL_MS = 0.5
+
+/** Why a change of altitude is not offered now. */
+export type AltitudeBlock = 'params' | 'position' | 'air' | 'landing' | 'moving'
+
+/** Why a set of home here is not offered now. */
+export type HomeBlock = 'position' | 'still'
+
+/**
+ * How fast the vehicle moves over the ground (m/s), or 0 when it says nothing.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns metres a second
+ */
+export function groundSpeedOf(telemetry: Telemetry | null | undefined): number {
+  const position = telemetry?.position
+
+  return position === undefined ? 0 : Math.hypot(position.vx, position.vy)
+}
+
+/**
+ * Whether the vehicle moves faster over the ground than a change of altitude allows.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns true when it does
+ */
+function isMoving(telemetry: Telemetry | null | undefined): boolean {
+  return groundSpeedOf(telemetry) > ALTITUDE_MOVING_MS
+}
+
+/**
+ * Why a change of altitude is not offered, or nothing: the complete parameter list, a position, in the air, not coming home or
+ * landing,
+ * and near a stop (it holds the vehicle where it is, and cancels what it flies to).
+ *
+ * @param state what is known
+ * @returns the first reason, or null
+ */
+export function changeAltitudeBlock(state: Pick<GuidedState, 'telemetry' | 'listComplete'>): AltitudeBlock | null {
+  const checks: [AltitudeBlock, boolean][] = [
+    ['params', state.listComplete],
+    ['position', hasFresh(state.telemetry, 'position')],
+    ['air', isInTheAir(state.telemetry)],
+    ['landing', !isLanding(state.telemetry)],
+    ['moving', !isMoving(state.telemetry)],
+  ]
+
+  return checks.find(([, good]) => !good)?.[0] ?? null
+}
+
+/**
+ * How fast the vehicle climbs or sinks (m/s, without a sign), or 0 when it says nothing.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns metres a second
+ */
+function verticalSpeedOf(telemetry: Telemetry | null | undefined): number {
+  return Math.abs(telemetry?.position?.vz ?? 0)
+}
+
+/**
+ * Whether the vehicle stands still enough for its home to be set where it is.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns true when it does
+ */
+function standsStill(telemetry: Telemetry | null | undefined): boolean {
+  return groundSpeedOf(telemetry) <= HOME_STILL_MS && verticalSpeedOf(telemetry) <= HOME_STILL_VERTICAL_MS
+}
+
+/**
+ * Why a set of home here is not offered, or nothing: a fresh position, and a vehicle that stands still.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns the reason, or null
+ */
+export function homeHereBlock(telemetry: Telemetry | null | undefined): HomeBlock | null {
+  if (!hasFresh(telemetry, 'position')) {
+    return 'position'
+  }
+
+  return standsStill(telemetry) ? null : 'still'
+}
+
+/** What is wrong with an altitude that was typed for a change of altitude. */
+export type AltitudeProblem = 'invalid' | 'low' | 'high'
+
+/**
+ * What is wrong with an altitude, or nothing: a number, from 2 m to the user's highest.
+ *
+ * @param altitude metres above home (NaN when what was typed is not a number)
+ * @param prefs what the user chose
+ * @returns the problem, or null
+ */
+export function altitudeProblem(altitude: number, prefs: GuidedPreferences): AltitudeProblem | null {
+  if (!Number.isFinite(altitude)) {
+    return 'invalid'
+  }
+  if (altitude < MIN_ALTITUDE_M) {
+    return 'low'
+  }
+
+  return altitude > prefs.maxAltitude ? 'high' : null
+}

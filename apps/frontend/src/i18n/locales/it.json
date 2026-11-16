@@ -704,6 +704,18 @@
     "label": "Lingua"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} ha accettato: resta qui e va a {altitude} m sopra casa.",
+      "refused": "{vehicle} ha rifiutato di cambiare altitudine.",
+      "unsupported": "{vehicle} non supporta il cambio di altitudine da qui.",
+      "noAnswer": "Nessuna risposta da {vehicle}. Potrebbe star cambiando altitudine: osserva la sua posizione. Il comando non viene inviato di nuovo."
+    },
+    "home": {
+      "accepted": "{vehicle} ha accettato: casa è dove si trova.",
+      "refused": "{vehicle} ha rifiutato di impostare casa qui.",
+      "unsupported": "{vehicle} non supporta l'impostazione di casa da qui.",
+      "noAnswer": "Nessuna risposta da {vehicle}. Casa potrebbe essersi spostata: osserva dove dice che sia. Il comando non viene inviato di nuovo."
+    },
     "reposition": {
       "accepted": "{vehicle} ha accettato: vola verso il luogo, a {altitude} m sopra il punto di partenza.",
       "refused": "{vehicle} ha rifiutato di andarci.",
@@ -2164,7 +2176,11 @@
       "title": "Vai qui",
       "what": "Il veicolo vola al luogo scelto sulla mappa, a {distance} m da esso e a {fromHome} m dal punto di partenza, a {altitude} m sopra il punto di partenza e a {speed} m/s, e vi resta. Controlla che la via sia libera.",
       "mode": "Prima passa a GUIDED.",
-      "button": "Vai qui"
+      "button": "Vai qui",
+      "altitudeLabel": "Cambia altitudine",
+      "altitudeKeywords": "altitudine quota salire scendere guidato",
+      "homeLabel": "Imposta casa qui",
+      "homeKeywords": "casa home imposta ritorno rtl qui punto"
     },
     "reason": {
       "params": "Il controllo guidato richiede l'elenco completo dei parametri del veicolo: scaricalo prima.",
@@ -2181,7 +2197,11 @@
       "failsafeOff": "Il failsafe GCS del veicolo (FS_GCS_ENABLE) è spento o non leggibile: attivalo, o scegli di essere avvisato nelle Impostazioni.",
       "fenceUnknown": "Non è stato possibile leggere il recinto del veicolo, quindi non si assume nulla: scarica prima di nuovo i parametri.",
       "landing": "Il veicolo sta tornando al punto di partenza o atterrando: cambia tu il suo modo prima.",
-      "high": "Il veicolo è sopra la tua altitudine massima nelle Impostazioni."
+      "high": "Il veicolo è sopra la tua altitudine massima nelle Impostazioni.",
+      "moving": "Il veicolo si muove: attendi che si fermi, o invia di nuovo Vai qui.",
+      "still": "Il veicolo deve stare fermo per impostare casa: si muove, sale o scende.",
+      "keptGuided": "Il veicolo è stato messo in GUIDED e vi resta.",
+      "changed": "Il luogo scelto è cambiato: controllalo e vai di nuovo."
     },
     "settings": {
       "title": "Controllo guidato",
@@ -2223,6 +2243,28 @@
       "clear": "Annulla",
       "mode": "Vai qui porterà il veicolo in GUIDED.",
       "speed": "Vai qui imposta la velocità di GUIDED a {speed} m/s; resta così se il movimento viene poi rifiutato."
+    },
+    "altitude": {
+      "title": "Cambia altitudine",
+      "what": "Il veicolo si ferma dove si trova e va a questa altitudine sopra casa, e vi resta. Ciò verso cui volava viene annullato.",
+      "mode": "Prima passa a GUIDED.",
+      "field": "Altitudine sopra casa (m)",
+      "limits": "Da {min} a {max} m (la massima si imposta nelle Impostazioni).",
+      "go": "Cambia altitudine",
+      "problem": {
+        "invalid": "Scrivi un numero di metri, per esempio 20.",
+        "low": "Almeno {min} m.",
+        "high": "Al massimo {max} m."
+      }
+    },
+    "home": {
+      "title": "Imposta casa qui",
+      "what": "Casa si sposta dove si trova ora il veicolo ({lat}, {lon}). Il ritorno (RTL) vola a questo punto da ora, e l'altitudine di casa si sposta con essa: ogni altitudine sopra casa cambia riferimento. Controlla che sia un luogo dove il veicolo può atterrare.",
+      "button": "Imposta casa",
+      "done": "Casa è qui: il ritorno vola ora a questo punto."
+    },
+    "actions": {
+      "title": "Controllo guidato"
     }
   }
 }
