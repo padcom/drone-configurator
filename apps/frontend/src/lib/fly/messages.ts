@@ -22,6 +22,21 @@ export function severityName(severity: number): string {
 }
 
 /**
+ * The mark that goes with a severity, so that it is never told by colour alone: a cross for an error or worse, a triangle for a
+ * warning, a circle for the rest.
+ *
+ * @param severity MAVLink's MAV_SEVERITY
+ * @returns the name of the icon
+ */
+export function markOf(severity: number): 'close' | 'warning' | 'info' {
+  if (severity <= 3) {
+    return 'close'
+  }
+
+  return severity === WARNING ? 'warning' : 'info'
+}
+
+/**
  * Whether a message is a warning or worse: one that is told with a word and a mark, and with a toast.
  *
  * @param message the message
