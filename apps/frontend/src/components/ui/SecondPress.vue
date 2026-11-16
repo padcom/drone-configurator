@@ -23,6 +23,9 @@ import Button from './Button.vue'
 /** The least time between the two presses: a double click is one press (ms). */
 const BETWEEN_MS = 400
 
+/** The most a pause may last (ms): a read of the list that takes longer than this disarms the button. */
+const PAUSE_CAP_MS = 60_000
+
 const props = withDefaults(defineProps<{
   /** What the button says at rest ("Erase all logs"). */
   label: string
@@ -30,9 +33,11 @@ const props = withDefaults(defineProps<{
   confirmLabel: string
   /** How long it waits for the second press (ms). It runs only while the button can be pressed. */
   waitMs?: number
-  /** The button is off (what the first press asked for is under way): it keeps what it says, and its time does not run. */
+  /** The button is off. An armed button that is turned off goes back, unless `pausing` says why. */
   disabled?: boolean
-}>(), { waitMs: SECOND_PRESS_MS, disabled: false })
+  /** The button is off because of what the first press asked for (the page reads again what the second press will act on). */
+  pausing?: boolean
+}>(), { waitMs: SECOND_PRESS_MS, disabled: false, pausing: false })
 
 const emit = defineEmits<{
   /** The first press: the button now says what it will do (a place can bring what it counts up to date). */
@@ -44,10 +49,15 @@ const emit = defineEmits<{
 const armed = ref(false)
 let armedAt = 0
 let timer: ReturnType<typeof setTimeout> | undefined
+// While the page reads again (see the watch below) the time of the second press does not run: how long the pause may last.
+let paused = false
+let cap: ReturnType<typeof setTimeout> | undefined
 
-/** Goes back to its first state. */
+/** Goes back to its first state, whatever it was doing. */
 function reset(): void {
   clearTimeout(timer)
+  clearTimeout(cap)
+  paused = false
   armed.value = false
 }
 
@@ -57,16 +67,43 @@ function wait(): void {
   timer = setTimeout(reset, props.waitMs)
 }
 
-// The first press may turn the button off for a while (the page reads again what the second press will act on, which can take
-// longer than the time given): the time then does not run, and begins again when the button can be pressed, so that the second
-// press can always be made.
-watch(() => props.disabled, off => {
-  if (armed.value) {
+// The first press may turn the button off while the page reads again what the second press will act on (`pausing`), which can
+// take longer than the time given: the time then stops, and begins again when the button can be pressed, so that the second
+// press can be made. A read that takes longer than PAUSE_CAP_MS disarms it. The button being off for any OTHER reason (the
+// vehicle armed, a log without a checked copy, the list gone) disarms it at once: what was confirmed no longer holds, and a
+// first press that is minutes old must not be the one that a single press confirms.
+/** Stops the time of the second press, for at most PAUSE_CAP_MS. */
+function pause(): void {
+  if (!paused) {
     clearTimeout(timer)
+    paused = true
+    cap = setTimeout(reset, PAUSE_CAP_MS)
+  }
+}
 
-    if (!off) {
-      wait()
-    }
+/** Gives the second press its time again, from now. */
+function unpause(): void {
+  if (paused) {
+    clearTimeout(cap)
+    paused = false
+    wait()
+  }
+}
+
+/** What the button being turned off or on does to an armed one. */
+function follow(): void {
+  if (!props.disabled) {
+    unpause()
+  } else if (props.pausing) {
+    pause()
+  } else {
+    reset()
+  }
+}
+
+watch(() => [props.disabled, props.pausing], () => {
+  if (armed.value) {
+    follow()
   }
 })
 
@@ -97,5 +134,8 @@ function key(event: KeyboardEvent): void {
   }
 }
 
-onBeforeUnmount(() => clearTimeout(timer))
+onBeforeUnmount(() => {
+  clearTimeout(timer)
+  clearTimeout(cap)
+})
 </script>

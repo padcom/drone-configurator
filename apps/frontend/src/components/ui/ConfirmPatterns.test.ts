@@ -88,41 +88,77 @@ describe('a second-press button that is left alone or left', () => {
   })
 })
 
-describe('a second-press button that the first press turns off for a while', () => {
-  it('keeps what it says and does not run out of time while it is off, however long that is', async () => {
-    const button = second()
-    await button.trigger('click')
-    await button.setProps({ disabled: true })
+/**
+ * A button that is armed and then paused (off because of what its first press asked for: the page reads again).
+ *
+ * @returns the wrapper
+ */
+async function paused(): Promise<VueWrapper> {
+  const button = second()
+  await button.trigger('click')
+  await button.setProps({ disabled: true, pausing: true })
+
+  return button
+}
+
+describe('a second-press button that the first press pauses', () => {
+  it('keeps what it says and does not run out of time while it is paused, longer than the time it has', async () => {
+    const button = await paused()
     vi.advanceTimersByTime(WAIT * 3)
-    await button.setProps({ disabled: false })
+    await button.setProps({ disabled: false, pausing: false })
 
     expect(button.classes()).toContain('armed')
     expect(button.text()).toBe('Confirm: erase 5 logs')
   })
 
-  it('waits for the second press from the moment it can be pressed again, and then does it', async () => {
-    const button = second()
-    await button.trigger('click')
-    await button.setProps({ disabled: true })
+  it('does not take a press at once when it can be pressed again, and does the second press after a moment', async () => {
+    const button = await paused()
     vi.advanceTimersByTime(WAIT * 3)
-    await button.setProps({ disabled: false })
+    await button.setProps({ disabled: false, pausing: false })
+    await button.trigger('click')
+
+    expect(button.emitted('confirm')).toBeUndefined()
     vi.advanceTimersByTime(BETWEEN)
     await button.trigger('click')
 
     expect(button.emitted('confirm')).toHaveLength(1)
   })
-})
 
-describe('a second-press button that was turned off and on again', () => {
   it('still goes back when it is left alone after it can be pressed again', async () => {
-    const button = second()
-    await button.trigger('click')
-    await button.setProps({ disabled: true })
-    await button.setProps({ disabled: false })
+    const button = await paused()
+    await button.setProps({ disabled: false, pausing: false })
     vi.advanceTimersByTime(WAIT)
     await button.vm.$nextTick()
 
     expect(button.classes()).not.toContain('armed')
+  })
+})
+
+describe('a second-press button whose pause is too long', () => {
+  it('goes back when the pause is longer than the most it may last (a minute)', async () => {
+    const button = await paused()
+    vi.advanceTimersByTime(60_000 + 1)
+    await button.vm.$nextTick()
+    await button.setProps({ disabled: false, pausing: false })
+
+    expect(button.classes()).not.toContain('armed')
+    expect(button.text()).toBe('Erase all logs')
+  })
+})
+
+describe('a second-press button that is turned off for any other reason', () => {
+  it('goes back at once, and is not armed when it is on again (a first press of minutes ago confirms nothing)', async () => {
+    const button = second()
+    await button.trigger('click')
+    await button.setProps({ disabled: true })
+
+    expect(button.classes()).not.toContain('armed')
+    vi.advanceTimersByTime(WAIT * 3)
+    await button.setProps({ disabled: false })
+    await button.trigger('click')
+
+    expect(button.emitted('confirm')).toBeUndefined()
+    expect(button.text()).toBe('Confirm: erase 5 logs')
   })
 })
 

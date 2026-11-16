@@ -92,6 +92,7 @@
         :label="t('logs.vehicle.erase.label')"
         :confirm-label="t('logs.vehicle.erase.confirm', { count: logs.logs.value.length })"
         :disabled="!canEraseNow"
+        :pausing="logs.loading.value"
         :aria-describedby="reason ? `${uid}-erase-note logs-blocked` : `${uid}-erase-note`"
         @arm="logs.refresh()"
         @confirm="logs.erase()"
