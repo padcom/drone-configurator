@@ -42,15 +42,19 @@ class Waits {
   /// How long the page may be silent (no new `rc.input`) before the channels are released.
   public silenceMs: int = 300
   /// How often the silence is looked for.
-  public watchMs: int = 50
+  public watchMs: int = 20
   /// How long a read of one of the vehicle's parameters may take (it asks twice).
   public readMs: int = 500
   /// How long a release is held in the connection after it was written, for the vehicle to read it before anything closes the link.
   public graceMs: int = 150
-  /// For tests: every write of the sender takes this long (ms), and this many of the next writes fail.
-  public slowWriteMs: int = 0
-  public failWrites: int = 0
 }
+
+/// For tests: what the sender writes to is the router as it is, or what this makes of it (a stream that is slow, or fails).
+class Seams {
+  public wrap: ((inner: ByteStream) => ByteStream)? = null
+}
+
+export const seams = new Seams()
 
 export const waits = new Waits()
 
@@ -81,13 +85,6 @@ class RouterEnd implements ByteStream {
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
-    if (waits.slowWriteMs > 0) {
-      await delay(waits.slowWriteMs)
-    }
-    if (waits.failWrites > 0) {
-      waits.failWrites -= 1
-      throw new Error("the link is down")
-    }
     await inner.write(bytes)
   }
 
@@ -116,8 +113,8 @@ class Control implements SessionPart {
   public inputAt: int = 0
   public clamped: int = 0
   public watchdog: int = 0
-  /// The release that is on its way (see `end`), or null.
-  public finishing: Promise<void>? = null
+  /// The release on its way (written, or tried again), without the pause after it, or null.
+  public releasing: Promise<void>? = null
   /// The session signal that is followed (once for each session, not once for each control).
   public followed: AbortSignal? = null
 
@@ -172,8 +169,8 @@ class Control implements SessionPart {
     }
   }
 
-  /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page. `finishing` is
-  /// the release on its way, for whoever must wait for it.
+  /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page. It returns at
+  /// once: the release is on its way (`releasing`), for whoever must wait for it.
   public end(of: int, code: string, farewell: bool): void {
     if (!active || of != serial) {
       return
@@ -183,7 +180,7 @@ class Control implements SessionPart {
     }
     active = false
     clearInterval(watchdog)
-    finishing = this.finish(of, farewell)
+    this.finish(of, farewell)
   }
 
   /// Releases the channels and tells how it went. While the release is on its way the control still counts as on (nothing else that
@@ -195,26 +192,37 @@ class Control implements SessionPart {
     const s = sink
     const code = why
     link.farewells += 1
+    try {
+      const work = this.releaseOf(o, c, atTheEnd)
+      releasing = work
+      await work
+      this.tellEnd(mine, o, s, code)
+      if (o != null && !atTheEnd) {
+        // (told already: the page and the other services need not wait for the vehicle to read it, the connection does)
+        await pause(waits.graceMs)
+      }
+    } finally {
+      link.farewells -= 1
+    }
+  }
+
+  /// The release itself: written (and tried again when a write fails). At the end of a session it is the connection's `shutdown` that
+  /// releases (its close hook), waits for it, and gives the vehicle time to read it.
+  async releaseOf(o: RcOverride?, c: MavLinkConnection?, atTheEnd: bool): Promise<void> {
     if (o != null) {
       if (atTheEnd && c != null) {
-        // The connection's shutdown releases (its close hook), waits for it, and gives the vehicle time to read it.
         await c!.shutdown()
       } else {
         await o!.release()
       }
     }
-    this.tellEnd(mine, o, s, code)
-    if (o != null && !atTheEnd) {
-      // (told already: the page and the other services need not wait for the vehicle to read it, the connection does)
-      await pause(waits.graceMs)
-    }
-    link.farewells -= 1
   }
 
   /// The control is over: the others may talk to the vehicle, and the page is told how it went.
   tellEnd(mine: int, o: RcOverride?, s: Sink?, code: string): void {
     const sentFrames = if (o == null) 0 else o!.sent
-    const confirmed = o != null && o!.released > 0 && !o!.releaseFailed
+    // Confirmed: the release was written, or there was nothing to release (no frame of pulses was ever tried).
+    const confirmed = o != null && !o!.releaseFailed && (o!.released > 0 || (o!.sent == 0 && o!.failed == 0))
     if (serial == mine) {
       link.rcControl = false
       ready = false
@@ -246,16 +254,52 @@ async function pause(ms: int): Promise<void> {
   }
 }
 
-/// An emergency stop or a disarm is about to be sent: the control that is on ends FIRST (the channels are released, and the sticks stop
-/// streaming), and the caller sends its command when this returns. A release that is already on its way is waited for.
+/// How long an emergency stop or a disarm waits for the release to be written (ms): the release is handed over first, and the stop
+/// never waits for more than this (not for the retries, and never for the pause after the release): the stop is the one thing that
+/// must not be late.
+export const STOP_WAIT_MS: int = 100
+
+/// An emergency stop or a disarm is about to be sent: the control that is on ends FIRST (the release is handed to the link, and the
+/// sticks stop streaming at once: nothing but a release is written after an end), and the caller sends its command when this returns,
+/// which is when the release was written, or after `STOP_WAIT_MS` at the most. A release already on its way is waited for the same.
 export async function dropForStop(): Promise<void> {
   if (current.active) {
     current.end(current.serial, "STOPPED", false)
   }
-  const work = current.finishing
+  const work = current.releasing
   if (work != null) {
-    await work!
+    await atMost(work!, STOP_WAIT_MS)
   }
+}
+
+/// Waits for `work`, or `ms`, whichever is first (the work goes on).
+async function atMost(work: Promise<void>, ms: int): Promise<void> {
+  try {
+    await new Promise<bool, Error>((resolve: (value: bool) => void, _reject: (error: Error) => void) => {
+      let done = false
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true
+          resolve(false)
+        }
+      }, ms)
+      settled(work, () => {
+        if (!done) {
+          done = true
+          clearTimeout(timer)
+          resolve(true)
+        }
+      })
+    })
+  } catch (e: Error) {
+    return
+  }
+}
+
+/// Runs `done` when `work` is over.
+async function settled(work: Promise<void>, done: () => void): Promise<void> {
+  await work
+  done()
 }
 
 /// A number a parameter's value is.
@@ -395,7 +439,10 @@ function start(mine: int, sink: Sink, settings: Settings): void throws Error {
   if (router == null) {
     throw new CommunicatorError("NOT_CONNECTED", "no vehicle is connected")
   }
-  const sender = new MavLinkConnection(new RouterEnd(router!), { registry: defaultRegistry(), protocol: new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID) })
+  const end: ByteStream = new RouterEnd(router!)
+  const wrap = seams.wrap
+  const stream: ByteStream = if (wrap == null) end else wrap!(end)
+  const sender = new MavLinkConnection(stream, { registry: defaultRegistry(), protocol: new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID) })
   const over = new RcOverride(sender, { system: link.sysid, component: link.compid }, { rateHz: FRAMES_PER_SECOND, silenceMs: waits.silenceMs })
   current.sender = sender
   current.over = over

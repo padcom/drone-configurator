@@ -8,7 +8,8 @@ import { delay } from "std/timers"
 import { Cbor, Envelope } from "pico-desktop/communicator"
 import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { waits } from "./rc"
+import { seams } from "./rc"
+import { ByteStream } from "padcom/pico-mavlink"
 import {
   CalibrationKind,
   CalibrationStart,
@@ -29,6 +30,43 @@ import {
 } from "./generated/app"
 import { link } from "./session"
 import { Frontend, start } from "./testing"
+
+/// How the sender's writes go wrong (the sender writes to the stream `seams.wrap` makes of the router).
+class Flaky {
+  /// Every write takes this long (ms) before it is made, and this many of the next writes fail.
+  public slowMs: int = 0
+  public failWrites: int = 0
+}
+
+const flaky = new Flaky()
+
+/// The sender's end of the link, whose writes can be made slow or to fail.
+class FlakyEnd implements ByteStream {
+  readonly inner: ByteStream
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    return null
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (flaky.slowMs > 0) {
+      await delay(flaky.slowMs)
+    }
+    if (flaky.failWrites > 0) {
+      flaky.failWrites -= 1
+      throw new Error("the link is down")
+    }
+    await inner.write(bytes)
+  }
+
+  public close(): void {
+    inner.close()
+  }
+}
 
 /// A connected simulator, disarmed, with the parameters RC control reads; and the interval that keeps it disarmed.
 class Rig {
@@ -73,6 +111,9 @@ function changeParam(sim: SimulatedAutopilot, id: string, value: f64): void {
 
 /// A connected vehicle whose radio has the first channels at rest, with RC_OVERRIDE_TIME 3 s, the throttle on channel 3 and its minimum 1000.
 async function connected(): Promise<Rig> throws Error {
+  seams.wrap = (inner: ByteStream) => new FlakyEnd(inner)
+  flaky.slowMs = 0
+  flaky.failWrites = 0
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
   const sim = simulatorForTests()!
@@ -297,9 +338,59 @@ async function releasesWhenTheSessionEnds(): Promise<void> throws Error {
 async function releasesWhenTheUserDisconnects(): Promise<void> throws Error {
   const r = await connected()
   await flying(r)
+  // the user disconnects with the sticks streaming: the release goes first, and the reason is the real one (the link, not silence)
   await r.close()
+  const state = await told(r.f)
+  expect(state.state == RcStateState.Released).toBe(true)
+  expect(state.why ?? "").toBe("LINK_LOST")
+  expect((state.sent ?? 0) > 0).toBe(true)
+  expect(state.confirmed ?? false).toBe(true)
   await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
   expect(r.sim.rcOverride.releases).toBe(1)
+}
+
+async function aDisconnectBeforeTheFirstFrameIsTheLinkAndNothingWasToRelease(): Promise<void> throws Error {
+  const r = await connected()
+  const reply = await ask(r.f)
+  expect(errorOf(reply)).toBe("ok")
+  expect((await told(r.f)).state == RcStateState.On).toBe(true)
+  // no frame of sticks came yet, and the user disconnects
+  await r.close()
+  const state = await told(r.f)
+  expect(state.why ?? "").toBe("LINK_LOST")
+  expect(state.sent ?? 99).toBe(0)
+  // nothing was sent, so nothing needed to be released: that is confirmed, not a release that failed
+  expect(state.confirmed ?? false).toBe(true)
+  expect(r.sim.rcOverride.frames).toBe(0)
+  expect(r.sim.rcOverride.releases).toBe(0)
+}
+
+async function aPageThatWentSilentIsSilentWhateverComesAfter(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  // the page is silent for longer than 300 ms: that is what ended the control, and the disconnect that follows does not change it
+  await delay(450)
+  await r.close()
+  const state = await told(r.f)
+  expect(state.why ?? "").toBe("SILENT")
+  expect(state.confirmed ?? false).toBe(true)
+  expect(r.sim.rcOverride.releases).toBe(1)
+}
+
+async function releasesAfterTheSilenceInThreeHundredMillisecondsAndAScheduleTick(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  expect(errorOf(await input(r, [0, 0, 1500]))).toBe("ok")
+  const lastAt = Date.now() as int
+  const state = await told(r.f)
+  const took = (Date.now() as int) - lastAt
+  println(`RC the page's last frame to the release: ${took} ms`)
+  expect(state.why ?? "").toBe("SILENT")
+  // 300 ms of silence, seen by a check every 20 ms: not before 300, and within one check of it (and a little for the scheduler)
+  expect(took >= 290).toBe(true)
+  expect(took <= 380).toBe(true)
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1000")
+  await r.close()
 }
 
 async function releasesWhenTheWindowCloses(): Promise<void> throws Error {
@@ -325,15 +416,15 @@ async function releasesWhenTheHostExits(): Promise<void> throws Error {
 
 /// What the knobs of the sender's writes are at rest.
 function writesAreNormal(): void {
-  waits.slowWriteMs = 0
-  waits.failWrites = 0
+  flaky.slowMs = 0
+  flaky.failWrites = 0
 }
 
 async function theConnectionStaysOpenForAReleaseThatIsBeingWrittenSlowly(): Promise<void> throws Error {
   const r = await connected()
   const s = await flying(r)
   // the release takes 250 ms to be written; the page lets go and, a moment later, the session ends while it is out
-  waits.slowWriteMs = 250
+  flaky.slowMs = 250
   await r.f.unsubscribe(s)
   await delay(60)
   expect(link.farewells > 0).toBe(true)
@@ -349,7 +440,7 @@ async function theConnectionStaysOpenForAReleaseThatFailsAndIsTriedAgain(): Prom
   const r = await connected()
   const s = await flying(r)
   // the first two writes of the release fail: it is tried again a period later, and the session ends meanwhile
-  waits.failWrites = 2
+  flaky.failWrites = 2
   await r.f.unsubscribe(s)
   await delay(30)
   link.close()
@@ -364,7 +455,7 @@ async function saysSoWhenTheReleaseCouldNotBeWritten(): Promise<void> throws Err
   const r = await connected()
   await flying(r)
   // the link is down for every write: the page goes silent, and the release cannot get out (the vehicle lets go by itself in 3 s)
-  waits.failWrites = 100
+  flaky.failWrites = 100
   const state = await told(r.f)
   expect(state.state == RcStateState.Released).toBe(true)
   expect(state.why ?? "").toBe("SILENT")
@@ -406,6 +497,30 @@ async function anEmergencyStopEndsTheControlFirstAndTheSticksStopStreaming(): Pr
   expect(pulsesOf(r, 3)).toBe("1500,1500,1000")
   expect(link.rcControl).toBe(false)
   await r.close()
+}
+
+async function anEmergencyStopIsNotHeldUpByARelease(slowMs: int, failWrites: int): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  // the release is slow to be written (or every write fails: it is tried again, five times): the stop does not wait for it
+  flaky.slowMs = slowMs
+  flaky.failWrites = failWrites
+  const began = Date.now() as int
+  expect(errorOf(await r.f.call("vehicle.emergencyStop"))).toBe("ok")
+  const took = (Date.now() as int) - began
+  // (the wait for the release is 100 ms at the most, and the stop is answered at once by the simulator)
+  expect(took < 500).toBe(true)
+  writesAreNormal()
+  await until("nothing is left to say", () => link.farewells == 0)
+  await r.close()
+}
+
+async function anEmergencyStopIsNotHeldUpByASlowRelease(): Promise<void> throws Error {
+  await anEmergencyStopIsNotHeldUpByARelease(2000, 0)
+}
+
+async function anEmergencyStopIsNotHeldUpByWritesThatFail(): Promise<void> throws Error {
+  await anEmergencyStopIsNotHeldUpByARelease(0, 1000)
 }
 
 async function aDisarmEndsTheControlFirstToo(): Promise<void> throws Error {
@@ -547,7 +662,10 @@ describe("the exits of an RC control", () => {
   it("does not take a frame that is not new for a sign of life", aFrameThatIsNotNewDoesNotSayThePageIsAlive)
   it("releases when the link is lost", releasesWhenTheLinkIsLost)
   it("releases when the session ends", releasesWhenTheSessionEnds)
-  it("releases when the user disconnects", releasesWhenTheUserDisconnects)
+  it("releases when the user disconnects, and says the link was the reason", releasesWhenTheUserDisconnects)
+  it("says the link, and that nothing was to release, when the user disconnects before the first frame", aDisconnectBeforeTheFirstFrameIsTheLinkAndNothingWasToRelease)
+  it("stays silent when the page went silent before the disconnect", aPageThatWentSilentIsSilentWhateverComesAfter)
+  it("releases within 300 ms and a check of the page's last frame", releasesAfterTheSilenceInThreeHundredMillisecondsAndAScheduleTick)
   it("releases when the window closes", releasesWhenTheWindowCloses)
   it("releases when the host exits without a word", releasesWhenTheHostExits)
   it("takes no frame once it is over", sendsNothingAndAFrameAfterTheEndIsNotRunning)
@@ -556,6 +674,8 @@ describe("the exits of an RC control", () => {
   it("says when the release could not be written", saysSoWhenTheReleaseCouldNotBeWritten)
   it("releases when the armed state is no longer known", releasesWhenTheArmedStateIsNoLongerKnown)
   it("ends before an emergency stop is sent, and the sticks stop streaming", anEmergencyStopEndsTheControlFirstAndTheSticksStopStreaming)
+  it("does not hold an emergency stop up for a release that is slow", anEmergencyStopIsNotHeldUpByASlowRelease)
+  it("does not hold an emergency stop up when every write of the release fails", anEmergencyStopIsNotHeldUpByWritesThatFail)
   it("ends before a disarm is sent", aDisarmEndsTheControlFirstToo)
   it("stays on when a disarm is refused", aDisarmThatIsRefusedLeavesTheControlOn)
 })
