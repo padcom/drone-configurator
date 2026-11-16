@@ -69,8 +69,9 @@ type App = ReturnType<typeof actionsOf>
  */
 function rig(options: MockOptions = {}, answer = true) {
   const questions: string[] = []
-  const control: MockControl = {}
-  const handle = createConfigurator(mockBackend({ telemetryMs: 5, control, ...options }), (question: string) => {
+  // (a test may bring its own controls to drive the mock: they are the ones that `setArmed` and the others must use)
+  const control: MockControl = options.control ?? {}
+  const handle = createConfigurator(mockBackend({ telemetryMs: 5, ...options, control }), (question: string) => {
     questions.push(question)
 
     return Promise.resolve(answer)
