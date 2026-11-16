@@ -21,6 +21,13 @@ it('counts a vehicle that is not known to be disarmed as armed: it is blocked, w
   expect(blockedBy(true, undefined, true)).toBe('unknown')
 })
 
+it('blocks the logs while the list is being read (the backend refuses a download then), after a download', () => {
+  expect(blockedBy(true, false, false, true)).toBe('reading')
+  expect(blockedBy(true, false, true, true)).toBe('busy')
+  expect(blockedBy(true, true, false, true)).toBe('armed')
+  expect(blockedBy(false, false, false, true)).toBe('offline')
+})
+
 it('gives an armed vehicle the reason armed before busy', () => {
   expect(blockedBy(true, true, true)).toBe('armed')
 })

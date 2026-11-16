@@ -171,10 +171,47 @@ it('erases on the second press only, which names the count and that each log has
   expect(handle.logs.logs.value).toHaveLength(2)
   const now = Date.now()
   vi.spyOn(Date, 'now').mockReturnValue(now + 1000)
+  // (arming the erase reads the list again: the button is off until that is through, as the backend would answer BUSY, and
+  // the time for the second press begins again when it is on)
+  await vi.waitFor(() => expect(erase.attributes('disabled')).toBeUndefined())
+  vi.spyOn(Date, 'now').mockReturnValue(now + 2000)
   await erase.trigger('click')
   await vi.waitFor(() => expect(wrapper.get('#logs-outcome').text()).toBe('Erased from the vehicle: 2.'))
 
   expect(cells(wrapper)).toEqual([])
+})
+
+it('keeps the erase armed through a moment in which the vehicle is not heard, and confirms', async () => {
+  const { wrapper, handle } = await screen(true, { logs: ALL_CHECKED })
+  const erase = wrapper.get('#logs-erase')
+  await erase.trigger('click')
+  const now = Date.now()
+  await vi.waitFor(() => expect(erase.attributes('disabled')).toBeUndefined())
+  // no heartbeat for a few seconds: the state is not known, the button is off, and keeps what it says
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 5000 } })
+  await flushPromises()
+
+  expect(erase.attributes('disabled')).toBeDefined()
+  expect(erase.text()).toContain('Confirm: erase all logs')
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 100 } })
+  await flushPromises()
+  vi.spyOn(Date, 'now').mockReturnValue(now + 2000)
+  await erase.trigger('click')
+
+  await vi.waitFor(() => expect(wrapper.get('#logs-outcome').text()).toBe('Erased from the vehicle: 2.'))
+})
+
+it('goes back when the vehicle is armed while it waits: what was confirmed no longer holds', async () => {
+  const { wrapper, handle } = await screen(true, { logs: ALL_CHECKED })
+  const erase = wrapper.get('#logs-erase')
+  await erase.trigger('click')
+  await vi.waitFor(() => expect(erase.attributes('disabled')).toBeUndefined())
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
+  await flushPromises()
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false } })
+  await flushPromises()
+
+  expect(erase.text()).toBe('Erase all logs from the vehicle')
 })
 
 it('keeps the erase off, and says how many logs have no checked copy, while there are any', async () => {

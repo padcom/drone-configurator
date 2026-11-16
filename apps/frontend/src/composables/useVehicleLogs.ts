@@ -106,6 +106,7 @@ class VehicleLogs implements LogsModel {
       this.deps.connection.value.state === 'connected',
       armedOf(this.deps.telemetry.value),
       this.running.value,
+      this.loading.value,
     ))
     deps.client.onEvent('logs.progress', progress => {
       if (this.running.value) {

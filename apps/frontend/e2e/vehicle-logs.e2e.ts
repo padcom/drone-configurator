@@ -150,10 +150,13 @@ it('erases every log on the second press, which names the count, and keeps the c
   await window().click('#logs-erase')
   expect(await window().text('#logs-erase'))
     .toBe('Confirm: erase all logs from the vehicle: 3. Each has a checked copy on this computer.')
-  // A second click at once is a double click, and is one press.
+  // The first press reads the list again, and the button is off until that is through (however long it takes: the time for the
+  // second press runs only while it is on). Then ONE press confirms; a click at once after the first would be a double click.
+  await window().waitFor(`document.querySelector('#logs-erase')?.disabled === false`, 60_000)
   await new Promise(resolve => {
-    setTimeout(resolve, 1500)
+    setTimeout(resolve, 1000)
   })
+  expect(await window().text('#logs-erase')).toContain('Confirm: erase all logs')
   await window().click('#logs-erase')
   await window().waitFor(`document.querySelector('${OUTCOME}')?.textContent === 'Erased from the vehicle: 3.'`, 60_000)
 

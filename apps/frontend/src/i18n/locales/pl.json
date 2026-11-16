@@ -213,7 +213,8 @@
       "blocked": {
         "armed": "Pojazd jest uzbrojony. Logi nie są pobierane ani kasowane, dopóki nie zostanie rozbrojony.",
         "unknown": "Nie wiadomo, czy pojazd jest rozbrojony (brak świeżego heartbeatu), więc logi nie są pobierane ani kasowane.",
-        "busy": "Trwa pobieranie."
+        "busy": "Trwa pobieranie.",
+        "reading": "Lista logów jest odczytywana."
       },
       "outcome": {
         "downloaded": "Pobieranie zakończone. Pobrane: {count}",
