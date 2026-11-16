@@ -41,6 +41,9 @@ describe('the rows of a mapping', () => {
     const flat = { min: 0, center: 0, max: 1 }
 
     expect(problemsOf(profile({ ...STICK, calibration: flat }))).toEqual([{ code: 'calibration', channel: 1 }])
+    const endless = { min: -1, center: 0, max: Infinity }
+
+    expect(problemsOf(profile({ ...STICK, calibration: endless }))).toEqual([{ code: 'calibration', channel: 1 }])
   })
 
   it('has only pulses of 800 to 2200 µs, whole, on a switch or a button', () => {

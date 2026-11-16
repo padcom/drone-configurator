@@ -38,7 +38,21 @@ describe('what the wizard measures of an axis', () => {
   it('is the middle of the travel for a stick that rests at an end (a throttle), not its rest', () => {
     const capture = captured([0, 0, -1, 0], { 2: [-1, 1] })
 
-    expect(capture.calibrationOf(2)).toEqual({ min: -1, center: 0, max: 1 })
+    expect(capture.calibrationOf(2, true)).toEqual({ min: -1, center: 0, max: 1 })
+    expect(capture.calibrationOf(2)).toBeNull()
+  })
+})
+
+describe('what the wizard measures of an axis that does not go both ways', () => {
+  it('is nothing for a stick that springs back and went to one side only, however far: its rest would be an end', () => {
+    const oneSide = captured([0, 0, 0, 0], { 0: [0, 0.9], 1: [-0.9, 0], 2: [0.1, 1] })
+
+    expect(oneSide.travel(0)).toBeGreaterThanOrEqual(MIN_TRAVEL)
+    expect(oneSide.calibrationOf(0)).toBeNull()
+    expect(oneSide.calibrationOf(1)).toBeNull()
+    expect(oneSide.calibrationOf(2)).toBeNull()
+    expect(captured([0], { 0: [-0.39, 0.9] }).calibrationOf(0)).toBeNull()
+    expect(captured([0], { 0: [-0.4, 0.4] }).calibrationOf(0)).toEqual({ min: -0.4, center: 0, max: 0.4 })
   })
 
   it('is nothing for an axis that was not moved to both ends, or without enough reads at rest', () => {
@@ -64,7 +78,7 @@ describe('what the wizard measures for a mapping', () => {
 
   it('is the calibration of each stick\'s axis, and the axes that failed', () => {
     const capture = captured([0, 0, -1, 0], { 0: [-1, 1], 1: [-1, 1], 2: [-1, 1] })
-    const { calibrations, failed } = capture.measure(profile)
+    const { calibrations, failed } = capture.measure(profile, 3)
 
     expect([...calibrations.keys()]).toEqual([0, 1, 2])
     expect(failed).toEqual([3])
@@ -73,7 +87,8 @@ describe('what the wizard measures for a mapping', () => {
   it('has nothing failed when every stick of the mapping was moved', () => {
     const capture = captured([0, 0, -1, 0], { 0: [-1, 1], 1: [-1, 1], 2: [-1, 1], 3: [-1, 1] })
 
-    expect(capture.measure(profile).failed).toEqual([])
-    expect(capture.measure({ ...profile, rows: [] }).calibrations.size).toBe(0)
+    expect(capture.measure(profile, 3).failed).toEqual([])
+    expect(capture.measure({ ...profile, rows: [] }, 3).calibrations.size).toBe(0)
+    expect(capture.measure(profile, null).failed).toEqual([2])
   })
 })

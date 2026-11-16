@@ -849,6 +849,85 @@
       "plain": "Pytaj o potwierdzenie (zalecane)",
       "none": "Nie pytaj"
     },
+    "rc": {
+      "title": "Zdalne sterowanie",
+      "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB).",
+      "allow": "Zezwalaj na zdalne sterowanie",
+      "allowHelp": "Domyślnie wyłączone i tylko dla symulatora: aplikacja odmawia każdego innego pojazdu. To tylko zezwala; nie uruchamia sterowania.",
+      "status": {
+        "ready": "Wszystko jest gotowe do zdalnego sterowania.",
+        "link": "Nie połączono żadnego symulatora."
+      },
+      "device": {
+        "title": "Pad",
+        "none": "Nie znaleziono jeszcze padu. Aparatura pojawia się, gdy poruszysz drążkiem.",
+        "gone": "Pad nie jest teraz odczytywany. Poruszaj drążkiem.",
+        "axis": "Oś {n}",
+        "buttons": "Wciśnięte przyciski: {list}",
+        "noButtons": "Żaden przycisk nie jest wciśnięty."
+      },
+      "mapping": "Przypisanie",
+      "kind": {
+        "stick": "Drążek",
+        "switch": "Przełącznik",
+        "button": "Przycisk"
+      },
+      "channel": "Kanał",
+      "sourceAxis": "Oś {n}",
+      "sourceButton": "Przycisk {n}",
+      "moveIt": "Poruszaj",
+      "moveCancel": "Anuluj",
+      "moveWaiting": "Poruszaj drążkiem lub przełącznikiem albo wciśnij przycisk, o który ci chodzi.",
+      "remove": "Usuń kanał {channel}",
+      "pulse": "{us} µs",
+      "noPulse": "—",
+      "invert": "Odwróć",
+      "zone": "Strefa martwa (%)",
+      "expo": "Krzywa (%)",
+      "position": {
+        "low": "Dół (µs)",
+        "mid": "Środek (µs)",
+        "high": "Góra (µs)"
+      },
+      "up": "Puszczony (µs)",
+      "pressed": "Wciśnięty (µs)",
+      "add": {
+        "stick": "Dodaj drążek",
+        "switch": "Dodaj przełącznik",
+        "button": "Dodaj przycisk"
+      },
+      "refusedArm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
+      "wizard": {
+        "title": "Kalibracja",
+        "start": "Kalibruj…",
+        "rest": "Zostaw drążki w spoczynku, z gazem na dole, i poczekaj.",
+        "restReady": "Gotowe. Teraz poruszysz każdym drążkiem do wszystkich jego skrajnych położeń.",
+        "move": "Poruszaj powoli każdym drążkiem do wszystkich skrajnych położeń, kilka razy. Potem zakończ.",
+        "axis": "Oś {n}",
+        "next": "Dalej",
+        "finish": "Zakończ",
+        "cancel": "Anuluj",
+        "failed": "Te osie nie zostały poruszone wystarczająco daleko: {axes}. Przesuń je do obu skrajnych położeń i zakończ ponownie."
+      },
+      "issue": {
+        "mapping": {
+          "channel": "Kanał {channel} nie jest kanałem od 1 do 16.",
+          "duplicate": "Kanałem {channel} steruje więcej niż jeden wiersz.",
+          "zone": "Strefa martwa kanału {channel} musi wynosić od 0 do 50 %.",
+          "expo": "Krzywa kanału {channel} musi wynosić od 0 do 100 %.",
+          "calibration": "Kalibracji kanału {channel} nie można użyć. Skalibruj ponownie.",
+          "pulse": "Impuls kanału {channel} musi być liczbą całkowitą od 800 do 2200 µs.",
+          "uncalibrated": "Przypisanie nie zostało skalibrowane. Skalibruj je, zanim użyjesz zdalnego sterowania."
+        },
+        "vehicle": {
+          "unknownAll": "Nie wszystkie ustawienia pojazdu są znane. Połącz pojazd i poczekaj na pobranie wszystkich parametrów.",
+          "unknown": "Pojazd nie podał ustawienia, którego potrzebuje kanał {channel}. Pobierz parametry ponownie.",
+          "range": "Zakres impulsów kanału {channel} w pojeździe jest nieużyteczny.",
+          "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd. Usuń ten wiersz.",
+          "zone": "Strefa martwa gazu w pojeździe jest szeroka, więc „dół” jest szerszy niż zwykle."
+        }
+      }
+    },
     "map": {
       "title": "Mapa",
       "privacy": "Gdy mapa jest pokazana, aplikacja prosi serwer kafelków o kafelki obszaru na ekranie. Serwer poznaje ten obszar, Twój adres IP i ten User-Agent: {agent}. Nic więcej nie jest wysyłane: ani pozycja pojazdu, ani nazwa.",

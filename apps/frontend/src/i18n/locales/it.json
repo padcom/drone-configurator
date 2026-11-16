@@ -849,6 +849,85 @@
       "plain": "Chiedi conferma (consigliato)",
       "none": "Non chiedere"
     },
+    "rc": {
+      "title": "Controllo remoto",
+      "intro": "Pilota il veicolo con un gamepad, o con una radio che si presenta come tale (ad esempio una TX16S via USB).",
+      "allow": "Consenti il controllo remoto",
+      "allowHelp": "Disattivato per impostazione predefinita e solo per un simulatore: l'applicazione rifiuta qualsiasi altro veicolo. Questo lo consente soltanto; non lo avvia.",
+      "status": {
+        "ready": "Tutto è pronto per il controllo remoto.",
+        "link": "Nessun simulatore è collegato."
+      },
+      "device": {
+        "title": "Gamepad",
+        "none": "Nessun gamepad trovato finora. Una radio compare quando muovi uno stick.",
+        "gone": "Il gamepad ora non viene letto. Muovi uno stick.",
+        "axis": "Asse {n}",
+        "buttons": "Pulsanti premuti: {list}",
+        "noButtons": "Nessun pulsante è premuto."
+      },
+      "mapping": "Assegnazione",
+      "kind": {
+        "stick": "Stick",
+        "switch": "Interruttore",
+        "button": "Pulsante"
+      },
+      "channel": "Canale",
+      "sourceAxis": "Asse {n}",
+      "sourceButton": "Pulsante {n}",
+      "moveIt": "Muovilo",
+      "moveCancel": "Annulla",
+      "moveWaiting": "Muovi lo stick o l'interruttore, o premi il pulsante, che intendi.",
+      "remove": "Rimuovi il canale {channel}",
+      "pulse": "{us} µs",
+      "noPulse": "—",
+      "invert": "Inverti",
+      "zone": "Zona morta (%)",
+      "expo": "Curva (%)",
+      "position": {
+        "low": "Basso (µs)",
+        "mid": "Centro (µs)",
+        "high": "Alto (µs)"
+      },
+      "up": "Rilasciato (µs)",
+      "pressed": "Premuto (µs)",
+      "add": {
+        "stick": "Aggiungi uno stick",
+        "switch": "Aggiungi un interruttore",
+        "button": "Aggiungi un pulsante"
+      },
+      "refusedArm": "Il canale {channel} arma o ferma il veicolo, quindi non si può pilotare da qui.",
+      "wizard": {
+        "title": "Calibrazione",
+        "start": "Calibra…",
+        "rest": "Lascia gli stick a riposo, con il gas in basso, e attendi.",
+        "restReady": "Fatto. Ora muoverai ogni stick in tutti i suoi estremi.",
+        "move": "Muovi ogni stick lentamente in tutti i suoi estremi, più volte. Poi termina.",
+        "axis": "Asse {n}",
+        "next": "Avanti",
+        "finish": "Termina",
+        "cancel": "Annulla",
+        "failed": "Questi assi non sono stati mossi abbastanza: {axes}. Muovili in entrambi gli estremi e termina di nuovo."
+      },
+      "issue": {
+        "mapping": {
+          "channel": "Il canale {channel} non è un canale da 1 a 16.",
+          "duplicate": "Il canale {channel} è pilotato da più di una riga.",
+          "zone": "La zona morta del canale {channel} deve essere da 0 a 50 %.",
+          "expo": "La curva del canale {channel} deve essere da 0 a 100 %.",
+          "calibration": "La calibrazione del canale {channel} non è utilizzabile. Calibra di nuovo.",
+          "pulse": "Un impulso del canale {channel} deve essere un numero intero da 800 a 2200 µs.",
+          "uncalibrated": "L'assegnazione non è stata calibrata. Calibrala prima di usare il controllo remoto."
+        },
+        "vehicle": {
+          "unknownAll": "Le impostazioni del veicolo non sono tutte note. Collega il veicolo e lascia scaricare tutti i suoi parametri.",
+          "unknown": "Il veicolo non ha comunicato un'impostazione di cui il canale {channel} ha bisogno. Scarica di nuovo i parametri.",
+          "range": "L'intervallo degli impulsi del canale {channel} sul veicolo non è utilizzabile.",
+          "arm": "Il canale {channel} arma o ferma il veicolo. Rimuovi quella riga.",
+          "zone": "La zona morta del gas del veicolo è ampia, quindi «basso» è più largo del solito."
+        }
+      }
+    },
     "map": {
       "title": "Mappa",
       "privacy": "Mentre la mappa è mostrata, l'app chiede a un server di tessere quelle dell'area sullo schermo. Il server conosce quell'area, il tuo indirizzo IP e questo User-Agent: {agent}. Non è inviato altro: né la posizione del veicolo né un nome.",

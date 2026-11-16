@@ -33,7 +33,9 @@ describe('a mapping that was calibrated', () => {
     expect(calibrated(suggestion, measured([0, 1, 2, 3, 5]))).not.toBeNull()
     expect(calibrated({ ...suggestion, rows: [] }, measured([0, 1, 2, 3]))).toBeNull()
   })
+})
 
+describe('a mapping that a measurement cannot scale', () => {
   it('is not calibrated by a measurement that cannot scale an axis: ends not around the middle, or not numbers', () => {
     const suggestion = suggestedProfile('pad', null)
     const flat = { min: 0, center: 0, max: 1 }
@@ -44,6 +46,21 @@ describe('a mapping that was calibrated', () => {
     expect(calibrated(suggestion, measured([0, 1, 2, 3], nan))).toBeNull()
     expect(calibrated(suggestion, measured([0, 1, 2, 3], upside))).toBeNull()
     expect(calibrated(suggestion, new Map([...measured([0, 1, 2]), [3, flat]]))).toBeNull()
+  })
+
+  it('is not calibrated by an infinite end, however it compares: the half of the travel beyond it would be dead', () => {
+    const suggestion = suggestedProfile('pad', null)
+    const ends = [
+      { min: -1, center: 0, max: Infinity },
+      { min: -Infinity, center: 0, max: 1 },
+      { min: -1, center: Infinity, max: Infinity },
+      { min: -Infinity, center: -Infinity, max: 1 },
+    ]
+
+    for (const end of ends) {
+      expect(calibrated(suggestion, measured([0, 1, 2, 3], end))).toBeNull()
+      expect(calibrated(suggestion, new Map([...measured([0, 1, 2]), [3, end]]))).toBeNull()
+    }
   })
 })
 

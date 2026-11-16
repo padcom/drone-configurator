@@ -8,6 +8,9 @@ export const MIN_REST_READS = 10
 /** The least an axis must travel (raw, of its -1 to 1) to be calibrated: an axis not moved to both ends is not. */
 export const MIN_TRAVEL = 0.8
 
+/** How far (raw, of -1 to 1) a stick that springs back must travel to each side of where it rests. */
+export const MIN_SIDE = 0.4
+
 /** The part of the travel at either end within which a rest is "at an end" (a throttle stick that rests at the bottom). */
 const END_FRACTION = 0.05
 
@@ -111,22 +114,74 @@ export class Capture {
    * @returns the middle
    */
   private centerOf(axis: number, ends: Ends): number {
-    const rest = (this.sums[axis] ?? 0) / this.reads
+    const rest = this.restOf(axis)
     const margin = END_FRACTION * (ends.max - ends.min)
 
     return rest > ends.min + margin && rest < ends.max - margin ? rest : (ends.min + ends.max) / 2
   }
 
   /**
-   * What an axis calibrates to: its ends, and its middle.
+   * Where an axis was read at rest.
    *
    * @param axis the axis
-   * @returns the calibration, or null when there are too few reads at rest or the axis did not travel to both ends
+   * @returns the mean of the reads at rest
    */
-  calibrationOf(axis: number): AxisCalibration | null {
+  private restOf(axis: number): number {
+    return (this.sums[axis] ?? 0) / this.reads
+  }
+
+  /**
+   * Whether a stick that springs back has travelled to both sides of where it rests: a stick that went to one side only
+   * would have its rest at an end of its range, and the channel would read its minimum or maximum with the stick let go.
+   *
+   * @param axis the axis
+   * @param ends the ends it has been to
+   * @returns true when it has travelled at least `MIN_SIDE` to each side of its rest
+   */
+  private bothSides(axis: number, ends: Ends): boolean {
+    const rest = this.restOf(axis)
+
+    return rest - ends.min >= MIN_SIDE && ends.max - rest >= MIN_SIDE
+  }
+
+  /**
+   * What an axis calibrates to: its ends, and its middle. Only a stick that rests at an end (the throttle) may be measured
+   * as one that does; any other must have travelled to both sides of its rest, and its middle is its rest.
+   *
+   * @param axis the axis
+   * @param restsAtAnEnd whether it is the throttle (the only stick that may rest at an end)
+   * @returns the calibration, or null when there are too few reads at rest or the axis did not travel enough
+   */
+  calibrationOf(axis: number, restsAtAnEnd = false): AxisCalibration | null {
     const ends = this.measuredEnds(axis)
 
-    return ends === null ? null : { min: ends.min, center: this.centerOf(axis, ends), max: ends.max }
+    if (ends === null) {
+      return null
+    }
+
+    return restsAtAnEnd ? this.throttle(axis, ends) : this.springing(axis, ends)
+  }
+
+  /**
+   * The calibration of the throttle: it may rest at an end, and then its middle is halfway.
+   *
+   * @param axis the axis
+   * @param ends the ends it has been to
+   * @returns the calibration
+   */
+  private throttle(axis: number, ends: Ends): AxisCalibration {
+    return { min: ends.min, center: this.centerOf(axis, ends), max: ends.max }
+  }
+
+  /**
+   * The calibration of a stick that springs back: its middle is its rest, and it must have gone to both sides of it.
+   *
+   * @param axis the axis
+   * @param ends the ends it has been to
+   * @returns the calibration, or null when it went to one side only
+   */
+  private springing(axis: number, ends: Ends): AxisCalibration | null {
+    return this.bothSides(axis, ends) ? { min: ends.min, center: this.restOf(axis), max: ends.max } : null
   }
 
   /**
@@ -134,9 +189,10 @@ export class Capture {
    *
    * @param axis the axis
    * @param measured what is noted
+   * @param restsAtAnEnd whether it is the throttle
    */
-  private note(axis: number, measured: Measured): void {
-    const calibration = this.calibrationOf(axis)
+  private note(axis: number, measured: Measured, restsAtAnEnd: boolean): void {
+    const calibration = this.calibrationOf(axis, restsAtAnEnd)
 
     if (calibration !== null) {
       measured.calibrations.set(axis, calibration)
@@ -149,14 +205,16 @@ export class Capture {
    * What the wizard measured for the sticks of a mapping.
    *
    * @param profile the mapping
+   * @param throttleChannel the vehicle's throttle channel (`RCMAP_THROTTLE`), or null when it is not known (then no stick may
+   * rest at an end: a stick is never taken for the throttle without the vehicle saying so)
    * @returns the calibrations of its sticks' axes, and the axes that failed
    */
-  measure(profile: Profile): Measured {
+  measure(profile: Profile, throttleChannel: number | null): Measured {
     const measured: Measured = { calibrations: new Map(), failed: [] }
 
     for (const row of profile.rows) {
       if (row.kind === 'stick') {
-        this.note(row.axis, measured)
+        this.note(row.axis, measured, row.channel === throttleChannel)
       }
     }
 

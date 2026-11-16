@@ -44,7 +44,7 @@ function between(value: number, least: number, most: number): boolean {
  * @returns true when it can be scaled
  */
 function calibrated(c: AxisCalibration): boolean {
-  return c.min < c.center && c.center < c.max
+  return [c.min, c.center, c.max].every(Number.isFinite) && c.min < c.center && c.center < c.max
 }
 
 /**

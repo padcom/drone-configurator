@@ -849,6 +849,85 @@
       "plain": "Pedir confirmación (recomendado)",
       "none": "No preguntar"
     },
+    "rc": {
+      "title": "Control remoto",
+      "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB).",
+      "allow": "Permitir el control remoto",
+      "allowHelp": "Desactivado por defecto y solo para un simulador: la aplicación rechaza cualquier otro vehículo. Esto solo lo permite; no lo inicia.",
+      "status": {
+        "ready": "Todo está listo para el control remoto.",
+        "link": "No hay ningún simulador conectado."
+      },
+      "device": {
+        "title": "Mando",
+        "none": "Aún no se ha encontrado ningún mando. Una radio aparece al mover un stick.",
+        "gone": "Ahora no se lee el mando. Mueve un stick.",
+        "axis": "Eje {n}",
+        "buttons": "Botones pulsados: {list}",
+        "noButtons": "No hay ningún botón pulsado."
+      },
+      "mapping": "Asignación",
+      "kind": {
+        "stick": "Stick",
+        "switch": "Interruptor",
+        "button": "Botón"
+      },
+      "channel": "Canal",
+      "sourceAxis": "Eje {n}",
+      "sourceButton": "Botón {n}",
+      "moveIt": "Muévelo",
+      "moveCancel": "Cancelar",
+      "moveWaiting": "Mueve el stick o el interruptor, o pulsa el botón, que quieres decir.",
+      "remove": "Quitar el canal {channel}",
+      "pulse": "{us} µs",
+      "noPulse": "—",
+      "invert": "Invertir",
+      "zone": "Zona muerta (%)",
+      "expo": "Curva (%)",
+      "position": {
+        "low": "Abajo (µs)",
+        "mid": "Centro (µs)",
+        "high": "Arriba (µs)"
+      },
+      "up": "Suelto (µs)",
+      "pressed": "Pulsado (µs)",
+      "add": {
+        "stick": "Añadir un stick",
+        "switch": "Añadir un interruptor",
+        "button": "Añadir un botón"
+      },
+      "refusedArm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
+      "wizard": {
+        "title": "Calibración",
+        "start": "Calibrar…",
+        "rest": "Deja los sticks en reposo, con el acelerador abajo, y espera.",
+        "restReady": "Hecho. Ahora moverás cada stick a todos sus extremos.",
+        "move": "Mueve cada stick despacio a todos sus extremos, varias veces. Luego termina.",
+        "axis": "Eje {n}",
+        "next": "Siguiente",
+        "finish": "Terminar",
+        "cancel": "Cancelar",
+        "failed": "Estos ejes no se movieron lo bastante: {axes}. Muévelos a ambos extremos y termina de nuevo."
+      },
+      "issue": {
+        "mapping": {
+          "channel": "El canal {channel} no es un canal del 1 al 16.",
+          "duplicate": "El canal {channel} lo maneja más de una fila.",
+          "zone": "La zona muerta del canal {channel} debe ser de 0 a 50 %.",
+          "expo": "La curva del canal {channel} debe ser de 0 a 100 %.",
+          "calibration": "La calibración del canal {channel} no sirve. Calibra de nuevo.",
+          "pulse": "Un pulso del canal {channel} debe ser un número entero de 800 a 2200 µs.",
+          "uncalibrated": "La asignación no se ha calibrado. Calíbrala antes de usar el control remoto."
+        },
+        "vehicle": {
+          "unknownAll": "No se conocen todos los ajustes del vehículo. Conecta el vehículo y deja que se descarguen todos sus parámetros.",
+          "unknown": "El vehículo no informó de un ajuste que necesita el canal {channel}. Vuelve a descargar sus parámetros.",
+          "range": "El rango de pulsos del canal {channel} en el vehículo no sirve.",
+          "arm": "El canal {channel} arma o detiene el vehículo. Quita esa fila.",
+          "zone": "La zona muerta del acelerador del vehículo es ancha, así que «abajo» es más ancho de lo normal."
+        }
+      }
+    },
     "map": {
       "title": "Mapa",
       "privacy": "Mientras se muestra el mapa, la aplicación pide a un servidor de teselas las del área de la pantalla. El servidor conoce esa área, su dirección IP y este User-Agent: {agent}. No se envía nada más: ni la posición del vehículo ni un nombre.",

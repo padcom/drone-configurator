@@ -849,6 +849,85 @@
       "plain": "Bestätigung verlangen (empfohlen)",
       "none": "Nicht fragen"
     },
+    "rc": {
+      "title": "Fernsteuerung",
+      "intro": "Fliege das Fahrzeug mit einem Gamepad oder einer Fernsteuerung, die sich als Gamepad meldet (etwa eine TX16S über USB).",
+      "allow": "Fernsteuerung erlauben",
+      "allowHelp": "Standardmäßig aus und nur für einen Simulator: Die Anwendung lehnt jedes andere Fahrzeug ab. Das erlaubt sie nur; es startet sie nicht.",
+      "status": {
+        "ready": "Für die Fernsteuerung ist alles bereit.",
+        "link": "Es ist kein Simulator verbunden."
+      },
+      "device": {
+        "title": "Gamepad",
+        "none": "Noch kein Gamepad gefunden. Eine Fernsteuerung erscheint, sobald du einen Stick bewegst.",
+        "gone": "Das Gamepad wird gerade nicht gelesen. Bewege einen Stick.",
+        "axis": "Achse {n}",
+        "buttons": "Gedrückte Tasten: {list}",
+        "noButtons": "Keine Taste ist gedrückt."
+      },
+      "mapping": "Zuordnung",
+      "kind": {
+        "stick": "Stick",
+        "switch": "Schalter",
+        "button": "Taste"
+      },
+      "channel": "Kanal",
+      "sourceAxis": "Achse {n}",
+      "sourceButton": "Taste {n}",
+      "moveIt": "Bewegen",
+      "moveCancel": "Abbrechen",
+      "moveWaiting": "Bewege den Stick oder Schalter oder drücke die Taste, die du meinst.",
+      "remove": "Kanal {channel} entfernen",
+      "pulse": "{us} µs",
+      "noPulse": "—",
+      "invert": "Umkehren",
+      "zone": "Totzone (%)",
+      "expo": "Kurve (%)",
+      "position": {
+        "low": "Unten (µs)",
+        "mid": "Mitte (µs)",
+        "high": "Oben (µs)"
+      },
+      "up": "Losgelassen (µs)",
+      "pressed": "Gedrückt (µs)",
+      "add": {
+        "stick": "Stick hinzufügen",
+        "switch": "Schalter hinzufügen",
+        "button": "Taste hinzufügen"
+      },
+      "refusedArm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
+      "wizard": {
+        "title": "Kalibrierung",
+        "start": "Kalibrieren…",
+        "rest": "Lass die Sticks in Ruhe, das Gas ganz unten, und warte.",
+        "restReady": "Fertig. Als Nächstes bewegst du jeden Stick in alle Endlagen.",
+        "move": "Bewege jeden Stick langsam in alle Endlagen, mehrmals. Dann beende.",
+        "axis": "Achse {n}",
+        "next": "Weiter",
+        "finish": "Beenden",
+        "cancel": "Abbrechen",
+        "failed": "Diese Achsen wurden nicht weit genug bewegt: {axes}. Bewege sie in beide Endlagen und beende dann erneut."
+      },
+      "issue": {
+        "mapping": {
+          "channel": "Kanal {channel} ist kein Kanal von 1 bis 16.",
+          "duplicate": "Kanal {channel} wird von mehr als einer Zeile gesteuert.",
+          "zone": "Die Totzone von Kanal {channel} muss 0 bis 50 % sein.",
+          "expo": "Die Kurve von Kanal {channel} muss 0 bis 100 % sein.",
+          "calibration": "Die Kalibrierung von Kanal {channel} ist nicht brauchbar. Kalibriere erneut.",
+          "pulse": "Ein Impuls von Kanal {channel} muss eine ganze Zahl von 800 bis 2200 µs sein.",
+          "uncalibrated": "Die Zuordnung wurde nicht kalibriert. Kalibriere sie, bevor du die Fernsteuerung nutzt."
+        },
+        "vehicle": {
+          "unknownAll": "Die Einstellungen des Fahrzeugs sind nicht alle bekannt. Verbinde das Fahrzeug und lass alle Parameter herunterladen.",
+          "unknown": "Das Fahrzeug hat eine Einstellung nicht gemeldet, die Kanal {channel} braucht. Lade die Parameter erneut.",
+          "range": "Der Impulsbereich von Kanal {channel} am Fahrzeug ist nicht brauchbar.",
+          "arm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es. Entferne diese Zeile.",
+          "zone": "Die Gas-Totzone des Fahrzeugs ist groß, deshalb ist „unten“ weiter als üblich."
+        }
+      }
+    },
     "map": {
       "title": "Karte",
       "privacy": "Solange die Karte gezeigt wird, fragt die App einen Kachelserver nach den Kacheln des Bildschirmausschnitts. Der Server erfährt diesen Ausschnitt, Ihre IP-Adresse und diesen User-Agent: {agent}. Sonst wird nichts gesendet: keine Position des Fahrzeugs, kein Name.",
