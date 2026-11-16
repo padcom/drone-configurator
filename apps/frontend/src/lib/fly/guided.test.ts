@@ -72,10 +72,30 @@ describe('when a Go here is offered', () => {
 })
 
 describe('the altitude a Go here keeps', () => {
-  it('is where the vehicle is, in whole metres, within 2 m and the highest the user allows', () => {
-    expect(altitudeToKeep(inTheAir(), GUIDED_DEFAULTS)).toBe(20)
-    expect(altitudeToKeep(inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 20.6 } }), GUIDED_DEFAULTS)).toBe(21)
-    expect(altitudeToKeep(inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 70 } }), GUIDED_DEFAULTS)).toBe(50)
-    expect(altitudeToKeep(inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 1.2 } }), GUIDED_DEFAULTS)).toBe(2)
+  const at = (relativeAltitude: number) => inTheAir({ position: { ...inTheAir().position!, relativeAltitude } })
+
+  it('is where the vehicle is, in whole metres, and not below 2 m', () => {
+    expect(altitudeToKeep(inTheAir())).toBe(20)
+    expect(altitudeToKeep(at(20.6))).toBe(21)
+    expect(altitudeToKeep(at(1.2))).toBe(2)
+  })
+
+  it('is NOT held to the highest the user allows: a vehicle above it is refused, not sent down', () => {
+    expect(altitudeToKeep(at(70))).toBe(70)
+    expect(goHereBlock(state({ telemetry: at(70) }))).toBe('high')
+    expect(goHereBlock(state({ telemetry: at(50.4) }))).toBeNull()
+    expect(goHereBlock(state({ telemetry: at(51) }))).toBe('high')
+  })
+})
+
+describe('a vehicle that is coming home or landing', () => {
+  it.each(['RTL', 'SMART_RTL', 'LAND'])('is not sent anywhere in %s: the user changes the mode on purpose', mode => {
+    expect(goHereBlock(state({ telemetry: inTheAir({ mode }) }))).toBe('landing')
+  })
+
+  it('is sent from every other mode (the command says it will switch to GUIDED)', () => {
+    for (const mode of ['LOITER', 'AUTO', 'POSHOLD', 'GUIDED']) {
+      expect(goHereBlock(state({ telemetry: inTheAir({ mode }) })), mode).toBeNull()
+    }
   })
 })

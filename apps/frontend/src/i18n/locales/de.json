@@ -2179,7 +2179,9 @@
       "notGuided": "Das Fahrzeug ist nicht in GUIDED.",
       "stalePosition": "Die Position des Fahrzeugs ist alt: versuchen Sie es erneut.",
       "failsafeOff": "Der GCS-Failsafe des Fahrzeugs (FS_GCS_ENABLE) ist aus oder nicht lesbar: stellen Sie ihn ein, oder wählen Sie in den Einstellungen eine Warnung.",
-      "fenceUnknown": "Der Zaun des Fahrzeugs ließ sich nicht lesen, daher wird nichts angenommen: versuchen Sie es erneut."
+      "fenceUnknown": "Der Zaun des Fahrzeugs ließ sich nicht lesen, daher wird nichts angenommen: laden Sie zuerst die Parameter erneut.",
+      "landing": "Das Fahrzeug kehrt heim oder landet: ändern Sie den Modus zuerst selbst.",
+      "high": "Das Fahrzeug ist höher als Ihre größte Höhe in den Einstellungen."
     },
     "settings": {
       "title": "Geführte Steuerung",
@@ -2218,7 +2220,9 @@
       "place": "{lat}, {lon}",
       "away": "{distance} m vom Fahrzeug, {fromHome} m von Home",
       "go": "Hierher fliegen",
-      "clear": "Löschen"
+      "clear": "Löschen",
+      "mode": "Hierher fliegen schaltet das Fahrzeug auf GUIDED.",
+      "speed": "Hierher fliegen setzt die Geschwindigkeit von GUIDED auf {speed} m/s; sie bleibt so, wenn die Bewegung dann abgelehnt wird."
     }
   }
 }

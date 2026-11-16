@@ -2179,7 +2179,9 @@
       "notGuided": "The vehicle is not in GUIDED.",
       "stalePosition": "The vehicle's position is old: try again.",
       "failsafeOff": "The vehicle's GCS failsafe (FS_GCS_ENABLE) is off or cannot be read: set it, or choose to be warned in Settings.",
-      "fenceUnknown": "The vehicle's fence could not be read, so nothing is assumed: try again."
+      "fenceUnknown": "The vehicle's fence could not be read, so nothing is assumed: download the parameters again first.",
+      "landing": "The vehicle is returning home or landing: change its mode yourself first.",
+      "high": "The vehicle is above your highest altitude in Settings."
     },
     "settings": {
       "title": "Guided control",
@@ -2218,7 +2220,9 @@
       "place": "{lat}, {lon}",
       "away": "{distance} m from the vehicle, {fromHome} m from home",
       "go": "Go here",
-      "clear": "Clear"
+      "clear": "Clear",
+      "mode": "Go here will switch the vehicle to GUIDED.",
+      "speed": "Go here sets the speed of GUIDED to {speed} m/s; it stays so if the move is then refused."
     }
   }
 }

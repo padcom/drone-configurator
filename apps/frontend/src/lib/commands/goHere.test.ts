@@ -10,15 +10,32 @@ import { GUIDED_DEFAULTS } from '@/lib/fly/guided'
 import { fakeContext } from '@/testing/commandContext'
 import { HOME, NORTH, inTheAir } from '@/testing/guided'
 import { GoHere } from './goHere'
-import { goHere } from './goHereFlow'
+import { goHere, planOf } from './goHereFlow'
 
 afterEach(() => {
   setLanguage('en')
 })
 
 const command = new GoHere()
-const onTheGround = inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 0.4 } })
+/** A place somebody else picked meanwhile. */
+const ELSEWHERE = { lat: 52.2305, lon: 21.0131 }
 const WAITS = { pollMs: 5, modeMs: 500, armMs: 300 }
+
+/**
+ * What the command does after the question: the plan is made, and sent.
+ *
+ * @param fake the context
+ * @returns whether the vehicle took it
+ */
+function fly(fake: ReturnType<typeof ready>): Promise<boolean> {
+  const plan = planOf(fake.ctx)
+  if (plan === null) {
+    throw new Error('no place is picked')
+  }
+
+  return goHere(fake.ctx, plan, WAITS)
+}
+const onTheGround = inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 0.4 } })
 const FAR = { lat: HOME.lat + 0.01, lon: HOME.lon }
 
 /**
@@ -84,7 +101,7 @@ describe('what it sends', () => {
   it('sets the speed and sends ONE reposition to the place picked, at the altitude it has, and drops the place', async () => {
     const fake = ready()
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(true)
+    expect(await fly(fake)).toBe(true)
     expect(fake.calls.sent).toEqual(['speed 5', 'reposition 52.2302,21.0122 20 block'])
     expect(fake.calls.cleared).toEqual(['cleared'])
     expect(fake.calls.toast.at(-1)?.text).toBe('QUADROTOR accepted: it flies to the place, 20 m above home.')
@@ -104,7 +121,7 @@ describe('what it does about the mode and the failsafe', () => {
       return answer
     }
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(true)
+    expect(await fly(fake)).toBe(true)
     // (GUIDED is mode 4 of a Copter)
     expect(fake.calls.sent).toEqual(['mode 4', 'speed 5', 'reposition 52.2302,21.0122 20 block'])
   })
@@ -113,7 +130,7 @@ describe('what it does about the mode and the failsafe', () => {
 describe('what it sends of the settings', () => {
   it('sends what Settings say: the failsafe policy and the speed', async () => {
     const fake = ready({ guidedPrefs: { ...GUIDED_DEFAULTS, failsafe: 'warn', speed: 8 } })
-    await goHere(fake.ctx, WAITS)
+    await fly(fake)
 
     expect(fake.calls.sent).toEqual(['speed 8', 'reposition 52.2302,21.0122 20 warn'])
   })
@@ -121,7 +138,7 @@ describe('what it sends of the settings', () => {
   it('says the failsafe warning the vehicle came back with, when the user chose to be warned', async () => {
     const warning = 'FS_GCS_ENABLE is 0: if the link drops, it keeps its last command'
     const fake = ready({ armingResult: { result: 'accepted', messages: [warning] } })
-    await goHere(fake.ctx, WAITS)
+    await fly(fake)
 
     expect(fake.calls.toast.some(toast => toast.text.includes('FS_GCS_ENABLE is 0'))).toBe(true)
   })
@@ -131,8 +148,11 @@ describe('when nothing is picked', () => {
   it('sends nothing when no place is picked', async () => {
     const fake = ready({ target: null })
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(planOf(fake.ctx)).toBeNull()
+    await command.execute(fake.ctx)
+
     expect(fake.calls.sent).toEqual([])
+    expect(fake.calls.toast.at(-1)?.text).toBe('Pick a place on the map first.')
   })
 })
 
@@ -140,7 +160,7 @@ describe('when the speed does not go', () => {
   it('stops after a speed the vehicle refuses: no reposition, the place kept', async () => {
     const fake = ready({ armingResult: { result: 'refused', messages: [] } })
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['speed 5'])
     expect(fake.calls.cleared).toEqual([])
   })
@@ -150,7 +170,7 @@ describe('when the backend refuses', () => {
   it('tells what the backend refused before it sent anything, in words, and keeps the place', async () => {
     const fake = ready({ armingError: new BackendError('OUT_OF_LIMITS', 'x') })
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['speed 5'])
     expect(fake.calls.toast.at(-1)?.text).toBe("That is beyond the limits in Settings or the vehicle's own fence.")
     expect(fake.calls.cleared).toEqual([])
@@ -158,7 +178,7 @@ describe('when the backend refuses', () => {
 
   it('tells that the failsafe blocks, with the way out', async () => {
     const fake = ready({ armingError: new BackendError('GCS_FAILSAFE_OFF', 'x') })
-    await goHere(fake.ctx, WAITS)
+    await fly(fake)
 
     expect(fake.calls.toast.at(-1)?.text).toContain('FS_GCS_ENABLE')
   })
@@ -166,7 +186,7 @@ describe('when the backend refuses', () => {
   it('stops at a speed that nothing answered, and sends no reposition', async () => {
     const fake = ready({ armingResult: { result: 'no-answer', messages: [] } })
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['speed 5'])
     expect(fake.calls.toast.at(-1)?.text).toContain('No answer')
   })
@@ -181,7 +201,7 @@ describe('when the reposition does not go', () => {
       return Promise.resolve({ result: 'no-answer', messages: [] })
     }
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['speed 5', 'reposition 52.2302,21.0122'])
     expect(fake.calls.toast.at(-1)?.text).toContain('is not sent again')
     expect(fake.calls.cleared).toEqual([])
@@ -190,7 +210,78 @@ describe('when the reposition does not go', () => {
   it('stops when the vehicle never says it is in GUIDED', async () => {
     const fake = ready({ mode: 'LOITER' })
 
-    expect(await goHere(fake.ctx, WAITS)).toBe(false)
+    expect(await fly(fake)).toBe(false)
     expect(fake.calls.sent).toEqual(['mode 4'])
+  })
+})
+
+describe('what was confirmed is what is sent', () => {
+  it('flies to the place of the plan when another is picked while the mode is waited for, and keeps the new one', async () => {
+    const fake = ready({ mode: 'LOITER' })
+    const set = fake.ctx.vehicle.setMode.bind(fake.ctx.vehicle)
+    fake.ctx.vehicle.setMode = async mode => {
+      const answer = await set(mode)
+      // a click on the map while the vehicle changes its mode, and the vehicle gets there
+      fake.facts.target = ELSEWHERE
+      setTimeout(() => {
+        fake.facts.mode = 'GUIDED'
+      }, 10)
+
+      return answer
+    }
+
+    expect(await fly(fake)).toBe(true)
+    expect(fake.calls.sent).toEqual(['mode 4', 'speed 5', 'reposition 52.2302,21.0122 20 block'])
+    // (the place nobody confirmed stays picked: it is not dropped, and it was not sent)
+    expect(fake.calls.cleared).toEqual([])
+    expect(fake.ctx.guided.target()).toEqual(ELSEWHERE)
+  })
+})
+
+describe('what was said is what is flown', () => {
+  it('flies at the altitude and the speed that were said, not at what is true when the steps get there', async () => {
+    const fake = ready({ mode: 'LOITER' })
+    const set = fake.ctx.vehicle.setMode.bind(fake.ctx.vehicle)
+    const plan = planOf(fake.ctx)!
+    fake.ctx.vehicle.setMode = async mode => {
+      const answer = await set(mode)
+      fake.facts.guidedPrefs = { ...GUIDED_DEFAULTS, speed: 15, maxSpeed: 15 }
+      fake.facts.mode = 'GUIDED'
+
+      return answer
+    }
+
+    expect(await goHere(fake.ctx, plan, WAITS)).toBe(true)
+    expect(fake.calls.sent).toEqual(['mode 4', 'speed 5', 'reposition 52.2302,21.0122 20 block'])
+  })
+})
+
+describe('what is looked at again', () => {
+  it('looks at the gates again after the wait: a vehicle that landed meanwhile is sent nowhere', async () => {
+    const fake = ready({ mode: 'LOITER' })
+    const set = fake.ctx.vehicle.setMode.bind(fake.ctx.vehicle)
+    fake.ctx.vehicle.setMode = async mode => {
+      const answer = await set(mode)
+      fake.facts.telemetry = inTheAir({ mode: 'GUIDED', position: { ...inTheAir().position!, relativeAltitude: 0.2 } })
+      fake.facts.mode = 'GUIDED'
+
+      return answer
+    }
+
+    expect(await fly(fake)).toBe(false)
+    expect(fake.calls.sent).toEqual(['mode 4'])
+    expect(fake.calls.toast.at(-1)?.text).toBe('The vehicle is not in the air.')
+  })
+})
+
+describe('what the user was asked about', () => {
+  it('sends nothing when the place that is picked is not the one the user was asked about', async () => {
+    const fake = ready()
+    command.confirmation(fake.ctx)
+    fake.facts.target = ELSEWHERE
+    await command.execute(fake.ctx)
+
+    expect(fake.calls.sent).toEqual([])
+    expect(fake.calls.toast.at(-1)?.text).toBe('Pick a place on the map first.')
   })
 })

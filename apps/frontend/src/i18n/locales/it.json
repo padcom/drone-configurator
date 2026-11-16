@@ -2179,7 +2179,9 @@
       "notGuided": "Il veicolo non è in GUIDED.",
       "stalePosition": "La posizione del veicolo è vecchia: riprova.",
       "failsafeOff": "Il failsafe GCS del veicolo (FS_GCS_ENABLE) è spento o non leggibile: attivalo, o scegli di essere avvisato nelle Impostazioni.",
-      "fenceUnknown": "Non è stato possibile leggere il recinto del veicolo, quindi non si assume nulla: riprova."
+      "fenceUnknown": "Non è stato possibile leggere il recinto del veicolo, quindi non si assume nulla: scarica prima di nuovo i parametri.",
+      "landing": "Il veicolo sta tornando al punto di partenza o atterrando: cambia tu il suo modo prima.",
+      "high": "Il veicolo è sopra la tua altitudine massima nelle Impostazioni."
     },
     "settings": {
       "title": "Controllo guidato",
@@ -2218,7 +2220,9 @@
       "place": "{lat}, {lon}",
       "away": "a {distance} m dal veicolo, a {fromHome} m dal punto di partenza",
       "go": "Vai qui",
-      "clear": "Annulla"
+      "clear": "Annulla",
+      "mode": "Vai qui porterà il veicolo in GUIDED.",
+      "speed": "Vai qui imposta la velocità di GUIDED a {speed} m/s; resta così se il movimento viene poi rifiutato."
     }
   }
 }

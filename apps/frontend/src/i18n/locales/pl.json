@@ -2179,7 +2179,9 @@
       "notGuided": "Pojazd nie jest w trybie GUIDED.",
       "stalePosition": "Pozycja pojazdu jest stara: spróbuj ponownie.",
       "failsafeOff": "Failsafe GCS pojazdu (FS_GCS_ENABLE) jest wyłączony lub nie da się go odczytać: ustaw go albo wybierz w Ustawieniach ostrzeżenie.",
-      "fenceUnknown": "Nie udało się odczytać ogrodzenia pojazdu, więc niczego nie zakładamy: spróbuj ponownie."
+      "fenceUnknown": "Nie udało się odczytać ogrodzenia pojazdu, więc niczego nie zakładamy: najpierw pobierz parametry ponownie.",
+      "landing": "Pojazd wraca do punktu startu lub ląduje: najpierw sam zmień jego tryb.",
+      "high": "Pojazd jest powyżej twojej największej wysokości z Ustawień."
     },
     "settings": {
       "title": "Sterowanie prowadzone",
@@ -2218,7 +2220,9 @@
       "place": "{lat}, {lon}",
       "away": "{distance} m od pojazdu, {fromHome} m od punktu startu",
       "go": "Leć tutaj",
-      "clear": "Wyczyść"
+      "clear": "Wyczyść",
+      "mode": "Leć tutaj przełączy pojazd w tryb GUIDED.",
+      "speed": "Leć tutaj ustawia prędkość GUIDED na {speed} m/s; zostaje tak, jeśli ruch zostanie potem odrzucony."
     }
   }
 }

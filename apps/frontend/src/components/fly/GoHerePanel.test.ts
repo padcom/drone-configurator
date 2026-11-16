@@ -55,13 +55,13 @@ it('is not there until a place is picked', async () => {
   expect(wrapper.find('#go-here').exists()).toBe(true)
 })
 
-it('says the place and how far it is from the vehicle and from home, and offers Go here and Clear', async () => {
+it('says the place, and offers Go here and Clear; the distances are the confirmation\'s to say (once)', async () => {
   const { wrapper } = await card()
   useGoHere().pick(NORTH)
   await flushPromises()
 
   expect(wrapper.get('#go-here-place').text()).toContain('52.23020, 21.01220')
-  expect(wrapper.get('#go-here-place').text()).toContain('56 m from the vehicle, 56 m from home')
+  expect(wrapper.find('#go-here-away').exists()).toBe(false)
   expect(wrapper.get('#go-here-go').text()).toBe('Go here')
   expect(wrapper.get('#go-here-go').attributes('aria-disabled')).toBeUndefined()
   expect(wrapper.find('#go-here-why').exists()).toBe(false)
@@ -94,6 +94,76 @@ it('flies at once when Settings say not to ask: the speed, then one reposition, 
   await flushPromises()
   await wrapper.get('#go-here-go').trigger('click')
   await vi.waitFor(() => expect(sentOf(control)).toEqual(['speed 5', 'reposition 52.2302,21.0122 20 block']))
+
+  expect(useGoHere().target.value).toBeNull()
+})
+
+it('says how far the place is when no confirmation will say it', async () => {
+  const { wrapper } = await card([{ key: 'guided.confirmation', value: 'none' }])
+  useGoHere().pick(NORTH)
+  await flushPromises()
+
+  expect(wrapper.get('#go-here-away').text()).toBe('56 m from the vehicle, 56 m from home')
+})
+
+it('says before the click that Go here will switch the vehicle to GUIDED, when it is in another mode', async () => {
+  const { wrapper, handle } = await card()
+  useGoHere().pick(NORTH)
+  await flushPromises()
+
+  expect(wrapper.find('#go-here-mode').exists()).toBe(false)
+  feed(handle, { telemetry: inTheAir({ mode: 'LOITER' }) })
+  await flushPromises()
+
+  expect(wrapper.get('#go-here-mode').text()).toBe('Go here will switch the vehicle to GUIDED.')
+})
+
+it('says that the speed stays set when the move is refused', async () => {
+  const { wrapper } = await card()
+  useGoHere().pick(NORTH)
+  await flushPromises()
+
+  expect(wrapper.get('#go-here').text()).toContain('sets the speed of GUIDED to 5 m/s; it stays so if the move is then refused')
+})
+
+it.each([
+  ['RTL', 'The vehicle is returning home or landing: change its mode yourself first.'],
+  ['LAND', 'The vehicle is returning home or landing: change its mode yourself first.'],
+])('refuses a vehicle that is in %s: the user changes the mode on purpose', async (mode, words) => {
+  const { wrapper, handle } = await card()
+  useGoHere().pick(NORTH)
+  feed(handle, { telemetry: inTheAir({ mode }) })
+  await flushPromises()
+
+  expect(wrapper.get('#go-here-why').text()).toBe(words)
+  expect(wrapper.find('#go-here-mode').exists()).toBe(false)
+})
+
+it('refuses a vehicle above the highest altitude of the user instead of sending it down', async () => {
+  const { wrapper, handle } = await card()
+  useGoHere().pick(NORTH)
+  feed(handle, { telemetry: inTheAir({ position: { ...inTheAir().position!, relativeAltitude: 70 } }) })
+  await flushPromises()
+
+  expect(wrapper.get('#go-here-why').text()).toBe('The vehicle is above your highest altitude in Settings.')
+})
+
+it('drops the place when the link is lost, and when another vehicle answers: it was picked for one vehicle', async () => {
+  const vehicle = { sysid: 1, compid: 1, type: 'QUADROTOR', autopilot: 'ARDUPILOTMEGA' }
+  const { control } = await card()
+  useGoHere().pick(NORTH)
+  control.connection?.({ state: 'reconnecting', vehicle, attempt: 1 })
+  await flushPromises()
+
+  expect(useGoHere().target.value).toBeNull()
+  useGoHere().pick(NORTH)
+  control.connection?.({ state: 'connected', vehicle, resumed: true })
+  await flushPromises()
+
+  // (the same vehicle coming back: a place picked now is kept)
+  expect(useGoHere().target.value).toEqual(NORTH)
+  control.connection?.({ state: 'connected', vehicle, errorCode: 'VEHICLE_CHANGED', error: 'another vehicle' })
+  await flushPromises()
 
   expect(useGoHere().target.value).toBeNull()
 })

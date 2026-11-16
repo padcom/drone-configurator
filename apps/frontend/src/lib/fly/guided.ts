@@ -136,7 +136,7 @@ export function distanceM(from: Place, to: Place): number {
 const AIRBORNE_M = 1
 
 /** Why guided control is not offered now. */
-export type GuidedBlock = 'params' | 'air' | 'position' | 'home' | 'target' | 'far'
+export type GuidedBlock = 'params' | 'air' | 'landing' | 'high' | 'position' | 'home' | 'target' | 'far'
 
 /** What the rules need to know. */
 export interface GuidedState {
@@ -181,6 +181,29 @@ function isInTheAir(telemetry: Telemetry | null | undefined): boolean {
   return (telemetry?.position?.relativeAltitude ?? 0) > AIRBORNE_M
 }
 
+/** The modes of a vehicle that is coming home or landing: the user changes the mode on purpose, a Go here does not. */
+const LANDING_MODES = ['RTL', 'SMART_RTL', 'LAND']
+
+/**
+ * Whether the vehicle is returning home or landing.
+ *
+ * @param telemetry what the vehicle reports
+ * @returns true when it is
+ */
+function isLanding(telemetry: Telemetry | null | undefined): boolean {
+  return LANDING_MODES.includes(telemetry?.mode ?? '')
+}
+
+/**
+ * Whether the vehicle is above the highest altitude the user allows: a Go here keeps the altitude, so it would have to come down.
+ *
+ * @param state what is known
+ * @returns true when it is
+ */
+function isTooHigh(state: GuidedState): boolean {
+  return Math.round(state.telemetry?.position?.relativeAltitude ?? 0) > state.prefs.maxAltitude
+}
+
 /**
  * Whether a place is farther from home than the user allows.
  *
@@ -206,7 +229,9 @@ export function goHereBlock(state: GuidedState): GuidedBlock | null {
     ['params', state.listComplete],
     ['position', hasFresh(state.telemetry, 'position')],
     ['air', isInTheAir(state.telemetry)],
+    ['landing', !isLanding(state.telemetry)],
     ['home', hasFresh(state.telemetry, 'home')],
+    ['high', !isTooHigh(state)],
     ['target', state.target !== null],
     ['far', !isTooFar(state)],
   ]
@@ -215,14 +240,13 @@ export function goHereBlock(state: GuidedState): GuidedBlock | null {
 }
 
 /**
- * The altitude a Go here keeps: where the vehicle is, in whole metres, within what the user allows.
+ * The altitude a Go here keeps: where the vehicle is, in whole metres, and not below 2 m. It is NOT held to the user's highest
+ * altitude:
+ * a vehicle above it would be sent down, so it is refused (`high`) instead.
  *
  * @param telemetry what the vehicle reports
- * @param prefs what the user chose
  * @returns metres above home
  */
-export function altitudeToKeep(telemetry: Telemetry | null | undefined, prefs: GuidedPreferences): number {
-  const now = Math.round(telemetry?.position?.relativeAltitude ?? MIN_ALTITUDE_M)
-
-  return Math.min(Math.max(now, MIN_ALTITUDE_M), prefs.maxAltitude)
+export function altitudeToKeep(telemetry: Telemetry | null | undefined): number {
+  return Math.max(Math.round(telemetry?.position?.relativeAltitude ?? MIN_ALTITUDE_M), MIN_ALTITUDE_M)
 }

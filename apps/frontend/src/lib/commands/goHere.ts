@@ -7,7 +7,7 @@
 // that says how far, how high and how fast, or a hold. The flow after the confirmation is goHereFlow.ts.
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
 import { connectionBlocker, namedVehicle, no, workBlocker } from './arming'
-import { goHere } from './goHereFlow'
+import { goHere, planOf, samePlace } from './goHereFlow'
 import { VEHICLE_GROUP } from './vehicle'
 import { type GuidedPreferences, type Place, altitudeToKeep, distanceM, goHereBlock, speedOf } from '@/lib/fly/guided'
 import type { SafetyOptions } from '@/lib/app/safety'
@@ -52,7 +52,7 @@ function facts(ctx: CommandContext, target: Place, prefs: GuidedPreferences): Re
   return {
     distance: metresFrom(telemetry?.position, target),
     fromHome: metresFrom(telemetry?.home, target),
-    altitude: altitudeToKeep(telemetry, prefs),
+    altitude: altitudeToKeep(telemetry),
     speed: speedOf(prefs),
   }
 }
@@ -97,6 +97,9 @@ export class GoHere implements Command {
 
   readonly keywordKeys = ['guided.command.keywords']
 
+  // The place the user was last asked about (null when none was asked: no confirmation, or it was answered).
+  private shown: Place | null = null
+
   /**
    * May it run now?
    *
@@ -122,6 +125,8 @@ export class GoHere implements Command {
       return null
     }
     const mode = ctx.vehicle.mode() === 'GUIDED' ? '' : ` ${ctx.say('guided.command.mode')}`
+    // (what the user is asked about: execute sends exactly this place)
+    this.shown = { lat: target.lat, lon: target.lon }
 
     return {
       title: ctx.say('guided.command.title'),
@@ -134,13 +139,23 @@ export class GoHere implements Command {
   }
 
   /**
-   * Flies there.
+   * Flies there: to the place the user was asked about, at the altitude and speed that were said, whatever is picked meanwhile.
    *
    * @param ctx the context
    * @returns what a command leaves behind
    */
   async execute(ctx: CommandContext): Promise<CommandOutcome> {
-    await goHere(ctx)
+    const plan = planOf(ctx)
+    const asked = this.shown
+    this.shown = null
+
+    // (the question was about another place than the one that is picked now: nothing is sent, and the user is told to pick again)
+    if (plan === null || (asked !== null && !samePlace(asked, plan.target))) {
+      ctx.toast({ id: 'goHere-stopped', severity: 'warning', text: ctx.say('guided.reason.target') })
+
+      return { focus: 'restore' }
+    }
+    await goHere(ctx, plan)
 
     return { focus: 'restore' }
   }

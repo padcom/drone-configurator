@@ -128,12 +128,21 @@ it('picks the place under a click: a ring on the map and a card that says how fa
   await window().waitFor(`document.querySelector('#go-here') !== null`, 10_000)
 
   expect(await window().evaluate<boolean>(`document.querySelector('.map-target') !== null`)).toBe(true)
-  expect(await window().text('#go-here-place')).toMatch(/\d+ m from the vehicle, \d+ m from home/u)
+  // (the card stays off the credit of the map: the credit is readable, and the first thing at its middle)
+  expect(await window().evaluate<boolean>(`(() => {
+    const credit = document.querySelector('#map-attribution')
+    const box = credit.getBoundingClientRect()
+    const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return top === credit
+  })()`)).toBe(true)
 })
 
 it('is refused, and sends the vehicle NOTHING, while its GCS failsafe is off', async () => {
   await window().click('#go-here-go')
   await window().waitFor(`document.querySelector('#confirm-yes') !== null`, 10_000)
+
+  // (the distances are said once: here, not on the card)
+  expect(await window().text('#question')).toMatch(/\d+ m from it and \d+ m from home/u)
   await sleep(IGNORES_MS)
   await window().click('#confirm-yes')
   await window().waitFor(`document.querySelector('#confirm') === null`, 10_000)
