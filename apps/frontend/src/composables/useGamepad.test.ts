@@ -72,20 +72,36 @@ describe('the gamepad that is stopped', () => {
 })
 
 describe('the gamepad after stop', () => {
-  it('has no listener left: an unplugged pad or a hidden window changes nothing, and tells nothing', () => {
+  it('has no listener left: a hidden window, a shown one and an unplugged pad change nothing, each as it happens', () => {
     const { pads, pad, gaps } = setup()
     pads.connect()
     pad.start()
     pads.advance(POLL_MS)
     pad.stop()
-    pads.disconnect()
+    // (a pad is there, so a listener that was left would read it: `hidden` below, `live` after, and a gap at the unplugging)
     pads.show(false)
+    expect(pad.reading.value.kind).toBe('none')
     pads.show(true)
-    pads.connect()
-    pads.advance(200)
-
+    expect(pad.reading.value.kind).toBe('none')
+    pads.disconnect()
     expect(pad.reading.value.kind).toBe('none')
     expect(gaps).toEqual([])
+  })
+})
+
+describe('the listeners of the gamepad', () => {
+  it('are both taken off the window and the document when it stops', () => {
+    const { pads, pad } = setup()
+    const onDocument = vi.spyOn(document, 'removeEventListener')
+    const onWindow = vi.spyOn(window, 'removeEventListener')
+    pad.start()
+    pad.stop()
+
+    expect(onDocument.mock.calls.map(call => call[0])).toContain('visibilitychange')
+    expect(onWindow.mock.calls.map(call => call[0])).toContain('gamepaddisconnected')
+    expect(pads.shown).toBe(true)
+    onDocument.mockRestore()
+    onWindow.mockRestore()
   })
 
   it('can be started again, and then reads as before', () => {
