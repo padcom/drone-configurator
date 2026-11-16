@@ -132,6 +132,26 @@ services = {
   ; setting and the vehicle's fence, which are lower, are the page's, the backend does not read the parameters) and
   ; `UNSUPPORTED_VEHICLE` (not an ArduPilot). Whether the vehicle then CLIMBS is what its position says, not this answer.
   "vehicle.takeoff": ["method", takeoff-ask, arming-result],
+  ; GUIDED CONTROL (ArduCopter; pico-mavlink's `VehicleControl`; the PR text quotes the ArduPilot source of each rule). Each is sent ONCE (a
+  ; missing answer is `no-answer`, never sent again), with no force value, to an ARMED vehicle that is in GUIDED and whose state is known.
+  ; The backend refuses before it sends anything: `NOT_CONNECTED`, `STATE_UNKNOWN`, `NOT_ARMED`, `NOT_GUIDED` (the page sets GUIDED first: a
+  ; reposition never changes the mode), `BUSY`, `UNSUPPORTED_VEHICLE`, `INVALID_VALUE` (a number that is not one: NaN, infinity, a place
+  ; off the globe or at 0, 0, which a vehicle takes for "here", limits above the hard ones), `OUT_OF_LIMITS` (beyond the `limits` of the
+  ; request: the page's own, from Settings and the vehicle's fence, which the backend holds to the HARD ones: 120 m, 5000 m, 30 m/s),
+  ; `STALE_POSITION` (the backend's own position of the vehicle is older than 2 s: it is the backend's, never the page's, that
+  ; a change of altitude flies to), `NOT_AIRBORNE` (a vehicle that is on the ground, below 1 m), `HOME_UNKNOWN`, and `GCS_FAILSAFE_OFF`
+  ; (FS_GCS_ENABLE is 0, or could not be read, and the request's `failsafe` is `block`; with `warn` the command goes and the result
+  ; carries a message that says so). The backend reads FS_GCS_ENABLE itself, at each command.
+  ; Flies to a place, `altitude` metres above home. Whether the vehicle then ARRIVES is what its position says, not this answer.
+  "vehicle.reposition": ["method", reposition-ask, arming-result],
+  ; Goes to another altitude where the vehicle is (the backend's fresh position: a Copter has no change-altitude command).
+  "vehicle.changeAltitude": ["method", change-altitude-ask, arming-result],
+  ; Changes the ground speed of the guided mode (m/s).
+  "vehicle.setSpeed": ["method", set-speed-ask, arming-result],
+  ; Sets HOME to where the vehicle is (DO_SET_HOME, here): RTL returns there from now on, and the home altitude moves with it. Needs a
+  ; fresh position (`STALE_POSITION`) and a vehicle that does not move (`NOT_HOVERING`: more than 1 m/s over the ground) and is known
+  ; (`STATE_UNKNOWN`); armed or not. The page asks the user first, with a hold, and says that RTL now goes there.
+  "vehicle.setHomeHere": ["method", null, arming-result],
   "vehicle.prearm": ["method", null, arming-result],
   ; What the board says of itself (AUTOPILOT_VERSION: the firmware version and git hash, the board and vendor ids, the unique id) and
   ; which sensors the autopilot has, uses and finds healthy (SYS_STATUS), read when asked (not a stream). A field the vehicle did
@@ -765,6 +785,19 @@ set-mode-ask = { mode: uint .size 1 }
 
 ; The altitude to take off to, in metres above home.
 takeoff-ask = { altitude: float }
+
+; What the page allows a guided command, from Settings (50 m, 500 m, 10 m/s unless changed) and the vehicle's fence: the highest altitude
+; (m above home), the farthest from home (m) and the greatest speed (m/s). The backend holds them to its hard limits (120 m, 5000 m, 30 m/s).
+guided-limits = { maxAltitude: float, maxDistance: float, maxSpeed: float }
+
+; What to do when the vehicle's GCS failsafe (FS_GCS_ENABLE) is off: `block` refuses the command, `warn` sends it and says so.
+failsafe-policy = "block" / "warn"
+
+reposition-ask = { latitude: float, longitude: float, altitude: float, limits: guided-limits, failsafe: failsafe-policy }
+
+change-altitude-ask = { altitude: float, limits: guided-limits, failsafe: failsafe-policy }
+
+set-speed-ask = { speed: float, limits: guided-limits }
 
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
 ; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256

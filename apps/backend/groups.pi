@@ -348,7 +348,16 @@ export class Groups {
     }
   }
 
-  stamp(name: string, now: int): void {
+  /// How old a group is (ms) at `now`, or -1 when it was never heard (or was lost again).
+  public ageOf(name: string, now: int): int {
+    const at = heardAt.get(name)
+    if (at == null) {
+      return -1
+    }
+    return now - at!
+  }
+
+  public stamp(name: string, now: int): void {
     heardAt.set(name, now)
     return
   }

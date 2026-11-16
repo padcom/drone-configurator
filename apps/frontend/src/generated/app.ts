@@ -657,6 +657,51 @@ function validateTakeoffAskInto(value: any, path: string): boolean {
 /** The first problem with `value` as a takeoff-ask, or null. */
 export const validateTakeoffAsk = (value: unknown) => run(validateTakeoffAskInto, value)
 
+export type GuidedLimits = { "maxAltitude": number, "maxDistance": number, "maxSpeed": number }
+
+function validateGuidedLimitsInto(value: any, path: string): boolean {
+  return map(value, path, ["maxAltitude","maxDistance","maxSpeed"]) && (value["maxAltitude"] === undefined ? fail(`${path}.maxAltitude`, 'present') : nested(value["maxAltitude"], `${path}.maxAltitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["maxDistance"] === undefined ? fail(`${path}.maxDistance`, 'present') : nested(value["maxDistance"], `${path}.maxDistance`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["maxSpeed"] === undefined ? fail(`${path}.maxSpeed`, 'present') : nested(value["maxSpeed"], `${path}.maxSpeed`, (value, path) => typeof value === 'number' || fail(path, 'a number')))
+}
+
+/** The first problem with `value` as a guided-limits, or null. */
+export const validateGuidedLimits = (value: unknown) => run(validateGuidedLimitsInto, value)
+
+export type FailsafePolicy = "block" | "warn"
+
+function validateFailsafePolicyInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["block","warn"])
+}
+
+/** The first problem with `value` as a failsafe-policy, or null. */
+export const validateFailsafePolicy = (value: unknown) => run(validateFailsafePolicyInto, value)
+
+export type RepositionAsk = { "latitude": number, "longitude": number, "altitude": number, "limits": GuidedLimits, "failsafe": FailsafePolicy }
+
+function validateRepositionAskInto(value: any, path: string): boolean {
+  return map(value, path, ["latitude","longitude","altitude","limits","failsafe"]) && (value["latitude"] === undefined ? fail(`${path}.latitude`, 'present') : nested(value["latitude"], `${path}.latitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["longitude"] === undefined ? fail(`${path}.longitude`, 'present') : nested(value["longitude"], `${path}.longitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["altitude"] === undefined ? fail(`${path}.altitude`, 'present') : nested(value["altitude"], `${path}.altitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["limits"] === undefined ? fail(`${path}.limits`, 'present') : nested(value["limits"], `${path}.limits`, (value, path) => validateGuidedLimitsInto(value, path))) && (value["failsafe"] === undefined ? fail(`${path}.failsafe`, 'present') : nested(value["failsafe"], `${path}.failsafe`, (value, path) => validateFailsafePolicyInto(value, path)))
+}
+
+/** The first problem with `value` as a reposition-ask, or null. */
+export const validateRepositionAsk = (value: unknown) => run(validateRepositionAskInto, value)
+
+export type ChangeAltitudeAsk = { "altitude": number, "limits": GuidedLimits, "failsafe": FailsafePolicy }
+
+function validateChangeAltitudeAskInto(value: any, path: string): boolean {
+  return map(value, path, ["altitude","limits","failsafe"]) && (value["altitude"] === undefined ? fail(`${path}.altitude`, 'present') : nested(value["altitude"], `${path}.altitude`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["limits"] === undefined ? fail(`${path}.limits`, 'present') : nested(value["limits"], `${path}.limits`, (value, path) => validateGuidedLimitsInto(value, path))) && (value["failsafe"] === undefined ? fail(`${path}.failsafe`, 'present') : nested(value["failsafe"], `${path}.failsafe`, (value, path) => validateFailsafePolicyInto(value, path)))
+}
+
+/** The first problem with `value` as a change-altitude-ask, or null. */
+export const validateChangeAltitudeAsk = (value: unknown) => run(validateChangeAltitudeAskInto, value)
+
+export type SetSpeedAsk = { "speed": number, "limits": GuidedLimits }
+
+function validateSetSpeedAskInto(value: any, path: string): boolean {
+  return map(value, path, ["speed","limits"]) && (value["speed"] === undefined ? fail(`${path}.speed`, 'present') : nested(value["speed"], `${path}.speed`, (value, path) => typeof value === 'number' || fail(path, 'a number'))) && (value["limits"] === undefined ? fail(`${path}.limits`, 'present') : nested(value["limits"], `${path}.limits`, (value, path) => validateGuidedLimitsInto(value, path)))
+}
+
+/** The first problem with `value` as a set-speed-ask, or null. */
+export const validateSetSpeedAsk = (value: unknown) => run(validateSetSpeedAskInto, value)
+
 export type MessagesParams = { "replay"?: number }
 
 function validateMessagesParamsInto(value: any, path: string): boolean {
@@ -1169,6 +1214,10 @@ export interface Services {
   "vehicle.emergencyStop": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.setMode": { kind: 'method', request: SetModeAsk, response: ArmingResult }
   "vehicle.takeoff": { kind: 'method', request: TakeoffAsk, response: ArmingResult }
+  "vehicle.reposition": { kind: 'method', request: RepositionAsk, response: ArmingResult }
+  "vehicle.changeAltitude": { kind: 'method', request: ChangeAltitudeAsk, response: ArmingResult }
+  "vehicle.setSpeed": { kind: 'method', request: SetSpeedAsk, response: ArmingResult }
+  "vehicle.setHomeHere": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.prearm": { kind: 'method', request: null, response: ArmingResult }
   "vehicle.info": { kind: 'method', request: null, response: VehicleDetails }
   "vehicle.modes": { kind: 'method', request: null, response: VehicleModes }
@@ -1328,6 +1377,22 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "vehicle.takeoff": {
     request: (value: any, path: string) => validateTakeoffAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.reposition": {
+    request: (value: any, path: string) => validateRepositionAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.changeAltitude": {
+    request: (value: any, path: string) => validateChangeAltitudeAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.setSpeed": {
+    request: (value: any, path: string) => validateSetSpeedAskInto(value, path),
+    response: (value: any, path: string) => validateArmingResultInto(value, path),
+  },
+  "vehicle.setHomeHere": {
+    request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => validateArmingResultInto(value, path),
   },
   "vehicle.prearm": {

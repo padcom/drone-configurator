@@ -3310,6 +3310,118 @@ export function encodeTakeoffAsk(v: TakeoffAsk): Cbor {
   Cbor.Dict(m)
 }
 
+export struct GuidedLimits {
+  maxAltitude: f64
+  maxDistance: f64
+  maxSpeed: f64
+}
+
+export function decodeGuidedLimits(v: Cbor, path: string): GuidedLimits throws InvalidPayload {
+  const m = members(v, path, ["maxAltitude", "maxDistance", "maxSpeed"])
+  GuidedLimits {
+    maxAltitude: float(required(m, "maxAltitude", path), `${path}.maxAltitude`),
+    maxDistance: float(required(m, "maxDistance", path), `${path}.maxDistance`),
+    maxSpeed: float(required(m, "maxSpeed", path), `${path}.maxSpeed`),
+  }
+}
+
+export function encodeGuidedLimits(v: GuidedLimits): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("maxAltitude", Cbor.Float(v.maxAltitude))
+  m.set("maxDistance", Cbor.Float(v.maxDistance))
+  m.set("maxSpeed", Cbor.Float(v.maxSpeed))
+  Cbor.Dict(m)
+}
+
+export enum FailsafePolicy { Block, Warn }
+
+export function decodeFailsafePolicy(v: Cbor, path: string): FailsafePolicy throws InvalidPayload {
+  match (text(v, path)) {
+    "block" => FailsafePolicy.Block,
+    "warn" => FailsafePolicy.Warn,
+    _ => throw new InvalidPayload(path, "block or warn"),
+  }
+}
+
+export function encodeFailsafePolicy(v: FailsafePolicy): Cbor {
+  match (v) {
+    Block => Cbor.Text("block"),
+    Warn => Cbor.Text("warn"),
+  }
+}
+
+export struct RepositionAsk {
+  latitude: f64
+  longitude: f64
+  altitude: f64
+  limits: GuidedLimits
+  failsafe: FailsafePolicy
+}
+
+export function decodeRepositionAsk(v: Cbor, path: string): RepositionAsk throws InvalidPayload {
+  const m = members(v, path, ["latitude", "longitude", "altitude", "limits", "failsafe"])
+  RepositionAsk {
+    latitude: float(required(m, "latitude", path), `${path}.latitude`),
+    longitude: float(required(m, "longitude", path), `${path}.longitude`),
+    altitude: float(required(m, "altitude", path), `${path}.altitude`),
+    limits: decodeGuidedLimits(required(m, "limits", path), `${path}.limits`),
+    failsafe: decodeFailsafePolicy(required(m, "failsafe", path), `${path}.failsafe`),
+  }
+}
+
+export function encodeRepositionAsk(v: RepositionAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("latitude", Cbor.Float(v.latitude))
+  m.set("longitude", Cbor.Float(v.longitude))
+  m.set("altitude", Cbor.Float(v.altitude))
+  m.set("limits", encodeGuidedLimits(v.limits))
+  m.set("failsafe", encodeFailsafePolicy(v.failsafe))
+  Cbor.Dict(m)
+}
+
+export struct ChangeAltitudeAsk {
+  altitude: f64
+  limits: GuidedLimits
+  failsafe: FailsafePolicy
+}
+
+export function decodeChangeAltitudeAsk(v: Cbor, path: string): ChangeAltitudeAsk throws InvalidPayload {
+  const m = members(v, path, ["altitude", "limits", "failsafe"])
+  ChangeAltitudeAsk {
+    altitude: float(required(m, "altitude", path), `${path}.altitude`),
+    limits: decodeGuidedLimits(required(m, "limits", path), `${path}.limits`),
+    failsafe: decodeFailsafePolicy(required(m, "failsafe", path), `${path}.failsafe`),
+  }
+}
+
+export function encodeChangeAltitudeAsk(v: ChangeAltitudeAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("altitude", Cbor.Float(v.altitude))
+  m.set("limits", encodeGuidedLimits(v.limits))
+  m.set("failsafe", encodeFailsafePolicy(v.failsafe))
+  Cbor.Dict(m)
+}
+
+export struct SetSpeedAsk {
+  speed: f64
+  limits: GuidedLimits
+}
+
+export function decodeSetSpeedAsk(v: Cbor, path: string): SetSpeedAsk throws InvalidPayload {
+  const m = members(v, path, ["speed", "limits"])
+  SetSpeedAsk {
+    speed: float(required(m, "speed", path), `${path}.speed`),
+    limits: decodeGuidedLimits(required(m, "limits", path), `${path}.limits`),
+  }
+}
+
+export function encodeSetSpeedAsk(v: SetSpeedAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("speed", Cbor.Float(v.speed))
+  m.set("limits", encodeGuidedLimits(v.limits))
+  Cbor.Dict(m)
+}
+
 export struct MessagesParams {
   replay?: u16
 }

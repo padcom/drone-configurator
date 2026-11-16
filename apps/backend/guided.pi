@@ -1,0 +1,148 @@
+// The rules of the guided commands (`vehicle.reposition`, `vehicle.changeAltitude`, `vehicle.setSpeed`, `vehicle.setHomeHere`), without a
+// link: what a request may ask, and what the vehicle must be and be doing, as pure checks over what the backend last heard of it (telemetry.pi
+// `flightNow`). arming.pi sends the commands; every refusal here is a `CommunicatorError` with a code, and nothing is sent after one.
+//  - The numbers: finite (not NaN, not infinity), a latitude and longitude on the globe, and NOT 0, 0 (a vehicle takes that for "where I
+//    am": ArduCopter GCS_MAVLink_Copter.cpp:444 and libraries/AP_Common/Location.cpp:541 deny it). `INVALID_VALUE`.
+//  - The limits of the request (`GuidedLimits`: the page's, from Settings and the vehicle's fence) are held to the HARD ones, which are the
+//    backend's own: an altitude of 2 to 120 m above home, 5000 m from home, 30 m/s. A request beyond the hard ones is `INVALID_VALUE`
+//    (a page that sends it has a bug); a target beyond the request's own is `OUT_OF_LIMITS`.
+//  - The vehicle must be in GUIDED (`NOT_GUIDED`: a reposition never changes the mode, and the vehicle denies one outside it:
+//    GCS_MAVLink_Copter.cpp:435); the position the backend heard must be fresh, at most 2 s old (`STALE_POSITION`): a change of altitude flies to
+//    the place it is given, so an old position sends the vehicle back to where it was; a reposition and a change of altitude need a vehicle
+//    in the air, above 1 m (`NOT_AIRBORNE`: GUIDED on the ground would start a flight); a reposition needs HOME (`HOME_UNKNOWN`) to measure
+//    from.
+//  - SET HOME HERE moves where RTL goes: it takes the vehicle's place, so it needs a fresh position, and a vehicle that stands still
+//    (at most 1 m/s over the ground: `NOT_HOVERING`).
+import { CommunicatorError } from "pico-desktop/communicator"
+import { Flight } from "./telemetry"
+import { GuidedLimits } from "./generated/app"
+
+/// The lowest altitude of a guided command (m above home).
+export const MIN_ALTITUDE_M: f64 = 2.0
+
+/// The hard limits: no request may allow more. Altitude (m above home), distance from home (m), speed (m/s).
+export const HARD_ALTITUDE_M: f64 = 120.0
+export const HARD_DISTANCE_M: f64 = 5000.0
+export const HARD_SPEED_MS: f64 = 30.0
+
+/// How old the heard position may be (ms), how high the vehicle must be to count as in the air (m), and how fast it may move for a set of
+/// home (m/s).
+export const POSITION_FRESH_MS: int = 2000
+export const AIRBORNE_M: f64 = 1.0
+export const STILL_MS: f64 = 1.0
+
+/// Metres of a degree of latitude.
+const METRES_PER_DEGREE: f64 = 111320.0
+
+/// Whether a number is a number (not NaN, not infinite).
+export function isFinite(x: f64): bool {
+  return (x - x) == 0.0
+}
+
+/// How far two places are from each other (m), flat-earth, which is all a few kilometres need.
+export function distanceM(lat1: f64, lon1: f64, lat2: f64, lon2: f64): f64 {
+  const middle = (lat1 + lat2) / 2.0 * Math.PI / 180.0
+  const north = (lat2 - lat1) * METRES_PER_DEGREE
+  const east = (lon2 - lon1) * METRES_PER_DEGREE * Math.cos(middle)
+  return Math.sqrt(north * north + east * east)
+}
+
+/// The limits of a request must be numbers within the hard ones.
+export function checkLimits(l: GuidedLimits): void throws CommunicatorError {
+  if (!isFinite(l.maxAltitude) || l.maxAltitude < MIN_ALTITUDE_M || l.maxAltitude > HARD_ALTITUDE_M) {
+    throw new CommunicatorError("INVALID_VALUE", `the highest altitude is ${MIN_ALTITUDE_M} to ${HARD_ALTITUDE_M} m, not ${l.maxAltitude}`)
+  }
+  if (!isFinite(l.maxDistance) || !(l.maxDistance > 0.0) || l.maxDistance > HARD_DISTANCE_M) {
+    throw new CommunicatorError("INVALID_VALUE", `the farthest distance from home is above 0 and at most ${HARD_DISTANCE_M} m, not ${l.maxDistance}`)
+  }
+  if (!isFinite(l.maxSpeed) || !(l.maxSpeed > 0.0) || l.maxSpeed > HARD_SPEED_MS) {
+    throw new CommunicatorError("INVALID_VALUE", `the greatest speed is above 0 and at most ${HARD_SPEED_MS} m/s, not ${l.maxSpeed}`)
+  }
+}
+
+/// A place: numbers, on the globe, and not 0, 0.
+export function checkPlace(lat: f64, lon: f64): void throws CommunicatorError {
+  if (!isFinite(lat) || !isFinite(lon) || lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) {
+    throw new CommunicatorError("INVALID_VALUE", `a place is a latitude of -90 to 90 and a longitude of -180 to 180 degrees, not ${lat}, ${lon}`)
+  }
+  if (lat == 0.0 && lon == 0.0) {
+    throw new CommunicatorError("INVALID_VALUE", "a latitude and a longitude of 0 and 0 mean 'where the vehicle is' to a vehicle, not a place")
+  }
+}
+
+/// An altitude (m above home): a number, from 2 m to the request's limit.
+export function checkAltitude(altitude: f64, l: GuidedLimits): void throws CommunicatorError {
+  if (!isFinite(altitude)) {
+    throw new CommunicatorError("INVALID_VALUE", `an altitude is a number, not ${altitude}`)
+  }
+  if (altitude < MIN_ALTITUDE_M || altitude > l.maxAltitude) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `an altitude is ${MIN_ALTITUDE_M} to ${l.maxAltitude} m above home, not ${altitude}`)
+  }
+}
+
+/// The vehicle is in GUIDED.
+function checkGuided(f: Flight): void throws CommunicatorError {
+  if (f.mode != "GUIDED") {
+    throw new CommunicatorError("NOT_GUIDED", `the vehicle is in ${f.mode}, not GUIDED`)
+  }
+}
+
+/// The position the backend heard is fresh.
+export function checkFreshPosition(f: Flight): void throws CommunicatorError {
+  if (!f.hasPosition || f.positionAgeMs < 0 || f.positionAgeMs > POSITION_FRESH_MS) {
+    throw new CommunicatorError("STALE_POSITION", `the vehicle's position is not known or is older than ${POSITION_FRESH_MS} ms`)
+  }
+}
+
+/// The vehicle is in the air.
+function checkAirborne(f: Flight): void throws CommunicatorError {
+  if (f.relativeAltitude <= AIRBORNE_M) {
+    throw new CommunicatorError("NOT_AIRBORNE", "the vehicle is not in the air")
+  }
+}
+
+/// What a reposition to a place asks of the request and of the vehicle.
+export function checkReposition(lat: f64, lon: f64, altitude: f64, l: GuidedLimits, f: Flight): void throws CommunicatorError {
+  checkLimits(l)
+  checkPlace(lat, lon)
+  checkAltitude(altitude, l)
+  checkGuided(f)
+  checkFreshPosition(f)
+  checkAirborne(f)
+  if (!f.hasHome) {
+    throw new CommunicatorError("HOME_UNKNOWN", "the vehicle has not said where home is")
+  }
+  const away = distanceM(f.homeLat, f.homeLon, lat, lon)
+  if (away > l.maxDistance) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `the place is ${Math.round(away)} m from home: at most ${l.maxDistance} m`)
+  }
+}
+
+/// What a change of altitude asks: the vehicle's own fresh position is the place it keeps.
+export function checkChangeAltitude(altitude: f64, l: GuidedLimits, f: Flight): void throws CommunicatorError {
+  checkLimits(l)
+  checkAltitude(altitude, l)
+  checkGuided(f)
+  checkFreshPosition(f)
+  checkAirborne(f)
+}
+
+/// What a change of speed asks.
+export function checkSetSpeed(speed: f64, l: GuidedLimits, f: Flight): void throws CommunicatorError {
+  checkLimits(l)
+  if (!isFinite(speed) || !(speed > 0.0)) {
+    throw new CommunicatorError("INVALID_VALUE", `a speed is a number above 0, not ${speed}`)
+  }
+  if (speed > l.maxSpeed) {
+    throw new CommunicatorError("OUT_OF_LIMITS", `a speed is at most ${l.maxSpeed} m/s, not ${speed}`)
+  }
+  checkGuided(f)
+}
+
+/// What a set of home here asks: a fresh position, and a vehicle that stands still.
+export function checkHomeHere(f: Flight): void throws CommunicatorError {
+  checkFreshPosition(f)
+  if (f.groundSpeed > STILL_MS) {
+    throw new CommunicatorError("NOT_HOVERING", `the vehicle moves at ${f.groundSpeed} m/s: home is set where it stands still`)
+  }
+}

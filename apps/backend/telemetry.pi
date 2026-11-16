@@ -18,7 +18,7 @@ import {
   SysStatus,
   TelemetryRates,
 } from "padcom/pico-mavlink"
-import { ConnectionState, PrearmGroup, Telemetry, decodeTelemetryParams, encodeTelemetry } from "./generated/app"
+import { ConnectionState, HomeGroup, PositionGroup, PrearmGroup, Telemetry, decodeTelemetryParams, encodeTelemetry } from "./generated/app"
 import { Groups, Wish, wishes } from "./groups"
 import { SessionPart, link } from "./session"
 
@@ -201,6 +201,56 @@ class Heard implements SessionPart {
 }
 
 const heard = new Heard()
+
+/// What the guided commands (arming.pi) look at: the flight mode, and where the vehicle and its home are, as last heard.
+export class Flight {
+  /// The flight mode's name by the heartbeat ("GUIDED", "LOITER" ...), "unknown" before one.
+  public mode: string = "unknown"
+  /// Whether a position was heard, how old it is (ms), where the vehicle is (degrees) and how high above home (m), and how fast it moves
+  /// over the ground (m/s).
+  public hasPosition: bool = false
+  public positionAgeMs: int = -1
+  public lat: f64 = 0.0
+  public lon: f64 = 0.0
+  public relativeAltitude: f64 = 0.0
+  public groundSpeed: f64 = 0.0
+  /// Whether HOME was heard, and where it is (degrees).
+  public hasHome: bool = false
+  public homeLat: f64 = 0.0
+  public homeLon: f64 = 0.0
+}
+
+/// What the vehicle last said of itself, for the guided commands.
+export function flightNow(): Flight {
+  const out = new Flight()
+  out.mode = heard.mode
+  const now = Date.now() as int
+  const p = heard.groups.position
+  if (p != null) {
+    out.hasPosition = true
+    out.positionAgeMs = heard.groups.ageOf("position", now)
+    out.lat = p!.lat
+    out.lon = p!.lon
+    out.relativeAltitude = p!.relativeAltitude
+    out.groundSpeed = Math.sqrt(p!.vx * p!.vx + p!.vy * p!.vy)
+  }
+  const h = heard.groups.home
+  if (h != null) {
+    out.hasHome = true
+    out.homeLat = h!.lat
+    out.homeLon = h!.lon
+  }
+  return out
+}
+
+/// For the tests: the position, home and mode the guided commands see, as if the vehicle had said so just now.
+export function sayFlightForTests(mode: string, lat: f64, lon: f64, relativeAltitude: f64, homeLat: f64, homeLon: f64): void {
+  heard.mode = mode
+  heard.groups.position = PositionGroup { lat: lat, lon: lon, altitude: 100.0 + relativeAltitude, relativeAltitude: relativeAltitude, vx: 0.0, vy: 0.0, vz: 0.0, ageMs: 0 }
+  heard.groups.stamp("position", Date.now() as int)
+  heard.groups.home = HomeGroup { lat: homeLat, lon: homeLon, altitude: 100.0, ageMs: 0 }
+  heard.groups.stamp("home", Date.now() as int)
+}
 
 /// For the tests: the rates held for the connected vehicle, in the order they were asked for.
 export function ratesHeldForTests(): HeldRate[] {
