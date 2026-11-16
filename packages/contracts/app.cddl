@@ -241,15 +241,18 @@ services = {
   ; or sent again); when no `rc.input` that is new (its `seq` above the last) has come for 300 ms the backend releases and tells
   ; `released` with `SILENT`. The vehicle's own `RC_OVERRIDE_TIME` (3 s) is only the second line. A control that may not begin ENDS
   ; the subscription at once, with the reason as the end's error code (nothing is sent to the vehicle): `NOT_CONNECTED`, `NOT_SIMULATOR`
-  ; (the link `vehicle.connect` was given is not the built-in simulator or TCP or UDP to this computer: a serial port, any other address,
-  ; or a network link with no host), `NOT_ALLOWED` (`rc.allow` is not `on` in the backend's own settings: the page's copy is not trusted),
+  ; (the link `vehicle.connect` was given is not the built-in simulator or TCP or UDP to this computer, where a blank host means
+  ; 127.0.0.1: a serial port or any other address is refused), `NOT_ALLOWED` (`rc.allow` is not `on` in the backend's own settings: the page's copy is not trusted),
   ; `UNSUPPORTED`
   ; (not an ArduPilot), `STATE_UNKNOWN` (no heartbeat for 3 s: armed or not is not known), `BUSY` (a control, a calibration, a motor test, a
-  ; parameter or log operation, a plan operation or a reboot is under way), `PARAMS_INCOMPLETE` (the parameter list was not downloaded
+  ; parameter or log operation, a plan operation, a reboot, or a command to the vehicle that has not been answered yet: an arm, a mode
+  ; change, a guided command), `GUIDED` (the vehicle's heartbeat says GUIDED: a guided flow is on), `PARAMS_INCOMPLETE` (the parameter list was not downloaded
   ; whole: the throttle cannot be held to its range), `PARAMS_MISSING` (`RC_OVERRIDE_TIME`, `RCMAP_THROTTLE` or the throttle channel's
   ; `RCn_MIN` cannot be read from the vehicle), `OVERRIDE_DISABLED` (`RC_OVERRIDE_TIME` is 0, so the vehicle ignores overrides, or negative,
   ; so it never lets go of them: both refused). While a control is on, a motor test, a calibration, a parameter write and a reboot are
-  ; refused with `BUSY`. Events: `on` when it has begun (with the throttle channel and its minimum: the pulse of that channel is never
+  ; refused with `BUSY`, and so are the guided commands (`vehicle.takeoff`, `reposition`, `changeAltitude`, `setSpeed`, `setHomeHere`:
+  ; the sticks fly the vehicle, and a guided command would fight them), before anything else about them is looked at. Arm, disarm, the
+  ; emergency stop (which ends the control first) and a mode change are not held off. Events: `on` when it has begun (with the throttle channel and its minimum: the pulse of that channel is never
   ; sent below it), `released` when it ends, once (with why, how many frames were sent, how many throttle pulses were raised to the minimum,
   ; and whether the vehicle's release frame was written); the subscription ends after it. The backend sends from its own connection, with
   ; the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`), not the id of the rest of the app (254).

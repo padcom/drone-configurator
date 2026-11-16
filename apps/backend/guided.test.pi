@@ -6,7 +6,7 @@ import { delay } from "std/timers"
 import { CommunicatorError, Cbor, Envelope } from "pico-desktop/communicator"
 import { CommandInt, CommandLong, MavCmd, MavParamType, Received, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { resetForTests, waits } from "./arming"
+import { resetForTests, seams, waits } from "./arming"
 import {
   ChangeAltitudeAsk,
   ConnectRequest,
@@ -323,6 +323,41 @@ async function aRepositionIsSentOnceInTheFrameAboveHome(): Promise<void> throws 
   await f.call("vehicle.disconnect")
 }
 
+/// The guided commands the page can send, each as a request that is fine in every other way.
+async function everyGuidedCommand(f: Frontend): Promise<string[]> throws Error {
+  const out: string[] = []
+  out.push(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block)))
+  out.push(described(await f.call("vehicle.changeAltitude", encodeChangeAltitudeAsk(ChangeAltitudeAsk { altitude: 35.0, limits: limits(), failsafe: FailsafePolicy.Block }))))
+  out.push(described(await f.call("vehicle.setSpeed", encodeSetSpeedAsk(SetSpeedAsk { speed: 6.0, limits: limits() }))))
+  out.push(described(await f.call("vehicle.setHomeHere")))
+  return out
+}
+
+async function everyGuidedCommandIsRefusedBusyWhileAControlIsOn(): Promise<void> throws Error {
+  const f = await flying(1)
+  const heard = listen(simulatorForTests()!)
+  link.rcControl = true
+  expect((await everyGuidedCommand(f)).join(",")).toBe("BUSY,BUSY,BUSY,BUSY")
+  // (refused before anything was sent)
+  expect(heard.ints.length + heard.longs.length).toBe(0)
+  link.rcControl = false
+  await f.call("vehicle.disconnect")
+}
+
+async function aControlThatBeginsWhileTheFenceIsReadStopsTheRepositionBeforeItIsSent(): Promise<void> throws Error {
+  const f = await flying(1)
+  const heard = listen(simulatorForTests()!)
+  // (nothing is on when the command is looked at first; the control begins as the fence has been read: the second check holds it)
+  seams.afterFence = () => {
+    link.rcControl = true
+  }
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("BUSY")
+  seams.afterFence = null
+  expect(heard.ints.length).toBe(0)
+  link.rcControl = false
+  await f.call("vehicle.disconnect")
+}
+
 async function theGcsFailsafeBlocksByDefaultAndWarnsWhenAsked(): Promise<void> throws Error {
   // FS_GCS_ENABLE is 0
   const off = await flying(0)
@@ -503,6 +538,8 @@ describe("guided control rules", () => {
 describe("guided control commands", () => {
   it("refuses before it sends anything", refusesBeforeSendingAnything)
   it("sends a reposition once, as a COMMAND_INT in the frame above home", aRepositionIsSentOnceInTheFrameAboveHome)
+  it("refuses every guided command with BUSY while an RC control is on, sending nothing", everyGuidedCommandIsRefusedBusyWhileAControlIsOn)
+  it("stops a reposition when a control begins while its fence is read", aControlThatBeginsWhileTheFenceIsReadStopsTheRepositionBeforeItIsSent)
   it("blocks while the GCS failsafe is off, and warns when asked to", theGcsFailsafeBlocksByDefaultAndWarnsWhenAsked)
   it("does not take an unreadable failsafe for a good one", aFailsafeThatCannotBeReadIsNotAssumedToBeOn)
   it("holds a reposition and a change of altitude to the vehicle's fence", theVehiclesFenceLimitsAReposition)
