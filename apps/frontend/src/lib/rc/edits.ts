@@ -65,13 +65,19 @@ function measured(row: Row, calibrations: ReadonlyMap<number, AxisCalibration>):
 }
 
 /**
- * Whether a calibration can scale an axis: its ends are on either side of its middle (numbers that are not numbers are not).
+ * Whether a calibration can scale an axis: its ends are on either side of its middle, and all three are finite numbers (NaN
+ * and an infinite end are not: an infinite end leaves half of the travel dead).
  *
  * @param calibration what was measured, if anything
  * @returns true when it can
  */
 function usable(calibration: AxisCalibration | undefined): boolean {
-  return calibration !== undefined && calibration.min < calibration.center && calibration.center < calibration.max
+  if (calibration === undefined) {
+    return false
+  }
+  const { min, center, max } = calibration
+
+  return [min, center, max].every(Number.isFinite) && min < center && center < max
 }
 
 /**

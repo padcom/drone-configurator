@@ -74,6 +74,7 @@
     </div>
     <GuidedSettings />
     <MapSettings />
+    <RcSettings />
     <p class="muted">{{ t('settings.more') }}</p>
   </section>
 </template>
@@ -84,6 +85,7 @@ import { useI18n } from 'vue-i18n'
 import { LANGUAGES, LANGUAGE_NAMES, isLanguage } from '@/i18n/i18n'
 import GuidedSettings from '@/components/settings/GuidedSettings.vue'
 import MapSettings from '@/components/settings/MapSettings.vue'
+import RcSettings from '@/components/settings/RcSettings.vue'
 import Button from '@/components/ui/Button.vue'
 import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'

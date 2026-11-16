@@ -849,6 +849,85 @@
       "plain": "Ask for a confirmation (recommended)",
       "none": "Do not ask"
     },
+    "rc": {
+      "title": "Remote control",
+      "intro": "Fly the vehicle with a gamepad, or a radio that acts as one (such as a TX16S over USB). It is off by default and is for a simulator only: the application refuses it for any other vehicle.",
+      "allow": "Allow remote control",
+      "allowHelp": "This only allows it. It does not start it, and it never works for a vehicle that is not a simulator.",
+      "status": {
+        "ready": "Everything is in place for remote control.",
+        "link": "Remote control needs a simulator: connect the built-in one, or one on this computer.",
+        "pad": "No gamepad is being read. Move a stick on the radio."
+      },
+      "device": {
+        "title": "Gamepad",
+        "none": "No gamepad found yet. A radio shows up when you move a stick.",
+        "gone": "The gamepad is not being read now. Move a stick.",
+        "axis": "Axis {n}",
+        "buttons": "Buttons pressed: {list}",
+        "noButtons": "No button is pressed."
+      },
+      "mapping": "Mapping",
+      "kind": {
+        "stick": "Stick",
+        "switch": "Switch",
+        "button": "Button"
+      },
+      "channel": "Channel",
+      "sourceAxis": "Axis {n}",
+      "sourceButton": "Button {n}",
+      "moveIt": "Move it",
+      "moveCancel": "Cancel",
+      "moveWaiting": "Move the stick or switch, or press the button, that you mean.",
+      "remove": "Remove channel {channel}",
+      "pulse": "{us} µs",
+      "noPulse": "—",
+      "invert": "Invert",
+      "zone": "Dead zone (%)",
+      "expo": "Curve (%)",
+      "position": {
+        "low": "Low (µs)",
+        "mid": "Middle (µs)",
+        "high": "High (µs)"
+      },
+      "up": "Up (µs)",
+      "pressed": "Pressed (µs)",
+      "add": {
+        "stick": "Add a stick",
+        "switch": "Add a switch",
+        "button": "Add a button"
+      },
+      "refusedArm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
+      "wizard": {
+        "start": "Calibrate…",
+        "rest": "Leave the sticks where they rest, with the throttle at the bottom, and wait.",
+        "restReady": "Done. Next, you will move every stick to all its ends.",
+        "move": "Move every stick slowly to all its ends, a few times. Then finish.",
+        "axis": "Axis {n}",
+        "next": "Next",
+        "finish": "Finish",
+        "cancel": "Cancel",
+        "failed": "These axes were not moved far enough: {axes}. Move them to both ends, then finish again."
+      },
+      "issue": {
+        "mapping": {
+          "channel": "Channel {channel} is not a channel from 1 to 16.",
+          "duplicate": "Channel {channel} is driven by more than one row.",
+          "zone": "The dead zone of channel {channel} must be 0 to 50 %.",
+          "expo": "The curve of channel {channel} must be 0 to 100 %.",
+          "calibration": "The calibration of channel {channel} cannot be used. Calibrate again.",
+          "pulse": "A pulse of channel {channel} must be a whole number from 800 to 2200 µs.",
+          "uncalibrated": "The mapping has not been calibrated. Calibrate it before using remote control."
+        },
+        "vehicle": {
+          "unknownAll": "The vehicle's settings are not all known. Connect the vehicle and let all its parameters download.",
+          "unknown": "The vehicle did not report a setting that channel {channel} needs. Download its parameters again.",
+          "range": "The pulse range of channel {channel} on the vehicle cannot be used.",
+          "arm": "Channel {channel} arms or stops the vehicle. Remove that row.",
+          "zone": "The vehicle's throttle dead zone is wide, so “low” is wider than usual."
+        }
+      }
+    },
     "map": {
       "title": "Map",
       "privacy": "While the map is shown, the app asks a tile server for the tiles of the area on the screen. The server learns that area, your IP address and this User-Agent: {agent}. Nothing else is sent: no position of the vehicle, no name.",
