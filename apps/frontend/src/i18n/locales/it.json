@@ -2266,5 +2266,171 @@
     "actions": {
       "title": "Controllo guidato"
     }
+  },
+  "plan": {
+    "group": "Piano",
+    "main": "Il percorso",
+    "aside": "Gli elementi del piano",
+    "name": {
+      "label": "Nome del piano",
+      "placeholder": "Piano senza nome"
+    },
+    "status": "Piano offline: non è su un veicolo.",
+    "command": {
+      "addWaypoint": {
+        "label": "Aggiungi un waypoint",
+        "keywords": "piano missione aggiungi nuovo waypoint punto elemento"
+      },
+      "duplicate": {
+        "label": "Duplica l’elemento",
+        "keywords": "piano missione copia duplica elemento"
+      },
+      "delete": {
+        "label": "Elimina l’elemento",
+        "keywords": "piano missione elimina rimuovi elemento"
+      },
+      "moveUp": {
+        "label": "Sposta l’elemento su",
+        "keywords": "piano missione sposta su prima elemento"
+      },
+      "moveDown": {
+        "label": "Sposta l’elemento giù",
+        "keywords": "piano missione sposta giù dopo elemento"
+      },
+      "undo": {
+        "label": "Annulla",
+        "keywords": "piano missione annulla indietro"
+      },
+      "redo": {
+        "label": "Ripristina",
+        "keywords": "piano missione ripristina rifai avanti"
+      }
+    },
+    "reason": {
+      "notOnPlan": "Apri prima la pagina Piano: questo agisce sul piano mostrato lì.",
+      "noItemSelected": "Seleziona prima un elemento del piano.",
+      "planFull": "Il piano ha tutti gli elementi che può contenere.",
+      "cannotMove": "L’elemento è già a quell’estremità dell’elenco.",
+      "nothingToUndo": "Non c’è nulla da annullare.",
+      "nothingToRedo": "Non c’è nulla da ripristinare."
+    },
+    "sketch": {
+      "label": "Il percorso del piano",
+      "empty": "Aggiungi un waypoint e dagli un luogo: il percorso viene disegnato qui.",
+      "scale": "{metres} m"
+    },
+    "stats": {
+      "label": "Il piano in numeri",
+      "items": "Elementi",
+      "distance": "Distanza",
+      "highest": "Più alto"
+    },
+    "list": {
+      "label": "Elementi del piano",
+      "other": "Aggiungi un altro comando…",
+      "emptyTitle": "Ancora nessun elemento",
+      "emptyHelp": "Aggiungi un waypoint o un altro comando e dagli un luogo."
+    },
+    "detail": {
+      "none": "L’elemento selezionato",
+      "empty": "Seleziona un elemento per modificarlo.",
+      "title": "Elemento {number}: {name}",
+      "lat": "Latitudine (gradi)",
+      "lon": "Longitudine (gradi)",
+      "alt": "Altitudine (m)",
+      "frame": "L’altitudine è sopra",
+      "hereHint": "Lascia vuoto il luogo per usare dove si trova il veicolo quando arriva qui.",
+      "keeps": "Il veicolo conserva {value}.",
+      "keepsAlt": "Il veicolo conserva {value} m."
+    },
+    "frame": {
+      "home": "casa",
+      "sea": "il livello del mare",
+      "terrain": "il terreno"
+    },
+    "cmd": {
+      "takeoff": "Decolla",
+      "waypoint": "Waypoint",
+      "loiterUnlimited": "Attesa, senza fine",
+      "loiterTurns": "Attesa, giri",
+      "loiterTime": "Attesa, tempo",
+      "returnHome": "Ritorno a casa (RTL)",
+      "land": "Atterra",
+      "delay": "Pausa",
+      "jump": "Salta a un elemento",
+      "speed": "Cambia velocità",
+      "setHome": "Imposta casa",
+      "relay": "Relè",
+      "servo": "Servo",
+      "roi": "Punto di interesse (ROI)",
+      "camera": "Controllo della fotocamera",
+      "cameraDistance": "Fotocamera a distanza"
+    },
+    "field": {
+      "yaw": "Imbardata",
+      "holdTime": "Sosta",
+      "radius": "Raggio",
+      "direction": "Direzione",
+      "turns": "Giri",
+      "exit": "Esce da",
+      "loiterTime": "Tempo",
+      "delay": "Pausa",
+      "jumpTo": "Elemento da cui proseguire",
+      "jumpTimes": "Volte (0 è per sempre)",
+      "speedType": "Velocità rispetto a",
+      "speed": "Velocità",
+      "throttle": "Gas",
+      "homeFrom": "Casa è",
+      "relay": "Numero del relè",
+      "relayState": "Acceso",
+      "channel": "Uscita servo",
+      "pwm": "Impulso",
+      "roiMode": "Guarda",
+      "cameraSession": "Sessione",
+      "cameraZoom": "Zoom",
+      "cameraStep": "Passo dello zoom",
+      "cameraFocus": "Blocco del fuoco",
+      "cameraEvery": "Una foto ogni",
+      "cameraNow": "Una subito"
+    },
+    "choice": {
+      "clockwise": "In senso orario",
+      "counterClockwise": "In senso antiorario",
+      "yes": "Sì",
+      "no": "No",
+      "exitCentre": "Il centro",
+      "exitTangent": "La tangente",
+      "groundSpeed": "Il suolo",
+      "airSpeed": "L’aria",
+      "givenPlace": "Il luogo dato qui",
+      "whereItIs": "Dove si trova il veicolo",
+      "roiNone": "Niente (lo termina)",
+      "roiNext": "L’elemento successivo",
+      "roiItem": "Un elemento",
+      "roiPlace": "Il luogo dato qui"
+    },
+    "problem": {
+      "label": "Cosa non va nel piano",
+      "none": "Nessun problema",
+      "errors": "Errori: {count}",
+      "warnings": "Avvisi: {count}",
+      "item": "Elemento {number}: {words}",
+      "tooMany": "Il piano ha più di {max} elementi.",
+      "noTakeoff": "Il primo elemento che vola non è un decollo: il veicolo deve già volare quando la missione inizia.",
+      "noPlace": "Il luogo non è impostato.",
+      "offGlobe": "Il luogo è fuori dal globo.",
+      "noAltitude": "L’altitudine non è impostata.",
+      "number": "{name}: scrivi un numero.",
+      "low": "{name}: almeno {min}.",
+      "high": "{name}: al massimo {max}.",
+      "jumpTarget": "Il salto richiede il numero di un elemento del piano."
+    },
+    "edit": {
+      "add": "Aggiungere un elemento",
+      "remove": "Eliminare un elemento",
+      "move": "Spostare un elemento",
+      "change": "Modificare un elemento",
+      "rename": "Rinominare il piano"
+    }
   }
 }

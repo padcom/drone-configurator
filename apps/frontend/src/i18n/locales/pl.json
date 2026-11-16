@@ -2266,5 +2266,171 @@
     "actions": {
       "title": "Sterowanie prowadzone"
     }
+  },
+  "plan": {
+    "group": "Plan",
+    "main": "Trasa",
+    "aside": "Elementy planu",
+    "name": {
+      "label": "Nazwa planu",
+      "placeholder": "Plan bez nazwy"
+    },
+    "status": "Plan offline: nie ma go w pojeździe.",
+    "command": {
+      "addWaypoint": {
+        "label": "Dodaj punkt trasy",
+        "keywords": "plan misja dodaj nowy punkt trasy element"
+      },
+      "duplicate": {
+        "label": "Powiel element",
+        "keywords": "plan misja kopiuj powiel element"
+      },
+      "delete": {
+        "label": "Usuń element",
+        "keywords": "plan misja usuń skasuj element"
+      },
+      "moveUp": {
+        "label": "Przesuń element w górę",
+        "keywords": "plan misja przesuń w górę wcześniej element"
+      },
+      "moveDown": {
+        "label": "Przesuń element w dół",
+        "keywords": "plan misja przesuń w dół później element"
+      },
+      "undo": {
+        "label": "Cofnij",
+        "keywords": "plan misja cofnij wstecz"
+      },
+      "redo": {
+        "label": "Ponów",
+        "keywords": "plan misja ponów jeszcze raz dalej"
+      }
+    },
+    "reason": {
+      "notOnPlan": "Najpierw otwórz stronę Plan: to działa na plan, który tam widać.",
+      "noItemSelected": "Najpierw zaznacz element planu.",
+      "planFull": "Plan ma tyle elementów, ile się mieści.",
+      "cannotMove": "Element jest już na tym końcu listy.",
+      "nothingToUndo": "Nie ma czego cofnąć.",
+      "nothingToRedo": "Nie ma czego ponowić."
+    },
+    "sketch": {
+      "label": "Trasa planu",
+      "empty": "Dodaj punkt trasy i nadaj mu miejsce: trasa rysuje się tutaj.",
+      "scale": "{metres} m"
+    },
+    "stats": {
+      "label": "Plan w liczbach",
+      "items": "Elementy",
+      "distance": "Odległość",
+      "highest": "Najwyżej"
+    },
+    "list": {
+      "label": "Elementy planu",
+      "other": "Dodaj inne polecenie…",
+      "emptyTitle": "Jeszcze nie ma elementów",
+      "emptyHelp": "Dodaj punkt trasy lub inne polecenie i nadaj mu miejsce."
+    },
+    "detail": {
+      "none": "Zaznaczony element",
+      "empty": "Zaznacz element, aby go edytować.",
+      "title": "Element {number}: {name}",
+      "lat": "Szerokość (stopnie)",
+      "lon": "Długość (stopnie)",
+      "alt": "Wysokość (m)",
+      "frame": "Wysokość jest nad",
+      "hereHint": "Zostaw miejsce puste, aby użyć tego, gdzie pojazd będzie, gdy tu dotrze.",
+      "keeps": "Pojazd zachowuje {value}.",
+      "keepsAlt": "Pojazd zachowuje {value} m."
+    },
+    "frame": {
+      "home": "domem",
+      "sea": "poziomem morza",
+      "terrain": "terenem"
+    },
+    "cmd": {
+      "takeoff": "Start",
+      "waypoint": "Punkt trasy",
+      "loiterUnlimited": "Krążenie bez końca",
+      "loiterTurns": "Krążenie, okrążenia",
+      "loiterTime": "Krążenie, czas",
+      "returnHome": "Powrót do domu (RTL)",
+      "land": "Lądowanie",
+      "delay": "Pauza",
+      "jump": "Skocz do elementu",
+      "speed": "Zmień prędkość",
+      "setHome": "Ustaw dom",
+      "relay": "Przekaźnik",
+      "servo": "Serwo",
+      "roi": "Punkt zainteresowania (ROI)",
+      "camera": "Sterowanie kamerą",
+      "cameraDistance": "Kamera co dystans"
+    },
+    "field": {
+      "yaw": "Odchylenie",
+      "holdTime": "Postój",
+      "radius": "Promień",
+      "direction": "Kierunek",
+      "turns": "Okrążenia",
+      "exit": "Wychodzi z",
+      "loiterTime": "Czas",
+      "delay": "Pauza",
+      "jumpTo": "Element, od którego jedzie dalej",
+      "jumpTimes": "Razy (0 to bez końca)",
+      "speedType": "Prędkość względem",
+      "speed": "Prędkość",
+      "throttle": "Gaz",
+      "homeFrom": "Dom jest",
+      "relay": "Numer przekaźnika",
+      "relayState": "Włączony",
+      "channel": "Wyjście serwa",
+      "pwm": "Impuls",
+      "roiMode": "Patrzy na",
+      "cameraSession": "Sesja",
+      "cameraZoom": "Zoom",
+      "cameraStep": "Krok zoomu",
+      "cameraFocus": "Blokada ostrości",
+      "cameraEvery": "Zdjęcie co",
+      "cameraNow": "Jedno od razu"
+    },
+    "choice": {
+      "clockwise": "Zgodnie z ruchem wskazówek",
+      "counterClockwise": "Przeciwnie do ruchu wskazówek",
+      "yes": "Tak",
+      "no": "Nie",
+      "exitCentre": "Środka",
+      "exitTangent": "Stycznej",
+      "groundSpeed": "Ziemi",
+      "airSpeed": "Powietrza",
+      "givenPlace": "Miejsce podane tutaj",
+      "whereItIs": "Tam, gdzie jest pojazd",
+      "roiNone": "Nic (kończy to)",
+      "roiNext": "Następny element",
+      "roiItem": "Element",
+      "roiPlace": "Miejsce podane tutaj"
+    },
+    "problem": {
+      "label": "Co jest nie tak z planem",
+      "none": "Brak problemów",
+      "errors": "Błędy: {count}",
+      "warnings": "Ostrzeżenia: {count}",
+      "item": "Element {number}: {words}",
+      "tooMany": "Plan ma więcej niż {max} elementów.",
+      "noTakeoff": "Pierwszy element, który leci, nie jest startem: pojazd musi już lecieć, gdy misja się zaczyna.",
+      "noPlace": "Miejsce nie jest ustawione.",
+      "offGlobe": "Miejsce jest poza kulą ziemską.",
+      "noAltitude": "Wysokość nie jest ustawiona.",
+      "number": "{name}: wpisz liczbę.",
+      "low": "{name}: co najmniej {min}.",
+      "high": "{name}: najwyżej {max}.",
+      "jumpTarget": "Skok potrzebuje numeru elementu planu."
+    },
+    "edit": {
+      "add": "Dodanie elementu",
+      "remove": "Usunięcie elementu",
+      "move": "Przesunięcie elementu",
+      "change": "Zmiana elementu",
+      "rename": "Zmiana nazwy planu"
+    }
   }
 }

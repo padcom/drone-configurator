@@ -38,7 +38,6 @@ export interface Screen {
   load: () => Promise<{ default: Component }>
 }
 
-const NOT_AVAILABLE = () => import('./NotAvailable.vue')
 const LOGS = () => import('./Logs.vue')
 
 /** The parts of the Logs screen, in the order of their tabs (the design's LogsNav). */
@@ -78,13 +77,14 @@ const SETUP_SECTIONS: readonly Section[] = [
   { id: 'info', path: 'info', titleKey: 'setup.section.info', load: () => import('./setup/SetupInfo.vue') },
 ]
 const FLIGHT = () => import('./FlightData.vue')
+const PLAN = () => import('./Plan.vue')
 const PARAMETERS = () => import('./Parameters.vue')
 const SETTINGS = () => import('./Settings.vue')
 
 /** The screens of the product, in the order of the rail; the first is where the application starts. */
 export const PRODUCT_SCREENS: readonly Screen[] = [
   { id: 'flight', path: '/flight', titleKey: 'screen.flight', icon: 'navigation', load: FLIGHT },
-  { id: 'plan', path: '/plan', titleKey: 'screen.plan', icon: 'route', load: NOT_AVAILABLE },
+  { id: 'plan', path: '/plan', titleKey: 'screen.plan', icon: 'route', load: PLAN },
   { id: 'setup', path: '/setup', titleKey: 'screen.setup', icon: 'wrench', sections: SETUP_SECTIONS, load: SETUP },
   {
     id: 'parameters',

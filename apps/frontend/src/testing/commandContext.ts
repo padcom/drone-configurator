@@ -54,6 +54,12 @@ export interface Fake {
     logBusy?: boolean
     /** The ids of the commands run lately, the one run last first. */
     recent: string[]
+    /** The plan on the Plan page: the selected item, whether it is full, whether an item can move, what Undo and Redo can do. */
+    planSelected?: number | null
+    planFull?: boolean
+    planCanMove?: boolean
+    planCanUndo?: boolean
+    planCanRedo?: boolean
   }
   /** The vehicle's parameters as the commands will see them: change them between calls. */
   parameters: {
@@ -86,6 +92,8 @@ export interface Fake {
     dialogs: string[]
     /** The parameters shown with `parameters.reveal`. */
     reveal: string[]
+    /** What the commands did to the plan: `add 16`, `duplicate`, `remove`, `move -1`, `undo`, `redo`. */
+    plan: string[]
   }
 }
 
@@ -156,6 +164,28 @@ function vehicleOf(fake: Fake): VehicleFacts {
 }
 
 /**
+ * The plan of the Plan page, as the fake has it: the facts it was given, and a record of what was done to it.
+ *
+ * @param fake the fake
+ * @returns the plan facts
+ */
+function planOf(fake: Fake): CommandContext['plan'] {
+  return {
+    selected: () => fake.facts.planSelected ?? null,
+    full: () => fake.facts.planFull ?? false,
+    canMove: () => fake.facts.planCanMove ?? false,
+    canUndo: () => fake.facts.planCanUndo ?? false,
+    canRedo: () => fake.facts.planCanRedo ?? false,
+    add: command => void fake.calls.plan.push(`add ${command}`),
+    duplicate: () => void fake.calls.plan.push('duplicate'),
+    remove: () => void fake.calls.plan.push('remove'),
+    move: by => void fake.calls.plan.push(`move ${by}`),
+    undo: () => void fake.calls.plan.push('undo'),
+    redo: () => void fake.calls.plan.push('redo'),
+  }
+}
+
+/**
  * The parts of the context that the toolbars' commands use: the files, the parameters and the dialogs. They record.
  *
  * @param fake the fake
@@ -213,6 +243,7 @@ function noCalls(): Fake['calls'] {
     snapshot: [],
     dialogs: [],
     reveal: [],
+    plan: [],
   }
 }
 
@@ -253,6 +284,7 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   }
   fake.ctx = {
     ...toolbarOf(fake),
+    plan: planOf(fake),
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
     currentPath: () => fake.facts.path,
     parameters: parametersOf(fake),

@@ -8,7 +8,7 @@ import { SWITCH_LIMIT_MS, switchRounds } from './switch'
 /** What each screen shows once it is the one shown: an element it has, or the words of a screen not built yet. */
 const MARKERS: [id: string, check: string, title: string][] = [
   ['flight', '#telemetry', 'Flight data'],
-  ['plan', '.not-available', 'Plan'],
+  ['plan', '.plan', 'Plan'],
   ['setup', '.setup', 'Setup'],
   ['parameters', '#list-status', 'Parameters'],
   ['tune', '.tune', 'Tune'],
@@ -68,9 +68,9 @@ describe('the shell', () => {
     await walk(MARKERS)
   })
 
-  it('says under its own name that a screen is not built yet', async () => {
+  it('shows the Plan page with no vehicle: an offline plan, which says so', async () => {
     await showScreen(app, 'plan')
-    expect(await app.waitForText('.not-available', 'Plan is not available yet.')).toContain('Plan is not available yet.')
+    expect(await app.waitForText('.plan-bar-status', 'Offline plan')).toContain('Offline plan')
   })
 
   it('switches to a screen that has been shown before within 100 ms', async () => {

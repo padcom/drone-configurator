@@ -1,0 +1,301 @@
+/*
+ * The Plan page (screens/Plan.vue): tokens only. The bar on top; under it the route and its numbers at the left and the aside at
+ * the right. From 1000 px wide they fill the screen area and only the aside scrolls (the route is a picture that is not panned);
+ * below that they stack and the page scrolls.
+ */
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.plan-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-bar-name {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 28rem;
+}
+
+.plan-bar-status {
+  font-size: var(--font-size-sm);
+}
+
+.plan-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.plan-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.plan-main {
+  display: flex;
+  flex: 999 1 520px;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.plan-aside {
+  box-sizing: border-box;
+  /* the containing block of the visually hidden labels: they are clipped with what scrolls, and do not stretch the page */
+  position: relative;
+  flex: 1 1 400px;
+  min-width: 0;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+}
+
+.plan-aside:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+@media (width >= 1000px) {
+  .plan {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .plan-body {
+    flex-wrap: nowrap;
+    min-height: 0;
+  }
+
+  .plan-aside {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+/* The route: north up, the pins numbered as the items are; the route's own colour is used for nothing else. */
+.plan-sketch {
+  position: relative;
+  display: flex;
+  flex: 1 1 360px;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  overflow: hidden;
+  background: var(--color-map);
+}
+
+.plan-sketch svg {
+  width: 100%;
+  height: 100%;
+}
+
+.plan-sketch-empty {
+  max-width: 24rem;
+  padding: var(--space-4);
+  margin: 0;
+  color: var(--color-text-dim);
+  text-align: center;
+}
+
+.plan-route {
+  fill: none;
+  stroke: var(--color-route);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.plan-pin {
+  cursor: pointer;
+}
+
+.plan-pin circle {
+  fill: var(--color-bg);
+  stroke: var(--color-route);
+  stroke-width: 3;
+}
+
+.plan-pin text {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 600;
+  fill: var(--color-text);
+}
+
+.plan-pin.selected circle {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-accent);
+  stroke-width: 5;
+}
+
+.plan-scale-bar {
+  stroke: var(--color-text);
+  stroke-width: 3;
+}
+
+.plan-scale-text {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  fill: var(--color-text);
+}
+
+.plan-stats {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.plan-stats > * {
+  flex: 1 1 110px;
+  padding: var(--space-2) var(--space-4);
+  border-right: 1px solid var(--color-border);
+}
+
+/* The aside: what is wrong with the plan, the items and the form of the selected one. */
+.plan-validity {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-validity.bad {
+  background: var(--color-error-soft);
+}
+
+.plan-validity-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.plan-problems {
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.plan-problems button {
+  padding: var(--space-1) 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+.plan-problems li.warning {
+  color: var(--color-warn);
+}
+
+.plan-list-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-items {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.plan-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 var(--space-4);
+  font: inherit;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-item.selected {
+  background: var(--color-accent-soft);
+}
+
+.plan-item.problem .no {
+  color: var(--color-error);
+}
+
+.plan-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.plan-item .no {
+  width: 2.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+.plan-item .name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.plan-item .value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+.plan-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.plan-detail p {
+  margin: 0;
+}
+
+.plan-detail-title {
+  margin: 0;
+  font-size: var(--font-size-section);
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: var(--letter-spacing-section);
+}
+
+.plan-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+.plan-detail-problems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-error);
+}

@@ -179,8 +179,36 @@ export interface GuidedFacts {
   clearTarget(): void
 }
 
+/** The plan on the Plan page, as the commands that edit it see it (offline: none of it goes to a vehicle). */
+export interface PlanFacts {
+  /** The id of the selected item, or null. */
+  selected(): number | null
+  /** Whether the plan has as many items as it takes. */
+  full(): boolean
+  /** Whether the selected item can move one place up (-1) or down (1). */
+  canMove(by: -1 | 1): boolean
+  /** Whether there is an edit to take back. */
+  canUndo(): boolean
+  /** Whether there is an edit to do again. */
+  canRedo(): boolean
+  /** Adds an item of a command (MAV_CMD) after the selected one and selects it. */
+  add(command: number): void
+  /** Adds a copy of the selected item after it. */
+  duplicate(): void
+  /** Takes the selected item out. */
+  remove(): void
+  /** Moves the selected item up (-1) or down (1). */
+  move(by: -1 | 1): void
+  /** Takes the last edit back. */
+  undo(): void
+  /** Does the edit that was taken back again. */
+  redo(): void
+}
+
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
 export interface CommandContext {
+  /** The plan on the Plan page. */
+  plan: PlanFacts
   /** Goes to a route. */
   navigate(path: string): Promise<void>
   /** The route that is shown now. */
