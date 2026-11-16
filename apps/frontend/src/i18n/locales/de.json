@@ -1184,6 +1184,9 @@
     "notSettled": "Das neueste Log wuchs nach einer Minute noch, daher wurde nach der Landung nichts heruntergeladen."
   },
   "question": {
+    "armed": "Das Fahrzeug ist scharf: Änderungen wirken sofort.",
+    "hoverStep": "Das Schwebegas ändert sich um mehr als ein Viertel: die Gas-Vorsteuerung ändert sich sofort.",
+    "unknown": "Der Zustand des Fahrzeugs ist nicht bekannt (es kann scharf sein): Änderungen wirken sofort.",
     "importLarge": "Diese Datei ist groß ({size}): {name}. In die Bibliothek kopieren? Das dauert eine Weile und braucht so viel Speicherplatz wie die Datei.",
     "write": "{count} Parameter ans Fahrzeug schreiben? | {count} Parameter ans Fahrzeug schreiben?",
     "snapshot": "{count} Parameter ans Fahrzeug schreiben ({names})? | {count} Parameter ans Fahrzeug schreiben ({names})?"
@@ -2119,6 +2122,8 @@
       "attitude": "Lage",
       "feel": "Steuergefühl",
       "position": "Position",
+      "hover": "Schwebegas",
+      "autotune": "AutoTune",
       "knob": "Funkknopf",
       "gyro": "Gyro-Filter",
       "notch": "Harmonischer Notch"
@@ -2142,6 +2147,12 @@
       "PSC_D_VEL_P": "Vertikale Geschwindigkeit P",
       "PSC_D_ACC_P": "Vertikale Beschleunigung P",
       "PSC_D_ACC_I": "Vertikale Beschleunigung I",
+      "MOT_THST_HOVER": "Schwebegas",
+      "MOT_HOVER_LEARN": "Schwebegas lernen",
+      "AUTOTUNE_AXES": "AutoTune-Achsen",
+      "AUTOTUNE_AGGR": "AutoTune-Aggressivität",
+      "AUTOTUNE_MIN_D": "AutoTune minimales D",
+      "AUTOTUNE_GMBK": "AutoTune Verstärkungsrücknahme",
       "TUNE": "Was der Funkknopf einstellt",
       "INS_GYRO_FILTER": "Gyro-Tiefpass-Grenzfrequenz",
       "INS_HNTCH_ENABLE": "Notch-Filter",
@@ -2166,6 +2177,9 @@
     },
     "missing": "Nicht an diesem Fahrzeug: {names}.",
     "backToInitial": "Anfangswerte zurücksetzen",
+    "hoverLearning": "Solange das Lernen an ist, ändert das Fahrzeug diesen Wert selbst: eine hier geschriebene Zahl bleibt nicht erhalten. Stellen Sie das Lernen zuerst auf Disabled, wenn sie bleiben soll.",
+    "hoverDisable": "Lernen ausschalten",
+    "axesNote": "Vor dem Einschalten von AutoTune setzen: ändert man sie, während AutoTune läuft, ändert sich, mit welchen Achsen es weitermacht.",
     "filters": {
       "summary": "Der Gyro-Filter und der erste harmonische Notch. Die Gyro-Grenzfrequenz und Mitte, Bandbreite und Dämpfung des Notch wirken im Flug. Schalter, Nachführmodus, Referenz, Harmonische und Optionen des Notch werden nur beim Start des Fahrzeugs gelesen: sie werden bei entwaffnetem Fahrzeug geschrieben und wirken nach einem Neustart.",
       "armed": "Bewaffnet: nur die Gyro-Grenzfrequenz und Mitte, Bandbreite und Dämpfung des Notch lassen sich ändern, und sie wirken im Flug. Der Rest wirkt erst nach einem Neustart und wird nur entwaffnet geschrieben.",

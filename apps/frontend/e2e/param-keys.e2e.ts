@@ -4,7 +4,7 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, confirmWrite, showGroups, showScreen } from './click'
+import { cancelConfirm, clickConnect, confirmWrite, questionPattern, showGroups, showScreen } from './click'
 
 let app: E2eApp
 
@@ -280,7 +280,7 @@ describe('the Write button\'s key', () => {
   it('asks the question of the Write button on Ctrl+Enter in the field, and writes nothing without the answer', async () => {
     await ctrl('Enter')
 
-    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\nARMING_CHECK \d+ → 9/u)
+    await app.waitForText('#question', questionPattern('Write 1 parameter to the vehicle?', 'ARMING_CHECK \\d+ → 9'))
     await cancelConfirm(app)
     expect(await app.evaluate<number>(`document.querySelectorAll('#staged .staged-row').length`)).toBe(1)
   })

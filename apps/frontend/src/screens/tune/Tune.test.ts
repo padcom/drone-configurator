@@ -267,16 +267,51 @@ it('shows only the parameters the vehicle has, and names the others', async () =
   expect(wrapper.get('#tune-more-missing').text()).toContain('PSC_NE_POS_P')
 })
 
-it('has the groups Attitude, Pilot feel, Position and Radio knob, each with names, the knob a named choice', async () => {
+it('has the groups of the other tuning, each with names, the knob a named choice', async () => {
   const { wrapper } = await screen('/tune/more')
 
   const groups = wrapper.findAll('.tune-block h4').map(heading => heading.text())
-  expect(groups).toEqual(['Attitude', 'Pilot feel', 'Position', 'Radio knob'])
+  expect(groups).toEqual(['Attitude', 'Pilot feel', 'Position', 'Hover throttle', 'AutoTune', 'Radio knob'])
   expect(wrapper.get('[data-tune="ATC_INPUT_TC"] .tune-names').text()).toBe('ATC_INPUT_TC')
   expect(wrapper.get('[data-tune="PSC_NE_VEL_P"] .tune-was').text()).toBe('was 2')
   expect(wrapper.get('[data-tune="TUNE"] .tune-names').text()).toBe('TUNE')
   expect((wrapper.get('[data-tune="TUNE"] input').element as HTMLInputElement).value).toBe('None')
   expect(wrapper.find('[data-tune="TUNE"] input[type="range"]').exists()).toBe(false)
+})
+
+/**
+ * The vehicle's parameters, and the hover throttle with its learning and AutoTune's axes.
+ *
+ * @param learn the value of MOT_HOVER_LEARN
+ * @returns the parameters
+ */
+function hoverParams(learn: number): Param[] {
+  const extra: Param[] = [
+    { id: 'MOT_THST_HOVER', index: 900, kind: 'real', type: 'REAL32', value: 0.3 },
+    { id: 'MOT_HOVER_LEARN', index: 901, kind: 'int', type: 'INT8', value: learn },
+    { id: 'AUTOTUNE_AXES', index: 902, kind: 'int', type: 'INT8', value: 7 },
+  ]
+
+  return [...SETUP_PARAMS, ...extra]
+}
+
+it('says that the hover throttle is not kept while the learning is on, and puts the learning off with one press', async () => {
+  const rig = await screen('/tune/more', {}, hoverParams(2))
+
+  expect(rig.wrapper.get('[data-testid="hover-learning"]').text()).toContain('a number written here is not kept')
+  await rig.wrapper.get('[data-testid="hover-learning"] button').trigger('click')
+  await write(rig, 'more')
+
+  expect(rig.asked).toHaveLength(1)
+  expect(rig.asked[0]).toContain('MOT_HOVER_LEARN 2 → 0')
+  expect(valueOf(rig, 'MOT_HOVER_LEARN')).toBe(0)
+})
+
+it('says nothing of it when the learning is off, and says to set AutoTune\'s axes before it is engaged', async () => {
+  const rig = await screen('/tune/more', {}, hoverParams(0))
+
+  expect(rig.wrapper.find('[data-testid="hover-learning"]').exists()).toBe(false)
+  expect(rig.wrapper.get('[data-tune="AUTOTUNE_AXES"]').text()).toContain('Set before AutoTune is engaged')
 })
 
 it('the chart renders nothing from the slider values alone: no curve, no preview, whatever they are set to', async () => {

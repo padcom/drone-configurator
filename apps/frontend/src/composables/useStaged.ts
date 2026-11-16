@@ -131,21 +131,52 @@ export interface StagedModel {
   pending: () => StagedChange[]
 }
 
+/** Whether the vehicle is armed, or its state is not known (which counts as armed): said in the question of a write. */
+export type ArmedWord = 'disarmed' | 'armed' | 'unknown'
+
+/**
+ * The line that tells a vehicle that may be armed: a change takes effect now. (A tuning change has the hold that says so.)
+ *
+ * @param changes the changes to write
+ * @param state whether the vehicle is armed
+ * @returns the line, or none
+ */
+function armedLine(changes: StagedChange[], state: ArmedWord): string[] {
+  const others = changes.some(change => change.tuning !== true)
+
+  return state !== 'disarmed' && others ? [say(`question.${state}`)] : []
+}
+
+/**
+ * The line for a hover throttle that is changed by more than a quarter of what it is: the throttle feed-forward changes at once.
+ *
+ * @param changes the changes to write
+ * @returns the line, or none
+ */
+function hoverStepLine(changes: StagedChange[]): string[] {
+  const steps = changes.filter(change => change.id === 'MOT_THST_HOVER' && change.from > 0)
+  const big = steps.some(change => Math.abs(change.to - change.from) > change.from / 4)
+
+  return big ? [say('question.hoverStep')] : []
+}
+
 /**
  * What the user is asked before the changes are written: how many, then a line for each change with the value it has and the
  * value it is given (this question is the gate: what is queued, "1500 → 1" included, is said here), and what the metadata finds
  * unusual about it.
  *
  * @param changes the changes to write
+ * @param state whether the vehicle is armed, or its state is not known (the question then says that changes take effect now)
  * @returns the question, one line for the sentence and one for each change
  */
-export function questionFor(changes: StagedChange[]): string {
+export function questionFor(changes: StagedChange[], state: ArmedWord = 'disarmed'): string {
   const values = (change: StagedChange) => `${showNumber(change.from)} → ${showNumber(change.to)}`
   const lines = changes.map(change => `${change.id} ${values(change)}${change.warning ? ` (${change.warning})` : ''}`)
   // Said at the top, where a long list that scrolls does not hide it.
   const note = changes.some(change => isCalibration(change.id)) ? [say('params.initial.includesCalibration')] : []
+  const sentence = say('question.write', { count: changes.length }, changes.length)
 
-  return [say('question.write', { count: changes.length }, changes.length), ...note, ...lines].join('\n')
+  return [sentence, ...armedLine(changes, state), ...hoverStepLine(changes), ...note, ...lines].join('\n')
 }
 
 /**
@@ -750,6 +781,20 @@ class Staged implements StagedModel {
   }
 
   /**
+   * What the question says of the vehicle's armed state: armed, not known, or (also when nobody can say) disarmed.
+   *
+   * @returns the state
+   */
+  private armedWord(): ArmedWord {
+    const { armedState } = this.deps
+    if (armedState === undefined) {
+      return 'disarmed'
+    }
+
+    return armedState() === undefined ? 'unknown' : (armedState() ? 'armed' : 'disarmed')
+  }
+
+  /**
    * Asks the question before the writes: the single question, or, for tuning changes while the vehicle is ARMED, a HOLD that says
    * the changes apply in flight (and nothing is written when there is no way to hold: the answer is no).
    *
@@ -757,7 +802,7 @@ class Staged implements StagedModel {
    * @returns whether the user said yes
    */
   private ask(todo: StagedChange[]): Promise<boolean> {
-    const question = questionFor(todo)
+    const question = questionFor(todo, this.armedWord())
     this.askedArmed = this.deps.armedState?.() === true
 
     return todo.some(change => change.tuning === true) && this.askedArmed ? this.hold(question) : this.deps.confirm(question)

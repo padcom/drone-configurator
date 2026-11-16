@@ -1184,6 +1184,9 @@
     "notSettled": "Il log più recente cresceva ancora dopo un minuto, quindi dopo l\u2019atterraggio non è stato scaricato nulla."
   },
   "question": {
+    "armed": "Il veicolo è armato: le modifiche hanno effetto subito.",
+    "hoverStep": "Il gas di hovering cambia di più di un quarto: l'azione in avanti del gas cambia subito.",
+    "unknown": "Lo stato del veicolo non è noto (potrebbe essere armato): le modifiche hanno effetto subito.",
     "importLarge": "Questo file è grande ({size}): {name}. Copiarlo nella libreria? Richiede un po\u2019 di tempo e tanto spazio su disco quanto il file.",
     "write": "Scrivere {count} parametro sul veicolo? | Scrivere {count} parametri sul veicolo?",
     "snapshot": "Scrivere {count} parametro sul veicolo ({names})? | Scrivere {count} parametri sul veicolo ({names})?"
@@ -2119,6 +2122,8 @@
       "attitude": "Assetto",
       "feel": "Sensazione di pilotaggio",
       "position": "Posizione",
+      "hover": "Gas di hovering",
+      "autotune": "AutoTune",
       "knob": "Manopola della radio",
       "gyro": "Filtro del giroscopio",
       "notch": "Notch armonico"
@@ -2142,6 +2147,12 @@
       "PSC_D_VEL_P": "Velocità verticale P",
       "PSC_D_ACC_P": "Accelerazione verticale P",
       "PSC_D_ACC_I": "Accelerazione verticale I",
+      "MOT_THST_HOVER": "Gas di hovering",
+      "MOT_HOVER_LEARN": "Apprendimento del gas di hovering",
+      "AUTOTUNE_AXES": "Assi di AutoTune",
+      "AUTOTUNE_AGGR": "Aggressività di AutoTune",
+      "AUTOTUNE_MIN_D": "D minima di AutoTune",
+      "AUTOTUNE_GMBK": "Riduzione del guadagno di AutoTune",
       "TUNE": "Ciò che regola la manopola della radio",
       "INS_GYRO_FILTER": "Frequenza di taglio del giroscopio",
       "INS_HNTCH_ENABLE": "Filtro notch",
@@ -2166,6 +2177,9 @@
     },
     "missing": "Non presenti su questo veicolo: {names}.",
     "backToInitial": "Rimetti i valori iniziali",
+    "hoverLearning": "Finché l'apprendimento è attivo, il veicolo cambia da solo questo valore: un numero scritto qui non viene mantenuto. Imposta prima l'apprendimento su Disabled se vuoi che resti.",
+    "hoverDisable": "Disattiva l'apprendimento",
+    "axesNote": "Da impostare prima di attivare AutoTune: cambiarlo mentre AutoTune è in corso cambia gli assi con cui prosegue.",
     "filters": {
       "summary": "Il filtro del giroscopio e il primo notch armonico. La frequenza di taglio del giroscopio e centro, larghezza di banda e attenuazione del notch agiscono in volo. Interruttore, modo di inseguimento, riferimento, armoniche e opzioni del notch sono letti solo all'avvio del veicolo: si scrivono a veicolo disarmato e agiscono dopo un riavvio.",
       "armed": "Armato: si possono cambiare solo la frequenza di taglio del giroscopio e centro, larghezza di banda e attenuazione del notch, e agiscono in volo. Il resto agisce solo dopo un riavvio e si scrive a veicolo disarmato.",

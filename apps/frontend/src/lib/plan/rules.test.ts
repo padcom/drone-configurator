@@ -108,6 +108,15 @@ describe('an item that names a place', () => {
     expect(placeNeeded(home.items[1] as PlanItem, definitionOf(179)!)).toBe(true)
   })
 
+  it('does not take 0, 0 for that place: the vehicle takes it for where it is', () => {
+    for (const command of [179, 201]) {
+      const plan = planOf(command)
+      change(plan, { lat: 0, lon: 0 })
+
+      expect(keys(plan), String(command)).toEqual(['error:atZero:2'])
+    }
+  })
+
   it('does not need one where the vehicle is asked for where it is, and has no choice of an item for a ROI', () => {
     const home = planOf(179)
     change(home, { lat: null, lon: null, p1: 0 })

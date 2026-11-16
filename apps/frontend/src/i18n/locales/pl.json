@@ -1184,6 +1184,9 @@
     "notSettled": "Najnowszy log po minucie wciąż rósł, więc nic nie pobrano po lądowaniu."
   },
   "question": {
+    "armed": "Pojazd jest uzbrojony: zmiany działają od razu.",
+    "hoverStep": "Gaz zawisu zmienia się o więcej niż jedną czwartą: wyprzedzenie gazu zmienia się od razu.",
+    "unknown": "Stan pojazdu nie jest znany (może być uzbrojony): zmiany działają od razu.",
     "importLarge": "Ten plik jest duży ({size}): {name}. Skopiować go do biblioteki? Trwa to dłuższą chwilę i zajmuje tyle miejsca na dysku, ile ma plik.",
     "write": "Zapisać {count} parametr w pojeździe? | Zapisać {count} parametry w pojeździe? | Zapisać {count} parametrów w pojeździe?",
     "snapshot": "Zapisać {count} parametr w pojeździe ({names})? | Zapisać {count} parametry w pojeździe ({names})? | Zapisać {count} parametrów w pojeździe ({names})?"
@@ -2119,6 +2122,8 @@
       "attitude": "Orientacja",
       "feel": "Odczucie pilota",
       "position": "Pozycja",
+      "hover": "Gaz zawisu",
+      "autotune": "AutoTune",
       "knob": "Pokrętło radia",
       "gyro": "Filtr żyroskopu",
       "notch": "Notch harmoniczny"
@@ -2142,6 +2147,12 @@
       "PSC_D_VEL_P": "Prędkość pionowa P",
       "PSC_D_ACC_P": "Przyspieszenie pionowe P",
       "PSC_D_ACC_I": "Przyspieszenie pionowe I",
+      "MOT_THST_HOVER": "Gaz zawisu",
+      "MOT_HOVER_LEARN": "Uczenie gazu zawisu",
+      "AUTOTUNE_AXES": "Osie AutoTune",
+      "AUTOTUNE_AGGR": "Agresywność AutoTune",
+      "AUTOTUNE_MIN_D": "Minimalne D w AutoTune",
+      "AUTOTUNE_GMBK": "Cofnięcie wzmocnienia AutoTune",
       "TUNE": "Co stroi pokrętło radia",
       "INS_GYRO_FILTER": "Częstotliwość odcięcia żyroskopu",
       "INS_HNTCH_ENABLE": "Filtr notch",
@@ -2166,6 +2177,9 @@
     },
     "missing": "Brak w tym pojeździe: {names}.",
     "backToInitial": "Przywróć wartości początkowe",
+    "hoverLearning": "Dopóki uczenie jest włączone, pojazd sam zmienia tę wartość: liczba wpisana tutaj nie zostaje. Jeśli ma zostać, najpierw ustaw uczenie na Disabled.",
+    "hoverDisable": "Wyłącz uczenie",
+    "axesNote": "Ustaw przed włączeniem AutoTune: zmiana w trakcie jego pracy zmienia osie, na których będzie dalej pracował.",
     "filters": {
       "summary": "Filtr żyroskopu i pierwszy notch harmoniczny. Częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha działają w locie. Włącznik, tryb śledzenia, odniesienie, harmoniczne i opcje notcha są czytane tylko przy starcie pojazdu: zapisuje się je przy rozbrojonym pojeździe, a działają po restarcie.",
       "armed": "Uzbrojony: zmienić można tylko częstotliwość odcięcia żyroskopu oraz środek, szerokość pasma i tłumienie notcha, i działają w locie. Reszta działa dopiero po restarcie i jest zapisywana przy rozbrojonym pojeździe.",

@@ -15,7 +15,7 @@
  * The groups of the Tune screen, in the order of the page: the rate loop, then the others under "More groups", then the filters
  * (their own part of the screen).
  */
-export type TuneGroup = 'rate' | 'attitude' | 'feel' | 'position' | 'knob' | 'gyro' | 'notch'
+export type TuneGroup = 'rate' | 'attitude' | 'feel' | 'position' | 'knob' | 'hover' | 'autotune' | 'gyro' | 'notch'
 
 /** What a parameter is: a number on a slider, one of ArduPilot's named choices, or a mask of named bits. */
 export type TuneKind = 'slider' | 'choice' | 'bits'
@@ -117,6 +117,19 @@ export const TUNE_PARAMS: readonly TuneParam[] = [
   // The knob's function (ArduPilot's `@Values` of TUNE, 0 to 61): a named choice, not a slider. The knob's ends (TUNE_MIN and
   // TUNE_MAX, which ArduPilot gives no range) stay on the Parameters screen.
   { id: 'TUNE', group: 'knob', kind: 'choice', lo: 0, hi: 61, step: 1, armedOk: true },
+  // The hover throttle and AutoTune (AP_MotorsMulticopter.cpp, AC_AutoTune_Multi.cpp), written in flight because AutoTune needs
+  // them there; none is `@RebootRequired`. THST_HOVER is 0.125 to 0.6875; HOVER_LEARN is a named choice (0 to 2); AXES a mask of
+  // four bits (0 to 15), set before AutoTune is engaged.
+  ...filters('hover', [
+    ['MOT_THST_HOVER', 'slider', 0.125, 0.6875, 0.005, true],
+    ['MOT_HOVER_LEARN', 'choice', 0, 2, 1, true],
+  ]),
+  ...filters('autotune', [
+    ['AUTOTUNE_AXES', 'bits', 0, 15, 1, true],
+    ['AUTOTUNE_AGGR', 'slider', 0.05, 0.1, 0.005, true],
+    ['AUTOTUNE_MIN_D', 'slider', 0.0001, 0.005, 0.0001, true],
+    ['AUTOTUNE_GMBK', 'slider', 0, 0.5, 0.01, true],
+  ]),
   // The filters (libraries/AP_InertialSensor/AP_InertialSensor.cpp and libraries/Filter/HarmonicNotchFilter.cpp of ArduPilot
   // master, 4.8.0-dev). The gyro filter, and the notch's centre, bandwidth and attenuation, take effect live: the notch is
   // rebuilt when they change. The others are read when the vehicle starts (ENABLE, MODE and OPTS decide what is built then;

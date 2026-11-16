@@ -13,6 +13,7 @@
       >
       {{ option.name }}
     </label>
+    <p v-if="help" class="muted tune-help">{{ help }}</p>
     <p class="muted tune-was">{{ was }}</p>
     <p :id="`${uid}-note`" class="tune-note" :class="{ problem: locked }" role="status">{{ note }}</p>
   </fieldset>
@@ -39,6 +40,8 @@ const props = defineProps<{
   bits: NamedBit[]
   /** The page's parameters. */
   panel: ParamPanel
+  /** A line that says what to know before changing it, if there is one. */
+  help?: string
 }>()
 
 const { t } = useI18n()

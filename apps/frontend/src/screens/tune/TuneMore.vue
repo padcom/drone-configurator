@@ -6,7 +6,22 @@
       <section v-for="group in groups" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
         <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
         <template v-for="param in present(group)" :key="param.id">
-          <div v-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
+          <TuneChoice
+            v-if="param.kind === 'choice' && param.id === 'MOT_HOVER_LEARN'"
+            :label="t(`tune.name.${param.id}`)"
+            :param="param"
+            :options="HOVER_LEARN"
+            :panel="panel"
+          />
+          <TuneBits
+            v-else-if="param.kind === 'bits'"
+            :label="t(`tune.name.${param.id}`)"
+            :param="param"
+            :bits="AUTOTUNE_AXES"
+            :panel="panel"
+            :help="t('tune.axesNote')"
+          />
+          <div v-else-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
             <div class="tune-head">
               <label :for="`${uid}-${param.id}`" class="tune-label">{{ t(`tune.name.${param.id}`) }}</label>
               <code class="tune-names">{{ param.id }}</code>
@@ -21,7 +36,15 @@
             />
             <p class="muted tune-was">{{ wasOf(param.id) }}</p>
           </div>
-          <TuneSlider v-else :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
+          <template v-else>
+            <TuneSlider :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
+            <div v-if="param.id === 'MOT_THST_HOVER' && learning" class="tune-hover-learning" data-testid="hover-learning">
+              <p class="muted">{{ t('tune.hoverLearning') }}</p>
+              <Button :disabled="panel.blocked.value !== null || !hasLearn" @click="panel.set('MOT_HOVER_LEARN', 0)">
+                {{ t('tune.hoverDisable') }}
+              </Button>
+            </div>
+          </template>
         </template>
       </section>
       <p v-if="missing.length > 0" id="tune-more-missing" class="muted">{{ t('tune.missing', { names: missing.join(', ') }) }}</p>
@@ -35,26 +58,34 @@
 
 <script setup lang="ts">
 // The other groups: how the attitude controller turns a lean angle into a rate (Attitude), how the sticks feel (Pilot feel), the
-// position controller (Position) and what the radio knob tunes (Radio knob). Same rules as the rate loop: the parameter's name
+// position controller (Position), the hover throttle and its learning, AutoTune's settings (both are changed in flight: AutoTune
+// needs them there) and what the radio knob tunes (Radio knob). Same rules as the rate loop: the parameter's name
 // and "was X" on each, only a parameter the vehicle has is a row, a value beyond the hard limit stops the write, and the one
 // question (or the hold, when the vehicle is armed) names every parameter.
-import { useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
+import TuneBits from '@/components/tune/TuneBits.vue'
+import TuneChoice from '@/components/tune/TuneChoice.vue'
 import TuneSlider from '@/components/tune/TuneSlider.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useTunePanel } from '@/composables/useTunePanel'
 import { showNumber } from '@/lib/params/paramValue'
+import { AUTOTUNE_AXES, HOVER_LEARN } from '@/lib/tune/autotune'
 import { TUNE_FUNCTIONS, TUNE_PARAMS, type TuneGroup, type TuneParam, tuneGroup } from '@/lib/tune/table'
 
 const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
-const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'knob']
+const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'hover', 'autotune', 'knob']
 const ids = TUNE_PARAMS.filter(param => groups.includes(param.group)).map(param => param.id)
 const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
+// While the hover learning is on (or not known), the vehicle pulls the hover throttle towards what it needs: a number written
+// there is not kept (AP_MotorsMulticopter::update_throttle_hover).
+const hasLearn = computed(() => !missing.value.includes('MOT_HOVER_LEARN'))
+const learning = computed(() => panel.value('MOT_HOVER_LEARN') !== 0)
 
 /**
  * The parameters of a group that the vehicle has.

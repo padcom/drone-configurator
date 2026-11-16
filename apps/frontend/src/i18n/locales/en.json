@@ -1184,6 +1184,9 @@
     "notSettled": "The newest log was still growing after a minute, so nothing was downloaded after landing."
   },
   "question": {
+    "armed": "The vehicle is armed: changes take effect now.",
+    "hoverStep": "The hover throttle changes by more than a quarter: the throttle feed-forward changes at once.",
+    "unknown": "The vehicle's state is not known (it may be armed): changes take effect now.",
     "importLarge": "This file is large ({size}): {name}. Copy it into the library? It takes a while and as much disk space as the file has.",
     "write": "Write {count} parameter to the vehicle? | Write {count} parameters to the vehicle?",
     "snapshot": "Write {count} parameter to the vehicle ({names})? | Write {count} parameters to the vehicle ({names})?"
@@ -2119,6 +2122,8 @@
       "attitude": "Attitude",
       "feel": "Pilot feel",
       "position": "Position",
+      "hover": "Hover throttle",
+      "autotune": "AutoTune",
       "knob": "Radio knob",
       "gyro": "Gyro filter",
       "notch": "Harmonic notch"
@@ -2142,6 +2147,12 @@
       "PSC_D_VEL_P": "Vertical velocity P",
       "PSC_D_ACC_P": "Vertical acceleration P",
       "PSC_D_ACC_I": "Vertical acceleration I",
+      "MOT_THST_HOVER": "Hover throttle",
+      "MOT_HOVER_LEARN": "Hover throttle learning",
+      "AUTOTUNE_AXES": "AutoTune axes",
+      "AUTOTUNE_AGGR": "AutoTune aggressiveness",
+      "AUTOTUNE_MIN_D": "AutoTune minimum D",
+      "AUTOTUNE_GMBK": "AutoTune gain back-off",
       "TUNE": "What the radio knob tunes",
       "INS_GYRO_FILTER": "Gyro low-pass cutoff",
       "INS_HNTCH_ENABLE": "Notch filter",
@@ -2166,6 +2177,9 @@
     },
     "missing": "Not on this vehicle: {names}.",
     "backToInitial": "Put back the initial values",
+    "hoverLearning": "While learning is on, the vehicle changes this value itself: a number written here is not kept. Set learning to Disabled first if you mean it to stay.",
+    "hoverDisable": "Disable learning",
+    "axesNote": "Set before AutoTune is engaged: changing it while AutoTune runs changes which axes it goes on to.",
     "filters": {
       "summary": "The gyro filter and the first harmonic notch. The gyro cutoff and the notch's centre, bandwidth and attenuation take effect in flight. The notch's switch, tracking mode, reference, harmonics and options are read only when the vehicle starts: they are written while the vehicle is disarmed, and take effect after a restart.",
       "armed": "Armed: only the gyro cutoff and the notch's centre, bandwidth and attenuation can be changed, and they apply in flight. The rest take effect only after a restart and are written while disarmed.",

@@ -2,6 +2,10 @@ import { expect, it, vi } from 'vitest'
 import { mockBackend } from '@/mock/mock-backend'
 import { createConfigurator, useConfigurator } from './useConfigurator'
 
+/** What the question of a write says when the armed state is not known (the simulated vehicle has sent no telemetry). */
+const UNKNOWN_STATE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+const ASKED = `Write 1 parameter to the vehicle?\n${UNKNOWN_STATE}\nRTL_ALT 1500 → 1600`
+
 it('gives the components each field as the very ref that the composable holding it changes', () => {
   const { fields, vehicle, parameters, metadata, snapshots } = createConfigurator(mockBackend())
 
@@ -80,13 +84,14 @@ it('downloads the parameters once the vehicle is connected, and keeps them when 
 })
 
 it('answers a question no when a second one replaces it (a double click on Write N), and writes nothing for it', async () => {
-  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
+  // (no telemetry ever comes: the state is not known whenever the question is made, however slow the machine)
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
   parameters.editDraft('1600')
   staged.sync()
-  const question = 'Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600'
+  const question = ASKED
 
   const first = staged.writeAll()
   await expect.poll(() => confirmation.value?.question).toBe(question)
@@ -103,7 +108,7 @@ it('answers a question no when a second one replaces it (a double click on Write
 })
 
 it('resolves a confirmation with the answer and clears the question', async () => {
-  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
@@ -111,7 +116,7 @@ it('resolves a confirmation with the answer and clears the question', async () =
   staged.sync()
 
   const writing = staged.writeAll()
-  await expect.poll(() => confirmation.value?.question).toBe('Write 1 parameter to the vehicle?\nRTL_ALT 1500 → 1600')
+  await expect.poll(() => confirmation.value?.question).toBe(ASKED)
   confirmation.value?.answer(false)
   await writing
 
