@@ -28,7 +28,8 @@
 //    request's policy says: `block` refuses (`GCS_FAILSAFE_OFF`), `warn` sends and adds a message to the answer. A set of home here is for a
 //    vehicle that stands still: at most 1 m/s over the ground and 0.5 m/s up or down (`NOT_HOVERING`).
 //    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, then FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS for
-//    the bits that are set): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
+//    the bits that are set, and the frame of each altitude, FENCE_ALT_MAX_TP and FENCE_ALT_MIN_TP: anything but above home is `FENCE_UNKNOWN`;
+//    a firmware that has no such parameter (4.7.2) has only above home): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
 //    fence that cannot be read is `FENCE_UNKNOWN`. A polygon fence is not read. After a set of home here the home that was heard is forgotten
 //    until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
@@ -197,13 +198,13 @@ function numberOf(v: TypedParamValue): f64 {
   }
 }
 
-/// A parameter of the vehicle, asked now: its value, or -1 when it could not be read (no answer, or no such parameter). A parameter that is
-/// asked for and not there is answered by silence, which takes a moment.
-async function readParam(id: string): Promise<f64> throws Error {
+/// A parameter of the vehicle, asked now: its value, or null when it could not be read (no answer, or no such parameter: a vehicle is silent for
+/// what it lacks, which takes `timeoutMs` and `retries`). A value of -1 is a value.
+async function readParam(id: string, timeoutMs: int = FAILSAFE_READ_MS, retries: int = 1): Promise<f64?> throws Error {
   try {
     const read = new ParamRead(connectedLink(), { system: link.sysid, component: link.compid }, link.encoding, {
-      timeoutMs: FAILSAFE_READ_MS,
-      retries: 1,
+      timeoutMs: timeoutMs,
+      retries: retries,
       signal: link.session.signal,
     })
     return numberOf((await read.run(id)).value)
@@ -211,15 +212,21 @@ async function readParam(id: string): Promise<f64> throws Error {
     if (e.code == "ABORTED") {
       throw new CommunicatorError("ABORTED", e.message)
     }
-    return -1.0
+    return null
   }
+}
+
+/// A parameter whose absence is not an error, as a number, with `missing` for one that was not read.
+async function readOr(id: string, missing: f64): Promise<f64> throws Error {
+  const v = await readParam(id)
+  return v ?? missing
 }
 
 /// What the vehicle says of its GCS failsafe (FS_GCS_ENABLE), asked now: "" when it is on; else the words that say it is off or not known.
 /// With `block` that is a refusal (`GCS_FAILSAFE_OFF`: the vehicle would keep flying its last command if the link dropped), with `warn` it
 /// is the warning that goes with the answer.
 async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws Error {
-  const value = await readParam("FS_GCS_ENABLE")
+  const value = await readOr("FS_GCS_ENABLE", -1.0)
   if (value > 0.0) {
     return ""
   }
@@ -231,28 +238,42 @@ async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws E
   return why
 }
 
+/// How long the frame of a fence altitude is asked about (ms): a firmware older than FENCE_ALT_MAX_TP does not have it and says nothing, and the link
+/// has just answered the other fence parameters, so one short try tells.
+const FRAME_READ_MS: int = 400
+
 /// What the vehicle's fence says (asked now, as the failsafe is): FENCE_ENABLE first, and only when it is on the rest of what it needs.
 async function readFence(): Promise<FenceFacts> throws Error {
   const fence = new FenceFacts()
-  fence.enabled = await readParam("FENCE_ENABLE")
+  fence.enabled = await readOr("FENCE_ENABLE", -1.0)
   if (fence.enabled <= 0.0) {
     return fence
   }
-  fence.kind = await readParam("FENCE_TYPE")
+  fence.kind = await readOr("FENCE_TYPE", -1.0)
   if (fence.kind < 0.0) {
     return fence
   }
   const kind = fence.kind as int
   if ((kind & 1) != 0) {
-    fence.altMax = await readParam("FENCE_ALT_MAX")
+    fence.altMax = await readOr("FENCE_ALT_MAX", -1.0)
+    fence.altMaxFrame = await frameOf("FENCE_ALT_MAX_TP")
   }
   if ((kind & 8) != 0) {
-    fence.altMin = await readParam("FENCE_ALT_MIN")
+    const min = await readParam("FENCE_ALT_MIN")
+    fence.altMinRead = min != null
+    fence.altMin = min ?? 0.0
+    fence.altMinFrame = await frameOf("FENCE_ALT_MIN_TP")
   }
   if ((kind & 2) != 0) {
-    fence.radius = await readParam("FENCE_RADIUS")
+    fence.radius = await readOr("FENCE_RADIUS", -1.0)
   }
   return fence
+}
+
+/// The reference frame of a fence altitude: what the vehicle says, or above home (1) for a firmware that has no such parameter.
+async function frameOf(id: string): Promise<f64> throws Error {
+  const v = await readParam(id, FRAME_READ_MS, 0)
+  return v ?? 1.0
 }
 
 /// Holds a reposition or a change of altitude to the vehicle's own fence: the altitude, and the distance from home of a place.

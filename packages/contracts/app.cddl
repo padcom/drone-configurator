@@ -144,8 +144,10 @@ services = {
   ; of home here and has not been said since), `GCS_FAILSAFE_OFF` (FS_GCS_ENABLE is 0, or could not be read, and the request's `failsafe` is
   ; `block`; with `warn` the command goes and the result carries a message that says so), `VEHICLE_MOVING` (see change altitude) and
   ; `FENCE_UNKNOWN` (the vehicle's fence could not be read: nothing is taken for "no fence"). The backend reads FS_GCS_ENABLE and the fence
-  ; (FENCE_ENABLE and, when it is on, FENCE_TYPE and the FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS its bits ask for) itself, at each
-  ; reposition and change of altitude; a polygon fence is not read.
+  ; (FENCE_ENABLE and, when it is on, FENCE_TYPE and the FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS its bits ask for, and the reference
+  ; frames of the altitudes, FENCE_ALT_MAX_TP and FENCE_ALT_MIN_TP) itself, at each reposition and change of altitude. Only altitudes ABOVE HOME
+  ; are understood: a frame that is anything else (sea level, the EKF origin, terrain) is `FENCE_UNKNOWN`, and a firmware that has no such
+  ; parameter (4.7.2) has only above home. FENCE_ALT_MIN is negative as a rule (-10 by default). A polygon fence is not read.
   ; Flies to a place, `altitude` metres above home. Whether the vehicle then ARRIVES is what its position says, not this answer.
   "vehicle.reposition": ["method", reposition-ask, arming-result],
   ; Goes to another altitude where the vehicle is: a reposition to the backend's own position (a Copter has no change-altitude command), so

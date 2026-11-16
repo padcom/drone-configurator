@@ -170,12 +170,29 @@ function theFenceOfTheVehicleLimitsTheAltitudeAndTheDistance(): void {
   // both
   on.kind = 3.0
   expect(codeOf(() => checkFence(on, 26.0, 100.0))).toBe("OUT_OF_LIMITS")
-  // a minimum altitude (bit 8): below it is out, and one that was not read is unknown
+  // a minimum altitude (bit 8): one that was not read is unknown
   on.kind = 8.0
   expect(codeOf(() => checkFence(on, 5.0, -1.0))).toBe("FENCE_UNKNOWN")
+  // it is NEGATIVE as a rule (the default is -10): -10, -1 and 0 are values, not a failed read
+  on.altMinRead = true
+  on.altMin = -10.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
+  on.altMin = -1.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
+  on.altMin = 0.0
+  expect(codeOf(() => checkFence(on, 2.0, -1.0))).toBe("ok")
   on.altMin = 10.0
   expect(codeOf(() => checkFence(on, 9.9, -1.0))).toBe("OUT_OF_LIMITS")
   expect(codeOf(() => checkFence(on, 10.0, -1.0))).toBe("ok")
+  // a fence altitude that is not above home (the frame: 0 sea level, 2 origin, 3 terrain) is not understood: it blocks
+  on.altMinFrame = 0.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
+  on.altMinFrame = 1.0
+  on.kind = 1.0
+  on.altMax = 50.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("ok")
+  on.altMaxFrame = 3.0
+  expect(codeOf(() => checkFence(on, 20.0, -1.0))).toBe("FENCE_UNKNOWN")
 }
 
 function aSpeedIsWithinTheLimitAndTheVehicleIsInGuided(): void {
@@ -358,6 +375,34 @@ async function theVehiclesFenceLimitsAReposition(): Promise<void> throws Error {
   await f.call("vehicle.disconnect")
 }
 
+async function aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  // maximum altitude and minimum altitude (bits 1 and 8): the minimum is -10, as ArduPilot's default is; this firmware has no _TP parameters
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(9, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  sim.params.push({ id: "FENCE_ALT_MIN", value: TypedParamValue.Int(-10, MavParamType.INT16) })
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("accepted")
+  expect(heard.ints.length).toBe(1)
+  await f.call("vehicle.disconnect")
+}
+
+async function aFenceAltitudeThatIsNotAboveHomeBlocks(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  // the frame of the maximum is above sea level (0)
+  sim.params.push({ id: "FENCE_ALT_MAX_TP", value: TypedParamValue.Int(0, MavParamType.INT8) })
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
 async function aFenceThatCannotBeReadIsNotTakenForNone(): Promise<void> throws Error {
   const f = await flying(1)
   const sim = simulatorForTests()!
@@ -433,6 +478,8 @@ describe("guided control commands", () => {
   it("does not take an unreadable failsafe for a good one", aFailsafeThatCannotBeReadIsNotAssumedToBeOn)
   it("holds a reposition and a change of altitude to the vehicle's fence", theVehiclesFenceLimitsAReposition)
   it("does not take a fence that cannot be read for none", aFenceThatCannotBeReadIsNotTakenForNone)
+  it("lets a reposition go under a fence with a minimum of -10 and a firmware without frame parameters", aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo)
+  it("blocks when a fence altitude is not above home", aFenceAltitudeThatIsNotAboveHomeBlocks)
   it("keeps the place the backend itself heard for a change of altitude", aChangeOfAltitudeKeepsThePlaceTheBackendHeard)
   it("sends a speed once, within the limit", aSpeedIsSentOnce)
   it("sets home here, once", homeIsSetHereOnce)
