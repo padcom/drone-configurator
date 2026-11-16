@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type E2eApp, launchApp } from './launch'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { cancelConfirm, clickConnect, showScreen } from './click'
+import { cancelConfirm, clickConnect, questionPattern, showScreen } from './click'
 
 const PDEF = {
   json: { version: 0 },
@@ -131,7 +131,7 @@ describe('the keys of the field of bits', () => {
     expect(await app.evaluate<string>('document.activeElement.id')).toBe('draft')
 
     await chord('Enter', CTRL)
-    await app.waitForText('#question', /Write 1 parameter to the vehicle\?\n(?:The vehicle[^\n]*now\.\n)?ARMING_CHECK \d+ → \d+/u)
+    await app.waitForText('#question', questionPattern('Write 1 parameter to the vehicle?', 'ARMING_CHECK \\d+ → \\d+'))
     await cancelConfirm(app)
   })
 })

@@ -361,6 +361,38 @@ async function pressUntilAsked(app: E2eApp, question: string | RegExp, left: num
   }
 }
 
+/** The line a vehicle that is armed has in the question of a write (the English words of `question.armed`). */
+const ARMED_LINE = 'The vehicle is armed: changes take effect now.'
+
+/** The line a vehicle whose state is not known has (the English words of `question.unknown`). */
+const UNKNOWN_LINE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+
+/**
+ * Makes a text into a regular expression's source that matches exactly that text.
+ *
+ * @param text the text
+ * @returns the source
+ */
+function literal(text: string): string {
+  return text.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+}
+
+/**
+ * What the question of a write may be: the sentence, then none of the two lines about the vehicle's state, or one of them (a
+ * vehicle that is armed, or whose state is not known: the simulated one in the window has sent no telemetry), then the rest. Any
+ * other line there is a wrong question.
+ *
+ * @param sentence the first line ("Write 1 parameter to the vehicle?")
+ * @param rest the source of a regular expression for what follows (the lines of the changes), or for what it begins with
+ * @param whole whether `rest` is all that follows (the pattern is anchored at the end too)
+ * @returns the pattern
+ */
+export function questionPattern(sentence: string, rest: string, whole = false): RegExp {
+  const state = `(?:${literal(ARMED_LINE)}\\n|${literal(UNKNOWN_LINE)}\\n)?`
+
+  return new RegExp(`^${literal(sentence)}\\n${state}${rest}${whole ? '$' : ''}`, 'u')
+}
+
 /**
  * Asks for the queued changes to be written: presses "Write N and verify", and waits for the one question, which has a line
  * for every change with the value it has and the value it is given. It is not answered here (a test that checks the dialog
@@ -372,12 +404,8 @@ async function pressUntilAsked(app: E2eApp, question: string | RegExp, left: num
 export async function askToWriteQueued(app: E2eApp, changes: { id: string, from: number, to: number }[]): Promise<void> {
   const noun = changes.length === 1 ? 'parameter' : 'parameters'
   const lines = changes.map(change => `${change.id} ${change.from} → ${change.to}`)
-  // (A vehicle that is armed, or whose state is not known (the simulated one in the window has sent no telemetry), has a line
-  // after the sentence that says changes take effect now: it may be there.)
-  const escape = (text: string): string => text.replaceAll(/[.*+?^${}()|[\]\\]/gu, '\\$&')
-  const sentence = escape(`Write ${changes.length} ${noun} to the vehicle?`)
-  const armedLine = '(?:The vehicle is armed: changes take effect now\\.\\n|The vehicle\'s state is not known[^\\n]*\\n)?'
-  await pressUntilAsked(app, new RegExp(`^${sentence}\\n${armedLine}${lines.map(escape).join('\\n')}$`, 'u'), 2)
+  const sentence = `Write ${changes.length} ${noun} to the vehicle?`
+  await pressUntilAsked(app, questionPattern(sentence, literal(lines.join('\n')), true), 2)
 }
 
 /**
