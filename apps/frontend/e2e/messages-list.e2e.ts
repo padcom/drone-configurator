@@ -145,3 +145,68 @@ it('empties with Clear and says so', async () => {
 
   expect(await window().text('.messages')).toContain('The vehicle has said nothing yet.')
 })
+
+/** The keys that press a button, as the host receives them: with the text they type (Enter is a carriage return). */
+const BUTTON_KEYS = {
+  Enter: { windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, key: 'Enter', code: 'Enter', text: '\r', unmodifiedText: '\r' },
+  Space: { windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32, key: ' ', code: 'Space', text: ' ', unmodifiedText: ' ' },
+  Tab: { windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9, key: 'Tab', code: 'Tab' },
+} as const
+
+/**
+ * Presses a key: the key goes down (with its text, as a typed key has) and comes up.
+ *
+ * @param name the key
+ */
+async function pressKey(name: keyof typeof BUTTON_KEYS): Promise<void> {
+  const event = BUTTON_KEYS[name]
+  await window().devtools('Input.dispatchKeyEvent', { type: 'keyDown', ...event })
+  await window().devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...event })
+}
+
+/** Brings the messages back: the vehicle is disconnected and connected again, and says what it says when it comes. */
+async function messagesAreBack(): Promise<void> {
+  await window().click('#disconnect-button')
+  await window().waitForText('#connection', /^disconnected/u)
+  await clickConnect(window())
+  await window().waitForText('#connection', 'connected · system', 60_000)
+  await showScreen(window(), 'flight')
+  await window().waitFor(`document.querySelectorAll('.message').length > 0`, 60_000)
+}
+
+/**
+ * Presses a key on the focused Clear button, and says what came of it: the rows left, what has the focus, and what the focus is
+ * after Tab.
+ *
+ * @param name the key that presses the button
+ * @returns what was seen
+ */
+async function clearWithKey(name: 'Enter' | 'Space'): Promise<{ rows: number, focus: string, afterTab: string }> {
+  await window().evaluate(`document.querySelector('.messages-clear').focus()`)
+  await pressKey(name)
+  await window().waitFor(`document.querySelectorAll('.message').length === 0`, 10_000)
+  const where = `document.activeElement === document.querySelector('.messages') ? 'section' : document.activeElement?.tagName`
+  const focus = await window().evaluate<string>(where)
+  await pressKey('Tab')
+  const afterTab = await window().evaluate<string>(where)
+
+  return { rows: await window().evaluate<number>(`document.querySelectorAll('.message').length`), focus, afterTab }
+}
+
+it('empties with Enter on the focused Clear button, and keeps the focus in the section, and Tab moves on', async () => {
+  await messagesAreBack()
+  const seen = await clearWithKey('Enter')
+
+  expect(seen.rows).toBe(0)
+  expect(seen.focus).toBe('section')
+  expect(seen.afterTab).not.toBe('section')
+}, 120_000)
+
+it('empties with Space on the focused Clear button, and keeps the focus in the section, and Tab moves on', async () => {
+  await messagesAreBack()
+  const seen = await clearWithKey('Space')
+
+  expect(seen.rows).toBe(0)
+  expect(seen.focus).toBe('section')
+  expect(seen.afterTab).not.toBe('section')
+}, 120_000)
