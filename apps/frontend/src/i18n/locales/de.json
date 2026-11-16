@@ -704,6 +704,18 @@
     "label": "Sprache"
   },
   "arming": {
+    "reposition": {
+      "accepted": "{vehicle} hat angenommen: es fliegt zum Ort, {altitude} m über Home.",
+      "refused": "{vehicle} hat es abgelehnt, dorthin zu fliegen.",
+      "unsupported": "{vehicle} unterstützt das Anfliegen eines Ortes von hier aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle}. Es fliegt vielleicht schon dorthin: beobachten Sie seine Position. Der Befehl wird nicht noch einmal gesendet."
+    },
+    "speed": {
+      "accepted": "{vehicle} hat die Geschwindigkeit angenommen.",
+      "refused": "{vehicle} hat die Geschwindigkeit abgelehnt.",
+      "unsupported": "{vehicle} unterstützt das Ändern der Geschwindigkeit von hier aus nicht.",
+      "noAnswer": "Keine Antwort von {vehicle} auf die Geschwindigkeit. Danach wurde nichts gesendet."
+    },
     "takeoff": {
       "accepted": "{vehicle} hat das Abheben auf {altitude} m angenommen. Es steigt, wenn seine Position es sagt.",
       "refused": "{vehicle} hat das Abheben verweigert.",
@@ -2143,6 +2155,70 @@
       "tracking": "Dieser Notch folgt dem Gas, einem Sensor oder der FFT, seine Mitte wandert also: die Seite prüft sie nicht gegen die Peaks des in Spektrum geöffneten Protokolls.",
       "misses": "Der gewählte Notch (Bänder {bands} Hz) nimmt keinen der Peaks im Spektrum von Protokoll {log} ({peaks} Hz) heraus: seine Mitte liegt außerhalb des protokollierten Rauschens.",
       "harmonic": "Harmonische {n}"
+    }
+  },
+  "guided": {
+    "command": {
+      "label": "Hierher fliegen",
+      "keywords": "fliegen bewegen Ziel Karte guided hierher",
+      "title": "Hierher fliegen",
+      "what": "Das Fahrzeug fliegt zu dem Ort, den Sie auf der Karte gewählt haben, {distance} m von ihm und {fromHome} m von Home entfernt, in {altitude} m über Home und mit {speed} m/s, und bleibt dort. Prüfen Sie, dass der Weg frei ist.",
+      "mode": "Es wechselt zuerst in GUIDED.",
+      "button": "Hierher fliegen"
+    },
+    "reason": {
+      "params": "Die geführte Steuerung braucht die vollständige Parameterliste des Fahrzeugs: laden Sie sie zuerst.",
+      "position": "Das Fahrzeug meldet seine Position nicht.",
+      "air": "Das Fahrzeug ist nicht in der Luft.",
+      "home": "Das Fahrzeug hat zuletzt nicht gemeldet, wo Home ist.",
+      "target": "Wählen Sie zuerst einen Ort auf der Karte.",
+      "far": "Der Ort ist weiter von Home entfernt als Ihre Grenze in den Einstellungen.",
+      "unsupported": "Die geführte Steuerung gibt es nur für ArduPilot-Fahrzeuge.",
+      "invalid": "Dieser Ort oder diese Höhe ist ungültig.",
+      "outOfLimits": "Das liegt außerhalb der Grenzen in den Einstellungen oder des Zauns des Fahrzeugs.",
+      "notGuided": "Das Fahrzeug ist nicht in GUIDED.",
+      "stalePosition": "Die Position des Fahrzeugs ist alt: versuchen Sie es erneut.",
+      "failsafeOff": "Der GCS-Failsafe des Fahrzeugs (FS_GCS_ENABLE) ist aus oder nicht lesbar: stellen Sie ihn ein, oder wählen Sie in den Einstellungen eine Warnung.",
+      "fenceUnknown": "Der Zaun des Fahrzeugs ließ sich nicht lesen, daher wird nichts angenommen: versuchen Sie es erneut."
+    },
+    "settings": {
+      "title": "Geführte Steuerung",
+      "help": "Hierher fliegen auf der Karte. Das Fahrzeug muss in der Luft sein; der Zaun des Fahrzeugs ist noch enger, wenn er die Zahlen unten begrenzt.",
+      "perSecond": "{n} m/s",
+      "labels": {
+        "confirmation": "Vor „Hierher fliegen“",
+        "failsafe": "Wenn der GCS-Failsafe des Fahrzeugs aus ist",
+        "maxAltitude": "Größte Höhe",
+        "maxDistance": "Größte Entfernung von Home",
+        "maxSpeed": "Größte Geschwindigkeit",
+        "speed": "Geschwindigkeit beim Hierherfliegen"
+      },
+      "helps": {
+        "confirmation": "Eine einfache Bestätigung nennt Entfernung, Höhe und Geschwindigkeit. Ein Halten ist für alle, die sicher sein wollen.",
+        "failsafe": "Bei ausgeschaltetem FS_GCS_ENABLE fliegt das Fahrzeug seinen letzten Befehl weiter, wenn die Verbindung abbricht. „Blockieren“ lehnt den Befehl ab; „Warnen“ sendet ihn und sagt es.",
+        "maxAltitude": "Meter über Home.",
+        "maxDistance": "Meter von Home.",
+        "maxSpeed": "Kein Befehl darf mehr verlangen.",
+        "speed": "Nie über der größten Geschwindigkeit."
+      },
+      "words": {
+        "confirmation": {
+          "none": "Nicht fragen",
+          "plain": "Um Bestätigung bitten (empfohlen)",
+          "hold": "Um Halten bitten"
+        },
+        "failsafe": {
+          "block": "Den Befehl blockieren (empfohlen)",
+          "warn": "Warnen und senden"
+        }
+      }
+    },
+    "panel": {
+      "title": "Ort auf der Karte",
+      "place": "{lat}, {lon}",
+      "away": "{distance} m vom Fahrzeug, {fromHome} m von Home",
+      "go": "Hierher fliegen",
+      "clear": "Löschen"
     }
   }
 }

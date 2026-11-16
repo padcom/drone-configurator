@@ -403,3 +403,43 @@
     max-height: none;
   }
 }
+
+/* The place picked on the map for a Go here: a ring and a dot over the tiles. */
+.map-target circle {
+  fill: none;
+  stroke: var(--color-warn);
+  stroke-width: 2.5;
+}
+
+.map-target .map-target-dot {
+  fill: var(--color-warn);
+  stroke: none;
+}
+
+/* What can be done with it: the card at the bottom of the map. */
+.fly-map .go-here {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-6);
+  left: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.go-here-place,
+.go-here-why {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.go-here-buttons {
+  display: flex;
+  gap: var(--space-2);
+}

@@ -5,7 +5,24 @@ import type { ArmingResult } from '@/generated/app'
 import type { CommandContext } from './command'
 
 /** What was asked. */
-export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode' | 'takeoff'
+export type ArmingKind = 'arm' | 'disarm' | 'stop' | 'mode' | 'takeoff' | 'reposition' | 'speed'
+
+/** What the backend refuses a guided command with, in the page's words. */
+const GUIDED_REFUSALS: Record<string, string> = {
+  NOT_CONNECTED: 'palette.reason.notConnected',
+  STATE_UNKNOWN: 'palette.reason.stateUnknown',
+  NOT_ARMED: 'palette.reason.notArmed',
+  BUSY: 'palette.reason.busyVehicle',
+  UNSUPPORTED_VEHICLE: 'guided.reason.unsupported',
+  INVALID_VALUE: 'guided.reason.invalid',
+  OUT_OF_LIMITS: 'guided.reason.outOfLimits',
+  NOT_GUIDED: 'guided.reason.notGuided',
+  STALE_POSITION: 'guided.reason.stalePosition',
+  NOT_AIRBORNE: 'guided.reason.air',
+  HOME_UNKNOWN: 'guided.reason.home',
+  GCS_FAILSAFE_OFF: 'guided.reason.failsafeOff',
+  FENCE_UNKNOWN: 'guided.reason.fenceUnknown',
+}
 
 /** The messages for the codes with which the backend refuses before it sends anything, for what was asked. */
 const REFUSALS: Record<ArmingKind, Record<string, string>> = {
@@ -31,6 +48,8 @@ const REFUSALS: Record<ArmingKind, Record<string, string>> = {
     INVALID_VALUE: 'palette.reason.modeRefused',
     UNSUPPORTED_VEHICLE: 'palette.reason.modesUnsupported',
   },
+  reposition: GUIDED_REFUSALS,
+  speed: GUIDED_REFUSALS,
   takeoff: {
     NOT_CONNECTED: 'palette.reason.notConnected',
     NOT_ARMED: 'palette.reason.notArmed',

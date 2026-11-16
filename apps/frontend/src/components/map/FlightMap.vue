@@ -88,7 +88,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { MAX_ZOOM, MIN_ZOOM, useFlightMap } from '@/composables/useFlightMap'
-import { type Point, fitView, screenOf } from '@/lib/map/geo'
+import { type Point, fitView, placeAt, screenOf } from '@/lib/map/geo'
 import type { MapSource } from '@/lib/map/mapSource'
 import { chipOf, creditOf } from '@/lib/map/mapText'
 import type { LatLon } from '@/lib/map/track'
@@ -100,7 +100,17 @@ const props = withDefaults(defineProps<{
   followVehicle?: boolean
   /** Places the map shows all of (a recorded flight's path) when they are given or change, once the map has a size. */
   fit?: readonly LatLon[]
-}>(), { source: undefined, followVehicle: true, fit: undefined })
+  /** Whether a click on the map (a press and a release in the same place: not a drag) picks the place under it. */
+  pickable?: boolean
+}>(), { source: undefined, followVehicle: true, fit: undefined, pickable: false })
+
+const emit = defineEmits<{
+  /** The user clicked the map (only when `pickable`): the place under the pointer. */
+  pick: [place: LatLon]
+}>()
+
+/** How far (px) a pointer may move between the press and the release for it to be a click, not a drag. */
+const CLICK_PX = 4
 
 /** The zoom the map goes to when it first shows the vehicle, and when it is centred on it from further out. */
 const VEHICLE_ZOOM = 16
@@ -135,6 +145,9 @@ const mark = computed(() => props.source?.vehicle.value ?? null)
 function followsAtFirst(): boolean {
   return props.followVehicle
 }
+
+/** Where the pointer went down on the map (null while none is down). */
+let pressed: Point | null = null
 
 /** Whether the map keeps the vehicle in the middle (on until the map is dragged). */
 const following = ref(followsAtFirst())
@@ -254,6 +267,7 @@ function startsDrag(event: PointerEvent): boolean {
  */
 function down(event: PointerEvent): void {
   if (startsDrag(event)) {
+    pressed = at(event)
     following.value = false
     flight.press(event.pointerId, at(event))
     root.value?.setPointerCapture?.(event.pointerId)
@@ -270,13 +284,41 @@ function move(event: PointerEvent): void {
 }
 
 /**
+ * Whether a release is a click: the pointer is where it went down, within a few pixels.
+ *
+ * @param here where it was released
+ * @param was where it went down
+ * @returns true when it is
+ */
+function isClick(here: Point, was: Point | null): boolean {
+  return was !== null && Math.hypot(here.x - was.x, here.y - was.y) <= CLICK_PX
+}
+
+/**
+ * A press and a release in the same place pick the place under them (a drag does not, nor a pointer that was taken away).
+ *
+ * @param event the pointer event of the release
+ * @param was where the pointer went down
+ */
+function picks(event: PointerEvent, was: Point | null): void {
+  const here = at(event)
+  if (props.pickable && event.type === 'pointerup' && isClick(here, was)) {
+    emit('pick', placeAt(view.value, size.value, here))
+  }
+}
+
+/**
  * The pointer went up (or was taken away): the drag ends.
  *
  * @param event the pointer event
  */
 function up(event: PointerEvent): void {
+  const was = pressed
+  pressed = null
+
   if (flight.release(event.pointerId)) {
     root.value?.releasePointerCapture?.(event.pointerId)
+    picks(event, was)
   }
 }
 

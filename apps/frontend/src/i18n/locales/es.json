@@ -704,6 +704,18 @@
     "label": "Idioma"
   },
   "arming": {
+    "reposition": {
+      "accepted": "{vehicle} aceptó: vuela al lugar, a {altitude} m sobre el punto de origen.",
+      "refused": "{vehicle} se negó a ir allí.",
+      "unsupported": "{vehicle} no admite ir a un lugar desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. Puede estar volando hacia allí: vigile su posición. El comando no se envía de nuevo."
+    },
+    "speed": {
+      "accepted": "{vehicle} aceptó la velocidad.",
+      "refused": "{vehicle} rechazó la velocidad.",
+      "unsupported": "{vehicle} no admite cambiar la velocidad desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle} a la velocidad. No se envió nada después."
+    },
     "takeoff": {
       "accepted": "{vehicle} aceptó el despegue a {altitude} m. Sube cuando su posición lo diga.",
       "refused": "{vehicle} se negó a despegar.",
@@ -2143,6 +2155,70 @@
       "tracking": "Este notch sigue el acelerador, un sensor o la FFT, así que su centro se mueve: la página no lo comprueba con los picos del registro abierto en Espectro.",
       "misses": "El notch elegido (bandas {bands} Hz) no elimina ninguno de los picos del espectro del registro {log} ({peaks} Hz): su centro está fuera de donde se registró el ruido.",
       "harmonic": "Armónico {n}"
+    }
+  },
+  "guided": {
+    "command": {
+      "label": "Ir aquí",
+      "keywords": "volar mover ir objetivo mapa guiado aquí",
+      "title": "Ir aquí",
+      "what": "El vehículo vuela al lugar que eligió en el mapa, a {distance} m de él y a {fromHome} m del punto de origen, a {altitude} m sobre el origen y a {speed} m/s, y se queda allí. Compruebe que el camino está libre.",
+      "mode": "Antes cambia a GUIDED.",
+      "button": "Ir aquí"
+    },
+    "reason": {
+      "params": "El control guiado necesita la lista completa de parámetros del vehículo: descárguela primero.",
+      "position": "El vehículo no informa de su posición.",
+      "air": "El vehículo no está en el aire.",
+      "home": "El vehículo no ha dicho últimamente dónde está el origen.",
+      "target": "Elija primero un lugar en el mapa.",
+      "far": "Ese lugar está más lejos del origen que su límite en Ajustes.",
+      "unsupported": "El control guiado es solo para vehículos ArduPilot.",
+      "invalid": "Ese lugar o esa altitud no es válido.",
+      "outOfLimits": "Eso excede los límites de Ajustes o la valla del propio vehículo.",
+      "notGuided": "El vehículo no está en GUIDED.",
+      "stalePosition": "La posición del vehículo es antigua: inténtelo de nuevo.",
+      "failsafeOff": "El failsafe de GCS del vehículo (FS_GCS_ENABLE) está apagado o no se puede leer: actívelo, o elija ser avisado en Ajustes.",
+      "fenceUnknown": "No se pudo leer la valla del vehículo, así que no se supone nada: inténtelo de nuevo."
+    },
+    "settings": {
+      "title": "Control guiado",
+      "help": "Ir aquí en el mapa. El vehículo debe estar en el aire; la valla del propio vehículo es aún más baja cuando limita los números de abajo.",
+      "perSecond": "{n} m/s",
+      "labels": {
+        "confirmation": "Antes de Ir aquí",
+        "failsafe": "Cuando el failsafe de GCS del vehículo está apagado",
+        "maxAltitude": "Altitud máxima",
+        "maxDistance": "Distancia máxima del origen",
+        "maxSpeed": "Velocidad máxima",
+        "speed": "Velocidad de Ir aquí"
+      },
+      "helps": {
+        "confirmation": "Una confirmación sencilla dice a qué distancia, altura y velocidad. Mantener pulsado es para quien quiere estar seguro.",
+        "failsafe": "Con FS_GCS_ENABLE apagado el vehículo sigue su último comando si el enlace se corta. Bloquear rechaza el comando; Avisar lo envía y lo dice.",
+        "maxAltitude": "Metros sobre el origen.",
+        "maxDistance": "Metros desde el origen.",
+        "maxSpeed": "Ningún comando puede pedir más.",
+        "speed": "Nunca por encima de la velocidad máxima."
+      },
+      "words": {
+        "confirmation": {
+          "none": "No preguntar",
+          "plain": "Pedir confirmación (recomendado)",
+          "hold": "Pedir mantener pulsado"
+        },
+        "failsafe": {
+          "block": "Bloquear el comando (recomendado)",
+          "warn": "Avisar y enviarlo"
+        }
+      }
+    },
+    "panel": {
+      "title": "Lugar en el mapa",
+      "place": "{lat}, {lon}",
+      "away": "a {distance} m del vehículo, a {fromHome} m del origen",
+      "go": "Ir aquí",
+      "clear": "Quitar"
     }
   }
 }

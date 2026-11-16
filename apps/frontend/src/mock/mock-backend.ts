@@ -6,7 +6,7 @@ import { type Transport, memoryTransportPair } from '@pico-desktop/communicator'
 import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/protocol'
 import type {
   CalibrationStart, Connection, ConnectRequest, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
-  SettingsState, SetModeAsk, TakeoffAsk, VehicleMessage,
+  RepositionAsk, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
 } from '@/generated/app'
 import { COPTER_MODES, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -307,6 +307,8 @@ class MockVehicle {
       case 'vehicle.setMode': return this.arming.setMode(e.p as SetModeAsk, ok, fail)
       case 'vehicle.prearm': return this.arming.prearm(ok, fail)
       case 'vehicle.takeoff': return this.arming.takeoff(e.p as TakeoffAsk, ok, fail)
+      case 'vehicle.reposition': return this.arming.reposition(e.p as RepositionAsk, ok, fail)
+      case 'vehicle.setSpeed': return this.arming.setSpeed(e.p as SetSpeedAsk, ok, fail)
       case 'vehicle.info': return this.connected(fail) && ok({ ...VEHICLE_DETAILS, sensors: [...VEHICLE_DETAILS.sensors] })
       case 'vehicle.modes': return this.connected(fail) && ok({ kind: 'copter', modes: COPTER_MODES })
       case 'calibration.start': return this.connected(fail) && this.calibration.start(e.p as CalibrationStart, ok, fail)

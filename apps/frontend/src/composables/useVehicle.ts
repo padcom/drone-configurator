@@ -3,7 +3,9 @@
 import { type ShallowRef, shallowRef } from 'vue'
 import { type BackendClient, type BackendState, describeError } from '@/backend/client'
 import { say } from '@/i18n/say'
-import type { ArmingResult, Connection, ConnectRequest, RebootResult, SerialPort, Telemetry } from '@/generated/app'
+import type {
+  ArmingResult, Connection, ConnectRequest, RebootResult, RepositionAsk, SerialPort, SetSpeedAsk, Telemetry,
+} from '@/generated/app'
 
 /** What the vehicle link needs from the rest of the interface. */
 export interface VehicleDeps {
@@ -52,6 +54,10 @@ export interface Vehicle {
   prearm: () => Promise<ArmingResult>
   /** Takes off to this many metres above home: sent once, to an armed vehicle (the backend refuses before sending otherwise). */
   takeoff: (altitude: number) => Promise<ArmingResult>
+  /** Flies to a place in GUIDED: sent once. */
+  reposition: (ask: RepositionAsk) => Promise<ArmingResult>
+  /** Changes the ground speed of the guided mode: sent once. */
+  setSpeed: (ask: SetSpeedAsk) => Promise<ArmingResult>
   /** Lists the serial ports (for the serial transport's device choice). */
   listPorts: () => Promise<void>
   /** Starts listening to the backend: the connection and the telemetry. */
@@ -199,6 +205,14 @@ class VehicleLink implements Vehicle {
 
   takeoff(altitude: number): Promise<ArmingResult> {
     return this.deps.client.call('vehicle.takeoff', { altitude })
+  }
+
+  reposition(ask: RepositionAsk): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.reposition', ask)
+  }
+
+  setSpeed(ask: SetSpeedAsk): Promise<ArmingResult> {
+    return this.deps.client.call('vehicle.setSpeed', ask)
   }
 
   async listPorts(): Promise<void> {

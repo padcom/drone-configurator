@@ -35,9 +35,10 @@ afterEach(() => {
  * @param source what goes over the map, if anything
  * @param more the other props (a replay does not follow the vehicle)
  * @param more.followVehicle whether the map follows the vehicle at first
+ * @param more.pickable whether a click on the map picks the place under it
  * @returns the map, the Configurator and the asks
  */
-async function map(source?: MapSource, more: { followVehicle?: boolean } = {}) {
+async function map(source?: MapSource, more: { followVehicle?: boolean, pickable?: boolean } = {}) {
   const handle = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   const tile = vi.spyOn(handle.map, 'tile').mockResolvedValue({ bytes: new Uint8Array([1]), contentType: 'image/png' })
   const cancel = vi.spyOn(handle.map, 'cancelTile').mockImplementation(() => undefined)
@@ -282,4 +283,63 @@ it('does not take the map to the vehicle when told not to follow it (a replay), 
   expect(wrapper.get('#map-follow').attributes('aria-pressed')).toBe('true')
   expect(viewOf(wrapper).lat).toBeCloseTo(47.397742, 5)
   expect(viewOf(wrapper).zoom).toBe(16)
+})
+
+/**
+ * A click on the map: the pointer goes down and up at one point.
+ *
+ * @param wrapper the map
+ * @param at where
+ * @param at.x the column
+ * @param at.y the row
+ */
+function click(wrapper: VueWrapper, at: { x: number, y: number }): void {
+  const box = wrapper.get('.map').element
+  pointer(box, 'pointerdown', at)
+  pointer(box, 'pointerup', at)
+}
+
+/**
+ * The place the map said was picked.
+ *
+ * @param wrapper the map
+ * @returns the place
+ * @throws {Error} when nothing was picked
+ */
+function pickedOf(wrapper: VueWrapper): { lat: number, lon: number } {
+  const [place] = wrapper.emitted('pick')?.[0] ?? []
+  if (!place) {
+    throw new Error('nothing was picked')
+  }
+
+  return place as { lat: number, lon: number }
+}
+
+it('picks the place under a click when it is asked to (the middle of the map is the centre of the view)', async () => {
+  const { wrapper } = await map(undefined, { pickable: true })
+  const view = viewOf(wrapper)
+  click(wrapper, { x: 400, y: 300 })
+  const picked = pickedOf(wrapper)
+
+  expect(picked.lat).toBeCloseTo(view.lat, 4)
+  expect(picked.lon).toBeCloseTo(view.lon, 4)
+})
+
+it('does not pick for a drag: that is the user moving the map', async () => {
+  const { wrapper } = await map(undefined, { pickable: true })
+  const box = wrapper.get('.map').element
+  pointer(box, 'pointerdown', { x: 400, y: 300 })
+  pointer(box, 'pointermove', { x: 440, y: 330 })
+  pointer(box, 'pointerup', { x: 440, y: 330 })
+
+  expect(wrapper.emitted('pick')).toBeUndefined()
+})
+
+it('picks nothing when the map is not pickable (a replay)', async () => {
+  const { wrapper } = await map()
+  const box = wrapper.get('.map').element
+  pointer(box, 'pointerdown', { x: 400, y: 300 })
+  pointer(box, 'pointerup', { x: 400, y: 300 })
+
+  expect(wrapper.emitted('pick')).toBeUndefined()
 })

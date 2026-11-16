@@ -2,6 +2,7 @@
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
 import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
 import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
+import { GUIDED_DEFAULTS, type GuidedPreferences, type Place } from '@/lib/fly/guided'
 import { COPTER_MODES } from '@/mock/fixtures'
 import type { Metadata } from '@/lib/params/metadata'
 import { indexFor } from '@/lib/params/paramSearch'
@@ -35,6 +36,11 @@ export interface Fake {
     parameterValues?: Record<string, number>
     /** The user's highest takeoff (m). */
     takeoffCeiling?: number
+    /** What the user chose for guided control, and the place picked on the map. */
+    guidedPrefs?: GuidedPreferences
+    target?: Place | null
+    /** Whether the complete list of parameters is there (it is, unless a test says not). */
+    listComplete?: boolean
     /** The modes of the vehicle's kind (null: not read yet), and the one it is in. */
     modes: VehicleModes | null
     mode?: string
@@ -70,6 +76,8 @@ export interface Fake {
     sent: string[]
     /** One entry per call to `vehicle.disconnect`. */
     disconnect: string[]
+    /** One entry per time the picked place was dropped. */
+    cleared: string[]
     /** One entry per download of the parameters that was asked for. */
     download: string[]
     /** One entry per snapshot file that was asked to be saved (`save`) or opened (`load`). */
@@ -135,6 +143,8 @@ function vehicleOf(fake: Fake): VehicleFacts {
     setMode: mode => sentOf(fake, `mode ${mode}`),
     prearm: () => sentOf(fake, 'prearm'),
     takeoff: altitude => sentOf(fake, `takeoff ${altitude}`),
+    reposition: ask => sentOf(fake, `reposition ${ask.latitude},${ask.longitude} ${ask.altitude} ${ask.failsafe}`),
+    setSpeed: ask => sentOf(fake, `speed ${ask.speed}`),
     telemetry: () => fake.facts.telemetry ?? null,
     recentReasons: () => fake.facts.recentReasons ?? [],
     modes: () => fake.facts.modes,
@@ -149,10 +159,15 @@ function vehicleOf(fake: Fake): VehicleFacts {
  * @param fake the fake
  * @returns the three parts
  */
-function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage' | 'preferences'> {
+function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialogs' | 'usage' | 'preferences' | 'guided'> {
   return {
     usage: { recent: () => fake.facts.recent },
-    preferences: { modeConfirmation: () => fake.facts.modeConfirmation, takeoffCeiling: () => fake.facts.takeoffCeiling ?? 50 },
+    guided: { target: () => fake.facts.target ?? null, clearTarget: () => void fake.calls.cleared.push('cleared') },
+    preferences: {
+      modeConfirmation: () => fake.facts.modeConfirmation,
+      takeoffCeiling: () => fake.facts.takeoffCeiling ?? 50,
+      guided: () => fake.facts.guidedPrefs ?? GUIDED_DEFAULTS,
+    },
     files: {
       loadMetadata: () => void fake.calls.metadata.push('load'),
       saveSnapshot: () => void fake.calls.snapshot.push('save'),
@@ -165,6 +180,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       busy: () => fake.facts.paramsBusy,
       download: () => void fake.calls.download.push('download'),
       value: id => fake.facts.parameterValues?.[id],
+      listComplete: () => fake.facts.listComplete ?? true,
     },
     dialogs: {
       showConnect: () => void fake.calls.dialogs.push('connect'),
@@ -189,6 +205,7 @@ function noCalls(): Fake['calls'] {
     reboot: [],
     sent: [],
     disconnect: [],
+    cleared: [],
     download: [],
     snapshot: [],
     dialogs: [],

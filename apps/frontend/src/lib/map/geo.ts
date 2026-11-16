@@ -118,6 +118,20 @@ export function unproject(x: number, y: number, zoom: number): { lat: number, lo
 }
 
 /**
+ * The place under a point of the map: the other way of `screenOf`.
+ *
+ * @param view what the map shows
+ * @param size the size of the map
+ * @param point a point from the top left of the map
+ * @returns the latitude and the longitude
+ */
+export function placeAt(view: View, size: Size, point: Point): { lat: number, lon: number } {
+  const center = project(view.lat, view.lon, view.zoom)
+
+  return unproject(center.x + point.x - size.width / 2, center.y + point.y - size.height / 2, view.zoom)
+}
+
+/**
  * The view that has a world pixel in its centre.
  *
  * @param center the pixel

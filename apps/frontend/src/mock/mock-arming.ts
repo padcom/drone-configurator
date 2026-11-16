@@ -4,7 +4,7 @@
 // sent are set and read by a test (`MockArmingControl`). What the vehicle IS afterwards is what the telemetry says: an arm that
 // was accepted makes the vehicle armed (its next sample says so), and so does one nothing answered (it may have been done).
 import type { Envelope } from '@pico-desktop/protocol'
-import type { ArmingResult, SetModeAsk, TakeoffAsk } from '@/generated/app'
+import type { ArmingResult, RepositionAsk, SetModeAsk, SetSpeedAsk, TakeoffAsk } from '@/generated/app'
 import { COPTER_MODES } from './fixtures'
 
 type Ok = (p: Envelope['p']) => void
@@ -288,6 +288,47 @@ export class MockArming {
     } else {
       fail(...refusal)
     }
+  }
+
+  /**
+   * The backend's `vehicle.reposition`: an armed vehicle whose state is known and nothing else under way; the mock does not fly.
+   *
+   * @param ask the place and the altitude
+   * @param ok answers
+   * @param fail answers an error
+   */
+  reposition(ask: RepositionAsk, ok: Ok, fail: Fail): void {
+    const refusal = this.refusal(true) ?? (this.host.busy() ? this.busy() : null)
+    if (refusal === null) {
+      this.send(`reposition ${ask.latitude},${ask.longitude} ${ask.altitude} ${ask.failsafe}`, ok, () => undefined)
+    } else {
+      fail(...refusal)
+    }
+  }
+
+  /**
+   * The backend's `vehicle.setSpeed`: as `reposition`.
+   *
+   * @param ask the speed
+   * @param ok answers
+   * @param fail answers an error
+   */
+  setSpeed(ask: SetSpeedAsk, ok: Ok, fail: Fail): void {
+    const refusal = this.refusal(true) ?? (this.host.busy() ? this.busy() : null)
+    if (refusal === null) {
+      this.send(`speed ${ask.speed}`, ok, () => undefined)
+    } else {
+      fail(...refusal)
+    }
+  }
+
+  /**
+   * The refusal of a command while something else is under way.
+   *
+   * @returns the refusal
+   */
+  private busy(): Refusal {
+    return ['BUSY', 'an earlier command, a parameter or log operation or a reboot is under way']
   }
 
   /**

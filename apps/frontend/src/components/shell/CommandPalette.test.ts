@@ -213,6 +213,7 @@ it('lists every command alphabetically by its label when none was run lately', a
     'Disconnect',
     'Download parameters',
     ...FLIGHT_MODE_LABELS,
+    'Go here',
     'Load parameter metadata…',
     'Load parameter snapshot…',
     'Open log file…',
@@ -233,15 +234,16 @@ it('names the group of each command in its row', async () => {
 
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
-  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, nine flight modes, the
+  // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, Go here, nine modes, the
   // connection and the reboot, the parameters' and the logs'), then the ways (as many as the screens have parts).
-  expect(groups.slice(0, 20)).toEqual([
+  expect(groups.slice(0, 21)).toEqual([
     'Vehicle',
     'Vehicle',
     'Vehicle',
     'Vehicle',
     'Parameters',
     ...FLIGHT_MODE_LABELS.map(() => 'Vehicle'),
+    'Vehicle',
     'Parameters',
     'Parameters',
     'Logs',
@@ -251,7 +253,7 @@ it('names the group of each command in its row', async () => {
   ])
   expect(groups.length).toBeGreaterThan(30)
   // (Take off is the last of the list by its name, and a vehicle's command)
-  expect(groups.slice(20, -1).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(21, -1).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-1)).toBe('Vehicle')
 })
 

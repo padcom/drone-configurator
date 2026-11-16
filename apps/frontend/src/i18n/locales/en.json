@@ -704,6 +704,18 @@
     "label": "Language"
   },
   "arming": {
+    "reposition": {
+      "accepted": "{vehicle} accepted: it flies to the place, {altitude} m above home.",
+      "refused": "{vehicle} refused to go there.",
+      "unsupported": "{vehicle} does not support going to a place from here.",
+      "noAnswer": "No answer from {vehicle}. It may be flying there: watch its position. The command is not sent again."
+    },
+    "speed": {
+      "accepted": "{vehicle} accepted the speed.",
+      "refused": "{vehicle} refused the speed.",
+      "unsupported": "{vehicle} does not support changing the speed from here.",
+      "noAnswer": "No answer from {vehicle} to the speed. Nothing was sent after it."
+    },
     "takeoff": {
       "accepted": "{vehicle} accepted the takeoff to {altitude} m. It climbs when its position says so.",
       "refused": "{vehicle} refused to take off.",
@@ -2143,6 +2155,70 @@
       "tracking": "This notch tracks the throttle, a sensor or the FFT, so its centre moves: the page does not check it against the peaks of the log that is open in Spectrum.",
       "misses": "The notch as chosen (bands {bands} Hz) takes out none of the peaks in the spectrum of log {log} ({peaks} Hz): its centre is outside where the noise was logged.",
       "harmonic": "Harmonic {n}"
+    }
+  },
+  "guided": {
+    "command": {
+      "label": "Go here",
+      "keywords": "fly move go to target reposition map guided",
+      "title": "Go here",
+      "what": "The vehicle flies to the place you picked on the map, {distance} m from it and {fromHome} m from home, at {altitude} m above home and {speed} m/s, and stays there. Check that the way is free.",
+      "mode": "It changes to GUIDED first.",
+      "button": "Go here"
+    },
+    "reason": {
+      "params": "Guided control needs the complete list of the vehicle's parameters: download it first.",
+      "position": "The vehicle does not report its position.",
+      "air": "The vehicle is not in the air.",
+      "home": "The vehicle has not said where home is lately.",
+      "target": "Pick a place on the map first.",
+      "far": "That place is farther from home than your limit in Settings.",
+      "unsupported": "Guided control is for an ArduPilot vehicle only.",
+      "invalid": "That place or altitude is not valid.",
+      "outOfLimits": "That is beyond the limits in Settings or the vehicle's own fence.",
+      "notGuided": "The vehicle is not in GUIDED.",
+      "stalePosition": "The vehicle's position is old: try again.",
+      "failsafeOff": "The vehicle's GCS failsafe (FS_GCS_ENABLE) is off or cannot be read: set it, or choose to be warned in Settings.",
+      "fenceUnknown": "The vehicle's fence could not be read, so nothing is assumed: try again."
+    },
+    "settings": {
+      "title": "Guided control",
+      "help": "Go here on the map. The vehicle must be in the air; the vehicle's own fence is lower still when it limits the numbers below.",
+      "perSecond": "{n} m/s",
+      "labels": {
+        "confirmation": "Before a Go here",
+        "failsafe": "When the vehicle's GCS failsafe is off",
+        "maxAltitude": "Highest altitude",
+        "maxDistance": "Farthest from home",
+        "maxSpeed": "Greatest speed",
+        "speed": "Speed of a Go here"
+      },
+      "helps": {
+        "confirmation": "A plain confirmation says how far, how high and how fast. A hold is for those who want to be sure.",
+        "failsafe": "With FS_GCS_ENABLE off the vehicle keeps flying its last command if the link drops. Block refuses the command; Warn sends it and says so.",
+        "maxAltitude": "Metres above home.",
+        "maxDistance": "Metres from home.",
+        "maxSpeed": "No command may ask for more.",
+        "speed": "Never above the greatest speed."
+      },
+      "words": {
+        "confirmation": {
+          "none": "Do not ask",
+          "plain": "Ask for a confirmation (recommended)",
+          "hold": "Ask for a hold"
+        },
+        "failsafe": {
+          "block": "Block the command (recommended)",
+          "warn": "Warn, and send it"
+        }
+      }
+    },
+    "panel": {
+      "title": "Place on the map",
+      "place": "{lat}, {lon}",
+      "away": "{distance} m from the vehicle, {fromHome} m from home",
+      "go": "Go here",
+      "clear": "Clear"
     }
   }
 }

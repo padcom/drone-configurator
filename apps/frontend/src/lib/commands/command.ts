@@ -2,7 +2,8 @@
 // is a small object that knows its own label, whether it may run now (and if not, why), what to ask before it runs, and what it
 // does. Nothing here draws anything or knows Vue: the palette (and later the top bar, the F-keys, the menus) only list commands
 // and call `CommandRegistry.invoke`, which is the one way a command runs.
-import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
+import type { ArmingResult, Connection, RepositionAsk, SetSpeedAsk, Telemetry, VehicleModes } from '@/generated/app'
+import type { GuidedPreferences, Place } from '@/lib/fly/guided'
 import type { IconName } from '@/lib/ui/icons'
 import type { SearchIndex } from '@/lib/params/paramSearch'
 import type { SafetyOptions } from '@/lib/app/safety'
@@ -72,6 +73,13 @@ export interface VehicleFacts {
   prearm(): Promise<ArmingResult>
   /** Takes off to this many metres above home (an armed vehicle on the ground in GUIDED: else the vehicle refuses). Sent once. */
   takeoff(altitude: number): Promise<ArmingResult>
+  /**
+   Flies to a place at an altitude, in GUIDED: sent once; the backend refuses before sending what the vehicle must not be
+  /** asked.
+   */
+  reposition(ask: RepositionAsk): Promise<ArmingResult>
+  /** Changes the ground speed of the guided mode: sent once. */
+  setSpeed(ask: SetSpeedAsk): Promise<ArmingResult>
   /** What the vehicle reports now (the heartbeat's armed state, its GPS, its EKF, its position), or null without a vehicle. */
   telemetry(): Telemetry | null
   /** The reasons the vehicle gave lately why it will not arm (its own words, the last two minutes), the oldest first. */
@@ -94,6 +102,8 @@ export interface ParamsFacts {
   download(): void
   /** The value of one of the vehicle's parameters, or undefined when the list has none by that name. */
   value(id: string): number | undefined
+  /** Whether the complete list of the vehicle's parameters is there (the backend's fence rules need it). */
+  listComplete(): boolean
 }
 
 /** The parts of the page that open on a command: the dialogs that are not a screen. */
@@ -149,6 +159,16 @@ export interface PreferenceFacts {
   modeConfirmation(): 'none' | 'plain'
   /** The highest altitude a takeoff may be asked for, as the user set it (m above home; the vehicle's fence may be lower). */
   takeoffCeiling(): number
+  /** What the user chose for guided control: the confirmation of a Go here, the failsafe, the limits and the speed. */
+  guided(): GuidedPreferences
+}
+
+/** The place the user picked on the map for a Go here. */
+export interface GuidedFacts {
+  /** The picked place, or none. */
+  target(): Place | null
+  /** Drops it (it was sent). */
+  clearTarget(): void
 }
 
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
@@ -157,6 +177,8 @@ export interface CommandContext {
   navigate(path: string): Promise<void>
   /** The route that is shown now. */
   currentPath(): string
+  /** The place picked on the map. */
+  guided: GuidedFacts
   /** The parameters. */
   parameters: ParameterFacts
   /** The vehicle. */

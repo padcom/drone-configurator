@@ -4,7 +4,7 @@
 import { inject, nextTick } from 'vue'
 import { routeLocationKey, routerKey } from 'vue-router'
 import type {
-  CommandContext, DialogFacts, FileFacts, ParameterFacts, ParamsFacts, VehicleFacts,
+  CommandContext, DialogFacts, FileFacts, GuidedFacts, ParameterFacts, ParamsFacts, PreferenceFacts, VehicleFacts,
 } from '@/lib/commands/command'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
@@ -16,6 +16,7 @@ import { DownloadParameters, LoadSnapshot, SaveSnapshot } from '@/lib/commands/s
 import { FAVOURITES_GROUP, inGroup } from '@/lib/params/paramGroups'
 import { RebootFlightController } from '@/lib/commands/vehicle'
 import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightModeCommands } from '@/lib/commands/arming'
+import { GoHere } from '@/lib/commands/goHere'
 import { TakeOff } from '@/lib/commands/takeoff'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
@@ -28,6 +29,8 @@ import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
+import { useGoHere } from './useGoHere'
+import { useGuidedPreferences } from './useGuidedPreferences'
 import { useTakeoff } from './useTakeoff'
 import { useTakeoffCeiling } from './useTakeoffCeiling'
 import { useFavourites } from './favourites'
@@ -53,6 +56,7 @@ function makeRegistry(): CommandRegistry {
   registry.register(new DisarmVehicle())
   registry.register(new EmergencyStop())
   registry.register(new TakeOff())
+  registry.register(new GoHere())
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
     new LoadMetadata(),
@@ -120,6 +124,8 @@ function vehicleFacts(): VehicleFacts {
     setMode: mode => vehicle.setMode(mode),
     prearm: () => vehicle.prearm(),
     takeoff: altitude => vehicle.takeoff(altitude),
+    reposition: ask => vehicle.reposition(ask),
+    setSpeed: ask => vehicle.setSpeed(ask),
     telemetry: () => fields.telemetry.value,
     recentReasons: () => reasonsOf(messages.list.value, Date.now()).map(reason => reason.text),
     modes: () => setup.modes.value,
@@ -142,6 +148,7 @@ function paramsFacts(): ParamsFacts {
     busy: () => parameters.lock.busy.value,
     download: () => void parameters.refresh(),
     value: id => fields.params.value.find(param => param.id === id)?.value,
+    listComplete: () => fields.list.value === 'complete',
   }
 }
 
@@ -248,6 +255,34 @@ function dialogFacts(): DialogFacts {
 }
 
 /**
+ * What the user chose in Settings, read when asked.
+ *
+ * @returns the facts
+ */
+function preferenceFacts(): PreferenceFacts {
+  const { level: modeConfirmation } = useModeConfirmation()
+  const { ceiling: takeoffCeiling } = useTakeoffCeiling()
+  const { prefs: guided } = useGuidedPreferences()
+
+  return {
+    modeConfirmation: () => modeConfirmation.value,
+    takeoffCeiling: () => takeoffCeiling.value,
+    guided: () => guided.value,
+  }
+}
+
+/**
+ * The place picked on the map.
+ *
+ * @returns the facts
+ */
+function guidedFacts(): GuidedFacts {
+  const goHere = useGoHere()
+
+  return { target: () => goHere.target.value, clearTarget: () => goHere.clear() }
+}
+
+/**
  * The context commands run in. Made in a component's `setup`, where the router and the configurator are.
  *
  * @returns the context
@@ -260,8 +295,6 @@ export function useCommandContext(): CommandContext {
   const toasts = useToasts()
   const { confirmWith } = useConfigurator()
   const { recent } = useCommandUsage()
-  const { level: modeConfirmation } = useModeConfirmation()
-  const { ceiling: takeoffCeiling } = useTakeoffCeiling()
 
   return {
     navigate: async path => {
@@ -274,7 +307,8 @@ export function useCommandContext(): CommandContext {
     params: paramsFacts(),
     dialogs: dialogFacts(),
     usage: { recent: () => recent.value },
-    preferences: { modeConfirmation: () => modeConfirmation.value, takeoffCeiling: () => takeoffCeiling.value },
+    preferences: preferenceFacts(),
+    guided: guidedFacts(),
     files: fileFacts(),
     // The one route for what is dangerous: the confirmation dialog, with the options the command gives (a hold).
     confirm: options => confirmWith(options),
