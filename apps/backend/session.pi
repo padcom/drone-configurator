@@ -78,6 +78,9 @@ class Link {
   /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
   /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
   public motorTest: bool = false
+  /// Whether RC control is on (rc.pi: from its start until its release was written or given up): the vehicle then takes the page's sticks
+  /// for its radio, so a motor test, a calibration, a parameter write and a reboot are refused (`BUSY`).
+  public rcControl: bool = false
   /// Messages that must still go out as the session ends and are on their way: the rates the tuning stream gives back (tuningstream.pi).
   /// With the motor test's stop they are the things that must say goodbye: the connection stays open for `closeGraceMs` for them.
   public farewells: int = 0

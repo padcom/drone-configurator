@@ -1,0 +1,498 @@
+// The RC control service (`rc.control`, `rc.input`): the page's sticks flown through the vehicle's RC_CHANNELS_OVERRIDE. READ pico-mavlink's
+// rcoverride.pi for the danger before changing anything here: an override IS the radio (a mode switch channel changes the mode, a throttle
+// under the failsafe value is a radio failsafe, "RC not found" passes), and what is sent is held by the vehicle until it is released or its
+// RC_OVERRIDE_TIME lapses.
+//
+// What ends a control, by every way it can end (a test of its own for each, in rc.test.pi); each RELEASES the channels (one frame) first:
+//  - the page lets go, or unsubscribes (the page leaving, a window closing: the subscription ends): `RELEASED`;
+//  - the page goes silent (`rc.input` is its sticks, every 40 ms; no NEW one (its `seq` above the last) for `waits.silenceMs`, 300 ms, is a
+//    page that froze, a window that was throttled, an IPC that stalled): `SILENT`. The sender's own watchdog (RcOverride's `silenceMs`) is the
+//    same time: whichever comes first;
+//  - the link or the session ends, or another vehicle is there (`link.session` is aborted, or the session's parts are detached before the
+//    connection is closed): `LINK_LOST`. The release is sent as the session ends, and the session keeps the connection open for it
+//    (`link.farewells`, and the connection's own `shutdown`, which waits for the release and gives the other end time to read it);
+//  - and when none of that can reach the vehicle (the backend killed, the cable pulled): the vehicle's own RC_OVERRIDE_TIME (3 s by default;
+//    a vehicle that has it 0 or negative is refused, `OVERRIDE_DISABLED`) lets go.
+// The throttle channel (`RCMAP_THROTTLE`) is never sent under its `RCn_MIN`: a pulse below it is raised to it (`clamped` counts them),
+// since the radio failsafe value is under the minimum and a stick pulse under it would be a failsafe.
+// The frames go from a connection of their own on the app's router, with the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`);
+// the rest of the app's connection uses pico-mavlink's default, 254, which the vehicle ignores for overrides (silently).
+import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
+import { delay } from "std/timers"
+import {
+  ByteStream,
+  MavAutopilot,
+  MavLinkConnection,
+  MavLinkError,
+  MavLinkProtocolV2,
+  MAX_PULSE,
+  MIN_PULSE,
+  NO_OVERRIDE,
+  OVERRIDE_CHANNELS,
+  ParamRead,
+  RcOverride,
+  TypedParamValue,
+  defaultRegistry,
+} from "padcom/pico-mavlink"
+import { RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
+import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
+
+/// The times of the control (ms). A test may shorten them.
+class Waits {
+  /// How long the page may be silent (no new `rc.input`) before the channels are released.
+  public silenceMs: int = 300
+  /// How often the silence is looked for.
+  public watchMs: int = 20
+  /// How long a read of one of the vehicle's parameters may take (it asks twice).
+  public readMs: int = 500
+  /// How long a release is held in the connection after it was written, for the vehicle to read it before anything closes the link.
+  public graceMs: int = 150
+}
+
+/// For tests: what the sender writes to is the router as it is, or what this makes of it (a stream that is slow, or fails).
+class Seams {
+  public wrap: ((inner: ByteStream) => ByteStream)? = null
+}
+
+export const seams = new Seams()
+
+export const waits = new Waits()
+
+/// The system id and the component id the frames are sent with: `MAV_GCS_SYSID`'s default, and Mission Planner's component id.
+export const GCS_SYSID: int = 255
+const GCS_COMPID: int = 190
+
+/// How many frames a second are sent (the sender holds it to 10 to 50).
+const FRAMES_PER_SECOND: int = 25
+
+/// Registers the service's methods and subscription on `c`, and its part of the session.
+export function register(c: Communicator): void {
+  link.parts.set("rc", current)
+  c.handle("rc.input", input)
+  c.publish("rc.control", startControl)
+}
+
+/// The app's router as a stream that only writes, and that does not close it: the sender's connection is not the router's owner.
+class RouterEnd implements ByteStream {
+  readonly inner: ByteStream
+
+  constructor(inner: ByteStream) {
+    this.inner = inner
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    return null
+  }
+
+  public async write(bytes: Uint8Array): Promise<void> throws Error {
+    await inner.write(bytes)
+  }
+
+  public close(): void {
+  }
+}
+
+/// The control that runs, or the one that ended last.
+class Control implements SessionPart {
+  public conn: MavLinkConnection? = null
+  /// Whether a control is on (from its start until the channels are released and the release answered or given up).
+  public active: bool = false
+  /// Counts the controls: what a control's late news (its timer, its sink closing) says of an older one is ignored.
+  public serial: int = 0
+  public sink: Sink? = null
+  public over: RcOverride? = null
+  public sender: MavLinkConnection? = null
+  /// Why it ends (the first reason stays).
+  public why: string = ""
+  /// Whether the sender is set and sending (a control that is still being prepared is `active` but not `ready`).
+  public ready: bool = false
+  public throttleChannel: int = 3
+  public throttleMin: int = 1000
+  /// The `seq` of the last frame that counted, and when it came (ms since 1970).
+  public lastSeq: int = -1
+  public inputAt: int = 0
+  public clamped: int = 0
+  public watchdog: int = 0
+  /// The release on its way (written, or tried again), without the pause after it, or null.
+  public releasing: Promise<void>? = null
+  /// The session signal that is followed (once for each session, not once for each control).
+  public followed: AbortSignal? = null
+
+  public attach(c: MavLinkConnection): void {
+    conn = c
+  }
+
+  /// The session ends (or another vehicle is there): the release goes first, and the session keeps the connection open a moment for it.
+  public detach(): void {
+    end(serial, "LINK_LOST", true)
+    conn = null
+  }
+
+  /// Makes the session ending end the control. One listener on a session's signal, however many controls it has.
+  public follow(signal: AbortSignal): void {
+    if (followed == signal) {
+      return
+    }
+    followed = signal
+    signal.addEventListener("abort", () => {
+      current.end(current.serial, "LINK_LOST", true)
+    })
+  }
+
+  /// A control begins. It is claimed at once, before anything is awaited: a second subscription that comes now finds it busy.
+  public begin(s: Sink): int {
+    serial += 1
+    active = true
+    ready = false
+    link.rcControl = true
+    sink = s
+    why = ""
+    lastSeq = -1
+    clamped = 0
+    inputAt = Date.now() as int
+    follow(link.session.signal)
+    return serial
+  }
+
+  /// The page has been silent for too long, or the sender gave up by itself: the channels are released.
+  public watch(mine: int): void {
+    if (!active || mine != serial || !ready) {
+      return
+    }
+    const o = over
+    const stopped = o != null && !o!.running && o!.why == "silent"
+    if (heartbeatArmedState() == null) {
+      // Whether the vehicle is armed is not known (no heartbeat for 3 s): the sticks are let go of, as the plan says.
+      end(mine, "STATE_UNKNOWN", false)
+    } else if (stopped || (Date.now() as int) - inputAt > waits.silenceMs) {
+      end(mine, "SILENT", false)
+    }
+  }
+
+  /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page. It returns at
+  /// once: the release is on its way (`releasing`), for whoever must wait for it.
+  public end(of: int, code: string, farewell: bool): void {
+    if (!active || of != serial) {
+      return
+    }
+    if (why == "") {
+      why = code
+    }
+    active = false
+    clearInterval(watchdog)
+    this.finish(of, farewell)
+  }
+
+  /// Releases the channels and tells how it went. While the release is on its way the control still counts as on (nothing else that
+  /// talks to the vehicle starts). EVERY end is a farewell: the session may end (or the connection be closed) while the release is being
+  /// written, tried again, or given the time to be read, and the connection must stay open for it (`link.farewells`).
+  async finish(mine: int, atTheEnd: bool): Promise<void> {
+    const o = over
+    const c = sender
+    const s = sink
+    const code = why
+    link.farewells += 1
+    try {
+      const work = this.releaseOf(o, c, atTheEnd)
+      releasing = work
+      await work
+      this.tellEnd(mine, o, s, code)
+      if (o != null && !atTheEnd) {
+        // (told already: the page and the other services need not wait for the vehicle to read it, the connection does)
+        await pause(waits.graceMs)
+      }
+    } finally {
+      link.farewells -= 1
+    }
+  }
+
+  /// The release itself: written (and tried again when a write fails). At the end of a session it is the connection's `shutdown` that
+  /// releases (its close hook), waits for it, and gives the vehicle time to read it.
+  async releaseOf(o: RcOverride?, c: MavLinkConnection?, atTheEnd: bool): Promise<void> {
+    if (o != null) {
+      if (atTheEnd && c != null) {
+        await c!.shutdown()
+      } else {
+        await o!.release()
+      }
+    }
+  }
+
+  /// The control is over: the others may talk to the vehicle, and the page is told how it went.
+  tellEnd(mine: int, o: RcOverride?, s: Sink?, code: string): void {
+    const sentFrames = if (o == null) 0 else o!.sent
+    // Confirmed: the release was written, or there was nothing to release (no frame of pulses was ever tried).
+    const confirmed = o != null && !o!.releaseFailed && (o!.released > 0 || (o!.sent == 0 && o!.failed == 0))
+    if (serial == mine) {
+      link.rcControl = false
+      ready = false
+      over = null
+      sender = null
+      sink = null
+    }
+    if (s != null && s!.active) {
+      s!.next(encodeRcState(RcState {
+        state: RcStateState.Released,
+        why: code,
+        sent: sentFrames as u32,
+        clamped: clamped as u32,
+        confirmed: confirmed,
+      }))
+      s!.end()
+    }
+  }
+}
+
+const current = new Control()
+
+/// Waits `ms` (a wait that is aborted is over).
+async function pause(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    return
+  }
+}
+
+/// How long an emergency stop or a disarm waits for the release to be written (ms): the release is handed over first, and the stop
+/// never waits for more than this (not for the retries, and never for the pause after the release): the stop is the one thing that
+/// must not be late.
+export const STOP_WAIT_MS: int = 100
+
+/// An emergency stop or a disarm is about to be sent: the control that is on ends FIRST (the release is handed to the link, and the
+/// sticks stop streaming at once: nothing but a release is written after an end), and the caller sends its command when this returns,
+/// which is when the release was written, or after `STOP_WAIT_MS` at the most. A release already on its way is waited for the same.
+export async function dropForStop(): Promise<void> {
+  if (current.active) {
+    current.end(current.serial, "STOPPED", false)
+  }
+  const work = current.releasing
+  if (work != null) {
+    await atMost(work!, STOP_WAIT_MS)
+  }
+}
+
+/// Waits for `work`, or `ms`, whichever is first (the work goes on).
+async function atMost(work: Promise<void>, ms: int): Promise<void> {
+  try {
+    await new Promise<bool, Error>((resolve: (value: bool) => void, _reject: (error: Error) => void) => {
+      let done = false
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true
+          resolve(false)
+        }
+      }, ms)
+      settled(work, () => {
+        if (!done) {
+          done = true
+          clearTimeout(timer)
+          resolve(true)
+        }
+      })
+    })
+  } catch (e: Error) {
+    return
+  }
+}
+
+/// Runs `done` when `work` is over.
+async function settled(work: Promise<void>, done: () => void): Promise<void> {
+  await work
+  done()
+}
+
+/// A number a parameter's value is.
+function numberOf(v: TypedParamValue): f64 {
+  match (v) {
+    Int { value } => value as f64,
+    Real { value } => value as f64,
+  }
+}
+
+/// A parameter of the vehicle, asked now: its value, or null when it could not be read.
+async function readParam(id: string): Promise<f64?> throws Error {
+  try {
+    const read = new ParamRead(connectedLink(), { system: link.sysid, component: link.compid }, link.encoding, {
+      timeoutMs: waits.readMs,
+      retries: 1,
+      signal: link.session.signal,
+    })
+    return numberOf((await read.run(id)).value)
+  } catch (e: MavLinkError) {
+    if (e.code == "ABORTED") {
+      throw new CommunicatorError("ABORTED", e.message)
+    }
+    return null
+  }
+}
+
+/// Why a control may not begin now, as an error, or nothing.
+function refuse(): void throws CommunicatorError {
+  if (link.autopilot != MavAutopilot.ARDUPILOTMEGA) {
+    throw new CommunicatorError("UNSUPPORTED", "RC control is made for an ArduPilot vehicle")
+  }
+  if (armedState() == null) {
+    throw new CommunicatorError("STATE_UNKNOWN", "the vehicle's state is unknown (no heartbeat for 3 s)")
+  }
+  if (current.active) {
+    throw new CommunicatorError("BUSY", "RC control is already on")
+  }
+  if (link.calibrating || link.motorTest || link.listing || link.writes > 0 || link.logging || link.planning || rebootExpected()) {
+    throw new CommunicatorError("BUSY", "a calibration, a motor test, a parameter, log or plan operation or a reboot is under way")
+  }
+  if (!link.paramsComplete) {
+    throw new CommunicatorError("PARAMS_INCOMPLETE", "the vehicle's parameters were not all downloaded: the throttle cannot be held to its range")
+  }
+}
+
+/// The subscription: the control begins with it and ends with it. One that may not begin ends the subscription at once, with the code of why.
+function startControl(_params: Cbor?, sink: Sink): void throws Error {
+  try {
+    connectedLink()
+    refuse()
+  } catch (e: CommunicatorError) {
+    sink.end(e.code, e.message)
+    return
+  }
+  const mine = current.begin(sink)
+  // The page letting go (or going away) ends the control.
+  sink.onClose = () => current.end(mine, "RELEASED", false)
+  prepare(mine, sink)
+}
+
+/// Reads what the control needs of the vehicle, then starts the sender. Anything that ends the control meanwhile ends this too.
+async function prepare(mine: int, sink: Sink): Promise<void> {
+  try {
+    const reading = await readSettings()
+    if (!current.active || mine != current.serial) {
+      return
+    }
+    start(mine, sink, reading)
+  } catch (e: Error) {
+    fail(mine, sink, if (e instanceof CommunicatorError) (e as CommunicatorError).code else "FAILED", e.message)
+  }
+}
+
+/// What the vehicle says: the override time, the throttle channel and its minimum.
+class Settings {
+  public throttleChannel: int = 3
+  public throttleMin: int = 1000
+}
+
+async function readSettings(): Promise<Settings> throws Error {
+  const time = await readParam("RC_OVERRIDE_TIME")
+  if (time == null) {
+    throw new CommunicatorError("PARAMS_MISSING", "RC_OVERRIDE_TIME could not be read from the vehicle")
+  }
+  if (time! <= 0.0) {
+    throw new CommunicatorError("OVERRIDE_DISABLED", if (time! == 0.0) "RC_OVERRIDE_TIME is 0: the vehicle ignores overrides" else "RC_OVERRIDE_TIME is negative: the vehicle would never let go of an override")
+  }
+  const mapped = await readParam("RCMAP_THROTTLE")
+  if (mapped == null || mapped! < 1.0 || mapped! > (OVERRIDE_CHANNELS as f64)) {
+    throw new CommunicatorError("PARAMS_MISSING", "RCMAP_THROTTLE could not be read from the vehicle")
+  }
+  const channel = mapped! as int
+  const least = await readParam(`RC${channel}_MIN`)
+  if (least == null || least! < (MIN_PULSE as f64) || least! > (MAX_PULSE as f64)) {
+    throw new CommunicatorError("PARAMS_MISSING", `RC${channel}_MIN could not be read from the vehicle`)
+  }
+  const s = new Settings()
+  s.throttleChannel = channel
+  s.throttleMin = least! as int
+  return s
+}
+
+/// Ends a control that could not begin: the subscription ends with the code (nothing was sent).
+function fail(mine: int, sink: Sink, code: string, message: string): void {
+  if (!current.active || mine != current.serial) {
+    return
+  }
+  current.active = false
+  current.ready = false
+  link.rcControl = false
+  current.sink = null
+  // (it failed after the sender had started: the watchdog is stopped and what the sender may have sent is released)
+  clearInterval(current.watchdog)
+  const o = current.over
+  current.over = null
+  current.sender = null
+  if (o != null) {
+    abandon(o!)
+  }
+  if (sink.active) {
+    sink.end(code, message)
+  }
+}
+
+/// Releases a sender whose control failed to begin, as a farewell.
+async function abandon(o: RcOverride): Promise<void> {
+  link.farewells += 1
+  await o.release()
+  await pause(waits.graceMs)
+  link.farewells -= 1
+}
+
+/// The sender starts (it sends nothing until the first `rc.input`), and the page is told.
+function start(mine: int, sink: Sink, settings: Settings): void throws Error {
+  const router = link.router
+  if (router == null) {
+    throw new CommunicatorError("NOT_CONNECTED", "no vehicle is connected")
+  }
+  const end: ByteStream = new RouterEnd(router!)
+  const wrap = seams.wrap
+  const stream: ByteStream = if (wrap == null) end else wrap!(end)
+  const sender = new MavLinkConnection(stream, { registry: defaultRegistry(), protocol: new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID) })
+  const over = new RcOverride(sender, { system: link.sysid, component: link.compid }, { rateHz: FRAMES_PER_SECOND, silenceMs: waits.silenceMs })
+  current.sender = sender
+  current.over = over
+  current.throttleChannel = settings.throttleChannel
+  current.throttleMin = settings.throttleMin
+  current.inputAt = Date.now() as int
+  over.start()
+  current.ready = true
+  current.watchdog = setInterval(() => current.watch(mine), waits.watchMs)
+  if (sink.active) {
+    sink.next(encodeRcState(RcState {
+      state: RcStateState.On,
+      throttleChannel: settings.throttleChannel as u8,
+      throttleMin: settings.throttleMin as u16,
+    }))
+  }
+}
+
+/// The page's sticks.
+async function input(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  const frame = decodeRcInput(payload ?? Cbor.Null, "$")
+  if (!current.active || !current.ready) {
+    throw new CommunicatorError("NOT_RUNNING", "RC control is not on")
+  }
+  if (frame.channels.length > OVERRIDE_CHANNELS) {
+    throw new CommunicatorError("INVALID_VALUE", `${frame.channels.length} channels are more than the ${OVERRIDE_CHANNELS} an override has`)
+  }
+  const pulses: int[] = []
+  for (const raw of frame.channels) {
+    const p = raw as int
+    if (p != 0 && (p < MIN_PULSE || p > MAX_PULSE)) {
+      throw new CommunicatorError("INVALID_VALUE", `a pulse of ${p} µs is not ${MIN_PULSE} to ${MAX_PULSE}`)
+    }
+    pulses.push(if (p == 0) NO_OVERRIDE else p)
+  }
+  const seq = frame.seq as int
+  if (seq <= current.lastSeq) {
+    // Not new: it does not say the page is alive.
+    return null
+  }
+  current.lastSeq = seq
+  current.inputAt = Date.now() as int
+  const t = current.throttleChannel - 1
+  if (t < pulses.length && pulses[t] != NO_OVERRIDE && pulses[t] < current.throttleMin) {
+    pulses[t] = current.throttleMin
+    current.clamped += 1
+  }
+  const o = current.over
+  if (o != null) {
+    o!.set(pulses)
+  }
+  return null
+}

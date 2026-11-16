@@ -55,6 +55,7 @@ import {
 } from "./generated/app"
 import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkReposition, checkSetSpeed, distanceM } from "./guided"
 import { nextMessageId, textsSince } from "./messages"
+import { dropForStop } from "./rc"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
 import { flightNow, forgetHome } from "./telemetry"
 import { modesOfVehicle } from "./vehicleinfo"
@@ -395,6 +396,11 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
     // (the vehicle's state may have moved while it was asked)
     checkAllowed(what, false)
     checkGuidedCommand(what, plan, ask)
+  }
+  if (what == STOP || what == DISARM) {
+    // RC control (rc.pi) ends first: the channels are released and the sticks stop streaming, THEN the stop or the disarm goes out
+    // (the vehicle would take the next stick frame for its radio, and a stop that the sticks follow is a vehicle that fights it).
+    await dropForStop()
   }
   const conn = connectedLink()
   const signal = link.session.signal
