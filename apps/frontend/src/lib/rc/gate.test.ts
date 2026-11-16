@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type ControlInput, controlBlock, isSimulatorLink } from './gate'
 import { suggestedProfile } from './suggest'
-import { calibrated } from './edits'
+import { calibratedSuggestion } from '@/testing/rcProfiles'
 import type { ConnectRequest } from '@/generated/app'
 
 const SIM: ConnectRequest = { transport: 'simulator' }
@@ -9,7 +9,7 @@ const GOOD: ControlInput = {
   allowed: true,
   request: SIM,
   padLive: true,
-  profile: calibrated(suggestedProfile('pad', null), new Map()),
+  profile: calibratedSuggestion(),
   vehicle: [],
 }
 

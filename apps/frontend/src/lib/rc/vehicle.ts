@@ -23,16 +23,19 @@ export interface Facts {
   map: { roll: number, pitch: number, throttle: number, yaw: number }
   /** The range of each channel 1 to 16, or null for one the vehicle did not say. */
   ranges: (PulseRange | null)[]
-  /** The dead zone of each channel (µs), 0 for one that was not said. */
-  zones: number[]
-  /** The function of each channel (`RCn_OPTION`), 0 for none or not said. */
-  options: number[]
+  /** The dead zone of each channel (µs), undefined for one that was not said (never read as 0: it is `unknown`). */
+  zones: (number | undefined)[]
+  /** The function of each channel (`RCn_OPTION`), undefined for one that was not said (never read as 0, "no function"). */
+  options: (number | undefined)[]
+  /** Whether the parameter list was downloaded whole: a list that was not has holes that no rule here can name. */
+  complete: boolean
 }
 
 /** What is wrong, or worth saying, about a mapping and the vehicle together. */
 export interface VehicleProblem {
   /**
-   * `unknown` (the parameters are not there), `range` (a stick channel whose range is not usable), `arm` (a row on a channel
+   * `unknown` (the parameter list is not whole, or a value the mapping needs is not there: channel 0 for the whole list),
+   * `range` (a stick channel whose range is not usable), `arm` (a row on a channel
    * that arms or disarms), `zone` (the throttle's dead zone is wide: a warning).
    */
   code: 'unknown' | 'range' | 'arm' | 'zone'
@@ -94,10 +97,11 @@ function mapOf(params: readonly ParamValue[]): Facts['map'] | null {
 /**
  * What the parameters say of the radio channels.
  *
- * @param params the vehicle's parameters (the whole list)
+ * @param params the vehicle's parameters
+ * @param complete whether the list was downloaded whole (`list === 'complete'`): a list that was not is `unknown`
  * @returns the facts, or null when the vehicle's map of the sticks is not in them
  */
-export function factsOf(params: readonly ParamValue[]): Facts | null {
+export function factsOf(params: readonly ParamValue[], complete: boolean): Facts | null {
   const map = mapOf(params)
   if (map === null) {
     return null
@@ -108,8 +112,9 @@ export function factsOf(params: readonly ParamValue[]): Facts | null {
   return {
     map,
     ranges,
-    zones: eachChannel(params, 'DZ').map(zone => zone ?? 0),
-    options: eachChannel(params, 'OPTION').map(option => option ?? 0),
+    zones: eachChannel(params, 'DZ'),
+    options: eachChannel(params, 'OPTION'),
+    complete,
   }
 }
 
@@ -169,6 +174,23 @@ function armProblems(facts: Facts, profile: Profile): VehicleProblem[] {
 }
 
 /**
+ * What the vehicle did not say that the mapping needs: the function of a channel a row drives (a missing value is NOT "no
+ * function"), and the dead zone of the throttle channel (NOT 0).
+ *
+ * @param facts what the vehicle says
+ * @param profile the mapping
+ * @returns the problems: each `unknown`, and each stops the control
+ */
+function missingProblems(facts: Facts, profile: Profile): VehicleProblem[] {
+  const driven = profile.rows
+    .filter(row => facts.options[row.channel - 1] === undefined)
+    .map(row => ({ code: 'unknown' as const, channel: row.channel, blocks: true }))
+  const { throttle } = facts.map
+
+  return facts.zones[throttle - 1] === undefined ? [...driven, { code: 'unknown', channel: throttle, blocks: true }] : driven
+}
+
+/**
  * How wide the throttle channel's range is.
  *
  * @param facts what the vehicle says
@@ -202,9 +224,9 @@ function zoneProblems(facts: Facts): VehicleProblem[] {
  * @returns the problems, none when the vehicle and the mapping agree
  */
 export function vehicleProblems(facts: Facts | null, profile: Profile): VehicleProblem[] {
-  if (facts === null) {
+  if (facts === null || !facts.complete) {
     return [{ code: 'unknown', channel: 0, blocks: true }]
   }
 
-  return [...rangeProblems(facts), ...armProblems(facts, profile), ...zoneProblems(facts)]
+  return [...rangeProblems(facts), ...missingProblems(facts, profile), ...armProblems(facts, profile), ...zoneProblems(facts)]
 }

@@ -12,7 +12,9 @@ const TX16S = 'OpenTX Radiomaster TX16S Joystick (Vendor: 1209 Product: 4f54)'
  * @returns the mapping
  */
 function full(): Profile {
-  const base = calibrated(suggestedProfile(TX16S, null), new Map([[0, { min: -0.9, center: 0.05, max: 0.95 }]]))
+  const suggestion = suggestedProfile(TX16S, null)
+  const axes = suggestion.rows.map(row => (row.kind === 'stick' ? row.axis : -1))
+  const base = calibrated(suggestion, new Map(axes.map(axis => [axis, { min: -0.9, center: 0.05, max: 0.95 }])))!
 
   return {
     ...base,

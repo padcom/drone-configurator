@@ -65,13 +65,27 @@ function measured(row: Row, calibrations: ReadonlyMap<number, AxisCalibration>):
 }
 
 /**
+ * Whether a calibration can scale an axis: its ends are on either side of its middle (numbers that are not numbers are not).
+ *
+ * @param calibration what was measured, if anything
+ * @returns true when it can
+ */
+function usable(calibration: AxisCalibration | undefined): boolean {
+  return calibration !== undefined && calibration.min < calibration.center && calibration.center < calibration.max
+}
+
+/**
  * Gives a mapping the mark of the wizard: the calibrations it measured are in the rows, and the person has been through it.
- * Nothing else does.
+ * Nothing else does, and it refuses (null) unless the mapping has a stick and EVERY stick's axis has a calibration with
+ * min < center < max: an axis the wizard did not measure, an empty set of measurements and a mapping with no sticks give no mark.
  *
  * @param profile the mapping
  * @param calibrations what the wizard measured for each axis
- * @returns the mapping, calibrated
+ * @returns the mapping, calibrated, or null when the wizard has not measured every stick
  */
-export function calibrated(profile: Profile, calibrations: ReadonlyMap<number, AxisCalibration>): Profile {
-  return { ...profile, rows: profile.rows.map(row => measured(row, calibrations)), calibrated: true }
+export function calibrated(profile: Profile, calibrations: ReadonlyMap<number, AxisCalibration>): Profile | null {
+  const sticks = profile.rows.filter((row): row is StickRow => row.kind === 'stick')
+  const whole = sticks.length > 0 && sticks.every(row => usable(calibrations.get(row.axis)))
+
+  return whole ? { ...profile, rows: profile.rows.map(row => measured(row, calibrations)), calibrated: true } : null
 }
