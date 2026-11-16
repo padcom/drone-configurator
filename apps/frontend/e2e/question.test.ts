@@ -1,7 +1,8 @@
+// @vitest-environment node
 // The pattern that the window specs match the question of a write against: the sentence, then none of the two lines about the
 // vehicle's state or one of them, then the changes. A question with any other line is a wrong question, and does not match.
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { ARMED_LINE, UNKNOWN_LINE, questionPattern } from './click'
 
@@ -12,7 +13,8 @@ const UNKNOWN = UNKNOWN_LINE
 
 describe('the two lines about the vehicle\'s state that the window specs expect', () => {
   it('are the English words of the question, as the locale file has them (a changed text fails here, not in a window)', () => {
-    const english = JSON.parse(readFileSync(resolve(process.cwd(), 'src/i18n/locales/en.json'), 'utf8')) as {
+    const file = fileURLToPath(new URL('../src/i18n/locales/en.json', import.meta.url))
+    const english = JSON.parse(readFileSync(file, 'utf8')) as {
       question: { armed: string, unknown: string, write: string }
     }
 

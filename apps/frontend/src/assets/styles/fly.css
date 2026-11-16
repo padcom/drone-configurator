@@ -303,9 +303,12 @@
   padding: var(--space-3) var(--space-4);
 }
 
-/* (the status of an empty list is in the page all the time, and takes no room while it says nothing) */
+/* The status of an empty list is rendered all the time (a live region that is not displayed is not in the accessibility tree, and
+   its text would arrive with it): while it says nothing it takes no room, with no margin, padding or height. */
 .messages .empty:empty {
-  display: none;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
 }
 
 .messages-head {

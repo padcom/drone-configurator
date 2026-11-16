@@ -130,6 +130,15 @@ it('keeps the display and the cards of the Fly aside in place and scrolls only t
   expect(wide).toMatch(/\.messages \.message-list\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;[^}]*max-height:\s*none;/u)
 })
 
+it('keeps the status of an empty messages list rendered, with no room another way (display: none hides a live region)', () => {
+  const rule = /\.messages \.empty:empty\s*\{(?<body>[^}]*)\}/u.exec(fly)?.groups?.body ?? ''
+
+  expect(rule).toMatch(/margin:\s*0/u)
+  expect(rule).toMatch(/padding:\s*0/u)
+  expect(rule).toMatch(/min-height:\s*0/u)
+  expect(rule).not.toMatch(/display:\s*none|visibility:\s*hidden/u)
+})
+
 it('gives the messages list a height of its own in the stacked layout, below 1000 px', () => {
   const stacked = fly.slice(0, fly.indexOf('@media (width >= 1000px)'))
 
