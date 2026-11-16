@@ -28,6 +28,8 @@ export interface Vehicle {
   readonly notice: ShallowRef<string | null>
   /** The latest telemetry; null without a connected vehicle. */
   readonly telemetry: ShallowRef<Telemetry | null>
+  /** What the current connection was asked for (where it goes), or null when none was asked for or it has ended. */
+  readonly request: ShallowRef<ConnectRequest | null>
   /** Connects to what the request says. */
   connect: (request: ConnectRequest) => Promise<void>
   /** Disconnects. */
@@ -106,6 +108,7 @@ class VehicleLink implements Vehicle {
   readonly ports = shallowRef<SerialPort[]>([])
   readonly notice = shallowRef<string | null>(null)
   readonly telemetry = shallowRef<Telemetry | null>(null)
+  readonly request = shallowRef<ConnectRequest | null>(null)
   private readonly listeners: SessionListener[] = []
 
   /**
@@ -154,6 +157,7 @@ class VehicleLink implements Vehicle {
   private sessionEnded(next: Connection): void {
     if (next.state !== 'reconnecting') {
       this.telemetry.value = null
+      this.request.value = null
     }
     this.listeners.forEach(listener => listener(false))
   }
@@ -164,6 +168,7 @@ class VehicleLink implements Vehicle {
 
   async connect(request: ConnectRequest): Promise<void> {
     this.connection.value = { state: 'connecting' }
+    this.request.value = request
     this.notice.value = null
     this.deps.fail(null)
 
@@ -171,6 +176,7 @@ class VehicleLink implements Vehicle {
       this.connectionChanged(await this.deps.client.call('vehicle.connect', request))
     } catch (error) {
       this.connection.value = { state: 'disconnected' }
+      this.request.value = null
       this.deps.fail(describeError(error))
     }
   }
