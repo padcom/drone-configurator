@@ -2,9 +2,11 @@
 // backend restart, the parameter list and editing. These are the tests of the old Configurator, with the same
 // expectations; `rig` gives each the actions it used, now backed by the composables.
 import { setTimeout as sleep } from 'node:timers/promises'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { armedOf } from '@/lib/app/armed'
 import { validateDraft } from '@/lib/params/draft'
-import { PARAMS } from '@/mock/fixtures'
+import { PARAMS, telemetryAt } from '@/mock/fixtures'
+import { feed } from '@/testing/testing'
 import { type MockControl, type MockOptions, mockBackend } from '@/mock/mock-backend'
 import type { State } from '@/state/state'
 import { type ConfiguratorHandle, createConfigurator } from '@/composables/useConfigurator'
@@ -67,26 +69,44 @@ type App = ReturnType<typeof actionsOf>
  */
 function rig(options: MockOptions = {}, answer = true) {
   const questions: string[] = []
-  const handle = createConfigurator(mockBackend({ telemetryMs: 5, ...options }), (question: string) => {
+  const control: MockControl = {}
+  const handle = createConfigurator(mockBackend({ telemetryMs: 5, control, ...options }), (question: string) => {
     questions.push(question)
 
     return Promise.resolve(answer)
   })
 
-  return { app: actionsOf(handle), questions }
+  return { app: actionsOf(handle), questions, control, handle }
+}
+
+/**
+ * Says what the mock vehicle's armed state is.
+ *
+ * @param control the mock's controls
+ * @param armed whether it is armed
+ */
+function setArmed(control: MockControl, armed: boolean): void {
+  control.armed?.(armed)
 }
 
 /**
  * Like `rig`, with the simulated vehicle connected and its parameters downloaded.
  *
+ * The vehicle's armed state is set, and waited for, so that what the question of a write says of it (a line when the vehicle is
+ * armed or its state is not known) does not depend on when the first telemetry arrives: the mock arms itself from its fourth
+ * sample otherwise.
+ *
  * @param options how the mock vehicle behaves
  * @param answer what the user answers to every question
- * @returns the actions, and the questions asked so far
+ * @param armed the vehicle's armed state: false (the default) or true
+ * @returns the actions, the questions asked so far, and the mock's controls
  */
-async function connected(options: MockOptions = {}, answer = true) {
+async function connected(options: MockOptions = {}, answer = true, armed = false) {
   const r = rig(options, answer)
+  setArmed(r.control, armed)
   await r.app.connect({ transport: 'simulator' })
   await sleep(20)
+  await vi.waitFor(() => expect([r.app.state.list, armedOf(r.app.state.telemetry)]).toEqual(['complete', armed]))
 
   return r
 }
@@ -304,6 +324,38 @@ describe('editing, and the typing of a decimal comma', () => {
     expect(app.staged.written.value).toEqual({ count: 1 })
     app.loadMetadata('{')
     expect(app.state.metadataError).toBe('Can\'t load the metadata: not JSON.')
+  })
+})
+
+/** The question of a write of WPNAV_SPEED to 750, with the line about the vehicle's state that it has (or none). */
+const ASKED_ARMED = 'Write 1 parameter to the vehicle?\nThe vehicle is armed: changes take effect now.\nWPNAV_SPEED 1000 → 750'
+const ASKED_UNKNOWN = 'Write 1 parameter to the vehicle?\n'
+  + 'The vehicle\'s state is not known (it may be armed): changes take effect now.\nWPNAV_SPEED 1000 → 750'
+
+describe('writing a parameter while the vehicle may be armed (nothing refuses it: the question says what it means)', () => {
+  it('says in the question that changes take effect now when the vehicle is armed, and writes it', async () => {
+    const { app, questions } = await connected({}, true, true)
+    app.select('WPNAV_SPEED')
+    app.editDraft('750')
+    await app.write()
+
+    expect(questions).toEqual([ASKED_ARMED])
+    expect(app.state.params.find(p => p.id === 'WPNAV_SPEED')!.value).toBe(750)
+  })
+
+  it('says it when the vehicle\'s state is not known, and writes it', async () => {
+    // (the telemetry is made once by the test, and says its last heartbeat was long ago)
+    const { app, questions, handle } = rig({ telemetryMs: 600_000 })
+    await app.connect({ transport: 'simulator' })
+    await vi.waitFor(() => expect(app.state.list).toBe('complete'))
+    feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 5000 } })
+    await vi.waitFor(() => expect(armedOf(app.state.telemetry)).toBeUndefined())
+    app.select('WPNAV_SPEED')
+    app.editDraft('750')
+    await app.write()
+
+    expect(questions).toEqual([ASKED_UNKNOWN])
+    expect(app.state.params.find(p => p.id === 'WPNAV_SPEED')!.value).toBe(750)
   })
 })
 

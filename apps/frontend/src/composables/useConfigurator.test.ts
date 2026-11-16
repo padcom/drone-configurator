@@ -84,7 +84,8 @@ it('downloads the parameters once the vehicle is connected, and keeps them when 
 })
 
 it('answers a question no when a second one replaces it (a double click on Write N), and writes nothing for it', async () => {
-  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
+  // (no telemetry ever comes: the state is not known whenever the question is made, however slow the machine)
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
@@ -107,7 +108,7 @@ it('answers a question no when a second one replaces it (a double click on Write
 })
 
 it('resolves a confirmation with the answer and clears the question', async () => {
-  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend())
+  const { vehicle, parameters, staged, confirmation, fields } = createConfigurator(mockBackend({ telemetryMs: 600_000 }))
   await vehicle.connect({ transport: 'simulator' })
   await expect.poll(() => fields.list.value).toBe('complete')
   parameters.select('RTL_ALT')
