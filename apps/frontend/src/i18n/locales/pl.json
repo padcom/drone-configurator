@@ -2309,7 +2309,7 @@
     "reason": {
       "notOnPlan": "Najpierw otwórz stronę Plan: to działa na plan, który tam widać.",
       "noItemSelected": "Najpierw zaznacz element planu.",
-      "planFull": "Plan ma tyle elementów, ile się mieści.",
+      "planFull": "Plan ma 1000 elementów, najwięcej, ile przyjmuje strona.",
       "cannotMove": "Element jest już na tym końcu listy.",
       "nothingToUndo": "Nie ma czego cofnąć.",
       "nothingToRedo": "Nie ma czego ponowić."
@@ -2323,7 +2323,8 @@
       "label": "Plan w liczbach",
       "items": "Elementy",
       "distance": "Odległość",
-      "highest": "Najwyżej"
+      "highest": "Najwyżej",
+      "note": "Dystans to długość narysowanej trasy przez ustawione miejsca, a nie długość lotu. Najwyżej pokazujemy, gdy wszystkie wysokości są liczone od tego samego."
     },
     "list": {
       "label": "Elementy planu",
@@ -2341,7 +2342,8 @@
       "frame": "Wysokość jest nad",
       "hereHint": "Zostaw miejsce puste, aby użyć tego, gdzie pojazd będzie, gdy tu dotrze.",
       "keeps": "Pojazd zachowuje {value}.",
-      "keepsAlt": "Pojazd zachowuje {value} m."
+      "keepsAlt": "Pojazd zachowuje {value} m.",
+      "placeNeeded": "Miejsce jest potrzebne: bez niego pojazd użyje miejsca, w którym jest."
     },
     "frame": {
       "home": "domem",
@@ -2406,7 +2408,6 @@
       "whereItIs": "Tam, gdzie jest pojazd",
       "roiNone": "Nic (kończy to)",
       "roiNext": "Następny element",
-      "roiItem": "Element",
       "roiPlace": "Miejsce podane tutaj"
     },
     "problem": {
@@ -2416,8 +2417,15 @@
       "warnings": "Ostrzeżenia: {count}",
       "item": "Element {number}: {words}",
       "tooMany": "Plan ma więcej niż {max} elementów.",
+      "overVehicle": "Pojazd przyjmuje najwyżej {max} elementów: plan ma więcej.",
       "noTakeoff": "Pierwszy element, który leci, nie jest startem: pojazd musi już lecieć, gdy misja się zaczyna.",
+      "empty": "Plan jest pusty",
       "noPlace": "Miejsce nie jest ustawione.",
+      "atZero": "Miejsce to 0, 0: pojazd bierze to za miejsce poprzedniego elementu.",
+      "zeroAltitude": "Wysokość 0 nad domem: pojazd bierze to za wysokość poprzedniego elementu.",
+      "altHigh": "Wysokość jest większa niż {max} m.",
+      "altNegative": "Wysokość jest poniżej domu.",
+      "takeoffAltitude": "Start wymaga wysokości większej niż 0.",
       "offGlobe": "Miejsce jest poza kulą ziemską.",
       "noAltitude": "Wysokość nie jest ustawiona.",
       "number": "{name}: wpisz liczbę.",

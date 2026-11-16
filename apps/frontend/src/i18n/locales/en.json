@@ -2309,7 +2309,7 @@
     "reason": {
       "notOnPlan": "Open the Plan page first: this works on the plan that is shown there.",
       "noItemSelected": "Select an item of the plan first.",
-      "planFull": "The plan has as many items as it takes.",
+      "planFull": "The plan has 1000 items, the most the page takes.",
       "cannotMove": "The item is already at that end of the list.",
       "nothingToUndo": "There is nothing to undo.",
       "nothingToRedo": "There is nothing to redo."
@@ -2323,7 +2323,8 @@
       "label": "The plan in numbers",
       "items": "Items",
       "distance": "Distance",
-      "highest": "Highest"
+      "highest": "Highest",
+      "note": "Distance is the length of the route as drawn through the places that are set, not a flight length. Highest is shown when all altitudes are measured from the same thing."
     },
     "list": {
       "label": "Items of the plan",
@@ -2341,7 +2342,8 @@
       "frame": "The altitude is above",
       "hereHint": "Leave the place empty to use where the vehicle is when it gets here.",
       "keeps": "The vehicle keeps {value}.",
-      "keepsAlt": "The vehicle keeps {value} m."
+      "keepsAlt": "The vehicle keeps {value} m.",
+      "placeNeeded": "A place is needed: without one the vehicle uses where it is."
     },
     "frame": {
       "home": "home",
@@ -2406,7 +2408,6 @@
       "whereItIs": "Where the vehicle is",
       "roiNone": "Nothing (ends it)",
       "roiNext": "The next item",
-      "roiItem": "An item",
       "roiPlace": "The place given here"
     },
     "problem": {
@@ -2416,8 +2417,15 @@
       "warnings": "Warnings: {count}",
       "item": "Item {number}: {words}",
       "tooMany": "The plan has more than {max} items.",
+      "overVehicle": "The vehicle takes {max} items at the most: the plan has more.",
       "noTakeoff": "The first item that flies is not a takeoff: the vehicle must already be flying when the mission starts.",
+      "empty": "The plan is empty",
       "noPlace": "The place is not set.",
+      "atZero": "The place is 0, 0: the vehicle takes it for where the item before it is.",
+      "zeroAltitude": "An altitude of 0 above home: the vehicle takes it for the altitude of the item before it.",
+      "altHigh": "The altitude is more than {max} m.",
+      "altNegative": "The altitude is below home.",
+      "takeoffAltitude": "A takeoff needs an altitude above 0.",
       "offGlobe": "The place is off the globe.",
       "noAltitude": "The altitude is not set.",
       "number": "{name}: type a number.",

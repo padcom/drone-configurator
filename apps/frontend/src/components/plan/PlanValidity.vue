@@ -26,6 +26,10 @@ const state = usePlan()
 const { problems } = state
 const errors = computed(() => problems.value.filter(problem => problem.level === 'error').length)
 const title = computed(() => {
+  if (state.plan.value.items.length === 0) {
+    // (an empty plan has no problem, and is not fit to be written either: a write of it is refused)
+    return t('plan.problem.empty')
+  }
   if (problems.value.length === 0) {
     return t('plan.problem.none')
   }

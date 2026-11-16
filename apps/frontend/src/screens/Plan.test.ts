@@ -8,6 +8,7 @@ import { createConfigurator } from '@/composables/useConfigurator'
 import { resetPlanForTests } from '@/composables/usePlan'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { mockBackend } from '@/mock/mock-backend'
+import { seedPlan } from '@/testing/plan'
 import Plan from './Plan.vue'
 
 let mounted: VueWrapper | undefined
@@ -87,7 +88,7 @@ it('starts empty: it says so, offers Add a waypoint and nothing that needs an it
   for (const command of ['plan.duplicate', 'plan.delete', 'plan.moveUp', 'plan.moveDown', 'plan.undo', 'plan.redo']) {
     expect(wrapper.get(`[data-command-button="${command}"]`).attributes('aria-disabled')).toBe('true')
   }
-  expect(wrapper.text()).toContain('No problems')
+  expect(wrapper.text()).toContain('The plan is empty')
   expect(wrapper.text()).toContain('Offline plan: it is not on a vehicle.')
 })
 
@@ -223,6 +224,65 @@ it('names the plan, and Undo takes the name back', async () => {
   await press(wrapper, 'plan.undo')
 
   expect((wrapper.get('#plan-name').element as HTMLInputElement).value).toBe('')
+})
+
+it('takes text that is no number for nothing: the plan says so, and the field keeps the text', async () => {
+  const wrapper = await page()
+  await press(wrapper, 'plan.addWaypoint')
+  await typeInto(wrapper, 'plan-field-holdTime', '12')
+  await typeInto(wrapper, 'plan-field-holdTime', '12x')
+
+  expect(wrapper.text()).toContain('Hold: type a number.')
+  expect(wrapper.text()).toContain('Errors: 2')
+  expect((wrapper.get('#plan-field-holdTime').element as HTMLInputElement).value).toBe('12x')
+  await typeInto(wrapper, 'plan-alt', 'abc')
+
+  expect(wrapper.text()).toContain('The altitude is not set.')
+  expect((wrapper.get('#plan-alt').element as HTMLInputElement).value).toBe('abc')
+})
+
+it('says in words what is wrong with an altitude: out of range, below home, and none for a takeoff', async () => {
+  const wrapper = await page()
+  await press(wrapper, 'plan.addWaypoint')
+  await typeInto(wrapper, 'plan-alt', '99999')
+
+  expect(wrapper.get('.plan-detail-problems').text()).toContain('The altitude is more than 10000 m.')
+  expect(wrapper.get('#plan-alt').attributes('aria-invalid')).toBe('true')
+  await typeInto(wrapper, 'plan-alt', '-5')
+
+  expect(wrapper.get('.plan-detail-problems').text()).toContain('The altitude is below home.')
+  await wrapper.get('.plan-add-other select').setValue('22')
+  await flushPromises()
+  await typeInto(wrapper, 'plan-alt', '0')
+
+  expect(wrapper.get('.plan-detail-problems').text()).toContain('A takeoff needs an altitude above 0.')
+})
+
+it('refuses to add beyond 1000 items and says so, and a plan of that size is cheap to make', async () => {
+  const wrapper = await page()
+  seedPlan(1000)
+  await flushPromises()
+  const add = wrapper.get('[data-command-button="plan.addWaypoint"]')
+
+  expect(wrapper.findAll('.plan-item')).toHaveLength(1000)
+  expect(add.attributes('aria-disabled')).toBe('true')
+  expect(wrapper.text()).toContain('The plan has 1000 items, the most the page takes.')
+})
+
+it('moves the selection with the arrow keys and has one tab stop in the list', async () => {
+  const wrapper = await page()
+  seedPlan(3)
+  await flushPromises()
+  await wrapper.findAll('.plan-item')[0]?.trigger('click')
+  await wrapper.get('.plan-items').trigger('keydown', { key: 'ArrowDown' })
+  await flushPromises()
+
+  expect(wrapper.findAll('.plan-item').map(row => row.attributes('aria-pressed'))).toEqual(['false', 'true', 'false'])
+  expect(wrapper.findAll('.plan-item').filter(row => row.attributes('tabindex') === '0')).toHaveLength(1)
+  await wrapper.get('.plan-items').trigger('keydown', { key: 'End' })
+  await flushPromises()
+
+  expect(wrapper.findAll('.plan-item')[2]?.attributes('aria-pressed')).toBe('true')
 })
 
 it('says the same in another language, with no message left over', async () => {

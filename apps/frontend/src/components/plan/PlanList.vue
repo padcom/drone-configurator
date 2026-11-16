@@ -12,13 +12,14 @@
       <CommandButton command="plan.moveDown" icon-position="none" />
     </div>
     <EmptyState v-if="plan.items.length === 0" :title="t('plan.list.emptyTitle')" :help="t('plan.list.emptyHelp')" :level="3" />
-    <ol v-else class="plan-items">
+    <ol v-else ref="listElement" class="plan-items" @keydown="step">
       <li v-for="(entry, index) in plan.items" :key="entry.id">
         <button
           type="button"
           class="plan-item"
           :class="{ selected: entry.id === selected, problem: hasProblem(entry.id) }"
           :aria-pressed="entry.id === selected"
+          :tabindex="isTabStop(entry.id, index) ? 0 : -1"
           @click="state.select(entry.id)"
         >
           <span class="no">{{ index + 1 }}</span>
@@ -33,7 +34,7 @@
 <script setup lang="ts">
 // The items of the plan, in order, the selected one marked: a number, what it is and its main value (its altitude, or what its
 // command does). The commands that work on the selected item are buttons here and in the palette (the same commands).
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -47,6 +48,7 @@ const { t } = useI18n()
 const state = usePlan()
 const { plan, selected } = state
 const resets = ref(0)
+const listElement = ref<HTMLElement | null>(null)
 const withProblem = computed(() => new Set(
   state.problems.value.filter(problem => problem.level === 'error').map(problem => problem.itemId),
 ))
@@ -66,6 +68,55 @@ function addOther(value: string): void {
     state.add(Number(value))
     // (the list shows its heading again: a new select, since what it holds did not change as far as the page knows)
     resets.value += 1
+  }
+}
+
+/**
+ * Whether an item is the one the Tab key stops at: the selected one, or the first when none is (a list of 2000 items is one tab
+ * stop, and the arrow keys move in it).
+ *
+ * @param id the item's id
+ * @param index its place in the list
+ * @returns whether it is the tab stop
+ */
+function isTabStop(id: number, index: number): boolean {
+  return selected.value === null ? index === 0 : id === selected.value
+}
+
+/** How far each key moves the selection: one item up or down, or to the first or the last. */
+const STEPS: Record<string, (at: number, last: number) => number> = {
+  ArrowDown: at => at + 1,
+  ArrowUp: at => at - 1,
+  Home: () => 0,
+  End: (_at, last) => last,
+}
+
+/**
+ * The item a key moves the selection to, if it is a key that moves it.
+ *
+ * @param key the key
+ * @returns the item, or undefined
+ */
+function itemAfter(key: string): PlanItem | undefined {
+  const move = STEPS[key]
+  const last = plan.value.items.length - 1
+  const at = plan.value.items.findIndex(item => item.id === selected.value)
+
+  return move ? plan.value.items[Math.min(Math.max(move(at, last), 0), last)] : undefined
+}
+
+/**
+ * Moves the selection with the arrow keys, Home and End, and the focus with it.
+ *
+ * @param event the key
+ */
+async function step(event: KeyboardEvent): Promise<void> {
+  const next = itemAfter(event.key)
+  if (next) {
+    event.preventDefault()
+    state.select(next.id)
+    await nextTick()
+    listElement.value?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus()
   }
 }
 

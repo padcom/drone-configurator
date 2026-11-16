@@ -14,6 +14,7 @@
           <span>{{ t('plan.detail.lat') }}</span>
           <PlanNumber
             id="plan-lat"
+            :key="`${item.id}-lat`"
             :model-value="item.lat"
             :invalid="placeInvalid"
             @update:model-value="set({ lat: $event })"
@@ -23,27 +24,31 @@
           <span>{{ t('plan.detail.lon') }}</span>
           <PlanNumber
             id="plan-lon"
+            :key="`${item.id}-lon`"
             :model-value="item.lon"
             :invalid="placeInvalid"
             @update:model-value="set({ lon: $event })"
           />
         </label>
-        <p v-if="def.place === 'optional'" class="muted">{{ t('plan.detail.hereHint') }}</p>
+        <p v-if="def.place === 'optional'" class="muted">
+          {{ t(needsPlace ? 'plan.detail.placeNeeded' : 'plan.detail.hereHint') }}
+        </p>
       </template>
       <template v-if="def.altitude">
         <label class="plan-field" for="plan-alt">
           <span>{{ t('plan.detail.alt') }}</span>
           <PlanNumber
             id="plan-alt"
+            :key="`${item.id}-alt`"
             :model-value="item.alt"
-            :invalid="has('noAltitude')"
+            :invalid="altitudeInvalid"
             @update:model-value="set({ alt: $event })"
           />
         </label>
         <p v-if="keptAlt !== null" class="muted" data-testid="kept-alt">
           {{ t('plan.detail.keepsAlt', { value: keptAlt }) }}
         </p>
-        <label class="plan-field" for="plan-frame">
+        <label v-if="keepsFrame(def)" class="plan-field" for="plan-frame">
           <span>{{ t('plan.detail.frame') }}</span>
           <Select
             id="plan-frame"
@@ -66,6 +71,7 @@
           <PlanNumber
             v-else
             :id="`plan-field-${field.id}`"
+            :key="`${item.id}-${field.id}`"
             :model-value="field.read(item)"
             :invalid="invalidField(field.id)"
             @update:model-value="set(field.write(item, $event))"
@@ -82,13 +88,13 @@
 
 <script setup lang="ts">
 // The form of the selected item: its place and altitude, and the fields its command has (the catalog). Where the vehicle keeps
-// than it is given (a hold time as a whole number of seconds, an altitude to the centimetre) the form says what it keeps.
+// less than it is given (a hold time as a whole number of seconds, an altitude to the centimetre) the form says what it keeps.
 // Every change is an edit of the plan's history, so Undo takes it back.
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Select from '@/components/ui/Select.vue'
 import { usePlan } from '@/composables/usePlan'
-import { type Field, definitionOf, keptAltitude, keptValue } from '@/lib/plan/catalog'
+import { type Field, definitionOf, keepsFrame, keptAltitude, keptValue, placeNeeded } from '@/lib/plan/catalog'
 import { FRAME_ABOVE_HOME, FRAME_ABSOLUTE, FRAME_TERRAIN, type PlanItem } from '@/lib/plan/model'
 import type { Problem } from '@/lib/plan/validate'
 import PlanNumber from './PlanNumber.vue'
@@ -100,23 +106,26 @@ const { item } = state
 const def = computed(() => (item.value ? definitionOf(item.value.command) : undefined))
 const number = computed(() => state.plan.value.items.findIndex(candidate => candidate.id === item.value?.id) + 1)
 const problems = computed(() => state.problems.value.filter(problem => problem.itemId === (item.value?.id ?? -1)))
-const placeInvalid = computed(() => problems.value.some(problem => ['noPlace', 'offGlobe'].includes(problem.key)))
+
+/**
+ * Whether the plan says one of some things is wrong of the item, by the keys of the problems.
+ *
+ * @param keys the problems' keys
+ * @returns whether it does
+ */
+function hasAny(keys: string[]): boolean {
+  return problems.value.some(problem => keys.includes(problem.key))
+}
+
+const placeInvalid = computed(() => hasAny(['noPlace', 'offGlobe', 'atZero']))
+const altitudeInvalid = computed(() => hasAny(['noAltitude', 'altHigh', 'takeoffAltitude']))
+const needsPlace = computed(() => (item.value && def.value ? placeNeeded(item.value, def.value) : false))
 const keptAlt = computed(() => keptAltitude(item.value?.alt ?? null))
 const frames = computed(() => [
   { value: String(FRAME_ABOVE_HOME), label: t('plan.frame.home') },
   { value: String(FRAME_ABSOLUTE), label: t('plan.frame.sea') },
   { value: String(FRAME_TERRAIN), label: t('plan.frame.terrain') },
 ])
-
-/**
- * Whether the plan says something is wrong of the item, by the key of the problem.
- *
- * @param key the problem's key
- * @returns whether it does
- */
-function has(key: string): boolean {
-  return problems.value.some(problem => problem.key === key)
-}
 
 /**
  * Whether the plan says a field of the item is wrong.

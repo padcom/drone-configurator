@@ -3,6 +3,7 @@
     <StatCell :label="t('plan.stats.items')">{{ stats.items }}</StatCell>
     <StatCell :label="t('plan.stats.distance')">{{ distance }}</StatCell>
     <StatCell :label="t('plan.stats.highest')">{{ highest }}</StatCell>
+    <p class="plan-stats-note muted">{{ t('plan.stats.note') }}</p>
   </div>
 </template>
 

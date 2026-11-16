@@ -159,11 +159,17 @@ function does(command: number, id: string, fields: readonly Field[], fresh: Part
   return { command, id, nav: false, place: 'none', altitude: false, fields, fresh: { ...ZEROS, ...fresh } }
 }
 
+/** MAV_CMD_DO_SET_HOME and MAV_CMD_DO_SET_ROI. */
+const SET_HOME = 179
+const ROI = 201
+/** The first parameter that says a command takes the place given with it: home "given here" (1), a ROI at "a place" (3). */
+const NAMES_A_PLACE: Partial<Record<number, number>> = { [SET_HOME]: 1, [ROI]: 3 }
 /** A whole number the vehicle keeps, of at least `min`. */
 const WHOLE = { keep: 'whole', min: 0 } as const
 const SPEED_TYPE: readonly [number, string][] = [[1, 'groundSpeed'], [0, 'airSpeed']]
 const HOME_FROM: readonly [number, string][] = [[1, 'givenPlace'], [0, 'whereItIs']]
-const ROI_MODE: readonly [number, string][] = [[0, 'roiNone'], [1, 'roiNext'], [2, 'roiItem'], [3, 'roiPlace']]
+// (mode 2, "an item", needs a second parameter that the vehicle does not keep for this command: it is not offered)
+const ROI_MODE: readonly [number, string][] = [[0, 'roiNone'], [1, 'roiNext'], [3, 'roiPlace']]
 
 /** The sixteen commands, in the order the add menu lists them. */
 export const COMMANDS: readonly CommandDef[] = [
@@ -260,6 +266,29 @@ export const COMMANDS: readonly CommandDef[] = [
 ]
 
 /**
+ * Whether an item must have a place. A command with a place of its own does; set home and a point of interest only take one
+ * when they say so (home "given here", a ROI "a place"): with none, the vehicle takes "where it is", the opposite of what the
+ * item says.
+ *
+ * @param item the item
+ * @param def its command
+ * @returns whether a place is needed
+ */
+export function placeNeeded(item: PlanItem, def: CommandDef): boolean {
+  return def.place === 'required' || NAMES_A_PLACE[item.command] === item.p1
+}
+
+/**
+ * Whether the vehicle keeps the frame of an item's altitude (it does not for set home and a point of interest).
+ *
+ * @param def the command
+ * @returns whether the frame is kept
+ */
+export function keepsFrame(def: CommandDef): boolean {
+  return def.altitude && def.command !== SET_HOME && def.command !== ROI
+}
+
+/**
  * The catalog's entry for a command, or undefined for one the page does not edit.
  *
  * @param command the MAV_CMD
@@ -299,7 +328,7 @@ export function freshItem(def: CommandDef, plan: Plan, id: number): PlanItem {
   return {
     id,
     command: def.command,
-    frame: own ? FRAME_OWN : plan.defaults.frame || FRAME_ABOVE_HOME,
+    frame: own ? FRAME_OWN : plan.defaults.frame ?? FRAME_ABOVE_HOME,
     lat: null,
     lon: null,
     alt: altitudeOfNew(def, plan),

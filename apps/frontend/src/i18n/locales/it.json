@@ -2309,7 +2309,7 @@
     "reason": {
       "notOnPlan": "Apri prima la pagina Piano: questo agisce sul piano mostrato lì.",
       "noItemSelected": "Seleziona prima un elemento del piano.",
-      "planFull": "Il piano ha tutti gli elementi che può contenere.",
+      "planFull": "Il piano ha 1000 elementi, il massimo che la pagina accetta.",
       "cannotMove": "L’elemento è già a quell’estremità dell’elenco.",
       "nothingToUndo": "Non c’è nulla da annullare.",
       "nothingToRedo": "Non c’è nulla da ripristinare."
@@ -2323,7 +2323,8 @@
       "label": "Il piano in numeri",
       "items": "Elementi",
       "distance": "Distanza",
-      "highest": "Più alto"
+      "highest": "Più alto",
+      "note": "La distanza è la lunghezza del percorso disegnato tra i luoghi impostati, non una lunghezza di volo. Il più alto è mostrato quando tutte le quote sono misurate dallo stesso riferimento."
     },
     "list": {
       "label": "Elementi del piano",
@@ -2341,7 +2342,8 @@
       "frame": "L’altitudine è sopra",
       "hereHint": "Lascia vuoto il luogo per usare dove si trova il veicolo quando arriva qui.",
       "keeps": "Il veicolo conserva {value}.",
-      "keepsAlt": "Il veicolo conserva {value} m."
+      "keepsAlt": "Il veicolo conserva {value} m.",
+      "placeNeeded": "Serve un luogo: senza, il veicolo usa dove si trova."
     },
     "frame": {
       "home": "casa",
@@ -2406,7 +2408,6 @@
       "whereItIs": "Dove si trova il veicolo",
       "roiNone": "Niente (lo termina)",
       "roiNext": "L’elemento successivo",
-      "roiItem": "Un elemento",
       "roiPlace": "Il luogo dato qui"
     },
     "problem": {
@@ -2416,8 +2417,15 @@
       "warnings": "Avvisi: {count}",
       "item": "Elemento {number}: {words}",
       "tooMany": "Il piano ha più di {max} elementi.",
+      "overVehicle": "Il veicolo accetta al massimo {max} elementi: il piano ne ha di più.",
       "noTakeoff": "Il primo elemento che vola non è un decollo: il veicolo deve già volare quando la missione inizia.",
+      "empty": "Il piano è vuoto",
       "noPlace": "Il luogo non è impostato.",
+      "atZero": "Il luogo è 0, 0: il veicolo lo prende per dove si trova l'elemento precedente.",
+      "zeroAltitude": "Una quota di 0 sopra la base: il veicolo la prende per la quota dell'elemento precedente.",
+      "altHigh": "La quota supera {max} m.",
+      "altNegative": "La quota è sotto la base.",
+      "takeoffAltitude": "Un decollo richiede una quota superiore a 0.",
       "offGlobe": "Il luogo è fuori dal globo.",
       "noAltitude": "L’altitudine non è impostata.",
       "number": "{name}: scrivi un numero.",

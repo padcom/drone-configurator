@@ -167,6 +167,14 @@
   border-right: 1px solid var(--color-border);
 }
 
+.plan-stats > .plan-stats-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  border-top: 1px solid var(--color-border);
+  border-right: 0;
+}
+
 /* The aside: what is wrong with the plan, the items and the form of the selected one. */
 .plan-validity {
   padding: var(--space-3) var(--space-4);

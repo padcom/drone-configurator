@@ -25,17 +25,46 @@ function isNav(item: PlanItem): boolean {
 }
 
 /**
- * The place of an item, when it has one that is set and counts (a navigation command).
+ * Whether an item is a waypoint or a loiter: the commands that fly to the place they have (16 to 19).
+ *
+ * @param item the item
+ * @returns whether it is
+ */
+export function isFlyTo(item: PlanItem): boolean {
+  return item.command >= 16 && item.command <= 19
+}
+
+/**
+ * Whether a place is 0, 0: Null Island, which the vehicle takes for "no place".
+ *
+ * @param place the place
+ * @returns whether it is
+ */
+function isNull(place: Position): boolean {
+  return place.lat === 0 && place.lon === 0
+}
+
+/**
+ * The place an item has set, whatever the command.
+ *
+ * @param item the item
+ * @returns its place, or null while it is not set
+ */
+function positionOf(item: PlanItem): Position | null {
+  return item.lat === null || item.lon === null ? null : { lat: item.lat, lon: item.lon }
+}
+
+/**
+ * The place of an item, when it has one that is set and counts: a navigation command with a latitude and a longitude that are
+ * not both 0 (the vehicle takes 0, 0 for "where it is", never for a place).
  *
  * @param item the item
  * @returns its place, or null
  */
 export function placeOf(item: PlanItem): Position | null {
-  if (!isNav(item) || item.lat === null || item.lon === null) {
-    return null
-  }
+  const place = positionOf(item)
 
-  return { lat: item.lat, lon: item.lon }
+  return place && isNav(item) && !isNull(place) ? place : null
 }
 
 /**
@@ -55,9 +84,12 @@ export function distanceBetween(a: Position, b: Position): number {
 export interface Stats {
   /** How many items. */
   items: number
-  /** The length of the route through the places that are set, in metres (null with fewer than two). */
+  /**
+   * The length of the route as drawn: through the places that are set, in the order of the items (no leg from home, no jumps or
+   * repeats, items without a place left out), in metres (null with fewer than two). A drawing aid, not a flight length.
+   */
   distance: number | null
-  /** The highest altitude of an item with one, in metres in its own frame (null with none). */
+  /** The highest altitude of an item with one, in metres, when all of them are measured from the same thing (else null). */
   highest: number | null
 }
 
@@ -77,13 +109,27 @@ function lengthOf(places: readonly Position[]): number | null {
 }
 
 /**
- * The altitude an item counts for the highest (a navigation item that has one that is not zero), as a list of none or one.
+ * The items that count for the highest altitude: navigation items with an altitude that is not 0.
  *
- * @param item the item
- * @returns the altitude in a list, or an empty one
+ * @param plan the plan
+ * @returns them
  */
-function altitudeOf(item: PlanItem): number[] {
-  return item.alt !== null && item.alt !== 0 && isNav(item) ? [item.alt] : []
+function withAltitude(plan: Plan): PlanItem[] {
+  return plan.items.filter(item => item.alt !== null && item.alt !== 0 && isNav(item))
+}
+
+/**
+ * The highest altitude of the items, when they agree on what it is measured from (30 m above home and 450 m above sea level
+ * cannot be compared).
+ *
+ * @param plan the plan
+ * @returns metres, or null with none or with frames that differ
+ */
+function highestOf(plan: Plan): number | null {
+  const items = withAltitude(plan)
+  const same = new Set(items.map(item => item.frame)).size === 1
+
+  return same ? Math.max(...items.map(item => item.alt as number)) : null
 }
 
 /**
@@ -94,13 +140,8 @@ function altitudeOf(item: PlanItem): number[] {
  */
 export function statsOf(plan: Plan): Stats {
   const places = plan.items.map(placeOf).filter((place): place is Position => place !== null)
-  const altitudes = plan.items.flatMap(altitudeOf)
 
-  return {
-    items: plan.items.length,
-    distance: lengthOf(places),
-    highest: altitudes.length === 0 ? null : Math.max(...altitudes),
-  }
+  return { items: plan.items.length, distance: lengthOf(places), highest: highestOf(plan) }
 }
 
 /** A point of the sketch: where in the picture (0 to 1000), for which item. */

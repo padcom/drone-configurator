@@ -13,8 +13,14 @@ export const FRAME_TERRAIN = 10
 /** MAV_FRAME of a command that has no place: its own numbers. */
 export const FRAME_OWN = 2
 
-/** The most items a plan has (what the backend takes in one write). */
-export const MAX_ITEMS = 2000
+/** The highest altitude (m) the page takes: ArduPilot refuses what its integer storage cannot hold, no copter flies higher. */
+export const MAX_ALTITUDE = 10000
+
+/**
+ * The most items the page lets a plan have. The backend and the plan files take 2000 at the most, and a vehicle takes fewer (650
+ * on ArduCopter SITL; it says so when a plan is written, and the validity header then says when the plan is over it).
+ */
+export const MAX_ITEMS = 1000
 
 /**
  * One item of the mission, as the page edits it. A number that is `null` is not given (the yaw of a waypoint; a place not

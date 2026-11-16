@@ -33,7 +33,9 @@ export function problemWords(problem: Problem, item: PlanItem | undefined, say: 
   // (the yaw has no field of its own: only a command that takes none can lack it)
   const name = say(field ? field.labelKey : 'plan.field.yaw')
 
-  return say(`plan.problem.${problem.key}`, { ...problem.params, min: field?.min, max: field?.max, name })
+  const limits = field ? { min: field.min, max: field.max } : {}
+
+  return say(`plan.problem.${problem.key}`, { ...problem.params, ...limits, name })
 }
 
 /**
