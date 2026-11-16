@@ -124,7 +124,7 @@ function askForGuided(ctx: CommandContext): Promise<boolean> {
  * @param waits the waits
  * @returns whether the vehicle is in GUIDED now
  */
-async function guided(ctx: CommandContext, waits: Waits): Promise<boolean> {
+export async function guided(ctx: CommandContext, waits: Waits): Promise<boolean> {
   if (ctx.vehicle.mode() === GUIDED) {
     return true
   }

@@ -704,6 +704,30 @@
     "label": "Idioma"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} aceptó: se mantiene aquí y va a {altitude} m sobre el origen.",
+      "refused": "{vehicle} rechazó cambiar su altitud.",
+      "unsupported": "{vehicle} no admite cambiar la altitud desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. Puede estar cambiando de altitud: vigile su posición. El comando no se envía de nuevo."
+    },
+    "home": {
+      "accepted": "{vehicle} aceptó: el origen está donde está.",
+      "refused": "{vehicle} rechazó fijar el origen aquí.",
+      "unsupported": "{vehicle} no admite fijar el origen desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. El origen puede haberse movido: vigile dónde dice que está. El comando no se envía de nuevo."
+    },
+    "reposition": {
+      "accepted": "{vehicle} aceptó: vuela al lugar, a {altitude} m sobre el punto de origen.",
+      "refused": "{vehicle} se negó a ir allí.",
+      "unsupported": "{vehicle} no admite ir a un lugar desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle}. Puede estar volando hacia allí: vigile su posición. El comando no se envía de nuevo."
+    },
+    "speed": {
+      "accepted": "{vehicle} aceptó la velocidad.",
+      "refused": "{vehicle} rechazó la velocidad.",
+      "unsupported": "{vehicle} no admite cambiar la velocidad desde aquí.",
+      "noAnswer": "Sin respuesta de {vehicle} a la velocidad. No se envió nada después."
+    },
     "takeoff": {
       "accepted": "{vehicle} aceptó el despegue a {altitude} m. Sube cuando su posición lo diga.",
       "refused": "{vehicle} se negó a despegar.",
@@ -2143,6 +2167,104 @@
       "tracking": "Este notch sigue el acelerador, un sensor o la FFT, así que su centro se mueve: la página no lo comprueba con los picos del registro abierto en Espectro.",
       "misses": "El notch elegido (bandas {bands} Hz) no elimina ninguno de los picos del espectro del registro {log} ({peaks} Hz): su centro está fuera de donde se registró el ruido.",
       "harmonic": "Armónico {n}"
+    }
+  },
+  "guided": {
+    "command": {
+      "label": "Ir aquí",
+      "keywords": "volar mover ir objetivo mapa guiado aquí",
+      "title": "Ir aquí",
+      "what": "El vehículo vuela al lugar que eligió en el mapa, a {distance} m de él y a {fromHome} m del punto de origen, a {altitude} m sobre el origen y a {speed} m/s, y se queda allí. Compruebe que el camino está libre.",
+      "mode": "Antes cambia a GUIDED.",
+      "button": "Ir aquí",
+      "altitudeLabel": "Cambiar altitud",
+      "altitudeKeywords": "altitud altura subir bajar guiado",
+      "homeLabel": "Fijar origen aquí",
+      "homeKeywords": "origen home fijar retorno rtl aquí punto"
+    },
+    "reason": {
+      "params": "El control guiado necesita la lista completa de parámetros del vehículo: descárguela primero.",
+      "position": "El vehículo no informa de su posición.",
+      "air": "El vehículo no está en el aire.",
+      "home": "El vehículo no ha dicho últimamente dónde está el origen.",
+      "target": "Elija primero un lugar en el mapa.",
+      "far": "Ese lugar está más lejos del origen que su límite en Ajustes.",
+      "unsupported": "El control guiado es solo para vehículos ArduPilot.",
+      "invalid": "Ese lugar o esa altitud no es válido.",
+      "outOfLimits": "Eso excede los límites de Ajustes o la valla del propio vehículo.",
+      "notGuided": "El vehículo no está en GUIDED.",
+      "stalePosition": "La posición del vehículo es antigua: inténtelo de nuevo.",
+      "failsafeOff": "El failsafe de GCS del vehículo (FS_GCS_ENABLE) está apagado o no se puede leer: actívelo, o elija ser avisado en Ajustes.",
+      "fenceUnknown": "No se pudo leer la valla del vehículo, así que no se supone nada: descargue primero los parámetros de nuevo.",
+      "landing": "El vehículo vuelve al origen o aterriza: cambie usted mismo su modo primero.",
+      "high": "El vehículo está por encima de su altitud máxima de Ajustes.",
+      "moving": "El vehículo se mueve: espere a que se detenga, o envíe Ir aquí de nuevo.",
+      "still": "El vehículo debe estar quieto para fijar el origen: se mueve, sube o baja.",
+      "keptGuided": "El vehículo se puso en GUIDED y se queda allí.",
+      "changed": "El lugar elegido cambió: compruébelo y vaya de nuevo."
+    },
+    "settings": {
+      "title": "Control guiado",
+      "help": "Ir aquí en el mapa. El vehículo debe estar en el aire; la valla del propio vehículo es aún más baja cuando limita los números de abajo.",
+      "perSecond": "{n} m/s",
+      "labels": {
+        "confirmation": "Antes de Ir aquí",
+        "failsafe": "Cuando el failsafe de GCS del vehículo está apagado",
+        "maxAltitude": "Altitud máxima",
+        "maxDistance": "Distancia máxima del origen",
+        "maxSpeed": "Velocidad máxima",
+        "speed": "Velocidad de Ir aquí"
+      },
+      "helps": {
+        "confirmation": "Una confirmación sencilla dice a qué distancia, altura y velocidad. Mantener pulsado es para quien quiere estar seguro.",
+        "failsafe": "Con FS_GCS_ENABLE apagado el vehículo sigue su último comando si el enlace se corta. Bloquear rechaza el comando; Avisar lo envía y lo dice.",
+        "maxAltitude": "Metros sobre el origen.",
+        "maxDistance": "Metros desde el origen.",
+        "maxSpeed": "Ningún comando puede pedir más.",
+        "speed": "Nunca por encima de la velocidad máxima."
+      },
+      "words": {
+        "confirmation": {
+          "none": "No preguntar",
+          "plain": "Pedir confirmación (recomendado)",
+          "hold": "Pedir mantener pulsado"
+        },
+        "failsafe": {
+          "block": "Bloquear el comando (recomendado)",
+          "warn": "Avisar y enviarlo"
+        }
+      }
+    },
+    "panel": {
+      "title": "Lugar en el mapa",
+      "place": "{lat}, {lon}",
+      "away": "a {distance} m del vehículo, a {fromHome} m del origen",
+      "go": "Ir aquí",
+      "clear": "Quitar",
+      "mode": "Ir aquí cambiará el vehículo a GUIDED.",
+      "speed": "Ir aquí fija la velocidad de GUIDED en {speed} m/s; se queda así si el movimiento se rechaza después."
+    },
+    "altitude": {
+      "title": "Cambiar altitud",
+      "what": "El vehículo se detiene donde está y va a esta altitud sobre el origen, y se mantiene allí. Lo que volaba se cancela.",
+      "mode": "Antes cambia a GUIDED.",
+      "field": "Altitud sobre el origen (m)",
+      "limits": "De {min} a {max} m (la máxima se fija en Ajustes).",
+      "go": "Cambiar altitud",
+      "problem": {
+        "invalid": "Escriba un número de metros, por ejemplo 20.",
+        "low": "Al menos {min} m.",
+        "high": "Como máximo {max} m."
+      }
+    },
+    "home": {
+      "title": "Fijar origen aquí",
+      "what": "El origen pasa a donde está ahora el vehículo ({lat}, {lon}). El retorno (RTL) vuela a este punto desde ahora, y la altitud del origen se mueve con él: toda altitud sobre el origen cambia de referencia. Compruebe que es un lugar donde el vehículo puede aterrizar.",
+      "button": "Fijar origen",
+      "done": "El origen está aquí: el retorno vuela ahora a este punto."
+    },
+    "actions": {
+      "title": "Control guiado"
     }
   }
 }

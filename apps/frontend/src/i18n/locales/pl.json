@@ -704,6 +704,30 @@
     "label": "Język"
   },
   "arming": {
+    "altitude": {
+      "accepted": "{vehicle} przyjął: zatrzymuje się tutaj i leci na {altitude} m nad domem.",
+      "refused": "{vehicle} odmówił zmiany wysokości.",
+      "unsupported": "{vehicle} nie obsługuje zmiany wysokości stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Może już zmieniać wysokość: obserwuj jego pozycję. Polecenie nie jest wysyłane ponownie."
+    },
+    "home": {
+      "accepted": "{vehicle} przyjął: dom jest tam, gdzie on.",
+      "refused": "{vehicle} odmówił ustawienia domu tutaj.",
+      "unsupported": "{vehicle} nie obsługuje ustawiania domu stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Dom mógł się przesunąć: obserwuj, gdzie go podaje. Polecenie nie jest wysyłane ponownie."
+    },
+    "reposition": {
+      "accepted": "{vehicle} przyjął: leci w to miejsce, {altitude} m nad punktem startu.",
+      "refused": "{vehicle} odmówił lotu tam.",
+      "unsupported": "{vehicle} nie obsługuje lotu do miejsca stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle}. Może już tam lecieć: obserwuj jego pozycję. Polecenie nie jest wysyłane ponownie."
+    },
+    "speed": {
+      "accepted": "{vehicle} przyjął prędkość.",
+      "refused": "{vehicle} odrzucił prędkość.",
+      "unsupported": "{vehicle} nie obsługuje zmiany prędkości stąd.",
+      "noAnswer": "Brak odpowiedzi od {vehicle} na prędkość. Nic nie wysłano potem."
+    },
     "takeoff": {
       "accepted": "{vehicle} przyjął start na {altitude} m. Wznosi się, gdy mówi o tym jego pozycja.",
       "refused": "{vehicle} odmówił startu.",
@@ -2143,6 +2167,104 @@
       "tracking": "Ten notch śledzi przepustnicę, czujnik lub FFT, więc jego środek się przesuwa: strona nie sprawdza go względem szczytów dziennika otwartego w Widmie.",
       "misses": "Wybrany notch (pasma {bands} Hz) nie usuwa żadnego ze szczytów widma dziennika {log} ({peaks} Hz): jego środek leży poza miejscem, gdzie zapisano szum.",
       "harmonic": "Harmoniczna {n}"
+    }
+  },
+  "guided": {
+    "command": {
+      "label": "Leć tutaj",
+      "keywords": "lot przemieść cel mapa guided tutaj",
+      "title": "Leć tutaj",
+      "what": "Pojazd leci w miejsce wybrane na mapie, {distance} m od siebie i {fromHome} m od punktu startu, na wysokości {altitude} m nad punktem startu, z prędkością {speed} m/s, i tam zostaje. Sprawdź, czy droga jest wolna.",
+      "mode": "Najpierw przechodzi w GUIDED.",
+      "button": "Leć tutaj",
+      "altitudeLabel": "Zmień wysokość",
+      "altitudeKeywords": "wysokość wyżej niżej wznoszenie opadanie guided",
+      "homeLabel": "Ustaw dom tutaj",
+      "homeKeywords": "dom punkt startu powrót rtl tutaj ustaw"
+    },
+    "reason": {
+      "params": "Sterowanie prowadzone wymaga pełnej listy parametrów pojazdu: pobierz ją najpierw.",
+      "position": "Pojazd nie podaje swojej pozycji.",
+      "air": "Pojazd nie jest w powietrzu.",
+      "home": "Pojazd nie podał ostatnio, gdzie jest punkt startu.",
+      "target": "Najpierw wybierz miejsce na mapie.",
+      "far": "To miejsce jest dalej od punktu startu niż twój limit w Ustawieniach.",
+      "unsupported": "Sterowanie prowadzone jest tylko dla pojazdów ArduPilot.",
+      "invalid": "To miejsce lub wysokość jest nieprawidłowe.",
+      "outOfLimits": "To poza limitami z Ustawień lub ogrodzeniem pojazdu.",
+      "notGuided": "Pojazd nie jest w trybie GUIDED.",
+      "stalePosition": "Pozycja pojazdu jest stara: spróbuj ponownie.",
+      "failsafeOff": "Failsafe GCS pojazdu (FS_GCS_ENABLE) jest wyłączony lub nie da się go odczytać: ustaw go albo wybierz w Ustawieniach ostrzeżenie.",
+      "fenceUnknown": "Nie udało się odczytać ogrodzenia pojazdu, więc niczego nie zakładamy: najpierw pobierz parametry ponownie.",
+      "landing": "Pojazd wraca do punktu startu lub ląduje: najpierw sam zmień jego tryb.",
+      "high": "Pojazd jest powyżej twojej największej wysokości z Ustawień.",
+      "moving": "Pojazd się porusza: poczekaj, aż się zatrzyma, albo wyślij Leć tutaj jeszcze raz.",
+      "still": "Pojazd musi stać w miejscu, by ustawić dom: porusza się, wznosi lub opada.",
+      "keptGuided": "Pojazd został przełączony w GUIDED i tam zostaje.",
+      "changed": "Wybrane miejsce się zmieniło: sprawdź je i leć jeszcze raz."
+    },
+    "settings": {
+      "title": "Sterowanie prowadzone",
+      "help": "Leć tutaj na mapie. Pojazd musi być w powietrzu; ogrodzenie pojazdu jest jeszcze niższe, gdy ogranicza poniższe liczby.",
+      "perSecond": "{n} m/s",
+      "labels": {
+        "confirmation": "Przed Leć tutaj",
+        "failsafe": "Gdy failsafe GCS pojazdu jest wyłączony",
+        "maxAltitude": "Największa wysokość",
+        "maxDistance": "Największa odległość od punktu startu",
+        "maxSpeed": "Największa prędkość",
+        "speed": "Prędkość Leć tutaj"
+      },
+      "helps": {
+        "confirmation": "Zwykłe potwierdzenie mówi, jak daleko, jak wysoko i jak szybko. Przytrzymanie jest dla tych, którzy chcą mieć pewność.",
+        "failsafe": "Przy wyłączonym FS_GCS_ENABLE pojazd leci dalej ostatnim poleceniem, gdy łącze padnie. Blokuj odrzuca polecenie; Ostrzegaj wysyła je i mówi o tym.",
+        "maxAltitude": "Metry nad punktem startu.",
+        "maxDistance": "Metry od punktu startu.",
+        "maxSpeed": "Żadne polecenie nie może żądać więcej.",
+        "speed": "Nigdy powyżej największej prędkości."
+      },
+      "words": {
+        "confirmation": {
+          "none": "Nie pytaj",
+          "plain": "Poproś o potwierdzenie (zalecane)",
+          "hold": "Poproś o przytrzymanie"
+        },
+        "failsafe": {
+          "block": "Zablokuj polecenie (zalecane)",
+          "warn": "Ostrzeż i wyślij"
+        }
+      }
+    },
+    "panel": {
+      "title": "Miejsce na mapie",
+      "place": "{lat}, {lon}",
+      "away": "{distance} m od pojazdu, {fromHome} m od punktu startu",
+      "go": "Leć tutaj",
+      "clear": "Wyczyść",
+      "mode": "Leć tutaj przełączy pojazd w tryb GUIDED.",
+      "speed": "Leć tutaj ustawia prędkość GUIDED na {speed} m/s; zostaje tak, jeśli ruch zostanie potem odrzucony."
+    },
+    "altitude": {
+      "title": "Zmień wysokość",
+      "what": "Pojazd zatrzymuje się, gdzie jest, leci na tę wysokość nad domem i tam zostaje. To, dokąd leciał, zostaje anulowane.",
+      "mode": "Najpierw przechodzi w GUIDED.",
+      "field": "Wysokość nad domem (m)",
+      "limits": "Od {min} do {max} m (największą ustawia się w Ustawieniach).",
+      "go": "Zmień wysokość",
+      "problem": {
+        "invalid": "Wpisz liczbę metrów, na przykład 20.",
+        "low": "Co najmniej {min} m.",
+        "high": "Najwyżej {max} m."
+      }
+    },
+    "home": {
+      "title": "Ustaw dom tutaj",
+      "what": "Dom przenosi się tam, gdzie pojazd jest teraz ({lat}, {lon}). Powrót (RTL) leci odtąd do tego punktu, a wysokość domu przesuwa się razem z nim: każda wysokość nad domem zmienia punkt odniesienia. Sprawdź, czy pojazd może tam wylądować.",
+      "button": "Ustaw dom",
+      "done": "Dom jest tutaj: powrót leci teraz do tego punktu."
+    },
+    "actions": {
+      "title": "Sterowanie prowadzone"
     }
   }
 }

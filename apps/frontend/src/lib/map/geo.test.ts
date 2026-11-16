@@ -10,6 +10,7 @@ import {
   type View,
   fitView,
   panView,
+  placeAt,
   project,
   screenOf,
   tileKey,
@@ -187,5 +188,21 @@ describe('the view that shows all of some places', () => {
 
   it('shows the whole world for places that no zoom fits', () => {
     expect(fitView([{ lat: -60, lon: -170 }, { lat: 60, lon: 170 }], { width: 100, height: 100 })?.zoom).toBe(MIN_ZOOM)
+  })
+})
+
+describe('the place under a point of the map', () => {
+  const view: View = { lat: 52.2297, lon: 21.0122, zoom: 16 }
+
+  it('is the centre of the view for the middle of the map, and gives back the point a place was drawn at', () => {
+    const middle = placeAt(view, SIZE, { x: SIZE.width / 2, y: SIZE.height / 2 })
+
+    expect(middle.lat).toBeCloseTo(view.lat, 6)
+    expect(middle.lon).toBeCloseTo(view.lon, 6)
+    const point = screenOf(view, SIZE, 52.2302, 21.0131)
+    const back = placeAt(view, SIZE, point)
+
+    expect(back.lat).toBeCloseTo(52.2302, 6)
+    expect(back.lon).toBeCloseTo(21.0131, 6)
   })
 })

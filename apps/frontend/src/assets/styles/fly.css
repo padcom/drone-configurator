@@ -403,3 +403,52 @@
     max-height: none;
   }
 }
+
+/* The place picked on the map for a Go here: a ring and a dot over the tiles. */
+.map-target circle {
+  fill: none;
+  stroke: var(--color-warn);
+  stroke-width: 2.5;
+}
+
+.map-target .map-target-dot {
+  fill: var(--color-warn);
+  stroke: none;
+}
+
+/* What can be done with it: the card at the bottom RIGHT of the map, above the credit (the notices come up at the bottom left of the window and
+   must never cover its buttons). */
+.fly-map .go-here {
+  position: absolute;
+  right: var(--space-4);
+  bottom: 7rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: min(26rem, calc(100% - 2 * var(--space-4)));
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.go-here-place,
+.go-here-why {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.go-here-buttons {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+/* Change altitude and Set home here: at the bottom right of the map, above its credit, under the card of a Go here. */
+.fly-map .guided-actions {
+  position: absolute;
+  right: var(--space-4);
+  bottom: 3.5rem;
+  display: flex;
+  gap: var(--space-2);
+}
