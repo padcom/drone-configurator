@@ -66,6 +66,8 @@ it('is a log, and says that it keeps the last 500 and what a connection lists', 
   const { wrapper } = await list(true)
 
   expect(wrapper.get('ul').attributes('role')).toBe('log')
+  // (it keeps its role and its name, but is not read out as it grows: a warning has its toast and the banner)
+  expect(wrapper.get('ul').attributes('aria-live')).toBe('off')
   expect(wrapper.get('.messages-note').text()).toBe(
     'The last 500 messages are kept. On connecting, the last 200 that the vehicle said before are listed.',
   )
@@ -93,6 +95,16 @@ it('keeps 500 messages and drops the oldest after that', async () => {
 
   expect(wrapper.findAll('.message')).toHaveLength(500)
   expect(wrapper.text()).not.toContain('ArduCopter V4')
+})
+
+it('keeps the focus in the list\'s section when Clear takes the button away, and does not let it fall to the page', async () => {
+  const { wrapper } = await list(true)
+  const button = wrapper.get('.messages-clear').element as HTMLElement
+  button.focus()
+  await wrapper.get('.messages-clear').trigger('click')
+
+  expect(wrapper.find('.messages-clear').exists()).toBe(false)
+  expect(document.activeElement).toBe(wrapper.get('section').element)
 })
 
 it('empties with Clear, lists only what comes after, and has no button while there is nothing', async () => {
