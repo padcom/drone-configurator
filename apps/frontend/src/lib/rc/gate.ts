@@ -19,7 +19,8 @@ export const LOOPBACK_HOSTS: readonly string[] = ['127.0.0.1', 'localhost', '::1
 function isLoopback(request: ConnectRequest): boolean {
   const network = request.transport === 'tcp' || request.transport === 'udp'
 
-  return network && LOOPBACK_HOSTS.includes((request.host ?? '').toLowerCase())
+  // (no host: the connect dialog's blank field, "the default": the backend connects to, or listens on, 127.0.0.1)
+  return network && (request.host === undefined || LOOPBACK_HOSTS.includes(request.host.toLowerCase()))
 }
 
 /**
