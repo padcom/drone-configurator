@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { problemsOf } from './profile'
 import {
   applyDeadZone,
   applyExpo,
@@ -193,6 +194,18 @@ describe('a mapping that is wrong', () => {
   it('never carries a pulse of a range that is upside down or not numbers', () => {
     expect(atTheEnds([STICK], () => ({ min: 2000, trim: 1500, max: 1000 }))[0]).toBe(NOT_MINE)
     expect(atTheEnds([STICK], () => ({ min: 1000, trim: Number.NaN, max: 2000 }))[0]).toBe(NOT_MINE)
+  })
+
+  it('skips a row on a channel that is not one of the 16, and never makes the list longer than 16', () => {
+    const wrong = [17, 0, 2.5, -1].map(channel => ({ ...STICK, channel }))
+    const rows = [...wrong, SWITCH]
+    const out = atTheEnds(rows)
+    const problems = problemsOf({ device: 'pad', rows, calibrated: true }).map(problem => problem.code)
+
+    expect(out).toHaveLength(16)
+    expect(out[4]).toBe(2000)
+    expect(out.filter(pulse => pulse !== NOT_MINE)).toEqual([2000])
+    expect(problems).toEqual(['channel', 'channel', 'channel', 'channel'])
   })
 
   it('leaves a good row beside a wrong one alone', () => {

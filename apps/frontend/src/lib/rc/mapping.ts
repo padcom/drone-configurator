@@ -224,9 +224,20 @@ export function sendableOr(pulse: number): number {
 }
 
 /**
+ * Whether a number is a channel of an override.
+ *
+ * @param channel the number
+ * @returns true when it is a whole number from 1 to 16
+ */
+export function validChannel(channel: number): boolean {
+  return Number.isInteger(channel) && channel >= 1 && channel <= CHANNELS
+}
+
+/**
  * The 16 pulses of an override that a profile makes of a sample: the channel of a row has its pulse, every other is the radio's.
  * What is not a pulse an override carries (a number that is not a number, a switch that is set to 3000 µs, a range that is upside
- * down) is the radio's own, never sent.
+ * down) is the radio's own, never sent. A row whose channel is not a whole number from 1 to 16 is skipped (it never makes the
+ * list longer than 16: the backend would refuse the whole frame), and `problemsOf` says so.
  *
  * @param profile the mapping
  * @param sample what the pad said
@@ -236,9 +247,11 @@ export function sendableOr(pulse: number): number {
 export function channelsOf(profile: Profile, sample: PadSample, range: (channel: number) => PulseRange): number[] {
   const pulses = Array.from({ length: CHANNELS }, () => NOT_MINE)
   for (const row of profile.rows) {
-    const channel = range(row.channel)
+    if (validChannel(row.channel)) {
+      const channel = range(row.channel)
 
-    pulses[row.channel - 1] = sendableOr(rangeOk(channel) ? rowPulse(row, sample, channel) : NOT_MINE)
+      pulses[row.channel - 1] = sendableOr(rangeOk(channel) ? rowPulse(row, sample, channel) : NOT_MINE)
+    }
   }
 
   return pulses
