@@ -1,0 +1,354 @@
+// The files of the Plan page (planfiles.pi): QGroundControl's .plan and Mission Planner's .waypoints, read and written. The fixtures are written
+// here (nothing is copied from either program), from the formats as they are published.
+import { describe, it, expect } from "std/test"
+import {
+  MAX_FILE_BYTES,
+  MAX_ITEMS,
+  Plan,
+  PlanFileError,
+  PlanItem,
+  isKnownCommand,
+  nanAllowed,
+  parseQgcPlan,
+  parseWaypoints,
+  problemOf,
+  writeQgcPlan,
+  writeWaypoints,
+} from "./planfiles"
+
+/// A `.plan` of a takeoff, a waypoint with no yaw (null), a speed change, a command the page does not know (2000), a fence polygon and
+/// circle, a rally point and home.
+const PLAN: string = `{
+  "fileType": "Plan",
+  "groundStation": "something else",
+  "version": 1,
+  "mission": {
+    "cruiseSpeed": 12.5,
+    "firmwareType": 3,
+    "hoverSpeed": 5,
+    "vehicleType": 2,
+    "version": 2,
+    "plannedHomePosition": [52.2297, 21.0122, 110.5],
+    "items": [
+      { "type": "SimpleItem", "command": 22, "frame": 3, "autoContinue": true, "doJumpId": 1, "params": [0, 0, 0, null, 52.2297, 21.0122, 15] },
+      { "type": "SimpleItem", "command": 16, "frame": 3, "autoContinue": true, "doJumpId": 2, "params": [0, 0, 0, null, 52.2301, 21.0131, 20], "AltitudeMode": 1 },
+      { "type": "SimpleItem", "command": 178, "frame": 2, "autoContinue": false, "doJumpId": 3, "params": [1, 8, -1, 0, 0, 0, 0] },
+      { "type": "SimpleItem", "command": 2000, "frame": 2, "autoContinue": true, "doJumpId": 4, "params": [1, 2, 3, 4, 5, 6, 7] }
+    ]
+  },
+  "geoFence": {
+    "version": 2,
+    "polygons": [ { "inclusion": true, "version": 1, "polygon": [[52.2290, 21.0100], [52.2310, 21.0100], [52.2310, 21.0150]] } ],
+    "circles": [ { "inclusion": false, "version": 1, "circle": { "center": [52.2295, 21.0120], "radius": 25.5 } } ]
+  },
+  "rallyPoints": { "version": 2, "points": [[52.2299, 21.0125, 30]] }
+}`
+
+/// The same with a survey in it.
+const WITH_COMPLEX: string = `{
+  "fileType": "Plan",
+  "mission": {
+    "items": [
+      { "type": "SimpleItem", "command": 22, "frame": 3, "autoContinue": true, "params": [0, 0, 0, null, 52.2297, 21.0122, 15] },
+      { "type": "ComplexItem", "complexItemType": "survey", "version": 5, "TransectStyleComplexItem": { "items": [] } },
+      { "type": "ComplexItem", "complexItemType": "CorridorScan", "version": 2 }
+    ]
+  }
+}`
+
+/// The code of the error a parse throws ("" when it does not).
+function codeOf(parse: () => Plan throws PlanFileError): string {
+  try {
+    const _plan = parse()
+  } catch (e: PlanFileError) {
+    return e.code
+  } catch (e: Error) {
+    return "OTHER"
+  }
+  return ""
+}
+
+function atOf(parse: () => Plan throws PlanFileError): int {
+  try {
+    const _plan = parse()
+  } catch (e: PlanFileError) {
+    return e.at
+  } catch (e: Error) {
+    return -2
+  }
+  return -3
+}
+
+function aPlanIsReadWithItsNumbersAndFrames(): void throws Error {
+  const plan = parseQgcPlan(PLAN, false)
+  expect(plan.items.length).toBe(4)
+  const takeoff = plan.items[0]
+  expect(takeoff.command).toBe(22)
+  expect(takeoff.frame).toBe(3)
+  expect(takeoff.lat).toBe(52.2297)
+  expect(takeoff.alt).toBe(15.0)
+  expect(takeoff.p4 != takeoff.p4).toBe(true)
+  expect(takeoff.known).toBe(true)
+  expect(plan.items[1].lon).toBe(21.0131)
+  expect(plan.items[2].frame).toBe(2)
+  expect(plan.items[2].p2).toBe(8.0)
+  expect(plan.items[2].p3).toBe(-1.0)
+  expect(plan.items[2].autocontinue).toBe(false)
+  expect(plan.cruiseSpeed).toBe(12.5)
+  const home = plan.home
+  expect(home != null).toBe(true)
+  expect(home!.lat).toBe(52.2297)
+  expect(home!.alt).toBe(110.5)
+  expect(plan.fence.length).toBe(2)
+  expect(plan.fence[0].circle).toBe(false)
+  expect(plan.fence[0].inclusion).toBe(true)
+  expect(plan.fence[0].points.length).toBe(3)
+  expect(plan.fence[0].points[2].lon).toBe(21.015)
+  expect(plan.fence[1].circle).toBe(true)
+  expect(plan.fence[1].inclusion).toBe(false)
+  expect(plan.fence[1].radius).toBe(25.5)
+  expect(plan.rally.length).toBe(1)
+  expect(plan.rally[0].alt).toBe(30.0)
+  expect(plan.skipped).toBe(0)
+}
+
+function aCommandThePageDoesNotKnowIsKeptReadOnlyAndWrittenUnchanged(): void throws Error {
+  const plan = parseQgcPlan(PLAN, false)
+  const odd = plan.items[3]
+  expect(odd.command).toBe(2000)
+  expect(odd.known).toBe(false)
+  expect(isKnownCommand(2000)).toBe(false)
+  expect(isKnownCommand(22)).toBe(true)
+  const again = parseQgcPlan(writeQgcPlan(plan), false)
+  expect(again.items[3].command).toBe(2000)
+  expect(again.items[3].known).toBe(false)
+  expect(again.items[3].p1).toBe(1.0)
+  expect(again.items[3].alt).toBe(7.0)
+  const waypoints = parseWaypoints(writeWaypoints(plan))
+  expect(waypoints.items[3].command).toBe(2000)
+  expect(waypoints.items[3].known).toBe(false)
+}
+
+function whatIsWrittenIsReadBackTheSame(): void throws Error {
+  const plan = parseQgcPlan(PLAN, false)
+  const text = writeQgcPlan(plan)
+  const again = parseQgcPlan(text, false)
+  // (the same plan writes the same text: nothing was lost or changed on the way)
+  expect(writeQgcPlan(again)).toBe(text)
+  expect(again.items.length).toBe(4)
+  expect(again.items[1].lat).toBe(52.2301)
+  expect(again.items[1].p4 != again.items[1].p4).toBe(true)
+  expect(again.items[2].autocontinue).toBe(false)
+  expect(again.cruiseSpeed).toBe(12.5)
+  expect(again.fence[1].radius).toBe(25.5)
+  expect(again.rally[0].lon).toBe(21.0125)
+  expect(again.home!.alt).toBe(110.5)
+  expect(text.includes("\"fileType\": \"Plan\"")).toBe(true)
+  expect(text.includes("\"doJumpId\": 4")).toBe(true)
+}
+
+function numbersAndFramesAreExact(): void throws Error {
+  const plan = new Plan()
+  const item = new PlanItem(16, 10)
+  item.lat = 52.22970001
+  item.lon = -179.99999999
+  item.alt = 0.1
+  item.p1 = 0.30000000000000004
+  item.p2 = 1.0e-7
+  item.p3 = 123456789.125
+  item.p4 = 0.0 / 0.0
+  plan.items.push(item)
+  const viaQgc = parseQgcPlan(writeQgcPlan(plan), false).items[0]
+  const viaWaypoints = parseWaypoints(writeWaypoints(plan)).items[0]
+  for (const got of [viaQgc, viaWaypoints]) {
+    expect(got.frame).toBe(10)
+    expect(got.lat).toBe(52.22970001)
+    expect(got.lon).toBe(-179.99999999)
+    expect(got.alt).toBe(0.1)
+    expect(got.p1).toBe(0.30000000000000004)
+    expect(got.p2).toBe(1.0e-7)
+    expect(got.p3).toBe(123456789.125)
+    expect(got.p4 != got.p4).toBe(true)
+  }
+}
+
+function aComplexItemRefusesTheFileUnlessItIsSkippedAndSaid(): void throws Error {
+  expect(codeOf(() => parseQgcPlan(WITH_COMPLEX, false))).toBe("COMPLEX_ITEMS")
+  let message = ""
+  try {
+    const _p = parseQgcPlan(WITH_COMPLEX, false)
+  } catch (e: PlanFileError) {
+    message = e.message
+  }
+  expect(message.includes("2 complex items")).toBe(true)
+  const plan = parseQgcPlan(WITH_COMPLEX, true)
+  expect(plan.items.length).toBe(1)
+  expect(plan.skipped).toBe(2)
+}
+
+function badPlansAreRefusedWithAReason(): void throws Error {
+  expect(codeOf(() => parseQgcPlan("{ not json", false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan("{ \"fileType\": \"Other\" }", false))).toBe("NOT_A_PLAN")
+  expect(codeOf(() => parseQgcPlan("{ }", false))).toBe("NOT_A_PLAN")
+  const withItem = (item: string) => `{ "fileType": "Plan", "mission": { "items": [ ${item} ] } }`
+  // a param list of six, no command, a kind of item that is neither
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 52, 21] }`), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "SimpleItem", "frame": 3, "params": [0, 0, 0, 0, 52, 21, 5] }`), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "Other", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 52, 21, 5] }`), false))).toBe("BAD_ITEM")
+  // a place off the globe in a global frame, a command and a frame out of range
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 91, 21, 5] }`), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "SimpleItem", "command": 70000, "frame": 3, "params": [0, 0, 0, 0, 52, 21, 5] }`), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withItem(`{ "type": "SimpleItem", "command": 16, "frame": 256, "params": [0, 0, 0, 0, 52, 21, 5] }`), false))).toBe("BAD_ITEM")
+  // the index of the item that is wrong
+  expect(atOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "items": [
+    { "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, null, 52, 21, 5] },
+    { "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 200, 21, 5] } ] } }`, false))).toBe(1)
+  // a place in the fence and in the rally points that is off the globe, a circle of no radius
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "rallyPoints": { "points": [[52, 400, 3]] } }`, false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "geoFence": { "polygons": [ { "polygon": [[52, 21], [91, 21]] } ] } }`, false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "geoFence": { "circles": [ { "circle": { "center": [52, 21], "radius": 0 } } ] } }`, false))).toBe("BAD_ITEM")
+}
+
+function aNanIsTakenOnlyWhereTheVehicleTakesIt(): void throws Error {
+  const withParams = (command: int, params: string) => `{ "fileType": "Plan", "mission": { "items": [ { "type": "SimpleItem", "command": ${command}, "frame": 3, "params": [${params}] } ] } }`
+  // yaw of a waypoint, of loiter unlimited, of a land and of a takeoff
+  for (const command of [16, 17, 21, 22]) {
+    expect(codeOf(() => parseQgcPlan(withParams(command, "0, 0, 0, null, 52, 21, 5"), false))).toBe("")
+  }
+  // the others are refused
+  expect(codeOf(() => parseQgcPlan(withParams(16, "null, 0, 0, 0, 52, 21, 5"), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withParams(16, "0, 0, null, 0, 52, 21, 5"), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withParams(178, "1, 5, -1, null, 0, 0, 0"), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withParams(16, "0, 0, 0, 0, null, 21, 5"), false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(withParams(16, "0, 0, 0, 0, 52, 21, null"), false))).toBe("BAD_ITEM")
+  expect(nanAllowed(16)).toBe(8)
+  expect(nanAllowed(36)).toBe(14)
+  expect(nanAllowed(85)).toBe(12)
+  expect(nanAllowed(178)).toBe(0)
+  // (a vehicle's own frame of a command: x and y are not a place, so they are not looked at as one)
+  const own = new PlanItem(177, 2)
+  own.lat = 5.0
+  own.lon = 2000.0
+  expect(problemOf(own)).toBe("")
+  own.frame = 3
+  expect(problemOf(own)).toBe("the place is off the globe")
+}
+
+function aHugeOrHostilePlanIsRefusedBeforeItIsRead(): void throws Error {
+  const big = "{ \"fileType\": \"Plan\", \"x\": \"" + "a".repeat(MAX_FILE_BYTES) + "\" }"
+  expect(codeOf(() => parseQgcPlan(big, false))).toBe("TOO_BIG")
+  const items: string[] = []
+  for (let i = 0; i < MAX_ITEMS + 1; i++) {
+    items.push(`{ "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, null, 52, 21, 5] }`)
+  }
+  const many = `{ "fileType": "Plan", "mission": { "items": [ ${items.join(",")} ] } }`
+  expect(many.length < MAX_FILE_BYTES).toBe(true)
+  expect(codeOf(() => parseQgcPlan(many, false))).toBe("TOO_MANY")
+  // exactly the most is taken
+  items.pop()
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "items": [ ${items.join(",")} ] } }`, false))).toBe("")
+  // deep nesting and a number that is not one are a parse error, not a crash
+  expect(codeOf(() => parseQgcPlan("[".repeat(100000), false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "cruiseSpeed": "fast" } }`, false))).toBe("NOT_JSON")
+}
+
+const WAYPOINTS: string = `QGC WPL 110
+0\t1\t0\t16\t0\t0\t0\t0\t52.2297\t21.0122\t110.5\t1
+1\t0\t3\t22\t0\t0\t0\tNaN\t52.2297\t21.0122\t15\t1
+2\t0\t3\t16\t0\t0\t0\t0\t52.2301\t21.0131\t20\t1
+3\t0\t2\t178\t1\t8\t-1\t0\t0\t0\t0\t0
+`
+
+function aWaypointsFileIsRead(): void throws Error {
+  const plan = parseWaypoints(WAYPOINTS)
+  expect(plan.items.length).toBe(3)
+  expect(plan.home!.lat).toBe(52.2297)
+  expect(plan.home!.alt).toBe(110.5)
+  expect(plan.items[0].command).toBe(22)
+  expect(plan.items[0].p4 != plan.items[0].p4).toBe(true)
+  expect(plan.items[1].lon).toBe(21.0131)
+  expect(plan.items[2].frame).toBe(2)
+  expect(plan.items[2].autocontinue).toBe(false)
+  expect(plan.fence.length).toBe(0)
+  expect(plan.rally.length).toBe(0)
+  // spaces for tabs, CRLF, blank lines between and at the end
+  const loose = WAYPOINTS.split("\t").join("  ").split("\n").join("\r\n") + "\r\n\r\n"
+  expect(parseWaypoints(loose).items.length).toBe(3)
+  const text = writeWaypoints(plan)
+  expect(text.startsWith("QGC WPL 110\n0\t1\t0\t16\t")).toBe(true)
+  expect(writeWaypoints(parseWaypoints(text))).toBe(text)
+}
+
+function aBadWaypointsFileIsRefusedWithItsLine(): void throws Error {
+  const header = "QGC WPL 110\n"
+  const home = "0\t1\t0\t16\t0\t0\t0\t0\t52\t21\t100\t1\n"
+  expect(codeOf(() => parseWaypoints("QGC WPL 120\n" + home))).toBe("NOT_WAYPOINTS")
+  expect(codeOf(() => parseWaypoints(""))).toBe("NOT_WAYPOINTS")
+  const line = (l: string) => parseWaypoints(header + home + l + "\n")
+  // too few fields (line 3), a seq that jumps, current 2 and 3, a frame and a command out of range, a place off the globe
+  expect(codeOf(() => line("1\t0\t3\t16\t0\t0\t0\t0\t52\t21\t5"))).toBe("BAD_LINE")
+  expect(atOf(() => line("1\t0\t3\t16\t0\t0\t0\t0\t52\t21\t5"))).toBe(3)
+  expect(codeOf(() => line("2\t0\t3\t16\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t2\t3\t16\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t3\t3\t16\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t300\t16\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t70000\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\t0\t0\t0\t0\t95\t21\t5\t1"))).toBe("BAD_LINE")
+  // not numbers: a word, a sign, no digit before the point, infinity, a NaN where the vehicle takes none, a fraction where a whole number is
+  expect(codeOf(() => line("1\t0\t3\t16\tabc\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\t+1\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\t.5\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\t0\t0\t0\t0\t52\t21\tinf\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\tNaN\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3\t16\t0\t0\t0\t0\tNaN\t21\t5\t1"))).toBe("BAD_LINE")
+  expect(codeOf(() => line("1\t0\t3.5\t16\t0\t0\t0\t0\t52\t21\t5\t1"))).toBe("BAD_LINE")
+  // (a NaN yaw is taken)
+  expect(codeOf(() => line("1\t0\t3\t16\t0\t0\t0\tnan\t52\t21\t5\t1"))).toBe("")
+}
+
+function aHugeWaypointsFileIsRefusedBeforeItIsRead(): void throws Error {
+  expect(codeOf(() => parseWaypoints("QGC WPL 110\n" + "x".repeat(MAX_FILE_BYTES)))).toBe("TOO_BIG")
+  const lines: string[] = ["QGC WPL 110", "0\t1\t0\t16\t0\t0\t0\t0\t52\t21\t100\t1"]
+  for (let i = 1; i <= MAX_ITEMS + 1; i++) {
+    lines.push(`${i}\t0\t3\t16\t0\t0\t0\t0\t52\t21\t5\t1`)
+  }
+  expect(codeOf(() => parseWaypoints(lines.join("\n")))).toBe("TOO_MANY")
+  lines.pop()
+  expect(codeOf(() => parseWaypoints(lines.join("\n")))).toBe("")
+  // a million empty lines are lines too
+  expect(codeOf(() => parseWaypoints("QGC WPL 110\n" + "\n".repeat(500000)))).toBe("TOO_MANY")
+}
+
+function aPlanWithoutHomeOrCruiseSpeedWritesDefaultsThatReadBack(): void throws Error {
+  const plan = new Plan()
+  const item = new PlanItem(16, 3)
+  item.lat = 52.0
+  item.lon = 21.0
+  item.alt = 10.0
+  plan.items.push(item)
+  const viaQgc = parseQgcPlan(writeQgcPlan(plan), false)
+  expect(viaQgc.items.length).toBe(1)
+  expect(viaQgc.fence.length).toBe(0)
+  expect(viaQgc.rally.length).toBe(0)
+  const viaWaypoints = parseWaypoints(writeWaypoints(plan))
+  expect(viaWaypoints.items.length).toBe(1)
+  expect(viaWaypoints.home!.lat).toBe(0.0)
+}
+
+describe("QGroundControl's .plan", () => {
+  it("is read with its numbers, frames, fence, rally points and home", aPlanIsReadWithItsNumbersAndFrames)
+  it("keeps a command the page does not know read-only and writes it unchanged", aCommandThePageDoesNotKnowIsKeptReadOnlyAndWrittenUnchanged)
+  it("reads back what it writes", whatIsWrittenIsReadBackTheSame)
+  it("keeps numbers and frames exact through both formats", numbersAndFramesAreExact)
+  it("refuses a complex item unless it is skipped, and then says how many", aComplexItemRefusesTheFileUnlessItIsSkippedAndSaid)
+  it("refuses a bad plan with a reason and the item's place", badPlansAreRefusedWithAReason)
+  it("takes a NaN only where the vehicle takes one", aNanIsTakenOnlyWhereTheVehicleTakesIt)
+  it("refuses a huge or hostile plan before it reads it", aHugeOrHostilePlanIsRefusedBeforeItIsRead)
+})
+
+describe("Mission Planner's .waypoints", () => {
+  it("is read, written and read back", aWaypointsFileIsRead)
+  it("refuses a bad file with its line", aBadWaypointsFileIsRefusedWithItsLine)
+  it("refuses a huge file before it reads it", aHugeWaypointsFileIsRefusedBeforeItIsRead)
+  it("writes a plan without home or speed in a form that reads back", aPlanWithoutHomeOrCruiseSpeedWritesDefaultsThatReadBack)
+})
