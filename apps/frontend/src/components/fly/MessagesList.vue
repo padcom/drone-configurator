@@ -51,9 +51,9 @@ import { useFormat } from '@/i18n/useFormat'
 // that the severity is never colour alone; nothing is left out (the PreArm texts and the repeats are all here), and only the
 // warnings and worse also make a toast. The list is a log that is not read out as it grows (`aria-live="off"`: every PreArm text
 // and the replay of 200 messages on connecting would be, and a warning is told by its toast and the banner already) and keeps the
-// last 500 messages; Clear empties it and puts the focus on the section. The count on the heading is how many warnings came since the list was last looked at: putting the pointer or the focus
-// on the list counts as looking. Opening the screen does not: the list is below the display and the cards, and the count is
-// what says there is something to scroll to.
+// last 500 messages; Clear empties it and puts the focus on the section. The count on the heading is how many warnings came
+// since the list was last looked at: putting the pointer or the focus on the list counts as looking. Opening the screen does
+// not: the list is below the display and the cards, and the count is what says there is something to scroll to.
 const { t } = useI18n()
 const format = useFormat()
 const { messages } = useConfigurator()
