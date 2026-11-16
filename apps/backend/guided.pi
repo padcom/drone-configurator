@@ -170,12 +170,14 @@ export class FenceFacts {
   public enabled: f64 = -1.0
   public kind: f64 = -1.0
   public altMax: f64 = -1.0
+  public altMin: f64 = -1.0
   public radius: f64 = -1.0
 }
 
-/// The bits of FENCE_TYPE: a maximum altitude, a circle around home.
+/// The bits of FENCE_TYPE: a maximum altitude, a circle around home, a minimum altitude (the polygon, 4, is not read).
 const FENCE_ALTITUDE_BIT: int = 1
 const FENCE_CIRCLE_BIT: int = 2
+const FENCE_MIN_ALTITUDE_BIT: int = 8
 
 /// What the fence says of a target: `altitude` m above home, `distance` m from home (-1 for a change of altitude, which does not move). A fence
 /// that cannot be read is not taken for no fence (`FENCE_UNKNOWN`).
@@ -196,6 +198,14 @@ export function checkFence(fence: FenceFacts, altitude: f64, distance: f64): voi
     }
     if (fence.altMax > 0.0 && altitude > fence.altMax) {
       throw new CommunicatorError("OUT_OF_LIMITS", `the vehicle's fence allows ${fence.altMax} m above home, not ${altitude}`)
+    }
+  }
+  if ((kind & FENCE_MIN_ALTITUDE_BIT) != 0) {
+    if (fence.altMin < 0.0) {
+      throw new CommunicatorError("FENCE_UNKNOWN", "the vehicle's fence has a minimum altitude that could not be read")
+    }
+    if (altitude < fence.altMin) {
+      throw new CommunicatorError("OUT_OF_LIMITS", `the vehicle's fence allows no less than ${fence.altMin} m above home, not ${altitude}`)
     }
   }
   if ((kind & FENCE_CIRCLE_BIT) != 0 && distance >= 0.0) {

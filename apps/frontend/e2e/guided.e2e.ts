@@ -84,6 +84,26 @@ function reposition(latitude: number, longitude: number, altitude: number, fails
   return { latitude, longitude, altitude, limits: LIMITS, failsafe }
 }
 
+/**
+ * Asks for a reposition until the backend lets it go (it needs a home that was said lately).
+ *
+ * @param ms for how long at most
+ * @returns whether it was accepted
+ */
+async function repositionsWithin(ms: number): Promise<boolean> {
+  const deadline = Date.now() + ms
+  while (Date.now() < deadline) {
+    // eslint-disable-next-line no-await-in-loop -- one try after the other
+    if (await outcome('vehicle.reposition', reposition(NORTH, HOME.lon, 20, 'warn')) === 'accepted') {
+      return true
+    }
+    // eslint-disable-next-line no-await-in-loop -- one try after the other
+    await sleep(500)
+  }
+
+  return false
+}
+
 beforeAll(async () => {
   vehicle = await ScriptedVehicle.start()
   vehicle.position({ lat: HOME.lat, lon: HOME.lon, heading: 0, height: 20 })
@@ -175,14 +195,15 @@ it('keeps the place of the backend for a change of altitude, and sends once', as
 
 it('forgets home when it sets it here, until the vehicle says it again', async () => {
   const before = sent().length
+  // (the scripted vehicle does not model a set of home: it says home every second, so the test says when it does)
+  scripted().home(null)
 
   expect(await outcome('vehicle.setHomeHere')).toBe('accepted')
   // (home that was heard is forgotten: nothing is measured from it)
   expect(await outcome('vehicle.reposition', reposition(NORTH, HOME.lon, 20, 'warn'))).toBe('HOME_UNKNOWN')
   expect(sent().length).toBe(before + 1)
   expect(sent()[before]?.command).toBe(179)
-  // the vehicle says home once a second
-  await sleep(6000)
-
-  expect(await outcome('vehicle.reposition', reposition(NORTH, HOME.lon, 20, 'warn'))).toBe('accepted')
+  // the vehicle says the new home: it is known again
+  scripted().home(HOME)
+  expect(await repositionsWithin(15_000)).toBe(true)
 })

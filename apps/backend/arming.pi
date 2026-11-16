@@ -21,12 +21,16 @@
 //    120 m above home (the hard limits; the user's setting and the vehicle's fence are the page's). The vehicle itself refuses unless it is
 //    on the ground and in GUIDED. It does not hold the armed state.
 //  - The GUIDED commands are sent once like the rest, to an ARMED vehicle (except setHomeHere) that is in GUIDED, within the limits of the request
-//    (which the backend holds to its hard ones), from a position the backend itself heard less than 2 s ago. A reposition and a change of
-//    altitude also read the vehicle's FS_GCS_ENABLE (it is asked, not assumed): when it is 0, or cannot be read, the request's policy says:
-//    `block` refuses (`GCS_FAILSAFE_OFF`), `warn` sends and adds a message to the answer. A set of home here is for a vehicle that stands still.
-//    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, FENCE_ALT_MAX and FENCE_RADIUS): an altitude above the
-//    fence's, or a place outside its circle, is `OUT_OF_LIMITS`, and a fence that cannot be read is `FENCE_UNKNOWN`. After a set of home here
-//    the home that was heard is forgotten until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
+//    (which the backend holds to its hard ones). The position they use is the backend's own, which must be at most 2 s old for a reposition and
+//    a set of home, and at most 1 s old, with the vehicle moving at most 3 m/s over the ground, for a change of altitude (`VEHICLE_MOVING`: it
+//    cancels a reposition under way and holds the vehicle where it is); home must have been said less than 15 s ago (`HOME_UNKNOWN`). A
+//    reposition and a change of altitude also read the vehicle's FS_GCS_ENABLE (it is asked, not assumed): when it is 0, or cannot be read, the
+//    request's policy says: `block` refuses (`GCS_FAILSAFE_OFF`), `warn` sends and adds a message to the answer. A set of home here is for a
+//    vehicle that stands still: at most 1 m/s over the ground and 0.5 m/s up or down (`NOT_HOVERING`).
+//    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, then FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS for
+//    the bits that are set): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
+//    fence that cannot be read is `FENCE_UNKNOWN`. A polygon fence is not read. After a set of home here the home that was heard is forgotten
+//    until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
 //    1.5 s after an accepted answer (the heartbeat lags the vehicle) or 5 s after a missing one; a refusal releases it at once. So no
 //    parameter write, calibration, motor test, log operation or reboot can start in the time the vehicle may be arming.
@@ -241,6 +245,9 @@ async function readFence(): Promise<FenceFacts> throws Error {
   const kind = fence.kind as int
   if ((kind & 1) != 0) {
     fence.altMax = await readParam("FENCE_ALT_MAX")
+  }
+  if ((kind & 8) != 0) {
+    fence.altMin = await readParam("FENCE_ALT_MIN")
   }
   if ((kind & 2) != 0) {
     fence.radius = await readParam("FENCE_RADIUS")

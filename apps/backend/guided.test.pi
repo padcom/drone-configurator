@@ -170,6 +170,12 @@ function theFenceOfTheVehicleLimitsTheAltitudeAndTheDistance(): void {
   // both
   on.kind = 3.0
   expect(codeOf(() => checkFence(on, 26.0, 100.0))).toBe("OUT_OF_LIMITS")
+  // a minimum altitude (bit 8): below it is out, and one that was not read is unknown
+  on.kind = 8.0
+  expect(codeOf(() => checkFence(on, 5.0, -1.0))).toBe("FENCE_UNKNOWN")
+  on.altMin = 10.0
+  expect(codeOf(() => checkFence(on, 9.9, -1.0))).toBe("OUT_OF_LIMITS")
+  expect(codeOf(() => checkFence(on, 10.0, -1.0))).toBe("ok")
 }
 
 function aSpeedIsWithinTheLimitAndTheVehicleIsInGuided(): void {
