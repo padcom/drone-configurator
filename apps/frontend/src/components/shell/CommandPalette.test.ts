@@ -218,6 +218,7 @@ const ALPHABETICAL = [
   'Move the item down',
   'Move the item up',
   'Open log file…',
+  'RC control: turn on or off',
   'Reboot flight controller',
   'Redo',
   'Review before arming',
@@ -250,6 +251,7 @@ const GROUPS_OF_THE_FIRST = [
   'Plan',
   'Logs',
   'Vehicle',
+  'Vehicle',
   'Plan',
   'Vehicle',
   'Parameters',
@@ -272,10 +274,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 29)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(30)
+  expect(groups.slice(0, 30)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(31)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(29, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(30, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })

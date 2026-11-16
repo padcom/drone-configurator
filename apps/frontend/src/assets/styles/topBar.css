@@ -164,6 +164,50 @@
   color: var(--color-on-warn);
 }
 
+/* The mark that the RC control is on: amber while the throttle is held back, a button that turns it off. */
+.top-bar .rc-indicator {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-warn);
+  border-radius: var(--radius-md);
+  color: var(--color-on-warn);
+  background: var(--color-warn);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.top-bar .rc-indicator.waiting {
+  color: var(--color-warn);
+  background: var(--color-warn-soft);
+}
+
+.top-bar .rc-indicator:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.top-bar .rc-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.fly-rc {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.fly-rc p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
 .top-bar .actions {
   display: flex;
   flex: 1 1 auto;
