@@ -362,7 +362,7 @@ export class Groups {
     return
   }
 
-  forget(name: string): void {
+  public forget(name: string): void {
     heardAt.delete(name)
     return
   }

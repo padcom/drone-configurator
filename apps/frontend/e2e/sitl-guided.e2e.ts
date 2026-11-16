@@ -25,8 +25,6 @@ const READY_MS = 300_000
 const HEARTBEAT_MS = 15_000
 /** A flight leg. */
 const LEG_MS = 90_000
-/** ArduCopter's GUIDED. */
-const GUIDED = 4
 /** What a page sends by default: 50 m, 500 m, 10 m/s. */
 const LIMITS = { maxAltitude: 50, maxDistance: 500, maxSpeed: 10 }
 
@@ -217,13 +215,13 @@ function isNorthAndUp(s: Seen, lat: number): boolean {
 }
 
 /**
- * Whether the vehicle moves at less than half a metre a second over the ground.
+ * Whether the vehicle moves at less than half a metre a second over the ground and less than 0.3 m/s up or down.
  *
  * @param s what it says
  * @returns true when it does not move
  */
 function isStill(s: Seen): boolean {
-  return s.position !== undefined && Math.hypot(s.position.vx, s.position.vy) < 0.5
+  return s.position !== undefined && Math.hypot(s.position.vx, s.position.vy) < 0.5 && Math.abs(s.position.vz) < 0.3
 }
 
 /**
@@ -287,6 +285,8 @@ async function fliesWithTheWarning(): Promise<void> {
 
 async function changesAltitudeAndSpeedAndSetsHome(): Promise<void> {
   await vehicleOf().setParam('FS_GCS_ENABLE', 1)
+  // (a change of altitude holds the vehicle where it is: it must have arrived, or the place would be one it has left)
+  await client().until('the vehicle has stopped', isStill, LEG_MS)
   const there = await whereItIs()
   // another height, and the place stays (the backend's own, fresh)
   expect((await answered('vehicle.changeAltitude', { altitude: 12, limits: LIMITS, failsafe: 'block' })).result).toBe('accepted')
@@ -311,7 +311,6 @@ async function landsAndDisarms(): Promise<void> {
   await client().until('the vehicle has landed and disarmed', s => !s.armed, LEG_MS * 2)
   // a vehicle that is down is not sent anywhere
   expect(await outcome('vehicle.reposition', reposition(52.0, 21.0, 20, 'warn'))).toBe('NOT_ARMED')
-  expect(GUIDED).toBe(4)
 }
 
 describeSitl(

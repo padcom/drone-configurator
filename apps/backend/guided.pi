@@ -11,8 +11,15 @@
 //    the place it is given, so an old position sends the vehicle back to where it was; a reposition and a change of altitude need a vehicle
 //    in the air, above 1 m (`NOT_AIRBORNE`: GUIDED on the ground would start a flight); a reposition needs HOME (`HOME_UNKNOWN`) to measure
 //    from.
-//  - SET HOME HERE moves where RTL goes: it takes the vehicle's place, so it needs a fresh position, and a vehicle that stands still
-//    (at most 1 m/s over the ground: `NOT_HOVERING`).
+//  - A CHANGE OF ALTITUDE is a reposition to where the vehicle is (a Copter has no change-altitude command), so it CANCELS a reposition under
+//    way and holds the vehicle at that place: it needs a position at most 1 s old and a vehicle that moves at most 3 m/s over the ground
+//    (`VEHICLE_MOVING`: wait until it has stopped, or send Go here again).
+//  - HOME is what the vehicle said last, and it says it at 0.2 Hz: a home older than 15 s (three periods) is unknown (`HOME_UNKNOWN`), and so is
+//    one that was just moved by a set of home here, until the vehicle says the new one.
+//  - The vehicle's FENCE is looked at too (`checkFence`, over what arming.pi reads from it): an altitude above FENCE_ALT_MAX, or a place beyond
+//    FENCE_RADIUS from home, is `OUT_OF_LIMITS`; a fence that cannot be read is `FENCE_UNKNOWN` (nothing is assumed good).
+//  - SET HOME HERE moves where RTL goes: it takes the vehicle's place, so it needs a fresh position, and a vehicle that stands still (at most
+//    1 m/s over the ground and 0.5 m/s up or down: `NOT_HOVERING`; home's altitude is moved with it, so not in the middle of a climb).
 import { CommunicatorError } from "pico-desktop/communicator"
 import { Flight } from "./telemetry"
 import { GuidedLimits } from "./generated/app"
@@ -30,6 +37,14 @@ export const HARD_SPEED_MS: f64 = 30.0
 export const POSITION_FRESH_MS: int = 2000
 export const AIRBORNE_M: f64 = 1.0
 export const STILL_MS: f64 = 1.0
+export const STILL_VERTICAL_MS: f64 = 0.5
+
+/// A change of altitude: the position may be this old (ms), and the vehicle may move this fast over the ground (m/s).
+export const ALTITUDE_FRESH_MS: int = 1000
+export const ALTITUDE_MOVING_MS: f64 = 3.0
+
+/// How old HOME may be (ms): it is said at 0.2 Hz, so three periods.
+export const HOME_FRESH_MS: int = 15000
 
 /// Metres of a degree of latitude.
 const METRES_PER_DEGREE: f64 = 111320.0
@@ -87,10 +102,10 @@ function checkGuided(f: Flight): void throws CommunicatorError {
   }
 }
 
-/// The position the backend heard is fresh.
-export function checkFreshPosition(f: Flight): void throws CommunicatorError {
-  if (!f.hasPosition || f.positionAgeMs < 0 || f.positionAgeMs > POSITION_FRESH_MS) {
-    throw new CommunicatorError("STALE_POSITION", `the vehicle's position is not known or is older than ${POSITION_FRESH_MS} ms`)
+/// The position the backend heard is at most `ms` old.
+export function checkFreshPosition(f: Flight, ms: int = POSITION_FRESH_MS): void throws CommunicatorError {
+  if (!f.hasPosition || f.positionAgeMs < 0 || f.positionAgeMs > ms) {
+    throw new CommunicatorError("STALE_POSITION", `the vehicle's position is not known or is older than ${ms} ms`)
   }
 }
 
@@ -109,8 +124,8 @@ export function checkReposition(lat: f64, lon: f64, altitude: f64, l: GuidedLimi
   checkGuided(f)
   checkFreshPosition(f)
   checkAirborne(f)
-  if (!f.hasHome) {
-    throw new CommunicatorError("HOME_UNKNOWN", "the vehicle has not said where home is")
+  if (!f.hasHome || f.homeAgeMs < 0 || f.homeAgeMs > HOME_FRESH_MS) {
+    throw new CommunicatorError("HOME_UNKNOWN", "the vehicle has not said where home is lately")
   }
   const away = distanceM(f.homeLat, f.homeLon, lat, lon)
   if (away > l.maxDistance) {
@@ -123,8 +138,11 @@ export function checkChangeAltitude(altitude: f64, l: GuidedLimits, f: Flight): 
   checkLimits(l)
   checkAltitude(altitude, l)
   checkGuided(f)
-  checkFreshPosition(f)
+  checkFreshPosition(f, ALTITUDE_FRESH_MS)
   checkAirborne(f)
+  if (f.groundSpeed > ALTITUDE_MOVING_MS) {
+    throw new CommunicatorError("VEHICLE_MOVING", "the vehicle is moving: wait until it has stopped, or send Go here again")
+  }
 }
 
 /// What a change of speed asks.
@@ -142,7 +160,50 @@ export function checkSetSpeed(speed: f64, l: GuidedLimits, f: Flight): void thro
 /// What a set of home here asks: a fresh position, and a vehicle that stands still.
 export function checkHomeHere(f: Flight): void throws CommunicatorError {
   checkFreshPosition(f)
-  if (f.groundSpeed > STILL_MS) {
-    throw new CommunicatorError("NOT_HOVERING", `the vehicle moves at ${f.groundSpeed} m/s: home is set where it stands still`)
+  if (f.groundSpeed > STILL_MS || f.verticalSpeed > STILL_VERTICAL_MS) {
+    throw new CommunicatorError("NOT_HOVERING", `the vehicle moves (${f.groundSpeed} m/s over the ground, ${f.verticalSpeed} m/s up or down): home is set where it stands still`)
+  }
+}
+
+/// What the vehicle's fence parameters said, or -1 for one that was not read.
+export class FenceFacts {
+  public enabled: f64 = -1.0
+  public kind: f64 = -1.0
+  public altMax: f64 = -1.0
+  public radius: f64 = -1.0
+}
+
+/// The bits of FENCE_TYPE: a maximum altitude, a circle around home.
+const FENCE_ALTITUDE_BIT: int = 1
+const FENCE_CIRCLE_BIT: int = 2
+
+/// What the fence says of a target: `altitude` m above home, `distance` m from home (-1 for a change of altitude, which does not move). A fence
+/// that cannot be read is not taken for no fence (`FENCE_UNKNOWN`).
+export function checkFence(fence: FenceFacts, altitude: f64, distance: f64): void throws CommunicatorError {
+  if (fence.enabled < 0.0) {
+    throw new CommunicatorError("FENCE_UNKNOWN", "the vehicle's fence could not be read: whether it limits the altitude is not known")
+  }
+  if (fence.enabled == 0.0) {
+    return
+  }
+  if (fence.kind < 0.0) {
+    throw new CommunicatorError("FENCE_UNKNOWN", "the vehicle's fence is on and its type could not be read")
+  }
+  const kind = fence.kind as int
+  if ((kind & FENCE_ALTITUDE_BIT) != 0) {
+    if (fence.altMax < 0.0) {
+      throw new CommunicatorError("FENCE_UNKNOWN", "the vehicle's fence has a maximum altitude that could not be read")
+    }
+    if (fence.altMax > 0.0 && altitude > fence.altMax) {
+      throw new CommunicatorError("OUT_OF_LIMITS", `the vehicle's fence allows ${fence.altMax} m above home, not ${altitude}`)
+    }
+  }
+  if ((kind & FENCE_CIRCLE_BIT) != 0 && distance >= 0.0) {
+    if (fence.radius < 0.0) {
+      throw new CommunicatorError("FENCE_UNKNOWN", "the vehicle's fence has a radius that could not be read")
+    }
+    if (fence.radius > 0.0 && distance > fence.radius) {
+      throw new CommunicatorError("OUT_OF_LIMITS", `the vehicle's fence is ${fence.radius} m around home: the place is ${Math.round(distance)} m away`)
+    }
   }
 }

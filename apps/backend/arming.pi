@@ -24,7 +24,9 @@
 //    (which the backend holds to its hard ones), from a position the backend itself heard less than 2 s ago. A reposition and a change of
 //    altitude also read the vehicle's FS_GCS_ENABLE (it is asked, not assumed): when it is 0, or cannot be read, the request's policy says:
 //    `block` refuses (`GCS_FAILSAFE_OFF`), `warn` sends and adds a message to the answer. A set of home here is for a vehicle that stands still.
-//    A guided command does not hold the armed state.
+//    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, FENCE_ALT_MAX and FENCE_RADIUS): an altitude above the
+//    fence's, or a place outside its circle, is `OUT_OF_LIMITS`, and a fence that cannot be read is `FENCE_UNKNOWN`. After a set of home here
+//    the home that was heard is forgotten until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
 //    1.5 s after an accepted answer (the heartbeat lags the vehicle) or 5 s after a missing one; a refusal releases it at once. So no
 //    parameter write, calibration, motor test, log operation or reboot can start in the time the vehicle may be arming.
@@ -45,10 +47,10 @@ import {
   encodeArmingResult,
   GuidedLimits,
 } from "./generated/app"
-import { checkChangeAltitude, checkHomeHere, checkReposition, checkSetSpeed } from "./guided"
+import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkReposition, checkSetSpeed, distanceM } from "./guided"
 import { nextMessageId, textsSince } from "./messages"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
-import { flightNow } from "./telemetry"
+import { flightNow, forgetHome } from "./telemetry"
 import { modesOfVehicle } from "./vehicleinfo"
 
 /// How long the waits are (ms); the tests shorten them.
@@ -191,24 +193,29 @@ function numberOf(v: TypedParamValue): f64 {
   }
 }
 
-/// What the vehicle says of its GCS failsafe (FS_GCS_ENABLE), asked now: "" when it is on; else the words that say it is off or not known.
-/// With `block` that is a refusal (`GCS_FAILSAFE_OFF`: the vehicle would keep flying its last command if the link dropped), with `warn` it
-/// is the warning that goes with the answer.
-async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws Error {
-  let value = -1.0
+/// A parameter of the vehicle, asked now: its value, or -1 when it could not be read (no answer, or no such parameter). A parameter that is
+/// asked for and not there is answered by silence, which takes a moment.
+async function readParam(id: string): Promise<f64> throws Error {
   try {
     const read = new ParamRead(connectedLink(), { system: link.sysid, component: link.compid }, link.encoding, {
       timeoutMs: FAILSAFE_READ_MS,
       retries: 1,
       signal: link.session.signal,
     })
-    value = numberOf((await read.run("FS_GCS_ENABLE")).value)
+    return numberOf((await read.run(id)).value)
   } catch (e: MavLinkError) {
     if (e.code == "ABORTED") {
       throw new CommunicatorError("ABORTED", e.message)
     }
-    value = -1.0
+    return -1.0
   }
+}
+
+/// What the vehicle says of its GCS failsafe (FS_GCS_ENABLE), asked now: "" when it is on; else the words that say it is off or not known.
+/// With `block` that is a refusal (`GCS_FAILSAFE_OFF`: the vehicle would keep flying its last command if the link dropped), with `warn` it
+/// is the warning that goes with the answer.
+async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws Error {
+  const value = await readParam("FS_GCS_ENABLE")
   if (value > 0.0) {
     return ""
   }
@@ -218,6 +225,35 @@ async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws E
     throw new CommunicatorError("GCS_FAILSAFE_OFF", why)
   }
   return why
+}
+
+/// What the vehicle's fence says (asked now, as the failsafe is): FENCE_ENABLE first, and only when it is on the rest of what it needs.
+async function readFence(): Promise<FenceFacts> throws Error {
+  const fence = new FenceFacts()
+  fence.enabled = await readParam("FENCE_ENABLE")
+  if (fence.enabled <= 0.0) {
+    return fence
+  }
+  fence.kind = await readParam("FENCE_TYPE")
+  if (fence.kind < 0.0) {
+    return fence
+  }
+  const kind = fence.kind as int
+  if ((kind & 1) != 0) {
+    fence.altMax = await readParam("FENCE_ALT_MAX")
+  }
+  if ((kind & 2) != 0) {
+    fence.radius = await readParam("FENCE_RADIUS")
+  }
+  return fence
+}
+
+/// Holds a reposition or a change of altitude to the vehicle's own fence: the altitude, and the distance from home of a place.
+async function checkTheFence(what: int, plan: Plan): Promise<void> throws Error {
+  const fence = await readFence()
+  const f = flightNow()
+  const away = if (what == REPOSITION) distanceM(f.homeLat, f.homeLon, plan.lat, plan.lon) else -1.0
+  checkFence(fence, plan.altitude, away)
 }
 
 /// Whether `mode` is RTL or LAND by the name the vehicle's kind gives it: the changes that are allowed when the state is not known.
@@ -325,6 +361,7 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   checkAllowed(what, what == MODE && isSafetyMode(mode))
   if (what == REPOSITION || what == ALTITUDE) {
     plan.warning = await failsafeWarning(ask.policy)
+    await checkTheFence(what, plan)
     // (the vehicle's state may have moved while it was asked)
     checkAllowed(what, false)
     checkGuidedCommand(what, plan, ask)
@@ -362,6 +399,10 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   }
   if (what == ARM) {
     settleArm(got)
+  }
+  if (what == HOME_HERE) {
+    // (home moved, or may have: what was heard of it is old, and the next HOME_POSITION is the new one)
+    forgetHome()
   }
   // (the emergency stop does not wait for the vehicle's words: it is answered as soon as it is)
   if (what != STOP) {

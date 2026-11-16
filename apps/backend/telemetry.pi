@@ -214,8 +214,11 @@ export class Flight {
   public lon: f64 = 0.0
   public relativeAltitude: f64 = 0.0
   public groundSpeed: f64 = 0.0
-  /// Whether HOME was heard, and where it is (degrees).
+  /// How fast it climbs or sinks (m/s, without a sign).
+  public verticalSpeed: f64 = 0.0
+  /// Whether HOME was heard, how old that is (ms; HOME_POSITION comes at 0.2 Hz), and where it is (degrees).
   public hasHome: bool = false
+  public homeAgeMs: int = -1
   public homeLat: f64 = 0.0
   public homeLon: f64 = 0.0
 }
@@ -233,14 +236,22 @@ export function flightNow(): Flight {
     out.lon = p!.lon
     out.relativeAltitude = p!.relativeAltitude
     out.groundSpeed = Math.sqrt(p!.vx * p!.vx + p!.vy * p!.vy)
+    out.verticalSpeed = Math.abs(p!.vz)
   }
   const h = heard.groups.home
   if (h != null) {
     out.hasHome = true
+    out.homeAgeMs = heard.groups.ageOf("home", now)
     out.homeLat = h!.lat
     out.homeLon = h!.lon
   }
   return out
+}
+
+/// Forgets the home that was heard: it has just been moved, and what the vehicle says of it next is the new one. Until it does, home is unknown.
+export function forgetHome(): void {
+  heard.groups.home = null
+  heard.groups.forget("home")
 }
 
 /// For the tests: the position, home and mode the guided commands see, as if the vehicle had said so just now.
