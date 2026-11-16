@@ -232,6 +232,30 @@ services = {
   ; have taken it: see the outputs, and `stopped`), `stopped` when it ends, once, with why; the subscription ends after it.
   "motors.test": ["subscription", motor-test-params, motor-test-state],
   "motors.hold": ["method", null, null],
+  ; RC CONTROL: the page's sticks (a USB gamepad) flown through the vehicle's `RC_CHANNELS_OVERRIDE`. READ pico-mavlink's rcoverride.pi for
+  ; the danger first: an override IS the radio (a mode switch channel changes the mode, a throttle under the failsafe value is a radio
+  ; failsafe, "RC not found" passes). A subscription IS the control: it starts it and its end ends it, by whichever way (the page's
+  ; unsubscribe or going away, the link lost, the session ended or another vehicle there, the page falling silent): the backend then
+  ; RELEASES the channels (one frame, 0 for channels 1 to 8 and 65534 for 9 to 16) and stops. The page sends `rc.input` (25 Hz) and the
+  ; backend sends what it is given, at its own rate (25 Hz, never above 50: frames that come faster replace each other, none is queued
+  ; or sent again); when no `rc.input` that is new (its `seq` above the last) has come for 300 ms the backend releases and tells
+  ; `released` with `SILENT`. The vehicle's own `RC_OVERRIDE_TIME` (3 s) is only the second line. A control that may not begin ENDS
+  ; the subscription at once, with the reason as the end's error code (nothing is sent to the vehicle): `NOT_CONNECTED`, `UNSUPPORTED`
+  ; (not an ArduPilot), `STATE_UNKNOWN` (no heartbeat for 3 s: armed or not is not known), `BUSY` (a control, a calibration, a motor test, a
+  ; parameter or log operation, a plan operation or a reboot is under way), `PARAMS_INCOMPLETE` (the parameter list was not downloaded
+  ; whole: the throttle cannot be held to its range), `PARAMS_MISSING` (`RC_OVERRIDE_TIME`, `RCMAP_THROTTLE` or the throttle channel's
+  ; `RCn_MIN` cannot be read from the vehicle), `OVERRIDE_DISABLED` (`RC_OVERRIDE_TIME` is 0, so the vehicle ignores overrides, or negative,
+  ; so it never lets go of them: both refused). While a control is on, a motor test, a calibration, a parameter write and a reboot are
+  ; refused with `BUSY`. Events: `on` when it has begun (with the throttle channel and its minimum: the pulse of that channel is never
+  ; sent below it), `released` when it ends, once (with why, how many frames were sent, how many throttle pulses were raised to the minimum,
+  ; and whether the vehicle's release frame was written); the subscription ends after it. The backend sends from its own connection, with
+  ; the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`), not the id of the rest of the app (254).
+  "rc.control": ["subscription", null, rc-state],
+  ; What the page reads of its sticks, as pulses in microseconds: channel i + 1 is `channels[i]`, 800 to 2200, or 0 for a channel that is
+  ; the radio's (not overridden: it is released when it was a pulse before). At most 16. `seq` rises with every frame the page makes: a frame
+  ; whose `seq` is not above the last counts for nothing, and is not "the page is alive". A frame with a pulse outside the range, or with more
+  ; than 16 channels, is `INVALID_VALUE`; `NOT_RUNNING` when no control is on.
+  "rc.input": ["method", rc-input, null],
   ; THE LIVE RESPONSE of the roll rate, for the Tune screen: the ACTUAL rate (ATTITUDE's `rollspeed`) and the DESIRED one (ATTITUDE_TARGET's
   ; `body_roll_rate`), as they come from the vehicle, in degrees a second against the vehicle's own clock (`time_boot_ms`). Nothing here is
   ; computed: no model, no filter, no resampling. The stream is for as long as the subscription: it asks the vehicle for the two messages at
@@ -1301,6 +1325,27 @@ motor-test-state = {
   motor: uint .size 1,
   ? why: tstr,
   ? starts: uint .size 4,
+  ? confirmed: bool,
+}
+
+; The sticks of `rc.input`: see there.
+rc-input = {
+  seq: uint .size 4,
+  channels: [* uint .size 2],
+}
+
+; Where the control is (`rc.control`). `state`: `on` (when it has begun: `throttleChannel` and `throttleMin` say which channel is the throttle
+; and the pulse under which it is never sent) or `released` (once, when it is over: `why` is `RELEASED` (the page let go or unsubscribed),
+; `SILENT` (no new `rc.input` for 300 ms), `LINK_LOST` (the link or the session ended, or another vehicle is there); `sent` is how many frames
+; of pulses were written, `clamped` how many throttle pulses were raised to `throttleMin`, `confirmed` whether the release frame was written
+; (when it was not, the vehicle lets go by itself after its `RC_OVERRIDE_TIME`).
+rc-state = {
+  state: "on" / "released",
+  ? why: tstr,
+  ? throttleChannel: uint .size 1,
+  ? throttleMin: uint .size 2,
+  ? sent: uint .size 4,
+  ? clamped: uint .size 4,
   ? confirmed: bool,
 }
 

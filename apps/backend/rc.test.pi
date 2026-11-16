@@ -1,0 +1,450 @@
+// The RC control service (`rc.control`, `rc.input`), over an in-memory link against the simulated vehicle of pico-mavlink (its override:
+// SimRc, which takes a frame only from a sender whose system id is the one the vehicle takes overrides from, keeps what it was sent, and
+// lets go of it as ArduPilot does). An override holds the vehicle's sticks: so each way a control can end has a test of its own, and each
+// says the channels were RELEASED (the vehicle's pulses are its radio's again, by a release frame and not by its own 3 s timeout); and each
+// refusal has one that says NOTHING WAS SENT to the vehicle.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  CalibrationKind,
+  CalibrationStart,
+  ConnectRequest,
+  ConnectRequestTransport,
+  MotorTestParams,
+  ParamWrite,
+  ParamWriteKind,
+  RcInput,
+  RcState,
+  RcStateState,
+  decodeRcState,
+  encodeCalibrationStart,
+  encodeConnectRequest,
+  encodeMotorTestParams,
+  encodeParamWrite,
+  encodeRcInput,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+/// A connected simulator, disarmed, with the parameters RC control reads; and the interval that keeps it disarmed.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+  /// The next `seq` of the page's sticks.
+  public seq: int = 1
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+  }
+
+  /// Ends the connection (its timers would keep the test process alive).
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("vehicle.disconnect")
+  }
+}
+
+/// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+/// A parameter the simulated vehicle has.
+function addParam(sim: SimulatedAutopilot, id: string, value: f64): void {
+  sim.params.push({ id: id, value: TypedParamValue.Real(value as f32, MavParamType.REAL32) })
+}
+
+/// Another value for a parameter the simulated vehicle has.
+function changeParam(sim: SimulatedAutopilot, id: string, value: f64): void {
+  sim.change(id, TypedParamValue.Real(value as f32, MavParamType.REAL32))
+}
+
+/// A connected vehicle whose radio has the first channels at rest, with RC_OVERRIDE_TIME 3 s, the throttle on channel 3 and its minimum 1000.
+async function connected(): Promise<Rig> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.rc = [1500, 1500, 1000, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+  addParam(sim, "RC_OVERRIDE_TIME", 3.0)
+  addParam(sim, "RCMAP_THROTTLE", 3.0)
+  addParam(sim, "RC3_MIN", 1000.0)
+  // The simulator arms itself after three ticks: the control is for a vehicle that may be either, but the tests start on the ground.
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  link.paramsComplete = true
+  await afterBeat()
+  new Rig(f, sim, hold)
+}
+
+/// The error code of a reply, or "ok".
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+/// Subscribes to the control; the reply.
+async function ask(f: Frontend): Promise<Envelope> throws Error {
+  await f.trySubscribe("rc.control")
+}
+
+/// The code a control that may not begin is refused with: the backend accepts the subscription and ends it at once, with the reason.
+/// "ok" when it was not refused.
+async function refusedWith(f: Frontend): Promise<string> throws Error {
+  const reply = await ask(f)
+  if (errorOf(reply) != "ok") {
+    return errorOf(reply)
+  }
+  errorOf(await f.ended())
+}
+
+/// The next state the service tells.
+async function told(f: Frontend): Promise<RcState> throws Error {
+  // (an event that came while a call waited for its reply was kept in `heard`)
+  for (let i = 0; i < f.heard.length; i++) {
+    if (f.heard[i].n == "rc.control") {
+      const e = f.heard[i]
+      f.heard.splice(i, 1)
+      return decodeRcState(e.p ?? Cbor.Null, "$")
+    }
+  }
+  decodeRcState((await f.event("rc.control")).p ?? Cbor.Null, "$")
+}
+
+/// Waits until `done` says so (up to a few seconds), and fails when it never does.
+async function until(what: string, done: () => bool): Promise<void> throws Error {
+  let waited = 0
+  while (!done() && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  expect(done()).toBe(true)
+  if (!done()) {
+    throw new Error(`never: ${what}`)
+  }
+}
+
+/// A frame of the page's sticks: `channels` are pulses (0: the radio's); the reply.
+async function input(r: Rig, channels: int[]): Promise<Envelope> throws Error {
+  const pulses: u16[] = channels.map((c: int) => c as u16)
+  const seq = r.seq
+  r.seq += 1
+  await r.f.call("rc.input", encodeRcInput(RcInput { seq: seq as u32, channels: pulses }))
+}
+
+/// The page's sticks, every 40 ms for `ms` (a page that is alive).
+async function feed(r: Rig, ms: int, channels: int[]): Promise<void> throws Error {
+  let fed = 0
+  while (fed < ms) {
+    expect(errorOf(await input(r, channels))).toBe("ok")
+    await delay(40)
+    fed += 40
+  }
+}
+
+/// The vehicle's first `n` channels, as RC_CHANNELS would say them.
+function pulsesOf(r: Rig, n: int): string {
+  const all = r.sim.rcOverride.pulses()
+  const out: int[] = []
+  for (let i = 0; i < n; i++) {
+    out.push(all[i])
+  }
+  return out.join(",")
+}
+
+/// A control is on and sending.
+async function flying(r: Rig, channels: int[] = [0, 0, 1500]): Promise<u64> throws Error {
+  const reply = await ask(r.f)
+  expect(errorOf(reply)).toBe("ok")
+  const state = await told(r.f)
+  expect(state.state == RcStateState.On).toBe(true)
+  await feed(r, 200, channels)
+  expect(r.sim.rcOverride.frames > 0).toBe(true)
+  return reply.s ?? 0
+}
+
+/// The control said it released, with `why`, and the vehicle's channels are its radio's again, by a release frame.
+async function releasedBy(r: Rig, why: string): Promise<RcState> throws Error {
+  const state = await told(r.f)
+  expect(state.state == RcStateState.Released).toBe(true)
+  expect(state.why ?? "").toBe(why)
+  expect(state.confirmed ?? false).toBe(true)
+  expect(r.sim.rcOverride.releases).toBe(1)
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1000")
+  return state
+}
+
+/// Nothing was sent to the vehicle.
+function nothingWasSent(r: Rig): void {
+  expect(r.sim.rcOverride.frames).toBe(0)
+  expect(r.sim.rcOverride.refused).toBe(0)
+  expect(link.rcControl).toBe(false)
+}
+
+async function sendsTheSticksAsTheVehiclesGcsAndTellsTheThrottle(): Promise<void> throws Error {
+  const r = await connected()
+  const reply = await ask(r.f)
+  expect(errorOf(reply)).toBe("ok")
+  const on = await told(r.f)
+  expect(on.state == RcStateState.On).toBe(true)
+  expect(on.throttleChannel ?? 0).toBe(3)
+  expect(on.throttleMin ?? 0).toBe(1000)
+  // nothing is sent before the page's first frame
+  await delay(150)
+  expect(r.sim.rcOverride.frames).toBe(0)
+  await feed(r, 400, [0, 0, 1500, 0, 1800])
+  // the vehicle took the frames (from system 255), and channels 3 and 5 are the override's, 1 and 2 the radio's
+  expect(r.sim.rcOverride.refused).toBe(0)
+  expect(r.sim.rcOverride.frames > 3).toBe(true)
+  expect(pulsesOf(r, 5)).toBe("1500,1500,1500,1500,1800")
+  // at its own rate: 25 Hz, however fast the page's frames come
+  expect(r.sim.rcOverride.frames <= 14).toBe(true)
+  await r.f.unsubscribe(reply.s ?? 0)
+  await until("the channels are released", () => pulsesOf(r, 5) == "1500,1500,1000,1500,1000")
+  await r.close()
+}
+
+async function raisesAThrottleBelowItsMinimumAndCountsIt(): Promise<void> throws Error {
+  const r = await connected()
+  changeParam(r.sim, "RC3_MIN", 1100.0)
+  const reply = await ask(r.f)
+  expect(errorOf(reply)).toBe("ok")
+  const on = await told(r.f)
+  expect(on.throttleMin ?? 0).toBe(1100)
+  await feed(r, 200, [0, 0, 900])
+  // a pulse under the minimum is the minimum: the vehicle never sees the failsafe value
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1100")
+  await feed(r, 200, [0, 0, 1700])
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1700")
+  await r.f.unsubscribe(reply.s ?? 0)
+  await r.close()
+}
+
+async function releasesWhenThePageUnsubscribes(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r)
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1500")
+  await r.f.unsubscribe(s)
+  await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
+  expect(r.sim.rcOverride.releases).toBe(1)
+  await until("the control is over", () => !link.rcControl)
+  await r.close()
+}
+
+async function releasesWhenThePageGoesSilent(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  const framesAt = r.sim.rcOverride.frames
+  // (the page says nothing from here: 300 ms later the backend lets go, at once and not after the vehicle's 3 s)
+  await delay(600)
+  const state = await releasedBy(r, "SILENT")
+  expect((state.sent ?? 0) > 0).toBe(true)
+  // and sends nothing more
+  expect(r.sim.rcOverride.frames >= framesAt).toBe(true)
+  const framesAfter = r.sim.rcOverride.frames
+  await delay(400)
+  expect(r.sim.rcOverride.frames).toBe(framesAfter)
+  expect(link.rcControl).toBe(false)
+  await r.close()
+}
+
+async function aFrameThatIsNotNewDoesNotSayThePageIsAlive(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  // the same `seq` over and over (a page that froze and repeats its last frame, or an IPC that replays one): not "alive"
+  const stuck = r.seq - 1
+  for (let i = 0; i < 12; i++) {
+    const pulses: u16[] = [0 as u16, 0 as u16, 1500 as u16]
+    await r.f.call("rc.input", encodeRcInput(RcInput { seq: stuck as u32, channels: pulses }))
+    await delay(40)
+  }
+  await releasedBy(r, "SILENT")
+  await r.close()
+}
+
+async function releasesWhenTheLinkIsLost(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  // (the link is lost: operations stop, the connection is still there for the release)
+  link.abortOperations()
+  await releasedBy(r, "LINK_LOST")
+  await r.close()
+}
+
+async function releasesWhenTheSessionEnds(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  link.close()
+  // The release goes as the session ends, and the connection stays open for it (and for the vehicle to read it).
+  expect(link.rcControl).toBe(true)
+  await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
+  expect(r.sim.rcOverride.releases).toBe(1)
+  await until("the control is over", () => !link.rcControl)
+  clearInterval(r.hold)
+}
+
+async function releasesWhenTheUserDisconnects(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  await r.close()
+  await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
+  expect(r.sim.rcOverride.releases).toBe(1)
+}
+
+async function releasesWhenTheWindowCloses(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  await r.f.announceClosing()
+  await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
+  expect(r.sim.rcOverride.releases).toBe(1)
+  clearInterval(r.hold)
+}
+
+async function releasesWhenTheHostExits(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r)
+  // the link to the frontend ends with no word (the host was killed): the subscription ends, the session does not, and the release goes out
+  r.f.hostExits()
+  await until("the channels are released", () => pulsesOf(r, 3) == "1500,1500,1000")
+  expect(r.sim.rcOverride.releases).toBe(1)
+  r.sim.stop()
+  clearInterval(r.hold)
+  link.close()
+}
+
+async function sendsNothingAndAFrameAfterTheEndIsNotRunning(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r)
+  await r.f.unsubscribe(s)
+  await until("the control is over", () => !link.rcControl)
+  const frames = r.sim.rcOverride.frames
+  expect(errorOf(await input(r, [0, 0, 1500]))).toBe("NOT_RUNNING")
+  await delay(200)
+  expect(r.sim.rcOverride.frames).toBe(frames)
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1000")
+  await r.close()
+}
+
+async function refusesAPulseOutOfRangeAndTooManyChannels(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r)
+  expect(errorOf(await input(r, [0, 0, 700]))).toBe("INVALID_VALUE")
+  expect(errorOf(await input(r, [0, 0, 2300]))).toBe("INVALID_VALUE")
+  expect(errorOf(await input(r, [0, 0, 1500, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe("INVALID_VALUE")
+  // what was refused changed nothing: the pulses are the last good ones
+  await delay(100)
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1500")
+  await r.f.unsubscribe(s)
+  await r.close()
+}
+
+async function refusesWhenNoVehicleIsConnected(): Promise<void> throws Error {
+  const f = await start()
+  link.close()
+  expect(await refusedWith(f)).toBe("NOT_CONNECTED")
+}
+
+async function refusesWhenTheArmedStateIsNotKnown(): Promise<void> throws Error {
+  const r = await connected()
+  link.heartbeatAt = 0
+  expect(await refusedWith(r.f)).toBe("STATE_UNKNOWN")
+  nothingWasSent(r)
+  await r.close()
+}
+
+async function refusesAVehicleThatIgnoresOverridesOrNeverLetsGo(): Promise<void> throws Error {
+  const r = await connected()
+  // RC_OVERRIDE_TIME 0: the vehicle ignores overrides. Negative: it never lets go of one.
+  changeParam(r.sim, "RC_OVERRIDE_TIME", 0.0)
+  expect(await refusedWith(r.f)).toBe("OVERRIDE_DISABLED")
+  changeParam(r.sim, "RC_OVERRIDE_TIME", -1.0)
+  expect(await refusedWith(r.f)).toBe("OVERRIDE_DISABLED")
+  nothingWasSent(r)
+  await r.close()
+}
+
+async function refusesWhatItCannotScaleTheThrottleTo(): Promise<void> throws Error {
+  const r = await connected()
+  // the parameter list was not downloaded whole
+  link.paramsComplete = false
+  expect(await refusedWith(r.f)).toBe("PARAMS_INCOMPLETE")
+  link.paramsComplete = true
+  // a vehicle whose throttle channel (9) has no minimum to read
+  changeParam(r.sim, "RCMAP_THROTTLE", 9.0)
+  expect(await refusedWith(r.f)).toBe("PARAMS_MISSING")
+  nothingWasSent(r)
+  await r.close()
+}
+
+async function takesOneControlAtATime(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r)
+  expect(await refusedWith(r.f)).toBe("BUSY")
+  // the one that runs goes on
+  await feed(r, 200, [0, 0, 1500])
+  expect(pulsesOf(r, 3)).toBe("1500,1500,1500")
+  await r.f.unsubscribe(s)
+  await until("the control is over", () => !link.rcControl)
+  // and may be started again once it is over
+  const again = await ask(r.f)
+  expect(errorOf(again)).toBe("ok")
+  await told(r.f)
+  await told(r.f)
+  await r.f.unsubscribe(again.s ?? 0)
+  await r.close()
+}
+
+async function holdsOffAMotorTestACalibrationAParameterWriteAndAReboot(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r)
+  const motor = await r.f.trySubscribe("motors.test", encodeMotorTestParams(MotorTestParams { motor: 1 as u8, throttle: 5 as u8 }))
+  expect(errorOf(motor) == "ok" && errorOf(await r.f.ended()) == "BUSY" || errorOf(motor) == "BUSY").toBe(true)
+  const calibration = await r.f.call("calibration.start", encodeCalibrationStart(CalibrationStart { kind: CalibrationKind.Level }))
+  expect(errorOf(calibration)).toBe("BUSY")
+  expect(errorOf(await r.f.call("vehicle.reboot"))).toBe("BUSY")
+  const write = ParamWrite { id: "RCMAP_THROTTLE", kind: ParamWriteKind.Real, type: "REAL32", value: 4.0 }
+  expect(errorOf(await r.f.call("params.write", encodeParamWrite(write)))).toBe("BUSY")
+  expect(r.sim.rcOverride.refused).toBe(0)
+  expect(link.motorTest).toBe(false)
+  expect(link.calibrating).toBe(false)
+  await r.f.unsubscribe(s)
+  await until("the control is over", () => !link.rcControl)
+  await r.close()
+}
+
+describe("the RC control", () => {
+  it("sends the sticks as the vehicle's ground station, at its own rate, and says the throttle", sendsTheSticksAsTheVehiclesGcsAndTellsTheThrottle)
+  it("raises a throttle under its minimum to it, and counts it", raisesAThrottleBelowItsMinimumAndCountsIt)
+  it("takes one control at a time", takesOneControlAtATime)
+  it("holds off a motor test, a calibration, a parameter write and a reboot while it is on", holdsOffAMotorTestACalibrationAParameterWriteAndAReboot)
+})
+
+describe("the exits of an RC control", () => {
+  it("releases when the page unsubscribes", releasesWhenThePageUnsubscribes)
+  it("releases when the page goes silent, and sends nothing more", releasesWhenThePageGoesSilent)
+  it("does not take a frame that is not new for a sign of life", aFrameThatIsNotNewDoesNotSayThePageIsAlive)
+  it("releases when the link is lost", releasesWhenTheLinkIsLost)
+  it("releases when the session ends", releasesWhenTheSessionEnds)
+  it("releases when the user disconnects", releasesWhenTheUserDisconnects)
+  it("releases when the window closes", releasesWhenTheWindowCloses)
+  it("releases when the host exits without a word", releasesWhenTheHostExits)
+  it("takes no frame once it is over", sendsNothingAndAFrameAfterTheEndIsNotRunning)
+})
+
+describe("what the RC control refuses", () => {
+  it("refuses a pulse out of range and too many channels, and changes nothing", refusesAPulseOutOfRangeAndTooManyChannels)
+  it("sends nothing when no vehicle is connected", refusesWhenNoVehicleIsConnected)
+  it("sends nothing when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
+  it("sends nothing to a vehicle that ignores overrides or never lets go of one", refusesAVehicleThatIgnoresOverridesOrNeverLetsGo)
+  it("sends nothing when the throttle cannot be held to its range", refusesWhatItCannotScaleTheThrottleTo)
+})

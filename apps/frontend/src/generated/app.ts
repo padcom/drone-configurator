@@ -1206,6 +1206,24 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
+export type RcInput = { "seq": number, "channels": (number)[] }
+
+function validateRcInputInto(value: any, path: string): boolean {
+  return map(value, path, ["seq","channels"]) && (value["seq"] === undefined ? fail(`${path}.seq`, 'present') : nested(value["seq"], `${path}.seq`, (value, path) => uint(value, path, 0xffffffff))) && (value["channels"] === undefined ? fail(`${path}.channels`, 'present') : nested(value["channels"], `${path}.channels`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff))))
+}
+
+/** The first problem with `value` as a rc-input, or null. */
+export const validateRcInput = (value: unknown) => run(validateRcInputInto, value)
+
+export type RcState = { "state": "on" | "released", "why"?: string, "throttleChannel"?: number, "throttleMin"?: number, "sent"?: number, "clamped"?: number, "confirmed"?: boolean }
+
+function validateRcStateInto(value: any, path: string): boolean {
+  return map(value, path, ["state","why","throttleChannel","throttleMin","sent","clamped","confirmed"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["on","released"]))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["throttleChannel"] === undefined || nested(value["throttleChannel"], `${path}.throttleChannel`, (value, path) => uint(value, path, 0xff))) && (value["throttleMin"] === undefined || nested(value["throttleMin"], `${path}.throttleMin`, (value, path) => uint(value, path, 0xffff))) && (value["sent"] === undefined || nested(value["sent"], `${path}.sent`, (value, path) => uint(value, path, 0xffffffff))) && (value["clamped"] === undefined || nested(value["clamped"], `${path}.clamped`, (value, path) => uint(value, path, 0xffffffff))) && (value["confirmed"] === undefined || nested(value["confirmed"], `${path}.confirmed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a rc-state, or null. */
+export const validateRcState = (value: unknown) => run(validateRcStateInto, value)
+
 export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
 
 function validateMapTileAskInto(value: any, path: string): boolean {
@@ -1327,6 +1345,8 @@ export interface Services {
   "calibration.result": { kind: 'event', payload: CalibrationResult }
   "motors.test": { kind: 'subscription', params: MotorTestParams, value: MotorTestState }
   "motors.hold": { kind: 'method', request: null, response: null }
+  "rc.control": { kind: 'subscription', params: null, value: RcState }
+  "rc.input": { kind: 'method', request: RcInput, response: null }
   "tuning.stream": { kind: 'subscription', params: TuningParams, value: TuningBatch }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
@@ -1562,6 +1582,14 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "motors.hold": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
+    response: (value: any, path: string) => value === null || fail(path, 'null'),
+  },
+  "rc.control": {
+    params: (value: any, path: string) => value === null || fail(path, 'null'),
+    value: (value: any, path: string) => validateRcStateInto(value, path),
+  },
+  "rc.input": {
+    request: (value: any, path: string) => validateRcInputInto(value, path),
     response: (value: any, path: string) => value === null || fail(path, 'null'),
   },
   "tuning.stream": {

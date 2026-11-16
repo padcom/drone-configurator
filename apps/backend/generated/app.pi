@@ -5999,6 +5999,144 @@ export function encodeMotorTestState(v: MotorTestState): Cbor {
   Cbor.Dict(m)
 }
 
+function decodeRcInputChannelsList(v: Cbor, path: string): u16[] throws InvalidPayload {
+  const out: u16[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push((uint(e, `${path}[${i}]`, 65535) as u16))
+    i += 1
+  }
+  out
+}
+
+function encodeRcInputChannelsList(v: u16[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Uint(e as u64))
+  }
+  Cbor.List(out)
+}
+
+export struct RcInput {
+  seq: u32
+  channels: u16[]
+}
+
+export function decodeRcInput(v: Cbor, path: string): RcInput throws InvalidPayload {
+  const m = members(v, path, ["seq", "channels"])
+  RcInput {
+    seq: (uint(required(m, "seq", path), `${path}.seq`, 4294967295) as u32),
+    channels: decodeRcInputChannelsList(required(m, "channels", path), `${path}.channels`),
+  }
+}
+
+export function encodeRcInput(v: RcInput): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("seq", Cbor.Uint(v.seq as u64))
+  m.set("channels", encodeRcInputChannelsList(v.channels))
+  Cbor.Dict(m)
+}
+
+export enum RcStateState { On, Released }
+
+export function decodeRcStateState(v: Cbor, path: string): RcStateState throws InvalidPayload {
+  match (text(v, path)) {
+    "on" => RcStateState.On,
+    "released" => RcStateState.Released,
+    _ => throw new InvalidPayload(path, "on or released"),
+  }
+}
+
+export function encodeRcStateState(v: RcStateState): Cbor {
+  match (v) {
+    On => Cbor.Text("on"),
+    Released => Cbor.Text("released"),
+  }
+}
+
+export struct RcState {
+  state: RcStateState
+  why?: string
+  throttleChannel?: u8
+  throttleMin?: u16
+  sent?: u32
+  clamped?: u32
+  confirmed?: bool
+}
+
+export function decodeRcState(v: Cbor, path: string): RcState throws InvalidPayload {
+  const m = members(v, path, ["state", "why", "throttleChannel", "throttleMin", "sent", "clamped", "confirmed"])
+  const cbor1 = m.get("why")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.why`)
+  }
+  const cbor2 = m.get("throttleChannel")
+  let opt2: u8? = null
+  if (cbor2 != null) {
+    opt2 = (uint(cbor2, `${path}.throttleChannel`, 255) as u8)
+  }
+  const cbor3 = m.get("throttleMin")
+  let opt3: u16? = null
+  if (cbor3 != null) {
+    opt3 = (uint(cbor3, `${path}.throttleMin`, 65535) as u16)
+  }
+  const cbor4 = m.get("sent")
+  let opt4: u32? = null
+  if (cbor4 != null) {
+    opt4 = (uint(cbor4, `${path}.sent`, 4294967295) as u32)
+  }
+  const cbor5 = m.get("clamped")
+  let opt5: u32? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.clamped`, 4294967295) as u32)
+  }
+  const cbor6 = m.get("confirmed")
+  let opt6: bool? = null
+  if (cbor6 != null) {
+    opt6 = boolean(cbor6, `${path}.confirmed`)
+  }
+  RcState {
+    state: decodeRcStateState(required(m, "state", path), `${path}.state`),
+    why: opt1,
+    throttleChannel: opt2,
+    throttleMin: opt3,
+    sent: opt4,
+    clamped: opt5,
+    confirmed: opt6,
+  }
+}
+
+export function encodeRcState(v: RcState): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("state", encodeRcStateState(v.state))
+  const opt1 = v.why
+  if (opt1 != null) {
+    m.set("why", Cbor.Text(opt1))
+  }
+  const opt2 = v.throttleChannel
+  if (opt2 != null) {
+    m.set("throttleChannel", Cbor.Uint(opt2 as u64))
+  }
+  const opt3 = v.throttleMin
+  if (opt3 != null) {
+    m.set("throttleMin", Cbor.Uint(opt3 as u64))
+  }
+  const opt4 = v.sent
+  if (opt4 != null) {
+    m.set("sent", Cbor.Uint(opt4 as u64))
+  }
+  const opt5 = v.clamped
+  if (opt5 != null) {
+    m.set("clamped", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.confirmed
+  if (opt6 != null) {
+    m.set("confirmed", Cbor.Bool(opt6))
+  }
+  Cbor.Dict(m)
+}
+
 export struct MapTileAsk {
   source?: string
   z: u8

@@ -216,6 +216,9 @@ function refuse(motor: int, throttle: int): void throws CommunicatorError {
   if (current.active) {
     throw new CommunicatorError("BUSY", "a motor test is already running")
   }
+  if (link.rcControl) {
+    throw new CommunicatorError("BUSY", "RC control is on")
+  }
   if (link.calibrating || link.listing || link.writes > 0 || link.logging || link.planning || rebootExpected()) {
     throw new CommunicatorError("BUSY", "a calibration, a parameter or log operation or a reboot is under way")
   }

@@ -77,7 +77,7 @@ export function refusal(): string? {
   if (armed!) {
     return "ARMED"
   }
-  if (link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || link.planning || asking.busy || rebootExpected()) {
+  if (link.rcControl || link.listing || link.writes > 0 || link.logging || link.calibrating || link.motorTest || link.planning || asking.busy || rebootExpected()) {
     return "BUSY"
   }
   return null
