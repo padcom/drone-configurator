@@ -115,6 +115,33 @@ function aFenceAndRallyPointsAreComparedByPlaceAndTheirCount(): void throws Erro
   expect(differs(rally, gotRally, false).includes("place")).toBe(true)
 }
 
+function aCirclesRadiusIsAFloatAndAVertexCountIsAWholeNumber(): void throws Error {
+  // a circle's param1 is its radius in metres (a float): 12.5 m is 12.5, not 12; a vertex's is a count, whole
+  const circle = new MissionEntry(5003, 0, 521000000, 211000000, 0.0)
+  circle.param1 = 12.5
+  const gotCircle = new MissionEntry(5003, 0, 521000000, 211000000, 0.0)
+  gotCircle.param1 = 12.5
+  expect(differs(circle, gotCircle, false)).toBe("")
+  gotCircle.param1 = 12.0
+  expect(differs(circle, gotCircle, false).includes("radius")).toBe(true)
+  const exclusion = new MissionEntry(5004, 0, 521000000, 211000000, 0.0)
+  exclusion.param1 = 30.25
+  const gotExclusion = new MissionEntry(5004, 0, 521000000, 211000000, 0.0)
+  gotExclusion.param1 = 30.25
+  expect(differs(exclusion, gotExclusion, false)).toBe("")
+  const vertex = new MissionEntry(5001, 0, 521000000, 211000000, 0.0)
+  vertex.param1 = 3.0
+  const gotVertex = new MissionEntry(5001, 0, 521000000, 211000000, 0.0)
+  gotVertex.param1 = 3.0
+  expect(differs(vertex, gotVertex, false)).toBe("")
+  // the return point and a rally point have no parameter that is compared
+  const rally = new MissionEntry(5100, 3, 521000000, 211000000, 30.0)
+  rally.param1 = 7.0
+  expect(differs(rally, new MissionEntry(5100, 3, 521000000, 211000000, 30.0), false)).toBe("")
+  const back = new MissionEntry(5000, 0, 521000000, 211000000, 0.0)
+  expect(differs(back, new MissionEntry(5000, 0, 521000000, 211000000, 0.0), false)).toBe("")
+}
+
 function aCommandWithNoRuleIsComparedByCommandAndPlaceOnly(): void throws Error {
   const odd = sent(2000, 3)
   expect(differs(odd, back(2000, 3, 0.0, 0.0, 0.0, 0.0, 522000000, 212000000, 25.0), true)).toBe("")
@@ -144,6 +171,7 @@ describe("what the vehicle keeps of an item", () => {
   it("finds a difference in what the vehicle keeps", aDifferenceInWhatIsKeptIsFound)
   it("does not take what the vehicle rounds for a difference", whatTheVehicleQuantisesIsNotADifference)
   it("compares a fence and rally points by command, place and count", aFenceAndRallyPointsAreComparedByPlaceAndTheirCount)
+  it("compares a circle's radius as a float and a vertex count as a whole number", aCirclesRadiusIsAFloatAndAVertexCountIsAWholeNumber)
   it("compares a command with no rule by command and place only, and counts it", aCommandWithNoRuleIsComparedByCommandAndPlaceOnly)
   it("says where the first mismatch is, and a missing item counts", theFirstMismatchSaysWhereAndAMissingItemCounts)
 })

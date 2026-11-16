@@ -94,6 +94,7 @@ function resultOf(e: Envelope): string {
     Mismatch => "mismatch",
     UploadFailed => "upload-failed",
     ReadFailed => "read-failed",
+    Refused => "refused",
   }
 }
 
@@ -246,15 +247,100 @@ async function itemsNoVehicleShouldGetAreRefusedBeforeAnythingIsSent(): Promise<
   expect(after).toBe(before)
 }
 
-async function aVehicleThatHasNoRoomSaysSoAndTheWriteFailedLeavesAMixture(): Promise<void> throws Error {
+async function aCountTheVehicleRefusesTouchesNothingAndIsNotAMixture(): Promise<void> throws Error {
   const f = await onTheGround()
   const sim = simulatorForTests()!
+  // a good plan is on the vehicle; then a vehicle with no room (as a fresh one says for 15 s) is sent a longer one: refused at the count,
+  // before it truncates anything, so what it holds is as it was
+  expect(resultOf(await written(f, PlanKind.Mission, [route()[0], route()[1]]))).toBe("verified")
   sim.missions.maxMission = 3
   const reply = await written(f, PlanKind.Mission, route())
   const out = decodePlanWriteResult(reply.p ?? Cbor.Null, "$")
+  const held = sim.missions.held(MavMissionType.MISSION).length
+  const free = link.planning
   await f.call("vehicle.disconnect")
-  expect(resultOf(reply)).toBe("upload-failed")
+  expect(resultOf(reply)).toBe("refused")
   expect(out.code ?? "").toBe("NO_SPACE")
+  expect((out.detail ?? "").includes("nothing was changed")).toBe(true)
+  // (home and the two items of the first write)
+  expect(held).toBe(3)
+  expect(free).toBe(false)
+}
+
+async function aCancelFreesTheLinkWhicheverOperationItEnds(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  waits.messageMs = 3000
+  // the vehicle says nothing: each operation waits for it, and is cancelled
+  sim.missions.deaf = true
+  const read = await f.send("plan.read", encodePlanReadAsk(PlanReadAsk { kind: PlanKind.Mission }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const readCode = codeOf(await f.reply(read))
+  const free1 = link.planning
+  const clear = await f.send("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const cleared = decodePlanClearResult((await f.reply(clear)).p ?? Cbor.Null, "$")
+  const free2 = link.planning
+  const current = await f.send("plan.setCurrent", encodePlanCurrentAsk(PlanCurrentAsk { seq: 1 }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const moved = decodeArmingResult((await f.reply(current)).p ?? Cbor.Null, "$")
+  const free3 = link.planning
+  const write = await f.send("plan.write", encodePlanWriteAsk(PlanWriteAsk { kind: PlanKind.Mission, items: route() }))
+  await delay(150)
+  await f.call("plan.cancel")
+  const wrote = resultOf(await f.reply(write))
+  const free4 = link.planning
+  // and everything that was BUSY while they ran is free: an arm, a parameter download, the next read
+  sim.missions.deaf = false
+  waits.messageMs = 400
+  const arm = codeOf(await f.call("vehicle.arm"))
+  const again = codeOf(await readOf(f, PlanKind.Mission))
+  await f.call("vehicle.disconnect")
+  expect(readCode).toBe("ABORTED")
+  expect(cleared.result).toBe(PlanClearResultResult.Unconfirmed)
+  expect(cleared.code ?? "").toBe("ABORTED")
+  expect(moved.result).toBe(ArmingResultResult.NoAnswer)
+  expect(wrote).toBe("upload-failed")
+  expect(free1 && free2 && free3 && free4).toBe(false)
+  expect(arm != "BUSY").toBe(true)
+  expect(again).toBe("ok")
+}
+
+async function noPlaceIsNoPlaceForTheWaypointsOfTheMission(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  const before = sim.missions.counts
+  // a waypoint, loiter unlimited, turns and time at 0, 0 in a global frame: ArduPilot takes it for "where the item before is"
+  let refused = 0
+  for (const command of [16, 17, 18, 19]) {
+    const item = PlanItem { command: command as u16, frame: 3, param1: 0.0, param2: 0.0, param3: 0.0, param4: 0.0, x: 0.0, y: 0.0, z: 20.0, autocontinue: true }
+    if (codeOf(await written(f, PlanKind.Mission, [item])) == "INVALID_VALUE") {
+      refused += 1
+    }
+  }
+  const after = sim.missions.counts
+  // a takeoff at 0, 0 is a takeoff here (and a waypoint in the mission's own frame has no place to look at): both go
+  const takeoff = resultOf(await written(f, PlanKind.Mission, [route()[0]]))
+  await f.call("vehicle.disconnect")
+  expect(refused).toBe(4)
+  expect(after).toBe(before)
+  expect(takeoff).toBe("verified")
+}
+
+async function theReadSaysWhichItemTheVehicleIsOn(): Promise<void> throws Error {
+  const f = await onTheGround()
+  const sim = simulatorForTests()!
+  await written(f, PlanKind.Mission, route())
+  const none = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  sim.missions.start()
+  const on = decodePlanReadResult((await readOf(f, PlanKind.Mission)).p ?? Cbor.Null, "$")
+  await f.call("vehicle.disconnect")
+  expect(none.current == null).toBe(true)
+  // (the first item of the page is item 1, home being 0)
+  expect(on.current ?? 99).toBe(1)
 }
 
 async function aStoppedUploadIsUploadFailedAndNeverSentAgain(): Promise<void> throws Error {
@@ -384,7 +470,10 @@ describe("the plan service", () => {
   it("refuses a write and a clear for a vehicle that is armed or whose state is not known, and sends nothing", aWriteIsRefusedForAnArmedVehicleOrOneWhoseStateIsNotKnown)
   it("refuses everything before a vehicle is connected", nothingGoesBeforeAVehicleIsConnected)
   it("refuses items no vehicle should get before it sends anything", itemsNoVehicleShouldGetAreRefusedBeforeAnythingIsSent)
-  it("says NO_SPACE as an upload that failed", aVehicleThatHasNoRoomSaysSoAndTheWriteFailedLeavesAMixture)
+  it("says a count the vehicle refuses is a plain refusal that touched nothing", aCountTheVehicleRefusesTouchesNothingAndIsNotAMixture)
+  it("frees the link when a read, a clear, a set of the current item or a write is cancelled", aCancelFreesTheLinkWhicheverOperationItEnds)
+  it("refuses 0, 0 for the waypoints of the mission and takes it for a takeoff", noPlaceIsNoPlaceForTheWaypointsOfTheMission)
+  it("says which item the vehicle is on", theReadSaysWhichItemTheVehicleIsOn)
   it("says a stopped upload failed and frees the link", aStoppedUploadIsUploadFailedAndNeverSentAgain)
   it("ends a write that is cancelled with ABORTED, is busy meanwhile, and the next one goes", aWriteThatIsCancelledSaysAbortedAndFreesTheVehicle)
   it("is BUSY for an arm, a reboot and a parameter download while it runs", noArmWhileAPlanOperationRunsAndNoOtherServiceEither)

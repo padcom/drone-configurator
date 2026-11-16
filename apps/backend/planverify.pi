@@ -208,14 +208,23 @@ function differsInPlace(sent: MissionEntry, got: MissionEntry, withFrame: bool):
   return ""
 }
 
-/// A fence's or rally point's item: its number, place and (for a fence vertex) the first parameter, a count, as a whole number.
+/// A fence's or rally point's item: its number, place and its first parameter where it has one that means something: a polygon vertex's
+/// (5001, 5002) is the count of vertices, a whole number; a circle's (5003, 5004) is its RADIUS, a float (AC_PolyFence_loader.cpp), compared as
+/// sent. The return point (5000) and a rally point (5100) have none that is compared.
 function differsInAList(sent: MissionEntry, got: MissionEntry): string {
   const why = differsInPlace(sent, got, true)
   if (why != "") {
     return why
   }
-  if (!sameFloat(whole(sent.param1 as f64) as f32, got.param1)) {
-    return `param1 is ${got.param1}, not ${sent.param1}`
+  if (sent.command == 5001 || sent.command == 5002) {
+    if (!sameFloat(whole(sent.param1 as f64) as f32, got.param1)) {
+      return `param1 is ${got.param1}, not ${sent.param1}`
+    }
+  }
+  if (sent.command == 5003 || sent.command == 5004) {
+    if (!sameFloat(sent.param1, got.param1)) {
+      return `the radius is ${got.param1}, not ${sent.param1}`
+    }
   }
   return ""
 }

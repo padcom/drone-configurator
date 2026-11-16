@@ -3632,7 +3632,7 @@ export function encodePlanWriteAsk(v: PlanWriteAsk): Cbor {
   Cbor.Dict(m)
 }
 
-export enum PlanWriteResultResult { Verified, Mismatch, UploadFailed, ReadFailed }
+export enum PlanWriteResultResult { Verified, Mismatch, UploadFailed, ReadFailed, Refused }
 
 export function decodePlanWriteResultResult(v: Cbor, path: string): PlanWriteResultResult throws InvalidPayload {
   match (text(v, path)) {
@@ -3640,7 +3640,8 @@ export function decodePlanWriteResultResult(v: Cbor, path: string): PlanWriteRes
     "mismatch" => PlanWriteResultResult.Mismatch,
     "upload-failed" => PlanWriteResultResult.UploadFailed,
     "read-failed" => PlanWriteResultResult.ReadFailed,
-    _ => throw new InvalidPayload(path, "verified or mismatch or upload-failed or read-failed"),
+    "refused" => PlanWriteResultResult.Refused,
+    _ => throw new InvalidPayload(path, "verified or mismatch or upload-failed or read-failed or refused"),
   }
 }
 
@@ -3650,6 +3651,7 @@ export function encodePlanWriteResultResult(v: PlanWriteResultResult): Cbor {
     Mismatch => Cbor.Text("mismatch"),
     UploadFailed => Cbor.Text("upload-failed"),
     ReadFailed => Cbor.Text("read-failed"),
+    Refused => Cbor.Text("refused"),
   }
 }
 

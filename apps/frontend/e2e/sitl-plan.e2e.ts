@@ -60,7 +60,7 @@ interface Item {
 
 /** What a write says. */
 interface Written {
-  result: 'verified' | 'mismatch' | 'upload-failed' | 'read-failed'
+  result: 'verified' | 'mismatch' | 'upload-failed' | 'read-failed' | 'refused'
   count: number
   unchecked: number
   code?: string
@@ -302,10 +302,11 @@ async function saysNoSpaceInTheVehiclesWords(): Promise<void> {
   }
   const out = await answered<Written>('plan.write', { kind: 'mission', items })
 
-  expect(out.result).toBe('upload-failed')
+  // (refused at the count, before the vehicle truncates anything: a plain refusal, not a mixture)
+  expect(out.result).toBe('refused')
   expect(out.code).toBe('NO_SPACE')
   expect(out.messages.some(text => text.includes('items are supported'))).toBe(true)
-  // (a count that is refused truncates nothing, and the link is free again)
+  // and the link is free again
   expect(await outcome('plan.clear', { kind: 'mission' })).toBe('cleared')
 }
 

@@ -867,11 +867,15 @@ plan-write-ask = { kind: plan-kind, items: [* plan-item] }
 ; How a write ended. `verified`: uploaded, read back and the same (as far as the vehicle keeps it). `mismatch`: the vehicle holds something
 ; else than was sent, from the item `at` (`found` is what it holds there): do not fly it. `upload-failed`: the vehicle refused it, did not
 ; answer, or it was cancelled (`code`: its MAV_MISSION_RESULT as a name, `NO_SPACE`, `DENIED`, `ERROR` ..., or `TIMEOUT`, `ABORTED`); what it
-; holds is a MIXTURE, unknown. `read-failed`: it was uploaded and accepted but could not be read back, so it is not known to be there.
+; holds is a MIXTURE, unknown. `refused`: the vehicle answered the COUNT with a refusal (`NO_SPACE`, `UNSUPPORTED`, `DENIED`) before it asked for
+; any item: ArduPilot answers those before it truncates anything, so nothing was touched and what it holds is as it was (a fresh vehicle says
+; NO_SPACE for about 15 s, and a good plan must not be taken for lost then). `read-failed`: it was uploaded and accepted but could not be read
+; back, so it is not known to be there. `detail` says when the vehicle was armed while the write went on (an upload that has started goes on
+; if the vehicle arms meanwhile, by the RC or another ground station: what is on it must be read and checked before it flies).
 ; `count` is how many items were sent, `unchecked` how many of them were compared by command and place only (a command whose storage the
 ; backend does not know), `messages` the vehicle's own words (STATUSTEXT) during the operation: for `NO_SPACE` ArduPilot says how many it takes.
 plan-write-result = {
-  result: "verified" / "mismatch" / "upload-failed" / "read-failed",
+  result: "verified" / "mismatch" / "upload-failed" / "read-failed" / "refused",
   count: uint .size 2,
   unchecked: uint .size 2,
   ? code: tstr,
