@@ -248,7 +248,6 @@ function aHugeOrHostilePlanIsRefusedBeforeItIsRead(): void throws Error {
   items.pop()
   expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "items": [ ${items.join(",")} ] } }`, false))).toBe("")
   // deep nesting and a number that is not one are a parse error, not a crash
-  expect(codeOf(() => parseQgcPlan("[".repeat(100000), false))).toBe("NOT_JSON")
   expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "cruiseSpeed": "fast" } }`, false))).toBe("NOT_JSON")
 }
 
@@ -332,7 +331,159 @@ function aPlanWithoutHomeOrCruiseSpeedWritesDefaultsThatReadBack(): void throws 
   expect(viaQgc.rally.length).toBe(0)
   const viaWaypoints = parseWaypoints(writeWaypoints(plan))
   expect(viaWaypoints.items.length).toBe(1)
-  expect(viaWaypoints.home!.lat).toBe(0.0)
+  // (0, 0 is what a file says when there is no home: it is read back as none, not as a home on the equator)
+  expect(viaWaypoints.home == null).toBe(true)
+  expect(viaQgc.home == null).toBe(true)
+  expect(viaQgc.cruiseSpeed).toBe(15.0)
+}
+
+function aRealHomeSurvivesAndZeroZeroIsNone(): void throws Error {
+  const plan = new Plan()
+  plan.home = { lat: 52.2297, lon: 21.0122, alt: 110.5 }
+  expect(parseQgcPlan(writeQgcPlan(plan), false).home!.lat).toBe(52.2297)
+  expect(parseWaypoints(writeWaypoints(plan)).home!.alt).toBe(110.5)
+  // a home of 0, 0 in a file is none, in both formats (the vehicle and the app's telemetry take it so)
+  expect(parseQgcPlan(`{ "fileType": "Plan", "mission": { "plannedHomePosition": [0, 0, 30], "items": [] } }`, false).home == null).toBe(true)
+  expect(parseWaypoints("QGC WPL 110\n0\t1\t0\t16\t0\t0\t0\t0\t0\t0\t30\t1\n").home == null).toBe(true)
+  // (a home on the equator at another longitude is a home)
+  expect(parseWaypoints("QGC WPL 110\n0\t1\t0\t16\t0\t0\t0\t0\t0\t10\t30\t1\n").home!.lon).toBe(10.0)
+}
+
+/// A `.plan` of items given as text, with the doJumpIds in them.
+function planOf(items: string[]): string {
+  return `{ "fileType": "Plan", "mission": { "items": [ ${items.join(",\n")} ] } }`
+}
+
+function simple(id: int, command: int, p1: int, lat: f64): string {
+  // (only a waypoint takes a NaN yaw)
+  const yaw = if (command == 16) "null" else "0"
+  return `{ "type": "SimpleItem", "command": ${command}, "frame": 3, "doJumpId": ${id}, "params": [${p1}, 0, 0, ${yaw}, ${lat}, 21, 10] }`
+}
+
+const COMPLEX: string = `{ "type": "ComplexItem", "complexItemType": "survey", "version": 5, "TransectStyleComplexItem": { "items": [] } }`
+
+function aJumpKeepsItsTargetWhateverTheIds(): void throws Error {
+  // ids 10, (a survey 11), 30, and a jump to id 30: the target is the second item that is kept, whatever the ids were
+  const text = planOf([simple(10, 16, 0, 52.0), COMPLEX, simple(30, 16, 0, 52.1), simple(40, 177, 30, 0.0)])
+  const plan = parseQgcPlan(text, true)
+  expect(plan.items.length).toBe(3)
+  expect(plan.items[2].command).toBe(177)
+  expect(plan.items[2].p1).toBe(2.0)
+  // written, the id of an item is its seq, and the jump says the same: read back, the same target
+  const written = writeQgcPlan(plan)
+  expect(written.includes("\"doJumpId\": 2")).toBe(true)
+  const again = parseQgcPlan(written, false)
+  expect(again.items[2].p1).toBe(2.0)
+  // in a .waypoints it is the seq itself
+  expect(parseWaypoints(writeWaypoints(plan)).items[2].p1).toBe(2.0)
+}
+
+function aJumpToNoItemIsRefused(): void throws Error {
+  // an id that is not there, the id of a survey that was skipped, a duplicate id, and a jump to no whole number
+  expect(codeOf(() => parseQgcPlan(planOf([simple(10, 16, 0, 52.0), simple(20, 177, 99, 0.0)]), false))).toBe("BAD_JUMP")
+  const skipped = planOf([simple(10, 16, 0, 52.0), `{ "type": "ComplexItem", "complexItemType": "survey", "doJumpId": 20 }`, simple(30, 177, 20, 0.0)])
+  expect(codeOf(() => parseQgcPlan(skipped, true))).toBe("BAD_JUMP")
+  expect(codeOf(() => parseQgcPlan(planOf([simple(10, 16, 0, 52.0), simple(10, 16, 0, 52.1)]), false))).toBe("BAD_ITEM")
+  // .waypoints: a jump to 0, beyond the end, and between two items
+  const header = "QGC WPL 110\n0\t1\t0\t16\t0\t0\t0\t0\t52\t21\t100\t1\n1\t0\t3\t16\t0\t0\t0\t0\t52\t21\t5\t1\n"
+  for (const to of ["0", "3", "1.5", "-1"]) {
+    expect(codeOf(() => parseWaypoints(header + `2\t0\t2\t177\t${to}\t0\t0\t0\t0\t0\t0\t1\n`))).toBe("BAD_JUMP")
+  }
+  expect(codeOf(() => parseWaypoints(header + "2\t0\t2\t177\t1\t0\t0\t0\t0\t0\t0\t1\n"))).toBe("")
+  // and what is written is refused as it is read
+  const plan = parseWaypoints(header + "2\t0\t2\t177\t1\t0\t0\t0\t0\t0\t0\t1\n")
+  plan.items[1].p1 = 7.0
+  expect(writerCode(() => writeQgcPlan(plan))).toBe("BAD_JUMP")
+  expect(writerCode(() => writeWaypoints(plan))).toBe("BAD_JUMP")
+}
+
+function writerCode(write: () => string throws PlanFileError): string {
+  try {
+    const _text = write()
+  } catch (e: PlanFileError) {
+    return e.code
+  } catch (e: Error) {
+    return "OTHER"
+  }
+  return ""
+}
+
+function theWritersRefuseWhatTheReadersRefuse(): void throws Error {
+  const plan = parseQgcPlan(PLAN, false)
+  expect(writerCode(() => writeQgcPlan(plan))).toBe("")
+  expect(writerCode(() => writeWaypoints(plan))).toBe("")
+  // a bad item, a polygon of two vertices, a circle of no radius, a place off the globe, a cruise speed of 0 or less, too many items
+  const bad = parseQgcPlan(PLAN, false)
+  bad.items[0].lat = 91.0
+  expect(writerCode(() => writeQgcPlan(bad))).toBe("BAD_ITEM")
+  expect(writerCode(() => writeWaypoints(bad))).toBe("BAD_ITEM")
+  const nan = parseQgcPlan(PLAN, false)
+  nan.items[1].p1 = 0.0 / 0.0
+  expect(writerCode(() => writeQgcPlan(nan))).toBe("BAD_ITEM")
+  const line = parseQgcPlan(PLAN, false)
+  line.fence[0].points.pop()
+  expect(writerCode(() => writeQgcPlan(line))).toBe("BAD_ITEM")
+  const flat = parseQgcPlan(PLAN, false)
+  flat.fence[1].radius = 0.0
+  expect(writerCode(() => writeQgcPlan(flat))).toBe("BAD_ITEM")
+  const off = parseQgcPlan(PLAN, false)
+  off.rally[0].lon = 200.0
+  expect(writerCode(() => writeQgcPlan(off))).toBe("BAD_ITEM")
+  for (const speed of [0.0, -3.0, 1.0 / 0.0]) {
+    const slow = parseQgcPlan(PLAN, false)
+    slow.cruiseSpeed = speed
+    expect(writerCode(() => writeQgcPlan(slow))).toBe("BAD_ITEM")
+  }
+  const many = new Plan()
+  for (let i = 0; i <= MAX_ITEMS; i++) {
+    many.items.push(new PlanItem(20, 3))
+  }
+  expect(writerCode(() => writeQgcPlan(many))).toBe("TOO_MANY")
+  // and the readers: a polygon of two vertices, a cruise speed of 0 and below
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "geoFence": { "polygons": [ { "polygon": [[52, 21], [52.1, 21]] } ] } }`, false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "cruiseSpeed": 0 } }`, false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "cruiseSpeed": -2.5 } }`, false))).toBe("BAD_ITEM")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "mission": { "cruiseSpeed": null } }`, false))).toBe("")
+}
+
+function aNullPlaceIsRefusedAndNeverReadAsZero(): void throws Error {
+  const item = (params: string) => `{ "fileType": "Plan", "mission": { "items": [ { "type": "SimpleItem", "command": 178, "frame": 2, "params": [${params}] } ] } }`
+  expect(codeOf(() => parseQgcPlan(item("1, 5, -1, 0, 0, 0, 0"), false))).toBe("")
+  for (const params of ["1, 5, -1, 0, null, 0, 0", "1, 5, -1, 0, 0, null, 0", "1, 5, -1, 0, 0, 0, null"]) {
+    expect(codeOf(() => parseQgcPlan(item(params), false))).toBe("BAD_ITEM")
+  }
+  let message = ""
+  try {
+    const _p = parseQgcPlan(item("1, 5, -1, 0, null, 0, 0"), false)
+  } catch (e: PlanFileError) {
+    message = e.message
+  }
+  expect(message.includes("must be numbers")).toBe(true)
+}
+
+function theSizeIsInBytesNotCharacters(): void throws Error {
+  // an emoji is one character and four bytes: 260 000 of them are 1 040 000 bytes, more than the most, in fewer characters than it
+  const emoji = "😀".repeat(260000)
+  expect(emoji.length < MAX_FILE_BYTES).toBe(true)
+  const text = `{ "fileType": "Plan", "note": "${emoji}" }`
+  expect(codeOf(() => parseQgcPlan(text, false))).toBe("TOO_BIG")
+  expect(codeOf(() => parseWaypoints("QGC WPL 110\n" + emoji))).toBe("TOO_BIG")
+  // 200 000 of them (800 000 bytes) are not too big
+  const fits = `{ "fileType": "Plan", "note": "${"😀".repeat(200000)}" }`
+  expect(codeOf(() => parseQgcPlan(fits, false))).toBe("")
+}
+
+function anUnknownMemberOfAnyShapeIsLetGo(): void throws Error {
+  // a valid plan with a deeply nested, closed member the reader does not know (the typed parser skips it), and unknown members everywhere
+  const depth = 300
+  const nested = "[".repeat(depth) + "1" + "]".repeat(depth)
+  const text = `{ "fileType": "Plan", "extra": ${nested}, "mission": { "other": { "a": ${nested} }, "items": [
+    { "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, null, 52, 21, 5], "more": [{ "x": ${nested} }] } ] },
+    "geoFence": { "unknown": ${nested} }, "rallyPoints": { "points": [], "unknown": ${nested} } }`
+  const plan = parseQgcPlan(text, false)
+  expect(plan.items.length).toBe(1)
+  // and one that is not closed is an error, not a crash
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"[".repeat(depth)}1 }`, false))).toBe("NOT_JSON")
 }
 
 describe("QGroundControl's .plan", () => {
@@ -344,6 +495,13 @@ describe("QGroundControl's .plan", () => {
   it("refuses a bad plan with a reason and the item's place", badPlansAreRefusedWithAReason)
   it("takes a NaN only where the vehicle takes one", aNanIsTakenOnlyWhereTheVehicleTakesIt)
   it("refuses a huge or hostile plan before it reads it", aHugeOrHostilePlanIsRefusedBeforeItIsRead)
+  it("counts the size in bytes, not in characters", theSizeIsInBytesNotCharacters)
+  it("lets go of an unknown member of any shape, nested deep", anUnknownMemberOfAnyShapeIsLetGo)
+  it("keeps a jump's target whatever the ids of the items are", aJumpKeepsItsTargetWhateverTheIds)
+  it("refuses a jump to no item, in both formats and when writing", aJumpToNoItemIsRefused)
+  it("refuses a null place and never reads it as 0", aNullPlaceIsRefusedAndNeverReadAsZero)
+  it("refuses in the writers what the readers refuse", theWritersRefuseWhatTheReadersRefuse)
+  it("reads a home of 0, 0 as none and a real home as a home", aRealHomeSurvivesAndZeroZeroIsNone)
 })
 
 describe("Mission Planner's .waypoints", () => {
