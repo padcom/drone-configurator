@@ -7,7 +7,7 @@ const STICK: StickRow = {
 }
 const SWITCH: SwitchRow = { kind: 'switch', channel: 5, axis: 5, invert: false, pulses: [1000, 1500, 2000] }
 const BUTTON: ButtonRow = { kind: 'button', channel: 6, button: 2, off: 1000, on: 2000 }
-const profile = (...rows: Profile['rows']): Profile => ({ device: 'pad', rows })
+const profile = (...rows: Profile['rows']): Profile => ({ device: 'pad', rows, calibrated: true })
 
 describe('a mapping that may drive a vehicle', () => {
   it('has no problem: one row for each channel, a stick that was calibrated, pulses that an override carries', () => {
@@ -15,6 +15,16 @@ describe('a mapping that may drive a vehicle', () => {
     expect(problemsOf(profile())).toEqual([])
   })
 
+  it('has been through the calibration wizard: a mapping of defaults, or a suggestion, may not drive a vehicle', () => {
+    const suggestion: Profile = { device: 'pad', rows: [STICK, SWITCH], calibrated: false }
+
+    expect(problemsOf(suggestion)).toEqual([{ code: 'uncalibrated', channel: 0 }])
+    expect(problemsOf({ ...suggestion, rows: [] })).toEqual([{ code: 'uncalibrated', channel: 0 }])
+    expect(problemsOf({ ...suggestion, calibrated: true })).toEqual([])
+  })
+})
+
+describe('the rows of a mapping', () => {
   it('has no channel outside 1 to 16 and no two rows for one channel', () => {
     expect(problemsOf(profile({ ...STICK, channel: 0 }, { ...STICK, channel: 17 }, { ...STICK, channel: 1.5 }))).toEqual([
       { code: 'channel', channel: 0 },

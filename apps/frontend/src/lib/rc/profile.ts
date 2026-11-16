@@ -2,13 +2,16 @@
 import { type AxisCalibration, CHANNELS, MAX_PULSE, MIN_PULSE, type Profile, type Row, type StickRow } from './types'
 
 /** What is wrong with one row. */
-export type Code = 'channel' | 'duplicate' | 'zone' | 'expo' | 'calibration' | 'pulse'
+export type Code = 'channel' | 'duplicate' | 'zone' | 'expo' | 'calibration' | 'pulse' | 'uncalibrated'
 
 /** What is wrong with a mapping. */
 export interface Problem {
-  /** `channel` (not 1 to 16), `duplicate` (two rows for one channel), `zone`, `expo`, `calibration` or `pulse`. */
+  /**
+   * `channel` (not 1 to 16), `duplicate` (two rows for one channel), `zone`, `expo`, `calibration`, `pulse`, or `uncalibrated`
+   * (the person has not been through the calibration wizard with this mapping: it is the mapping's problem, not a row's).
+   */
   code: Code
-  /** The channel of the row. */
+  /** The channel of the row (0 for a problem of the mapping). */
   channel: number
 }
 
@@ -92,6 +95,16 @@ function channelProblem(channel: number, seen: ReadonlySet<number>): Code | null
 }
 
 /**
+ * The problem of a mapping that the calibration wizard has not been through.
+ *
+ * @param profile the mapping
+ * @returns the problem, or none
+ */
+function uncalibrated(profile: Profile): Problem[] {
+  return profile.calibrated ? [] : [{ code: 'uncalibrated', channel: 0 }]
+}
+
+/**
  * What is wrong with a mapping.
  *
  * @param profile the mapping
@@ -99,7 +112,7 @@ function channelProblem(channel: number, seen: ReadonlySet<number>): Code | null
  */
 export function problemsOf(profile: Profile): Problem[] {
   const seen = new Set<number>()
-  const problems: Problem[] = []
+  const problems: Problem[] = uncalibrated(profile)
   for (const row of profile.rows) {
     const code = channelProblem(row.channel, seen) ?? rowProblem(row)
 

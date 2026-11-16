@@ -5,6 +5,9 @@ import {
   buttonPulse,
   channelsOf,
   normalise,
+  rangeOk,
+  sendable,
+  sendableOr,
   stickPulse,
   switchPulse,
   toPulse,
@@ -15,6 +18,7 @@ import {
   DEFAULT_RANGE,
   NOT_MINE,
   type Profile,
+  type PulseRange,
   type StickRow,
   type SwitchRow,
 } from './types'
@@ -126,8 +130,28 @@ describe('a switch and a button', () => {
   })
 })
 
+describe('what an override can carry', () => {
+  it('is the radio\'s own or a whole number of 800 to 2200', () => {
+    expect([0, 800, 1500, 2200].every(sendable)).toBe(true)
+    expect([799, 2201, 3000, 1500.5, Number.NaN, Number.POSITIVE_INFINITY, -1].some(sendable)).toBe(false)
+    expect(sendableOr(3000)).toBe(NOT_MINE)
+    expect(sendableOr(1500)).toBe(1500)
+  })
+
+  it('is a range with numbers in the order min, trim, max, inside 800 to 2200', () => {
+    expect(rangeOk(DEFAULT_RANGE)).toBe(true)
+    expect(rangeOk({ min: 1100, trim: 1100, max: 1900 })).toBe(true)
+    expect(rangeOk({ min: 2000, trim: 1500, max: 1000 })).toBe(false)
+    expect(rangeOk({ min: 1000, trim: 900, max: 2000 })).toBe(false)
+    expect(rangeOk({ min: 1500, trim: 1500, max: 1500 })).toBe(false)
+    expect(rangeOk({ min: 500, trim: 1500, max: 2000 })).toBe(false)
+    expect(rangeOk({ min: 1000, trim: Number.NaN, max: 2000 })).toBe(false)
+    expect(rangeOk({ min: 1000, trim: 1500, max: Number.NaN })).toBe(false)
+  })
+})
+
 describe('the 16 channels of a profile', () => {
-  const profile: Profile = { device: 'pad', rows: [STICK, { ...STICK, channel: 3, axis: 1 }, SWITCH, BUTTON] }
+  const profile: Profile = { device: 'pad', rows: [STICK, { ...STICK, channel: 3, axis: 1 }, SWITCH, BUTTON], calibrated: true }
   const range = () => DEFAULT_RANGE
 
   it('are the pulses of the rows, and the radio\'s own for every channel no row drives', () => {
@@ -144,5 +168,34 @@ describe('the 16 channels of a profile', () => {
 
     expect(pulses[0]).toBe(2000)
     expect(pulses[2]).toBe(1900)
+  })
+})
+
+/**
+ * The 16 pulses of a calibrated profile of these rows, read with every axis and button at its end.
+ *
+ * @param rows the rows
+ * @param range the range of a channel
+ * @returns the pulses
+ */
+function atTheEnds(rows: Profile['rows'], range: () => PulseRange = () => DEFAULT_RANGE): number[] {
+  return channelsOf({ device: 'pad', rows, calibrated: true }, pad([1, 1, 1, 1, 1, 1], [1, 1, 1]), range)
+}
+
+describe('a mapping that is wrong', () => {
+  it('never carries what is not a pulse: a dead zone or an expo that is not a number, a switch or a button at 3000 µs', () => {
+    expect(atTheEnds([{ ...STICK, deadZone: Number.NaN }])[0]).toBe(NOT_MINE)
+    expect(atTheEnds([{ ...STICK, expo: Number.NaN }])[0]).toBe(NOT_MINE)
+    expect(atTheEnds([{ ...SWITCH, pulses: [1000, 1500, 3000] }])[4]).toBe(NOT_MINE)
+    expect(atTheEnds([{ ...BUTTON, on: 3000 }])[5]).toBe(NOT_MINE)
+  })
+
+  it('never carries a pulse of a range that is upside down or not numbers', () => {
+    expect(atTheEnds([STICK], () => ({ min: 2000, trim: 1500, max: 1000 }))[0]).toBe(NOT_MINE)
+    expect(atTheEnds([STICK], () => ({ min: 1000, trim: Number.NaN, max: 2000 }))[0]).toBe(NOT_MINE)
+  })
+
+  it('leaves a good row beside a wrong one alone', () => {
+    expect(atTheEnds([{ ...STICK, deadZone: Number.NaN }, SWITCH])[4]).toBe(2000)
   })
 })

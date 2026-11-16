@@ -95,6 +95,11 @@ export interface Profile {
   device: string
   /** The rows. */
   rows: readonly Row[]
+  /**
+   * Whether the person has been through the calibration wizard with this device and mapping. ONLY the wizard sets it (a profile
+   * of defaults, or a suggestion, has it false), and a profile without it may not drive a vehicle.
+   */
+  calibrated: boolean
 }
 
 /** What one read of a gamepad said. */

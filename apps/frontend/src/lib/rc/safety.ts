@@ -1,6 +1,7 @@
 // What the RC control never sends, whatever the sticks say (plan section 6, rules 4 and 5): the throttle does not jump in
 // when the control turns on, and the sticks never make the gesture the vehicle takes for arming or disarming (the rudder at its
-// end, the throttle low).
+// end, the throttle low). Last, whatever is left is checked once more: nothing that an override cannot carry leaves.
+import { rangeOk, sendableOr } from './mapping'
 import { NOT_MINE, type PulseRange, type VehicleChannels } from './types'
 
 /** The throttle is low when it is within this part of its range of the minimum. */
@@ -8,6 +9,9 @@ export const LOW_FRACTION = 0.1
 
 /** The yaw is never sent further from its middle than this part of its half range with the throttle low (arming is at 0.89). */
 export const RUDDER_LIMIT = 0.8
+
+/** How many reads in a row the throttle stick must be low before the throttle is sent (at 50 reads a second: 100 ms). */
+export const LOW_READS = 5
 
 /**
  * Whether a throttle pulse is at the low end of its range.
@@ -20,30 +24,41 @@ export function isLow(pulse: number, range: PulseRange): boolean {
   return pulse === NOT_MINE || pulse <= range.min + LOW_FRACTION * (range.max - range.min)
 }
 
-/** Whether the throttle may be sent: `waiting` until the stick has been at the low end once, then `open`. */
-export type ThrottleState = 'waiting' | 'open'
+/** Whether the throttle may be sent: it waits until the stick has been low for `LOW_READS` reads in a row, then stays open. */
+export interface Gate {
+  /** Whether the throttle is sent. */
+  open: boolean
+  /** How many reads in a row the stick was low (while the gate is shut). */
+  lows: number
+}
+
+/** What a gate is when the control turns on, and again after every release and every change of the mapping or the calibration. */
+export const START_GATE: Readonly<Gate> = Object.freeze({ open: false, lows: 0 })
 
 /**
- * The state after one more read: the throttle opens when the stick is low, and stays open. (It is made `waiting` again by the
- * caller, on every enable, release and change of the mapping.)
+ * The gate after one more read: it opens when the stick has been low for `LOW_READS` reads in a row (a single low read between
+ * high ones does not open it), and it stays open.
  *
- * @param state the state before
- * @param pulse the throttle pulse the stick makes
+ * @param gate the gate before
+ * @param pulse the throttle pulse the stick makes (`NOT_MINE`, a stick the pad does not have, does not count: nothing is low)
  * @param range the throttle channel's range
- * @returns the state
+ * @returns the gate
  */
-export function nextThrottleState(state: ThrottleState, pulse: number, range: PulseRange): ThrottleState {
-  const low = pulse !== NOT_MINE && isLow(pulse, range)
+export function nextGate(gate: Readonly<Gate>, pulse: number, range: PulseRange): Gate {
+  if (gate.open) {
+    return { open: true, lows: 0 }
+  }
+  const lows = pulse !== NOT_MINE && isLow(pulse, range) ? gate.lows + 1 : 0
 
-  return state === 'open' || low ? 'open' : 'waiting'
+  return { open: lows >= LOW_READS, lows }
 }
 
 /** What the guards made of the 16 pulses. */
 export interface Guarded {
   /** The pulses to send. */
   channels: number[]
-  /** The throttle's state after this read. */
-  state: ThrottleState
+  /** The throttle's gate after this read. */
+  gate: Gate
   /** Whether the yaw was held back from the arming gesture. */
   yawHeld: boolean
 }
@@ -91,22 +106,83 @@ function holdTheRudder(out: number[], vehicle: VehicleChannels): boolean {
   return held.held
 }
 
+/** Whether the ranges of the throttle and yaw channels can be used. */
+interface Usable {
+  /** The throttle's range. */
+  throttle: boolean
+  /** The yaw's range. */
+  yaw: boolean
+}
+
 /**
- * Makes the pulses safe to send: the throttle channel is the radio's own until the stick has been low once, and the yaw is held
- * back from the arming gesture while the throttle is low.
+ * Whether the ranges of the throttle and the yaw can be used (a range that is not numbers, or is upside down, is not flown).
+ *
+ * @param vehicle which channels are the throttle and the yaw, and their ranges
+ * @returns which of them can
+ */
+function usable(vehicle: VehicleChannels): Usable {
+  return { throttle: rangeOk(vehicle.range(vehicle.throttle)), yaw: rangeOk(vehicle.range(vehicle.yaw)) }
+}
+
+/**
+ * The gate after a read of the sample's throttle.
+ *
+ * @param gate the gate before
+ * @param channels the pulses the mapping made
+ * @param vehicle which channel is the throttle, and its range
+ * @returns the gate
+ */
+function gateOf(gate: Readonly<Gate>, channels: readonly number[], vehicle: VehicleChannels): Gate {
+  return nextGate(gate, channels[vehicle.throttle - 1] ?? NOT_MINE, vehicle.range(vehicle.throttle))
+}
+
+/**
+ * Holds the yaw back when the ranges of the throttle and the yaw can be used.
+ *
+ * @param out the pulses (changed here)
+ * @param vehicle which channels are the throttle and the yaw, and their ranges
+ * @param ok which ranges can be used
+ * @returns whether the yaw was held
+ */
+function holdIfFlyable(out: number[], vehicle: VehicleChannels, ok: Usable): boolean {
+  return ok.throttle && ok.yaw && holdTheRudder(out, vehicle)
+}
+
+/**
+ * Makes the throttle the radio's own while its gate is shut, and the yaw while its range cannot be used.
+ *
+ * @param out the pulses (changed here)
+ * @param vehicle which channels are the throttle and the yaw
+ * @param ok which ranges can be used
+ * @param open whether the throttle's gate is open
+ */
+function blank(out: number[], vehicle: VehicleChannels, ok: Usable, open: boolean): void {
+  if (!open) {
+    out[vehicle.throttle - 1] = NOT_MINE
+  }
+  if (!ok.yaw) {
+    out[vehicle.yaw - 1] = NOT_MINE
+  }
+}
+
+/**
+ * Makes the pulses safe to send: the throttle channel is the radio's own until the stick has been low for a while, the yaw is
+ * held back from the arming gesture while the throttle is low, a throttle or yaw whose range is not usable is the radio's own,
+ * and whatever an override cannot carry is the radio's own too (the last check, whatever the mapping did).
  *
  * @param channels the 16 pulses the mapping made
  * @param vehicle which channels are the throttle and the yaw, and their ranges
- * @param state the throttle's state before this read
+ * @param gate the throttle's gate before this read
  * @returns what to send
  */
-export function guard(channels: readonly number[], vehicle: VehicleChannels, state: ThrottleState): Guarded {
-  const t = vehicle.throttle - 1
-  const next = nextThrottleState(state, channels[t] ?? NOT_MINE, vehicle.range(vehicle.throttle))
+export function guard(channels: readonly number[], vehicle: VehicleChannels, gate: Readonly<Gate>): Guarded {
+  const ok = usable(vehicle)
+  const next = ok.throttle ? gateOf(gate, channels, vehicle) : { ...START_GATE }
   const out = [...channels]
-  if (next === 'waiting') {
-    out[t] = NOT_MINE
-  }
 
-  return { channels: out, state: next, yawHeld: holdTheRudder(out, vehicle) }
+  blank(out, vehicle, ok, next.open)
+
+  const yawHeld = holdIfFlyable(out, vehicle, ok)
+
+  return { channels: out.map(sendableOr), gate: next, yawHeld }
 }

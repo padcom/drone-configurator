@@ -16,6 +16,36 @@ import {
 } from './types'
 
 /**
+ * Whether a number is a pulse an override may carry (not the radio's own).
+ *
+ * @param pulse the number
+ * @returns true when it is 800 to 2200
+ */
+function inRange(pulse: number): boolean {
+  return pulse >= MIN_PULSE && pulse <= MAX_PULSE
+}
+
+/**
+ * Whether the pulses of a range are in the order min, trim, max, with a min under the max (numbers that are not numbers are not).
+ *
+ * @param range the range
+ * @returns true when they are
+ */
+function ordered(range: PulseRange): boolean {
+  return range.min <= range.trim && range.trim <= range.max && range.min < range.max
+}
+
+/**
+ * Whether the range of a channel can be used: numbers, in the order min, trim, max, and pulses an override carries.
+ *
+ * @param range the range (as the vehicle's `RCn_MIN`, `RCn_TRIM` and `RCn_MAX` say it)
+ * @returns true when it can
+ */
+export function rangeOk(range: PulseRange): boolean {
+  return ordered(range) && inRange(range.min) && inRange(range.max)
+}
+
+/**
  * Holds a number to a range.
  *
  * @param value the number
@@ -173,7 +203,30 @@ export function rowPulse(row: Row, sample: PadSample, range: PulseRange): number
 }
 
 /**
+ * Whether a pulse is one an override may carry (the radio's own, 0, or a whole number of 800 to 2200 µs).
+ *
+ * @param pulse the pulse
+ * @returns true when it is
+ */
+export function sendable(pulse: number): boolean {
+  return pulse === NOT_MINE || (Number.isInteger(pulse) && pulse >= MIN_PULSE && pulse <= MAX_PULSE)
+}
+
+/**
+ * What may be sent for a pulse: itself when the backend takes it, and else the radio's own. (A pulse that is not a number, or
+ * is outside, comes of a mapping or a range that is wrong: it is not sent as something else.)
+ *
+ * @param pulse the pulse
+ * @returns the pulse, or `NOT_MINE`
+ */
+export function sendableOr(pulse: number): number {
+  return sendable(pulse) ? pulse : NOT_MINE
+}
+
+/**
  * The 16 pulses of an override that a profile makes of a sample: the channel of a row has its pulse, every other is the radio's.
+ * What is not a pulse an override carries (a number that is not a number, a switch that is set to 3000 µs, a range that is upside
+ * down) is the radio's own, never sent.
  *
  * @param profile the mapping
  * @param sample what the pad said
@@ -183,7 +236,9 @@ export function rowPulse(row: Row, sample: PadSample, range: PulseRange): number
 export function channelsOf(profile: Profile, sample: PadSample, range: (channel: number) => PulseRange): number[] {
   const pulses = Array.from({ length: CHANNELS }, () => NOT_MINE)
   for (const row of profile.rows) {
-    pulses[row.channel - 1] = rowPulse(row, sample, range(row.channel))
+    const channel = range(row.channel)
+
+    pulses[row.channel - 1] = sendableOr(rangeOk(channel) ? rowPulse(row, sample, channel) : NOT_MINE)
   }
 
   return pulses
