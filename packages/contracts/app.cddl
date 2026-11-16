@@ -1336,7 +1336,9 @@ rc-input = {
 
 ; Where the control is (`rc.control`). `state`: `on` (when it has begun: `throttleChannel` and `throttleMin` say which channel is the throttle
 ; and the pulse under which it is never sent) or `released` (once, when it is over: `why` is `RELEASED` (the page let go or unsubscribed),
-; `SILENT` (no new `rc.input` for 300 ms), `LINK_LOST` (the link or the session ended, or another vehicle is there); `sent` is how many frames
+; `SILENT` (no new `rc.input` for 300 ms), `LINK_LOST` (the link or the session ended, or another vehicle is there), `STATE_UNKNOWN` (no
+; heartbeat for 3 s: whether the vehicle is armed is not known), `STOPPED` (an emergency stop or a disarm is being sent: the control ends
+; first, and the command goes out after the release); `sent` is how many frames
 ; of pulses were written, `clamped` how many throttle pulses were raised to `throttleMin`, `confirmed` whether the release frame was written
 ; (when it was not, the vehicle lets go by itself after its `RC_OVERRIDE_TIME`).
 rc-state = {

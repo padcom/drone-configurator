@@ -18,6 +18,7 @@
 // The frames go from a connection of their own on the app's router, with the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`);
 // the rest of the app's connection uses pico-mavlink's default, 254, which the vehicle ignores for overrides (silently).
 import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
+import { delay } from "std/timers"
 import {
   ByteStream,
   MavAutopilot,
@@ -34,7 +35,7 @@ import {
   defaultRegistry,
 } from "padcom/pico-mavlink"
 import { RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
-import { SessionPart, armedState, connectedLink, link, rebootExpected } from "./session"
+import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 
 /// The times of the control (ms). A test may shorten them.
 class Waits {
@@ -44,6 +45,11 @@ class Waits {
   public watchMs: int = 50
   /// How long a read of one of the vehicle's parameters may take (it asks twice).
   public readMs: int = 500
+  /// How long a release is held in the connection after it was written, for the vehicle to read it before anything closes the link.
+  public graceMs: int = 150
+  /// For tests: every write of the sender takes this long (ms), and this many of the next writes fail.
+  public slowWriteMs: int = 0
+  public failWrites: int = 0
 }
 
 export const waits = new Waits()
@@ -75,6 +81,13 @@ class RouterEnd implements ByteStream {
   }
 
   public async write(bytes: Uint8Array): Promise<void> throws Error {
+    if (waits.slowWriteMs > 0) {
+      await delay(waits.slowWriteMs)
+    }
+    if (waits.failWrites > 0) {
+      waits.failWrites -= 1
+      throw new Error("the link is down")
+    }
     await inner.write(bytes)
   }
 
@@ -103,6 +116,8 @@ class Control implements SessionPart {
   public inputAt: int = 0
   public clamped: int = 0
   public watchdog: int = 0
+  /// The release that is on its way (see `end`), or null.
+  public finishing: Promise<void>? = null
   /// The session signal that is followed (once for each session, not once for each control).
   public followed: AbortSignal? = null
 
@@ -149,12 +164,16 @@ class Control implements SessionPart {
     }
     const o = over
     const stopped = o != null && !o!.running && o!.why == "silent"
-    if (stopped || (Date.now() as int) - inputAt > waits.silenceMs) {
+    if (heartbeatArmedState() == null) {
+      // Whether the vehicle is armed is not known (no heartbeat for 3 s): the sticks are let go of, as the plan says.
+      end(mine, "STATE_UNKNOWN", false)
+    } else if (stopped || (Date.now() as int) - inputAt > waits.silenceMs) {
       end(mine, "SILENT", false)
     }
   }
 
-  /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page.
+  /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page. `finishing` is
+  /// the release on its way, for whoever must wait for it.
   public end(of: int, code: string, farewell: bool): void {
     if (!active || of != serial) {
       return
@@ -164,30 +183,36 @@ class Control implements SessionPart {
     }
     active = false
     clearInterval(watchdog)
-    this.finish(of, farewell)
+    finishing = this.finish(of, farewell)
   }
 
   /// Releases the channels and tells how it went. While the release is on its way the control still counts as on (nothing else that
-  /// talks to the vehicle starts), and at the end of a session the connection is held open for it.
-  async finish(mine: int, farewell: bool): Promise<void> {
+  /// talks to the vehicle starts). EVERY end is a farewell: the session may end (or the connection be closed) while the release is being
+  /// written, tried again, or given the time to be read, and the connection must stay open for it (`link.farewells`).
+  async finish(mine: int, atTheEnd: bool): Promise<void> {
     const o = over
     const c = sender
     const s = sink
     const code = why
-    if (farewell) {
-      link.farewells += 1
-    }
+    link.farewells += 1
     if (o != null) {
-      if (farewell && c != null) {
+      if (atTheEnd && c != null) {
         // The connection's shutdown releases (its close hook), waits for it, and gives the vehicle time to read it.
         await c!.shutdown()
       } else {
         await o!.release()
       }
     }
-    if (farewell) {
-      link.farewells -= 1
+    this.tellEnd(mine, o, s, code)
+    if (o != null && !atTheEnd) {
+      // (told already: the page and the other services need not wait for the vehicle to read it, the connection does)
+      await pause(waits.graceMs)
     }
+    link.farewells -= 1
+  }
+
+  /// The control is over: the others may talk to the vehicle, and the page is told how it went.
+  tellEnd(mine: int, o: RcOverride?, s: Sink?, code: string): void {
     const sentFrames = if (o == null) 0 else o!.sent
     const confirmed = o != null && o!.released > 0 && !o!.releaseFailed
     if (serial == mine) {
@@ -211,6 +236,27 @@ class Control implements SessionPart {
 }
 
 const current = new Control()
+
+/// Waits `ms` (a wait that is aborted is over).
+async function pause(ms: int): Promise<void> {
+  try {
+    await delay(ms)
+  } catch (e: Error) {
+    return
+  }
+}
+
+/// An emergency stop or a disarm is about to be sent: the control that is on ends FIRST (the channels are released, and the sticks stop
+/// streaming), and the caller sends its command when this returns. A release that is already on its way is waited for.
+export async function dropForStop(): Promise<void> {
+  if (current.active) {
+    current.end(current.serial, "STOPPED", false)
+  }
+  const work = current.finishing
+  if (work != null) {
+    await work!
+  }
+}
 
 /// A number a parameter's value is.
 function numberOf(v: TypedParamValue): f64 {
@@ -322,9 +368,25 @@ function fail(mine: int, sink: Sink, code: string, message: string): void {
   current.ready = false
   link.rcControl = false
   current.sink = null
+  // (it failed after the sender had started: the watchdog is stopped and what the sender may have sent is released)
+  clearInterval(current.watchdog)
+  const o = current.over
+  current.over = null
+  current.sender = null
+  if (o != null) {
+    abandon(o!)
+  }
   if (sink.active) {
     sink.end(code, message)
   }
+}
+
+/// Releases a sender whose control failed to begin, as a farewell.
+async function abandon(o: RcOverride): Promise<void> {
+  link.farewells += 1
+  await o.release()
+  await pause(waits.graceMs)
+  link.farewells -= 1
 }
 
 /// The sender starts (it sends nothing until the first `rc.input`), and the page is told.
