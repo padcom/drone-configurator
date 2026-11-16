@@ -667,7 +667,12 @@
     "unread": "nowych: {count}",
     "none": "Pojazd jeszcze nic nie zgłosił.",
     "dismiss": "Zamknij",
+    "clear": "Wyczyść",
+    "kept": "Zachowujemy ostatnie {kept} komunikatów. Po połączeniu pokazujemy ostatnie {replayed} komunikatów, które pojazd wysłał wcześniej.",
     "severity": {
+      "notice": "Uwaga",
+      "info": "Info",
+      "debug": "Debug",
       "emergency": "Awaria",
       "alert": "Alarm",
       "critical": "Krytyczne",
