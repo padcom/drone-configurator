@@ -221,8 +221,9 @@ class Control implements SessionPart {
   /// The control is over: the others may talk to the vehicle, and the page is told how it went.
   tellEnd(mine: int, o: RcOverride?, s: Sink?, code: string): void {
     const sentFrames = if (o == null) 0 else o!.sent
-    // Confirmed: the release was written, or there was nothing to release (no frame of pulses was ever tried).
-    const confirmed = o != null && !o!.releaseFailed && (o!.released > 0 || (o!.sent == 0 && o!.failed == 0))
+    // Confirmed: the release was written, or there was nothing to release (no sender yet, as while the control was being prepared, or
+    // no frame of pulses was ever tried).
+    const confirmed = o == null || (!o!.releaseFailed && (o!.released > 0 || (o!.sent == 0 && o!.failed == 0)))
     if (serial == mine) {
       link.rcControl = false
       ready = false
