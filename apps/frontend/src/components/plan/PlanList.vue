@@ -95,14 +95,28 @@ const STEPS: Record<string, (at: number, last: number) => number> = {
  * The item a key moves the selection to, if it is a key that moves it.
  *
  * @param key the key
+ * @param at the place (from 0) the key was pressed at
  * @returns the item, or undefined
  */
-function itemAfter(key: string): PlanItem | undefined {
+function itemAfter(key: string, at: number): PlanItem | undefined {
   const move = STEPS[key]
   const last = plan.value.items.length - 1
-  const at = plan.value.items.findIndex(item => item.id === selected.value)
 
   return move ? plan.value.items[Math.min(Math.max(move(at, last), 0), last)] : undefined
+}
+
+/**
+ * The place (from 0) of the row a key was pressed on, which is where the keys move from; the selected item when the key was not
+ * pressed on a row.
+ *
+ * @param event the key
+ * @returns the place in the list, or -1
+ */
+function rowOf(event: KeyboardEvent): number {
+  const rows = [...(listElement.value?.querySelectorAll('.plan-item') ?? [])]
+  const at = rows.indexOf((event.target as HTMLElement).closest('.plan-item') as Element)
+
+  return at >= 0 ? at : plan.value.items.findIndex(item => item.id === selected.value)
 }
 
 /**
@@ -111,7 +125,7 @@ function itemAfter(key: string): PlanItem | undefined {
  * @param event the key
  */
 async function step(event: KeyboardEvent): Promise<void> {
-  const next = itemAfter(event.key)
+  const next = itemAfter(event.key, rowOf(event))
   if (next) {
     event.preventDefault()
     state.select(next.id)
