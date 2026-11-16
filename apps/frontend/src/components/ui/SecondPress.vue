@@ -56,11 +56,16 @@ let timer: ReturnType<typeof setTimeout> | undefined
 // While the page reads again (see the watch below) the time of the second press does not run: how long the pause may last.
 let paused = false
 let cap: ReturnType<typeof setTimeout> | undefined
+// The first press arms it for at most PAUSE_CAP_MS and the time of the second press, however often it is paused and let go again
+// (a heartbeat that comes and goes, each time for less than a pause could last, must not keep it armed for ever).
+let armedSince = 0
+let total: ReturnType<typeof setTimeout> | undefined
 
 /** Goes back to its first state, whatever it was doing. */
 function reset(): void {
   clearTimeout(timer)
   clearTimeout(cap)
+  clearTimeout(total)
   paused = false
   armed.value = false
 }
@@ -122,8 +127,12 @@ function blurred(): void {
 function press(): void {
   if (!armed.value) {
     armed.value = true
+    armedSince = Date.now()
+    total = setTimeout(reset, PAUSE_CAP_MS + props.waitMs)
     wait()
     emit('arm')
+  } else if (Date.now() - armedSince > PAUSE_CAP_MS + props.waitMs) {
+    reset()
   } else if (Date.now() - armedAt >= BETWEEN_MS) {
     reset()
     emit('confirm')
@@ -148,5 +157,6 @@ function key(event: KeyboardEvent): void {
 onBeforeUnmount(() => {
   clearTimeout(timer)
   clearTimeout(cap)
+  clearTimeout(total)
 })
 </script>

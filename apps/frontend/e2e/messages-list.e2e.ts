@@ -121,10 +121,27 @@ it('gives the list a height of its own and lets the page scroll, at 999 px wide'
   expect(seen.listHeight).toBeLessThanOrEqual(330)
 }, 60_000)
 
+/** What the status of the empty list is, in the window: its display (not `none`: it would not be in the tree) and its height. */
+const STATUS = `(() => {
+  const status = document.querySelector('.messages .empty')
+  const style = getComputedStyle(status)
+  return { role: status.getAttribute('role'), display: style.display, height: Math.round(status.getBoundingClientRect().height) }
+})()`
+
+it('has the status of an empty list rendered all the time, with no room while it says nothing', async () => {
+  const seen = await window().evaluate<{ role: string, display: string, height: number }>(STATUS)
+
+  expect(seen).toEqual({ role: 'status', display: 'block', height: 0 })
+})
+
 it('empties with Clear and says so', async () => {
   await resize(1280, 720)
   await window().click('.messages-clear')
   await window().waitFor(`document.querySelectorAll('.message').length === 0`)
+  const after = await window().evaluate<{ display: string, height: number }>(STATUS)
+
+  expect(after.display).toBe('block')
+  expect(after.height).toBeGreaterThan(0)
 
   expect(await window().text('.messages')).toContain('The vehicle has said nothing yet.')
 })

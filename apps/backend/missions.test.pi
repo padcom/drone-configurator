@@ -408,12 +408,18 @@ async function aClearIsReadBackAndSentOnce(): Promise<void> throws Error {
   // a clear whose answer is lost is not known to have worked, and is not sent again
   await written(f, PlanKind.Mission, route())
   sim.missions.swallowAcks = 1
+  const clearsBefore = sim.missions.clears
   const lost = decodePlanClearResult((await f.call("plan.clear", encodePlanClearAsk(PlanClearAsk { kind: PlanKind.Mission }))).p ?? Cbor.Null, "$")
+  // (the vehicle is given time to be sent a second clear, if one were going to be)
+  await delay(300)
+  const clearsSent = sim.missions.clears - clearsBefore
   await f.call("vehicle.disconnect")
   expect(out.result).toBe(PlanClearResultResult.Cleared)
   expect(held).toBe(1)
   expect(lost.result).toBe(PlanClearResultResult.Unconfirmed)
   expect(lost.code ?? "").toBe("TIMEOUT")
+  // the answer was lost, and the clear was sent ONCE: exactly one MISSION_CLEAR_ALL came to the vehicle
+  expect(clearsSent).toBe(1)
 }
 
 async function theCurrentItemIsSetOnceAndAMissingOneIsRefused(): Promise<void> throws Error {

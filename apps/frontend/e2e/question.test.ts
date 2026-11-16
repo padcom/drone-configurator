@@ -1,12 +1,14 @@
 // The pattern that the window specs match the question of a write against: the sentence, then none of the two lines about the
 // vehicle's state or one of them, then the changes. A question with any other line is a wrong question, and does not match.
+// (That the two lines are the words of the locale is checked in src/i18n/say.test.ts, through the interface's own `say`.)
 import { describe, expect, it } from 'vitest'
 import { questionPattern } from './click'
+import { ARMED_LINE, UNKNOWN_LINE } from '../src/i18n/questionLines'
 
 const SENTENCE = 'Write 1 parameter to the vehicle?'
 const CHANGE = 'RTL_ALT 1500 → 1700'
-const ARMED = 'The vehicle is armed: changes take effect now.'
-const UNKNOWN = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+const ARMED = ARMED_LINE
+const UNKNOWN = UNKNOWN_LINE
 
 describe('the pattern of the question of a write', () => {
   const whole = questionPattern(SENTENCE, 'RTL_ALT 1500 → 1700', true)

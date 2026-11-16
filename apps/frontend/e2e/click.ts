@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { E2eApp } from 'pico-desktop'
+import { ARMED_LINE, UNKNOWN_LINE } from '../src/i18n/questionLines'
 
 const ATTEMPTS = 3
 const NOTICED_WITHIN_MS = 3000
@@ -360,12 +361,6 @@ async function pressUntilAsked(app: E2eApp, question: string | RegExp, left: num
     await pressUntilAsked(app, question, left - 1)
   }
 }
-
-/** The line a vehicle that is armed has in the question of a write (the English words of `question.armed`). */
-const ARMED_LINE = 'The vehicle is armed: changes take effect now.'
-
-/** The line a vehicle whose state is not known has (the English words of `question.unknown`). */
-const UNKNOWN_LINE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
 
 /**
  * Makes a text into a regular expression's source that matches exactly that text.

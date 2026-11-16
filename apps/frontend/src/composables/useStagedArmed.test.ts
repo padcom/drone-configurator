@@ -87,6 +87,15 @@ describe('the question of a write, and what the vehicle\'s armed state adds to i
     expect(small).not.toContain('more than a quarter')
   })
 
+  it('does not say it for exactly a quarter, up or down (0.375 - 0.3 is 0.07500000000000001), and does for a hair more', () => {
+    const at = (from: number, to: number) => questionFor([{ id: 'MOT_THST_HOVER', from, to, tuning: true }])
+
+    expect(at(0.3, 0.375)).not.toContain('more than a quarter')
+    expect(at(0.4, 0.3)).not.toContain('more than a quarter')
+    expect(at(0.3, 0.3751)).toContain('more than a quarter')
+    expect(at(0.4, 0.2999)).toContain('more than a quarter')
+  })
+
   it('does not say it for a tuning change, which has the hold', () => {
     expect(questionFor([{ id: 'ATC_RAT_RLL_P', from: 1, to: 2, tuning: true }], 'armed')).not.toContain('take effect now')
   })

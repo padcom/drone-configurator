@@ -97,6 +97,18 @@ it('keeps 500 messages and drops the oldest after that', async () => {
   expect(wrapper.text()).not.toContain('ArduCopter V4')
 })
 
+it('says "nothing yet" in a status that is in the page all the time, empty while there are messages', async () => {
+  const { wrapper } = await list(true)
+  const status = wrapper.get('.empty')
+
+  expect(status.attributes('role')).toBe('status')
+  expect(status.text()).toBe('')
+  await wrapper.get('.messages-clear').trigger('click')
+
+  expect(wrapper.get('.empty').element).toBe(status.element)
+  expect(status.text()).toBe('The vehicle has said nothing yet.')
+})
+
 it('keeps the focus in the list\'s section when Clear takes the button away, and does not let it fall to the page', async () => {
   const { wrapper } = await list(true)
   const button = wrapper.get('.messages-clear').element as HTMLElement

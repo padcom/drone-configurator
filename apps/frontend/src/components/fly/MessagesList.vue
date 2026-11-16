@@ -31,7 +31,8 @@
         <span class="text">{{ message.text }}</span>
       </li>
     </ul>
-    <p v-else class="muted empty">{{ t('messages.none') }}</p>
+    <!-- Always in the page, empty while there are messages: what a screen reader reads is a change of its text (after Clear). -->
+    <p class="muted empty" role="status">{{ none }}</p>
     <p class="muted messages-note">{{ t('messages.kept', { kept: KEPT, replayed: REPLAYED }) }}</p>
   </section>
 </template>
@@ -59,6 +60,7 @@ const format = useFormat()
 const { messages } = useConfigurator()
 const uid = useId()
 const shown = computed(() => [...messages.list.value].reverse())
+const none = computed(() => (shown.value.length === 0 ? t('messages.none') : ''))
 const root = ref<HTMLElement | null>(null)
 
 /**
