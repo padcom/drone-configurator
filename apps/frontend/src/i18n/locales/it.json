@@ -667,7 +667,12 @@
     "unread": "Nuovi: {count}",
     "none": "Il veicolo non ha ancora detto nulla.",
     "dismiss": "Chiudi",
+    "clear": "Svuota",
+    "kept": "Vengono conservati gli ultimi {kept} messaggi. Alla connessione sono elencati gli ultimi {replayed} detti prima dal veicolo.",
     "severity": {
+      "notice": "Avviso",
+      "info": "Info",
+      "debug": "Debug",
       "emergency": "Emergenza",
       "alert": "Allarme",
       "critical": "Critico",

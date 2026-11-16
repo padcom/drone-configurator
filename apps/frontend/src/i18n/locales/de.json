@@ -667,7 +667,12 @@
     "unread": "{count} neu",
     "none": "Das Fahrzeug hat noch nichts gemeldet.",
     "dismiss": "Schließen",
+    "clear": "Leeren",
+    "kept": "Die letzten {kept} Meldungen bleiben erhalten. Beim Verbinden werden die letzten {replayed} früheren Meldungen des Fahrzeugs aufgelistet.",
     "severity": {
+      "notice": "Hinweis",
+      "info": "Info",
+      "debug": "Debug",
       "emergency": "Notfall",
       "alert": "Alarm",
       "critical": "Kritisch",

@@ -51,15 +51,61 @@ it('lists the messages newest first, each with its time', async () => {
   expect(wrapper.get('ul').attributes('aria-label')).toBe('Messages from the vehicle, newest first')
 })
 
-it('says a warning or worse in a word and a mark, and says nothing of one below', async () => {
+it('says the severity of every message in a word and a mark, a warning or worse and the rest alike', async () => {
   const { wrapper } = await list(true)
 
   const preArm = wrapper.findAll('.message').find(message => message.text().includes('PreArm'))
   const boot = wrapper.findAll('.message').find(message => message.text().includes('ArduCopter V4'))
 
   expect(preArm?.get('.sev').text()).toBe('Warning')
-  expect(preArm?.find('.sev svg').exists()).toBe(true)
-  expect(boot?.find('.sev').exists()).toBe(false)
+  expect(boot?.get('.sev').text()).toMatch(/^(?:Notice|Info|Debug)$/u)
+  expect(wrapper.findAll('.message').every(message => message.find('.sev svg').exists())).toBe(true)
+})
+
+it('is a log, and says that it keeps the last 500 and what a connection lists', async () => {
+  const { wrapper } = await list(true)
+
+  expect(wrapper.get('ul').attributes('role')).toBe('log')
+  expect(wrapper.get('.messages-note').text()).toBe(
+    'The last 500 messages are kept. On connecting, the last 200 that the vehicle said before are listed.',
+  )
+})
+
+it('lists every message the vehicle says, the same text again and the PreArm ones included', async () => {
+  const { wrapper, control } = await list(true)
+  control.say?.(4, 'PreArm: Compass not calibrated')
+  control.say?.(4, 'PreArm: Compass not calibrated')
+  control.say?.(6, 'Home set')
+  await vi.waitFor(() => expect(wrapper.text()).toContain('Home set'))
+
+  const texts = wrapper.findAll('.message .text').map(text => text.text())
+
+  expect(texts.filter(text => text === 'PreArm: Compass not calibrated').length).toBeGreaterThanOrEqual(2)
+  expect(texts).toHaveLength(SCRIPTED_MESSAGES.length + 3)
+})
+
+it('keeps 500 messages and drops the oldest after that', async () => {
+  const { wrapper, control } = await list(true)
+  for (let i = 0; i < 520; i += 1) {
+    control.say?.(6, `message ${i}`)
+  }
+  await vi.waitFor(() => expect(wrapper.text()).toContain('message 519'))
+
+  expect(wrapper.findAll('.message')).toHaveLength(500)
+  expect(wrapper.text()).not.toContain('ArduCopter V4')
+})
+
+it('empties with Clear, lists only what comes after, and has no button while there is nothing', async () => {
+  const { wrapper, control } = await list(true)
+  await wrapper.get('.messages-clear').trigger('click')
+
+  expect(wrapper.findAll('.message')).toHaveLength(0)
+  expect(wrapper.text()).toContain('The vehicle has said nothing yet.')
+  expect(wrapper.find('.messages-clear').exists()).toBe(false)
+  control.say?.(6, 'After the clear')
+  await vi.waitFor(() => expect(wrapper.findAll('.message')).toHaveLength(1))
+
+  expect(wrapper.get('.message .text').text()).toBe('After the clear')
 })
 
 it('shows how many warnings are unread on the heading, and none once the pointer is on the list', async () => {

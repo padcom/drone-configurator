@@ -303,6 +303,18 @@
   padding: var(--space-3) var(--space-4);
 }
 
+.messages-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.messages-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
 .messages .unread {
   margin-left: var(--space-2);
   font-weight: 500;
@@ -345,6 +357,13 @@
 
 .message .sev-warning {
   color: var(--color-warn);
+}
+
+.message .sev-notice,
+.message .sev-info,
+.message .sev-debug {
+  font-weight: 500;
+  color: var(--color-text-muted);
 }
 
 .message .sev-error,
@@ -401,6 +420,11 @@
     flex: 1 1 0;
     min-height: 0;
     max-height: none;
+  }
+
+  .messages > .messages-head,
+  .messages > .messages-note {
+    flex: none;
   }
 }
 

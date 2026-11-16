@@ -7,8 +7,11 @@ import { type BackendClient, type Subscription } from '@/backend/client'
 import type { VehicleMessage } from '@/generated/app'
 import { isFailsafe, isWarning, sentAt } from '@/lib/fly/messages'
 
-/** How many messages the list keeps, and asks to have replayed (the backend replays at most 200). */
-export const KEPT = 200
+/** How many messages the list keeps: as many as the backend's ring (500); the oldest go when more come. */
+export const KEPT = 500
+
+/** How many stored messages the list asks to have replayed on connecting (the backend replays at most 200, and refuses more). */
+export const REPLAYED = 200
 
 /** A failsafe said this recently (ms) is taken for one that is still on when it is replayed on connecting. */
 export const FAILSAFE_RECENT_MS = 60_000
@@ -35,6 +38,8 @@ export interface MessagesModel {
   stop: () => void
   /** The list has been looked at (the pointer or the focus came to it): nothing is unread. */
   markRead: () => void
+  /** Empties the list (what the vehicle said is still in the backend's ring, and in the log); nothing is unread. */
+  clear: () => void
   /** Takes the failsafe banner away. */
   dismissFailsafe: () => void
 }
@@ -60,6 +65,8 @@ class Messages implements MessagesModel {
   private readonly subscriptions: Subscription[] = []
   /** When the failsafe that was dismissed was sent (ms since 1970): it, and anything older, is not told again. */
   private dismissedAt = 0
+  /** When the list was last cleared (ms since 1970): what was sent before is not listed again. */
+  private clearedAt = 0
 
   /**
    * Makes the model.
@@ -74,7 +81,7 @@ class Messages implements MessagesModel {
     this.list.value = []
     const { client } = this.deps
     this.subscriptions.push(
-      client.subscribe('vehicle.messages', { replay: KEPT }, message => this.add(message)),
+      client.subscribe('vehicle.messages', { replay: REPLAYED }, message => this.add(message)),
       client.subscribe('vehicle.messages', { replay: 0 }, message => this.arrived(message)),
     )
     // A subscription the backend refuses leaves the list empty; there is nothing more to do about it here.
@@ -83,6 +90,13 @@ class Messages implements MessagesModel {
 
   markRead(): void {
     this.unread.value = 0
+  }
+
+  clear(): void {
+    this.list.value = []
+    this.unread.value = 0
+    // What was said before now is not listed again by a replay (a new session replays what the backend kept).
+    this.clearedAt = Date.now()
   }
 
   stop(): void {
@@ -120,13 +134,25 @@ class Messages implements MessagesModel {
   }
 
   /**
+   * Whether a message is not to be added: it is there already (ids go up, so an older or equal one is a repeat), or it was sent
+   * before the list was cleared.
+   *
+   * @param message the message
+   * @returns true if it is not added
+   */
+  private listed(message: VehicleMessage): boolean {
+    const last = this.list.value.at(-1)
+
+    return (last !== undefined && message.id <= last.id) || Number(message.time) < this.clearedAt
+  }
+
+  /**
    * Adds a message to the list, unless it is there already (ids go up, so an older or equal one is a repeat).
    *
    * @param message the message
    */
   private add(message: VehicleMessage): void {
-    const last = this.list.value.at(-1)
-    if (last && message.id <= last.id) {
+    if (this.listed(message)) {
       return
     }
     this.list.value = [...this.list.value, message].slice(-KEPT)
