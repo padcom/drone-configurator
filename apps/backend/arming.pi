@@ -29,7 +29,8 @@
 //    vehicle that stands still: at most 1 m/s over the ground and 0.5 m/s up or down (`NOT_HOVERING`).
 //    The vehicle's FENCE is read the same way (FENCE_ENABLE, and when it is on FENCE_TYPE, then FENCE_ALT_MAX, FENCE_ALT_MIN and FENCE_RADIUS for
 //    the bits that are set, and the frame of each altitude, FENCE_ALT_MAX_TP and FENCE_ALT_MIN_TP: anything but above home is `FENCE_UNKNOWN`;
-//    a firmware that has no such parameter (4.7.2) has only above home): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
+//    a frame that cannot be read is too, unless the connection's COMPLETE parameter list says the vehicle has no such parameter, as 4.7.2 has none:
+//    then it is above home): an altitude above the fence's maximum or below its minimum, or a place outside its circle, is `OUT_OF_LIMITS`, and a
 //    fence that cannot be read is `FENCE_UNKNOWN`. A polygon fence is not read. After a set of home here the home that was heard is forgotten
 //    until the vehicle says the new one (`HOME_UNKNOWN`). A guided command does not hold the armed state.
 //  - An ARM IN FLIGHT holds the armed state of the whole backend as unknown (which every service takes for armed): from the send until
@@ -238,10 +239,6 @@ async function failsafeWarning(policy: FailsafePolicy): Promise<string> throws E
   return why
 }
 
-/// How long the frame of a fence altitude is asked about (ms): a firmware older than FENCE_ALT_MAX_TP does not have it and says nothing, and the link
-/// has just answered the other fence parameters, so one short try tells.
-const FRAME_READ_MS: int = 400
-
 /// What the vehicle's fence says (asked now, as the failsafe is): FENCE_ENABLE first, and only when it is on the rest of what it needs.
 async function readFence(): Promise<FenceFacts> throws Error {
   const fence = new FenceFacts()
@@ -270,10 +267,15 @@ async function readFence(): Promise<FenceFacts> throws Error {
   return fence
 }
 
-/// The reference frame of a fence altitude: what the vehicle says, or above home (1) for a firmware that has no such parameter.
+/// The reference frame of a fence altitude. A firmware older than FENCE_ALT_MAX_TP does not have the parameter (4.7.2), and then the altitude is
+/// above home: but that is taken for granted ONLY when the connection's COMPLETE parameter list says the parameter is not there. Any other
+/// absence is a read that failed (a request or its answer lost), which says nothing: it is read like the other fence parameters, and one that
+/// cannot be read is -1, which is not above home (`FENCE_UNKNOWN`).
 async function frameOf(id: string): Promise<f64> throws Error {
-  const v = await readParam(id, FRAME_READ_MS, 0)
-  return v ?? 1.0
+  if (link.paramsComplete && !link.paramNames.has(id)) {
+    return 1.0
+  }
+  return await readOr(id, -1.0)
 }
 
 /// Holds a reposition or a change of altitude to the vehicle's own fence: the altitude, and the distance from home of a place.

@@ -365,6 +365,9 @@ async function theVehiclesFenceLimitsAReposition(): Promise<void> throws Error {
   const sim = simulatorForTests()!
   const heard = listen(sim)
   setFence(sim, 1, 1, 25)
+  // (the list says that this vehicle has no frame parameter: above home; the download took a while, so the position is said again)
+  await knowsTheParameters(f)
+  sayFlightForTests("GUIDED", HOME_LAT, HOME_LON, 20.0, HOME_LAT, HOME_LON)
   // the request allows 50 m; the fence 25 m
   expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("OUT_OF_LIMITS")
   expect(heard.ints.length).toBe(0)
@@ -373,6 +376,13 @@ async function theVehiclesFenceLimitsAReposition(): Promise<void> throws Error {
   expect(described(await f.call("vehicle.changeAltitude", encodeChangeAltitudeAsk(ChangeAltitudeAsk { altitude: 40.0, limits: limits(), failsafe: FailsafePolicy.Block })))).toBe("OUT_OF_LIMITS")
   expect(heard.ints.length).toBe(1)
   await f.call("vehicle.disconnect")
+}
+
+/// Downloads the vehicle's parameters, so that the session knows which it has.
+async function knowsTheParameters(f: Frontend): Promise<void> throws Error {
+  const answer = await f.call("params.list")
+  expect(answer.err == null).toBe(true)
+  expect(link.paramsComplete).toBe(true)
 }
 
 async function aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo(): Promise<void> throws Error {
@@ -384,6 +394,8 @@ async function aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo
   sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(9, MavParamType.INT8) })
   sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
   sim.params.push({ id: "FENCE_ALT_MIN", value: TypedParamValue.Int(-10, MavParamType.INT16) })
+  // the complete list shows that the vehicle has no FENCE_ALT_MAX_TP or FENCE_ALT_MIN_TP: above home
+  await knowsTheParameters(f)
   expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("accepted")
   expect(heard.ints.length).toBe(1)
   await f.call("vehicle.disconnect")
@@ -398,6 +410,23 @@ async function aFenceAltitudeThatIsNotAboveHomeBlocks(): Promise<void> throws Er
   sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
   // the frame of the maximum is above sea level (0)
   sim.params.push({ id: "FENCE_ALT_MAX_TP", value: TypedParamValue.Int(0, MavParamType.INT8) })
+  await knowsTheParameters(f)
+  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
+  expect(heard.ints.length).toBe(0)
+  await f.call("vehicle.disconnect")
+}
+
+async function aFrameThatIsNotAnsweredIsNotTakenForAboveHome(): Promise<void> throws Error {
+  const f = await flying(1)
+  const sim = simulatorForTests()!
+  const heard = listen(sim)
+  sim.change("FENCE_ENABLE", TypedParamValue.Int(1, MavParamType.INT8))
+  sim.params.push({ id: "FENCE_TYPE", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  sim.params.push({ id: "FENCE_ALT_MAX", value: TypedParamValue.Int(50, MavParamType.INT16) })
+  // the vehicle HAS the frame parameter (the list says so) and it is not answered (a request or its answer was lost): nothing is assumed
+  sim.params.push({ id: "FENCE_ALT_MAX_TP", value: TypedParamValue.Int(1, MavParamType.INT8) })
+  await knowsTheParameters(f)
+  sim.params.pop()
   expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("FENCE_UNKNOWN")
   expect(heard.ints.length).toBe(0)
   await f.call("vehicle.disconnect")
@@ -480,6 +509,7 @@ describe("guided control commands", () => {
   it("does not take a fence that cannot be read for none", aFenceThatCannotBeReadIsNotTakenForNone)
   it("lets a reposition go under a fence with a minimum of -10 and a firmware without frame parameters", aFenceWithAMinimumBelowZeroAndNoFrameParametersLetsAReppositionGo)
   it("blocks when a fence altitude is not above home", aFenceAltitudeThatIsNotAboveHomeBlocks)
+  it("does not take a frame parameter that is not answered for above home when the vehicle has it", aFrameThatIsNotAnsweredIsNotTakenForAboveHome)
   it("keeps the place the backend itself heard for a change of altitude", aChangeOfAltitudeKeepsThePlaceTheBackendHeard)
   it("sends a speed once, within the limit", aSpeedIsSentOnce)
   it("sets home here, once", homeIsSetHereOnce)

@@ -49,6 +49,10 @@ class Link {
   /// "unsupported" (the vehicle has no parameter file: kept until the connection ends) or "timeout" (it did not answer: kept for
   /// the next download only, so the one after tries again). See params.pi.
   public ftpMemo: string = ""
+  /// The names of the parameters of the last COMPLETE download of this connection (params.pi), and whether there was one: only then is a
+  /// parameter that is not in it KNOWN to be absent (guided control takes a fence altitude's missing frame parameter for above home only so).
+  public paramNames: Map<string, bool> = new Map<string, bool>()
+  public paramsComplete: bool = false
   public watchers: Sink[] = []
   /// Whether the autopilot's last heartbeat said it is armed, and when it was received (ms since 1970; 0 = none yet).
   /// Set by telemetry.pi; `armedState()` says whether it can be trusted.
@@ -166,6 +170,8 @@ class Link {
     typeMayChange = false
     armed = false
     heartbeatAt = 0
+    paramNames.clear()
+    paramsComplete = false
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
