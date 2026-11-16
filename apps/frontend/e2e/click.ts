@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import type { E2eApp } from 'pico-desktop'
-import { ARMED_LINE, UNKNOWN_LINE } from './questionLines'
+import { ARMED_LINE, UNKNOWN_LINE } from '../src/i18n/questionLines'
 
 const ATTEMPTS = 3
 const NOTICED_WITHIN_MS = 3000

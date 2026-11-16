@@ -7,6 +7,7 @@ import { checkMeta, parseMetadata } from '@/lib/params/metadata'
 import { notConfirmedText } from '@/lib/params/paramValue'
 import { parseSnapshot } from '@/lib/params/snapshot'
 import { setLanguage } from './i18n'
+import { ARMED_LINE, UNKNOWN_LINE } from './questionLines'
 import { say } from './say'
 
 afterEach(() => {
@@ -27,6 +28,18 @@ describe('a message of the interface from code', () => {
   it('takes the plural form of its count', () => {
     expect(say('question.write', { count: 1 }, 1)).toBe('Write 1 parameter to the vehicle?')
     expect(say('question.write', { count: 3 }, 3)).toBe('Write 3 parameters to the vehicle?')
+  })
+})
+
+describe('the question of a write, as the window specs expect it', () => {
+  it('has the two lines about the vehicle\'s state, and the sentence, word for word (e2e uses src/i18n/questionLines.ts)', () => {
+    expect(say('question.armed')).toBe(ARMED_LINE)
+    expect(say('question.unknown')).toBe(UNKNOWN_LINE)
+    expect(say('question.write', { count: 1 }, 1)).toBe('Write 1 parameter to the vehicle?')
+  })
+
+  it('has the plural of the sentence for two', () => {
+    expect(say('question.write', { count: 2 }, 2)).toBe('Write 2 parameters to the vehicle?')
   })
 })
 

@@ -3,7 +3,7 @@
 // (That the two lines are the words of the locale is checked in src/i18n/say.test.ts, through the interface's own `say`.)
 import { describe, expect, it } from 'vitest'
 import { questionPattern } from './click'
-import { ARMED_LINE, UNKNOWN_LINE } from './questionLines'
+import { ARMED_LINE, UNKNOWN_LINE } from '../src/i18n/questionLines'
 
 const SENTENCE = 'Write 1 parameter to the vehicle?'
 const CHANGE = 'RTL_ALT 1500 → 1700'
