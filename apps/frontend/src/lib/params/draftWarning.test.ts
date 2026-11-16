@@ -1,9 +1,10 @@
 // What the metadata finds unusual about the draft follows the metadata: loading or replacing a file changes it at once, and
 // "Add to changes" and the question to write read it as it is then.
 import { setTimeout as sleep } from 'node:timers/promises'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { METADATA_FORMAT } from './metadata'
-import { mockBackend } from '@/mock/mock-backend'
+import { armedOf } from '@/lib/app/armed'
+import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import { createConfigurator } from '@/composables/useConfigurator'
 
 const metadataWith = (min: number) => JSON.stringify({
@@ -15,17 +16,23 @@ const metadataWith = (min: number) => JSON.stringify({
 /**
  * A Configurator on the mock vehicle, connected, with RTL_ALT selected and 10 typed for it.
  *
+ * The vehicle's armed state is set, and waited for, so that the question of a write does not depend on when the first telemetry
+ * arrives (it has a line when the vehicle is armed or its state is not known).
+ *
  * @returns the handle and the questions asked
  */
 async function typed() {
   const questions: string[] = []
-  const handle = createConfigurator(mockBackend({ telemetryMs: 5 }), (question: string) => {
+  const control: MockControl = {}
+  const handle = createConfigurator(mockBackend({ telemetryMs: 5, control }), (question: string) => {
     questions.push(question)
 
     return Promise.resolve(true)
   })
+  control.armed?.(false)
   await handle.vehicle.connect({ transport: 'simulator' })
   await sleep(20)
+  await vi.waitFor(() => expect(armedOf(handle.vehicle.telemetry.value)).toBe(false))
   handle.parameters.select('RTL_ALT')
   handle.parameters.editDraft('10')
 
