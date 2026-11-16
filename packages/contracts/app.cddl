@@ -1340,7 +1340,8 @@ rc-input = {
 ; heartbeat for 3 s: whether the vehicle is armed is not known), `STOPPED` (an emergency stop or a disarm is being sent: the control ends
 ; first, and the command goes out after the release); `sent` is how many frames
 ; of pulses were written, `clamped` how many throttle pulses were raised to `throttleMin`, `confirmed` whether the release frame was written
-; (when it was not, the vehicle lets go by itself after its `RC_OVERRIDE_TIME`).
+; or nothing needed releasing (no frame of pulses was ever sent, as when the control ended while it was being prepared); when it was
+; not, the vehicle lets go by itself after its `RC_OVERRIDE_TIME`.
 rc-state = {
   state: "on" / "released",
   ? why: tstr,
