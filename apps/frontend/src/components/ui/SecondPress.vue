@@ -1,5 +1,13 @@
 <template>
-  <Button class="kit-second" :class="{ armed }" aria-live="polite" @click="press" @blur="reset" @keydown="key">
+  <Button
+    class="kit-second"
+    :class="{ armed }"
+    :disabled="disabled"
+    aria-live="polite"
+    @click="press"
+    @blur="reset"
+    @keydown="key"
+  >
     {{ armed ? confirmLabel : label }}
   </Button>
 </template>
@@ -8,7 +16,7 @@
 // A button for what cannot be undone (erasing logs) or what goes to a whole group: pressed once it says exactly what it
 // will do ("Confirm: erase 5 logs", in the fault colour), and does it when pressed again. Left alone (a few seconds,
 // another control, Escape) it goes back. A double click does not confirm: the second press has to come after a moment.
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { SECOND_PRESS_MS } from '@/lib/app/safety'
 import Button from './Button.vue'
 
@@ -20,9 +28,11 @@ const props = withDefaults(defineProps<{
   label: string
   /** What it says after the first press: what exactly will happen ("Confirm: erase 5 logs"). */
   confirmLabel: string
-  /** How long it waits for the second press (ms). */
+  /** How long it waits for the second press (ms). It runs only while the button can be pressed. */
   waitMs?: number
-}>(), { waitMs: SECOND_PRESS_MS })
+  /** The button is off (what the first press asked for is under way): it keeps what it says, and its time does not run. */
+  disabled?: boolean
+}>(), { waitMs: SECOND_PRESS_MS, disabled: false })
 
 const emit = defineEmits<{
   /** The first press: the button now says what it will do (a place can bring what it counts up to date). */
@@ -41,12 +51,30 @@ function reset(): void {
   armed.value = false
 }
 
+/** Starts the time the second press is waited for. */
+function wait(): void {
+  armedAt = Date.now()
+  timer = setTimeout(reset, props.waitMs)
+}
+
+// The first press may turn the button off for a while (the page reads again what the second press will act on, which can take
+// longer than the time given): the time then does not run, and begins again when the button can be pressed, so that the second
+// press can always be made.
+watch(() => props.disabled, off => {
+  if (armed.value) {
+    clearTimeout(timer)
+
+    if (!off) {
+      wait()
+    }
+  }
+})
+
 /** A press: the first arms it, a later second one does it. */
 function press(): void {
   if (!armed.value) {
     armed.value = true
-    armedAt = Date.now()
-    timer = setTimeout(reset, props.waitMs)
+    wait()
     emit('arm')
   } else if (Date.now() - armedAt >= BETWEEN_MS) {
     reset()

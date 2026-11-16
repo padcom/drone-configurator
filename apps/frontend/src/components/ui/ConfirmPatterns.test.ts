@@ -88,6 +88,44 @@ describe('a second-press button that is left alone or left', () => {
   })
 })
 
+describe('a second-press button that the first press turns off for a while', () => {
+  it('keeps what it says and does not run out of time while it is off, however long that is', async () => {
+    const button = second()
+    await button.trigger('click')
+    await button.setProps({ disabled: true })
+    vi.advanceTimersByTime(WAIT * 3)
+    await button.setProps({ disabled: false })
+
+    expect(button.classes()).toContain('armed')
+    expect(button.text()).toBe('Confirm: erase 5 logs')
+  })
+
+  it('waits for the second press from the moment it can be pressed again, and then does it', async () => {
+    const button = second()
+    await button.trigger('click')
+    await button.setProps({ disabled: true })
+    vi.advanceTimersByTime(WAIT * 3)
+    await button.setProps({ disabled: false })
+    vi.advanceTimersByTime(BETWEEN)
+    await button.trigger('click')
+
+    expect(button.emitted('confirm')).toHaveLength(1)
+  })
+})
+
+describe('a second-press button that was turned off and on again', () => {
+  it('still goes back when it is left alone after it can be pressed again', async () => {
+    const button = second()
+    await button.trigger('click')
+    await button.setProps({ disabled: true })
+    await button.setProps({ disabled: false })
+    vi.advanceTimersByTime(WAIT)
+    await button.vm.$nextTick()
+
+    expect(button.classes()).not.toContain('armed')
+  })
+})
+
 describe('a second-press button, with a key held down', () => {
   it('has the repeats of a held key cancelled, so they cannot click it (Chromium clicks on each Enter repeat)', async () => {
     const button = second()

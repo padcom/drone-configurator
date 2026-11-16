@@ -72,7 +72,13 @@
       <p v-if="logs.source.value === 'mavlink'" id="logs-protocol" class="muted">{{ t('logs.vehicle.viaProtocol') }}</p>
       <div class="logs-actions">
         <Button v-if="logs.running.value" id="logs-cancel" @click="logs.cancel()">{{ t('logs.vehicle.cancel') }}</Button>
-        <Button v-else id="logs-download" :disabled="!canDownload" @click="logs.download()">
+        <Button
+          v-else
+          id="logs-download"
+          :disabled="!canDownload"
+          :aria-describedby="reason ? 'logs-blocked' : undefined"
+          @click="logs.download()"
+        >
           {{ t('logs.vehicle.download', { count: chosen }) }}
         </Button>
       </div>
@@ -86,7 +92,7 @@
         :label="t('logs.vehicle.erase.label')"
         :confirm-label="t('logs.vehicle.erase.confirm', { count: logs.logs.value.length })"
         :disabled="!canEraseNow"
-        :aria-describedby="`${uid}-erase-note`"
+        :aria-describedby="reason ? `${uid}-erase-note logs-blocked` : `${uid}-erase-note`"
         @arm="logs.refresh()"
         @confirm="logs.erase()"
       />
