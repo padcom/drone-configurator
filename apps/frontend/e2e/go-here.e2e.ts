@@ -137,6 +137,19 @@ it('picks the place under a click: a ring on the map and a card that says how fa
   })()`)).toBe(true)
 })
 
+it.each([[1440, 900], [1000, 700], [999, 700]])('keeps the card\'s buttons inside a window of %i x %i', async (width, height) => {
+  await window().devtools('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
+  await sleep(500)
+  const outside = await window().evaluate<number>(`(() => {
+    window.scrollTo(0, 0)
+    const buttons = document.querySelector('#go-here .go-here-buttons').getBoundingClientRect()
+    return Math.round(buttons.bottom - window.innerHeight)
+  })()`)
+  await window().devtools('Emulation.clearDeviceMetricsOverride', {})
+
+  expect(outside, `${width}x${height}: the buttons end this many px below the window`).toBeLessThanOrEqual(0)
+})
+
 it('is refused, and sends the vehicle NOTHING, while its GCS failsafe is off', async () => {
   await window().click('#go-here-go')
   await window().waitFor(`document.querySelector('#confirm-yes') !== null`, 10_000)

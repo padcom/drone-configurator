@@ -27,7 +27,7 @@
         "apps/frontend/src/components/shell/**", "apps/frontend/src/lib/{app,commands}/**", "apps/frontend/src/screens/{registry.ts,Gallery.vue,NotAvailable.vue}",
         "apps/frontend/src/composables/{useCommand*,useFocusIntent,useDownloadText,toasts}.ts"
       ],
-      "specs": ["shell.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "fonts.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts"]
+      "specs": ["shell.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "fonts.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts"]
     },
     {
       "when": [
@@ -61,7 +61,7 @@
         "apps/backend/{reconnect,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups}.pi"
       ],
       "specs": [
-        "configurator.e2e.ts", "flight-data.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts",
+        "configurator.e2e.ts", "flight-data.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts",
         "sitl-reconnect.e2e.ts",
         "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"
       ]

@@ -2198,7 +2198,7 @@
       "fenceUnknown": "Non è stato possibile leggere il recinto del veicolo, quindi non si assume nulla: scarica prima di nuovo i parametri.",
       "landing": "Il veicolo sta tornando al punto di partenza o atterrando: cambia tu il suo modo prima.",
       "high": "Il veicolo è sopra la tua altitudine massima nelle Impostazioni.",
-      "moving": "Il veicolo si muove: attendi che si fermi, o invia di nuovo Vai qui.",
+      "moving": "Il veicolo si muove: attendi che si fermi, o riprova.",
       "still": "Il veicolo deve stare fermo per impostare casa: si muove, sale o scende.",
       "keptGuided": "Il veicolo è stato messo in GUIDED e vi resta.",
       "changed": "Il luogo scelto è cambiato: controllalo e vai di nuovo."

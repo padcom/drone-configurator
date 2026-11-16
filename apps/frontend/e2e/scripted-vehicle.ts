@@ -28,6 +28,8 @@ export interface Position extends Place {
   heading: number
   /** Metres above home. */
   height: number
+  /** Metres per second: north, east and DOWN (what GLOBAL_POSITION_INT's vx, vy and vz say); at rest when not given. */
+  velocity?: { north: number, east: number, down: number }
 }
 
 /** MAV_CMD numbers of the commands it answers. */
@@ -69,6 +71,8 @@ export class ScriptedVehicle {
   #mode = 0
   #ready = false
   #params = new Map<string, number>()
+  /** How many parameters it says it has that it never sends (its list is never complete). */
+  #lacking = 0
   readonly #received: Received[] = []
   #sequence = 0
   readonly #server: Server
@@ -144,6 +148,15 @@ export class ScriptedVehicle {
    */
   params(params: Record<string, number>): void {
     this.#params = new Map(Object.entries(params))
+  }
+
+  /**
+   * Makes its parameter list incomplete: it says it has this many more parameters than it sends (and answers for none of them).
+   *
+   * @param count how many more
+   */
+  lacking(count: number): void {
+    this.#lacking = count
   }
 
   /**
@@ -289,7 +302,7 @@ export class ScriptedVehicle {
     const payload = new Uint8Array(25)
     const view = new DataView(payload.buffer)
     view.setFloat32(0, value, true)
-    view.setUint16(4, this.#params.size, true)
+    view.setUint16(4, this.#params.size + this.#lacking, true)
     view.setUint16(6, [...this.#params.keys()].indexOf(name), true)
     payload.set(new TextEncoder().encode(name).subarray(0, 16), 8)
     payload[24] = 9
@@ -307,7 +320,7 @@ export class ScriptedVehicle {
       const payload = new Uint8Array(25)
       const view = new DataView(payload.buffer)
       view.setFloat32(0, value, true)
-      view.setUint16(4, entries.length, true)
+      view.setUint16(4, entries.length + this.#lacking, true)
       view.setUint16(6, index, true)
       payload.set(new TextEncoder().encode(name).subarray(0, 16), 8)
       payload[24] = 9
@@ -362,6 +375,10 @@ export class ScriptedVehicle {
       view.setInt32(8, Math.round(this.#position.lon * 1e7), true)
       view.setInt32(12, 488_000 + Math.round(this.#position.height * 1000), true)
       view.setInt32(16, Math.round(this.#position.height * 1000), true)
+      const { north, east, down } = this.#position.velocity ?? { north: 0, east: 0, down: 0 }
+      view.setInt16(20, Math.round(north * 100), true)
+      view.setInt16(22, Math.round(east * 100), true)
+      view.setInt16(24, Math.round(down * 100), true)
       view.setUint16(26, Math.round(this.#position.heading * 100), true)
       this.#send(this.#frame(MSG_GLOBAL_POSITION_INT, payload))
     }

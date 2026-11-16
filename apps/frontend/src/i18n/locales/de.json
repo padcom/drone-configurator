@@ -2198,7 +2198,7 @@
       "fenceUnknown": "Der Zaun des Fahrzeugs ließ sich nicht lesen, daher wird nichts angenommen: laden Sie zuerst die Parameter erneut.",
       "landing": "Das Fahrzeug kehrt heim oder landet: ändern Sie den Modus zuerst selbst.",
       "high": "Das Fahrzeug ist höher als Ihre größte Höhe in den Einstellungen.",
-      "moving": "Das Fahrzeug bewegt sich: warten Sie, bis es steht, oder senden Sie „Hierher fliegen“ erneut.",
+      "moving": "Das Fahrzeug bewegt sich: warten Sie, bis es steht, oder versuchen Sie es erneut.",
       "still": "Das Fahrzeug muss stillstehen, um Home zu setzen: es bewegt sich, steigt oder sinkt.",
       "keptGuided": "Das Fahrzeug wurde auf GUIDED gestellt und bleibt dort.",
       "changed": "Der gewählte Ort hat sich geändert: prüfen Sie ihn und fliegen Sie erneut."

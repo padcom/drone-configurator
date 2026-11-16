@@ -16,7 +16,7 @@ import type { ArmingResult } from '@/generated/app'
 import type { CommandContext } from './command'
 import { armingRefusalKeyOf, tellArmingRefusal, tellArmingWith } from './armingReport'
 import { WAITS, type Waits, guided } from './takeoffFlow'
-import { changeAltitudeBlock, limitsOf } from '@/lib/fly/guided'
+import { type GuidedPreferences, changeAltitudeBlock, limitsOf } from '@/lib/fly/guided'
 
 /**
  * Looks at the page's own gates again after the wait for GUIDED, and says what is wrong (and that the vehicle stays in GUIDED).
@@ -69,10 +69,10 @@ function tellRefusal(ctx: CommandContext, error: unknown): void {
  *
  * @param ctx the context
  * @param altitude metres above home
+ * @param prefs what the user chose, as it was when the flow started
  * @returns whether the vehicle accepted
  */
-async function send(ctx: CommandContext, altitude: number): Promise<boolean> {
-  const prefs = ctx.preferences.guided()
+async function send(ctx: CommandContext, altitude: number, prefs: GuidedPreferences): Promise<boolean> {
   try {
     const result = await ctx.vehicle.changeAltitude({ altitude, limits: limitsOf(prefs), failsafe: prefs.failsafe })
     tellAltitude(ctx, result, altitude)
@@ -94,10 +94,11 @@ async function send(ctx: CommandContext, altitude: number): Promise<boolean> {
  * @returns whether the vehicle took it
  */
 export async function changeAltitude(ctx: CommandContext, altitude: number, waits: Waits = WAITS): Promise<boolean> {
+  const prefs = ctx.preferences.guided()
   const switched = ctx.vehicle.mode() !== 'GUIDED'
   if (!await guided(ctx, waits) || !stillReady(ctx, switched)) {
     return false
   }
 
-  return send(ctx, altitude)
+  return send(ctx, altitude, prefs)
 }

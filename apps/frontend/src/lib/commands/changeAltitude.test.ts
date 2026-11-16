@@ -103,8 +103,25 @@ describe('what the button does when the vehicle changed meanwhile', () => {
     expect(await changeAltitude(fake.ctx, 30, WAITS)).toBe(false)
     expect(fake.calls.sent).toEqual(['mode 4'])
     expect(fake.calls.toast.at(-1)?.text).toBe(
-      'The vehicle is moving: wait until it has stopped, or send Go here again. The vehicle was put in GUIDED and stays there.',
+      'The vehicle is moving: wait until it has stopped, or try again. The vehicle was put in GUIDED and stays there.',
     )
+  })
+})
+
+describe('what the flow takes once', () => {
+  it('sends the failsafe policy it had when it started, even if the choice changes during the wait for GUIDED', async () => {
+    const fake = ready({ mode: 'LOITER', guidedPrefs: { ...GUIDED_DEFAULTS, failsafe: 'warn' } })
+    const set = fake.ctx.vehicle.setMode.bind(fake.ctx.vehicle)
+    fake.ctx.vehicle.setMode = async mode => {
+      const answer = await set(mode)
+      fake.facts.guidedPrefs = { ...GUIDED_DEFAULTS, failsafe: 'block' }
+      fake.facts.mode = 'GUIDED'
+
+      return answer
+    }
+
+    expect(await changeAltitude(fake.ctx, 30, WAITS)).toBe(true)
+    expect(fake.calls.sent).toEqual(['mode 4', 'altitude 30 warn'])
   })
 })
 
@@ -113,7 +130,7 @@ describe('what the button tells when it does not go', () => {
     const fake = ready({ armingError: new BackendError('VEHICLE_MOVING', 'x') })
 
     expect(await changeAltitude(fake.ctx, 30, WAITS)).toBe(false)
-    expect(fake.calls.toast.at(-1)?.text).toBe('The vehicle is moving: wait until it has stopped, or send Go here again.')
+    expect(fake.calls.toast.at(-1)?.text).toBe('The vehicle is moving: wait until it has stopped, or try again.')
   })
 
   it('tells a refusal of the vehicle, and does not send it again', async () => {
