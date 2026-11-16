@@ -174,7 +174,7 @@ class Running implements SessionPart {
       cachedFor = link.session.signal
       crcs = new Map<string, int>()
     }
-    crcs.get(`${id}:${size}`) ?? -1
+    return crcs.get(`${id}:${size}`) ?? -1
   }
 
   public remember(id: int, size: int, crc: int): void {
@@ -196,7 +196,7 @@ const running = new Running()
 
 /// Whether the connected vehicle was found, a moment ago, to have no file transfer.
 function noFtpNow(): bool {
-  running.noFtpFor == link.session.signal && (Date.now() as int) < running.noFtpUntil
+  return running.noFtpFor == link.session.signal && (Date.now() as int) < running.noFtpUntil
 }
 
 /// Notes that the connected vehicle has no file transfer.
@@ -221,7 +221,7 @@ export function nameOfLog(id: int): string {
   while (digits.length < 8) {
     digits = `0${digits}`
   }
-  `${digits}.BIN`
+  return `${digits}.BIN`
 }
 
 /// The number of a log file, or -1 when the name is not that of a log: eight digits and ".BIN" (LASTLOG.TXT and the like are not).
@@ -237,7 +237,7 @@ export function numberOfLog(name: string): int {
     }
     n = n * 10 + digit
   }
-  n
+  return n
 }
 
 /// The vehicle as a folder name: its identity, with what a path does not allow turned into '-'.
@@ -261,7 +261,7 @@ export function folderName(): string {
     running.markGeneration = link.generation
     running.mark = `${Date.now()}`
   }
-  `${base}-c${running.mark}`
+  return `${base}-c${running.mark}`
 }
 
 /// The folder the logs of the connected vehicle are kept in.
@@ -304,7 +304,7 @@ async function entriesOf(client: FtpClient): Promise<FtpEntry[]> throws Communic
       logs.push(e)
     }
   }
-  logs
+  return logs
 }
 
 /// The size of the file at `path`, or -1 when there is none.
@@ -325,12 +325,12 @@ export function hex8(n: int): string {
     const d = (n >> (i * 4)) & 15
     out += digits.slice(d, d + 1)
   }
-  out
+  return out
 }
 
 /// The name of the checked copy of log `id` whose CRC-32 is `crc`: `NNNNNNNN-CCCCCCCC.BIN`.
 export function copyName(id: int, crc: int): string {
-  `${nameOfLog(id).slice(0, 8)}-${hex8(crc)}.BIN`
+  return `${nameOfLog(id).slice(0, 8)}-${hex8(crc)}.BIN`
 }
 
 /// A checked copy that is in the folder: the log's number, the CRC-32 in its name, and its size.
@@ -360,19 +360,19 @@ export function copyNumbers(name: string): int[] {
     }
     crc = crc * 16 + digit
   }
-  [id, crc]
+  return [id, crc]
 }
 
 /// Whether an FTP failure means the vehicle has no file transfer to use (it does not answer, or does not know the commands): the log
 /// protocol is the way then. A listing that can't be trusted (`FTP_PROTOCOL`) or any other failure is not: it is an error.
 export function ftpUnusable(code: string): bool {
-  code == "FTP_TIMEOUT" || code == "FTP_UNKNOWN_COMMAND" || code == "FTP_FAILED" || code == "FTP_NO_SESSIONS"
+  return code == "FTP_TIMEOUT" || code == "FTP_UNKNOWN_COMMAND" || code == "FTP_FAILED" || code == "FTP_NO_SESSIONS"
 }
 
 /// The name of a copy that came over the log protocol (no checksum): `NNNNNNNN-CCCCCCCC.unchecked.BIN`, the CRC-32 being of the
 /// bytes this computer got.
 export function uncheckedName(id: int, crc: int): string {
-  `${copyName(id, crc).slice(0, 17)}${UNCHECKED_TAIL}`
+  return `${copyName(id, crc).slice(0, 17)}${UNCHECKED_TAIL}`
 }
 
 /// The number and CRC of a copy with no checksum, as [number, crc], or [-1, 0] when the name is not one.
@@ -395,7 +395,7 @@ async function uncheckedIn(dir: string): Promise<Copy[]> throws Error {
       out.push(new Copy(numbers[0], numbers[1], await sizeOf(join(dir, entry.name))))
     }
   }
-  out
+  return out
 }
 
 /// The checked copies in a folder (none when it is not there).
@@ -410,7 +410,7 @@ async function copiesIn(dir: string): Promise<Copy[]> throws Error {
       out.push(new Copy(numbers[0], numbers[1], await sizeOf(join(dir, entry.name))))
     }
   }
-  out
+  return out
 }
 
 /// The vehicle's CRC-32 of its log `id` of `size` bytes, or -1 when it is not had. What the vehicle said before on this connection
@@ -465,7 +465,7 @@ async function toLog(client: FtpClient, e: FtpEntry, copies: Copy[], until: int,
     // The vehicle gives seconds since 1970 (the time of the last write); the contract has milliseconds.
     log.time = (e.time! * 1000) as u64
   }
-  log
+  return log
 }
 
 async function listLogs(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -630,7 +630,7 @@ export async function crcOfFile(path: string): Promise<Crc32> throws Error {
     throw e
   }
   await f.close()
-  crc
+  return crc
 }
 
 /// How a log came: `done`, `stopped` (cancelled, the vehicle armed, the session ended: what came is kept), or `failed` with the
@@ -646,7 +646,7 @@ function failed(why: string): Outcome {
   const o = new Outcome()
   o.state = "failed"
   o.why = why
-  o
+  return o
 }
 
 /// Whether the folder has a copy of log `id` of `listed` bytes that IS this log: the vehicle's CRC of the log now is the one in the
@@ -665,7 +665,7 @@ async function hasThisCopy(client: FtpClient, id: int, listed: int, dir: string)
       }
     }
   }
-  false
+  return false
 }
 
 /// Gives a checked part (whose CRC-32 is `crc`) its real name. A file that is there already and really has these bytes (its CRC is
@@ -692,7 +692,7 @@ async function chaseAndClose(client: FtpClient, id: int, listed: int, sink: Part
     throw e
   }
   await file.close()
-  outcome
+  return outcome
 }
 
 /// Downloads the log `id`, whose listing says `listed` bytes, to its folder: the part goes on from where it is, the file is renamed
@@ -770,7 +770,7 @@ async function chase(client: FtpClient, id: int, listed: int, sink: PartFile, st
 function stopped(): Outcome {
   const o = new Outcome()
   o.state = "stopped"
-  o
+  return o
 }
 
 /// Progress of the log that comes, at most every `PROGRESS_EVERY_MS`; the total is the larger of the listing's size and what has come.
@@ -820,7 +820,7 @@ async function sizesByProtocol(conn: MavLinkConnection, own: AbortController, si
     }
     throw e
   }
-  true
+  return true
 }
 
 /// Downloads log `id` over the log protocol, into the part, which goes on from where it is; it is given the name of a copy with no
@@ -870,7 +870,7 @@ function fromProtocol(state: string, why: string): Outcome {
   const o = new Outcome()
   o.state = state
   o.why = why
-  o
+  return o
 }
 
 async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -954,7 +954,7 @@ async function downloadLogs(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?
 /// Stops the download that runs, if any: what came is kept.
 async function cancelDownload(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   running.stop("")
-  null
+  return null
 }
 
 /// The listed logs in the order of their numbers.
@@ -967,7 +967,7 @@ function inOrder(entries: FtpEntry[]): FtpEntry[] {
     }
     out.splice(at, 0, e)
   }
-  out
+  return out
 }
 
 /// Whether the folder has a copy of log `id` that the vehicle's own CRC-32 confirms now (see `hasThisCopy`); a copy that can't be read

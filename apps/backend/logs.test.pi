@@ -41,7 +41,7 @@ function content(n: int, seed: int): Uint8Array {
     x = (x * 1103515245 + 12345) & 0x7FFFFFFF
     out.set(i, (x >> 16) & 0xFF)
   }
-  out
+  return out
 }
 
 function same(a: Uint8Array, b: Uint8Array): bool {
@@ -53,7 +53,7 @@ function same(a: Uint8Array, b: Uint8Array): bool {
       return false
     }
   }
-  true
+  return true
 }
 
 /// What a test has: the frontend, the folder the app's files go to, and the folder of the vehicle's downloaded logs.
@@ -93,7 +93,7 @@ async function connected(): Promise<Rig> throws Error {
   r.hold = setInterval(() => { sim.ticks = 0 }, 100)
   await afterBeat()
   sim.fsFiles.set(FIRST, content(100000, 1))
-  r
+  return r
 }
 
 /// Waits for the next heartbeat of the vehicle: the armed state is only known after one.
@@ -117,7 +117,7 @@ async function copyNames(r: Rig): Promise<string[]> throws Error {
       out.push(e.name)
     }
   }
-  out
+  return out
 }
 
 /// Where the checked copy of log `id` with these bytes is (or would be).
@@ -157,7 +157,7 @@ function progressOf(r: Rig, id: int): string[] {
       }
     }
   }
-  out
+  return out
 }
 
 function stateName(s: LogsProgressState): string {
@@ -518,7 +518,7 @@ async function stopsACancelDuringTheListing(): Promise<void> throws Error {
 
 /// How many CalcFileCRC32 (opcode 14) the vehicle has been asked.
 function crcAsks(): int {
-  simulatorForTests()!.ftpLog.filter((line) => line.startsWith("14 ")).length
+  return simulatorForTests()!.ftpLog.filter((line) => line.startsWith("14 ")).length
 }
 
 /// Two logs on the vehicle, both downloaded (so that each has a copy of its number and size), and the questions about CRCs counted

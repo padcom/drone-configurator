@@ -124,7 +124,7 @@ class Test implements SessionPart {
     follow(link.session.signal)
     const mine = serial
     watchdog = setInterval(() => this.watch(mine), waits.watchMs)
-    mine
+    return mine
   }
 
   /// The page has been silent for too long: the motor is stopped.
@@ -182,7 +182,7 @@ function tell(s: Sink?, state: MotorTestState): void {
 /// The vehicle that is tested: the autopilot the session has.
 function target(): Target {
   const t: Target = { system: link.sysid, component: link.compid }
-  t
+  return t
 }
 
 /// Sends a stop and does not wait for the answer (what comes of it does not matter here: the helper's own stop follows, and the vehicle's
@@ -258,5 +258,5 @@ async function stillHeld(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     throw new CommunicatorError("NOT_RUNNING", "no motor test is running")
   }
   current.pingAt = Date.now() as int
-  null
+  return null
 }

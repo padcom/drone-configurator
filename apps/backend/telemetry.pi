@@ -40,7 +40,7 @@ function modeName(autopilot: int, type: int, customMode: int): string {
     else if (rover) RoverMode.nameOf(customMode)
     else if (type == MavType.SUBMARINE) SubMode.nameOf(customMode)
     else CopterMode.nameOf(customMode)
-  name ?? `mode ${customMode}`
+  return name ?? `mode ${customMode}`
 }
 
 /// Asks the vehicle for the telemetry the dashboard shows, at the rates of the table in groups.pi
@@ -65,7 +65,7 @@ async function askFor(rates: TelemetryRates, wish: Wish): Promise<bool> {
 
 /// The rate manager of the connected vehicle (it holds what was asked and asks again after a reboot), or null when there is none.
 export function ratesNow(): TelemetryRates? {
-  heard.rates
+  return heard.rates
 }
 
 /// The pre-arm checks as a SYS_STATUS says them, by its PREARM_CHECK bit (ArduPilot, GCS.cpp: present always, enabled when any arming
@@ -75,7 +75,7 @@ export function prearmOf(m: SysStatus): PrearmGroup? {
   if (((m.onboardControlSensorsPresent as int) & bit) == 0) {
     return null
   }
-  PrearmGroup {
+  return PrearmGroup {
     enabled: ((m.onboardControlSensorsEnabled as int) & bit) != 0,
     passing: ((m.onboardControlSensorsHealth as int) & bit) != 0,
     ageMs: 0,
@@ -213,7 +213,7 @@ const MAX_RATE_HZ: int = 20
 
 /// The milliseconds between events at `hz` a second, rounded up: the stream is never faster than asked.
 function periodMs(hz: int): int {
-  (1000 + hz - 1) / hz
+  return (1000 + hz - 1) / hz
 }
 
 /// The rate a subscriber asked for: the default when it passed no parameters, or no `rateHz`.

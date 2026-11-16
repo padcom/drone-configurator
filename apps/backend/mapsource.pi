@@ -68,7 +68,7 @@ export function tileProblem(z: f64, x: f64, y: f64): string? {
   if (!(x >= 0.0 && x < side) || Math.floor(x) != x || !(y >= 0.0 && y < side) || Math.floor(y) != y) {
     return `the column and the row must be whole numbers from 0 to ${side as int - 1} at zoom ${z as int}`
   }
-  null
+  return null
 }
 
 /// Whether a character may be in a template: printable ASCII, no space, no control character, no backslash.
@@ -79,12 +79,12 @@ function plain(text: string): bool {
       return false
     }
   }
-  true
+  return true
 }
 
 /// How many times `part` is in `text`.
 function count(text: string, part: string): int {
-  text.split(part).length - 1
+  return text.split(part).length - 1
 }
 
 /// The authority of a template (what is between `://` and the first `/`).
@@ -108,7 +108,7 @@ export function hostOf(template: string): string {
 /// Whether a host is this computer: the only place plain http may go.
 export function isLoopback(host: string): bool {
   const h = host.toLowerCase()
-  h == "localhost" || h == "127.0.0.1" || h == "[::1]"
+  return h == "localhost" || h == "127.0.0.1" || h == "[::1]"
 }
 
 /// Why a custom template cannot be used, or null when it can. https anywhere, plain http only to this computer; it names a host and
@@ -150,7 +150,7 @@ export function templateProblem(template: string): string? {
   } catch (e: Error) {
     return "the address is not a URL"
   }
-  null
+  return null
 }
 
 /// The URL of a tile: the template with the three numbers in it. Only for a template that passed `templateProblem` and numbers that

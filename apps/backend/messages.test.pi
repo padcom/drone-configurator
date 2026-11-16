@@ -27,7 +27,7 @@ const C20: string = "CCCCCCCCCCCCCCCCCCCC"
 async function connected(): Promise<Frontend> throws Error {
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
-  f
+  return f
 }
 
 /// The next message on the subscription.
@@ -42,7 +42,7 @@ async function subscribe(f: Frontend, replay: int): Promise<u64> throws Error {
 
 /// A message as the reader would deliver it, from the connected vehicle (system 1).
 function said(severity: int, text: string): StatusMessage {
-  StatusMessage { system: 1, component: 1, severity: severity, text: text, truncated: false, chunks: 1 }
+  return StatusMessage { system: 1, component: 1, severity: severity, text: text, truncated: false, chunks: 1 }
 }
 
 /// A message of one chunk, a text in one chunk and the severity it was sent with.
@@ -271,7 +271,7 @@ async function waitForState(want: ConnectionState, ms: int): Promise<bool> throw
     await delay(50)
     waited += 50
   }
-  link.state.state == want
+  return link.state.state == want
 }
 
 /// A link that is lost and comes back to the same vehicle keeps the messages (the session is resumed, nothing attaches

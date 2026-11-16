@@ -22,7 +22,7 @@ async function fresh(name: string): Promise<string> throws Error {
     await remove(dir, true)
   }
   await mkdir(dir, true)
-  dir
+  return dir
 }
 
 async function cleanUp(dir: string): Promise<void> {
@@ -49,7 +49,7 @@ async function named(dir: string, prefix: string): Promise<string[]> throws Erro
       out.push(entry.name)
     }
   }
-  out
+  return out
 }
 
 function summary(s: SettingsState): string {
@@ -57,7 +57,7 @@ function summary(s: SettingsState): string {
   for (const e of s.settings.ui) {
     ui.push(`${e.key}=${e.value}`)
   }
-  `${s.settings.version} ${s.settings.language ?? "-"} ${if (s.settings.theme == null) "-" else if (s.settings.theme == ThemeName.Dark) "dark" else "other"} [${ui.join(",")}] ${s.noticeCode ?? "-"}`
+  return `${s.settings.version} ${s.settings.language ?? "-"} ${if (s.settings.theme == null) "-" else if (s.settings.theme == ThemeName.Dark) "dark" else "other"} [${ui.join(",")}] ${s.noticeCode ?? "-"}`
 }
 
 /// Nothing saved yet: the defaults, no notice, and nothing written until something is set.

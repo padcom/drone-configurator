@@ -15,7 +15,7 @@ async function failureOf(f: Frontend, what: string): Promise<string> throws Erro
   } catch (e: Error) {
     return e.message
   }
-  ""
+  return ""
 }
 
 /// Each of the three waits fails after the deadline, and says what it was waiting for.

@@ -306,7 +306,7 @@ async function telemetryIn(f: Frontend, ms: int): Promise<int> throws Error {
     const _event = await f.event("telemetry.stream")
     count += 1
   }
-  count
+  return count
 }
 
 async function theTelemetryGoesOnBesideTheStream(): Promise<void> throws Error {

@@ -27,14 +27,14 @@ function vehicle(type: int, sysid: int = 1): Vehicle {
   const v = new Vehicle(sysid, 1)
   v.type = type
   v.autopilot = MavAutopilot.ARDUPILOTMEGA
-  v
+  return v
 }
 
 /// What the board answers to the request for its version, with this unique id.
 function versionWith(uid: int): AutopilotVersion {
   const v = new AutopilotVersion()
   v.uid = uid as u64
-  v
+  return v
 }
 
 /// A version with the unique id `uid` (64 bits, any bit pattern) and the 18-byte `uid2`.
@@ -42,7 +42,7 @@ function versionWithBoth(uid: u64, uid2: u8[]): AutopilotVersion {
   const v = new AutopilotVersion()
   v.uid = uid
   v.uid2 = uid2
-  v
+  return v
 }
 
 function identityHasTheType(): void {
@@ -110,7 +110,7 @@ async function waitForState(want: ConnectionState, ms: int): Promise<bool> throw
     await delay(50)
     waited += 50
   }
-  link.state.state == want
+  return link.state.state == want
 }
 
 /// The same vehicle comes back (resumed), and what is shown of it is what it says now.
@@ -157,21 +157,21 @@ async function connectedBoard(first: AutopilotVersion): Promise<Frontend> throws
   simulatorForTests()!.params.push({ id: "FRAME_CLASS", value: TypedParamValue.Int(1, MavParamType.INT32) })
   link.identity = identityOf(vehicle(MavType.QUADROTOR), first)
   link.board = boardOf(vehicle(MavType.QUADROTOR), first)
-  f
+  return f
 }
 
 /// Writes FRAME_CLASS through the backend, as the page's queue does.
 async function writeFrameClass(f: Frontend, value: f64): Promise<string> throws Error {
   const w = ParamWrite { id: "FRAME_CLASS", kind: ParamWriteKind.Int, type: "INT32", value: value }
   const e = await f.call("params.write", encodeParamWrite(w))
-  e.err?.code ?? "ok"
+  return e.err?.code ?? "ok"
 }
 
 /// What a taking up comes to, for a vehicle that answers as a hexarotor with the version `now`.
 async function takeUpAsAHexarotor(now: AutopilotVersion): Promise<string> throws Error {
   answerWith(now)
   await takeUp(vehicle(MavType.HEXAROTOR), link.generation)
-  `${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.state.vehicle!.type}`
+  return `${link.state.resumed ?? false} ${link.state.errorCode ?? ""} ${link.state.vehicle!.type}`
 }
 
 async function resumesAfterTheFrameWasChangedHere(): Promise<void> throws Error {

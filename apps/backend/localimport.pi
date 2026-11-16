@@ -127,7 +127,7 @@ async function tidy(): Promise<void> {
 async function folder(): Promise<string> throws Error {
   const top = await folderPath()
   await mkdir(top, true)
-  top
+  return top
 }
 
 /// The copies in the folder.
@@ -144,7 +144,7 @@ async function entriesIn(dir: string): Promise<Entry[]> throws Error {
       out.push(entry!)
     }
   }
-  out
+  return out
 }
 
 /// Copies the file at `path` in: streamed, counted, and moved to its place when whole.
@@ -284,13 +284,13 @@ async function settle(dir: string, part: string, name: string, result: Copied): 
 }
 
 function answer(key: string, name: string, crc: string, result: Copied, duplicate: bool): LogsImported {
-  LogsImported { cancelled: false, duplicate: duplicate, key: key, name: name, crc: crc, size: result.size as u64, report: reportOf(result.reader) }
+  return LogsImported { cancelled: false, duplicate: duplicate, key: key, name: name, crc: crc, size: result.size as u64, report: reportOf(result.reader) }
 }
 
 /// The sidecar: the name the file had (no folder), when it was imported, what the reader found.
 function sidecar(name: string, result: Copied): string {
   const p = result.reader.report
-  `{ "name": ${JSON.stringify(name)}, "importedAt": ${Date.now() as int}, "size": ${result.size}, "records": ${p.records}, "crcFailures": ${p.crcFailures}, "unknown": ${p.unknown}, "segments": ${p.segments}, "cutEnd": ${p.cutEnd}, "dated": ${p.dated} }\n`
+  return `{ "name": ${JSON.stringify(name)}, "importedAt": ${Date.now() as int}, "size": ${result.size}, "records": ${p.records}, "crcFailures": ${p.crcFailures}, "unknown": ${p.unknown}, "segments": ${p.segments}, "cutEnd": ${p.cutEnd}, "dated": ${p.dated} }\n`
 }
 
 async function removeQuietly(path: string): Promise<void> {

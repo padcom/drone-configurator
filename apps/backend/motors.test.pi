@@ -116,7 +116,7 @@ async function spinning(r: Rig): Promise<u64> throws Error {
   expect(errorOf(reply)).toBe("ok")
   expect((await told(r.f)).state == MotorTestStateState.Running).toBe(true)
   await spins(r)
-  reply.s ?? 0
+  return reply.s ?? 0
 }
 
 /// The service says the motor is stopped, and the vehicle's motor is: with the stop it was sent, not by its own timeout.
@@ -127,7 +127,7 @@ async function stoppedByAStop(r: Rig, why: string): Promise<MotorTestState> thro
   expect(r.sim.motors.running()).toBe(false)
   expect(r.sim.motors.stops >= 1).toBe(true)
   expect(link.motorTest).toBe(false)
-  state
+  return state
 }
 
 // What is never sent to the vehicle, whatever a test does.

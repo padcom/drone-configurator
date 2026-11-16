@@ -24,7 +24,7 @@ function host(): Host {
   if (h == null) {
     panic("drone-configurator: createBackend wasn't called")
   }
-  h!
+  return h!
 }
 
 /// How the backend learns which file the user means.
@@ -64,11 +64,11 @@ class DirectoryFileChooser implements FileChooser {
   }
 
   public async forSaving(_title: string, name: string): Promise<string?> throws Error {
-    `${dir}/${name}`
+    return `${dir}/${name}`
   }
 
   public async forOpening(): Promise<string?> throws Error {
-    `${dir}/open.json`
+    return `${dir}/open.json`
   }
 
   /// `import.tlog` in the folder, or null (a cancelled dialog) when there is none.
@@ -123,7 +123,7 @@ function isAbsolute(path: string): bool {
     return true
   }
   const drive = path.split(":")[0]
-  drive.length == 1 && (path.startsWith(`${drive}:/`) || path.startsWith(`${drive}:\\`))
+  return drive.length == 1 && (path.startsWith(`${drive}:/`) || path.startsWith(`${drive}:\\`))
 }
 
 /// Whether some part of `path` is `..` (either separator).
@@ -135,7 +135,7 @@ function climbs(path: string): bool {
       }
     }
   }
-  false
+  return false
 }
 
 /// Refuses a path `files.read` does not read, by what is written in it: not absolute, a `..` in it, or not named `.json`.
@@ -168,7 +168,7 @@ async function regularFile(path: string): Promise<FileInfo> throws CommunicatorE
   if (!info.isFile) {
     throw new CommunicatorError("NOT_A_FILE", "not a regular file")
   }
-  info
+  return info
 }
 
 /// Reads the JSON file at a path the user wrote (the metadata file the settings keep), under the rules in the contract. The
@@ -232,5 +232,5 @@ async function readBounded(path: string): Promise<string> throws CommunicatorErr
   if (failure != null) {
     throw failure!
   }
-  text
+  return text
 }

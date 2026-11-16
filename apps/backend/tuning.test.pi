@@ -81,7 +81,7 @@ async function connected(): Promise<Rig> throws Error {
       r.sets += 1
     }
   })
-  r
+  return r
 }
 
 /// The vehicle is armed, and the backend has heard it say so.
@@ -93,7 +93,7 @@ async function armed(r: Rig): Promise<void> throws Error {
 }
 
 function tuning(id: string, value: f64): ParamWrite {
-  ParamWrite { id: id, kind: ParamWriteKind.Real, type: "REAL32", value: value, tuning: true }
+  return ParamWrite { id: id, kind: ParamWriteKind.Real, type: "REAL32", value: value, tuning: true }
 }
 
 async function write(r: Rig, w: ParamWrite): Promise<Envelope> throws Error {
@@ -106,7 +106,7 @@ function errorOf(e: Envelope): string {
 }
 
 async function wasConfirmed(e: Envelope): Promise<bool> throws Error {
-  decodeParamWriteResult(e.p ?? Cbor.Null, "$").verified
+  return decodeParamWriteResult(e.p ?? Cbor.Null, "$").verified
 }
 
 async function writesATuningParameterWhileDisarmed(): Promise<void> throws Error {
@@ -322,7 +322,7 @@ async function theListHasNoNameTwiceAndNoWildcard(): Promise<void> throws Error 
 
 /// The names the firmware reads only at start-up (see tuning.pi), and the ones it takes live.
 function startUpOnly(): string[] {
-  ["INS_HNTCH_ENABLE", "INS_HNTCH_MODE", "INS_HNTCH_REF", "INS_HNTCH_HMNCS", "INS_HNTCH_OPTS"]
+  return ["INS_HNTCH_ENABLE", "INS_HNTCH_MODE", "INS_HNTCH_REF", "INS_HNTCH_HMNCS", "INS_HNTCH_OPTS"]
 }
 
 async function writesTheFiltersThatTakeEffectLiveWhileArmed(): Promise<void> throws Error {

@@ -15,7 +15,7 @@ function tones(count: int, parts: f64[][], offset: f64): f64[] {
     }
     out.push(v)
   }
-  out
+  return out
 }
 
 /// The bin with the largest amplitude, from bin 1.
@@ -26,11 +26,11 @@ function peakOf(amps: f64[]): int {
       at = i
     }
   }
-  at
+  return at
 }
 
 function near(a: f64, b: f64, tolerance: f64): bool {
-  a - b < tolerance && b - a < tolerance
+  return a - b < tolerance && b - a < tolerance
 }
 
 function aSineOnABinGivesItsAmplitudeThere(): void {

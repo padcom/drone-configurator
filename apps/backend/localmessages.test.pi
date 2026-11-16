@@ -87,7 +87,7 @@ async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
   await mkdir(dir, true)
   const name = copyName(1, crc32Of(bytes))
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {

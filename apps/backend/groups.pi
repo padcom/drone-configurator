@@ -55,7 +55,7 @@ export class Wish {
 /// speed) four times a second, the rest less. The vehicle's own rate is not what the stream sends:
 /// that is `rateHz` (telemetry.pi).
 export function wishes(): Wish[] {
-  [
+  return [
     new Wish(GlobalPositionInt.MSG_ID, 4.0),
     new Wish(VfrHud.MSG_ID, 4.0),
     new Wish(Attitude.MSG_ID, 4.0),
@@ -90,11 +90,11 @@ function positionOf(m: GlobalPositionInt): PositionGroup {
   if (m.hdg as int != UNKNOWN_U16) {
     g.heading = (m.hdg as f64) / 100.0
   }
-  g
+  return g
 }
 
 function homeOf(m: HomePosition): HomeGroup {
-  HomeGroup {
+  return HomeGroup {
     lat: (m.latitude as f64) / 10000000.0,
     lon: (m.longitude as f64) / 10000000.0,
     altitude: (m.altitude as f64) / 1000.0,
@@ -113,11 +113,11 @@ function gpsOf(m: GpsRawInt): GpsGroup {
   if (m.epv as int != UNKNOWN_U16) {
     g.vdop = (m.epv as f64) / 100.0
   }
-  g
+  return g
 }
 
 function speedOf(m: VfrHud): SpeedGroup {
-  SpeedGroup {
+  return SpeedGroup {
     airspeed: m.airspeed as f64,
     groundspeed: m.groundspeed as f64,
     climb: m.climb as f64,
@@ -128,7 +128,7 @@ function speedOf(m: VfrHud): SpeedGroup {
 }
 
 function navOf(m: NavControllerOutput): NavGroup {
-  NavGroup {
+  return NavGroup {
     waypointDistance: m.wpDist as u16,
     targetBearing: m.targetBearing as f64,
     altitudeError: m.altError as f64,
@@ -138,11 +138,11 @@ function navOf(m: NavControllerOutput): NavGroup {
 }
 
 function windOf(m: Wind): WindGroup {
-  WindGroup { direction: m.direction as f64, speed: m.speed as f64, speedZ: m.speedZ as f64, ageMs: 0 }
+  return WindGroup { direction: m.direction as f64, speed: m.speed as f64, speedZ: m.speedZ as f64, ageMs: 0 }
 }
 
 function ekfOf(m: EkfStatusReport): EkfGroup {
-  EkfGroup {
+  return EkfGroup {
     flags: m.flags as u16,
     velocityVariance: m.velocityVariance as f64,
     positionHorizVariance: m.posHorizVariance as f64,
@@ -154,7 +154,7 @@ function ekfOf(m: EkfStatusReport): EkfGroup {
 }
 
 function vibrationOf(m: Vibration): VibrationGroup {
-  VibrationGroup {
+  return VibrationGroup {
     x: m.vibrationX as f64,
     y: m.vibrationY as f64,
     z: m.vibrationZ as f64,
@@ -173,12 +173,12 @@ function shownPulse(p: int, before: RcGroup?, index: int): int {
   if (p > 0 && before != null && index < before!.channels.length) {
     return before!.channels[index] as int
   }
-  0
+  return 0
 }
 
 /// RC_CHANNELS rssi is 0 to 254 (ArduPilot's receiver strength times 254; 255: unknown), not a percent: the group has a percent.
 function rssiPercent(rssi: int): int {
-  Math.round((rssi as f64) * 100.0 / 254.0) as int
+  return Math.round((rssi as f64) * 100.0 / 254.0) as int
 }
 
 /// The radio's channels (see `shownPulse`), and the signal strength in percent when the vehicle knows it.
@@ -192,7 +192,7 @@ function rcOf(m: RcChannels, before: RcGroup?): RcGroup {
   if (reading.rssi >= 0 && reading.rssi <= 254) {
     g.rssi = rssiPercent(reading.rssi) as u8
   }
-  g
+  return g
 }
 
 /// The outputs of one port as the group has them: up to the last output that is used (an unused one is 0, in the middle too).
@@ -205,7 +205,7 @@ function outputsOf(pulses: int[]): u16[] {
   for (let i = 0; i < last; i++) {
     outputs.push(pulses[i] as u16)
   }
-  outputs
+  return outputs
 }
 
 /// The servo group after a SERVO_OUTPUT_RAW: that port's outputs are replaced, the other ports stay as they were; the ports are in order.
@@ -228,11 +228,11 @@ function servoAfter(before: ServoGroup?, m: ServoOutputRaw): ServoGroup {
   if (!placed) {
     ports.push(ServoPort { port: reading.port as u8, outputs: outputsOf(reading.pulses) })
   }
-  ServoGroup { ports: ports, ageMs: 0 }
+  return ServoGroup { ports: ports, ageMs: 0 }
 }
 
 function attitudeOf(m: Attitude): AttitudeGroup {
-  AttitudeGroup {
+  return AttitudeGroup {
     roll: (m.roll as f64) * DEGREES,
     pitch: (m.pitch as f64) * DEGREES,
     yaw: (m.yaw as f64) * DEGREES,
@@ -261,7 +261,7 @@ function batteryAfterStatus(before: BatteryGroup?, m: SysStatus): BatteryGroup {
   if (m.batteryRemaining as int >= 0 && m.batteryRemaining as int <= 100) {
     g.remaining = m.batteryRemaining as u8
   }
-  g
+  return g
 }
 
 /// The battery group after a BATTERY_STATUS: what was consumed and the cell voltages; the rest stays.
@@ -281,7 +281,7 @@ function batteryAfterCells(before: BatteryGroup?, m: BatteryStatus): BatteryGrou
   if (m.currentConsumed as int >= 0) {
     g.consumed = m.currentConsumed as f64
   }
-  g
+  return g
 }
 
 /// What the vehicle has reported, by group, and when each arrived (milliseconds since the epoch).
@@ -378,7 +378,7 @@ export class Groups {
     } else {
       return false
     }
-    true
+    return true
   }
 
   takeEnvironment(m: MavLinkData, now: int): bool {
@@ -400,7 +400,7 @@ export class Groups {
     } else {
       return false
     }
-    true
+    return true
   }
 
   takeBattery(m: MavLinkData, now: int): void {
@@ -415,7 +415,7 @@ export class Groups {
 
   age(name: string, now: int): u32 {
     const ms = now - (heardAt.get(name) ?? now)
-    (if (ms < 0) 0 else ms) as u32
+    return (if (ms < 0) 0 else ms) as u32
   }
 
   /// Puts the groups heard so far into `t`, each with how long ago it arrived (as of `now`).
@@ -449,7 +449,7 @@ export class Groups {
       n!.ageMs = age("nav", now)
       t.nav = n
     }
-    t
+    return t
   }
 
   fillRest(t: Telemetry, now: int): Telemetry {
@@ -488,6 +488,6 @@ export class Groups {
       sv!.ageMs = age("servo", now)
       t.servo = sv
     }
-    t
+    return t
   }
 }

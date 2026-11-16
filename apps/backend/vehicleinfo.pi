@@ -48,7 +48,7 @@ export function register(c: Communicator): void {
 
 /// The firmware version as "4.6.2": the major, minor and patch bytes of AUTOPILOT_VERSION's flight_sw_version (its top three bytes).
 export function versionText(v: int): string {
-  `${(v >> 24) & 255}.${(v >> 16) & 255}.${(v >> 8) & 255}`
+  return `${(v >> 24) & 255}.${(v >> 16) & 255}.${(v >> 8) & 255}`
 }
 
 /// The kind of release in the last byte of flight_sw_version (FIRMWARE_VERSION_TYPE): dev, alpha, beta, rc, official; "" for another.
@@ -77,7 +77,7 @@ export function hashOf(bytes: u8[]): string {
     }
     out += PRINTABLE.slice(n - 32, n - 31)
   }
-  out
+  return out
 }
 
 /// The sensors that SYS_STATUS says the board has (`present`), uses (`enabled`) and finds healthy, by the contract's names.
@@ -92,7 +92,7 @@ export function sensorsOf(m: SysStatus): SensorState[] {
       out.push(SensorState { id: SENSOR_NAMES[i], present: true, enabled: (enabled & bit) != 0, healthy: (health & bit) != 0 })
     }
   }
-  out
+  return out
 }
 
 /// The next SYS_STATUS of the connected vehicle, or null when none comes in time.
@@ -194,5 +194,5 @@ export function modesOfVehicle(): VehicleModes {
       modes.push(VehicleMode { number: n as u8, name: name! })
     }
   }
-  VehicleModes { kind: kind, modes: modes }
+  return VehicleModes { kind: kind, modes: modes }
 }

@@ -258,7 +258,7 @@ function heartbeat(): Heartbeat {
   h.type = MavType.QUADROTOR as u8
   h.autopilot = 3
   h.mavlinkVersion = 3
-  h
+  return h
 }
 
 /// A recording of a ground station: a heartbeat, the position every second (one record with no position: 0 and 0), and home.

@@ -112,7 +112,7 @@ class Store {
 const store = new Store()
 
 function defaults(): Settings {
-  Settings { version: VERSION as u8, ui: [] }
+  return Settings { version: VERSION as u8, ui: [] }
 }
 
 /// Registers the service's methods on `c`.
@@ -158,7 +158,7 @@ function unlock(): void {
 }
 
 function state(): SettingsState {
-  SettingsState { settings: store.doc, notice: store.notice, noticeCode: store.noticeCode }
+  return SettingsState { settings: store.doc, notice: store.notice, noticeCode: store.noticeCode }
 }
 
 function say(code: string, message: string): void {
@@ -203,7 +203,7 @@ export function migrate(text: string, steps: Migration[]): string throws Setting
       throw new SettingsFileError("CORRUPT", `a migration from version ${version - 1} did not leave version ${version}`)
     }
   }
-  current
+  return current
 }
 
 /// The theme a name in the file stands for, or null when it is not one.
@@ -231,7 +231,7 @@ function settingsFrom(f: DocFile): Settings throws SettingsFileError {
     }
     s.theme = theme
   }
-  s
+  return s
 }
 
 /// The text of the file for a settings document, laid out for a person to read and edit: a member to a line, an entry to
@@ -279,18 +279,18 @@ function sizeOf(entries: UiEntry[]): int {
   for (const e of entries) {
     total += e.key.length + e.value.length
   }
-  total
+  return total
 }
 
 /// Whether a `ui` key is one the settings use themselves: `remove` names those, so an entry may not have them.
 function reserved(key: string): bool {
-  key == "language" || key == "theme"
+  return key == "language" || key == "theme"
 }
 
 /// How many characters a whole document holds that count against the total: its entries, and its language.
 function sizeOfDoc(s: Settings): int {
   const language = s.language
-  sizeOf(s.ui) + (if (language == null) 0 else language!.length)
+  return sizeOf(s.ui) + (if (language == null) 0 else language!.length)
 }
 
 /// Whether a document keeps to the limits: the same ones a patch is held to, since a person can edit the file. (The whole
@@ -327,7 +327,7 @@ export async function dataDirectory(): Promise<string> throws Error {
     return wanted!
   }
   const dirs = await appDirs(APP_ID)
-  dirs.data
+  return dirs.data
 }
 
 /// The app's cache directory, for what can be rebuilt (the map's tiles): `cache` inside the directory under test, when there is one.
@@ -340,7 +340,7 @@ export async function cacheDirectory(): Promise<string> throws Error {
     return dir
   }
   const dirs = await appDirs(APP_ID)
-  dirs.cache
+  return dirs.cache
 }
 
 /// The value of a `ui` entry now (the file is read first, once), or null when the settings have none.
@@ -351,13 +351,13 @@ export async function uiValue(key: string): Promise<string?> throws Error {
       return e.value
     }
   }
-  null
+  return null
 }
 
 /// Whether the settings file could not be used (`CORRUPT`, `UNREADABLE`, `NEWER`): what is read from it is then the defaults.
 export async function settingsAreDefaults(): Promise<bool> throws Error {
   await ready()
-  store.noticeCode == "CORRUPT" || store.noticeCode == "UNREADABLE" || store.noticeCode == "NEWER"
+  return store.noticeCode == "CORRUPT" || store.noticeCode == "UNREADABLE" || store.noticeCode == "NEWER"
 }
 
 /// Where the file goes: the directory under test, or the app's data directory. Null (and a notice) when there is none.
@@ -375,7 +375,7 @@ async function locate(): Promise<string?> {
   } catch (e: Error) {
     say("NOT_WRITABLE", `can't use the settings directory: ${e.message}. The settings are kept in memory and are lost when the app closes.`)
   }
-  null
+  return null
 }
 
 /// Moves a file that was not used out of the way, under a name that says why; the file is kept, not deleted. Whether it
@@ -389,7 +389,7 @@ async function setAside(path: string, kind: string): Promise<bool> {
   } catch (e: Error) {
     return false
   }
-  true
+  return true
 }
 
 /// A file that cannot be used is set aside, and the settings are the defaults. If it cannot be moved either, it is left
@@ -478,7 +478,7 @@ async function save(): Promise<bool> {
     store.noticeCode = null
     store.notice = null
   }
-  true
+  return true
 }
 
 /// `entries` with `entry` added, or put in place of the one with its key.
@@ -496,7 +496,7 @@ function withEntry(entries: UiEntry[], entry: UiEntry): UiEntry[] {
   if (!placed) {
     out.push(entry)
   }
-  out
+  return out
 }
 
 /// `entries` without the one called `key`.
@@ -507,7 +507,7 @@ function withoutEntry(entries: UiEntry[], key: string): UiEntry[] {
       out.push(e)
     }
   }
-  out
+  return out
 }
 
 function invalid(message: string): CommunicatorError {
@@ -561,7 +561,7 @@ export function applied(doc: Settings, patch: SettingsPatch): Settings throws Co
   if (sizeOfDoc(next) > MAX_TOTAL) {
     throw invalid(`the entries can hold at most ${MAX_TOTAL} characters together`)
   }
-  next
+  return next
 }
 
 async function getSettings(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
@@ -584,5 +584,5 @@ async function setSettings(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?>
   if (c != null) {
     c!.emit("settings.changed", out)
   }
-  out
+  return out
 }

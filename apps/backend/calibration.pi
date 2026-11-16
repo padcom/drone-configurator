@@ -246,7 +246,7 @@ class Running implements SessionPart {
     if (result != null) {
       s.result = result
     }
-    s
+    return s
   }
 
   /// Takes what the extremes of the radio say (and the reading they come from) into the state: the latest VALID pulse of a channel is kept
@@ -494,13 +494,13 @@ function wordsOf(code: string): string {
   if (code == "ARMED") {
     return "the vehicle armed"
   }
-  "cancelled"
+  return "cancelled"
 }
 
 /// The vehicle that is calibrated: the autopilot the session has.
 function target(): Target {
   const t: Target = { system: link.sysid, component: link.compid }
-  t
+  return t
 }
 
 /// Waits until the vehicle says it is up. False when it did not (the calibration is ended, as `NOT_UP` or as stopped).
@@ -514,7 +514,7 @@ async function waitUp(conn: MavLinkConnection): Promise<bool> throws Error {
   } else {
     running.finish(CalibrationResultOutcome.Failed, "NOT_UP", "the vehicle did not say it is up (it may still be starting): wait a moment and try again", false)
   }
-  false
+  return false
 }
 
 /// The accelerometer: the full calibration (six positions) or the level.
@@ -680,7 +680,7 @@ function compassOf(id: int): CalibrationCompass {
       return c
     }
   }
-  CalibrationCompass { id: id as u8, status: "WAITING_TO_START", percent: 0, attempt: 0, mask: [] }
+  return CalibrationCompass { id: id as u8, status: "WAITING_TO_START", percent: 0, attempt: 0, mask: [] }
 }
 
 /// Puts a compass entry in its place (or at the end, when the compass is new).
@@ -696,7 +696,7 @@ function putCompass(c: CalibrationCompass): void {
 
 /// What a report says, as the contract has it.
 function reportOf(r: CompassReport): CalibrationCompassReport {
-  CalibrationCompassReport {
+  return CalibrationCompassReport {
     ok: r.status == CompassStatus.SUCCESS,
     fitness: r.fitness,
     offsets: r.offsets,

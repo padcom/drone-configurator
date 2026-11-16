@@ -99,13 +99,13 @@ class Gathering {
     }
     found = true
     source = m.format.fields[at]
-    true
+    return true
   }
 
   /// Whether field `i` holds no single value: a text (not a value), or an array (`a`, a batch of samples: charting it would be zeros).
   isText(m: DfMessage, i: int): bool {
     const k = m.format.fields[i].kind
-    k == 0x6E || k == 0x4E || k == 0x5A || k == 0x61
+    return k == 0x6E || k == 0x4E || k == 0x5A || k == 0x61
   }
 
   /// One value at time `t` (in range): a part of the time, its smallest, its largest.
@@ -237,5 +237,5 @@ function resultOf(g: Gathering, tables: DfTables): SeriesResult {
       r.unit = unit
     }
   }
-  r
+  return r
 }

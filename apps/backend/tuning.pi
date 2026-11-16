@@ -82,7 +82,7 @@ function entryOf(id: string): Tunable? {
       return t
     }
   }
-  null
+  return null
 }
 
 /// Refuses a tuning write whose name is not in the list (`NOT_TUNING`), whose value is outside its limits (`OUT_OF_LIMITS`), or that changes a

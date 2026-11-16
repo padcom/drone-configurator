@@ -49,7 +49,7 @@ function listenAll(sim: SimulatedAutopilot, results: int[]): Heard {
       }
     }
   })
-  heard
+  return heard
 }
 
 /// A connected simulator, with a fresh heartbeat heard (the armed state is only known after one).
@@ -57,7 +57,7 @@ async function connected(): Promise<Frontend> throws Error {
   const f = await start()
   await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
   await afterBeat()
-  f
+  return f
 }
 
 /// Waits for the next heartbeat of the vehicle: what is set after it holds for about a second.
@@ -301,7 +301,7 @@ async function waitForState(want: ConnectionState, ms: int): Promise<bool> throw
     await delay(50)
     waited += 50
   }
-  link.state.state == want
+  return link.state.state == want
 }
 
 /// The vehicle that accepted goes quiet while it boots: the connection is `reconnecting` with the code REBOOTING, and when it

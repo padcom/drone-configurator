@@ -52,7 +52,7 @@ function blank(n: int): string[] {
   for (let i = 0; i < n; i++) {
     out.push("")
   }
-  out
+  return out
 }
 
 function vibe(e: DfEncoder, t: int, imu: int, x: f64, y: f64, z: f64, clip: int): void {
@@ -80,7 +80,7 @@ async function put(r: Rig, bytes: Uint8Array, crc: int = -1): Promise<string> th
   await mkdir(dir, true)
   const name = copyName(1, if (crc < 0) crc32Of(bytes) else crc)
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {
@@ -110,7 +110,7 @@ function show(review: LogsReview, id: string): string {
       return `${level} ${v} ${l} ${at}`
     }
   }
-  "missing"
+  return "missing"
 }
 
 /// The lowest cell of a DataFlash BCL, whose cells are counts of millivolts with the log's multiplier 0.001: volts, not 3850 V.

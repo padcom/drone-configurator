@@ -111,11 +111,11 @@ async function until(f: Frontend, what: string, done: (s: CalibrationState) => b
   if (!done(s)) {
     throw new Error(`the state never was: ${what}`)
   }
-  s
+  return s
 }
 
 function isFinished(s: CalibrationState): bool {
-  s.state == CalibrationStateState.Finished
+  return s.state == CalibrationStateState.Finished
 }
 
 function outcomeOf(s: CalibrationState): string {
@@ -259,7 +259,7 @@ async function whileCompassWaits(r: Rig, name: string, payload: Cbor?): Promise<
   const code = errorOf(await r.f.call(name, payload))
   await r.f.call("calibration.cancel")
   await r.close()
-  code
+  return code
 }
 
 async function aParameterDownloadIsRefusedWhileItRuns(): Promise<void> throws Error {
@@ -550,7 +550,7 @@ async function radioRig(): Promise<Rig> throws Error {
   waits.radioSilenceMs = 5000
   r.sim.rc =[1500, 1500, 1000, 1500, 1000, 1000, 1000, 1000]
   r.sim.rcStream = true
-  r
+  return r
 }
 
 /// Starts a radio calibration, and has the vehicle say it is up just after (the calibration waits for that: a vehicle is up by its words or
@@ -558,7 +558,7 @@ async function radioRig(): Promise<Rig> throws Error {
 async function startRadio(r: Rig): Promise<string> throws Error {
   const answer = errorOf(await startOf(r.f, CalibrationKind.Radio))
   saysUp(r.sim)
-  answer
+  return answer
 }
 
 /// Starts a radio calibration and waits until it has taken readings in.
@@ -569,7 +569,7 @@ async function radioRunning(r: Rig): Promise<void> throws Error {
 
 /// Whether the least pulse of channel 1 the state has is `pulse`.
 function minOneIs(s: CalibrationState, pulse: int): bool {
-  s.radio != null && s.radio!.mins.length > 0 && s.radio!.mins[0] as int == pulse
+  return s.radio != null && s.radio!.mins.length > 0 && s.radio!.mins[0] as int == pulse
 }
 
 async function radioCapturesTheRangeAndEndsWhenTheUserSaysSo(): Promise<void> throws Error {

@@ -69,7 +69,7 @@ function unsignedAt(b: Uint8Array, at: int, n: int): f64 {
   for (let i = n - 1; i >= 0; i--) {
     v = v * 256.0 + (byteAt(b, at + i) as f64)
   }
-  v
+  return v
 }
 
 function signedAt(b: Uint8Array, at: int, n: int): f64 {
@@ -131,7 +131,7 @@ function known(v: f64, unknown: f64): f64 {
 
 /// Not a number: a value that is not there (every reader of the library takes it as a gap).
 function nan(): f64 {
-  0.0 / 0.0
+  return 0.0 / 0.0
 }
 
 /// A format of numbers: a `TimeUS` and then `labels`, each a number (`d`), with `units` (the same length; "" for none).
@@ -156,7 +156,7 @@ function unitId(label: string, ids: Map<string, int>): int {
   }
   const id = 1 + ids.size
   ids.set(label, id)
-  id
+  return id
 }
 
 /// What the reader found, in the contract's shape.
@@ -180,11 +180,11 @@ export function reportOf(reader: TlogReader): TlogReport {
     r.firstUs = p.firstUs as u64
     r.lastUs = p.lastUs as u64
   }
-  r
+  return r
 }
 
 function clamp32(n: int): u32 {
-  (if (n > 4294967295) 4294967295 else n) as u32
+  return (if (n > 4294967295) 4294967295 else n) as u32
 }
 
 /// A tlog as messages. Feed it with `push`, take with `next`, `finish` at the end of the file.
@@ -222,7 +222,7 @@ export class TlogDecoder implements LogReader {
         return true
       }
     }
-    false
+    return false
   }
 
   public push(chunk: Uint8Array): void {
@@ -239,7 +239,7 @@ export class TlogDecoder implements LogReader {
     }
     const first = pending[0]
     pending.splice(0, 1)
-    first
+    return first
   }
 
   public finish(): void {
@@ -253,27 +253,27 @@ export class TlogDecoder implements LogReader {
         unitTable.setUnit(id, label)
       }
     }
-    unitTable
+    return unitTable
   }
 
   /// The bytes that were no record: what was skipped in the middle and the cut end (a cut end is not damage; the caller takes it
   /// off by `cutBytes`).
   public skippedBytes(): int {
-    reader.report.bytesSkipped + reader.report.bytesCut
+    return reader.report.bytesSkipped + reader.report.bytesCut
   }
 
   /// The bytes at the end of the file that are the start of a record that is not whole.
   public cutBytes(): int {
-    reader.report.bytesCut
+    return reader.report.bytesCut
   }
 
   /// Frames with a wrong CRC and frames of messages that no dialect has (their CRC can't be checked).
   public problemCount(): int {
-    reader.report.crcFailures + reader.report.unknown
+    return reader.report.crcFailures + reader.report.unknown
   }
 
   public isTlog(): bool {
-    true
+    return true
   }
 
   public tlogReport(): TlogReport? {
@@ -283,7 +283,7 @@ export class TlogDecoder implements LogReader {
       report.sysid = sourceSystem as u16
       report.compid = sourceComponent as u16
     }
-    report
+    return report
   }
 
   /// Whether a message is made by this decoder (named as DataFlash names it) and not a MAVLink message as it was.
@@ -306,7 +306,7 @@ export class TlogDecoder implements LogReader {
     if (t > latest) {
       latest = t
     }
-    t
+    return t
   }
 
   /// Makes the messages of one record.
@@ -339,7 +339,7 @@ export class TlogDecoder implements LogReader {
         return false
       }
     }
-    true
+    return true
   }
 
   /// A heartbeat with an autopilot is a vehicle; the first one is the source of the DataFlash-named messages (a recording with two
@@ -409,7 +409,7 @@ export class TlogDecoder implements LogReader {
         return row[2]
       }
     }
-    ""
+    return ""
   }
 
   /// The DataFlash-named messages that this record makes (none for most).

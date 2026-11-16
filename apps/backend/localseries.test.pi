@@ -63,7 +63,7 @@ async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
   await mkdir(dir, true)
   const name = copyName(1, crc32Of(bytes))
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {
@@ -71,11 +71,11 @@ async function readIt(r: Rig, key: string): Promise<void> throws Error {
 }
 
 function ask(message: string, field: string): SeriesAsk {
-  SeriesAsk { message: message, field: field }
+  return SeriesAsk { message: message, field: field }
 }
 
 function request(key: string, series: SeriesAsk[], buckets: int): LogsLocalSeriesAsk {
-  LogsLocalSeriesAsk { key: key, series: series, buckets: buckets as u16 }
+  return LogsLocalSeriesAsk { key: key, series: series, buckets: buckets as u16 }
 }
 
 async function seriesOf(r: Rig, a: LogsLocalSeriesAsk): Promise<Envelope> throws Error {
@@ -178,7 +178,7 @@ function bytes8(list: int[]): Uint8Array {
   for (let i = 0; i < list.length; i++) {
     out.set(i, list[i])
   }
-  out
+  return out
 }
 
 async function tellsInstancesApart(): Promise<void> throws Error {

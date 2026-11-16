@@ -59,7 +59,7 @@ async function streamsGroups(): Promise<void> throws Error {
 /// asked about (-1 is "off").
 function ratesAsked(): string {
   const sim = simulatorForTests()!
-  `${sim.intervals.get(SysStatus.MSG_ID) ?? -2} ${sim.intervals.get(Attitude.MSG_ID) ?? -2}`
+  return `${sim.intervals.get(SysStatus.MSG_ID) ?? -2} ${sim.intervals.get(Attitude.MSG_ID) ?? -2}`
 }
 
 /// Every message of the table (groups.pi): position, speed and attitude four times a second, GPS,
@@ -115,7 +115,7 @@ async function eventsIn(f: Frontend, params: Cbor?, ms: int): Promise<int> throw
     count += 1
   }
   await f.unsubscribe(subscription)
-  count
+  return count
 }
 
 /// `rateHz` events a second at most, whatever the vehicle sends: 4 Hz asked for gives no more than 4
@@ -154,7 +154,7 @@ function statusWith(present: bool, enabled: bool, healthy: bool): SysStatus {
   m.onboardControlSensorsPresent = (if (present) bit else 0) as u32
   m.onboardControlSensorsEnabled = (if (enabled) bit else 0) as u32
   m.onboardControlSensorsHealth = (if (healthy) bit else 0) as u32
-  m
+  return m
 }
 
 /// The pre-arm checks as SYS_STATUS says them: nothing when the vehicle has no such bit, else whether they are on and pass.

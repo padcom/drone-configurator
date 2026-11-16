@@ -26,7 +26,7 @@ function filled(groups: Groups, later: int): Telemetry {
 
 /// Rounded to `places` decimals, as an integer scaled by 10^places (floats are compared exactly otherwise).
 function scaled(x: f64, places: int): int {
-  Math.round(x * Math.pow(10.0, places as f64)) as int
+  return Math.round(x * Math.pow(10.0, places as f64)) as int
 }
 
 function absentUntilHeard(): void {

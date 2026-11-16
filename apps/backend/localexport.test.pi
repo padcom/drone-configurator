@@ -115,7 +115,7 @@ async function put(r: Rig, bytes: Uint8Array): Promise<string> throws Error {
   await mkdir(dir, true)
   const name = copyName(1, crc32Of(bytes))
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {
@@ -123,11 +123,11 @@ async function readIt(r: Rig, key: string): Promise<void> throws Error {
 }
 
 function csvAsk(key: string, message: string): LogsLocalExportAsk {
-  LogsLocalExportAsk { key: key, format: LogsLocalExportAskFormat.Csv, message: message }
+  return LogsLocalExportAsk { key: key, format: LogsLocalExportAskFormat.Csv, message: message }
 }
 
 function trackAsk(key: string, format: LogsLocalExportAskFormat): LogsLocalExportAsk {
-  LogsLocalExportAsk { key: key, format: format }
+  return LogsLocalExportAsk { key: key, format: format }
 }
 
 async function exportEnvelope(r: Rig, a: LogsLocalExportAsk): Promise<Envelope> throws Error {
@@ -184,7 +184,7 @@ function parseCsv(text: string): string[][] {
     row.push(cell)
     rows.push(row)
   }
-  rows
+  return rows
 }
 
 /// What is between `open` and `close`, each time `open` is found.
@@ -197,7 +197,7 @@ function between(text: string, open: string, close: string): string[] {
       found.push(pieces[i].slice(0, end))
     }
   }
-  found
+  return found
 }
 
 async function writesACsvThatAParserReadsBack(): Promise<void> throws Error {

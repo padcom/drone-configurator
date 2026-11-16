@@ -55,7 +55,7 @@ async function put(r: Rig, bytes: Uint8Array, crc: int = -1): Promise<string> th
   await mkdir(dir, true)
   const name = copyName(1, if (crc >= 0) crc else crc32Of(bytes))
   await writeBytes(join(dir, name), bytes)
-  `uid-a/${name}`
+  return `uid-a/${name}`
 }
 
 async function readIt(r: Rig, key: string): Promise<void> throws Error {
@@ -122,15 +122,15 @@ function batch(e: DfEncoder, n: int, sensor: int, instance: int, count: int, rat
 
 /// x has 150 Hz at 2 rad/s and 300 Hz at 0.5; y has 150 Hz at 0.5; z has nothing.
 function motorTones(): f64[][][] {
-  [[[150.0, 2.0], [300.0, 0.5]], [[150.0, 0.5]], []]
+  return [[[150.0, 2.0], [300.0, 0.5]], [[150.0, 0.5]], []]
 }
 
 function silentTones(): f64[][][] {
-  [[], [], []]
+  return [[], [], []]
 }
 
 function near(a: f64, b: f64, tolerance: f64): bool {
-  a - b < tolerance && b - a < tolerance
+  return a - b < tolerance && b - a < tolerance
 }
 
 async function listsTheSourcesAlogHas(): Promise<void> throws Error {

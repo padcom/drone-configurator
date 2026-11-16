@@ -152,7 +152,7 @@ class Link {
 
   /// Whether something must still say goodbye as the session ends: one place for the list (a motor test, rates to give back).
   public sayingGoodbye(): bool {
-    motorTest || farewells > 0
+    return motorTest || farewells > 0
   }
 
   public close(): void {
@@ -223,7 +223,7 @@ export const REBOOT_UNSURE_MS: int = 10000
 /// did not answer (for a few seconds: the command may have arrived).
 export function rebootExpected(): bool {
   const window = if (link.rebootUnsure) REBOOT_UNSURE_MS else REBOOT_WINDOW_MS
-  link.rebootAt > 0 && (Date.now() as int) - link.rebootAt < window
+  return link.rebootAt > 0 && (Date.now() as int) - link.rebootAt < window
 }
 
 /// How old the last heartbeat may be for the armed state to count as known (ms).
@@ -243,7 +243,7 @@ export function heartbeatArmedState(): bool? {
   if (link.heartbeatAt == 0 || (Date.now() as int) - link.heartbeatAt > ARMED_FRESH_MS) {
     return null
   }
-  link.armed
+  return link.armed
 }
 
 /// An arm is in flight, or its answer is not known: for `ms` the armed state is not known (see `armHoldUntil`). It only ever grows.
@@ -280,7 +280,7 @@ export function capabilitiesOf(version: AutopilotVersion?): int {
 
 /// The vehicle as the dashboard names it: the protocol's names for its type and autopilot.
 export function infoOf(v: Vehicle): VehicleInfo {
-  VehicleInfo {
+  return VehicleInfo {
     sysid: v.sysid as u8,
     compid: v.compid as u8,
     type: MavType.nameOf(v.type) ?? `${v.type}`,
@@ -295,7 +295,7 @@ export function infoOf(v: Vehicle): VehicleInfo {
 /// comes back after the link dropped is "the same" only if this is the same.
 export function identityOf(v: Vehicle, version: AutopilotVersion?): string {
   const unique = uniqueIdOf(version)
-  `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/${if (unique == "") "0" else `uid:${unique}`}`
+  return `${v.sysid}/${v.compid}/${v.type}/${v.autopilot}/${if (unique == "") "0" else `uid:${unique}`}`
 }
 
 /// Which board a vehicle is, without its type: by its ids, its autopilot and its unique id, or "" when it has no unique id that
@@ -309,7 +309,7 @@ export function boardOf(v: Vehicle, version: AutopilotVersion?): string {
 /// The parameters that change what kind of vehicle the autopilot says it is (its MAV_TYPE): the frame of a copter, the VTOL frame
 /// of a plane. After a verified write of one of them and a reboot, the same board reports another type.
 export function changesVehicleType(id: string): bool {
-  id == "FRAME_CLASS" || id == "FRAME_TYPE" || id == "Q_ENABLE" || id == "Q_FRAME_CLASS"
+  return id == "FRAME_CLASS" || id == "FRAME_TYPE" || id == "Q_ENABLE" || id == "Q_FRAME_CLASS"
 }
 
 /// Whether some bytes can tell one board from another: they are not missing, and not all the same (all zero is "no id", all
@@ -324,7 +324,7 @@ function tellsBoardsApart(bytes: int[]): bool {
       return true
     }
   }
-  false
+  return false
 }
 
 /// The bytes of a 64-bit unique id, least significant first.
@@ -334,7 +334,7 @@ function bytesOf(uid: u64): int[] {
   for (let i = 0; i < 8; i++) {
     bytes.push(((uid >> ((8 * i) as u64)) & (255 as u64)) as int)
   }
-  bytes
+  return bytes
 }
 
 /// The board's unique id as text, or "" when it has none that tells it from another. `uid2` (18 bytes, which supersedes `uid`)
@@ -357,5 +357,5 @@ export function connectedLink(): MavLinkConnection throws CommunicatorError {
   if (c == null || link.state.state != ConnectionState.Connected) {
     throw new CommunicatorError("NOT_CONNECTED", "no vehicle is connected")
   }
-  c!
+  return c!
 }

@@ -67,7 +67,7 @@ async function rig(bytes: Uint8Array): Promise<Rig> throws Error {
   const e = await r.f.call("logs.import", null)
   const got: LogsImported = decodeLogsImported(e.p ?? Cbor.Null, "$")
   r.key = got.key ?? ""
-  r
+  return r
 }
 
 async function done(r: Rig): Promise<void> throws Error {
@@ -85,7 +85,7 @@ function heartbeat(mode: int): Heartbeat {
   h.autopilot = 3
   h.customMode = mode as u32
   h.mavlinkVersion = 3
-  h
+  return h
 }
 
 /// 20 seconds of a flight: a heartbeat, attitude, position, vibration, battery and GPS every second, a mode change, a text.
@@ -201,7 +201,7 @@ async function reviewsWithNoDataForWhatARecordingCannotSay(): Promise<void> thro
           out = f.level == want
         }
       }
-      out
+      return out
     }
 
     expect(levelIs("vibration.x", ReviewFindingLevel.Ok)).toBe(true)

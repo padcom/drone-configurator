@@ -45,7 +45,7 @@ async function statusKb(name: string): Promise<int> {
   } catch (e: Error) {
     return -1
   }
-  -1
+  return -1
 }
 
 /// Makes the peak start from what the process holds now (Linux 4.0+): writing 5 to clear_refs.
@@ -71,7 +71,7 @@ async function generate(path: string): Promise<int> throws Error {
     crc.update(bytes)
     await writeBytes(path, bytes, piece > 0)
   }
-  crc.crc
+  return crc.crc
 }
 
 /// What one pass leaves: the memory before it and how far the peak rose over it.
@@ -92,7 +92,7 @@ async function onePass(f: Frontend, key: string): Promise<Pass> throws Error {
   const ask = LogsLocalSeriesAsk { key: key, series: [SeriesAsk { message: "KIND", field: "Roll" }], buckets: 200 as u16 }
   const series = decodeLogsLocalSeries((await f.call("logs.local.series", encodeLogsLocalSeriesAsk(ask))).p!, "$")
   expect(series.series[0].found).toBe(true)
-  Pass { before: before, rose: (await statusKb("VmHWM")) - before }
+  return Pass { before: before, rose: (await statusKb("VmHWM")) - before }
 }
 
 async function stayInTheBoundOnALogOf64Megabytes(): Promise<void> throws Error {

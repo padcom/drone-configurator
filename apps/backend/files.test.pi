@@ -57,7 +57,7 @@ async function reportsAMissingFile(): Promise<void> throws Error {
 async function freshDir(name: string): Promise<string> throws Error {
   const dir = join(env.get("TMPDIR") ?? "/tmp", `dc-files-${name}-${pid}`)
   await mkdir(dir, true)
-  dir
+  return dir
 }
 
 /// `files.read` of a path: the error code and message, or `ok: ` and the text.
@@ -67,12 +67,12 @@ async function readOf(path: string): Promise<string> throws Error {
   if (e.k == "error") {
     return `${e.err?.code ?? "?"}: ${e.err?.message ?? ""}`
   }
-  `ok: ${decodeFileContents(e.p ?? Cbor.Null, "$").text}`
+  return `ok: ${decodeFileContents(e.p ?? Cbor.Null, "$").text}`
 }
 
 /// The code of what `readOf` said (`ok` for a file read).
 async function codeOf(path: string): Promise<string> throws Error {
-  (await readOf(path)).split(":")[0]
+  return (await readOf(path)).split(":")[0]
 }
 
 async function readsAJsonFileByItsPath(): Promise<void> throws Error {

@@ -14,7 +14,7 @@ function heartbeat(autopilot: int, mode: int): Heartbeat {
   h.autopilot = autopilot as u8
   h.customMode = mode as u32
   h.mavlinkVersion = 3
-  h
+  return h
 }
 
 /// All the messages a decoder gives for a recording fed in chunks of `chunk` bytes.
@@ -42,7 +42,7 @@ function readAll(bytes: Uint8Array, chunk: int): DfMessage[] {
     }
     out.push(m!)
   }
-  out
+  return out
 }
 
 function named(all: DfMessage[], name: string): DfMessage[] {
@@ -90,7 +90,7 @@ function flight(): TlogWriter {
   const text = new StatusText()
   text.text = "ArduCopter V4.7.2 (abcd1234)"
   w.addMessage(T0 + 1000000, text, 10)
-  w
+  return w
 }
 
 function giveTheMessagesAsTheyAreWithTheirUnits(): void {
@@ -193,7 +193,7 @@ function unitsComeFromTheDialectAndOurTable(): void {
         out = tables.unitOf(m.format.fields[m.format.indexOf(field)])
       }
     }
-    out
+    return out
   }
 
   expect(at("SYS_STATUS", "voltage_battery")).toBe("mV")
@@ -223,7 +223,7 @@ function twoVehiclesAndAGimbal(): TlogWriter {
   w.addMessage(T0 + 300000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 6), 9, true, 1, 1)
   w.addMessage(T0 + 310000, heartbeat(MavAutopilot.ARDUPILOTMEGA, 3), 9, true, 2, 1)
   w.addMessage(T0 + 320000, heartbeat(MavAutopilot.INVALID, 99), 9, true, 1, 154)
-  w
+  return w
 }
 
 function makeTheViewsFromTheFirstVehicleOnly(): void {

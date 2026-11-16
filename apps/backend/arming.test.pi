@@ -57,7 +57,7 @@ function listen(sim: SimulatedAutopilot): Heard {
       }
     }
   })
-  heard
+  return heard
 }
 
 /// Waits for the next heartbeat of the vehicle.
@@ -83,7 +83,7 @@ async function connected(): Promise<Frontend> throws Error {
   simulatorForTests()!.control.armedSet = 0
   await afterBeat()
   await afterBeat()
-  f
+  return f
 }
 
 /// What a call came to: the error code, or the result's name.

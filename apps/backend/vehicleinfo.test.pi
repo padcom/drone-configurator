@@ -31,7 +31,7 @@ async function connected(): Promise<Frontend> throws Error {
     await delay(20)
     waited += 20
   }
-  f
+  return f
 }
 
 function codeOf(e: Envelope): string {

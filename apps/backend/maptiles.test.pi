@@ -74,7 +74,7 @@ function pngOf(size: int): Uint8Array {
   for (let i = 0; i < head.length && i < size; i++) {
     b.set(i, head[i])
   }
-  b
+  return b
 }
 
 /// Waits (a delay that is not stopped by anything throws only when it is given a signal).
@@ -149,7 +149,7 @@ async function rig(timeoutMs: int = 10000, spacingMs: int = 0, backoffMs: int = 
   const r = new Rig(f, root, server, port)
   await setting(r, "map.source", "custom")
   await setting(r, "map.customUrl", `http://127.0.0.1:${port}/{z}/{x}/{y}.png`)
-  r
+  return r
 }
 
 async function done(r: Rig): Promise<void> throws Error {
@@ -197,7 +197,7 @@ function heardStates(r: Rig): string[] {
       out.push(nameOf(decodeMapStatus(e.p ?? Cbor.Null, "$").state))
     }
   }
-  out
+  return out
 }
 
 async function takesTheFirstTileFromTheServerAndTheNextFromTheDisk(): Promise<void> throws Error {

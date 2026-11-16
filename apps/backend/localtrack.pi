@@ -199,7 +199,7 @@ class Positions implements Taker {
       chosen = true
       instance = i
     }
-    i == instance
+    return i == instance
   }
 
   /// The height above sea level the message says, or NaN.
@@ -240,7 +240,7 @@ class Positions implements Taker {
         out.push(last!)
       }
     }
-    out
+    return out
   }
 
   /// The points to give: those of the parts and the ends of the gaps, in time order, once each.
@@ -258,13 +258,13 @@ class Positions implements Taker {
       }
       if (fromParts) i += 1 else j += 1
     }
-    out
+    return out
   }
 }
 
 /// Not a number: the height of a fix of a log that has none.
 function nan(): f64 {
-  0.0 / 0.0
+  return 0.0 / 0.0
 }
 
 function pointOf(fix: Fix): TrackPoint {
@@ -272,7 +272,7 @@ function pointOf(fix: Fix): TrackPoint {
   if (fix.alt == fix.alt) {
     p.alt = fix.alt
   }
-  p
+  return p
 }
 
 /// Home (ORGN of type 1, the vehicle's home: type 0 is the EKF's origin, which is not where RTL goes) and the events: the vehicle armed
