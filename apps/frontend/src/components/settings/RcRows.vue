@@ -13,7 +13,8 @@
             :model-value="String(row.channel)"
             :options="channels"
             :disabled="locked"
-            @change="(event: Event) => chooseChannel(index, event)"
+            @update:model-value="(next: string) => mapping.setChannel(index, Number(next))"
+            @change="(event: Event) => showChannel(index, event)"
           />
           <span class="rc-source">{{ sourceText(row) }}</span>
           <Button
@@ -120,7 +121,7 @@
 // The rows of the mapping: for each, the channel it drives, the control it is read from ("Move it" finds it: move the stick or
 // press the button), its curve or pulses, and the pulse it makes now. Every change goes through `useRcMapping`, which keeps it
 // and takes the wizard's mark away. While the wizard runs the rows are locked.
-import { computed, useId } from 'vue'
+import { computed, nextTick, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
 import Select from '@/components/ui/Select.vue'
@@ -143,16 +144,17 @@ const rows = computed(() => props.mapping.draft.value?.rows ?? [])
 const locked = computed(() => props.mapping.wizard.value !== null)
 
 /**
- * The channel the person chose for a row. A channel that is refused leaves the row where it was, and the field shows that
- * again (the field itself is not made again: focus stays where it is).
+ * The channel field shows the row's channel once the choice has been dealt with: a channel that is refused leaves the row where
+ * it was, and the field must not go on showing the refused one (the field is controlled: it is made again from the row, not
+ * from what was picked, and it is not itself made again, so focus stays where it is).
  *
  * @param index the row's place
  * @param event the change event of the field
  */
-function chooseChannel(index: number, event: Event): void {
+async function showChannel(index: number, event: Event): Promise<void> {
   const field = event.target as HTMLSelectElement
 
-  props.mapping.setChannel(index, Number(field.value))
+  await nextTick()
   field.value = String(props.mapping.draft.value?.rows[index]?.channel ?? field.value)
 }
 
