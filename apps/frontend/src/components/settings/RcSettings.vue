@@ -78,7 +78,10 @@ const buttonsText = computed(() => {
 
   return pressed.length === 0 ? t('settings.rc.device.noButtons') : t('settings.rc.device.buttons', { list: pressed.join(', ') })
 })
-/** What to say of why control cannot be turned on yet, when it is not the mapping's or the vehicle's (they are listed below). */
+/**
+ * What to say of where control stands, once each: that everything is in place, or that no simulator is connected. The setting
+ * says itself (the switch), the pad is the Gamepad part's to say, and the mapping's and the vehicle's problems are listed below.
+ */
 const statusKey = computed(() => {
   const block = mapping.block.value
 
@@ -86,7 +89,7 @@ const statusKey = computed(() => {
     return 'ready'
   }
 
-  return block === 'link' || block === 'pad' ? block : null
+  return block === 'link' ? block : null
 })
 
 /**

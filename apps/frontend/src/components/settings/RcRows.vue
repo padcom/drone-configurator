@@ -10,11 +10,10 @@
           <label :for="`${uid}-channel-${index}`">{{ t('settings.rc.channel') }}</label>
           <Select
             :id="`${uid}-channel-${index}`"
-            :key="`${row.channel}:${mapping.refusal.value?.serial ?? 0}`"
             :model-value="String(row.channel)"
             :options="channels"
             :disabled="locked"
-            @update:model-value="next => mapping.setChannel(index, Number(next))"
+            @change="(event: Event) => chooseChannel(index, event)"
           />
           <span class="rc-source">{{ sourceText(row) }}</span>
           <Button
@@ -26,7 +25,7 @@
             {{ t('settings.rc.moveIt') }}
           </Button>
           <Button v-else :id="`${uid}-move-${index}`" @click="mapping.cancelCapture()">{{ t('settings.rc.moveCancel') }}</Button>
-          <output class="rc-pulse" :for="`${uid}-channel-${index}`">{{ pulseText(row) }}</output>
+          <span class="rc-pulse">{{ pulseText(row) }}</span>
           <Button :id="`${uid}-remove-${index}`" :disabled="locked" @click="mapping.remove(index)">
             {{ t('settings.rc.remove', { channel: row.channel }) }}
           </Button>
@@ -142,6 +141,20 @@ const POSITIONS = ['low', 'mid', 'high']
 const channels = Array.from({ length: 16 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }))
 const rows = computed(() => props.mapping.draft.value?.rows ?? [])
 const locked = computed(() => props.mapping.wizard.value !== null)
+
+/**
+ * The channel the person chose for a row. A channel that is refused leaves the row where it was, and the field shows that
+ * again (the field itself is not made again: focus stays where it is).
+ *
+ * @param index the row's place
+ * @param event the change event of the field
+ */
+function chooseChannel(index: number, event: Event): void {
+  const field = event.target as HTMLSelectElement
+
+  props.mapping.setChannel(index, Number(field.value))
+  field.value = String(props.mapping.draft.value?.rows[index]?.channel ?? field.value)
+}
 
 /**
  * Where a row is read from, in words.

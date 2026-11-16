@@ -851,13 +851,12 @@
     },
     "rc": {
       "title": "Zdalne sterowanie",
-      "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB). Domyślnie jest wyłączone i służy tylko do symulatora: aplikacja odmawia go dla każdego innego pojazdu.",
+      "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB).",
       "allow": "Zezwalaj na zdalne sterowanie",
-      "allowHelp": "To tylko zezwala. Nie uruchamia sterowania i nigdy nie działa z pojazdem, który nie jest symulatorem.",
+      "allowHelp": "Domyślnie wyłączone i tylko dla symulatora: aplikacja odmawia każdego innego pojazdu. To tylko zezwala; nie uruchamia sterowania.",
       "status": {
         "ready": "Wszystko jest gotowe do zdalnego sterowania.",
-        "link": "Zdalne sterowanie wymaga symulatora: połącz wbudowany albo działający na tym komputerze.",
-        "pad": "Żaden pad nie jest odczytywany. Poruszaj drążkiem w aparaturze."
+        "link": "Nie połączono żadnego symulatora."
       },
       "device": {
         "title": "Pad",
@@ -899,6 +898,7 @@
       },
       "refusedArm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
       "wizard": {
+        "title": "Kalibracja",
         "start": "Kalibruj…",
         "rest": "Zostaw drążki w spoczynku, z gazem na dole, i poczekaj.",
         "restReady": "Gotowe. Teraz poruszysz każdym drążkiem do wszystkich jego skrajnych położeń.",

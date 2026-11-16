@@ -43,7 +43,7 @@ async function screen(ui: { key: string, value: string }[] = []) {
   const control: MockControl = {}
   const handle = createConfigurator(mockBackend({ settings: { version: 1, ui }, control }))
   await vi.waitFor(() => expect(handle.settings.loaded.value).toBe(true))
-  mounted = mount(Settings, { global: { plugins: [i18n] } })
+  mounted = mount(Settings, { global: { plugins: [i18n] }, attachTo: document.body })
   await flushPromises()
 
   return { wrapper: mounted, handle, control }
@@ -88,7 +88,21 @@ it('shows the pad, its mapping of four sticks, and what stands in the way', asyn
   expect(wrapper.get('#rc-device-name').text()).toBe(TX16S)
   expect(wrapper.findAll('.rc-row')).toHaveLength(4)
   expect(wrapper.get('#rc-issues').text()).toContain('has not been calibrated')
-  expect(wrapper.get('#rc-status').text()).toContain('needs a simulator')
+  expect(wrapper.get('#rc-status').text()).toBe('No simulator is connected.')
+  expect(wrapper.find('output').exists()).toBe(false)
+})
+
+it('says each fact once: the simulator rule in one place, and a pad that is not read in the gamepad part only', async () => {
+  const { wrapper } = await screen([{ key: 'rc.allow', value: 'on' }])
+
+  await plugged(wrapper)
+  axes = null
+  await vi.waitFor(() => expect(wrapper.find('#rc-device-gone').exists()).toBe(true))
+  const text = wrapper.text()
+
+  expect(text.match(/simulator only/gu)).toHaveLength(1)
+  expect(text.match(/not being read/gu)).toHaveLength(1)
+  expect(text.match(/No gamepad/gu) ?? []).toHaveLength(0)
 })
 
 it('changes a row and keeps the mapping in the settings, and adds and takes away a row', async () => {
@@ -108,19 +122,71 @@ it('runs the wizard, which locks the rows, and can be given up', async () => {
   const { wrapper } = await screen()
 
   await plugged(wrapper)
-  await wrapper.get('#rc-calibrate').trigger('click')
+  await wrapper.get('#rc-wizard-main').trigger('click')
   await vi.waitFor(() => expect(wrapper.get('[id$="-add-stick"]').attributes('disabled')).toBeDefined())
-  expect(wrapper.find('#rc-next').exists()).toBe(true)
+  expect(wrapper.get('#rc-wizard-main').text()).toBe('Next')
   await wrapper.get('#rc-wizard-cancel').trigger('click')
-  expect(wrapper.find('#rc-next').exists()).toBe(false)
+  expect(wrapper.find('#rc-wizard-cancel').exists()).toBe(false)
+  expect(wrapper.get('#rc-wizard-main').text()).toBe('Calibrate…')
   expect(wrapper.get('[id$="-add-stick"]').attributes('disabled')).toBeUndefined()
+})
+
+it('keeps focus in the wizard: one button through the steps, and focus comes back to it when it is given up', async () => {
+  const { wrapper } = await screen()
+
+  await plugged(wrapper)
+  const button = wrapper.get('#rc-wizard-main').element as HTMLButtonElement
+
+  button.focus()
+  await wrapper.get('#rc-wizard-main').trigger('click')
+  await vi.waitFor(() => expect(wrapper.get('#rc-wizard-main').text()).toBe('Next'))
+  expect(wrapper.get('#rc-wizard-main').element).toBe(button)
+  expect(document.activeElement).toBe(button)
+  await wrapper.get('#rc-wizard-cancel').trigger('click')
+  await flushPromises()
+
+  expect(wrapper.get('#rc-wizard-main').element).toBe(button)
+  expect(document.activeElement).toBe(button)
+})
+
+it('says why the wizard\'s button is disabled: the pad that is not read, and the first step that is not done', async () => {
+  const { wrapper } = await screen()
+
+  await plugged(wrapper)
+  axes = null
+  await vi.waitFor(() => expect(wrapper.find('#rc-device-gone').exists()).toBe(true))
+  expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#rc-wizard-main').attributes('aria-describedby')).toBe('rc-device-gone')
+  axes = [0, 0, -1, 0, 0, 0, 0, 0]
+  await vi.waitFor(() => expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeUndefined())
+  await wrapper.get('#rc-wizard-main').trigger('click')
+  const described = wrapper.get('#rc-wizard-main').attributes('aria-describedby')
+
+  expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeDefined()
+  expect(wrapper.get(`[id="${described}"]`).text()).toContain('Leave the sticks')
+})
+
+it('does not make the channel field again when a channel is chosen: focus stays in it', async () => {
+  const { wrapper } = await screen()
+
+  await plugged(wrapper)
+  const select = wrapper.get('[data-testid="rc-row-0"] select')
+  const element = select.element as HTMLSelectElement
+
+  element.focus()
+  await select.setValue('9')
+  await flushPromises()
+
+  expect(wrapper.get('[data-testid="rc-row-0"] select').element).toBe(element)
+  expect(document.activeElement).toBe(element)
+  expect(element.value).toBe('9')
 })
 
 it('never starts a control: the mock vehicle is not asked for one, whatever is set', async () => {
   const { wrapper, control } = await screen([{ key: 'rc.allow', value: 'on' }])
 
   await plugged(wrapper)
-  await wrapper.get('#rc-calibrate').trigger('click')
+  await wrapper.get('#rc-wizard-main').trigger('click')
   await wrapper.get('#rc-wizard-cancel').trigger('click')
   await flushPromises()
 

@@ -20,6 +20,14 @@ export class Wizard {
   private readonly capture = new Capture()
 
   /**
+   * Makes it.
+   *
+   * @param throttleChannel the vehicle's throttle channel (`RCMAP_THROTTLE`), or null when it is not known (only the stick on
+   * that channel may rest at an end, every other must travel to both sides of its rest)
+   */
+  constructor(private readonly throttleChannel: number | null) {}
+
+  /**
    * Takes a read: counted for the middle in the first step, for the ends in the second.
    *
    * @param sample what the pad said
@@ -74,7 +82,7 @@ export class Wizard {
     if (this.step !== 'move') {
       return { axes: [] }
     }
-    const measured = this.capture.measure(profile)
+    const measured = this.capture.measure(profile, this.throttleChannel)
 
     return (measured.failed.length === 0 ? calibrated(profile, measured.calibrations) : null) ?? { axes: measured.failed }
   }

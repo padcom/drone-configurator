@@ -851,13 +851,12 @@
     },
     "rc": {
       "title": "Fernsteuerung",
-      "intro": "Fliege das Fahrzeug mit einem Gamepad oder einer Fernsteuerung, die sich als Gamepad meldet (etwa eine TX16S über USB). Sie ist standardmäßig aus und nur für einen Simulator gedacht: Die Anwendung lehnt sie für jedes andere Fahrzeug ab.",
+      "intro": "Fliege das Fahrzeug mit einem Gamepad oder einer Fernsteuerung, die sich als Gamepad meldet (etwa eine TX16S über USB).",
       "allow": "Fernsteuerung erlauben",
-      "allowHelp": "Das erlaubt sie nur. Es startet sie nicht, und für ein Fahrzeug, das kein Simulator ist, funktioniert sie nie.",
+      "allowHelp": "Standardmäßig aus und nur für einen Simulator: Die Anwendung lehnt jedes andere Fahrzeug ab. Das erlaubt sie nur; es startet sie nicht.",
       "status": {
         "ready": "Für die Fernsteuerung ist alles bereit.",
-        "link": "Die Fernsteuerung braucht einen Simulator: Verbinde den eingebauten oder einen auf diesem Computer.",
-        "pad": "Es wird kein Gamepad gelesen. Bewege einen Stick an der Fernsteuerung."
+        "link": "Es ist kein Simulator verbunden."
       },
       "device": {
         "title": "Gamepad",
@@ -899,6 +898,7 @@
       },
       "refusedArm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
       "wizard": {
+        "title": "Kalibrierung",
         "start": "Kalibrieren…",
         "rest": "Lass die Sticks in Ruhe, das Gas ganz unten, und warte.",
         "restReady": "Fertig. Als Nächstes bewegst du jeden Stick in alle Endlagen.",

@@ -851,13 +851,12 @@
     },
     "rc": {
       "title": "Control remoto",
-      "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB). Está desactivado por defecto y es solo para un simulador: la aplicación lo rechaza para cualquier otro vehículo.",
+      "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB).",
       "allow": "Permitir el control remoto",
-      "allowHelp": "Esto solo lo permite. No lo inicia, y nunca funciona con un vehículo que no sea un simulador.",
+      "allowHelp": "Desactivado por defecto y solo para un simulador: la aplicación rechaza cualquier otro vehículo. Esto solo lo permite; no lo inicia.",
       "status": {
         "ready": "Todo está listo para el control remoto.",
-        "link": "El control remoto necesita un simulador: conecta el integrado o uno de este ordenador.",
-        "pad": "No se lee ningún mando. Mueve un stick de la radio."
+        "link": "No hay ningún simulador conectado."
       },
       "device": {
         "title": "Mando",
@@ -899,6 +898,7 @@
       },
       "refusedArm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
       "wizard": {
+        "title": "Calibración",
         "start": "Calibrar…",
         "rest": "Deja los sticks en reposo, con el acelerador abajo, y espera.",
         "restReady": "Hecho. Ahora moverás cada stick a todos sus extremos.",

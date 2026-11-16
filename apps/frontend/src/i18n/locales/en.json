@@ -851,13 +851,12 @@
     },
     "rc": {
       "title": "Remote control",
-      "intro": "Fly the vehicle with a gamepad, or a radio that acts as one (such as a TX16S over USB). It is off by default and is for a simulator only: the application refuses it for any other vehicle.",
+      "intro": "Fly the vehicle with a gamepad, or a radio that acts as one (such as a TX16S over USB).",
       "allow": "Allow remote control",
-      "allowHelp": "This only allows it. It does not start it, and it never works for a vehicle that is not a simulator.",
+      "allowHelp": "Off by default, and for a simulator only: the application refuses any other vehicle. This only allows it; it does not start it.",
       "status": {
         "ready": "Everything is in place for remote control.",
-        "link": "Remote control needs a simulator: connect the built-in one, or one on this computer.",
-        "pad": "No gamepad is being read. Move a stick on the radio."
+        "link": "No simulator is connected."
       },
       "device": {
         "title": "Gamepad",
@@ -899,6 +898,7 @@
       },
       "refusedArm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
       "wizard": {
+        "title": "Calibration",
         "start": "Calibrate…",
         "rest": "Leave the sticks where they rest, with the throttle at the bottom, and wait.",
         "restReady": "Done. Next, you will move every stick to all its ends.",

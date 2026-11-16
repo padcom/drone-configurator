@@ -47,6 +47,7 @@ afterAll(async () => {
 
 /** What the page looks like at one size. */
 interface Probe {
+  stacked: boolean
   pageScrolls: boolean
   sideways: string[]
   railMoved: boolean
@@ -54,6 +55,45 @@ interface Probe {
   reachable: boolean
   rows: number
 }
+
+/** The look at the page, made in the page: scrolls the area and the page to their ends, says what moved and what is in reach. */
+const PROBE = `(async () => {
+    await new Promise(resolve => setTimeout(resolve, 400))
+    const area = document.querySelector('.app-main')
+    const rail = document.querySelector('.rail')
+    const top = document.querySelector('#top-bar')
+    // from the start: the page and the area are at their tops
+    area.scrollTop = 0
+    document.scrollingElement.scrollTop = 0
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    const railBefore = rail.getBoundingClientRect().top
+    const topBefore = top.getBoundingClientRect().top
+    const column = document.querySelector('.settings').getBoundingClientRect()
+    // under 1000 px the shell stacks the rail over the page (it ends where the area begins, and shares its columns)
+    const railBox = rail.getBoundingClientRect()
+    const areaBox = area.getBoundingClientRect()
+    const stacked = railBox.bottom <= areaBox.top + 1 && railBox.right > areaBox.left + 1
+    area.scrollTop = area.scrollHeight
+    document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight
+    await new Promise(resolve => requestAnimationFrame(resolve))
+    const over = [...document.querySelectorAll('.settings-rc *')]
+      .filter(element => element.getBoundingClientRect().right > column.right + 1)
+      .slice(0, 4).map(element => element.tagName + '.' + element.className)
+    // the last control of the section, once everything is scrolled to its end: in the window, and (from 1000 px) in the area
+    const last = [...document.querySelectorAll('.settings-rc button, .settings-rc input, .settings-rc select')].at(-1)
+    const at = last.getBoundingClientRect()
+    const room = stacked ? window.innerHeight : area.getBoundingClientRect().bottom
+    return {
+      stacked,
+      pageScrolls: document.scrollingElement.scrollHeight > window.innerHeight + 1,
+      sideways: area.scrollWidth > area.clientWidth + 1 || document.scrollingElement.scrollWidth > window.innerWidth + 1
+        ? ['area'].concat(over) : over,
+      railMoved: Math.abs(rail.getBoundingClientRect().top - railBefore) > 1,
+      topMoved: Math.abs(top.getBoundingClientRect().top - topBefore) > 1,
+      reachable: at.top >= 0 && at.bottom <= room + 1,
+      rows: document.querySelectorAll('.rc-row').length,
+    }
+  })()`
 
 /**
  * Looks at the Settings page at one size, after the area is scrolled to its end.
@@ -66,32 +106,7 @@ interface Probe {
 async function probe(size: { width: number, height: number }): Promise<Probe> {
   await window().devtools('Emulation.setDeviceMetricsOverride', { ...size, deviceScaleFactor: 1, mobile: false })
 
-  return window().evaluate<Probe>(`(async () => {
-    await new Promise(resolve => setTimeout(resolve, 400))
-    const area = document.querySelector('.app-main')
-    const rail = document.querySelector('.rail')
-    const top = document.querySelector('header, .top-bar')
-    const railBefore = rail.getBoundingClientRect().top
-    const topBefore = top ? top.getBoundingClientRect().top : 0
-    const column = document.querySelector('.settings').getBoundingClientRect()
-    area.scrollTop = area.scrollHeight
-    // (under 1000 px the shell stacks the rail over the page, and the page itself is what scrolls)
-    document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight
-    await new Promise(resolve => requestAnimationFrame(resolve))
-    const over = [...document.querySelectorAll('.settings-rc *')]
-      .filter(element => element.getBoundingClientRect().right > column.right + 1)
-      .slice(0, 4).map(element => element.tagName + '.' + element.className)
-    const add = document.querySelector('.rc-add').getBoundingClientRect()
-    return {
-      pageScrolls: document.scrollingElement.scrollHeight > window.innerHeight + 1,
-      sideways: area.scrollWidth > area.clientWidth + 1 || document.scrollingElement.scrollWidth > window.innerWidth + 1
-        ? ['area'].concat(over) : over,
-      railMoved: Math.abs(rail.getBoundingClientRect().top - railBefore) > 1,
-      topMoved: top ? Math.abs(top.getBoundingClientRect().top - topBefore) > 1 : false,
-      reachable: add.bottom <= window.innerHeight + 1,
-      rows: document.querySelectorAll('.rc-row').length,
-    }
-  })()`)
+  return window().evaluate<Probe>(PROBE)
 }
 
 it('shows the pad and the four sticks of its mapping, with remote control off', async () => {
@@ -107,17 +122,21 @@ for (const size of SIZES) {
     expect(seen.rows).toBe(4)
     expect(seen.sideways).toEqual([])
     expect(seen.reachable).toBe(true)
-    // (from 1000 px: only the middle panel scrolls. Under it the shell stacks the rail over the page, which scrolls as one)
-    const moved = size.width < 1000 ? [false, false, false] : [seen.pageScrolls, seen.railMoved, seen.topMoved]
+    // From 1000 px only the middle panel scrolls: the page, the rail and the top bar stay. Under it the shell stacks the rail
+    // over the page, and the page scrolls as one with them (it is too short for the section, so it does scroll).
+    const { stacked, pageScrolls, railMoved, topMoved } = seen
+    const expected = size.width < 1000
+      ? { stacked: true, pageScrolls: true, railMoved: true, topMoved: true }
+      : { stacked: false, pageScrolls: false, railMoved: false, topMoved: false }
 
-    expect(moved).toEqual([false, false, false])
+    expect({ stacked, pageScrolls, railMoved, topMoved }).toEqual(expected)
   })
 }
 
 it('starts no control by itself: turning the setting on only allows it', async () => {
   await window().click('#rc-allow')
   await window().waitFor(`document.querySelector('#rc-allow').getAttribute('aria-checked') === 'true'`, 30_000)
-  expect(await window().text('#rc-status')).toContain('needs a simulator')
+  expect(await window().text('#rc-status')).toBe('No simulator is connected.')
   await window().click('#rc-allow')
   await window().waitFor(`document.querySelector('#rc-allow').getAttribute('aria-checked') === 'false'`, 30_000)
 })

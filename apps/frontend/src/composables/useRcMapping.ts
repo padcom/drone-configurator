@@ -348,8 +348,17 @@ class Mapping implements RcMapping {
     if (this.draft.value !== null && this.deps.pad.live.value) {
       this.waiting.value = null
       this.lacking.value = []
-      this.running.value = new Wizard()
+      this.running.value = new Wizard(this.throttleChannel())
     }
+  }
+
+  /**
+   * The vehicle's throttle channel (`RCMAP_THROTTLE`), or null when the vehicle has not said.
+   *
+   * @returns the channel, or null
+   */
+  private throttleChannel(): number | null {
+    return this.deps.facts.value?.map.throttle ?? null
   }
 
   nextStep = (): void => {
