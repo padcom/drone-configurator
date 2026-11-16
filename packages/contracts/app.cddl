@@ -106,6 +106,32 @@ services = {
   "logs.local.cancel": ["method", null, null],
   "logs.local.progress": ["event", logs-local-progress],
   "vehicle.reboot": ["method", null, reboot-result],
+  ; The mission, the geofence and the rally points ON THE VEHICLE (the Plan page; the plan being edited is the page's, the vehicle's is the
+  ; only truth). Items are on the wire as the vehicle has them (see `plan-item`); for the mission the vehicle's own HOME is its item 0 and
+  ; the page's items start after it (the backend adds and strips it).
+  ; `plan.read` reads one kind (always allowed while connected). `plan.write` replaces the whole kind and then READS IT BACK and compares
+  ; (`verified` only when what the vehicle holds is what it stores of what was sent: it keeps less than it is sent, a waypoint only its
+  ; first parameter, as a whole number, so the comparison is made on what the vehicle keeps of each command; `unchecked` counts the
+  ; items of a command the backend does not know the rules of, compared by command and place only). `plan.clear` clears one kind and
+  ; reads it back. Both are refused, before anything is sent, with a CommunicatorError: `NOT_CONNECTED`, `ARMED` and `STATE_UNKNOWN`
+  ; (OUR rule: ArduPilot itself would take an upload while armed and flying; a vehicle whose state is not known counts as armed),
+  ; `BUSY` (a plan operation, a parameter, log, calibration, motor test or reboot is under way), `UNSUPPORTED_VEHICLE` (not an
+  ; ArduPilot), `INVALID_VALUE` (an item no vehicle should be given: a NaN where the vehicle takes none, a place off the globe, a
+  ; `current` that is an order to a flying vehicle) and `TOO_MANY` (more than 2000 items). A write that fails after the first message
+  ; leaves the vehicle with a MIXTURE of the old and the new items (ArduPilot truncates at the count and writes as the items come, with
+  ; no rollback): the result says `upload-failed` and the page must treat what is on the vehicle as unknown until it is read back,
+  ; cleared or written again. A write or a clear is sent ONCE and never again; an upload that goes quiet is waited for, not repeated.
+  ; The vehicle cannot be armed while a plan operation runs (`vehicle.arm` is `BUSY`). `plan.cancel` stops the operation that runs (the
+  ; write then reports `upload-failed` with the code `ABORTED`). `plan.progress` is sent while one runs. `plan.setCurrent` makes an
+  ; item the one the vehicle flies to next (MAV_CMD_DO_SET_MISSION_CURRENT, sent ONCE: no answer is `no-answer`, and what the vehicle
+  ; flies to is then known only from its MISSION_CURRENT): allowed in flight, refused for an unknown state, a vehicle that is not an
+  ; ArduPilot and a plan operation under way.
+  "plan.read": ["method", plan-read-ask, plan-read-result],
+  "plan.write": ["method", plan-write-ask, plan-write-result],
+  "plan.clear": ["method", plan-clear-ask, plan-clear-result],
+  "plan.setCurrent": ["method", plan-current-ask, arming-result],
+  "plan.cancel": ["method", null, null],
+  "plan.progress": ["event", plan-progress],
   ; Arming, disarming, the emergency stop, a change of flight mode and a run of the pre-arm checks. Arm, disarm, mode change and the
   ; pre-arm run are sent ONCE (a command that nothing acknowledged may have been carried out: it is never sent again, and the state
   ; shown is the next heartbeat's, never the command's intent). The backend refuses before it sends anything, with a CommunicatorError:
@@ -808,6 +834,74 @@ reposition-ask = { latitude: float, longitude: float, altitude: float, limits: g
 change-altitude-ask = { altitude: float, limits: guided-limits, failsafe: failsafe-policy }
 
 set-speed-ask = { speed: float, limits: guided-limits }
+
+; Which list on the vehicle: the mission (its waypoints and commands; item 0 on the wire is home), the geofence or the rally points.
+plan-kind = "mission" / "fence" / "rally"
+
+; One item as it is on the wire (MISSION_ITEM_INT): `x` and `y` are the latitude and longitude in degrees times 1e7 (or what the command takes
+; when its frame is the mission's own), `z` the altitude in metres in `frame` (MAV_FRAME). A parameter that is absent is a NaN (the yaw of a
+; waypoint, which ArduPilot takes as "no change"); ArduPilot takes one only where `planfiles.nanAllowed` says, anything else is
+; `INVALID_VALUE`. `autocontinue` is what the vehicle does after it: for the mission only (the vehicle does not keep it for the fence
+; and rally points). The `current` flag is not here: items are sent with it 0 (2 and 3 are orders to a flying vehicle).
+plan-item = {
+  command: uint .size 2,
+  frame: uint .size 1,
+  ? param1: float,
+  ? param2: float,
+  ? param3: float,
+  ? param4: float,
+  x: float,
+  y: float,
+  z: float,
+  autocontinue: bool,
+}
+
+plan-read-ask = { kind: plan-kind }
+
+; What the vehicle holds. For the mission `home` is the vehicle's own home (its item 0, as it says it), `items` the rest, in order. `current` is
+; the mission item the vehicle is on (its seq, home being 0), absent when it does not say.
+plan-read-result = { kind: plan-kind, items: [* plan-item], ? home: plan-item, ? current: uint .size 2 }
+
+plan-write-ask = { kind: plan-kind, items: [* plan-item] }
+
+; How a write ended. `verified`: uploaded, read back and the same (as far as the vehicle keeps it). `mismatch`: the vehicle holds something
+; else than was sent, from the item `at` (`found` is what it holds there): do not fly it. `upload-failed`: the vehicle refused it, did not
+; answer, or it was cancelled (`code`: its MAV_MISSION_RESULT as a name, `NO_SPACE`, `DENIED`, `ERROR` ..., or `TIMEOUT`, `ABORTED`); what it
+; holds is a MIXTURE, unknown. `read-failed`: it was uploaded and accepted but could not be read back, so it is not known to be there.
+; `count` is how many items were sent, `unchecked` how many of them were compared by command and place only (a command whose storage the
+; backend does not know), `messages` the vehicle's own words (STATUSTEXT) during the operation: for `NO_SPACE` ArduPilot says how many it takes.
+plan-write-result = {
+  result: "verified" / "mismatch" / "upload-failed" / "read-failed",
+  count: uint .size 2,
+  unchecked: uint .size 2,
+  ? code: tstr,
+  ? detail: tstr,
+  ? at: uint .size 2,
+  ? found: plan-item,
+  messages: [* tstr],
+}
+
+plan-clear-ask = { kind: plan-kind }
+
+; `cleared`: the vehicle said so and a read-back shows none. `refused`: the vehicle said no (`code`: ERROR when it is armed and flying the
+; mission, ...). `unconfirmed`: no answer, or the read-back is not empty: it is NOT KNOWN what the vehicle holds. The clear is sent once.
+plan-clear-result = {
+  result: "cleared" / "refused" / "unconfirmed",
+  ? code: tstr,
+  ? detail: tstr,
+  messages: [* tstr],
+}
+
+; The mission item to fly to next (home is 0; the first item of the page's list is 1).
+plan-current-ask = { seq: uint .size 2 }
+
+; While a plan operation runs, at most 10 times a second: how many items of how many have gone over or come back, and which part it is.
+plan-progress = {
+  kind: plan-kind,
+  phase: "uploading" / "verifying" / "reading" / "clearing",
+  done: uint .size 2,
+  total: uint .size 2,
+}
 
 ; The texts the vehicle sends (STATUSTEXT: "PreArm: ...", "Arming motors", "EKF3 IMU0 is using GPS"), long ones joined.
 ; A subscription first sends the last `replay` stored messages (default 100, at most 200: a subscription takes only 256

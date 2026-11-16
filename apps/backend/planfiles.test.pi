@@ -496,6 +496,25 @@ function onlyPolygonVerticesAreCountedAgainstTheMost(): void throws Error {
   expect(writerCode(() => writeQgcPlan(plan))).toBe("TOO_MANY")
 }
 
+function aByteOrderMarkAtTheStartIsTakenInBothFormats(): void throws Error {
+  // Windows editors put one at the start of a text file they save
+  const bom = "﻿"
+  expect(parseQgcPlan(bom + PLAN, false).items.length).toBe(4)
+  expect(parseWaypoints(bom + WAYPOINTS).items.length).toBe(3)
+  // only one, and only at the start
+  expect(codeOf(() => parseQgcPlan(bom + bom + PLAN, false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseWaypoints(bom + bom + WAYPOINTS))).toBe("NOT_WAYPOINTS")
+  expect(codeOf(() => parseWaypoints("QGC WPL 110\n" + bom + "0\t1\t0\t16\t0\t0\t0\t0\t52\t21\t100\t1\n"))).toBe("BAD_LINE")
+  // the mark counts in the size as the three bytes it is
+  expect(codeOf(() => parseQgcPlan(bom, false))).toBe("NOT_JSON")
+}
+
+function closersWithNothingOpenCannotLetOpenersThrough(): void throws Error {
+  // 100 000 closers and then 100 000 openers: the depth must not go to -100 000 and let the openers pass the limit of 64
+  expect(codeOf(() => parseQgcPlan("]".repeat(100000) + "[".repeat(100000), false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"}".repeat(100000)}${"[".repeat(100000)} }`, false))).toBe("NOT_JSON")
+}
+
 function anUnknownMemberOfAnyShapeIsLetGo(): void throws Error {
   // a valid plan with a deeply nested, closed member the reader does not know (the typed parser skips it), and unknown members everywhere
   // (40 deep, and a few levels of the plan itself: under the 64 that are taken)
@@ -532,6 +551,8 @@ describe("QGroundControl's .plan", () => {
   it("counts the size in bytes, not in characters", theSizeIsInBytesNotCharacters)
   it("lets go of an unknown member of any shape, nested deep, and refuses nesting that would end the process", anUnknownMemberOfAnyShapeIsLetGo)
   it("counts only the vertices of polygons against the most", onlyPolygonVerticesAreCountedAgainstTheMost)
+  it("takes a byte order mark at the start of either format", aByteOrderMarkAtTheStartIsTakenInBothFormats)
+  it("refuses closers with nothing open, so they cannot let openers through", closersWithNothingOpenCannotLetOpenersThrough)
   it("keeps a jump's target whatever the ids of the items are", aJumpKeepsItsTargetWhateverTheIds)
   it("refuses a jump to no item, in both formats and when writing", aJumpToNoItemIsRefused)
   it("refuses a null place and never reads it as 0", aNullPlaceIsRefusedAndNeverReadAsZero)

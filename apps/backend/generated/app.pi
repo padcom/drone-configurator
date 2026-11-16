@@ -3422,6 +3422,485 @@ export function encodeSetSpeedAsk(v: SetSpeedAsk): Cbor {
   Cbor.Dict(m)
 }
 
+export enum PlanKind { Mission, Fence, Rally }
+
+export function decodePlanKind(v: Cbor, path: string): PlanKind throws InvalidPayload {
+  match (text(v, path)) {
+    "mission" => PlanKind.Mission,
+    "fence" => PlanKind.Fence,
+    "rally" => PlanKind.Rally,
+    _ => throw new InvalidPayload(path, "mission or fence or rally"),
+  }
+}
+
+export function encodePlanKind(v: PlanKind): Cbor {
+  match (v) {
+    Mission => Cbor.Text("mission"),
+    Fence => Cbor.Text("fence"),
+    Rally => Cbor.Text("rally"),
+  }
+}
+
+export struct PlanItem {
+  command: u16
+  frame: u8
+  param1?: f64
+  param2?: f64
+  param3?: f64
+  param4?: f64
+  x: f64
+  y: f64
+  z: f64
+  autocontinue: bool
+}
+
+export function decodePlanItem(v: Cbor, path: string): PlanItem throws InvalidPayload {
+  const m = members(v, path, ["command", "frame", "param1", "param2", "param3", "param4", "x", "y", "z", "autocontinue"])
+  const cbor2 = m.get("param1")
+  let opt2: f64? = null
+  if (cbor2 != null) {
+    opt2 = float(cbor2, `${path}.param1`)
+  }
+  const cbor3 = m.get("param2")
+  let opt3: f64? = null
+  if (cbor3 != null) {
+    opt3 = float(cbor3, `${path}.param2`)
+  }
+  const cbor4 = m.get("param3")
+  let opt4: f64? = null
+  if (cbor4 != null) {
+    opt4 = float(cbor4, `${path}.param3`)
+  }
+  const cbor5 = m.get("param4")
+  let opt5: f64? = null
+  if (cbor5 != null) {
+    opt5 = float(cbor5, `${path}.param4`)
+  }
+  PlanItem {
+    command: (uint(required(m, "command", path), `${path}.command`, 65535) as u16),
+    frame: (uint(required(m, "frame", path), `${path}.frame`, 255) as u8),
+    param1: opt2,
+    param2: opt3,
+    param3: opt4,
+    param4: opt5,
+    x: float(required(m, "x", path), `${path}.x`),
+    y: float(required(m, "y", path), `${path}.y`),
+    z: float(required(m, "z", path), `${path}.z`),
+    autocontinue: boolean(required(m, "autocontinue", path), `${path}.autocontinue`),
+  }
+}
+
+export function encodePlanItem(v: PlanItem): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("command", Cbor.Uint(v.command as u64))
+  m.set("frame", Cbor.Uint(v.frame as u64))
+  const opt2 = v.param1
+  if (opt2 != null) {
+    m.set("param1", Cbor.Float(opt2))
+  }
+  const opt3 = v.param2
+  if (opt3 != null) {
+    m.set("param2", Cbor.Float(opt3))
+  }
+  const opt4 = v.param3
+  if (opt4 != null) {
+    m.set("param3", Cbor.Float(opt4))
+  }
+  const opt5 = v.param4
+  if (opt5 != null) {
+    m.set("param4", Cbor.Float(opt5))
+  }
+  m.set("x", Cbor.Float(v.x))
+  m.set("y", Cbor.Float(v.y))
+  m.set("z", Cbor.Float(v.z))
+  m.set("autocontinue", Cbor.Bool(v.autocontinue))
+  Cbor.Dict(m)
+}
+
+export struct PlanReadAsk {
+  kind: PlanKind
+}
+
+export function decodePlanReadAsk(v: Cbor, path: string): PlanReadAsk throws InvalidPayload {
+  const m = members(v, path, ["kind"])
+  PlanReadAsk {
+    kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
+  }
+}
+
+export function encodePlanReadAsk(v: PlanReadAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodePlanKind(v.kind))
+  Cbor.Dict(m)
+}
+
+function decodePlanReadResultItemsList(v: Cbor, path: string): PlanItem[] throws InvalidPayload {
+  const out: PlanItem[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodePlanItem(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodePlanReadResultItemsList(v: PlanItem[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodePlanItem(e))
+  }
+  Cbor.List(out)
+}
+
+export struct PlanReadResult {
+  kind: PlanKind
+  items: PlanItem[]
+  home?: PlanItem
+  current?: u16
+}
+
+export function decodePlanReadResult(v: Cbor, path: string): PlanReadResult throws InvalidPayload {
+  const m = members(v, path, ["kind", "items", "home", "current"])
+  const cbor2 = m.get("home")
+  let opt2: PlanItem? = null
+  if (cbor2 != null) {
+    opt2 = decodePlanItem(cbor2, `${path}.home`)
+  }
+  const cbor3 = m.get("current")
+  let opt3: u16? = null
+  if (cbor3 != null) {
+    opt3 = (uint(cbor3, `${path}.current`, 65535) as u16)
+  }
+  PlanReadResult {
+    kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
+    items: decodePlanReadResultItemsList(required(m, "items", path), `${path}.items`),
+    home: opt2,
+    current: opt3,
+  }
+}
+
+export function encodePlanReadResult(v: PlanReadResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodePlanKind(v.kind))
+  m.set("items", encodePlanReadResultItemsList(v.items))
+  const opt2 = v.home
+  if (opt2 != null) {
+    m.set("home", encodePlanItem(opt2))
+  }
+  const opt3 = v.current
+  if (opt3 != null) {
+    m.set("current", Cbor.Uint(opt3 as u64))
+  }
+  Cbor.Dict(m)
+}
+
+function decodePlanWriteAskItemsList(v: Cbor, path: string): PlanItem[] throws InvalidPayload {
+  const out: PlanItem[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodePlanItem(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodePlanWriteAskItemsList(v: PlanItem[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodePlanItem(e))
+  }
+  Cbor.List(out)
+}
+
+export struct PlanWriteAsk {
+  kind: PlanKind
+  items: PlanItem[]
+}
+
+export function decodePlanWriteAsk(v: Cbor, path: string): PlanWriteAsk throws InvalidPayload {
+  const m = members(v, path, ["kind", "items"])
+  PlanWriteAsk {
+    kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
+    items: decodePlanWriteAskItemsList(required(m, "items", path), `${path}.items`),
+  }
+}
+
+export function encodePlanWriteAsk(v: PlanWriteAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodePlanKind(v.kind))
+  m.set("items", encodePlanWriteAskItemsList(v.items))
+  Cbor.Dict(m)
+}
+
+export enum PlanWriteResultResult { Verified, Mismatch, UploadFailed, ReadFailed }
+
+export function decodePlanWriteResultResult(v: Cbor, path: string): PlanWriteResultResult throws InvalidPayload {
+  match (text(v, path)) {
+    "verified" => PlanWriteResultResult.Verified,
+    "mismatch" => PlanWriteResultResult.Mismatch,
+    "upload-failed" => PlanWriteResultResult.UploadFailed,
+    "read-failed" => PlanWriteResultResult.ReadFailed,
+    _ => throw new InvalidPayload(path, "verified or mismatch or upload-failed or read-failed"),
+  }
+}
+
+export function encodePlanWriteResultResult(v: PlanWriteResultResult): Cbor {
+  match (v) {
+    Verified => Cbor.Text("verified"),
+    Mismatch => Cbor.Text("mismatch"),
+    UploadFailed => Cbor.Text("upload-failed"),
+    ReadFailed => Cbor.Text("read-failed"),
+  }
+}
+
+function decodePlanWriteResultMessagesList(v: Cbor, path: string): string[] throws InvalidPayload {
+  const out: string[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(text(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodePlanWriteResultMessagesList(v: string[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Text(e))
+  }
+  Cbor.List(out)
+}
+
+export struct PlanWriteResult {
+  result: PlanWriteResultResult
+  count: u16
+  unchecked: u16
+  code?: string
+  detail?: string
+  at?: u16
+  found?: PlanItem
+  messages: string[]
+}
+
+export function decodePlanWriteResult(v: Cbor, path: string): PlanWriteResult throws InvalidPayload {
+  const m = members(v, path, ["result", "count", "unchecked", "code", "detail", "at", "found", "messages"])
+  const cbor3 = m.get("code")
+  let opt3: string? = null
+  if (cbor3 != null) {
+    opt3 = text(cbor3, `${path}.code`)
+  }
+  const cbor4 = m.get("detail")
+  let opt4: string? = null
+  if (cbor4 != null) {
+    opt4 = text(cbor4, `${path}.detail`)
+  }
+  const cbor5 = m.get("at")
+  let opt5: u16? = null
+  if (cbor5 != null) {
+    opt5 = (uint(cbor5, `${path}.at`, 65535) as u16)
+  }
+  const cbor6 = m.get("found")
+  let opt6: PlanItem? = null
+  if (cbor6 != null) {
+    opt6 = decodePlanItem(cbor6, `${path}.found`)
+  }
+  PlanWriteResult {
+    result: decodePlanWriteResultResult(required(m, "result", path), `${path}.result`),
+    count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
+    unchecked: (uint(required(m, "unchecked", path), `${path}.unchecked`, 65535) as u16),
+    code: opt3,
+    detail: opt4,
+    at: opt5,
+    found: opt6,
+    messages: decodePlanWriteResultMessagesList(required(m, "messages", path), `${path}.messages`),
+  }
+}
+
+export function encodePlanWriteResult(v: PlanWriteResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("result", encodePlanWriteResultResult(v.result))
+  m.set("count", Cbor.Uint(v.count as u64))
+  m.set("unchecked", Cbor.Uint(v.unchecked as u64))
+  const opt3 = v.code
+  if (opt3 != null) {
+    m.set("code", Cbor.Text(opt3))
+  }
+  const opt4 = v.detail
+  if (opt4 != null) {
+    m.set("detail", Cbor.Text(opt4))
+  }
+  const opt5 = v.at
+  if (opt5 != null) {
+    m.set("at", Cbor.Uint(opt5 as u64))
+  }
+  const opt6 = v.found
+  if (opt6 != null) {
+    m.set("found", encodePlanItem(opt6))
+  }
+  m.set("messages", encodePlanWriteResultMessagesList(v.messages))
+  Cbor.Dict(m)
+}
+
+export struct PlanClearAsk {
+  kind: PlanKind
+}
+
+export function decodePlanClearAsk(v: Cbor, path: string): PlanClearAsk throws InvalidPayload {
+  const m = members(v, path, ["kind"])
+  PlanClearAsk {
+    kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
+  }
+}
+
+export function encodePlanClearAsk(v: PlanClearAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodePlanKind(v.kind))
+  Cbor.Dict(m)
+}
+
+export enum PlanClearResultResult { Cleared, Refused, Unconfirmed }
+
+export function decodePlanClearResultResult(v: Cbor, path: string): PlanClearResultResult throws InvalidPayload {
+  match (text(v, path)) {
+    "cleared" => PlanClearResultResult.Cleared,
+    "refused" => PlanClearResultResult.Refused,
+    "unconfirmed" => PlanClearResultResult.Unconfirmed,
+    _ => throw new InvalidPayload(path, "cleared or refused or unconfirmed"),
+  }
+}
+
+export function encodePlanClearResultResult(v: PlanClearResultResult): Cbor {
+  match (v) {
+    Cleared => Cbor.Text("cleared"),
+    Refused => Cbor.Text("refused"),
+    Unconfirmed => Cbor.Text("unconfirmed"),
+  }
+}
+
+function decodePlanClearResultMessagesList(v: Cbor, path: string): string[] throws InvalidPayload {
+  const out: string[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(text(e, `${path}[${i}]`))
+    i += 1
+  }
+  out
+}
+
+function encodePlanClearResultMessagesList(v: string[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(Cbor.Text(e))
+  }
+  Cbor.List(out)
+}
+
+export struct PlanClearResult {
+  result: PlanClearResultResult
+  code?: string
+  detail?: string
+  messages: string[]
+}
+
+export function decodePlanClearResult(v: Cbor, path: string): PlanClearResult throws InvalidPayload {
+  const m = members(v, path, ["result", "code", "detail", "messages"])
+  const cbor1 = m.get("code")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.code`)
+  }
+  const cbor2 = m.get("detail")
+  let opt2: string? = null
+  if (cbor2 != null) {
+    opt2 = text(cbor2, `${path}.detail`)
+  }
+  PlanClearResult {
+    result: decodePlanClearResultResult(required(m, "result", path), `${path}.result`),
+    code: opt1,
+    detail: opt2,
+    messages: decodePlanClearResultMessagesList(required(m, "messages", path), `${path}.messages`),
+  }
+}
+
+export function encodePlanClearResult(v: PlanClearResult): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("result", encodePlanClearResultResult(v.result))
+  const opt1 = v.code
+  if (opt1 != null) {
+    m.set("code", Cbor.Text(opt1))
+  }
+  const opt2 = v.detail
+  if (opt2 != null) {
+    m.set("detail", Cbor.Text(opt2))
+  }
+  m.set("messages", encodePlanClearResultMessagesList(v.messages))
+  Cbor.Dict(m)
+}
+
+export struct PlanCurrentAsk {
+  seq: u16
+}
+
+export function decodePlanCurrentAsk(v: Cbor, path: string): PlanCurrentAsk throws InvalidPayload {
+  const m = members(v, path, ["seq"])
+  PlanCurrentAsk {
+    seq: (uint(required(m, "seq", path), `${path}.seq`, 65535) as u16),
+  }
+}
+
+export function encodePlanCurrentAsk(v: PlanCurrentAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("seq", Cbor.Uint(v.seq as u64))
+  Cbor.Dict(m)
+}
+
+export enum PlanProgressPhase { Uploading, Verifying, Reading, Clearing }
+
+export function decodePlanProgressPhase(v: Cbor, path: string): PlanProgressPhase throws InvalidPayload {
+  match (text(v, path)) {
+    "uploading" => PlanProgressPhase.Uploading,
+    "verifying" => PlanProgressPhase.Verifying,
+    "reading" => PlanProgressPhase.Reading,
+    "clearing" => PlanProgressPhase.Clearing,
+    _ => throw new InvalidPayload(path, "uploading or verifying or reading or clearing"),
+  }
+}
+
+export function encodePlanProgressPhase(v: PlanProgressPhase): Cbor {
+  match (v) {
+    Uploading => Cbor.Text("uploading"),
+    Verifying => Cbor.Text("verifying"),
+    Reading => Cbor.Text("reading"),
+    Clearing => Cbor.Text("clearing"),
+  }
+}
+
+export struct PlanProgress {
+  kind: PlanKind
+  phase: PlanProgressPhase
+  done: u16
+  total: u16
+}
+
+export function decodePlanProgress(v: Cbor, path: string): PlanProgress throws InvalidPayload {
+  const m = members(v, path, ["kind", "phase", "done", "total"])
+  PlanProgress {
+    kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
+    phase: decodePlanProgressPhase(required(m, "phase", path), `${path}.phase`),
+    done: (uint(required(m, "done", path), `${path}.done`, 65535) as u16),
+    total: (uint(required(m, "total", path), `${path}.total`, 65535) as u16),
+  }
+}
+
+export function encodePlanProgress(v: PlanProgress): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("kind", encodePlanKind(v.kind))
+  m.set("phase", encodePlanProgressPhase(v.phase))
+  m.set("done", Cbor.Uint(v.done as u64))
+  m.set("total", Cbor.Uint(v.total as u64))
+  Cbor.Dict(m)
+}
+
 export struct MessagesParams {
   replay?: u16
 }
