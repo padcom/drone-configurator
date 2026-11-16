@@ -183,6 +183,40 @@ function tooBig(text: string): bool {
   return false
 }
 
+/// How deep a `.plan` may nest arrays and objects. A real one nests about 8 deep. The typed parser skips what it does not know RECURSIVELY, so a
+/// file of under 1 MB that nests hundreds of thousands deep in a member it skips would overflow the stack and take the process down (the link to
+/// the vehicle with it): the depth is counted before the parse.
+export const MAX_DEPTH: int = 64
+
+/// Whether the JSON text nests deeper than `MAX_DEPTH` (brackets in strings do not count; a string's escapes are skipped).
+function tooDeep(text: string): bool {
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] as int
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (c == 0x5C) {
+        escaped = true
+      } else if (c == 0x22) {
+        inString = false
+      }
+    } else if (c == 0x22) {
+      inString = true
+    } else if (c == 0x5B || c == 0x7B) {
+      depth += 1
+      if (depth > MAX_DEPTH) {
+        return true
+      }
+    } else if (c == 0x5D || c == 0x7D) {
+      depth -= 1
+    }
+  }
+  return false
+}
+
 /// MAV_CMD_DO_JUMP: param1 is the item to go on from (its seq in a mission; in a `.plan` its `doJumpId`).
 const DO_JUMP: int = 177
 
@@ -261,6 +295,9 @@ class QgcPlan {
 export function parseQgcPlan(text: string, skipComplex: bool): Plan throws PlanFileError {
   if (tooBig(text)) {
     throw new PlanFileError("TOO_BIG", `the file is longer than ${MAX_FILE_BYTES} bytes`)
+  }
+  if (tooDeep(text)) {
+    throw new PlanFileError("NOT_JSON", `not a .plan file: it nests more than ${MAX_DEPTH} levels deep`)
   }
   let doc: QgcPlan = new QgcPlan()
   try {
@@ -498,7 +535,8 @@ export function checkPlan(plan: Plan): void throws PlanFileError {
   let vertices = 0
   for (let i = 0; i < plan.fence.length; i++) {
     const z = plan.fence[i]
-    vertices += z.points.length
+    // (only the vertices of polygons are counted, as the reader does: the centre of a circle is not one)
+    vertices += if (z.circle) 0 else z.points.length
     if (vertices > MAX_VERTICES) {
       throw new PlanFileError("TOO_MANY", `more than ${MAX_VERTICES} fence vertices`)
     }

@@ -2,8 +2,10 @@
 // here (nothing is copied from either program), from the formats as they are published.
 import { describe, it, expect } from "std/test"
 import {
+  FenceZone,
   MAX_FILE_BYTES,
   MAX_ITEMS,
+  MAX_VERTICES,
   Plan,
   PlanFileError,
   PlanItem,
@@ -473,15 +475,47 @@ function theSizeIsInBytesNotCharacters(): void throws Error {
   expect(codeOf(() => parseQgcPlan(fits, false))).toBe("")
 }
 
+function onlyPolygonVerticesAreCountedAgainstTheMost(): void throws Error {
+  // the most vertices in one polygon and a circle: the circle's centre is not a vertex, in the reader and in the writer alike
+  const plan = new Plan()
+  const polygon = new FenceZone()
+  for (let i = 0; i < MAX_VERTICES; i++) {
+    polygon.points.push({ lat: 52.0 + (i as f64) / 100000.0, lon: 21.0, alt: 0.0 })
+  }
+  const circle = new FenceZone()
+  circle.circle = true
+  circle.radius = 10.0
+  circle.points.push({ lat: 52.0, lon: 21.0, alt: 0.0 })
+  plan.fence.push(polygon)
+  plan.fence.push(circle)
+  const again = parseQgcPlan(writeQgcPlan(plan), false)
+  expect(again.fence.length).toBe(2)
+  expect(again.fence[0].points.length).toBe(MAX_VERTICES)
+  // one more polygon vertex is too many, in both
+  polygon.points.push({ lat: 53.0, lon: 21.0, alt: 0.0 })
+  expect(writerCode(() => writeQgcPlan(plan))).toBe("TOO_MANY")
+}
+
 function anUnknownMemberOfAnyShapeIsLetGo(): void throws Error {
   // a valid plan with a deeply nested, closed member the reader does not know (the typed parser skips it), and unknown members everywhere
-  const depth = 300
+  // (40 deep, and a few levels of the plan itself: under the 64 that are taken)
+  const depth = 40
   const nested = "[".repeat(depth) + "1" + "]".repeat(depth)
   const text = `{ "fileType": "Plan", "extra": ${nested}, "mission": { "other": { "a": ${nested} }, "items": [
     { "type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, null, 52, 21, 5], "more": [{ "x": ${nested} }] } ] },
     "geoFence": { "unknown": ${nested} }, "rallyPoints": { "points": [], "unknown": ${nested} } }`
   const plan = parseQgcPlan(text, false)
   expect(plan.items.length).toBe(1)
+  // The typed parser skips an unknown member recursively: 100 000 closed brackets overflowed its stack and ended the process (this test
+  // was run without the depth check, and did), so the depth is counted before the parse and over 64 is refused. Brackets in strings do not count.
+  const quoted = `{ "fileType": "Plan", "note": "${"[".repeat(1000)} \\" ${"{".repeat(1000)}" }`
+  expect(codeOf(() => parseQgcPlan(quoted, false))).toBe("")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"[".repeat(65)}1${"]".repeat(65)} }`, false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"[".repeat(62)}1${"]".repeat(62)} }`, false))).toBe("")
+  const hostile = "[".repeat(100000) + "1" + "]".repeat(100000)
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${hostile} }`, false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"[".repeat(100000)}1 }`, false))).toBe("NOT_JSON")
+  expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"{ \"a\": ".repeat(100000)}1${"}".repeat(100000)} }`, false))).toBe("NOT_JSON")
   // and one that is not closed is an error, not a crash
   expect(codeOf(() => parseQgcPlan(`{ "fileType": "Plan", "extra": ${"[".repeat(depth)}1 }`, false))).toBe("NOT_JSON")
 }
@@ -496,7 +530,8 @@ describe("QGroundControl's .plan", () => {
   it("takes a NaN only where the vehicle takes one", aNanIsTakenOnlyWhereTheVehicleTakesIt)
   it("refuses a huge or hostile plan before it reads it", aHugeOrHostilePlanIsRefusedBeforeItIsRead)
   it("counts the size in bytes, not in characters", theSizeIsInBytesNotCharacters)
-  it("lets go of an unknown member of any shape, nested deep", anUnknownMemberOfAnyShapeIsLetGo)
+  it("lets go of an unknown member of any shape, nested deep, and refuses nesting that would end the process", anUnknownMemberOfAnyShapeIsLetGo)
+  it("counts only the vertices of polygons against the most", onlyPolygonVerticesAreCountedAgainstTheMost)
   it("keeps a jump's target whatever the ids of the items are", aJumpKeepsItsTargetWhateverTheIds)
   it("refuses a jump to no item, in both formats and when writing", aJumpToNoItemIsRefused)
   it("refuses a null place and never reads it as 0", aNullPlaceIsRefusedAndNeverReadAsZero)
