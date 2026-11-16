@@ -1,6 +1,7 @@
 // The words that plain modules make (the question of a write, the reason a file was refused, the notice of a failed setting)
 // come from the locale files in the language of the page, and follow a switch of it.
 import { afterEach, describe, expect, it } from 'vitest'
+import { ARMED_LINE, UNKNOWN_LINE } from '../../e2e/questionLines'
 import { questionFor } from '@/composables/useStaged'
 import { validateDraft } from '@/lib/params/draft'
 import { checkMeta, parseMetadata } from '@/lib/params/metadata'
@@ -27,6 +28,14 @@ describe('a message of the interface from code', () => {
   it('takes the plural form of its count', () => {
     expect(say('question.write', { count: 1 }, 1)).toBe('Write 1 parameter to the vehicle?')
     expect(say('question.write', { count: 3 }, 3)).toBe('Write 3 parameters to the vehicle?')
+  })
+})
+
+describe('the question of a write, as the window specs expect it', () => {
+  it('has the two lines about the vehicle\'s state and the sentence that e2e/questionLines.ts has, word for word', () => {
+    expect(say('question.armed')).toBe(ARMED_LINE)
+    expect(say('question.unknown')).toBe(UNKNOWN_LINE)
+    expect(say('question.write', { count: 1 }, 1)).toBe('Write 1 parameter to the vehicle?')
   })
 })
 

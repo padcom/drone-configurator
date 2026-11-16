@@ -1,29 +1,14 @@
-// @vitest-environment node
 // The pattern that the window specs match the question of a write against: the sentence, then none of the two lines about the
 // vehicle's state or one of them, then the changes. A question with any other line is a wrong question, and does not match.
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+// (That the two lines are the words of the locale is checked in src/i18n/say.test.ts, through the interface's own `say`.)
 import { describe, expect, it } from 'vitest'
-import { ARMED_LINE, UNKNOWN_LINE, questionPattern } from './click'
+import { questionPattern } from './click'
+import { ARMED_LINE, UNKNOWN_LINE } from './questionLines'
 
 const SENTENCE = 'Write 1 parameter to the vehicle?'
 const CHANGE = 'RTL_ALT 1500 → 1700'
 const ARMED = ARMED_LINE
 const UNKNOWN = UNKNOWN_LINE
-
-describe('the two lines about the vehicle\'s state that the window specs expect', () => {
-  it('are the English words of the question, as the locale file has them (a changed text fails here, not in a window)', () => {
-    const file = fileURLToPath(new URL('../src/i18n/locales/en.json', import.meta.url))
-    const english = JSON.parse(readFileSync(file, 'utf8')) as {
-      question: { armed: string, unknown: string, write: string }
-    }
-
-    expect(ARMED_LINE).toBe(english.question.armed)
-    expect(UNKNOWN_LINE).toBe(english.question.unknown)
-    // (the sentence is the singular of `question.write`)
-    expect(SENTENCE).toBe(english.question.write.split(' | ')[0]?.replace('{count}', '1'))
-  })
-})
 
 describe('the pattern of the question of a write', () => {
   const whole = questionPattern(SENTENCE, 'RTL_ALT 1500 → 1700', true)
