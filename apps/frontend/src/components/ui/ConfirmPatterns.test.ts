@@ -134,6 +134,47 @@ describe('a second-press button that the first press pauses', () => {
   })
 })
 
+describe('a second-press button that is paused and let go again and again', () => {
+  it('goes back at a minute and the time it waits, however short each pause: the total is capped', async () => {
+    const button = second()
+    await button.trigger('click')
+
+    // a heartbeat that comes and goes: each time off for 4 s, on for 1 s: 5 s a round
+    for (let round = 0; round < 12; round += 1) {
+      // eslint-disable-next-line no-await-in-loop -- one change after the other, each flushed
+      await button.setProps({ off: 'waiting' })
+      vi.advanceTimersByTime(4000)
+      // eslint-disable-next-line no-await-in-loop -- see above
+      await button.setProps({ off: null })
+      vi.advanceTimersByTime(1000)
+    }
+    // (a minute, and the 5 s it is given: the 65 s are not through yet)
+    expect(button.classes()).toContain('armed')
+    await button.setProps({ off: 'waiting' })
+    vi.advanceTimersByTime(4000)
+    await button.setProps({ off: null })
+    vi.advanceTimersByTime(1000)
+    await button.vm.$nextTick()
+
+    expect(button.classes()).not.toContain('armed')
+    await button.trigger('click')
+
+    expect(button.emitted('confirm')).toBeUndefined()
+  })
+})
+
+describe('a second-press button pressed after its total time, though no timer ran', () => {
+  it('does not confirm a press after the total is over, even if no timer ran', async () => {
+    const button = second()
+    await button.trigger('click')
+    vi.setSystemTime(Date.now() + 70_000)
+    await button.trigger('click')
+
+    expect(button.emitted('confirm')).toBeUndefined()
+    expect(button.classes()).not.toContain('armed')
+  })
+})
+
 describe('a second-press button whose pause is too long', () => {
   it('goes back when the pause is longer than the most it may last (a minute)', async () => {
     const button = await paused()

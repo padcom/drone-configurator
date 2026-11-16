@@ -362,10 +362,10 @@ async function pressUntilAsked(app: E2eApp, question: string | RegExp, left: num
 }
 
 /** The line a vehicle that is armed has in the question of a write (the English words of `question.armed`). */
-const ARMED_LINE = 'The vehicle is armed: changes take effect now.'
+export const ARMED_LINE = 'The vehicle is armed: changes take effect now.'
 
 /** The line a vehicle whose state is not known has (the English words of `question.unknown`). */
-const UNKNOWN_LINE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+export const UNKNOWN_LINE = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
 
 /**
  * Makes a text into a regular expression's source that matches exactly that text.

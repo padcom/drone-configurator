@@ -1,12 +1,27 @@
 // The pattern that the window specs match the question of a write against: the sentence, then none of the two lines about the
 // vehicle's state or one of them, then the changes. A question with any other line is a wrong question, and does not match.
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { questionPattern } from './click'
+import { ARMED_LINE, UNKNOWN_LINE, questionPattern } from './click'
 
 const SENTENCE = 'Write 1 parameter to the vehicle?'
 const CHANGE = 'RTL_ALT 1500 → 1700'
-const ARMED = 'The vehicle is armed: changes take effect now.'
-const UNKNOWN = 'The vehicle\'s state is not known (it may be armed): changes take effect now.'
+const ARMED = ARMED_LINE
+const UNKNOWN = UNKNOWN_LINE
+
+describe('the two lines about the vehicle\'s state that the window specs expect', () => {
+  it('are the English words of the question, as the locale file has them (a changed text fails here, not in a window)', () => {
+    const english = JSON.parse(readFileSync(resolve(process.cwd(), 'src/i18n/locales/en.json'), 'utf8')) as {
+      question: { armed: string, unknown: string, write: string }
+    }
+
+    expect(ARMED_LINE).toBe(english.question.armed)
+    expect(UNKNOWN_LINE).toBe(english.question.unknown)
+    // (the sentence is the singular of `question.write`)
+    expect(SENTENCE).toBe(english.question.write.split(' | ')[0]?.replace('{count}', '1'))
+  })
+})
 
 describe('the pattern of the question of a write', () => {
   const whole = questionPattern(SENTENCE, 'RTL_ALT 1500 → 1700', true)

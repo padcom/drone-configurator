@@ -303,6 +303,11 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* (the status of an empty list is in the page all the time, and takes no room while it says nothing) */
+.messages .empty:empty {
+  display: none;
+}
+
 .messages-head {
   display: flex;
   gap: var(--space-3);

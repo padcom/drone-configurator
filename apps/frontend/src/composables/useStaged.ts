@@ -155,7 +155,8 @@ function armedLine(changes: StagedChange[], state: ArmedWord): string[] {
  */
 function hoverStepLine(changes: StagedChange[]): string[] {
   const steps = changes.filter(change => change.id === 'MOT_THST_HOVER' && change.from > 0)
-  const big = steps.some(change => Math.abs(change.to - change.from) > change.from / 4)
+  // (a tolerance: 0.3 to 0.375 is exactly a quarter, and 0.375 - 0.3 is 0.07500000000000001 in doubles)
+  const big = steps.some(change => Math.abs(change.to - change.from) > change.from / 4 + 1e-9)
 
   return big ? [say('question.hoverStep')] : []
 }
