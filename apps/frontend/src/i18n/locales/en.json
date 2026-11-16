@@ -213,7 +213,8 @@
       "blocked": {
         "armed": "The vehicle is armed. Logs are not downloaded or erased until it is disarmed.",
         "unknown": "It is not known whether the vehicle is disarmed (no recent heartbeat), so logs are not downloaded or erased.",
-        "busy": "A download is under way."
+        "busy": "A download is under way.",
+        "reading": "The list of logs is being read."
       },
       "outcome": {
         "downloaded": "Download finished. Downloaded: {count}",

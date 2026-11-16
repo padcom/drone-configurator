@@ -213,7 +213,8 @@
       "blocked": {
         "armed": "Il veicolo è armato. I log non vengono scaricati né cancellati finché non è disarmato.",
         "unknown": "Non si sa se il veicolo sia disarmato (nessun heartbeat recente), perciò i log non vengono scaricati né cancellati.",
-        "busy": "Un download è in corso."
+        "busy": "Un download è in corso.",
+        "reading": "L'elenco dei log è in lettura."
       },
       "outcome": {
         "downloaded": "Download terminato. Scaricati: {count}",

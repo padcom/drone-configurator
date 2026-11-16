@@ -213,7 +213,8 @@
       "blocked": {
         "armed": "El vehículo está armado. Los registros no se descargan ni se borran hasta que se desarme.",
         "unknown": "No se sabe si el vehículo está desarmado (sin latido reciente), así que los registros no se descargan ni se borran.",
-        "busy": "Hay una descarga en curso."
+        "busy": "Hay una descarga en curso.",
+        "reading": "Se está leyendo la lista de registros."
       },
       "outcome": {
         "downloaded": "Descarga terminada. Descargados: {count}",

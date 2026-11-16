@@ -3,7 +3,7 @@
 import type { LogsProgress, VehicleLog } from '@/generated/app'
 
 /** Why the vehicle's logs cannot be downloaded or erased now; null when they can. */
-export type Blocked = 'offline' | 'armed' | 'unknown' | 'busy' | null
+export type Blocked = 'offline' | 'armed' | 'unknown' | 'busy' | 'reading' | null
 
 /**
  * How a log is doing, for its row: not fetched yet (`new`), fetched and checked (`downloaded`), fetched over the log protocol
@@ -26,19 +26,35 @@ function armedBlock(armed: boolean | undefined): Blocked {
 }
 
 /**
+ * What a download or a read of the list in progress says: a download first, then the read.
+ *
+ * @param running whether a download is under way
+ * @param reading whether the list is being read
+ * @returns the reason, or null
+ */
+function busyBlock(running: boolean, reading: boolean): Blocked {
+  if (running) {
+    return 'busy'
+  }
+
+  return reading ? 'reading' : null
+}
+
+/**
  * Whether the logs can be downloaded or erased, and if not, why. A vehicle that is not known to be disarmed counts as armed.
  *
  * @param connected whether a vehicle is connected
  * @param armed whether it is armed; undefined when that is not known
  * @param running whether a download is under way
+ * @param reading whether the list of logs is being read (the backend refuses a download or an erase meanwhile: BUSY)
  * @returns the reason, or null
  */
-export function blockedBy(connected: boolean, armed: boolean | undefined, running: boolean): Blocked {
+export function blockedBy(connected: boolean, armed: boolean | undefined, running: boolean, reading = false): Blocked {
   if (!connected) {
     return 'offline'
   }
 
-  return armedBlock(armed) ?? (running ? 'busy' : null)
+  return armedBlock(armed) ?? busyBlock(running, reading)
 }
 
 /**

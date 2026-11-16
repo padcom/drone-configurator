@@ -208,7 +208,9 @@ async function listsTheLogOfTheFlight(): Promise<void> {
  * @param left how many presses remain
  */
 async function pressUntil(button: string, done: string, left: number): Promise<void> {
-  await window().waitFor(`document.querySelector('${button}')?.disabled === false`, 10_000)
+  // (The button is off while the list is read, which the vehicle's CRC checks make slow on a loaded runner: a press then would be
+  // answered BUSY by the backend, and so would the presses that follow it.)
+  await window().waitFor(`document.querySelector('${button}')?.disabled === false`, 60_000)
   await window().evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
   await window().click(button)
 

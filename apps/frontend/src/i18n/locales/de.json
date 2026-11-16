@@ -213,7 +213,8 @@
       "blocked": {
         "armed": "Das Fahrzeug ist scharf. Logs werden erst heruntergeladen oder gelöscht, wenn es entschärft ist.",
         "unknown": "Es ist nicht bekannt, ob das Fahrzeug entschärft ist (kein aktueller Heartbeat); deshalb werden Logs nicht heruntergeladen oder gelöscht.",
-        "busy": "Ein Download läuft."
+        "busy": "Ein Download läuft.",
+        "reading": "Die Liste der Logs wird gelesen."
       },
       "outcome": {
         "downloaded": "Download beendet. Heruntergeladen: {count}",

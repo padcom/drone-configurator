@@ -171,6 +171,8 @@ it('erases on the second press only, which names the count and that each log has
   expect(handle.logs.logs.value).toHaveLength(2)
   const now = Date.now()
   vi.spyOn(Date, 'now').mockReturnValue(now + 1000)
+  // (arming the erase reads the list again: the button is off until that is through, as the backend would answer BUSY)
+  await vi.waitFor(() => expect(erase.attributes('disabled')).toBeUndefined())
   await erase.trigger('click')
   await vi.waitFor(() => expect(wrapper.get('#logs-outcome').text()).toBe('Erased from the vehicle: 2.'))
 
