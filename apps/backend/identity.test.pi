@@ -218,6 +218,28 @@ async function dropsAJunkIdEvenAfterAFrameWrite(): Promise<void> throws Error {
   }
 }
 
+/// What the session knows of the vehicle's parameters is gone after a taking up, whether it is the same vehicle or another: a firmware that was
+/// flashed comes back as the same identity.
+async function forgetsTheParameterNamesWhenTakenUp(): Promise<void> throws Error {
+  await connectedBoard(versionWith(77))
+  link.typeMayChange = true
+  try {
+    link.paramNames.set("FENCE_ALT_MAX", true)
+    link.paramsComplete = true
+    // the same vehicle (resumed)
+    expect(await takeUpAsAHexarotor(versionWith(77))).toBe("true  HEXAROTOR")
+    expect(`${link.paramsComplete} ${link.paramNames.size}`).toBe("false 0")
+    // another vehicle
+    link.paramNames.set("FENCE_ALT_MAX", true)
+    link.paramsComplete = true
+    answerWith(versionWith(78))
+    await takeUp(vehicle(MavType.QUADROTOR), link.generation)
+    expect(`${link.state.errorCode ?? ""} ${link.paramsComplete} ${link.paramNames.size}`).toBe("VEHICLE_CHANGED false 0")
+  } finally {
+    link.close()
+  }
+}
+
 /// The exception is for one taking up: a change of type after a later, successful resume (with no write since) is another vehicle.
 async function theExceptionEndsWithTheTakingUp(): Promise<void> throws Error {
   await connectedBoard(versionWith(77))
@@ -280,6 +302,7 @@ describe("who a vehicle is", () => {
 describe("a vehicle that comes back as another type", () => {
   it("is the same vehicle after this session changed its frame, and the board is the same", resumesAfterTheFrameWasChangedHere)
   it("is another vehicle without such a write, even with the same unique id", dropsAChangedTypeWithoutAWrite)
+  it("forgets which parameters the vehicle has, whether it is taken up as the same or as another", forgetsTheParameterNamesWhenTakenUp)
   it("is another vehicle when the unique id is another, even after a frame write", dropsAnotherBoardAfterAFrameWrite)
   it("is another vehicle when it has no unique id, even after a frame write", dropsAJunkIdEvenAfterAFrameWrite)
   it("is another vehicle when the type changes again after a resume with no write since", theExceptionEndsWithTheTakingUp)

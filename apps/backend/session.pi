@@ -127,6 +127,13 @@ class Link {
     }
   }
 
+  /// Forgets which parameters the vehicle has: what was downloaded is not what a vehicle that comes back (another one, or the same one with
+  /// another firmware after a reboot) has.
+  public forgetParameterNames(): void {
+    paramNames.clear()
+    paramsComplete = false
+  }
+
   /// Stops the operations that are running (a parameter download, a write: a write is reported as not
   /// confirmed and never sent again), and lets new ones start. The link and the connection stay.
   public abortOperations(): void {
@@ -170,8 +177,7 @@ class Link {
     typeMayChange = false
     armed = false
     heartbeatAt = 0
-    paramNames.clear()
-    paramsComplete = false
+    forgetParameterNames()
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false
