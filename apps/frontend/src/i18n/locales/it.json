@@ -853,7 +853,7 @@
       "title": "Controllo remoto",
       "intro": "Pilota il veicolo con un gamepad, o con una radio che si presenta come tale (ad esempio una TX16S via USB).",
       "allow": "Consenti il controllo remoto",
-      "allowHelp": "Disattivato per impostazione predefinita e solo per un simulatore: l'applicazione rifiuta qualsiasi altro veicolo. Questo lo consente soltanto; non lo avvia.",
+      "allowHelp": "Disattivato per impostazione predefinita e solo per il simulatore integrato o un collegamento a questo computer: qualsiasi altro veicolo è rifiutato. Questo lo consente soltanto; non lo avvia.",
       "status": {
         "ready": "Tutto è pronto per il controllo remoto.",
         "link": "Nessun simulatore è collegato."
@@ -862,7 +862,7 @@
         "title": "Gamepad",
         "none": "Nessun gamepad trovato finora. Una radio compare quando muovi uno stick.",
         "gone": "Il gamepad ora non viene letto. Muovi uno stick.",
-        "axis": "Asse {n}",
+        "axis": "CH{n}",
         "buttons": "Pulsanti premuti: {list}",
         "noButtons": "Nessun pulsante è premuto."
       },
@@ -872,8 +872,11 @@
         "switch": "Interruttore",
         "button": "Pulsante"
       },
-      "channel": "Canale",
-      "sourceAxis": "Asse {n}",
+      "channel": "Canale del veicolo",
+      "vehicleChannel": "Canale del veicolo {n}",
+      "own": "Quello della radio",
+      "axesNote": "Il browser potrebbe non riportare ogni asse della radio: uno che resta a 0 potrebbe essere stato perso.",
+      "sourceAxis": "CH{n}",
       "sourceButton": "Pulsante {n}",
       "moveIt": "Muovilo",
       "moveCancel": "Annulla",
@@ -903,7 +906,7 @@
         "rest": "Lascia gli stick a riposo, con il gas in basso, e attendi.",
         "restReady": "Fatto. Ora muoverai ogni stick in tutti i suoi estremi.",
         "move": "Muovi ogni stick lentamente in tutti i suoi estremi, più volte. Poi termina.",
-        "axis": "Asse {n}",
+        "axis": "CH{n}",
         "next": "Avanti",
         "finish": "Termina",
         "cancel": "Annulla",

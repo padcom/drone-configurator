@@ -91,8 +91,8 @@ export interface RcMapping {
   readonly block: ComputedRef<ControlBlock | null>
   /** The pulse a row makes now (µs), or null when no pad is read. */
   pulseOf: (row: Row) => number | null
-  /** Adds a row of a kind, on the next free channel and the control that is moved next. */
-  add: (kind: NewRow) => void
+  /** Adds a row of a kind, on the channel given (refused for one that arms or stops the vehicle) or else the next free one. */
+  add: (kind: NewRow, channel?: number) => void
   /** Takes a row away. */
   remove: (index: number) => void
   /** Changes a row (finite numbers only). */
@@ -267,13 +267,47 @@ class Mapping implements RcMapping {
     return reading.kind === 'live' ? rowPulse(row, reading.sample, this.rangeOf(row.channel)) : null
   }
 
-  add = (kind: NewRow): void => {
+  add = (kind: NewRow, on?: number): void => {
     const draft = this.editable()
-    const channel = draft === null ? null : freeChannel(draft, this.deps.facts.value)
 
-    if (draft !== null && channel !== null) {
+    if (draft !== null) {
+      this.addOn(draft, kind, on ?? freeChannel(draft, this.deps.facts.value))
+    }
+  }
+
+  /**
+   * Adds a row on a channel, when it may be there.
+   *
+   * @param draft the mapping
+   * @param kind the kind of row
+   * @param channel the channel, or null when there is none to take
+   */
+  private addOn(draft: Profile, kind: NewRow, channel: number | null): void {
+    if (channel !== null && this.mayTake(draft, channel)) {
+      this.refusal.value = null
       this.keep(addRow(draft, { stick: newStick, switch: newSwitch, button: newButton }[kind](channel, 0)))
     }
+  }
+
+  /**
+   * Whether a row may be added on a channel: it is a channel, no row drives it, and the vehicle does not arm or stop with it (the
+   * person is told when it does).
+   *
+   * @param draft the mapping
+   * @param channel the channel
+   * @returns true when it may
+   */
+  private mayTake(draft: Profile, channel: number): boolean {
+    if (!validChannel(channel) || draft.rows.some(row => row.channel === channel)) {
+      return false
+    }
+    if (this.arms(channel)) {
+      this.refusal.value = { code: 'arm', channel, serial: this.refusals() + 1 }
+
+      return false
+    }
+
+    return true
   }
 
   /**

@@ -228,6 +228,37 @@ describe('the channel of a row that is added', () => {
   })
 })
 
+describe('a row added on a channel that was chosen', () => {
+  it('goes on that channel, and not on one a row drives or one that is not a channel', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.add('switch', 11)
+    mapping.add('button', 3)
+    mapping.add('button', 17)
+    mapping.add('stick', 11)
+
+    expect(rowsOf(mapping).map(row => [row.kind, row.channel])).toEqual([
+      ['stick', 1], ['stick', 2], ['stick', 3], ['stick', 4], ['switch', 11],
+    ])
+    scope.stop()
+  })
+
+  it('is refused for a channel the vehicle arms with, and the person is told which', async () => {
+    const { pads, mapping, scope } = await rig([], vehicle({ 9: 153 }))
+
+    plugged(pads)
+    mapping.add('switch', 9)
+
+    expect(rowsOf(mapping)).toHaveLength(4)
+    expect(mapping.refusal.value).toMatchObject({ code: 'arm', channel: 9 })
+    mapping.add('switch', 10)
+    expect(mapping.refusal.value).toBeNull()
+    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 10])
+    scope.stop()
+  })
+})
+
 describe('"move it"', () => {
   it('sets the axis of a row to the one that is moved after it began, whatever the sticks said before', async () => {
     const { pads, mapping, scope } = await rig()

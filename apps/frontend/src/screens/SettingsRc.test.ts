@@ -86,7 +86,15 @@ it('shows the pad, its mapping of four sticks, and what stands in the way', asyn
   await wrapper.get('#rc-allow').trigger('click')
   await flushPromises()
   expect(wrapper.get('#rc-device-name').text()).toBe(TX16S)
-  expect(wrapper.findAll('.rc-row')).toHaveLength(4)
+  expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(4)
+  expect(wrapper.findAll('.rc-free')).toHaveLength(12)
+  expect(wrapper.get('[data-testid="rc-free-5"]').text()).toContain('Vehicle channel 5')
+  expect(wrapper.get('[data-testid="rc-free-5"]').text()).toContain('The radio\'s own')
+  expect(wrapper.get('#rc-device-name').text()).toBe(TX16S)
+  expect(wrapper.get('.rc-axes').text()).toContain('CH1')
+  expect(wrapper.get('.rc-axes').text()).toContain('CH8')
+  expect(wrapper.get('.rc-axes').text()).not.toContain('CH9')
+  expect(wrapper.get('#rc-axes-note').text()).toContain('may not report every axis')
   expect(wrapper.get('#rc-issues').text()).toContain('has not been calibrated')
   expect(wrapper.get('#rc-status').text()).toBe('No simulator is connected.')
   expect(wrapper.find('output').exists()).toBe(false)
@@ -100,7 +108,7 @@ it('says each fact once: the simulator rule in one place, and a pad that is not 
   await vi.waitFor(() => expect(wrapper.find('#rc-device-gone').exists()).toBe(true))
   const text = wrapper.text()
 
-  expect(text.match(/simulator only/gu)).toHaveLength(1)
+  expect(text.match(/built-in simulator or a link to this computer/gu)).toHaveLength(1)
   expect(text.match(/not being read/gu)).toHaveLength(1)
   expect(text.match(/No gamepad/gu) ?? []).toHaveLength(0)
 })
@@ -112,10 +120,12 @@ it('changes a row and keeps the mapping in the settings, and adds and takes away
   await wrapper.get('[data-testid="rc-row-0"] .kit-toggle').trigger('click')
   await flushPromises()
   expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"invert":true')
-  await wrapper.get('[id$="-add-switch"]').trigger('click')
-  expect(wrapper.findAll('.rc-row')).toHaveLength(5)
+  await wrapper.get('[id$="-add-switch-6"]').trigger('click')
+  expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(5)
+  expect(wrapper.find('[data-testid="rc-free-6"]').exists()).toBe(false)
   await wrapper.get('[id$="-remove-4"]').trigger('click')
-  expect(wrapper.findAll('.rc-row')).toHaveLength(4)
+  expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(4)
+  expect(wrapper.find('[data-testid="rc-free-6"]').exists()).toBe(true)
 })
 
 it('runs the wizard, which locks the rows, and can be given up', async () => {
@@ -123,12 +133,12 @@ it('runs the wizard, which locks the rows, and can be given up', async () => {
 
   await plugged(wrapper)
   await wrapper.get('#rc-wizard-main').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('[id$="-add-stick"]').attributes('disabled')).toBeDefined())
+  await vi.waitFor(() => expect(wrapper.get('[id$="-add-stick-5"]').attributes('disabled')).toBeDefined())
   expect(wrapper.get('#rc-wizard-main').text()).toBe('Next')
   await wrapper.get('#rc-wizard-cancel').trigger('click')
   expect(wrapper.find('#rc-wizard-cancel').exists()).toBe(false)
   expect(wrapper.get('#rc-wizard-main').text()).toBe('Calibrate…')
-  expect(wrapper.get('[id$="-add-stick"]').attributes('disabled')).toBeUndefined()
+  expect(wrapper.get('[id$="-add-stick-5"]').attributes('disabled')).toBeUndefined()
 })
 
 it('keeps focus in the wizard: one button through the steps, and focus comes back to it when it is given up', async () => {
@@ -166,20 +176,20 @@ it('says why the wizard\'s button is disabled: the pad that is not read, and the
   expect(wrapper.get(`[id="${described}"]`).text()).toContain('Leave the sticks')
 })
 
-it('does not make the channel field again when a channel is chosen: focus stays in it', async () => {
+it('moves a row to the channel that is chosen, shows it there, and keeps the focus in its field', async () => {
   const { wrapper } = await screen()
 
   await plugged(wrapper)
-  const select = wrapper.get('[data-testid="rc-row-0"] select')
-  const element = select.element as HTMLSelectElement
-
-  element.focus()
+  const select = wrapper.get('[data-testid="rc-row-0"] select');
+  (select.element as HTMLSelectElement).focus()
   await select.setValue('9')
   await flushPromises()
+  await vi.waitFor(() => expect(wrapper.find('[data-testid="rc-free-1"]').exists()).toBe(true))
+  const field = wrapper.get('[data-testid="rc-row-0"] select').element as HTMLSelectElement
 
-  expect(wrapper.get('[data-testid="rc-row-0"] select').element).toBe(element)
-  expect(document.activeElement).toBe(element)
-  expect(element.value).toBe('9')
+  expect(field.value).toBe('9')
+  expect(document.activeElement).toBe(field)
+  expect(wrapper.find('[data-testid="rc-free-9"]').exists()).toBe(false)
 })
 
 it('never starts a control: the mock vehicle is not asked for one, whatever is set', async () => {

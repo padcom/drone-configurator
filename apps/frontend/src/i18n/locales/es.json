@@ -853,7 +853,7 @@
       "title": "Control remoto",
       "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB).",
       "allow": "Permitir el control remoto",
-      "allowHelp": "Desactivado por defecto y solo para un simulador: la aplicación rechaza cualquier otro vehículo. Esto solo lo permite; no lo inicia.",
+      "allowHelp": "Desactivado por defecto y solo para el simulador integrado o un enlace a este ordenador: cualquier otro vehículo se rechaza. Esto solo lo permite; no lo inicia.",
       "status": {
         "ready": "Todo está listo para el control remoto.",
         "link": "No hay ningún simulador conectado."
@@ -862,7 +862,7 @@
         "title": "Mando",
         "none": "Aún no se ha encontrado ningún mando. Una radio aparece al mover un stick.",
         "gone": "Ahora no se lee el mando. Mueve un stick.",
-        "axis": "Eje {n}",
+        "axis": "CH{n}",
         "buttons": "Botones pulsados: {list}",
         "noButtons": "No hay ningún botón pulsado."
       },
@@ -872,8 +872,11 @@
         "switch": "Interruptor",
         "button": "Botón"
       },
-      "channel": "Canal",
-      "sourceAxis": "Eje {n}",
+      "channel": "Canal del vehículo",
+      "vehicleChannel": "Canal del vehículo {n}",
+      "own": "El propio de la radio",
+      "axesNote": "El navegador puede no informar de todos los ejes de la radio: uno que se queda en 0 puede haberse perdido.",
+      "sourceAxis": "CH{n}",
       "sourceButton": "Botón {n}",
       "moveIt": "Muévelo",
       "moveCancel": "Cancelar",
@@ -903,7 +906,7 @@
         "rest": "Deja los sticks en reposo, con el acelerador abajo, y espera.",
         "restReady": "Hecho. Ahora moverás cada stick a todos sus extremos.",
         "move": "Mueve cada stick despacio a todos sus extremos, varias veces. Luego termina.",
-        "axis": "Eje {n}",
+        "axis": "CH{n}",
         "next": "Siguiente",
         "finish": "Terminar",
         "cancel": "Cancelar",

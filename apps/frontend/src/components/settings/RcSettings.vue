@@ -17,12 +17,13 @@
         <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">{{ t('settings.rc.device.gone') }}</p>
         <ul v-else class="rc-axes">
           <li v-for="(value, axis) in sample.axes" :key="axis">
-            <span>{{ t('settings.rc.device.axis', { n: axis }) }}</span>
-            <ProgressBar :value="(value + 1) / 2" :label="t('settings.rc.device.axis', { n: axis })" />
+            <span>{{ t('settings.rc.device.axis', { n: axis + 1 }) }}</span>
+            <ProgressBar :value="(value + 1) / 2" :label="t('settings.rc.device.axis', { n: axis + 1 })" />
             <span class="mono">{{ number(value, 2) }}</span>
           </li>
         </ul>
         <p v-if="pad.live.value" id="rc-buttons" class="muted">{{ buttonsText }}</p>
+        <p v-if="pad.live.value" id="rc-axes-note" class="muted">{{ t('settings.rc.axesNote') }}</p>
       </template>
     </div>
     <div v-if="mapping.draft.value !== null" class="rc-mapping">

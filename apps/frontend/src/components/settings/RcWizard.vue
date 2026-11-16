@@ -4,16 +4,16 @@
       <p :id="`${uid}-step`" class="rc-step" role="status">{{ t(`settings.rc.wizard.${stepKey}`) }}</p>
       <ul v-if="view.step === 'move'" class="rc-travel">
         <li v-for="one in view.axes" :key="one.axis">
-          <span>{{ t('settings.rc.wizard.axis', { n: one.axis }) }}</span>
+          <span>{{ t('settings.rc.wizard.axis', { n: one.axis + 1 }) }}</span>
           <ProgressBar
             :value="one.travel / 2"
-            :label="t('settings.rc.wizard.axis', { n: one.axis })"
+            :label="t('settings.rc.wizard.axis', { n: one.axis + 1 })"
             :tone="view.failed.includes(one.axis) ? 'warn' : 'accent'"
           />
         </li>
       </ul>
       <p v-if="view.failed.length > 0" id="rc-wizard-failed" class="rc-warn" role="alert">
-        {{ t('settings.rc.wizard.failed', { axes: view.failed.join(', ') }) }}
+        {{ t('settings.rc.wizard.failed', { axes: view.failed.map(axis => `CH${axis + 1}`).join(', ') }) }}
       </p>
     </template>
     <div class="rc-wizard-actions">

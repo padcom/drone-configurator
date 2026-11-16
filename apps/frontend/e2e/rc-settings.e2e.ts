@@ -54,6 +54,7 @@ interface Probe {
   topMoved: boolean
   reachable: boolean
   rows: number
+  free: number
 }
 
 /** The look at the page, made in the page: scrolls the area and the page to their ends, says what moved and what is in reach. */
@@ -91,7 +92,8 @@ const PROBE = `(async () => {
       railMoved: Math.abs(rail.getBoundingClientRect().top - railBefore) > 1,
       topMoved: Math.abs(top.getBoundingClientRect().top - topBefore) > 1,
       reachable: at.top >= 0 && at.bottom <= room + 1,
-      rows: document.querySelectorAll('.rc-row').length,
+      rows: document.querySelectorAll('.rc-row:not(.rc-free)').length,
+      free: document.querySelectorAll('.rc-free').length,
     }
   })()`
 
@@ -112,14 +114,15 @@ async function probe(size: { width: number, height: number }): Promise<Probe> {
 it('shows the pad and the four sticks of its mapping, with remote control off', async () => {
   expect(await window().evaluate<string>(`document.querySelector('#rc-allow').getAttribute('aria-checked')`)).toBe('false')
   expect(await window().text('#rc-device-name')).toContain('E2E Radio')
-  expect(await window().evaluate<number>(`document.querySelectorAll('.rc-row').length`)).toBe(4)
+  expect(await window().evaluate<number>(`document.querySelectorAll('.rc-row:not(.rc-free)').length`)).toBe(4)
+  expect(await window().evaluate<number>(`document.querySelectorAll('.rc-free').length`)).toBe(12)
 })
 
 for (const size of SIZES) {
   it(`scrolls only the middle panel, with nothing past the column's edge, at ${size.width}x${size.height}`, async () => {
     const seen = await probe(size)
 
-    expect(seen.rows).toBe(4)
+    expect([seen.rows, seen.free]).toEqual([4, 12])
     expect(seen.sideways).toEqual([])
     expect(seen.reachable).toBe(true)
     // From 1000 px only the middle panel scrolls: the page, the rail and the top bar stay. Under it the shell stacks the rail
