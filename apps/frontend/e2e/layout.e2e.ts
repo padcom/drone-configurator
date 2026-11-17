@@ -452,3 +452,26 @@ it('keeps Write and "Put back initial values" in a 1100x480 window with a reason
   expect(seen.backTop).toBeGreaterThanOrEqual(0)
   expect(seen.backBottom).toBeLessThanOrEqual(seen.height! + 1)
 }, 120_000)
+
+// (after the test above: the vehicle is silent, the reason shows and the values are still queued)
+it('shows the reason and the changed values whole in a window of the usual height (1440x768): nothing is cut', async () => {
+  await resize({ width: 1440, height: 768 })
+  await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 600))`)
+  const seen = await window().evaluate<Record<string, number>>(`(() => {
+    const top = document.querySelector('.tune-aside .pane-top')
+    const list = document.querySelector('.tune-write-list')
+    const write = document.getElementById('tune-more-write').getBoundingClientRect()
+    return {
+      topCut: top ? top.scrollHeight - top.clientHeight : 99,
+      listShown: list.clientHeight,
+      listNatural: Math.min(list.scrollHeight, 150),
+      writeBottom: write.bottom,
+      height: window.innerHeight,
+    }
+  })()`)
+
+  // (the reason has the room it needs, the list is its natural height up to the box it scrolls in, and Write is in the window)
+  expect(seen.topCut).toBeLessThanOrEqual(1)
+  expect(seen.listShown).toBeGreaterThanOrEqual(seen.listNatural!)
+  expect(seen.writeBottom).toBeLessThanOrEqual(seen.height! + 1)
+}, 60_000)
