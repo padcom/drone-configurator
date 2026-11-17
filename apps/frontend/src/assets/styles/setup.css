@@ -832,7 +832,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  max-height: 10rem;
+  max-height: min(10rem, 11vh);
   padding: 0;
   margin: 0;
   overflow: hidden auto;
@@ -893,8 +893,16 @@
     margin: calc(-1 * var(--space-1));
   }
 
+  /* The fixed parts must leave room for the Write button in a short window: a long reason at the top scrolls in a box of its own
+     (as the list of changes does), and only a window too short even for that scrolls the aside. */
   .tune-aside {
     flex: 0 0 280px;
+    overflow-y: auto;
+  }
+
+  .tune-aside .pane-top {
+    max-height: 11vh;
+    overflow-y: auto;
   }
 }
 

@@ -120,6 +120,14 @@ const HELPERS = `
     const portRows = new Set(tops).size || 1
     return { portRows, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs), labelled }
   }
+  // a page with a live chart is not still until its height has stopped changing: it is waited for, up to three seconds
+  const settle = async box => {
+    for (let still = 0, was = -1, tries = 0; still < 3 && tries < 30; tries += 1) {
+      await new Promise(resolve => setTimeout(resolve, 150))
+      still = box.scrollHeight === was ? still + 1 : 0
+      was = box.scrollHeight
+    }
+  }
   // the boxes of a page (a part of Tune scrolls the body of its pane; a Setup page its middle column)
   const parts = () => ({
     main: document.querySelector('.tune-main .pane-body, .setup-main'),
@@ -154,6 +162,7 @@ function probe(): string {
     ${HELPERS}
     await new Promise(resolve => setTimeout(resolve, 400))
     const { main, side, nav, tabs, area } = parts()
+    await settle(main)
     const top = element => element ? element.getBoundingClientRect().top : 0
     const before = top(side)
     const fixedBefore = fixedTops()
@@ -399,3 +408,47 @@ for (const size of REPLAY_SIZES) {
     expect(seen.page).toBe(false)
   }, 60_000)
 }
+
+/**
+ * Types a value that differs into the first ten sliders of the page that is shown (the top of each one's range).
+ *
+ * @returns how many were typed
+ */
+async function stageTen(): Promise<number> {
+  const rows = await window().evaluate<string[]>(`[...document.querySelectorAll('[data-tune]')]
+    .filter(row => row.querySelector('input[type="range"]'))
+    .slice(0, 10)
+    .map(row => row.dataset.tune + ' ' + row.querySelector('input[type="range"]').max)`)
+  for (const row of rows) {
+    const [id, max] = row.split(' ')
+    // eslint-disable-next-line no-await-in-loop -- one value after the other
+    await window().fill(`[data-tune="${id}"] input[type="text"]`, max as string)
+  }
+
+  return rows.length
+}
+
+// (last in the file: the vehicle is silenced, and stays so)
+it('keeps Write and "Put back initial values" in a 1100x480 window with a reason and many changes in the aside', async () => {
+  await resize({ width: 1100, height: 480 })
+  await window().evaluate(`location.hash = '#/tune/more'`)
+  await window().waitFor(`document.querySelectorAll('[data-tune] input[type="range"]').length >= 5`, 30_000)
+  const staged = await stageTen()
+  await window().waitFor(`document.querySelectorAll('.tune-write-row').length >= ${staged - 2}`, 10_000)
+  // a vehicle that says nothing: its state is not known, and the aside says why at its top
+  vehicle?.mute()
+  await window().waitFor(`document.querySelector('#tune-more-blocked') !== null`, 60_000)
+  await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 400))`)
+  const seen = await window().evaluate<Record<string, number>>(`(() => {
+    const box = id => document.getElementById(id).getBoundingClientRect()
+    const write = box('tune-more-write')
+    const back = box('tune-more-initial')
+    const height = window.innerHeight
+    return { writeTop: write.top, writeBottom: write.bottom, backTop: back.top, backBottom: back.bottom, height }
+  })()`)
+
+  expect(seen.writeTop).toBeGreaterThanOrEqual(0)
+  expect(seen.writeBottom).toBeLessThanOrEqual(seen.height! + 1)
+  expect(seen.backTop).toBeGreaterThanOrEqual(0)
+  expect(seen.backBottom).toBeLessThanOrEqual(seen.height! + 1)
+}, 120_000)
