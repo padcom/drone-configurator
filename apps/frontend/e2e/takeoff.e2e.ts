@@ -147,8 +147,10 @@ it('is on once the vehicle reports a 3D fix and the EKF\'s position, and opens a
   expect(await window().evaluate<boolean>(`document.querySelector('#confirm-hold') === null`)).toBe(true)
   expect(await window().text('#takeoff-limits')).toContain('2 to 50 m')
   expect(await window().text('#takeoff-vehicle')).toContain('QUADROTOR')
-  // (Cancel has the focus: a key pressed to open the dialog turns it down, not up)
-  expect(await window().evaluate<string>(`document.activeElement?.id`)).toBe('takeoff-cancel')
+  // (the focus is on the altitude: a key pressed to open the dialog does not send it; no Cancel button, a cross in the corner)
+  expect(await window().evaluate<string>(`document.activeElement?.id`)).toBe('takeoff-altitude')
+  expect(await window().evaluate<boolean>(`document.querySelector('#takeoff-cancel') === null`)).toBe(true)
+  expect(await window().evaluate<boolean>(`document.querySelector('dialog .kit-dialog-close') !== null`)).toBe(true)
 })
 
 it('does not go ahead with an altitude that is empty, not a number, below 2 m or above 50 m, and says why', async () => {
@@ -169,7 +171,7 @@ it('sends nothing when it is turned down with Escape or Cancel', async () => {
   await chord(window(), 'Escape')
   await window().waitFor(`document.querySelector('#takeoff-altitude') === null`, 10_000)
   await opensDialog()
-  await window().click('#takeoff-cancel')
+  await window().click('dialog .kit-dialog-close')
   await window().waitFor(`document.querySelector('#takeoff-altitude') === null`, 10_000)
   await sleep(500)
 
@@ -192,7 +194,7 @@ it('ignores a press of the button in its first moments, and goes ahead after the
     expect(sent()).toEqual([])
   }
   await window().waitFor(`document.querySelector('#takeoff-go').dataset.armed === 'true'`, 10_000)
-  await window().click('#takeoff-cancel')
+  await window().click('dialog .kit-dialog-close')
   await window().waitFor(`document.querySelector('#takeoff-altitude') === null`, 10_000)
 })
 

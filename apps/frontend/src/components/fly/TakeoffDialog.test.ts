@@ -98,11 +98,15 @@ async function type(wrapper: VueWrapper, text: string): Promise<void> {
   await flushPromises()
 }
 
-it('has the altitude of the last takeoff (10 m at first), Cancel with the focus, and a plain button', async () => {
+it('has the altitude of the last takeoff (10 m at first) with the focus, ONLY the Take off button and the cross', async () => {
   const { wrapper } = await dialog(true)
 
   expect((wrapper.get('#takeoff-altitude').element as HTMLInputElement).value).toBe('10')
-  expect(document.activeElement?.id).toBe('takeoff-cancel')
+  // (the focus is on the altitude: the button that goes ahead is not what a key pressed by mistake finds)
+  expect(document.activeElement?.id).toBe('takeoff-altitude')
+  expect(wrapper.findAll('.kit-dialog-actions button').map(button => button.attributes('id'))).toEqual(['takeoff-go'])
+  expect(wrapper.find('#takeoff-cancel').exists()).toBe(false)
+  expect(wrapper.get('.kit-dialog-close').attributes('aria-label')).toBe('Cancel')
   expect(wrapper.find('#confirm-hold').exists()).toBe(false)
   expect(wrapper.get('#takeoff-go').text()).toBe('Take off')
   expect(wrapper.get('#takeoff-limits').text()).toContain('2 to 50 m')
@@ -202,12 +206,17 @@ it('uses the highest takeoff of the settings', async () => {
   expect(wrapper.get('#takeoff-problem').text()).toContain('At most 30 m.')
 })
 
-it('closes with Cancel and sends nothing', async () => {
+it('closes with the cross and sends nothing, and Escape does the same', async () => {
   const { wrapper, control } = await dialog(true)
-  await wrapper.get('#takeoff-cancel').trigger('click')
+  await wrapper.get('.kit-dialog-close').trigger('click')
 
   expect(wrapper.find('dialog').exists()).toBe(false)
   expect(sentOf(control)).toEqual([])
+  const again = await dialog(true)
+  await again.wrapper.get('dialog').trigger('cancel')
+
+  expect(again.wrapper.find('dialog').exists()).toBe(false)
+  expect(sentOf(again.control)).toEqual([])
 })
 
 it('takes off an armed vehicle in GUIDED when the button is pressed: it closes, and sends the takeoff once', async () => {

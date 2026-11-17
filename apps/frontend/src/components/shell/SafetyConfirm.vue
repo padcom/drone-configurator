@@ -28,9 +28,9 @@
 // The one way to ask the user before something that changes the vehicle: what will happen, to which vehicle, and either a
 // button that must be held (`hold`: arming, an emergency stop) or a plain one (`plain`: a parameter write, which the
 // vehicle's read-back makes safe). The safe answer is the default focus, and nothing can confirm (or cancel, in case a key
-// from the button that opened it is still held) in the first moments after it appears. There is no typed word, ever. Arming
-// has no Cancel button: a cross in the corner and Escape turn it down, and the hold button has the focus (the first moments are
-// ignored, a repeating key does nothing, and letting go early cancels the hold, as for every hold).
+// from the button that opened it is still held) in the first moments after it appears. There is no typed word, ever. A question
+// that is answered by a hold has no Cancel button: a cross in the corner and Escape turn it down, and the hold button has the
+// focus (the first moments are ignored, a repeating key does nothing, and letting go early cancels the hold, as for every hold).
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
@@ -49,8 +49,11 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-/** Whether it is turned down with a cross and Escape (no Cancel button): then the hold button is the one that has the focus. */
-const cross = computed(() => props.options.dismissal === 'cross')
+/**
+ * Whether it is turned down with a cross and Escape (no Cancel button): then the hold button is the one that has the focus. Every
+ * question that is answered by a hold is (the leader's rule); a plain one has a Cancel button unless it asks for the cross.
+ */
+const cross = computed(() => props.options.level === 'hold' || props.options.dismissal === 'cross')
 const tapped = ref(false)
 let armed = false
 let answered = false
