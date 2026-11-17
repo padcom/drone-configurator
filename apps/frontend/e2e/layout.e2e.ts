@@ -158,9 +158,10 @@ function probe(): string {
     const before = top(side)
     const fixedBefore = fixedTops()
     const navBefore = top(nav) + top(tabs)
-    const scrollWant = Math.min(300, main.scrollHeight - main.clientHeight)
     main.scrollTop = 300
     await new Promise(resolve => requestAnimationFrame(resolve))
+    // (how far it could go is read WITH where it got to: a live chart may change the height of the page between the two)
+    const scrollWant = Math.round(Math.min(300, main.scrollHeight - main.clientHeight))
     const root = document.scrollingElement
     const result = {
       before, after: top(side), navBefore, navAfter: top(nav) + top(tabs), scrollWant, scrollGot: Math.round(main.scrollTop),
