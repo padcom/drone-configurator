@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { problemsOf } from './profile'
-import { DEFAULT_CALIBRATION, type ButtonRow, type Profile, type StickRow, type SwitchRow } from './types'
+import { hasSource, problemsOf } from './profile'
+import { DEFAULT_CALIBRATION, NO_SOURCE, type ButtonRow, type Profile, type StickRow, type SwitchRow } from './types'
 
 const STICK: StickRow = {
   kind: 'stick', channel: 1, axis: 0, invert: false, calibration: DEFAULT_CALIBRATION, deadZone: 0.08, expo: 0.2,
@@ -21,6 +21,17 @@ describe('a mapping that may drive a vehicle', () => {
     expect(problemsOf(suggestion)).toEqual([{ code: 'uncalibrated', channel: 0 }])
     expect(problemsOf({ ...suggestion, rows: [] })).toEqual([{ code: 'uncalibrated', channel: 0 }])
     expect(problemsOf({ ...suggestion, calibrated: true })).toEqual([])
+  })
+})
+
+describe('a row with no control', () => {
+  it('is a problem of the mapping, for a stick, a switch and a button, and for an axis that is not a whole number', () => {
+    expect(problemsOf(profile({ ...SWITCH, axis: NO_SOURCE }))).toEqual([{ code: 'source', channel: 5 }])
+    expect(problemsOf(profile({ ...BUTTON, button: NO_SOURCE }))).toEqual([{ code: 'source', channel: 6 }])
+    expect(problemsOf(profile({ ...STICK, axis: NO_SOURCE }))).toEqual([{ code: 'source', channel: 1 }])
+    expect(problemsOf(profile({ ...SWITCH, axis: 2.5 }))).toEqual([{ code: 'source', channel: 5 }])
+    expect(hasSource(SWITCH)).toBe(true)
+    expect(hasSource({ ...SWITCH, axis: NO_SOURCE })).toBe(false)
   })
 })
 

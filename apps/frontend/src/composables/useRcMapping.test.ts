@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, shallowRef } from 'vue'
 import { mockBackend } from '@/mock/mock-backend'
 import { RC_ALLOW_KEY, profileKey } from '@/lib/rc/store'
-import type { Row } from '@/lib/rc/types'
+import { NO_SOURCE, type Row } from '@/lib/rc/types'
 import type { Facts } from '@/lib/rc/vehicle'
 import { factsOf } from '@/lib/rc/vehicle'
 import type { ConnectRequest } from '@/generated/app'
@@ -224,6 +224,99 @@ describe('the channel of a row that is added', () => {
     ])
     mapping.remove(4)
     expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 7])
+    scope.stop()
+  })
+})
+
+describe('a row that is added has no control until the person moves one', () => {
+  it('makes nothing, however the pad is moved, is a problem of the mapping, and waits for "move it"', async () => {
+    const { pads, mapping, scope } = await rig([], vehicle({ 8: 4 }))
+
+    plugged(pads)
+    mapping.add('switch', 8)
+
+    expect(rowsOf(mapping)[4]).toMatchObject({ kind: 'switch', channel: 8, axis: NO_SOURCE })
+    expect(mapping.capturing.value).toBe(4)
+    expect(mapping.unsourced.value).toBe(true)
+    expect(mapping.issues.value.some(issue => issue.code === 'source' && issue.channel === 8)).toBe(true)
+    pads.set([1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1])
+    pads.advance(20)
+    expect(mapping.pulseOf(rowsOf(mapping)[4]!)).toBe(0)
+    scope.stop()
+  })
+
+  it('is read from the control that is moved, and then the mapping has no problem of that kind', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.add('switch', 8)
+    pads.advance(20)
+    pads.set([0, 0, 0, 0, 0, 1, 0, 0])
+    pads.advance(20)
+
+    expect(rowsOf(mapping)[4]).toMatchObject({ axis: 5 })
+    expect(mapping.unsourced.value).toBe(false)
+    expect(mapping.issues.value.some(issue => issue.code === 'source')).toBe(false)
+    scope.stop()
+  })
+})
+
+describe('the wizard while a row has no control', () => {
+  it('does not begin', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.add('button', 9)
+    mapping.startWizard()
+
+    expect(mapping.wizard.value).toBeNull()
+    scope.stop()
+  })
+})
+
+describe('a row moved to a channel another row drives', () => {
+  it('is refused, and the person is told which channel, and the row stays', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.setChannel(0, 2)
+
+    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4])
+    expect(mapping.refusal.value).toMatchObject({ code: 'taken', channel: 2 })
+    mapping.setChannel(0, 9)
+    expect(mapping.refusal.value).toBeNull()
+    expect(channelsOf(mapping)).toEqual([9, 2, 3, 4])
+    scope.stop()
+  })
+})
+
+describe('a row added on a channel that was chosen', () => {
+  it('goes on that channel, and not on one a row drives or one that is not a channel', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.add('switch', 11)
+    mapping.add('button', 3)
+    mapping.add('button', 17)
+    mapping.add('stick', 11)
+
+    expect(rowsOf(mapping).map(row => [row.kind, row.channel])).toEqual([
+      ['stick', 1], ['stick', 2], ['stick', 3], ['stick', 4], ['switch', 11],
+    ])
+    scope.stop()
+  })
+
+  it('is refused for a channel the vehicle arms with, and the person is told which', async () => {
+    const { pads, mapping, scope } = await rig([], vehicle({ 9: 153 }))
+
+    plugged(pads)
+    mapping.add('switch', 9)
+
+    expect(rowsOf(mapping)).toHaveLength(4)
+    expect(mapping.refusal.value).toMatchObject({ code: 'arm', channel: 9 })
+    mapping.add('switch', 10)
+    expect(mapping.refusal.value).toBeNull()
+    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 10])
     scope.stop()
   })
 })

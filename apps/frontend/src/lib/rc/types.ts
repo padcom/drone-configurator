@@ -8,6 +8,9 @@ export const CHANNELS = 16
 /** The pulse of a channel that is not overridden: the radio's own (what `rc.input` calls 0). */
 export const NOT_MINE = 0
 
+/** The axis or button of a row that has no control yet (the person has not said which): it makes nothing, and it is a problem. */
+export const NO_SOURCE = -1
+
 /** The least a pulse of an override may be (µs): the backend refuses anything else. */
 export const MIN_PULSE = 800
 

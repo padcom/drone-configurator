@@ -18,6 +18,7 @@ import {
   DEFAULT_CALIBRATION,
   DEFAULT_RANGE,
   NOT_MINE,
+  NO_SOURCE,
   type Profile,
   type PulseRange,
   type StickRow,
@@ -123,6 +124,14 @@ describe('a switch and a button', () => {
   it('give the radio\'s own for what the pad does not have', () => {
     expect(switchPulse({ ...SWITCH, axis: 9 }, pad([0]))).toBe(NOT_MINE)
     expect(buttonPulse(BUTTON, pad([], [0, 0]))).toBe(NOT_MINE)
+  })
+
+  it('give the radio\'s own for a row with no control, whatever every axis and button of the pad says', () => {
+    const everything = pad([1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1])
+
+    expect(switchPulse({ ...SWITCH, axis: NO_SOURCE }, everything)).toBe(NOT_MINE)
+    expect(buttonPulse({ ...BUTTON, button: NO_SOURCE }, everything)).toBe(NOT_MINE)
+    expect(stickPulse({ ...STICK, axis: NO_SOURCE }, everything, DEFAULT_RANGE)).toBe(NOT_MINE)
   })
 
   it('give the off pulse up and the on pulse pressed', () => {

@@ -905,7 +905,7 @@
       "title": "Remote control",
       "intro": "Fly the vehicle with a gamepad, or a radio that acts as one (such as a TX16S over USB).",
       "allow": "Allow remote control",
-      "allowHelp": "Off by default, and for a simulator only: the application refuses any other vehicle. This only allows it; it does not start it.",
+      "allowHelp": "Off by default, and for the built-in simulator or a link to this computer only: any other vehicle is refused. This only allows it; it does not start it.",
       "status": {
         "ready": "Everything is in place for remote control.",
         "link": "No simulator is connected."
@@ -914,7 +914,7 @@
         "title": "Gamepad",
         "none": "No gamepad found yet. A radio shows up when you move a stick.",
         "gone": "The gamepad is not being read now. Move a stick.",
-        "axis": "Axis {n}",
+        "axis": "CH{n}",
         "buttons": "Buttons pressed: {list}",
         "noButtons": "No button is pressed."
       },
@@ -924,8 +924,11 @@
         "switch": "Switch",
         "button": "Button"
       },
-      "channel": "Channel",
-      "sourceAxis": "Axis {n}",
+      "channel": "Vehicle channel",
+      "vehicleChannel": "Vehicle channel {n}",
+      "own": "The radio's own",
+      "axesNote": "The browser may not report every axis of the radio: one that stays at 0 may have been dropped.",
+      "sourceAxis": "CH{n}",
       "sourceButton": "Button {n}",
       "moveIt": "Move it",
       "moveCancel": "Cancel",
@@ -948,14 +951,18 @@
         "switch": "Add a switch",
         "button": "Add a button"
       },
-      "refusedArm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
+      "refused": {
+        "arm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
+        "taken": "Channel {channel} is already driven by another row. Take that row away, or choose another channel."
+      },
+      "noSource": "No control yet",
       "wizard": {
         "title": "Calibration",
         "start": "Calibrate…",
         "rest": "Leave the sticks where they rest, with the throttle at the bottom, and wait.",
         "restReady": "Done. Next, you will move every stick to all its ends.",
         "move": "Move every stick slowly to all its ends, a few times. Then finish.",
-        "axis": "Axis {n}",
+        "axis": "CH{n}",
         "next": "Next",
         "finish": "Finish",
         "cancel": "Cancel",
@@ -965,6 +972,7 @@
         "mapping": {
           "channel": "Channel {channel} is not a channel from 1 to 16.",
           "duplicate": "Channel {channel} is driven by more than one row.",
+          "source": "Channel {channel} has no control yet. Press Move it and move the control you mean.",
           "zone": "The dead zone of channel {channel} must be 0 to 50 %.",
           "expo": "The curve of channel {channel} must be 0 to 100 %.",
           "calibration": "The calibration of channel {channel} cannot be used. Calibrate again.",

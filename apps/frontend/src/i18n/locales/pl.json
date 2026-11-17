@@ -905,7 +905,7 @@
       "title": "Zdalne sterowanie",
       "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB).",
       "allow": "Zezwalaj na zdalne sterowanie",
-      "allowHelp": "Domyślnie wyłączone i tylko dla symulatora: aplikacja odmawia każdego innego pojazdu. To tylko zezwala; nie uruchamia sterowania.",
+      "allowHelp": "Domyślnie wyłączone i tylko dla wbudowanego symulatora albo łącza z tym komputerem: każdy inny pojazd jest odrzucany. To tylko zezwala; nie uruchamia sterowania.",
       "status": {
         "ready": "Wszystko jest gotowe do zdalnego sterowania.",
         "link": "Nie połączono żadnego symulatora."
@@ -914,7 +914,7 @@
         "title": "Pad",
         "none": "Nie znaleziono jeszcze padu. Aparatura pojawia się, gdy poruszysz drążkiem.",
         "gone": "Pad nie jest teraz odczytywany. Poruszaj drążkiem.",
-        "axis": "Oś {n}",
+        "axis": "CH{n}",
         "buttons": "Wciśnięte przyciski: {list}",
         "noButtons": "Żaden przycisk nie jest wciśnięty."
       },
@@ -924,8 +924,11 @@
         "switch": "Przełącznik",
         "button": "Przycisk"
       },
-      "channel": "Kanał",
-      "sourceAxis": "Oś {n}",
+      "channel": "Kanał pojazdu",
+      "vehicleChannel": "Kanał pojazdu {n}",
+      "own": "Własny aparatury",
+      "axesNote": "Przeglądarka może nie zgłaszać każdej osi aparatury: oś, która stoi na 0, mogła zostać pominięta.",
+      "sourceAxis": "CH{n}",
       "sourceButton": "Przycisk {n}",
       "moveIt": "Poruszaj",
       "moveCancel": "Anuluj",
@@ -948,14 +951,18 @@
         "switch": "Dodaj przełącznik",
         "button": "Dodaj przycisk"
       },
-      "refusedArm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
+      "refused": {
+        "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
+        "taken": "Kanałem {channel} już steruje inny wiersz. Usuń tamten wiersz albo wybierz inny kanał."
+      },
+      "noSource": "Jeszcze bez elementu",
       "wizard": {
         "title": "Kalibracja",
         "start": "Kalibruj…",
         "rest": "Zostaw drążki w spoczynku, z gazem na dole, i poczekaj.",
         "restReady": "Gotowe. Teraz poruszysz każdym drążkiem do wszystkich jego skrajnych położeń.",
         "move": "Poruszaj powoli każdym drążkiem do wszystkich skrajnych położeń, kilka razy. Potem zakończ.",
-        "axis": "Oś {n}",
+        "axis": "CH{n}",
         "next": "Dalej",
         "finish": "Zakończ",
         "cancel": "Anuluj",
@@ -965,6 +972,7 @@
         "mapping": {
           "channel": "Kanał {channel} nie jest kanałem od 1 do 16.",
           "duplicate": "Kanałem {channel} steruje więcej niż jeden wiersz.",
+          "source": "Kanał {channel} nie ma jeszcze elementu sterującego. Naciśnij „Poruszaj” i poruszaj tym, o który ci chodzi.",
           "zone": "Strefa martwa kanału {channel} musi wynosić od 0 do 50 %.",
           "expo": "Krzywa kanału {channel} musi wynosić od 0 do 100 %.",
           "calibration": "Kalibracji kanału {channel} nie można użyć. Skalibruj ponownie.",
