@@ -63,6 +63,18 @@ describe('whether control may be turned on', () => {
 
     expect(controlBlock({ ...GOOD, profile: twice })).toBe('mapping')
   })
+})
+
+describe('whether control may be turned on: the link', () => {
+  it('leaves a request that is not known to the backend only when it is asked to, and a known one is never left', () => {
+    const unknown: ControlInput = { ...GOOD, request: null }
+    const serial: ConnectRequest = { transport: 'serial', device: 'x', baud: 1 }
+
+    expect(controlBlock(unknown)).toBe('link')
+    expect(controlBlock({ ...unknown, letBackendDecide: true })).toBeNull()
+    expect(controlBlock({ ...unknown, letBackendDecide: false })).toBe('link')
+    expect(controlBlock({ ...GOOD, request: serial, letBackendDecide: true })).toBe('link')
+  })
 
   it('is stopped by a row that has no control yet: it makes nothing, and the mapping is wrong', () => {
     const rows = [...GOOD.profile!.rows, newSwitch(8, NO_SOURCE)]

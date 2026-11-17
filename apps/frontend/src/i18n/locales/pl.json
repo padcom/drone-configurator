@@ -853,7 +853,7 @@
       "ERROR": "Zdalne sterowanie nie mogło ruszyć.",
       "SILENT": "Zdalne sterowanie zakończone: strona milczała zbyt długo.",
       "LINK_LOST": "Zdalne sterowanie zakończone: utracono łączność z pojazdem.",
-      "STATE_UNKNOWN": "Zdalne sterowanie zakończone: nie jest znany stan pojazdu.",
+      "STATE_UNKNOWN": "Nie jest znany stan pojazdu: poczekaj na niego i spróbuj ponownie.",
       "STOPPED": "Zdalne sterowanie zakończone: pojazd jest rozbrajany lub zatrzymywany.",
       "NOT_ALLOWED": "Zdalne sterowanie zakończone: nie jest już dozwolone.",
       "NOT_SIMULATOR": "Zdalne sterowanie zakończone: pojazd nie jest symulatorem.",

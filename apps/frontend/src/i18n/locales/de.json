@@ -853,7 +853,7 @@
       "ERROR": "Die Fernsteuerung konnte nicht starten.",
       "SILENT": "Fernsteuerung beendet: Die Seite war zu lange still.",
       "LINK_LOST": "Fernsteuerung beendet: Die Verbindung zum Fahrzeug ging verloren.",
-      "STATE_UNKNOWN": "Fernsteuerung beendet: Der Zustand des Fahrzeugs ist unbekannt.",
+      "STATE_UNKNOWN": "Der Zustand des Fahrzeugs ist unbekannt: Warte darauf und versuche es dann erneut.",
       "STOPPED": "Fernsteuerung beendet: Das Fahrzeug wird entschärft oder gestoppt.",
       "NOT_ALLOWED": "Fernsteuerung beendet: Sie ist nicht mehr erlaubt.",
       "NOT_SIMULATOR": "Fernsteuerung beendet: Das Fahrzeug ist kein Simulator.",

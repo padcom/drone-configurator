@@ -188,6 +188,84 @@ describe('why it is off', () => {
   })
 })
 
+describe('a summary that is answered no after the control went on', () => {
+  it('is not DECLINED when another turn-on went through meanwhile (the control is on)', async () => {
+    const r = await rcRig()
+    let answer: (yes: boolean) => void = () => undefined
+
+    r.pads.connect(TX16S)
+    r.pads.advance(20)
+    const first = r.rc.turnOn(() => new Promise<boolean>(resolve => {
+      answer = resolve
+    }))
+
+    await r.rc.enable()
+    await settle()
+    answer(false)
+    await first
+
+    expect([r.rc.state.value, r.rc.why.value]).toEqual(['on', null])
+    r.stop()
+  })
+})
+
+describe('a refusal and the line of the Fly switch', () => {
+  it('is a toast when no line shows it, none when one does; the end of a flying control is a toast either way', async () => {
+    const hidden = await rcRig({ allowed: false })
+    const shown = await rcRig({ allowed: false })
+    const flying1 = await flying(await rcRig())
+
+    shown.rc.reasonShown(true)
+    await hidden.rc.enable()
+    await shown.rc.enable()
+    flying1.rc.reasonShown(true)
+    flying1.control.rc!.end('SILENT')
+    await settle()
+
+    expect([hidden.told, shown.told, flying1.told]).toEqual([['off'], [], ['SILENT']])
+    expect([hidden, shown].map(r => r.rc.explanation.value)).toEqual(['off', 'off'])
+    shown.rc.reasonShown(false)
+    await shown.rc.enable()
+    expect(shown.told).toEqual(['off'])
+  })
+})
+
+describe('a request that the page does not know', () => {
+  it('is left to the backend while the vehicle is connected: the switch is not blocked and the control begins', async () => {
+    const r = await rcRig()
+
+    r.request.value = null
+    expect(r.rc.block.value).toBeNull()
+    await flying(r)
+
+    expect(r.rc.state.value).toBe('on')
+    r.stop()
+  })
+})
+
+describe('a request that the page does not know, or knows is not a simulator', () => {
+  it('is no link when nothing is connected, and a request that is known and is not a simulator is always one', async () => {
+    const off = await rcRig()
+    const serial = await rcRig()
+
+    off.request.value = null
+    off.connection.value = { state: 'disconnected' }
+    serial.request.value = { transport: 'serial', device: '/dev/ttyUSB0' }
+
+    expect([off.rc.block.value, serial.rc.block.value]).toEqual(['link', 'link'])
+  })
+
+  it('ends nothing that is on when the request becomes unknown (it is the backend that decides, and it did)', async () => {
+    const r = await flying(await rcRig())
+
+    r.request.value = null
+    await settle()
+
+    expect(r.rc.state.value).toBe('on')
+    r.stop()
+  })
+})
+
 describe('why it is not off', () => {
   it('is nothing while it is on, and nothing when the person turned it off', async () => {
     const r = await flying(await rcRig())
