@@ -75,6 +75,15 @@ class Waits {
 
 export const waits = new Waits()
 
+/// For tests: a place in a guided command where something happens that a test cannot time by waiting.
+class Seams {
+  /// Runs after the fence of a reposition or a change of altitude was read, before the vehicle's state is checked again (a control that
+  /// begins right there is what the second check is for).
+  public afterFence: (() => void)? = null
+}
+
+export const seams = new Seams()
+
 /// The most texts a result carries.
 const MAX_TEXTS: int = 20
 
@@ -401,6 +410,10 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   if (what == REPOSITION || what == ALTITUDE) {
     plan.warning = await failsafeWarning(ask.policy)
     await checkTheFence(what, plan)
+    const hook = seams.afterFence
+    if (hook != null) {
+      hook!()
+    }
     // (the vehicle's state may have moved while it was asked)
     checkAllowed(what, false)
     checkGuidedCommand(what, plan, ask)
