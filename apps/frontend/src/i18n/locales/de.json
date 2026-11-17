@@ -2475,7 +2475,8 @@
       "nothingToRedo": "Es gibt nichts zu wiederholen."
     },
     "map": {
-      "pin": "Element {number}"
+      "pin": "Element {number}",
+      "noPlace": "Noch hat kein Element einen Ort: Geben Sie einem einen Breiten- und einen Längengrad, dann erscheint es auf der Karte."
     },
     "stats": {
       "label": "Der Plan in Zahlen",

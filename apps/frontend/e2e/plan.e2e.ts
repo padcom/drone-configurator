@@ -172,9 +172,12 @@ describe('the scrolling rule', () => {
     await waitForItems(32)
   })
 
-  for (const width of [1280, 1000]) {
-    it(`scrolls only the aside, and the route stays, at ${width} px wide`, async () => {
-      await resize(width, 700)
+  // (the sizes of the rule, and a short window: the map gives way down to a small one before anything but the aside scrolls)
+  const SIZES: [number, number][] = [[1440, 768], [1280, 700], [1000, 700], [1100, 480]]
+
+  for (const [width, height] of SIZES) {
+    it(`scrolls only the aside, and the route stays, at ${width}x${height}`, async () => {
+      await resize(width, height)
       const seen = await window().evaluate<Probe>(probe())
 
       const { below, heights, ...facts } = seen

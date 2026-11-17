@@ -2475,7 +2475,8 @@
       "nothingToRedo": "Nie ma czego ponowić."
     },
     "map": {
-      "pin": "Element {number}"
+      "pin": "Element {number}",
+      "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie."
     },
     "stats": {
       "label": "Plan w liczbach",

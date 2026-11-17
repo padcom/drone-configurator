@@ -2475,7 +2475,8 @@
       "nothingToRedo": "Non c’è nulla da ripristinare."
     },
     "map": {
-      "pin": "Elemento {number}"
+      "pin": "Elemento {number}",
+      "noPlace": "Nessun elemento ha ancora un luogo: dai a uno una latitudine e una longitudine e comparirà sulla mappa."
     },
     "stats": {
       "label": "Il piano in numeri",

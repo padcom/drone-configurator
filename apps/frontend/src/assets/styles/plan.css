@@ -80,10 +80,6 @@
     min-height: 0;
   }
 
-  .plan-map {
-    min-height: 240px;
-  }
-
   .plan-aside {
     min-height: 0;
     overflow-y: auto;
@@ -100,6 +96,28 @@
   min-height: 360px;
   overflow: hidden;
   background: var(--color-map);
+}
+
+/* (after the rule above, which it overrides: from 1000 px the map takes what the window leaves, down to a small one) */
+@media (width >= 1000px) {
+  .plan-map {
+    min-height: 160px;
+  }
+}
+
+/* Why the map has nothing on it: one plain line at the top, over the map, letting the pointer through. */
+.plan-map-note {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  left: calc(var(--space-4) + 2 * var(--control-height) + var(--space-4));
+  z-index: 1;
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  pointer-events: none;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
 }
 
 .plan-route {

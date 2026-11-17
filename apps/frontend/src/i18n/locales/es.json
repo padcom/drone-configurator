@@ -2475,7 +2475,8 @@
       "nothingToRedo": "No hay nada que rehacer."
     },
     "map": {
-      "pin": "Elemento {number}"
+      "pin": "Elemento {number}",
+      "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa."
     },
     "stats": {
       "label": "El plan en cifras",
