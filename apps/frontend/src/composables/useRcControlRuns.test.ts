@@ -169,3 +169,46 @@ describe('the frames', () => {
     r.stop()
   })
 })
+
+describe('why it is off', () => {
+  it('is kept in words for the screen after a refusal, an end by the backend, and a summary that was not confirmed', async () => {
+    const refused = await rcRig({ allowed: false })
+    const declined = await rcRig()
+    const ended = await flying(await rcRig())
+
+    await refused.rc.enable()
+    declined.pads.connect(TX16S)
+    declined.pads.advance(20)
+    await declined.rc.turnOn(() => Promise.resolve(false))
+    ended.control.rc!.end('SILENT')
+    await settle()
+
+    expect([refused, declined, ended].map(r => r.rc.explanation.value)).toEqual(['off', 'DECLINED', 'SILENT'])
+    expect([refused, declined, ended].map(r => r.rc.state.value)).toEqual(['off', 'off', 'off'])
+  })
+})
+
+describe('why it is not off', () => {
+  it('is nothing while it is on, and nothing when the person turned it off', async () => {
+    const r = await flying(await rcRig())
+
+    expect(r.rc.explanation.value).toBeNull()
+    r.rc.disable()
+    expect([r.rc.why.value, r.rc.explanation.value]).toEqual(['RELEASED', null])
+  })
+
+  it('is said when the subscription cannot even be asked for: never left starting, never off with nothing said', async () => {
+    const wrap = (client: BackendClient): BackendClient => ({
+      ...client,
+      subscribe: (() => {
+        throw new Error('the link is down')
+      }) as BackendClient['subscribe'],
+    })
+    const r = await padUp(wrap)
+
+    await r.rc.enable()
+
+    expect([r.rc.state.value, r.rc.why.value, r.told]).toEqual(['off', 'ERROR', ['ERROR']])
+    expect(r.rc.explanation.value).toBe('ERROR')
+  })
+})

@@ -700,8 +700,11 @@ async function knowsWhichLinksAreASimulator(): Promise<void> throws Error {
   expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp, "[::1]"))).toBe(true)
   expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "192.168.1.20"))).toBe(false)
   expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "127.0.0.1.example.com"))).toBe(false)
-  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp))).toBe(false)
-  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp))).toBe(false)
+  // (no host is the dialog's blank field: the default, which is 127.0.0.1)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Udp))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp))).toBe(true)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, ""))).toBe(false)
+  expect(isSimulatorLink(requestOf(ConnectRequestTransport.Tcp, "127.0.0.1:5760"))).toBe(false)
   expect(isSimulatorLink(requestOf(ConnectRequestTransport.Serial, "127.0.0.1"))).toBe(false)
 }
 
@@ -727,8 +730,8 @@ async function recordsTheLinkKindAtConnectAndForgetsItAtDisconnect(): Promise<vo
 async function refusesAVehicleThatIsNotASimulator(): Promise<void> throws Error {
   await refusesLinkOf(requestOf(ConnectRequestTransport.Tcp, "192.168.1.20"), "NOT_SIMULATOR")
   await refusesLinkOf(requestOf(ConnectRequestTransport.Udp, "10.0.0.5"), "NOT_SIMULATOR")
-  await refusesLinkOf(requestOf(ConnectRequestTransport.Udp), "NOT_SIMULATOR")
-  await refusesLinkOf(requestOf(ConnectRequestTransport.Tcp), "NOT_SIMULATOR")
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Udp, "127.0.0.1:14550"), "NOT_SIMULATOR")
+  await refusesLinkOf(requestOf(ConnectRequestTransport.Tcp, ""), "NOT_SIMULATOR")
   await refusesLinkOf(ConnectRequest { transport: ConnectRequestTransport.Serial, device: "/dev/ttyUSB0" }, "NOT_SIMULATOR")
 }
 

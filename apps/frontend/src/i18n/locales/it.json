@@ -863,6 +863,7 @@
       "VEHICLE_CHANGED": "Controllo remoto terminato: è un altro veicolo.",
       "PARAMS_UNKNOWN": "Controllo remoto terminato: i parametri del veicolo non sono noti.",
       "GUIDED": "C'è un volo guidato (il veicolo è in GUIDED o un luogo è scelto): il controllo remoto non parte.",
+      "DECLINED": "Il controllo remoto non è stato attivato: il riepilogo non è stato confermato.",
       "PARAMS_CHANGED": "Controllo remoto terminato: le impostazioni del veicolo sono cambiate.",
       "EDITED": "Controllo remoto terminato: l'assegnazione è stata cambiata.",
       "NOT_CONNECTED": "Nessun veicolo è collegato.",

@@ -863,6 +863,7 @@
       "VEHICLE_CHANGED": "Zdalne sterowanie zakończone: to inny pojazd.",
       "PARAMS_UNKNOWN": "Zdalne sterowanie zakończone: nie są znane parametry pojazdu.",
       "GUIDED": "Trwa lot sterowany (pojazd jest w GUIDED albo wybrano miejsce): zdalne sterowanie nie ruszy.",
+      "DECLINED": "Zdalne sterowanie nie zostało włączone: podsumowanie nie zostało potwierdzone.",
       "PARAMS_CHANGED": "Zdalne sterowanie zakończone: ustawienia pojazdu się zmieniły.",
       "EDITED": "Zdalne sterowanie zakończone: zmieniono przypisanie.",
       "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
