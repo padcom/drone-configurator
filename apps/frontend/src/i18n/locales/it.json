@@ -2485,7 +2485,7 @@
     },
     "table": {
       "label": "Elementi del piano, come tabella",
-      "help": "Le frecce passano da una cella all'altra, Invio scende di una riga, Pag su e Pag giù di dieci righe, Ctrl con Home o Fine va alla prima o all'ultima riga. Una cella è un campo dell'elemento, lo stesso del suo modulo; in una scelta, la barra spaziatrice apre l'elenco.",
+      "help": "Le frecce passano da una cella all'altra, Invio scende di una riga, Pag su e Pag giù di dieci righe, Ctrl con Home o Fine va alla prima o all'ultima riga. Una cella è un campo dell'elemento, lo stesso del suo modulo; in una scelta, Su e Giù passano da una riga all'altra: cambia l'opzione con il mouse, con la barra spaziatrice o con Alt e Giù.",
       "unused": "Non usato da questo comando",
       "col": {
         "number": "N.",

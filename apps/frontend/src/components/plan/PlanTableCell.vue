@@ -27,6 +27,7 @@
         :model-value="String(cell.value)"
         :options="options"
         :aria-label="name"
+        :aria-invalid="wrong ? 'true' : undefined"
         :aria-describedby="wrong ? errorId : undefined"
         :tabindex="stop ? 0 : -1"
         @update:model-value="emit('write', cell.write(Number($event)))"

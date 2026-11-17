@@ -325,6 +325,23 @@ describe('the table tool and the layout', () => {
 
     expect(await window().evaluate<boolean>(TABLE_SCROLLS)).toBe(true)
   }, 60_000)
+})
+
+describe('the table tool and the wheel', () => {
+  it('lets a wheel over the table, at the end of it, go on to the page at 999 px wide (the table is no trap)', async () => {
+    const pageTop = `(document.querySelector('.app-main').scrollTop + document.scrollingElement.scrollTop)`
+    const centre = await window().evaluate<{ x: number, y: number }>(`(() => {
+      const area = document.querySelector('.plan-table-scroll')
+      area.scrollIntoView({ block: 'center' })
+      area.scrollTop = area.scrollHeight
+      const box = area.getBoundingClientRect()
+      return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
+    })()`)
+    await window().evaluate(`new Promise(resolve => setTimeout(resolve, 300))`)
+    const before = await window().evaluate<number>(pageTop)
+    await window().devtools('Input.dispatchMouseEvent', { type: 'mouseWheel', ...centre, deltaX: 0, deltaY: 300 })
+    await window().waitFor(`${pageTop} > ${before}`)
+  }, 60_000)
 
   it('is left for the map with its tab, and the map is where it was', async () => {
     await window().click('#plan-tab-mission')

@@ -44,6 +44,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlan } from '@/composables/usePlan'
+import type { PlanItem } from '@/lib/plan/model'
 import type { Problem } from '@/lib/plan/validate'
 import {
   EDIT_COLUMNS, type Edges, type EditColumn, HEAD_PX, type Press, ROW_PX, type Where, nextCell, rowsInView, scrollFor,
@@ -76,10 +77,6 @@ const headings = computed(() => [
   ...[1, 2, 3, 4].map(number => ({ id: `s${number}`, text: t('plan.table.col.setting', { number }) })),
 ])
 const visible = computed(() => rowsInView(scrollTop.value, height.value, items.value.length))
-const rows = computed(() => items.value.slice(visible.value.first, visible.value.end).map((item, at) => ({
-  item,
-  index: visible.value.first + at,
-})))
 /** The problems the plan says, by the item they are about (the plan's as a whole belong to no row). */
 const problemsByItem = computed(() => {
   const found = new Map<number, Problem[]>()
@@ -98,6 +95,22 @@ const stopId = computed(() => {
   return [active.value?.id, selected.value].find(id => id !== undefined && id !== null && ids.includes(id)) ?? ids[0] ?? null
 })
 const stopColumn = computed<EditColumn>(() => active.value?.column ?? 'lat')
+/**
+ * The rows that are drawn: those in view, and the row the grid stops at when it is not one of them (it holds the one tab stop,
+ * and the field that has the focus: a scroll must not take either away). Rows are placed by their number, so where they are in
+ * the list of the drawn ones is only the order Tab takes.
+ */
+const rows = computed(() => {
+  const { first, end } = visible.value
+  const drawn = items.value.slice(first, end).map((item, at) => ({ item, index: first + at }))
+  const kept = items.value.findIndex(item => item.id === stopId.value)
+
+  if (kept < 0 || (kept >= first && kept < end)) {
+    return drawn
+  }
+
+  return [...drawn, { item: items.value[kept] as PlanItem, index: kept }].sort((a, b) => a.index - b.index)
+})
 
 /** Follows what the area scrolls. */
 function scrolled(): void {
@@ -225,7 +238,8 @@ function pressOf(event: KeyboardEvent): Press {
  * @param event the key
  */
 function key(event: KeyboardEvent): void {
-  const at = whereIs(event.target)
+  // (a key that is part of what an input method is composing is the method's, not the grid's)
+  const at = event.isComposing ? null : whereIs(event.target)
   const to = at ? nextCell(pressOf(event), at, items.value.length, edgesOf(event.target)) : null
 
   if (to) {

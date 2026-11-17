@@ -2485,7 +2485,7 @@
     },
     "table": {
       "label": "Elemente des Plans als Tabelle",
-      "help": "Pfeiltasten wechseln zwischen den Zellen, Eingabe geht eine Zeile nach unten, Bild auf und Bild ab zehn Zeilen, Strg mit Pos1 oder Ende zur ersten oder letzten Zeile. Eine Zelle ist ein Feld des Elements, dasselbe wie in seinem Formular; bei einer Auswahl öffnet die Leertaste die Liste.",
+      "help": "Pfeiltasten wechseln zwischen den Zellen, Eingabe geht eine Zeile nach unten, Bild auf und Bild ab zehn Zeilen, Strg mit Pos1 oder Ende zur ersten oder letzten Zeile. Eine Zelle ist ein Feld des Elements, dasselbe wie in seinem Formular; bei einer Auswahl wechseln Hoch und Runter zwischen den Zeilen: die Option ändern Sie mit der Maus, mit der Leertaste oder mit Alt und Runter.",
       "unused": "Von diesem Befehl nicht verwendet",
       "col": {
         "number": "Nr.",

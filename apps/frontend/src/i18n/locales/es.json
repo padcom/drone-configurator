@@ -2485,7 +2485,7 @@
     },
     "table": {
       "label": "Elementos del plan, en tabla",
-      "help": "Las flechas pasan de una celda a otra, Intro baja una fila, Re Pág y Av Pág diez filas, Ctrl con Inicio o Fin va a la primera o a la última fila. Una celda es un campo del elemento, el mismo que en su formulario; en una opción, la barra espaciadora abre la lista.",
+      "help": "Las flechas pasan de una celda a otra, Intro baja una fila, Re Pág y Av Pág diez filas, Ctrl con Inicio o Fin va a la primera o a la última fila. Una celda es un campo del elemento, el mismo que en su formulario; en una opción, Arriba y Abajo pasan de una fila a otra: cambie la opción con el ratón, con la barra espaciadora o con Alt y Abajo.",
       "unused": "Este comando no lo usa",
       "col": {
         "number": "N.º",

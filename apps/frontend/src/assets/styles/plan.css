@@ -164,8 +164,15 @@
   position: absolute;
   inset: 0;
   overflow: auto;
-  overscroll-behavior: contain;
   scrollbar-width: thin;
+}
+
+/* From 1000 px the table is the main column's own scroller, and a wheel at its end does not go on to anything; below that the
+   page is the scroller and the table is a part of it, so a wheel or a touch at the table's end goes on to the page. */
+@media (width >= 1000px) {
+  .plan-table-scroll {
+    overscroll-behavior: contain;
+  }
 }
 
 .plan-grid {

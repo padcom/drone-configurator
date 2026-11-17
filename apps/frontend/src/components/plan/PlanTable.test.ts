@@ -179,6 +179,54 @@ it('has ONE tab stop in the grid, however many cells are drawn', async () => {
   expect(stops[0]!.element.closest('[data-row]')).toBe(wrapper.get(`[data-row="${usePlan().selected.value}"]`).element)
 })
 
+it('keeps the row that has the focus drawn, with the one tab stop, when the table is scrolled away from it', async () => {
+  seedPlan(1000)
+  const wrapper = await page()
+  const plan = usePlan()
+  plan.select(plan.plan.value.items[0]!.id)
+  await flushPromises()
+  const field = fieldIn(wrapper, 1, 'lat')
+  field.focus()
+  await flushPromises()
+  const scroller = wrapper.get('.plan-table-scroll')
+  scroller.element.scrollTop = 26_000
+  await scroller.trigger('scroll')
+
+  // (rows 1 and the ones in view: the row of the focus is not given up, and the focused field is the same one)
+  expect(rowNumbers(wrapper)).toContain('1')
+  expect(rowNumbers(wrapper)).toContain('501')
+  expect(wrapper.findAll('.plan-tr').length).toBeLessThan(40)
+  expect(wrapper.findAll('[role="grid"] [tabindex="0"]')).toHaveLength(1)
+  expect(document.activeElement).toBe(fieldIn(wrapper, 1, 'lat'))
+  expect(document.activeElement).toBe(field)
+})
+
+it('has its one tab stop in a row that is drawn when the selected item is the stop and the table is scrolled', async () => {
+  seedPlan(1000)
+  const wrapper = await page()
+  const plan = usePlan()
+  plan.select(plan.plan.value.items[0]!.id)
+  await flushPromises()
+  const scroller = wrapper.get('.plan-table-scroll')
+  scroller.element.scrollTop = 26_000
+  await scroller.trigger('scroll')
+
+  expect(wrapper.findAll('[role="grid"] [tabindex="0"]')).toHaveLength(1)
+})
+
+it('leaves a key that is part of an input method\'s composition to the method', async () => {
+  seedPlan(3)
+  const wrapper = await page()
+  const lat = fieldIn(wrapper, 1, 'lat')
+  lat.focus()
+  const event = new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true, cancelable: true })
+  lat.dispatchEvent(event)
+  await flushPromises()
+
+  expect(event.defaultPrevented).toBe(false)
+  expect(document.activeElement).toBe(lat)
+})
+
 it('moves between the cells with the keys of a spreadsheet, and the focus is the selection', async () => {
   seedPlan(5)
   const wrapper = await page()
@@ -285,6 +333,18 @@ it('says in words which cell is wrong, with the field and the error colour, and 
   expect(fieldIn(wrapper, 2, 'frame').hasAttribute('aria-invalid')).toBe(false)
   expect(fieldIn(wrapper, 1, 'lat').hasAttribute('aria-invalid')).toBe(false)
   expect(wrapper.get(`[data-row="${first!.id}"]`).findAll('.wrong')).toHaveLength(0)
+})
+
+it('says it of a choice that is wrong too: aria-invalid and the words, as a number has', async () => {
+  const plan = usePlan()
+  plan.add(178)
+  plan.update(plan.plan.value.items[0]!.id, { p1: null })
+  const wrapper = await page()
+  const choice = fieldIn(wrapper, 1, 's1')
+
+  expect(choice.tagName).toBe('SELECT')
+  expect(choice.getAttribute('aria-invalid')).toBe('true')
+  expect(wrapper.get(`#${choice.getAttribute('aria-describedby')}`).text().length).toBeGreaterThan(0)
 })
 
 it('marks a row that has a problem no cell has, in words (a loiter with no yaw)', async () => {

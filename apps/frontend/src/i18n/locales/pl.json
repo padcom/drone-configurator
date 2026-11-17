@@ -2485,7 +2485,7 @@
     },
     "table": {
       "label": "Elementy planu jako tabela",
-      "help": "Strzałki przechodzą między komórkami, Enter przechodzi wiersz niżej, Page Up i Page Down o dziesięć wierszy, Ctrl z Home lub End do pierwszego lub ostatniego wiersza. Komórka to pole elementu, to samo co w jego formularzu; w polu wyboru spacja otwiera listę.",
+      "help": "Strzałki przechodzą między komórkami, Enter przechodzi wiersz niżej, Page Up i Page Down o dziesięć wierszy, Ctrl z Home lub End do pierwszego lub ostatniego wiersza. Komórka to pole elementu, to samo co w jego formularzu; w polu wyboru Góra i Dół przechodzą między wierszami: opcję zmienia się myszą, spacją lub Alt i Dół.",
       "unused": "Nieużywane przez to polecenie",
       "col": {
         "number": "Nr",

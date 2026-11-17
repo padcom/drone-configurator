@@ -2485,7 +2485,7 @@
     },
     "table": {
       "label": "Items of the plan, as a table",
-      "help": "Arrows move between cells, Enter goes down a row, Page Up and Page Down go ten rows, Control with Home or End goes to the first or the last row. A cell is a field of the item, the same as in its form; on a choice, Space opens the list.",
+      "help": "Arrows move between cells, Enter goes down a row, Page Up and Page Down go ten rows, Control with Home or End goes to the first or the last row. A cell is a field of the item, the same as in its form; in a choice, Up and Down move between rows: change the option with the mouse, with Space, or with Alt and Down.",
       "unused": "Not used by this command",
       "col": {
         "number": "No.",
