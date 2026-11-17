@@ -132,6 +132,7 @@ const asking = new Asking()
 
 /// For the tests: forget that a command is under way.
 export function resetForTests(): void {
+  link.commanding = false
   asking.busy = false
   asking.stopping = false
 }
@@ -170,6 +171,9 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   }
   if (asking.busy) {
     throw new CommunicatorError("BUSY", "an earlier command to the vehicle has not been answered yet")
+  }
+  if ((what == TAKEOFF || what >= REPOSITION) && link.rcControl) {
+    throw new CommunicatorError("BUSY", "RC control is on: the sticks fly the vehicle, a guided command would fight them")
   }
   if ((what == ARM || what == PREARM) && operationUnderWay()) {
     throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
@@ -380,6 +384,10 @@ class GuidedAsk {
 /// Sends the command `what` once, and waits for its answer and the texts around it.
 async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = new Plan(), ask: GuidedAsk = new GuidedAsk()): Promise<Cbor?> throws Error {
   connectedLink()
+  // (first of all: whatever else is wrong with a guided command, it is not sent while the sticks fly the vehicle)
+  if ((what == TAKEOFF || what >= REPOSITION) && link.rcControl) {
+    throw new CommunicatorError("BUSY", "RC control is on: the sticks fly the vehicle, a guided command would fight them")
+  }
   if (what >= REPOSITION) {
     checkGuidedCommand(what, plan, ask)
   }
@@ -410,6 +418,7 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   const owns = what != STOP && !(what == MODE && isSafetyMode(mode))
   if (owns) {
     asking.busy = true
+    link.commanding = true
   }
   if (what == ARM) {
     holdArmed(waits.ackMs + waits.armLagMs)
@@ -428,6 +437,7 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   } finally {
     if (owns) {
       asking.busy = false
+      link.commanding = false
     }
     if (what == STOP) {
       asking.stopping = false

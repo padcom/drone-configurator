@@ -4,6 +4,7 @@
 // component that reads one field is not woken by the others (docs/frontend-state.md).
 import { type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type RcControlModel, useRcControl } from './useRcControl'
+import { useGoHere } from './useGoHere'
 import { useRcSettings } from './useRcSettings'
 import { factsOf } from '@/lib/rc/vehicle'
 import { say } from '@/i18n/say'
@@ -556,6 +557,8 @@ function startRcControl(parts: {
     facts,
     tell: (severity, text) => useToasts().push({ severity, text, long: true }),
     // (a reason with no words of its own, a code the backend added, is said with the code)
+    // (a picked place for a Go here, or a vehicle in GUIDED: a guided flow is on, and the sticks do not begin over it)
+    busy: () => (vehicle.telemetry.value?.mode === 'GUIDED' || useGoHere().target.value !== null ? 'GUIDED' : null),
     reasonText: code => (i18n.global.te(`rc.reason.${code}`) ? say(`rc.reason.${code}`) : say('rc.reason.other', { code })),
   })
 }

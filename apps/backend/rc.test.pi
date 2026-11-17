@@ -12,6 +12,7 @@ import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-m
 import { simulatorForTests } from "./app"
 import { isSimulatorLink, seams } from "./rc"
 import { useDirectoryForTests } from "./settings"
+import { flightNow } from "./telemetry"
 import { ByteStream } from "padcom/pico-mavlink"
 import {
   CalibrationKind,
@@ -24,7 +25,9 @@ import {
   RcInput,
   RcState,
   RcStateState,
+  SetModeAsk,
   SettingsPatch,
+  TakeoffAsk,
   UiEntry,
   decodeRcState,
   encodeCalibrationStart,
@@ -32,7 +35,9 @@ import {
   encodeMotorTestParams,
   encodeParamWrite,
   encodeRcInput,
+  encodeSetModeAsk,
   encodeSettingsPatch,
+  encodeTakeoffAsk,
 } from "./generated/app"
 import { link } from "./session"
 import { Frontend, start } from "./testing"
@@ -575,6 +580,37 @@ async function aDisarmEndsTheControlFirstToo(): Promise<void> throws Error {
   await r.close()
 }
 
+async function aGuidedCommandIsRefusedWhileAControlIsOn(): Promise<void> throws Error {
+  const r = await connected()
+  clearInterval(r.hold)
+  r.sim.ticks = 5
+  await until("the vehicle is armed", () => link.armed && (Date.now() as int) - link.heartbeatAt < 1500)
+  await flying(r)
+  expect(errorOf(await r.f.call("vehicle.takeoff", encodeTakeoffAsk(TakeoffAsk { altitude: 10.0 })))).toBe("BUSY")
+  expect(errorOf(await r.f.call("vehicle.setHomeHere"))).toBe("BUSY")
+  // (refused before anything was sent: the control is still on)
+  expect(link.rcControl).toBe(true)
+  await r.close()
+}
+
+async function aControlIsRefusedWhileTheVehicleIsInGuided(): Promise<void> throws Error {
+  const r = await connected()
+  expect(errorOf(await r.f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: 4 })))).toBe("ok")
+  await until("the heartbeat says GUIDED", () => flightNow().mode == "GUIDED")
+  expect(await refusedWith(r.f)).toBe("GUIDED")
+  nothingWasSent(r)
+  await r.close()
+}
+
+async function aControlIsRefusedWhileACommandToTheVehicleIsUnanswered(): Promise<void> throws Error {
+  const r = await connected()
+  link.commanding = true
+  expect(await refusedWith(r.f)).toBe("BUSY")
+  nothingWasSent(r)
+  link.commanding = false
+  await r.close()
+}
+
 async function aDisarmThatIsRefusedLeavesTheControlOn(): Promise<void> throws Error {
   const r = await connected()
   const s = await flying(r)
@@ -804,6 +840,9 @@ describe("what the RC control refuses", () => {
   it("refuses a pulse out of range and too many channels, and changes nothing", refusesAPulseOutOfRangeAndTooManyChannels)
   it("sends nothing when no vehicle is connected", refusesWhenNoVehicleIsConnected)
   it("sends nothing when the armed state is not known", refusesWhenTheArmedStateIsNotKnown)
+  it("refuses a guided command while a control is on", aGuidedCommandIsRefusedWhileAControlIsOn)
+  it("refuses a control while a command to the vehicle is not answered yet", aControlIsRefusedWhileACommandToTheVehicleIsUnanswered)
+  it("refuses a control while the vehicle is in GUIDED", aControlIsRefusedWhileTheVehicleIsInGuided)
   it("sends nothing to a vehicle that ignores overrides or never lets go of one", refusesAVehicleThatIgnoresOverridesOrNeverLetsGo)
   it("sends nothing when the throttle cannot be held to its range", refusesWhatItCannotScaleTheThrottleTo)
 })
