@@ -863,6 +863,7 @@
       "VEHICLE_CHANGED": "RC control ended: it is another vehicle.",
       "PARAMS_UNKNOWN": "RC control ended: the vehicle's parameters are not known.",
       "GUIDED": "A guided flow is on (the vehicle is in GUIDED, or a place is picked): RC control does not begin.",
+      "DECLINED": "RC control was not turned on: the summary was not confirmed.",
       "PARAMS_CHANGED": "RC control ended: the vehicle's settings changed.",
       "EDITED": "RC control ended: the mapping was changed.",
       "NOT_CONNECTED": "No vehicle is connected.",

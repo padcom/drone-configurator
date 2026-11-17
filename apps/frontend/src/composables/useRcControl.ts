@@ -58,6 +58,8 @@ export interface RcControlModel {
   readonly why: ShallowRef<string | null>
   /** Whether the throttle is being sent (the gate is open): until then the person must lower the throttle. */
   readonly gateOpen: ShallowRef<boolean>
+  /** The words for why it is off when it ended or was refused (what the toast said): kept on the screen, or null. */
+  readonly explanation: ComputedRef<string | null>
   /** The id of the pad that is flown with, or null. */
   readonly device: ShallowRef<string | null>
   /** What stops a control from being turned on now, before the pad and the mapping are looked at (`off`, `link`), or null. */
@@ -106,6 +108,7 @@ class RcControl implements RcControlModel {
   readonly active = computed(() => this.state.value !== 'off')
   readonly why = shallowRef<string | null>(null)
   readonly gateOpen = shallowRef(false)
+  readonly explanation = computed(() => this.explain())
   readonly device = shallowRef<string | null>(null)
   readonly confirmed = shallowRef(false)
   readonly block = computed(() => this.blockNow())
@@ -152,6 +155,17 @@ class RcControl implements RcControlModel {
     // (what the vehicle says of its channels is what the throttle is held to: a change under the control ends it)
     watch(() => factsKey(deps.facts.value), key => this.facts !== '' && key !== this.facts && this.over('PARAMS_CHANGED'))
     watch(() => this.keptMapping(), kept => kept !== this.snapshot && this.over('EDITED'))
+  }
+
+  /**
+   * Why it is off, in words, while it is off and something ended or refused it (the person turning it off is no reason).
+   *
+   * @returns the words, or null
+   */
+  private explain(): string | null {
+    const why = this.why.value
+
+    return this.state.value === 'off' && why !== null && why !== 'RELEASED' ? this.deps.reasonText(why) : null
   }
 
   /**
@@ -278,16 +292,17 @@ class RcControl implements RcControlModel {
     this.pushing = false
     this.run += 1
     const mine = this.run
-    const subscription = this.deps.client.subscribe(
-      'rc.control',
-      null,
-      state => this.told(mine, state),
-      ending => this.ended(mine, ending?.code ?? 'ENDED'),
-    )
-
-    this.subscription = subscription
-
     try {
+      // (whatever goes wrong in asking for the subscription ends the control with a reason: never left starting, or off with
+      // nothing said)
+      const subscription = this.deps.client.subscribe(
+        'rc.control',
+        null,
+        state => this.told(mine, state),
+        ending => this.ended(mine, ending?.code ?? 'ENDED'),
+      )
+
+      this.subscription = subscription
       await subscription.ready
     } catch (failure) {
       this.ended(mine, failure instanceof BackendError ? failure.code : 'ERROR')
@@ -455,7 +470,13 @@ class RcControl implements RcControlModel {
   }
 
   turnOn = async (ask: () => Promise<boolean>): Promise<void> => {
-    if (this.state.value !== 'off' || (!this.confirmed.value && !await ask())) {
+    if (this.state.value !== 'off') {
+      return
+    }
+    if (!this.confirmed.value && !await ask()) {
+      // (the summary was answered no, or another question took its place: it is not turned on, and the screen says so)
+      this.why.value = 'DECLINED'
+
       return
     }
     this.confirmed.value = true

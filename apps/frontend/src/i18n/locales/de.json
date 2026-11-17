@@ -863,6 +863,7 @@
       "VEHICLE_CHANGED": "Fernsteuerung beendet: Es ist ein anderes Fahrzeug.",
       "PARAMS_UNKNOWN": "Fernsteuerung beendet: Die Parameter des Fahrzeugs sind nicht bekannt.",
       "GUIDED": "Ein geführter Flug läuft (das Fahrzeug ist in GUIDED, oder ein Ort ist gewählt): Die Fernsteuerung beginnt nicht.",
+      "DECLINED": "Die Fernsteuerung wurde nicht eingeschaltet: Die Zusammenfassung wurde nicht bestätigt.",
       "PARAMS_CHANGED": "Fernsteuerung beendet: Die Einstellungen des Fahrzeugs haben sich geändert.",
       "EDITED": "Fernsteuerung beendet: Die Zuordnung wurde geändert.",
       "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",

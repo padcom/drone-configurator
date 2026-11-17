@@ -157,6 +157,9 @@ class VehicleLink implements Vehicle {
   private sessionEnded(next: Connection): void {
     if (next.state !== 'reconnecting') {
       this.telemetry.value = null
+    }
+    // (`connecting` is the backend telling that the session BEGINS: what the connection was asked for is what it is for)
+    if (next.state !== 'reconnecting' && next.state !== 'connecting') {
       this.request.value = null
     }
     this.listeners.forEach(listener => listener(false))
