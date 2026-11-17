@@ -109,6 +109,8 @@ class VehicleLink implements Vehicle {
   readonly notice = shallowRef<string | null>(null)
   readonly telemetry = shallowRef<Telemetry | null>(null)
   readonly request = shallowRef<ConnectRequest | null>(null)
+  /** How many `vehicle.connect` calls of this page are in flight (the backend's `connecting` that comes meanwhile is theirs). */
+  private connectCalls = 0
   private readonly listeners: SessionListener[] = []
 
   /**
@@ -158,8 +160,12 @@ class VehicleLink implements Vehicle {
     if (next.state !== 'reconnecting') {
       this.telemetry.value = null
     }
-    // (`connecting` is the backend telling that the session BEGINS: what the connection was asked for is what it is for)
-    if (next.state !== 'reconnecting' && next.state !== 'connecting') {
+    // (`connecting` of this page's own connect() is the backend telling that the session BEGINS: what the connection was asked
+    // for is what it is for. A `connecting` that this page did not ask for (another window connecting to another vehicle) is
+    // another connection: what this page asked for is not what it is)
+    const own = next.state === 'connecting' && this.connectCalls > 0
+
+    if (next.state !== 'reconnecting' && !own) {
       this.request.value = null
     }
     this.listeners.forEach(listener => listener(false))
@@ -174,6 +180,7 @@ class VehicleLink implements Vehicle {
     this.request.value = request
     this.notice.value = null
     this.deps.fail(null)
+    this.connectCalls += 1
 
     try {
       this.connectionChanged(await this.deps.client.call('vehicle.connect', request))
@@ -181,6 +188,8 @@ class VehicleLink implements Vehicle {
       this.connection.value = { state: 'disconnected' }
       this.request.value = null
       this.deps.fail(describeError(error))
+    } finally {
+      this.connectCalls -= 1
     }
   }
 
@@ -262,6 +271,8 @@ class VehicleLink implements Vehicle {
     }
     this.connection.value = lostFrom(this.connection.value)
     this.telemetry.value = null
+    // (the new backend has no link to the vehicle: what the old one was asked for is not what it is for)
+    this.request.value = null
     this.notice.value = sessionEndedNotice(state)
   }
 }

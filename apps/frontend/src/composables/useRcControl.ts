@@ -70,6 +70,8 @@ export interface RcControlModel {
   enable: () => Promise<void>
   /** Turns it on after the summary has been asked once in this session (`ask` shows it): nothing when the answer is no. */
   turnOn: (ask: () => Promise<boolean>) => Promise<void>
+  /** Tells that a place shows why it is off (or no longer does): while one does, a refusal is not a toast too. */
+  reasonShown: (shown: boolean) => void
   /** Turns it off (and releases). */
   disable: () => void
   /** Turns it off when it is on, on when it is off. */
@@ -125,6 +127,8 @@ class RcControl implements RcControlModel {
   private pushing = false
   /** What the vehicle's facts were when the control began. */
   private facts = ''
+  /** How many places show the reason the control is off (the Fly switch's line): a refusal is not a toast then. */
+  private lines = 0
 
   /**
    * Makes it.
@@ -150,7 +154,7 @@ class RcControl implements RcControlModel {
     watch(() => deps.settings.allowed.value, allowed => !allowed && this.over('NOT_ALLOWED'))
     watch(() => deps.connection.value.state, state => state !== 'connected' && this.over('LINK_LOST'))
     watch(vehicle, () => this.over('VEHICLE_CHANGED'))
-    watch(() => isSimulatorLink(deps.request.value), simulator => !simulator && this.over('NOT_SIMULATOR'))
+    watch(() => this.linkFits(), fits => !fits && this.over('NOT_SIMULATOR'))
     watch(() => deps.facts.value, facts => (facts === null || !facts.complete) && this.over('PARAMS_UNKNOWN'))
     // (what the vehicle says of its channels is what the throttle is held to: a change under the control ends it)
     watch(() => factsKey(deps.facts.value), key => this.facts !== '' && key !== this.facts && this.over('PARAMS_CHANGED'))
@@ -178,7 +182,19 @@ class RcControl implements RcControlModel {
       return 'off'
     }
 
-    return isSimulatorLink(this.deps.request.value) && this.deps.connection.value.state === 'connected' ? null : 'link'
+    return this.linkFits() && this.deps.connection.value.state === 'connected' ? null : 'link'
+  }
+
+  /**
+   * Whether what the connection was asked for may be a simulator: it is one, or it is not known (a page that was reloaded over a
+   * live backend, or a session that came back): then the backend's `NOT_SIMULATOR` decides, and says so.
+   *
+   * @returns false only for a request that is known and is not a simulator
+   */
+  private linkFits(): boolean {
+    const { request } = this.deps
+
+    return request.value === null || isSimulatorLink(request.value)
   }
 
   /**
@@ -267,6 +283,7 @@ class RcControl implements RcControlModel {
     return controlBlock({
       allowed: this.deps.settings.allowed.value,
       request: this.deps.request.value,
+      letBackendDecide: this.deps.connection.value.state === 'connected',
       padLive: this.pad.live.value,
       profile,
       vehicle: profile === null ? [] : vehicleProblems(this.deps.facts.value, profile),
@@ -466,7 +483,31 @@ class RcControl implements RcControlModel {
    */
   private refuse(why: string): void {
     this.why.value = why
-    this.deps.tell('warning', this.deps.reasonText(why))
+    // (a refusal is said by the line of the Fly switch when it is on the screen; the end of a control that was flying is always a
+    // toast too: it must not be missed)
+    this.say(why)
+  }
+
+  /** The summary was not confirmed: the reason, while the control is off. */
+  private declined(): void {
+    if (this.state.value === 'off') {
+      this.why.value = 'DECLINED'
+    }
+  }
+
+  reasonShown = (shown: boolean): void => {
+    this.lines = Math.max(0, this.lines + (shown ? 1 : -1))
+  }
+
+  /**
+   * Says a reason to the person, unless the screen shows it already (the line of the Fly switch).
+   *
+   * @param why the reason (a code)
+   */
+  private say(why: string): void {
+    if (this.lines === 0) {
+      this.deps.tell('warning', this.deps.reasonText(why))
+    }
   }
 
   turnOn = async (ask: () => Promise<boolean>): Promise<void> => {
@@ -474,8 +515,9 @@ class RcControl implements RcControlModel {
       return
     }
     if (!this.confirmed.value && !await ask()) {
-      // (the summary was answered no, or another question took its place: it is not turned on, and the screen says so)
-      this.why.value = 'DECLINED'
+      // (the summary was answered no, or another question took its place: it is not turned on, and the screen says so; but not
+      // when another turn-on went through meanwhile and the control is on now)
+      this.declined()
 
       return
     }

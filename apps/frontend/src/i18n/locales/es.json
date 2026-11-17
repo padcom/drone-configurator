@@ -853,7 +853,7 @@
       "ERROR": "El control remoto no pudo empezar.",
       "SILENT": "Control remoto terminado: la página estuvo callada demasiado tiempo.",
       "LINK_LOST": "Control remoto terminado: se perdió el enlace con el vehículo.",
-      "STATE_UNKNOWN": "Control remoto terminado: no se conoce el estado del vehículo.",
+      "STATE_UNKNOWN": "No se conoce el estado del vehículo: espéralo y vuelve a intentarlo.",
       "STOPPED": "Control remoto terminado: se está desarmando o parando el vehículo.",
       "NOT_ALLOWED": "Control remoto terminado: ya no está permitido.",
       "NOT_SIMULATOR": "Control remoto terminado: el vehículo no es un simulador.",

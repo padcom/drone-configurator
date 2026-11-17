@@ -18,7 +18,7 @@
 // there only when the setting allows RC control (Settings), so that a screen of someone who does not use it has nothing about it.
 // Turning it on asks the summary the first time in a session; turning it off is one click, and asks nothing. The line under it
 // says where the control is: why it cannot be turned on, that the throttle must be lowered first, or that the pad is flying.
-import { computed, useId } from 'vue'
+import { computed, onBeforeUnmount, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -27,6 +27,16 @@ import { namedVehicleOf, summaryOptions } from '@/lib/rc/summary'
 const { t } = useI18n()
 const uid = useId()
 const { rcControl: rc, confirmWith, fields } = useConfigurator()
+
+// The line under the switch says why the control is off while the switch is there: a refusal is not a toast too.
+const shown = computed(() => rc.block.value !== 'off')
+
+watch(shown, now => rc.reasonShown(now), { immediate: true })
+onBeforeUnmount(() => {
+  if (shown.value) {
+    rc.reasonShown(false)
+  }
+})
 
 /** What the line says while the control is off: what stops it, else why it ended or was refused last, else that it is off. */
 const offHelp = computed(() => {

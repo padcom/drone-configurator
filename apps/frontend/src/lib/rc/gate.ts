@@ -43,6 +43,12 @@ export interface ControlInput {
   allowed: boolean
   /** What the connection was asked for. */
   request: ConnectRequest | null
+  /**
+   * Whether a request that is not known (null) is left to the backend: the page does not know what a connection that is up was
+   * asked for (the page was reloaded over a live backend, or it came back after being lost), and the backend's own check
+   * (`NOT_SIMULATOR`) is the hard gate. A request that is known and is not a simulator is always `link`.
+   */
+  letBackendDecide?: boolean
   /** Whether a pad is being read. */
   padLive: boolean
   /** The mapping of that pad, or null when it has none. */
@@ -70,7 +76,7 @@ function mappingWrong(profile: Profile | null): boolean {
 export function controlBlock(input: ControlInput): ControlBlock | null {
   const checks: [ControlBlock, boolean][] = [
     ['off', !input.allowed],
-    ['link', !isSimulatorLink(input.request)],
+    ['link', !isSimulatorLink(input.request) && !(input.letBackendDecide === true && input.request === null)],
     ['pad', !input.padLive],
     ['mapping', mappingWrong(input.profile)],
     ['vehicle', input.vehicle.some(problem => problem.blocks)],

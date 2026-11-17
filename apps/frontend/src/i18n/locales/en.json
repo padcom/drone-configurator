@@ -853,7 +853,7 @@
       "ERROR": "RC control could not start.",
       "SILENT": "RC control ended: the page went quiet for too long.",
       "LINK_LOST": "RC control ended: the link to the vehicle was lost.",
-      "STATE_UNKNOWN": "RC control ended: the vehicle's state is not known.",
+      "STATE_UNKNOWN": "The vehicle's state is not known: wait for it, then try again.",
       "STOPPED": "RC control ended: the vehicle is being disarmed or stopped.",
       "NOT_ALLOWED": "RC control ended: it is not allowed any more.",
       "NOT_SIMULATOR": "RC control ended: the vehicle is not a simulator.",
