@@ -4,7 +4,7 @@
 import { type ComputedRef, computed, reactive, ref } from 'vue'
 import { COMMANDS, type CommandDef, definitionOf, freshItem } from '@/lib/plan/catalog'
 import { AddItem, MoveItem, RemoveItem, RenamePlan, UpdateItem } from '@/lib/plan/edit'
-import { type Sketch, type Stats, sketchOf, statsOf } from '@/lib/plan/geometry'
+import { type Pin, type Stats, pinsOf, statsOf } from '@/lib/plan/geometry'
 import { History } from '@/lib/plan/history'
 import { type Plan, type PlanDocument, type PlanItem, emptyPlan, indexOfItem } from '@/lib/plan/model'
 import { type Problem, problemsOf } from '@/lib/plan/validate'
@@ -28,8 +28,8 @@ export interface PlanView {
   problems: ComputedRef<Problem[]>
   /** The numbers of the stats strip. */
   stats: ComputedRef<Stats>
-  /** The picture of the route. */
-  sketch: ComputedRef<Sketch>
+  /** The items that have a place, for the map. */
+  pins: ComputedRef<Pin[]>
   /** Whether there is an edit to take back. */
   canUndo: ComputedRef<boolean>
   /** Whether there is an edit to do again. */
@@ -142,7 +142,7 @@ function view(): PlanView {
     item: selectedItem,
     problems: computed(() => problemsOf(doc.plan)),
     stats: computed(() => statsOf(doc.plan)),
-    sketch: computed(() => sketchOf(doc.plan)),
+    pins: computed(() => pinsOf(doc.plan)),
     canUndo: computed(() => revision.value >= 0 && history.canUndo()),
     canRedo: computed(() => revision.value >= 0 && history.canRedo()),
     undoLabelKey: computed(() => (revision.value >= 0 ? history.undoLabelKey() : null)),

@@ -3,7 +3,7 @@
 // is too long; and what the sketch and the numbers do not take for a place or a comparison.
 import { describe, expect, it } from 'vitest'
 import { COMMANDS, definitionOf, freshItem, placeNeeded } from './catalog'
-import { sketchOf, statsOf } from './geometry'
+import { pinsOf, statsOf } from './geometry'
 import { FRAME_ABSOLUTE, MAX_ALTITUDE, MAX_ITEMS, type Plan, type PlanItem, emptyPlan } from './model'
 import { problemsOf } from './validate'
 
@@ -51,7 +51,7 @@ describe('a waypoint or a loiter the vehicle would misread', () => {
       change(plan, { lat: 0, lon: 0 })
 
       expect(keys(plan), String(command)).toEqual(['error:atZero:2'])
-      expect(sketchOf(plan).points.map(point => point.number)).toEqual([1])
+      expect(pinsOf(plan).map(pin => pin.number)).toEqual([1])
     }
   })
 

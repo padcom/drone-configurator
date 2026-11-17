@@ -124,6 +124,78 @@ it('draws the route from the places typed, numbered as the items are, and measur
   expect(wrapper.get('#plan-detail-title').text()).toBe('Item 1: Waypoint')
 })
 
+it('draws the plan over the map: a line from two places, a pin for each, named by its item, the selected marked', async () => {
+  seedPlan(1)
+  const wrapper = await page()
+
+  expect(wrapper.find('.plan-route').exists()).toBe(false)
+  expect(wrapper.findAll('.plan-pin')).toHaveLength(1)
+  seedPlan(2)
+  await flushPromises()
+
+  const pins = wrapper.findAll('.plan-pin')
+  expect(wrapper.find('.plan-route').exists()).toBe(true)
+  expect(pins.map(pin => pin.attributes('aria-label'))).toEqual(['Item 1', 'Item 2', 'Item 3'])
+  expect(pins.map(pin => pin.classes('selected'))).toEqual([false, false, true])
+  expect(pins.map(pin => pin.attributes('aria-pressed'))).toEqual(['false', 'false', 'true'])
+})
+
+it('selects an item from its pin with the keyboard too, and leaves an item that has no place off the map', async () => {
+  seedPlan(2)
+  const wrapper = await page()
+  await press(wrapper, 'plan.addWaypoint')
+
+  // (the third item has no place yet: it is in the list, not on the map)
+  expect(wrapper.findAll('.plan-item')).toHaveLength(3)
+  expect(wrapper.findAll('.plan-pin')).toHaveLength(2)
+  await wrapper.findAll('.plan-pin')[0]?.trigger('keydown', { key: 'Enter' })
+  expect(wrapper.get('#plan-detail-title').text()).toBe('Item 1: Waypoint')
+  await wrapper.findAll('.plan-pin')[1]?.trigger('keydown', { key: ' ' })
+
+  expect(wrapper.get('#plan-detail-title').text()).toBe('Item 2: Waypoint')
+})
+
+/**
+ * The positions of the pins that are a tab stop.
+ *
+ * @param wrapper the page
+ * @returns their positions on the map
+ */
+function tabStops(wrapper: VueWrapper): number[] {
+  return wrapper.findAll('.plan-pin').flatMap((pin, index) => (pin.attributes('tabindex') === '0' ? [index] : []))
+}
+
+it('has one tab stop on the map, however many pins: the selected one; the arrows move the focus between pins', async () => {
+  seedPlan(30)
+  const wrapper = await page()
+  const pins = wrapper.findAll('.plan-pin')
+
+  expect(pins).toHaveLength(30)
+  // (the last item was added last, and is the selected one)
+  expect(tabStops(wrapper)).toEqual([29])
+  await pins[29]!.trigger('keydown', { key: 'Home' })
+  await pins[0]!.trigger('focus')
+  expect(tabStops(wrapper)).toEqual([0])
+  await pins[0]!.trigger('keydown', { key: 'ArrowRight' })
+
+  expect(document.activeElement).toBe(pins[1]!.element)
+})
+
+it('says why the map has nothing on it when the items have no place, once, and not for an empty plan', async () => {
+  const wrapper = await page()
+
+  expect(wrapper.find('.plan-map-note').exists()).toBe(false)
+  await press(wrapper, 'plan.addWaypoint')
+
+  expect(wrapper.findAll('.plan-map-note').map(note => note.text())).toEqual([
+    'No item has a place yet: give one a latitude and a longitude and it appears on the map.',
+  ])
+  await typeInto(wrapper, 'plan-lat', '52.2297')
+  await typeInto(wrapper, 'plan-lon', '21.0122')
+
+  expect(wrapper.find('.plan-map-note').exists()).toBe(false)
+})
+
 it('says what the vehicle keeps where it keeps less: a hold as a whole number, an altitude to the centimetre', async () => {
   const wrapper = await page()
   await press(wrapper, 'plan.addWaypoint')

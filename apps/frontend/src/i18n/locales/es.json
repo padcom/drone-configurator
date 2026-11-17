@@ -2474,10 +2474,9 @@
       "nothingToUndo": "No hay nada que deshacer.",
       "nothingToRedo": "No hay nada que rehacer."
     },
-    "sketch": {
-      "label": "La ruta del plan",
-      "empty": "Añada un punto de ruta y dele un lugar: la ruta se dibuja aquí.",
-      "scale": "{metres} m"
+    "map": {
+      "pin": "Elemento {number}",
+      "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa."
     },
     "stats": {
       "label": "El plan en cifras",

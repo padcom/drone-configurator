@@ -2474,10 +2474,9 @@
       "nothingToUndo": "Nie ma czego cofnąć.",
       "nothingToRedo": "Nie ma czego ponowić."
     },
-    "sketch": {
-      "label": "Trasa planu",
-      "empty": "Dodaj punkt trasy i nadaj mu miejsce: trasa rysuje się tutaj.",
-      "scale": "{metres} m"
+    "map": {
+      "pin": "Element {number}",
+      "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie."
     },
     "stats": {
       "label": "Plan w liczbach",
