@@ -951,7 +951,11 @@
         "switch": "Añadir un interruptor",
         "button": "Añadir un botón"
       },
-      "refusedArm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
+      "refused": {
+        "arm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
+        "taken": "El canal {channel} ya lo maneja otra fila. Quita esa fila o elige otro canal."
+      },
+      "noSource": "Aún sin control",
       "wizard": {
         "title": "Calibración",
         "start": "Calibrar…",
@@ -968,6 +972,7 @@
         "mapping": {
           "channel": "El canal {channel} no es un canal del 1 al 16.",
           "duplicate": "El canal {channel} lo maneja más de una fila.",
+          "source": "El canal {channel} aún no tiene control. Pulsa «Muévelo» y mueve el que quieres.",
           "zone": "La zona muerta del canal {channel} debe ser de 0 a 50 %.",
           "expo": "La curva del canal {channel} debe ser de 0 a 100 %.",
           "calibration": "La calibración del canal {channel} no sirve. Calibra de nuevo.",

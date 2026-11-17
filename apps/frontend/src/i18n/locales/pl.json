@@ -951,7 +951,11 @@
         "switch": "Dodaj przełącznik",
         "button": "Dodaj przycisk"
       },
-      "refusedArm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
+      "refused": {
+        "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
+        "taken": "Kanałem {channel} już steruje inny wiersz. Usuń tamten wiersz albo wybierz inny kanał."
+      },
+      "noSource": "Jeszcze bez elementu",
       "wizard": {
         "title": "Kalibracja",
         "start": "Kalibruj…",
@@ -968,6 +972,7 @@
         "mapping": {
           "channel": "Kanał {channel} nie jest kanałem od 1 do 16.",
           "duplicate": "Kanałem {channel} steruje więcej niż jeden wiersz.",
+          "source": "Kanał {channel} nie ma jeszcze elementu sterującego. Naciśnij „Poruszaj” i poruszaj tym, o który ci chodzi.",
           "zone": "Strefa martwa kanału {channel} musi wynosić od 0 do 50 %.",
           "expo": "Krzywa kanału {channel} musi wynosić od 0 do 100 %.",
           "calibration": "Kalibracji kanału {channel} nie można użyć. Skalibruj ponownie.",

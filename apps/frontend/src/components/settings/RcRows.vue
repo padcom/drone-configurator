@@ -1,7 +1,7 @@
 <template>
   <div class="rc-rows">
-    <p v-if="mapping.refusal.value?.code === 'arm'" id="rc-refusal" class="rc-warn" role="status">
-      {{ t('settings.rc.refusedArm', { channel: mapping.refusal.value.channel }) }}
+    <p v-if="mapping.refusal.value !== null" id="rc-refusal" class="rc-warn" role="status">
+      {{ t(`settings.rc.refused.${mapping.refusal.value.code}`, { channel: mapping.refusal.value.channel }) }}
     </p>
     <ul class="rc-list">
       <template v-for="slot in slots" :key="slot.channel">
@@ -142,7 +142,8 @@ import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import type { NewRow, RcMapping } from '@/composables/useRcMapping'
-import type { Row } from '@/lib/rc/types'
+import { hasSource } from '@/lib/rc/profile'
+import { NOT_MINE, type Row } from '@/lib/rc/types'
 
 const props = defineProps<{
   /** The mapping on the screen. */
@@ -208,6 +209,10 @@ async function showChannel(index: number, event: Event): Promise<void> {
  * @returns the axis or the button
  */
 function sourceText(row: Row): string {
+  if (!hasSource(row)) {
+    return t('settings.rc.noSource')
+  }
+
   if (row.kind === 'button') {
     return t('settings.rc.sourceButton', { n: row.button })
   }
@@ -224,7 +229,8 @@ function sourceText(row: Row): string {
 function pulseText(row: Row): string {
   const pulse = props.mapping.pulseOf(row)
 
-  return pulse === null ? t('settings.rc.noPulse') : t('settings.rc.pulse', { us: Math.round(pulse) })
+  // (nothing is the radio's own: a row with no control, or one the pad does not have, makes none)
+  return pulse === null || pulse === NOT_MINE ? t('settings.rc.noPulse') : t('settings.rc.pulse', { us: Math.round(pulse) })
 }
 
 /**

@@ -951,7 +951,11 @@
         "switch": "Aggiungi un interruttore",
         "button": "Aggiungi un pulsante"
       },
-      "refusedArm": "Il canale {channel} arma o ferma il veicolo, quindi non si può pilotare da qui.",
+      "refused": {
+        "arm": "Il canale {channel} arma o ferma il veicolo, quindi non si può pilotare da qui.",
+        "taken": "Il canale {channel} è già pilotato da un'altra riga. Togli quella riga o scegli un altro canale."
+      },
+      "noSource": "Ancora nessun comando",
       "wizard": {
         "title": "Calibrazione",
         "start": "Calibra…",
@@ -968,6 +972,7 @@
         "mapping": {
           "channel": "Il canale {channel} non è un canale da 1 a 16.",
           "duplicate": "Il canale {channel} è pilotato da più di una riga.",
+          "source": "Il canale {channel} non ha ancora un comando. Premi «Muovilo» e muovi quello che intendi.",
           "zone": "La zona morta del canale {channel} deve essere da 0 a 50 %.",
           "expo": "La curva del canale {channel} deve essere da 0 a 100 %.",
           "calibration": "La calibrazione del canale {channel} non è utilizzabile. Calibra di nuovo.",

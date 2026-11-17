@@ -951,7 +951,11 @@
         "switch": "Schalter hinzufügen",
         "button": "Taste hinzufügen"
       },
-      "refusedArm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
+      "refused": {
+        "arm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
+        "taken": "Kanal {channel} wird schon von einer anderen Zeile gesteuert. Entferne jene Zeile oder wähle einen anderen Kanal."
+      },
+      "noSource": "Noch kein Bedienelement",
       "wizard": {
         "title": "Kalibrierung",
         "start": "Kalibrieren…",
@@ -968,6 +972,7 @@
         "mapping": {
           "channel": "Kanal {channel} ist kein Kanal von 1 bis 16.",
           "duplicate": "Kanal {channel} wird von mehr als einer Zeile gesteuert.",
+          "source": "Kanal {channel} hat noch kein Bedienelement. Drücke „Bewegen“ und bewege das gemeinte.",
           "zone": "Die Totzone von Kanal {channel} muss 0 bis 50 % sein.",
           "expo": "Die Kurve von Kanal {channel} muss 0 bis 100 % sein.",
           "calibration": "Die Kalibrierung von Kanal {channel} ist nicht brauchbar. Kalibriere erneut.",

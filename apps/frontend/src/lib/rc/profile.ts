@@ -2,12 +2,13 @@
 import { type AxisCalibration, CHANNELS, MAX_PULSE, MIN_PULSE, type Profile, type Row, type StickRow } from './types'
 
 /** What is wrong with one row. */
-export type Code = 'channel' | 'duplicate' | 'zone' | 'expo' | 'calibration' | 'pulse' | 'uncalibrated'
+export type Code = 'channel' | 'duplicate' | 'source' | 'zone' | 'expo' | 'calibration' | 'pulse' | 'uncalibrated'
 
 /** What is wrong with a mapping. */
 export interface Problem {
   /**
-   * `channel` (not 1 to 16), `duplicate` (two rows for one channel), `zone`, `expo`, `calibration`, `pulse`, or `uncalibrated`
+   * `channel` (not 1 to 16), `duplicate` (two rows for one channel), `source` (the row has no control yet), `zone`, `expo`,
+   * `calibration`, `pulse`, or `uncalibrated`
    * (the person has not been through the calibration wizard with this mapping: it is the mapping's problem, not a row's).
    */
   code: Code
@@ -65,18 +66,41 @@ function stickProblem(row: StickRow): Code | null {
 }
 
 /**
- * What is wrong with a row itself (not with which channel it drives), or nothing.
+ * Whether a row has a control to read: a whole, non-negative axis or button (`NO_SOURCE` is neither).
+ *
+ * @param row the row
+ * @returns true when it has
+ */
+export function hasSource(row: Row): boolean {
+  const index = row.kind === 'button' ? row.button : row.axis
+
+  return Number.isInteger(index) && index >= 0
+}
+
+/**
+ * What is wrong with the settings of a row that has a control (a stick's zone, curve and calibration, a switch's or a button's
+ * pulses).
  *
  * @param row the row
  * @returns the code, or null
  */
-function rowProblem(row: Row): Code | null {
+function settingsProblem(row: Row): Code | null {
   if (row.kind === 'stick') {
     return stickProblem(row)
   }
   const pulses = row.kind === 'switch' ? row.pulses : [row.off, row.on]
 
   return pulses.every(fits) ? null : 'pulse'
+}
+
+/**
+ * What is wrong with a row itself (not with which channel it drives), or nothing.
+ *
+ * @param row the row
+ * @returns the code, or null
+ */
+function rowProblem(row: Row): Code | null {
+  return hasSource(row) ? settingsProblem(row) : 'source'
 }
 
 /**

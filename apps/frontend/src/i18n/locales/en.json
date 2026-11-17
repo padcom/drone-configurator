@@ -951,7 +951,11 @@
         "switch": "Add a switch",
         "button": "Add a button"
       },
-      "refusedArm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
+      "refused": {
+        "arm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
+        "taken": "Channel {channel} is already driven by another row. Take that row away, or choose another channel."
+      },
+      "noSource": "No control yet",
       "wizard": {
         "title": "Calibration",
         "start": "Calibrate…",
@@ -968,6 +972,7 @@
         "mapping": {
           "channel": "Channel {channel} is not a channel from 1 to 16.",
           "duplicate": "Channel {channel} is driven by more than one row.",
+          "source": "Channel {channel} has no control yet. Press Move it and move the control you mean.",
           "zone": "The dead zone of channel {channel} must be 0 to 50 %.",
           "expo": "The curve of channel {channel} must be 0 to 100 %.",
           "calibration": "The calibration of channel {channel} cannot be used. Calibrate again.",
