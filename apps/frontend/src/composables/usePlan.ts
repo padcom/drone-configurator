@@ -54,6 +54,13 @@ export interface PlanActions {
   add(command: number): void
   /** Adds a waypoint at a place after the selected item (at the end when none is selected), and selects it. One edit. */
   addAt(lat: number, lon: number): void
+  /** Puts a waypoint at a place right after an item (a drop on a line of the route), and selects it. One edit. */
+  insertAfter(id: number, lat: number, lon: number): void
+  /**
+   * Takes an item to another place. One edit; `join` says whether it may become one edit with the nudges before and after it (a
+   * drag of a pin is a step of its own).
+   */
+  placeItem(id: number, lat: number, lon: number, join: boolean): void
   /** Turns the mode on or off in which a click on the map adds a waypoint. */
   setAdding(on: boolean): void
   /** Adds a copy of the selected item after it, and selects the copy. */
@@ -217,6 +224,34 @@ function addAt(lat: number, lon: number): void {
 }
 
 /**
+ * Puts a waypoint at a place right after an item, unless the plan is full or there is no such item. One edit.
+ *
+ * @param id the item it goes after
+ * @param lat the latitude
+ * @param lon the longitude
+ */
+function insertAfter(id: number, lat: number, lon: number): void {
+  const at = indexOfItem(doc.plan, id)
+  if (at >= 0 && doc.plan.items.length < MAX_ITEMS) {
+    const item = freshItem(definitionOrWaypoint(WAYPOINT), doc.plan, newId())
+
+    run(new AddItem({ ...item, lat: onWire(lat), lon: onWire(lon) }, at + 1))
+  }
+}
+
+/**
+ * Takes an item to another place, as the vehicle keeps places.
+ *
+ * @param id the item
+ * @param lat the latitude
+ * @param lon the longitude
+ * @param join whether it may become one edit with the ones before and after it
+ */
+function placeItem(id: number, lat: number, lon: number, join: boolean): void {
+  run(new UpdateItem(id, { lat: onWire(lat), lon: onWire(lon) }, Date.now(), join))
+}
+
+/**
  * What changes the plan.
  *
  * @returns the actions
@@ -227,6 +262,8 @@ function changes(): Omit<PlanActions, 'select' | 'setAdding' | 'undo' | 'redo'> 
       run(new AddItem(freshItem(definitionOrWaypoint(command), doc.plan, newId()), insertionIndex()))
     },
     addAt,
+    insertAfter,
+    placeItem,
     duplicate: () => {
       const item = doc.plan.items[selectedIndex()]
       if (item) {

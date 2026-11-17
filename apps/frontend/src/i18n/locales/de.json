@@ -2480,6 +2480,9 @@
     },
     "map": {
       "pin": "Element {number}",
+      "pinError": "Element {number}: hat einen Fehler",
+      "pinWarning": "Element {number}: hat eine Warnung",
+      "pinHelp": "Ziehen Sie eine Markierung, um sie zu verschieben, oder eine Linie zwischen Markierungen, um dort einen Wegpunkt zu setzen. Pfeiltasten wechseln zwischen den Markierungen, Umschalt und Pfeil verschieben die gewählte (mit Strg um einen Pixel), Entf löscht sie, Esc bricht das Ziehen ab. Einen Wegpunkt auf eine Linie zu setzen geht nicht mit der Tastatur: nutzen Sie die Schaltfläche zum Hinzufügen in der Liste und die Felder für Breiten- und Längengrad.",
       "noPlace": "Noch hat kein Element einen Ort: Geben Sie einem einen Breiten- und einen Längengrad, dann erscheint es auf der Karte.",
       "add": "Wegpunkte hinzufügen",
       "addHelp": "Klicken Sie in die Karte, um einen Wegpunkt nach dem gewählten Element zu setzen; Esc beendet das. Ohne Zeigegerät: die Schaltfläche zum Hinzufügen in der Liste und die Felder für Breiten- und Längengrad."

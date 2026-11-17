@@ -58,6 +58,38 @@ async function clickTheMap(): Promise<void> {
   await window().devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse, buttons: 0 })
 }
 
+/** The place of the last pin of the map, as its pin says it. */
+const LAST_PIN_PLACE = `(() => {
+  const pin = [...document.querySelectorAll('.plan-pin[data-pin]')].at(-1)
+  return pin.dataset.lat + ' ' + pin.dataset.lon
+})()`
+
+/** What the plan's map shows: where it is and how close, as the map says it. */
+const MAP_VIEW = `(() => {
+  const map = document.querySelector('.plan-map .map')
+  return map.dataset.lat + ' ' + map.dataset.lon + ' ' + map.dataset.zoom
+})()`
+
+/**
+ * Takes the last pin of the map with a real mouse and goes some pixels with it, in steps, and lets go.
+ *
+ * @param dx pixels to the right
+ * @param dy pixels down
+ */
+async function dragLastPin(dx: number, dy: number): Promise<void> {
+  const middle = await window().evaluate<{ x: number, y: number }>(`(() => {
+    const box = [...document.querySelectorAll('.plan-pin[data-pin]')].at(-1).getBoundingClientRect()
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  })()`)
+  const at = (by: number): { x: number, y: number } => ({ x: Math.round(middle.x + dx * by), y: Math.round(middle.y + dy * by) })
+  const mouse = (by: number, buttons: number): object => ({ ...at(by), button: 'left', buttons, clickCount: 1 })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at(0) })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mousePressed', ...mouse(0, 1) })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', ...mouse(0.5, 1) })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', ...mouse(1, 1) })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse(1, 0) })
+}
+
 /** Presses Escape with a real key. */
 async function pressEscape(): Promise<void> {
   const key = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }
@@ -133,6 +165,19 @@ describe('the plan on the map', () => {
     expect(await window().evaluate<number>(`document.querySelectorAll('.plan-pin').length`)).toBe(2)
     await pressEscape()
     await window().waitFor(`document.querySelector('#plan-add-on-map').getAttribute('aria-pressed') === 'false'`)
+  })
+})
+
+describe('dragging on the map', () => {
+  it('drags a pin with a real mouse in one step, and the map stays where it is; Undo takes it back', async () => {
+    const before = await window().evaluate<string>(LAST_PIN_PLACE)
+    const view = await window().evaluate<string>(MAP_VIEW)
+    await dragLastPin(60, 40)
+    await window().waitFor(`${LAST_PIN_PLACE} !== ${JSON.stringify(before)}`)
+
+    expect(await window().evaluate<string>(MAP_VIEW)).toBe(view)
+    await window().click('[data-command-button="plan.undo"]')
+    await window().waitFor(`${LAST_PIN_PLACE} === ${JSON.stringify(before)}`)
   })
 })
 

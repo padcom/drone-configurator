@@ -229,7 +229,21 @@ export class UpdateItem implements Edit {
   private after: PlanItem | null = null
   private at = 0
 
-  constructor(private readonly id: number, private readonly patch: Partial<PlanItem>, now: number = Date.now()) {
+  /**
+   * An edit of some fields of an item.
+   *
+   * @param id the item
+   * @param patch what changes
+   * @param now the time (ms)
+   * @param joinable whether it may become one edit with the ones before and after it (typing may; a drag of a pin is a step of
+   * its own)
+   */
+  constructor(
+    private readonly id: number,
+    private readonly patch: Partial<PlanItem>,
+    now: number = Date.now(),
+    private readonly joinable = true,
+  ) {
     this.at = now
   }
 
@@ -264,10 +278,18 @@ export class UpdateItem implements Edit {
    * @returns whether it is
    */
   private joins(next: Edit, now: number): next is UpdateItem {
-    return next instanceof UpdateItem
-      && next.id === this.id
-      && now - this.at <= MERGE_MS
-      && Object.keys(next.patch).every(key => key in this.patch)
+    return next instanceof UpdateItem && this.mayJoin(next, now) && Object.keys(next.patch).every(key => key in this.patch)
+  }
+
+  /**
+   * Whether a later change is of the same item, soon enough, and both are of the kind that joins.
+   *
+   * @param next the later change
+   * @param now the time (ms)
+   * @returns whether it may
+   */
+  private mayJoin(next: UpdateItem, now: number): boolean {
+    return this.joinable && next.joinable && next.id === this.id && now - this.at <= MERGE_MS
   }
 
   merge(next: Edit, now: number): boolean {
