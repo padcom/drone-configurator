@@ -2441,6 +2441,10 @@
         "label": "Aggiungi un waypoint",
         "keywords": "piano missione aggiungi nuovo waypoint punto elemento"
       },
+      "addOnMap": {
+        "label": "Aggiungi waypoint facendo clic sulla mappa",
+        "keywords": "piano missione waypoint mappa clic modalità aggiungi"
+      },
       "duplicate": {
         "label": "Duplica l’elemento",
         "keywords": "piano missione copia duplica elemento"
@@ -2476,7 +2480,9 @@
     },
     "map": {
       "pin": "Elemento {number}",
-      "noPlace": "Nessun elemento ha ancora un luogo: dai a uno una latitudine e una longitudine e comparirà sulla mappa."
+      "noPlace": "Nessun elemento ha ancora un luogo: dai a uno una latitudine e una longitudine e comparirà sulla mappa.",
+      "add": "Aggiungi waypoint",
+      "addHelp": "Fai clic sulla mappa per aggiungere un waypoint dopo l'elemento selezionato; Esc termina."
     },
     "stats": {
       "label": "Il piano in numeri",

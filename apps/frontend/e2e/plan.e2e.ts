@@ -45,6 +45,26 @@ async function resize(width: number, height: number): Promise<void> {
   await window().devtools('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
 }
 
+/** Clicks the plan's map with a real mouse, a little off its middle (where the plan's first place is). */
+async function clickTheMap(): Promise<void> {
+  const middle = await window().evaluate<{ x: number, y: number }>(`(() => {
+    const box = document.querySelector('.plan-map .map').getBoundingClientRect()
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  })()`)
+  const at = { x: Math.round(middle.x + 90), y: Math.round(middle.y + 70) }
+  const mouse = { ...at, button: 'left', buttons: 1, clickCount: 1 }
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mousePressed', ...mouse })
+  await window().devtools('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse, buttons: 0 })
+}
+
+/** Presses Escape with a real key. */
+async function pressEscape(): Promise<void> {
+  const key = { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }
+  await window().devtools('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...key })
+  await window().devtools('Input.dispatchKeyEvent', { type: 'keyUp', ...key })
+}
+
 beforeAll(async () => {
   app = await launchApp()
   await app.waitForText('#connection', 'disconnected')
@@ -99,6 +119,20 @@ describe('the plan on the map', () => {
     await window().waitFor(`document.querySelector('#plan-detail-title')?.textContent === 'Item 1: Waypoint'`)
     await window().click('.plan-pin')
     await window().waitFor(`document.querySelector('#plan-detail-title')?.textContent === 'Item 2: Waypoint'`)
+  })
+
+  it('adds a waypoint where the real map is clicked while the mode is on, and not when it is off', async () => {
+    await clickTheMap()
+    // (nothing is added: given a moment to be wrong)
+    await window().evaluate(`new Promise(resolve => setTimeout(resolve, 300))`)
+    expect(await window().evaluate<number>(`document.querySelectorAll('.plan-item').length`)).toBe(2)
+    await window().click('#plan-add-on-map')
+    await clickTheMap()
+    await waitForItems(3)
+
+    expect(await window().evaluate<number>(`document.querySelectorAll('.plan-pin').length`)).toBe(2)
+    await pressEscape()
+    await window().waitFor(`document.querySelector('#plan-add-on-map').getAttribute('aria-pressed') === 'false'`)
   })
 })
 
@@ -169,7 +203,7 @@ describe('the scrolling rule', () => {
   it('has a plan long enough to scroll', async () => {
     await resize(1280, 700)
     await window().evaluate(FILL)
-    await waitForItems(32)
+    await waitForItems(33)
   })
 
   // (the sizes of the rule, and a short window: the map gives way down to a small one before anything but the aside scrolls)

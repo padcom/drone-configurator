@@ -82,6 +82,24 @@ export class AddWaypoint extends PlanCommand {
   }
 }
 
+/** Turns on (or off) the mode in which a click on the map adds a waypoint after the selected item. */
+export class AddOnMap extends PlanCommand {
+  readonly id = 'plan.addOnMap'
+
+  readonly labelKey = 'plan.command.addOnMap.label'
+
+  readonly keywordKeys = ['plan.command.addOnMap.keywords']
+
+  protected blocker(ctx: CommandContext): string | null {
+    // (leaving the mode is always possible)
+    return ctx.plan.full() && !ctx.plan.adding() ? 'plan.reason.planFull' : null
+  }
+
+  protected run(ctx: CommandContext): void {
+    ctx.plan.setAdding(!ctx.plan.adding())
+  }
+}
+
 /** Adds a copy of the selected item after it. */
 export class DuplicateItem extends PlanCommand {
   readonly id = 'plan.duplicate'

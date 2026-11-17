@@ -6,7 +6,7 @@ import { COMMANDS, type CommandDef, definitionOf, freshItem } from '@/lib/plan/c
 import { AddItem, MoveItem, RemoveItem, RenamePlan, UpdateItem } from '@/lib/plan/edit'
 import { type Pin, type Stats, pinsOf, statsOf } from '@/lib/plan/geometry'
 import { History } from '@/lib/plan/history'
-import { type Plan, type PlanDocument, type PlanItem, emptyPlan, indexOfItem } from '@/lib/plan/model'
+import { MAX_ITEMS, type Plan, type PlanDocument, type PlanItem, emptyPlan, indexOfItem } from '@/lib/plan/model'
 import { type Problem, problemsOf } from '@/lib/plan/validate'
 
 /** The plan and what is selected in it. */
@@ -14,6 +14,8 @@ const doc: PlanDocument = reactive({ plan: emptyPlan(), selected: null })
 const history = new History()
 /** Goes up with every edit, so that what asks the history (it is not reactive) is asked again. */
 const revision = ref(0)
+/** Whether a click on the map adds a waypoint (the map's own mode: not part of the plan, not an edit, not taken back). */
+const adding = ref(false)
 let nextId = 1
 
 /** What the screen reads of the plan. */
@@ -30,6 +32,10 @@ export interface PlanView {
   stats: ComputedRef<Stats>
   /** The items that have a place, for the map. */
   pins: ComputedRef<Pin[]>
+  /** Whether a click on the map adds a waypoint. */
+  adding: ComputedRef<boolean>
+  /** Whether the plan has as many items as it takes. */
+  full: ComputedRef<boolean>
   /** Whether there is an edit to take back. */
   canUndo: ComputedRef<boolean>
   /** Whether there is an edit to do again. */
@@ -46,6 +52,10 @@ export interface PlanActions {
   select(id: number | null): void
   /** Adds a new item of a command after the selected one (at the end when none is selected), and selects it. */
   add(command: number): void
+  /** Adds a waypoint at a place after the selected item (at the end when none is selected), and selects it. One edit. */
+  addAt(lat: number, lon: number): void
+  /** Turns the mode on or off in which a click on the map adds a waypoint. */
+  setAdding(on: boolean): void
   /** Adds a copy of the selected item after it, and selects the copy. */
   duplicate(): void
   /** Takes the selected item out; the one that takes its place is selected. */
@@ -83,6 +93,20 @@ function run(edit: AddItem | RemoveItem | MoveItem | UpdateItem | RenamePlan): v
  */
 function definitionOrWaypoint(command: number): CommandDef {
   return definitionOf(command) ?? (COMMANDS[1] as CommandDef)
+}
+
+/** MAV_CMD_NAV_WAYPOINT: what a click on the map adds. */
+const WAYPOINT = 16
+
+/**
+ * A degree as the vehicle keeps it: a whole number of 1e-7 degrees (what a click on the map gives has more digits than that, and
+ * what is in the plan must be what is read back).
+ *
+ * @param degrees the degrees
+ * @returns the degrees, to 7 places
+ */
+function onWire(degrees: number): number {
+  return Math.round(degrees * 1e7) / 1e7
 }
 
 /**
@@ -143,6 +167,8 @@ function view(): PlanView {
     problems: computed(() => problemsOf(doc.plan)),
     stats: computed(() => statsOf(doc.plan)),
     pins: computed(() => pinsOf(doc.plan)),
+    adding: computed(() => adding.value),
+    full: computed(() => doc.plan.items.length >= MAX_ITEMS),
     canUndo: computed(() => revision.value >= 0 && history.canUndo()),
     canRedo: computed(() => revision.value >= 0 && history.canRedo()),
     undoLabelKey: computed(() => (revision.value >= 0 ? history.undoLabelKey() : null)),
@@ -155,10 +181,13 @@ function view(): PlanView {
  *
  * @returns the actions
  */
-function navigation(): Pick<PlanActions, 'select' | 'undo' | 'redo'> {
+function navigation(): Pick<PlanActions, 'select' | 'setAdding' | 'undo' | 'redo'> {
   return {
     select: id => {
       doc.selected = id
+    },
+    setAdding: on => {
+      adding.value = on
     },
     undo: () => {
       history.undo(doc)
@@ -172,15 +201,30 @@ function navigation(): Pick<PlanActions, 'select' | 'undo' | 'redo'> {
 }
 
 /**
+ * Adds a waypoint at a place after the selected item, unless the plan is full. One edit.
+ *
+ * @param lat the latitude
+ * @param lon the longitude
+ */
+function addAt(lat: number, lon: number): void {
+  if (doc.plan.items.length < MAX_ITEMS) {
+    const item = freshItem(definitionOrWaypoint(WAYPOINT), doc.plan, newId())
+
+    run(new AddItem({ ...item, lat: onWire(lat), lon: onWire(lon) }, insertionIndex()))
+  }
+}
+
+/**
  * What changes the plan.
  *
  * @returns the actions
  */
-function changes(): Omit<PlanActions, 'select' | 'undo' | 'redo'> {
+function changes(): Omit<PlanActions, 'select' | 'setAdding' | 'undo' | 'redo'> {
   return {
     add: command => {
       run(new AddItem(freshItem(definitionOrWaypoint(command), doc.plan, newId()), insertionIndex()))
     },
+    addAt,
     duplicate: () => {
       const item = doc.plan.items[selectedIndex()]
       if (item) {
@@ -215,6 +259,7 @@ export function usePlan(): PlanState {
 export function resetPlanForTests(): void {
   doc.plan = emptyPlan()
   doc.selected = null
+  adding.value = false
   history.clear()
   revision.value += 1
   nextId = 1

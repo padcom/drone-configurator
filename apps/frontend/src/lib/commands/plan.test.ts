@@ -2,7 +2,9 @@
 // thing to the plan.
 import { describe, expect, it } from 'vitest'
 import { fakeContext } from '@/testing/commandContext'
-import { AddWaypoint, DeleteItem, DuplicateItem, MoveItemDown, MoveItemUp, PLAN_GROUP, RedoPlan, UndoPlan } from './plan'
+import {
+  AddOnMap, AddWaypoint, DeleteItem, DuplicateItem, MoveItemDown, MoveItemUp, PLAN_GROUP, RedoPlan, UndoPlan,
+} from './plan'
 
 const onPlan = { path: '/plan' }
 
@@ -11,6 +13,7 @@ describe('where the commands of the plan are offered', () => {
     const away = fakeContext({ path: '/flight', planSelected: 1, planCanMove: true, planCanUndo: true, planCanRedo: true })
     const commands = [
       new AddWaypoint(),
+      new AddOnMap(),
       new DuplicateItem(),
       new DeleteItem(),
       new MoveItemUp(),
@@ -61,6 +64,23 @@ describe('what the commands of the plan do', () => {
     expect(new DuplicateItem().isEnabled(fake.ctx)).toEqual({ enabled: false, reasonKey: 'plan.reason.planFull' })
     // (a deletion needs no question: Undo gives the item back)
     expect(new DeleteItem().isEnabled(fake.ctx)).toEqual({ enabled: true })
+  })
+})
+
+describe('the mode in which a click on the map adds a waypoint', () => {
+  it('is turned on and off by the same command, and a full plan can leave it but not enter it', () => {
+    const fake = fakeContext(onPlan)
+    new AddOnMap().execute(fake.ctx)
+    fake.facts.planAdding = true
+    new AddOnMap().execute(fake.ctx)
+
+    expect(fake.calls.plan).toEqual(['adding true', 'adding false'])
+    fake.facts.planFull = true
+
+    expect(new AddOnMap().isEnabled(fake.ctx)).toEqual({ enabled: true })
+    fake.facts.planAdding = false
+
+    expect(new AddOnMap().isEnabled(fake.ctx)).toEqual({ enabled: false, reasonKey: 'plan.reason.planFull' })
   })
 })
 
