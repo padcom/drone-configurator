@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type ControlInput, controlBlock, isSimulatorLink } from './gate'
-import { suggestedProfile } from './suggest'
+import { newSwitch, suggestedProfile } from './suggest'
+import { NO_SOURCE } from './types'
 import { calibratedSuggestion } from '@/testing/rcProfiles'
 import type { ConnectRequest } from '@/generated/app'
 
@@ -61,5 +62,11 @@ describe('whether control may be turned on', () => {
     const twice = { ...GOOD.profile!, rows: [...rows, rows[0]!] }
 
     expect(controlBlock({ ...GOOD, profile: twice })).toBe('mapping')
+  })
+
+  it('is stopped by a row that has no control yet: it makes nothing, and the mapping is wrong', () => {
+    const rows = [...GOOD.profile!.rows, newSwitch(8, NO_SOURCE)]
+
+    expect(controlBlock({ ...GOOD, profile: { ...GOOD.profile!, rows } })).toBe('mapping')
   })
 })

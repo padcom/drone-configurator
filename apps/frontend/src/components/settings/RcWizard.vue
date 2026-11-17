@@ -4,16 +4,16 @@
       <p :id="`${uid}-step`" class="rc-step" role="status">{{ t(`settings.rc.wizard.${stepKey}`) }}</p>
       <ul v-if="view.step === 'move'" class="rc-travel">
         <li v-for="one in view.axes" :key="one.axis">
-          <span>{{ t('settings.rc.wizard.axis', { n: one.axis }) }}</span>
+          <span>{{ t('settings.rc.wizard.axis', { n: one.axis + 1 }) }}</span>
           <ProgressBar
             :value="one.travel / 2"
-            :label="t('settings.rc.wizard.axis', { n: one.axis })"
+            :label="t('settings.rc.wizard.axis', { n: one.axis + 1 })"
             :tone="view.failed.includes(one.axis) ? 'warn' : 'accent'"
           />
         </li>
       </ul>
       <p v-if="view.failed.length > 0" id="rc-wizard-failed" class="rc-warn" role="alert">
-        {{ t('settings.rc.wizard.failed', { axes: view.failed.join(', ') }) }}
+        {{ t('settings.rc.wizard.failed', { axes: failedAxes }) }}
       </p>
     </template>
     <div class="rc-wizard-actions">
@@ -75,14 +75,29 @@ const label = computed(() => {
   return view.value.step === 'rest' ? 'next' : 'finish'
 })
 /** Whether the button cannot be used: no pad to calibrate, or the first step has not got its reads yet. */
-const disabled = computed(() => (view.value === null ? !props.live : view.value.step === 'rest' && !view.value.ready))
-/** What says why it cannot: the line about the pad that is not read, or the words of the step that is not done. */
+const disabled = computed(() => {
+  if (view.value === null) {
+    return !props.live || props.mapping.unsourced.value
+  }
+
+  return view.value.step === 'rest' && !view.value.ready
+})
+/** What says why it cannot: the line about the pad that is not read, the list of what is wrong, or the words of the step. */
 const why = computed(() => {
   if (!disabled.value) {
     return undefined
   }
+  if (view.value !== null) {
+    return `${uid}-step`
+  }
 
-  return view.value === null ? 'rc-device-gone' : `${uid}-step`
+  return props.live ? 'rc-issues' : 'rc-device-gone'
+})
+/** The axes that did not make it, by the names the pad's axes have on the screen (CH1 ...). */
+const failedAxes = computed(() => {
+  const axes = view.value?.failed ?? []
+
+  return axes.map(axis => t('settings.rc.wizard.axis', { n: axis + 1 })).join(', ')
 })
 
 /** The button is pressed: the wizard begins, goes on, or finishes (as far as it can). */

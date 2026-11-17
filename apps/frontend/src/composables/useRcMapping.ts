@@ -9,10 +9,10 @@ import type { ConnectRequest } from '@/generated/app'
 import { addRow, changeRow, removeRow } from '@/lib/rc/edits'
 import { type ControlBlock, controlBlock } from '@/lib/rc/gate'
 import { rowPulse, validChannel } from '@/lib/rc/mapping'
-import { type Problem, problemsOf } from '@/lib/rc/profile'
+import { type Problem, hasSource, problemsOf } from '@/lib/rc/profile'
 import { movedControl } from '@/lib/rc/source'
 import { freeChannel, newButton, newStick, newSwitch, suggestedProfile } from '@/lib/rc/suggest'
-import { DEFAULT_RANGE, type PadSample, type Profile, type Row } from '@/lib/rc/types'
+import { DEFAULT_RANGE, NO_SOURCE, type PadSample, type Profile, type Row } from '@/lib/rc/types'
 import { ARM_FUNCTIONS, type Facts, type VehicleProblem, vehicleChannels, vehicleProblems } from '@/lib/rc/vehicle'
 import { Wizard } from '@/lib/rc/wizard'
 
@@ -42,8 +42,8 @@ export interface Issue {
 
 /** What the person has been told about a change that was not made. */
 export interface Refusal {
-  /** `arm`: the channel arms or stops the vehicle. */
-  code: 'arm'
+  /** `arm`: the channel arms or stops the vehicle. `taken`: another row drives it. */
+  code: 'arm' | 'taken'
   /** The channel. */
   channel: number
   /** Counts the refusals: the field that showed the refused value shows the real one again. */
@@ -87,12 +87,14 @@ export interface RcMapping {
   readonly wizard: ComputedRef<WizardView | null>
   /** What stands in the way. */
   readonly issues: ComputedRef<Issue[]>
+  /** Whether a row has no control yet (the wizard waits for it, and the mapping is wrong until it has one). */
+  readonly unsourced: ComputedRef<boolean>
   /** The first thing that stops control from being turned on, or null. */
   readonly block: ComputedRef<ControlBlock | null>
   /** The pulse a row makes now (µs), or null when no pad is read. */
   pulseOf: (row: Row) => number | null
-  /** Adds a row of a kind, on the next free channel and the control that is moved next. */
-  add: (kind: NewRow) => void
+  /** Adds a row of a kind, on the channel given (refused for one that arms or stops the vehicle) or else the next free one. */
+  add: (kind: NewRow, channel?: number) => void
   /** Takes a row away. */
   remove: (index: number) => void
   /** Changes a row (finite numbers only). */
@@ -129,6 +131,7 @@ class Mapping implements RcMapping {
   readonly capturing = computed(() => this.waiting.value?.index ?? null)
   readonly wizard = computed((): WizardView | null => this.viewOfWizard())
   readonly issues = computed((): Issue[] => this.issuesOf())
+  readonly unsourced = computed(() => (this.draft.value?.rows ?? []).some(row => !hasSource(row)))
   readonly block = computed((): ControlBlock | null => this.blockOf())
 
   /**
@@ -267,13 +270,50 @@ class Mapping implements RcMapping {
     return reading.kind === 'live' ? rowPulse(row, reading.sample, this.rangeOf(row.channel)) : null
   }
 
-  add = (kind: NewRow): void => {
+  add = (kind: NewRow, on?: number): void => {
     const draft = this.editable()
-    const channel = draft === null ? null : freeChannel(draft, this.deps.facts.value)
 
-    if (draft !== null && channel !== null) {
-      this.keep(addRow(draft, { stick: newStick, switch: newSwitch, button: newButton }[kind](channel, 0)))
+    if (draft !== null) {
+      this.addOn(draft, kind, on ?? freeChannel(draft, this.deps.facts.value))
     }
+  }
+
+  /**
+   * Adds a row on a channel, when it may be there.
+   *
+   * @param draft the mapping
+   * @param kind the kind of row
+   * @param channel the channel, or null when there is none to take
+   */
+  private addOn(draft: Profile, kind: NewRow, channel: number | null): void {
+    if (channel !== null && this.mayTake(draft, channel)) {
+      this.refusal.value = null
+      // (a new row has NO control: until the person has moved the one they mean it makes nothing, and the mapping is wrong. It
+      // must never follow some control it was given by default: a function of the vehicle on its channel would fire with it)
+      this.keep(addRow(draft, { stick: newStick, switch: newSwitch, button: newButton }[kind](channel, NO_SOURCE)))
+      this.capture(draft.rows.length)
+    }
+  }
+
+  /**
+   * Whether a row may be added on a channel: it is a channel, no row drives it, and the vehicle does not arm or stop with it (the
+   * person is told when it does).
+   *
+   * @param draft the mapping
+   * @param channel the channel
+   * @returns true when it may
+   */
+  private mayTake(draft: Profile, channel: number): boolean {
+    if (!validChannel(channel) || draft.rows.some(row => row.channel === channel)) {
+      return false
+    }
+    if (this.arms(channel)) {
+      this.refusal.value = { code: 'arm', channel, serial: this.refusals() + 1 }
+
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -307,12 +347,29 @@ class Mapping implements RcMapping {
     if (!validChannel(channel)) {
       return
     }
-    if (this.arms(channel)) {
-      this.refusal.value = { code: 'arm', channel, serial: this.refusals() + 1 }
-    } else {
+    const refused = this.channelRefusal(index, channel)
+
+    if (refused === null) {
       this.refusal.value = null
       this.change(index, { channel })
+    } else {
+      this.refusal.value = { code: refused, channel, serial: this.refusals() + 1 }
     }
+  }
+
+  /**
+   * Why a row may not move to a channel: the vehicle arms or stops with it, or another row drives it.
+   *
+   * @param index the row's place
+   * @param channel the channel
+   * @returns the reason, or null
+   */
+  private channelRefusal(index: number, channel: number): 'arm' | 'taken' | null {
+    if (this.arms(channel)) {
+      return 'arm'
+    }
+
+    return this.draft.value?.rows.some((row, place) => place !== index && row.channel === channel) === true ? 'taken' : null
   }
 
   /**
@@ -345,7 +402,7 @@ class Mapping implements RcMapping {
   }
 
   startWizard = (): void => {
-    if (this.draft.value !== null && this.deps.pad.live.value) {
+    if (this.draft.value !== null && this.deps.pad.live.value && !this.unsourced.value) {
       this.waiting.value = null
       this.lacking.value = []
       this.running.value = new Wizard(this.throttleChannel())

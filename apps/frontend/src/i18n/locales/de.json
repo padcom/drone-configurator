@@ -905,7 +905,7 @@
       "title": "Fernsteuerung",
       "intro": "Fliege das Fahrzeug mit einem Gamepad oder einer Fernsteuerung, die sich als Gamepad meldet (etwa eine TX16S über USB).",
       "allow": "Fernsteuerung erlauben",
-      "allowHelp": "Standardmäßig aus und nur für einen Simulator: Die Anwendung lehnt jedes andere Fahrzeug ab. Das erlaubt sie nur; es startet sie nicht.",
+      "allowHelp": "Standardmäßig aus und nur für den eingebauten Simulator oder eine Verbindung zu diesem Computer: Jedes andere Fahrzeug wird abgelehnt. Das erlaubt sie nur; es startet sie nicht.",
       "status": {
         "ready": "Für die Fernsteuerung ist alles bereit.",
         "link": "Es ist kein Simulator verbunden."
@@ -914,7 +914,7 @@
         "title": "Gamepad",
         "none": "Noch kein Gamepad gefunden. Eine Fernsteuerung erscheint, sobald du einen Stick bewegst.",
         "gone": "Das Gamepad wird gerade nicht gelesen. Bewege einen Stick.",
-        "axis": "Achse {n}",
+        "axis": "CH{n}",
         "buttons": "Gedrückte Tasten: {list}",
         "noButtons": "Keine Taste ist gedrückt."
       },
@@ -924,8 +924,11 @@
         "switch": "Schalter",
         "button": "Taste"
       },
-      "channel": "Kanal",
-      "sourceAxis": "Achse {n}",
+      "channel": "Fahrzeugkanal",
+      "vehicleChannel": "Fahrzeugkanal {n}",
+      "own": "Der eigene Wert der Fernsteuerung",
+      "axesNote": "Der Browser meldet vielleicht nicht jede Achse der Fernsteuerung: Eine, die bei 0 bleibt, kann verloren gegangen sein.",
+      "sourceAxis": "CH{n}",
       "sourceButton": "Taste {n}",
       "moveIt": "Bewegen",
       "moveCancel": "Abbrechen",
@@ -948,14 +951,18 @@
         "switch": "Schalter hinzufügen",
         "button": "Taste hinzufügen"
       },
-      "refusedArm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
+      "refused": {
+        "arm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
+        "taken": "Kanal {channel} wird schon von einer anderen Zeile gesteuert. Entferne jene Zeile oder wähle einen anderen Kanal."
+      },
+      "noSource": "Noch kein Bedienelement",
       "wizard": {
         "title": "Kalibrierung",
         "start": "Kalibrieren…",
         "rest": "Lass die Sticks in Ruhe, das Gas ganz unten, und warte.",
         "restReady": "Fertig. Als Nächstes bewegst du jeden Stick in alle Endlagen.",
         "move": "Bewege jeden Stick langsam in alle Endlagen, mehrmals. Dann beende.",
-        "axis": "Achse {n}",
+        "axis": "CH{n}",
         "next": "Weiter",
         "finish": "Beenden",
         "cancel": "Abbrechen",
@@ -965,6 +972,7 @@
         "mapping": {
           "channel": "Kanal {channel} ist kein Kanal von 1 bis 16.",
           "duplicate": "Kanal {channel} wird von mehr als einer Zeile gesteuert.",
+          "source": "Kanal {channel} hat noch kein Bedienelement. Drücke „Bewegen“ und bewege das gemeinte.",
           "zone": "Die Totzone von Kanal {channel} muss 0 bis 50 % sein.",
           "expo": "Die Kurve von Kanal {channel} muss 0 bis 100 % sein.",
           "calibration": "Die Kalibrierung von Kanal {channel} ist nicht brauchbar. Kalibriere erneut.",
