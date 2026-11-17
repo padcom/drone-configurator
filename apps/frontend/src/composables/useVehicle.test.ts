@@ -60,6 +60,28 @@ it('keeps what the connection was asked for when the backend says `connecting` (
   expect(vehicle.request.value).toEqual({ transport: 'simulator' })
 })
 
+it('forgets what the connection was asked for when a `connecting` comes that this page did not ask for', async () => {
+  const { vehicle, control } = rig()
+
+  await vehicle.watch()
+  await vehicle.connect({ transport: 'simulator' })
+  expect(vehicle.request.value).toEqual({ transport: 'simulator' })
+  // (another window connects to another vehicle: the backend says `connecting` to every page)
+  control.connection?.({ state: 'connecting' })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('connecting'))
+
+  expect(vehicle.request.value).toBeNull()
+})
+
+it('forgets what the connection was asked for when the backend itself is gone and comes back', async () => {
+  const { vehicle } = rig()
+
+  await vehicle.connect({ transport: 'simulator' })
+  vehicle.backendChanged('disconnected')
+
+  expect(vehicle.request.value).toBeNull()
+})
+
 it('reports why a connection failed, and stays disconnected', async () => {
   const { vehicle, sessions, failures } = rig()
 

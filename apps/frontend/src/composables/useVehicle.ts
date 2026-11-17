@@ -160,15 +160,24 @@ class VehicleLink implements Vehicle {
     if (next.state !== 'reconnecting') {
       this.telemetry.value = null
     }
-    // (`connecting` of this page's own connect() is the backend telling that the session BEGINS: what the connection was asked
-    // for is what it is for. A `connecting` that this page did not ask for (another window connecting to another vehicle) is
-    // another connection: what this page asked for is not what it is)
+    this.forgetRequest(next)
+    this.listeners.forEach(listener => listener(false))
+  }
+
+  /**
+   * What the connection was asked for is forgotten when the session ends, but not when it is brought back, and not at the
+   * beginning of this page's own connect() (the backend's `connecting` then says the session BEGINS). A `connecting` that this
+   * page did not ask for (another window connecting to another vehicle) is another connection: what this page asked for is not
+   * what it is.
+   *
+   * @param next the connection, in any state but `connected`
+   */
+  private forgetRequest(next: Connection): void {
     const own = next.state === 'connecting' && this.connectCalls > 0
 
     if (next.state !== 'reconnecting' && !own) {
       this.request.value = null
     }
-    this.listeners.forEach(listener => listener(false))
   }
 
   onSession(listener: SessionListener): void {

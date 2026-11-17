@@ -68,6 +68,19 @@ function mappingWrong(profile: Profile | null): boolean {
 }
 
 /**
+ * Whether the link is not one control may go over: a request that is a simulator passes, and so does one that is not known when
+ * the backend is left to decide.
+ *
+ * @param input what decides it
+ * @returns true when it is not
+ */
+function linkWrong(input: ControlInput): boolean {
+  const left = input.letBackendDecide === true && input.request === null
+
+  return !isSimulatorLink(input.request) && !left
+}
+
+/**
  * Whether control may be turned on.
  *
  * @param input what decides it
@@ -76,7 +89,7 @@ function mappingWrong(profile: Profile | null): boolean {
 export function controlBlock(input: ControlInput): ControlBlock | null {
   const checks: [ControlBlock, boolean][] = [
     ['off', !input.allowed],
-    ['link', !isSimulatorLink(input.request) && !(input.letBackendDecide === true && input.request === null)],
+    ['link', linkWrong(input)],
     ['pad', !input.padLive],
     ['mapping', mappingWrong(input.profile)],
     ['vehicle', input.vehicle.some(problem => problem.blocks)],
