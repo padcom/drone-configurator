@@ -5,7 +5,6 @@
     :width="size.width"
     :height="size.height"
     :viewBox="`0 0 ${size.width} ${size.height}`"
-    @keydown.esc="grip.cancel()"
   >
     <desc id="plan-pin-help">{{ t('plan.map.pinHelp') }}</desc>
     <polyline v-if="line" :points="line" class="plan-route" aria-hidden="true" />
@@ -21,7 +20,8 @@
       @pointerdown.stop="grip.begin($event, 'insert', segment.id)"
       @pointermove="grip.move($event)"
       @pointerup="grip.end($event)"
-      @pointercancel="grip.cancel()"
+      @pointercancel="grip.lost($event)"
+      @lostpointercapture="grip.lost($event)"
     />
     <g v-if="ghost" class="plan-pin ghost" :transform="translate(ghost.at)" aria-hidden="true">
       <circle r="14" />
@@ -44,7 +44,8 @@
       @pointerdown.stop="grip.begin($event, 'move', pin.id)"
       @pointermove="grip.move($event)"
       @pointerup="grip.end($event)"
-      @pointercancel="grip.cancel()"
+      @pointercancel="grip.lost($event)"
+      @lostpointercapture="grip.lost($event)"
       @focus="focused = pin.id"
       @click="state.select(pin.id)"
       @keydown.enter.prevent="state.select(pin.id)"
@@ -64,10 +65,10 @@
 // too). A pin selects its item with a pointer or with Enter or Space, and Delete takes it out (Undo gives it back).
 // The pins are ONE tab stop (the focused one, else the selected one, else the first): the arrows, Home and End move between them,
 // so a plan of a thousand items does not put a thousand stops between the map and the list; Shift and an arrow nudge the pin
-// (ten pixels, with Alt one). A pin is dragged to move it, and a line of the route is dragged to put a new waypoint on it: the
-// picture follows the pointer, the release is ONE edit, and Escape drops the drag. The pins are where the places say, so they
-// move with the map.
-import { computed, nextTick, ref } from 'vue'
+// (ten pixels, with Control one). A pin is dragged to move it, and a line of the route is dragged to put a new waypoint on it
+// (not when the plan is full): the picture follows the pointer, the release is ONE edit, and Escape (wherever the focus is) or a
+// pointer that is taken away drops the drag. The pins are where the places say, so they move with the map.
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlan } from '@/composables/usePlan'
 import { nudgeOf, usePlanDrag } from '@/composables/usePlanDrag'
@@ -127,12 +128,16 @@ function pointOf(event: PointerEvent): Point {
 const grip = usePlanDrag({
   pointOf,
   placeAt: point => placeAt(props.view, props.size, point),
+  canInsert: () => !state.full.value,
   moved: (id, at) => {
     state.select(id)
     state.placeItem(id, at.lat, at.lon, false)
   },
   inserted: (afterId, at) => state.insertAfter(afterId, at.lat, at.lon),
 })
+
+// (a drag that is held when the overlay goes away is dropped: it listens to the window while it lasts)
+onBeforeUnmount(() => grip.cancel())
 
 /** What is wrong with each item that has a problem: an error, or only a warning. */
 const flags = computed(() => {

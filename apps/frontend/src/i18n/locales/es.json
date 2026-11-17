@@ -2482,7 +2482,7 @@
       "pin": "Elemento {number}",
       "pinError": "Elemento {number}: tiene un error",
       "pinWarning": "Elemento {number}: tiene una advertencia",
-      "pinHelp": "Arrastre una marca para moverla, o una línea entre marcas para poner ahí un punto de ruta. Las flechas pasan de una marca a otra, Mayús y una flecha mueven la seleccionada (con Alt, un píxel), Supr la elimina y Esc cancela el arrastre.",
+      "pinHelp": "Arrastre una marca para moverla, o una línea entre marcas para poner ahí un punto de ruta. Las flechas pasan de una marca a otra, Mayús y una flecha mueven la seleccionada (con Ctrl, un píxel), Supr la elimina y Esc cancela el arrastre. Poner un punto de ruta en una línea no tiene vía de teclado: use el botón de añadir de la lista y los campos de latitud y longitud.",
       "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa.",
       "add": "Añadir puntos",
       "addHelp": "Haga clic en el mapa para añadir un punto de ruta tras el elemento seleccionado; Esc lo termina. Sin puntero, use el botón de añadir de la lista y los campos de latitud y longitud."

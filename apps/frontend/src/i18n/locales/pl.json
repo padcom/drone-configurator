@@ -2482,7 +2482,7 @@
       "pin": "Element {number}",
       "pinError": "Element {number}: ma błąd",
       "pinWarning": "Element {number}: ma ostrzeżenie",
-      "pinHelp": "Przeciągnij znacznik, aby go przesunąć, albo linię między znacznikami, aby postawić na niej punkt trasy. Strzałki przechodzą między znacznikami, Shift ze strzałką przesuwa wybrany (z Alt o jeden piksel), Delete go usuwa, Esc przerywa przeciąganie.",
+      "pinHelp": "Przeciągnij znacznik, aby go przesunąć, albo linię między znacznikami, aby postawić na niej punkt trasy. Strzałki przechodzą między znacznikami, Shift ze strzałką przesuwa wybrany (z Ctrl o jeden piksel), Delete go usuwa, Esc przerywa przeciąganie. Postawienie punktu trasy na linii nie ma sposobu z klawiatury: użyj przycisku dodawania na liście i pól szerokości i długości geograficznej.",
       "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie.",
       "add": "Dodaj punkty",
       "addHelp": "Kliknij mapę, aby dodać punkt trasy po wybranym elemencie; Esc kończy. Bez myszy użyj przycisku dodawania na liście i pól szerokości i długości geograficznej."

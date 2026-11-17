@@ -229,7 +229,73 @@ it('shows the waypoint a dragged line would put in, and puts none in for a press
   expect(wrapper.find('.plan-pin.ghost').exists()).toBe(false)
 })
 
-it('nudges the pin with Shift and an arrow (a pixel with Alt too), the nudges of one go being ONE step', async () => {
+it('drops a drag of a line when Escape is pressed with the focus on the map, where a line cannot have it', async () => {
+  const wrapper = await shown()
+  const plan = usePlan()
+  const [line] = wrapper.findAll('.plan-segment')
+  const from = at(pinsOf(wrapper)[0]!)
+  await fire(line!.element, 'pointerdown', from)
+  await fire(line!.element, 'pointermove', { x: from.x + 50, y: from.y + 50 })
+
+  expect(wrapper.find('.plan-pin.ghost').exists()).toBe(true)
+  // (the key goes to the map, which has the focus: not to a pin, and not to the line)
+  wrapper.get('.map').element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  await nextTick()
+
+  expect(wrapper.find('.plan-pin.ghost').exists()).toBe(false)
+  await fire(line!.element, 'pointerup', { x: from.x + 50, y: from.y + 50 })
+  await flushPromises()
+
+  expect(plan.plan.value.items).toHaveLength(3)
+})
+
+it('drops a drag whose pointer lost its hold, of a pin and of a line, and a normal release is not a loss', async () => {
+  const wrapper = await shown()
+  const plan = usePlan()
+  const [first, second] = plan.plan.value.items
+  const before = [first!.lat, second!.lat]
+  const from = at(pinsOf(wrapper)[1]!)
+  const [line] = wrapper.findAll('.plan-segment')
+  await fire(pinsOf(wrapper)[1]!.element, 'pointerdown', from)
+  await fire(pinsOf(wrapper)[1]!.element, 'pointermove', { x: from.x + 40, y: from.y })
+  await fire(pinsOf(wrapper)[1]!.element, 'lostpointercapture', from)
+  await fire(pinsOf(wrapper)[1]!.element, 'pointerup', { x: from.x + 40, y: from.y })
+
+  expect(at(pinsOf(wrapper)[1]!)).toEqual(from)
+  await fire(line!.element, 'pointerdown', from)
+  await fire(line!.element, 'pointermove', { x: from.x, y: from.y + 60 })
+  await fire(line!.element, 'lostpointercapture', from)
+  await fire(line!.element, 'pointerup', { x: from.x, y: from.y + 60 })
+  await flushPromises()
+
+  expect([first!.lat, second!.lat]).toEqual(before)
+  expect(plan.plan.value.items).toHaveLength(3)
+  // (and a release that is let go of by the browser afterwards, as it does, changes nothing more)
+  await drag(pinsOf(wrapper)[1]!.element, from, { x: 30, y: 0 })
+  await fire(pinsOf(wrapper)[1]!.element, 'lostpointercapture', from)
+
+  expect(plan.plan.value.items).toHaveLength(3)
+  // (the drag after them took the pin along: east, to the pixel, and not further north or south)
+  expect(second!.lon).toBeGreaterThan(21.01)
+  expect(Math.abs(second!.lat! - before[1]!)).toBeLessThan(0.00001)
+})
+
+it('does not begin the drag of a line when the plan is full: no ghost, no waypoint', async () => {
+  const wrapper = await shown(1000)
+  const plan = usePlan()
+  const [line] = wrapper.findAll('.plan-segment')
+  const from = at(pinsOf(wrapper)[0]!)
+  await fire(line!.element, 'pointerdown', from)
+  await fire(line!.element, 'pointermove', { x: from.x + 50, y: from.y + 50 })
+
+  expect(wrapper.find('.plan-pin.ghost').exists()).toBe(false)
+  await fire(line!.element, 'pointerup', { x: from.x + 50, y: from.y + 50 })
+  await flushPromises()
+
+  expect(plan.plan.value.items).toHaveLength(1000)
+})
+
+it('nudges the pin with Shift and an arrow (a pixel with Control too), the nudges of one go being ONE step', async () => {
   const wrapper = await shown()
   const plan = usePlan()
   const [, pin] = pinsOf(wrapper)
@@ -246,7 +312,11 @@ it('nudges the pin with Shift and an arrow (a pixel with Alt too), the nudges of
   await flushPromises()
 
   expect(item.lon).toBe(lon)
+  // (Alt and Shift switch the layout on some systems: not taken)
   await pin!.trigger('keydown', { key: 'ArrowRight', shiftKey: true, altKey: true })
+
+  expect(item.lon).toBe(lon)
+  await pin!.trigger('keydown', { key: 'ArrowRight', shiftKey: true, ctrlKey: true })
 
   expect(item.lon! - lon).toBeGreaterThan(0)
   expect(item.lon! - lon).toBeLessThan(ten / 5)
@@ -336,5 +406,6 @@ it('says how the pins are used, once, as the description of each', async () => {
   const help = wrapper.get(`#${pin!.attributes('aria-describedby')}`)
 
   expect(help.text()).toContain('Drag a pin to move it')
+  expect(help.text()).toContain('Putting a waypoint on a line has no keyboard way: use the list\'s Add button')
   expect(wrapper.findAll('#plan-pin-help')).toHaveLength(1)
 })

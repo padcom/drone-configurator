@@ -7,10 +7,10 @@ import type { Point } from '@/lib/map/geo'
 /** How far (px) the pointer may go before the press is a drag and not a click. */
 export const DRAG_PX = 4
 
-/** The screen distance (px) of a nudge with Shift and an arrow, and with Alt as well (a pixel: to place a pin exactly). */
+/** The screen distance (px) of a nudge with Shift and an arrow. */
 export const NUDGE_PX = 10
 
-/** The same, with Alt. */
+/** The same with Control (Command) as well: a pixel, to place a pin exactly. Not Alt: Alt and Shift switch the layout on a PC. */
 export const NUDGE_FINE_PX = 1
 
 /** Which way each arrow nudges (a unit step on the screen). */
@@ -22,27 +22,38 @@ const DIRECTIONS: Record<string, Point> = {
 }
 
 /**
- * Whether a key has the modifiers of a nudge: Shift, and neither Control nor the system's key (Alt makes it a fine one).
+ * Whether a key has the modifiers of a nudge: Shift, and not Alt (the system's shortcuts are not taken).
  *
  * @param event the key event
  * @returns true when it has
  */
-function hasNudgeModifiers(event: KeyboardEvent): boolean {
-  return event.shiftKey && !event.ctrlKey && !event.metaKey
+function isNudge(event: KeyboardEvent): boolean {
+  return event.shiftKey && !event.altKey
 }
 
 /**
- * How far a key nudges a pin on the screen: Shift and an arrow (with Alt a pixel, without it ten); no other key does.
+ * Whether a nudge is the fine one: Control or Command as well.
+ *
+ * @param event the key event
+ * @returns true when it is
+ */
+function isFine(event: KeyboardEvent): boolean {
+  return event.ctrlKey || event.metaKey
+}
+
+/**
+ * How far a key nudges a pin on the screen: Shift and an arrow (with Control or Command a pixel, without it ten); no other key
+ * does, and nothing with Alt (the system's own shortcuts are not taken).
  *
  * @param event the key event
  * @returns the shift in pixels, or null when the key is not a nudge
  */
 export function nudgeOf(event: KeyboardEvent): Point | null {
   const way = DIRECTIONS[event.key]
-  if (!way || !hasNudgeModifiers(event)) {
+  if (!way || !isNudge(event)) {
     return null
   }
-  const by = event.altKey ? NUDGE_FINE_PX : NUDGE_PX
+  const by = isFine(event) ? NUDGE_FINE_PX : NUDGE_PX
 
   return { x: way.x * by, y: way.y * by }
 }
@@ -69,6 +80,8 @@ export interface DragEnv {
   pointOf(event: PointerEvent): Point
   /** The place under a point of the map. */
   placeAt(point: Point): { lat: number, lon: number }
+  /** Whether the plan can take another item (a drag of a line is refused when it cannot). */
+  canInsert(): boolean
   /** A pin was let go somewhere else. */
   moved(id: number, place: { lat: number, lon: number }): void
   /** A line was let go: a new waypoint goes there, after the item the line leaves from. */
@@ -89,7 +102,9 @@ export interface PlanDrag {
   move(event: PointerEvent): void
   /** The pointer went up: the drag ends where it is. */
   end(event: PointerEvent): void
-  /** The pointer was taken away, or Escape: the drag is dropped, and nothing changes. */
+  /** The pointer lost its hold (taken away, or the element it held went): the drag is dropped, and nothing changes. */
+  lost(event: PointerEvent): void
+  /** The drag is dropped, and nothing changes (Escape does it, wherever the focus is; so does the page going away). */
   cancel(): void
 }
 
@@ -101,6 +116,18 @@ export interface PlanDrag {
  */
 function startsDrag(event: PointerEvent): boolean {
   return event.isPrimary && event.button === 0
+}
+
+/**
+ * Makes the element the pointer went down on get all its events until it is let go (where the browser can: a window without
+ * pointer capture, as a test's, is left without).
+ *
+ * @param event the pointer event
+ */
+function capture(event: PointerEvent): void {
+  const target = event.currentTarget as Element | null
+
+  target?.setPointerCapture?.(event.pointerId)
 }
 
 /** The drag of the pins and lines of the plan. */
@@ -140,13 +167,34 @@ class PinDrag implements PlanDrag {
     return this.drag.value?.pointerId === event.pointerId ? this.drag.value : null
   }
 
+  /**
+   * Escape, wherever the focus is (a line of the route cannot take it), drops the drag.
+   *
+   * @param event the key event
+   */
+  private readonly onKey = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      this.cancel()
+    }
+  }
+
+  /**
+   * Whether a drag of a kind may begin: a pin always, a line only when the plan can take another item.
+   *
+   * @param kind the kind
+   * @returns true when it may
+   */
+  private allows(kind: Drag['kind']): boolean {
+    return kind === 'move' || this.env.canInsert()
+  }
+
   begin(event: PointerEvent, kind: Drag['kind'], id: number): void {
-    if (startsDrag(event)) {
+    if (startsDrag(event) && this.allows(kind)) {
       const from = this.env.pointOf(event)
-      const target = event.currentTarget as Element | null
 
       this.drag.value = { kind, id, pointerId: event.pointerId, from, at: from, moved: false }
-      target?.setPointerCapture?.(event.pointerId)
+      capture(event)
+      window.addEventListener('keydown', this.onKey)
     }
   }
 
@@ -161,9 +209,12 @@ class PinDrag implements PlanDrag {
 
   end(event: PointerEvent): void {
     const held = this.heldBy(event)
-    this.drag.value = null
+    if (!held) {
+      return
+    }
+    this.cancel()
 
-    if (held?.moved) {
+    if (held.moved) {
       const place = this.env.placeAt(held.at)
 
       if (held.kind === 'move') {
@@ -174,8 +225,16 @@ class PinDrag implements PlanDrag {
     }
   }
 
+  lost(event: PointerEvent): void {
+    // (a normal release has ended the drag by now: this is for a pointer that was taken away, or an element that went)
+    if (this.heldBy(event)) {
+      this.cancel()
+    }
+  }
+
   cancel(): void {
     this.drag.value = null
+    window.removeEventListener('keydown', this.onKey)
   }
 }
 

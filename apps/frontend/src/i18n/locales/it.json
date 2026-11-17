@@ -2482,7 +2482,7 @@
       "pin": "Elemento {number}",
       "pinError": "Elemento {number}: ha un errore",
       "pinWarning": "Elemento {number}: ha un avviso",
-      "pinHelp": "Trascina un indicatore per spostarlo, o una linea tra gli indicatori per metterci un waypoint. Le frecce passano da un indicatore all'altro, Maiusc e una freccia spostano quello selezionato (con Alt, di un pixel), Canc lo elimina, Esc annulla il trascinamento.",
+      "pinHelp": "Trascina un indicatore per spostarlo, o una linea tra gli indicatori per metterci un waypoint. Le frecce passano da un indicatore all'altro, Maiusc e una freccia spostano quello selezionato (con Ctrl, di un pixel), Canc lo elimina, Esc annulla il trascinamento. Mettere un waypoint su una linea non ha un modo da tastiera: usa il pulsante di aggiunta dell'elenco e i campi di latitudine e longitudine.",
       "noPlace": "Nessun elemento ha ancora un luogo: dai a uno una latitudine e una longitudine e comparirà sulla mappa.",
       "add": "Aggiungi waypoint",
       "addHelp": "Fai clic sulla mappa per aggiungere un waypoint dopo l'elemento selezionato; Esc termina. Senza puntatore, usa il pulsante di aggiunta dell'elenco e i campi di latitudine e longitudine."
