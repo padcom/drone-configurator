@@ -211,6 +211,8 @@ function addAt(lat: number, lon: number): void {
     const item = freshItem(definitionOrWaypoint(WAYPOINT), doc.plan, newId())
 
     run(new AddItem({ ...item, lat: onWire(lat), lon: onWire(lon) }, insertionIndex()))
+    // (a full plan takes no more: the mode ends, and the button says why it is off)
+    adding.value = adding.value && doc.plan.items.length < MAX_ITEMS
   }
 }
 

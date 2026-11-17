@@ -2482,7 +2482,7 @@
       "pin": "Elemento {number}",
       "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa.",
       "add": "Añadir puntos",
-      "addHelp": "Haga clic en el mapa para añadir un punto de ruta tras el elemento seleccionado; Esc lo termina."
+      "addHelp": "Haga clic en el mapa para añadir un punto de ruta tras el elemento seleccionado; Esc lo termina. Sin puntero, use el botón de añadir de la lista y los campos de latitud y longitud."
     },
     "stats": {
       "label": "El plan en cifras",

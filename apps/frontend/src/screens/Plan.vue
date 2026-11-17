@@ -1,5 +1,5 @@
 <template>
-  <div class="plan" data-l="plan">
+  <div class="plan" data-l="plan" @keydown.esc="setAdding(false)">
     <PlanBar />
     <div class="plan-body">
       <section class="plan-main" :aria-label="t('plan.main')">
@@ -29,5 +29,9 @@ import PlanMap from '@/components/plan/PlanMap.vue'
 import PlanStats from '@/components/plan/PlanStats.vue'
 import PlanValidity from '@/components/plan/PlanValidity.vue'
 
+import { usePlan } from '@/composables/usePlan'
+
 const { t } = useI18n()
+// Escape, wherever the focus is on the page, leaves the mode in which a click on the map adds a waypoint (it does nothing else).
+const { setAdding } = usePlan()
 </script>

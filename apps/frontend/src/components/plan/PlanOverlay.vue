@@ -19,7 +19,7 @@
       @click="state.select(pin.id)"
       @keydown.enter.prevent="state.select(pin.id)"
       @keydown.space.prevent="state.select(pin.id)"
-      @keydown.delete.prevent="remove(pin.id)"
+      @keydown.delete.prevent="remove($event, pin.id)"
       @keydown="move($event, pin.id)"
     >
       <circle r="14" />
@@ -109,11 +109,16 @@ function focusSelected(): void {
 
 /**
  * Delete or Backspace on a pin takes its item out of the plan (Undo gives it back, so it does not ask). The focus goes to the pin
- * of the item that is selected then, or to the map when there is none.
+ * of the item that is selected then, or to the map when there is none. A key held down takes out one item, not the next and the
+ * next (the focus moves on with each).
  *
+ * @param event the key event
  * @param id the pin
  */
-async function remove(id: number): Promise<void> {
+async function remove(event: KeyboardEvent, id: number): Promise<void> {
+  if (event.repeat) {
+    return
+  }
   state.select(id)
   state.remove()
   await nextTick()

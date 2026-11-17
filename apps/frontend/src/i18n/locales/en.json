@@ -2482,7 +2482,7 @@
       "pin": "Item {number}",
       "noPlace": "No item has a place yet: give one a latitude and a longitude and it appears on the map.",
       "add": "Add waypoints",
-      "addHelp": "Click the map to add a waypoint after the selected item; Escape stops."
+      "addHelp": "Click the map to add a waypoint after the selected item; Escape stops. Without a pointer, use the list's Add button and the latitude and longitude fields."
     },
     "stats": {
       "label": "The plan in numbers",

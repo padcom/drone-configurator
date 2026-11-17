@@ -2482,7 +2482,7 @@
       "pin": "Element {number}",
       "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie.",
       "add": "Dodaj punkty",
-      "addHelp": "Kliknij mapę, aby dodać punkt trasy po wybranym elemencie; Esc kończy."
+      "addHelp": "Kliknij mapę, aby dodać punkt trasy po wybranym elemencie; Esc kończy. Bez myszy użyj przycisku dodawania na liście i pól szerokości i długości geograficznej."
     },
     "stats": {
       "label": "Plan w liczbach",

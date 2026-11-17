@@ -2482,7 +2482,7 @@
       "pin": "Elemento {number}",
       "noPlace": "Nessun elemento ha ancora un luogo: dai a uno una latitudine e una longitudine e comparirà sulla mappa.",
       "add": "Aggiungi waypoint",
-      "addHelp": "Fai clic sulla mappa per aggiungere un waypoint dopo l'elemento selezionato; Esc termina."
+      "addHelp": "Fai clic sulla mappa per aggiungere un waypoint dopo l'elemento selezionato; Esc termina. Senza puntatore, usa il pulsante di aggiunta dell'elenco e i campi di latitudine e longitudine."
     },
     "stats": {
       "label": "Il piano in numeri",

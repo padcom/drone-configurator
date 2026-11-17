@@ -1,5 +1,5 @@
 <template>
-  <div class="plan-map" :class="{ adding }" @keydown.esc="leave">
+  <div class="plan-map" :class="{ adding }">
     <FlightMap :source="source" :follow-vehicle="false" :fit="fit" :pickable="adding" @pick="picked">
       <template #default="{ place, size }">
         <MapOverlay :source="source" :place="place" :size="size" />
@@ -14,11 +14,14 @@
         class="plan-map-add"
         :aria-pressed="adding"
         :disabled="full && !adding"
+        aria-describedby="plan-add-help"
         :title="t('plan.map.addHelp')"
         @click="setAdding(!adding)"
       >
         {{ t('plan.map.add') }}
       </button>
+      <!-- What the button does, and why it is off when it is: the words of the palette's reason for a full plan. -->
+      <p id="plan-add-help" class="visually-hidden">{{ full ? t('plan.reason.planFull') : t('plan.map.addHelp') }}</p>
     </div>
   </div>
 </template>
@@ -28,9 +31,9 @@
 // with the plan over it. The map is taken to the plan once: when the first places of it are given (a plan that was kept while
 // another screen was shown is in view when the page is), never again, so that what the user pans to stays where it is.
 // "Add waypoints" is a mode of the map (not of the plan: it is not taken back): while it is on, a click on the map (not a drag)
-// adds a waypoint there, after the selected item, and Escape leaves it. Without a pointer the way to add one is the list's
-// button.
-import { computed, shallowRef, watch } from 'vue'
+// adds a waypoint there, after the selected item, and Escape (anywhere on the page: the page says so) leaves it. Without a
+// pointer the way to add one is the list's button and the latitude and longitude fields, which the button's help says.
+import { computed, onBeforeUnmount, onDeactivated, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FlightMap from '@/components/map/FlightMap.vue'
 import MapOverlay from '@/components/map/MapOverlay.vue'
@@ -63,10 +66,7 @@ function picked(at: LatLon): void {
   addAt(at.lat, at.lon)
 }
 
-/** Escape leaves the adding mode (and does nothing else while the mode is off). */
-function leave(): void {
-  if (adding.value) {
-    setAdding(false)
-  }
-}
+// The mode is for as long as the page is shown: coming back to the page does not find it still on.
+onBeforeUnmount(() => setAdding(false))
+onDeactivated(() => setAdding(false))
 </script>

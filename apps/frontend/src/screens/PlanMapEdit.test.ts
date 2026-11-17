@@ -117,7 +117,8 @@ it('leaves the mode with Escape and with the button, and Escape does nothing els
   const wrapper = await page()
   const button = wrapper.get('#plan-add-on-map')
   await startAdding(wrapper)
-  await wrapper.get('.plan-map').trigger('keydown', { key: 'Escape' })
+  // (wherever the focus is on the page: here, in the aside)
+  await wrapper.get('.plan-aside').trigger('keydown', { key: 'Escape' })
 
   expect(button.attributes('aria-pressed')).toBe('false')
   await startAdding(wrapper)
@@ -129,21 +130,50 @@ it('leaves the mode with Escape and with the button, and Escape does nothing els
   expect(usePlan().adding.value).toBe(false)
 })
 
-it('cannot be entered with a full plan, and can be left', async () => {
+it('cannot be entered with a full plan, says why to a screen reader, and can be left', async () => {
   const wrapper = await page()
   const plan = usePlan()
   seedPlan(1000)
   await flushPromises()
+  const button = wrapper.get('#plan-add-on-map')
+  const described = (): string => wrapper.get(`#${button.attributes('aria-describedby')}`).text()
 
   expect(plan.full.value).toBe(true)
-  expect(wrapper.get('#plan-add-on-map').attributes('disabled')).toBeDefined()
+  expect(button.attributes('disabled')).toBeDefined()
+  expect(described()).toBe('The plan has 1000 items, the most the page takes.')
   plan.setAdding(true)
   await flushPromises()
 
-  expect(wrapper.get('#plan-add-on-map').attributes('disabled')).toBeUndefined()
+  expect(button.attributes('disabled')).toBeUndefined()
   plan.addAt(52, 21)
 
   expect(plan.plan.value.items).toHaveLength(1000)
+})
+
+it('ends the mode with the click that fills the plan, and the button then says why it is off', async () => {
+  seedPlan(999)
+  const wrapper = await page()
+  await startAdding(wrapper)
+  await clickMap(wrapper, 52.2, 21.2)
+
+  expect(usePlan().plan.value.items).toHaveLength(1000)
+  expect([usePlan().adding.value, wrapper.get('#plan-add-on-map').attributes('disabled')]).toEqual([false, ''])
+  expect(wrapper.get('#plan-add-help').text()).toBe('The plan has 1000 items, the most the page takes.')
+})
+
+it('says, once, how to add a waypoint without a pointer', async () => {
+  const wrapper = await page()
+
+  expect(wrapper.get('#plan-add-help').text()).toContain('Without a pointer, use the list\'s Add button and the latitude and')
+})
+
+it('is not still on when the page is shown again', async () => {
+  const wrapper = await page()
+  await startAdding(wrapper)
+  wrapper.unmount()
+  mounted = undefined
+
+  expect(usePlan().adding.value).toBe(false)
 })
 
 it('takes the item out with Delete on its pin, and Undo gives it back', async () => {
@@ -161,4 +191,17 @@ it('takes the item out with Delete on its pin, and Undo gives it back', async ()
   await flushPromises()
 
   expect(plan.plan.value.items.map(item => item.id)).toEqual([first!.id, second!.id, third!.id])
+})
+
+it('takes out one item when the key is held down: the repeats of the key do nothing', async () => {
+  seedPlan(5)
+  const wrapper = await page()
+  const plan = usePlan()
+  await wrapper.findAll('.plan-pin')[1]!.trigger('keydown', { key: 'Delete' })
+  await flushPromises()
+  const pin = wrapper.findAll('.plan-pin')[1]!
+  await Promise.all([1, 2, 3].map(() => pin.trigger('keydown', { key: 'Delete', repeat: true })))
+  await flushPromises()
+
+  expect(plan.plan.value.items).toHaveLength(4)
 })
