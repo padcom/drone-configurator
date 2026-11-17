@@ -77,9 +77,22 @@ const MAP_VIEW = `(() => {
  * @param dy pixels down
  */
 async function dragLastPin(dx: number, dy: number): Promise<void> {
-  const middle = await window().evaluate<{ x: number, y: number }>(`(() => {
-    const box = [...document.querySelectorAll('.plan-pin[data-pin]')].at(-1).getBoundingClientRect()
-    return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  // (the pin is taken where it has stopped: the map may still be settling from what the test before it did)
+  const middle = await window().evaluate<{ x: number, y: number }>(`(async () => {
+    const centre = () => {
+      const box = [...document.querySelectorAll('.plan-pin[data-pin]')].at(-1).getBoundingClientRect()
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    }
+    let was = centre()
+    for (let tries = 0; tries < 20; tries += 1) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      const now = centre()
+      if (now.x === was.x && now.y === was.y) {
+        return now
+      }
+      was = now
+    }
+    return was
   })()`)
   const at = (by: number): { x: number, y: number } => ({ x: Math.round(middle.x + dx * by), y: Math.round(middle.y + dy * by) })
   const mouse = (by: number, buttons: number): object => ({ ...at(by), button: 'left', buttons, clickCount: 1 })
@@ -274,4 +287,66 @@ describe('the scrolling rule', () => {
     expect(seen.asideScrolls).toBe(false)
     expect(seen.areaScrolls || seen.pageScrolls).toBe(true)
   }, 60_000)
+})
+
+/** Whether the table's own area scrolls (its rows are more than it shows): the table is what scrolls, not the page. */
+const TABLE_SCROLLS = `(async () => {
+  await new Promise(resolve => setTimeout(resolve, 400))
+  const area = document.querySelector('.plan-table-scroll')
+  return area.scrollHeight > area.clientHeight + 1
+})()`
+
+describe('the table tool', () => {
+  it('shows the items as a table at the selected one, and a cell changes the plan the list shows', async () => {
+    await resize(1280, 700)
+    await window().click('#plan-tab-table')
+    await window().waitFor(`document.querySelector('[role="grid"]') !== null`)
+    // (the last item added is the selected one: the table opens at its row)
+    await window().fill('[role="row"].selected [data-col="alt"] input', '41')
+    await window().waitFor(`${ROWS}[32] === '33 Waypoint 41 m'`)
+
+    expect(await window().evaluate<boolean>(TABLE_SCROLLS)).toBe(true)
+  })
+})
+
+describe('the table tool and the layout', () => {
+  for (const [width, height] of [[1440, 768], [1000, 700], [1100, 480]]) {
+    it(`scrolls only the table and the aside, not the page or the area, at ${width}x${height}`, async () => {
+      await resize(width!, height!)
+      const { below, heights, ...facts } = await window().evaluate<Probe>(probe())
+
+      expect(facts, `${below.join(' | ')} (${heights})`).toEqual(ASIDE_ONLY)
+      expect(await window().evaluate<boolean>(TABLE_SCROLLS)).toBe(true)
+    }, 60_000)
+  }
+
+  it('stacks at 999 px wide, the table still scrolling in its own area', async () => {
+    await resize(999, 700)
+
+    expect(await window().evaluate<boolean>(TABLE_SCROLLS)).toBe(true)
+  }, 60_000)
+})
+
+describe('the table tool and the wheel', () => {
+  it('lets a wheel over the table, at the end of it, go on to the page at 999 px wide (the table is no trap)', async () => {
+    const pageTop = `(document.querySelector('.app-main').scrollTop + document.scrollingElement.scrollTop)`
+    const centre = await window().evaluate<{ x: number, y: number }>(`(() => {
+      const area = document.querySelector('.plan-table-scroll')
+      area.scrollIntoView({ block: 'center' })
+      area.scrollTop = area.scrollHeight
+      const box = area.getBoundingClientRect()
+      return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
+    })()`)
+    await window().evaluate(`new Promise(resolve => setTimeout(resolve, 300))`)
+    const before = await window().evaluate<number>(pageTop)
+    await window().devtools('Input.dispatchMouseEvent', { type: 'mouseWheel', ...centre, deltaX: 0, deltaY: 300 })
+    await window().waitFor(`${pageTop} > ${before}`)
+  }, 60_000)
+
+  it('is left for the map with its tab, and the map is where it was', async () => {
+    await window().click('#plan-tab-mission')
+    await window().waitFor(`document.querySelector('[role="grid"]') === null`)
+
+    expect(await window().evaluate<boolean>(`document.querySelector('.plan-map .map-canvas') !== null`)).toBe(true)
+  })
 })

@@ -2478,8 +2478,27 @@
       "nothingToUndo": "Non c’è nulla da annullare.",
       "nothingToRedo": "Non c’è nulla da ripristinare."
     },
+    "tool": {
+      "label": "Strumenti del piano",
+      "mission": "Missione",
+      "table": "Tabella"
+    },
+    "table": {
+      "label": "Elementi del piano, come tabella",
+      "help": "Le frecce passano da una cella all'altra, Invio scende di una riga, Pag su e Pag giù di dieci righe, Ctrl con Home o Fine va alla prima o all'ultima riga. Una cella è un campo dell'elemento, lo stesso del suo modulo; in una scelta, Su e Giù passano da una riga all'altra: cambia l'opzione con il mouse, con la barra spaziatrice o con Alt e Giù.",
+      "unused": "Non usato da questo comando",
+      "col": {
+        "number": "N.",
+        "command": "Comando",
+        "lat": "Latitudine",
+        "lon": "Longitudine",
+        "alt": "Altitudine",
+        "frame": "Altitudine da",
+        "setting": "Impostazione {number}"
+      }
+    },
     "map": {
-      "pin": "Elemento {number}",
+      "pin":"Elemento {number}",
       "pinError": "Elemento {number}: ha un errore",
       "pinWarning": "Elemento {number}: ha un avviso",
       "pinHelp": "Trascina un indicatore per spostarlo, o una linea tra gli indicatori per metterci un waypoint. Le frecce passano da un indicatore all'altro, Maiusc e una freccia spostano quello selezionato (con Ctrl, di un pixel), Canc lo elimina, Esc annulla il trascinamento. Mettere un waypoint su una linea non ha un modo da tastiera: usa il pulsante di aggiunta dell'elenco e i campi di latitudine e longitudine.",

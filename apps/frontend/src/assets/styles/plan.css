@@ -88,21 +88,188 @@
   }
 }
 
-/* The map (the Fly page's, with the plan over it): it fills the room the stats leave; the route's own colour is used for nothing else. */
-.plan-map {
+/* The tools of the page, as tabs in its bar. */
+.plan-tools {
+  display: flex;
+  gap: 1px;
+}
+
+.plan-tool {
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.plan-tool[aria-selected='true'] {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.plan-tool:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The tool in the main area (the map, or the table): it fills the room the stats leave. */
+.plan-panel {
   position: relative;
   display: flex;
   flex: 1 1 360px;
+  min-width: 0;
   min-height: 360px;
   overflow: hidden;
   background: var(--color-map);
 }
 
-/* (after the rule above, which it overrides: from 1000 px the map takes what the window leaves, down to a small one) */
+/* (after the rule above, which it overrides: from 1000 px the tool takes what the window leaves, down to a small one) */
 @media (width >= 1000px) {
-  .plan-map {
+  .plan-panel {
     min-height: 160px;
   }
+}
+
+/* Below 1000 px the page stacks and scrolls as a whole, and its main column is as tall as the items beside it: the table keeps a
+   height of its own (it scrolls inside it, and draws only the rows it shows), where the map may be as tall as the column. */
+@media (width < 1000px) {
+  .plan-panel-table {
+    flex: 0 0 auto;
+    height: min(70vh, 40rem);
+  }
+}
+
+/* The map (the Fly page's, with the plan over it); the route's own colour is used for nothing else. */
+.plan-map {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-map);
+}
+
+/* The table of the items: the area scrolls (both ways) and nothing else does; its header stays at the top, and only the rows in
+   view are drawn, each placed by its number, so a plan of a thousand items is as light as one of ten. */
+.plan-table {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--color-surface);
+}
+
+.plan-table-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+/* From 1000 px the table is the main column's own scroller, and a wheel at its end does not go on to anything; below that the
+   page is the scroller and the table is a part of it, so a wheel or a touch at the table's end goes on to the page. */
+@media (width >= 1000px) {
+  .plan-table-scroll {
+    overscroll-behavior: contain;
+  }
+}
+
+.plan-grid {
+  --plan-columns: 3.5rem 11rem 8.5rem 8.5rem 6.5rem 10rem repeat(4, 14rem);
+
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+}
+
+.plan-grid-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: var(--plan-columns);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-th {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-right: 1px solid var(--color-border);
+}
+
+.plan-grid-body {
+  position: relative;
+}
+
+.plan-tr {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: var(--plan-columns);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.plan-tr.selected {
+  background: var(--color-accent-soft);
+}
+
+.plan-td {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--space-2);
+  border-right: 1px solid var(--color-border);
+}
+
+.plan-td-no {
+  justify-content: space-between;
+  font-family: var(--font-mono);
+}
+
+.plan-td-mark {
+  font-weight: 700;
+  color: var(--color-error);
+}
+
+.plan-td-command {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-td.none {
+  justify-content: center;
+  color: var(--color-text-dim);
+}
+
+.plan-td.none:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.plan-td.wrong {
+  background: var(--color-error-soft);
+}
+
+.plan-cell-name {
+  flex: 0 1 5.5rem;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-cell-input {
+  flex: 1 1 4rem;
+  min-width: 0;
 }
 
 /* The bar over the top of the map, right of the zoom buttons: the line that says why the map is bare, and the Add button. It lets

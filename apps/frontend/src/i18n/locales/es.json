@@ -2478,8 +2478,27 @@
       "nothingToUndo": "No hay nada que deshacer.",
       "nothingToRedo": "No hay nada que rehacer."
     },
+    "tool": {
+      "label": "Herramientas del plan",
+      "mission": "Misión",
+      "table": "Tabla"
+    },
+    "table": {
+      "label": "Elementos del plan, en tabla",
+      "help": "Las flechas pasan de una celda a otra, Intro baja una fila, Re Pág y Av Pág diez filas, Ctrl con Inicio o Fin va a la primera o a la última fila. Una celda es un campo del elemento, el mismo que en su formulario; en una opción, Arriba y Abajo pasan de una fila a otra: cambie la opción con el ratón, con la barra espaciadora o con Alt y Abajo.",
+      "unused": "Este comando no lo usa",
+      "col": {
+        "number": "N.º",
+        "command": "Comando",
+        "lat": "Latitud",
+        "lon": "Longitud",
+        "alt": "Altitud",
+        "frame": "Altitud desde",
+        "setting": "Ajuste {number}"
+      }
+    },
     "map": {
-      "pin": "Elemento {number}",
+      "pin":"Elemento {number}",
       "pinError": "Elemento {number}: tiene un error",
       "pinWarning": "Elemento {number}: tiene una advertencia",
       "pinHelp": "Arrastre una marca para moverla, o una línea entre marcas para poner ahí un punto de ruta. Las flechas pasan de una marca a otra, Mayús y una flecha mueven la seleccionada (con Ctrl, un píxel), Supr la elimina y Esc cancela el arrastre. Poner un punto de ruta en una línea no tiene vía de teclado: use el botón de añadir de la lista y los campos de latitud y longitud.",

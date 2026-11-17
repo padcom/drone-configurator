@@ -16,7 +16,12 @@ const history = new History()
 const revision = ref(0)
 /** Whether a click on the map adds a waypoint (the map's own mode: not part of the plan, not an edit, not taken back). */
 const adding = ref(false)
+/** Which tool the page shows in its main area: the mission on the map, or the table of its items. */
+const tool = ref<PlanTool>('mission')
 let nextId = 1
+
+/** The tools of the page (the design has more; these are the ones there are). */
+export type PlanTool = 'mission' | 'table'
 
 /** What the screen reads of the plan. */
 export interface PlanView {
@@ -34,6 +39,8 @@ export interface PlanView {
   pins: ComputedRef<Pin[]>
   /** Whether a click on the map adds a waypoint. */
   adding: ComputedRef<boolean>
+  /** The tool the main area shows. */
+  tool: ComputedRef<PlanTool>
   /** Whether the plan has as many items as it takes. */
   full: ComputedRef<boolean>
   /** Whether there is an edit to take back. */
@@ -63,6 +70,8 @@ export interface PlanActions {
   placeItem(id: number, lat: number, lon: number, join: boolean): void
   /** Turns the mode on or off in which a click on the map adds a waypoint. */
   setAdding(on: boolean): void
+  /** Shows a tool in the main area (the mode of the map ends with it). */
+  setTool(next: PlanTool): void
   /** Adds a copy of the selected item after it, and selects the copy. */
   duplicate(): void
   /** Takes the selected item out; the one that takes its place is selected. */
@@ -175,6 +184,7 @@ function view(): PlanView {
     stats: computed(() => statsOf(doc.plan)),
     pins: computed(() => pinsOf(doc.plan)),
     adding: computed(() => adding.value),
+    tool: computed(() => tool.value),
     full: computed(() => doc.plan.items.length >= MAX_ITEMS),
     canUndo: computed(() => revision.value >= 0 && history.canUndo()),
     canRedo: computed(() => revision.value >= 0 && history.canRedo()),
@@ -188,13 +198,18 @@ function view(): PlanView {
  *
  * @returns the actions
  */
-function navigation(): Pick<PlanActions, 'select' | 'setAdding' | 'undo' | 'redo'> {
+function navigation(): Pick<PlanActions, 'select' | 'setAdding' | 'setTool' | 'undo' | 'redo'> {
   return {
     select: id => {
       doc.selected = id
     },
     setAdding: on => {
       adding.value = on
+    },
+    setTool: next => {
+      tool.value = next
+      // (the mode of the map is for as long as the map is the tool)
+      adding.value = adding.value && next === 'mission'
     },
     undo: () => {
       history.undo(doc)
@@ -256,7 +271,7 @@ function placeItem(id: number, lat: number, lon: number, join: boolean): void {
  *
  * @returns the actions
  */
-function changes(): Omit<PlanActions, 'select' | 'setAdding' | 'undo' | 'redo'> {
+function changes(): Omit<PlanActions, 'select' | 'setAdding' | 'setTool' | 'undo' | 'redo'> {
   return {
     add: command => {
       run(new AddItem(freshItem(definitionOrWaypoint(command), doc.plan, newId()), insertionIndex()))
@@ -299,6 +314,7 @@ export function resetPlanForTests(): void {
   doc.plan = emptyPlan()
   doc.selected = null
   adding.value = false
+  tool.value = 'mission'
   history.clear()
   revision.value += 1
   nextId = 1

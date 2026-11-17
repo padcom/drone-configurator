@@ -2478,8 +2478,27 @@
       "nothingToUndo": "Es gibt nichts rückgängig zu machen.",
       "nothingToRedo": "Es gibt nichts zu wiederholen."
     },
+    "tool": {
+      "label": "Werkzeuge des Plans",
+      "mission": "Mission",
+      "table": "Tabelle"
+    },
+    "table": {
+      "label": "Elemente des Plans als Tabelle",
+      "help": "Pfeiltasten wechseln zwischen den Zellen, Eingabe geht eine Zeile nach unten, Bild auf und Bild ab zehn Zeilen, Strg mit Pos1 oder Ende zur ersten oder letzten Zeile. Eine Zelle ist ein Feld des Elements, dasselbe wie in seinem Formular; bei einer Auswahl wechseln Hoch und Runter zwischen den Zeilen: die Option ändern Sie mit der Maus, mit der Leertaste oder mit Alt und Runter.",
+      "unused": "Von diesem Befehl nicht verwendet",
+      "col": {
+        "number": "Nr.",
+        "command": "Befehl",
+        "lat": "Breitengrad",
+        "lon": "Längengrad",
+        "alt": "Höhe",
+        "frame": "Höhe ab",
+        "setting": "Einstellung {number}"
+      }
+    },
     "map": {
-      "pin": "Element {number}",
+      "pin":"Element {number}",
       "pinError": "Element {number}: hat einen Fehler",
       "pinWarning": "Element {number}: hat eine Warnung",
       "pinHelp": "Ziehen Sie eine Markierung, um sie zu verschieben, oder eine Linie zwischen Markierungen, um dort einen Wegpunkt zu setzen. Pfeiltasten wechseln zwischen den Markierungen, Umschalt und Pfeil verschieben die gewählte (mit Strg um einen Pixel), Entf löscht sie, Esc bricht das Ziehen ab. Einen Wegpunkt auf eine Linie zu setzen geht nicht mit der Tastatur: nutzen Sie die Schaltfläche zum Hinzufügen in der Liste und die Felder für Breiten- und Längengrad.",
