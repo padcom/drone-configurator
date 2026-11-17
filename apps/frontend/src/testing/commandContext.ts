@@ -63,6 +63,7 @@ export interface Fake {
     planCanMove?: boolean
     planCanUndo?: boolean
     planCanRedo?: boolean
+    planAdding?: boolean
   }
   /** The vehicle's parameters as the commands will see them: change them between calls. */
   parameters: {
@@ -179,6 +180,8 @@ function planOf(fake: Fake): CommandContext['plan'] {
     canMove: () => fake.facts.planCanMove ?? false,
     canUndo: () => fake.facts.planCanUndo ?? false,
     canRedo: () => fake.facts.planCanRedo ?? false,
+    adding: () => fake.facts.planAdding ?? false,
+    setAdding: on => void fake.calls.plan.push(`adding ${on}`),
     add: command => void fake.calls.plan.push(`add ${command}`),
     duplicate: () => void fake.calls.plan.push('duplicate'),
     remove: () => void fake.calls.plan.push('remove'),

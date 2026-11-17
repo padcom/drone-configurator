@@ -2441,6 +2441,10 @@
         "label": "Add a waypoint",
         "keywords": "plan mission add new waypoint point item"
       },
+      "addOnMap": {
+        "label": "Add waypoints by clicking the map",
+        "keywords": "plan mission add waypoint map click mode"
+      },
       "duplicate": {
         "label": "Duplicate the item",
         "keywords": "plan mission copy duplicate clone item"
@@ -2476,7 +2480,9 @@
     },
     "map": {
       "pin": "Item {number}",
-      "noPlace": "No item has a place yet: give one a latitude and a longitude and it appears on the map."
+      "noPlace": "No item has a place yet: give one a latitude and a longitude and it appears on the map.",
+      "add": "Add waypoints",
+      "addHelp": "Click the map to add a waypoint after the selected item; Escape stops. Without a pointer, use the list's Add button and the latitude and longitude fields."
     },
     "stats": {
       "label": "The plan in numbers",

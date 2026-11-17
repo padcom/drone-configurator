@@ -2441,6 +2441,10 @@
         "label": "Dodaj punkt trasy",
         "keywords": "plan misja dodaj nowy punkt trasy element"
       },
+      "addOnMap": {
+        "label": "Dodawaj punkty trasy klikając mapę",
+        "keywords": "plan misja punkt trasy mapa klik tryb dodaj"
+      },
       "duplicate": {
         "label": "Powiel element",
         "keywords": "plan misja kopiuj powiel element"
@@ -2476,7 +2480,9 @@
     },
     "map": {
       "pin": "Element {number}",
-      "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie."
+      "noPlace": "Żaden element nie ma jeszcze miejsca: nadaj któremuś szerokość i długość geograficzną, a pojawi się na mapie.",
+      "add": "Dodaj punkty",
+      "addHelp": "Kliknij mapę, aby dodać punkt trasy po wybranym elemencie; Esc kończy. Bez myszy użyj przycisku dodawania na liście i pól szerokości i długości geograficznej."
     },
     "stats": {
       "label": "Plan w liczbach",

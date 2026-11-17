@@ -19,6 +19,7 @@
       @click="state.select(pin.id)"
       @keydown.enter.prevent="state.select(pin.id)"
       @keydown.space.prevent="state.select(pin.id)"
+      @keydown.delete.prevent="remove($event, pin.id)"
       @keydown="move($event, pin.id)"
     >
       <circle r="14" />
@@ -29,11 +30,12 @@
 
 <script setup lang="ts">
 // The plan over the map: its route in the route colour (and no other line has it), the items that have a place as numbered pins
-// (the numbers the list has), the selected one marked. A pin selects its item, with a pointer or with Enter or Space. The pins
+// (the numbers the list has), the selected one marked. A pin selects its item, with a pointer or with Enter or Space, and Delete
+// takes it out (Undo gives it back). The pins
 // are ONE tab stop (the focused one, else the selected one, else the first): the arrows, Home and End move between them, so a
 // plan of a thousand items does not put a thousand stops between the map and the list. The pins are where the places say, so
-// they move with the map; nothing here changes the plan (the editing comes next).
-import { computed, ref } from 'vue'
+// they move with the map; moving them is the next part of the editing.
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlan } from '@/composables/usePlan'
 import type { Point, Size } from '@/lib/map/geo'
@@ -86,6 +88,41 @@ function neighbour(step: (index: number, count: number) => number, id: number): 
   const ids = pins.value.map(pin => pin.id)
 
   return ids[Math.min(Math.max(step(ids.indexOf(id), ids.length), 0), ids.length - 1)] ?? id
+}
+
+/**
+ * The map an overlay is on.
+ *
+ * @param overlay the overlay's svg
+ * @returns the map's element, or null
+ */
+function mapOf(overlay: SVGElement | null): HTMLElement | null {
+  return overlay?.closest<HTMLElement>('.map') ?? null
+}
+
+/** Puts the focus on the pin of the selected item, or on the map when there is none (a pin that was focused is gone). */
+function focusSelected(): void {
+  const target = root.value?.querySelector<SVGElement>(`[data-pin="${selected.value}"]`) ?? mapOf(root.value)
+
+  target?.focus()
+}
+
+/**
+ * Delete or Backspace on a pin takes its item out of the plan (Undo gives it back, so it does not ask). The focus goes to the pin
+ * of the item that is selected then, or to the map when there is none. A key held down takes out one item, not the next and the
+ * next (the focus moves on with each).
+ *
+ * @param event the key event
+ * @param id the pin
+ */
+async function remove(event: KeyboardEvent, id: number): Promise<void> {
+  if (event.repeat) {
+    return
+  }
+  state.select(id)
+  state.remove()
+  await nextTick()
+  focusSelected()
 }
 
 /**

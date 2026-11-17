@@ -2441,6 +2441,10 @@
         "label": "Añadir un punto de ruta",
         "keywords": "plan misión añadir nuevo punto de ruta elemento"
       },
+      "addOnMap": {
+        "label": "Añadir puntos de ruta haciendo clic en el mapa",
+        "keywords": "plan misión punto de ruta mapa clic modo añadir"
+      },
       "duplicate": {
         "label": "Duplicar el elemento",
         "keywords": "plan misión copiar duplicar elemento"
@@ -2476,7 +2480,9 @@
     },
     "map": {
       "pin": "Elemento {number}",
-      "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa."
+      "noPlace": "Ningún elemento tiene aún un lugar: dele a uno una latitud y una longitud y aparecerá en el mapa.",
+      "add": "Añadir puntos",
+      "addHelp": "Haga clic en el mapa para añadir un punto de ruta tras el elemento seleccionado; Esc lo termina. Sin puntero, use el botón de añadir de la lista y los campos de latitud y longitud."
     },
     "stats": {
       "label": "El plan en cifras",

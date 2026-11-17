@@ -105,19 +105,60 @@
   }
 }
 
-/* Why the map has nothing on it: one plain line at the top, over the map, letting the pointer through. */
-.plan-map-note {
+/* The bar over the top of the map, right of the zoom buttons: the line that says why the map is bare, and the Add button. It lets
+   the pointer through but for the button. */
+.plan-map-bar {
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
   left: calc(var(--space-4) + 2 * var(--control-height) + var(--space-4));
   z-index: 1;
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.plan-map-note {
+  flex: 0 1 auto;
   padding: var(--space-1) var(--space-2);
   margin: 0;
   font-size: var(--font-size-sm);
-  pointer-events: none;
   background: var(--color-surface);
   border-radius: var(--radius-sm);
+}
+
+.plan-map-add {
+  flex: none;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  pointer-events: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.plan-map-add[aria-pressed='true'] {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.plan-map-add:disabled {
+  color: var(--color-text-dim);
+  cursor: default;
+}
+
+.plan-map-add:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* (a click adds a waypoint: the map is not grabbed) */
+.plan-map.adding .map {
+  cursor: crosshair;
 }
 
 .plan-route {

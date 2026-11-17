@@ -191,6 +191,10 @@ export interface PlanFacts {
   canUndo(): boolean
   /** Whether there is an edit to do again. */
   canRedo(): boolean
+  /** Whether a click on the map adds a waypoint. */
+  adding(): boolean
+  /** Turns that mode on or off. */
+  setAdding(on: boolean): void
   /** Adds an item of a command (MAV_CMD) after the selected one and selects it. */
   add(command: number): void
   /** Adds a copy of the selected item after it. */

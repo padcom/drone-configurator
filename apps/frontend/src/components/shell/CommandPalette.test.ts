@@ -203,6 +203,7 @@ it('has no button in the top bar: the palette is the command "Show command palet
 
 const ALPHABETICAL = [
   'Add a waypoint',
+  'Add waypoints by clicking the map',
   'Arm the vehicle',
   'Change altitude',
   'Connect to a vehicle…',
@@ -234,6 +235,7 @@ const ALPHABETICAL = [
 // The commands that are not a way to a screen or a part of one (the vehicle's arm, disarm, review, Go here, nine modes, the
 // connection and the reboot, the parameters' and the logs'), by the group each is in, in the order of the list above.
 const GROUPS_OF_THE_FIRST = [
+  'Plan',
   'Plan',
   'Vehicle',
   'Vehicle',
@@ -274,10 +276,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 30)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(31)
+  expect(groups.slice(0, 31)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(32)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(30, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(31, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })
@@ -393,6 +395,8 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('vehicle.arm')
   await input.trigger('keydown', { key: 'ArrowUp' })
+  expect(active()).toBe('plan.addOnMap')
+  await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'ArrowUp' })
   expect(active()).toBe('plan.undo')
@@ -403,7 +407,7 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('plan.duplicate')
+  expect(active()).toBe('params.download')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('plan.addWaypoint')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-plan.addWaypoint')

@@ -16,7 +16,9 @@ import type {
   RcFacts,
   VehicleFacts,
 } from '@/lib/commands/command'
-import { AddWaypoint, DeleteItem, DuplicateItem, MoveItemDown, MoveItemUp, RedoPlan, UndoPlan } from '@/lib/commands/plan'
+import {
+  AddOnMap, AddWaypoint, DeleteItem, DuplicateItem, MoveItemDown, MoveItemUp, RedoPlan, UndoPlan,
+} from '@/lib/commands/plan'
 import { MAX_ITEMS } from '@/lib/plan/model'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
@@ -66,6 +68,7 @@ export { HEARTBEAT_FRESH_MS }
 function planCommands(): Command[] {
   return [
     new AddWaypoint(),
+    new AddOnMap(),
     new DuplicateItem(),
     new DeleteItem(),
     new MoveItemUp(),
@@ -360,6 +363,8 @@ function planFacts(): PlanFacts {
     canMove,
     canUndo: () => plan.canUndo.value,
     canRedo: () => plan.canRedo.value,
+    adding: () => plan.adding.value,
+    setAdding: on => plan.setAdding(on),
     add: command => plan.add(command),
     duplicate: () => plan.duplicate(),
     remove: () => plan.remove(),

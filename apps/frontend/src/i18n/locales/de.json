@@ -2441,6 +2441,10 @@
         "label": "Wegpunkt hinzufügen",
         "keywords": "Plan Mission hinzufügen neu Wegpunkt Punkt Eintrag"
       },
+      "addOnMap": {
+        "label": "Wegpunkte per Klick auf die Karte hinzufügen",
+        "keywords": "Plan Mission Wegpunkt Karte Klick Modus hinzufügen"
+      },
       "duplicate": {
         "label": "Eintrag duplizieren",
         "keywords": "Plan Mission kopieren duplizieren Eintrag"
@@ -2476,7 +2480,9 @@
     },
     "map": {
       "pin": "Element {number}",
-      "noPlace": "Noch hat kein Element einen Ort: Geben Sie einem einen Breiten- und einen Längengrad, dann erscheint es auf der Karte."
+      "noPlace": "Noch hat kein Element einen Ort: Geben Sie einem einen Breiten- und einen Längengrad, dann erscheint es auf der Karte.",
+      "add": "Wegpunkte hinzufügen",
+      "addHelp": "Klicken Sie in die Karte, um einen Wegpunkt nach dem gewählten Element zu setzen; Esc beendet das. Ohne Zeigegerät: die Schaltfläche zum Hinzufügen in der Liste und die Felder für Breiten- und Längengrad."
     },
     "stats": {
       "label": "Der Plan in Zahlen",
