@@ -356,6 +356,34 @@ function key(event: KeyboardEvent): void {
   }
 }
 
+/**
+ * Whether a point is on the map (the very edge counts: where a pin was just dropped is in view).
+ *
+ * @param point the point from the top left of the map
+ * @returns true when it is
+ */
+function onMap(point: Point): boolean {
+  const { width, height } = size.value
+
+  return point.x >= 0 && point.y >= 0 && point.x <= width && point.y <= height
+}
+
+/**
+ * Brings a place into view when it is not (outside the map): the map is centred on it, at the zoom it has, and is the user's now.
+ * A place in view does not move the map.
+ *
+ * @param lat the latitude
+ * @param lon the longitude
+ */
+function reveal(lat: number, lon: number): void {
+  if (size.value.width > 0 && !onMap(place(lat, lon))) {
+    following.value = false
+    flight.centerOn({ lat, lon })
+  }
+}
+
+defineExpose({ reveal })
+
 /** Takes the size of the box the map is in. */
 function measure(): void {
   const box = root.value

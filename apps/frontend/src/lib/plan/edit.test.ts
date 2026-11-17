@@ -194,6 +194,25 @@ describe('typing that is not one edit', () => {
   })
 })
 
+describe('a place that is not typed', () => {
+  it('is a step of its own when the edit says it does not join: not with the typing before, nor the nudges after', () => {
+    const doc = documentOf(1)
+    const history = new History()
+    history.run(doc, new UpdateItem(1, { lat: 50, lon: 20 }, 1000), 1000)
+    history.run(doc, new UpdateItem(1, { lat: 51, lon: 21 }, 1010, false), 1010)
+    history.run(doc, new UpdateItem(1, { lat: 52, lon: 22 }, 1020), 1020)
+    history.undo(doc)
+
+    expect([doc.plan.items[0]!.lat, doc.plan.items[0]!.lon]).toEqual([51, 21])
+    history.undo(doc)
+
+    expect([doc.plan.items[0]!.lat, doc.plan.items[0]!.lon]).toEqual([50, 20])
+    history.undo(doc)
+
+    expect(history.canUndo()).toBe(false)
+  })
+})
+
 describe('naming the plan', () => {
   it('renames the plan, typing in one edit', () => {
     const doc = documentOf(0)

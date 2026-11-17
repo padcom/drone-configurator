@@ -1,9 +1,9 @@
 <template>
   <div class="plan-map" :class="{ adding }">
-    <FlightMap :source="source" :follow-vehicle="false" :fit="fit" :pickable="adding" @pick="picked">
-      <template #default="{ place, size }">
+    <FlightMap ref="map" :source="source" :follow-vehicle="false" :fit="fit" :pickable="adding" @pick="picked">
+      <template #default="{ place, size, view }">
         <MapOverlay :source="source" :place="place" :size="size" />
-        <PlanOverlay :place="place" :size="size" />
+        <PlanOverlay :place="place" :size="size" :view="view" />
       </template>
     </FlightMap>
     <div class="plan-map-bar">
@@ -33,7 +33,7 @@
 // "Add waypoints" is a mode of the map (not of the plan: it is not taken back): while it is on, a click on the map (not a drag)
 // adds a waypoint there, after the selected item, and Escape (anywhere on the page: the page says so) leaves it. Without a
 // pointer the way to add one is the list's button and the latitude and longitude fields, which the button's help says.
-import { computed, onBeforeUnmount, onDeactivated, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onDeactivated, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FlightMap from '@/components/map/FlightMap.vue'
 import MapOverlay from '@/components/map/MapOverlay.vue'
@@ -44,7 +44,8 @@ import type { LatLon } from '@/lib/map/track'
 
 const source = useLiveMapSource()
 const { t } = useI18n()
-const { pins, plan, adding, full, addAt, setAdding } = usePlan()
+const { pins, plan, selected, adding, full, addAt, setAdding } = usePlan()
+const map = ref<InstanceType<typeof FlightMap> | null>(null)
 /** Whether the plan has items and none has a place: the map is bare and says why (an empty plan says it in the list). */
 const bare = computed(() => plan.value.items.length > 0 && pins.value.length === 0)
 /** The places the map is fitted to: those the plan has when it first has any (undefined until then). */
@@ -55,6 +56,16 @@ watch(pins, places => {
     fit.value = places.map(({ lat, lon }) => ({ lat, lon }))
   }
 }, { immediate: true })
+
+// Selecting an item (in the list, from a problem of the validity header, by Undo) shows it when it is off the map or at its edge:
+// the map goes to it at the zoom it has. An item that is in view, and every edit (a drag, a nudge, an added waypoint), leave the
+// map where it is.
+watch(selected, id => {
+  const pin = pins.value.find(candidate => candidate.id === id)
+  if (pin) {
+    map.value?.reveal(pin.lat, pin.lon)
+  }
+})
 
 /**
  * A click on the map in the adding mode: a waypoint there (the map stays where the user has it: it is not fitted to it).

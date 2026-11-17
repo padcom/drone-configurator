@@ -2480,6 +2480,9 @@
     },
     "map": {
       "pin": "Item {number}",
+      "pinError": "Item {number}: has an error",
+      "pinWarning": "Item {number}: has a warning",
+      "pinHelp": "Drag a pin to move it, or a line between pins to put a waypoint on it. Arrows move between pins, Shift and an arrow move the selected pin (with Alt, one pixel), Delete takes it out, Escape drops a drag.",
       "noPlace": "No item has a place yet: give one a latitude and a longitude and it appears on the map.",
       "add": "Add waypoints",
       "addHelp": "Click the map to add a waypoint after the selected item; Escape stops. Without a pointer, use the list's Add button and the latitude and longitude fields."
