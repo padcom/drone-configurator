@@ -28,9 +28,15 @@ const { t } = useI18n()
 const uid = useId()
 const { rcControl: rc, confirmWith, fields } = useConfigurator()
 
+/** What the line says while the control is off: what stops it, else why it ended or was refused last, else that it is off. */
+const offHelp = computed(() => {
+  const { block, explanation } = rc
+
+  return block.value === null ? (explanation.value ?? t('rc.help.off')) : t(`rc.reason.${block.value}`)
+})
 const help = computed(() => {
   if (!rc.active.value) {
-    return rc.block.value === null ? t('rc.help.off') : t(`rc.reason.${rc.block.value}`)
+    return offHelp.value
   }
 
   return rc.gateOpen.value ? t('rc.help.on') : t('rc.help.lower')

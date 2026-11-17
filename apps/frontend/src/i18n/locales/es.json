@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "Control remoto terminado: se ocultó la ventana.",
       "VEHICLE_CHANGED": "Control remoto terminado: es otro vehículo.",
       "PARAMS_UNKNOWN": "Control remoto terminado: no se conocen los parámetros del vehículo.",
+      "DECLINED": "El control remoto no se activó: no se confirmó el resumen.",
       "PARAMS_CHANGED": "Control remoto terminado: cambiaron los ajustes del vehículo.",
       "EDITED": "Control remoto terminado: se cambió la asignación.",
       "NOT_CONNECTED": "No hay ningún vehículo conectado.",

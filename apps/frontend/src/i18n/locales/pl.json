@@ -862,6 +862,7 @@
       "PAD_HIDDEN": "Zdalne sterowanie zakończone: okno zostało ukryte.",
       "VEHICLE_CHANGED": "Zdalne sterowanie zakończone: to inny pojazd.",
       "PARAMS_UNKNOWN": "Zdalne sterowanie zakończone: nie są znane parametry pojazdu.",
+      "DECLINED": "Zdalne sterowanie nie zostało włączone: podsumowanie nie zostało potwierdzone.",
       "PARAMS_CHANGED": "Zdalne sterowanie zakończone: ustawienia pojazdu się zmieniły.",
       "EDITED": "Zdalne sterowanie zakończone: zmieniono przypisanie.",
       "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
