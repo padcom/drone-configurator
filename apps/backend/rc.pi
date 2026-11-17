@@ -42,6 +42,7 @@ import {
 import { ConnectRequest, RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 import { uiValue } from "./settings"
+import { flightNow } from "./telemetry"
 
 /// The times of the control (ms). A test may shorten them.
 class Waits {
@@ -337,9 +338,19 @@ async function readParam(id: string): Promise<f64?> throws Error {
 /// The addresses that are this computer: a vehicle on one of them is a simulator the person runs. (The page has the same list.)
 const LOOPBACK_HOSTS: string[] = ["127.0.0.1", "localhost", "::1", "[::1]"]
 
-/// Whether a connection was asked to go to a simulator: the built-in one, or TCP or UDP to this computer. A serial port, any other
-/// address and a network connection with no host are a real vehicle as far as this goes (never assumed). Its answer is the link kind
-/// the connection recorded at `vehicle.connect` (`link.request`, which ends with the session).
+/// Whether a host of a network link is this computer. A request with no host is the connect dialog's blank field, "the default", and
+/// the default is 127.0.0.1 (transports.pi: it connects to, or listens on, that address). An empty text or a host with a port in it
+/// is not one of the addresses.
+function onThisComputer(host: string?): bool {
+  if (host == null) {
+    return true
+  }
+  return LOOPBACK_HOSTS.includes(host!.toLowerCase())
+}
+
+/// Whether a connection was asked to go to a simulator: the built-in one, or TCP or UDP to this computer (no host means 127.0.0.1).
+/// A serial port and any other address are a real vehicle as far as this goes (never assumed). Its answer is the link kind the
+/// connection recorded at `vehicle.connect` (`link.request`, which ends with the session).
 export function isSimulatorLink(request: ConnectRequest?): bool {
   if (request == null) {
     return false
@@ -347,8 +358,8 @@ export function isSimulatorLink(request: ConnectRequest?): bool {
   const r = request!
   match (r.transport) {
     Simulator => true,
-    Udp => LOOPBACK_HOSTS.includes((r.host ?? "").toLowerCase()),
-    Tcp => LOOPBACK_HOSTS.includes((r.host ?? "").toLowerCase()),
+    Udp => onThisComputer(r.host),
+    Tcp => onThisComputer(r.host),
     Serial => false,
   }
 }
@@ -377,6 +388,12 @@ function refuse(): void throws CommunicatorError {
   }
   if (current.active) {
     throw new CommunicatorError("BUSY", "RC control is already on")
+  }
+  if (link.commanding) {
+    throw new CommunicatorError("BUSY", "a command to the vehicle (an arm, a mode change, a guided command) has not been answered yet")
+  }
+  if (flightNow().mode == "GUIDED") {
+    throw new CommunicatorError("GUIDED", "the vehicle is in GUIDED (a guided flow: Go here, a takeoff, a change of altitude): RC control does not begin")
   }
   if (link.calibrating || link.motorTest || link.listing || link.writes > 0 || link.logging || link.planning || rebootExpected()) {
     throw new CommunicatorError("BUSY", "a calibration, a motor test, a parameter, log or plan operation or a reboot is under way")

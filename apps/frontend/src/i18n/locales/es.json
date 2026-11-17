@@ -823,6 +823,58 @@
     "stop": "Parada de emergencia",
     "current": "ahora"
   },
+  "rc": {
+    "switch": "Control remoto",
+    "help": {
+      "off": "Apagado. El mando no pilota el vehículo.",
+      "on": "El mando está pilotando el vehículo.",
+      "lower": "Baja el acelerador para empezar: se envía cuando el stick ha estado abajo un momento."
+    },
+    "indicator": {
+      "on": "Control remoto activo",
+      "off": "Control remoto activo. Pulsa para apagarlo."
+    },
+    "summary": {
+      "title": "¿Pilotar con el mando?",
+      "what": "El mando enviará sus sticks al vehículo hasta que lo apagues. Antes, pon los sticks en el centro y el acelerador abajo. Mientras esté activo, la comprobación del vehículo «RC no encontrado» ya no protege de un transmisor ausente.",
+      "button": "Activar el control remoto"
+    },
+    "command": {
+      "label": "Control remoto: activar o desactivar",
+      "keywords": "mando radio joystick sticks remoto override"
+    },
+    "reason": {
+      "off": "El control remoto no está permitido. Permítelo en Ajustes.",
+      "link": "No hay ningún simulador conectado.",
+      "pad": "No se lee ningún mando. Mueve un stick de la radio.",
+      "mapping": "El mando no tiene una asignación lista. Calíbrala en Ajustes.",
+      "vehicle": "Los ajustes del vehículo no concuerdan con la asignación. Mira Ajustes.",
+      "ENDED": "El control remoto terminó.",
+      "ERROR": "El control remoto no pudo empezar.",
+      "SILENT": "Control remoto terminado: la página estuvo callada demasiado tiempo.",
+      "LINK_LOST": "Control remoto terminado: se perdió el enlace con el vehículo.",
+      "STATE_UNKNOWN": "Control remoto terminado: no se conoce el estado del vehículo.",
+      "STOPPED": "Control remoto terminado: se está desarmando o parando el vehículo.",
+      "NOT_ALLOWED": "Control remoto terminado: ya no está permitido.",
+      "NOT_SIMULATOR": "Control remoto terminado: el vehículo no es un simulador.",
+      "PAD_NONE": "Control remoto terminado: no se lee el mando.",
+      "PAD_LATE": "Control remoto terminado: una lectura del mando llegó tarde.",
+      "PAD_HIDDEN": "Control remoto terminado: se ocultó la ventana.",
+      "VEHICLE_CHANGED": "Control remoto terminado: es otro vehículo.",
+      "PARAMS_UNKNOWN": "Control remoto terminado: no se conocen los parámetros del vehículo.",
+      "GUIDED": "Hay un vuelo guiado (el vehículo está en GUIDED o hay un lugar elegido): el control remoto no empieza.",
+      "DECLINED": "El control remoto no se activó: no se confirmó el resumen.",
+      "PARAMS_CHANGED": "Control remoto terminado: cambiaron los ajustes del vehículo.",
+      "EDITED": "Control remoto terminado: se cambió la asignación.",
+      "NOT_CONNECTED": "No hay ningún vehículo conectado.",
+      "UNSUPPORTED": "El control remoto está hecho para un vehículo ArduPilot.",
+      "BUSY": "Otra cosa tiene el vehículo ahora: una calibración, una prueba de motores, una operación de parámetros, registros o plan, o un reinicio.",
+      "PARAMS_INCOMPLETE": "No se descargaron todos los parámetros del vehículo.",
+      "PARAMS_MISSING": "No se pudo leer del vehículo un ajuste que necesita el control remoto.",
+      "OVERRIDE_DISABLED": "El vehículo ignora los overrides o nunca los suelta (RC_OVERRIDE_TIME).",
+      "other": "Control remoto terminado ({code})."
+    }
+  },
   "settings": {
     "metadata": {
       "title": "Metadatos de parámetros",
@@ -2291,6 +2343,7 @@
       "home": "El vehículo no ha dicho últimamente dónde está el origen.",
       "target": "Elija primero un lugar en el mapa.",
       "far": "Ese lugar está más lejos del origen que su límite en Ajustes.",
+      "rcControl": "El control remoto está activo. Apágalo para enviar un comando guiado.",
       "unsupported": "El control guiado es solo para vehículos ArduPilot.",
       "invalid": "Ese lugar o esa altitud no es válido.",
       "outOfLimits": "Eso excede los límites de Ajustes o la valla del propio vehículo.",

@@ -8,7 +8,7 @@
 // once; the backend
 // refuses before it sends what the vehicle must not be asked (`NOT_HOVERING`, `STALE_POSITION`, ...).
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
-import { connectionBlocker, namedVehicle, no, workBlocker } from './arming'
+import { connectionBlocker, namedVehicle, no, rcBlocker, workBlocker } from './arming'
 import { armingRefusalKeyOf, tellArming, tellArmingRefusal } from './armingReport'
 import { VEHICLE_GROUP } from './vehicle'
 import { homeHereBlock } from '@/lib/fly/guided'
@@ -53,6 +53,7 @@ const BLOCKERS: readonly ((ctx: CommandContext) => string | null)[] = [
   ctx => connectionBlocker(ctx.vehicle),
   stateBlocker,
   ctx => workBlocker(ctx.vehicle),
+  rcBlocker,
   homeBlocker,
 ]
 

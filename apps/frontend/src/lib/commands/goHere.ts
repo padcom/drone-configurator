@@ -69,6 +69,7 @@ function guidedBlocker(ctx: CommandContext): string | null {
     listComplete: ctx.params.listComplete(),
     target: ctx.guided.target(),
     prefs: ctx.preferences.guided(),
+    rcControl: ctx.rc.state() !== 'off',
   })
 
   return why === null ? null : `guided.reason.${why}`

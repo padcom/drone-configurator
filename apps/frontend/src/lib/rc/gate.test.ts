@@ -22,10 +22,17 @@ describe('a link to a simulator', () => {
     expect(isSimulatorLink({ transport: 'tcp', host: 'LocalHost', port: 5760 })).toBe(true)
   })
 
-  it('is not a vehicle on the network, a serial port, a connection with no host, or none at all', () => {
+  it('is TCP or UDP with no host: the dialog\'s blank field means the default, and the default is this computer', () => {
+    expect(isSimulatorLink({ transport: 'tcp' })).toBe(true)
+    expect(isSimulatorLink({ transport: 'tcp', port: 5760 })).toBe(true)
+    expect(isSimulatorLink({ transport: 'udp', port: 14550 })).toBe(true)
+  })
+
+  it('is not a vehicle on the network, a host with a port in it, a serial port, or no connection at all', () => {
     expect(isSimulatorLink({ transport: 'tcp', host: '192.168.1.20', port: 5760 })).toBe(false)
     expect(isSimulatorLink({ transport: 'tcp', host: '127.0.0.1.example.com', port: 5760 })).toBe(false)
-    expect(isSimulatorLink({ transport: 'udp', port: 14550 })).toBe(false)
+    expect(isSimulatorLink({ transport: 'tcp', host: '127.0.0.1:5760' })).toBe(false)
+    expect(isSimulatorLink({ transport: 'tcp', host: '' })).toBe(false)
     expect(isSimulatorLink({ transport: 'serial', device: '/dev/ttyUSB0', baud: 115200 })).toBe(false)
     expect(isSimulatorLink(null)).toBe(false)
   })

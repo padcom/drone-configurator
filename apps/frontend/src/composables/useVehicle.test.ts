@@ -45,6 +45,21 @@ it('keeps what the connection was asked for while it lasts, and forgets it when 
   expect(vehicle.request.value).toBeNull()
 })
 
+it('keeps what the connection was asked for when the backend says `connecting` (a session begins, it does not end)', async () => {
+  const { vehicle, control } = rig()
+
+  await vehicle.watch()
+  const asked = vehicle.connect({ transport: 'simulator' })
+
+  // (the real backend tells `connecting` as soon as it begins, before it answers the call)
+  control.connection?.({ state: 'connecting' })
+  await vi.waitFor(() => expect(vehicle.connection.value.state).toBe('connecting'))
+  expect(vehicle.request.value).toEqual({ transport: 'simulator' })
+  await asked
+  expect(vehicle.connection.value.state).toBe('connected')
+  expect(vehicle.request.value).toEqual({ transport: 'simulator' })
+})
+
 it('reports why a connection failed, and stays disconnected', async () => {
   const { vehicle, sessions, failures } = rig()
 

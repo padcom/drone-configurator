@@ -5,7 +5,7 @@
 // complete list of
 // its parameters, not coming home or landing, and near a stop (it cancels what the vehicle flies to).
 import type { Availability, Command, CommandContext, CommandOutcome } from './command'
-import { connectionBlocker, no, workBlocker } from './arming'
+import { connectionBlocker, no, rcBlocker, workBlocker } from './arming'
 import { armedBlocker } from './goHere'
 import { VEHICLE_GROUP } from './vehicle'
 import { changeAltitudeBlock } from '@/lib/fly/guided'
@@ -27,6 +27,7 @@ const BLOCKERS: readonly ((ctx: CommandContext) => string | null)[] = [
   ctx => connectionBlocker(ctx.vehicle),
   armedBlocker,
   ctx => workBlocker(ctx.vehicle),
+  rcBlocker,
   guidedBlocker,
 ]
 

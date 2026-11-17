@@ -823,6 +823,58 @@
     "stop": "Emergency stop",
     "current": "now"
   },
+  "rc": {
+    "switch": "RC control",
+    "help": {
+      "off": "Off. The gamepad does not fly the vehicle.",
+      "on": "The gamepad is flying the vehicle.",
+      "lower": "Lower the throttle to start: it is sent once the stick has been low for a moment."
+    },
+    "indicator": {
+      "on": "RC control on",
+      "off": "RC control on. Press to turn it off."
+    },
+    "summary": {
+      "title": "Fly with the gamepad?",
+      "what": "The gamepad will send its sticks to the vehicle until you turn this off. Put the sticks in the middle and the throttle low first. While it is on, the vehicle's check \"RC not found\" no longer guards a missing transmitter.",
+      "button": "Turn on RC control"
+    },
+    "command": {
+      "label": "RC control: turn on or off",
+      "keywords": "gamepad radio joystick sticks remote override"
+    },
+    "reason": {
+      "off": "RC control is not allowed. Allow it in Settings.",
+      "link": "No simulator is connected.",
+      "pad": "No gamepad is being read. Move a stick on the radio.",
+      "mapping": "The gamepad has no mapping that is ready. Calibrate it in Settings.",
+      "vehicle": "The vehicle's settings do not agree with the mapping. See Settings.",
+      "ENDED": "RC control ended.",
+      "ERROR": "RC control could not start.",
+      "SILENT": "RC control ended: the page went quiet for too long.",
+      "LINK_LOST": "RC control ended: the link to the vehicle was lost.",
+      "STATE_UNKNOWN": "RC control ended: the vehicle's state is not known.",
+      "STOPPED": "RC control ended: the vehicle is being disarmed or stopped.",
+      "NOT_ALLOWED": "RC control ended: it is not allowed any more.",
+      "NOT_SIMULATOR": "RC control ended: the vehicle is not a simulator.",
+      "PAD_NONE": "RC control ended: the gamepad is not being read.",
+      "PAD_LATE": "RC control ended: a read of the gamepad came too late.",
+      "PAD_HIDDEN": "RC control ended: the window was hidden.",
+      "VEHICLE_CHANGED": "RC control ended: it is another vehicle.",
+      "PARAMS_UNKNOWN": "RC control ended: the vehicle's parameters are not known.",
+      "GUIDED": "A guided flow is on (the vehicle is in GUIDED, or a place is picked): RC control does not begin.",
+      "DECLINED": "RC control was not turned on: the summary was not confirmed.",
+      "PARAMS_CHANGED": "RC control ended: the vehicle's settings changed.",
+      "EDITED": "RC control ended: the mapping was changed.",
+      "NOT_CONNECTED": "No vehicle is connected.",
+      "UNSUPPORTED": "RC control is made for an ArduPilot vehicle.",
+      "BUSY": "Something else holds the vehicle now: a calibration, a motor test, a parameter, log or plan operation, or a reboot.",
+      "PARAMS_INCOMPLETE": "The vehicle's parameters were not all downloaded.",
+      "PARAMS_MISSING": "A setting that RC control needs could not be read from the vehicle.",
+      "OVERRIDE_DISABLED": "The vehicle ignores overrides, or never lets go of them (RC_OVERRIDE_TIME).",
+      "other": "RC control ended ({code})."
+    }
+  },
   "settings": {
     "metadata": {
       "title": "Parameter metadata",
@@ -2291,6 +2343,7 @@
       "home": "The vehicle has not said where home is lately.",
       "target": "Pick a place on the map first.",
       "far": "That place is farther from home than your limit in Settings.",
+      "rcControl": "RC control is on. Turn it off to send a guided command.",
       "unsupported": "Guided control is for an ArduPilot vehicle only.",
       "invalid": "That place or altitude is not valid.",
       "outOfLimits": "That is beyond the limits in Settings or the vehicle's own fence.",

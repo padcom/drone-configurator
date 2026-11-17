@@ -11,6 +11,7 @@
       :help="card.help"
     />
   </div>
+  <RcControlSwitch />
   <MessagesList />
 </template>
 
@@ -21,6 +22,7 @@ import { flyCards } from '@/lib/fly/flyCards'
 import Hud from '@/components/fly/hud/Hud.vue'
 import { hudModel } from '@/lib/fly/hud/model'
 import MessagesList from './MessagesList.vue'
+import RcControlSwitch from './RcControlSwitch.vue'
 import TruthValue from '@/components/fields/TruthValue.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useFormat } from '@/i18n/useFormat'

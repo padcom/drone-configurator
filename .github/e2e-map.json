@@ -54,9 +54,11 @@
     {
       "when": [
         "apps/frontend/src/components/settings/Rc*.vue", "apps/frontend/src/lib/rc/**", "apps/frontend/src/composables/{useRcMapping,useRcSettings,useGamepad}.ts",
-        "apps/frontend/src/screens/Settings.vue", "apps/frontend/src/testing/{fakeGamepads,rcProfiles}.ts"
+        "apps/frontend/src/screens/Settings.vue", "apps/frontend/src/testing/{fakeGamepads,rcProfiles,rcRig}.ts",
+        "apps/frontend/src/composables/useRcControl.ts", "apps/frontend/src/lib/commands/rcControl.ts",
+        "apps/frontend/src/components/{fly/RcControlSwitch,shell/RcIndicator}.vue"
       ],
-      "specs": ["rc-settings.e2e.ts"]
+      "specs": ["rc-settings.e2e.ts", "palette.e2e.ts", "shell.e2e.ts"]
     },
     {
       "when": [

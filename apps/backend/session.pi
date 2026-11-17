@@ -81,6 +81,9 @@ class Link {
   /// Whether RC control is on (rc.pi: from its start until its release was written or given up): the vehicle then takes the page's sticks
   /// for its radio, so a motor test, a calibration, a parameter write and a reboot are refused (`BUSY`).
   public rcControl: bool = false
+  /// Whether a command to the vehicle that holds the others off (arming.pi: arm, a mode change, a guided command ...) was sent and is
+  /// not answered yet: RC control does not begin meanwhile (`BUSY`).
+  public commanding: bool = false
   /// Messages that must still go out as the session ends and are on their way: the rates the tuning stream gives back (tuningstream.pi).
   /// With the motor test's stop they are the things that must say goodbye: the connection stays open for `closeGraceMs` for them.
   public farewells: int = 0
