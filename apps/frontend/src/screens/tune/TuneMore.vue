@@ -1,59 +1,52 @@
 <template>
-  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
-    <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('tune.section.more') }}</h3>
-      <p class="muted">{{ t('tune.more.summary') }}</p>
-      <section v-for="group in groups" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
-        <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
-        <template v-for="param in present(group)" :key="param.id">
-          <TuneChoice
-            v-if="param.kind === 'choice' && param.id === 'MOT_HOVER_LEARN'"
-            :label="t(`tune.name.${param.id}`)"
-            :param="param"
-            :options="HOVER_LEARN"
-            :panel="panel"
-          />
-          <TuneBits
-            v-else-if="param.kind === 'bits'"
-            :label="t(`tune.name.${param.id}`)"
-            :param="param"
-            :bits="AUTOTUNE_AXES"
-            :panel="panel"
-            :help="t('tune.axesNote')"
-          />
-          <div v-else-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
-            <div class="tune-head">
-              <label :for="`${uid}-${param.id}`" class="tune-label">{{ t(`tune.name.${param.id}`) }}</label>
-              <code class="tune-names">{{ param.id }}</code>
-            </div>
-            <EnumField
-              :input-id="`${uid}-${param.id}`"
-              :model-value="panel.value(param.id) ?? 0"
-              :options="TUNE_FUNCTIONS"
-              :label="t(`tune.name.${param.id}`)"
-              :disabled="panel.blocked.value !== null"
-              @update:model-value="panel.set(param.id, $event)"
-            />
-            <p class="muted tune-was">{{ wasOf(param.id) }}</p>
+  <TunePage :tune="tune" :title="t('tune.section.more')" id-prefix="tune-more">
+    <p class="muted">{{ t('tune.more.summary') }}</p>
+    <section v-for="group in groups" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
+      <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
+      <template v-for="param in present(group)" :key="param.id">
+        <TuneChoice
+          v-if="param.kind === 'choice' && param.id === 'MOT_HOVER_LEARN'"
+          :label="t(`tune.name.${param.id}`)"
+          :param="param"
+          :options="HOVER_LEARN"
+          :panel="panel"
+        />
+        <TuneBits
+          v-else-if="param.kind === 'bits'"
+          :label="t(`tune.name.${param.id}`)"
+          :param="param"
+          :bits="AUTOTUNE_AXES"
+          :panel="panel"
+          :help="t('tune.axesNote')"
+        />
+        <div v-else-if="param.kind === 'choice'" class="tune-row" :data-tune="param.id">
+          <div class="tune-head">
+            <label :for="`${uid}-${param.id}`" class="tune-label">{{ t(`tune.name.${param.id}`) }}</label>
+            <code class="tune-names">{{ param.id }}</code>
           </div>
-          <template v-else>
-            <TuneSlider :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
-            <div v-if="param.id === 'MOT_THST_HOVER' && learning" class="tune-hover-learning" data-testid="hover-learning">
-              <p class="muted">{{ t('tune.hoverLearning') }}</p>
-              <Button :disabled="panel.blocked.value !== null || !hasLearn" @click="panel.set('MOT_HOVER_LEARN', 0)">
-                {{ t('tune.hoverDisable') }}
-              </Button>
-            </div>
-          </template>
+          <EnumField
+            :input-id="`${uid}-${param.id}`"
+            :model-value="panel.value(param.id) ?? 0"
+            :options="TUNE_FUNCTIONS"
+            :label="t(`tune.name.${param.id}`)"
+            :disabled="panel.blocked.value !== null"
+            @update:model-value="panel.set(param.id, $event)"
+          />
+          <p class="muted tune-was">{{ wasOf(param.id) }}</p>
+        </div>
+        <template v-else>
+          <TuneSlider :label="t(`tune.name.${param.id}`)" :ids="[param.id]" :param="param" :panel="panel" />
+          <div v-if="param.id === 'MOT_THST_HOVER' && learning" class="tune-hover-learning" data-testid="hover-learning">
+            <p class="muted">{{ t('tune.hoverLearning') }}</p>
+            <Button :disabled="panel.blocked.value !== null || !hasLearn" @click="panel.set('MOT_HOVER_LEARN', 0)">
+              {{ t('tune.hoverDisable') }}
+            </Button>
+          </div>
         </template>
-      </section>
-      <p v-if="missing.length > 0" id="tune-more-missing" class="muted">{{ t('tune.missing', { names: missing.join(', ') }) }}</p>
-      <Button id="tune-more-initial" :disabled="!movable || panel.writing.value" @click="backToInitial">
-        {{ t('tune.backToInitial') }}
-      </Button>
-    </div>
-    <PanelAside :panel="panel" id-prefix="tune-more" :hold="refused" :refused-ids="refusedIds" only-changed no-revert />
-  </section>
+      </template>
+    </section>
+    <p v-if="missing.length > 0" id="tune-more-missing" class="muted">{{ t('tune.missing', { names: missing.join(', ') }) }}</p>
+  </TunePage>
 </template>
 
 <script setup lang="ts">
@@ -65,9 +58,9 @@
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import EnumField from '@/components/fields/EnumField.vue'
-import PanelAside from '@/components/setup/PanelAside.vue'
 import TuneBits from '@/components/tune/TuneBits.vue'
 import TuneChoice from '@/components/tune/TuneChoice.vue'
+import TunePage from '@/components/tune/TunePage.vue'
 import TuneSlider from '@/components/tune/TuneSlider.vue'
 import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -81,7 +74,8 @@ const uid = useId()
 const handle = useConfigurator()
 const groups: TuneGroup[] = ['attitude', 'feel', 'position', 'hover', 'autotune', 'knob']
 const ids = TUNE_PARAMS.filter(param => groups.includes(param.group)).map(param => param.id)
-const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
+const tune = useTunePanel(ids, handle)
+const { panel, missing } = tune
 // While the hover learning is on (or not known), the vehicle pulls the hover throttle towards what it needs: a number written
 // there is not kept (AP_MotorsMulticopter::update_throttle_hover).
 const hasLearn = computed(() => !missing.value.includes('MOT_HOVER_LEARN'))

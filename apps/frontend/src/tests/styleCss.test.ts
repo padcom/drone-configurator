@@ -154,12 +154,16 @@ it('gives the settings notice, which is always in the page, no box until it has 
 it('makes the detail a column from 1000 px: the description fills the rest, the changes are pinned at the bottom', () => {
   const wide = params.slice(params.indexOf('@media (width >= 1000px)'))
 
+  const panes = sheet('pane.css')
+
   expect(wide).toMatch(/\.detail\s*\{\s*display:\s*flex;\s*flex-direction:\s*column;\s*\}/u)
-  expect(wide).toMatch(/\.detail > \*\s*\{\s*flex:\s*none;/u)
-  expect(wide).toMatch(/\.detail > \.param-description\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*10rem;/u)
-  const body = /\.detail > \.param-description \.body\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;[^}]*max-height:\s*none;/u
+  // (the detail is ONE pane: the top and the bottom stay, the body that holds the description scrolls by itself)
+  expect(wide).toMatch(/\.detail > \.pane\s*\{\s*flex:\s*1 0 auto;/u)
+  expect(wide).toMatch(/\.detail \.param-description\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*10rem;/u)
+  const body = /\.detail \.param-description \.body\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;[^}]*max-height:\s*none;/u
   expect(wide).toMatch(body)
-  expect(wide).toMatch(/\.detail > \.staged\s*\{\s*margin-top:\s*auto;/u)
+  expect(panes).toMatch(/\.pane-top,\s*\.pane-bottom\s*\{\s*flex:\s*none;/u)
+  expect(panes).toMatch(/\.pane-body\s*\{[^}]*flex:\s*1 1 0;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/u)
 })
 
 it('keeps a height for the description below 1000 px, and the list of changes scrolls so that Write stays in view', () => {

@@ -39,7 +39,7 @@ import { useI18n } from 'vue-i18n'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import type { ParamPanel } from '@/composables/useParamPanel'
-import { outcomeLines } from '@/lib/setup/outcome'
+import { usePanelWrite } from '@/composables/usePanelWrite'
 
 const props = defineProps<{
   /** The page's parameters. */
@@ -69,11 +69,7 @@ function present(id: string): boolean {
 }
 
 const { t } = useI18n()
-const reason = computed(() => {
-  const { blocked } = props.panel
-
-  return blocked.value === null ? '' : t(`setup.blocked.${blocked.value}`)
-})
+const { reason, writable, label, status, outcome } = usePanelWrite(() => props.panel, () => props.hold)
 const refusedIds = computed(() => props.refusedIds ?? [])
 const shown = computed(() => {
   if (props.onlyChanged) {
@@ -83,18 +79,4 @@ const shown = computed(() => {
   return props.onlyPresent ? props.panel.ids.filter(present) : props.panel.ids
 })
 
-const changed = computed(() => props.panel.dirty.value.length > 0)
-const writable = computed(() => props.panel.blocked.value === null && changed.value && !props.panel.writing.value && !props.hold)
-const label = computed(() => t(changed.value ? 'setup.write' : 'setup.noChanges'))
-/** The lines of a write that stopped (nothing when it went through whole, or none was made). */
-const outcome = computed(() => outcomeLines(props.panel.outcome.value, (part, names) => t(`setup.outcome.${part}`, { names })))
-const status = computed(() => {
-  const { state, detail } = props.panel
-
-  if (state.value === 'written') {
-    return t('setup.written')
-  }
-
-  return state.value === 'failed' ? t('setup.failed', { why: detail.value }) : ''
-})
 </script>

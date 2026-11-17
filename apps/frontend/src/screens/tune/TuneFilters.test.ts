@@ -205,7 +205,7 @@ it('refuses a start-up parameter chosen while disarmed once the vehicle is armed
 
   // the choice is still queued, the part will not write it, and the note says why
   expect(rig.wrapper.get('#tune-filters-write').attributes('disabled')).toBeDefined()
-  expect(rig.wrapper.get('.setup-writes li.refused').text()).toContain('INS_HNTCH_HMNCS')
+  expect(rig.wrapper.get('.tune-write-row.refused').text()).toContain('INS_HNTCH_HMNCS')
   expect(valueOf(rig, 'INS_HNTCH_HMNCS')).toBe(3)
 })
 

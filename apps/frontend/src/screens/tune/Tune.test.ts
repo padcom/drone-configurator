@@ -142,6 +142,36 @@ it('has the tabs Rate, Analyse, More groups and Filters (after the logs), opens 
   expect(filters.wrapper.find('#tune-filters-write').exists()).toBe(true)
 })
 
+it('has the fixed parts: "Put back initial values" under the main column, what it writes and Write in the aside', async () => {
+  for (const path of ['/tune/rate', '/tune/more', '/tune/filters']) {
+    // eslint-disable-next-line no-await-in-loop -- one part after the other
+    const { wrapper } = await screen(path)
+    const part = path.split('/').at(-1)
+
+    // (the sliders scroll in the body; the two buttons are in the parts that stay)
+    expect(wrapper.find('.tune-main .pane-body .setup-main .tune-block').exists(), path).toBe(true)
+    expect(wrapper.find(`.tune-main .pane-bottom #tune-${part}-initial`).exists(), path).toBe(true)
+    expect(wrapper.find(`.tune-main .pane-body #tune-${part}-initial`).exists(), path).toBe(false)
+    expect(wrapper.find(`.tune-aside .pane-bottom #tune-${part}-write`).exists(), path).toBe(true)
+    expect(wrapper.find('.tune-aside .pane-bottom .tune-write-list').exists(), path).toBe(true)
+    expect(wrapper.find(`.tune-aside .pane-body #tune-${part}-status`).exists(), path).toBe(true)
+  }
+})
+
+it('says in the top of the aside why nothing can be written, and has no top at all otherwise', async () => {
+  const rig = await screen()
+
+  expect(rig.wrapper.find('.tune-aside .pane-top').exists()).toBe(false)
+  feed(rig.handle, { telemetry: { ...telemetryAt(0), armed: true, heartbeatAgeMs: 5000 } })
+  await flushPromises()
+
+  expect(rig.wrapper.get('.tune-aside .pane-top #tune-rate-blocked').text()).toContain('not known')
+  feed(rig.handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 0 } })
+  await flushPromises()
+
+  expect(rig.wrapper.find('.tune-aside .pane-top').exists()).toBe(false)
+})
+
 it('shows a slider for each rate parameter with its name and "was X", roll and pitch linked as one by default', async () => {
   const { wrapper } = await screen()
 
@@ -231,7 +261,9 @@ it('puts the initial values back as choices, and writes them through the one que
 
   await rig.wrapper.get('#tune-rate-initial').trigger('click')
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeUndefined()
-  expect(rig.wrapper.get('.setup-writes').text()).toContain('ATC_RAT_YAW_P')
+  // (the changed value, as the Parameters page lists a change: the name, what the vehicle has, and what it will have)
+  const row = rig.wrapper.get('.tune-write-row[data-id="ATC_RAT_YAW_P"]')
+  expect([row.get('.name').text(), row.get('.from').text(), row.get('.to').text()]).toEqual(['ATC_RAT_YAW_P', '0.3', '0.18'])
   await write(rig)
   expect(rig.asked.at(-1)).toContain('ATC_RAT_YAW_P 0.3 → 0.18')
   expect(valueOf(rig, 'ATC_RAT_YAW_P')).toBeCloseTo(0.18, 5)
@@ -700,9 +732,11 @@ it('lists under "What this writes" only what would be written: a refused value i
   await type(rig, 'ATC_RAT_YAW_P', '-1')
   await type(rig, 'ATC_RAT_YAW_I', '0.3')
 
-  const lines = rig.wrapper.findAll('.setup-writes li')
-  expect(lines.filter(line => !line.classes().includes('refused')).map(line => line.text())).toEqual(['ATC_RAT_YAW_I'])
-  expect(rig.wrapper.get('.setup-writes li.refused').text()).toBe('ATC_RAT_YAW_P · refused: not written')
+  const lines = rig.wrapper.findAll('.tune-write-row')
+  const written = lines.filter(line => !line.classes().includes('refused')).map(line => line.get('.name').text())
+  expect(written).toEqual(['ATC_RAT_YAW_I'])
+  const refused = rig.wrapper.get('.tune-write-row.refused')
+  expect([refused.get('.name').text(), refused.get('.values').text()]).toEqual(['ATC_RAT_YAW_P', 'refused: not written'])
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
 })
 
@@ -714,7 +748,7 @@ it('has nothing to write when a typed value is the float the vehicle holds (0.18
   await type(rig, 'ATC_RAT_YAW_P', '0.18')
 
   expect(rig.wrapper.get('#tune-rate-write').attributes('disabled')).toBeDefined()
-  expect(rig.wrapper.findAll('.setup-writes li')).toHaveLength(0)
+  expect(rig.wrapper.findAll('.tune-write-row')).toHaveLength(0)
 })
 
 it('draws no point of a rate that is not a number, and shows no number made of one', async () => {

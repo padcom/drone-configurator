@@ -1,42 +1,35 @@
 <template>
-  <section class="setup-page-body" :aria-labelledby="`${uid}-title`">
-    <div class="setup-main">
-      <h3 :id="`${uid}-title`" class="visually-hidden">{{ t('tune.section.filters') }}</h3>
-      <p class="muted">{{ t('tune.filters.summary') }}</p>
-      <Banner v-if="panel.armed.value" id="tune-filters-armed" tone="warn">{{ t('tune.filters.armed') }}</Banner>
-      <p v-if="tracking" id="tune-filters-tracking" class="muted">{{ t('tune.filters.tracking') }}</p>
-      <Banner v-if="misses" id="tune-filters-misses" tone="warn">
-        {{ t('tune.filters.misses', { log: openId, peaks: peaksText, bands: bandsText }) }}
-      </Banner>
-      <section v-for="group in GROUPS" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
-        <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
-        <template v-for="param in present(group)" :key="param.id">
-          <TuneSlider
-            v-if="param.kind === 'slider'"
-            :label="t(`tune.name.${param.id}`)"
-            :ids="[param.id]"
-            :param="param"
-            :panel="panel"
-          />
-          <TuneChoice
-            v-else-if="param.kind === 'choice'"
-            :label="t(`tune.name.${param.id}`)"
-            :param="param"
-            :options="CHOICES[param.id] ?? []"
-            :panel="panel"
-          />
-          <TuneBits v-else :label="t(`tune.name.${param.id}`)" :param="param" :bits="bitsOf(param.id)" :panel="panel" />
-        </template>
-      </section>
-      <p v-if="missing.length > 0" id="tune-filters-missing" class="muted">
-        {{ t('tune.missing', { names: missing.join(', ') }) }}
-      </p>
-      <Button id="tune-filters-initial" :disabled="!movable || panel.writing.value" @click="backToInitial">
-        {{ t('tune.backToInitial') }}
-      </Button>
-    </div>
-    <PanelAside :panel="panel" id-prefix="tune-filters" :hold="refused" :refused-ids="refusedIds" only-changed no-revert />
-  </section>
+  <TunePage :tune="tune" :title="t('tune.section.filters')" id-prefix="tune-filters">
+    <p class="muted">{{ t('tune.filters.summary') }}</p>
+    <Banner v-if="panel.armed.value" id="tune-filters-armed" tone="warn">{{ t('tune.filters.armed') }}</Banner>
+    <p v-if="tracking" id="tune-filters-tracking" class="muted">{{ t('tune.filters.tracking') }}</p>
+    <Banner v-if="misses" id="tune-filters-misses" tone="warn">
+      {{ t('tune.filters.misses', { log: openId, peaks: peaksText, bands: bandsText }) }}
+    </Banner>
+    <section v-for="group in GROUPS" :key="group" class="tune-block" :aria-labelledby="`${uid}-${group}`">
+      <h4 :id="`${uid}-${group}`" class="setup-label">{{ t(`tune.group.${group}`) }}</h4>
+      <template v-for="param in present(group)" :key="param.id">
+        <TuneSlider
+          v-if="param.kind === 'slider'"
+          :label="t(`tune.name.${param.id}`)"
+          :ids="[param.id]"
+          :param="param"
+          :panel="panel"
+        />
+        <TuneChoice
+          v-else-if="param.kind === 'choice'"
+          :label="t(`tune.name.${param.id}`)"
+          :param="param"
+          :options="CHOICES[param.id] ?? []"
+          :panel="panel"
+        />
+        <TuneBits v-else :label="t(`tune.name.${param.id}`)" :param="param" :bits="bitsOf(param.id)" :panel="panel" />
+      </template>
+    </section>
+    <p v-if="missing.length > 0" id="tune-filters-missing" class="muted">
+      {{ t('tune.missing', { names: missing.join(', ') }) }}
+    </p>
+  </TunePage>
 </template>
 
 <script setup lang="ts">
@@ -48,12 +41,11 @@
 // a log's spectrum is open in Spectrum and the notch (as it is chosen) takes out none of its peaks, the page warns.
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import PanelAside from '@/components/setup/PanelAside.vue'
 import TuneBits from '@/components/tune/TuneBits.vue'
 import TuneChoice from '@/components/tune/TuneChoice.vue'
+import TunePage from '@/components/tune/TunePage.vue'
 import TuneSlider from '@/components/tune/TuneSlider.vue'
 import Banner from '@/components/ui/Banner.vue'
-import Button from '@/components/ui/Button.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useTunePanel } from '@/composables/useTunePanel'
 import { useFormat } from '@/i18n/useFormat'
@@ -73,7 +65,8 @@ const { number } = useFormat()
 const handle = useConfigurator()
 const { spectrum, flights } = handle
 const ids = TUNE_PARAMS.filter(param => GROUPS.includes(param.group)).map(param => param.id)
-const { panel, refused, refusedIds, movable, backToInitial, missing } = useTunePanel(ids, handle)
+const tune = useTunePanel(ids, handle)
+const { panel, missing } = tune
 
 /**
  * The parameters of a group that the vehicle has.

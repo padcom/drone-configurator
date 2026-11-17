@@ -1,19 +1,21 @@
 <template>
-  <div class="params-layout">
+  <PageSplit class="params-layout">
     <ParamGroups v-if="groups" />
-    <section class="params" :aria-label="t('params.list')">
-      <div class="toolbar">
-        <ParamFilter />
-        <ParamView />
-        <SnapshotToolbar />
-      </div>
-      <SnapshotImport />
+    <Pane tag="section" class="params" contain :aria-label="t('params.list')">
+      <template #top>
+        <div class="toolbar">
+          <ParamFilter />
+          <ParamView />
+          <SnapshotToolbar />
+        </div>
+        <SnapshotImport />
+      </template>
       <ParamTable />
-    </section>
+    </Pane>
     <aside class="detail" :aria-label="t('params.detail')">
       <ParamEditor />
     </aside>
-  </div>
+  </PageSplit>
 </template>
 
 <script setup lang="ts">
@@ -28,10 +30,14 @@ import ParamTable from '@/components/params/ParamTable.vue'
 import ParamView from '@/components/params/ParamView.vue'
 import SnapshotImport from '@/components/params/SnapshotImport.vue'
 import SnapshotToolbar from '@/components/params/SnapshotToolbar.vue'
+import PageSplit from '@/components/ui/PageSplit.vue'
+import Pane from '@/components/ui/Pane.vue'
 
-// The Parameters screen, in three columns as the design has them: the groups of the list, the list (with its search, the
-// snapshot tools and a footer that counts), and the detail of the selected parameter. From 1000 px wide each scrolls on its
-// own; below that they stack and the page scrolls (params.css).
+// The Parameters screen, in three columns as the design has them: the groups of the list, the list (with its search and the
+// snapshot tools above it and a footer that counts, and puts the initial values back, below it), and the detail of the selected
+// parameter (its name and value above, the description that scrolls, the changes to write below). The columns are the layout of
+// components/ui/Pane.vue and PageSplit.vue: from 1000 px wide each scrolls on its own and the parts above and below stay; below
+// that they stack and the page scrolls (params.css).
 // Ctrl+/ goes to the search from anywhere on the screen; Ctrl+Enter in the Value field or the list writes the changes.
 const { t } = useI18n()
 const { staged } = useConfigurator()

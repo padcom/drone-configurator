@@ -59,6 +59,7 @@ async function resize(size: { width: number, height: number }): Promise<void> {
 
 /** What a page shows when its middle column is moved: where the side panel and the list are, and what else scrolls. */
 interface Probe {
+  fixed: boolean
   before: number
   after: number
   navBefore: number
@@ -119,6 +120,22 @@ const HELPERS = `
     const portRows = new Set(tops).size || 1
     return { portRows, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs), labelled }
   }
+  // the boxes of a page (a part of Tune scrolls the body of its pane; a Setup page its middle column)
+  const parts = () => ({
+    main: document.querySelector('.tune-main .pane-body, .setup-main'),
+    side: document.querySelector('.setup-aside, .setup-facts, .tune-aside'),
+    nav: document.querySelector('.setup-nav'),
+    tabs: document.querySelector('[aria-label="Tune sections"]'),
+    area: document.querySelector('.app-main'),
+  })
+  // the fixed bottom parts of a Tune part (under its main column and in its aside): where they are, and whether, after the column
+  // was moved, they are where they were and in the window (with the Write button and "Put back initial values")
+  const fixedParts = () => [...document.querySelectorAll('.tune-main .pane-bottom, .tune-aside .pane-bottom')]
+  const fixedTops = () => fixedParts().map(part => Math.round(part.getBoundingClientRect().top))
+  const fixedStayed = before => fixedParts().every((part, at) => {
+    const box = part.getBoundingClientRect()
+    return Math.round(box.top) === before[at] && box.bottom <= window.innerHeight + 1
+  })
   // what lies beyond the right edge of a column that never scrolls sideways
   const sideways = box => {
     const edge = box.getBoundingClientRect().right
@@ -136,13 +153,10 @@ function probe(): string {
   return `(async () => {
     ${HELPERS}
     await new Promise(resolve => setTimeout(resolve, 400))
-    const main = document.querySelector('.setup-main')
-    const side = document.querySelector('.setup-aside, .setup-facts')
-    const nav = document.querySelector('.setup-nav')
-    const tabs = document.querySelector('[aria-label="Tune sections"]')
-    const area = document.querySelector('.app-main')
+    const { main, side, nav, tabs, area } = parts()
     const top = element => element ? element.getBoundingClientRect().top : 0
     const before = top(side)
+    const fixedBefore = fixedTops()
     const navBefore = top(nav) + top(tabs)
     const scrollWant = Math.min(300, main.scrollHeight - main.clientHeight)
     main.scrollTop = 300
@@ -150,6 +164,7 @@ function probe(): string {
     const root = document.scrollingElement
     const result = {
       before, after: top(side), navBefore, navAfter: top(nav) + top(tabs), scrollWant, scrollGot: Math.round(main.scrollTop),
+      fixed: fixedStayed(fixedBefore),
       pageScrolls: root.scrollHeight > window.innerHeight + 1,
       areaScrolls: area.scrollHeight > area.clientHeight + 1,
       areaTop: area.scrollTop,
@@ -191,7 +206,7 @@ afterAll(async () => {
  */
 async function visit(page: string): Promise<Probe> {
   await window().evaluate(`location.hash = '#/${page}'`)
-  const ready = `document.querySelector('.setup-main')?.clientHeight > 0`
+  const ready = `document.querySelector('.tune-main .pane-body, .setup-main')?.clientHeight > 0`
   await window().waitFor(`location.hash === '#/${page}' && ${ready}`, 30_000)
 
   return window().evaluate<Probe>(probe())
@@ -230,6 +245,7 @@ function facts(page: string, seen: Probe, size: { width: number, height: number 
   return {
     page,
     sideMoved: Math.round(seen.after - seen.before),
+    fixed: seen.fixed,
     navMoved: Math.round(seen.navAfter - seen.navBefore),
     scrollOff: seen.scrollGot - seen.scrollWant,
     pageScrolls: seen.pageScrolls ? seen.below : false,
@@ -257,6 +273,7 @@ for (const size of SIZES) {
       expect(facts(page, seen, size)).toEqual({
         page,
         sideMoved: 0,
+        fixed: true,
         navMoved: 0,
         scrollOff: 0,
         pageScrolls: false,
@@ -279,6 +296,28 @@ for (const size of SIZES) {
     expect(scrolled).toBeGreaterThan(size.height === 768 ? 0 : 2)
   }, 180_000)
 }
+
+it('stacks a part of Tune at 999 px wide: the page scrolls as a whole and both fixed parts are reachable', async () => {
+  await resize({ width: 999, height: 700 })
+  await visit('tune/rate')
+  const seen = await window().evaluate<{ stacked: boolean, reach: boolean }>(`(() => {
+    const main = document.querySelector('.tune-main')
+    const aside = document.querySelector('.tune-aside')
+    const root = document.scrollingElement
+    const bodies = [...document.querySelectorAll('.tune-page .pane-body')]
+    const bottoms = [...document.querySelectorAll('.tune-page .pane-bottom')]
+    root.scrollTop = root.scrollHeight
+    document.querySelector('.app-main').scrollTop = document.querySelector('.app-main').scrollHeight
+    return {
+      // (the aside is below the main column, and no body scrolls by itself: the page does)
+      stacked: aside.getBoundingClientRect().top >= main.getBoundingClientRect().bottom - 1
+        && bodies.every(body => getComputedStyle(body).overflowY === 'visible'),
+      reach: bottoms.every(part => part.getBoundingClientRect().bottom <= window.innerHeight + 1),
+    }
+  })()`)
+
+  expect(seen).toEqual({ stacked: true, reach: true })
+}, 60_000)
 
 /** What the first serial port's row is laid out as: its tracks in px, the gap, whether the heads or the labels are seen. */
 interface PortRow {
