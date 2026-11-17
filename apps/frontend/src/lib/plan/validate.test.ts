@@ -2,7 +2,7 @@
 // typed.
 import { describe, expect, it } from 'vitest'
 import { COMMANDS, definitionOf, freshItem, keptAltitude, keptValue } from './catalog'
-import { distanceBetween, sketchOf, statsOf } from './geometry'
+import { distanceBetween, pinsOf, statsOf } from './geometry'
 import { MAX_ITEMS, type Plan, type PlanItem, emptyPlan } from './model'
 import { problemsOf } from './validate'
 
@@ -133,24 +133,20 @@ describe('the distances', () => {
   })
 })
 
-describe('the picture', () => {
-  it('draws the route north up in the square', () => {
-    const sketch = sketchOf(planOf(22, 16, 16))
-    const [first, , last] = sketch.points
+describe('the pins of the map', () => {
+  it('are the items that have a place, in the order of the route, with the numbers the list has', () => {
+    const plan = planOf(22, 16, 16)
+    change(plan, 1, { lat: null, lon: null })
+    const pins = pinsOf(plan)
 
-    expect(sketch.points.map(point => point.number)).toEqual([1, 2, 3])
-    // north is up: the first (southernmost) is lower than the last
-    expect(first?.y).toBeGreaterThan(last?.y ?? Infinity)
-    expect(sketch.metresPerHundred).toBeGreaterThan(0)
+    expect(pins.map(pin => pin.number)).toEqual([1, 3])
+    expect(pins.map(pin => pin.id)).toEqual([plan.items[0]!.id, plan.items[2]!.id])
+    expect(pins[0]).toMatchObject({ lat: plan.items[0]!.lat, lon: plan.items[0]!.lon })
   })
 
-  it('draws a lone place in the middle, and nothing for an empty plan', () => {
-    const lone = sketchOf(planOf(22))
-
-    expect(lone.points).toHaveLength(1)
-    expect(lone.points[0]).toMatchObject({ x: 500, y: 500 })
-    expect(lone.metresPerHundred).toBeNull()
-    expect(sketchOf(emptyPlan()).points).toEqual([])
+  it('are none for an empty plan, and a lone place is one', () => {
+    expect(pinsOf(planOf(22))).toHaveLength(1)
+    expect(pinsOf(emptyPlan())).toEqual([])
   })
 })
 

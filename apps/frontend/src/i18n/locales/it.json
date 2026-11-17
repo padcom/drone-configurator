@@ -2474,10 +2474,8 @@
       "nothingToUndo": "Non c’è nulla da annullare.",
       "nothingToRedo": "Non c’è nulla da ripristinare."
     },
-    "sketch": {
-      "label": "Il percorso del piano",
-      "empty": "Aggiungi un waypoint e dagli un luogo: il percorso viene disegnato qui.",
-      "scale": "{metres} m"
+    "map": {
+      "pin": "Elemento {number}"
     },
     "stats": {
       "label": "Il piano in numeri",

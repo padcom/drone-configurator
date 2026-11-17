@@ -1,7 +1,7 @@
 /*
- * The Plan page (screens/Plan.vue): tokens only. The bar on top; under it the route and its numbers at the left and the aside at
- * the right. From 1000 px wide they fill the screen area and only the aside scrolls (the route is a picture that is not panned);
- * below that they stack and the page scrolls.
+ * The Plan page (screens/Plan.vue): tokens only. The bar on top; under it the map and the plan's numbers at the left and the aside
+ * at the right. From 1000 px wide they fill the screen area and only the aside scrolls (the map is panned, not scrolled); below
+ * that they stack and the page scrolls.
  */
 
 .plan {
@@ -80,6 +80,10 @@
     min-height: 0;
   }
 
+  .plan-map {
+    min-height: 240px;
+  }
+
   .plan-aside {
     min-height: 0;
     overflow-y: auto;
@@ -88,29 +92,14 @@
   }
 }
 
-/* The route: north up, the pins numbered as the items are; the route's own colour is used for nothing else. */
-.plan-sketch {
+/* The map (the Fly page's, with the plan over it): it fills the room the stats leave; the route's own colour is used for nothing else. */
+.plan-map {
   position: relative;
   display: flex;
   flex: 1 1 360px;
-  align-items: center;
-  justify-content: center;
   min-height: 360px;
   overflow: hidden;
   background: var(--color-map);
-}
-
-.plan-sketch svg {
-  width: 100%;
-  height: 100%;
-}
-
-.plan-sketch-empty {
-  max-width: 24rem;
-  padding: var(--space-4);
-  margin: 0;
-  color: var(--color-text-dim);
-  text-align: center;
 }
 
 .plan-route {
@@ -120,8 +109,10 @@
   stroke-linejoin: round;
 }
 
+/* (what is over the map lets the pointer through, but a pin is pressed) */
 .plan-pin {
   cursor: pointer;
+  pointer-events: all;
 }
 
 .plan-pin circle {
@@ -132,7 +123,7 @@
 
 .plan-pin text {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: 13px;
   font-weight: 600;
   fill: var(--color-text);
 }
@@ -140,18 +131,17 @@
 .plan-pin.selected circle {
   fill: var(--color-accent-soft);
   stroke: var(--color-accent);
-  stroke-width: 5;
+  stroke-width: 4;
 }
 
-.plan-scale-bar {
-  stroke: var(--color-text);
-  stroke-width: 3;
+.plan-pin:focus-visible {
+  outline: none;
 }
 
-.plan-scale-text {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  fill: var(--color-text);
+.plan-pin:focus-visible circle {
+  stroke: var(--color-accent);
+  stroke-width: 4;
+  stroke-dasharray: 4 3;
 }
 
 .plan-stats {

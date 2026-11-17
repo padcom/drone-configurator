@@ -85,6 +85,23 @@ describe('editing the plan', () => {
   })
 })
 
+describe('the plan on the map', () => {
+  it('puts an item on the map when it has a place, and selects the item from its pin', async () => {
+    // (nothing has a place yet: the map is there, with no pin)
+    expect(await window().evaluate<number>(`document.querySelectorAll('.plan-pin').length`)).toBe(0)
+    expect(await window().evaluate<boolean>(`document.querySelector('.plan-map .map-canvas') !== null`)).toBe(true)
+    await window().fill('#plan-lat', '52.2297')
+    await window().fill('#plan-lon', '21.0122')
+    await window().waitFor(`document.querySelectorAll('.plan-pin').length === 1`)
+
+    expect(await window().evaluate<string>(`document.querySelector('.plan-pin').textContent.trim()`)).toBe('2')
+    await window().click('.plan-item')
+    await window().waitFor(`document.querySelector('#plan-detail-title')?.textContent === 'Item 1: Waypoint'`)
+    await window().click('.plan-pin')
+    await window().waitFor(`document.querySelector('#plan-detail-title')?.textContent === 'Item 2: Waypoint'`)
+  })
+})
+
 /** What the page shows when the aside is moved. */
 interface Probe {
   asideOverflow: string

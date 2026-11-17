@@ -2474,10 +2474,8 @@
       "nothingToUndo": "There is nothing to undo.",
       "nothingToRedo": "There is nothing to redo."
     },
-    "sketch": {
-      "label": "The route of the plan",
-      "empty": "Add a waypoint and give it a place: the route is drawn here.",
-      "scale": "{metres} m"
+    "map": {
+      "pin": "Item {number}"
     },
     "stats": {
       "label": "The plan in numbers",

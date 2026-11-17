@@ -2474,10 +2474,8 @@
       "nothingToUndo": "Es gibt nichts rückgängig zu machen.",
       "nothingToRedo": "Es gibt nichts zu wiederholen."
     },
-    "sketch": {
-      "label": "Die Route des Plans",
-      "empty": "Fügen Sie einen Wegpunkt hinzu und geben Sie ihm einen Ort: hier wird die Route gezeichnet.",
-      "scale": "{metres} m"
+    "map": {
+      "pin": "Element {number}"
     },
     "stats": {
       "label": "Der Plan in Zahlen",
