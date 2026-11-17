@@ -351,11 +351,15 @@ async function aControlThatBeginsWhileTheFenceIsReadStopsTheRepositionBeforeItIs
   seams.afterFence = () => {
     link.rcControl = true
   }
-  expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("BUSY")
-  seams.afterFence = null
-  expect(heard.ints.length).toBe(0)
-  link.rcControl = false
-  await f.call("vehicle.disconnect")
+  try {
+    expect(described(await reposition(f, NORTH_LAT, HOME_LON, 30.0, FailsafePolicy.Block))).toBe("BUSY")
+    expect(heard.ints.length).toBe(0)
+  } finally {
+    // (a failed expectation must not leave the seam or the control on for the tests after this one)
+    seams.afterFence = null
+    link.rcControl = false
+    await f.call("vehicle.disconnect")
+  }
 }
 
 async function theGcsFailsafeBlocksByDefaultAndWarnsWhenAsked(): Promise<void> throws Error {
