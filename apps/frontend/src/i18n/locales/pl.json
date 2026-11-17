@@ -823,6 +823,57 @@
     "stop": "Awaryjne zatrzymanie",
     "current": "teraz"
   },
+  "rc": {
+    "switch": "Zdalne sterowanie",
+    "help": {
+      "off": "Wyłączone. Pad nie steruje pojazdem.",
+      "on": "Pad steruje pojazdem.",
+      "lower": "Opuść gaz, aby zacząć: zostanie wysłany, gdy drążek będzie przez chwilę na dole."
+    },
+    "indicator": {
+      "on": "Zdalne sterowanie włączone",
+      "off": "Zdalne sterowanie włączone. Naciśnij, aby wyłączyć."
+    },
+    "summary": {
+      "title": "Lecieć padem?",
+      "what": "Pad będzie wysyłał swoje drążki do pojazdu, dopóki tego nie wyłączysz. Najpierw ustaw drążki na środku, a gaz na dole. Gdy jest włączone, kontrola pojazdu „Nie znaleziono RC” nie chroni już przed brakiem nadajnika.",
+      "button": "Włącz zdalne sterowanie"
+    },
+    "command": {
+      "label": "Zdalne sterowanie: włącz lub wyłącz",
+      "keywords": "pad aparatura joystick drążki zdalne override"
+    },
+    "reason": {
+      "off": "Zdalne sterowanie nie jest dozwolone. Zezwól na nie w Ustawieniach.",
+      "link": "Nie połączono żadnego symulatora.",
+      "pad": "Żaden pad nie jest odczytywany. Poruszaj drążkiem w aparaturze.",
+      "mapping": "Pad nie ma gotowego przypisania. Skalibruj je w Ustawieniach.",
+      "vehicle": "Ustawienia pojazdu nie zgadzają się z przypisaniem. Zobacz Ustawienia.",
+      "ENDED": "Zdalne sterowanie zakończyło się.",
+      "ERROR": "Zdalne sterowanie nie mogło ruszyć.",
+      "SILENT": "Zdalne sterowanie zakończone: strona milczała zbyt długo.",
+      "LINK_LOST": "Zdalne sterowanie zakończone: utracono łączność z pojazdem.",
+      "STATE_UNKNOWN": "Zdalne sterowanie zakończone: nie jest znany stan pojazdu.",
+      "STOPPED": "Zdalne sterowanie zakończone: pojazd jest rozbrajany lub zatrzymywany.",
+      "NOT_ALLOWED": "Zdalne sterowanie zakończone: nie jest już dozwolone.",
+      "NOT_SIMULATOR": "Zdalne sterowanie zakończone: pojazd nie jest symulatorem.",
+      "PAD_NONE": "Zdalne sterowanie zakończone: pad nie jest odczytywany.",
+      "PAD_LATE": "Zdalne sterowanie zakończone: odczyt padu przyszedł za późno.",
+      "PAD_HIDDEN": "Zdalne sterowanie zakończone: okno zostało ukryte.",
+      "VEHICLE_CHANGED": "Zdalne sterowanie zakończone: to inny pojazd.",
+      "PARAMS_UNKNOWN": "Zdalne sterowanie zakończone: nie są znane parametry pojazdu.",
+      "DECLINED": "Zdalne sterowanie nie zostało włączone: podsumowanie nie zostało potwierdzone.",
+      "PARAMS_CHANGED": "Zdalne sterowanie zakończone: ustawienia pojazdu się zmieniły.",
+      "EDITED": "Zdalne sterowanie zakończone: zmieniono przypisanie.",
+      "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
+      "UNSUPPORTED": "Zdalne sterowanie jest zrobione dla pojazdu z ArduPilotem.",
+      "BUSY": "Coś innego zajmuje pojazd: kalibracja, test silników, operacja na parametrach, logach lub planie albo restart.",
+      "PARAMS_INCOMPLETE": "Nie pobrano wszystkich parametrów pojazdu.",
+      "PARAMS_MISSING": "Nie udało się odczytać z pojazdu ustawienia potrzebnego do zdalnego sterowania.",
+      "OVERRIDE_DISABLED": "Pojazd ignoruje override'y albo nigdy ich nie puszcza (RC_OVERRIDE_TIME).",
+      "other": "Zdalne sterowanie zakończone ({code})."
+    }
+  },
   "settings": {
     "metadata": {
       "title": "Metadane parametrów",

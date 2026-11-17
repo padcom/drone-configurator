@@ -2,12 +2,15 @@
 // (each a composable that talks to the backend through the client), the last failure, and the question the
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
-import { type ShallowRef, shallowRef, watch } from 'vue'
+import { type ShallowRef, computed, shallowRef, watch } from 'vue'
+import { type RcControlModel, useRcControl } from './useRcControl'
+import { useRcSettings } from './useRcSettings'
+import { factsOf } from '@/lib/rc/vehicle'
 import { say } from '@/i18n/say'
 import { type BackendClient, type Transport, createBackendClient } from '@/backend/client'
 import { draftWarning, validateDraft } from '@/lib/params/draft'
 import { showNumber } from '@/lib/params/paramValue'
-import { legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
+import { i18n, legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
 import type { State } from '@/state/state'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type MetadataModel, useMetadata } from './useMetadata'
@@ -82,6 +85,8 @@ export interface ConfiguratorHandle {
   calibration: CalibrationModel
   /** The motor test of the Motors page: one motor, for as long as a button is held. */
   motorTest: MotorTestModel
+  /** The RC control (the gamepad flying the vehicle): one for the whole application, off until it is turned on. */
+  rcControl: RcControlModel
   /** The live response of the Tune screen: the actual and the desired roll rate, while the screen is shown. */
   tuning: TuningStreamModel
   /** The step response measured from a log on this computer ("Analyse the last flight"). */
@@ -525,6 +530,37 @@ function keepMetadataPath(settings: SettingsModel, path: string): void {
 }
 
 /**
+ * The RC control: one for the whole application, off until the person turns it on.
+ *
+ * @param parts what it is made of
+ * @param parts.client the link to the backend
+ * @param parts.vehicle the vehicle link
+ * @param parts.parameters the vehicle's parameters
+ * @param parts.settings the settings
+ * @returns the control
+ */
+function startRcControl(parts: {
+  client: BackendClient
+  vehicle: Vehicle
+  parameters: ParamsModel
+  settings: SettingsModel
+}): RcControlModel {
+  const { client, vehicle, parameters, settings } = parts
+  const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
+
+  return useRcControl({
+    client,
+    connection: vehicle.connection,
+    request: vehicle.request,
+    settings: useRcSettings(settings),
+    facts,
+    tell: (severity, text) => useToasts().push({ severity, text, long: true }),
+    // (a reason with no words of its own, a code the backend added, is said with the code)
+    reasonText: code => (i18n.global.te(`rc.reason.${code}`) ? say(`rc.reason.${code}`) : say('rc.reason.other', { code })),
+  })
+}
+
+/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -556,9 +592,9 @@ export function createConfigurator(
   watch(metadata.metadata, () => parameters.refreshWarning())
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
-    setup: startSetup(client, vehicle),
-    calibration: startCalibration(client, vehicle),
+    setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
+    rcControl: startRcControl({ client, vehicle, parameters, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

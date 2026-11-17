@@ -823,6 +823,57 @@
     "stop": "Not-Aus",
     "current": "jetzt"
   },
+  "rc": {
+    "switch": "Fernsteuerung",
+    "help": {
+      "off": "Aus. Das Gamepad fliegt das Fahrzeug nicht.",
+      "on": "Das Gamepad fliegt das Fahrzeug.",
+      "lower": "Gas ganz unten, um zu starten: Es wird gesendet, sobald der Stick einen Moment unten war."
+    },
+    "indicator": {
+      "on": "Fernsteuerung an",
+      "off": "Fernsteuerung an. Drücken zum Ausschalten."
+    },
+    "summary": {
+      "title": "Mit dem Gamepad fliegen?",
+      "what": "Das Gamepad sendet seine Sticks an das Fahrzeug, bis du es ausschaltest. Bring zuerst die Sticks in die Mitte und das Gas nach unten. Solange es an ist, schützt die Fahrzeugprüfung „RC nicht gefunden“ nicht mehr vor einem fehlenden Sender.",
+      "button": "Fernsteuerung einschalten"
+    },
+    "command": {
+      "label": "Fernsteuerung: ein- oder ausschalten",
+      "keywords": "gamepad funke joystick sticks fernsteuerung override"
+    },
+    "reason": {
+      "off": "Die Fernsteuerung ist nicht erlaubt. Erlaube sie in den Einstellungen.",
+      "link": "Es ist kein Simulator verbunden.",
+      "pad": "Es wird kein Gamepad gelesen. Bewege einen Stick an der Fernsteuerung.",
+      "mapping": "Das Gamepad hat keine fertige Zuordnung. Kalibriere sie in den Einstellungen.",
+      "vehicle": "Die Einstellungen des Fahrzeugs passen nicht zur Zuordnung. Siehe Einstellungen.",
+      "ENDED": "Die Fernsteuerung wurde beendet.",
+      "ERROR": "Die Fernsteuerung konnte nicht starten.",
+      "SILENT": "Fernsteuerung beendet: Die Seite war zu lange still.",
+      "LINK_LOST": "Fernsteuerung beendet: Die Verbindung zum Fahrzeug ging verloren.",
+      "STATE_UNKNOWN": "Fernsteuerung beendet: Der Zustand des Fahrzeugs ist unbekannt.",
+      "STOPPED": "Fernsteuerung beendet: Das Fahrzeug wird entschärft oder gestoppt.",
+      "NOT_ALLOWED": "Fernsteuerung beendet: Sie ist nicht mehr erlaubt.",
+      "NOT_SIMULATOR": "Fernsteuerung beendet: Das Fahrzeug ist kein Simulator.",
+      "PAD_NONE": "Fernsteuerung beendet: Das Gamepad wird nicht gelesen.",
+      "PAD_LATE": "Fernsteuerung beendet: Ein Lesen des Gamepads kam zu spät.",
+      "PAD_HIDDEN": "Fernsteuerung beendet: Das Fenster wurde verborgen.",
+      "VEHICLE_CHANGED": "Fernsteuerung beendet: Es ist ein anderes Fahrzeug.",
+      "PARAMS_UNKNOWN": "Fernsteuerung beendet: Die Parameter des Fahrzeugs sind nicht bekannt.",
+      "DECLINED": "Die Fernsteuerung wurde nicht eingeschaltet: Die Zusammenfassung wurde nicht bestätigt.",
+      "PARAMS_CHANGED": "Fernsteuerung beendet: Die Einstellungen des Fahrzeugs haben sich geändert.",
+      "EDITED": "Fernsteuerung beendet: Die Zuordnung wurde geändert.",
+      "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",
+      "UNSUPPORTED": "Die Fernsteuerung ist für ein ArduPilot-Fahrzeug gemacht.",
+      "BUSY": "Etwas anderes hält das Fahrzeug: eine Kalibrierung, ein Motortest, ein Parameter-, Log- oder Planvorgang oder ein Neustart.",
+      "PARAMS_INCOMPLETE": "Die Parameter des Fahrzeugs wurden nicht alle geladen.",
+      "PARAMS_MISSING": "Eine Einstellung, die die Fernsteuerung braucht, konnte nicht vom Fahrzeug gelesen werden.",
+      "OVERRIDE_DISABLED": "Das Fahrzeug ignoriert Overrides oder lässt sie nie los (RC_OVERRIDE_TIME).",
+      "other": "Fernsteuerung beendet ({code})."
+    }
+  },
   "settings": {
     "metadata": {
       "title": "Parameter-Metadaten",

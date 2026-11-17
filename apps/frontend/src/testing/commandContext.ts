@@ -1,6 +1,6 @@
 // A command context for tests: the vehicle's facts are plain values to set, and everything a command does to the outside (a
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
-import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
+import type { CommandContext, ParameterFacts, ParameterWork, RcFacts, RebootResult, VehicleFacts } from '@/lib/commands/command'
 import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
 import { GUIDED_DEFAULTS, type GuidedPreferences, type Place } from '@/lib/fly/guided'
 import { COPTER_MODES } from '@/mock/fixtures'
@@ -36,6 +36,9 @@ export interface Fake {
     parameterValues?: Record<string, number>
     /** The user's highest takeoff (m). */
     takeoffCeiling?: number
+    /** Where the RC control is, and what stops it from being turned on. */
+    rcState?: 'off' | 'starting' | 'on'
+    rcBlock?: 'off' | 'link' | null
     /** What the user chose for guided control, and the place picked on the map. */
     guidedPrefs?: GuidedPreferences
     target?: Place | null
@@ -186,6 +189,35 @@ function planOf(fake: Fake): CommandContext['plan'] {
 }
 
 /**
+ * The RC control of a fake: where it is is a fact to set, and what is asked of it is recorded (in `sent`).
+ *
+ * @param fake the fake
+ * @returns the facts
+ */
+function rcOf(fake: Fake): RcFacts {
+  const set = (state: 'off' | 'on'): void => {
+    fake.facts.rcState = state
+  }
+
+  return {
+    state: () => fake.facts.rcState ?? 'off',
+    block: () => fake.facts.rcBlock ?? null,
+    turnOn: async ask => {
+      fake.calls.sent.push('rc on')
+      const yes = await ask()
+
+      if (yes) {
+        set('on')
+      }
+    },
+    disable: () => {
+      fake.calls.sent.push('rc off')
+      set('off')
+    },
+  }
+}
+
+/**
  * The parts of the context that the toolbars' commands use: the files, the parameters and the dialogs. They record.
  *
  * @param fake the fake
@@ -284,6 +316,7 @@ export function fakeContext(facts: Partial<Fake['facts']> = {}): Fake {
   }
   fake.ctx = {
     ...toolbarOf(fake),
+    rc: rcOf(fake),
     plan: planOf(fake),
     navigate: (path: string) => Promise.resolve(void fake.calls.navigate.push(path)),
     currentPath: () => fake.facts.path,
