@@ -2478,8 +2478,27 @@
       "nothingToUndo": "Nie ma czego cofnąć.",
       "nothingToRedo": "Nie ma czego ponowić."
     },
+    "tool": {
+      "label": "Narzędzia planu",
+      "mission": "Misja",
+      "table": "Tabela"
+    },
+    "table": {
+      "label": "Elementy planu jako tabela",
+      "help": "Strzałki przechodzą między komórkami, Enter przechodzi wiersz niżej, Page Up i Page Down o dziesięć wierszy, Ctrl z Home lub End do pierwszego lub ostatniego wiersza. Komórka to pole elementu, to samo co w jego formularzu; w polu wyboru spacja otwiera listę.",
+      "unused": "Nieużywane przez to polecenie",
+      "col": {
+        "number": "Nr",
+        "command": "Polecenie",
+        "lat": "Szerokość",
+        "lon": "Długość",
+        "alt": "Wysokość",
+        "frame": "Wysokość od",
+        "setting": "Ustawienie {number}"
+      }
+    },
     "map": {
-      "pin": "Element {number}",
+      "pin":"Element {number}",
       "pinError": "Element {number}: ma błąd",
       "pinWarning": "Element {number}: ma ostrzeżenie",
       "pinHelp": "Przeciągnij znacznik, aby go przesunąć, albo linię między znacznikami, aby postawić na niej punkt trasy. Strzałki przechodzą między znacznikami, Shift ze strzałką przesuwa wybrany (z Ctrl o jeden piksel), Delete go usuwa, Esc przerywa przeciąganie. Postawienie punktu trasy na linii nie ma sposobu z klawiatury: użyj przycisku dodawania na liście i pól szerokości i długości geograficznej.",

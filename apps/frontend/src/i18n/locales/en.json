@@ -2478,8 +2478,27 @@
       "nothingToUndo": "There is nothing to undo.",
       "nothingToRedo": "There is nothing to redo."
     },
+    "tool": {
+      "label": "Plan tools",
+      "mission": "Mission",
+      "table": "Table"
+    },
+    "table": {
+      "label": "Items of the plan, as a table",
+      "help": "Arrows move between cells, Enter goes down a row, Page Up and Page Down go ten rows, Control with Home or End goes to the first or the last row. A cell is a field of the item, the same as in its form; on a choice, Space opens the list.",
+      "unused": "Not used by this command",
+      "col": {
+        "number": "No.",
+        "command": "Command",
+        "lat": "Latitude",
+        "lon": "Longitude",
+        "alt": "Altitude",
+        "frame": "Altitude from",
+        "setting": "Setting {number}"
+      }
+    },
     "map": {
-      "pin": "Item {number}",
+      "pin":"Item {number}",
       "pinError": "Item {number}: has an error",
       "pinWarning": "Item {number}: has a warning",
       "pinHelp": "Drag a pin to move it, or a line between pins to put a waypoint on it. Arrows move between pins, Shift and an arrow move the selected pin (with Ctrl, one pixel), Delete takes it out, Escape drops a drag. Putting a waypoint on a line has no keyboard way: use the list's Add button and the latitude and longitude fields.",
