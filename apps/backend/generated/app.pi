@@ -6010,19 +6010,43 @@ export function encodeMotorTestState(v: MotorTestState): Cbor {
   Cbor.Dict(m)
 }
 
+export enum RcControlParamsThrottle { Low, Centred }
+
+export function decodeRcControlParamsThrottle(v: Cbor, path: string): RcControlParamsThrottle throws InvalidPayload {
+  match (text(v, path)) {
+    "low" => RcControlParamsThrottle.Low,
+    "centred" => RcControlParamsThrottle.Centred,
+    _ => throw new InvalidPayload(path, "low or centred"),
+  }
+}
+
+export function encodeRcControlParamsThrottle(v: RcControlParamsThrottle): Cbor {
+  match (v) {
+    Low => Cbor.Text("low"),
+    Centred => Cbor.Text("centred"),
+  }
+}
+
 export struct RcControlParams {
   rudderArm?: bool
+  throttle?: RcControlParamsThrottle
 }
 
 export function decodeRcControlParams(v: Cbor, path: string): RcControlParams throws InvalidPayload {
-  const m = members(v, path, ["rudderArm"])
+  const m = members(v, path, ["rudderArm", "throttle"])
   const cbor0 = m.get("rudderArm")
   let opt0: bool? = null
   if (cbor0 != null) {
     opt0 = boolean(cbor0, `${path}.rudderArm`)
   }
+  const cbor1 = m.get("throttle")
+  let opt1: RcControlParamsThrottle? = null
+  if (cbor1 != null) {
+    opt1 = decodeRcControlParamsThrottle(cbor1, `${path}.throttle`)
+  }
   RcControlParams {
     rudderArm: opt0,
+    throttle: opt1,
   }
 }
 
@@ -6031,6 +6055,10 @@ export function encodeRcControlParams(v: RcControlParams): Cbor {
   const opt0 = v.rudderArm
   if (opt0 != null) {
     m.set("rudderArm", Cbor.Bool(opt0))
+  }
+  const opt1 = v.throttle
+  if (opt1 != null) {
+    m.set("throttle", encodeRcControlParamsThrottle(opt1))
   }
   Cbor.Dict(m)
 }

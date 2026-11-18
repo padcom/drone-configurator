@@ -156,6 +156,8 @@ class Heard implements SessionPart {
       link.heartbeatAt = lastHeartbeat
       systemStatus = m.systemStatus as int
       link.systemStatus = systemStatus
+      link.customMode = m.customMode as int
+      link.mavType = m.type as int
     } else if (m instanceof SysStatus) {
       // UINT16_MAX: the vehicle doesn't know its voltage.
       if (m.voltageBattery as int != 65535) {

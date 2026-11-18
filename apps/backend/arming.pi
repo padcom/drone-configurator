@@ -56,6 +56,7 @@ import {
 import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkReposition, checkSetSpeed, distanceM } from "./guided"
 import { nextMessageId, textsSince } from "./messages"
 import { dropForStop } from "./rc"
+import { continuesIn } from "./rcmodes"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
 import { flightNow, forgetHome } from "./telemetry"
 import { modesOfVehicle } from "./vehicleinfo"
@@ -390,6 +391,14 @@ class GuidedAsk {
   public policy: FailsafePolicy = FailsafePolicy.Block
 }
 
+/// While an RC control with a centred throttle is on, the app does not ask for a mode that would take the middle of the stick for thrust (or
+/// one that is not known): the control would be let go of by the heartbeat a moment later, with the vehicle already in it.
+function checkCentred(mode: int): void throws CommunicatorError {
+  if (link.rcCentred && !continuesIn(mode)) {
+    throw new CommunicatorError("BUSY", "RC control with a centred throttle is on: that mode would take the middle of the stick for thrust")
+  }
+}
+
 /// Sends the command `what` once, and waits for its answer and the texts around it.
 async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = new Plan(), ask: GuidedAsk = new GuidedAsk()): Promise<Cbor?> throws Error {
   connectedLink()
@@ -402,6 +411,7 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   }
   if (what == MODE) {
     checkMode(mode)
+    checkCentred(mode)
   }
   if (what == TAKEOFF) {
     checkTakeoff(altitude)

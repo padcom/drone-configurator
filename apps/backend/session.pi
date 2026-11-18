@@ -60,6 +60,13 @@ class Link {
   public heartbeatAt: int = 0
   /// The `system_status` of that heartbeat (MAV_STATE: 3 STANDBY, 4 ACTIVE, 5 CRITICAL ...); -1 = none yet. `landedNow()` says what it means.
   public systemStatus: int = -1
+  /// The `custom_mode` and the MAV_TYPE of that heartbeat (-1 = none yet): which mode the vehicle is in, as a number, for the RC control with
+  /// a centred throttle (rcmodes.pi), and whether it is a multicopter.
+  public customMode: int = -1
+  public mavType: int = -1
+  /// Whether the RC control that runs has a throttle that rests in the middle: a mode change into a mode that would take its middle for thrust
+  /// is refused while it does (arming.pi).
+  public rcCentred: bool = false
   /// Until when (ms since 1970) the armed state is NOT known because an arm is in flight (arming.pi): `armedState()` says unknown, which
   /// every service takes for armed, so that no parameter write, calibration, motor test, log or reboot starts while the vehicle
   /// may be arming (its heartbeat lags the command by up to a second).
@@ -190,6 +197,8 @@ class Link {
     armed = false
     heartbeatAt = 0
     systemStatus = -1
+    customMode = -1
+    mavType = -1
     forgetParameterNames()
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
