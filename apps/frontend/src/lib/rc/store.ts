@@ -1,8 +1,14 @@
 // What the RC control keeps in the settings (the backend's file): whether it is allowed (off unless the settings say on), and
 // the mapping of each device, one entry for each (`rc.profile.<the device>`) as JSON. What comes back is read as untrusted: a
-// profile that is not whole is no profile, and never a half of one.
-import { validChannel } from './mapping'
-import type { AxisCalibration, ButtonRow, Profile, Row, StickRow, SwitchRow } from './types'
+// profile that is not whole is no profile, and never a half of one. Version 2 is the 16-channel model (a row reads a pad
+// channel, nothing is calibrated, the mapping is confirmed and has a throttle style); version 1 is converted on reading
+// (`migrate.ts`), in memory, and written again only when the person saves.
+import { readV1 } from './migrate'
+import type { StoredProfile } from './migrate'
+import { type Record_, hasChannel, isRecord, numbers } from './parse'
+import { DEFAULT_THROTTLE_STYLE, type PadLayout, type Profile, type Row, type ThrottleStyle } from './types'
+
+export type { StoredProfile } from './migrate'
 
 /** The settings entry that says whether RC control is allowed: `on`, or anything else (or nothing) for off. */
 export const RC_ALLOW_KEY = 'rc.allow'
@@ -17,10 +23,7 @@ export const RC_RUDDER_ARM_KEY = 'rc.rudderArm'
 export const RC_PROFILE_PREFIX = 'rc.profile.'
 
 /** The version of what is written. */
-const VERSION = 1
-
-/** What a value that was read is, before it is known to be anything. */
-type Record_ = Record<string, unknown>
+const VERSION = 2
 
 /**
  * The key a device's mapping is kept under: the device's id as lower case letters, digits and dashes, short enough for a key.
@@ -51,136 +54,51 @@ export function parseAllow(text: string | undefined): boolean {
  * @returns JSON
  */
 export function serialiseProfile(profile: Profile): string {
-  return JSON.stringify({ version: VERSION, device: profile.device, calibrated: profile.calibrated, rows: profile.rows })
+  const { device, throttleStyle, confirmedKey, rows } = profile
+
+  return JSON.stringify({ version: VERSION, device, throttleStyle, confirmedKey, rows })
 }
 
 /**
- * Whether a value is an object.
- *
- * @param value the value
- * @returns true when it is, and not an array or null
- */
-function isRecord(value: unknown): value is Record_ {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-/**
- * Whether a value is a number that is a number.
- *
- * @param value the value
- * @returns true for a finite number
- */
-function isNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
-}
-
-/**
- * Whether the named members of a record are all numbers.
+ * The ends of a row a record says: both, or neither (one end alone is not a row).
  *
  * @param v the record
- * @param keys the names
- * @returns true when they are
+ * @returns the ends, `{}` for none, or null when they are not both numbers
  */
-function numbers(v: Record_, keys: readonly string[]): boolean {
-  return keys.every(key => isNumber(v[key]))
-}
-
-/**
- * The axis calibration a value says.
- *
- * @param value what was read
- * @returns the calibration, or null
- */
-function calibrationOf(value: unknown): AxisCalibration | null {
-  if (!isRecord(value) || !numbers(value, ['min', 'center', 'max'])) {
-    return null
+function endsOf(v: Record_): { pulseMin?: number, pulseMax?: number } | null {
+  if (v.pulseMin === undefined && v.pulseMax === undefined) {
+    return {}
   }
 
-  return { min: Number(value.min), center: Number(value.center), max: Number(value.max) }
+  return numbers(v, ['pulseMin', 'pulseMax']) ? { pulseMin: Number(v.pulseMin), pulseMax: Number(v.pulseMax) } : null
 }
 
 /**
- * A stick a value says.
+ * Whether a record has what a row has besides its channel and its ends.
  *
  * @param v the record
- * @returns the row, or null
+ * @returns true when it has
  */
-function stickOf(v: Record_): StickRow | null {
-  const calibration = calibrationOf(v.calibration)
-  if (calibration === null || !numbers(v, ['axis', 'deadZone', 'expo']) || typeof v.invert !== 'boolean') {
-    return null
-  }
-
-  const [channel, axis, deadZone, expo] = [v.channel, v.axis, v.deadZone, v.expo].map(Number)
-
-  return { kind: 'stick', channel: channel!, axis: axis!, invert: v.invert, calibration, deadZone: deadZone!, expo: expo! }
+function isPlainRow(v: Record_): boolean {
+  return numbers(v, ['source', 'deadZone', 'expo']) && typeof v.invert === 'boolean'
 }
 
 /**
- * Whether a value is three pulses.
+ * A row a value of version 2 says.
  *
  * @param value what was read
- * @returns true for an array of three numbers
- */
-function isTriple(value: unknown): value is [number, number, number] {
-  return Array.isArray(value) && value.length === 3 && value.every(isNumber)
-}
-
-/**
- * A switch a value says.
- *
- * @param v the record
- * @returns the row, or null
- */
-function switchOf(v: Record_): SwitchRow | null {
-  const { pulses } = v
-  if (!numbers(v, ['axis']) || typeof v.invert !== 'boolean' || !isTriple(pulses)) {
-    return null
-  }
-
-  return { kind: 'switch', channel: Number(v.channel), axis: Number(v.axis), invert: v.invert, pulses }
-}
-
-/**
- * A button a value says.
- *
- * @param v the record
- * @returns the row, or null
- */
-function buttonOf(v: Record_): ButtonRow | null {
-  if (!numbers(v, ['button', 'off', 'on'])) {
-    return null
-  }
-
-  return { kind: 'button', channel: Number(v.channel), button: Number(v.button), off: Number(v.off), on: Number(v.on) }
-}
-
-/** The readers of the kinds of rows. */
-const READERS = new Map<string, (v: Record_) => Row | null>([['stick', stickOf], ['switch', switchOf], ['button', buttonOf]])
-
-/**
- * Whether a value is a record with a channel of an override.
- *
- * @param value what was read
- * @returns true when it is
- */
-function hasChannel(value: unknown): value is Record_ {
-  return isRecord(value) && isNumber(value.channel) && validChannel(value.channel)
-}
-
-/**
- * A row a value says.
- *
- * @param value what was read
- * @returns the row, or null when it is not a row (a channel that is not one of the 16 is not)
+ * @returns the row, or null when it is not one (a channel that is not one of the 16 is not)
  */
 function rowOf(value: unknown): Row | null {
-  if (!hasChannel(value)) {
+  if (!hasChannel(value) || !isPlainRow(value)) {
     return null
   }
-  const read = READERS.get(String(value.kind))
+  const ends = endsOf(value)
+  const [channel, source, deadZone, expo] = [value.channel, value.source, value.deadZone, value.expo].map(Number)
 
-  return read === undefined ? null : read(value)
+  const row: Row = { channel: channel!, source: source!, invert: value.invert === true, deadZone: deadZone!, expo: expo! }
+
+  return ends === null ? null : { ...row, ...ends }
 }
 
 /**
@@ -198,14 +116,69 @@ function jsonOf(text: string | undefined): unknown {
 }
 
 /**
- * Whether what was read is a mapping of this version, for this device, with a list of rows.
+ * The throttle style a value says.
+ *
+ * @param value what was read
+ * @returns the style, or the default for anything else
+ */
+function styleOf(value: unknown): ThrottleStyle {
+  return value === 'centred' || value === 'low' ? value : DEFAULT_THROTTLE_STYLE
+}
+
+/**
+ * The mapping of version 2 that a record says.
+ *
+ * @param data what was read
+ * @param device the device the mapping must be for
+ * @returns the mapping, or null when any row of it is wrong
+ */
+function readV2(data: Record_ & { rows: unknown[] }, device: string): StoredProfile | null {
+  const rows = data.rows.map(rowOf)
+  const confirmedKey = typeof data.confirmedKey === 'string' ? data.confirmedKey : null
+  const throttleStyle = styleOf(data.throttleStyle)
+  const profile: Profile = { device, rows: rows.filter(row => row !== null), throttleStyle, confirmedKey }
+
+  return rows.every(row => row !== null) ? { profile, converted: false, lossy: false } : null
+}
+
+/**
+ * Whether what was read is a mapping for this device, with a list of rows.
  *
  * @param data what was read
  * @param device the device the mapping must be for
  * @returns true when it is
  */
 function isStored(data: unknown, device: string): data is Record_ & { rows: unknown[] } {
-  return isRecord(data) && data.version === VERSION && data.device === device && Array.isArray(data.rows)
+  return isRecord(data) && data.device === device && Array.isArray(data.rows)
+}
+
+/**
+ * A mapping of the first version, when the pad is known.
+ *
+ * @param data what was read
+ * @param device the device
+ * @param layout what each channel of the pad is now, or null
+ * @returns the converted mapping, or null
+ */
+function readOld(data: Record_ & { rows: unknown[] }, device: string, layout: PadLayout | null): StoredProfile | null {
+  return data.version === 1 && layout !== null ? readV1(data, device, layout) : null
+}
+
+/**
+ * The mapping the text says, with whether it was converted from the first version.
+ *
+ * @param text what the settings hold under a device's key
+ * @param device the device the mapping is for
+ * @param layout what each channel of the pad is now, or null when the pad is not read (a mapping of version 1 needs it)
+ * @returns the mapping, or null when there is none, it is not JSON, is of another version or device, or any row of it is wrong
+ */
+export function readProfile(text: string | undefined, device: string, layout: PadLayout | null): StoredProfile | null {
+  const data = jsonOf(text)
+  if (!isStored(data, device)) {
+    return null
+  }
+
+  return data.version === VERSION ? readV2(data, device) : readOld(data, device, layout)
 }
 
 /**
@@ -213,14 +186,9 @@ function isStored(data: unknown, device: string): data is Record_ & { rows: unkn
  *
  * @param text what the settings hold under a device's key
  * @param device the device the mapping is for
- * @returns the mapping, or null when there is none, it is not JSON, is of another version or device, or any row of it is wrong
+ * @param layout what each channel of the pad is now, or null
+ * @returns the mapping, or null (see `readProfile`)
  */
-export function parseProfile(text: string | undefined, device: string): Profile | null {
-  const data = jsonOf(text)
-  if (!isStored(data, device)) {
-    return null
-  }
-  const rows = data.rows.map(rowOf)
-
-  return rows.every(row => row !== null) ? { device, calibrated: data.calibrated === true, rows } : null
+export function parseProfile(text: string | undefined, device: string, layout: PadLayout | null = null): Profile | null {
+  return readProfile(text, device, layout)?.profile ?? null
 }

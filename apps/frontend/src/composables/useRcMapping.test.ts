@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, shallowRef } from 'vue'
 import { mockBackend } from '@/mock/mock-backend'
 import { RC_ALLOW_KEY, profileKey } from '@/lib/rc/store'
-import { NO_SOURCE, type Row } from '@/lib/rc/types'
+import type { Row } from '@/lib/rc/types'
 import type { Facts } from '@/lib/rc/vehicle'
 import { factsOf } from '@/lib/rc/vehicle'
 import type { ConnectRequest } from '@/generated/app'
 import { FakePads, TX16S } from '@/testing/fakeGamepads'
+import { TX16S_LAYOUT } from '@/testing/rcProfiles'
 import { createConfigurator } from './useConfigurator'
 import { useGamepad } from './useGamepad'
 import { type RcMapping, useRcMapping } from './useRcMapping'
@@ -70,15 +71,16 @@ async function rig(ui: { key: string, value: string }[] = [], known: Facts | nul
   const scope = effectScope()
   const facts = shallowRef<Facts | null>(known)
   const request = shallowRef<ConnectRequest | null>({ transport: 'simulator' })
+  const mode = shallowRef<string | undefined>('ALT_HOLD')
   const mapping = scope.run(() => {
     const pad = useGamepad({ env: pads.env() })
 
     pad.start()
 
-    return useRcMapping({ pad, settings: useRcSettings(), facts, request })
+    return useRcMapping({ pad, settings: useRcSettings(), facts, request, mode })
   })!
 
-  return { handle, pads, mapping, facts, request, scope }
+  return { handle, pads, mapping, facts, request, mode, scope }
 }
 
 /**
@@ -113,14 +115,16 @@ function channelsOf(mapping: RcMapping): number[] {
 }
 
 describe('the mapping that is shown first', () => {
-  it('is the suggestion for a pad with none kept: not calibrated, and not kept until it is changed', async () => {
+  it('is the suggestion for a pad with none kept: centred, not confirmed, and not kept until it is changed', async () => {
     const { handle, pads, mapping, scope } = await rig()
 
     expect(mapping.draft.value).toBeNull()
     plugged(pads)
 
     expect(mapping.device.value).toBe(TX16S)
-    expect(mapping.draft.value!.calibrated).toBe(false)
+    expect(mapping.draft.value!.confirmedKey).toBeNull()
+    expect(mapping.draft.value!.throttleStyle).toBe('centred')
+    expect(mapping.confirmed.value).toBe(false)
     expect(channelsOf(mapping)).toEqual([1, 2, 3, 4])
     expect(handle.settings.uiValue(profileKey(TX16S))).toBeUndefined()
     scope.stop()
@@ -137,6 +141,17 @@ describe('the mapping that is shown first', () => {
     facts.value = vehicle()
     await nextTick()
     expect(channelsOf(mapping)).toEqual([2, 1, 3, 4])
+    scope.stop()
+  })
+})
+
+describe('the layout of the pad that is read', () => {
+  it('knows what each channel of the pad is: the TX16S\'s 8 axes, then its first 8 buttons', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    expect(mapping.layout.value).toBeNull()
+    plugged(pads)
+    expect(mapping.layout.value).toEqual(TX16S_LAYOUT)
     scope.stop()
   })
 })
@@ -166,28 +181,12 @@ describe('a change of the mapping', () => {
   })
 })
 
-describe('a change of the mapping while the wizard runs', () => {
-  it('is not made', async () => {
-    const { pads, mapping, scope } = await rig()
-
-    plugged(pads)
-    mapping.startWizard()
-    mapping.change(0, { invert: true })
-    mapping.add('switch')
-    mapping.remove(0)
-
-    expect(rowsOf(mapping)).toHaveLength(4)
-    expect(rowsOf(mapping)[0]).toMatchObject({ invert: false })
-    scope.stop()
-  })
-})
-
 describe('the channel of a row', () => {
   it('is refused when the vehicle arms or stops with it, and the person is told which', async () => {
     const { pads, mapping, scope } = await rig([], vehicle({ 7: 153, 8: 31 }))
 
     plugged(pads)
-    mapping.add('switch')
+    mapping.add(5)
     mapping.setChannel(4, 7)
     expect(mapping.refusal.value).toEqual({ code: 'arm', channel: 7, serial: 1 })
     mapping.setChannel(4, 8)
@@ -200,7 +199,7 @@ describe('the channel of a row', () => {
     const { pads, mapping, scope } = await rig([], vehicle({ 7: 153 }))
 
     plugged(pads)
-    mapping.add('switch')
+    mapping.add(5)
     mapping.setChannel(4, 7)
     mapping.setChannel(4, 9)
     expect(mapping.refusal.value).toBeNull()
@@ -212,70 +211,8 @@ describe('the channel of a row', () => {
   })
 })
 
-describe('the channel of a row that is added', () => {
-  it('is the next free one, never one the vehicle arms with', async () => {
-    const { pads, mapping, scope } = await rig([], vehicle({ 5: 81 }))
-
-    plugged(pads)
-    mapping.add('switch')
-    mapping.add('button')
-    expect(rowsOf(mapping).map(row => [row.kind, row.channel])).toEqual([
-      ['stick', 1], ['stick', 2], ['stick', 3], ['stick', 4], ['switch', 6], ['button', 7],
-    ])
-    mapping.remove(4)
-    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 7])
-    scope.stop()
-  })
-})
-
-describe('a row that is added has no control until the person moves one', () => {
-  it('makes nothing, however the pad is moved, is a problem of the mapping, and waits for "move it"', async () => {
-    const { pads, mapping, scope } = await rig([], vehicle({ 8: 4 }))
-
-    plugged(pads)
-    mapping.add('switch', 8)
-
-    expect(rowsOf(mapping)[4]).toMatchObject({ kind: 'switch', channel: 8, axis: NO_SOURCE })
-    expect(mapping.capturing.value).toBe(4)
-    expect(mapping.unsourced.value).toBe(true)
-    expect(mapping.issues.value.some(issue => issue.code === 'source' && issue.channel === 8)).toBe(true)
-    pads.set([1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1])
-    pads.advance(20)
-    expect(mapping.pulseOf(rowsOf(mapping)[4]!)).toBe(0)
-    scope.stop()
-  })
-
-  it('is read from the control that is moved, and then the mapping has no problem of that kind', async () => {
-    const { pads, mapping, scope } = await rig()
-
-    plugged(pads)
-    mapping.add('switch', 8)
-    pads.advance(20)
-    pads.set([0, 0, 0, 0, 0, 1, 0, 0])
-    pads.advance(20)
-
-    expect(rowsOf(mapping)[4]).toMatchObject({ axis: 5 })
-    expect(mapping.unsourced.value).toBe(false)
-    expect(mapping.issues.value.some(issue => issue.code === 'source')).toBe(false)
-    scope.stop()
-  })
-})
-
-describe('the wizard while a row has no control', () => {
-  it('does not begin', async () => {
-    const { pads, mapping, scope } = await rig()
-
-    plugged(pads)
-    mapping.add('button', 9)
-    mapping.startWizard()
-
-    expect(mapping.wizard.value).toBeNull()
-    scope.stop()
-  })
-})
-
-describe('a row moved to a channel another row drives', () => {
-  it('is refused, and the person is told which channel, and the row stays', async () => {
+describe('the channel of a row that another row drives', () => {
+  it('is refused, and the row stays', async () => {
     const { pads, mapping, scope } = await rig()
 
     plugged(pads)
@@ -290,39 +227,44 @@ describe('a row moved to a channel another row drives', () => {
   })
 })
 
-describe('a row added on a channel that was chosen', () => {
-  it('goes on that channel, and not on one a row drives or one that is not a channel', async () => {
-    const { pads, mapping, scope } = await rig()
+describe('a row that is added', () => {
+  it('goes on the next free channel, never one the vehicle arms with, and on the one chosen when it may', async () => {
+    const { pads, mapping, scope } = await rig([], vehicle({ 5: 81, 9: 153 }))
 
     plugged(pads)
-    mapping.add('switch', 11)
-    mapping.add('button', 3)
-    mapping.add('button', 17)
-    mapping.add('stick', 11)
-
-    expect(rowsOf(mapping).map(row => [row.kind, row.channel])).toEqual([
-      ['stick', 1], ['stick', 2], ['stick', 3], ['stick', 4], ['switch', 11],
-    ])
+    mapping.add()
+    mapping.add(11)
+    mapping.add(3)
+    mapping.add(17)
+    mapping.add(9)
+    expect(mapping.refusal.value).toMatchObject({ code: 'arm', channel: 9 })
+    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 6, 11])
+    mapping.remove(4)
+    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 11])
     scope.stop()
   })
+})
 
-  it('is refused for a channel the vehicle arms with, and the person is told which', async () => {
-    const { pads, mapping, scope } = await rig([], vehicle({ 9: 153 }))
+describe('a row that is added with no control', () => {
+  it('makes nothing, however the pad is moved, and the mapping is wrong, until the person moves one', async () => {
+    const { pads, mapping, scope } = await rig([], vehicle({ 8: 4 }))
 
     plugged(pads)
-    mapping.add('switch', 9)
+    mapping.add(8)
 
-    expect(rowsOf(mapping)).toHaveLength(4)
-    expect(mapping.refusal.value).toMatchObject({ code: 'arm', channel: 9 })
-    mapping.add('switch', 10)
-    expect(mapping.refusal.value).toBeNull()
-    expect(channelsOf(mapping)).toEqual([1, 2, 3, 4, 10])
+    expect(rowsOf(mapping)[4]).toMatchObject({ channel: 8, source: 0 })
+    expect(mapping.capturing.value).toBe(4)
+    expect(mapping.unsourced.value).toBe(true)
+    expect(mapping.issues.value.some(issue => issue.code === 'source' && issue.channel === 8)).toBe(true)
+    pads.set([1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1])
+    pads.advance(20)
+    expect(mapping.pulseOf(rowsOf(mapping)[4]!)).toBe(0)
     scope.stop()
   })
 })
 
 describe('"move it"', () => {
-  it('sets the axis of a row to the one that is moved after it began, whatever the sticks said before', async () => {
+  it('sets the source of a row to the pad channel that is moved after it began, whatever the sticks said before', async () => {
     const { pads, mapping, scope } = await rig()
 
     plugged(pads)
@@ -335,124 +277,153 @@ describe('"move it"', () => {
     pads.advance(20)
 
     expect(mapping.capturing.value).toBeNull()
-    expect(rowsOf(mapping)[0]).toMatchObject({ kind: 'stick', axis: 5 })
+    expect(rowsOf(mapping)[0]).toMatchObject({ source: 6 })
     scope.stop()
   })
 })
 
 describe('"move it" for a button, and given up', () => {
-  it('sets the button of a button row, and not an axis', async () => {
+  it('finds a button like a stick: it is a pad channel after the axes, from -1 to 1', async () => {
     const { pads, mapping, scope } = await rig()
 
     plugged(pads)
-    mapping.add('button')
-    mapping.capture(4)
+    mapping.add(5)
     pads.advance(20)
-    pads.set([1, 0, 0, 0], [0, 0, 1])
+    pads.set([0, 0, 0, 0], [0, 0, 1])
     pads.advance(20)
 
-    expect(rowsOf(mapping)[4]).toMatchObject({ kind: 'button', button: 2 })
+    expect(rowsOf(mapping)[4]).toMatchObject({ channel: 5, source: 11 })
+    expect(mapping.unsourced.value).toBe(false)
     scope.stop()
   })
 
-  it('can be given up, and waits for nothing when the wizard runs', async () => {
+  it('can be given up', async () => {
     const { pads, mapping, scope } = await rig()
 
     plugged(pads)
     mapping.capture(1)
     mapping.cancelCapture()
     expect(mapping.capturing.value).toBeNull()
-    mapping.startWizard()
-    mapping.capture(1)
-    expect(mapping.capturing.value).toBeNull()
     scope.stop()
   })
 })
 
-/**
- * Runs the wizard's two steps with some of the sticks moved to their ends.
- *
- * @param pads the pads
- * @param mapping the mapping
- * @param axes the axes that are moved
- */
-function calibrate(pads: FakePads, mapping: RcMapping, axes: number[]): void {
-  mapping.startWizard()
-  pads.set([0, 0, -1, 0])
-  pads.advance(20 * 12)
-  mapping.nextStep()
-
-  for (const value of [-1, 1]) {
-    pads.set([0, 1, 2, 3].map(axis => (axes.includes(axis) ? value : (axis === 2 ? -1 : 0))))
-    pads.advance(20)
-  }
-}
-
-describe('the wizard', () => {
-  it('needs the reads at rest before it goes on', async () => {
-    const { pads, mapping, scope } = await rig()
-
-    plugged(pads)
-    mapping.startWizard()
-    expect(mapping.wizard.value).toMatchObject({ step: 'rest', ready: false })
-    mapping.nextStep()
-    expect(mapping.wizard.value?.step).toBe('rest')
-    pads.advance(20 * 12)
-    expect(mapping.wizard.value).toMatchObject({ step: 'rest', ready: true })
-    mapping.nextStep()
-    expect(mapping.wizard.value?.step).toBe('move')
-    scope.stop()
-  })
-
-  it('calibrates the mapping and keeps it, with the mark, when every stick was moved to its ends', async () => {
+describe('confirming the mapping', () => {
+  it('is one click with a pad that is read: the mapping is then confirmed for it, and the key is kept', async () => {
     const { handle, pads, mapping, scope } = await rig()
 
     plugged(pads)
-    calibrate(pads, mapping, [0, 1, 2, 3])
-    expect(mapping.wizard.value!.axes.map(one => one.travel)).toEqual([2, 2, 2, 2])
-    mapping.finishWizard()
+    expect(mapping.canConfirm.value).toBe(true)
+    mapping.confirm()
     await vi.advanceTimersByTimeAsync(0)
 
-    expect(mapping.wizard.value).toBeNull()
-    expect(mapping.draft.value!.calibrated).toBe(true)
-    expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"calibrated":true')
+    expect(mapping.confirmed.value).toBe(true)
+    expect(mapping.issues.value).toEqual([])
+    expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"confirmedKey":"')
     scope.stop()
   })
 })
 
-describe('the wizard that is not finished', () => {
-  it('says which axes were not moved, gives no mark, and can be given up', async () => {
-    const { pads, mapping, scope } = await rig()
+describe('confirming the mapping when it cannot be', () => {
+  it('is refused with no pad, and with a stick that no row drives', async () => {
+    const none = await rig()
 
-    plugged(pads)
-    calibrate(pads, mapping, [0, 1, 3])
-    mapping.finishWizard()
-
-    expect(mapping.wizard.value).toMatchObject({ step: 'move', failed: [2] })
-    expect(mapping.draft.value!.calibrated).toBe(false)
-    mapping.cancelWizard()
-    expect(mapping.wizard.value).toBeNull()
-    scope.stop()
+    none.mapping.confirm()
+    expect(none.mapping.draft.value).toBeNull()
+    plugged(none.pads)
+    none.mapping.remove(1)
+    expect(none.mapping.canConfirm.value).toBe(false)
+    none.mapping.confirm()
+    expect(none.mapping.confirmed.value).toBe(false)
+    none.scope.stop()
   })
 
-  it('does not start with no pad, and a change after it takes the mark away again', async () => {
+  it('is refused with a stick that is on a button of the pad', async () => {
     const { pads, mapping, scope } = await rig()
 
-    mapping.startWizard()
-    expect(mapping.wizard.value).toBeNull()
     plugged(pads)
-    calibrate(pads, mapping, [0, 1, 2, 3])
-    mapping.finishWizard()
-    expect(mapping.draft.value!.calibrated).toBe(true)
-    mapping.change(0, { expo: 0.3 })
-    expect(mapping.draft.value!.calibrated).toBe(false)
+    expect(mapping.canConfirm.value).toBe(true)
+    mapping.change(1, { source: 11 })
+    expect(mapping.canConfirm.value).toBe(false)
+    scope.stop()
+  })
+})
+
+describe('confirming the mapping without a vehicle', () => {
+  it('is allowed: ArduPilot\'s sticks are 1 to 4, and the control does not begin on a vehicle that has not said', async () => {
+    const unknown = await rig([], null)
+
+    plugged(unknown.pads)
+    expect(unknown.mapping.canConfirm.value).toBe(true)
+    unknown.mapping.confirm()
+    expect(unknown.mapping.confirmed.value).toBe(true)
+    expect(unknown.mapping.issues.value.map(issue => issue.code)).toEqual(['unknown'])
+    unknown.scope.stop()
+  })
+})
+
+describe('the confirmation of the mapping, taken away', () => {
+  it('is taken away by ANY change: a row, the style, and a pad that is not the one that was confirmed', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads, 'pad one')
+    mapping.confirm()
+    expect(mapping.confirmed.value).toBe(true)
+    mapping.change(0, { expo: 0.2 })
+    expect(mapping.confirmed.value).toBe(false)
+    mapping.confirm()
+    mapping.setStyle('low')
+    expect(mapping.confirmed.value).toBe(false)
+    expect(mapping.draft.value!.throttleStyle).toBe('low')
+    mapping.confirm()
+    expect(mapping.confirmed.value).toBe(true)
+    pads.disconnect()
+    pads.advance(20)
+    plugged(pads, 'pad two')
+    expect(mapping.confirmed.value).toBe(false)
+    scope.stop()
+  })
+})
+
+describe('a mapping of the first version that was converted', () => {
+  it('says so, until it is confirmed', async () => {
+    const stick = (channel: number, min: number) => ({
+      kind: 'stick', channel, axis: channel - 1, invert: false, calibration: { min, center: 0, max: 1 }, deadZone: 0.08, expo: 0,
+    })
+    const rows = [stick(1, -0.5), stick(2, -1), stick(3, -1), stick(4, -1)]
+    const old = JSON.stringify({ version: 1, device: TX16S, calibrated: true, rows })
+    const { pads, mapping, scope } = await rig([{ key: profileKey(TX16S), value: old }])
+
+    plugged(pads)
+    expect(mapping.converted.value).toBe(true)
+    expect(mapping.confirmed.value).toBe(false)
+    expect(mapping.draft.value!.throttleStyle).toBe('low')
+    mapping.confirm()
+    expect(mapping.confirmed.value).toBe(true)
+    expect(mapping.converted.value).toBe(false)
+    scope.stop()
+  })
+})
+
+describe('the throttle style', () => {
+  it('is chosen on the mapping, kept, and not changed by choosing it again', async () => {
+    const { handle, pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.setStyle('centred')
+    expect(handle.settings.uiValue(profileKey(TX16S))).toBeUndefined()
+    mapping.setStyle('low')
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(mapping.draft.value!.throttleStyle).toBe('low')
+    expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"throttleStyle":"low"')
     scope.stop()
   })
 })
 
 describe('what stands in the way of control', () => {
-  it('is, in this order: the setting, the link, the pad, the mapping, the vehicle', async () => {
-    const { pads, mapping, request, handle, scope } = await rig()
+  it('is, in this order: the setting, the link, the pad, the mapping, the mode', async () => {
+    const { pads, mapping, request, mode, handle, scope } = await rig()
 
     expect(mapping.block.value).toBe('off')
     await useRcSettings().allow(true)
@@ -463,28 +434,67 @@ describe('what stands in the way of control', () => {
     expect(mapping.block.value).toBe('pad')
     plugged(pads)
     expect(mapping.block.value).toBe('mapping')
-    calibrate(pads, mapping, [0, 1, 2, 3])
-    mapping.finishWizard()
+    mapping.confirm()
     expect(mapping.block.value).toBeNull()
-    scope.stop()
-  })
-
-  it('lists the mapping\'s problems and the vehicle\'s, each said once', async () => {
-    const { pads, mapping, facts, scope } = await rig([], null)
-
-    plugged(pads)
-    expect(mapping.issues.value).toEqual([
-      { code: 'uncalibrated', channel: 0, blocks: true, from: 'mapping' },
-      { code: 'unknown', channel: 0, blocks: true, from: 'vehicle' },
-    ])
-    facts.value = vehicle()
-    expect(mapping.issues.value.map(issue => issue.code)).toEqual(['uncalibrated'])
+    mode.value = 'STABILIZE'
+    expect(mapping.block.value).toBe('mode')
+    mapping.setStyle('low')
+    mapping.confirm()
+    expect(mapping.block.value).toBeNull()
     scope.stop()
   })
 })
 
-describe('the live pulse of a row', () => {
-  it('is what the row makes of the pad now, in the vehicle\'s range, and nothing when no pad is read', async () => {
+describe('a request that the page does not know', () => {
+  it('is left to the backend while a vehicle is connected, as the Fly switch does', async () => {
+    const connected = shallowRef(true)
+    const handle = createConfigurator(mockBackend({ settings: { version: 1, ui: [{ key: RC_ALLOW_KEY, value: 'on' }] } }))
+    await handle.settings.load()
+    const pads = new FakePads()
+    const scope = effectScope()
+    const request = shallowRef<ConnectRequest | null>(null)
+    const mapping = scope.run(() => {
+      const pad = useGamepad({ env: pads.env() })
+
+      pad.start()
+
+      return useRcMapping({ pad, settings: useRcSettings(), facts: shallowRef(vehicle()), request, connected })
+    })!
+
+    expect(mapping.block.value).toBe('pad')
+    connected.value = false
+    expect(mapping.block.value).toBe('link')
+    scope.stop()
+  })
+})
+
+describe('the problems of the mapping and the vehicle', () => {
+  it('are listed, each said once', async () => {
+    const { pads, mapping, facts, scope } = await rig([], null)
+
+    plugged(pads)
+    expect(mapping.issues.value).toEqual([
+      { code: 'unconfirmed', channel: 0, blocks: true, from: 'mapping' },
+      { code: 'unknown', channel: 0, blocks: true, from: 'vehicle' },
+    ])
+    facts.value = vehicle()
+    expect(mapping.issues.value.map(issue => issue.code)).toEqual(['unconfirmed'])
+    scope.stop()
+  })
+
+  it('say a centred throttle whose zone is too small is a problem of the vehicle and the mapping together', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.change(2, { deadZone: 0.02 })
+
+    expect(mapping.issues.value.some(issue => issue.code === 'centre' && issue.from === 'vehicle' && issue.blocks)).toBe(true)
+    scope.stop()
+  })
+})
+
+describe('what the sticks do now', () => {
+  it('is the pulse a row makes in the vehicle\'s range, and what it reads: both nothing when no pad is read', async () => {
     const { pads, mapping, scope } = await rig()
 
     plugged(pads)
@@ -495,9 +505,28 @@ describe('the live pulse of a row', () => {
     expect(mapping.pulseOf(roll!)).toBe(1900)
     expect(mapping.pulseOf(pitch!)).toBe(1500)
     expect(mapping.pulseOf(throttle!)).toBe(1100)
+    expect(mapping.levelOf(roll!)).toBe(1)
+    expect(mapping.levelOf(throttle!)).toBe(-1)
     pads.disconnect()
     pads.advance(20)
     expect(mapping.pulseOf(roll!)).toBeNull()
+    expect(mapping.levelOf(roll!)).toBeNull()
+    scope.stop()
+  })
+})
+
+describe('the sticks that are not at rest', () => {
+  it('are said, as the turn-on would wait for them, and none is once they are at rest', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    expect(mapping.notAtRest.value).toBeNull()
+    plugged(pads)
+    pads.set([0, 0, 0, 0])
+    pads.advance(20)
+    expect(mapping.notAtRest.value).toEqual([])
+    pads.set([0.8, 0, 0.5, 0])
+    pads.advance(20)
+    expect(mapping.notAtRest.value!.map(stick => stick.stick)).toEqual(['roll', 'throttle'])
     scope.stop()
   })
 })

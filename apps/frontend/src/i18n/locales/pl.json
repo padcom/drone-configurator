@@ -828,7 +828,14 @@
     "help": {
       "off": "Wyłączone. Pad nie steruje pojazdem.",
       "on": "Pad steruje pojazdem.",
-      "lower": "Opuść gaz, aby zacząć: zostanie wysłany, gdy drążek będzie przez chwilę na dole."
+      "resting": "Przytrzymaj wszystkie drążki w spoczynku przez chwilę (gaz też): do tego czasu nic nie jest wysyłane."
+    },
+    "rest": {
+      "roll": "Przechył nie jest na środku: {level}. Wyśrodkuj drążek.",
+      "pitch": "Pochylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
+      "yaw": "Odchylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
+      "throttleCentred": "Gaz nie jest na środku: {level}. Pozwól drążkowi wrócić na środek.",
+      "throttleLow": "Gaz nie jest na dole: {level}. Opuść drążek do samego dołu."
     },
     "indicator": {
       "on": "Zdalne sterowanie włączone",
@@ -838,7 +845,10 @@
     },
     "summary": {
       "title": "Lecieć padem?",
-      "what": "Pad będzie wysyłał swoje drążki do pojazdu, dopóki tego nie wyłączysz. Najpierw ustaw drążki na środku, a gaz na dole. Gdy jest włączone, kontrola pojazdu „Nie znaleziono RC” nie chroni już przed brakiem nadajnika.",
+      "what": "Pad będzie wysyłał swoje drążki do pojazdu, dopóki tego nie wyłączysz. Nic nie jest wysyłane, dopóki wszystkie cztery drążki nie są w spoczynku. Gdy jest włączone, kontrola pojazdu „Nie znaleziono RC” nie chroni już przed brakiem nadajnika.",
+      "centred": "Gaz: wyśrodkowany. Środek drążka to brak wznoszenia, w górę wznosi, w dół opada. Działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune (i trwa dalej w Auto, Guided, RTL, Land, Brake i podobnych). Każdy inny tryb wyłącza sterowanie.",
+      "low": "Gaz: na dole w spoczynku. Drążek musi być na samym dole, zanim sterowanie ruszy.",
+      "either": "Gaz jest wyśrodkowany albo na dole w spoczynku, jak mówi przypisanie (Ustawienia). Wyśrodkowany działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune; każdy inny tryb wyłącza sterowanie.",
       "button": "Włącz zdalne sterowanie"
     },
     "command": {
@@ -849,8 +859,12 @@
       "off": "Zdalne sterowanie nie jest dozwolone. Zezwól na nie w Ustawieniach.",
       "link": "Nie połączono żadnego symulatora.",
       "pad": "Żaden pad nie jest odczytywany. Poruszaj drążkiem w aparaturze.",
-      "mapping": "Pad nie ma gotowego przypisania. Skalibruj je w Ustawieniach.",
+      "mapping": "Pad nie ma gotowego przypisania. Obejrzyj je i potwierdź w Ustawieniach.",
+      "reading": "Drążek pojazdu nie ma proporcjonalnego kanału pada (osi). Zobacz Ustawienia.",
       "vehicle": "Ustawienia pojazdu nie zgadzają się z przypisaniem. Zobacz Ustawienia.",
+      "mode": "Wyśrodkowany gaz startuje tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag lub Autotune. Najpierw zmień tryb.",
+      "MODE": "Zdalne sterowanie zakończone: tryb lotu nie przyjmuje wyśrodkowanego gazu.",
+      "REST_TIMEOUT": "Zdalne sterowanie zakończone: drążki nie były w spoczynku w ciągu 10 sekund.",
       "ENDED": "Zdalne sterowanie zakończyło się.",
       "ERROR": "Zdalne sterowanie nie mogło ruszyć.",
       "SILENT": "Zdalne sterowanie zakończone: strona milczała zbyt długo.",
@@ -919,22 +933,19 @@
         "title": "Pad",
         "none": "Nie znaleziono jeszcze padu. Aparatura pojawia się, gdy poruszysz drążkiem.",
         "gone": "Pad nie jest teraz odczytywany. Poruszaj drążkiem.",
-        "axis": "CH{n}",
-        "buttons": "Wciśnięte przyciski: {list}",
-        "noButtons": "Żaden przycisk nie jest wciśnięty."
+        "channel": "CH{n}"
       },
       "mapping": "Przypisanie",
-      "kind": {
-        "stick": "Drążek",
-        "switch": "Przełącznik",
-        "button": "Przycisk"
-      },
       "channel": "Kanał pojazdu",
       "vehicleChannel": "Kanał pojazdu {n}",
       "own": "Własny aparatury",
-      "axesNote": "Przeglądarka może nie zgłaszać każdej osi aparatury: oś, która stoi na 0, mogła zostać pominięta.",
-      "sourceAxis": "CH{n}",
-      "sourceButton": "Przycisk {n}",
+      "channelsNote": "Każdy pad to CH1 do CH16: najpierw jego osie, potem przyciski (−1 puszczony, +1 wciśnięty). Kanał, którego pad nie ma, pokazuje kreskę. Tu nic się nie kalibruje: obowiązuje własny zakres pada.",
+      "sourceChannel": "CH{n} pada",
+      "level": "Co wiersz odczytuje teraz",
+      "pulseMin": "Impuls przy −1 (µs)",
+      "pulseMax": "Impuls przy +1 (µs)",
+      "pulseDefault": "własny kanału",
+      "addRow": "Dodaj wiersz",
       "moveIt": "Poruszaj",
       "moveCancel": "Anuluj",
       "moveWaiting": "Poruszaj drążkiem lub przełącznikiem albo wciśnij przycisk, o który ci chodzi.",
@@ -944,34 +955,31 @@
       "invert": "Odwróć",
       "zone": "Strefa martwa (%)",
       "expo": "Krzywa (%)",
-      "position": {
-        "low": "Dół (µs)",
-        "mid": "Środek (µs)",
-        "high": "Góra (µs)"
-      },
-      "up": "Puszczony (µs)",
-      "pressed": "Wciśnięty (µs)",
-      "add": {
-        "stick": "Dodaj drążek",
-        "switch": "Dodaj przełącznik",
-        "button": "Dodaj przycisk"
-      },
       "refused": {
         "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
         "taken": "Kanałem {channel} już steruje inny wiersz. Usuń tamten wiersz albo wybierz inny kanał."
       },
       "noSource": "Jeszcze bez elementu",
-      "wizard": {
-        "title": "Kalibracja",
-        "start": "Kalibruj…",
-        "rest": "Zostaw drążki w spoczynku, z gazem na dole, i poczekaj.",
-        "restReady": "Gotowe. Teraz poruszysz każdym drążkiem do wszystkich jego skrajnych położeń.",
-        "move": "Poruszaj powoli każdym drążkiem do wszystkich skrajnych położeń, kilka razy. Potem zakończ.",
-        "axis": "CH{n}",
-        "next": "Dalej",
-        "finish": "Zakończ",
-        "cancel": "Anuluj",
-        "failed": "Te osie nie zostały poruszone wystarczająco daleko: {axes}. Przesuń je do obu skrajnych położeń i zakończ ponownie."
+      "style": {
+        "title": "Gaz",
+        "centred": "Wyśrodkowany",
+        "low": "Na dole w spoczynku",
+        "centredHelp": "Drążek spoczywa na środku (wraca sam, jak w dronie filmowym). Środek to brak wznoszenia, w górę wznosi, w dół opada. Działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune, i trwa dalej w Auto, Guided, RTL, Land, Brake i podobnych; każdy inny tryb wyłącza sterowanie i w żadnym nie startuje. Martwa strefa jego wiersza musi wynosić co najmniej 5 %.",
+        "lowHelp": "Drążek spoczywa na dole (gaz aparatury). Drążek musi być na samym dole, zanim sterowanie ruszy."
+      },
+      "sticks": {
+        "roll": "Przechył",
+        "pitch": "Pochylenie",
+        "throttle": "Gaz",
+        "yaw": "Odchylenie"
+      },
+      "confirm": {
+        "title": "Potwierdzenie",
+        "button": "Potwierdź to przypisanie",
+        "done": "To przypisanie jest potwierdzone dla tego pada.",
+        "needed": "Niepotwierdzone. Poruszaj każdym drążkiem i patrz na jego pasek powyżej, potem potwierdź. Każda zmiana odbiera potwierdzenie.",
+        "converted": "To przypisanie zostało przekonwertowane ze starszej wersji. Obejrzyj je i potwierdź.",
+        "disabled": "Potrzebny jest odczytywany pad, wiersz dla każdego z czterech drążków pojazdu na osi pada i żaden z problemów poniżej."
       },
       "issue": {
         "mapping": {
@@ -980,16 +988,17 @@
           "source": "Kanał {channel} nie ma jeszcze elementu sterującego. Naciśnij „Poruszaj” i poruszaj tym, o który ci chodzi.",
           "zone": "Strefa martwa kanału {channel} musi wynosić od 0 do 50 %.",
           "expo": "Krzywa kanału {channel} musi wynosić od 0 do 100 %.",
-          "calibration": "Kalibracji kanału {channel} nie można użyć. Skalibruj ponownie.",
+          "absent": "Kanał {channel} odczytuje kanał pada, którego ten pad nie ma.",
           "pulse": "Impuls kanału {channel} musi być liczbą całkowitą od 800 do 2200 µs.",
-          "uncalibrated": "Przypisanie nie zostało skalibrowane. Skalibruj je, zanim użyjesz zdalnego sterowania."
+          "unconfirmed": "Przypisanie nie jest potwierdzone. Obejrzyj je i naciśnij „Potwierdź to przypisanie”."
         },
         "vehicle": {
           "unknownAll": "Nie wszystkie ustawienia pojazdu są znane. Połącz pojazd i poczekaj na pobranie wszystkich parametrów.",
           "unknown": "Pojazd nie podał ustawienia, którego potrzebuje kanał {channel}. Pobierz parametry ponownie.",
           "range": "Zakres impulsów kanału {channel} w pojeździe jest nieużyteczny.",
           "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd. Usuń ten wiersz.",
-          "zone": "Strefa martwa gazu w pojeździe jest szeroka, więc „dół” jest szerszy niż zwykle."
+          "zone": "Strefa martwa gazu w pojeździe jest szeroka, więc „dół” jest szerszy niż zwykle.",
+          "centre": "Martwa strefa wiersza gazu musi wynosić co najmniej 5 % przy wyśrodkowanym gazie."
         }
       }
     },

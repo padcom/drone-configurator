@@ -1,15 +1,16 @@
 // A profile's checks: what a mapping must be before it may drive a vehicle (the control is refused with a mapping that is not).
-import { type AxisCalibration, CHANNELS, MAX_PULSE, MIN_PULSE, type Profile, type Row, type StickRow } from './types'
+import { isConfirmed } from './confirm'
+import { CHANNELS, MAX_PULSE, MIN_PULSE, NO_SOURCE, type PadLayout, type Profile, type Row } from './types'
 
 /** What is wrong with one row. */
-export type Code = 'channel' | 'duplicate' | 'source' | 'zone' | 'expo' | 'calibration' | 'pulse' | 'uncalibrated'
+export type Code = 'channel' | 'duplicate' | 'source' | 'absent' | 'zone' | 'expo' | 'pulse' | 'unconfirmed'
 
 /** What is wrong with a mapping. */
 export interface Problem {
   /**
-   * `channel` (not 1 to 16), `duplicate` (two rows for one channel), `source` (the row has no control yet), `zone`, `expo`,
-   * `calibration`, `pulse`, or `uncalibrated`
-   * (the person has not been through the calibration wizard with this mapping: it is the mapping's problem, not a row's).
+   * `channel` (not 1 to 16), `duplicate` (two rows for one channel), `source` (the row has no pad channel yet), `absent` (the
+   * pad has no such channel), `zone`, `expo`, `pulse`, or `unconfirmed` (the person has not pressed "Confirm this mapping" for
+   * this mapping with this pad: it is the mapping's problem, not a row's).
    */
   code: Code
   /** The channel of the row (0 for a problem of the mapping). */
@@ -39,68 +40,57 @@ function between(value: number, least: number, most: number): boolean {
 }
 
 /**
- * Whether the ends of an axis are apart from its middle.
+ * Whether a row has a pad channel to read: a whole number from 1 to 16 (`NO_SOURCE` is not).
  *
- * @param c what the axis said at its ends and at rest
- * @returns true when it can be scaled
+ * @param row the row
+ * @returns true when it has
  */
-function calibrated(c: AxisCalibration): boolean {
-  return [c.min, c.center, c.max].every(Number.isFinite) && c.min < c.center && c.center < c.max
+export function hasSource(row: Row): boolean {
+  return Number.isInteger(row.source) && row.source !== NO_SOURCE && between(row.source, 1, CHANNELS)
 }
 
 /**
- * What is wrong with the settings of a stick (its zone, curve and calibration), or nothing.
+ * What is wrong with the settings of a row that has a source: its zone, curve and ends.
  *
- * @param row the stick
+ * @param row the row
  * @returns the code, or null
  */
-function stickProblem(row: StickRow): Code | null {
+function settingsProblem(row: Row): Code | null {
   if (!between(row.deadZone, 0, 0.5)) {
     return 'zone'
   }
   if (!between(row.expo, 0, 1)) {
     return 'expo'
   }
+  const ends = [row.pulseMin, row.pulseMax].filter((pulse): pulse is number => pulse !== undefined)
 
-  return calibrated(row.calibration) ? null : 'calibration'
+  return ends.every(fits) ? null : 'pulse'
 }
 
 /**
- * Whether a row has a control to read: a whole, non-negative axis or button (`NO_SOURCE` is neither).
+ * Whether the pad has not the channel a row reads.
  *
  * @param row the row
- * @returns true when it has
+ * @param layout what each channel of the pad is, or null when that is not known
+ * @returns true when the layout is known and says the channel is not there
  */
-export function hasSource(row: Row): boolean {
-  const index = row.kind === 'button' ? row.button : row.axis
-
-  return Number.isInteger(index) && index >= 0
-}
-
-/**
- * What is wrong with the settings of a row that has a control (a stick's zone, curve and calibration, a switch's or a button's
- * pulses).
- *
- * @param row the row
- * @returns the code, or null
- */
-function settingsProblem(row: Row): Code | null {
-  if (row.kind === 'stick') {
-    return stickProblem(row)
-  }
-  const pulses = row.kind === 'switch' ? row.pulses : [row.off, row.on]
-
-  return pulses.every(fits) ? null : 'pulse'
+function isAbsent(row: Row, layout: PadLayout | null): boolean {
+  return layout !== null && (layout[row.source - 1] ?? null) === null
 }
 
 /**
  * What is wrong with a row itself (not with which channel it drives), or nothing.
  *
  * @param row the row
+ * @param layout what each channel of the pad is, or null when that is not known
  * @returns the code, or null
  */
-function rowProblem(row: Row): Code | null {
-  return hasSource(row) ? settingsProblem(row) : 'source'
+function rowProblem(row: Row, layout: PadLayout | null): Code | null {
+  if (!hasSource(row)) {
+    return 'source'
+  }
+
+  return isAbsent(row, layout) ? 'absent' : settingsProblem(row)
 }
 
 /**
@@ -119,26 +109,29 @@ function channelProblem(channel: number, seen: ReadonlySet<number>): Code | null
 }
 
 /**
- * The problem of a mapping that the calibration wizard has not been through.
+ * What is wrong with a row: its channel first, then the row itself.
  *
- * @param profile the mapping
- * @returns the problem, or none
+ * @param row the row
+ * @param seen the channels the rows before drive
+ * @param layout what each channel of the pad is, or null when that is not known
+ * @returns the code, or null
  */
-function uncalibrated(profile: Profile): Problem[] {
-  return profile.calibrated ? [] : [{ code: 'uncalibrated', channel: 0 }]
+function problemOf(row: Row, seen: ReadonlySet<number>, layout: PadLayout | null): Code | null {
+  return channelProblem(row.channel, seen) ?? rowProblem(row, layout)
 }
 
 /**
  * What is wrong with a mapping.
  *
  * @param profile the mapping
+ * @param layout what each of CH1..CH16 of the pad is now, or null when the pad is not read (then nothing is confirmed)
  * @returns the problems, none for one that may drive a vehicle
  */
-export function problemsOf(profile: Profile): Problem[] {
+export function problemsOf(profile: Profile, layout: PadLayout | null): Problem[] {
   const seen = new Set<number>()
-  const problems: Problem[] = uncalibrated(profile)
+  const problems: Problem[] = isConfirmed(profile, layout) ? [] : [{ code: 'unconfirmed', channel: 0 }]
   for (const row of profile.rows) {
-    const code = channelProblem(row.channel, seen) ?? rowProblem(row)
+    const code = problemOf(row, seen, layout)
 
     seen.add(row.channel)
 

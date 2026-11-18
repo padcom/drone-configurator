@@ -77,7 +77,7 @@
 .rc-axes,
 .rc-list,
 .rc-issues,
-.rc-travel {
+.rc-sticks {
   display: grid;
   gap: var(--space-2);
   margin: 0 0 var(--space-4);
@@ -86,7 +86,7 @@
 }
 
 .rc-axes li,
-.rc-travel li {
+.rc-sticks li {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr) 4rem;
   align-items: center;
@@ -94,8 +94,21 @@
   font-size: var(--font-size-sm);
 }
 
-.rc-travel li {
-  grid-template-columns: 5rem minmax(0, 1fr);
+.rc-axes li.rc-absent {
+  opacity: 0.5;
+}
+
+.rc-style,
+.rc-confirm {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+
+.rc-style label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .rc-row {
@@ -108,9 +121,7 @@
 }
 
 .rc-row-head,
-.rc-row-body,
-.rc-add,
-.rc-wizard-actions {
+.rc-row-body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -119,6 +130,11 @@
 
 .rc-kind {
   font-weight: 600;
+}
+
+.rc-level {
+  min-width: 3.5rem;
+  text-align: right;
 }
 
 .rc-pulse {
@@ -131,14 +147,8 @@
   width: 5.5rem;
 }
 
-.rc-row p,
-.rc-step {
+.rc-row p {
   margin: 0;
-}
-
-.rc-add,
-.rc-wizard {
-  margin-bottom: var(--space-4);
 }
 
 .rc-warn,

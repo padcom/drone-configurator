@@ -3,7 +3,7 @@ import type { BackendClient } from '@/backend/client'
 import type { Telemetry } from '@/generated/app'
 import { serialiseProfile } from '@/lib/rc/store'
 import { TX16S } from '@/testing/fakeGamepads'
-import { calibratedSuggestion } from '@/testing/rcProfiles'
+import { confirmedSuggestion } from '@/testing/rcProfiles'
 import { CONNECTED, type RcRig, flying, rcRig, run, settle, throttles } from '@/testing/rcRig'
 
 beforeEach(() => {
@@ -89,7 +89,7 @@ describe('what refuses a control: the pad and the mapping', () => {
   it('is no pad, a pad with no mapping, and a mapping the wizard has not been through', async () => {
     const nopad = await rcRig()
     const none = await rcRig({ profile: null })
-    const raw = await rcRig({ profile: { ...calibratedSuggestion(TX16S), calibrated: false } })
+    const raw = await rcRig({ profile: { ...confirmedSuggestion(TX16S), confirmedKey: null } })
 
     await nopad.rc.enable()
 
@@ -175,11 +175,11 @@ describe('what ends a control: what it depends on', () => {
   it('is an edit of the mapping (a calibrated mapping is never flown with once changed)', async () => {
     const r = await on()
 
-    r.profiles.value = { [TX16S]: { ...calibratedSuggestion(TX16S), calibrated: false } }
+    r.profiles.value = { [TX16S]: { ...confirmedSuggestion(TX16S), confirmedKey: null } }
     await settle()
 
     expect([r.rc.state.value, r.rc.why.value]).toEqual(['off', 'EDITED'])
-    expect(serialiseProfile(r.profiles.value[TX16S]!)).toContain('"calibrated":false')
+    expect(serialiseProfile(r.profiles.value[TX16S]!)).toContain('"confirmedKey":null')
   })
 })
 
@@ -255,6 +255,9 @@ const YAW_HELD = 1820
  * @returns the pulse of channel 4
  */
 async function yawAtTheEnd(r: RcRig): Promise<number> {
+  // (the sticks are at rest first: nothing is sent until they have been for ten frames, 40 ms apart)
+  r.pads.set([0, 0, -1, 0])
+  await run(r, 600)
   r.pads.set([0, 0, -1, 1])
   await run(r, 400)
 
@@ -274,12 +277,12 @@ describe('the sticks that arm and disarm (the option, for a simulator)', () => {
     const r = await flying(await rcRig({ rudderArm: true }))
 
     expect(r.rc.rudderLifted.value).toBe(true)
-    // (the gate is shut: no throttle yet, while the yaw is free)
+    // (the gate is shut while the sticks are not at rest: nothing is sent, the yaw included)
     r.pads.set([0, 0, 0.5, 1])
     r.pads.advance(60)
     await settle()
     expect(throttles(r.control).every(pulse => pulse === 0)).toBe(true)
-    expect(r.control.rc!.frames().at(-1)!.channels[3]).toBe(YAW_END)
+    expect(r.control.rc!.frames().at(-1)!.channels[3]).toBe(0)
     expect(r.rc.gateOpen.value).toBe(false)
     expect(await yawAtTheEnd(r)).toBe(YAW_END)
     expect(throttles(r.control).at(-1)).toBe(1100)
@@ -461,6 +464,15 @@ describe('the summary', () => {
 
     expect(asked).toHaveLength(1)
     expect(r.rc.state.value).toBe('on')
+    r.stop()
+  })
+
+  it('says how the throttle rests once a control has flown: nothing before the first', async () => {
+    const r = await rcRig()
+
+    expect(r.rc.style.value).toBeNull()
+    await flying(r)
+    expect(r.rc.style.value).toBe('low')
     r.stop()
   })
 })

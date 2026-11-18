@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { mockBackend } from '@/mock/mock-backend'
 import { RC_ALLOW_KEY, RC_RUDDER_ARM_KEY, profileKey, serialiseProfile } from '@/lib/rc/store'
+import { confirmed } from '@/lib/rc/confirm'
 import { suggestedProfile } from '@/lib/rc/suggest'
+import { TX16S_LAYOUT } from '@/testing/rcProfiles'
 import { createConfigurator } from './useConfigurator'
 import { forgetRcAllowChoice, useRcSettings } from './useRcSettings'
 
@@ -107,21 +109,34 @@ describe('the mapping of a device', () => {
   it('is kept in the settings by device, and read back as it was kept', async () => {
     const handle = await rig()
     const setting = useRcSettings()
-    const mine = { ...suggestedProfile('pad one', null), calibrated: true }
+    const mine = confirmed(suggestedProfile('pad one', null), TX16S_LAYOUT)
 
-    expect(setting.profileOf('pad one')).toBeNull()
+    expect(setting.profileOf('pad one', null)).toBeNull()
     await setting.save(mine)
 
-    expect(setting.profileOf('pad one')).toEqual(mine)
-    expect(setting.profileOf('pad two')).toBeNull()
+    expect(setting.profileOf('pad one', null)).toEqual({ profile: mine, converted: false, lossy: false })
+    expect(setting.profileOf('pad two', null)).toBeNull()
     expect(handle.settings.uiValue(profileKey('pad one'))).toBe(serialiseProfile(mine))
   })
 
   it('is nothing when what the settings hold is not a whole mapping of that device', async () => {
-    const half = '{"version":1,"device":"pad one","calibrated":true,"rows":[{"kind":"stick"}]}'
+    const half = '{"version":2,"device":"pad one","throttleStyle":"low","confirmedKey":null,"rows":[{"channel":1}]}'
 
     await rig([{ key: profileKey('pad one'), value: half }])
 
-    expect(useRcSettings().profileOf('pad one')).toBeNull()
+    expect(useRcSettings().profileOf('pad one', null)).toBeNull()
+  })
+})
+
+describe('the mapping of a device of the first version', () => {
+  it('is converted when the pad is read when the pad is read, and needs the pad to do it', async () => {
+    const calibration = { min: -1, center: 0, max: 1 }
+    const row = { kind: 'stick', channel: 1, axis: 0, invert: false, calibration, deadZone: 0.08, expo: 0 }
+    const old = JSON.stringify({ version: 1, device: 'pad one', calibrated: true, rows: [row] })
+
+    await rig([{ key: profileKey('pad one'), value: old }])
+
+    expect(useRcSettings().profileOf('pad one', null)).toBeNull()
+    expect(useRcSettings().profileOf('pad one', TX16S_LAYOUT)?.converted).toBe(true)
   })
 })

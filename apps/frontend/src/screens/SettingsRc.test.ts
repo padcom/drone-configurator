@@ -1,6 +1,6 @@
 // The Settings screen's Remote control section: off until the setting is turned on (and kept in the settings), the pad that is
-// read and what it says, the mapping with its rows, the calibration wizard, what stands in the way, and that nothing here starts
-// a control (the mock vehicle is never asked for one).
+// read and what it says (CH1 to CH16), the mapping with its rows, the throttle style, the one-click confirmation, what stands in
+// the way, and that nothing here starts a control (the mock vehicle is never asked for one).
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createConfigurator } from '@/composables/useConfigurator'
@@ -117,11 +117,13 @@ it('shows the pad, its mapping of four sticks, and what stands in the way', asyn
   expect(wrapper.get('[data-testid="rc-free-5"]').text()).toContain('Vehicle channel 5')
   expect(wrapper.get('[data-testid="rc-free-5"]').text()).toContain('The radio\'s own')
   expect(wrapper.get('#rc-device-name').text()).toBe(TX16S)
+  // (the test pad has 8 axes and 4 buttons: CH1 to CH12 are there, CH13 to CH16 are shown as absent)
+  expect(wrapper.findAll('.rc-axes li')).toHaveLength(16)
+  expect(wrapper.findAll('.rc-axes li.rc-absent')).toHaveLength(4)
   expect(wrapper.get('.rc-axes').text()).toContain('CH1')
-  expect(wrapper.get('.rc-axes').text()).toContain('CH8')
-  expect(wrapper.get('.rc-axes').text()).not.toContain('CH9')
-  expect(wrapper.get('#rc-axes-note').text()).toContain('may not report every axis')
-  expect(wrapper.get('#rc-issues').text()).toContain('has not been calibrated')
+  expect(wrapper.get('.rc-axes').text()).toContain('CH16')
+  expect(wrapper.get('#rc-channels-note').text()).toContain('Every pad is CH1 to CH16')
+  expect(wrapper.get('#rc-issues').text()).toContain('not confirmed')
   expect(wrapper.get('#rc-status').text()).toBe('No simulator is connected.')
   expect(wrapper.find('output').exists()).toBe(false)
 })
@@ -146,7 +148,7 @@ it('changes a row and keeps the mapping in the settings, and adds and takes away
   await wrapper.get('[data-testid="rc-row-0"] .kit-toggle').trigger('click')
   await flushPromises()
   expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"invert":true')
-  await wrapper.get('[id$="-add-switch-6"]').trigger('click')
+  await wrapper.get('[id$="-add-6"]').trigger('click')
   expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(5)
   expect(wrapper.find('[data-testid="rc-free-6"]').exists()).toBe(false)
   await wrapper.get('[id$="-remove-4"]').trigger('click')
@@ -154,52 +156,66 @@ it('changes a row and keeps the mapping in the settings, and adds and takes away
   expect(wrapper.find('[data-testid="rc-free-6"]').exists()).toBe(true)
 })
 
-it('runs the wizard, which locks the rows, and can be given up', async () => {
-  const { wrapper } = await screen()
+it('confirms the mapping with one click, shows it, and takes the confirmation away with any change', async () => {
+  const { wrapper, handle } = await screen()
 
   await plugged(wrapper)
-  await wrapper.get('#rc-wizard-main').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('[id$="-add-stick-5"]').attributes('disabled')).toBeDefined())
-  expect(wrapper.get('#rc-wizard-main').text()).toBe('Next')
-  await wrapper.get('#rc-wizard-cancel').trigger('click')
-  expect(wrapper.find('#rc-wizard-cancel').exists()).toBe(false)
-  expect(wrapper.get('#rc-wizard-main').text()).toBe('Calibrate…')
-  expect(wrapper.get('[id$="-add-stick-5"]').attributes('disabled')).toBeUndefined()
-})
-
-it('keeps focus in the wizard: one button through the steps, and focus comes back to it when it is given up', async () => {
-  const { wrapper } = await screen()
-
-  await plugged(wrapper)
-  const button = wrapper.get('#rc-wizard-main').element as HTMLButtonElement
-
-  button.focus()
-  await wrapper.get('#rc-wizard-main').trigger('click')
-  await vi.waitFor(() => expect(wrapper.get('#rc-wizard-main').text()).toBe('Next'))
-  expect(wrapper.get('#rc-wizard-main').element).toBe(button)
-  expect(document.activeElement).toBe(button)
-  await wrapper.get('#rc-wizard-cancel').trigger('click')
+  expect(wrapper.get('#rc-unconfirmed').text()).toContain('Not confirmed')
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  await wrapper.get('#rc-confirm').trigger('click')
   await flushPromises()
 
-  expect(wrapper.get('#rc-wizard-main').element).toBe(button)
-  expect(document.activeElement).toBe(button)
+  expect(wrapper.get('#rc-confirmed').text()).toContain('confirmed for this pad')
+  expect(wrapper.find('#rc-unconfirmed').exists()).toBe(false)
+  expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeDefined()
+  expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"confirmedKey":"')
+  await wrapper.get('[data-testid="rc-row-0"] .kit-toggle').trigger('click')
+  await flushPromises()
+  expect(wrapper.find('#rc-confirmed').exists()).toBe(false)
+  expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined()
 })
 
-it('says why the wizard\'s button is disabled: the pad that is not read, and the first step that is not done', async () => {
+it('shows the four sticks as bars beside the confirmation, and says why it cannot be pressed with no pad read', async () => {
   const { wrapper } = await screen()
 
   await plugged(wrapper)
+  expect(wrapper.findAll('.rc-sticks li')).toHaveLength(4)
+  expect(wrapper.get('[data-testid="rc-stick-throttle"]').text()).toContain('Throttle')
   axes = null
   await vi.waitFor(() => expect(wrapper.find('#rc-device-gone').exists()).toBe(true))
-  expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeDefined()
-  expect(wrapper.get('#rc-wizard-main').attributes('aria-describedby')).toBe('rc-device-gone')
-  axes = [0, 0, -1, 0, 0, 0, 0, 0]
-  await vi.waitFor(() => expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeUndefined())
-  await wrapper.get('#rc-wizard-main').trigger('click')
-  const described = wrapper.get('#rc-wizard-main').attributes('aria-describedby')
+  expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('#rc-confirm').attributes('aria-describedby')).toBeDefined()
+  expect(wrapper.text()).toContain('Needs a pad that is read')
+})
 
-  expect(wrapper.get('#rc-wizard-main').attributes('disabled')).toBeDefined()
-  expect(wrapper.get(`[id="${described}"]`).text()).toContain('Leave the sticks')
+it('chooses how the throttle rests: centred by default, said in plain words, and a change takes the confirmation', async () => {
+  const { wrapper, handle } = await screen()
+
+  await plugged(wrapper)
+  const centred = wrapper.get('input[type="radio"][value="centred"]').element as HTMLInputElement
+  const low = wrapper.get('input[type="radio"][value="low"]').element as HTMLInputElement
+
+  expect([centred.checked, low.checked]).toEqual([true, false])
+  expect(wrapper.text()).toContain('The middle is no climb, up climbs, down descends')
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  await wrapper.get('#rc-confirm').trigger('click')
+  await wrapper.get('input[type="radio"][value="low"]').setValue(true)
+  await flushPromises()
+
+  expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"throttleStyle":"low"')
+  expect(wrapper.find('#rc-confirmed').exists()).toBe(false)
+  expect(wrapper.text()).toContain('The stick rests at the bottom')
+})
+
+it('says which stick is not at rest, with what it reads: what the turn-on would wait for', async () => {
+  const { wrapper } = await screen()
+
+  await plugged(wrapper)
+  axes = [0.72, 0, -1, 0, 0, 0, 0, 0]
+  await vi.waitFor(() => expect(wrapper.get('#rc-rest').text()).toContain('+0.72'))
+
+  expect(wrapper.get('#rc-rest').text()).toContain('Roll is not at the middle')
+  expect(wrapper.get('#rc-rest').text()).toContain('Throttle is not in the middle')
 })
 
 it('moves a row to the channel that is chosen, shows it there, and keeps the focus in its field', async () => {
@@ -222,8 +238,8 @@ it('never starts a control: the mock vehicle is not asked for one, whatever is s
   const { wrapper, control } = await screen([{ key: 'rc.allow', value: 'on' }])
 
   await plugged(wrapper)
-  await wrapper.get('#rc-wizard-main').trigger('click')
-  await wrapper.get('#rc-wizard-cancel').trigger('click')
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  await wrapper.get('#rc-confirm').trigger('click')
   await flushPromises()
 
   expect(control.rc?.began()).toBe(0)

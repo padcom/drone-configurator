@@ -9,121 +9,87 @@
           <div class="rc-row-head">
             <span class="rc-kind">{{ t('settings.rc.vehicleChannel', { n: slot.channel }) }}</span>
             <span class="muted">{{ t('settings.rc.own') }}</span>
-            <Button
-              v-for="kind in KINDS"
-              :id="`${uid}-add-${kind}-${slot.channel}`"
-              :key="kind"
-              :disabled="locked"
-              @click="mapping.add(kind, slot.channel)"
-            >
-              {{ t(`settings.rc.add.${kind}`) }}
+            <Button :id="`${uid}-add-${slot.channel}`" @click="mapping.add(slot.channel)">
+              {{ t('settings.rc.addRow') }}
             </Button>
           </div>
         </li>
         <li v-for="{ row, index } in slot.entries" :key="index" class="rc-row" :data-testid="`rc-row-${index}`">
           <div class="rc-row-head">
-            <span class="rc-kind">{{ t(`settings.rc.kind.${row.kind}`) }}</span>
+            <span class="rc-kind">{{ t('settings.rc.vehicleChannel', { n: row.channel }) }}</span>
             <label :for="`${uid}-channel-${index}`">{{ t('settings.rc.channel') }}</label>
             <Select
               :id="`${uid}-channel-${index}`"
               :model-value="String(row.channel)"
               :options="channels"
-              :disabled="locked"
               @update:model-value="(next: string) => mapping.setChannel(index, Number(next))"
               @change="(event: Event) => showChannel(index, event)"
             />
             <span class="rc-source">{{ sourceText(row) }}</span>
-            <Button
-              v-if="mapping.capturing.value !== index"
-              :id="`${uid}-move-${index}`"
-              :disabled="locked"
-              @click="mapping.capture(index)"
-            >
+            <Button v-if="mapping.capturing.value !== index" :id="`${uid}-move-${index}`" @click="mapping.capture(index)">
               {{ t('settings.rc.moveIt') }}
             </Button>
             <Button v-else :id="`${uid}-move-${index}`" @click="mapping.cancelCapture()">
               {{ t('settings.rc.moveCancel') }}
             </Button>
+            <ProgressBar :value="((mapping.levelOf(row) ?? 0) + 1) / 2" :label="t('settings.rc.level')" />
+            <span class="rc-level mono">{{ levelText(row) }}</span>
             <span class="rc-pulse">{{ pulseText(row) }}</span>
-            <Button :id="`${uid}-remove-${index}`" :disabled="locked" @click="mapping.remove(index)">
+            <Button :id="`${uid}-remove-${index}`" @click="mapping.remove(index)">
               {{ t('settings.rc.remove', { channel: row.channel }) }}
             </Button>
           </div>
           <p v-if="mapping.capturing.value === index" class="muted" role="status">{{ t('settings.rc.moveWaiting') }}</p>
           <div class="rc-row-body">
-            <template v-if="row.kind !== 'button'">
-              <Toggle
-                :id="`${uid}-invert-${index}`"
-                :model-value="row.invert"
-                :disabled="locked"
-                @update:model-value="next => mapping.change(index, { invert: next })"
-              >
-                {{ t('settings.rc.invert') }}
-              </Toggle>
-            </template>
-            <template v-if="row.kind === 'stick'">
-              <label :for="`${uid}-zone-${index}`">{{ t('settings.rc.zone') }}</label>
-              <TextInput
-                :id="`${uid}-zone-${index}`"
-                type="number"
-                min="0"
-                max="50"
-                step="1"
-                :disabled="locked"
-                :model-value="percent(row.deadZone)"
-                @change="(event: Event) => mapping.change(index, { deadZone: fractionOf(event, 0.5) })"
-              />
-              <label :for="`${uid}-expo-${index}`">{{ t('settings.rc.expo') }}</label>
-              <TextInput
-                :id="`${uid}-expo-${index}`"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                :disabled="locked"
-                :model-value="percent(row.expo)"
-                @change="(event: Event) => mapping.change(index, { expo: fractionOf(event, 1) })"
-              />
-            </template>
-            <template v-if="row.kind === 'switch'">
-              <template v-for="(pulse, place) in row.pulses" :key="place">
-                <label :for="`${uid}-pulse-${index}-${place}`">{{ t(`settings.rc.position.${POSITIONS[place]}`) }}</label>
-                <TextInput
-                  :id="`${uid}-pulse-${index}-${place}`"
-                  type="number"
-                  min="800"
-                  max="2200"
-                  step="10"
-                  :disabled="locked"
-                  :model-value="String(pulse)"
-                  @change="(event: Event) => mapping.change(index, { pulses: pulsesWith(row.pulses, place, event) })"
-                />
-              </template>
-            </template>
-            <template v-if="row.kind === 'button'">
-              <label :for="`${uid}-off-${index}`">{{ t('settings.rc.up') }}</label>
-              <TextInput
-                :id="`${uid}-off-${index}`"
-                type="number"
-                min="800"
-                max="2200"
-                step="10"
-                :disabled="locked"
-                :model-value="String(row.off)"
-                @change="(event: Event) => mapping.change(index, { off: whole(event) })"
-              />
-              <label :for="`${uid}-on-${index}`">{{ t('settings.rc.pressed') }}</label>
-              <TextInput
-                :id="`${uid}-on-${index}`"
-                type="number"
-                min="800"
-                max="2200"
-                step="10"
-                :disabled="locked"
-                :model-value="String(row.on)"
-                @change="(event: Event) => mapping.change(index, { on: whole(event) })"
-              />
-            </template>
+            <Toggle
+              :id="`${uid}-invert-${index}`"
+              :model-value="row.invert"
+              @update:model-value="next => mapping.change(index, { invert: next })"
+            >
+              {{ t('settings.rc.invert') }}
+            </Toggle>
+            <label :for="`${uid}-zone-${index}`">{{ t('settings.rc.zone') }}</label>
+            <TextInput
+              :id="`${uid}-zone-${index}`"
+              type="number"
+              min="0"
+              max="50"
+              step="1"
+              :model-value="percent(row.deadZone)"
+              @change="(event: Event) => mapping.change(index, { deadZone: fractionOf(event, 0.5) })"
+            />
+            <label :for="`${uid}-expo-${index}`">{{ t('settings.rc.expo') }}</label>
+            <TextInput
+              :id="`${uid}-expo-${index}`"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              :model-value="percent(row.expo)"
+              @change="(event: Event) => mapping.change(index, { expo: fractionOf(event, 1) })"
+            />
+            <label :for="`${uid}-min-${index}`">{{ t('settings.rc.pulseMin') }}</label>
+            <TextInput
+              :id="`${uid}-min-${index}`"
+              type="number"
+              min="800"
+              max="2200"
+              step="10"
+              :placeholder="t('settings.rc.pulseDefault')"
+              :model-value="row.pulseMin === undefined ? '' : String(row.pulseMin)"
+              @change="(event: Event) => mapping.change(index, ends(row, event, 'pulseMin'))"
+            />
+            <label :for="`${uid}-max-${index}`">{{ t('settings.rc.pulseMax') }}</label>
+            <TextInput
+              :id="`${uid}-max-${index}`"
+              type="number"
+              min="800"
+              max="2200"
+              step="10"
+              :placeholder="t('settings.rc.pulseDefault')"
+              :model-value="row.pulseMax === undefined ? '' : String(row.pulseMax)"
+              @change="(event: Event) => mapping.change(index, ends(row, event, 'pulseMax'))"
+            />
           </div>
         </li>
       </template>
@@ -132,16 +98,19 @@
 </template>
 
 <script setup lang="ts">
-// The rows of the mapping: for each, the channel it drives, the control it is read from ("Move it" finds it: move the stick or
-// press the button), its curve or pulses, and the pulse it makes now. Every change goes through `useRcMapping`, which keeps it
-// and takes the wizard's mark away. While the wizard runs the rows are locked.
+// The rows of the mapping: for each, the channel it drives, the pad channel it reads ("Move it" finds it: move the stick, flip
+// the switch or press the button), what it reads now, its dead zone, curve and ends, and the pulse it makes now. Every row is
+// the same (a pad channel is proportional, a button reads -1 up and 1 pressed). Every change goes through `useRcMapping`, which
+// keeps it and takes the confirmation away.
 import { computed, nextTick, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Button from '@/components/ui/Button.vue'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 import Select from '@/components/ui/Select.vue'
 import TextInput from '@/components/ui/TextInput.vue'
 import Toggle from '@/components/ui/Toggle.vue'
-import type { NewRow, RcMapping } from '@/composables/useRcMapping'
+import type { RcMapping } from '@/composables/useRcMapping'
+import { useFormat } from '@/i18n/useFormat'
 import { hasSource } from '@/lib/rc/profile'
 import { NOT_MINE, type Row } from '@/lib/rc/types'
 
@@ -151,9 +120,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const { number } = useFormat()
 const uid = useId()
-const KINDS: NewRow[] = ['stick', 'switch', 'button']
-const POSITIONS = ['low', 'mid', 'high']
 const CHANNELS = Array.from({ length: 16 }, (_, index) => index + 1)
 const channels = CHANNELS.map(channel => ({ value: String(channel), label: String(channel) }))
 const rows = computed(() => props.mapping.draft.value?.rows ?? [])
@@ -180,7 +148,6 @@ function fieldOf(index: number): HTMLSelectElement | null {
 
 /** The 16 channels of the vehicle, each with the rows that drive it (none: the radio's own; two: the mapping says so). */
 const slots = computed(() => CHANNELS.map(channel => ({ channel, entries: entriesOn(channel) })))
-const locked = computed(() => props.mapping.wizard.value !== null)
 
 /**
  * The channel field shows the row's channel once the choice has been dealt with: a channel that is refused leaves the row where
@@ -206,18 +173,22 @@ async function showChannel(index: number, event: Event): Promise<void> {
  * Where a row is read from, in words.
  *
  * @param row the row
- * @returns the axis or the button
+ * @returns the pad channel
  */
 function sourceText(row: Row): string {
-  if (!hasSource(row)) {
-    return t('settings.rc.noSource')
-  }
+  return hasSource(row) ? t('settings.rc.sourceChannel', { n: row.source }) : t('settings.rc.noSource')
+}
 
-  if (row.kind === 'button') {
-    return t('settings.rc.sourceButton', { n: row.button })
-  }
+/**
+ * What a row reads now, as a signed number.
+ *
+ * @param row the row
+ * @returns the reading, or a dash when no pad is read or the pad has no such channel
+ */
+function levelText(row: Row): string {
+  const level = props.mapping.levelOf(row)
 
-  return t('settings.rc.sourceAxis', { n: row.axis + 1 })
+  return level === null ? t('settings.rc.noPulse') : number(level, 2)
 }
 
 /**
@@ -269,28 +240,21 @@ function fractionOf(event: Event, most: number): number {
 }
 
 /**
- * A pulse that was typed, whole.
+ * The change an end field makes: the pulse that was typed for one end, whole, with the other end kept (a row has both ends or
+ * neither: an empty field takes both away, and the first end typed gives the other the usual 1000 or 2000).
  *
+ * @param row the row
  * @param event the change event
- * @returns the pulse, NaN for a field that is not a number
+ * @param end which end the field is
+ * @returns the change
  */
-function whole(event: Event): number {
-  return Math.round(typed(event))
-}
+function ends(row: Row, event: Event, end: 'pulseMin' | 'pulseMax'): Partial<Row> {
+  const pulse = Math.round(typed(event))
 
-/**
- * The three pulses of a switch with one replaced.
- *
- * @param pulses the pulses
- * @param place which one
- * @param event the change event
- * @returns the new pulses
- */
-function pulsesWith(pulses: readonly [number, number, number], place: number, event: Event): [number, number, number] {
-  const next: [number, number, number] = [...pulses]
+  if (Number.isNaN(pulse)) {
+    return { pulseMin: undefined, pulseMax: undefined }
+  }
 
-  next[place] = whole(event)
-
-  return next
+  return { pulseMin: row.pulseMin ?? 1000, pulseMax: row.pulseMax ?? 2000, [end]: pulse }
 }
 </script>

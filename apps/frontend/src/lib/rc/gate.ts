@@ -1,9 +1,11 @@
 // When RC control may be turned on (plan `drone-configurator-rc-control.md`, section 6, rules 1 and 2): the setting is on, the
 // link goes to a simulator (read from what the connection was asked for, never assumed), a pad is live, the mapping has been
-// through the calibration wizard and passes its checks, and the vehicle's channels agree with it. The answer is the first thing
+// confirmed by the person and passes its checks, and the vehicle's channels agree with it. The answer is the first thing
 // that is not so; the page says it in words, and nothing turns the control on while it is not null.
+import { startAllowed } from './modes'
 import { problemsOf } from './profile'
-import type { Profile } from './types'
+import type { Sticks } from './rest'
+import type { PadLayout, Profile } from './types'
 import type { VehicleProblem } from './vehicle'
 import type { ConnectRequest } from '@/generated/app'
 
@@ -34,8 +36,12 @@ export function isSimulatorLink(request: ConnectRequest | null): boolean {
   return request !== null && (request.transport === 'simulator' || isLoopback(request))
 }
 
-/** Why control may not be turned on: `off` (the setting), `link` (not a simulator), `pad`, `mapping` or `vehicle`. */
-export type ControlBlock = 'off' | 'link' | 'pad' | 'mapping' | 'vehicle'
+/**
+ * Why control may not be turned on: `off` (the setting), `link` (not a simulator), `pad`, `mapping` (a problem of the mapping,
+ * among them that it was not confirmed), `reading` (a control channel's pad channel is missing or is a button), `vehicle` or
+ * `mode` (a centred throttle only starts in a mode that reads the throttle as a climb rate).
+ */
+export type ControlBlock = 'off' | 'link' | 'pad' | 'mapping' | 'reading' | 'vehicle' | 'mode'
 
 /** What decides it. */
 export interface ControlInput {
@@ -53,18 +59,63 @@ export interface ControlInput {
   padLive: boolean
   /** The mapping of that pad, or null when it has none. */
   profile: Profile | null
+  /** What each channel of the pad is now (null while it is not read). */
+  layout: PadLayout | null
+  /** The channels of the vehicle's four sticks, or null when the vehicle did not say. */
+  sticks: Sticks | null
+  /** The vehicle's flight mode (its name), or undefined when it is not known. */
+  mode?: string
   /** What the vehicle and the mapping say together. */
   vehicle: readonly VehicleProblem[]
 }
 
 /**
- * Whether a mapping is missing or has a problem (a mapping the wizard has not been through has one).
+ * Whether a mapping is missing or has a problem (a mapping that was not confirmed for this pad has one).
  *
- * @param profile the mapping, or null
+ * @param input what decides it
  * @returns true when it may not drive a vehicle
  */
-function mappingWrong(profile: Profile | null): boolean {
-  return profile === null || problemsOf(profile).length > 0
+function mappingWrong(input: ControlInput): boolean {
+  return input.profile === null || problemsOf(input.profile, input.layout).length > 0
+}
+
+/**
+ * Whether one of the four control channels has no pad channel that is an axis.
+ *
+ * @param profile the mapping
+ * @param layout what each channel of the pad is
+ * @param sticks the channels of the vehicle's four sticks
+ * @returns true when one does not (no row, a pad channel the pad has not, or a button)
+ */
+export function sticksUnread(profile: Profile, layout: PadLayout, sticks: Sticks): boolean {
+  return Object.values(sticks).some(channel => {
+    const row = profile.rows.find(candidate => candidate.channel === channel)
+
+    return row === undefined || layout[row.source - 1] !== 'axis'
+  })
+}
+
+/**
+ * Whether one of the four control channels has no pad channel that is an axis (a pad channel the pad has not, or a button). A
+ * stick must be proportional, and a reading of it must be there.
+ *
+ * @param input what decides it
+ * @returns true when one does not
+ */
+function readingWrong(input: ControlInput): boolean {
+  const { profile, layout, sticks } = input
+
+  return profile !== null && layout !== null && sticks !== null && sticksUnread(profile, layout, sticks)
+}
+
+/**
+ * Whether the mode does not let this control start: a centred throttle starts only in a mode that reads it as a climb rate.
+ *
+ * @param input what decides it
+ * @returns true when it does not
+ */
+function modeWrong(input: ControlInput): boolean {
+  return input.profile !== null && !startAllowed(input.profile.throttleStyle === 'centred', input.mode)
 }
 
 /**
@@ -91,8 +142,10 @@ export function controlBlock(input: ControlInput): ControlBlock | null {
     ['off', !input.allowed],
     ['link', linkWrong(input)],
     ['pad', !input.padLive],
-    ['mapping', mappingWrong(input.profile)],
+    ['mapping', mappingWrong(input)],
+    ['reading', readingWrong(input)],
     ['vehicle', input.vehicle.some(problem => problem.blocks)],
+    ['mode', modeWrong(input)],
   ]
 
   return checks.find(([, wrong]) => wrong)?.[0] ?? null

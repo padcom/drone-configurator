@@ -1,29 +1,22 @@
+// "Move it": the pad channel the person moved.
 import { describe, expect, it } from 'vitest'
 import { MOVED_BY, movedControl } from './source'
+import { sample } from '@/testing/rcSamples'
 
-const REST = { axes: [0, 0, -1, 0], buttons: [0, 0, 0] }
-
-describe('what the person moved', () => {
-  it('is the axis that went at least half of its travel from where it was, for a stick or a switch', () => {
-    expect(movedControl('stick', REST, { axes: [0, 0.1, -1, 0], buttons: [0, 0, 0] })).toBeNull()
-    expect(movedControl('stick', REST, { axes: [0, MOVED_BY, -1, 0], buttons: [0, 0, 0] })).toBe(1)
-    expect(movedControl('switch', REST, { axes: [0, 0, -1, -0.9], buttons: [0, 0, 0] })).toBe(3)
-    expect(movedControl('stick', REST, { axes: [0, 0, 0, 0], buttons: [0, 0, 0] })).toBe(2)
+describe('the pad channel that was moved', () => {
+  it('is the first that moved by at least MOVED_BY from where it was, as a 1-based channel', () => {
+    expect(movedControl(sample(0, 0, 0), sample(0, MOVED_BY, 1))).toBe(2)
+    expect(movedControl(sample(0, 0, 0), sample(0, MOVED_BY - 0.01, 0.2))).toBeNull()
+    expect(movedControl(sample(-1, 0.5), sample(-1, -0.5))).toBe(2)
   })
 
-  it('is measured from the baseline, not from the middle: a throttle that rests at the bottom is not "moved"', () => {
-    expect(movedControl('stick', REST, { axes: [0, 0, -1, 0], buttons: [0, 0, 0] })).toBeNull()
+  it('finds a button like a stick: it goes from -1 to 1', () => {
+    expect(movedControl(sample(0, 0, 0, -1), sample(0, 0, 0, 1))).toBe(4)
   })
 
-  it('is the first one when several went, and a button only for a button', () => {
-    expect(movedControl('stick', REST, { axes: [1, 1, -1, 0], buttons: [1, 0, 0] })).toBe(0)
-    expect(movedControl('button', REST, { axes: [1, 1, -1, 0], buttons: [0, 0, 0] })).toBeNull()
-    expect(movedControl('button', REST, { axes: [0, 0, -1, 0], buttons: [0, 0, 1] })).toBe(2)
-    expect(movedControl('stick', REST, { axes: [0, 0, -1, 0], buttons: [1, 1, 1] })).toBeNull()
-  })
-
-  it('does not take a value that is not a number for a move, and counts a control the baseline did not have from 0', () => {
-    expect(movedControl('stick', REST, { axes: [Number.NaN, 0, -1, 0], buttons: [] })).toBeNull()
-    expect(movedControl('stick', { axes: [], buttons: [] }, { axes: [0.2, 0.9], buttons: [] })).toBe(1)
+  it('does not take a channel the pad has not for a move, nor one that appeared or went', () => {
+    expect(movedControl(sample(0, null), sample(0, null))).toBeNull()
+    expect(movedControl(sample(0, null), sample(0, 1))).toBeNull()
+    expect(movedControl(sample(0, 1), sample(0, null))).toBeNull()
   })
 })

@@ -1,5 +1,5 @@
 // The RC control, as the whole application sees it: ONE service (made with the Configurator, so it lives across screens)
-// that reads the gamepad, makes the 16 pulses of the mapping, holds the throttle back until the stick has been low (the gate),
+// that reads the gamepad, makes the 16 pulses of the mapping, sends nothing until the four sticks have been at rest (the gate),
 // and sends them to the backend's `rc.control` / `rc.input`. Everything that ends the control RELEASES it (the subscription
 // ends, and the backend releases the channels), turns the switch OFF, and says why; a release is never undone by itself: the
 // person turns it on again, which starts with the gate shut. What ends it: the person (the switch, the indicator), the pad
@@ -15,10 +15,12 @@ import type { ConnectRequest, Connection, RcState, Telemetry } from '@/generated
 import { armedOf, landedOf } from '@/lib/app/armed'
 import { type ControlBlock, controlBlock, isSimulatorLink } from '@/lib/rc/gate'
 import { channelsOf } from '@/lib/rc/mapping'
+import { continueAllowed } from '@/lib/rc/modes'
 import type { Environment } from '@/lib/rc/reader'
-import { type Gate, START_GATE, guard, rudderHeld } from '@/lib/rc/safety'
+import { type NotAtRest, REST_TIMEOUT_MS, type Sticks, notAtRest } from '@/lib/rc/rest'
+import { type Gate, type Guarded, START_GATE, guard, lowRead, rudderHeld } from '@/lib/rc/safety'
 import { serialiseProfile } from '@/lib/rc/store'
-import type { PadSample, Profile } from '@/lib/rc/types'
+import { NOT_MINE, type PadLayout, type PadSample, type Profile, type ThrottleStyle, type VehicleChannels } from '@/lib/rc/types'
 import { type Facts, vehicleChannels, vehicleProblems } from '@/lib/rc/vehicle'
 
 /** How often the sticks are sent at the most (ms): the backend sends at its own rate, and a frozen page is silent to it. */
@@ -51,6 +53,14 @@ export interface RcControlDeps {
   busy?: () => string | null
 }
 
+/** What a control flies with: the mapping and what the vehicle says of its channels. */
+interface Flying {
+  /** The mapping. */
+  profile: Profile
+  /** The vehicle's facts. */
+  facts: Facts
+}
+
 /** The RC control as refs and actions. */
 export interface RcControlModel {
   /** Where it is. */
@@ -59,8 +69,12 @@ export interface RcControlModel {
   readonly active: ComputedRef<boolean>
   /** Why it last ended or was refused (a code), or null. */
   readonly why: ShallowRef<string | null>
-  /** Whether the throttle is being sent (the gate is open): until then the person must lower the throttle. */
+  /** Whether the channels are being sent (the gate is open): until then every stick must be at rest, for a moment. */
   readonly gateOpen: ShallowRef<boolean>
+  /** The sticks that are not at rest while the gate is shut (what the person is told to centre), none once it is open. */
+  readonly restWait: ShallowRef<NotAtRest[]>
+  /** How the throttle rests in the mapping the control flew with last (null before the first control): what the summary says. */
+  readonly style: ShallowRef<ThrottleStyle | null>
   /**
    * Whether the sticks may arm and disarm in this control (the rudder guard is lifted): what the setting said when it began, so
    * that turning the setting over does not change a control that flies. False while it is off.
@@ -124,6 +138,8 @@ class RcControl implements RcControlModel {
   readonly active = computed(() => this.state.value !== 'off')
   readonly why = shallowRef<string | null>(null)
   readonly gateOpen = shallowRef(false)
+  readonly restWait = shallowRef<NotAtRest[]>([])
+  readonly style = shallowRef<ThrottleStyle | null>(null)
   // (read once, when a control begins, after allowed, a simulator and a ready mapping were checked: a change of the setting while
   // the control flies does nothing to it)
   readonly rudderLifted = shallowRef(false)
@@ -141,6 +157,8 @@ class RcControl implements RcControlModel {
   private profile: Profile | null = null
   private snapshot = ''
   private gate: Gate = START_GATE
+  /** When (the page's clock, ms) the gate began to wait for the sticks to be at rest, or null while it does not. */
+  private waitedSince: number | null = null
   private seq = 0
   private sentAt = Number.NEGATIVE_INFINITY
   /** The number of the control that runs or ran last: what an older one says is ignored. */
@@ -181,6 +199,20 @@ class RcControl implements RcControlModel {
     // (what the vehicle says of its channels is what the throttle is held to: a change under the control ends it)
     watch(() => factsKey(deps.facts.value), key => this.facts !== '' && key !== this.facts && this.over('PARAMS_CHANGED'))
     watch(() => this.keptMapping(), kept => kept !== this.snapshot && this.over('EDITED'))
+    // (a centred throttle is only flown in the modes that read it as a climb rate, or take none: any other mode releases at once)
+    watch(() => deps.telemetry?.value?.mode, mode => this.modeChanged(mode))
+  }
+
+  /**
+   * The vehicle's mode changed (or was heard for the first time): a centred throttle that is flying in a mode that would take its
+   * middle for thrust is let go of, whatever the page asked.
+   *
+   * @param mode the mode's name
+   */
+  private modeChanged(mode: string | undefined): void {
+    if (this.state.value !== 'off' && this.profile !== null && !continueAllowed(this.profile.throttleStyle === 'centred', mode)) {
+      this.over('MODE')
+    }
   }
 
   /**
@@ -226,9 +258,20 @@ class RcControl implements RcControlModel {
    */
   private keptMapping(): string {
     const device = this.device.value
-    const kept = device === null ? null : this.deps.settings.profileOf(device)
+    const kept = device === null ? null : this.deps.settings.profileOf(device, this.layoutNow())
 
-    return kept === null ? '' : serialiseProfile(kept)
+    return kept === null ? '' : serialiseProfile(kept.profile)
+  }
+
+  /**
+   * What each channel of the pad that is read is.
+   *
+   * @returns the layout, or null while the pad is not read
+   */
+  private layoutNow(): PadLayout | null {
+    const reading = this.pad.reading.value
+
+    return reading.kind === 'live' ? reading.layout : null
   }
 
   enable = async (): Promise<void> => {
@@ -292,7 +335,7 @@ class RcControl implements RcControlModel {
   private padProfile(): Profile | null {
     const id = this.pad.id.value
 
-    return id === null ? null : this.deps.settings.profileOf(id)
+    return id === null ? null : this.deps.settings.profileOf(id, this.layoutNow())?.profile ?? null
   }
 
   /**
@@ -308,8 +351,29 @@ class RcControl implements RcControlModel {
       letBackendDecide: this.deps.connection.value.state === 'connected',
       padLive: this.pad.live.value,
       profile,
+      layout: this.layoutNow(),
+      sticks: this.sticksNow(),
+      mode: this.modeNow(),
       vehicle: profile === null ? [] : vehicleProblems(this.deps.facts.value, profile),
     })
+  }
+
+  /**
+   * The channels of the vehicle's four sticks.
+   *
+   * @returns them, or null when the vehicle has not said
+   */
+  private sticksNow(): Sticks | null {
+    return this.deps.facts.value?.map ?? null
+  }
+
+  /**
+   * The vehicle's flight mode, as the telemetry says it.
+   *
+   * @returns its name, or undefined when it is not known
+   */
+  private modeNow(): string | undefined {
+    return this.deps.telemetry?.value?.mode
   }
 
   /**
@@ -325,16 +389,19 @@ class RcControl implements RcControlModel {
   }
 
   /**
-   * Starts the control: the gate is shut, and the backend is asked for the subscription.
+   * What a control begins with: the mapping it flies with, the gate shut, nothing counted, and a number of its own.
    *
    * @param profile the mapping that is flown with
    */
-  private async begin(profile: Profile): Promise<void> {
+  private startFor(profile: Profile): void {
     this.profile = profile
     this.snapshot = serialiseProfile(profile)
     this.device.value = profile.device
     this.gate = START_GATE
     this.gateOpen.value = false
+    this.restWait.value = []
+    this.waitedSince = null
+    this.style.value = profile.throttleStyle
     this.rudderLifted.value = this.deps.settings.rudderArm.value
     this.seq = 0
     this.sentAt = Number.NEGATIVE_INFINITY
@@ -344,6 +411,15 @@ class RcControl implements RcControlModel {
     this.facts = factsKey(this.deps.facts.value)
     this.pushing = false
     this.run += 1
+  }
+
+  /**
+   * Starts the control: the gate is shut, and the backend is asked for the subscription.
+   *
+   * @param profile the mapping that is flown with
+   */
+  private async begin(profile: Profile): Promise<void> {
+    this.startFor(profile)
     const mine = this.run
     try {
       // (whatever goes wrong in asking for the subscription ends the control with a reason: never left starting, or off with
@@ -450,7 +526,7 @@ class RcControl implements RcControlModel {
    *
    * @returns them, or null when it is not on
    */
-  private flying(): { profile: Profile, facts: Facts } | null {
+  private flying(): Flying | null {
     const { profile } = this
     const facts = this.deps.facts.value
 
@@ -471,16 +547,73 @@ class RcControl implements RcControlModel {
     if (flying === null || this.pushing || at - this.sentAt < SEND_MS) {
       return
     }
-    const vehicle = vehicleChannels(flying.facts)
-    const pulses = channelsOf(flying.profile, sample, vehicle.range)
-    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: this.yawHeld() })
+    const { guarded, waiting } = this.frameOf(flying, sample)
 
     this.sentAt = at
     this.gate = guarded.gate
     this.countFrame(guarded.yawHeld)
     this.gateOpen.value = guarded.gate.open
+    this.waitForRest(waiting, at)
     this.seq += 1
     void this.push(this.seq, guarded.channels)
+  }
+
+  /**
+   * What a read makes of the mapping: the pulses, held by the guards, and the sticks the gate is still waiting for.
+   *
+   * @param flying the mapping and the vehicle's facts that are flown with
+   * @param sample what the pad said
+   * @returns the guarded pulses with the gate after the read, and the sticks that are not at rest (none once the gate is open)
+   */
+  private frameOf(flying: Flying, sample: PadSample): { guarded: Guarded, waiting: NotAtRest[] } {
+    const vehicle = vehicleChannels(flying.facts)
+    const pulses = channelsOf(flying.profile, sample, vehicle.range)
+    const rest = this.restOf(flying, sample, vehicle, pulses)
+    const guarded = guard(pulses, vehicle, this.gate, {
+      holdRudder: this.yawHeld(),
+      rested: rest.length === 0,
+      centred: flying.profile.throttleStyle === 'centred',
+    })
+
+    return { guarded, waiting: guarded.gate.open ? [] : rest }
+  }
+
+  /**
+   * Which of the four sticks are not at rest in a read (the rest check: nothing is sent until all four are, for a while).
+   *
+   * @param flying the mapping and the vehicle's facts that are flown with
+   * @param sample what the pad said
+   * @param vehicle the vehicle's channels
+   * @param pulses the pulses the mapping made
+   * @returns the sticks that are not
+   */
+  private restOf(flying: Flying, sample: PadSample, vehicle: VehicleChannels, pulses: number[]): NotAtRest[] {
+    const range = vehicle.range(vehicle.throttle)
+    const low = lowRead(pulses[vehicle.throttle - 1] ?? NOT_MINE, range, vehicle.throttleDeadZone ?? 0)
+
+    return notAtRest(flying.profile, sample, flying.facts.map, low)
+  }
+
+  /**
+   * Keeps what the gate waits for (what the screen says) and turns the control off when it has waited too long: a control left
+   * "on, waiting" is not a control.
+   *
+   * @param waiting the sticks that are not at rest while the gate is shut (none once it is open)
+   * @param at when the page read it (its clock, ms)
+   */
+  private waitForRest(waiting: NotAtRest[], at: number): void {
+    this.restWait.value = waiting
+
+    if (this.gate.open) {
+      this.waitedSince = null
+
+      return
+    }
+    this.waitedSince ??= at
+
+    if (at - this.waitedSince >= REST_TIMEOUT_MS) {
+      this.over('REST_TIMEOUT')
+    }
   }
 
   /**
@@ -525,6 +658,8 @@ class RcControl implements RcControlModel {
     this.device.value = null
     this.gate = START_GATE
     this.gateOpen.value = false
+    this.restWait.value = []
+    this.waitedSince = null
     this.rudderLifted.value = false
     this.why.value = why
 

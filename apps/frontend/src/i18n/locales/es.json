@@ -828,7 +828,14 @@
     "help": {
       "off": "Apagado. El mando no pilota el vehículo.",
       "on": "El mando está pilotando el vehículo.",
-      "lower": "Baja el acelerador para empezar: se envía cuando el stick ha estado abajo un momento."
+      "resting": "Mantén todos los sticks en reposo un momento (el acelerador también): hasta entonces no se envía nada."
+    },
+    "rest": {
+      "roll": "El alabeo no está en el centro: {level}. Centra el stick.",
+      "pitch": "El cabeceo no está en el centro: {level}. Centra el stick.",
+      "yaw": "La guiñada no está en el centro: {level}. Centra el stick.",
+      "throttleCentred": "El acelerador no está en el centro: {level}. Deja que el stick vuelva a su centro.",
+      "throttleLow": "El acelerador no está abajo: {level}. Baja el stick hasta el fondo."
     },
     "indicator": {
       "on": "Control remoto activo",
@@ -838,7 +845,10 @@
     },
     "summary": {
       "title": "¿Pilotar con el mando?",
-      "what": "El mando enviará sus sticks al vehículo hasta que lo apagues. Antes, pon los sticks en el centro y el acelerador abajo. Mientras esté activo, la comprobación del vehículo «RC no encontrado» ya no protege de un transmisor ausente.",
+      "what": "El mando enviará sus sticks al vehículo hasta que lo apagues. No se envía nada hasta que los cuatro sticks estén en reposo. Mientras esté activo, la comprobación del vehículo «RC no encontrado» ya no protege de un transmisor ausente.",
+      "centred": "Acelerador: centrado. El centro del stick es sin ascenso, arriba asciende, abajo desciende. Solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune (y sigue en Auto, Guided, RTL, Land, Brake y similares). Cualquier otro modo apaga el control.",
+      "low": "Acelerador: abajo en reposo. El stick debe estar abajo del todo antes de que el control empiece.",
+      "either": "El acelerador está centrado o abajo en reposo, según diga la asignación (Ajustes). Centrado solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune; cualquier otro modo apaga el control.",
       "button": "Activar el control remoto"
     },
     "command": {
@@ -849,8 +859,12 @@
       "off": "El control remoto no está permitido. Permítelo en Ajustes.",
       "link": "No hay ningún simulador conectado.",
       "pad": "No se lee ningún mando. Mueve un stick de la radio.",
-      "mapping": "El mando no tiene una asignación lista. Calíbrala en Ajustes.",
+      "mapping": "El mando no tiene una asignación lista. Revísala y confírmala en Ajustes.",
+      "reading": "Un stick del vehículo no tiene un canal proporcional del mando (un eje). Mira Ajustes.",
       "vehicle": "Los ajustes del vehículo no concuerdan con la asignación. Mira Ajustes.",
+      "mode": "Un acelerador centrado solo empieza en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia primero el modo.",
+      "MODE": "El control remoto terminó: el modo de vuelo no admite un acelerador centrado.",
+      "REST_TIMEOUT": "El control remoto terminó: los sticks no estuvieron en reposo en 10 segundos.",
       "ENDED": "El control remoto terminó.",
       "ERROR": "El control remoto no pudo empezar.",
       "SILENT": "Control remoto terminado: la página estuvo callada demasiado tiempo.",
@@ -919,22 +933,19 @@
         "title": "Mando",
         "none": "Aún no se ha encontrado ningún mando. Una radio aparece al mover un stick.",
         "gone": "Ahora no se lee el mando. Mueve un stick.",
-        "axis": "CH{n}",
-        "buttons": "Botones pulsados: {list}",
-        "noButtons": "No hay ningún botón pulsado."
+        "channel": "CH{n}"
       },
       "mapping": "Asignación",
-      "kind": {
-        "stick": "Stick",
-        "switch": "Interruptor",
-        "button": "Botón"
-      },
       "channel": "Canal del vehículo",
       "vehicleChannel": "Canal del vehículo {n}",
       "own": "El propio de la radio",
-      "axesNote": "El navegador puede no informar de todos los ejes de la radio: uno que se queda en 0 puede haberse perdido.",
-      "sourceAxis": "CH{n}",
-      "sourceButton": "Botón {n}",
+      "channelsNote": "Todo mando es CH1 a CH16: primero sus ejes, luego sus botones (−1 suelto, +1 pulsado). Un canal que el mando no tiene muestra un guion. Aquí no se calibra nada: se usa el rango propio del mando.",
+      "sourceChannel": "CH{n} del mando",
+      "level": "Lo que lee la fila ahora",
+      "pulseMin": "Pulso en −1 (µs)",
+      "pulseMax": "Pulso en +1 (µs)",
+      "pulseDefault": "el del canal",
+      "addRow": "Añadir una fila",
       "moveIt": "Muévelo",
       "moveCancel": "Cancelar",
       "moveWaiting": "Mueve el stick o el interruptor, o pulsa el botón, que quieres decir.",
@@ -944,34 +955,31 @@
       "invert": "Invertir",
       "zone": "Zona muerta (%)",
       "expo": "Curva (%)",
-      "position": {
-        "low": "Abajo (µs)",
-        "mid": "Centro (µs)",
-        "high": "Arriba (µs)"
-      },
-      "up": "Suelto (µs)",
-      "pressed": "Pulsado (µs)",
-      "add": {
-        "stick": "Añadir un stick",
-        "switch": "Añadir un interruptor",
-        "button": "Añadir un botón"
-      },
       "refused": {
         "arm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
         "taken": "El canal {channel} ya lo maneja otra fila. Quita esa fila o elige otro canal."
       },
       "noSource": "Aún sin control",
-      "wizard": {
-        "title": "Calibración",
-        "start": "Calibrar…",
-        "rest": "Deja los sticks en reposo, con el acelerador abajo, y espera.",
-        "restReady": "Hecho. Ahora moverás cada stick a todos sus extremos.",
-        "move": "Mueve cada stick despacio a todos sus extremos, varias veces. Luego termina.",
-        "axis": "CH{n}",
-        "next": "Siguiente",
-        "finish": "Terminar",
-        "cancel": "Cancelar",
-        "failed": "Estos ejes no se movieron lo bastante: {axes}. Muévelos a ambos extremos y termina de nuevo."
+      "style": {
+        "title": "Acelerador",
+        "centred": "Centrado",
+        "low": "Abajo en reposo",
+        "centredHelp": "El stick reposa en el centro (vuelve solo, como en un dron de cámara). El centro es sin ascenso, arriba asciende, abajo desciende. Solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune, y sigue en Auto, Guided, RTL, Land, Brake y similares; cualquier otro modo apaga el control, y no empieza en ninguno. La zona muerta de su fila debe ser de al menos 5 %.",
+        "lowHelp": "El stick reposa abajo (el acelerador de una radio). El stick debe estar abajo del todo antes de que el control empiece."
+      },
+      "sticks": {
+        "roll": "Alabeo",
+        "pitch": "Cabeceo",
+        "throttle": "Acelerador",
+        "yaw": "Guiñada"
+      },
+      "confirm": {
+        "title": "Confirmar",
+        "button": "Confirmar esta asignación",
+        "done": "Esta asignación está confirmada para este mando.",
+        "needed": "Sin confirmar. Mueve cada stick y mira su barra arriba, luego confirma. Cualquier cambio quita la confirmación.",
+        "converted": "Esta asignación se convirtió de una versión anterior. Revísala y confírmala.",
+        "disabled": "Necesita un mando que se lee, una fila para cada uno de los cuatro sticks del vehículo en un eje del mando, y ninguno de los problemas de abajo."
       },
       "issue": {
         "mapping": {
@@ -980,16 +988,17 @@
           "source": "El canal {channel} aún no tiene control. Pulsa «Muévelo» y mueve el que quieres.",
           "zone": "La zona muerta del canal {channel} debe ser de 0 a 50 %.",
           "expo": "La curva del canal {channel} debe ser de 0 a 100 %.",
-          "calibration": "La calibración del canal {channel} no sirve. Calibra de nuevo.",
+          "absent": "El canal {channel} lee un canal del mando que este mando no tiene.",
           "pulse": "Un pulso del canal {channel} debe ser un número entero de 800 a 2200 µs.",
-          "uncalibrated": "La asignación no se ha calibrado. Calíbrala antes de usar el control remoto."
+          "unconfirmed": "La asignación no está confirmada. Revísala y pulsa «Confirmar esta asignación»."
         },
         "vehicle": {
           "unknownAll": "No se conocen todos los ajustes del vehículo. Conecta el vehículo y deja que se descarguen todos sus parámetros.",
           "unknown": "El vehículo no informó de un ajuste que necesita el canal {channel}. Vuelve a descargar sus parámetros.",
           "range": "El rango de pulsos del canal {channel} en el vehículo no sirve.",
           "arm": "El canal {channel} arma o detiene el vehículo. Quita esa fila.",
-          "zone": "La zona muerta del acelerador del vehículo es ancha, así que «abajo» es más ancho de lo normal."
+          "zone": "La zona muerta del acelerador del vehículo es ancha, así que «abajo» es más ancho de lo normal.",
+          "centre": "La zona muerta de la fila del acelerador debe ser de al menos 5 % con un acelerador centrado."
         }
       }
     },

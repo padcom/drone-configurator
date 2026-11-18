@@ -828,7 +828,14 @@
     "help": {
       "off": "Off. The gamepad does not fly the vehicle.",
       "on": "The gamepad is flying the vehicle.",
-      "lower": "Lower the throttle to start: it is sent once the stick has been low for a moment."
+      "resting": "Hold every stick at rest (the throttle too) for a moment: nothing is sent until then."
+    },
+    "rest": {
+      "roll": "Roll is not at the middle: {level}. Centre the stick.",
+      "pitch": "Pitch is not at the middle: {level}. Centre the stick.",
+      "yaw": "Yaw is not at the middle: {level}. Centre the stick.",
+      "throttleCentred": "Throttle is not in the middle: {level}. Let the stick go to its middle.",
+      "throttleLow": "Throttle is not low: {level}. Lower the stick to the bottom."
     },
     "indicator": {
       "on": "RC control on",
@@ -838,7 +845,10 @@
     },
     "summary": {
       "title": "Fly with the gamepad?",
-      "what": "The gamepad will send its sticks to the vehicle until you turn this off. Put the sticks in the middle and the throttle low first. While it is on, the vehicle's check \"RC not found\" no longer guards a missing transmitter.",
+      "what": "The gamepad will send its sticks to the vehicle until you turn this off. Nothing is sent until all four sticks are at rest. While it is on, the vehicle's check \"RC not found\" no longer guards a missing transmitter.",
+      "centred": "Throttle: centred. The middle of the stick is no climb, up climbs, down descends. It works only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag and Autotune (and goes on in Auto, Guided, RTL, Land, Brake and the like). Any other mode switches the control off.",
+      "low": "Throttle: low at rest. The stick must be at the bottom before the control starts.",
+      "either": "The throttle is centred or low at rest, as the mapping says (Settings). Centred works only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag and Autotune; any other mode switches the control off.",
       "button": "Turn on RC control"
     },
     "command": {
@@ -849,8 +859,12 @@
       "off": "RC control is not allowed. Allow it in Settings.",
       "link": "No simulator is connected.",
       "pad": "No gamepad is being read. Move a stick on the radio.",
-      "mapping": "The gamepad has no mapping that is ready. Calibrate it in Settings.",
+      "mapping": "The gamepad has no mapping that is ready. Look at it and confirm it in Settings.",
+      "reading": "A stick of the vehicle has no proportional channel of the pad (an axis). See Settings.",
       "vehicle": "The vehicle's settings do not agree with the mapping. See Settings.",
+      "mode": "A centred throttle starts only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag or Autotune. Change the mode first.",
+      "MODE": "RC control ended: the flight mode does not take a centred throttle.",
+      "REST_TIMEOUT": "RC control ended: the sticks were not at rest within 10 seconds.",
       "ENDED": "RC control ended.",
       "ERROR": "RC control could not start.",
       "SILENT": "RC control ended: the page went quiet for too long.",
@@ -919,77 +933,72 @@
         "title": "Gamepad",
         "none": "No gamepad found yet. A radio shows up when you move a stick.",
         "gone": "The gamepad is not being read now. Move a stick.",
-        "axis": "CH{n}",
-        "buttons": "Buttons pressed: {list}",
-        "noButtons": "No button is pressed."
+        "channel": "CH{n}"
       },
       "mapping": "Mapping",
-      "kind": {
-        "stick": "Stick",
-        "switch": "Switch",
-        "button": "Button"
-      },
       "channel": "Vehicle channel",
       "vehicleChannel": "Vehicle channel {n}",
       "own": "The radio's own",
-      "axesNote": "The browser may not report every axis of the radio: one that stays at 0 may have been dropped.",
-      "sourceAxis": "CH{n}",
-      "sourceButton": "Button {n}",
+      "channelsNote": "Every pad is CH1 to CH16: its axes first, then its buttons (−1 up, +1 pressed). A channel the pad does not have shows a dash. Nothing is calibrated here: the pad's own range is used.",
+      "sourceChannel": "Pad CH{n}",
       "moveIt": "Move it",
       "moveCancel": "Cancel",
       "moveWaiting": "Move the stick or switch, or press the button, that you mean.",
       "remove": "Remove channel {channel}",
       "pulse": "{us} µs",
       "noPulse": "—",
+      "level": "What the row reads now",
       "invert": "Invert",
       "zone": "Dead zone (%)",
       "expo": "Curve (%)",
-      "position": {
-        "low": "Low (µs)",
-        "mid": "Middle (µs)",
-        "high": "High (µs)"
-      },
-      "up": "Up (µs)",
-      "pressed": "Pressed (µs)",
-      "add": {
-        "stick": "Add a stick",
-        "switch": "Add a switch",
-        "button": "Add a button"
-      },
+      "pulseMin": "Pulse at −1 (µs)",
+      "pulseMax": "Pulse at +1 (µs)",
+      "pulseDefault": "the channel's own",
+      "addRow": "Add a row",
       "refused": {
         "arm": "Channel {channel} arms or stops the vehicle, so it cannot be driven from here.",
         "taken": "Channel {channel} is already driven by another row. Take that row away, or choose another channel."
       },
       "noSource": "No control yet",
-      "wizard": {
-        "title": "Calibration",
-        "start": "Calibrate…",
-        "rest": "Leave the sticks where they rest, with the throttle at the bottom, and wait.",
-        "restReady": "Done. Next, you will move every stick to all its ends.",
-        "move": "Move every stick slowly to all its ends, a few times. Then finish.",
-        "axis": "CH{n}",
-        "next": "Next",
-        "finish": "Finish",
-        "cancel": "Cancel",
-        "failed": "These axes were not moved far enough: {axes}. Move them to both ends, then finish again."
+      "style": {
+        "title": "Throttle",
+        "centred": "Centred",
+        "low": "Low at rest",
+        "centredHelp": "The stick rests in the middle (it springs back, like a camera drone's). The middle is no climb, up climbs, down descends. It works only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag and Autotune, and goes on in Auto, Guided, RTL, Land, Brake and the like; any other mode switches the control off, and the control does not start in one. The dead zone of its row must be at least 5 %.",
+        "lowHelp": "The stick rests at the bottom (a radio's throttle). The stick must be at the bottom before the control starts."
+      },
+      "sticks": {
+        "roll": "Roll",
+        "pitch": "Pitch",
+        "throttle": "Throttle",
+        "yaw": "Yaw"
+      },
+      "confirm": {
+        "title": "Confirm",
+        "button": "Confirm this mapping",
+        "done": "This mapping is confirmed for this pad.",
+        "needed": "Not confirmed. Move each stick and look at its bar above, then confirm. Any change takes the confirmation away.",
+        "converted": "This mapping was converted from an older version. Look at it and confirm it.",
+        "disabled": "Needs a pad that is read, a row for each of the vehicle's four sticks on an axis of the pad, and none of the problems below."
       },
       "issue": {
         "mapping": {
           "channel": "Channel {channel} is not a channel from 1 to 16.",
           "duplicate": "Channel {channel} is driven by more than one row.",
           "source": "Channel {channel} has no control yet. Press Move it and move the control you mean.",
+          "absent": "Channel {channel} reads a pad channel that this pad does not have.",
           "zone": "The dead zone of channel {channel} must be 0 to 50 %.",
           "expo": "The curve of channel {channel} must be 0 to 100 %.",
-          "calibration": "The calibration of channel {channel} cannot be used. Calibrate again.",
           "pulse": "A pulse of channel {channel} must be a whole number from 800 to 2200 µs.",
-          "uncalibrated": "The mapping has not been calibrated. Calibrate it before using remote control."
+          "unconfirmed": "The mapping is not confirmed. Look at it and press Confirm this mapping."
         },
         "vehicle": {
           "unknownAll": "The vehicle's settings are not all known. Connect the vehicle and let all its parameters download.",
           "unknown": "The vehicle did not report a setting that channel {channel} needs. Download its parameters again.",
           "range": "The pulse range of channel {channel} on the vehicle cannot be used.",
           "arm": "Channel {channel} arms or stops the vehicle. Remove that row.",
-          "zone": "The vehicle's throttle dead zone is wide, so “low” is wider than usual."
+          "zone": "The vehicle's throttle dead zone is wide, so “low” is wider than usual.",
+          "centre": "The dead zone of the throttle's row must be at least 5 % for a centred throttle."
         }
       }
     },

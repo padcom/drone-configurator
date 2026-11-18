@@ -32,7 +32,7 @@ function setup() {
  * @returns what the axis said, or null for a reading with no sample
  */
 function firstAxis(reading: Reading): number | null {
-  return reading.kind === 'live' ? reading.sample.axes[0] ?? null : null
+  return reading.kind === 'live' ? reading.sample.channels[0] ?? null : null
 }
 
 describe('the gamepad', () => {
