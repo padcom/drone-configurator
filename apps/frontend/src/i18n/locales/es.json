@@ -865,6 +865,7 @@
       "mode": "Un acelerador centrado solo empieza en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia primero el modo.",
       "MODE": "El control remoto terminó: el modo de vuelo no admite un acelerador centrado.",
       "REST_TIMEOUT": "El control remoto terminó: los sticks no estuvieron en reposo en 10 segundos.",
+      "PAD_FAULT": "El control remoto terminó: un stick del mando dejó de leerse bien (falta, no es un número o está fuera de rango). Se liberaron todos los canales.",
       "ENDED": "El control remoto terminó.",
       "ERROR": "El control remoto no pudo empezar.",
       "SILENT": "Control remoto terminado: la página estuvo callada demasiado tiempo.",

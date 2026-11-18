@@ -865,6 +865,7 @@
       "mode": "A centred throttle starts only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag or Autotune. Change the mode first.",
       "MODE": "RC control ended: the flight mode does not take a centred throttle.",
       "REST_TIMEOUT": "RC control ended: the sticks were not at rest within 10 seconds.",
+      "PAD_FAULT": "RC control ended: a stick of the pad stopped reading properly (missing, not a number or out of range). All channels were released.",
       "ENDED": "RC control ended.",
       "ERROR": "RC control could not start.",
       "SILENT": "RC control ended: the page went quiet for too long.",

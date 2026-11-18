@@ -865,6 +865,7 @@
       "mode": "Un gas centrato parte solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia prima la modalità.",
       "MODE": "Controllo remoto terminato: la modalità di volo non accetta un gas centrato.",
       "REST_TIMEOUT": "Controllo remoto terminato: gli stick non sono stati a riposo entro 10 secondi.",
+      "PAD_FAULT": "Controllo remoto terminato: uno stick del pad non si legge più correttamente (mancante, non un numero o fuori intervallo). Tutti i canali sono stati rilasciati.",
       "ENDED": "Il controllo remoto è terminato.",
       "ERROR": "Il controllo remoto non è potuto partire.",
       "SILENT": "Controllo remoto terminato: la pagina è rimasta in silenzio troppo a lungo.",

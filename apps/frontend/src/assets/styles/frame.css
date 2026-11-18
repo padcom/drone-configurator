@@ -59,7 +59,7 @@
   font-size: var(--font-size-sm);
 }
 
-/* Remote control in Settings: the pad, its mapping (a card for each row) and the wizard. The column is the Settings column (it
+/* Remote control in Settings: the pad, its mapping (a card for each row) and the confirmation. The column is the Settings column (it
    never grows wider than it): the controls of a row wrap, and a long device id breaks anywhere. */
 .settings-rc p {
   overflow-wrap: anywhere;

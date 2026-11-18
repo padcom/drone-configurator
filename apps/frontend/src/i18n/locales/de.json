@@ -865,6 +865,7 @@
       "mode": "Ein zentriertes Gas startet nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag oder Autotune. Wechsle zuerst den Modus.",
       "MODE": "Fernsteuerung beendet: Der Flugmodus verträgt kein zentriertes Gas.",
       "REST_TIMEOUT": "Fernsteuerung beendet: Die Sticks waren nicht innerhalb von 10 Sekunden in Ruhe.",
+      "PAD_FAULT": "Fernsteuerung beendet: Ein Stick des Pads liefert keinen brauchbaren Wert mehr (fehlt, keine Zahl oder außerhalb des Bereichs). Alle Kanäle wurden freigegeben.",
       "ENDED": "Die Fernsteuerung wurde beendet.",
       "ERROR": "Die Fernsteuerung konnte nicht starten.",
       "SILENT": "Fernsteuerung beendet: Die Seite war zu lange still.",

@@ -865,6 +865,7 @@
       "mode": "Wyśrodkowany gaz startuje tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag lub Autotune. Najpierw zmień tryb.",
       "MODE": "Zdalne sterowanie zakończone: tryb lotu nie przyjmuje wyśrodkowanego gazu.",
       "REST_TIMEOUT": "Zdalne sterowanie zakończone: drążki nie były w spoczynku w ciągu 10 sekund.",
+      "PAD_FAULT": "Zdalne sterowanie zakończone: drążek pada przestał się poprawnie odczytywać (brak, nie liczba lub poza zakresem). Wszystkie kanały zostały zwolnione.",
       "ENDED": "Zdalne sterowanie zakończyło się.",
       "ERROR": "Zdalne sterowanie nie mogło ruszyć.",
       "SILENT": "Zdalne sterowanie zakończone: strona milczała zbyt długo.",

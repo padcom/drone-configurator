@@ -15,6 +15,7 @@ import type { ConnectRequest, Connection, RcState, Telemetry } from '@/generated
 import { armedOf, landedOf } from '@/lib/app/armed'
 import { type ControlBlock, controlBlock, isSimulatorLink } from '@/lib/rc/gate'
 import { channelsOf } from '@/lib/rc/mapping'
+import { padFault } from '@/lib/rc/fault'
 import { continueAllowed } from '@/lib/rc/modes'
 import type { Environment } from '@/lib/rc/reader'
 import { type NotAtRest, REST_TIMEOUT_MS, type Sticks, notAtRest } from '@/lib/rc/rest'
@@ -541,10 +542,9 @@ class RcControl implements RcControlModel {
    * @param at when the page read it (its clock, ms)
    */
   private send(sample: PadSample, at: number): void {
-    const flying = this.flying()
+    const flying = this.due(at)
 
-    // (one frame is in flight at a time: a read that comes while the last is not answered is left, not queued)
-    if (flying === null || this.pushing || at - this.sentAt < SEND_MS) {
+    if (flying === null || this.faulty(flying, sample)) {
       return
     }
     const { guarded, waiting } = this.frameOf(flying, sample)
@@ -556,6 +556,34 @@ class RcControl implements RcControlModel {
     this.waitForRest(waiting, at)
     this.seq += 1
     void this.push(this.seq, guarded.channels)
+  }
+
+  /**
+   * What is flown with, when a read at this time is to be sent: one frame is in flight at a time (a read that comes while the
+   * last is not answered is left, not queued), and not more often than every `SEND_MS`.
+   *
+   * @param at when the page read it (its clock, ms)
+   * @returns the mapping and the facts, or null when the read is not to be sent
+   */
+  private due(at: number): Flying | null {
+    return this.pushing || at - this.sentAt < SEND_MS ? null : this.flying()
+  }
+
+  /**
+   * Once the gate is open, a stick that goes missing or reads wrong lets go of everything: nothing of this read is sent.
+   *
+   * @param flying the mapping and the vehicle's facts that are flown with
+   * @param sample what the pad said
+   * @returns true when the control was ended (`PAD_FAULT`)
+   */
+  private faulty(flying: Flying, sample: PadSample): boolean {
+    const fault = this.gate.open && padFault(flying.profile, this.layoutNow(), sample, flying.facts.map)
+
+    if (fault) {
+      this.over('PAD_FAULT')
+    }
+
+    return fault
   }
 
   /**
