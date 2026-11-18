@@ -14,6 +14,7 @@ import type { ExportAsk } from './mock-local-browser'
 import { MockLocalLogs } from './mock-local-logs'
 import { MockLogs, type MockLogsOptions } from './mock-logs'
 import { MockMotors, type MockMotorsControl } from './mock-motors'
+import { MockPads, type MockPadsControl } from './mock-pad'
 import { MockRc, type MockRcControl } from './mock-rc'
 import { MockArming, type MockArmingControl } from './mock-arming'
 import { MockMap } from './mock-map'
@@ -124,6 +125,8 @@ export interface MockControl {
   motors?: MockMotorsControl
   /** What the RC control has done (see `MockRcControl`). */
   rc?: MockRcControl
+  /** The game controllers that are plugged in, and what they say (see `MockPadsControl`). */
+  pads?: MockPadsControl
   /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
   tuning?: MockTuningControl
 }
@@ -192,6 +195,8 @@ class MockVehicle {
   readonly motors: MockMotors
   /** The RC control. */
   readonly rc: MockRc
+  /** The game controllers (read only). */
+  readonly pads: MockPads
   readonly tuning: MockTuning
   /** Arming, disarming, the flight mode and the pre-arm checks. */
   readonly arming: MockArming
@@ -211,6 +216,7 @@ class MockVehicle {
     this.calibration = new MockCalibration(send, options.calibration ?? {}, () => this.armedState(), (id, value) => this.announceParam(id, value))
     this.motors = new MockMotors(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
     this.rc = new MockRc(send, () => this.armedState() ?? null, () => this.connection.state === 'connected')
+    this.pads = new MockPads(send)
     this.tuning = new MockTuning(send, () => this.connection.state === 'connected')
     this.arming = new MockArming({
       connected: () => this.connection.state === 'connected',
@@ -223,6 +229,7 @@ class MockVehicle {
     if (options.control) {
       options.control.motors = this.motors.control()
       options.control.rc = this.rc.control()
+      options.control.pads = this.pads.control()
       options.control.tuning = this.tuning.control()
       options.control.arming = this.arming.control()
       options.control.restart = () => this.restart()
@@ -268,6 +275,7 @@ class MockVehicle {
     this.calibration.reset()
     this.motors.reset()
     this.rc.reset()
+    this.pads.reset()
     this.tuning.reset()
     this.watchers.clear()
     this.messageSubscribers.clear()
@@ -285,6 +293,7 @@ class MockVehicle {
       this.messageSubscribers.delete(e.s!)
       this.motors.unsubscribe(e.s!)
       this.rc.unsubscribe(e.s!)
+      this.pads.unsubscribe(e.s!)
       this.tuning.unsubscribe(e.s!)
       clearInterval(this.timers.get(e.s!))
       this.timers.delete(e.s!)
@@ -354,6 +363,9 @@ class MockVehicle {
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'rc.control': return this.rc.subscribe(e)
       case 'rc.input': return this.rc.input(e.p as RcInput | null, ok, fail)
+      case 'pad.list': return this.pads.listPads(ok)
+      case 'pad.devices': return this.pads.subscribeDevices(e)
+      case 'pad.read': return this.pads.subscribeRead(e)
       case 'tuning.stream': return this.tuning.subscribe(e)
       case 'telemetry.stream': return this.telemetry(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)

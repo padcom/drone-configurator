@@ -21,6 +21,7 @@ import { register as registerMapTiles } from "./maptiles"
 import { register as registerMessages } from "./messages"
 import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
+import { register as registerPad } from "./pad"
 import { register as registerParams } from "./params"
 import { register as registerRc } from "./rc"
 import { register as registerReboot } from "./reboot"
@@ -65,6 +66,7 @@ export function createBackend(transport: Transport): Communicator {
   registerCalibration(c)
   registerMotors(c)
   registerRc(c)
+  registerPad(c)
   registerLogs(c)
   registerLogHousekeeping(c)
   registerLocalLogs(c)

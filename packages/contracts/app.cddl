@@ -262,6 +262,28 @@ services = {
   ; whose `seq` is not above the last counts for nothing, and is not "the page is alive". A frame with a pulse outside the range, or with more
   ; than 16 channels, is `INVALID_VALUE`; `NOT_RUNNING` when no control is on.
   "rc.input": ["method", rc-input, null],
+  ; THE PADS (game controllers, read by the backend: pico-gamepad, Linux evdev for now). READ ONLY: nothing under `pad.` can send anything to
+  ; a vehicle, open a link or change a setting; the only way to a vehicle stays `rc.control` and `rc.input` with their gates (the page maps
+  ; what it reads here, as it maps what the browser's Gamepad API says). Every pad is CH1..CH16 (`channels`): the axes in ascending code order
+  ; fill CH1..CHa, then the buttons in ascending code order fill the next channels up to CH16 (a button reads -1 released, +1 pressed;
+  ; buttons beyond CH16 are not shown). A channel the pad does not have is not in `pad-info.channels` and not set in a sample's `have`
+  ; (the contract has no null in a list; the page reads it as absent: never a made-up centre). `pad.list` is what is plugged in now (sysfs), and `pad.devices` the same list again, first at once and then whenever
+  ; it changes (hot-plug: within about a second); `denied` are the pads that are plugged in and cannot be opened by this user, with why
+  ; (`PERMISSION_DENIED`: the desktop's access rule for the device did not come within 2 s: the answer is a udev `uaccess` rule, never
+  ; the `input` group); `pads` are the others. A pad's `min` and `max` are the range the device declares (the sample is -1 to 1 by it,
+  ; nothing is calibrated), absent when the pad could not be asked. On a platform with no backend yet `supported` is false and there
+  ; are no pads: the page uses the browser's Gamepad API then, and `pad.read` ends with `UNSUPPORTED`.
+  "pad.list": ["method", null, pad-list],
+  "pad.devices": ["subscription", null, pad-list],
+  ; The readings of ONE pad, by its `id`, every 20 ms (50 Hz) for as long as the subscription is. Each is the kernel's state of that moment,
+  ; never an old one, and it is sent every tick even when nothing changed: silence means the reader or the backend is gone, and a page
+  ; releases on it. `seq` counts the samples of this subscription from 0; `at` is the backend's own monotonic clock in ms (the
+  ; freshness of a reading); `gapMs` is there when this tick came more than 100 ms after the one before (the backend's own tick
+  ; slipped). The subscription ends, with the code as its error, when the pad cannot be read any more: `DISCONNECTED` (unplugged: on the very
+  ; next read), `PERMISSION_DENIED`, `NOT_FOUND` (no pad has that `id`, or the node is no joystick), `CHANGED` (another device is behind
+  ; the node now than the one that was listed), `IO` and `UNSUPPORTED`. A pad that was unplugged and plugged in again is a new
+  ; subscription (the control that flew with it does not resume).
+  "pad.read": ["subscription", pad-read-params, pad-sample],
   ; THE LIVE RESPONSE of the roll rate, for the Tune screen: the ACTUAL rate (ATTITUDE's `rollspeed`) and the DESIRED one (ATTITUDE_TARGET's
   ; `body_roll_rate`), as they come from the vehicle, in degrees a second against the vehicle's own clock (`time_boot_ms`). Nothing here is
   ; computed: no model, no filter, no resampling. The stream is for as long as the subscription: it asks the vehicle for the two messages at
@@ -1356,6 +1378,48 @@ rc-state = {
   ? sent: uint .size 4,
   ? clamped: uint .size 4,
   ? confirmed: bool,
+}
+
+; ---- The pads (see `pad.list`) ----
+
+; What is plugged in: `supported` is false where this platform has no pad backend (no pads then). `id` is stable and unique among the pads
+; there now (`vvvv:pppp`, `#serial` when the device has one, `@port` when two would otherwise be the same); `legacyId` is the string a
+; browser gives the same pad (`name (Vendor: 1209 Product: 4f54)`), which a mapping saved by the browser is keyed by.
+pad-list = { supported: bool, pads: [* pad-info], denied: [* pad-denied] }
+pad-denied = { id: tstr, name: tstr, code: tstr }
+pad-info = {
+  id: tstr,
+  legacyId: tstr,
+  name: tstr,
+  vendor: uint .size 2,
+  product: uint .size 2,
+  ? uniq: tstr,
+  ? phys: tstr,
+  source: tstr,
+  channels: [* pad-channel],
+}
+
+; CH`n` of a pad (1 to 16): from an `axis` or a `button` (a label for the screen: both read -1 to 1), with the kernel's `code` and the range
+; and dead zone the device declares.
+pad-channel = {
+  n: uint .size 1,
+  from: "axis" / "button",
+  code: uint .size 2,
+  ? min: int,
+  ? max: int,
+  ? flat: uint .size 4,
+}
+pad-read-params = { id: tstr }
+
+; One reading: see `pad.read`. `channels` has 16 values, CH1 first, -1 to 1. The contract has no null in a list, so which channels the pad
+; HAS is `have`: bit `n - 1` is set for CH`n`; the value of a channel that is not set is 0 and means nothing (the page reads it as absent:
+; never a centre).
+pad-sample = {
+  seq: uint .size 4,
+  at: uint .size 8,
+  channels: [16 * float],
+  have: uint .size 2,
+  ? gapMs: uint .size 4,
 }
 
 ; ---- The map ----
