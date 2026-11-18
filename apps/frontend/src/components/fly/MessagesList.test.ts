@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
+import { type DOMWrapper, type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import FailsafeBanner from './FailsafeBanner.vue'
 import { SCRIPTED_MESSAGES } from '@/mock/fixtures'
 import MessagesList from './MessagesList.vue'
@@ -51,15 +51,28 @@ it('lists the messages newest first, each with its time', async () => {
   expect(wrapper.get('ul').attributes('aria-label')).toBe('Messages from the vehicle, newest first')
 })
 
-it('says the severity of every message in a word and a mark, a warning or worse and the rest alike', async () => {
+it('shows the severity of every message as a mark only, with the word as its tooltip and for a screen reader', async () => {
   const { wrapper } = await list(true)
 
   const preArm = wrapper.findAll('.message').find(message => message.text().includes('PreArm'))
   const boot = wrapper.findAll('.message').find(message => message.text().includes('ArduCopter V4'))
 
-  expect(preArm?.get('.sev').text()).toBe('Warning')
-  expect(boot?.get('.sev').text()).toMatch(/^(?:Notice|Info|Debug)$/u)
+  expect(preArm?.get('.sev').attributes('title')).toBe('Warning')
+  expect(preArm?.get('.sev .visually-hidden').text()).toBe('Warning')
+  expect(boot?.get('.sev').attributes('title')).toMatch(/^(?:Notice|Info|Debug)$/u)
   expect(wrapper.findAll('.message').every(message => message.find('.sev svg').exists())).toBe(true)
+  // (nothing but the mark is shown: the only text in it is the hidden one)
+  const shown = (sev: DOMWrapper<Element>): number => sev.findAll('*')
+    .filter(part => part.text() !== '' && !part.classes('visually-hidden')).length
+
+  expect(wrapper.findAll('.sev').map(shown).every(count => count === 0)).toBe(true)
+})
+
+it('does not make a tab stop of every mark: the list is the one stop', async () => {
+  const { wrapper } = await list(true)
+
+  expect(wrapper.findAll('.sev [tabindex], .sev button, .sev a')).toHaveLength(0)
+  expect(wrapper.get('ul').attributes('tabindex')).toBe('0')
 })
 
 it('is a log, and says that it keeps the last 500 and what a connection lists', async () => {

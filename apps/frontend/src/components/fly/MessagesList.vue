@@ -24,9 +24,9 @@
     >
       <li v-for="message in shown" :key="message.id" class="message" :class="{ warning: isWarning(message) }">
         <time class="time" :datetime="sentAt(message).toISOString()">{{ format.time(sentAt(message)) }}</time>
-        <span class="sev" :class="`sev-${severityName(message.severity)}`">
+        <span class="sev" :class="`sev-${severityName(message.severity)}`" :title="word(message)">
           <Icon :name="markOf(message.severity)" />
-          {{ t(`messages.severity.${severityName(message.severity)}`) }}
+          <span class="visually-hidden">{{ word(message) }}</span>
         </span>
         <span class="text">{{ message.text }}</span>
       </li>
@@ -44,17 +44,21 @@ import Button from '@/components/ui/Button.vue'
 import Icon from '@/components/ui/Icon.vue'
 import SectionLabel from '@/components/ui/SectionLabel.vue'
 import { KEPT, REPLAYED } from '@/composables/useMessages'
+import type { VehicleMessage } from '@/generated/app'
 import { isWarning, markOf, sentAt, severityName } from '@/lib/fly/messages'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useFormat } from '@/i18n/useFormat'
 
-// Everything the vehicle has said (its STATUSTEXT), newest first, each with its time and its severity in a word and a mark, so
-// that the severity is never colour alone; nothing is left out (the PreArm texts and the repeats are all here), and only the
-// warnings and worse also make a toast. The list is a log that is not read out as it grows (`aria-live="off"`: every PreArm text
-// and the replay of 200 messages on connecting would be, and a warning is told by its toast and the banner already) and keeps the
-// last 500 messages; Clear empties it and puts the focus on the section. The count on the heading is how many warnings came
-// since the list was last looked at: putting the pointer or the focus on the list counts as looking. Opening the screen does
-// not: the list is below the display and the cards, and the count is what says there is something to scroll to.
+// Everything the vehicle has said (its STATUSTEXT), newest first, each with its time and its severity as a mark (a cross, a
+// triangle or a circle, and its colour); the word ("Warning", "Critical") is the mark's tooltip on hover (the browser's own
+// `title`) and its hidden text for a screen reader, so that the severity is never colour alone. The mark is not a tab stop (500
+// of them would be): the list is the one stop, and a screen reader reads the word with each message. Nothing is left out (the
+// PreArm texts and the repeats are all here), and only the warnings and worse also make a toast. The list is a log that is not
+// read out as it grows (`aria-live="off"`: every PreArm text and the replay of 200 messages on connecting would be, and a
+// warning is told by its toast and the banner already) and keeps the last 500 messages; Clear empties it and puts the focus on
+// the section. The count on the heading is how many warnings came since the list was last looked at: putting the pointer or
+// the focus on the list counts as looking. Opening the screen does not: the list is below the display and the cards, and the
+// count is what says there is something to scroll to.
 const { t } = useI18n()
 const format = useFormat()
 const { messages } = useConfigurator()
@@ -62,6 +66,16 @@ const uid = useId()
 const shown = computed(() => [...messages.list.value].reverse())
 const none = computed(() => (shown.value.length === 0 ? t('messages.none') : ''))
 const root = ref<HTMLElement | null>(null)
+
+/**
+ * The word for a message's severity ("Warning", "Critical"): the mark's tooltip and its name for a screen reader.
+ *
+ * @param message the message
+ * @returns the word
+ */
+function word(message: VehicleMessage): string {
+  return t(`messages.severity.${severityName(message.severity)}`)
+}
 
 /**
  * Empties the list. The Clear button goes with the messages, so the focus is put on the section first: it would fall to the page.
