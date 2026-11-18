@@ -1206,10 +1206,10 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
-export type RcControlParams = { "rudderArm"?: boolean }
+export type RcControlParams = { "rudderArm"?: boolean, "throttle"?: "low" | "centred" }
 
 function validateRcControlParamsInto(value: any, path: string): boolean {
-  return map(value, path, ["rudderArm"]) && (value["rudderArm"] === undefined || nested(value["rudderArm"], `${path}.rudderArm`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+  return map(value, path, ["rudderArm","throttle"]) && (value["rudderArm"] === undefined || nested(value["rudderArm"], `${path}.rudderArm`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["throttle"] === undefined || nested(value["throttle"], `${path}.throttle`, (value, path) => oneOf(value, path, ["low","centred"])))
 }
 
 /** The first problem with `value` as a rc-control-params, or null. */
