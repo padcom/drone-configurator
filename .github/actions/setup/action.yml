@@ -1,6 +1,6 @@
 name: Set up the workspace
 description: >
-  What every CI job needs before it does its own work: the three sibling repositories next to this one (the link: and workspace
+  What every CI job needs before it does its own work: the four sibling repositories next to this one (the link: and workspace
   paths resolve unchanged), pnpm and Node as the framework pins them, the framework installed and built, the app installed and its
   contract generated, and optionally the pinned Pico. The calling job has already checked out this repository into
   `drone-configurator` (the action is read from there).
@@ -30,9 +30,13 @@ runs:
       with:
         repository: padcom/pico-serialport
         path: pico-serialport
+    - uses: actions/checkout@v4
+      with:
+        repository: padcom/pico-gamepad
+        path: pico-gamepad
     - name: Sibling revisions
       shell: bash
-      run: for r in pico-desktop pico-mavlink pico-serialport; do echo "$r $(git -C "$r" rev-parse HEAD)"; done
+      run: for r in pico-desktop pico-mavlink pico-serialport pico-gamepad; do echo "$r $(git -C "$r" rev-parse HEAD)"; done
 
     - uses: pnpm/action-setup@v4
       with:

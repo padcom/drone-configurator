@@ -1,0 +1,492 @@
+// The game controllers (`pad.list`, `pad.devices`, `pad.read`), read through pico-gamepad (Linux evdev: the kernel's STATE of the device,
+// asked for 50 times a second, never the event stream).
+//
+// READ ONLY, by construction: this file imports nothing from the session, the connection or the RC control, and nothing here can
+// send a frame to a vehicle, open a link or change a setting. What a pad says is only ever data for the page, which maps it and
+// sends it through `rc.control` and `rc.input` with every gate those have (`pad.test.pi` holds the imports to that).
+//
+// What the page can rely on:
+//  - every pad is CH1..CH16: the axes in ascending code order, then the buttons (-1 released, +1 pressed), up to 16; a channel the pad
+//    has not is not in `have` (the value is 0 and means nothing);
+//  - `pad.read` sends a sample EVERY tick (20 ms) even when nothing changed, so silence means the reader or the backend is gone; a tick that
+//    came late says so (`gapMs`); any failure of the read ends the subscription with its code, an unplug on the very next read
+//    (`DISCONNECTED`), and the device is let go of by every way a read ends;
+//  - the list of pads follows hot-plug (`pad.devices`), and says why a pad that is plugged in cannot be read (`denied`).
+import { delay } from "std/timers"
+import { Cbor, Communicator, RequestContext, Sink } from "pico-desktop/communicator"
+import { AxisInfo, Pad, PadError, PadEvent, PadInfo, PadState, PadSystem, PadWatch, WatchOptions, defaultSystem, listPads, openPad, watchPads } from "padcom/pico-gamepad"
+import {
+  PadChannel,
+  PadChannelFrom,
+  PadDenied,
+  PadList,
+  PadSample,
+  PadInfo as PadInfoOut,
+  decodePadReadParams,
+  encodePadList,
+  encodePadSample,
+} from "./generated/app"
+import { platformHasPads } from "./padplatform"
+
+/// How the service ticks (a test may change it, and give it a machine of its own).
+class Config {
+  /// The pads' system: null for this machine's own.
+  public system: PadSystem? = null
+  /// Whether the platform has pads: null for what the platform says (a test says it for itself).
+  public supported: bool? = null
+  /// The time between two samples of `pad.read` (ms).
+  public tickMs: int = 20
+  /// A tick that comes later than this after the one before says so in `gapMs` (ms).
+  public gapMs: int = 100
+  /// How often hot-plug looks (ms), and how long a pad that cannot be opened is tried again before it is `denied` (ms).
+  public watchMs: int = 100
+  public denyAfterMs: int = 2000
+  /// `pad.list` tries a pad that is refused again this many times, this far apart (ms): the desktop's access rule comes a moment after
+  /// the node does (264 ms on the real radio), so 4 tries 80 ms apart cover it.
+  public listRetries: int = 4
+  public listRetryMs: int = 80
+  /// At most this many pads are read at once.
+  public maxReads: int = 4
+  /// Called before every read of a pad (a test makes a tick late with it).
+  public beforeRead: (() => void)? = null
+}
+
+export const config = new Config()
+
+/// The channels of a pad (CH1..CH16).
+const CHANNELS: int = 16
+
+/// Registers the methods and subscriptions on `c`.
+export function register(c: Communicator): void {
+  c.handle("pad.list", list)
+  c.publish("pad.devices", devices)
+  c.publish("pad.read", read)
+}
+
+function theSystem(): PadSystem {
+  const s = config.system
+  return if (s != null) s! else defaultSystem()
+}
+
+function isSupported(): bool {
+  const s = config.supported
+  return if (s != null) s! else platformHasPads()
+}
+
+// ---- What a pad is: its channels ----
+
+/// The channels of a pad: CH1.. are its axes (ascending code), the next its buttons, at most 16. `axes` is what the device declared of each
+/// axis (empty when the pad has not been opened: the range is then left out).
+export function channelsOf(info: PadInfo, axes: AxisInfo[]): PadChannel[] {
+  const out: PadChannel[] = []
+  for (let i = 0; i < info.axisCodes.length && out.length < CHANNELS; i++) {
+    if (i < axes.length) {
+      const a = axes[i]
+      out.push(PadChannel {
+        n: (i + 1) as u8,
+        from: PadChannelFrom.Axis,
+        code: info.axisCodes[i] as u16,
+        min: a.minimum as i64,
+        max: a.maximum as i64,
+        flat: (if (a.flat > 0) a.flat else 0) as u32,
+      })
+    } else {
+      out.push(PadChannel { n: (i + 1) as u8, from: PadChannelFrom.Axis, code: info.axisCodes[i] as u16 })
+    }
+  }
+  for (let j = 0; j < info.buttonCodes.length && out.length < CHANNELS; j++) {
+    out.push(PadChannel { n: (out.length + 1) as u8, from: PadChannelFrom.Button, code: info.buttonCodes[j] as u16 })
+  }
+  return out
+}
+
+/// What the contract says of a pad.
+export function infoOf(info: PadInfo, axes: AxisInfo[]): PadInfoOut {
+  return PadInfoOut {
+    id: info.id,
+    legacyId: info.legacyId,
+    name: info.name,
+    vendor: info.vendor as u16,
+    product: info.product as u16,
+    uniq: if (info.uniq != "") info.uniq else null,
+    phys: if (info.phys != "") info.phys else null,
+    source: info.source,
+    channels: channelsOf(info, axes),
+  }
+}
+
+/// The 16 values of a state (axes -1..1, buttons -1 or 1, 0 for what the pad has not), and which of them the pad has.
+export function sampleOf(seq: int, state: PadState, axes: int, gap: int): PadSample {
+  const values: f64[] = []
+  let have = 0
+  for (let n = 0; n < CHANNELS; n++) {
+    let v = 0.0
+    if (n < axes && n < state.axes.length) {
+      v = state.axes[n]
+      have += 1 << n
+    } else if (n >= axes && n - axes < state.buttons.length) {
+      v = if (state.buttons[n - axes]) 1.0 else -1.0
+      have += 1 << n
+    }
+    values.push(v)
+  }
+  return PadSample {
+    seq: seq as u32,
+    at: (state.at / 1000) as u64,
+    channels: values,
+    have: have as u16,
+    gapMs: if (gap > 0) (gap as u32) else null,
+  }
+}
+
+/// The code the page sees of a pad's error (the ones the contract lists): a node that is not a pad is not found, and a pad that
+/// was closed under the reader is an I/O error.
+export function codeOf(e: PadError): string {
+  return match (e.code) {
+    "DISCONNECTED" => "DISCONNECTED",
+    "PERMISSION_DENIED" => "PERMISSION_DENIED",
+    "NOT_FOUND" => "NOT_FOUND",
+    "NOT_A_PAD" => "NOT_FOUND",
+    "UNSUPPORTED" => "UNSUPPORTED",
+    "CHANGED" => "CHANGED",
+    _ => "IO",
+  }
+}
+
+// ---- pad.list ----
+
+/// What the device declares of the axes of a pad (it is opened and let go of at once), or why it cannot be.
+class Described {
+  public axes: AxisInfo[] = []
+  /// "" when the pad was opened, else the code of why not.
+  public code: string = ""
+}
+
+async function describe(info: PadInfo, system: PadSystem): Promise<Described> {
+  const d = new Described()
+  try {
+    const pad = await openPad(info, system)
+    d.axes = pad.axes
+    pad.close()
+  } catch (e: PadError) {
+    d.code = codeOf(e)
+  }
+  return d
+}
+
+/// `describe`, tried again a few times when the pad is refused (the access rule of a pad that has just been plugged in is late).
+async function describeLate(info: PadInfo, system: PadSystem): Promise<Described> throws Error {
+  let d = await describe(info, system)
+  for (let i = 0; i < config.listRetries && d.code == "PERMISSION_DENIED"; i++) {
+    await delay(config.listRetryMs)
+    d = await describe(info, system)
+  }
+  return d
+}
+
+/// The pads that are plugged in now, with their ranges: a pad that cannot be opened is `denied`, one that is gone by now is left out.
+async function list(_payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
+  if (!isSupported()) {
+    return encodePadList(PadList { supported: false, pads: [], denied: [] })
+  }
+  const system = theSystem()
+  const pads: PadInfoOut[] = []
+  const denied: PadDenied[] = []
+  for (const info of await listPads(system)) {
+    const d = await describeLate(info, system)
+    if (d.code == "") {
+      pads.push(infoOf(info, d.axes))
+    } else if (d.code == "PERMISSION_DENIED") {
+      denied.push(PadDenied { id: info.id, name: info.name, code: d.code })
+    }
+  }
+  return encodePadList(PadList { supported: true, pads: pads, denied: denied })
+}
+
+// ---- pad.devices ----
+
+/// One pad of the list a `pad.devices` subscription keeps: what the system said, what the device declared (when it was opened), and why it
+/// cannot be opened ("" when it can, or has not been tried yet).
+class Entry {
+  public info: PadInfo
+  public axes: AxisInfo[] = []
+  public denied: string = ""
+
+  constructor(info: PadInfo) {
+    this.info = info
+  }
+}
+
+/// A `pad.devices` subscription: the list of pads as it is, told whenever it changes.
+class Devices {
+  public readonly sink: Sink
+  public readonly entries: Entry[] = []
+  public readonly queue: PadEvent[] = []
+  public draining: bool = false
+  public stopped: bool = false
+  /// What the list said when the page was last told it, and whether it was told at all (the first list goes out even when it is empty).
+  public told: string = ""
+  public sent: bool = false
+  /// The watch (once it has begun) and what ends the timer that prunes.
+  public watch: PadWatch? = null
+  public readonly stop: AbortController = new AbortController()
+
+  constructor(sink: Sink) {
+    this.sink = sink
+  }
+
+  /// The page let go (or the app closes): everything that runs for this subscription ends, whatever it was doing.
+  public close(): void {
+    stopped = true
+    stop.abort()
+    const w = watch
+    if (w != null) {
+      w!.stop()
+    }
+  }
+
+  /// The list, as the contract says it.
+  public list(): PadList {
+    const pads: PadInfoOut[] = []
+    const denied: PadDenied[] = []
+    for (const e of entries) {
+      if (e.denied == "") {
+        pads.push(infoOf(e.info, e.axes))
+      } else {
+        denied.push(PadDenied { id: e.info.id, name: e.info.name, code: e.denied })
+      }
+    }
+    return PadList { supported: true, pads: pads, denied: denied }
+  }
+
+  /// Tells the page the list, when it is not the one it was told last.
+  public tell(): void {
+    const now = key()
+    if (!stopped && sink.active && (!sent || now != told)) {
+      sent = true
+      told = now
+      sink.next(encodePadList(list()))
+    }
+  }
+
+  /// What the list says, as text (to see that it changed).
+  public key(): string {
+    let text = ""
+    for (const e of entries) {
+      text += `${e.info.id}|${e.info.path}|${e.denied}|`
+      for (const a of e.axes) {
+        text += `${a.minimum},${a.maximum},${a.flat};`
+      }
+      text += "\n"
+    }
+    return text
+  }
+
+  /// The entry at `path`, or null.
+  public at(path: string): Entry? {
+    for (const e of entries) {
+      if (e.info.path == path) {
+        return e
+      }
+    }
+    return null
+  }
+
+  /// Drops every entry that `now` (what is plugged in) does not have.
+  public forget(now: PadInfo[]): void {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      let there = false
+      for (const p of now) {
+        there = there || (p.path == entries[i].info.path && p.id == entries[i].info.id)
+      }
+      if (!there) {
+        entries.splice(i, 1)
+      }
+    }
+  }
+
+  public drop(path: string): void {
+    for (let i = entries.length - 1; i >= 0; i--) {
+      if (entries[i].info.path == path) {
+        entries.splice(i, 1)
+      }
+    }
+  }
+}
+
+/// The subscription: the list at once, then every change of it.
+function devices(_params: Cbor?, sink: Sink): void throws Error {
+  if (!isSupported()) {
+    sink.next(encodePadList(PadList { supported: false, pads: [], denied: [] }))
+    return
+  }
+  const d = new Devices(sink)
+  // (set before anything is awaited: a page that unsubscribes while the first look is under way must stop all of it)
+  sink.onClose = () => d.close()
+  follow(d)
+}
+
+async function follow(d: Devices): Promise<void> {
+  const system = theSystem()
+  try {
+    for (const info of await listPads(system)) {
+      d.entries.push(new Entry(info))
+    }
+  } catch (e: PadError) {
+    // nothing is known yet: the first look of the watch tells
+  }
+  if (d.stopped) {
+    return
+  }
+  d.tell()
+  const options = WatchOptions { intervalMs: config.watchMs, denyAfterMs: config.denyAfterMs }
+  d.watch = watchPads((e: PadEvent) => { arrived(d, e, system) }, options, system)
+  prune(d, system, d.stop.signal)
+}
+
+/// Drops what is not plugged in any more. The watch tells when a pad that could be opened is gone, not a pad that was denied (nor one that
+/// was unplugged before its first look), so the list is looked at on its own timer too.
+async function prune(d: Devices, system: PadSystem, stop: AbortSignal): Promise<void> {
+  while (!d.stopped) {
+    try {
+      await delay(config.watchMs, stop)
+    } catch (e: Error) {
+      return
+    }
+    try {
+      d.forget(await listPads(system))
+    } catch (e: PadError) {
+      // a look that fails saw nothing: the next one tries again
+    }
+    d.tell()
+  }
+}
+
+/// A change of what is plugged in (from the watch): kept in order, and handled one at a time (a pad is opened to ask its ranges).
+function arrived(d: Devices, e: PadEvent, system: PadSystem): void {
+  d.queue.push(e)
+  if (!d.draining) {
+    d.draining = true
+    drain(d, system)
+  }
+}
+
+async function drain(d: Devices, system: PadSystem): Promise<void> {
+  while (d.queue.length > 0 && !d.stopped) {
+    const e = d.queue[0]
+    d.queue.splice(0, 1)
+    await apply(d, e, system)
+    d.tell()
+  }
+  d.draining = false
+}
+
+async function apply(d: Devices, e: PadEvent, system: PadSystem): Promise<void> {
+  if (e.kind == "removed") {
+    d.drop(e.pad.path)
+    return
+  }
+  let entry = d.at(e.pad.path)
+  if (entry == null || entry!.info.id != e.pad.id) {
+    d.drop(e.pad.path)
+    entry = new Entry(e.pad)
+    d.entries.push(entry!)
+  }
+  if (e.kind == "denied") {
+    entry!.denied = if (e.code != "") e.code else "PERMISSION_DENIED"
+    entry!.axes = []
+  } else {
+    entry!.denied = ""
+    entry!.axes = (await describe(e.pad, system)).axes
+  }
+}
+
+// ---- pad.read ----
+
+/// How many pads are being read.
+class Live {
+  public reads: int = 0
+}
+
+const live = new Live()
+
+/// The subscription: one pad, read every tick until it ends.
+function read(params: Cbor?, sink: Sink): void throws Error {
+  if (params == null) {
+    sink.end("INVALID_VALUE", "the id of a pad is needed")
+    return
+  }
+  const id = decodePadReadParams(params!, "$").id
+  if (!isSupported()) {
+    sink.end("UNSUPPORTED", "this platform has no game controller backend: use the browser's")
+    return
+  }
+  if (live.reads >= config.maxReads) {
+    sink.end("BUSY", `${config.maxReads} pads are being read already`)
+    return
+  }
+  live.reads += 1
+  const stop = new AbortController()
+  sink.onClose = () => stop.abort()
+  readPad(id, sink, stop.signal)
+}
+
+function nowMs(): int {
+  return performance.now() as int
+}
+
+async function readPad(id: string, sink: Sink, stop: AbortSignal): Promise<void> {
+  let pad: Pad? = null
+  try {
+    pad = await open(id)
+    await tick(pad!, sink, stop)
+  } catch (e: PadError) {
+    sink.end(codeOf(e), e.message)
+  }
+  if (pad != null) {
+    pad!.close()
+  }
+  live.reads -= 1
+}
+
+/// Opens the pad with `id`: asked for by what is plugged in now, so that an id of a pad that is gone is `NOT_FOUND`.
+async function open(id: string): Promise<Pad> throws PadError {
+  const system = theSystem()
+  for (const info of await listPads(system)) {
+    if (info.id == id) {
+      return await openPad(info, system)
+    }
+  }
+  throw new PadError("NOT_FOUND", `no pad has the id ${id}`)
+}
+
+/// Reads the pad every `tickMs` on absolute deadlines (a late tick does not push the next ones back), until the page lets go or a read fails.
+async function tick(pad: Pad, sink: Sink, stop: AbortSignal): Promise<void> throws PadError {
+  let seq = 0
+  let next = nowMs() + config.tickMs
+  let lastAt = -1
+  while (!stop.aborted && sink.active) {
+    const wait = next - nowMs()
+    if (wait > 0) {
+      try {
+        await delay(wait, stop)
+      } catch (e: Error) {
+        return
+      }
+    }
+    const before = config.beforeRead
+    if (before != null) {
+      before!()
+    }
+    const state = pad.state()
+    const at = (state.at / 1000) as int
+    const gap = if (lastAt >= 0 && at - lastAt > config.gapMs) at - lastAt else 0
+    sink.next(encodePadSample(sampleOf(seq, state, pad.info.axisCodes.length, gap)))
+    seq += 1
+    lastAt = at
+    next += config.tickMs
+    if (next < nowMs()) {
+      next = nowMs() + config.tickMs
+    }
+  }
+}
