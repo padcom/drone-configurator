@@ -136,6 +136,24 @@ for (const size of SIZES) {
   })
 }
 
+it('has the switch for the sticks that arm and disarm off, and shut until remote control is allowed', async () => {
+  const state = (): Promise<string> => window().evaluate<string>(
+    `document.querySelector('#rc-rudder-arm').getAttribute('aria-checked') + ' ' + document.querySelector('#rc-rudder-arm').disabled`,
+  )
+
+  expect(await state()).toBe('false true')
+  await window().click('#rc-allow')
+  await window().waitFor(`document.querySelector('#rc-rudder-arm').disabled === false`, 30_000)
+  await window().click('#rc-rudder-arm')
+  await window().waitFor(`document.querySelector('#rc-rudder-arm').getAttribute('aria-checked') === 'true'`, 30_000)
+  // (turned over again, and the permission with it: the switch is not left on behind a shut one)
+  await window().click('#rc-rudder-arm')
+  await window().waitFor(`document.querySelector('#rc-rudder-arm').getAttribute('aria-checked') === 'false'`, 30_000)
+  await window().click('#rc-allow')
+  await window().waitFor(`document.querySelector('#rc-allow').getAttribute('aria-checked') === 'false'`, 30_000)
+  expect(await state()).toBe('false true')
+})
+
 it('starts no control by itself: turning the setting on only allows it', async () => {
   await window().click('#rc-allow')
   await window().waitFor(`document.querySelector('#rc-allow').getAttribute('aria-checked') === 'true'`, 30_000)

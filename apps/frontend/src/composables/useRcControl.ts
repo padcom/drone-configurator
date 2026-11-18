@@ -58,6 +58,11 @@ export interface RcControlModel {
   readonly why: ShallowRef<string | null>
   /** Whether the throttle is being sent (the gate is open): until then the person must lower the throttle. */
   readonly gateOpen: ShallowRef<boolean>
+  /**
+   * Whether the sticks may arm and disarm in this control (the rudder guard is lifted): what the setting said when it began, so
+   * that turning the setting over does not change a control that flies. False while it is off.
+   */
+  readonly rudderLifted: ShallowRef<boolean>
   /** The words for why it is off when it ended or was refused (what the toast said): kept on the screen, or null. */
   readonly explanation: ComputedRef<string | null>
   /** The id of the pad that is flown with, or null. */
@@ -110,6 +115,9 @@ class RcControl implements RcControlModel {
   readonly active = computed(() => this.state.value !== 'off')
   readonly why = shallowRef<string | null>(null)
   readonly gateOpen = shallowRef(false)
+  // (read once, when a control begins, after allowed, a simulator and a ready mapping were checked: a change of the setting while
+  // the control flies does nothing to it)
+  readonly rudderLifted = shallowRef(false)
   readonly explanation = computed(() => this.explain())
   readonly device = shallowRef<string | null>(null)
   readonly confirmed = shallowRef(false)
@@ -301,6 +309,7 @@ class RcControl implements RcControlModel {
     this.device.value = profile.device
     this.gate = START_GATE
     this.gateOpen.value = false
+    this.rudderLifted.value = this.deps.settings.rudderArm.value
     this.seq = 0
     this.sentAt = Number.NEGATIVE_INFINITY
     this.why.value = null
@@ -406,7 +415,8 @@ class RcControl implements RcControlModel {
       return
     }
     const vehicle = vehicleChannels(flying.facts)
-    const guarded = guard(channelsOf(flying.profile, sample, vehicle.range), vehicle, this.gate)
+    const pulses = channelsOf(flying.profile, sample, vehicle.range)
+    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: !this.rudderLifted.value })
 
     this.sentAt = at
     this.gate = guarded.gate
@@ -457,6 +467,7 @@ class RcControl implements RcControlModel {
     this.device.value = null
     this.gate = START_GATE
     this.gateOpen.value = false
+    this.rudderLifted.value = false
     this.why.value = why
 
     if (why !== 'RELEASED') {

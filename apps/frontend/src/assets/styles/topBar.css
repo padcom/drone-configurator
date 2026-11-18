@@ -197,6 +197,16 @@
   background: currentcolor;
 }
 
+/* The sticks may arm and disarm (Settings): said on the indicator itself, in a mark that stays when the rest is shortened. */
+.top-bar .rc-indicator .rc-indicator-flag {
+  padding: 0 var(--space-2);
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-md);
+  font-size: 0.75em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .fly-rc {
   display: grid;
   gap: var(--space-2);

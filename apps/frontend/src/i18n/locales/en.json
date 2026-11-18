@@ -832,7 +832,9 @@
     },
     "indicator": {
       "on": "RC control on",
-      "off": "RC control on. Press to turn it off."
+      "off": "RC control on. Press to turn it off.",
+      "rudder": "stick arm",
+      "offRudder": "RC control on, and the sticks can arm and disarm. Press to turn it off."
     },
     "summary": {
       "title": "Fly with the gamepad?",
@@ -906,6 +908,8 @@
       "intro": "Fly the vehicle with a gamepad, or a radio that acts as one (such as a TX16S over USB).",
       "allow": "Allow remote control",
       "allowHelp": "Off by default, and for the built-in simulator or a link to this computer only: any other vehicle is refused. This only allows it; it does not start it.",
+      "rudderArm": "Let the sticks arm and disarm",
+      "rudderArmHelp": "Off by default. It lets the sticks arm AND DISARM the simulator, in flight too. Needs ARMING_RUDDER on the vehicle; the pre-arm checks still apply. Takes effect when remote control is turned on.",
       "status": {
         "ready": "Everything is in place for remote control.",
         "link": "No simulator is connected."

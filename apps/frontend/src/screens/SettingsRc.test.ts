@@ -70,6 +70,25 @@ it('is off until the setting is turned on, and keeps it in the settings', async 
   expect(handle.settings.uiValue('rc.allow')).toBe('on')
 })
 
+it('has one switch for the sticks that arm and disarm: off, shut until remote control is allowed, said in one line', async () => {
+  const { wrapper, handle } = await screen()
+  const rudder = wrapper.get('#rc-rudder-arm')
+
+  expect(rudder.attributes('aria-checked')).toBe('false')
+  expect(rudder.attributes('disabled')).toBeDefined()
+  expect(wrapper.text().match(/arm AND DISARM the simulator/g)).toHaveLength(1)
+  await wrapper.get('#rc-allow').trigger('click')
+  await flushPromises()
+  expect(wrapper.get('#rc-rudder-arm').attributes('disabled')).toBeUndefined()
+  await wrapper.get('#rc-rudder-arm').trigger('click')
+  await flushPromises()
+  expect(wrapper.get('#rc-rudder-arm').attributes('aria-checked')).toBe('true')
+  expect(handle.settings.uiValue('rc.rudderArm')).toBe('on')
+  await wrapper.get('#rc-rudder-arm').trigger('click')
+  await flushPromises()
+  expect(handle.settings.uiValue('rc.rudderArm')).toBe('off')
+})
+
 it('says there is no pad, and shows no mapping, until the radio is moved', async () => {
   const { wrapper } = await screen()
 

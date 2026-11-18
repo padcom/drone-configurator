@@ -832,7 +832,9 @@
     },
     "indicator": {
       "on": "Control remoto activo",
-      "off": "Control remoto activo. Pulsa para apagarlo."
+      "off": "Control remoto activo. Pulsa para apagarlo.",
+      "rudder": "armado con sticks",
+      "offRudder": "Control remoto activo, y los sticks pueden armar y desarmar. Pulsa para apagarlo."
     },
     "summary": {
       "title": "¿Pilotar con el mando?",
@@ -906,6 +908,8 @@
       "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB).",
       "allow": "Permitir el control remoto",
       "allowHelp": "Desactivado por defecto y solo para el simulador integrado o un enlace a este ordenador: cualquier otro vehículo se rechaza. Esto solo lo permite; no lo inicia.",
+      "rudderArm": "Dejar que los sticks armen y desarmen",
+      "rudderArmHelp": "Desactivado por defecto. Permite que los sticks armen Y DESARMEN el simulador, también en vuelo. Necesita ARMING_RUDDER en el vehículo; las comprobaciones previas al armado siguen aplicándose. Surte efecto cuando se activa el control remoto.",
       "status": {
         "ready": "Todo está listo para el control remoto.",
         "link": "No hay ningún simulador conectado."

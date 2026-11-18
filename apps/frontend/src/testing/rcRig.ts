@@ -39,6 +39,8 @@ export interface RcRig {
   told: string[]
   /** Whether RC control is allowed. */
   allowed: Box<boolean>
+  /** Whether the sticks may arm and disarm (the rudder guard is lifted): off. */
+  rudderArm: Box<boolean>
   /** The mappings kept, by device. */
   profiles: Box<Record<string, Profile>>
   /** The connection. */
@@ -74,15 +76,33 @@ function kept(profile: Profile | null | undefined): Record<string, Profile> {
  * @param allowed.value whether it is
  * @param profiles the mappings kept
  * @param profiles.value the mappings by device
+ * @param rudderArm whether the sticks may arm and disarm
+ * @param rudderArm.value whether they may
  * @returns the settings
  */
-function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profile>>): RcSettings {
+function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profile>>, rudderArm: Box<boolean>): RcSettings {
   return {
     allowed: computed(() => allowed.value),
     allow: on => Promise.resolve(void (allowed.value = on)),
+    rudderArm: computed(() => rudderArm.value),
+    setRudderArm: on => Promise.resolve(void (rudderArm.value = on)),
     profileOf: device => profiles.value[device] ?? null,
     save: profile => Promise.resolve(void (profiles.value = { ...profiles.value, [profile.device]: profile })),
   }
+}
+
+/**
+ * Connects the mock vehicle, disarmed, with the throttle on channel 3 and its minimum 1100.
+ *
+ * @param real the client
+ * @param control what the mock lets a test do
+ */
+async function connectDisarmed(real: BackendClient, control: MockControl): Promise<void> {
+  await real.call('vehicle.connect', SIMULATOR)
+  // (the vehicle is disarmed, and says so: a control is not begun on a state that is not known)
+  control.armed!(false)
+  // (the backend reads the throttle channel and its minimum from the vehicle: the facts say channel 3 and 1100)
+  control.rc!.throttle(3, 1100)
 }
 
 /**
@@ -90,12 +110,14 @@ function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profil
  *
  * @param options what is different from the usual
  * @param options.allowed whether RC control is allowed (it is)
+ * @param options.rudderArm whether the sticks may arm and disarm (they may not)
  * @param options.profile the mapping kept for the pad: the calibrated suggestion, or null for none
  * @param options.wrap what the control's client is made of the real one (to hold an answer back)
  * @returns what a test works with
  */
 export async function rcRig(options: {
   allowed?: boolean
+  rudderArm?: boolean
   profile?: Profile | null
   wrap?: (client: BackendClient) => BackendClient
 } = {}): Promise<RcRig> {
@@ -103,14 +125,11 @@ export async function rcRig(options: {
   const real = createBackendClient(mockBackend({ settings: { version: 1, ui: [] }, control }))
   const client = options.wrap?.(real) ?? real
 
-  await real.call('vehicle.connect', SIMULATOR)
-  // (the vehicle is disarmed, and says so: a control is not begun on a state that is not known)
-  control.armed!(false)
-  // (the backend reads the throttle channel and its minimum from the vehicle: the facts below say channel 3 and 1100)
-  control.rc!.throttle(3, 1100)
+  await connectDisarmed(real, control)
   const told: string[] = []
   const holder = { busy: null as string | null }
   const allowed = shallowRef(options.allowed !== false)
+  const rudderArm = shallowRef(options.rudderArm === true)
   const profiles = shallowRef(kept(options.profile))
   const connection = shallowRef<Connection>(CONNECTED)
   const request = shallowRef<ConnectRequest | null>(SIMULATOR)
@@ -118,13 +137,13 @@ export async function rcRig(options: {
   const pads = new FakePads()
   const scope = effectScope()
   const rc = scope.run(() => useRcControl({
-    client, connection, request, facts, env: pads.env(), settings: settingsOver(allowed, profiles),
+    client, connection, request, facts, env: pads.env(), settings: settingsOver(allowed, profiles, rudderArm),
     tell: (_severity, text) => told.push(text),
     reasonText: code => code,
     busy: () => holder.busy,
   }))!
 
-  return { rc, pads, control, told, allowed, profiles, connection, request, facts, holder, stop: () => scope.stop() }
+  return { rc, pads, control, told, allowed, rudderArm, profiles, connection, request, facts, holder, stop: () => scope.stop() }
 }
 
 /** Lets what was sent reach the backend, and what it answers reach the page. */

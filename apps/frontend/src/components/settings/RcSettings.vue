@@ -6,6 +6,12 @@
       <Toggle id="rc-allow" v-model="allow" :aria-describedby="`${uid}-allow-help`">{{ t('settings.rc.allow') }}</Toggle>
       <p :id="`${uid}-allow-help`" class="muted">{{ t('settings.rc.allowHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <Toggle id="rc-rudder-arm" v-model="rudderArm" :disabled="!allow" :aria-describedby="`${uid}-rudder-help`">
+        {{ t('settings.rc.rudderArm') }}
+      </Toggle>
+      <p :id="`${uid}-rudder-help`" class="muted">{{ t('settings.rc.rudderArmHelp') }}</p>
+    </div>
     <p v-if="statusKey !== null" id="rc-status" class="muted" role="status">
       {{ t(`settings.rc.status.${statusKey}`) }}
     </p>
@@ -70,6 +76,10 @@ const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request })
 const allow = computed({
   get: () => settings.allowed.value,
   set: (next: boolean) => void settings.allow(next),
+})
+const rudderArm = computed({
+  get: () => settings.rudderArm.value,
+  set: (next: boolean) => void settings.setRudderArm(next),
 })
 const EMPTY: PadSample = { axes: [], buttons: [] }
 /** What the pad says now (nothing when none is read). */
