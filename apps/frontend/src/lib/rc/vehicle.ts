@@ -119,8 +119,23 @@ export function factsOf(params: readonly ParamValue[], complete: boolean): Facts
 }
 
 /**
+ * The range the throttle is mapped through: a straight line from `RCn_MIN` (the stick at the bottom) to `RCn_MAX` (at the top),
+ * with the middle of the stick in the middle of the pulses. ArduCopter's throttle is exactly that (`RC_Channel::pwm_to_range`:
+ * from `RCn_MIN`, plus its dead zone, to `RCn_MAX`) and does not use `RCn_TRIM` at all, which a receiver calibration often
+ * leaves at the bottom: mapped through the trim, half of the stick's travel would give nothing and the other half would be twice
+ * as steep.
+ *
+ * @param range the throttle channel's range, as the vehicle says it
+ * @returns the same minimum and maximum, with the trim half way between them
+ */
+function straight(range: PulseRange): PulseRange {
+  return { min: range.min, trim: (range.min + range.max) / 2, max: range.max }
+}
+
+/**
  * The channels the RC control flies with: which are the throttle and the yaw, the range of each channel (the vehicle's, and the
- * default for a channel it did not say: a switch), and the throttle's dead zone.
+ * default for a channel it did not say: a switch; the throttle's with its trim in the middle, see `straight`), and the throttle's
+ * dead zone.
  *
  * @param facts what the vehicle says
  * @returns the channels
@@ -130,7 +145,11 @@ export function vehicleChannels(facts: Facts): VehicleChannels {
     throttle: facts.map.throttle,
     yaw: facts.map.yaw,
     throttleDeadZone: facts.zones[facts.map.throttle - 1] ?? 0,
-    range: channel => facts.ranges[channel - 1] ?? DEFAULT_RANGE,
+    range: channel => {
+      const range = facts.ranges[channel - 1] ?? DEFAULT_RANGE
+
+      return channel === facts.map.throttle ? straight(range) : range
+    },
   }
 }
 
