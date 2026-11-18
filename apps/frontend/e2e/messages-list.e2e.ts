@@ -94,10 +94,14 @@ function probe(): string {
   })()`
 }
 
-it('is a log with the severity of every message in a word', async () => {
+it('is a log with the severity of every message as a mark, its word the tooltip and the name for a screen reader', async () => {
   expect(await window().evaluate<string>(`document.querySelector('.message-list').getAttribute('role')`)).toBe('log')
-  const word = `row => row.querySelector('.sev')?.textContent.trim() !== ''`
-  const everyHasSeverity = `[...document.querySelectorAll('.message')].every(${word})`
+  // (a word as the tooltip and as hidden text, and a mark that is no wider than a mark: the word is not shown)
+  const marked = `row => {
+    const sev = row.querySelector('.sev')
+    return sev !== null && sev.title !== '' && sev.textContent.trim() === sev.title && sev.getBoundingClientRect().width < 40
+  }`
+  const everyHasSeverity = `[...document.querySelectorAll('.message')].every(${marked})`
 
   expect(await window().evaluate<boolean>(everyHasSeverity)).toBe(true)
 })

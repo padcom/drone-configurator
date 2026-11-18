@@ -357,6 +357,8 @@
 }
 
 .message .sev {
+  /* the hidden word is positioned in the mark, and so scrolls and is clipped with the list (else it would be placed on the page) */
+  position: relative;
   display: inline-flex;
   gap: var(--space-1);
   align-items: center;
