@@ -14,8 +14,8 @@ export interface RcSettings {
   /** Allows it, or not. */
   allow: (on: boolean) => Promise<void>
   /**
-   * Whether the sticks may arm and disarm (the rudder guard is lifted): off by default. It changes nothing unless RC control is
-   * allowed and runs, and the control reads it once, when it begins.
+   * Whether the sticks may arm and disarm (the rudder guard is lifted): off by default, and off whenever RC control is not
+   * allowed (turning Allow off clears it). The control reads it once, when it begins.
    */
   rudderArm: ComputedRef<boolean>
   /** Lets the sticks arm and disarm, or not. */
@@ -48,12 +48,20 @@ export function forgetRcAllowChoice(): void {
  */
 export function useRcSettings(settings: SettingsModel = useConfigurator().settings): RcSettings {
   const allowed = computed(() => local.value ?? parseAllow(settings.uiValue(RC_ALLOW_KEY)))
-  const rudderArm = computed(() => localRudder.value ?? parseAllow(settings.uiValue(RC_RUDDER_ARM_KEY)))
+  // (it counts only while remote control is allowed: a file that says on with Allow off is shown as off, and is left as it is)
+  const rudderArm = computed(() => allowed.value && (localRudder.value ?? parseAllow(settings.uiValue(RC_RUDDER_ARM_KEY))))
 
   return {
     allowed,
     allow: async (on: boolean): Promise<void> => {
       local.value = on
+
+      // (turning Allow off takes the sticks' arm with it: turning Allow on again starts with the hold in place)
+      if (!on && parseAllow(settings.uiValue(RC_RUDDER_ARM_KEY))) {
+        localRudder.value = false
+        await settings.setUi(RC_RUDDER_ARM_KEY, 'off')
+        localRudder.value = null
+      }
       await settings.setUi(RC_ALLOW_KEY, on ? 'on' : 'off')
       local.value = null
     },

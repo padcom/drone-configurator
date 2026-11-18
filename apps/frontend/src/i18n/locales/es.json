@@ -910,6 +910,7 @@
       "allowHelp": "Desactivado por defecto y solo para el simulador integrado o un enlace a este ordenador: cualquier otro vehículo se rechaza. Esto solo lo permite; no lo inicia.",
       "rudderArm": "Dejar que los sticks armen y desarmen",
       "rudderArmHelp": "Desactivado por defecto. Permite que los sticks armen Y DESARMEN el simulador, también en vuelo. Necesita ARMING_RUDDER en el vehículo; las comprobaciones previas al armado siguen aplicándose. Surte efecto cuando se activa el control remoto.",
+      "rudderArmShut": "Permite primero el control remoto. Si lo desactivas, esto también se desactiva.",
       "status": {
         "ready": "Todo está listo para el control remoto.",
         "link": "No hay ningún simulador conectado."

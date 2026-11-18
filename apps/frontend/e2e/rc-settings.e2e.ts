@@ -138,7 +138,7 @@ for (const size of SIZES) {
 
 it('has the switch for the sticks that arm and disarm off, and shut until remote control is allowed', async () => {
   const state = (): Promise<string> => window().evaluate<string>(
-    `document.querySelector('#rc-rudder-arm').getAttribute('aria-checked') + ' ' + document.querySelector('#rc-rudder-arm').disabled`,
+    `(b => b.getAttribute('aria-checked') + ' ' + b.disabled)(document.querySelector('#rc-rudder-arm'))`,
   )
 
   expect(await state()).toBe('false true')
