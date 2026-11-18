@@ -107,7 +107,7 @@ it('is found by typing, a row of the Vehicle group with its question a hold', as
   expect(wrapper.get('#vehicle').text()).toContain('QUADROTOR')
   expect(wrapper.get('#question').text()).toContain('Parameters are not changed')
   expect(wrapper.get('#confirm-hold').text()).toBe('Hold to reboot')
-  await wrapper.get('#confirm-cancel').trigger('keydown', { key: 'Escape' })
+  await wrapper.get('#confirm .kit-dialog-close').trigger('keydown', { key: 'Escape' })
 })
 
 it('refuses with its reason while no vehicle is connected, and sends nothing', async () => {
@@ -162,11 +162,11 @@ it('reboots after the hold: tells it, says "Rebooting…" in the top bar while i
 it('cancelling the hold sends nothing', async () => {
   const { wrapper, control } = await shellWithVehicle()
   await runReboot(wrapper)
-  await vi.waitFor(() => expect(wrapper.find('#confirm-cancel').exists()).toBe(true))
+  await vi.waitFor(() => expect(wrapper.find('#confirm .kit-dialog-close').exists()).toBe(true))
   await new Promise(resolve => {
     setTimeout(resolve, ARM_MS + 50)
   })
-  await wrapper.get('#confirm-cancel').trigger('click')
+  await wrapper.get('#confirm .kit-dialog-close').trigger('click')
   await flushPromises()
 
   expect(wrapper.find('#confirm').exists()).toBe(false)
@@ -212,11 +212,11 @@ it('gives the focus back to what had it before the palette opened, after Cancel'
   const link = wrapper.get<HTMLAnchorElement>('nav a')
   link.element.focus()
   await runReboot(wrapper)
-  await vi.waitFor(() => expect(wrapper.find('#confirm-cancel').exists()).toBe(true))
+  await vi.waitFor(() => expect(wrapper.find('#confirm .kit-dialog-close').exists()).toBe(true))
   await new Promise(resolve => {
     setTimeout(resolve, ARM_MS + 50)
   })
-  await wrapper.get('#confirm-cancel').trigger('click')
+  await wrapper.get('#confirm .kit-dialog-close').trigger('click')
   await flushPromises()
 
   await vi.waitFor(() => expect(document.activeElement).toBe(link.element))
@@ -239,5 +239,5 @@ it('asks in the language of the page', async () => {
   await runReboot(wrapper)
 
   expect(wrapper.get('#confirm-hold').text()).toBe('Zum Neustart halten')
-  await wrapper.get('#confirm-cancel').trigger('keydown', { key: 'Escape' })
+  await wrapper.get('#confirm .kit-dialog-close').trigger('keydown', { key: 'Escape' })
 })

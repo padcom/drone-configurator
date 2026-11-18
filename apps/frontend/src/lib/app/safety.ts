@@ -34,8 +34,9 @@ export interface SafetyOptions {
   /** The colour of a hold: amber for what changes how the vehicle flies, red for what cannot be undone. */
   tone?: 'warn' | 'error'
   /**
-   * How it is turned down: with a Cancel button (the default, which has the focus), or with a cross in the corner and the hold
-   * button as the one that has the focus (arming: Escape and the cross cancel; the hold rules are the same).
+   * How it is turned down: with a cross in the corner (always for a `hold`, which has the focus on its button: Escape and the
+   * cross cancel; the hold rules are the same), or, for a `plain` question, with a Cancel button (the default, which has the
+   * focus) unless it asks for the cross.
    */
   dismissal?: 'cancel' | 'cross'
 }

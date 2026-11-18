@@ -1,6 +1,6 @@
 
 <template>
-  <Dialog v-if="takeoff.open.value" :title="t('takeoff.title')" @close="takeoff.hide()">
+  <Dialog v-if="takeoff.open.value" :title="t('takeoff.title')" :close-label="t('confirm.cancel')" @close="takeoff.hide()">
     <p id="takeoff-vehicle" class="takeoff-vehicle">{{ vehicleName || t('safety.noVehicle') }}</p>
     <p id="takeoff-what">{{ whatText }}</p>
     <label class="takeoff-field" for="takeoff-altitude">
@@ -8,6 +8,7 @@
       <TextInput
         id="takeoff-altitude"
         v-model="takeoff.typed.value"
+        data-initial-focus
         mono
         inputmode="decimal"
         autocomplete="off"
@@ -19,8 +20,8 @@
     <p id="takeoff-fence" class="takeoff-problem" role="alert">{{ fenceText }}</p>
     <p id="takeoff-problem" class="takeoff-problem" role="alert">{{ problemText }}</p>
     <template #actions>
-      <!-- Cancel has the focus: the safe answer is the one that is given by a key pressed by mistake. -->
-      <Button id="takeoff-cancel" data-initial-focus @click="takeoff.hide()">{{ t('confirm.cancel') }}</Button>
+      <!-- Only the button that goes ahead (and the cross, and Escape): the focus is on the altitude, which a key pressed by
+           mistake does not send. -->
       <Button id="takeoff-go" variant="primary" :disabled="!mayGo" :data-armed="ready" @click="go">
         {{ t('takeoff.go') }}
       </Button>
@@ -30,7 +31,8 @@
 
 <script setup lang="ts">
 // The dialog of "Take off": how high (metres above home, within the limits: 2 m up to the user's setting, and never above the
-// vehicle's fence when it limits the altitude) and a button that goes ahead. It is a PLAIN button, not a hold (the leader's
+// vehicle's fence when it limits the altitude) and a button that goes ahead, and nothing else but the cross in the corner (and
+// Escape) that turns it down. It is a PLAIN button, not a hold (the leader's
 // decision): the hold is asked for by what it starts when the vehicle is disarmed (the arm). What the button does is in
 // lib/commands/takeoffFlow.ts: GUIDED, arm if disarmed, take off; it stops at the first step that does not go.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'

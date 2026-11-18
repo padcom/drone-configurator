@@ -63,11 +63,22 @@ describe('the confirmation says what it asks', () => {
     expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toContain(HOLD.what)
   })
 
-  it('has the safe choice focused, and cancels with it', async () => {
-    const wrapper = asked(HOLD)
+  it('has the safe choice focused, and cancels with it, for a plain question', async () => {
+    const wrapper = asked(PLAIN)
 
     expect(document.activeElement?.id).toBe('confirm-cancel')
     await wrapper.get('#confirm-cancel').trigger('click')
+
+    expect(answers(wrapper)).toEqual([false])
+  })
+})
+
+describe('a hold is turned down with the cross', () => {
+  it('has the cross and no Cancel button, which is the only way but Escape', async () => {
+    const wrapper = asked(HOLD)
+
+    expect(wrapper.find('#confirm-cancel').exists()).toBe(false)
+    await wrapper.get('.kit-dialog-close').trigger('click')
 
     expect(answers(wrapper)).toEqual([false])
   })
@@ -160,7 +171,7 @@ describe('a confirmation, pressed the way a screen reader or a held key does', (
   })
 
   it('does not cancel for a click in the first moments (a key still held from the button that opened it)', async () => {
-    const wrapper = asked(HOLD, IGNORE_MS - 1)
+    const wrapper = asked(PLAIN, IGNORE_MS - 1)
 
     await wrapper.get('#confirm-cancel').trigger('click')
     expect(answers(wrapper)).toEqual([])
@@ -244,10 +255,12 @@ describe('a confirmation with a cross: the hold button', () => {
     expect(answers(wrapper)).toEqual([])
   })
 
-  it('is as it was for a question that does not say: Cancel, no cross', () => {
-    const wrapper = asked(HOLD)
+  it('is the same for a hold that does not say so (every hold has the cross), and a plain question has Cancel, no cross', () => {
+    const hold = asked(HOLD)
+    const plain = asked(PLAIN)
 
-    expect(wrapper.find('.kit-dialog-close').exists()).toBe(false)
-    expect(wrapper.find('#confirm-cancel').exists()).toBe(true)
+    expect([hold.find('.kit-dialog-close').exists(), hold.find('#confirm-cancel').exists()]).toEqual([true, false])
+    expect([plain.find('.kit-dialog-close').exists(), plain.find('#confirm-cancel').exists()]).toEqual([false, true])
+    expect(plain.find('#confirm-yes').exists()).toBe(true)
   })
 })
