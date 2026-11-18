@@ -76,7 +76,7 @@ it('has one switch for the sticks that arm and disarm: off, shut until remote co
 
   expect(rudder.attributes('aria-checked')).toBe('false')
   expect(rudder.attributes('disabled')).toBeDefined()
-  expect(wrapper.text().match(/arm AND DISARM the simulator/g)).toHaveLength(1)
+  expect(wrapper.text().match(/disarm it ON THE GROUND only/g)).toHaveLength(1)
   // (while it is shut, one line says why, and the switch is described by it too)
   expect(wrapper.text().match(/Allow remote control first/g)).toHaveLength(1)
   const reason = wrapper.findAll('p').find(line => line.text().includes('Allow remote control first'))

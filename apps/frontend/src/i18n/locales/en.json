@@ -909,7 +909,7 @@
       "allow": "Allow remote control",
       "allowHelp": "Off by default, and for the built-in simulator or a link to this computer only: any other vehicle is refused. This only allows it; it does not start it.",
       "rudderArm": "Let the sticks arm and disarm",
-      "rudderArmHelp": "Off by default. It lets the sticks arm AND DISARM the simulator, in flight too. Needs ARMING_RUDDER on the vehicle; the pre-arm checks still apply. Takes effect when remote control is turned on.",
+      "rudderArmHelp": "Off by default. It lets the sticks arm the simulator (throttle at the bottom) and disarm it ON THE GROUND only: in the air the hold stays. Needs ARMING_RUDDER on the vehicle; the pre-arm checks still apply. Takes effect when remote control is turned on.",
       "rudderArmShut": "Allow remote control first. Turning that off turns this off too.",
       "status": {
         "ready": "Everything is in place for remote control.",

@@ -166,6 +166,25 @@ function holdIfFlyable(out: number[], vehicle: VehicleChannels, ok: Usable): boo
   return ok.throttle && ok.yaw && holdTheRudder(out, vehicle)
 }
 
+/**
+ * Whether the yaw is held back from the arming gesture: always, unless the person turned the sticks' arm and disarm on AND the
+ * vehicle is known to be disarmed (the arm gesture) or known to be armed and landed (the disarm gesture on the ground). Armed in
+ * the air (ArduCopter lets a rudder disarm happen there in the manual-throttle modes), a stale or no heartbeat, a failsafe or a
+ * vehicle that is booting are all "not on the ground": the hold stays, with the option on too.
+ *
+ * @param option whether the option is on for this control
+ * @param armed whether the vehicle is armed, or undefined when that is not known
+ * @param landed whether the vehicle says it is landed (a fresh heartbeat of STANDBY)
+ * @returns true when the yaw is held back
+ */
+export function rudderHeld(option: boolean, armed: boolean | undefined, landed: boolean): boolean {
+  if (!option || armed === undefined) {
+    return true
+  }
+
+  return armed && !landed
+}
+
 /** What the guards are asked for. */
 export interface GuardOptions {
   /**

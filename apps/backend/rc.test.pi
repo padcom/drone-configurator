@@ -10,7 +10,7 @@ import { delay } from "std/timers"
 import { Cbor, Envelope } from "pico-desktop/communicator"
 import { Heartbeat, MavLinkConnection, MavParamType, MavType, MemoryStream, Received, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
-import { isSimulatorLink, seams } from "./rc"
+import { heldCount, holdTheRudder, isSimulatorLink, seams } from "./rc"
 import { useDirectoryForTests } from "./settings"
 import { flightNow } from "./telemetry"
 import { ByteStream } from "padcom/pico-mavlink"
@@ -22,6 +22,7 @@ import {
   MotorTestParams,
   ParamWrite,
   ParamWriteKind,
+  RcControlParams,
   RcInput,
   RcState,
   RcStateState,
@@ -34,6 +35,7 @@ import {
   encodeConnectRequest,
   encodeMotorTestParams,
   encodeParamWrite,
+  encodeRcControlParams,
   encodeRcInput,
   encodeSetModeAsk,
   encodeSettingsPatch,
@@ -143,6 +145,13 @@ async function connected(allow: bool = true): Promise<Rig> throws Error {
   addParam(sim, "RC_OVERRIDE_TIME", 3.0)
   addParam(sim, "RCMAP_THROTTLE", 3.0)
   addParam(sim, "RC3_MIN", 1000.0)
+  // (what the rudder guard needs: where the throttle is "low", and the yaw's range)
+  addParam(sim, "RC3_MAX", 2000.0)
+  addParam(sim, "RC3_DZ", 0.0)
+  addParam(sim, "RCMAP_YAW", 4.0)
+  addParam(sim, "RC4_MIN", 1000.0)
+  addParam(sim, "RC4_TRIM", 1500.0)
+  addParam(sim, "RC4_MAX", 2000.0)
   // The simulator arms itself after three ticks: the control is for a vehicle that may be either, but the tests start on the ground.
   const hold = setInterval(() => {
     sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
@@ -914,6 +923,147 @@ describe("the RC control", () => {
   it("raises a throttle under its minimum to it, and counts it", raisesAThrottleBelowItsMinimumAndCountsIt)
   it("takes one control at a time", takesOneControlAtATime)
   it("holds off a motor test, a calibration, a parameter write and a reboot while it is on", holdsOffAMotorTestACalibrationAParameterWriteAndAReboot)
+})
+
+/// A control that is on, asked for the stick arm and disarm or not, with the backend's own setting `rc.rudderArm` as said; the sticks fed
+/// for a moment. Its subscription.
+async function flyingWithRudder(r: Rig, asked: bool, setting: bool, channels: int[]): Promise<u64> throws Error {
+  if (setting) {
+    await r.f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.rudderArm", value: "on" }] }))
+  }
+  const reply = await r.f.trySubscribe("rc.control", encodeRcControlParams(RcControlParams { rudderArm: asked }))
+  expect(errorOf(reply)).toBe("ok")
+  const state = await told(r.f)
+  expect(state.state == RcStateState.On).toBe(true)
+  await feed(r, 200, channels)
+  expect(r.sim.rcOverride.frames > 0).toBe(true)
+  return reply.s ?? 0
+}
+
+/// How many yaw pulses were held by the time the page lets go (a page that unsubscribes is not told how it went: the count is the
+/// backend's, which `held` of the `released` event says to a page that is still there).
+async function heldAtTheEnd(r: Rig, s: u64): Promise<int> throws Error {
+  await r.f.unsubscribe(s)
+  return heldCount()
+}
+
+async function theYawIsHeldWithTheThrottleLowWhenNothingLiftsIt(): Promise<void> throws Error {
+  const r = await connected()
+  await flying(r, [0, 0, 1000, 2000])
+  // the vehicle's own gesture is at 0.889 of the travel, held 3 s: the sticks are never sent beyond 0.8 (1900 of 1000..2000)
+  expect(pulsesOf(r, 4)).toBe("1500,1500,1000,1900")
+  // (the page goes silent: the end tells how many yaw pulses were held; the `on` events that told the changing count come before)
+  await delay(600)
+  const state = await untilReleased(r)
+  expect((state.held ?? 0) > 0).toBe(true)
+  await r.close()
+}
+
+/// The events of the control up to the one that says it is released.
+async function untilReleased(r: Rig): Promise<RcState> throws Error {
+  for (let i = 0; i < 20; i++) {
+    const state = await told(r.f)
+    if (state.state == RcStateState.Released) {
+      return state
+    }
+  }
+  throw new Error("the control was never released")
+}
+
+async function thePageIsToldTheCountWhileTheControlIsOn(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r, [0, 0, 1000, 2000])
+  // while it is on, an `on` event says how many yaw pulses were held (at the most 4 a second): a page that lets go has it, whatever
+  // the end says
+  const first = await told(r.f)
+  expect(first.state == RcStateState.On).toBe(true)
+  expect((first.held ?? 0) > 0).toBe(true)
+  await feed(r, 600, [0, 0, 1000, 2000])
+  const later = await told(r.f)
+  expect((later.held ?? 0) > (first.held ?? 0)).toBe(true)
+  // the page switches off: its subscription ends first and the end event never reaches it, but the count did
+  await r.f.unsubscribe(s)
+  expect(heldCount() >= (later.held ?? 0) as int).toBe(true)
+  await r.close()
+}
+
+async function theThrottleIsWhatMakesTheHold(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r, [0, 0, 1600, 2000])
+  expect(pulsesOf(r, 4)).toBe("1500,1500,1600,2000")
+  expect(await heldAtTheEnd(r, s)).toBe(0)
+  await r.close()
+}
+
+async function theOptionLiftsTheHoldOnADisarmedVehicleOnlyWhenBothSidesSayYes(): Promise<void> throws Error {
+  // the page asked and the backend's own setting is on, the vehicle disarmed (STANDBY): the arm gesture may be made
+  const lifted = await connected()
+  const s = await flyingWithRudder(lifted, true, true, [0, 0, 1000, 2000])
+  expect(pulsesOf(lifted, 4)).toBe("1500,1500,1000,2000")
+  expect(await heldAtTheEnd(lifted, s)).toBe(0)
+  await lifted.close()
+  // the page asked, the backend's setting is off (a page that is wrong cannot lift it alone)
+  const noSetting = await connected()
+  const a = await flyingWithRudder(noSetting, true, false, [0, 0, 1000, 2000])
+  expect(pulsesOf(noSetting, 4)).toBe("1500,1500,1000,1900")
+  expect((await heldAtTheEnd(noSetting, a)) > 0).toBe(true)
+  await noSetting.close()
+  // the setting is on, the page did not ask
+  const notAsked = await connected()
+  const b = await flyingWithRudder(notAsked, false, true, [0, 0, 1000, 2000])
+  expect(pulsesOf(notAsked, 4)).toBe("1500,1500,1000,1900")
+  expect((await heldAtTheEnd(notAsked, b)) > 0).toBe(true)
+  await notAsked.close()
+}
+
+/// The 16 pulses of a stage test: the throttle low, the yaw at its right end.
+function atTheEnd(): int[] {
+  const out: int[] = []
+  for (let i = 0; i < 16; i++) {
+    out.push(-1)
+  }
+  out[2] = 1000
+  out[3] = 2000
+  return out
+}
+
+/// What the last guard makes of the yaw now, for a vehicle in this state (the heartbeat as scripted: armed, its status, how old it is).
+function yawFor(armed: bool, status: int, ageMs: int): int {
+  link.armed = armed
+  link.systemStatus = status
+  link.heartbeatAt = (Date.now() as int) - ageMs
+  const pulses = atTheEnd()
+  holdTheRudder(pulses)
+  return pulses[3]
+}
+
+async function theHoldStaysWhenTheVehicleIsNotKnownToBeOnTheGround(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flyingWithRudder(r, true, true, [0, 0, 1000, 1500])
+  const before = heldCount()
+  // armed and landed (STANDBY, a fresh heartbeat): the disarm gesture on the ground may be made
+  expect(yawFor(true, 3, 100)).toBe(2000)
+  // armed in the air (ACTIVE), with a failsafe (CRITICAL), still booting, a status that is not known: the hold stays
+  expect(yawFor(true, 4, 100)).toBe(1900)
+  expect(yawFor(true, 5, 100)).toBe(1900)
+  expect(yawFor(true, 1, 100)).toBe(1900)
+  expect(yawFor(true, 99, 100)).toBe(1900)
+  // STANDBY on a heartbeat that is stale: not known, so not landed (and the armed state is not known either)
+  expect(yawFor(true, 3, 3500)).toBe(1900)
+  // disarmed: the arm gesture may be made, whatever the status
+  expect(yawFor(false, 3, 100)).toBe(2000)
+  expect(yawFor(false, 4, 100)).toBe(2000)
+  expect(heldCount() - before).toBe(5)
+  await r.f.unsubscribe(s)
+  await r.close()
+}
+
+describe("the rudder guard", () => {
+  it("holds the yaw to 0.8 of its travel with the throttle low, and counts what it held", theYawIsHeldWithTheThrottleLowWhenNothingLiftsIt)
+  it("tells the page how many it held while the control is on, not only at the end", thePageIsToldTheCountWhileTheControlIsOn)
+  it("holds nothing while the throttle is up", theThrottleIsWhatMakesTheHold)
+  it("is lifted on a disarmed vehicle only when the page asked and the backend's own setting is on", theOptionLiftsTheHoldOnADisarmedVehicleOnlyWhenBothSidesSayYes)
+  it("stays when the vehicle is not known to be disarmed or armed on the ground (in the air, a failsafe, stale, unknown)", theHoldStaysWhenTheVehicleIsNotKnownToBeOnTheGround)
 })
 
 describe("the exits of an RC control", () => {

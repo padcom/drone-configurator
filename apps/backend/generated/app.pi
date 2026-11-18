@@ -3991,6 +3991,7 @@ export function encodeTelemetryParams(v: TelemetryParams): Cbor {
 export struct Telemetry {
   armed: bool
   mode: string
+  systemStatus?: u8
   batteryVoltage?: f64
   batteryRemaining?: u8
   roll?: f64
@@ -4013,119 +4014,125 @@ export struct Telemetry {
 }
 
 export function decodeTelemetry(v: Cbor, path: string): Telemetry throws InvalidPayload {
-  const m = members(v, path, ["armed", "mode", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "home", "prearm", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
-  const cbor2 = m.get("batteryVoltage")
-  let opt2: f64? = null
+  const m = members(v, path, ["armed", "mode", "systemStatus", "batteryVoltage", "batteryRemaining", "roll", "pitch", "yaw", "heartbeatAgeMs", "position", "home", "prearm", "gps", "speed", "nav", "wind", "ekf", "vibration", "battery", "attitude", "servo", "rc"])
+  const cbor2 = m.get("systemStatus")
+  let opt2: u8? = null
   if (cbor2 != null) {
-    opt2 = float(cbor2, `${path}.batteryVoltage`)
+    opt2 = (uint(cbor2, `${path}.systemStatus`, 255) as u8)
   }
-  const cbor3 = m.get("batteryRemaining")
-  let opt3: u8? = null
+  const cbor3 = m.get("batteryVoltage")
+  let opt3: f64? = null
   if (cbor3 != null) {
-    opt3 = (uint(cbor3, `${path}.batteryRemaining`, 255) as u8)
+    opt3 = float(cbor3, `${path}.batteryVoltage`)
   }
-  const cbor4 = m.get("roll")
-  let opt4: f64? = null
+  const cbor4 = m.get("batteryRemaining")
+  let opt4: u8? = null
   if (cbor4 != null) {
-    opt4 = float(cbor4, `${path}.roll`)
+    opt4 = (uint(cbor4, `${path}.batteryRemaining`, 255) as u8)
   }
-  const cbor5 = m.get("pitch")
+  const cbor5 = m.get("roll")
   let opt5: f64? = null
   if (cbor5 != null) {
-    opt5 = float(cbor5, `${path}.pitch`)
+    opt5 = float(cbor5, `${path}.roll`)
   }
-  const cbor6 = m.get("yaw")
+  const cbor6 = m.get("pitch")
   let opt6: f64? = null
   if (cbor6 != null) {
-    opt6 = float(cbor6, `${path}.yaw`)
+    opt6 = float(cbor6, `${path}.pitch`)
   }
-  const cbor8 = m.get("position")
-  let opt8: PositionGroup? = null
-  if (cbor8 != null) {
-    opt8 = decodePositionGroup(cbor8, `${path}.position`)
+  const cbor7 = m.get("yaw")
+  let opt7: f64? = null
+  if (cbor7 != null) {
+    opt7 = float(cbor7, `${path}.yaw`)
   }
-  const cbor9 = m.get("home")
-  let opt9: HomeGroup? = null
+  const cbor9 = m.get("position")
+  let opt9: PositionGroup? = null
   if (cbor9 != null) {
-    opt9 = decodeHomeGroup(cbor9, `${path}.home`)
+    opt9 = decodePositionGroup(cbor9, `${path}.position`)
   }
-  const cbor10 = m.get("prearm")
-  let opt10: PrearmGroup? = null
+  const cbor10 = m.get("home")
+  let opt10: HomeGroup? = null
   if (cbor10 != null) {
-    opt10 = decodePrearmGroup(cbor10, `${path}.prearm`)
+    opt10 = decodeHomeGroup(cbor10, `${path}.home`)
   }
-  const cbor11 = m.get("gps")
-  let opt11: GpsGroup? = null
+  const cbor11 = m.get("prearm")
+  let opt11: PrearmGroup? = null
   if (cbor11 != null) {
-    opt11 = decodeGpsGroup(cbor11, `${path}.gps`)
+    opt11 = decodePrearmGroup(cbor11, `${path}.prearm`)
   }
-  const cbor12 = m.get("speed")
-  let opt12: SpeedGroup? = null
+  const cbor12 = m.get("gps")
+  let opt12: GpsGroup? = null
   if (cbor12 != null) {
-    opt12 = decodeSpeedGroup(cbor12, `${path}.speed`)
+    opt12 = decodeGpsGroup(cbor12, `${path}.gps`)
   }
-  const cbor13 = m.get("nav")
-  let opt13: NavGroup? = null
+  const cbor13 = m.get("speed")
+  let opt13: SpeedGroup? = null
   if (cbor13 != null) {
-    opt13 = decodeNavGroup(cbor13, `${path}.nav`)
+    opt13 = decodeSpeedGroup(cbor13, `${path}.speed`)
   }
-  const cbor14 = m.get("wind")
-  let opt14: WindGroup? = null
+  const cbor14 = m.get("nav")
+  let opt14: NavGroup? = null
   if (cbor14 != null) {
-    opt14 = decodeWindGroup(cbor14, `${path}.wind`)
+    opt14 = decodeNavGroup(cbor14, `${path}.nav`)
   }
-  const cbor15 = m.get("ekf")
-  let opt15: EkfGroup? = null
+  const cbor15 = m.get("wind")
+  let opt15: WindGroup? = null
   if (cbor15 != null) {
-    opt15 = decodeEkfGroup(cbor15, `${path}.ekf`)
+    opt15 = decodeWindGroup(cbor15, `${path}.wind`)
   }
-  const cbor16 = m.get("vibration")
-  let opt16: VibrationGroup? = null
+  const cbor16 = m.get("ekf")
+  let opt16: EkfGroup? = null
   if (cbor16 != null) {
-    opt16 = decodeVibrationGroup(cbor16, `${path}.vibration`)
+    opt16 = decodeEkfGroup(cbor16, `${path}.ekf`)
   }
-  const cbor17 = m.get("battery")
-  let opt17: BatteryGroup? = null
+  const cbor17 = m.get("vibration")
+  let opt17: VibrationGroup? = null
   if (cbor17 != null) {
-    opt17 = decodeBatteryGroup(cbor17, `${path}.battery`)
+    opt17 = decodeVibrationGroup(cbor17, `${path}.vibration`)
   }
-  const cbor18 = m.get("attitude")
-  let opt18: AttitudeGroup? = null
+  const cbor18 = m.get("battery")
+  let opt18: BatteryGroup? = null
   if (cbor18 != null) {
-    opt18 = decodeAttitudeGroup(cbor18, `${path}.attitude`)
+    opt18 = decodeBatteryGroup(cbor18, `${path}.battery`)
   }
-  const cbor19 = m.get("servo")
-  let opt19: ServoGroup? = null
+  const cbor19 = m.get("attitude")
+  let opt19: AttitudeGroup? = null
   if (cbor19 != null) {
-    opt19 = decodeServoGroup(cbor19, `${path}.servo`)
+    opt19 = decodeAttitudeGroup(cbor19, `${path}.attitude`)
   }
-  const cbor20 = m.get("rc")
-  let opt20: RcGroup? = null
+  const cbor20 = m.get("servo")
+  let opt20: ServoGroup? = null
   if (cbor20 != null) {
-    opt20 = decodeRcGroup(cbor20, `${path}.rc`)
+    opt20 = decodeServoGroup(cbor20, `${path}.servo`)
+  }
+  const cbor21 = m.get("rc")
+  let opt21: RcGroup? = null
+  if (cbor21 != null) {
+    opt21 = decodeRcGroup(cbor21, `${path}.rc`)
   }
   Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
     mode: text(required(m, "mode", path), `${path}.mode`),
-    batteryVoltage: opt2,
-    batteryRemaining: opt3,
-    roll: opt4,
-    pitch: opt5,
-    yaw: opt6,
+    systemStatus: opt2,
+    batteryVoltage: opt3,
+    batteryRemaining: opt4,
+    roll: opt5,
+    pitch: opt6,
+    yaw: opt7,
     heartbeatAgeMs: (uint(required(m, "heartbeatAgeMs", path), `${path}.heartbeatAgeMs`, 4294967295) as u32),
-    position: opt8,
-    home: opt9,
-    prearm: opt10,
-    gps: opt11,
-    speed: opt12,
-    nav: opt13,
-    wind: opt14,
-    ekf: opt15,
-    vibration: opt16,
-    battery: opt17,
-    attitude: opt18,
-    servo: opt19,
-    rc: opt20,
+    position: opt9,
+    home: opt10,
+    prearm: opt11,
+    gps: opt12,
+    speed: opt13,
+    nav: opt14,
+    wind: opt15,
+    ekf: opt16,
+    vibration: opt17,
+    battery: opt18,
+    attitude: opt19,
+    servo: opt20,
+    rc: opt21,
   }
 }
 
@@ -4133,78 +4140,82 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   const m = new Map<string, Cbor>()
   m.set("armed", Cbor.Bool(v.armed))
   m.set("mode", Cbor.Text(v.mode))
-  const opt2 = v.batteryVoltage
+  const opt2 = v.systemStatus
   if (opt2 != null) {
-    m.set("batteryVoltage", Cbor.Float(opt2))
+    m.set("systemStatus", Cbor.Uint(opt2 as u64))
   }
-  const opt3 = v.batteryRemaining
+  const opt3 = v.batteryVoltage
   if (opt3 != null) {
-    m.set("batteryRemaining", Cbor.Uint(opt3 as u64))
+    m.set("batteryVoltage", Cbor.Float(opt3))
   }
-  const opt4 = v.roll
+  const opt4 = v.batteryRemaining
   if (opt4 != null) {
-    m.set("roll", Cbor.Float(opt4))
+    m.set("batteryRemaining", Cbor.Uint(opt4 as u64))
   }
-  const opt5 = v.pitch
+  const opt5 = v.roll
   if (opt5 != null) {
-    m.set("pitch", Cbor.Float(opt5))
+    m.set("roll", Cbor.Float(opt5))
   }
-  const opt6 = v.yaw
+  const opt6 = v.pitch
   if (opt6 != null) {
-    m.set("yaw", Cbor.Float(opt6))
+    m.set("pitch", Cbor.Float(opt6))
+  }
+  const opt7 = v.yaw
+  if (opt7 != null) {
+    m.set("yaw", Cbor.Float(opt7))
   }
   m.set("heartbeatAgeMs", Cbor.Uint(v.heartbeatAgeMs as u64))
-  const opt8 = v.position
-  if (opt8 != null) {
-    m.set("position", encodePositionGroup(opt8))
-  }
-  const opt9 = v.home
+  const opt9 = v.position
   if (opt9 != null) {
-    m.set("home", encodeHomeGroup(opt9))
+    m.set("position", encodePositionGroup(opt9))
   }
-  const opt10 = v.prearm
+  const opt10 = v.home
   if (opt10 != null) {
-    m.set("prearm", encodePrearmGroup(opt10))
+    m.set("home", encodeHomeGroup(opt10))
   }
-  const opt11 = v.gps
+  const opt11 = v.prearm
   if (opt11 != null) {
-    m.set("gps", encodeGpsGroup(opt11))
+    m.set("prearm", encodePrearmGroup(opt11))
   }
-  const opt12 = v.speed
+  const opt12 = v.gps
   if (opt12 != null) {
-    m.set("speed", encodeSpeedGroup(opt12))
+    m.set("gps", encodeGpsGroup(opt12))
   }
-  const opt13 = v.nav
+  const opt13 = v.speed
   if (opt13 != null) {
-    m.set("nav", encodeNavGroup(opt13))
+    m.set("speed", encodeSpeedGroup(opt13))
   }
-  const opt14 = v.wind
+  const opt14 = v.nav
   if (opt14 != null) {
-    m.set("wind", encodeWindGroup(opt14))
+    m.set("nav", encodeNavGroup(opt14))
   }
-  const opt15 = v.ekf
+  const opt15 = v.wind
   if (opt15 != null) {
-    m.set("ekf", encodeEkfGroup(opt15))
+    m.set("wind", encodeWindGroup(opt15))
   }
-  const opt16 = v.vibration
+  const opt16 = v.ekf
   if (opt16 != null) {
-    m.set("vibration", encodeVibrationGroup(opt16))
+    m.set("ekf", encodeEkfGroup(opt16))
   }
-  const opt17 = v.battery
+  const opt17 = v.vibration
   if (opt17 != null) {
-    m.set("battery", encodeBatteryGroup(opt17))
+    m.set("vibration", encodeVibrationGroup(opt17))
   }
-  const opt18 = v.attitude
+  const opt18 = v.battery
   if (opt18 != null) {
-    m.set("attitude", encodeAttitudeGroup(opt18))
+    m.set("battery", encodeBatteryGroup(opt18))
   }
-  const opt19 = v.servo
+  const opt19 = v.attitude
   if (opt19 != null) {
-    m.set("servo", encodeServoGroup(opt19))
+    m.set("attitude", encodeAttitudeGroup(opt19))
   }
-  const opt20 = v.rc
+  const opt20 = v.servo
   if (opt20 != null) {
-    m.set("rc", encodeRcGroup(opt20))
+    m.set("servo", encodeServoGroup(opt20))
+  }
+  const opt21 = v.rc
+  if (opt21 != null) {
+    m.set("rc", encodeRcGroup(opt21))
   }
   Cbor.Dict(m)
 }
@@ -5999,6 +6010,31 @@ export function encodeMotorTestState(v: MotorTestState): Cbor {
   Cbor.Dict(m)
 }
 
+export struct RcControlParams {
+  rudderArm?: bool
+}
+
+export function decodeRcControlParams(v: Cbor, path: string): RcControlParams throws InvalidPayload {
+  const m = members(v, path, ["rudderArm"])
+  const cbor0 = m.get("rudderArm")
+  let opt0: bool? = null
+  if (cbor0 != null) {
+    opt0 = boolean(cbor0, `${path}.rudderArm`)
+  }
+  RcControlParams {
+    rudderArm: opt0,
+  }
+}
+
+export function encodeRcControlParams(v: RcControlParams): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.rudderArm
+  if (opt0 != null) {
+    m.set("rudderArm", Cbor.Bool(opt0))
+  }
+  Cbor.Dict(m)
+}
+
 function decodeRcInputChannelsList(v: Cbor, path: string): u16[] throws InvalidPayload {
   const out: u16[] = []
   let i = 0
@@ -6061,11 +6097,12 @@ export struct RcState {
   throttleMin?: u16
   sent?: u32
   clamped?: u32
+  held?: u32
   confirmed?: bool
 }
 
 export function decodeRcState(v: Cbor, path: string): RcState throws InvalidPayload {
-  const m = members(v, path, ["state", "why", "throttleChannel", "throttleMin", "sent", "clamped", "confirmed"])
+  const m = members(v, path, ["state", "why", "throttleChannel", "throttleMin", "sent", "clamped", "held", "confirmed"])
   const cbor1 = m.get("why")
   let opt1: string? = null
   if (cbor1 != null) {
@@ -6091,10 +6128,15 @@ export function decodeRcState(v: Cbor, path: string): RcState throws InvalidPayl
   if (cbor5 != null) {
     opt5 = (uint(cbor5, `${path}.clamped`, 4294967295) as u32)
   }
-  const cbor6 = m.get("confirmed")
-  let opt6: bool? = null
+  const cbor6 = m.get("held")
+  let opt6: u32? = null
   if (cbor6 != null) {
-    opt6 = boolean(cbor6, `${path}.confirmed`)
+    opt6 = (uint(cbor6, `${path}.held`, 4294967295) as u32)
+  }
+  const cbor7 = m.get("confirmed")
+  let opt7: bool? = null
+  if (cbor7 != null) {
+    opt7 = boolean(cbor7, `${path}.confirmed`)
   }
   RcState {
     state: decodeRcStateState(required(m, "state", path), `${path}.state`),
@@ -6103,7 +6145,8 @@ export function decodeRcState(v: Cbor, path: string): RcState throws InvalidPayl
     throttleMin: opt3,
     sent: opt4,
     clamped: opt5,
-    confirmed: opt6,
+    held: opt6,
+    confirmed: opt7,
   }
 }
 
@@ -6130,9 +6173,13 @@ export function encodeRcState(v: RcState): Cbor {
   if (opt5 != null) {
     m.set("clamped", Cbor.Uint(opt5 as u64))
   }
-  const opt6 = v.confirmed
+  const opt6 = v.held
   if (opt6 != null) {
-    m.set("confirmed", Cbor.Bool(opt6))
+    m.set("held", Cbor.Uint(opt6 as u64))
+  }
+  const opt7 = v.confirmed
+  if (opt7 != null) {
+    m.set("confirmed", Cbor.Bool(opt7))
   }
   Cbor.Dict(m)
 }

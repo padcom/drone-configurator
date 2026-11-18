@@ -11,11 +11,12 @@ import { type ComputedRef, type Ref, type ShallowRef, computed, getCurrentScope,
 import type { RcSettings } from './useRcSettings'
 import { type GamepadModel, useGamepad } from './useGamepad'
 import { type BackendClient, BackendError, type Subscription } from '@/backend/client'
-import type { ConnectRequest, Connection, RcState } from '@/generated/app'
+import type { ConnectRequest, Connection, RcState, Telemetry } from '@/generated/app'
+import { armedOf, landedOf } from '@/lib/app/armed'
 import { type ControlBlock, controlBlock, isSimulatorLink } from '@/lib/rc/gate'
 import { channelsOf } from '@/lib/rc/mapping'
 import type { Environment } from '@/lib/rc/reader'
-import { type Gate, START_GATE, guard } from '@/lib/rc/safety'
+import { type Gate, START_GATE, guard, rudderHeld } from '@/lib/rc/safety'
 import { serialiseProfile } from '@/lib/rc/store'
 import type { PadSample, Profile } from '@/lib/rc/types'
 import { type Facts, vehicleChannels, vehicleProblems } from '@/lib/rc/vehicle'
@@ -38,6 +39,8 @@ export interface RcControlDeps {
   settings: RcSettings
   /** What the vehicle's parameters say of its channels, or null when they are not known. */
   facts: Readonly<Ref<Facts | null>>
+  /** The latest telemetry: whether the vehicle is armed, and whether it says it is landed. Without it the yaw is always held. */
+  telemetry?: Readonly<Ref<Telemetry | null>>
   /** Says something short to the person (a toast). */
   tell: (severity: 'info' | 'warning', text: string) => void
   /** The words for a reason it ended or was refused (`rc.reason.<code>`). */
@@ -63,6 +66,12 @@ export interface RcControlModel {
    * that turning the setting over does not change a control that flies. False while it is off.
    */
   readonly rudderLifted: ShallowRef<boolean>
+  /**
+   * How many frames, in this control, the stick wanted more yaw than the arming guard allowed (so it was held): the frames the
+   * page's own guard held, plus those the backend did (it repeats `on` with its count when it changes). Kept after the control
+   * ended; 0 when the next one begins.
+   */
+  readonly held: ShallowRef<number>
   /** The words for why it is off when it ended or was refused (what the toast said): kept on the screen, or null. */
   readonly explanation: ComputedRef<string | null>
   /** The id of the pad that is flown with, or null. */
@@ -118,6 +127,11 @@ class RcControl implements RcControlModel {
   // (read once, when a control begins, after allowed, a simulator and a ready mapping were checked: a change of the setting while
   // the control flies does nothing to it)
   readonly rudderLifted = shallowRef(false)
+  readonly held = shallowRef(0)
+  // (the frames the page's own guard held the yaw in, and those the backend did: the page's guard holds the yaw to the limit
+  // before the backend sees it, so the backend alone would count nothing)
+  private pageHeld = 0
+  private backendHeld = 0
   readonly explanation = computed(() => this.explain())
   readonly device = shallowRef<string | null>(null)
   readonly confirmed = shallowRef(false)
@@ -299,6 +313,18 @@ class RcControl implements RcControlModel {
   }
 
   /**
+   * Whether the yaw is held back from the arming gesture now: always, unless the person's option is on for this control and the
+   * vehicle is disarmed, or armed and landed (the telemetry the page shows; the backend decides again from its own heartbeat).
+   *
+   * @returns true when it is held
+   */
+  private yawHeld(): boolean {
+    const telemetry = this.deps.telemetry?.value ?? null
+
+    return rudderHeld(this.rudderLifted.value, armedOf(telemetry), landedOf(telemetry))
+  }
+
+  /**
    * Starts the control: the gate is shut, and the backend is asked for the subscription.
    *
    * @param profile the mapping that is flown with
@@ -313,6 +339,7 @@ class RcControl implements RcControlModel {
     this.seq = 0
     this.sentAt = Number.NEGATIVE_INFINITY
     this.why.value = null
+    this.resetHeld()
     this.state.value = 'starting'
     this.facts = factsKey(this.deps.facts.value)
     this.pushing = false
@@ -320,10 +347,10 @@ class RcControl implements RcControlModel {
     const mine = this.run
     try {
       // (whatever goes wrong in asking for the subscription ends the control with a reason: never left starting, or off with
-      // nothing said)
+      // nothing said; the option goes along: the backend lifts its hold only when its own settings say so too)
       const subscription = this.deps.client.subscribe(
         'rc.control',
-        null,
+        { rudderArm: this.rudderLifted.value },
         state => this.told(mine, state),
         ending => this.ended(mine, ending?.code ?? 'ENDED'),
       )
@@ -365,11 +392,41 @@ class RcControl implements RcControlModel {
    * @param state what it said
    */
   private heard(state: RcState): void {
+    this.countHeld(state)
+
     if (state.state === 'released') {
       this.over(state.why ?? 'ENDED', true)
     } else if (this.state.value === 'starting') {
       this.on(state)
     }
+  }
+
+  /**
+   * Keeps the count of held yaw pulses the backend told (in `on`, again whenever it changed, and in `released`): the page that
+   * turns the control off never hears `released`, and has the last count it was told.
+   *
+   * @param state what the backend said
+   */
+  private countHeld(state: RcState): void {
+    this.backendHeld = state.held ?? this.backendHeld
+    this.held.value = this.pageHeld + this.backendHeld
+  }
+
+  /** Begins counting held frames again (a control begins). */
+  private resetHeld(): void {
+    this.pageHeld = 0
+    this.backendHeld = 0
+    this.held.value = 0
+  }
+
+  /**
+   * Counts a frame in which the page's own guard held the yaw.
+   *
+   * @param held whether it did
+   */
+  private countFrame(held: boolean): void {
+    this.pageHeld += held ? 1 : 0
+    this.held.value = this.pageHeld + this.backendHeld
   }
 
   /**
@@ -416,10 +473,11 @@ class RcControl implements RcControlModel {
     }
     const vehicle = vehicleChannels(flying.facts)
     const pulses = channelsOf(flying.profile, sample, vehicle.range)
-    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: !this.rudderLifted.value })
+    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: this.yawHeld() })
 
     this.sentAt = at
     this.gate = guarded.gate
+    this.countFrame(guarded.yawHeld)
     this.gateOpen.value = guarded.gate.open
     this.seq += 1
     void this.push(this.seq, guarded.channels)

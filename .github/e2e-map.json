@@ -87,6 +87,10 @@
       "specs": ["sitl-arming.e2e.ts", "sitl-guided.e2e.ts", "guided.e2e.ts"]
     },
     {
+      "when": ["apps/backend/{rc,rudder,telemetry,session}.pi", "apps/frontend/e2e/bridge-client.ts", "packages/contracts/rudder-vectors.txt"],
+      "specs": ["sitl-landed.e2e.ts"]
+    },
+    {
       "when": ["apps/backend/{missions,planverify,planfiles,arming,session,messages}.pi", "apps/frontend/e2e/bridge-client.ts"],
       "specs": ["sitl-plan.e2e.ts"]
     },

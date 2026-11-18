@@ -100,6 +100,8 @@ class Heard implements SessionPart {
   public pitch: f64 = 0.0
   public yaw: f64 = 0.0
   public lastHeartbeat: int = 0
+  /// The heartbeat's `system_status` (MAV_STATE), as the last heartbeat said it.
+  public systemStatus: int = 0
   /// The pre-arm checks as SYS_STATUS last said them: when (ms since 1970; 0 = never, or the vehicle has no such bit), whether the
   /// checks are enabled and whether they pass.
   public prearmAt: int = 0
@@ -152,6 +154,8 @@ class Heard implements SessionPart {
       // The session keeps the armed state too (reboot.pi decides on it): the telemetry is not what is asked.
       link.armed = armed
       link.heartbeatAt = lastHeartbeat
+      systemStatus = m.systemStatus as int
+      link.systemStatus = systemStatus
     } else if (m instanceof SysStatus) {
       // UINT16_MAX: the vehicle doesn't know its voltage.
       if (m.voltageBattery as int != 65535) {
@@ -182,6 +186,9 @@ class Heard implements SessionPart {
 
   public telemetry(): Telemetry {
     const t = Telemetry { armed: armed, mode: mode, heartbeatAgeMs: ((Date.now() as int) - lastHeartbeat) as u32 }
+    if (heardHeartbeat) {
+      t.systemStatus = systemStatus as u8
+    }
     if (heardStatus) {
       t.batteryVoltage = Math.round(voltage * 100.0) / 100.0
       if (remaining >= 0 && remaining <= 100) {
