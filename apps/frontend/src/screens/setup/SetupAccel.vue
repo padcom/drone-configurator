@@ -37,7 +37,7 @@
     </div>
     <!-- Read only: the vehicle writes these when it accepts the calibration, and this page writes none. Each name is said once:
          after a success the same list has the values the vehicle holds now. -->
-    <aside class="setup-aside" :aria-label="t('setup.aside')">
+    <Pane tag="aside" class="setup-aside" :aria-label="t('setup.aside')">
       <div :id="trusted ? 'setup-accel-values' : 'setup-accel-writes'">
         <h2 class="setup-label">{{ t('setup.accel.changes') }}</h2>
         <p class="muted">{{ t('setup.accel.changesNote') }}</p>
@@ -60,7 +60,7 @@
       </div>
       <p id="setup-accel-status" class="setup-status" role="status">{{ status }}</p>
       <CalibrationSays />
-    </aside>
+    </Pane>
   </section>
 </template>
 
@@ -77,6 +77,7 @@ import { useI18n } from 'vue-i18n'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
 import CalibrationSays from '@/components/setup/CalibrationSays.vue'
 import Button from '@/components/ui/Button.vue'
+import Pane from '@/components/ui/Pane.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { showNumber } from '@/lib/params/paramValue'
 import { ACCEL_POSITIONS, accelPhase, positionKey, positionMark } from '@/lib/setup/calibration'
