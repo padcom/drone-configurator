@@ -67,9 +67,9 @@ export interface RcControlModel {
    */
   readonly rudderLifted: ShallowRef<boolean>
   /**
-   * How many yaw pulses the backend has held back from the arming gesture in this control, as it last said. It repeats `on` when
-   * the count changes, so that a page that turns the control off (and never hears `released`) still has it. Kept after the
-   * control ended; 0 when the next one begins.
+   * How many frames, in this control, the stick wanted more yaw than the arming guard allowed (so it was held): the frames the
+   * page's own guard held, plus those the backend did (it repeats `on` with its count when it changes). Kept after the control
+   * ended; 0 when the next one begins.
    */
   readonly held: ShallowRef<number>
   /** The words for why it is off when it ended or was refused (what the toast said): kept on the screen, or null. */
@@ -128,6 +128,10 @@ class RcControl implements RcControlModel {
   // the control flies does nothing to it)
   readonly rudderLifted = shallowRef(false)
   readonly held = shallowRef(0)
+  // (the frames the page's own guard held the yaw in, and those the backend did: the page's guard holds the yaw to the limit
+  // before the backend sees it, so the backend alone would count nothing)
+  private pageHeld = 0
+  private backendHeld = 0
   readonly explanation = computed(() => this.explain())
   readonly device = shallowRef<string | null>(null)
   readonly confirmed = shallowRef(false)
@@ -335,7 +339,7 @@ class RcControl implements RcControlModel {
     this.seq = 0
     this.sentAt = Number.NEGATIVE_INFINITY
     this.why.value = null
-    this.held.value = 0
+    this.resetHeld()
     this.state.value = 'starting'
     this.facts = factsKey(this.deps.facts.value)
     this.pushing = false
@@ -404,7 +408,25 @@ class RcControl implements RcControlModel {
    * @param state what the backend said
    */
   private countHeld(state: RcState): void {
-    this.held.value = state.held ?? this.held.value
+    this.backendHeld = state.held ?? this.backendHeld
+    this.held.value = this.pageHeld + this.backendHeld
+  }
+
+  /** Begins counting held frames again (a control begins). */
+  private resetHeld(): void {
+    this.pageHeld = 0
+    this.backendHeld = 0
+    this.held.value = 0
+  }
+
+  /**
+   * Counts a frame in which the page's own guard held the yaw.
+   *
+   * @param held whether it did
+   */
+  private countFrame(held: boolean): void {
+    this.pageHeld += held ? 1 : 0
+    this.held.value = this.pageHeld + this.backendHeld
   }
 
   /**
@@ -455,6 +477,7 @@ class RcControl implements RcControlModel {
 
     this.sentAt = at
     this.gate = guarded.gate
+    this.countFrame(guarded.yawHeld)
     this.gateOpen.value = guarded.gate.open
     this.seq += 1
     void this.push(this.seq, guarded.channels)

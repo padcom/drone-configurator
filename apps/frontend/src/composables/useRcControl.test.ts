@@ -287,6 +287,22 @@ describe('the sticks that arm and disarm (the option, for a simulator)', () => {
   })
 })
 
+describe('the sticks that arm and disarm: the frames that were held are counted', () => {
+  it('rises with each frame the stick wanted too much yaw (the backend sees only the held pulse), not once lifted', async () => {
+    const held = await on()
+    const counted = (await yawAtTheEnd(held), held.rc.held.value)
+    await yawAtTheEnd(held)
+    const lifted = await flying(await rcRig({ rudderArm: true }))
+    await yawAtTheEnd(lifted)
+
+    expect(counted).toBeGreaterThan(0)
+    expect(held.rc.held.value).toBeGreaterThan(counted)
+    expect(lifted.rc.held.value).toBe(0)
+    held.stop()
+    lifted.stop()
+  })
+})
+
 describe('the sticks that arm and disarm: when the setting is read', () => {
   it('is when the control begins: turning it over while the control flies changes nothing, either way', async () => {
     const r = await on()
