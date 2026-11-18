@@ -555,6 +555,7 @@ function startRcControl(parts: {
     request: vehicle.request,
     settings: useRcSettings(settings),
     facts,
+    telemetry: vehicle.telemetry,
     tell: (severity, text) => useToasts().push({ severity, text, long: true }),
     // (a reason with no words of its own, a code the backend added, is said with the code)
     // (a picked place for a Go here, or a vehicle in GUIDED: a guided flow is on, and the sticks do not begin over it)

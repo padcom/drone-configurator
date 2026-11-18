@@ -11,11 +11,12 @@ import { type ComputedRef, type Ref, type ShallowRef, computed, getCurrentScope,
 import type { RcSettings } from './useRcSettings'
 import { type GamepadModel, useGamepad } from './useGamepad'
 import { type BackendClient, BackendError, type Subscription } from '@/backend/client'
-import type { ConnectRequest, Connection, RcState } from '@/generated/app'
+import type { ConnectRequest, Connection, RcState, Telemetry } from '@/generated/app'
+import { armedOf, landedOf } from '@/lib/app/armed'
 import { type ControlBlock, controlBlock, isSimulatorLink } from '@/lib/rc/gate'
 import { channelsOf } from '@/lib/rc/mapping'
 import type { Environment } from '@/lib/rc/reader'
-import { type Gate, START_GATE, guard } from '@/lib/rc/safety'
+import { type Gate, START_GATE, guard, rudderHeld } from '@/lib/rc/safety'
 import { serialiseProfile } from '@/lib/rc/store'
 import type { PadSample, Profile } from '@/lib/rc/types'
 import { type Facts, vehicleChannels, vehicleProblems } from '@/lib/rc/vehicle'
@@ -38,6 +39,8 @@ export interface RcControlDeps {
   settings: RcSettings
   /** What the vehicle's parameters say of its channels, or null when they are not known. */
   facts: Readonly<Ref<Facts | null>>
+  /** The latest telemetry: whether the vehicle is armed, and whether it says it is landed. Without it the yaw is always held. */
+  telemetry?: Readonly<Ref<Telemetry | null>>
   /** Says something short to the person (a toast). */
   tell: (severity: 'info' | 'warning', text: string) => void
   /** The words for a reason it ended or was refused (`rc.reason.<code>`). */
@@ -299,6 +302,18 @@ class RcControl implements RcControlModel {
   }
 
   /**
+   * Whether the yaw is held back from the arming gesture now: always, unless the person's option is on for this control and the
+   * vehicle is disarmed, or armed and landed (the telemetry the page shows; the backend decides again from its own heartbeat).
+   *
+   * @returns true when it is held
+   */
+  private yawHeld(): boolean {
+    const telemetry = this.deps.telemetry?.value ?? null
+
+    return rudderHeld(this.rudderLifted.value, armedOf(telemetry), landedOf(telemetry))
+  }
+
+  /**
    * Starts the control: the gate is shut, and the backend is asked for the subscription.
    *
    * @param profile the mapping that is flown with
@@ -320,10 +335,10 @@ class RcControl implements RcControlModel {
     const mine = this.run
     try {
       // (whatever goes wrong in asking for the subscription ends the control with a reason: never left starting, or off with
-      // nothing said)
+      // nothing said; the option goes along: the backend lifts its hold only when its own settings say so too)
       const subscription = this.deps.client.subscribe(
         'rc.control',
-        null,
+        { rudderArm: this.rudderLifted.value },
         state => this.told(mine, state),
         ending => this.ended(mine, ending?.code ?? 'ENDED'),
       )
@@ -416,7 +431,7 @@ class RcControl implements RcControlModel {
     }
     const vehicle = vehicleChannels(flying.facts)
     const pulses = channelsOf(flying.profile, sample, vehicle.range)
-    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: !this.rudderLifted.value })
+    const guarded = guard(pulses, vehicle, this.gate, { holdRudder: this.yawHeld() })
 
     this.sentAt = at
     this.gate = guarded.gate

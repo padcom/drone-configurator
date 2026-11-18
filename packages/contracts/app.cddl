@@ -255,8 +255,15 @@ services = {
   ; emergency stop (which ends the control first) and a mode change are not held off. Events: `on` when it has begun (with the throttle channel and its minimum: the pulse of that channel is never
   ; sent below it), `released` when it ends, once (with why, how many frames were sent, how many throttle pulses were raised to the minimum,
   ; and whether the vehicle's release frame was written); the subscription ends after it. The backend sends from its own connection, with
-  ; the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`), not the id of the rest of the app (254).
-  "rc.control": ["subscription", null, rc-state],
+  ; the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`), as does the rest of the app (with its own component id).
+  ; THE RUDDER: with the throttle low (`RCn_DZ`) the yaw is never sent beyond 0.8 of its travel, so that the sticks cannot make the
+  ; vehicle's own arm or disarm gesture (full yaw held for 3 s). The page's option "let the sticks arm and disarm" (`rudderArm` in the
+  ; params, and `rc.rudderArm` `on` in the backend's own settings: both) lifts that hold ONLY while the backend knows the gesture is
+  ; safe: the vehicle is known disarmed (the arm gesture), or known armed AND landed (the disarm gesture on the ground: the last
+  ; heartbeat is fresh and its `system_status` is STANDBY, which ArduCopter sends exactly when `land_complete` and no failsafe is
+  ; active). Armed in the air in any mode, a heartbeat that is stale, or a status that is anything else holds the yaw even with the
+  ; option on (a manual-throttle mode would let the vehicle disarm in the air). `held` counts the yaw pulses that were held.
+  "rc.control": ["subscription", rc-control-params, rc-state],
   ; What the page reads of its sticks, as pulses in microseconds: channel i + 1 is `channels[i]`, 800 to 2200, or 0 for a channel that is
   ; the radio's (not overridden: it is released when it was a pulse before). At most 16. `seq` rises with every frame the page makes: a frame
   ; whose `seq` is not above the last counts for nothing, and is not "the page is alive". A frame with a pulse outside the range, or with more
@@ -975,6 +982,9 @@ telemetry-params = { ? rateHz: uint .size 1 }
 telemetry = {
   armed: bool,
   mode: tstr,
+  ; The heartbeat's `system_status` (MAV_STATE: 3 STANDBY, 4 ACTIVE, 5 CRITICAL ...). ArduCopter says STANDBY exactly when it has
+  ; `land_complete` and no failsafe is active: how the page and the backend know the vehicle is landed.
+  ? systemStatus: uint .size 1,
   ? batteryVoltage: float,
   ? batteryRemaining: uint .size 1,   ; percent, absent when the vehicle doesn't know
   ? roll: float,
@@ -1334,6 +1344,9 @@ motor-test-state = {
   ? confirmed: bool,
 }
 
+; What the page asks of `rc.control`: `rudderArm` says that the person turned the stick arm and disarm on (absent: off).
+rc-control-params = { ? rudderArm: bool }
+
 ; The sticks of `rc.input`: see there.
 rc-input = {
   seq: uint .size 4,
@@ -1355,6 +1368,7 @@ rc-state = {
   ? throttleMin: uint .size 2,
   ? sent: uint .size 4,
   ? clamped: uint .size 4,
+  ? held: uint .size 4,
   ? confirmed: bool,
 }
 

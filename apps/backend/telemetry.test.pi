@@ -26,6 +26,8 @@ async function streamsTelemetry(): Promise<void> throws Error {
   const first = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
   expect(first.mode != "unknown").toBe(true)
   expect(first.heartbeatAgeMs < 3000).toBe(true)
+  // the heartbeat's system_status: the simulator is disarmed, so STANDBY (3), which is what ArduCopter says when it is landed
+  expect(first.systemStatus ?? 0).toBe(3)
   await f.call("vehicle.disconnect")
   await f.call("vehicle.connect", simulator)
   const again = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")

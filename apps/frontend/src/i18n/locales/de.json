@@ -909,7 +909,7 @@
       "allow": "Fernsteuerung erlauben",
       "allowHelp": "Standardmäßig aus und nur für den eingebauten Simulator oder eine Verbindung zu diesem Computer: Jedes andere Fahrzeug wird abgelehnt. Das erlaubt sie nur; es startet sie nicht.",
       "rudderArm": "Sticks scharf- und entschärfen lassen",
-      "rudderArmHelp": "Standardmäßig aus. Die Sticks können den Simulator scharfschalten UND entschärfen, auch im Flug. Braucht ARMING_RUDDER am Fahrzeug; die Pre-Arm-Prüfungen gelten weiter. Wirkt, wenn die Fernsteuerung eingeschaltet wird.",
+      "rudderArmHelp": "Standardmäßig aus. Die Sticks können den Simulator scharfschalten (Gas unten) und NUR AM BODEN entschärfen: in der Luft bleibt die Sperre. Braucht ARMING_RUDDER am Fahrzeug; die Pre-Arm-Prüfungen gelten weiter. Wirkt, wenn die Fernsteuerung eingeschaltet wird.",
       "rudderArmShut": "Erlaube zuerst die Fernsteuerung. Schaltest du diese aus, geht dies mit aus.",
       "status": {
         "ready": "Für die Fernsteuerung ist alles bereit.",

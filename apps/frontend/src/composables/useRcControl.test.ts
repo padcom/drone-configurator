@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BackendClient } from '@/backend/client'
+import type { Telemetry } from '@/generated/app'
 import { serialiseProfile } from '@/lib/rc/store'
 import { TX16S } from '@/testing/fakeGamepads'
 import { calibratedSuggestion } from '@/testing/rcProfiles'
@@ -285,6 +287,81 @@ describe('the sticks that arm and disarm: when the setting is read', () => {
     expect(await yawAtTheEnd(r)).toBe(YAW_END)
     expect(r.rc.rudderLifted.value).toBe(true)
     r.stop()
+  })
+})
+
+/**
+ * A vehicle whose heartbeat says STANDBY (landed) or not.
+ *
+ * @param armed whether it is armed
+ * @param extra what else the telemetry says differently
+ * @returns the telemetry
+ */
+function said(armed: boolean, extra: Partial<Telemetry> = {}): Telemetry {
+  return { armed, mode: 'STABILIZE', heartbeatAgeMs: 100, systemStatus: 3, ...extra }
+}
+
+/**
+ * The yaw that reaches the backend with the option on, the throttle low and the yaw stick at its end, for a vehicle that says so.
+ *
+ * @param telemetry what the vehicle says
+ * @returns the pulse of channel 4
+ */
+async function reaches(telemetry: Telemetry | null): Promise<number> {
+  const r = await flying(await rcRig({ rudderArm: true }))
+
+  r.telemetry.value = telemetry
+  const yaw = await yawAtTheEnd(r)
+
+  r.stop()
+
+  return yaw
+}
+
+describe('the sticks that arm and disarm: only on the ground', () => {
+  it.each([
+    ['disarmed', said(false), YAW_END],
+    ['armed and landed (STANDBY)', said(true), YAW_END],
+    ['armed in the air (ACTIVE)', said(true, { systemStatus: 4 }), YAW_HELD],
+    ['armed with a failsafe (CRITICAL)', said(true, { systemStatus: 5 }), YAW_HELD],
+    ['armed and booting (BOOT)', said(true, { systemStatus: 1 }), YAW_HELD],
+    ['armed, a status that is not known', said(true, { systemStatus: 99 }), YAW_HELD],
+    ['armed, the heartbeat is old', said(true, { heartbeatAgeMs: 3500 }), YAW_HELD],
+    ['no telemetry at all', null, YAW_HELD],
+    ['armed, the status not said', { armed: true, mode: 'STABILIZE', heartbeatAgeMs: 100 }, YAW_HELD],
+  ] as [string, Telemetry | null, number][])('with the option on and the vehicle %s', async (_name, telemetry, expected) => {
+    expect(await reaches(telemetry)).toBe(expected)
+  })
+
+  it('follows the vehicle while it flies: taking off puts the hold back, landing lifts it again', async () => {
+    const r = await flying(await rcRig({ rudderArm: true }))
+
+    expect(await yawAtTheEnd(r)).toBe(YAW_END)
+    r.telemetry.value = said(true, { systemStatus: 4 })
+    expect(await yawAtTheEnd(r)).toBe(YAW_HELD)
+    r.telemetry.value = said(true)
+    expect(await yawAtTheEnd(r)).toBe(YAW_END)
+    r.stop()
+  })
+})
+
+describe('the sticks that arm and disarm: what the backend is told', () => {
+  it('is the option as it was when the control began', async () => {
+    const asked: unknown[] = []
+    const wrap = (client: BackendClient): BackendClient => ({
+      ...client,
+      subscribe: (topic, params, onValue, onEnd) => {
+        asked.push(params)
+
+        return client.subscribe(topic, params, onValue, onEnd)
+      },
+    })
+    const lifted = await flying(await rcRig({ rudderArm: true, wrap }))
+    const held = await flying(await rcRig({ wrap }))
+
+    expect(asked).toEqual([{ rudderArm: true }, { rudderArm: false }])
+    lifted.stop()
+    held.stop()
   })
 })
 

@@ -35,6 +35,8 @@ export interface Seen {
   armed: boolean
   /** The flight mode its heartbeat names. */
   mode: string
+  /** The heartbeat's `system_status` (MAV_STATE): 3 STANDBY (ArduCopter's `land_complete`, no failsafe), 4 ACTIVE (flying). */
+  systemStatus?: number
   /** The pre-arm checks as SYS_STATUS says them, when it does. */
   prearm?: { enabled: boolean, passing: boolean, ageMs: number }
   /** Where the vehicle says it is: the height above home, in metres. */

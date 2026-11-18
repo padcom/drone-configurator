@@ -40,8 +40,9 @@ import {
   TypedParamValue,
   defaultRegistry,
 } from "padcom/pico-mavlink"
-import { ConnectRequest, RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
+import { ConnectRequest, RcState, RcStateState, decodeRcControlParams, decodeRcInput, encodeRcState } from "./generated/app"
 import { GCS_SYSID } from "./heartbeat"
+import { landedOf, yawHeld, yawToSend } from "./rudder"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 import { uiValue } from "./settings"
 import { flightNow } from "./telemetry"
@@ -116,6 +117,20 @@ class Control implements SessionPart {
   public ready: bool = false
   public throttleChannel: int = 3
   public throttleMin: int = 1000
+  /// What the rudder guard needs of the vehicle (see `rudder.pi`): the throttle's maximum and dead zone, the yaw channel and its range.
+  public throttleMax: int = 2000
+  public throttleZone: int = 0
+  public yawChannel: int = 4
+  public yawMin: int = 1000
+  public yawTrim: int = 1500
+  public yawMax: int = 2000
+  /// Whether the sticks may make the arm and disarm gesture (when the vehicle is in a state where that is safe): the page asked for it AND the
+  /// backend's own settings say so (`rc.rudderArm` is `on`). Either missing is the hold, always.
+  public rudderArm: bool = false
+  /// Whether the page asked for it (`rc.control`'s `rudderArm`).
+  public rudderAsked: bool = false
+  /// How many yaw pulses were held back.
+  public held: int = 0
   /// The `seq` of the last frame that counted, and when it came (ms since 1970).
   public lastSeq: int = -1
   public inputAt: int = 0
@@ -157,6 +172,8 @@ class Control implements SessionPart {
     why = ""
     lastSeq = -1
     clamped = 0
+    held = 0
+    rudderArm = false
     inputAt = Date.now() as int
     follow(link.session.signal)
     return serial
@@ -245,6 +262,7 @@ class Control implements SessionPart {
         why: code,
         sent: sentFrames as u32,
         clamped: clamped as u32,
+        held: held as u32,
         confirmed: confirmed,
       }))
       s!.end()
@@ -405,18 +423,34 @@ function refuse(): void throws CommunicatorError {
 }
 
 /// The subscription: the control begins with it and ends with it. One that may not begin ends the subscription at once, with the code of why.
-function startControl(_params: Cbor?, sink: Sink): void throws Error {
+function startControl(params: Cbor?, sink: Sink): void throws Error {
+  let asked = false
   try {
     connectedLink()
     refuse()
+    asked = rudderAsked(params)
   } catch (e: CommunicatorError) {
     sink.end(e.code, e.message)
     return
   }
   const mine = current.begin(sink)
+  current.rudderAsked = asked
   // The page letting go (or going away) ends the control.
   sink.onClose = () => current.end(mine, "RELEASED", false)
   prepare(mine, sink)
+}
+
+/// Whether the page says the person turned the stick arm and disarm on (`rudderArm` of the params; absent is no). A payload that is not
+/// the params is `INVALID_VALUE`.
+function rudderAsked(params: Cbor?): bool throws CommunicatorError {
+  if (params == null) {
+    return false
+  }
+  try {
+    return decodeRcControlParams(params!, "$").rudderArm ?? false
+  } catch (e: Error) {
+    throw new CommunicatorError("INVALID_VALUE", e.message)
+  }
 }
 
 /// Reads what the control needs of the vehicle, then starts the sender. Anything that ends the control meanwhile ends this too.
@@ -439,6 +473,22 @@ async function prepare(mine: int, sink: Sink): Promise<void> {
 class Settings {
   public throttleChannel: int = 3
   public throttleMin: int = 1000
+  public throttleMax: int = 2000
+  public throttleZone: int = 0
+  public yawChannel: int = 4
+  public yawMin: int = 1000
+  public yawTrim: int = 1500
+  public yawMax: int = 2000
+  public rudderArm: bool = false
+}
+
+/// A parameter that must be a pulse (an integer 800 to 2200 µs), or the control does not begin.
+async function pulseParam(id: string): Promise<int> throws Error {
+  const v = await readParam(id)
+  if (v == null || v! < (MIN_PULSE as f64) || v! > (MAX_PULSE as f64)) {
+    throw new CommunicatorError("PARAMS_MISSING", `${id} could not be read from the vehicle`)
+  }
+  return v! as int
 }
 
 async function readSettings(): Promise<Settings> throws Error {
@@ -454,14 +504,37 @@ async function readSettings(): Promise<Settings> throws Error {
     throw new CommunicatorError("PARAMS_MISSING", "RCMAP_THROTTLE could not be read from the vehicle")
   }
   const channel = mapped! as int
-  const least = await readParam(`RC${channel}_MIN`)
-  if (least == null || least! < (MIN_PULSE as f64) || least! > (MAX_PULSE as f64)) {
-    throw new CommunicatorError("PARAMS_MISSING", `RC${channel}_MIN could not be read from the vehicle`)
-  }
   const s = new Settings()
   s.throttleChannel = channel
-  s.throttleMin = least! as int
+  s.throttleMin = await pulseParam(`RC${channel}_MIN`)
+  // (what the rudder guard needs: where the throttle is "low", and the yaw's range; see `rudder.pi`)
+  s.throttleMax = await pulseParam(`RC${channel}_MAX`)
+  const zone = await readParam(`RC${channel}_DZ`)
+  if (zone == null || zone! < 0.0 || zone! > 1000.0) {
+    throw new CommunicatorError("PARAMS_MISSING", `RC${channel}_DZ could not be read from the vehicle`)
+  }
+  s.throttleZone = zone! as int
+  const yaw = await readParam("RCMAP_YAW")
+  if (yaw == null || yaw! < 1.0 || yaw! > (OVERRIDE_CHANNELS as f64)) {
+    throw new CommunicatorError("PARAMS_MISSING", "RCMAP_YAW could not be read from the vehicle")
+  }
+  s.yawChannel = yaw! as int
+  s.yawMin = await pulseParam(`RC${s.yawChannel}_MIN`)
+  s.yawTrim = await pulseParam(`RC${s.yawChannel}_TRIM`)
+  s.yawMax = await pulseParam(`RC${s.yawChannel}_MAX`)
+  // (the person's option, in the backend's own settings: the page's copy only asks, and a page that is wrong cannot lift the hold alone)
+  s.rudderArm = await rudderOption()
   return s
+}
+
+/// Whether the person turned the stick arm and disarm on, in the settings the backend itself keeps (`rc.rudderArm` is `on`; read like
+/// `rc.allow`: settings that cannot be read are "off", and only the exact text `on` is on).
+async function rudderOption(): Promise<bool> {
+  try {
+    return (await uiValue("rc.rudderArm")) == "on"
+  } catch (e: Error) {
+    return false
+  }
 }
 
 /// Ends a control that could not begin: the subscription ends with the code (nothing was sent).
@@ -509,6 +582,13 @@ function start(mine: int, sink: Sink, settings: Settings): void throws Error {
   current.over = over
   current.throttleChannel = settings.throttleChannel
   current.throttleMin = settings.throttleMin
+  current.throttleMax = settings.throttleMax
+  current.throttleZone = settings.throttleZone
+  current.yawChannel = settings.yawChannel
+  current.yawMin = settings.yawMin
+  current.yawTrim = settings.yawTrim
+  current.yawMax = settings.yawMax
+  current.rudderArm = current.rudderAsked && settings.rudderArm
   current.inputAt = Date.now() as int
   over.start()
   current.ready = true
@@ -519,6 +599,38 @@ function start(mine: int, sink: Sink, settings: Settings): void throws Error {
       throttleChannel: settings.throttleChannel as u8,
       throttleMin: settings.throttleMin as u16,
     }))
+  }
+}
+
+/// How many yaw pulses the control that runs (or ran last) has held back. (For the tests and the state the page is told.)
+export function heldCount(): int {
+  return current.held
+}
+
+/// How old the last heartbeat is (ms), or -1 when there has been none.
+function heartbeatAge(): int {
+  if (link.heartbeatAt == 0) {
+    return -1
+  }
+  return (Date.now() as int) - link.heartbeatAt
+}
+
+/// The last guard: with the throttle low, a yaw beyond 0.8 of its travel is held to it, so that the sticks cannot make the vehicle's own
+/// arm or disarm gesture, UNLESS the person turned it on (the page asked and the backend's own settings say so) AND the vehicle is known
+/// disarmed, or known armed and landed (the heartbeat's STANDBY): armed in the air in a manual-throttle mode would let the vehicle
+/// disarm. Whatever the page did before, it is looked at again here: this is the authority. `held` counts the pulses it changed.
+export function holdTheRudder(pulses: int[]): void {
+  const y = current.yawChannel - 1
+  if (y >= pulses.length || pulses[y] == NO_OVERRIDE) {
+    return
+  }
+  const t = current.throttleChannel - 1
+  const throttle = if (t < pulses.length) pulses[t] else NO_OVERRIDE
+  const hold = yawHeld(current.rudderArm, armedState(), landedOf(link.systemStatus, heartbeatAge()))
+  const sent = yawToSend(hold, throttle, pulses[y], current.throttleMin, current.throttleMax, current.throttleZone, current.yawMin, current.yawTrim, current.yawMax)
+  if (sent != pulses[y]) {
+    pulses[y] = sent
+    current.held += 1
   }
 }
 
@@ -551,6 +663,7 @@ async function input(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throw
     pulses[t] = current.throttleMin
     current.clamped += 1
   }
+  holdTheRudder(pulses)
   const o = current.over
   if (o != null) {
     o!.set(pulses)

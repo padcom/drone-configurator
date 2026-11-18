@@ -5,7 +5,7 @@ import { computed, effectScope, shallowRef } from 'vue'
 import { type BackendClient, createBackendClient } from '@/backend/client'
 import { type RcControlModel, useRcControl } from '@/composables/useRcControl'
 import type { RcSettings } from '@/composables/useRcSettings'
-import type { ConnectRequest, Connection } from '@/generated/app'
+import type { ConnectRequest, Connection, Telemetry } from '@/generated/app'
 import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import type { Profile } from '@/lib/rc/types'
 import type { Facts } from '@/lib/rc/vehicle'
@@ -49,6 +49,8 @@ export interface RcRig {
   request: Box<ConnectRequest | null>
   /** What the vehicle says of its channels. */
   facts: Box<Facts | null>
+  /** The telemetry the control looks at for "armed" and "landed" (a vehicle that is disarmed, on the ground, at the start). */
+  telemetry: Box<Telemetry | null>
   /** What else holds the vehicle (the control is not begun while it is a code). */
   holder: { busy: string | null }
   /** Ends the scope the control lives in. */
@@ -91,6 +93,9 @@ function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profil
   }
 }
 
+/** What the rig's vehicle says at first: disarmed, STANDBY (landed), a heartbeat 100 ms old. */
+const DISARMED: Telemetry = { armed: false, mode: 'STABILIZE', heartbeatAgeMs: 100, systemStatus: 3 }
+
 /**
  * Connects the mock vehicle, disarmed, with the throttle on channel 3 and its minimum 1100.
  *
@@ -128,22 +133,24 @@ export async function rcRig(options: {
   await connectDisarmed(real, control)
   const told: string[] = []
   const holder = { busy: null as string | null }
-  const allowed = shallowRef(options.allowed !== false)
-  const rudderArm = shallowRef(options.rudderArm === true)
+  const [allowed, rudderArm] = [shallowRef(options.allowed !== false), shallowRef(options.rudderArm === true)]
   const profiles = shallowRef(kept(options.profile))
   const connection = shallowRef<Connection>(CONNECTED)
   const request = shallowRef<ConnectRequest | null>(SIMULATOR)
   const facts = shallowRef<Facts | null>(vehicleFacts())
+  const telemetry = shallowRef<Telemetry | null>(DISARMED)
   const pads = new FakePads()
   const scope = effectScope()
   const rc = scope.run(() => useRcControl({
-    client, connection, request, facts, env: pads.env(), settings: settingsOver(allowed, profiles, rudderArm),
+    client, connection, request, facts, telemetry, env: pads.env(), settings: settingsOver(allowed, profiles, rudderArm),
     tell: (_severity, text) => told.push(text),
     reasonText: code => code,
     busy: () => holder.busy,
   }))!
 
-  return { rc, pads, control, told, allowed, rudderArm, profiles, connection, request, facts, holder, stop: () => scope.stop() }
+  const stop = (): void => scope.stop()
+
+  return { rc, pads, control, told, allowed, rudderArm, profiles, connection, request, facts, telemetry, holder, stop }
 }
 
 /** Lets what was sent reach the backend, and what it answers reach the page. */
