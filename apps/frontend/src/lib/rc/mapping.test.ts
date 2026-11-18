@@ -113,6 +113,48 @@ describe('a stick', () => {
   })
 })
 
+// How a stick position becomes a pulse TODAY: the same for every stick channel, the throttle included. A stick level of -1, 0
+// and 1 is the channel's RCn_MIN, RCn_TRIM and RCn_MAX, with a straight line between each two (a slope on each side of the
+// trim). The throttle of ArduCopter does not use the trim at all (`RC_Channel::pwm_to_range`: a straight line from RCn_MIN, plus
+// the dead zone, to RCn_MAX), and a receiver calibration often sets RC3_TRIM at the bottom: these tests show what that does.
+const THROTTLE: StickRow = { ...STICK, channel: 3, axis: 2 }
+const LEVELS = [-1, -0.5, 0, 0.5, 1]
+const travel = (range: PulseRange): number[] => LEVELS.map(level => stickPulse(THROTTLE, pad([0, 0, level]), range))
+
+describe('the throttle through a range whose trim is in the middle', () => {
+  it('is a straight line from 1000 to 2000 with the SITL defaults (RC3_MIN 1000, RC3_TRIM 1500, RC3_MAX 2000)', () => {
+    expect(travel({ min: 1000, trim: 1500, max: 2000 })).toEqual([1000, 1250, 1500, 1750, 2000])
+  })
+
+  it('is the same slope on both sides of a trim that is in the middle of its range, whatever the range', () => {
+    expect(travel({ min: 1100, trim: 1500, max: 1900 })).toEqual([1100, 1300, 1500, 1700, 1900])
+  })
+})
+
+describe('the throttle through a range whose trim is at an end', () => {
+  it('has the lower half of the travel dead, and the upper half twice as steep, when the trim is at the minimum', () => {
+    // RC3_TRIM = RC3_MIN, as a calibration with the throttle stick at the bottom leaves it: the stick's lower half is all 1000
+    // and its upper half covers the whole range; the stick's middle is 1000, which the vehicle's own throttle would have at 1500
+    expect(travel({ min: 1000, trim: 1000, max: 2000 })).toEqual([1000, 1000, 1000, 1500, 2000])
+    expect(stickPulse(THROTTLE, pad([0, 0, 0.25]), { min: 1000, trim: 1000, max: 2000 })).toBe(1250)
+  })
+
+  it('has the upper half dead when the trim is at the maximum', () => {
+    expect(travel({ min: 1000, trim: 2000, max: 2000 })).toEqual([1000, 1500, 2000, 2000, 2000])
+  })
+})
+
+describe('roll, pitch and yaw through a range', () => {
+  it('are the minimum, the trim and the maximum at -1, 0 and 1, with a slope on each side', () => {
+    const roll: StickRow = { ...STICK, channel: 1, axis: 0 }
+    const range: PulseRange = { min: 1100, trim: 1520, max: 1900 }
+
+    expect([-1, 0, 1].map(level => stickPulse(roll, pad([level]), range))).toEqual([1100, 1520, 1900])
+    expect(stickPulse(roll, pad([0.5]), range)).toBe(1710)
+    expect(stickPulse(roll, pad([-0.5]), range)).toBe(1310)
+  })
+})
+
 describe('a switch and a button', () => {
   it('give the pulse of the third of the travel the axis is in, and turn when inverted', () => {
     expect(switchPulse(SWITCH, pad([0, 0, 0, 0, 0, -1]))).toBe(1000)
