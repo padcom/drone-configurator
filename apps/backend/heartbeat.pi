@@ -4,6 +4,18 @@
 // simply the next one.
 import { MavLinkConnection, Heartbeat, MavAutopilot, MavState, MavType } from "padcom/pico-mavlink"
 
+/// The system id the app speaks with: ArduPilot's `MAV_GCS_SYSID` (255 by default). The vehicle takes overrides from it, and it is the
+/// only id whose traffic the vehicle's GCS failsafe (`FS_GCS_ENABLE`, `FS_GCS_TIMEOUT`) counts as "the ground station is there": its
+/// HEARTBEAT, and also an RC_CHANNELS_OVERRIDE or a MANUAL_CONTROL. A heartbeat from another id (the library's default is 254) is not
+/// seen by it, so that once the RC sender had spoken as 255 and stopped, the vehicle failsafed 5 s later with a healthy link, and refused
+/// to arm ("PreArm: GCS failsafe on") until a 255 message came again. Every connection of the app speaks as this id.
+export const GCS_SYSID: int = 255
+
+/// The component id of the app's main connection (the heartbeats, the requests). Not the autopilot's (1), and not the RC sender's
+/// (190, Mission Planner's), so that two connections of one system id do not look like one sender to a router (it drops a frame that has
+/// the same system, component, sequence number and message as one it has just passed).
+export const APP_COMPID: int = 191
+
 export class Beats {
   readonly conn: MavLinkConnection
   readonly intervalMs: int

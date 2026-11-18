@@ -20,8 +20,9 @@
 //    a vehicle that has it 0 or negative is refused, `OVERRIDE_DISABLED`) lets go.
 // The throttle channel (`RCMAP_THROTTLE`) is never sent under its `RCn_MIN`: a pulse below it is raised to it (`clamped` counts them),
 // since the radio failsafe value is under the minimum and a stick pulse under it would be a failsafe.
-// The frames go from a connection of their own on the app's router, with the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`);
-// the rest of the app's connection uses pico-mavlink's default, 254, which the vehicle ignores for overrides (silently).
+// The frames go from a connection of their own on the app's router, with the system id the vehicle takes overrides from (255, `MAV_GCS_SYSID`),
+// and so does the rest of the app's connection (its heartbeats count for the vehicle's GCS failsafe; see `heartbeat.pi`), with a component
+// id of its own.
 import { Cbor, Communicator, CommunicatorError, RequestContext, Sink } from "pico-desktop/communicator"
 import { delay } from "std/timers"
 import {
@@ -40,6 +41,7 @@ import {
   defaultRegistry,
 } from "padcom/pico-mavlink"
 import { ConnectRequest, RcState, RcStateState, decodeRcInput, encodeRcState } from "./generated/app"
+import { GCS_SYSID } from "./heartbeat"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 import { uiValue } from "./settings"
 import { flightNow } from "./telemetry"
@@ -65,8 +67,7 @@ export const seams = new Seams()
 
 export const waits = new Waits()
 
-/// The system id and the component id the frames are sent with: `MAV_GCS_SYSID`'s default, and Mission Planner's component id.
-export const GCS_SYSID: int = 255
+/// The component id the frames are sent with, Mission Planner's (the system id is the app's, `GCS_SYSID`).
 const GCS_COMPID: int = 190
 
 /// How many frames a second are sent (the sender holds it to 10 to 50).

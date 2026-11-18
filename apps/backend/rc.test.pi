@@ -8,7 +8,7 @@ import { mkdir, remove } from "std/fs"
 import { pid } from "std/process"
 import { delay } from "std/timers"
 import { Cbor, Envelope } from "pico-desktop/communicator"
-import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { Heartbeat, MavLinkConnection, MavParamType, MavType, MemoryStream, Received, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
 import { simulatorForTests } from "./app"
 import { isSimulatorLink, seams } from "./rc"
 import { useDirectoryForTests } from "./settings"
@@ -798,6 +798,116 @@ async function holdsOffAMotorTestACalibrationAParameterWriteAndAReboot(): Promis
   await until("the control is over", () => !link.rcControl)
   await r.close()
 }
+
+/// A listener on the app's router: the heartbeats of a ground station that pass it, who sent them (`system/component`) and when (ms).
+class Tap {
+  public readonly stamps: int[] = []
+  public readonly senders: string[] = []
+  readonly conn: MavLinkConnection
+
+  constructor() {
+    const ends = MemoryStream.pair()
+    link.router!.addLink(ends[0])
+    this.conn = new MavLinkConnection(ends[1])
+    this.conn.on((r: Received) => {
+      const m = r.message
+      if (m instanceof Heartbeat) {
+        if (m.type as int == MavType.GCS) {
+          this.stamps.push(Date.now() as int)
+          this.senders.push(`${r.packet.header.sysid}/${r.packet.header.compid}`)
+        }
+      }
+    })
+    this.pump()
+  }
+
+  async pump(): Promise<void> {
+    try {
+      await conn.run()
+    } catch (e: Error) {
+      // the listener ends with the test
+    }
+  }
+
+  public close(): void {
+    conn.close()
+  }
+
+  /// The longest wait between two heartbeats from `since` on (ms), and how many came.
+  public gapSince(since: int): int {
+    let last = since
+    let longest = 0
+    for (const at of stamps) {
+      if (at >= since) {
+        longest = if (at - last > longest) at - last else longest
+        last = at
+      }
+    }
+    return longest
+  }
+
+  public countSince(since: int): int {
+    return stamps.filter((at: int) => at >= since).length
+  }
+}
+
+/// The ground station's HEARTBEATs are from system 255 (`MAV_GCS_SYSID`) with the app's own component id: the vehicle's GCS failsafe counts
+/// those, and not 254's (the library default), so that the heartbeats say "the ground station is here" for as long as the app is connected.
+async function heartbeatsAreFromTheVehiclesGroundStation(): Promise<void> throws Error {
+  const r = await connected()
+  const tap = new Tap()
+  let waited = 0
+  while (tap.stamps.length < 2 && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  const senders = tap.senders.join(" ")
+  tap.close()
+  await r.close()
+  expect(tap.stamps.length >= 2).toBe(true)
+  expect(senders).toBe("255/191 255/191")
+}
+
+/// The control ends one way or another (and the RC sender's connection goes with it): the heartbeats of the main connection go on, one a
+/// second and from 255, so that the vehicle never goes 5 s (`FS_GCS_TIMEOUT`) without hearing its ground station, with a healthy link.
+async function theHeartbeatsGoOnAfterTheControlEnds(silent: bool): Promise<void> throws Error {
+  const r = await connected()
+  const tap = new Tap()
+  const s = await flying(r)
+  const ended = Date.now() as int
+  if (silent) {
+    // the page says nothing more: the backend lets go
+    await delay(600)
+    expect((await told(r.f)).state == RcStateState.Released).toBe(true)
+  } else {
+    await r.f.unsubscribe(s)
+    await until("the control is over", () => !link.rcControl)
+  }
+  await delay(3200)
+  const gap = tap.gapSince(ended)
+  const count = tap.countSince(ended)
+  const senders = tap.senders.filter((who: string) => who != "255/191").length
+  tap.close()
+  await r.close()
+  // a second apart (1.5 s with a stall of the runner), at least three in the 3.2 s after the end, and none from anyone else
+  expect(gap <= 1500).toBe(true)
+  expect(count >= 3).toBe(true)
+  expect(senders).toBe(0)
+}
+
+async function theHeartbeatsGoOnAfterAnUnsubscribe(): Promise<void> throws Error {
+  await theHeartbeatsGoOnAfterTheControlEnds(false)
+}
+
+async function theHeartbeatsGoOnAfterASilentPage(): Promise<void> throws Error {
+  await theHeartbeatsGoOnAfterTheControlEnds(true)
+}
+
+describe("the app's heartbeats, as the vehicle's ground station", () => {
+  it("come from system 255 with the app's component id", heartbeatsAreFromTheVehiclesGroundStation)
+  it("go on, a second apart, after the control is switched off", theHeartbeatsGoOnAfterAnUnsubscribe)
+  it("go on, a second apart, after the control ends for a silent page", theHeartbeatsGoOnAfterASilentPage)
+})
 
 describe("the RC control", () => {
   it("sends the sticks as the vehicle's ground station, at its own rate, and says the throttle", sendsTheSticksAsTheVehiclesGcsAndTellsTheThrottle)
