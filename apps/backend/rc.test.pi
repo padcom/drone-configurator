@@ -952,11 +952,38 @@ async function theYawIsHeldWithTheThrottleLowWhenNothingLiftsIt(): Promise<void>
   await flying(r, [0, 0, 1000, 2000])
   // the vehicle's own gesture is at 0.889 of the travel, held 3 s: the sticks are never sent beyond 0.8 (1900 of 1000..2000)
   expect(pulsesOf(r, 4)).toBe("1500,1500,1000,1900")
-  // (the page goes silent: the end tells how many yaw pulses were held)
+  // (the page goes silent: the end tells how many yaw pulses were held; the `on` events that told the changing count come before)
   await delay(600)
-  const state = await told(r.f)
-  expect(state.state == RcStateState.Released).toBe(true)
+  const state = await untilReleased(r)
   expect((state.held ?? 0) > 0).toBe(true)
+  await r.close()
+}
+
+/// The events of the control up to the one that says it is released.
+async function untilReleased(r: Rig): Promise<RcState> throws Error {
+  for (let i = 0; i < 20; i++) {
+    const state = await told(r.f)
+    if (state.state == RcStateState.Released) {
+      return state
+    }
+  }
+  throw new Error("the control was never released")
+}
+
+async function thePageIsToldTheCountWhileTheControlIsOn(): Promise<void> throws Error {
+  const r = await connected()
+  const s = await flying(r, [0, 0, 1000, 2000])
+  // while it is on, an `on` event says how many yaw pulses were held (at the most 4 a second): a page that lets go has it, whatever
+  // the end says
+  const first = await told(r.f)
+  expect(first.state == RcStateState.On).toBe(true)
+  expect((first.held ?? 0) > 0).toBe(true)
+  await feed(r, 600, [0, 0, 1000, 2000])
+  const later = await told(r.f)
+  expect((later.held ?? 0) > (first.held ?? 0)).toBe(true)
+  // the page switches off: its subscription ends first and the end event never reaches it, but the count did
+  await r.f.unsubscribe(s)
+  expect(heldCount() >= (later.held ?? 0) as int).toBe(true)
   await r.close()
 }
 
@@ -1033,6 +1060,7 @@ async function theHoldStaysWhenTheVehicleIsNotKnownToBeOnTheGround(): Promise<vo
 
 describe("the rudder guard", () => {
   it("holds the yaw to 0.8 of its travel with the throttle low, and counts what it held", theYawIsHeldWithTheThrottleLowWhenNothingLiftsIt)
+  it("tells the page how many it held while the control is on, not only at the end", thePageIsToldTheCountWhileTheControlIsOn)
   it("holds nothing while the throttle is up", theThrottleIsWhatMakesTheHold)
   it("is lifted on a disarmed vehicle only when the page asked and the backend's own setting is on", theOptionLiftsTheHoldOnADisarmedVehicleOnlyWhenBothSidesSayYes)
   it("stays when the vehicle is not known to be disarmed or armed on the ground (in the air, a failsafe, stale, unknown)", theHoldStaysWhenTheVehicleIsNotKnownToBeOnTheGround)

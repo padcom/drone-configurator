@@ -26,6 +26,8 @@ export interface MockRcControl {
   released: () => number
   /** The backend ends the control by itself (the link was lost, the page was silent ...): `released` with this reason. */
   end: (why: string) => void
+  /** The backend says `on` again with the count of yaw pulses it held back (it does when the count changes). */
+  tellHeld: (count: number) => void
   /** What `RC_OVERRIDE_TIME` is on the mock's vehicle (default 3): 0 or less is refused with `OVERRIDE_DISABLED`. */
   overrideTime: (seconds: number) => void
   /** Whether the mock's link is a simulator (default true): when it is not, a control is refused with `NOT_SIMULATOR`. */
@@ -75,6 +77,9 @@ export class MockRc {
       began: () => this.began,
       released: () => this.released,
       end: why => this.finish(why),
+      tellHeld: count => {
+        this.tell({ state: 'on', throttleChannel: this.throttleChannel, throttleMin: this.throttleMin, held: count })
+      },
       overrideTime: seconds => { this.overrideTime = seconds },
       simulator: is => { this.simulator = is },
       allowed: is => { this.allowed = is },

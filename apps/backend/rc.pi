@@ -101,6 +101,9 @@ class RouterEnd implements ByteStream {
   }
 }
 
+/// How often (ms, at the most) the page is told that the count of held yaw pulses changed.
+const HELD_TELL_MS: int = 250
+
 /// The control that runs, or the one that ended last.
 class Control implements SessionPart {
   public conn: MavLinkConnection? = null
@@ -129,8 +132,10 @@ class Control implements SessionPart {
   public rudderArm: bool = false
   /// Whether the page asked for it (`rc.control`'s `rudderArm`).
   public rudderAsked: bool = false
-  /// How many yaw pulses were held back.
+  /// How many yaw pulses were held back, and what the page was told of it (and when).
   public held: int = 0
+  public heldTold: int = 0
+  public heldToldAt: int = 0
   /// The `seq` of the last frame that counted, and when it came (ms since 1970).
   public lastSeq: int = -1
   public inputAt: int = 0
@@ -173,6 +178,8 @@ class Control implements SessionPart {
     lastSeq = -1
     clamped = 0
     held = 0
+    heldTold = 0
+    heldToldAt = 0
     rudderArm = false
     inputAt = Date.now() as int
     follow(link.session.signal)
@@ -191,7 +198,27 @@ class Control implements SessionPart {
       end(mine, "STATE_UNKNOWN", false)
     } else if (stopped || (Date.now() as int) - inputAt > waits.silenceMs) {
       end(mine, "SILENT", false)
+    } else {
+      tellHeld()
     }
+  }
+
+  /// The page is told how many yaw pulses were held back, while the control is on: an `on` event again whenever the count changed (at
+  /// most every `HELD_TELL_MS`), so that a page that lets go (and so never hears the end) has it.
+  public tellHeld(): void {
+    const now = Date.now() as int
+    const s = sink
+    if (held == heldTold || now - heldToldAt < HELD_TELL_MS || s == null || !s!.active) {
+      return
+    }
+    heldTold = held
+    heldToldAt = now
+    s!.next(encodeRcState(RcState {
+      state: RcStateState.On,
+      throttleChannel: throttleChannel as u8,
+      throttleMin: throttleMin as u16,
+      held: held as u32,
+    }))
   }
 
   /// Ends control number `of` (a late call about an older one does nothing): notes why, releases, and tells the page. It returns at

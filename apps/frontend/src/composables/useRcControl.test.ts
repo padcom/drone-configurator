@@ -207,6 +207,23 @@ describe('what ends a control: the backend, the person and the page', () => {
   })
 })
 
+describe('the count of yaw pulses the backend held back', () => {
+  it('is kept as the backend tells it, also after the person turned the control off (no `released` is heard then)', async () => {
+    const r = await on()
+
+    expect(r.rc.held.value).toBe(0)
+    r.control.rc!.tellHeld(7)
+    await settle()
+    expect(r.rc.held.value).toBe(7)
+    r.control.rc!.tellHeld(12)
+    await settle()
+    r.rc.disable()
+    await settle()
+
+    expect([r.rc.state.value, r.rc.held.value]).toEqual(['off', 12])
+  })
+})
+
 describe('turning it on again', () => {
   it('starts with the gate shut again, whatever it was before', async () => {
     const r = await on()

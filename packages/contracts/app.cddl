@@ -262,7 +262,7 @@ services = {
   ; safe: the vehicle is known disarmed (the arm gesture), or known armed AND landed (the disarm gesture on the ground: the last
   ; heartbeat is fresh and its `system_status` is STANDBY, which ArduCopter sends exactly when `land_complete` and no failsafe is
   ; active). Armed in the air in any mode, a heartbeat that is stale, or a status that is anything else holds the yaw even with the
-  ; option on (a manual-throttle mode would let the vehicle disarm in the air). `held` counts the yaw pulses that were held.
+  ; option on (a manual-throttle mode would let the vehicle disarm in the air). `held` counts the yaw pulses that were held: it is in `released`, and in `on`, which is sent again (at most every 250 ms) whenever the count changed, so that a page that switches the control off, and never hears `released`, still has the count.
   "rc.control": ["subscription", rc-control-params, rc-state],
   ; What the page reads of its sticks, as pulses in microseconds: channel i + 1 is `channels[i]`, 800 to 2200, or 0 for a channel that is
   ; the radio's (not overridden: it is released when it was a pulse before). At most 16. `seq` rises with every frame the page makes: a frame

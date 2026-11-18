@@ -66,6 +66,12 @@ export interface RcControlModel {
    * that turning the setting over does not change a control that flies. False while it is off.
    */
   readonly rudderLifted: ShallowRef<boolean>
+  /**
+   * How many yaw pulses the backend has held back from the arming gesture in this control, as it last said. It repeats `on` when
+   * the count changes, so that a page that turns the control off (and never hears `released`) still has it. Kept after the
+   * control ended; 0 when the next one begins.
+   */
+  readonly held: ShallowRef<number>
   /** The words for why it is off when it ended or was refused (what the toast said): kept on the screen, or null. */
   readonly explanation: ComputedRef<string | null>
   /** The id of the pad that is flown with, or null. */
@@ -121,6 +127,7 @@ class RcControl implements RcControlModel {
   // (read once, when a control begins, after allowed, a simulator and a ready mapping were checked: a change of the setting while
   // the control flies does nothing to it)
   readonly rudderLifted = shallowRef(false)
+  readonly held = shallowRef(0)
   readonly explanation = computed(() => this.explain())
   readonly device = shallowRef<string | null>(null)
   readonly confirmed = shallowRef(false)
@@ -328,6 +335,7 @@ class RcControl implements RcControlModel {
     this.seq = 0
     this.sentAt = Number.NEGATIVE_INFINITY
     this.why.value = null
+    this.held.value = 0
     this.state.value = 'starting'
     this.facts = factsKey(this.deps.facts.value)
     this.pushing = false
@@ -380,11 +388,23 @@ class RcControl implements RcControlModel {
    * @param state what it said
    */
   private heard(state: RcState): void {
+    this.countHeld(state)
+
     if (state.state === 'released') {
       this.over(state.why ?? 'ENDED', true)
     } else if (this.state.value === 'starting') {
       this.on(state)
     }
+  }
+
+  /**
+   * Keeps the count of held yaw pulses the backend told (in `on`, again whenever it changed, and in `released`): the page that
+   * turns the control off never hears `released`, and has the last count it was told.
+   *
+   * @param state what the backend said
+   */
+  private countHeld(state: RcState): void {
+    this.held.value = state.held ?? this.held.value
   }
 
   /**

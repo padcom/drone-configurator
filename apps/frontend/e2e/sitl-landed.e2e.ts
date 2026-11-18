@@ -26,6 +26,10 @@ const HEARTBEAT_MS = 15_000
 /** How long a climb to 5 m, and then a landing, may take. */
 const CLIMB_MS = 90_000
 const LAND_MS = 180_000
+/** A vehicle that is starting says BOOT for a while (until its initialisation is done): how long to wait for STANDBY. */
+const STANDBY_MS = 120_000
+/** How long the status must hold still to be called stable (several heartbeats: they come once a second). */
+const STABLE_MS = 10_000
 /** MAV_STATE_STANDBY and MAV_STATE_ACTIVE. */
 const STANDBY = 3
 const ACTIVE = 4
@@ -121,11 +125,64 @@ async function goesTo(name: string): Promise<void> {
   await client().until(`the heartbeat says ${name}`, s => s.mode === name, HEARTBEAT_MS)
 }
 
+/**
+ * Adds a status to the list when it is not the one the list ended with.
+ *
+ * @param seen the list (`3@0.0`: the status, and the second it began at)
+ * @param status what the telemetry says, if it does
+ * @param second how long since the looking began
+ */
+function note(seen: string[], status: number | undefined, second: number): void {
+  if (status !== undefined && !seen.at(-1)?.startsWith(`${status}@`)) {
+    seen.push(`${status}@${second.toFixed(1)}`)
+  }
+}
+
+/**
+ * Looks at the telemetry for a while and says every value `systemStatus` had, in order, with the second it began at.
+ *
+ * @param ms how long to look
+ * @returns for instance `3@0.0 4@2.5`
+ */
+async function statusesFor(ms: number): Promise<string> {
+  const began = Date.now()
+  const seen: string[] = []
+  while (Date.now() - began < ms) {
+    // eslint-disable-next-line no-await-in-loop -- one look after the other
+    note(seen, (await client().telemetry())?.systemStatus, (Date.now() - began) / 1000)
+    // eslint-disable-next-line no-await-in-loop -- one look after the other
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 250)
+    })
+  }
+
+  return seen.join(' ')
+}
+
+/**
+ * Whether the statuses `statusesFor` listed are STANDBY and nothing else.
+ *
+ * @param statuses what it said
+ * @returns true when so
+ */
+function onlyStandby(statuses: string): boolean {
+  return statuses.split(' ').every(entry => entry.startsWith(`${STANDBY}@`))
+}
+
 async function saysStandbyWhenDisarmed(): Promise<void> {
-  const seen = await client().until('a heartbeat', s => s.systemStatus !== undefined, HEARTBEAT_MS)
+  // the first heartbeat of a vehicle that is still starting says BOOT: wait for what the rule reads, do not take the first
+  const seen = await client().until('the heartbeat says STANDBY', s => s.systemStatus === STANDBY, STANDBY_MS)
 
   expect(seen.armed).toBe(false)
-  expect(seen.systemStatus).toBe(STANDBY)
+}
+
+async function staysStandbyOnceDisarmed(): Promise<void> {
+  await client().until('the heartbeat says STANDBY', s => s.systemStatus === STANDBY && !s.armed, STANDBY_MS)
+
+  // a rule that reads the status once a second must not see it flap: STANDBY, and only STANDBY, for ten seconds
+  const statuses = await statusesFor(STABLE_MS)
+
+  expect(onlyStandby(statuses), `statuses (status@second): ${statuses}`).toBe(true)
 }
 
 async function saysStandbyWhenArmedOnTheGround(): Promise<void> {
@@ -152,6 +209,10 @@ async function saysActiveInTheAirAndStandbyAgain(): Promise<void> {
   const down = await client().until('the vehicle is landed again', s => s.systemStatus === STANDBY, LAND_MS)
 
   expect(down.position?.relativeAltitude ?? 0).toBeLessThan(1)
+  // what the status does from touchdown on (the data the gesture's wait stands on: it is in the report when this fails)
+  const after = await statusesFor(STABLE_MS)
+
+  expect(onlyStandby(after), `statuses after touchdown (status@second): ${after}`).toBe(true)
   await client().until('the vehicle has disarmed', s => !s.armed, LAND_MS)
 }
 
@@ -161,7 +222,8 @@ describeSitl(
     beforeAll(startAll, STARTUP_MS)
     afterAll(stopAll, 60_000)
 
-    it('says STANDBY when the vehicle is disarmed', saysStandbyWhenDisarmed, HEARTBEAT_MS + 30_000)
+    it('says STANDBY when the vehicle is disarmed', saysStandbyWhenDisarmed, STANDBY_MS + 30_000)
+    it('stays STANDBY, without flapping, while it is disarmed', staysStandbyOnceDisarmed, STANDBY_MS + STABLE_MS + 30_000)
     it('says STANDBY when it is armed on the ground, before a take off', saysStandbyWhenArmedOnTheGround, READY_MS + 60_000)
     it('says ACTIVE in the air, and STANDBY again once landed', saysActiveInTheAirAndStandbyAgain, READY_MS + CLIMB_MS + LAND_MS)
   },

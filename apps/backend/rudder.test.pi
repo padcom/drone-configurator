@@ -1,7 +1,7 @@
 // The rudder guard's pure functions: the tables of what is landed and what may lift the hold, and the golden vectors the page's
 // `safety.ts` / `armed.ts` are held to as well (`packages/contracts/rudder-vectors.txt`).
 import { describe, it, expect } from "std/test"
-import { readText } from "std/fs"
+import { exists, readText } from "std/fs"
 import { NO_OVERRIDE } from "padcom/pico-mavlink"
 import { gestureAllowed, holdYaw, isLow, landedOf, yawHeld, yawToSend } from "./rudder"
 
@@ -70,8 +70,20 @@ function yawOf(fields: string[]): int {
   return yawToSend(hold, pulseOf(fields[5]), parseInt(fields[6]), 1100, 1900, 0, 1100, 1500, 1900)
 }
 
+/// The golden vectors' path from where the tests run: the repository's root (a developer) or apps/backend (CI: `cd apps/backend && pico test`).
+/// It must be found: nothing is skipped.
+async function vectorsPath(): Promise<string> throws Error {
+  const name = "packages/contracts/rudder-vectors.txt"
+  for (const base of [".", "../.."]) {
+    if (await exists(`${base}/${name}`)) {
+      return `${base}/${name}`
+    }
+  }
+  panic(`the golden vectors are not at ./${name} or ../../${name}: the tests must run from the repository's root or from apps/backend`)
+}
+
 async function everyGoldenVectorGivesItsYaw(): Promise<void> throws Error {
-  const text = await readText("packages/contracts/rudder-vectors.txt")
+  const text = await readText(await vectorsPath())
   let count = 0
   const wrong: string[] = []
   for (const line of text.split("\n")) {
