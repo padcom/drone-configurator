@@ -138,7 +138,9 @@ const HELPERS = `
   })
   // the fixed bottom parts of a Tune part (under its main column and in its aside): where they are, and whether, after the column
   // was moved, they are where they were and in the window (with the Write button and "Put back initial values")
-  const fixedParts = () => [...document.querySelectorAll('.tune-main .pane-bottom, .tune-aside .pane-bottom')]
+  const fixedParts = () => [...document.querySelectorAll(
+    '.tune-main .pane-bottom, .tune-aside .pane-bottom, .setup-aside .pane-bottom',
+  )]
   const fixedTops = () => fixedParts().map(part => Math.round(part.getBoundingClientRect().top))
   const fixedStayed = before => fixedParts().every((part, at) => {
     const box = part.getBoundingClientRect()

@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
 import { defineComponent, h } from 'vue'
-import { createConfigurator } from '@/composables/useConfigurator'
+import { createConfigurator, useConfigurator } from '@/composables/useConfigurator'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { SETUP_PARAMS, telemetryAt } from '@/mock/fixtures'
 import { mockBackend } from '@/mock/mock-backend'
@@ -55,6 +55,32 @@ it.each([
   expect(box.find(':scope > .setup-main').exists()).toBe(true)
   expect(box.find(':scope > aside').exists()).toBe(true)
   expect(box.classes()).not.toContain('single')
+})
+
+it('has the side panel of a page that writes as a pane: what it writes and Write fixed below, status in the body', async () => {
+  const wrapper = await shown(SetupModes)
+  const side = wrapper.get('.setup-page-body > aside')
+
+  expect(side.classes()).toContain('pane')
+  expect(side.find('.pane-bottom .setup-writes').exists()).toBe(true)
+  expect(side.find('.pane-bottom #setup-modes-write').exists()).toBe(true)
+  expect(side.find('.pane-bottom #setup-modes-revert').exists()).toBe(true)
+  expect(side.find('.pane-body #setup-modes-status').exists()).toBe(true)
+  // (nothing blocks a write here: no top)
+  expect(side.find('.pane-top').exists()).toBe(false)
+})
+
+it('says at the top of the side panel why nothing can be written, and has no top otherwise', async () => {
+  const wrapper = await shown(SetupModes)
+  const handle = useConfigurator()
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
+  await flushPromises()
+
+  expect(wrapper.get('.setup-page-body > aside .pane-top #setup-modes-blocked').text().length).toBeGreaterThan(0)
+  feed(handle, { telemetry: { ...telemetryAt(0), armed: false } })
+  await flushPromises()
+
+  expect(wrapper.find('.setup-page-body > aside .pane-top').exists()).toBe(false)
 })
 
 it('lists, beside the accelerometer, what its calibration changes and the trim that "Level only" sets', async () => {
