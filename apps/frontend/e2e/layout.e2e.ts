@@ -59,6 +59,7 @@ async function resize(size: { width: number, height: number }): Promise<void> {
 
 /** What a page shows when its middle column is moved: where the side panel and the list are, and what else scrolls. */
 interface Probe {
+  fixed: boolean
   before: number
   after: number
   navBefore: number
@@ -119,6 +120,30 @@ const HELPERS = `
     const portRows = new Set(tops).size || 1
     return { portRows, drawingBeside: beside(fields, drawing), outputsBeside: beside(test, outputs), labelled }
   }
+  // a page with a live chart is not still until its height has stopped changing: it is waited for, up to three seconds
+  const settle = async box => {
+    for (let still = 0, was = -1, tries = 0; still < 3 && tries < 30; tries += 1) {
+      await new Promise(resolve => setTimeout(resolve, 150))
+      still = box.scrollHeight === was ? still + 1 : 0
+      was = box.scrollHeight
+    }
+  }
+  // the boxes of a page (a part of Tune scrolls the body of its pane; a Setup page its middle column)
+  const parts = () => ({
+    main: document.querySelector('.tune-main .pane-body, .setup-main'),
+    side: document.querySelector('.setup-aside, .setup-facts, .tune-aside'),
+    nav: document.querySelector('.setup-nav'),
+    tabs: document.querySelector('[aria-label="Tune sections"]'),
+    area: document.querySelector('.app-main'),
+  })
+  // the fixed bottom parts of a Tune part (under its main column and in its aside): where they are, and whether, after the column
+  // was moved, they are where they were and in the window (with the Write button and "Put back initial values")
+  const fixedParts = () => [...document.querySelectorAll('.tune-main .pane-bottom, .tune-aside .pane-bottom')]
+  const fixedTops = () => fixedParts().map(part => Math.round(part.getBoundingClientRect().top))
+  const fixedStayed = before => fixedParts().every((part, at) => {
+    const box = part.getBoundingClientRect()
+    return Math.round(box.top) === before[at] && box.bottom <= window.innerHeight + 1
+  })
   // what lies beyond the right edge of a column that never scrolls sideways
   const sideways = box => {
     const edge = box.getBoundingClientRect().right
@@ -136,20 +161,20 @@ function probe(): string {
   return `(async () => {
     ${HELPERS}
     await new Promise(resolve => setTimeout(resolve, 400))
-    const main = document.querySelector('.setup-main')
-    const side = document.querySelector('.setup-aside, .setup-facts')
-    const nav = document.querySelector('.setup-nav')
-    const tabs = document.querySelector('[aria-label="Tune sections"]')
-    const area = document.querySelector('.app-main')
+    const { main, side, nav, tabs, area } = parts()
+    await settle(main)
     const top = element => element ? element.getBoundingClientRect().top : 0
     const before = top(side)
+    const fixedBefore = fixedTops()
     const navBefore = top(nav) + top(tabs)
-    const scrollWant = Math.min(300, main.scrollHeight - main.clientHeight)
     main.scrollTop = 300
     await new Promise(resolve => requestAnimationFrame(resolve))
+    // (how far it could go is read WITH where it got to: a live chart may change the height of the page between the two)
+    const scrollWant = Math.round(Math.min(300, main.scrollHeight - main.clientHeight))
     const root = document.scrollingElement
     const result = {
       before, after: top(side), navBefore, navAfter: top(nav) + top(tabs), scrollWant, scrollGot: Math.round(main.scrollTop),
+      fixed: fixedStayed(fixedBefore),
       pageScrolls: root.scrollHeight > window.innerHeight + 1,
       areaScrolls: area.scrollHeight > area.clientHeight + 1,
       areaTop: area.scrollTop,
@@ -191,7 +216,7 @@ afterAll(async () => {
  */
 async function visit(page: string): Promise<Probe> {
   await window().evaluate(`location.hash = '#/${page}'`)
-  const ready = `document.querySelector('.setup-main')?.clientHeight > 0`
+  const ready = `document.querySelector('.tune-main .pane-body, .setup-main')?.clientHeight > 0`
   await window().waitFor(`location.hash === '#/${page}' && ${ready}`, 30_000)
 
   return window().evaluate<Probe>(probe())
@@ -230,6 +255,7 @@ function facts(page: string, seen: Probe, size: { width: number, height: number 
   return {
     page,
     sideMoved: Math.round(seen.after - seen.before),
+    fixed: seen.fixed,
     navMoved: Math.round(seen.navAfter - seen.navBefore),
     scrollOff: seen.scrollGot - seen.scrollWant,
     pageScrolls: seen.pageScrolls ? seen.below : false,
@@ -257,6 +283,7 @@ for (const size of SIZES) {
       expect(facts(page, seen, size)).toEqual({
         page,
         sideMoved: 0,
+        fixed: true,
         navMoved: 0,
         scrollOff: 0,
         pageScrolls: false,
@@ -279,6 +306,28 @@ for (const size of SIZES) {
     expect(scrolled).toBeGreaterThan(size.height === 768 ? 0 : 2)
   }, 180_000)
 }
+
+it('stacks a part of Tune at 999 px wide: the page scrolls as a whole and both fixed parts are reachable', async () => {
+  await resize({ width: 999, height: 700 })
+  await visit('tune/rate')
+  const seen = await window().evaluate<{ stacked: boolean, reach: boolean }>(`(() => {
+    const main = document.querySelector('.tune-main')
+    const aside = document.querySelector('.tune-aside')
+    const root = document.scrollingElement
+    const bodies = [...document.querySelectorAll('.tune-page .pane-body')]
+    const bottoms = [...document.querySelectorAll('.tune-page .pane-bottom')]
+    root.scrollTop = root.scrollHeight
+    document.querySelector('.app-main').scrollTop = document.querySelector('.app-main').scrollHeight
+    return {
+      // (the aside is below the main column, and no body scrolls by itself: the page does)
+      stacked: aside.getBoundingClientRect().top >= main.getBoundingClientRect().bottom - 1
+        && bodies.every(body => getComputedStyle(body).overflowY === 'visible'),
+      reach: bottoms.every(part => part.getBoundingClientRect().bottom <= window.innerHeight + 1),
+    }
+  })()`)
+
+  expect(seen).toEqual({ stacked: true, reach: true })
+}, 60_000)
 
 /** What the first serial port's row is laid out as: its tracks in px, the gap, whether the heads or the labels are seen. */
 interface PortRow {
@@ -359,3 +408,70 @@ for (const size of REPLAY_SIZES) {
     expect(seen.page).toBe(false)
   }, 60_000)
 }
+
+/**
+ * Types a value that differs into the first ten sliders of the page that is shown (the top of each one's range).
+ *
+ * @returns how many were typed
+ */
+async function stageTen(): Promise<number> {
+  const rows = await window().evaluate<string[]>(`[...document.querySelectorAll('[data-tune]')]
+    .filter(row => row.querySelector('input[type="range"]'))
+    .slice(0, 10)
+    .map(row => row.dataset.tune + ' ' + row.querySelector('input[type="range"]').max)`)
+  for (const row of rows) {
+    const [id, max] = row.split(' ')
+    // eslint-disable-next-line no-await-in-loop -- one value after the other
+    await window().fill(`[data-tune="${id}"] input[type="text"]`, max as string)
+  }
+
+  return rows.length
+}
+
+// (last in the file: the vehicle is silenced, and stays so)
+it('keeps Write and "Put back initial values" in a 1100x480 window with a reason and many changes in the aside', async () => {
+  await resize({ width: 1100, height: 480 })
+  await window().evaluate(`location.hash = '#/tune/more'`)
+  await window().waitFor(`document.querySelectorAll('[data-tune] input[type="range"]').length >= 5`, 30_000)
+  const staged = await stageTen()
+  await window().waitFor(`document.querySelectorAll('.tune-write-row').length >= ${staged - 2}`, 10_000)
+  // a vehicle that says nothing: its state is not known, and the aside says why at its top
+  vehicle?.mute()
+  await window().waitFor(`document.querySelector('#tune-more-blocked') !== null`, 60_000)
+  await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 400))`)
+  const seen = await window().evaluate<Record<string, number>>(`(() => {
+    const box = id => document.getElementById(id).getBoundingClientRect()
+    const write = box('tune-more-write')
+    const back = box('tune-more-initial')
+    const height = window.innerHeight
+    return { writeTop: write.top, writeBottom: write.bottom, backTop: back.top, backBottom: back.bottom, height }
+  })()`)
+
+  expect(seen.writeTop).toBeGreaterThanOrEqual(0)
+  expect(seen.writeBottom).toBeLessThanOrEqual(seen.height! + 1)
+  expect(seen.backTop).toBeGreaterThanOrEqual(0)
+  expect(seen.backBottom).toBeLessThanOrEqual(seen.height! + 1)
+}, 120_000)
+
+// (after the test above: the vehicle is silent, the reason shows and the values are still queued)
+it('shows the reason and the changed values whole in a window of the usual height (1440x768): nothing is cut', async () => {
+  await resize({ width: 1440, height: 768 })
+  await window().evaluate<void>(`new Promise(resolve => setTimeout(resolve, 600))`)
+  const seen = await window().evaluate<Record<string, number>>(`(() => {
+    const top = document.querySelector('.tune-aside .pane-top')
+    const list = document.querySelector('.tune-write-list')
+    const write = document.getElementById('tune-more-write').getBoundingClientRect()
+    return {
+      topCut: top ? top.scrollHeight - top.clientHeight : 99,
+      listShown: list.clientHeight,
+      listNatural: Math.min(list.scrollHeight, 150),
+      writeBottom: write.bottom,
+      height: window.innerHeight,
+    }
+  })()`)
+
+  // (the reason has the room it needs, the list is its natural height up to the box it scrolls in, and Write is in the window)
+  expect(seen.topCut).toBeLessThanOrEqual(1)
+  expect(seen.listShown).toBeGreaterThanOrEqual(seen.listNatural!)
+  expect(seen.writeBottom).toBeLessThanOrEqual(seen.height! + 1)
+}, 60_000)

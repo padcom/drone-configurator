@@ -62,7 +62,7 @@
   min-width: 0;
 }
 
-.params > .toolbar {
+.params .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
@@ -376,19 +376,23 @@
     overflow: hidden;
   }
 
-  /* The detail is a column of the height of the screen: the facts and the editor at the top, the description filling what is
-     left and scrolling on its own, and the changes to write (with the Write button) pinned at the bottom, always in view. Only
-     a window too short for all of that scrolls the column. */
+  /* The detail is a column of the height of the screen (a pane): the facts and the editor at the top, the description filling
+     what is left and scrolling on its own, and the changes to write (with the Write button) pinned at the bottom, always in
+     view. Only a window too short for all of that scrolls the column. */
   .detail {
     display: flex;
     flex-direction: column;
   }
 
-  .detail > * {
-    flex: none;
+  .detail > .pane {
+    flex: 1 0 auto;
   }
 
-  .detail > .param-description {
+  .detail .pane-body {
+    min-height: 10rem;
+  }
+
+  .detail .param-description {
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
@@ -396,14 +400,10 @@
     margin-bottom: var(--space-4);
   }
 
-  .detail > .param-description .body {
+  .detail .param-description .body {
     flex: 1 1 0;
     min-height: 0;
     max-height: none;
-  }
-
-  .detail > .staged {
-    margin-top: auto;
   }
 }
 

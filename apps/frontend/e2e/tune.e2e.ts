@@ -68,7 +68,7 @@ it('writes roll and pitch together after one question, each read back by the veh
   const before = vehicle?.writes ?? 0
   await window().fill('[data-tune="ATC_RAT_RLL_P"] input[type="text"]', '0.2')
   await window().waitFor(`document.querySelector('#tune-rate-write')?.disabled === false`, 10_000)
-  expect(await window().text('.setup-writes')).toContain('ATC_RAT_RLL_P')
+  expect(await window().text('.tune-write-list')).toContain('ATC_RAT_RLL_P')
   await window().click('#tune-rate-write')
   const question = await window().text('#confirm')
   expect(question).toContain('ATC_RAT_RLL_P')

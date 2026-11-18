@@ -774,6 +774,146 @@
   padding-left: var(--space-4);
 }
 
+/* A part of Tune (components/tune/TunePage.vue), from the page layout of pane.css: the main column scrolls with "Put back initial
+   values" fixed under it; the aside has what blocks a write at its top, how the last write went in its body, and what it writes
+   (the changed values, as the Parameters page lists its changes) with the Write button fixed at its bottom. Below 1000 px the
+   two stack and the page scrolls, as everywhere. */
+.tune-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tune-split {
+  gap: var(--space-5);
+}
+
+/* (below 1000 px each takes the whole row: the aside is under the main column, and the page scrolls) */
+.tune-main {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.tune-main-bottom {
+  padding-top: var(--space-3);
+}
+
+.tune-aside {
+  flex: 1 1 100%;
+  max-width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.tune-aside .pane-top,
+.tune-aside .pane-body {
+  padding: var(--space-4);
+}
+
+.tune-aside .pane-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tune-aside .pane-bottom {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.tune-writes {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* The changed values: many scroll in a box of their own, so that the Write button below them stays in view. */
+.tune-write-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 10rem;
+  padding: 0;
+  margin: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.tune-write-list:empty {
+  display: none;
+}
+
+.tune-write-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 var(--space-3);
+  align-items: center;
+  line-height: 1.25;
+}
+
+.tune-write-row .name,
+.tune-write-row .values {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-value-sm);
+}
+
+.tune-write-row .from {
+  color: var(--color-text-muted);
+}
+
+.tune-write-row .to {
+  color: var(--color-accent);
+}
+
+.tune-write-row.refused {
+  color: var(--color-error);
+}
+
+@media (width >= 1000px) {
+  .tune-page {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .tune-split {
+    flex: 1;
+    height: auto;
+  }
+
+  .tune-main {
+    flex: 1 1 0;
+  }
+
+  /* A body that scrolls cuts what is outside its box: the room a focus outline needs (2 px + 2 px offset) is its padding, and the
+     margin takes it back, so that the column keeps its place (as the columns of the Setup pages do). */
+  .tune-main .pane-body {
+    padding: var(--space-1);
+    margin: calc(-1 * var(--space-1));
+  }
+
+  /* Only a window too short for the fixed parts to leave room for the Write button scrolls the aside itself. */
+  .tune-aside {
+    flex: 0 0 280px;
+    overflow-y: auto;
+  }
+}
+
+/* In a SHORT window (about 640 px high or less) the fixed parts of the aside cannot all be as tall as they would be: a long reason
+   at the top and the list of changed values are capped to a part of the window and scroll in boxes of their own, so that the
+   Write button stays in it. In a window of the usual height they have the room they need, and nothing is cut. */
+@media (width >= 1000px) and (height < 640px) {
+  .tune-aside .pane-top {
+    max-height: 11vh;
+    overflow-y: auto;
+  }
+
+  .tune-write-list {
+    max-height: 11vh;
+  }
+}
+
 /* The motors: the test and the outputs, one under the other, and side by side when the column has room for both. */
 .setup-motors-pair {
   display: grid;
