@@ -113,10 +113,12 @@ describe('a stick', () => {
   })
 })
 
-// How a stick position becomes a pulse TODAY: the same for every stick channel, the throttle included. A stick level of -1, 0
-// and 1 is the channel's RCn_MIN, RCn_TRIM and RCn_MAX, with a straight line between each two (a slope on each side of the
-// trim). The throttle of ArduCopter does not use the trim at all (`RC_Channel::pwm_to_range`: a straight line from RCn_MIN, plus
-// the dead zone, to RCn_MAX), and a receiver calibration often sets RC3_TRIM at the bottom: these tests show what that does.
+// How a stick position becomes a pulse through a range: a stick level of -1, 0 and 1 is the range's min, trim and max, with a
+// straight line between each two (a slope on each side of the trim). That is right for roll, pitch and yaw, whose centre is the
+// trim. The throttle of ArduCopter does not use the trim at all (`RC_Channel::pwm_to_range`: a straight line from RCn_MIN, plus
+// the dead zone, to RCn_MAX), and a receiver calibration often sets RC3_TRIM at the bottom: through such a range the lower half
+// of the stick would give nothing. So the throttle is never given the vehicle's trim: `vehicleChannels` centres it (see
+// vehicle.test.ts).
 const THROTTLE: StickRow = { ...STICK, channel: 3, axis: 2 }
 const LEVELS = [-1, -0.5, 0, 0.5, 1]
 const travel = (range: PulseRange): number[] => LEVELS.map(level => stickPulse(THROTTLE, pad([0, 0, level]), range))
