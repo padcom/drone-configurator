@@ -403,6 +403,19 @@ describe('a mapping of the first version that was converted', () => {
     expect(mapping.converted.value).toBe(false)
     scope.stop()
   })
+
+  it('is converted and not confirmed when every stick had a minimum of -0.6, read when the pad appears', async () => {
+    const calibration = { min: -0.6, center: 0, max: 1 }
+    const stick = (channel: number) => (
+      { kind: 'stick', channel, axis: channel - 1, invert: false, calibration, deadZone: 0.08, expo: 0 }
+    )
+    const old = JSON.stringify({ version: 1, device: TX16S, calibrated: true, rows: [1, 2, 3, 4].map(stick) })
+    const { pads, mapping, scope } = await rig([{ key: profileKey(TX16S), value: old }])
+
+    plugged(pads)
+    expect([mapping.converted.value, mapping.confirmed.value]).toEqual([true, false])
+    scope.stop()
+  })
 })
 
 describe('the throttle style', () => {

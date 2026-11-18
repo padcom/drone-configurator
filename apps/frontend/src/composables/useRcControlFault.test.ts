@@ -59,6 +59,27 @@ describe('a pad that reads wrong while the control is on', () => {
   })
 })
 
+describe('a pad that loses a stick while the control is on', () => {
+  it.each([1, 2, 3])('releases everything with PAD_FAULT when the pad reports only %i axes (and 6 buttons)', async axes => {
+    const r = await open()
+
+    r.pads.shrink(axes, 6)
+    await run(r, 200)
+
+    expect([r.rc.state.value, r.rc.why.value, r.control.rc!.released()]).toEqual(['off', 'PAD_FAULT', 1])
+    r.stop()
+  })
+
+  it('does the same when the pad has no buttons left either', async () => {
+    const r = await open()
+
+    r.pads.shrink(2, 0)
+    await run(r, 200)
+    expect([r.rc.state.value, r.rc.why.value]).toEqual(['off', 'PAD_FAULT'])
+    r.stop()
+  })
+})
+
 describe('a pad that reads right, or reads right again', () => {
   it('does nothing for a reading a little past 1, the pad\'s own noise', async () => {
     const r = await open()
