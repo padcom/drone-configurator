@@ -832,7 +832,9 @@
     },
     "indicator": {
       "on": "Zdalne sterowanie włączone",
-      "off": "Zdalne sterowanie włączone. Naciśnij, aby wyłączyć."
+      "off": "Zdalne sterowanie włączone. Naciśnij, aby wyłączyć.",
+      "rudder": "uzbrajanie drążkami",
+      "offRudder": "Zdalne sterowanie włączone, a drążki mogą uzbrajać i rozbrajać. Naciśnij, aby wyłączyć."
     },
     "summary": {
       "title": "Lecieć padem?",
@@ -906,6 +908,9 @@
       "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB).",
       "allow": "Zezwalaj na zdalne sterowanie",
       "allowHelp": "Domyślnie wyłączone i tylko dla wbudowanego symulatora albo łącza z tym komputerem: każdy inny pojazd jest odrzucany. To tylko zezwala; nie uruchamia sterowania.",
+      "rudderArm": "Pozwól drążkom uzbrajać i rozbrajać",
+      "rudderArmHelp": "Domyślnie wyłączone. Pozwala drążkom uzbroić I ROZBROIĆ symulator, także w locie. Wymaga ARMING_RUDDER w pojeździe; kontrole przed uzbrojeniem nadal obowiązują. Działa od włączenia zdalnego sterowania.",
+      "rudderArmShut": "Najpierw zezwól na zdalne sterowanie. Jego wyłączenie wyłącza także to.",
       "status": {
         "ready": "Wszystko jest gotowe do zdalnego sterowania.",
         "link": "Nie połączono żadnego symulatora."

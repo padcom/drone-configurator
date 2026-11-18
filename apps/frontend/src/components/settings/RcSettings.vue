@@ -6,6 +6,13 @@
       <Toggle id="rc-allow" v-model="allow" :aria-describedby="`${uid}-allow-help`">{{ t('settings.rc.allow') }}</Toggle>
       <p :id="`${uid}-allow-help`" class="muted">{{ t('settings.rc.allowHelp') }}</p>
     </div>
+    <div class="settings-row">
+      <Toggle id="rc-rudder-arm" v-model="rudderArm" :disabled="!allow" :aria-describedby="rudderDescription">
+        {{ t('settings.rc.rudderArm') }}
+      </Toggle>
+      <p :id="`${uid}-rudder-help`" class="muted">{{ t('settings.rc.rudderArmHelp') }}</p>
+      <p v-if="!allow" :id="`${uid}-rudder-shut`" class="muted">{{ t('settings.rc.rudderArmShut') }}</p>
+    </div>
     <p v-if="statusKey !== null" id="rc-status" class="muted" role="status">
       {{ t(`settings.rc.status.${statusKey}`) }}
     </p>
@@ -71,6 +78,12 @@ const allow = computed({
   get: () => settings.allowed.value,
   set: (next: boolean) => void settings.allow(next),
 })
+const rudderArm = computed({
+  get: () => settings.rudderArm.value,
+  set: (next: boolean) => void settings.setRudderArm(next),
+})
+/** What the switch is described by: its line, and why it is shut while remote control is not allowed. */
+const rudderDescription = computed(() => `${uid}-rudder-help${allow.value ? '' : ` ${uid}-rudder-shut`}`)
 const EMPTY: PadSample = { axes: [], buttons: [] }
 /** What the pad says now (nothing when none is read). */
 const sample = computed(() => (pad.reading.value.kind === 'live' ? pad.reading.value.sample : EMPTY))

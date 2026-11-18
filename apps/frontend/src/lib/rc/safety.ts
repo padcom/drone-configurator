@@ -1,6 +1,7 @@
 // What the RC control never sends, whatever the sticks say (plan section 6, rules 4 and 5): the throttle does not jump in
 // when the control turns on, and the sticks never make the gesture the vehicle takes for arming or disarming (the rudder at its
-// end, the throttle low). Last, whatever is left is checked once more: nothing that an override cannot carry leaves.
+// end, the throttle low; for a simulator, a person who turned the sticks' own arm on in Settings lifts only this one). Last,
+// whatever is left is checked once more: nothing that an override cannot carry leaves.
 import { rangeOk, sendableOr } from './mapping'
 import { NOT_MINE, type PulseRange, type VehicleChannels } from './types'
 
@@ -165,6 +166,15 @@ function holdIfFlyable(out: number[], vehicle: VehicleChannels, ok: Usable): boo
   return ok.throttle && ok.yaw && holdTheRudder(out, vehicle)
 }
 
+/** What the guards are asked for. */
+export interface GuardOptions {
+  /**
+   * Whether the yaw is held back from the arming gesture (the default). Only a person who turned the sticks' own arm and
+   * disarm on (Settings, for a simulator) lifts it: the throttle's gate and every other check stay as they are.
+   */
+  holdRudder?: boolean
+}
+
 /**
  * Makes the throttle the radio's own while its gate is shut, and the yaw while its range cannot be used.
  *
@@ -190,16 +200,22 @@ function blank(out: number[], vehicle: VehicleChannels, ok: Usable, open: boolea
  * @param channels the 16 pulses the mapping made
  * @param vehicle which channels are the throttle and the yaw, and their ranges
  * @param gate the throttle's gate before this read
+ * @param options `holdRudder: false` lifts the hold of the yaw (the sticks may arm and disarm); the rest is never lifted
  * @returns what to send
  */
-export function guard(channels: readonly number[], vehicle: VehicleChannels, gate: Readonly<Gate>): Guarded {
+export function guard(
+  channels: readonly number[],
+  vehicle: VehicleChannels,
+  gate: Readonly<Gate>,
+  options: GuardOptions = {},
+): Guarded {
   const ok = usable(vehicle)
   const next = ok.throttle ? gateOf(gate, channels, vehicle) : { ...START_GATE }
   const out = [...channels]
 
   blank(out, vehicle, ok, next.open)
 
-  const yawHeld = holdIfFlyable(out, vehicle, ok)
+  const yawHeld = options.holdRudder !== false && holdIfFlyable(out, vehicle, ok)
 
   return { channels: out.map(sendableOr), gate: next, yawHeld }
 }

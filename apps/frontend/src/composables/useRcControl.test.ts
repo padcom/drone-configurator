@@ -225,6 +225,102 @@ describe('turning it on again', () => {
   })
 })
 
+/** The end of the yaw's travel in the rig's calibration, and where the guard holds it back to (0.8 of its half range). */
+const YAW_END = 1900
+const YAW_HELD = 1820
+
+/**
+ * The yaw the last frame carried, with the throttle stick low and the yaw stick at its end.
+ *
+ * @param r the rig (a control is on)
+ * @returns the pulse of channel 4
+ */
+async function yawAtTheEnd(r: RcRig): Promise<number> {
+  r.pads.set([0, 0, -1, 1])
+  await run(r, 400)
+
+  return r.control.rc!.frames().at(-1)!.channels[3] ?? 0
+}
+
+describe('the sticks that arm and disarm (the option, for a simulator)', () => {
+  it('is off unless it is asked for: the yaw is held back from the end of its travel, and nothing says otherwise', async () => {
+    const r = await on()
+
+    expect(await yawAtTheEnd(r)).toBe(YAW_HELD)
+    expect(r.rc.rudderLifted.value).toBe(false)
+    r.stop()
+  })
+
+  it('lifts the hold of the yaw only, once it is on: the yaw reaches its end, and the throttle gate is as it was', async () => {
+    const r = await flying(await rcRig({ rudderArm: true }))
+
+    expect(r.rc.rudderLifted.value).toBe(true)
+    // (the gate is shut: no throttle yet, while the yaw is free)
+    r.pads.set([0, 0, 0.5, 1])
+    r.pads.advance(60)
+    await settle()
+    expect(throttles(r.control).every(pulse => pulse === 0)).toBe(true)
+    expect(r.control.rc!.frames().at(-1)!.channels[3]).toBe(YAW_END)
+    expect(r.rc.gateOpen.value).toBe(false)
+    expect(await yawAtTheEnd(r)).toBe(YAW_END)
+    expect(throttles(r.control).at(-1)).toBe(1100)
+    r.stop()
+  })
+})
+
+describe('the sticks that arm and disarm: when the setting is read', () => {
+  it('is when the control begins: turning it over while the control flies changes nothing, either way', async () => {
+    const r = await on()
+
+    r.rudderArm.value = true
+    expect(await yawAtTheEnd(r)).toBe(YAW_HELD)
+    expect(r.rc.rudderLifted.value).toBe(false)
+    r.rc.disable()
+    await settle()
+    r.pads.set([0, 0, -1, 0])
+    await r.rc.enable()
+    await settle()
+    expect(r.rc.rudderLifted.value).toBe(true)
+    r.rudderArm.value = false
+    expect(await yawAtTheEnd(r)).toBe(YAW_END)
+    expect(r.rc.rudderLifted.value).toBe(true)
+    r.stop()
+  })
+})
+
+describe('the sticks that arm and disarm: what is the same', () => {
+  it('does nothing unless the control is allowed and the link a simulator: it is not begun, nor said to be lifted', async () => {
+    const off = await rcRig({ allowed: false, rudderArm: true })
+    const away = await rcRig({ rudderArm: true })
+
+    away.request.value = { transport: 'tcp', host: 'example.org', port: 5760 }
+
+    for (const rig of [off, away]) {
+      rig.pads.connect(TX16S)
+      rig.pads.set([0, 0, -1, 0])
+      rig.pads.advance(20)
+      // eslint-disable-next-line no-await-in-loop
+      await rig.rc.enable()
+    }
+    expect([off.rc.state.value, off.rc.why.value, off.rc.rudderLifted.value]).toEqual(['off', 'off', false])
+    expect([away.rc.state.value, away.rc.rudderLifted.value]).toEqual(['off', false])
+    expect(away.control.rc!.frames()).toHaveLength(0)
+    off.stop()
+    away.stop()
+  })
+
+  it('ends like any other control, and is not lifted any more once it has: the dead-men are the same', async () => {
+    const r = await flying(await rcRig({ rudderArm: true }))
+
+    await run(r, 100)
+    r.pads.disconnect()
+    r.pads.advance(40)
+    await settle()
+    expect([r.rc.state.value, r.rc.why.value, r.rc.rudderLifted.value]).toEqual(['off', 'PAD_NONE', false])
+    r.stop()
+  })
+})
+
 describe('toggling and the summary', () => {
   it('toggles: on when it is off, off when it is on', async () => {
     const r = await on()

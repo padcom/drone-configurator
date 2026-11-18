@@ -7,6 +7,12 @@ import type { AxisCalibration, ButtonRow, Profile, Row, StickRow, SwitchRow } fr
 /** The settings entry that says whether RC control is allowed: `on`, or anything else (or nothing) for off. */
 export const RC_ALLOW_KEY = 'rc.allow'
 
+/**
+ * The settings entry that says whether the sticks may make the vehicle's own arm and disarm gesture (the rudder guard is lifted):
+ * `on`, or anything else (or nothing) for off. It is read like `rc.allow` (`parseAllow`): only the exact text `on` is on.
+ */
+export const RC_RUDDER_ARM_KEY = 'rc.rudderArm'
+
 /** The part of the key of a device's mapping that comes before the device. */
 export const RC_PROFILE_PREFIX = 'rc.profile.'
 

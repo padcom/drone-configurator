@@ -832,7 +832,9 @@
     },
     "indicator": {
       "on": "Controllo remoto attivo",
-      "off": "Controllo remoto attivo. Premi per spegnerlo."
+      "off": "Controllo remoto attivo. Premi per spegnerlo.",
+      "rudder": "armo con stick",
+      "offRudder": "Controllo remoto attivo, e gli stick possono armare e disarmare. Premi per spegnerlo."
     },
     "summary": {
       "title": "Pilotare con il gamepad?",
@@ -906,6 +908,9 @@
       "intro": "Pilota il veicolo con un gamepad, o con una radio che si presenta come tale (ad esempio una TX16S via USB).",
       "allow": "Consenti il controllo remoto",
       "allowHelp": "Disattivato per impostazione predefinita e solo per il simulatore integrato o un collegamento a questo computer: qualsiasi altro veicolo è rifiutato. Questo lo consente soltanto; non lo avvia.",
+      "rudderArm": "Lascia armare e disarmare con gli stick",
+      "rudderArmHelp": "Disattivato per impostazione predefinita. Permette agli stick di armare E DISARMARE il simulatore, anche in volo. Richiede ARMING_RUDDER sul veicolo; i controlli pre-arm restano validi. Ha effetto quando il controllo remoto viene acceso.",
+      "rudderArmShut": "Consenti prima il controllo remoto. Se lo disattivi, si disattiva anche questo.",
       "status": {
         "ready": "Tutto è pronto per il controllo remoto.",
         "link": "Nessun simulatore è collegato."

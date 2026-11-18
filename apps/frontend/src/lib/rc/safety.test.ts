@@ -108,6 +108,34 @@ describe('the rudder', () => {
   })
 })
 
+describe('the rudder, when the person lifted its hold (the sticks arm and disarm the simulator)', () => {
+  const lifted = { holdRudder: false }
+
+  it('goes to the ends of its travel with the throttle low, on both sides, and is not said to be held', () => {
+    expect(guard(channels(1000, 2000), vehicle, OPEN, lifted).channels[3]).toBe(2000)
+    expect(guard(channels(1000, 1000), vehicle, OPEN, lifted).channels[3]).toBe(1000)
+    expect(guard(channels(1000, 2000), vehicle, OPEN, lifted).yawHeld).toBe(false)
+  })
+
+  it('is held when the option says to, and by default (the hold is only ever lifted by asking)', () => {
+    expect(guard(channels(1000, 2000), vehicle, OPEN, { holdRudder: true }).channels[3]).toBe(1900)
+    expect(guard(channels(1000, 2000), vehicle, OPEN, {}).channels[3]).toBe(1900)
+  })
+
+  it('changes nothing else: the gate stays shut, and a yaw whose range cannot be used is still the radio\'s own', () => {
+    const shut = guard(channels(1700, 2000), vehicle, START_GATE, lifted)
+
+    expect(shut.channels[2]).toBe(NOT_MINE)
+    expect(shut.gate.open).toBe(false)
+    expect(shut.channels[3]).toBe(2000)
+    const flipped = { min: 2000, max: 1000, trim: 1500 }
+    const upside = { ...vehicle, range: (channel: number) => (channel === 4 ? flipped : DEFAULT_RANGE) }
+
+    expect(guard(channels(1000, 2000), upside, OPEN, lifted).channels[3]).toBe(NOT_MINE)
+    expect(guard(channels(1000, 2000), vehicle, OPEN, lifted).channels[2]).toBe(1000)
+  })
+})
+
 describe('what is checked once more before it leaves', () => {
   it('turns what an override cannot carry into the radio\'s own: not a number, not whole, outside 800 to 2200', () => {
     const bad = [1500, Number.NaN, 1700.5, 3000, 700, Number.POSITIVE_INFINITY, ...Array.from({ length: 10 }, () => 1500)]
