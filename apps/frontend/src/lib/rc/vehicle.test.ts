@@ -260,6 +260,76 @@ function gateAfter(level: number, trim: number, reads: number): Gate {
   return Array.from({ length: reads }).reduce<Gate>(before => guard(row(), channels, before).gate, START_GATE)
 }
 
+/**
+ * The facts of a vehicle whose throttle is on channel 5 (RCMAP_THROTTLE 5), with the trims of channels 3 and 5 as said.
+ *
+ * @param trim3 RC3_TRIM, a channel that is not the throttle here
+ * @param trim5 RC5_TRIM, the throttle's
+ * @returns the facts
+ */
+function throttleOnFive(trim3: number, trim5: number): Facts {
+  const five: ParamValue[] = [
+    { id: 'RC5_MIN', value: 1000 },
+    { id: 'RC5_TRIM', value: trim5 },
+    { id: 'RC5_MAX', value: 2000 },
+  ]
+
+  return facts([{ id: 'RCMAP_THROTTLE', value: 5 }, ...ends(1000, trim3, 2000), ...five])
+}
+
+const ON_FIVE: Profile = {
+  device: 'pad',
+  calibrated: true,
+  rows: [stick(1, 0), stick(2, 1), stick(5, 2), stick(4, 3), stick(3, 4)],
+}
+
+/**
+ * The pulse of a channel of the profile with the throttle on channel 5, the sticks of channels 5 and 3 both at `level`.
+ *
+ * @param channel the channel
+ * @param level the stick
+ * @param said the vehicle's facts
+ * @returns the pulse
+ */
+function pulseOn(channel: number, level: number, said: Facts): number {
+  const axes = [0, 0, level, 0, level]
+
+  return channelsOf(ON_FIVE, { axes, buttons: [] }, vehicleChannels(said).range)[channel - 1] ?? NOT_MINE
+}
+
+describe('the throttle is the channel the vehicle says, not channel 3', () => {
+  it('is a straight line on channel 5 with its trim at the minimum', () => {
+    const said = throttleOnFive(1500, 1000)
+
+    expect([-1, 0, 1].map(level => pulseOn(5, level, said))).toEqual([1000, 1500, 2000])
+    expect([-0.5, 0.5].map(level => pulseOn(5, level, said))).toEqual([1250, 1750])
+  })
+
+  it('leaves channel 3, which is a plain channel now, on its own trim', () => {
+    const said = throttleOnFive(1000, 1000)
+    const { range } = vehicleChannels(said)
+
+    expect(range(3)).toEqual({ min: 1000, trim: 1000, max: 2000 })
+    expect(range(5)).toEqual({ min: 1000, trim: 1500, max: 2000 })
+    // (channel 3 is a stick here, whose middle is its trim: 1000)
+    expect([-1, 0, 1].map(level => pulseOn(3, level, said))).toEqual([1000, 1000, 2000])
+  })
+
+  it('has the gate follow the throttle on channel 5, not on channel 3', () => {
+    const said = throttleOnFive(1000, 1000)
+    const channels = vehicleChannels(said)
+    const reads = (level: number): Gate => Array.from({ length: 20 }).reduce<Gate>(before => {
+      const axes = [0, 0, level, 0, 0]
+
+      return guard(channelsOf(ON_FIVE, { axes, buttons: [] }, channels.range), channels, before).gate
+    }, START_GATE)
+
+    expect(channels.throttle).toBe(5)
+    expect(reads(0).open).toBe(false)
+    expect(reads(-1).open).toBe(true)
+  })
+})
+
 describe('the throttle gate still means the stick is at the bottom, whatever the trim', () => {
   it('does not open at the middle of the travel when the trim is at the minimum (the middle is 1500, not low)', () => {
     expect(gateAfter(0, 1000, 20).open).toBe(false)
