@@ -40,8 +40,17 @@ import {
   TypedParamValue,
   defaultRegistry,
 } from "padcom/pico-mavlink"
-import { ConnectRequest, RcState, RcStateState, decodeRcControlParams, decodeRcInput, encodeRcState } from "./generated/app"
+import {
+  ConnectRequest,
+  RcControlParamsThrottle,
+  RcState,
+  RcStateState,
+  decodeRcControlParams,
+  decodeRcInput,
+  encodeRcState,
+} from "./generated/app"
 import { GCS_SYSID } from "./heartbeat"
+import { continuesIn, isMulticopter, startsIn } from "./rcmodes"
 import { landedOf, yawHeld, yawToSend } from "./rudder"
 import { SessionPart, armedState, connectedLink, heartbeatArmedState, link, rebootExpected } from "./session"
 import { uiValue } from "./settings"
@@ -104,6 +113,9 @@ class RouterEnd implements ByteStream {
 /// How often (ms, at the most) the page is told that the count of held yaw pulses changed.
 const HELD_TELL_MS: int = 250
 
+/// The least `THR_DZ` a centred throttle is flown with (ArduPilot's default is 100): a zero dead band would creep at the stick's middle.
+const MIN_THR_DZ: int = 30
+
 /// The control that runs, or the one that ended last.
 class Control implements SessionPart {
   public conn: MavLinkConnection? = null
@@ -132,6 +144,9 @@ class Control implements SessionPart {
   public rudderArm: bool = false
   /// Whether the page asked for it (`rc.control`'s `rudderArm`).
   public rudderAsked: bool = false
+  /// Whether the page's throttle stick rests in the middle (`throttle: "centred"`): then a mode that would take its middle for thrust ends
+  /// the control (`MODE`).
+  public centred: bool = false
   /// How many yaw pulses were held back, and what the page was told of it (and when).
   public held: int = 0
   public heldTold: int = 0
@@ -181,6 +196,7 @@ class Control implements SessionPart {
     heldTold = 0
     heldToldAt = 0
     rudderArm = false
+    centred = false
     inputAt = Date.now() as int
     follow(link.session.signal)
     return serial
@@ -196,6 +212,10 @@ class Control implements SessionPart {
     if (heartbeatArmedState() == null) {
       // Whether the vehicle is armed is not known (no heartbeat for 3 s): the sticks are let go of, as the plan says.
       end(mine, "STATE_UNKNOWN", false)
+    } else if (centred && !continuesIn(link.customMode)) {
+      // A mode that would take the middle of the stick for thrust (or one that is not known): the vehicle's own heartbeat says so, and
+      // the channels are let go of at once, whatever the page says of the mode.
+      end(mine, "MODE", false)
     } else if (stopped || (Date.now() as int) - inputAt > waits.silenceMs) {
       end(mine, "SILENT", false)
     } else {
@@ -278,6 +298,7 @@ class Control implements SessionPart {
     const confirmed = o == null || (!o!.releaseFailed && (o!.released > 0 || (o!.sent == 0 && o!.failed == 0)))
     if (serial == mine) {
       link.rcControl = false
+      link.rcCentred = false
       ready = false
       over = null
       sender = null
@@ -422,7 +443,7 @@ async function allowed(): Promise<bool> {
 
 /// Why a control may not begin now, as an error, or nothing. (That `rc.allow` is on is asked next, in `prepare`: it is read from a
 /// file, and a control is claimed before anything is awaited.)
-function refuse(): void throws CommunicatorError {
+function refuse(centred: bool): void throws CommunicatorError {
   if (!isSimulatorLink(link.request)) {
     throw new CommunicatorError("NOT_SIMULATOR", "RC control is only for a simulator: the built-in one, or TCP or UDP to this computer")
   }
@@ -447,46 +468,73 @@ function refuse(): void throws CommunicatorError {
   if (!link.paramsComplete) {
     throw new CommunicatorError("PARAMS_INCOMPLETE", "the vehicle's parameters were not all downloaded: the throttle cannot be held to its range")
   }
+  refuseCentred(centred)
+}
+
+/// What a throttle that rests in the middle needs of the vehicle: a multicopter, and a mode that reads the throttle as a climb rate (armed
+/// or not). The vehicle's own heartbeat decides: what the page says of the mode is never trusted.
+function refuseCentred(centred: bool): void throws CommunicatorError {
+  if (!centred) {
+    return
+  }
+  if (!isMulticopter(link.mavType)) {
+    throw new CommunicatorError("UNSUPPORTED", "a centred throttle is for a multicopter")
+  }
+  if (!startsIn(link.customMode)) {
+    throw new CommunicatorError("MODE", `a centred throttle starts only in a mode that reads the throttle as a climb rate, not in ${flightNow().mode}`)
+  }
 }
 
 /// The subscription: the control begins with it and ends with it. One that may not begin ends the subscription at once, with the code of why.
 function startControl(params: Cbor?, sink: Sink): void throws Error {
-  let asked = false
+  let asked = new Asked()
   try {
     connectedLink()
-    refuse()
-    asked = rudderAsked(params)
+    asked = askedOf(params)
+    refuse(asked.centred)
   } catch (e: CommunicatorError) {
     sink.end(e.code, e.message)
     return
   }
   const mine = current.begin(sink)
-  current.rudderAsked = asked
+  current.rudderAsked = asked.rudderArm
+  current.centred = asked.centred
+  link.rcCentred = asked.centred
   // The page letting go (or going away) ends the control.
   sink.onClose = () => current.end(mine, "RELEASED", false)
-  prepare(mine, sink)
+  prepare(mine, sink, asked.centred)
 }
 
-/// Whether the page says the person turned the stick arm and disarm on (`rudderArm` of the params; absent is no). A payload that is not
-/// the params is `INVALID_VALUE`.
-function rudderAsked(params: Cbor?): bool throws CommunicatorError {
+/// What the page asks of the control: whether the person turned the stick arm and disarm on, and how the throttle stick rests.
+class Asked {
+  public rudderArm: bool = false
+  /// Whether the throttle stick is spring-centred (`throttle: "centred"`; absent or "low" is a stick that rests at the bottom).
+  public centred: bool = false
+}
+
+/// What the params of the subscription say (absent: nothing asked). A payload that is not the params is `INVALID_VALUE`.
+function askedOf(params: Cbor?): Asked throws CommunicatorError {
+  const out = new Asked()
   if (params == null) {
-    return false
+    return out
   }
   try {
-    return decodeRcControlParams(params!, "$").rudderArm ?? false
+    const p = decodeRcControlParams(params!, "$")
+    out.rudderArm = p.rudderArm ?? false
+    out.centred = (p.throttle ?? RcControlParamsThrottle.Low) == RcControlParamsThrottle.Centred
   } catch (e: Error) {
     throw new CommunicatorError("INVALID_VALUE", e.message)
   }
+  return out
 }
 
 /// Reads what the control needs of the vehicle, then starts the sender. Anything that ends the control meanwhile ends this too.
-async function prepare(mine: int, sink: Sink): Promise<void> {
+async function prepare(mine: int, sink: Sink, centred: bool): Promise<void> {
   try {
     if (!(await allowed())) {
       throw new CommunicatorError("NOT_ALLOWED", "RC control is not turned on in the settings (rc.allow)")
     }
-    const reading = await readSettings()
+    const reading = await readSettings(centred)
     if (!current.active || mine != current.serial) {
       return
     }
@@ -518,13 +566,27 @@ async function pulseParam(id: string): Promise<int> throws Error {
   return v! as int
 }
 
-async function readSettings(): Promise<Settings> throws Error {
+/// The climb-rate modes take no climb inside `THR_DZ` of the middle: a dead band of under 30 would creep at the stick's middle.
+async function checkThrottleDeadBand(): Promise<void> throws Error {
+  const band = await readParam("THR_DZ")
+  if (band == null) {
+    throw new CommunicatorError("PARAMS_MISSING", "THR_DZ could not be read from the vehicle")
+  }
+  if (band! < (MIN_THR_DZ as f64)) {
+    throw new CommunicatorError("THR_DZ_SMALL", `THR_DZ is ${band!}: a centred throttle needs at least ${MIN_THR_DZ} (the vehicle would creep at the middle)`)
+  }
+}
+
+async function readSettings(centred: bool): Promise<Settings> throws Error {
   const time = await readParam("RC_OVERRIDE_TIME")
   if (time == null) {
     throw new CommunicatorError("PARAMS_MISSING", "RC_OVERRIDE_TIME could not be read from the vehicle")
   }
   if (time! <= 0.0) {
     throw new CommunicatorError("OVERRIDE_DISABLED", if (time! == 0.0) "RC_OVERRIDE_TIME is 0: the vehicle ignores overrides" else "RC_OVERRIDE_TIME is negative: the vehicle would never let go of an override")
+  }
+  if (centred) {
+    await checkThrottleDeadBand()
   }
   const mapped = await readParam("RCMAP_THROTTLE")
   if (mapped == null || mapped! < 1.0 || mapped! > (OVERRIDE_CHANNELS as f64)) {
@@ -572,6 +634,7 @@ function fail(mine: int, sink: Sink, code: string, message: string): void {
   current.active = false
   current.ready = false
   link.rcControl = false
+  link.rcCentred = false
   current.sink = null
   // (it failed after the sender had started: the watchdog is stopped and what the sender may have sent is released)
   clearInterval(current.watchdog)

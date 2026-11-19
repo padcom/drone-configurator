@@ -263,6 +263,8 @@ services = {
   ; heartbeat is fresh and its `system_status` is STANDBY, which ArduCopter sends exactly when `land_complete` and no failsafe is
   ; active). Armed in the air in any mode, a heartbeat that is stale, or a status that is anything else holds the yaw even with the
   ; option on (a manual-throttle mode would let the vehicle disarm in the air). `held` counts the yaw pulses the BACKEND held (the ones past the limit that reached it; the page's own guard holds the yaw to the limit before the backend sees it, so the page counts those frames itself and shows the sum): it is in `released`, and in `on`, which is sent again (at most every 250 ms) whenever the count changed, so that a page that switches the control off, and never hears `released`, still has the count.
+  ; A CENTRED throttle (`throttle: "centred"` in the params) adds: a mode change asked of the app (`vehicle.setMode`) into a mode that would
+  ; take its middle for thrust is `BUSY` while it runs, and the control ends `MODE` when the vehicle goes there by itself.
   "rc.control": ["subscription", rc-control-params, rc-state],
   ; What the page reads of its sticks, as pulses in microseconds: channel i + 1 is `channels[i]`, 800 to 2200, or 0 for a channel that is
   ; the radio's (not overridden: it is released when it was a pulse before). At most 16. `seq` rises with every frame the page makes: a frame
@@ -1366,8 +1368,13 @@ motor-test-state = {
   ? confirmed: bool,
 }
 
-; What the page asks of `rc.control`: `rudderArm` says that the person turned the stick arm and disarm on (absent: off).
-rc-control-params = { ? rudderArm: bool }
+; What the page asks of `rc.control`: `rudderArm` says that the person turned the stick arm and disarm on (absent: off), and `throttle`
+; how the throttle stick rests: `low` (at the bottom: absent means this, as before) or `centred` (a spring-centred stick: its middle is
+; no climb). A centred control is for a multicopter only (`UNSUPPORTED`), needs `THR_DZ` of at least 30 (`THR_DZ_SMALL`; `PARAMS_MISSING`
+; when it cannot be read), starts only in a mode that reads the throttle as a climb rate (`MODE`; the backend's own heartbeat decides, never
+; the page), and ends with `released` / `why: MODE` as soon as the vehicle is in a mode that would take the stick's middle for thrust or
+; is not known (the tables are `rcmodes.pi` and the page's `modes.ts`, both held to `packages/contracts/mode-vectors.txt`).
+rc-control-params = { ? rudderArm: bool, ? throttle: "low" / "centred" }
 
 ; The sticks of `rc.input`: see there.
 rc-input = {

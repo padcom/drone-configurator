@@ -1,0 +1,341 @@
+// The RC control with a throttle that rests in the middle (`rc.control` with `throttle: "centred"`), over an in-memory link against the
+// simulated vehicle of pico-mavlink: it starts only in a mode that reads the throttle as a climb rate (the vehicle's own heartbeat decides),
+// needs a multicopter and a `THR_DZ` of at least 30, is let go of at once (`MODE`) when the vehicle is in a mode that would take the
+// middle of the stick for thrust, and keeps the app from asking for such a mode. The sticks are RELEASED by a release frame each time.
+import { describe, it, expect } from "std/test"
+import { mkdir, remove } from "std/fs"
+import { pid } from "std/process"
+import { delay } from "std/timers"
+import { Cbor, Envelope } from "pico-desktop/communicator"
+import { MavParamType, SimulatedAutopilot, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import { seams } from "./rc"
+import { useDirectoryForTests } from "./settings"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  RcControlParams,
+  RcControlParamsThrottle,
+  RcInput,
+  RcState,
+  RcStateState,
+  SetModeAsk,
+  SettingsPatch,
+  UiEntry,
+  decodeRcState,
+  encodeConnectRequest,
+  encodeRcControlParams,
+  encodeRcInput,
+  encodeSetModeAsk,
+  encodeSettingsPatch,
+} from "./generated/app"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+const STABILIZE: int = 0
+const ALT_HOLD: int = 2
+const LOITER: int = 5
+const RTL: int = 6
+const LAND: int = 9
+
+/// A connected simulator, disarmed, with the parameters a centred control reads.
+class Rig {
+  public readonly f: Frontend
+  public readonly sim: SimulatedAutopilot
+  public readonly hold: int
+  public readonly root: string
+  public seq: int = 1
+
+  constructor(f: Frontend, sim: SimulatedAutopilot, hold: int, root: string) {
+    this.f = f
+    this.sim = sim
+    this.hold = hold
+    this.root = root
+  }
+
+  public async close(): Promise<void> throws Error {
+    clearInterval(hold)
+    await f.call("vehicle.disconnect")
+    await remove(root, true)
+  }
+}
+
+async function afterBeat(): Promise<void> throws Error {
+  const before = link.heartbeatAt
+  let waited = 0
+  while (link.heartbeatAt == before && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+}
+
+function addParam(sim: SimulatedAutopilot, id: string, value: f64): void {
+  sim.params.push({ id: id, value: TypedParamValue.Real(value as f32, MavParamType.REAL32) })
+}
+
+/// A connected vehicle (disarmed, THR_DZ as given, or none when it is negative) that is in `mode` as its heartbeat says.
+async function connected(mode: int, thrDz: f64): Promise<Rig> throws Error {
+  seams.wrap = null
+  const root = `/tmp/drone-configurator-rc-centred-${pid}-${Date.now() as int}`
+  await mkdir(root, true)
+  useDirectoryForTests(root)
+  const f = await start()
+  await f.call("settings.set", encodeSettingsPatch(SettingsPatch { ui: [UiEntry { key: "rc.allow", value: "on" }] }))
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const sim = simulatorForTests()!
+  sim.rc = [1500, 1500, 1000, 1500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+  sim.control.modeSet = mode
+  addParam(sim, "RC_OVERRIDE_TIME", 3.0)
+  addParam(sim, "RCMAP_THROTTLE", 3.0)
+  addParam(sim, "RC3_MIN", 1000.0)
+  addParam(sim, "RC3_MAX", 2000.0)
+  addParam(sim, "RC3_DZ", 0.0)
+  addParam(sim, "RCMAP_YAW", 4.0)
+  addParam(sim, "RC4_MIN", 1000.0)
+  addParam(sim, "RC4_TRIM", 1500.0)
+  addParam(sim, "RC4_MAX", 2000.0)
+  if (thrDz >= 0.0) {
+    addParam(sim, "THR_DZ", thrDz)
+  }
+  const hold = setInterval(() => {
+    sim.ticks = if (sim.ticks > 1) 1 else sim.ticks
+  }, 50)
+  link.paramsComplete = true
+  // (the heartbeat that says the mode: the control is for what the vehicle says, never for what a test set)
+  let waited = 0
+  while (link.customMode != mode && waited < 4000) {
+    await delay(20)
+    waited += 20
+  }
+  new Rig(f, sim, hold, root)
+}
+
+function errorOf(e: Envelope): string {
+  if (e.err != null) e.err!.code else "ok"
+}
+
+/// Subscribes to the control with a centred throttle (or a low one); the reply.
+async function ask(f: Frontend, throttle: RcControlParamsThrottle): Promise<Envelope> throws Error {
+  await f.trySubscribe("rc.control", encodeRcControlParams(RcControlParams { throttle: throttle }))
+}
+
+/// The code a control that may not begin is refused with ("ok" when it was not refused).
+async function refusedWith(f: Frontend): Promise<string> throws Error {
+  const reply = await ask(f, RcControlParamsThrottle.Centred)
+  if (errorOf(reply) != "ok") {
+    return errorOf(reply)
+  }
+  errorOf(await f.ended())
+}
+
+async function told(f: Frontend): Promise<RcState> throws Error {
+  for (let i = 0; i < f.heard.length; i++) {
+    if (f.heard[i].n == "rc.control") {
+      const e = f.heard[i]
+      f.heard.splice(i, 1)
+      return decodeRcState(e.p ?? Cbor.Null, "$")
+    }
+  }
+  decodeRcState((await f.event("rc.control")).p ?? Cbor.Null, "$")
+}
+
+async function input(r: Rig, channels: int[]): Promise<Envelope> throws Error {
+  const pulses: u16[] = channels.map((c: int) => c as u16)
+  const seq = r.seq
+  r.seq += 1
+  await r.f.call("rc.input", encodeRcInput(RcInput { seq: seq as u32, channels: pulses }))
+}
+
+async function feed(r: Rig, ms: int, channels: int[]): Promise<void> throws Error {
+  let fed = 0
+  while (fed < ms) {
+    expect(errorOf(await input(r, channels))).toBe("ok")
+    await delay(40)
+    fed += 40
+  }
+}
+
+/// A centred control is on and sending.
+async function flying(r: Rig): Promise<void> throws Error {
+  expect(errorOf(await ask(r.f, RcControlParamsThrottle.Centred))).toBe("ok")
+  expect((await told(r.f)).state == RcStateState.On).toBe(true)
+  await feed(r, 200, [0, 0, 1500])
+  expect(r.sim.rcOverride.frames > 0).toBe(true)
+}
+
+/// The vehicle goes to `mode` by itself (another ground station, a failsafe, a switch), and its heartbeat says so.
+async function vehicleGoesTo(r: Rig, mode: int): Promise<void> throws Error {
+  r.sim.control.modeSet = mode
+  let waited = 0
+  while (link.customMode != mode && waited < 4000) {
+    // (the page keeps sending while it waits: a silent page is the watchdog's, not the mode's)
+    await input(r, [0, 0, 1500])
+    await delay(40)
+    waited += 40
+  }
+  expect(link.customMode).toBe(mode)
+}
+
+/// The control ends, with the reason, and the channels were let go of by a release frame.
+async function releasedBy(r: Rig, why: string): Promise<void> throws Error {
+  const state = await told(r.f)
+  expect(state.state == RcStateState.Released).toBe(true)
+  expect(state.why ?? "").toBe(why)
+  expect(r.sim.rcOverride.releases).toBe(1)
+}
+
+async function startsInAClimbRateModeWithAdeadBand(): Promise<void> throws Error {
+  const r = await connected(ALT_HOLD, 100.0)
+  try {
+    await flying(r)
+    expect(link.rcCentred).toBe(true)
+  } finally {
+    await r.close()
+  }
+}
+
+async function isRefusedInAModeThatTakesTheMiddleForThrust(): Promise<void> throws Error {
+  const r = await connected(STABILIZE, 100.0)
+  try {
+    expect(await refusedWith(r.f)).toBe("MODE")
+    expect(r.sim.rcOverride.frames).toBe(0)
+    expect(link.rcControl).toBe(false)
+    expect(link.rcCentred).toBe(false)
+  } finally {
+    await r.close()
+  }
+}
+
+async function aThrottleThatRestsLowStartsInStabilizeAsBefore(): Promise<void> throws Error {
+  const r = await connected(STABILIZE, 100.0)
+  try {
+    expect(errorOf(await r.f.trySubscribe("rc.control"))).toBe("ok")
+    expect((await told(r.f)).state == RcStateState.On).toBe(true)
+    expect(link.rcCentred).toBe(false)
+    await r.f.unsubscribe(0)
+  } finally {
+    await r.close()
+  }
+}
+
+async function isRefusedWithADeadBandThatIsTooSmallOrNotKnown(): Promise<void> throws Error {
+  const small = await connected(LOITER, 20.0)
+  try {
+    expect(await refusedWith(small.f)).toBe("THR_DZ_SMALL")
+    expect(small.sim.rcOverride.frames).toBe(0)
+  } finally {
+    await small.close()
+  }
+  const unknown = await connected(LOITER, -1.0)
+  try {
+    expect(await refusedWith(unknown.f)).toBe("PARAMS_MISSING")
+  } finally {
+    await unknown.close()
+  }
+  const least = await connected(LOITER, 30.0)
+  try {
+    await flying(least)
+  } finally {
+    await least.close()
+  }
+}
+
+async function isRefusedForAVehicleThatIsNotAMulticopter(): Promise<void> throws Error {
+  const r = await connected(LOITER, 100.0)
+  try {
+    // (a fixed wing, as its heartbeat would say: set at once before the next heartbeat of the simulated quad)
+    link.mavType = 1
+    expect(await refusedWith(r.f)).toBe("UNSUPPORTED")
+  } finally {
+    await r.close()
+  }
+}
+
+async function isReleasedAtOnceWhenTheVehicleGoesToAModeThatTakesTheMiddleForThrust(): Promise<void> throws Error {
+  const r = await connected(ALT_HOLD, 100.0)
+  try {
+    await flying(r)
+    await vehicleGoesTo(r, STABILIZE)
+    await releasedBy(r, "MODE")
+    expect(link.rcControl).toBe(false)
+  } finally {
+    await r.close()
+  }
+}
+
+async function isReleasedInAModeThatIsNotKnown(): Promise<void> throws Error {
+  const r = await connected(ALT_HOLD, 100.0)
+  try {
+    await flying(r)
+    await vehicleGoesTo(r, 99)
+    await releasedBy(r, "MODE")
+  } finally {
+    await r.close()
+  }
+}
+
+async function goesOnInAModeThatTakesNoThrottleFromThePilot(): Promise<void> throws Error {
+  const r = await connected(LOITER, 100.0)
+  try {
+    await flying(r)
+    await vehicleGoesTo(r, RTL)
+    await feed(r, 200, [0, 0, 1500])
+    await vehicleGoesTo(r, LAND)
+    await feed(r, 200, [0, 0, 1500])
+    expect(link.rcControl).toBe(true)
+    expect(r.sim.rcOverride.releases).toBe(0)
+  } finally {
+    await r.close()
+  }
+}
+
+async function theAppDoesNotAskForAModeThatWouldTakeTheMiddleForThrust(): Promise<void> throws Error {
+  const r = await connected(ALT_HOLD, 100.0)
+  try {
+    await flying(r)
+    const refused = await r.f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: STABILIZE as u8 }))
+    expect(errorOf(refused)).toBe("BUSY")
+    expect(link.customMode).toBe(ALT_HOLD)
+    // (one that takes no throttle is allowed, and so is a climb mode)
+    // (the page keeps sending during the call; the control is not what the mode change is about, only that it is let through)
+    expect(errorOf(await r.f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: LOITER as u8 })))).toBe("ok")
+    await vehicleGoesTo(r, LOITER)
+    expect(link.customMode).toBe(LOITER)
+  } finally {
+    await r.close()
+  }
+}
+
+async function aThrottleThatRestsLowMayStillBeSentToAnyMode(): Promise<void> throws Error {
+  const r = await connected(LOITER, 100.0)
+  try {
+    expect(errorOf(await r.f.trySubscribe("rc.control"))).toBe("ok")
+    expect((await told(r.f)).state == RcStateState.On).toBe(true)
+    const reply = await r.f.call("vehicle.setMode", encodeSetModeAsk(SetModeAsk { mode: STABILIZE as u8 }))
+    expect(errorOf(reply)).toBe("ok")
+  } finally {
+    await r.close()
+  }
+}
+
+describe("a centred throttle: where the control starts", () => {
+  it("starts in a mode that reads the throttle as a climb rate, with a THR_DZ of 100", startsInAClimbRateModeWithAdeadBand)
+  it("is refused in a mode that takes the middle of the stick for thrust, and nothing is sent", isRefusedInAModeThatTakesTheMiddleForThrust)
+  it("is not asked of a throttle that rests low: it starts in Stabilize as before", aThrottleThatRestsLowStartsInStabilizeAsBefore)
+})
+
+describe("a centred throttle: what the vehicle must be", () => {
+  it("has a THR_DZ of at least 30: less is THR_DZ_SMALL, unknown is PARAMS_MISSING", isRefusedWithADeadBandThatIsTooSmallOrNotKnown)
+  it("is a multicopter", isRefusedForAVehicleThatIsNotAMulticopter)
+})
+
+describe("a centred throttle: where the control ends", () => {
+  it("is released at once, with the reason MODE, when the vehicle goes to Stabilize", isReleasedAtOnceWhenTheVehicleGoesToAModeThatTakesTheMiddleForThrust)
+  it("is released in a mode that is not known", isReleasedInAModeThatIsNotKnown)
+  it("goes on in RTL and Land, which take no throttle from the pilot", goesOnInAModeThatTakesNoThrottleFromThePilot)
+})
+
+describe("a centred throttle: what the app may ask for", () => {
+  it("is refused a mode that would take the middle for thrust (BUSY), and allowed another", theAppDoesNotAskForAModeThatWouldTakeTheMiddleForThrust)
+  it("is not held to that by a throttle that rests low", aThrottleThatRestsLowMayStillBeSentToAnyMode)
+})
