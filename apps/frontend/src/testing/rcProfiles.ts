@@ -1,24 +1,25 @@
-// Mappings and vehicles for the tests of the RC control: the suggested mapping, calibrated as the wizard would calibrate it, and
-// what a vehicle says of its channels.
-import { calibrated } from '@/lib/rc/edits'
+// Mappings and vehicles for the tests of the RC control: the suggested mapping, confirmed as a person would confirm it for the
+// test pad, and what a vehicle says of its channels.
+import { confirmed } from '@/lib/rc/confirm'
 import { suggestedProfile } from '@/lib/rc/suggest'
-import type { AxisCalibration, Profile } from '@/lib/rc/types'
+import type { PadLayout, Profile, ThrottleStyle } from '@/lib/rc/types'
 import { type Facts, factsOf } from '@/lib/rc/vehicle'
 
-/** What every axis of the test pad calibrates to. */
-export const CALIBRATION: AxisCalibration = { min: -1, center: 0, max: 1 }
+/** What each of CH1..CH16 of the test pad (a TX16S as the browser shows it: 8 axes, 24 buttons) is: 8 axes, then 8 buttons. */
+export const TX16S_LAYOUT: PadLayout = [
+  ...Array.from({ length: 8 }, () => 'axis' as const),
+  ...Array.from({ length: 8 }, () => 'button' as const),
+]
 
 /**
- * The mapping offered for a device, calibrated: every axis it uses measured.
+ * The mapping offered for a device, confirmed for the test pad.
  *
  * @param device the device
- * @returns the mapping, calibrated
+ * @param style how the throttle rests (the tests of the gate and the guards fly with a stick that rests low)
+ * @returns the mapping, confirmed
  */
-export function calibratedSuggestion(device = 'pad'): Profile {
-  const base = suggestedProfile(device, null)
-  const measured = new Map(base.rows.map(row => [row.kind === 'stick' ? row.axis : -1, CALIBRATION]))
-
-  return calibrated(base, measured)!
+export function confirmedSuggestion(device = 'pad', style: ThrottleStyle = 'low'): Profile {
+  return confirmed({ ...suggestedProfile(device, null), throttleStyle: style }, TX16S_LAYOUT)
 }
 
 /**

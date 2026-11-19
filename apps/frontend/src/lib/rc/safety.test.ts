@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { type Gate, LOW_READS, START_GATE, guard, holdYaw, isLow, nextGate } from './safety'
+import { REST_READS } from './rest'
+import { type Gate, START_GATE, guard, holdYaw, isLow, lowRead, nextGate } from './safety'
 import { DEFAULT_RANGE, NOT_MINE, type VehicleChannels } from './types'
 
 const vehicle: VehicleChannels = { throttle: 3, yaw: 4, range: () => DEFAULT_RANGE }
 const channels = (throttle: number, yaw: number) => [1500, 1500, throttle, yaw, ...Array.from({ length: 12 }, () => NOT_MINE)]
-const OPEN: Gate = { open: true, lows: 0 }
+const OPEN: Gate = { open: true, reads: 0 }
 
 /**
- * Reads the stick `times` times in a row.
+ * Reads the sticks `times` times in a row.
  *
  * @param gate where the gate starts
- * @param pulse what the stick says each time
+ * @param rested whether the sticks are at rest each time
  * @param times how many reads
  * @returns the gate after them
  */
-function reads(gate: Gate, pulse: number, times: number): Gate {
+function reads(gate: Gate, rested: boolean, times: number): Gate {
   let now = gate
   for (let i = 0; i < times; i += 1) {
-    now = guard(channels(pulse, 1500), vehicle, now).gate
+    now = nextGate(now, rested)
   }
 
   return now
@@ -30,60 +31,62 @@ describe('a throttle that is low', () => {
     expect(isLow(1101, DEFAULT_RANGE)).toBe(false)
     expect(isLow(NOT_MINE, DEFAULT_RANGE)).toBe(true)
   })
+
+  it('counts as a read of the stick only when the pad has the stick', () => {
+    const counted = [1000, NOT_MINE, 1500].map(pulse => lowRead(pulse, DEFAULT_RANGE, 0))
+
+    expect(counted).toEqual([true, false, false])
+  })
 })
 
-describe('the throttle gate', () => {
+describe('the gate', () => {
   it('starts shut, and the start is the same object for every control', () => {
-    expect(START_GATE).toEqual({ open: false, lows: 0 })
+    expect(START_GATE).toEqual({ open: false, reads: 0 })
     expect(Object.isFrozen(START_GATE)).toBe(true)
   })
 
-  it('opens only when the stick has been low for several reads in a row, and stays open', () => {
-    let gate: Gate = { ...START_GATE }
-    for (let i = 1; i < LOW_READS; i += 1) {
-      gate = nextGate(gate, 1000, DEFAULT_RANGE)
-      expect(gate.open).toBe(false)
-    }
-    gate = nextGate(gate, 1000, DEFAULT_RANGE)
+  it('opens only when the sticks have been at rest for REST_READS reads in a row, and stays open', () => {
+    const almost = reads(START_GATE, true, REST_READS - 1)
 
-    expect(gate.open).toBe(true)
-    expect(nextGate(gate, 1900, DEFAULT_RANGE).open).toBe(true)
+    expect(almost.open).toBe(false)
+    expect(nextGate(almost, true).open).toBe(true)
+    expect(nextGate(nextGate(almost, true), false).open).toBe(true)
   })
-})
 
-describe('the throttle gate, read by read', () => {
-  it('is not opened by a single low read between high ones (a glitch, a stick passing through)', () => {
+  it('is not opened by a single read at rest between others (a glitch, a stick passing through)', () => {
     let gate: Gate = { ...START_GATE }
-    for (let i = 0; i < 20; i += 1) {
-      gate = nextGate(gate, i % 2 === 0 ? 1000 : 1800, DEFAULT_RANGE)
+    for (let i = 0; i < 40; i += 1) {
+      gate = nextGate(gate, i % 2 === 0)
     }
 
     expect(gate.open).toBe(false)
-    expect(gate.lows).toBeLessThan(LOW_READS)
-    expect(nextGate({ open: false, lows: LOW_READS - 1 }, 1800, DEFAULT_RANGE)).toEqual({ open: false, lows: 0 })
+    expect(nextGate({ open: false, reads: REST_READS - 1 }, false)).toEqual({ open: false, reads: 0 })
   })
 
-  it('does not count a stick the pad does not have (the radio\'s own) for low', () => {
-    expect(reads(START_GATE, NOT_MINE, LOW_READS * 2).open).toBe(false)
+  it('waits for ten reads: 200 ms at fifty reads a second', () => {
+    expect(REST_READS).toBe(10)
   })
 })
 
-describe('the throttle a gate lets through', () => {
-  it('sends no throttle while it is shut, and the other channels as they are', () => {
-    const out = guard(channels(1700, 1500), vehicle, START_GATE)
+describe('what a gate lets through', () => {
+  it('sends nothing while it is shut: every channel is the radio\'s own, whatever the sticks say', () => {
+    const out = guard(channels(1700, 1500), vehicle, START_GATE, { rested: false })
 
     expect(out.gate.open).toBe(false)
-    expect(out.channels[2]).toBe(NOT_MINE)
-    expect(out.channels.slice(0, 2)).toEqual([1500, 1500])
+    expect(out.channels.every(pulse => pulse === NOT_MINE)).toBe(true)
   })
 
-  it('sends the throttle, whatever it is, once it is open', () => {
-    const opened = reads(START_GATE, 1000, LOW_READS)
-    const climbing = guard(channels(1800, 1500), vehicle, opened)
+  it('opens by what the caller says of the sticks, and sends the channels as they are once it is open', () => {
+    const opened = reads(START_GATE, true, REST_READS)
 
-    expect(opened.open).toBe(true)
+    expect(guard(channels(1800, 1500), vehicle, opened).channels.slice(0, 3)).toEqual([1500, 1500, 1800])
     expect(guard(channels(1000, 1500), vehicle, opened).channels[2]).toBe(1000)
-    expect(climbing.channels[2]).toBe(1800)
+    expect(guard(channels(1500, 1500), vehicle, START_GATE, { rested: true }).gate.reads).toBe(1)
+  })
+
+  it('looks at the throttle alone being low when the caller does not say (the first rule)', () => {
+    expect(guard(channels(1000, 1500), vehicle, START_GATE).gate.reads).toBe(1)
+    expect(guard(channels(1700, 1500), vehicle, START_GATE).gate.reads).toBe(0)
   })
 })
 
@@ -101,10 +104,18 @@ describe('the rudder', () => {
     expect(guard(channels(1000, 1000), vehicle, OPEN).channels[3]).toBe(1100)
   })
 
-  it('is left alone once the throttle is up, and held while the throttle is not sent yet (the radio\'s throttle is low)', () => {
+  it('is left alone once the throttle is up', () => {
     expect(guard(channels(1500, 2000), vehicle, OPEN).channels[3]).toBe(2000)
-    expect(guard(channels(1700, 2000), vehicle, START_GATE).channels[3]).toBe(1900)
-    expect(guard(channels(1700, 2000), vehicle, START_GATE).yawHeld).toBe(true)
+    expect(guard(channels(1500, 2000), vehicle, OPEN).yawHeld).toBe(false)
+  })
+
+  it('is held with a centred throttle whatever the throttle is: the middle is not low, and a disarm asks nothing of it', () => {
+    const centred = { centred: true }
+
+    expect(guard(channels(1500, 2000), vehicle, OPEN, centred).channels[3]).toBe(1900)
+    expect(guard(channels(1500, 1000), vehicle, OPEN, centred).channels[3]).toBe(1100)
+    expect(guard(channels(1500, 2000), vehicle, OPEN, centred).yawHeld).toBe(true)
+    expect(guard(channels(1800, 2000), vehicle, OPEN, { centred: true, holdRudder: false }).channels[3]).toBe(2000)
   })
 })
 
@@ -123,11 +134,10 @@ describe('the rudder, when the person lifted its hold (the sticks arm and disarm
   })
 
   it('changes nothing else: the gate stays shut, and a yaw whose range cannot be used is still the radio\'s own', () => {
-    const shut = guard(channels(1700, 2000), vehicle, START_GATE, lifted)
+    const shut = guard(channels(1700, 2000), vehicle, START_GATE, { ...lifted, rested: false })
 
     expect(shut.channels[2]).toBe(NOT_MINE)
     expect(shut.gate.open).toBe(false)
-    expect(shut.channels[3]).toBe(2000)
     const flipped = { min: 2000, max: 1000, trim: 1500 }
     const upside = { ...vehicle, range: (channel: number) => (channel === 4 ? flipped : DEFAULT_RANGE) }
 
@@ -151,7 +161,7 @@ describe('what is checked once more before it leaves', () => {
     const nan = { ...vehicle, range: (channel: number) => (channel === 4 ? lost : DEFAULT_RANGE) }
 
     expect(guard(channels(1000, 1500), broken, OPEN).channels[2]).toBe(NOT_MINE)
-    // (and the gate is shut again: a range that comes back has to see the stick low once more)
+    // (and the gate is shut again: a range that comes back has to see the sticks at rest once more)
     expect(guard(channels(1000, 1500), broken, OPEN).gate.open).toBe(false)
     expect(guard(channels(1000, 1500), nan, OPEN).channels[3]).toBe(NOT_MINE)
   })

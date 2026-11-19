@@ -1,51 +1,46 @@
+// The mapping offered for a device that has none.
 import { describe, expect, it } from 'vitest'
-import { addRow } from './edits'
-import { freeChannel, newButton, newSwitch, suggestedProfile } from './suggest'
+import { DEFAULT_DEAD_ZONE, freeChannel, newRow, suggestedProfile } from './suggest'
 import { factsOf } from './vehicle'
 
-/**
- * What a vehicle says of its channels, with the functions given.
- *
- * @param options the `RCn_OPTION` of the channels that have one
- * @returns the facts
- */
-function vehicle(options: Record<number, number> = {}) {
-  const sticks = ['ROLL', 'PITCH', 'THROTTLE', 'YAW']
-  const params = sticks.map((name, index) => ({ id: `RCMAP_${name}`, value: index + 1 }))
+describe('the suggested mapping', () => {
+  it('is the four sticks on the first four pad channels, on the vehicle\'s, with a centred throttle, and not confirmed', () => {
+    const profile = suggestedProfile('pad', null)
 
-  for (let channel = 1; channel <= 16; channel += 1) {
-    params.push({ id: `RC${channel}_OPTION`, value: options[channel] ?? 0 })
-  }
+    expect(profile.rows.map(row => [row.channel, row.source, row.deadZone])).toEqual([
+      [1, 1, DEFAULT_DEAD_ZONE],
+      [2, 2, DEFAULT_DEAD_ZONE],
+      [3, 3, DEFAULT_DEAD_ZONE],
+      [4, 4, DEFAULT_DEAD_ZONE],
+    ])
+    expect(profile.throttleStyle).toBe('centred')
+    expect(profile.confirmedKey).toBeNull()
+  })
 
-  return factsOf(params, true)
-}
+  it('follows RCMAP_*: the sticks go to the channels the vehicle says', () => {
+    const facts = factsOf([
+      { id: 'RCMAP_ROLL', value: 2 },
+      { id: 'RCMAP_PITCH', value: 3 },
+      { id: 'RCMAP_THROTTLE', value: 1 },
+      { id: 'RCMAP_YAW', value: 4 },
+    ], true)
 
-describe('the rows that are added', () => {
-  it('is a switch with the usual pulses and a button with its two, each on the channel and the control it is given', () => {
-    expect(newSwitch(6, 5)).toEqual({ kind: 'switch', channel: 6, axis: 5, invert: false, pulses: [1000, 1500, 2000] })
-    expect(newButton(7, 2)).toEqual({ kind: 'button', channel: 7, button: 2, off: 1000, on: 2000 })
+    expect(suggestedProfile('pad', facts).rows.map(row => [row.channel, row.source])).toEqual([[2, 1], [3, 2], [1, 3], [4, 4]])
+  })
+
+  it('has rows with no source for a new row: it follows nothing until the person moves the control they mean', () => {
+    expect(newRow(7, 0)).toEqual({ channel: 7, source: 0, invert: false, deadZone: 0, expo: 0 })
+    expect(newRow(7, 5, true).deadZone).toBe(DEFAULT_DEAD_ZONE)
   })
 })
 
-describe('the channel of a row that is added', () => {
-  const profile = suggestedProfile('pad', null)
+describe('the free channel', () => {
+  it('is the lowest after the sticks\' that no row drives and the vehicle does not use to arm or stop', () => {
+    const profile = suggestedProfile('pad', null)
+    const sticks = ['ROLL', 'PITCH', 'THROTTLE', 'YAW'].map((name, index) => ({ id: `RCMAP_${name}`, value: index + 1 }))
+    const facts = factsOf([...sticks, { id: 'RC5_OPTION', value: 153 }], true)
 
-  it('is the lowest after the sticks that no row drives', () => {
     expect(freeChannel(profile, null)).toBe(5)
-    expect(freeChannel(addRow(profile, newSwitch(5, 4)), null)).toBe(6)
-  })
-
-  it('is never a channel the vehicle arms or stops with', () => {
-    expect(freeChannel(profile, vehicle({ 5: 153, 6: 31 }))).toBe(7)
-    expect(freeChannel(profile, vehicle({ 5: 7 }))).toBe(5)
-  })
-
-  it('is one of the first four when all after them are taken, and none when nothing is free', () => {
-    const sixteen = Array.from({ length: 12 }, (_, index) => newSwitch(index + 5, 4))
-    const full = sixteen.reduce(addRow, profile)
-    const gap = { ...full, rows: full.rows.filter(row => row.channel !== 2) }
-
-    expect(freeChannel(full, null)).toBeNull()
-    expect(freeChannel(gap, null)).toBe(2)
+    expect(freeChannel(profile, facts)).toBe(6)
   })
 })

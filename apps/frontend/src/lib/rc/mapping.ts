@@ -1,18 +1,16 @@
 // The mapping math of the RC control: from what a gamepad said to the pulse of a channel, and from a profile to the 16 pulses
-// of an override. Pure: the same sample gives the same pulses.
+// of an override. Pure: the same sample gives the same pulses. Nothing is calibrated here: the pad's own -1 to 1 is used as it
+// is (the operating system and the device own that), held to that range.
 import {
-  type AxisCalibration,
-  type ButtonRow,
   CHANNELS,
   MAX_PULSE,
   MIN_PULSE,
   NOT_MINE,
+  NO_SOURCE,
   type PadSample,
   type Profile,
   type PulseRange,
   type Row,
-  type StickRow,
-  type SwitchRow,
 } from './types'
 
 /**
@@ -58,20 +56,13 @@ export function clamp(value: number, least: number, most: number): number {
 }
 
 /**
- * An axis reading as a number from -1 (the calibrated minimum) to 1 (the maximum), with 0 where the axis rests.
+ * A reading of the pad as a number from -1 to 1 (what the device says, held to that: nothing is measured or calibrated).
  *
- * @param raw what the axis said
- * @param calibration what it said at each end and at rest
- * @returns -1 to 1; 0 for an axis whose ends are not apart from its middle (it was never calibrated)
+ * @param raw what the pad channel said
+ * @returns -1 to 1; 0 for something that is not a number
  */
-export function normalise(raw: number, calibration: AxisCalibration): number {
-  const above = raw >= calibration.center
-  const span = above ? calibration.max - calibration.center : calibration.center - calibration.min
-  if (!(span > 0) || !Number.isFinite(raw)) {
-    return 0
-  }
-
-  return clamp((raw - calibration.center) / span, -1, 1)
+export function normalise(raw: number): number {
+  return Number.isFinite(raw) ? clamp(raw, -1, 1) : 0
 }
 
 /**
@@ -115,75 +106,46 @@ export function toPulse(value: number, range: PulseRange): number {
 }
 
 /**
- * The reading of an axis of the sample, or null when the pad has no such axis.
+ * What the pad channel of a row says, as the pad said it.
  *
+ * @param row the row
  * @param sample what the pad said
- * @param axis the axis
- * @param invert whether the axis is turned the other way
- * @returns the raw value (turned about 0 when inverted), or null
+ * @returns the reading, or null for a row with no source, a channel the pad has not, or a reading that is not a number
  */
-function axisOf(sample: PadSample, axis: number, invert: boolean): number | null {
-  const raw = sample.axes[axis]
-  if (raw === undefined || !Number.isFinite(raw)) {
-    return null
-  }
+function readingOf(row: Row, sample: PadSample): number | null {
+  const raw = sample.channels[row.source - 1]
 
-  return invert ? -raw : raw
+  return row.source !== NO_SOURCE && typeof raw === 'number' && Number.isFinite(raw) ? raw : null
 }
 
 /**
- * The pulse of a stick.
+ * What the pad channel of a row says, turned when the row says so (before the dead zone and the curve).
  *
- * @param row the stick
+ * @param row the row
  * @param sample what the pad said
+ * @returns -1 to 1, or null when the row has no source, or the pad has no such channel or reads no number
+ */
+export function levelOf(row: Row, sample: PadSample): number | null {
+  const raw = readingOf(row, sample)
+
+  return raw === null ? null : normalise(raw) * (row.invert ? -1 : 1)
+}
+
+/**
+ * The pulse a level makes: the range's, or, when the row has its own ends, a line between them.
+ *
+ * @param row the row
+ * @param level -1 to 1, after the dead zone and the curve
  * @param range the channel's range
- * @returns the pulse, or `NOT_MINE` when the pad has no such axis
+ * @returns the pulse
  */
-export function stickPulse(row: StickRow, sample: PadSample, range: PulseRange): number {
-  const raw = axisOf(sample, row.axis, false)
-  if (raw === null) {
-    return NOT_MINE
-  }
-  // (inverted after the calibration, so that the two sides of an axis that does not rest in the middle swap their travels)
-  const level = normalise(raw, row.calibration) * (row.invert ? -1 : 1)
-
-  return toPulse(applyExpo(applyDeadZone(level, row.deadZone), row.expo), range)
-}
-
-/**
- * The pulse of a switch on an axis: the lower, middle or upper third of its travel.
- *
- * @param row the switch
- * @param sample what the pad said
- * @returns the pulse, or `NOT_MINE` when the pad has no such axis
- */
-export function switchPulse(row: SwitchRow, sample: PadSample): number {
-  const raw = axisOf(sample, row.axis, row.invert)
-  if (raw === null) {
-    return NOT_MINE
-  }
-  const [low, middle, high] = row.pulses
-  if (raw < -1 / 3) {
-    return low
+function pulseOf(row: Row, level: number, range: PulseRange): number {
+  if (row.pulseMin === undefined || row.pulseMax === undefined) {
+    return toPulse(level, range)
   }
 
-  return raw > 1 / 3 ? high : middle
-}
-
-/**
- * The pulse of a button.
- *
- * @param row the button
- * @param sample what the pad said
- * @returns the pulse, or `NOT_MINE` when the pad has no such button
- */
-export function buttonPulse(row: ButtonRow, sample: PadSample): number {
-  const value = sample.buttons[row.button]
-  if (value === undefined) {
-    return NOT_MINE
-  }
-
-  return value > 0.5 ? row.on : row.off
+  // (not held to what an override carries: ends that are not pulses make a pulse that is not sent, `sendableOr`)
+  return Math.round(row.pulseMin + (level + 1) / 2 * (row.pulseMax - row.pulseMin))
 }
 
 /**
@@ -192,14 +154,12 @@ export function buttonPulse(row: ButtonRow, sample: PadSample): number {
  * @param row the row
  * @param sample what the pad said
  * @param range the range of the row's channel
- * @returns the pulse, or `NOT_MINE`
+ * @returns the pulse, or `NOT_MINE` when the pad has no such channel
  */
 export function rowPulse(row: Row, sample: PadSample, range: PulseRange): number {
-  if (row.kind === 'stick') {
-    return stickPulse(row, sample, range)
-  }
+  const level = levelOf(row, sample)
 
-  return row.kind === 'switch' ? switchPulse(row, sample) : buttonPulse(row, sample)
+  return level === null ? NOT_MINE : pulseOf(row, applyExpo(applyDeadZone(level, row.deadZone), row.expo), range)
 }
 
 /**
@@ -247,7 +207,7 @@ function checkedPulse(row: Row, sample: PadSample, range: PulseRange): number {
 
 /**
  * The 16 pulses of an override that a profile makes of a sample: the channel of a row has its pulse, every other is the radio's.
- * What is not a pulse an override carries (a number that is not a number, a switch that is set to 3000 µs, a range that is upside
+ * What is not a pulse an override carries (a number that is not a number, a row with ends of 3000 µs, a range that is upside
  * down) is the radio's own, never sent. A row whose channel is not a whole number from 1 to 16 is skipped (it never makes the
  * list longer than 16: the backend would refuse the whole frame), and `problemsOf` says so.
  *
@@ -258,8 +218,8 @@ function checkedPulse(row: Row, sample: PadSample, range: PulseRange): number {
  */
 export function channelsOf(profile: Profile, sample: PadSample, range: (channel: number) => PulseRange): number[] {
   const pulses = Array.from({ length: CHANNELS }, () => NOT_MINE)
-  // (a mapping the wizard has not been through drives nothing, whatever the caller checked: the last net)
-  for (const row of profile.calibrated ? profile.rows : []) {
+  // (a mapping that was never confirmed drives nothing, whatever the caller checked: the last net)
+  for (const row of profile.confirmedKey === null ? [] : profile.rows) {
     if (validChannel(row.channel)) {
       pulses[row.channel - 1] = checkedPulse(row, sample, range(row.channel))
     }

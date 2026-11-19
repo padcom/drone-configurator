@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { FakePads, TX16S } from '@/testing/fakeGamepads'
-import { LATE_MS, PadReader, type Reading, padOf, sampleOf } from './reader'
+import { TX16S_LAYOUT } from '@/testing/rcProfiles'
+import { LATE_MS, PadReader, type Reading, layoutOf, padOf, sampleOf } from './reader'
 
 /**
  * A reader of the scripted pads.
@@ -24,7 +25,7 @@ function sampleFrom(read: Reading) {
   return read.kind === 'live' ? read.sample : null
 }
 
-describe('a read of the gamepad', () => {
+describe('a read of the gamepad: what it says', () => {
   it('is no pad until the radio has had input, and then a sample of what it says', () => {
     const { pads, reader: r } = reader()
 
@@ -35,9 +36,20 @@ describe('a read of the gamepad', () => {
     const read = r.read()
 
     expect(read.kind).toBe('live')
-    expect(sampleFrom(read)?.axes.slice(0, 3)).toEqual([0.5, -1, 0])
-    expect(sampleFrom(read)?.buttons[2]).toBe(1)
-    expect(sampleFrom(read)?.axes).toHaveLength(8)
+    // (the TX16S as the browser shows it: CH1..CH8 are its 8 axes, CH9..CH16 its first 8 buttons, -1 up and 1 pressed)
+    expect(sampleFrom(read)?.channels.slice(0, 3)).toEqual([0.5, -1, 0])
+    expect(sampleFrom(read)?.channels.slice(8, 11)).toEqual([-1, -1, 1])
+    expect(sampleFrom(read)?.channels).toHaveLength(16)
+  })
+})
+
+describe('a read of the gamepad: what it is made of', () => {
+  it('knows what each channel is: the axes, then the buttons that fit', () => {
+    const { pads, reader: r } = reader()
+    pads.connect()
+    const read = r.read()
+
+    expect(read.kind === 'live' && read.layout).toEqual(TX16S_LAYOUT)
   })
 
   it('is a copy: what a later read changes does not change what was read', () => {
@@ -47,7 +59,7 @@ describe('a read of the gamepad', () => {
     const first = r.read()
     pads.set([0.75])
 
-    expect(sampleFrom(first)?.axes[0]).toBe(0.25)
+    expect(sampleFrom(first)?.channels[0]).toBe(0.25)
   })
 })
 
@@ -60,12 +72,23 @@ describe('the pad a read is of', () => {
     expect(padOf([null, null])).toBeNull()
   })
 
-  it('is copied as the browser gives it, buttons as their values', () => {
-    const pad = { id: 'x', index: 0, connected: true, axes: [1], buttons: [{ value: 1 }] }
+  it('is CH1..CH16 as the browser gives it: the axes, then the buttons as -1 to 1 (a trigger is between)', () => {
+    const pad = { id: 'x', index: 0, connected: true, axes: [1], buttons: [{ value: 1 }, { value: 0.5 }] }
 
-    expect(sampleOf(pad)).toEqual({ axes: [1], buttons: [1] })
+    expect(sampleOf(pad).channels).toEqual([1, 1, 0, ...Array.from({ length: 13 }, () => null)])
+    expect(layoutOf(pad).slice(0, 4)).toEqual(['axis', 'button', 'button', null])
   })
 
+  it('has no more than 16 channels, whatever the pad has', () => {
+    const axes = Array.from({ length: 10 }, () => 0)
+    const pad = { id: 'x', index: 0, connected: true, axes, buttons: Array.from({ length: 20 }, () => ({ value: 1 })) }
+
+    expect(sampleOf(pad).channels).toHaveLength(16)
+    expect(layoutOf(pad).filter(kind => kind === 'button')).toHaveLength(6)
+  })
+})
+
+describe('the pad that is read', () => {
   it('is the first connected one, and the one with the id when there is an id', () => {
     const one = { id: 'one', index: 0, connected: false, axes: [], buttons: [] }
     const two = { id: 'two', index: 1, connected: true, axes: [], buttons: [] }

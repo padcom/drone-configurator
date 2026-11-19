@@ -2,6 +2,7 @@
 // switch and the palette command ask the same).
 import type { VehicleInfo } from '@/generated/app'
 import type { SafetyOptions } from '@/lib/app/safety'
+import type { ThrottleStyle } from '@/lib/rc/types'
 
 /** A message of the interface. */
 export type Say = (key: string, named?: Record<string, unknown>) => string
@@ -22,12 +23,14 @@ export function namedVehicleOf(info: VehicleInfo | undefined, say: Say): string 
  *
  * @param say the words of the interface
  * @param vehicle the vehicle it is for, as the status bar says it (empty when none)
+ * @param style how the throttle rests in the mapping that will fly, when that is known: it is said in plain words (both are said
+ * when it is not known yet: the pad has not been read)
  * @returns what to ask
  */
-export function summaryOptions(say: Say, vehicle: string): SafetyOptions {
+export function summaryOptions(say: Say, vehicle: string, style: ThrottleStyle | null = null): SafetyOptions {
   return {
     title: say('rc.summary.title'),
-    what: say('rc.summary.what'),
+    what: `${say('rc.summary.what')} ${say(`rc.summary.${style ?? 'either'}`)}`,
     vehicle,
     level: 'plain',
     tone: 'warn',

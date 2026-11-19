@@ -62,6 +62,19 @@ export class FakePads {
   }
 
   /**
+   * The pad suddenly reports fewer axes and buttons (a stick that is not there any more), as after a re-enumeration.
+   *
+   * @param axes how many axes it has now
+   * @param buttons how many buttons it has now
+   */
+  shrink(axes: number, buttons: number): void {
+    if (this.pad !== null) {
+      this.pad.axes = this.pad.axes.slice(0, axes)
+      this.pad.buttons = this.pad.buttons.slice(0, buttons)
+    }
+  }
+
+  /**
    * What the sticks and switches say now.
    *
    * @param axes the axes, from axis 0 (the rest stay as they are)

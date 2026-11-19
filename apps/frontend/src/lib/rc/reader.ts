@@ -5,7 +5,7 @@
 // OWN: a read is used only when it is on
 // time (the one before was less than `LATE_MS` ago, by this module's clock), the window is visible, and the pad is still there.
 // Nothing here is cached: every `read()` is a new read, and what it cannot vouch for is not a sample.
-import type { PadSample } from './types'
+import { CHANNELS, type PadLayout, type PadSample } from './types'
 
 /** A read later than this (ms) after the one before is not used: the page was not running (a throttled or frozen timer). */
 export const LATE_MS = 100
@@ -45,6 +45,8 @@ export type Reading = {
   id: string
   /** What it said. */
   sample: PadSample
+  /** What each of its channels is (an axis, a button, or not there). */
+  layout: PadLayout
   /** When the page read it (its clock, ms). */
   at: number
 } | {
@@ -55,13 +57,29 @@ export type Reading = {
 }
 
 /**
- * Takes what is needed of a pad: copies, so that nothing later changes what was read.
+ * What each of CH1..CH16 of a browser's pad is: its axes first, then its buttons, as far as 16 go (the model of the backend's
+ * pads, so that the mapping sees no difference between the two sources).
  *
  * @param pad the pad
- * @returns its axes and buttons
+ * @returns 16 entries: `axis`, `button`, or null for a channel it has not
+ */
+export function layoutOf(pad: PadLike): PadLayout {
+  const kinds: ('axis' | 'button')[] = [...pad.axes.map(() => 'axis' as const), ...pad.buttons.map(() => 'button' as const)]
+
+  return Array.from({ length: CHANNELS }, (_, index) => kinds[index] ?? null)
+}
+
+/**
+ * Takes what is needed of a pad: copies, so that nothing later changes what was read. An axis is its reading, a button is -1 up
+ * and 1 pressed (an analog trigger is anything between), so every channel is proportional.
+ *
+ * @param pad the pad
+ * @returns CH1..CH16 (null for what the pad has not)
  */
 export function sampleOf(pad: PadLike): PadSample {
-  return { axes: [...pad.axes], buttons: pad.buttons.map(button => button.value) }
+  const values = [...pad.axes, ...pad.buttons.map(button => button.value * 2 - 1)]
+
+  return { channels: Array.from({ length: CHANNELS }, (_, index) => values[index] ?? null) }
 }
 
 /**
@@ -123,7 +141,7 @@ export class PadReader {
     }
     const pad = padOf(this.env.pads(), this.device)
 
-    return pad === null ? { kind: 'none', at } : { kind: 'live', id: pad.id, sample: sampleOf(pad), at }
+    return pad === null ? { kind: 'none', at } : { kind: 'live', id: pad.id, sample: sampleOf(pad), layout: layoutOf(pad), at }
   }
 
   /**

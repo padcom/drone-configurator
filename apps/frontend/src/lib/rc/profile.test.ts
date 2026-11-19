@@ -1,65 +1,98 @@
+// What a mapping must be before it may drive a vehicle.
 import { describe, expect, it } from 'vitest'
-import { hasSource, problemsOf } from './profile'
-import { DEFAULT_CALIBRATION, NO_SOURCE, type ButtonRow, type Profile, type StickRow, type SwitchRow } from './types'
+import { confirmed } from './confirm'
+import { problemsOf } from './profile'
+import { newRow, suggestedProfile } from './suggest'
+import type { PadLayout, Profile, Row } from './types'
+import { TX16S_LAYOUT as LAYOUT } from '@/testing/rcProfiles'
 
-const STICK: StickRow = {
-  kind: 'stick', channel: 1, axis: 0, invert: false, calibration: DEFAULT_CALIBRATION, deadZone: 0.08, expo: 0.2,
+/**
+ * A mapping confirmed for the pad, with these rows.
+ *
+ * @param rows the rows
+ * @returns the mapping
+ */
+function good(rows: Row[]): Profile {
+  return confirmed({ ...suggestedProfile('pad', null), rows }, LAYOUT)
 }
-const SWITCH: SwitchRow = { kind: 'switch', channel: 5, axis: 5, invert: false, pulses: [1000, 1500, 2000] }
-const BUTTON: ButtonRow = { kind: 'button', channel: 6, button: 2, off: 1000, on: 2000 }
-const profile = (...rows: Profile['rows']): Profile => ({ device: 'pad', rows, calibrated: true })
+
+/**
+ * The codes of what is wrong with a mapping.
+ *
+ * @param profile the mapping
+ * @param layout the pad's layout (this pad's by default)
+ * @returns the codes, in order
+ */
+function codes(profile: Profile, layout: PadLayout | null = LAYOUT): string[] {
+  return problemsOf(profile, layout).map(problem => problem.code)
+}
+
+/**
+ * A row on channel and pad channel `n` with its own ends.
+ *
+ * @param n the channel and the pad channel
+ * @param min the pulse at -1
+ * @param max the pulse at 1
+ * @returns the row
+ */
+function ended(n: number, min: number, max: number): Row {
+  return { ...newRow(n, n), pulseMin: min, pulseMax: max }
+}
 
 describe('a mapping that may drive a vehicle', () => {
-  it('has no problem: one row for each channel, a stick that was calibrated, pulses that an override carries', () => {
-    expect(problemsOf(profile(STICK, SWITCH, BUTTON))).toEqual([])
-    expect(problemsOf(profile())).toEqual([])
+  it('has no problem: one row for each channel, on channels the pad has, with pulses that an override carries', () => {
+    const rows = [newRow(1, 1), newRow(2, 2), ended(5, 1000, 2000)]
+
+    expect(problemsOf(good(rows), LAYOUT)).toEqual([])
   })
 
-  it('has been through the calibration wizard: a mapping of defaults, or a suggestion, may not drive a vehicle', () => {
-    const suggestion: Profile = { device: 'pad', rows: [STICK, SWITCH], calibrated: false }
+  it('is confirmed for this pad: the suggestion is not, a changed row is not, a changed style is not', () => {
+    const suggestion = suggestedProfile('pad', null)
+    const profile = good(suggestion.rows as Row[])
 
-    expect(problemsOf(suggestion)).toEqual([{ code: 'uncalibrated', channel: 0 }])
-    expect(problemsOf({ ...suggestion, rows: [] })).toEqual([{ code: 'uncalibrated', channel: 0 }])
-    expect(problemsOf({ ...suggestion, calibrated: true })).toEqual([])
+    expect(codes(suggestion)).toEqual(['unconfirmed'])
+    expect(codes({ ...profile, rows: [...profile.rows].reverse() })).toEqual(['unconfirmed'])
+    expect(codes({ ...profile, throttleStyle: 'low' })).toEqual(['unconfirmed'])
+    expect(codes(profile)).toEqual([])
   })
-})
 
-describe('a row with no control', () => {
-  it('is a problem of the mapping, for a stick, a switch and a button, and for an axis that is not a whole number', () => {
-    expect(problemsOf(profile({ ...SWITCH, axis: NO_SOURCE }))).toEqual([{ code: 'source', channel: 5 }])
-    expect(problemsOf(profile({ ...BUTTON, button: NO_SOURCE }))).toEqual([{ code: 'source', channel: 6 }])
-    expect(problemsOf(profile({ ...STICK, axis: NO_SOURCE }))).toEqual([{ code: 'source', channel: 1 }])
-    expect(problemsOf(profile({ ...SWITCH, axis: 2.5 }))).toEqual([{ code: 'source', channel: 5 }])
-    expect(hasSource(SWITCH)).toBe(true)
-    expect(hasSource({ ...SWITCH, axis: NO_SOURCE })).toBe(false)
+  it('is confirmed for this pad: another layout is not, and no pad read is not', () => {
+    const profile = good(suggestedProfile('pad', null).rows as Row[])
+
+    expect(codes(profile, [...LAYOUT.slice(0, 7), null, ...LAYOUT.slice(8)])).toEqual(['unconfirmed'])
+    expect(codes(profile, null)).toEqual(['unconfirmed'])
   })
 })
 
 describe('the rows of a mapping', () => {
-  it('has no channel outside 1 to 16 and no two rows for one channel', () => {
-    expect(problemsOf(profile({ ...STICK, channel: 0 }, { ...STICK, channel: 17 }, { ...STICK, channel: 1.5 }))).toEqual([
-      { code: 'channel', channel: 0 },
-      { code: 'channel', channel: 17 },
-      { code: 'channel', channel: 1.5 },
+  it('has a source on the pad: a row with none is a problem', () => {
+    expect(problemsOf(good([newRow(1, 0)]), LAYOUT)).toEqual([{ code: 'source', channel: 1 }])
+    expect(codes(good([newRow(1, 1.5)]))).toEqual(['source'])
+  })
+
+  it('has a source the pad has: a channel it does not have is a problem (and the mapping is not confirmed for that pad)', () => {
+    const without12 = [...LAYOUT.slice(0, 11), null, ...LAYOUT.slice(12)]
+
+    expect(problemsOf(good([newRow(1, 12)]), without12)).toEqual([
+      { code: 'unconfirmed', channel: 0 },
+      { code: 'absent', channel: 1 },
     ])
-    expect(problemsOf(profile(STICK, { ...SWITCH, channel: 1 }))).toEqual([{ code: 'duplicate', channel: 1 }])
   })
 
-  it('has a dead zone of 0 to 0.5, an expo of 0 to 1, and a stick whose ends are apart from its middle', () => {
-    expect(problemsOf(profile({ ...STICK, deadZone: 0.6 }))).toEqual([{ code: 'zone', channel: 1 }])
-    expect(problemsOf(profile({ ...STICK, deadZone: Number.NaN }))).toEqual([{ code: 'zone', channel: 1 }])
-    expect(problemsOf(profile({ ...STICK, expo: 1.2 }))).toEqual([{ code: 'expo', channel: 1 }])
-    const flat = { min: 0, center: 0, max: 1 }
-
-    expect(problemsOf(profile({ ...STICK, calibration: flat }))).toEqual([{ code: 'calibration', channel: 1 }])
-    const endless = { min: -1, center: 0, max: Infinity }
-
-    expect(problemsOf(profile({ ...STICK, calibration: endless }))).toEqual([{ code: 'calibration', channel: 1 }])
+  it('has no channel outside 1 to 16 and no two rows for one channel', () => {
+    expect(codes(good([newRow(0, 1), newRow(17, 2), newRow(2.5, 3)]))).toEqual(['channel', 'channel', 'channel'])
+    expect(codes(good([newRow(1, 1), newRow(1, 2)]))).toEqual(['duplicate'])
   })
 
-  it('has only pulses of 800 to 2200 µs, whole, on a switch or a button', () => {
-    expect(problemsOf(profile({ ...SWITCH, pulses: [1000, 1500, 2300] }))).toEqual([{ code: 'pulse', channel: 5 }])
-    expect(problemsOf(profile({ ...BUTTON, off: 0 }))).toEqual([{ code: 'pulse', channel: 6 }])
-    expect(problemsOf(profile({ ...BUTTON, on: 1500.5 }))).toEqual([{ code: 'pulse', channel: 6 }])
+  it('has a dead zone of 0 to 0.5 and an expo of 0 to 1', () => {
+    const rows = [{ ...newRow(1, 1), deadZone: 0.6 }, { ...newRow(2, 2), expo: 1.1 }, { ...newRow(3, 3), deadZone: Number.NaN }]
+
+    expect(codes(good(rows))).toEqual(['zone', 'expo', 'zone'])
+  })
+
+  it('has ends that are whole pulses of 800 to 2200 µs', () => {
+    const rows = [ended(1, 700, 2000), ended(2, 1000, 2300), ended(3, 1000.5, 2000), ended(4, 1000, 2000)]
+
+    expect(codes(good(rows))).toEqual(['pulse', 'pulse', 'pulse'])
   })
 })

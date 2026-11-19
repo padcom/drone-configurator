@@ -9,7 +9,7 @@ import { NOT_MINE, type PulseRange, type VehicleChannels } from './types'
 
 const RANGE: PulseRange = { min: 1100, trim: 1500, max: 1900 }
 const VEHICLE: VehicleChannels = { throttle: 3, yaw: 4, range: () => RANGE }
-const OPEN = { open: true, lows: 0 }
+const OPEN = { open: true, reads: 0 }
 
 /**
  * Telemetry with a heartbeat of this status and age.

@@ -23,20 +23,19 @@
         <p id="rc-device-name" class="mono">{{ mapping.device.value }}</p>
         <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">{{ t('settings.rc.device.gone') }}</p>
         <ul v-else class="rc-axes">
-          <li v-for="(value, axis) in sample.axes" :key="axis">
-            <span>{{ t('settings.rc.device.axis', { n: axis + 1 }) }}</span>
-            <ProgressBar :value="(value + 1) / 2" :label="t('settings.rc.device.axis', { n: axis + 1 })" />
-            <span class="mono">{{ number(value, 2) }}</span>
+          <li v-for="(value, index) in channels" :key="index" :class="{ 'rc-absent': value === null }">
+            <span>{{ t('settings.rc.device.channel', { n: index + 1 }) }}</span>
+            <ProgressBar :value="((value ?? 0) + 1) / 2" :label="t('settings.rc.device.channel', { n: index + 1 })" />
+            <span class="mono">{{ value === null ? t('settings.rc.noPulse') : number(value, 2) }}</span>
           </li>
         </ul>
-        <p v-if="pad.live.value" id="rc-buttons" class="muted">{{ buttonsText }}</p>
-        <p v-if="pad.live.value" id="rc-axes-note" class="muted">{{ t('settings.rc.axesNote') }}</p>
+        <p v-if="pad.live.value" id="rc-channels-note" class="muted">{{ t('settings.rc.channelsNote') }}</p>
       </template>
     </div>
     <div v-if="mapping.draft.value !== null" class="rc-mapping">
       <h4 class="rc-heading">{{ t('settings.rc.mapping') }}</h4>
       <RcRows :mapping="mapping" />
-      <RcWizard :mapping="mapping" :live="pad.live.value" />
+      <RcConfirm :mapping="mapping" />
       <ul v-if="mapping.issues.value.length > 0" id="rc-issues" class="rc-issues">
         <li v-for="(issue, index) in mapping.issues.value" :key="index" :class="{ warn: !issue.blocks }">
           {{ t(issueKey(issue), { channel: issue.channel }) }}
@@ -47,14 +46,15 @@
 </template>
 
 <script setup lang="ts">
-// "Remote control" in Settings: whether it is allowed (off by default, and for a simulator only), the pad that is read and
-// what it says now, the mapping of its sticks, switches and buttons to the vehicle's channels (every row with the pulse it
-// makes now), the calibration wizard, and what stands in the way of turning control on. This screen only reads the pad and
-// keeps the mapping in the settings: control is never turned on from here (nothing here talks to the vehicle).
+// "Remote control" in Settings: whether it is allowed (off by default, and for a simulator only), the pad that is read and what
+// it says now (CH1 to CH16, every channel proportional), the mapping of its channels to the vehicle's (every row with what it
+// reads and the pulse it makes now), how the throttle stick rests, the one click that confirms the mapping, and what stands in
+// the way of turning control on. This screen only reads the pad and keeps the mapping in the settings: control is never turned
+// on from here (nothing here talks to the vehicle).
 import { computed, onMounted, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import RcConfirm from '@/components/settings/RcConfirm.vue'
 import RcRows from '@/components/settings/RcRows.vue'
-import RcWizard from '@/components/settings/RcWizard.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -62,7 +62,7 @@ import { useGamepad } from '@/composables/useGamepad'
 import { type Issue, useRcMapping } from '@/composables/useRcMapping'
 import { useRcSettings } from '@/composables/useRcSettings'
 import { useFormat } from '@/i18n/useFormat'
-import type { PadSample } from '@/lib/rc/types'
+import { CHANNELS } from '@/lib/rc/types'
 import { factsOf } from '@/lib/rc/vehicle'
 
 const { t } = useI18n()
@@ -72,7 +72,9 @@ const uid = useId()
 const settings = useRcSettings()
 const pad = useGamepad()
 const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
-const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request })
+const mode = computed(() => vehicle.telemetry.value?.mode)
+const connected = computed(() => vehicle.connection.value.state === 'connected')
+const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request, mode, connected })
 
 const allow = computed({
   get: () => settings.allowed.value,
@@ -84,13 +86,11 @@ const rudderArm = computed({
 })
 /** What the switch is described by: its line, and why it is shut while remote control is not allowed. */
 const rudderDescription = computed(() => `${uid}-rudder-help${allow.value ? '' : ` ${uid}-rudder-shut`}`)
-const EMPTY: PadSample = { axes: [], buttons: [] }
-/** What the pad says now (nothing when none is read). */
-const sample = computed(() => (pad.reading.value.kind === 'live' ? pad.reading.value.sample : EMPTY))
-const buttonsText = computed(() => {
-  const pressed = sample.value.buttons.flatMap((value, index) => (value >= 0.5 ? [index] : []))
+/** What the pad says now: CH1 to CH16, null for a channel it has not (nothing when none is read). */
+const channels = computed(() => {
+  const reading = pad.reading.value
 
-  return pressed.length === 0 ? t('settings.rc.device.noButtons') : t('settings.rc.device.buttons', { list: pressed.join(', ') })
+  return reading.kind === 'live' ? reading.sample.channels : Array.from({ length: CHANNELS }, () => null)
 })
 /**
  * What to say of where control stands, once each: that everything is in place, or that no simulator is connected. The setting

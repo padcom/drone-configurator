@@ -22,6 +22,7 @@ import { computed, onBeforeUnmount, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
+import { levelText } from '@/lib/rc/rest'
 import { namedVehicleOf, summaryOptions } from '@/lib/rc/summary'
 
 const { t } = useI18n()
@@ -44,12 +45,22 @@ const offHelp = computed(() => {
 
   return block.value === null ? (explanation.value ?? t('rc.help.off')) : t(`rc.reason.${block.value}`)
 })
+/** What the line says while the control waits for the sticks to be at rest: which stick is not, or that all are and it counts. */
+const restHelp = computed(() => {
+  const waiting = rc.restWait.value.map(({ stick, level }) => {
+    const key = stick === 'throttle' ? `throttle${rc.style.value === 'low' ? 'Low' : 'Centred'}` : stick
+
+    return t(`rc.rest.${key}`, { level: levelText(level) })
+  })
+
+  return waiting.length === 0 ? t('rc.help.resting') : waiting.join(' ')
+})
 const help = computed(() => {
   if (!rc.active.value) {
     return offHelp.value
   }
 
-  return rc.gateOpen.value ? t('rc.help.on') : t('rc.help.lower')
+  return rc.gateOpen.value ? t('rc.help.on') : restHelp.value
 })
 
 /**
@@ -65,6 +76,6 @@ function change(on: boolean): void {
   }
   const vehicle = namedVehicleOf(fields.connection.value.vehicle, (key, named) => t(key, named ?? {}))
 
-  void rc.turnOn(() => confirmWith(summaryOptions((key, named) => t(key, named ?? {}), vehicle)))
+  void rc.turnOn(() => confirmWith(summaryOptions((key, named) => t(key, named ?? {}), vehicle, rc.style.value)))
 }
 </script>

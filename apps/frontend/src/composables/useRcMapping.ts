@@ -1,20 +1,36 @@
 // The mapping of the pad on the Settings screen: the mapping being edited (kept in the settings with every change), "move it",
-// the calibration wizard, the live pulse of each row, and what stands in the way of turning control on. Every change of a mapping
-// goes through `lib/rc/edits` (which takes away the wizard's mark), and nothing here talks to the vehicle: the screen only
-// reads the pad and edits what is kept; the control itself is not turned on from here.
+// the one-click "Confirm this mapping" (nothing is calibrated in the app), the live reading of each row, and what stands in the
+// way of turning control on. Every change of a mapping goes through `lib/rc/edits` (which takes away the confirmation), and
+// nothing here talks to the vehicle: the screen only reads the pad and edits what is kept; the control itself is not turned on
+// from here.
 import { type ComputedRef, type Ref, computed, onScopeDispose, shallowRef, watch } from 'vue'
 import type { RcSettings } from './useRcSettings'
 import type { GamepadModel } from './useGamepad'
 import type { ConnectRequest } from '@/generated/app'
-import { addRow, changeRow, removeRow } from '@/lib/rc/edits'
-import { type ControlBlock, controlBlock } from '@/lib/rc/gate'
-import { rowPulse, validChannel } from '@/lib/rc/mapping'
+import { confirmed } from '@/lib/rc/confirm'
+import { addRow, changeRow, removeRow, setThrottleStyle } from '@/lib/rc/edits'
+import { type ControlBlock, controlBlock, sticksUnread } from '@/lib/rc/gate'
+import { levelOf, rowPulse, validChannel } from '@/lib/rc/mapping'
 import { type Problem, hasSource, problemsOf } from '@/lib/rc/profile'
+import { type NotAtRest, type Sticks, notAtRest } from '@/lib/rc/rest'
+import { lowRead } from '@/lib/rc/safety'
 import { movedControl } from '@/lib/rc/source'
-import { freeChannel, newButton, newStick, newSwitch, suggestedProfile } from '@/lib/rc/suggest'
-import { DEFAULT_RANGE, NO_SOURCE, type PadSample, type Profile, type Row } from '@/lib/rc/types'
+import type { StoredProfile } from '@/lib/rc/store'
+import { freeChannel, newRow, suggestedProfile } from '@/lib/rc/suggest'
+import {
+  DEFAULT_RANGE,
+  NOT_MINE,
+  NO_SOURCE,
+  type PadLayout,
+  type PadSample,
+  type Profile,
+  type Row,
+  type ThrottleStyle,
+} from '@/lib/rc/types'
 import { ARM_FUNCTIONS, type Facts, type VehicleProblem, vehicleChannels, vehicleProblems } from '@/lib/rc/vehicle'
-import { Wizard } from '@/lib/rc/wizard'
+
+/** ArduPilot's own channels for the sticks (`RCMAP_*` defaults), until the vehicle says. */
+const DEFAULT_STICKS: Sticks = { roll: 1, pitch: 2, throttle: 3, yaw: 4 }
 
 /** What the screen needs from the rest of the interface. */
 export interface RcMappingDeps {
@@ -26,11 +42,18 @@ export interface RcMappingDeps {
   facts: Readonly<Ref<Facts | null>>
   /** What the connection was asked for. */
   request: Readonly<Ref<ConnectRequest | null>>
+  /** The vehicle's flight mode (its name), or undefined when it is not known. */
+  mode?: Readonly<Ref<string | undefined>>
+  /**
+   * Whether a vehicle is connected: a request that the page does not know (it was reloaded over a live backend) is then left to
+   * the backend (`NOT_SIMULATOR`), as the Fly switch does, and the screen does not say "No simulator is connected" over it.
+   */
+  connected?: Readonly<Ref<boolean>>
 }
 
 /** One thing that stands in the way, with where it comes from. */
 export interface Issue {
-  /** The code: a mapping's (`channel`, `duplicate`, ...) or the vehicle's (`unknown`, `range`, `arm`, `zone`). */
+  /** The code: a mapping's (`channel`, `duplicate`, ...) or the vehicle's (`unknown`, `range`, `arm`, `zone`, `centre`). */
   code: Problem['code'] | VehicleProblem['code']
   /** The channel it is about, 0 for the mapping or the vehicle as a whole. */
   channel: number
@@ -50,18 +73,6 @@ export interface Refusal {
   serial: number
 }
 
-/** The wizard as the screen shows it. */
-export interface WizardView {
-  /** Where it is. */
-  step: 'rest' | 'move'
-  /** Whether the first step has enough reads to go on. */
-  ready: boolean
-  /** How far each stick's axis has travelled so far (raw, of 2 for a whole axis). */
-  axes: { axis: number, travel: number }[]
-  /** The axes that did not make it the last time it was asked to finish. */
-  failed: number[]
-}
-
 /** What "move it" is waiting for. */
 interface Capturing {
   /** The row. */
@@ -69,9 +80,6 @@ interface Capturing {
   /** What the pad said when it began (null until the first read). */
   baseline: PadSample | null
 }
-
-/** A kind of row that can be added. */
-export type NewRow = Row['kind']
 
 /** The mapping on the screen, as refs and actions. */
 export interface RcMapping {
@@ -83,18 +91,33 @@ export interface RcMapping {
   readonly capturing: ComputedRef<number | null>
   /** The change that was not made, and why. */
   readonly refusal: Readonly<Ref<Refusal | null>>
-  /** The wizard, or null when it is not running. */
-  readonly wizard: ComputedRef<WizardView | null>
+  /** What each channel of the pad is now, or null while it is not read. */
+  readonly layout: ComputedRef<PadLayout | null>
   /** What stands in the way. */
   readonly issues: ComputedRef<Issue[]>
-  /** Whether a row has no control yet (the wizard waits for it, and the mapping is wrong until it has one). */
+  /** Whether a row has no control yet (the mapping is wrong until it has one). */
   readonly unsourced: ComputedRef<boolean>
   /** The first thing that stops control from being turned on, or null. */
   readonly block: ComputedRef<ControlBlock | null>
+  /** Whether the mapping on the screen is confirmed for the pad that is read. */
+  readonly confirmed: ComputedRef<boolean>
+  /** Whether "Confirm this mapping" may be pressed: the pad is read, and every row and the four control channels are right. */
+  readonly canConfirm: ComputedRef<boolean>
+  /** Whether the mapping on the screen was converted from the first version and has not been looked at since. */
+  readonly converted: ComputedRef<boolean>
+  /**
+   * The channels of the vehicle's four sticks (`RCMAP_*`; ArduPilot's own 1 to 4 until the vehicle says: what the suggestion uses
+   * too, and a control does not begin on a vehicle that has not said).
+   */
+  readonly sticks: ComputedRef<Sticks>
+  /** The sticks that are not at rest now (what the control's turn-on would wait for), or null when no pad is read. */
+  readonly notAtRest: ComputedRef<NotAtRest[] | null>
   /** The pulse a row makes now (µs), or null when no pad is read. */
   pulseOf: (row: Row) => number | null
-  /** Adds a row of a kind, on the channel given (refused for one that arms or stops the vehicle) or else the next free one. */
-  add: (kind: NewRow, channel?: number) => void
+  /** What a row reads now, from -1 to 1 (turned when inverted, before the zone and the curve), or null. */
+  levelOf: (row: Row) => number | null
+  /** Adds a row on the channel given (refused for one that arms or stops the vehicle) or else the next free one. */
+  add: (channel?: number) => void
   /** Takes a row away. */
   remove: (index: number) => void
   /** Changes a row (finite numbers only). */
@@ -105,14 +128,10 @@ export interface RcMapping {
   capture: (index: number) => void
   /** Stops waiting. */
   cancelCapture: () => void
-  /** Begins the wizard. */
-  startWizard: () => void
-  /** Goes to its second step. */
-  nextStep: () => void
-  /** Puts what it measured into the mapping. */
-  finishWizard: () => void
-  /** Stops it. */
-  cancelWizard: () => void
+  /** Chooses how the throttle stick rests (the mapping is then not confirmed). */
+  setStyle: (style: ThrottleStyle) => void
+  /** Confirms the mapping as it is, for the pad as it is. */
+  confirm: () => void
 }
 
 /** The mapping on the screen. */
@@ -121,18 +140,26 @@ class Mapping implements RcMapping {
   readonly draft = shallowRef<Profile | null>(null)
   readonly refusal = shallowRef<Refusal | null>(null)
   private readonly waiting = shallowRef<Capturing | null>(null)
-  private readonly running = shallowRef<Wizard | null>(null)
-  private readonly lacking = shallowRef<number[]>([])
-  /** Counts the reads the wizard was given (what it measures is not reactive). */
-  private readonly reads = shallowRef(0)
   /** Whether the person has changed what is shown (a suggestion that was not touched follows the vehicle). */
   private touched = false
+  /** Whether what is shown was converted from the first version and has not been confirmed since. */
+  private readonly convertedFrom = shallowRef(false)
 
   readonly capturing = computed(() => this.waiting.value?.index ?? null)
-  readonly wizard = computed((): WizardView | null => this.viewOfWizard())
+  readonly layout = computed((): PadLayout | null => {
+    const reading = this.deps.pad.reading.value
+
+    return reading.kind === 'live' ? reading.layout : null
+  })
+
   readonly issues = computed((): Issue[] => this.issuesOf())
   readonly unsourced = computed(() => (this.draft.value?.rows ?? []).some(row => !hasSource(row)))
   readonly block = computed((): ControlBlock | null => this.blockOf())
+  readonly confirmed = computed(() => this.issues.value.every(issue => issue.code !== 'unconfirmed'))
+  readonly canConfirm = computed(() => this.canConfirmNow())
+  readonly converted = computed(() => this.convertedFrom.value && !this.confirmed.value)
+  readonly sticks = computed((): Sticks => this.deps.facts.value?.map ?? DEFAULT_STICKS)
+  readonly notAtRest = computed((): NotAtRest[] | null => this.restOf())
 
   /**
    * Makes it.
@@ -141,11 +168,11 @@ class Mapping implements RcMapping {
    */
   constructor(private readonly deps: RcMappingDeps) {
     const stops = [
-      // (both at once, not at the next tick of the page: the wizard must not miss a read, and a read is for the pad it came from)
+      // (both at once, not at the next tick of the page: a read is for the pad it came from)
       watch(deps.pad.id, id => this.seen(id), { immediate: true, flush: 'sync' }),
       watch(deps.pad.reading, reading => {
         if (reading.kind === 'live') {
-          this.read(reading.sample)
+          this.feedCapture(reading.sample)
         }
       }, { flush: 'sync' }),
       watch(deps.facts, () => this.suggestAgain()),
@@ -163,13 +190,22 @@ class Mapping implements RcMapping {
     if (id === null || id === this.device.value) {
       return
     }
-    const kept = this.deps.settings.profileOf(id)
 
+    this.show(id, this.deps.settings.profileOf(id, this.layout.value))
+  }
+
+  /**
+   * Shows the mapping of a pad.
+   *
+   * @param id the pad's id
+   * @param kept what the settings keep of it, or null for none (the suggestion is shown)
+   */
+  private show(id: string, kept: StoredProfile | null): void {
     this.device.value = id
     this.waiting.value = null
-    this.running.value = null
     this.refusal.value = null
-    this.draft.value = kept ?? suggestedProfile(id, this.deps.facts.value)
+    this.draft.value = kept === null ? suggestedProfile(id, this.deps.facts.value) : kept.profile
+    this.convertedFrom.value = kept !== null && kept.converted
     this.touched = kept !== null
   }
 
@@ -183,61 +219,46 @@ class Mapping implements RcMapping {
   }
 
   /**
-   * A read of the pad: "move it" and the wizard are fed.
-   *
-   * @param sample what the pad said
-   */
-  private read(sample: PadSample): void {
-    this.feedCapture(sample)
-    const wizard = this.running.value
-
-    if (wizard !== null) {
-      wizard.feed(sample)
-      this.reads.value += 1
-    }
-  }
-
-  /**
-   * "Move it" is fed a read: the first is the baseline, and the control that moves from it is the row's source.
+   * "Move it" is fed a read: the first is the baseline, and the channel that moves from it is the row's source.
    *
    * @param sample what the pad said
    */
   private feedCapture(sample: PadSample): void {
     const waiting = this.waiting.value
-    const row = this.rowWaiting()
 
-    if (waiting === null || row === undefined) {
+    if (waiting === null || !this.hasRow(waiting.index)) {
       return
     }
     if (waiting.baseline === null) {
       waiting.baseline = sample
     } else {
-      this.found(waiting.index, row, movedControl(row.kind, waiting.baseline, sample))
+      this.lookFor(waiting.index, waiting.baseline, sample)
     }
   }
 
   /**
-   * The row that "move it" waits for.
+   * Whether the mapping has a row in a place.
    *
-   * @returns the row, or undefined when nothing waits (or the row is gone)
+   * @param index the place
+   * @returns true when it has
    */
-  private rowWaiting(): Row | undefined {
-    const waiting = this.waiting.value
-
-    return waiting === null ? undefined : this.draft.value?.rows[waiting.index]
+  private hasRow(index: number): boolean {
+    return this.draft.value?.rows[index] !== undefined
   }
 
   /**
-   * "Move it" found what was moved (or has not yet): the row is read from it from now on.
+   * "Move it" compares a read with the baseline: the pad channel that moved is the row's source from now on.
    *
    * @param index the row's place
-   * @param row the row
-   * @param control the axis or button that moved, or null
+   * @param baseline what the pad said when the capture began
+   * @param sample what it says now
    */
-  private found(index: number, row: Row, control: number | null): void {
-    if (control !== null) {
+  private lookFor(index: number, baseline: PadSample, sample: PadSample): void {
+    const moved = movedControl(baseline, sample)
+
+    if (moved !== null) {
       this.waiting.value = null
-      this.change(index, row.kind === 'button' ? { button: control } : { axis: control })
+      this.change(index, { source: moved })
     }
   }
 
@@ -253,7 +274,7 @@ class Mapping implements RcMapping {
   }
 
   /**
-   * The channels of the vehicle, for the pulses.
+   * The range of a channel, for the pulses.
    *
    * @param channel the channel
    * @returns its range
@@ -270,11 +291,17 @@ class Mapping implements RcMapping {
     return reading.kind === 'live' ? rowPulse(row, reading.sample, this.rangeOf(row.channel)) : null
   }
 
-  add = (kind: NewRow, on?: number): void => {
-    const draft = this.editable()
+  levelOf = (row: Row): number | null => {
+    const reading = this.deps.pad.reading.value
+
+    return reading.kind === 'live' ? levelOf(row, reading.sample) : null
+  }
+
+  add = (on?: number): void => {
+    const draft = this.draft.value
 
     if (draft !== null) {
-      this.addOn(draft, kind, on ?? freeChannel(draft, this.deps.facts.value))
+      this.addOn(draft, on ?? freeChannel(draft, this.deps.facts.value))
     }
   }
 
@@ -282,15 +309,14 @@ class Mapping implements RcMapping {
    * Adds a row on a channel, when it may be there.
    *
    * @param draft the mapping
-   * @param kind the kind of row
    * @param channel the channel, or null when there is none to take
    */
-  private addOn(draft: Profile, kind: NewRow, channel: number | null): void {
+  private addOn(draft: Profile, channel: number | null): void {
     if (channel !== null && this.mayTake(draft, channel)) {
       this.refusal.value = null
-      // (a new row has NO control: until the person has moved the one they mean it makes nothing, and the mapping is wrong. It
+      // (a new row has NO source: until the person has moved the one they mean it makes nothing, and the mapping is wrong. It
       // must never follow some control it was given by default: a function of the vehicle on its channel would fire with it)
-      this.keep(addRow(draft, { stick: newStick, switch: newSwitch, button: newButton }[kind](channel, NO_SOURCE)))
+      this.keep(addRow(draft, newRow(channel, NO_SOURCE)))
       this.capture(draft.rows.length)
     }
   }
@@ -316,17 +342,8 @@ class Mapping implements RcMapping {
     return true
   }
 
-  /**
-   * The mapping, when it may be edited (there is one, and the wizard is not running).
-   *
-   * @returns the mapping, or null
-   */
-  private editable(): Profile | null {
-    return this.running.value === null ? this.draft.value : null
-  }
-
   remove = (index: number): void => {
-    const draft = this.editable()
+    const draft = this.draft.value
 
     if (draft !== null) {
       this.waiting.value = null
@@ -335,10 +352,10 @@ class Mapping implements RcMapping {
   }
 
   change = (index: number, change: Partial<Row>): void => {
-    const draft = this.editable()
+    const draft = this.draft.value
 
     // (a number that is not a number would be kept as nothing: the mapping would be lost at the next start)
-    if (draft !== null && Object.values(change).flat().every(value => typeof value !== 'number' || Number.isFinite(value))) {
+    if (draft !== null && Object.values(change).every(value => typeof value !== 'number' || Number.isFinite(value))) {
       this.keep(changeRow(draft, index, change))
     }
   }
@@ -392,89 +409,84 @@ class Mapping implements RcMapping {
   }
 
   capture = (index: number): void => {
-    if (this.running.value === null) {
-      this.waiting.value = { index, baseline: null }
-    }
+    this.waiting.value = { index, baseline: null }
   }
 
   cancelCapture = (): void => {
     this.waiting.value = null
   }
 
-  startWizard = (): void => {
-    if (this.draft.value !== null && this.deps.pad.live.value && !this.unsourced.value) {
-      this.waiting.value = null
-      this.lacking.value = []
-      this.running.value = new Wizard(this.throttleChannel())
-    }
-  }
-
-  /**
-   * The vehicle's throttle channel (`RCMAP_THROTTLE`), or null when the vehicle has not said.
-   *
-   * @returns the channel, or null
-   */
-  private throttleChannel(): number | null {
-    return this.deps.facts.value?.map.throttle ?? null
-  }
-
-  nextStep = (): void => {
-    this.running.value?.toMove()
-    this.reads.value += 1
-  }
-
-  finishWizard = (): void => {
-    const wizard = this.running.value
+  setStyle = (style: ThrottleStyle): void => {
     const draft = this.draft.value
 
-    if (wizard === null || draft === null) {
-      return
+    if (draft !== null && draft.throttleStyle !== style) {
+      this.keep(setThrottleStyle(draft, style))
     }
-    const result = wizard.finish(draft)
-
-    if ('rows' in result) {
-      this.running.value = null
-      this.keep(result)
-    } else {
-      this.lacking.value = result.axes
-    }
-    this.reads.value += 1
   }
 
-  cancelWizard = (): void => {
-    this.running.value = null
-    this.lacking.value = []
+  confirm = (): void => {
+    const draft = this.draft.value
+    const layout = this.layout.value
+
+    if (draft !== null && layout !== null && this.canConfirm.value) {
+      this.convertedFrom.value = false
+      this.keep(confirmed(draft, layout))
+    }
   }
 
   /**
-   * The wizard as the screen shows it.
+   * Whether "Confirm this mapping" may be pressed: the pad is read and every row and the four control channels are right (the
+   * only thing that is not right yet is the confirmation itself).
    *
-   * @returns the view, or null when it is not running
+   * @returns true when it may
    */
-  private viewOfWizard(): WizardView | null {
-    const wizard = this.running.value
+  private canConfirmNow(): boolean {
+    const draft = this.draft.value
+    const layout = this.layout.value
 
-    // (what the wizard measured is not reactive: the count of reads says it changed)
-    void this.reads.value
-
-    return wizard === null ? null : this.viewOf(wizard)
+    return draft !== null && layout !== null && this.deps.pad.live.value && this.confirmable(draft, layout)
   }
 
   /**
-   * What a wizard that runs shows.
+   * Whether a mapping is right for a pad but for its confirmation: no problem of its rows, every stick of the vehicle on an axis.
    *
-   * @param wizard the wizard
-   * @returns the view
+   * @param draft the mapping
+   * @param layout what each channel of the pad is
+   * @returns true when it is
    */
-  private viewOf(wizard: Wizard): WizardView {
-    const sticks = (this.draft.value?.rows ?? []).filter(row => row.kind === 'stick')
+  private confirmable(draft: Profile, layout: PadLayout): boolean {
+    const others = problemsOf(draft, layout).filter(problem => problem.code !== 'unconfirmed')
 
-    return {
-      step: wizard.step,
-      ready: wizard.step === 'move' || wizard.restDone(),
-      axes: sticks.map(row => ({ axis: row.axis, travel: wizard.travel(row.axis) })),
-      failed: this.lacking.value,
-    }
+    return others.length === 0 && !sticksUnread(draft, layout, this.sticks.value)
+  }
+
+  /**
+   * What the four sticks do now: which are not at rest.
+   *
+   * @returns the sticks, or null when the pad is not read or the mapping is not there
+   */
+  private restOf(): NotAtRest[] | null {
+    const reading = this.deps.pad.reading.value
+    const draft = this.draft.value
+
+    return reading.kind === 'live' && draft !== null ? this.restFor(draft, reading.sample) : null
+  }
+
+  /**
+   * The sticks that are not at rest in a read of the pad.
+   *
+   * @param draft the mapping
+   * @param sample what the pad said
+   * @returns the sticks
+   */
+  private restFor(draft: Profile, sample: PadSample): NotAtRest[] {
+    const sticks = this.sticks.value
+    const throttle = draft.rows.find(row => row.channel === sticks.throttle)
+    const range = this.rangeOf(sticks.throttle)
+    const pulse = throttle === undefined ? NOT_MINE : rowPulse(throttle, sample, range)
+    const zone = this.deps.facts.value?.zones[sticks.throttle - 1] ?? 0
+
+    return notAtRest(draft, sample, sticks, lowRead(pulse, range, zone))
   }
 
   /**
@@ -488,7 +500,7 @@ class Mapping implements RcMapping {
     if (draft === null) {
       return []
     }
-    const own = problemsOf(draft).map(problem => ({ ...problem, blocks: true, from: 'mapping' as const }))
+    const own = problemsOf(draft, this.layout.value).map(problem => ({ ...problem, blocks: true, from: 'mapping' as const }))
     const theirs = vehicleProblems(this.deps.facts.value, draft).map(problem => ({ ...problem, from: 'vehicle' as const }))
 
     return [...own, ...theirs]
@@ -505,8 +517,12 @@ class Mapping implements RcMapping {
     return controlBlock({
       allowed: this.deps.settings.allowed.value,
       request: this.deps.request.value,
+      letBackendDecide: this.deps.connected?.value === true,
       padLive: this.deps.pad.live.value,
       profile: draft,
+      layout: this.layout.value,
+      sticks: this.sticks.value,
+      mode: this.deps.mode?.value,
       vehicle: draft === null ? [] : vehicleProblems(this.deps.facts.value, draft),
     })
   }

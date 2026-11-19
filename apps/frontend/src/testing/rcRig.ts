@@ -10,7 +10,7 @@ import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import type { Profile } from '@/lib/rc/types'
 import type { Facts } from '@/lib/rc/vehicle'
 import { FakePads, TX16S } from '@/testing/fakeGamepads'
-import { calibratedSuggestion, vehicleFacts } from '@/testing/rcProfiles'
+import { confirmedSuggestion, vehicleFacts } from '@/testing/rcProfiles'
 
 /** The built-in simulator. */
 export const SIMULATOR: ConnectRequest = { transport: 'simulator' }
@@ -68,7 +68,7 @@ function kept(profile: Profile | null | undefined): Record<string, Profile> {
     return {}
   }
 
-  return { [TX16S]: profile ?? calibratedSuggestion(TX16S) }
+  return { [TX16S]: profile ?? confirmedSuggestion(TX16S) }
 }
 
 /**
@@ -88,7 +88,11 @@ function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profil
     allow: on => Promise.resolve(void (allowed.value = on)),
     rudderArm: computed(() => rudderArm.value),
     setRudderArm: on => Promise.resolve(void (rudderArm.value = on)),
-    profileOf: device => profiles.value[device] ?? null,
+    profileOf: device => {
+      const profile = profiles.value[device]
+
+      return profile === undefined ? null : { profile, converted: false, lossy: false }
+    },
     save: profile => Promise.resolve(void (profiles.value = { ...profiles.value, [profile.device]: profile })),
   }
 }

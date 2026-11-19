@@ -828,7 +828,14 @@
     "help": {
       "off": "Spento. Il gamepad non pilota il veicolo.",
       "on": "Il gamepad sta pilotando il veicolo.",
-      "lower": "Abbassa il gas per partire: viene inviato quando lo stick è rimasto in basso per un momento."
+      "resting": "Tieni tutti gli stick a riposo per un momento (anche il gas): fino ad allora non viene inviato nulla."
+    },
+    "rest": {
+      "roll": "Il rollio non è al centro: {level}. Porta lo stick al centro.",
+      "pitch": "Il beccheggio non è al centro: {level}. Porta lo stick al centro.",
+      "yaw": "L'imbardata non è al centro: {level}. Porta lo stick al centro.",
+      "throttleCentred": "Il gas non è al centro: {level}. Lascia che lo stick torni al centro.",
+      "throttleLow": "Il gas non è in basso: {level}. Abbassa lo stick fino in fondo."
     },
     "indicator": {
       "on": "Controllo remoto attivo",
@@ -838,7 +845,10 @@
     },
     "summary": {
       "title": "Pilotare con il gamepad?",
-      "what": "Il gamepad invierà i suoi stick al veicolo finché non lo spegni. Prima metti gli stick al centro e il gas in basso. Finché è attivo, il controllo del veicolo «RC non trovato» non protegge più da un trasmettitore assente.",
+      "what": "Il gamepad invierà i suoi stick al veicolo finché non lo spegni. Non viene inviato nulla finché tutti e quattro gli stick non sono a riposo. Finché è attivo, il controllo del veicolo «RC non trovato» non protegge più da un trasmettitore assente.",
+      "centred": "Gas: centrato. Il centro dello stick è nessuna salita, in alto sale, in basso scende. Funziona solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag e Autotune (e continua in Auto, Guided, RTL, Land, Brake e simili). Qualsiasi altra modalità spegne il controllo.",
+      "low": "Gas: in basso a riposo. Lo stick deve essere in fondo prima che il controllo parta.",
+      "either": "Il gas è centrato o in basso a riposo, come dice l'assegnazione (Impostazioni). Centrato funziona solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag e Autotune; qualsiasi altra modalità spegne il controllo.",
       "button": "Attiva il controllo remoto"
     },
     "command": {
@@ -849,8 +859,13 @@
       "off": "Il controllo remoto non è consentito. Consentilo nelle Impostazioni.",
       "link": "Nessun simulatore è collegato.",
       "pad": "Nessun gamepad viene letto. Muovi uno stick della radio.",
-      "mapping": "Il gamepad non ha un'assegnazione pronta. Calibrala nelle Impostazioni.",
+      "mapping": "Il gamepad non ha un'assegnazione pronta. Guardala e confermala nelle Impostazioni.",
+      "reading": "Uno stick del veicolo non ha un canale proporzionale del gamepad (un asse). Vedi le Impostazioni.",
       "vehicle": "Le impostazioni del veicolo non concordano con l'assegnazione. Vedi le Impostazioni.",
+      "mode": "Un gas centrato parte solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia prima la modalità.",
+      "MODE": "Controllo remoto terminato: la modalità di volo non accetta un gas centrato.",
+      "REST_TIMEOUT": "Controllo remoto terminato: gli stick non sono stati a riposo entro 10 secondi.",
+      "PAD_FAULT": "Controllo remoto terminato: uno stick del pad non si legge più correttamente (mancante, non un numero o fuori intervallo). Tutti i canali sono stati rilasciati.",
       "ENDED": "Il controllo remoto è terminato.",
       "ERROR": "Il controllo remoto non è potuto partire.",
       "SILENT": "Controllo remoto terminato: la pagina è rimasta in silenzio troppo a lungo.",
@@ -919,22 +934,19 @@
         "title": "Gamepad",
         "none": "Nessun gamepad trovato finora. Una radio compare quando muovi uno stick.",
         "gone": "Il gamepad ora non viene letto. Muovi uno stick.",
-        "axis": "CH{n}",
-        "buttons": "Pulsanti premuti: {list}",
-        "noButtons": "Nessun pulsante è premuto."
+        "channel": "CH{n}"
       },
       "mapping": "Assegnazione",
-      "kind": {
-        "stick": "Stick",
-        "switch": "Interruttore",
-        "button": "Pulsante"
-      },
       "channel": "Canale del veicolo",
       "vehicleChannel": "Canale del veicolo {n}",
       "own": "Quello della radio",
-      "axesNote": "Il browser potrebbe non riportare ogni asse della radio: uno che resta a 0 potrebbe essere stato perso.",
-      "sourceAxis": "CH{n}",
-      "sourceButton": "Pulsante {n}",
+      "channelsNote": "Ogni gamepad è CH1 a CH16: prima i suoi assi, poi i suoi pulsanti (−1 rilasciato, +1 premuto). Un canale che il gamepad non ha mostra un trattino. Qui non si calibra nulla: vale l'intervallo proprio del gamepad.",
+      "sourceChannel": "CH{n} del gamepad",
+      "level": "Cosa legge ora la riga",
+      "pulseMin": "Impulso a −1 (µs)",
+      "pulseMax": "Impulso a +1 (µs)",
+      "pulseDefault": "quello del canale",
+      "addRow": "Aggiungi una riga",
       "moveIt": "Muovilo",
       "moveCancel": "Annulla",
       "moveWaiting": "Muovi lo stick o l'interruttore, o premi il pulsante, che intendi.",
@@ -944,34 +956,31 @@
       "invert": "Inverti",
       "zone": "Zona morta (%)",
       "expo": "Curva (%)",
-      "position": {
-        "low": "Basso (µs)",
-        "mid": "Centro (µs)",
-        "high": "Alto (µs)"
-      },
-      "up": "Rilasciato (µs)",
-      "pressed": "Premuto (µs)",
-      "add": {
-        "stick": "Aggiungi uno stick",
-        "switch": "Aggiungi un interruttore",
-        "button": "Aggiungi un pulsante"
-      },
       "refused": {
         "arm": "Il canale {channel} arma o ferma il veicolo, quindi non si può pilotare da qui.",
         "taken": "Il canale {channel} è già pilotato da un'altra riga. Togli quella riga o scegli un altro canale."
       },
       "noSource": "Ancora nessun comando",
-      "wizard": {
-        "title": "Calibrazione",
-        "start": "Calibra…",
-        "rest": "Lascia gli stick a riposo, con il gas in basso, e attendi.",
-        "restReady": "Fatto. Ora muoverai ogni stick in tutti i suoi estremi.",
-        "move": "Muovi ogni stick lentamente in tutti i suoi estremi, più volte. Poi termina.",
-        "axis": "CH{n}",
-        "next": "Avanti",
-        "finish": "Termina",
-        "cancel": "Annulla",
-        "failed": "Questi assi non sono stati mossi abbastanza: {axes}. Muovili in entrambi gli estremi e termina di nuovo."
+      "style": {
+        "title": "Gas",
+        "centred": "Centrato",
+        "low": "In basso a riposo",
+        "centredHelp": "Lo stick riposa al centro (torna da solo, come in un drone da ripresa). Il centro è nessuna salita, in alto sale, in basso scende. Funziona solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag e Autotune, e continua in Auto, Guided, RTL, Land, Brake e simili; qualsiasi altra modalità spegne il controllo, e non parte in nessuna. La zona morta della sua riga deve essere almeno del 5 %.",
+        "lowHelp": "Lo stick riposa in basso (il gas di una radio). Lo stick deve essere in fondo prima che il controllo parta."
+      },
+      "sticks": {
+        "roll": "Rollio",
+        "pitch": "Beccheggio",
+        "throttle": "Gas",
+        "yaw": "Imbardata"
+      },
+      "confirm": {
+        "title": "Conferma",
+        "button": "Conferma questa assegnazione",
+        "done": "Questa assegnazione è confermata per questo gamepad.",
+        "needed": "Non confermata. Muovi ogni stick e guarda la sua barra sopra, poi conferma. Ogni modifica toglie la conferma.",
+        "converted": "Questa assegnazione è stata convertita da una versione precedente. Guardala e confermala.",
+        "disabled": "Serve un gamepad che viene letto, una riga per ciascuno dei quattro stick del veicolo su un asse del gamepad, e nessuno dei problemi qui sotto."
       },
       "issue": {
         "mapping": {
@@ -980,16 +989,17 @@
           "source": "Il canale {channel} non ha ancora un comando. Premi «Muovilo» e muovi quello che intendi.",
           "zone": "La zona morta del canale {channel} deve essere da 0 a 50 %.",
           "expo": "La curva del canale {channel} deve essere da 0 a 100 %.",
-          "calibration": "La calibrazione del canale {channel} non è utilizzabile. Calibra di nuovo.",
+          "absent": "Il canale {channel} legge un canale del gamepad che questo gamepad non ha.",
           "pulse": "Un impulso del canale {channel} deve essere un numero intero da 800 a 2200 µs.",
-          "uncalibrated": "L'assegnazione non è stata calibrata. Calibrala prima di usare il controllo remoto."
+          "unconfirmed": "L'assegnazione non è confermata. Guardala e premi «Conferma questa assegnazione»."
         },
         "vehicle": {
           "unknownAll": "Le impostazioni del veicolo non sono tutte note. Collega il veicolo e lascia scaricare tutti i suoi parametri.",
           "unknown": "Il veicolo non ha comunicato un'impostazione di cui il canale {channel} ha bisogno. Scarica di nuovo i parametri.",
           "range": "L'intervallo degli impulsi del canale {channel} sul veicolo non è utilizzabile.",
           "arm": "Il canale {channel} arma o ferma il veicolo. Rimuovi quella riga.",
-          "zone": "La zona morta del gas del veicolo è ampia, quindi «basso» è più largo del solito."
+          "zone": "La zona morta del gas del veicolo è ampia, quindi «basso» è più largo del solito.",
+          "centre": "La zona morta della riga del gas deve essere almeno del 5 % con un gas centrato."
         }
       }
     },

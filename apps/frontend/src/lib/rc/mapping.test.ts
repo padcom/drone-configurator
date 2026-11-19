@@ -1,276 +1,134 @@
+// The mapping math: a pad channel from -1 to 1 (nothing calibrated), the dead zone, the curve and the pulse of a channel; the 16
+// pulses of a profile.
 import { describe, expect, it } from 'vitest'
-import { problemsOf } from './profile'
-import {
-  applyDeadZone,
-  applyExpo,
-  buttonPulse,
-  channelsOf,
-  normalise,
-  rangeOk,
-  sendable,
-  sendableOr,
-  stickPulse,
-  switchPulse,
-  toPulse,
-} from './mapping'
-import {
-  type ButtonRow,
-  DEFAULT_CALIBRATION,
-  DEFAULT_RANGE,
-  NOT_MINE,
-  NO_SOURCE,
-  type Profile,
-  type PulseRange,
-  type StickRow,
-  type SwitchRow,
-} from './types'
+import { applyDeadZone, applyExpo, channelsOf, levelOf, normalise, rangeOk, rowPulse, sendableOr, toPulse } from './mapping'
+import { newRow } from './suggest'
+import { DEFAULT_RANGE, NOT_MINE, type Profile, type PulseRange, type Row } from './types'
+import { plain, sample } from '@/testing/rcSamples'
 
-const STICK: StickRow = {
-  kind: 'stick', channel: 1, axis: 0, invert: false, calibration: DEFAULT_CALIBRATION, deadZone: 0, expo: 0,
-}
-const SWITCH: SwitchRow = { kind: 'switch', channel: 5, axis: 5, invert: false, pulses: [1000, 1500, 2000] }
-const BUTTON: ButtonRow = { kind: 'button', channel: 6, button: 2, off: 1000, on: 2000 }
-const pad = (axes: number[], buttons: number[] = []) => ({ axes, buttons })
-
-describe('an axis made a number from -1 to 1', () => {
-  it('is 0 at rest and 1 or -1 at the ends it was calibrated at, whatever the ends are', () => {
-    const cal = { min: -0.9, center: 0.1, max: 0.6 }
-
-    expect(normalise(0.1, cal)).toBe(0)
-    expect(normalise(0.6, cal)).toBe(1)
-    expect(normalise(-0.9, cal)).toBe(-1)
-    expect(normalise(0.35, cal)).toBeCloseTo(0.5)
-    expect(normalise(-0.4, cal)).toBeCloseTo(-0.5)
+describe('a pad channel as a number from -1 to 1', () => {
+  it('is what the device says, held to -1 and 1: nothing is calibrated', () => {
+    expect([-1, -0.25, 0, 0.5, 1].map(normalise)).toEqual([-1, -0.25, 0, 0.5, 1])
+    expect([-3, 2, Infinity, -Infinity].map(normalise)).toEqual([-1, 1, 0, 0])
+    expect(normalise(Number.NaN)).toBe(0)
   })
 
-  it('does not go past 1 and -1, and is 0 for an axis that was never calibrated or a reading that is not a number', () => {
-    expect(normalise(3, DEFAULT_CALIBRATION)).toBe(1)
-    expect(normalise(-3, DEFAULT_CALIBRATION)).toBe(-1)
-    expect(normalise(0.5, { min: 0, center: 0, max: 0 })).toBe(0)
-    expect(normalise(Number.NaN, DEFAULT_CALIBRATION)).toBe(0)
+  it('is turned by inversion', () => {
+    expect(levelOf(plain(1, { invert: true }), sample(0.4))).toBe(-0.4)
+  })
+
+  it('is null for a row with no source, a channel the pad has not, or a reading that is not a number', () => {
+    expect(levelOf(plain(0), sample(0.4))).toBeNull()
+    expect(levelOf(plain(2), sample(0.4))).toBeNull()
+    expect(levelOf(plain(1), sample(Number.NaN))).toBeNull()
   })
 })
 
 describe('the dead zone and the curve', () => {
-  it('has nothing in the dead zone and the whole range outside it', () => {
-    expect(applyDeadZone(0.05, 0.1)).toBe(0)
-    expect(applyDeadZone(-0.1, 0.1)).toBe(0)
-    expect(applyDeadZone(1, 0.1)).toBe(1)
-    expect(applyDeadZone(-1, 0.1)).toBe(-1)
-    expect(applyDeadZone(0.55, 0.1)).toBeCloseTo(0.5)
+  it('takes the zone out of the middle and stretches the rest to the ends', () => {
+    const stretched = [0, 0.05, -0.1, 0.55, 1, -1].map(value => applyDeadZone(value, 0.1))
+
+    expect(stretched.map(value => Math.round(value * 1e9) / 1e9)).toEqual([0, 0, 0, 0.5, 1, -1])
   })
 
-  it('is a line with no expo, a cube with all of it, and the same at the ends and the middle', () => {
+  it('is a line at 0 and a cube at 1, the same at the ends', () => {
     expect(applyExpo(0.5, 0)).toBe(0.5)
-    expect(applyExpo(0.5, 1)).toBeCloseTo(0.125)
-    expect(applyExpo(1, 0.7)).toBeCloseTo(1)
-    expect(applyExpo(-1, 0.7)).toBeCloseTo(-1)
-    expect(applyExpo(0, 0.7)).toBe(0)
+    expect(applyExpo(0.5, 1)).toBe(0.125)
+    expect([applyExpo(1, 0.5), applyExpo(-1, 0.5)]).toEqual([1, -1])
   })
 })
 
-describe('a value made the pulse of a channel', () => {
-  it('is the minimum, the trim and the maximum of the vehicle at -1, 0 and 1, whatever they are', () => {
-    const range = { min: 1100, trim: 1400, max: 1900 }
+describe('a pulse through the range of its channel', () => {
+  it('is the minimum at -1, the trim at 0 and the maximum at 1, with a slope on each side', () => {
+    const range: PulseRange = { min: 1100, trim: 1400, max: 1900 }
 
-    expect(toPulse(-1, range)).toBe(1100)
-    expect(toPulse(0, range)).toBe(1400)
-    expect(toPulse(1, range)).toBe(1900)
-    expect(toPulse(0.5, range)).toBe(1650)
-    expect(toPulse(-0.5, range)).toBe(1250)
+    expect([-1, -0.5, 0, 0.5, 1].map(value => toPulse(value, range))).toEqual([1100, 1250, 1400, 1650, 1900])
   })
 
-  it('never goes outside what the backend takes', () => {
-    expect(toPulse(1, { min: 500, trim: 1500, max: 3000 })).toBe(2200)
-    expect(toPulse(-1, { min: 500, trim: 1500, max: 3000 })).toBe(800)
-  })
-})
+  it('is a row\'s own ends when it has them: a line from the pulse at -1 to the pulse at 1', () => {
+    const row = plain(1, { pulseMin: 1000, pulseMax: 2000 })
 
-describe('a stick', () => {
-  it('goes to the ends of the channel and rests at its trim', () => {
-    expect(stickPulse(STICK, pad([-1]), DEFAULT_RANGE)).toBe(1000)
-    expect(stickPulse(STICK, pad([0]), DEFAULT_RANGE)).toBe(1500)
-    expect(stickPulse(STICK, pad([1]), DEFAULT_RANGE)).toBe(2000)
+    expect([-1, 0, 1].map(value => rowPulse(row, sample(value), DEFAULT_RANGE))).toEqual([1000, 1500, 2000])
+    expect(rowPulse(plain(1, { pulseMin: 1200, pulseMax: 1800 }), sample(0.5), DEFAULT_RANGE)).toBe(1650)
   })
 
-  it('is turned by inversion, also when its ends are not the same distance from its middle', () => {
-    const lopsided: StickRow = { ...STICK, invert: true, calibration: { min: -0.5, center: 0, max: 1 } }
-
-    expect(stickPulse({ ...STICK, invert: true }, pad([1]), DEFAULT_RANGE)).toBe(1000)
-    expect(stickPulse(lopsided, pad([1]), DEFAULT_RANGE)).toBe(1000)
-    expect(stickPulse(lopsided, pad([-0.5]), DEFAULT_RANGE)).toBe(2000)
+  it('is the radio\'s own for what the pad does not have, and for a row with no source', () => {
+    expect(rowPulse(plain(5), sample(1), DEFAULT_RANGE)).toBe(NOT_MINE)
+    expect(rowPulse(plain(0), sample(1), DEFAULT_RANGE)).toBe(NOT_MINE)
   })
 
-  it('has its dead zone and its expo', () => {
-    const soft: StickRow = { ...STICK, deadZone: 0.1, expo: 1 }
+  it('is a straight line from RCn_MIN to RCn_MAX for a range whose trim is in the middle (the throttle, either style)', () => {
+    const range: PulseRange = { min: 1000, trim: 1500, max: 2000 }
 
-    expect(stickPulse(soft, pad([0.05]), DEFAULT_RANGE)).toBe(1500)
-    expect(stickPulse(soft, pad([0.55]), DEFAULT_RANGE)).toBe(1563)
+    expect([-1, 0, 1].map(value => rowPulse(plain(1), sample(value), range))).toEqual([1000, 1500, 2000])
   })
 
-  it('is the radio\'s own for an axis the pad does not have', () => {
-    expect(stickPulse({ ...STICK, axis: 9 }, pad([1]), DEFAULT_RANGE)).toBe(NOT_MINE)
+  it('has a dead zone that is exactly the middle pulse, and the rest stretched to the ends', () => {
+    const row = plain(1, { deadZone: 0.1 })
+
+    expect([0.09, -0.09, 0.55, 1].map(value => rowPulse(row, sample(value), DEFAULT_RANGE))).toEqual([1500, 1500, 1750, 2000])
   })
 })
 
-// How a stick position becomes a pulse through a range: a stick level of -1, 0 and 1 is the range's min, trim and max, with a
-// straight line between each two (a slope on each side of the trim). That is right for roll, pitch and yaw, whose centre is the
-// trim. The throttle of ArduCopter does not use the trim at all (`RC_Channel::pwm_to_range`: a straight line from RCn_MIN, plus
-// the dead zone, to RCn_MAX), and a receiver calibration often sets RC3_TRIM at the bottom: through such a range the lower half
-// of the stick would give nothing. So the throttle is never given the vehicle's trim: `vehicleChannels` centres it (see
-// vehicle.test.ts).
-const THROTTLE: StickRow = { ...STICK, channel: 3, axis: 2 }
-const LEVELS = [-1, -0.5, 0, 0.5, 1]
-const travel = (range: PulseRange): number[] => LEVELS.map(level => stickPulse(THROTTLE, pad([0, 0, level]), range))
-
-describe('the throttle through a range whose trim is in the middle', () => {
-  it('is a straight line from 1000 to 2000 with the SITL defaults (RC3_MIN 1000, RC3_TRIM 1500, RC3_MAX 2000)', () => {
-    expect(travel({ min: 1000, trim: 1500, max: 2000 })).toEqual([1000, 1250, 1500, 1750, 2000])
-  })
-
-  it('is the same slope on both sides of a trim that is in the middle of its range, whatever the range', () => {
-    expect(travel({ min: 1100, trim: 1500, max: 1900 })).toEqual([1100, 1300, 1500, 1700, 1900])
-  })
+const profile = (rows: Row[], confirmedKey: string | null = 'k'): Profile => ({
+  device: 'pad',
+  rows,
+  throttleStyle: 'low',
+  confirmedKey,
 })
+const own = () => DEFAULT_RANGE
 
-describe('the throttle through a range whose trim is at an end', () => {
-  it('has the lower half of the travel dead, and the upper half twice as steep, when the trim is at the minimum', () => {
-    // RC3_TRIM = RC3_MIN, as a calibration with the throttle stick at the bottom leaves it: the stick's lower half is all 1000
-    // and its upper half covers the whole range; the stick's middle is 1000, which the vehicle's own throttle would have at 1500
-    expect(travel({ min: 1000, trim: 1000, max: 2000 })).toEqual([1000, 1000, 1000, 1500, 2000])
-    expect(stickPulse(THROTTLE, pad([0, 0, 0.25]), { min: 1000, trim: 1000, max: 2000 })).toBe(1250)
-  })
-
-  it('has the upper half dead when the trim is at the maximum', () => {
-    expect(travel({ min: 1000, trim: 2000, max: 2000 })).toEqual([1000, 1500, 2000, 2000, 2000])
-  })
-})
-
-describe('roll, pitch and yaw through a range', () => {
-  it('are the minimum, the trim and the maximum at -1, 0 and 1, with a slope on each side', () => {
-    const roll: StickRow = { ...STICK, channel: 1, axis: 0 }
-    const range: PulseRange = { min: 1100, trim: 1520, max: 1900 }
-
-    expect([-1, 0, 1].map(level => stickPulse(roll, pad([level]), range))).toEqual([1100, 1520, 1900])
-    expect(stickPulse(roll, pad([0.5]), range)).toBe(1710)
-    expect(stickPulse(roll, pad([-0.5]), range)).toBe(1310)
-  })
-})
-
-describe('a switch and a button', () => {
-  it('give the pulse of the third of the travel the axis is in, and turn when inverted', () => {
-    expect(switchPulse(SWITCH, pad([0, 0, 0, 0, 0, -1]))).toBe(1000)
-    expect(switchPulse(SWITCH, pad([0, 0, 0, 0, 0, 0]))).toBe(1500)
-    expect(switchPulse(SWITCH, pad([0, 0, 0, 0, 0, 1]))).toBe(2000)
-    expect(switchPulse({ ...SWITCH, invert: true }, pad([0, 0, 0, 0, 0, 1]))).toBe(1000)
-  })
-
-  it('give the radio\'s own for what the pad does not have', () => {
-    expect(switchPulse({ ...SWITCH, axis: 9 }, pad([0]))).toBe(NOT_MINE)
-    expect(buttonPulse(BUTTON, pad([], [0, 0]))).toBe(NOT_MINE)
-  })
-
-  it('give the radio\'s own for a row with no control, whatever every axis and button of the pad says', () => {
-    const everything = pad([1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1])
-
-    expect(switchPulse({ ...SWITCH, axis: NO_SOURCE }, everything)).toBe(NOT_MINE)
-    expect(buttonPulse({ ...BUTTON, button: NO_SOURCE }, everything)).toBe(NOT_MINE)
-    expect(stickPulse({ ...STICK, axis: NO_SOURCE }, everything, DEFAULT_RANGE)).toBe(NOT_MINE)
-  })
-
-  it('give the off pulse up and the on pulse pressed', () => {
-    expect(buttonPulse(BUTTON, pad([], [0, 0, 0]))).toBe(1000)
-    expect(buttonPulse(BUTTON, pad([], [0, 0, 1]))).toBe(2000)
-  })
-})
-
-describe('what an override can carry', () => {
-  it('is the radio\'s own or a whole number of 800 to 2200', () => {
-    expect([0, 800, 1500, 2200].every(sendable)).toBe(true)
-    expect([799, 2201, 3000, 1500.5, Number.NaN, Number.POSITIVE_INFINITY, -1].some(sendable)).toBe(false)
-    expect(sendableOr(3000)).toBe(NOT_MINE)
-    expect(sendableOr(1500)).toBe(1500)
-  })
-
-  it('is a range with numbers in the order min, trim, max, inside 800 to 2200', () => {
-    expect(rangeOk(DEFAULT_RANGE)).toBe(true)
-    expect(rangeOk({ min: 1100, trim: 1100, max: 1900 })).toBe(true)
-    expect(rangeOk({ min: 2000, trim: 1500, max: 1000 })).toBe(false)
-    expect(rangeOk({ min: 1000, trim: 900, max: 2000 })).toBe(false)
-    expect(rangeOk({ min: 1500, trim: 1500, max: 1500 })).toBe(false)
-    expect(rangeOk({ min: 500, trim: 1500, max: 2000 })).toBe(false)
-    expect(rangeOk({ min: 1000, trim: Number.NaN, max: 2000 })).toBe(false)
-    expect(rangeOk({ min: 1000, trim: 1500, max: Number.NaN })).toBe(false)
-  })
-})
-
-describe('the 16 channels of a profile', () => {
-  const profile: Profile = { device: 'pad', rows: [STICK, { ...STICK, channel: 3, axis: 1 }, SWITCH, BUTTON], calibrated: true }
-  const range = () => DEFAULT_RANGE
-
+describe('the 16 pulses of a profile', () => {
   it('are the pulses of the rows, and the radio\'s own for every channel no row drives', () => {
-    const pulses = channelsOf(profile, pad([1, -1, 0, 0, 0, 1], [0, 0, 1]), range)
+    const pulses = channelsOf(profile([newRow(1, 1), newRow(4, 2)]), sample(1, -1), own)
 
-    expect(pulses).toHaveLength(16)
-    expect(pulses.slice(0, 6)).toEqual([2000, NOT_MINE, 1000, NOT_MINE, 2000, 2000])
-    expect(pulses.slice(6)).toEqual(Array.from({ length: 10 }, () => NOT_MINE))
+    expect(pulses).toEqual([2000, 0, 0, 1000, ...Array.from({ length: 12 }, () => 0)])
   })
 
   it('take the range of each channel from the vehicle', () => {
-    const short = { min: 1100, trim: 1500, max: 1900 }
-    const pulses = channelsOf(profile, pad([1, 1, 0, 0, 0, 0], [0, 0, 0]), channel => (channel === 3 ? short : DEFAULT_RANGE))
+    const range = (channel: number) => (channel === 1 ? DEFAULT_RANGE : { min: 1100, trim: 1500, max: 1900 })
+    const pulses = channelsOf(profile([newRow(1, 1), newRow(2, 1)]), sample(1), range)
 
-    expect(pulses[0]).toBe(2000)
-    expect(pulses[2]).toBe(1900)
+    expect(pulses.slice(0, 2)).toEqual([2000, 1900])
+  })
+
+  it('drive nothing for a mapping that was never confirmed, whatever it says', () => {
+    expect(channelsOf(profile([newRow(1, 1)], null), sample(1), own).every(pulse => pulse === NOT_MINE)).toBe(true)
   })
 })
 
-/**
- * The 16 pulses of a calibrated profile of these rows, read with every axis and button at its end.
- *
- * @param rows the rows
- * @param range the range of a channel
- * @returns the pulses
- */
-function atTheEnds(rows: Profile['rows'], range: () => PulseRange = () => DEFAULT_RANGE): number[] {
-  return channelsOf({ device: 'pad', rows, calibrated: true }, pad([1, 1, 1, 1, 1, 1], [1, 1, 1]), range)
-}
+describe('the 16 pulses of a profile that is wrong', () => {
+  it('skip a row on a channel that is not one of the 16, and leave a good row beside it alone', () => {
+    const pulses = channelsOf(profile([newRow(17, 1), newRow(0, 1), newRow(2, 1)]), sample(1), own)
 
-describe('a mapping that is wrong', () => {
-  it('never carries what is not a pulse: a dead zone or an expo that is not a number, a switch or a button at 3000 µs', () => {
-    expect(atTheEnds([{ ...STICK, deadZone: Number.NaN }])[0]).toBe(NOT_MINE)
-    expect(atTheEnds([{ ...STICK, expo: Number.NaN }])[0]).toBe(NOT_MINE)
-    expect(atTheEnds([{ ...SWITCH, pulses: [1000, 1500, 3000] }])[4]).toBe(NOT_MINE)
-    expect(atTheEnds([{ ...BUTTON, on: 3000 }])[5]).toBe(NOT_MINE)
+    expect(pulses.length).toBe(16)
+    expect(pulses[1]).toBe(2000)
   })
 
-  it('never carries a pulse of a range that is upside down or not numbers', () => {
-    expect(atTheEnds([STICK], () => ({ min: 2000, trim: 1500, max: 1000 }))[0]).toBe(NOT_MINE)
-    expect(atTheEnds([STICK], () => ({ min: 1000, trim: Number.NaN, max: 2000 }))[0]).toBe(NOT_MINE)
+  it('never carry what is not a pulse: a range that is upside down', () => {
+    const upside: PulseRange = { min: 1900, trim: 1500, max: 1100 }
+
+    expect(channelsOf(profile([newRow(1, 1)]), sample(1), () => upside)[0]).toBe(NOT_MINE)
+  })
+
+  it('never carry what is not a pulse: ends of 3000 µs, a zone that is not a number', () => {
+    const wide = plain(1, { channel: 1, pulseMin: 1000, pulseMax: 3000 })
+    const nan = plain(1, { channel: 1, deadZone: Number.NaN })
+
+    expect(channelsOf(profile([wide]), sample(1), own)[0]).toBe(NOT_MINE)
+    expect(channelsOf(profile([nan]), sample(0.5), own)[0]).toBe(NOT_MINE)
   })
 })
 
-describe('a mapping with a row that is not on a channel', () => {
-  it('skips a row on a channel that is not one of the 16, and never makes the list longer than 16', () => {
-    const wrong = [17, 0, 2.5, -1].map(channel => ({ ...STICK, channel }))
-    const rows = [...wrong, SWITCH]
-    const out = atTheEnds(rows)
-    const problems = problemsOf({ device: 'pad', rows, calibrated: true }).map(problem => problem.code)
-
-    expect(out).toHaveLength(16)
-    expect(out[4]).toBe(2000)
-    expect(out.filter(pulse => pulse !== NOT_MINE)).toEqual([2000])
-    expect(problems).toEqual(['channel', 'channel', 'channel', 'channel'])
+describe('what a pulse and a range may be', () => {
+  it('sends a pulse an override carries, and else the radio\'s own', () => {
+    expect([0, 800, 1500, 2200].map(sendableOr)).toEqual([0, 800, 1500, 2200])
+    expect([799, 2201, 1500.5, Number.NaN].map(sendableOr)).toEqual([0, 0, 0, 0])
   })
 
-  it('drives nothing for a mapping the wizard has not been through, whatever it says', () => {
-    const profile: Profile = { device: 'pad', rows: [STICK, SWITCH], calibrated: false }
-    const out = channelsOf(profile, pad([1, 1, 1, 1, 1, 1]), () => DEFAULT_RANGE)
-
-    expect(out).toEqual(Array.from({ length: 16 }, () => NOT_MINE))
-  })
-
-  it('leaves a good row beside a wrong one alone', () => {
-    expect(atTheEnds([{ ...STICK, deadZone: Number.NaN }, SWITCH])[4]).toBe(2000)
+  it('uses a range in the order min, trim, max with pulses that an override carries', () => {
+    expect(rangeOk(DEFAULT_RANGE)).toBe(true)
+    expect(rangeOk({ min: 1500, trim: 1000, max: 2000 })).toBe(false)
+    expect(rangeOk({ min: 500, trim: 1500, max: 2000 })).toBe(false)
   })
 })

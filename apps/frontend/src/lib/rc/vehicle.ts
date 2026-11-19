@@ -4,6 +4,7 @@
 // the vehicle, or whose control channels are not known, may not be used. Values come from ArduPilot's source (RC_Channel.h).
 import { DEFAULT_RANGE, type PulseRange, type VehicleChannels } from './types'
 import { rangeOk, validChannel } from './mapping'
+import { MIN_CENTRED_ZONE } from './rest'
 import type { Profile } from './types'
 
 /** The `RCn_OPTION` values that arm, disarm, stop the motors or interlock them (ESTOP, INTERLOCK, DISARM, ARMDISARM). */
@@ -36,9 +37,10 @@ export interface VehicleProblem {
   /**
    * `unknown` (the parameter list is not whole, or a value the mapping needs is not there: channel 0 for the whole list),
    * `range` (a stick channel whose range is not usable), `arm` (a row on a channel
-   * that arms or disarms), `zone` (the throttle's dead zone is wide: a warning).
+   * that arms or disarms), `zone` (the throttle's dead zone is wide: a warning), `centre` (a centred throttle's row has a dead
+   * zone under `MIN_CENTRED_ZONE`: nobody finds the middle of a stick that is a point).
    */
-  code: 'unknown' | 'range' | 'arm' | 'zone'
+  code: 'unknown' | 'range' | 'arm' | 'zone' | 'centre'
   /** The channel, or 0 for the vehicle as a whole. */
   channel: number
   /** Whether it stops the control (a warning does not). */
@@ -235,6 +237,20 @@ function zoneProblems(facts: Facts): VehicleProblem[] {
 }
 
 /**
+ * A centred throttle's row must have a dead zone of at least `MIN_CENTRED_ZONE`, so that the middle of the stick is a place a
+ * thumb finds and the pulse there is exactly the middle of the range.
+ *
+ * @param facts what the vehicle says
+ * @param profile the mapping
+ * @returns the problem, or nothing
+ */
+function centreProblems(facts: Facts, profile: Profile): VehicleProblem[] {
+  const row = profile.rows.find(candidate => candidate.channel === facts.map.throttle)
+
+  return row !== undefined && row.deadZone < MIN_CENTRED_ZONE ? [{ code: 'centre', channel: row.channel, blocks: true }] : []
+}
+
+/**
  * What is wrong with a mapping and the vehicle together: the parameters, a range that cannot be used, a row on a channel that
  * arms or disarms the vehicle, and (a warning) a throttle dead zone so wide that "low" is wider than a plain tenth of its range.
  *
@@ -247,5 +263,12 @@ export function vehicleProblems(facts: Facts | null, profile: Profile): VehicleP
     return [{ code: 'unknown', channel: 0, blocks: true }]
   }
 
-  return [...rangeProblems(facts), ...missingProblems(facts, profile), ...armProblems(facts, profile), ...zoneProblems(facts)]
+  const centred = profile.throttleStyle === 'centred'
+
+  return [
+    ...rangeProblems(facts),
+    ...missingProblems(facts, profile),
+    ...armProblems(facts, profile),
+    ...(centred ? centreProblems(facts, profile) : zoneProblems(facts)),
+  ]
 }

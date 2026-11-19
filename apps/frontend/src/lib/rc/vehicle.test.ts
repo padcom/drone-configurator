@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { REST_READS } from './rest'
 import { type Gate, START_GATE, guard, isLow } from './safety'
-import { suggestedProfile } from './suggest'
+import { newRow, suggestedProfile } from './suggest'
 import { ARM_FUNCTIONS, type Facts, type ParamValue, factsOf, vehicleChannels, vehicleProblems } from './vehicle'
 import { channelsOf, rangeOk } from './mapping'
-import { DEFAULT_CALIBRATION, DEFAULT_RANGE, NOT_MINE, type Profile, type PulseRange, type StickRow } from './types'
+import { DEFAULT_RANGE, NOT_MINE, type Profile, type PulseRange, type Row } from './types'
+import { sample } from '@/testing/rcSamples'
 
 /**
  * The parameters of a vehicle with the sticks on channels 1 to 4 and a range, a dead zone and a function for each channel.
@@ -107,10 +109,10 @@ describe('what is wrong with a mapping and the vehicle together', () => {
 })
 
 describe('what the vehicle says of the functions of its channels', () => {
-  const profile = suggestedProfile('pad', null)
+  const profile: Profile = { ...suggestedProfile('pad', null), throttleStyle: 'low' }
 
   it('is a row on a channel that arms, disarms or stops the motors, and no other function', () => {
-    const aSwitch = { kind: 'switch' as const, channel: 5, axis: 5, invert: false, pulses: [1000, 1500, 2000] as const }
+    const aSwitch = newRow(5, 6)
     const withArm = { ...profile, rows: [...profile.rows, aSwitch] }
 
     expect(ARM_FUNCTIONS).toEqual([31, 32, 81, 153, 154, 165])
@@ -125,11 +127,32 @@ describe('what the vehicle says of the functions of its channels', () => {
     expect(vehicleProblems(facts([{ id: 'RC9_OPTION', value: 153 }]), withArm)).toEqual([])
   })
 
-  it('is a warning, not a stop, when the throttle dead zone is wider than the plain "low"', () => {
+  it('is a warning, not a stop, when the throttle dead zone is wider than the plain "low" (a throttle that rests low)', () => {
     const wide = facts([{ id: 'RC3_DZ', value: 100 }])
 
     expect(vehicleProblems(wide, profile)).toEqual([{ code: 'zone', channel: 3, blocks: false }])
     expect(vehicleProblems(facts([{ id: 'RC3_DZ', value: 30 }]), profile)).toEqual([])
+  })
+})
+
+describe('what the vehicle says of a centred throttle', () => {
+  const zoned = (zone: number): Profile => {
+    const rows = suggestedProfile('pad', null).rows.map(row => (row.channel === 3 ? { ...row, deadZone: zone } : row))
+
+    return { ...suggestedProfile('pad', null), throttleStyle: 'centred', rows }
+  }
+
+  it('is no warning about "low" for a centred throttle: its middle is a place, not the bottom', () => {
+    expect(vehicleProblems(facts([{ id: 'RC3_DZ', value: 100 }]), zoned(0.08))).toEqual([])
+  })
+
+  it('is a stop for a row with a dead zone under 5 %: nobody finds the middle of a point', () => {
+    expect(vehicleProblems(facts(), zoned(0.04))).toEqual([{ code: 'centre', channel: 3, blocks: true }])
+    expect(vehicleProblems(facts(), zoned(0.05))).toEqual([])
+  })
+
+  it('has no such rule for a throttle that rests low', () => {
+    expect(vehicleProblems(facts(), { ...zoned(0.04), throttleStyle: 'low' })).toEqual([])
   })
 })
 
@@ -150,16 +173,21 @@ describe('"low" for the throttle gate with a dead zone', () => {
     const said = facts([{ id: 'RC3_DZ', value: 100 }])
     const channels = [1500, 1500, 1290, 1500, ...Array.from({ length: 12 }, () => NOT_MINE)]
     const read = (before: Gate): Gate => guard(channels, vehicleChannels(said), before).gate
-    const gate = Array.from({ length: 5 }).reduce<Gate>(before => read(before), START_GATE)
+    const gate = Array.from({ length: REST_READS }).reduce<Gate>(before => read(before), START_GATE)
 
     expect(gate.open).toBe(true)
   })
 })
 
-const stick = (channel: number, axis: number): StickRow => ({
-  kind: 'stick', channel, axis, invert: false, calibration: DEFAULT_CALIBRATION, deadZone: 0, expo: 0,
-})
-const PROFILE: Profile = { device: 'pad', calibrated: true, rows: [stick(1, 0), stick(2, 1), stick(3, 2), stick(4, 3)] }
+// (a row on a pad channel with no dead zone and no curve)
+const stick = (channel: number, source: number): Row => newRow(channel, source)
+const PROFILE: Profile = {
+  device: 'pad',
+  throttleStyle: 'low',
+  confirmedKey: 'k',
+  rows: [stick(1, 1), stick(2, 2), stick(3, 3), stick(4, 4)],
+}
+const sampleOf = sample
 
 /**
  * The pulse of channel 3 (the throttle) of a profile for a stick level, through the ranges the vehicle says.
@@ -170,7 +198,7 @@ const PROFILE: Profile = { device: 'pad', calibrated: true, rows: [stick(1, 0), 
  * @returns the pulse, or the radio's own
  */
 function throttlePulse(profile: Profile, level: number, said: Facts): number {
-  return channelsOf(profile, { axes: [0, 0, level, 0], buttons: [] }, vehicleChannels(said).range)[2] ?? NOT_MINE
+  return channelsOf(profile, sampleOf(0, 0, level, 0), vehicleChannels(said).range)[2] ?? NOT_MINE
 }
 
 /**
@@ -219,8 +247,8 @@ describe('the throttle for a vehicle whose range is not known or not usable', ()
 
 describe('the throttle can never go under the minimum, and a reading that is not a number is never sent', () => {
   const said = facts(ends(1100, 1100, 1900))
-  const row: StickRow = { ...stick(3, 2), deadZone: 0.4, expo: 0.7 }
-  const soft: Profile = { device: 'pad', calibrated: true, rows: [row] }
+  const row: Row = { ...stick(3, 3), deadZone: 0.4, expo: 0.7 }
+  const soft: Profile = { device: 'pad', throttleStyle: 'low', confirmedKey: 'k', rows: [row] }
 
   it('stays within RCn_MIN and RCn_MAX, with a dead zone and an expo', () => {
     const pulses = [-1, -0.99, -0.3, 0, 0.3, 1].map(level => throttlePulse(soft, level, said))
@@ -255,7 +283,7 @@ describe('the other sticks are not changed', () => {
  */
 function gateAfter(level: number, trim: number, reads: number): Gate {
   const channels = vehicleChannels(facts(ends(1000, trim, 2000)))
-  const row = (): number[] => channelsOf(PROFILE, { axes: [0, 0, level, 0], buttons: [] }, channels.range)
+  const row = (): number[] => channelsOf(PROFILE, sampleOf(0, 0, level, 0), channels.range)
 
   return Array.from({ length: reads }).reduce<Gate>(before => guard(row(), channels, before).gate, START_GATE)
 }
@@ -279,8 +307,9 @@ function throttleOnFive(trim3: number, trim5: number): Facts {
 
 const ON_FIVE: Profile = {
   device: 'pad',
-  calibrated: true,
-  rows: [stick(1, 0), stick(2, 1), stick(5, 2), stick(4, 3), stick(3, 4)],
+  throttleStyle: 'low',
+  confirmedKey: 'k',
+  rows: [stick(1, 1), stick(2, 2), stick(5, 3), stick(4, 4), stick(3, 5)],
 }
 
 /**
@@ -292,9 +321,7 @@ const ON_FIVE: Profile = {
  * @returns the pulse
  */
 function pulseOn(channel: number, level: number, said: Facts): number {
-  const axes = [0, 0, level, 0, level]
-
-  return channelsOf(ON_FIVE, { axes, buttons: [] }, vehicleChannels(said).range)[channel - 1] ?? NOT_MINE
+  return channelsOf(ON_FIVE, sampleOf(0, 0, level, 0, level), vehicleChannels(said).range)[channel - 1] ?? NOT_MINE
 }
 
 describe('the throttle is the channel the vehicle says, not channel 3', () => {
@@ -318,11 +345,9 @@ describe('the throttle is the channel the vehicle says, not channel 3', () => {
   it('has the gate follow the throttle on channel 5, not on channel 3', () => {
     const said = throttleOnFive(1000, 1000)
     const channels = vehicleChannels(said)
-    const reads = (level: number): Gate => Array.from({ length: 20 }).reduce<Gate>(before => {
-      const axes = [0, 0, level, 0, 0]
-
-      return guard(channelsOf(ON_FIVE, { axes, buttons: [] }, channels.range), channels, before).gate
-    }, START_GATE)
+    const reads = (level: number): Gate => Array.from({ length: 20 }).reduce<Gate>(before => (
+      guard(channelsOf(ON_FIVE, sampleOf(0, 0, level, 0, 0), channels.range), channels, before).gate
+    ), START_GATE)
 
     expect(channels.throttle).toBe(5)
     expect(reads(0).open).toBe(false)
@@ -340,8 +365,8 @@ describe('the throttle gate still means the stick is at the bottom, whatever the
 
   it('opens with the stick at the bottom, with the trim anywhere, after the usual reads in a row', () => {
     for (const trim of [1000, 1500, 2000]) {
-      expect(gateAfter(-1, trim, 4).open).toBe(false)
-      expect(gateAfter(-1, trim, 5).open).toBe(true)
+      expect(gateAfter(-1, trim, REST_READS - 1).open).toBe(false)
+      expect(gateAfter(-1, trim, REST_READS).open).toBe(true)
     }
   })
 })

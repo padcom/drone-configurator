@@ -4,8 +4,16 @@
 import { type ComputedRef, computed, shallowRef } from 'vue'
 import { useConfigurator } from './useConfigurator'
 import type { SettingsModel } from './useSettings'
-import { RC_ALLOW_KEY, RC_RUDDER_ARM_KEY, parseAllow, parseProfile, profileKey, serialiseProfile } from '@/lib/rc/store'
-import type { Profile } from '@/lib/rc/types'
+import {
+  RC_ALLOW_KEY,
+  RC_RUDDER_ARM_KEY,
+  type StoredProfile,
+  parseAllow,
+  profileKey,
+  readProfile,
+  serialiseProfile,
+} from '@/lib/rc/store'
+import type { PadLayout, Profile } from '@/lib/rc/types'
 
 /** The settings of the RC control, as refs and actions. */
 export interface RcSettings {
@@ -20,8 +28,11 @@ export interface RcSettings {
   rudderArm: ComputedRef<boolean>
   /** Lets the sticks arm and disarm, or not. */
   setRudderArm: (on: boolean) => Promise<void>
-  /** The mapping kept for a device, or null. */
-  profileOf: (device: string) => Profile | null
+  /**
+   * The mapping kept for a device (one of the first version is converted on reading, which needs what the pad's channels are), or
+   * null.
+   */
+  profileOf: (device: string, layout: PadLayout | null) => StoredProfile | null
   /** Keeps the mapping of a device. */
   save: (profile: Profile) => Promise<void>
 }
@@ -71,7 +82,9 @@ export function useRcSettings(settings: SettingsModel = useConfigurator().settin
       await settings.setUi(RC_RUDDER_ARM_KEY, on ? 'on' : 'off')
       localRudder.value = null
     },
-    profileOf: (device: string): Profile | null => parseProfile(settings.uiValue(profileKey(device)), device),
+    profileOf: (device: string, layout: PadLayout | null): StoredProfile | null => (
+      readProfile(settings.uiValue(profileKey(device)), device, layout)
+    ),
     save: (profile: Profile): Promise<void> => settings.setUi(profileKey(profile.device), serialiseProfile(profile)),
   }
 }
