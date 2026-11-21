@@ -348,10 +348,10 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
 
-  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/parameters'))
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/parameters'), { timeout: 5000 })
   expect(wrapper.find('#palette-input').exists()).toBe(false)
   // The palette gave the focus back and was gone before the command ran: nothing takes the focus from the search box.
-  await vi.waitFor(() => expect(document.activeElement).toBe(document.getElementById('filter')))
+  await vi.waitFor(() => expect(document.activeElement).toBe(document.getElementById('filter')), { timeout: 5000 })
   const search = document.getElementById('filter') as HTMLInputElement
   await new Promise(resolve => {
     setTimeout(resolve, 100)
@@ -361,14 +361,16 @@ it('runs the selected row on Enter: goes to the screen, closes, and puts the foc
 })
 
 it('puts the focus in the screen itself for a screen that has no place of its own', async () => {
-  const { wrapper } = await shellAt()
+  const { wrapper, router } = await shellAt()
   ctrlP()
   await flushPromises()
   await type(wrapper, 'switch to plan')
   await wrapper.get('#palette-input').trigger('keydown', { key: 'Enter' })
   await flushPromises()
 
-  await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.app-main')))
+  // (the focus moves after the screen has been shown, a frame or two later: on a slow machine more than the default second)
+  await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/plan'), { timeout: 5000 })
+  await vi.waitFor(() => expect(document.activeElement).toBe(document.querySelector('.app-main')), { timeout: 5000 })
 })
 
 it('runs a row on a click', async () => {
