@@ -9,9 +9,21 @@ Write the result next to each line (ok / what you saw). Anything that is not "ok
 
 ## A. The radio is seen by the backend (no simulator yet)
 
+0. **First, make sure the backend you run is the current one.** `pnpm dev` builds `apps/backend` at every start, but **a build that
+   fails leaves the previous backend running and opens the window anyway** (the terminal says `dev │ the backend has errors`): an
+   old backend has no pad service, and the screen then says it could not list the gamepads (`UNKNOWN_METHOD`). So:
+   - `git pull` in `drone-configurator` and in each of its siblings, next to it: `pico-mavlink`, `pico-serialport` (it needs the
+     variadic `ioctl`, pico-serialport #5), `pico-gamepad` and `pico-desktop` (rebuilt: `pnpm install && pnpm --filter
+     'pico-desktop...' build` in it, as its README says). The root `project.json` finds them as `../pico-mavlink`,
+     `../pico-serialport`, `../pico-gamepad`, so each must be a directory of exactly that name next to `drone-configurator`.
+   - `pnpm install` and `pnpm generate` in `drone-configurator`, stop the app, and start it again with `pnpm dev`.
+   - Read the terminal: you must see `dev │ built the backend`, and no `pico │ error[...]` lines (an `E0341 cannot import
+     padcom/pico-gamepad` means a sibling is missing or has the wrong name). To be sure the binary has the pad service:
+     `strings .pico-desktop/dev/backend | grep -c pad.devices` is not 0.
 1. Plug the radio in. Open Settings > Remote control. Under "Where the gamepad is read", choose **The backend**.
-2. The radio is shown **at once, without moving a stick** (the browser needs a stick moved first). Its name in the pad
-   list is the radio's; with two pads plugged in, a "Gamepad" select appears and the choice is kept after a restart.
+2. The radio is shown **at once, without moving a stick** (the browser needs a stick moved first), and a line says what the
+   backend answered ("The backend lists 1 gamepad(s) and 0 that it may not open"; if it says 0 and 0, the backend runs but sees
+   no radio: say so, with the output of `pico-gamepad`'s `pad-monitor` example). Its name in the pad list is the radio's; with two pads plugged in, a "Gamepad" select appears and the choice is kept after a restart.
 3. **CH1 to CH8 are its axes, and all eight move** when you move the sticks, the knobs and the sliders. Look especially at
    **CH4 and CH7**: they are the ones the browser's Gamepad API missed. Each bar moves smoothly from -1 to +1.
 4. **CH9 to CH16 are its first buttons** (-1 up, +1 pressed): press the switches and see which channel moves for each.
