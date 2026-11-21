@@ -1,6 +1,6 @@
 // The rest check: which of the four sticks is not at rest.
 import { describe, expect, it } from 'vitest'
-import { REST_BAND, levelText, notAtRest } from './rest'
+import { MIN_CENTRED_ZONE, REST_BAND, levelText, notAtRest } from './rest'
 import { suggestedProfile } from './suggest'
 import type { Profile } from './types'
 import { sample } from '@/testing/rcSamples'
@@ -31,6 +31,31 @@ describe('the sticks at rest, with a centred throttle', () => {
   })
 })
 
+describe('a centred throttle on a row whose dead zone is smaller than the least a stick needs, or is none', () => {
+  const rowWith = (deadZone: number): Profile => ({
+    ...centred,
+    rows: centred.rows.map(row => (row.channel === 3 ? { ...row, deadZone } : row)),
+  })
+
+  it.each([0, 0.01, Number.NaN, Number.POSITIVE_INFINITY])('rests within the least band (5 %) of the middle, zone %s', zone => {
+    expect(notAtRest(rowWith(zone), sample(0, 0, 0.004, 0), STICKS, false)).toEqual([])
+    expect(notAtRest(rowWith(zone), sample(0, 0, -0.004, 0), STICKS, false)).toEqual([])
+  })
+
+  it('is still not at rest outside that band, and the band is said with what it reads', () => {
+    const found = notAtRest(rowWith(0), sample(0, 0, 0.06, 0), STICKS, false)
+
+    expect(found).toEqual([{ stick: 'throttle', level: 0.06, band: MIN_CENTRED_ZONE }])
+  })
+
+  it('keeps the row\'s own dead zone when it is wider than the least band', () => {
+    expect(notAtRest(rowWith(0.12), sample(0, 0, 0.11, 0), STICKS, false)).toEqual([])
+    const found = notAtRest(rowWith(0.12), sample(0, 0, 0.13, 0), STICKS, false)
+
+    expect(found).toEqual([{ stick: 'throttle', level: 0.13, band: 0.12 }])
+  })
+})
+
 describe('the sticks at rest, with a throttle that rests low', () => {
   it('want the throttle low (as the vehicle reads it), and do not mind where in its travel the middle is', () => {
     expect(notAtRest(low, sample(0, 0, -1, 0), STICKS, true)).toEqual([])
@@ -53,12 +78,16 @@ describe('a stick the mapping or the pad does not give', () => {
   it('reads a row\'s own inversion', () => {
     const inverted: Profile = { ...centred, rows: centred.rows.map(row => ({ ...row, invert: row.channel === 1 })) }
 
-    expect(notAtRest(inverted, sample(0.5, 0, 0, 0), STICKS, false)).toEqual([{ stick: 'roll', level: -0.5 }])
+    expect(notAtRest(inverted, sample(0.5, 0, 0, 0), STICKS, false)).toEqual([{ stick: 'roll', level: -0.5, band: REST_BAND }])
   })
 })
 
 describe('the words of a reading', () => {
   it('is signed with two decimals, or a dash', () => {
     expect([0.724, -0.5, 0, null].map(levelText)).toEqual(['+0.72', '-0.50', '+0.00', '—'])
+  })
+
+  it('has three decimals for a small reading that is not 0, so that it never reads +0.00 over a stick that is refused', () => {
+    expect([0.004, -0.0049, 0.0099, 0.01].map(levelText)).toEqual(['+0.004', '-0.005', '+0.010', '+0.01'])
   })
 })

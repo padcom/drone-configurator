@@ -151,6 +151,10 @@ describe('what the vehicle says of a centred throttle', () => {
     expect(vehicleProblems(facts(), zoned(0.05))).toEqual([])
   })
 
+  it('is a stop for a dead zone that is not a number too (it was let through, and the stick was then never at rest)', () => {
+    expect(vehicleProblems(facts(), zoned(Number.NaN))).toEqual([{ code: 'centre', channel: 3, blocks: true }])
+  })
+
   it('has no such rule for a throttle that rests low', () => {
     expect(vehicleProblems(facts(), { ...zoned(0.04), throttleStyle: 'low' })).toEqual([])
   })

@@ -47,10 +47,11 @@ const offHelp = computed(() => {
 })
 /** What the line says while the control waits for the sticks to be at rest: which stick is not, or that all are and it counts. */
 const restHelp = computed(() => {
-  const waiting = rc.restWait.value.map(({ stick, level }) => {
+  const waiting = rc.restWait.value.map(({ stick, level, band }) => {
     const key = stick === 'throttle' ? `throttle${rc.style.value === 'low' ? 'Low' : 'Centred'}` : stick
+    const within = band === undefined ? '' : ` ${t('rc.rest.within', { band: band.toFixed(2) })}`
 
-    return t(`rc.rest.${key}`, { level: levelText(level) })
+    return t(`rc.rest.${key}`, { level: levelText(level) }) + within
   })
 
   return waiting.length === 0 ? t('rc.help.resting') : waiting.join(' ')

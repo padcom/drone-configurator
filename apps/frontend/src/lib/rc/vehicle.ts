@@ -247,7 +247,8 @@ function zoneProblems(facts: Facts): VehicleProblem[] {
 function centreProblems(facts: Facts, profile: Profile): VehicleProblem[] {
   const row = profile.rows.find(candidate => candidate.channel === facts.map.throttle)
 
-  return row !== undefined && row.deadZone < MIN_CENTRED_ZONE ? [{ code: 'centre', channel: row.channel, blocks: true }] : []
+  // (written so that a dead zone that is not a number is a problem too: `NaN < 0.05` is false, and the middle was then no place)
+  return row !== undefined && !(row.deadZone >= MIN_CENTRED_ZONE) ? [{ code: 'centre', channel: row.channel, blocks: true }] : []
 }
 
 /**

@@ -835,7 +835,8 @@
       "pitch": "Pochylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
       "yaw": "Odchylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
       "throttleCentred": "Gaz nie jest na środku: {level}. Pozwól drążkowi wrócić na środek.",
-      "throttleLow": "Gaz nie jest na dole: {level}. Opuść drążek do samego dołu."
+      "throttleLow": "Gaz nie jest na dole: {level}. Opuść drążek do samego dołu.",
+      "within": "(odchylenie do ±{band} od środka liczy się jako spoczynek)"
     },
     "indicator": {
       "on": "Zdalne sterowanie włączone",

@@ -835,7 +835,8 @@
       "pitch": "Pitch is not at the middle: {level}. Centre the stick.",
       "yaw": "Yaw is not at the middle: {level}. Centre the stick.",
       "throttleCentred": "Throttle is not in the middle: {level}. Let the stick go to its middle.",
-      "throttleLow": "Throttle is not low: {level}. Lower the stick to the bottom."
+      "throttleLow": "Throttle is not low: {level}. Lower the stick to the bottom.",
+      "within": "(up to ±{band} from the middle counts as at rest)"
     },
     "indicator": {
       "on": "RC control on",

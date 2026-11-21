@@ -835,7 +835,8 @@
       "pitch": "Il beccheggio non è al centro: {level}. Porta lo stick al centro.",
       "yaw": "L'imbardata non è al centro: {level}. Porta lo stick al centro.",
       "throttleCentred": "Il gas non è al centro: {level}. Lascia che lo stick torni al centro.",
-      "throttleLow": "Il gas non è in basso: {level}. Abbassa lo stick fino in fondo."
+      "throttleLow": "Il gas non è in basso: {level}. Abbassa lo stick fino in fondo.",
+      "within": "(fino a ±{band} dal centro vale come a riposo)"
     },
     "indicator": {
       "on": "Controllo remoto attivo",

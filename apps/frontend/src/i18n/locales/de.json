@@ -835,7 +835,8 @@
       "pitch": "Nicken ist nicht in der Mitte: {level}. Bring den Stick in die Mitte.",
       "yaw": "Gieren ist nicht in der Mitte: {level}. Bring den Stick in die Mitte.",
       "throttleCentred": "Das Gas ist nicht in der Mitte: {level}. Lass den Stick in die Mitte gehen.",
-      "throttleLow": "Das Gas ist nicht unten: {level}. Zieh den Stick ganz nach unten."
+      "throttleLow": "Das Gas ist nicht unten: {level}. Zieh den Stick ganz nach unten.",
+      "within": "(bis ±{band} von der Mitte gilt als Ruhe)"
     },
     "indicator": {
       "on": "Fernsteuerung an",

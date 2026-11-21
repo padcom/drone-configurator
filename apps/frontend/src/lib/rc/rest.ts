@@ -40,6 +40,8 @@ export interface NotAtRest {
   stick: Stick
   /** What it reads (after the inversion), or null when the pad does not say. */
   level: number | null
+  /** How far from the middle it may be and still be at rest (a throttle that rests low has none), when there is a reading. */
+  band?: number
 }
 
 /** The order the sticks are looked at (and told) in. */
@@ -81,21 +83,44 @@ function readOf(look: Look, channel: number): { row: Row, level: number } | null
 }
 
 /**
- * Whether a stick that reads this is at rest: roll, pitch and yaw within the band; the throttle in its row's dead zone for a
- * spring-centred stick, low for one that rests low.
+ * How far from the middle a spring-centred throttle may rest: its row's dead zone, but never less than `MIN_CENTRED_ZONE` (a
+ * hall-effect stick rests at +0.004, not at 0, and a row whose dead zone is none, or is not a number, must not make the middle a
+ * point that no thumb finds: the control would wait for ever with "+0.00" on the screen).
+ *
+ * @param row the throttle's row
+ * @returns the band, 0 to 0.5
+ */
+export function centredBand(row: Row): number {
+  return Number.isFinite(row.deadZone) ? Math.max(row.deadZone, MIN_CENTRED_ZONE) : MIN_CENTRED_ZONE
+}
+
+/**
+ * How far from the middle a stick may be and still be at rest, or null for a throttle that rests low (it must be low).
  *
  * @param stick which stick
- * @param level what it reads
  * @param row the row that drives it
+ * @param look the mapping, the sample and whether the throttle is low
+ * @returns the band, or null
+ */
+function bandOf(stick: Stick, row: Row, look: Look): number | null {
+  if (stick !== 'throttle') {
+    return REST_BAND
+  }
+
+  return look.profile.throttleStyle === 'centred' ? centredBand(row) : null
+}
+
+/**
+ * Whether a stick that reads this is at rest: roll, pitch and yaw within the band; the throttle within its band for a
+ * spring-centred stick, low for one that rests low.
+ *
+ * @param level what it reads
+ * @param band how far from the middle it may be, or null for a throttle that rests low
  * @param look the mapping, the sample and whether the throttle is low
  * @returns true when it is at rest
  */
-function atRest(stick: Stick, level: number, row: Row, look: Look): boolean {
-  if (stick !== 'throttle') {
-    return Math.abs(level) <= REST_BAND
-  }
-
-  return look.profile.throttleStyle === 'centred' ? Math.abs(level) <= row.deadZone : look.throttleLow
+function atRest(level: number, band: number | null, look: Look): boolean {
+  return band === null ? look.throttleLow : Math.abs(level) <= band
 }
 
 /**
@@ -104,13 +129,17 @@ function atRest(stick: Stick, level: number, row: Row, look: Look): boolean {
  * @param stick which stick
  * @param channel the vehicle's channel for the stick
  * @param look the mapping, the sample and whether the throttle is low
- * @returns what it reads, when it is not at rest (or the pad does not say), else null
+ * @returns what it reads (and the band it was held to), when it is not at rest (or the pad does not say), else null
  */
 function unrested(stick: Stick, channel: number, look: Look): NotAtRest | null {
   const one = readOf(look, channel)
-  const level = one === null ? null : one.level
 
-  return one !== null && atRest(stick, one.level, one.row, look) ? null : { stick, level }
+  if (one === null) {
+    return { stick, level: null }
+  }
+  const band = bandOf(stick, one.row, look)
+
+  return atRest(one.level, band, look) ? null : { stick, level: one.level, ...(band === null ? {} : { band }) }
 }
 
 /**
@@ -129,6 +158,17 @@ export function notAtRest(profile: Profile, sample: PadSample, sticks: Sticks, t
 }
 
 /**
+ * How many decimals a reading is said with: two, and three for a small reading that is not 0 (so that it never reads +0.00 over
+ * a stick that is refused: that would be a riddle).
+ *
+ * @param level the reading
+ * @returns 2 or 3
+ */
+function decimalsOf(level: number): number {
+  return level !== 0 && Math.abs(level) < 0.01 ? 3 : 2
+}
+
+/**
  * The words for a stick that is not at rest, once the page has the stick's name: a part of the sentence "Roll is not at the
  * middle: +0.72".
  *
@@ -136,5 +176,5 @@ export function notAtRest(profile: Profile, sample: PadSample, sticks: Sticks, t
  * @returns the reading as signed text with two decimals, or a dash
  */
 export function levelText(level: number | null): string {
-  return level === null ? '—' : `${level >= 0 ? '+' : '-'}${Math.abs(level).toFixed(2)}`
+  return level === null ? '—' : `${level >= 0 ? '+' : '-'}${Math.abs(level).toFixed(decimalsOf(level))}`
 }

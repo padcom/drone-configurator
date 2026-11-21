@@ -86,9 +86,10 @@ function levelOf(stick: Stick): number | null {
 }
 
 /** What each stick that is not at rest would be told: "Roll is not at the middle: +0.72. Centre the stick." */
-const resting = computed(() => (props.mapping.notAtRest.value ?? []).map(({ stick, level }) => {
+const resting = computed(() => (props.mapping.notAtRest.value ?? []).map(({ stick, level, band }) => {
   const key = stick === 'throttle' ? `throttle${current.value === 'centred' ? 'Centred' : 'Low'}` : stick
+  const within = band === undefined ? '' : ` ${t('rc.rest.within', { band: band.toFixed(2) })}`
 
-  return t(`rc.rest.${key}`, { level: levelText(level) })
+  return t(`rc.rest.${key}`, { level: levelText(level) }) + within
 }))
 </script>
