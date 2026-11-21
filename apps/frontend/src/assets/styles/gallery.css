@@ -20,6 +20,11 @@
   margin: var(--space-2) 0;
 }
 
+/* A column too narrow for a long label: it wraps over lines, and a switch keeps its track (and its knob inside it). */
+.gallery .narrow {
+  max-width: 16rem;
+}
+
 .gallery .swatches,
 .gallery .icons {
   display: flex;

@@ -583,6 +583,7 @@
       "optionTwo": "Zweite Option",
       "check": "Ein Kontrollkästchen",
       "toggle": "Ein Schalter",
+      "toggleLong": "Ein Schalter mit einer so langen Beschriftung, dass sie in einer schmalen Spalte über mehrere Zeilen umbricht",
       "neutral": "neutral",
       "ok": "ok",
       "warn": "Warnung",

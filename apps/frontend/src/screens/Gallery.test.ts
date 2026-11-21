@@ -56,7 +56,9 @@ it('shows each control in the states it has: normal, primary, invalid and disabl
   expect(page.findAll('.kit-button:disabled').length).toBeGreaterThanOrEqual(2)
   expect(page.find('.kit-input.invalid').attributes('aria-invalid')).toBe('true')
   expect(page.findAll('.kit-badge').map(badge => badge.classes()[1])).toEqual(['neutral', 'info', 'ok', 'warn', 'error'])
-  expect(page.findAll('.kit-toggle:disabled').length).toBe(1)
+  // (a switch and a switch with a long label, each disabled: the long one wraps in a narrow column and keeps its track)
+  expect(page.findAll('.kit-toggle:disabled').length).toBe(2)
+  expect(page.find('#gallery-toggle-long').text()).toContain('wraps over several lines')
 })
 
 it('says in words why the invalid field is invalid, and links the two', () => {
