@@ -26,7 +26,7 @@ Write the result next to each line (ok / what you saw). Anything that is not "ok
 8. Connect the built-in simulator. Settings > Remote control: **Allow remote control** on. Choose the throttle style your
    stick has: **centred** (springs back to the middle, like a DJI controller) or **low** (rests at the bottom).
 9. The four sticks (roll, pitch, throttle, yaw) are mapped to the radio's sticks. Move each: its bar moves as it should.
-   If one is reversed, use that row's reverse switch. Press **Confirm this mapping** once: it says "confirmed for this pad".
+   If one is reversed, turn that row's **Invert** on. Press **Confirm this mapping** once: it says "confirmed for this pad".
    Change a row or the style: the confirmation goes, and one press brings it back.
 10. On the Fly screen turn **Remote control** on (it asks once what it does). With **a stick off the middle**, it says
     which one and what it reads, and sends nothing; after 10 seconds it turns itself off. With the sticks at rest (and a
@@ -49,7 +49,7 @@ Write the result next to each line (ok / what you saw). Anything that is not "ok
 14. **Low throttle**: starts in Stabilize with the throttle at the bottom. With the throttle up it starts and **waits**: it
     says which stick is not at rest and sends nothing, and turns itself off after 10 seconds (as in step 10).
 
-## D. Letting go (simulator; for each, the vehicle must stop following the sticks within a moment)
+## D. Letting go (simulator or SITL; step 18 SITL only; for each, the vehicle must stop following the sticks within a moment)
 
 15. Unplug the radio while the control is on: it ends and says the gamepad is not being read.
 16. Hide the window (minimise it): it ends and says the window was hidden.
@@ -69,8 +69,9 @@ Write the result next to each line (ok / what you saw). Anything that is not "ok
     again**: the option is read once, when a control begins, so a control that was already on does not change. Then, with the
     vehicle disarmed, **the throttle at the bottom** and `ARMING_RUDDER` on in the vehicle (the setting's own help says so),
     the yaw to the right for the time the vehicle asks arms it. While it is flying (not landed) the hold is back.
-21. A **centred** throttle holds the yaw to 80 % whatever the throttle is: check that full yaw never arms the vehicle
-    with the throttle in the middle.
+21. First turn "The sticks may arm and disarm" **off** again (and the control off and on, as in step 20). A **centred**
+    throttle holds the yaw to 80 % whatever the throttle is: check that full yaw never arms the vehicle with the throttle in
+    the middle.
 
 When all of this is ok, say so, and `rc.padSource` can default to **Automatic** (the plan keeps the browser as the default
 until you do).
