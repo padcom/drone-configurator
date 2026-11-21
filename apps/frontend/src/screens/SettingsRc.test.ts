@@ -167,7 +167,9 @@ it('confirms the mapping with one click, shows it, and takes the confirmation aw
 
   await plugged(wrapper)
   expect(wrapper.get('#rc-unconfirmed').text()).toContain('Not confirmed')
-  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  // (the button is shut until the pad is read AND the vehicle's facts are in; a read that comes late on a slow machine shuts
+  // it for a moment: each wait is for the thing asserted, with the time a slow machine needs, not the default second)
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined(), { timeout: 5000 })
   await wrapper.get('#rc-confirm').trigger('click')
   await vi.waitFor(() => expect(wrapper.find('#rc-confirmed').exists()).toBe(true), { timeout: 5000 })
 
@@ -176,9 +178,8 @@ it('confirms the mapping with one click, shows it, and takes the confirmation aw
   expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeDefined()
   expect(handle.settings.uiValue(profileKey(TX16S))).toContain('"confirmedKey":"')
   await wrapper.get('[data-testid="rc-row-0"] .kit-toggle').trigger('click')
-  await flushPromises()
-  expect(wrapper.find('#rc-confirmed').exists()).toBe(false)
-  expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined()
+  await vi.waitFor(() => expect(wrapper.find('#rc-confirmed').exists()).toBe(false), { timeout: 5000 })
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined(), { timeout: 5000 })
 })
 
 it('shows the four sticks as bars beside the confirmation, and says why it cannot be pressed with no pad read', async () => {
@@ -203,7 +204,7 @@ it('chooses how the throttle rests: centred by default, said in plain words, and
 
   expect([centred.checked, low.checked]).toEqual([true, false])
   expect(wrapper.text()).toContain('The middle is no climb, up climbs, down descends')
-  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined(), { timeout: 5000 })
   await wrapper.get('#rc-confirm').trigger('click')
   await wrapper.get('input[type="radio"][value="low"]').setValue(true)
   await flushPromises()
@@ -244,7 +245,7 @@ it('never starts a control: the mock vehicle is not asked for one, whatever is s
   const { wrapper, control } = await screen([{ key: 'rc.allow', value: 'on' }])
 
   await plugged(wrapper)
-  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
+  await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined(), { timeout: 5000 })
   await wrapper.get('#rc-confirm').trigger('click')
   await flushPromises()
 
