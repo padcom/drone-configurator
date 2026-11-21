@@ -395,7 +395,7 @@ describe('the sticks that arm and disarm: what the backend is told', () => {
     const lifted = await flying(await rcRig({ rudderArm: true, wrap }))
     const held = await flying(await rcRig({ wrap }))
 
-    expect(asked).toEqual([{ rudderArm: true }, { rudderArm: false }])
+    expect(asked).toEqual([{ rudderArm: true, throttle: 'low' }, { rudderArm: false, throttle: 'low' }])
     lifted.stop()
     held.stop()
   })

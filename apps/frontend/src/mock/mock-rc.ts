@@ -22,6 +22,8 @@ export interface MockRcControl {
   frames: () => RcInput[]
   /** How many controls began, and how many ended because the page let go. */
   began: () => number
+  /** What the page asked the last control for (`rc.control`'s params: `rudderArm`, `throttle`), or null before the first. */
+  params: () => Record<string, unknown> | null
   /** How many ended because the page let go. */
   released: () => number
   /** The backend ends the control by itself (the link was lost, the page was silent ...): `released` with this reason. */
@@ -45,6 +47,7 @@ export class MockRc {
   private lastSeq = -1
   private clamped = 0
   private began = 0
+  private asked: Record<string, unknown> | null = null
   private released = 0
   private overrideTime = 3
   private simulator = true
@@ -75,6 +78,7 @@ export class MockRc {
       on: () => this.subscription !== null,
       frames: () => [...this.sent],
       began: () => this.began,
+      params: () => this.asked,
       released: () => this.released,
       end: why => this.finish(why),
       tellHeld: count => {
@@ -98,6 +102,7 @@ export class MockRc {
   subscribe(e: Envelope): void {
     const s = e.id!
     this.send({ k: 'response', id: s, s })
+    this.asked = typeof e.p === 'object' && e.p !== null ? { ...(e.p as Record<string, unknown>) } : {}
     const refusal = this.refusal()
     if (refusal !== null) {
       this.send({ k: 'unsubscribe', s, err: { code: refusal, message: 'refused' } })
