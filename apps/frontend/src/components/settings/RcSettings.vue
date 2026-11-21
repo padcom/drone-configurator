@@ -18,10 +18,15 @@
     </p>
     <div class="rc-device">
       <h4 class="rc-heading">{{ t('settings.rc.device.title') }}</h4>
-      <p v-if="mapping.device.value === null" id="rc-no-device" class="muted">{{ t('settings.rc.device.none') }}</p>
+      <RcSource :pads="pads" :settings="settings" />
+      <p v-if="mapping.device.value === null" id="rc-no-device" class="muted">
+        {{ t(pads.source.value === 'backend' ? 'settings.rc.source.noPads' : 'settings.rc.device.none') }}
+      </p>
       <template v-else>
         <p id="rc-device-name" class="mono">{{ mapping.device.value }}</p>
-        <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">{{ t('settings.rc.device.gone') }}</p>
+        <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">
+          {{ t(pads.source.value === 'backend' ? 'settings.rc.source.gone' : 'settings.rc.device.gone') }}
+        </p>
         <ul v-else class="rc-axes">
           <li v-for="(value, index) in channels" :key="index" :class="{ 'rc-absent': value === null }">
             <span>{{ t('settings.rc.device.channel', { n: index + 1 }) }}</span>
@@ -55,6 +60,7 @@ import { computed, onMounted, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import RcConfirm from '@/components/settings/RcConfirm.vue'
 import RcRows from '@/components/settings/RcRows.vue'
+import RcSource from '@/components/settings/RcSource.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -67,14 +73,15 @@ import { factsOf } from '@/lib/rc/vehicle'
 
 const { t } = useI18n()
 const { number } = useFormat()
-const { vehicle, parameters } = useConfigurator()
+const { vehicle, parameters, pads } = useConfigurator()
 const uid = useId()
 const settings = useRcSettings()
-const pad = useGamepad()
+// (the control flies with the same environment: what the person sees here is what the control reads)
+const pad = useGamepad({ env: pads.environment })
 const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
 const mode = computed(() => vehicle.telemetry.value?.mode)
 const connected = computed(() => vehicle.connection.value.state === 'connected')
-const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request, mode, connected })
+const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request, mode, connected, source: pads.source })
 
 const allow = computed({
   get: () => settings.allowed.value,

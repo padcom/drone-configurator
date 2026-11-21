@@ -94,6 +94,11 @@ function settingsOver(allowed: Box<boolean>, profiles: Box<Record<string, Profil
       return profile === undefined ? null : { profile, converted: false, lossy: false }
     },
     save: profile => Promise.resolve(void (profiles.value = { ...profiles.value, [profile.device]: profile })),
+    // (the rig reads the browser's pad: the backend's source is not chosen)
+    padSource: computed(() => 'browser' as const),
+    setPadSource: () => Promise.resolve(),
+    padDevice: computed(() => ''),
+    setPadDevice: () => Promise.resolve(),
   }
 }
 

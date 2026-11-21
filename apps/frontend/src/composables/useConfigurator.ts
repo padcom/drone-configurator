@@ -2,11 +2,12 @@
 // (each a composable that talks to the backend through the client), the last failure, and the question the
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
-import { type ShallowRef, computed, shallowRef, watch } from 'vue'
+import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
+import { type PadsModel, usePads } from './usePads'
 import { type RcControlModel, useRcControl } from './useRcControl'
 import { useGoHere } from './useGoHere'
 import { useRcSettings } from './useRcSettings'
-import { factsOf } from '@/lib/rc/vehicle'
+import { type Facts, factsOf } from '@/lib/rc/vehicle'
 import { say } from '@/i18n/say'
 import { type BackendClient, type Transport, createBackendClient } from '@/backend/client'
 import { draftWarning, validateDraft } from '@/lib/params/draft'
@@ -88,6 +89,8 @@ export interface ConfiguratorHandle {
   motorTest: MotorTestModel
   /** The RC control (the gamepad flying the vehicle): one for the whole application, off until it is turned on. */
   rcControl: RcControlModel
+  /** The pads the backend reads, and where the pad is read from (the browser, or the backend): one for the application. */
+  pads: PadsModel
   /** The live response of the Tune screen: the actual and the desired roll rate, while the screen is shown. */
   tuning: TuningStreamModel
   /** The step response measured from a log on this computer ("Analyse the last flight"). */
@@ -531,26 +534,27 @@ function keepMetadataPath(settings: SettingsModel, path: string): void {
 }
 
 /**
- * The RC control: one for the whole application, off until the person turns it on.
+ * The RC control, reading what the pads say.
  *
+ * @param pads the pads
  * @param parts what it is made of
  * @param parts.client the link to the backend
  * @param parts.vehicle the vehicle link
- * @param parts.parameters the vehicle's parameters
+ * @param parts.facts what the vehicle's parameters say of its channels
  * @param parts.settings the settings
  * @returns the control
  */
-function startRcControl(parts: {
+function rcControlOver(pads: PadsModel, parts: {
   client: BackendClient
   vehicle: Vehicle
-  parameters: ParamsModel
+  facts: ComputedRef<Facts | null>
   settings: SettingsModel
 }): RcControlModel {
-  const { client, vehicle, parameters, settings } = parts
-  const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
+  const { client, vehicle, facts, settings } = parts
 
   return useRcControl({
     client,
+    env: pads.environment,
     connection: vehicle.connection,
     request: vehicle.request,
     settings: useRcSettings(settings),
@@ -562,6 +566,29 @@ function startRcControl(parts: {
     busy: () => (vehicle.telemetry.value?.mode === 'GUIDED' || useGoHere().target.value !== null ? 'GUIDED' : null),
     reasonText: code => (i18n.global.te(`rc.reason.${code}`) ? say(`rc.reason.${code}`) : say('rc.reason.other', { code })),
   })
+}
+
+/**
+ * The RC control and the pads it reads: one of each for the whole application, the control off until the person turns it on.
+ *
+ * @param parts what it is made of
+ * @param parts.client the link to the backend
+ * @param parts.vehicle the vehicle link
+ * @param parts.parameters the vehicle's parameters
+ * @param parts.settings the settings
+ * @returns the control and the pads
+ */
+function startRc(parts: {
+  client: BackendClient
+  vehicle: Vehicle
+  parameters: ParamsModel
+  settings: SettingsModel
+}): { rcControl: RcControlModel, pads: PadsModel } {
+  const { client, vehicle, parameters, settings } = parts
+  const pads = usePads({ client, settings: useRcSettings(settings) })
+  const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
+
+  return { pads, rcControl: rcControlOver(pads, { client, vehicle, facts, settings }) }
 }
 
 /**
@@ -598,7 +625,7 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
-    rcControl: startRcControl({ client, vehicle, parameters, settings }),
+    ...startRc({ client, vehicle, parameters, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 

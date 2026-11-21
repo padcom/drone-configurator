@@ -28,6 +28,8 @@ export interface GamepadModel {
   readonly live: ComputedRef<boolean>
   /** The id of the pad that was read last, or null. */
   readonly id: ComputedRef<string | null>
+  /** The browser's id string for the pad that was read last, when its `id` is another (a pad the backend reads), or undefined. */
+  readonly legacyId: ComputedRef<string | undefined>
   /** Starts reading (the first read comes at once). */
   start: () => void
   /** Stops reading, and forgets what was read: the reading is `none`. */
@@ -52,6 +54,7 @@ class PadWatch implements GamepadModel {
   readonly reading = shallowRef<Reading>({ kind: 'none', at: 0 })
   readonly live = computed(() => this.reading.value.kind === 'live')
   readonly id = computed(() => (this.reading.value.kind === 'live' ? this.reading.value.id : null))
+  readonly legacyId = computed(() => (this.reading.value.kind === 'live' ? this.reading.value.legacyId : undefined))
   private readonly reader: PadReader
   private timer: ReturnType<typeof setInterval> | undefined
   private readonly poll = (): void => this.tick()
