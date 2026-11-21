@@ -697,7 +697,7 @@ async function refusesWhatItCannotScaleTheThrottleTo(): Promise<void> throws Err
 }
 
 function requestOf(transport: ConnectRequestTransport, host: string? = null): ConnectRequest {
-  ConnectRequest { transport: transport, host: host, port: 5760 as u16 }
+  return ConnectRequest { transport: transport, host: host, port: 5760 as u16 }
 }
 
 async function knowsWhichLinksAreASimulator(): Promise<void> throws Error {
