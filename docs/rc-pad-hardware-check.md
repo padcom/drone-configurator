@@ -65,11 +65,11 @@ Write the result next to each line (ok / what you saw). Anything that is not "ok
 ## E. The yaw and arming (simulator only, nothing with propellers)
 
 20. By default the sticks **cannot arm or disarm**: with the throttle low, push the yaw all the way: the vehicle stays as
-    it is (the yaw is held to 80 %). Turn on "The sticks may arm and disarm" in Settings, **then turn the control off and on
+    it is (the yaw is held to 80 %). Turn on "Let the sticks arm and disarm" in Settings, **then turn the control off and on
     again**: the option is read once, when a control begins, so a control that was already on does not change. Then, with the
     vehicle disarmed, **the throttle at the bottom** and `ARMING_RUDDER` on in the vehicle (the setting's own help says so),
     the yaw to the right for the time the vehicle asks arms it. While it is flying (not landed) the hold is back.
-21. First turn "The sticks may arm and disarm" **off** again (and the control off and on, as in step 20). A **centred**
+21. First turn "Let the sticks arm and disarm" **off** again (and the control off and on, as in step 20). A **centred**
     throttle holds the yaw to 80 % whatever the throttle is: check that full yaw never arms the vehicle with the throttle in
     the middle.
 
