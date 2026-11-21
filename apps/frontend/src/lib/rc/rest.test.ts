@@ -48,6 +48,12 @@ describe('a centred throttle on a row whose dead zone is smaller than the least 
     expect(found).toEqual([{ stick: 'throttle', level: 0.06, band: MIN_CENTRED_ZONE }])
   })
 
+  it('is never wider than half of the travel, whatever the row says', () => {
+    const found = notAtRest(rowWith(3), sample(0, 0, 0.7, 0), STICKS, false)
+
+    expect(found).toEqual([{ stick: 'throttle', level: 0.7, band: 0.5 }])
+  })
+
   it('keeps the row\'s own dead zone when it is wider than the least band', () => {
     expect(notAtRest(rowWith(0.12), sample(0, 0, 0.11, 0), STICKS, false)).toEqual([])
     const found = notAtRest(rowWith(0.12), sample(0, 0, 0.13, 0), STICKS, false)

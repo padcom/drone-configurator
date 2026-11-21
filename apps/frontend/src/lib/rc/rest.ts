@@ -19,6 +19,9 @@ export const REST_TIMEOUT_MS = 10_000
 /** The least a centred throttle's dead zone may be (of its travel): without it the middle is a point no thumb finds. */
 export const MIN_CENTRED_ZONE = 0.05
 
+/** The widest band a centred throttle may rest in: half of its travel (a dead zone is 0 to 0.5). */
+const MAX_CENTRED_BAND = 0.5
+
 /** The four sticks of the vehicle. */
 export type Stick = 'roll' | 'pitch' | 'throttle' | 'yaw'
 
@@ -91,7 +94,7 @@ function readOf(look: Look, channel: number): { row: Row, level: number } | null
  * @returns the band, 0 to 0.5
  */
 export function centredBand(row: Row): number {
-  return Number.isFinite(row.deadZone) ? Math.max(row.deadZone, MIN_CENTRED_ZONE) : MIN_CENTRED_ZONE
+  return Number.isFinite(row.deadZone) ? Math.min(Math.max(row.deadZone, MIN_CENTRED_ZONE), MAX_CENTRED_BAND) : MIN_CENTRED_ZONE
 }
 
 /**

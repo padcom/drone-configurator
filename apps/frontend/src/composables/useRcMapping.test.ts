@@ -181,6 +181,22 @@ describe('a change of the mapping', () => {
   })
 })
 
+describe('a row added by hand', () => {
+  it('has a stick\'s dead zone on one of the vehicle\'s four sticks (a centred throttle needs it), none elsewhere', async () => {
+    const { pads, mapping, scope } = await rig()
+
+    plugged(pads)
+    mapping.remove(2)
+    mapping.add(3)
+    mapping.add(9)
+
+    const zones = Object.fromEntries(mapping.draft.value!.rows.map(row => [row.channel, row.deadZone]))
+
+    expect([zones[3], zones[9]]).toEqual([0.08, 0])
+    scope.stop()
+  })
+})
+
 describe('the channel of a row', () => {
   it('is refused when the vehicle arms or stops with it, and the person is told which', async () => {
     const { pads, mapping, scope } = await rig([], vehicle({ 7: 153, 8: 31 }))

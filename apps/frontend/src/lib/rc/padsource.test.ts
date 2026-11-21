@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import type { PadInfo, PadList, PadSample } from '@/generated/app'
 import { DEFAULT_PAD_SOURCE, padLikeOf, padOfList, parseSource, sourceOf } from './padsource'
 import { layoutOf, sampleOf } from './reader'
+import { notAtRest } from './rest'
+import { suggestedProfile } from './suggest'
 
 /**
  * A pad as the backend lists it.
@@ -57,6 +59,24 @@ describe('which pad of the list is read', () => {
     expect(padOfList(list, '')?.id).toBe('a')
     expect(padOfList(listOf(true), 'a')).toBeNull()
     expect(padOfList(null, 'a')).toBeNull()
+  })
+})
+
+describe('a radio the backend reads, through the page\'s own path to the rest check', () => {
+  // (a TX16S: 8 axes and 24 buttons; the throttle at the middle of its spring, a hall-effect stick: raw 1023 or 1024 of 0..2047)
+  const radio = info('1209:4f54', 8, 24)
+  const rested = (throttle: number): PadSample => ({
+    seq: 1,
+    at: 1,
+    channels: [0, 0, throttle, 0, 0, 0, 0, 0, ...Array.from({ length: 8 }, () => -1)],
+    have: 0xffff,
+  })
+
+  it.each([0, 0.0005, -0.0005, 0.004, -0.004, 0.049])('is at rest with the throttle at %s (suggested rows)', throttle => {
+    const profile = { ...suggestedProfile(radio.id, null), throttleStyle: 'centred' as const }
+    const read = sampleOf(padLikeOf(radio, rested(throttle)))
+
+    expect(notAtRest(profile, read, { roll: 1, pitch: 2, throttle: 3, yaw: 4 }, false)).toEqual([])
   })
 })
 

@@ -338,7 +338,8 @@ class Mapping implements RcMapping {
       this.refusal.value = null
       // (a new row has NO source: until the person has moved the one they mean it makes nothing, and the mapping is wrong. It
       // must never follow some control it was given by default: a function of the vehicle on its channel would fire with it)
-      this.keep(addRow(draft, newRow(channel, NO_SOURCE)))
+      // (a row on one of the vehicle's four sticks gets a stick's dead zone: with none, a centred throttle's middle is a point)
+      this.keep(addRow(draft, newRow(channel, NO_SOURCE, Object.values(this.sticks.value).includes(channel))))
       this.capture(draft.rows.length)
     }
   }
