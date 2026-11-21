@@ -52,7 +52,7 @@ export function decodeConnectRequest(v: Cbor, path: string): ConnectRequest thro
   if (cbor4 != null) {
     opt4 = (uint(cbor4, `${path}.baud`, 4294967295) as u32)
   }
-  ConnectRequest {
+  return ConnectRequest {
     transport: decodeConnectRequestTransport(required(m, "transport", path), `${path}.transport`),
     host: opt1,
     port: opt2,
@@ -80,7 +80,7 @@ export function encodeConnectRequest(v: ConnectRequest): Cbor {
   if (opt4 != null) {
     m.set("baud", Cbor.Uint(opt4 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ConnectionState { Disconnected, Connecting, Connected, Lost, Reconnecting }
@@ -148,7 +148,7 @@ export function decodeConnection(v: Cbor, path: string): Connection throws Inval
   if (cbor6 != null) {
     opt6 = boolean(cbor6, `${path}.resumed`)
   }
-  Connection {
+  return Connection {
     state: decodeConnectionState(required(m, "state", path), `${path}.state`),
     vehicle: opt1,
     error: opt2,
@@ -186,7 +186,7 @@ export function encodeConnection(v: Connection): Cbor {
   if (opt6 != null) {
     m.set("resumed", Cbor.Bool(opt6))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct VehicleInfo {
@@ -198,7 +198,7 @@ export struct VehicleInfo {
 
 export function decodeVehicleInfo(v: Cbor, path: string): VehicleInfo throws InvalidPayload {
   const m = members(v, path, ["sysid", "compid", "type", "autopilot"])
-  VehicleInfo {
+  return VehicleInfo {
     sysid: (uint(required(m, "sysid", path), `${path}.sysid`, 255) as u8),
     compid: (uint(required(m, "compid", path), `${path}.compid`, 255) as u8),
     type: text(required(m, "type", path), `${path}.type`),
@@ -212,7 +212,7 @@ export function encodeVehicleInfo(v: VehicleInfo): Cbor {
   m.set("compid", Cbor.Uint(v.compid as u64))
   m.set("type", Cbor.Text(v.type))
   m.set("autopilot", Cbor.Text(v.autopilot))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ParamKind { Int, Real }
@@ -242,7 +242,7 @@ export struct Param {
 
 export function decodeParam(v: Cbor, path: string): Param throws InvalidPayload {
   const m = members(v, path, ["id", "index", "kind", "type", "value"])
-  Param {
+  return Param {
     id: text(required(m, "id", path), `${path}.id`),
     index: (uint(required(m, "index", path), `${path}.index`, 65535) as u16),
     kind: decodeParamKind(required(m, "kind", path), `${path}.kind`),
@@ -258,7 +258,7 @@ export function encodeParam(v: Param): Cbor {
   m.set("kind", encodeParamKind(v.kind))
   m.set("type", Cbor.Text(v.type))
   m.set("value", Cbor.Float(v.value))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ParamListRequestMethod { Auto, List, Ftp }
@@ -291,7 +291,7 @@ export function decodeParamListRequest(v: Cbor, path: string): ParamListRequest 
   if (cbor0 != null) {
     opt0 = decodeParamListRequestMethod(cbor0, `${path}.method`)
   }
-  ParamListRequest {
+  return ParamListRequest {
     method: opt0,
   }
 }
@@ -302,7 +302,7 @@ export function encodeParamListRequest(v: ParamListRequest): Cbor {
   if (opt0 != null) {
     m.set("method", encodeParamListRequestMethod(opt0))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ParamListSource { Ftp, List }
@@ -329,7 +329,7 @@ function decodeParamListParamsList(v: Cbor, path: string): Param[] throws Invali
     out.push(decodeParam(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeParamListMissingList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -339,7 +339,7 @@ function decodeParamListMissingList(v: Cbor, path: string): u16[] throws Invalid
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeParamListParamsList(v: Param[]): Cbor {
@@ -347,7 +347,7 @@ function encodeParamListParamsList(v: Param[]): Cbor {
   for (const e of v) {
     out.push(encodeParam(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeParamListMissingList(v: u16[]): Cbor {
@@ -355,7 +355,7 @@ function encodeParamListMissingList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct ParamList {
@@ -385,7 +385,7 @@ export function decodeParamList(v: Cbor, path: string): ParamList throws Invalid
   if (cbor6 != null) {
     opt6 = (uint(cbor6, `${path}.elapsedMs`, 4294967295) as u32)
   }
-  ParamList {
+  return ParamList {
     params: decodeParamListParamsList(required(m, "params", path), `${path}.params`),
     count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
     complete: boolean(required(m, "complete", path), `${path}.complete`),
@@ -414,7 +414,7 @@ export function encodeParamList(v: ParamList): Cbor {
   if (opt6 != null) {
     m.set("elapsedMs", Cbor.Uint(opt6 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ParamsProgressSource { Ftp, List }
@@ -442,7 +442,7 @@ export struct ParamsProgress {
 
 export function decodeParamsProgress(v: Cbor, path: string): ParamsProgress throws InvalidPayload {
   const m = members(v, path, ["received", "total", "source"])
-  ParamsProgress {
+  return ParamsProgress {
     received: (uint(required(m, "received", path), `${path}.received`, 65535) as u16),
     total: (uint(required(m, "total", path), `${path}.total`, 65535) as u16),
     source: decodeParamsProgressSource(required(m, "source", path), `${path}.source`),
@@ -454,7 +454,7 @@ export function encodeParamsProgress(v: ParamsProgress): Cbor {
   m.set("received", Cbor.Uint(v.received as u64))
   m.set("total", Cbor.Uint(v.total as u64))
   m.set("source", encodeParamsProgressSource(v.source))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ParamWriteKind { Int, Real }
@@ -495,7 +495,7 @@ export function decodeParamWrite(v: Cbor, path: string): ParamWrite throws Inval
   if (cbor5 != null) {
     opt5 = boolean(cbor5, `${path}.tuning`)
   }
-  ParamWrite {
+  return ParamWrite {
     id: text(required(m, "id", path), `${path}.id`),
     kind: decodeParamWriteKind(required(m, "kind", path), `${path}.kind`),
     type: text(required(m, "type", path), `${path}.type`),
@@ -519,7 +519,7 @@ export function encodeParamWrite(v: ParamWrite): Cbor {
   if (opt5 != null) {
     m.set("tuning", Cbor.Bool(opt5))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct ParamWriteResult {
@@ -529,7 +529,7 @@ export struct ParamWriteResult {
 
 export function decodeParamWriteResult(v: Cbor, path: string): ParamWriteResult throws InvalidPayload {
   const m = members(v, path, ["param", "verified"])
-  ParamWriteResult {
+  return ParamWriteResult {
     param: decodeParam(required(m, "param", path), `${path}.param`),
     verified: boolean(required(m, "verified", path), `${path}.verified`),
   }
@@ -539,7 +539,7 @@ export function encodeParamWriteResult(v: ParamWriteResult): Cbor {
   const m = new Map<string, Cbor>()
   m.set("param", encodeParam(v.param))
   m.set("verified", Cbor.Bool(v.verified))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeVehicleDetailsSensorsList(v: Cbor, path: string): SensorState[] throws InvalidPayload {
@@ -549,7 +549,7 @@ function decodeVehicleDetailsSensorsList(v: Cbor, path: string): SensorState[] t
     out.push(decodeSensorState(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeVehicleDetailsSensorsList(v: SensorState[]): Cbor {
@@ -557,7 +557,7 @@ function encodeVehicleDetailsSensorsList(v: SensorState[]): Cbor {
   for (const e of v) {
     out.push(encodeSensorState(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct VehicleDetails {
@@ -615,7 +615,7 @@ export function decodeVehicleDetails(v: Cbor, path: string): VehicleDetails thro
   if (cbor9 != null) {
     opt9 = decodeVehicleDetailsSensorsList(cbor9, `${path}.sensors`)
   }
-  VehicleDetails {
+  return VehicleDetails {
     vehicle: text(required(m, "vehicle", path), `${path}.vehicle`),
     autopilot: text(required(m, "autopilot", path), `${path}.autopilot`),
     version: opt2,
@@ -665,7 +665,7 @@ export function encodeVehicleDetails(v: VehicleDetails): Cbor {
   if (opt9 != null) {
     m.set("sensors", encodeVehicleDetailsSensorsList(opt9))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SensorState {
@@ -677,7 +677,7 @@ export struct SensorState {
 
 export function decodeSensorState(v: Cbor, path: string): SensorState throws InvalidPayload {
   const m = members(v, path, ["id", "present", "enabled", "healthy"])
-  SensorState {
+  return SensorState {
     id: text(required(m, "id", path), `${path}.id`),
     present: boolean(required(m, "present", path), `${path}.present`),
     enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
@@ -691,7 +691,7 @@ export function encodeSensorState(v: SensorState): Cbor {
   m.set("present", Cbor.Bool(v.present))
   m.set("enabled", Cbor.Bool(v.enabled))
   m.set("healthy", Cbor.Bool(v.healthy))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum VehicleModesKind { Copter, Plane, Rover, Sub, Other }
@@ -724,7 +724,7 @@ function decodeVehicleModesModesList(v: Cbor, path: string): VehicleMode[] throw
     out.push(decodeVehicleMode(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeVehicleModesModesList(v: VehicleMode[]): Cbor {
@@ -732,7 +732,7 @@ function encodeVehicleModesModesList(v: VehicleMode[]): Cbor {
   for (const e of v) {
     out.push(encodeVehicleMode(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct VehicleModes {
@@ -742,7 +742,7 @@ export struct VehicleModes {
 
 export function decodeVehicleModes(v: Cbor, path: string): VehicleModes throws InvalidPayload {
   const m = members(v, path, ["kind", "modes"])
-  VehicleModes {
+  return VehicleModes {
     kind: decodeVehicleModesKind(required(m, "kind", path), `${path}.kind`),
     modes: decodeVehicleModesModesList(required(m, "modes", path), `${path}.modes`),
   }
@@ -752,7 +752,7 @@ export function encodeVehicleModes(v: VehicleModes): Cbor {
   const m = new Map<string, Cbor>()
   m.set("kind", encodeVehicleModesKind(v.kind))
   m.set("modes", encodeVehicleModesModesList(v.modes))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct VehicleMode {
@@ -762,7 +762,7 @@ export struct VehicleMode {
 
 export function decodeVehicleMode(v: Cbor, path: string): VehicleMode throws InvalidPayload {
   const m = members(v, path, ["number", "name"])
-  VehicleMode {
+  return VehicleMode {
     number: (uint(required(m, "number", path), `${path}.number`, 255) as u8),
     name: text(required(m, "name", path), `${path}.name`),
   }
@@ -772,7 +772,7 @@ export function encodeVehicleMode(v: VehicleMode): Cbor {
   const m = new Map<string, Cbor>()
   m.set("number", Cbor.Uint(v.number as u64))
   m.set("name", Cbor.Text(v.name))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct VehicleLog {
@@ -801,7 +801,7 @@ export function decodeVehicleLog(v: Cbor, path: string): VehicleLog throws Inval
   if (cbor5 != null) {
     opt5 = boolean(cbor5, `${path}.noChecksum`)
   }
-  VehicleLog {
+  return VehicleLog {
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
     size: (uint(required(m, "size", path), `${path}.size`, 4294967295) as u32),
     time: opt2,
@@ -828,7 +828,7 @@ export function encodeVehicleLog(v: VehicleLog): Cbor {
   if (opt5 != null) {
     m.set("noChecksum", Cbor.Bool(opt5))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum VehicleLogsSource { Ftp, Mavlink }
@@ -855,7 +855,7 @@ function decodeVehicleLogsLogsList(v: Cbor, path: string): VehicleLog[] throws I
     out.push(decodeVehicleLog(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeVehicleLogsLogsList(v: VehicleLog[]): Cbor {
@@ -863,7 +863,7 @@ function encodeVehicleLogsLogsList(v: VehicleLog[]): Cbor {
   for (const e of v) {
     out.push(encodeVehicleLog(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct VehicleLogs {
@@ -874,7 +874,7 @@ export struct VehicleLogs {
 
 export function decodeVehicleLogs(v: Cbor, path: string): VehicleLogs throws InvalidPayload {
   const m = members(v, path, ["logs", "source", "canErase"])
-  VehicleLogs {
+  return VehicleLogs {
     logs: decodeVehicleLogsLogsList(required(m, "logs", path), `${path}.logs`),
     source: decodeVehicleLogsSource(required(m, "source", path), `${path}.source`),
     canErase: boolean(required(m, "canErase", path), `${path}.canErase`),
@@ -886,7 +886,7 @@ export function encodeVehicleLogs(v: VehicleLogs): Cbor {
   m.set("logs", encodeVehicleLogsLogsList(v.logs))
   m.set("source", encodeVehicleLogsSource(v.source))
   m.set("canErase", Cbor.Bool(v.canErase))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsDownloadIdsList(v: Cbor, path: string): u32[] throws InvalidPayload {
@@ -896,7 +896,7 @@ function decodeLogsDownloadIdsList(v: Cbor, path: string): u32[] throws InvalidP
     out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsDownloadIdsList(v: u32[]): Cbor {
@@ -904,7 +904,7 @@ function encodeLogsDownloadIdsList(v: u32[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsDownload {
@@ -913,7 +913,7 @@ export struct LogsDownload {
 
 export function decodeLogsDownload(v: Cbor, path: string): LogsDownload throws InvalidPayload {
   const m = members(v, path, ["ids"])
-  LogsDownload {
+  return LogsDownload {
     ids: decodeLogsDownloadIdsList(required(m, "ids", path), `${path}.ids`),
   }
 }
@@ -921,7 +921,7 @@ export function decodeLogsDownload(v: Cbor, path: string): LogsDownload throws I
 export function encodeLogsDownload(v: LogsDownload): Cbor {
   const m = new Map<string, Cbor>()
   m.set("ids", encodeLogsDownloadIdsList(v.ids))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsDownloadedIdsList(v: Cbor, path: string): u32[] throws InvalidPayload {
@@ -931,7 +931,7 @@ function decodeLogsDownloadedIdsList(v: Cbor, path: string): u32[] throws Invali
     out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsDownloadedIdsList(v: u32[]): Cbor {
@@ -939,7 +939,7 @@ function encodeLogsDownloadedIdsList(v: u32[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsDownloaded {
@@ -955,7 +955,7 @@ export function decodeLogsDownloaded(v: Cbor, path: string): LogsDownloaded thro
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.error`)
   }
-  LogsDownloaded {
+  return LogsDownloaded {
     ids: decodeLogsDownloadedIdsList(required(m, "ids", path), `${path}.ids`),
     stopped: boolean(required(m, "stopped", path), `${path}.stopped`),
     error: opt2,
@@ -970,7 +970,7 @@ export function encodeLogsDownloaded(v: LogsDownloaded): Cbor {
   if (opt2 != null) {
     m.set("error", Cbor.Text(opt2))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsErasedErasedList(v: Cbor, path: string): u32[] throws InvalidPayload {
@@ -980,7 +980,7 @@ function decodeLogsErasedErasedList(v: Cbor, path: string): u32[] throws Invalid
     out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsErasedErasedList(v: u32[]): Cbor {
@@ -988,7 +988,7 @@ function encodeLogsErasedErasedList(v: u32[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsErased {
@@ -998,7 +998,7 @@ export struct LogsErased {
 
 export function decodeLogsErased(v: Cbor, path: string): LogsErased throws InvalidPayload {
   const m = members(v, path, ["erased", "kept"])
-  LogsErased {
+  return LogsErased {
     erased: decodeLogsErasedErasedList(required(m, "erased", path), `${path}.erased`),
     kept: (uint(required(m, "kept", path), `${path}.kept`, 4294967295) as u32),
   }
@@ -1008,7 +1008,7 @@ export function encodeLogsErased(v: LogsErased): Cbor {
   const m = new Map<string, Cbor>()
   m.set("erased", encodeLogsErasedErasedList(v.erased))
   m.set("kept", Cbor.Uint(v.kept as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum LogsProgressState { Queued, Downloading, Done, Failed }
@@ -1047,7 +1047,7 @@ export function decodeLogsProgress(v: Cbor, path: string): LogsProgress throws I
   if (cbor4 != null) {
     opt4 = (uint(cbor4, `${path}.resumedFrom`, 4294967295) as u32)
   }
-  LogsProgress {
+  return LogsProgress {
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
     state: decodeLogsProgressState(required(m, "state", path), `${path}.state`),
     received: (uint(required(m, "received", path), `${path}.received`, 4294967295) as u32),
@@ -1066,7 +1066,7 @@ export function encodeLogsProgress(v: LogsProgress): Cbor {
   if (opt4 != null) {
     m.set("resumedFrom", Cbor.Uint(opt4 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum LocalLogSource { Dataflash, Tlog }
@@ -1104,7 +1104,7 @@ export function decodeLocalLog(v: Cbor, path: string): LocalLog throws InvalidPa
   if (cbor7 != null) {
     opt7 = decodeLocalLogSummary(cbor7, `${path}.summary`)
   }
-  LocalLog {
+  return LocalLog {
     key: text(required(m, "key", path), `${path}.key`),
     vehicle: text(required(m, "vehicle", path), `${path}.vehicle`),
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
@@ -1129,7 +1129,7 @@ export function encodeLocalLog(v: LocalLog): Cbor {
   if (opt7 != null) {
     m.set("summary", encodeLocalLogSummary(opt7))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLocalLogsLogsList(v: Cbor, path: string): LocalLog[] throws InvalidPayload {
@@ -1139,7 +1139,7 @@ function decodeLocalLogsLogsList(v: Cbor, path: string): LocalLog[] throws Inval
     out.push(decodeLocalLog(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogsLogsList(v: LocalLog[]): Cbor {
@@ -1147,7 +1147,7 @@ function encodeLocalLogsLogsList(v: LocalLog[]): Cbor {
   for (const e of v) {
     out.push(encodeLocalLog(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogs {
@@ -1157,7 +1157,7 @@ export struct LocalLogs {
 
 export function decodeLocalLogs(v: Cbor, path: string): LocalLogs throws InvalidPayload {
   const m = members(v, path, ["logs", "truncated"])
-  LocalLogs {
+  return LocalLogs {
     logs: decodeLocalLogsLogsList(required(m, "logs", path), `${path}.logs`),
     truncated: boolean(required(m, "truncated", path), `${path}.truncated`),
   }
@@ -1167,7 +1167,7 @@ export function encodeLocalLogs(v: LocalLogs): Cbor {
   const m = new Map<string, Cbor>()
   m.set("logs", encodeLocalLogsLogsList(v.logs))
   m.set("truncated", Cbor.Bool(v.truncated))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsLocalRead {
@@ -1176,7 +1176,7 @@ export struct LogsLocalRead {
 
 export function decodeLogsLocalRead(v: Cbor, path: string): LogsLocalRead throws InvalidPayload {
   const m = members(v, path, ["key"])
-  LogsLocalRead {
+  return LogsLocalRead {
     key: text(required(m, "key", path), `${path}.key`),
   }
 }
@@ -1184,7 +1184,7 @@ export function decodeLogsLocalRead(v: Cbor, path: string): LogsLocalRead throws
 export function encodeLogsLocalRead(v: LogsLocalRead): Cbor {
   const m = new Map<string, Cbor>()
   m.set("key", Cbor.Text(v.key))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TlogReport {
@@ -1234,7 +1234,7 @@ export function decodeTlogReport(v: Cbor, path: string): TlogReport throws Inval
   if (cbor16 != null) {
     opt16 = (uint(cbor16, `${path}.compid`, 65535) as u16)
   }
-  TlogReport {
+  return TlogReport {
     records: (uint(required(m, "records", path), `${path}.records`, 4294967295) as u32),
     v1: (uint(required(m, "v1", path), `${path}.v1`, 4294967295) as u32),
     v2: (uint(required(m, "v2", path), `${path}.v2`, 4294967295) as u32),
@@ -1289,7 +1289,7 @@ export function encodeTlogReport(v: TlogReport): Cbor {
   if (opt16 != null) {
     m.set("compid", Cbor.Uint(opt16 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsImportAsk {
@@ -1303,7 +1303,7 @@ export function decodeLogsImportAsk(v: Cbor, path: string): LogsImportAsk throws
   if (cbor0 != null) {
     opt0 = boolean(cbor0, `${path}.confirmLarge`)
   }
-  LogsImportAsk {
+  return LogsImportAsk {
     confirmLarge: opt0,
   }
 }
@@ -1314,7 +1314,7 @@ export function encodeLogsImportAsk(v: LogsImportAsk): Cbor {
   if (opt0 != null) {
     m.set("confirmLarge", Cbor.Bool(opt0))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsHousekeepingAsk {
@@ -1330,7 +1330,7 @@ export function decodeLogsHousekeepingAsk(v: Cbor, path: string): LogsHousekeepi
   if (cbor2 != null) {
     opt2 = boolean(cbor2, `${path}.dryRun`)
   }
-  LogsHousekeepingAsk {
+  return LogsHousekeepingAsk {
     retentionDays: (uint(required(m, "retentionDays", path), `${path}.retentionDays`, 65535) as u16),
     sizeCapMb: (uint(required(m, "sizeCapMb", path), `${path}.sizeCapMb`, 4294967295) as u32),
     dryRun: opt2,
@@ -1345,7 +1345,7 @@ export function encodeLogsHousekeepingAsk(v: LogsHousekeepingAsk): Cbor {
   if (opt2 != null) {
     m.set("dryRun", Cbor.Bool(opt2))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum RemovedLogWhy { Age, Size }
@@ -1374,7 +1374,7 @@ export struct RemovedLog {
 
 export function decodeRemovedLog(v: Cbor, path: string): RemovedLog throws InvalidPayload {
   const m = members(v, path, ["vehicle", "name", "size", "why"])
-  RemovedLog {
+  return RemovedLog {
     vehicle: text(required(m, "vehicle", path), `${path}.vehicle`),
     name: text(required(m, "name", path), `${path}.name`),
     size: (uint(required(m, "size", path), `${path}.size`, 18446744073709551615) as u64),
@@ -1388,7 +1388,7 @@ export function encodeRemovedLog(v: RemovedLog): Cbor {
   m.set("name", Cbor.Text(v.name))
   m.set("size", Cbor.Uint(v.size as u64))
   m.set("why", encodeRemovedLogWhy(v.why))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsHousekeptRemovedList(v: Cbor, path: string): RemovedLog[] throws InvalidPayload {
@@ -1398,7 +1398,7 @@ function decodeLogsHousekeptRemovedList(v: Cbor, path: string): RemovedLog[] thr
     out.push(decodeRemovedLog(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsHousekeptRemovedList(v: RemovedLog[]): Cbor {
@@ -1406,7 +1406,7 @@ function encodeLogsHousekeptRemovedList(v: RemovedLog[]): Cbor {
   for (const e of v) {
     out.push(encodeRemovedLog(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsHousekept {
@@ -1421,7 +1421,7 @@ export struct LogsHousekept {
 
 export function decodeLogsHousekept(v: Cbor, path: string): LogsHousekept throws InvalidPayload {
   const m = members(v, path, ["removed", "removedCount", "freed", "kept", "unverified", "overCap", "partsRemoved"])
-  LogsHousekept {
+  return LogsHousekept {
     removed: decodeLogsHousekeptRemovedList(required(m, "removed", path), `${path}.removed`),
     removedCount: (uint(required(m, "removedCount", path), `${path}.removedCount`, 4294967295) as u32),
     freed: (uint(required(m, "freed", path), `${path}.freed`, 18446744073709551615) as u64),
@@ -1441,7 +1441,7 @@ export function encodeLogsHousekept(v: LogsHousekept): Cbor {
   m.set("unverified", Cbor.Uint(v.unverified as u64))
   m.set("overCap", Cbor.Bool(v.overCap))
   m.set("partsRemoved", Cbor.Uint(v.partsRemoved as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsImported {
@@ -1487,7 +1487,7 @@ export function decodeLogsImported(v: Cbor, path: string): LogsImported throws I
   if (cbor7 != null) {
     opt7 = decodeTlogReport(cbor7, `${path}.report`)
   }
-  LogsImported {
+  return LogsImported {
     cancelled: boolean(required(m, "cancelled", path), `${path}.cancelled`),
     duplicate: boolean(required(m, "duplicate", path), `${path}.duplicate`),
     large: opt2,
@@ -1527,7 +1527,7 @@ export function encodeLogsImported(v: LogsImported): Cbor {
   if (opt7 != null) {
     m.set("report", encodeTlogReport(opt7))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsLocalProgress {
@@ -1538,7 +1538,7 @@ export struct LogsLocalProgress {
 
 export function decodeLogsLocalProgress(v: Cbor, path: string): LogsLocalProgress throws InvalidPayload {
   const m = members(v, path, ["key", "bytes", "total"])
-  LogsLocalProgress {
+  return LogsLocalProgress {
     key: text(required(m, "key", path), `${path}.key`),
     bytes: (uint(required(m, "bytes", path), `${path}.bytes`, 18446744073709551615) as u64),
     total: (uint(required(m, "total", path), `${path}.total`, 18446744073709551615) as u64),
@@ -1550,7 +1550,7 @@ export function encodeLogsLocalProgress(v: LogsLocalProgress): Cbor {
   m.set("key", Cbor.Text(v.key))
   m.set("bytes", Cbor.Uint(v.bytes as u64))
   m.set("total", Cbor.Uint(v.total as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LocalLogSummary {
@@ -1592,7 +1592,7 @@ export function decodeLocalLogSummary(v: Cbor, path: string): LocalLogSummary th
   if (cbor8 != null) {
     opt8 = decodeTlogReport(cbor8, `${path}.report`)
   }
-  LocalLogSummary {
+  return LocalLogSummary {
     verified: boolean(required(m, "verified", path), `${path}.verified`),
     messages: (uint(required(m, "messages", path), `${path}.messages`, 4294967295) as u32),
     problems: (uint(required(m, "problems", path), `${path}.problems`, 4294967295) as u32),
@@ -1631,7 +1631,7 @@ export function encodeLocalLogSummary(v: LocalLogSummary): Cbor {
   if (opt8 != null) {
     m.set("report", encodeTlogReport(opt8))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SeriesAsk {
@@ -1653,7 +1653,7 @@ export function decodeSeriesAsk(v: Cbor, path: string): SeriesAsk throws Invalid
   if (cbor3 != null) {
     opt3 = float(cbor3, `${path}.whereValue`)
   }
-  SeriesAsk {
+  return SeriesAsk {
     message: text(required(m, "message", path), `${path}.message`),
     field: text(required(m, "field", path), `${path}.field`),
     whereField: opt2,
@@ -1673,7 +1673,7 @@ export function encodeSeriesAsk(v: SeriesAsk): Cbor {
   if (opt3 != null) {
     m.set("whereValue", Cbor.Float(opt3))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsLocalSeriesAskSeriesList(v: Cbor, path: string): SeriesAsk[] throws InvalidPayload {
@@ -1683,7 +1683,7 @@ function decodeLogsLocalSeriesAskSeriesList(v: Cbor, path: string): SeriesAsk[] 
     out.push(decodeSeriesAsk(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsLocalSeriesAskSeriesList(v: SeriesAsk[]): Cbor {
@@ -1691,7 +1691,7 @@ function encodeLogsLocalSeriesAskSeriesList(v: SeriesAsk[]): Cbor {
   for (const e of v) {
     out.push(encodeSeriesAsk(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsLocalSeriesAsk {
@@ -1714,7 +1714,7 @@ export function decodeLogsLocalSeriesAsk(v: Cbor, path: string): LogsLocalSeries
   if (cbor4 != null) {
     opt4 = (uint(cbor4, `${path}.toUs`, 18446744073709551615) as u64)
   }
-  LogsLocalSeriesAsk {
+  return LogsLocalSeriesAsk {
     key: text(required(m, "key", path), `${path}.key`),
     series: decodeLogsLocalSeriesAskSeriesList(required(m, "series", path), `${path}.series`),
     buckets: (uint(required(m, "buckets", path), `${path}.buckets`, 65535) as u16),
@@ -1736,7 +1736,7 @@ export function encodeLogsLocalSeriesAsk(v: LogsLocalSeriesAsk): Cbor {
   if (opt4 != null) {
     m.set("toUs", Cbor.Uint(opt4 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeSeriesResultPointsList(v: Cbor, path: string): SeriesPoint[] throws InvalidPayload {
@@ -1746,7 +1746,7 @@ function decodeSeriesResultPointsList(v: Cbor, path: string): SeriesPoint[] thro
     out.push(decodeSeriesPoint(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSeriesResultPointsList(v: SeriesPoint[]): Cbor {
@@ -1754,7 +1754,7 @@ function encodeSeriesResultPointsList(v: SeriesPoint[]): Cbor {
   for (const e of v) {
     out.push(encodeSeriesPoint(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SeriesResult {
@@ -1773,7 +1773,7 @@ export function decodeSeriesResult(v: Cbor, path: string): SeriesResult throws I
   if (cbor3 != null) {
     opt3 = text(cbor3, `${path}.unit`)
   }
-  SeriesResult {
+  return SeriesResult {
     message: text(required(m, "message", path), `${path}.message`),
     field: text(required(m, "field", path), `${path}.field`),
     found: boolean(required(m, "found", path), `${path}.found`),
@@ -1794,7 +1794,7 @@ export function encodeSeriesResult(v: SeriesResult): Cbor {
   }
   m.set("points", encodeSeriesResultPointsList(v.points))
   m.set("invalid", Cbor.Uint(v.invalid as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SeriesPoint {
@@ -1806,7 +1806,7 @@ export struct SeriesPoint {
 
 export function decodeSeriesPoint(v: Cbor, path: string): SeriesPoint throws InvalidPayload {
   const m = members(v, path, ["index", "min", "max", "count"])
-  SeriesPoint {
+  return SeriesPoint {
     index: (uint(required(m, "index", path), `${path}.index`, 65535) as u16),
     min: float(required(m, "min", path), `${path}.min`),
     max: float(required(m, "max", path), `${path}.max`),
@@ -1820,7 +1820,7 @@ export function encodeSeriesPoint(v: SeriesPoint): Cbor {
   m.set("min", Cbor.Float(v.min))
   m.set("max", Cbor.Float(v.max))
   m.set("count", Cbor.Uint(v.count as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsLocalSeriesSeriesList(v: Cbor, path: string): SeriesResult[] throws InvalidPayload {
@@ -1830,7 +1830,7 @@ function decodeLogsLocalSeriesSeriesList(v: Cbor, path: string): SeriesResult[] 
     out.push(decodeSeriesResult(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsLocalSeriesSeriesList(v: SeriesResult[]): Cbor {
@@ -1838,7 +1838,7 @@ function encodeLogsLocalSeriesSeriesList(v: SeriesResult[]): Cbor {
   for (const e of v) {
     out.push(encodeSeriesResult(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsLocalSeries {
@@ -1850,7 +1850,7 @@ export struct LogsLocalSeries {
 
 export function decodeLogsLocalSeries(v: Cbor, path: string): LogsLocalSeries throws InvalidPayload {
   const m = members(v, path, ["fromUs", "toUs", "buckets", "series"])
-  LogsLocalSeries {
+  return LogsLocalSeries {
     fromUs: (uint(required(m, "fromUs", path), `${path}.fromUs`, 18446744073709551615) as u64),
     toUs: (uint(required(m, "toUs", path), `${path}.toUs`, 18446744073709551615) as u64),
     buckets: (uint(required(m, "buckets", path), `${path}.buckets`, 65535) as u16),
@@ -1864,7 +1864,7 @@ export function encodeLogsLocalSeries(v: LogsLocalSeries): Cbor {
   m.set("toUs", Cbor.Uint(v.toUs as u64))
   m.set("buckets", Cbor.Uint(v.buckets as u64))
   m.set("series", encodeLogsLocalSeriesSeriesList(v.series))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsLocalTrackAsk {
@@ -1879,7 +1879,7 @@ export function decodeLogsLocalTrackAsk(v: Cbor, path: string): LogsLocalTrackAs
   if (cbor1 != null) {
     opt1 = (uint(cbor1, `${path}.maxPoints`, 65535) as u16)
   }
-  LogsLocalTrackAsk {
+  return LogsLocalTrackAsk {
     key: text(required(m, "key", path), `${path}.key`),
     maxPoints: opt1,
   }
@@ -1892,7 +1892,7 @@ export function encodeLogsLocalTrackAsk(v: LogsLocalTrackAsk): Cbor {
   if (opt1 != null) {
     m.set("maxPoints", Cbor.Uint(opt1 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TrackPoint {
@@ -1909,7 +1909,7 @@ export function decodeTrackPoint(v: Cbor, path: string): TrackPoint throws Inval
   if (cbor3 != null) {
     opt3 = float(cbor3, `${path}.alt`)
   }
-  TrackPoint {
+  return TrackPoint {
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
     lat: float(required(m, "lat", path), `${path}.lat`),
     lon: float(required(m, "lon", path), `${path}.lon`),
@@ -1926,7 +1926,7 @@ export function encodeTrackPoint(v: TrackPoint): Cbor {
   if (opt3 != null) {
     m.set("alt", Cbor.Float(opt3))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TrackPlace {
@@ -1936,7 +1936,7 @@ export struct TrackPlace {
 
 export function decodeTrackPlace(v: Cbor, path: string): TrackPlace throws InvalidPayload {
   const m = members(v, path, ["lat", "lon"])
-  TrackPlace {
+  return TrackPlace {
     lat: float(required(m, "lat", path), `${path}.lat`),
     lon: float(required(m, "lon", path), `${path}.lon`),
   }
@@ -1946,7 +1946,7 @@ export function encodeTrackPlace(v: TrackPlace): Cbor {
   const m = new Map<string, Cbor>()
   m.set("lat", Cbor.Float(v.lat))
   m.set("lon", Cbor.Float(v.lon))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum TrackEventKind { Armed, Disarmed, Text }
@@ -1981,7 +1981,7 @@ export function decodeTrackEvent(v: Cbor, path: string): TrackEvent throws Inval
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.text`)
   }
-  TrackEvent {
+  return TrackEvent {
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
     kind: decodeTrackEventKind(required(m, "kind", path), `${path}.kind`),
     text: opt2,
@@ -1996,7 +1996,7 @@ export function encodeTrackEvent(v: TrackEvent): Cbor {
   if (opt2 != null) {
     m.set("text", Cbor.Text(opt2))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TrackGap {
@@ -2006,7 +2006,7 @@ export struct TrackGap {
 
 export function decodeTrackGap(v: Cbor, path: string): TrackGap throws InvalidPayload {
   const m = members(v, path, ["fromUs", "toUs"])
-  TrackGap {
+  return TrackGap {
     fromUs: (uint(required(m, "fromUs", path), `${path}.fromUs`, 18446744073709551615) as u64),
     toUs: (uint(required(m, "toUs", path), `${path}.toUs`, 18446744073709551615) as u64),
   }
@@ -2016,7 +2016,7 @@ export function encodeTrackGap(v: TrackGap): Cbor {
   const m = new Map<string, Cbor>()
   m.set("fromUs", Cbor.Uint(v.fromUs as u64))
   m.set("toUs", Cbor.Uint(v.toUs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum LocalLogTrackSource { Pos, Gps }
@@ -2043,7 +2043,7 @@ function decodeLocalLogTrackPointsList(v: Cbor, path: string): TrackPoint[] thro
     out.push(decodeTrackPoint(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeLocalLogTrackGapsList(v: Cbor, path: string): TrackGap[] throws InvalidPayload {
@@ -2053,7 +2053,7 @@ function decodeLocalLogTrackGapsList(v: Cbor, path: string): TrackGap[] throws I
     out.push(decodeTrackGap(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeLocalLogTrackEventsList(v: Cbor, path: string): TrackEvent[] throws InvalidPayload {
@@ -2063,7 +2063,7 @@ function decodeLocalLogTrackEventsList(v: Cbor, path: string): TrackEvent[] thro
     out.push(decodeTrackEvent(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogTrackPointsList(v: TrackPoint[]): Cbor {
@@ -2071,7 +2071,7 @@ function encodeLocalLogTrackPointsList(v: TrackPoint[]): Cbor {
   for (const e of v) {
     out.push(encodeTrackPoint(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeLocalLogTrackGapsList(v: TrackGap[]): Cbor {
@@ -2079,7 +2079,7 @@ function encodeLocalLogTrackGapsList(v: TrackGap[]): Cbor {
   for (const e of v) {
     out.push(encodeTrackGap(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeLocalLogTrackEventsList(v: TrackEvent[]): Cbor {
@@ -2087,7 +2087,7 @@ function encodeLocalLogTrackEventsList(v: TrackEvent[]): Cbor {
   for (const e of v) {
     out.push(encodeTrackEvent(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogTrack {
@@ -2108,7 +2108,7 @@ export function decodeLocalLogTrack(v: Cbor, path: string): LocalLogTrack throws
   if (cbor6 != null) {
     opt6 = decodeTrackPlace(cbor6, `${path}.home`)
   }
-  LocalLogTrack {
+  return LocalLogTrack {
     source: decodeLocalLogTrackSource(required(m, "source", path), `${path}.source`),
     fixes: (uint(required(m, "fixes", path), `${path}.fixes`, 4294967295) as u32),
     skipped: (uint(required(m, "skipped", path), `${path}.skipped`, 4294967295) as u32),
@@ -2133,7 +2133,7 @@ export function encodeLocalLogTrack(v: LocalLogTrack): Cbor {
     m.set("home", encodeTrackPlace(opt6))
   }
   m.set("events", encodeLocalLogTrackEventsList(v.events))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ReviewFindingLevel { Ok, Warn, Bad, Info, NoData }
@@ -2196,7 +2196,7 @@ export function decodeReviewFinding(v: Cbor, path: string): ReviewFinding throws
   if (cbor6 != null) {
     opt6 = float(cbor6, `${path}.rateHz`)
   }
-  ReviewFinding {
+  return ReviewFinding {
     id: text(required(m, "id", path), `${path}.id`),
     level: decodeReviewFindingLevel(required(m, "level", path), `${path}.level`),
     value: opt2,
@@ -2231,7 +2231,7 @@ export function encodeReviewFinding(v: ReviewFinding): Cbor {
   if (opt6 != null) {
     m.set("rateHz", Cbor.Float(opt6))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLogsReviewFindingsList(v: Cbor, path: string): ReviewFinding[] throws InvalidPayload {
@@ -2241,7 +2241,7 @@ function decodeLogsReviewFindingsList(v: Cbor, path: string): ReviewFinding[] th
     out.push(decodeReviewFinding(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLogsReviewFindingsList(v: ReviewFinding[]): Cbor {
@@ -2249,7 +2249,7 @@ function encodeLogsReviewFindingsList(v: ReviewFinding[]): Cbor {
   for (const e of v) {
     out.push(encodeReviewFinding(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LogsReview {
@@ -2258,7 +2258,7 @@ export struct LogsReview {
 
 export function decodeLogsReview(v: Cbor, path: string): LogsReview throws InvalidPayload {
   const m = members(v, path, ["findings"])
-  LogsReview {
+  return LogsReview {
     findings: decodeLogsReviewFindingsList(required(m, "findings", path), `${path}.findings`),
   }
 }
@@ -2266,7 +2266,7 @@ export function decodeLogsReview(v: Cbor, path: string): LogsReview throws Inval
 export function encodeLogsReview(v: LogsReview): Cbor {
   const m = new Map<string, Cbor>()
   m.set("findings", encodeLogsReviewFindingsList(v.findings))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLocalLogMessagesTypesList(v: Cbor, path: string): MessageType[] throws InvalidPayload {
@@ -2276,7 +2276,7 @@ function decodeLocalLogMessagesTypesList(v: Cbor, path: string): MessageType[] t
     out.push(decodeMessageType(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogMessagesTypesList(v: MessageType[]): Cbor {
@@ -2284,7 +2284,7 @@ function encodeLocalLogMessagesTypesList(v: MessageType[]): Cbor {
   for (const e of v) {
     out.push(encodeMessageType(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogMessages {
@@ -2299,7 +2299,7 @@ export function decodeLocalLogMessages(v: Cbor, path: string): LocalLogMessages 
   if (cbor1 != null) {
     opt1 = (uint(cbor1, `${path}.more`, 4294967295) as u32)
   }
-  LocalLogMessages {
+  return LocalLogMessages {
     types: decodeLocalLogMessagesTypesList(required(m, "types", path), `${path}.types`),
     more: opt1,
   }
@@ -2312,7 +2312,7 @@ export function encodeLocalLogMessages(v: LocalLogMessages): Cbor {
   if (opt1 != null) {
     m.set("more", Cbor.Uint(opt1 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeMessageTypeFieldsList(v: Cbor, path: string): MessageField[] throws InvalidPayload {
@@ -2322,7 +2322,7 @@ function decodeMessageTypeFieldsList(v: Cbor, path: string): MessageField[] thro
     out.push(decodeMessageField(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeMessageTypeFieldsList(v: MessageField[]): Cbor {
@@ -2330,7 +2330,7 @@ function encodeMessageTypeFieldsList(v: MessageField[]): Cbor {
   for (const e of v) {
     out.push(encodeMessageField(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct MessageType {
@@ -2347,7 +2347,7 @@ export function decodeMessageType(v: Cbor, path: string): MessageType throws Inv
   if (cbor3 != null) {
     opt3 = text(cbor3, `${path}.instanceField`)
   }
-  MessageType {
+  return MessageType {
     name: text(required(m, "name", path), `${path}.name`),
     count: (uint(required(m, "count", path), `${path}.count`, 4294967295) as u32),
     fields: decodeMessageTypeFieldsList(required(m, "fields", path), `${path}.fields`),
@@ -2364,7 +2364,7 @@ export function encodeMessageType(v: MessageType): Cbor {
   if (opt3 != null) {
     m.set("instanceField", Cbor.Text(opt3))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum MessageFieldKind { Number, Text, Array }
@@ -2399,7 +2399,7 @@ export function decodeMessageField(v: Cbor, path: string): MessageField throws I
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.unit`)
   }
-  MessageField {
+  return MessageField {
     name: text(required(m, "name", path), `${path}.name`),
     unit: opt1,
     kind: decodeMessageFieldKind(required(m, "kind", path), `${path}.kind`),
@@ -2414,7 +2414,7 @@ export function encodeMessageField(v: MessageField): Cbor {
     m.set("unit", Cbor.Text(opt1))
   }
   m.set("kind", encodeMessageFieldKind(v.kind))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsLocalAtAsk {
@@ -2425,7 +2425,7 @@ export struct LogsLocalAtAsk {
 
 export function decodeLogsLocalAtAsk(v: Cbor, path: string): LogsLocalAtAsk throws InvalidPayload {
   const m = members(v, path, ["key", "message", "timeUs"])
-  LogsLocalAtAsk {
+  return LogsLocalAtAsk {
     key: text(required(m, "key", path), `${path}.key`),
     message: text(required(m, "message", path), `${path}.message`),
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
@@ -2437,7 +2437,7 @@ export function encodeLogsLocalAtAsk(v: LogsLocalAtAsk): Cbor {
   m.set("key", Cbor.Text(v.key))
   m.set("message", Cbor.Text(v.message))
   m.set("timeUs", Cbor.Uint(v.timeUs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLocalLogAtRowsList(v: Cbor, path: string): AtRow[] throws InvalidPayload {
@@ -2447,7 +2447,7 @@ function decodeLocalLogAtRowsList(v: Cbor, path: string): AtRow[] throws Invalid
     out.push(decodeAtRow(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogAtRowsList(v: AtRow[]): Cbor {
@@ -2455,7 +2455,7 @@ function encodeLocalLogAtRowsList(v: AtRow[]): Cbor {
   for (const e of v) {
     out.push(encodeAtRow(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogAt {
@@ -2465,7 +2465,7 @@ export struct LocalLogAt {
 
 export function decodeLocalLogAt(v: Cbor, path: string): LocalLogAt throws InvalidPayload {
   const m = members(v, path, ["found", "rows"])
-  LocalLogAt {
+  return LocalLogAt {
     found: boolean(required(m, "found", path), `${path}.found`),
     rows: decodeLocalLogAtRowsList(required(m, "rows", path), `${path}.rows`),
   }
@@ -2475,7 +2475,7 @@ export function encodeLocalLogAt(v: LocalLogAt): Cbor {
   const m = new Map<string, Cbor>()
   m.set("found", Cbor.Bool(v.found))
   m.set("rows", encodeLocalLogAtRowsList(v.rows))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeAtRowFieldsList(v: Cbor, path: string): AtField[] throws InvalidPayload {
@@ -2485,7 +2485,7 @@ function decodeAtRowFieldsList(v: Cbor, path: string): AtField[] throws InvalidP
     out.push(decodeAtField(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeAtRowFieldsList(v: AtField[]): Cbor {
@@ -2493,7 +2493,7 @@ function encodeAtRowFieldsList(v: AtField[]): Cbor {
   for (const e of v) {
     out.push(encodeAtField(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct AtRow {
@@ -2509,7 +2509,7 @@ export function decodeAtRow(v: Cbor, path: string): AtRow throws InvalidPayload 
   if (cbor0 != null) {
     opt0 = float(cbor0, `${path}.instance`)
   }
-  AtRow {
+  return AtRow {
     instance: opt0,
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
     fields: decodeAtRowFieldsList(required(m, "fields", path), `${path}.fields`),
@@ -2524,7 +2524,7 @@ export function encodeAtRow(v: AtRow): Cbor {
   }
   m.set("timeUs", Cbor.Uint(v.timeUs as u64))
   m.set("fields", encodeAtRowFieldsList(v.fields))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct AtField {
@@ -2545,7 +2545,7 @@ export function decodeAtField(v: Cbor, path: string): AtField throws InvalidPayl
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.text`)
   }
-  AtField {
+  return AtField {
     name: text(required(m, "name", path), `${path}.name`),
     value: opt1,
     text: opt2,
@@ -2563,7 +2563,7 @@ export function encodeAtField(v: AtField): Cbor {
   if (opt2 != null) {
     m.set("text", Cbor.Text(opt2))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum LogsLocalExportAskFormat { Csv, Gpx, Kml }
@@ -2610,7 +2610,7 @@ export function decodeLogsLocalExportAsk(v: Cbor, path: string): LogsLocalExport
   if (cbor4 != null) {
     opt4 = boolean(cbor4, `${path}.overwrite`)
   }
-  LogsLocalExportAsk {
+  return LogsLocalExportAsk {
     key: text(required(m, "key", path), `${path}.key`),
     format: decodeLogsLocalExportAskFormat(required(m, "format", path), `${path}.format`),
     message: opt2,
@@ -2635,7 +2635,7 @@ export function encodeLogsLocalExportAsk(v: LogsLocalExportAsk): Cbor {
   if (opt4 != null) {
     m.set("overwrite", Cbor.Bool(opt4))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LocalLogExported {
@@ -2657,7 +2657,7 @@ export function decodeLocalLogExported(v: Cbor, path: string): LocalLogExported 
   if (cbor1 != null) {
     opt1 = boolean(cbor1, `${path}.exists`)
   }
-  LocalLogExported {
+  return LocalLogExported {
     path: opt0,
     exists: opt1,
     rows: (uint(required(m, "rows", path), `${path}.rows`, 4294967295) as u32),
@@ -2677,7 +2677,7 @@ export function encodeLocalLogExported(v: LocalLogExported): Cbor {
   }
   m.set("rows", Cbor.Uint(v.rows as u64))
   m.set("bytes", Cbor.Uint(v.bytes as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum BatchSensor { Accel, Gyro }
@@ -2704,7 +2704,7 @@ function decodeLocalLogBatchesSourcesList(v: Cbor, path: string): BatchSource[] 
     out.push(decodeBatchSource(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogBatchesSourcesList(v: BatchSource[]): Cbor {
@@ -2712,7 +2712,7 @@ function encodeLocalLogBatchesSourcesList(v: BatchSource[]): Cbor {
   for (const e of v) {
     out.push(encodeBatchSource(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogBatches {
@@ -2721,7 +2721,7 @@ export struct LocalLogBatches {
 
 export function decodeLocalLogBatches(v: Cbor, path: string): LocalLogBatches throws InvalidPayload {
   const m = members(v, path, ["sources"])
-  LocalLogBatches {
+  return LocalLogBatches {
     sources: decodeLocalLogBatchesSourcesList(required(m, "sources", path), `${path}.sources`),
   }
 }
@@ -2729,7 +2729,7 @@ export function decodeLocalLogBatches(v: Cbor, path: string): LocalLogBatches th
 export function encodeLocalLogBatches(v: LocalLogBatches): Cbor {
   const m = new Map<string, Cbor>()
   m.set("sources", encodeLocalLogBatchesSourcesList(v.sources))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct BatchSource {
@@ -2749,7 +2749,7 @@ export function decodeBatchSource(v: Cbor, path: string): BatchSource throws Inv
   if (cbor6 != null) {
     opt6 = boolean(cbor6, `${path}.postFilter`)
   }
-  BatchSource {
+  return BatchSource {
     sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
     instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
     batches: (uint(required(m, "batches", path), `${path}.batches`, 4294967295) as u32),
@@ -2772,7 +2772,7 @@ export function encodeBatchSource(v: BatchSource): Cbor {
   if (opt6 != null) {
     m.set("postFilter", Cbor.Bool(opt6))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct LogsLocalSpectrumAsk {
@@ -2783,7 +2783,7 @@ export struct LogsLocalSpectrumAsk {
 
 export function decodeLogsLocalSpectrumAsk(v: Cbor, path: string): LogsLocalSpectrumAsk throws InvalidPayload {
   const m = members(v, path, ["key", "sensor", "instance"])
-  LogsLocalSpectrumAsk {
+  return LogsLocalSpectrumAsk {
     key: text(required(m, "key", path), `${path}.key`),
     sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
     instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
@@ -2795,7 +2795,7 @@ export function encodeLogsLocalSpectrumAsk(v: LogsLocalSpectrumAsk): Cbor {
   m.set("key", Cbor.Text(v.key))
   m.set("sensor", encodeBatchSensor(v.sensor))
   m.set("instance", Cbor.Uint(v.instance as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLocalLogSpectrumAxesList(v: Cbor, path: string): SpectrumAxis[] throws InvalidPayload {
@@ -2805,7 +2805,7 @@ function decodeLocalLogSpectrumAxesList(v: Cbor, path: string): SpectrumAxis[] t
     out.push(decodeSpectrumAxis(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeLocalLogSpectrumRowsList(v: Cbor, path: string): SpectrumRow[] throws InvalidPayload {
@@ -2815,7 +2815,7 @@ function decodeLocalLogSpectrumRowsList(v: Cbor, path: string): SpectrumRow[] th
     out.push(decodeSpectrumRow(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogSpectrumAxesList(v: SpectrumAxis[]): Cbor {
@@ -2823,7 +2823,7 @@ function encodeLocalLogSpectrumAxesList(v: SpectrumAxis[]): Cbor {
   for (const e of v) {
     out.push(encodeSpectrumAxis(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeLocalLogSpectrumRowsList(v: SpectrumRow[]): Cbor {
@@ -2831,7 +2831,7 @@ function encodeLocalLogSpectrumRowsList(v: SpectrumRow[]): Cbor {
   for (const e of v) {
     out.push(encodeSpectrumRow(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogSpectrum {
@@ -2861,7 +2861,7 @@ export function decodeLocalLogSpectrum(v: Cbor, path: string): LocalLogSpectrum 
   if (cbor16 != null) {
     opt16 = decodeSpectrumPeak(cbor16, `${path}.peak`)
   }
-  LocalLogSpectrum {
+  return LocalLogSpectrum {
     sensor: decodeBatchSensor(required(m, "sensor", path), `${path}.sensor`),
     instance: (uint(required(m, "instance", path), `${path}.instance`, 255) as u8),
     rateHz: float(required(m, "rateHz", path), `${path}.rateHz`),
@@ -2904,7 +2904,7 @@ export function encodeLocalLogSpectrum(v: LocalLogSpectrum): Cbor {
   if (opt16 != null) {
     m.set("peak", encodeSpectrumPeak(opt16))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum SpectrumAxisName { X, Y, Z }
@@ -2933,7 +2933,7 @@ function decodeSpectrumAxisAmplitudeList(v: Cbor, path: string): f64[] throws In
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSpectrumAxisAmplitudeList(v: f64[]): Cbor {
@@ -2941,7 +2941,7 @@ function encodeSpectrumAxisAmplitudeList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SpectrumAxis {
@@ -2951,7 +2951,7 @@ export struct SpectrumAxis {
 
 export function decodeSpectrumAxis(v: Cbor, path: string): SpectrumAxis throws InvalidPayload {
   const m = members(v, path, ["name", "amplitude"])
-  SpectrumAxis {
+  return SpectrumAxis {
     name: decodeSpectrumAxisName(required(m, "name", path), `${path}.name`),
     amplitude: decodeSpectrumAxisAmplitudeList(required(m, "amplitude", path), `${path}.amplitude`),
   }
@@ -2961,7 +2961,7 @@ export function encodeSpectrumAxis(v: SpectrumAxis): Cbor {
   const m = new Map<string, Cbor>()
   m.set("name", encodeSpectrumAxisName(v.name))
   m.set("amplitude", encodeSpectrumAxisAmplitudeList(v.amplitude))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeSpectrumRowValuesList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -2971,7 +2971,7 @@ function decodeSpectrumRowValuesList(v: Cbor, path: string): f64[] throws Invali
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSpectrumRowValuesList(v: f64[]): Cbor {
@@ -2979,7 +2979,7 @@ function encodeSpectrumRowValuesList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SpectrumRow {
@@ -2989,7 +2989,7 @@ export struct SpectrumRow {
 
 export function decodeSpectrumRow(v: Cbor, path: string): SpectrumRow throws InvalidPayload {
   const m = members(v, path, ["timeUs", "values"])
-  SpectrumRow {
+  return SpectrumRow {
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
     values: decodeSpectrumRowValuesList(required(m, "values", path), `${path}.values`),
   }
@@ -2999,7 +2999,7 @@ export function encodeSpectrumRow(v: SpectrumRow): Cbor {
   const m = new Map<string, Cbor>()
   m.set("timeUs", Cbor.Uint(v.timeUs as u64))
   m.set("values", encodeSpectrumRowValuesList(v.values))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum SpectrumPeakAxis { X, Y, Z }
@@ -3028,7 +3028,7 @@ function decodeSpectrumPeakHarmonicsList(v: Cbor, path: string): SpectrumHarmoni
     out.push(decodeSpectrumHarmonic(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSpectrumPeakHarmonicsList(v: SpectrumHarmonic[]): Cbor {
@@ -3036,7 +3036,7 @@ function encodeSpectrumPeakHarmonicsList(v: SpectrumHarmonic[]): Cbor {
   for (const e of v) {
     out.push(encodeSpectrumHarmonic(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SpectrumPeak {
@@ -3048,7 +3048,7 @@ export struct SpectrumPeak {
 
 export function decodeSpectrumPeak(v: Cbor, path: string): SpectrumPeak throws InvalidPayload {
   const m = members(v, path, ["hz", "amplitude", "axis", "harmonics"])
-  SpectrumPeak {
+  return SpectrumPeak {
     hz: float(required(m, "hz", path), `${path}.hz`),
     amplitude: float(required(m, "amplitude", path), `${path}.amplitude`),
     axis: decodeSpectrumPeakAxis(required(m, "axis", path), `${path}.axis`),
@@ -3062,7 +3062,7 @@ export function encodeSpectrumPeak(v: SpectrumPeak): Cbor {
   m.set("amplitude", Cbor.Float(v.amplitude))
   m.set("axis", encodeSpectrumPeakAxis(v.axis))
   m.set("harmonics", encodeSpectrumPeakHarmonicsList(v.harmonics))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SpectrumHarmonic {
@@ -3073,7 +3073,7 @@ export struct SpectrumHarmonic {
 
 export function decodeSpectrumHarmonic(v: Cbor, path: string): SpectrumHarmonic throws InvalidPayload {
   const m = members(v, path, ["n", "hz", "amplitude"])
-  SpectrumHarmonic {
+  return SpectrumHarmonic {
     n: (uint(required(m, "n", path), `${path}.n`, 255) as u8),
     hz: float(required(m, "hz", path), `${path}.hz`),
     amplitude: float(required(m, "amplitude", path), `${path}.amplitude`),
@@ -3085,7 +3085,7 @@ export function encodeSpectrumHarmonic(v: SpectrumHarmonic): Cbor {
   m.set("n", Cbor.Uint(v.n as u64))
   m.set("hz", Cbor.Float(v.hz))
   m.set("amplitude", Cbor.Float(v.amplitude))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throws InvalidPayload {
@@ -3095,7 +3095,7 @@ function decodeLocalLogModesModesList(v: Cbor, path: string): ModeChange[] throw
     out.push(decodeModeChange(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeLocalLogModesModesList(v: ModeChange[]): Cbor {
@@ -3103,7 +3103,7 @@ function encodeLocalLogModesModesList(v: ModeChange[]): Cbor {
   for (const e of v) {
     out.push(encodeModeChange(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct LocalLogModes {
@@ -3113,7 +3113,7 @@ export struct LocalLogModes {
 
 export function decodeLocalLogModes(v: Cbor, path: string): LocalLogModes throws InvalidPayload {
   const m = members(v, path, ["modes", "cut"])
-  LocalLogModes {
+  return LocalLogModes {
     modes: decodeLocalLogModesModesList(required(m, "modes", path), `${path}.modes`),
     cut: boolean(required(m, "cut", path), `${path}.cut`),
   }
@@ -3123,7 +3123,7 @@ export function encodeLocalLogModes(v: LocalLogModes): Cbor {
   const m = new Map<string, Cbor>()
   m.set("modes", encodeLocalLogModesModesList(v.modes))
   m.set("cut", Cbor.Bool(v.cut))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct ModeChange {
@@ -3133,7 +3133,7 @@ export struct ModeChange {
 
 export function decodeModeChange(v: Cbor, path: string): ModeChange throws InvalidPayload {
   const m = members(v, path, ["timeUs", "mode"])
-  ModeChange {
+  return ModeChange {
     timeUs: (uint(required(m, "timeUs", path), `${path}.timeUs`, 18446744073709551615) as u64),
     mode: (uint(required(m, "mode", path), `${path}.mode`, 65535) as u16),
   }
@@ -3143,7 +3143,7 @@ export function encodeModeChange(v: ModeChange): Cbor {
   const m = new Map<string, Cbor>()
   m.set("timeUs", Cbor.Uint(v.timeUs as u64))
   m.set("mode", Cbor.Uint(v.mode as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum RebootResultResult { Accepted, Refused, Unsupported, NoAnswer }
@@ -3179,7 +3179,7 @@ export function decodeRebootResult(v: Cbor, path: string): RebootResult throws I
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.detail`)
   }
-  RebootResult {
+  return RebootResult {
     result: decodeRebootResultResult(required(m, "result", path), `${path}.result`),
     detail: opt1,
   }
@@ -3192,7 +3192,7 @@ export function encodeRebootResult(v: RebootResult): Cbor {
   if (opt1 != null) {
     m.set("detail", Cbor.Text(opt1))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ArmingResultResult { Accepted, Refused, Unsupported, NoAnswer }
@@ -3223,7 +3223,7 @@ function decodeArmingResultMessagesList(v: Cbor, path: string): string[] throws 
     out.push(text(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeArmingResultMessagesList(v: string[]): Cbor {
@@ -3231,7 +3231,7 @@ function encodeArmingResultMessagesList(v: string[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Text(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct ArmingResult {
@@ -3253,7 +3253,7 @@ export function decodeArmingResult(v: Cbor, path: string): ArmingResult throws I
   if (cbor2 != null) {
     opt2 = (uint(cbor2, `${path}.code`, 255) as u8)
   }
-  ArmingResult {
+  return ArmingResult {
     result: decodeArmingResultResult(required(m, "result", path), `${path}.result`),
     detail: opt1,
     code: opt2,
@@ -3273,7 +3273,7 @@ export function encodeArmingResult(v: ArmingResult): Cbor {
     m.set("code", Cbor.Uint(opt2 as u64))
   }
   m.set("messages", encodeArmingResultMessagesList(v.messages))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SetModeAsk {
@@ -3282,7 +3282,7 @@ export struct SetModeAsk {
 
 export function decodeSetModeAsk(v: Cbor, path: string): SetModeAsk throws InvalidPayload {
   const m = members(v, path, ["mode"])
-  SetModeAsk {
+  return SetModeAsk {
     mode: (uint(required(m, "mode", path), `${path}.mode`, 255) as u8),
   }
 }
@@ -3290,7 +3290,7 @@ export function decodeSetModeAsk(v: Cbor, path: string): SetModeAsk throws Inval
 export function encodeSetModeAsk(v: SetModeAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("mode", Cbor.Uint(v.mode as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TakeoffAsk {
@@ -3299,7 +3299,7 @@ export struct TakeoffAsk {
 
 export function decodeTakeoffAsk(v: Cbor, path: string): TakeoffAsk throws InvalidPayload {
   const m = members(v, path, ["altitude"])
-  TakeoffAsk {
+  return TakeoffAsk {
     altitude: float(required(m, "altitude", path), `${path}.altitude`),
   }
 }
@@ -3307,7 +3307,7 @@ export function decodeTakeoffAsk(v: Cbor, path: string): TakeoffAsk throws Inval
 export function encodeTakeoffAsk(v: TakeoffAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("altitude", Cbor.Float(v.altitude))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct GuidedLimits {
@@ -3318,7 +3318,7 @@ export struct GuidedLimits {
 
 export function decodeGuidedLimits(v: Cbor, path: string): GuidedLimits throws InvalidPayload {
   const m = members(v, path, ["maxAltitude", "maxDistance", "maxSpeed"])
-  GuidedLimits {
+  return GuidedLimits {
     maxAltitude: float(required(m, "maxAltitude", path), `${path}.maxAltitude`),
     maxDistance: float(required(m, "maxDistance", path), `${path}.maxDistance`),
     maxSpeed: float(required(m, "maxSpeed", path), `${path}.maxSpeed`),
@@ -3330,7 +3330,7 @@ export function encodeGuidedLimits(v: GuidedLimits): Cbor {
   m.set("maxAltitude", Cbor.Float(v.maxAltitude))
   m.set("maxDistance", Cbor.Float(v.maxDistance))
   m.set("maxSpeed", Cbor.Float(v.maxSpeed))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum FailsafePolicy { Block, Warn }
@@ -3360,7 +3360,7 @@ export struct RepositionAsk {
 
 export function decodeRepositionAsk(v: Cbor, path: string): RepositionAsk throws InvalidPayload {
   const m = members(v, path, ["latitude", "longitude", "altitude", "limits", "failsafe"])
-  RepositionAsk {
+  return RepositionAsk {
     latitude: float(required(m, "latitude", path), `${path}.latitude`),
     longitude: float(required(m, "longitude", path), `${path}.longitude`),
     altitude: float(required(m, "altitude", path), `${path}.altitude`),
@@ -3376,7 +3376,7 @@ export function encodeRepositionAsk(v: RepositionAsk): Cbor {
   m.set("altitude", Cbor.Float(v.altitude))
   m.set("limits", encodeGuidedLimits(v.limits))
   m.set("failsafe", encodeFailsafePolicy(v.failsafe))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct ChangeAltitudeAsk {
@@ -3387,7 +3387,7 @@ export struct ChangeAltitudeAsk {
 
 export function decodeChangeAltitudeAsk(v: Cbor, path: string): ChangeAltitudeAsk throws InvalidPayload {
   const m = members(v, path, ["altitude", "limits", "failsafe"])
-  ChangeAltitudeAsk {
+  return ChangeAltitudeAsk {
     altitude: float(required(m, "altitude", path), `${path}.altitude`),
     limits: decodeGuidedLimits(required(m, "limits", path), `${path}.limits`),
     failsafe: decodeFailsafePolicy(required(m, "failsafe", path), `${path}.failsafe`),
@@ -3399,7 +3399,7 @@ export function encodeChangeAltitudeAsk(v: ChangeAltitudeAsk): Cbor {
   m.set("altitude", Cbor.Float(v.altitude))
   m.set("limits", encodeGuidedLimits(v.limits))
   m.set("failsafe", encodeFailsafePolicy(v.failsafe))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SetSpeedAsk {
@@ -3409,7 +3409,7 @@ export struct SetSpeedAsk {
 
 export function decodeSetSpeedAsk(v: Cbor, path: string): SetSpeedAsk throws InvalidPayload {
   const m = members(v, path, ["speed", "limits"])
-  SetSpeedAsk {
+  return SetSpeedAsk {
     speed: float(required(m, "speed", path), `${path}.speed`),
     limits: decodeGuidedLimits(required(m, "limits", path), `${path}.limits`),
   }
@@ -3419,7 +3419,7 @@ export function encodeSetSpeedAsk(v: SetSpeedAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("speed", Cbor.Float(v.speed))
   m.set("limits", encodeGuidedLimits(v.limits))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum PlanKind { Mission, Fence, Rally }
@@ -3476,7 +3476,7 @@ export function decodePlanItem(v: Cbor, path: string): PlanItem throws InvalidPa
   if (cbor5 != null) {
     opt5 = float(cbor5, `${path}.param4`)
   }
-  PlanItem {
+  return PlanItem {
     command: (uint(required(m, "command", path), `${path}.command`, 65535) as u16),
     frame: (uint(required(m, "frame", path), `${path}.frame`, 255) as u8),
     param1: opt2,
@@ -3514,7 +3514,7 @@ export function encodePlanItem(v: PlanItem): Cbor {
   m.set("y", Cbor.Float(v.y))
   m.set("z", Cbor.Float(v.z))
   m.set("autocontinue", Cbor.Bool(v.autocontinue))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PlanReadAsk {
@@ -3523,7 +3523,7 @@ export struct PlanReadAsk {
 
 export function decodePlanReadAsk(v: Cbor, path: string): PlanReadAsk throws InvalidPayload {
   const m = members(v, path, ["kind"])
-  PlanReadAsk {
+  return PlanReadAsk {
     kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
   }
 }
@@ -3531,7 +3531,7 @@ export function decodePlanReadAsk(v: Cbor, path: string): PlanReadAsk throws Inv
 export function encodePlanReadAsk(v: PlanReadAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("kind", encodePlanKind(v.kind))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodePlanReadResultItemsList(v: Cbor, path: string): PlanItem[] throws InvalidPayload {
@@ -3541,7 +3541,7 @@ function decodePlanReadResultItemsList(v: Cbor, path: string): PlanItem[] throws
     out.push(decodePlanItem(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePlanReadResultItemsList(v: PlanItem[]): Cbor {
@@ -3549,7 +3549,7 @@ function encodePlanReadResultItemsList(v: PlanItem[]): Cbor {
   for (const e of v) {
     out.push(encodePlanItem(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PlanReadResult {
@@ -3571,7 +3571,7 @@ export function decodePlanReadResult(v: Cbor, path: string): PlanReadResult thro
   if (cbor3 != null) {
     opt3 = (uint(cbor3, `${path}.current`, 65535) as u16)
   }
-  PlanReadResult {
+  return PlanReadResult {
     kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
     items: decodePlanReadResultItemsList(required(m, "items", path), `${path}.items`),
     home: opt2,
@@ -3591,7 +3591,7 @@ export function encodePlanReadResult(v: PlanReadResult): Cbor {
   if (opt3 != null) {
     m.set("current", Cbor.Uint(opt3 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodePlanWriteAskItemsList(v: Cbor, path: string): PlanItem[] throws InvalidPayload {
@@ -3601,7 +3601,7 @@ function decodePlanWriteAskItemsList(v: Cbor, path: string): PlanItem[] throws I
     out.push(decodePlanItem(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePlanWriteAskItemsList(v: PlanItem[]): Cbor {
@@ -3609,7 +3609,7 @@ function encodePlanWriteAskItemsList(v: PlanItem[]): Cbor {
   for (const e of v) {
     out.push(encodePlanItem(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PlanWriteAsk {
@@ -3619,7 +3619,7 @@ export struct PlanWriteAsk {
 
 export function decodePlanWriteAsk(v: Cbor, path: string): PlanWriteAsk throws InvalidPayload {
   const m = members(v, path, ["kind", "items"])
-  PlanWriteAsk {
+  return PlanWriteAsk {
     kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
     items: decodePlanWriteAskItemsList(required(m, "items", path), `${path}.items`),
   }
@@ -3629,7 +3629,7 @@ export function encodePlanWriteAsk(v: PlanWriteAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("kind", encodePlanKind(v.kind))
   m.set("items", encodePlanWriteAskItemsList(v.items))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum PlanWriteResultResult { Verified, Mismatch, UploadFailed, ReadFailed, Refused }
@@ -3662,7 +3662,7 @@ function decodePlanWriteResultMessagesList(v: Cbor, path: string): string[] thro
     out.push(text(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePlanWriteResultMessagesList(v: string[]): Cbor {
@@ -3670,7 +3670,7 @@ function encodePlanWriteResultMessagesList(v: string[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Text(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PlanWriteResult {
@@ -3706,7 +3706,7 @@ export function decodePlanWriteResult(v: Cbor, path: string): PlanWriteResult th
   if (cbor6 != null) {
     opt6 = decodePlanItem(cbor6, `${path}.found`)
   }
-  PlanWriteResult {
+  return PlanWriteResult {
     result: decodePlanWriteResultResult(required(m, "result", path), `${path}.result`),
     count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
     unchecked: (uint(required(m, "unchecked", path), `${path}.unchecked`, 65535) as u16),
@@ -3740,7 +3740,7 @@ export function encodePlanWriteResult(v: PlanWriteResult): Cbor {
     m.set("found", encodePlanItem(opt6))
   }
   m.set("messages", encodePlanWriteResultMessagesList(v.messages))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PlanClearAsk {
@@ -3749,7 +3749,7 @@ export struct PlanClearAsk {
 
 export function decodePlanClearAsk(v: Cbor, path: string): PlanClearAsk throws InvalidPayload {
   const m = members(v, path, ["kind"])
-  PlanClearAsk {
+  return PlanClearAsk {
     kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
   }
 }
@@ -3757,7 +3757,7 @@ export function decodePlanClearAsk(v: Cbor, path: string): PlanClearAsk throws I
 export function encodePlanClearAsk(v: PlanClearAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("kind", encodePlanKind(v.kind))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum PlanClearResultResult { Cleared, Refused, Unconfirmed }
@@ -3786,7 +3786,7 @@ function decodePlanClearResultMessagesList(v: Cbor, path: string): string[] thro
     out.push(text(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePlanClearResultMessagesList(v: string[]): Cbor {
@@ -3794,7 +3794,7 @@ function encodePlanClearResultMessagesList(v: string[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Text(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PlanClearResult {
@@ -3816,7 +3816,7 @@ export function decodePlanClearResult(v: Cbor, path: string): PlanClearResult th
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.detail`)
   }
-  PlanClearResult {
+  return PlanClearResult {
     result: decodePlanClearResultResult(required(m, "result", path), `${path}.result`),
     code: opt1,
     detail: opt2,
@@ -3836,7 +3836,7 @@ export function encodePlanClearResult(v: PlanClearResult): Cbor {
     m.set("detail", Cbor.Text(opt2))
   }
   m.set("messages", encodePlanClearResultMessagesList(v.messages))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PlanCurrentAsk {
@@ -3845,7 +3845,7 @@ export struct PlanCurrentAsk {
 
 export function decodePlanCurrentAsk(v: Cbor, path: string): PlanCurrentAsk throws InvalidPayload {
   const m = members(v, path, ["seq"])
-  PlanCurrentAsk {
+  return PlanCurrentAsk {
     seq: (uint(required(m, "seq", path), `${path}.seq`, 65535) as u16),
   }
 }
@@ -3853,7 +3853,7 @@ export function decodePlanCurrentAsk(v: Cbor, path: string): PlanCurrentAsk thro
 export function encodePlanCurrentAsk(v: PlanCurrentAsk): Cbor {
   const m = new Map<string, Cbor>()
   m.set("seq", Cbor.Uint(v.seq as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum PlanProgressPhase { Uploading, Verifying, Reading, Clearing }
@@ -3886,7 +3886,7 @@ export struct PlanProgress {
 
 export function decodePlanProgress(v: Cbor, path: string): PlanProgress throws InvalidPayload {
   const m = members(v, path, ["kind", "phase", "done", "total"])
-  PlanProgress {
+  return PlanProgress {
     kind: decodePlanKind(required(m, "kind", path), `${path}.kind`),
     phase: decodePlanProgressPhase(required(m, "phase", path), `${path}.phase`),
     done: (uint(required(m, "done", path), `${path}.done`, 65535) as u16),
@@ -3900,7 +3900,7 @@ export function encodePlanProgress(v: PlanProgress): Cbor {
   m.set("phase", encodePlanProgressPhase(v.phase))
   m.set("done", Cbor.Uint(v.done as u64))
   m.set("total", Cbor.Uint(v.total as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MessagesParams {
@@ -3914,7 +3914,7 @@ export function decodeMessagesParams(v: Cbor, path: string): MessagesParams thro
   if (cbor0 != null) {
     opt0 = (uint(cbor0, `${path}.replay`, 65535) as u16)
   }
-  MessagesParams {
+  return MessagesParams {
     replay: opt0,
   }
 }
@@ -3925,7 +3925,7 @@ export function encodeMessagesParams(v: MessagesParams): Cbor {
   if (opt0 != null) {
     m.set("replay", Cbor.Uint(opt0 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct VehicleMessage {
@@ -3940,7 +3940,7 @@ export struct VehicleMessage {
 
 export function decodeVehicleMessage(v: Cbor, path: string): VehicleMessage throws InvalidPayload {
   const m = members(v, path, ["id", "time", "system", "component", "severity", "text", "truncated"])
-  VehicleMessage {
+  return VehicleMessage {
     id: (uint(required(m, "id", path), `${path}.id`, 4294967295) as u32),
     time: (uint(required(m, "time", path), `${path}.time`, 18446744073709551615) as u64),
     system: (uint(required(m, "system", path), `${path}.system`, 255) as u8),
@@ -3960,7 +3960,7 @@ export function encodeVehicleMessage(v: VehicleMessage): Cbor {
   m.set("severity", Cbor.Uint(v.severity as u64))
   m.set("text", Cbor.Text(v.text))
   m.set("truncated", Cbor.Bool(v.truncated))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TelemetryParams {
@@ -3974,7 +3974,7 @@ export function decodeTelemetryParams(v: Cbor, path: string): TelemetryParams th
   if (cbor0 != null) {
     opt0 = (uint(cbor0, `${path}.rateHz`, 255) as u8)
   }
-  TelemetryParams {
+  return TelemetryParams {
     rateHz: opt0,
   }
 }
@@ -3985,7 +3985,7 @@ export function encodeTelemetryParams(v: TelemetryParams): Cbor {
   if (opt0 != null) {
     m.set("rateHz", Cbor.Uint(opt0 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct Telemetry {
@@ -4110,7 +4110,7 @@ export function decodeTelemetry(v: Cbor, path: string): Telemetry throws Invalid
   if (cbor21 != null) {
     opt21 = decodeRcGroup(cbor21, `${path}.rc`)
   }
-  Telemetry {
+  return Telemetry {
     armed: boolean(required(m, "armed", path), `${path}.armed`),
     mode: text(required(m, "mode", path), `${path}.mode`),
     systemStatus: opt2,
@@ -4217,7 +4217,7 @@ export function encodeTelemetry(v: Telemetry): Cbor {
   if (opt21 != null) {
     m.set("rc", encodeRcGroup(opt21))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PositionGroup {
@@ -4239,7 +4239,7 @@ export function decodePositionGroup(v: Cbor, path: string): PositionGroup throws
   if (cbor7 != null) {
     opt7 = float(cbor7, `${path}.heading`)
   }
-  PositionGroup {
+  return PositionGroup {
     lat: float(required(m, "lat", path), `${path}.lat`),
     lon: float(required(m, "lon", path), `${path}.lon`),
     altitude: float(required(m, "altitude", path), `${path}.altitude`),
@@ -4266,7 +4266,7 @@ export function encodePositionGroup(v: PositionGroup): Cbor {
     m.set("heading", Cbor.Float(opt7))
   }
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct HomeGroup {
@@ -4278,7 +4278,7 @@ export struct HomeGroup {
 
 export function decodeHomeGroup(v: Cbor, path: string): HomeGroup throws InvalidPayload {
   const m = members(v, path, ["lat", "lon", "altitude", "ageMs"])
-  HomeGroup {
+  return HomeGroup {
     lat: float(required(m, "lat", path), `${path}.lat`),
     lon: float(required(m, "lon", path), `${path}.lon`),
     altitude: float(required(m, "altitude", path), `${path}.altitude`),
@@ -4292,7 +4292,7 @@ export function encodeHomeGroup(v: HomeGroup): Cbor {
   m.set("lon", Cbor.Float(v.lon))
   m.set("altitude", Cbor.Float(v.altitude))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PrearmGroup {
@@ -4303,7 +4303,7 @@ export struct PrearmGroup {
 
 export function decodePrearmGroup(v: Cbor, path: string): PrearmGroup throws InvalidPayload {
   const m = members(v, path, ["enabled", "passing", "ageMs"])
-  PrearmGroup {
+  return PrearmGroup {
     enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
     passing: boolean(required(m, "passing", path), `${path}.passing`),
     ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
@@ -4315,7 +4315,7 @@ export function encodePrearmGroup(v: PrearmGroup): Cbor {
   m.set("enabled", Cbor.Bool(v.enabled))
   m.set("passing", Cbor.Bool(v.passing))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct GpsGroup {
@@ -4343,7 +4343,7 @@ export function decodeGpsGroup(v: Cbor, path: string): GpsGroup throws InvalidPa
   if (cbor3 != null) {
     opt3 = float(cbor3, `${path}.vdop`)
   }
-  GpsGroup {
+  return GpsGroup {
     fixType: (uint(required(m, "fixType", path), `${path}.fixType`, 255) as u8),
     satellites: opt1,
     hdop: opt2,
@@ -4368,7 +4368,7 @@ export function encodeGpsGroup(v: GpsGroup): Cbor {
     m.set("vdop", Cbor.Float(opt3))
   }
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SpeedGroup {
@@ -4382,7 +4382,7 @@ export struct SpeedGroup {
 
 export function decodeSpeedGroup(v: Cbor, path: string): SpeedGroup throws InvalidPayload {
   const m = members(v, path, ["airspeed", "groundspeed", "climb", "throttle", "heading", "ageMs"])
-  SpeedGroup {
+  return SpeedGroup {
     airspeed: float(required(m, "airspeed", path), `${path}.airspeed`),
     groundspeed: float(required(m, "groundspeed", path), `${path}.groundspeed`),
     climb: float(required(m, "climb", path), `${path}.climb`),
@@ -4400,7 +4400,7 @@ export function encodeSpeedGroup(v: SpeedGroup): Cbor {
   m.set("throttle", Cbor.Uint(v.throttle as u64))
   m.set("heading", Cbor.Float(v.heading))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct NavGroup {
@@ -4413,7 +4413,7 @@ export struct NavGroup {
 
 export function decodeNavGroup(v: Cbor, path: string): NavGroup throws InvalidPayload {
   const m = members(v, path, ["waypointDistance", "targetBearing", "altitudeError", "crosstrackError", "ageMs"])
-  NavGroup {
+  return NavGroup {
     waypointDistance: (uint(required(m, "waypointDistance", path), `${path}.waypointDistance`, 65535) as u16),
     targetBearing: float(required(m, "targetBearing", path), `${path}.targetBearing`),
     altitudeError: float(required(m, "altitudeError", path), `${path}.altitudeError`),
@@ -4429,7 +4429,7 @@ export function encodeNavGroup(v: NavGroup): Cbor {
   m.set("altitudeError", Cbor.Float(v.altitudeError))
   m.set("crosstrackError", Cbor.Float(v.crosstrackError))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct WindGroup {
@@ -4441,7 +4441,7 @@ export struct WindGroup {
 
 export function decodeWindGroup(v: Cbor, path: string): WindGroup throws InvalidPayload {
   const m = members(v, path, ["direction", "speed", "speedZ", "ageMs"])
-  WindGroup {
+  return WindGroup {
     direction: float(required(m, "direction", path), `${path}.direction`),
     speed: float(required(m, "speed", path), `${path}.speed`),
     speedZ: float(required(m, "speedZ", path), `${path}.speedZ`),
@@ -4455,7 +4455,7 @@ export function encodeWindGroup(v: WindGroup): Cbor {
   m.set("speed", Cbor.Float(v.speed))
   m.set("speedZ", Cbor.Float(v.speedZ))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct EkfGroup {
@@ -4470,7 +4470,7 @@ export struct EkfGroup {
 
 export function decodeEkfGroup(v: Cbor, path: string): EkfGroup throws InvalidPayload {
   const m = members(v, path, ["flags", "velocityVariance", "positionHorizVariance", "positionVertVariance", "compassVariance", "terrainAltVariance", "ageMs"])
-  EkfGroup {
+  return EkfGroup {
     flags: (uint(required(m, "flags", path), `${path}.flags`, 65535) as u16),
     velocityVariance: float(required(m, "velocityVariance", path), `${path}.velocityVariance`),
     positionHorizVariance: float(required(m, "positionHorizVariance", path), `${path}.positionHorizVariance`),
@@ -4490,7 +4490,7 @@ export function encodeEkfGroup(v: EkfGroup): Cbor {
   m.set("compassVariance", Cbor.Float(v.compassVariance))
   m.set("terrainAltVariance", Cbor.Float(v.terrainAltVariance))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeRcGroupChannelsList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -4500,7 +4500,7 @@ function decodeRcGroupChannelsList(v: Cbor, path: string): u16[] throws InvalidP
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeRcGroupChannelsList(v: u16[]): Cbor {
@@ -4508,7 +4508,7 @@ function encodeRcGroupChannelsList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct RcGroup {
@@ -4524,7 +4524,7 @@ export function decodeRcGroup(v: Cbor, path: string): RcGroup throws InvalidPayl
   if (cbor1 != null) {
     opt1 = (uint(cbor1, `${path}.rssi`, 255) as u8)
   }
-  RcGroup {
+  return RcGroup {
     channels: decodeRcGroupChannelsList(required(m, "channels", path), `${path}.channels`),
     rssi: opt1,
     ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
@@ -4539,7 +4539,7 @@ export function encodeRcGroup(v: RcGroup): Cbor {
     m.set("rssi", Cbor.Uint(opt1 as u64))
   }
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeServoGroupPortsList(v: Cbor, path: string): ServoPort[] throws InvalidPayload {
@@ -4549,7 +4549,7 @@ function decodeServoGroupPortsList(v: Cbor, path: string): ServoPort[] throws In
     out.push(decodeServoPort(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeServoGroupPortsList(v: ServoPort[]): Cbor {
@@ -4557,7 +4557,7 @@ function encodeServoGroupPortsList(v: ServoPort[]): Cbor {
   for (const e of v) {
     out.push(encodeServoPort(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct ServoGroup {
@@ -4567,7 +4567,7 @@ export struct ServoGroup {
 
 export function decodeServoGroup(v: Cbor, path: string): ServoGroup throws InvalidPayload {
   const m = members(v, path, ["ports", "ageMs"])
-  ServoGroup {
+  return ServoGroup {
     ports: decodeServoGroupPortsList(required(m, "ports", path), `${path}.ports`),
     ageMs: (uint(required(m, "ageMs", path), `${path}.ageMs`, 4294967295) as u32),
   }
@@ -4577,7 +4577,7 @@ export function encodeServoGroup(v: ServoGroup): Cbor {
   const m = new Map<string, Cbor>()
   m.set("ports", encodeServoGroupPortsList(v.ports))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeServoPortOutputsList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -4587,7 +4587,7 @@ function decodeServoPortOutputsList(v: Cbor, path: string): u16[] throws Invalid
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeServoPortOutputsList(v: u16[]): Cbor {
@@ -4595,7 +4595,7 @@ function encodeServoPortOutputsList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct ServoPort {
@@ -4605,7 +4605,7 @@ export struct ServoPort {
 
 export function decodeServoPort(v: Cbor, path: string): ServoPort throws InvalidPayload {
   const m = members(v, path, ["port", "outputs"])
-  ServoPort {
+  return ServoPort {
     port: (uint(required(m, "port", path), `${path}.port`, 255) as u8),
     outputs: decodeServoPortOutputsList(required(m, "outputs", path), `${path}.outputs`),
   }
@@ -4615,7 +4615,7 @@ export function encodeServoPort(v: ServoPort): Cbor {
   const m = new Map<string, Cbor>()
   m.set("port", Cbor.Uint(v.port as u64))
   m.set("outputs", encodeServoPortOutputsList(v.outputs))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeVibrationGroupClippingList(v: Cbor, path: string): u32[] throws InvalidPayload {
@@ -4625,7 +4625,7 @@ function decodeVibrationGroupClippingList(v: Cbor, path: string): u32[] throws I
     out.push((uint(e, `${path}[${i}]`, 4294967295) as u32))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeVibrationGroupClippingList(v: u32[]): Cbor {
@@ -4633,7 +4633,7 @@ function encodeVibrationGroupClippingList(v: u32[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct VibrationGroup {
@@ -4646,7 +4646,7 @@ export struct VibrationGroup {
 
 export function decodeVibrationGroup(v: Cbor, path: string): VibrationGroup throws InvalidPayload {
   const m = members(v, path, ["x", "y", "z", "clipping", "ageMs"])
-  VibrationGroup {
+  return VibrationGroup {
     x: float(required(m, "x", path), `${path}.x`),
     y: float(required(m, "y", path), `${path}.y`),
     z: float(required(m, "z", path), `${path}.z`),
@@ -4662,7 +4662,7 @@ export function encodeVibrationGroup(v: VibrationGroup): Cbor {
   m.set("z", Cbor.Float(v.z))
   m.set("clipping", encodeVibrationGroupClippingList(v.clipping))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeBatteryGroupCellsList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -4672,7 +4672,7 @@ function decodeBatteryGroupCellsList(v: Cbor, path: string): f64[] throws Invali
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeBatteryGroupCellsList(v: f64[]): Cbor {
@@ -4680,7 +4680,7 @@ function encodeBatteryGroupCellsList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct BatteryGroup {
@@ -4714,7 +4714,7 @@ export function decodeBatteryGroup(v: Cbor, path: string): BatteryGroup throws I
   if (cbor3 != null) {
     opt3 = float(cbor3, `${path}.consumed`)
   }
-  BatteryGroup {
+  return BatteryGroup {
     voltage: opt0,
     current: opt1,
     remaining: opt2,
@@ -4744,7 +4744,7 @@ export function encodeBatteryGroup(v: BatteryGroup): Cbor {
   }
   m.set("cells", encodeBatteryGroupCellsList(v.cells))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct AttitudeGroup {
@@ -4759,7 +4759,7 @@ export struct AttitudeGroup {
 
 export function decodeAttitudeGroup(v: Cbor, path: string): AttitudeGroup throws InvalidPayload {
   const m = members(v, path, ["roll", "pitch", "yaw", "rollSpeed", "pitchSpeed", "yawSpeed", "ageMs"])
-  AttitudeGroup {
+  return AttitudeGroup {
     roll: float(required(m, "roll", path), `${path}.roll`),
     pitch: float(required(m, "pitch", path), `${path}.pitch`),
     yaw: float(required(m, "yaw", path), `${path}.yaw`),
@@ -4779,7 +4779,7 @@ export function encodeAttitudeGroup(v: AttitudeGroup): Cbor {
   m.set("pitchSpeed", Cbor.Float(v.pitchSpeed))
   m.set("yawSpeed", Cbor.Float(v.yawSpeed))
   m.set("ageMs", Cbor.Uint(v.ageMs as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeSettingsUiList(v: Cbor, path: string): UiEntry[] throws InvalidPayload {
@@ -4789,7 +4789,7 @@ function decodeSettingsUiList(v: Cbor, path: string): UiEntry[] throws InvalidPa
     out.push(decodeUiEntry(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSettingsUiList(v: UiEntry[]): Cbor {
@@ -4797,7 +4797,7 @@ function encodeSettingsUiList(v: UiEntry[]): Cbor {
   for (const e of v) {
     out.push(encodeUiEntry(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct Settings {
@@ -4819,7 +4819,7 @@ export function decodeSettings(v: Cbor, path: string): Settings throws InvalidPa
   if (cbor2 != null) {
     opt2 = decodeThemeName(cbor2, `${path}.theme`)
   }
-  Settings {
+  return Settings {
     version: (uint(required(m, "version", path), `${path}.version`, 255) as u8),
     language: opt1,
     theme: opt2,
@@ -4839,7 +4839,7 @@ export function encodeSettings(v: Settings): Cbor {
     m.set("theme", encodeThemeName(opt2))
   }
   m.set("ui", encodeSettingsUiList(v.ui))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum ThemeName { Light, Dark, System }
@@ -4868,7 +4868,7 @@ export struct UiEntry {
 
 export function decodeUiEntry(v: Cbor, path: string): UiEntry throws InvalidPayload {
   const m = members(v, path, ["key", "value"])
-  UiEntry {
+  return UiEntry {
     key: text(required(m, "key", path), `${path}.key`),
     value: text(required(m, "value", path), `${path}.value`),
   }
@@ -4878,7 +4878,7 @@ export function encodeUiEntry(v: UiEntry): Cbor {
   const m = new Map<string, Cbor>()
   m.set("key", Cbor.Text(v.key))
   m.set("value", Cbor.Text(v.value))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SettingsState {
@@ -4899,7 +4899,7 @@ export function decodeSettingsState(v: Cbor, path: string): SettingsState throws
   if (cbor2 != null) {
     opt2 = text(cbor2, `${path}.noticeCode`)
   }
-  SettingsState {
+  return SettingsState {
     settings: decodeSettings(required(m, "settings", path), `${path}.settings`),
     notice: opt1,
     noticeCode: opt2,
@@ -4917,7 +4917,7 @@ export function encodeSettingsState(v: SettingsState): Cbor {
   if (opt2 != null) {
     m.set("noticeCode", Cbor.Text(opt2))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeSettingsPatchUiList(v: Cbor, path: string): UiEntry[] throws InvalidPayload {
@@ -4927,7 +4927,7 @@ function decodeSettingsPatchUiList(v: Cbor, path: string): UiEntry[] throws Inva
     out.push(decodeUiEntry(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeSettingsPatchRemoveList(v: Cbor, path: string): string[] throws InvalidPayload {
@@ -4937,7 +4937,7 @@ function decodeSettingsPatchRemoveList(v: Cbor, path: string): string[] throws I
     out.push(text(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSettingsPatchUiList(v: UiEntry[]): Cbor {
@@ -4945,7 +4945,7 @@ function encodeSettingsPatchUiList(v: UiEntry[]): Cbor {
   for (const e of v) {
     out.push(encodeUiEntry(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeSettingsPatchRemoveList(v: string[]): Cbor {
@@ -4953,7 +4953,7 @@ function encodeSettingsPatchRemoveList(v: string[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Text(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SettingsPatch {
@@ -4985,7 +4985,7 @@ export function decodeSettingsPatch(v: Cbor, path: string): SettingsPatch throws
   if (cbor3 != null) {
     opt3 = decodeSettingsPatchRemoveList(cbor3, `${path}.remove`)
   }
-  SettingsPatch {
+  return SettingsPatch {
     language: opt0,
     theme: opt1,
     ui: opt2,
@@ -5011,7 +5011,7 @@ export function encodeSettingsPatch(v: SettingsPatch): Cbor {
   if (opt3 != null) {
     m.set("remove", encodeSettingsPatchRemoveList(opt3))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct FileSave {
@@ -5021,7 +5021,7 @@ export struct FileSave {
 
 export function decodeFileSave(v: Cbor, path: string): FileSave throws InvalidPayload {
   const m = members(v, path, ["name", "text"])
-  FileSave {
+  return FileSave {
     name: text(required(m, "name", path), `${path}.name`),
     text: text(required(m, "text", path), `${path}.text`),
   }
@@ -5031,7 +5031,7 @@ export function encodeFileSave(v: FileSave): Cbor {
   const m = new Map<string, Cbor>()
   m.set("name", Cbor.Text(v.name))
   m.set("text", Cbor.Text(v.text))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct FileSaved {
@@ -5045,7 +5045,7 @@ export function decodeFileSaved(v: Cbor, path: string): FileSaved throws Invalid
   if (cbor0 != null) {
     opt0 = text(cbor0, `${path}.path`)
   }
-  FileSaved {
+  return FileSaved {
     path: opt0,
   }
 }
@@ -5056,7 +5056,7 @@ export function encodeFileSaved(v: FileSaved): Cbor {
   if (opt0 != null) {
     m.set("path", Cbor.Text(opt0))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct FileOpened {
@@ -5076,7 +5076,7 @@ export function decodeFileOpened(v: Cbor, path: string): FileOpened throws Inval
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.text`)
   }
-  FileOpened {
+  return FileOpened {
     path: opt0,
     text: opt1,
   }
@@ -5092,7 +5092,7 @@ export function encodeFileOpened(v: FileOpened): Cbor {
   if (opt1 != null) {
     m.set("text", Cbor.Text(opt1))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct FileRead {
@@ -5101,7 +5101,7 @@ export struct FileRead {
 
 export function decodeFileRead(v: Cbor, path: string): FileRead throws InvalidPayload {
   const m = members(v, path, ["path"])
-  FileRead {
+  return FileRead {
     path: text(required(m, "path", path), `${path}.path`),
   }
 }
@@ -5109,7 +5109,7 @@ export function decodeFileRead(v: Cbor, path: string): FileRead throws InvalidPa
 export function encodeFileRead(v: FileRead): Cbor {
   const m = new Map<string, Cbor>()
   m.set("path", Cbor.Text(v.path))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct FileContents {
@@ -5118,7 +5118,7 @@ export struct FileContents {
 
 export function decodeFileContents(v: Cbor, path: string): FileContents throws InvalidPayload {
   const m = members(v, path, ["text"])
-  FileContents {
+  return FileContents {
     text: text(required(m, "text", path), `${path}.text`),
   }
 }
@@ -5126,7 +5126,7 @@ export function decodeFileContents(v: Cbor, path: string): FileContents throws I
 export function encodeFileContents(v: FileContents): Cbor {
   const m = new Map<string, Cbor>()
   m.set("text", Cbor.Text(v.text))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeSerialPortsPortsList(v: Cbor, path: string): SerialPort[] throws InvalidPayload {
@@ -5136,7 +5136,7 @@ function decodeSerialPortsPortsList(v: Cbor, path: string): SerialPort[] throws 
     out.push(decodeSerialPort(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeSerialPortsPortsList(v: SerialPort[]): Cbor {
@@ -5144,7 +5144,7 @@ function encodeSerialPortsPortsList(v: SerialPort[]): Cbor {
   for (const e of v) {
     out.push(encodeSerialPort(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct SerialPorts {
@@ -5153,7 +5153,7 @@ export struct SerialPorts {
 
 export function decodeSerialPorts(v: Cbor, path: string): SerialPorts throws InvalidPayload {
   const m = members(v, path, ["ports"])
-  SerialPorts {
+  return SerialPorts {
     ports: decodeSerialPortsPortsList(required(m, "ports", path), `${path}.ports`),
   }
 }
@@ -5161,7 +5161,7 @@ export function decodeSerialPorts(v: Cbor, path: string): SerialPorts throws Inv
 export function encodeSerialPorts(v: SerialPorts): Cbor {
   const m = new Map<string, Cbor>()
   m.set("ports", encodeSerialPortsPortsList(v.ports))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct SerialPort {
@@ -5176,7 +5176,7 @@ export function decodeSerialPort(v: Cbor, path: string): SerialPort throws Inval
   if (cbor1 != null) {
     opt1 = text(cbor1, `${path}.description`)
   }
-  SerialPort {
+  return SerialPort {
     path: text(required(m, "path", path), `${path}.path`),
     description: opt1,
   }
@@ -5189,7 +5189,7 @@ export function encodeSerialPort(v: SerialPort): Cbor {
   if (opt1 != null) {
     m.set("description", Cbor.Text(opt1))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum CalibrationKind { Accel, Level, Compass, Radio }
@@ -5237,7 +5237,7 @@ export function decodeCalibrationStart(v: Cbor, path: string): CalibrationStart 
   if (cbor3 != null) {
     opt3 = boolean(cbor3, `${path}.retry`)
   }
-  CalibrationStart {
+  return CalibrationStart {
     kind: decodeCalibrationKind(required(m, "kind", path), `${path}.kind`),
     compasses: opt1,
     autosave: opt2,
@@ -5260,7 +5260,7 @@ export function encodeCalibrationStart(v: CalibrationStart): Cbor {
   if (opt3 != null) {
     m.set("retry", Cbor.Bool(opt3))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct CalibrationConfirm {
@@ -5269,7 +5269,7 @@ export struct CalibrationConfirm {
 
 export function decodeCalibrationConfirm(v: Cbor, path: string): CalibrationConfirm throws InvalidPayload {
   const m = members(v, path, ["position"])
-  CalibrationConfirm {
+  return CalibrationConfirm {
     position: (uint(required(m, "position", path), `${path}.position`, 255) as u8),
   }
 }
@@ -5277,7 +5277,7 @@ export function decodeCalibrationConfirm(v: Cbor, path: string): CalibrationConf
 export function encodeCalibrationConfirm(v: CalibrationConfirm): Cbor {
   const m = new Map<string, Cbor>()
   m.set("position", Cbor.Uint(v.position as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct CalibrationAccept {
@@ -5291,7 +5291,7 @@ export function decodeCalibrationAccept(v: Cbor, path: string): CalibrationAccep
   if (cbor0 != null) {
     opt0 = (uint(cbor0, `${path}.compasses`, 255) as u8)
   }
-  CalibrationAccept {
+  return CalibrationAccept {
     compasses: opt0,
   }
 }
@@ -5302,7 +5302,7 @@ export function encodeCalibrationAccept(v: CalibrationAccept): Cbor {
   if (opt0 != null) {
     m.set("compasses", Cbor.Uint(opt0 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum CalibrationStateState { Idle, Starting, Running, Review, Finished }
@@ -5335,7 +5335,7 @@ function decodeCalibrationStateCompassesList(v: Cbor, path: string): Calibration
     out.push(decodeCalibrationCompass(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeCalibrationStateTextsList(v: Cbor, path: string): string[] throws InvalidPayload {
@@ -5345,7 +5345,7 @@ function decodeCalibrationStateTextsList(v: Cbor, path: string): string[] throws
     out.push(text(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeCalibrationStateCompassesList(v: CalibrationCompass[]): Cbor {
@@ -5353,7 +5353,7 @@ function encodeCalibrationStateCompassesList(v: CalibrationCompass[]): Cbor {
   for (const e of v) {
     out.push(encodeCalibrationCompass(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeCalibrationStateTextsList(v: string[]): Cbor {
@@ -5361,7 +5361,7 @@ function encodeCalibrationStateTextsList(v: string[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Text(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct CalibrationState {
@@ -5401,7 +5401,7 @@ export function decodeCalibrationState(v: Cbor, path: string): CalibrationState 
   if (cbor5 != null) {
     opt5 = decodeCalibrationResult(cbor5, `${path}.result`)
   }
-  CalibrationState {
+  return CalibrationState {
     state: decodeCalibrationStateState(required(m, "state", path), `${path}.state`),
     kind: opt1,
     accel: opt2,
@@ -5436,7 +5436,7 @@ export function encodeCalibrationState(v: CalibrationState): Cbor {
     m.set("result", encodeCalibrationResult(opt5))
   }
   m.set("texts", encodeCalibrationStateTextsList(v.texts))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeCalibrationRadioMinsList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -5446,7 +5446,7 @@ function decodeCalibrationRadioMinsList(v: Cbor, path: string): u16[] throws Inv
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeCalibrationRadioMaxsList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -5456,7 +5456,7 @@ function decodeCalibrationRadioMaxsList(v: Cbor, path: string): u16[] throws Inv
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeCalibrationRadioLastList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -5466,7 +5466,7 @@ function decodeCalibrationRadioLastList(v: Cbor, path: string): u16[] throws Inv
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeCalibrationRadioMinsList(v: u16[]): Cbor {
@@ -5474,7 +5474,7 @@ function encodeCalibrationRadioMinsList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeCalibrationRadioMaxsList(v: u16[]): Cbor {
@@ -5482,7 +5482,7 @@ function encodeCalibrationRadioMaxsList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeCalibrationRadioLastList(v: u16[]): Cbor {
@@ -5490,7 +5490,7 @@ function encodeCalibrationRadioLastList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct CalibrationRadio {
@@ -5503,7 +5503,7 @@ export struct CalibrationRadio {
 
 export function decodeCalibrationRadio(v: Cbor, path: string): CalibrationRadio throws InvalidPayload {
   const m = members(v, path, ["mins", "maxs", "last", "glitches", "readings"])
-  CalibrationRadio {
+  return CalibrationRadio {
     mins: decodeCalibrationRadioMinsList(required(m, "mins", path), `${path}.mins`),
     maxs: decodeCalibrationRadioMaxsList(required(m, "maxs", path), `${path}.maxs`),
     last: decodeCalibrationRadioLastList(required(m, "last", path), `${path}.last`),
@@ -5519,7 +5519,7 @@ export function encodeCalibrationRadio(v: CalibrationRadio): Cbor {
   m.set("last", encodeCalibrationRadioLastList(v.last))
   m.set("glitches", Cbor.Uint(v.glitches as u64))
   m.set("readings", Cbor.Uint(v.readings as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeCalibrationAccelPlacedList(v: Cbor, path: string): u8[] throws InvalidPayload {
@@ -5529,7 +5529,7 @@ function decodeCalibrationAccelPlacedList(v: Cbor, path: string): u8[] throws In
     out.push((uint(e, `${path}[${i}]`, 255) as u8))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeCalibrationAccelPlacedList(v: u8[]): Cbor {
@@ -5537,7 +5537,7 @@ function encodeCalibrationAccelPlacedList(v: u8[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct CalibrationAccel {
@@ -5548,7 +5548,7 @@ export struct CalibrationAccel {
 
 export function decodeCalibrationAccel(v: Cbor, path: string): CalibrationAccel throws InvalidPayload {
   const m = members(v, path, ["position", "placed", "confirming"])
-  CalibrationAccel {
+  return CalibrationAccel {
     position: (uint(required(m, "position", path), `${path}.position`, 255) as u8),
     placed: decodeCalibrationAccelPlacedList(required(m, "placed", path), `${path}.placed`),
     confirming: boolean(required(m, "confirming", path), `${path}.confirming`),
@@ -5560,7 +5560,7 @@ export function encodeCalibrationAccel(v: CalibrationAccel): Cbor {
   m.set("position", Cbor.Uint(v.position as u64))
   m.set("placed", encodeCalibrationAccelPlacedList(v.placed))
   m.set("confirming", Cbor.Bool(v.confirming))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeCalibrationCompassMaskList(v: Cbor, path: string): u8[] throws InvalidPayload {
@@ -5570,7 +5570,7 @@ function decodeCalibrationCompassMaskList(v: Cbor, path: string): u8[] throws In
     out.push((uint(e, `${path}[${i}]`, 255) as u8))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeCalibrationCompassMaskList(v: u8[]): Cbor {
@@ -5578,7 +5578,7 @@ function encodeCalibrationCompassMaskList(v: u8[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct CalibrationCompass {
@@ -5597,7 +5597,7 @@ export function decodeCalibrationCompass(v: Cbor, path: string): CalibrationComp
   if (cbor5 != null) {
     opt5 = decodeCalibrationCompassReport(cbor5, `${path}.report`)
   }
-  CalibrationCompass {
+  return CalibrationCompass {
     id: (uint(required(m, "id", path), `${path}.id`, 255) as u8),
     status: text(required(m, "status", path), `${path}.status`),
     percent: (uint(required(m, "percent", path), `${path}.percent`, 255) as u8),
@@ -5618,7 +5618,7 @@ export function encodeCalibrationCompass(v: CalibrationCompass): Cbor {
   if (opt5 != null) {
     m.set("report", encodeCalibrationCompassReport(opt5))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeCalibrationCompassReportOffsetsList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -5628,7 +5628,7 @@ function decodeCalibrationCompassReportOffsetsList(v: Cbor, path: string): f64[]
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeCalibrationCompassReportDiagonalsList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -5638,7 +5638,7 @@ function decodeCalibrationCompassReportDiagonalsList(v: Cbor, path: string): f64
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeCalibrationCompassReportOffDiagonalsList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -5648,7 +5648,7 @@ function decodeCalibrationCompassReportOffDiagonalsList(v: Cbor, path: string): 
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeCalibrationCompassReportOffsetsList(v: f64[]): Cbor {
@@ -5656,7 +5656,7 @@ function encodeCalibrationCompassReportOffsetsList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeCalibrationCompassReportDiagonalsList(v: f64[]): Cbor {
@@ -5664,7 +5664,7 @@ function encodeCalibrationCompassReportDiagonalsList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeCalibrationCompassReportOffDiagonalsList(v: f64[]): Cbor {
@@ -5672,7 +5672,7 @@ function encodeCalibrationCompassReportOffDiagonalsList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct CalibrationCompassReport {
@@ -5690,7 +5690,7 @@ export struct CalibrationCompassReport {
 
 export function decodeCalibrationCompassReport(v: Cbor, path: string): CalibrationCompassReport throws InvalidPayload {
   const m = members(v, path, ["ok", "fitness", "offsets", "diagonals", "offDiagonals", "oldOrientation", "newOrientation", "orientationConfidence", "scale", "accepted"])
-  CalibrationCompassReport {
+  return CalibrationCompassReport {
     ok: boolean(required(m, "ok", path), `${path}.ok`),
     fitness: float(required(m, "fitness", path), `${path}.fitness`),
     offsets: decodeCalibrationCompassReportOffsetsList(required(m, "offsets", path), `${path}.offsets`),
@@ -5716,7 +5716,7 @@ export function encodeCalibrationCompassReport(v: CalibrationCompassReport): Cbo
   m.set("orientationConfidence", Cbor.Float(v.orientationConfidence))
   m.set("scale", Cbor.Float(v.scale))
   m.set("accepted", Cbor.Bool(v.accepted))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum CalibrationResultOutcome { Success, Failed, Cancelled, Refused }
@@ -5765,7 +5765,7 @@ export function decodeCalibrationResult(v: Cbor, path: string): CalibrationResul
   if (cbor4 != null) {
     opt4 = boolean(cbor4, `${path}.unsure`)
   }
-  CalibrationResult {
+  return CalibrationResult {
     kind: decodeCalibrationKind(required(m, "kind", path), `${path}.kind`),
     outcome: decodeCalibrationResultOutcome(required(m, "outcome", path), `${path}.outcome`),
     code: opt2,
@@ -5790,7 +5790,7 @@ export function encodeCalibrationResult(v: CalibrationResult): Cbor {
   if (opt4 != null) {
     m.set("unsure", Cbor.Bool(opt4))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TuningParams {
@@ -5804,7 +5804,7 @@ export function decodeTuningParams(v: Cbor, path: string): TuningParams throws I
   if (cbor0 != null) {
     opt0 = (uint(cbor0, `${path}.rateHz`, 255) as u8)
   }
-  TuningParams {
+  return TuningParams {
     rateHz: opt0,
   }
 }
@@ -5815,7 +5815,7 @@ export function encodeTuningParams(v: TuningParams): Cbor {
   if (opt0 != null) {
     m.set("rateHz", Cbor.Uint(opt0 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TuningPoint {
@@ -5825,7 +5825,7 @@ export struct TuningPoint {
 
 export function decodeTuningPoint(v: Cbor, path: string): TuningPoint throws InvalidPayload {
   const m = members(v, path, ["t", "v"])
-  TuningPoint {
+  return TuningPoint {
     t: (uint(required(m, "t", path), `${path}.t`, 4294967295) as u32),
     v: float(required(m, "v", path), `${path}.v`),
   }
@@ -5835,7 +5835,7 @@ export function encodeTuningPoint(v: TuningPoint): Cbor {
   const m = new Map<string, Cbor>()
   m.set("t", Cbor.Uint(v.t as u64))
   m.set("v", Cbor.Float(v.v))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeTuningBatchActualList(v: Cbor, path: string): TuningPoint[] throws InvalidPayload {
@@ -5845,7 +5845,7 @@ function decodeTuningBatchActualList(v: Cbor, path: string): TuningPoint[] throw
     out.push(decodeTuningPoint(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodeTuningBatchDesiredList(v: Cbor, path: string): TuningPoint[] throws InvalidPayload {
@@ -5855,7 +5855,7 @@ function decodeTuningBatchDesiredList(v: Cbor, path: string): TuningPoint[] thro
     out.push(decodeTuningPoint(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeTuningBatchActualList(v: TuningPoint[]): Cbor {
@@ -5863,7 +5863,7 @@ function encodeTuningBatchActualList(v: TuningPoint[]): Cbor {
   for (const e of v) {
     out.push(encodeTuningPoint(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodeTuningBatchDesiredList(v: TuningPoint[]): Cbor {
@@ -5871,7 +5871,7 @@ function encodeTuningBatchDesiredList(v: TuningPoint[]): Cbor {
   for (const e of v) {
     out.push(encodeTuningPoint(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct TuningBatch {
@@ -5883,7 +5883,7 @@ export struct TuningBatch {
 
 export function decodeTuningBatch(v: Cbor, path: string): TuningBatch throws InvalidPayload {
   const m = members(v, path, ["actual", "desired", "dropped", "asked"])
-  TuningBatch {
+  return TuningBatch {
     actual: decodeTuningBatchActualList(required(m, "actual", path), `${path}.actual`),
     desired: decodeTuningBatchDesiredList(required(m, "desired", path), `${path}.desired`),
     dropped: (uint(required(m, "dropped", path), `${path}.dropped`, 4294967295) as u32),
@@ -5897,7 +5897,7 @@ export function encodeTuningBatch(v: TuningBatch): Cbor {
   m.set("desired", encodeTuningBatchDesiredList(v.desired))
   m.set("dropped", Cbor.Uint(v.dropped as u64))
   m.set("asked", encodeTuningAsked(v.asked))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct TuningAsked {
@@ -5907,7 +5907,7 @@ export struct TuningAsked {
 
 export function decodeTuningAsked(v: Cbor, path: string): TuningAsked throws InvalidPayload {
   const m = members(v, path, ["actual", "desired"])
-  TuningAsked {
+  return TuningAsked {
     actual: boolean(required(m, "actual", path), `${path}.actual`),
     desired: boolean(required(m, "desired", path), `${path}.desired`),
   }
@@ -5917,7 +5917,7 @@ export function encodeTuningAsked(v: TuningAsked): Cbor {
   const m = new Map<string, Cbor>()
   m.set("actual", Cbor.Bool(v.actual))
   m.set("desired", Cbor.Bool(v.desired))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MotorTestParams {
@@ -5927,7 +5927,7 @@ export struct MotorTestParams {
 
 export function decodeMotorTestParams(v: Cbor, path: string): MotorTestParams throws InvalidPayload {
   const m = members(v, path, ["motor", "throttle"])
-  MotorTestParams {
+  return MotorTestParams {
     motor: (uint(required(m, "motor", path), `${path}.motor`, 255) as u8),
     throttle: (uint(required(m, "throttle", path), `${path}.throttle`, 255) as u8),
   }
@@ -5937,7 +5937,7 @@ export function encodeMotorTestParams(v: MotorTestParams): Cbor {
   const m = new Map<string, Cbor>()
   m.set("motor", Cbor.Uint(v.motor as u64))
   m.set("throttle", Cbor.Uint(v.throttle as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum MotorTestStateState { Running, Stopped }
@@ -5982,7 +5982,7 @@ export function decodeMotorTestState(v: Cbor, path: string): MotorTestState thro
   if (cbor4 != null) {
     opt4 = boolean(cbor4, `${path}.confirmed`)
   }
-  MotorTestState {
+  return MotorTestState {
     state: decodeMotorTestStateState(required(m, "state", path), `${path}.state`),
     motor: (uint(required(m, "motor", path), `${path}.motor`, 255) as u8),
     why: opt2,
@@ -6007,7 +6007,7 @@ export function encodeMotorTestState(v: MotorTestState): Cbor {
   if (opt4 != null) {
     m.set("confirmed", Cbor.Bool(opt4))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum RcControlParamsThrottle { Low, Centred }
@@ -6044,7 +6044,7 @@ export function decodeRcControlParams(v: Cbor, path: string): RcControlParams th
   if (cbor1 != null) {
     opt1 = decodeRcControlParamsThrottle(cbor1, `${path}.throttle`)
   }
-  RcControlParams {
+  return RcControlParams {
     rudderArm: opt0,
     throttle: opt1,
   }
@@ -6060,7 +6060,7 @@ export function encodeRcControlParams(v: RcControlParams): Cbor {
   if (opt1 != null) {
     m.set("throttle", encodeRcControlParamsThrottle(opt1))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeRcInputChannelsList(v: Cbor, path: string): u16[] throws InvalidPayload {
@@ -6070,7 +6070,7 @@ function decodeRcInputChannelsList(v: Cbor, path: string): u16[] throws InvalidP
     out.push((uint(e, `${path}[${i}]`, 65535) as u16))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeRcInputChannelsList(v: u16[]): Cbor {
@@ -6078,7 +6078,7 @@ function encodeRcInputChannelsList(v: u16[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Uint(e as u64))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct RcInput {
@@ -6088,7 +6088,7 @@ export struct RcInput {
 
 export function decodeRcInput(v: Cbor, path: string): RcInput throws InvalidPayload {
   const m = members(v, path, ["seq", "channels"])
-  RcInput {
+  return RcInput {
     seq: (uint(required(m, "seq", path), `${path}.seq`, 4294967295) as u32),
     channels: decodeRcInputChannelsList(required(m, "channels", path), `${path}.channels`),
   }
@@ -6098,7 +6098,7 @@ export function encodeRcInput(v: RcInput): Cbor {
   const m = new Map<string, Cbor>()
   m.set("seq", Cbor.Uint(v.seq as u64))
   m.set("channels", encodeRcInputChannelsList(v.channels))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum RcStateState { On, Released }
@@ -6166,7 +6166,7 @@ export function decodeRcState(v: Cbor, path: string): RcState throws InvalidPayl
   if (cbor7 != null) {
     opt7 = boolean(cbor7, `${path}.confirmed`)
   }
-  RcState {
+  return RcState {
     state: decodeRcStateState(required(m, "state", path), `${path}.state`),
     why: opt1,
     throttleChannel: opt2,
@@ -6209,7 +6209,7 @@ export function encodeRcState(v: RcState): Cbor {
   if (opt7 != null) {
     m.set("confirmed", Cbor.Bool(opt7))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodePadListPadsList(v: Cbor, path: string): PadInfo[] throws InvalidPayload {
@@ -6219,7 +6219,7 @@ function decodePadListPadsList(v: Cbor, path: string): PadInfo[] throws InvalidP
     out.push(decodePadInfo(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function decodePadListDeniedList(v: Cbor, path: string): PadDenied[] throws InvalidPayload {
@@ -6229,7 +6229,7 @@ function decodePadListDeniedList(v: Cbor, path: string): PadDenied[] throws Inva
     out.push(decodePadDenied(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePadListPadsList(v: PadInfo[]): Cbor {
@@ -6237,7 +6237,7 @@ function encodePadListPadsList(v: PadInfo[]): Cbor {
   for (const e of v) {
     out.push(encodePadInfo(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 function encodePadListDeniedList(v: PadDenied[]): Cbor {
@@ -6245,7 +6245,7 @@ function encodePadListDeniedList(v: PadDenied[]): Cbor {
   for (const e of v) {
     out.push(encodePadDenied(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PadList {
@@ -6256,7 +6256,7 @@ export struct PadList {
 
 export function decodePadList(v: Cbor, path: string): PadList throws InvalidPayload {
   const m = members(v, path, ["supported", "pads", "denied"])
-  PadList {
+  return PadList {
     supported: boolean(required(m, "supported", path), `${path}.supported`),
     pads: decodePadListPadsList(required(m, "pads", path), `${path}.pads`),
     denied: decodePadListDeniedList(required(m, "denied", path), `${path}.denied`),
@@ -6268,7 +6268,7 @@ export function encodePadList(v: PadList): Cbor {
   m.set("supported", Cbor.Bool(v.supported))
   m.set("pads", encodePadListPadsList(v.pads))
   m.set("denied", encodePadListDeniedList(v.denied))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PadDenied {
@@ -6279,7 +6279,7 @@ export struct PadDenied {
 
 export function decodePadDenied(v: Cbor, path: string): PadDenied throws InvalidPayload {
   const m = members(v, path, ["id", "name", "code"])
-  PadDenied {
+  return PadDenied {
     id: text(required(m, "id", path), `${path}.id`),
     name: text(required(m, "name", path), `${path}.name`),
     code: text(required(m, "code", path), `${path}.code`),
@@ -6291,7 +6291,7 @@ export function encodePadDenied(v: PadDenied): Cbor {
   m.set("id", Cbor.Text(v.id))
   m.set("name", Cbor.Text(v.name))
   m.set("code", Cbor.Text(v.code))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodePadInfoChannelsList(v: Cbor, path: string): PadChannel[] throws InvalidPayload {
@@ -6301,7 +6301,7 @@ function decodePadInfoChannelsList(v: Cbor, path: string): PadChannel[] throws I
     out.push(decodePadChannel(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePadInfoChannelsList(v: PadChannel[]): Cbor {
@@ -6309,7 +6309,7 @@ function encodePadInfoChannelsList(v: PadChannel[]): Cbor {
   for (const e of v) {
     out.push(encodePadChannel(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PadInfo {
@@ -6336,7 +6336,7 @@ export function decodePadInfo(v: Cbor, path: string): PadInfo throws InvalidPayl
   if (cbor6 != null) {
     opt6 = text(cbor6, `${path}.phys`)
   }
-  PadInfo {
+  return PadInfo {
     id: text(required(m, "id", path), `${path}.id`),
     legacyId: text(required(m, "legacyId", path), `${path}.legacyId`),
     name: text(required(m, "name", path), `${path}.name`),
@@ -6366,7 +6366,7 @@ export function encodePadInfo(v: PadInfo): Cbor {
   }
   m.set("source", Cbor.Text(v.source))
   m.set("channels", encodePadInfoChannelsList(v.channels))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum PadChannelFrom { Axis, Button }
@@ -6412,7 +6412,7 @@ export function decodePadChannel(v: Cbor, path: string): PadChannel throws Inval
   if (cbor5 != null) {
     opt5 = (uint(cbor5, `${path}.flat`, 4294967295) as u32)
   }
-  PadChannel {
+  return PadChannel {
     n: (uint(required(m, "n", path), `${path}.n`, 255) as u8),
     from: decodePadChannelFrom(required(m, "from", path), `${path}.from`),
     code: (uint(required(m, "code", path), `${path}.code`, 65535) as u16),
@@ -6439,7 +6439,7 @@ export function encodePadChannel(v: PadChannel): Cbor {
   if (opt5 != null) {
     m.set("flat", Cbor.Uint(opt5 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct PadReadParams {
@@ -6448,7 +6448,7 @@ export struct PadReadParams {
 
 export function decodePadReadParams(v: Cbor, path: string): PadReadParams throws InvalidPayload {
   const m = members(v, path, ["id"])
-  PadReadParams {
+  return PadReadParams {
     id: text(required(m, "id", path), `${path}.id`),
   }
 }
@@ -6456,7 +6456,7 @@ export function decodePadReadParams(v: Cbor, path: string): PadReadParams throws
 export function encodePadReadParams(v: PadReadParams): Cbor {
   const m = new Map<string, Cbor>()
   m.set("id", Cbor.Text(v.id))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodePadSampleChannelsList(v: Cbor, path: string): f64[] throws InvalidPayload {
@@ -6466,7 +6466,7 @@ function decodePadSampleChannelsList(v: Cbor, path: string): f64[] throws Invali
     out.push(float(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodePadSampleChannelsList(v: f64[]): Cbor {
@@ -6474,7 +6474,7 @@ function encodePadSampleChannelsList(v: f64[]): Cbor {
   for (const e of v) {
     out.push(Cbor.Float(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct PadSample {
@@ -6492,7 +6492,7 @@ export function decodePadSample(v: Cbor, path: string): PadSample throws Invalid
   if (cbor4 != null) {
     opt4 = (uint(cbor4, `${path}.gapMs`, 4294967295) as u32)
   }
-  PadSample {
+  return PadSample {
     seq: (uint(required(m, "seq", path), `${path}.seq`, 4294967295) as u32),
     at: (uint(required(m, "at", path), `${path}.at`, 18446744073709551615) as u64),
     channels: decodePadSampleChannelsList(required(m, "channels", path), `${path}.channels`),
@@ -6511,7 +6511,7 @@ export function encodePadSample(v: PadSample): Cbor {
   if (opt4 != null) {
     m.set("gapMs", Cbor.Uint(opt4 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MapTileAsk {
@@ -6528,7 +6528,7 @@ export function decodeMapTileAsk(v: Cbor, path: string): MapTileAsk throws Inval
   if (cbor0 != null) {
     opt0 = text(cbor0, `${path}.source`)
   }
-  MapTileAsk {
+  return MapTileAsk {
     source: opt0,
     z: (uint(required(m, "z", path), `${path}.z`, 255) as u8),
     x: (uint(required(m, "x", path), `${path}.x`, 4294967295) as u32),
@@ -6545,7 +6545,7 @@ export function encodeMapTileAsk(v: MapTileAsk): Cbor {
   m.set("z", Cbor.Uint(v.z as u64))
   m.set("x", Cbor.Uint(v.x as u64))
   m.set("y", Cbor.Uint(v.y as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MapTile {
@@ -6558,7 +6558,7 @@ export struct MapTile {
 
 export function decodeMapTile(v: Cbor, path: string): MapTile throws InvalidPayload {
   const m = members(v, path, ["contentType", "bytes", "fromCache", "stale", "fetchedAt"])
-  MapTile {
+  return MapTile {
     contentType: text(required(m, "contentType", path), `${path}.contentType`),
     bytes: bytes(required(m, "bytes", path), `${path}.bytes`),
     fromCache: boolean(required(m, "fromCache", path), `${path}.fromCache`),
@@ -6574,7 +6574,7 @@ export function encodeMapTile(v: MapTile): Cbor {
   m.set("fromCache", Cbor.Bool(v.fromCache))
   m.set("stale", Cbor.Bool(v.stale))
   m.set("fetchedAt", Cbor.Uint(v.fetchedAt as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 function decodeMapSourcesSourcesList(v: Cbor, path: string): MapSource[] throws InvalidPayload {
@@ -6584,7 +6584,7 @@ function decodeMapSourcesSourcesList(v: Cbor, path: string): MapSource[] throws 
     out.push(decodeMapSource(e, `${path}[${i}]`))
     i += 1
   }
-  out
+  return out
 }
 
 function encodeMapSourcesSourcesList(v: MapSource[]): Cbor {
@@ -6592,7 +6592,7 @@ function encodeMapSourcesSourcesList(v: MapSource[]): Cbor {
   for (const e of v) {
     out.push(encodeMapSource(e))
   }
-  Cbor.List(out)
+  return Cbor.List(out)
 }
 
 export struct MapSources {
@@ -6620,7 +6620,7 @@ export function decodeMapSources(v: Cbor, path: string): MapSources throws Inval
   if (cbor9 != null) {
     opt9 = text(cbor9, `${path}.notice`)
   }
-  MapSources {
+  return MapSources {
     sources: decodeMapSourcesSourcesList(required(m, "sources", path), `${path}.sources`),
     source: text(required(m, "source", path), `${path}.source`),
     enabled: boolean(required(m, "enabled", path), `${path}.enabled`),
@@ -6652,7 +6652,7 @@ export function encodeMapSources(v: MapSources): Cbor {
   if (opt9 != null) {
     m.set("notice", Cbor.Text(opt9))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MapSource {
@@ -6672,7 +6672,7 @@ export function decodeMapSource(v: Cbor, path: string): MapSource throws Invalid
   if (cbor6 != null) {
     opt6 = text(cbor6, `${path}.host`)
   }
-  MapSource {
+  return MapSource {
     id: text(required(m, "id", path), `${path}.id`),
     name: text(required(m, "name", path), `${path}.name`),
     attribution: text(required(m, "attribution", path), `${path}.attribution`),
@@ -6695,7 +6695,7 @@ export function encodeMapSource(v: MapSource): Cbor {
   if (opt6 != null) {
     m.set("host", Cbor.Text(opt6))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export enum MapState { Online, Offline, Disabled, BackingOff }
@@ -6737,7 +6737,7 @@ export function decodeMapStatus(v: Cbor, path: string): MapStatus throws Invalid
   if (cbor2 != null) {
     opt2 = (uint(cbor2, `${path}.retryAfterMs`, 4294967295) as u32)
   }
-  MapStatus {
+  return MapStatus {
     state: decodeMapState(required(m, "state", path), `${path}.state`),
     reason: opt1,
     retryAfterMs: opt2,
@@ -6755,7 +6755,7 @@ export function encodeMapStatus(v: MapStatus): Cbor {
   if (opt2 != null) {
     m.set("retryAfterMs", Cbor.Uint(opt2 as u64))
   }
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
 
 export struct MapCleared {
@@ -6765,7 +6765,7 @@ export struct MapCleared {
 
 export function decodeMapCleared(v: Cbor, path: string): MapCleared throws InvalidPayload {
   const m = members(v, path, ["files", "bytes"])
-  MapCleared {
+  return MapCleared {
     files: (uint(required(m, "files", path), `${path}.files`, 4294967295) as u32),
     bytes: (uint(required(m, "bytes", path), `${path}.bytes`, 18446744073709551615) as u64),
   }
@@ -6775,5 +6775,5 @@ export function encodeMapCleared(v: MapCleared): Cbor {
   const m = new Map<string, Cbor>()
   m.set("files", Cbor.Uint(v.files as u64))
   m.set("bytes", Cbor.Uint(v.bytes as u64))
-  Cbor.Dict(m)
+  return Cbor.Dict(m)
 }
