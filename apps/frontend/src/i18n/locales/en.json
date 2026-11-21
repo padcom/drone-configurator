@@ -862,6 +862,7 @@
       "mapping": "The gamepad has no mapping that is ready. Look at it and confirm it in Settings.",
       "reading": "A stick of the vehicle has no proportional channel of the pad (an axis). See Settings.",
       "vehicle": "The vehicle's settings do not agree with the mapping. See Settings.",
+      "vehicleDetail": "The vehicle's settings do not agree with the mapping: {detail}",
       "mode": "A centred throttle starts only in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag or Autotune. Change the mode first.",
       "MODE": "RC control ended: the flight mode does not take a centred throttle.",
       "REST_TIMEOUT": "RC control ended: the sticks were not at rest within 10 seconds.",

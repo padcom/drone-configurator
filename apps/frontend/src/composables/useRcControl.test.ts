@@ -112,7 +112,8 @@ describe('what refuses a control: the pad and the mapping', () => {
     unknown.pads.advance(20)
     await unknown.rc.enable()
 
-    expect(unknown.rc.why.value).toBe('vehicle')
+    // (the first problem named, with its channel: 0 is the vehicle as a whole)
+    expect(unknown.rc.why.value).toBe('vehicle.unknown.0')
   })
 })
 

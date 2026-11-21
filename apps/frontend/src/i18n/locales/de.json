@@ -862,6 +862,7 @@
       "mapping": "Das Gamepad hat keine fertige Zuordnung. Sieh sie dir an und bestätige sie in den Einstellungen.",
       "reading": "Ein Stick des Fahrzeugs hat keinen proportionalen Kanal des Gamepads (eine Achse). Siehe Einstellungen.",
       "vehicle": "Die Einstellungen des Fahrzeugs passen nicht zur Zuordnung. Siehe Einstellungen.",
+      "vehicleDetail": "Die Einstellungen des Fahrzeugs passen nicht zur Zuordnung: {detail}",
       "mode": "Ein zentriertes Gas startet nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag oder Autotune. Wechsle zuerst den Modus.",
       "MODE": "Fernsteuerung beendet: Der Flugmodus verträgt kein zentriertes Gas.",
       "REST_TIMEOUT": "Fernsteuerung beendet: Die Sticks waren nicht innerhalb von 10 Sekunden in Ruhe.",

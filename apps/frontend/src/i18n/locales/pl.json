@@ -862,6 +862,7 @@
       "mapping": "Pad nie ma gotowego przypisania. Obejrzyj je i potwierdź w Ustawieniach.",
       "reading": "Drążek pojazdu nie ma proporcjonalnego kanału pada (osi). Zobacz Ustawienia.",
       "vehicle": "Ustawienia pojazdu nie zgadzają się z przypisaniem. Zobacz Ustawienia.",
+      "vehicleDetail": "Ustawienia pojazdu nie zgadzają się z przypisaniem: {detail}",
       "mode": "Wyśrodkowany gaz startuje tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag lub Autotune. Najpierw zmień tryb.",
       "MODE": "Zdalne sterowanie zakończone: tryb lotu nie przyjmuje wyśrodkowanego gazu.",
       "REST_TIMEOUT": "Zdalne sterowanie zakończone: drążki nie były w spoczynku w ciągu 10 sekund.",

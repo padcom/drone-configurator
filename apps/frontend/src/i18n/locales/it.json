@@ -862,6 +862,7 @@
       "mapping": "Il gamepad non ha un'assegnazione pronta. Guardala e confermala nelle Impostazioni.",
       "reading": "Uno stick del veicolo non ha un canale proporzionale del gamepad (un asse). Vedi le Impostazioni.",
       "vehicle": "Le impostazioni del veicolo non concordano con l'assegnazione. Vedi le Impostazioni.",
+      "vehicleDetail": "Le impostazioni del veicolo non concordano con l'assegnazione: {detail}",
       "mode": "Un gas centrato parte solo in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia prima la modalità.",
       "MODE": "Controllo remoto terminato: la modalità di volo non accetta un gas centrato.",
       "REST_TIMEOUT": "Controllo remoto terminato: gli stick non sono stati a riposo entro 10 secondi.",

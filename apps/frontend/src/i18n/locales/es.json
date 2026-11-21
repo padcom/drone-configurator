@@ -862,6 +862,7 @@
       "mapping": "El mando no tiene una asignación lista. Revísala y confírmala en Ajustes.",
       "reading": "Un stick del vehículo no tiene un canal proporcional del mando (un eje). Mira Ajustes.",
       "vehicle": "Los ajustes del vehículo no concuerdan con la asignación. Mira Ajustes.",
+      "vehicleDetail": "Los ajustes del vehículo no concuerdan con la asignación: {detail}",
       "mode": "Un acelerador centrado solo empieza en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia primero el modo.",
       "MODE": "El control remoto terminó: el modo de vuelo no admite un acelerador centrado.",
       "REST_TIMEOUT": "El control remoto terminó: los sticks no estuvieron en reposo en 10 segundos.",
