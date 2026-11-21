@@ -81,7 +81,7 @@ const pad = useGamepad({ env: pads.environment })
 const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
 const mode = computed(() => vehicle.telemetry.value?.mode)
 const connected = computed(() => vehicle.connection.value.state === 'connected')
-const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request, mode, connected })
+const mapping = useRcMapping({ pad, settings, facts, request: vehicle.request, mode, connected, source: pads.source })
 
 const allow = computed({
   get: () => settings.allowed.value,

@@ -57,6 +57,31 @@ it('reads the browser\'s pad by default: the backend\'s pad is not read', async 
   expect(wrapper.find('#rc-device-name').exists()).toBe(false)
 })
 
+it('drops the browser\'s pad at once when the backend is chosen, and says the backend sees none', async () => {
+  const pad = { id: TX16S, index: 0, connected: true, axes: [0, 0, -1, 0, 0, 0, 0, 0], buttons: [{ value: 0 }] }
+
+  Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] })
+  const { wrapper } = await screen()
+
+  await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(TX16S), { timeout: 5000 })
+  await wrapper.get('input[id$="-source-backend"]').setValue(true)
+  await vi.waitFor(() => expect(wrapper.find('#rc-device-name').exists()).toBe(false), { timeout: 5000 })
+
+  expect(wrapper.get('#rc-no-device').text()).toContain('The backend sees no gamepad')
+  expect(wrapper.find('.rc-mapping').exists()).toBe(false)
+})
+
+it('shows the browser\'s pad again when the browser is chosen again', async () => {
+  const pad = { id: TX16S, index: 0, connected: true, axes: [0, 0, -1, 0, 0, 0, 0, 0], buttons: [{ value: 0 }] }
+
+  Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] })
+  const { wrapper } = await screen([{ key: 'rc.padSource', value: 'backend' }])
+
+  await vi.waitFor(() => expect(wrapper.find('#rc-no-device').exists()).toBe(true), { timeout: 5000 })
+  await wrapper.get('input[id$="-source-browser"]').setValue(true)
+  await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(TX16S), { timeout: 5000 })
+})
+
 it('shows the backend\'s pad at once, with its axes and buttons, when the backend is chosen', async () => {
   const { wrapper, pads } = await screen([{ key: 'rc.padSource', value: 'backend' }])
 
