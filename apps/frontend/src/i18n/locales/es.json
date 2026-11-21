@@ -947,9 +947,9 @@
         "unsupported": "El backend no puede leer mandos en este ordenador: se usa el navegador.",
         "pad": "Mando",
         "noPads": "El backend no ve ningún mando. Conecte la emisora.",
-        "unavailable": "El backend no pudo listar los mandos ({code}). Probablemente se compiló antes de esta función: actualice las fuentes, recompile y reinicie la aplicación (el terminal de `pnpm dev` dice si el backend no compiló).",
+        "unavailable": "El backend no pudo listar los mandos ({code}). Probablemente se compiló antes de esta función: actualice las fuentes y reinicie la aplicación para que se recompile el backend (si la compilación falla, sigue en marcha el backend antiguo: el registro de la aplicación lo dice).",
         "asking": "Preguntando al backend qué mandos ve…",
-        "answer": "El backend lista {pads} mando(s) y {denied} que no puede abrir.",
+        "answer": "Mandos que lista el backend: {pads}. Mandos que no puede abrir: {denied}.",
         "gone": "El backend no está leyendo este mando ahora. Compruebe que la emisora está conectada.",
         "denied": "{name} está conectado pero no se puede abrir. Dé a su usuario acceso al dispositivo (una regla udev con uaccess) o lea el mando desde el navegador.",
         "ended": "El backend dejó de leer el mando ({code})."

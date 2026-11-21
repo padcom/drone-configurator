@@ -141,7 +141,7 @@ it('says what the backend answered, once it has: how many gamepads it lists and 
   pads.plug(SECOND)
   pads.deny(SECOND.id, true)
   await vi.waitFor(() => {
-    expect(wrapper.get('#rc-source-answer').text()).toContain('lists 1 gamepad(s) and 1 that it may not open')
+    expect(wrapper.get('#rc-source-answer').text()).toBe('Gamepads the backend lists: 1. Gamepads it may not open: 1.')
   }, { timeout: 5000 })
 
   expect(wrapper.find('#rc-source-unavailable').exists()).toBe(false)
@@ -151,6 +151,10 @@ it('says there is no pad, in the backend\'s words, while it sees none', async ()
   const { wrapper } = await screen([{ key: 'rc.padSource', value: 'backend' }])
 
   await vi.waitFor(() => expect(wrapper.get('#rc-no-device').text()).toContain('The backend sees no gamepad'))
+  // (said once: the answer's own line adds nothing when the backend listed none and may open all of them)
+  expect(wrapper.find('#rc-source-answer').exists()).toBe(false)
+  expect(wrapper.find('#rc-source-asking').exists()).toBe(false)
+  expect(wrapper.find('#rc-source-unavailable').exists()).toBe(false)
 })
 
 it('chooses the source and keeps it in the settings', async () => {
