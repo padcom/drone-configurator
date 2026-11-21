@@ -49,6 +49,11 @@ export interface RcMappingDeps {
    * the backend (`NOT_SIMULATOR`), as the Fly switch does, and the screen does not say "No simulator is connected" over it.
    */
   connected?: Readonly<Ref<boolean>>
+  /**
+   * Where the pad is read from (`browser` or `backend`): when it changes, the pad that was shown is not the one that is read any
+   * more, and what is shown is forgotten (the pad of the new source is shown when it is read).
+   */
+  source?: Readonly<Ref<string>>
 }
 
 /** One thing that stands in the way, with where it comes from. */
@@ -176,9 +181,23 @@ class Mapping implements RcMapping {
         }
       }, { flush: 'sync' }),
       watch(deps.facts, () => this.suggestAgain()),
+      watch(() => deps.source?.value, () => this.forget(), { flush: 'sync' }),
     ]
 
     onScopeDispose(() => stops.forEach(stop => stop()))
+  }
+
+  /**
+   * The source of the pad changed: what was shown is forgotten (the reading of the old source is a pad of the old source, even
+   * until the next read). The pad of the new source is shown when it is read: its id is then a change.
+   */
+  private forget(): void {
+    this.device.value = null
+    this.draft.value = null
+    this.waiting.value = null
+    this.refusal.value = null
+    this.convertedFrom.value = false
+    this.touched = false
   }
 
   /**
@@ -191,7 +210,7 @@ class Mapping implements RcMapping {
       return
     }
 
-    this.show(id, this.deps.settings.profileOf(id, this.layout.value))
+    this.show(id, this.deps.settings.profileOf(id, this.layout.value, this.deps.pad.legacyId.value))
   }
 
   /**

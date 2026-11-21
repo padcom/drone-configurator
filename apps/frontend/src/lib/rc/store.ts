@@ -19,6 +19,12 @@ export const RC_ALLOW_KEY = 'rc.allow'
  */
 export const RC_RUDDER_ARM_KEY = 'rc.rudderArm'
 
+/** The settings entry that says where the pad is read from: `auto`, `backend` or `browser` (see `padsource.ts`). */
+export const RC_PAD_SOURCE_KEY = 'rc.padSource'
+
+/** The settings entry that says which pad (its `id`, as the backend lists it) is read when the backend has several. */
+export const RC_PAD_DEVICE_KEY = 'rc.padDevice'
+
 /** The part of the key of a device's mapping that comes before the device. */
 export const RC_PROFILE_PREFIX = 'rc.profile.'
 
@@ -179,6 +185,49 @@ export function readProfile(text: string | undefined, device: string, layout: Pa
   }
 
   return data.version === VERSION ? readV2(data, device) : readOld(data, device, layout)
+}
+
+/**
+ * The mapping the browser kept for a pad under its old string, as the mapping of the pad's id (not confirmed).
+ *
+ * @param keep what the settings hold under a device's key
+ * @param device the pad's id
+ * @param legacyId the browser's string for it, or undefined
+ * @param layout what each channel of the pad is now, or null
+ * @returns the mapping, or null when there is none (or the old string is the id)
+ */
+function readByLegacyId(
+  keep: (device: string) => string | undefined,
+  device: string,
+  legacyId: string | undefined,
+  layout: PadLayout | null,
+): StoredProfile | null {
+  if (legacyId === undefined || legacyId === device) {
+    return null
+  }
+  const old = readProfile(keep(legacyId), legacyId, layout)
+
+  return old === null ? null : { ...old, profile: { ...old.profile, device, confirmedKey: null } }
+}
+
+/**
+ * The mapping of a pad that the backend reads: what is kept under its own `id`, else what the browser kept under the string it
+ * knew the pad by (`legacyId`). A mapping found by the old string is the same mapping for the new id, but NOT confirmed: the
+ * confirmation is of the device, and the person looks at it and confirms once more (one click).
+ *
+ * @param keep what the settings hold under a device's key (by the device, as `profileKey` says)
+ * @param device the pad's id
+ * @param legacyId the browser's string for it, or undefined
+ * @param layout what each channel of the pad is now, or null
+ * @returns the mapping, or null when neither key holds a whole one
+ */
+export function readProfileOfPad(
+  keep: (device: string) => string | undefined,
+  device: string,
+  legacyId: string | undefined,
+  layout: PadLayout | null,
+): StoredProfile | null {
+  return readProfile(keep(device), device, layout) ?? readByLegacyId(keep, device, legacyId, layout)
 }
 
 /**

@@ -14,6 +14,8 @@ export const LATE_MS = 100
 export interface PadLike {
   /** The device's id string (vendor and product). */
   readonly id: string
+  /** The browser's own id string for it, when `id` is not that (a pad the backend reads): where a mapping kept by it is found. */
+  readonly legacyId?: string
   /** The device's index among the connected ones. */
   readonly index: number
   /** Whether it is still connected. */
@@ -43,6 +45,8 @@ export type Reading = {
   kind: 'live'
   /** The pad's id. */
   id: string
+  /** The browser's id string for it, when it is another (see `PadLike.legacyId`). */
+  legacyId?: string
   /** What it said. */
   sample: PadSample
   /** What each of its channels is (an axis, a button, or not there). */
@@ -93,6 +97,19 @@ export function padOf(pads: readonly (PadLike | null)[], device?: string): PadLi
   return pads.find(pad => pad !== null && pad.connected && (device === undefined || pad.id === device)) ?? null
 }
 
+/**
+ * A live read of a pad.
+ *
+ * @param pad the pad
+ * @param at when the page read it (its clock, ms)
+ * @returns the reading
+ */
+function liveOf(pad: PadLike, at: number): Reading {
+  const live: Reading = { kind: 'live', id: pad.id, sample: sampleOf(pad), layout: layoutOf(pad), at }
+
+  return pad.legacyId === undefined ? live : { ...live, legacyId: pad.legacyId }
+}
+
 /** Reads a gamepad on the page's own clock. */
 export class PadReader {
   private last: number | null = null
@@ -141,7 +158,7 @@ export class PadReader {
     }
     const pad = padOf(this.env.pads(), this.device)
 
-    return pad === null ? { kind: 'none', at } : { kind: 'live', id: pad.id, sample: sampleOf(pad), layout: layoutOf(pad), at }
+    return pad === null ? { kind: 'none', at } : liveOf(pad, at)
   }
 
   /**
