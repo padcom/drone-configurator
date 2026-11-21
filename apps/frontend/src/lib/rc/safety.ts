@@ -118,8 +118,9 @@ function throttleIsLow(out: readonly number[], vehicle: VehicleChannels): boolea
  *
  * @param out the pulses (changed here)
  * @param vehicle which channels are the throttle and the yaw, and their ranges
- * @param always whether the yaw is held whatever the throttle is (a centred throttle: its middle is not "low", and the vehicle's
- * own disarm gesture, full yaw left, has no throttle condition)
+ * @param always whether the yaw is held whatever the throttle is (a centred throttle: its middle is not "low"; the vehicle's
+ * rudder arm needs the throttle at the bottom only while `RC_OPTIONS` "arming check throttle" is set, which the page does not
+ * read; the disarm needs it at the bottom)
  * @returns whether the yaw was held
  */
 function holdTheRudder(out: number[], vehicle: VehicleChannels, always: boolean): boolean {
@@ -211,8 +212,9 @@ export interface GuardOptions {
    */
   rested?: boolean
   /**
-   * Whether the throttle is spring-centred: the yaw is then held whatever the throttle is (its middle is not "low", and the
-   * vehicle's own disarm gesture, full yaw left for 3 s, has no throttle condition).
+   * Whether the throttle is spring-centred: the yaw is then held whatever the throttle is (its middle is not "low": the vehicle's
+   * rudder arm needs the throttle at the bottom only while `RC_OPTIONS` "arming check throttle" is set, which the page does not
+   * read; the disarm needs it at the bottom).
    */
   centred?: boolean
 }

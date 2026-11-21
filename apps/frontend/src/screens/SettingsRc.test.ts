@@ -50,13 +50,19 @@ async function screen(ui: { key: string, value: string }[] = []) {
 }
 
 /**
- * Plugs the pad in and waits for the screen to show its mapping.
+ * Plugs the pad in and waits for the screen to show all of it: the device, its 16 channels, the four rows of the mapping and the
+ * confirmation. (The device's name comes first; what follows renders a poll later, which a slow machine makes visible.)
  *
  * @param wrapper the screen
  */
 async function plugged(wrapper: VueWrapper): Promise<void> {
   axes = [0, 0, -1, 0, 0, 0, 0, 0]
-  await vi.waitFor(() => expect(wrapper.find('#rc-device-name').exists()).toBe(true))
+  await vi.waitFor(() => {
+    expect(wrapper.find('#rc-device-name').exists()).toBe(true)
+    expect(wrapper.findAll('.rc-axes li')).toHaveLength(16)
+    expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(4)
+    expect(wrapper.find('#rc-confirm').exists()).toBe(true)
+  }, { timeout: 5000 })
 }
 
 it('is off until the setting is turned on, and keeps it in the settings', async () => {
@@ -110,7 +116,7 @@ it('shows the pad, its mapping of four sticks, and what stands in the way', asyn
   // (allowing it says nothing of the link: the toggle says it is off, so there is no line to say it again)
   expect(wrapper.find('#rc-status').exists()).toBe(false)
   await wrapper.get('#rc-allow').trigger('click')
-  await flushPromises()
+  await vi.waitFor(() => expect(wrapper.find('#rc-status').exists()).toBe(true), { timeout: 5000 })
   expect(wrapper.get('#rc-device-name').text()).toBe(TX16S)
   expect(wrapper.findAll('.rc-row:not(.rc-free)')).toHaveLength(4)
   expect(wrapper.findAll('.rc-free')).toHaveLength(12)
@@ -163,7 +169,7 @@ it('confirms the mapping with one click, shows it, and takes the confirmation aw
   expect(wrapper.get('#rc-unconfirmed').text()).toContain('Not confirmed')
   await vi.waitFor(() => expect(wrapper.get('#rc-confirm').attributes('disabled')).toBeUndefined())
   await wrapper.get('#rc-confirm').trigger('click')
-  await flushPromises()
+  await vi.waitFor(() => expect(wrapper.find('#rc-confirmed').exists()).toBe(true), { timeout: 5000 })
 
   expect(wrapper.get('#rc-confirmed').text()).toContain('confirmed for this pad')
   expect(wrapper.find('#rc-unconfirmed').exists()).toBe(false)
