@@ -3,7 +3,7 @@
 // that silence is a gap (a sample is of the page's own clock, and an old one is no pad).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, shallowRef } from 'vue'
-import { createBackendClient } from '@/backend/client'
+import { type BackendClient, createBackendClient } from '@/backend/client'
 import { type MockControl, mockBackend } from '@/mock/mock-backend'
 import type { MockPadSpec } from '@/mock/mock-pad'
 import type { PadSourceChoice } from '@/lib/rc/padsource'
@@ -169,6 +169,33 @@ describe('the pads that come and go', () => {
     await pass(60)
 
     expect([r.pads.environment.pads()[0]?.id, r.control.pads!.reading()]).toEqual([SECOND.id, 1])
+  })
+})
+
+describe('a backend that came back', () => {
+  it('ends the old pad.devices subscription before it opens a new one', () => {
+    const stops: string[] = []
+    let ready: (state: string) => void = () => undefined
+    let opened = 0
+    const client = {
+      subscribe: (topic: string) => {
+        opened += 1
+        const n = opened
+
+        return { ready: Promise.resolve(), stop: () => stops.push(`${topic}#${n}`) }
+      },
+      onState: (listener: (state: string) => void) => {
+        ready = listener
+
+        return () => undefined
+      },
+    } as unknown as BackendClient
+    const settings = { padSource: computed(() => 'backend' as const), padDevice: computed(() => '') } as unknown as RcSettings
+
+    usePads({ client, settings })
+    ready('ready')
+
+    expect([opened, stops]).toEqual([2, ['pad.devices#1']])
   })
 })
 
