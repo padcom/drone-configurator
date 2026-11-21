@@ -330,7 +330,33 @@ class RcControl implements RcControlModel {
     this.pad.start()
     const profile = this.padProfile()
 
-    return this.profileBlock(profile) ?? profile ?? 'pad'
+    const block = this.profileBlock(profile)
+
+    return this.named(block, profile) ?? profile ?? 'pad'
+  }
+
+  /**
+   * A block that is the vehicle's, said with the problem that stops it (see `vehicleReason`); any other block as it is.
+   *
+   * @param block the block (a code), or null
+   * @param profile the mapping, or null
+   * @returns the reason, or null for none
+   */
+  private named(block: string | null, profile: Profile | null): string | null {
+    return block === 'vehicle' && profile !== null ? this.vehicleReason(profile) : block
+  }
+
+  /**
+   * Which of the vehicle's problems stops the control first: `vehicle.<problem>.<channel>` (the words of Settings' line for it),
+   * so that the Fly line says what to fix, not only "see Settings".
+   *
+   * @param profile the mapping
+   * @returns the reason (a code); `vehicle` alone when no problem is found
+   */
+  private vehicleReason(profile: Profile): string {
+    const first = vehicleProblems(this.deps.facts.value, profile).find(problem => problem.blocks)
+
+    return first === undefined ? 'vehicle' : `vehicle.${first.code}.${first.channel}`
   }
 
   /**
