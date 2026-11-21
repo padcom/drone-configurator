@@ -109,7 +109,7 @@ describe('the rudder', () => {
     expect(guard(channels(1500, 2000), vehicle, OPEN).yawHeld).toBe(false)
   })
 
-  it('is held with a centred throttle whatever the throttle is: the middle is not low, and a disarm asks nothing of it', () => {
+  it('is held with a centred throttle whatever the throttle is: the middle is not low, and the arm may not check it', () => {
     const centred = { centred: true }
 
     expect(guard(channels(1500, 2000), vehicle, OPEN, centred).channels[3]).toBe(1900)
