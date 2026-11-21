@@ -192,6 +192,8 @@ class RcControl implements RcControlModel {
     const { deps } = this
     const vehicle = (): string => `${deps.connection.value.vehicle?.sysid}:${deps.connection.value.vehicle?.compid}`
 
+    // (the sticks of ANOTHER pad than the mapping's, one that took the place of the first or was chosen, are not flown with)
+    watch(() => this.pad.id.value, id => this.padChanged(id), { flush: 'sync' })
     watch(() => deps.settings.allowed.value, allowed => !allowed && this.over('NOT_ALLOWED'))
     watch(() => deps.connection.value.state, state => state !== 'connected' && this.over('LINK_LOST'))
     watch(vehicle, () => this.over('VEHICLE_CHANGED'))
@@ -202,6 +204,18 @@ class RcControl implements RcControlModel {
     watch(() => this.keptMapping(), kept => kept !== this.snapshot && this.over('EDITED'))
     // (a centred throttle is only flown in the modes that read it as a climb rate, or take none: any other mode releases at once)
     watch(() => deps.telemetry?.value?.mode, mode => this.modeChanged(mode))
+  }
+
+  /**
+   * The pad that is read is another one than the mapping's: the control ends (it is never flown with the sticks of a pad it
+   * has no mapping for).
+   *
+   * @param id the id of the pad that is read now, or null when none is
+   */
+  private padChanged(id: string | null): void {
+    if (id !== null && this.profile !== null && id !== this.profile.device) {
+      this.over('PAD_CHANGED')
+    }
   }
 
   /**
@@ -336,7 +350,7 @@ class RcControl implements RcControlModel {
   private padProfile(): Profile | null {
     const id = this.pad.id.value
 
-    return id === null ? null : this.deps.settings.profileOf(id, this.layoutNow())?.profile ?? null
+    return id === null ? null : this.deps.settings.profileOf(id, this.layoutNow(), this.pad.legacyId.value)?.profile ?? null
   }
 
   /**

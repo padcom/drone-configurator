@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isConfirmed } from './confirm'
-import { RC_PROFILE_PREFIX, parseAllow, parseProfile, profileKey, serialiseProfile } from './store'
+import { RC_PROFILE_PREFIX, parseAllow, parseProfile, profileKey, readProfileOfPad, serialiseProfile } from './store'
 import { newRow, suggestedProfile } from './suggest'
 import type { Profile } from './types'
 import { TX16S_LAYOUT, confirmedSuggestion } from '@/testing/rcProfiles'
@@ -86,6 +86,50 @@ describe('what is kept for another device or another version', () => {
   it('is nothing when a row is not whole: a flag that is not, an end with no other', () => {
     expect(parseProfile(withFirstRow(row => { row.invert = 1 }), TX16S)).toBeNull()
     expect(parseProfile(withFirstRow(row => { row.pulseMin = 1000 }), TX16S)).toBeNull()
+  })
+})
+
+const ID = '1209:4f54'
+
+/**
+ * What the settings hold, by device, for some mappings.
+ *
+ * @param profiles the mappings kept
+ * @returns what the settings hold under a device's key
+ */
+function kept(...profiles: Profile[]): (device: string) => string | undefined {
+  const byKey = new Map(profiles.map(profile => [profileKey(profile.device), serialiseProfile(profile)]))
+
+  return device => byKey.get(profileKey(device))
+}
+
+describe('the mapping of a pad the backend reads', () => {
+  it('is the one kept under its own id, confirmed as it was', () => {
+    const mine = confirmedSuggestion(ID, 'centred')
+    const found = readProfileOfPad(kept(mine, confirmedSuggestion(TX16S)), ID, TX16S, TX16S_LAYOUT)
+
+    expect(found?.profile).toEqual(mine)
+    expect(isConfirmed(found!.profile, TX16S_LAYOUT)).toBe(true)
+  })
+
+  it('is, with none of its own, the one the browser kept under its string: for the new id, and NOT confirmed', () => {
+    const old = confirmedSuggestion(TX16S, 'centred')
+    const found = readProfileOfPad(kept(old), ID, TX16S, TX16S_LAYOUT)!.profile
+
+    expect([found.device, found.throttleStyle, found.confirmedKey]).toEqual([ID, 'centred', null])
+    expect(found.rows).toEqual(old.rows)
+  })
+})
+
+describe('the mapping of a pad the backend reads, when there is none', () => {
+  it('is nothing when neither is kept, and never the mapping of another pad', () => {
+    expect(readProfileOfPad(kept(), ID, TX16S, TX16S_LAYOUT)).toBeNull()
+    expect(readProfileOfPad(kept(confirmedSuggestion('other pad')), ID, TX16S, TX16S_LAYOUT)).toBeNull()
+    expect(readProfileOfPad(kept(confirmedSuggestion(TX16S)), ID, undefined, TX16S_LAYOUT)).toBeNull()
+  })
+
+  it('does not look twice for a pad whose browser string is its id', () => {
+    expect(readProfileOfPad(kept(), TX16S, TX16S, TX16S_LAYOUT)).toBeNull()
   })
 })
 

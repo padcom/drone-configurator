@@ -875,6 +875,7 @@
       "NOT_ALLOWED": "Controllo remoto terminato: non è più consentito.",
       "NOT_SIMULATOR": "Controllo remoto terminato: il veicolo non è un simulatore.",
       "PAD_NONE": "Controllo remoto terminato: il gamepad non viene letto.",
+      "PAD_CHANGED": "Controllo remoto terminato: viene letto un altro gamepad rispetto a quello con cui si volava.",
       "PAD_LATE": "Controllo remoto terminato: una lettura del gamepad è arrivata troppo tardi.",
       "PAD_HIDDEN": "Controllo remoto terminato: la finestra è stata nascosta.",
       "VEHICLE_CHANGED": "Controllo remoto terminato: è un altro veicolo.",
@@ -935,6 +936,18 @@
         "none": "Nessun gamepad trovato finora. Una radio compare quando muovi uno stick.",
         "gone": "Il gamepad ora non viene letto. Muovi uno stick.",
         "channel": "CH{n}"
+      },
+      "source": {
+        "title": "Da dove si legge il gamepad",
+        "auto": "Automatico",
+        "backend": "Il backend",
+        "browser": "Il browser",
+        "help": "Il backend legge tutti gli assi di una radio insieme, senza dover prima muovere uno stick (solo Linux). Il browser richiede prima un movimento di uno stick e perde alcuni assi di certe radio. Automatico usa il backend dove può.",
+        "unsupported": "Il backend non può leggere i gamepad su questo computer: si usa il browser.",
+        "pad": "Gamepad",
+        "noPads": "Il backend non vede nessun gamepad. Collega la radio.",
+        "denied": "{name} è collegato ma non può essere aperto. Dai al tuo utente l'accesso al dispositivo (una regola udev con uaccess) oppure leggi il gamepad dal browser.",
+        "ended": "Il backend ha smesso di leggere il gamepad ({code})."
       },
       "mapping": "Assegnazione",
       "channel": "Canale del veicolo",

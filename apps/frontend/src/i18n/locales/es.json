@@ -875,6 +875,7 @@
       "NOT_ALLOWED": "Control remoto terminado: ya no está permitido.",
       "NOT_SIMULATOR": "Control remoto terminado: el vehículo no es un simulador.",
       "PAD_NONE": "Control remoto terminado: no se lee el mando.",
+      "PAD_CHANGED": "Control remoto terminado: se lee otro mando distinto del que se usaba para volar.",
       "PAD_LATE": "Control remoto terminado: una lectura del mando llegó tarde.",
       "PAD_HIDDEN": "Control remoto terminado: se ocultó la ventana.",
       "VEHICLE_CHANGED": "Control remoto terminado: es otro vehículo.",
@@ -935,6 +936,18 @@
         "none": "Aún no se ha encontrado ningún mando. Una radio aparece al mover un stick.",
         "gone": "Ahora no se lee el mando. Mueve un stick.",
         "channel": "CH{n}"
+      },
+      "source": {
+        "title": "De dónde se lee el mando",
+        "auto": "Automático",
+        "backend": "El backend",
+        "browser": "El navegador",
+        "help": "El backend lee todos los ejes de una emisora a la vez, sin mover antes un stick (solo Linux). El navegador necesita que se mueva un stick antes y pierde ejes de algunas emisoras. Automático usa el backend donde puede.",
+        "unsupported": "El backend no puede leer mandos en este ordenador: se usa el navegador.",
+        "pad": "Mando",
+        "noPads": "El backend no ve ningún mando. Conecte la emisora.",
+        "denied": "{name} está conectado pero no se puede abrir. Dé a su usuario acceso al dispositivo (una regla udev con uaccess) o lea el mando desde el navegador.",
+        "ended": "El backend dejó de leer el mando ({code})."
       },
       "mapping": "Asignación",
       "channel": "Canal del vehículo",

@@ -191,7 +191,7 @@ class Mapping implements RcMapping {
       return
     }
 
-    this.show(id, this.deps.settings.profileOf(id, this.layout.value))
+    this.show(id, this.deps.settings.profileOf(id, this.layout.value, this.deps.pad.legacyId.value))
   }
 
   /**
