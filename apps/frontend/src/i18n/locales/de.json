@@ -947,6 +947,9 @@
         "unsupported": "Das Backend kann auf diesem Computer keine Gamepads lesen: der Browser wird benutzt.",
         "pad": "Gamepad",
         "noPads": "Das Backend sieht kein Gamepad. Schließen Sie die Fernsteuerung an.",
+        "unavailable": "Das Backend konnte die Gamepads nicht auflisten ({code}). Wahrscheinlich ist es vor dieser Funktion gebaut worden: Quellen aktualisieren, neu bauen und die Anwendung neu starten (das Terminal von `pnpm dev` sagt, ob das Backend nicht gebaut wurde).",
+        "asking": "Das Backend wird gefragt, welche Gamepads es sieht …",
+        "answer": "Das Backend listet {pads} Gamepad(s) und {denied}, die es nicht öffnen darf.",
         "gone": "Das Backend liest dieses Gamepad gerade nicht. Prüfen Sie, ob die Fernsteuerung angeschlossen ist.",
         "denied": "{name} ist angeschlossen, darf aber nicht geöffnet werden. Geben Sie Ihrem Benutzer Zugriff auf das Gerät (eine udev-Regel mit uaccess) oder lesen Sie das Gamepad über den Browser.",
         "ended": "Das Backend hat aufgehört, das Gamepad zu lesen ({code})."

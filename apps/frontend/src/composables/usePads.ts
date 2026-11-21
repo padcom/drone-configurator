@@ -34,6 +34,11 @@ export interface PadsModel {
   readonly selected: ComputedRef<PadInfo | null>
   /** Why the backend's read of the selected pad ended, as a code (`DISCONNECTED`, `PERMISSION_DENIED`, ...), or null. */
   readonly ended: ShallowRef<string | null>
+  /**
+   * Why the backend could not list the pads (the code of the refusal of `pad.devices`, or of its end), or null while it lists
+   * them (or has not been asked yet): the backend may be one built before the pad service.
+   */
+  readonly unavailable: ShallowRef<string | null>
   /** What the reader looks at: the browser's gamepads, or the backend's, whichever is the source now. */
   readonly environment: Environment
 }
@@ -52,6 +57,7 @@ interface Latest {
 class Pads implements PadsModel {
   readonly list = shallowRef<PadList | null>(null)
   readonly ended = shallowRef<string | null>(null)
+  readonly unavailable = shallowRef<string | null>(null)
   readonly source = computed(() => sourceOf(this.deps.settings.padSource.value, this.list.value))
   readonly selected = computed(() => padOfList(this.list.value, this.deps.settings.padDevice.value))
   readonly environment: Environment
@@ -115,14 +121,17 @@ class Pads implements PadsModel {
       'pad.devices',
       null,
       list => this.listed(list),
-      () => {
+      ending => {
         this.devices = undefined
+        this.unavailable.value = ending?.code ?? 'ENDED'
       },
     )
 
     this.devices = subscription
-    void this.settled(subscription, () => {
+    void this.settled(subscription, code => {
       this.devices = undefined
+      // (a backend built before the pad service does not know the topic: said, never taken for "no gamepad")
+      this.unavailable.value = code
     })
   }
 
@@ -147,6 +156,7 @@ class Pads implements PadsModel {
    */
   private listed(list: PadList): void {
     this.list.value = list
+    this.unavailable.value = null
 
     if (this.failed !== null && !list.pads.some(pad => pad.id === this.failed?.id)) {
       this.failed = null
@@ -239,6 +249,7 @@ class Pads implements PadsModel {
     this.devices = undefined
     this.failed = null
     this.ended.value = null
+    this.unavailable.value = null
   }
 
   /** The backend came back (it restarted): what was open is gone with it, and is opened again. */
@@ -247,6 +258,7 @@ class Pads implements PadsModel {
     this.devices?.stop()
     this.devices = undefined
     this.failed = null
+    this.unavailable.value = null
 
     if (this.deps.settings.padSource.value !== 'browser') {
       this.watchDevices()

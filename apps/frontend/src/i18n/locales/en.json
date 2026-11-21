@@ -947,6 +947,9 @@
         "unsupported": "The backend cannot read gamepads on this computer: the browser is used.",
         "pad": "Gamepad",
         "noPads": "The backend sees no gamepad. Plug the radio in.",
+        "unavailable": "The backend could not list the gamepads ({code}). It is probably a backend built before this feature: update the sources, rebuild and restart the application (the terminal of `pnpm dev` says if the backend did not build).",
+        "asking": "Asking the backend which gamepads it sees…",
+        "answer": "The backend lists {pads} gamepad(s) and {denied} that it may not open.",
         "gone": "The backend is not reading this gamepad now. Check that the radio is plugged in.",
         "denied": "{name} is plugged in but may not be opened. Give your user access to the device (a udev rule with uaccess), or read the gamepad from the browser.",
         "ended": "The backend stopped reading the gamepad ({code})."

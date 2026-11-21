@@ -119,6 +119,34 @@ it('says the backend is not reading the pad any more once it is unplugged, not "
   expect(wrapper.get('#rc-device-gone').text()).toContain('The backend is not reading this gamepad')
 })
 
+it('says the backend could not list the pads (not "no gamepad") when it has no pad service (an old build)', async () => {
+  const control: MockControl = {}
+  const settings = { version: 1, ui: [{ key: 'rc.padSource', value: 'backend' }] }
+  const handle = createConfigurator(mockBackend({ settings, control, withoutPads: true }))
+  await vi.waitFor(() => expect(handle.settings.loaded.value).toBe(true))
+  mounted = mount(Settings, { global: { plugins: [i18n] }, attachTo: document.body })
+
+  await vi.waitFor(() => expect(mounted!.find('#rc-source-unavailable').exists()).toBe(true), { timeout: 5000 })
+
+  expect(mounted.get('#rc-source-unavailable').text()).toContain('UNKNOWN_METHOD')
+  expect(mounted.get('#rc-source-unavailable').text()).toContain('built before this feature')
+  expect(mounted.find('#rc-no-device').exists()).toBe(false)
+  expect(mounted.find('#rc-source-answer').exists()).toBe(false)
+})
+
+it('says what the backend answered, once it has: how many gamepads it lists and how many it may not open', async () => {
+  const { wrapper, pads } = await screen([{ key: 'rc.padSource', value: 'backend' }])
+
+  pads.plug(RADIO)
+  pads.plug(SECOND)
+  pads.deny(SECOND.id, true)
+  await vi.waitFor(() => {
+    expect(wrapper.get('#rc-source-answer').text()).toContain('lists 1 gamepad(s) and 1 that it may not open')
+  }, { timeout: 5000 })
+
+  expect(wrapper.find('#rc-source-unavailable').exists()).toBe(false)
+})
+
 it('says there is no pad, in the backend\'s words, while it sees none', async () => {
   const { wrapper } = await screen([{ key: 'rc.padSource', value: 'backend' }])
 

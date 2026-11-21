@@ -947,6 +947,9 @@
         "unsupported": "Backend nie umie czytać padów na tym komputerze: używana jest przeglądarka.",
         "pad": "Pad",
         "noPads": "Backend nie widzi żadnego padu. Podłącz aparaturę.",
+        "unavailable": "Backend nie mógł wylistować padów ({code}). Prawdopodobnie zbudowano go przed tą funkcją: zaktualizuj źródła, zbuduj od nowa i uruchom aplikację ponownie (terminal `pnpm dev` mówi, jeśli backend się nie zbudował).",
+        "asking": "Pytam backend, jakie pady widzi…",
+        "answer": "Backend wylistował padów: {pads}, a takich, których nie może otworzyć: {denied}.",
         "gone": "Backend nie czyta teraz tego padu. Sprawdź, czy aparatura jest podłączona.",
         "denied": "{name} jest podłączony, ale nie można go otworzyć. Daj swojemu użytkownikowi dostęp do urządzenia (reguła udev z uaccess) albo czytaj pad z przeglądarki.",
         "ended": "Backend przestał czytać pad ({code})."

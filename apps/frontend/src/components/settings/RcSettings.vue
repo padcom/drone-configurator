@@ -19,9 +19,9 @@
     <div class="rc-device">
       <h4 class="rc-heading">{{ t('settings.rc.device.title') }}</h4>
       <RcSource :pads="pads" :settings="settings" />
-      <p v-if="mapping.device.value === null" id="rc-no-device" class="muted">
-        {{ t(pads.source.value === 'backend' ? 'settings.rc.source.noPads' : 'settings.rc.device.none') }}
-      </p>
+      <!-- (with the backend as the source, "no gamepad" is said only once the backend has answered: until then, or when it could
+           not, the source's own lines say so) -->
+      <p v-if="mapping.device.value === null && noDeviceKey !== null" id="rc-no-device" class="muted">{{ t(noDeviceKey) }}</p>
       <template v-else>
         <p id="rc-device-name" class="mono">{{ mapping.device.value }}</p>
         <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">
@@ -93,6 +93,14 @@ const rudderArm = computed({
 })
 /** What the switch is described by: its line, and why it is shut while remote control is not allowed. */
 const rudderDescription = computed(() => `${uid}-rudder-help${allow.value ? '' : ` ${uid}-rudder-shut`}`)
+/** The words for "no gamepad": the browser's, or the backend's once it has answered; none while the backend has not. */
+const noDeviceKey = computed(() => {
+  if (pads.source.value !== 'backend') {
+    return 'settings.rc.device.none'
+  }
+
+  return pads.list.value === null ? null : 'settings.rc.source.noPads'
+})
 /** What the pad says now: CH1 to CH16, null for a channel it has not (nothing when none is read). */
 const channels = computed(() => {
   const reading = pad.reading.value

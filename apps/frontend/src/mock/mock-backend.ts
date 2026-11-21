@@ -48,6 +48,8 @@ export interface MockOptions {
   logs?: MockLogsOptions
   /** The backend has no `logs.*` handler, as the real one has none yet: every call is answered with UNKNOWN_METHOD. */
   withoutLogs?: boolean
+  /** The backend has no `pad.*` handler (a backend built before the pad service): every call is answered with UNKNOWN_METHOD. */
+  withoutPads?: boolean
   /** What the open dialog gives, one file at each `files.open` (then what was saved last, if anything). */
   opens?: { path: string, text: string }[]
   /** The files `files.read` can read: path to text. Any other path is answered with NOT_FOUND, as the backend does. */
@@ -306,6 +308,9 @@ class MockVehicle {
     const ok = (p: Envelope['p']) => this.send({ k: 'response', id: e.id!, p })
     const fail = (code: string, message: string) => this.send({ k: 'error', id: e.id!, err: { code, message } })
     if (this.options.withoutLogs && e.n?.startsWith('logs.')) {
+      return fail('UNKNOWN_METHOD', `no handler for ${e.n}`)
+    }
+    if (this.options.withoutPads && e.n?.startsWith('pad.')) {
       return fail('UNKNOWN_METHOD', `no handler for ${e.n}`)
     }
     switch (e.n) {

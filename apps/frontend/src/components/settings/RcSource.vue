@@ -18,6 +18,15 @@
     </fieldset>
     <p v-if="unsupported" id="rc-source-unsupported" class="muted" role="status">{{ t('settings.rc.source.unsupported') }}</p>
     <template v-if="pads.source.value === 'backend'">
+      <p v-if="pads.unavailable.value !== null" id="rc-source-unavailable" class="rc-warn" role="status">
+        {{ t('settings.rc.source.unavailable', { code: pads.unavailable.value }) }}
+      </p>
+      <p v-else-if="pads.list.value === null" id="rc-source-asking" class="muted" role="status">
+        {{ t('settings.rc.source.asking') }}
+      </p>
+      <p v-else id="rc-source-answer" class="muted">
+        {{ t('settings.rc.source.answer', { pads: pads.list.value.pads.length, denied: pads.list.value.denied.length }) }}
+      </p>
       <div v-if="pads.list.value !== null && pads.list.value.pads.length > 1" class="settings-row">
         <label :for="`${uid}-pad`">{{ t('settings.rc.source.pad') }}</label>
         <Select :id="`${uid}-pad`" v-model="chosen" :options="options" />

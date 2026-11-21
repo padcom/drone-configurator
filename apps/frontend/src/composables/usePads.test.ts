@@ -199,6 +199,57 @@ describe('a backend that came back', () => {
   })
 })
 
+/**
+ * Pads over a client whose `pad.devices` is refused (a backend built before the pad service: it does not know the topic) or ends.
+ *
+ * @param how what the subscription does
+ * @returns the pads
+ */
+function over(how: 'refused' | 'ended'): PadsModel {
+  const refusal = Object.assign(new Error('unknown'), { code: 'UNKNOWN_TOPIC' })
+  const client = {
+    subscribe: (_topic: string, _params: unknown, _onValue: unknown, onEnd?: (error: { code: string } | null) => void) => {
+      if (how === 'ended') {
+        onEnd?.({ code: 'IO' })
+      }
+
+      return { ready: how === 'refused' ? Promise.reject(refusal) : Promise.resolve(), stop: () => undefined }
+    },
+    onState: () => () => undefined,
+  } as unknown as BackendClient
+  const settings = { padSource: computed(() => 'backend' as const), padDevice: computed(() => '') } as unknown as RcSettings
+
+  return usePads({ client, settings })
+}
+
+describe('a backend that cannot list the pads', () => {
+  it('says why: the code of the refusal, with no list, and the pads are none', async () => {
+    const pads = over('refused')
+
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect([pads.unavailable.value, pads.list.value]).toEqual(['UNKNOWN_TOPIC', null])
+    expect(pads.environment.pads()).toEqual([null])
+  })
+
+  it('says why when the backend ends the subscription by itself', async () => {
+    const pads = over('ended')
+
+    await vi.advanceTimersByTimeAsync(10)
+
+    expect(pads.unavailable.value).toBe('IO')
+  })
+
+  it('says nothing is wrong while the backend lists the pads, and forgets the failure once it does', async () => {
+    const r = rig('backend')
+
+    r.control.pads!.plug(RADIO)
+    await pass(60)
+
+    expect(r.pads.unavailable.value).toBeNull()
+  })
+})
+
 describe('the pads that cannot be read', () => {
   it('does not read a pad it may not open, and says it is there: the list keeps it apart', async () => {
     const r = rig('backend')
