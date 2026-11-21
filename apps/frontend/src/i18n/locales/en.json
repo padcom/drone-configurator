@@ -875,6 +875,7 @@
       "NOT_ALLOWED": "RC control ended: it is not allowed any more.",
       "NOT_SIMULATOR": "RC control ended: the vehicle is not a simulator.",
       "PAD_NONE": "RC control ended: the gamepad is not being read.",
+      "PAD_CHANGED": "RC control ended: another gamepad is being read than the one it was flown with.",
       "PAD_LATE": "RC control ended: a read of the gamepad came too late.",
       "PAD_HIDDEN": "RC control ended: the window was hidden.",
       "VEHICLE_CHANGED": "RC control ended: it is another vehicle.",
@@ -936,6 +937,19 @@
         "none": "No gamepad found yet. A radio shows up when you move a stick.",
         "gone": "The gamepad is not being read now. Move a stick.",
         "channel": "CH{n}"
+      },
+      "source": {
+        "title": "Where the gamepad is read",
+        "auto": "Automatic",
+        "backend": "The backend",
+        "browser": "The browser",
+        "help": "The backend reads every axis of a radio at once, without a stick being moved first (Linux only). The browser needs a stick moved first and misses some axes of some radios. Automatic uses the backend where it can.",
+        "unsupported": "The backend cannot read gamepads on this computer: the browser is used.",
+        "pad": "Gamepad",
+        "noPads": "The backend sees no gamepad. Plug the radio in.",
+        "gone": "The backend is not reading this gamepad now. Check that the radio is plugged in.",
+        "denied": "{name} is plugged in but may not be opened. Give your user access to the device (a udev rule with uaccess), or read the gamepad from the browser.",
+        "ended": "The backend stopped reading the gamepad ({code})."
       },
       "mapping": "Mapping",
       "channel": "Vehicle channel",

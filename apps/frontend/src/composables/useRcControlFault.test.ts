@@ -103,6 +103,18 @@ describe('a pad that reads right, or reads right again', () => {
   })
 })
 
+describe('another pad that takes the place of the one flown with', () => {
+  it('ends the control with PAD_CHANGED and releases: a pad it has no mapping for is never flown with', async () => {
+    const r = await open()
+
+    r.pads.connect('Another Pad (Vendor: 0001 Product: 0002)')
+    await run(r, 200)
+
+    expect([r.rc.state.value, r.rc.why.value, r.control.rc!.released()]).toEqual(['off', 'PAD_CHANGED', 1])
+    r.stop()
+  })
+})
+
 describe('a pad that is gone', () => {
   it('is still ended by the pad being unplugged, which is not a fault of a reading', async () => {
     const r = await open()
