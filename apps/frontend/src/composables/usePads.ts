@@ -244,6 +244,7 @@ class Pads implements PadsModel {
   /** The backend came back (it restarted): what was open is gone with it, and is opened again. */
   private restart(): void {
     this.closeRead()
+    this.devices?.stop()
     this.devices = undefined
     this.failed = null
 

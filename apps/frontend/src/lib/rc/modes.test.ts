@@ -1,6 +1,7 @@
 // What each copter mode does with the pilot's throttle: one test for each mode number against the lists of the plan
 // (`drone-configurator-joystick-backend.md`, section 11.1, from ArduCopter's source).
 import { describe, expect, it } from 'vitest'
+import vectors from '../../../../../packages/contracts/mode-vectors.txt?raw'
 import { COPTER_MODES, type ModeClass, classOfName, classOfNumber, continueAllowed, startAllowed } from './modes'
 
 /** The plan's lists: the climb-rate modes, the modes that ignore the pilot's throttle, and the thrust modes. */
@@ -57,6 +58,27 @@ describe('what a mode does with the throttle', () => {
     const unknown = [classOfNumber(99), classOfNumber(-1), classOfName('MYSTERY'), classOfName(undefined), classOfName('')]
 
     expect(unknown).toEqual(['thrust', 'thrust', 'thrust', 'thrust', 'thrust'])
+  })
+})
+
+describe('the golden vectors the backend\'s `rcmodes.pi` is held to as well', () => {
+  /** The lines of `packages/contracts/mode-vectors.txt`: number, name, class. */
+  const lines = vectors.split('\n')
+    .filter(line => line.trim() !== '' && !line.startsWith('#'))
+    .map(line => line.split('|').map(part => part.trim()))
+
+  it('has 26 modes, and the page\'s table says the same of each (by number and by name)', () => {
+    expect(lines).toHaveLength(26)
+    expect(lines.map(([number, name, kind]) => [classOfNumber(Number(number)), classOfName(name), kind])).toEqual(
+      lines.map(([, , kind]) => [kind, kind, kind]),
+    )
+  })
+
+  it('has every mode of the page\'s table, and no other', () => {
+    const fromFile = lines.map(([number, name, kind]) => `${number}|${name}|${kind}`).sort()
+    const fromPage = COPTER_MODES.map(mode => `${mode.number}|${mode.name}|${mode.kind}`).sort()
+
+    expect(fromFile).toEqual(fromPage)
   })
 })
 
