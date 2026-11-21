@@ -71,7 +71,7 @@ runs:
         TARGET: ${{ inputs.target }}
       # Fails the job if the pin or its release is missing: nothing below is optional.
       run: |
-        v=$(jq -er .pico.minimum pico-desktop/toolchain.json)
+        v=0.5.1  # PROOF ONLY (never merged): the pin of pico-desktop/toolchain.json is 0.4.3 until the bump
         gh release download "v$v" -R padcom/pico-lang -p "pico-$v-$TARGET.tar.gz" -D "$RUNNER_TEMP"
         mkdir -p "$RUNNER_TEMP/pico"
         tar -xzf "$RUNNER_TEMP/pico-$v-$TARGET.tar.gz" -C "$RUNNER_TEMP/pico"

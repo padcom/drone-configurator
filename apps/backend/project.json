@@ -7,5 +7,8 @@
     "padcom/pico-mavlink": "0.0.1",
     "padcom/serialport": "0.0.1",
     "padcom/pico-gamepad": "0.0.1"
+  },
+  "lint": {
+    "overrides": [{ "files": "generated/**", "rules": { "explicitReturn": false } }]
   }
 }
