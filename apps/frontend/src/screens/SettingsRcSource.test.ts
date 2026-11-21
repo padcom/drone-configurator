@@ -82,6 +82,21 @@ it('shows the browser\'s pad again when the browser is chosen again', async () =
   await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(TX16S), { timeout: 5000 })
 })
 
+it('shows the browser\'s pad again when the source flips there and back between two reads of the pad', async () => {
+  const pad = { id: TX16S, index: 0, connected: true, axes: [0, 0, -1, 0, 0, 0, 0, 0], buttons: [{ value: 0 }] }
+
+  Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] })
+  const { wrapper } = await screen()
+
+  await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(TX16S), { timeout: 5000 })
+  // (no read of the pad comes between these: the screen was never told that the pad went, and it is there again)
+  await wrapper.get('input[id$="-source-backend"]').setValue(true)
+  await wrapper.get('input[id$="-source-browser"]').setValue(true)
+  await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(TX16S), { timeout: 5000 })
+
+  expect(wrapper.find('.rc-mapping').exists()).toBe(true)
+})
+
 it('shows the backend\'s pad at once, with its axes and buttons, when the backend is chosen', async () => {
   const { wrapper, pads } = await screen([{ key: 'rc.padSource', value: 'backend' }])
 

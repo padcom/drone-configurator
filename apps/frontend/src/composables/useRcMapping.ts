@@ -177,6 +177,9 @@ class Mapping implements RcMapping {
       watch(deps.pad.id, id => this.seen(id), { immediate: true, flush: 'sync' }),
       watch(deps.pad.reading, reading => {
         if (reading.kind === 'live') {
+          // (a pad is shown by every read of it, not only by a change of its id: after the source changed and changed back
+          // between two reads, the id of the pad never changed, and nothing else would show it)
+          this.seen(reading.id)
           this.feedCapture(reading.sample)
         }
       }, { flush: 'sync' }),
