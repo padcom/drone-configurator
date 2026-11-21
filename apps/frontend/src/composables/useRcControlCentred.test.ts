@@ -77,6 +77,22 @@ describe('a centred throttle: where it starts', () => {
   })
 })
 
+describe('the style the control asks the backend for', () => {
+  it('is "centred" for a centred mapping, so that the backend holds it to the modes too', async () => {
+    const r = await centred()
+
+    expect(r.control.rc!.params()).toEqual({ rudderArm: false, throttle: 'centred' })
+    r.stop()
+  })
+
+  it('is "low" for a mapping whose throttle rests low', async () => {
+    const r = await flying(await rcRig())
+
+    expect(r.control.rc!.params()).toEqual({ rudderArm: false, throttle: 'low' })
+    r.stop()
+  })
+})
+
 describe('a throttle that rests low: where it starts', () => {
   it('is not asked of a throttle that rests low: it starts in Stabilize', async () => {
     const r = await rcRig()

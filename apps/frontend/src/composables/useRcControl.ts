@@ -427,7 +427,7 @@ class RcControl implements RcControlModel {
       // nothing said; the option goes along: the backend lifts its hold only when its own settings say so too)
       const subscription = this.deps.client.subscribe(
         'rc.control',
-        { rudderArm: this.rudderLifted.value },
+        { rudderArm: this.rudderLifted.value, throttle: profile.throttleStyle },
         state => this.told(mine, state),
         ending => this.ended(mine, ending?.code ?? 'ENDED'),
       )
