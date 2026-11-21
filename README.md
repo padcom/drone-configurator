@@ -29,7 +29,7 @@ Status: **an application that connects to a vehicle, shows its telemetry, and re
 
 ## Run it
 
-It expects `pico-desktop`, `pico-lang`, `pico-mavlink`, `pico-serialport` and `pico-gamepad` next to this folder (as in `~/projects/padcom/pico`). It also needs a pico with pico-lang PRs #103 and #105, until they're released.
+It expects `pico-desktop`, `pico-lang`, `pico-mavlink`, `pico-serialport` and `pico-gamepad` next to this folder (as in `~/projects/padcom/pico`). It also needs `pico` 0.5.1 or later on the `PATH` (a [pico-lang](https://github.com/padcom/pico-lang) release: CI uses the pin in `pico-desktop/toolchain.json`). The code writes `return` before a function's result, as pico 0.5's lint wants, which 0.4.3 accepts too.
 
 `pico-desktop` has to be built first, once (and again after you update it): its CLI (`pico-desktop dev`, `test`, `build`, which this project's scripts call) and the CEF host are not in the checkout. Without it, `pnpm dev` fails with `ERR_MODULE_NOT_FOUND` for `tooling/cli/dist/index.js`.
 
