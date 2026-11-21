@@ -583,6 +583,7 @@
       "optionTwo": "Druga opcja",
       "check": "Pole wyboru",
       "toggle": "Przełącznik",
+      "toggleLong": "Przełącznik z opisem tak długim, że w wąskiej kolumnie zawija się na kilka wierszy",
       "neutral": "neutralny",
       "ok": "ok",
       "warn": "ostrzeżenie",

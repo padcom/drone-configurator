@@ -583,6 +583,7 @@
       "optionTwo": "Segunda opción",
       "check": "Una casilla",
       "toggle": "Un interruptor",
+      "toggleLong": "Un interruptor con una etiqueta tan larga que se reparte en varias líneas en una columna estrecha",
       "neutral": "neutro",
       "ok": "ok",
       "warn": "advertencia",

@@ -169,6 +169,9 @@
 .kit-toggle .track {
   display: inline-block;
   box-sizing: border-box;
+  /* The track keeps its size however long the label is: a flex item shrinks by default, and a label that wraps over several
+     lines took the width of the track (the knob then left its rounded border). */
+  flex: none;
   width: 36px;
   height: 20px;
   padding: 2px;

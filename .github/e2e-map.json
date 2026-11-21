@@ -95,8 +95,11 @@
       "specs": ["sitl-plan.e2e.ts"]
     },
     {
-      "when": ["apps/frontend/src/screens/Settings.vue", "apps/frontend/src/composables/useSettings.ts", "apps/backend/{settings,messages}.pi"],
-      "specs": ["language.e2e.ts", "i18n.e2e.ts", "metadata-autoload.e2e.ts"]
+      "when": [
+        "apps/frontend/src/screens/Settings.vue", "apps/frontend/src/composables/useSettings.ts", "apps/backend/{settings,messages}.pi",
+        "apps/frontend/src/components/ui/Toggle.vue"
+      ],
+      "specs": ["language.e2e.ts", "i18n.e2e.ts", "metadata-autoload.e2e.ts", "switch-label.e2e.ts"]
     }
   ]
 }

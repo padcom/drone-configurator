@@ -583,6 +583,7 @@
       "optionTwo": "Second option",
       "check": "A checkbox",
       "toggle": "A switch",
+      "toggleLong": "A switch with a label so long that it wraps over several lines in a narrow column",
       "neutral": "neutral",
       "ok": "ok",
       "warn": "warning",

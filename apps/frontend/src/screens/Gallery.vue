@@ -147,6 +147,10 @@
         <Toggle v-model="toggle">{{ t('gallery.sample.toggle') }}</Toggle>
         <Toggle v-model="toggle" disabled>{{ t('gallery.sample.disabled') }}</Toggle>
       </div>
+      <div class="row narrow">
+        <Toggle id="gallery-toggle-long" v-model="toggle">{{ t('gallery.sample.toggleLong') }}</Toggle>
+        <Toggle v-model="toggle" disabled>{{ t('gallery.sample.toggleLong') }}</Toggle>
+      </div>
       <div class="row">
         <SegmentedControl v-model="segment" :label="t('gallery.sample.segments')" :options="options" />
         <SegmentedControl v-model="segment" :label="t('gallery.sample.segments')" :options="options" disabled />
