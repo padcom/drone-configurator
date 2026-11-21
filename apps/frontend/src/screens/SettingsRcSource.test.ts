@@ -68,6 +68,17 @@ it('shows the backend\'s pad at once, with its axes and buttons, when the backen
   expect(pads.reading()).toBe(1)
 })
 
+it('says the backend is not reading the pad any more once it is unplugged, not "move a stick"', async () => {
+  const { wrapper, pads } = await screen([{ key: 'rc.padSource', value: 'backend' }])
+
+  pads.plug(RADIO)
+  await vi.waitFor(() => expect(wrapper.get('#rc-device-name').text()).toBe(RADIO.id), { timeout: 5000 })
+  pads.unplug(RADIO.id)
+  await vi.waitFor(() => expect(wrapper.find('#rc-device-gone').exists()).toBe(true), { timeout: 5000 })
+
+  expect(wrapper.get('#rc-device-gone').text()).toContain('The backend is not reading this gamepad')
+})
+
 it('says there is no pad, in the backend\'s words, while it sees none', async () => {
   const { wrapper } = await screen([{ key: 'rc.padSource', value: 'backend' }])
 

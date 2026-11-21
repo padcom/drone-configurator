@@ -946,6 +946,7 @@
         "unsupported": "Il backend non può leggere i gamepad su questo computer: si usa il browser.",
         "pad": "Gamepad",
         "noPads": "Il backend non vede nessun gamepad. Collega la radio.",
+        "gone": "Il backend non sta leggendo questo gamepad ora. Controlla che la radio sia collegata.",
         "denied": "{name} è collegato ma non può essere aperto. Dai al tuo utente l'accesso al dispositivo (una regola udev con uaccess) oppure leggi il gamepad dal browser.",
         "ended": "Il backend ha smesso di leggere il gamepad ({code})."
       },

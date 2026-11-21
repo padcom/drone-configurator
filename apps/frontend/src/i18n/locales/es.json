@@ -946,6 +946,7 @@
         "unsupported": "El backend no puede leer mandos en este ordenador: se usa el navegador.",
         "pad": "Mando",
         "noPads": "El backend no ve ningún mando. Conecte la emisora.",
+        "gone": "El backend no está leyendo este mando ahora. Compruebe que la emisora está conectada.",
         "denied": "{name} está conectado pero no se puede abrir. Dé a su usuario acceso al dispositivo (una regla udev con uaccess) o lea el mando desde el navegador.",
         "ended": "El backend dejó de leer el mando ({code})."
       },

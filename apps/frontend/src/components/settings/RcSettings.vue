@@ -24,7 +24,9 @@
       </p>
       <template v-else>
         <p id="rc-device-name" class="mono">{{ mapping.device.value }}</p>
-        <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">{{ t('settings.rc.device.gone') }}</p>
+        <p v-if="!pad.live.value" id="rc-device-gone" class="muted" role="status">
+          {{ t(pads.source.value === 'backend' ? 'settings.rc.source.gone' : 'settings.rc.device.gone') }}
+        </p>
         <ul v-else class="rc-axes">
           <li v-for="(value, index) in channels" :key="index" :class="{ 'rc-absent': value === null }">
             <span>{{ t('settings.rc.device.channel', { n: index + 1 }) }}</span>

@@ -946,6 +946,7 @@
         "unsupported": "The backend cannot read gamepads on this computer: the browser is used.",
         "pad": "Gamepad",
         "noPads": "The backend sees no gamepad. Plug the radio in.",
+        "gone": "The backend is not reading this gamepad now. Check that the radio is plugged in.",
         "denied": "{name} is plugged in but may not be opened. Give your user access to the device (a udev rule with uaccess), or read the gamepad from the browser.",
         "ended": "The backend stopped reading the gamepad ({code})."
       },

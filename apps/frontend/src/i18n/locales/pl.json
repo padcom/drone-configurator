@@ -946,6 +946,7 @@
         "unsupported": "Backend nie umie czytać padów na tym komputerze: używana jest przeglądarka.",
         "pad": "Pad",
         "noPads": "Backend nie widzi żadnego padu. Podłącz aparaturę.",
+        "gone": "Backend nie czyta teraz tego padu. Sprawdź, czy aparatura jest podłączona.",
         "denied": "{name} jest podłączony, ale nie można go otworzyć. Daj swojemu użytkownikowi dostęp do urządzenia (reguła udev z uaccess) albo czytaj pad z przeglądarki.",
         "ended": "Backend przestał czytać pad ({code})."
       },
