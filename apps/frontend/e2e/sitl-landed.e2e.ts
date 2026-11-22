@@ -1,5 +1,5 @@
 // "Landed" as the stick disarm rule (RS1) reads it, against ArduPilot SITL, through the real backend: the heartbeat's
-// `system_status`, which the telemetry stream carries as `systemStatus`. The rule (`rudder.pi`, `lib/rc/safety.ts`) lifts the
+// `system_status`, which the telemetry stream carries as `systemStatus`. The rule (the backend's `rudder.pi`) lifts the
 // yaw hold for the sticks' disarm gesture only while the vehicle is armed AND landed, and it takes "landed" to be a fresh
 // heartbeat of STANDBY (3): what ArduCopter sends exactly when `land_complete` is set and no failsafe is active. These are the
 // facts the rule stands on:
