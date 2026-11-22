@@ -207,6 +207,16 @@
         <li v-for="name in ICON_NAMES" :key="name"><Icon :name="name" /> <code>{{ name }}</code></li>
       </ul>
     </section>
+
+    <section>
+      <h3>{{ t('gallery.section.contextMenu') }}</h3>
+      <ContextMenu :label="t('gallery.context.label')" :items="contextItems" @select="contextChosen = $event">
+        <div class="context-area" tabindex="0">{{ t('gallery.context.area') }}</div>
+      </ContextMenu>
+      <p class="muted" aria-live="polite">
+        {{ contextChosen === null ? t('gallery.context.none') : t('gallery.context.chosen', { item: contextLabel }) }}
+      </p>
+    </section>
   </section>
 </template>
 
@@ -220,6 +230,7 @@ import Badge from '@/components/ui/Badge.vue'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import HoldButton from '@/components/ui/HoldButton.vue'
@@ -387,4 +398,13 @@ const check = ref(true)
 const toggle = ref(true)
 const tab = ref('one')
 const size = ref(50)
+
+/** The sample context menu: its items, and which was chosen last (its id). */
+const contextChosen = ref<string | null>(null)
+const contextItems = computed(() => ['fly', 'copy', 'delete'].map(id => ({
+  id,
+  label: t(`gallery.context.item.${id}`),
+  danger: id === 'delete',
+})))
+const contextLabel = computed(() => contextItems.value.find(item => item.id === contextChosen.value)?.label ?? '')
 </script>

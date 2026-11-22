@@ -491,6 +491,7 @@
       "choices": "Wybory",
       "badges": "Znaczki",
       "panels": "Panele",
+      "contextMenu": "Menu kontekstowe",
       "icons": "Ikony",
       "charts": "Wykresy"
     },
@@ -499,6 +500,17 @@
       "battery": "Bateria, V (odcinek bez wartości to przerwa)",
       "old": "Stare dane (przygaszone, kreskowane, i tak mówi)",
       "none": "Brak danych"
+    },
+    "context": {
+      "label": "Działania dla przykładowego elementu",
+      "area": "Kliknij tutaj prawym przyciskiem albo ustaw fokus na tym polu i naciśnij klawisz menu (Shift F10).",
+      "item": {
+        "fly": "Leć tutaj",
+        "copy": "Kopiuj",
+        "delete": "Usuń element"
+      },
+      "chosen": "Wybrano: {item}",
+      "none": "Jeszcze nic nie wybrano."
     },
     "truth": {
       "live": "Na żywo",

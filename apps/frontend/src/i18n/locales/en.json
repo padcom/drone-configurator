@@ -491,6 +491,7 @@
       "choices": "Choices",
       "badges": "Badges",
       "panels": "Panels",
+      "contextMenu": "Context menu",
       "icons": "Icons",
       "charts": "Charts"
     },
@@ -499,6 +500,17 @@
       "battery": "Battery, V (a stretch with no value is a gap)",
       "old": "Old data (muted, dashed, and it says so)",
       "none": "No data"
+    },
+    "context": {
+      "label": "Actions for the sample item",
+      "area": "Right-click here, or focus this box and press the Menu key (Shift F10).",
+      "item": {
+        "fly": "Fly here",
+        "copy": "Copy",
+        "delete": "Delete the item"
+      },
+      "chosen": "Chosen: {item}",
+      "none": "Nothing chosen yet."
     },
     "truth": {
       "live": "Live",
