@@ -3,7 +3,6 @@
     "apps/backend",
     "node_modules/@pico-desktop/communicator-pico",
     "../pico-mavlink",
-    "../pico-serialport",
-    "../pico-gamepad"
+    "../pico-serialport"
   ]
 }

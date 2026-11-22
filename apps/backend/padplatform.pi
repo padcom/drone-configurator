@@ -1,8 +1,0 @@
-// Whether this platform has a game controller backend (pico-gamepad has one for Linux only so far). This is the file for every other
-// platform: `padplatform.linux.pi` takes its place on Linux, as pico-gamepad's own `system.linux.pi` does.
-
-/// Whether pads can be listed and read here. Where they cannot, `pad.list` says `supported: false` and the page uses the browser's
-/// Gamepad API.
-export function platformHasPads(): bool {
-  return false
-}

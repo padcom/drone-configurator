@@ -55,8 +55,6 @@ import {
 } from "./generated/app"
 import { FenceFacts, checkChangeAltitude, checkFence, checkHomeHere, checkReposition, checkSetSpeed, distanceM } from "./guided"
 import { nextMessageId, textsSince } from "./messages"
-import { dropForStop } from "./rc"
-import { continuesIn } from "./rcmodes"
 import { connectedLink, heartbeatArmedState, holdArmed, holdArmedFor, link, rebootExpected, releaseArmed } from "./session"
 import { flightNow, forgetHome } from "./telemetry"
 import { modesOfVehicle } from "./vehicleinfo"
@@ -75,15 +73,6 @@ class Waits {
 }
 
 export const waits = new Waits()
-
-/// For tests: a place in a guided command where something happens that a test cannot time by waiting.
-class Seams {
-  /// Runs after the fence of a reposition or a change of altitude was read, before the vehicle's state is checked again (a control that
-  /// begins right there is what the second check is for).
-  public afterFence: (() => void)? = null
-}
-
-export const seams = new Seams()
 
 /// The most texts a result carries.
 const MAX_TEXTS: int = 20
@@ -142,7 +131,6 @@ const asking = new Asking()
 
 /// For the tests: forget that a command is under way.
 export function resetForTests(): void {
-  link.commanding = false
   asking.busy = false
   asking.stopping = false
 }
@@ -181,9 +169,6 @@ function checkAllowed(what: int, safety: bool): void throws CommunicatorError {
   }
   if (asking.busy) {
     throw new CommunicatorError("BUSY", "an earlier command to the vehicle has not been answered yet")
-  }
-  if ((what == TAKEOFF || what >= REPOSITION) && link.rcControl) {
-    throw new CommunicatorError("BUSY", "RC control is on: the sticks fly the vehicle, a guided command would fight them")
   }
   if ((what == ARM || what == PREARM) && operationUnderWay()) {
     throw new CommunicatorError("BUSY", "parameters or logs are being read or written, a calibration or a motor test runs, or a reboot is under way")
@@ -391,27 +376,14 @@ class GuidedAsk {
   public policy: FailsafePolicy = FailsafePolicy.Block
 }
 
-/// While an RC control with a centred throttle is on, the app does not ask for a mode that would take the middle of the stick for thrust (or
-/// one that is not known): the control would be let go of by the heartbeat a moment later, with the vehicle already in it.
-function checkCentred(mode: int): void throws CommunicatorError {
-  if (link.rcCentred && !continuesIn(mode)) {
-    throw new CommunicatorError("BUSY", "RC control with a centred throttle is on: that mode would take the middle of the stick for thrust")
-  }
-}
-
 /// Sends the command `what` once, and waits for its answer and the texts around it.
 async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = new Plan(), ask: GuidedAsk = new GuidedAsk()): Promise<Cbor?> throws Error {
   connectedLink()
-  // (first of all: whatever else is wrong with a guided command, it is not sent while the sticks fly the vehicle)
-  if ((what == TAKEOFF || what >= REPOSITION) && link.rcControl) {
-    throw new CommunicatorError("BUSY", "RC control is on: the sticks fly the vehicle, a guided command would fight them")
-  }
   if (what >= REPOSITION) {
     checkGuidedCommand(what, plan, ask)
   }
   if (what == MODE) {
     checkMode(mode)
-    checkCentred(mode)
   }
   if (what == TAKEOFF) {
     checkTakeoff(altitude)
@@ -420,18 +392,9 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   if (what == REPOSITION || what == ALTITUDE) {
     plan.warning = await failsafeWarning(ask.policy)
     await checkTheFence(what, plan)
-    const hook = seams.afterFence
-    if (hook != null) {
-      hook!()
-    }
     // (the vehicle's state may have moved while it was asked)
     checkAllowed(what, false)
     checkGuidedCommand(what, plan, ask)
-  }
-  if (what == STOP || what == DISARM) {
-    // RC control (rc.pi) ends first: the channels are released and the sticks stop streaming, THEN the stop or the disarm goes out
-    // (the vehicle would take the next stick frame for its radio, and a stop that the sticks follow is a vehicle that fights it).
-    await dropForStop()
   }
   const conn = connectedLink()
   const signal = link.session.signal
@@ -441,7 +404,6 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   const owns = what != STOP && !(what == MODE && isSafetyMode(mode))
   if (owns) {
     asking.busy = true
-    link.commanding = true
   }
   if (what == ARM) {
     holdArmed(waits.ackMs + waits.armLagMs)
@@ -460,7 +422,6 @@ async function execute(what: int, mode: int, altitude: f64 = 0.0, plan: Plan = n
   } finally {
     if (owns) {
       asking.busy = false
-      link.commanding = false
     }
     if (what == STOP) {
       asking.stopping = false

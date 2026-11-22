@@ -1,15 +1,10 @@
-// "Landed" as the stick disarm rule (RS1) reads it, against ArduPilot SITL, through the real backend: the heartbeat's
-// `system_status`, which the telemetry stream carries as `systemStatus`. The rule (the backend's `rudder.pi`) lifts the
-// yaw hold for the sticks' disarm gesture only while the vehicle is armed AND landed, and it takes "landed" to be a fresh
-// heartbeat of STANDBY (3): what ArduCopter sends exactly when `land_complete` is set and no failsafe is active. These are the
-// facts the rule stands on:
+// "Landed" as the vehicle's heartbeat says it, against ArduPilot SITL, through the real backend: the heartbeat's `system_status`, which
+// the telemetry stream carries as `systemStatus`. ArduCopter sends STANDBY (3) exactly when `land_complete` is set and no failsafe is
+// active, and ACTIVE (4) in the air. These are the facts it stands on:
 //  1. disarmed on the ground: STANDBY;
-//  2. ARMED on the ground (before a take off): still STANDBY (landed), so the disarm gesture on the ground is allowed;
-//  3. in the air (ACTIVE), after a take off to 5 m: the hold stays;
+//  2. ARMED on the ground (before a take off): still STANDBY (landed);
+//  3. in the air (ACTIVE), after a take off to 5 m;
 //  4. back on the ground, after the landing: STANDBY again.
-// Not covered here: the stick gesture itself (full yaw for 3 s). The backend's guard is tested with scripted heartbeats
-// (rc.test.pi), the page's with the same golden vectors; driving `rc.control` needs a client that can subscribe, which the bridge
-// client cannot.
 import { afterAll, beforeAll, expect, it } from 'vitest'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { BridgeClient } from './bridge-client'
@@ -203,7 +198,7 @@ async function saysActiveInTheAirAndStandbyAgain(): Promise<void> {
   expect((await command('vehicle.takeoff', { altitude: 5 })).result).toBe('accepted')
   const up = await client().until('the vehicle is about 5 m above home', s => (s.position?.relativeAltitude ?? 0) > 4, CLIMB_MS)
 
-  // in the air: not landed, so the sticks' disarm gesture stays held, in whatever mode
+  // in the air: not landed, in whatever mode
   expect(up.systemStatus).toBe(ACTIVE)
   await goesTo('LAND')
   const down = await client().until('the vehicle is landed again', s => s.systemStatus === STANDBY, LAND_MS)
@@ -217,7 +212,7 @@ async function saysActiveInTheAirAndStandbyAgain(): Promise<void> {
 }
 
 describeSitl(
-  'the heartbeat says landed: the facts the stick disarm rule stands on, against ArduPilot SITL',
+  'the heartbeat says landed: STANDBY on the ground, ACTIVE in the air, against ArduPilot SITL',
   () => {
     beforeAll(startAll, STARTUP_MS)
     afterAll(stopAll, 60_000)
