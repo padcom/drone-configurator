@@ -5,7 +5,10 @@ main after #517**, and are by what the code and the screens do, not by the issue
 and the rules are in `README.md`. Issues that are closed are not listed. "Copter" below means ArduCopter, the one vehicle type the
 app supports.
 
-Counts of the 254 open issues at this date: done 5, partial 87, not done 137, needs hardware 18, superseded 7.
+The open issues at this date are 247, and every one is a row below. By status (they add up from the rows): **done 6** (the five
+implemented ones, and #8, which this change completes), **partial 87**, **not done 129**, **needs hardware 18**, **deferred 7**
+(scripting, #172 to #178), **out of scope 0**, **superseded 0** (= 247). The issues that were closed since the close-out are named
+under the last table and are not counted.
 
 ## Foundation
 
@@ -66,7 +69,6 @@ Counts of the 254 open issues at this date: done 5, partial 87, not done 137, ne
 | Capability | Issue | Status | What remains |
 |---|---|---|---|
 | Backend map tile service with a persistent cache | #46 | **Done** | the cached-tile budget was not measured |
-| Map engine under the host's CSP | #47 | Superseded | the app has its own raster engine |
 | Map sources, custom URL templates, keys | #48 | Partial | one built-in source plus a custom one; no registry |
 | Pre-download a map area for offline use; download tiles for a mission | #49 | Not done | |
 | Vehicle, trail and home on the map | #50 | Partial | no target on the map; no long-trail budget |
@@ -227,7 +229,7 @@ Counts of the 254 open issues at this date: done 5, partial 87, not done 137, ne
 | In-app SITL launcher | #166 | Not done | SITL runs only in the CI harness |
 | Simulator controls | #167 | Not done | |
 | Simulate several vehicles | #250 | Not done | |
-| Flying with a gamepad or radio from the app | (none) | Out of scope | done by the separate `padcom/sitl-transmitter` program; the app's own joystick and RC control were removed (#516, #517); #325 is superseded by it |
+| Flying with a gamepad or radio from the app | (none) | Out of scope | done by the separate `padcom/sitl-transmitter` program; the app's own joystick and RC control were removed (#516, #517) |
 
 ## Scripting
 
@@ -251,13 +253,15 @@ Scripting is **deferred**: the design document is reviewed by the leader before 
 
 | Capability | Issue | Status | What remains |
 |---|---|---|---|
-| Video in the HUD: decide, receive, show; extra sources; record with the HUD | #184, #185, #186, #260, #261 | Out of scope | skipped by the leader, 2026-11-22 |
 | Spoken alerts | (none) | Out of scope | no speech in the app |
 | Firmware manifest, bootloader, install screen | #187, #188, #189 | Needs hardware | |
 | DroneCAN node list, parameters, firmware, inspector | #192, #193, #269 | Needs hardware | |
 | RTK corrections; base station | #194, #270 | Needs hardware | |
 | Bootloader update, secure boot, CubeID, Remote ID, transponder, tracker output | #262, #263, #266, #267, #268, #271 | Needs hardware | |
-| Sub joystick control | #325 | Superseded | joystick flying is `padcom/sitl-transmitter` |
+
+**Closed, so not counted:** video in the HUD (receive, show, extra sources, record with the HUD: #184, #185, #186, #260, #261) was
+skipped by the leader on 2026-11-22 and is out of scope; the map engine under the host's CSP (#47) is superseded by the app's own
+raster engine; the Sub joystick control (#325) is superseded by `padcom/sitl-transmitter`.
 
 ## Everything else
 
