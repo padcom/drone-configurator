@@ -6,9 +6,22 @@
 // settings change). Only the keymap's own entries are listened for here (the others have their own modules, see the
 // table).
 import { onBeforeUnmount, onMounted, watch } from 'vue'
-import { currentKeys, matches, setBindings } from '@/lib/app/keymap'
+import type { Chord } from '@/lib/app/chords'
+import { currentKeys, firesWhileTyping, isTypingTarget, matches, setBindings } from '@/lib/app/keymap'
 import { useCommandRunner } from './useCommandRunner'
 import { useKeyBindings } from './useKeyBindings'
+
+/**
+ * Whether a key that was pressed may do its command where the focus is: a key that types is left to the field the focus is in;
+ * Ctrl keys and the function keys (F1) stay global.
+ *
+ * @param key the key of the keymap
+ * @param event the press
+ * @returns true when it may
+ */
+function mayFire(key: Chord, event: KeyboardEvent): boolean {
+  return firesWhileTyping(key) || !isTypingTarget(event.target)
+}
 
 /**
  * Makes every key of the keymap that names a command run that command, from anywhere in the window, for as long as the
@@ -22,7 +35,7 @@ export function useCommandKeys(): void {
   const onKey = (event: KeyboardEvent) => {
     const key = currentKeys().find(candidate => candidate.listens === 'keymap' && matches(event, candidate.actionId))
 
-    if (key !== undefined) {
+    if (key !== undefined && mayFire(key, event)) {
       event.preventDefault()
 
       if (!event.repeat) {

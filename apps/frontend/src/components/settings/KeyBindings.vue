@@ -54,6 +54,9 @@ interface Conflict {
   with: string[]
 }
 
+/** How long a key is waited for (ms). */
+const WAIT_MS = 10_000
+
 const { t } = useI18n()
 const uid = useId()
 const { keys, overrides, set, take: takeOver, reset, resetAll } = useKeyBindings()
@@ -137,13 +140,27 @@ function read(event: KeyboardEvent): void {
   }
 }
 
-// While an action waits for its key the window is listened to (before the keymap is), and no key does its command.
+/** Gives up waiting for a key: the window lost the focus, the pointer was pressed somewhere, or no key came for a while. */
+function giveUp(): void {
+  waiting.value = null
+}
+
+let timer: ReturnType<typeof setTimeout> | undefined
+
+// While an action waits for its key the window is listened to (before the keymap is), and no key does its command. It does
+// not wait for ever: a later key that nobody meant as the choice must not be kept as one.
 watch(waiting, action => {
   setListening(action !== null)
+  clearTimeout(timer)
   window.removeEventListener('keydown', read, true)
+  window.removeEventListener('blur', giveUp)
+  window.removeEventListener('pointerdown', giveUp, true)
 
   if (action !== null) {
     window.addEventListener('keydown', read, true)
+    window.addEventListener('blur', giveUp)
+    window.addEventListener('pointerdown', giveUp, true)
+    timer = setTimeout(giveUp, WAIT_MS)
   }
 }, { flush: 'sync' })
 

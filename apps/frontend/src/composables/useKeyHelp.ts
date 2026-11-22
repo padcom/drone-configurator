@@ -1,5 +1,6 @@
 // Whether the help of the keys is open: one flag the command that opens it and the dialog (which closes itself) share.
 import { type Ref, ref } from 'vue'
+import { otherDialogOpen } from './useCommandPalette'
 
 /** The open state of the help of the keys. */
 export interface KeyHelp {
@@ -21,6 +22,18 @@ const shared: KeyHelp = {
   hide: () => {
     open.value = false
   },
+}
+
+/**
+ * Closes the help if it is open; opens it unless another dialog is open (a confirmation, the palette, Connect): a hold that is
+ * in progress must not be covered. What the command "Show the keyboard shortcuts" does.
+ */
+export function toggleKeyHelpUnlessCovered(): void {
+  if (open.value) {
+    shared.hide()
+  } else if (!otherDialogOpen()) {
+    shared.show()
+  }
 }
 
 /**

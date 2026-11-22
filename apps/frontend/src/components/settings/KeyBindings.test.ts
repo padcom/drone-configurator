@@ -149,6 +149,45 @@ it('puts a key, and then every key, back to its default', async () => {
   expect(JSON.parse(handle.settings.uiValue(KEY_BINDINGS_KEY) ?? '{}')).toEqual({})
 })
 
+it.each([
+  ['the window loses the focus', () => window.dispatchEvent(new Event('blur'))],
+  ['the pointer is pressed somewhere', () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))],
+])('gives up waiting for a key when %s, so a later key is not kept as the choice', async (_name, event) => {
+  const { wrapper } = await group()
+
+  await wrapper.get('[id="keys-change-palette.open"]').trigger('click')
+  event()
+  await flushPromises()
+  expect(wrapper.find('[id="keys-press-palette.open"]').exists()).toBe(false)
+
+  await press({ code: 'KeyK', ctrlKey: true })
+  expect(keyOf(wrapper, 'palette.open')).toBe('Ctrl P')
+})
+
+it('gives up waiting for a key after a while', async () => {
+  const { wrapper } = await group()
+  vi.useFakeTimers()
+
+  try {
+    await wrapper.get('[id="keys-change-palette.open"]').trigger('click')
+    vi.advanceTimersByTime(10_001)
+    await flushPromises()
+    expect(wrapper.find('[id="keys-press-palette.open"]').exists()).toBe(false)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it('refuses what Ctrl does to text (Ctrl+Backspace), so it is not taken from the text fields', async () => {
+  const { wrapper } = await group()
+
+  await wrapper.get('[id="keys-change-palette.open"]').trigger('click')
+  await press({ code: 'Backspace', ctrlKey: true })
+
+  expect(wrapper.get('[id="keys-refused-palette.open"]').text()).toContain('system or the browser')
+  expect(keyOf(wrapper, 'palette.open')).toBe('Ctrl P')
+})
+
 it('takes what is not a choice in the settings for the defaults', async () => {
   const { wrapper } = await group([{ key: KEY_BINDINGS_KEY, value: '{"palette.open": {"code": "KeyW", "ctrl": true}}' }])
 

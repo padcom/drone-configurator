@@ -61,6 +61,28 @@ export function setListening(on: boolean): void {
 }
 
 /**
+ * Whether a key press is meant for text: the focus is in a field that takes it (an input, a textarea, a select, or an element
+ * that is editable).
+ *
+ * @param target what has the focus
+ * @returns true when it is a text field
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(?:input|textarea|select)$/iu.test(target.tagName))
+}
+
+/**
+ * Whether a key does its command while the focus is in a text field. A key with Ctrl (Ctrl+P was global from the start) and a
+ * function key type nothing, so they do; a key that types (a letter, with or without Shift) must leave the field alone.
+ *
+ * @param key the key
+ * @returns true when it may fire in a text field
+ */
+export function firesWhileTyping(key: Chord): boolean {
+  return Boolean(key.ctrl) || /^F\d{1,2}$/u.test(key.code)
+}
+
+/**
  * Whether this is a Mac, where Cmd is the modifier people use and the key hints show it.
  *
  * @returns true on macOS

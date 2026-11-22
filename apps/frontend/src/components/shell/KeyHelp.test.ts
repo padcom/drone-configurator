@@ -98,6 +98,37 @@ it('shows the help with the keys as chosen, and does nothing on a key that was t
   expect(wrapper.get('.keys-list').text()).not.toContain('Open the command palette')
 })
 
+it('does not open over another dialog (a confirmation, Connect), and F1 again closes it', async () => {
+  const wrapper = await shell()
+  const dialog = document.createElement('dialog')
+  dialog.setAttribute('open', '')
+  document.body.append(dialog)
+  press({ code: 'F1' })
+  await flushPromises()
+
+  expect(wrapper.find('.keys-list').exists()).toBe(false)
+  dialog.remove()
+  press({ code: 'F1' })
+  await flushPromises()
+  expect(wrapper.find('.keys-list').exists()).toBe(true)
+
+  press({ code: 'F1' })
+  await flushPromises()
+  expect(wrapper.find('.keys-list').exists()).toBe(false)
+})
+
+it('stays global while typing: F1 and Ctrl+P work from a text field, as they were chosen to', async () => {
+  const wrapper = await shell()
+  const field = document.createElement('input')
+  document.body.append(field)
+  field.focus()
+  field.dispatchEvent(new KeyboardEvent('keydown', { code: 'F1', bubbles: true, cancelable: true }))
+  await flushPromises()
+
+  expect(wrapper.find('.keys-list').exists()).toBe(true)
+  field.remove()
+})
+
 it('does not run a command on a held key (it runs once)', async () => {
   const wrapper = await shell()
   press({ code: 'F1', repeat: true })

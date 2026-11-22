@@ -79,3 +79,15 @@ describe('a chord that may be given to a command', () => {
     expect(problemOf({ code: 'F11' })).toBe('reserved')
   })
 })
+
+describe('a chord that is what Ctrl does to text', () => {
+  it('is not one to give (erase, move by a word, to the ends, copy, paste, undo), Shift or not', () => {
+    expect(problemOf({ code: 'Backspace', ctrl: true })).toBe('reserved')
+    expect(problemOf({ code: 'Delete', ctrl: true })).toBe('reserved')
+    expect(problemOf({ code: 'ArrowLeft', ctrl: true, shift: true })).toBe('reserved')
+    expect(problemOf({ code: 'Home', ctrl: true })).toBe('reserved')
+    expect(problemOf({ code: 'End', ctrl: true, shift: true })).toBe('reserved')
+    expect(problemOf({ code: 'KeyZ', ctrl: true, shift: true })).toBe('reserved')
+    expect(problemOf({ code: 'KeyV', ctrl: true, shift: true })).toBe('reserved')
+  })
+})

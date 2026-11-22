@@ -72,6 +72,14 @@ const RESERVED = new Set([
   'F12',
 ])
 
+/** The letters Ctrl edits text with (select all, copy, paste, cut, undo, redo), whatever else is held with them. */
+const TEXT_LETTERS = new Set(['KeyA', 'KeyC', 'KeyV', 'KeyX', 'KeyZ', 'KeyY'])
+
+/** The keys that move in text or erase it (a word at a time, to the ends, selecting with Shift) when Ctrl is held. */
+const TEXT_MOVES = new Set([
+  'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown', 'Space',
+])
+
 /** Why a chord may not be given to a command. */
 export type Why = 'needsModifier' | 'reserved'
 
@@ -197,17 +205,49 @@ export function chordId(chord: Chord): string {
 }
 
 /**
+ * Whether a chord is one that Ctrl edits or moves in text with.
+ *
+ * @param chord the chord
+ * @returns true when it is
+ */
+function editsText(chord: Chord): boolean {
+  return Boolean(chord.ctrl) && (TEXT_LETTERS.has(chord.code) || TEXT_MOVES.has(chord.code))
+}
+
+/**
+ * Whether a chord is one the system, the browser or text editing keeps.
+ *
+ * @param chord the chord
+ * @returns true when it is
+ */
+function isKept(chord: Chord): boolean {
+  return editsText(chord) || RESERVED.has(chordId(chord))
+}
+
+/**
+ * Whether a chord does not type: it has Ctrl, or is a function key.
+ *
+ * @param chord the chord
+ * @returns true when it does not
+ */
+function typesNothing(chord: Chord): boolean {
+  return Boolean(chord.ctrl) || /^F\d{1,2}$/u.test(chord.code)
+}
+
+/**
  * Why a chord may not be given to a command: a key that is typed (a letter, a digit, Enter, with nothing or only Shift held)
- * would take it from every text field, and the system's keys (reload, close, copy) belong to the system. Function keys may
- * stand alone.
+ * would take it from every text field, and the system's keys (reload, close, copy) belong to the system, as does what Ctrl
+ * does to text (copy, paste, undo, erasing and moving by a word or to the ends, with or without Shift): the keymap prevents
+ * the default of every key it knows, so a chord given away here would stop working in every field. Function keys may stand
+ * alone.
  *
  * @param chord the chord
  * @returns the reason, or null when it may
  */
 export function problemOf(chord: Chord): Why | null {
-  if (RESERVED.has(chordId(chord))) {
+  if (isKept(chord)) {
     return 'reserved'
   }
 
-  return chord.ctrl || /^F\d{1,2}$/u.test(chord.code) ? null : 'needsModifier'
+  return typesNothing(chord) ? null : 'needsModifier'
 }

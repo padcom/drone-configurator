@@ -42,7 +42,7 @@ import { useConfigurator } from './useConfigurator'
 import { armMayBeOn, useArmGrace } from './useArmGrace'
 import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
-import { useKeyHelp } from './useKeyHelp'
+import { toggleKeyHelpUnlessCovered } from './useKeyHelp'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
 import { useChangeAltitude } from './useChangeAltitude'
@@ -285,7 +285,6 @@ function fileFacts(): FileFacts {
  */
 function dialogFacts(): DialogFacts {
   const connect = useConnectDialog()
-  const keyHelp = useKeyHelp()
   const review = useArmReview()
   const takeoff = useTakeoff()
   const altitude = useChangeAltitude()
@@ -293,7 +292,7 @@ function dialogFacts(): DialogFacts {
   return {
     showConnect: () => connect.show(),
     togglePalette: toggleUnlessCovered,
-    showKeys: () => keyHelp.show(),
+    showKeys: toggleKeyHelpUnlessCovered,
     showArmReview: () => review.show(),
     showTakeoff: () => takeoff.show(),
     showChangeAltitude: () => altitude.show(),
