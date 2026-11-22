@@ -166,6 +166,59 @@ describe('the arrow keys', () => {
   })
 })
 
+describe('a value that is a float', () => {
+  it('is said as the number the vehicle holds, which is what it reads back', async () => {
+    const wrapper = field(0, { unit: undefined, type: 'REAL32', min: 0, max: 1, integer: false })
+
+    await type(wrapper, '0.1')
+    await press(wrapper, 'Enter')
+
+    expect(said(wrapper)).toEqual([Math.fround(0.1)])
+  })
+})
+
+describe('what is typed when the value changes from outside', () => {
+  it('is dropped: the field shows the new value (the vehicle changed it, or its value was taken over a draft)', async () => {
+    const wrapper = field(1500)
+
+    await type(wrapper, '99')
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('99')
+    await wrapper.setProps({ modelValue: 1600 })
+
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('16')
+    expect(wrapper.find('.reason').exists()).toBe(false)
+  })
+})
+
+describe('what a screen reader is told of a value that is not one', () => {
+  const told = (wrapper: VueWrapper): string => wrapper.get('[role="status"]').text()
+
+  it('is nothing while it is typed (a "-" on the way to -5), and the reason once it is tried to be settled', async () => {
+    const wrapper = field(1500, { min: -500 })
+
+    await type(wrapper, '-')
+    expect(wrapper.get('.reason').text()).toBe('That is not a number.')
+    expect(told(wrapper)).toBe('')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    await type(wrapper, '-9')
+    await press(wrapper, 'Enter')
+    expect(told(wrapper)).toBe('At least -5 m.')
+  })
+
+  it('is told when the field is left, not again for what is typed after, and nothing for a value that is settled', async () => {
+    const wrapper = field()
+
+    await type(wrapper, '99')
+    await wrapper.get('input').trigger('blur')
+    expect(told(wrapper)).toBe('At most 30 m.')
+    await type(wrapper, '9')
+    expect(told(wrapper)).toBe('')
+    await press(wrapper, 'Enter')
+    expect(told(wrapper)).toBe('')
+  })
+})
+
 describe('a field that is off', () => {
   it('cannot be typed in', () => {
     expect(field(1500, { disabled: true }).get('input').attributes('disabled')).toBeDefined()

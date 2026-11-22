@@ -9,6 +9,7 @@
       :max="max"
       :step="step"
       :integer="integer"
+      :type="type"
       :describedby="statusId"
       :disabled="busy"
       @update:model-value="emit('draft', $event)"
@@ -24,7 +25,7 @@
     <BitField
       v-else
       :options="bits"
-      :type="type"
+      :type="type ?? 'INT32'"
       :value="current"
       :draft="String(current)"
       :label="name"
@@ -94,7 +95,7 @@ const props = withDefaults(defineProps<{
   options?: EnumOption[]
   /** The names of the bits (a bitmask). */
   bits?: BitOption[]
-  /** The parameter's type, INT16, UINT32 and so on (a bitmask). */
+  /** The parameter's type, INT16, UINT32, REAL32 and so on: every value is the number the vehicle holds for it. */
   type?: string
 }>(), {
   rejection: undefined,
@@ -105,7 +106,7 @@ const props = withDefaults(defineProps<{
   integer: false,
   options: () => [],
   bits: () => [],
-  type: 'INT32',
+  type: undefined,
 })
 
 const emit = defineEmits<{

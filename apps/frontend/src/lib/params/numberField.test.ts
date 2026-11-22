@@ -55,6 +55,25 @@ describe('a typed text that is not a value', () => {
   })
 })
 
+describe('a value as the vehicle holds it', () => {
+  const FLOAT: NumberSpec = { view: viewOf('V'), min: 0, max: 0.1, step: 0.1, type: 'REAL32' }
+
+  it('is the nearest float for a REAL32, so that it equals what the vehicle reads back', () => {
+    expect(parseNumber('0.07', FLOAT)).toEqual({ ok: true, stored: Math.fround(0.07) })
+    expect(stepped(0, 1, false, FLOAT)).toBe(Math.fround(0.1))
+  })
+
+  it('does not take the float nearest to the highest for a value over it', () => {
+    expect(parseNumber('0.1', FLOAT)).toEqual({ ok: true, stored: Math.fround(0.1) })
+    expect(parseNumber('0.11', FLOAT)).toEqual({ ok: false, problem: { code: 'high', limit: 0.1 } })
+  })
+
+  it('is the nearest whole number for an integer type, with or without the flag', () => {
+    expect(parseNumber('15.555', { view: viewOf('cm'), type: 'INT16' })).toEqual({ ok: true, stored: 1556 })
+    expect(parseNumber('7.6', { view: viewOf('V'), type: 'UINT8' })).toEqual({ ok: true, stored: 8 })
+  })
+})
+
 describe('a step of the arrow keys', () => {
   it('is the step of the parameter, in the stored unit, ten times as long when big', () => {
     expect(stepped(1500, 1, false, ALTITUDE)).toBe(1550)

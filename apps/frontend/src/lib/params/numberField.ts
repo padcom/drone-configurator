@@ -1,7 +1,7 @@
 // What a numeric parameter field does with a number, from plain values (no DOM): the text for a stored value in the
 // unit it is shown in, what a typed text stands for (and why it is not a value), and a step of the arrow keys. Limits
 // and the step are in the stored unit (the metadata's); the text is in the shown one (lib/params/units.ts).
-import { plainNumber } from './paramValue'
+import { canonical, plainNumber } from './paramValue'
 import { type UnitView, shownText, toDisplay, toStored } from './units'
 
 /** What a numeric field knows about the parameter. */
@@ -16,6 +16,11 @@ export interface NumberSpec {
   step?: number
   /** The parameter holds whole numbers: a typed value with decimals is taken as the nearest whole number. */
   integer?: boolean
+  /**
+   * The parameter's type (INT16, REAL32 ...): every value is then the number the vehicle holds for it (a whole number for an
+   * integer, the nearest float for a REAL32), and `integer` is not needed.
+   */
+  type?: string
 }
 
 /** Why a text is not a value: nothing typed, not a number, under the lowest, over the highest. */
@@ -52,6 +57,23 @@ export function clamped(stored: number, spec: NumberSpec): number {
 }
 
 /**
+ * The number the vehicle would hold for a stored value, as everywhere else in the application (lib/params/paramValue.ts: a whole
+ * number for an integer parameter, the float nearest to it for a REAL32), so that a draft is equal to what the vehicle reads
+ * back. Where the parameter's type is not known, a parameter of whole numbers rounds and any other value is as it is.
+ *
+ * @param stored the value
+ * @param spec what the field knows
+ * @returns the number the vehicle would hold
+ */
+function held(stored: number, spec: NumberSpec): number {
+  if (spec.type !== undefined) {
+    return canonical({ kind: /INT/u.test(spec.type) ? 'int' : 'real', type: spec.type }, stored)
+  }
+
+  return spec.integer ? Math.round(stored) : stored
+}
+
+/**
  * Whether a stored value is under the lowest.
  *
  * @param stored the value
@@ -59,7 +81,7 @@ export function clamped(stored: number, spec: NumberSpec): number {
  * @returns the problem, or null
  */
 function lowProblem(stored: number, spec: NumberSpec): Problem | null {
-  return spec.min !== undefined && stored < spec.min ? { code: 'low', limit: toDisplay(spec.min, spec.view) } : null
+  return spec.min !== undefined && stored < held(spec.min, spec) ? { code: 'low', limit: toDisplay(spec.min, spec.view) } : null
 }
 
 /**
@@ -70,7 +92,7 @@ function lowProblem(stored: number, spec: NumberSpec): Problem | null {
  * @returns the problem, or null
  */
 function highProblem(stored: number, spec: NumberSpec): Problem | null {
-  return spec.max !== undefined && stored > spec.max ? { code: 'high', limit: toDisplay(spec.max, spec.view) } : null
+  return spec.max !== undefined && stored > held(spec.max, spec) ? { code: 'high', limit: toDisplay(spec.max, spec.view) } : null
 }
 
 /**
@@ -106,9 +128,7 @@ function notNumber(plain: string): Problem | null {
  * @returns the stored value
  */
 function storedOf(shown: number, spec: NumberSpec): number {
-  const stored = toStored(shown, spec.view)
-
-  return spec.integer ? Math.round(stored) : stored
+  return held(toStored(shown, spec.view), spec)
 }
 
 /**
@@ -143,5 +163,5 @@ export function parseNumber(text: string, spec: NumberSpec): Parsed {
 export function stepped(stored: number, direction: 1 | -1, big: boolean, spec: NumberSpec): number {
   const by = (spec.step ?? 1) * (big ? 10 : 1)
 
-  return clamped(Number((stored + (direction * by)).toPrecision(12)), spec)
+  return held(clamped(Number((stored + (direction * by)).toPrecision(12)), spec), spec)
 }

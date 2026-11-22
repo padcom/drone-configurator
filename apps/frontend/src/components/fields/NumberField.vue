@@ -16,7 +16,9 @@
       @blur="settle"
     >
     <span v-if="spec.view.unit !== ''" class="unit">{{ spec.view.unit }}</span>
-    <span v-if="reason !== ''" :id="reasonId" class="reason" role="alert">{{ reason }}</span>
+    <span v-if="reason !== ''" :id="reasonId" class="reason">{{ reason }}</span>
+    <!-- Said to a screen reader once a value is tried to be settled, not at every key (a "-" on the way to -5 is no problem). -->
+    <span class="visually-hidden" role="status">{{ announced }}</span>
   </span>
 </template>
 
@@ -27,7 +29,7 @@
 // field): then it becomes the stored value, in the vehicle's unit, and `update:modelValue` says so; a text that is not
 // a value stays, with the reason in words next to it (and for a screen reader), and nothing is said. Escape gives up
 // what was typed. Values and limits are in the STORED unit.
-import { computed, ref, useId } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type NumberSpec, type Parsed, type Problem, parseNumber, showStored, stepped } from '@/lib/params/numberField'
 import { viewOf } from '@/lib/params/units'
@@ -49,6 +51,8 @@ const props = defineProps<{
   step?: number
   /** The parameter holds whole numbers: a typed value with decimals is taken as the nearest whole number. */
   integer?: boolean
+  /** The parameter's type (INT16, REAL32 ...): every value is the number the vehicle holds for it (it reads back equal). */
+  type?: string
   /** The id of an element that says more about the field, read after its name. */
   describedby?: string
   /** The field cannot be used now. */
@@ -64,6 +68,8 @@ const { t } = useI18n()
 const reasonId = useId()
 /** What is being typed, or null when nothing is (the field then shows the value). */
 const typed = ref<string | null>(null)
+/** What a screen reader was told lately of a value that could not be settled (nothing when it was settled or is being typed). */
+const announced = ref('')
 
 const spec = computed<NumberSpec>(() => ({
   view: viewOf(props.unit),
@@ -71,6 +77,7 @@ const spec = computed<NumberSpec>(() => ({
   max: props.max,
   step: props.step,
   integer: props.integer,
+  type: props.type,
 }))
 const text = computed(() => typed.value ?? showStored(props.modelValue, spec.value))
 /** What is typed, as a value or the reason it is not one (null when nothing is typed). */
@@ -100,18 +107,31 @@ const reason = computed(() => (problem.value === null ? '' : words(problem.value
  */
 function typing(event: Event): void {
   typed.value = (event.target as HTMLInputElement).value
+  announced.value = ''
 }
 
-/** What is typed is settled: it is a value, said when it is not the one the field has, or it stays with its reason. */
+/**
+ * A value that is a value is settled: it is said when it is not the one the field has.
+ *
+ * @param stored the stored value
+ */
+function accept(stored: number): void {
+  typed.value = null
+  announced.value = ''
+
+  if (stored !== props.modelValue) {
+    emit('update:modelValue', stored)
+  }
+}
+
+/** What is typed is settled: it is a value, said when it is not the one the field has, or it stays with its reason, told once. */
 function settle(): void {
   const done = parsed.value
 
   if (done?.ok) {
-    typed.value = null
-
-    if (done.stored !== props.modelValue) {
-      emit('update:modelValue', done.stored)
-    }
+    accept(done.stored)
+  } else if (done !== null) {
+    announced.value = reason.value
   }
 }
 
@@ -138,6 +158,7 @@ function step(event: KeyboardEvent, direction: 1 | -1, big: boolean): void {
 
   event.preventDefault()
   typed.value = null
+  announced.value = ''
   emit('update:modelValue', next)
 }
 
@@ -150,8 +171,16 @@ function giveUp(event: KeyboardEvent): void {
   if (typed.value !== null) {
     event.preventDefault()
     typed.value = null
+    announced.value = ''
   }
 }
+
+// The value changed from outside (the vehicle changed it, or the person took its value over a draft): what was typed is not
+// the field's any more, so that the field and the status line agree.
+watch(() => props.modelValue, () => {
+  typed.value = null
+  announced.value = ''
+})
 
 /** What each key does besides typing. */
 const KEYS: Record<string, (event: KeyboardEvent) => void> = {
