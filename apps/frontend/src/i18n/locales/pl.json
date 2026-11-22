@@ -824,78 +824,6 @@
     "stop": "Awaryjne zatrzymanie",
     "current": "teraz"
   },
-  "rc": {
-    "switch": "Zdalne sterowanie",
-    "help": {
-      "off": "Wyłączone. Pad nie steruje pojazdem.",
-      "on": "Pad steruje pojazdem.",
-      "resting": "Przytrzymaj wszystkie drążki w spoczynku przez chwilę (gaz też): do tego czasu nic nie jest wysyłane."
-    },
-    "rest": {
-      "roll": "Przechył nie jest na środku: {level}. Wyśrodkuj drążek.",
-      "pitch": "Pochylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
-      "yaw": "Odchylenie nie jest na środku: {level}. Wyśrodkuj drążek.",
-      "throttleCentred": "Gaz nie jest na środku: {level}. Pozwól drążkowi wrócić na środek.",
-      "throttleLow": "Gaz nie jest na dole: {level}. Opuść drążek do samego dołu."
-    },
-    "indicator": {
-      "on": "Zdalne sterowanie włączone",
-      "off": "Zdalne sterowanie włączone. Naciśnij, aby wyłączyć.",
-      "rudder": "uzbrajanie drążkami",
-      "offRudder": "Zdalne sterowanie włączone, a drążki mogą uzbrajać i rozbrajać. Naciśnij, aby wyłączyć."
-    },
-    "summary": {
-      "title": "Lecieć padem?",
-      "what": "Pad będzie wysyłał swoje drążki do pojazdu, dopóki tego nie wyłączysz. Nic nie jest wysyłane, dopóki wszystkie cztery drążki nie są w spoczynku. Gdy jest włączone, kontrola pojazdu „Nie znaleziono RC” nie chroni już przed brakiem nadajnika.",
-      "centred": "Gaz: wyśrodkowany. Środek drążka to brak wznoszenia, w górę wznosi, w dół opada. Działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune (i trwa dalej w Auto, Guided, RTL, Land, Brake i podobnych). Każdy inny tryb wyłącza sterowanie.",
-      "low": "Gaz: na dole w spoczynku. Drążek musi być na samym dole, zanim sterowanie ruszy.",
-      "either": "Gaz jest wyśrodkowany albo na dole w spoczynku, jak mówi przypisanie (Ustawienia). Wyśrodkowany działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune; każdy inny tryb wyłącza sterowanie.",
-      "button": "Włącz zdalne sterowanie"
-    },
-    "command": {
-      "label": "Zdalne sterowanie: włącz lub wyłącz",
-      "keywords": "pad aparatura joystick drążki zdalne override"
-    },
-    "reason": {
-      "off": "Zdalne sterowanie nie jest dozwolone. Zezwól na nie w Ustawieniach.",
-      "link": "Nie połączono żadnego symulatora.",
-      "pad": "Żaden pad nie jest odczytywany. Poruszaj drążkiem w aparaturze.",
-      "mapping": "Pad nie ma gotowego przypisania. Obejrzyj je i potwierdź w Ustawieniach.",
-      "reading": "Drążek pojazdu nie ma proporcjonalnego kanału pada (osi). Zobacz Ustawienia.",
-      "vehicle": "Ustawienia pojazdu nie zgadzają się z przypisaniem. Zobacz Ustawienia.",
-      "vehicleDetail": "Ustawienia pojazdu nie zgadzają się z przypisaniem: {detail}",
-      "mode": "Wyśrodkowany gaz startuje tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag lub Autotune. Najpierw zmień tryb.",
-      "MODE": "Zdalne sterowanie zakończone: tryb lotu nie przyjmuje wyśrodkowanego gazu.",
-      "REST_TIMEOUT": "Zdalne sterowanie zakończone: drążki nie były w spoczynku w ciągu 10 sekund.",
-      "PAD_FAULT": "Zdalne sterowanie zakończone: drążek pada przestał się poprawnie odczytywać (brak, nie liczba lub poza zakresem). Wszystkie kanały zostały zwolnione.",
-      "ENDED": "Zdalne sterowanie zakończyło się.",
-      "ERROR": "Zdalne sterowanie nie mogło ruszyć.",
-      "SILENT": "Zdalne sterowanie zakończone: strona milczała zbyt długo.",
-      "LINK_LOST": "Zdalne sterowanie zakończone: utracono łączność z pojazdem.",
-      "STATE_UNKNOWN": "Nie jest znany stan pojazdu: poczekaj na niego i spróbuj ponownie.",
-      "STOPPED": "Zdalne sterowanie zakończone: pojazd jest rozbrajany lub zatrzymywany.",
-      "NOT_ALLOWED": "Zdalne sterowanie zakończone: nie jest już dozwolone.",
-      "NOT_SIMULATOR": "Zdalne sterowanie zakończone: pojazd nie jest symulatorem.",
-      "PAD_NONE": "Zdalne sterowanie zakończone: pad nie jest odczytywany.",
-      "PAD_CHANGED": "Zdalne sterowanie zakończone: czytany jest inny pad niż ten, którym sterowano.",
-      "PAD_LATE": "Zdalne sterowanie zakończone: odczyt padu przyszedł za późno.",
-      "PAD_HIDDEN": "Zdalne sterowanie zakończone: okno zostało ukryte.",
-      "VEHICLE_CHANGED": "Zdalne sterowanie zakończone: to inny pojazd.",
-      "PARAMS_UNKNOWN": "Zdalne sterowanie zakończone: nie są znane parametry pojazdu.",
-      "GUIDED": "Trwa lot sterowany (pojazd jest w GUIDED albo wybrano miejsce): zdalne sterowanie nie ruszy.",
-      "DECLINED": "Zdalne sterowanie nie zostało włączone: podsumowanie nie zostało potwierdzone.",
-      "PARAMS_CHANGED": "Zdalne sterowanie zakończone: ustawienia pojazdu się zmieniły.",
-      "EDITED": "Zdalne sterowanie zakończone: zmieniono przypisanie.",
-      "NOT_CONNECTED": "Nie połączono żadnego pojazdu.",
-      "UNSUPPORTED": "Zdalne sterowanie jest zrobione dla multirotora z ArduPilotem.",
-      "THR_DZ_SMALL": "Wyśrodkowany drążek gazu wymaga THR_DZ pojazdu co najmniej 30: jest mniejsze, więc środek drążka nie utrzymałby wysokości.",
-      "BUSY": "Coś innego zajmuje pojazd: kalibracja, test silników, operacja na parametrach, logach lub planie albo restart.",
-      "PARAMS_INCOMPLETE": "Nie pobrano wszystkich parametrów pojazdu.",
-      "PARAMS_MISSING": "Nie udało się odczytać z pojazdu ustawienia potrzebnego do zdalnego sterowania.",
-      "OVERRIDE_DISABLED": "Pojazd ignoruje override'y albo nigdy ich nie puszcza (RC_OVERRIDE_TIME).",
-      "other": "Zdalne sterowanie zakończone ({code})."
-    }
-  },
   "settings": {
     "metadata": {
       "title": "Metadane parametrów",
@@ -921,104 +849,6 @@
       "metres": "{n} m",
       "plain": "Pytaj o potwierdzenie (zalecane)",
       "none": "Nie pytaj"
-    },
-    "rc": {
-      "title": "Zdalne sterowanie",
-      "intro": "Steruj pojazdem padem albo aparaturą, która zgłasza się jako pad (np. TX16S przez USB).",
-      "allow": "Zezwalaj na zdalne sterowanie",
-      "allowHelp": "Domyślnie wyłączone i tylko dla wbudowanego symulatora albo łącza z tym komputerem: każdy inny pojazd jest odrzucany. To tylko zezwala; nie uruchamia sterowania.",
-      "rudderArm": "Pozwól drążkom uzbrajać i rozbrajać",
-      "rudderArmHelp": "Domyślnie wyłączone. Pozwala drążkom uzbroić symulator (gaz na dole) i rozbroić go TYLKO NA ZIEMI: w powietrzu blokada zostaje. Wymaga ARMING_RUDDER w pojeździe; kontrole przed uzbrojeniem nadal obowiązują. Działa od włączenia zdalnego sterowania.",
-      "rudderArmShut": "Najpierw zezwól na zdalne sterowanie. Jego wyłączenie wyłącza także to.",
-      "status": {
-        "ready": "Wszystko jest gotowe do zdalnego sterowania.",
-        "link": "Nie połączono żadnego symulatora."
-      },
-      "device": {
-        "title": "Pad",
-        "none": "Nie znaleziono jeszcze padu. Aparatura pojawia się, gdy poruszysz drążkiem.",
-        "gone": "Pad nie jest teraz odczytywany. Poruszaj drążkiem.",
-        "channel": "CH{n}"
-      },
-      "source": {
-        "title": "Skąd czytany jest pad",
-        "auto": "Automatycznie",
-        "backend": "Backend",
-        "browser": "Przeglądarka",
-        "help": "Backend czyta wszystkie osie aparatury naraz, bez wcześniejszego ruszenia drążkiem (tylko Linux). Przeglądarka wymaga najpierw ruchu drążkiem i pomija osie niektórych aparatur. Automatycznie używa backendu, gdzie się da.",
-        "unsupported": "Backend nie umie czytać padów na tym komputerze: używana jest przeglądarka.",
-        "pad": "Pad",
-        "noPads": "Backend nie widzi żadnego padu. Podłącz aparaturę.",
-        "gone": "Backend nie czyta teraz tego padu. Sprawdź, czy aparatura jest podłączona.",
-        "denied": "{name} jest podłączony, ale nie można go otworzyć. Daj swojemu użytkownikowi dostęp do urządzenia (reguła udev z uaccess) albo czytaj pad z przeglądarki.",
-        "ended": "Backend przestał czytać pad ({code})."
-      },
-      "mapping": "Przypisanie",
-      "channel": "Kanał pojazdu",
-      "vehicleChannel": "Kanał pojazdu {n}",
-      "own": "Własny aparatury",
-      "channelsNote": "Każdy pad to CH1 do CH16: najpierw jego osie, potem przyciski (−1 puszczony, +1 wciśnięty). Kanał, którego pad nie ma, pokazuje kreskę. Tu nic się nie kalibruje: obowiązuje własny zakres pada.",
-      "sourceChannel": "CH{n} pada",
-      "level": "Co wiersz odczytuje teraz",
-      "pulseMin": "Impuls przy −1 (µs)",
-      "pulseMax": "Impuls przy +1 (µs)",
-      "pulseDefault": "własny kanału",
-      "addRow": "Dodaj wiersz",
-      "moveIt": "Poruszaj",
-      "moveCancel": "Anuluj",
-      "moveWaiting": "Poruszaj drążkiem lub przełącznikiem albo wciśnij przycisk, o który ci chodzi.",
-      "remove": "Usuń kanał {channel}",
-      "pulse": "{us} µs",
-      "noPulse": "—",
-      "invert": "Odwróć",
-      "zone": "Strefa martwa (%)",
-      "expo": "Krzywa (%)",
-      "refused": {
-        "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd, więc nie można nim stąd sterować.",
-        "taken": "Kanałem {channel} już steruje inny wiersz. Usuń tamten wiersz albo wybierz inny kanał."
-      },
-      "noSource": "Jeszcze bez elementu",
-      "style": {
-        "title": "Gaz",
-        "centred": "Wyśrodkowany",
-        "low": "Na dole w spoczynku",
-        "centredHelp": "Drążek spoczywa na środku (wraca sam, jak w dronie filmowym). Środek to brak wznoszenia, w górę wznosi, w dół opada. Działa tylko w Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag i Autotune, i trwa dalej w Auto, Guided, RTL, Land, Brake i podobnych; każdy inny tryb wyłącza sterowanie i w żadnym nie startuje. Martwa strefa jego wiersza musi wynosić co najmniej 5 %.",
-        "lowHelp": "Drążek spoczywa na dole (gaz aparatury). Drążek musi być na samym dole, zanim sterowanie ruszy."
-      },
-      "sticks": {
-        "roll": "Przechył",
-        "pitch": "Pochylenie",
-        "throttle": "Gaz",
-        "yaw": "Odchylenie"
-      },
-      "confirm": {
-        "title": "Potwierdzenie",
-        "button": "Potwierdź to przypisanie",
-        "done": "To przypisanie jest potwierdzone dla tego pada.",
-        "needed": "Niepotwierdzone. Poruszaj każdym drążkiem i patrz na jego pasek powyżej, potem potwierdź. Każda zmiana odbiera potwierdzenie.",
-        "converted": "To przypisanie zostało przekonwertowane ze starszej wersji. Obejrzyj je i potwierdź.",
-        "disabled": "Potrzebny jest odczytywany pad, wiersz dla każdego z czterech drążków pojazdu na osi pada i żaden z problemów poniżej."
-      },
-      "issue": {
-        "mapping": {
-          "channel": "Kanał {channel} nie jest kanałem od 1 do 16.",
-          "duplicate": "Kanałem {channel} steruje więcej niż jeden wiersz.",
-          "source": "Kanał {channel} nie ma jeszcze elementu sterującego. Naciśnij „Poruszaj” i poruszaj tym, o który ci chodzi.",
-          "zone": "Strefa martwa kanału {channel} musi wynosić od 0 do 50 %.",
-          "expo": "Krzywa kanału {channel} musi wynosić od 0 do 100 %.",
-          "absent": "Kanał {channel} odczytuje kanał pada, którego ten pad nie ma.",
-          "pulse": "Impuls kanału {channel} musi być liczbą całkowitą od 800 do 2200 µs.",
-          "unconfirmed": "Przypisanie nie jest potwierdzone. Obejrzyj je i naciśnij „Potwierdź to przypisanie”."
-        },
-        "vehicle": {
-          "unknownAll": "Nie wszystkie ustawienia pojazdu są znane. Połącz pojazd i poczekaj na pobranie wszystkich parametrów.",
-          "unknown": "Pojazd nie podał ustawienia, którego potrzebuje kanał {channel}. Pobierz parametry ponownie.",
-          "range": "Zakres impulsów kanału {channel} w pojeździe jest nieużyteczny.",
-          "arm": "Kanał {channel} uzbraja lub zatrzymuje pojazd. Usuń ten wiersz.",
-          "zone": "Strefa martwa gazu w pojeździe jest szeroka, więc „dół” jest szerszy niż zwykle.",
-          "centre": "Martwa strefa wiersza gazu musi wynosić co najmniej 5 % przy wyśrodkowanym gazie."
-        }
-      }
     },
     "map": {
       "title": "Mapa",
@@ -2380,7 +2210,6 @@
       "home": "Pojazd nie podał ostatnio, gdzie jest punkt startu.",
       "target": "Najpierw wybierz miejsce na mapie.",
       "far": "To miejsce jest dalej od punktu startu niż twój limit w Ustawieniach.",
-      "rcControl": "Zdalne sterowanie jest włączone. Wyłącz je, aby wysłać polecenie GUIDED.",
       "unsupported": "Sterowanie prowadzone jest tylko dla pojazdów ArduPilot.",
       "invalid": "To miejsce lub wysokość jest nieprawidłowe.",
       "outOfLimits": "To poza limitami z Ustawień lub ogrodzeniem pojazdu.",

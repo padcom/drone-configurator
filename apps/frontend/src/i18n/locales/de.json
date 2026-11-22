@@ -824,78 +824,6 @@
     "stop": "Not-Aus",
     "current": "jetzt"
   },
-  "rc": {
-    "switch": "Fernsteuerung",
-    "help": {
-      "off": "Aus. Das Gamepad fliegt das Fahrzeug nicht.",
-      "on": "Das Gamepad fliegt das Fahrzeug.",
-      "resting": "Halte alle Sticks einen Moment in Ruhe (auch das Gas): Bis dahin wird nichts gesendet."
-    },
-    "rest": {
-      "roll": "Rollen ist nicht in der Mitte: {level}. Bring den Stick in die Mitte.",
-      "pitch": "Nicken ist nicht in der Mitte: {level}. Bring den Stick in die Mitte.",
-      "yaw": "Gieren ist nicht in der Mitte: {level}. Bring den Stick in die Mitte.",
-      "throttleCentred": "Das Gas ist nicht in der Mitte: {level}. Lass den Stick in die Mitte gehen.",
-      "throttleLow": "Das Gas ist nicht unten: {level}. Zieh den Stick ganz nach unten."
-    },
-    "indicator": {
-      "on": "Fernsteuerung an",
-      "off": "Fernsteuerung an. Drücken zum Ausschalten.",
-      "rudder": "Sticks scharf",
-      "offRudder": "Fernsteuerung an, und die Sticks können scharf- und entschärfen. Drücken zum Ausschalten."
-    },
-    "summary": {
-      "title": "Mit dem Gamepad fliegen?",
-      "what": "Das Gamepad sendet seine Sticks an das Fahrzeug, bis du es ausschaltest. Gesendet wird erst, wenn alle vier Sticks in Ruhe sind. Solange es an ist, schützt die Fahrzeugprüfung „RC nicht gefunden“ nicht mehr vor einem fehlenden Sender.",
-      "centred": "Gas: zentriert. Die Mitte des Sticks ist kein Steigen, oben steigt, unten sinkt. Es funktioniert nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag und Autotune (und läuft weiter in Auto, Guided, RTL, Land, Brake und ähnlichen). Jeder andere Modus schaltet die Fernsteuerung aus.",
-      "low": "Gas: unten in Ruhe. Der Stick muss ganz unten sein, bevor die Fernsteuerung startet.",
-      "either": "Das Gas ist zentriert oder unten in Ruhe, wie die Zuordnung es sagt (Einstellungen). Zentriert funktioniert nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag und Autotune; jeder andere Modus schaltet die Fernsteuerung aus.",
-      "button": "Fernsteuerung einschalten"
-    },
-    "command": {
-      "label": "Fernsteuerung: ein- oder ausschalten",
-      "keywords": "gamepad funke joystick sticks fernsteuerung override"
-    },
-    "reason": {
-      "off": "Die Fernsteuerung ist nicht erlaubt. Erlaube sie in den Einstellungen.",
-      "link": "Es ist kein Simulator verbunden.",
-      "pad": "Es wird kein Gamepad gelesen. Bewege einen Stick an der Fernsteuerung.",
-      "mapping": "Das Gamepad hat keine fertige Zuordnung. Sieh sie dir an und bestätige sie in den Einstellungen.",
-      "reading": "Ein Stick des Fahrzeugs hat keinen proportionalen Kanal des Gamepads (eine Achse). Siehe Einstellungen.",
-      "vehicle": "Die Einstellungen des Fahrzeugs passen nicht zur Zuordnung. Siehe Einstellungen.",
-      "vehicleDetail": "Die Einstellungen des Fahrzeugs passen nicht zur Zuordnung: {detail}",
-      "mode": "Ein zentriertes Gas startet nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag oder Autotune. Wechsle zuerst den Modus.",
-      "MODE": "Fernsteuerung beendet: Der Flugmodus verträgt kein zentriertes Gas.",
-      "REST_TIMEOUT": "Fernsteuerung beendet: Die Sticks waren nicht innerhalb von 10 Sekunden in Ruhe.",
-      "PAD_FAULT": "Fernsteuerung beendet: Ein Stick des Pads liefert keinen brauchbaren Wert mehr (fehlt, keine Zahl oder außerhalb des Bereichs). Alle Kanäle wurden freigegeben.",
-      "ENDED": "Die Fernsteuerung wurde beendet.",
-      "ERROR": "Die Fernsteuerung konnte nicht starten.",
-      "SILENT": "Fernsteuerung beendet: Die Seite war zu lange still.",
-      "LINK_LOST": "Fernsteuerung beendet: Die Verbindung zum Fahrzeug ging verloren.",
-      "STATE_UNKNOWN": "Der Zustand des Fahrzeugs ist unbekannt: Warte darauf und versuche es dann erneut.",
-      "STOPPED": "Fernsteuerung beendet: Das Fahrzeug wird entschärft oder gestoppt.",
-      "NOT_ALLOWED": "Fernsteuerung beendet: Sie ist nicht mehr erlaubt.",
-      "NOT_SIMULATOR": "Fernsteuerung beendet: Das Fahrzeug ist kein Simulator.",
-      "PAD_NONE": "Fernsteuerung beendet: Das Gamepad wird nicht gelesen.",
-      "PAD_CHANGED": "Fernsteuerung beendet: Es wird ein anderes Gamepad gelesen als das, mit dem geflogen wurde.",
-      "PAD_LATE": "Fernsteuerung beendet: Ein Lesen des Gamepads kam zu spät.",
-      "PAD_HIDDEN": "Fernsteuerung beendet: Das Fenster wurde verborgen.",
-      "VEHICLE_CHANGED": "Fernsteuerung beendet: Es ist ein anderes Fahrzeug.",
-      "PARAMS_UNKNOWN": "Fernsteuerung beendet: Die Parameter des Fahrzeugs sind nicht bekannt.",
-      "GUIDED": "Ein geführter Flug läuft (das Fahrzeug ist in GUIDED, oder ein Ort ist gewählt): Die Fernsteuerung beginnt nicht.",
-      "DECLINED": "Die Fernsteuerung wurde nicht eingeschaltet: Die Zusammenfassung wurde nicht bestätigt.",
-      "PARAMS_CHANGED": "Fernsteuerung beendet: Die Einstellungen des Fahrzeugs haben sich geändert.",
-      "EDITED": "Fernsteuerung beendet: Die Zuordnung wurde geändert.",
-      "NOT_CONNECTED": "Es ist kein Fahrzeug verbunden.",
-      "UNSUPPORTED": "Die Fernsteuerung ist für einen ArduPilot-Multikopter gemacht.",
-      "THR_DZ_SMALL": "Ein zentrierter Gashebel braucht ein THR_DZ des Fahrzeugs von mindestens 30: es ist kleiner, die Stickmitte würde die Höhe nicht halten.",
-      "BUSY": "Etwas anderes hält das Fahrzeug: eine Kalibrierung, ein Motortest, ein Parameter-, Log- oder Planvorgang oder ein Neustart.",
-      "PARAMS_INCOMPLETE": "Die Parameter des Fahrzeugs wurden nicht alle geladen.",
-      "PARAMS_MISSING": "Eine Einstellung, die die Fernsteuerung braucht, konnte nicht vom Fahrzeug gelesen werden.",
-      "OVERRIDE_DISABLED": "Das Fahrzeug ignoriert Overrides oder lässt sie nie los (RC_OVERRIDE_TIME).",
-      "other": "Fernsteuerung beendet ({code})."
-    }
-  },
   "settings": {
     "metadata": {
       "title": "Parameter-Metadaten",
@@ -921,104 +849,6 @@
       "metres": "{n} m",
       "plain": "Bestätigung verlangen (empfohlen)",
       "none": "Nicht fragen"
-    },
-    "rc": {
-      "title": "Fernsteuerung",
-      "intro": "Fliege das Fahrzeug mit einem Gamepad oder einer Fernsteuerung, die sich als Gamepad meldet (etwa eine TX16S über USB).",
-      "allow": "Fernsteuerung erlauben",
-      "allowHelp": "Standardmäßig aus und nur für den eingebauten Simulator oder eine Verbindung zu diesem Computer: Jedes andere Fahrzeug wird abgelehnt. Das erlaubt sie nur; es startet sie nicht.",
-      "rudderArm": "Sticks scharf- und entschärfen lassen",
-      "rudderArmHelp": "Standardmäßig aus. Die Sticks können den Simulator scharfschalten (Gas unten) und NUR AM BODEN entschärfen: in der Luft bleibt die Sperre. Braucht ARMING_RUDDER am Fahrzeug; die Pre-Arm-Prüfungen gelten weiter. Wirkt, wenn die Fernsteuerung eingeschaltet wird.",
-      "rudderArmShut": "Erlaube zuerst die Fernsteuerung. Schaltest du diese aus, geht dies mit aus.",
-      "status": {
-        "ready": "Für die Fernsteuerung ist alles bereit.",
-        "link": "Es ist kein Simulator verbunden."
-      },
-      "device": {
-        "title": "Gamepad",
-        "none": "Noch kein Gamepad gefunden. Eine Fernsteuerung erscheint, sobald du einen Stick bewegst.",
-        "gone": "Das Gamepad wird gerade nicht gelesen. Bewege einen Stick.",
-        "channel": "CH{n}"
-      },
-      "source": {
-        "title": "Woher das Gamepad gelesen wird",
-        "auto": "Automatisch",
-        "backend": "Das Backend",
-        "browser": "Der Browser",
-        "help": "Das Backend liest alle Achsen einer Fernsteuerung auf einmal, ohne dass zuerst ein Stick bewegt werden muss (nur Linux). Der Browser braucht zuerst eine Stickbewegung und übersieht bei manchen Fernsteuerungen Achsen. Automatisch nutzt das Backend, wo es geht.",
-        "unsupported": "Das Backend kann auf diesem Computer keine Gamepads lesen: der Browser wird benutzt.",
-        "pad": "Gamepad",
-        "noPads": "Das Backend sieht kein Gamepad. Schließen Sie die Fernsteuerung an.",
-        "gone": "Das Backend liest dieses Gamepad gerade nicht. Prüfen Sie, ob die Fernsteuerung angeschlossen ist.",
-        "denied": "{name} ist angeschlossen, darf aber nicht geöffnet werden. Geben Sie Ihrem Benutzer Zugriff auf das Gerät (eine udev-Regel mit uaccess) oder lesen Sie das Gamepad über den Browser.",
-        "ended": "Das Backend hat aufgehört, das Gamepad zu lesen ({code})."
-      },
-      "mapping": "Zuordnung",
-      "channel": "Fahrzeugkanal",
-      "vehicleChannel": "Fahrzeugkanal {n}",
-      "own": "Der eigene Wert der Fernsteuerung",
-      "channelsNote": "Jedes Gamepad ist CH1 bis CH16: zuerst seine Achsen, dann seine Tasten (−1 losgelassen, +1 gedrückt). Ein Kanal, den das Gamepad nicht hat, zeigt einen Strich. Hier wird nichts kalibriert: Der eigene Bereich des Gamepads gilt.",
-      "sourceChannel": "Gamepad-CH{n}",
-      "level": "Was die Zeile jetzt liest",
-      "pulseMin": "Impuls bei −1 (µs)",
-      "pulseMax": "Impuls bei +1 (µs)",
-      "pulseDefault": "der des Kanals",
-      "addRow": "Zeile hinzufügen",
-      "moveIt": "Bewegen",
-      "moveCancel": "Abbrechen",
-      "moveWaiting": "Bewege den Stick oder Schalter oder drücke die Taste, die du meinst.",
-      "remove": "Kanal {channel} entfernen",
-      "pulse": "{us} µs",
-      "noPulse": "—",
-      "invert": "Umkehren",
-      "zone": "Totzone (%)",
-      "expo": "Kurve (%)",
-      "refused": {
-        "arm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es, deshalb kann er von hier nicht gesteuert werden.",
-        "taken": "Kanal {channel} wird schon von einer anderen Zeile gesteuert. Entferne jene Zeile oder wähle einen anderen Kanal."
-      },
-      "noSource": "Noch kein Bedienelement",
-      "style": {
-        "title": "Gas",
-        "centred": "Zentriert",
-        "low": "Unten in Ruhe",
-        "centredHelp": "Der Stick ruht in der Mitte (er federt zurück, wie bei einer Kameradrohne). Die Mitte ist kein Steigen, oben steigt, unten sinkt. Es funktioniert nur in Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag und Autotune und läuft weiter in Auto, Guided, RTL, Land, Brake und ähnlichen; jeder andere Modus schaltet die Fernsteuerung aus, und sie startet in keinem. Die Totzone seiner Zeile muss mindestens 5 % sein.",
-        "lowHelp": "Der Stick ruht unten (das Gas einer Fernsteuerung). Der Stick muss ganz unten sein, bevor die Fernsteuerung startet."
-      },
-      "sticks": {
-        "roll": "Rollen",
-        "pitch": "Nicken",
-        "throttle": "Gas",
-        "yaw": "Gieren"
-      },
-      "confirm": {
-        "title": "Bestätigen",
-        "button": "Diese Zuordnung bestätigen",
-        "done": "Diese Zuordnung ist für dieses Gamepad bestätigt.",
-        "needed": "Nicht bestätigt. Bewege jeden Stick und sieh dir oben seinen Balken an, dann bestätige. Jede Änderung nimmt die Bestätigung weg.",
-        "converted": "Diese Zuordnung wurde aus einer älteren Version umgewandelt. Sieh sie dir an und bestätige sie.",
-        "disabled": "Braucht ein Gamepad, das gelesen wird, eine Zeile für jeden der vier Sticks des Fahrzeugs auf einer Achse des Gamepads und keines der Probleme unten."
-      },
-      "issue": {
-        "mapping": {
-          "channel": "Kanal {channel} ist kein Kanal von 1 bis 16.",
-          "duplicate": "Kanal {channel} wird von mehr als einer Zeile gesteuert.",
-          "source": "Kanal {channel} hat noch kein Bedienelement. Drücke „Bewegen“ und bewege das gemeinte.",
-          "zone": "Die Totzone von Kanal {channel} muss 0 bis 50 % sein.",
-          "expo": "Die Kurve von Kanal {channel} muss 0 bis 100 % sein.",
-          "absent": "Kanal {channel} liest einen Gamepad-Kanal, den dieses Gamepad nicht hat.",
-          "pulse": "Ein Impuls von Kanal {channel} muss eine ganze Zahl von 800 bis 2200 µs sein.",
-          "unconfirmed": "Die Zuordnung ist nicht bestätigt. Sieh sie dir an und drücke „Diese Zuordnung bestätigen“."
-        },
-        "vehicle": {
-          "unknownAll": "Die Einstellungen des Fahrzeugs sind nicht alle bekannt. Verbinde das Fahrzeug und lass alle Parameter herunterladen.",
-          "unknown": "Das Fahrzeug hat eine Einstellung nicht gemeldet, die Kanal {channel} braucht. Lade die Parameter erneut.",
-          "range": "Der Impulsbereich von Kanal {channel} am Fahrzeug ist nicht brauchbar.",
-          "arm": "Kanal {channel} schaltet das Fahrzeug scharf oder stoppt es. Entferne diese Zeile.",
-          "zone": "Die Gas-Totzone des Fahrzeugs ist groß, deshalb ist „unten“ weiter als üblich.",
-          "centre": "Die Totzone der Gas-Zeile muss bei zentriertem Gas mindestens 5 % sein."
-        }
-      }
     },
     "map": {
       "title": "Karte",
@@ -2380,7 +2210,6 @@
       "home": "Das Fahrzeug hat zuletzt nicht gemeldet, wo Home ist.",
       "target": "Wählen Sie zuerst einen Ort auf der Karte.",
       "far": "Der Ort ist weiter von Home entfernt als Ihre Grenze in den Einstellungen.",
-      "rcControl": "Die Fernsteuerung ist an. Schalte sie aus, um einen geführten Befehl zu senden.",
       "unsupported": "Die geführte Steuerung gibt es nur für ArduPilot-Fahrzeuge.",
       "invalid": "Dieser Ort oder diese Höhe ist ungültig.",
       "outOfLimits": "Das liegt außerhalb der Grenzen in den Einstellungen oder des Zauns des Fahrzeugs.",

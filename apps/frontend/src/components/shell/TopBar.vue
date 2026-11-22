@@ -80,7 +80,6 @@
       </div>
     </dl>
     <div class="actions">
-      <RcIndicator />
       <!-- The command palette has no button here: it is the command "Show command palette", reached by its key. -->
       <CommandButton id="disconnect-button" command="vehicle.disconnect" icon-position="none" />
     </div>
@@ -91,7 +90,6 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
-import RcIndicator from './RcIndicator.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'

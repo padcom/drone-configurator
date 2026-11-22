@@ -2,18 +2,12 @@
 // (each a composable that talks to the backend through the client), the last failure, and the question the
 // confirmation dialog asks. `fields` gives the components every piece of State as the ref that holds it, so a
 // component that reads one field is not woken by the others (docs/frontend-state.md).
-import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
-import { type PadsModel, usePads } from './usePads'
-import { type RcControlModel, useRcControl } from './useRcControl'
-import { useGoHere } from './useGoHere'
-import { useRcSettings } from './useRcSettings'
-import { reasonWords } from '@/lib/rc/reason'
-import { type Facts, factsOf } from '@/lib/rc/vehicle'
+import { type ShallowRef, shallowRef, watch } from 'vue'
 import { say } from '@/i18n/say'
 import { type BackendClient, type Transport, createBackendClient } from '@/backend/client'
 import { draftWarning, validateDraft } from '@/lib/params/draft'
 import { showNumber } from '@/lib/params/paramValue'
-import { i18n, legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
+import { legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
 import type { State } from '@/state/state'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type MetadataModel, useMetadata } from './useMetadata'
@@ -88,10 +82,6 @@ export interface ConfiguratorHandle {
   calibration: CalibrationModel
   /** The motor test of the Motors page: one motor, for as long as a button is held. */
   motorTest: MotorTestModel
-  /** The RC control (the gamepad flying the vehicle): one for the whole application, off until it is turned on. */
-  rcControl: RcControlModel
-  /** The pads the backend reads, and where the pad is read from (the browser, or the backend): one for the application. */
-  pads: PadsModel
   /** The live response of the Tune screen: the actual and the desired roll rate, while the screen is shown. */
   tuning: TuningStreamModel
   /** The step response measured from a log on this computer ("Analyse the last flight"). */
@@ -535,82 +525,6 @@ function keepMetadataPath(settings: SettingsModel, path: string): void {
 }
 
 /**
- * The words for a reason the RC control did not begin or ended: a problem of the vehicle with the mapping names itself (and its
- * channel), a reason with no words of its own, a code the backend added, is said with the code.
- *
- * @param code the reason's code
- * @returns the text
- */
-function rcReasonText(code: string): string {
-  const { key, values } = reasonWords(code)
-
-  if (!i18n.global.te(key)) {
-    return say('rc.reason.other', { code })
-  }
-  const detail = values.detail as { key: string, values: Record<string, unknown> } | undefined
-
-  return say(key, detail === undefined ? values : { detail: say(detail.key, detail.values) })
-}
-
-/**
- * The RC control, reading what the pads say.
- *
- * @param pads the pads
- * @param parts what it is made of
- * @param parts.client the link to the backend
- * @param parts.vehicle the vehicle link
- * @param parts.facts what the vehicle's parameters say of its channels
- * @param parts.settings the settings
- * @returns the control
- */
-function rcControlOver(pads: PadsModel, parts: {
-  client: BackendClient
-  vehicle: Vehicle
-  facts: ComputedRef<Facts | null>
-  settings: SettingsModel
-}): RcControlModel {
-  const { client, vehicle, facts, settings } = parts
-
-  return useRcControl({
-    client,
-    env: pads.environment,
-    connection: vehicle.connection,
-    request: vehicle.request,
-    settings: useRcSettings(settings),
-    facts,
-    telemetry: vehicle.telemetry,
-    tell: (severity, text) => useToasts().push({ severity, text, long: true }),
-    // (a reason with no words of its own, a code the backend added, is said with the code)
-    // (a picked place for a Go here, or a vehicle in GUIDED: a guided flow is on, and the sticks do not begin over it)
-    busy: () => (vehicle.telemetry.value?.mode === 'GUIDED' || useGoHere().target.value !== null ? 'GUIDED' : null),
-    reasonText: rcReasonText,
-  })
-}
-
-/**
- * The RC control and the pads it reads: one of each for the whole application, the control off until the person turns it on.
- *
- * @param parts what it is made of
- * @param parts.client the link to the backend
- * @param parts.vehicle the vehicle link
- * @param parts.parameters the vehicle's parameters
- * @param parts.settings the settings
- * @returns the control and the pads
- */
-function startRc(parts: {
-  client: BackendClient
-  vehicle: Vehicle
-  parameters: ParamsModel
-  settings: SettingsModel
-}): { rcControl: RcControlModel, pads: PadsModel } {
-  const { client, vehicle, parameters, settings } = parts
-  const pads = usePads({ client, settings: useRcSettings(settings) })
-  const facts = computed(() => factsOf(parameters.params.value, parameters.list.value === 'complete'))
-
-  return { pads, rcControl: rcControlOver(pads, { client, vehicle, facts, settings }) }
-}
-
-/**
  * Starts listening to the backend on `transport`, and makes the result the one components get from
  * `useConfigurator()`.
  *
@@ -644,7 +558,6 @@ export function createConfigurator(
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle),
     motorTest, tuning: useTuningStream({ client }), analysis: useAnalysis({ client }), map: useMapSettings({ client, settings }),
-    ...startRc({ client, vehicle, parameters, settings }),
   }
   current = { ...models, fields: fieldsOf(models, error), confirmation, confirmWith }
 
