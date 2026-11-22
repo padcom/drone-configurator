@@ -35,6 +35,34 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.paramFields') }}</h3>
+      <div class="field-demo">
+        <!-- A field bound to a parameter (a number in centimetres shown as metres): the buttons play what the vehicle does. -->
+        <ParamField
+          name="RTL_ALT"
+          kind="number"
+          unit="cm"
+          :min="200"
+          :max="3000"
+          :step="50"
+          integer
+          :facts="demoFacts"
+          :rejection="t('gallery.fields.reason')"
+          @draft="demoDraft"
+          @keep="demoKeep"
+          @take="demoTake"
+        />
+        <div class="simulate" role="group" :aria-label="t('gallery.fields.simulate')">
+          <Button @click="demoChanges">{{ t('gallery.fields.changes') }}</Button>
+          <Button @click="demoWrite('writing')">{{ t('gallery.fields.writing') }}</Button>
+          <Button @click="demoWrite('verified')">{{ t('gallery.fields.verified') }}</Button>
+          <Button @click="demoWrite('rejected')">{{ t('gallery.fields.rejected') }}</Button>
+          <Button @click="demoReset">{{ t('gallery.fields.reset') }}</Button>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.confirm') }}</h3>
       <div class="stack confirm-demo">
         <HoldButton :hold-ms="HOLD_MS">{{ t('gallery.confirm.holdWarn') }}</HoldButton>
@@ -241,6 +269,8 @@ import TextInput from '@/components/ui/TextInput.vue'
 import Toggle from '@/components/ui/Toggle.vue'
 import EnumField from '@/components/fields/EnumField.vue'
 import PanelForm from '@/components/fields/PanelForm.vue'
+import ParamField from '@/components/fields/ParamField.vue'
+import { type FieldFacts, type WriteState, settled } from '@/lib/params/fieldState'
 import type { FormRow, FormValue } from '@/lib/params/panelForm'
 import ToastHost from '@/components/shell/ToastHost.vue'
 import { HOLD_MS } from '@/lib/app/safety'
@@ -351,6 +381,50 @@ const form = reactive({ action: 1, altitude: 20, battery: true, name: 'Quad 1' }
 /** A number the vehicle holds that has no name in the list (the field shows it as it is). */
 const orphan = ref(7)
 const actions = computed(() => [0, 1, 2].map(n => ({ value: n, label: t(`gallery.form.action${n}`) })))
+
+/** The sample parameter field: what the vehicle holds, the draft over it, and where the write is. */
+const demoFacts = reactive<FieldFacts>({ vehicle: 1500, draft: null, basis: undefined, write: 'idle' })
+
+/**
+ * The person made a draft: it begins over what the vehicle holds now.
+ *
+ * @param made the draft
+ */
+function demoDraft(made: number): void {
+  demoFacts.basis = demoFacts.draft === null ? demoFacts.vehicle : demoFacts.basis
+  demoFacts.draft = made
+  demoFacts.write = 'idle'
+}
+
+/** The vehicle changes the parameter itself. */
+function demoChanges(): void {
+  demoFacts.vehicle = (demoFacts.vehicle ?? 0) + 100
+}
+
+/**
+ * The write is under way, or the vehicle read it back, or it rejected it.
+ *
+ * @param state where the write is
+ */
+function demoWrite(state: WriteState): void {
+  demoFacts.write = state
+  demoFacts.vehicle = state === 'verified' ? demoFacts.draft ?? demoFacts.vehicle : demoFacts.vehicle
+}
+
+/** Starts again: the vehicle holds 15 m, there is no draft. */
+function demoReset(): void {
+  Object.assign(demoFacts, { vehicle: 1500, draft: null, basis: undefined, write: 'idle' })
+}
+
+/** The person keeps the draft over what the vehicle changed. */
+function demoKeep(): void {
+  Object.assign(demoFacts, settled('keep', demoFacts))
+}
+
+/** The person takes what the vehicle changed it to. */
+function demoTake(): void {
+  Object.assign(demoFacts, settled('take', demoFacts))
+}
 const formRows = computed<FormRow[]>(() => [
   { kind: 'head', id: 'h', text: t('gallery.form.head') },
   { kind: 'note', id: 'n', text: t('gallery.form.note') },

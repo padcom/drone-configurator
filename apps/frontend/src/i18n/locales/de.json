@@ -490,6 +490,7 @@
       "fields": "Felder",
       "choices": "Auswahl",
       "badges": "Abzeichen",
+      "paramFields": "Parameterfelder",
       "panels": "Panels",
       "icons": "Symbole",
       "charts": "Diagramme"
@@ -552,6 +553,15 @@
       "action2": "Immer landen",
       "save": "Speichern",
       "unnamed": "Ein Wert ohne Namen"
+    },
+    "fields": {
+      "simulate": "Simulieren",
+      "changes": "Das Fahrzeug ändert es",
+      "writing": "Ein Schreibvorgang läuft",
+      "verified": "Der Schreibvorgang ist geprüft",
+      "rejected": "Der Schreibvorgang wird abgelehnt",
+      "reset": "Von vorn",
+      "reason": "der Wert ist in diesem Modus nicht erlaubt"
     },
     "surface": {
       "label": "Akku",
@@ -941,6 +951,29 @@
       "static": "Statischer Fix",
       "ppp": "PPP-Fix",
       "other": "Unbekannter Fix"
+    }
+  },
+  "field": {
+    "number": {
+      "empty": "Eine Zahl eingeben.",
+      "nan": "Das ist keine Zahl.",
+      "low": "Mindestens {limit}.",
+      "high": "Höchstens {limit}."
+    },
+    "status": {
+      "unknown": "Noch nicht vom Fahrzeug gelesen.",
+      "vehicle": "Wert des Fahrzeugs.",
+      "draft": "Geändert: das Fahrzeug hat {vehicle}.",
+      "writing": "Wird zum Fahrzeug geschrieben…",
+      "verified": "Geprüft: das Fahrzeug liest {value} zurück.",
+      "rejected": "Abgelehnt: {reason}",
+      "conflict": "Am Fahrzeug geändert: es hat {vehicle}.",
+      "noReason": "das Fahrzeug hat den Wert nicht angenommen"
+    },
+    "conflict": {
+      "text": "Das Fahrzeug hat {name} auf {vehicle} geändert, während Sie es bearbeitet haben. Ihr Entwurf ist {draft}.",
+      "keep": "Meinen Entwurf behalten",
+      "take": "Wert des Fahrzeugs verwenden"
     }
   },
   "confirm": {
