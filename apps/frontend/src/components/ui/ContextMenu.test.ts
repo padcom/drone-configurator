@@ -106,6 +106,18 @@ describe('a right click', () => {
   })
 })
 
+describe('a menu in which nothing can be chosen', () => {
+  it('is not opened when every item is disabled (no key would reach it), by the mouse or the keys', async () => {
+    const wrapper = menu(ITEMS.map(item => ({ ...item, disabled: true })))
+    const event = await rightClick(wrapper);
+    (wrapper.get('#area').element as HTMLElement).focus()
+    const key = await press('ContextMenu')
+
+    expect([event.defaultPrevented, key.defaultPrevented]).toEqual([false, false])
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+  })
+})
+
 describe('the keys of the system', () => {
   it('open the menu at the element that has the focus: the Menu key, and Shift F10', async () => {
     const wrapper = menu();

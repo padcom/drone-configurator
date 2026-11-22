@@ -34,9 +34,9 @@
 // Menu key or Shift F10 (the keys the system has for it); the arrows, Home and End move between the items, a letter goes to the
 // next item that starts with it, Enter or Space chooses, Escape closes and puts the focus back where it was, and Tab or a press
 // elsewhere closes. An item that cannot be chosen is skipped. `select` says which item was chosen, by its id. The slot is what
-// the menu is for; with no items there is no menu (the system's own is not suppressed). The menu is drawn where it was asked
-// for and moved just far enough to stay in the window (lib/ui/contextPlace.ts); the lists of the dropdown menu and this one
-// look alike.
+// the menu is for; with no item that can be chosen there is no menu (the system's own is not suppressed). The menu is drawn
+// where it was asked for and moved just far enough to stay in the window (lib/ui/contextPlace.ts); the lists of the dropdown
+// menu and this one look alike.
 import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { type MenuItem, edge, focusAndShow, step, typeAhead } from '@/lib/ui/menuKeys'
 import { type Point, belowLeftOf, placed } from '@/lib/ui/contextPlace'
@@ -146,6 +146,16 @@ function atElement(target: EventTarget | null): Point {
 }
 
 /**
+ * Whether there is anything to choose: a menu in which nothing can be chosen is not opened (no item could take the focus, and its
+ * keys, Escape and Tab among them, would be out of reach), and the system's own menu is then left alone.
+ *
+ * @returns true when at least one item can be chosen
+ */
+function offers(): boolean {
+  return edge(props.items, 'first') >= 0
+}
+
+/**
  * Whether an element is in the list of the menu.
  *
  * @param target the element
@@ -171,7 +181,7 @@ function pointOf(event: MouseEvent): Point {
  * @param event the event
  */
 function onContext(event: MouseEvent): void {
-  if (props.items.length > 0 && !insideList(event.target)) {
+  if (offers() && !insideList(event.target)) {
     event.preventDefault()
     openAt(pointOf(event))
   }
@@ -193,7 +203,7 @@ function asksForMenu(event: KeyboardEvent): boolean {
  * @param event the key event
  */
 function onTargetKey(event: KeyboardEvent): void {
-  if (props.items.length > 0 && asksForMenu(event) && !insideList(event.target)) {
+  if (offers() && asksForMenu(event) && !insideList(event.target)) {
     event.preventDefault()
     openAt(atElement(event.target))
   }
