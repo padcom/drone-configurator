@@ -1,6 +1,6 @@
-// "Landed" as the vehicle's heartbeat says it, against ArduPilot SITL, through the real backend: the heartbeat's `system_status`, which
-// the telemetry stream carries as `systemStatus`. ArduCopter sends STANDBY (3) exactly when `land_complete` is set and no failsafe is
-// active, and ACTIVE (4) in the air. These are the facts it stands on:
+// "Landed" as the vehicle's heartbeat says it, against ArduPilot SITL, through the real backend: the heartbeat's
+// `system_status`, which the telemetry stream carries as `systemStatus`. ArduCopter sends STANDBY (3) exactly when
+// `land_complete` is set and no failsafe is active, and ACTIVE (4) in the air. These are the facts it stands on:
 //  1. disarmed on the ground: STANDBY;
 //  2. ARMED on the ground (before a take off): still STANDBY (landed);
 //  3. in the air (ACTIVE), after a take off to 5 m;
