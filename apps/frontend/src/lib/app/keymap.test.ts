@@ -1,6 +1,6 @@
 // The one table of keys: no two keys alike, and what counts as the key of an action (the physical key, exactly its modifiers).
-import { describe, expect, it } from 'vitest'
-import { KEYS, hintOf, keyOf, matches } from './keymap'
+import { afterEach, describe, expect, it } from 'vitest'
+import { KEYS, currentKeys, hintOf, keyOf, matches, setBindings, setListening } from './keymap'
 
 /**
  * A key press.
@@ -69,5 +69,37 @@ describe('how a key is shown', () => {
     expect(hintOf('palette.open', true)).toBe('⌘ P')
     expect(hintOf('panes.next', true)).toBe('F6')
     expect(hintOf('nothing.here', false)).toBe('')
+  })
+})
+
+describe('the keys the user chose', () => {
+  afterEach(() => {
+    setBindings({})
+    setListening(false)
+  })
+
+  it('are the keys from then on: the new chord matches and shows, the old one does not, and a key taken off has none', () => {
+    setBindings({ 'palette.open': { code: 'KeyK', ctrl: true }, 'help.keys': null })
+
+    expect(matches(press({ code: 'KeyK', ctrlKey: true }), 'palette.open', false)).toBe(true)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(false)
+    expect(hintOf('palette.open', false)).toBe('Ctrl K')
+    expect(keyOf('help.keys')).toBeUndefined()
+    expect(currentKeys().some(key => key.actionId === 'help.keys')).toBe(false)
+  })
+
+  it('are never a change to a key that is fixed, and the defaults are back with no choices', () => {
+    setBindings({ 'params.search': { code: 'KeyK', ctrl: true } })
+    expect(keyOf('params.search')).toMatchObject({ code: 'Slash' })
+
+    setBindings({})
+    expect(currentKeys()).toEqual(KEYS)
+  })
+
+  it('do not match while a key is being read as a chord', () => {
+    setListening(true)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(false)
+    setListening(false)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(true)
   })
 })

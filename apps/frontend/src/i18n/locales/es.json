@@ -1235,6 +1235,54 @@
     "backendRestarted": "El backend se reinició: la sesión del vehículo terminó. Vuelve a conectar para continuar.",
     "backendStopped": "El backend se detuvo: la sesión del vehículo terminó. Vuelve a conectar para continuar."
   },
+  "keys": {
+    "help": {
+      "label": "Mostrar los atajos de teclado",
+      "keywords": "teclas teclado atajos ayuda",
+      "title": "Atajos de teclado",
+      "intro": "Las teclas como están ahora, por pantalla.",
+      "settings": "Cámbielas en Ajustes, en Teclado.",
+      "close": "Cerrar"
+    },
+    "action": {
+      "palette": {
+        "open": "Abrir la paleta de comandos"
+      },
+      "help": {
+        "keys": "Mostrar los atajos de teclado"
+      },
+      "panes": {
+        "next": "Panel siguiente",
+        "previous": "Panel anterior"
+      },
+      "params": {
+        "search": "Buscar en los parámetros",
+        "write": "Escribir los parámetros cambiados"
+      }
+    },
+    "scope": {
+      "global": "Toda la ventana",
+      "parameters": "Parámetros"
+    },
+    "settings": {
+      "title": "Teclado",
+      "intro": "Dé a una acción otra tecla: pulse Cambiar y luego la tecla nueva (Escape cancela). Una tecla necesita Ctrl o es una tecla de función.",
+      "fixed": "Fija: se reconoce por el carácter que escribe, así que no se puede cambiar.",
+      "change": "Cambiar",
+      "reset": "Por defecto",
+      "resetAll": "Volver a las teclas por defecto",
+      "none": "Sin tecla",
+      "press": "Pulse la tecla nueva para «{action}». Escape cancela.",
+      "why": {
+        "needsModifier": "Esa tecla se escribe en el texto. Use Ctrl con ella o una tecla de función.",
+        "reserved": "Esa tecla es del sistema o del navegador (recargar, cerrar, copiar…). Elija otra.",
+        "fixed": "Esa tecla es fija y no se puede cambiar."
+      },
+      "clash": "{chord} ya es la tecla de: {actions}.",
+      "take": "Quedársela",
+      "keep": "Mantener la anterior"
+    }
+  },
   "palette": {
     "logs": {
       "openFile": {

@@ -25,6 +25,7 @@
   <TakeoffDialog />
   <ChangeAltitudeDialog />
   <CommandPalette />
+  <KeyHelp />
 </template>
 
 <script setup lang="ts">
@@ -39,6 +40,7 @@ import TakeoffDialog from '@/components/fly/TakeoffDialog.vue'
 import CommandPalette from './CommandPalette.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import ConnectDialog from './ConnectDialog.vue'
+import KeyHelp from './KeyHelp.vue'
 import Rail from './Rail.vue'
 import SettingsNotice from './SettingsNotice.vue'
 import ToastHost from './ToastHost.vue'

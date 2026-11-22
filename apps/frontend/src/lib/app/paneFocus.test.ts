@@ -24,7 +24,9 @@ describe('the key that moves between panes', () => {
     ['F6', { ctrlKey: true }, false],
     ['F6', { metaKey: true }, false],
   ])('%s with %o is %s', (key, modifiers, is) => {
-    expect(isPaneKey(new KeyboardEvent('keydown', { key, ...modifiers }))).toBe(is)
+    const code = key === 'f' ? 'KeyF' : key
+
+    expect(isPaneKey(new KeyboardEvent('keydown', { key, code, ...modifiers }))).toBe(is)
   })
 })
 

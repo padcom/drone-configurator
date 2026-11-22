@@ -1235,6 +1235,54 @@
     "backendRestarted": "Il backend è stato riavviato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare.",
     "backendStopped": "Il backend si è fermato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare."
   },
+  "keys": {
+    "help": {
+      "label": "Mostra le scorciatoie da tastiera",
+      "keywords": "tasti tastiera scorciatoie aiuto",
+      "title": "Scorciatoie da tastiera",
+      "intro": "I tasti come sono ora, per schermata.",
+      "settings": "Si cambiano in Impostazioni, sotto Tastiera.",
+      "close": "Chiudi"
+    },
+    "action": {
+      "palette": {
+        "open": "Apri la palette dei comandi"
+      },
+      "help": {
+        "keys": "Mostra le scorciatoie da tastiera"
+      },
+      "panes": {
+        "next": "Riquadro successivo",
+        "previous": "Riquadro precedente"
+      },
+      "params": {
+        "search": "Cerca tra i parametri",
+        "write": "Scrivi i parametri modificati"
+      }
+    },
+    "scope": {
+      "global": "Tutta la finestra",
+      "parameters": "Parametri"
+    },
+    "settings": {
+      "title": "Tastiera",
+      "intro": "Dai a un’azione un altro tasto: premi Cambia, poi il nuovo tasto (Esc annulla). Un tasto richiede Ctrl o è un tasto funzione.",
+      "fixed": "Fisso: si riconosce dal carattere che scrive, quindi non si può cambiare.",
+      "change": "Cambia",
+      "reset": "Predefinito",
+      "resetAll": "Torna ai tasti predefiniti",
+      "none": "Nessun tasto",
+      "press": "Premi il nuovo tasto per «{action}». Esc annulla.",
+      "why": {
+        "needsModifier": "Quel tasto si scrive nel testo. Usalo con Ctrl o scegli un tasto funzione.",
+        "reserved": "Quel tasto è del sistema o del browser (ricarica, chiudi, copia…). Scegline un altro.",
+        "fixed": "Quel tasto è fisso e non si può cambiare."
+      },
+      "clash": "{chord} è già il tasto di: {actions}.",
+      "take": "Prendilo",
+      "keep": "Tieni il vecchio"
+    }
+  },
   "palette": {
     "logs": {
       "openFile": {

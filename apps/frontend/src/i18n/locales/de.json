@@ -1235,6 +1235,54 @@
     "backendRestarted": "Das Backend wurde neu gestartet: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren.",
     "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
   },
+  "keys": {
+    "help": {
+      "label": "Tastenkürzel anzeigen",
+      "keywords": "tasten tastatur kürzel hilfe hotkeys belegung",
+      "title": "Tastenkürzel",
+      "intro": "Die Tasten, wie sie jetzt gelten, nach Bildschirm.",
+      "settings": "Ändern Sie sie in den Einstellungen unter Tastatur.",
+      "close": "Schließen"
+    },
+    "action": {
+      "palette": {
+        "open": "Befehlspalette öffnen"
+      },
+      "help": {
+        "keys": "Tastenkürzel anzeigen"
+      },
+      "panes": {
+        "next": "Nächster Bereich",
+        "previous": "Vorheriger Bereich"
+      },
+      "params": {
+        "search": "Parameter durchsuchen",
+        "write": "Geänderte Parameter schreiben"
+      }
+    },
+    "scope": {
+      "global": "Ganzes Fenster",
+      "parameters": "Parameter"
+    },
+    "settings": {
+      "title": "Tastatur",
+      "intro": "Geben Sie einer Aktion eine andere Taste: „Ändern“ drücken, dann die neue Taste (Escape bricht ab). Eine Taste braucht Strg oder ist eine Funktionstaste.",
+      "fixed": "Fest: Sie wird über das getippte Zeichen erkannt und kann nicht geändert werden.",
+      "change": "Ändern",
+      "reset": "Standard",
+      "resetAll": "Zurück zu den Standardtasten",
+      "none": "Keine Taste",
+      "press": "Drücken Sie die neue Taste für „{action}“. Escape bricht ab.",
+      "why": {
+        "needsModifier": "Diese Taste wird in Text getippt. Nehmen Sie Strg dazu oder eine Funktionstaste.",
+        "reserved": "Diese Taste gehört dem System oder dem Browser (Neuladen, Schließen, Kopieren…). Wählen Sie eine andere.",
+        "fixed": "Diese Taste ist fest und kann nicht geändert werden."
+      },
+      "clash": "{chord} ist schon die Taste von: {actions}.",
+      "take": "Übernehmen",
+      "keep": "Alte behalten"
+    }
+  },
   "palette": {
     "logs": {
       "openFile": {

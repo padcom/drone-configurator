@@ -1235,6 +1235,54 @@
     "backendRestarted": "Backend został uruchomiony ponownie: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować.",
     "backendStopped": "Backend został zatrzymany: sesja pojazdu zakończona. Połącz się ponownie, aby kontynuować."
   },
+  "keys": {
+    "help": {
+      "label": "Pokaż skróty klawiszowe",
+      "keywords": "klawisze klawiatura skróty pomoc",
+      "title": "Skróty klawiszowe",
+      "intro": "Klawisze tak, jak są teraz, według ekranów.",
+      "settings": "Zmienisz je w Ustawieniach, w części Klawiatura.",
+      "close": "Zamknij"
+    },
+    "action": {
+      "palette": {
+        "open": "Otwórz paletę poleceń"
+      },
+      "help": {
+        "keys": "Pokaż skróty klawiszowe"
+      },
+      "panes": {
+        "next": "Następny panel",
+        "previous": "Poprzedni panel"
+      },
+      "params": {
+        "search": "Szukaj w parametrach",
+        "write": "Zapisz zmienione parametry"
+      }
+    },
+    "scope": {
+      "global": "Całe okno",
+      "parameters": "Parametry"
+    },
+    "settings": {
+      "title": "Klawiatura",
+      "intro": "Nadaj działaniu inny klawisz: naciśnij Zmień, a potem nowy klawisz (Escape rezygnuje). Klawisz musi mieć Ctrl albo być klawiszem funkcyjnym.",
+      "fixed": "Stały: rozpoznaje się go po wpisywanym znaku, więc nie można go zmienić.",
+      "change": "Zmień",
+      "reset": "Domyślny",
+      "resetAll": "Wróć do domyślnych klawiszy",
+      "none": "Brak klawisza",
+      "press": "Naciśnij nowy klawisz dla „{action}”. Escape rezygnuje.",
+      "why": {
+        "needsModifier": "Ten klawisz wpisuje się w tekście. Użyj go z Ctrl albo wybierz klawisz funkcyjny.",
+        "reserved": "Ten klawisz należy do systemu lub przeglądarki (odśwież, zamknij, kopiuj…). Wybierz inny.",
+        "fixed": "Ten klawisz jest stały i nie można go zmienić."
+      },
+      "clash": "{chord} jest już klawiszem dla: {actions}.",
+      "take": "Przejmij",
+      "keep": "Zostaw stary"
+    }
+  },
   "palette": {
     "logs": {
       "openFile": {
