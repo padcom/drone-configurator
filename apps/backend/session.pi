@@ -58,15 +58,6 @@ class Link {
   /// Set by telemetry.pi; `armedState()` says whether it can be trusted.
   public armed: bool = false
   public heartbeatAt: int = 0
-  /// The `system_status` of that heartbeat (MAV_STATE: 3 STANDBY, 4 ACTIVE, 5 CRITICAL ...); -1 = none yet. `landedNow()` says what it means.
-  public systemStatus: int = -1
-  /// The `custom_mode` and the MAV_TYPE of that heartbeat (-1 = none yet): which mode the vehicle is in, as a number, for the RC control with
-  /// a centred throttle (rcmodes.pi), and whether it is a multicopter.
-  public customMode: int = -1
-  public mavType: int = -1
-  /// Whether the RC control that runs has a throttle that rests in the middle: a mode change into a mode that would take its middle for thrust
-  /// is refused while it does (arming.pi).
-  public rcCentred: bool = false
   /// Until when (ms since 1970) the armed state is NOT known because an arm is in flight (arming.pi): `armedState()` says unknown, which
   /// every service takes for armed, so that no parameter write, calibration, motor test, log or reboot starts while the vehicle
   /// may be arming (its heartbeat lags the command by up to a second).
@@ -87,12 +78,6 @@ class Link {
   /// Whether a motor test is under way (motors.pi: from its start until the motor is stopped): the vehicle then reports itself ARMED, a
   /// reboot is refused (reboot.pi) and so are a calibration, a parameter download or write and the log operations.
   public motorTest: bool = false
-  /// Whether RC control is on (rc.pi: from its start until its release was written or given up): the vehicle then takes the page's sticks
-  /// for its radio, so a motor test, a calibration, a parameter write and a reboot are refused (`BUSY`).
-  public rcControl: bool = false
-  /// Whether a command to the vehicle that holds the others off (arming.pi: arm, a mode change, a guided command ...) was sent and is
-  /// not answered yet: RC control does not begin meanwhile (`BUSY`).
-  public commanding: bool = false
   /// Messages that must still go out as the session ends and are on their way: the rates the tuning stream gives back (tuningstream.pi).
   /// With the motor test's stop they are the things that must say goodbye: the connection stays open for `closeGraceMs` for them.
   public farewells: int = 0
@@ -196,9 +181,6 @@ class Link {
     typeMayChange = false
     armed = false
     heartbeatAt = 0
-    systemStatus = -1
-    customMode = -1
-    mavType = -1
     forgetParameterNames()
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)

@@ -1,6 +1,0 @@
-// Linux: pico-gamepad reads the pads through evdev.
-
-/// Whether pads can be listed and read here.
-export function platformHasPads(): bool {
-  return true
-}

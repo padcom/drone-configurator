@@ -377,10 +377,6 @@ function refuseTuning(id: string, value: f64): void throws CommunicatorError {
 async function writeParam(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
   const w = decodeParamWrite(payload ?? Cbor.Null, "$")
   const conn = connectedLink()
-  if (link.rcControl) {
-    // The vehicle takes the page's sticks for its radio: what is written now (RCx_OPTION, RCMAP_*, RC_OVERRIDE_TIME) would change what they do.
-    throw new CommunicatorError("BUSY", "RC control is on")
-  }
   if (link.calibrating) {
     // A write now could be overwritten by what a calibration keeps (a compass result replaces COMPASS_OFS*), and the page's
     // comparison of the old values with the new would be false.

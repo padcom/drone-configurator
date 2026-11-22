@@ -1206,87 +1206,6 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
-export type RcControlParams = { "rudderArm"?: boolean, "throttle"?: "low" | "centred" }
-
-function validateRcControlParamsInto(value: any, path: string): boolean {
-  return map(value, path, ["rudderArm","throttle"]) && (value["rudderArm"] === undefined || nested(value["rudderArm"], `${path}.rudderArm`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["throttle"] === undefined || nested(value["throttle"], `${path}.throttle`, (value, path) => oneOf(value, path, ["low","centred"])))
-}
-
-/** The first problem with `value` as a rc-control-params, or null. */
-export const validateRcControlParams = (value: unknown) => run(validateRcControlParamsInto, value)
-
-export type RcInput = { "seq": number, "channels": (number)[] }
-
-function validateRcInputInto(value: any, path: string): boolean {
-  return map(value, path, ["seq","channels"]) && (value["seq"] === undefined ? fail(`${path}.seq`, 'present') : nested(value["seq"], `${path}.seq`, (value, path) => uint(value, path, 0xffffffff))) && (value["channels"] === undefined ? fail(`${path}.channels`, 'present') : nested(value["channels"], `${path}.channels`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff))))
-}
-
-/** The first problem with `value` as a rc-input, or null. */
-export const validateRcInput = (value: unknown) => run(validateRcInputInto, value)
-
-export type RcState = { "state": "on" | "released", "why"?: string, "throttleChannel"?: number, "throttleMin"?: number, "sent"?: number, "clamped"?: number, "held"?: number, "confirmed"?: boolean }
-
-function validateRcStateInto(value: any, path: string): boolean {
-  return map(value, path, ["state","why","throttleChannel","throttleMin","sent","clamped","held","confirmed"]) && (value["state"] === undefined ? fail(`${path}.state`, 'present') : nested(value["state"], `${path}.state`, (value, path) => oneOf(value, path, ["on","released"]))) && (value["why"] === undefined || nested(value["why"], `${path}.why`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["throttleChannel"] === undefined || nested(value["throttleChannel"], `${path}.throttleChannel`, (value, path) => uint(value, path, 0xff))) && (value["throttleMin"] === undefined || nested(value["throttleMin"], `${path}.throttleMin`, (value, path) => uint(value, path, 0xffff))) && (value["sent"] === undefined || nested(value["sent"], `${path}.sent`, (value, path) => uint(value, path, 0xffffffff))) && (value["clamped"] === undefined || nested(value["clamped"], `${path}.clamped`, (value, path) => uint(value, path, 0xffffffff))) && (value["held"] === undefined || nested(value["held"], `${path}.held`, (value, path) => uint(value, path, 0xffffffff))) && (value["confirmed"] === undefined || nested(value["confirmed"], `${path}.confirmed`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
-}
-
-/** The first problem with `value` as a rc-state, or null. */
-export const validateRcState = (value: unknown) => run(validateRcStateInto, value)
-
-export type PadList = { "supported": boolean, "pads": (PadInfo)[], "denied": (PadDenied)[] }
-
-function validatePadListInto(value: any, path: string): boolean {
-  return map(value, path, ["supported","pads","denied"]) && (value["supported"] === undefined ? fail(`${path}.supported`, 'present') : nested(value["supported"], `${path}.supported`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["pads"] === undefined ? fail(`${path}.pads`, 'present') : nested(value["pads"], `${path}.pads`, (value, path) => list(value, path, (value, path) => validatePadInfoInto(value, path)))) && (value["denied"] === undefined ? fail(`${path}.denied`, 'present') : nested(value["denied"], `${path}.denied`, (value, path) => list(value, path, (value, path) => validatePadDeniedInto(value, path))))
-}
-
-/** The first problem with `value` as a pad-list, or null. */
-export const validatePadList = (value: unknown) => run(validatePadListInto, value)
-
-export type PadDenied = { "id": string, "name": string, "code": string }
-
-function validatePadDeniedInto(value: any, path: string): boolean {
-  return map(value, path, ["id","name","code"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["code"] === undefined ? fail(`${path}.code`, 'present') : nested(value["code"], `${path}.code`, (value, path) => typeof value === 'string' || fail(path, 'text')))
-}
-
-/** The first problem with `value` as a pad-denied, or null. */
-export const validatePadDenied = (value: unknown) => run(validatePadDeniedInto, value)
-
-export type PadInfo = { "id": string, "legacyId": string, "name": string, "vendor": number, "product": number, "uniq"?: string, "phys"?: string, "source": string, "channels": (PadChannel)[] }
-
-function validatePadInfoInto(value: any, path: string): boolean {
-  return map(value, path, ["id","legacyId","name","vendor","product","uniq","phys","source","channels"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["legacyId"] === undefined ? fail(`${path}.legacyId`, 'present') : nested(value["legacyId"], `${path}.legacyId`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["name"] === undefined ? fail(`${path}.name`, 'present') : nested(value["name"], `${path}.name`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["vendor"] === undefined ? fail(`${path}.vendor`, 'present') : nested(value["vendor"], `${path}.vendor`, (value, path) => uint(value, path, 0xffff))) && (value["product"] === undefined ? fail(`${path}.product`, 'present') : nested(value["product"], `${path}.product`, (value, path) => uint(value, path, 0xffff))) && (value["uniq"] === undefined || nested(value["uniq"], `${path}.uniq`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["phys"] === undefined || nested(value["phys"], `${path}.phys`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["source"] === undefined ? fail(`${path}.source`, 'present') : nested(value["source"], `${path}.source`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["channels"] === undefined ? fail(`${path}.channels`, 'present') : nested(value["channels"], `${path}.channels`, (value, path) => list(value, path, (value, path) => validatePadChannelInto(value, path))))
-}
-
-/** The first problem with `value` as a pad-info, or null. */
-export const validatePadInfo = (value: unknown) => run(validatePadInfoInto, value)
-
-export type PadChannel = { "n": number, "from": "axis" | "button", "code": number, "min"?: number | bigint, "max"?: number | bigint, "flat"?: number }
-
-function validatePadChannelInto(value: any, path: string): boolean {
-  return map(value, path, ["n","from","code","min","max","flat"]) && (value["n"] === undefined ? fail(`${path}.n`, 'present') : nested(value["n"], `${path}.n`, (value, path) => uint(value, path, 0xff))) && (value["from"] === undefined ? fail(`${path}.from`, 'present') : nested(value["from"], `${path}.from`, (value, path) => oneOf(value, path, ["axis","button"]))) && (value["code"] === undefined ? fail(`${path}.code`, 'present') : nested(value["code"], `${path}.code`, (value, path) => uint(value, path, 0xffff))) && (value["min"] === undefined || nested(value["min"], `${path}.min`, (value, path) => (Number.isSafeInteger(value) || typeof value === 'bigint') || fail(path, 'an integer'))) && (value["max"] === undefined || nested(value["max"], `${path}.max`, (value, path) => (Number.isSafeInteger(value) || typeof value === 'bigint') || fail(path, 'an integer'))) && (value["flat"] === undefined || nested(value["flat"], `${path}.flat`, (value, path) => uint(value, path, 0xffffffff)))
-}
-
-/** The first problem with `value` as a pad-channel, or null. */
-export const validatePadChannel = (value: unknown) => run(validatePadChannelInto, value)
-
-export type PadReadParams = { "id": string }
-
-function validatePadReadParamsInto(value: any, path: string): boolean {
-  return map(value, path, ["id"]) && (value["id"] === undefined ? fail(`${path}.id`, 'present') : nested(value["id"], `${path}.id`, (value, path) => typeof value === 'string' || fail(path, 'text')))
-}
-
-/** The first problem with `value` as a pad-read-params, or null. */
-export const validatePadReadParams = (value: unknown) => run(validatePadReadParamsInto, value)
-
-export type PadSample = { "seq": number, "at": number | bigint, "channels": (number)[], "have": number, "gapMs"?: number }
-
-function validatePadSampleInto(value: any, path: string): boolean {
-  return map(value, path, ["seq","at","channels","have","gapMs"]) && (value["seq"] === undefined ? fail(`${path}.seq`, 'present') : nested(value["seq"], `${path}.seq`, (value, path) => uint(value, path, 0xffffffff))) && (value["at"] === undefined ? fail(`${path}.at`, 'present') : nested(value["at"], `${path}.at`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n))) && (value["channels"] === undefined ? fail(`${path}.channels`, 'present') : nested(value["channels"], `${path}.channels`, (value, path) => list(value, path, (value, path) => typeof value === 'number' || fail(path, 'a number')))) && (value["have"] === undefined ? fail(`${path}.have`, 'present') : nested(value["have"], `${path}.have`, (value, path) => uint(value, path, 0xffff))) && (value["gapMs"] === undefined || nested(value["gapMs"], `${path}.gapMs`, (value, path) => uint(value, path, 0xffffffff)))
-}
-
-/** The first problem with `value` as a pad-sample, or null. */
-export const validatePadSample = (value: unknown) => run(validatePadSampleInto, value)
-
 export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
 
 function validateMapTileAskInto(value: any, path: string): boolean {
@@ -1408,11 +1327,6 @@ export interface Services {
   "calibration.result": { kind: 'event', payload: CalibrationResult }
   "motors.test": { kind: 'subscription', params: MotorTestParams, value: MotorTestState }
   "motors.hold": { kind: 'method', request: null, response: null }
-  "rc.control": { kind: 'subscription', params: RcControlParams, value: RcState }
-  "rc.input": { kind: 'method', request: RcInput, response: null }
-  "pad.list": { kind: 'method', request: null, response: PadList }
-  "pad.devices": { kind: 'subscription', params: null, value: PadList }
-  "pad.read": { kind: 'subscription', params: PadReadParams, value: PadSample }
   "tuning.stream": { kind: 'subscription', params: TuningParams, value: TuningBatch }
   "telemetry.stream": { kind: 'subscription', params: TelemetryParams, value: Telemetry }
   "vehicle.messages": { kind: 'subscription', params: MessagesParams, value: VehicleMessage }
@@ -1649,26 +1563,6 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "motors.hold": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),
     response: (value: any, path: string) => value === null || fail(path, 'null'),
-  },
-  "rc.control": {
-    params: (value: any, path: string) => validateRcControlParamsInto(value, path),
-    value: (value: any, path: string) => validateRcStateInto(value, path),
-  },
-  "rc.input": {
-    request: (value: any, path: string) => validateRcInputInto(value, path),
-    response: (value: any, path: string) => value === null || fail(path, 'null'),
-  },
-  "pad.list": {
-    request: (value: any, path: string) => value === null || fail(path, 'null'),
-    response: (value: any, path: string) => validatePadListInto(value, path),
-  },
-  "pad.devices": {
-    params: (value: any, path: string) => value === null || fail(path, 'null'),
-    value: (value: any, path: string) => validatePadListInto(value, path),
-  },
-  "pad.read": {
-    params: (value: any, path: string) => validatePadReadParamsInto(value, path),
-    value: (value: any, path: string) => validatePadSampleInto(value, path),
   },
   "tuning.stream": {
     params: (value: any, path: string) => validateTuningParamsInto(value, path),
