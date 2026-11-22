@@ -48,12 +48,13 @@
           </div>
         </div>
         <div class="data-table-body" role="rowgroup" :style="{ height: `${shown.length * rowPx}px` }">
-          <!-- A row is drawn again only when its row, its widths, or what is on it (the cursor, an edit) changes: a cell that is
-               updated (its row is replaced by another) draws that one row, and not the table. -->
+          <!-- A row is drawn again only when its row, its place (it is positioned by it: a sort or a filter moves it), its
+               widths, or what is on it (the cursor, an edit) changes: a cell that is updated (its row is replaced by another)
+               draws that one row, and not the table. -->
           <div
             v-for="entry in drawn"
             :key="entry.key"
-            v-memo="[entry.row, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key)]"
+            v-memo="[entry.row, entry.index, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key)]"
             class="data-table-row"
             role="row"
             :aria-rowindex="entry.index + 2"

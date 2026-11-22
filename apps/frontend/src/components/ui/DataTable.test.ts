@@ -73,6 +73,30 @@ function shown(wrapper: VueWrapper): string[] {
 }
 
 /**
+ * The top of a row (px), from its style.
+ *
+ * @param row the row
+ * @returns the number, as text
+ */
+function topOf(row: Part): string | undefined {
+  return /top: (?<px>\d+)px/u.exec(row.attributes('style') ?? '')?.groups?.px
+}
+
+/**
+ * Where each drawn row says it is: its name, its place, its top (px) and its aria-rowindex, as "name@place/top/aria".
+ *
+ * @param wrapper the table
+ * @returns one text for each row, in the order of the page
+ */
+function placed(wrapper: VueWrapper): string[] {
+  return wrapper.findAll('.data-table-row').map(row => {
+    const name = row.findAll('.data-table-cell')[1]?.text()
+
+    return `${name}@${row.attributes('data-index')}/${topOf(row)}/${row.attributes('aria-rowindex')}`
+  })
+}
+
+/**
  * The cell at a row and a column of the drawn rows.
  *
  * @param wrapper the table
@@ -203,9 +227,10 @@ describe('the sort of the rows', () => {
     await head(wrapper).get('button').trigger('click')
     expect([names(wrapper), head(wrapper).attributes('aria-sort')]).toEqual([['A', 'B', 'C'], 'ascending'])
     expect(head(wrapper).text()).toContain('▲')
+    expect(placed(wrapper)).toEqual(['A@0/0/2', 'B@1/44/3', 'C@2/88/4'])
     await head(wrapper).get('button').trigger('click')
     expect([names(wrapper), head(wrapper).attributes('aria-sort')]).toEqual([['C', 'B', 'A'], 'descending'])
-    expect(head(wrapper).text()).toContain('▼')
+    expect(placed(wrapper)).toEqual(['C@0/0/2', 'B@1/44/3', 'A@2/88/4'])
     await head(wrapper).get('button').trigger('click')
     expect(names(wrapper)).toEqual(['B', 'C', 'A'])
   })
@@ -226,9 +251,12 @@ describe('the filter', () => {
 
     expect(shown(wrapper).map(row => row.split('|')[0])).toEqual(['2', '4', '6', '8'])
     expect(wrapper.get('[role="grid"]').attributes('aria-rowcount')).toBe('5')
+    // (the rows that stay are moved up: their place, top and aria-rowindex follow the filter)
+    expect(placed(wrapper).slice(0, 3)).toEqual(['P0002@0/0/2', 'P0004@1/44/3', 'P0006@2/88/4'])
 
     await wrapper.setProps({ filter: undefined })
     expect(shown(wrapper)).toHaveLength(8)
+    expect(placed(wrapper).slice(0, 3)).toEqual(['P0001@0/0/2', 'P0002@1/44/3', 'P0003@2/88/4'])
   })
 })
 
