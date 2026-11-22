@@ -13,7 +13,6 @@ import type {
   ParamsFacts,
   PlanFacts,
   PreferenceFacts,
-  RcFacts,
   VehicleFacts,
 } from '@/lib/commands/command'
 import {
@@ -33,7 +32,6 @@ import { ArmVehicle, DisarmVehicle, EmergencyStop, ReviewBeforeArming, flightMod
 import { ChangeAltitude } from '@/lib/commands/changeAltitude'
 import { GoHere } from '@/lib/commands/goHere'
 import { SetHomeHere } from '@/lib/commands/setHomeHere'
-import { ToggleRcControl } from '@/lib/commands/rcControl'
 import { TakeOff } from '@/lib/commands/takeoff'
 import { openFile, saveText, snapshotFileName } from '@/lib/app/files'
 import { HEARTBEAT_FRESH_MS } from '@/lib/app/armed'
@@ -96,7 +94,6 @@ function makeRegistry(): CommandRegistry {
   registry.register(new GoHere())
   registry.register(new ChangeAltitude())
   registry.register(new SetHomeHere())
-  registry.register(new ToggleRcControl())
   planCommands().forEach(command => registry.register(command))
   flightModeCommands().forEach(command => registry.register(command))
   const others = [
@@ -328,22 +325,6 @@ function guidedFacts(): GuidedFacts {
 }
 
 /**
- * The RC control, as the command that turns it on and off sees it.
- *
- * @returns the facts
- */
-function rcFacts(): RcFacts {
-  const { rcControl } = useConfigurator()
-
-  return {
-    state: () => rcControl.state.value,
-    block: () => rcControl.block.value,
-    turnOn: ask => rcControl.turnOn(ask),
-    disable: () => rcControl.disable(),
-  }
-}
-
-/**
  * The plan on the Plan page, as the commands see it.
  *
  * @returns the facts
@@ -375,12 +356,12 @@ function planFacts(): PlanFacts {
 }
 
 /**
- * What the screens hold that a command may touch: the place picked on the map, the plan, and the RC control.
+ * What the screens hold that a command may touch: the place picked on the map, and the plan.
  *
  * @returns the facts
  */
-function screenFacts(): Pick<CommandContext, 'guided' | 'plan' | 'rc'> {
-  return { guided: guidedFacts(), plan: planFacts(), rc: rcFacts() }
+function screenFacts(): Pick<CommandContext, 'guided' | 'plan'> {
+  return { guided: guidedFacts(), plan: planFacts() }
 }
 
 /**

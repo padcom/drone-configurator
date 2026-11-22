@@ -209,22 +209,8 @@ export interface PlanFacts {
   redo(): void
 }
 
-/** The RC control (a gamepad flying the vehicle), as the command that turns it on and off sees it. */
-export interface RcFacts {
-  /** Where it is: `off`, `starting` or `on`. */
-  state(): 'off' | 'starting' | 'on'
-  /** What stops it from being turned on before the pad is looked at (`off`: the setting; `link`: no simulator), or null. */
-  block(): 'off' | 'link' | null
-  /** Turns it on after the summary was asked once in this session (`ask` shows it). */
-  turnOn(ask: () => Promise<boolean>): Promise<void>
-  /** Turns it off (and releases). */
-  disable(): void
-}
-
 /** Everything a command may touch: the commands get nothing else, so a test can make a context of a few lines. */
 export interface CommandContext {
-  /** The RC control. */
-  rc: RcFacts
   /** The plan on the Plan page. */
   plan: PlanFacts
   /** Goes to a route. */

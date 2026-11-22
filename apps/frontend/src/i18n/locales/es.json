@@ -824,78 +824,6 @@
     "stop": "Parada de emergencia",
     "current": "ahora"
   },
-  "rc": {
-    "switch": "Control remoto",
-    "help": {
-      "off": "Apagado. El mando no pilota el vehículo.",
-      "on": "El mando está pilotando el vehículo.",
-      "resting": "Mantén todos los sticks en reposo un momento (el acelerador también): hasta entonces no se envía nada."
-    },
-    "rest": {
-      "roll": "El alabeo no está en el centro: {level}. Centra el stick.",
-      "pitch": "El cabeceo no está en el centro: {level}. Centra el stick.",
-      "yaw": "La guiñada no está en el centro: {level}. Centra el stick.",
-      "throttleCentred": "El acelerador no está en el centro: {level}. Deja que el stick vuelva a su centro.",
-      "throttleLow": "El acelerador no está abajo: {level}. Baja el stick hasta el fondo."
-    },
-    "indicator": {
-      "on": "Control remoto activo",
-      "off": "Control remoto activo. Pulsa para apagarlo.",
-      "rudder": "armado con sticks",
-      "offRudder": "Control remoto activo, y los sticks pueden armar y desarmar. Pulsa para apagarlo."
-    },
-    "summary": {
-      "title": "¿Pilotar con el mando?",
-      "what": "El mando enviará sus sticks al vehículo hasta que lo apagues. No se envía nada hasta que los cuatro sticks estén en reposo. Mientras esté activo, la comprobación del vehículo «RC no encontrado» ya no protege de un transmisor ausente.",
-      "centred": "Acelerador: centrado. El centro del stick es sin ascenso, arriba asciende, abajo desciende. Solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune (y sigue en Auto, Guided, RTL, Land, Brake y similares). Cualquier otro modo apaga el control.",
-      "low": "Acelerador: abajo en reposo. El stick debe estar abajo del todo antes de que el control empiece.",
-      "either": "El acelerador está centrado o abajo en reposo, según diga la asignación (Ajustes). Centrado solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune; cualquier otro modo apaga el control.",
-      "button": "Activar el control remoto"
-    },
-    "command": {
-      "label": "Control remoto: activar o desactivar",
-      "keywords": "mando radio joystick sticks remoto override"
-    },
-    "reason": {
-      "off": "El control remoto no está permitido. Permítelo en Ajustes.",
-      "link": "No hay ningún simulador conectado.",
-      "pad": "No se lee ningún mando. Mueve un stick de la radio.",
-      "mapping": "El mando no tiene una asignación lista. Revísala y confírmala en Ajustes.",
-      "reading": "Un stick del vehículo no tiene un canal proporcional del mando (un eje). Mira Ajustes.",
-      "vehicle": "Los ajustes del vehículo no concuerdan con la asignación. Mira Ajustes.",
-      "vehicleDetail": "Los ajustes del vehículo no concuerdan con la asignación: {detail}",
-      "mode": "Un acelerador centrado solo empieza en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag o Autotune. Cambia primero el modo.",
-      "MODE": "El control remoto terminó: el modo de vuelo no admite un acelerador centrado.",
-      "REST_TIMEOUT": "El control remoto terminó: los sticks no estuvieron en reposo en 10 segundos.",
-      "PAD_FAULT": "El control remoto terminó: un stick del mando dejó de leerse bien (falta, no es un número o está fuera de rango). Se liberaron todos los canales.",
-      "ENDED": "El control remoto terminó.",
-      "ERROR": "El control remoto no pudo empezar.",
-      "SILENT": "Control remoto terminado: la página estuvo callada demasiado tiempo.",
-      "LINK_LOST": "Control remoto terminado: se perdió el enlace con el vehículo.",
-      "STATE_UNKNOWN": "No se conoce el estado del vehículo: espéralo y vuelve a intentarlo.",
-      "STOPPED": "Control remoto terminado: se está desarmando o parando el vehículo.",
-      "NOT_ALLOWED": "Control remoto terminado: ya no está permitido.",
-      "NOT_SIMULATOR": "Control remoto terminado: el vehículo no es un simulador.",
-      "PAD_NONE": "Control remoto terminado: no se lee el mando.",
-      "PAD_CHANGED": "Control remoto terminado: se lee otro mando distinto del que se usaba para volar.",
-      "PAD_LATE": "Control remoto terminado: una lectura del mando llegó tarde.",
-      "PAD_HIDDEN": "Control remoto terminado: se ocultó la ventana.",
-      "VEHICLE_CHANGED": "Control remoto terminado: es otro vehículo.",
-      "PARAMS_UNKNOWN": "Control remoto terminado: no se conocen los parámetros del vehículo.",
-      "GUIDED": "Hay un vuelo guiado (el vehículo está en GUIDED o hay un lugar elegido): el control remoto no empieza.",
-      "DECLINED": "El control remoto no se activó: no se confirmó el resumen.",
-      "PARAMS_CHANGED": "Control remoto terminado: cambiaron los ajustes del vehículo.",
-      "EDITED": "Control remoto terminado: se cambió la asignación.",
-      "NOT_CONNECTED": "No hay ningún vehículo conectado.",
-      "UNSUPPORTED": "El control remoto está hecho para un multicóptero ArduPilot.",
-      "THR_DZ_SMALL": "Un acelerador centrado necesita un THR_DZ del vehículo de al menos 30: es menor, así que el centro del stick no mantendría la altitud.",
-      "BUSY": "Otra cosa tiene el vehículo ahora: una calibración, una prueba de motores, una operación de parámetros, registros o plan, o un reinicio.",
-      "PARAMS_INCOMPLETE": "No se descargaron todos los parámetros del vehículo.",
-      "PARAMS_MISSING": "No se pudo leer del vehículo un ajuste que necesita el control remoto.",
-      "OVERRIDE_DISABLED": "El vehículo ignora los overrides o nunca los suelta (RC_OVERRIDE_TIME).",
-      "other": "Control remoto terminado ({code})."
-    }
-  },
   "settings": {
     "metadata": {
       "title": "Metadatos de parámetros",
@@ -921,104 +849,6 @@
       "metres": "{n} m",
       "plain": "Pedir confirmación (recomendado)",
       "none": "No preguntar"
-    },
-    "rc": {
-      "title": "Control remoto",
-      "intro": "Pilota el vehículo con un mando, o con una radio que se presenta como tal (por ejemplo una TX16S por USB).",
-      "allow": "Permitir el control remoto",
-      "allowHelp": "Desactivado por defecto y solo para el simulador integrado o un enlace a este ordenador: cualquier otro vehículo se rechaza. Esto solo lo permite; no lo inicia.",
-      "rudderArm": "Dejar que los sticks armen y desarmen",
-      "rudderArmHelp": "Desactivado por defecto. Permite que los sticks armen el simulador (gas abajo) y lo desarmen SOLO EN TIERRA: en el aire el bloqueo sigue. Necesita ARMING_RUDDER en el vehículo; las comprobaciones previas al armado siguen aplicándose. Surte efecto cuando se activa el control remoto.",
-      "rudderArmShut": "Permite primero el control remoto. Si lo desactivas, esto también se desactiva.",
-      "status": {
-        "ready": "Todo está listo para el control remoto.",
-        "link": "No hay ningún simulador conectado."
-      },
-      "device": {
-        "title": "Mando",
-        "none": "Aún no se ha encontrado ningún mando. Una radio aparece al mover un stick.",
-        "gone": "Ahora no se lee el mando. Mueve un stick.",
-        "channel": "CH{n}"
-      },
-      "source": {
-        "title": "De dónde se lee el mando",
-        "auto": "Automático",
-        "backend": "El backend",
-        "browser": "El navegador",
-        "help": "El backend lee todos los ejes de una emisora a la vez, sin mover antes un stick (solo Linux). El navegador necesita que se mueva un stick antes y pierde ejes de algunas emisoras. Automático usa el backend donde puede.",
-        "unsupported": "El backend no puede leer mandos en este ordenador: se usa el navegador.",
-        "pad": "Mando",
-        "noPads": "El backend no ve ningún mando. Conecte la emisora.",
-        "gone": "El backend no está leyendo este mando ahora. Compruebe que la emisora está conectada.",
-        "denied": "{name} está conectado pero no se puede abrir. Dé a su usuario acceso al dispositivo (una regla udev con uaccess) o lea el mando desde el navegador.",
-        "ended": "El backend dejó de leer el mando ({code})."
-      },
-      "mapping": "Asignación",
-      "channel": "Canal del vehículo",
-      "vehicleChannel": "Canal del vehículo {n}",
-      "own": "El propio de la radio",
-      "channelsNote": "Todo mando es CH1 a CH16: primero sus ejes, luego sus botones (−1 suelto, +1 pulsado). Un canal que el mando no tiene muestra un guion. Aquí no se calibra nada: se usa el rango propio del mando.",
-      "sourceChannel": "CH{n} del mando",
-      "level": "Lo que lee la fila ahora",
-      "pulseMin": "Pulso en −1 (µs)",
-      "pulseMax": "Pulso en +1 (µs)",
-      "pulseDefault": "el del canal",
-      "addRow": "Añadir una fila",
-      "moveIt": "Muévelo",
-      "moveCancel": "Cancelar",
-      "moveWaiting": "Mueve el stick o el interruptor, o pulsa el botón, que quieres decir.",
-      "remove": "Quitar el canal {channel}",
-      "pulse": "{us} µs",
-      "noPulse": "—",
-      "invert": "Invertir",
-      "zone": "Zona muerta (%)",
-      "expo": "Curva (%)",
-      "refused": {
-        "arm": "El canal {channel} arma o detiene el vehículo, así que no se puede manejar desde aquí.",
-        "taken": "El canal {channel} ya lo maneja otra fila. Quita esa fila o elige otro canal."
-      },
-      "noSource": "Aún sin control",
-      "style": {
-        "title": "Acelerador",
-        "centred": "Centrado",
-        "low": "Abajo en reposo",
-        "centredHelp": "El stick reposa en el centro (vuelve solo, como en un dron de cámara). El centro es sin ascenso, arriba asciende, abajo desciende. Solo funciona en Alt Hold, Loiter, PosHold, Sport, Circle, Flowhold, ZigZag y Autotune, y sigue en Auto, Guided, RTL, Land, Brake y similares; cualquier otro modo apaga el control, y no empieza en ninguno. La zona muerta de su fila debe ser de al menos 5 %.",
-        "lowHelp": "El stick reposa abajo (el acelerador de una radio). El stick debe estar abajo del todo antes de que el control empiece."
-      },
-      "sticks": {
-        "roll": "Alabeo",
-        "pitch": "Cabeceo",
-        "throttle": "Acelerador",
-        "yaw": "Guiñada"
-      },
-      "confirm": {
-        "title": "Confirmar",
-        "button": "Confirmar esta asignación",
-        "done": "Esta asignación está confirmada para este mando.",
-        "needed": "Sin confirmar. Mueve cada stick y mira su barra arriba, luego confirma. Cualquier cambio quita la confirmación.",
-        "converted": "Esta asignación se convirtió de una versión anterior. Revísala y confírmala.",
-        "disabled": "Necesita un mando que se lee, una fila para cada uno de los cuatro sticks del vehículo en un eje del mando, y ninguno de los problemas de abajo."
-      },
-      "issue": {
-        "mapping": {
-          "channel": "El canal {channel} no es un canal del 1 al 16.",
-          "duplicate": "El canal {channel} lo maneja más de una fila.",
-          "source": "El canal {channel} aún no tiene control. Pulsa «Muévelo» y mueve el que quieres.",
-          "zone": "La zona muerta del canal {channel} debe ser de 0 a 50 %.",
-          "expo": "La curva del canal {channel} debe ser de 0 a 100 %.",
-          "absent": "El canal {channel} lee un canal del mando que este mando no tiene.",
-          "pulse": "Un pulso del canal {channel} debe ser un número entero de 800 a 2200 µs.",
-          "unconfirmed": "La asignación no está confirmada. Revísala y pulsa «Confirmar esta asignación»."
-        },
-        "vehicle": {
-          "unknownAll": "No se conocen todos los ajustes del vehículo. Conecta el vehículo y deja que se descarguen todos sus parámetros.",
-          "unknown": "El vehículo no informó de un ajuste que necesita el canal {channel}. Vuelve a descargar sus parámetros.",
-          "range": "El rango de pulsos del canal {channel} en el vehículo no sirve.",
-          "arm": "El canal {channel} arma o detiene el vehículo. Quita esa fila.",
-          "zone": "La zona muerta del acelerador del vehículo es ancha, así que «abajo» es más ancho de lo normal.",
-          "centre": "La zona muerta de la fila del acelerador debe ser de al menos 5 % con un acelerador centrado."
-        }
-      }
     },
     "map": {
       "title": "Mapa",
@@ -2380,7 +2210,6 @@
       "home": "El vehículo no ha dicho últimamente dónde está el origen.",
       "target": "Elija primero un lugar en el mapa.",
       "far": "Ese lugar está más lejos del origen que su límite en Ajustes.",
-      "rcControl": "El control remoto está activo. Apágalo para enviar un comando guiado.",
       "unsupported": "El control guiado es solo para vehículos ArduPilot.",
       "invalid": "Ese lugar o esa altitud no es válido.",
       "outOfLimits": "Eso excede los límites de Ajustes o la valla del propio vehículo.",
