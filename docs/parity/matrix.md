@@ -5,9 +5,10 @@ main after #517**, and are by what the code and the screens do, not by the issue
 and the rules are in `README.md`. Issues that are closed are not listed. "Copter" below means ArduCopter, the one vehicle type the
 app supports.
 
-The open issues at this date are 247, and every one is a row below. By status (they add up from the rows): **done 6** (the five
-implemented ones, and #8, which this change completes), **partial 87**, **not done 129**, **needs hardware 18**, **deferred 7**
-(scripting, #172 to #178), **out of scope 0**, **superseded 0** (= 247). The issues that were closed since the close-out are named
+The open issues at this date are 247, and every one is a row below. By status (they add up from the rows): **done 1** (#8
+itself, when this merges), **partial 92** (five of them implemented, with one acceptance point or more not confirmed by qa's
+spot check: #28, #37, #44, #46, #104), **not done 129**, **needs hardware 18**, **deferred 7** (scripting, #172 to #178), **out of
+scope 0**, **superseded 0** (= 247). The issues that were closed since the close-out are named
 under the last table and are not counted.
 
 ## Foundation
@@ -25,7 +26,7 @@ under the last table and are not counted.
 | Performance budgets enforced in CI | #22 | Partial | no budget file, no cold-start/bundle/long-task checks, no regression gate |
 | Telemetry model, coalesced for the UI | #26 | Partial | no update-rate or CPU budget test; no SITL e2e against simulated truth |
 | One-key connect with auto-detection | #27 | Partial | no USB detection, baud probing or default UDP listen |
-| Reconnect that resumes | #28 | **Done** | |
+| Reconnect that resumes | #28 | Partial | implemented; qa could not confirm the cached-parameters, keyboard and i18n points or the arm64 gate |
 
 ## Connection and link
 
@@ -52,13 +53,13 @@ under the last table and are not counted.
 |---|---|---|---|
 | Download and cache ArduPilot parameter metadata | #35 | Partial | the file is supplied or loaded from a path; no download, no per-version cache |
 | Full table with groups and fast search | #36 | Partial | no everyday-words list, no "recently used" group, no budget test |
-| Batch edit with verified writes | #37 | **Done** | |
+| Batch edit with verified writes | #37 | Partial | implemented; not confirmed: one rejected value, rounding, the override callout, discard |
 | Parameter download over MAVFTP, cached per vehicle | #38 | Partial | no per-vehicle cache |
 | Import and export parameter files | #39 | Partial | the app's snapshot format only; no plain `.param` file |
 | Compare against a file or the defaults | #40 | Partial | no comparison with firmware defaults or another vehicle |
 | Frame parameter presets | #41 | Not done | needs #39 |
 | Reboot-required tracking and reboot | #42 | Partial | no pending-reboot indicator from the metadata flag |
-| Curated view by user level | #44 | **Done** | |
+| Curated view by user level | #44 | Partial | implemented; no grouped view with plain descriptions, no test with a real Copter metadata file |
 | User-defined parameter pages | #201 | Not done | favourites only |
 | Renamed parameters across firmware versions | #202 | Not done | |
 | Restore parameters from a log | #203 | Not done | |
@@ -68,7 +69,7 @@ under the last table and are not counted.
 
 | Capability | Issue | Status | What remains |
 |---|---|---|---|
-| Backend map tile service with a persistent cache | #46 | **Done** | the cached-tile budget was not measured |
+| Backend map tile service with a persistent cache | #46 | Partial | implemented; no 20 ms cached-tile test, Retry-After not seen |
 | Map sources, custom URL templates, keys | #48 | Partial | one built-in source plus a custom one; no registry |
 | Pre-download a map area for offline use; download tiles for a mission | #49 | Not done | |
 | Vehicle, trail and home on the map | #50 | Partial | no target on the map; no long-trail budget |
@@ -155,7 +156,7 @@ under the last table and are not counted.
 | Flight mode assignment | #101 | Partial | no live switch-position indicator |
 | Failsafes | #102 | Partial | no confirmation for disabling |
 | Motor test | #103 | Partial | no "all motors"; needs-hardware-verification |
-| Initial tune values | #104 | **Done** | the e2e runs on the built-in simulated vehicle |
+| Initial tune values | #104 | Partial | implemented; the e2e runs on the built-in simulated vehicle, not SITL |
 | Serial port functions and baud rates | #105 | Partial | no per-board port names or conflict callout |
 | GPS setup | #106 | Not done | needs-hardware-verification |
 | Battery monitor setup | #107 | Partial | no sensor presets; needs-hardware-verification |
