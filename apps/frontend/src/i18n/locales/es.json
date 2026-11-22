@@ -492,7 +492,16 @@
       "badges": "Insignias",
       "panels": "Paneles",
       "icons": "Iconos",
-      "charts": "Gráficos"
+      "charts": "Gráficos",
+      "table": "Tabla de datos"
+    },
+    "table": {
+      "label": "Parámetros de ejemplo (2000 filas: solo se dibujan las filas a la vista)",
+      "col": {
+        "number": "Número",
+        "name": "Nombre",
+        "value": "Valor"
+      }
     },
     "chart": {
       "altitude": "Altitud, m (5000 muestras reducidas, se conserva un pico de una muestra)",
@@ -892,6 +901,11 @@
       "days": "Días: {days}"
     },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
+  },
+  "table": {
+    "resize": "Cambiar el ancho de la columna {name}",
+    "help": "Las flechas se mueven entre celdas. Intro, o escribir, edita una celda; Escape cancela; Tab va a la celda siguiente.",
+    "empty": "No hay filas."
   },
   "connection": {
     "rebooting": "reiniciando",

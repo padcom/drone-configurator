@@ -492,7 +492,16 @@
       "badges": "Etichette",
       "panels": "Pannelli",
       "icons": "Icone",
-      "charts": "Grafici"
+      "charts": "Grafici",
+      "table": "Tabella di dati"
+    },
+    "table": {
+      "label": "Parametri di esempio (2000 righe: si disegnano solo quelle in vista)",
+      "col": {
+        "number": "Numero",
+        "name": "Nome",
+        "value": "Valore"
+      }
     },
     "chart": {
       "altitude": "Quota, m (5000 campioni ridotti, un picco di un campione resta)",
@@ -892,6 +901,11 @@
       "days": "Giorni: {days}"
     },
     "more": "Unità, mappa e valori predefiniti del veicolo arriveranno con le loro schermate."
+  },
+  "table": {
+    "resize": "Cambia la larghezza della colonna {name}",
+    "help": "Le frecce si spostano tra le celle. Invio, o digitare, modifica una cella; Esc annulla; Tab va alla cella successiva.",
+    "empty": "Nessuna riga."
   },
   "connection": {
     "rebooting": "riavvio",
