@@ -11,20 +11,27 @@ on:
         description: The ArduPilot tag or commit to build SITL at (empty for the pinned one, .github/ardupilot-ref)
         type: string
         default: ''
+      specs:
+        description: The specs to run (`all`, or names such as `sitl.e2e.ts`; the ones that don't start a SITL are left out)
+        type: string
+        default: all
 
 permissions:
   contents: read
   actions: read
 
 jobs:
+  # Three shards per target, split by the specs' measured times (.github/shard.mjs): each restores the same cached build.
   e2e-sitl:
-    name: e2e SITL (${{ matrix.target }})
+    name: e2e SITL ${{ matrix.shard }}/3 (${{ matrix.target }})
     permissions:
       contents: read
       actions: read
     strategy:
       fail-fast: false
       matrix:
+        target: [linux-x64, linux-arm64]
+        shard: [1, 2, 3]
         include:
           - { target: linux-x64, runner: ubuntu-24.04 }
           - { target: linux-arm64, runner: ubuntu-24.04-arm }
@@ -81,19 +88,24 @@ jobs:
         env:
           PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
           SITL_DIR: ${{ runner.temp }}/sitl
+          SHARD: ${{ matrix.shard }}
+          SELECTED: ${{ inputs.specs }}
         run: |
-          mapfile -t specs < <(node .github/ci-select.mjs --list sitl --root .)
-          echo "${#specs[@]} specs: ${specs[*]}"
-          test "${#specs[@]}" -gt 0
+          mapfile -t specs < <(node .github/shard.mjs --kind sitl --shard "$SHARD" --of 3 --only "$SELECTED")
+          echo "shard $SHARD of 3: ${#specs[@]} specs: ${specs[*]}"
+          if [ "${#specs[@]}" -eq 0 ]; then
+            echo "no SITL spec the change needs is in this shard"
+            exit 0
+          fi
           xvfb-run -a pnpm e2e "${specs[@]}" | tee "$RUNNER_TEMP/e2e.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
           # The SITL suites must have run: a skipped or missing one isn't green.
           # TODO(#272): check that the pattern matches vitest's line for it in this log (`✓ e2e/sitl-harness.e2e.ts (N tests)`).
-          if [ -e apps/frontend/e2e/sitl-harness.e2e.ts ]; then
+          if [[ " ${specs[*]} " == *" e2e/sitl-harness.e2e.ts "* ]]; then
             bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-harness\.e2e\.ts'
           fi
           # Every vehicle type's suite ran: twelve tests, none skipped (a missing SITL fails in CI rather than skipping).
-          if [ -e apps/frontend/e2e/sitl-vehicles.e2e.ts ]; then
+          if [[ " ${specs[*]} " == *" e2e/sitl-vehicles.e2e.ts "* ]]; then
             bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-vehicles\.e2e\.ts \(12 tests\)'
           fi
       - name: Step times
@@ -107,7 +119,7 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-sitl-log-${{ matrix.target }}
+          name: e2e-sitl-log-${{ matrix.target }}-${{ matrix.shard }}
           path: ${{ runner.temp }}/e2e.log
           if-no-files-found: ignore
           retention-days: 14

@@ -4,33 +4,47 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Every Monday the whole suite, macOS and Windows included, whatever changed.
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to a pull request ends its run that is still going (its result is of a commit nobody looks at any more); main's runs
+# all finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # The work is split into parallel jobs (step 3 of shared/decisions/drone-configurator-ci-strategy.md), so that the wall time is that of
 # the slowest part and each job has a runner of its own, and its memory (the backend tests and the host build no longer share one).
-# What runs is the same as before: nothing is selected yet (`select` is in shadow mode) and every job runs everything of its kind.
-# `ci-gate` is the one check that says the whole of it passed.
+# A pull request runs what its change needs (`select`, .github/ci-select.mjs and e2e-map.json; whatever it cannot place selects
+# everything); main, the weekly run and a manual one run everything. The shards are split by measured times (.github/shard.mjs,
+# test-times.json). `ci-gate` is the one check that says the whole of it passed.
 #
 # Common to the jobs on Linux (x64 and arm64): the `setup` action (siblings, pnpm, Node, the framework, the contract, Pico), a
 # `Step times` step (each job's time per step in its summary), and its logs kept as an artifact. The macOS and Windows jobs run the
-# frontend only, as before.
+# frontend only, and not on pull requests (they gate 1.0.0, not a PR: main and the weekly run have them).
 jobs:
-  # SHADOW MODE (step 1 of the plan): says which tests the change would need and writes it to the job summary. Nothing reads the
-  # outputs yet: every job still runs everything, and this job cannot fail the run (the step is continue-on-error), so it gates
-  # nothing. Compare its summary with what failed, on the next PRs, before selection is switched on.
+  # What the change needs, for the jobs below: `backend` and `e2e` are `all` or a list of names (empty: none), `sitl` whether a
+  # SITL spec is among them. A push, the weekly run and a manual one select everything. Its summary says what and why.
   select:
-    name: select (shadow)
+    name: select
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.select.outputs.backend }}
+      e2e: ${{ steps.select.outputs.e2e }}
+      sitl: ${{ steps.select.outputs.sitl }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: What the change would need
-        continue-on-error: true
-        run: bash .github/ci-select.sh --shadow
+      - name: What the change needs
+        id: select
+        run: bash .github/ci-select.sh
 
   # Format and lint of the backend (`pico lint` builds it), ESLint, vue-tsc, tsc on e2e, and all the frontend unit tests.
   lint:
@@ -73,10 +87,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: bash drone-configurator/.github/step-times.sh
 
-  # The backend's tests (`pico test`): each file in a process of its own. The files are split in three shards by name
-  # (.github/backend-shard.sh), each with a runner of its own, so the wall time is that of a third of the files.
+  # The backend's tests (`pico test`): each file in a process of its own. The files the change needs are split in three shards by
+  # their measured times (.github/shard.mjs), each with a runner of its own, so the shards end together.
   backend:
     name: backend ${{ matrix.shard }}/3 (${{ matrix.target }})
+    needs: select
+    if: ${{ needs.select.outputs.backend != '' }}
     permissions:
       contents: read
       actions: read
@@ -86,14 +102,11 @@ jobs:
         target: [linux-x64, linux-arm64]
         shard: [1, 2, 3]
         include:
-          # test-jobs: how many files of the shard run at once (`pico test -j`). The build of a test file takes 4 to 8 GB (the
-          # probe below: on head afa2df8 of #432, run 43456254640, two `pico run` of localimport and locallogs held 7.0 to 8.4 GB
-          # each and linux-x64 was killed with 143 at used=15.8 GB of 16), so linux-x64 runs one at a time. linux-arm64 passed with
-          # two at once for a while, and then both its shards were killed the same way (run 43540418787 on #438: used=15.8 GB of
-          # 16), so it runs one at a time too. A shard of a third of the files at one at a time should take under 20 minutes (an estimate: half
-          # the files at two at once took about 14), well under the limit of 45. The macOS and Windows jobs run no backend tests.
-          - { target: linux-x64, runner: ubuntu-24.04, test-jobs: 1 }
-          - { target: linux-arm64, runner: ubuntu-24.04-arm, test-jobs: 1 }
+          # test-jobs: how many files of the shard run at once (`pico test -j`). Before Pico 0.10.0 the build of a test file took 4
+          # to 8 GB and two at once ran out of the runner's 16 GB (runs 43456254640, 43540418787), so it was one; 0.10.0 lowers a
+          # build in about 640 MB (pico-lang#134), so two run at once again. The probe below still prints the memory as it goes.
+          - { target: linux-x64, runner: ubuntu-24.04, test-jobs: 2 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm, test-jobs: 2 }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     defaults:
@@ -115,6 +128,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
           SHARDS: 3
           JOBS: ${{ matrix.test-jobs }}
+          SELECTED: ${{ needs.select.outputs.backend }}
         run: |
           probe() {
             # Not under the step's -e and pipefail: a reading that fails (a pipe closed early) must not end the probe, which
@@ -130,9 +144,12 @@ jobs:
               sleep 10
             done
           }
-          mapfile -t files < <(bash .github/backend-shard.sh "$SHARD" "$SHARDS")
+          mapfile -t files < <(node .github/shard.mjs --kind backend --shard "$SHARD" --of "$SHARDS" --only "$SELECTED")
           echo "shard $SHARD of $SHARDS: ${#files[@]} files: ${files[*]}"
-          test "${#files[@]}" -gt 0
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "nothing the change needs is in this shard"
+            exit 0
+          fi
           echo "probe machine: $(nproc) CPUs, backend test jobs: $JOBS"
           free -m
           probe &
@@ -168,15 +185,19 @@ jobs:
           retention-days: 14
 
   # The window e2e (`pnpm e2e` = `pico-desktop test --e2e`) with the fake vehicles: the specs that don't start a SITL (told by
-  # what a spec uses: `ci-select.mjs --list fake`).
+  # what a spec uses), those the change needs, in two shards by their measured times.
   e2e:
-    name: e2e (${{ matrix.target }})
+    name: e2e ${{ matrix.shard }}/2 (${{ matrix.target }})
+    needs: select
+    if: ${{ needs.select.outputs.e2e != '' }}
     permissions:
       contents: read
       actions: read
     strategy:
       fail-fast: false
       matrix:
+        target: [linux-x64, linux-arm64]
+        shard: [1, 2]
         include:
           - { target: linux-x64, runner: ubuntu-24.04 }
           - { target: linux-arm64, runner: ubuntu-24.04-arm }
@@ -200,10 +221,15 @@ jobs:
         working-directory: drone-configurator
         env:
           PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
+          SHARD: ${{ matrix.shard }}
+          SELECTED: ${{ needs.select.outputs.e2e }}
         run: |
-          mapfile -t specs < <(node .github/ci-select.mjs --list fake --root .)
-          echo "${#specs[@]} specs: ${specs[*]}"
-          test "${#specs[@]}" -gt 0
+          mapfile -t specs < <(node .github/shard.mjs --kind e2e --shard "$SHARD" --of 2 --only "$SELECTED")
+          echo "shard $SHARD of 2: ${#specs[@]} specs: ${specs[*]}"
+          if [ "${#specs[@]}" -eq 0 ]; then
+            echo "no spec the change needs is in this shard"
+            exit 0
+          fi
           xvfb-run -a pnpm e2e "${specs[@]}" | tee "$RUNNER_TEMP/e2e.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
       - name: Step times
@@ -217,23 +243,28 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-log-${{ matrix.target }}
+          name: e2e-log-${{ matrix.target }}-${{ matrix.shard }}
           path: ${{ runner.temp }}/e2e.log
           if-no-files-found: ignore
           retention-days: 14
 
-  # The window e2e that start an ArduPilot SITL, at the pinned ref (.github/workflows/sitl-e2e.yml).
+  # The window e2e that start an ArduPilot SITL, at the pinned ref (.github/workflows/sitl-e2e.yml), when the change needs one.
   e2e-sitl:
     name: e2e SITL
+    needs: select
+    if: ${{ needs.select.outputs.sitl == 'true' }}
     permissions:
       contents: read
       actions: read
     uses: ./.github/workflows/sitl-e2e.yml
+    with:
+      specs: ${{ needs.select.outputs.e2e }}
 
   # The backend doesn't link on these yet: padcom/serialport is Linux only, and `pico-desktop test --e2e` assumes Linux. The
   # "Not run here" step says so on every run.
   frontend-only:
     name: ${{ matrix.target }} (frontend only)
+    if: ${{ github.event_name != 'pull_request' }}
     strategy:
       fail-fast: false
       matrix:
@@ -267,13 +298,13 @@ jobs:
           pnpm test | tee "$RUNNER_TEMP/unit.log"
           bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/unit.log" 'Tests +[1-9][0-9]* passed'
 
-  # The one check that says the whole of it passed: every job it needs must have succeeded (a failed, cancelled or skipped one
-  # fails it), and it runs even when one of them failed. It is what branch protection would require, and it keeps working when jobs
-  # are added here (add them to `needs`). `select` is not in `needs`: it only reports, in shadow mode.
+  # The one check that says the whole of it passed: `select` must have succeeded, and every other job it needs must have succeeded
+  # or been skipped as the change does not need it (a failed or cancelled one fails it); it runs even when one of them failed. It is
+  # what branch protection would require, and it keeps working when jobs are added here (add them to `needs`).
   ci-gate:
     name: ci-gate
     if: ${{ always() }}
-    needs: [lint, backend, e2e, e2e-sitl, frontend-only]
+    needs: [select, lint, backend, e2e, e2e-sitl, frontend-only]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -282,4 +313,4 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+          echo "$NEEDS" | jq -e '.select.result == "success" and all(.[]; .result == "success" or .result == "skipped")' > /dev/null
