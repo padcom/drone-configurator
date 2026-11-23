@@ -1,0 +1,113 @@
+name: SITL e2e
+
+# The window e2e that start an ArduPilot SITL, for every vehicle type (sitl-build.sh builds all seven), on both Linux targets.
+# Called by CI with the pinned ref (.github/ardupilot-ref, one line) and by sitl-next-stable.yml with the newest stable. The
+# binaries are cached by ref and target, so only the first run after a change to the ref, to sitl-build.sh or to its
+# requirements builds them; a cache hit builds nothing.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The ArduPilot tag or commit to build SITL at (empty for the pinned one, .github/ardupilot-ref)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e2e-sitl:
+    name: e2e SITL (${{ matrix.target }})
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x64, runner: ubuntu-24.04 }
+          - { target: linux-arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    # A cache miss builds all seven vehicles (about 25 minutes on a 4-core runner) before the suites.
+    timeout-minutes: 80
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: drone-configurator
+      - uses: ./drone-configurator/.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+          pico: 'true'
+      - uses: ./drone-configurator/.github/actions/window
+        with:
+          target: ${{ matrix.target }}
+      - name: ArduPilot ref
+        id: ardupilot
+        env:
+          REF: ${{ inputs.ref }}
+        run: echo "ref=${REF:-$(tr -d '[:space:]' < drone-configurator/.github/ardupilot-ref)}" >> "$GITHUB_OUTPUT"
+      # Restore and save are separate steps: a cache is only saved when the whole job succeeds, so with
+      # actions/cache a failing E2E would throw the build away. Saving right after the build keeps it.
+      - name: Restore the SITL build
+        id: sitl
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/sitl
+          key: sitl-all-${{ matrix.target }}-${{ steps.ardupilot.outputs.ref }}-${{ hashFiles('drone-configurator/.github/sitl-build.sh', 'drone-configurator/.github/sitl-requirements.txt') }}
+      - name: Build SITL (cache miss)
+        if: ${{ steps.sitl.outputs.cache-hit != 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential g++ gawk git make wget pkg-config libtool-bin python3-dev python3-venv
+          bash drone-configurator/.github/sitl-build.sh "${{ steps.ardupilot.outputs.ref }}" all "$RUNNER_TEMP/sitl" "$RUNNER_TEMP/sitl-work"
+      - name: Save the SITL build
+        if: ${{ steps.sitl.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/sitl
+          key: ${{ steps.sitl.outputs.cache-primary-key }}
+      - name: SITL is there
+        run: |
+          for binary in arducopter arducopter-heli arduplane ardurover ardusub blimp antennatracker; do
+            test -x "$RUNNER_TEMP/sitl/$binary"
+          done
+          echo "SITL ${{ steps.ardupilot.outputs.ref }}, cache hit: ${{ steps.sitl.outputs.cache-hit == 'true' }}"
+      - name: End-to-end tests in the real window (SITL)
+        working-directory: drone-configurator
+        env:
+          PICO_DESKTOP_HOST: ${{ github.workspace }}/pico-desktop/build/cef/runtime/cef-host/pico-desktop-host
+          SITL_DIR: ${{ runner.temp }}/sitl
+        run: |
+          mapfile -t specs < <(node .github/ci-select.mjs --list sitl --root .)
+          echo "${#specs[@]} specs: ${specs[*]}"
+          test "${#specs[@]}" -gt 0
+          xvfb-run -a pnpm e2e "${specs[@]}" | tee "$RUNNER_TEMP/e2e.log"
+          bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" 'Tests +[1-9][0-9]* passed'
+          # The SITL suites must have run: a skipped or missing one isn't green.
+          # TODO(#272): check that the pattern matches vitest's line for it in this log (`✓ e2e/sitl-harness.e2e.ts (N tests)`).
+          if [ -e apps/frontend/e2e/sitl-harness.e2e.ts ]; then
+            bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-harness\.e2e\.ts'
+          fi
+          # Every vehicle type's suite ran: twelve tests, none skipped (a missing SITL fails in CI rather than skipping).
+          if [ -e apps/frontend/e2e/sitl-vehicles.e2e.ts ]; then
+            bash "$GITHUB_WORKSPACE/drone-configurator/.github/tests-ran.sh" "$RUNNER_TEMP/e2e.log" '✓ e2e/sitl-vehicles\.e2e\.ts \(12 tests\)'
+          fi
+      - name: Step times
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash drone-configurator/.github/step-times.sh
+      - name: Keep the test log
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-sitl-log-${{ matrix.target }}
+          path: ${{ runner.temp }}/e2e.log
+          if-no-files-found: ignore
+          retention-days: 14

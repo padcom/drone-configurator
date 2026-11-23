@@ -65,12 +65,12 @@
       "when": [
         "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
         "apps/frontend/src/composables/{useConnectDialog,useVehicle,useAutoDownload,useConfigurator,useTelemetry,useMessages,writeLock}.ts",
-        "apps/backend/{reconnect,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups}.pi"
+        "apps/backend/{reconnect,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups,vehicleinfo}.pi"
       ],
       "specs": [
         "configurator.e2e.ts", "flight-data.e2e.ts", "messages-list.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts",
         "sitl-reconnect.e2e.ts",
-        "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"
+        "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-vehicles.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"
       ]
     },
     {

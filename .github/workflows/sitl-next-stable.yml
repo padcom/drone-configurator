@@ -1,0 +1,81 @@
+name: SITL next stable
+
+# Every Monday (and by hand): the SITL suites at the newest stable ArduPilot release of the pin's family (.github/ardupilot-ref,
+# .github/ardupilot-stable.mjs), so what the next stable breaks is known before the pin is moved. Nothing runs while the pin is
+# the newest. The outcome is in the run's summary; a failure opens (or adds to) an issue named after the release, and a pass
+# closes it.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  next:
+    name: next stable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      pinned: ${{ steps.next.outputs.pinned }}
+      ref: ${{ steps.next.outputs.ref }}
+      newer: ${{ steps.next.outputs.newer }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The newest stable of the pin's family
+        id: next
+        run: |
+          node .github/ardupilot-stable.mjs | tee -a "$GITHUB_OUTPUT"
+          source <(node .github/ardupilot-stable.mjs)
+          if [ "$newer" = true ]; then
+            echo "Pinned **$pinned**; the newest stable is **$ref**: its SITL suites run below." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Pinned **$pinned**, which is the newest stable: nothing to run." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  sitl:
+    name: SITL at the next stable
+    needs: next
+    if: ${{ needs.next.outputs.newer == 'true' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/sitl-e2e.yml
+    with:
+      ref: ${{ needs.next.outputs.ref }}
+
+  report:
+    name: report
+    needs: [next, sitl]
+    if: ${{ always() && needs.next.outputs.newer == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Say what the next stable breaks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF: ${{ needs.next.outputs.ref }}
+          PINNED: ${{ needs.next.outputs.pinned }}
+          RESULT: ${{ needs.sitl.result }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="ArduPilot $REF fails the SITL e2e"
+          open=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ "$RESULT" = success ]; then
+            echo "The SITL suites pass at **$REF** (pinned: $PINNED): the pin can move." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "They pass now: $RUN"
+            fi
+          else
+            echo "The SITL suites at **$REF** (pinned: $PINNED) ended with **$RESULT**: $RUN" >> "$GITHUB_STEP_SUMMARY"
+            body="The scheduled run of the SITL suites at $REF (pinned: $PINNED) ended with $RESULT: $RUN. The pin (.github/ardupilot-ref) stays until they pass there."
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "Still failing: $RUN"
+            else
+              gh issue create --title "$title" --body "$body"
+            fi
+          fi
