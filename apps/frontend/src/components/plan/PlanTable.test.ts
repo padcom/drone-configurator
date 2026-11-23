@@ -51,7 +51,7 @@ async function page(table = true): Promise<VueWrapper> {
  * @returns their numbers, as the table says them
  */
 function rowNumbers(wrapper: VueWrapper): string[] {
-  return wrapper.findAll('.plan-tr .plan-td-no span:first-child').map(cell => cell.text())
+  return wrapper.findAll('.data-table-row .plan-td-no > span:first-child').map(cell => cell.text())
 }
 
 /**
@@ -157,13 +157,13 @@ it('draws only the rows in view for a plan of a thousand, and the rows that scro
   const grid = wrapper.get('[role="grid"]')
 
   expect(grid.attributes('aria-rowcount')).toBe('1001')
-  expect(wrapper.findAll('.plan-tr').length).toBeLessThan(40)
-  expect(wrapper.get('.plan-grid-body').attributes('style')).toContain('height: 52000px')
-  const scroller = wrapper.get('.plan-table-scroll')
+  expect(wrapper.findAll('.plan-table .data-table-row').length).toBeLessThan(40)
+  expect(wrapper.get('.plan-table .data-table-body').attributes('style')).toContain('height: 52000px')
+  const scroller = wrapper.get('.plan-table .data-table-scroll')
   scroller.element.scrollTop = 26_000
   await scroller.trigger('scroll')
 
-  expect(wrapper.findAll('.plan-tr').length).toBeLessThan(40)
+  expect(wrapper.findAll('.plan-table .data-table-row').length).toBeLessThan(40)
   expect(rowNumbers(wrapper)).toContain('501')
   expect(rowNumbers(wrapper)).not.toContain('1')
 })
@@ -188,14 +188,14 @@ it('keeps the row that has the focus drawn, with the one tab stop, when the tabl
   const field = fieldIn(wrapper, 1, 'lat')
   field.focus()
   await flushPromises()
-  const scroller = wrapper.get('.plan-table-scroll')
+  const scroller = wrapper.get('.plan-table .data-table-scroll')
   scroller.element.scrollTop = 26_000
   await scroller.trigger('scroll')
 
   // (rows 1 and the ones in view: the row of the focus is not given up, and the focused field is the same one)
   expect(rowNumbers(wrapper)).toContain('1')
   expect(rowNumbers(wrapper)).toContain('501')
-  expect(wrapper.findAll('.plan-tr').length).toBeLessThan(40)
+  expect(wrapper.findAll('.plan-table .data-table-row').length).toBeLessThan(40)
   expect(wrapper.findAll('[role="grid"] [tabindex="0"]')).toHaveLength(1)
   expect(document.activeElement).toBe(fieldIn(wrapper, 1, 'lat'))
   expect(document.activeElement).toBe(field)
@@ -207,7 +207,7 @@ it('has its one tab stop in a row that is drawn when the selected item is the st
   const plan = usePlan()
   plan.select(plan.plan.value.items[0]!.id)
   await flushPromises()
-  const scroller = wrapper.get('.plan-table-scroll')
+  const scroller = wrapper.get('.plan-table .data-table-scroll')
   scroller.element.scrollTop = 26_000
   await scroller.trigger('scroll')
 
@@ -356,7 +356,8 @@ it('marks a row that has a problem no cell has, in words (a loiter with no yaw)'
 
   expect(row.classes()).toContain('bad')
   expect(row.get('.plan-td-mark').attributes('title')).not.toBe('')
-  expect(row.get('.plan-td-no').attributes('aria-describedby')).toBeDefined()
+  // (said with the row's number, which names the row for a screen reader)
+  expect(row.get('[role="rowheader"] .visually-hidden').text()).not.toBe('')
 })
 
 it('says the same in another language, and has no message left over', async () => {

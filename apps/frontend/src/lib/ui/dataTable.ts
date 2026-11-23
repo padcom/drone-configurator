@@ -38,6 +38,8 @@ export interface Column<Row> {
   resizable?: boolean
   /** Whether a cell of it can be edited: for every row, or by the row (a cell a row has nothing in is not). */
   editable?: boolean | ((row: Row) => boolean)
+  /** Its cells name their rows (a screen reader says it with the row's other cells): `rowheader`, not `gridcell`. */
+  rowHeader?: boolean
   /** Which side the text of its cells is on. */
   align?: 'start' | 'end'
   /**

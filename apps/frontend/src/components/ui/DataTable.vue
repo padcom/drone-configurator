@@ -71,7 +71,7 @@
               :key="column.id"
               class="data-table-cell"
               :class="{ end: column.align === 'end', editing: editedColumn(entry.key) === col }"
-              role="gridcell"
+              :role="column.rowHeader ? 'rowheader' : 'gridcell'"
               :aria-colindex="col + 1"
               :data-column="col"
               :tabindex="fields ? undefined : isStop(entry.key, col) ? 0 : -1"
@@ -116,7 +116,7 @@
         <p v-if="shown.length === 0" class="data-table-empty">{{ t('table.empty') }}</p>
       </div>
     </div>
-    <p :id="`${uid}-help`" class="visually-hidden">{{ t('table.help') }}</p>
+    <p :id="`${uid}-help`" class="visually-hidden">{{ help ?? t('table.help') }}</p>
   </div>
 </template>
 
@@ -213,6 +213,8 @@ const props = defineProps<{
    * tabindex; the arrows move between cells, left and right only from the edge of the field's text (nextFieldCell).
    */
   fields?: boolean
+  /** What the keys of the table do, for a screen reader (the kit's words for a table whose cells are edited by default). */
+  help?: string
 }>()
 
 const emit = defineEmits<{
