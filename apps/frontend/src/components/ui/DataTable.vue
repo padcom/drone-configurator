@@ -48,70 +48,37 @@
           </div>
         </div>
         <div class="data-table-body" role="rowgroup" :style="{ height: `${shown.length * rowPx}px` }">
-          <!-- A row is drawn again only when its row, its place (it is positioned by it: a sort or a filter moves it), its
-               widths, or what is on it (the cursor, an edit) changes: a cell that is updated (its row is replaced by another)
-               draws that one row, and not the table. -->
-          <div
+          <!-- A row is its own component, keyed by the row: it is drawn again only when what it is given changes (its row, its
+               place, the widths, the cursor or an edit in it), so a cell that is updated (its row replaced by another) draws that
+               one row, and a scroll draws only the rows that come into view. -->
+          <DataTableRow
             v-for="entry in drawn"
             :key="entry.key"
-            v-memo="[
-              entry.row, entry.index, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key),
-              isSelected(entry.key),
-            ]"
-            :class="['data-table-row', rowClass?.(entry.row), { selected: isSelected(entry.key) }]"
-            role="row"
-            :aria-rowindex="entry.index + 2"
-            :aria-selected="selecting ? isSelected(entry.key) : undefined"
-            :data-index="entry.index"
-            :style="{ top: `${entry.index * rowPx}px`, height: `${rowPx}px`, gridTemplateColumns: template }"
-            v-bind="rowAttrs?.(entry.row)"
+            :row="entry.row"
+            :index="entry.index"
+            :columns="columns"
+            :template="template"
+            :row-px="rowPx"
+            :stop-col="cursorColumn(entry.key)"
+            :edited-col="editedColumn(entry.key)"
+            :edited-text="editedText(entry.key)"
+            :selected="selecting ? isSelected(entry.key) : undefined"
+            :fields="fields"
+            :row-class="rowClass"
+            :row-attrs="rowAttrs"
+            :set-text="setText"
+            :commit="commitEdit"
+            :cancel="cancelEdit"
+            @cursor="cursorTo"
+            @edit="editAt"
           >
-            <div
-              v-for="(column, col) in columns"
-              :key="column.id"
-              class="data-table-cell"
-              :class="{ end: column.align === 'end', editing: editedColumn(entry.key) === col }"
-              :role="column.rowHeader ? 'rowheader' : 'gridcell'"
-              :aria-colindex="col + 1"
-              :data-column="col"
-              :tabindex="fields ? undefined : isStop(entry.key, col) ? 0 : -1"
-              @click="cursorTo(entry.index, col)"
-              @dblclick="beginEdit({ row: entry.index, col }, null)"
-            >
-              <template v-if="editedColumn(entry.key) === col">
-                <slot
-                  name="editor"
-                  :row="entry.row"
-                  :column="column"
-                  :text="editing?.text ?? ''"
-                  :set="setText"
-                  :commit="commitEdit"
-                  :cancel="cancelEdit"
-                >
-                  <input
-                    v-focus
-                    class="kit-input data-table-input"
-                    :class="{ end: column.align === 'end' }"
-                    type="text"
-                    :value="editing?.text ?? ''"
-                    :aria-label="column.header"
-                    @input="setText(($event.target as HTMLInputElement).value)"
-                    @blur="commitEdit()"
-                  >
-                </slot>
-              </template>
-              <slot
-                v-else
-                name="cell"
-                :row="entry.row"
-                :column="column"
-                :value="column.value(entry.row)"
-                :stop="isStop(entry.key, col)"
-              >
-                {{ column.value(entry.row) }}
-              </slot>
-            </div>
-          </div>
+            <template #cell="cell">
+              <slot name="cell" v-bind="cell">{{ cell.value }}</slot>
+            </template>
+            <template #editor="editor">
+              <slot name="editor" v-bind="editor" />
+            </template>
+          </DataTableRow>
         </div>
         <p v-if="shown.length === 0" class="data-table-empty">{{ t('table.empty') }}</p>
       </div>
@@ -172,6 +139,7 @@ import {
   widthOf,
 } from '@/lib/ui/dataTable'
 import { type Viewport, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
+import DataTableRow from './DataTableRow.vue'
 
 /** The height (px) the table is taken to have when it cannot be measured (a window that does not lay out). */
 const UNMEASURED_PX = 520
@@ -279,14 +247,6 @@ const drawn = computed(() => {
   return isOutside(stopIndex.value, from, to) ? [...entries, entryAt(stopIndex.value)].sort((a, b) => a.index - b.index) : entries
 })
 
-/** Puts the focus in the field that appears when a cell is edited. */
-const vFocus = {
-  mounted: (element: HTMLInputElement): void => {
-    element.focus()
-    element.select()
-  },
-}
-
 /**
  * A click (or Enter) on a sortable header.
  *
@@ -334,17 +294,6 @@ function editedText(key: string | number): string | null {
  */
 function isSelected(key: string | number): boolean {
   return selecting.value && selected.value === key
-}
-
-/**
- * Whether a cell is the table's tab stop.
- *
- * @param key the row's key
- * @param col the column
- * @returns true for the cell the cursor is in (the first, before the cursor is anywhere)
- */
-function isStop(key: string | number, col: number): boolean {
-  return cursorColumn(key) === col
 }
 
 /** Follows what the area scrolls. */
@@ -456,6 +405,16 @@ function beginEdit(at: Cell, first: string | null): void {
     cursor.value = { key, col: at.col }
     editing.value = { key, col: at.col, text: textToEdit(first, column, row) }
   }
+}
+
+/**
+ * A double click on a cell: an edit of it begins, with the text it has.
+ *
+ * @param index the row
+ * @param col the column
+ */
+function editAt(index: number, col: number): void {
+  beginEdit({ row: index, col }, null)
 }
 
 /**

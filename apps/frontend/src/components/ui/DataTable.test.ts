@@ -502,18 +502,26 @@ describe('the editor slot', () => {
 describe('updating a cell', () => {
   it('draws the one row that changed, and not the table', async () => {
     let drawn = 0
-    const rows = rowsOf(30)
-    const wrapper = table({ rows }, {
-      cell: (slot: { value: string | number }) => {
-        drawn += 1
+    const rows = ref(rowsOf(30))
+    const cell = (slot: { value: string | number }) => {
+      drawn += 1
 
-        return String(slot.value)
-      },
+      return String(slot.value)
+    }
+    // (the slot from a template, as a page gives it)
+    const Parent = defineComponent({
+      components: { DataTable },
+      setup: () => ({ rows, columns: COLUMNS, rowKey: (row: Row) => row.id, cell }),
+      template: '<DataTable :rows="rows" :columns="columns" :row-key="rowKey" label="Parameters">'
+        + '<template #cell="slot">{{ cell(slot) }}</template></DataTable>',
     })
+    mounted = mount(Parent, { global: { plugins: [i18n] }, attachTo: document.body })
+    const wrapper = mounted
     const before = drawn
 
     expect(before).toBeGreaterThanOrEqual(30 * 3)
-    await wrapper.setProps({ rows: rows.map((row, at) => (at === 5 ? { ...row, value: 99 } : row)) })
+    rows.value = rows.value.map((row, at) => (at === 5 ? { ...row, value: 99 } : row))
+    await flushPromises()
 
     // (the three cells of the row that was replaced)
     expect(drawn - before).toBe(3)

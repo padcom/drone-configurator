@@ -46,7 +46,7 @@
 // drawn, the grid is ONE tab stop, and the keys are a spreadsheet's (up and down, Enter, a page, left and right from the edge of
 // a field's text). The selected item is the row the cursor is in, and the other way round: selecting an item elsewhere shows
 // its row. Nothing here is sent to a vehicle.
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DataTable from '@/components/ui/DataTable.vue'
 import { usePlan } from '@/composables/usePlan'
@@ -77,7 +77,7 @@ const WIDTHS: Record<string, number> = {
 /** What an item without a problem has. */
 const NONE: readonly Problem[] = []
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const state = usePlan()
 const items = computed(() => state.plan.value.items)
 
@@ -93,8 +93,35 @@ const problemsByItem = computed(() => {
   return found
 })
 
+/** The rows made last, by their items: a row whose item, place and problems are the same is the same object. */
+let made = new WeakMap<PlanItem, PlanRow>()
+
 /**
- * A row of the table.
+ * Whether two lists of problems say the same (validation makes new ones each time).
+ *
+ * @param a one
+ * @param b the other
+ * @returns true when they do
+ */
+function sameProblems(a: readonly Problem[], b: readonly Problem[]): boolean {
+  return a === b || (a.length === b.length && JSON.stringify(a) === JSON.stringify(b))
+}
+
+/**
+ * Whether a row made before shows what a new one would: the same place and the same problems (its item is the same object).
+ *
+ * @param before the row made before
+ * @param index the item's place now
+ * @param problems its problems now
+ * @returns true when it does
+ */
+function stillShows(before: PlanRow, index: number, problems: readonly Problem[]): boolean {
+  return before.index === index && sameProblems(before.problems, problems)
+}
+
+/**
+ * A row of the table: the one made before when nothing it shows changed, so that the table draws again only the rows that did
+ * (an edit of one cell replaces that item, and the plan's other items stay the same objects).
  *
  * @param item the item
  * @param index its place
@@ -102,12 +129,23 @@ const problemsByItem = computed(() => {
  */
 function rowOf(item: PlanItem, index: number): PlanRow {
   const problems = problemsByItem.value.get(item.id) ?? NONE
-  const words = problemsOfRow(item, problems).map(problem => problemWords(problem, item, t)).join(' ')
+  const before = made.get(item)
 
-  return { item, index, problems, words }
+  if (before && stillShows(before, index, problems)) {
+    return before
+  }
+  const words = problemsOfRow(item, problems).map(problem => problemWords(problem, item, t)).join(' ')
+  const row = { item, index, problems, words }
+  made.set(item, row)
+
+  return row
 }
 
 const rows = computed(() => items.value.map(rowOf))
+// (the words are the page's language: in another, every row is made again)
+watch(locale, () => {
+  made = new WeakMap()
+})
 
 /**
  * A column of the table.
