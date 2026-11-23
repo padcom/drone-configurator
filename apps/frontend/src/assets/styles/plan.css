@@ -151,8 +151,9 @@
   background: var(--color-map);
 }
 
-/* The table of the items: the area scrolls (both ways) and nothing else does; its header stays at the top, and only the rows in
-   view are drawn, each placed by its number, so a plan of a thousand items is as light as one of ten. */
+/* The table of the items (the kit's table, as a table of fields): the area scrolls (both ways) and nothing else does; its header
+   stays at the top, and only the rows in view are drawn, each placed by its number, so a plan of a thousand items is as light as
+   one of ten. */
 .plan-table {
   position: relative;
   flex: 1 1 auto;
@@ -160,71 +161,31 @@
   background: var(--color-surface);
 }
 
-.plan-table-scroll {
+.plan-table > .data-table {
   position: absolute;
   inset: 0;
-  overflow: auto;
+}
+
+.plan-table .data-table-scroll {
+  border: 0;
+  border-radius: 0;
   scrollbar-width: thin;
 }
 
 /* From 1000 px the table is the main column's own scroller, and a wheel at its end does not go on to anything; below that the
    page is the scroller and the table is a part of it, so a wheel or a touch at the table's end goes on to the page. */
 @media (width >= 1000px) {
-  .plan-table-scroll {
+  .plan-table .data-table-scroll {
     overscroll-behavior: contain;
   }
 }
 
-.plan-grid {
-  --plan-columns: 3.5rem 11rem 8.5rem 8.5rem 6.5rem 10rem repeat(4, 14rem);
-
-  position: relative;
-  width: max-content;
-  min-width: 100%;
-}
-
-.plan-grid-head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: var(--plan-columns);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.plan-th {
-  display: flex;
-  align-items: center;
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  border-right: 1px solid var(--color-border);
-}
-
-.plan-grid-body {
-  position: relative;
-}
-
-.plan-tr {
-  position: absolute;
-  right: 0;
-  left: 0;
-  display: grid;
-  grid-template-columns: var(--plan-columns);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.plan-tr.selected {
+.plan-table .data-table-row.selected {
   background: var(--color-accent-soft);
 }
 
-.plan-td {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
-  padding: 0 var(--space-2);
+.plan-table .data-table-cell {
+  padding: 0;
   border-right: 1px solid var(--color-border);
 }
 
@@ -233,12 +194,30 @@
   font-family: var(--font-mono);
 }
 
+.plan-td-no:focus-visible,
+.plan-td-command:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.plan-td {
+  display: flex;
+  flex: 1 1 auto;
+  gap: var(--space-2);
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
 .plan-td-mark {
   font-weight: 700;
   color: var(--color-error);
 }
 
 .plan-td-command {
+  display: block;
+  align-content: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

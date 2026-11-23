@@ -6,7 +6,6 @@ import {
   SPIN_RANGES,
   outputRows,
   outputsOld,
-  parseFraction,
   spinProblem,
 } from './motors'
 
@@ -20,22 +19,6 @@ it('lists the four parameters of the page, and names each protocol once', () => 
 
 it('holds each spin threshold to the range ArduPilot documents for it', () => {
   expect(SPIN_RANGES).toEqual({ MOT_SPIN_ARM: [0, 0.2], MOT_SPIN_MIN: [0, 0.25], MOT_SPIN_MAX: [0.9, 1] })
-  expect(parseFraction('0.2', 0, 0.2)).toBe(0.2)
-  expect(parseFraction('0.21', 0, 0.2)).toBeNull()
-  expect(parseFraction('0.89', 0.9, 1)).toBeNull()
-  expect(parseFraction('0.9', 0.9, 1)).toBe(0.9)
-  expect(parseFraction('1', 0.9, 1)).toBe(1)
-})
-
-it('takes a spin threshold as a fraction from 0 to 1, with a comma or a point, and nothing else', () => {
-  expect(parseFraction('0.15', 0, 1)).toBe(0.15)
-  expect(parseFraction(' 0,95 ', 0, 1)).toBe(0.95)
-  expect(parseFraction('0', 0, 1)).toBe(0)
-  expect(parseFraction('1', 0, 1)).toBe(1)
-
-  for (const text of ['', ' ', '1.01', '-0.1', 'abc', '15 %', 'NaN', 'Infinity']) {
-    expect(parseFraction(text, 0, 1), text).toBeNull()
-  }
 })
 
 it('says the thresholds are out of order only when arm is above min, or min is above max (equal is valid)', () => {

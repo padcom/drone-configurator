@@ -1990,7 +1990,6 @@
       "noOutputsHelp": "Compaiono quando il veicolo le comunica.",
       "output": "Uscita {n}",
       "pulse": "{us} µs",
-      "range": "Fuori intervallo: quanto digitato non viene scritto.",
       "outputsOld": "Il veicolo ha smesso di riferire le sue uscite.",
       "outputsOldHelp": "Gli ultimi impulsi non vengono mostrati: sembrerebbero attuali. Riappaiono quando il veicolo li riferisce.",
       "protocolUnknown": "Questo veicolo non riferisce il suo protocollo ESC.",

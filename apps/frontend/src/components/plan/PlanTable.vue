@@ -1,82 +1,86 @@
 <template>
   <div class="plan-table">
-    <div ref="scroller" class="plan-table-scroll" @scroll="scrolled">
-      <div
-        ref="grid"
-        class="plan-grid"
-        role="grid"
-        :aria-label="t('plan.table.label')"
-        aria-describedby="plan-table-help"
-        :aria-rowcount="items.length + 1"
-        :aria-colcount="EDIT_COLUMNS.length + 2"
-        @keydown="key"
-        @focusin="focusedIn"
-      >
-        <div class="plan-grid-head" role="row" aria-rowindex="1" :style="{ height: `${HEAD_PX}px` }">
-          <div v-for="(heading, at) in headings" :key="heading.id" class="plan-th" role="columnheader" :aria-colindex="at + 1">
-            {{ heading.text }}
-          </div>
-        </div>
-        <div class="plan-grid-body" role="rowgroup" :style="{ height: `${items.length * ROW_PX}px` }">
-          <PlanTableRow
-            v-for="row in rows"
-            :key="row.item.id"
-            :item="row.item"
-            :index="row.index"
-            :selected="row.item.id === selected"
-            :problems="problemsByItem.get(row.item.id) ?? NONE"
-            :stop="row.item.id === stopId ? stopColumn : null"
-          />
-        </div>
-      </div>
-    </div>
-    <p id="plan-table-help" class="visually-hidden">{{ t('plan.table.help') }}</p>
+    <DataTable
+      v-model:selected="selectedId"
+      :rows="rows"
+      :columns="columns"
+      :row-key="rowKey"
+      :row-px="ROW_PX"
+      :row-class="rowClass"
+      :row-attrs="rowAttrs"
+      :label="t('plan.table.label')"
+      :help="t('plan.table.help')"
+      fields
+    >
+      <template #cell="{ row, column, stop }">
+        <!-- The number and the command are text, not fields: the cell itself takes the focus when it is the one tab stop. -->
+        <span v-if="column.id === 'number'" class="plan-td plan-td-no" :tabindex="stop ? 0 : -1">
+          <span>{{ row.index + 1 }}</span>
+          <template v-if="row.words !== ''">
+            <span class="plan-td-mark" aria-hidden="true" :title="row.words">!</span>
+            <span class="visually-hidden">{{ row.words }}</span>
+          </template>
+        </span>
+        <span v-else-if="column.id === 'command'" class="plan-td plan-td-command" :tabindex="stop ? 0 : -1">
+          {{ commandOf(row.item) }}
+        </span>
+        <PlanTableCell
+          v-else
+          :item="row.item"
+          :column="column.id as EditColumn"
+          :cell="cellOf(row.item, column.id as EditColumn)"
+          :problems="cellProblems(row, column.id as EditColumn)"
+          :stop="stop"
+          @write="state.update(row.item.id, $event)"
+        />
+      </template>
+    </DataTable>
   </div>
 </template>
 
 <script setup lang="ts">
-// The items of the plan as a table, to edit them as in a spreadsheet: a row for an item, a cell for its place, its altitude and
-// frame and the (up to four) fields of its command; the same fields as the form has, so what is typed is the same edit and goes
-// into the same history, and the cell the plan says is wrong says so in words. A plan has up to a thousand items: only the rows
-// in view are drawn (every row is the same height), and the grid is ONE tab stop (the cell that has the focus, else the selected
-// row's first cell), with the keys of a spreadsheet (lib/plan/table.ts). The selected item is the row that has the focus, and the
-// other way round: selecting an item elsewhere shows its row. Nothing here is sent to a vehicle.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+// The items of the plan as a table, to edit them as in a spreadsheet: a row for an item, a cell for its place, its altitude
+// and frame and the (up to four) fields of its command; the same fields as the form has, so what is typed is the same edit and
+// goes into the same history, and the cell the plan says is wrong says so in words. It is the kit's table
+// (components/ui/DataTable.vue) as a table of FIELDS: the cells are the form's fields, always there; only the rows in view are
+// drawn, the grid is ONE tab stop, and the keys are a spreadsheet's (up and down, Enter, a page, left and right from the edge of
+// a field's text). The selected item is the row the cursor is in, and the other way round: selecting an item elsewhere shows
+// its row. Nothing here is sent to a vehicle.
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import DataTable from '@/components/ui/DataTable.vue'
 import { usePlan } from '@/composables/usePlan'
+import { definitionOf } from '@/lib/plan/catalog'
 import type { PlanItem } from '@/lib/plan/model'
+import { EDIT_COLUMNS, type EditColumn, ROW_PX, cellOf, problemsOfCell, problemsOfRow } from '@/lib/plan/table'
 import type { Problem } from '@/lib/plan/validate'
-import {
-  EDIT_COLUMNS, type Edges, type EditColumn, HEAD_PX, type Press, ROW_PX, type Where, nextCell, rowsInView, scrollFor,
-} from '@/lib/plan/table'
-import PlanTableRow from './PlanTableRow.vue'
+import type { Column } from '@/lib/ui/dataTable'
+import PlanTableCell from './PlanTableCell.vue'
+import { problemWords } from './problemWords'
 
-/** The height (px) the area is taken to have when it cannot be measured (a window that does not lay out). */
-const UNMEASURED_PX = 520
+/** A row of the table: the item, its place in the plan, its problems, and the words of those that are no cell's. */
+interface PlanRow {
+  /** The item. */
+  item: PlanItem
+  /** Its place in the plan (from 0). */
+  index: number
+  /** The problems the plan says of it. */
+  problems: readonly Problem[]
+  /** The words of its problems that are about no cell (a yaw that is missing), or '' for none. */
+  words: string
+}
+
+/** The widths of the columns (px): the number, the command, then the editable ones. */
+const WIDTHS: Record<string, number> = {
+  number: 56, command: 176, lat: 136, lon: 136, alt: 104, frame: 160, s1: 224, s2: 224, s3: 224, s4: 224,
+}
 /** What an item without a problem has. */
 const NONE: readonly Problem[] = []
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const state = usePlan()
-const { selected } = state
 const items = computed(() => state.plan.value.items)
-const scroller = ref<HTMLElement | null>(null)
-const grid = ref<HTMLElement | null>(null)
-const scrollTop = ref(0)
-const height = ref(UNMEASURED_PX)
-/** The cell that had the focus last: the one Tab comes to. */
-const active = ref<{ id: number, column: EditColumn } | null>(null)
 
-const headings = computed(() => [
-  { id: 'number', text: t('plan.table.col.number') },
-  { id: 'command', text: t('plan.table.col.command') },
-  { id: 'lat', text: t('plan.table.col.lat') },
-  { id: 'lon', text: t('plan.table.col.lon') },
-  { id: 'alt', text: t('plan.table.col.alt') },
-  { id: 'frame', text: t('plan.table.col.frame') },
-  ...[1, 2, 3, 4].map(number => ({ id: `s${number}`, text: t('plan.table.col.setting', { number }) })),
-])
-const visible = computed(() => rowsInView(scrollTop.value, height.value, items.value.length))
 /** The problems the plan says, by the item they are about (the plan's as a whole belong to no row). */
 const problemsByItem = computed(() => {
   const found = new Map<number, Problem[]>()
@@ -88,219 +92,138 @@ const problemsByItem = computed(() => {
 
   return found
 })
-/** The row the grid stops at: the one that had the focus, else the selected one, else the first. */
-const stopId = computed(() => {
-  const ids = items.value.map(item => item.id)
 
-  return [active.value?.id, selected.value].find(id => id !== undefined && id !== null && ids.includes(id)) ?? ids[0] ?? null
-})
-const stopColumn = computed<EditColumn>(() => active.value?.column ?? 'lat')
+/** The rows made last, by their items: a row whose item, place and problems are the same is the same object. */
+let made = new WeakMap<PlanItem, PlanRow>()
+
 /**
- * The rows that are drawn: those in view, and the row the grid stops at when it is not one of them (it holds the one tab stop,
- * and the field that has the focus: a scroll must not take either away). Rows are placed by their number, so where they are in
- * the list of the drawn ones is only the order Tab takes.
+ * Whether two lists of problems say the same (validation makes new ones each time).
+ *
+ * @param a one
+ * @param b the other
+ * @returns true when they do
  */
-const rows = computed(() => {
-  const { first, end } = visible.value
-  const drawn = items.value.slice(first, end).map((item, at) => ({ item, index: first + at }))
-  const kept = items.value.findIndex(item => item.id === stopId.value)
+function sameProblems(a: readonly Problem[], b: readonly Problem[]): boolean {
+  return a === b || (a.length === b.length && JSON.stringify(a) === JSON.stringify(b))
+}
 
-  if (kept < 0 || (kept >= first && kept < end)) {
-    return drawn
+/**
+ * Whether a row made before shows what a new one would: the same place and the same problems (its item is the same object).
+ *
+ * @param before the row made before
+ * @param index the item's place now
+ * @param problems its problems now
+ * @returns true when it does
+ */
+function stillShows(before: PlanRow, index: number, problems: readonly Problem[]): boolean {
+  return before.index === index && sameProblems(before.problems, problems)
+}
+
+/**
+ * A row of the table: the one made before when nothing it shows changed, so that the table draws again only the rows that did
+ * (an edit of one cell replaces that item, and the plan's other items stay the same objects).
+ *
+ * @param item the item
+ * @param index its place
+ * @returns the row
+ */
+function rowOf(item: PlanItem, index: number): PlanRow {
+  const problems = problemsByItem.value.get(item.id) ?? NONE
+  const before = made.get(item)
+
+  if (before && stillShows(before, index, problems)) {
+    return before
   }
+  const words = problemsOfRow(item, problems).map(problem => problemWords(problem, item, t)).join(' ')
+  const row = { item, index, problems, words }
+  made.set(item, row)
 
-  return [...drawn, { item: items.value[kept] as PlanItem, index: kept }].sort((a, b) => a.index - b.index)
-})
-
-/** Follows what the area scrolls. */
-function scrolled(): void {
-  scrollTop.value = scroller.value?.scrollTop ?? 0
+  return row
 }
 
-/** Takes the height of the area. */
-function measure(): void {
-  height.value = scroller.value?.clientHeight || UNMEASURED_PX
-}
-
-/**
- * Scrolls so that a row is in view (it may be one that is not drawn yet).
- *
- * @param row the row (from 0)
- */
-function show(row: number): void {
-  const to = scrollFor(row, scrollTop.value, height.value)
-
-  if (scroller.value && to !== scrollTop.value) {
-    scroller.value.scrollTop = to
-    scrollTop.value = to
-  }
-}
-
-/**
- * The cell an element is in.
- *
- * @param target the element
- * @returns the cell, or null when it is not in one
- */
-function cellOf(target: EventTarget | null): HTMLElement | null {
-  return target instanceof Element ? target.closest<HTMLElement>('[data-col]') : null
-}
-
-/**
- * Where a cell is in the grid.
- *
- * @param cell the cell's element
- * @returns the row (from 0) and the column, or null when the item is not in the plan any more
- */
-function locate(cell: HTMLElement): Where | null {
-  const id = Number(cell.closest<HTMLElement>('[data-row]')?.dataset.row)
-  const row = items.value.findIndex(item => item.id === id)
-  const col = EDIT_COLUMNS.indexOf(cell.dataset.col as EditColumn)
-
-  return row >= 0 && col >= 0 ? { row, col } : null
-}
-
-/**
- * Where the element that has the focus is in the grid.
- *
- * @param target the element
- * @returns the cell, or null when it is in none
- */
-function whereIs(target: EventTarget | null): Where | null {
-  const cell = cellOf(target)
-
-  return cell ? locate(cell) : null
-}
-
-/**
- * Whether the caret of a field is in a place.
- *
- * @param field the field
- * @param at the place in its text
- * @returns true when there is no selection and the caret is there
- */
-function caretAt(field: HTMLInputElement, at: number): boolean {
-  return field.selectionStart === at && field.selectionEnd === at
-}
-
-/**
- * Whether the caret of a field is at the start and at the end of what is in it (a cell with no text in it is at both).
- *
- * @param target the element that has the focus
- * @returns the two
- */
-function edgesOf(target: EventTarget | null): Edges {
-  return target instanceof HTMLInputElement
-    ? { start: caretAt(target, 0), end: caretAt(target, target.value.length) }
-    : { start: true, end: true }
-}
-
-/**
- * Puts the focus in a cell: the field in it, or the cell itself when it has none.
- *
- * @param cell the cell's element
- */
-function focusIn(cell: HTMLElement | null | undefined): void {
-  const target = cell?.querySelector<HTMLElement>('input, select') ?? cell
-
-  target?.focus()
-}
-
-/**
- * Goes to a cell: its row is shown (it may not be drawn yet) and the focus is put in it.
- *
- * @param to the cell
- */
-async function focusCell(to: Where): Promise<void> {
-  const item = items.value[to.row]
-  const column = EDIT_COLUMNS[to.col]
-
-  if (item && column) {
-    show(to.row)
-    await nextTick()
-    focusIn(grid.value?.querySelector<HTMLElement>(`[data-row="${item.id}"] [data-col="${column}"]`))
-  }
-}
-
-/**
- * The key, as the grid reads it.
- *
- * @param event the key
- * @returns the key, and whether Control or Command, and Alt or Shift, are down
- */
-function pressOf(event: KeyboardEvent): Press {
-  return { key: event.key, ctrl: event.ctrlKey || event.metaKey, other: event.altKey || event.shiftKey }
-}
-
-/**
- * A key in the grid: the keys of a spreadsheet move between the cells (the keys of a field that are not those stay the field's).
- *
- * @param event the key
- */
-function key(event: KeyboardEvent): void {
-  // (a key that is part of what an input method is composing is the method's, not the grid's)
-  const at = event.isComposing ? null : whereIs(event.target)
-  const to = at ? nextCell(pressOf(event), at, items.value.length, edgesOf(event.target)) : null
-
-  if (to) {
-    event.preventDefault()
-    void focusCell(to)
-  }
-}
-
-/**
- * The focus is in a cell: it is the one Tab comes back to, and the item of its row is the selected one.
- *
- * @param at the cell
- */
-function remember(at: Where): void {
-  const item = items.value[at.row]
-  const column = EDIT_COLUMNS[at.col]
-
-  if (item && column) {
-    active.value = { id: item.id, column }
-    state.select(item.id)
-  }
-}
-
-/**
- * The focus came to an element of the grid.
- *
- * @param event the focus
- */
-function focusedIn(event: FocusEvent): void {
-  const at = whereIs(event.target)
-
-  if (at) {
-    remember(at)
-  }
-}
-
-// An item selected elsewhere (the list, the map, Undo) has its row shown (the focus is not taken).
-watch(selected, id => {
-  const row = items.value.findIndex(item => item.id === id)
-
-  if (row >= 0) {
-    show(row)
-  }
+const rows = computed(() => items.value.map(rowOf))
+// (the words are the page's language: in another, every row is made again)
+watch(locale, () => {
+  made = new WeakMap()
 })
 
-const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
-
-onMounted(() => {
-  measure()
-  scrolled()
-
-  if (scroller.value) {
-    observer?.observe(scroller.value)
+/**
+ * A column of the table.
+ *
+ * @param id its id
+ * @param more what else it is
+ * @returns the column
+ */
+function column(id: string, more: Partial<Column<PlanRow>> = {}): Column<PlanRow> {
+  return {
+    id, header: '', width: WIDTHS[id], sortable: false, resizable: false, value: row => row.index, ...more,
   }
-  // (the table opens at the selected item)
-  const row = items.value.findIndex(item => item.id === selected.value)
+}
 
-  if (row >= 0) {
-    show(row)
-  }
+const columns = computed<Column<PlanRow>[]>(() => [
+  column('number', { header: t('plan.table.col.number'), rowHeader: true }),
+  column('command', { header: t('plan.table.col.command') }),
+  ...EDIT_COLUMNS.map(id => column(id, {
+    header: id.startsWith('s') ? t('plan.table.col.setting', { number: Number(id.slice(1)) }) : t(`plan.table.col.${id}`),
+  })),
+])
+
+/** The selected item, as the table's selected row (the table's cursor is in it, and the other way round). */
+const selectedId = computed<number | null>({
+  get: () => state.selected.value ?? null,
+  set: id => {
+    if (id !== null && id !== state.selected.value) {
+      state.select(id)
+    }
+  },
 })
 
-onBeforeUnmount(() => observer?.disconnect())
+/**
+ * What names a row: its item's id.
+ *
+ * @param row the row
+ * @returns the id
+ */
+const rowKey = (row: PlanRow): number => row.item.id
+
+/**
+ * A row that has a problem no cell has is marked.
+ *
+ * @param row the row
+ * @returns the class, or undefined
+ */
+const rowClass = (row: PlanRow): string | undefined => (row.words === '' ? undefined : 'bad')
+
+/**
+ * What the page finds a row by: its item's id.
+ *
+ * @param row the row
+ * @returns the attributes
+ */
+const rowAttrs = (row: PlanRow): Record<string, string> => ({ 'data-row': String(row.item.id) })
+
+/**
+ * The name of an item's command.
+ *
+ * @param item the item
+ * @returns the name, or the number of a command the catalog does not have
+ */
+function commandOf(item: PlanItem): string {
+  const def = definitionOf(item.command)
+
+  return def ? t(`plan.cmd.${def.id}`) : String(item.command)
+}
+
+/**
+ * The problems of a row that are about a cell.
+ *
+ * @param row the row
+ * @param id the column
+ * @returns them
+ */
+function cellProblems(row: PlanRow, id: EditColumn): Problem[] {
+  const cell = cellOf(row.item, id)
+
+  return cell ? problemsOfCell(row.problems, cell) : []
+}
 </script>

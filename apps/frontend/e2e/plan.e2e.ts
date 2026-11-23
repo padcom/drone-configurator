@@ -292,7 +292,7 @@ describe('the scrolling rule', () => {
 /** Whether the table's own area scrolls (its rows are more than it shows): the table is what scrolls, not the page. */
 const TABLE_SCROLLS = `(async () => {
   await new Promise(resolve => setTimeout(resolve, 400))
-  const area = document.querySelector('.plan-table-scroll')
+  const area = document.querySelector('.plan-table .data-table-scroll')
   return area.scrollHeight > area.clientHeight + 1
 })()`
 
@@ -331,7 +331,7 @@ describe('the table tool and the wheel', () => {
   it('lets a wheel over the table, at the end of it, go on to the page at 999 px wide (the table is no trap)', async () => {
     const pageTop = `(document.querySelector('.app-main').scrollTop + document.scrollingElement.scrollTop)`
     const centre = await window().evaluate<{ x: number, y: number }>(`(() => {
-      const area = document.querySelector('.plan-table-scroll')
+      const area = document.querySelector('.plan-table .data-table-scroll')
       area.scrollIntoView({ block: 'center' })
       area.scrollTop = area.scrollHeight
       const box = area.getBoundingClientRect()

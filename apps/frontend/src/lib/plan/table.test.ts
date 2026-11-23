@@ -3,10 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { definitionOf, freshItem } from './catalog'
 import { type Plan, type PlanItem, emptyPlan } from './model'
-import {
-  EDIT_COLUMNS, type EditColumn, HEAD_PX, OVERSCAN_ROWS, type Press, ROW_PX, cellOf, nextCell, problemsOfCell, problemsOfRow,
-  rowsInView, scrollFor,
-} from './table'
+import { EDIT_COLUMNS, type EditColumn, cellOf, problemsOfCell, problemsOfRow } from './table'
 import { problemsOf } from './validate'
 
 /**
@@ -85,71 +82,6 @@ describe('what a cell holds and writes', () => {
     expect(cellOf(item, 's2')!.write(30)).toEqual({ p3: -30 })
     expect(cellOf(item, 's3')).toMatchObject({ kind: 'choice', value: -1, fieldId: 'direction' })
     expect(cellOf(item, 's3')!.write(1)).toEqual({ p3: 20 })
-  })
-})
-
-const press = (key: string, extra: Partial<Press> = {}): Press => ({ key, ctrl: false, other: false, ...extra })
-const both = { start: true, end: true }
-const at = { row: 5, col: 3 }
-
-describe('where a key goes in the grid, between rows', () => {
-  it('goes up, down and with Enter down a row, and Page Up and Page Down ten, and keeps the column', () => {
-    expect(nextCell(press('ArrowDown'), at, 100, both)).toEqual({ row: 6, col: 3 })
-    expect(nextCell(press('Enter'), at, 100, both)).toEqual({ row: 6, col: 3 })
-    expect(nextCell(press('ArrowUp'), at, 100, both)).toEqual({ row: 4, col: 3 })
-    expect(nextCell(press('PageDown'), at, 100, both)).toEqual({ row: 15, col: 3 })
-    expect(nextCell(press('PageUp'), at, 100, both)).toEqual({ row: 0, col: 3 })
-  })
-
-  it('goes to the first and the last row with Control and Home or End, and leaves Home and End alone without it', () => {
-    expect(nextCell(press('Home', { ctrl: true }), at, 100, both)).toEqual({ row: 0, col: 3 })
-    expect(nextCell(press('End', { ctrl: true }), at, 100, both)).toEqual({ row: 99, col: 3 })
-    expect(nextCell(press('Home'), at, 100, both)).toBeNull()
-    expect(nextCell(press('End'), at, 100, both)).toBeNull()
-  })
-})
-
-describe('where a key goes in the grid, between columns and at the ends', () => {
-  it('goes left and right only where the caret is at the edge of the field, and stays within the columns', () => {
-    expect(nextCell(press('ArrowRight'), at, 100, { start: false, end: true })).toEqual({ row: 5, col: 4 })
-    expect(nextCell(press('ArrowRight'), at, 100, { start: true, end: false })).toBeNull()
-    expect(nextCell(press('ArrowLeft'), at, 100, { start: true, end: false })).toEqual({ row: 5, col: 2 })
-    expect(nextCell(press('ArrowLeft'), at, 100, { start: false, end: true })).toBeNull()
-    expect(nextCell(press('ArrowLeft'), { row: 0, col: 0 }, 100, both)).toBeNull()
-    expect(nextCell(press('ArrowRight'), { row: 0, col: EDIT_COLUMNS.length - 1 }, 100, both)).toBeNull()
-  })
-
-  it('stays at the ends of the grid, and leaves the keys that are the browser\'s (Alt, Shift) and the others', () => {
-    expect(nextCell(press('ArrowUp'), { row: 0, col: 1 }, 100, both)).toBeNull()
-    expect(nextCell(press('ArrowDown'), { row: 99, col: 1 }, 100, both)).toBeNull()
-    expect(nextCell(press('ArrowDown', { other: true }), at, 100, both)).toBeNull()
-    expect(nextCell(press('a'), at, 100, both)).toBeNull()
-  })
-})
-
-describe('which rows are drawn', () => {
-  it('are the rows in view and a few beyond, however many there are', () => {
-    // (a 520 px area less the 44 px header shows 476 px of rows: ten of 52 px, and the overscan on each side)
-    expect(rowsInView(0, 520, 1000)).toEqual({ first: 0, end: Math.ceil(476 / ROW_PX) + OVERSCAN_ROWS })
-    const middle = rowsInView(26_000, 520, 1000)
-
-    expect(middle.first).toBe(500 - OVERSCAN_ROWS)
-    expect(middle.end - middle.first).toBeLessThan(30)
-  })
-
-  it('are none for an empty plan, and never go past the last row or before the first', () => {
-    expect(rowsInView(0, 520, 0)).toEqual({ first: 0, end: 0 })
-    expect(rowsInView(52 * 998, 520, 1000).end).toBe(1000)
-    expect(rowsInView(-40, 520, 1000).first).toBe(0)
-  })
-
-  it('scrolls the least that shows a row, and not at all when it is shown', () => {
-    expect(scrollFor(3, 0, 520)).toBe(0)
-    expect(scrollFor(0, 520, 520)).toBe(0)
-    // a row below the view: its bottom at the bottom of the room the rows have
-    expect(scrollFor(20, 0, 520)).toBe(21 * ROW_PX - (520 - HEAD_PX))
-    expect(scrollFor(8, 0, 520)).toBe(0)
-    expect(scrollFor(9, 0, 520)).toBe(10 * ROW_PX - (520 - HEAD_PX))
   })
 })
 
