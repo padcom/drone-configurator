@@ -23,7 +23,7 @@ under the last table and are not counted.
 | Parameter-bound form fields | #17 | Partial | no unit display/conversion field; draft-conflict states only partly |
 | Global keyboard shortcuts | #20 | Partial | no rebinding, conflict display or help overlay |
 | Command palette | #21 | Partial | the open and per-keystroke budgets are not measured |
-| Performance budgets enforced in CI | #22 | Partial | no budget file, no cold-start/bundle/long-task checks, no regression gate |
+| Performance budgets enforced in CI | #22 | Done | `apps/frontend/budgets.json`; cold start, screen switch, initial JS, long tasks (`e2e/budgets.e2e.ts`) and the palette, judged by `e2e/budgets.ts`, in the job summary |
 | Telemetry model, coalesced for the UI | #26 | Partial | no update-rate or CPU budget test; no SITL e2e against simulated truth |
 | One-key connect with auto-detection | #27 | Partial | no USB detection, baud probing or default UDP listen |
 | Reconnect that resumes | #28 | Partial | implemented; qa could not confirm the cached-parameters, keyboard and i18n points or the arm64 gate |

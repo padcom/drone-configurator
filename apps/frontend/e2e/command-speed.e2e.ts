@@ -6,23 +6,22 @@
 // without a mouse goes: Ctrl+P, type the name with the keys, Enter, and the Parameters screen has the parameter selected, the
 // focus in its editor.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { expectWithinBudget } from './budgets'
 import { chooseConnection, clickConnect, showScreen } from './click'
 import { type E2eApp, launchApp } from './launch'
 import { chord, openPalette } from './palette-keys'
 import { ScriptedVehicle } from './scripted-vehicle'
 
-/** The budgets (ms), and how many parameters the vehicle has. */
-const OPEN_MS = 50
-const KEYSTROKE_MS = 16
+/** How many parameters the vehicle has. The budgets are `paletteOpen` and `paletteKeystroke` in budgets.json (#22). */
 const PARAMETERS = 1500
 /**
- * How many openings are timed, after the ones that warm it up. The gate is the MEDIAN against the budget; the 95th percentile
- * only has to be within LOOSE times the budget: with a few dozen samples the 95th percentile is the second slowest, and one cold
- * or descheduled frame must not fail the build, while a palette that is slow for every other press still does.
+ * How many openings are timed, after the ones that warm it up. They are judged as every budget is (e2e/budgets.ts): the MEDIAN
+ * against the budget and the 95th percentile against the budget times its noise, since with a few dozen samples the 95th
+ * percentile is the second slowest, and one cold or descheduled frame must not fail the build, while a palette that is slow for
+ * every other press still does.
  */
 const OPENINGS = 25
 const WARM_UP_OPENINGS = 5
-const LOOSE = 2
 
 let vehicle: ScriptedVehicle | undefined
 let app: E2eApp | undefined
@@ -130,19 +129,6 @@ function typing(text: string): string {
 }
 
 /**
- * A percentile of some numbers.
- *
- * @param values the numbers
- * @param share between 0 and 1
- * @returns the value at that share of the sorted numbers
- */
-function percentile(values: number[], share: number): number {
-  const sorted = [...values].sort((a, b) => a - b)
-
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))] ?? 0
-}
-
-/**
  * Says the times in the run's log, rounded.
  *
  * @param what what was timed
@@ -200,16 +186,14 @@ describe('the speed of the palette, with 1,500 parameters loaded', () => {
     const times = await window().evaluate<number[]>(OPENING)
 
     say('palette open', times)
-    expect(percentile(times, 0.5)).toBeLessThan(OPEN_MS)
-    expect(percentile(times, 0.95)).toBeLessThan(OPEN_MS * LOOSE)
+    expectWithinBudget('paletteOpen', times)
   })
 
   it('answers each keystroke within 16 ms: the rows are made by the next task (the median; the 95th in twice)', async () => {
     const { times, firsts } = await typedAll(['PRM0777', 'PRM1', 'prm00', 'switch to param'], 3)
 
     say('palette keystroke', times)
-    expect(percentile(times, 0.5)).toBeLessThan(KEYSTROKE_MS)
-    expect(percentile(times, 0.95)).toBeLessThan(KEYSTROKE_MS * LOOSE)
+    expectWithinBudget('paletteKeystroke', times)
     expect(firsts[0]).toBe('param.PRM0777')
   })
 })

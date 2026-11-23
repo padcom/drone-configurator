@@ -1,6 +1,6 @@
 {
   "comment": "Which window e2e specs (apps/frontend/e2e/*.e2e.ts) a changed source file needs. A file in no entry runs the specs that share its name, else every spec. apps/frontend/src/components/ui, assets, i18n and the shared backend modules are not here: they always run everything (.github/ci-select.mjs, FULL). The test apps/frontend/e2e/ci-select.test.ts fails when a spec is in no entry, a pattern matches no file, or a spec named here does not exist.",
-  "smoke": ["shell.e2e.ts", "configurator.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts"],
+  "smoke": ["shell.e2e.ts", "configurator.e2e.ts", "palette.e2e.ts", "flight-data.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "budgets.e2e.ts"],
   "smokeSitl": "sitl.e2e.ts",
   "entries": [
     {

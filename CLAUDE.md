@@ -11,6 +11,10 @@ A control center for ArduPilot vehicles: configuration, flight planning and miss
 
 Branches are named `agent/<issue>-<part>-<topic>`. Pin exact dependency versions.
 
+**Performance budgets** (#22) live in `apps/frontend/budgets.json`. A feature with a speed or size promise adds its budget there
+and judges its samples with `expectWithinBudget` (`apps/frontend/e2e/budgets.ts`): the median within the budget, the 95th
+percentile within the budget times its noise. CI fails a missed budget and lists every verdict in the e2e job's summary.
+
 ## Building from the design
 
 The design is exported to `docs/design/boards/`. Every screen is one `*.dc.html` file. `canvas.json` lists them: `boards`
