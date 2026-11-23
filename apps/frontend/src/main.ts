@@ -1,6 +1,7 @@
 import '@/assets/styles/fonts.css'
 import '@/assets/styles/tokens.css'
 import '@/assets/styles/kit.css'
+import '@/assets/styles/dataTable.css'
 import '@/assets/styles/panels.css'
 import '@/assets/styles/dialog.css'
 import '@/assets/styles/surfaces.css'

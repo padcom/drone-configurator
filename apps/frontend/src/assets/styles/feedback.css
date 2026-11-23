@@ -146,7 +146,8 @@
   display: inline-block;
 }
 
-.kit-menu .list {
+.kit-menu .list,
+.kit-context .list {
   position: absolute;
   top: 100%;
   left: 0;
@@ -165,7 +166,20 @@
   border-radius: var(--radius-md);
 }
 
-.kit-menu .item {
+/* A context menu: the same list, drawn where it was asked for (its left and top are set), not under a button. */
+.kit-context {
+  display: contents;
+}
+
+.kit-context .list {
+  position: fixed;
+  top: auto;
+  left: auto;
+  margin-top: 0;
+}
+
+.kit-menu .item,
+.kit-context .item {
   box-sizing: border-box;
   display: flex;
   gap: var(--space-4);
@@ -182,26 +196,32 @@
   border-radius: var(--radius-sm);
 }
 
-.kit-menu .item.danger {
+.kit-menu .item.danger,
+.kit-context .item.danger {
   color: var(--color-error);
 }
 
 .kit-menu .item:hover:not(:disabled),
-.kit-menu .item:focus-visible {
+.kit-menu .item:focus-visible,
+.kit-context .item:hover:not(:disabled),
+.kit-context .item:focus-visible {
   background: var(--color-accent-soft);
 }
 
-.kit-menu .item:focus-visible {
+.kit-menu .item:focus-visible,
+.kit-context .item:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
 
-.kit-menu .item:disabled {
+.kit-menu .item:disabled,
+.kit-context .item:disabled {
   color: var(--color-text-muted);
   cursor: not-allowed;
 }
 
-.kit-menu .hint {
+.kit-menu .hint,
+.kit-context .hint {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);

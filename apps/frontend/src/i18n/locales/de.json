@@ -492,14 +492,35 @@
       "badges": "Abzeichen",
       "paramFields": "Parameterfelder",
       "panels": "Panels",
+      "contextMenu": "Kontextmenü",
       "icons": "Symbole",
-      "charts": "Diagramme"
+      "charts": "Diagramme",
+      "table": "Datentabelle"
+    },
+    "table": {
+      "label": "Beispielparameter (2000 Zeilen: nur die sichtbaren Zeilen werden gezeichnet)",
+      "col": {
+        "number": "Nummer",
+        "name": "Name",
+        "value": "Wert"
+      }
     },
     "chart": {
       "altitude": "Höhe, m (5000 Messwerte ausgedünnt, ein Ausreißer von einem Wert bleibt)",
       "battery": "Batterie, V (eine Strecke ohne Wert ist eine Lücke)",
       "old": "Alte Daten (gedämpft, gestrichelt, und es steht dabei)",
       "none": "Keine Daten"
+    },
+    "context": {
+      "label": "Aktionen für das Beispielelement",
+      "area": "Hier mit der rechten Maustaste klicken, oder diesen Kasten fokussieren und die Menütaste (Umschalt F10) drücken.",
+      "item": {
+        "fly": "Hierhin fliegen",
+        "copy": "Kopieren",
+        "delete": "Element löschen"
+      },
+      "chosen": "Gewählt: {item}",
+      "none": "Noch nichts gewählt."
     },
     "truth": {
       "live": "Live",
@@ -902,6 +923,11 @@
       "days": "Tage: {days}"
     },
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
+  },
+  "table": {
+    "resize": "Breite der Spalte {name} ändern",
+    "help": "Pfeiltasten wechseln zwischen den Zellen. Eingabe oder Tippen bearbeitet eine Zelle, Escape bricht ab, Tab geht zur nächsten Zelle.",
+    "empty": "Keine Zeilen."
   },
   "connection": {
     "rebooting": "Neustart",
