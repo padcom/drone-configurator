@@ -21,7 +21,7 @@ import {
 import { MAX_ITEMS } from '@/lib/plan/model'
 import { CommandRegistry } from '@/lib/commands/registry'
 import { goToScreens, goToSections } from '@/lib/commands/navigation'
-import { ConnectToVehicle, DisconnectFromVehicle, ShowPalette } from '@/lib/commands/app'
+import { ConnectToVehicle, DisconnectFromVehicle, ShowKeys, ShowPalette } from '@/lib/commands/app'
 import { OpenLogFile } from '@/lib/commands/logs'
 import { LoadMetadata } from '@/lib/commands/metadata'
 import { ParameterProvider } from '@/lib/commands/parameters'
@@ -42,6 +42,7 @@ import { useConfigurator } from './useConfigurator'
 import { armMayBeOn, useArmGrace } from './useArmGrace'
 import { useArmReview } from './useArmReview'
 import { useConnectDialog } from './useConnectDialog'
+import { toggleKeyHelpUnlessCovered } from './useKeyHelp'
 import { useCommandUsage } from './useCommandUsage'
 import { useModeConfirmation } from './useModeConfirmation'
 import { useChangeAltitude } from './useChangeAltitude'
@@ -99,6 +100,7 @@ function makeRegistry(): CommandRegistry {
   const others = [
     new LoadMetadata(),
     new ShowPalette(),
+    new ShowKeys(),
     new ConnectToVehicle(),
     new DisconnectFromVehicle(),
     new DownloadParameters(),
@@ -290,6 +292,7 @@ function dialogFacts(): DialogFacts {
   return {
     showConnect: () => connect.show(),
     togglePalette: toggleUnlessCovered,
+    showKeys: toggleKeyHelpUnlessCovered,
     showArmReview: () => review.show(),
     showTakeoff: () => takeoff.show(),
     showChangeAltitude: () => altitude.show(),

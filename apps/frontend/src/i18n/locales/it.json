@@ -490,6 +490,7 @@
       "fields": "Campi",
       "choices": "Scelte",
       "badges": "Etichette",
+      "paramFields": "Campi dei parametri",
       "panels": "Pannelli",
       "contextMenu": "Menu contestuale",
       "icons": "Icone",
@@ -573,6 +574,15 @@
       "action2": "Atterra sempre",
       "save": "Salva",
       "unnamed": "Un valore senza nome"
+    },
+    "fields": {
+      "simulate": "Simula",
+      "changes": "Il veicolo lo cambia",
+      "writing": "Una scrittura è in corso",
+      "verified": "La scrittura è verificata",
+      "rejected": "La scrittura è rifiutata",
+      "reset": "Ricomincia",
+      "reason": "il valore non è permesso in questa modalità"
     },
     "surface": {
       "label": "Batteria",
@@ -969,6 +979,29 @@
       "other": "Fix sconosciuto"
     }
   },
+  "field": {
+    "number": {
+      "empty": "Inserisci un numero.",
+      "nan": "Non è un numero.",
+      "low": "Almeno {limit}.",
+      "high": "Al massimo {limit}."
+    },
+    "status": {
+      "unknown": "Non ancora letto dal veicolo.",
+      "vehicle": "Valore del veicolo.",
+      "draft": "Modificato: il veicolo ha {vehicle}.",
+      "writing": "Scrittura sul veicolo…",
+      "verified": "Verificato: il veicolo rilegge {value}.",
+      "rejected": "Rifiutato: {reason}",
+      "conflict": "Cambiato sul veicolo: ora ha {vehicle}.",
+      "noReason": "il veicolo non ha accettato il valore"
+    },
+    "conflict": {
+      "text": "Il veicolo ha cambiato {name} in {vehicle} mentre lo modificavi. La tua bozza è {draft}.",
+      "keep": "Mantieni la mia bozza",
+      "take": "Usa il valore del veicolo"
+    }
+  },
   "confirm": {
     "cancel": "Annulla",
     "write": "Scrivi"
@@ -1260,6 +1293,54 @@
     "backendError": "il backend: {error}",
     "backendRestarted": "Il backend è stato riavviato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare.",
     "backendStopped": "Il backend si è fermato: la sessione del veicolo è terminata. Connettiti di nuovo per continuare."
+  },
+  "keys": {
+    "help": {
+      "label": "Mostra le scorciatoie da tastiera",
+      "keywords": "tasti tastiera scorciatoie aiuto",
+      "title": "Scorciatoie da tastiera",
+      "intro": "I tasti come sono ora, per schermata.",
+      "settings": "Si cambiano in Impostazioni, sotto Tastiera.",
+      "close": "Chiudi"
+    },
+    "action": {
+      "palette": {
+        "open": "Apri la palette dei comandi"
+      },
+      "help": {
+        "keys": "Mostra le scorciatoie da tastiera"
+      },
+      "panes": {
+        "next": "Riquadro successivo",
+        "previous": "Riquadro precedente"
+      },
+      "params": {
+        "search": "Cerca tra i parametri",
+        "write": "Scrivi i parametri modificati"
+      }
+    },
+    "scope": {
+      "global": "Tutta la finestra",
+      "parameters": "Parametri"
+    },
+    "settings": {
+      "title": "Tastiera",
+      "intro": "Dai a un’azione un altro tasto: premi Cambia, poi il nuovo tasto (Esc annulla). Un tasto richiede Ctrl o è un tasto funzione.",
+      "fixed": "Fisso: si riconosce dal carattere che scrive, quindi non si può cambiare.",
+      "change": "Cambia",
+      "reset": "Predefinito",
+      "resetAll": "Torna ai tasti predefiniti",
+      "none": "Nessun tasto",
+      "press": "Premi il nuovo tasto per «{action}». Esc annulla.",
+      "why": {
+        "needsModifier": "Quel tasto si scrive nel testo. Usalo con Ctrl o scegli un tasto funzione.",
+        "reserved": "Quel tasto è del sistema o del browser (ricarica, chiudi, copia…). Scegline un altro.",
+        "fixed": "Quel tasto è fisso e non si può cambiare."
+      },
+      "clash": "{chord} è già il tasto di: {actions}.",
+      "take": "Prendilo",
+      "keep": "Tieni il vecchio"
+    }
   },
   "palette": {
     "logs": {

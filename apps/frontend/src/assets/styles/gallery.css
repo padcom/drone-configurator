@@ -178,6 +178,19 @@
   border-radius: var(--radius-lg);
 }
 
+/* The sample parameter field, and the buttons that play what the vehicle does to it. */
+.gallery .field-demo {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+.gallery .field-demo .simulate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* The box the sample context menu is for. */
 .gallery .context-area {
   padding: var(--space-5);

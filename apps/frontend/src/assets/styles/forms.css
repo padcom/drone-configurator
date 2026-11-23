@@ -241,3 +241,66 @@
   padding: 0 var(--space-5);
   font-weight: 600;
 }
+
+/* A numeric parameter field: the value, its unit after it, and the reason it is not a value under it. */
+.number-field {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.number-field .unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.number-field .reason {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+}
+
+/* A field bound to a parameter: the control, what it says of itself in words, and a conflict that needs an answer. */
+.param-field {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.param-field .status {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.param-field .status.verified {
+  color: var(--color-ok);
+}
+
+.param-field .status.rejected,
+.param-field .status.conflict {
+  color: var(--color-warn);
+}
+
+.param-field .conflict-box {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-warn-soft);
+  border: 1px solid var(--color-warn);
+  border-radius: var(--radius-md);
+}
+
+.param-field .conflict-box p {
+  margin: 0;
+}
+
+.param-field .conflict-box .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

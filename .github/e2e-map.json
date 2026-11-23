@@ -25,9 +25,9 @@
     {
       "when": [
         "apps/frontend/src/components/shell/**", "apps/frontend/src/lib/{app,commands}/**", "apps/frontend/src/screens/{registry.ts,Gallery.vue,NotAvailable.vue}",
-        "apps/frontend/src/composables/{useCommand*,useFocusIntent,useDownloadText,toasts}.ts"
+        "apps/frontend/src/composables/{useCommand*,useKeyBindings,useKeyHelp,useFocusIntent,useDownloadText,toasts}.ts"
       ],
-      "specs": ["shell.e2e.ts", "palette.e2e.ts", "command-speed.e2e.ts", "flight-data.e2e.ts", "fonts.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts"]
+      "specs": ["shell.e2e.ts", "palette.e2e.ts", "command-speed.e2e.ts", "keys.e2e.ts", "flight-data.e2e.ts", "fonts.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts"]
     },
     {
       "when": [
@@ -49,7 +49,7 @@
         "apps/frontend/src/components/{settings,map}/**", "apps/frontend/src/lib/map/**", "apps/frontend/src/composables/{useMapSettings,useFlightMap,useLiveMapSource,useReplayMapSource}.ts",
         "apps/frontend/src/screens/{Settings,FlightData}.vue", "apps/backend/{map*,settings,groups,telemetry}.pi", "packages/contracts/app.cddl"
       ],
-      "specs": ["map-settings.e2e.ts", "flight-map.e2e.ts", "flight-map-vehicle.e2e.ts", "sitl-flight-map.e2e.ts", "logs-replay.e2e.ts"]
+      "specs": ["keys.e2e.ts", "map-settings.e2e.ts", "flight-map.e2e.ts", "flight-map-vehicle.e2e.ts", "sitl-flight-map.e2e.ts", "logs-replay.e2e.ts"]
     },
     {
       "when": [

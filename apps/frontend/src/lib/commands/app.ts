@@ -54,6 +54,49 @@ export class ShowPalette implements Command {
   }
 }
 
+/** Opens the help of the keys: every key as the user has it now, by screen. */
+export class ShowKeys implements Command {
+  readonly id = 'help.keys'
+
+  readonly labelKey = 'keys.help.label'
+
+  readonly groupKey = APP_GROUP
+
+  readonly icon = 'search'
+
+  readonly keywordKeys = ['keys.help.keywords']
+
+  /**
+   * The key, as the keymap shows it (none when the user took it off).
+   *
+   * @returns the hint
+   */
+  get shortcut(): string {
+    return hintOf('help.keys')
+  }
+
+  /**
+   * It can be asked for everywhere.
+   *
+   * @returns enabled
+   */
+  isEnabled(): { enabled: true } {
+    return { enabled: true }
+  }
+
+  /**
+   * Opens the help, which takes the focus itself and gives it back when it closes.
+   *
+   * @param ctx the context
+   * @returns the focus stays where the help finds it
+   */
+  execute(ctx: CommandContext): CommandOutcome {
+    ctx.dialogs.showKeys()
+
+    return { focus: 'restore' }
+  }
+}
+
 /** Opens the dialog to connect to a vehicle. */
 export class ConnectToVehicle implements Command {
   readonly id = 'connect.open'

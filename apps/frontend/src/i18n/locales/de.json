@@ -490,6 +490,7 @@
       "fields": "Felder",
       "choices": "Auswahl",
       "badges": "Abzeichen",
+      "paramFields": "Parameterfelder",
       "panels": "Panels",
       "contextMenu": "Kontextmenü",
       "icons": "Symbole",
@@ -573,6 +574,15 @@
       "action2": "Immer landen",
       "save": "Speichern",
       "unnamed": "Ein Wert ohne Namen"
+    },
+    "fields": {
+      "simulate": "Simulieren",
+      "changes": "Das Fahrzeug ändert es",
+      "writing": "Ein Schreibvorgang läuft",
+      "verified": "Der Schreibvorgang ist geprüft",
+      "rejected": "Der Schreibvorgang wird abgelehnt",
+      "reset": "Von vorn",
+      "reason": "der Wert ist in diesem Modus nicht erlaubt"
     },
     "surface": {
       "label": "Akku",
@@ -969,6 +979,29 @@
       "other": "Unbekannter Fix"
     }
   },
+  "field": {
+    "number": {
+      "empty": "Eine Zahl eingeben.",
+      "nan": "Das ist keine Zahl.",
+      "low": "Mindestens {limit}.",
+      "high": "Höchstens {limit}."
+    },
+    "status": {
+      "unknown": "Noch nicht vom Fahrzeug gelesen.",
+      "vehicle": "Wert des Fahrzeugs.",
+      "draft": "Geändert: das Fahrzeug hat {vehicle}.",
+      "writing": "Wird zum Fahrzeug geschrieben…",
+      "verified": "Geprüft: das Fahrzeug liest {value} zurück.",
+      "rejected": "Abgelehnt: {reason}",
+      "conflict": "Am Fahrzeug geändert: es hat {vehicle}.",
+      "noReason": "das Fahrzeug hat den Wert nicht angenommen"
+    },
+    "conflict": {
+      "text": "Das Fahrzeug hat {name} auf {vehicle} geändert, während Sie es bearbeitet haben. Ihr Entwurf ist {draft}.",
+      "keep": "Meinen Entwurf behalten",
+      "take": "Wert des Fahrzeugs verwenden"
+    }
+  },
   "confirm": {
     "cancel": "Abbrechen",
     "write": "Schreiben"
@@ -1260,6 +1293,54 @@
     "backendError": "das Backend: {error}",
     "backendRestarted": "Das Backend wurde neu gestartet: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren.",
     "backendStopped": "Das Backend wurde gestoppt: die Fahrzeugsitzung ist beendet. Verbinde erneut, um fortzufahren."
+  },
+  "keys": {
+    "help": {
+      "label": "Tastenkürzel anzeigen",
+      "keywords": "tasten tastatur kürzel hilfe hotkeys belegung",
+      "title": "Tastenkürzel",
+      "intro": "Die Tasten, wie sie jetzt gelten, nach Bildschirm.",
+      "settings": "Ändern Sie sie in den Einstellungen unter Tastatur.",
+      "close": "Schließen"
+    },
+    "action": {
+      "palette": {
+        "open": "Befehlspalette öffnen"
+      },
+      "help": {
+        "keys": "Tastenkürzel anzeigen"
+      },
+      "panes": {
+        "next": "Nächster Bereich",
+        "previous": "Vorheriger Bereich"
+      },
+      "params": {
+        "search": "Parameter durchsuchen",
+        "write": "Geänderte Parameter schreiben"
+      }
+    },
+    "scope": {
+      "global": "Ganzes Fenster",
+      "parameters": "Parameter"
+    },
+    "settings": {
+      "title": "Tastatur",
+      "intro": "Geben Sie einer Aktion eine andere Taste: „Ändern“ drücken, dann die neue Taste (Escape bricht ab). Eine Taste braucht Strg oder ist eine Funktionstaste.",
+      "fixed": "Fest: Sie wird über das getippte Zeichen erkannt und kann nicht geändert werden.",
+      "change": "Ändern",
+      "reset": "Standard",
+      "resetAll": "Zurück zu den Standardtasten",
+      "none": "Keine Taste",
+      "press": "Drücken Sie die neue Taste für „{action}“. Escape bricht ab.",
+      "why": {
+        "needsModifier": "Diese Taste wird in Text getippt. Nehmen Sie Strg dazu oder eine Funktionstaste.",
+        "reserved": "Diese Taste gehört dem System oder dem Browser (Neuladen, Schließen, Kopieren…). Wählen Sie eine andere.",
+        "fixed": "Diese Taste ist fest und kann nicht geändert werden."
+      },
+      "clash": "{chord} ist schon die Taste von: {actions}.",
+      "take": "Übernehmen",
+      "keep": "Alte behalten"
+    }
   },
   "palette": {
     "logs": {

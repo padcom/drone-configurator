@@ -189,6 +189,23 @@ function planOf(fake: Fake): CommandContext['plan'] {
 }
 
 /**
+ * The dialogs the commands open: each records its name.
+ *
+ * @param fake the fake
+ * @returns the dialogs
+ */
+function dialogsOf(fake: Fake): CommandContext['dialogs'] {
+  return {
+    showConnect: () => void fake.calls.dialogs.push('connect'),
+    togglePalette: () => void fake.calls.dialogs.push('palette'),
+    showKeys: () => void fake.calls.dialogs.push('keys'),
+    showArmReview: () => void fake.calls.dialogs.push('review'),
+    showTakeoff: () => void fake.calls.dialogs.push('takeoff'),
+    showChangeAltitude: () => void fake.calls.dialogs.push('altitude'),
+  }
+}
+
+/**
  * The parts of the context that the toolbars' commands use: the files, the parameters and the dialogs. They record.
  *
  * @param fake the fake
@@ -217,13 +234,7 @@ function toolbarOf(fake: Fake): Pick<CommandContext, 'files' | 'params' | 'dialo
       value: id => fake.facts.parameterValues?.[id],
       listComplete: () => fake.facts.listComplete ?? true,
     },
-    dialogs: {
-      showConnect: () => void fake.calls.dialogs.push('connect'),
-      togglePalette: () => void fake.calls.dialogs.push('palette'),
-      showArmReview: () => void fake.calls.dialogs.push('review'),
-      showTakeoff: () => void fake.calls.dialogs.push('takeoff'),
-      showChangeAltitude: () => void fake.calls.dialogs.push('altitude'),
-    },
+    dialogs: dialogsOf(fake),
   }
 }
 

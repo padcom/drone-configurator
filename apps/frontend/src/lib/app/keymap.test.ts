@@ -1,6 +1,6 @@
 // The one table of keys: no two keys alike, and what counts as the key of an action (the physical key, exactly its modifiers).
-import { describe, expect, it } from 'vitest'
-import { KEYS, hintOf, keyOf, matches } from './keymap'
+import { afterEach, describe, expect, it } from 'vitest'
+import { KEYS, currentKeys, firesWhileTyping, hintOf, isTypingTarget, keyOf, matches, setBindings, setListening } from './keymap'
 
 /**
  * A key press.
@@ -69,5 +69,58 @@ describe('how a key is shown', () => {
     expect(hintOf('palette.open', true)).toBe('⌘ P')
     expect(hintOf('panes.next', true)).toBe('F6')
     expect(hintOf('nothing.here', false)).toBe('')
+  })
+})
+
+describe('the keys in a text field', () => {
+  it('are left to the field when they type (a letter, Shift or not), and fire with Ctrl or as a function key', () => {
+    expect(firesWhileTyping({ code: 'KeyK' })).toBe(false)
+    expect(firesWhileTyping({ code: 'KeyK', shift: true })).toBe(false)
+    expect(firesWhileTyping({ code: 'KeyK', ctrl: true })).toBe(true)
+    expect(firesWhileTyping({ code: 'F1' })).toBe(true)
+    expect(firesWhileTyping({ code: 'F6', shift: true })).toBe(true)
+  })
+
+  it('are told by where the focus is: an input, a textarea, a select, an editable element; not a button or nothing', () => {
+    const make = (tag: string) => document.createElement(tag)
+    const editable = make('div')
+    editable.contentEditable = 'true'
+    // (jsdom does not work out isContentEditable from the attribute)
+    Object.defineProperty(editable, 'isContentEditable', { value: true })
+
+    expect([make('input'), make('textarea'), make('select'), editable].map(isTypingTarget)).toEqual([true, true, true, true])
+    expect([make('button'), make('div'), null, window].map(isTypingTarget)).toEqual([false, false, false, false])
+  })
+})
+
+describe('the keys the user chose', () => {
+  afterEach(() => {
+    setBindings({})
+    setListening(false)
+  })
+
+  it('are the keys from then on: the new chord matches and shows, the old one does not, and a key taken off has none', () => {
+    setBindings({ 'palette.open': { code: 'KeyK', ctrl: true }, 'help.keys': null })
+
+    expect(matches(press({ code: 'KeyK', ctrlKey: true }), 'palette.open', false)).toBe(true)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(false)
+    expect(hintOf('palette.open', false)).toBe('Ctrl K')
+    expect(keyOf('help.keys')).toBeUndefined()
+    expect(currentKeys().some(key => key.actionId === 'help.keys')).toBe(false)
+  })
+
+  it('are never a change to a key that is fixed, and the defaults are back with no choices', () => {
+    setBindings({ 'params.search': { code: 'KeyK', ctrl: true } })
+    expect(keyOf('params.search')).toMatchObject({ code: 'Slash' })
+
+    setBindings({})
+    expect(currentKeys()).toEqual(KEYS)
+  })
+
+  it('do not match while a key is being read as a chord', () => {
+    setListening(true)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(false)
+    setListening(false)
+    expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(true)
   })
 })

@@ -490,6 +490,7 @@
       "fields": "Fields",
       "choices": "Choices",
       "badges": "Badges",
+      "paramFields": "Parameter fields",
       "panels": "Panels",
       "contextMenu": "Context menu",
       "icons": "Icons",
@@ -573,6 +574,15 @@
       "action2": "Always land",
       "save": "Save",
       "unnamed": "A value that has no name"
+    },
+    "fields": {
+      "simulate": "Simulate",
+      "changes": "The vehicle changes it",
+      "writing": "A write is under way",
+      "verified": "The write is verified",
+      "rejected": "The write is rejected",
+      "reset": "Start again",
+      "reason": "the value is not allowed in this mode"
     },
     "surface": {
       "label": "Battery",
@@ -969,6 +979,29 @@
       "other": "Unknown fix"
     }
   },
+  "field": {
+    "number": {
+      "empty": "Enter a number.",
+      "nan": "That is not a number.",
+      "low": "At least {limit}.",
+      "high": "At most {limit}."
+    },
+    "status": {
+      "unknown": "Not read from the vehicle yet.",
+      "vehicle": "The vehicle's value.",
+      "draft": "Modified: the vehicle has {vehicle}.",
+      "writing": "Writing to the vehicle…",
+      "verified": "Verified: the vehicle reads {value} back.",
+      "rejected": "Rejected: {reason}",
+      "conflict": "Changed on the vehicle: it has {vehicle}.",
+      "noReason": "the vehicle did not accept the value"
+    },
+    "conflict": {
+      "text": "The vehicle changed {name} to {vehicle} while you were editing it. Your draft is {draft}.",
+      "keep": "Keep my draft",
+      "take": "Use the vehicle's value"
+    }
+  },
   "confirm": {
     "cancel": "Cancel",
     "write": "Write"
@@ -1260,6 +1293,54 @@
     "backendError": "the backend: {error}",
     "backendRestarted": "The backend restarted: the vehicle session ended. Connect again to continue.",
     "backendStopped": "The backend stopped: the vehicle session ended. Connect again to continue."
+  },
+  "keys": {
+    "help": {
+      "label": "Show the keyboard shortcuts",
+      "keywords": "keys keyboard shortcuts help hotkeys bindings",
+      "title": "Keyboard shortcuts",
+      "intro": "The keys as they are now, by screen.",
+      "settings": "Change them in Settings, under Keyboard.",
+      "close": "Close"
+    },
+    "action": {
+      "palette": {
+        "open": "Open the command palette"
+      },
+      "help": {
+        "keys": "Show the keyboard shortcuts"
+      },
+      "panes": {
+        "next": "Next pane",
+        "previous": "Previous pane"
+      },
+      "params": {
+        "search": "Search the parameters",
+        "write": "Write the changed parameters"
+      }
+    },
+    "scope": {
+      "global": "Whole window",
+      "parameters": "Parameters"
+    },
+    "settings": {
+      "title": "Keyboard",
+      "intro": "Give an action another key: press Change, then the new key (Escape gives up). A key needs Ctrl, or is a function key.",
+      "fixed": "Fixed: it is matched by the character it types, so it cannot be changed.",
+      "change": "Change",
+      "reset": "Default",
+      "resetAll": "Back to the default keys",
+      "none": "No key",
+      "press": "Press the new key for “{action}”. Escape gives up.",
+      "why": {
+        "needsModifier": "That key is typed in text. Use Ctrl with it, or a function key.",
+        "reserved": "That key belongs to the system or the browser (reload, close, copy…). Choose another.",
+        "fixed": "That key is fixed and cannot be changed."
+      },
+      "clash": "{chord} is already the key of: {actions}.",
+      "take": "Take it over",
+      "keep": "Keep the old"
+    }
   },
   "palette": {
     "logs": {

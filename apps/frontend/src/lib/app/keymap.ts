@@ -1,39 +1,86 @@
 // The keys of the application, in ONE table: what listens for a key (composables/useCommandKeys.ts: a key whose `actionId` is
-// a command's id runs that command, with no visible element) and what shows one (the key hint in a row of the palette) read it
-// here. To give a command a key, add a row with the command's id as `actionId`. The keys are fixed for now; a user-defined map
-// (#20) replaces the contents of this table, and nothing else changes, because listeners ask the table and commands only carry
-// a string.
+// a command's id runs that command, with no visible element) and what shows one (the key hint in a row of the palette, the
+// help of the keys, Settings) read it here. To give a command a key, add a row with the command's id as `actionId`.
 //
-// The table also lists, as documentation and for #20 to take over, the keys that exist today in their own modules (F6 and
-// Shift+F6 in paneFocus.ts, Ctrl+/ and Ctrl+Enter in paramShortcuts.ts). They are listened for there, not here: moving them
-// is not part of the palette's work. `listens` says which.
+// The table holds the DEFAULTS. What the user chose over them (lib/app/bindings.ts, kept in the settings) is set with
+// `setBindings`, and every function here then answers for the keys as they are now; the keys that are in force are
+// `currentKeys()`. A key has a SCOPE: `global` works on every screen, a screen's name only there; two keys meet when they are the
+// same chord in scopes that are in force together (a global key meets every screen's).
+//
+// The table also lists the keys that exist in their own modules: F6 and Shift+F6 (paneFocus.ts, which asks `matches`, so they may
+// be rebound) and Ctrl+/ and Ctrl+Enter (paramShortcuts.ts, matched by the character of the key, since `/` is Shift+7 on a German
+// keyboard: they are `fixed`, shown and checked for clashes, and not rebound). `listens` says who listens for a key.
+import { type Chord, chordLabel, sameChord } from './chords'
+import { type Binding, type Overrides, GLOBAL, applyOverrides } from './bindings'
 
-/** One key of the table. */
-export interface Key {
-  /** What it does: `palette.open`. Unique. */
-  actionId: string
-  /** The physical key (`KeyboardEvent.code`): the same on every layout (on a Russian layout `key` is not "p"). */
-  code: string
-  /** Whether Ctrl is held (Cmd on a Mac counts as well). */
-  ctrl?: boolean
-  /** Whether Shift is held. */
-  shift?: boolean
-  /** How it is shown. */
-  label: string
-  /** How it is shown on a Mac, when it is not the same. */
-  macLabel?: string
-  /** `keymap`: `matches` here is what listens for it. `module`: the module that has the behaviour listens (a note here). */
-  listens: 'keymap' | 'module'
+/** One key of the table (`listens` says whether the keymap listens for it, or a module does). */
+export type Key = Binding
+
+/** The default keys. No two meet (the keymap test checks). */
+export const KEYS: readonly Key[] = [
+  { actionId: 'palette.open', code: 'KeyP', ctrl: true, scope: GLOBAL, listens: 'keymap' },
+  { actionId: 'help.keys', code: 'F1', scope: GLOBAL, listens: 'keymap' },
+  { actionId: 'panes.next', code: 'F6', scope: GLOBAL, listens: 'module' },
+  { actionId: 'panes.previous', code: 'F6', shift: true, scope: GLOBAL, listens: 'module' },
+  { actionId: 'params.search', code: 'Slash', ctrl: true, scope: 'parameters', listens: 'module', fixed: true },
+  { actionId: 'params.write', code: 'Enter', ctrl: true, scope: 'parameters', listens: 'module', fixed: true },
+]
+
+/** The keys in force now. */
+let active: readonly Key[] = KEYS
+
+/**
+ * Sets what the user chose over the defaults: the keys are as they say from now on.
+ *
+ * @param overrides the user's choices (none: the defaults)
+ */
+export function setBindings(overrides: Overrides): void {
+  active = applyOverrides(KEYS, overrides)
 }
 
-/** The keys. No two have the same code and modifiers (the keymap test checks). */
-export const KEYS: readonly Key[] = [
-  { actionId: 'palette.open', code: 'KeyP', ctrl: true, label: 'Ctrl P', macLabel: '⌘ P', listens: 'keymap' },
-  { actionId: 'panes.next', code: 'F6', label: 'F6', listens: 'module' },
-  { actionId: 'panes.previous', code: 'F6', shift: true, label: 'Shift F6', listens: 'module' },
-  { actionId: 'params.search', code: 'Slash', ctrl: true, label: 'Ctrl /', macLabel: '⌘ /', listens: 'module' },
-  { actionId: 'params.write', code: 'Enter', ctrl: true, label: 'Ctrl Enter', macLabel: '⌘ Enter', listens: 'module' },
-]
+/**
+ * The keys that are in force.
+ *
+ * @returns the defaults with the user's choices over them
+ */
+export function currentKeys(): readonly Key[] {
+  return active
+}
+
+/** Whether the next key press is being read as a chord for an action (Settings): no key does its command then. */
+let listening = false
+
+/**
+ * Says that the next key presses are chords to read, not commands to run (a key that is being chosen would otherwise do what
+ * it does now: Ctrl+P would open the palette).
+ *
+ * @param on true while a chord is being read
+ */
+export function setListening(on: boolean): void {
+  listening = on
+}
+
+/**
+ * Whether a key press is meant for text: the focus is in a field that takes it (an input, a textarea, a select, or an element
+ * that is editable).
+ *
+ * @param target what has the focus
+ * @returns true when it is a text field
+ */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(?:input|textarea|select)$/iu.test(target.tagName))
+}
+
+/**
+ * Whether a key does its command while the focus is in a text field. A key with Ctrl (Ctrl+P was global from the start) and a
+ * function key type nothing, so they do; a key that types (a letter, with or without Shift) must leave the field alone.
+ *
+ * @param key the key
+ * @returns true when it may fire in a text field
+ */
+export function firesWhileTyping(key: Chord): boolean {
+  return Boolean(key.ctrl) || /^F\d{1,2}$/u.test(key.code)
+}
 
 /**
  * Whether this is a Mac, where Cmd is the modifier people use and the key hints show it.
@@ -51,7 +98,7 @@ export function isMac(): boolean {
  * @returns its key, or undefined when it has none
  */
 export function keyOf(actionId: string): Key | undefined {
-  return KEYS.find(key => key.actionId === actionId)
+  return active.find(key => key.actionId === actionId)
 }
 
 /**
@@ -77,29 +124,22 @@ function strayHeld(event: KeyboardEvent, mac: boolean): boolean {
 }
 
 /**
- * The modifiers of a key press as a string: Ctrl, Shift, stray, each 0 or 1.
+ * Whether a key press is exactly a chord: the physical key and its modifiers (Shift and Alt versions of Ctrl+P are not Ctrl+P;
+ * Ctrl+Shift+P stays free).
  *
  * @param event the key press
+ * @param chord the chord
  * @param mac whether it is a Mac
- * @returns for example "100" for Ctrl alone
+ * @returns true when it is
  */
-function held(event: KeyboardEvent, mac: boolean): string {
-  return `${Number(ctrlHeld(event, mac))}${Number(event.shiftKey)}${Number(strayHeld(event, mac))}`
+function isChord(event: KeyboardEvent, chord: Chord, mac: boolean): boolean {
+  const held: Chord = { code: event.code, ctrl: ctrlHeld(event, mac), shift: event.shiftKey }
+
+  return !strayHeld(event, mac) && sameChord(held, chord)
 }
 
 /**
- * The modifiers a key of the table wants, as `held` says them.
- *
- * @param key the key
- * @returns for example "100"
- */
-function wanted(key: Key): string {
-  return `${Number(Boolean(key.ctrl))}${Number(Boolean(key.shift))}0`
-}
-
-/**
- * Whether a key press is the key of an action: the physical key and exactly its modifiers (Shift and Alt versions of Ctrl+P
- * are not Ctrl+P; Ctrl+Shift+P stays free).
+ * Whether a key press is the key of an action.
  *
  * @param event the key press
  * @param actionId the action
@@ -109,18 +149,7 @@ function wanted(key: Key): string {
 export function matches(event: KeyboardEvent, actionId: string, mac = isMac()): boolean {
   const key = keyOf(actionId)
 
-  return key !== undefined && event.code === key.code && held(event, mac) === wanted(key)
-}
-
-/**
- * How a key is shown.
- *
- * @param key the key
- * @param mac whether it is a Mac
- * @returns its Mac label on a Mac if it has one, else its label
- */
-function labelOf(key: Key, mac: boolean): string {
-  return (mac && key.macLabel) || key.label
+  return !listening && key !== undefined && isChord(event, key, mac)
 }
 
 /**
@@ -128,10 +157,10 @@ function labelOf(key: Key, mac: boolean): string {
  *
  * @param actionId the action
  * @param mac whether it is a Mac
- * @returns the hint, or an empty string when the action has no key
+ * @returns the hint ("Ctrl P", "⌘ P" on a Mac), or an empty string when the action has no key
  */
 export function hintOf(actionId: string, mac = isMac()): string {
   const key = keyOf(actionId)
 
-  return key === undefined ? '' : labelOf(key, mac)
+  return key === undefined ? '' : chordLabel(key, mac)
 }

@@ -118,6 +118,8 @@ export interface DialogFacts {
   showConnect(): void
   /** Opens the command palette, or closes it when it is open; it does not open over another dialog. */
   togglePalette(): void
+  /** Opens the help of the keys: every key as it is now, by screen. */
+  showKeys(): void
   /** Opens the review before arming (the vehicle's checks and what it says of them). */
   showArmReview(): void
   /** Opens the dialog of a takeoff: the altitude, and the button that goes ahead. */
