@@ -91,6 +91,10 @@ async function recordAddressChanges(page: E2eApp): Promise<void> {
       history[how] = (state, title, url) => { note(how, url); return original(state, title, url) }
     }
     window.addEventListener('popstate', () => note('popstate', location.href))
+    // Every press, where it was and what it pressed: whether a click meant for Parameters landed on Setup (#343).
+    window.__presses = []
+    document.addEventListener('pointerdown', event => window.__presses.push([Math.round(performance.now()), event.clientX,
+      event.clientY, event.target.closest('a')?.getAttribute('href') ?? event.target.tagName]), true)
   })()`)
 }
 
@@ -145,6 +149,7 @@ async function describePage(): Promise<string> {
       rows: document.querySelectorAll('#rows tr').length,
       hash: location.hash,
       hashes: window.__hashes,
+      presses: window.__presses?.slice(-6),
       hidden: document.hidden,
       error: document.querySelector('.error')?.textContent,
     })`)
@@ -172,6 +177,8 @@ async function listStatusOnScreen(wanted: RegExp, left: number): Promise<string>
     if (left === 1) {
       throw new Error(`${String(error)}\n${await describePage()}`, { cause: error })
     }
+    // Shown again, and said in the log: a recurrence of #343 that the next attempt hides is still seen.
+    console.warn(`#343: the list's status was not there in time; showing Parameters again. ${await describePage()}`)
 
     return listStatusOnScreen(wanted, left - 1)
   }
