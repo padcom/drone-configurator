@@ -5,6 +5,6 @@
   "dependencies": {
     "pico-desktop/communicator": "0.0.0",
     "padcom/pico-mavlink": "0.0.1",
-    "padcom/serialport": "0.0.1"
+    "padcom/serialport": "0.1.0"
   }
 }

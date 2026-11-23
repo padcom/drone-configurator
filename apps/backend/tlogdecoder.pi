@@ -53,11 +53,6 @@ const MAX_VEHICLES: int = 1000
 const SEGMENT_GAP_US: int = 30000000
 const DEG: f64 = 57.29577951308232
 
-const SCRATCH = new ArrayBuffer(8)
-const SCRATCH_BYTES = new Uint8Array(SCRATCH, 0)
-const SCRATCH_F32 = new Float32Array(SCRATCH, 0)
-const SCRATCH_F64 = new Float64Array(SCRATCH, 0)
-
 /// The byte at `at` of a payload, or 0 past its end (a MAVLink 2 payload may be cut short of its message's length).
 function byteAt(b: Uint8Array, at: int): int {
   if (at < b.length) b[at] as int else 0
@@ -81,11 +76,21 @@ function signedAt(b: Uint8Array, at: int, n: int): f64 {
   if (u >= half) u - half * 2.0 else u
 }
 
+/// Where a value cut short by the end of its payload is put together, zeros after the end (as `byteAt`):
+/// one buffer, so that a recording's many short payloads allocate nothing.
+const SCRATCH = new Uint8Array(8)
+const SCRATCH_VIEW = new DataView(SCRATCH)
+
 function floatAt(b: Uint8Array, at: int, n: int): f64 {
-  for (let i = 0; i < n; i++) {
-    SCRATCH_BYTES.set(i, byteAt(b, at + i))
+  let v = SCRATCH_VIEW
+  if (at + n <= b.length) {
+    v = new DataView(b.buffer, b.byteOffset + at, n)
+  } else {
+    for (let i = 0; i < n; i++) {
+      SCRATCH.set(i, byteAt(b, at + i))
+    }
   }
-  if (n == 4) SCRATCH_F32.get(0) as f64 else SCRATCH_F64.get(0)
+  if (n == 4) v.getFloat32(0, true) as f64 else v.getFloat64(0, true)
 }
 
 /// The element type of a field ("uint16_t[]" is "uint16_t").
@@ -109,19 +114,9 @@ function valueAt(b: Uint8Array, at: int, type: string): f64 {
 
 /// The text of a `char[n]` field, up to the first NUL (invalid UTF-8 becomes U+FFFD).
 function charsAt(b: Uint8Array, at: int, n: int): string {
-  let end = 0
-  while (end < n && byteAt(b, at + end) != 0) {
-    end += 1
-  }
-  const bytes = new Uint8Array(end)
-  for (let i = 0; i < end; i++) {
-    bytes.set(i, byteAt(b, at + i))
-  }
-  try {
-    new TextDecoder().decode(bytes)
-  } catch (e: TypeError) {
-    ""
-  }
+  const start = if (at < b.length) at else b.length
+  const end = if (at + n < b.length) at + n else b.length
+  return string.fromCBytes(b.subarray(start, end))
 }
 
 /// A value the vehicle marks "unknown" (`unknown`: UINT16_MAX, a count of 255, INT32_MAX) is not a number: NaN.
