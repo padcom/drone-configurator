@@ -81,6 +81,10 @@
           <Button :aria-describedby="describedby">{{ t('gallery.feedback.tipButton') }}</Button>
         </Tooltip>
         <Button @click="pushToast">{{ t('gallery.feedback.push') }}</Button>
+        <Popover :label="t('gallery.feedback.popover')" :title="t('gallery.feedback.popoverTitle')">
+          <template #trigger>{{ t('gallery.feedback.popover') }}</template>
+          <p>{{ t('gallery.feedback.popoverBody') }}</p>
+        </Popover>
       </div>
       <ToastHost :queue="toasts" />
     </section>
@@ -281,6 +285,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import HoldButton from '@/components/ui/HoldButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'
+import Popover from '@/components/ui/Popover.vue'
 import { ICONS, type IconName } from '@/lib/ui/icons'
 import Panel from '@/components/ui/Panel.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'

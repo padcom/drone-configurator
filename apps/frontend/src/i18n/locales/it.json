@@ -22,6 +22,28 @@
     }
   },
   "topBar": {
+    "link": {
+      "open": "Collegamento {value}, {level}: mostra i dettagli",
+      "title": "Qualità del collegamento",
+      "level": {
+        "ok": "buono",
+        "warn": "debole",
+        "error": "scarso"
+      },
+      "quality": "Qualità",
+      "loss": "Pacchetti persi",
+      "lossValue": "{percent}% ({lost} su {sent} pacchetti)",
+      "latency": "Latenza",
+      "noLatency": "Nessuna risposta al ping",
+      "received": "Ricevuti",
+      "sent": "Inviati",
+      "rate": "{packets} pacchetti/s · {bytes}",
+      "silent": "Ultimo pacchetto",
+      "silentValue": "{seconds} s fa",
+      "total": "Dalla connessione",
+      "totalValue": "{lost} su {sent} pacchetti persi",
+      "window": "Misurato negli ultimi {seconds} s."
+    },
     "rebooting": "Riavvio…",
     "state": {
       "arm": "Arma il veicolo (il veicolo è disarmato)",
@@ -535,6 +557,9 @@
       "verifiedRule": "Successo solo dopo che il veicolo conferma il valore."
     },
     "feedback": {
+      "popover": "Dettagli",
+      "popoverTitle": "Qualità del collegamento",
+      "popoverBody": "È arrivato il 98% dei pacchetti, 68 ms andata e ritorno.",
       "menu": "Mappa",
       "tip": "Scritto sul veicolo e riletto",
       "tipButton": "Scrivi",

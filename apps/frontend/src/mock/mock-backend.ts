@@ -17,6 +17,7 @@ import { MockMotors, type MockMotorsControl } from './mock-motors'
 import { MockArming, type MockArmingControl } from './mock-arming'
 import { MockMap } from './mock-map'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
+import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
 
 type Outgoing = Omit<Envelope, 'v'>
@@ -123,6 +124,8 @@ export interface MockControl {
   motors?: MockMotorsControl
   /** What the Tune screen's stream has done, and what it is sent (see `MockTuningControl`). */
   tuning?: MockTuningControl
+  /** Sets what `link.stats` says from now on (null: the mock's own healthy link again). */
+  link?: (stats: LinkStats | null) => void
 }
 
 /** How long a rebooting mock vehicle is gone (ms), unless `MockOptions.rebootMs` says. */
@@ -175,6 +178,8 @@ class MockVehicle {
   /** The download that takes its time (`MockOptions.progress`): its timer, and how to fail it. */
   pendingList: { timer: ReturnType<typeof setInterval>, fail: (code: string, message: string) => void } | undefined
   rebootAnswer: RebootResult['result'] = 'accepted'
+  /** What a test set `link.stats` to say, or null for the mock's own link. */
+  linkOverride: LinkStats | null = null
   rebootsSent = 0
   /** The parameters written, in order (a refused write is not here: nothing reached the vehicle). */
   readonly writesSent: string[] = []
@@ -229,6 +234,7 @@ class MockVehicle {
       options.control.rebootsSent = () => this.rebootsSent
       options.control.writesSent = () => [...this.writesSent]
       options.control.filesRead = () => [...this.filesRead]
+      options.control.link = stats => { this.linkOverride = stats }
     }
   }
 
@@ -345,6 +351,7 @@ class MockVehicle {
       case 'motors.hold': return this.motors.hold(ok, fail)
       case 'tuning.stream': return this.tuning.subscribe(e)
       case 'telemetry.stream': return this.telemetry(e)
+      case 'link.stats': return this.linkStats(e)
       case 'vehicle.messages': return this.subscribeToMessages(e, fail)
       case 'files.save': {
         // A pretend file system: what was saved last is what opening gives back.
@@ -612,6 +619,22 @@ class MockVehicle {
         sample.mode = this.arming.mode() ?? sample.mode
         sample.prearm = this.arming.prearmGroup(sample.armed)
         this.send({ k: 'event', n: 'telemetry.stream', s, p: sample })
+      }
+    }, this.options.telemetryMs ?? 1000))
+  }
+
+  /**
+   * A subscription to `link.stats`: the link's quality, at the telemetry's pace, while a vehicle is connected.
+   *
+   * @param e the request
+   */
+  linkStats(e: Envelope) {
+    const s = e.id!
+    let n = 0
+    this.send({ k: 'response', id: s, s })
+    this.timers.set(s, setInterval(() => {
+      if (this.connection.state === 'connected') {
+        this.send({ k: 'event', n: 'link.stats', s, p: this.linkOverride ?? linkStatsAt(n++) })
       }
     }, this.options.telemetryMs ?? 1000))
   }

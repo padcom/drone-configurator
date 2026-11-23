@@ -4,7 +4,7 @@
   "entry": "main.pi",
   "dependencies": {
     "pico-desktop/communicator": "0.0.0",
-    "padcom/pico-mavlink": "0.1.0",
+    "padcom/pico-mavlink": "0.1.2",
     "padcom/serialport": "0.1.0"
   }
 }
