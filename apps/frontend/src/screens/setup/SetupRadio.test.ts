@@ -5,6 +5,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory } from 'vue-router'
+import EnumField from '@/components/fields/EnumField.vue'
 import { createConfigurator } from '@/composables/useConfigurator'
 import { i18n, setLanguage } from '@/i18n/i18n'
 import { SETUP_PARAMS, telemetryAt } from '@/mock/fixtures'
@@ -273,4 +274,17 @@ it('does not let a switch function be chosen while a calibration runs', async ()
 
   expect(wrapper.get('[data-channel="5"] input').attributes('disabled')).toBeDefined()
   expect(wrapper.get('#setup-radio-write').attributes('disabled')).toBeDefined()
+})
+
+it('says in words what a switch\'s function is: the vehicle\'s value, then a choice made here', async () => {
+  const { wrapper } = await page()
+  const said = (): string => wrapper.get('[data-param="RC7_OPTION"] .status').text()
+
+  expect(said()).toBe('The vehicle\'s value.')
+  wrapper.get('[data-channel="7"]').findComponent(EnumField).vm.$emit('update:modelValue', 0)
+  await flushPromises()
+
+  expect(said()).toBe('Modified: the vehicle has 4.')
+  expect(wrapper.get('[data-param="RC7_OPTION"]').attributes('data-status')).toBe('draft')
+  expect(writes(wrapper)).toContain('RC7_OPTION')
 })
