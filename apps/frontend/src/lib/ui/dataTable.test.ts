@@ -14,6 +14,7 @@ import {
   filterRows,
   isOutside,
   nextCell,
+  nextFieldCell,
   nextSort,
   resizedWidth,
   sortRows,
@@ -243,5 +244,35 @@ describe('a row that has the cursor', () => {
     const outside = [0, 15, 25, -1].map(index => isOutside(index, 10, 20))
 
     expect(outside).toEqual([true, false, true, false])
+  })
+})
+
+describe('the keys of a table whose cells are fields', () => {
+  const grid = { rows: 30, cols: 8, page: 10 }
+  const at = { row: 5, col: 3 }
+  const middle = { start: false, end: false }
+  const both = { start: true, end: true }
+  const plain = { ctrl: false, shift: false }
+  const go = (key: string, edges = both) => nextFieldCell({ key, ...plain }, at, grid, edges)
+  const withCtrl = (key: string) => nextFieldCell({ key, ctrl: true, shift: false }, at, grid, both)
+  const withShift = (key: string) => nextFieldCell({ key, ctrl: false, shift: true }, at, grid, both)
+
+  it('go up and down between rows, and Enter goes down', () => {
+    expect([go('ArrowUp'), go('ArrowDown'), go('Enter')]).toEqual([{ row: 4, col: 3 }, { row: 6, col: 3 }, { row: 6, col: 3 }])
+  })
+
+  it('go left and right only from the edge of the field: the caret moves first', () => {
+    expect([go('ArrowLeft', middle), go('ArrowRight', middle)]).toEqual([null, null])
+    expect(go('ArrowLeft', { start: true, end: false })).toEqual({ row: 5, col: 2 })
+    expect(go('ArrowRight', { start: false, end: true })).toEqual({ row: 5, col: 4 })
+  })
+
+  it('go a page with Page Up and Down, and to the ends with Control Home and End, kept within the table', () => {
+    expect([go('PageDown'), go('PageUp')]).toEqual([{ row: 15, col: 3 }, { row: 0, col: 3 }])
+    expect([withCtrl('Home'), withCtrl('End')]).toEqual([{ row: 0, col: 3 }, { row: 29, col: 3 }])
+  })
+
+  it('leave Home, End, Tab and the keys with Shift to the field and the browser (the table is one tab stop)', () => {
+    expect([go('Home'), go('End'), go('Tab'), withShift('ArrowDown')]).toEqual([null, null, null, null])
   })
 })
