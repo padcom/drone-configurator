@@ -167,6 +167,23 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
 
 let current: ConfiguratorHandle | undefined
 
+/** The performance mark of the moment the app is usable (the cold-start budget, #22, ends at it: e2e/budgets.e2e.ts). */
+export const USABLE_MARK = 'app-usable'
+
+/**
+ * Marks the moment the app is usable, once: the shell is in the page (it is mounted right after the configurator is made) and
+ * the backend has answered (the settings are read).
+ *
+ * @param settings the settings, being read
+ */
+function markUsable(settings: SettingsModel): void {
+  watch(settings.loaded, loaded => {
+    if (loaded && performance.getEntriesByName(USABLE_MARK).length === 0) {
+      performance.mark(USABLE_MARK)
+    }
+  }, { immediate: true })
+}
+
 /**
  * The settings, started: they follow what the backend announces, and are read (and applied) at once.
  *
@@ -181,6 +198,7 @@ function startSettings(client: BackendClient): SettingsModel {
   })
   client.onEvent('settings.changed', state => settings.changed(state))
   void settings.load()
+  markUsable(settings)
 
   return settings
 }

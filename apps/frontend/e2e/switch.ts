@@ -1,8 +1,20 @@
-// Timing the switch from one screen to another, in the real window (shell.e2e.ts, flight-data.e2e.ts).
+// Timing the switch from one screen to another, in the real window (shell.e2e.ts, flight-data.e2e.ts, budgets.e2e.ts).
+import { budgetOf } from './budgets'
 import type { E2eApp } from './launch'
 
-/** A switch to a screen that is already loaded must be on the screen within this (the plan: 100 ms). */
-export const SWITCH_LIMIT_MS = 100
+/** A switch to a screen that is already loaded must be on the screen within this: the `screenSwitch` budget (budgets.json). */
+export const SWITCH_LIMIT_MS = budgetOf('screenSwitch').budget
+
+/** The screens in the navigation, and a selector for something only that screen has (as shell.e2e.ts checks them). */
+export const SCREENS: { id: string, marker: string }[] = [
+  { id: 'flight', marker: '#telemetry' },
+  { id: 'plan', marker: '.plan' },
+  { id: 'setup', marker: '.setup' },
+  { id: 'parameters', marker: '#list-status' },
+  { id: 'tune', marker: '.tune' },
+  { id: 'logs', marker: '.logs' },
+  { id: 'settings', marker: '.settings' },
+]
 
 /**
  * Follows a navigation link and measures how long it takes until the screen's marker is in the page and a frame has

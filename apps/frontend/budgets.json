@@ -1,0 +1,47 @@
+{
+  "$comment": "The performance budgets (#22), in one place: e2e/budgets.ts judges measurements against them and CI fails a run that misses one. Timings are judged on the MEDIAN of several samples against `budget`, and the 95th percentile against `budget` times `noise` (a slow sample on a busy CI runner must not fail the build; a regression that slows every other sample does). Sizes are exact and have no noise. A later issue adds its own entry here and judges it with `expectWithinBudget` (e2e/budgets.ts).",
+  "budgets": {
+    "coldStart": {
+      "unit": "ms",
+      "budget": 2000,
+      "noise": 1.5,
+      "what": "From starting the app's process to the shell being in the page with the backend answering (the `app-usable` mark)",
+      "measuredBy": "e2e/budgets.e2e.ts"
+    },
+    "screenSwitch": {
+      "unit": "ms",
+      "budget": 100,
+      "noise": 2,
+      "what": "From a click on a navigation link to the first frame with the screen in it (a screen that was shown before)",
+      "measuredBy": "e2e/budgets.e2e.ts, e2e/switch.ts"
+    },
+    "initialJs": {
+      "unit": "KiB",
+      "budget": 1850,
+      "noise": 1,
+      "what": "The JavaScript the page loads before anything else: index.html's module script and its modulepreloads, uncompressed (the app reads them from disk, so the size is parse time)",
+      "measuredBy": "e2e/budgets.e2e.ts"
+    },
+    "longTask": {
+      "unit": "ms",
+      "budget": 50,
+      "noise": 2,
+      "what": "The longest task on the page's main thread while the Flight data screen shows a vehicle's telemetry (25 Hz), after it settled",
+      "measuredBy": "e2e/budgets.e2e.ts"
+    },
+    "paletteOpen": {
+      "unit": "ms",
+      "budget": 50,
+      "noise": 2,
+      "what": "From Ctrl+P to the first frame with the palette's search box focused, with 1,500 parameters loaded",
+      "measuredBy": "e2e/command-speed.e2e.ts"
+    },
+    "paletteKeystroke": {
+      "unit": "ms",
+      "budget": 16,
+      "noise": 2,
+      "what": "From a keystroke in the palette to its rows being in the page (the next task), with 1,500 parameters loaded",
+      "measuredBy": "e2e/command-speed.e2e.ts"
+    }
+  }
+}
