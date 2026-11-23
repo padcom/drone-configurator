@@ -1,0 +1,160 @@
+/*
+ * The kit's data table: a header that stays at the top over rows of one height (`--control-height`), of which only those in view are
+ * in the page; the box scrolls, the page does not. Only the tokens, no literal colours.
+ */
+
+.data-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.data-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.data-table-grid {
+  position: relative;
+  min-width: 100%;
+}
+
+.data-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  box-sizing: border-box;
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.data-table-th {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.data-table-th.end {
+  justify-content: flex-end;
+}
+
+.data-table-title,
+.data-table-sort > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-table-sort {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.data-table-sort:hover {
+  color: var(--color-text);
+}
+
+.data-table-sort:focus-visible,
+.data-table-grip:focus-visible,
+.data-table-cell:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.data-table-arrow {
+  color: var(--color-accent);
+}
+
+/* The edge of a column: a thin bar to drag, wider to hit. */
+.data-table-grip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--space-2);
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.data-table-grip:hover {
+  background: var(--color-accent-soft);
+}
+
+.data-table-body {
+  position: relative;
+}
+
+.data-table-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table-row:hover {
+  background: var(--color-surface-raised);
+}
+
+.data-table-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  font-size: var(--font-size-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.data-table-cell.end {
+  justify-content: flex-end;
+  text-align: end;
+}
+
+.data-table-cell.editing {
+  padding: 0;
+  overflow: visible;
+}
+
+.data-table-input {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 0;
+}
+
+.data-table-input.end {
+  text-align: end;
+}
+
+.data-table-empty {
+  padding: var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

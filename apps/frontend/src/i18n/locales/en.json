@@ -492,7 +492,16 @@
       "badges": "Badges",
       "panels": "Panels",
       "icons": "Icons",
-      "charts": "Charts"
+      "charts": "Charts",
+      "table": "Data table"
+    },
+    "table": {
+      "label": "Sample parameters (2000 rows: only the rows in view are drawn)",
+      "col": {
+        "number": "Number",
+        "name": "Name",
+        "value": "Value"
+      }
     },
     "chart": {
       "altitude": "Altitude, m (5000 samples thinned, a spike of one sample kept)",
@@ -892,6 +901,11 @@
       "days": "Days: {days}"
     },
     "more": "Units, the map and the vehicle's defaults come with their screens."
+  },
+  "table": {
+    "resize": "Resize column {name}",
+    "help": "Arrows move between cells. Enter, or typing, edits a cell; Escape cancels; Tab goes to the next cell.",
+    "empty": "No rows."
   },
   "connection": {
     "rebooting": "rebooting",

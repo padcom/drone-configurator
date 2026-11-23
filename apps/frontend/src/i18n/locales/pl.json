@@ -492,7 +492,16 @@
       "badges": "Znaczki",
       "panels": "Panele",
       "icons": "Ikony",
-      "charts": "Wykresy"
+      "charts": "Wykresy",
+      "table": "Tabela danych"
+    },
+    "table": {
+      "label": "Przykładowe parametry (2000 wierszy: rysowane są tylko widoczne)",
+      "col": {
+        "number": "Numer",
+        "name": "Nazwa",
+        "value": "Wartość"
+      }
     },
     "chart": {
       "altitude": "Wysokość, m (5000 próbek zredukowanych, pik jednej próbki zostaje)",
@@ -892,6 +901,11 @@
       "days": "Dni: {days}"
     },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
+  },
+  "table": {
+    "resize": "Zmień szerokość kolumny {name}",
+    "help": "Strzałki przechodzą między komórkami. Enter lub pisanie edytuje komórkę, Escape anuluje, Tab przechodzi do następnej komórki.",
+    "empty": "Brak wierszy."
   },
   "connection": {
     "rebooting": "restart",

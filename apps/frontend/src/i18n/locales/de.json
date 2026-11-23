@@ -492,7 +492,16 @@
       "badges": "Abzeichen",
       "panels": "Panels",
       "icons": "Symbole",
-      "charts": "Diagramme"
+      "charts": "Diagramme",
+      "table": "Datentabelle"
+    },
+    "table": {
+      "label": "Beispielparameter (2000 Zeilen: nur die sichtbaren Zeilen werden gezeichnet)",
+      "col": {
+        "number": "Nummer",
+        "name": "Name",
+        "value": "Wert"
+      }
     },
     "chart": {
       "altitude": "Höhe, m (5000 Messwerte ausgedünnt, ein Ausreißer von einem Wert bleibt)",
@@ -892,6 +901,11 @@
       "days": "Tage: {days}"
     },
     "more": "Einheiten, die Karte und die Voreinstellungen des Fahrzeugs kommen mit ihren Bildschirmen."
+  },
+  "table": {
+    "resize": "Breite der Spalte {name} ändern",
+    "help": "Pfeiltasten wechseln zwischen den Zellen. Eingabe oder Tippen bearbeitet eine Zelle, Escape bricht ab, Tab geht zur nächsten Zelle.",
+    "empty": "Keine Zeilen."
   },
   "connection": {
     "rebooting": "Neustart",
