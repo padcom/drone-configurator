@@ -73,8 +73,8 @@
               :class="{ end: column.align === 'end', editing: editedColumn(entry.key) === col }"
               role="gridcell"
               :aria-colindex="col + 1"
-              :data-col="col"
-              :tabindex="isStop(entry.key, col) ? 0 : -1"
+              :data-column="col"
+              :tabindex="fields ? undefined : isStop(entry.key, col) ? 0 : -1"
               @click="cursorTo(entry.index, col)"
               @dblclick="beginEdit({ row: entry.index, col }, null)"
             >
@@ -100,7 +100,14 @@
                   >
                 </slot>
               </template>
-              <slot v-else name="cell" :row="entry.row" :column="column" :value="column.value(entry.row)">
+              <slot
+                v-else
+                name="cell"
+                :row="entry.row"
+                :column="column"
+                :value="column.value(entry.row)"
+                :stop="isStop(entry.key, col)"
+              >
                 {{ column.value(entry.row) }}
               </slot>
             </div>
@@ -131,6 +138,9 @@
 // row is drawn again only when its object, its widths or what is on it changes, so updating a cell draws one row, not
 // the table.
 //
+// A table of FIELDS (`fields`) is a spreadsheet whose cells are the caller's own fields, always there: nothing is begun or
+// ended, the focus is in a field, and the keys are those of nextFieldCell.
+//
 // A table can have a SELECTED row (`v-model:selected`, the row's key): it is the row the cursor is in, and the other way
 // round. A row selected from outside (a map, a list) is scrolled into view and the cursor goes to it, in the column it
 // was in; the focus is not taken. `rowClass` and `rowAttrs` mark a row (a problem, an id for the page).
@@ -140,6 +150,7 @@ import {
   BIG_NUDGE_PX,
   type Cell,
   type Column,
+  type Edges,
   HEAD_PX,
   type KeyAction,
   MAX_WIDTH,
@@ -154,6 +165,7 @@ import {
   filterRows,
   isEditable,
   isOutside,
+  nextFieldCell,
   nextSort,
   resizedWidth,
   sortRows,
@@ -195,6 +207,12 @@ const props = defineProps<{
   rowClass?: (row: Row) => string | undefined
   /** Attributes for a row (an id or a `data-` attribute the page finds it by). */
   rowAttrs?: (row: Row) => Record<string, string>
+  /**
+   * The cells ARE fields the caller draws (the `cell` slot: a number to type, a choice), not values to begin an edit of. The
+   * focus goes into the field of a cell; the slot is told which cell is the one tab stop (`stop`) and gives its field the
+   * tabindex; the arrows move between cells, left and right only from the edge of the field's text (nextFieldCell).
+   */
+  fields?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -362,12 +380,27 @@ function isRow(index: number): boolean {
 }
 
 /**
+ * What takes the focus in a cell: in a table of fields, the field in it (a number, a choice, or whatever the caller made
+ * focusable), else the cell.
+ *
+ * @param cell the cell
+ * @returns the element, or null when the cell is not drawn
+ */
+function focusTarget(cell: HTMLElement | null): HTMLElement | null {
+  const field = props.fields ? cell?.querySelector<HTMLElement>('input, select, [tabindex]') : null
+
+  return field ?? cell
+}
+
+/**
  * Puts the focus in a cell that is drawn.
  *
  * @param at the cell
  */
 function focusCell(at: Cell): void {
-  scroller.value?.querySelector<HTMLElement>(`[data-index="${at.row}"] [data-col="${at.col}"]`)?.focus()
+  const cell = scroller.value?.querySelector<HTMLElement>(`[data-index="${at.row}"] [data-column="${at.col}"]`) ?? null
+
+  focusTarget(cell)?.focus()
 }
 
 /**
@@ -489,7 +522,7 @@ function cancelEdit(): void {
  * @returns the cell's element, or null when it is in none
  */
 function cellElement(target: EventTarget | null): HTMLElement | null {
-  return target instanceof Element ? target.closest<HTMLElement>('[data-col]') : null
+  return target instanceof Element ? target.closest<HTMLElement>('[data-column]') : null
 }
 
 /**
@@ -514,7 +547,7 @@ function whereIs(target: EventTarget | null): Cell | null {
   const cell = cellElement(target)
   const row = rowIndexOf(cell)
 
-  return cell === null || row === null ? null : { row, col: Number(cell.dataset.col) }
+  return cell === null || row === null ? null : { row, col: Number(cell.dataset.column) }
 }
 
 /**
@@ -541,15 +574,64 @@ function actionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
 }
 
 /**
+ * Whether the caret of a field is in a place.
+ *
+ * @param field the field
+ * @param at the place in its text
+ * @returns true when there is no selection and the caret is there
+ */
+function caretAt(field: HTMLInputElement, at: number): boolean {
+  return field.selectionStart === at && field.selectionEnd === at
+}
+
+/**
+ * Whether the caret of the field a key was pressed in is at its start and at its end (one that is not a text field is at both).
+ *
+ * @param target the element the key was pressed in
+ * @returns the two
+ */
+function edgesOf(target: EventTarget | null): Edges {
+  return target instanceof HTMLInputElement
+    ? { start: caretAt(target, 0), end: caretAt(target, target.value.length) }
+    : { start: true, end: true }
+}
+
+/**
+ * What a key does in a table of fields: it moves, or it is the field's.
+ *
+ * @param event the key
+ * @param at the cell
+ * @returns the move, or null
+ */
+function fieldActionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
+  const grid = { rows: shown.value.length, cols: props.columns.length, page: pageRows(view.value) }
+  const press = { key: event.key, ctrl: event.ctrlKey || event.metaKey, shift: event.shiftKey }
+  const to = nextFieldCell(press, at, grid, edgesOf(event.target))
+
+  return to === null ? null : { kind: 'move', to }
+}
+
+/**
+ * Whether a key may be the table's: one an input method is composing is the method's, and one with Alt the browser's.
+ *
+ * @param event the key
+ * @returns true when it may be
+ */
+function isTableKey(event: KeyboardEvent): boolean {
+  return !event.isComposing && !event.altKey
+}
+
+/**
  * What the table does with a key (a key an input method is composing is the method's, and so is one with Alt).
  *
  * @param event the key
  * @returns the action, or null when the key is not the table's
  */
 function actionOf(event: KeyboardEvent): KeyAction | null {
-  const at = event.isComposing || event.altKey ? null : whereIs(event.target)
+  const at = isTableKey(event) ? whereIs(event.target) : null
+  const decide = props.fields ? fieldActionAt : actionAt
 
-  return at === null ? null : actionAt(event, at)
+  return at === null ? null : decide(event, at)
 }
 
 /**

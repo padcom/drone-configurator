@@ -105,7 +105,7 @@ function placed(wrapper: VueWrapper): string[] {
  * @returns the element of the cell
  */
 function cellAt(wrapper: VueWrapper, index: number, col: number): HTMLElement {
-  return wrapper.get(`[data-index="${index}"] [data-col="${col}"]`).element as HTMLElement
+  return wrapper.get(`[data-index="${index}"] [data-column="${col}"]`).element as HTMLElement
 }
 
 /**
@@ -411,7 +411,7 @@ describe('an edit that is begun with Enter or a double click', () => {
   it('is the same with a double click', async () => {
     const wrapper = table()
 
-    await wrapper.get('[data-index="2"] [data-col="2"]').trigger('dblclick')
+    await wrapper.get('[data-index="2"] [data-column="2"]').trigger('dblclick')
 
     expect((wrapper.get('input').element as HTMLInputElement).value).toBe('14')
   })
@@ -588,7 +588,7 @@ describe('the selected row', () => {
     expect(wrapper.get('[data-index="2"]').classes()).toContain('selected')
     expect(wrapper.get('[data-index="4"]').attributes('aria-selected')).toBe('false')
 
-    await wrapper.get('[data-index="4"] [data-col="1"]').trigger('click')
+    await wrapper.get('[data-index="4"] [data-column="1"]').trigger('click')
 
     expect(chosen.at(-1)).toBe(5)
   })
