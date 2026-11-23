@@ -491,14 +491,35 @@
       "choices": "Opciones",
       "badges": "Insignias",
       "panels": "Paneles",
+      "contextMenu": "Menú contextual",
       "icons": "Iconos",
-      "charts": "Gráficos"
+      "charts": "Gráficos",
+      "table": "Tabla de datos"
+    },
+    "table": {
+      "label": "Parámetros de ejemplo (2000 filas: solo se dibujan las filas a la vista)",
+      "col": {
+        "number": "Número",
+        "name": "Nombre",
+        "value": "Valor"
+      }
     },
     "chart": {
       "altitude": "Altitud, m (5000 muestras reducidas, se conserva un pico de una muestra)",
       "battery": "Batería, V (un tramo sin valor es un hueco)",
       "old": "Datos antiguos (atenuados, discontinuos, y lo dice)",
       "none": "Sin datos"
+    },
+    "context": {
+      "label": "Acciones del elemento de ejemplo",
+      "area": "Haz clic derecho aquí, o enfoca este cuadro y pulsa la tecla de menú (Mayús F10).",
+      "item": {
+        "fly": "Volar aquí",
+        "copy": "Copiar",
+        "delete": "Eliminar el elemento"
+      },
+      "chosen": "Elegido: {item}",
+      "none": "Aún no se ha elegido nada."
     },
     "truth": {
       "live": "En directo",
@@ -892,6 +913,11 @@
       "days": "Días: {days}"
     },
     "more": "Las unidades, el mapa y los valores predeterminados del vehículo llegarán con sus pantallas."
+  },
+  "table": {
+    "resize": "Cambiar el ancho de la columna {name}",
+    "help": "Las flechas se mueven entre celdas. Intro, o escribir, edita una celda; Escape cancela; Tab va a la celda siguiente.",
+    "empty": "No hay filas."
   },
   "connection": {
     "rebooting": "reiniciando",

@@ -183,6 +183,21 @@
     </section>
 
     <section>
+      <h3>{{ t('gallery.section.table') }}</h3>
+      <div class="table-demo">
+        <!-- 2000 rows of which only those in view are in the page; the name and the value are edited, a click sorts. -->
+        <DataTable
+          v-model:sort="tableSort"
+          :rows="tableRows"
+          :columns="tableColumns"
+          :row-key="tableRowKey"
+          :label="t('gallery.table.label')"
+          @edit="tableEdited"
+        />
+      </div>
+    </section>
+
+    <section>
       <h3>{{ t('gallery.section.charts') }}</h3>
       <div class="charts-demo">
         <!-- A long series thinned: the one-sample spike is in the envelope. The two charts share the cursor. -->
@@ -207,6 +222,16 @@
         <li v-for="name in ICON_NAMES" :key="name"><Icon :name="name" /> <code>{{ name }}</code></li>
       </ul>
     </section>
+
+    <section>
+      <h3>{{ t('gallery.section.contextMenu') }}</h3>
+      <ContextMenu :label="t('gallery.context.label')" :items="contextItems" @select="contextChosen = $event">
+        <div class="context-area" tabindex="0">{{ t('gallery.context.area') }}</div>
+      </ContextMenu>
+      <p class="muted" aria-live="polite">
+        {{ contextChosen === null ? t('gallery.context.none') : t('gallery.context.chosen', { item: contextLabel }) }}
+      </p>
+    </section>
   </section>
 </template>
 
@@ -220,7 +245,10 @@ import Badge from '@/components/ui/Badge.vue'
 import Banner from '@/components/ui/Banner.vue'
 import Button from '@/components/ui/Button.vue'
 import Checkbox from '@/components/ui/Checkbox.vue'
+import ContextMenu from '@/components/ui/ContextMenu.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
+import DataTable from '@/components/ui/DataTable.vue'
+import type { Column, Sort } from '@/lib/ui/dataTable'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import HoldButton from '@/components/ui/HoldButton.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -317,6 +345,38 @@ const WAVE = decimate(SAMPLES, 240)
 const GAPPED = decimate(SAMPLES.map(s => ({ x: s.x, y: s.x > 200 && s.x < 260 ? null : s.y / 2 })), 240)
 const chartCursor = ref<number | null>(null)
 
+/** The sample rows of the table: 2000 of them, of which the table draws the few in view. */
+interface SampleRow {
+  id: number
+  name: string
+  value: number
+}
+const tableRows = ref<SampleRow[]>(Array.from({ length: 2000 }, (_unused, n) => ({
+  id: n + 1,
+  name: `PARAM_${String(n + 1).padStart(4, '0')}`,
+  value: (n * 37) % 1000,
+})))
+const tableSort = ref<Sort | null>(null)
+const tableColumns = computed<Column<SampleRow>[]>(() => [
+  { id: 'id', header: t('gallery.table.col.number'), value: row => row.id, sortable: true, align: 'end', width: 100 },
+  { id: 'name', header: t('gallery.table.col.name'), value: row => row.name, sortable: true, editable: true, width: 220 },
+  { id: 'value', header: t('gallery.table.col.value'), value: row => row.value, sortable: true, editable: true, align: 'end' },
+])
+const tableRowKey = (row: SampleRow): number => row.id
+
+/**
+ * A cell of the sample table was edited: the row is replaced by a changed copy, as a store would.
+ *
+ * @param row the row
+ * @param column the column
+ * @param text what was typed
+ */
+function tableEdited(row: SampleRow, column: Column<SampleRow>, text: string): void {
+  const edited = column.id === 'value' ? { ...row, value: Number(text) || 0 } : { ...row, name: text }
+
+  tableRows.value = tableRows.value.map(candidate => (candidate.id === row.id ? edited : candidate))
+}
+
 const options = computed(() => [
   { value: 'one', label: t('gallery.sample.optionOne') },
   { value: 'two', label: t('gallery.sample.optionTwo') },
@@ -387,4 +447,13 @@ const check = ref(true)
 const toggle = ref(true)
 const tab = ref('one')
 const size = ref(50)
+
+/** The sample context menu: its items, and which was chosen last (its id). */
+const contextChosen = ref<string | null>(null)
+const contextItems = computed(() => ['fly', 'copy', 'delete'].map(id => ({
+  id,
+  label: t(`gallery.context.item.${id}`),
+  danger: id === 'delete',
+})))
+const contextLabel = computed(() => contextItems.value.find(item => item.id === contextChosen.value)?.label ?? '')
 </script>

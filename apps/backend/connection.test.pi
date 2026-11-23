@@ -70,15 +70,12 @@ extern "C" {
   function posix_openpt(flags: c_int): c_int
   function grantpt(fd: c_int): c_int
   function unlockpt(fd: c_int): c_int
-  function ptsname_r(fd: c_int, buf: usize, len: usize): c_int
-  function tcgetattr(fd: c_int, termios: usize): c_int
-  function tcsetattr(fd: c_int, when: c_int, termios: usize): c_int
-  function cfmakeraw(termios: usize): void
+  function ptsname_r(fd: c_int, buf: ptr<u8>, len: usize): c_int
+  // As padcom/serialport declares them: one program can't declare a C function twice differently.
+  function tcgetattr(fd: c_int, p: ptr<u8>): c_int
+  function tcsetattr(fd: c_int, when: c_int, p: ptr<u8>): c_int
+  function cfmakeraw(p: ptr<u8>): void
   function dup(fd: c_int): c_int
-}
-
-function addr(b: Uint8Array): usize {
-  return (b.buffer.__handle + b.byteOffset) as usize
 }
 
 /// A pseudo-terminal's master end as a byte stream: the far end of a "serial cable" whose other
@@ -93,20 +90,14 @@ class PtyMaster implements ByteStream {
     grantpt(m)
     unlockpt(m)
     const name = new Uint8Array(128)
-    ptsname_r(m, addr(name), 128 as usize)
-    let n = 0
-    while (name[n] != 0) {
-      n += 1
-    }
-    try {
-      this.path = new TextDecoder().decode(name.slice(0, n))
-    } catch (e: TypeError) {
-      panic("a pty name that isn't UTF-8")
-    }
     const tio = new Uint8Array(256)
-    tcgetattr(m, addr(tio))
-    cfmakeraw(addr(tio))
-    tcsetattr(m, termios.TCSANOW, addr(tio))
+    unsafe {
+      ptsname_r(m, ptr.bytes(name), 128 as usize)
+      tcgetattr(m, ptr.bytes(tio))
+      cfmakeraw(ptr.bytes(tio))
+      tcsetattr(m, termios.TCSANOW, ptr.bytes(tio))
+    }
+    this.path = string.fromCBytes(name)
     this.reader = new Reader(m as int, "pty", true)
     this.writer = new Writer(dup(m) as int, "pty", true)
   }

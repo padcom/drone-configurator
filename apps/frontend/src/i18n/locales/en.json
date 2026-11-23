@@ -491,14 +491,35 @@
       "choices": "Choices",
       "badges": "Badges",
       "panels": "Panels",
+      "contextMenu": "Context menu",
       "icons": "Icons",
-      "charts": "Charts"
+      "charts": "Charts",
+      "table": "Data table"
+    },
+    "table": {
+      "label": "Sample parameters (2000 rows: only the rows in view are drawn)",
+      "col": {
+        "number": "Number",
+        "name": "Name",
+        "value": "Value"
+      }
     },
     "chart": {
       "altitude": "Altitude, m (5000 samples thinned, a spike of one sample kept)",
       "battery": "Battery, V (a stretch with no value is a gap)",
       "old": "Old data (muted, dashed, and it says so)",
       "none": "No data"
+    },
+    "context": {
+      "label": "Actions for the sample item",
+      "area": "Right-click here, or focus this box and press the Menu key (Shift F10).",
+      "item": {
+        "fly": "Fly here",
+        "copy": "Copy",
+        "delete": "Delete the item"
+      },
+      "chosen": "Chosen: {item}",
+      "none": "Nothing chosen yet."
     },
     "truth": {
       "live": "Live",
@@ -892,6 +913,11 @@
       "days": "Days: {days}"
     },
     "more": "Units, the map and the vehicle's defaults come with their screens."
+  },
+  "table": {
+    "resize": "Resize column {name}",
+    "help": "Arrows move between cells. Enter, or typing, edits a cell; Escape cancels; Tab goes to the next cell.",
+    "empty": "No rows."
   },
   "connection": {
     "rebooting": "rebooting",

@@ -491,14 +491,35 @@
       "choices": "Wybory",
       "badges": "Znaczki",
       "panels": "Panele",
+      "contextMenu": "Menu kontekstowe",
       "icons": "Ikony",
-      "charts": "Wykresy"
+      "charts": "Wykresy",
+      "table": "Tabela danych"
+    },
+    "table": {
+      "label": "Przykładowe parametry (2000 wierszy: rysowane są tylko widoczne)",
+      "col": {
+        "number": "Numer",
+        "name": "Nazwa",
+        "value": "Wartość"
+      }
     },
     "chart": {
       "altitude": "Wysokość, m (5000 próbek zredukowanych, pik jednej próbki zostaje)",
       "battery": "Bateria, V (odcinek bez wartości to przerwa)",
       "old": "Stare dane (przygaszone, kreskowane, i tak mówi)",
       "none": "Brak danych"
+    },
+    "context": {
+      "label": "Działania dla przykładowego elementu",
+      "area": "Kliknij tutaj prawym przyciskiem albo ustaw fokus na tym polu i naciśnij klawisz menu (Shift F10).",
+      "item": {
+        "fly": "Leć tutaj",
+        "copy": "Kopiuj",
+        "delete": "Usuń element"
+      },
+      "chosen": "Wybrano: {item}",
+      "none": "Jeszcze nic nie wybrano."
     },
     "truth": {
       "live": "Na żywo",
@@ -892,6 +913,11 @@
       "days": "Dni: {days}"
     },
     "more": "Jednostki, mapa i ustawienia domyślne pojazdu pojawią się wraz ze swoimi ekranami."
+  },
+  "table": {
+    "resize": "Zmień szerokość kolumny {name}",
+    "help": "Strzałki przechodzą między komórkami. Enter lub pisanie edytuje komórkę, Escape anuluje, Tab przechodzi do następnej komórki.",
+    "empty": "Brak wierszy."
   },
   "connection": {
     "rebooting": "restart",
