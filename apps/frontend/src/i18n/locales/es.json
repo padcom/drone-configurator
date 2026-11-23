@@ -491,6 +491,7 @@
       "choices": "Opciones",
       "badges": "Insignias",
       "panels": "Paneles",
+      "contextMenu": "Menú contextual",
       "icons": "Iconos",
       "charts": "Gráficos",
       "table": "Tabla de datos"
@@ -508,6 +509,17 @@
       "battery": "Batería, V (un tramo sin valor es un hueco)",
       "old": "Datos antiguos (atenuados, discontinuos, y lo dice)",
       "none": "Sin datos"
+    },
+    "context": {
+      "label": "Acciones del elemento de ejemplo",
+      "area": "Haz clic derecho aquí, o enfoca este cuadro y pulsa la tecla de menú (Mayús F10).",
+      "item": {
+        "fly": "Volar aquí",
+        "copy": "Copiar",
+        "delete": "Eliminar el elemento"
+      },
+      "chosen": "Elegido: {item}",
+      "none": "Aún no se ha elegido nada."
     },
     "truth": {
       "live": "En directo",
