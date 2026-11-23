@@ -36,8 +36,8 @@ export interface Column<Row> {
   sortable?: boolean
   /** Whether its edge can be dragged (false: it cannot). */
   resizable?: boolean
-  /** Whether a cell of it can be edited. */
-  editable?: boolean
+  /** Whether a cell of it can be edited: for every row, or by the row (a cell a row has nothing in is not). */
+  editable?: boolean | ((row: Row) => boolean)
   /** Which side the text of its cells is on. */
   align?: 'start' | 'end'
   /**
@@ -55,6 +55,19 @@ export interface Column<Row> {
    * @returns below zero when `a` is first, above zero when `b` is, else zero
    */
   compare?(a: Row, b: Row): number
+}
+
+/**
+ * Whether a cell can be edited.
+ *
+ * @param column the cell's column (undefined: there is none)
+ * @param row the cell's row (undefined: there is none)
+ * @returns true when the column says so, for every row or for this one
+ */
+export function isEditable<Row>(column: Column<Row> | undefined, row: Row | undefined): boolean {
+  const editable = column?.editable
+
+  return typeof editable === 'function' ? row !== undefined && editable(row) : editable === true
 }
 
 /** The way a sort goes. */

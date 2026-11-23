@@ -54,12 +54,17 @@
           <div
             v-for="entry in drawn"
             :key="entry.key"
-            v-memo="[entry.row, entry.index, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key)]"
-            class="data-table-row"
+            v-memo="[
+              entry.row, entry.index, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key),
+              isSelected(entry.key),
+            ]"
+            :class="['data-table-row', rowClass?.(entry.row), { selected: isSelected(entry.key) }]"
             role="row"
             :aria-rowindex="entry.index + 2"
+            :aria-selected="selecting ? isSelected(entry.key) : undefined"
             :data-index="entry.index"
             :style="{ top: `${entry.index * rowPx}px`, height: `${rowPx}px`, gridTemplateColumns: template }"
+            v-bind="rowAttrs?.(entry.row)"
           >
             <div
               v-for="(column, col) in columns"
@@ -125,6 +130,10 @@
 // Rows are REPLACED to change them (a new object for the row that changed, as a store does), not changed in place: a
 // row is drawn again only when its object, its widths or what is on it changes, so updating a cell draws one row, not
 // the table.
+//
+// A table can have a SELECTED row (`v-model:selected`, the row's key): it is the row the cursor is in, and the other way
+// round. A row selected from outside (a map, a list) is scrolled into view and the cursor goes to it, in the column it
+// was in; the focus is not taken. `rowClass` and `rowAttrs` mark a row (a problem, an id for the page).
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -143,6 +152,7 @@ import {
   ariaSortOf,
   arrowOf,
   filterRows,
+  isEditable,
   isOutside,
   nextSort,
   resizedWidth,
@@ -181,6 +191,10 @@ const props = defineProps<{
   filter?: (row: Row) => boolean
   /** The height of a row (px). */
   rowPx?: number
+  /** A class for a row, over the table's own (a row with a problem). */
+  rowClass?: (row: Row) => string | undefined
+  /** Attributes for a row (an id or a `data-` attribute the page finds it by). */
+  rowAttrs?: (row: Row) => Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -192,6 +206,10 @@ const emit = defineEmits<{
 
 /** What the rows are sorted by. */
 const sort = defineModel<Sort | null>('sort', { default: null })
+
+/** The selected row's key: null for none; undefined for a table that has no selection (`v-model:selected` is not used). */
+const selected = defineModel<string | number | null | undefined>('selected', { default: undefined })
+const selecting = computed(() => selected.value !== undefined)
 
 const { t } = useI18n()
 const uid = useId()
@@ -286,6 +304,16 @@ function editedColumn(key: string | number): number {
  */
 function editedText(key: string | number): string | null {
   return editing.value?.key === key ? editing.value.text : null
+}
+
+/**
+ * Whether a row is the selected one.
+ *
+ * @param key the row's key
+ * @returns true when it is
+ */
+function isSelected(key: string | number): boolean {
+  return selecting.value && selected.value === key
 }
 
 /**
@@ -387,10 +415,9 @@ function textToEdit(first: string | null, column: Column<Row>, row: Row): string
  */
 function beginEdit(at: Cell, first: string | null): void {
   const column = props.columns[at.col]
+  const { row, key } = entryAt(at.row)
 
-  if (column?.editable) {
-    const { row, key } = entryAt(at.row)
-
+  if (column && isEditable(column, row)) {
     cursor.value = { key, col: at.col }
     editing.value = { key, col: at.col, text: textToEdit(first, column, row) }
   }
@@ -510,7 +537,7 @@ function pressOf(event: KeyboardEvent): Press {
 function actionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
   const grid = { rows: shown.value.length, cols: props.columns.length, page: pageRows(view.value) }
 
-  return actionFor(pressOf(event), at, grid, props.columns[at.col]?.editable === true)
+  return actionFor(pressOf(event), at, grid, isEditable(props.columns[at.col], shown.value[at.row]))
 }
 
 /**
@@ -655,6 +682,46 @@ watch(shown, list => {
   editing.value = kept(editing.value, list)
 })
 
+// The cursor's row is the selected one.
+watch(cursor, place => {
+  if (selecting.value && place !== null && place.key !== selected.value) {
+    selected.value = place.key
+  }
+})
+
+/**
+ * Puts the cursor in a row, in the column it was in (the first, when it was nowhere).
+ *
+ * @param index the row's place in the table
+ */
+function putCursorIn(index: number): void {
+  const { key } = entryAt(index)
+  const now = cursor.value
+
+  if (now === null) {
+    cursor.value = { key, col: 0 }
+  } else if (now.key !== key) {
+    cursor.value = { key, col: now.col }
+  }
+}
+
+/**
+ * A row selected from outside: the cursor goes to it (in the column it was in) and it is scrolled into view; the focus stays
+ * where it is.
+ *
+ * @param key the row's key
+ */
+function followSelected(key: string | number | null | undefined): void {
+  const index = shown.value.findIndex(row => props.rowKey(row) === key)
+
+  if (index >= 0) {
+    putCursorIn(index)
+    show(index)
+  }
+}
+
+watch(selected, followSelected)
+
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
 
 onMounted(() => {
@@ -664,6 +731,8 @@ onMounted(() => {
   if (scroller.value) {
     observer?.observe(scroller.value)
   }
+  // (the table opens at the selected row)
+  followSelected(selected.value)
 })
 
 onBeforeUnmount(() => {
