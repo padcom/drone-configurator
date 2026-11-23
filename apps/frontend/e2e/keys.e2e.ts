@@ -163,7 +163,7 @@ describe('the keys, kept', () => {
     await shows('palette.open', 'No key')
   })
 
-  it('open the help of the keys on the key chosen for it, with every key in it, the fixed ones too', async () => {
+  it("open the help of the keys on the key chosen for it, with every key in it, the Parameters screen's too", async () => {
     await press('k', CTRL)
     await waitFor('.keys-list')
 
@@ -184,6 +184,24 @@ describe('the keys, kept', () => {
     await shows('palette.open', 'Ctrl P')
     await shows('help.keys', 'F1')
     await win().waitFor(`document.getElementById('keys-reset-all').disabled`)
+  })
+})
+
+describe('a key of the Parameters screen', () => {
+  it('goes to the search on the key chosen for it in Settings', async () => {
+    await change('params.search', 'k')
+    await shows('params.search', 'Ctrl K')
+    await showScreen(win(), 'parameters')
+
+    await press('k', CTRL)
+
+    await win().waitFor(`document.activeElement?.id === 'filter'`)
+  })
+
+  it('is back on Ctrl+/ after "Back to the default keys"', async () => {
+    await showScreen(win(), 'settings')
+    await win().click('#keys-reset-all')
+    await shows('params.search', 'Ctrl /')
   })
 })
 

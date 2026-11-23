@@ -11,6 +11,11 @@ A control center for ArduPilot vehicles: configuration, flight planning and miss
 
 Branches are named `agent/<issue>-<part>-<topic>`. Pin exact dependency versions.
 
+**CI** runs what a pull request needs: `.github/ci-select.mjs` maps the changed files to backend tests and window specs
+(`.github/e2e-map.json`: a new spec goes in an entry); what it cannot place runs everything, and main runs everything. Shards
+are split by measured times (`.github/test-times.json`, read by `.github/shard.mjs`): refresh it from a run's logs when one shard
+ends much later than the others. macOS and Windows run on main and weekly, not on pull requests.
+
 **Performance budgets** (#22) live in `apps/frontend/budgets.json`. A feature with a speed or size promise adds its budget there
 and judges its samples with `expectWithinBudget` (`apps/frontend/e2e/budgets.ts`): the median within the budget, the 95th
 percentile within the budget times its noise. CI fails a missed budget and lists every verdict in the e2e job's summary.

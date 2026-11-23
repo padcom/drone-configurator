@@ -239,7 +239,9 @@ export function run(argv, input) {
     result = { full: true, backend: 'all', e2e: 'all', sitl: true, reasons: [`the selector failed (${error})`] }
   }
   const text = summaryOf(result, { specs: tree.specs.length, tests: tree.backend.tests.length, files: files.length, shadow: argv.includes('--shadow') })
-  const outputs = { full: result.full, sitl: result.sitl, backend: result.backend === 'all' ? '.' : result.backend.join(' '), e2e: result.e2e === 'all' ? '' : result.e2e.join(' ') }
+  // `all` for everything; a list (empty for none) for a selection: the jobs split it into shards (.github/shard.mjs).
+  const listOf = value => (value === 'all' ? 'all' : value.join(' '))
+  const outputs = { full: result.full, sitl: result.sitl, backend: listOf(result.backend), e2e: listOf(result.e2e) }
   const lines = Object.entries(outputs).map(([key, value]) => `${key}=${value}`).join('\n')
   if (process.env.GITHUB_OUTPUT !== undefined) appendFileSync(process.env.GITHUB_OUTPUT, `${lines}\n`)
   if (process.env.GITHUB_STEP_SUMMARY !== undefined) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text)

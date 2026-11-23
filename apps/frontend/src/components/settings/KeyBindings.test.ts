@@ -56,14 +56,15 @@ function keyOf(wrapper: VueWrapper, actionId: string): string {
   return wrapper.get(`[id="keys-change-${actionId}"]`).element.closest('.keys-row')?.querySelector('kbd')?.textContent ?? ''
 }
 
-it('lists every action with its key, and a key that is fixed without a button to change it', async () => {
+it("lists every action with its key and a button to change it, the Parameters screen's keys too", async () => {
   const { wrapper } = await group()
 
   expect(keyOf(wrapper, 'palette.open')).toBe('Ctrl P')
   expect(keyOf(wrapper, 'panes.previous')).toBe('Shift F6')
+  expect(keyOf(wrapper, 'params.search')).toBe('Ctrl /')
   expect(wrapper.findAll('.keys-row')).toHaveLength(6)
-  expect(wrapper.find('[id="keys-change-params.search"]').exists()).toBe(false)
-  expect(wrapper.text()).toContain('cannot be changed')
+  expect(wrapper.findAll('[id^="keys-change-"]')).toHaveLength(6)
+  expect(wrapper.text()).not.toContain('cannot be changed')
 })
 
 it('gives an action the key that is pressed next, keeps it in the settings, and shows it at once', async () => {

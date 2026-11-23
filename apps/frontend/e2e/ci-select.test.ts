@@ -168,7 +168,7 @@ describe('select: failing open, and reporting', () => {
   it('writes the outputs on the command line, and everything when the diff is empty', () => {
     const output = run(['--root', root], 'apps/backend/params.pi\n')
     expect(output).toMatch(/full=false\nsitl=true\nbackend=.*params\.test\.pi\ne2e=.*param-/u)
-    expect(run(['--root', root], '')).toMatch(/full=true\nsitl=true\nbackend=\.\ne2e=\n/u)
+    expect(run(['--root', root], '')).toMatch(/full=true\nsitl=true\nbackend=all\ne2e=all\n/u)
   })
 })
 
@@ -315,16 +315,6 @@ describe('the split of the CI jobs', () => {
     expect(fake).toContain('e2e/shell.e2e.ts')
     expect(fake.filter(spec => sitl.includes(spec))).toEqual([])
   })
-
-  it.skipIf(process.platform === 'win32')('splits the backend test files into shards that cover each file once', () => {
-    // (the workflow splits them in 3: SHARDS in .github/workflows/ci.yml)
-    const shard = (n: number) => spawnSync('bash', ['.github/backend-shard.sh', `${n}`, '3'], { cwd: root, encoding: 'utf8' })
-    const listed = [shard(1), shard(2), shard(3)].map(result => result.stdout.split('\n').filter(Boolean))
-    expect(shard(1).status).toBe(0)
-    expect(listed.flat().sort()).toEqual([...tree.backend.tests].sort())
-    expect(listed.every(shardFiles => shardFiles.length > 0)).toBe(true)
-    expect(shard(4).status).toBe(2)
-  })
 })
 
 // bash and git are on every runner, but the Windows jobs run the unit tests only to check the selector's logic.
@@ -339,7 +329,7 @@ describe.skipIf(process.platform === 'win32')('ci-select.sh in a throwaway repos
   it('selects everything on a push and on a manual run', () => {
     for (const event of ['push', 'workflow_dispatch']) {
       const { outputs } = runScript(makeRepository(event), { GITHUB_EVENT_NAME: event, GITHUB_BASE_REF: 'main' })
-      expect(outputs).toEqual({ full: 'true', sitl: 'true', backend: '.', e2e: '' })
+      expect(outputs).toEqual({ full: 'true', sitl: 'true', backend: 'all', e2e: 'all' })
     }
   })
 
@@ -349,7 +339,7 @@ describe.skipIf(process.platform === 'win32')('ci-select.sh in a throwaway repos
     const event = { GITHUB_EVENT_NAME: 'pull_request', GITHUB_BASE_REF: 'nonexistent' }
     const unreadable = runScript(makeRepository('unreadable'), event)
     expect(unreadable.out).toContain('::warning::cannot read the diff against origin/nonexistent')
-    expect(unreadable.outputs).toMatchObject({ full: 'true', backend: '.', e2e: '' })
+    expect(unreadable.outputs).toMatchObject({ full: 'true', backend: 'all', e2e: 'all' })
     expect(unreadable.summary).toContain('unknown')
   })
 
