@@ -24,20 +24,22 @@
         <li v-for="port in ports" :key="port" class="setup-port" :data-port="port">
           <span class="setup-port-name">{{ t('setup.serial.port', { n: port }) }}</span>
           <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.protocol') }}</span>
-          <EnumField
-            :model-value="panel.value(portParams(port).protocol) ?? -1"
+          <PanelField
+            :panel="panel"
+            :id="portParams(port).protocol"
+            kind="enum"
             :options="protocols"
             :label="t('setup.serial.protocol', { n: port })"
-            :disabled="panel.blocked.value !== null"
-            @update:model-value="panel.set(portParams(port).protocol, $event)"
+            compact
           />
           <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.baud') }}</span>
-          <EnumField
-            :model-value="panel.value(portParams(port).baud) ?? 0"
+          <PanelField
+            :panel="panel"
+            :id="portParams(port).baud"
+            kind="enum"
             :options="bauds"
             :label="t('setup.serial.baud', { n: port })"
-            :disabled="panel.blocked.value !== null"
-            @update:model-value="panel.set(portParams(port).baud, $event)"
+            compact
           />
           <span class="setup-port-label" aria-hidden="true">{{ t('setup.serial.head.options') }}</span>
           <BitsCell
@@ -67,7 +69,7 @@ import BitsCell from '@/components/setup/BitsCell.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
 import Banner from '@/components/ui/Banner.vue'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { optionsOf } from '@/lib/setup/frame'

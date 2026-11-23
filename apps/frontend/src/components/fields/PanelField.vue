@@ -13,6 +13,8 @@
     :bits="bits ?? namedBits"
     :type="type"
     :input-id="inputId"
+    :closed="closed"
+    :compact="compact"
     :locked="locked"
     :data-param="id"
     @draft="panel.set(id, $event)"
@@ -62,6 +64,10 @@ const props = withDefaults(defineProps<{
   inputId?: string
   /** The page has the field off for a reason of its own (a calibration runs, say), besides the panel's. */
   disabled?: boolean
+  /** A choice from the names only (a closed list: channels, say). */
+  closed?: boolean
+  /** For a table of fields: a status that takes room only when it says more than the vehicle's value. */
+  compact?: boolean
 }>(), {
   kind: 'number',
   label: undefined,
@@ -74,6 +80,8 @@ const props = withDefaults(defineProps<{
   bits: undefined,
   inputId: undefined,
   disabled: false,
+  closed: false,
+  compact: false,
 })
 
 const handle = useConfigurator()

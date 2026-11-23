@@ -21,12 +21,13 @@ afterEach(() => {
  * A field holding a value.
  *
  * @param value the number it holds
+ * @param closed whether only the options can be chosen
  * @returns the wrapper (its `update:modelValue` events say what was picked)
  */
-function field(value: number): VueWrapper {
+function field(value: number, closed = false): VueWrapper {
   mounted = mount(EnumField, {
     ...withI18n,
-    props: { modelValue: value, options: OPTIONS, label: 'Failsafe action' },
+    props: { modelValue: value, options: OPTIONS, label: 'Failsafe action', closed },
     attachTo: document.body,
   })
 
@@ -161,6 +162,28 @@ describe('a number with no name', () => {
     await wrapper.get('input').setValue('1')
 
     expect(wrapper.find('.option.custom').exists()).toBe(false)
+  })
+})
+
+describe('a closed list', () => {
+  it('offers no number without a name, and takes none on Enter or on leaving', async () => {
+    const wrapper = field(0, true)
+    await wrapper.get('input').setValue('9')
+
+    expect(wrapper.find('.option.custom').exists()).toBe(false)
+    await wrapper.get('input').trigger('keydown', { key: 'Enter' })
+    await wrapper.get('input').setValue('2.5')
+    await wrapper.get('input').trigger('blur')
+
+    expect(picked(wrapper)).toEqual([])
+  })
+
+  it('takes a typed number that is one of its options', async () => {
+    const wrapper = field(0, true)
+    await wrapper.get('input').setValue('1')
+    await wrapper.get('input').trigger('blur')
+
+    expect(picked(wrapper)).toEqual([1])
   })
 })
 
