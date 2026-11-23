@@ -33,13 +33,13 @@
           <ProgressBar :value="row.fraction" :label="row.name" />
           <span class="setup-channel-pulse">{{ row.pulse }}</span>
           <span class="muted setup-channel-range">{{ row.range }}</span>
-          <EnumField
+          <PanelField
             v-if="row.hasOption"
-            :model-value="panel.value(paramsOf(row.n).option) ?? 0"
-            :options="optionNames(row.n)"
+            :panel="panel"
+            :id="paramsOf(row.n).option"
+            kind="enum"
             :label="t('setup.radio.function', { n: row.n })"
-            :disabled="panel.blocked.value !== null || calibration.running.value"
-            @update:model-value="panel.set(paramsOf(row.n).option, $event)"
+            :disabled="calibration.running.value"
           />
           <span v-else />
         </li>
@@ -61,10 +61,12 @@
 // captured is then CHOSEN here, not written: RCn_MIN and RCn_MAX of the channels that moved and RCn_TRIM of roll, pitch and
 // yaw, to be written with the page's one question like any Setup parameter (refused while the vehicle is armed or may be).
 // Cancelling, leaving the page, losing the link and the vehicle arming all end the calibration, and nothing is chosen from
-// one that did not end with Done.
+// one that did not end with Done. The function of each aux switch is a field bound to its parameter (PanelField): it says in
+// words whether it is the vehicle's value, a choice made here, written and read back, or rejected, and it is off while a
+// calibration runs.
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import CalibrationNotice from '@/components/setup/CalibrationNotice.vue'
 import CalibrationSays from '@/components/setup/CalibrationSays.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
@@ -161,19 +163,6 @@ interface ChannelRow {
 
 const rows = computed(() => channels.value.map((pulse, index) => rowOf(index + 1, pulse)))
 const hasSwitches = computed(() => rows.value.some(row => row.hasOption))
-
-/**
- * The named functions a channel's switch can have: the parameter metadata's names for it (empty without metadata: the field then
- * shows the number, and says so).
- *
- * @param n the channel, 1 based
- * @returns the options, by number
- */
-function optionNames(n: number): { value: number, label: string }[] {
-  const values = handle.metadata.metadata.value.get(paramsOf(n).option)?.values ?? {}
-
-  return Object.entries(values).map(([value, label]) => ({ value: Number(value), label }))
-}
 
 /**
  * Chooses what a calibration that ended with Done found (nothing is written: the panel's write does that).

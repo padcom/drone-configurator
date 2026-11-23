@@ -11,7 +11,7 @@
       kind="enum"
       :options="options"
       :label="label"
-      :locked="locked"
+      :disabled="locked"
     />
     <p class="muted tune-was">{{ was }}</p>
     <p :id="`${uid}-note`" class="tune-note" :class="{ problem: locked }" role="status">{{ note }}</p>

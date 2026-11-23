@@ -3,7 +3,7 @@
 // editor a caller draws, that updating one cell draws one row, and a benchmark of 2000 rows.
 import { afterEach, describe, expect, it } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
-import { type DefineComponent, h, nextTick } from 'vue'
+import { type DefineComponent, defineComponent, h, nextTick, ref } from 'vue'
 import { i18n } from '@/i18n/i18n'
 import type { Column } from '@/lib/ui/dataTable'
 import DataTable from './DataTable.vue'
@@ -105,7 +105,7 @@ function placed(wrapper: VueWrapper): string[] {
  * @returns the element of the cell
  */
 function cellAt(wrapper: VueWrapper, index: number, col: number): HTMLElement {
-  return wrapper.get(`[data-index="${index}"] [data-col="${col}"]`).element as HTMLElement
+  return wrapper.get(`[data-index="${index}"] [data-column="${col}"]`).element as HTMLElement
 }
 
 /**
@@ -411,7 +411,7 @@ describe('an edit that is begun with Enter or a double click', () => {
   it('is the same with a double click', async () => {
     const wrapper = table()
 
-    await wrapper.get('[data-index="2"] [data-col="2"]').trigger('dblclick')
+    await wrapper.get('[data-index="2"] [data-column="2"]').trigger('dblclick')
 
     expect((wrapper.get('input').element as HTMLInputElement).value).toBe('14')
   })
@@ -502,18 +502,26 @@ describe('the editor slot', () => {
 describe('updating a cell', () => {
   it('draws the one row that changed, and not the table', async () => {
     let drawn = 0
-    const rows = rowsOf(30)
-    const wrapper = table({ rows }, {
-      cell: (slot: { value: string | number }) => {
-        drawn += 1
+    const rows = ref(rowsOf(30))
+    const cell = (slot: { value: string | number }) => {
+      drawn += 1
 
-        return String(slot.value)
-      },
+      return String(slot.value)
+    }
+    // (the slot from a template, as a page gives it)
+    const Parent = defineComponent({
+      components: { DataTable },
+      setup: () => ({ rows, columns: COLUMNS, rowKey: (row: Row) => row.id, cell }),
+      template: '<DataTable :rows="rows" :columns="columns" :row-key="rowKey" label="Parameters">'
+        + '<template #cell="slot">{{ cell(slot) }}</template></DataTable>',
     })
+    mounted = mount(Parent, { global: { plugins: [i18n] }, attachTo: document.body })
+    const wrapper = mounted
     const before = drawn
 
     expect(before).toBeGreaterThanOrEqual(30 * 3)
-    await wrapper.setProps({ rows: rows.map((row, at) => (at === 5 ? { ...row, value: 99 } : row)) })
+    rows.value = rows.value.map((row, at) => (at === 5 ? { ...row, value: 99 } : row))
+    await flushPromises()
 
     // (the three cells of the row that was replaced)
     expect(drawn - before).toBe(3)
@@ -560,5 +568,77 @@ describe('2000 rows', () => {
     expect(drawnRows(wrapper).length).toBeLessThan(80)
     await scrollTo(wrapper, 1999)
     expect(drawnRows(wrapper).length).toBeLessThan(80)
+  })
+})
+
+describe('a cell a row has nothing in', () => {
+  it('is not edited, where the same column of another row is (a column editable by the row)', async () => {
+    const byRow = { ...COLUMNS[1] as Column<Row>, editable: (row: Row) => row.id % 2 === 0 }
+    const columns: Column<Row>[] = [COLUMNS[0] as Column<Row>, byRow]
+    const wrapper = table({ columns })
+
+    focusCell(wrapper, 0, 1)
+    await press('Enter')
+    expect(wrapper.find('input').exists()).toBe(false)
+
+    focusCell(wrapper, 1, 1)
+    await press('Enter')
+    expect(wrapper.find('input').exists()).toBe(true)
+  })
+})
+
+describe('the selected row', () => {
+  it('is the row the cursor is in: a click there selects it, and it is marked for the eye and the ear', async () => {
+    const chosen: (string | number)[] = []
+    const wrapper = table({ 'selected': 3, 'onUpdate:selected': (key: string | number) => chosen.push(key) })
+
+    expect(wrapper.get('[data-index="2"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.get('[data-index="2"]').classes()).toContain('selected')
+    expect(wrapper.get('[data-index="4"]').attributes('aria-selected')).toBe('false')
+
+    await wrapper.get('[data-index="4"] [data-column="1"]').trigger('click')
+
+    expect(chosen.at(-1)).toBe(5)
+  })
+})
+
+describe('a row selected from outside', () => {
+  it('is scrolled into view, with the cursor in it in its column, and the focus left alone', async () => {
+    const chosen = ref<number>(1)
+    const listen = { 'onUpdate:selected': (key: number) => { chosen.value = key } }
+    const Parent = defineComponent(() => () => h(DataTable as unknown as DefineComponent, {
+      rows: rowsOf(200), columns: COLUMNS, rowKey: (row: Row) => row.id, label: 'Parameters', selected: chosen.value, ...listen,
+    }))
+    mounted = mount(Parent, { global: { plugins: [i18n] }, attachTo: document.body })
+    focusCell(mounted, 0, 2)
+    await flushPromises()
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    outside.focus()
+
+    chosen.value = 150
+    await flushPromises()
+
+    expect(drawnRows(mounted)).toContain(149)
+    expect(cellAt(mounted, 149, 2).tabIndex).toBe(0)
+    expect(document.activeElement).toBe(outside)
+  })
+})
+
+describe('a table that has no selection', () => {
+  it('has no row that says aria-selected', () => {
+    const wrapper = table()
+
+    expect(wrapper.findAll('[aria-selected]')).toHaveLength(0)
+  })
+})
+
+describe('a row that is marked', () => {
+  it('has the class and the attributes the caller gives it', () => {
+    const rowClass = (row: Row) => (row.id === 2 ? 'bad' : undefined)
+    const wrapper = table({ rowClass, rowAttrs: (row: Row) => ({ 'data-id': String(row.id) }) })
+
+    expect(wrapper.get('[data-id="2"]').classes()).toContain('bad')
+    expect(wrapper.get('[data-id="3"]').classes()).not.toContain('bad')
   })
 })

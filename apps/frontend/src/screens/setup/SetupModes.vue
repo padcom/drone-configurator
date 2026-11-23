@@ -20,12 +20,12 @@
           <li v-for="(param, i) in SLOT_PARAMS" :key="param" class="setup-slot">
             <span class="setup-slot-no">{{ i + 1 }}</span>
             <span class="setup-slot-range">{{ rangeText(i) }}</span>
-            <EnumField
-              :model-value="panel.value(param) ?? 0"
+            <PanelField
+              :panel="panel"
+              :id="param"
+              kind="enum"
               :options="options"
               :label="t('setup.modes.slot', { n: i + 1 })"
-              :disabled="panel.blocked.value !== null || panel.missing.value.includes(param)"
-              @update:model-value="panel.set(param, $event)"
             />
             <span class="muted setup-slot-hint">{{ hint(panel.value(param)) }}</span>
           </li>
@@ -51,14 +51,16 @@
 // dialect through `vehicle.modes`; a number with no name is shown as the number, never as a name), and the channel of the
 // switch. Nothing is written until "Write and verify" (one question, each read back), and not while the vehicle is armed or may
 // be. The live position of the switch is not shown: live radio channels (the `rc` group) come with the Radio page, and this
-// page will light the slot the switch is in then.
+// page will light the slot the switch is in then. Each slot is a field bound to its parameter (PanelField): it says in words
+// whether it is the vehicle's mode, a choice made here, written and read back, or rejected. The channel stays a closed list
+// (0 to 16 only), which a field that takes any number could not keep.
 import { computed, onMounted, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Banner from '@/components/ui/Banner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Select from '@/components/ui/Select.vue'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
 import { CHANNELS, MODE_PARAMS, SLOT_PARAMS, hasHint, noEscape, parseChannel, slotRange } from '@/lib/setup/flightModes'

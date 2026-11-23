@@ -105,16 +105,29 @@ it('writes a changed protocol after one question that names it, then says a rebo
   expect(rig.control.rebootsSent?.()).toBe(0)
 })
 
-it('takes a spin threshold as a fraction, ignores what is not one, and writes it', async () => {
+/**
+ * Types a spin threshold and leaves the field (a number field takes what was typed when it is left).
+ *
+ * @param rig the page's rig
+ * @param id the parameter
+ * @param text what is typed
+ */
+async function typeSpin(rig: Rig, id: string, text: string): Promise<void> {
+  const field = rig.wrapper.get(`[data-spin="${id}"] input`)
+  await field.setValue(text)
+  await field.trigger('blur')
+  await flushPromises()
+}
+
+it('takes a spin threshold in its range, ignores what is not one, and writes it', async () => {
   const rig = await page()
-  const field = rig.wrapper.get<HTMLInputElement>('[data-spin="MOT_SPIN_MAX"] input')
-  await field.setValue('abc')
-  await field.setValue('1.5')
+  await typeSpin(rig, 'MOT_SPIN_MAX', 'abc')
+  await typeSpin(rig, 'MOT_SPIN_MAX', '1.5')
   // 0.85 is a fraction, but below the 0.9 that ArduPilot documents for the highest spin
-  await field.setValue('0.85')
+  await typeSpin(rig, 'MOT_SPIN_MAX', '0.85')
   expect(rig.wrapper.get('.setup-writes').text()).toBe('')
-  await field.setValue('0.9')
-  expect(field.attributes('aria-invalid')).toBeUndefined()
+  await typeSpin(rig, 'MOT_SPIN_MAX', '0.9')
+  expect(rig.wrapper.get('[data-spin="MOT_SPIN_MAX"] input').attributes('aria-invalid')).toBeUndefined()
   expect(rig.wrapper.get('.setup-writes').text()).toBe('MOT_SPIN_MAX')
   await rig.wrapper.get('#setup-escs-write').trigger('click')
   await flushPromises()
@@ -125,54 +138,54 @@ it('takes a spin threshold as a fraction, ignores what is not one, and writes it
   expect(rig.wrapper.find('#setup-reboot').exists()).toBe(false)
 })
 
-it('marks a spin value that is not taken, says only what is new about it, and keeps the text as typed', async () => {
+it('marks a spin value out of its range, says the limit, and keeps the text as typed', async () => {
   const rig = await page()
   const field = rig.wrapper.get<HTMLInputElement>('[data-spin="MOT_SPIN_MAX"] input')
-  // the status line is in the row all the time (a live region is announced when its text changes, not when it is inserted), empty
-  const describedBy = field.attributes('aria-describedby') ?? ''
-  const status = rig.wrapper.get(`[id="${describedBy}"]`)
-  expect(status.attributes('role')).toBe('status')
-  expect(status.text()).toBe('')
-  await field.setValue('0.85')
-  // the field is marked, the status line says it, and the text stays as typed
+  await typeSpin(rig, 'MOT_SPIN_MAX', '0.85')
+
   expect(field.element.value).toBe('0.85')
   expect(field.attributes('aria-invalid')).toBe('true')
-  const message = rig.wrapper.get(`[id="${describedBy}"]`)
-  expect(message.element).toBe(status.element)
-  // only what is new: the range is in the help line next to it, not said again
-  expect(message.text()).toBe('Out of range: what is typed is not written.')
-  expect(message.attributes('role')).toBe('status')
-  expect(message.attributes('aria-live')).toBe('polite')
+  expect(rig.wrapper.get(`[id="${field.attributes('aria-describedby')}"]`).text()).toBe('At least 0.9.')
+  // the range is in the help line next to it too
   expect(rig.wrapper.get('[data-spin="MOT_SPIN_MAX"]').text()).toContain('from 0.9 to 1')
-  await field.trigger('blur')
-  expect(field.element.value).toBe('0.85')
-  expect(field.attributes('aria-invalid')).toBe('true')
-  await field.setValue('0.9')
+  await typeSpin(rig, 'MOT_SPIN_MAX', '0.9')
   expect(field.attributes('aria-invalid')).toBeUndefined()
-  expect(status.text()).toBe('')
+})
+
+it('says a spin threshold is modified, then verified once it is written and read back', async () => {
+  const rig = await page()
+  const status = () => rig.wrapper.get('[data-param="MOT_SPIN_MIN"]')
+  expect(status().attributes('data-status')).toBe('vehicle')
+  await typeSpin(rig, 'MOT_SPIN_MIN', '0.12')
+
+  expect(status().attributes('data-status')).toBe('draft')
+  expect(status().get('.status').text()).toBe('Modified: the vehicle has 0.15.')
+  await rig.wrapper.get('#setup-escs-write').trigger('click')
+  await vi.waitFor(() => expect(status().attributes('data-status')).toBe('verified'))
+  expect(status().get('.status').text()).toBe('Verified: the vehicle reads 0.12 back.')
 })
 
 it('writes nothing while the thresholds are out of order, and says so', async () => {
   const rig = await page()
   // the vehicle has 0.1, 0.15 and 0.95: arm equal to min is valid (ArduPilot refuses only arm above min)
-  await rig.wrapper.get('[data-spin="MOT_SPIN_ARM"] input').setValue('0.15')
+  await typeSpin(rig, 'MOT_SPIN_ARM', '0.15')
   expect(rig.wrapper.find('#setup-spin-order').exists()).toBe(false)
   expect(rig.wrapper.get('#setup-escs-write').attributes('disabled')).toBeUndefined()
   // arm above min is wrong
-  await rig.wrapper.get('[data-spin="MOT_SPIN_ARM"] input').setValue('0.2')
+  await typeSpin(rig, 'MOT_SPIN_ARM', '0.2')
 
   expect(rig.wrapper.get('#setup-spin-order').text()).toContain('must not fall')
   expect(rig.wrapper.get('#setup-escs-write').attributes('disabled')).toBeDefined()
   expect(rig.asked).toHaveLength(0)
   // set in order again: it can be written
-  await rig.wrapper.get('[data-spin="MOT_SPIN_MIN"] input').setValue('0.25')
+  await typeSpin(rig, 'MOT_SPIN_MIN', '0.25')
   expect(rig.wrapper.find('#setup-spin-order').exists()).toBe(false)
   expect(rig.wrapper.get('#setup-escs-write').attributes('disabled')).toBeUndefined()
 })
 
 it('refuses to write while the vehicle is armed, or may be, and says why', async () => {
   const rig = await page()
-  await rig.wrapper.get('[data-spin="MOT_SPIN_MAX"] input').setValue('0.9')
+  await typeSpin(rig, 'MOT_SPIN_MAX', '0.9')
   rig.control.armed?.(true)
   feed(rig.handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()

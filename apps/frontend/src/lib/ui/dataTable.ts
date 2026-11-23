@@ -36,8 +36,10 @@ export interface Column<Row> {
   sortable?: boolean
   /** Whether its edge can be dragged (false: it cannot). */
   resizable?: boolean
-  /** Whether a cell of it can be edited. */
-  editable?: boolean
+  /** Whether a cell of it can be edited: for every row, or by the row (a cell a row has nothing in is not). */
+  editable?: boolean | ((row: Row) => boolean)
+  /** Its cells name their rows (a screen reader says it with the row's other cells): `rowheader`, not `gridcell`. */
+  rowHeader?: boolean
   /** Which side the text of its cells is on. */
   align?: 'start' | 'end'
   /**
@@ -55,6 +57,19 @@ export interface Column<Row> {
    * @returns below zero when `a` is first, above zero when `b` is, else zero
    */
   compare?(a: Row, b: Row): number
+}
+
+/**
+ * Whether a cell can be edited.
+ *
+ * @param column the cell's column (undefined: there is none)
+ * @param row the cell's row (undefined: there is none)
+ * @returns true when the column says so, for every row or for this one
+ */
+export function isEditable<Row>(column: Column<Row> | undefined, row: Row | undefined): boolean {
+  const editable = column?.editable
+
+  return typeof editable === 'function' ? row !== undefined && editable(row) : editable === true
 }
 
 /** The way a sort goes. */
@@ -403,6 +418,69 @@ export function actionFor(press: Press, at: Cell, grid: Grid, editable: boolean)
   }
 
   return editAction(press, at, editable) ?? moveAction(press, at, grid)
+}
+
+/** Whether the caret of the field in a cell is at its start and at its end (a cell that has no text field is at both). */
+export interface Edges {
+  /** At the start. */
+  start: boolean
+  /** At the end. */
+  end: boolean
+}
+
+/** Where each key goes from a cell of FIELDS (a key with Control is named with it), before it is kept within the table. */
+const FIELD_GOES: Record<string, (at: Cell, grid: Grid, edges: Edges) => Cell> = {
+  'ArrowDown': at => ({ ...at, row: at.row + 1 }),
+  'Enter': at => ({ ...at, row: at.row + 1 }),
+  'ArrowUp': at => ({ ...at, row: at.row - 1 }),
+  'PageDown': (at, grid) => ({ ...at, row: at.row + grid.page }),
+  'PageUp': (at, grid) => ({ ...at, row: at.row - grid.page }),
+  'Control+Home': at => ({ ...at, row: 0 }),
+  'Control+End': (at, grid) => ({ ...at, row: grid.rows - 1 }),
+  // (the caret moves in the field first: the cell changes only from its edge)
+  'ArrowLeft': (at, _grid, edges) => ({ ...at, col: edges.start ? at.col - 1 : at.col }),
+  'ArrowRight': (at, _grid, edges) => ({ ...at, col: edges.end ? at.col + 1 : at.col }),
+}
+
+/**
+ * The move of a key in a table of fields.
+ *
+ * @param press the key
+ * @returns where it goes, or undefined for a key that is not the table's
+ */
+function fieldMove(press: Pick<Press, 'key' | 'ctrl' | 'shift'>): ((at: Cell, grid: Grid, edges: Edges) => Cell) | undefined {
+  const name = `${press.ctrl ? 'Control+' : ''}${press.key}`
+
+  return press.shift ? undefined : FIELD_GOES[name]
+}
+
+/**
+ * A cell that is another than where the key was pressed.
+ *
+ * @param at where it was pressed
+ * @param to where it goes
+ * @returns the cell, or null when it is the same one (the table ends there)
+ */
+function otherCell(at: Cell, to: Cell): Cell | null {
+  return to.row === at.row && to.col === at.col ? null : to
+}
+
+/**
+ * Where a key takes the cursor in a table whose cells ARE fields (the caller's: a number to type, a choice), with no edit to
+ * begin: up and down (and Enter, down) between rows, Page Up and Page Down a page, Control Home and End to the first and the
+ * last row, left and right between columns where the caret of the field is at its edge (else the caret moves). Home and End
+ * alone, Tab and a key with Alt or Shift are the field's or the browser's (the table is one tab stop).
+ *
+ * @param press the key (`shift` and `editing` are not the table's here: a key with Shift is the field's)
+ * @param at the cell it is pressed in
+ * @param grid the size of the table
+ * @param edges whether the caret is at the start and at the end of the field
+ * @returns the cell to go to, or null when the key moves nothing (it is not one that moves, or the table ends there)
+ */
+export function nextFieldCell(press: Pick<Press, 'key' | 'ctrl' | 'shift'>, at: Cell, grid: Grid, edges: Edges): Cell | null {
+  const goes = fieldMove(press)
+
+  return goes ? otherCell(at, within(goes(at, grid, edges), grid)) : null
 }
 
 /**

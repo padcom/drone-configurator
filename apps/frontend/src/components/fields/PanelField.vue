@@ -13,7 +13,7 @@
     :bits="bits ?? namedBits"
     :type="type"
     :input-id="inputId"
-    :locked="locked || panel.blocked.value !== null || meta?.readOnly === true"
+    :locked="locked"
     :data-param="id"
     @draft="panel.set(id, $event)"
     @keep="panel.keep(id)"
@@ -26,7 +26,8 @@
 // given what the panel knows (the vehicle's value, the choice made here, the write and how it went, a conflict) and saying back
 // what the person does. What the screen does not give (the unit, the range, the step, the names of the values or the bits)
 // comes from the parameter metadata; without metadata the field is a plain number. It is off while the page cannot write (no
-// vehicle, the list still coming, armed outside Tune) and for a parameter the vehicle sets itself.
+// vehicle, the list still coming, armed outside Tune), for a parameter the vehicle sets itself, and when
+// the page turns it off for a reason of its own (`disabled`: a calibration runs, say).
 import { computed } from 'vue'
 import ParamField from './ParamField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
@@ -59,8 +60,8 @@ const props = withDefaults(defineProps<{
   bits?: BitOption[]
   /** The id of the control, for a `<label for>` on the page. */
   inputId?: string
-  /** The screen has a reason of its own not to write it now (Tune: armed, and the vehicle reads it only when it starts). */
-  locked?: boolean
+  /** The page has the field off for a reason of its own (a calibration runs, say), besides the panel's. */
+  disabled?: boolean
 }>(), {
   kind: 'number',
   label: undefined,
@@ -72,7 +73,7 @@ const props = withDefaults(defineProps<{
   options: undefined,
   bits: undefined,
   inputId: undefined,
-  locked: false,
+  disabled: false,
 })
 
 const handle = useConfigurator()
@@ -82,5 +83,7 @@ const isInteger = computed(() => type.value !== undefined && type.value !== 'REA
 const namedValues = computed<EnumOption[]>(() => Object.entries(meta.value?.values ?? {})
   .map(([value, label]) => ({ value: Number(value), label }))
   .filter(option => Number.isFinite(option.value)))
+/** Off: the page says so, the panel cannot write, or the vehicle sets the parameter itself. */
+const locked = computed(() => props.disabled || props.panel.blocked.value !== null || meta.value?.readOnly === true)
 const namedBits = computed(() => bitOptions(meta.value?.bits, type.value ?? 'INT32'))
 </script>
