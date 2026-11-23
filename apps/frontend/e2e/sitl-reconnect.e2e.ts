@@ -242,7 +242,10 @@ async function resumesAfterTelemetryCut(): Promise<void> {
   expect(await window().text('#telemetry')).toMatch(/last heard/u)
   await restoreAndSeeResumed()
   await window().waitFor(`!document.querySelector('.hud').textContent.includes('last heard, reconnecting')`, RECONNECT_MS)
-  await seeWholeList()
+  const count = await seeWholeList()
+  // Nothing was being downloaded: the list the app had is reused, and SITL is asked only whether it is still the same list.
+  const kept = new RegExp(`^Parameters: ${count} · resumed after the link came back: ${count} kept, 0 read again in `, 'u')
+  expect(await window().waitForText('#download-status', /resumed after the link came back/u, RECONNECT_MS)).toMatch(kept)
 }
 
 /**
@@ -259,6 +262,8 @@ async function resumesAfterDownloadCut(): Promise<void> {
   await window().waitForText('#connection', /reconnecting/u, RECONNECT_MS)
   await restoreAndSeeResumed()
   expect(await seeWholeList()).toBe(before)
+  // The download that was cut had been started anew: what the app had before it is not passed for the vehicle's values now.
+  expect(await window().waitForText('#download-status', /^Parameters: \d+ · by /u, RECONNECT_MS)).not.toMatch(/resumed/u)
 }
 
 /**

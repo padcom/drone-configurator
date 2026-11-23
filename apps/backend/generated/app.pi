@@ -282,17 +282,24 @@ export function encodeParamListRequestMethod(v: ParamListRequestMethod): Cbor {
 
 export struct ParamListRequest {
   method?: ParamListRequestMethod
+  resume?: bool
 }
 
 export function decodeParamListRequest(v: Cbor, path: string): ParamListRequest throws InvalidPayload {
-  const m = members(v, path, ["method"])
+  const m = members(v, path, ["method", "resume"])
   const cbor0 = m.get("method")
   let opt0: ParamListRequestMethod? = null
   if (cbor0 != null) {
     opt0 = decodeParamListRequestMethod(cbor0, `${path}.method`)
   }
+  const cbor1 = m.get("resume")
+  let opt1: bool? = null
+  if (cbor1 != null) {
+    opt1 = boolean(cbor1, `${path}.resume`)
+  }
   return ParamListRequest {
     method: opt0,
+    resume: opt1,
   }
 }
 
@@ -301,6 +308,10 @@ export function encodeParamListRequest(v: ParamListRequest): Cbor {
   const opt0 = v.method
   if (opt0 != null) {
     m.set("method", encodeParamListRequestMethod(opt0))
+  }
+  const opt1 = v.resume
+  if (opt1 != null) {
+    m.set("resume", Cbor.Bool(opt1))
   }
   return Cbor.Dict(m)
 }
@@ -366,10 +377,11 @@ export struct ParamList {
   source?: ParamListSource
   fallback?: string
   elapsedMs?: u32
+  reused?: u16
 }
 
 export function decodeParamList(v: Cbor, path: string): ParamList throws InvalidPayload {
-  const m = members(v, path, ["params", "count", "complete", "missing", "source", "fallback", "elapsedMs"])
+  const m = members(v, path, ["params", "count", "complete", "missing", "source", "fallback", "elapsedMs", "reused"])
   const cbor4 = m.get("source")
   let opt4: ParamListSource? = null
   if (cbor4 != null) {
@@ -385,6 +397,11 @@ export function decodeParamList(v: Cbor, path: string): ParamList throws Invalid
   if (cbor6 != null) {
     opt6 = (uint(cbor6, `${path}.elapsedMs`, 4294967295) as u32)
   }
+  const cbor7 = m.get("reused")
+  let opt7: u16? = null
+  if (cbor7 != null) {
+    opt7 = (uint(cbor7, `${path}.reused`, 65535) as u16)
+  }
   return ParamList {
     params: decodeParamListParamsList(required(m, "params", path), `${path}.params`),
     count: (uint(required(m, "count", path), `${path}.count`, 65535) as u16),
@@ -393,6 +410,7 @@ export function decodeParamList(v: Cbor, path: string): ParamList throws Invalid
     source: opt4,
     fallback: opt5,
     elapsedMs: opt6,
+    reused: opt7,
   }
 }
 
@@ -413,6 +431,10 @@ export function encodeParamList(v: ParamList): Cbor {
   const opt6 = v.elapsedMs
   if (opt6 != null) {
     m.set("elapsedMs", Cbor.Uint(opt6 as u64))
+  }
+  const opt7 = v.reused
+  if (opt7 != null) {
+    m.set("reused", Cbor.Uint(opt7 as u64))
   }
   return Cbor.Dict(m)
 }

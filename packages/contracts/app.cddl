@@ -326,7 +326,13 @@ param = {
 
 ; `method` is for tests and diagnostics, not a choice for the user: "auto" (the default) uses the file transfer where the vehicle has
 ; it and the list where it does not, "list" the list only, "ftp" the file transfer only (its failure is the error, no fallback).
-param-list-request = { ? method: "auto" / "list" / "ftp" }
+; `resume` is the automatic download after a link came back to the same vehicle (`connection.resumed`): the backend reuses the
+; parameters it heard from this vehicle in this session and asks only for the ones it lacks (by index), after a check that the
+; vehicle still has the same list (its count and its first name). A link that dropped in the middle of a download so goes on
+; from where it was; a download started anew (a refresh) counts nothing heard before it, so one that was cut is asked for again.
+; With nothing kept for this vehicle, a list that has changed, or more than half of it missing, it is an ordinary download.
+; A value another ground station changed while the link was down is not seen until the next download that is not a resume.
+param-list-request = { ? method: "auto" / "list" / "ftp", ? resume: bool }
 
 ; `source` is how the parameters came: "ftp" (the vehicle's parameter file) or "list" (PARAM_REQUEST_LIST). `fallback` is why
 ; the file transfer was not used when `source` is "list": "unsupported", "timeout", "protocol", "incomplete" or "disabled"
@@ -339,6 +345,8 @@ param-list = {
   ? source: "ftp" / "list",
   ? fallback: tstr,
   ? elapsedMs: uint .size 4,
+  ; Set on a resume (`param-list-request`) that reused what was kept: how many parameters were not asked for again.
+  ? reused: uint .size 2,
 }
 
 ; How far a download is: `received` of `total` parameters, and by which way they come.

@@ -16,6 +16,7 @@ import {
 } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, VehicleInfo, encodeConnection } from "./generated/app"
 import { Beats } from "./heartbeat"
+import { paramCache } from "./paramcache"
 
 /// A service that listens to the vehicle while a session is up. `attach` is called once the
 /// autopilot is identified (`link.sysid` and `link.compid` say which one to listen to), `detach`
@@ -182,6 +183,8 @@ class Link {
     armed = false
     heartbeatAt = 0
     forgetParameterNames()
+    // What was heard of the vehicle's parameters is this session's: a new connection downloads them again.
+    paramCache.clear()
     armHoldUntil = 0
     // (`writes` is not reset here: each write counts itself out when it ends, which closing the session makes happen.)
     listing = false

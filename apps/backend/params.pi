@@ -1,6 +1,8 @@
 // The params service: downloading the vehicle's parameters, writing one with a read-back, and
-// telling the dashboard about a parameter the vehicle announces on its own.
+// telling the dashboard about a parameter the vehicle announces on its own. After a link came back to the same vehicle,
+// a download can resume: it reuses what the session heard (paramcache.pi) and asks only for what it lacks (#28).
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
+import { delay } from "std/timers"
 import {
   FtpError,
   MavLinkConnection,
@@ -11,6 +13,7 @@ import {
   ParamDownloadOptions,
   ParamDownloadResult,
   ParamError,
+  ParamRequestRead,
   ParamWrite as ParamWriteOp,
   Received,
   Target,
@@ -35,6 +38,7 @@ import {
   encodeParamsProgress,
   encodeParamWriteResult,
 } from "./generated/app"
+import { paramCache } from "./paramcache"
 import { SessionPart, armedState, changesVehicleType, connectedLink, link, rebootExpected } from "./session"
 import { refuseUntunable } from "./tuning"
 
@@ -163,11 +167,13 @@ class Announced implements SessionPart {
     }
     const m = r.message
     if (m instanceof ParamValue) {
+      const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
+      // Whatever it is (an answer, a read-back, news), it is what the vehicle has: kept for a resume.
+      paramCache.heard(link.identity, p, m.paramCount as int)
       // A parameter the vehicle announced on its own: tell the dashboard (or, during the list download, it is an answer of it).
       if (mode == "list") {
         return
       }
-      const p = toParam(m.paramId, m.paramIndex as int, decodeParam(m.paramValue, m.paramType as int, link.encoding))
       if (mode == "file") {
         pending.set(p.id, p)
         return
@@ -292,7 +298,9 @@ function listOf(r: ParamDownloadResult, plan: Plan): ParamList {
 }
 
 async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> throws Error {
-  const asked = if (payload == null) null else decodeParamListRequest(payload!, "$").method
+  const request = if (payload == null) null else decodeParamListRequest(payload!, "$")
+  const asked = if (request == null) null else request!.method
+  const resume = request != null && (request!.resume ?? false)
   const conn = connectedLink()
   if (announced.download != null) {
     // One download at a time: a second would share its progress and take its place for `params.cancel`.
@@ -314,24 +322,18 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     // A plan operation is a transfer of its own with the vehicle: two would meet.
     throw new CommunicatorError("BUSY", "the mission, fence or rally points are being read or written")
   }
-  const plan = planFor(asked)
   // The download has a controller of its own, so that cancelling it does not end the session; the session ending stops it.
   const own = new AbortController()
   announced.follow(link.session.signal)
   announced.download = own
   announced.progressAt = 0
   announced.pending.clear()
-  announced.mode = if (plan.method != "list" && vehicleHasFtp()) "file" else "list"
   link.listing = true
   let out: ParamList
   try {
-    const options = optionsFor(plan, own.signal)
-    const target: Target = { system: link.sysid, component: link.compid }
-    const r = await new ParamDownload(conn, target, link.encoding, options).run((received: int, total: int, unit: string) => announced.progressed(received, total, unit))
-    out = listOf(r, plan)
+    const resumed = if (resume) await resumeList(conn, own.signal) else null
+    out = if (resumed != null) resumed! else await download(conn, asked, own.signal)
     keepNames(out)
-    announced.applyPending(out.params)
-    remember(plan, r.source, r.fallback)
   } catch (e: MavLinkError) {
     throw new CommunicatorError(e.code, e.message)
   } catch (e: FtpError) {
@@ -346,6 +348,157 @@ async function listParams(payload: Cbor?, _ctx: RequestContext): Promise<Cbor?> 
     announced.download = null
   }
   encodeParamList(out)
+}
+
+/// An ordinary download: the whole list, by file transfer or by the list. What was heard before it is not fresh any more (it
+/// wants the vehicle's values now), and a complete list is what the vehicle has.
+async function download(conn: MavLinkConnection, asked: ParamListRequestMethod?, signal: AbortSignal): Promise<ParamList> throws Error {
+  const plan = planFor(asked)
+  announced.mode = if (plan.method != "list" && vehicleHasFtp()) "file" else "list"
+  paramCache.begin()
+  const options = optionsFor(plan, signal)
+  const target: Target = { system: link.sysid, component: link.compid }
+  const r = await new ParamDownload(conn, target, link.encoding, options).run((received: int, total: int, unit: string) => announced.progressed(received, total, unit))
+  const out = listOf(r, plan)
+  announced.applyPending(out.params)
+  remember(plan, r.source, r.fallback)
+  if (out.complete) {
+    paramCache.took(link.identity, out.params, out.count as int)
+  }
+  return out
+}
+
+/// How many reads by index are asked for at once: ArduPilot keeps a short queue of them, and drops what does not fit.
+const READS_AT_ONCE: int = 16
+
+/// How long a batch of reads waits when nothing arrives (ms).
+const READ_QUIET_MS: int = 500
+
+/// How many times the parameters still missing are asked for.
+const RESUME_ROUNDS: int = 3
+
+/// How long the check of the list waits for its answer (ms), and how many times it asks.
+const CHECK_WAIT_MS: int = 1000
+const CHECK_TRIES: int = 3
+
+function stopIfCancelled(signal: AbortSignal): void throws MavLinkError {
+  if (signal.aborted) {
+    throw new MavLinkError("ABORTED", "the parameter list: cancelled")
+  }
+}
+
+/// Asks the vehicle for the parameter at `index`.
+async function askIndex(conn: MavLinkConnection, index: int): Promise<void> throws Error {
+  const read = new ParamRequestRead()
+  read.targetSystem = link.sysid as u8
+  read.targetComponent = link.compid as u8
+  read.paramId = ""
+  read.paramIndex = index as i16
+  await conn.send(read)
+}
+
+/// Whether `r` is the vehicle's parameter at index 0.
+function firstOfTheVehicle(r: Received): bool {
+  const m = r.message
+  if (m instanceof ParamValue) {
+    return r.packet.header.sysid == link.sysid && r.packet.header.compid == link.compid && (m.paramIndex as int) == 0
+  }
+  return false
+}
+
+/// Whether the vehicle still has the list that was kept: its first parameter is asked for, and its count and its name must be
+/// the ones kept (a firmware, or a feature enabled and a reboot, change the list). No answer is not the same list.
+async function sameList(conn: MavLinkConnection, signal: AbortSignal): Promise<bool> throws Error {
+  const count = paramCache.count
+  const name = paramCache.nameAt(0)
+  const resets = paramCache.resets
+  for (let attempt = 0; attempt < CHECK_TRIES; attempt++) {
+    stopIfCancelled(signal)
+    const reply = conn.waitFor((r: Received) => firstOfTheVehicle(r), CHECK_WAIT_MS, signal)
+    await askIndex(conn, 0)
+    const r = await reply
+    if (r != null) {
+      const m = r!.message
+      if (m instanceof ParamValue) {
+        return (m.paramCount as int) == count && (name == "" || m.paramId == name) && paramCache.resets == resets
+      }
+    }
+  }
+  stopIfCancelled(signal)
+  return false
+}
+
+/// Whether every index of `gaps` from `from` to `to` (excluded) is fresh.
+function allIn(gaps: int[], from: int, to: int): bool {
+  for (let i = from; i < to; i++) {
+    if (!paramCache.fresh.has(gaps[i])) {
+      return false
+    }
+  }
+  return true
+}
+
+/// Waits until the reads of `gaps` from `from` to `to` are answered, or nothing has arrived for `READ_QUIET_MS`.
+async function answered(gaps: int[], from: int, to: int, signal: AbortSignal): Promise<void> throws Error {
+  const asked = Date.now() as int
+  while (!allIn(gaps, from, to)) {
+    stopIfCancelled(signal)
+    const last = if (paramCache.heardAt > asked) paramCache.heardAt else asked
+    if ((Date.now() as int) - last >= READ_QUIET_MS) {
+      return
+    }
+    await delay(20)
+  }
+}
+
+/// Asks for the parameters that are not fresh, by index, a batch at a time, a few rounds. False when the list changed under it.
+async function fillGaps(conn: MavLinkConnection, signal: AbortSignal): Promise<bool> throws Error {
+  const resets = paramCache.resets
+  for (let round = 0; round < RESUME_ROUNDS && paramCache.missing().length > 0; round++) {
+    const gaps = paramCache.missing()
+    for (let at = 0; at < gaps.length; at += READS_AT_ONCE) {
+      stopIfCancelled(signal)
+      const to = if (at + READS_AT_ONCE < gaps.length) at + READS_AT_ONCE else gaps.length
+      for (let i = at; i < to; i++) {
+        await askIndex(conn, gaps[i])
+      }
+      await answered(gaps, at, to, signal)
+      if (paramCache.resets != resets) {
+        return false
+      }
+      announced.progressed(paramCache.freshCount(), paramCache.count, "parameters")
+    }
+  }
+  return true
+}
+
+/// A download that resumes (the link came back to the same vehicle): what this session heard of the vehicle's list is reused,
+/// and only what it lacks is asked for, by index. Null when it cannot (nothing kept for this vehicle, more than half of it
+/// missing, or the vehicle's list is not the one kept): the caller then makes an ordinary download.
+async function resumeList(conn: MavLinkConnection, signal: AbortSignal): Promise<ParamList?> throws Error {
+  const started = Date.now() as int
+  if (!paramCache.usableFor(link.identity)) {
+    return null
+  }
+  const reused = paramCache.freshCount()
+  if (paramCache.missing().length * 2 > paramCache.count) {
+    return null
+  }
+  // The answers are the list's, not news.
+  announced.mode = "list"
+  if (!await sameList(conn, signal) || !await fillGaps(conn, signal)) {
+    return null
+  }
+  const missing = paramCache.missing()
+  return ParamList {
+    params: paramCache.list(),
+    count: paramCache.count as u16,
+    complete: missing.length == 0,
+    missing: missing.map((i: int) => i as u16),
+    source: ParamListSource.List,
+    elapsedMs: ((Date.now() as int) - started) as u32,
+    reused: reused as u16,
+  }
 }
 
 /// Refuses with `ARMED`, or `STATE_UNKNOWN` when the vehicle's armed state is not known (no heartbeat for 3 s: unknown counts as armed).

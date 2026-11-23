@@ -1,0 +1,133 @@
+// The parameters this session has heard from its vehicle, kept across a dropped link (#28), so that a link that comes
+// back to the same vehicle does not download the whole list again: it reuses what was heard, and asks only for the
+// parameters that never arrived (params.pi, `params.list` with `resume`).
+//
+// What is heard is every PARAM_VALUE of the vehicle (a download's answers, a write's read-back, an announcement) and the
+// list of a download that completed (also one by file transfer, whose parameters come in no PARAM_VALUE). Each parameter is
+// kept by its index, with the vehicle's count. What is kept belongs to one vehicle (the session's identity when it was
+// heard): another vehicle, another count, or another name at a known index (the list has changed: a firmware, a feature
+// enabled and a reboot) start it again.
+//
+// "Fresh" is what was heard since the last download was started: a download started anew (a refresh) wants the vehicle's
+// values now, so what was heard before it is not reused when it is cut. What was heard is still kept, for its names.
+import { Param } from "./generated/app"
+
+/// The index a PARAM_VALUE has when the vehicle does not say it (ArduPilot's answer to a PARAM_SET, an announcement).
+export const NO_INDEX: int = 65535
+
+export class ParamCache {
+  /// Whose parameters these are: the session's identity when they were heard ("" for nobody's).
+  public identity: string = ""
+  /// How many parameters the vehicle says it has (-1 while not known).
+  public count: int = -1
+  /// What was heard, by index.
+  public readonly byIndex: Map<int, Param> = new Map<int, Param>()
+  /// The index of each name heard.
+  public readonly indexOf: Map<string, int> = new Map<string, int>()
+  /// The indexes heard since the last download was started.
+  public readonly fresh: Map<int, bool> = new Map<int, bool>()
+  /// When the last parameter was heard (ms since 1970).
+  public heardAt: int = 0
+  /// How many times it was started again (a resume that sees it change knows the list is not the one it had).
+  public resets: int = 0
+
+  /// Forgets everything (the session ended, or the vehicle is not the one that was heard).
+  public clear(): void {
+    identity = ""
+    count = -1
+    byIndex.clear()
+    indexOf.clear()
+    fresh.clear()
+    resets += 1
+  }
+
+  /// Starts again for `who`'s list of `total` parameters.
+  restart(who: string, total: int): void {
+    clear()
+    identity = who
+    count = total
+  }
+
+  /// A download is started anew: nothing heard so far is fresh.
+  public begin(): void {
+    fresh.clear()
+  }
+
+  /// A parameter `who`'s vehicle sent, at `p.index` of `total`. One with no index (`NO_INDEX`), or an index past the count,
+  /// only updates the value of a name that is known.
+  public heard(who: string, p: Param, total: int): void {
+    const index = p.index as int
+    if (index == NO_INDEX || index >= total) {
+      updateByName(who, p)
+      return
+    }
+    const known = byIndex.get(index)
+    if (who != identity || total != count || (known != null && known!.id != p.id)) {
+      restart(who, total)
+    }
+    byIndex.set(index, p)
+    indexOf.set(p.id, index)
+    fresh.set(index, true)
+    heardAt = Date.now() as int
+  }
+
+  /// A value for a name that is known (of the same vehicle); any other is not placed.
+  updateByName(who: string, p: Param): void {
+    const index = indexOf.get(p.id)
+    if (who != identity || index == null) {
+      return
+    }
+    byIndex.set(index!, Param { id: p.id, index: index! as u16, kind: p.kind, type: p.type, value: p.value })
+    heardAt = Date.now() as int
+  }
+
+  /// A download that completed: the whole list of `who`'s vehicle, all of it fresh.
+  public took(who: string, params: Param[], total: int): void {
+    restart(who, total)
+    for (const p of params) {
+      heard(who, p, total)
+    }
+  }
+
+  /// Whether there is something kept for `who`'s vehicle to resume from.
+  public usableFor(who: string): bool {
+    return who != "" && who == identity && count > 0
+  }
+
+  /// How many are fresh.
+  public freshCount(): int {
+    return fresh.size as int
+  }
+
+  /// The indexes that are not fresh, in order.
+  public missing(): int[] {
+    const out: int[] = []
+    for (let i = 0; i < count; i++) {
+      if (!fresh.has(i)) {
+        out.push(i)
+      }
+    }
+    return out
+  }
+
+  /// The fresh parameters, in the order of their indexes.
+  public list(): Param[] {
+    const out: Param[] = []
+    for (let i = 0; i < count; i++) {
+      const p = byIndex.get(i)
+      if (p != null && fresh.has(i)) {
+        out.push(p!)
+      }
+    }
+    return out
+  }
+
+  /// The name at an index, or "" when it was never heard.
+  public nameAt(index: int): string {
+    const p = byIndex.get(index)
+    if (p == null) "" else p!.id
+  }
+}
+
+/// The session's cache (session.pi clears it when the session ends).
+export const paramCache = new ParamCache()

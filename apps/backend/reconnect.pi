@@ -6,7 +6,8 @@
 // the running operations are aborted (a write in flight is reported as not confirmed, and is never sent again), the
 // state is `reconnecting`, and the tries follow the waits of `link.retryDelaysMs`. A try opens the link again (TCP and
 // serial; a UDP socket and the simulator are still there) and waits for a heartbeat. The vehicle that answers is the
-// same if its identity is: then the parameters on screen are still its (`resumed`). Another vehicle is a new
+// same if its identity is: then the parameters on screen are still its (`resumed`), and the dashboard's download after it
+// reuses what the session heard and asks only for what it lacks (paramcache.pi, params.pi). Another vehicle is a new
 // connection, and says so: nothing is reused silently.
 //
 // Limits of "the same vehicle": two vehicles with the same ids and kind that send no unique id (AUTOPILOT_VERSION)
@@ -17,6 +18,7 @@ import { delay } from "std/timers"
 import { AutopilotVersionRead, MavAutopilot, MavLinkRouter, MavType, SimulatedAutopilot, Vehicle } from "padcom/pico-mavlink"
 import { Connection, ConnectionState, ConnectRequest, ConnectRequestTransport } from "./generated/app"
 import { GuardedStream } from "./guarded"
+import { paramCache } from "./paramcache"
 import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link, rebootExpected } from "./session"
 import { describe, open } from "./transports"
 
@@ -151,6 +153,12 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
   }
   const identity = identityOf(found, version)
   const board = boardOf(found, version)
+  // A reboot this session asked for (a feature enabled, a frame changed) may have changed the list: nothing heard before it is
+  // reused. A link that dropped on its own keeps what was heard, for a resume (params.pi), whose check of the list is the guard
+  // against a reboot nobody asked for.
+  if (link.rebootAt != 0 || link.rebootUnsure) {
+    paramCache.clear()
+  }
   // It is back: the reboot that was waited for is over, and a new one may be asked for.
   link.rebootAt = 0
   link.rebootUnsure = false
@@ -168,6 +176,7 @@ export async function takeUp(found: Vehicle, generation: int): Promise<void> thr
     return
   }
   // Never a silent reuse: the parts listen to the new vehicle, and the dashboard downloads its parameters again.
+  paramCache.clear()
   link.sysid = found.sysid
   link.compid = found.compid
   link.autopilot = found.autopilot
