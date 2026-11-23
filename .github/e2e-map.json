@@ -34,7 +34,7 @@
         "apps/frontend/src/components/plan/**", "apps/frontend/src/lib/plan/**", "apps/frontend/src/screens/Plan.vue",
         "apps/frontend/src/composables/usePlan.ts", "apps/frontend/src/assets/styles/plan.css"
       ],
-      "specs": ["plan.e2e.ts", "plan-keys.e2e.ts", "palette.e2e.ts"]
+      "specs": ["plan.e2e.ts", "plan-keys.e2e.ts", "plan-table-speed.e2e.ts", "palette.e2e.ts"]
     },
     {
       "when": [

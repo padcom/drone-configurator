@@ -226,6 +226,22 @@ it('lists exactly what the modes page writes, and writes a changed slot after on
   expect(handle.parameters.params.value.find(param => param.id === 'FLTMODE2')?.value).toBe(9)
 })
 
+it('says in words what each slot is: the vehicle\'s mode, a choice made here, then written and read back', async () => {
+  const { wrapper } = await page(SetupModes)
+  const said = (): string => wrapper.get('[data-param="FLTMODE2"] .status').text()
+
+  expect(said()).toBe('The vehicle\'s value.')
+  wrapper.findAllComponents(EnumField)[1]?.vm.$emit('update:modelValue', 9)
+  await flushPromises()
+
+  expect(said()).toBe('Modified: the vehicle has 5.')
+  expect(wrapper.get('[data-param="FLTMODE2"]').attributes('data-status')).toBe('draft')
+  await wrapper.get('#setup-modes-write').trigger('click')
+  await vi.waitFor(() => expect(wrapper.get('[data-param="FLTMODE2"]').attributes('data-status')).toBe('verified'))
+
+  expect(said()).toMatch(/^Verified: /u)
+})
+
 it('chooses the channel of the mode switch from a list: None, then the channels ArduPilot lists, by number', async () => {
   const { wrapper, asked } = await page(SetupModes)
   const channel = wrapper.get<HTMLSelectElement>('select')
