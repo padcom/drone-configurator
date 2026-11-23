@@ -1,27 +1,14 @@
-// The keys of the Parameters screen that work from more than one place: Ctrl+/ goes to the search, Ctrl+Enter from the Value
-// field or the list presses "Write N and verify". (The keys of one place, as Up and Down in the list, are with that place.)
-// F6 (paneFocus.ts) is another key, and nothing here uses it.
+// The keys of the Parameters screen that work from more than one place: `params.search` (Ctrl+/) goes to the search,
+// `params.write` (Ctrl+Enter) from the Value field or the list presses "Write N and verify". Which keys they are is the keymap's
+// (lib/app/keymap.ts), so they may be rebound in Settings. (The keys of one place, as Up and Down in the list, are with that
+// place.) F6 (paneFocus.ts) is another key, and nothing here uses it.
 import { nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted } from 'vue'
+import { matches } from '@/lib/app/keymap'
 
 /** What the shortcuts act on. */
 export interface ShortcutDeps {
   /** Queues the value in the Value field, if it is settled (what Enter does there). */
   sync: () => void
-}
-
-/**
- * Whether a key press is Ctrl with that key alone (Alt and Meta make other shortcuts; Shift too, unless the key is one that
- * needs Shift on some layouts: `/` is Shift+7 on a German keyboard, so Ctrl+Shift+7 reports the key `/` there).
- *
- * @param event the key press
- * @param key the key
- * @param shifted whether the key may be typed with Shift
- * @returns true for Ctrl+key
- */
-export function isCtrl(event: KeyboardEvent, key: string, shifted: boolean): boolean {
-  const others = [event.altKey, event.metaKey, event.shiftKey && !shifted]
-
-  return event.key === key && event.ctrlKey && !others.some(Boolean)
 }
 
 /**
@@ -71,13 +58,13 @@ function inEditorOrList(target: EventTarget | null): boolean {
  * Which shortcut a key press is, where it was pressed.
  *
  * @param event the key press
- * @returns 'search' for Ctrl+/ (anywhere but in a text field of a dialog), 'write' for Ctrl+Enter in the Value field or the
- * list, and undefined for any other key
+ * @returns 'search' for the search's key (anywhere but in a text field of a dialog), 'write' for the write's key in the Value
+ * field or the list, and undefined for any other key
  */
 export function shortcutOf(event: KeyboardEvent): 'search' | 'write' | undefined {
   const found = [
-    { shortcut: 'search' as const, pressed: isCtrl(event, '/', true) && !inDialogField(event.target) },
-    { shortcut: 'write' as const, pressed: isCtrl(event, 'Enter', false) && inEditorOrList(event.target) },
+    { shortcut: 'search' as const, pressed: matches(event, 'params.search') && !inDialogField(event.target) },
+    { shortcut: 'write' as const, pressed: matches(event, 'params.write') && inEditorOrList(event.target) },
   ]
 
   return found.find(candidate => candidate.pressed)?.shortcut

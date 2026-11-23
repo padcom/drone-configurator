@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { type VueWrapper, flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
+import { setBindings } from '@/lib/app/keymap'
 import { useParamShortcuts } from './paramShortcuts'
 
 let wrapper: VueWrapper | undefined
@@ -125,6 +126,23 @@ it('writes once for a Ctrl+Enter that is held down: the repeats do nothing, and 
 
   expect(write).toHaveBeenCalledTimes(1)
   expect(repeat.defaultPrevented).toBe(true)
+})
+
+it('goes to the search on the key it was given in Settings, and no longer on Ctrl+/', () => {
+  setBindings({ 'params.search': { code: 'KeyK', ctrl: true } })
+
+  try {
+    screen()
+
+    press('elsewhere', '/')
+    expect(document.activeElement?.id).not.toBe('filter')
+    const event = press('elsewhere', 'k', { ctrlKey: true, code: 'KeyK' })
+
+    expect(document.activeElement?.id).toBe('filter')
+    expect(event.defaultPrevented).toBe(true)
+  } finally {
+    setBindings({})
+  }
 })
 
 it('stops listening when the screen goes', () => {
