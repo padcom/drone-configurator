@@ -80,12 +80,8 @@ To run the end-to-end checks, either let the harness start a simulator, or say w
 
 ```sh
 SITL_BINARY=ardupilot/build/sitl/bin/arducopter pnpm e2e   # the harness launches its own Copter SITL
-SITL_DIR=sitl pnpm e2e    # every vehicle type, built by .github/sitl-build.sh REF all sitl
 SITL_ENDPOINT=tcp:127.0.0.1:5760 pnpm e2e                  # or udp:127.0.0.1:14550: one that is already running
 ```
-
-`sitl-vehicles.e2e.ts` connects to Heli, Plane, Rover, Sub, Blimp and Tracker SITL in turn: each is named as the vehicle
-type its heartbeat says and has its parameters downloaded. The Copter checks:
 
 They detect the vehicle, download the whole parameter list, follow the telemetry, write `BATT_CAPACITY` with a verified read-back and put it back, save a snapshot, apply an edited one and keep a backup, reconnect, and close the app while connected. The same checks run over TCP against the simulator behind a port (`apps/backend/e2e/tcp-vehicle.pi`).
 
@@ -97,12 +93,11 @@ They detect the vehicle, download the whole parameter list, follow the telemetry
 
 `apps/frontend/e2e/sitl.ts` starts a SITL for a test: `startSitl({ vehicle: 'copter', frame: 'quad', speedup: 5, simParams: { SIM_WIND_SPD: 8 } })`, or `withSitl(options, async sitl => { ... })`, which always stops it.
 
-- It knows seven vehicles (`copter`, `heli`, `plane`, `rover`, `sub`, `blimp`, `tracker`), each with its executable and the frame it gets when a test names none. It finds a vehicle's executable in `SITL_DIR`, else from `SITL_BINARY` when that is the vehicle's (any name for a copter), else on the `PATH`. `.github/sitl-build.sh REF all DIR` builds all seven into `DIR` (one waf build, about 5 minutes on 12 cores); by hand, `./waf configure --board sitl && ./waf copter`, using the Python that has `empy==3.3.4`. A relative `SITL_BINARY` is fine. Older builds (Copter 4.7) don't carry their default parameters, so the harness passes each frame's files (as ArduPilot's `Tools/autotest/pysim/vehicleinfo.py` names them: `default_params/*.parm`, a plane's `models/plane.parm`) with `--defaults`, taken from next to the executable (what CI ships) or from the source tree's `Tools/autotest` for a build in `build/sitl/bin`.
+- It finds the executable from `SITL_BINARY`, or `arducopter` on the `PATH`. Build it with `./waf configure --board sitl && ./waf copter`, using the Python that has `empy==3.3.4`. A relative `SITL_BINARY` is fine. Older builds (Copter 4.7) don't carry their default parameters, so the harness passes `default_params/*.parm` with `--defaults`, taken from next to the executable (what CI ships) or from the source tree's `Tools/autotest/default_params` for a build in `build/sitl/bin`.
 - Each SITL gets free ports (an ArduPilot instance: TCP 5760 + 10n, and so on), a working directory of its own and a fresh EEPROM, so tests can run side by side. `sitl.endpoint` is where the dashboard connects.
 - It waits for a heartbeat. If SITL doesn't come up, the error says why: SITL's exit code and the end of its output. Nothing is left running, and its directory is removed.
 - `sitl.setParam('SIM_WIND_SPD', 8)` sets a parameter, usually a `SIM_*` one (wind, a failed sensor), and waits for the vehicle to report it. It uses SERIAL1 (TCP 5762), so SERIAL0 stays free for the app under test.
 - `speedup` runs the simulation faster than real time.
-- CI builds all seven at the pinned ref (`.github/ardupilot-ref`, one line) on linux-x64 and linux-arm64 and caches them by ref and target (`.github/workflows/sitl-e2e.yml`); a cache hit builds nothing. Every Monday `sitl-next-stable.yml` runs the suites at the newest stable release of the pin's family and opens an issue when they fail there.
 - With `SITL_ENDPOINT` set, the harness launches nothing and the suites use that simulator.
 - A test file that needs SITL uses `describeSitl` (`sitl-suite.ts`). If there is no SITL it fails when `CI` is set, and is skipped, with the reason, elsewhere. It is never silently skipped in CI.
 

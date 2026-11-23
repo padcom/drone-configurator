@@ -17,7 +17,7 @@ under the last table and are not counted.
 |---|---|---|---|
 | CI on every platform: lint, unit, window e2e, SITL e2e | #2 | Partial | macOS and Windows run the frontend only (#4) |
 | Backend tests and e2e on macOS and Windows | #4 | Not done | blocked upstream (pico-serialport, pico-desktop) |
-| SITL built and cached for each vehicle type | #10 | Done | all seven vehicles built and cached by ref and target; `sitl-vehicles.e2e.ts`; weekly `sitl-next-stable.yml` |
+| SITL built and cached for each vehicle type | #10 | Partial | Copter only; no scheduled "next stable" job |
 | Virtualized data table in the kit | #15 | Partial | no generic table (sort, resize, filter hook, cell editors); no 2000-row budget test |
 | Dialogs, safety confirmation, toasts, menus | #16 | Partial | no context menu |
 | Parameter-bound form fields | #17 | Partial | no unit display/conversion field; draft-conflict states only partly |
