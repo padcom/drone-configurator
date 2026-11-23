@@ -48,63 +48,44 @@
           </div>
         </div>
         <div class="data-table-body" role="rowgroup" :style="{ height: `${shown.length * rowPx}px` }">
-          <!-- A row is drawn again only when its row, its place (it is positioned by it: a sort or a filter moves it), its
-               widths, or what is on it (the cursor, an edit) changes: a cell that is updated (its row is replaced by another)
-               draws that one row, and not the table. -->
-          <div
+          <!-- A row is its own component, keyed by the row: it is drawn again only when what it is given changes (its row, its
+               place, the widths, the cursor or an edit in it), so a cell that is updated (its row replaced by another) draws that
+               one row, and a scroll draws only the rows that come into view. The memo spares the table even the row's vnode
+               when nothing it is given changed (it is kept by place: after a scroll it misses, and the keyed row is still not
+               drawn). -->
+          <DataTableRow
             v-for="entry in drawn"
             :key="entry.key"
-            v-memo="[entry.row, entry.index, template, cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key)]"
-            class="data-table-row"
-            role="row"
-            :aria-rowindex="entry.index + 2"
-            :data-index="entry.index"
-            :style="{ top: `${entry.index * rowPx}px`, height: `${rowPx}px`, gridTemplateColumns: template }"
-          >
-            <div
-              v-for="(column, col) in columns"
-              :key="column.id"
-              class="data-table-cell"
-              :class="{ end: column.align === 'end', editing: editedColumn(entry.key) === col }"
-              role="gridcell"
-              :aria-colindex="col + 1"
-              :data-col="col"
-              :tabindex="isStop(entry.key, col) ? 0 : -1"
-              @click="cursorTo(entry.index, col)"
-              @dblclick="beginEdit({ row: entry.index, col }, null)"
-            >
-              <template v-if="editedColumn(entry.key) === col">
-                <slot
-                  name="editor"
-                  :row="entry.row"
-                  :column="column"
-                  :text="editing?.text ?? ''"
-                  :set="setText"
-                  :commit="commitEdit"
-                  :cancel="cancelEdit"
-                >
-                  <input
-                    v-focus
-                    class="kit-input data-table-input"
-                    :class="{ end: column.align === 'end' }"
-                    type="text"
-                    :value="editing?.text ?? ''"
-                    :aria-label="column.header"
-                    @input="setText(($event.target as HTMLInputElement).value)"
-                    @blur="commitEdit()"
-                  >
-                </slot>
-              </template>
-              <slot v-else name="cell" :row="entry.row" :column="column" :value="column.value(entry.row)">
-                {{ column.value(entry.row) }}
-              </slot>
-            </div>
-          </div>
+            v-memo="[
+              entry.row, entry.index, columns, template, fields, rowClass, rowAttrs,
+              cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key), selecting && isSelected(entry.key),
+              $slots.cell === undefined, $slots.editor === undefined,
+            ]"
+            :row="entry.row"
+            :index="entry.index"
+            :columns="columns"
+            :template="template"
+            :row-px="rowPx"
+            :stop-col="cursorColumn(entry.key)"
+            :edited-col="editedColumn(entry.key)"
+            :edited-text="editedText(entry.key)"
+            :selected="selecting ? isSelected(entry.key) : undefined"
+            :fields="fields"
+            :row-class="rowClass"
+            :row-attrs="rowAttrs"
+            :set-text="setText"
+            :commit="commitEdit"
+            :cancel="cancelEdit"
+            :cell="$slots.cell ? renderCell : undefined"
+            :editor="$slots.editor ? renderEditor : undefined"
+            @cursor="cursorTo"
+            @edit="editAt"
+          />
         </div>
         <p v-if="shown.length === 0" class="data-table-empty">{{ t('table.empty') }}</p>
       </div>
     </div>
-    <p :id="`${uid}-help`" class="visually-hidden">{{ t('table.help') }}</p>
+    <p :id="`${uid}-help`" class="visually-hidden">{{ help ?? t('table.help') }}</p>
   </div>
 </template>
 
@@ -125,12 +106,20 @@
 // Rows are REPLACED to change them (a new object for the row that changed, as a store does), not changed in place: a
 // row is drawn again only when its object, its widths or what is on it changes, so updating a cell draws one row, not
 // the table.
+//
+// A table of FIELDS (`fields`) is a spreadsheet whose cells are the caller's own fields, always there: nothing is begun or
+// ended, the focus is in a field, and the keys are those of nextFieldCell.
+//
+// A table can have a SELECTED row (`v-model:selected`, the row's key): it is the row the cursor is in, and the other way
+// round. A row selected from outside (a map, a list) is scrolled into view and the cursor goes to it, in the column it
+// was in; the focus is not taken. `rowClass` and `rowAttrs` mark a row (a problem, an id for the page).
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   BIG_NUDGE_PX,
   type Cell,
   type Column,
+  type Edges,
   HEAD_PX,
   type KeyAction,
   MAX_WIDTH,
@@ -143,13 +132,16 @@ import {
   ariaSortOf,
   arrowOf,
   filterRows,
+  isEditable,
   isOutside,
+  nextFieldCell,
   nextSort,
   resizedWidth,
   sortRows,
   widthOf,
 } from '@/lib/ui/dataTable'
 import { type Viewport, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
+import DataTableRow, { type CellRender, type EditorRender } from './DataTableRow.vue'
 
 /** The height (px) the table is taken to have when it cannot be measured (a window that does not lay out). */
 const UNMEASURED_PX = 520
@@ -181,6 +173,18 @@ const props = defineProps<{
   filter?: (row: Row) => boolean
   /** The height of a row (px). */
   rowPx?: number
+  /** A class for a row, over the table's own (a row with a problem). */
+  rowClass?: (row: Row) => string | undefined
+  /** Attributes for a row (an id or a `data-` attribute the page finds it by). */
+  rowAttrs?: (row: Row) => Record<string, string>
+  /**
+   * The cells ARE fields the caller draws (the `cell` slot: a number to type, a choice), not values to begin an edit of. The
+   * focus goes into the field of a cell; the slot is told which cell is the one tab stop (`stop`) and gives its field the
+   * tabindex; the arrows move between cells, left and right only from the edge of the field's text (nextFieldCell).
+   */
+  fields?: boolean
+  /** What the keys of the table do, for a screen reader (the kit's words for a table whose cells are edited by default). */
+  help?: string
 }>()
 
 const emit = defineEmits<{
@@ -192,6 +196,10 @@ const emit = defineEmits<{
 
 /** What the rows are sorted by. */
 const sort = defineModel<Sort | null>('sort', { default: null })
+
+/** The selected row's key: null for none; undefined for a table that has no selection (`v-model:selected` is not used). */
+const selected = defineModel<string | number | null | undefined>('selected', { default: undefined })
+const selecting = computed(() => selected.value !== undefined)
 
 const { t } = useI18n()
 const uid = useId()
@@ -241,14 +249,6 @@ const drawn = computed(() => {
   return isOutside(stopIndex.value, from, to) ? [...entries, entryAt(stopIndex.value)].sort((a, b) => a.index - b.index) : entries
 })
 
-/** Puts the focus in the field that appears when a cell is edited. */
-const vFocus = {
-  mounted: (element: HTMLInputElement): void => {
-    element.focus()
-    element.select()
-  },
-}
-
 /**
  * A click (or Enter) on a sortable header.
  *
@@ -289,14 +289,13 @@ function editedText(key: string | number): string | null {
 }
 
 /**
- * Whether a cell is the table's tab stop.
+ * Whether a row is the selected one.
  *
  * @param key the row's key
- * @param col the column
- * @returns true for the cell the cursor is in (the first, before the cursor is anywhere)
+ * @returns true when it is
  */
-function isStop(key: string | number, col: number): boolean {
-  return cursorColumn(key) === col
+function isSelected(key: string | number): boolean {
+  return selecting.value && selected.value === key
 }
 
 /** Follows what the area scrolls. */
@@ -334,12 +333,27 @@ function isRow(index: number): boolean {
 }
 
 /**
+ * What takes the focus in a cell: in a table of fields, the field in it (a number, a choice, or whatever the caller made
+ * focusable), else the cell.
+ *
+ * @param cell the cell
+ * @returns the element, or null when the cell is not drawn
+ */
+function focusTarget(cell: HTMLElement | null): HTMLElement | null {
+  const field = props.fields ? cell?.querySelector<HTMLElement>('input, select, [tabindex]') : null
+
+  return field ?? cell
+}
+
+/**
  * Puts the focus in a cell that is drawn.
  *
  * @param at the cell
  */
 function focusCell(at: Cell): void {
-  scroller.value?.querySelector<HTMLElement>(`[data-index="${at.row}"] [data-col="${at.col}"]`)?.focus()
+  const cell = scroller.value?.querySelector<HTMLElement>(`[data-index="${at.row}"] [data-column="${at.col}"]`) ?? null
+
+  focusTarget(cell)?.focus()
 }
 
 /**
@@ -387,13 +401,45 @@ function textToEdit(first: string | null, column: Column<Row>, row: Row): string
  */
 function beginEdit(at: Cell, first: string | null): void {
   const column = props.columns[at.col]
+  const { row, key } = entryAt(at.row)
 
-  if (column?.editable) {
-    const { row, key } = entryAt(at.row)
-
+  if (column && isEditable(column, row)) {
     cursor.value = { key, col: at.col }
     editing.value = { key, col: at.col, text: textToEdit(first, column, row) }
   }
+}
+
+const slots = defineSlots<{
+  /** What a cell shows (else its value as text). */
+  cell?: CellRender<Row>
+  /** The editor of the cell being edited (else a text field). */
+  editor?: EditorRender<Row>
+}>()
+
+/**
+ * The `cell` slot of the moment, as one function for every row (it stays the same, so a row is not drawn again for it).
+ *
+ * @param args what the slot is given
+ * @returns what it draws
+ */
+const renderCell: CellRender<Row> = args => slots.cell?.(args)
+
+/**
+ * The `editor` slot of the moment, the same way.
+ *
+ * @param args what the slot is given
+ * @returns what it draws
+ */
+const renderEditor: EditorRender<Row> = args => slots.editor?.(args)
+
+/**
+ * A double click on a cell: an edit of it begins, with the text it has.
+ *
+ * @param index the row
+ * @param col the column
+ */
+function editAt(index: number, col: number): void {
+  beginEdit({ row: index, col }, null)
 }
 
 /**
@@ -462,7 +508,7 @@ function cancelEdit(): void {
  * @returns the cell's element, or null when it is in none
  */
 function cellElement(target: EventTarget | null): HTMLElement | null {
-  return target instanceof Element ? target.closest<HTMLElement>('[data-col]') : null
+  return target instanceof Element ? target.closest<HTMLElement>('[data-column]') : null
 }
 
 /**
@@ -487,7 +533,7 @@ function whereIs(target: EventTarget | null): Cell | null {
   const cell = cellElement(target)
   const row = rowIndexOf(cell)
 
-  return cell === null || row === null ? null : { row, col: Number(cell.dataset.col) }
+  return cell === null || row === null ? null : { row, col: Number(cell.dataset.column) }
 }
 
 /**
@@ -510,7 +556,55 @@ function pressOf(event: KeyboardEvent): Press {
 function actionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
   const grid = { rows: shown.value.length, cols: props.columns.length, page: pageRows(view.value) }
 
-  return actionFor(pressOf(event), at, grid, props.columns[at.col]?.editable === true)
+  return actionFor(pressOf(event), at, grid, isEditable(props.columns[at.col], shown.value[at.row]))
+}
+
+/**
+ * Whether the caret of a field is in a place.
+ *
+ * @param field the field
+ * @param at the place in its text
+ * @returns true when there is no selection and the caret is there
+ */
+function caretAt(field: HTMLInputElement, at: number): boolean {
+  return field.selectionStart === at && field.selectionEnd === at
+}
+
+/**
+ * Whether the caret of the field a key was pressed in is at its start and at its end (one that is not a text field is at both).
+ *
+ * @param target the element the key was pressed in
+ * @returns the two
+ */
+function edgesOf(target: EventTarget | null): Edges {
+  return target instanceof HTMLInputElement
+    ? { start: caretAt(target, 0), end: caretAt(target, target.value.length) }
+    : { start: true, end: true }
+}
+
+/**
+ * What a key does in a table of fields: it moves, or it is the field's.
+ *
+ * @param event the key
+ * @param at the cell
+ * @returns the move, or null
+ */
+function fieldActionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
+  const grid = { rows: shown.value.length, cols: props.columns.length, page: pageRows(view.value) }
+  const press = { key: event.key, ctrl: event.ctrlKey || event.metaKey, shift: event.shiftKey }
+  const to = nextFieldCell(press, at, grid, edgesOf(event.target))
+
+  return to === null ? null : { kind: 'move', to }
+}
+
+/**
+ * Whether a key may be the table's: one an input method is composing is the method's, and one with Alt the browser's.
+ *
+ * @param event the key
+ * @returns true when it may be
+ */
+function isTableKey(event: KeyboardEvent): boolean {
+  return !event.isComposing && !event.altKey
 }
 
 /**
@@ -520,9 +614,10 @@ function actionAt(event: KeyboardEvent, at: Cell): KeyAction | null {
  * @returns the action, or null when the key is not the table's
  */
 function actionOf(event: KeyboardEvent): KeyAction | null {
-  const at = event.isComposing || event.altKey ? null : whereIs(event.target)
+  const at = isTableKey(event) ? whereIs(event.target) : null
+  const decide = props.fields ? fieldActionAt : actionAt
 
-  return at === null ? null : actionAt(event, at)
+  return at === null ? null : decide(event, at)
 }
 
 /**
@@ -655,6 +750,46 @@ watch(shown, list => {
   editing.value = kept(editing.value, list)
 })
 
+// The cursor's row is the selected one.
+watch(cursor, place => {
+  if (selecting.value && place !== null && place.key !== selected.value) {
+    selected.value = place.key
+  }
+})
+
+/**
+ * Puts the cursor in a row, in the column it was in (the first, when it was nowhere).
+ *
+ * @param index the row's place in the table
+ */
+function putCursorIn(index: number): void {
+  const { key } = entryAt(index)
+  const now = cursor.value
+
+  if (now === null) {
+    cursor.value = { key, col: 0 }
+  } else if (now.key !== key) {
+    cursor.value = { key, col: now.col }
+  }
+}
+
+/**
+ * A row selected from outside: the cursor goes to it (in the column it was in) and it is scrolled into view; the focus stays
+ * where it is.
+ *
+ * @param key the row's key
+ */
+function followSelected(key: string | number | null | undefined): void {
+  const index = shown.value.findIndex(row => props.rowKey(row) === key)
+
+  if (index >= 0) {
+    putCursorIn(index)
+    show(index)
+  }
+}
+
+watch(selected, followSelected)
+
 const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
 
 onMounted(() => {
@@ -664,6 +799,8 @@ onMounted(() => {
   if (scroller.value) {
     observer?.observe(scroller.value)
   }
+  // (the table opens at the selected row)
+  followSelected(selected.value)
 })
 
 onBeforeUnmount(() => {

@@ -1965,7 +1965,6 @@
       "noOutputsHelp": "They appear when the vehicle reports them.",
       "output": "Output {n}",
       "pulse": "{us} µs",
-      "range": "Out of range: what is typed is not written.",
       "outputsOld": "The vehicle has stopped reporting its outputs.",
       "outputsOldHelp": "The last pulses are not shown: they would look current. They appear again when the vehicle reports them.",
       "protocolUnknown": "This vehicle does not report its ESC protocol.",
