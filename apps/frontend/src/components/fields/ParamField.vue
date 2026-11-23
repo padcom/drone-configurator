@@ -1,5 +1,5 @@
 <template>
-  <div class="param-field" :data-status="status">
+  <div class="param-field" :class="{ compact }" :data-status="status">
     <NumberField
       v-if="kind === 'number'"
       :model-value="current"
@@ -22,6 +22,7 @@
       :options="options"
       :label="name"
       :describedby="statusId"
+      :closed="closed"
       :disabled="busy"
     />
     <BitField
@@ -42,6 +43,7 @@
       :show="said"
       :rejection="rejection"
       :status-id="statusId"
+      :compact="compact"
       @keep="emit('keep')"
       @take="emit('take')"
     />
@@ -98,6 +100,10 @@ const props = withDefaults(defineProps<{
   inputId?: string
   /** The control is off whatever the status (the screen cannot write now: the vehicle is armed, say). */
   locked?: boolean
+  /** A choice from the names only: a typed number is taken only when it is one of them. */
+  closed?: boolean
+  /** For a table of fields: the status takes no room while it is the vehicle's value, and is one line when it says more. */
+  compact?: boolean
 }>(), {
   rejection: undefined,
   unit: undefined,
@@ -110,6 +116,8 @@ const props = withDefaults(defineProps<{
   type: undefined,
   locked: false,
   inputId: undefined,
+  closed: false,
+  compact: false,
 })
 
 const emit = defineEmits<{

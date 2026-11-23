@@ -189,9 +189,29 @@ it('has no verdict for steps whose parameters are not on the vehicle: they are n
   expect(wrapper.find('.setup-card.open').exists()).toBe(false)
 })
 
+/**
+ * The fields of the six slots of the modes page.
+ *
+ * @param wrapper the page
+ * @returns them, in order
+ */
+function slotFields(wrapper: VueWrapper) {
+  return wrapper.get('.setup-slots').findAllComponents(EnumField)
+}
+
+/**
+ * The field of the channel of the mode switch.
+ *
+ * @param wrapper the page
+ * @returns it
+ */
+function channelField(wrapper: VueWrapper) {
+  return wrapper.get('.setup-channel').getComponent(EnumField)
+}
+
 it('names the modes of the vehicle in the six slots, with the line of help for each, and no live position', async () => {
   const { wrapper } = await page(SetupModes)
-  const fields = wrapper.findAllComponents(EnumField)
+  const fields = slotFields(wrapper)
 
   expect(fields).toHaveLength(6)
   expect(wrapper.findAll('.setup-slot-hint').map(hint => hint.text())).toEqual([
@@ -212,7 +232,7 @@ it('names the modes of the vehicle in the six slots, with the line of help for e
 
 it('lists exactly what the modes page writes, and writes a changed slot after one question, read back', async () => {
   const { wrapper, handle, asked } = await page(SetupModes)
-  wrapper.findAllComponents(EnumField)[1]?.vm.$emit('update:modelValue', 9)
+  slotFields(wrapper)[1]?.vm.$emit('update:modelValue', 9)
   await flushPromises()
 
   expect(wrapper.get('.setup-writes').text()).toBe('FLTMODE1FLTMODE2FLTMODE3FLTMODE4FLTMODE5FLTMODE6FLTMODE_CH')
@@ -231,7 +251,7 @@ it('says in words what each slot is: the vehicle\'s mode, a choice made here, th
   const said = (): string => wrapper.get('[data-param="FLTMODE2"] .status').text()
 
   expect(said()).toBe('The vehicle\'s value.')
-  wrapper.findAllComponents(EnumField)[1]?.vm.$emit('update:modelValue', 9)
+  slotFields(wrapper)[1]?.vm.$emit('update:modelValue', 9)
   await flushPromises()
 
   expect(said()).toBe('Modified: the vehicle has 5.')
@@ -244,13 +264,15 @@ it('says in words what each slot is: the vehicle\'s mode, a choice made here, th
 
 it('chooses the channel of the mode switch from a list: None, then the channels ArduPilot lists, by number', async () => {
   const { wrapper, asked } = await page(SetupModes)
-  const channel = wrapper.get<HTMLSelectElement>('select')
+  const channel = channelField(wrapper)
 
-  const offered = channel.findAll('option').map(option => `${option.attributes('value')} ${option.text()}`)
+  const options = channel.props('options') as { value: number, label: string }[]
+  const offered = options.map(option => `${option.value} ${option.label}`)
   expect(offered.join(', ')).toBe('0 None, 5 Channel 5, 6 Channel 6, 7 Channel 7, 8 Channel 8, 9 Channel 9, 10 Channel 10, '
     + '11 Channel 11, 12 Channel 12, 13 Channel 13, 14 Channel 14, 15 Channel 15')
-  expect(channel.element.value).toBe('5')
-  await channel.setValue('8')
+  expect(channel.props('modelValue')).toBe(5)
+  expect(channel.props('closed')).toBe(true)
+  channel.vm.$emit('update:modelValue', 8)
   await flushPromises()
   await wrapper.get('#setup-modes-write').trigger('click')
   await flushPromises()
@@ -262,14 +284,16 @@ it('shows a channel the vehicle has that the list does not hold, as the number i
   const odd = SETUP_PARAMS.map(param => param.id === 'FLTMODE_CH' ? { ...param, value: 2 } : param)
   const { wrapper } = await page(SetupModes, { params: odd })
 
-  expect(wrapper.get<HTMLSelectElement>('select').element.value).toBe('2')
-  expect(wrapper.get('select option[value="2"]').text()).toBe('2')
+  const channel = channelField(wrapper)
+
+  expect(channel.props('modelValue')).toBe(2)
+  expect((channel.props('options') as { value: number, label: string }[]).at(-1)).toEqual({ value: 2, label: '2' })
 })
 
 it('warns when no slot can bring the vehicle home or down, and writes nothing until asked', async () => {
   const { wrapper, asked } = await page(SetupModes)
   for (const slot of [2, 4]) {
-    wrapper.findAllComponents(EnumField)[slot]?.vm.$emit('update:modelValue', 5)
+    slotFields(wrapper)[slot]?.vm.$emit('update:modelValue', 5)
   }
   await flushPromises()
 
@@ -279,7 +303,7 @@ it('warns when no slot can bring the vehicle home or down, and writes nothing un
 
 it('does not write while the vehicle is armed: it says why, turns the button off, and sends nothing', async () => {
   const { wrapper, handle, control, asked } = await page(SetupModes)
-  wrapper.findAllComponents(EnumField)[0]?.vm.$emit('update:modelValue', 5)
+  slotFields(wrapper)[0]?.vm.$emit('update:modelValue', 5)
   control.armed?.(true)
   feed(handle, { telemetry: { ...telemetryAt(0), armed: true } })
   await flushPromises()
@@ -293,7 +317,7 @@ it('does not write while the vehicle is armed: it says why, turns the button off
 
 it('does not write while it is not known that the vehicle is disarmed (no recent heartbeat), and says that', async () => {
   const { wrapper, handle } = await page(SetupModes)
-  wrapper.findAllComponents(EnumField)[0]?.vm.$emit('update:modelValue', 5)
+  slotFields(wrapper)[0]?.vm.$emit('update:modelValue', 5)
   feed(handle, { telemetry: { ...telemetryAt(0), armed: false, heartbeatAgeMs: 9000 } })
   await flushPromises()
 
@@ -303,14 +327,14 @@ it('does not write while it is not known that the vehicle is disarmed (no recent
 
 it('puts back what the vehicle has when asked, and the button says there is nothing to write', async () => {
   const { wrapper } = await page(SetupModes)
-  wrapper.findAllComponents(EnumField)[0]?.vm.$emit('update:modelValue', 5)
+  slotFields(wrapper)[0]?.vm.$emit('update:modelValue', 5)
   await flushPromises()
   expect(wrapper.get('#setup-modes-write').text()).toBe('Write and verify')
   await wrapper.get('#setup-modes-revert').trigger('click')
   await flushPromises()
 
   expect(wrapper.get('#setup-modes-write').text()).toBe('No changes')
-  expect(wrapper.findAllComponents(EnumField)[0]?.props('modelValue')).toBe(0)
+  expect(slotFields(wrapper)[0]?.props('modelValue')).toBe(0)
 })
 
 it('says what each failsafe does in words, and warns for the one that is off', async () => {

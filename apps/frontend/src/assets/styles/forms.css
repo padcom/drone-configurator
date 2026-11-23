@@ -284,6 +284,17 @@
   color: var(--color-text-muted);
 }
 
+.field-status.compact,
+.field-status.compact .status {
+  min-width: 0;
+}
+
+.field-status.compact .status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .field-status .status.verified {
   color: var(--color-ok);
 }

@@ -7,12 +7,14 @@
       <template v-else>
         <div class="setup-channel">
           <label :for="`${uid}-channel`">{{ t('setup.modes.channel') }}</label>
-          <Select
-            :id="`${uid}-channel`"
-            :model-value="String(panel.value('FLTMODE_CH') ?? 0)"
+          <PanelField
+            :panel="panel"
+            id="FLTMODE_CH"
+            kind="enum"
+            :input-id="`${uid}-channel`"
             :options="channelOptions"
-            :disabled="panel.blocked.value !== null"
-            @update:model-value="setChannel"
+            :label="t('setup.modes.channel')"
+            closed
           />
           <p class="muted">{{ t('setup.modes.noLive') }}</p>
         </div>
@@ -59,11 +61,10 @@ import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Banner from '@/components/ui/Banner.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import Select from '@/components/ui/Select.vue'
 import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { CHANNELS, MODE_PARAMS, SLOT_PARAMS, hasHint, noEscape, parseChannel, slotRange } from '@/lib/setup/flightModes'
+import { CHANNELS, MODE_PARAMS, SLOT_PARAMS, hasHint, noEscape, slotRange } from '@/lib/setup/flightModes'
 
 /**
  * A mode's name as the dialect gives it, readable: `ALT_HOLD` is shown as `ALT HOLD` (nothing is made up).
@@ -86,11 +87,11 @@ const options = computed(() => (modes.value?.modes ?? []).map(mode => ({ value: 
 const channelOptions = computed(() => {
   const now = panel.value('FLTMODE_CH')
   const named = CHANNELS.map(n => ({
-    value: String(n),
+    value: n,
     label: n === 0 ? t('setup.modes.channelNone') : t('setup.modes.channelN', { n }),
   }))
 
-  return now === null || CHANNELS.includes(now) ? named : [...named, { value: String(now), label: String(now) }]
+  return now === null || CHANNELS.includes(now) ? named : [...named, { value: now, label: String(now) }]
 })
 const escapeMissing = computed(() => noEscape(SLOT_PARAMS.map(param => panel.value(param) ?? -1)))
 
@@ -123,15 +124,4 @@ function hint(mode: number | null): string {
   return mode !== null && hasHint(mode) ? t(`setup.modes.hint.${mode}`) : ''
 }
 
-/**
- * The channel chosen: a whole number from 0 to 16 (0 is none), else it is not taken.
- *
- * @param text the option's value
- */
-function setChannel(text: string): void {
-  const channel = parseChannel(text)
-  if (channel !== null) {
-    panel.set('FLTMODE_CH', channel)
-  }
-}
 </script>

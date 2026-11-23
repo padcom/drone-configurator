@@ -246,6 +246,20 @@ it('lists the ports the vehicle has with their protocol and speed named, and say
   expect(wrapper.get('.setup-writes').text()).not.toContain('SERIAL4')
 })
 
+it('keeps a serial port\'s row to its fields: a status takes room only when it says more than the vehicle\'s value', async () => {
+  const { wrapper } = await page(SetupSerial)
+  const baud = '[data-param="SERIAL1_BAUD"]'
+
+  expect(wrapper.get(`${baud} .status`).classes()).toContain('visually-hidden')
+  expect(wrapper.get(`${baud} .status`).text()).toBe('The vehicle\'s value.')
+  wrapper.get(baud).getComponent(EnumField).vm.$emit('update:modelValue', 115)
+  await flushPromises()
+
+  expect(wrapper.get(`${baud} .status`).classes()).not.toContain('visually-hidden')
+  expect(wrapper.get(`${baud} .status`).text()).toMatch(/^Modified: the vehicle has /u)
+  expect(wrapper.get(`${baud} .status`).attributes('title')).toMatch(/^Modified: /u)
+})
+
 it('writes a changed speed after one question that names it, then says a reboot is needed, and reboots nothing', async () => {
   const rig = await page(SetupSerial)
   const { wrapper, asked } = rig
