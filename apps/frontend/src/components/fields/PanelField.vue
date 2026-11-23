@@ -13,7 +13,7 @@
     :bits="bits ?? namedBits"
     :type="type"
     :input-id="inputId"
-    :locked="panel.blocked.value !== null || meta?.readOnly === true"
+    :locked="locked || panel.blocked.value !== null || meta?.readOnly === true"
     :data-param="id"
     @draft="panel.set(id, $event)"
     @keep="panel.keep(id)"
@@ -59,6 +59,8 @@ const props = withDefaults(defineProps<{
   bits?: BitOption[]
   /** The id of the control, for a `<label for>` on the page. */
   inputId?: string
+  /** The screen has a reason of its own not to write it now (Tune: armed, and the vehicle reads it only when it starts). */
+  locked?: boolean
 }>(), {
   kind: 'number',
   label: undefined,
@@ -70,6 +72,7 @@ const props = withDefaults(defineProps<{
   options: undefined,
   bits: undefined,
   inputId: undefined,
+  locked: false,
 })
 
 const handle = useConfigurator()
