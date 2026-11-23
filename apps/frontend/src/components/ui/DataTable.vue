@@ -50,10 +50,17 @@
         <div class="data-table-body" role="rowgroup" :style="{ height: `${shown.length * rowPx}px` }">
           <!-- A row is its own component, keyed by the row: it is drawn again only when what it is given changes (its row, its
                place, the widths, the cursor or an edit in it), so a cell that is updated (its row replaced by another) draws that
-               one row, and a scroll draws only the rows that come into view. -->
+               one row, and a scroll draws only the rows that come into view. The memo spares the table even the row's vnode
+               when nothing it is given changed (it is kept by place: after a scroll it misses, and the keyed row is still not
+               drawn). -->
           <DataTableRow
             v-for="entry in drawn"
             :key="entry.key"
+            v-memo="[
+              entry.row, entry.index, columns, template, fields, rowClass, rowAttrs,
+              cursorColumn(entry.key), editedColumn(entry.key), editedText(entry.key), selecting && isSelected(entry.key),
+              $slots.cell === undefined, $slots.editor === undefined,
+            ]"
             :row="entry.row"
             :index="entry.index"
             :columns="columns"
@@ -69,16 +76,11 @@
             :set-text="setText"
             :commit="commitEdit"
             :cancel="cancelEdit"
+            :cell="$slots.cell ? renderCell : undefined"
+            :editor="$slots.editor ? renderEditor : undefined"
             @cursor="cursorTo"
             @edit="editAt"
-          >
-            <template #cell="cell">
-              <slot name="cell" v-bind="cell">{{ cell.value }}</slot>
-            </template>
-            <template #editor="editor">
-              <slot name="editor" v-bind="editor" />
-            </template>
-          </DataTableRow>
+          />
         </div>
         <p v-if="shown.length === 0" class="data-table-empty">{{ t('table.empty') }}</p>
       </div>
@@ -139,7 +141,7 @@ import {
   widthOf,
 } from '@/lib/ui/dataTable'
 import { type Viewport, pageRows, scrollToRow, windowOf } from '@/lib/params/rowWindow'
-import DataTableRow from './DataTableRow.vue'
+import DataTableRow, { type CellRender, type EditorRender } from './DataTableRow.vue'
 
 /** The height (px) the table is taken to have when it cannot be measured (a window that does not lay out). */
 const UNMEASURED_PX = 520
@@ -406,6 +408,29 @@ function beginEdit(at: Cell, first: string | null): void {
     editing.value = { key, col: at.col, text: textToEdit(first, column, row) }
   }
 }
+
+const slots = defineSlots<{
+  /** What a cell shows (else its value as text). */
+  cell?: CellRender<Row>
+  /** The editor of the cell being edited (else a text field). */
+  editor?: EditorRender<Row>
+}>()
+
+/**
+ * The `cell` slot of the moment, as one function for every row (it stays the same, so a row is not drawn again for it).
+ *
+ * @param args what the slot is given
+ * @returns what it draws
+ */
+const renderCell: CellRender<Row> = args => slots.cell?.(args)
+
+/**
+ * The `editor` slot of the moment, the same way.
+ *
+ * @param args what the slot is given
+ * @returns what it draws
+ */
+const renderEditor: EditorRender<Row> = args => slots.editor?.(args)
 
 /**
  * A double click on a cell: an edit of it begins, with the text it has.
