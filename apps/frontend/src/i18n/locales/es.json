@@ -1072,7 +1072,8 @@
       "info": {
         "ftp": "Parámetros: {count} · por transferencia de archivos en {seconds} s",
         "list": "Parámetros: {count} · por lista en {seconds} s",
-        "listBecause": "Parámetros: {count} · por lista en {seconds} s (no se usa la transferencia de archivos: {reason})"
+        "listBecause": "Parámetros: {count} · por lista en {seconds} s (no se usa la transferencia de archivos: {reason})",
+        "resumed": "Parámetros: {count} · reanudado al volver el enlace: {reused} conservados, {read} leídos de nuevo en {seconds} s"
       },
       "fallback": {
         "unsupported": "el vehículo no la ofrece",

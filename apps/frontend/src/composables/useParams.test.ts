@@ -261,6 +261,20 @@ it('records how the download came: the way, why not the other, how long', async 
   expect(parameters.downloadInfo.value?.elapsedMs).toBeGreaterThan(0)
 })
 
+it('asks the backend to resume the download after a link came back to the same vehicle, and keeps what it reused', async () => {
+  const { parameters, deps } = await rig()
+  const call = vi.spyOn(deps.client, 'call')
+  await parameters.refresh()
+  expect(parameters.downloadInfo.value?.reused).toBeUndefined()
+
+  await parameters.refresh({ keepInitial: true })
+
+  expect(call.mock.calls.filter(([name]) => name === 'params.list').map(([, payload]) => payload)).toEqual([{}, { resume: true }])
+  expect(parameters.downloadInfo.value).toMatchObject({ source: 'list', reused: PARAMS.length })
+  expect(parameters.list.value).toBe('complete')
+  expect(parameters.params.value).toHaveLength(PARAMS.length)
+})
+
 it('records a download by file transfer without a reason', async () => {
   const { parameters } = await rig()
 

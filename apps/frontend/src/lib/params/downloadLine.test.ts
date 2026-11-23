@@ -36,3 +36,12 @@ describe('the line about how a download came', () => {
     expect(downloadLine({ source: 'ftp', elapsedMs: 800 }, 3, secondsOnly, formatFor('de'))).toBe('0,8')
   })
 })
+
+describe('the line about a resume', () => {
+  it('says what a resume after a dropped link kept and what it read again', () => {
+    expect(downloadLine({ source: 'list', elapsedMs: 300, reused: 1367 }, 1370, translate, en))
+      .toBe('Parameters: 1370 · resumed after the link came back: 1367 kept, 3 read again in 0.3 s')
+    expect(downloadLine({ source: 'list', elapsedMs: 40, reused: 12 }, 12, translate, en))
+      .toBe('Parameters: 12 · resumed after the link came back: 12 kept, 0 read again in 0.0 s')
+  })
+})

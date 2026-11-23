@@ -1,5 +1,6 @@
 // The one muted line under the parameter list that says how the last download came: "Parameters: 1370 · by file transfer in
-// 0.8 s", or by the list and why not by file transfer. A diagnostic, not a choice for the user.
+// 0.8 s", or by the list and why not by file transfer, or what a resume after a dropped link reused. A diagnostic, not a choice
+// for the user.
 import type { DownloadInfo } from '@/composables/useParams'
 import type { Format } from '@/i18n/useFormat'
 
@@ -49,6 +50,9 @@ export function downloadLine(info: DownloadInfo | null, count: number, t: Say, f
     return null
   }
   const named = { count, seconds: f.number(info.elapsedMs / 1000, 1) }
+  if (info.reused !== undefined) {
+    return t('params.progress.info.resumed', { ...named, reused: info.reused, read: Math.max(count - info.reused, 0) })
+  }
 
   return info.source === 'ftp' ? t('params.progress.info.ftp', named) : byList(info.fallback, named, t)
 }

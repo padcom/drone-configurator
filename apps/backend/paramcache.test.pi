@@ -1,0 +1,255 @@
+// Reusing what was heard of the parameters after a link came back (paramcache.pi, and `params.list` with `resume` in
+// params.pi), on its own and against the simulated vehicle.
+import { describe, it, expect } from "std/test"
+import { delay } from "std/timers"
+import { Cbor } from "pico-desktop/communicator"
+import { FileTransferProtocol, MavParamType, ParamRequestList, ParamRequestRead, Received, TypedParamValue } from "padcom/pico-mavlink"
+import { simulatorForTests } from "./app"
+import {
+  ConnectRequest,
+  ConnectRequestTransport,
+  ConnectionState,
+  Param,
+  ParamKind,
+  ParamList,
+  ParamListRequest,
+  ParamListSource,
+  decodeParamList,
+  encodeConnectRequest,
+  encodeParamListRequest,
+} from "./generated/app"
+import { NO_INDEX, ParamCache, paramCache } from "./paramcache"
+import { link } from "./session"
+import { Frontend, start } from "./testing"
+
+function p(id: string, index: int, value: f64): Param {
+  return Param { id: id, index: index as u16, kind: ParamKind.Int, type: "INT32", value: value }
+}
+
+/// What a cache holds, in short: `count fresh [missing]`.
+function shape(c: ParamCache): string {
+  return `${c.count} ${c.freshCount()} [${c.missing().join(",")}]`
+}
+
+/// It keeps what one vehicle said by index; another vehicle, another count or another name at a known index start it again.
+function keepsOneVehiclesList(): void {
+  const c = new ParamCache()
+  c.heard("a", p("A", 0, 1.0), 3)
+  c.heard("a", p("C", 2, 3.0), 3)
+  expect(`${shape(c)} ${c.usableFor("a")} ${c.usableFor("b")} ${c.usableFor("")}`).toBe("3 2 [1] true false false")
+  c.heard("b", p("A", 0, 1.0), 3)
+  expect(`${c.identity} ${shape(c)}`).toBe("b 3 1 [1,2]")
+  c.heard("b", p("A", 0, 1.0), 4)
+  expect(shape(c)).toBe("4 1 [1,2,3]")
+  c.heard("b", p("B", 1, 2.0), 4)
+  c.heard("b", p("Z", 0, 9.0), 4)
+  expect(`${shape(c)} ${c.nameAt(0)} ${c.nameAt(1)}`).toBe("4 1 [1,2,3] Z ")
+}
+
+/// A value with no index (ArduPilot's read-back of a write, an announcement) updates a name that is known, and places nothing else.
+function placesAValueWithNoIndexByName(): void {
+  const c = new ParamCache()
+  c.took("a", [p("A", 0, 1.0), p("B", 1, 2.0)], 2)
+  c.heard("a", p("B", NO_INDEX, 5.0), 2)
+  c.heard("a", p("NEW", NO_INDEX, 7.0), 2)
+  c.heard("b", p("A", NO_INDEX, 8.0), 2)
+  const values = c.list().map((q: Param) => `${q.id}@${q.index}=${q.value}`)
+  expect(`${values.join(" ")} ${shape(c)}`).toBe("A@0=1 B@1=5 2 2 []")
+}
+
+/// A download started anew makes nothing fresh: a refresh that is cut does not pass the values from before it for the vehicle's
+/// values now. What is heard after it is fresh again.
+function aNewDownloadMakesNothingFresh(): void {
+  const c = new ParamCache()
+  c.took("a", [p("A", 0, 1.0), p("B", 1, 2.0), p("C", 2, 3.0)], 3)
+  c.begin()
+  expect(`${shape(c)} ${c.list().length} ${c.nameAt(2)}`).toBe("3 0 [0,1,2] 0 C")
+  c.heard("a", p("B", 1, 4.0), 3)
+  expect(shape(c)).toBe("3 1 [0,2]")
+  c.clear()
+  expect(`${shape(c)} ${c.usableFor("a")}`).toBe("-1 0 [] false")
+}
+
+/// What the simulated vehicle was asked for.
+class Asked {
+  public lists: int = 0
+  public reads: int[] = []
+  public files: int = 0
+
+  public seen(r: Received): void {
+    const m = r.message
+    if (m instanceof ParamRequestList) {
+      lists += 1
+    } else if (m instanceof ParamRequestRead) {
+      reads.push(m.paramIndex as int)
+    } else if (m instanceof FileTransferProtocol) {
+      files += 1
+    }
+  }
+
+  public clear(): void {
+    lists = 0
+    reads.splice(0, reads.length)
+    files = 0
+  }
+
+  /// Whether anything asked for the whole list (the list, or the file).
+  public whole(): bool {
+    return lists > 0 || files > 0
+  }
+}
+
+/// Connects to the simulated vehicle, downloads its list (12 parameters), and starts counting what the vehicle is asked for.
+async function connectedWithAList(asked: Asked): Promise<Frontend> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  const first = await list(f, false)
+  expect(`${first.complete} ${first.count} ${shape(paramCache)}`).toBe("true 12 12 12 []")
+  simulatorForTests()!.conn.on((r: Received) => asked.seen(r))
+  return f
+}
+
+async function list(f: Frontend, resume: bool): Promise<ParamList> throws Error {
+  const e = await f.call("params.list", encodeParamListRequest(ParamListRequest { resume: resume }))
+  expect(e.err?.code ?? "").toBe("")
+  return decodeParamList(e.p ?? Cbor.Null, "$")
+}
+
+/// The list as text, by index.
+function valuesOf(l: ParamList): string {
+  return l.params.map((q: Param) => `${q.index}:${q.id}=${q.value}`).join(" ")
+}
+
+/// A link cut in the middle of a download (three parameters never arrived): the resume asks for the first parameter (the check
+/// of the list) and for the three by index, never for the whole list, and gives the whole list.
+async function resumesAnInterruptedDownload(): Promise<void> throws Error {
+  const asked = new Asked()
+  const f = await connectedWithAList(asked)
+  try {
+    const whole = valuesOf(await list(f, false))
+    asked.clear()
+    for (const i of [3, 5, 7]) {
+      paramCache.fresh.delete(i)
+    }
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.count} ${l.params.length} ${l.reused ?? 0} ${l.source == ParamListSource.List} ${l.missing.length}`).toBe("true 12 12 9 true 0")
+    expect(`${asked.whole()} ${asked.reads.join(",")}`).toBe("false 0,3,5,7")
+    expect(valuesOf(l)).toBe(whole)
+  } finally {
+    link.close()
+  }
+}
+
+/// The same vehicle comes back after its link was lost: the dashboard's download reuses the list and asks only for the check;
+/// a value another ground station changed while connected (announced) is the one given.
+async function reusesTheListAfterTheLinkCameBack(): Promise<void> throws Error {
+  const asked = new Asked()
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  const f = await connectedWithAList(asked)
+  try {
+    simulatorForTests()!.change("RTL_ALT", TypedParamValue.Int(2500, MavParamType.INT32))
+    await f.event("params.changed")
+    simulatorForTests()!.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(link.state.resumed ?? false).toBe(true)
+    asked.clear()
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.params.length} ${l.reused ?? 0} ${asked.whole()} ${asked.reads.join(",")}`).toBe("true 12 12 false 0")
+    expect(l.params.filter((q: Param) => q.id == "RTL_ALT").map((q: Param) => q.value).join("")).toBe("2500")
+  } finally {
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+/// A reboot this session asked for may have changed the list: nothing heard before it is reused.
+async function forgetsTheListAfterAnAskedReboot(): Promise<void> throws Error {
+  const asked = new Asked()
+  link.silenceMs = 2500
+  link.retryDelaysMs = [100]
+  const f = await connectedWithAList(asked)
+  try {
+    link.rebootAt = Date.now() as int
+    simulatorForTests()!.reboot(4000)
+    expect(await waitForState(ConnectionState.Reconnecting, 6000)).toBe(true)
+    expect(await waitForState(ConnectionState.Connected, 10000)).toBe(true)
+    expect(`${link.state.resumed ?? false} ${paramCache.usableFor(link.identity)}`).toBe("true false")
+    asked.clear()
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.params.length} ${l.reused == null} ${asked.whole()}`).toBe("true 12 true true")
+  } finally {
+    link.close()
+    link.silenceMs = 5000
+    link.retryDelaysMs = [1000, 2000, 4000, 8000, 10000]
+  }
+}
+
+/// The vehicle's list is not the one kept (another count): the resume is an ordinary download.
+async function downloadsAListThatChanged(): Promise<void> throws Error {
+  const asked = new Asked()
+  const f = await connectedWithAList(asked)
+  try {
+    paramCache.count = 13
+    asked.clear()
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.count} ${l.reused == null} ${asked.whole()}`).toBe("true 12 true true")
+    expect(shape(paramCache)).toBe("12 12 []")
+  } finally {
+    link.close()
+  }
+}
+
+/// More than half of it missing (a refresh that was cut early): an ordinary download, which is quicker than reading one by one.
+async function downloadsWhenMostIsMissing(): Promise<void> throws Error {
+  const asked = new Asked()
+  const f = await connectedWithAList(asked)
+  try {
+    for (let i = 0; i < 7; i++) {
+      paramCache.fresh.delete(i)
+    }
+    asked.clear()
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.reused == null} ${asked.whole()} ${asked.reads.length}`).toBe("true true true 0")
+  } finally {
+    link.close()
+  }
+}
+
+/// A new connection keeps nothing of the last one: a resume asked for then is an ordinary download.
+async function aNewConnectionKeepsNothing(): Promise<void> throws Error {
+  const asked = new Asked()
+  const f = await connectedWithAList(asked)
+  try {
+    await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+    expect(paramCache.usableFor(link.identity)).toBe(false)
+    const l = await list(f, true)
+    expect(`${l.complete} ${l.reused == null}`).toBe("true true")
+  } finally {
+    link.close()
+  }
+}
+
+/// Waits up to `ms` for the session to be in `want`.
+async function waitForState(want: ConnectionState, ms: int): Promise<bool> throws Error {
+  let waited = 0
+  while (waited < ms && link.state.state != want) {
+    await delay(50)
+    waited += 50
+  }
+  return link.state.state == want
+}
+
+describe("the parameters kept across a dropped link", () => {
+  it("keeps one vehicle's list by index, and starts again for another vehicle, count or name", keepsOneVehiclesList)
+  it("places a value with no index by its name", placesAValueWithNoIndexByName)
+  it("makes nothing fresh when a download is started anew", aNewDownloadMakesNothingFresh)
+  it("resumes an interrupted download, asking only for what never arrived", resumesAnInterruptedDownload)
+  it("reuses the list after the link came back to the same vehicle", reusesTheListAfterTheLinkCameBack)
+  it("forgets the list after a reboot this session asked for", forgetsTheListAfterAnAskedReboot)
+  it("downloads a list that changed", downloadsAListThatChanged)
+  it("downloads when most of the list is missing", downloadsWhenMostIsMissing)
+  it("keeps nothing for a new connection", aNewConnectionKeepsNothing)
+})

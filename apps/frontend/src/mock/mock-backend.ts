@@ -297,7 +297,7 @@ class MockVehicle {
         this.watchers.add(e.id!)
         this.send({ k: 'response', id: e.id!, s: e.id! })
         return this.send({ k: 'event', n: 'vehicle.connection', s: e.id!, p: this.connection })
-      case 'params.list': return this.connected(fail) && this.list((e.p as ParamListRequest | null)?.method ?? 'auto', ok, fail)
+      case 'params.list': return this.connected(fail) && this.listOrResume((e.p as ParamListRequest | null) ?? {}, ok, fail)
       case 'params.cancel': return this.cancelList(ok)
       case 'params.write': return this.connected(fail) && this.write(e.p as ParamWrite, ok, fail)
       case 'vehicle.reboot': return this.reboot(ok, fail)
@@ -372,6 +372,24 @@ class MockVehicle {
       }
       default: return fail('UNKNOWN_METHOD', `the mock has no ${e.n}`)
     }
+  }
+
+  /**
+   * A download as asked for: a resume (after the link came back to the same vehicle) reuses the whole list at once, as the
+   * backend does when it has kept every parameter; anything else is a download.
+   *
+   * @param request what the caller asked for
+   * @param ok sends the result
+   * @param fail sends an error
+   */
+  listOrResume(request: ParamListRequest, ok: (p: Envelope['p']) => void, fail: (code: string, message: string) => void) {
+    if (request.resume === true) {
+      const count = this.params.length
+
+      return ok({ params: this.params, count, complete: true, missing: [] as number[], source: 'list', elapsedMs: 40, reused: count })
+    }
+
+    return this.list(request.method ?? 'auto', ok, fail)
   }
 
   /**
