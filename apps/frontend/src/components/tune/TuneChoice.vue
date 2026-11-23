@@ -4,14 +4,14 @@
       <label :for="`${uid}-field`" class="tune-label">{{ label }}</label>
       <code class="tune-names">{{ param.id }}</code>
     </div>
-    <EnumField
+    <PanelField
       :input-id="`${uid}-field`"
-      :model-value="panel.value(param.id) ?? 0"
+      :panel="panel"
+      :id="param.id"
+      kind="enum"
       :options="options"
       :label="label"
-      :describedby="`${uid}-note`"
-      :disabled="off"
-      @update:model-value="panel.set(param.id, $event)"
+      :disabled="locked"
     />
     <p class="muted tune-was">{{ was }}</p>
     <p :id="`${uid}-note`" class="tune-note" :class="{ problem: locked }" role="status">{{ note }}</p>
@@ -22,10 +22,12 @@
 // One named choice of the Tune screen (the notch's switch and its tracking mode): the parameter's name, ArduPilot's names of the
 // values, "was X" from the initial values of the session. A parameter the vehicle reads only when it starts is not written
 // while the vehicle is armed: the field is off then, and the row says why (and, disarmed, that the change takes effect after a
-// restart).
+// restart). The field is bound to the parameter (components/fields/PanelField.vue): it says in words whether it is the
+// vehicle's value, a draft, a write under way, verified or rejected, and asks which to keep when the vehicle changes it under a
+// draft.
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import type { ParamPanel } from '@/composables/useParamPanel'
 import { showNumber } from '@/lib/params/paramValue'
@@ -48,9 +50,6 @@ const uid = useId()
 const handle = useConfigurator()
 /** The vehicle is armed and the parameter is read only when it starts. */
 const locked = computed(() => props.panel.armed.value && !props.param.armedOk)
-const off = computed(() => (
-  props.panel.blocked.value !== null || locked.value || props.panel.missing.value.includes(props.param.id)
-))
 const was = computed(() => {
   const initial = handle.parameters.initial.value?.values.get(props.param.id)
 

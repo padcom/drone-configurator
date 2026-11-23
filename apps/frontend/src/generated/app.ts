@@ -90,19 +90,19 @@ function validateParamInto(value: any, path: string): boolean {
 /** The first problem with `value` as a param, or null. */
 export const validateParam = (value: unknown) => run(validateParamInto, value)
 
-export type ParamListRequest = { "method"?: "auto" | "list" | "ftp" }
+export type ParamListRequest = { "method"?: "auto" | "list" | "ftp", "resume"?: boolean }
 
 function validateParamListRequestInto(value: any, path: string): boolean {
-  return map(value, path, ["method"]) && (value["method"] === undefined || nested(value["method"], `${path}.method`, (value, path) => oneOf(value, path, ["auto","list","ftp"])))
+  return map(value, path, ["method","resume"]) && (value["method"] === undefined || nested(value["method"], `${path}.method`, (value, path) => oneOf(value, path, ["auto","list","ftp"]))) && (value["resume"] === undefined || nested(value["resume"], `${path}.resume`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a param-list-request, or null. */
 export const validateParamListRequest = (value: unknown) => run(validateParamListRequestInto, value)
 
-export type ParamList = { "params": (Param)[], "count": number, "complete": boolean, "missing": (number)[], "source"?: "ftp" | "list", "fallback"?: string, "elapsedMs"?: number }
+export type ParamList = { "params": (Param)[], "count": number, "complete": boolean, "missing": (number)[], "source"?: "ftp" | "list", "fallback"?: string, "elapsedMs"?: number, "reused"?: number }
 
 function validateParamListInto(value: any, path: string): boolean {
-  return map(value, path, ["params","count","complete","missing","source","fallback","elapsedMs"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["complete"] === undefined ? fail(`${path}.complete`, 'present') : nested(value["complete"], `${path}.complete`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["missing"] === undefined ? fail(`${path}.missing`, 'present') : nested(value["missing"], `${path}.missing`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["source"] === undefined || nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"]))) && (value["fallback"] === undefined || nested(value["fallback"], `${path}.fallback`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["elapsedMs"] === undefined || nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff)))
+  return map(value, path, ["params","count","complete","missing","source","fallback","elapsedMs","reused"]) && (value["params"] === undefined ? fail(`${path}.params`, 'present') : nested(value["params"], `${path}.params`, (value, path) => list(value, path, (value, path) => validateParamInto(value, path)))) && (value["count"] === undefined ? fail(`${path}.count`, 'present') : nested(value["count"], `${path}.count`, (value, path) => uint(value, path, 0xffff))) && (value["complete"] === undefined ? fail(`${path}.complete`, 'present') : nested(value["complete"], `${path}.complete`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["missing"] === undefined ? fail(`${path}.missing`, 'present') : nested(value["missing"], `${path}.missing`, (value, path) => list(value, path, (value, path) => uint(value, path, 0xffff)))) && (value["source"] === undefined || nested(value["source"], `${path}.source`, (value, path) => oneOf(value, path, ["ftp","list"]))) && (value["fallback"] === undefined || nested(value["fallback"], `${path}.fallback`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["elapsedMs"] === undefined || nested(value["elapsedMs"], `${path}.elapsedMs`, (value, path) => uint(value, path, 0xffffffff))) && (value["reused"] === undefined || nested(value["reused"], `${path}.reused`, (value, path) => uint(value, path, 0xffff)))
 }
 
 /** The first problem with `value` as a param-list, or null. */

@@ -1097,7 +1097,8 @@
       "info": {
         "ftp": "Parametrów: {count} · transferem plików w {seconds} s",
         "list": "Parametrów: {count} · listą w {seconds} s",
-        "listBecause": "Parametrów: {count} · listą w {seconds} s (transfer plików nie jest używany: {reason})"
+        "listBecause": "Parametrów: {count} · listą w {seconds} s (transfer plików nie jest używany: {reason})",
+        "resumed": "Parametrów: {count} · wznowiono po powrocie łącza: zachowano {reused}, ponownie odczytano {read} w {seconds} s"
       },
       "fallback": {
         "unsupported": "pojazd go nie oferuje",

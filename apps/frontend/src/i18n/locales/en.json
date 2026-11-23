@@ -1097,7 +1097,8 @@
       "info": {
         "ftp": "Parameters: {count} · by file transfer in {seconds} s",
         "list": "Parameters: {count} · by list in {seconds} s",
-        "listBecause": "Parameters: {count} · by list in {seconds} s (file transfer is not used: {reason})"
+        "listBecause": "Parameters: {count} · by list in {seconds} s (file transfer is not used: {reason})",
+        "resumed": "Parameters: {count} · resumed after the link came back: {reused} kept, {read} read again in {seconds} s"
       },
       "fallback": {
         "unsupported": "the vehicle does not offer it",

@@ -3,7 +3,7 @@
 // deliberate slowdown does to a passing set of samples, and that every budget names the spec that measures it.
 import { existsSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { BUDGETS, type Budget, judge, percentile } from './budgets'
+import { BUDGETS, type Budget, budgetOf, judge, percentile } from './budgets'
 
 /** A budget for these tests: 100 ms, the 95th percentile within twice that. */
 const SWITCH: Budget = { unit: 'ms', budget: 100, noise: 2, what: 'a test', measuredBy: 'e2e/budgets.test.ts' }
@@ -77,9 +77,14 @@ describe('budgets.json', () => {
     expect(initialJs && initialJs.unit).toBe('KiB')
   })
 
+  it('has the telemetry budgets #26 names: 20 updates a second at most, under 5% of the main thread at idle', () => {
+    expect(budgetOf('telemetryUpdates')).toMatchObject({ budget: 20, unit: '/s', noise: 1 })
+    expect(budgetOf('telemetryIdleCpu')).toMatchObject({ budget: 5, unit: '%' })
+  })
+
   it.each(Object.entries(BUDGETS))('says what %s is, its unit, its budget, a noise of 1 or more, and its specs', (_, budget) => {
     expect(budget.what.length).toBeGreaterThan(10)
-    expect(['ms', 'KiB']).toContain(budget.unit)
+    expect(['ms', 'KiB', '/s', '%']).toContain(budget.unit)
     expect(budget.budget).toBeGreaterThan(0)
     expect(budget.noise).toBeGreaterThanOrEqual(1)
     expect(missingSpecs(budget.measuredBy)).toEqual([])

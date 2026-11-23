@@ -4,7 +4,7 @@
 // (docs/frontend-state.md).
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { type BackendClient, describeError, toBackendError } from '@/backend/client'
-import type { Param, ParamList, ParamsProgress } from '@/generated/app'
+import type { Param, ParamList, ParamListRequest, ParamsProgress } from '@/generated/app'
 import { type DownloadToast, startDownloadToast } from '@/lib/params/downloadToast'
 import { type Toasts, useToasts } from './toasts'
 import { type Initial, changedIds, initialOf } from '@/lib/params/initialValues'
@@ -24,6 +24,8 @@ export interface DownloadInfo {
   fallback?: string
   /** How long it took (ms). */
   elapsedMs?: number
+  /** How many parameters a resume (after the link came back to the same vehicle) reused, not asking for them again. */
+  reused?: number
 }
 
 /** What the parameters need from the rest of the interface. */
@@ -83,7 +85,8 @@ export interface ParamsModel {
   /**
    * Downloads the list again. A complete download makes its values the initial ones, unless it is the automatic one that
    * follows a link that came back to the same vehicle (`keepInitial`): that updates the values and keeps what "changed" is
-   * measured against, so that a dropped link does not erase every marker. While a write holds the lock it waits for it to be
+   * measured against, so that a dropped link does not erase every marker, and asks the backend to resume (it reuses what it
+   * heard of this vehicle and asks the vehicle only for what it lacks). While a write holds the lock it waits for it to be
    * over: a download in the middle of a write would put half-written values in the initial ones.
    */
   refresh: (options?: { keepInitial?: boolean }) => Promise<void>
@@ -108,6 +111,15 @@ export interface ParamsModel {
   /** The selected parameter, or null. */
   selectedParam: () => Param | null
 }
+
+/**
+ * What `params.list` is asked: the automatic download after a link came back to the same vehicle resumes (the backend reuses
+ * what it heard of this vehicle, and asks it only for what it lacks); any other is a whole download.
+ *
+ * @param resume whether it is that automatic download
+ * @returns the request
+ */
+const requestFor = (resume: boolean): ParamListRequest => (resume ? { resume: true } : {})
 
 /** The parameters. */
 class Parameters implements ParamsModel {
@@ -189,7 +201,7 @@ class Parameters implements ParamsModel {
     })
 
     try {
-      this.take(await this.deps.client.call('params.list', {}), keepInitial)
+      this.take(await this.deps.client.call('params.list', requestFor(keepInitial)), keepInitial)
       toast.done(this.params.value.length, this.missing.value.length)
     } catch (error) {
       this.ended(error, before, toast)
@@ -213,7 +225,8 @@ class Parameters implements ParamsModel {
     this.params.value = params
     this.missing.value = downloaded.missing
     this.list.value = downloaded.complete ? 'complete' : 'incomplete'
-    this.downloadInfo.value = { source: downloaded.source, fallback: downloaded.fallback, elapsedMs: downloaded.elapsedMs }
+    const { source, fallback, elapsedMs, reused } = downloaded
+    this.downloadInfo.value = { source, fallback, elapsedMs, ...reused === undefined ? {} : { reused } }
     this.downloadEnded.value = this.downloadInfo.value
   }
 

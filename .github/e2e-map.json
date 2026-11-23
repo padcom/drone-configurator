@@ -7,12 +7,12 @@
       "when": [
         "apps/frontend/src/components/params/**", "apps/frontend/src/components/fields/**", "apps/frontend/src/lib/params/**",
         "apps/frontend/src/composables/{useParam*,useStaged,useGroupsSetting,useMetadata,useMetadataSetting,useMetadataAtStart,favourites}.ts",
-        "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,groups,files,settings,tuning}.pi"
+        "apps/frontend/src/screens/Parameters.vue", "apps/backend/{params,paramcache,groups,files,settings,tuning}.pi"
       ],
       "specs": [
         "param-*.e2e.ts", "configurator.e2e.ts", "confirm.e2e.ts", "favourites.e2e.ts", "view.e2e.ts", "initial.e2e.ts", "bitmask.e2e.ts",
         "lists.e2e.ts", "list-top.e2e.ts", "value-rounding.e2e.ts", "groups-setting.e2e.ts", "combobox-scrollbar.e2e.ts", "sitl.e2e.ts",
-        "calibration.e2e.ts", "sitl-calibration.e2e.ts", "metadata-autoload.e2e.ts"
+        "calibration.e2e.ts", "sitl-calibration.e2e.ts", "metadata-autoload.e2e.ts", "reconnect.e2e.ts"
       ]
     },
     {
@@ -72,11 +72,11 @@
       "when": [
         "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
         "apps/frontend/src/composables/{useConnectDialog,useVehicle,useAutoDownload,useConfigurator,useTelemetry,useMessages,writeLock}.ts",
-        "apps/backend/{reconnect,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups,vehicleinfo}.pi"
+        "apps/backend/{reconnect,paramcache,heartbeat,connection,transports,serial,reboot,messages,telemetry,groups,vehicleinfo}.pi"
       ],
       "specs": [
         "configurator.e2e.ts", "flight-data.e2e.ts", "messages-list.e2e.ts", "flight-strip.e2e.ts", "flight-strip-prearm.e2e.ts", "takeoff.e2e.ts", "go-here.e2e.ts", "guided-actions.e2e.ts", "guided-refusals.e2e.ts", "tcp-vehicle.e2e.ts", "reboot.e2e.ts", "backend-crash.e2e.ts",
-        "sitl-reconnect.e2e.ts",
+        "sitl-reconnect.e2e.ts", "reconnect.e2e.ts",
         "sitl-harness.e2e.ts", "sitl.e2e.ts", "sitl-vehicles.e2e.ts", "sitl-calibration.e2e.ts", "radio.e2e.ts", "motors.e2e.ts"
       ]
     },
@@ -98,6 +98,14 @@
         "apps/frontend/src/components/ui/Toggle.vue"
       ],
       "specs": ["language.e2e.ts", "i18n.e2e.ts", "metadata-autoload.e2e.ts", "switch-label.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/backend/{telemetry,groups,session}.pi", "apps/backend/e2e/tcp-vehicle.pi", "apps/frontend/budgets.json",
+        "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
+        "apps/frontend/src/composables/{useVehicle,useConfigurator}.ts"
+      ],
+      "specs": ["telemetry-speed.e2e.ts"]
     }
   ]
 }
