@@ -13,7 +13,7 @@ import {
   encodeTelemetryParams,
 } from "./generated/app"
 import { wishes } from "./groups"
-import { prearmOf, ratesHeldForTests } from "./telemetry"
+import { prearmOf, ratesHeldForTests, ratesNow } from "./telemetry"
 import { Frontend, start } from "./testing"
 
 /// What the vehicle reports reaches the dashboard: the first heartbeat after connecting is on the
@@ -139,6 +139,34 @@ async function streamsAtTheRateAskedFor(): Promise<void> throws Error {
   }
 }
 
+/// The vehicle sends ATTITUDE at 50 Hz; the stream coalesces it: at most 20 events a second at the fastest rate, 5 at the default,
+/// each with the latest attitude (its age under two of the vehicle's periods, not the stream's), and nothing the vehicle did not
+/// send is made up on the way (no position, GPS or wind group).
+async function coalescesFiftyHertz(): Promise<void> throws Error {
+  const f = await start()
+  await f.call("vehicle.connect", encodeConnectRequest(ConnectRequest { transport: ConnectRequestTransport.Simulator }))
+  try {
+    await delay(500)
+    // ATTITUDE asked for at 50 Hz: the simulator sends one every 20 ms.
+    expect((await ratesNow()!.set(Attitude.MSG_ID, 50.0)).ok).toBe(true)
+    expect(simulatorForTests()!.intervals.get(Attitude.MSG_ID) ?? -2).toBe(20)
+    await delay(200)
+    const fastest = await eventsIn(f, encodeTelemetryParams(TelemetryParams { rateHz: 20 }), 2000)
+    const fallback = await eventsIn(f, null, 2000)
+    // two seconds, and the one event that ends the count: never faster than asked
+    expect(fastest >= 10 && fastest <= 41).toBe(true)
+    expect(fallback >= 5 && fallback <= 11).toBe(true)
+    const subscription = await f.subscribe("telemetry.stream", encodeTelemetryParams(TelemetryParams { rateHz: 20 }))
+    const t = decodeTelemetry((await f.event("telemetry.stream")).p ?? Cbor.Null, "$")
+    await f.unsubscribe(subscription)
+    expect(t.attitude != null).toBe(true)
+    expect((t.attitude!.ageMs as int) < 100).toBe(true)
+    expect(t.position == null && t.gps == null && t.wind == null).toBe(true)
+  } finally {
+    await f.call("vehicle.disconnect")
+  }
+}
+
 /// A rate outside 1 to 20 is refused with the reason, and no timer is left running.
 async function refusesARateOutsideTheRange(): Promise<void> throws Error {
   const f = await start()
@@ -197,6 +225,7 @@ describe("the telemetry service", () => {
   it("streams telemetry from the first heartbeat, also after reconnecting", streamsTelemetry)
   it("streams the groups of the messages the vehicle sends, with their age", streamsGroups)
   it("sends the events at the rate asked for, 5 a second by default, and no faster than 20", streamsAtTheRateAskedFor)
+  it("coalesces a vehicle that sends at 50 Hz into no more than the rate asked for, with the latest values", coalescesFiftyHertz)
   it("refuses a rate outside 1 to 20", refusesARateOutsideTheRange)
   it("asks the vehicle for every message of the table, at its rate", asksForTheRates)
   it("asks for the rates again after the vehicle restarts", asksAgainAfterARestart)

@@ -8,7 +8,7 @@ import { expect } from 'vitest'
 
 /** One budget, as budgets.json says it. */
 export interface Budget {
-  /** What the samples are in: `ms` or `KiB`. */
+  /** What the samples are in: `ms`, `KiB`, `/s` (a count a second) or `%` (a share of a second). */
   unit: string
   /** The most the median may be. */
   budget: number

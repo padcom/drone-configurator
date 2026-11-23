@@ -91,6 +91,14 @@
         "apps/frontend/src/components/ui/Toggle.vue"
       ],
       "specs": ["language.e2e.ts", "i18n.e2e.ts", "metadata-autoload.e2e.ts", "switch-label.e2e.ts"]
+    },
+    {
+      "when": [
+        "apps/backend/{telemetry,groups,session}.pi", "apps/backend/e2e/tcp-vehicle.pi", "apps/frontend/budgets.json",
+        "apps/frontend/src/components/fly/**", "apps/frontend/src/lib/fly/**", "apps/frontend/src/screens/FlightData.vue",
+        "apps/frontend/src/composables/{useVehicle,useConfigurator}.ts"
+      ],
+      "specs": ["telemetry-speed.e2e.ts"]
     }
   ]
 }
