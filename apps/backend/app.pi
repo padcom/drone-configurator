@@ -7,6 +7,7 @@ import { register as registerArming } from "./arming"
 import { register as registerCalibration } from "./calibration"
 import { register as registerConnection } from "./connection"
 import { register as registerFiles } from "./files"
+import { register as registerLinkStats } from "./linkstats"
 import { register as registerLogs } from "./logs"
 import { register as registerLogHousekeeping } from "./loghousekeeping"
 import { register as registerLocalImport } from "./localimport"
@@ -75,6 +76,7 @@ export function createBackend(transport: Transport): Communicator {
   registerLocalSpectrum(c)
   registerMapTiles(c)
   registerTelemetry(c)
+  registerLinkStats(c)
   registerTuningStream(c)
   registerVehicleInfo(c)
   registerMessages(c)

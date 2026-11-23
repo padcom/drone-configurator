@@ -71,6 +71,8 @@
             :items="modes.items.value"
             @select="modes.pick"
           />
+          <!-- LINK is the link's quality, from the backend's own measure (link.stats), and the button to its details. -->
+          <LinkIndicator v-else-if="cell.id === 'link'" />
           <template v-else-if="cell.missing">
             <span aria-hidden="true">{{ cell.value }}</span>
             <span class="visually-hidden">{{ t('truth.notReported') }}</span>
@@ -90,6 +92,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ConnectionAnnouncement from './ConnectionAnnouncement.vue'
+import LinkIndicator from './LinkIndicator.vue'
 import CommandButton from '@/components/ui/CommandButton.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Menu from '@/components/ui/Menu.vue'

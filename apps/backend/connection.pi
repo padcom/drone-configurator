@@ -17,6 +17,7 @@ import {
 import { Connection, ConnectionState, decodeConnectRequest, encodeConnection } from "./generated/app"
 import { GuardedStream } from "./guarded"
 import { APP_COMPID, Beats, GCS_SYSID } from "./heartbeat"
+import { counted } from "./linkstats"
 import { reopenable, watchSession } from "./reconnect"
 import { boardOf, capabilitiesOf, encodingFor, identityOf, infoOf, link } from "./session"
 import { describe, open } from "./transports"
@@ -72,7 +73,8 @@ async function connectVehicle(payload: Cbor?, _ctx: RequestContext): Promise<Cbo
   const router = new MavLinkRouter({ registry, keepOpen: true })
   router.addLink(stream!)
   // (as the vehicle's ground station: its heartbeats count for the vehicle's GCS failsafe, whatever RC control does; see heartbeat.pi)
-  const conn = new MavLinkConnection(router, { registry, protocol: new MavLinkProtocolV2(GCS_SYSID, APP_COMPID) })
+  // (what is sent is counted for the link's quality: linkstats.pi)
+  const conn = new MavLinkConnection(counted(router), { registry, protocol: new MavLinkProtocolV2(GCS_SYSID, APP_COMPID) })
   link.conn = conn
   link.router = router
   if (reopenable(request)) {
