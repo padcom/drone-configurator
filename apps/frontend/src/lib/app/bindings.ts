@@ -16,8 +16,13 @@ export interface Binding extends Chord {
   scope: string
   /** `keymap`: the keymap runs the command that is the action. `module`: a module listens for it and does what it is for. */
   listens: 'keymap' | 'module'
-  /** The key is matched by the character it types, not by its place (a key of the Parameters screen): it is not rebound. */
+  /** The key may not be rebound (it is shown and checked for clashes). */
   fixed?: boolean
+  /**
+   * The character the default key types, by which it is matched too: `/` is Shift+7 on a German keyboard, so Ctrl+Shift+7 is
+   * Ctrl+/ there. A chord the user chose is matched by its place only.
+   */
+  typed?: string
 }
 
 /** What the user chose over the defaults: a chord, or null for "no key" (an action that is not in it has its default). */
@@ -66,7 +71,7 @@ function chosen<Key extends Binding>(key: Key, overrides: Overrides): Key | null
     return key
   }
 
-  return choice === null ? null : { ...key, ...plain(choice) }
+  return choice === null ? null : { ...key, ...plain(choice), typed: undefined }
 }
 
 /**

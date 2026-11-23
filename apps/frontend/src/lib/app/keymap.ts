@@ -7,9 +7,10 @@
 // `currentKeys()`. A key has a SCOPE: `global` works on every screen, a screen's name only there; two keys meet when they are the
 // same chord in scopes that are in force together (a global key meets every screen's).
 //
-// The table also lists the keys that exist in their own modules: F6 and Shift+F6 (paneFocus.ts, which asks `matches`, so they may
-// be rebound) and Ctrl+/ and Ctrl+Enter (paramShortcuts.ts, matched by the character of the key, since `/` is Shift+7 on a German
-// keyboard: they are `fixed`, shown and checked for clashes, and not rebound). `listens` says who listens for a key.
+// The table also lists the keys that exist in their own modules, which ask `matches`, so they may be rebound: F6 and Shift+F6
+// (paneFocus.ts), and Ctrl+/ and Ctrl+Enter of the Parameters screen (paramShortcuts.ts). Those two are matched by their place
+// and, while they are the defaults, by the character they type too (`typed`): `/` is Shift+7 on a German keyboard. `listens`
+// says who listens for a key.
 import { type Chord, chordLabel, sameChord } from './chords'
 import { type Binding, type Overrides, GLOBAL, applyOverrides } from './bindings'
 
@@ -22,8 +23,8 @@ export const KEYS: readonly Key[] = [
   { actionId: 'help.keys', code: 'F1', scope: GLOBAL, listens: 'keymap' },
   { actionId: 'panes.next', code: 'F6', scope: GLOBAL, listens: 'module' },
   { actionId: 'panes.previous', code: 'F6', shift: true, scope: GLOBAL, listens: 'module' },
-  { actionId: 'params.search', code: 'Slash', ctrl: true, scope: 'parameters', listens: 'module', fixed: true },
-  { actionId: 'params.write', code: 'Enter', ctrl: true, scope: 'parameters', listens: 'module', fixed: true },
+  { actionId: 'params.search', code: 'Slash', ctrl: true, scope: 'parameters', listens: 'module', typed: '/' },
+  { actionId: 'params.write', code: 'Enter', ctrl: true, scope: 'parameters', listens: 'module', typed: 'Enter' },
 ]
 
 /** The keys in force now. */
@@ -139,6 +140,47 @@ function isChord(event: KeyboardEvent, chord: Chord, mac: boolean): boolean {
 }
 
 /**
+ * Whether only Ctrl is held (Cmd on a Mac), and Shift only where it may be.
+ *
+ * @param event the key press
+ * @param mac whether it is a Mac
+ * @param shiftAllowed whether Shift may be held too
+ * @returns true when it is
+ */
+function onlyCtrl(event: KeyboardEvent, mac: boolean, shiftAllowed: boolean): boolean {
+  return ctrlHeld(event, mac) && !strayHeld(event, mac) && (shiftAllowed || !event.shiftKey)
+}
+
+/**
+ * Whether a key press types the character of a key that has one (`typed`), with Ctrl: Ctrl+/ on a layout where `/` is Shift+7
+ * (Shift is allowed then for a character, never for a named key as Enter).
+ *
+ * @param event the key press
+ * @param key the key
+ * @param mac whether it is a Mac
+ * @returns true when it is
+ */
+function typesIt(event: KeyboardEvent, key: Key, mac: boolean): boolean {
+  if (key.typed === undefined || event.key !== key.typed) {
+    return false
+  }
+
+  return onlyCtrl(event, mac, key.typed.length === 1)
+}
+
+/**
+ * Whether a key press is a key: its chord, or the character it types.
+ *
+ * @param event the key press
+ * @param key the key
+ * @param mac whether it is a Mac
+ * @returns true when it is
+ */
+function pressedAs(event: KeyboardEvent, key: Key, mac: boolean): boolean {
+  return isChord(event, key, mac) || typesIt(event, key, mac)
+}
+
+/**
  * Whether a key press is the key of an action.
  *
  * @param event the key press
@@ -149,7 +191,7 @@ function isChord(event: KeyboardEvent, chord: Chord, mac: boolean): boolean {
 export function matches(event: KeyboardEvent, actionId: string, mac = isMac()): boolean {
   const key = keyOf(actionId)
 
-  return !listening && key !== undefined && isChord(event, key, mac)
+  return !listening && key !== undefined && pressedAs(event, key, mac)
 }
 
 /**

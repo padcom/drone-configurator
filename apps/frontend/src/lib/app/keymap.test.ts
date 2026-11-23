@@ -109,18 +109,37 @@ describe('the keys the user chose', () => {
     expect(currentKeys().some(key => key.actionId === 'help.keys')).toBe(false)
   })
 
-  it('are never a change to a key that is fixed, and the defaults are back with no choices', () => {
-    setBindings({ 'params.search': { code: 'KeyK', ctrl: true } })
-    expect(keyOf('params.search')).toMatchObject({ code: 'Slash' })
-
-    setBindings({})
-    expect(currentKeys()).toEqual(KEYS)
-  })
-
   it('do not match while a key is being read as a chord', () => {
     setListening(true)
     expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(false)
     setListening(false)
     expect(matches(press({ code: 'KeyP', ctrlKey: true }), 'palette.open', false)).toBe(true)
+  })
+})
+
+describe("the Parameters screen's keys", () => {
+  afterEach(() => {
+    setBindings({})
+  })
+
+  it('move when they are chosen: the chosen chord matches, and the character of the default no longer does', () => {
+    const slash = press({ key: '/', code: 'Digit7', ctrlKey: true, shiftKey: true })
+    expect(matches(slash, 'params.search', false)).toBe(true)
+
+    setBindings({ 'params.search': { code: 'KeyK', ctrl: true } })
+    expect(matches(press({ code: 'KeyK', ctrlKey: true }), 'params.search', false)).toBe(true)
+    expect(matches(slash, 'params.search', false)).toBe(false)
+    expect(keyOf('params.search')?.typed).toBeUndefined()
+
+    setBindings({})
+    expect(currentKeys()).toEqual(KEYS)
+  })
+
+  it('match a typed character only with Ctrl alone (Shift for a character, never for Enter)', () => {
+    expect(matches(press({ key: 'Enter', code: 'NumpadEnter', ctrlKey: true }), 'params.write', false)).toBe(true)
+    const shiftEnter = press({ key: 'Enter', code: 'NumpadEnter', ctrlKey: true, shiftKey: true })
+    expect(matches(shiftEnter, 'params.write', false)).toBe(false)
+    expect(matches(press({ key: '/', code: 'Digit7', ctrlKey: true, altKey: true }), 'params.search', false)).toBe(false)
+    expect(matches(press({ key: '/', code: 'Slash' }), 'params.search', false)).toBe(false)
   })
 })

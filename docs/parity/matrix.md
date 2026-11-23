@@ -21,7 +21,7 @@ under the last table and are not counted.
 | Virtualized data table in the kit | #15 | Partial | no generic table (sort, resize, filter hook, cell editors); no 2000-row budget test |
 | Dialogs, safety confirmation, toasts, menus | #16 | Partial | no context menu |
 | Parameter-bound form fields | #17 | Partial | no unit display/conversion field; draft-conflict states only partly |
-| Global keyboard shortcuts | #20 | Partial | no rebinding, conflict display or help overlay |
+| Global keyboard shortcuts | #20 | Done | one keymap with scopes; every key rebound in Settings (the Parameters screen's too), clashes shown, kept; F1 help |
 | Command palette | #21 | Partial | the open and per-keystroke budgets are not measured |
 | Performance budgets enforced in CI | #22 | Done | `apps/frontend/budgets.json`; cold start, screen switch, initial JS, long tasks (`e2e/budgets.e2e.ts`) and the palette, judged by `e2e/budgets.ts`, in the job summary |
 | Telemetry model, coalesced for the UI | #26 | Partial | no update-rate or CPU budget test; no SITL e2e against simulated truth |
