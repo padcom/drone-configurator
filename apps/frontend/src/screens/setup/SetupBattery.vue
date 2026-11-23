@@ -24,19 +24,25 @@
       <p v-else class="muted">{{ t('setup.battery.noLiveSecond') }}</p>
       <div class="setup-fields">
         <label :for="`${uid}-monitor`">{{ t('setup.battery.monitor') }}</label>
-        <EnumField
-          :model-value="panel.value(ids[0] ?? '') ?? 0"
+        <PanelField
+          :key="ids[0]"
+          :input-id="`${uid}-monitor`"
+          :panel="panel"
+          :id="ids[0] ?? ''"
+          kind="enum"
           :options="monitors"
           :label="t('setup.battery.monitor')"
-          :disabled="locked(ids[0] ?? '')"
-          @update:model-value="panel.set(ids[0] ?? '', $event)"
         />
         <label :for="`${uid}-capacity`">{{ t('setup.battery.capacity') }}</label>
-        <TextInput
-          :id="`${uid}-capacity`"
-          :model-value="fieldText(panel.value(ids[1] ?? ''))"
-          :disabled="locked(ids[1] ?? '')"
-          @update:model-value="setCapacity"
+        <PanelField
+          :key="ids[1]"
+          :input-id="`${uid}-capacity`"
+          :panel="panel"
+          :id="ids[1] ?? ''"
+          unit="mAh"
+          :min="0"
+          :integer="true"
+          :label="t('setup.battery.capacity')"
         />
       </div>
       <template v-if="tab === 0">
@@ -79,13 +85,11 @@ import { useI18n } from 'vue-i18n'
 import BatteryCalibration from '@/components/setup/BatteryCalibration.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Button from '@/components/ui/Button.vue'
-import TextInput from '@/components/ui/TextInput.vue'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import type { BatteryGroup } from '@/generated/app'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { fieldText } from '@/lib/params/paramValue'
-import { BATTERY_PREFIXES, CURRENT_MONITORS, MONITORS, VOLTAGE_MONITORS, batteryParams, parseAmount } from '@/lib/setup/battery'
+import { BATTERY_PREFIXES, CURRENT_MONITORS, MONITORS, VOLTAGE_MONITORS, batteryParams } from '@/lib/setup/battery'
 
 const { t } = useI18n()
 const uid = useId()
@@ -131,26 +135,4 @@ const tiles = computed(() => [
   { id: 'current', label: t('setup.battery.tileCurrent'), value: shown(shownCurrent.value, 'A') },
   { id: 'remaining', label: t('setup.battery.tileRemaining'), value: remainingOf(battery.value) },
 ])
-
-/**
- * Whether a field cannot be used now: nothing can be written, or the vehicle does not have the parameter.
- *
- * @param id the parameter
- * @returns true if it is off
- */
-function locked(id: string): boolean {
-  return panel.value.blocked.value !== null || panel.value.missing.value.includes(id)
-}
-
-/**
- * The capacity as typed: a whole number of mAh that is not negative.
- *
- * @param text what was typed
- */
-function setCapacity(text: string): void {
-  const capacity = parseAmount(text)
-  if (capacity !== null && Number.isInteger(capacity)) {
-    panel.value.set(ids.value[1] ?? '', capacity)
-  }
-}
 </script>

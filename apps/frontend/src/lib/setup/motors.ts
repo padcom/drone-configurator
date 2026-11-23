@@ -49,25 +49,6 @@ export const SPIN_RANGES: Readonly<Record<string, readonly [number, number]>> = 
   [SPIN_MAX]: [0.9, 1],
 }
 
-/**
- * A spin threshold as typed: a number inside the threshold's documented range, else it is not taken.
- *
- * @param typed what was typed
- * @param low the least it may be
- * @param high the most it may be
- * @returns the value, or null
- */
-export function parseFraction(typed: string, low: number, high: number): number | null {
-  const text = typed.trim()
-  if (text === '') {
-    return null
-  }
-  const value = Number(text.replace(',', '.'))
-
-  // (NaN is neither above `low` nor below `high`)
-  return value >= low && value <= high ? value : null
-}
-
 /** How the spin thresholds are wrong, if they are. */
 export type SpinProblem = 'order' | null
 

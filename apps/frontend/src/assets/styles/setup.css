@@ -633,10 +633,6 @@
   gap: var(--space-3);
 }
 
-.setup-esc-error {
-  color: var(--color-error);
-}
-
 /* The motor test: the frame drawn as buttons (front is up), each where its motor is. A button is held, not clicked. */
 .motor-test {
   display: flex;

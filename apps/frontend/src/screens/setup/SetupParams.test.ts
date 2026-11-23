@@ -213,6 +213,26 @@ it('does not write the battery while the vehicle is armed, and says why', async 
   expect(asked).toHaveLength(0)
 })
 
+it('says the capacity is modified, then verified once written and read back, and names the fields by their labels', async () => {
+  const { wrapper } = await page(SetupBattery)
+  const capacity = wrapper.get('[data-param="BATT_CAPACITY"]')
+  const input = capacity.get('input')
+
+  expect(wrapper.get(`label[for="${input.attributes('id')}"]`).text()).toBe('Capacity (mAh)')
+  const monitor = wrapper.get('[data-param="BATT_MONITOR"] input')
+  expect(wrapper.get(`label[for="${monitor.attributes('id')}"]`).text()).toBe('Monitor')
+  expect(capacity.get('.status').text()).toBe('The vehicle\'s value.')
+  await input.setValue('6000')
+  await input.trigger('blur')
+  await flushPromises()
+
+  expect(capacity.attributes('data-status')).toBe('draft')
+  expect(capacity.get('.status').text()).toBe('Modified: the vehicle has 5200 mAh.')
+  await wrapper.get('#setup-battery-write').trigger('click')
+  await vi.waitFor(() => expect(capacity.attributes('data-status')).toBe('verified'))
+  expect(capacity.get('.status').text()).toBe('Verified: the vehicle reads 6000 mAh back.')
+})
+
 it('lists the ports the vehicle has with their protocol and speed named, and says how many are in use', async () => {
   const { wrapper } = await page(SetupSerial)
 
@@ -427,6 +447,23 @@ it('does not change the frame while the vehicle is armed or not known to be disa
   expect(wrapper.get('#setup-frame-blocked').text()).toContain('The vehicle is armed')
   expect(wrapper.get('#setup-frame-write').attributes('disabled')).toBeDefined()
   expect(asked).toHaveLength(0)
+})
+
+it('says a frame type is modified, then verified once it is written, and names each field by its label', async () => {
+  const { wrapper } = await page(SetupFrame)
+  const type = wrapper.get('[data-param="FRAME_TYPE"]')
+  for (const id of ['FRAME_CLASS', 'FRAME_TYPE', 'AHRS_ORIENTATION']) {
+    const input = wrapper.get(`[data-param="${id}"] input`)
+    expect(wrapper.find(`label[for="${input.attributes('id')}"]`).exists(), id).toBe(true)
+  }
+  expect(type.attributes('data-status')).toBe('vehicle')
+  type.findComponent(EnumField).vm.$emit('update:modelValue', 0)
+  await flushPromises()
+
+  expect(type.attributes('data-status')).toBe('draft')
+  expect(type.get('.status').text()).toBe('Modified: the vehicle has 1.')
+  await wrapper.get('#setup-frame-write').trigger('click')
+  await vi.waitFor(() => expect(type.attributes('data-status')).toBe('verified'))
 })
 
 it('decodes the device ids into the bus, the address and the type, and says a sensor never seen was not seen', async () => {
