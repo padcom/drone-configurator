@@ -36,17 +36,15 @@
       @edit="edited"
       @settle="noop"
     />
-    <p :id="statusId" class="status" :class="status">
-      <Icon v-if="mark !== undefined" :name="mark" />
-      <span>{{ words }}</span>
-    </p>
-    <div v-if="status === 'conflict'" class="conflict-box" role="alert">
-      <p>{{ t('field.conflict.text', { name, vehicle: said(facts.vehicle), draft: said(facts.draft) }) }}</p>
-      <div class="actions">
-        <Button @click="emit('keep')">{{ t('field.conflict.keep') }}</Button>
-        <Button @click="emit('take')">{{ t('field.conflict.take') }}</Button>
-      </div>
-    </div>
+    <FieldStatusLine
+      :name="name"
+      :facts="facts"
+      :show="said"
+      :rejection="rejection"
+      :status-id="statusId"
+      @keep="emit('keep')"
+      @take="emit('take')"
+    />
   </div>
 </template>
 
@@ -60,16 +58,13 @@
 // `keep`, `take`): the screen holds the draft and does the write. While a write is under way the control is off, as
 // what is typed then could not be written.
 import { computed, useId } from 'vue'
-import { useI18n } from 'vue-i18n'
 import BitField from './BitField.vue'
 import EnumField from './EnumField.vue'
+import FieldStatusLine from './FieldStatusLine.vue'
 import NumberField from './NumberField.vue'
-import Button from '@/components/ui/Button.vue'
-import Icon from '@/components/ui/Icon.vue'
 import { type FieldFacts, type FieldStatus, shownValue, statusOf } from '@/lib/params/fieldState'
 import type { BitOption } from '@/lib/params/bitmask'
 import type { EnumOption } from '@/lib/params/enumField'
-import type { IconName } from '@/lib/ui/icons'
 import { showStored } from '@/lib/params/numberField'
 import { showNumber } from '@/lib/params/paramValue'
 import { viewOf } from '@/lib/params/units'
@@ -126,7 +121,6 @@ const emit = defineEmits<{
   take: []
 }>()
 
-const { t } = useI18n()
 const statusId = useId()
 const status = computed<FieldStatus>(() => statusOf(props.facts))
 /** What the control shows: the draft, else the vehicle's value (0 before the vehicle has said: the field is off then). */
@@ -136,15 +130,6 @@ const chosen = computed({
   get: () => current.value,
   set: (value: number) => emit('draft', value),
 })
-
-/** The icon that goes with a status, for the ones that are good or bad news (the words say it too: a colour is never all). */
-const MARKS: Partial<Record<FieldStatus, IconName>> = {
-  verified: 'check',
-  rejected: 'warning',
-  conflict: 'warning',
-  draft: 'info',
-}
-const mark = computed(() => MARKS[status.value])
 
 /**
  * A number in the unit it is shown in, with the unit.
@@ -160,25 +145,14 @@ function shown(value: number): string {
 }
 
 /**
- * A value as the text the field shows it in (in the shown unit for a number).
+ * A value as the text the field shows it (in the shown unit for a number).
  *
  * @param value the value
- * @returns the text, or a dash for none
+ * @returns the text
  */
-function said(value: number | null | undefined): string {
-  if (value === null || value === undefined) {
-    return '—'
-  }
-
+function said(value: number): string {
   return props.kind === 'number' ? shown(value) : showNumber(value)
 }
-
-/** The words of the status. */
-const words = computed(() => {
-  const reason = props.rejection ?? t('field.status.noReason')
-
-  return t(`field.status.${status.value}`, { vehicle: said(props.facts.vehicle), value: said(shownValue(props.facts)), reason })
-})
 
 /**
  * The bits were changed: the text of the number they make.

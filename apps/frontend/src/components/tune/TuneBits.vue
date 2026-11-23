@@ -1,5 +1,5 @@
 <template>
-  <fieldset class="tune-row tune-bits" :data-tune="param.id" :disabled="off">
+  <fieldset class="tune-row tune-bits" :data-tune="param.id" :data-status="status" :disabled="off">
     <legend class="tune-head">
       <span class="tune-label">{{ label }}</span>
       <code class="tune-names">{{ param.id }}</code>
@@ -8,11 +8,20 @@
       <input
         type="checkbox"
         :checked="isBitSet(value, option.bit)"
-        :aria-describedby="`${uid}-note`"
+        :aria-describedby="`${uid}-note ${uid}-status`"
         @change="toggle(option.bit, $event)"
       >
       {{ option.name }}
     </label>
+    <FieldStatusLine
+      :name="label"
+      :facts="panel.facts(param.id)"
+      :show="showNumber"
+      :rejection="panel.rejection(param.id)"
+      :status-id="`${uid}-status`"
+      @keep="panel.keep(param.id)"
+      @take="panel.take(param.id)"
+    />
     <p v-if="help" class="muted tune-help">{{ help }}</p>
     <p class="muted tune-was">{{ was }}</p>
     <p :id="`${uid}-note`" class="tune-note" :class="{ problem: locked }" role="status">{{ note }}</p>
@@ -22,11 +31,15 @@
 <script setup lang="ts">
 // One mask of named bits of the Tune screen (the notch's harmonics and options): the parameter's name, a box for each bit with
 // ArduPilot's name of it, "was X" from the initial values of the session. Read only when the vehicle starts, so, like a named
-// choice, it is off while the vehicle is armed, and says so.
+// choice, it is off while the vehicle is armed, and says so. The boxes stay Tune's own (the board shows each bit); under them,
+// what a bound field says of its parameter (components/fields/FieldStatusLine.vue): the vehicle's value, a draft, a write under
+// way, verified or rejected, and a conflict with the choice to keep the draft or take the vehicle's value.
 import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
+import FieldStatusLine from '@/components/fields/FieldStatusLine.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import type { ParamPanel } from '@/composables/useParamPanel'
+import { statusOf } from '@/lib/params/fieldState'
 import { showNumber } from '@/lib/params/paramValue'
 import { type NamedBit, isBitSet, withBit } from '@/lib/tune/filters'
 import type { TuneParam } from '@/lib/tune/table'
@@ -48,6 +61,7 @@ const { t } = useI18n()
 const uid = useId()
 const handle = useConfigurator()
 const value = computed(() => props.panel.value(props.param.id) ?? 0)
+const status = computed(() => statusOf(props.panel.facts(props.param.id)))
 const locked = computed(() => props.panel.armed.value && !props.param.armedOk)
 const off = computed(() => (
   props.panel.blocked.value !== null || locked.value || props.panel.missing.value.includes(props.param.id)
