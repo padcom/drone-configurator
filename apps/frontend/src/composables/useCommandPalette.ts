@@ -35,7 +35,7 @@ const shared: CommandPaletteState = {
  *
  * @returns true when a modal dialog is open
  */
-function otherDialogOpen(): boolean {
+export function otherDialogOpen(): boolean {
   return document.querySelector('dialog[open]') !== null
 }
 

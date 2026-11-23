@@ -59,6 +59,24 @@
   font-size: var(--font-size-sm);
 }
 
+/* Keys: a row of Settings is the name, the key and where it works; the help lists the same as a name and its key. */
+.keys-row kbd,
+.keys-list kbd {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.keys-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-4);
+}
+
+.keys-list dd {
+  margin: 0;
+}
+
 .app-main:focus-visible,
 .rail:focus-visible {
   outline: 2px solid var(--color-accent);

@@ -1,17 +1,19 @@
-// Moving the focus from pane to pane with F6 and Shift+F6, as the panes of a desktop application do (until the global
-// shortcuts, #20, have a place to say it): the next pane in the order they are in the page, and round to the first after
-// the last; Shift goes the other way. A pane is a place to start from: Tab from it goes into it.
+// Moving the focus from pane to pane with F6 and Shift+F6 (the keys `panes.next` and `panes.previous` of the keymap,
+// which the user may change), as the panes of a desktop application do: the next pane in the order they are in the
+// page, and round to the first after the last; the other key goes the other way. A pane is a place to start from: Tab
+// from it goes into it.
 import { onActivated, onBeforeUnmount, onDeactivated, onMounted } from 'vue'
+import { matches } from './keymap'
 
 /**
- * Whether a key press is the one that moves between panes: F6, with Shift or without it, and nothing else with it (Alt,
- * Ctrl and Meta with a function key belong to the system and the browser).
+ * Whether a key press is the one that moves between panes: F6 and Shift+F6 as the keymap has them (the user may have chosen
+ * others), and nothing else with them (Alt, Ctrl and Meta with a function key belong to the system and the browser).
  *
  * @param event the key press
- * @returns true for F6 and Shift+F6
+ * @returns true for the key of the next pane, or of the one before
  */
 export function isPaneKey(event: KeyboardEvent): boolean {
-  return event.key === 'F6' && !event.altKey && !event.ctrlKey && !event.metaKey
+  return matches(event, 'panes.next') || matches(event, 'panes.previous')
 }
 
 /**
@@ -42,7 +44,7 @@ export function nextPane(panes: HTMLElement[], active: Element | null, backwards
 export function usePaneKeys(selector: string): void {
   const move = (event: KeyboardEvent) => {
     const panes = [...document.querySelectorAll<HTMLElement>(selector)]
-    const next = isPaneKey(event) ? nextPane(panes, document.activeElement, event.shiftKey) : undefined
+    const next = isPaneKey(event) ? nextPane(panes, document.activeElement, matches(event, 'panes.previous')) : undefined
     if (next) {
       event.preventDefault()
       next.focus()

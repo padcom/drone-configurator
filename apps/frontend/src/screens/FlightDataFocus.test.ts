@@ -40,7 +40,8 @@ async function fly(): Promise<VueWrapper> {
  * @returns whether nobody called preventDefault (true: the key was not taken)
  */
 function press(key: string, modifiers: KeyboardEventInit = {}): boolean {
-  return window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...modifiers }))
+  // (the physical key too: the keymap matches by it)
+  return window.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, bubbles: true, cancelable: true, ...modifiers }))
 }
 
 /**

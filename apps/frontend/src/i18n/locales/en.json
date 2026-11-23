@@ -1294,6 +1294,54 @@
     "backendRestarted": "The backend restarted: the vehicle session ended. Connect again to continue.",
     "backendStopped": "The backend stopped: the vehicle session ended. Connect again to continue."
   },
+  "keys": {
+    "help": {
+      "label": "Show the keyboard shortcuts",
+      "keywords": "keys keyboard shortcuts help hotkeys bindings",
+      "title": "Keyboard shortcuts",
+      "intro": "The keys as they are now, by screen.",
+      "settings": "Change them in Settings, under Keyboard.",
+      "close": "Close"
+    },
+    "action": {
+      "palette": {
+        "open": "Open the command palette"
+      },
+      "help": {
+        "keys": "Show the keyboard shortcuts"
+      },
+      "panes": {
+        "next": "Next pane",
+        "previous": "Previous pane"
+      },
+      "params": {
+        "search": "Search the parameters",
+        "write": "Write the changed parameters"
+      }
+    },
+    "scope": {
+      "global": "Whole window",
+      "parameters": "Parameters"
+    },
+    "settings": {
+      "title": "Keyboard",
+      "intro": "Give an action another key: press Change, then the new key (Escape gives up). A key needs Ctrl, or is a function key.",
+      "fixed": "Fixed: it is matched by the character it types, so it cannot be changed.",
+      "change": "Change",
+      "reset": "Default",
+      "resetAll": "Back to the default keys",
+      "none": "No key",
+      "press": "Press the new key for “{action}”. Escape gives up.",
+      "why": {
+        "needsModifier": "That key is typed in text. Use Ctrl with it, or a function key.",
+        "reserved": "That key belongs to the system or the browser (reload, close, copy…). Choose another.",
+        "fixed": "That key is fixed and cannot be changed."
+      },
+      "clash": "{chord} is already the key of: {actions}.",
+      "take": "Take it over",
+      "keep": "Keep the old"
+    }
+  },
   "palette": {
     "logs": {
       "openFile": {
