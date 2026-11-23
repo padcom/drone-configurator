@@ -1,7 +1,8 @@
 // Starts ArduPilot SITL for E2E tests: one vehicle type and frame at a time, on free ports, in its own
 // working directory with a fresh EEPROM. It only ever launches a simulator.
 //
-// SITL_BINARY      the SITL executable (default: `arducopter` on the PATH)
+// SITL_DIR         a directory with the vehicles' SITL executables (.github/sitl-build.sh builds them there)
+// SITL_BINARY      the SITL executable of the vehicle it is named for (`arducopter`, ...; else the PATH's)
 // SITL_ENDPOINT    an already-running simulator to use instead (see endpoint.ts); nothing is launched
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -10,15 +11,25 @@ import { link, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, createConnection, type Socket } from 'node:net'
 import { createSocket } from 'node:dgram'
 import { tmpdir } from 'node:os'
-import { delimiter, dirname, join, resolve as absolute } from 'node:path'
+import { basename, delimiter, dirname, join, resolve as absolute } from 'node:path'
 import { type Endpoint, parseEndpoint } from './endpoint'
 import {
   MAV_AUTOPILOT_ARDUPILOTMEGA, FrameReader, asCommandAck, asHeartbeat, asParamValue, asRelativeAltitude, encodeCommandLong, encodeParamSet,
 } from './mavlink-wire'
 
-/** The vehicle types SITL can be started for. One at a time: a test names its vehicle. */
+/**
+ * The vehicle types SITL can be started for, with their executables, the frames tests use (SITL's `--model`) and the frame
+ * a test gets when it names none (ArduPilot's Tools/autotest/pysim/vehicleinfo.py: its default frame). One at a time: a test
+ * names its vehicle.
+ */
 export const vehicles = {
-  copter: { binary: 'arducopter', frames: ['quad', 'x', 'hexa', 'octa', 'tri', 'deca', 'calibration'] },
+  copter: { binary: 'arducopter', defaultFrame: 'quad', frames: ['quad', 'x', 'hexa', 'octa', 'tri', 'deca', 'calibration'] },
+  heli: { binary: 'arducopter-heli', defaultFrame: 'heli', frames: ['heli'] },
+  plane: { binary: 'arduplane', defaultFrame: 'plane', frames: ['plane'] },
+  rover: { binary: 'ardurover', defaultFrame: 'rover', frames: ['rover'] },
+  sub: { binary: 'ardusub', defaultFrame: 'vectored', frames: ['vectored'] },
+  blimp: { binary: 'blimp', defaultFrame: 'Blimp', frames: ['Blimp'] },
+  tracker: { binary: 'antennatracker', defaultFrame: 'tracker', frames: ['tracker'] },
 } as const
 
 export type VehicleName = keyof typeof vehicles
@@ -26,7 +37,7 @@ export type VehicleName = keyof typeof vehicles
 export interface SitlOptions {
   /** @default 'copter' */
   vehicle?: VehicleName
-  /** SITL's `--model`. @default 'quad' */
+  /** SITL's `--model`. @default the vehicle's `defaultFrame` */
   frame?: string
   /** How many times faster than real time the simulation runs. @default 1 */
   speedup?: number
@@ -75,21 +86,29 @@ export function instancePorts(instance: number): { tcp: number[]; udp: number[] 
   }
 }
 
-/** The default parameter files of each Copter frame, as ArduPilot's Tools/autotest/pysim/vehicleinfo.json names them. */
-const copterDefaults: Record<string, string[]> = {
-  quad: ['copter.parm'],
-  x: ['copter.parm', 'copter-X.parm'],
-  hexa: ['copter.parm', 'copter-hexa.parm'],
-  octa: ['copter.parm', 'copter-octa.parm'],
-  tri: ['copter.parm', 'copter-tri.parm'],
-  deca: ['copter.parm', 'copter-deca.parm'],
+/**
+ * The default parameter files of each frame, relative to ArduPilot's Tools/autotest, as its pysim/vehicleinfo.py names them
+ * (the tracker has none).
+ */
+const frameDefaults: Record<string, string[]> = {
+  quad: ['default_params/copter.parm'],
+  x: ['default_params/copter.parm', 'default_params/copter-X.parm'],
+  hexa: ['default_params/copter.parm', 'default_params/copter-hexa.parm'],
+  octa: ['default_params/copter.parm', 'default_params/copter-octa.parm'],
+  tri: ['default_params/copter.parm', 'default_params/copter-tri.parm'],
+  deca: ['default_params/copter.parm', 'default_params/copter-deca.parm'],
   // A vehicle that is turned to the angles its servo outputs 5 to 8 say (libraries/SITL/SIM_Calibration.cpp): for the calibrations.
-  calibration: ['copter.parm'],
+  calibration: ['default_params/copter.parm'],
+  heli: ['default_params/copter-heli.parm'],
+  plane: ['models/plane.parm'],
+  rover: ['default_params/rover.parm'],
+  vectored: ['default_params/sub.parm'],
+  Blimp: ['default_params/blimp.parm'],
 }
 
 /**
- * The default parameter files for a frame, if the build ships them in a `default_params` directory next to
- * the executable (.github/sitl-build.sh does). Newer SITL builds carry their defaults inside; older ones,
+ * The default parameter files for a frame, if the build ships them next to the executable, in `default_params` and `models`
+ * as in ArduPilot's Tools/autotest (.github/sitl-build.sh does). Newer SITL builds carry their defaults inside; older ones,
  * such as Copter 4.7, start with none (so, for one, no battery monitor, and then no BATT_* parameters).
  *
  * A tree built by hand has them in its source instead: `Tools/autotest/default_params`, three directories
@@ -101,8 +120,8 @@ const copterDefaults: Record<string, string[]> = {
  */
 export function shippedDefaults(binary: string, frame: string): string[] {
   const beside = dirname(absolute(binary))
-  const wanted = copterDefaults[frame] ?? []
-  for (const directory of [join(beside, 'default_params'), absolute(beside, '..', '..', '..', 'Tools', 'autotest', 'default_params')]) {
+  const wanted = frameDefaults[frame] ?? []
+  for (const directory of [beside, absolute(beside, '..', '..', '..', 'Tools', 'autotest')]) {
     const files = wanted.map(file => join(directory, file))
     if (files.length > 0 && files.every(file => existsSync(file))) {
       return files
@@ -160,18 +179,24 @@ export function missingSitlPolicy(env: NodeJS.ProcessEnv): 'fail' | 'skip' {
 }
 
 /**
- * Finds the SITL executable.
+ * Finds the SITL executable of a vehicle: in SITL_DIR if it is set, else SITL_BINARY if it is that vehicle's (a copter's
+ * executable can have any name), else on the PATH.
  *
  * @param vehicle the vehicle type
- * @param env the environment to read SITL_BINARY and PATH from
+ * @param env the environment to read SITL_DIR, SITL_BINARY and PATH from
  * @returns its absolute path (it is started from another directory, where a relative one would not resolve), or why it isn't there
  */
 export function findSitlBinary(vehicle: VehicleName, env: NodeJS.ProcessEnv = process.env): { path: string } | { missing: string } {
+  const name = vehicles[vehicle].binary
+  if (env.SITL_DIR) {
+    const candidate = join(env.SITL_DIR, name)
+
+    return existsSync(candidate) ? { path: absolute(candidate) } : { missing: `SITL_DIR is ${env.SITL_DIR}, which has no ${name}` }
+  }
   const configured = env.SITL_BINARY
-  if (configured) {
+  if (configured && (vehicle === 'copter' || basename(configured) === name)) {
     return existsSync(configured) ? { path: absolute(configured) } : { missing: `SITL_BINARY is ${configured}, which does not exist` }
   }
-  const name = vehicles[vehicle].binary
   for (const directory of (env.PATH ?? '').split(delimiter)) {
     const candidate = join(directory, name)
     if (directory && existsSync(candidate)) {
@@ -179,7 +204,7 @@ export function findSitlBinary(vehicle: VehicleName, env: NodeJS.ProcessEnv = pr
     }
   }
 
-  return { missing: `no ${name} on the PATH and SITL_BINARY is not set (build it: ./waf configure --board sitl && ./waf ${vehicle})` }
+  return { missing: `no ${name} on the PATH, and neither SITL_DIR nor SITL_BINARY names it (build it: .github/sitl-build.sh REF ${vehicle} DIR, then SITL_DIR=DIR)` }
 }
 
 /** What a test run can use: a simulator that is already running, or one it can launch. */
@@ -436,7 +461,8 @@ async function exited(child: ChildProcess): Promise<void> {
  * @throws Error if it can't be launched or doesn't come up
  */
 export async function startSitl(options: SitlOptions = {}): Promise<Sitl> {
-  const { vehicle = 'copter', frame = 'quad', speedup = 1, simParams = {}, startTimeoutMs = 60_000 } = options
+  const { vehicle = 'copter', speedup = 1, simParams = {}, startTimeoutMs = 60_000 } = options
+  const frame = options.frame ?? vehicles[vehicle].defaultFrame
   if (!(vehicles[vehicle].frames as readonly string[]).includes(frame)) {
     throw new Error(`SITL: ${vehicle} has no frame ${JSON.stringify(frame)} (known: ${vehicles[vehicle].frames.join(', ')})`)
   }

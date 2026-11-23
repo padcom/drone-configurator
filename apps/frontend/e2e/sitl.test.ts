@@ -10,7 +10,7 @@ import {
   encodeParamSet,
 } from './mavlink-wire'
 import {
-  claimInstance, cleanupAllSync, defaultsFile, findSitlBinary, flightStep, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply,
+  claimInstance, cleanupAllSync, defaultsFile, findSitlBinary, flightStep, instancePorts, missingSitlPolicy, shippedDefaults, signalHandlers, sitlArguments, sitlSupply, vehicles,
   startSitl,
 } from './sitl'
 
@@ -167,6 +167,23 @@ describe('SITL ports and arguments', () => {
       await writeFile(join(directory, 'default_params', 'copter-X.parm'), '')
       expect(shippedDefaults(binary, 'x')).toEqual([join(directory, 'default_params', 'copter.parm'), join(directory, 'default_params', 'copter-X.parm')])
       expect(shippedDefaults(binary, 'zeppelin')).toEqual([])
+    } finally {
+      await rm(directory, { recursive: true })
+    }
+  })
+
+  it("finds each vehicle's default frame and its files, in default_params or models as ArduPilot keeps them", async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      await mkdir(join(directory, 'default_params'))
+      await mkdir(join(directory, 'models'))
+      await writeFile(join(directory, 'models', 'plane.parm'), '')
+      await writeFile(join(directory, 'default_params', 'sub.parm'), '')
+      expect(shippedDefaults(join(directory, 'arduplane'), vehicles.plane.defaultFrame)).toEqual([join(directory, 'models', 'plane.parm')])
+      expect(shippedDefaults(join(directory, 'ardusub'), vehicles.sub.defaultFrame)).toEqual([join(directory, 'default_params', 'sub.parm')])
+      // The tracker has no default parameters.
+      expect(shippedDefaults(join(directory, 'antennatracker'), vehicles.tracker.defaultFrame)).toEqual([])
+      expect(Object.values(vehicles).every(vehicle => (vehicle.frames as readonly string[]).includes(vehicle.defaultFrame))).toBe(true)
     } finally {
       await rm(directory, { recursive: true })
     }
@@ -331,6 +348,29 @@ describe('whether SITL is there', () => {
       const relative = relativePath(process.cwd(), binary)
       expect(isAbsolute(relative)).toBe(false)
       expect(findSitlBinary('copter', { SITL_BINARY: relative })).toEqual({ path: binary })
+    } finally {
+      await rm(directory, { recursive: true })
+    }
+  })
+
+  it("finds each vehicle's executable in SITL_DIR, and says when it isn't there", async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      await writeFile(join(directory, 'arduplane'), '')
+      expect(findSitlBinary('plane', { SITL_DIR: directory })).toEqual({ path: join(directory, 'arduplane') })
+      expect(findSitlBinary('rover', { SITL_DIR: directory })).toEqual({ missing: `SITL_DIR is ${directory}, which has no ardurover` })
+    } finally {
+      await rm(directory, { recursive: true })
+    }
+  })
+
+  it("takes SITL_BINARY only for the vehicle it is: a plane is never started with a copter's executable", async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sitl-path-'))
+    try {
+      await writeFile(join(directory, 'arducopter'), '')
+      const env = { SITL_BINARY: join(directory, 'arducopter'), PATH: '/does/not/exist' }
+      expect(findSitlBinary('copter', env)).toEqual({ path: join(directory, 'arducopter') })
+      expect(findSitlBinary('plane', env)).toMatchObject({ missing: expect.stringContaining('no arduplane on the PATH') })
     } finally {
       await rm(directory, { recursive: true })
     }
