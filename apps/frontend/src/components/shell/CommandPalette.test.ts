@@ -207,6 +207,7 @@ const ALPHABETICAL = [
   'Arm the vehicle',
   'Change altitude',
   'Connect to a vehicle…',
+  'Connect to the last vehicle again',
   'Delete the item',
   'Disarm the vehicle',
   'Disconnect',
@@ -237,6 +238,7 @@ const ALPHABETICAL = [
 const GROUPS_OF_THE_FIRST = [
   'Plan',
   'Plan',
+  'Vehicle',
   'Vehicle',
   'Vehicle',
   'Vehicle',
@@ -276,10 +278,10 @@ it('names the group of each command in its row', async () => {
   const groups = wrapper.findAll('.palette-row .palette-group').map(group => group.text())
 
   // (then the ways: as many as the screens have parts)
-  expect(groups.slice(0, 31)).toEqual(GROUPS_OF_THE_FIRST)
-  expect(groups.length).toBeGreaterThan(32)
+  expect(groups.slice(0, 32)).toEqual(GROUPS_OF_THE_FIRST)
+  expect(groups.length).toBeGreaterThan(33)
   // (Take off and Undo are the last two of the list by their names: a vehicle's command and the plan's)
-  expect(groups.slice(31, -2).every(group => group === 'Navigate')).toBe(true)
+  expect(groups.slice(32, -2).every(group => group === 'Navigate')).toBe(true)
   expect(groups.at(-2)).toBe('Vehicle')
   expect(groups.at(-1)).toBe('Plan')
 })
@@ -409,7 +411,7 @@ it('moves the selection with the arrows (round the ends), the pages, and Home an
   await input.trigger('keydown', { key: 'Home' })
   expect(active()).toBe('plan.addWaypoint')
   await input.trigger('keydown', { key: 'PageDown' })
-  expect(active()).toBe('params.download')
+  expect(active()).toBe('vehicle.disconnect')
   await input.trigger('keydown', { key: 'PageUp' })
   expect(active()).toBe('plan.addWaypoint')
   expect(input.attributes('aria-activedescendant')).toBe('palette-option-plan.addWaypoint')

@@ -1,7 +1,7 @@
 // A command context for tests: the vehicle's facts are plain values to set, and everything a command does to the outside (a
 // navigation, a confirmation, a toast, a reboot) is recorded, so that a test can say what was asked and how often.
 import type { CommandContext, ParameterFacts, ParameterWork, RebootResult, VehicleFacts } from '@/lib/commands/command'
-import type { ArmingResult, Connection, Telemetry, VehicleModes } from '@/generated/app'
+import type { ArmingResult, ConnectRequest, Connection, Telemetry, VehicleModes } from '@/generated/app'
 import { GUIDED_DEFAULTS, type GuidedPreferences, type Place } from '@/lib/fly/guided'
 import { COPTER_MODES } from '@/mock/fixtures'
 import type { Metadata } from '@/lib/params/metadata'
@@ -30,6 +30,8 @@ export interface Fake {
     armingError?: unknown
     /** The reasons the vehicle gave lately why it will not arm. */
     recentReasons?: string[]
+    /** The last connection kept in the settings (none: no connection made yet). */
+    lastConnection?: ConnectRequest | null
     /** What the vehicle reports now (null: nothing). */
     telemetry?: Telemetry | null
     /** The vehicle's parameters by name, for the commands that read one. */
@@ -83,6 +85,8 @@ export interface Fake {
     sent: string[]
     /** One entry per call to `vehicle.disconnect`. */
     disconnect: string[]
+    /** The requests `vehicle.connect` was given. */
+    connect: ConnectRequest[]
     /** One entry per time the picked place was dropped. */
     cleared: string[]
     /** One entry per download of the parameters that was asked for. */
@@ -161,6 +165,8 @@ function vehicleOf(fake: Fake): VehicleFacts {
     modes: () => fake.facts.modes,
     mode: () => fake.facts.mode,
     disconnect: () => void fake.calls.disconnect.push('disconnect'),
+    lastConnection: () => fake.facts.lastConnection ?? null,
+    connect: request => void fake.calls.connect.push(request),
   }
 }
 
@@ -252,6 +258,7 @@ function noCalls(): Fake['calls'] {
     reboot: [],
     sent: [],
     disconnect: [],
+    connect: [],
     cleared: [],
     download: [],
     snapshot: [],

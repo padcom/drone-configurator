@@ -13,7 +13,7 @@ export const SCRIPTED_MESSAGES: readonly (readonly [number, string])[] = [
 ]
 
 export const SERIAL_PORTS = [
-  { path: '/dev/ttyACM0', description: 'USB 1209:5741 ArduPilot' },
+  { path: '/dev/ttyACM0', description: 'USB 1209:5741 ArduPilot', board: 'ArduPilot', likely: true },
   { path: '/dev/ttyAMA0' },
 ]
 

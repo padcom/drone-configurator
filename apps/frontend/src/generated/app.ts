@@ -1053,10 +1053,10 @@ function validateSerialPortsInto(value: any, path: string): boolean {
 /** The first problem with `value` as a serial-ports, or null. */
 export const validateSerialPorts = (value: unknown) => run(validateSerialPortsInto, value)
 
-export type SerialPort = { "path": string, "description"?: string }
+export type SerialPort = { "path": string, "description"?: string, "board"?: string, "likely"?: boolean }
 
 function validateSerialPortInto(value: any, path: string): boolean {
-  return map(value, path, ["path","description"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["description"] === undefined || nested(value["description"], `${path}.description`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+  return map(value, path, ["path","description","board","likely"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["description"] === undefined || nested(value["description"], `${path}.description`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["board"] === undefined || nested(value["board"], `${path}.board`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["likely"] === undefined || nested(value["likely"], `${path}.likely`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
 }
 
 /** The first problem with `value` as a serial-port, or null. */

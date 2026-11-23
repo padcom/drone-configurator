@@ -7,7 +7,7 @@ import type { E2eApp } from './launch'
 export const CTRL = 2
 
 /** The virtual key codes of the keys the specs press. */
-const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
+const CODES: Record<string, [number, string]> = { p: [80, 'KeyP'], l: [76, 'KeyL'], Escape: [27, 'Escape'], Enter: [13, 'Enter'] }
 
 /** How long a press of Ctrl+P is given to open the palette before it is pressed again, and how many presses there are. */
 const OPEN_WAIT_MS = 2000
@@ -31,7 +31,7 @@ const SITUATION = `JSON.stringify({
  * Presses a key, with the modifiers, as the host receives it.
  *
  * @param app the running app
- * @param key the key: `p`, `Escape` or `Enter`
+ * @param key the key: `p`, `l`, `Escape` or `Enter`
  * @param modifiers the DevTools modifier bits
  */
 export async function chord(app: E2eApp, key: string, modifiers = 0): Promise<void> {

@@ -31,14 +31,20 @@ function shown(value: Pick<DOMWrapper<Element>, 'find' | 'text'>): string {
  *
  * @param connection the link's state
  * @param telemetry what the vehicle sent, or null
+ * @param last what the settings keep as the last connection, if anything
  * @returns the bar, the text of its vehicle cell and of each live cell by its label
  */
-async function barWith(connection: Connection, telemetry: Telemetry | null) {
+async function barWith(connection: Connection, telemetry: Telemetry | null, last?: string) {
   const handle = createConfigurator(mockBackend())
   const router = createAppRouter(createMemoryHistory())
   await router.push('/flight')
   const wrapper = mount(TopBar, { global: { plugins: [i18n, router] } })
   await flushPromises()
+
+  // (after the settings were read at the start)
+  if (last !== undefined) {
+    handle.settings.changed({ settings: { ...handle.settings.settings.value, ui: [{ key: 'connect.last', value: last }] } })
+  }
   feed(handle, { connection, telemetry })
   // The telemetry is published once per frame.
   await nextFrame()
@@ -158,4 +164,17 @@ it('is the banner of the page, names the application, and links home', async () 
   expect(wrapper.get('h1').text()).toBe('Drone Configurator')
   expect(wrapper.get('a.logo').attributes('aria-label')).toBe('Home')
   expect(wrapper.get('a.logo').attributes('href')).toBe('/flight')
+})
+
+it('offers Connect again, in one click, while the link is down and a last connection is kept', async () => {
+  const last = JSON.stringify({ transport: 'tcp', host: '127.0.0.1', port: '5760', device: '', baud: '' })
+  const down = await barWith({ state: 'disconnected' }, null, last)
+  const lost = await barWith({ state: 'lost', vehicle: { ...VEHICLE } }, null, last)
+  const up = await barWith(connected, null, last)
+  const never = await barWith({ state: 'disconnected' }, null)
+
+  expect(down.wrapper.get('#connect-again').text()).toBe('Connect again')
+  expect(lost.wrapper.find('#connect-again').exists()).toBe(true)
+  expect(up.wrapper.find('#connect-again').exists()).toBe(false)
+  expect(never.wrapper.find('#connect-again').exists()).toBe(false)
 })

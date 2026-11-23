@@ -41,13 +41,15 @@ class EndWatchingStream implements ByteStream {
     this.onEnd = onEnd
   }
 
+  /// A read that fails (the peer reset the connection: a ground station that disconnects while the vehicle is sending) is the
+  /// end of the connection, as a close is: thrown on, it would end the whole program, and the next connection would be refused.
   public async read(): Promise<Uint8Array?> throws Error {
     let chunk: Uint8Array? = null
     try {
       chunk = await inner.read()
     } catch (e: Error) {
       ended()
-      throw e
+      return null
     }
     if (chunk == null) {
       ended()
@@ -56,14 +58,23 @@ class EndWatchingStream implements ByteStream {
   }
 
   ended(): void {
+    if (gone) {
+      return
+    }
     gone = true
     const notify = onEnd
     notify()
   }
 
+  /// A write that fails (the peer reset the connection) ends it too, and is not thrown on (the simulator's timers would end
+  /// the program with it).
   public async write(bytes: Uint8Array): Promise<void> throws Error {
     if (!muted && !gone) {
-      await inner.write(bytes)
+      try {
+        await inner.write(bytes)
+      } catch (e: Error) {
+        ended()
+      }
     }
   }
 

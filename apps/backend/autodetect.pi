@@ -1,0 +1,252 @@
+// Finding a vehicle on a serial port without being told where or how fast (#27): which port is likely the autopilot,
+// by the USB identity of the device behind it, and which baud rate it talks at, by trying the common rates in turn until
+// MAVLink arrives.
+//
+// A rate counts as found on the first whole MAVLink frame whose checksum matches (any message: at a wrong rate the bytes
+// are noise, and a frame with a matching CRC is out of reach for noise). ArduPilot sends a heartbeat at 1 Hz on every
+// link, so a rate that brings nothing in `windowMs` is taken for wrong. The bytes read while trying are handed on with
+// the stream (`ReplayStream`), so the connection sees the heartbeat that was already heard and does not wait for the next.
+//
+// Built from ArduPilot's own sources and documentation (the USB ids in its board definitions, the rates of its SERIALn_BAUD
+// parameters); nothing is taken from Mission Planner.
+import { TimeoutError, withTimeout } from "std/timers"
+import { ByteStream, MavLinkPacketSplitter } from "padcom/pico-mavlink"
+import { PortInfo } from "padcom/serialport"
+
+/// What the device behind a port is known to be: an autopilot, or a USB-serial chip (a telemetry radio or an adapter).
+export enum UsbKind { Autopilot, Adapter }
+
+/// A known USB identity: the vendor, and the product (null: every product of a vendor whose ids belong to autopilots).
+export struct UsbIdentity {
+  vendorId: string
+  productId: string?
+  name: string
+  kind: UsbKind
+}
+
+/// The USB identities that are recognised, ids as 4 lowercase hex digits.
+///
+/// Autopilots: from ArduPilot's board definitions, libraries/AP_HAL_ChibiOS/hwdef/<board>/hwdef.dat (USB_VENDOR and
+/// USB_PRODUCT), and the default of libraries/AP_HAL_ChibiOS/hwdef/scripts/chibios_hwdef.py (`get_USB_IDs`), which every
+/// board without its own ids gets (Pixhawk1/fmuv3, fmuv5, Pixhawk 6X, Matek, Kakute and most others):
+/// - 1209:5740 and 1209:5741: ArduPilot's ids from pid.codes (chibios_hwdef.py: 5740 with two USB ports, 5741 with one).
+/// - 2dae: CubePilot (Hex/ProfiCNC), "ONLY FOR USE BY HEX" (CubeBlack 1011, CubeOrange 1016, CubeOrangePlus 1058, ...).
+/// - 3162: Holybro, "ONLY FOR USE BY Holybro" (Durandal 004b, Pix32v5 004e, Pixhawk5X 0051, Pixhawk6C 0053).
+/// - 26ac: 3D Robotics (3DRControlZeroG 1124).
+/// - 27ac: Laser Navigation and Swift-Flyer (VRBrain, VRCore, F4BY).
+/// - 35a7: ThePeach (thepeach-k1, thepeach-r1).
+/// - 16d0:1542: Tustin MACH (16d0 is a shared vendor id, so the product is matched too).
+///
+/// Adapters: the ids the USB-serial chips ship with, as Linux's usb-serial drivers list them (ftdi_sio, cp210x, ch341).
+/// SiK telemetry radios and most FTDI cables are one of these. They rank below an autopilot.
+export const KNOWN_USB: UsbIdentity[] = [
+  UsbIdentity { vendorId: "1209", productId: "5740", name: "ArduPilot", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "1209", productId: "5741", name: "ArduPilot", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "2dae", productId: null, name: "CubePilot", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "3162", productId: null, name: "Holybro", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "26ac", productId: null, name: "3D Robotics", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "27ac", productId: null, name: "Laser Navigation", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "35a7", productId: null, name: "ThePeach", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "16d0", productId: "1542", name: "Tustin MACH", kind: UsbKind.Autopilot },
+  UsbIdentity { vendorId: "0403", productId: "6001", name: "FTDI USB-serial", kind: UsbKind.Adapter },
+  UsbIdentity { vendorId: "0403", productId: "6015", name: "FTDI USB-serial", kind: UsbKind.Adapter },
+  UsbIdentity { vendorId: "10c4", productId: "ea60", name: "Silicon Labs USB-serial", kind: UsbKind.Adapter },
+  UsbIdentity { vendorId: "1a86", productId: "7523", name: "CH340 USB-serial", kind: UsbKind.Adapter },
+]
+
+/// The rates tried, in order: 115200 (ArduPilot's default for the USB port and SERIAL0), 57600 (its default for
+/// telemetry, SERIAL1, and a SiK radio's), then the faster rates a companion link uses and 38400 (ArduPilot's SERIALn_BAUD
+/// choices). A USB autopilot ignores the rate, so the first one answers.
+export const BAUD_RATES: int[] = [115200, 57600, 921600, 460800, 230400, 38400]
+
+/// How long a rate is listened to: more than the 1 s between two of ArduPilot's heartbeats.
+export const WINDOW_MS: int = 1500
+
+/// What the USB identity of a port says it is, if it is known.
+export function identify(port: PortInfo): UsbIdentity? {
+  const vendor = port.vendorId
+  if (vendor == null) {
+    return null
+  }
+  const v = vendor!.toLowerCase()
+  const p = (port.productId ?? "").toLowerCase()
+  for (const known of KNOWN_USB) {
+    if (known.vendorId == v && (known.productId == null || known.productId! == p)) {
+      return known
+    }
+  }
+  return null
+}
+
+/// How likely a port is to be the autopilot: 2 for an autopilot's identity, 1 for a USB-serial chip, 0 otherwise.
+export function rankOf(port: PortInfo): int {
+  const known = identify(port)
+  if (known == null) {
+    return 0
+  }
+  return if (known!.kind == UsbKind.Autopilot) 2 else 1
+}
+
+/// The port most likely to be the autopilot: the best ranked one recognised (the first listed among equals); with none
+/// recognised, the one USB port when there is only one (a built-in UART is never guessed). Null when it can't be told.
+export function likelyPort(ports: PortInfo[]): PortInfo? {
+  let best: PortInfo? = null
+  let bestRank = 0
+  for (const p of ports) {
+    const rank = rankOf(p)
+    if (rank > bestRank) {
+      best = p
+      bestRank = rank
+    }
+  }
+  if (best != null) {
+    return best
+  }
+  const usb = ports.filter((p: PortInfo) => p.vendorId != null)
+  return if (usb.length == 1) usb[0] else null
+}
+
+/// Why a detection found nothing. `code`: NO_SERIAL_PORT, NO_AUTOPILOT_PORT, PORT_GONE or NO_MAVLINK.
+export class DetectError extends Error {
+  public code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.code = code
+  }
+}
+
+/// The port a serial request without a device uses.
+export function choosePort(ports: PortInfo[]): PortInfo throws DetectError {
+  if (ports.length == 0) {
+    throw new DetectError("NO_SERIAL_PORT", "this computer has no serial port")
+  }
+  const p = likelyPort(ports)
+  if (p == null) {
+    throw new DetectError("NO_AUTOPILOT_PORT", `none of the ${ports.length} serial ports looks like an autopilot`)
+  }
+  return p!
+}
+
+/// A stream that gives what was read while detecting before what comes next.
+export class ReplayStream implements ByteStream {
+  readonly inner: ByteStream
+  pending: Uint8Array?
+
+  constructor(inner: ByteStream, pending: Uint8Array) {
+    this.inner = inner
+    this.pending = pending
+  }
+
+  public async read(): Promise<Uint8Array?> throws Error {
+    const first = pending
+    if (first != null) {
+      pending = null
+      return first
+    }
+    return await inner.read()
+  }
+
+  public write(bytes: Uint8Array): Promise<void, Error> {
+    inner.write(bytes)
+  }
+
+  public close(): void {
+    inner.close()
+  }
+}
+
+/// The chunks, one after the other.
+function joined(chunks: Uint8Array[]): Uint8Array {
+  let total = 0
+  for (const c of chunks) {
+    total += c.length
+  }
+  const out = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) {
+    out.setAll(c, at)
+    at += c.length
+  }
+  return out
+}
+
+/// Reads `stream` for up to `windowMs`: what was read, once it holds a whole MAVLink frame; null when none came in time.
+/// Throws when the stream ends or fails (the port went away).
+export async function listen(stream: ByteStream, windowMs: int): Promise<Uint8Array?> throws Error {
+  const splitter = new MavLinkPacketSplitter()
+  const chunks: Uint8Array[] = []
+  const start = Date.now() as int
+  while (true) {
+    const left = windowMs - ((Date.now() as int) - start)
+    if (left <= 0) {
+      return null
+    }
+    let chunk: Uint8Array? = null
+    try {
+      chunk = await withTimeout(stream.read(), left)
+    } catch (e: Error) {
+      if (e instanceof TimeoutError) {
+        return null
+      }
+      throw e
+    }
+    if (chunk == null) {
+      throw new DetectError("PORT_GONE", "the port closed")
+    }
+    chunks.push(chunk!)
+    if (splitter.push(chunk!).length > 0) {
+      return joined(chunks)
+    }
+  }
+  return null
+}
+
+/// The stream found at a rate, and the rate.
+export struct Detected {
+  stream: ByteStream
+  baud: int
+}
+
+/// Opens a port at each of `bauds` in turn (`openAt`) and listens for `windowMs`, until MAVLink arrives: the stream that
+/// brought it (with what was read kept for its first read) and its rate. A port that can't be opened at the first rate is
+/// that error, as when the rate is given; a port that goes away after that (it can't be opened again, or its reads end) is
+/// a DetectError PORT_GONE, and no rate that brought MAVLink a DetectError NO_MAVLINK. `stillWanted` is asked before
+/// each rate: when it says no (the user connected elsewhere or disconnected), the detection ends with null.
+export async function detectBaud(
+  openAt: (baud: int) => Promise<ByteStream, Error>,
+  bauds: int[],
+  windowMs: int,
+  stillWanted: () => bool,
+): Promise<Detected?> throws Error {
+  let first = true
+  for (const baud of bauds) {
+    if (!stillWanted()) {
+      return null
+    }
+    let stream: ByteStream? = null
+    try {
+      stream = await openAt(baud)
+    } catch (e: Error) {
+      if (first) {
+        throw e
+      }
+      throw new DetectError("PORT_GONE", `the port went away while trying ${baud} baud: ${e.message}`)
+    }
+    first = false
+    let heard: Uint8Array? = null
+    try {
+      heard = await listen(stream!, windowMs)
+    } catch (e: Error) {
+      stream!.close()
+      throw new DetectError("PORT_GONE", `the port went away while trying ${baud} baud: ${e.message}`)
+    }
+    if (heard != null) {
+      const s: ByteStream = new ReplayStream(stream!, heard!)
+      return Detected { stream: s, baud: baud }
+    }
+    stream!.close()
+  }
+  const rates = bauds.map((b: int) => `${b}`).join(", ")
+  throw new DetectError("NO_MAVLINK", `no MAVLink at ${rates} baud`)
+}

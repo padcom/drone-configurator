@@ -62,8 +62,9 @@ it("lists every action with its key and a button to change it, the Parameters sc
   expect(keyOf(wrapper, 'palette.open')).toBe('Ctrl P')
   expect(keyOf(wrapper, 'panes.previous')).toBe('Shift F6')
   expect(keyOf(wrapper, 'params.search')).toBe('Ctrl /')
-  expect(wrapper.findAll('.keys-row')).toHaveLength(6)
-  expect(wrapper.findAll('[id^="keys-change-"]')).toHaveLength(6)
+  expect(keyOf(wrapper, 'connect.last')).toBe('Ctrl L')
+  expect(wrapper.findAll('.keys-row')).toHaveLength(7)
+  expect(wrapper.findAll('[id^="keys-change-"]')).toHaveLength(7)
   expect(wrapper.text()).not.toContain('cannot be changed')
 })
 

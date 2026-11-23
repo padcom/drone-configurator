@@ -13,6 +13,18 @@
     "simulator": "Verbindet mit dem eingebauten Simulator: keine Hardware nötig.",
     "last": "Das öffnet sich mit deiner letzten Verbindung, meist genügt also die Eingabetaste.",
     "cancel": "Abbrechen",
+    "again": "Erneut verbinden",
+    "detect": {
+      "device": "Autopilot suchen",
+      "deviceFound": "Autopilot suchen (jetzt {path})",
+      "baud": "Übliche Baudraten probieren",
+      "next": {
+        "NO_SERIAL_PORT": "Schließe den Flugcontroller oder das Telemetriefunkgerät an und verbinde dann erneut.",
+        "NO_AUTOPILOT_PORT": "Mehrere Ports sind aufgeführt, keiner sieht nach einem Flugcontroller aus: Wähle seinen Port und verbinde dann erneut.",
+        "PORT_GONE": "Der Port ist verschwunden: Prüfe das Kabel, schließe den Flugcontroller wieder an und verbinde dann erneut.",
+        "NO_MAVLINK": "Prüfe, ob der Port MAVLink sendet (SERIALn_PROTOCOL am Fahrzeug), oder wähle seine Baudrate, und verbinde dann erneut."
+      }
+    },
     "open": "Mit einem Fahrzeug verbinden oder die Verbindung ansehen",
     "next": {
       "udp": "Prüfe, ob das Fahrzeug oder der Simulator an diesen Host und Port sendet, und verbinde dann erneut.",
@@ -1411,6 +1423,10 @@
       "label": "Mit einem Fahrzeug verbinden …",
       "keywords": "verbindung seriell tcp udp port öffnen"
     },
+    "connectAgain": {
+      "label": "Erneut mit dem letzten Fahrzeug verbinden",
+      "keywords": "wiederverbinden letzte erneut verbindung reconnect"
+    },
     "disconnect": {
       "keywords": "trennen schließen verbindung sitzung beenden"
     },
@@ -1451,6 +1467,8 @@
       "noParameters": "Es gibt noch keine Parameter.",
       "busy": "Parameter werden geschrieben oder geladen, oder ein Neustart läuft bereits.",
       "notConnected": "Verbinde dich zuerst mit einem Fahrzeug.",
+      "linkUp": "Eine Verbindung besteht bereits oder wird aufgebaut.",
+      "noLastConnection": "Es wurde noch keine Verbindung hergestellt: Nutze „Mit einem Fahrzeug verbinden“.",
       "stateUnknown": "Der Zustand des Fahrzeugs ist unbekannt (kein aktueller Heartbeat).",
       "armed": "Entschärfe das Fahrzeug zuerst. Ein fliegendes Fahrzeug wird nie neu gestartet.",
       "writing": "Warte, bis die Parameter geschrieben sind.",
