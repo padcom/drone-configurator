@@ -12,6 +12,8 @@ describe('the text of a value', () => {
     expect(showStored(1500, ALTITUDE)).toBe('15')
     expect(showStored(1550, ALTITUDE)).toBe('15.5')
     expect(showStored(3.3, PLAIN)).toBe('3.3')
+    // (the float the vehicle holds for 14.8: no digits that only the widening put there)
+    expect(showStored(Math.fround(14.8), { ...PLAIN, type: 'REAL32' })).toBe('14.8')
   })
 })
 

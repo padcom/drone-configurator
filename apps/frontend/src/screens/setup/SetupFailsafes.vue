@@ -18,19 +18,23 @@
         </div>
         <div v-if="row.threshold" class="setup-threshold">
           <label :for="`${uid}-${row.kind}`">{{ t(`setup.failsafes.${row.kind}.below`) }}</label>
-          <TextInput
-            :id="`${uid}-${row.kind}`"
-            :model-value="fieldText(row.thresholdValue)"
-            :disabled="locked(row.threshold)"
-            @update:model-value="setVoltage(row.threshold, $event)"
+          <PanelField
+            :input-id="`${uid}-${row.kind}`"
+            :panel="panel"
+            :id="row.threshold"
+            unit="V"
+            :min="0"
+            :step="0.1"
+            :integer="false"
+            :label="t(`setup.failsafes.${row.kind}.below`)"
           />
         </div>
-        <EnumField
-          :model-value="row.value"
+        <PanelField
+          :panel="panel"
+          :id="row.actionParam"
+          kind="enum"
           :options="row.options"
           :label="t('setup.failsafes.then', { name: t(`setup.failsafes.${row.kind}.name`) })"
-          :disabled="locked(row.actionParam)"
-          @update:model-value="panel.set(row.actionParam, $event)"
         />
       </article>
       <Banner v-if="orderBad" id="setup-order" tone="warn">{{ t('setup.failsafes.order') }}</Banner>
@@ -50,11 +54,9 @@ import { computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import Banner from '@/components/ui/Banner.vue'
-import TextInput from '@/components/ui/TextInput.vue'
-import EnumField from '@/components/fields/EnumField.vue'
+import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
-import { fieldText } from '@/lib/params/paramValue'
 import {
   FAILSAFES,
   FAILSAFE_ORDER,
@@ -63,7 +65,6 @@ import {
   actionOf,
   choicesOf,
   isDangerous,
-  parseVolts,
   voltagesOutOfOrder,
 } from '@/lib/setup/failsafes'
 
@@ -71,16 +72,6 @@ const { t } = useI18n()
 const uid = useId()
 const panel = useParamPanel(FAILSAFE_PARAMS, useConfigurator())
 const orderBad = computed(() => voltagesOutOfOrder(panel.value('BATT_LOW_VOLT') ?? 0, panel.value('BATT_CRT_VOLT') ?? 0))
-
-/**
- * Whether a field of the page cannot be used now: nothing can be written, or the vehicle does not have the parameter.
- *
- * @param id the parameter
- * @returns true if it is off
- */
-function locked(id: string): boolean {
-  return panel.blocked.value !== null || panel.missing.value.includes(id)
-}
 
 /**
  * What a choice does, in a sentence.
@@ -132,16 +123,4 @@ function rowOf(kind: FailsafeKind) {
 
 const rows = computed(() => FAILSAFE_ORDER.map(rowOf))
 
-/**
- * A voltage as typed: volts that are not negative, else it is not taken.
- *
- * @param id the parameter
- * @param text what was typed
- */
-function setVoltage(id: string, text: string): void {
-  const volts = parseVolts(text)
-  if (volts !== null) {
-    panel.set(id, volts)
-  }
-}
 </script>

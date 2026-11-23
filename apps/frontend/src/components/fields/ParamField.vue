@@ -3,6 +3,7 @@
     <NumberField
       v-if="kind === 'number'"
       :model-value="current"
+      :input-id="inputId"
       :label="name"
       :unit="unit"
       :min="min"
@@ -17,6 +18,7 @@
     <EnumField
       v-else-if="kind === 'enum'"
       v-model="chosen"
+      :input-id="inputId"
       :options="options"
       :label="name"
       :describedby="statusId"
@@ -97,6 +99,10 @@ const props = withDefaults(defineProps<{
   bits?: BitOption[]
   /** The parameter's type, INT16, UINT32, REAL32 and so on: every value is the number the vehicle holds for it. */
   type?: string
+  /** The id of the control, for a `<label for>` on the page (the name is then not said a second time). */
+  inputId?: string
+  /** The control is off whatever the status (the screen cannot write now: the vehicle is armed, say). */
+  locked?: boolean
 }>(), {
   rejection: undefined,
   unit: undefined,
@@ -107,6 +113,8 @@ const props = withDefaults(defineProps<{
   options: () => [],
   bits: () => [],
   type: undefined,
+  locked: false,
+  inputId: undefined,
 })
 
 const emit = defineEmits<{
@@ -123,7 +131,7 @@ const statusId = useId()
 const status = computed<FieldStatus>(() => statusOf(props.facts))
 /** What the control shows: the draft, else the vehicle's value (0 before the vehicle has said: the field is off then). */
 const current = computed(() => shownValue(props.facts) ?? 0)
-const busy = computed(() => status.value === 'writing' || status.value === 'unknown')
+const busy = computed(() => props.locked || status.value === 'writing' || status.value === 'unknown')
 const chosen = computed({
   get: () => current.value,
   set: (value: number) => emit('draft', value),
@@ -146,7 +154,7 @@ const mark = computed(() => MARKS[status.value])
  */
 function shown(value: number): string {
   const view = viewOf(props.unit)
-  const text = showStored(value, { view })
+  const text = showStored(value, { view, type: props.type })
 
   return view.unit === '' ? text : `${text} ${view.unit}`
 }
