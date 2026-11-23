@@ -49,9 +49,9 @@ async function focusNothing(): Promise<void> {
  * Presses Shift+F6 (the driver's `press` has no Shift): the key event reaches the window as the keyboard's does.
  */
 async function shiftF6(): Promise<void> {
-  await app.evaluate(
-    `window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F6', shiftKey: true, bubbles: true, cancelable: true }))`,
-  )
+  // (with the physical key: the keymap matches by `code`)
+  const init = `{ key: 'F6', code: 'F6', shiftKey: true, bubbles: true, cancelable: true }`
+  await app.evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', ${init}))`)
 }
 
 describe('the regions of the Fly screen, with a vehicle connected', () => {
