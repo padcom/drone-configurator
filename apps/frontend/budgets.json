@@ -45,9 +45,9 @@
     },
     "tableScroll": {
       "unit": "ms",
-      "budget": 20,
-      "noise": 2.5,
-      "what": "The time between two frames while the Plan table, at the plan's 1,000 items (its most), is scrolled a few rows a frame: the kit's data table at 60 fps (a frame is 16.7 ms; the median allows the timer's jitter)",
+      "budget": 12,
+      "noise": 2,
+      "what": "The table's own work for a scroll step: from the scroll to its rows drawn and laid out (before the paint), while the Plan table, at the plan's 1,000 items (its most), is scrolled a few rows at a time. Within a 60 fps frame (16.7 ms) with room left for the paint in the median",
       "measuredBy": "e2e/plan-table-speed.e2e.ts"
     }
   }

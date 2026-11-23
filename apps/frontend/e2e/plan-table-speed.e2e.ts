@@ -1,7 +1,8 @@
 // End to end, in the real window: the speed of the kit's data table (#15), as the Plan page's Table tool, with the most items a
 // plan may have (1,000: the page's own Duplicate stops there). The table is scrolled a few rows a frame, from the top, and the
-// time between frames is judged against the `tableScroll` budget (budgets.json): the median within it, the 95th percentile
-// within it times its noise.
+// table's own work for each step (from the scroll to its rows drawn and laid out, before the paint, which is the machine's) is
+// judged against the `tableScroll` budget (budgets.json): the median within it, the 95th percentile within it times its noise.
+// (The time between frames measured the runner's painting as much as the table: 60 Hz on one CI runner, 40 on another.)
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { expectWithinBudget } from './budgets'
 import { showScreen } from './click'
@@ -25,23 +26,28 @@ const window = (): E2eApp => app as E2eApp
 /** The number of items in the page's list. */
 const COUNT = `document.querySelectorAll('.plan-item').length`
 
-/** A page script that scrolls the table a step a frame and gives the time between frames (ms). */
+/**
+ * A page script that scrolls the table a step a frame and gives, for each step, the time from the scroll to the table's rows
+ * drawn and laid out (ms): the scroll is told at once, the page's update (a microtask) runs, and a layout is asked for.
+ */
 const SCROLLING = `(async () => {
   const area = document.querySelector('.plan-table .data-table-scroll')
   const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
   area.scrollTop = 0
   await frame()
   await frame()
-  const gaps = []
-  let last = performance.now()
+  const work = []
   for (let i = 0; i < ${FRAMES}; i++) {
+    const start = performance.now()
     area.scrollTop += ${STEP_PX}
+    area.dispatchEvent(new Event('scroll'))
+    await Promise.resolve()
+    area.getBoundingClientRect()
+    void area.offsetHeight
+    work.push(performance.now() - start)
     await frame()
-    const now = performance.now()
-    gaps.push(now - last)
-    last = now
   }
-  return gaps
+  return work
 })()`
 
 beforeAll(async () => {
@@ -76,7 +82,7 @@ describe('the Plan table at its most items', () => {
     expect(counts.drawn).toBeLessThan(60)
   })
 
-  it('scrolls at 60 fps: the time between frames within the budget', async () => {
+  it("scrolls at 60 fps: the table's work for a step within the budget", async () => {
     expectWithinBudget('tableScroll', await window().evaluate<number[]>(SCROLLING))
   }, 60_000)
 })
