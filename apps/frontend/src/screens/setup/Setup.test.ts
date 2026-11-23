@@ -366,6 +366,7 @@ it('refuses a critical voltage that is not below the low one, and writes nothing
   const { wrapper, asked } = await page(SetupFailsafes)
   const input = wrapper.get('[data-failsafe="batteryCritical"] .setup-threshold input')
   await input.setValue('11')
+  await input.trigger('blur')
   await flushPromises()
 
   expect(wrapper.get('#setup-order').text()).toContain('Critical voltage must be below'.replace('Critical', 'The critical'))

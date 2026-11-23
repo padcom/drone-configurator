@@ -5,6 +5,7 @@
 // as armed), by the queue here and by the backend, and the panel says why instead of failing.
 import { type ComputedRef, type ShallowRef, computed, shallowRef, watch } from 'vue'
 import { armedOf } from '@/lib/app/armed'
+import type { FieldFacts, WriteState } from '@/lib/params/fieldState'
 import { type ValueType, canonical } from '@/lib/params/paramValue'
 import type { ConfiguratorHandle } from './useConfigurator'
 
@@ -57,6 +58,17 @@ export interface ParamPanel {
   readonly armed: ComputedRef<boolean>
   /** What the last write did, parameter by parameter; null before any, and when the changes were refused before a write. */
   readonly outcome: ShallowRef<PanelOutcome | null>
+  /**
+   * What a field bound to a parameter shows (lib/params/fieldState.ts): the vehicle's value, the choice made here, what the
+   * vehicle held when it was made (a conflict when it holds another now), and how its last write went.
+   */
+  facts: (id: string) => FieldFacts
+  /** Why the vehicle did not take the last write of a parameter (with a `rejected` field), or undefined. */
+  rejection: (id: string) => string | undefined
+  /** Keeps the choice over the value the vehicle changed under it: the vehicle's new value is its basis now. */
+  keep: (id: string) => void
+  /** Takes the vehicle's value: the choice for the parameter is forgotten, and taken out of the queue. */
+  take: (id: string) => void
   /** Writes what differs, after the one question. */
   write: () => Promise<void>
   /** Puts back what the vehicle has: the choices are forgotten, and what was queued from here is taken out. */
@@ -113,6 +125,34 @@ function outcomeOf(sent: string[], left: string[], results: { id: string, detail
   }
 }
 
+/**
+ * A record without one of its keys.
+ *
+ * @param record the record
+ * @param key the key
+ * @returns a new record
+ */
+function without<T>(record: Record<string, T>, key: string): Record<string, T> {
+  const rest = { ...record }
+  delete rest[key]
+
+  return rest
+}
+
+/**
+ * How a write went for each parameter it wrote: read back (verified), or not confirmed (rejected, with the reason). One that was
+ * never written has no mark: its field still shows the choice.
+ *
+ * @param outcome what the write did
+ * @returns the marks, by parameter
+ */
+function marksOf(outcome: PanelOutcome): Record<string, { write: WriteState, reason?: string }> {
+  return Object.fromEntries([
+    ...outcome.confirmed.map(id => [id, { write: 'verified' as const }]),
+    ...outcome.notConfirmed.map(({ id, detail }) => [id, { write: 'rejected' as const, reason: detail }]),
+  ])
+}
+
 /** The parameters of a page. */
 class Panel implements ParamPanel {
   readonly state = shallowRef<PanelState>('idle')
@@ -126,6 +166,12 @@ class Panel implements ParamPanel {
   readonly armed: ComputedRef<boolean>
   readonly outcome = shallowRef<PanelOutcome | null>(null)
   private readonly chosen = shallowRef<Record<string, number>>({})
+  /** What the vehicle held when each choice was made. */
+  private readonly basis = shallowRef<Record<string, number>>({})
+  /** The parameters of the write under way. */
+  private readonly sending = shallowRef<string[]>([])
+  /** How the last write of each parameter went (verified or rejected, and why), until the next choice for it. */
+  private readonly marks = shallowRef<Record<string, { write: WriteState, reason?: string }>>({})
   private readonly byId: ComputedRef<Map<string, number>>
   private readonly typeById: ComputedRef<Map<string, ValueType>>
 
@@ -191,8 +237,60 @@ class Panel implements ParamPanel {
   value = (id: string): number | null => this.chosen.value[id] ?? this.vehicleValue(id)
 
   set = (id: string, value: number): void => {
+    const vehicle = this.vehicleValue(id)
+    if (this.chosen.value[id] === undefined && vehicle !== null) {
+      this.basis.value = { ...this.basis.value, [id]: vehicle }
+    }
     this.chosen.value = { ...this.chosen.value, [id]: value }
+    this.unmark(id)
     this.state.value = 'idle'
+  }
+
+  facts = (id: string): FieldFacts => ({
+    vehicle: this.vehicleValue(id) ?? undefined,
+    draft: this.chosen.value[id] ?? null,
+    basis: this.basis.value[id],
+    write: this.writeOf(id),
+  })
+
+  /**
+   * Where the write of a parameter is: under way, else how the last one went.
+   *
+   * @param id the parameter
+   * @returns the state
+   */
+  private writeOf(id: string): WriteState {
+    const mark = this.marks.value[id]
+    const sending = this.writing.value && this.sending.value.includes(id)
+
+    return sending ? 'writing' : (mark === undefined ? 'idle' : mark.write)
+  }
+
+  rejection = (id: string): string | undefined => this.marks.value[id]?.reason
+
+  keep = (id: string): void => {
+    const vehicle = this.vehicleValue(id)
+    if (vehicle !== null && this.chosen.value[id] !== undefined) {
+      this.basis.value = { ...this.basis.value, [id]: vehicle }
+    }
+  }
+
+  take = (id: string): void => {
+    this.chosen.value = without(this.chosen.value, id)
+    this.basis.value = without(this.basis.value, id)
+    this.unmark(id)
+    this.handle.staged.discard(id)
+  }
+
+  /**
+   * Forgets how the last write of a parameter went.
+   *
+   * @param id the parameter
+   */
+  private unmark(id: string): void {
+    if (this.marks.value[id] !== undefined) {
+      this.marks.value = without(this.marks.value, id)
+    }
   }
 
   /**
@@ -205,9 +303,12 @@ class Panel implements ParamPanel {
     const { staged } = this.handle
     const left = sent.filter(id => staged.pending().some(change => change.id === id))
     this.outcome.value = outcomeOf(sent, left, staged.results.value)
+    this.sending.value = []
+    this.marks.value = { ...this.marks.value, ...marksOf(this.outcome.value) }
 
     if (left.length === 0) {
       this.chosen.value = {}
+      this.basis.value = {}
       this.state.value = 'written'
       this.detail.value = ''
       // What was written before and not rebooted for yet stays, with what it was written over (the first value is in force).
@@ -256,6 +357,8 @@ class Panel implements ParamPanel {
     this.begin(sent)
 
     if (this.refusedBy(staged)) {
+      this.sending.value = []
+
       return
     }
     await staged.writeAll()
@@ -272,6 +375,7 @@ class Panel implements ParamPanel {
     this.state.value = 'idle'
     this.detail.value = ''
     this.outcome.value = null
+    this.sending.value = sent
     const how = this.tuning ? { tuning: true } : { guarded: true }
 
     this.handle.staged.stage(sent.map(id => ({ id, to: this.value(id) ?? 0 })), how)
@@ -284,13 +388,18 @@ class Panel implements ParamPanel {
    * @param was the values they had
    */
   private finish(sent: string[], was: Record<string, number>): void {
-    if (!this.refusedBy(this.handle.staged)) {
-      this.settle(sent, was)
+    if (this.refusedBy(this.handle.staged)) {
+      this.sending.value = []
+
+      return
     }
+    this.settle(sent, was)
   }
 
   revert = (): void => {
     this.chosen.value = {}
+    this.basis.value = {}
+    this.marks.value = {}
     this.state.value = 'idle'
     this.detail.value = ''
     this.outcome.value = null

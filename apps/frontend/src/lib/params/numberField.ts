@@ -1,7 +1,7 @@
 // What a numeric parameter field does with a number, from plain values (no DOM): the text for a stored value in the
 // unit it is shown in, what a typed text stands for (and why it is not a value), and a step of the arrow keys. Limits
 // and the step are in the stored unit (the metadata's); the text is in the shown one (lib/params/units.ts).
-import { canonical, plainNumber } from './paramValue'
+import { canonical, plainNumber, showNumber } from './paramValue'
 import { type UnitView, shownText, toDisplay, toStored } from './units'
 
 /** What a numeric field knows about the parameter. */
@@ -42,7 +42,10 @@ export type Parsed = { ok: true, stored: number } | { ok: false, problem: Proble
  * @returns the text
  */
 export function showStored(stored: number, spec: NumberSpec): string {
-  return shownText(toDisplay(stored, spec.view), spec.view)
+  // (a REAL32 is read as the shortest number that is the same float first: the vehicle's 14.8 comes as 14.800000190734863)
+  const plain = spec.type === 'REAL32' ? Number(showNumber(stored)) : stored
+
+  return shownText(toDisplay(plain, spec.view), spec.view)
 }
 
 /**

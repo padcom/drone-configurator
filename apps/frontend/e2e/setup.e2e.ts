@@ -123,6 +123,21 @@ it('says what each failsafe does, and warns for the ground station failsafe that
   expect(await window().text('[data-failsafe="gcs"] .setup-warn')).toContain('is off')
 })
 
+it('says a failsafe voltage is modified, then verified once it is written and read back', async () => {
+  await openPage('failsafes')
+  const low = '[data-param="BATT_LOW_VOLT"]'
+  await window().waitFor(`document.querySelector('${low} input') !== null`, 30_000)
+  await window().fill(`${low} input`, '10.8')
+  // (the field takes what was typed when it is left)
+  await window().evaluate(`document.querySelector('${low} input').dispatchEvent(new Event('blur'))`)
+  await window().waitFor(`document.querySelector('${low}')?.dataset.status === 'draft'`, 10_000)
+  await window().click('#setup-failsafes-write')
+  await confirmWrite(window())
+  await window().waitFor(`document.querySelector('${low}')?.dataset.status === 'verified'`, 30_000)
+
+  expect(await window().text(`${low} .status`)).toBe('Verified: the vehicle reads 10.8 V back.')
+})
+
 it('shows the vehicle and its autopilot on the information page', async () => {
   await openPage('info')
   await window().waitFor(`document.querySelector('.setup-facts-list') !== null`, 30_000)
