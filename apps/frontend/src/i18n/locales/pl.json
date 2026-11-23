@@ -490,6 +490,7 @@
       "fields": "Pola",
       "choices": "Wybory",
       "badges": "Znaczki",
+      "paramFields": "Pola parametrów",
       "panels": "Panele",
       "contextMenu": "Menu kontekstowe",
       "icons": "Ikony",
@@ -573,6 +574,15 @@
       "action2": "Zawsze ląduj",
       "save": "Zapisz",
       "unnamed": "Wartość bez nazwy"
+    },
+    "fields": {
+      "simulate": "Symuluj",
+      "changes": "Pojazd to zmienia",
+      "writing": "Trwa zapis",
+      "verified": "Zapis jest zweryfikowany",
+      "rejected": "Zapis jest odrzucony",
+      "reset": "Od nowa",
+      "reason": "wartość nie jest dozwolona w tym trybie"
     },
     "surface": {
       "label": "Bateria",
@@ -967,6 +977,29 @@
       "static": "Fix statyczny",
       "ppp": "Fix PPP",
       "other": "Nieznany fix"
+    }
+  },
+  "field": {
+    "number": {
+      "empty": "Wpisz liczbę.",
+      "nan": "To nie jest liczba.",
+      "low": "Co najmniej {limit}.",
+      "high": "Co najwyżej {limit}."
+    },
+    "status": {
+      "unknown": "Jeszcze nie odczytano z pojazdu.",
+      "vehicle": "Wartość pojazdu.",
+      "draft": "Zmieniono: pojazd ma {vehicle}.",
+      "writing": "Zapis do pojazdu…",
+      "verified": "Zweryfikowano: pojazd odczytuje {value}.",
+      "rejected": "Odrzucono: {reason}",
+      "conflict": "Zmieniono w pojeździe: ma {vehicle}.",
+      "noReason": "pojazd nie przyjął wartości"
+    },
+    "conflict": {
+      "text": "Pojazd zmienił {name} na {vehicle}, gdy to edytowałeś. Twój szkic to {draft}.",
+      "keep": "Zachowaj mój szkic",
+      "take": "Użyj wartości pojazdu"
     }
   },
   "confirm": {

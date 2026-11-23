@@ -490,6 +490,7 @@
       "fields": "Campos",
       "choices": "Opciones",
       "badges": "Insignias",
+      "paramFields": "Campos de parámetros",
       "panels": "Paneles",
       "contextMenu": "Menú contextual",
       "icons": "Iconos",
@@ -573,6 +574,15 @@
       "action2": "Aterrizar siempre",
       "save": "Guardar",
       "unnamed": "Un valor sin nombre"
+    },
+    "fields": {
+      "simulate": "Simular",
+      "changes": "El vehículo lo cambia",
+      "writing": "Hay una escritura en curso",
+      "verified": "La escritura se verifica",
+      "rejected": "La escritura se rechaza",
+      "reset": "Empezar de nuevo",
+      "reason": "el valor no está permitido en este modo"
     },
     "surface": {
       "label": "Batería",
@@ -967,6 +977,29 @@
       "static": "Fix estático",
       "ppp": "Fix PPP",
       "other": "Fix desconocido"
+    }
+  },
+  "field": {
+    "number": {
+      "empty": "Escribe un número.",
+      "nan": "Eso no es un número.",
+      "low": "Como mínimo {limit}.",
+      "high": "Como máximo {limit}."
+    },
+    "status": {
+      "unknown": "Aún no leído del vehículo.",
+      "vehicle": "Valor del vehículo.",
+      "draft": "Modificado: el vehículo tiene {vehicle}.",
+      "writing": "Escribiendo en el vehículo…",
+      "verified": "Verificado: el vehículo devuelve {value}.",
+      "rejected": "Rechazado: {reason}",
+      "conflict": "Cambiado en el vehículo: tiene {vehicle}.",
+      "noReason": "el vehículo no aceptó el valor"
+    },
+    "conflict": {
+      "text": "El vehículo cambió {name} a {vehicle} mientras lo editabas. Tu borrador es {draft}.",
+      "keep": "Conservar mi borrador",
+      "take": "Usar el valor del vehículo"
     }
   },
   "confirm": {

@@ -490,6 +490,7 @@
       "fields": "Fields",
       "choices": "Choices",
       "badges": "Badges",
+      "paramFields": "Parameter fields",
       "panels": "Panels",
       "contextMenu": "Context menu",
       "icons": "Icons",
@@ -573,6 +574,15 @@
       "action2": "Always land",
       "save": "Save",
       "unnamed": "A value that has no name"
+    },
+    "fields": {
+      "simulate": "Simulate",
+      "changes": "The vehicle changes it",
+      "writing": "A write is under way",
+      "verified": "The write is verified",
+      "rejected": "The write is rejected",
+      "reset": "Start again",
+      "reason": "the value is not allowed in this mode"
     },
     "surface": {
       "label": "Battery",
@@ -967,6 +977,29 @@
       "static": "Static fix",
       "ppp": "PPP fix",
       "other": "Unknown fix"
+    }
+  },
+  "field": {
+    "number": {
+      "empty": "Enter a number.",
+      "nan": "That is not a number.",
+      "low": "At least {limit}.",
+      "high": "At most {limit}."
+    },
+    "status": {
+      "unknown": "Not read from the vehicle yet.",
+      "vehicle": "The vehicle's value.",
+      "draft": "Modified: the vehicle has {vehicle}.",
+      "writing": "Writing to the vehicle…",
+      "verified": "Verified: the vehicle reads {value} back.",
+      "rejected": "Rejected: {reason}",
+      "conflict": "Changed on the vehicle: it has {vehicle}.",
+      "noReason": "the vehicle did not accept the value"
+    },
+    "conflict": {
+      "text": "The vehicle changed {name} to {vehicle} while you were editing it. Your draft is {draft}.",
+      "keep": "Keep my draft",
+      "take": "Use the vehicle's value"
     }
   },
   "confirm": {

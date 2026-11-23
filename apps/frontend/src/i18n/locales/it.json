@@ -490,6 +490,7 @@
       "fields": "Campi",
       "choices": "Scelte",
       "badges": "Etichette",
+      "paramFields": "Campi dei parametri",
       "panels": "Pannelli",
       "contextMenu": "Menu contestuale",
       "icons": "Icone",
@@ -573,6 +574,15 @@
       "action2": "Atterra sempre",
       "save": "Salva",
       "unnamed": "Un valore senza nome"
+    },
+    "fields": {
+      "simulate": "Simula",
+      "changes": "Il veicolo lo cambia",
+      "writing": "Una scrittura è in corso",
+      "verified": "La scrittura è verificata",
+      "rejected": "La scrittura è rifiutata",
+      "reset": "Ricomincia",
+      "reason": "il valore non è permesso in questa modalità"
     },
     "surface": {
       "label": "Batteria",
@@ -967,6 +977,29 @@
       "static": "Fix statico",
       "ppp": "Fix PPP",
       "other": "Fix sconosciuto"
+    }
+  },
+  "field": {
+    "number": {
+      "empty": "Inserisci un numero.",
+      "nan": "Non è un numero.",
+      "low": "Almeno {limit}.",
+      "high": "Al massimo {limit}."
+    },
+    "status": {
+      "unknown": "Non ancora letto dal veicolo.",
+      "vehicle": "Valore del veicolo.",
+      "draft": "Modificato: il veicolo ha {vehicle}.",
+      "writing": "Scrittura sul veicolo…",
+      "verified": "Verificato: il veicolo rilegge {value}.",
+      "rejected": "Rifiutato: {reason}",
+      "conflict": "Cambiato sul veicolo: ora ha {vehicle}.",
+      "noReason": "il veicolo non ha accettato il valore"
+    },
+    "conflict": {
+      "text": "Il veicolo ha cambiato {name} in {vehicle} mentre lo modificavi. La tua bozza è {draft}.",
+      "keep": "Mantieni la mia bozza",
+      "take": "Usa il valore del veicolo"
     }
   },
   "confirm": {
