@@ -172,3 +172,40 @@
   justify-content: flex-end;
   padding: var(--space-2) var(--space-4);
 }
+
+/*
+ * From 1000 px wide the bar is ONE row, always 64 px: the rail and the screen below it never move when what the bar says
+ * changes (a longer connection line, "reconnected to the same vehicle", an action that comes and goes). A bar that wrapped
+ * moved everything under the pointer by a row, and a click meant for one rail item landed on the next (#343). The vehicle's
+ * lines give way first, with an ellipsis (the whole text is still read out, and the Connect dialog shows it).
+ */
+@media (width >= 1000px) {
+  .top-bar {
+    flex-wrap: nowrap;
+    height: var(--topbar-height);
+  }
+
+  .top-bar .vehicle {
+    flex: 0 1 auto;
+    min-width: 230px;
+  }
+
+  .top-bar .lines {
+    min-width: 0;
+  }
+
+  .top-bar .title,
+  .top-bar .sub {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .top-bar .cells {
+    flex-wrap: nowrap;
+  }
+
+  .top-bar .actions {
+    min-width: 0;
+  }
+}
