@@ -6612,6 +6612,211 @@ export function encodeMetadataFile(v: MetadataFile): Cbor {
   return Cbor.Dict(m)
 }
 
+export struct PresetsAsk {
+  vehicle?: MetadataVehicle
+  version?: string
+  refresh?: bool
+}
+
+export function decodePresetsAsk(v: Cbor, path: string): PresetsAsk throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "version", "refresh"])
+  const cbor0 = m.get("vehicle")
+  let opt0: MetadataVehicle? = null
+  if (cbor0 != null) {
+    opt0 = decodeMetadataVehicle(cbor0, `${path}.vehicle`)
+  }
+  const cbor1 = m.get("version")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.version`)
+  }
+  const cbor2 = m.get("refresh")
+  let opt2: bool? = null
+  if (cbor2 != null) {
+    opt2 = boolean(cbor2, `${path}.refresh`)
+  }
+  return PresetsAsk {
+    vehicle: opt0,
+    version: opt1,
+    refresh: opt2,
+  }
+}
+
+export function encodePresetsAsk(v: PresetsAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  const opt0 = v.vehicle
+  if (opt0 != null) {
+    m.set("vehicle", encodeMetadataVehicle(opt0))
+  }
+  const opt1 = v.version
+  if (opt1 != null) {
+    m.set("version", Cbor.Text(opt1))
+  }
+  const opt2 = v.refresh
+  if (opt2 != null) {
+    m.set("refresh", Cbor.Bool(opt2))
+  }
+  return Cbor.Dict(m)
+}
+
+export enum PresetsListFallback { Unreleased, Untagged }
+
+export function decodePresetsListFallback(v: Cbor, path: string): PresetsListFallback throws InvalidPayload {
+  match (text(v, path)) {
+    "unreleased" => PresetsListFallback.Unreleased,
+    "untagged" => PresetsListFallback.Untagged,
+    _ => throw new InvalidPayload(path, "unreleased or untagged"),
+  }
+}
+
+export function encodePresetsListFallback(v: PresetsListFallback): Cbor {
+  match (v) {
+    Unreleased => Cbor.Text("unreleased"),
+    Untagged => Cbor.Text("untagged"),
+  }
+}
+
+function decodePresetsListPresetsList(v: Cbor, path: string): PresetEntry[] throws InvalidPayload {
+  const out: PresetEntry[] = []
+  let i = 0
+  for (const e of items(v, path)) {
+    out.push(decodePresetEntry(e, `${path}[${i}]`))
+    i += 1
+  }
+  return out
+}
+
+function encodePresetsListPresetsList(v: PresetEntry[]): Cbor {
+  const out: Cbor[] = []
+  for (const e of v) {
+    out.push(encodePresetEntry(e))
+  }
+  return Cbor.List(out)
+}
+
+export struct PresetsList {
+  vehicle: MetadataVehicle
+  version?: string
+  ref: string
+  pinned: bool
+  fallback?: PresetsListFallback
+  presets: PresetEntry[]
+  fromCache: bool
+  stale: bool
+  fetchedAt: u64
+}
+
+export function decodePresetsList(v: Cbor, path: string): PresetsList throws InvalidPayload {
+  const m = members(v, path, ["vehicle", "version", "ref", "pinned", "fallback", "presets", "fromCache", "stale", "fetchedAt"])
+  const cbor1 = m.get("version")
+  let opt1: string? = null
+  if (cbor1 != null) {
+    opt1 = text(cbor1, `${path}.version`)
+  }
+  const cbor4 = m.get("fallback")
+  let opt4: PresetsListFallback? = null
+  if (cbor4 != null) {
+    opt4 = decodePresetsListFallback(cbor4, `${path}.fallback`)
+  }
+  return PresetsList {
+    vehicle: decodeMetadataVehicle(required(m, "vehicle", path), `${path}.vehicle`),
+    version: opt1,
+    ref: text(required(m, "ref", path), `${path}.ref`),
+    pinned: boolean(required(m, "pinned", path), `${path}.pinned`),
+    fallback: opt4,
+    presets: decodePresetsListPresetsList(required(m, "presets", path), `${path}.presets`),
+    fromCache: boolean(required(m, "fromCache", path), `${path}.fromCache`),
+    stale: boolean(required(m, "stale", path), `${path}.stale`),
+    fetchedAt: (uint(required(m, "fetchedAt", path), `${path}.fetchedAt`, 18446744073709551615) as u64),
+  }
+}
+
+export function encodePresetsList(v: PresetsList): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("vehicle", encodeMetadataVehicle(v.vehicle))
+  const opt1 = v.version
+  if (opt1 != null) {
+    m.set("version", Cbor.Text(opt1))
+  }
+  m.set("ref", Cbor.Text(v.ref))
+  m.set("pinned", Cbor.Bool(v.pinned))
+  const opt4 = v.fallback
+  if (opt4 != null) {
+    m.set("fallback", encodePresetsListFallback(opt4))
+  }
+  m.set("presets", encodePresetsListPresetsList(v.presets))
+  m.set("fromCache", Cbor.Bool(v.fromCache))
+  m.set("stale", Cbor.Bool(v.stale))
+  m.set("fetchedAt", Cbor.Uint(v.fetchedAt as u64))
+  return Cbor.Dict(m)
+}
+
+export struct PresetEntry {
+  path: string
+  size: u32
+}
+
+export function decodePresetEntry(v: Cbor, path: string): PresetEntry throws InvalidPayload {
+  const m = members(v, path, ["path", "size"])
+  return PresetEntry {
+    path: text(required(m, "path", path), `${path}.path`),
+    size: (uint(required(m, "size", path), `${path}.size`, 4294967295) as u32),
+  }
+}
+
+export function encodePresetEntry(v: PresetEntry): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("path", Cbor.Text(v.path))
+  m.set("size", Cbor.Uint(v.size as u64))
+  return Cbor.Dict(m)
+}
+
+export struct PresetAsk {
+  ref: string
+  path: string
+}
+
+export function decodePresetAsk(v: Cbor, path: string): PresetAsk throws InvalidPayload {
+  const m = members(v, path, ["ref", "path"])
+  return PresetAsk {
+    ref: text(required(m, "ref", path), `${path}.ref`),
+    path: text(required(m, "path", path), `${path}.path`),
+  }
+}
+
+export function encodePresetAsk(v: PresetAsk): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ref", Cbor.Text(v.ref))
+  m.set("path", Cbor.Text(v.path))
+  return Cbor.Dict(m)
+}
+
+export struct PresetFile {
+  ref: string
+  path: string
+  text: string
+  fromCache: bool
+}
+
+export function decodePresetFile(v: Cbor, path: string): PresetFile throws InvalidPayload {
+  const m = members(v, path, ["ref", "path", "text", "fromCache"])
+  return PresetFile {
+    ref: text(required(m, "ref", path), `${path}.ref`),
+    path: text(required(m, "path", path), `${path}.path`),
+    text: text(required(m, "text", path), `${path}.text`),
+    fromCache: boolean(required(m, "fromCache", path), `${path}.fromCache`),
+  }
+}
+
+export function encodePresetFile(v: PresetFile): Cbor {
+  const m = new Map<string, Cbor>()
+  m.set("ref", Cbor.Text(v.ref))
+  m.set("path", Cbor.Text(v.path))
+  m.set("text", Cbor.Text(v.text))
+  m.set("fromCache", Cbor.Bool(v.fromCache))
+  return Cbor.Dict(m)
+}
+
 export struct MapTileAsk {
   source?: string
   z: u8

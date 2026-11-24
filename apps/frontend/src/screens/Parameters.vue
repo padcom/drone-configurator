@@ -12,7 +12,9 @@
       </template>
       <!-- The comparison (#40) takes the list's place while it is open; the list keeps its search and its selection. -->
       <ParamCompare v-if="compare.open.value" />
-      <div v-show="!compare.open.value" class="param-list-slot">
+      <!-- So do ArduPilot's frame presets (#41). -->
+      <FramePresets v-else-if="presets.open.value" />
+      <div v-show="!compare.open.value && !presets.open.value" class="param-list-slot">
         <ParamTable />
       </div>
     </Pane>
@@ -28,6 +30,7 @@ import { useGroupsSetting } from '@/composables/useGroupsSetting'
 import { useParamShortcuts } from '@/lib/params/paramShortcuts'
 import { useConfigurator } from '@/composables/useConfigurator'
 import ParamCompare from '@/components/params/ParamCompare.vue'
+import FramePresets from '@/components/params/FramePresets.vue'
 import ParamEditor from '@/components/params/ParamEditor.vue'
 import ParamFilter from '@/components/params/ParamFilter.vue'
 import ParamGroups from '@/components/params/ParamGroups.vue'
@@ -45,7 +48,7 @@ import Pane from '@/components/ui/Pane.vue'
 // that they stack and the page scrolls (params.css).
 // Ctrl+/ goes to the search from anywhere on the screen; Ctrl+Enter in the Value field or the list writes the changes.
 const { t } = useI18n()
-const { staged, compare } = useConfigurator()
+const { staged, compare, presets } = useConfigurator()
 // The group list is there unless the setting "Show parameter groups" is off (in the Settings screen alone).
 const { shown: groups } = useGroupsSetting()
 useParamShortcuts({ sync: () => staged.sync() })

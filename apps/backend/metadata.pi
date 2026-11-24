@@ -16,6 +16,8 @@
 // A file is fetched in parts (HTTP ranges), so that a slow link that makes progress gets it: see `PART_BYTES`.
 //
 // The server is `DRONE_CONFIGURATOR_METADATA_URL` when it is set (the end-to-end tests point it at a server of their own).
+//
+// The frame presets (#41, presets.pi) are downloaded and kept with the same parts: `downloadText`, `readCached`, `writeEntry`.
 import { Cbor, Communicator, CommunicatorError, RequestContext } from "pico-desktop/communicator"
 import { AutopilotVersionRead, MavAutopilot } from "padcom/pico-mavlink"
 import { exists, mkdir, readText, remove, rename, stat, writeText } from "std/fs"
@@ -81,7 +83,8 @@ export function clockForTests(ms: int): void {
   config.clockOffsetMs = ms
 }
 
-function now(): int {
+/// The time now (ms), as the cache sees it (the tests move it).
+export function now(): int {
   return (Date.now() as int) + config.clockOffsetMs
 }
 
@@ -206,27 +209,37 @@ export function isWhole(text: string, format: MetadataFileFormat): bool {
 }
 
 /// One entry of the cache, as it was read.
-class Entry {
+export class Entry {
   public text: string = ""
   public fetchedAt: int = 0
 }
 
-/// What a download came to: the text, or why there is none (`missing`: the server has no such file).
-class Download {
+/// What a download came to: the text, or why there is none (`missing`: the server has no such file; `limited`: the server refused
+/// for the number of requests, and `retryAt` is when it may be asked again, in seconds since 1970, or "" when it did not say).
+export class Download {
   public text: string? = null
   public missing: bool = false
+  public limited: bool = false
+  public retryAt: string = ""
   public reason: string = ""
 }
 
 /// The kind and version a request is for.
-class Wanted {
+export class Wanted {
   public kind: MetadataVehicle = MetadataVehicle.Copter
   public version: string? = null
 }
 
 /// The folder of the cache.
 async function folder(): Promise<string> throws Error {
-  const dir = join(await cacheDirectory(), "metadata")
+  return await cacheFolder("")
+}
+
+/// A folder of the cache (`sub` "" for the metadata's own), made when it is not there. `sub` is a name of this program's, never one
+/// from outside.
+export async function cacheFolder(sub: string): Promise<string> throws Error {
+  const top = join(await cacheDirectory(), "metadata")
+  const dir = if (sub == "") top else join(top, sub)
   await mkdir(dir, true)
   return dir
 }
@@ -244,7 +257,7 @@ function extensionOf(format: MetadataFileFormat): string {
 }
 
 /// Removes an entry and its `.meta` (what is not there is not missed).
-async function drop(path: string): Promise<void> {
+export async function drop(path: string): Promise<void> {
   for (const p of [path, `${path}.meta`]) {
     try {
       await remove(p)
@@ -256,6 +269,11 @@ async function drop(path: string): Promise<void> {
 
 /// The entry at `path`, or null when there is none or it is not whole (it is then removed, so that it is fetched again).
 async function readEntry(path: string, format: MetadataFileFormat): Promise<Entry?> {
+  return await readCached(path, (text: string) => isWhole(text, format))
+}
+
+/// The entry at `path` whose text `whole` takes, or null when there is none or it is not whole (it is then removed).
+export async function readCached(path: string, whole: (text: string) => bool): Promise<Entry?> {
   try {
     if (!(await exists(path)) || !(await exists(`${path}.meta`))) {
       return null
@@ -264,7 +282,7 @@ async function readEntry(path: string, format: MetadataFileFormat): Promise<Entr
     const fetchedAt = if (meta.length == 2) countOf(meta[0]) else null
     const size = if (meta.length == 2) countOf(meta[1]) else null
     const text = await readText(path)
-    if (fetchedAt != null && size != null && (await stat(path)).size == size! && isWhole(text, format)) {
+    if (fetchedAt != null && size != null && (await stat(path)).size == size! && whole(text)) {
       const e = new Entry()
       e.text = text
       e.fetchedAt = fetchedAt!
@@ -278,7 +296,7 @@ async function readEntry(path: string, format: MetadataFileFormat): Promise<Entr
 }
 
 /// Keeps a file the server gave: written beside the entry and renamed, then its `.meta`.
-async function writeEntry(path: string, text: string, fetchedAt: int): Promise<void> {
+export async function writeEntry(path: string, text: string, fetchedAt: int): Promise<void> {
   try {
     const temporary = `${path}.${pid}.tmp`
     await writeText(temporary, text)
@@ -298,6 +316,11 @@ class Part {
   /// The size of the whole file, from `Content-Range` (-1 when it does not say).
   public total: int = -1
   public etag: string = ""
+  /// GitHub's count of the requests left (`x-ratelimit-remaining`, "" when not said), when it may be asked again
+  /// (`x-ratelimit-reset`, seconds since 1970), and `retry-after` (seconds).
+  public remaining: string = ""
+  public reset: string = ""
+  public retryAfter: string = ""
 }
 
 /// The size of the whole file in a `Content-Range` ("bytes 0-131071/2329019"), or -1.
@@ -308,10 +331,13 @@ export function totalOfRange(header: string): int {
 }
 
 /// Asks the server for the part of the file from `from` (an `If-Range` with the file's ETag: a file that changed in between comes
-/// whole, with 200).
-async function askPart(url: string, from: int, etag: string): Promise<Part> throws Error {
+/// whole, with 200). `accept` is the `Accept` header ("": none).
+async function askPart(url: string, from: int, etag: string, accept: string): Promise<Part> throws Error {
   const headers = new Map<string, string>()
   headers.set("user-agent", USER_AGENT)
+  if (accept != "") {
+    headers.set("accept", accept)
+  }
   headers.set("range", `bytes=${from}-${from + config.partBytes - 1}`)
   if (etag != "") {
     headers.set("if-range", etag)
@@ -321,6 +347,9 @@ async function askPart(url: string, from: int, etag: string): Promise<Part> thro
   p.status = res.status
   p.etag = res.headers.get("etag") ?? ""
   p.total = totalOfRange(res.headers.get("content-range") ?? "")
+  p.remaining = res.headers.get("x-ratelimit-remaining") ?? ""
+  p.reset = res.headers.get("x-ratelimit-reset") ?? ""
+  p.retryAfter = res.headers.get("retry-after") ?? ""
   if (p.status == 200 || p.status == 206) {
     p.bytes = await res.bytes()
   }
@@ -335,18 +364,26 @@ function progress(received: int, total: int): void {
   }
 }
 
+/// How a download is asked for: the `Accept` header, and whether `metadata.progress` says how far it is.
+export class Asking {
+  public accept: string = ""
+  public report: bool = true
+}
+
 /// The rest of a file whose first part came (206): part after part until it is whole. Null, with why in `d`, when it cannot be.
-async function rest(url: string, first: Part, d: Download): Promise<Uint8Array[]?> throws Error {
+async function rest(url: string, first: Part, d: Download, how: Asking): Promise<Uint8Array[]?> throws Error {
   const started = Date.now() as int
   const parts: Uint8Array[] = [first.bytes]
   let got = first.bytes.length
   while (got < first.total) {
-    progress(got, first.total)
+    if (how.report) {
+      progress(got, first.total)
+    }
     if ((Date.now() as int) - started > TOTAL_MS) {
       d.reason = `the download took more than ${TOTAL_MS / 60000} minutes`
       return null
     }
-    const next = await askPart(url, got, first.etag)
+    const next = await askPart(url, got, first.etag, how.accept)
     if (next.status == 200) {
       // The file changed on the server since the first part: this is all of the new one.
       return [next.bytes]
@@ -358,13 +395,29 @@ async function rest(url: string, first: Part, d: Download): Promise<Uint8Array[]
     parts.push(next.bytes)
     got += next.bytes.length
   }
-  progress(got, first.total)
+  if (how.report) {
+    progress(got, first.total)
+  }
   return parts
 }
 
+/// Whether an answer is a refusal for the number of requests (GitHub's 403 or 429 with no requests left, or a 429), and if so says
+/// when the server may be asked again in `d`.
+function refusedForLimit(p: Part, d: Download): bool {
+  const limited = p.status == 429 || (p.status == 403 && (p.remaining == "0" || p.retryAfter != ""))
+  if (!limited) {
+    return false
+  }
+  d.limited = true
+  const after = countOf(p.retryAfter)
+  d.retryAt = if (after != null) `${(Date.now() as int) / 1000 + after!}` else if (countOf(p.reset) != null) p.reset else ""
+  d.reason = "the server refuses more requests for now"
+  return true
+}
+
 /// The bytes of a file: what the first answer had, and the rest of it when the server sent a part. Null, with why in `d`.
-async function bytesOf(url: string, d: Download): Promise<Uint8Array[]?> throws Error {
-  const first = await askPart(url, 0, "")
+async function bytesOf(url: string, d: Download, how: Asking): Promise<Uint8Array[]?> throws Error {
+  const first = await askPart(url, 0, "", how.accept)
   if (first.status == 404) {
     d.missing = true
     d.reason = "the server has no such file"
@@ -372,6 +425,9 @@ async function bytesOf(url: string, d: Download): Promise<Uint8Array[]?> throws 
   }
   if (first.status == 200) {
     return [first.bytes]
+  }
+  if (refusedForLimit(first, d)) {
+    return null
   }
   if (first.status != 206 || first.total < 0) {
     d.reason = `the server answered ${first.status}`
@@ -381,22 +437,27 @@ async function bytesOf(url: string, d: Download): Promise<Uint8Array[]?> throws 
     d.reason = `the file is ${first.total} bytes, more than ${MAX_BYTES}`
     return null
   }
-  return await rest(url, first, d)
+  return await rest(url, first, d, how)
 }
 
 /// Asks the server for one file, in parts.
 async function download(url: string, format: MetadataFileFormat): Promise<Download> {
+  return await downloadText(url, (text: string) => isWhole(text, format), new Asking(), "a definition file")
+}
+
+/// Asks a server for one file, in parts, and gives its text when `whole` takes it (else it is `what` that it is not).
+export async function downloadText(url: string, whole: (text: string) => bool, how: Asking, what: string): Promise<Download> {
   const d = new Download()
   try {
-    const parts = await bytesOf(url, d)
+    const parts = await bytesOf(url, d, how)
     if (parts == null) {
       return d
     }
     const text = await new Response(ReadableStream.from<Uint8Array>(parts!)).text()
-    if (isWhole(text, format)) {
+    if (whole(text)) {
       d.text = text
     } else {
-      d.reason = "the server sent something that is not a definition file"
+      d.reason = `the server sent something that is not ${what}`
     }
   } catch (e: Error) {
     d.reason = `the server cannot be reached (${e.message})`
@@ -462,7 +523,7 @@ async function latestFile(w: Wanted, refresh: bool, why: string[]): Promise<Meta
 
 /// The kind and version of the connected vehicle: its heartbeat's type, and the version it says in AUTOPILOT_VERSION when it is a
 /// released one (a beta or a build of its own has no file of its own on the server).
-async function connectedVehicle(): Promise<Wanted> throws Error {
+export async function connectedVehicle(): Promise<Wanted> throws Error {
   const conn = connectedLink()
   const shown = link.state.vehicle
   const kind = if (shown == null || link.autopilot != MavAutopilot.ARDUPILOTMEGA) null else kindOfType(shown!.type)

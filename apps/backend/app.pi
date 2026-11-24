@@ -22,6 +22,7 @@ import { register as registerLocalSeries } from "./localseries"
 import { register as registerLocalTrack } from "./localtrack"
 import { register as registerMapTiles } from "./maptiles"
 import { register as registerMetadata } from "./metadata"
+import { register as registerPresets } from "./presets"
 import { register as registerMessages } from "./messages"
 import { register as registerMissions } from "./missions"
 import { register as registerMotors } from "./motors"
@@ -89,6 +90,7 @@ export function createBackend(transport: Transport): Communicator {
   registerLocalSpectrum(c)
   registerMapTiles(c)
   registerMetadata(c)
+  registerPresets(c)
   registerTelemetry(c)
   registerLinkStats(c)
   registerTuningStream(c)

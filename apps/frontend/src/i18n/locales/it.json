@@ -1351,6 +1351,44 @@
     "pickSome": "Spunta i valori da copiare.",
     "review": "Controlla le spuntate: {count}"
   },
+  "presets": {
+    "open": "Preset del telaio",
+    "region": "Preset del telaio",
+    "title": "Preset del telaio da ArduPilot",
+    "refresh": "Scarica di nuovo l'elenco",
+    "close": "Chiudi",
+    "loading": "Download dell'elenco dei preset dal GitHub di ArduPilot…",
+    "search": "Cerca",
+    "count": "{shown} di {all} preset",
+    "table": "Preset del telaio",
+    "help": "Le frecce su e giù scelgono un preset e ne mostrano il contenuto.",
+    "contents": "Contenuto del preset",
+    "fetching": "Download del preset…",
+    "text": "Contenuto del preset",
+    "pick": "Scegli un preset per vedere cosa imposta.",
+    "armed": "Un preset cambia come vola il veicolo: si applica solo a veicolo disarmato. Disarmalo prima.",
+    "safety": "Un preset cambia come vola il veicolo. Ogni modifica viene mostrata per la revisione; nulla viene scritto finché non confermi.",
+    "review": "Rivedi e applica",
+    "column": {
+      "name": "Preset",
+      "folder": "Cartella",
+      "size": "Byte"
+    },
+    "ref": {
+      "pinned": "Da ArduPilot {ref}, il firmware del veicolo.",
+      "unreleased": "Da ArduPilot {ref}: il veicolo non ha indicato una versione del firmware pubblicata.",
+      "untagged": "Da ArduPilot {ref}: ArduPilot non ha un tag per il firmware {version} del veicolo."
+    },
+    "stale": "Conservato su questo computer: non è stato possibile chiedere a GitHub un elenco più recente.",
+    "fromCache": "Conservato su questo computer.",
+    "error": {
+      "limited": "GitHub per ora rifiuta altre richieste da questo computer (60 all'ora senza account). Riprova più tardi.",
+      "limitedUntil": "GitHub rifiuta altre richieste da questo computer fino alle {time} (60 all'ora senza account). Riprova allora.",
+      "notConnected": "Collega prima un veicolo.",
+      "unsupported": "ArduPilot pubblica preset del telaio solo per veicoli ArduPilot.",
+      "failed": "Impossibile scaricare dal GitHub di ArduPilot: {error}. Controlla la connessione a internet e riprova."
+    }
+  },
   "import": {
     "fromDefaults": "Valori predefiniti del firmware",
     "from": "Istantanea del {savedAt}",
@@ -1372,7 +1410,8 @@
       "vehicle": "Sul veicolo",
       "snapshot": "Nell'istantanea",
       "file": "Nel file",
-      "result": "Risultato"
+      "result": "Risultato",
+      "preset": "Nel preset"
     },
     "verified": "✓ Scritto e riletto: {detail}",
     "notVerified": "✕ {detail}",
@@ -1385,7 +1424,8 @@
     "apply": "Applica {id}",
     "write": "Scrivi gli spuntati: {count}",
     "backup": "Salva la copia di sicurezza",
-    "close": "Chiudi"
+    "close": "Chiudi",
+    "fromPreset": "Preset del telaio: {path} (ArduPilot {ref})"
   },
   "staged": {
     "tuning": {
@@ -1766,6 +1806,10 @@
         "what": "Riavvia il controller di volo. Il collegamento cade per qualche secondo e torna da solo. I parametri non vengono modificati. Solo con il veicolo disarmato.",
         "button": "Tieni premuto per riavviare"
       }
+    },
+    "presets": {
+      "label": "Preset del telaio da ArduPilot…",
+      "keywords": "telaio frame preset file di parametri ardupilot modello"
     }
   },
   "setup": {
@@ -2204,7 +2248,8 @@
       "drawingKey": "Il davanti è in alto. Il numero è quello del motore nel test dei motori, non l'uscita a cui è collegato; la freccia è il verso di rotazione.",
       "motor": "Motore {number} a {angle} gradi, gira {spin}",
       "cw": "in senso orario",
-      "ccw": "in senso antiorario"
+      "ccw": "in senso antiorario",
+      "presets": "ArduPilot pubblica file di parametri per i telai che conosce. Ogni modifica viene rivista prima di essere scritta."
     },
     "bridge": {
       "summary": "Raggiungi un dispositivo dietro l'autopilota, come un GPS o una radio, da un altro programma su questo computer. Il programma si collega a una porta TCP locale, e la porta del veicolo resta bloccata per il ponte finché non lo fermi.",

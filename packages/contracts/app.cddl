@@ -281,6 +281,19 @@ services = {
   ; answer longer than that. `metadata.progress` says how far a download from the server is, after each part.
   "metadata.fetch": ["method", metadata-ask, metadata-file],
   "metadata.progress": ["event", metadata-progress],
+  ; ArduPilot's FRAME PRESETS (#41): the parameter files ArduPilot publishes for frames it knows (`Tools/Frame_params` in its
+  ; repository on GitHub), DOWNLOADED at run time and kept with the metadata, never bundled (they are GPL). `presets.list` asks
+  ; GitHub's API once for the tree of that folder at the vehicle's firmware tag (`Copter-4.7.3`: `pinned`), else at `master`
+  ; (`fallback` says why: the vehicle did not report a released version, or ArduPilot has no such tag); without `vehicle` it is the
+  ; connected vehicle's kind and version, as `metadata.fetch`. A tag's list never changes and is kept for good; master's is asked
+  ; for again after 7 days, and a stale one is given (`stale`) when GitHub cannot be reached or refuses. GitHub answers 60 anonymous
+  ; requests an hour: a refused one with nothing kept fails with `RATE_LIMITED`, whose message is the time it may be asked again
+  ; (seconds since 1970, "" when GitHub did not say). `presets.fetch` gives the text of one preset of a list given before (`ref`
+  ; and `path` as the list has them), from GitHub's raw files (not its API), and keeps it by its git hash for good. Fails with
+  ; `BAD_REQUEST`, `NOT_CONNECTED`, `UNSUPPORTED_VEHICLE`, `NOT_FOUND` (no such preset in the list), `RATE_LIMITED` and
+  ; `UNAVAILABLE`. Nothing is written to the vehicle here: the page reviews a preset's changes, which are written as any other.
+  "presets.list": ["method", presets-ask, presets-list],
+  "presets.fetch": ["method", preset-ask, preset-file],
   "serial.ports": ["method", null, serial-ports],
   ; MAVLink services that announce themselves on the local network (#197), over multicast DNS service discovery (RFC 6762,
   ; RFC 6763). See `discovered-services`.
@@ -1499,6 +1512,33 @@ metadata-file = {
   stale: bool,
   fetchedAt: uint .size 8,
 }
+
+; What `presets.list` is asked: a kind of vehicle and its version, or nothing for the connected vehicle; `refresh` asks GitHub even
+; when a list is kept.
+presets-ask = { ? vehicle: metadata-vehicle, ? version: tstr, ? refresh: bool }
+
+; The frame presets: the git reference they were listed at (`ref`, a tag as `Copter-4.7.3` or `master`), whether that is the
+; vehicle's firmware tag (`pinned`), and if not why (`unreleased`: the vehicle reported no released version, or Blimp, which has no
+; tags; `untagged`: ArduPilot has no tag for it). `version` is the vehicle's released version, when it said one. `presets` are the
+; parameter files (`.param`, `.parm`, `.params`) under `Tools/Frame_params`, by their path there, with their size in bytes.
+presets-list = {
+  vehicle: metadata-vehicle,
+  ? version: tstr,
+  ref: tstr,
+  pinned: bool,
+  ? fallback: "unreleased" / "untagged",
+  presets: [* preset-entry],
+  fromCache: bool,
+  stale: bool,
+  fetchedAt: uint .size 8,
+}
+preset-entry = { path: tstr, size: uint .size 4 }
+
+; One preset of a list: its `ref` and `path` as the list gives them.
+preset-ask = { ref: tstr, path: tstr }
+
+; A preset's text, as ArduPilot publishes it (`NAME,VALUE` lines, often with CRLF); `fromCache`: from the disk, not GitHub just now.
+preset-file = { ref: tstr, path: tstr, text: tstr, fromCache: bool }
 
 map-tile-ask = { ? source: tstr, z: uint .size 1, x: uint .size 4, y: uint .size 4 }
 

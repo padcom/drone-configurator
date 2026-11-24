@@ -1305,6 +1305,51 @@ function validateMetadataFileInto(value: any, path: string): boolean {
 /** The first problem with `value` as a metadata-file, or null. */
 export const validateMetadataFile = (value: unknown) => run(validateMetadataFileInto, value)
 
+export type PresetsAsk = { "vehicle"?: MetadataVehicle, "version"?: string, "refresh"?: boolean }
+
+function validatePresetsAskInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","refresh"]) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["refresh"] === undefined || nested(value["refresh"], `${path}.refresh`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a presets-ask, or null. */
+export const validatePresetsAsk = (value: unknown) => run(validatePresetsAskInto, value)
+
+export type PresetsList = { "vehicle": MetadataVehicle, "version"?: string, "ref": string, "pinned": boolean, "fallback"?: "unreleased" | "untagged", "presets": (PresetEntry)[], "fromCache": boolean, "stale": boolean, "fetchedAt": number | bigint }
+
+function validatePresetsListInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","ref","pinned","fallback","presets","fromCache","stale","fetchedAt"]) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["ref"] === undefined ? fail(`${path}.ref`, 'present') : nested(value["ref"], `${path}.ref`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["pinned"] === undefined ? fail(`${path}.pinned`, 'present') : nested(value["pinned"], `${path}.pinned`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fallback"] === undefined || nested(value["fallback"], `${path}.fallback`, (value, path) => oneOf(value, path, ["unreleased","untagged"]))) && (value["presets"] === undefined ? fail(`${path}.presets`, 'present') : nested(value["presets"], `${path}.presets`, (value, path) => list(value, path, (value, path) => validatePresetEntryInto(value, path)))) && (value["fromCache"] === undefined ? fail(`${path}.fromCache`, 'present') : nested(value["fromCache"], `${path}.fromCache`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["stale"] === undefined ? fail(`${path}.stale`, 'present') : nested(value["stale"], `${path}.stale`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fetchedAt"] === undefined ? fail(`${path}.fetchedAt`, 'present') : nested(value["fetchedAt"], `${path}.fetchedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a presets-list, or null. */
+export const validatePresetsList = (value: unknown) => run(validatePresetsListInto, value)
+
+export type PresetEntry = { "path": string, "size": number }
+
+function validatePresetEntryInto(value: any, path: string): boolean {
+  return map(value, path, ["path","size"]) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["size"] === undefined ? fail(`${path}.size`, 'present') : nested(value["size"], `${path}.size`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a preset-entry, or null. */
+export const validatePresetEntry = (value: unknown) => run(validatePresetEntryInto, value)
+
+export type PresetAsk = { "ref": string, "path": string }
+
+function validatePresetAskInto(value: any, path: string): boolean {
+  return map(value, path, ["ref","path"]) && (value["ref"] === undefined ? fail(`${path}.ref`, 'present') : nested(value["ref"], `${path}.ref`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text')))
+}
+
+/** The first problem with `value` as a preset-ask, or null. */
+export const validatePresetAsk = (value: unknown) => run(validatePresetAskInto, value)
+
+export type PresetFile = { "ref": string, "path": string, "text": string, "fromCache": boolean }
+
+function validatePresetFileInto(value: any, path: string): boolean {
+  return map(value, path, ["ref","path","text","fromCache"]) && (value["ref"] === undefined ? fail(`${path}.ref`, 'present') : nested(value["ref"], `${path}.ref`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["path"] === undefined ? fail(`${path}.path`, 'present') : nested(value["path"], `${path}.path`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["fromCache"] === undefined ? fail(`${path}.fromCache`, 'present') : nested(value["fromCache"], `${path}.fromCache`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a preset-file, or null. */
+export const validatePresetFile = (value: unknown) => run(validatePresetFileInto, value)
+
 export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
 
 function validateMapTileAskInto(value: any, path: string): boolean {
@@ -1527,6 +1572,8 @@ export interface Services {
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
   "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
   "metadata.progress": { kind: 'event', payload: MetadataProgress }
+  "presets.list": { kind: 'method', request: PresetsAsk, response: PresetsList }
+  "presets.fetch": { kind: 'method', request: PresetAsk, response: PresetFile }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
   "discovery.browse": { kind: 'method', request: null, response: DiscoveredServices }
   "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
@@ -1811,6 +1858,14 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   },
   "metadata.progress": {
     payload: (value: any, path: string) => validateMetadataProgressInto(value, path),
+  },
+  "presets.list": {
+    request: (value: any, path: string) => validatePresetsAskInto(value, path),
+    response: (value: any, path: string) => validatePresetsListInto(value, path),
+  },
+  "presets.fetch": {
+    request: (value: any, path: string) => validatePresetAskInto(value, path),
+    response: (value: any, path: string) => validatePresetFileInto(value, path),
   },
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

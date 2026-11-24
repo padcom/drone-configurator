@@ -7,6 +7,7 @@ import { type Envelope, decodeEnvelope, encodeEnvelope } from '@pico-desktop/pro
 import type {
   CalibrationStart, Connection, MetadataAsk, MetadataFile, ConnectRequest, SigningProvision, MessagesParams, Param, ParamListRequest, ParamWrite, RebootResult, SeriesAsk, LogsLocalSpectrumAsk, Settings, SettingsPatch,
   ChangeAltitudeAsk, RecordingFailure, RepositionAsk, SerialBridgeStart, SettingsState, SetModeAsk, SetSpeedAsk, TakeoffAsk, VehicleMessage,
+  PresetAsk,
 } from '@/generated/app'
 import { COPTER_MODES, DEFAULTS, DISCOVERED, PARAMS, SCRIPTED_MESSAGES, SERIAL_PORTS, VEHICLE, VEHICLE_DETAILS, telemetryAt } from './fixtures'
 import { MockCalibration, type MockCalibrationOptions } from './mock-calibration'
@@ -20,6 +21,7 @@ import { MockMap } from './mock-map'
 import { MockRecording } from './mock-recording'
 import { MockTuning, type MockTuningControl } from './mock-tuning'
 import { MockSigning, type MockSigningControl } from './mock-signing'
+import { MockPresets, type MockPresetsOptions } from './mock-presets'
 import { MockSerialBridge, type MockSerialBridgeControl } from './mock-serial-bridge'
 import { type LinkStats, linkStatsAt } from './mock-link'
 import { refusalOf, tuneParam } from '@/lib/tune/table'
@@ -64,6 +66,8 @@ export interface MockOptions {
   params?: Param[]
   /** How the vehicle calibrates (its steps are 25 ms apart by default). */
   calibration?: MockCalibrationOptions
+  /** How ArduPilot's frame presets answer (#41). */
+  presets?: MockPresetsOptions
 }
 
 /**
@@ -218,6 +222,8 @@ class MockVehicle {
   readonly arming: MockArming
   /** MAVLink signing: the vehicle's key and this computer's. */
   readonly signing: MockSigning
+  /** ArduPilot's frame presets, made up. */
+  readonly presets: MockPresets
 
   epoch = 1
   saved: { path: string, text: string } | null = null
@@ -226,6 +232,7 @@ class MockVehicle {
 
   constructor(private readonly send: Send, private readonly options: MockOptions) {
     this.settings = options.settings ?? { version: 1, ui: [] }
+    this.presets = new MockPresets(options.presets)
     this.params = (options.params ?? PARAMS).map(p => ({ ...p }))
     this.ftpMode = options.ftp ?? 'ok'
     this.logs = new MockLogs(send, options.logs ?? { steps: 4, intervalMs: 20 }, () => this.armedState())
@@ -447,6 +454,8 @@ class MockVehicle {
         return text === undefined ? fail('NOT_FOUND', 'no such file') : ok({ text })
       }
       case 'metadata.fetch': return this.metadataFetch(e.p as MetadataAsk, ok, fail)
+      case 'presets.list': return this.connected(fail) && this.presets.list(ok, fail)
+      case 'presets.fetch': return this.presets.fetch(e.p as PresetAsk, ok, fail)
       case 'serial.ports': return ok({ ports: SERIAL_PORTS })
       case 'discovery.browse': return ok({ services: DISCOVERED })
       case 'serial.bridge.start': return this.serialBridge.start(e.p as SerialBridgeStart, ok, fail)

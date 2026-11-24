@@ -39,6 +39,11 @@
         <FrameDiagram :frame-class="panel.value('FRAME_CLASS') ?? 0" :frame-type="panel.value('FRAME_TYPE') ?? 0" />
       </div>
       <p class="muted">{{ note }}</p>
+      <!-- ArduPilot's parameter files for the frames it knows (#41): on the Parameters screen, through the review. -->
+      <div class="setup-frame-presets">
+        <p class="muted">{{ t('setup.frame.presets') }}</p>
+        <CommandButton id="setup-frame-presets" command="params.presets" icon-position="left" />
+      </div>
     </div>
     <PanelAside :panel="panel" id-prefix="setup-frame" />
   </section>
@@ -56,6 +61,7 @@ import FrameDiagram from '@/components/setup/FrameDiagram.vue'
 import PanelAside from '@/components/setup/PanelAside.vue'
 import RebootBanner from '@/components/setup/RebootBanner.vue'
 import Banner from '@/components/ui/Banner.vue'
+import CommandButton from '@/components/ui/CommandButton.vue'
 import PanelField from '@/components/fields/PanelField.vue'
 import { useConfigurator } from '@/composables/useConfigurator'
 import { useParamPanel } from '@/composables/useParamPanel'
