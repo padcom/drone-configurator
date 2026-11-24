@@ -1239,7 +1239,8 @@
         "ftp": "Parameter: {count} · per Dateiübertragung in {seconds} s",
         "list": "Parameter: {count} · per Liste in {seconds} s",
         "listBecause": "Parameter: {count} · per Liste in {seconds} s (Dateiübertragung wird nicht genutzt: {reason})",
-        "resumed": "Parameter: {count} · nach der Wiederverbindung fortgesetzt: {reused} behalten, {read} neu gelesen in {seconds} s"
+        "resumed": "Parameter: {count} · nach der Wiederverbindung fortgesetzt: {reused} behalten, {read} neu gelesen in {seconds} s",
+        "cached": "Parameter: {count} · aus dem letzten Download dieses Fahrzeugs, {time}. Die aktuellen Werte werden geladen…"
       },
       "fallback": {
         "unsupported": "das Fahrzeug bietet sie nicht an",

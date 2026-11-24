@@ -1239,7 +1239,8 @@
         "ftp": "Parameters: {count} · by file transfer in {seconds} s",
         "list": "Parameters: {count} · by list in {seconds} s",
         "listBecause": "Parameters: {count} · by list in {seconds} s (file transfer is not used: {reason})",
-        "resumed": "Parameters: {count} · resumed after the link came back: {reused} kept, {read} read again in {seconds} s"
+        "resumed": "Parameters: {count} · resumed after the link came back: {reused} kept, {read} read again in {seconds} s",
+        "cached": "Parameters: {count} · from this vehicle's last download, {time}. Downloading the current values…"
       },
       "fallback": {
         "unsupported": "the vehicle does not offer it",

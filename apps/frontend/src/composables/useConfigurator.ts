@@ -168,6 +168,7 @@ function fieldsOf(models: Models, error: ShallowRef<string | null>): Fields {
     missing: parameters.missing,
     downloadInfo: parameters.downloadInfo,
     downloadEnded: parameters.downloadEnded,
+    paramsFromCache: parameters.fromCache,
     filter: parameters.filter,
     initial: parameters.initial,
     selected: parameters.selected,
@@ -375,13 +376,17 @@ function followMetadata(deps: MetadataDownloadDeps, parameters: ParamsModel): vo
 /**
  * A vehicle that has just been connected has its parameters downloaded. A link that came back to the same vehicle (`resumed`) has
  * them downloaded again too, but that does not replace the initial values: only the user's Download does, and a connection to
- * another vehicle.
+ * another vehicle. A new connection shows the list the backend kept of the vehicle while its download runs (#38).
  *
  * @param vehicle the vehicle link
  * @param parameters the parameters
  */
 function downloadOnConnect(vehicle: Vehicle, parameters: ParamsModel): void {
-  vehicle.onSession(connected => connected && void parameters.refresh({ keepInitial: vehicle.connection.value.resumed === true }))
+  vehicle.onSession(connected => {
+    const resumed = vehicle.connection.value.resumed === true
+
+    return connected && void parameters.refresh({ keepInitial: resumed, fromCache: !resumed })
+  })
 }
 
 /**
