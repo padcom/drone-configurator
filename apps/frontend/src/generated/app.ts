@@ -1242,6 +1242,42 @@ function validateMotorTestStateInto(value: any, path: string): boolean {
 /** The first problem with `value` as a motor-test-state, or null. */
 export const validateMotorTestState = (value: unknown) => run(validateMotorTestStateInto, value)
 
+export type MetadataAsk = { "vehicle"?: MetadataVehicle, "version"?: string, "refresh"?: boolean }
+
+function validateMetadataAskInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","refresh"]) && (value["vehicle"] === undefined || nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["refresh"] === undefined || nested(value["refresh"], `${path}.refresh`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false')))
+}
+
+/** The first problem with `value` as a metadata-ask, or null. */
+export const validateMetadataAsk = (value: unknown) => run(validateMetadataAskInto, value)
+
+export type MetadataVehicle = "copter" | "plane" | "rover" | "sub" | "tracker" | "blimp"
+
+function validateMetadataVehicleInto(value: any, path: string): boolean {
+  return oneOf(value, path, ["copter","plane","rover","sub","tracker","blimp"])
+}
+
+/** The first problem with `value` as a metadata-vehicle, or null. */
+export const validateMetadataVehicle = (value: unknown) => run(validateMetadataVehicleInto, value)
+
+export type MetadataProgress = { "received": number, "total": number }
+
+function validateMetadataProgressInto(value: any, path: string): boolean {
+  return map(value, path, ["received","total"]) && (value["received"] === undefined ? fail(`${path}.received`, 'present') : nested(value["received"], `${path}.received`, (value, path) => uint(value, path, 0xffffffff))) && (value["total"] === undefined ? fail(`${path}.total`, 'present') : nested(value["total"], `${path}.total`, (value, path) => uint(value, path, 0xffffffff)))
+}
+
+/** The first problem with `value` as a metadata-progress, or null. */
+export const validateMetadataProgress = (value: unknown) => run(validateMetadataProgressInto, value)
+
+export type MetadataFile = { "vehicle": MetadataVehicle, "version"?: string, "exact": boolean, "format": "json" | "xml", "text": string, "fromCache": boolean, "stale": boolean, "fetchedAt": number | bigint }
+
+function validateMetadataFileInto(value: any, path: string): boolean {
+  return map(value, path, ["vehicle","version","exact","format","text","fromCache","stale","fetchedAt"]) && (value["vehicle"] === undefined ? fail(`${path}.vehicle`, 'present') : nested(value["vehicle"], `${path}.vehicle`, (value, path) => validateMetadataVehicleInto(value, path))) && (value["version"] === undefined || nested(value["version"], `${path}.version`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["exact"] === undefined ? fail(`${path}.exact`, 'present') : nested(value["exact"], `${path}.exact`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["format"] === undefined ? fail(`${path}.format`, 'present') : nested(value["format"], `${path}.format`, (value, path) => oneOf(value, path, ["json","xml"]))) && (value["text"] === undefined ? fail(`${path}.text`, 'present') : nested(value["text"], `${path}.text`, (value, path) => typeof value === 'string' || fail(path, 'text'))) && (value["fromCache"] === undefined ? fail(`${path}.fromCache`, 'present') : nested(value["fromCache"], `${path}.fromCache`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["stale"] === undefined ? fail(`${path}.stale`, 'present') : nested(value["stale"], `${path}.stale`, (value, path) => typeof value === 'boolean' || fail(path, 'true or false'))) && (value["fetchedAt"] === undefined ? fail(`${path}.fetchedAt`, 'present') : nested(value["fetchedAt"], `${path}.fetchedAt`, (value, path) => uint(value, path, Number.MAX_SAFE_INTEGER) && (typeof value !== 'bigint' || value < 2n ** 64n)))
+}
+
+/** The first problem with `value` as a metadata-file, or null. */
+export const validateMetadataFile = (value: unknown) => run(validateMetadataFileInto, value)
+
 export type MapTileAsk = { "source"?: string, "z": number, "x": number, "y": number }
 
 function validateMapTileAskInto(value: any, path: string): boolean {
@@ -1443,6 +1479,8 @@ export interface Services {
   "files.save": { kind: 'method', request: FileSave, response: FileSaved }
   "files.open": { kind: 'method', request: null, response: FileOpened }
   "files.read": { kind: 'method', request: FileRead, response: FileContents }
+  "metadata.fetch": { kind: 'method', request: MetadataAsk, response: MetadataFile }
+  "metadata.progress": { kind: 'event', payload: MetadataProgress }
   "serial.ports": { kind: 'method', request: null, response: SerialPorts }
   "serial.bridge.start": { kind: 'method', request: SerialBridgeStart, response: SerialBridgeState }
   "serial.bridge.stop": { kind: 'method', request: null, response: SerialBridgeState }
@@ -1712,6 +1750,13 @@ const services: Record<string, Partial<Record<string, Check>>> = {
   "files.read": {
     request: (value: any, path: string) => validateFileReadInto(value, path),
     response: (value: any, path: string) => validateFileContentsInto(value, path),
+  },
+  "metadata.fetch": {
+    request: (value: any, path: string) => validateMetadataAskInto(value, path),
+    response: (value: any, path: string) => validateMetadataFileInto(value, path),
+  },
+  "metadata.progress": {
+    payload: (value: any, path: string) => validateMetadataProgressInto(value, path),
   },
   "serial.ports": {
     request: (value: any, path: string) => value === null || fail(path, 'null'),

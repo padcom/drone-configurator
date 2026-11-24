@@ -77,6 +77,13 @@
       "noise": 1.5,
       "what": "A full download of a Copter's parameters by the vehicle's parameter file (MAVLink FTP), against ArduPilot SITL over TCP: from asking the backend to the list in the page. The parameter protocol's time is measured in the same run and printed beside it (#38)",
       "measuredBy": "e2e/sitl-param-speed.e2e.ts"
+    },
+    "metadataCachedLoad": {
+      "unit": "ms",
+      "budget": 200,
+      "noise": 2,
+      "what": "A cached load of the connected vehicle's parameter metadata (#35): from asking the backend to the metadata in use, the file (the size of ArduPilot's Copter file) read from this computer's cache and parsed, as the line in Settings says it",
+      "measuredBy": "e2e/metadata-download.e2e.ts"
     }
   }
 }

@@ -937,7 +937,30 @@
       "pathHelp": "Gdzie jest plik metadanych parametrów. Plik wczytany ręcznie jest tu zapamiętywany i wczytywany ponownie przy starcie, gdy przełącznik poniżej jest włączony.",
       "choose": "Wybierz plik…",
       "autoload": "Wczytaj metadane parametrów przy uruchomieniu aplikacji",
-      "autoloadHelp": "Gdy wyłączony, przy starcie nic nie jest wczytywane, a ścieżka powyżej zostaje zapamiętana."
+      "autoloadHelp": "Gdy wyłączony, przy starcie nic nie jest wczytywane, a ścieżka powyżej zostaje zapamiętana.",
+      "download": "Pobieraj metadane parametrów dla podłączonego pojazdu",
+      "downloadHelp": "Z serwera ArduPilota, dla typu pojazdu i wersji firmware'u, i zachowane na tym komputerze na następny raz. Wczytany przez Ciebie plik ma pierwszeństwo.",
+      "refresh": "Pobierz ponownie",
+      "status": {
+        "downloading": "Pobieranie metadanych parametrów…",
+        "downloadingPart": "Pobieranie metadanych parametrów: {received} z {total} MB…",
+        "file": "Używany jest wczytany przez Ciebie plik. Dopóki jest, nic nie jest pobierane.",
+        "none": "Jeszcze nic nie pobrano. Metadane są pobierane po podłączeniu pojazdu.",
+        "failed": "Nie pobrano: {error}. Parametry są pokazane bez opisów.",
+        "exact": "Metadane {vehicle} {version} z ArduPilota, pobrane {date}.",
+        "latest": "Najnowsze metadane {vehicle} z ArduPilota, pobrane {date}: pojazd nie podał wydanej wersji firmware'u.",
+        "latestFor": "Najnowsze metadane {vehicle} z ArduPilota, pobrane {date}: ArduPilot nie ma metadanych dla {version}.",
+        "fromCache": "Wczytane z tego komputera w {seconds} s.",
+        "stale": "Serwer ArduPilota jest nieosiągalny, więc mogą być nieaktualne."
+      },
+      "vehicle": {
+        "copter": "Copter",
+        "plane": "Plane",
+        "rover": "Rover",
+        "sub": "Sub",
+        "tracker": "Antenna Tracker",
+        "blimp": "Blimp"
+      }
     },
     "dismiss": "Zamknij",
     "title": "Ustawienia",
@@ -1371,7 +1394,7 @@
   },
   "reason": {
     "notJson": "to nie jest JSON",
-    "xml": "plik XML: odczytywany jest tylko JSON (apm.pdef.json z ArduPilota lub nasz własny format)",
+    "xml": "plik XML, który nie jest plikiem apm.pdef.xml ArduPilota",
     "notMetadata": "to nie jest plik metadanych parametrów: oczekiwano apm.pdef.json z ArduPilota lub naszego formatu",
     "metadataVersion": "metadane w wersji {version} (ta aplikacja czyta wersję 1)",
     "noParameters": "nie opisuje żadnych parametrów",
@@ -1390,6 +1413,9 @@
     "metadataLoad": "Nie można wczytać metadanych: {reason}.",
     "metadataLoadFrom": "Nie można wczytać metadanych z {path}: {reason}.",
     "metadataReadFrom": "Nie można wczytać metadanych z {path}: {error}",
+    "metadataLatest": "Pojazd nie podał wydanej wersji firmware'u, więc używane są najnowsze metadane {vehicle} z ArduPilota. Niektóre parametry mogą się różnić.",
+    "metadataLatestFor": "ArduPilot nie ma metadanych dla {vehicle} {version}, więc używane są najnowsze. Niektóre parametry mogą się różnić.",
+    "metadataRefresh": "Nie można ponownie pobrać metadanych: {error}. Używane metadane zostają.",
     "metadataPathNotKept": "Nie zapamiętano ścieżki {path}: przy uruchomieniu aplikacji wczytywany jest tylko plik .json.",
     "open": "Nie udało się otworzyć: {error}",
     "settingsUnavailable": "Ustawienia są niedostępne: {error}",

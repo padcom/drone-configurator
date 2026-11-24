@@ -11,6 +11,7 @@ import { legacyLanguage, setLanguage, storageOf } from '@/i18n/i18n'
 import type { State } from '@/state/state'
 import type { SafetyOptions } from '@/lib/app/safety'
 import { type MetadataModel, useMetadata } from './useMetadata'
+import { type MetadataDownloadDeps, startMetadataDownload } from './useMetadataDownload'
 import { type ParamsDeps, type ParamsModel, useParams } from './useParams'
 import { toastSeverity } from '@/lib/fly/messages'
 import { useToasts } from './toasts'
@@ -352,6 +353,18 @@ async function restoreRemoval(settings: SettingsModel, to: Removal): Promise<voi
 }
 
 /**
+ * The metadata of each vehicle that is connected is downloaded, and what the metadata finds unusual about the draft follows the
+ * metadata, whenever it is loaded or replaced.
+ *
+ * @param deps the vehicle, the metadata and the settings
+ * @param parameters the parameters
+ */
+function followMetadata(deps: MetadataDownloadDeps, parameters: ParamsModel): void {
+  startMetadataDownload(deps)
+  watch(deps.metadata.metadata, () => parameters.refreshWarning())
+}
+
+/**
  * A vehicle that has just been connected has its parameters downloaded. A link that came back to the same vehicle (`resumed`) has
  * them downloaded again too, but that does not replace the initial values: only the user's Download does, and a connection to
  * another vehicle. A new connection shows the list the backend kept of the vehicle while its download runs (#38).
@@ -639,8 +652,7 @@ export function createConfigurator(
   const motorTest = useMotorTest({ client, connection: vehicle.connection, telemetry: vehicle.telemetry, parameters })
   const { logs, housekeeping } = startLogs({ client, vehicle, settings, parameters, confirm: askUser, motorTest })
   listen(client, vehicle, parameters)
-  // What the metadata finds unusual about the draft follows the metadata, whenever it is loaded or replaced.
-  watch(metadata.metadata, () => parameters.refreshWarning())
+  followMetadata({ vehicle, metadata, settings }, parameters)
   const models = {
     vehicle, parameters, metadata, snapshots, settings, messages, logs, housekeeping, staged, ...logModels(client, askUser),
     setup: startSetup(client, vehicle), calibration: startCalibration(client, vehicle), ...linkModels(client, vehicle),
