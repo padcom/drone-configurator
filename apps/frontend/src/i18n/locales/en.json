@@ -56,6 +56,10 @@
       "totalValue": "{lost} of {sent} packets lost",
       "window": "Measured over the last {seconds} s."
     },
+    "bridge": {
+      "locked": "{port} locked",
+      "open": "A serial bridge holds this port of the vehicle: show it, and stop it"
+    },
     "rebooting": "Rebooting…",
     "state": {
       "arm": "Arm the vehicle (the vehicle is disarmed)",
@@ -1497,6 +1501,7 @@
         "initial": "Switch to Setup: Initial tune",
         "serial": "Switch to Setup: Serial ports",
         "devices": "Switch to Setup: Devices",
+        "bridge": "Switch to Setup: Serial bridge",
         "info": "Switch to Setup: Vehicle information"
       },
       "tune": {
@@ -1674,6 +1679,7 @@
       "initial": "Initial tune",
       "serial": "Serial ports",
       "devices": "Devices",
+      "bridge": "Serial bridge",
       "info": "Vehicle information"
     },
     "group": {
@@ -2009,6 +2015,55 @@
       "motor": "Motor {number} at {angle} degrees, spins {spin}",
       "cw": "clockwise",
       "ccw": "counter-clockwise"
+    },
+    "bridge": {
+      "summary": "Reach a device behind the autopilot, such as a GPS or a radio, from another program on this computer. The program connects to a local TCP port, and the vehicle's port is locked for the bridge until you stop it.",
+      "port": "Vehicle port",
+      "name": {
+        "gps": "GPS {n}",
+        "telem": "Telemetry {n}",
+        "serial": "Serial {n}"
+      },
+      "baud": "Speed",
+      "baudUnchanged": "As it is",
+      "baudValue": "{baud} baud",
+      "localPort": "Local TCP port",
+      "portHelp": "Programs on this computer connect to 127.0.0.1 at this port. Leave it empty for any free port.",
+      "portInvalid": "The port is a whole number from 1 to 65535, or empty for any free port.",
+      "start": "Start the bridge",
+      "stop": "Stop and release the port",
+      "locked": "{port} is locked for the bridge until you stop it. Programs connect to {address}.",
+      "releasing": "Giving {port} back to the vehicle…",
+      "fact": {
+        "program": "Program",
+        "toVehicle": "Bytes to the vehicle",
+        "fromVehicle": "Bytes from the vehicle",
+        "dropped": "Bytes with no program to take them",
+        "refused": "Programs turned away"
+      },
+      "connected": "Connected from {address}",
+      "waiting": "None yet. One program at a time can connect.",
+      "armed": "The vehicle is armed: a port is taken only on the ground.",
+      "unknown": "The vehicle's state is not known: a port is taken only from a vehicle known to be disarmed.",
+      "released": "{port} is the vehicle's own again.",
+      "releaseFailed": "{port} may still be locked: the vehicle did not get the release. It is sent again when the link is back, and a reboot of the vehicle frees the port too.",
+      "refused": {
+        "ARMED": "Not started: the vehicle is armed. Disarm it first.",
+        "STATE_UNKNOWN": "Not started: the vehicle's state is not known. Wait for its heartbeat.",
+        "NOT_CONNECTED": "Not started: no vehicle is connected.",
+        "BUSY": "Not started: a bridge is already running.",
+        "PORT_UNAVAILABLE": "Not started: the local port is in use or not allowed. Choose another one.",
+        "INVALID_VALUE": "Not started: the speed is too high.",
+        "other": "Not started: the bridge was refused."
+      },
+      "ended": {
+        "STOPPED": "The bridge was stopped.",
+        "DISCONNECTED": "The bridge ended with the connection.",
+        "LINK_LOST": "The link was lost, so the bridge ended.",
+        "ARMED": "The vehicle armed, so the bridge ended.",
+        "LISTEN_FAILED": "The local port failed, so the bridge ended.",
+        "other": "The bridge ended."
+      }
     },
     "serial": {
       "summary": "What each serial port of the board is used for, and how fast it talks.",
