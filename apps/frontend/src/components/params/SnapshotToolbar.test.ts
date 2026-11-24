@@ -67,41 +67,6 @@ it('saves only once there are parameters, through the host in Pico Desktop', asy
   expect(saveFile).toHaveBeenCalledWith(expect.stringMatching(/^params-vehicle-.*\.json$/u), expect.stringContaining('"params"'))
 })
 
-it('saves the parameters as an ArduPilot .param file through the host, once there are parameters', async () => {
-  const { wrapper, handle, saveFile } = await toolbarWithSpies()
-  expect(wrapper.get('#save-param .command-button-label').text()).toBe('Save .param')
-  expect(wrapper.get('#save-param').attributes('aria-disabled')).toBe('true')
-  window.picoDesktop = {} as never
-  feed(handle, { params: PARAMS })
-  await wrapper.vm.$nextTick()
-
-  await wrapper.get('#save-param').trigger('click')
-
-  expect(saveFile).toHaveBeenCalledWith(
-    expect.stringMatching(/^params-vehicle-.*\.param$/u),
-    expect.stringContaining('\nRTL_ALT,1500\n'),
-  )
-})
-
-it('downloads a .param file in a browser as plain text', async () => {
-  const { wrapper, handle } = await toolbarWithSpies()
-  const blobs: Blob[] = []
-  const createObjectURL = (blob: Blob) => {
-    blobs.push(blob)
-
-    return 'blob:x'
-  }
-  vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined })
-  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
-  feed(handle, { params: PARAMS })
-  await wrapper.vm.$nextTick()
-
-  await wrapper.get('#save-param').trigger('click')
-
-  expect(click).toHaveBeenCalledTimes(1)
-  expect(blobs[0]?.type).toBe('text/plain')
-})
-
 it('downloads the snapshot in a browser', async () => {
   const { wrapper, handle, saveFile } = await toolbarWithSpies()
   vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: () => undefined })

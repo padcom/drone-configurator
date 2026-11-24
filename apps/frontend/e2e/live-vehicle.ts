@@ -290,7 +290,11 @@ export function liveVehicleTests(vehicle: LiveVehicle): void {
     onTestFinished(() => rmSync(join(files, 'open.param'), { force: true }))
     const changed = original + vehicle.paramStep
 
-    await app.click('#save-param')
+    // From the command palette, as the keyboard does (the toolbar has no room for a button per format).
+    await openPalette(app)
+    await app.fill('#palette-input', 'ArduPilot .param')
+    await app.waitFor(`document.querySelector('[data-command="paramFile.save.param"]') !== null`)
+    await app.click('[data-command="paramFile.save.param"]')
     const saved = await savedText('params-', '.param')
     const lines = saved.split('\n')
     expect(lines[0]).toMatch(/^# Parameters of QUADROTOR \(ARDUPILOTMEGA\), vehicle 1, saved by Drone Configurator on /u)
